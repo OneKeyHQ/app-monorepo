@@ -28293,16 +28293,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#feat/refactor-webview":
+"react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#5036d59cba4f5609c32b7eb5dec560e738ce7115":
   version: 11.24.0
-  resolution: "react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#commit=1a62cb499f411bedccbe765418b19609852ae37e"
+  resolution: "react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#commit=5036d59cba4f5609c32b7eb5dec560e738ce7115"
   dependencies:
     escape-string-regexp: 2.0.0
     invariant: 2.2.4
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 5a4df5325e6dc253add757b315148d6d22db252eba2f30d6b33e7cdd04566e340c1e042bf5e7b13514037c331d56cd578130a2cd253a8cf704e47ad21caf6826
+  checksum: fc611002420df2c068517f08846095062bda531dc2651ce5a6b738bd9dbc33c090323105afec4e4b4516459d244bca47e04b50b2c3c6fab67d2593f891f87fab
   languageName: node
   linkType: hard
 

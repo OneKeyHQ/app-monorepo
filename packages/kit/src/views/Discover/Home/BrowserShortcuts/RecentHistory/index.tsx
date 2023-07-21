@@ -2,6 +2,7 @@ import { type FC, useCallback, useContext } from 'react';
 
 import { Box, Pressable, Typography } from '@onekeyhq/components';
 
+import { getUrlDomain } from '../../../../../utils/uriUtils';
 import { DiscoverContext } from '../../context';
 import { Favicon } from '../Favicon';
 
@@ -43,7 +44,7 @@ export const RecentHistory: FC<RecentHistoryProps> = ({ item }) => {
             textAlign="center"
             noOfLines={2}
           >
-            {name ?? 'Unknown'}
+            {name || getUrlDomain(url) || 'Unknown'}
           </Typography.Caption>
         </Box>
       )}

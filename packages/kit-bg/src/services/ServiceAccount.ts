@@ -17,6 +17,7 @@ import {
   isAllNetworks,
   parseNetworkId,
 } from '@onekeyhq/engine/src/managers/network';
+import { isWalletCompatibleAllNetworks } from '@onekeyhq/engine/src/managers/wallet';
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import type {
   Account,
@@ -259,7 +260,7 @@ class ServiceAccount extends ServiceBase {
     shouldUpdateWallets?: boolean;
     skipIfSameWallet?: boolean;
   }) {
-    const { dispatch, engine, serviceAccount, appSelector } =
+    const { dispatch, engine, serviceAccount, appSelector, serviceNetwork } =
       this.backgroundApi;
     if (!walletId) {
       return;
@@ -273,20 +274,35 @@ class ServiceAccount extends ServiceBase {
 
     const activeNetworkId = appSelector((s) => s.general.activeNetworkId);
     const activeAccountId = appSelector((s) => s.general.activeAccountId);
+    const networks = appSelector((s) => s.runtime.networks);
+
+    if (!networks?.length) {
+      return;
+    }
 
     let accountId: string | null = null;
     if (wallet && activeNetworkId && wallet.accounts.length > 0) {
-      if (isAllNetworks(activeNetworkId)) {
-        const accountIds = Object.keys(
-          appSelector((s) => s.overview.allNetworksAccountsMap ?? {}),
-        ).filter((n) => n.startsWith(walletId));
+      if (
+        isAllNetworks(activeNetworkId) &&
+        isWalletCompatibleAllNetworks(wallet.id)
+      ) {
         if (!accountId) {
+          const accountIds = Object.keys(
+            appSelector((s) => s.overview.allNetworksAccountsMap ?? {}),
+          ).filter((n) => n.startsWith(walletId));
           accountId = accountIds?.[0];
         }
       } else {
+        let networkId = activeNetworkId;
+        if (isAllNetworks(networkId)) {
+          networkId = networks.find((n) => n.enabled)?.id ?? activeNetworkId;
+          if (networkId) {
+            await serviceNetwork.changeActiveNetwork(networkId);
+          }
+        }
         const accountsInWalletAndNetwork = await engine.getAccounts(
           wallet.accounts,
-          activeNetworkId,
+          networkId,
         );
         accountId = accountsInWalletAndNetwork?.[0]?.id ?? null;
         if (
@@ -340,25 +356,30 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async autoChangeWallet() {
-    const { engine, appSelector } = this.backgroundApi;
+    const { engine, appSelector, serviceNetwork } = this.backgroundApi;
     const wallets = await this.initWallets();
 
+    const { networks } = appSelector((s) => s.runtime);
     const { activeNetworkId } = appSelector((s) => s.general);
-    if (!activeNetworkId) {
+    if (!activeNetworkId || !networks.length) {
       return;
     }
     for (const wallet of wallets) {
       let firstAccountId: string | undefined;
-
-      if (isAllNetworks(activeNetworkId)) {
+      if (
+        isAllNetworks(activeNetworkId) &&
+        isWalletCompatibleAllNetworks(wallet.id)
+      ) {
         firstAccountId = Object.keys(
           appSelector((s) => s.overview.allNetworksAccountsMap) ?? {},
         ).find((accountId) => wallet.id && accountId.startsWith(wallet.id));
       } else if (wallet.accounts.length > 0) {
-        const [account] = await engine.getAccounts(
-          wallet.accounts,
-          activeNetworkId,
-        );
+        let networkId = activeNetworkId;
+        if (isAllNetworks(networkId)) {
+          networkId = networks.find((n) => n.enabled)?.id ?? activeNetworkId;
+          await serviceNetwork.changeActiveNetwork(networkId);
+        }
+        const [account] = await engine.getAccounts(wallet.accounts, networkId);
         if (account) {
           firstAccountId = account.id;
         }
@@ -1344,6 +1365,7 @@ class ServiceAccount extends ServiceBase {
       dispatch,
       serviceCloudBackup,
       serviceNotification,
+      serviceAllNetwork,
     } = this.backgroundApi;
     const account = await this.getAccount({
       walletId,
@@ -1354,7 +1376,7 @@ class ServiceAccount extends ServiceBase {
         addressList: [account.address],
       });
     }
-    const activeAccountId = appSelector((s) => s.general.activeAccountId);
+    const { activeAccountId, activeNetworkId } = appSelector((s) => s.general);
     await engine.removeAccount(accountId, password ?? '', networkId);
     await simpleDb.walletConnect.removeAccount({ accountId });
     await engine.dbApi.removeAccountDerivationByAccountId({
@@ -1373,6 +1395,12 @@ class ServiceAccount extends ServiceBase {
     dispatch(...actions, setRefreshTS());
     if (!walletId.startsWith('hw')) {
       serviceCloudBackup.requestBackup();
+    }
+    if (
+      isAllNetworks(activeNetworkId) &&
+      isWalletCompatibleAllNetworks(walletId)
+    ) {
+      serviceAllNetwork.refreshCurrentAllNetworksAccountMap();
     }
   }
 

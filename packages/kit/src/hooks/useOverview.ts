@@ -11,16 +11,20 @@ import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 import KeleLogoPNG from '@onekeyhq/kit/assets/staking/kele_pool.png';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { getTimeDurationMs } from '../utils/helper';
+import { ModalRoutes, RootRoutes } from '../routes/routesEnum';
 import { getPreBaseValue } from '../utils/priceUtils';
-import { EOverviewScanTaskType } from '../views/Overview/types';
+import {
+  EOverviewScanTaskType,
+  OverviewModalRoutes,
+} from '../views/Overview/types';
+import { StakingRoutes } from '../views/Staking/typing';
 
 import { useAllNetworksWalletAccounts } from './useAllNetwoks';
 import { useAppSelector } from './useAppSelector';
+import useNavigation from './useNavigation';
 import { useFrozenBalance, useSingleToken } from './useTokens';
 
 import type { IAppState } from '../store';
@@ -48,7 +52,9 @@ const filterAccountTokens = <T>({
   hideSmallBalance,
   hideRiskTokens,
   putMainTokenOnTop,
+  networkId,
 }: {
+  networkId: string;
   tokens: ICombinedAccountToken[];
   useFilter?: boolean;
   hideSmallBalance?: boolean;
@@ -74,6 +80,9 @@ const filterAccountTokens = <T>({
 
   const filteredTokens = valueTokens.filter((t) => {
     if (hideSmallBalance && new B(t.usdValue).isLessThan(1)) {
+      if (!isAllNetworks(networkId) && (t.isNative || !t.address)) {
+        return true;
+      }
       return false;
     }
     if (hideRiskTokens && t.riskLevel && t.riskLevel > TokenRiskLevel.WARN) {
@@ -241,6 +250,7 @@ export function useAccountTokensOnChain(
   });
 
   return filterAccountTokens<IAccountTokenOnChain[]>({
+    networkId,
     tokens: valueTokens,
     useFilter,
     hideSmallBalance,
@@ -256,8 +266,6 @@ export const useOverviewPendingTasks = ({
   networkId: string;
   accountId: string;
 }) => {
-  const intl = useIntl();
-
   const updatedAt = useAppSelector(
     useMemo(
       () => updatedTimeSelector({ networkId, accountId }),
@@ -272,70 +280,9 @@ export const useOverviewPendingTasks = ({
     ),
   );
 
-  const networkAccountsMap = useAppSelector(
-    useMemo(
-      () =>
-        createSelector(
-          (s: IAppState) => s.overview.allNetworksAccountsMap,
-          (m) => m?.[accountId],
-        ),
-      [accountId],
-    ),
-  );
-
-  const updateTips = useMemo(() => {
-    if (tasks?.length || (isAllNetworks(networkId) && !networkAccountsMap)) {
-      return intl.formatMessage({
-        id: 'content__updating_assets',
-      });
-    }
-    const duration = Date.now() - updatedAt;
-    if (
-      duration <
-      getTimeDurationMs({
-        minute: 2,
-      })
-    ) {
-      return intl.formatMessage({
-        id: 'form__updated_just_now',
-      });
-    }
-    if (
-      duration <
-      getTimeDurationMs({
-        hour: 1,
-      })
-    ) {
-      return intl.formatMessage(
-        {
-          id: 'form__updated_str_ago',
-        },
-        {
-          0: `${Math.floor(duration / 1000 / 60)} m`,
-        },
-      );
-    }
-    if (
-      duration >
-      getTimeDurationMs({
-        hour: 1,
-      })
-    ) {
-      return intl.formatMessage(
-        {
-          id: 'form__updated_str_ago',
-        },
-        {
-          0: `${Math.floor(duration / 1000 / 60 / 60)} h`,
-        },
-      );
-    }
-  }, [tasks, updatedAt, intl, networkAccountsMap, networkId]);
-
   return {
     tasks,
     updatedAt,
-    updateTips,
   };
 };
 
@@ -371,6 +318,26 @@ export function useAccountTokenLoading(networkId: string, accountId: string) {
     data,
     allNetworksAccountsLoading,
   ]);
+}
+
+export function useNFTIsLoading({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) {
+  const { tasks, updatedAt } = useOverviewPendingTasks({
+    networkId,
+    accountId,
+  });
+
+  return useMemo(
+    () =>
+      tasks?.filter((t) => t.scanType === EOverviewScanTaskType.nfts).length >
+        0 || typeof updatedAt === 'undefined',
+    [tasks, updatedAt],
+  );
 }
 
 export function useAccountTokens({
@@ -466,6 +433,7 @@ export function useAccountTokens({
   return {
     loading,
     data: filterAccountTokens<IAccountToken[]>({
+      networkId,
       tokens: valueTokens,
       useFilter,
       hideRiskTokens,
@@ -685,6 +653,7 @@ export const useTokenPositionInfo = ({
   coingeckoId?: string;
 }) => {
   const intl = useIntl();
+  const navigation = useNavigation();
   const { data: defis } = useAccountPortfolios({
     accountId,
     networkId,
@@ -701,9 +670,27 @@ export const useTokenPositionInfo = ({
     accountId,
   });
 
-  // TODO: fetch minerOverview
-
   const minerOverview = useAppSelector((s) => s.staking.keleMinerOverviews);
+
+  useEffect(() => {
+    if (isAllNetworks(networkId)) {
+      return;
+    }
+    backgroundApiProxy.serviceStaking
+      .fetchMinerOverview({
+        networkId,
+        accountId,
+      })
+      .catch(() => {
+        // pass
+      });
+  }, [networkId, accountId]);
+
+  const getAccountFromAccountAddress = useCallback(
+    (nid: string, accountAddress: string) =>
+      allNetworksAccountsMap?.[nid]?.find((a) => a.address === accountAddress),
+    [allNetworksAccountsMap],
+  );
 
   const getStakingAmountInfo = useCallback(
     ({
@@ -714,41 +701,29 @@ export const useTokenPositionInfo = ({
       accountId: string;
     }) => {
       let total = new B(0);
-      if (!minerOverview) return;
-      if (coingeckoId !== 'ethereum' || tokenAddress) {
-        return;
+      if (
+        !minerOverview ||
+        coingeckoId !== 'ethereum' ||
+        tokenAddress ||
+        isAllNetworks(networkId)
+      ) {
+        return total;
       }
+      const current = minerOverview?.[aid]?.[nid];
+      total = total
+        .plus(current?.amount?.total_amount ?? 0)
+        .plus(current?.amount.withdrawable ?? 0);
 
-      if (isAllNetworks(nid)) {
-        for (const a of allNetworksAccountsMap[OnekeyNetwork.eth] ?? []) {
-          total = total.plus(
-            getStakingAmountInfo({
-              networkId: OnekeyNetwork.eth,
-              accountId: a.id,
-            })?.total ?? 0,
-          );
-        }
-      } else {
-        const current = minerOverview?.[aid]?.[nid];
-        total = total
-          .plus(current?.amount?.total_amount ?? 0)
-          .plus(current?.amount.withdrawable ?? 0);
-      }
-
-      return {
-        total,
-        networkId: nid,
-      };
+      return total;
     },
-    [minerOverview, allNetworksAccountsMap, coingeckoId, tokenAddress],
+    [minerOverview, coingeckoId, tokenAddress, networkId],
   );
 
   const keleStakingInfo = useMemo(() => {
-    const { total = new B(0), networkId: nid } =
-      getStakingAmountInfo({
-        networkId,
-        accountId,
-      }) ?? {};
+    const total = getStakingAmountInfo({
+      networkId,
+      accountId,
+    });
     return {
       name: 'Kelepool',
       logoURI: KeleLogoPNG,
@@ -756,9 +731,43 @@ export const useTokenPositionInfo = ({
       sendAddress: undefined,
       type: intl.formatMessage({ id: 'form__staking' }),
       balance: total,
-      networkId: nid,
+      networkId,
     };
   }, [getStakingAmountInfo, intl, accountId, networkId]);
+
+  const onPresDefiProtocol = useCallback(
+    ({ protocolId, poolCode }: { protocolId: string; poolCode: string }) => {
+      if (!networkId || !accountId) {
+        return;
+      }
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Overview,
+        params: {
+          screen: OverviewModalRoutes.OverviewProtocolDetail,
+          params: {
+            protocolId,
+            networkId,
+            accountId,
+            poolCode,
+          },
+        },
+      });
+    },
+    [navigation, accountId, networkId],
+  );
+
+  const onPressStaking = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.Staking,
+      params: {
+        screen: StakingRoutes.StakedETHOnKele,
+        params: {
+          networkId,
+          accountId,
+        },
+      },
+    });
+  }, [navigation, networkId, accountId]);
 
   return useMemo(() => {
     let balance = new B(0);
@@ -770,15 +779,22 @@ export const useTokenPositionInfo = ({
           : t.address === tokenAddress && t.sendAddress === sendAddress
       ) {
         t.tokens?.forEach((item) => {
-          items.push({
-            name: t.name,
-            address: t.address,
-            symbol: t.symbol,
-            logoURI: t.logoURI ?? '',
-            type: 'Token',
-            balance: item.balance,
-            networkId: item.networkId,
-          });
+          const account = getAccountFromAccountAddress(
+            item.networkId,
+            item.accountAddress ?? '',
+          );
+          if (new B(item.balance).isGreaterThan(0)) {
+            items.push({
+              name: t.name,
+              address: t.address,
+              symbol: t.symbol,
+              logoURI: t.logoURI ?? '',
+              type: 'Token',
+              balance: item.balance,
+              networkId: item.networkId,
+              accountName: account?.name ?? '',
+            });
+          }
         });
         balance = balance.plus(t.balance);
       }
@@ -801,6 +817,11 @@ export const useTokenPositionInfo = ({
                 type: p[0],
                 balance: t.balanceParsed ?? '0',
                 networkId: d._id.networkId,
+                onPress: () =>
+                  onPresDefiProtocol({
+                    protocolId: d._id.protocolId,
+                    poolCode: item.poolCode,
+                  }),
               });
               balance = balance.plus(t.balanceParsed ?? 0);
             }
@@ -810,7 +831,8 @@ export const useTokenPositionInfo = ({
     });
 
     const { balance: stakingBalance, networkId: stakingNetworkId } =
-      keleStakingInfo ?? {};
+      keleStakingInfo;
+
     if (stakingBalance?.gt(0) && stakingNetworkId) {
       balance = balance.plus(keleStakingInfo.balance);
       items.push({
@@ -821,6 +843,7 @@ export const useTokenPositionInfo = ({
         type: intl.formatMessage({ id: 'form__staking' }),
         balance: stakingBalance.toFixed(),
         networkId: stakingNetworkId,
+        onPress: onPressStaking,
       });
     }
 
@@ -829,6 +852,9 @@ export const useTokenPositionInfo = ({
       items,
     };
   }, [
+    onPressStaking,
+    onPresDefiProtocol,
+    getAccountFromAccountAddress,
     sendAddress,
     intl,
     accountTokens,
@@ -844,10 +870,12 @@ export const useTokenDetailInfo = ({
   coingeckoId,
   networkId,
   tokenAddress,
+  defaultInfo = {},
 }: {
   coingeckoId?: string;
   networkId?: string;
   tokenAddress?: string;
+  defaultInfo?: Record<string, unknown>;
 }) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ITokenDetailInfo | undefined>();
@@ -884,6 +912,7 @@ export const useTokenDetailInfo = ({
     );
 
     return {
+      ...defaultInfo,
       ...pick(token, 'name', 'symbol', 'logoURI'),
       ...data,
       loading: loading || tokenLoading,
@@ -891,5 +920,5 @@ export const useTokenDetailInfo = ({
       defaultToken,
       ethereumNativeToken,
     };
-  }, [data, token, loading, tokenLoading]);
+  }, [data, token, loading, tokenLoading, defaultInfo]);
 };

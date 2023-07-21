@@ -81,7 +81,11 @@ const ManagerAccountModal: FC = () => {
   const [wallet, setWallet] = useState<Wallet>();
   const [account, setAccount] = useState<Account>();
 
-  const { dataSource } = useAccountInfoDataSource({ networkId, wallet });
+  const { dataSource } = useAccountInfoDataSource({
+    networkId,
+    wallet,
+    accountId,
+  });
   const refreshWallet = useCallback(() => {
     if (!walletId) return;
 

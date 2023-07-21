@@ -5,7 +5,7 @@ import { VStack, useIsVerticalLayout } from '@onekeyhq/components';
 
 import { BalanceSection } from './BalanceSection';
 import { ButtonsSection } from './ButtonsSections';
-import { ChartSection } from './ChartSection';
+// import { ChartSection } from './ChartSection';
 
 const TokenDetailHeader: FC = () => {
   const isVertical = useIsVerticalLayout();
@@ -15,7 +15,7 @@ const TokenDetailHeader: FC = () => {
         <>
           <BalanceSection />
           <ButtonsSection />
-          <ChartSection />
+          {/* <ChartSection /> */}
         </>
       );
     }
@@ -23,7 +23,7 @@ const TokenDetailHeader: FC = () => {
     return (
       <>
         <ButtonsSection />
-        <ChartSection />
+        {/* <ChartSection /> */}
         <BalanceSection />
       </>
     );

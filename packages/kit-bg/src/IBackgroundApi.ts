@@ -18,6 +18,7 @@ import type ServiceCloudBackup from './services/ServiceCloudBackup';
 import type ServiceContract from './services/ServiceContract';
 import type ServiceCronJob from './services/ServiceCronJob';
 import type ServiceDapp from './services/ServiceDapp';
+import type ServiceDappMetaData from './services/ServiceDappMetaData';
 import type ServiceDerivationPath from './services/ServiceDerivationPath';
 import type ServiceDiscover from './services/ServiceDiscover';
 import type ServiceExternalAccount from './services/ServiceExternalAccount';
@@ -128,4 +129,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceGas: ServiceGas;
   serviceInscribe: ServiceInscribe;
   serviceAllNetwork: ServiceAllNetwork;
+  serviceDappMetaData: ServiceDappMetaData;
 }

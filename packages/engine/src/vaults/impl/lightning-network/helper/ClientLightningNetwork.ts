@@ -241,6 +241,25 @@ class ClientLightning {
       })
       .then((i) => i.data);
   }
+
+  async estimateFee({
+    address,
+    dest,
+    amt,
+  }: {
+    address: string;
+    dest: string;
+    amt: string;
+  }) {
+    return this.request
+      .get<{ result: number }>('/payments/estimatefee', {
+        params: { dest, amt, testnet: this.testnet },
+        headers: {
+          Authorization: await this.getAuthorization(address),
+        },
+      })
+      .then((i) => i.data.result);
+  }
 }
 
 export default ClientLightning;

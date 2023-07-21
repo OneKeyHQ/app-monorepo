@@ -135,7 +135,6 @@ export type IVaultSettings = {
   hiddenAddress?: boolean;
   hiddenAccountInfoSwapOption?: boolean;
   hiddenAccountInfoMoreOption?: boolean;
-  hiddenFeeOnTxDetail?: boolean;
   displayMemo?: boolean;
   hideFromToFieldIfValueEmpty?: boolean;
   displayFullAddress?: boolean;

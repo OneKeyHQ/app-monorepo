@@ -263,7 +263,7 @@ class BlockBook {
       .post('/history', {
         network,
         address,
-        xpub,
+        xpub: xpub || undefined,
         symbol,
         decimals,
       })

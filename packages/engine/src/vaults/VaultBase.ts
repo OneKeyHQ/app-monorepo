@@ -126,6 +126,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     return Promise.resolve(address);
   }
 
+  // TODO rename to validateAddressAsync
   async validateAddress(address: string): Promise<string> {
     const { normalizedAddress, isValid } =
       await this.engineProvider.verifyAddress(address);

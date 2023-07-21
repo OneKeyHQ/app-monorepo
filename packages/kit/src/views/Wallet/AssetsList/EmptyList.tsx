@@ -31,7 +31,6 @@ export const AllNetworksEmpty = () => {
       subTitle={intl.formatMessage({
         id: 'empty__no_included_network_desc',
       })}
-      flex={1}
       actionTitle={intl.formatMessage({ id: 'action__switch_account' })}
       handleAction={() => {
         openAccountSelector({});
@@ -106,34 +105,36 @@ function EmptyListOfAccount({
         </Box>
       </Button>
 
-      <Button
-        flex={1}
-        alignItems="flex-start"
-        onPress={() => {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.ManageToken,
-            params: { screen: ManageTokenModalRoutes.Listing },
-          });
-        }}
-      >
-        <Box py="24px" flexDirection="column" alignItems="center">
-          <Center
-            w="48px"
-            h="48px"
-            borderRadius="24px"
-            bg="surface-neutral-default"
-            mb="24px"
-          >
-            <Icon name="ViewGridAddMini" />
-          </Center>
-          <Typography.DisplayMedium mb="4px" textAlign="center">
-            {intl.formatMessage({ id: 'action__add_tokens' })}
-          </Typography.DisplayMedium>
-          <Typography.Body2 mb="4px" color="text-subdued" textAlign="center">
-            {intl.formatMessage({ id: 'action__add_tokens_desc' })}
-          </Typography.Body2>
-        </Box>
-      </Button>
+      {network?.settings?.tokenEnabled ? (
+        <Button
+          flex={1}
+          alignItems="flex-start"
+          onPress={() => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.ManageToken,
+              params: { screen: ManageTokenModalRoutes.Listing },
+            });
+          }}
+        >
+          <Box py="24px" flexDirection="column" alignItems="center">
+            <Center
+              w="48px"
+              h="48px"
+              borderRadius="24px"
+              bg="surface-neutral-default"
+              mb="24px"
+            >
+              <Icon name="ViewGridAddMini" />
+            </Center>
+            <Typography.DisplayMedium mb="4px" textAlign="center">
+              {intl.formatMessage({ id: 'action__add_tokens' })}
+            </Typography.DisplayMedium>
+            <Typography.Body2 mb="4px" color="text-subdued" textAlign="center">
+              {intl.formatMessage({ id: 'action__add_tokens_desc' })}
+            </Typography.Body2>
+          </Box>
+        </Button>
+      ) : null}
     </Box>
   );
 }

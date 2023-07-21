@@ -91,13 +91,13 @@ export default function MobileBottomTabBar({
                 require('@onekeyhq/kit/src/store') as typeof import('@onekeyhq/kit/src/store');
               const marketTopTabName =
                 appSelector((s) => s.market.marketTopTabName) || TabRoutes.Swap;
-              // navigation.navigate(marketTopTabName);
-              navigationShortcuts.navigateToAppRootTab(
-                marketTopTabName as unknown as TabRoutes,
-              );
+              navigation.navigate(marketTopTabName);
+              // navigationShortcuts.navigateToAppRootTab(
+              //   marketTopTabName as unknown as TabRoutes,
+              // );
             } else {
-              // navigation.navigate(route.name);
-              navigationShortcuts.navigateToAppRootTab(route.name as TabRoutes);
+              navigation.navigate(route.name);
+              // navigationShortcuts.navigateToAppRootTab(route.name as TabRoutes);
             }
             return;
           }

@@ -410,13 +410,15 @@ function TxHistoryListViewComponent({
     },
     onSuccess(data) {
       if (
-        isHistoryTxChanged({
+        !isAllNetworks(networkId) &&
+        !isHistoryTxChanged({
           oldTxList: historyListData || [],
           newTxList: data || [],
         })
       ) {
-        setHistoryListData(data);
+        return;
       }
+      setHistoryListData(data);
     },
   });
 
@@ -454,12 +456,9 @@ function TxHistoryListViewComponent({
   }, [accountId, historyListData, networkId]);
 
   useEffect(() => {
-    (async () => {
-      if (shouldDoRefresh && !isTxMatchedToAccount) {
-        const result = await getLocalHistory();
-        setHistoryListData(result || []);
-      }
-    })();
+    if (shouldDoRefresh && !isTxMatchedToAccount) {
+      getLocalHistory();
+    }
   }, [
     accountId,
     networkId,

@@ -87,14 +87,19 @@ function throwToNull(fn: () => void) {
   try {
     return fn();
   } catch (e) {
+    // @ts-ignore
+    if (e) e.$$autoPrintErrorIgnore = true;
     return null;
   }
 }
+
 function innerIsPoint(p: Uint8Array, xOnly: boolean) {
   if ((p.length === 32) !== xOnly) return false;
   try {
     return !!necc.Point.fromHex(p);
   } catch (e) {
+    // @ts-ignore
+    if (e) e.$$autoPrintErrorIgnore = true;
     return false;
   }
 }

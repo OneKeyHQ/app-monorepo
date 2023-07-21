@@ -1,19 +1,11 @@
 import type { ComponentType, FC, ReactElement } from 'react';
 
-import {
-  Box,
-  CustomSkeleton,
-  FlatList,
-  HStack,
-  VStack,
-} from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { Box, CustomSkeleton, FlatList, HStack } from '@onekeyhq/components';
 
 type EmptySkeletonContentProps = {
-  ListHeaderComponent: ComponentType<any> | ReactElement | null | undefined;
+  ListHeaderComponent?: ComponentType<any> | ReactElement | null | undefined;
 };
 
-const ItemSeparatorComponent3 = () => <Box h="3" />;
 const ItemSeparatorComponent4 = () => <Box h="4" />;
 
 export const EmptySkeletonContent: FC<EmptySkeletonContentProps> = ({

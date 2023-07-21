@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { memo, useCallback } from 'react';
 
 import { Box, FlatList, useSafeAreaInsets } from '@onekeyhq/components';
 
@@ -84,4 +84,4 @@ const NFTMarket = () => {
   );
 };
 
-export default NFTMarket;
+export default memo(NFTMarket);

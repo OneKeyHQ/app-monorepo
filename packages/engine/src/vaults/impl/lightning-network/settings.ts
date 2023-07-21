@@ -34,7 +34,6 @@ const settings: IVaultSettings = Object.freeze({
   hiddenAddress: true,
   hiddenAccountInfoSwapOption: true,
   hiddenAccountInfoMoreOption: true,
-  hiddenFeeOnTxDetail: true,
   displayMemo: true,
   hideFromToFieldIfValueEmpty: true,
   displayFullAddress: true,

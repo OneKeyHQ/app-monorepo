@@ -20,8 +20,7 @@ import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClos
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useNavigation } from '../../../../hooks';
-import { useStatus } from '../../../../hooks/redux';
+import { useAppSelector, useNavigation } from '../../../../hooks';
 import reducerAccountSelector from '../../../../store/reducers/reducerAccountSelector';
 import { setFistTimeShowCheckRPCNodeTooltip } from '../../../../store/reducers/status';
 import { wait } from '../../../../utils/helper';
@@ -50,7 +49,9 @@ function Header({
   showCustomLegacyHeader?: boolean;
 }) {
   const intl = useIntl();
-  const { firstTimeShowCheckRPCNodeTooltip } = useStatus();
+  const firstTimeShowCheckRPCNodeTooltip = useAppSelector(
+    (s) => s.status.firstTimeShowCheckRPCNodeTooltip,
+  );
   const [isOpen, setIsOpen] = useState(false);
   const { selectedNetwork, isLoading } = accountSelectorInfo;
   const { loading, status } = useRpcMeasureStatus(

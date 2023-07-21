@@ -157,15 +157,23 @@ class ServiceOverview extends ServiceBase {
       }
     }
 
-    dispatch(
-      ...dispatchActions,
-      setOverviewPortfolioUpdatedAt({
-        key: dispatchKey,
-        data: {
-          updatedAt: Date.now(),
-        },
-      }),
+    const updateInfo = appSelector(
+      (s) => s.overview.updatedTimeMap?.[dispatchKey],
     );
+
+    if (typeof updateInfo?.updatedAt !== 'undefined' || !pending.length) {
+      // not fist loading
+      dispatchActions.push(
+        setOverviewPortfolioUpdatedAt({
+          key: dispatchKey,
+          data: {
+            updatedAt: Date.now(),
+          },
+        }),
+      );
+    }
+
+    dispatch(...dispatchActions);
   }
 
   processNftPriceActions({
@@ -386,6 +394,8 @@ class ServiceOverview extends ServiceBase {
     if (!networkId || !accountId || !walletId) {
       return;
     }
+
+    const scanTypes = [EOverviewScanTaskType.defi, EOverviewScanTaskType.nfts];
     if (!isAllNetworks(networkId)) {
       engine.clearPriceCache();
       await serviceToken.fetchAccountTokens({
@@ -394,15 +404,14 @@ class ServiceOverview extends ServiceBase {
         forceReloadTokens: true,
         includeTop50TokensQuery: true,
       });
+    } else {
+      scanTypes.push(EOverviewScanTaskType.token);
     }
+
     await this.fetchAccountOverview({
       networkId,
       accountId,
-      scanTypes: [
-        EOverviewScanTaskType.defi,
-        EOverviewScanTaskType.token,
-        EOverviewScanTaskType.nfts,
-      ],
+      scanTypes,
     });
   }
 

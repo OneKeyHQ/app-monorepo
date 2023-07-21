@@ -2114,6 +2114,13 @@ export default class Vault extends VaultBase {
         true,
         false,
       );
+      // eth_getBlockByNumber
+      // ethereum returns an object,
+      // polygon returns a string
+      let blockRes = res?.[0];
+      if (typeof blockRes === 'string') {
+        blockRes = JSON.parse(blockRes);
+      }
       const latestBlock = parseInt(res[0].number);
       if (
         Number.isNaN(latestBlock) ||
