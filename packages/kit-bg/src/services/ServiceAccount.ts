@@ -1363,6 +1363,7 @@ class ServiceAccount extends ServiceBase {
       dispatch,
       serviceCloudBackup,
       serviceNotification,
+      serviceAllNetwork,
     } = this.backgroundApi;
     const account = await this.getAccount({
       walletId,
@@ -1373,7 +1374,7 @@ class ServiceAccount extends ServiceBase {
         addressList: [account.address],
       });
     }
-    const activeAccountId = appSelector((s) => s.general.activeAccountId);
+    const { activeAccountId, activeNetworkId } = appSelector((s) => s.general);
     await engine.removeAccount(accountId, password ?? '', networkId);
     await simpleDb.walletConnect.removeAccount({ accountId });
     await engine.dbApi.removeAccountDerivationByAccountId({
@@ -1392,6 +1393,12 @@ class ServiceAccount extends ServiceBase {
     dispatch(...actions, setRefreshTS());
     if (!walletId.startsWith('hw')) {
       serviceCloudBackup.requestBackup();
+    }
+    if (
+      isAllNetworks(activeNetworkId) &&
+      isWalletCompatibleAllNetworks(walletId)
+    ) {
+      serviceAllNetwork.refreshCurrentAllNetworksAccountMap();
     }
   }
 

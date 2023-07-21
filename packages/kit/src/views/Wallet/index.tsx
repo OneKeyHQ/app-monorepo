@@ -214,10 +214,16 @@ const WalletTabs: FC = () => {
     });
   }, []);
 
-  const tabContents = useMemo(() => usedTabs.map((t) => t.tab), [usedTabs]);
+  const tabContents = useMemo(
+    () => usedTabs.map((t) => t.tab).filter(Boolean),
+    [usedTabs],
+  );
 
   const walletTabsContainer = (
     <Tabs.Container
+      // IMPORTANT: key is used to force re-render when the tab is changed
+      // otherwise android app will crash when tabs are changed
+      key={platformEnv.isNativeAndroid ? `${tabContents.length}` : undefined}
       canOpenDrawer
       initialTabName={homeTabName}
       refreshing={refreshing}
@@ -244,7 +250,7 @@ const WalletTabs: FC = () => {
         flex: 1,
       }}
     >
-      {tabContents.filter(Boolean).map((tab) => tab)}
+      {tabContents}
     </Tabs.Container>
   );
 
