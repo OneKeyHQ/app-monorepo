@@ -14,20 +14,21 @@ import type { InscriptionContentProps } from '../type';
 
 function useTestnetRemoteTextContent({ asset }: { asset: NFTBTCAssetModel }) {
   const [content, setContent] = useState<string>('');
+  const { contentUrl, networkId } = asset;
+
   useEffect(() => {
     const isUrl =
-      asset.content &&
-      (asset.content?.startsWith('http://') ||
-        asset.content?.startsWith('https://'));
-    if (asset.networkId === OnekeyNetwork.tbtc && isUrl && asset.content) {
-      axios.get(asset.content).then((res) => {
+      contentUrl &&
+      (contentUrl?.startsWith('http://') || contentUrl?.startsWith('https://'));
+    if (networkId === OnekeyNetwork.tbtc && isUrl && contentUrl) {
+      axios.get(contentUrl).then((res) => {
         const { data } = res;
         if (!isNil(data)) {
           setContent(isString(data) ? data : safeStringify(data));
         }
       });
     }
-  }, [asset.content, asset.networkId]);
+  }, [contentUrl, networkId]);
   return content;
 }
 
