@@ -93,6 +93,27 @@ class ClientLightning {
     }
   }
 
+  checkAuth = memoizee(
+    async (address: string) => {
+      const authorization = await this.getAuthorization(address);
+      if (!authorization) {
+        throw new Error('Bad Auth');
+      }
+      return this.request
+        .get<boolean>('/account/auth/check', {
+          params: { testnet: this.testnet },
+          headers: {
+            Authorization: authorization,
+          },
+        })
+        .then((i) => i.data);
+    },
+    {
+      promise: true,
+      maxAge: getTimeDurationMs({ seconds: 30 }),
+    },
+  );
+
   async checkAccountExist(address: string) {
     return this.request
       .get<boolean>('/account/check', {

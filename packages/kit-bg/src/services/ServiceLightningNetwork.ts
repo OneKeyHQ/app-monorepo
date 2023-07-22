@@ -95,4 +95,25 @@ export default class ServiceLightningNetwork extends ServiceBase {
     });
     return (vault as VaultLightning).fetchSpecialInvoice(paymentHash);
   }
+
+  @backgroundMethod()
+  async checkAuth({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    const vault = await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    });
+    return (vault as VaultLightning)
+      .checkAuth()
+      .then(() => false)
+      .catch((e) => {
+        console.log('check auth error: ', e);
+        return true;
+      });
+  }
 }

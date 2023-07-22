@@ -653,4 +653,10 @@ export default class Vault extends VaultBase {
     const invoice = await client.specialInvoice(balanceAddress, paymentHash);
     return invoice;
   }
+
+  async checkAuth() {
+    const balanceAddress = await this.getCurrentBalanceAddress();
+    const client = await this.getClient();
+    return client.checkAuth(balanceAddress);
+  }
 }
