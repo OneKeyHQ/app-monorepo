@@ -125,7 +125,6 @@ const ReceiveInvoice = () => {
       height="auto"
       scrollViewProps={{
         contentContainerStyle: {
-          flex: 1,
           justifyContent: 'center',
           paddingVertical: isVerticalLayout ? 16 : 24,
         },
@@ -166,7 +165,7 @@ const ReceiveInvoice = () => {
               </Text>
               <IconButton
                 mt={1}
-                name={showFullInvoice ? 'EyeSlashOutline' : 'EyeOutline'}
+                name={showFullInvoice ? 'EyeOutline' : 'EyeSlashOutline'}
                 type="plain"
                 hitSlop={8}
                 onPress={() => setShowFullInvoice(!showFullInvoice)}
@@ -175,6 +174,7 @@ const ReceiveInvoice = () => {
               />
               <Button
                 mt="24px"
+                mb={10}
                 size={isVerticalLayout ? 'lg' : 'base'}
                 leftIconName="Square2StackMini"
                 onPress={() => {
