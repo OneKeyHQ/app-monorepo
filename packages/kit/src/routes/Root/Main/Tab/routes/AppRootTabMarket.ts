@@ -16,7 +16,6 @@ const config: TabRouteConfig = {
   component: withTabLayout(
     toFocusedLazy(ScreenMarket, {
       rootTabName: name,
-      freezeWhenBlur: !platformEnv.isNativeAndroid,
     }),
     name,
   ),
