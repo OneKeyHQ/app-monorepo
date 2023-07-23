@@ -283,16 +283,21 @@ class ClientLightning {
       .then((i) => i.data.result);
   }
 
-  async getConfig(address: string) {
-    return this.request
-      .get<IInvoiceConfig>('/invoices/config', {
-        params: { testnet: this.testnet },
-        headers: {
-          Authorization: await this.getAuthorization(address),
-        },
-      })
-      .then((i) => i.data);
-  }
+  getConfig = memoizee(
+    async (address: string) =>
+      this.request
+        .get<IInvoiceConfig>('/invoices/config', {
+          params: { testnet: this.testnet },
+          headers: {
+            Authorization: await this.getAuthorization(address),
+          },
+        })
+        .then((i) => i.data),
+    {
+      promise: true,
+      maxAge: getTimeDurationMs({ seconds: 60 }),
+    },
+  );
 }
 
 export default ClientLightning;

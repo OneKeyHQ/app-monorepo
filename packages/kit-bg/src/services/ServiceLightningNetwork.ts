@@ -116,4 +116,21 @@ export default class ServiceLightningNetwork extends ServiceBase {
         return true;
       });
   }
+
+  @backgroundMethod()
+  async getInvoiceConfig({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    })) as VaultLightning;
+    const client = await vault.getClient();
+    const address = await vault.getCurrentBalanceAddress();
+    return client.getConfig(address);
+  }
 }
