@@ -2,7 +2,7 @@ import { useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, IconButton, Pressable, Text } from '@onekeyhq/components';
+import { Box, HStack, IconButton, Pressable, Text } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
 import {
@@ -10,6 +10,7 @@ import {
   calculateTotalFeeRange,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 
+import { FormatCurrencyNativeOfAccount } from '../../../components/Format';
 import { useClipboard } from '../../../hooks/useClipboard';
 import { useNetwork } from '../../../hooks/useNetwork';
 import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
@@ -25,7 +26,7 @@ function getFeeInNativeText(options: {
   decodedTx: IDecodedTx;
 }) {
   const {
-    decodedTx: { feeInfo, totalFeeInNative },
+    decodedTx: { feeInfo, totalFeeInNative, networkId, accountId },
     network,
   } = options;
   if (!!totalFeeInNative && !!network) {
@@ -47,7 +48,18 @@ function getFeeInNativeText(options: {
       nativeDecimals: network.decimals,
     },
   });
-  return `${calculatedTotalFeeInNative} ${network.symbol}`;
+
+  return (
+    <HStack space={1} alignItems="center">
+      <Text>{`${calculatedTotalFeeInNative} ${network.symbol}`}</Text>
+      <FormatCurrencyNativeOfAccount
+        networkId={networkId}
+        accountId={accountId}
+        value={calculatedTotalFeeInNative}
+        render={(ele) => <Text color="text-subdued">({ele})</Text>}
+      />
+    </HStack>
+  );
 }
 
 function checkIsValidHistoryTxId({
