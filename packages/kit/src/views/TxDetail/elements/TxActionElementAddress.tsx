@@ -99,6 +99,7 @@ function TxActionElementAddressMoreMenu(props: AddressMoreMenuProps) {
       isCopy && {
         id: 'action__copy_address',
         onPress: () => handleCopyText(address),
+        icon: 'Square2StackMini',
       },
       isAccount && {
         id: 'action__view_account',
@@ -119,6 +120,7 @@ function TxActionElementAddressMoreMenu(props: AddressMoreMenuProps) {
             },
           });
         },
+        icon: 'UserCircleSolid',
       },
       !!contact && {
         id: 'action__edit',
@@ -138,10 +140,12 @@ function TxActionElementAddressMoreMenu(props: AddressMoreMenuProps) {
             },
           });
         },
+        icon: 'PencilSquareMini',
       },
       openBlockBrowser.hasAvailable && {
         id: 'action__view_in_browser',
         onPress: () => openBlockBrowser.openAddressDetails(address),
+        icon: 'GlobeAltMini',
       },
     ];
     return baseOptions.filter(Boolean);

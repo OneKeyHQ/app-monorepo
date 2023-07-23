@@ -111,10 +111,7 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
         </Pressable>
       ),
       content: (
-        <TxActionElementAddressNormal
-          address={decodedTx.txid}
-          isCopy={false}
-        />
+        <TxActionElementAddressNormal address={decodedTx.txid} isCopy={false} />
       ),
       extra: (
         <TxDetailHashMoreMenu decodedTx={decodedTx}>
