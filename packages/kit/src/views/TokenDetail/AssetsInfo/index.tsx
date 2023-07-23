@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useContext, useMemo } from 'react';
+import { useCallback, useContext, useMemo, useState } from 'react';
 
 import B from 'bignumber.js';
 import { groupBy } from 'lodash';
@@ -11,7 +11,9 @@ import {
   Empty,
   HStack,
   Icon,
+  Image,
   ListItem,
+  ScrollView,
   Token,
   Tooltip,
   Typography,
@@ -19,7 +21,11 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
+import { FAKE_ALL_NETWORK } from '@onekeyhq/shared/src/config/fakeAllNetwork';
 
+import dappColourPNG from '../../../../assets/dapp_colour.png';
 import {
   FormatBalance,
   FormatCurrencyNumber,
@@ -30,11 +36,52 @@ import { TokenDetailContext } from '../context';
 import type { IOverviewTokenDetailListItem } from '../../Overview/types';
 import type { ListRenderItem } from 'react-native';
 
+const Header: FC<{
+  networks: ({ id: string; name?: string; logoURI: string } | undefined)[];
+  onChange: (id: string) => void;
+  value?: string;
+}> = ({ networks, onChange, value }) => (
+  <ScrollView horizontal w="100%" mt="6">
+    {networks.map((n, index) => {
+      if (!n?.id) {
+        return;
+      }
+      return (
+        <PressableItem
+          onPress={() => onChange(n.id)}
+          px={2}
+          py="6px"
+          borderRadius="9999px"
+          bg={n.id === value ? 'surface-selected' : undefined}
+          ml={index === 0 ? 0 : 2}
+          key={n.id}
+        >
+          <HStack alignItems="center">
+            <Image
+              size={5}
+              source={isAllNetworks(n.id) ? dappColourPNG : n.logoURI}
+            />
+            <Typography.Body2Strong
+              ml="1"
+              color={n.id === value ? 'text-default' : 'text-subdued'}
+            >
+              {n.name}
+            </Typography.Body2Strong>
+          </HStack>
+        </PressableItem>
+      );
+    })}
+  </ScrollView>
+);
+
 const AssetsInfo: FC = () => {
   const { allNetworks } = useManageNetworks();
   const context = useContext(TokenDetailContext);
 
   const intl = useIntl();
+  const [selectedNetworkId, setSelectedNetworkId] = useState<string>(
+    FAKE_ALL_NETWORK.id,
+  );
   const { price, networkId, accountId } = context?.routeParams ?? {};
   const { account } = useAccount({
     networkId: networkId ?? '',
@@ -240,7 +287,12 @@ const AssetsInfo: FC = () => {
         paddingHorizontal: isVerticalLayout ? 16 : 32,
       }}
       renderSectionHeader={renderSectionHeader}
-      sections={sections}
+      sections={sections.filter((s) => {
+        if (selectedNetworkId === FAKE_ALL_NETWORK.id) {
+          return true;
+        }
+        return s.network?.id === selectedNetworkId;
+      })}
       renderItem={renderItem}
       keyExtractor={(item) =>
         `${item.networkId}__${item.name}__${item.balance}__${
@@ -248,6 +300,13 @@ const AssetsInfo: FC = () => {
         }`
       }
       ListFooterComponent={items?.length ? null : empty}
+      ListHeaderComponent={
+        <Header
+          networks={[FAKE_ALL_NETWORK, ...sections.map((s) => s.network)]}
+          value={selectedNetworkId}
+          onChange={(id) => setSelectedNetworkId(id)}
+        />
+      }
     />
   );
 };

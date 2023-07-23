@@ -115,7 +115,7 @@ class ServiceOverview extends ServiceBase {
     >(
       '/overview/query/all',
       {
-        tasks: [...pendingTasksForCurrentNetwork],
+        tasks: pendingTasksForCurrentNetwork,
       },
       null,
       'POST',

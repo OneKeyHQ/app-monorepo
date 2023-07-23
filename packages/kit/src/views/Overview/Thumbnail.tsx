@@ -120,24 +120,24 @@ const AssetHeader: FC<IAssetHeaderProps> = ({
           </HStack>
           {isVertical ? protocolValueComp : null}
         </VStack>
+        {isVertical ? null : (
+          <HStack mt="4">
+            <Typography.Subheading flex="1" color="text-subdued">
+              {intl.formatMessage({ id: 'form__protocols_uppercase' })}
+            </Typography.Subheading>
+            <Typography.Subheading flex="1" color="text-subdued">
+              {intl.formatMessage({ id: 'form__claimable_uppercase' })}
+            </Typography.Subheading>
+            <Typography.Subheading
+              flex="1"
+              color="text-subdued"
+              textAlign="right"
+            >
+              {intl.formatMessage({ id: 'form__value_uppercase' })}
+            </Typography.Subheading>
+          </HStack>
+        )}
       </Pressable.Item>
-      {isVertical ? null : (
-        <HStack mt="4" px="6" bg="surface-default">
-          <Typography.Subheading flex="1" color="text-subdued">
-            {intl.formatMessage({ id: 'form__protocols_uppercase' })}
-          </Typography.Subheading>
-          <Typography.Subheading flex="1" color="text-subdued">
-            {intl.formatMessage({ id: 'form__claimable_uppercase' })}
-          </Typography.Subheading>
-          <Typography.Subheading
-            flex="1"
-            color="text-subdued"
-            textAlign="right"
-          >
-            {intl.formatMessage({ id: 'form__value_uppercase' })}
-          </Typography.Subheading>
-        </HStack>
-      )}
     </VStack>
   );
 };
