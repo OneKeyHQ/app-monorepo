@@ -114,7 +114,6 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
         <TxActionElementAddressNormal
           address={decodedTx.txid}
           isCopy={false}
-          isLabelShow={false}
         />
       ),
       extra: (
@@ -141,7 +140,6 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
             <TxActionElementAddressNormal
               address={extraInfo}
               isCopy={item.canCopy}
-              isLabelShow={false}
               isShorten={item.isShorten}
             />
           ),

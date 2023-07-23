@@ -165,7 +165,6 @@ export function TxActionElementAddress(
   props: {
     address: string;
     isShorten?: boolean;
-    isLabelShow?: boolean;
     isCopy?: boolean;
     flex?: number;
     checkSecurity?: boolean;
@@ -176,7 +175,6 @@ export function TxActionElementAddress(
   const {
     address,
     isShorten = true,
-    isLabelShow = true,
     isCopy = true,
     checkSecurity = false,
     networkId,
@@ -192,10 +190,7 @@ export function TxActionElementAddress(
 
   const { label, isWatchAccount } = useAddressLabel({ address, networkId });
   const contact = useAddressBookItem({ address });
-  let text = isShorten ? shortenAddress(address) : address;
-  if (label && isLabelShow) {
-    text = `${label}(${address.slice(-4)})`;
-  }
+  const text = isShorten ? shortenAddress(address) : address;
 
   return (
     <VStack flex={flex}>
@@ -217,6 +212,7 @@ export function TxActionElementAddress(
             securityInfo={securityInfo}
             shouldCheckSecurity={shouldCheckSecurity}
             isAccount={!!label}
+            accountLabel={label}
             isWatchAccount={isWatchAccount}
             isAddressBook={!!contact}
             addressBookLabel={contact?.name}
