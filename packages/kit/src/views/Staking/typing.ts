@@ -4,6 +4,7 @@ export enum StakingRoutes {
   StakingAmount = 'StakingAmount',
   StakedETHOnKele = 'StakedETHOnKele',
   StakedETHOnLido = 'StakedETHOnLido',
+  StakedMaticOnLido = 'StakedMaticOnLido',
   UnstakeAmount = 'UnstakeAmount',
   WithdrawAmount = 'WithdrawAmount',
   Feedback = 'Feedback',
@@ -19,6 +20,10 @@ export enum StakingRoutes {
   ETHPoolSelector = 'ETHPoolSelector',
   KeleStakingModeSelector = 'KeleStakingModeSelector',
   ETHStake = 'ETHStake',
+
+  MaticStake = 'MaticStake',
+  LidoMaticUnstake = 'LidoMaticUnstake',
+  LidoMaticClaim = 'LidoMaticClaim',
 }
 
 export enum EthStakingSource {
@@ -101,10 +106,26 @@ export type StakingRoutesParams = {
     networkId: string;
     accountId: string;
   };
+  [StakingRoutes.StakedMaticOnLido]: {
+    networkId: string;
+    accountId: string;
+  };
   [StakingRoutes.ETHStake]: {
     networkId: string;
     accountId: string;
     source?: EthStakingSource;
+  };
+  [StakingRoutes.MaticStake]: {
+    networkId: string;
+    accountId: string;
+  };
+  [StakingRoutes.LidoMaticUnstake]: {
+    networkId: string;
+    accountId: string;
+  };
+  [StakingRoutes.LidoMaticClaim]: {
+    networkId: string;
+    accountId: string;
   };
 };
 
@@ -218,6 +239,18 @@ export interface LidoNFTStatus {
   requestId: number;
 }
 
+export type LidoMaticNFTStatus = {
+  nftId: number;
+  claimable: boolean;
+  maticAmount: string;
+};
+
+export type LidoMaticOverview = {
+  balance?: string;
+  maticToStMaticRate?: string;
+  nfts?: LidoMaticNFTStatus[];
+};
+
 export type LidoOverview = {
   total?: string;
   pending?: string;
@@ -229,10 +262,17 @@ export type LidoOverview = {
 };
 
 export type TransactionStatus = 'pending' | 'failed' | 'canceled' | 'sucesss';
-export type TransactionType = 'lidoUnstake' | 'lidoStake' | 'lidoClaim';
+export type TransactionType =
+  | 'lidoUnstake'
+  | 'lidoStake'
+  | 'lidoClaim'
+  | 'lidoStakeMatic'
+  | 'lidoUnstakeMatic'
+  | 'lidoClaimMatic';
 
 export interface Transaction {
   hash: string;
+  type: string;
   networkId: string;
   accountId: string;
   addedTime: number;

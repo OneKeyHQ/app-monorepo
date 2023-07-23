@@ -9,22 +9,18 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
 import { formatAmount, isEvmNetworkId } from '../../Swap/utils';
+import { getLidoContractAddress, getStMaticContractAdderess } from '../address';
 import {
   MainnetLidoContractAddress,
   TestnetLidoContractAddress,
 } from '../config';
 import { EthStakingSource } from '../typing';
 
-import type { KeleGenericHistory, LidoOverview } from '../typing';
-
-// export function useAccountStakingActivity(
-//   networkId: string,
-//   accountId: string,
-// ) {
-//   return useAppSelector(
-//     (s) => s.staking.stakingActivities?.[accountId]?.[networkId],
-//   );
-// }
+import type {
+  KeleGenericHistory,
+  LidoMaticOverview,
+  LidoOverview,
+} from '../typing';
 
 export function useKeleUnstakeOverview(networkId: string, accountId: string) {
   useEffect(() => {
@@ -164,10 +160,7 @@ export const useLidoOverview = (
   return useMemo(() => {
     if (!networkId || !accountId) return undefined;
     const overview = lidoOverview?.[accountId]?.[networkId];
-    const address =
-      networkId === OnekeyNetwork.eth
-        ? MainnetLidoContractAddress
-        : TestnetLidoContractAddress;
+    const address = getLidoContractAddress(networkId);
     const stBalance = balances?.[address.toLowerCase()]?.balance;
 
     return {
@@ -176,4 +169,26 @@ export const useLidoOverview = (
       nfts: overview?.nfts ?? [],
     };
   }, [networkId, accountId, lidoOverview, balances]);
+};
+
+export const useLidoMaticOverview = (
+  networkId?: string,
+  accountId?: string,
+): LidoMaticOverview | undefined => {
+  const lidoMaticOverview = useAppSelector((s) => s.staking.lidoMaticOverview);
+  const balances = useAppSelector(
+    (s) => s.tokens.accountTokensBalance?.[networkId ?? '']?.[accountId ?? ''],
+  );
+  return useMemo(() => {
+    if (!networkId || !accountId) return undefined;
+    const overview = lidoMaticOverview?.[accountId]?.[networkId];
+    const address = getStMaticContractAdderess(networkId);
+    const stMaticBalance = balances?.[address.toLowerCase()]?.balance;
+
+    return {
+      ...overview,
+      balance: stMaticBalance ?? overview?.balance,
+      nfts: overview?.nfts ?? [],
+    };
+  }, [networkId, accountId, lidoMaticOverview, balances]);
 };

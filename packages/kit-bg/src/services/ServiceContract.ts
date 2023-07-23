@@ -54,6 +54,57 @@ const WETH9_ABI = [
   },
 ];
 
+const StMaticABI = [
+  {
+    'inputs': [
+      {
+        'internalType': 'uint256',
+        'name': '_amount',
+        'type': 'uint256',
+      },
+      {
+        'internalType': 'address',
+        'name': '_referral',
+        'type': 'address',
+      },
+    ],
+    'name': 'submit',
+    'outputs': [
+      {
+        'internalType': 'uint256',
+        'name': '',
+        'type': 'uint256',
+      },
+    ],
+    'stateMutability': 'nonpayable',
+    'type': 'function',
+  },
+  {
+    'inputs': [
+      {
+        'internalType': 'uint256',
+        'name': '_amount',
+        'type': 'uint256',
+      },
+      {
+        'internalType': 'address',
+        'name': '_referral',
+        'type': 'address',
+      },
+    ],
+    'name': 'requestWithdraw',
+    'outputs': [
+      {
+        'internalType': 'uint256',
+        'name': '',
+        'type': 'uint256',
+      },
+    ],
+    'stateMutability': 'nonpayable',
+    'type': 'function',
+  },
+];
+
 @backgroundClass()
 class ServiceContract extends ServiceBase {
   async buildEvmCalldata(input: { abi: IABI; method: string; params: any[] }) {
@@ -98,6 +149,24 @@ class ServiceContract extends ServiceBase {
       abi: LIDO_ABI,
       method: 'submit',
       params: [lidoReferralAddress],
+    });
+  }
+
+  @backgroundMethod()
+  async buildMaticStakeTransaction(amount: string) {
+    return this.buildEvmCalldata({
+      abi: StMaticABI,
+      method: 'submit',
+      params: [amount, lidoReferralAddress],
+    });
+  }
+
+  @backgroundMethod()
+  async buildMaticUnstakeTransaction(amount: string) {
+    return this.buildEvmCalldata({
+      abi: StMaticABI,
+      method: 'requestWithdraw',
+      params: [amount, lidoReferralAddress],
     });
   }
 

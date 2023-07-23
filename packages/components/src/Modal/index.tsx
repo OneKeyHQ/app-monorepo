@@ -56,7 +56,7 @@ export type ModalProps = {
   onModalClose?: () => void | boolean;
   onVisibleChange?: (v: boolean) => void;
   scrollViewProps?: ComponentProps<typeof ScrollView>;
-  flatListProps?: FlatListProps;
+  flatListProps?: FlatListProps<any>;
   sectionListProps?: SectionListProps<any>;
   sortableListProps?: ComponentProps<typeof SortableList.Container>;
   staticChildrenProps?: ComponentProps<typeof Box>;

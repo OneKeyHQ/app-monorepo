@@ -7,6 +7,7 @@ import type { ImageSourcePropType } from 'react-native';
 type OptionsProps = {
   title: string;
   subtitle: string;
+  source?: string;
   logo: ImageSourcePropType;
   num: string;
   onPress?: () => void;
@@ -15,6 +16,7 @@ type OptionsProps = {
 export const Options: FC<OptionsProps> = ({
   title,
   subtitle,
+  source = require('@onekeyhq/kit/assets/staking/eth_logo.png'),
   logo,
   num,
   onPress,
@@ -31,11 +33,7 @@ export const Options: FC<OptionsProps> = ({
     <Box flexDirection="row" alignItems="center">
       <Box mr="3" position="relative">
         <Box w="10" h="10" borderRadius="full" overflow="hidden">
-          <Image
-            w="10"
-            h="10"
-            source={require('@onekeyhq/kit/assets/staking/eth_logo.png')}
-          />
+          <Image w="10" h="10" source={source} />
         </Box>
         <Box
           w="5"
