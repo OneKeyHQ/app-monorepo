@@ -1,3 +1,5 @@
+import type { IInvoiceConfig } from './invoice';
+
 export type IEncodedTxLightning = {
   invoice: string;
   paymentHash: string;
@@ -6,4 +8,6 @@ export type IEncodedTxLightning = {
   created: string;
   description?: string;
   fee: number;
+  isExceedTransferLimit: boolean;
+  config: IInvoiceConfig;
 };

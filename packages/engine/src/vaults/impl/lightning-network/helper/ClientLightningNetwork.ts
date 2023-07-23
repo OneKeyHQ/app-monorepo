@@ -15,6 +15,7 @@ import type {
 import type {
   ICretaeInvoiceResponse,
   IHistoryItem,
+  IInvoiceConfig,
   IInvoiceDecodedResponse,
   InvoiceType,
 } from '../types/invoice';
@@ -280,6 +281,17 @@ class ClientLightning {
         },
       })
       .then((i) => i.data.result);
+  }
+
+  async getConfig(address: string) {
+    return this.request
+      .get<IInvoiceConfig>('/invoices/config', {
+        params: { testnet: this.testnet },
+        headers: {
+          Authorization: await this.getAuthorization(address),
+        },
+      })
+      .then((i) => i.data);
   }
 }
 

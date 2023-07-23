@@ -206,6 +206,7 @@ export default class Vault extends VaultBase {
     const balanceAddress = await this.getCurrentBalanceAddress();
 
     const invoice = await this._decodedInvoceCache(transferInfo.to);
+    const lnConfig = await client.getConfig(balanceAddress);
 
     const paymentHash = invoice.tags.find(
       (tag) => tag.tagName === 'payment_hash',
@@ -242,6 +243,10 @@ export default class Vault extends VaultBase {
       created: `${Math.floor(Date.now() / 1000)}`,
       description: description?.data as string,
       fee,
+      isExceedTransferLimit: new BigNumber(amount).isGreaterThan(
+        lnConfig.maxSendAmount,
+      ),
+      config: lnConfig,
     };
   }
 
