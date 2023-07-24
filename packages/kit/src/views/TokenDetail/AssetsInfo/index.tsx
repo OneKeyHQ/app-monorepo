@@ -13,15 +13,13 @@ import {
   Icon,
   Image,
   ListItem,
-  ScrollView,
-  Token,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
-import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { FAKE_ALL_NETWORK } from '@onekeyhq/shared/src/config/fakeAllNetwork';
 
@@ -41,49 +39,55 @@ const Header: FC<{
   onChange: (id: string) => void;
   value?: string;
 }> = ({ networks, onChange, value }) => {
+  const data = [
+    Object.assign(FAKE_ALL_NETWORK, {
+      name: 'All',
+    }),
+    ...networks,
+  ].filter(Boolean);
+  const index = useMemo(
+    () => data.findIndex((n) => n?.id === value),
+    [data, value],
+  );
+  const onPress = useCallback(
+    (i: number) => {
+      const item = data[i];
+      onChange(item?.id ?? '');
+    },
+    [data, onChange],
+  );
   if (networks.length <= 1) {
     return null;
   }
   return (
-    <ScrollView horizontal w="100%" mt="6">
-      {[FAKE_ALL_NETWORK, ...networks].map((n, index) => {
-        if (!n?.id) {
-          return;
-        }
-        return (
-          <PressableItem
-            onPress={() => onChange(n.id)}
-            px={2}
-            py="6px"
-            borderRadius="9999px"
-            bg={n.id === value ? 'surface-selected' : undefined}
-            ml={index === 0 ? 0 : 2}
-            key={n.id}
-          >
-            <HStack alignItems="center">
-              <Image
-                width="20px"
-                height="20px"
-                borderRadius="full"
-                source={
-                  isAllNetworks(n.id)
-                    ? dappColourPNG
-                    : {
-                        uri: n.logoURI,
-                      }
-                }
-              />
-              <Typography.Body2Strong
-                ml="1"
-                color={n.id === value ? 'text-default' : 'text-subdued'}
-              >
-                {n.name}
-              </Typography.Body2Strong>
-            </HStack>
-          </PressableItem>
-        );
-      })}
-    </ScrollView>
+    <ToggleButtonGroup
+      mt="6"
+      size="sm"
+      buttons={data.filter(Boolean).map((item) => ({
+        text: item.name ?? '',
+        id: item.id,
+        // eslint-disable-next-line
+        leftComponentRender: () => (
+          <Box mr="1">
+            <Image
+              width="20px"
+              height="20px"
+              borderRadius="full"
+              source={
+                isAllNetworks(item.id)
+                  ? dappColourPNG
+                  : {
+                      uri: item.logoURI,
+                    }
+              }
+            />
+          </Box>
+        ),
+      }))}
+      selectedIndex={index}
+      onButtonPress={onPress}
+      bg="background-default"
+    />
   );
 };
 
@@ -139,19 +143,9 @@ const AssetsInfo: FC = () => {
         return null;
       }
       return (
-        <VStack mt="6" mb="2">
-          <HStack alignItems="center">
-            <Token
-              size="5"
-              token={{
-                logoURI: network?.logoURI,
-              }}
-            />
-            <Typography.Subheading ml="2" color="text-subdued">
-              {network?.name?.toUpperCase()}
-            </Typography.Subheading>
-          </HStack>
-        </VStack>
+        <Typography.Subheading mt="6" mb="2" color="text-subdued">
+          {network?.name?.toUpperCase()}
+        </Typography.Subheading>
       );
     },
     [],
