@@ -97,7 +97,7 @@ export const DappSecurityView: FC<{
     [intl],
   );
 
-  const letter = name?.slice(0, 4);
+  const letter = dappName?.slice(0, 4);
   const fallbackElement = useMemo(
     () =>
       letter ? (
