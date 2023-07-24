@@ -40,39 +40,52 @@ const Header: FC<{
   networks: ({ id: string; name?: string; logoURI: string } | undefined)[];
   onChange: (id: string) => void;
   value?: string;
-}> = ({ networks, onChange, value }) => (
-  <ScrollView horizontal w="100%" mt="6">
-    {networks.map((n, index) => {
-      if (!n?.id) {
-        return;
-      }
-      return (
-        <PressableItem
-          onPress={() => onChange(n.id)}
-          px={2}
-          py="6px"
-          borderRadius="9999px"
-          bg={n.id === value ? 'surface-selected' : undefined}
-          ml={index === 0 ? 0 : 2}
-          key={n.id}
-        >
-          <HStack alignItems="center">
-            <Image
-              size={5}
-              source={isAllNetworks(n.id) ? dappColourPNG : n.logoURI}
-            />
-            <Typography.Body2Strong
-              ml="1"
-              color={n.id === value ? 'text-default' : 'text-subdued'}
-            >
-              {n.name}
-            </Typography.Body2Strong>
-          </HStack>
-        </PressableItem>
-      );
-    })}
-  </ScrollView>
-);
+}> = ({ networks, onChange, value }) => {
+  if (networks.length <= 2) {
+    return null;
+  }
+  return (
+    <ScrollView horizontal w="100%" mt="6">
+      {networks.map((n, index) => {
+        if (!n?.id) {
+          return;
+        }
+        return (
+          <PressableItem
+            onPress={() => onChange(n.id)}
+            px={2}
+            py="6px"
+            borderRadius="9999px"
+            bg={n.id === value ? 'surface-selected' : undefined}
+            ml={index === 0 ? 0 : 2}
+            key={n.id}
+          >
+            <HStack alignItems="center">
+              <Image
+                width="20px"
+                height="20px"
+                borderRadius="full"
+                source={
+                  isAllNetworks(n.id)
+                    ? dappColourPNG
+                    : {
+                        uri: n.logoURI,
+                      }
+                }
+              />
+              <Typography.Body2Strong
+                ml="1"
+                color={n.id === value ? 'text-default' : 'text-subdued'}
+              >
+                {n.name}
+              </Typography.Body2Strong>
+            </HStack>
+          </PressableItem>
+        );
+      })}
+    </ScrollView>
+  );
+};
 
 const AssetsInfo: FC = () => {
   const { allNetworks } = useManageNetworks();
@@ -173,7 +186,7 @@ const AssetsInfo: FC = () => {
       );
 
       const tokenItem = (
-        <HStack flex="3" alignItems="center">
+        <HStack alignItems="center">
           {item.type === 'Token' ? (
             <Box
               size="8"
@@ -185,11 +198,16 @@ const AssetsInfo: FC = () => {
               <Icon size={20} color="icon-on-primary" name="WalletOutline" />
             </Box>
           ) : (
-            <Token
+            <Image
               size={8}
-              token={{
-                logoURI: token.logoURI,
-              }}
+              borderRadius="full"
+              source={
+                typeof token.logoURI === 'number'
+                  ? token.logoURI
+                  : {
+                      uri: token.logoURI,
+                    }
+              }
             />
           )}
           <VStack ml="3" alignItems="flex-start">
@@ -215,7 +233,7 @@ const AssetsInfo: FC = () => {
       if (isVerticalLayout) {
         return (
           <ListItem mx="-8px" onPress={item.onPress}>
-            <ListItem.Column>{tokenItem}</ListItem.Column>
+            <ListItem.Column flex="1">{tokenItem}</ListItem.Column>
             <ListItem.Column
               flex={1}
               alignItems="flex-end"
