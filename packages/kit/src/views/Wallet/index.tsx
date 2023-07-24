@@ -2,6 +2,7 @@ import type { FC } from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import type { ForwardRefHandle } from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
 import {
@@ -186,17 +187,25 @@ const WalletTabs: FC = () => {
     [getHomeTabNameByIndex],
   );
 
+  const setIndex = useDebouncedCallback(
+    (index: number) => {
+      ref.current?.setPageIndex?.(index);
+      onIndexChange(index);
+    },
+    1000,
+    {
+      leading: false,
+      trailing: true,
+      maxWait: 1000,
+    },
+  );
+
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout> | undefined;
 
-    const setIndex = (index: number) => {
-      ref.current?.setPageIndex?.(index);
-      onIndexChange(index);
-    };
-
     const idx = getHomeTabIndex(homeTabName);
     if (platformEnv.isNativeIOS) {
-      setTimeout(() => {
+      timeout = setTimeout(() => {
         setIndex(idx);
       });
     } else {
@@ -206,7 +215,7 @@ const WalletTabs: FC = () => {
     return () => {
       if (timeout) clearTimeout(timeout);
     };
-  }, [homeTabName, onIndexChange, getHomeTabIndex]);
+  }, [homeTabName, getHomeTabIndex, setIndex]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
