@@ -28,7 +28,7 @@ const settings: IVaultSettings = Object.freeze({
       template: `m/44'/${COINTYPE_NEXA}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_NEXA,
       label: 'Legacy',
-      subDesc: 'BIP32, P2SH, Base32.',
+      subDesc: 'BIP44, P2PKH, Base58.',
     },
   },
 });
