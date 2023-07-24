@@ -9,16 +9,16 @@ import { useNavigation } from '../../../../hooks';
 import { useActiveWalletAccount } from '../../../../hooks/redux';
 import { RootRoutes } from '../../../../routes/routesEnum';
 
-export const MainButton: FC = ({ children }) => {
+export const WalletACLButton: FC = ({ children }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { wallet } = useActiveWalletAccount();
+  const { walletId } = useActiveWalletAccount();
 
   const onCreateWallet = useCallback(() => {
     navigation.navigate(RootRoutes.Onboarding);
   }, [navigation]);
 
-  if (!wallet) {
+  if (!walletId) {
     return (
       <Button size="xl" type="primary" onPress={onCreateWallet} key="addWallet">
         {intl.formatMessage({ id: 'action__create_wallet' })}

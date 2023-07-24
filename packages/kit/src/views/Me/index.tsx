@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import { Box, ScrollView, useSafeAreaInsets } from '@onekeyhq/components';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 
@@ -49,4 +51,4 @@ export const Me = (options: any) => {
   );
 };
 
-export default Me;
+export default memo(Me);

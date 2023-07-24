@@ -17,7 +17,7 @@ import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Mo
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useNetwork } from '../../../hooks';
+import { useActiveSideAccount } from '../../../hooks';
 import { InscribeModalRoutes } from '../../../routes/routesEnum';
 import HeaderDescription from '../Components/HeaderDescription';
 import { InscribeUploader } from '../Components/InscribeUploader';
@@ -46,7 +46,7 @@ const CreateContent: FC = () => {
   const [text, setText] = useState<string>('');
   const [error, setError] = useState('');
   const { serviceInscribe } = backgroundApiProxy;
-  const { network } = useNetwork({ networkId });
+  const { network, account } = useActiveSideAccount({ accountId, networkId });
 
   const onPromise = useCallback(async () => {
     let contents: IInscriptionContent[] = [];
@@ -56,6 +56,7 @@ const CreateContent: FC = () => {
         accountId,
         contents,
         size: 0,
+        address: account?.address,
       };
     if (selectIndex === 0) {
       if (file?.dataForAPI && file?.name) {
@@ -101,6 +102,7 @@ const CreateContent: FC = () => {
       navigation.navigate(InscribeModalRoutes.ReceiveAddress, routeParams);
     }
   }, [
+    account?.address,
     accountId,
     file,
     intl,

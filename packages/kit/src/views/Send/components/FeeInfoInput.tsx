@@ -308,7 +308,7 @@ function FeeInfoInputForConfirmLite({
           networkId={networkId}
           accountId={accountId}
           value={totalNative}
-          render={(ele) => <Text color="text-subdued">{ele}</Text>}
+          render={(ele) => <Text color="text-subdued">({ele})</Text>}
         />
         {loading && <Spinner size="sm" />}
       </HStack>

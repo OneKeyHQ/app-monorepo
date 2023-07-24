@@ -26,14 +26,15 @@ import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig'
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveSideAccount } from '../../../hooks';
-import { useStatus } from '../../../hooks/redux';
+import { useActiveSideAccount, useAppSelector } from '../../../hooks';
 import {
+  useAccountPortfolios,
   useAccountTokens,
   useOverviewAccountUpdateInfo,
 } from '../../../hooks/useOverview';
 import { useVisibilityFocused } from '../../../hooks/useVisibilityFocused';
 import { OverviewDefiThumbnal } from '../../Overview/Thumbnail';
+import { EOverviewScanTaskType } from '../../Overview/types';
 import { WalletHomeTabEnum } from '../type';
 
 import AssetsListHeader from './AssetsListHeader';
@@ -63,6 +64,7 @@ export type IAssetsListProps = Omit<FlatListProps, 'data' | 'renderItem'> & {
   renderDefiList?: boolean;
   walletId: string;
 };
+
 function AssetsList({
   showRoundTop,
   hidePriceInfo,
@@ -80,7 +82,8 @@ function AssetsList({
 }: IAssetsListProps) {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
-  const { homeTabName, isUnlock } = useStatus();
+  const homeTabName = useAppSelector((s) => s.status.homeTabName);
+  const isUnlock = useAppSelector((s) => s.status.isUnlock);
   const { data: accountTokens, loading } = useAccountTokens({
     networkId,
     accountId,
@@ -96,6 +99,12 @@ function AssetsList({
   const { account, network } = useActiveSideAccount({
     accountId,
     networkId,
+  });
+
+  const { data: defis } = useAccountPortfolios({
+    networkId,
+    accountId,
+    type: EOverviewScanTaskType.defi,
   });
 
   const navigation = useNavigation<NavigationProps>();
@@ -169,6 +178,16 @@ function AssetsList({
     backgroundApiProxy.serviceToken.refreshAccountTokens();
   }, [isFocused, isUnlock, networkId]);
 
+  useEffect(() => {
+    if (networkId && !isAllNetworks(networkId) && accountId) {
+      backgroundApiProxy.serviceOverview.fetchAccountOverview({
+        networkId,
+        accountId,
+        scanTypes: [EOverviewScanTaskType.defi],
+      });
+    }
+  }, [networkId, accountId]);
+
   const onTokenCellPress = useCallback(
     (item: IAccountToken) => {
       if (onTokenPress) {
@@ -232,11 +251,13 @@ function AssetsList({
             networkId={networkId}
             address={account?.address ?? ''}
             limitSize={limitSize}
+            data={defis}
           />
         ) : null}
       </Box>
     ),
     [
+      defis,
       ListFooterComponent,
       networkId,
       accountId,
@@ -250,7 +271,7 @@ function AssetsList({
     if (loading) {
       if (isAllNetworks(network?.id) && !updateInfo?.updatedAt) {
         return (
-          <Box alignItems="center" mt="10">
+          <Box alignItems="center" mt="8">
             <Empty
               w="260px"
               icon={

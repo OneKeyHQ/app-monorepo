@@ -219,6 +219,7 @@ function AddressLabel(props: Props) {
       isContractAddressLabel && {
         title: 'content__contract_address',
         type: 'warning',
+        icon: '📝',
       },
     ];
     return labels.filter(Boolean) as Label[];

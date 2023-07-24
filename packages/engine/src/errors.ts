@@ -375,8 +375,8 @@ export class NoRouteFoundError extends OneKeyError {
   override key = 'msg__no_route_found';
 }
 
-export class NoLightningChannelError extends OneKeyError {
-  override key = 'msg__payment_channel_not_found_sending_failed';
+export class ChannelInsufficientLiquidityError extends OneKeyError {
+  override key = 'msg__insufficient_liquidity_of_lightning_node_channels';
 }
 
 export class BadAuthError extends OneKeyError {

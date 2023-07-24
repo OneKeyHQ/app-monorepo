@@ -222,7 +222,7 @@ function BTCAssetDetailContent({
                 const isMainNet = network?.id === OnekeyNetwork.btc;
                 const host = isMainNet
                   ? 'https://ordinals.com'
-                  : 'http://ordinals-testnet.onekeytest.com';
+                  : 'https://tbtc-ordinals.onekey.so';
                 openUrl(`${host}/inscription/${asset.inscription_id}`);
               }}
               title={intl.formatMessage({

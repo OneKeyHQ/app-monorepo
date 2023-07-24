@@ -30,6 +30,7 @@ import { dangerRefs } from '../../refs';
 import { SwapError } from '../../typings';
 import { calculateDecodedTxNetworkFee } from '../../utils';
 
+import { WalletACLButton } from './common';
 import { SwapProgressButton } from './progress';
 
 type TokenNetworkDisplayProps = {
@@ -380,7 +381,7 @@ export const SwapButton = () => {
   return wrapperTxInfo ? <WETH9StateButton /> : <ExchangeStateButton />;
 };
 
-export const SwapMainButton = () => {
+export const SwapContentButton = () => {
   const intl = useIntl();
   const swapMaintain = useAppSelector((s) => s.swapTransactions.swapMaintain);
   if (swapMaintain) {
@@ -392,3 +393,9 @@ export const SwapMainButton = () => {
   }
   return <SwapButton />;
 };
+
+export const SwapMainButton = () => (
+  <WalletACLButton>
+    <SwapContentButton />
+  </WalletACLButton>
+);
