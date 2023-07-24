@@ -1,6 +1,7 @@
 import type { FC } from 'react';
 import { useCallback } from 'react';
 
+import { throttle } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Box, List, ListItem, Typography, VStack } from '@onekeyhq/components';
@@ -67,12 +68,19 @@ const AccountDerivationsSelector: FC<Props> = ({
   );
 };
 
-export const showAllNetworksAccountDerivationsSelector = (props: Props) =>
-  showOverlay((closeOverlay) => (
-    <BottomSheetSettings
-      titleI18nKey="form__select_address"
-      closeOverlay={closeOverlay}
-    >
-      <AccountDerivationsSelector {...props} onClose={closeOverlay} />
-    </BottomSheetSettings>
-  ));
+export const showAllNetworksAccountDerivationsSelector = throttle(
+  (props: Props) =>
+    showOverlay((closeOverlay) => (
+      <BottomSheetSettings
+        titleI18nKey="form__select_address"
+        closeOverlay={closeOverlay}
+      >
+        <AccountDerivationsSelector {...props} onClose={closeOverlay} />
+      </BottomSheetSettings>
+    )),
+  1000,
+  {
+    leading: true,
+    trailing: false,
+  },
+);

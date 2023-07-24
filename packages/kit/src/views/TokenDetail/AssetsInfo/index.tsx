@@ -41,12 +41,12 @@ const Header: FC<{
   onChange: (id: string) => void;
   value?: string;
 }> = ({ networks, onChange, value }) => {
-  if (networks.length <= 2) {
+  if (networks.length <= 1) {
     return null;
   }
   return (
     <ScrollView horizontal w="100%" mt="6">
-      {networks.map((n, index) => {
+      {[FAKE_ALL_NETWORK, ...networks].map((n, index) => {
         if (!n?.id) {
           return;
         }
@@ -320,7 +320,7 @@ const AssetsInfo: FC = () => {
       ListFooterComponent={items?.length ? null : empty}
       ListHeaderComponent={
         <Header
-          networks={[FAKE_ALL_NETWORK, ...sections.map((s) => s.network)]}
+          networks={sections.map((s) => s.network)}
           value={selectedNetworkId}
           onChange={(id) => setSelectedNetworkId(id)}
         />
