@@ -1,3 +1,16 @@
+/* eslint-disable import/first */
+if (process.env.NODE_ENV !== 'production') {
+  const { Platform } = require('react-native');
+  const manufacturer = Platform.constants.Brand
+    ? `${Platform.constants.Brand} (${Platform.constants.Manufacturer})`
+    : '';
+  const fingerprint = Platform.constants.Fingerprint
+    ? `-${Platform.constants.Fingerprint}`
+    : '';
+  global.REMPL_TITLE = `${manufacturer}${Platform.OS}_${Platform.Version}${fingerprint}`;
+  require('react-render-tracker');
+}
+
 import { registerRootComponent } from 'expo';
 
 import App from './App';
