@@ -5,7 +5,7 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import * as ethUtils from 'ethereumjs-util';
 import stringify from 'fast-json-stable-stringify';
-import { get } from 'lodash';
+import { get, isNil } from 'lodash';
 import uuid from 'react-native-uuid';
 
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
@@ -60,6 +60,15 @@ function convertToEthereumChainResult(result: Network | undefined | null) {
     chainId: result?.extraInfo?.chainId,
     networkVersion: result?.extraInfo?.networkVersion,
   };
+}
+
+function prefixTxValueToHex(value: string) {
+  if (value && !value.startsWith('0x') && !value.startsWith('0X')) {
+    if (value.length % 2 === 0) {
+      return `0x${value}`;
+    }
+  }
+  return value;
 }
 
 @backgroundClass()
@@ -176,6 +185,9 @@ class ProviderApiEthereum extends ProviderApiBase {
     // const { from, to, value, gasLimit, gasPrice, data, nonce, type } =
     //   transaction;
 
+    if (!isNil(transaction.value)) {
+      transaction.value = prefixTxValueToHex(transaction.value);
+    }
     const result = await this.backgroundApi.serviceDapp?.openSignAndSendModal(
       request,
       {
