@@ -72,6 +72,7 @@ import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
 
@@ -681,10 +682,24 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async getReservedNetworkFee(networkId: string) {
-    const { appSelector } = this.backgroundApi;
-    const reservedNetworkFees = appSelector(
+    const { appSelector, dispatch } = this.backgroundApi;
+    const endpoint = await this.getServerEndPoint();
+    const url = `${endpoint}/swap/minimum_gas`;
+    let reservedNetworkFees = appSelector(
       (s) => s.swapTransactions.reservedNetworkFees,
     );
+
+    try {
+      const res = await this.client.get(url);
+      const data = res.data as Record<string, string> | undefined;
+      if (data) {
+        dispatch(setReservedNetworkFees(data));
+        reservedNetworkFees = data;
+      }
+    } catch {
+      debugLogger.swap.error('failed to fetch minimum network gas');
+    }
+
     return reservedNetworkFees?.[networkId] ?? ('0.01' as string);
   }
 
