@@ -215,13 +215,14 @@ export function useAccountTokensOnChain(
   } = useAppSelector((s) => s.settings);
   const fiatMap = useAppSelector((s) => s.fiatMoney.map);
   const fiat = fiatMap[selectedFiatMoneySymbol]?.value || 0;
-  const tokens = useAppSelector(
-    (s) => s.tokens.accountTokens?.[networkId]?.[accountId] ?? [],
-  );
-  const balances = useAppSelector(
-    (s) => s.tokens.accountTokensBalance?.[networkId]?.[accountId] ?? [],
-  );
-  const prices = useAppSelector((s) => s.tokens.tokenPriceMap ?? {});
+  const tokens =
+    useAppSelector((s) => s.tokens.accountTokens?.[networkId]?.[accountId]) ??
+    [];
+  const balances =
+    useAppSelector(
+      (s) => s.tokens.accountTokensBalance?.[networkId]?.[accountId],
+    ) ?? [];
+  const prices = useAppSelector((s) => s.tokens.tokenPriceMap) ?? {};
 
   const valueTokens = tokens.map((t) => {
     const priceInfo =

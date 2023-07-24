@@ -16,6 +16,7 @@ const config: TabRouteConfig = {
   component: withTabLayout(
     toFocusedLazy(DeveloperScreen, {
       rootTabName: name,
+      freezeWhenBlur: true,
     }),
     name,
   ),
