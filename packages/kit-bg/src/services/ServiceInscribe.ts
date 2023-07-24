@@ -5,10 +5,12 @@ import { cloneDeep, isNil, maxBy } from 'lodash';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
+  getFiatEndpoint,
   getGetblockEndpoint,
   getMempoolEndpoint,
 } from '@onekeyhq/engine/src/endpoint';
 import { InscribeFileTooLargeError } from '@onekeyhq/engine/src/errors';
+import { getNetworkImpl } from '@onekeyhq/engine/src/managers/network.utils';
 import {
   INSCRIBE_ACCOUNT_STORAGE_KEY,
   INSCRIPTION_PADDING_SATS_VALUES,
@@ -228,9 +230,10 @@ export default class ServiceInscribe extends ServiceBase {
     txs: Array<string>;
     networkId: string;
   }): Promise<string[]> {
-    const { apiGetblock } = await this.getBitcoinNetworkMap(networkId);
-
-    const client = new JsonRPCRequest(apiGetblock);
+    // const { apiGetblock } = await this.getBitcoinNetworkMap(networkId);
+    const networkImpl = getNetworkImpl(networkId);
+    const endpoint = `${getFiatEndpoint()}/book/${networkImpl}/send_txs`;
+    const client = new JsonRPCRequest(endpoint);
     const txids = await client.batchCall<string[]>(
       txs.map((rawTx) => ['sendrawtransaction', [rawTx]]),
     );
