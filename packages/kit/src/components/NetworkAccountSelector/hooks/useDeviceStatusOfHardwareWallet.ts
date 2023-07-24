@@ -4,11 +4,7 @@ import type { Device } from '@onekeyhq/engine/src/types/device';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
-  useAppSelector,
-  useRuntimeWallets,
-  useSettings,
-} from '../../../hooks/redux';
+import { useAppSelector, useRuntimeWallets } from '../../../hooks/redux';
 
 export type DeviceStatusType = {
   isConnected: boolean;
@@ -20,7 +16,7 @@ export type IHardwareDeviceStatusMap = {
 
 export function useDeviceStatusOfHardwareWallet() {
   const { hardwareWallets } = useRuntimeWallets();
-  const { deviceUpdates } = useSettings();
+  const deviceUpdates = useAppSelector((s) => s.settings.deviceUpdates);
   const connected = useAppSelector((s) => s.hardware.connected);
   const [devicesStatus, setDevicesStatus] =
     useState<IHardwareDeviceStatusMap>();

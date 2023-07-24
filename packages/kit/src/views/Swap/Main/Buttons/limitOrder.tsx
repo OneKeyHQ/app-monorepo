@@ -34,6 +34,7 @@ import {
   lte,
 } from '../../utils';
 
+import { WalletACLButton } from './common';
 import { LimitOrderProgressButton } from './progress';
 
 import type { Task } from '../../utils';
@@ -332,7 +333,7 @@ const LimitOrderStateButton = () => {
   return <LimitOrderButton />;
 };
 
-export const LimitOrderMainButton = () => {
+export const LimitOrderContentButton = () => {
   const intl = useIntl();
   const limitOrderMaintain = useAppSelector(
     (s) => s.swapTransactions.limitOrderMaintain,
@@ -346,3 +347,9 @@ export const LimitOrderMainButton = () => {
   }
   return <LimitOrderStateButton />;
 };
+
+export const LimitOrderMainButton = () => (
+  <WalletACLButton>
+    <LimitOrderContentButton />
+  </WalletACLButton>
+);

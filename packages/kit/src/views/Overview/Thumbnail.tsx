@@ -17,17 +17,14 @@ import {
 } from '@onekeyhq/components';
 
 import { FormatCurrencyNumber } from '../../components/Format';
-import {
-  useAccountPortfolios,
-  useAccountValues,
-  useNavigation,
-} from '../../hooks';
+import { useAccountValues, useNavigation } from '../../hooks';
 import { HomeRoutes, ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 
 import { OverviewBadge } from './components/OverviewBadge';
-import { EOverviewScanTaskType, OverviewModalRoutes } from './types';
+import { OverviewModalRoutes } from './types';
 
 import type { HomeRoutesParams, RootRoutesParams } from '../../routes/types';
+import type { OverviewDefiRes } from './types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -44,6 +41,7 @@ export type OverviewDefiListProps = {
   accountId: string;
   address: string;
   limitSize?: number;
+  data: OverviewDefiRes[];
 };
 
 export type IAssetHeaderProps = {
@@ -122,38 +120,32 @@ const AssetHeader: FC<IAssetHeaderProps> = ({
           </HStack>
           {isVertical ? protocolValueComp : null}
         </VStack>
+        {isVertical ? null : (
+          <HStack mt="4">
+            <Typography.Subheading flex="1" color="text-subdued">
+              {intl.formatMessage({ id: 'form__protocols_uppercase' })}
+            </Typography.Subheading>
+            <Typography.Subheading flex="1" color="text-subdued">
+              {intl.formatMessage({ id: 'form__claimable_uppercase' })}
+            </Typography.Subheading>
+            <Typography.Subheading
+              flex="1"
+              color="text-subdued"
+              textAlign="right"
+            >
+              {intl.formatMessage({ id: 'form__value_uppercase' })}
+            </Typography.Subheading>
+          </HStack>
+        )}
       </Pressable.Item>
-      {isVertical ? null : (
-        <HStack mt="4" px="6" bg="surface-default">
-          <Typography.Subheading flex="1" color="text-subdued">
-            {intl.formatMessage({ id: 'form__protocols_uppercase' })}
-          </Typography.Subheading>
-          <Typography.Subheading flex="1" color="text-subdued">
-            {intl.formatMessage({ id: 'form__claimable_uppercase' })}
-          </Typography.Subheading>
-          <Typography.Subheading
-            flex="1"
-            color="text-subdued"
-            textAlign="right"
-          >
-            {intl.formatMessage({ id: 'form__value_uppercase' })}
-          </Typography.Subheading>
-        </HStack>
-      )}
     </VStack>
   );
 };
 
 const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
-  const { networkId, limitSize, accountId } = props;
+  const { networkId, limitSize, accountId, data: defis = [] } = props;
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
-
-  const { data: defis } = useAccountPortfolios({
-    networkId,
-    accountId,
-    type: EOverviewScanTaskType.defi,
-  });
 
   const allDefiValues = useMemo(
     () => defis.reduce((sum, next) => sum.plus(next.protocolValue), new B(0)),

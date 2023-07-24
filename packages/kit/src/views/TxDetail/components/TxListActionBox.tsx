@@ -3,7 +3,6 @@ import type { ComponentProps } from 'react';
 import { Box, HStack, Text, Token } from '@onekeyhq/components';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Network } from '@onekeyhq/engine/src/types/network';
-import { isLightningNetworkByImpl } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { useAppSelector } from '../../../hooks';
 import { TxActionElementIconLarge } from '../elements/TxActionElementIcon';
@@ -81,9 +80,6 @@ export function TxListActionBox(props: ITxListActionBoxProps) {
   );
   const extraView = fallbackTextComponent(extra, TxListActionBoxExtraText);
   const hasExtraView = !!extraView;
-  const showSubtitleToken =
-    !isLightningNetworkByImpl(network?.impl ?? '') ||
-    subTitleView !== undefined;
   return (
     <Box>
       <HStack space={2}>

@@ -17,7 +17,7 @@ function useCustomFee(networkId: string) {
   );
 
   useEffect(() => {
-    const getcustomFee = async () => {
+    const getCustomFee = async () => {
       try {
         const fee = await backgroundApiProxy.serviceNetwork.getNetworkCustomFee(
           networkId,
@@ -31,7 +31,7 @@ function useCustomFee(networkId: string) {
         setCustomFee(null);
       }
     };
-    getcustomFee();
+    getCustomFee();
   }, [networkId]);
 
   return {

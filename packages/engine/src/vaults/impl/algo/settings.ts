@@ -19,6 +19,7 @@ const settings: IVaultSettings = Object.freeze({
 
   isUTXOModel: false,
   activateTokenRequired: true,
+  allowZeroFee: true,
 
   accountNameInfo: {
     default: {

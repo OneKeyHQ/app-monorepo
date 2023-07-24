@@ -1305,6 +1305,12 @@ export default class VaultBtcFork extends VaultBase {
         if (!founded) {
           throw new UtxoNotFoundError();
         }
+        // TODO inscription offset testing
+        // keep the original value of inscription
+        value = founded.value;
+        if (value < 0 || isNil(value)) {
+          throw new Error('Sending inscription utxo value is not valid.');
+        }
       }
 
       outputsForCoinSelect = [

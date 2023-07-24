@@ -9,6 +9,7 @@ import {
   HStack,
   RadioFee,
   Spinner,
+  Text,
   VStack,
 } from '@onekeyhq/components';
 import type { IGasInfo } from '@onekeyhq/engine/src/types/gas';
@@ -19,7 +20,6 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNetworkSimple } from '../../hooks';
 import { FeeSpeedLabel } from '../Send/components/FeeSpeedLabel';
-import { FeeSpeedTime } from '../Send/components/FeeSpeedTime';
 import { FeeSpeedTip } from '../Send/components/FeeSpeedTip';
 import { SendEditFeeOverview } from '../Send/components/SendEditFeeOverview';
 
@@ -41,6 +41,45 @@ const presetItemStyle = {
   height: '48px',
   bgColor: 'transparent',
 };
+
+const gasSpeedColor = ['decorative-icon-three', 'text-warning', 'text-success'];
+
+function GasPriceLabel({
+  index,
+  price,
+  feeInfo,
+}: {
+  index: number;
+  price: string | EIP1559Fee;
+  feeInfo: IFeeInfo;
+}) {
+  const priceLabel = useMemo(() => {
+    if (feeInfo.isBtcForkChain) {
+      return `${new BigNumber(price as string)
+        .shiftedBy(feeInfo?.feeDecimals ?? 8)
+        .toFixed()}`;
+    }
+
+    if (typeof price === 'string') {
+      return price;
+    }
+    return price.gasPrice ?? price.price;
+  }, [feeInfo?.feeDecimals, feeInfo.isBtcForkChain, price]);
+
+  const feeSymbol = useMemo(() => {
+    if (feeInfo.isBtcForkChain) {
+      return 'sat/vB';
+    }
+
+    return feeInfo.feeSymbol;
+  }, [feeInfo.feeSymbol, feeInfo.isBtcForkChain]);
+
+  return (
+    <Text typography="Body1Strong" color={gasSpeedColor[index]}>
+      {`${priceLabel ?? ''} ${feeSymbol ?? ''}`}
+    </Text>
+  );
+}
 
 function getPrice(price: string | EIP1559Fee, isEIP1559Enabled: boolean) {
   if (isEIP1559Enabled) {
@@ -76,6 +115,7 @@ function GasList(props: Props) {
       defaultPresetIndex: '1',
       eip1559: isEIP1559Enabled && !isBtcForkChain,
       limit,
+      feeSymbol: network.feeSymbol,
       feeDecimals: network.feeDecimals,
       nativeDecimals: network.decimals,
       isBtcForkChain,
@@ -94,27 +134,35 @@ function GasList(props: Props) {
     const items = prices.map((price, index) => ({
       value: index.toString(),
       title: (
-        <FeeSpeedLabel index={index} iconSize={28} space={2} prices={prices} />
+        <FeeSpeedLabel
+          index={index}
+          iconSize={28}
+          space={3}
+          prices={prices}
+          waitingSeconds={waitingSeconds[index]}
+          withSpeedTime
+        />
       ),
 
       describe: (
         <HStack space="10px" alignItems="center">
           <VStack>
+            <GasPriceLabel price={price} index={index} feeInfo={feeInfo} />
             <SendEditFeeOverview
               accountId=""
               networkId={selectedNetworkId}
               price={getPrice(price, isEIP1559Enabled && !isBtcForkChain)}
               feeInfo={feeInfo}
               limit={limit}
-              currencyProps={{ typography: 'Body1', textAlign: 'right' }}
+              currencyProps={{
+                typography: 'Body2',
+                textAlign: 'right',
+                color: 'text-subdued',
+              }}
               formatOptions={{
                 fixed: selectedNetworkId === OnekeyNetwork.polygon ? 4 : 2,
               }}
               onlyCurrency
-            />
-            <FeeSpeedTime
-              index={index}
-              waitingSeconds={waitingSeconds[index]}
             />
           </VStack>
           <FeeSpeedTip

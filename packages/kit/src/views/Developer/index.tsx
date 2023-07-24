@@ -631,7 +631,7 @@ export const Debug = () => {
                     // texts: ['iuuu'],
                   });
                 console.log('Inscribe contents >>>>> : ', contents);
-                const feeRates = await serviceInscribe.fetchFeeRates();
+                const feeRates = await serviceInscribe.fetchFeeRates(networkId);
                 console.log(
                   'createInscribeOrder: ',
                   new Date().toLocaleString(),
@@ -642,6 +642,8 @@ export const Debug = () => {
                   contents,
                   feeRate: feeRates.halfHourFee,
                   globalPaddingSats: INSCRIPTION_PADDING_SATS_VALUES.default,
+                  networkId,
+                  accountId,
                 });
                 console.log(
                   'createInscribeOrder: done',
@@ -656,12 +658,15 @@ export const Debug = () => {
                   await serviceInscribe.buildInscribeCommitEncodedTx({
                     to: order.fundingAddress,
                     amount: order.fundingValueNative,
+                    networkId,
+                    accountId,
                   });
 
                 const submitOrder = async (commitSignedTx?: ISignedTxPro) => {
                   const result = await serviceInscribe.submitInscribeOrder({
                     order,
                     commitSignedTx,
+                    networkId,
                   });
 
                   console.log('inscribe done, check txid or errors: ', result);

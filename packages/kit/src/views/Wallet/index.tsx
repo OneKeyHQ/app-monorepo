@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/kit/src/hooks/redux';
 import RefreshLightningNetworkToken from '@onekeyhq/kit/src/views/LightningNetwork/RefreshLightningNetworkToken';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
+import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -214,10 +215,21 @@ const WalletTabs: FC = () => {
     });
   }, []);
 
-  const tabContents = useMemo(() => usedTabs.map((t) => t.tab), [usedTabs]);
+  const tabContents = useMemo(
+    () => usedTabs.map((t) => t.tab).filter(Boolean),
+    [usedTabs],
+  );
+
+  const isLightningNetwork = useMemo(
+    () => isLightningNetworkByNetworkId(networkId),
+    [networkId],
+  );
 
   const walletTabsContainer = (
     <Tabs.Container
+      // IMPORTANT: key is used to force re-render when the tab is changed
+      // otherwise android app will crash when tabs are changed
+      key={platformEnv.isNativeAndroid ? `${tabContents.length}` : undefined}
       canOpenDrawer
       initialTabName={homeTabName}
       refreshing={refreshing}
@@ -244,7 +256,7 @@ const WalletTabs: FC = () => {
         flex: 1,
       }}
     >
-      {tabContents.filter(Boolean).map((tab) => tab)}
+      {tabContents}
     </Tabs.Container>
   );
 
@@ -264,6 +276,15 @@ const WalletTabs: FC = () => {
             },
             { '0': network.name },
           )}
+          checkIsNeedPassword={
+            isLightningNetwork
+              ? () =>
+                  backgroundApiProxy.serviceLightningNetwork.checkAuth({
+                    networkId,
+                    accountId,
+                  })
+              : undefined
+          }
         >
           {(password) => (
             <>
@@ -282,7 +303,7 @@ const WalletTabs: FC = () => {
   return walletTabsContainer;
 };
 
-export default function Wallet() {
+const Wallet = () => {
   useOnboardingRequired(true);
   useHtmlPreloadSplashLogoRemove();
 
@@ -296,4 +317,6 @@ export default function Wallet() {
       <BottomView />
     </>
   );
-}
+};
+
+export default memo(Wallet);

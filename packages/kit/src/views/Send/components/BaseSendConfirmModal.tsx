@@ -8,8 +8,12 @@ import { Text } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { NetworkCongestionThresholds } from '@onekeyhq/engine/src/types/network';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type { IEncodedTxLightning } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types';
 import { IDecodedTxDirection } from '@onekeyhq/engine/src/vaults/types';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_EVM,
+  isLightningNetworkByImpl,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import { isWatchingAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -150,6 +154,28 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
     return false;
   }, [advancedSettings?.currentHexData]);
 
+  const isLNExceedTransferLimit = useMemo(() => {
+    if (!encodedTx) {
+      return false;
+    }
+    if (isLightningNetworkByImpl(networkImpl)) {
+      const tx = encodedTx as IEncodedTxLightning | undefined;
+      return tx?.isExceedTransferLimit;
+    }
+    return false;
+  }, [encodedTx, networkImpl]);
+
+  const lightingNetworkTransferConfig = useMemo(() => {
+    if (!encodedTx) {
+      return null;
+    }
+    if (isLightningNetworkByImpl(networkImpl)) {
+      const tx = encodedTx as IEncodedTxLightning | undefined;
+      return tx?.config;
+    }
+    return null;
+  }, [encodedTx, networkImpl]);
+
   const confirmAction = useCallback(
     async ({ close, onClose }) => {
       let tx = encodedTx;
@@ -289,6 +315,7 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
           isInvalidHexData ||
           balanceInsufficient ||
           isAccountNotMatched ||
+          isLNExceedTransferLimit ||
           feeInfoLoading ||
           !feeInfoPayload ||
           !encodedTx ||
@@ -319,6 +346,8 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
                 isPendingTxSameNonceWithLowerGas={
                   isPendingTxSameNonceWithLowerGas
                 }
+                isLNExceedTransferLimit={isLNExceedTransferLimit}
+                lightingNetworkTransferConfig={lightingNetworkTransferConfig}
               />
             )}
 

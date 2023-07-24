@@ -12,7 +12,7 @@ import {
   useThemeValue,
 } from '@onekeyhq/components';
 import CustomToast from '@onekeyhq/components/src/Toast/Custom';
-import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import { RootStackNavigator } from '@onekeyhq/kit/src/routes';
 import type { RootRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import { analyticLogEvent } from '@onekeyhq/shared/src/analytics';
@@ -96,7 +96,7 @@ const NavigationApp = () => {
     [bgColor, textColor, dividerColor, showFixedBg],
   );
 
-  const { instanceId } = useSettings();
+  const instanceId = useAppSelector((s) => s.settings.instanceId);
 
   useEffect(() => {
     analyticLogEvent('initialized', {

@@ -24,7 +24,12 @@ export interface ILazyRenderWhenFocusProps {
 export function LazyRenderWhenFocus({
   children,
   unmountWhenBlur,
-  freezeWhenBlur = true,
+  /* 
+  freeze = unmount platforms:
+    - web
+    - android?
+  */
+  freezeWhenBlur,
   rootTabName,
 }: ILazyRenderWhenFocusProps) {
   const isFocusedRef = useRef(false);
@@ -84,9 +89,12 @@ export function LazyRenderWhenFocus({
     });
   }
 
+  const renderChildren = isFocusedRef.current || isFocused ? children : null;
+  // return <>{renderChildren}</>;
+
   const content = (
-    <DelayedFreeze freeze={shouldFreeze && freezeWhenBlur}>
-      {isFocusedRef.current || isFocused ? children : null}
+    <DelayedFreeze freeze={Boolean(shouldFreeze && freezeWhenBlur)}>
+      {renderChildren}
     </DelayedFreeze>
   );
   return content;
@@ -96,11 +104,10 @@ export function toFocusedLazy(
   CmpClass: any,
   lazyProps?: ILazyRenderWhenFocusProps,
 ) {
-  if (platformEnv.isNative || platformEnv.isDesktop) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return CmpClass;
-  }
-
+  // if (platformEnv.isNative || platformEnv.isDesktop) {
+  //   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  //   return CmpClass;
+  // }
   // return CmpClass;
   const lazyCmp = (props: any) => (
     <LazyRenderWhenFocus {...lazyProps}>
