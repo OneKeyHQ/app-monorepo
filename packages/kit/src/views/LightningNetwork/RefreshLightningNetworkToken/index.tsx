@@ -19,6 +19,9 @@ export default function RefreshLightningNetworkToken({
 }) {
   const intl = useIntl();
   useEffect(() => {
+    if (!password) {
+      return;
+    }
     if (
       !networkId ||
       ![OnekeyNetwork.lightning, OnekeyNetwork.tlightning].includes(networkId)

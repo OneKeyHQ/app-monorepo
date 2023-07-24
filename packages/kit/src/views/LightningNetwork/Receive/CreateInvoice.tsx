@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -13,6 +13,7 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import type { IInvoiceConfig } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/invoice';
 import { FormatCurrencyTokenOfAccount } from '@onekeyhq/kit/src/components/Format';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -54,6 +55,18 @@ const CreateInvoice = () => {
   const nativeToken = useNativeToken(networkId);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [invoiceConfig, setInvoiceConfig] = useState<IInvoiceConfig | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!networkId || !accountId) return;
+    backgroundApiProxy.serviceLightningNetwork
+      .getInvoiceConfig({ networkId, accountId })
+      .then((config) => {
+        setInvoiceConfig(config);
+      });
+  }, [networkId, accountId]);
 
   const onSubmit = useCallback(
     async (values: FormValues) => {
@@ -167,6 +180,27 @@ const CreateInvoice = () => {
                   message: intl.formatMessage({
                     id: 'form__field_only_integer',
                   }),
+                },
+                validate: (value) => {
+                  const valueBN = new BigNumber(value);
+                  if (!valueBN.isInteger()) {
+                    return intl.formatMessage({
+                      id: 'form__field_only_integer',
+                    });
+                  }
+                  if (
+                    invoiceConfig?.maxReceiveAmount &&
+                    valueBN.isGreaterThan(invoiceConfig?.maxReceiveAmount)
+                  ) {
+                    return intl.formatMessage(
+                      {
+                        id: 'msg_receipt_amount_should_be_less_than_int_sats',
+                      },
+                      {
+                        0: invoiceConfig?.maxReceiveAmount,
+                      },
+                    );
+                  }
                 },
               }}
               defaultValue=""
