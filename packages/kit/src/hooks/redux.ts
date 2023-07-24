@@ -63,6 +63,9 @@ export const useDiscover = () => {
   return discover;
 };
 
+/**
+ * @deprecated use useAppSelector instead
+ */
 export const { use: useStatus, get: getStatus } = makeSelector<StatusState>(
   (selector) => selector((s) => s.status),
 );
@@ -77,6 +80,9 @@ export const useGeneral = () => {
   return general;
 };
 
+/**
+ * @deprecated use useAppSelector instead
+ */
 export const useRuntime = () => useAppSelector((s) => s.runtime);
 
 export const useNetworks = () => useAppSelector((s) => s.runtime.networks);

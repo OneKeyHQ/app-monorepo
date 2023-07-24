@@ -1,10 +1,12 @@
 import type { ComponentProps, FC } from 'react';
 import { memo, useCallback, useEffect, useState } from 'react';
 
+import { createSelector } from '@reduxjs/toolkit';
+
 import { Provider } from '@onekeyhq/components';
 import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import LOCALES from '@onekeyhq/components/src/locale';
-import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import { useColorScheme } from '@onekeyhq/kit/src/hooks/useColorScheme';
 import {
   setLeftSidebarCollapsed,
@@ -15,8 +17,24 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useReduxReady } from '../hooks/useReduxReady';
 import { useSystemLocale } from '../hooks/useSystemLocale';
 
+import type { IAppState } from '../store';
+
 export function useThemeProviderVariant() {
-  const { theme, locale, lastLocale } = useSettings();
+  const { theme, locale, lastLocale } = useAppSelector(
+    createSelector(
+      [
+        (s: IAppState) => s.settings.theme,
+        (s: IAppState) => s.settings.locale,
+        (s: IAppState) => s.settings.lastLocale,
+      ],
+      // eslint-disable-next-line @typescript-eslint/no-shadow
+      (theme, locale, lastLocale) => ({
+        theme,
+        locale,
+        lastLocale,
+      }),
+    ),
+  );
   const systemLocale = useSystemLocale();
   const colorScheme = useColorScheme();
   const themeVariant = theme === 'system' ? colorScheme ?? 'dark' : theme;

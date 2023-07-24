@@ -1362,6 +1362,9 @@ const serverPresetNetworks = [
       {
         'url': 'https://1rpc.io/eth',
       },
+      {
+        'url': 'https://onekey-eth.rpc.blxrbdn.com',
+      },
     ],
     'shortcode': 'eth',
     'shortname': 'ETH',
@@ -1786,6 +1789,9 @@ const serverPresetNetworks = [
       {
         'url': 'https://1rpc.io/matic',
       },
+      {
+        'url': 'https://onekey-polygon.rpc.blxrbdn.com',
+      },
     ],
     'shortcode': 'polygon',
     'shortname': 'Polygon',
@@ -2093,6 +2099,9 @@ const serverPresetNetworks = [
     'rpcURLs': [
       {
         'url': 'https://zksync2-mainnet.zksync.io',
+      },
+      {
+        'url': 'https://1rpc.io/zksync2-era',
       },
     ],
     'shortcode': 'zksyncera',
@@ -2432,6 +2441,9 @@ const serverPresetNetworks = [
       },
       {
         'url': 'https://1rpc.io/bnb',
+      },
+      {
+        'url': 'https://onekey-bnb.rpc.blxrbdn.com',
       },
     ],
     'shortcode': 'bsc',
@@ -3497,6 +3509,9 @@ const serverPresetNetworks = [
       },
       {
         'url': 'https://fullnode.mainnet.sui.io',
+      },
+      {
+        'url': 'https://1rpc.io/sui',
       },
     ],
     'shortcode': 'sui',

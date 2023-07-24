@@ -115,7 +115,7 @@ class ServiceOverview extends ServiceBase {
     >(
       '/overview/query/all',
       {
-        tasks: [...pendingTasksForCurrentNetwork],
+        tasks: pendingTasksForCurrentNetwork,
       },
       null,
       'POST',
@@ -157,15 +157,23 @@ class ServiceOverview extends ServiceBase {
       }
     }
 
-    dispatch(
-      ...dispatchActions,
-      setOverviewPortfolioUpdatedAt({
-        key: dispatchKey,
-        data: {
-          updatedAt: Date.now(),
-        },
-      }),
+    const updateInfo = appSelector(
+      (s) => s.overview.updatedTimeMap?.[dispatchKey],
     );
+
+    if (typeof updateInfo?.updatedAt !== 'undefined' || !pending.length) {
+      // not fist loading
+      dispatchActions.push(
+        setOverviewPortfolioUpdatedAt({
+          key: dispatchKey,
+          data: {
+            updatedAt: Date.now(),
+          },
+        }),
+      );
+    }
+
+    dispatch(...dispatchActions);
   }
 
   processNftPriceActions({
@@ -244,26 +252,6 @@ class ServiceOverview extends ServiceBase {
     return `${scanType}___${networkId}___${accountAddress}___${xpub ?? ''}`;
   }
 
-  filterNewScanTasks(tasks: IOverviewScanTaskItem[]) {
-    return tasks
-      .map((t) => ({
-        ...t,
-        scanTypes: (t.scanTypes ?? []).filter(
-          (s) =>
-            !this.pendingTaskMap[
-              this.getTaksId({
-                id: '',
-                networkId: t.networkId,
-                address: t.address,
-                xpub: t.xpub,
-                scanType: s,
-              })
-            ],
-        ),
-      }))
-      .filter((t) => t.scanTypes.length > 0);
-  }
-
   @bindThis()
   addPendingTasks(tasks: IOverviewScanTaskItem[], key?: string) {
     const { dispatch } = this.backgroundApi;
@@ -307,14 +295,14 @@ class ServiceOverview extends ServiceBase {
         accountId,
         networkId,
       );
-      return this.filterNewScanTasks([
+      return [
         {
           networkId,
           address,
           xpub,
           scanTypes,
         },
-      ]);
+      ];
     }
 
     const networkAccountsMap = appSelector(
@@ -334,7 +322,7 @@ class ServiceOverview extends ServiceBase {
         });
       }
     }
-    return this.filterNewScanTasks(tasks);
+    return tasks;
   }
 
   @backgroundMethod()
@@ -386,6 +374,8 @@ class ServiceOverview extends ServiceBase {
     if (!networkId || !accountId || !walletId) {
       return;
     }
+
+    const scanTypes = [EOverviewScanTaskType.defi, EOverviewScanTaskType.nfts];
     if (!isAllNetworks(networkId)) {
       engine.clearPriceCache();
       await serviceToken.fetchAccountTokens({
@@ -394,15 +384,14 @@ class ServiceOverview extends ServiceBase {
         forceReloadTokens: true,
         includeTop50TokensQuery: true,
       });
+    } else {
+      scanTypes.push(EOverviewScanTaskType.token);
     }
+
     await this.fetchAccountOverview({
       networkId,
       accountId,
-      scanTypes: [
-        EOverviewScanTaskType.defi,
-        EOverviewScanTaskType.token,
-        EOverviewScanTaskType.nfts,
-      ],
+      scanTypes,
     });
   }
 

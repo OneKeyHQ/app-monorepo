@@ -103,20 +103,22 @@ const CreateOrder: FC = () => {
   const refreshData = useCallback(
     async (padding?: number) => {
       setLoading(true);
-      const feeRates = await serviceInscribe.fetchFeeRates();
+      const feeRates = await serviceInscribe.fetchFeeRates(networkId);
       if (feeRates) {
         const data = await serviceInscribe.createInscribeOrder({
           toAddress: receiveAddress,
           contents,
           feeRate: feeRates.fastestFee,
           globalPaddingSats: padding,
+          networkId,
+          accountId,
         });
         updateOrder(data);
         setLoading(false);
         return data;
       }
     },
-    [contents, receiveAddress, serviceInscribe],
+    [accountId, contents, networkId, receiveAddress, serviceInscribe],
   );
 
   const previewText = useMemo(() => {
@@ -151,6 +153,8 @@ const CreateOrder: FC = () => {
         await serviceInscribe.buildInscribeCommitEncodedTx({
           to: data.fundingAddress,
           amount: data.fundingValueNative,
+          networkId,
+          accountId,
         });
 
       const submitOrder = async (commitSignedTx?: ISignedTxPro) => {
@@ -161,6 +165,7 @@ const CreateOrder: FC = () => {
           const result = await serviceInscribe.submitInscribeOrder({
             order,
             commitSignedTx,
+            networkId,
           });
           closeModal();
           if (result.errors.length > 0) {

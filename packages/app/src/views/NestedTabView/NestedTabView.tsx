@@ -127,7 +127,7 @@ const NestedTabView: ForwardRefRenderFunction<
     setPageIndex,
   }));
 
-  const canOpenDrawer = () => {
+  const canOpenDrawer = useCallback(() => {
     if (!platformEnv.isNativeAndroid) {
       return lastTransX.value > drawerOpenDistance;
     }
@@ -136,7 +136,7 @@ const NestedTabView: ForwardRefRenderFunction<
       lastTransX.value > drawerOpenDistance &&
       lockDirection.value === LockDirection.Vertical
     );
-  };
+  }, [lastTransX.value, lockDirection.value]);
 
   const onEnd = useCallback(() => {
     if (enableOpenDrawer) {
@@ -162,7 +162,13 @@ const NestedTabView: ForwardRefRenderFunction<
 
     // restore the onPress function
     enableOnPressAnim.value = withTiming(1, { duration: 200 });
-  }, [enableOpenDrawer, tabIndex, resetGesture, lastTransX, openDrawer]);
+  }, [
+    enableOpenDrawer,
+    tabIndex.value,
+    resetGesture,
+    canOpenDrawer,
+    openDrawer,
+  ]);
 
   const pan = useMemo(() => {
     const basePan = Gesture.Pan();
@@ -227,14 +233,15 @@ const NestedTabView: ForwardRefRenderFunction<
   }, [
     enableOpenDrawer,
     lastTransX,
-    lockDirection,
+    lockDirection.value,
     lockHorizontal,
     lockVertical,
     offsetX,
     onEnd,
     resetGesture,
+    startX,
     startY,
-    tabIndex,
+    tabIndex.value,
   ]);
 
   const onTabChange = useCallback(

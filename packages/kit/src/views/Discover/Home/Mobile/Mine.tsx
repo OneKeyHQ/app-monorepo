@@ -4,15 +4,14 @@ import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { Box, Empty, FlatList } from '@onekeyhq/components';
+import { Box, FlatList } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useAppSelector } from '../../../../hooks';
 import { useTaggedDapps } from '../../hooks';
 import CardView from '../CardView';
 import { DiscoverContext } from '../context';
 
-import { EmptySkeleton } from './EmptySkeleton';
+import { EmptySkeletonContent } from './EmptySkeleton';
 import { ListHeader } from './ListHeader';
 
 import type { SectionDataType, TagDappsType } from '../../type';
@@ -25,10 +24,11 @@ const styles = StyleSheet.create({
   },
 });
 
-const ListEmptyComponent = () => {
-  const home = useAppSelector((s) => s.discover.home);
-  return home ? <Empty title="" /> : <EmptySkeleton />;
-};
+const ListEmptyComponent = () => (
+  <Box mt="4">
+    <EmptySkeletonContent />
+  </Box>
+);
 
 const ListHeaderComponent = () => <ListHeader showDappCategories />;
 

@@ -15,6 +15,7 @@ import type {
 import type {
   ICretaeInvoiceResponse,
   IHistoryItem,
+  IInvoiceConfig,
   IInvoiceDecodedResponse,
   InvoiceType,
 } from '../types/invoice';
@@ -92,6 +93,27 @@ class ClientLightning {
       throw e;
     }
   }
+
+  checkAuth = memoizee(
+    async (address: string) => {
+      const authorization = await this.getAuthorization(address);
+      if (!authorization) {
+        throw new Error('Bad Auth');
+      }
+      return this.request
+        .get<boolean>('/account/auth/check', {
+          params: { testnet: this.testnet },
+          headers: {
+            Authorization: authorization,
+          },
+        })
+        .then((i) => i.data);
+    },
+    {
+      promise: true,
+      maxAge: getTimeDurationMs({ seconds: 30 }),
+    },
+  );
 
   async checkAccountExist(address: string) {
     return this.request
@@ -241,6 +263,41 @@ class ClientLightning {
       })
       .then((i) => i.data);
   }
+
+  async estimateFee({
+    address,
+    dest,
+    amt,
+  }: {
+    address: string;
+    dest: string;
+    amt: string;
+  }) {
+    return this.request
+      .get<{ result: number }>('/payments/estimatefee', {
+        params: { dest, amt, testnet: this.testnet },
+        headers: {
+          Authorization: await this.getAuthorization(address),
+        },
+      })
+      .then((i) => i.data.result);
+  }
+
+  getConfig = memoizee(
+    async (address: string) =>
+      this.request
+        .get<IInvoiceConfig>('/invoices/config', {
+          params: { testnet: this.testnet },
+          headers: {
+            Authorization: await this.getAuthorization(address),
+          },
+        })
+        .then((i) => i.data),
+    {
+      promise: true,
+      maxAge: getTimeDurationMs({ seconds: 60 }),
+    },
+  );
 }
 
 export default ClientLightning;

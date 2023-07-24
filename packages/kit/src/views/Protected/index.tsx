@@ -14,8 +14,7 @@ import {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { ValidationFields } from '../../components/Protected';
-import { useNavigation } from '../../hooks';
-import { useSettings, useStatus } from '../../hooks/redux';
+import { useAppSelector, useNavigation, useSettings } from '../../hooks';
 import { setValidationState } from '../../store/reducers/settings';
 
 type OptionsProps = {
@@ -53,7 +52,7 @@ const Options: FC<OptionsProps> = ({ title, onToggle, divider, isChecked }) => (
 const Protected = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { authenticationType } = useStatus();
+  const authenticationType = useAppSelector((s) => s.status.authenticationType);
   const { validationSetting = {} } = useSettings();
   const { themeVariant } = useTheme();
 

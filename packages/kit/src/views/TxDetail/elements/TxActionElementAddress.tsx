@@ -99,6 +99,7 @@ function TxActionElementAddressMoreMenu(props: AddressMoreMenuProps) {
       isCopy && {
         id: 'action__copy_address',
         onPress: () => handleCopyText(address),
+        icon: 'Square2StackMini',
       },
       isAccount && {
         id: 'action__view_account',
@@ -119,6 +120,7 @@ function TxActionElementAddressMoreMenu(props: AddressMoreMenuProps) {
             },
           });
         },
+        icon: 'UserCircleSolid',
       },
       !!contact && {
         id: 'action__edit',
@@ -138,10 +140,12 @@ function TxActionElementAddressMoreMenu(props: AddressMoreMenuProps) {
             },
           });
         },
+        icon: 'PencilSquareMini',
       },
       openBlockBrowser.hasAvailable && {
         id: 'action__view_in_browser',
         onPress: () => openBlockBrowser.openAddressDetails(address),
+        icon: 'GlobeAltMini',
       },
     ];
     return baseOptions.filter(Boolean);
@@ -165,7 +169,6 @@ export function TxActionElementAddress(
   props: {
     address: string;
     isShorten?: boolean;
-    isLabelShow?: boolean;
     isCopy?: boolean;
     flex?: number;
     checkSecurity?: boolean;
@@ -176,7 +179,6 @@ export function TxActionElementAddress(
   const {
     address,
     isShorten = true,
-    isLabelShow = true,
     isCopy = true,
     checkSecurity = false,
     networkId,
@@ -192,10 +194,7 @@ export function TxActionElementAddress(
 
   const { label, isWatchAccount } = useAddressLabel({ address, networkId });
   const contact = useAddressBookItem({ address });
-  let text = isShorten ? shortenAddress(address) : address;
-  if (label && isLabelShow) {
-    text = `${label}(${address.slice(-4)})`;
-  }
+  const text = isShorten ? shortenAddress(address) : address;
 
   return (
     <VStack flex={flex}>
@@ -217,6 +216,7 @@ export function TxActionElementAddress(
             securityInfo={securityInfo}
             shouldCheckSecurity={shouldCheckSecurity}
             isAccount={!!label}
+            accountLabel={label}
             isWatchAccount={isWatchAccount}
             isAddressBook={!!contact}
             addressBookLabel={contact?.name}

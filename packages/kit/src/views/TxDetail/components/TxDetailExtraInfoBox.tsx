@@ -2,7 +2,7 @@ import { useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, IconButton, Pressable, Text } from '@onekeyhq/components';
+import { Box, HStack, IconButton, Pressable, Text } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
 import {
@@ -10,6 +10,7 @@ import {
   calculateTotalFeeRange,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 
+import { FormatCurrencyNativeOfAccount } from '../../../components/Format';
 import { useClipboard } from '../../../hooks/useClipboard';
 import { useNetwork } from '../../../hooks/useNetwork';
 import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
@@ -25,7 +26,7 @@ function getFeeInNativeText(options: {
   decodedTx: IDecodedTx;
 }) {
   const {
-    decodedTx: { feeInfo, totalFeeInNative },
+    decodedTx: { feeInfo, totalFeeInNative, networkId, accountId },
     network,
   } = options;
   if (!!totalFeeInNative && !!network) {
@@ -47,7 +48,18 @@ function getFeeInNativeText(options: {
       nativeDecimals: network.decimals,
     },
   });
-  return `${calculatedTotalFeeInNative} ${network.symbol}`;
+
+  return (
+    <HStack space={1} alignItems="center">
+      <Text>{`${calculatedTotalFeeInNative} ${network.symbol}`}</Text>
+      <FormatCurrencyNativeOfAccount
+        networkId={networkId}
+        accountId={accountId}
+        value={calculatedTotalFeeInNative}
+        render={(ele) => <Text color="text-subdued">({ele})</Text>}
+      />
+    </HStack>
+  );
 }
 
 function checkIsValidHistoryTxId({
@@ -66,31 +78,23 @@ function checkIsValidHistoryTxId({
 
 // TODO rename ExtraInfoBox
 export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
-  const {
-    decodedTx,
-    historyTx,
-    feeInput,
-    isBatchSendConfirm,
-    isSendConfirm,
-    isHistoryDetail,
-  } = props;
+  const { decodedTx, historyTx, feeInput, isBatchSendConfirm, isSendConfirm } =
+    props;
   const { network } = useNetwork({ networkId: decodedTx.networkId });
   const details: ITxActionElementDetail[] = [];
   const intl = useIntl();
   const { copyText } = useClipboard();
   const clickTimes = useRef(0);
 
-  if (!network?.settings.hiddenFeeOnTxDetail || isHistoryDetail) {
-    details.push({
-      title: intl.formatMessage({ id: 'content__fee' }),
-      content:
-        feeInput ||
-        getFeeInNativeText({
-          network,
-          decodedTx,
-        }),
-    });
-  }
+  details.push({
+    title: intl.formatMessage({ id: 'content__fee' }),
+    content:
+      feeInput ||
+      getFeeInNativeText({
+        network,
+        decodedTx,
+      }),
+  });
   if (
     checkIsValidHistoryTxId({
       txid: decodedTx.txid,
@@ -119,11 +123,7 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
         </Pressable>
       ),
       content: (
-        <TxActionElementAddressNormal
-          address={decodedTx.txid}
-          isCopy={false}
-          isLabelShow={false}
-        />
+        <TxActionElementAddressNormal address={decodedTx.txid} isCopy={false} />
       ),
       extra: (
         <TxDetailHashMoreMenu decodedTx={decodedTx}>
@@ -149,7 +149,6 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
             <TxActionElementAddressNormal
               address={extraInfo}
               isCopy={item.canCopy}
-              isLabelShow={false}
               isShorten={item.isShorten}
             />
           ),

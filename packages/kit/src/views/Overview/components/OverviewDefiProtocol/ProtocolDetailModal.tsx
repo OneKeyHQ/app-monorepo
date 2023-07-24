@@ -16,11 +16,9 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
 import { useAccountPortfolios, useAccountValues } from '../../../../hooks';
-import { useNavigationBack } from '../../../../hooks/useAppNavigation';
 import { useCurrentFiatValue } from '../../../../hooks/useTokens';
 import { EOverviewScanTaskType } from '../../types';
 import { OverviewBadge } from '../OverviewBadge';
@@ -40,10 +38,6 @@ const OverviewProtocolDetail: FC = () => {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const route = useRoute<RouteProps>();
-  const close = useModalClose();
-  const goBack = useNavigationBack({
-    fallback: close,
-  });
 
   const { networkId, protocolId, accountId, poolCode } = route.params;
 
@@ -120,52 +114,37 @@ const OverviewProtocolDetail: FC = () => {
 
   const open = useOpenProtocolUrl(protocol);
 
-  if (loading) {
-    return (
-      <Modal
-        size="2xl"
-        hidePrimaryAction
-        hideSecondaryAction
-        footer={null}
-        staticChildrenProps={{
-          children: <Spinner />,
-        }}
-      />
-    );
-  }
-
-  if (!protocol) {
-    goBack();
-    return null;
-  }
-
   return (
     <Modal
       size="2xl"
+      height="560px"
       hidePrimaryAction
-      hideSecondaryAction={!protocol.protocolUrl}
+      hideSecondaryAction={!protocol?.protocolUrl}
       // @ts-ignore
       header={header}
-      footer={!protocol.protocolUrl ? null : undefined}
+      footer={!protocol?.protocolUrl ? null : undefined}
       headerDescription={headerDescription}
       onSecondaryActionPress={open}
       secondaryActionProps={{
         children: intl.formatMessage(
           { id: 'form__visit_str' },
           {
-            0: protocol.protocolName,
+            0: protocol?.protocolName ?? '',
           },
         ),
       }}
       scrollViewProps={{
-        children: (
-          <OverviewDefiProtocol
-            {...protocol}
-            showHeader={false}
-            bgColor="surface-default"
-            poolCode={poolCode}
-          />
-        ),
+        children:
+          loading || !protocol ? (
+            <Spinner />
+          ) : (
+            <OverviewDefiProtocol
+              {...protocol}
+              showHeader={false}
+              bgColor="surface-default"
+              poolCode={poolCode}
+            />
+          ),
       }}
     />
   );

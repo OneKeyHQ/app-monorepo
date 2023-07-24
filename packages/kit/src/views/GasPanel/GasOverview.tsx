@@ -1,17 +1,14 @@
-import { type ComponentProps, useMemo } from 'react';
+import { type ComponentProps } from 'react';
 
-import { BigNumber } from 'bignumber.js';
-import { map } from 'lodash';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Box, HStack, Text } from '@onekeyhq/components';
 import type { IGasInfo } from '@onekeyhq/engine/src/types/gas';
 import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
 import { NetworkCongestionThresholds } from '@onekeyhq/engine/src/types/network';
-import { calculateTotalFeeRange } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 
-import { FormatCurrencyNativeOfAccount } from '../../components/Format';
-import { useActiveWalletAccount, useNetworkSimple } from '../../hooks';
+import { useNetworkSimple } from '../../hooks';
 
 import { networkPendingTransactionThresholds } from './config';
 
@@ -92,45 +89,7 @@ function GasOverview(props: Props) {
 
   const intl = useIntl();
 
-  const { accountId } = useActiveWalletAccount();
-
   const network = useNetworkSimple(selectedNetworkId);
-
-  const totalNative = useMemo(() => {
-    if (isEIP1559Enabled && network) {
-      const priceLength = prices?.length || 1;
-      const averageBaseFee = BigNumber.sum(
-        ...map(prices as Array<EIP1559Fee>, 'baseFee'),
-      )
-        .dividedBy(priceLength)
-        .toFixed();
-      const averageMaxFee = BigNumber.sum(
-        ...map(prices as Array<EIP1559Fee>, 'maxFeePerGas'),
-      )
-        .dividedBy(priceLength)
-        .toFixed();
-      const averageMaxPriorityFee = BigNumber.sum(
-        ...map(prices as Array<EIP1559Fee>, 'maxPriorityFeePerGas'),
-      )
-        .dividedBy(priceLength)
-        .toFixed();
-      const limit = String(network.settings.minGasLimit || 21000);
-      const total = calculateTotalFeeRange({
-        eip1559: true,
-        price1559: {
-          baseFee: averageBaseFee,
-          maxFeePerGas: averageMaxFee,
-          maxPriorityFeePerGas: averageMaxPriorityFee,
-        },
-        limit,
-      }).max;
-      return new BigNumber(total)
-        .shiftedBy(network.feeDecimals ?? 0)
-        .shiftedBy(-(network.decimals ?? 0))
-        .toFixed(8);
-    }
-    return '0';
-  }, [isEIP1559Enabled, network, prices]);
 
   if (!gasInfo) return null;
 
@@ -140,6 +99,7 @@ function GasOverview(props: Props) {
   )
     return null;
 
+  const price = prices?.[0];
   let gasLevel: GasLevel = GasLevel.stable;
 
   if (networkCongestion) {
@@ -164,21 +124,10 @@ function GasOverview(props: Props) {
       {isEIP1559Enabled ? (
         <HStack alignItems="center" mt={1} justifyContent="center">
           <Text color="text-subdued">
-            {' '}
-            {intl.formatMessage({ id: 'form__max_fee' })}:
+            {`${intl.formatMessage({ id: 'form__base_fee' })}: ${new BigNumber(
+              (price as EIP1559Fee)?.baseFee ?? 0,
+            ).toFixed(2)} ${network?.feeSymbol ?? ''}`}
           </Text>
-          <FormatCurrencyNativeOfAccount
-            networkId={selectedNetworkId}
-            accountId={accountId}
-            value={totalNative}
-            formatOptions={{
-              fixed: 4,
-            }}
-            render={(ele) => <Text color="text-subdued">{ele}</Text>}
-          />
-          <Text color="text-subdued">{`(${totalNative} ${
-            network?.symbol || ''
-          })`}</Text>
         </HStack>
       ) : (
         <Text typography="Body2" mt={1} color="text-subdued" textAlign="center">
