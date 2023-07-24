@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/kit/src/hooks/redux';
 import RefreshLightningNetworkToken from '@onekeyhq/kit/src/views/LightningNetwork/RefreshLightningNetworkToken';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
+import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -219,6 +220,11 @@ const WalletTabs: FC = () => {
     [usedTabs],
   );
 
+  const isLightningNetwork = useMemo(
+    () => isLightningNetworkByNetworkId(networkId),
+    [networkId],
+  );
+
   const walletTabsContainer = (
     <Tabs.Container
       // IMPORTANT: key is used to force re-render when the tab is changed
@@ -270,6 +276,15 @@ const WalletTabs: FC = () => {
             },
             { '0': network.name },
           )}
+          checkIsNeedPassword={
+            isLightningNetwork
+              ? () =>
+                  backgroundApiProxy.serviceLightningNetwork.checkAuth({
+                    networkId,
+                    accountId,
+                  })
+              : undefined
+          }
         >
           {(password) => (
             <>

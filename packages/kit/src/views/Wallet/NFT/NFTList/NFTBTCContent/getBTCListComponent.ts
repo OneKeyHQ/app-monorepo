@@ -5,7 +5,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import InscriptionImage from './InscriptionImage';
 import InscriptionLogo from './InscriptionLogo';
 import InscriptionSVG from './InscriptionSVG';
-import { InscriptionLarge, InscriptionText } from './InscriptionText';
+import {
+  InscriptionLarge,
+  InscriptionLargeTestnet,
+  InscriptionText,
+  InscriptionTextTestnet,
+} from './InscriptionText';
 import InscriptionUnknow from './InscriptionUnknow';
 
 import type { InscriptionContentProps } from '../type';
@@ -46,7 +51,10 @@ function ComponentWithContentType({
   }
   if (contentType === InscriptionContentType.Text) {
     if (networkId === OnekeyNetwork.tbtc) {
-      return InscriptionUnknow;
+      // return InscriptionUnknow;
+      return sizeType === 'list'
+        ? InscriptionTextTestnet
+        : InscriptionLargeTestnet;
     }
     return sizeType === 'list' ? InscriptionText : InscriptionLarge;
   }

@@ -147,3 +147,8 @@ export enum InvoiceStatusEnum {
   StateOpen = 'open',
   StateError = 'error',
 }
+
+export type IInvoiceConfig = {
+  maxReceiveAmount: number;
+  maxSendAmount: number;
+};

@@ -3,16 +3,20 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { HStack, Text } from '@onekeyhq/components';
+import { HStack, Text, VStack } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { IFeeInfoPrice } from '@onekeyhq/engine/src/vaults/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { FeeSpeedTime } from './FeeSpeedTime';
 
 type Props = {
   index?: number | string;
   isCustom?: boolean;
   iconSize?: number;
   prices?: IFeeInfoPrice[];
+  withSpeedTime?: boolean;
+  waitingSeconds?: number;
 } & ComponentProps<typeof HStack>;
 
 export function FeeSpeedLabel({
@@ -20,6 +24,8 @@ export function FeeSpeedLabel({
   isCustom,
   iconSize = 18,
   prices,
+  withSpeedTime,
+  waitingSeconds,
   ...rest
 }: Props) {
   const intl = useIntl();
@@ -75,9 +81,18 @@ export function FeeSpeedLabel({
       <Text {...getIconPosition()} fontSize={iconSize}>
         {titleIcon}
       </Text>
-      <Text typography="Body1Strong">
-        {intl.formatMessage({ id: titleId })}
-      </Text>
+      <VStack>
+        <Text typography="Body1Strong">
+          {intl.formatMessage({ id: titleId })}
+        </Text>
+        {withSpeedTime ? (
+          <FeeSpeedTime
+            index={indexInt}
+            waitingSeconds={waitingSeconds}
+            typography="Body2"
+          />
+        ) : null}
+      </VStack>
     </HStack>
   );
 }

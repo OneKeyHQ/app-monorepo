@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import { Box, ScrollView, useSafeAreaInsets } from '@onekeyhq/components';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 
@@ -14,7 +16,6 @@ import { HardwareBridgeSection } from './HardwareBridgeSection';
 import { PushSection } from './PushSection';
 import { SecuritySection } from './SecuritySection';
 import { UtilSection } from './UtilSection';
-import { memo } from 'react';
 
 export const Me = (options: any) => {
   // useHideTabNavigatorHeader();

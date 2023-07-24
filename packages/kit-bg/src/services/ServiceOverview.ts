@@ -115,7 +115,7 @@ class ServiceOverview extends ServiceBase {
     >(
       '/overview/query/all',
       {
-        tasks: [...pendingTasksForCurrentNetwork],
+        tasks: pendingTasksForCurrentNetwork,
       },
       null,
       'POST',
@@ -252,26 +252,6 @@ class ServiceOverview extends ServiceBase {
     return `${scanType}___${networkId}___${accountAddress}___${xpub ?? ''}`;
   }
 
-  filterNewScanTasks(tasks: IOverviewScanTaskItem[]) {
-    return tasks
-      .map((t) => ({
-        ...t,
-        scanTypes: (t.scanTypes ?? []).filter(
-          (s) =>
-            !this.pendingTaskMap[
-              this.getTaksId({
-                id: '',
-                networkId: t.networkId,
-                address: t.address,
-                xpub: t.xpub,
-                scanType: s,
-              })
-            ],
-        ),
-      }))
-      .filter((t) => t.scanTypes.length > 0);
-  }
-
   @bindThis()
   addPendingTasks(tasks: IOverviewScanTaskItem[], key?: string) {
     const { dispatch } = this.backgroundApi;
@@ -315,14 +295,14 @@ class ServiceOverview extends ServiceBase {
         accountId,
         networkId,
       );
-      return this.filterNewScanTasks([
+      return [
         {
           networkId,
           address,
           xpub,
           scanTypes,
         },
-      ]);
+      ];
     }
 
     const networkAccountsMap = appSelector(
@@ -342,7 +322,7 @@ class ServiceOverview extends ServiceBase {
         });
       }
     }
-    return this.filterNewScanTasks(tasks);
+    return tasks;
   }
 
   @backgroundMethod()
