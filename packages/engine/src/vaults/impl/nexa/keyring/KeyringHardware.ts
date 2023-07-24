@@ -27,6 +27,7 @@ import {
 } from '../utils';
 
 import type { INexaInputSignature } from '../types';
+import type { NexaAddress, Success, Unsuccessful } from '@onekeyfe/hd-core';
 
 const SIGN_TYPE = 'Schnorr';
 
@@ -46,7 +47,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { prefix } = getAccountNameInfoByImpl(COIN_IMPL).default;
     const chainId = await this.getNetworkChainId();
 
-    let addressesResponse: Response<NexaAddress[]>;
+    let addressesResponse: Unsuccessful | Success<NexaAddress[]>;
     try {
       addressesResponse = await HardwareSDK.nexaGetAddress(
         connectId,
@@ -172,7 +173,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     if (response.success) {
       const nexaSignatures = response.payload;
-      const publicKey = Buffer.from(dbAccount.pub, 'hex');
+      const publicKey = Buffer.from(dbAccount.address, 'hex');
       const inputSigs: INexaInputSignature[] = inputSignatures.map(
         (inputSig, index) => {
           const signature = Buffer.from(nexaSignatures[index].signature, 'hex');
