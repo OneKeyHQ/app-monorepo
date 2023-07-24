@@ -46,7 +46,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { prefix } = getAccountNameInfoByImpl(COIN_IMPL).default;
     const chainId = await this.getNetworkChainId();
 
-    let addressesResponse;
+    let addressesResponse: Response<NexaAddress[]>;
     try {
       addressesResponse = await HardwareSDK.nexaGetAddress(
         connectId,
@@ -141,40 +141,16 @@ export class KeyringHardware extends KeyringHardwareBase {
 
   async signTransaction(unsignedTx: UnsignedTx): Promise<ISignedTxPro> {
     debugLogger.common.info('signTransaction', unsignedTx);
-    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
 
     const chainId = await this.getNetworkChainId();
 
     const { encodedTx } = unsignedTx.payload;
     const { inputSignatures, outputSignatures, signatureBuffer } =
-      buildSignatureBuffer(encodedTx as IEncodedTxNexa, dbAccount);
-    // const unSignTx = {
-    //   version: 0,
-    //   inputs: inputSignatures.map((input) => ({
-    //     path: dbAccount.path,
-    //     prevTxId: input.prevTxId,
-    //     outputIndex: input.outputIndex,
-    //     sequenceNumber: input.sequenceNumber,
-    //     output: {
-    //       satoshis: input.amount.toString(),
-    //       script: bytesToHex(Buffer.alloc(0)),
-    //     },
-    //     sigOpCount: 1,
-    //   })),
-    //   outputs: outputSignatures.map((output) => ({
-    //     satoshis: output.satoshi.toString(),
-    //     script: bytesToHex(output.scriptBuffer),
-    //     scriptVersion: 0,
-    //   })),
-    //   // packages/core/src/api/nexa/helpers/SignatureType.ts
-    //   // SignatureType.SIGHASH_ALL
-    //   sigHashType: 0x00,
-    //   lockTime: 0,
-    //   sigOpCount: 1,
-    //   scheme: SIGN_TYPE,
-    //   prefix: chainId,
-    // };
-
+      buildSignatureBuffer(
+        encodedTx as IEncodedTxNexa,
+        await this.vault.getDisplayAddress(dbAccount.address),
+      );
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
 
