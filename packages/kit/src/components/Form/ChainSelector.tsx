@@ -3,9 +3,11 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Form, useIsVerticalLayout } from '@onekeyhq/components';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import { useManageNetworks } from '@onekeyhq/kit/src/hooks';
 import { useGeneral } from '@onekeyhq/kit/src/hooks/redux';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import type { ControllerProps, FieldValues } from 'react-hook-form';
 
@@ -26,7 +28,10 @@ function FormChainSelector<TFieldValues extends FieldValues = FieldValues>({
   const { activeNetworkId: currentNetworkId } = useGeneral();
   const isSmallScreen = useIsVerticalLayout();
 
-  let defaultNetworkId = networkId ?? currentNetworkId;
+  let defaultNetworkId =
+    networkId ?? isAllNetworks(currentNetworkId)
+      ? OnekeyNetwork.eth
+      : currentNetworkId;
 
   // If selectableNetworks is specified and currenct selected network not in
   // it, set the first selectable network as the default.
