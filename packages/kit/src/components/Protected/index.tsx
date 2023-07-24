@@ -3,6 +3,7 @@ import type { FC, ReactNode } from 'react';
 import { memo, useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { isBoolean } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Box, Spinner, ToastManager, Typography } from '@onekeyhq/components';
@@ -41,6 +42,7 @@ type ProtectedProps = {
   title?: string;
   subTitle?: string;
   networkId?: string;
+  checkIsNeedPassword?: () => Promise<boolean>;
 };
 
 // Protected
@@ -55,6 +57,7 @@ const Protected: FC<ProtectedProps> = ({
   title,
   subTitle,
   networkId,
+  checkIsNeedPassword,
 }) => {
   const navigation = useNavigation();
   const walletDetail = useGetWalletDetail(walletId);
@@ -71,6 +74,10 @@ const Protected: FC<ProtectedProps> = ({
   const isPasswordLoadedInVault = useAppSelector(
     (s) => s.data.isPasswordLoadedInVault,
   );
+
+  const [isNeedInputPassword, setIsNeedInputPassword] = useState<
+    boolean | undefined
+  >(undefined);
 
   const onValidationOk = useCallback((text: string, value?: boolean) => {
     setLocalAuthentication(value);
@@ -170,6 +177,14 @@ const Protected: FC<ProtectedProps> = ({
     }
   }, [isPasswordLoadedInVault, network]);
 
+  useEffect(() => {
+    if (checkIsNeedPassword) {
+      checkIsNeedPassword().then((value) => {
+        setIsNeedInputPassword(value);
+      });
+    }
+  }, [checkIsNeedPassword]);
+
   if (isExternalWallet) {
     return (
       <Box flex={1}>
@@ -181,7 +196,7 @@ const Protected: FC<ProtectedProps> = ({
     );
   }
 
-  if (password) {
+  if (password || (isBoolean(isNeedInputPassword) && !isNeedInputPassword)) {
     return (
       <Box w="full" h="full">
         {children(password, {
@@ -211,6 +226,14 @@ const Protected: FC<ProtectedProps> = ({
         <Typography.DisplayMedium mt={6}>
           {intl.formatMessage({ id: 'modal__device_status_check' })}
         </Typography.DisplayMedium>
+      </Box>
+    );
+  }
+
+  if (checkIsNeedPassword && typeof isNeedInputPassword === 'undefined') {
+    return (
+      <Box h="100%" justifyContent="center" alignItems="center">
+        <Spinner size="lg" />
       </Box>
     );
   }

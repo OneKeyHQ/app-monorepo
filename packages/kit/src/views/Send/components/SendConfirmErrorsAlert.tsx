@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Box, VStack } from '@onekeyhq/components';
 import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
 import type { Token, Tool } from '@onekeyhq/engine/src/types/token';
+import type { IInvoiceConfig } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/invoice';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNetwork } from '../../../hooks';
@@ -28,6 +29,8 @@ export function SendConfirmErrorsAlert({
   isPendingTxSameNonceWithLowerGas,
   isLowMaxFee,
   pendingTxCount,
+  isLNExceedTransferLimit,
+  lightingNetworkTransferConfig,
 }: {
   networkId?: string;
   accountAddress?: string;
@@ -42,6 +45,8 @@ export function SendConfirmErrorsAlert({
   editableNonceStatus?: EditableNonceStatusEnum;
   isLowMaxFee?: boolean;
   pendingTxCount?: string;
+  isLNExceedTransferLimit?: boolean;
+  lightingNetworkTransferConfig?: IInvoiceConfig | null;
 }) {
   const errors = [];
   const intl = useIntl();
@@ -191,6 +196,23 @@ export function SendConfirmErrorsAlert({
         message={intl.formatMessage({
           id: 'msg__eth_tx_warning_network_busy_gas_is_high',
         })}
+      />,
+    );
+  }
+
+  if (isLNExceedTransferLimit) {
+    errors.push(
+      <FormErrorMessage
+        alertType="error"
+        isAlertStyle
+        message={intl.formatMessage(
+          {
+            id: 'msg_receipt_amount_should_be_less_than_int_sats',
+          },
+          {
+            0: lightingNetworkTransferConfig?.maxSendAmount ?? '',
+          },
+        )}
       />,
     );
   }
