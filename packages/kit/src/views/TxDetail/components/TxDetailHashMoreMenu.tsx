@@ -23,10 +23,12 @@ export const TxDetailHashMoreMenu: FC<Props> = (props) => {
       {
         id: 'action_copy_hash',
         onPress: () => copyText(decodedTx.txid),
+        icon: 'Square2StackMini',
       },
       openBlockBrowser.hasAvailable && {
         id: 'action__view_in_browser',
         onPress: () => openBlockBrowser.openTransactionDetails(decodedTx.txid),
+        icon: 'GlobeAltMini',
       },
     ];
     return baseOptions;
