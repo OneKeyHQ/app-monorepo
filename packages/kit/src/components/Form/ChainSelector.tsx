@@ -15,12 +15,14 @@ type FormChainSelectorProps = {
   selectableNetworks?: Array<string>;
   hideHelpText?: boolean;
   networkId?: string | null;
+  disabledNetworkIds?: Array<string>;
 };
 
 function FormChainSelector<TFieldValues extends FieldValues = FieldValues>({
   selectableNetworks,
   networkId,
   hideHelpText = false,
+  disabledNetworkIds,
   ...props
 }: Omit<ControllerProps<TFieldValues>, 'render'> & FormChainSelectorProps) {
   const intl = useIntl();
@@ -47,11 +49,15 @@ function FormChainSelector<TFieldValues extends FieldValues = FieldValues>({
     if (!networks) return [];
 
     return networks
-      .filter(
-        (network) =>
+      .filter((network) => {
+        if (disabledNetworkIds?.includes(network?.id)) {
+          return false;
+        }
+        return (
           typeof selectableNetworks === 'undefined' ||
-          selectableNetworks.includes(network.id),
-      )
+          selectableNetworks.includes(network.id)
+        );
+      })
       .map((network) => ({
         label: network.shortName,
         value: network.id,
@@ -63,7 +69,7 @@ function FormChainSelector<TFieldValues extends FieldValues = FieldValues>({
         },
         badge: network.impl === 'evm' ? 'EVM' : undefined,
       }));
-  }, [networks, selectableNetworks]);
+  }, [networks, selectableNetworks, disabledNetworkIds]);
 
   const findActiveNetwork = useCallback<(id: string) => Network | null>(
     (id) => {
