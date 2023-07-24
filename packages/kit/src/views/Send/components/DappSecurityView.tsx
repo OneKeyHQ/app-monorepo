@@ -21,6 +21,7 @@ import type {
   GoPlusDappContract,
   GoPlusPhishing,
 } from '@onekeyhq/engine/src/types/goplus';
+import type { UrlInfo } from '@onekeyhq/kit-bg/src/services/ServiceDappMetaData';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { openUrlExternal } from '../../../utils/openUrl';
@@ -50,15 +51,28 @@ export const DappSecurityView: FC<{
     (keyof GoPlusDappContract | keyof GoPlusPhishing)[] | undefined
   >();
 
+  const [metadata, setMetadata] = useState<UrlInfo | null>();
+
+  const dappName = name ?? metadata?.title ?? '';
+  const dappIcon = icon ?? metadata?.icon ?? '';
+
   const fetchSecurityInfo = useCallback(() => {
     backgroundApiProxy.serviceToken
       .getSiteSecurityInfo(origin, networkId)
       .then((res) => setSecurityItems(res));
   }, [origin, networkId]);
 
+  const fetchDAppMetaData = useCallback(async () => {
+    const resp = await backgroundApiProxy.serviceDappMetaData.getUrlMeta({
+      url: origin,
+    });
+    setMetadata(resp);
+  }, [origin]);
+
   useEffect(() => {
     fetchSecurityInfo();
-  }, [fetchSecurityInfo]);
+    fetchDAppMetaData();
+  }, [fetchDAppMetaData, fetchSecurityInfo]);
 
   const GoplusFeedbackLink = useMemo(
     () => (
@@ -111,22 +125,22 @@ export const DappSecurityView: FC<{
     [letter],
   );
 
-  const dappIcon = useMemo(
+  const dappIconEl = useMemo(
     () =>
-      icon ? (
+      dappIcon ? (
         <Image
           width="full"
           height="full"
-          src={icon}
-          key={icon}
+          src={dappIcon}
+          key={dappIcon}
           fallbackElement={fallbackElement}
-          alt={icon}
+          alt={dappIcon}
           borderRadius="full"
         />
       ) : (
         fallbackElement
       ),
-    [fallbackElement, icon],
+    [fallbackElement, dappIcon],
   );
 
   const dappStatus = useMemo(() => {
@@ -199,7 +213,7 @@ export const DappSecurityView: FC<{
     <>
       <HStack alignItems="center" space={3} w="full">
         <Box width="32px" height="32px">
-          {dappIcon}
+          {dappIconEl}
         </Box>
         <VStack flex="1">
           <HStack alignItems="center" space={1}>
