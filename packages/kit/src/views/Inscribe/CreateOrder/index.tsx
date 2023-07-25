@@ -59,6 +59,7 @@ import CreateOrderFilePreview from './CreateOrderFilePreview';
 import type { InscribeModalRoutes } from '../../../routes/routesEnum';
 import type { SendFeedbackReceiptParams } from '../../Send/types';
 import type { RouteProp } from '@react-navigation/core';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type NavigationProps = ModalScreenProps<InscribeModalRoutesParams>;
 
@@ -407,9 +408,11 @@ const CreateOrder: FC = () => {
             </Box>
             <Slider
               py="4px"
+              style={platformEnv.isNative ? { paddingVertical: 4 } : undefined}
               width="100%"
               minValue={546}
               maxValue={10000}
+              nativeMode={platformEnv.isNative}
               accessibilityLabel="sat"
               step={1}
               value={sat}
