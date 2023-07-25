@@ -41,7 +41,7 @@ import {
 import { showOverlay } from '../../../utils/overlayUtils';
 import { formatAmount } from '../../../utils/priceUtils';
 import { SendModalRoutes } from '../../Send/types';
-import { gt, minus } from '../../Swap/utils';
+import { gt, minus, toHex } from '../../Swap/utils';
 import { StakingKeyboard } from '../components/StakingKeyboard';
 import { useStakingAprValue } from '../hooks';
 import { EthStakingSource, KeleStakingMode, StakingRoutes } from '../typing';
@@ -454,7 +454,7 @@ export default function ETHStaking() {
 
                     txdata = {
                       to: fundAddr,
-                      value,
+                      value: toHex(value),
                       data: '0x',
                     };
 
@@ -472,7 +472,7 @@ export default function ETHStaking() {
 
             txdata = {
               to: fundAddr,
-              value,
+              value: toHex(value),
               data: '0x',
             };
           } else {

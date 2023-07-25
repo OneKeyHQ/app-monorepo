@@ -15,7 +15,7 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks';
 
 import { homeTab } from '../../../../store/observable/webTabs';
 import DAppIcon from '../../components/DAppIcon';
-import { useDiscoverHistory } from '../../hooks';
+import { useUserBrowserHistories } from '../../hooks';
 import { useSearchLocalDapp } from '../../hooks/useSearchLocalDapp';
 import { getWebTabs } from '../Controller/useWebTabs';
 
@@ -55,10 +55,10 @@ export const SearchModalView: FC = () => {
     searchContent,
   );
 
-  const allHistories = useDiscoverHistory();
+  const allHistories = useUserBrowserHistories();
 
   const flatListData = useMemo(
-    () => (searchContentTerm ? searchedDapps : allHistories),
+    () => (searchContentTerm ? searchedDapps : allHistories.slice(0, 8)),
     [searchContentTerm, allHistories, searchedDapps],
   );
 

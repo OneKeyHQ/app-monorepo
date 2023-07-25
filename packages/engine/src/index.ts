@@ -723,7 +723,8 @@ class Engine {
     const addresses = await Promise.all(
       accounts.map(async (a) => {
         if (a.type === AccountType.UTXO) {
-          return (a as DBUTXOAccount).address;
+          console.log(vault.getDisplayAddress(a.address));
+          return vault.getDisplayAddress(a.address);
         }
         if (a.type === AccountType.VARIANT) {
           return vault.addressFromBase(a);
@@ -826,6 +827,7 @@ class Engine {
       '354': OnekeyNetwork.dot,
       '128': OnekeyNetwork.xmr,
       '111111': OnekeyNetwork.kaspa,
+      '29223': OnekeyNetwork.nexa,
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');

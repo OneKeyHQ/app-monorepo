@@ -13,15 +13,13 @@ import {
   Icon,
   Image,
   ListItem,
-  ScrollView,
-  Token,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
-import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { FAKE_ALL_NETWORK } from '@onekeyhq/shared/src/config/fakeAllNetwork';
 
@@ -40,39 +38,58 @@ const Header: FC<{
   networks: ({ id: string; name?: string; logoURI: string } | undefined)[];
   onChange: (id: string) => void;
   value?: string;
-}> = ({ networks, onChange, value }) => (
-  <ScrollView horizontal w="100%" mt="6">
-    {networks.map((n, index) => {
-      if (!n?.id) {
-        return;
-      }
-      return (
-        <PressableItem
-          onPress={() => onChange(n.id)}
-          px={2}
-          py="6px"
-          borderRadius="9999px"
-          bg={n.id === value ? 'surface-selected' : undefined}
-          ml={index === 0 ? 0 : 2}
-          key={n.id}
-        >
-          <HStack alignItems="center">
+}> = ({ networks, onChange, value }) => {
+  const data = [
+    Object.assign(FAKE_ALL_NETWORK, {
+      name: 'All',
+    }),
+    ...networks,
+  ].filter(Boolean);
+  const index = useMemo(
+    () => data.findIndex((n) => n?.id === value),
+    [data, value],
+  );
+  const onPress = useCallback(
+    (i: number) => {
+      const item = data[i];
+      onChange(item?.id ?? '');
+    },
+    [data, onChange],
+  );
+  if (networks.length <= 1) {
+    return null;
+  }
+  return (
+    <ToggleButtonGroup
+      mt="6"
+      size="sm"
+      buttons={data.filter(Boolean).map((item) => ({
+        text: item.name ?? '',
+        id: item.id,
+        // eslint-disable-next-line
+        leftComponentRender: () => (
+          <Box mr="1">
             <Image
-              size={5}
-              source={isAllNetworks(n.id) ? dappColourPNG : n.logoURI}
+              width="20px"
+              height="20px"
+              borderRadius="full"
+              source={
+                isAllNetworks(item.id)
+                  ? dappColourPNG
+                  : {
+                      uri: item.logoURI,
+                    }
+              }
             />
-            <Typography.Body2Strong
-              ml="1"
-              color={n.id === value ? 'text-default' : 'text-subdued'}
-            >
-              {n.name}
-            </Typography.Body2Strong>
-          </HStack>
-        </PressableItem>
-      );
-    })}
-  </ScrollView>
-);
+          </Box>
+        ),
+      }))}
+      selectedIndex={index}
+      onButtonPress={onPress}
+      bg="background-default"
+    />
+  );
+};
 
 const AssetsInfo: FC = () => {
   const { allNetworks } = useManageNetworks();
@@ -126,19 +143,9 @@ const AssetsInfo: FC = () => {
         return null;
       }
       return (
-        <VStack mt="6" mb="2">
-          <HStack alignItems="center">
-            <Token
-              size="5"
-              token={{
-                logoURI: network?.logoURI,
-              }}
-            />
-            <Typography.Subheading ml="2" color="text-subdued">
-              {network?.name?.toUpperCase()}
-            </Typography.Subheading>
-          </HStack>
-        </VStack>
+        <Typography.Subheading mt="6" mb="2" color="text-subdued">
+          {network?.name?.toUpperCase()}
+        </Typography.Subheading>
       );
     },
     [],
@@ -173,7 +180,7 @@ const AssetsInfo: FC = () => {
       );
 
       const tokenItem = (
-        <HStack flex="3" alignItems="center">
+        <HStack alignItems="center">
           {item.type === 'Token' ? (
             <Box
               size="8"
@@ -185,11 +192,16 @@ const AssetsInfo: FC = () => {
               <Icon size={20} color="icon-on-primary" name="WalletOutline" />
             </Box>
           ) : (
-            <Token
+            <Image
               size={8}
-              token={{
-                logoURI: token.logoURI,
-              }}
+              borderRadius="full"
+              source={
+                typeof token.logoURI === 'number'
+                  ? token.logoURI
+                  : {
+                      uri: token.logoURI,
+                    }
+              }
             />
           )}
           <VStack ml="3" alignItems="flex-start">
@@ -215,7 +227,7 @@ const AssetsInfo: FC = () => {
       if (isVerticalLayout) {
         return (
           <ListItem mx="-8px" onPress={item.onPress}>
-            <ListItem.Column>{tokenItem}</ListItem.Column>
+            <ListItem.Column flex="1">{tokenItem}</ListItem.Column>
             <ListItem.Column
               flex={1}
               alignItems="flex-end"
@@ -302,7 +314,7 @@ const AssetsInfo: FC = () => {
       ListFooterComponent={items?.length ? null : empty}
       ListHeaderComponent={
         <Header
-          networks={[FAKE_ALL_NETWORK, ...sections.map((s) => s.network)]}
+          networks={sections.map((s) => s.network)}
           value={selectedNetworkId}
           onChange={(id) => setSelectedNetworkId(id)}
         />

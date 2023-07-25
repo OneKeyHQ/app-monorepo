@@ -90,6 +90,16 @@ function normalizeConfig({
     if (PUBLIC_URL) config.output.publicPath = PUBLIC_URL;
     const isDev = process.env.NODE_ENV !== 'production';
 
+    // add devServer proxy
+    if (config.devServer) {
+      config.devServer.proxy = config.devServer.proxy || {};
+      config.devServer.proxy['/nexa_ws'] = {
+        target: 'wss://testnet-explorer.nexa.org:30004',
+        changeOrigin: true,
+        ws: true,
+      };
+    }
+
     config.plugins = [
       ...config.plugins,
       platform !== 'ext' ? new DuplicatePackageCheckerPlugin() : null,

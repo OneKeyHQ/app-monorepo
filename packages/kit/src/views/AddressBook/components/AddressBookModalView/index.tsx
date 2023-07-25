@@ -14,6 +14,7 @@ import {
 import NameServiceResolver, {
   useNameServiceStatus,
 } from '@onekeyhq/kit/src/components/NameServiceResolver';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import AddressInput from '../../../../components/AddressInput';
@@ -155,7 +156,12 @@ const ModalView: FC<ModalViewProps> = ({
         children: (
           <Box w="full" h="full">
             <Form>
-              <ChainSelector hideHelpText control={control} name="networkId" />
+              <ChainSelector
+                hideHelpText
+                control={control}
+                name="networkId"
+                disabledNetworkIds={[OnekeyNetwork.lightning]}
+              />
               <Form.Item
                 control={control}
                 name="name"
