@@ -1,16 +1,18 @@
 import { OnekeyNetworkUpdatedAt } from '@onekeyhq/shared/src/config/presetNetworks';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
+import { getFiatEndpoint } from '../../../endpoint';
+
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
 export type ISimpleDbEntityServerNetworksData = {
   networksMap: Record<string, IServerNetwork>;
-  updateTimestamp: number;
+  updateTimestampMap: Record<string, number>;
 };
 
 const defaultData = {
   networksMap: {},
-  updateTimestamp: 0,
+  updateTimestampMap: {},
 };
 
 export class SimpleDbEntityServerNetworks extends SimpleDbEntityBase<ISimpleDbEntityServerNetworksData> {
@@ -27,6 +29,7 @@ export class SimpleDbEntityServerNetworks extends SimpleDbEntityBase<ISimpleDbEn
   }
 
   async updateNetworks(networks: IServerNetwork[]) {
+    const endpoint = getFiatEndpoint();
     const data = await this.getData();
     this.setRawData({
       ...data,
@@ -37,13 +40,17 @@ export class SimpleDbEntityServerNetworks extends SimpleDbEntityBase<ISimpleDbEn
           return memo;
         }, {} as ISimpleDbEntityServerNetworksData['networksMap']),
       },
-      updateTimestamp: Date.now(),
+      updateTimestampMap: {
+        ...(data.updateTimestampMap ?? {}),
+        [endpoint]: Date.now(),
+      },
     });
   }
 
   async getTimestamp() {
     const data = await this.getData();
-    return data.updateTimestamp || OnekeyNetworkUpdatedAt;
+    const endpoint = getFiatEndpoint();
+    return data.updateTimestampMap?.[endpoint] || OnekeyNetworkUpdatedAt;
   }
 
   async getData(): Promise<ISimpleDbEntityServerNetworksData> {
