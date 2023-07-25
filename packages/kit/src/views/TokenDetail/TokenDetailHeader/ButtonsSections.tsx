@@ -20,6 +20,7 @@ import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import { isLightningNetworkByImpl } from '@onekeyhq/shared/src/engine/engineConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation, useNetwork, useWallet } from '../../../hooks';
@@ -53,7 +54,7 @@ type IButtonItem = {
   visible?: () => boolean;
 };
 
-const ButtonItem = ({
+export const ButtonItem = ({
   icon,
   text,
   onPress,
@@ -319,13 +320,19 @@ export const ButtonsSection: FC = () => {
         id: 'action__buy',
         onPress: onBuy,
         icon: 'PlusMini',
-        visible: () => showMoreOption && !!fiatUrls?.[networkId]?.buy,
+        visible: () =>
+          !platformEnv.isAppleStoreEnv &&
+          showMoreOption &&
+          !!fiatUrls?.[networkId]?.buy,
       },
       {
         id: 'action__sell',
         onPress: onSell,
         icon: 'BanknotesMini',
-        visible: () => showMoreOption && !!fiatUrls?.[networkId]?.sell,
+        visible: () =>
+          !platformEnv.isAppleStoreEnv &&
+          showMoreOption &&
+          !!fiatUrls?.[networkId]?.sell,
       },
     ]
       .map((t) => ({ ...t, isDisabled: loading }))
