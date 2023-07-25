@@ -23,6 +23,7 @@ import { isLightningNetworkByImpl } from '@onekeyhq/shared/src/engine/engineCons
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation, useNetwork, useWallet } from '../../../hooks';
+import { useAllNetworksSelectNetworkAccount } from '../../../hooks/useAllNetwoks';
 import {
   FiatPayModalRoutes,
   MainRoutes,
@@ -31,7 +32,6 @@ import {
   RootRoutes,
   TabRoutes,
 } from '../../../routes/routesEnum';
-import { useAllNetworksSelectNetworkAccount } from '../../ManageNetworks/hooks';
 import BaseMenu from '../../Overlay/BaseMenu';
 import { SendModalRoutes } from '../../Send/enums';
 import { EthereumTopYields } from '../../Staking/Widgets/EthereumTopYields';
@@ -129,7 +129,7 @@ export const ButtonsSection: FC = () => {
     sendAddress,
   } = context?.routeParams ?? {};
 
-  const { symbol, logoURI } = context?.detailInfo ?? {};
+  const { symbol, logoURI, fiatUrls } = context?.detailInfo ?? {};
 
   const { items } = context?.positionInfo ?? {};
 
@@ -149,7 +149,6 @@ export const ButtonsSection: FC = () => {
 
   const selectNetworkAccount = useAllNetworksSelectNetworkAccount({
     networkId,
-    walletId,
     accountId,
     filter,
   });
@@ -320,13 +319,13 @@ export const ButtonsSection: FC = () => {
         id: 'action__buy',
         onPress: onBuy,
         icon: 'PlusMini',
-        visible: () => showMoreOption,
+        visible: () => showMoreOption && !!fiatUrls?.[networkId]?.buy,
       },
       {
         id: 'action__sell',
         onPress: onSell,
         icon: 'BanknotesMini',
-        visible: () => showMoreOption,
+        visible: () => showMoreOption && !!fiatUrls?.[networkId]?.sell,
       },
     ]
       .map((t) => ({ ...t, isDisabled: loading }))
@@ -342,6 +341,8 @@ export const ButtonsSection: FC = () => {
       })),
     };
   }, [
+    networkId,
+    fiatUrls,
     loading,
     handlePress,
     isVerticalLayout,
@@ -385,7 +386,7 @@ export const ButtonsSection: FC = () => {
               isDisabled={loading}
             />
           ))}
-          {showMoreOption && (
+          {showMoreOption && options?.length ? (
             <BaseMenu ml="26px" options={options}>
               <Pressable>
                 <ButtonItem
@@ -397,7 +398,7 @@ export const ButtonsSection: FC = () => {
                 />
               </Pressable>
             </BaseMenu>
-          )}
+          ) : null}
         </HStack>
       </HStack>
       {ethereumNativeToken && !isAllNetworks(networkId) ? (

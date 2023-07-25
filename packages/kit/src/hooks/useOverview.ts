@@ -22,6 +22,7 @@ import {
 } from '../views/Overview/types';
 import { StakingRoutes } from '../views/Staking/typing';
 
+import { useAccount } from './useAccount';
 import { useAllNetworksWalletAccounts } from './useAllNetwoks';
 import { useAppSelector } from './useAppSelector';
 import useNavigation from './useNavigation';
@@ -79,17 +80,21 @@ const filterAccountTokens = <T>({
   }
 
   const filteredTokens = valueTokens.filter((t) => {
+    const isNative = (t.isNative || !t.address) && !isAllNetworks(networkId);
     if (hideSmallBalance && new B(t.usdValue).isLessThan(1)) {
-      if (!isAllNetworks(networkId) && (t.isNative || !t.address)) {
-        return true;
+      if (!isNative) {
+        return false;
       }
-      return false;
     }
-    if (hideRiskTokens && t.riskLevel && t.riskLevel > TokenRiskLevel.WARN) {
-      return false;
+    if (putMainTokenOnTop) {
+      if (isNative) {
+        return false;
+      }
     }
-    if (putMainTokenOnTop && (t.isNative || !t.address)) {
-      return false;
+    if (hideRiskTokens) {
+      if (t.riskLevel && t.riskLevel > TokenRiskLevel.WARN) {
+        return false;
+      }
     }
     return true;
   });
@@ -871,10 +876,12 @@ export const useTokenDetailInfo = ({
   coingeckoId,
   networkId,
   tokenAddress,
+  accountId,
   defaultInfo = {},
 }: {
   coingeckoId?: string;
   networkId?: string;
+  accountId?: string;
   tokenAddress?: string;
   defaultInfo?: Record<string, unknown>;
 }) => {
@@ -888,10 +895,15 @@ export const useTokenDetailInfo = ({
   useEffect(() => {
     setLoading(true);
     backgroundApiProxy.serviceToken
-      .fetchTokenDetailInfo({ coingeckoId, networkId, tokenAddress })
+      .fetchTokenDetailInfo({
+        coingeckoId,
+        networkId,
+        tokenAddress,
+        accountId,
+      })
       .then((res) => setData(res))
       .finally(() => setLoading(false));
-  }, [coingeckoId, networkId, tokenAddress]);
+  }, [coingeckoId, networkId, tokenAddress, accountId]);
 
   return useMemo(() => {
     const { defaultChain } = data ?? {};

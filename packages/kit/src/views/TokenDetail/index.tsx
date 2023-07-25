@@ -63,6 +63,7 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
 
   const detailInfo = useTokenDetailInfo({
     networkId,
+    accountId,
     tokenAddress,
     coingeckoId,
     defaultInfo,
