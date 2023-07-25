@@ -31,6 +31,7 @@ import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Inscribe';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -407,9 +408,11 @@ const CreateOrder: FC = () => {
             </Box>
             <Slider
               py="4px"
+              style={platformEnv.isNative ? { paddingVertical: 4 } : undefined}
               width="100%"
               minValue={546}
               maxValue={10000}
+              nativeMode={platformEnv.isNative}
               accessibilityLabel="sat"
               step={1}
               value={sat}

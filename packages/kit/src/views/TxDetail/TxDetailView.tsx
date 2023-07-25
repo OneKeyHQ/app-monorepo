@@ -134,16 +134,18 @@ export function TxDetailView(props: ITxActionListViewProps) {
       >
         <>
           <TxTopInfoBox {...props} />
-          <TxInteractInfo
-            origin={
-              interactInfo?.url ??
-              sendConfirmParamsParsed?.sourceInfo?.origin ??
-              ''
-            }
-            name={interactInfo?.name}
-            icon={interactInfo?.icons[0]}
-            networkId={decodedTx?.networkId ?? ''}
-          />
+          {isSendConfirm ? (
+            <TxInteractInfo
+              origin={
+                interactInfo?.url ??
+                sendConfirmParamsParsed?.sourceInfo?.origin ??
+                ''
+              }
+              name={interactInfo?.name}
+              icon={interactInfo?.icons[0]}
+              networkId={decodedTx?.networkId ?? ''}
+            />
+          ) : null}
           <TxDetailExtraInfoBox {...props} />
           <TxDetailAdvanceInfoBox {...props} />
           {advancedSettingsForm}
