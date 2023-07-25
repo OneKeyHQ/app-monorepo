@@ -22,7 +22,6 @@ import {
 } from '../views/Overview/types';
 import { StakingRoutes } from '../views/Staking/typing';
 
-import { useAccount } from './useAccount';
 import { useAllNetworksWalletAccounts } from './useAllNetwoks';
 import { useAppSelector } from './useAppSelector';
 import useNavigation from './useNavigation';
