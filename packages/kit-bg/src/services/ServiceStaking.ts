@@ -37,7 +37,7 @@ import type {
   KeleWithdrawOverviewDTO,
   LidoNFTStatus,
 } from '@onekeyhq/kit/src/views/Staking/typing';
-import { plus } from '@onekeyhq/kit/src/views/Swap/utils';
+import { plus, toHex } from '@onekeyhq/kit/src/views/Swap/utils';
 import {
   backgroundClass,
   backgroundMethod,
@@ -145,7 +145,7 @@ export default class ServiceStaking extends ServiceBase {
     return {
       data: '0xd9712d546f6e656b65790000000000000000000000000000000000000000000000000000', // bytes4(keccak256(bytes('deposit("onekey")')))
       to: this.getKeleContractAddress(params.networkId),
-      value: params.value,
+      value: toHex(params.value),
     };
   }
 
@@ -189,7 +189,7 @@ export default class ServiceStaking extends ServiceBase {
 
     return {
       to: fundAddr,
-      value: params.value,
+      value: toHex(params.value),
       data: '0x',
     };
   }
@@ -204,7 +204,7 @@ export default class ServiceStaking extends ServiceBase {
     return {
       data,
       to: this.getLidoContractAddress(params.networkId),
-      value: params.value,
+      value: toHex(params.value),
     };
   }
 
