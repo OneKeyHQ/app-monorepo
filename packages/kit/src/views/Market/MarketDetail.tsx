@@ -96,7 +96,7 @@ const FavoritButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
       icon={tokenItem?.favorited ? 'StarSolid' : 'StarOutline'}
       text={
         tokenItem?.favorited
-          ? intl.formatMessage({ id: 'action_unlike' })
+          ? intl.formatMessage({ id: 'action__unlike' })
           : intl.formatMessage({ id: 'action__like' })
       }
       onPress={onPress}
