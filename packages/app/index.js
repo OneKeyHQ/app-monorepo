@@ -1,12 +1,10 @@
 /* eslint-disable import/first */
 if (process.env.NODE_ENV !== 'production') {
   const { Platform, NativeModules } = require('react-native');
-  const RCTAsyncStorage =
-    NativeModules.PlatformLocalStorage ||
-    NativeModules.RNC_AsyncSQLiteDBStorage ||
-    NativeModules.RNCAsyncStorage;
+  const RCTAsyncStorage = NativeModules.RNC_AsyncSQLiteDBStorage || NativeModules.RNCAsyncStorage;
   let rrt;
   try {
+    window.RCTAsyncStorage = RCTAsyncStorage;
     rrt = JSON.parse(RCTAsyncStorage.getValueForKey('rrt'));
     // eslint-disable-next-line no-empty
   } catch {}
