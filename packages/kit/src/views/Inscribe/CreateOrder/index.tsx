@@ -31,6 +31,7 @@ import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Inscribe';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -59,7 +60,6 @@ import CreateOrderFilePreview from './CreateOrderFilePreview';
 import type { InscribeModalRoutes } from '../../../routes/routesEnum';
 import type { SendFeedbackReceiptParams } from '../../Send/types';
 import type { RouteProp } from '@react-navigation/core';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type NavigationProps = ModalScreenProps<InscribeModalRoutesParams>;
 
