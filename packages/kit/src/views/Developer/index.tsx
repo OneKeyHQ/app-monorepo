@@ -5,8 +5,6 @@ import { useNavigation } from '@react-navigation/core';
 import fetch from 'cross-fetch';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
-import RNRestart from 'react-native-restart';
-import uuidLib from 'react-native-uuid';
 import useCookie from 'react-use-cookie';
 
 import {
@@ -837,7 +835,7 @@ export const Debug = () => {
                   rrtStatus === '1' ? '0' : '1',
                 );
                 if (platformEnv.isNative) {
-                  RNRestart.Restart();
+                  alert('Please manually restart the app.');
                 } else {
                   window.location.reload();
                 }
