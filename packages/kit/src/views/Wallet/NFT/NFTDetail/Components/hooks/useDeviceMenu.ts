@@ -10,7 +10,7 @@ function useDeviceMenu({
   wallet,
   asset,
 }: {
-  wallet: IWallet | null;
+  wallet: IWallet | undefined;
   asset: NFTAsset;
 }) {
   const [device, setDevice] = useState<Device | null>(null);
