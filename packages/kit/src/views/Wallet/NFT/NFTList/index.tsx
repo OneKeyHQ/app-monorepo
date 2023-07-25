@@ -103,7 +103,7 @@ const NFTList: FC<NFTListProps> = ({
     : Math.min(MAX_PAGE_CONTAINER_WIDTH, screenWidth - 224);
   const numColumns = isSmallScreen ? 2 : Math.floor(pageWidth / (177 + MARGIN));
 
-  const pageSize = 50;
+  const pageSize = 20;
 
   const listItems = useMemo(() => {
     let array: ListItemType<ListDataType>[] = [];
