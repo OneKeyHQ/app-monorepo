@@ -522,7 +522,6 @@ function AddExistingWalletView(
           disable={mode === 'imported' || mode === 'mnemonic'}
           onChange={onNameServiceChange || onNameServiceStatusChange}
           networkId={selectedNetwork.id}
-          disableBTC
         />
         <AccountTypeSelectorTrigger
           value={value}

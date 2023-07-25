@@ -1,16 +1,24 @@
-import type { FC } from 'react';
+import type { ComponentProps, FC } from 'react';
 import { useMemo } from 'react';
 
 import { Box } from '@onekeyhq/components';
 
 import { DappSecurityView } from '../../Send/components/DappSecurityView';
 
-export const TxInteractInfo: FC<{
+type Props = {
   origin: string;
   networkId: string;
   name?: string;
   icon?: string;
-}> = ({ origin, networkId, name, icon }) => {
+} & ComponentProps<typeof Box>;
+
+export const TxInteractInfo: FC<Props> = ({
+  origin,
+  networkId,
+  name,
+  icon,
+  ...rest
+}) => {
   const parsed = useMemo(() => {
     try {
       return new URL(origin);
@@ -30,6 +38,7 @@ export const TxInteractInfo: FC<{
       paddingX={4}
       paddingY={3}
       mb={6}
+      {...rest}
     >
       <DappSecurityView
         hostname={parsed.hostname}

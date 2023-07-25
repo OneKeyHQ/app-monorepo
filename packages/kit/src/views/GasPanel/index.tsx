@@ -25,7 +25,6 @@ type RouteProps = RouteProp<GasPanelRoutesParams, GasPanelRoutes.GasPanelModal>;
 
 const DEFAULT_NETWORK = OnekeyNetwork.eth;
 const REFRESH_GAS_INFO_INTERVAL = 6000;
-let timer: NodeJS.Timeout | null = null;
 
 function GasPanel() {
   const intl = useIntl();
@@ -67,36 +66,28 @@ function GasPanel() {
     backgroundApiProxy.dispatch(setGasPanelEIP1559Enabled(isEnabled));
   }, []);
 
+  const fetchGasInfo = useCallback(async () => {
+    const fetchId = Math.random().toString();
+    fetchIdRef.current = fetchId;
+    const resp = await serviceGas.getGasInfo({
+      networkId: selectedNetworkId,
+    });
+
+    if (resp.prices.length === 5) {
+      resp.prices = [resp.prices[0], resp.prices[2], resp.prices[4]];
+    }
+
+    if (fetchId === fetchIdRef.current) {
+      setGasInfo(resp);
+      setIsGasInfoInit(true);
+      setLeftSeconds(REFRESH_GAS_INFO_INTERVAL / 1000);
+    }
+  }, [selectedNetworkId, serviceGas]);
+
   useEffect(() => {
     setGasInfo(null);
-    if (timer) {
-      clearTimeout(timer);
-    }
-    const fetchGasInfo = async () => {
-      const fetchId = Math.random().toString();
-      fetchIdRef.current = fetchId;
-      const resp = await serviceGas.getGasInfo({
-        networkId: selectedNetworkId,
-      });
-
-      if (resp.prices.length === 5) {
-        resp.prices = [resp.prices[0], resp.prices[2], resp.prices[4]];
-      }
-
-      if (fetchId === fetchIdRef.current) {
-        setGasInfo(resp);
-        setIsGasInfoInit(true);
-        timer = setTimeout(() => fetchGasInfo(), REFRESH_GAS_INFO_INTERVAL);
-        setLeftSeconds(REFRESH_GAS_INFO_INTERVAL / 1000);
-      }
-    };
     fetchGasInfo();
-    return () => {
-      if (timer) {
-        clearTimeout(timer);
-      }
-    };
-  }, [selectedNetworkId, serviceGas]);
+  }, [fetchGasInfo, selectedNetworkId, serviceGas]);
 
   useEffect(() => {
     if (networkId && supportedNetworks.includes(networkId)) {
@@ -167,6 +158,7 @@ function GasPanel() {
                 mt={12}
                 leftSeconds={leftSeconds}
                 setLeftSeconds={setLeftSeconds}
+                fetchGasInfo={fetchGasInfo}
               />
             ) : null}
           </>

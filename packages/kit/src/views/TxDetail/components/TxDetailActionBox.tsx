@@ -16,7 +16,7 @@ import {
 import { TxActionElementDetailCell } from '../elements/TxActionElementDetailCell';
 import { useTxDetailContext } from '../TxDetailContext';
 
-import type { ITxActionCardViewProps } from '../types';
+import type { ITxActionCardViewProps, ITxActionElementDetail } from '../types';
 
 export function TxDetailActionBox(props: ITxActionCardViewProps) {
   const {
@@ -66,20 +66,46 @@ export function TxDetailActionBox(props: ITxActionCardViewProps) {
     [desc, icon, subTitle, title],
   );
 
+  const getDetailElement = useCallback(
+    (
+      index: number,
+      detail: ITxActionElementDetail | JSX.Element | undefined | null,
+    ) => {
+      if (isNil(detail)) return null;
+
+      if ((detail as ITxActionElementDetail)?.title) {
+        return (
+          <>
+            <TxActionElementDetailCell
+              key={index}
+              {...(detail as ITxActionElementDetail)}
+            />
+            {showContentDivider && index !== (details?.length ?? 0) - 1 && (
+              <Divider />
+            )}
+          </>
+        );
+      }
+
+      return (
+        <>
+          {detail}
+          {showContentDivider && index !== (details?.length ?? 0) - 1 && (
+            <Divider />
+          )}
+        </>
+      );
+    },
+    [details?.length, showContentDivider],
+  );
+
   const contentView = (
     <>
       {content}
       <VStack space={4}>
-        {(details ?? []).filter(Boolean).map((detail, index) =>
-          !isNil(detail) ? (
-            <>
-              <TxActionElementDetailCell key={index} {...detail} />
-              {showContentDivider && index !== (details?.length ?? 0) - 1 && (
-                <Divider />
-              )}
-            </>
-          ) : null,
-        )}
+        {(details ?? [])
+          .filter(Boolean)
+          .map((detail, index) => getDetailElement(index, detail))}
       </VStack>
     </>
   );
