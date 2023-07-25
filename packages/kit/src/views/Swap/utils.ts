@@ -533,3 +533,10 @@ export async function combinedTasks(tasks: Task[]) {
 
 export const truncate = (content: string, max: number) =>
   content.length > max ? `${content.slice(0, max)}...` : content;
+
+export const toHex = (text: string) => {
+  if (text.startsWith('0x')) {
+    return text;
+  }
+  return `0x${new BigNumber(text).toString(16)}`;
+};

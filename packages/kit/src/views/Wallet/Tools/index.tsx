@@ -311,7 +311,7 @@ const ToolsPage: FC = () => {
       }
       selectNetworkAccount(item.filter).then(
         async ({ network: selectedNetwork, account: selectedAccount }) => {
-          if (key === 'revoke' || key === 'bulkSender') {
+          if (key === 'revoke' || key === 'bulkSender' || key === 'pnl') {
             const { serviceNetwork, serviceAccount } = backgroundApiProxy;
             await serviceNetwork.changeActiveNetwork(selectedNetwork?.id);
             await serviceAccount.changeActiveAccountByAccountId(

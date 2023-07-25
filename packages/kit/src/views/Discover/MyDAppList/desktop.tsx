@@ -59,9 +59,9 @@ const RenderItem: FC<RenderItemProps> = ({ item, cardWidth, isFav }) => {
   const t = useTranslation();
   const { onItemSelect } = useContext(MyDAppListContext);
 
-  const logoURL = item.dapp?.logoURL ?? item.webSite?.favicon;
-  const name = item.dapp?.name ?? item.webSite?.title ?? 'Unknown';
-  const url = item.dapp?.url ?? item.webSite?.url;
+  const logoURL = item.dapp?.logoURL || item.webSite?.favicon;
+  const name = item.dapp?.name || item.webSite?.title || 'Unknown';
+  const url = item.dapp?.url || item.webSite?.url;
   const networkIds = item.dapp?.networkIds;
   let description = 'Unknown';
   if (item.dapp) {

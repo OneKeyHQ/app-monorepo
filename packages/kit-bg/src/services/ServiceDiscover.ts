@@ -26,7 +26,6 @@ import type {
   BookmarkItem,
   DAppItemType,
   TagDappsType,
-  UrlInfo,
 } from '@onekeyhq/kit/src/views/Discover/type';
 import {
   backgroundClass,
