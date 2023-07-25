@@ -34,7 +34,7 @@ const hdAccount1: IUnitTestMockAccount = {
     'coinType': '29223',
     'id': "hd-19--m/44'/29223'/0'/0/0",
     'path': "m/44'/29223'/0'/0/0",
-    'template': "m/44'/29223'/0'/0/$$INDEX$$",
+    'template': "m/44'/29223'/$$INDEX$$'/0/0",
     'type': AccountType.UTXO,
   },
   mnemonic: mockCredentials.mnemonic1,
