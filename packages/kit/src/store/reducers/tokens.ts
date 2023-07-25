@@ -10,6 +10,8 @@ export type IAmountValue = string | IValueLoading | IValueNull;
 export type TokenBalanceValue =
   | {
       balance: string;
+      availableBalance?: string;
+      transferBalance?: string;
       blockHeight?: string;
     }
   | IValueLoading

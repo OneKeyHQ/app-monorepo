@@ -313,7 +313,10 @@ export function useAccountTokensOnChain(
       prices[`${networkId}${t.address ? '-' : ''}${t.address ?? ''}`];
     const price = priceInfo?.usd ?? 0;
     const price24h = priceInfo?.usd_24h_change ?? 0;
-    const balance = balances[getBalanceKey(t)]?.balance ?? '0';
+    const tokenBalance = balances[getBalanceKey(t)];
+    const balance = tokenBalance?.balance ?? '0';
+    const availableBalance = tokenBalance?.availableBalance ?? '0';
+    const transferBalance = tokenBalance?.transferBalance ?? '0';
     const value = new B(price).multipliedBy(balance);
     const usdValue = value;
     const value24h = new B(balance).multipliedBy(
@@ -327,6 +330,8 @@ export function useAccountTokensOnChain(
       price,
       price24h,
       balance,
+      availableBalance,
+      transferBalance,
       value: value.toString(),
       usdValue: usdValue.toString(),
       value24h: value24h.toString(),
@@ -542,6 +547,8 @@ export function useAccountTokens({
             address: t.address,
             logoURI: t.logoURI,
             balance: t.balance,
+            transferBalance: t.transferBalance,
+            availableBalance: t.availableBalance,
             usdValue: t.usdValue,
             value: t.usdValue,
             value24h: undefined,

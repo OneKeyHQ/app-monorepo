@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Box,
@@ -8,6 +9,7 @@ import {
   Skeleton,
   Token,
   Typography,
+  VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { withDebugRenderTracker } from '@onekeyhq/components/src/DebugRenderTracker';

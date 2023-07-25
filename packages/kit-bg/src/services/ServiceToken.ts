@@ -593,6 +593,8 @@ export default class ServiceToken extends ServiceBase {
     for (const {
       address,
       balance,
+      availableBalance,
+      transferBalance,
       sendAddress,
       bestBlockNumber: blockHeight,
     } of balancesFromApi) {
@@ -606,6 +608,8 @@ export default class ServiceToken extends ServiceBase {
             sendAddress,
           })]: {
             balance,
+            availableBalance,
+            transferBalance,
             blockHeight,
           },
         });
