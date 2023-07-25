@@ -1,12 +1,7 @@
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { appSelector } from '../../../../store';
 import { webTabsActions } from '../../../../store/observable/webTabs';
-import {
-  addWebSiteHistory,
-  setDappHistory,
-  setUserBrowserHistory,
-  updateHistory,
-} from '../../../../store/reducers/discover';
+import { setUserBrowserHistory } from '../../../../store/reducers/discover';
 import { openUrl } from '../../../../utils/openUrl';
 import { crossWebviewLoadUrl, validateUrl, webHandler } from '../explorerUtils';
 
@@ -43,19 +38,6 @@ export const gotoSite = ({
     if (!validatedUrl) {
       return;
     }
-    if (webHandler === 'browser') {
-      return openUrl(validatedUrl);
-    }
-    const tabId = tab.id;
-    const isDeepLink =
-      !validatedUrl.startsWith('http') && validatedUrl !== 'about:blank';
-    const isNewTab =
-      (isNewWindow || tabId === 'home' || isDeepLink) &&
-      webHandler === 'tabbedWebview';
-
-    if (dAppId) {
-      dispatch(setDappHistory(dAppId));
-    }
 
     if (userTriggered) {
       dispatch(
@@ -70,6 +52,17 @@ export const gotoSite = ({
         url: validatedUrl,
       });
     }
+
+    if (webHandler === 'browser') {
+      return openUrl(validatedUrl);
+    }
+
+    const tabId = tab.id;
+    const isDeepLink =
+      !validatedUrl.startsWith('http') && validatedUrl !== 'about:blank';
+    const isNewTab =
+      (isNewWindow || tabId === 'home' || isDeepLink) &&
+      webHandler === 'tabbedWebview';
 
     const urls = bookmarks?.map((item) => item.url);
     const isBookmarked = urls?.includes(url);
@@ -91,13 +84,6 @@ export const gotoSite = ({
         isBookmarked,
       });
     }
-    dispatch(
-      dAppId
-        ? updateHistory(dAppId)
-        : addWebSiteHistory({
-            webSite: { url: validatedUrl, title, favicon },
-          }),
-    );
 
     if (!isNewTab && !isInPlace) {
       crossWebviewLoadUrl({
