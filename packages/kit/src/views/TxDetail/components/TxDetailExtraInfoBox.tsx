@@ -18,6 +18,7 @@ import { TxActionElementDetailCellTitleText } from '../elements/TxActionElementD
 
 import { TxDetailActionBox } from './TxDetailActionBox';
 import { TxDetailHashMoreMenu } from './TxDetailHashMoreMenu';
+import { TxInteractInfo } from './TxInteractInfo';
 
 import type { ITxActionElementDetail, ITxActionListViewProps } from '../types';
 
@@ -81,10 +82,26 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
   const { decodedTx, historyTx, feeInput, isBatchSendConfirm, isSendConfirm } =
     props;
   const { network } = useNetwork({ networkId: decodedTx.networkId });
-  const details: ITxActionElementDetail[] = [];
+  const details: Array<ITxActionElementDetail | JSX.Element> = [];
   const intl = useIntl();
   const { copyText } = useClipboard();
   const clickTimes = useRef(0);
+
+  const { interactInfo } = decodedTx;
+
+  if (!isSendConfirm && interactInfo) {
+    details.push(
+      <TxInteractInfo
+        origin={interactInfo?.url ?? ''}
+        name={interactInfo?.name}
+        icon={interactInfo?.icons[0]}
+        networkId={decodedTx?.networkId ?? ''}
+        borderWidth={0}
+        padding={0}
+        mb={0}
+      />,
+    );
+  }
 
   details.push({
     title: intl.formatMessage({ id: 'content__fee' }),
@@ -95,6 +112,7 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
         decodedTx,
       }),
   });
+
   if (
     checkIsValidHistoryTxId({
       txid: decodedTx.txid,
@@ -172,7 +190,7 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
           {intl.formatMessage({ id: 'content__details' })}
         </Text>
       )}
-      <TxDetailActionBox details={details} showContentDivider />
+      <TxDetailActionBox details={details.filter(Boolean)} showContentDivider />
     </Box>
   );
 }

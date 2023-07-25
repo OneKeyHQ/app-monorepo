@@ -7,6 +7,7 @@ import { Box, Divider, Text } from '@onekeyhq/components';
 type Props = {
   leftSeconds: number;
   setLeftSeconds: (leftSeconds: number) => void;
+  fetchGasInfo: () => void;
 } & ComponentProps<typeof Box>;
 
 let timer: NodeJS.Timeout | null = null;
@@ -16,7 +17,7 @@ const TypographySuccess = (text: string) => (
 );
 
 function GasRefreshTip(props: Props) {
-  const { leftSeconds, setLeftSeconds, ...rest } = props;
+  const { leftSeconds, setLeftSeconds, fetchGasInfo, ...rest } = props;
   const intl = useIntl();
 
   useEffect(() => {
@@ -29,6 +30,7 @@ function GasRefreshTip(props: Props) {
       let temp = leftSeconds - 1;
       if (temp < 0) {
         temp = 0;
+        fetchGasInfo();
       }
       setLeftSeconds(temp);
     }, 1000);
@@ -37,7 +39,7 @@ function GasRefreshTip(props: Props) {
         clearTimeout(timer);
       }
     };
-  }, [leftSeconds, setLeftSeconds]);
+  }, [fetchGasInfo, leftSeconds, setLeftSeconds]);
 
   return (
     <Box {...rest}>
