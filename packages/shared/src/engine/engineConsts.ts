@@ -69,6 +69,8 @@ const COINTYPE_XMR = '128';
 const IMPL_KASPA = 'kaspa';
 const COINTYPE_KASPA = '111111';
 
+const IMPL_NEXA = 'nexa';
+const COINTYPE_NEXA = '29223';
 const IMPL_LIGHTNING = 'lightning';
 // To determine the coin type, we first assign numerical values to each letter based on their position in the alphabet.
 // For example, "L" is assigned a value of 12, "I" is assigned a value of 9, "G" is assigned a value of 7, and so on.
@@ -103,6 +105,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_DOT,
   IMPL_XMR,
   IMPL_KASPA,
+  IMPL_NEXA,
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
   IMPL_ALLNETWORKS,
@@ -208,6 +211,8 @@ export {
   COINTYPE_XMR,
   IMPL_KASPA,
   COINTYPE_KASPA,
+  IMPL_NEXA,
+  COINTYPE_NEXA,
   IMPL_LIGHTNING,
   COINTYPE_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,

@@ -3918,6 +3918,80 @@ const serverPresetNetworks = [
     'createdAt': '2023-06-14T00:29:24.951Z',
     'updatedAt': '2023-06-14T00:29:24.951Z',
   },
+  {
+    'balance2FeeDecimals': 0,
+    'chainId': 'mainnet',
+    'code': 'nexa',
+    'decimals': 2,
+    'id': 'nexa--mainnet',
+    'impl': 'nexa',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+    'name': 'Nexa',
+    'rpcURLs': [
+      {
+        'url': 'wss://electrum.nexa.org:20004',
+      },
+    ],
+    'shortcode': 'nexa',
+    'shortname': 'Nexa',
+    'symbol': 'NEX',
+    'feeMeta': {
+      'code': 'nexa',
+      'decimals': 2,
+      'symbol': 'nexa',
+    },
+    'defaultEnabled': false,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://explorer.nexa.org/address/{address}',
+        'block': 'https://explorer.nexa.org/block-height/{block}',
+        'name': 'https://explorer.nexa.org',
+        'transaction': 'https://explorer.nexa.org/tx/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2023-06-19T00:29:24.951Z',
+    'updatedAt': '2023-06-19T00:29:24.951Z',
+  },
+  {
+    'balance2FeeDecimals': 0,
+    'chainId': 'testnet',
+    'code': 'nexatest',
+    'decimals': 2,
+    'id': 'nexa--testnet',
+    'impl': 'nexa',
+    'isTestnet': true,
+    'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+    'name': 'Nexa Testnet',
+    'rpcURLs': [
+      {
+        'url': 'wss://testnet-explorer.nexa.org:30004/nexa_ws',
+      },
+    ],
+    'shortcode': 'nexatest',
+    'shortname': 'NexaTest',
+    'symbol': 'TNEX',
+    'feeMeta': {
+      'code': 'nexatest',
+      'decimals': 2,
+      'symbol': 'NEXATEST',
+    },
+    'defaultEnabled': false,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://testnet-explorer.nexa.org/address/{address}',
+        'block': 'https://testnet-explorer.nexa.org/block-height/{block}',
+        'name': 'https://testnet-explorer.nexa.org',
+        'transaction': 'https://testnet-explorer.nexa.org/tx/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2023-06-19T00:29:24.951Z',
+    'updatedAt': '2023-06-19T00:29:24.951Z',
+  },
 ] as unknown as IServerNetwork[];
 
 serverPresetNetworks.unshift(FAKE_ALL_NETWORK);
