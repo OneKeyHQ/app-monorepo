@@ -36,7 +36,7 @@ const settings: IVaultSettings = Object.freeze({
   hiddenAccountInfoMoreOption: true,
   displayMemo: true,
   hideFromToFieldIfValueEmpty: true,
-  displayFullAddress: true,
+  hideFeeSpeedInfo: true,
   rpcStatusDisabled: true,
   useSimpleTipForSpecialCheckEncodedTx: true,
 
