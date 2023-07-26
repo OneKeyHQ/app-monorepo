@@ -314,7 +314,7 @@ export const ButtonsSection: FC = () => {
         id: 'title__swap',
         onPress: onSwap,
         icon: 'ArrowsRightLeftSolid',
-        visible: () => isVerticalLayout && showSwapOption,
+        visible: () => showSwapOption,
       },
       {
         id: 'action__buy',
