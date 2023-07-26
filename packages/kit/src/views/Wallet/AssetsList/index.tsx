@@ -270,8 +270,8 @@ function AssetsList({
 
   const empty = useMemo(() => {
     if (loading) {
-      if (isAllNetworks(network?.id)) {
-        return !updateInfo?.updatedAt ? (
+      if (isAllNetworks(network?.id) && !updateInfo?.updatedAt) {
+        return (
           <Box alignItems="center" mt="8">
             <Empty
               w="260px"
@@ -286,10 +286,9 @@ function AssetsList({
               })}
             />
           </Box>
-        ) : (
-          <AssetsListSkeleton />
         );
       }
+      return <AssetsListSkeleton />;
     }
     if (isAllNetworks(network?.id)) {
       return <AllNetworksEmpty />;
