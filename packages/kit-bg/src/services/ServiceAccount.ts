@@ -1531,8 +1531,11 @@ class ServiceAccount extends ServiceBase {
     networkId?: string;
   }) {
     const { engine, appSelector } = this.backgroundApi;
-    const { activeWalletId } = appSelector((s) => s.general);
+    const { activeWalletId, activeNetworkId, activeAccountId } = appSelector(
+      (s) => s.general,
+    );
     const { wallets, accounts } = appSelector((s) => s.runtime);
+    const map = appSelector((s) => s.overview.allNetworksAccountsMap);
     const findMatchAccount = (list: Account[]): Account | undefined => {
       const a = list.find((item) => item.address === address);
       if (!a) {
@@ -1545,6 +1548,11 @@ class ServiceAccount extends ServiceBase {
         return a;
       }
     };
+    if (isAllNetworks(activeNetworkId)) {
+      return findMatchAccount(
+        map?.[activeAccountId ?? '']?.[networkId ?? ''] ?? [],
+      );
+    }
     // find from active wallet accounts
     const account = findMatchAccount(accounts);
     if (account) {
