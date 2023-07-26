@@ -4,7 +4,6 @@ import NativeSlider from '@react-native-community/slider';
 import { Slider as WebSlider } from 'native-base';
 
 import type { ISliderProps } from 'native-base';
-import type { GestureResponderEvent } from 'react-native';
 
 const Slider = ({
   nativeMode,
