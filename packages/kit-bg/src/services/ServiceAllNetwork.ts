@@ -14,6 +14,7 @@ import {
 import { getPath } from '@onekeyhq/engine/src/managers/derivation';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isWalletCompatibleAllNetworks } from '@onekeyhq/engine/src/managers/wallet';
+import { networkIsPreset } from '@onekeyhq/engine/src/presets';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import {
@@ -207,9 +208,12 @@ export default class ServiceAllNetwork extends ServiceBase {
     const activeAccountId = accountId ?? `${walletId}--${index}`;
     const networks = appSelector((s) => s.runtime.networks ?? []).filter(
       (n) =>
+        n.enabled &&
         !n.isTestnet &&
         !n.settings?.validationRequired &&
-        !n.settings.hideInAllNetworksMode,
+        !n.settings.hideInAllNetworksMode &&
+        networkIsPreset(n.id) &&
+        ![OnekeyNetwork.fevm, OnekeyNetwork.cfxespace].includes(n.id),
     );
 
     dispatch(

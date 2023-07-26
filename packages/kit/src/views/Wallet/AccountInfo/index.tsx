@@ -211,25 +211,40 @@ const AccountAmountInfo: FC = () => {
     ) {
       return intl.formatMessage(
         {
-          id: 'form__updated_str_ago',
+          id: 'form__str_mins_ago',
         },
         {
-          0: `${Math.floor(duration / 1000 / 60)} m`,
+          0: Math.floor(duration / 1000 / 60),
+        },
+      );
+    }
+    if (
+      duration <
+      getTimeDurationMs({
+        hour: 24,
+      })
+    ) {
+      return intl.formatMessage(
+        {
+          id: 'form__str_hours_ago',
+        },
+        {
+          0: Math.floor(duration / 1000 / 60 / 60),
         },
       );
     }
     if (
       duration >
       getTimeDurationMs({
-        hour: 1,
+        hour: 24,
       })
     ) {
       return intl.formatMessage(
         {
-          id: 'form__updated_str_ago',
+          id: 'form__str_days_ago',
         },
         {
-          0: `${Math.floor(duration / 1000 / 60 / 60)} h`,
+          0: Math.floor(duration / 1000 / 60 / 60 / 24),
         },
       );
     }
