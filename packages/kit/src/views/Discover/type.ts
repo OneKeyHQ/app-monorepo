@@ -11,6 +11,7 @@ export type UserBrowserHistory = {
   title?: string;
   logoUrl?: string;
   dappId?: string;
+  timestamp?: number;
 };
 
 export type DiscoverHistory = {

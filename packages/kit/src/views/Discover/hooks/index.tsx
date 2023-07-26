@@ -23,6 +23,7 @@ export function useUserBrowserHistories(): MatchDAppItemType[] {
         title: item.title,
         favicon: item.logoUrl,
       },
+      timestamp: item.timestamp,
     }));
   }, [userBrowserHistories]);
 }

@@ -282,6 +282,21 @@ export const discoverSlice = createSlice({
         state.userBrowserHistories.unshift(data);
       }
     },
+    refreshUserBrowserHistoryTimestamp(
+      state,
+      action: PayloadAction<UserBrowserHistory>,
+    ) {
+      if (!state.userBrowserHistories) {
+        state.userBrowserHistories = [];
+      }
+      const index = state.userBrowserHistories.findIndex(
+        (o) => o.url === action.payload.url,
+      );
+      if (index >= 0) {
+        const current = state.userBrowserHistories[index];
+        current.timestamp = Date.now();
+      }
+    },
     removeUserBrowserHistory(state, action: PayloadAction<{ url: string }>) {
       if (!state.userBrowserHistories) {
         return;
@@ -327,6 +342,7 @@ export const {
   cleanOldState,
   setHomeData,
   setUserBrowserHistory,
+  refreshUserBrowserHistoryTimestamp,
   removeUserBrowserHistory,
   addBookmark,
   removeBookmark,
