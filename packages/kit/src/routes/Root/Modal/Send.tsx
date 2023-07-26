@@ -17,6 +17,7 @@ import { SignMessageConfirm } from '../../../views/Send/modals/SignMessageConfir
 import { TokenApproveAmountEdit } from '../../../views/Send/modals/TokenApproveAmountEdit';
 import { SendModalRoutes } from '../../../views/Send/types';
 import { TransactionSendContextProvider } from '../../../views/Send/utils/TransactionSendContext';
+import NFTDetailView from '../../../views/Wallet/NFT/NFTDetail';
 
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
@@ -83,6 +84,10 @@ const modalRoutes = [
   {
     name: SendModalRoutes.HardwareSwapContinue,
     component: BaseSendRouteScreen.wrap(HardwareSwapContinue),
+  },
+  {
+    name: SendModalRoutes.NFTDetailModal,
+    component: NFTDetailView,
   },
 ];
 
