@@ -417,10 +417,16 @@ const CreateOrder: FC = () => {
               accessibilityLabel="sat"
               step={1}
               value={sat}
-              onChange={(value) => {
+              onTouchStart={() => {
+                // TODO： It is necessary to add a web Slider API.
+                // It does not work on the web.
                 setLoading(true);
-                // It is not necessary to constantly update the value on the app side.
+              }}
+              onChange={(value) => {
                 if (!platformEnv.isNative) {
+                  // hotfix for onTouchStart
+                  setLoading(true);
+                  // It is not necessary to constantly update the value on the app side.
                   setSat(value);
                 }
               }}

@@ -2,6 +2,7 @@ import NativeSlider from '@react-native-community/slider';
 import { Slider as WebSlider } from 'native-base';
 
 import type { ISliderProps } from 'native-base';
+import type { GestureResponderEvent } from 'react-native';
 
 const Slider = ({
   nativeMode,
@@ -23,6 +24,11 @@ const Slider = ({
   nativeMode ? (
     <NativeSlider
       {...props}
+      onSlidingStart={() => {
+        if (props.onTouchStart) {
+          props.onTouchStart({} as unknown as GestureResponderEvent);
+        }
+      }}
       onSlidingComplete={props.onChangeEnd}
       maximumValue={props.maxValue}
       minimumValue={props.minValue}
