@@ -28,8 +28,8 @@ const Slider = ({
   const [isSliding, changeSliding] = useState(false);
   const onWebValueChange = useCallback(
     (value: number) => {
-      changeSliding(true);
       if (!isSliding && onChangeBegin) {
+        changeSliding(true);
         onChangeBegin();
       }
       if (onChange) {
@@ -41,9 +41,7 @@ const Slider = ({
 
   const onWebChangeEnd = useCallback(
     (value: number) => {
-      if (isSliding) {
-        changeSliding(false);
-      }
+      changeSliding(false);
       if (onChangeEnd) {
         onChangeEnd(value);
       }
