@@ -73,6 +73,7 @@ function SendConfirm({
     networkId,
     accountId,
     ignoreFetchFeeCalling,
+    prepaidFee,
   } = sendConfirmParamsParsed;
   useReloadAccountBalance({ networkId, accountId });
   const { network } = useNetwork({ networkId });
@@ -370,6 +371,7 @@ function SendConfirm({
     feeInfoError,
     feeInfoEditable,
     feeInput,
+    prepaidFee,
     advancedSettings,
     advancedSettingsForm,
 

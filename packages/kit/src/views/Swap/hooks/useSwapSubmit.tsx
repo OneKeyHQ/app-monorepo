@@ -289,6 +289,11 @@ export const useSwapSubmit = () => {
       params.tokenIn,
       getTokenAmountValue(params.tokenIn, quote.sellAmount).toFixed(),
     );
+
+    let prepaidFee = '0';
+    if (!params.tokenIn.tokenIdOnNetwork) {
+      prepaidFee = inputAmount.value.toFixed();
+    }
     const outputAmount = new TokenAmount(
       params.tokenOut,
       getTokenAmountValue(params.tokenOut, quote.buyAmount).toFixed(),
@@ -344,15 +349,13 @@ export const useSwapSubmit = () => {
         true,
       );
     const balanceStr = result?.main?.balance;
-    if (!balanceStr) {
-      debugLogger.swap.info(
-        `${params.tokenIn.networkId} failed to fetch native token balance`,
-      );
-    } else {
-      debugLogger.swap.info(
-        `${params.tokenIn.networkId} native token balance is ${balanceStr}`,
-      );
-    }
+
+    const balanceMsg = balanceStr
+      ? `${params.tokenIn.networkId} native token balance is ${balanceStr}`
+      : `${params.tokenIn.networkId} failed to fetch native token balance`;
+
+    debugLogger.swap.info(balanceMsg);
+
     tagLogger.end(LoggerTimerTags.checkTokenBalance);
     const balance = new BigNumber(balanceStr ?? '0');
 
@@ -584,6 +587,7 @@ export const useSwapSubmit = () => {
       setProgressStatus?.({
         title: intl.formatMessage({ id: 'action__swapping_str' }, { '0': '' }),
       });
+
       await sendSwapTx({
         accountId: sendingAccount.id,
         networkId: fromNetworkId,
@@ -594,6 +598,7 @@ export const useSwapSubmit = () => {
           type: 'InternalSwap',
           swapInfo,
         },
+        prepaidFee,
         onDetail(txid) {
           navigation.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.Swap,
