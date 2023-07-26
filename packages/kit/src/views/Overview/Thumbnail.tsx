@@ -125,7 +125,11 @@ const AssetHeader: FC<IAssetHeaderProps> = ({
             <Typography.Subheading flex="1" color="text-subdued">
               {intl.formatMessage({ id: 'form__protocols_uppercase' })}
             </Typography.Subheading>
-            <Typography.Subheading flex="1" color="text-subdued">
+            <Typography.Subheading
+              flex="1"
+              color="text-subdued"
+              textAlign="right"
+            >
               {intl.formatMessage({ id: 'form__claimable_uppercase' })}
             </Typography.Subheading>
             <Typography.Subheading
@@ -220,7 +224,12 @@ const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
             showNetworkIcon
           />
           {isVertical ? null : (
-            <Typography.Body2Strong flex="1" numberOfLines={2} isTruncated>
+            <Typography.Body2Strong
+              flex="1"
+              numberOfLines={2}
+              isTruncated
+              textAlign="right"
+            >
               <FormatCurrencyNumber
                 value={0}
                 convertValue={+item.claimableValue}
