@@ -1,4 +1,3 @@
-import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { INFTAsset } from '@onekeyhq/engine/src/types/nft';
 import { NFTAssetType } from '@onekeyhq/engine/src/types/nft';
 
@@ -11,8 +10,9 @@ import { SOLAssetImageContent } from './Components/SOLAsset/SOLAssetImageContent
 
 type Props = {
   asset: INFTAsset;
-  network: Network;
   isOwner: boolean;
+  networkId: string;
+  accountId?: string;
 };
 
 export type ComponentReturnProps = (params: Props) => JSX.Element | null;
