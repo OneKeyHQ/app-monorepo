@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -8,8 +8,10 @@ import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClos
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
-import { useManageNetworks } from '../../../hooks';
-import { useAllNetworksWalletAccounts } from '../../../hooks/useAllNetwoks';
+import {
+  useAllNetworksIncludedNetworks,
+  useAllNetworksWalletAccounts,
+} from '../../../hooks/useAllNetwoks';
 import { showAllNetworksAccountDerivationsSelector } from '../../Overlay/Accounts/AllNetworksSelectAccountDerivations';
 
 import type {
@@ -29,18 +31,7 @@ function AllNetworksNetworkSelectorModal() {
   const closeModal = useModalClose();
   const route = useRoute<RouteProps>();
 
-  const { enabledNetworks } = useManageNetworks();
-
-  const supportedNetworks = useMemo(
-    () =>
-      enabledNetworks.filter(
-        (n) =>
-          !n.isTestnet &&
-          !n.settings?.validationRequired &&
-          !n.settings.hideInAllNetworksMode,
-      ),
-    [enabledNetworks],
-  );
+  const supportedNetworks = useAllNetworksIncludedNetworks();
 
   const { filter, onConfirm, accountId } = route?.params ?? {};
 

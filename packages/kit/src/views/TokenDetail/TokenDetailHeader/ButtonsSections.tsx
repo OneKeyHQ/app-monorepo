@@ -132,8 +132,6 @@ export const ButtonsSection: FC = () => {
 
   const { symbol, logoURI, fiatUrls } = context?.detailInfo ?? {};
 
-  const { items } = context?.positionInfo ?? {};
-
   const { tokens, loading, ethereumNativeToken } = context?.detailInfo ?? {};
 
   const { wallet } = useWallet({
@@ -144,8 +142,8 @@ export const ButtonsSection: FC = () => {
 
   const filter = useCallback(
     ({ network }: { network?: Network | null }) =>
-      !!network?.id && !!items?.some((t) => t.networkId === network?.id),
-    [items],
+      !!network?.id && !!tokens?.some((t) => t.networkId === network?.id),
+    [tokens],
   );
 
   const selectNetworkAccount = useAllNetworksSelectNetworkAccount({
