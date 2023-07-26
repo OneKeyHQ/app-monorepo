@@ -1462,7 +1462,10 @@ class ServiceAccount extends ServiceBase {
               dbAccount as DBVariantAccount,
             );
 
-            if (addressOnNetwork?.toLowerCase() === address.toLowerCase()) {
+            if (
+              addressOnNetwork?.length &&
+              addressOnNetwork?.toLowerCase() === address.toLowerCase()
+            ) {
               targetAccount = account;
             }
           } catch {
@@ -1470,7 +1473,10 @@ class ServiceAccount extends ServiceBase {
           }
         }
 
-        if (account.address.toLowerCase() === address.toLowerCase()) {
+        if (
+          account.address.length &&
+          account.address.toLowerCase() === address.toLowerCase()
+        ) {
           targetAccount = account;
         }
       }

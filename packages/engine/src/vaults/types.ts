@@ -137,7 +137,7 @@ export type IVaultSettings = {
   hiddenAccountInfoMoreOption?: boolean;
   displayMemo?: boolean;
   hideFromToFieldIfValueEmpty?: boolean;
-  displayFullAddress?: boolean;
+  hideFeeSpeedInfo?: boolean;
   rpcStatusDisabled?: boolean;
   useSimpleTipForSpecialCheckEncodedTx?: boolean;
   hexDataEditable?: boolean;
