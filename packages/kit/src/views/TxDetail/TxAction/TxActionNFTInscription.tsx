@@ -10,11 +10,7 @@ import {
   IDecodedTxDirection,
 } from '@onekeyhq/engine/src/vaults/types';
 
-import {
-  CollectiblesModalRoutes,
-  ModalRoutes,
-  RootRoutes,
-} from '../../../routes/routesEnum';
+import { SendModalRoutes } from '../../../routes/routesEnum';
 import { TxDetailActionBox } from '../components/TxDetailActionBox';
 import { TxListActionBox } from '../components/TxListActionBox';
 import { getTxActionElementAddressWithSecurityInfo } from '../elements/TxActionElementAddress';
@@ -24,12 +20,14 @@ import {
 } from '../elements/TxActionElementInscription';
 import { TxActionElementTitleHeading } from '../elements/TxActionElementTitle';
 
+import type { SendRoutesParams } from '../../../routes';
 import type {
   ITxActionCardProps,
   ITxActionElementDetail,
   ITxActionMetaIcon,
   ITxActionMetaTitle,
 } from '../types';
+import type { StackNavigationProp } from '@react-navigation/stack';
 
 export function getTitleInfo({
   type,
@@ -106,11 +104,17 @@ export function getTxActionInscriptionInfo(props: ITxActionCardProps) {
   };
 }
 
+type NavigationProps = StackNavigationProp<
+  SendRoutesParams,
+  SendModalRoutes.NFTDetailModal
+>;
+
 export function TxActionNFTInscription(props: ITxActionCardProps) {
-  const { action, meta, network, isShortenAddress = false } = props;
+  const { decodedTx, action, meta, network, isShortenAddress = false } = props;
+  const { accountId, networkId } = decodedTx;
   const intl = useIntl();
   const { send, receive, isOut, asset } = getTxActionInscriptionInfo(props);
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProps>();
 
   const details: ITxActionElementDetail[] = [
     {
@@ -145,16 +149,11 @@ export function TxActionNFTInscription(props: ITxActionCardProps) {
           py="12px"
           onPress={() => {
             if (network && asset) {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.Collectibles,
-                params: {
-                  screen: CollectiblesModalRoutes.NFTDetailModal,
-                  params: {
-                    asset,
-                    network,
-                    isOwner: false,
-                  },
-                },
+              navigation.navigate(SendModalRoutes.NFTDetailModal, {
+                asset,
+                networkId,
+                accountId,
+                isOwner: false,
               });
             }
           }}

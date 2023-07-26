@@ -33,8 +33,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
-import { useNetwork } from '../../../../../../hooks';
-import { useActiveWalletAccount } from '../../../../../../hooks/redux';
+import { useActiveSideAccount, useNetwork } from '../../../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../../../routes/routesEnum';
 import { deviceUtils } from '../../../../../../utils/hardware';
 import CollectionLogo from '../../../../../NFTMarket/CollectionLogo';
@@ -53,21 +52,29 @@ type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 function EVMAssetDetailContent({
   asset: outerAsset,
   isOwner,
+  networkId,
+  accountId,
 }: {
   asset: NFTAsset;
   isOwner: boolean;
+  networkId: string;
+  accountId?: string;
 }) {
   const intl = useIntl();
   const { serviceNFT, serviceHardware } = backgroundApiProxy;
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { wallet } = useActiveWalletAccount();
+  const { wallet } = useActiveSideAccount({
+    networkId,
+    accountId: accountId ?? '',
+  });
   const modalClose = useModalClose();
   const goToCollectionDetail = useCollectionDetail();
   const isVertical = useIsVerticalLayout();
   const [asset, updateAsset] = useState(outerAsset);
-  const isDisabled = wallet?.type === WALLET_TYPE_WATCHING;
-
-  const networkId = outerAsset.networkId ?? '';
+  const isDisabled =
+    wallet?.type === WALLET_TYPE_WATCHING ||
+    asset.owner !== outerAsset.accountAddress ||
+    !accountId;
 
   const { network } = useNetwork({ networkId });
 

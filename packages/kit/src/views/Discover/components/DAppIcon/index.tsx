@@ -171,4 +171,24 @@ const DAppIcon: FC<DAppIconProps> = ({ url, size, networkIds, ...rest }) => {
   );
 };
 
+type FallbackIconProps = {
+  size: DAppSize;
+};
+
+export const FallbackIcon: FC<FallbackIconProps> = ({ size }) => {
+  const innerProps = sizeWithProps(size);
+  const { innerSize } = innerProps;
+  return (
+    <Box
+      borderRadius={12}
+      justifyContent="center"
+      alignItems="center"
+      width={`${innerSize}px`}
+      height={`${innerSize}px`}
+    >
+      <Icon size={16} name="GlobeAltMini" />
+    </Box>
+  );
+};
+
 export default DAppIcon;

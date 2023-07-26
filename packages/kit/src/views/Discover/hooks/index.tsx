@@ -6,7 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import type { MatchDAppItemType } from '../Explorer/explorerUtils';
-import type { DAppItemType, WebSiteHistory } from '../type';
+import type { DAppItemType } from '../type';
 
 export function useAllDapps(): DAppItemType[] {
   return useAppSelector((s) => s.discover.dappItems || []);
@@ -39,23 +39,6 @@ export function useAllDappMap(): {
   return { idsMap, hostMap };
 }
 
-export function useHistoryHostMap(): Record<string, WebSiteHistory> {
-  const history = useAppSelector((s) => s.discover.history);
-  return useMemo(() => {
-    const hostMap: Record<string, WebSiteHistory> = {};
-    Object.values(history).forEach(({ webSite }) => {
-      if (webSite) {
-        const { url } = webSite;
-        if (url) {
-          const { host } = new URL(url);
-          hostMap[host] = webSite;
-        }
-      }
-    });
-    return hostMap;
-  }, [history]);
-}
-
 export function useUserBrowserHistories(): MatchDAppItemType[] {
   const userBrowserHistories = useAppSelector(
     (s) => s.discover.userBrowserHistories,
@@ -73,32 +56,6 @@ export function useUserBrowserHistories(): MatchDAppItemType[] {
       },
     }));
   }, [userBrowserHistories]);
-}
-
-export function useDiscoverHistory(): MatchDAppItemType[] {
-  const [items, setItems] = useState<MatchDAppItemType[]>([]);
-  const dappHistory = useAppSelector((s) => s.discover.dappHistory);
-
-  const dappsIds = useMemo(() => {
-    if (!dappHistory) {
-      return [];
-    }
-    return Object.entries(dappHistory)
-      .sort((a, b) => b[1].timestamp - a[1].timestamp)
-      .map((o) => o[0])
-      .filter((item) => !Number.isNaN(item));
-  }, [dappHistory]);
-
-  useEffect(() => {
-    if (dappsIds) {
-      backgroundApiProxy.serviceDiscover
-        .getDappsByIds(dappsIds)
-        .then((itemDapps) => {
-          setItems(itemDapps.map((o) => ({ id: o._id, dapp: o })));
-        });
-    }
-  }, [dappsIds]);
-  return items;
 }
 
 export function useDiscoverFavorites(): MatchDAppItemType[] {

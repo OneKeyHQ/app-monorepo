@@ -133,7 +133,8 @@ export class KeyringHardware extends KeyringHardwareBase {
       }
       case 'WithdrawExpireUnfreezeContract': {
         contractCall = {
-          withdrawExpireUnfreezeContract: undefined,
+          // @ts-ignore
+          withdrawExpireUnfreezeContract: {},
         };
         break;
       }

@@ -13,6 +13,7 @@ import type {
   IEncodedTx,
   ISwapInfo,
 } from '@onekeyhq/engine/src/vaults/types';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   AppUIEventBusNames,
   appUIEventBus,
@@ -47,6 +48,7 @@ import {
   getTokenAmountString,
   getTokenAmountValue,
   plus,
+  toHex,
 } from '../utils';
 
 import { useSwapSend } from './useSwapSend';
@@ -486,6 +488,15 @@ export const useSwapSubmit = () => {
       );
       return;
     }
+
+    if (fromNetwork.impl === IMPL_EVM) {
+      const rawValue = (encodedTx as IEncodedTxEvm).value;
+      if (!rawValue.startsWith('0x')) {
+        (encodedTx as IEncodedTxEvm).value = toHex(rawValue);
+      }
+    }
+
+    debugLogger.swap.info('swap encodedTx: ', JSON.stringify(encodedTx));
 
     const newQuote = res.result;
 

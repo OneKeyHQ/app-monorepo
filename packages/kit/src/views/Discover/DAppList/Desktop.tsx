@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { StyleSheet, useWindowDimensions } from 'react-native';
 
@@ -12,7 +12,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
-import { useTranslation } from '../../../hooks';
+import { useDebounce, useTranslation } from '../../../hooks';
 import { Chains } from '../Chains';
 import DAppIcon from '../components/DAppIcon';
 import FavContainer from '../Explorer/FavContainer';
@@ -120,11 +120,14 @@ export const Desktop: FC<DAppListProps> = ({ ...rest }) => {
   const { tagId, onItemSelect } = rest;
   const data = useTagDapps(tagId);
   const t = useTranslation();
-  const { width } = useWindowDimensions();
-  const screenWidth = width - 72 - 256;
+
+  const [layoutWidth, setLayoutWidth] = useState<number>(0);
+  const w = useDebounce(layoutWidth, 200);
+
   const minWidth = 250;
-  const numColumns = Math.floor(screenWidth / minWidth);
-  const cardWidth = screenWidth / numColumns;
+  const containerWidth = w - 48;
+  const numColumns = Math.floor(containerWidth / minWidth);
+  const cardWidth = containerWidth / numColumns;
 
   const renderItem: ListRenderItem<DAppItemType> = useCallback(
     ({ item }) => (
@@ -189,24 +192,31 @@ export const Desktop: FC<DAppListProps> = ({ ...rest }) => {
     [cardWidth, onItemSelect, t],
   );
 
-  const flatList = useMemo(
-    () => (
-      <FlatList
-        contentContainerStyle={styles.container}
-        paddingLeft="24px"
-        data={data}
-        renderItem={renderItem}
-        numColumns={numColumns}
-        keyExtractor={(item, index) => `${numColumns}key${index}${item?._id}`}
-        key={`key${numColumns}`}
-        ListEmptyComponent={EmptySkeleton}
-      />
-    ),
-    [data, numColumns, renderItem],
-  );
   return (
     <Box width="100%" height="100%">
-      {flatList}
+      <Box
+        w="full"
+        onLayout={({
+          nativeEvent: {
+            layout: { width },
+          },
+        }) => {
+          setLayoutWidth(width);
+        }}
+      />
+      {w ? (
+        <FlatList
+          contentContainerStyle={styles.container}
+          paddingLeft="24px"
+          paddingRight="24px"
+          data={data}
+          renderItem={renderItem}
+          numColumns={numColumns}
+          keyExtractor={(item, index) => `${numColumns}key${index}${item?._id}`}
+          key={`key${numColumns}`}
+          ListEmptyComponent={EmptySkeleton}
+        />
+      ) : null}
     </Box>
   );
 };

@@ -133,6 +133,7 @@ const IMPLS: { [key: string]: any } = {
   fil: mockProvider,
   tron: mockProvider,
   kaspa: mockProvider,
+  nexa: mockProvider,
   lightning: mockProvider,
   tlightning: mockProvider,
 };

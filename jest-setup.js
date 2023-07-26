@@ -24,6 +24,7 @@ class LocalStorageMock {
 
 global.localStorage = new LocalStorageMock();
 global.fetch = require('node-fetch');
+global.WebSocket = require('isomorphic-ws');
 
 jest.mock('react-native-zip-archive', () => ({
   zip: jest.fn(),

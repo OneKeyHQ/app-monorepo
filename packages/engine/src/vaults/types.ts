@@ -40,6 +40,7 @@ import type {
   IEncodedTxNear,
   INativeTxNear,
 } from './impl/near/types';
+import type { IEncodedTxNexa } from './impl/nexa/types';
 import type { IEncodedTxSol, INativeTxSol } from './impl/sol/types';
 import type { IEncodedTxSTC } from './impl/stc/types';
 import type { IEncodedTxSUI } from './impl/sui/types';
@@ -249,6 +250,7 @@ export type IEncodedTx =
   | IEncodedTxDot
   | IEncodedTxXmr
   | IEncodedTxKaspa
+  | IEncodedTxNexa
   | IEncodedTxLightning;
 
 export type INativeTx =
