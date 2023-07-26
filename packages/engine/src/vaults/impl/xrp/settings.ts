@@ -23,6 +23,8 @@ const settings: IVaultSettings = Object.freeze({
 
   cannotSendToSelf: true,
 
+  hideInAllNetworksMode: true,
+
   accountNameInfo: {
     default: {
       prefix: 'RIPPLE',

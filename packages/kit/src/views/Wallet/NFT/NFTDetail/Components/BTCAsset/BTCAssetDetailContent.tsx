@@ -22,7 +22,7 @@ import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
-import { useNetwork } from '../../../../../../hooks';
+import { useActiveSideAccount, useNetwork } from '../../../../../../hooks';
 import { useActiveWalletAccount } from '../../../../../../hooks/redux';
 import useFormatDate from '../../../../../../hooks/useFormatDate';
 import {
@@ -41,9 +41,13 @@ type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 function BTCAssetDetailContent({
   asset: outerAsset,
   isOwner,
+  networkId,
+  accountId,
 }: {
   asset: NFTBTCAssetModel;
   isOwner: boolean;
+  networkId: string;
+  accountId?: string;
 }) {
   const intl = useIntl();
   const { format } = useFormatDate();
@@ -53,27 +57,21 @@ function BTCAssetDetailContent({
     networkId: outerAsset?.networkId ?? '',
   });
 
-  const { wallet } = useActiveWalletAccount();
+  const { wallet } = useActiveSideAccount({
+    networkId,
+    accountId: accountId ?? '',
+  });
   const navigation = useNavigation<NavigationProps['navigation']>();
   const modalClose = useModalClose();
 
   const [asset, updateAsset] = useState(outerAsset);
   const isDisabled =
-    wallet?.type === WALLET_TYPE_WATCHING &&
-    asset.owner !== outerAsset.accountAddress;
+    wallet?.type === WALLET_TYPE_WATCHING ||
+    asset.owner !== outerAsset.accountAddress ||
+    !accountId;
 
-  const sendAction = useCallback(async () => {
-    const { accountAddress, networkId } = outerAsset ?? {};
-    if (!networkId || !accountAddress) {
-      return;
-    }
-    const account = await backgroundApiProxy.serviceAccount.getAccountByAddress(
-      {
-        networkId,
-        address: accountAddress ?? '',
-      },
-    );
-    if (!account) {
+  const sendAction = useCallback(() => {
+    if (!networkId || !accountId) {
       return;
     }
     const validateAddress = async (address: string) => {
@@ -81,7 +79,7 @@ function BTCAssetDetailContent({
         await serviceInscribe.checkValidTaprootAddress({
           address,
           networkId,
-          accountId: account.id,
+          accountId,
         });
       } catch (error) {
         throw new TaprootAddressError();
@@ -92,7 +90,7 @@ function BTCAssetDetailContent({
       params: {
         screen: SendModalRoutes.PreSendAddress,
         params: {
-          accountId: account?.id,
+          accountId,
           networkId,
           isNFT: true,
           from: '',
@@ -113,13 +111,14 @@ function BTCAssetDetailContent({
       },
     });
   }, [
+    accountId,
     asset.inscription_id,
     asset.location,
     asset.output,
     asset.owner,
     modalClose,
     navigation,
-    outerAsset,
+    networkId,
     serviceInscribe,
   ]);
 

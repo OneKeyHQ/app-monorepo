@@ -12,9 +12,9 @@ import {
   useAppSelector,
   useNavigation,
 } from '../../../hooks';
+import { useAllNetworksSelectNetworkAccount } from '../../../hooks/useAllNetwoks';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { formatAmount } from '../../../utils/priceUtils';
-import { useAllNetworksSelectNetworkAccount } from '../../ManageNetworks/hooks';
 import { Options } from '../components/EthereumUtilsComponent';
 import { StakingRoutes } from '../typing';
 import {
@@ -34,11 +34,10 @@ const LidoStTokenYieldsContent: FC<LidoStTokenYieldsContentProps> = ({
 }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { accountId, walletId, networkId } = useActiveWalletAccount();
+  const { accountId, networkId } = useActiveWalletAccount();
   const ethStakingApr = useAppSelector((s) => s.staking.ethStakingApr);
   const selectNetworkAccount = useAllNetworksSelectNetworkAccount({
     accountId,
-    walletId,
     networkId,
     filter: getStakeSelectNetworkAccountFilter(stakingType),
   });
