@@ -232,8 +232,10 @@ class ServiceApp extends ServiceBase {
     // await engine.resetApp() is NOT reliable of DB clean, so we need delay here.
     await wait(1500);
 
-    // restartApp() MUST be called from background in Ext
-    this.restartApp();
+    if (!platformEnv.isNative) {
+      // crash on native:OK-21673
+      this.restartApp();
+    }
 
     await wait(1500);
     this.resetAppAtTime = 0;

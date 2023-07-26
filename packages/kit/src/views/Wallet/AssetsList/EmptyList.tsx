@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { LinearGradient } from 'expo-linear-gradient';
 import { useIntl } from 'react-intl';
 
@@ -13,6 +15,7 @@ import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { INetwork } from '@onekeyhq/engine/src/types';
 
 import { useNavigation, useNavigationActions } from '../../../hooks';
+import { useActionForAllNetworks } from '../../../hooks/useAllNetwoks';
 import {
   FiatPayModalRoutes,
   ManageTokenModalRoutes,
@@ -26,7 +29,7 @@ export const AllNetworksEmpty = () => {
   const { openAccountSelector } = useNavigationActions();
   return (
     <Empty
-      emoji="💳"
+      emoji="🥺"
       title={intl.formatMessage({ id: 'empty__no_included_network' })}
       subTitle={intl.formatMessage({
         id: 'empty__no_included_network_desc',
@@ -50,63 +53,67 @@ function EmptyListOfAccount({
   const intl = useIntl();
   const navigation = useNavigation();
 
-  if (isAllNetworks(network?.id)) {
-    return <AllNetworksEmpty />;
-  }
+  const { visible, process: onBuy } = useActionForAllNetworks({
+    accountId,
+    networkId: network?.id ?? '',
+    action: useCallback(
+      ({ network: n, account: a }) => {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.FiatPay,
+          params: {
+            screen: FiatPayModalRoutes.SupportTokenListModal,
+            params: {
+              networkId: n.id,
+              accountId: a.id,
+            },
+          },
+        });
+      },
+      [navigation],
+    ),
+    filter: (p) => !!p.network && !!p.account,
+  });
 
   return (
     <Box flexDirection="row" justifyContent="space-between">
-      <Button
-        flex={1}
-        mr="16px"
-        alignItems="flex-start"
-        onPress={() => {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.FiatPay,
-            params: {
-              screen: FiatPayModalRoutes.SupportTokenListModal,
-              params: {
-                networkId: network?.id ?? '',
-                accountId,
-              },
-            },
-          });
-        }}
-      >
-        <Box py="24px" flexDirection="column" alignItems="center">
-          <Box
-            w="48px"
-            h="48px"
-            borderRadius="24px"
-            bg="surface-neutral-default"
-            mb="24px"
-            overflow="hidden"
-          >
-            <LinearGradient
-              colors={['#64D36F', '#33C641']}
-              style={{
-                width: '100%',
-                height: '100%',
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+      {visible ? (
+        <Button flex={1} alignItems="flex-start" onPress={onBuy}>
+          <Box py="24px" flexDirection="column" alignItems="center">
+            <Box
+              w="48px"
+              h="48px"
+              borderRadius="24px"
+              bg="surface-neutral-default"
+              mb="24px"
+              overflow="hidden"
             >
-              <Icon name="PlusOutline" color="icon-on-primary" />
-            </LinearGradient>
+              <LinearGradient
+                colors={['#64D36F', '#33C641']}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Icon name="PlusOutline" color="icon-on-primary" />
+              </LinearGradient>
+            </Box>
+            <Typography.DisplayMedium mb="4px" textAlign="center">
+              {intl.formatMessage({ id: 'action__buy_crypto' })}
+            </Typography.DisplayMedium>
+            <Typography.Body2 mb="4px" color="text-subdued" textAlign="center">
+              {intl.formatMessage({ id: 'action__buy_crypto_desc' })}
+            </Typography.Body2>
           </Box>
-          <Typography.DisplayMedium mb="4px" textAlign="center">
-            {intl.formatMessage({ id: 'action__buy_crypto' })}
-          </Typography.DisplayMedium>
-          <Typography.Body2 mb="4px" color="text-subdued" textAlign="center">
-            {intl.formatMessage({ id: 'action__buy_crypto_desc' })}
-          </Typography.Body2>
-        </Box>
-      </Button>
+        </Button>
+      ) : null}
 
-      {network?.settings?.tokenEnabled ? (
+      {network?.settings?.tokenEnabled && !isAllNetworks(network?.id) ? (
         <Button
+          ml="16px"
           flex={1}
           alignItems="flex-start"
           onPress={() => {

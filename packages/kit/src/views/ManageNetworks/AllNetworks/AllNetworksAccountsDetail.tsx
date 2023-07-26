@@ -68,7 +68,10 @@ export const AllNetworksAccountsDetail: FC = () => {
   const supportedNetworks = useMemo(
     () =>
       allNetworks.filter(
-        (n) => !n.isTestnet && !n.settings?.validationRequired,
+        (n) =>
+          !n.isTestnet &&
+          !n.settings?.validationRequired &&
+          !n.settings.hideInAllNetworksMode,
       ),
     [allNetworks],
   );
