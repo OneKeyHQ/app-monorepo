@@ -11,6 +11,7 @@ export type UserBrowserHistory = {
   title?: string;
   logoUrl?: string;
   dappId?: string;
+  timestamp?: number;
 };
 
 export type DiscoverHistory = {
@@ -89,8 +90,10 @@ export enum DiscoverModalRoutes {
   SearchHistoryModal = 'SearchHistoryModal',
   ShareModal = 'ShareModal',
   DAppListModal = 'DAppListModal',
-  MyDAppListModal = 'MyDAppListModal',
+
   EditBookmark = 'EditBookmark',
+  History = 'History',
+  Favorites = 'Favorites',
 }
 
 export type DiscoverRoutesParams = {
@@ -109,11 +112,9 @@ export type DiscoverRoutesParams = {
     tagId: string;
     onItemSelect?: (item: DAppItemType) => void;
   };
-  [DiscoverModalRoutes.MyDAppListModal]: {
-    defaultIndex?: number;
-    onItemSelect?: (item: MatchDAppItemType) => void;
-  };
   [DiscoverModalRoutes.EditBookmark]: {
     bookmark: BookmarkItem;
   };
+  [DiscoverModalRoutes.Favorites]: undefined;
+  [DiscoverModalRoutes.History]: undefined;
 };
