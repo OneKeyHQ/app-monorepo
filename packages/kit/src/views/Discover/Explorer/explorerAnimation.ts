@@ -41,10 +41,18 @@ const getTabCellLayout = (tabId: string, callback: () => void) => {
   const tabCell = tabGridRefs[tabId];
   if (tabCell) {
     tabCell.measure((x, y, width, height, pageX, pageY) => {
-      targetPreviewX.value = pageX;
-      targetPreviewY.value = pageY;
-      targetPreviewWidth.value = width;
-      targetPreviewHeight.value = height;
+      // hotfix:
+      // The measure values may be empty on Android platform.
+      // This will cause the bounce animation to be ineffective.
+      // so, we need to provide a fallback value.
+      //
+      // However, the specific reason why is not quite clear yet.
+      // It could be a bug in the yoga layout engine, or it could be some other reason.
+      // Fortunately, it is working now.
+      targetPreviewX.value = pageX || targetPreviewX.value;
+      targetPreviewY.value = pageY || targetPreviewY.value;
+      targetPreviewWidth.value = width || targetPreviewWidth.value;
+      targetPreviewHeight.value = height || targetPreviewHeight.value;
       callback();
     });
   } else {

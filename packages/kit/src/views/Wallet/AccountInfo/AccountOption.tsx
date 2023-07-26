@@ -22,8 +22,8 @@ import {
   useNavigationActions,
   useNetwork,
 } from '../../../hooks';
+import { useAllNetworksSelectNetworkAccount } from '../../../hooks/useAllNetwoks';
 import { ModalRoutes, RootRoutes, TabRoutes } from '../../../routes/routesEnum';
-import { useAllNetworksSelectNetworkAccount } from '../../ManageNetworks/hooks';
 import AccountMoreMenu from '../../Overlay/AccountMoreMenu';
 import { ReceiveTokenModalRoutes } from '../../ReceiveToken/types';
 
@@ -32,8 +32,7 @@ type AccountOptionProps = { isSmallView: boolean };
 export const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { wallet, account, walletId, networkId, accountId } =
-    useActiveWalletAccount();
+  const { wallet, account, networkId, accountId } = useActiveWalletAccount();
   const isVertical = useIsVerticalLayout();
   const { sendToken } = useNavigationActions();
   const iconBoxFlex = isVertical ? 1 : 0;
@@ -41,7 +40,6 @@ export const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
 
   const selectNetworkAccount = useAllNetworksSelectNetworkAccount({
     networkId,
-    walletId,
     accountId,
     filter: ({ network: n, account: a }) => !!n && !!a,
   });

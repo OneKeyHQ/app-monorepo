@@ -40,6 +40,7 @@ import type {
   IEncodedTxNear,
   INativeTxNear,
 } from './impl/near/types';
+import type { IEncodedTxNexa } from './impl/nexa/types';
 import type { IEncodedTxSol, INativeTxSol } from './impl/sol/types';
 import type { IEncodedTxSTC } from './impl/stc/types';
 import type { IEncodedTxSUI } from './impl/sui/types';
@@ -142,6 +143,8 @@ export type IVaultSettings = {
   hexDataEditable?: boolean;
 
   hiddenBlockBrowserTokenDetailLink?: boolean;
+
+  hideInAllNetworksMode?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
@@ -249,6 +252,7 @@ export type IEncodedTx =
   | IEncodedTxDot
   | IEncodedTxXmr
   | IEncodedTxKaspa
+  | IEncodedTxNexa
   | IEncodedTxLightning;
 
 export type INativeTx =

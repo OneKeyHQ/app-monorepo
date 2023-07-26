@@ -1,5 +1,4 @@
 // TODO move to Vault / Service
-import BigNumber from 'bignumber.js';
 import { toLower } from 'lodash';
 
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';

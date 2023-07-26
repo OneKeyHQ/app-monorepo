@@ -32,7 +32,6 @@
   "action__add_new_address": "جهة اتصال جديدة",
   "action__add_node": "أضف العقدة",
   "action__add_str_tokens": "أضف {0} رموز",
-  "action__add_to_blacklist": "أضف إلى القائمة السوداء",
   "action__add_to_favorites": "اضافة الى المفضلة",
   "action__add_to_rpc_node_list_only": "إضافة إلى قائمة عقدة RPC فقط",
   "action__add_tokens": "أضف الرموز",
@@ -40,6 +39,7 @@
   "action__add_wallet": "أضف المحفظة",
   "action__advance": "يتقدم",
   "action__allow": "السماح",
+  "action__always_hide": "اختبئ دائما",
   "action__apply": "يتقدم",
   "action__approval_exact_amount": "الموافقة: المبلغ بالضبط",
   "action__approval_unlimited": "الموافقة: غير محدود",
@@ -52,7 +52,6 @@
   "action__back_up_wallet": "النسخ الاحتياطي للمحفظة",
   "action__backup": "دعم",
   "action__backup_to_icloud": "نسخ احتياطي إلى {cloudName}",
-  "action__blacklist_this_collection": "القائمة السوداء هذه المجموعة",
   "action__building_transaction_data_str": "إنشاء بيانات المعاملات ... {0}",
   "action__bulk_add": "إضافة مجمعة",
   "action__buy": "يشتري",
@@ -114,6 +113,7 @@
   "action__create_an_account_to_swap": "قم بإنشاء حساب {0} للمبادلة",
   "action__create_new_wallet": "إنشاء محفظة جديدة",
   "action__create_wallet": "إنشاء المحفظة",
+  "action__cross_chain_swap_to_str": "تبديل عبر السلاسل إلى {0}",
   "action__customize_network": "تخصيص الشبكة",
   "action__danger_zone": "منطقة الخطر",
   "action__decrypt": "فك تشفير",
@@ -176,6 +176,7 @@
   "action__grid_view": "عرض شبكي",
   "action__hide_risky_nfts": "إخفاء NFTs المحفوفة بالمخاطر",
   "action__hide_risky_tokens_histories": "إخفاء تاريخ الرموز المحفوفة بالمخاطر",
+  "action__hide_this_collection": "إخفاء هذه المجموعة",
   "action__hide_unsubscribed_feeds": "إخفاء الخلاصات غير المسجلة",
   "action__i_already_have_a_wallet": "إضافة المحفظة الحالية",
   "action__i_got_it": "فهمت",
@@ -192,6 +193,7 @@
   "action__learn_more": "يتعلم أكثر",
   "action__learn_more_n_purchase": "تعلم المزيد واشتري",
   "action__lets_go": "لنذهب",
+  "action__like": "يحب",
   "action__list_view": "عرض القائمة",
   "action__load_more": "تحميل المزيد",
   "action__local_picture": "اختر من الألبوم",
@@ -240,8 +242,8 @@
   "action__remove": "إزالة",
   "action__remove_account": "إزالة الحساب",
   "action__remove_address": "إزالة العنوان",
-  "action__remove_from_blacklist": "إزالة من القائمة السوداء",
   "action__remove_from_favorites": "إزالة من المفضلة",
+  "action__remove_from_hidden_list": "إزالة من القائمة المخفية",
   "action__remove_wallet": "إزالة المحفظة",
   "action__remove_when_exit": "إزالة عند الخروج من التطبيق",
   "action__remove_when_exit_desc": "قم بإزالة هذه المحفظة المخفية عند الخروج من التطبيق",
@@ -309,6 +311,7 @@
   "action__subscribe": "الإشتراك",
   "action__support": "الدعم",
   "action__swap_again": "المبادلة مرة أخرى",
+  "action__swap_to_str": "تبديل إلى {0}",
   "action__swapping_str": "مبادلة ... {0}",
   "action__switch": "يُحوّل",
   "action__switch_account": "تبديل الحساب",
@@ -321,6 +324,7 @@
   "action__transfer_brc20": "تحويل",
   "action__under_maintaince": "تحت Maintaince",
   "action__unfreeze": "تجمد",
+  "action__unlike": "غير مفضل",
   "action__unlock": "الغاء القفل",
   "action__unstake": "نزع",
   "action__unsubscribe": "إلغاء الاشتراك",
@@ -541,6 +545,7 @@
   "content__enter_bootloader_mode": "ادخل إلى وضع Bootloader",
   "content__enter_current_password_before_resetting_it": "أدخل كلمة المرور الحالية قبل إعادة تعيينها",
   "content__enter_invoice": "أدخل الفاتورة",
+  "content__enter_invoice_lightning_address_or_lnurl": "أدخل الفاتورة أو عنوان Lightning أو LNURL",
   "content__enter_link": "أدخل الارتباط",
   "content__enter_onekey_lite_pin_to_continue": "أدخل رقم التعريف الشخصي OneKey Lite للمتابعة",
   "content__enter_pin_in_app": "أدخل رقم التعريف الشخصي في التطبيق",
@@ -721,7 +726,7 @@
   "content__onekey_still_has_conflicts_with_other_extensions": "لا يزال OneKey يتعارض مع الامتدادات الأخرى (مثل rabby). يرجى تعطيلهم وحاول مرة أخرى.",
   "content__only_transactions_from_the_same_account_are_supported": "يتم دعم المعاملات من نفس الحساب فقط من خلال المسار الحالي.",
   "content__or_lowercase": "أو",
-  "content__ordinal_support_jpg_webp_png_gif_txt_mp3_mp4_and_more": "يجب أن يكون حجم الملف أقل من {0} . دعم .jpg ، .webp ، .png ، .gif ، .txt ، .mp3 ، .mp4 والمزيد!",
+  "content__ordinal_support_jpg_webp_png_gif_txt_mp3_mp4_and_more": "يجب أن يكون حجم الملف أقل من {0} . دعم JPG و WebP و PNG و GIF و TXT و MP3 و MP4 والمزيد!",
   "content__other": "آخر",
   "content__owners": "أصحاب",
   "content__password_required_even_unlocked": "ستكون كلمة المرور مطلوبة في هذه الحالات حتى إذا قمت بالفعل بإلغاء قفل OneKey.",
@@ -1050,6 +1055,7 @@
   "form__address": "عنوان",
   "form__address__uppercase": "عنوان",
   "form__address_and_domain_placeholder": "العنوان أو اسم المجال",
+  "form__address_book_labels_uppercase": "دفتر العناوين والملصقات",
   "form__address_btc_as_wachted_account": "عنوان استيراد BTC كحساب مراقب غير مدعوم حتى الآن.",
   "form__address_cannot_send_to_myself": "لا يمكن إرسال {0} إلى نفسي",
   "form__address_count": "عدد العناوين",
@@ -1102,6 +1108,7 @@
   "form__app_unlock": "فتح التطبيق",
   "form__app_unlock_desc": "افتح التطبيق باستخدام Face ID بدلاً من كلمة المرور",
   "form__app_version": "نسخة التطبيق",
+  "form__app_wallet_uppercase": "APP المحفظة",
   "form__approval": "موافقة",
   "form__approve_str": "قبول {0}",
   "form__approved": "موافقة",
@@ -1134,7 +1141,6 @@
   "form__bitcoin__nested_segwit_desc": "يبدأ بـ \" {0} \". رسوم الشبكة المتوسطة.",
   "form__bitcoin__taproot_desc": "يبدأ بـ \" {0} \". رسوم شبكة منخفضة للغاية.",
   "form__bitcoin__uppercase": "بيتكوين",
-  "form__blacklist": "القائمة السوداء",
   "form__blacklist_included": "وشملت القائمة السوداء",
   "form__blacklist_included_desc": "يمكن لمالك العقد إضافة أي عنوان إلى القائمة السوداء ، ولا يمكن لحاملي الرموز المدرجة في القائمة السوداء التداول. إساءة استخدام ميزة القائمة السوداء محفوفة بالمخاطر.",
   "form__ble_version": "إصدار BLE",
@@ -1258,6 +1264,7 @@
   "form__expired": "منتهي الصلاحية",
   "form__expires_in": "ينتهي في",
   "form__explore": "يستكشف",
+  "form__explore_uppercase": "يستكشف",
   "form__explorer": "إكسبلورر",
   "form__explorers": "المستكشفون",
   "form__export_public_key": "تصدير المفتاح العام",
@@ -1268,6 +1275,7 @@
   "form__failed_exists_emojis": "إدخال الرموز التعبيرية غير مسموح به.",
   "form__fake_token": "رمز مزيف",
   "form__fake_token_desc": "هذا هو رمز مزيف.",
+  "form__favorite_dapps": "المفضلة dApps",
   "form__favorite_desc": "تقلبات كبيرة في أسعار الأصول المفضلة لديك",
   "form__fee_estimated": "الرسوم (تقديرية)",
   "form__fee_rate": "معدل الرسوم",
@@ -1315,6 +1323,7 @@
   "form__help_support": "ساعد لدعم",
   "form__hex_data": "بيانات HEX",
   "form__hex_data_question_mark": "هذه هي البيانات التي تمررها عند التعامل مع العقود. إذا كنت لا تعرف ما هذا ، فقط اتركه فارغًا.",
+  "form__hidden_list": "القائمة المخفية",
   "form__hidden_owner": "المالك المخفي",
   "form__hidden_owner_desc": "لا يزال بإمكان المطورين تعديل العقود التي تم التخلي عنها مع المالكين السريين.",
   "form__hide_0_amount_transfers": "إخفاء 0 مبلغ التحويلات",
@@ -1539,6 +1548,7 @@
   "form__previous_confirmed": "تم تأكيده مسبقًا",
   "form__price_alert": "تنبيه السعر",
   "form__price_alert_desc": "عندما يصل الرمز المميز إلى السعر المحدد",
+  "form__price_alerts": "تنبيهات الأسعار",
   "form__price_impact_desc": "تغيرات الأسعار التي قد تكون ناجمة عن معاملتك.",
   "form__price_uppercase": "سعر",
   "form__price_volatility": "تقلب الأسعار",
@@ -1693,6 +1703,7 @@
   "form__str_selected": "تم تحديد {0}",
   "form__str_transactions": "{0} المعاملات",
   "form__str_used": "{0} مستخدمة",
+  "form__str_wallets": "محافظ {0}",
   "form__str_words": "{0} كلمة",
   "form__str_y": "{0} ص",
   "form__submit_a_request": "تقديم طلب",
@@ -1729,6 +1740,7 @@
   "form__token_lists_uppercase": "قوائم رمزية",
   "form__token_n_nft_data": "بيانات الرمز المميز و NFT",
   "form__token_symbol": "رمز الرمز",
+  "form__tokens_uppercase": "الرموز",
   "form__too_much_buy_tax": "الكثير من ضريبة الشراء",
   "form__too_much_buy_tax_desc": "معدل ضريبة الشراء الحالي هو {0} ، مما قد يؤدي إلى فشل المعاملة.",
   "form__too_much_sell_tax": "الكثير من ضريبة البيع",
@@ -2275,7 +2287,7 @@
   "msg__str_data_reset": "{0} إعادة تعيين البيانات",
   "msg__str_has_been_added_but_is_hidden": "تمت إضافة {0} ولكنه مخفي",
   "msg__str_has_been_added_but_is_hidden_desc": "قد يكون {0} رمزًا محفوفًا بالمخاطر وتحتاج إلى إيقاف تشغيل \"إخفاء الرموز المميزة المحفوفة بالمخاطر\" لعرضه.",
-  "msg__str_has_been_added_to_blacklist": "تمت إضافة {0} إلى القائمة السوداء",
+  "msg__str_has_been_hidden": "تم إخفاء {0}",
   "msg__str_in_progress": "{0} قيد التقدم",
   "msg__str_insufficient_balance_to_pay_for_gas_fee": "{0} رصيد غير كاف لدفع رسوم الغاز.",
   "msg__str_is_a_risky_token_be_careful": "❗ {0} هو رمز محفوف بالمخاطر ، انتبه!",
@@ -2309,6 +2321,7 @@
   "msg__the_ordinal_service_failure_refresh_and_try_again": "فشل الخدمة الترتيبي ، قم بالتحديث وحاول مرة أخرى",
   "msg__the_recipient_address_is_a_contract_address": "عنوان المستلم هو عنوان عقد ، وقد يؤدي التحويل إلى هذا العنوان إلى خسارة الأصول.",
   "msg__the_recipient_address_is_a_scam_address": "تم الإبلاغ عن الاحتيال على هذا العنوان وقد يؤدي النقل إلى هذا العنوان إلى فقدان الأصول.",
+  "msg__the_sending_amount_cannot_exceed_int_sats": "لا يمكن أن يتجاوز مبلغ الإرسال {0} ساتس",
   "msg__the_spendable_balance_on_the_chain_will_be_0_when_a_transfer_in_in_progress": "سيكون الرصيد القابل للإنفاق في السلسلة 0 عندما يكون التحويل قيد التنفيذ. عادةً ما يستغرق الأمر 20 دقيقة حتى يصبح الرصيد قابلاً للإنفاق.",
   "msg__there_are_str_requests_waiting_for_confirmation_currently": "هناك {0} من الطلبات في انتظار التأكيد حاليًا.",
   "msg__this_address_already_exists": "هذا العنوان موجود بالفعل.",
@@ -2352,7 +2365,9 @@
   "msg__using_latest_release": "أنت تستخدم أحدث إصدار! 🎉",
   "msg__utxo_is_frozen_you_can_find_it_in_frozen_tab": "UTXO متجمد ، يمكنك العثور عليه في علامة التبويب \"Frozen\".",
   "msg__utxo_is_unfrozen_you_can_find_it_in_availabel_tab": "تم إلغاء تجميد UTXO ، يمكنك العثور عليه في علامة التبويب \"متاح\".",
+  "msg__valid_lightning_address": "عنوان البرق صالح",
   "msg__valid_payment_request": "طلب دفع صالح",
+  "msg__valid_str_payment_request": "طلب دفع صالح {0}",
   "msg__verification_failure": "فشل التحقق",
   "msg__wallet_already_exist": "المحفظة موجودة بالفعل.",
   "msg__wallet_already_exist_activated_automatically": "المحفظة {0} موجودة بالفعل وتم تبديلها تلقائيًا.",
@@ -2595,6 +2610,8 @@
   "title__recovery_phrase_desc": "اقرأ ما يلي ، ثم احفظ العبارة بشكل آمن.",
   "title__refresh_website_to_take_effect": "قم بتحديث موقع الويب حتى يسري مفعوله",
   "title__refresh_website_to_take_effect_desc": "بعد تغيير الإعدادات ، يرجى تذكر تحديث موقع الويب ليصبح ساري المفعول.",
+  "title__reopen_app_required": "مطلوب إعادة فتح التطبيق",
+  "title__reopen_app_required_desc": "الآن سيتم إنهاء التطبيق وبعد إعادة فتح التطبيق يمكنك رؤية أن الإعدادات ستصبح سارية المفعول.",
   "title__request_details": "طلب تفاصيل",
   "title__requires_updating_of_onekey_bridge": "يتطلب تحديث OneKey Bridge",
   "title__revoke": "Revoke",

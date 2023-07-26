@@ -68,7 +68,7 @@ const Mobile: FC<ListProps> = ({ network, loading, ...props }) => {
           screen: CollectiblesModalRoutes.NFTDetailModal,
           params: {
             asset,
-            network,
+            networkId: network.id,
             isOwner: false,
           },
         },

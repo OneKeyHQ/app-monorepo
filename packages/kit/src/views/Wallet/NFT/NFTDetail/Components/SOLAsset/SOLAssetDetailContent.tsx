@@ -26,8 +26,7 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
-import { useNetwork } from '../../../../../../hooks';
-import { useActiveWalletAccount } from '../../../../../../hooks/redux';
+import { useActiveSideAccount, useNetwork } from '../../../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../../../routes/routesEnum';
 import { deviceUtils } from '../../../../../../utils/hardware';
 import { SendModalRoutes } from '../../../../../Send/enums';
@@ -43,21 +42,30 @@ type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 function SOLAssetDetailContent({
   asset: outerAsset,
   isOwner,
+  networkId,
+  accountId,
 }: {
   asset: NFTAsset;
   isOwner: boolean;
+  networkId: string;
+  accountId?: string;
 }) {
   const intl = useIntl();
   const { serviceNFT, serviceHardware } = backgroundApiProxy;
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { wallet } = useActiveWalletAccount();
+  const { wallet } = useActiveSideAccount({
+    networkId,
+    accountId: accountId ?? '',
+  });
   const modalClose = useModalClose();
   const isVertical = useIsVerticalLayout();
   const [asset, updateAsset] = useState(outerAsset);
-  const isDisabled = wallet?.type === WALLET_TYPE_WATCHING;
-
+  const isDisabled =
+    wallet?.type === WALLET_TYPE_WATCHING ||
+    asset.owner !== outerAsset.accountAddress ||
+    !accountId;
   const { network } = useNetwork({
-    networkId: outerAsset?.networkId ?? '',
+    networkId,
   });
 
   const [menuLoading, setMenuLoading] = useState(false);
@@ -144,17 +152,8 @@ function SOLAssetDetailContent({
   }, [asset, device, intl, serviceHardware, network]);
 
   const sendNFTWithAmount = useCallback(
-    async (amount: string) => {
-      const { accountAddress, networkId } = outerAsset ?? {};
-      if (!networkId || !accountAddress) {
-        return;
-      }
-      const account =
-        await backgroundApiProxy.serviceAccount.getAccountByAddress({
-          networkId,
-          address: accountAddress ?? '',
-        });
-      if (!account) {
+    (amount: string) => {
+      if (!accountId || !networkId) {
         return;
       }
       navigation.navigate(RootRoutes.Modal, {
@@ -162,7 +161,7 @@ function SOLAssetDetailContent({
         params: {
           screen: SendModalRoutes.PreSendAddress,
           params: {
-            accountId: account?.id,
+            accountId,
             networkId,
             isNFT: true,
             from: '',
@@ -175,7 +174,7 @@ function SOLAssetDetailContent({
         },
       });
     },
-    [asset.tokenAddress, modalClose, navigation, outerAsset],
+    [accountId, asset.tokenAddress, modalClose, navigation, networkId],
   );
 
   return (

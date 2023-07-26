@@ -1,5 +1,4 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Collection, INFTAsset } from '@onekeyhq/engine/src/types/nft';
 
 import CollectionModalView from '../../../views/Wallet/NFT/CollectionModal';
@@ -12,12 +11,14 @@ import createStackNavigator from './createStackNavigator';
 export type CollectiblesRoutesParams = {
   [CollectiblesModalRoutes.CollectionModal]: {
     collectible: Collection;
-    network: Network;
+    networkId: string;
+    accountId: string;
   };
   [CollectiblesModalRoutes.NFTDetailModal]: {
     asset: INFTAsset;
-    network: Network;
     isOwner: boolean;
+    networkId: string;
+    accountId?: string;
   };
 };
 
