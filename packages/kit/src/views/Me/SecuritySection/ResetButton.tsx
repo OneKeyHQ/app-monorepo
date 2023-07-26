@@ -12,6 +12,7 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { showDialog, showOverlay } from '../../../utils/overlayUtils';
@@ -77,6 +78,34 @@ const ResetDialog: FC<ResetDialogProps> = ({ onConfirm, onClose }) => {
   );
 };
 
+const ReOpenAppDialog: FC = () => {
+  const intl = useIntl();
+
+  return (
+    <Dialog
+      visible
+      footerButtonProps={{
+        primaryActionTranslationId: 'action__quit',
+        primaryActionProps: {
+          type: 'primary',
+        },
+        hideSecondaryAction: true,
+        onPrimaryActionPress: () => {
+          backgroundApiProxy.serviceApp.restartApp();
+        },
+      }}
+      contentProps={{
+        title: intl.formatMessage({
+          id: 'title__reopen_app_required',
+        }),
+        content: intl.formatMessage({
+          id: 'title__reopen_app_required_desc',
+        }),
+      }}
+    />
+  );
+};
+
 const ResetButton = () => {
   const intl = useIntl();
   const openResetHintDialog = useCallback(() => {
@@ -84,7 +113,11 @@ const ResetButton = () => {
       <ResetDialog
         onConfirm={() => {
           showSplashScreen();
-          backgroundApiProxy.serviceApp.resetApp();
+          backgroundApiProxy.serviceApp.resetApp().then(() => {
+            if (platformEnv.isNative) {
+              showDialog(<ReOpenAppDialog />);
+            }
+          });
         }}
       />,
     );

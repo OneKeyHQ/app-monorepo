@@ -20,6 +20,8 @@ const settings: IVaultSettings = Object.freeze({
 
   isUTXOModel: true,
 
+  hideInAllNetworksMode: true,
+
   accountNameInfo: {
     default: {
       prefix: 'CARDANO',

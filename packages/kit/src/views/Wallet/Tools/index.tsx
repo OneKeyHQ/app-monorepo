@@ -44,7 +44,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../hooks';
 import { useTools } from '../../../hooks/redux';
-import { useAllNetworksWalletAccounts } from '../../../hooks/useAllNetwoks';
+import {
+  useAllNetworksSelectNetworkAccount,
+  useAllNetworksWalletAccounts,
+} from '../../../hooks/useAllNetwoks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   getManageNetworks,
@@ -52,7 +55,6 @@ import {
 } from '../../../hooks/useManageNetworks';
 import { buildAddressDetailsUrl } from '../../../hooks/useOpenBlockBrowser';
 import { openUrl } from '../../../utils/openUrl';
-import { useAllNetworksSelectNetworkAccount } from '../../ManageNetworks/hooks';
 import { useIsVerticalOrMiddleLayout } from '../../Revoke/hooks';
 
 import type { ImageSourcePropType } from 'react-native';
@@ -146,8 +148,7 @@ const data: DataItem[] = [
 
 const ToolsPage: FC = () => {
   const intl = useIntl();
-  const { network, account, walletId, accountId, networkId } =
-    useActiveWalletAccount();
+  const { network, account, accountId, networkId } = useActiveWalletAccount();
   const isVertical = useIsVerticalOrMiddleLayout();
   const navigation = useNavigation();
   const { enabledNetworks } = useManageNetworks();
@@ -161,7 +162,6 @@ const ToolsPage: FC = () => {
 
   const selectNetworkAccount = useAllNetworksSelectNetworkAccount({
     networkId,
-    walletId,
     accountId,
   });
 
