@@ -239,61 +239,66 @@ export const OverviewDefiProtocol: FC<
 
   return (
     <ErrorBoundary>
-      <Collapse
+      <Box
         borderRadius="12px"
         bg="surface-default"
         borderWidth="1px"
         borderColor="border-subdued"
-        mb="6"
-        value={false}
         overflow="hidden"
-        renderCustomTrigger={(toggle, collapsed) =>
-          showHeader ? (
-            <OverviewDefiBoxHeader
-              name={protocolName}
-              onOpenDapp={open}
-              rate={rate}
-              desc={
-                <Text
-                  typography={{ md: 'Heading', sm: 'Body1Strong' }}
-                  textAlign={isVertical ? 'left' : 'right'}
-                >
-                  <FormatCurrencyNumber
-                    value={0}
-                    convertValue={new B(protocolValue)}
-                  />
-                </Text>
-              }
-              extra={
-                +claimableValue > 0 ? (
+        mb="6"
+      >
+        {showHeader ? (
+          <Collapse
+            value={false}
+            renderCustomTrigger={(toggle, collapsed) => (
+              <OverviewDefiBoxHeader
+                name={protocolName}
+                onOpenDapp={open}
+                rate={rate}
+                desc={
                   <Text
-                    color="text-subdued"
-                    typography={{ md: 'Body2Strong', sm: 'CaptionStrong' }}
+                    typography={{ md: 'Heading', sm: 'Body1Strong' }}
                     textAlign={isVertical ? 'left' : 'right'}
                   >
-                    {intl.formatMessage(
-                      { id: 'form__claimable_str' },
-                      {
-                        0: (
-                          <FormatCurrencyNumber
-                            value={0}
-                            convertValue={new B(claimableValue)}
-                          />
-                        ),
-                      },
-                    )}
+                    <FormatCurrencyNumber
+                      value={0}
+                      convertValue={new B(protocolValue)}
+                    />
                   </Text>
-                ) : undefined
-              }
-              icon={protocolIcon}
-              toggle={toggle}
-              collapsed={collapsed}
-            />
-          ) : null
-        }
-      >
-        {content}
-      </Collapse>
+                }
+                extra={
+                  +claimableValue > 0 ? (
+                    <Text
+                      color="text-subdued"
+                      typography={{ md: 'Body2Strong', sm: 'CaptionStrong' }}
+                      textAlign={isVertical ? 'left' : 'right'}
+                    >
+                      {intl.formatMessage(
+                        { id: 'form__claimable_str' },
+                        {
+                          0: (
+                            <FormatCurrencyNumber
+                              value={0}
+                              convertValue={new B(claimableValue)}
+                            />
+                          ),
+                        },
+                      )}
+                    </Text>
+                  ) : undefined
+                }
+                icon={protocolIcon}
+                toggle={toggle}
+                collapsed={collapsed}
+              />
+            )}
+          >
+            {content}
+          </Collapse>
+        ) : (
+          content
+        )}
+      </Box>
     </ErrorBoundary>
   );
 };
