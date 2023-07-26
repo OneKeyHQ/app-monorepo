@@ -3923,7 +3923,7 @@ const serverPresetNetworks = [
     'chainId': 'mainnet',
     'code': 'nexa',
     'decimals': 2,
-    'id': 'nexa--mainnet',
+    'id': 'nexa--0',
     'impl': 'nexa',
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
