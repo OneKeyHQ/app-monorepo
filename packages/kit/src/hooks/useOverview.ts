@@ -366,8 +366,6 @@ export function useAccountTokens({
     false,
   );
 
-  console.log(accountTokensOnChain);
-
   const accountTokensLoading = useAccountTokenLoading(networkId, accountId);
 
   const loading = useMemo(
