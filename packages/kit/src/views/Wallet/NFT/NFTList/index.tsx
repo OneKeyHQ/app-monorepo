@@ -94,6 +94,7 @@ const NFTList: FC<NFTListProps> = ({
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const [page, setPage] = useState(1);
+  const { accountId, networkId } = useActiveWalletAccount();
 
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
@@ -159,12 +160,19 @@ const NFTList: FC<NFTListProps> = ({
     setPage((prev) => prev + 1);
   }, []);
 
+  useEffect(() => {
+    setPage(1);
+  }, [accountId, networkId]);
+
   const flatListKey =
     platformEnv.isNative && !platformEnv.isNativeIOSPad
       ? undefined
       : `NFTList${numColumns}`;
 
   const loadMore = useMemo(() => {
+    if (!collections?.length) {
+      return null;
+    }
     const button = hasMore ? (
       <HStack justifyContent="center">
         <IconButton
@@ -182,7 +190,7 @@ const NFTList: FC<NFTListProps> = ({
         <Box h="24px" w="full" />
       </VStack>
     );
-  }, [intl, isVertical, handleLoadMore, hasMore]);
+  }, [intl, isVertical, handleLoadMore, hasMore, collections?.length]);
 
   return (
     <Tabs.FlatList
