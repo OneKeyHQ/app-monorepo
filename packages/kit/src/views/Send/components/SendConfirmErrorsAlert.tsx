@@ -207,7 +207,7 @@ export function SendConfirmErrorsAlert({
         isAlertStyle
         message={intl.formatMessage(
           {
-            id: 'msg_receipt_amount_should_be_less_than_int_sats',
+            id: 'msg__the_sending_amount_cannot_exceed_int_sats',
           },
           {
             0: lightingNetworkTransferConfig?.maxSendAmount ?? '',
