@@ -18,6 +18,8 @@ const settings: IVaultSettings = Object.freeze({
 
   isUTXOModel: false,
 
+  hideInAllNetworksMode: true,
+
   accountNameInfo: {
     default: {
       prefix: 'FIL',

@@ -30,6 +30,8 @@ const settings: IVaultSettings = Object.freeze({
     },
   },
 
+  hideInAllNetworksMode: true,
+
   txExtraInfo: [
     {
       key: 'note',

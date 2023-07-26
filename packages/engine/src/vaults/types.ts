@@ -143,6 +143,8 @@ export type IVaultSettings = {
   hexDataEditable?: boolean;
 
   hiddenBlockBrowserTokenDetailLink?: boolean;
+
+  hideInAllNetworksMode?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;

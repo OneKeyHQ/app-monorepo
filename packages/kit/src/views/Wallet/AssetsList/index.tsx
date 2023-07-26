@@ -27,6 +27,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount, useAppSelector } from '../../../hooks';
+import { useAllNetworksWalletAccounts } from '../../../hooks/useAllNetwoks';
 import {
   useAccountPortfolios,
   useAccountTokens,
@@ -38,7 +39,7 @@ import { EOverviewScanTaskType } from '../../Overview/types';
 import { WalletHomeTabEnum } from '../type';
 
 import AssetsListHeader from './AssetsListHeader';
-import { EmptyListOfAccount } from './EmptyList';
+import { AllNetworksEmpty, EmptyListOfAccount } from './EmptyList';
 import AssetsListSkeleton from './Skeleton';
 import SvgAllNetwrorksLoadingLight from './Svg/SvgAllNetworksLoadingDark';
 import TokenCell from './TokenCell';
@@ -89,6 +90,10 @@ function AssetsList({
     accountId,
     useFilter: true,
     limitSize,
+  });
+
+  const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
+    accountId,
   });
 
   const updateInfo = useOverviewAccountUpdateInfo({
@@ -198,11 +203,12 @@ function AssetsList({
       // const filter = item.address
       //   ? undefined
       //   : (i: EVMDecodedItem) => i.txType === EVMDecodedTxType.NATIVE_TRANSFER;
+      //
 
       navigation.navigate(HomeRoutes.ScreenTokenDetail, {
-        walletId: walletId ?? '',
-        accountId: account?.id ?? '',
-        networkId: networkId ?? '',
+        walletId,
+        accountId,
+        networkId,
         coingeckoId: item.coingeckoId,
         sendAddress: item.sendAddress,
         tokenAddress: item.address,
@@ -213,7 +219,7 @@ function AssetsList({
         logoURI: item.logoURI,
       });
     },
-    [account?.id, networkId, navigation, onTokenPress, walletId],
+    [networkId, navigation, onTokenPress, walletId, accountId],
   );
 
   const Container = singleton ? FlatList : Tabs.FlatList;
@@ -269,8 +275,8 @@ function AssetsList({
 
   const empty = useMemo(() => {
     if (loading) {
-      if (isAllNetworks(network?.id) && !updateInfo?.updatedAt) {
-        return (
+      if (isAllNetworks(network?.id)) {
+        return !updateInfo?.updatedAt ? (
           <Box alignItems="center" mt="8">
             <Empty
               w="260px"
@@ -280,15 +286,31 @@ function AssetsList({
                 </Box>
               }
               title={intl.formatMessage({ id: 'empty__creating_data' })}
-              subTitle={intl.formatMessage({ id: 'empty__creating_data_desc' })}
+              subTitle={intl.formatMessage({
+                id: 'empty__creating_data_desc',
+              })}
             />
           </Box>
+        ) : (
+          <AssetsListSkeleton />
         );
       }
-      return <AssetsListSkeleton />;
+    }
+    if (
+      isAllNetworks(network?.id) &&
+      !Object.keys(networkAccountsMap)?.length
+    ) {
+      return <AllNetworksEmpty />;
     }
     return <EmptyListOfAccount network={network} accountId={accountId} />;
-  }, [loading, accountId, network, updateInfo?.updatedAt, intl]);
+  }, [
+    loading,
+    accountId,
+    network,
+    updateInfo?.updatedAt,
+    intl,
+    networkAccountsMap,
+  ]);
 
   return (
     <Container

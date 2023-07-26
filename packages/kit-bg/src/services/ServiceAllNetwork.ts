@@ -205,7 +205,12 @@ export default class ServiceAllNetwork extends ServiceBase {
       return {};
     }
     const activeAccountId = accountId ?? `${walletId}--${index}`;
-    const networks = appSelector((s) => s.runtime.networks ?? []);
+    const networks = appSelector((s) => s.runtime.networks ?? []).filter(
+      (n) =>
+        !n.isTestnet &&
+        !n.settings?.validationRequired &&
+        !n.settings.hideInAllNetworksMode,
+    );
 
     dispatch(
       setAllNetworksAccountsLoading({
