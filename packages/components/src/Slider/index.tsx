@@ -23,6 +23,7 @@ const Slider = ({
   nativeMode ? (
     <NativeSlider
       {...props}
+      onSlidingComplete={props.onChangeEnd}
       maximumValue={props.maxValue}
       minimumValue={props.minValue}
       onValueChange={props.onChange}

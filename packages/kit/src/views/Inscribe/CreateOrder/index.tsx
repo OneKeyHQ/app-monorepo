@@ -413,12 +413,16 @@ const CreateOrder: FC = () => {
               minValue={546}
               maxValue={10000}
               nativeMode={platformEnv.isNative}
+              minimumTrackTintColor="#85D34C"
               accessibilityLabel="sat"
               step={1}
               value={sat}
               onChange={(value) => {
                 setLoading(true);
-                setSat(value);
+                // It is not necessary to constantly update the value on the app side.
+                if (!platformEnv.isNative) {
+                  setSat(value);
+                }
               }}
               onChangeEnd={(value) => {
                 setSat(value);
