@@ -912,6 +912,7 @@
   "content__wont_backup": "Аппаратный кошелек не будет резервироваться в {cloudName}. Вы должны записать свою фразу и сохранить ее в безопасном месте.",
   "content__write_down_all_recovery_seed": "Запишите все фразы о восстановлении",
   "content__write_down_all_recovery_seed_desc": "Следуя подсказкам, запишите все слова и выполните проверку.",
+  "content__yesterday": "Вчера",
   "content__you_are_about_to_visit_this_site_in_a_dapp_browser_do_you_want_to_continue": "Вы собираетесь посетить этот сайт в браузере dApp, хотите продолжить?",
   "content__you_can_also_find_the_bip39_dotmap_in_the_following_site": "Вы также можете найти точечную таблицу BIP39 на следующем сайте.",
   "content__you_can_change_this_option_later_in_the_settings": "Вы можете изменить этот параметр позже в настройках",

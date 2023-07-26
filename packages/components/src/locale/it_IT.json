@@ -912,6 +912,7 @@
   "content__wont_backup": "Non verrà eseguito il backup del portafoglio hardware su {cloudName}. Dovresti scrivere la tua frase e tenerla al sicuro.",
   "content__write_down_all_recovery_seed": "Scrivere tutte le frasi di recupero",
   "content__write_down_all_recovery_seed_desc": "Seguite le indicazioni, copiate tutte le parole e completate il controllo.",
+  "content__yesterday": "Ieri",
   "content__you_are_about_to_visit_this_site_in_a_dapp_browser_do_you_want_to_continue": "Stai per visitare questo sito in un browser dApp, vuoi continuare?",
   "content__you_can_also_find_the_bip39_dotmap_in_the_following_site": "Puoi anche trovare la tabella dotmap BIP39 nel seguente sito.",
   "content__you_can_change_this_option_later_in_the_settings": "Puoi modificare questa opzione in seguito nelle Impostazioni",

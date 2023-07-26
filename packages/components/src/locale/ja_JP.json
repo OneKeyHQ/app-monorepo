@@ -912,6 +912,7 @@
   "content__wont_backup": "ハードウェア ウォレットは {cloudName} にバックアップされません。フレーズを書き留めて、安全に保管してください。",
   "content__write_down_all_recovery_seed": "回復フレーズを完璧にメモしてください",
   "content__write_down_all_recovery_seed_desc": "提示内容に従って、全ての単語を書き写し、チェックを完成させてください。",
+  "content__yesterday": "昨日",
   "content__you_are_about_to_visit_this_site_in_a_dapp_browser_do_you_want_to_continue": "dApp ブラウザでこのサイトにアクセスしようとしているが、続行するか?",
   "content__you_can_also_find_the_bip39_dotmap_in_the_following_site": "次のサイトにも BIP39 ドットマップ テーブルが見つかる。",
   "content__you_can_change_this_option_later_in_the_settings": "このオプションは後で [設定] で変更できる",

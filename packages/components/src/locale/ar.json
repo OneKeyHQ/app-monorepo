@@ -912,6 +912,7 @@
   "content__wont_backup": "لن يتم نسخ محفظة الأجهزة احتياطيًا إلى {cloudName}. يجب عليك كتابة العبارة الخاصة بك والاحتفاظ بها آمنة.",
   "content__write_down_all_recovery_seed": "اكتب كل عبارة الاسترداد",
   "content__write_down_all_recovery_seed_desc": "اتبع التعليمات انسخ جميع الكلمات وأكمل الفحص.",
+  "content__yesterday": "أمس",
   "content__you_are_about_to_visit_this_site_in_a_dapp_browser_do_you_want_to_continue": "أنت على وشك زيارة هذا الموقع في متصفح dApp ، هل تريد المتابعة؟",
   "content__you_can_also_find_the_bip39_dotmap_in_the_following_site": "يمكنك أيضًا العثور على جدول BIP39 dotmap في الموقع التالي.",
   "content__you_can_change_this_option_later_in_the_settings": "يمكنك تغيير هذا الخيار لاحقًا في الإعدادات",

@@ -912,6 +912,7 @@
   "content__wont_backup": "Le portefeuille matériel ne sera pas sauvegardé sur {cloudName}. Vous devez écrire votre phrase et la conserver précieusement.",
   "content__write_down_all_recovery_seed": "Notez toutes les phrases de récupération",
   "content__write_down_all_recovery_seed_desc": "Suivez les instructions, copiez tous les mots et complétez le contrôle.",
+  "content__yesterday": "Hier",
   "content__you_are_about_to_visit_this_site_in_a_dapp_browser_do_you_want_to_continue": "Vous êtes sur le point de visiter ce site dans un navigateur dApp, voulez-vous continuer ?",
   "content__you_can_also_find_the_bip39_dotmap_in_the_following_site": "Vous pouvez également trouver le tableau dotmap BIP39 sur le site suivant.",
   "content__you_can_change_this_option_later_in_the_settings": "Vous pouvez modifier cette option plus tard dans les paramètres",

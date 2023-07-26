@@ -912,6 +912,7 @@
   "content__wont_backup": "Ví phần cứng sẽ không được sao lưu vào {cloudName}. Bạn nên viết ra cụm từ của mình và giữ nó an toàn.",
   "content__write_down_all_recovery_seed": "Viết ra tất cả cụm từ khôi phục",
   "content__write_down_all_recovery_seed_desc": "Làm theo lời nhắc, sao chép tất cả các từ và hoàn thành việc kiểm tra.",
+  "content__yesterday": "Hôm qua",
   "content__you_are_about_to_visit_this_site_in_a_dapp_browser_do_you_want_to_continue": "Bạn sắp truy cập trang web này trong trình duyệt dApp, bạn có muốn tiếp tục không?",
   "content__you_can_also_find_the_bip39_dotmap_in_the_following_site": "Bạn cũng có thể tìm thấy bảng dotmap BIP39 trong trang web sau.",
   "content__you_can_change_this_option_later_in_the_settings": "Bạn có thể thay đổi tùy chọn này sau trong Cài đặt",

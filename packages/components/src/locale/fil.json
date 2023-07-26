@@ -912,6 +912,7 @@
   "content__wont_backup": "Ang wallet ng hardware ay hindi maba-back up sa {cloudName}. Dapat mong isulat ang iyong parirala at panatilihin itong ligtas.",
   "content__write_down_all_recovery_seed": "Isulat ang lahat ng parirala sa pagbawi",
   "content__write_down_all_recovery_seed_desc": "Sundin ang mga prompt, kopyahin ang lahat ng mga salita at kumpletuhin ang tseke.",
+  "content__yesterday": "Kahapon",
   "content__you_are_about_to_visit_this_site_in_a_dapp_browser_do_you_want_to_continue": "Bibisitahin mo ang site na ito sa isang dApp browser, gusto mo bang magpatuloy?",
   "content__you_can_also_find_the_bip39_dotmap_in_the_following_site": "Maaari mo ring mahanap ang BIP39 dotmap table sa sumusunod na site.",
   "content__you_can_change_this_option_later_in_the_settings": "Maaari mong baguhin ang opsyong ito sa ibang pagkakataon sa Mga Setting",

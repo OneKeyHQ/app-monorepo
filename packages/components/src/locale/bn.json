@@ -912,6 +912,7 @@
   "content__wont_backup": "হার্ডওয়্যার ওয়ালেট আইক্লাউডে ব্যাক আপ করা হবে না। আপনি আপনার শব্দগুচ্ছ লিখুন এবং এটি নিরাপদ রাখা উচিত.",
   "content__write_down_all_recovery_seed": "সমস্ত পুনরুদ্ধারের বাক্যাংশ লিখুন",
   "content__write_down_all_recovery_seed_desc": "প্রম্পটগুলি অনুসরণ করুন সমস্ত শব্দ অনুলিপি করুন এবং চেকটি সম্পূর্ণ করুন।",
+  "content__yesterday": "গতকাল",
   "content__you_are_about_to_visit_this_site_in_a_dapp_browser_do_you_want_to_continue": "আপনি একটি dApp ব্রাউজারে এই সাইটটি দেখতে চলেছেন, আপনি কি চালিয়ে যেতে চান?",
   "content__you_can_also_find_the_bip39_dotmap_in_the_following_site": "আপনি নিম্নলিখিত সাইটে BIP39 ডটম্যাপ টেবিলটিও খুঁজে পেতে পারেন।",
   "content__you_can_change_this_option_later_in_the_settings": "আপনি পরে সেটিংসে এই বিকল্পটি পরিবর্তন করতে পারেন",

@@ -912,6 +912,7 @@
   "content__wont_backup": "하드웨어 지갑은 {cloudName}에 백업되지 않습니다. 문구를 적어서 안전하게 보관해야 합니다.",
   "content__write_down_all_recovery_seed": "모든 복구 문구를 기록하십시오",
   "content__write_down_all_recovery_seed_desc": "프롬프트에 따라 모든 단어를 복사하고 확인을 완료하십시오.",
+  "content__yesterday": "어제",
   "content__you_are_about_to_visit_this_site_in_a_dapp_browser_do_you_want_to_continue": "dApp 브라우저에서 이 사이트를 방문하려고 합니다. 계속하시겠습니까?",
   "content__you_can_also_find_the_bip39_dotmap_in_the_following_site": "다음 사이트에서 BIP39 도트맵 테이블을 찾을 수도 있습니다.",
   "content__you_can_change_this_option_later_in_the_settings": "나중에 설정에서 이 옵션을 변경할 수 있습니다.",

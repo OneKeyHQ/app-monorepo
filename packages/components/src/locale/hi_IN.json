@@ -912,6 +912,7 @@
   "content__wont_backup": "हार्डवेयर वॉलेट का {cloudName} में बैकअप नहीं लिया जाएगा। आपको अपना वाक्यांश लिखना चाहिए और इसे सुरक्षित रखना चाहिए।",
   "content__write_down_all_recovery_seed": "सभी पुनर्प्राप्ति वाक्यांश लिखें",
   "content__write_down_all_recovery_seed_desc": "संकेतों का पालन करें सभी शब्दों को कॉपी करें और चेक पूरा करें।",
+  "content__yesterday": "कल",
   "content__you_are_about_to_visit_this_site_in_a_dapp_browser_do_you_want_to_continue": "आप एक dApp ब्राउज़र में इस साइट पर जाने वाले हैं, क्या आप जारी रखना चाहते हैं?",
   "content__you_can_also_find_the_bip39_dotmap_in_the_following_site": "आप निम्न साइट में BIP39 डॉटमैप तालिका भी प्राप्त कर सकते हैं।",
   "content__you_can_change_this_option_later_in_the_settings": "आप इस विकल्प को बाद में सेटिंग में बदल सकते हैं",

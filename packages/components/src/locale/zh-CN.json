@@ -912,6 +912,7 @@
   "content__wont_backup": "硬件钱包不会备份至 {cloudName}；您应该抄写并妥善保管您的助记词。",
   "content__write_down_all_recovery_seed": "将所有的助记词记下来",
   "content__write_down_all_recovery_seed_desc": "按照提示记下所有的词汇并且完成检查。",
+  "content__yesterday": "昨天",
   "content__you_are_about_to_visit_this_site_in_a_dapp_browser_do_you_want_to_continue": "即将在 dApp 浏览器中访问此网站，是否要继续？",
   "content__you_can_also_find_the_bip39_dotmap_in_the_following_site": "您也可以在以下网址找到 BIP39 点阵图对照表。",
   "content__you_can_change_this_option_later_in_the_settings": "你可以稍后在“设置”中更改此选项",

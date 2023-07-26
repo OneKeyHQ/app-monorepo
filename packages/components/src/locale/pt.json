@@ -912,6 +912,7 @@
   "content__wont_backup": "A carteira de hardware não será copiada para o {cloudName}. Você deve escrever sua frase e mantê-la segura.",
   "content__write_down_all_recovery_seed": "Anote todas as frases de recuperação",
   "content__write_down_all_recovery_seed_desc": "Siga as instruções, copie todas as palavras e complete a verificação.",
+  "content__yesterday": "Ontem",
   "content__you_are_about_to_visit_this_site_in_a_dapp_browser_do_you_want_to_continue": "Você está prestes a visitar este site em um navegador dApp, deseja continuar?",
   "content__you_can_also_find_the_bip39_dotmap_in_the_following_site": "Você também pode encontrar a tabela de mapa de pontos BIP39 no seguinte site.",
   "content__you_can_change_this_option_later_in_the_settings": "Você pode alterar esta opção mais tarde nas Configurações",

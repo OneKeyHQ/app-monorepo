@@ -912,6 +912,7 @@
   "content__wont_backup": "Резервне копіювання апаратного гаманця в {cloudName} не створюватиметься. Ви повинні записати свою фразу і зберегти її в безпеці.",
   "content__write_down_all_recovery_seed": "Запишіть усі фрази відновлення",
   "content__write_down_all_recovery_seed_desc": "Дотримуйтесь підказок, скопіюйте всі слова та завершите перевірку.",
+  "content__yesterday": "вчора",
   "content__you_are_about_to_visit_this_site_in_a_dapp_browser_do_you_want_to_continue": "Ви збираєтеся відвідати цей сайт у браузері dApp, продовжити?",
   "content__you_can_also_find_the_bip39_dotmap_in_the_following_site": "Ви також можете знайти точкову таблицю BIP39 на наступному сайті.",
   "content__you_can_change_this_option_later_in_the_settings": "Ви можете змінити цю опцію пізніше в налаштуваннях",

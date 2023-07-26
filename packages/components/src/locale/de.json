@@ -912,6 +912,7 @@
   "content__wont_backup": "Hardware Wallet wird nicht in {cloudName} gesichert. Sie sollten Ihren Satz aufschreiben und sicher aufbewahren.",
   "content__write_down_all_recovery_seed": "Schreiben Sie alle Wiederherstellungsphrasen auf",
   "content__write_down_all_recovery_seed_desc": "Folgen Sie den Aufforderungen, schreiben Sie alle Wörter ab und füllen Sie die Prüfung aus.",
+  "content__yesterday": "Gestern",
   "content__you_are_about_to_visit_this_site_in_a_dapp_browser_do_you_want_to_continue": "Sie sind im Begriff, diese Website in einem dApp-Browser zu besuchen. Möchten Sie fortfahren?",
   "content__you_can_also_find_the_bip39_dotmap_in_the_following_site": "Sie finden die BIP39-Dotmap-Tabelle auch auf der folgenden Website.",
   "content__you_can_change_this_option_later_in_the_settings": "Sie können diese Option später in den Einstellungen ändern",

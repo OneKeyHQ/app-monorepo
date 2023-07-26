@@ -912,6 +912,7 @@
   "content__wont_backup": "La billetera física no se respaldará en {cloudName}. Debes escribir tu frase y mantenerla segura.",
   "content__write_down_all_recovery_seed": "Anotar toda la frase de recuperación",
   "content__write_down_all_recovery_seed_desc": "Sigue las indicaciones, copia todas las palabras y completa la verificación.",
+  "content__yesterday": "Ayer",
   "content__you_are_about_to_visit_this_site_in_a_dapp_browser_do_you_want_to_continue": "Estás a punto de visitar este sitio en un navegador dApp, ¿quieres continuar?",
   "content__you_can_also_find_the_bip39_dotmap_in_the_following_site": "También puedes encontrar la tabla de mapa de puntos BIP39 en el siguiente sitio.",
   "content__you_can_change_this_option_later_in_the_settings": "Puedes cambiar esta opción más tarde en la Configuración",

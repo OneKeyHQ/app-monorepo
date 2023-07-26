@@ -912,6 +912,7 @@
   "content__wont_backup": "กระเป๋าเงินฮาร์ดแวร์จะไม่ถูกสำรองข้อมูลไปยัง {cloudName} คุณควรจดวลีของคุณและเก็บไว้อย่างปลอดภัย",
   "content__write_down_all_recovery_seed": "เขียนวลีกู้คืนทั้งหมด",
   "content__write_down_all_recovery_seed_desc": "ทำตามคำแนะนำคัดลอกคำทั้งหมดและทำการตรวจสอบให้เสร็จสิ้น",
+  "content__yesterday": "เมื่อวาน",
   "content__you_are_about_to_visit_this_site_in_a_dapp_browser_do_you_want_to_continue": "คุณกำลังจะเยี่ยมชมไซต์นี้ในเบราว์เซอร์ dApp คุณต้องการดำเนินการต่อหรือไม่",
   "content__you_can_also_find_the_bip39_dotmap_in_the_following_site": "คุณยังสามารถหาตารางดอทแมป BIP39 ได้จากไซต์ต่อไปนี้",
   "content__you_can_change_this_option_later_in_the_settings": "คุณสามารถเปลี่ยนตัวเลือกนี้ได้ในภายหลังในการตั้งค่า",
