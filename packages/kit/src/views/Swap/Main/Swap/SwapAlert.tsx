@@ -190,7 +190,10 @@ const ExchangeAddressAlert = () => {
   return recipientUnknown ? <ExchangeAddressAlertContent /> : null;
 };
 
-const PriceImpactAlertContent = () => {
+type PriceImpactAlertContentProps = { value: number };
+const PriceImpactAlertContent: FC<PriceImpactAlertContentProps> = ({
+  value,
+}) => {
   const intl = useIntl();
   useEffect(() => {
     async function main() {
@@ -205,9 +208,12 @@ const PriceImpactAlertContent = () => {
           >
             <Center w="full">
               <Typography.Body1 textAlign="center" color="text-subdued">
-                {intl.formatMessage({
-                  id: 'msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss',
-                })}
+                {intl.formatMessage(
+                  {
+                    id: 'msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss',
+                  },
+                  { '0': value.toFixed(2) },
+                )}
               </Typography.Body1>
               <Center w="full" mt="5">
                 <Button size="lg" w="full" type="primary" onPress={close}>
@@ -220,16 +226,19 @@ const PriceImpactAlertContent = () => {
       }
     }
     main();
-  }, [intl]);
+  }, [intl, value]);
   return (
     <Box flexDirection="row" mt="6">
       <Alert
         alertType="warn"
         dismiss={false}
         containerProps={{ width: 'full' }}
-        title={intl.formatMessage({
-          id: 'msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss',
-        })}
+        title={intl.formatMessage(
+          {
+            id: 'msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss',
+          },
+          { '0': value.toFixed(2) },
+        )}
       />
     </Box>
   );
@@ -238,7 +247,7 @@ const PriceImpactAlertContent = () => {
 const PriceImpactAlert = () => {
   const priceImpact = usePriceImpact();
   if (priceImpact && priceImpact > 10) {
-    return <PriceImpactAlertContent />;
+    return <PriceImpactAlertContent value={priceImpact} />;
   }
   return null;
 };

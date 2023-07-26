@@ -9,6 +9,7 @@ import {
   addBookmark,
   cleanOldState,
   clearHistory,
+  refreshUserBrowserHistoryTimestamp,
   removeBookmark,
   removeDappHistory,
   removeUserBrowserHistory,
@@ -46,6 +47,7 @@ class ServicDiscover extends ServiceBase {
 
   init() {
     this.migrateFavorite();
+    this.organizeHistory();
   }
 
   async getList(url: string) {
@@ -168,6 +170,39 @@ class ServicDiscover extends ServiceBase {
     );
 
     dispatch(resetBookmarks(bookmarks), setFavoritesMigrated());
+  }
+
+  organizeHistory() {
+    const { appSelector, dispatch } = this.backgroundApi;
+    const userBrowserHistories = appSelector(
+      (s) => s.discover.userBrowserHistories,
+    );
+    let actions: any[] = [];
+    if (userBrowserHistories && userBrowserHistories.length > 0) {
+      const noTimestampHistoryItems = userBrowserHistories?.filter(
+        (o) => !o.timestamp,
+      );
+      if (noTimestampHistoryItems.length > 0) {
+        const refreshHistoryTimestampActions = noTimestampHistoryItems.map(
+          (item) => refreshUserBrowserHistoryTimestamp({ url: item.url }),
+        );
+        actions = actions.concat(refreshHistoryTimestampActions);
+      }
+
+      const now = Date.now();
+      const oldHistory = userBrowserHistories.filter(
+        (o) => o.timestamp && now - o.timestamp > 30 * 24 * 60 * 60 * 1000,
+      );
+      if (oldHistory.length) {
+        const removeUserBrowserHistoryActions = oldHistory.map((item) =>
+          removeUserBrowserHistory({ url: item.url }),
+        );
+        actions = actions.concat(removeUserBrowserHistoryActions);
+      }
+    }
+    if (actions.length > 0) {
+      dispatch(...actions);
+    }
   }
 
   @backgroundMethod()
