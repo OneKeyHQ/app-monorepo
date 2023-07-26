@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { HStack, IconButton, Text, VStack } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AddressLabel } from '../../../components/AddressLabel';
@@ -194,21 +195,24 @@ export function TxActionElementAddress(
 
   const { label, isWatchAccount } = useAddressLabel({ address, networkId });
   const contact = useAddressBookItem({ address });
+  const showAddress = !isLightningNetworkByNetworkId(networkId ?? '');
   const text = isShorten ? shortenAddress(address) : address;
 
   return (
     <VStack flex={flex}>
       <HStack alignItems="flex-start" space={1}>
         <VStack space={1} flex={1}>
-          <Text
-            ml={securityInfo?.length ? 1 : 0}
-            isTruncated
-            numberOfLines={2}
-            {...others}
-            color={securityInfo?.length ? 'text-critical' : 'text-default'}
-          >
-            {text}
-          </Text>
+          {showAddress && (
+            <Text
+              ml={securityInfo?.length ? 1 : 0}
+              isTruncated
+              numberOfLines={2}
+              {...others}
+              color={securityInfo?.length ? 'text-critical' : 'text-default'}
+            >
+              {text}
+            </Text>
+          )}
           <AddressLabel
             mt={-1}
             address={address}
