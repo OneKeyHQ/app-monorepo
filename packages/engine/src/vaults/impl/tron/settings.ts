@@ -26,6 +26,8 @@ const settings: IVaultSettings = Object.freeze({
 
   allowZeroFee: true,
 
+  hideInAllNetworksMode: true,
+
   accountNameInfo: {
     default: {
       prefix: 'TRON',

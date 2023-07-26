@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -30,6 +30,17 @@ function AllNetworksNetworkSelectorModal() {
   const route = useRoute<RouteProps>();
 
   const { enabledNetworks } = useManageNetworks();
+
+  const supportedNetworks = useMemo(
+    () =>
+      enabledNetworks.filter(
+        (n) =>
+          !n.isTestnet &&
+          !n.settings?.validationRequired &&
+          !n.settings.hideInAllNetworksMode,
+      ),
+    [enabledNetworks],
+  );
 
   const { filter, onConfirm, accountId } = route?.params ?? {};
 
@@ -125,9 +136,9 @@ function AllNetworksNetworkSelectorModal() {
       height="560px"
     >
       <List
-        data={enabledNetworks}
+        data={supportedNetworks}
         contentContainerStyle={{
-          flex: enabledNetworks?.length ? undefined : 1,
+          flex: supportedNetworks?.length ? undefined : 1,
         }}
         renderItem={renderItem}
         keyExtractor={(item: Network) => item.id}
