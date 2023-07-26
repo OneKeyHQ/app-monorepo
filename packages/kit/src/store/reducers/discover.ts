@@ -13,20 +13,21 @@ import type {
 import type { PayloadAction } from '@reduxjs/toolkit';
 
 type InitialState = {
-  dappHistory?: Record<string, HistoryItemData>;
-
   userBrowserHistories?: UserBrowserHistory[];
   bookmarks?: BookmarkItem[];
 
   favoritesMigrated?: boolean;
 
   // REMOVED
+  dappHistory?: Record<string, HistoryItemData>;
   dappFavorites?: string[];
   dappItems?: DAppItemType[] | null;
   listedCategories?: { name: string; _id: string }[];
   listedTags?: { name: string; _id: string }[];
   categoryDapps?: { label: string; id: string; items: DAppItemType[] }[];
   tagDapps?: { label: string; id: string; items: DAppItemType[] }[];
+  history: Record<string, DiscoverHistory>;
+  firstRemindDAPP: boolean;
   // REMOVED
 
   home?: {
@@ -34,8 +35,6 @@ type InitialState = {
     tagDapps: TagDappsType[];
   };
 
-  history: Record<string, DiscoverHistory>;
-  firstRemindDAPP: boolean;
   // enableIOSDappSearch?: boolean;
   // showFullLayout?: boolean;
   showBookmark?: boolean;
@@ -172,9 +171,6 @@ export const discoverSlice = createSlice({
     updateFirstRemindDAPP(state, action: PayloadAction<boolean>) {
       state.firstRemindDAPP = action.payload;
     },
-    // setDappItems(state, action: PayloadAction<DAppItemType[]>) {
-    //   state.dappItems = action.payload;
-    // },
     setDappHistory(state, action: PayloadAction<string>) {
       if (!state.dappHistory) {
         state.dappHistory = {};
