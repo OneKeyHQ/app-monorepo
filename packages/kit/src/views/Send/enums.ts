@@ -13,6 +13,7 @@ export enum SendModalRoutes {
   HardwareSwapContinue = 'HardwareSwapContinue',
   BatchSendConfirm = 'BatchSendConfirm',
   BatchSendProgress = 'BatchSendProgress',
+  NFTDetailModal = 'NFTDetailModal',
 }
 
 export enum ESendEditFeeTypes {

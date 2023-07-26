@@ -23,6 +23,8 @@ import { SendModalRoutes } from './enums';
 
 import type { WalletService } from '../../components/WalletConnect/types';
 import type { WalletConnectClientForDapp } from '../../components/WalletConnect/WalletConnectClientForDapp';
+import type { CollectiblesRoutesParams } from '../../routes/Root/Modal/Collectibles';
+import type { CollectiblesModalRoutes } from '../../routes/routesEnum';
 import type { BulkSenderTypeEnum } from '../BulkSender/types';
 import type { InjectedConnectorInfo } from '../ExternalAccount/injectedConnectors';
 import type { SwapQuoteTx } from '../Swap/typings';
@@ -188,6 +190,9 @@ export type HardwareSwapContinueParams = {
   closeModal?: () => any;
 };
 
+type NFTDetailModalParams =
+  CollectiblesRoutesParams[CollectiblesModalRoutes.NFTDetailModal];
+
 export type SendRoutesParams = {
   [SendModalRoutes.PreSendToken]: PreSendParams;
   [SendModalRoutes.PreSendAddress]: PreSendParams;
@@ -203,6 +208,7 @@ export type SendRoutesParams = {
   [SendModalRoutes.HardwareSwapContinue]: HardwareSwapContinueParams;
   [SendModalRoutes.BatchSendConfirm]: BatchSendConfirmParams;
   [SendModalRoutes.BatchSendProgress]: BatchSendProgressParams;
+  [SendModalRoutes.NFTDetailModal]: NFTDetailModalParams;
 };
 
 export type ITxConfirmViewPropsHandleConfirm = ({

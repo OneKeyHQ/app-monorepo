@@ -289,26 +289,22 @@ const AssetsList = ({
     setContext,
   ]);
 
-  const networks = useNetworks();
-
-  const network = networks.find((item) => item.id === networkId);
-
   const handleSelectAsset = useCallback(
     (asset: NFTAsset) => {
-      if (!network) return;
+      if (!networkId) return;
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Collectibles,
         params: {
           screen: CollectiblesModalRoutes.NFTDetailModal,
           params: {
             asset,
-            network,
+            networkId,
             isOwner: false,
           },
         },
       });
     },
-    [navigation, network],
+    [navigation, networkId],
   );
 
   const renderItem: ListRenderItem<NFTAsset> = useCallback(

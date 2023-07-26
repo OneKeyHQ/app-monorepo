@@ -1,5 +1,3 @@
-import type { Account } from '@onekeyhq/engine/src/types/account';
-import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Collection, INFTAsset } from '@onekeyhq/engine/src/types/nft';
 
 import { getAppNavigation } from '../../../hooks/useAppNavigation';
@@ -27,47 +25,48 @@ export function convertToMoneyFormat(number: string) {
 }
 
 function navigateToNFTCollection({
-  account,
-  network,
+  accountId,
+  networkId,
   collection,
 }: {
-  account: Account;
-  network: Network;
+  accountId: string;
+  networkId: string;
   collection: Collection;
 }) {
   const navigation = getAppNavigation();
-  if (!account || !network) return;
+  if (!accountId || !networkId) return;
   navigation.navigate(RootRoutes.Modal, {
     screen: ModalRoutes.Collectibles,
     params: {
       screen: CollectiblesModalRoutes.CollectionModal,
       params: {
         collectible: collection,
-        network,
+        networkId,
+        accountId,
       },
     },
   });
 }
 
 function navigateToNFTDetail({
-  account,
-  network,
+  accountId,
+  networkId,
   asset,
 }: {
-  account: Account;
-  network: Network;
+  accountId: string;
+  networkId: string;
   asset: INFTAsset;
 }) {
   const navigation = getAppNavigation();
-  if (!account || !network) return;
-  if (!network) return;
+  if (!accountId || !networkId) return;
   navigation.navigate(RootRoutes.Modal, {
     screen: ModalRoutes.Collectibles,
     params: {
       screen: CollectiblesModalRoutes.NFTDetailModal,
       params: {
         asset,
-        network,
+        accountId,
+        networkId,
         isOwner: true,
       },
     },
