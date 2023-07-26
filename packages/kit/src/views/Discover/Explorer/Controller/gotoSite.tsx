@@ -45,6 +45,7 @@ export const gotoSite = ({
           url: validatedUrl,
           dappId: dAppId,
           title,
+          timestamp: Date.now(),
         }),
       );
       backgroundApiProxy.serviceDiscover.updateUserBrowserHistoryLogo({

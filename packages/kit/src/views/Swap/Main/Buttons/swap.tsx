@@ -125,8 +125,10 @@ const LinearGradientExchangeButton: FC<LinearGradientExchangeButtonProps> = ({
   isLoading,
   ...props
 }) => {
+  const intl = useIntl();
   const tokenA = useAppSelector((s) => s.swap.inputToken);
   const tokenB = useAppSelector((s) => s.swap.outputToken);
+
   if (
     !isDisabled &&
     !isLoading &&
@@ -134,9 +136,31 @@ const LinearGradientExchangeButton: FC<LinearGradientExchangeButtonProps> = ({
     tokenB &&
     tokenA.networkId !== tokenB?.networkId
   ) {
-    return <LinearGradientButton tokenA={tokenA} tokenB={tokenB} {...props} />;
+    let title = intl.formatMessage({ id: 'title__swap' });
+    if (!isDisabled && !isLoading && tokenB?.symbol) {
+      title = intl.formatMessage(
+        { id: 'action__cross_chain_swap_to_str' },
+        { '0': tokenB?.symbol || '' },
+      );
+    }
+    return (
+      <LinearGradientButton tokenA={tokenA} tokenB={tokenB} {...props}>
+        {title}
+      </LinearGradientButton>
+    );
   }
-  return <Button isDisabled={isDisabled} isLoading={isLoading} {...props} />;
+  let title = intl.formatMessage({ id: 'title__swap' });
+  if (!isDisabled && !isLoading && tokenB?.symbol) {
+    title = intl.formatMessage(
+      { id: 'action__swap_to_str' },
+      { '0': tokenB?.symbol || '' },
+    );
+  }
+  return (
+    <Button isDisabled={isDisabled} isLoading={isLoading} {...props}>
+      {title}
+    </Button>
+  );
 };
 
 const ExchangeButton = () => {

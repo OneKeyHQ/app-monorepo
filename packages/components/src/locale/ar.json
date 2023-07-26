@@ -912,6 +912,7 @@
   "content__wont_backup": "لن يتم نسخ محفظة الأجهزة احتياطيًا إلى {cloudName}. يجب عليك كتابة العبارة الخاصة بك والاحتفاظ بها آمنة.",
   "content__write_down_all_recovery_seed": "اكتب كل عبارة الاسترداد",
   "content__write_down_all_recovery_seed_desc": "اتبع التعليمات انسخ جميع الكلمات وأكمل الفحص.",
+  "content__yesterday": "أمس",
   "content__you_are_about_to_visit_this_site_in_a_dapp_browser_do_you_want_to_continue": "أنت على وشك زيارة هذا الموقع في متصفح dApp ، هل تريد المتابعة؟",
   "content__you_can_also_find_the_bip39_dotmap_in_the_following_site": "يمكنك أيضًا العثور على جدول BIP39 dotmap في الموقع التالي.",
   "content__you_can_change_this_option_later_in_the_settings": "يمكنك تغيير هذا الخيار لاحقًا في الإعدادات",
@@ -2316,6 +2317,7 @@
   "msg__the_current_version_is_the_latest": "👏 الإصدار الحالي هو الأحدث",
   "msg__the_disk_path_was_not_found": "لم يتم العثور على مسار القرص",
   "msg__the_invoice_amount_cannot_be_0": "لا يمكن أن يكون مبلغ الفاتورة 0",
+  "msg__the_invoice_does_not_specify_a_amount_pay_attention_to_avoid_overpayment": "الفاتورة لا تحدد مبلغًا ، انتبه لتجنب دفع مبالغ زائدة",
   "msg__the_invoice_has_expired": "انتهت صلاحية الفاتورة",
   "msg__the_maximum_interval_must_be_greater_than_or_equal_to_the_minimum_interval": "يجب أن يكون الحد الأقصى للفترة الزمنية أكبر من أو يساوي الحد الأدنى للفترة الزمنية.",
   "msg__the_ordinal_service_failure_refresh_and_try_again": "فشل الخدمة الترتيبي ، قم بالتحديث وحاول مرة أخرى",
@@ -2383,7 +2385,7 @@
   "msg__you_dont_own_this_address": "أنت لا تملك هذا العنوان.",
   "msg__you_have_selected_another_account_to_receive_tokens": "لقد قمت بتحديد حساب آخر لتلقي الرموز.",
   "msg__you_need_str_accounts_on_any_network_to_create": "أنت بحاجة إلى حسابات {0} على أي شبكة لإنشاءها",
-  "msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss": "سوف تستبدل الرموز بنسبة 10٪ أقل من سعر coingecko ، مما قد يؤدي إلى خسارة.",
+  "msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss": "سوف تستبدل الرموز بنسبة {0}٪ أقل من سعر coingecko ، مما قد يؤدي إلى خسارة.",
   "msg__your_trade_may_be_front_run_due_to_the_larger_slippage": "قد تكون تجارتك في المقدمة بسبب الانزلاق الأكبر.",
   "msg__your_trade_may_fail_due_to_small_slippage": "قد تفشل تجارتك بسبب انزلاق بسيط.",
   "msg__your_transaction_may_be_frontrun": "قد تكون معاملتك في المقدمة",
