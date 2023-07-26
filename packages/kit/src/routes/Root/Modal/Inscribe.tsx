@@ -1,5 +1,4 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import type { IAccount } from '@onekeyhq/engine/src/types';
 import type {
   IInscriptionContent,
   IInscriptionHistory,

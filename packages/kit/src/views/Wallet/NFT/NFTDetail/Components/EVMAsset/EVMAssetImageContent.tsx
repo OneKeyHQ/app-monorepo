@@ -9,7 +9,6 @@ import {
   useIsVerticalLayout,
   useTheme,
 } from '@onekeyhq/components';
-import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -27,11 +26,7 @@ function isImage(contentType?: string | null) {
   return false;
 }
 
-function EVMAssetImageContent(params: {
-  asset: NFTAsset;
-  network: Network;
-  isOwner: boolean;
-}) {
+function EVMAssetImageContent(params: { asset: NFTAsset; isOwner: boolean }) {
   const { asset, isOwner } = params;
   const { themeVariant } = useTheme();
   const isVertical = useIsVerticalLayout();

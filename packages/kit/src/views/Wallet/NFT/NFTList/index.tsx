@@ -215,7 +215,7 @@ const NFTList: FC<NFTListProps> = ({
 };
 
 function NFTListContainer() {
-  const { account, network, accountId, networkId } = useActiveWalletAccount();
+  const { accountId, networkId } = useActiveWalletAccount();
 
   const isNFTSupport = isCollectibleSupportedChainId(networkId);
   const { serviceNFT } = backgroundApiProxy;
@@ -288,32 +288,32 @@ function NFTListContainer() {
     if (shouldDoRefresh) {
       mutate();
     }
-  }, [mutate, shouldDoRefresh, account, networkId]);
+  }, [mutate, shouldDoRefresh, accountId, networkId]);
 
   const handleSelect = useCallback(
     (data: ListDataType, type: NFTCardType) => {
-      if (!account || !network) return;
+      if (!accountId || !networkId) return;
       switch (type) {
         case NFTCardType.EVMCollection:
         case NFTCardType.SOLCollection:
           navigateToNFTCollection({
-            account,
-            network,
+            networkId,
+            accountId,
             collection: data as any,
           });
           break;
         case NFTCardType.EVMAsset:
         case NFTCardType.SOLAsset:
-          navigateToNFTDetail({ account, network, asset: data as any });
+          navigateToNFTDetail({ networkId, accountId, asset: data as any });
           break;
         case NFTCardType.BTCAsset:
-          navigateToNFTDetail({ account, network, asset: data as any });
+          navigateToNFTDetail({ networkId, accountId, asset: data as any });
           break;
         default:
           break;
       }
     },
-    [account, network],
+    [accountId, networkId],
   );
 
   return (

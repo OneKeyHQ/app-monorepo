@@ -40,6 +40,8 @@ const settings: IVaultSettings = Object.freeze({
   rpcStatusDisabled: true,
   useSimpleTipForSpecialCheckEncodedTx: true,
 
+  hideInAllNetworksMode: true,
+
   allowZeroFee: true,
 
   txExtraInfo: [

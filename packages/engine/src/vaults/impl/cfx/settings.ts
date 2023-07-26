@@ -19,6 +19,8 @@ const settings: IVaultSettings = Object.freeze({
   isUTXOModel: false,
   transactionIdPattern: '^0x[0-9a-fA-F]{64}$',
 
+  hideInAllNetworksMode: true,
+
   accountNameInfo: {
     default: {
       prefix: 'CFX',

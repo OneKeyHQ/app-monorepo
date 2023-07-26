@@ -2,7 +2,6 @@ import type { FC } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { useNavigation } from '@react-navigation/native';
 
 import {
   Box,
@@ -17,17 +16,13 @@ import RecyclerListView, {
   LayoutProvider,
 } from '@onekeyhq/components/src/RecyclerListView';
 import type { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
-import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-
-import { CollectiblesModalRoutes } from '../../../routes/routesEnum';
 
 import NFTListAssetCard from './NFTList/NFTListAssetCard';
+import { navigateToNFTDetail } from './utils';
 
 import type { CollectiblesRoutesParams } from '../../../routes/Root/Modal/Collectibles';
+import type { CollectiblesModalRoutes } from '../../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/native';
-
-type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
 const ViewTypes = {
   LOGO: 0,
@@ -71,7 +66,6 @@ type CollectionModalProps = {
 
 const CollectionModal: FC<CollectionModalProps> = () => {
   const isSmallScreen = useIsVerticalLayout();
-  const navigation = useNavigation<NavigationProps['navigation']>();
 
   const { screenWidth } = useUserDevice();
   const margin = isSmallScreen ? 16 : 20;
@@ -93,24 +87,14 @@ const CollectionModal: FC<CollectionModalProps> = () => {
         CollectiblesModalRoutes.CollectionModal
       >
     >();
-  const { collectible, network } = route.params;
+  const { collectible, networkId, accountId } = route.params;
 
   // Open Asset detail modal
   const handleSelectAsset = useCallback(
     (asset: NFTAsset) => {
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.Collectibles,
-        params: {
-          screen: CollectiblesModalRoutes.NFTDetailModal,
-          params: {
-            asset,
-            network,
-            isOwner: true,
-          },
-        },
-      });
+      navigateToNFTDetail({ networkId, accountId, asset });
     },
-    [navigation, network],
+    [accountId, networkId],
   );
 
   const listData = generateListArray(collectible);
