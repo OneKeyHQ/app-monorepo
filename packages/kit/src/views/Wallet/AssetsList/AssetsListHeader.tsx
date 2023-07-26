@@ -214,11 +214,9 @@ const ListHeader: FC<{
               {intl.formatMessage({ id: 'title__assets' })}
             </Typography.Subheading>
             <Typography.Subheading
-              ml="44px"
               color="text-subdued"
               flex={1}
               textAlign="right"
-              pr="6"
             >
               {intl.formatMessage({ id: 'content__price_uppercase' })}
             </Typography.Subheading>
