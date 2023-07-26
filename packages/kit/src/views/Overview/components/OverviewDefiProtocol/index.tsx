@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Collapse,
   Dialog,
   Image,
   Text,
@@ -248,56 +247,46 @@ export const OverviewDefiProtocol: FC<
         mb="6"
       >
         {showHeader ? (
-          <Collapse
-            value={false}
-            renderCustomTrigger={(toggle, collapsed) => (
-              <OverviewDefiBoxHeader
-                name={protocolName}
-                onOpenDapp={open}
-                rate={rate}
-                desc={
-                  <Text
-                    typography={{ md: 'Heading', sm: 'Body1Strong' }}
-                    textAlign={isVertical ? 'left' : 'right'}
-                  >
-                    <FormatCurrencyNumber
-                      value={0}
-                      convertValue={new B(protocolValue)}
-                    />
-                  </Text>
-                }
-                extra={
-                  +claimableValue > 0 ? (
-                    <Text
-                      color="text-subdued"
-                      typography={{ md: 'Body2Strong', sm: 'CaptionStrong' }}
-                      textAlign={isVertical ? 'left' : 'right'}
-                    >
-                      {intl.formatMessage(
-                        { id: 'form__claimable_str' },
-                        {
-                          0: (
-                            <FormatCurrencyNumber
-                              value={0}
-                              convertValue={new B(claimableValue)}
-                            />
-                          ),
-                        },
-                      )}
-                    </Text>
-                  ) : undefined
-                }
-                icon={protocolIcon}
-                toggle={toggle}
-                collapsed={collapsed}
-              />
-            )}
-          >
-            {content}
-          </Collapse>
-        ) : (
-          content
-        )}
+          <OverviewDefiBoxHeader
+            name={protocolName}
+            onOpenDapp={open}
+            rate={rate}
+            desc={
+              <Text
+                typography={{ md: 'Heading', sm: 'Body1Strong' }}
+                textAlign={isVertical ? 'left' : 'right'}
+              >
+                <FormatCurrencyNumber
+                  value={0}
+                  convertValue={new B(protocolValue)}
+                />
+              </Text>
+            }
+            extra={
+              +claimableValue > 0 ? (
+                <Text
+                  color="text-subdued"
+                  typography={{ md: 'Body2Strong', sm: 'CaptionStrong' }}
+                  textAlign={isVertical ? 'left' : 'right'}
+                >
+                  {intl.formatMessage(
+                    { id: 'form__claimable_str' },
+                    {
+                      0: (
+                        <FormatCurrencyNumber
+                          value={0}
+                          convertValue={new B(claimableValue)}
+                        />
+                      ),
+                    },
+                  )}
+                </Text>
+              ) : undefined
+            }
+            icon={protocolIcon}
+          />
+        ) : null}
+        {content}
       </Box>
     </ErrorBoundary>
   );

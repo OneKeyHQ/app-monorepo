@@ -3,9 +3,6 @@ import { useMemo } from 'react';
 
 import {
   HStack,
-  Icon,
-  IconButton,
-  Pressable,
   Text,
   VStack,
   useIsVerticalLayout,
@@ -23,10 +20,8 @@ export const OverviewDefiBoxHeader: FC<{
   url?: string;
   desc: ReactElement;
   extra?: ReactElement;
-  toggle?: () => void;
-  collapsed?: boolean;
   onOpenDapp?: () => void;
-}> = ({ icon, name, rate, desc, extra, toggle, collapsed, onOpenDapp }) => {
+}> = ({ icon, name, rate, desc, extra, onOpenDapp }) => {
   const isVertical = useIsVerticalLayout();
   const badge = useMemo(() => <OverviewBadge rate={rate} />, [rate]);
   if (isVertical) {
@@ -54,11 +49,6 @@ export const OverviewDefiBoxHeader: FC<{
               {rate.isNaN() ? null : badge}
             </HStack>
           </HStack>
-          <IconButton
-            type="plain"
-            onPress={toggle}
-            name={collapsed ? 'ChevronDownMini' : 'ChevronUpMini'}
-          />
         </HStack>
         <VStack w="full">
           {desc}
@@ -90,19 +80,12 @@ export const OverviewDefiBoxHeader: FC<{
           {rate.isNaN() ? null : badge}
         </HStack>
       </HStack>
-      <Pressable onPress={toggle}>
-        <HStack alignItems="center">
-          <VStack>
-            {desc}
-            {extra}
-          </VStack>
-          {collapsed ? (
-            <Icon name="ChevronDownMini" size={20} />
-          ) : (
-            <Icon name="ChevronUpMini" size={20} />
-          )}
-        </HStack>
-      </Pressable>
+      <HStack alignItems="center">
+        <VStack>
+          {desc}
+          {extra}
+        </VStack>
+      </HStack>
     </HStack>
   );
 };
