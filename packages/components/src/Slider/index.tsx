@@ -45,11 +45,12 @@ const Slider = ({
         onChangeEnd(value);
       }
     },
-    [changeSliding, isSliding, onChangeEnd],
+    [changeSliding, onChangeEnd],
   );
 
   return nativeMode ? (
     <NativeSlider
+      minimumTrackTintColor="#33c641"
       {...props}
       onSlidingStart={onChangeBegin}
       onSlidingComplete={onChangeEnd}
