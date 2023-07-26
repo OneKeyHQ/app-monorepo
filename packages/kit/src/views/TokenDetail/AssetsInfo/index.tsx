@@ -205,7 +205,7 @@ const AssetsInfo: FC = () => {
             />
           )}
           <VStack ml="3" alignItems="flex-start">
-            <Typography.Body1Strong>
+            <Typography.Body1Strong isTruncated maxW={56} numberOfLines={1}>
               {item.type === 'Token'
                 ? item.accountName || account?.name || item.name
                 : item.name}
