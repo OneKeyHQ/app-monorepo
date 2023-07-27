@@ -1,6 +1,7 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
+import stringify from 'fast-json-stable-stringify';
 import { useIntl } from 'react-intl';
 
 import {
@@ -42,10 +43,12 @@ import { showAccountValueSettings } from '../../Overlay/AccountValueSettings';
 
 import { AccountOption } from './AccountOption';
 
+import type BigNumber from 'bignumber.js';
+
 export const FIXED_VERTICAL_HEADER_HEIGHT = 238;
 export const FIXED_HORIZONTAL_HEDER_HEIGHT = 152;
 
-const SectionCopyAddress: FC = () => {
+const SectionCopyAddress: FC = memo(() => {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { account, networkId, network, wallet, walletId, accountId } =
@@ -136,9 +139,10 @@ const SectionCopyAddress: FC = () => {
       </Pressable>
     </Tooltip>
   );
-};
+});
+SectionCopyAddress.displayName = 'SectionCopyAddress';
 
-const SectionOpenBlockBrowser = () => {
+const SectionOpenBlockBrowser = memo(() => {
   const intl = useIntl();
   const { account, network } = useActiveWalletAccount();
   const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
@@ -162,19 +166,24 @@ const SectionOpenBlockBrowser = () => {
       </Pressable>
     </Tooltip>
   );
+});
+SectionOpenBlockBrowser.displayName = 'SectionOpenBlockBrowser';
+
+type AccountUpdateTipsProps = {
+  networkId: string;
+  accountId: string;
+  onPressUpdate: () => void;
 };
 
-const AccountAmountInfo: FC = () => {
+const AccountUpdateTips: FC<AccountUpdateTipsProps> = ({
+  networkId,
+  accountId,
+  onPressUpdate,
+}) => {
   const intl = useIntl();
   const [ellipsis, setEllipsis] = useState('');
-  const { networkId, accountId } = useActiveWalletAccount();
 
   const refreshing = useAccountIsUpdating({
-    networkId,
-    accountId,
-  });
-
-  const accountAllValues = useAccountValues({
     networkId,
     accountId,
   });
@@ -190,7 +199,7 @@ const AccountAmountInfo: FC = () => {
     }
     const timer = setInterval(() => {
       setEllipsis((t) => (t.length < 3 ? `${t}.` : ''));
-    }, 500);
+    }, 800);
 
     return () => clearInterval(timer);
   }, [tasks?.length]);
@@ -259,13 +268,26 @@ const AccountAmountInfo: FC = () => {
         },
       );
     }
-  }, [updatedAt, intl, tasks.length, ellipsis, refreshing]);
+  }, [updatedAt, intl, tasks?.length, ellipsis, refreshing]);
 
-  const [showPercentage, setShowPercentage] = useState(false);
+  if (!updateTips) {
+    return null;
+  }
 
-  const summedValueComp = useMemo(
-    () =>
-      accountAllValues.value.isNaN() ? (
+  return (
+    <>
+      <Box size="1" bg="icon-subdued" borderRadius="999px" mx="2" />
+      <Pressable onPress={onPressUpdate}>
+        <Typography.Body2 color="text-subdued">{updateTips}</Typography.Body2>
+      </Pressable>
+    </>
+  );
+};
+
+const SummedValueComp = memo(
+  ({ amount }: { amount: BigNumber }) => (
+    <Box flexDirection="row" alignItems="center" mt={1} w="full">
+      {amount.isNaN() ? (
         <Skeleton shape="DisplayXLarge" />
       ) : (
         <HStack flex="1" alignItems="center">
@@ -273,7 +295,7 @@ const AccountAmountInfo: FC = () => {
             <FormatCurrencyNumber
               decimals={2}
               value={0}
-              convertValue={accountAllValues.value}
+              convertValue={amount}
             />
           </Typography.Display2XLarge>
           <IconButton
@@ -284,9 +306,90 @@ const AccountAmountInfo: FC = () => {
             ml={1}
           />
         </HStack>
-      ),
-    [accountAllValues],
-  );
+      )}
+    </Box>
+  ),
+  (prev: { amount: BigNumber }, next: { amount: BigNumber }) =>
+    prev.amount.isEqualTo(next.amount),
+);
+SummedValueComp.displayName = 'SummedValueComp';
+
+type ChangedValueCompProps = AccountUpdateTipsProps & {
+  amount24h: BigNumber;
+  amount: BigNumber;
+};
+
+const ChangedValueComp = memo(
+  ({
+    networkId,
+    accountId,
+    amount24h,
+    amount,
+    onPressUpdate,
+  }: ChangedValueCompProps) => {
+    const intl = useIntl();
+    const [showPercentage, setShowPercentage] = useState(false);
+
+    const { gainNumber, percentageGain, gainTextColor } = calculateGains({
+      basePrice: amount24h.toNumber(),
+      price: amount.toNumber(),
+    });
+
+    return (
+      <Box flexDirection="row" mt={1}>
+        {amount.isNaN() ? (
+          <Skeleton shape="Body1" />
+        ) : (
+          <HStack alignItems="center">
+            <Pressable
+              onPress={() => {
+                setShowPercentage(!showPercentage);
+              }}
+            >
+              <Typography.Body2Strong color={gainTextColor} mr="4px">
+                {showPercentage ? (
+                  percentageGain
+                ) : (
+                  <>
+                    {gainNumber >= 0 ? '+' : '-'}
+                    <FormatCurrencyNumber
+                      value={Math.abs(gainNumber)}
+                      decimals={2}
+                    />
+                  </>
+                )}
+              </Typography.Body2Strong>
+            </Pressable>
+            <Typography.Body2Strong color="text-subdued" ml="1">
+              {intl.formatMessage({ id: 'content__today' })}
+            </Typography.Body2Strong>
+            <AccountUpdateTips
+              networkId={networkId}
+              accountId={accountId}
+              onPressUpdate={onPressUpdate}
+            />
+          </HStack>
+        )}
+      </Box>
+    );
+  },
+  (prev: ChangedValueCompProps, next: ChangedValueCompProps) =>
+    stringify(prev) === stringify(next),
+);
+ChangedValueComp.displayName = 'ChangedValueComp';
+
+const AccountAmountInfo: FC = () => {
+  const { networkId, accountId } = useActiveWalletAccount();
+
+  const accountAllValues = useAccountValues({
+    networkId,
+    accountId,
+  });
+
+  const { tasks } = useOverviewPendingTasks({
+    networkId,
+    accountId,
+  });
 
   const onPressUpdate = useCallback(() => {
     if (tasks.length > 0) {
@@ -295,68 +398,23 @@ const AccountAmountInfo: FC = () => {
     backgroundApiProxy.serviceOverview.refreshCurrentAccount();
   }, [tasks]);
 
-  const changedValueComp = useMemo(() => {
-    const { gainNumber, percentageGain, gainTextColor } = calculateGains({
-      basePrice: accountAllValues.value24h.toNumber(),
-      price: accountAllValues.value.toNumber(),
-    });
-
-    return accountAllValues.value.isNaN() ? (
-      <Skeleton shape="Body1" />
-    ) : (
-      <HStack alignItems="center">
-        <Pressable
-          onPress={() => {
-            setShowPercentage(!showPercentage);
-          }}
-        >
-          <Typography.Body2Strong color={gainTextColor} mr="4px">
-            {showPercentage ? (
-              percentageGain
-            ) : (
-              <>
-                {gainNumber >= 0 ? '+' : '-'}
-                <FormatCurrencyNumber
-                  value={Math.abs(gainNumber)}
-                  decimals={2}
-                />
-              </>
-            )}
-          </Typography.Body2Strong>
-        </Pressable>
-        <Typography.Body2Strong color="text-subdued" ml="1">
-          {intl.formatMessage({ id: 'content__today' })}
-        </Typography.Body2Strong>
-        {updateTips ? (
-          <>
-            <Box size="1" bg="icon-subdued" borderRadius="999px" mx="2" />
-            <Pressable onPress={onPressUpdate}>
-              <Typography.Body2 color="text-subdued">
-                {updateTips}
-              </Typography.Body2>
-            </Pressable>
-          </>
-        ) : null}
-      </HStack>
-    );
-  }, [intl, accountAllValues, updateTips, onPressUpdate, showPercentage]);
-
   return (
     <Box alignItems="flex-start" flex="1">
       <Box mx="-8px" my="-4px" flexDir="row" alignItems="center">
         <SectionCopyAddress />
         <SectionOpenBlockBrowser />
       </Box>
-      <Box flexDirection="row" alignItems="center" mt={1} w="full">
-        {summedValueComp}
-      </Box>
-      <Box flexDirection="row" mt={1}>
-        {changedValueComp}
-      </Box>
+      <SummedValueComp amount={accountAllValues.value} />
+      <ChangedValueComp
+        amount={accountAllValues.value}
+        amount24h={accountAllValues.value24h}
+        networkId={networkId}
+        accountId={accountId}
+        onPressUpdate={onPressUpdate}
+      />
     </Box>
   );
 };
-
 const AccountInfo = () => {
   const isSmallView = useIsVerticalLayout();
   if (isSmallView) {
