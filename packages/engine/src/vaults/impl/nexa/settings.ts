@@ -10,6 +10,7 @@ const settings: IVaultSettings = Object.freeze({
   privateKeyExportEnabled: true,
   tokenEnabled: false,
   txCanBeReplaced: false,
+  publicKeyExportEnabled: true,
 
   isBtcForkChain: true,
   disabledCoinControlAdvancedSetting: true,
