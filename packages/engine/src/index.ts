@@ -723,7 +723,6 @@ class Engine {
     const addresses = await Promise.all(
       accounts.map(async (a) => {
         if (a.type === AccountType.UTXO) {
-          console.log(vault.getDisplayAddress(a.address));
           return vault.getDisplayAddress(a.address);
         }
         if (a.type === AccountType.VARIANT) {

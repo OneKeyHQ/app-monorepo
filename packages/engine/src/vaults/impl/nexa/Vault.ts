@@ -76,6 +76,10 @@ export default class Vault extends VaultBase {
     return new Nexa(url);
   }
 
+  override getFetchBalanceAddress(dbAccount: DBAccount): Promise<string> {
+    return this.getDisplayAddress(dbAccount.address);
+  }
+
   override async getOutputAccount(): Promise<Account> {
     const dbAccount = await this.getDbAccount({ noCache: true });
     const displayAddress =
@@ -97,8 +101,12 @@ export default class Vault extends VaultBase {
   }
 
   override async getDisplayAddress(address: string): Promise<string> {
-    const chainId = await this.getNetworkChainId();
-    return publickeyToAddress(Buffer.from(address, 'hex'), chainId);
+    try {
+      const chainId = await this.getNetworkChainId();
+      return publickeyToAddress(Buffer.from(address, 'hex'), chainId);
+    } catch (error) {
+      return address;
+    }
   }
 
   override async addressFromBase(account: DBAccount): Promise<string> {
