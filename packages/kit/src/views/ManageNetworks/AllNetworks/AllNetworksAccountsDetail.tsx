@@ -30,6 +30,7 @@ import {
 } from '../../../hooks/useAllNetwoks';
 import { navigationShortcuts } from '../../../routes/navigationShortcuts';
 import { ModalRoutes, RootRoutes, TabRoutes } from '../../../routes/routesEnum';
+import { showAllNetworksHelp } from '../../Overlay/AllNetworksHelp';
 import BaseMenu from '../../Overlay/BaseMenu';
 import { ReceiveTokenModalRoutes } from '../../ReceiveToken/types';
 import {
@@ -302,6 +303,17 @@ export const AllNetworksAccountsDetail: FC = () => {
       header={intl.formatMessage({ id: 'form__included_networks' })}
       footer={footer}
       height="560px"
+      rightContent={
+        <IconButton
+          type="plain"
+          size="lg"
+          circle
+          name="QuestionMarkCircleOutline"
+          onPress={() => {
+            showAllNetworksHelp();
+          }}
+        />
+      }
     >
       <List
         data={data}
