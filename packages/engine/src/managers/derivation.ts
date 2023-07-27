@@ -38,7 +38,6 @@ import {
   IMPL_KASPA,
   IMPL_LTC,
   IMPL_NEAR,
-  IMPL_NEXA,
   IMPL_SOL,
   IMPL_STC,
   IMPL_TBTC,
