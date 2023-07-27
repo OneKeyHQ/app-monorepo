@@ -106,7 +106,7 @@ export class KeyringHd extends KeyringHdBase {
         type: AccountType.UTXO,
         path,
         coinType: COIN_TYPE,
-        xpub: '',
+        xpub: pub,
         address: pub,
         addresses: { [this.networkId]: pub },
         template,
