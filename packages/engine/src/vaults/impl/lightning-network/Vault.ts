@@ -14,6 +14,7 @@ import {
   InvalidLightningPaymentRequest,
   InvoiceAlreadPaid,
   InvoiceExpiredError,
+  MaxSendAmountError,
   NoRouteFoundError,
 } from '../../../errors';
 import { TransactionStatus } from '../../../types/provider';
@@ -164,6 +165,17 @@ export default class Vault extends VaultBase {
   async getHashAddress(): Promise<string> {
     const account = (await this.getDbAccount()) as DBVariantAccount;
     return account.addresses.hashAddress;
+  }
+
+  override async validateSendAmount(amount: string): Promise<boolean> {
+    const ZeroInvoiceMaxSendAmount = 1000000;
+    if (new BigNumber(amount).isGreaterThan(ZeroInvoiceMaxSendAmount)) {
+      throw new MaxSendAmountError(
+        'msg__the_sending_amount_cannot_exceed_int_sats',
+        { 0: ZeroInvoiceMaxSendAmount },
+      );
+    }
+    return Promise.resolve(true);
   }
 
   override async validateAddress(address: string): Promise<string> {

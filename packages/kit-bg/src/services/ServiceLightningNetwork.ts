@@ -169,4 +169,21 @@ export default class ServiceLightningNetwork extends ServiceBase {
     const address = await vault.getCurrentBalanceAddress();
     return client.getConfig(address);
   }
+
+  @backgroundMethod()
+  async validateZeroInvoiceMaxSendAmount({
+    accountId,
+    networkId,
+    amount,
+  }: {
+    networkId: string;
+    accountId: string;
+    amount: string;
+  }) {
+    const vault = await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    });
+    return vault.validateSendAmount(amount);
+  }
 }
