@@ -2656,7 +2656,7 @@
   "title__str_network_is_not_supported_yet_desc": "我们正在支持更多的网络。敬请关注！",
   "title__str_staking_governance": "{0} 质押治理",
   "title__str_supported_networks": "{0} 支持的网络",
-  "title__str_supported_networks_desc": "如果某个网络中的地址资产不为空，则相应的网络和资产将自动显示在列表中。",
+  "title__str_supported_networks_desc": "以下网络均可支持，但只有已创建账户的网络才会被统计到",
   "title__str_tabs": "{0} 个标签页",
   "title__swap": "闪兑",
   "title__swap_history": "闪兑历史记录",

@@ -2656,7 +2656,7 @@
   "title__str_network_is_not_supported_yet_desc": "Мы поддерживаем больше сетей. Следите за обновлениями!",
   "title__str_staking_governance": "{0} Управление стейкингом",
   "title__str_supported_networks": "{0} Поддерживаемые сети",
-  "title__str_supported_networks_desc": "Если адреса активов в определенной сети не пусты, соответствующая сеть и активы будут автоматически отображаться в списке.",
+  "title__str_supported_networks_desc": "Поддерживаются следующие сети, но учитываются только сети с созданными учетными записями.",
   "title__str_tabs": "{0} вкладки",
   "title__swap": "Обменять",
   "title__swap_history": "История обмена",

@@ -2656,7 +2656,7 @@
   "title__str_network_is_not_supported_yet_desc": "Nous soutenons plus de réseaux. Restez à l'écoute!",
   "title__str_staking_governance": "{0} Gouvernance de jalonnement",
   "title__str_supported_networks": "{0} Réseaux pris en charge",
-  "title__str_supported_networks_desc": "Si les actifs d'adresse dans un certain réseau ne sont pas vides, le réseau et les actifs correspondants seront automatiquement affichés dans la liste.",
+  "title__str_supported_networks_desc": "Les réseaux suivants sont pris en charge, mais seuls les réseaux avec des comptes créés seront comptés.",
   "title__str_tabs": "{0} Onglets",
   "title__swap": "Échanger",
   "title__swap_history": "Historique des swaps",

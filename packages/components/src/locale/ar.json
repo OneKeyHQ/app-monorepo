@@ -2656,7 +2656,7 @@
   "title__str_network_is_not_supported_yet_desc": "نحن ندعم المزيد من الشبكات. ابقوا متابعين!",
   "title__str_staking_governance": "{0} Staking Governance",
   "title__str_supported_networks": "{0} الشبكات المدعومة",
-  "title__str_supported_networks_desc": "إذا لم تكن أصول العنوان في شبكة معينة فارغة ، فسيتم عرض الشبكة والأصول المقابلة تلقائيًا في القائمة.",
+  "title__str_supported_networks_desc": "يتم دعم الشبكات التالية ، ولكن سيتم احتساب الشبكات التي تم إنشاؤها فقط.",
   "title__str_tabs": "علامات تبويب {0}",
   "title__swap": "تبديل",
   "title__swap_history": "سجل المبادلة",

@@ -2656,7 +2656,7 @@
   "title__str_network_is_not_supported_yet_desc": "より多くのネットワークをサポート中。ご期待ください！",
   "title__str_staking_governance": "{0}ステーキングガバナンス",
   "title__str_supported_networks": "{0}サポートされているネットワーク",
-  "title__str_supported_networks_desc": "資産が空となるネットワークに対して、当該ネットワークと資産がリストに自動表示される。",
+  "title__str_supported_networks_desc": "次のネットワークがサポートされていますが、アカウントが作成されたネットワークのみがカウントされます。",
   "title__str_tabs": "{0}タブ",
   "title__swap": "スワップ",
   "title__swap_history": "スワップ履歴",

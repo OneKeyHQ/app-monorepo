@@ -2656,7 +2656,7 @@
   "title__str_network_is_not_supported_yet_desc": "हम अधिक नेटवर्क का समर्थन कर रहे हैं। बने रहें!",
   "title__str_staking_governance": "{0} स्टेकिंग गवर्नेंस",
   "title__str_supported_networks": "{0} समर्थित नेटवर्क",
-  "title__str_supported_networks_desc": "यदि किसी निश्चित नेटवर्क में पता संपत्ति खाली नहीं है, तो संबंधित नेटवर्क और संपत्ति स्वचालित रूप से सूची में प्रदर्शित हो जाएंगी।",
+  "title__str_supported_networks_desc": "निम्नलिखित नेटवर्क समर्थित हैं, लेकिन केवल बनाए गए खातों वाले नेटवर्क को ही गिना जाएगा।",
   "title__str_tabs": "{0} टैब",
   "title__swap": "विनिमय",
   "title__swap_history": "स्वैप इतिहास",

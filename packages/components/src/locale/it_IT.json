@@ -2656,7 +2656,7 @@
   "title__str_network_is_not_supported_yet_desc": "Supportiamo più reti. Rimani sintonizzato!",
   "title__str_staking_governance": "{0} Governance del picchettamento",
   "title__str_supported_networks": "{0} Reti supportate",
-  "title__str_supported_networks_desc": "Se le risorse indirizzo in una determinata rete non sono vuote, la rete e le risorse corrispondenti verranno visualizzate automaticamente nell'elenco.",
+  "title__str_supported_networks_desc": "Sono supportate le seguenti reti, ma verranno conteggiate solo le reti con account creati.",
   "title__str_tabs": "{0} Schede",
   "title__swap": "Scambiare",
   "title__swap_history": "Scambia cronologia",

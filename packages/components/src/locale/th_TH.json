@@ -2656,7 +2656,7 @@
   "title__str_network_is_not_supported_yet_desc": "เรากำลังสนับสนุนเครือข่ายเพิ่มเติม คอยติดตาม!",
   "title__str_staking_governance": "{0} การกำกับดูแลการเดิมพัน",
   "title__str_supported_networks": "{0} เครือข่ายที่รองรับ",
-  "title__str_supported_networks_desc": "หากทรัพย์สินที่อยู่ในเครือข่ายใดเครือข่ายหนึ่งไม่ว่างเปล่า เครือข่ายและทรัพย์สินที่เกี่ยวข้องจะแสดงในรายการโดยอัตโนมัติ",
+  "title__str_supported_networks_desc": "รองรับเครือข่ายต่อไปนี้ แต่จะนับเฉพาะเครือข่ายที่มีบัญชีที่สร้างเท่านั้น",
   "title__str_tabs": "{0} แท็บ",
   "title__swap": "แลกเปลี่ยน",
   "title__swap_history": "ประวัติการสลับ",

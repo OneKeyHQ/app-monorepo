@@ -2656,7 +2656,7 @@
   "title__str_network_is_not_supported_yet_desc": "我們正在支持更多的網絡。敬請關注！",
   "title__str_staking_governance": "{0} 質押治理",
   "title__str_supported_networks": "{0} 支持的網絡",
-  "title__str_supported_networks_desc": "如果某個網絡中的地址資產不爲空，則相應的網絡和資產將自動顯示在列表中。",
+  "title__str_supported_networks_desc": "以下網絡均可支持，但只有已創建賬戶的網絡纔會被統計到",
   "title__str_tabs": "{0} 個標籤頁",
   "title__swap": "閃兌",
   "title__swap_history": "閃兌歷史記錄",

@@ -2656,7 +2656,7 @@
   "title__str_network_is_not_supported_yet_desc": "Wir unterstützen mehr Netzwerke. Bleib dran!",
   "title__str_staking_governance": "{0} Absteck-Governance",
   "title__str_supported_networks": "{0} Unterstützte Netzwerke",
-  "title__str_supported_networks_desc": "Wenn die Adress-Assets in einem bestimmten Netzwerk nicht leer sind, werden das entsprechende Netzwerk und die entsprechenden Assets automatisch in der Liste angezeigt.",
+  "title__str_supported_networks_desc": "Die folgenden Netzwerke werden unterstützt, es werden jedoch nur Netzwerke mit erstellten Konten gezählt.",
   "title__str_tabs": "{0} Tabs",
   "title__swap": "Tauschen Sie",
   "title__swap_history": "Historie austauschen",
