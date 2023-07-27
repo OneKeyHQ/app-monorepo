@@ -44,6 +44,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         // and when it is 0, it indicates a change account.
         `${pathPrefix}/${pathSuffix.replace('{index}', index.toString())}`,
     );
+    const idPaths = indexes.map((index) => `${pathPrefix}/${index}'`);
     const showOnOneKey = false;
     const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
@@ -76,12 +77,12 @@ export class KeyringHardware extends KeyringHardwareBase {
     }
 
     const ret: DBUTXOAccount[] = [];
-    let index = 0;
-    for (const addressInfo of addressesResponse.payload) {
+    return addressesResponse.payload.map((addressInfo, index) => {
       const { path, pub } = addressInfo;
       const name = (names || [])[index] || `${prefix} #${indexes[index] + 1}`;
-      ret.push({
-        id: `${this.walletId}--${path}`,
+      ret.push();
+      return {
+        id: `${this.walletId}--${idPaths[index]}`,
         name,
         type: AccountType.UTXO,
         path,
@@ -90,10 +91,8 @@ export class KeyringHardware extends KeyringHardwareBase {
         address: pub,
         addresses: { [this.networkId]: pub },
         template,
-      });
-      index += 1;
-    }
-    return ret;
+      };
+    });
   }
 
   async getAddress(params: IHardwareGetAddressParams): Promise<string> {

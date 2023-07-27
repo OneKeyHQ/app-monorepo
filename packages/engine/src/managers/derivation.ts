@@ -173,7 +173,7 @@ function getNextAccountIdsWithAccountDerivation(
   const impl = getImplByCoinType(coinType);
   const containPath = (accountIndex: number) => {
     let path: string;
-    if ([IMPL_EVM, IMPL_SOL, IMPL_NEXA].includes(impl)) {
+    if ([IMPL_EVM, IMPL_SOL].includes(impl)) {
       path = template.replace(INDEX_PLACEHOLDER, accountIndex.toString());
     } else {
       path = getPath(purpose, coinType, accountIndex);
