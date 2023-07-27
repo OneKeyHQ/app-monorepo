@@ -13,6 +13,13 @@ export type ITokenDetailInfo = {
   };
   tokens?: Token[];
   price?: number;
+  fiatUrls?: Record<
+    string,
+    {
+      buy?: string;
+      sell?: string;
+    }
+  >;
 };
 
 export type ManageTokenRoutesParams = {

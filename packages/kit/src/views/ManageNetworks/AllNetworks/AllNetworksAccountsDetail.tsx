@@ -23,8 +23,11 @@ import type { Network } from '@onekeyhq/engine/src/types/network';
 import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useManageNetworks, useNavigation, useWallet } from '../../../hooks';
-import { useAllNetworksWalletAccounts } from '../../../hooks/useAllNetwoks';
+import { useNavigation, useWallet } from '../../../hooks';
+import {
+  useAllNetworksIncludedNetworks,
+  useAllNetworksWalletAccounts,
+} from '../../../hooks/useAllNetwoks';
 import { navigationShortcuts } from '../../../routes/navigationShortcuts';
 import { ModalRoutes, RootRoutes, TabRoutes } from '../../../routes/routesEnum';
 import BaseMenu from '../../Overlay/BaseMenu';
@@ -63,15 +66,9 @@ export const AllNetworksAccountsDetail: FC = () => {
 
   const { wallet } = useWallet({ walletId });
 
-  const { allNetworks } = useManageNetworks();
+  const supportedNetworks = useAllNetworksIncludedNetworks();
 
-  const supportedNetworks = useMemo(
-    () =>
-      allNetworks.filter(
-        (n) => !n.isTestnet && !n.settings?.validationRequired,
-      ),
-    [allNetworks],
-  );
+  const allSupportedNetworks = useAllNetworksIncludedNetworks(false);
 
   const data = useMemo(
     () =>
@@ -284,7 +281,7 @@ export const AllNetworksAccountsDetail: FC = () => {
               {intl.formatMessage(
                 { id: 'title__str_supported_networks' },
                 {
-                  0: supportedNetworks.length,
+                  0: allSupportedNetworks.length,
                 },
               )}
             </Typography.Body2>
@@ -297,7 +294,7 @@ export const AllNetworksAccountsDetail: FC = () => {
         </Pressable>
       </>
     ),
-    [intl, supportedNetworks, toAllSupportedNetworksPage],
+    [intl, allSupportedNetworks, toAllSupportedNetworksPage],
   );
 
   return (

@@ -16,7 +16,6 @@ import {
   enabledAccountDynamicNetworkIds,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useNavigation } from '../../hooks';
@@ -26,7 +25,6 @@ import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
 import { useIsDevModeEnabled } from '../../hooks/useSettingsDevMode';
 import {
   CoinControlModalRoutes,
-  FiatPayModalRoutes,
   ModalRoutes,
   RootRoutes,
 } from '../../routes/routesEnum';
@@ -36,6 +34,7 @@ import {
   checkAccountCanSubscribe,
   useEnabledAccountDynamicAccounts,
 } from '../PushNotification/hooks';
+import { useFiatPay } from '../Wallet/AccountInfo/hooks';
 
 import BaseMenu from './BaseMenu';
 
@@ -47,7 +46,8 @@ const NeedActivateAccountImpl = [IMPL_APTOS, IMPL_SUI];
 const AccountMoreMenu: FC<IMenu> = (props) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { network, account, wallet, accountId } = useActiveWalletAccount();
+  const { network, account, wallet, accountId, networkId } =
+    useActiveWalletAccount();
   const { openAddressDetails } = useOpenBlockBrowser(network);
   const { copyAddress } = useCopyAddress({ wallet });
   const { serviceNotification, dispatch } = backgroundApiProxy;
@@ -172,7 +172,17 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
     });
   }, [navigation, network?.id, accountId]);
 
-  const walletType = wallet?.type;
+  const buy = useFiatPay({
+    accountId,
+    networkId,
+    type: 'buy',
+  });
+
+  const sell = useFiatPay({
+    accountId,
+    networkId,
+    type: 'sell',
+  });
 
   const options: (
     | {
@@ -197,46 +207,16 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
         icon: 'LightBulbMini',
       },
       // TODO Connected Sites
-      walletType !== 'watching' &&
-        !isAllNetworks(network?.id) &&
-        !platformEnv.isAppleStoreEnv && {
-          id: 'action__buy_crypto',
-          onPress: () => {
-            if (!account) return;
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.FiatPay,
-              params: {
-                screen: FiatPayModalRoutes.SupportTokenListModal,
-                params: {
-                  networkId: network?.id ?? '',
-                  accountId,
-                  type: 'buy',
-                },
-              },
-            });
-          },
-          icon: 'PlusMini',
-        },
-      walletType !== 'watching' &&
-        !isAllNetworks(network?.id) &&
-        !platformEnv.isAppleStoreEnv && {
-          id: 'action__sell_crypto',
-          onPress: () => {
-            if (!account) return;
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.FiatPay,
-              params: {
-                screen: FiatPayModalRoutes.SupportTokenListModal,
-                params: {
-                  networkId: network?.id ?? '',
-                  type: 'sell',
-                  accountId,
-                },
-              },
-            });
-          },
-          icon: 'BanknotesMini',
-        },
+      buy.visible && {
+        id: 'action__buy_crypto',
+        onPress: buy.process,
+        icon: 'PlusMini',
+      },
+      sell.visible && {
+        id: 'action__sell_crypto',
+        onPress: sell.process,
+        icon: 'BanknotesMini',
+      },
       !!account?.address && {
         id: 'action__view_in_explorer',
         icon: 'GlobeAltMini',
@@ -284,8 +264,9 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
       // TODO Share
     ],
     [
+      buy,
+      sell,
       needActivateAccount,
-      walletType,
       showSubscriptionIcon,
       enabledNotification,
       onChangeAccountSubscribe,
@@ -296,7 +277,6 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
       account,
       network,
       navigation,
-      accountId,
       copyAddress,
       openAddressDetails,
     ],

@@ -79,17 +79,21 @@ const filterAccountTokens = <T>({
   }
 
   const filteredTokens = valueTokens.filter((t) => {
+    const isNative = (t.isNative || !t.address) && !isAllNetworks(networkId);
     if (hideSmallBalance && new B(t.usdValue).isLessThan(1)) {
-      if (!isAllNetworks(networkId) && (t.isNative || !t.address)) {
-        return true;
+      if (!isNative) {
+        return false;
       }
-      return false;
     }
-    if (hideRiskTokens && t.riskLevel && t.riskLevel > TokenRiskLevel.WARN) {
-      return false;
+    if (putMainTokenOnTop) {
+      if (isNative) {
+        return false;
+      }
     }
-    if (putMainTokenOnTop && (t.isNative || !t.address)) {
-      return false;
+    if (hideRiskTokens) {
+      if (t.riskLevel && t.riskLevel > TokenRiskLevel.WARN) {
+        return false;
+      }
     }
     return true;
   });
@@ -207,14 +211,8 @@ export function useAccountTokensOnChain(
   accountId = '',
   useFilter = false,
 ) {
-  const {
-    hideRiskTokens,
-    hideSmallBalance,
-    putMainTokenOnTop,
-    selectedFiatMoneySymbol,
-  } = useAppSelector((s) => s.settings);
-  const fiatMap = useAppSelector((s) => s.fiatMoney.map);
-  const fiat = fiatMap[selectedFiatMoneySymbol]?.value || 0;
+  const { hideRiskTokens, hideSmallBalance, putMainTokenOnTop } =
+    useAppSelector((s) => s.settings);
   const tokens =
     useAppSelector((s) => s.tokens.accountTokens?.[networkId]?.[accountId]) ??
     [];
@@ -227,16 +225,16 @@ export function useAccountTokensOnChain(
   const valueTokens = tokens.map((t) => {
     const priceInfo =
       prices[`${networkId}${t.address ? '-' : ''}${t.address ?? ''}`];
-    const price = priceInfo?.[selectedFiatMoneySymbol] ?? 0;
-    const price24h = priceInfo?.[`${selectedFiatMoneySymbol}_24h_change`] ?? 0;
+    const price = priceInfo?.usd ?? 0;
+    const price24h = priceInfo?.usd_24h_change ?? 0;
     const balance = balances[getBalanceKey(t)]?.balance ?? '0';
     const value = new B(price).multipliedBy(balance);
-    const usdValue = fiat === 0 ? 0 : value.div(fiat);
+    const usdValue = value;
     const value24h = new B(balance).multipliedBy(
       getPreBaseValue({
         priceInfo,
-        vsCurrency: selectedFiatMoneySymbol,
-      })[selectedFiatMoneySymbol] ?? 0,
+        vsCurrency: 'usd',
+      }).usd ?? 0,
     );
     const info = {
       ...t,
@@ -871,10 +869,12 @@ export const useTokenDetailInfo = ({
   coingeckoId,
   networkId,
   tokenAddress,
+  accountId,
   defaultInfo = {},
 }: {
   coingeckoId?: string;
   networkId?: string;
+  accountId?: string;
   tokenAddress?: string;
   defaultInfo?: Record<string, unknown>;
 }) => {
@@ -888,10 +888,15 @@ export const useTokenDetailInfo = ({
   useEffect(() => {
     setLoading(true);
     backgroundApiProxy.serviceToken
-      .fetchTokenDetailInfo({ coingeckoId, networkId, tokenAddress })
+      .fetchTokenDetailInfo({
+        coingeckoId,
+        networkId,
+        tokenAddress,
+        accountId,
+      })
       .then((res) => setData(res))
       .finally(() => setLoading(false));
-  }, [coingeckoId, networkId, tokenAddress]);
+  }, [coingeckoId, networkId, tokenAddress, accountId]);
 
   return useMemo(() => {
     const { defaultChain } = data ?? {};

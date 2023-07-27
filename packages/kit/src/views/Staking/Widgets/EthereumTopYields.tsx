@@ -13,9 +13,9 @@ import {
   useAppSelector,
   useNavigation,
 } from '../../../hooks';
+import { useAllNetworksSelectNetworkAccount } from '../../../hooks/useAllNetwoks';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { formatAmount } from '../../../utils/priceUtils';
-import { useAllNetworksSelectNetworkAccount } from '../../ManageNetworks/hooks';
 import { Options } from '../components/EthereumUtilsComponent';
 import { EthStakingSource, StakingRoutes } from '../typing';
 import {
@@ -34,11 +34,10 @@ const EthereumTopYieldsContent: FC<EthereumTopYieldsContentProps> = ({
 }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { accountId, walletId, networkId } = useActiveWalletAccount();
+  const { accountId, networkId } = useActiveWalletAccount();
 
   const selectNetworkAccount = useAllNetworksSelectNetworkAccount({
     accountId,
-    walletId,
     networkId,
     filter: getStakeSelectNetworkAccountFilter(stakingType),
   });

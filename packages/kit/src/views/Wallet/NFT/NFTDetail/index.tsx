@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 
@@ -14,6 +14,8 @@ import NavigationButton from '@onekeyhq/components/src/Modal/Container/Header/Na
 import type { INFTAsset } from '@onekeyhq/engine/src/types/nft';
 import type { CollectiblesRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Collectibles';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
 import { getNFTDetailComponents } from './getNFTDetailComponents';
 
@@ -65,6 +67,7 @@ function ModalContent({
 }
 
 const NFTDetailModal: FC = () => {
+  const [accountId, setAccountId] = useState<string | undefined>();
   const hardwareCancelFlagRef = useRef<boolean>(false);
   const navigation = useNavigation();
 
@@ -76,7 +79,21 @@ const NFTDetailModal: FC = () => {
       >
     >();
 
-  const { networkId, accountId, asset, isOwner } = route.params;
+  const { asset, isOwner } = route.params;
+
+  useEffect(() => {
+    backgroundApiProxy.serviceAccount
+      .getAccountByAddress({
+        address: asset.accountAddress ?? '',
+        networkId: asset.networkId,
+      })
+      .then((account) => {
+        if (account) {
+          setAccountId(account?.id);
+        }
+      });
+  }, [asset]);
+
   return (
     <Modal
       size="2xl"
@@ -96,13 +113,15 @@ const NFTDetailModal: FC = () => {
           navigation.goBack?.();
         }}
       />
-      <ModalContent
-        // ref={hardwareCancelFlagRef}
-        asset={asset}
-        isOwner={isOwner}
-        networkId={networkId}
-        accountId={accountId}
-      />
+      {accountId ? (
+        <ModalContent
+          // ref={hardwareCancelFlagRef}
+          asset={asset}
+          isOwner={isOwner}
+          networkId={asset.networkId ?? ''}
+          accountId={accountId}
+        />
+      ) : null}
     </Modal>
   );
 };

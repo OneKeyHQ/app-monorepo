@@ -20,9 +20,11 @@ import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import { isLightningNetworkByImpl } from '@onekeyhq/shared/src/engine/engineConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation, useNetwork, useWallet } from '../../../hooks';
+import { useAllNetworksSelectNetworkAccount } from '../../../hooks/useAllNetwoks';
 import {
   FiatPayModalRoutes,
   MainRoutes,
@@ -31,7 +33,6 @@ import {
   RootRoutes,
   TabRoutes,
 } from '../../../routes/routesEnum';
-import { useAllNetworksSelectNetworkAccount } from '../../ManageNetworks/hooks';
 import BaseMenu from '../../Overlay/BaseMenu';
 import { SendModalRoutes } from '../../Send/enums';
 import { EthereumTopYields } from '../../Staking/Widgets/EthereumTopYields';
@@ -53,7 +54,7 @@ type IButtonItem = {
   visible?: () => boolean;
 };
 
-const ButtonItem = ({
+export const ButtonItem = ({
   icon,
   text,
   onPress,
@@ -129,9 +130,7 @@ export const ButtonsSection: FC = () => {
     sendAddress,
   } = context?.routeParams ?? {};
 
-  const { symbol, logoURI } = context?.detailInfo ?? {};
-
-  const { items } = context?.positionInfo ?? {};
+  const { symbol, logoURI, fiatUrls } = context?.detailInfo ?? {};
 
   const { tokens, loading, ethereumNativeToken } = context?.detailInfo ?? {};
 
@@ -143,13 +142,12 @@ export const ButtonsSection: FC = () => {
 
   const filter = useCallback(
     ({ network }: { network?: Network | null }) =>
-      !!network?.id && !!items?.some((t) => t.networkId === network?.id),
-    [items],
+      !!network?.id && !!tokens?.some((t) => t.networkId === network?.id),
+    [tokens],
   );
 
   const selectNetworkAccount = useAllNetworksSelectNetworkAccount({
     networkId,
-    walletId,
     accountId,
     filter,
   });
@@ -314,19 +312,25 @@ export const ButtonsSection: FC = () => {
         id: 'title__swap',
         onPress: onSwap,
         icon: 'ArrowsRightLeftSolid',
-        visible: () => isVerticalLayout && showSwapOption,
+        visible: () => showSwapOption,
       },
       {
         id: 'action__buy',
         onPress: onBuy,
         icon: 'PlusMini',
-        visible: () => showMoreOption,
+        visible: () =>
+          !platformEnv.isAppleStoreEnv &&
+          showMoreOption &&
+          !!fiatUrls?.[networkId]?.buy,
       },
       {
         id: 'action__sell',
         onPress: onSell,
         icon: 'BanknotesMini',
-        visible: () => showMoreOption,
+        visible: () =>
+          !platformEnv.isAppleStoreEnv &&
+          showMoreOption &&
+          !!fiatUrls?.[networkId]?.sell,
       },
     ]
       .map((t) => ({ ...t, isDisabled: loading }))
@@ -342,6 +346,8 @@ export const ButtonsSection: FC = () => {
       })),
     };
   }, [
+    networkId,
+    fiatUrls,
     loading,
     handlePress,
     isVerticalLayout,
@@ -385,7 +391,7 @@ export const ButtonsSection: FC = () => {
               isDisabled={loading}
             />
           ))}
-          {showMoreOption && (
+          {showMoreOption && options?.length ? (
             <BaseMenu ml="26px" options={options}>
               <Pressable>
                 <ButtonItem
@@ -397,7 +403,7 @@ export const ButtonsSection: FC = () => {
                 />
               </Pressable>
             </BaseMenu>
-          )}
+          ) : null}
         </HStack>
       </HStack>
       {ethereumNativeToken && !isAllNetworks(networkId) ? (
