@@ -56,7 +56,11 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type { IEncodedTxLightning } from './types';
-import type { IHistoryItem, InvoiceStatusEnum } from './types/invoice';
+import type {
+  IHistoryItem,
+  IInvoiceDecodedResponse,
+  InvoiceStatusEnum,
+} from './types/invoice';
 import type { AxiosError } from 'axios';
 
 export default class Vault extends VaultBase {
@@ -594,11 +598,7 @@ export default class Vault extends VaultBase {
   }> {
     const { invoice: payreq, amount, fee } = encodedTx;
     const invoice = await this._decodedInvoceCache(payreq);
-    if (
-      (invoice.millisatoshis && +invoice.millisatoshis <= 0) ||
-      (invoice.satoshis && +invoice.satoshis <= 0) ||
-      (!invoice.millisatoshis && !invoice.satoshis)
-    ) {
+    if (this.isZeroInvoiceAmount(invoice)) {
       return Promise.resolve({
         success: false,
         key: 'msg__the_invoice_amount_cannot_be_0',
@@ -663,5 +663,13 @@ export default class Vault extends VaultBase {
     const balanceAddress = await this.getCurrentBalanceAddress();
     const client = await this.getClient();
     return client.checkAuth(balanceAddress);
+  }
+
+  isZeroInvoiceAmount(invoice: IInvoiceDecodedResponse) {
+    return (
+      (invoice.millisatoshis && +invoice.millisatoshis <= 0) ||
+      (invoice.satoshis && +invoice.satoshis <= 0) ||
+      (!invoice.millisatoshis && !invoice.satoshis)
+    );
   }
 }

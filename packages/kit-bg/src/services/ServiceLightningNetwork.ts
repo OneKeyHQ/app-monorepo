@@ -97,6 +97,42 @@ export default class ServiceLightningNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  async decodedInvoice({
+    payReq,
+    networkId,
+    accountId,
+  }: {
+    payReq: string;
+    networkId: string;
+    accountId: string;
+  }) {
+    const vault = await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    });
+    return (vault as VaultLightning)._decodedInvoceCache(payReq);
+  }
+
+  @backgroundMethod()
+  async isZeroInvoiceAmount({
+    payReq,
+    networkId,
+    accountId,
+  }: {
+    payReq: string;
+    networkId: string;
+    accountId: string;
+  }) {
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    })) as VaultLightning;
+    const invoice = await vault._decodedInvoceCache(payReq);
+    console.log('decoded invoice: ', invoice);
+    return vault.isZeroInvoiceAmount(invoice);
+  }
+
+  @backgroundMethod()
   async checkAuth({
     networkId,
     accountId,

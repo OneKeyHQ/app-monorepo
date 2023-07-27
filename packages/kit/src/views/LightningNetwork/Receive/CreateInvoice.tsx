@@ -182,6 +182,9 @@ const CreateInvoice = () => {
                   }),
                 },
                 validate: (value) => {
+                  // allow unspecified amount
+                  if (!value) return;
+
                   const valueBN = new BigNumber(value);
                   if (!valueBN.isInteger()) {
                     return intl.formatMessage({
