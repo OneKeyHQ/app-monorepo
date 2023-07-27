@@ -30,6 +30,7 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import {
+  COINTYPE_NEXA,
   IMPL_EVM,
   getSupportedImpls,
   isLightningNetwork,
@@ -905,6 +906,9 @@ class Engine {
     const addresses = await Promise.all(
       accounts.map(async (a) => {
         if (a.type === AccountType.UTXO) {
+          if (a.coinType === COINTYPE_NEXA) {
+            return vault.getDisplayAddress(a.address);
+          }
           // TODO: utxo should use xpub instead of its first address
           return (a as DBUTXOAccount).address;
         }
