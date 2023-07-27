@@ -80,6 +80,7 @@ export type IVaultSettings = {
   validationRequired?: boolean;
   disabledInExtension?: boolean;
   disabledInExtensionManifestV3?: boolean;
+  disabledCoinControlAdvancedSetting?: boolean;
   exportCredentialInfo?: AccountCredential[];
   txExtraInfo?: TxExtraInfo[];
   enabledInDevModeOnly?: boolean;

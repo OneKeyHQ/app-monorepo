@@ -12,6 +12,7 @@ const settings: IVaultSettings = Object.freeze({
   txCanBeReplaced: false,
 
   isBtcForkChain: true,
+  disabledCoinControlAdvancedSetting: true,
   importedAccountEnabled: true,
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,

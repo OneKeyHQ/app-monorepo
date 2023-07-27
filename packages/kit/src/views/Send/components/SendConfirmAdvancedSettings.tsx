@@ -56,6 +56,8 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
 
   const nonceEditable = network?.settings?.nonceEditable;
   const isBtcForkChain = network?.settings?.isBtcForkChain;
+  const disabledCoinControlAdvancedSetting =
+    network?.settings?.disabledCoinControlAdvancedSetting || false;
   const hexDataEditable = network?.settings?.hexDataEditable;
 
   const intl = useIntl();
@@ -179,7 +181,7 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
       );
     }
 
-    if (isBtcForkChain) {
+    if (isBtcForkChain && !disabledCoinControlAdvancedSetting) {
       settings.push(
         <CoinControlAdvancedSetting
           network={network}
