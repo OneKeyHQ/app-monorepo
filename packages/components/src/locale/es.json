@@ -1546,6 +1546,7 @@
   "form__possible_risky": "Posible Riesgo",
   "form__powered_by": "Desarrollado por",
   "form__preferences": "Preferencias",
+  "form__preimage": "preimagen",
   "form__previous_confirmed": "Anterior confirmado",
   "form__price_alert": "Alerta de precio",
   "form__price_alert_desc": "Cuando el token alcanza el precio establecido",
