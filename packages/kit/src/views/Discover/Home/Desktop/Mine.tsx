@@ -15,6 +15,7 @@ import { DiscoverContext } from '../context';
 
 import { DAppCategories } from './DAppCategories';
 import { EmptySkeleton } from './EmptySkeleton';
+import { discoverUIEventBus } from './eventBus';
 import { ListHeader } from './ListHeader';
 
 const styles = StyleSheet.create({
@@ -77,7 +78,13 @@ export const Mine: FC = () => {
 
   return (
     <Box flex="1" bg="background-default">
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        scrollEventThrottle={100}
+        onScroll={() => {
+          discoverUIEventBus.emit('scroll');
+        }}
+      >
         <ListHeaderComponent />
         {data.map((item) => (
           <CardView key={item.title} {...item} onItemSelect={onItemSelect} />

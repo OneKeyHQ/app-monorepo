@@ -24,7 +24,7 @@ class ServiceDappMetaData extends ServiceBase {
     let result = url;
     try {
       const u = new URL(url);
-      result = `${u.origin}${u.pathname}`;
+      result = `${u.origin}${u.pathname}${u.search}`;
     } catch {
       debugLogger.common.error(`failed to get url key: ${url}`);
     }

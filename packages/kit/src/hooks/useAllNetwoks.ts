@@ -7,8 +7,10 @@ import {
   generateFakeAllnetworksAccount,
 } from '@onekeyhq/engine/src/managers/account';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
+import { networkIsPreset } from '@onekeyhq/engine/src/presets';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import {
   ManageNetworkModalRoutes,
@@ -24,6 +26,24 @@ import { useNetwork } from './useNetwork';
 
 import type { ManageNetworkRoutesParams } from '../routes';
 import type { IAppState } from '../store';
+
+export const useAllNetworksIncludedNetworks = (enabledOnly = true) => {
+  const { allNetworks } = useManageNetworks();
+
+  return useMemo(() => {
+    const list = allNetworks;
+    return list.filter((n) =>
+      enabledOnly
+        ? n.enabled
+        : true &&
+          !n.isTestnet &&
+          !n.settings?.validationRequired &&
+          !n.settings.hideInAllNetworksMode &&
+          networkIsPreset(n.id) &&
+          ![OnekeyNetwork.fevm, OnekeyNetwork.cfxespace].includes(n.id),
+    );
+  }, [allNetworks, enabledOnly]);
+};
 
 export const useAllNetworkAccountInfo = ({
   accountId,

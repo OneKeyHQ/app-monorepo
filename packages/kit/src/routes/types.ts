@@ -8,7 +8,6 @@ import type { HeaderTitleProps } from '@onekeyhq/components/src/NavHeader/Header
 import type { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
-import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
 import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
 
 // define enum here to avoid cycle import
@@ -134,10 +133,6 @@ export type HomeRoutesParams = {
     _title?: string;
     tagId: string;
     onItemSelect?: (item: DAppItemType) => void;
-  };
-  [HomeRoutes.MyDAppListScreen]: {
-    defaultIndex?: number;
-    onItemSelect?: (item: MatchDAppItemType) => void;
   };
   [HomeRoutes.Protected]: undefined;
   [HomeRoutes.SwapHistory]: undefined;

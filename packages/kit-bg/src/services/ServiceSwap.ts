@@ -894,8 +894,16 @@ export default class ServiceSwap extends ServiceBase {
     encodedTx: IEncodedTx;
     payload?: SendConfirmParams['payloadInfo'];
     autoFallback?: boolean;
+    prepaidFee?: string;
   }) {
-    const { accountId, networkId, encodedTx, payload, autoFallback } = params;
+    const {
+      accountId,
+      networkId,
+      encodedTx,
+      payload,
+      autoFallback,
+      prepaidFee,
+    } = params;
     const { appSelector, serviceTransaction } = this.backgroundApi;
     const swapFeePresetIndex = appSelector(
       (s) => s.swapTransactions.swapFeePresetIndex,
@@ -907,6 +915,7 @@ export default class ServiceSwap extends ServiceBase {
       payload,
       feePresetIndex: swapFeePresetIndex,
       autoFallback,
+      prepaidFee,
     });
   }
 

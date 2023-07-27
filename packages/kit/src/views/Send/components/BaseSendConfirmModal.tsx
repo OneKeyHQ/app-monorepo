@@ -51,6 +51,7 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
     autoConfirm,
     sourceInfo,
     advancedSettings,
+    prepaidFee,
     ...others
   } = props;
   const nativeToken = useNativeToken(network?.id);
@@ -76,8 +77,11 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
   const [isPendingTxSameNonce, setIsPendingTxSameNonce] = useState(false);
 
   const balanceInsufficient = useMemo(
-    () => new BigNumber(nativeBalance).lt(new BigNumber(fee)),
-    [fee, nativeBalance],
+    () =>
+      new BigNumber(nativeBalance).lt(
+        new BigNumber(fee).plus(prepaidFee || '0'),
+      ),
+    [fee, nativeBalance, prepaidFee],
   );
 
   const editableNonceStatus = useMemo(() => {

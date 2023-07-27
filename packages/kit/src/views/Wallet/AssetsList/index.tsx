@@ -27,7 +27,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount, useAppSelector } from '../../../hooks';
-import { useAllNetworksWalletAccounts } from '../../../hooks/useAllNetwoks';
 import {
   useAccountPortfolios,
   useAccountTokens,
@@ -90,10 +89,6 @@ function AssetsList({
     accountId,
     useFilter: true,
     limitSize,
-  });
-
-  const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
-    accountId,
   });
 
   const updateInfo = useOverviewAccountUpdateInfo({
@@ -275,8 +270,8 @@ function AssetsList({
 
   const empty = useMemo(() => {
     if (loading) {
-      if (isAllNetworks(network?.id)) {
-        return !updateInfo?.updatedAt ? (
+      if (isAllNetworks(network?.id) && !updateInfo?.updatedAt) {
+        return (
           <Box alignItems="center" mt="8">
             <Empty
               w="260px"
@@ -291,26 +286,15 @@ function AssetsList({
               })}
             />
           </Box>
-        ) : (
-          <AssetsListSkeleton />
         );
       }
+      return <AssetsListSkeleton />;
     }
-    if (
-      isAllNetworks(network?.id) &&
-      !Object.keys(networkAccountsMap)?.length
-    ) {
+    if (isAllNetworks(network?.id)) {
       return <AllNetworksEmpty />;
     }
     return <EmptyListOfAccount network={network} accountId={accountId} />;
-  }, [
-    loading,
-    accountId,
-    network,
-    updateInfo?.updatedAt,
-    intl,
-    networkAccountsMap,
-  ]);
+  }, [loading, accountId, network, updateInfo?.updatedAt, intl]);
 
   return (
     <Container

@@ -74,8 +74,6 @@ export enum HomeRoutes {
   // **** Discover Tab
   ExploreScreen = 'ExploreScreen',
   DAppListScreen = 'DAppListScreen',
-  MyDAppListScreen = 'MyDAppListScreen',
-
   // **** Swap Tab
   SwapHistory = 'SwapHistory',
 
