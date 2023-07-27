@@ -37,8 +37,13 @@ export class KeyringHardware extends KeyringHardwareBase {
     params: IPrepareHardwareAccountsParams,
   ): Promise<Array<DBUTXOAccount>> {
     const { indexes, names, template } = params;
-    const { pathPrefix } = slicePathTemplate(template);
-    const paths = indexes.map((index) => `${pathPrefix}/${index}`);
+    const { pathPrefix, pathSuffix } = slicePathTemplate(template);
+    const paths = indexes.map(
+      (index) =>
+        // When the first digit is 0, it represents a receiving account,
+        // and when it is 0, it indicates a change account.
+        `${pathPrefix}/${pathSuffix.replace('{index}', index.toString())}`,
+    );
     const showOnOneKey = false;
     const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
@@ -57,7 +62,6 @@ export class KeyringHardware extends KeyringHardwareBase {
             path,
             showOnOneKey,
             prefix: getNexaPrefix(chainId),
-            scheme: SIGN_TYPE,
           })),
           ...passphraseState,
         },
