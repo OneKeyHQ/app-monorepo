@@ -53,6 +53,13 @@ const LinearGradientButton: FC<LinearGradientButtonProps> = ({
   onPress,
 }) => {
   const intl = useIntl();
+  let title = intl.formatMessage({ id: 'title__swap' });
+  if (tokenB?.symbol) {
+    title = intl.formatMessage(
+      { id: 'action__cross_chain_swap_to_str' },
+      { '0': tokenB?.symbol || '' },
+    );
+  }
   return (
     <Box h="50px" w="full" shadow="1" borderRadius="12" overflow="hidden">
       <LinearGradient
@@ -110,7 +117,7 @@ const LinearGradientButton: FC<LinearGradientButtonProps> = ({
             </Box>
           </Box>
           <Typography.Button1 color="text-on-primary">
-            {intl.formatMessage({ id: 'form__cross_chain_swap' })}
+            {title}
           </Typography.Button1>
         </Pressable>
       </LinearGradient>
@@ -136,16 +143,9 @@ const LinearGradientExchangeButton: FC<LinearGradientExchangeButtonProps> = ({
     tokenB &&
     tokenA.networkId !== tokenB?.networkId
   ) {
-    let title = intl.formatMessage({ id: 'title__swap' });
-    if (!isDisabled && !isLoading && tokenB?.symbol) {
-      title = intl.formatMessage(
-        { id: 'action__cross_chain_swap_to_str' },
-        { '0': tokenB?.symbol || '' },
-      );
-    }
     return (
       <LinearGradientButton tokenA={tokenA} tokenB={tokenB} {...props}>
-        {title}
+        {intl.formatMessage({ id: 'title__swap' })}
       </LinearGradientButton>
     );
   }
