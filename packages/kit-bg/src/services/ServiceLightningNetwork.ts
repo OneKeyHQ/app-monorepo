@@ -114,7 +114,7 @@ export default class ServiceLightningNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async isZeroInvoiceAmount({
+  async isZeroAmountInvoice({
     payReq,
     networkId,
     accountId,
@@ -129,7 +129,7 @@ export default class ServiceLightningNetwork extends ServiceBase {
     })) as VaultLightning;
     const invoice = await vault._decodedInvoceCache(payReq);
     console.log('decoded invoice: ', invoice);
-    return vault.isZeroInvoiceAmount(invoice);
+    return vault.isZeroAmountInvoice(invoice);
   }
 
   @backgroundMethod()
@@ -184,6 +184,7 @@ export default class ServiceLightningNetwork extends ServiceBase {
       networkId,
       accountId,
     });
+    // @ts-expect-error
     return vault.validateSendAmount(amount);
   }
 }

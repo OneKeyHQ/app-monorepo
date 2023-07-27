@@ -396,7 +396,7 @@ function PreSendAddress() {
   const lightningNetworkSendConfirm = useCallback(
     async (toVal: string) => {
       try {
-        const isZeroAmount = await serviceLightningNetwork.isZeroInvoiceAmount({
+        const isZeroAmount = await serviceLightningNetwork.isZeroAmountInvoice({
           payReq: toVal,
           networkId,
           accountId,

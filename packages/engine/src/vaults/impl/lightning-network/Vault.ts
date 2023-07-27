@@ -228,9 +228,13 @@ export default class Vault extends VaultBase {
       (tag) => tag.tagName === 'payment_hash',
     );
 
-    const amount = invoice.millisatoshis
+    let amount = invoice.millisatoshis
       ? new BigNumber(invoice.millisatoshis).dividedBy(1000)
       : new BigNumber(invoice.satoshis ?? '0');
+    const isZeroAmountInvoice = this.isZeroAmountInvoice(invoice);
+    if (isZeroAmountInvoice && transferInfo.amount) {
+      amount = new BigNumber(transferInfo.amount);
+    }
     if (!invoice.paymentRequest) {
       throw new InvalidLightningPaymentRequest();
     }
@@ -610,20 +614,24 @@ export default class Vault extends VaultBase {
   }> {
     const { invoice: payreq, amount, fee } = encodedTx;
     const invoice = await this._decodedInvoceCache(payreq);
-    if (this.isZeroInvoiceAmount(invoice)) {
-      return Promise.resolve({
-        success: false,
-        key: 'msg__the_invoice_amount_cannot_be_0',
-        params: {
-          0: 'stas',
-        },
-      });
+    let finalAmount = amount;
+    if (this.isZeroAmountInvoice(invoice)) {
+      if (new BigNumber(encodedTx.amount).isLessThan(1)) {
+        return Promise.resolve({
+          success: false,
+          key: 'msg__the_invoice_amount_cannot_be_0',
+          params: {
+            0: 'stas',
+          },
+        });
+      }
+      finalAmount = encodedTx.amount;
     }
 
     const balanceAddress = await this.getCurrentBalanceAddress();
     const balance = await this.getBalances([{ address: balanceAddress }]);
     const balanceBN = new BigNumber(balance[0] || '0');
-    if (balanceBN.isLessThan(new BigNumber(amount).plus(fee))) {
+    if (balanceBN.isLessThan(new BigNumber(finalAmount).plus(fee))) {
       return Promise.resolve({
         success: false,
         key: 'form__amount_invalid',
@@ -677,7 +685,7 @@ export default class Vault extends VaultBase {
     return client.checkAuth(balanceAddress);
   }
 
-  isZeroInvoiceAmount(invoice: IInvoiceDecodedResponse) {
+  isZeroAmountInvoice(invoice: IInvoiceDecodedResponse) {
     return (
       (invoice.millisatoshis && +invoice.millisatoshis <= 0) ||
       (invoice.satoshis && +invoice.satoshis <= 0) ||
