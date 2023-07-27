@@ -38,6 +38,7 @@ import {
   IMPL_KASPA,
   IMPL_LTC,
   IMPL_NEAR,
+  IMPL_NEXA,
   IMPL_SOL,
   IMPL_STC,
   IMPL_TBTC,
@@ -102,7 +103,7 @@ const derivationPathTemplates: Record<string, string> = {
   [COINTYPE_DOGE]: `m/44'/${COINTYPE_DOGE}'/${INCREMENT_LEVEL_TAG}'`,
   [COINTYPE_LTC]: `m/${PURPOSE_TAG}'/${COINTYPE_LTC}'/${INCREMENT_LEVEL_TAG}'`,
   [COINTYPE_BCH]: `m/44'/${COINTYPE_BCH}'/${INCREMENT_LEVEL_TAG}'`,
-  [COINTYPE_NEXA]: `m/44'/${COINTYPE_NEXA}'/${INCREMENT_LEVEL_TAG}`,
+  [COINTYPE_NEXA]: `m/44'/${COINTYPE_NEXA}'/${INCREMENT_LEVEL_TAG}'`,
   [COINTYPE_XRP]: `m/44'/${COINTYPE_XRP}'/${INCREMENT_LEVEL_TAG}'/0/0`,
   [COINTYPE_COSMOS]: `m/44'/${COINTYPE_COSMOS}'/0'/0/${INCREMENT_LEVEL_TAG}`,
   [COINTYPE_ADA]: `m/1852'/${COINTYPE_ADA}'/${INCREMENT_LEVEL_TAG}'`,
@@ -172,7 +173,7 @@ function getNextAccountIdsWithAccountDerivation(
   const impl = getImplByCoinType(coinType);
   const containPath = (accountIndex: number) => {
     let path: string;
-    if ([IMPL_EVM, IMPL_SOL].includes(impl)) {
+    if ([IMPL_EVM, IMPL_SOL, IMPL_NEXA].includes(impl)) {
       path = template.replace(INDEX_PLACEHOLDER, accountIndex.toString());
     } else {
       path = getPath(purpose, coinType, accountIndex);
