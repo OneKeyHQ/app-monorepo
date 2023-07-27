@@ -102,7 +102,10 @@ function nanToZeroString(value: string | number | unknown) {
   return value as string;
 }
 
-export function calculateTotalFeeRange(feeValue: IFeeInfoUnit, decimal = 8) {
+export function calculateTotalFeeRange(
+  feeValue: IFeeInfoUnit,
+  displayDecimals = 8,
+) {
   const limit = feeValue.limitUsed || feeValue.limit;
   const limitForDisplay = feeValue.limitForDisplay ?? limit;
   if (feeValue.eip1559) {
@@ -112,22 +115,22 @@ export function calculateTotalFeeRange(feeValue: IFeeInfoUnit, decimal = 8) {
       .times(
         new BigNumber(priceInfo.baseFee).plus(priceInfo.maxPriorityFeePerGas),
       )
-      .toFixed(decimal);
+      .toFixed(displayDecimals);
 
     const minForDisplay = new BigNumber(limitForDisplay as string)
       .times(
         new BigNumber(priceInfo.baseFee).plus(priceInfo.maxPriorityFeePerGas),
       )
-      .toFixed(decimal);
+      .toFixed(displayDecimals);
 
     // MAX: maxFeePerGas * limit
     const max = new BigNumber(limit as string)
       .times(priceInfo.gasPrice || priceInfo.maxFeePerGas)
-      .toFixed(decimal);
+      .toFixed(displayDecimals);
 
     const maxForDisplay = new BigNumber(limitForDisplay as string)
       .times(priceInfo.gasPrice || priceInfo.maxFeePerGas)
-      .toFixed(decimal);
+      .toFixed(displayDecimals);
     return {
       min: nanToZeroString(min),
       max: nanToZeroString(max),
@@ -138,8 +141,8 @@ export function calculateTotalFeeRange(feeValue: IFeeInfoUnit, decimal = 8) {
 
   if (feeValue.isBtcForkChain) {
     const fee = new BigNumber(feeValue.btcFee ?? '0')
-      .shiftedBy(-decimal)
-      .toFixed(decimal);
+      .shiftedBy(-displayDecimals)
+      .toFixed(displayDecimals);
     return {
       min: nanToZeroString(fee),
       max: nanToZeroString(fee),

@@ -272,7 +272,7 @@ export function useFeeInfoPayload({
       }
 
       // in GWEI
-      const feeRange = calculateTotalFeeRange(currentInfoUnit);
+      const feeRange = calculateTotalFeeRange(currentInfoUnit, nativeDecimals);
       const total = feeRange.max;
       const totalForDisplay = feeRange.maxForDisplay;
       const totalNative = calculateTotalFeeNative({
