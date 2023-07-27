@@ -276,7 +276,7 @@ export const ButtonsSection: FC = () => {
   const onSell = useCallback(
     async ({ account, network, token }: ISingleChainInfo) => {
       const signedUrl = await backgroundApiProxy.serviceFiatPay.getFiatPayUrl({
-        type: 'buy',
+        type: 'sell',
         address: account?.address,
         tokenAddress: token?.address,
         networkId: network?.id,
