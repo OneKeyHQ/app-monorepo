@@ -35,6 +35,7 @@ export function useSendConfirmRouteParamsParsed() {
     onModalClose,
     networkId,
     accountId,
+    prepaidFee,
   } = routeParams;
   const isFromDapp = !!routeParams.sourceInfo;
   const feeInfoEditable: boolean = routeParams.feeInfoEditable ?? true;
@@ -94,5 +95,6 @@ export function useSendConfirmRouteParamsParsed() {
     isInternalSwapTx,
     isTransferTypeTx: false,
     ignoreFetchFeeCalling,
+    prepaidFee,
   };
 }
