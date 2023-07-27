@@ -128,7 +128,6 @@ export default class ServiceLightningNetwork extends ServiceBase {
       accountId,
     })) as VaultLightning;
     const invoice = await vault._decodedInvoceCache(payReq);
-    console.log('decoded invoice: ', invoice);
     return vault.isZeroAmountInvoice(invoice);
   }
 

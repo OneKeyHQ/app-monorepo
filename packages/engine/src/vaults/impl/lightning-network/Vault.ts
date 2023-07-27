@@ -394,6 +394,7 @@ export default class Vault extends VaultBase {
           networkId: this.networkId,
           accountId: this.accountId,
           extraInfo: {
+            preimage: txInfo.payment_preimage,
             memo: txInfo.description,
           },
           totalFeeInNative: new BigNumber(fee).shiftedBy(-decimals).toFixed(),
