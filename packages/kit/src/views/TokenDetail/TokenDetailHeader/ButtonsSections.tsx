@@ -11,7 +11,6 @@ import {
   Icon,
   IconButton,
   Pressable,
-  ToastManager,
   Token,
   Typography,
   useIsVerticalLayout,
@@ -20,7 +19,6 @@ import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { isLightningNetworkByImpl } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -29,6 +27,7 @@ import { useNavigation, useNetwork, useWallet } from '../../../hooks';
 import { useAllNetworksSelectNetworkAccount } from '../../../hooks/useAllNetwoks';
 import {
   FiatPayModalRoutes,
+  MainRoutes,
   ModalRoutes,
   ReceiveTokenModalRoutes,
   RootRoutes,
@@ -211,38 +210,22 @@ export const ButtonsSection: FC = () => {
   );
 
   const onSwap = useCallback(
-    async ({ token: t, account: a, network: n }: ISingleChainInfo) => {
-      let token = t;
-      if (token) {
-        const supported = await backgroundApiProxy.serviceSwap.tokenIsSupported(
-          token,
-        );
-        if (!supported) {
-          ToastManager.show(
-            {
-              title: intl.formatMessage({ id: 'msg__wrong_network_desc' }),
-            },
-            { type: 'default' },
-          );
-          token = await backgroundApiProxy.engine.getNativeTokenInfo(
-            OnekeyNetwork.eth,
-          );
-        }
+    async ({ token, account: a, network: n }: ISingleChainInfo) => {
+      if (!token) {
+        return;
       }
-      if (token) {
-        backgroundApiProxy.serviceSwap.sellToken(token);
-        if (a) {
-          backgroundApiProxy.serviceSwap.setSendingAccountSimple(a);
-          const paymentToken =
-            await backgroundApiProxy.serviceSwap.getPaymentToken(token);
-          if (paymentToken?.networkId === n?.id) {
-            backgroundApiProxy.serviceSwap.setRecipientToAccount(a, n);
-          }
-        }
+      await backgroundApiProxy.serviceSwap.buyToken(token);
+      if (a && n) {
+        backgroundApiProxy.serviceSwap.setRecipientToAccount(a, n);
       }
-      navigation.getParent()?.navigate(TabRoutes.Swap);
+      navigation.navigate(RootRoutes.Main, {
+        screen: MainRoutes.Tab,
+        params: {
+          screen: TabRoutes.Swap,
+        },
+      });
     },
-    [navigation, intl],
+    [navigation],
   );
 
   const goToWebView = useCallback(
