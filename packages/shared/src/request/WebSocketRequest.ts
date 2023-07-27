@@ -23,8 +23,10 @@ function normalizePayload(
 }
 
 const socketsMap = new Map<string, WebSocket>();
-
-const callbackMap = new Map<string, (result: any) => void>();
+const callbackMap = new Map<
+  string,
+  [(value: any) => void, (reason?: any) => void]
+>();
 
 interface IJsonRpcResponse {
   error?: {
@@ -104,11 +106,20 @@ export class WebSocketRequest {
       };
 
       newSocket.onmessage = (message) => {
-        const { id, result } = this.parseRPCResponse(message.data) as {
-          id: string;
-          result: any;
-        };
-        callbackMap.get(id)?.(result);
+        const { id, result, error } = this.parseRPCResponse(message.data);
+        const callback = callbackMap.get(id);
+        if (callback) {
+          const [callbackResolve, callbackReject] = callback;
+          if (error) {
+            callbackReject(
+              new JsonPRCResponseError(
+                `Error JSON PRC response ${error.code}: ${error.message}`,
+              ),
+            );
+          } else {
+            callbackResolve(result);
+          }
+        }
         callbackMap.delete(id);
       };
       newSocket.onerror = (error: unknown) => {
@@ -134,11 +145,6 @@ export class WebSocketRequest {
         `Invalid JSON RPC response, result not found: ${message}`,
       );
     }
-    if (response.error) {
-      throw new JsonPRCResponseError(
-        `Error JSON PRC response ${response.error.code}: ${response.error.message}`,
-      );
-    }
     return response;
   }
 
@@ -157,9 +163,9 @@ export class WebSocketRequest {
     timeout?: number,
   ): Promise<T> {
     const socket = await this.refreshConnectionStatus();
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const id = generateUUID();
-      callbackMap.set(id, resolve);
+      callbackMap.set(id, [resolve, reject]);
       const requestParams = normalizePayload(method, params, id);
       if (socket) {
         socket.send(`${JSON.stringify(requestParams)}\n`);
