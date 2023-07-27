@@ -416,9 +416,14 @@ const CreateOrder: FC = () => {
               accessibilityLabel="sat"
               step={1}
               value={sat}
-              onChange={(value) => {
+              onChangeBegin={() => {
                 setLoading(true);
-                setSat(value);
+              }}
+              onChange={(value) => {
+                if (!platformEnv.isNative) {
+                  // It is not necessary to constantly update the value on the app side.
+                  setSat(value);
+                }
               }}
               onChangeEnd={(value) => {
                 setSat(value);
