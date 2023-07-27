@@ -74,11 +74,11 @@ export function convertFeeNativeToValue({
 export function calculateTotalFeeNative({
   amount, // in GWEI
   info,
-  decimal = 8,
+  displayDecimal = 8,
 }: {
   amount: string | BigNumber;
   info: IFeeInfo;
-  decimal?: number;
+  displayDecimal?: number;
 }) {
   return new BigNumber(amount)
     .plus(info.baseFeeValue ?? 0)
@@ -92,7 +92,7 @@ export function calculateTotalFeeNative({
         nilError('calculateTotalFeeNative ERROR: info.nativeDecimals missing')
       ),
     ) // onChainValue -> nativeAmount
-    .toFixed(decimal);
+    .toFixed(displayDecimal);
 }
 
 function nanToZeroString(value: string | number | unknown) {
