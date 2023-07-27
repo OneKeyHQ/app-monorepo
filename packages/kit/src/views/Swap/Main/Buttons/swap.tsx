@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useContext, useRef, useState } from 'react';
 import type { ComponentProps, FC } from 'react';
 
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,6 +18,7 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { useNetwork } from '../../../../hooks';
 import { useAppSelector } from '../../../../hooks/redux';
 import { addTransaction } from '../../../../store/reducers/swapTransactions';
+import { SwapButtonProgressContext } from '../../context';
 import {
   useCheckInputBalance,
   useInputLimitsError,
@@ -166,10 +167,9 @@ const LinearGradientExchangeButton: FC<LinearGradientExchangeButtonProps> = ({
 const ExchangeButton = () => {
   const intl = useIntl();
   const ref = useRef(false);
-  const progressStatus = useAppSelector((s) => s.swap.progressStatus);
   const quote = useAppSelector((s) => s.swap.quote);
   const params = useSwapQuoteRequestParams();
-
+  const btnCtx = useContext(SwapButtonProgressContext);
   const swapSubmit = useSwapSubmit();
 
   const onSubmit = useCallback(async () => {
@@ -178,17 +178,13 @@ const ExchangeButton = () => {
       quote,
       params,
       recipient,
-      openProgressStatus: () => {
-        backgroundApiProxy.serviceSwap.openProgressStatus();
-      },
-      closeProgressStatus: () => {
-        backgroundApiProxy.serviceSwap.closeProgressStatus();
-      },
+      openProgressStatus: btnCtx.openProgressStatus,
+      closeProgressStatus: btnCtx.closeProgressStatus,
       setProgressStatus(status) {
-        backgroundApiProxy.serviceSwap.setProgressStatus(status);
+        btnCtx.setProgressStatus?.(status);
       },
     });
-  }, [params, quote, swapSubmit]);
+  }, [params, quote, swapSubmit, btnCtx]);
 
   const onPress = useCallback(async () => {
     if (ref.current) {
@@ -197,16 +193,16 @@ const ExchangeButton = () => {
     try {
       ref.current = true;
       dangerRefs.submited = true;
-      backgroundApiProxy.serviceSwap.openProgressStatus();
+      btnCtx.openProgressStatus?.();
       await onSubmit();
     } finally {
       ref.current = false;
       dangerRefs.submited = false;
-      backgroundApiProxy.serviceSwap.closeProgressStatus();
+      btnCtx.closeProgressStatus?.();
     }
-  }, [onSubmit]);
+  }, [onSubmit, btnCtx]);
 
-  if (progressStatus) {
+  if (btnCtx.progressStatus) {
     return <SwapProgressButton />;
   }
 

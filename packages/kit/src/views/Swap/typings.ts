@@ -480,3 +480,10 @@ export type TypedPrice = {
 export type ProgressStatus = {
   title?: string;
 };
+
+export type ButtonProgressContextValues = {
+  progressStatus?: ProgressStatus;
+  setProgressStatus?: (status: ProgressStatus) => void;
+  openProgressStatus?: () => void;
+  closeProgressStatus?: () => void;
+};

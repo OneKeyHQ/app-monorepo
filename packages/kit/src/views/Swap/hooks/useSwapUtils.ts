@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -11,8 +11,10 @@ import { div, formatAmount, lte, minus, multiply } from '../utils';
 import { useTokenPrice } from './useSwapTokenUtils';
 
 import type {
+  ButtonProgressContextValues,
   ISlippage,
   ISlippageAuto,
+  ProgressStatus,
   TokenCoingeckoType,
   TransactionDetails,
 } from '../typings';
@@ -157,4 +159,33 @@ export const useSwapChartMode = () => {
     return 'simple';
   }
   return swapChartMode ?? 'chart';
+};
+
+export const useProgressStatusContext = (): ButtonProgressContextValues => {
+  const [progressStatus, setProgressStatus] = useState<
+    ProgressStatus | undefined
+  >();
+  const openProgressStatus = useCallback(
+    () => setProgressStatus({}),
+    [setProgressStatus],
+  );
+  const closeProgressStatus = useCallback(
+    () => setProgressStatus(undefined),
+    [setProgressStatus],
+  );
+  const ctx = useMemo(
+    () => ({
+      progressStatus,
+      setProgressStatus,
+      openProgressStatus,
+      closeProgressStatus,
+    }),
+    [
+      progressStatus,
+      setProgressStatus,
+      openProgressStatus,
+      closeProgressStatus,
+    ],
+  );
+  return ctx;
 };
