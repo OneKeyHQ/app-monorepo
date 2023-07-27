@@ -34,7 +34,7 @@ export class KeyringImported extends KeyringImportedBase {
         type: AccountType.UTXO,
         path: '',
         coinType: COIN_TYPE,
-        xpub: pub,
+        xpub: '',
         address: pubHex,
         addresses: { [this.networkId]: pubHex },
       },

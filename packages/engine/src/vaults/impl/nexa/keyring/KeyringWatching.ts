@@ -14,7 +14,6 @@ export class KeyringWatching extends KeyringWatchingBase {
   ): Promise<Array<DBSimpleAccount>> {
     const { name, target: address, accountIdPrefix } = params;
     let normalizedAddress = '';
-    let xpub = '';
     let accountType = AccountType.SIMPLE;
     if (address.startsWith('nexa')) {
       const { normalizedAddress: nexaAddress, isValid } =
@@ -28,7 +27,6 @@ export class KeyringWatching extends KeyringWatchingBase {
         verifyNexaAddress(await this.vault.getDisplayAddress(address));
         normalizedAddress = address;
         accountType = AccountType.UTXO;
-        xpub = address;
       } catch (error) {
         throw new InvalidAddress();
       }
@@ -40,7 +38,6 @@ export class KeyringWatching extends KeyringWatchingBase {
         name: name || '',
         type: accountType,
         path: '',
-        xpub,
         coinType: COIN_TYPE,
         pub: '', // TODO: only address is supported for now.
         address: normalizedAddress,
