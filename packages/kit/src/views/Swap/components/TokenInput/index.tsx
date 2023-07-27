@@ -88,7 +88,7 @@ const TokenInputSendingAccount: FC<TokenAccountProps> = ({
           alignItems="center"
         >
           <Box flexDirection="row" mr="1">
-            <Typography.Body2Strong mr="1">
+            <Typography.Body2Strong mr="1" maxW="120" isTruncated>
               {account.name}
             </Typography.Body2Strong>
             <Typography.Body2 color="text-subdued">
