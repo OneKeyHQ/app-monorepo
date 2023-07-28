@@ -5,11 +5,11 @@ import type { IEncodedTx } from '../../types';
 
 export default class VaultHelper extends VaultHelperBase {
   parseToNativeTx(encodedTx: IEncodedTx): Promise<any> {
-    throw new NotImplemented();
+    return Promise.resolve(encodedTx);
   }
 
   parseToEncodedTx(rawTxOrEncodedTx: any): Promise<any> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve(rawTxOrEncodedTx);
   }
 
   nativeTxToJson(nativeTx: any): Promise<string> {

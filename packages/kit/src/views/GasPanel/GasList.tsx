@@ -102,24 +102,25 @@ function GasList(props: Props) {
 
   const network = useNetworkSimple(selectedNetworkId);
 
-  const isBtcForkChain = network?.settings.isBtcForkChain;
+  const isFeeRateMode =
+    network?.settings.isFeeRateMode || network?.settings.isBtcForkChain;
 
   const gasItems = useMemo(() => {
     if (!prices || !network) return [];
 
     let limit = String(network?.settings.minGasLimit ?? 21000);
-    limit = isBtcForkChain ? btcMockLimit : limit;
+    limit = isFeeRateMode ? btcMockLimit : limit;
 
     const feeInfo: IFeeInfo = {
       prices,
       defaultPresetIndex: '1',
-      eip1559: isEIP1559Enabled && !isBtcForkChain,
+      eip1559: isEIP1559Enabled && !isFeeRateMode,
       limit,
       feeSymbol: network.feeSymbol,
       feeDecimals: network.feeDecimals,
       nativeDecimals: network.decimals,
-      isBtcForkChain,
-      feeList: isBtcForkChain
+      isBtcForkChain: isFeeRateMode,
+      feeList: isFeeRateMode
         ? prices
             .map((price) =>
               new BigNumber(price as string)
@@ -151,7 +152,7 @@ function GasList(props: Props) {
             <SendEditFeeOverview
               accountId=""
               networkId={selectedNetworkId}
-              price={getPrice(price, isEIP1559Enabled && !isBtcForkChain)}
+              price={getPrice(price, isEIP1559Enabled && !isFeeRateMode)}
               feeInfo={feeInfo}
               limit={limit}
               currencyProps={{
@@ -167,8 +168,8 @@ function GasList(props: Props) {
           </VStack>
           <FeeSpeedTip
             index={index}
-            isEIP1559={isEIP1559Enabled && !isBtcForkChain}
-            price={getPrice(price, isEIP1559Enabled && !isBtcForkChain)}
+            isEIP1559={isEIP1559Enabled && !isFeeRateMode}
+            price={getPrice(price, isEIP1559Enabled && !isFeeRateMode)}
             limit={limit}
             feeInfo={feeInfo}
           />
@@ -179,7 +180,7 @@ function GasList(props: Props) {
 
     return items;
   }, [
-    isBtcForkChain,
+    isFeeRateMode,
     isEIP1559Enabled,
     network,
     prices,

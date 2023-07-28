@@ -136,7 +136,9 @@ export async function prepareSendConfirmEncodedTx({
       return updatedTx;
     }
 
-    if (vaultSetting.isBtcForkChain) {
+    const isFeeRateMode =
+      vaultSetting.isFeeRateMode || vaultSetting.isBtcForkChain;
+    if (isFeeRateMode) {
       const encodedTxBtc = encodedTx as IEncodedTxBtc;
       if (!accountId) {
         return Promise.resolve(encodedTx);
