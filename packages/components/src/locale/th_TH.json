@@ -2394,6 +2394,8 @@
   "msg__you_have_selected_another_account_to_receive_tokens": "คุณได้เลือกบัญชีอื่นเพื่อรับโทเค็น",
   "msg__you_need_str_accounts_on_any_network_to_create": "คุณต้องมีบัญชี {0} บัญชีในเครือข่ายใดก็ได้เพื่อสร้าง",
   "msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss": "คุณจะแลกเปลี่ยนโทเค็นน้อยกว่าอัตราของ coingecko {0}% ซึ่งอาจส่งผลให้เกิดการสูญเสีย",
+  "msg__your_str_balance_is_insufficient": "ยอดเงิน {0} ของคุณไม่เพียงพอ",
+  "msg__your_str_balance_is_insufficient_desc": "หลังจากชำระค่าน้ำมันจำนวน {0} แล้ว ยอดเงินคงเหลือของคุณไม่เพียงพอสำหรับการทำธุรกรรม",
   "msg__your_trade_may_be_front_run_due_to_the_larger_slippage": "การเทรดของคุณอาจดำเนินการล่วงหน้าเนื่องจากการเลื่อนหลุดที่มากขึ้น",
   "msg__your_trade_may_fail_due_to_small_slippage": "การเทรดของคุณอาจล้มเหลวเนื่องจากการคลาดเคลื่อนเล็กน้อย",
   "msg__your_transaction_may_be_frontrun": "ธุรกรรมของคุณอาจเป็น frontrun",

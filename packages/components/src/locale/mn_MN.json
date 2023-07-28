@@ -2394,6 +2394,8 @@
   "msg__you_have_selected_another_account_to_receive_tokens": "Та жетон хүлээн авах өөр бүртгэл сонгосон байна.",
   "msg__you_need_str_accounts_on_any_network_to_create": "Та үүсгэхийн тулд ямар ч сүлжээнд {0} бүртгэл хэрэгтэй",
   "msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss": "Та жетоныг коингецкогийн ханшаас {0}%-иар бага үнээр солих бөгөөд энэ нь алдагдалд хүргэж болзошгүй юм.",
+  "msg__your_str_balance_is_insufficient": "Таны {0} үлдэгдэл хангалтгүй байна",
+  "msg__your_str_balance_is_insufficient_desc": "{0} хийн төлбөрийг төлсний дараа таны үлдэгдэл гүйлгээг дуусгахад хүрэлцэхгүй байна.",
   "msg__your_trade_may_be_front_run_due_to_the_larger_slippage": "Их хэмжээний гулсалтын улмаас таны арилжаа урагшлах магадлалтай.",
   "msg__your_trade_may_fail_due_to_small_slippage": "Таны арилжаа бага зэрэг гулсалтын улмаас бүтэлгүйтэж магадгүй.",
   "msg__your_transaction_may_be_frontrun": "Таны гүйлгээ урьдчилж хийгдэж магадгүй",
