@@ -285,7 +285,7 @@ function buildSignatures(encodedTx: IEncodedTxNexa, dbAccountAddress: string) {
   if (available.lt(new BN(0))) {
     console.error(inputAmount.toString(), fee.toString());
     throw new Error(
-      `available balance is less than 0, inputAmount: ${inputAmount.toString()}, fee: ${fee.toString()}`,
+      `Available balance cannot be less than 0, inputAmount: ${inputAmount.toString()}, dust: ${fee.toString()}`,
     );
   }
 
