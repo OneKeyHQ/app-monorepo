@@ -3,7 +3,8 @@
 export function shouldInject() {
   const { hostname } = window.location;
   // zhihu search will fail if inject custom code
-  const blackList = ['www.zhihu.com', 'zhihu.com'];
+  // const blackList = ['www.zhihu.com', 'zhihu.com']
+  const blackList = [] as string[];
   if (blackList.includes(hostname)) {
     return false;
   }

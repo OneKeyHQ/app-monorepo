@@ -1,1 +1,3 @@
-module.exports = ['*://*.zhihu.com/*', '*://zhihu.com/*'];
+module.exports = [
+    // '*://*.zhihu.com/*', '*://zhihu.com/*'
+];
