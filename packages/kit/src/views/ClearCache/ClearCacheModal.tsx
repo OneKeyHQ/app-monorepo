@@ -75,13 +75,8 @@ const ClearCacheModal = () => {
       selected: true,
     },
     {
-      name: 'Token',
-      localeId: 'form__token_data',
-      selected: true,
-    },
-    {
-      name: 'NFT',
-      localeId: 'form__nft_data',
+      name: 'Token_NFT',
+      localeId: 'form__token_n_nft_data',
       selected: true,
     },
     {
@@ -144,9 +139,9 @@ const ClearCacheModal = () => {
             } else if (item.name === 'Swap') {
               simpleDb.swap.clearRawData();
               backgroundApiProxy.serviceSwap.clearTransactions();
-            } else if (item.name === 'Token') {
+            } else if (item.name === 'Token_NFT') {
+              simpleDb.accountPortfolios.clearRawData();
               simpleDb.token.clearRawData();
-            } else if (item.name === 'NFT') {
               simpleDb.nft.clearRawData();
             } else if (item.name === 'Market') {
               backgroundApiProxy.serviceMarket.clearSearchHistory();
