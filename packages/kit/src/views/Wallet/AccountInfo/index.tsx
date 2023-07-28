@@ -123,7 +123,10 @@ const SectionCopyAddress: FC = () => {
           mr={2}
           color="text-subdued"
         >
-          {shortenAddress(account?.displayAddress ?? account?.address ?? '')}
+          {shortenAddress(
+            account?.displayAddress ?? account?.address ?? '',
+            network?.settings.displayChars,
+          )}
         </Text>
         <Icon name="Square2StackOutline" color="icon-subdued" size={16} />
       </Pressable>

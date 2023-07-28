@@ -90,6 +90,10 @@ function convertScriptToPushBuffer(key: Buffer): Buffer {
   return scriptChunksToBuffer([templateChunk]);
 }
 
+export function verifyNexaAddressPrefix(address: string) {
+  return address.startsWith('nexa:') || address.startsWith('nexatest:');
+}
+
 export function publickeyToAddress(
   publicKey: Buffer,
   chainId: string,

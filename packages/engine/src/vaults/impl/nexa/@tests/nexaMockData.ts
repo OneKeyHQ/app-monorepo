@@ -124,6 +124,19 @@ const watchingAccount3: IUnitTestMockAccount = {
   password: '',
 };
 
+const watchingAccount4: IUnitTestMockAccount = {
+  account: {
+    address: 'nexa:nqtsq5g50frur0vav60gupjlrr8cta8vyqufu7p98vx97c66',
+    coinType: '29223',
+    id: 'external--29223--03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
+    name: 'Account #1',
+    path: '',
+    pub: '',
+    type: AccountType.SIMPLE,
+  },
+  password: '',
+};
+
 export default {
   network,
   hdAccount1,
@@ -132,4 +145,5 @@ export default {
   watchingAccount1,
   watchingAccount2,
   watchingAccount3,
+  watchingAccount4,
 };
