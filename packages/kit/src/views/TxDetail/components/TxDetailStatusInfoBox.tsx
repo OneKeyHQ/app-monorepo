@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/core';
 import dayjs from 'dayjs';
 import { useIntl } from 'react-intl';
 
-import { Box, Button, HStack, Image, Text } from '@onekeyhq/components';
+import { Box, Button, HStack, Image, Text, ToastManager } from '@onekeyhq/components';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
 import txFailedIcon from '@onekeyhq/kit/assets/transaction/status/tx_failed.png';
@@ -22,6 +22,7 @@ import type { IBaseMenuOptions } from '../../Overlay/BaseMenu';
 import type { ITxActionListViewProps } from '../types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ImageURISource } from 'react-native';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 type Props = ITxActionListViewProps & {
   tokensInTx: Token[];
@@ -51,11 +52,28 @@ function TxDetailStatusInfoBox(props: Props) {
   }, [decodedTx.status]);
 
   const handleToSwapOnPress = useCallback(
-    (token: Token) => {
-      backgroundApiProxy.serviceSwap.sellToken(token);
+    async (token: Token) => {
+      let checkToken = token;
+      if (checkToken) {
+        const supported = await backgroundApiProxy.serviceSwap.tokenIsSupported(
+          checkToken,
+        );
+        if (!supported) {
+          ToastManager.show(
+            {
+              title: intl.formatMessage({ id: 'msg__wrong_network_desc' }),
+            },
+            { type: 'default' },
+          );
+          checkToken = await backgroundApiProxy.engine.getNativeTokenInfo(
+            OnekeyNetwork.eth,
+          );
+        }
+      }
+      backgroundApiProxy.serviceSwap.sellToken(checkToken);
       navigation.navigate(TabRoutes.Swap);
     },
-    [navigation],
+    [intl, navigation],
   );
 
   const swapOptions = useMemo(() => {

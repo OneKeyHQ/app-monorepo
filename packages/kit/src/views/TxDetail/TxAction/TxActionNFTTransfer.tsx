@@ -227,7 +227,7 @@ export function TxActionNFTTransfer(props: ITxActionCardProps) {
             }
           }}
         >
-          <Text numberOfLines={1} typography="DisplayXLarge">
+          <Text flex={1} numberOfLines={1} typography="DisplayXLarge">
             {symbol}
           </Text>
           <Icon name="ChevronRightSolid" size={20} />

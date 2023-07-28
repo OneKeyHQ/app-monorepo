@@ -10,7 +10,6 @@ const settings: IVaultSettings = Object.freeze({
   privateKeyExportEnabled: true,
   tokenEnabled: false,
   txCanBeReplaced: false,
-  publicKeyExportEnabled: true,
 
   isFeeRateMode: true,
   importedAccountEnabled: true,
@@ -18,8 +17,10 @@ const settings: IVaultSettings = Object.freeze({
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
+  displayChars: 8,
+
   minGasLimit: 10,
-  minTransferAmount: '0.00000546',
+  minTransferAmount: '1',
 
   hideInAllNetworksMode: true,
 
