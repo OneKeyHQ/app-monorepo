@@ -97,6 +97,41 @@ export default class ServiceLightningNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  async decodedInvoice({
+    payReq,
+    networkId,
+    accountId,
+  }: {
+    payReq: string;
+    networkId: string;
+    accountId: string;
+  }) {
+    const vault = await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    });
+    return (vault as VaultLightning)._decodedInvoceCache(payReq);
+  }
+
+  @backgroundMethod()
+  async isZeroAmountInvoice({
+    payReq,
+    networkId,
+    accountId,
+  }: {
+    payReq: string;
+    networkId: string;
+    accountId: string;
+  }) {
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    })) as VaultLightning;
+    const invoice = await vault._decodedInvoceCache(payReq);
+    return vault.isZeroAmountInvoice(invoice);
+  }
+
+  @backgroundMethod()
   async checkAuth({
     networkId,
     accountId,
@@ -132,5 +167,23 @@ export default class ServiceLightningNetwork extends ServiceBase {
     const client = await vault.getClient();
     const address = await vault.getCurrentBalanceAddress();
     return client.getConfig(address);
+  }
+
+  @backgroundMethod()
+  async validateZeroInvoiceMaxSendAmount({
+    accountId,
+    networkId,
+    amount,
+  }: {
+    networkId: string;
+    accountId: string;
+    amount: string;
+  }) {
+    const vault = await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    });
+    // @ts-expect-error
+    return vault.validateSendAmount(amount);
   }
 }

@@ -28,6 +28,7 @@ import {
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -249,6 +250,7 @@ function PreSendAmount() {
     return [true, false];
   }, [minAmountBN, amount]);
 
+  const hiddenAmountError = isLightningNetworkByNetworkId(networkId);
   const [invalidAmountError, setInvalidAmountError] = useState<{
     key: MessageDescriptor['id'];
     info: any;
@@ -303,7 +305,7 @@ function PreSendAmount() {
             { 0: minAmountBN.toFixed(), 1: tokenInfo?.symbol },
           )}
         </Typography.Body1Strong>
-      ) : invalidAmountError ? (
+      ) : invalidAmountError && !hiddenAmountError ? (
         <Typography.Body1Strong color="text-critical">
           {intl.formatMessage(
             { id: invalidAmountError.key },
@@ -317,6 +319,7 @@ function PreSendAmount() {
       minAmountNoticeNeeded,
       tokenInfo?.symbol,
       invalidAmountError,
+      hiddenAmountError,
     ],
   );
 
@@ -433,6 +436,7 @@ function PreSendAmount() {
           accountId={accountId}
           networkId={networkId}
           tokenId={tokenInfo?.id ?? ''}
+          amount={amount}
         />
         <Box flexDirection="row" alignItems="baseline">
           <Typography.Body2Strong mr={2} color="text-subdued">
