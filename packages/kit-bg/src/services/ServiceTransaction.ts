@@ -184,7 +184,7 @@ export default class ServiceTransaction extends ServiceBase {
       throw new FailedToEstimatedGasError();
     }
 
-    const total = calculateTotalFeeRange(feeInfoUnit).max;
+    const total = calculateTotalFeeRange(feeInfoUnit, network.feeDecimals).max;
 
     const totalFeeInNative = calculateTotalFeeNative({
       amount: total,

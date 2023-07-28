@@ -279,7 +279,7 @@ export function useBatchSendConfirmFeeInfoPayload({
       }
 
       // in GWEI
-      const total = calculateTotalFeeRange(currentInfoUnit).max;
+      const total = calculateTotalFeeRange(currentInfoUnit, feeDecimals).max;
       const totalNative = calculateTotalFeeNative({
         amount: total,
         info,
@@ -291,7 +291,7 @@ export function useBatchSendConfirmFeeInfoPayload({
       };
 
       if (isUnapprovedBatchTx && minInfoUnit) {
-        const minTotal = calculateTotalFeeRange(minInfoUnit).max;
+        const minTotal = calculateTotalFeeRange(minInfoUnit, feeDecimals).max;
         const minTotalNative = calculateTotalFeeNative({
           amount: minTotal,
           info,
