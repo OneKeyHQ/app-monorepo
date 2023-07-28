@@ -22,6 +22,8 @@ const settings: IVaultSettings = Object.freeze({
   minGasLimit: 10,
   minTransferAmount: '0.00000546',
 
+  hideInAllNetworksMode: true,
+
   isUTXOModel: true,
 
   accountNameInfo: {
