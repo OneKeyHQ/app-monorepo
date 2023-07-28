@@ -241,7 +241,7 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
               alignItems="center"
             >
               <Image w="4" h="4" mr="1" src={fromNetwork?.logoURI} />
-              <Typography.Body2Strong selectable={false}>
+              <Typography.Body2Strong selectable={false} maxW="120">
                 {account?.name}
               </Typography.Body2Strong>
             </Box>
@@ -301,7 +301,7 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
               alignItems="center"
             >
               <Image w="4" h="4" mr="1" src={toNetwork?.logoURI} />
-              <Typography.Body2Strong selectable={false}>
+              <Typography.Body2Strong selectable={false} maxW="120">
                 {receivingAccount?.name ||
                   receivingName ||
                   shortenAddress(tx.receivingAddress || '')}

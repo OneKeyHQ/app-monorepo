@@ -352,6 +352,8 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
                 }
                 isLNExceedTransferLimit={isLNExceedTransferLimit}
                 lightingNetworkTransferConfig={lightingNetworkTransferConfig}
+                prepaidFee={prepaidFee}
+                fee={feeInfoPayload?.current.totalNativeForDisplay ?? ''}
               />
             )}
 
