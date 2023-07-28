@@ -2394,6 +2394,8 @@
   "msg__you_have_selected_another_account_to_receive_tokens": "토큰을 받을 다른 계정을 선택했습니다.",
   "msg__you_need_str_accounts_on_any_network_to_create": "만들려면 모든 네트워크에 {0} 개의 계정이 필요합니다.",
   "msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss": "코인게코의 비율보다 {0}% 낮은 가격으로 토큰을 스왑하게 되어 손실이 발생할 수 있습니다.",
+  "msg__your_str_balance_is_insufficient": "{0} 잔액이 부족합니다.",
+  "msg__your_str_balance_is_insufficient_desc": "{0} 의 가스 수수료를 지불한 후 잔액이 충분하지 않아 트랜잭션을 완료할 수 없습니다.",
   "msg__your_trade_may_be_front_run_due_to_the_larger_slippage": "더 큰 슬리피지로 인해 귀하의 거래가 선행될 수 있습니다.",
   "msg__your_trade_may_fail_due_to_small_slippage": "작은 미끄러짐으로 인해 거래가 실패할 수 있습니다.",
   "msg__your_transaction_may_be_frontrun": "귀하의 거래가 최전선에 있을 수 있습니다",

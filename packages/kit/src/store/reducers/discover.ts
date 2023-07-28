@@ -266,7 +266,7 @@ export const discoverSlice = createSlice({
     ) {
       state.home = action.payload;
     },
-    setUserBrowserHistory(state, action: PayloadAction<UserBrowserHistory>) {
+    addUserBrowserHistory(state, action: PayloadAction<UserBrowserHistory>) {
       if (!state.userBrowserHistories) {
         state.userBrowserHistories = [];
       }
@@ -282,10 +282,7 @@ export const discoverSlice = createSlice({
         state.userBrowserHistories.unshift(data);
       }
     },
-    refreshUserBrowserHistoryTimestamp(
-      state,
-      action: PayloadAction<UserBrowserHistory>,
-    ) {
+    updateUserBrowserHistory(state, action: PayloadAction<UserBrowserHistory>) {
       if (!state.userBrowserHistories) {
         state.userBrowserHistories = [];
       }
@@ -294,7 +291,8 @@ export const discoverSlice = createSlice({
       );
       if (index >= 0) {
         const current = state.userBrowserHistories[index];
-        current.timestamp = Date.now();
+        const data = { ...current, ...action.payload };
+        state.userBrowserHistories[index] = data;
       }
     },
     removeUserBrowserHistory(state, action: PayloadAction<{ url: string }>) {
@@ -341,8 +339,8 @@ export const {
   setShowBookmark,
   cleanOldState,
   setHomeData,
-  setUserBrowserHistory,
-  refreshUserBrowserHistoryTimestamp,
+  addUserBrowserHistory,
+  updateUserBrowserHistory,
   removeUserBrowserHistory,
   addBookmark,
   removeBookmark,

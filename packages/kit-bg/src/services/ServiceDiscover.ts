@@ -7,9 +7,9 @@ import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { webTabsActions } from '@onekeyhq/kit/src/store/observable/webTabs';
 import {
   addBookmark,
+  addUserBrowserHistory,
   cleanOldState,
   clearHistory,
-  refreshUserBrowserHistoryTimestamp,
   removeBookmark,
   removeDappHistory,
   removeUserBrowserHistory,
@@ -18,8 +18,8 @@ import {
   setDappHistory,
   setFavoritesMigrated,
   setHomeData,
-  setUserBrowserHistory,
   updateBookmark,
+  updateUserBrowserHistory,
 } from '@onekeyhq/kit/src/store/reducers/discover';
 import { getWebTabs } from '@onekeyhq/kit/src/views/Discover/Explorer/Controller/useWebTabs';
 import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
@@ -184,7 +184,8 @@ class ServicDiscover extends ServiceBase {
       );
       if (noTimestampHistoryItems.length > 0) {
         const refreshHistoryTimestampActions = noTimestampHistoryItems.map(
-          (item) => refreshUserBrowserHistoryTimestamp({ url: item.url }),
+          (item) =>
+            updateUserBrowserHistory({ url: item.url, timestamp: Date.now() }),
         );
         actions = actions.concat(refreshHistoryTimestampActions);
       }
@@ -243,19 +244,51 @@ class ServicDiscover extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updateUserBrowserHistoryLogo(params: { dappId?: string; url: string }) {
-    const { dispatch } = this.backgroundApi;
+  async fillInUserBrowserHistory(params: { dappId?: string; url: string }) {
+    const { dispatch, appSelector } = this.backgroundApi;
     const { dappId, url } = params;
-    const urlInfo = await this.getUrlInfo(url);
-    if (urlInfo) {
-      dispatch(
-        setUserBrowserHistory({
-          dappId,
-          url,
-          title: urlInfo.title,
-          logoUrl: urlInfo.icon,
-        }),
-      );
+    const userBrowserHistories = appSelector(
+      (s) => s.discover.userBrowserHistories,
+    );
+    if (!userBrowserHistories || userBrowserHistories.length === 0) {
+      return;
+    }
+    const index = userBrowserHistories.findIndex((o) => o.url === url);
+    if (index < 0) {
+      return;
+    }
+    const current = userBrowserHistories[index];
+    if (current.logoUrl && current.title) {
+      return;
+    }
+    let title = '';
+    let logoUrl = '';
+    if (dappId) {
+      const dapps = await this.getDappsByIds([dappId]);
+      if (dapps.length > 0) {
+        const dapp = dapps[0];
+        title = dapp.name;
+        logoUrl = dapp.logoURL;
+      }
+    }
+    if (!title || !logoUrl) {
+      const urlInfo = await this.getUrlInfo(url);
+      if (!title) {
+        title = urlInfo?.title || '';
+      }
+      if (!logoUrl) {
+        logoUrl = urlInfo?.icon || '';
+      }
+    }
+    if (title || logoUrl) {
+      const data = { ...current };
+      if (!data.logoUrl && logoUrl) {
+        data.logoUrl = logoUrl;
+      }
+      if (!data.title && title) {
+        data.title = title;
+      }
+      dispatch(updateUserBrowserHistory(data));
     }
   }
 

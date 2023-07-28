@@ -10,7 +10,9 @@ const settings: IVaultSettings = Object.freeze({
   privateKeyExportEnabled: true,
   tokenEnabled: false,
   txCanBeReplaced: false,
+  publicKeyExportEnabled: true,
 
+  isFeeRateMode: true,
   importedAccountEnabled: true,
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,

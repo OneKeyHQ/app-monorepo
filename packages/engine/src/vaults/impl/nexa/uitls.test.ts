@@ -161,6 +161,97 @@ describe('Nexa Utils Tests', () => {
     );
   });
 
+  it('Nexa Utils signEncodedTx #3: Transfer out all the balances.', async () => {
+    const signedTx = await signEncodedTx(
+      {
+        'inputs': [],
+        'outputs': [],
+        'payload': {},
+        'encodedTx': {
+          'inputs': [
+            {
+              'txId':
+                '1c5ee6d6f6c6dc9cdb07e9142294fd2135c6e445d75050f8277f5d1d21389b7f',
+              'outputIndex': 0,
+              'satoshis': '20000',
+              'address':
+                'nexatest:nqtsq5g5skxwlgtmsl99hj6tt8hmsa52cxft09um2md36p07',
+            },
+            {
+              'txId':
+                '9a97e06716c638b1191a335cbbe7619c47815e4d9dd6825c97d8c9756cd72493',
+              'outputIndex': 0,
+              'satoshis': '20000',
+              'address':
+                'nexatest:nqtsq5g5skxwlgtmsl99hj6tt8hmsa52cxft09um2md36p07',
+            },
+            {
+              'txId':
+                '7ba7d80db1f3e9e94fe654b54bffa5475d90f05ffedb85617c39c9b4ba4de365',
+              'outputIndex': 0,
+              'satoshis': '20000',
+              'address':
+                'nexatest:nqtsq5g5skxwlgtmsl99hj6tt8hmsa52cxft09um2md36p07',
+            },
+            {
+              'txId':
+                '30753a924d9c9ed91411f20ace809b5879c12f06714152176bf55f66ce9c6e1e',
+              'outputIndex': 0,
+              'satoshis': '20000',
+              'address':
+                'nexatest:nqtsq5g5skxwlgtmsl99hj6tt8hmsa52cxft09um2md36p07',
+            },
+            {
+              'txId':
+                '1d3fc867415ac5d3a6de7509f4010b23640e2ce1a27cdfe0eee71ed52764f560',
+              'outputIndex': 0,
+              'satoshis': '10000',
+              'address':
+                'nexatest:nqtsq5g5skxwlgtmsl99hj6tt8hmsa52cxft09um2md36p07',
+            },
+          ],
+          'outputs': [
+            {
+              'address':
+                'nexatest:nqtsq5g50frur0vav60gupjlrr8cta8vyqufu7p9gskt92mz',
+              'satoshis': '90000',
+              'outType': 1,
+            },
+          ],
+          'transferInfo': {
+            'from': 'nexatest:nqtsq5g5skxwlgtmsl99hj6tt8hmsa52cxft09um2md36p07',
+            'to': 'nexatest:nqtsq5g50frur0vav60gupjlrr8cta8vyqufu7p9gskt92mz',
+            'amount': '900',
+          },
+          'gas': '2409',
+        },
+      },
+      {
+        getPrvkey: () =>
+          Promise.resolve(
+            Buffer.from(
+              '3d04eff77414801ce0bc6c73f52af7f198af3e5cba0935c19e9fa25dd383d10e',
+              'hex',
+            ),
+          ),
+        getPubkey: () =>
+          Promise.resolve(
+            Buffer.from(
+              '03710436c0047bfdc6e148f22633527be74b3da6b2e926721f8475b56cfba9ec77',
+              'hex',
+            ),
+          ),
+      } as unknown as Signer,
+      'nexatest:nqtsq5g5skxwlgtmsl99hj6tt8hmsa52cxft09um2md36p07',
+    );
+    expect(signedTx.txid).toBe(
+      '3f0e91feeb682422e4fc1fa1ba69e70abfa344a9b0b2b0d5ca06230340ea18f0',
+    );
+    expect(signedTx.rawTx).toBe(
+      '0005007f9b38211d5d7f27f85050d745e4c63521fd942214e907db9cdcc6f6d6e65e1c64222103710436c0047bfdc6e148f22633527be74b3da6b2e926721f8475b56cfba9ec7740a501f2380cedbac45c09f234659bf3178290cb689fd61473379cd4e96c50b659c86b1e0abea4b18a72b530ffa29f15a0f803c2853858de28e050956fa849888dffffffff204e000000000000009324d76c75c9d8975c82d69d4d5e81479c61e7bb5c331a19b138c61667e0979a64222103710436c0047bfdc6e148f22633527be74b3da6b2e926721f8475b56cfba9ec7740a501f2380cedbac45c09f234659bf3178290cb689fd61473379cd4e96c50b659c86b1e0abea4b18a72b530ffa29f15a0f803c2853858de28e050956fa849888dffffffff204e0000000000000065e34dbab4c9397c6185dbfe5ff0905d47a5ff4bb554e64fe9e9f3b10dd8a77b64222103710436c0047bfdc6e148f22633527be74b3da6b2e926721f8475b56cfba9ec7740a501f2380cedbac45c09f234659bf3178290cb689fd61473379cd4e96c50b659c86b1e0abea4b18a72b530ffa29f15a0f803c2853858de28e050956fa849888dffffffff204e000000000000001e6e9cce665ff56b17524171062fc179589b80ce0af21114d99e9c4d923a753064222103710436c0047bfdc6e148f22633527be74b3da6b2e926721f8475b56cfba9ec7740a501f2380cedbac45c09f234659bf3178290cb689fd61473379cd4e96c50b659c86b1e0abea4b18a72b530ffa29f15a0f803c2853858de28e050956fa849888dffffffff204e0000000000000060f56427d51ee7eee0df7ca2e12c0e64230b01f40975dea6d3c55a4167c83f1d64222103710436c0047bfdc6e148f22633527be74b3da6b2e926721f8475b56cfba9ec7740a501f2380cedbac45c09f234659bf3178290cb689fd61473379cd4e96c50b659c86b1e0abea4b18a72b530ffa29f15a0f803c2853858de28e050956fa849888dffffffff102700000000000001012756010000000000170051147a47c1bd9d669e8e065f18cf85f4ec20389e782500000000',
+    );
+  });
+
   it('Nexa Utils decodeScriptHexToNexaAddress #1', () => {
     const hex =
       '222103560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c3140302394d39bae3e8b1fe05df664113901ec516dc29a30e5eb913219f70a2ed61d8e7ee53cfedbd30953f4919956edce5710dbfaf5f95c9dc3f6322e7bb17057ff';

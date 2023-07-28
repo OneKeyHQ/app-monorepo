@@ -2394,6 +2394,8 @@
   "msg__you_have_selected_another_account_to_receive_tokens": "আপনি টোকেন পেতে অন্য অ্যাকাউন্ট নির্বাচন করেছেন।",
   "msg__you_need_str_accounts_on_any_network_to_create": "যেকোনো নেটওয়ার্কে আপনার {0} অ্যাকাউন্ট তৈরি করতে হবে",
   "msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss": "আপনি coingecko এর হার থেকে {0}% কম টোকেন অদলবদল করবেন, যার ফলে ক্ষতি হতে পারে।",
+  "msg__your_str_balance_is_insufficient": "আপনার {0} ব্যালেন্স অপর্যাপ্ত",
+  "msg__your_str_balance_is_insufficient_desc": "{0} এর গ্যাস ফি পরিশোধ করার পর, আপনার ব্যালেন্স লেনদেন সম্পূর্ণ করার জন্য যথেষ্ট নয়।",
   "msg__your_trade_may_be_front_run_due_to_the_larger_slippage": "বৃহত্তর স্লিপেজের কারণে আপনার বাণিজ্য সামনের দিকে হতে পারে।",
   "msg__your_trade_may_fail_due_to_small_slippage": "ছোট স্লিপেজের কারণে আপনার ট্রেড ব্যর্থ হতে পারে।",
   "msg__your_transaction_may_be_frontrun": "আপনার লেনদেন সামনের দিকে হতে পারে",

@@ -1,4 +1,4 @@
-import { type FC, useCallback, useContext, useMemo } from 'react';
+import { type FC, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,12 +9,10 @@ import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { GasPanelRoutes } from '../../../GasPanel/types';
 import { GasPrice } from '../../components/GasPrice';
 import { DiscoverModalRoutes } from '../../type';
-import { DiscoverContext } from '../context';
 
 import { RecentHistory } from './RecentHistory';
 
 import type { MatchDAppItemType } from '../../Explorer/explorerUtils';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type BrowserHeaderLayoutProps = {
   histories: MatchDAppItemType[];
