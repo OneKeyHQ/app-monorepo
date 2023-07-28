@@ -7,18 +7,21 @@ import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engin
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AddressLabel } from '../../../components/AddressLabel';
-import {
-  useNavigation,
-  useNavigationActions,
-  useNetwork,
-} from '../../../hooks';
+import { useNavigation, useNetwork } from '../../../hooks';
 import { useClipboard } from '../../../hooks/useClipboard';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
-import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
+import {
+  MainRoutes,
+  ModalRoutes,
+  RootRoutes,
+  TabRoutes,
+} from '../../../routes/routesEnum';
+import { setHomeTabName } from '../../../store/reducers/status';
 import { AddressBookRoutes } from '../../AddressBook/routes';
 import { useAddressSecurityInfo } from '../../ManageTokens/hooks';
 import { showAddressPoisoningScamAlert } from '../../Overlay/AddressPoisoningScamAlert';
 import BaseMenu from '../../Overlay/BaseMenu';
+import { WalletHomeTabEnum } from '../../Wallet/type';
 
 import type { Contact } from '../../../store/reducers/contacts';
 import type { IBaseMenuOptions, IMenu } from '../../Overlay/BaseMenu';
@@ -78,7 +81,6 @@ function TxActionElementAddressMoreMenu(props: AddressMoreMenuProps) {
   const { networkId, address, amount, isCopy, isAccount, contact, ...rest } =
     props;
   const { network } = useNetwork({ networkId });
-  const { openRootHome } = useNavigationActions();
   const openBlockBrowser = useOpenBlockBrowser(network);
   const { copyText } = useClipboard();
   const navigation = useNavigation();
@@ -106,8 +108,14 @@ function TxActionElementAddressMoreMenu(props: AddressMoreMenuProps) {
         networkId,
       });
     }
-    openRootHome();
-  }, [openRootHome, networkId, address]);
+    backgroundApiProxy.dispatch(setHomeTabName(WalletHomeTabEnum.Tokens));
+    navigation?.navigate(RootRoutes.Main, {
+      screen: MainRoutes.Tab,
+      params: {
+        screen: TabRoutes.Home,
+      },
+    });
+  }, [networkId, address, navigation]);
 
   const options = useMemo(() => {
     const baseOptions: IBaseMenuOptions = [
