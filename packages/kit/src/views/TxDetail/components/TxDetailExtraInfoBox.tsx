@@ -36,7 +36,7 @@ function getFeeInNativeText(options: {
   if (!feeInfo || !network) {
     return '--';
   }
-  const feeRange = calculateTotalFeeRange(feeInfo);
+  const feeRange = calculateTotalFeeRange(feeInfo, network.feeDecimals);
   const calculatedTotalFeeInNative = calculateTotalFeeNative({
     amount: feeRange.max,
     info: {

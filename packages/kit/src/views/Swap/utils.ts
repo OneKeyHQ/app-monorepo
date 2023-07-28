@@ -374,7 +374,7 @@ export function calculateDecodedTxNetworkFee(
     return totalFeeInNative;
   }
   if (feeInfo) {
-    const feeRange = calculateTotalFeeRange(feeInfo);
+    const feeRange = calculateTotalFeeRange(feeInfo, network.feeDecimals);
     const calculatedTotalFeeInNative = calculateTotalFeeNative({
       amount: feeRange.max,
       info: {
@@ -391,7 +391,7 @@ export function calculateDecodedTxNetworkFee(
 }
 
 export function calculateNetworkFee(feeInfo: IFeeInfoUnit, network: Network) {
-  const feeRange = calculateTotalFeeRange(feeInfo);
+  const feeRange = calculateTotalFeeRange(feeInfo, network.feeDecimals);
   const calculatedTotalFeeInNative = calculateTotalFeeNative({
     amount: feeRange.max,
     info: {
