@@ -210,8 +210,14 @@ export const ButtonsSection: FC = () => {
   );
 
   const onSwap = useCallback(
-    ({ token }: ISingleChainInfo) => {
-      backgroundApiProxy.serviceSwap.buyToken(token);
+    async ({ token, account: a, network: n }: ISingleChainInfo) => {
+      if (!token) {
+        return;
+      }
+      await backgroundApiProxy.serviceSwap.buyToken(token);
+      if (a && n) {
+        backgroundApiProxy.serviceSwap.setRecipientToAccount(a, n);
+      }
       navigation.navigate(RootRoutes.Main, {
         screen: MainRoutes.Tab,
         params: {
@@ -253,7 +259,7 @@ export const ButtonsSection: FC = () => {
   const onSell = useCallback(
     async ({ account, network, token }: ISingleChainInfo) => {
       const signedUrl = await backgroundApiProxy.serviceFiatPay.getFiatPayUrl({
-        type: 'buy',
+        type: 'sell',
         address: account?.address,
         tokenAddress: token?.address,
         networkId: network?.id,
