@@ -10,12 +10,8 @@ import { AddressLabel } from '../../../components/AddressLabel';
 import { useNavigation, useNetwork } from '../../../hooks';
 import { useClipboard } from '../../../hooks/useClipboard';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
-import {
-  MainRoutes,
-  ModalRoutes,
-  RootRoutes,
-  TabRoutes,
-} from '../../../routes/routesEnum';
+import { navigationShortcuts } from '../../../routes/navigationShortcuts';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { setHomeTabName } from '../../../store/reducers/status';
 import { AddressBookRoutes } from '../../AddressBook/routes';
 import { useAddressSecurityInfo } from '../../ManageTokens/hooks';
@@ -109,13 +105,8 @@ function TxActionElementAddressMoreMenu(props: AddressMoreMenuProps) {
       });
     }
     backgroundApiProxy.dispatch(setHomeTabName(WalletHomeTabEnum.Tokens));
-    navigation?.navigate(RootRoutes.Main, {
-      screen: MainRoutes.Tab,
-      params: {
-        screen: TabRoutes.Home,
-      },
-    });
-  }, [networkId, address, navigation]);
+    navigationShortcuts.navigateToHome();
+  }, [networkId, address]);
 
   const options = useMemo(() => {
     const baseOptions: IBaseMenuOptions = [
