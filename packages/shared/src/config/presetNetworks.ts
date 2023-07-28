@@ -3920,7 +3920,7 @@ const serverPresetNetworks = [
   },
   {
     'balance2FeeDecimals': 0,
-    'chainId': 'mainnet',
+    'chainId': '0',
     'code': 'nexa',
     'decimals': 2,
     'id': 'nexa--0',
