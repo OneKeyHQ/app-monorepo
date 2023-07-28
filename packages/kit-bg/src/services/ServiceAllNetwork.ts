@@ -20,7 +20,7 @@ import { AccountType } from '@onekeyhq/engine/src/types/account';
 import {
   clearOverviewPendingTasks,
   removeAllNetworksAccountsMapByAccountId,
-  setAllNetworksAccountsLoading,
+  setAccountIsUpdating,
   setAllNetworksAccountsMap,
   setOverviewPortfolioUpdatedAt,
 } from '@onekeyhq/kit/src/store/reducers/overview';
@@ -217,7 +217,7 @@ export default class ServiceAllNetwork extends ServiceBase {
     );
 
     dispatch(
-      setAllNetworksAccountsLoading({
+      setAccountIsUpdating({
         accountId: activeAccountId,
         data: true,
       }),
@@ -281,11 +281,10 @@ export default class ServiceAllNetwork extends ServiceBase {
 
     dispatch(...actions);
 
-    if (!refreshCurrentAccount) {
-      return networkAccountsMap;
+    if (refreshCurrentAccount) {
+      await serviceOverview.refreshCurrentAccount();
     }
 
-    await serviceOverview.refreshCurrentAccount();
     return networkAccountsMap;
   }
 
