@@ -13,7 +13,6 @@ const settings: IVaultSettings = Object.freeze({
   publicKeyExportEnabled: true,
 
   isFeeRateMode: true,
-  disabledCoinControlAdvancedSetting: true,
   importedAccountEnabled: true,
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
