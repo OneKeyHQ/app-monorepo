@@ -100,6 +100,7 @@ export type IVaultSettings = {
 
   cannotSendToSelf?: boolean;
 
+  displayChars?: number;
   /**
    * Deposit in account.
    * e.g. Polkadot https://wiki.polkadot.network/docs/build-protocol-info#existential-deposit

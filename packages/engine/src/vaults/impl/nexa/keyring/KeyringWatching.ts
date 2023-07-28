@@ -3,7 +3,11 @@ import { COINTYPE_NEXA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineCo
 import { InvalidAddress } from '../../../../errors';
 import { AccountType } from '../../../../types/account';
 import { KeyringWatchingBase } from '../../../keyring/KeyringWatchingBase';
-import { getNexaNetworkInfo, verifyNexaAddress, verifyNexaAddressPrefix } from '../utils';
+import {
+  getNexaNetworkInfo,
+  verifyNexaAddress,
+  verifyNexaAddressPrefix,
+} from '../utils';
 
 import type { DBSimpleAccount } from '../../../../types/account';
 import type { IPrepareWatchingAccountsParams } from '../../../types';
