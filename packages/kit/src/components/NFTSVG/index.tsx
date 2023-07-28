@@ -12,9 +12,7 @@ type Props = {
 const getHTML = (svgContent: string) =>
   `
 <div style="text-align: center; width: 100%;height:100%; display: table;border: clear solid 1px;">
-  <span style="display: table-cell; vertical-align: middle; ">
       <img style="width: 100%;height:100%;" alt="" src=${svgContent} style="display: inline-block;" />
-  </span>
 </div>
 `;
 
