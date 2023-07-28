@@ -279,7 +279,10 @@ function buildSignatures(encodedTx: IEncodedTxNexa, dbAccountAddress: string) {
   const fee = new BN(gas || estimateFee(encodedTx));
   const available = inputAmount.sub(fee);
   if (available.lt(new BN(0))) {
-    throw new Error('available balance is less than 0');
+    console.error(inputAmount.toString(), fee.toString());
+    throw new Error(
+      `available balance is less than 0, inputAmount: ${inputAmount.toString()}, fee: ${fee.toString()}`,
+    );
   }
 
   if (available.gt(outputAmount)) {
