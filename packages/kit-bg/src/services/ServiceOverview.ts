@@ -13,6 +13,7 @@ import type { IOverviewPortfolio } from '@onekeyhq/kit/src/store/reducers/overvi
 import {
   addOverviewPendingTasks,
   removeOverviewPendingTasks,
+  setAccountIsUpdating,
   setOverviewPortfolioUpdatedAt,
 } from '@onekeyhq/kit/src/store/reducers/overview';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
@@ -397,8 +398,7 @@ class ServiceOverview extends ServiceBase {
 
   refreshCurrentAccountWithDebounce = debounce(
     async () => {
-      const { appSelector } = this.backgroundApi;
-
+      const { appSelector, dispatch } = this.backgroundApi;
       const {
         activeAccountId: accountId,
         activeNetworkId: networkId,
@@ -409,7 +409,26 @@ class ServiceOverview extends ServiceBase {
         return;
       }
 
-      return this.refreshAccountAssets({ networkId, accountId, walletId });
+      dispatch(
+        setAccountIsUpdating({
+          accountId,
+          data: true,
+        }),
+      );
+      try {
+        await this.refreshAccountAssets({
+          networkId,
+          accountId,
+          walletId,
+        });
+      } finally {
+        dispatch(
+          setAccountIsUpdating({
+            accountId,
+            data: false,
+          }),
+        );
+      }
     },
     getTimeDurationMs({ seconds: 5 }),
     {
