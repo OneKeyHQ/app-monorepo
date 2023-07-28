@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { createSelector } from '@reduxjs/toolkit';
 
@@ -7,11 +7,14 @@ import {
   generateFakeAllnetworksAccount,
 } from '@onekeyhq/engine/src/managers/account';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
-import { networkIsPreset } from '@onekeyhq/engine/src/presets';
 import type { Account } from '@onekeyhq/engine/src/types/account';
-import type { Network } from '@onekeyhq/engine/src/types/network';
+import type {
+  Network,
+  PresetNetwork,
+} from '@onekeyhq/engine/src/types/network';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import {
   ManageNetworkModalRoutes,
   ModalRoutes,
@@ -28,21 +31,33 @@ import type { ManageNetworkRoutesParams } from '../routes';
 import type { IAppState } from '../store';
 
 export const useAllNetworksIncludedNetworks = (enabledOnly = true) => {
+  const [presetNetworks, setPresetNetworks] = useState<
+    Record<string, PresetNetwork>
+  >({});
   const { allNetworks } = useManageNetworks();
 
-  return useMemo(() => {
-    const list = allNetworks;
-    return list.filter((n) =>
-      enabledOnly
-        ? n.enabled
-        : true &&
+  useEffect(() => {
+    backgroundApiProxy.serviceNetwork
+      .getPresetNetworks()
+      .then(setPresetNetworks);
+  }, []);
+
+  return useMemo(
+    () =>
+      allNetworks.filter((n) => {
+        const isMatch =
           !n.isTestnet &&
           !n.settings?.validationRequired &&
           !n.settings.hideInAllNetworksMode &&
-          networkIsPreset(n.id) &&
-          ![OnekeyNetwork.fevm, OnekeyNetwork.cfxespace].includes(n.id),
-    );
-  }, [allNetworks, enabledOnly]);
+          !!presetNetworks?.[n.id] &&
+          ![OnekeyNetwork.fevm, OnekeyNetwork.cfxespace].includes(n.id);
+        if (enabledOnly) {
+          return isMatch && n.enabled;
+        }
+        return isMatch;
+      }),
+    [allNetworks, enabledOnly, presetNetworks],
+  );
 };
 
 export const useAllNetworkAccountInfo = ({
