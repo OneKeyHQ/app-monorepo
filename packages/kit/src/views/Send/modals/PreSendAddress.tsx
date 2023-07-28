@@ -25,10 +25,7 @@ import type {
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
-import {
-  IMPL_LIGHTNING,
-  IMPL_LIGHTNING_TESTNET,
-} from '@onekeyhq/shared/src/engine/engineConsts';
+import { isLightningNetworkByImpl } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import AddressInput from '../../../components/AddressInput';
@@ -76,7 +73,8 @@ function PreSendAddress() {
   const [isValidAddress, setIsValidAddress] = useState(false);
   const [validAddressMessage, setValidAddressMessage] =
     useState<MessageDescriptor['id']>();
-  const { serviceNFT, serviceBatchTransfer, engine } = backgroundApiProxy;
+  const { serviceNFT, serviceBatchTransfer, serviceLightningNetwork, engine } =
+    backgroundApiProxy;
   const routeParams = useMemo(() => ({ ...route.params }), [route.params]);
   const {
     validateAddress,
@@ -92,9 +90,7 @@ function PreSendAddress() {
       : (reset as ITransferInfo);
   const { isNFT } = transferInfo;
   const { account, network } = useActiveSideAccount(routeParams);
-  const isLightningNetwork =
-    network?.impl === IMPL_LIGHTNING ||
-    network?.impl === IMPL_LIGHTNING_TESTNET;
+  const isLightningNetwork = isLightningNetworkByImpl(network?.impl ?? '');
   const useFormReturn = useForm<FormValues>({
     mode: 'onBlur',
     reValidateMode: 'onBlur',
@@ -400,6 +396,26 @@ function PreSendAddress() {
   const lightningNetworkSendConfirm = useCallback(
     async (toVal: string) => {
       try {
+        const isZeroAmount = await serviceLightningNetwork.isZeroAmountInvoice({
+          payReq: toVal,
+          networkId,
+          accountId,
+        });
+        if (isZeroAmount) {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.Send,
+            params: {
+              screen: SendModalRoutes.PreSendAmount,
+              params: {
+                ...transferInfo,
+                networkId,
+                accountId,
+                to: toVal,
+              },
+            },
+          });
+          return;
+        }
         setIsLoadingAssets(true);
         const encodedTx = await engine.buildEncodedTxFromTransfer({
           networkId,
@@ -473,6 +489,7 @@ function PreSendAddress() {
       transferInfo,
       account,
       network,
+      serviceLightningNetwork,
     ],
   );
 
