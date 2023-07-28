@@ -1,6 +1,6 @@
 import type { FC } from 'react';
 
-import { Box, Center, Image, Text, Textarea } from '@onekeyhq/components';
+import { Box, Center, Image, ScrollView, Text } from '@onekeyhq/components';
 
 import type { InscribeFile } from '../Components/InscribeUploader/type';
 
@@ -52,20 +52,18 @@ const CreateOrderFilePreview: FC<{ file?: InscribeFile; text?: string }> = ({
   }
   if (text && text.length > 0) {
     return (
-      <Textarea
-        isDisabled
-        value={text}
-        width="full"
+      <ScrollView
+        backgroundColor="action-secondary-default"
+        contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8 }}
+        borderRadius="12px"
         h="96px"
-        editable={false}
-        _focus={{
-          borderColor: 'border-default',
-          bg: 'action-secondary-default',
-          _hover: {
-            borderColor: 'border-default',
-          },
-        }}
-      />
+        borderColor="border-default"
+        borderWidth={1}
+      >
+        <Text typography="Body2Mono" color="text-subdued">
+          {text}
+        </Text>
+      </ScrollView>
     );
   }
   return null;
