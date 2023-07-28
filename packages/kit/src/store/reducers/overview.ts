@@ -14,17 +14,17 @@ export interface IOverviewPortfolio {
   // allNetworks fake accountId = `${walletId}--${accountIndex}`
   // Recrod<accountId, Record<networkId, accounts>>
   allNetworksAccountsMap?: Record<string, Record<string, Account[]>>;
-  // Recrod<accountId, boolean>
-  allNetworksAccountsLoading: Record<string, boolean>;
   tasks: Record<string, IOverviewQueryTaskItem>;
   updatedTimeMap: Record<string, IPortfolioUpdatedAt>;
+  // Recrod<accountId, boolean>
+  accountIsUpdating?: Record<string, boolean>;
 }
 
 const initialState: IOverviewPortfolio = {
   tasks: {},
   updatedTimeMap: {},
   allNetworksAccountsMap: {},
-  allNetworksAccountsLoading: {},
+  accountIsUpdating: {},
 };
 
 export const overviewSlice = createSlice({
@@ -74,7 +74,7 @@ export const overviewSlice = createSlice({
       }
       state.tasks = omit(state.tasks, ...ids);
     },
-    setAllNetworksAccountsLoading(
+    setAccountIsUpdating(
       state,
       action: PayloadAction<{
         accountId: string;
@@ -82,10 +82,10 @@ export const overviewSlice = createSlice({
       }>,
     ) {
       const { accountId, data } = action.payload;
-      if (!state.allNetworksAccountsLoading) {
-        state.allNetworksAccountsLoading = {};
+      if (!state.accountIsUpdating) {
+        state.accountIsUpdating = {};
       }
-      state.allNetworksAccountsLoading[accountId] = data;
+      state.accountIsUpdating[accountId] = data;
     },
     setAllNetworksAccountsMap(
       state,
@@ -99,7 +99,6 @@ export const overviewSlice = createSlice({
         state.allNetworksAccountsMap = {};
       }
       state.allNetworksAccountsMap[accountId] = data;
-      state.allNetworksAccountsLoading[accountId] = false;
     },
     removeAllNetworksAccountsMapByAccountId(
       state,
@@ -120,7 +119,7 @@ export const {
   addOverviewPendingTasks,
   removeOverviewPendingTasks,
   setOverviewPortfolioUpdatedAt,
-  setAllNetworksAccountsLoading,
+  setAccountIsUpdating,
   setAllNetworksAccountsMap,
   clearOverviewPendingTasks,
   removeAllNetworksAccountsMapByAccountId,

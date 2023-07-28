@@ -92,20 +92,8 @@ export const useAllNetworksWalletAccounts = ({
   );
   const data = useAppSelector(getAllNetworksAccounts);
 
-  const loading = useAppSelector(
-    useMemo(
-      () =>
-        createSelector(
-          (s: IAppState) => s.overview.allNetworksAccountsLoading,
-          (l) => l?.[accountId ?? ''],
-        ),
-      [accountId],
-    ),
-  );
-
   return {
     data,
-    loading,
   };
 };
 

@@ -285,38 +285,55 @@ export const useOverviewPendingTasks = ({
   };
 };
 
+export const useAccountIsUpdating = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) => {
+  const isUpdating = useAppSelector(
+    useMemo(
+      () =>
+        createSelector(
+          (s: IAppState) => s.overview.accountIsUpdating,
+          (map) => map?.[accountId] ?? false,
+        ),
+      [accountId],
+    ),
+  );
+  const { tasks } = useOverviewPendingTasks({ networkId, accountId });
+
+  return useMemo(
+    () => isUpdating || tasks?.length > 0,
+    [isUpdating, tasks?.length],
+  );
+};
+
 export function useAccountTokenLoading(networkId: string, accountId: string) {
-  const pendingTasks = useOverviewPendingTasks({ networkId, accountId });
   const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
 
-  const { data, loading: allNetworksAccountsLoading } =
-    useAllNetworksWalletAccounts({
-      accountId,
-    });
+  const { data } = useAllNetworksWalletAccounts({
+    accountId,
+  });
+
+  const accountIsUpdating = useAccountIsUpdating({
+    networkId,
+    accountId,
+  });
 
   return useMemo(() => {
     if (isAllNetworks(networkId)) {
-      const { tasks, updatedAt } = pendingTasks;
-      if (allNetworksAccountsLoading) {
+      if (accountIsUpdating) {
         return true;
       }
       if (!Object.keys(data).length) {
-        return false;
+        return true;
       }
-      return (
-        tasks?.filter((t) => t.scanType === EOverviewScanTaskType.token)
-          .length > 0 || typeof updatedAt === 'undefined'
-      );
+      return false;
     }
     return typeof accountTokens[networkId]?.[accountId] === 'undefined';
-  }, [
-    networkId,
-    accountId,
-    accountTokens,
-    pendingTasks,
-    data,
-    allNetworksAccountsLoading,
-  ]);
+  }, [networkId, accountId, accountTokens, data, accountIsUpdating]);
 }
 
 export function useNFTIsLoading({

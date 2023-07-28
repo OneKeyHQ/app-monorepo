@@ -1,8 +1,35 @@
+import { useCallback, useMemo } from 'react';
+
+import {
+  CommonActions,
+  DrawerActions,
+  TabActions,
+} from '@react-navigation/native';
+
+import { useIsVerticalLayout } from '@onekeyhq/components';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { useAppSelector, useNavigation } from '../hooks';
 import { getAppNavigation } from '../hooks/useAppNavigation';
+import reducerAccountSelector, {
+  EAccountSelectorMode,
+} from '../store/reducers/reducerAccountSelector';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { HomeRoutes, MainRoutes, RootRoutes, TabRoutes } from './routesEnum';
+import {
+  HomeRoutes,
+  MainRoutes,
+  ManageNetworkModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+  SendModalRoutes,
+  TabRoutes,
+} from './routesEnum';
 import { buildAppRootTabName } from './routesUtils';
+
+const { updateDesktopWalletSelectorVisible, updateAccountSelectorMode } =
+  reducerAccountSelector.actions;
 
 /*
 
@@ -113,6 +140,208 @@ export const navigationShortcuts = {
   navigateToTokenDetail,
   navigateToMarketDetail,
 };
+
+export function useNavigationActions() {
+  const { dispatch } = backgroundApiProxy;
+  const navigation = useNavigation();
+  const isVertical = useIsVerticalLayout();
+  const isDesktopWalletSelectorVisible = useAppSelector(
+    (s) => s.accountSelector.isDesktopWalletSelectorVisible,
+  );
+  const openAccountSelector = useCallback(
+    ({ mode }: { mode?: EAccountSelectorMode }) => {
+      dispatch(updateAccountSelectorMode(mode || EAccountSelectorMode.Wallet));
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.ManageNetwork,
+        params: {
+          screen: ManageNetworkModalRoutes.NetworkAccountSelector,
+        },
+      });
+    },
+    [dispatch, navigation],
+  );
+  const openNetworkSelector = useCallback(
+    ({
+      mode,
+      networkImpl,
+      allowSelectAllNetworks,
+    }: {
+      mode?: EAccountSelectorMode;
+      networkImpl?: string;
+      allowSelectAllNetworks?: boolean;
+    }) => {
+      dispatch(updateAccountSelectorMode(mode || EAccountSelectorMode.Wallet));
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.ManageNetwork,
+        params: {
+          screen: ManageNetworkModalRoutes.NetworkSelector,
+          params: {
+            networkImpl,
+            allowSelectAllNetworks,
+          },
+        },
+      });
+    },
+    [dispatch, navigation],
+  );
+
+  const openDrawer = useCallback(() => {
+    navigation.dispatch(DrawerActions.openDrawer());
+  }, [navigation]);
+
+  const closeDrawer = useCallback(() => {
+    navigation.dispatch(DrawerActions.closeDrawer());
+  }, [navigation]);
+
+  const closeWalletSelector = useCallback(() => {
+    if (isVertical) {
+      closeDrawer();
+    } else {
+      dispatch(updateDesktopWalletSelectorVisible(false));
+    }
+  }, [closeDrawer, dispatch, isVertical]);
+
+  const openWalletSelector = useCallback(() => {
+    if (isVertical) {
+      openDrawer();
+    } else {
+      dispatch(updateDesktopWalletSelectorVisible(true));
+    }
+  }, [dispatch, isVertical, openDrawer]);
+
+  const toggleWalletSelector = useCallback(() => {
+    setTimeout(() => {
+      // TODO move to useNavigationActions
+      if (isVertical) {
+        // @ts-expect-error
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        navigation?.toggleDrawer?.();
+      } else {
+        const nextVisible = !isDesktopWalletSelectorVisible;
+        dispatch(updateDesktopWalletSelectorVisible(nextVisible));
+      }
+    });
+  }, [dispatch, isDesktopWalletSelectorVisible, isVertical, navigation]);
+
+  const resetToRoot = useCallback(() => {
+    /** next frame */
+    setTimeout(() => {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 1,
+          routes: [{ name: RootRoutes.Main }],
+        }),
+      );
+    });
+  }, [navigation]);
+
+  const openRootHome = useCallback(() => {
+    const root = getAppNavigation()
+      .getRootState()
+      .routes.find((route) => route.name === 'root');
+
+    if (root) {
+      // const inst = navigation.getParent() || navigation;
+      // TODO why need goBack here? may recalling some logic when navigation back to previous route.
+      // inst.goBack();
+
+      // replace not working
+      // navigation.dispatch(StackActions.replace(TabRoutes.Home));
+
+      // @ts-expect-error
+      navigation.navigate(TabRoutes.Home);
+      navigation.dispatch(TabActions.jumpTo(TabRoutes.Home, {}));
+      return;
+    }
+
+    resetToRoot();
+  }, [navigation, resetToRoot]);
+
+  const resetToWelcome = useCallback(() => {
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 1,
+        routes: [{ name: RootRoutes.Onboarding }],
+      }),
+    );
+  }, [navigation]);
+
+  const sendToken = useCallback(
+    ({ accountId, networkId }: { accountId: string; networkId: string }) => {
+      const skipSelectTokenNetwork: string[] = [
+        OnekeyNetwork.btc,
+        OnekeyNetwork.doge,
+        OnekeyNetwork.ltc,
+        OnekeyNetwork.bch,
+        OnekeyNetwork.lightning,
+        OnekeyNetwork.tlightning,
+        OnekeyNetwork.tbtc,
+      ];
+      if (skipSelectTokenNetwork.includes(networkId)) {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendModalRoutes.PreSendAddress,
+            params: {
+              accountId,
+              networkId,
+              from: '',
+              to: '',
+              amount: '',
+              token: '',
+            },
+          },
+        });
+      } else {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendModalRoutes.PreSendToken,
+            params: {
+              accountId,
+              networkId,
+              from: '',
+              to: '',
+              amount: '',
+            },
+          },
+        });
+      }
+    },
+    [navigation],
+  );
+
+  return useMemo(
+    () => ({
+      navigationShortcuts,
+      closeWalletSelector,
+      openWalletSelector,
+      toggleWalletSelector,
+      resetToRoot,
+      resetToWelcome,
+      openRootHome,
+      openAccountSelector,
+      openNetworkSelector,
+      sendToken,
+      openDrawer,
+      closeDrawer,
+    }),
+    [
+      openAccountSelector,
+      openNetworkSelector,
+      closeWalletSelector,
+      openWalletSelector,
+      toggleWalletSelector,
+      resetToRoot,
+      resetToWelcome,
+      openRootHome,
+      sendToken,
+      openDrawer,
+      closeDrawer,
+    ],
+  );
+}
+
 if (process.env.NODE_ENV !== 'production') {
   global.$$navigationShortcuts = navigationShortcuts;
 }
