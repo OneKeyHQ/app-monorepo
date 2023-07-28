@@ -1,7 +1,7 @@
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { appSelector } from '../../../../store';
 import { webTabsActions } from '../../../../store/observable/webTabs';
-import { setUserBrowserHistory } from '../../../../store/reducers/discover';
+import { addUserBrowserHistory } from '../../../../store/reducers/discover';
 import { openUrl } from '../../../../utils/openUrl';
 import { crossWebviewLoadUrl, validateUrl, webHandler } from '../explorerUtils';
 
@@ -41,14 +41,14 @@ export const gotoSite = ({
 
     if (userTriggered) {
       dispatch(
-        setUserBrowserHistory({
+        addUserBrowserHistory({
           url: validatedUrl,
           dappId: dAppId,
           title,
           timestamp: Date.now(),
         }),
       );
-      backgroundApiProxy.serviceDiscover.updateUserBrowserHistoryLogo({
+      backgroundApiProxy.serviceDiscover.fillInUserBrowserHistory({
         dappId: dAppId,
         url: validatedUrl,
       });

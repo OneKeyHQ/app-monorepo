@@ -2394,6 +2394,8 @@
   "msg__you_have_selected_another_account_to_receive_tokens": "Vous avez sélectionné un autre compte pour recevoir des jetons.",
   "msg__you_need_str_accounts_on_any_network_to_create": "Vous avez besoin de {0} comptes sur n'importe quel réseau pour créer",
   "msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss": "Vous échangerez des jetons contre {0}% de moins que le taux de coingecko, ce qui peut entraîner une perte.",
+  "msg__your_str_balance_is_insufficient": "Votre solde {0} est insuffisant",
+  "msg__your_str_balance_is_insufficient_desc": "Après avoir payé les frais d'essence de {0} , votre solde n'est pas suffisant pour finaliser la transaction.",
   "msg__your_trade_may_be_front_run_due_to_the_larger_slippage": "Votre commerce peut être prioritaire en raison du glissement plus important.",
   "msg__your_trade_may_fail_due_to_small_slippage": "Votre transaction peut échouer en raison d'un petit glissement.",
   "msg__your_transaction_may_be_frontrun": "Votre transaction peut être anticipée",

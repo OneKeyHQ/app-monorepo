@@ -2394,6 +2394,8 @@
   "msg__you_have_selected_another_account_to_receive_tokens": "Hai selezionato un altro account per ricevere i token.",
   "msg__you_need_str_accounts_on_any_network_to_create": "Hai bisogno {0} account su qualsiasi rete da creare",
   "msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss": "Scambierai i token con il {0}% in meno rispetto al tasso di coinecko, il che potrebbe comportare una perdita.",
+  "msg__your_str_balance_is_insufficient": "Il tuo saldo {0} è insufficiente",
+  "msg__your_str_balance_is_insufficient_desc": "Dopo aver pagato la tassa sul gas di {0} , il tuo saldo non è sufficiente per completare la transazione.",
   "msg__your_trade_may_be_front_run_due_to_the_larger_slippage": "Il tuo trade potrebbe essere di prima esecuzione a causa dello slippage maggiore.",
   "msg__your_trade_may_fail_due_to_small_slippage": "Il tuo commercio potrebbe fallire a causa di un piccolo slittamento.",
   "msg__your_transaction_may_be_frontrun": "La tua transazione potrebbe essere anticipata",

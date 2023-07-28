@@ -2394,6 +2394,8 @@
   "msg__you_have_selected_another_account_to_receive_tokens": "Ви вибрали інший обліковий запис для отримання токенів.",
   "msg__you_need_str_accounts_on_any_network_to_create": "Для створення потрібно {0} облікових записів у будь-якій мережі",
   "msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss": "Ви обміняєте токени на {0}% менше, ніж курс Coingecko, що може призвести до збитків.",
+  "msg__your_str_balance_is_insufficient": "Ваш баланс {0} недостатній",
+  "msg__your_str_balance_is_insufficient_desc": "Після сплати комісії за газ у розмірі {0} вашого балансу недостатньо для завершення транзакції.",
   "msg__your_trade_may_be_front_run_due_to_the_larger_slippage": "Ваша угода може бути першою через більший вислизання.",
   "msg__your_trade_may_fail_due_to_small_slippage": "Ваша торгівля може зазнати невдачі через невелике прослизання.",
   "msg__your_transaction_may_be_frontrun": "Ваша транзакція може бути передовою",
