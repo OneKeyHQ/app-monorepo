@@ -115,7 +115,11 @@ function AccountItemSelectDropdown({
       const networkSettings = networks.find(
         (i) => i.id === network.id,
       )?.settings;
-      setShowAllUsedAddressOption(networkSettings?.isBtcForkChain ?? false);
+      setShowAllUsedAddressOption(
+        networkSettings?.isBtcForkChain ||
+          networkSettings?.isFeeRateMode ||
+          false,
+      );
       setShowCopyAddressOption(network.impl !== IMPL_LIGHTNING);
     }
   }, [network, networks]);

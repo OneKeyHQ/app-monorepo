@@ -90,6 +90,8 @@ export type IVaultSettings = {
   dust?: string;
 
   isUTXOModel: boolean;
+  isFeeRateMode?: boolean;
+
   activateAccountRequired?: boolean;
   activateTokenRequired?: boolean;
 
