@@ -43,6 +43,7 @@ import {
   getNexaNetworkInfo,
   publickeyToAddress,
   verifyNexaAddress,
+  verifyNexaAddressPrefix,
 } from './utils';
 
 import type { BaseClient } from '../../../client/BaseClient';
@@ -102,6 +103,9 @@ export default class Vault extends VaultBase {
 
   override async getDisplayAddress(address: string): Promise<string> {
     try {
+      if (verifyNexaAddressPrefix(address)) {
+        return address;
+      }
       const chainId = await this.getNetworkChainId();
       return publickeyToAddress(Buffer.from(address, 'hex'), chainId);
     } catch (error) {

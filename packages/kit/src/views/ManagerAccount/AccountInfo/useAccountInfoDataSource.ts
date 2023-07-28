@@ -45,11 +45,7 @@ export function useAccountInfoDataSource({
         privateKeyExportEnabled,
         publicKeyExportEnabled,
       } = network.settings;
-      if (
-        publicKeyExportEnabled && network.settings.isBtcForkChain
-          ? account?.xpub
-          : true
-      ) {
+      if (publicKeyExportEnabled && account?.xpub) {
         keys.push(ManageAccountKeys.ExportPublicKey);
       }
       if (
