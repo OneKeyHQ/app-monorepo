@@ -176,17 +176,15 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     if (response.success) {
       const nexaSignatures = response.payload;
-      const publicKey = Buffer.from(dbAccount.address, 'hex');
+      const publicKey = Buffer.from(dbAccount.pub, 'hex');
+      const defaultSignature = Buffer.from(nexaSignatures[0].signature, 'hex');
       const inputSigs: INexaInputSignature[] = inputSignatures.map(
-        (inputSig, index) => {
-          const signature = Buffer.from(nexaSignatures[index].signature, 'hex');
-          return {
-            ...inputSig,
-            publicKey,
-            signature,
-            scriptBuffer: buildInputScriptBuffer(publicKey, signature),
-          };
-        },
+        (inputSig) => ({
+          ...inputSig,
+          publicKey,
+          signature: defaultSignature,
+          scriptBuffer: buildInputScriptBuffer(publicKey, defaultSignature),
+        }),
       );
 
       const txid = buildTxid(inputSigs, outputSignatures);
