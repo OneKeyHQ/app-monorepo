@@ -25,7 +25,7 @@ function normalizePayload(
 const socketsMap = new Map<string, WebSocket>();
 const callbackMap = new Map<
   string,
-  [(value: any) => void, (reason?: any) => void]
+  [(value: any) => void, (reason?: any) => void, ReturnType<typeof setTimeout>]
 >();
 
 interface IJsonRpcResponse {
@@ -46,7 +46,7 @@ export class WebSocketRequest {
 
   private expiredTimerId!: NodeJS.Timeout;
 
-  constructor(url: string, timeout = 30000, expiredTimeout = 60 * 1000) {
+  constructor(url: string, timeout = 20 * 1000, expiredTimeout = 60 * 1000) {
     this.url = url;
     this.timeout = timeout;
     this.expiredTimeout = expiredTimeout;
@@ -109,7 +109,8 @@ export class WebSocketRequest {
         const { id, result, error } = this.parseRPCResponse(message.data);
         const callback = callbackMap.get(id);
         if (callback) {
-          const [callbackResolve, callbackReject] = callback;
+          const [callbackResolve, callbackReject, timerId] = callback;
+          clearTimeout(timerId);
           if (error) {
             callbackReject(
               new JsonPRCResponseError(
@@ -165,7 +166,11 @@ export class WebSocketRequest {
     const socket = await this.refreshConnectionStatus();
     return new Promise((resolve, reject) => {
       const id = generateUUID();
-      callbackMap.set(id, [resolve, reject]);
+      const timerId = setTimeout(() => {
+        reject(new Error('Timeout Error'));
+        callbackMap.delete(id);
+      }, timeout || this.timeout);
+      callbackMap.set(id, [resolve, reject, timerId]);
       const requestParams = normalizePayload(method, params, id);
       if (socket) {
         socket.send(`${JSON.stringify(requestParams)}\n`);
