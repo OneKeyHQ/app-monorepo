@@ -169,14 +169,17 @@ export const getLogZipPath = async (fileName: string) => {
   }
 };
 
-FileLogger.configure({
-  captureConsole: false,
-  dailyRolling: true,
-  maximumFileSize: 1024 * 1024 * 4,
-  maximumNumberOfFiles: 7,
-  logsDirectory: NATIVE_LOG_DIR_PATH,
-  logLevel: LogLevel.Info,
-});
+if (platformEnv.isNative) {
+  FileLogger.configure({
+    captureConsole: false,
+    dailyRolling: true,
+    maximumFileSize: 1024 * 1024 * 4,
+    maximumNumberOfFiles: 7,
+    logsDirectory: NATIVE_LOG_DIR_PATH,
+    logLevel: LogLevel.Info,
+  });
+}
+
 const fileAsyncTransport: transportFunctionType = (props) => {
   const { level, rawMsg, extension } = props;
   FileLogger.write(
