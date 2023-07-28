@@ -2394,6 +2394,8 @@
   "msg__you_have_selected_another_account_to_receive_tokens": "आपने टोकन प्राप्त करने के लिए अन्य खाते का चयन किया है।",
   "msg__you_need_str_accounts_on_any_network_to_create": "बनाने के लिए आपको किसी भी नेटवर्क पर {0} खाते की आवश्यकता है",
   "msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss": "आप कोइंगेको की दर से {0}% कम पर टोकन स्वैप करेंगे, जिसके परिणामस्वरूप नुकसान हो सकता है।",
+  "msg__your_str_balance_is_insufficient": "आपका {0} शेष अपर्याप्त है",
+  "msg__your_str_balance_is_insufficient_desc": "{0} के गैस शुल्क का भुगतान करने के बाद, आपकी शेष राशि लेनदेन को पूरा करने के लिए पर्याप्त नहीं है।",
   "msg__your_trade_may_be_front_run_due_to_the_larger_slippage": "बड़े स्लिपेज के कारण आपका ट्रेड फ्रंट-रन हो सकता है।",
   "msg__your_trade_may_fail_due_to_small_slippage": "छोटी सी चूक के कारण आपका व्यापार विफल हो सकता है।",
   "msg__your_transaction_may_be_frontrun": "आपका लेन-देन आगे बढ़ सकता है",

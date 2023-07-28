@@ -2394,6 +2394,8 @@
   "msg__you_have_selected_another_account_to_receive_tokens": "您選擇了另一個賬戶來接收代幣",
   "msg__you_need_str_accounts_on_any_network_to_create": "需要在任意單個網絡下擁有至少 {0} 個賬戶才能創建",
   "msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss": "您將以比coingecko匯率低{0}%的價格兌換代幣，這可能會導致損失。",
+  "msg__your_str_balance_is_insufficient": "您的 {0} 餘額不足",
+  "msg__your_str_balance_is_insufficient_desc": "支付 {0} 的 gas 費後，您的餘額不足以完成此次交易",
   "msg__your_trade_may_be_front_run_due_to_the_larger_slippage": "您的交易可能因爲滑點較大而被提前",
   "msg__your_trade_may_fail_due_to_small_slippage": "您的交易可能因為滑點較小而失敗",
   "msg__your_transaction_may_be_frontrun": "您的交易可能會被提前",

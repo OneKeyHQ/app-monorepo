@@ -2394,6 +2394,8 @@
   "msg__you_have_selected_another_account_to_receive_tokens": "Sie haben ein anderes Konto ausgewählt, um Token zu erhalten.",
   "msg__you_need_str_accounts_on_any_network_to_create": "Zum Erstellen sind {0} Konten in einem beliebigen Netzwerk erforderlich",
   "msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss": "Sie tauschen Token für {0} % weniger als den Kurs von coingecko, was zu einem Verlust führen kann.",
+  "msg__your_str_balance_is_insufficient": "Ihr {0} Guthaben reicht nicht aus",
+  "msg__your_str_balance_is_insufficient_desc": "Nachdem Sie die Benzingebühr von {0} bezahlt haben, reicht Ihr Guthaben nicht aus, um die Transaktion abzuschließen.",
   "msg__your_trade_may_be_front_run_due_to_the_larger_slippage": "Ihr Trade kann aufgrund der größeren Slippage vorne laufen.",
   "msg__your_trade_may_fail_due_to_small_slippage": "Ihr Trade kann aufgrund einer kleinen Abweichung scheitern.",
   "msg__your_transaction_may_be_frontrun": "Ihre Transaktion kann ein Frontrun sein",

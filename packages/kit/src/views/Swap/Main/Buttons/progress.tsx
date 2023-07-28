@@ -1,8 +1,11 @@
-import type { FC } from 'react';
+import { type FC, useContext } from 'react';
 
 import { Box, Center, Spinner, Typography } from '@onekeyhq/components';
 
-import { useAppSelector } from '../../../../hooks';
+import {
+  LimitOrderButtonProgressContext,
+  SwapButtonProgressContext,
+} from '../../context';
 
 import type { ProgressStatus } from '../../typings';
 
@@ -44,11 +47,11 @@ const ProgressStatusButton: FC<{ progressStatus?: ProgressStatus }> = ({
 };
 
 export const SwapProgressButton = () => {
-  const progressStatus = useAppSelector((s) => s.swap.progressStatus);
-  return <ProgressStatusButton progressStatus={progressStatus} />;
+  const btnCtx = useContext(SwapButtonProgressContext);
+  return <ProgressStatusButton progressStatus={btnCtx.progressStatus} />;
 };
 
 export const LimitOrderProgressButton = () => {
-  const progressStatus = useAppSelector((s) => s.limitOrder.progressStatus);
-  return <ProgressStatusButton progressStatus={progressStatus} />;
+  const btnCtx = useContext(LimitOrderButtonProgressContext);
+  return <ProgressStatusButton progressStatus={btnCtx.progressStatus} />;
 };
