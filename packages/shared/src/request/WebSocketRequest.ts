@@ -3,6 +3,7 @@ import {
   JsonPRCResponseError,
   ResponseError,
 } from '@onekeyhq/shared/src/errors/request-errors';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
@@ -112,11 +113,9 @@ export class WebSocketRequest {
           const [callbackResolve, callbackReject, timerId] = callback;
           clearTimeout(timerId);
           if (error) {
-            callbackReject(
-              new JsonPRCResponseError(
-                `Error JSON PRC response ${error.code}: ${error.message}`,
-              ),
-            );
+            const errorMesseage = `Error JSON PRC response ${error.code}: ${error.message}`;
+            debugLogger.websocket.error(errorMesseage);
+            callbackReject(new JsonPRCResponseError(errorMesseage));
           } else {
             callbackResolve(result);
           }
