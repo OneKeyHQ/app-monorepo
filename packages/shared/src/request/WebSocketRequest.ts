@@ -167,8 +167,8 @@ export class WebSocketRequest {
     return new Promise((resolve, reject) => {
       const id = generateUUID();
       const timerId = setTimeout(() => {
-        reject(new Error('Timeout Error'));
         callbackMap.delete(id);
+        reject(new Error('Timeout Error'));
       }, timeout || this.timeout);
       callbackMap.set(id, [resolve, reject, timerId]);
       const requestParams = normalizePayload(method, params, id);
