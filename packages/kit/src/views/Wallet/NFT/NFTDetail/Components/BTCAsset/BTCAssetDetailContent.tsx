@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -17,13 +17,13 @@ import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClos
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { TaprootAddressError } from '@onekeyhq/engine/src/errors';
+import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
-import { useActiveSideAccount, useNetwork } from '../../../../../../hooks';
-import { useActiveWalletAccount } from '../../../../../../hooks/redux';
+import { useNetwork, useWallet } from '../../../../../../hooks';
 import useFormatDate from '../../../../../../hooks/useFormatDate';
 import {
   ModalRoutes,
@@ -57,10 +57,15 @@ function BTCAssetDetailContent({
     networkId: outerAsset?.networkId ?? '',
   });
 
-  const { wallet } = useActiveSideAccount({
-    networkId,
-    accountId: accountId ?? '',
-  });
+  const walletId = useMemo(() => {
+    if (accountId) {
+      return getWalletIdFromAccountId(accountId);
+    }
+    return null;
+  }, [accountId]);
+
+  const { wallet } = useWallet({ walletId });
+
   const navigation = useNavigation<NavigationProps['navigation']>();
   const modalClose = useModalClose();
 
