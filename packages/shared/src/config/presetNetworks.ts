@@ -3941,7 +3941,7 @@ const serverPresetNetworks = [
       'decimals': 2,
       'symbol': 'nexa',
     },
-    'defaultEnabled': false,
+    'defaultEnabled': true,
     'priceConfigs': [],
     'explorers': [
       {
