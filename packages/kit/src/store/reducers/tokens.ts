@@ -1,4 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
+import stringify from 'fast-json-stable-stringify';
 import { uniqBy } from 'lodash';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
@@ -73,11 +74,18 @@ export const tokensSlice = createSlice({
       if (!state.tokenPriceMap) state.tokenPriceMap = {};
       Object.keys(prices).forEach((key) => {
         const cachePrice = state.tokenPriceMap[key] || {};
-        state.tokenPriceMap[key] = {
-          ...cachePrice,
-          ...prices[key],
-          [`updatedAt--${vsCurrency}`]: Date.now(),
-        };
+
+        // The content is not updated at any time if it has not changed
+        if (
+          stringify(cachePrice[vsCurrency]) !==
+          stringify(prices[key][vsCurrency])
+        ) {
+          state.tokenPriceMap[key] = {
+            ...cachePrice,
+            ...prices[key],
+            [`updatedAt--${vsCurrency}`]: Date.now(),
+          };
+        }
       });
     },
     setAccountTokens(state, action: PayloadAction<TokenPayloadAction>) {

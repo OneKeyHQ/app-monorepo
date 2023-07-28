@@ -16,6 +16,7 @@ import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { ModalRoutes, RootRoutes } from '../routes/routesEnum';
 import { getPreBaseValue } from '../utils/priceUtils';
+import { createDeepEqualSelector } from '../utils/reselectUtils';
 import {
   EOverviewScanTaskType,
   OverviewModalRoutes,
@@ -206,20 +207,64 @@ export const useAccountPortfolios = <
   return state;
 };
 
+const balancesSelector = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) =>
+  createDeepEqualSelector(
+    (s: IAppState) => {
+      const { accountTokensBalance } = s.tokens;
+      const accountBalance = accountTokensBalance?.[networkId]?.[accountId];
+      if (accountBalance) {
+        return Object.fromEntries(
+          Object.entries(accountBalance).map(([tokenId, data]) => [
+            tokenId,
+            { balance: data?.balance ?? '0' },
+          ]),
+        );
+      }
+      return {};
+    },
+    (tokenBalances) => tokenBalances,
+  );
+
+const tokensSelector = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) =>
+  createSelector(
+    (s: IAppState) => s.tokens.accountTokens?.[networkId]?.[accountId] ?? [],
+    (accountTokens) => accountTokens,
+  );
+
 export function useAccountTokensOnChain(
   networkId = '',
   accountId = '',
   useFilter = false,
 ) {
-  const { hideRiskTokens, hideSmallBalance, putMainTokenOnTop } =
-    useAppSelector((s) => s.settings);
-  const tokens =
-    useAppSelector((s) => s.tokens.accountTokens?.[networkId]?.[accountId]) ??
-    [];
+  const hideRiskTokens = useAppSelector((s) => s.settings.hideRiskTokens);
+  const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
+  const putMainTokenOnTop = useAppSelector((s) => s.settings.putMainTokenOnTop);
+  const tokens = useAppSelector(
+    useMemo(
+      () => tokensSelector({ networkId, accountId }),
+      [accountId, networkId],
+    ),
+  );
   const balances =
     useAppSelector(
-      (s) => s.tokens.accountTokensBalance?.[networkId]?.[accountId],
+      useMemo(
+        () => balancesSelector({ networkId, accountId }),
+        [accountId, networkId],
+      ),
     ) ?? [];
+
   const prices = useAppSelector((s) => s.tokens.tokenPriceMap) ?? {};
 
   const valueTokens = tokens.map((t) => {
@@ -236,7 +281,7 @@ export function useAccountTokensOnChain(
         vsCurrency: 'usd',
       }).usd ?? 0,
     );
-    const info = {
+    return {
       ...t,
       price,
       price24h,
@@ -245,7 +290,6 @@ export function useAccountTokensOnChain(
       usdValue: usdValue.toString(),
       value24h: value24h.toString(),
     };
-    return info;
   });
 
   return filterAccountTokens<IAccountTokenOnChain[]>({
@@ -367,8 +411,9 @@ export function useAccountTokens({
   useFilter?: boolean;
   limitSize?: number;
 }) {
-  const { hideRiskTokens, hideSmallBalance, putMainTokenOnTop } =
-    useAppSelector((s) => s.settings);
+  const hideRiskTokens = useAppSelector((s) => s.settings.hideRiskTokens);
+  const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
+  const putMainTokenOnTop = useAppSelector((s) => s.settings.putMainTokenOnTop);
 
   const { data: allNetworksTokens = [], loading: allNetworksTokensLoading } =
     useAccountPortfolios({

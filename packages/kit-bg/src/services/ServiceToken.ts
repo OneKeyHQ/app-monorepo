@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
-import { debounce, isEmpty, uniq, xor } from 'lodash';
+import stringify from 'fast-json-stable-stringify';
+import { debounce, isEmpty, uniq, uniqBy, xor } from 'lodash';
 
 import { getBalancesFromApi } from '@onekeyhq/engine/src/apiProxyUtils';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
@@ -20,6 +21,7 @@ import {
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks';
 import {
   setIsPasswordLoadedInVault,
   setTools,
@@ -211,28 +213,47 @@ export default class ServiceToken extends ServiceBase {
         networkId,
       );
 
-      accountTokens = accountTokens.filter(
-        (t) => !removedTokens.includes(t.address ?? ''),
+      const tokens = uniqBy(
+        accountTokens
+          .filter((t) => !removedTokens.includes(t.address ?? ''))
+          .filter((t, _i, arr) => {
+            if (
+              !t.sendAddress &&
+              arr.some(
+                (token) => token.sendAddress && token.address === t.address,
+              )
+            ) {
+              return false;
+            }
+            if (
+              t.autoDetected &&
+              arr.some(
+                (token) => !token.autoDetected && token.address === t.address,
+              )
+            ) {
+              return false;
+            }
+            return true;
+          }),
+        (t) => `${t.tokenIdOnNetwork}-${t.sendAddress ?? ''}`,
       );
 
-      dispatch(
-        setAccountTokens({
-          accountId,
-          networkId,
-          tokens: [
-            ...(accountTokensInRedux?.filter((t) =>
-              accountTokens.find((token) => token.address !== t.address),
-            ) ?? []),
-            ...accountTokens,
-          ],
-        }),
-        setOverviewPortfolioUpdatedAt({
-          key: `${networkId}___${accountId}`,
-          data: {
-            updatedAt: Date.now(),
-          },
-        }),
-      );
+      // diff tokens to update redux
+      if (stringify(accountTokensInRedux) !== stringify(tokens)) {
+        dispatch(
+          setAccountTokens({
+            accountId,
+            networkId,
+            tokens,
+          }),
+          setOverviewPortfolioUpdatedAt({
+            key: `${networkId}___${accountId}`,
+            data: {
+              updatedAt: Date.now(),
+            },
+          }),
+        );
+      }
       return accountTokens;
     },
     {

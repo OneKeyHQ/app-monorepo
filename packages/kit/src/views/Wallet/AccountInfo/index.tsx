@@ -41,7 +41,7 @@ import { getTimeDurationMs } from '../../../utils/helper';
 import { calculateGains } from '../../../utils/priceUtils';
 import { showAccountValueSettings } from '../../Overlay/AccountValueSettings';
 
-import { AccountOption } from './AccountOption';
+import AccountOption from './AccountOption';
 
 import type BigNumber from 'bignumber.js';
 
