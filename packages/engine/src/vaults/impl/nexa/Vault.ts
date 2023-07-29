@@ -96,6 +96,10 @@ export default class Vault extends VaultBase {
     };
   }
 
+  override async getAccountAddress(): Promise<string> {
+    return (await this.getOutputAccount()).address;
+  }
+
   override async getDisplayAddress(address: string): Promise<string> {
     if (verifyNexaAddressPrefix(address)) {
       return address;
@@ -192,8 +196,7 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxNexa,
     payload?: any,
   ): Promise<IDecodedTx> {
-    const address = await this.getAccountAddress();
-    const displayAddress = await this.getDisplayAddress(address);
+    const displayAddress = await this.getAccountAddress();
     const amountValue = encodedTx.outputs.reduce(
       (acc, cur) => acc.plus(new BigNumber(cur.satoshis)),
       new BigNumber(0),
