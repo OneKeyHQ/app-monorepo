@@ -1,8 +1,18 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import BigNumber from 'bignumber.js';
 import BN from 'bn.js';
 
 import { InvalidAddress } from '../../../errors';
 import { hash160, sha256 } from '../../../secret/hash';
+import {
+  type IDecodedTx,
+  type IDecodedTxAction,
+  IDecodedTxActionType,
+  IDecodedTxDirection,
+  IDecodedTxStatus,
+  type ISignedTxPro,
+  type IUnsignedTxPro,
+} from '../../types';
 
 import {
   NexaAddressType,
@@ -27,10 +37,12 @@ import { type IEncodedTxNexa, NexaSignature } from './types';
 
 import type { Signer } from '../../../proxy';
 import type { DBAccount } from '../../../types/account';
-import { IDecodedTxActionType, type IDecodedTx, type IDecodedTxAction, type ISignedTxPro, type IUnsignedTxPro, IDecodedTxDirection, IDecodedTxStatus } from '../../types';
-import type { INexaInputSignature, INexaOutputSignature, INexaTransaction } from './types';
-import { Token } from '../../../types/token';
-import BigNumber from 'bignumber.js';
+import type { Token } from '../../../types/token';
+import type {
+  INexaInputSignature,
+  INexaOutputSignature,
+  INexaTransaction,
+} from './types';
 
 export function verifyNexaAddress(address: string) {
   try {
@@ -485,71 +497,80 @@ export function buildDecodeTxFromTx({
   networkId: string;
   accountId: string;
 }) {
-  let action: IDecodedTxAction = {
+  const action: IDecodedTxAction = {
     type: IDecodedTxActionType.UNKNOWN,
   };
-  const from = decodeScriptBufferToNexaAddress(
-    Buffer.from(tx.vin[0].scriptSig.hex, 'hex'),
-    addressPrefix,
+  const fromAddresses = tx.vin.map((vin) =>
+    decodeScriptBufferToNexaAddress(
+      Buffer.from(vin.scriptSig.hex, 'hex'),
+      addressPrefix,
+    ),
   );
-  const to = decodeScriptBufferToNexaAddress(
-    Buffer.from(tx.vout[0].scriptPubKey.hex, 'hex'),
-    addressPrefix,
+  const toAddresses = tx.vout.map((vout) =>
+    decodeScriptBufferToNexaAddress(
+      Buffer.from(vout.scriptPubKey.hex, 'hex'),
+      addressPrefix,
+    ),
   );
-  const tokenAddress = dbAccountAddress;
-  const amountValue = tx.vout.reduce((acc, cur) => {
-    if (
-      decodeScriptBufferToNexaAddress(
-        Buffer.from(cur.scriptPubKey.hex, 'hex'),
-        addressPrefix,
-      ) !== tokenAddress
-    ) {
-      return acc.plus(new BigNumber(cur.value_satoshi));
-    }
-    return acc;
-  }, new BigNumber(0));
-  if (amountValue && tokenAddress) {
-    let direction = IDecodedTxDirection.IN;
-    if (from === dbAccountAddress) {
-      direction =
-        to === dbAccountAddress
-          ? IDecodedTxDirection.SELF
-          : IDecodedTxDirection.OUT;
-    }
 
-    const actionType = IDecodedTxActionType.TOKEN_TRANSFER;
-    const actionKey = 'tokenTransfer';
-
-    action = {
-      type: actionType,
-      direction,
-      [actionKey]: {
-        tokenInfo: token,
-        from,
-        to,
-        amount: amountValue.shiftedBy(-token.decimals).toFixed(),
-        amountValue: amountValue.toString(),
-        extraInfo: null,
-      },
-    };
+  let direction = IDecodedTxDirection.IN;
+  if (fromAddresses.includes(dbAccountAddress)) {
+    direction = toAddresses.includes(dbAccountAddress)
+      ? IDecodedTxDirection.SELF
+      : IDecodedTxDirection.OUT;
   }
+
+  const fromAddress = !fromAddresses.includes(dbAccountAddress)
+    ? fromAddresses[0]
+    : dbAccountAddress;
+  const toAddress = fromAddresses.includes(dbAccountAddress)
+    ? toAddresses[0]
+    : dbAccountAddress;
+
   const decodedTx: IDecodedTx = {
     txid: tx.txid,
     owner: dbAccountAddress,
     signer: dbAccountAddress,
     nonce: 0,
-    actions: [action],
+    actions: tx.vin.map((vin, index) => {
+      const amount = new BigNumber(vin.value_satoshi).shiftedBy(
+        -token.decimals,
+      );
+      return {
+        type: IDecodedTxActionType.TOKEN_TRANSFER,
+        direction,
+        tokenTransfer: {
+          tokenInfo: token,
+          from: fromAddresses[index],
+          to: toAddress,
+          amount: amount.toFixed(),
+          amountValue: amount.toFixed(),
+          extraInfo: null,
+        },
+      };
+    }),
+    outputActions: tx.vout.map((vout, index) => {
+      const amount = new BigNumber(vout.value_satoshi).shiftedBy(
+        -token.decimals,
+      );
+      return {
+        type: IDecodedTxActionType.TOKEN_TRANSFER,
+        direction,
+        tokenTransfer: {
+          tokenInfo: token,
+          from: fromAddress,
+          to: toAddresses[index],
+          amount: amount.toFixed(),
+          amountValue: amount.toFixed(),
+          extraInfo: null,
+        },
+      };
+    }),
     status: tx.confirmations
       ? IDecodedTxStatus.Confirmed
       : IDecodedTxStatus.Pending,
     networkId,
     accountId,
-    encodedTx: {
-      from: dbAccountAddress,
-      to: '',
-      value: '',
-      data: tx.hex,
-    },
     extraInfo: null,
     totalFeeInNative: new BigNumber(tx.fee_satoshi)
       .shiftedBy(-decimals)
