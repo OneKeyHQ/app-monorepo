@@ -480,6 +480,26 @@ export function decodeScriptBufferToNexaAddress(
   return '';
 }
 
+const calDirection = (
+  account: string,
+  isFromSelf: boolean,
+  isToSelf: boolean,
+) => {
+  if (isFromSelf && isToSelf) {
+    return IDecodedTxDirection.SELF;
+  }
+
+  if (isFromSelf) {
+    return IDecodedTxDirection.OUT;
+  }
+
+  if (isToSelf) {
+    return IDecodedTxDirection.IN;
+  }
+
+  return IDecodedTxDirection.OTHER;
+};
+
 export function buildDecodeTxFromTx({
   tx,
   dbAccountAddress,
@@ -497,9 +517,6 @@ export function buildDecodeTxFromTx({
   networkId: string;
   accountId: string;
 }) {
-  const action: IDecodedTxAction = {
-    type: IDecodedTxActionType.UNKNOWN,
-  };
   const fromAddresses = tx.vin.map((vin) =>
     decodeScriptBufferToNexaAddress(
       Buffer.from(vin.scriptSig.hex, 'hex'),
@@ -512,13 +529,6 @@ export function buildDecodeTxFromTx({
       addressPrefix,
     ),
   );
-
-  let direction = IDecodedTxDirection.IN;
-  if (fromAddresses.includes(dbAccountAddress)) {
-    direction = toAddresses.includes(dbAccountAddress)
-      ? IDecodedTxDirection.SELF
-      : IDecodedTxDirection.OUT;
-  }
 
   const fromAddress = !fromAddresses.includes(dbAccountAddress)
     ? fromAddresses[0]
@@ -536,12 +546,17 @@ export function buildDecodeTxFromTx({
       const amount = new BigNumber(vin.value_satoshi).shiftedBy(
         -token.decimals,
       );
+      const from = fromAddresses[index];
       return {
         type: IDecodedTxActionType.TOKEN_TRANSFER,
-        direction,
+        direction: calDirection(
+          from,
+          from === dbAccountAddress,
+          toAddress === dbAccountAddress,
+        ),
         tokenTransfer: {
           tokenInfo: token,
-          from: fromAddresses[index],
+          from,
           to: toAddress,
           amount: amount.toFixed(),
           amountValue: amount.toFixed(),
@@ -553,13 +568,18 @@ export function buildDecodeTxFromTx({
       const amount = new BigNumber(vout.value_satoshi).shiftedBy(
         -token.decimals,
       );
+      const to = toAddresses[index];
       return {
         type: IDecodedTxActionType.TOKEN_TRANSFER,
-        direction,
+        direction: calDirection(
+          to,
+          fromAddress === dbAccountAddress,
+          to === dbAccountAddress,
+        ),
         tokenTransfer: {
           tokenInfo: token,
           from: fromAddress,
-          to: toAddresses[index],
+          to,
           amount: amount.toFixed(),
           amountValue: amount.toFixed(),
           extraInfo: null,
