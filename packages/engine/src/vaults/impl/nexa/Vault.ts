@@ -36,6 +36,7 @@ import {
 import { Nexa } from './sdk';
 import settings from './settings';
 import {
+  buildDecodeTxFromTx,
   decodeScriptBufferToNexaAddress,
   estimateFee,
   estimateSize,
@@ -377,9 +378,6 @@ export default class Vault extends VaultBase {
 
   async buildDecodeTx(txHash: string): Promise<IDecodedTx | false> {
     const client = await this.getSDKClient();
-    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-    const displayAddress = await this.getDisplayAddress(dbAccount.address);
-    const { decimals } = await this.engine.getNetwork(this.networkId);
     let tx: INexaTransaction;
     try {
       tx = await client.getTransaction(txHash);
@@ -388,84 +386,21 @@ export default class Vault extends VaultBase {
       debugLogger.common.error(`Failed to fetch Nexa transaction. `, txHash);
       return false;
     }
-    let action: IDecodedTxAction = {
-      type: IDecodedTxActionType.UNKNOWN,
-    };
-
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const displayAddress = await this.getDisplayAddress(dbAccount.address);
+    const { decimals } = await this.engine.getNetwork(this.networkId);
     const chainId = await this.getNetworkChainId();
     const network = getNexaNetworkInfo(chainId);
-    const from = decodeScriptBufferToNexaAddress(
-      Buffer.from(tx.vin[0].scriptSig.hex, 'hex'),
-      network.prefix,
-    );
-    const to = decodeScriptBufferToNexaAddress(
-      Buffer.from(tx.vout[0].scriptPubKey.hex, 'hex'),
-      network.prefix,
-    );
-    const tokenAddress = displayAddress;
-    const amountValue = tx.vout.reduce((acc, cur) => {
-      if (
-        decodeScriptBufferToNexaAddress(
-          Buffer.from(cur.scriptPubKey.hex, 'hex'),
-          network.prefix,
-        ) !== tokenAddress
-      ) {
-        return acc.plus(new BigNumber(cur.value_satoshi));
-      }
-      return acc;
-    }, new BigNumber(0));
-    if (amountValue && tokenAddress) {
-      let direction = IDecodedTxDirection.IN;
-      if (from === displayAddress) {
-        direction =
-          to === displayAddress
-            ? IDecodedTxDirection.SELF
-            : IDecodedTxDirection.OUT;
-      }
-
-      const actionType = IDecodedTxActionType.TOKEN_TRANSFER;
-      const token: Token = await this.engine.getNativeTokenInfo(this.networkId);
-      const actionKey = 'tokenTransfer';
-
-      action = {
-        type: actionType,
-        direction,
-        [actionKey]: {
-          tokenInfo: token,
-          from,
-          to,
-          amount: amountValue.shiftedBy(-token.decimals).toFixed(),
-          amountValue: amountValue.toString(),
-          extraInfo: null,
-        },
-      };
-    }
-    const decodedTx: IDecodedTx = {
-      txid: txHash,
-      owner: displayAddress,
-      signer: displayAddress,
-      nonce: 0,
-      actions: [action],
-      status: tx.confirmations
-        ? IDecodedTxStatus.Confirmed
-        : IDecodedTxStatus.Pending,
+    const token: Token = await this.engine.getNativeTokenInfo(this.networkId);
+    return buildDecodeTxFromTx({
+      tx,
+      dbAccountAddress: displayAddress,
+      decimals,
+      addressPrefix: network.prefix,
+      token,
       networkId: this.networkId,
       accountId: this.accountId,
-      encodedTx: {
-        from: displayAddress,
-        to: '',
-        value: '',
-        data: tx.hex,
-      },
-      extraInfo: null,
-      totalFeeInNative: new BigNumber(tx.fee_satoshi)
-        .shiftedBy(-decimals)
-        .toFixed(),
-    };
-    decodedTx.updatedAt = tx.time ? tx.time * 1000 : Date.now();
-    decodedTx.createdAt = decodedTx.updatedAt;
-    decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
-    return decodedTx;
+    });
   }
 
   override async fetchOnChainHistory(options: {

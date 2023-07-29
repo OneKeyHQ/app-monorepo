@@ -27,8 +27,10 @@ import { type IEncodedTxNexa, NexaSignature } from './types';
 
 import type { Signer } from '../../../proxy';
 import type { DBAccount } from '../../../types/account';
-import type { ISignedTxPro, IUnsignedTxPro } from '../../types';
-import type { INexaInputSignature, INexaOutputSignature } from './types';
+import { IDecodedTxActionType, type IDecodedTx, type IDecodedTxAction, type ISignedTxPro, type IUnsignedTxPro, IDecodedTxDirection, IDecodedTxStatus } from '../../types';
+import type { INexaInputSignature, INexaOutputSignature, INexaTransaction } from './types';
+import { Token } from '../../../types/token';
+import BigNumber from 'bignumber.js';
 
 export function verifyNexaAddress(address: string) {
   try {
@@ -464,4 +466,97 @@ export function decodeScriptBufferToNexaAddress(
     return encode(prefix, NexaAddressType.PayToScriptTemplate, hashBuffer);
   }
   return '';
+}
+
+export function buildDecodeTxFromTx({
+  tx,
+  dbAccountAddress,
+  addressPrefix,
+  decimals,
+  token,
+  networkId,
+  accountId,
+}: {
+  tx: INexaTransaction;
+  dbAccountAddress: string;
+  addressPrefix: string;
+  decimals: number;
+  token: Token;
+  networkId: string;
+  accountId: string;
+}) {
+  let action: IDecodedTxAction = {
+    type: IDecodedTxActionType.UNKNOWN,
+  };
+  const from = decodeScriptBufferToNexaAddress(
+    Buffer.from(tx.vin[0].scriptSig.hex, 'hex'),
+    addressPrefix,
+  );
+  const to = decodeScriptBufferToNexaAddress(
+    Buffer.from(tx.vout[0].scriptPubKey.hex, 'hex'),
+    addressPrefix,
+  );
+  const tokenAddress = dbAccountAddress;
+  const amountValue = tx.vout.reduce((acc, cur) => {
+    if (
+      decodeScriptBufferToNexaAddress(
+        Buffer.from(cur.scriptPubKey.hex, 'hex'),
+        addressPrefix,
+      ) !== tokenAddress
+    ) {
+      return acc.plus(new BigNumber(cur.value_satoshi));
+    }
+    return acc;
+  }, new BigNumber(0));
+  if (amountValue && tokenAddress) {
+    let direction = IDecodedTxDirection.IN;
+    if (from === dbAccountAddress) {
+      direction =
+        to === dbAccountAddress
+          ? IDecodedTxDirection.SELF
+          : IDecodedTxDirection.OUT;
+    }
+
+    const actionType = IDecodedTxActionType.TOKEN_TRANSFER;
+    const actionKey = 'tokenTransfer';
+
+    action = {
+      type: actionType,
+      direction,
+      [actionKey]: {
+        tokenInfo: token,
+        from,
+        to,
+        amount: amountValue.shiftedBy(-token.decimals).toFixed(),
+        amountValue: amountValue.toString(),
+        extraInfo: null,
+      },
+    };
+  }
+  const decodedTx: IDecodedTx = {
+    txid: tx.txid,
+    owner: dbAccountAddress,
+    signer: dbAccountAddress,
+    nonce: 0,
+    actions: [action],
+    status: tx.confirmations
+      ? IDecodedTxStatus.Confirmed
+      : IDecodedTxStatus.Pending,
+    networkId,
+    accountId,
+    encodedTx: {
+      from: dbAccountAddress,
+      to: '',
+      value: '',
+      data: tx.hex,
+    },
+    extraInfo: null,
+    totalFeeInNative: new BigNumber(tx.fee_satoshi)
+      .shiftedBy(-decimals)
+      .toFixed(),
+  };
+  decodedTx.updatedAt = tx.time ? tx.time * 1000 : Date.now();
+  decodedTx.createdAt = decodedTx.updatedAt;
+  decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
+  return decodedTx;
 }
