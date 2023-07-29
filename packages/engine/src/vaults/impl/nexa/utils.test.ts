@@ -355,7 +355,9 @@ describe('Nexa Utils Tests', () => {
     ).toBeTruthy();
   });
 
-  it('Nexa buildDecodeTxFromTx test', () => {});
+  it('Nexa buildDecodeTxFromTx test', () => {
+    expect(true).toBeFalsy();
+  }); 
 });
 
 export {};
