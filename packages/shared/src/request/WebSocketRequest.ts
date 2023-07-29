@@ -66,8 +66,10 @@ export class WebSocketRequest {
       return;
     }
     setTimeout(() => {
-      if (socket.readyState === 1 && resolveCallback) {
+      if (socket.readyState === 1) {
         resolveCallback();
+      } else if (socket.readyState > 1) {
+        rejectCallback();
       } else {
         this.waitForSocketConnection(
           socket,
@@ -95,7 +97,7 @@ export class WebSocketRequest {
 
   private establishConnection(): Promise<WebSocket> {
     const socket = socketsMap.get(this.url);
-    if (socket) {
+    if (socket && socket.readyState < 2) {
       if (socket.readyState === 1) {
         return Promise.resolve(socket);
       }
