@@ -106,7 +106,8 @@ export class WebSocketRequest {
         });
       };
 
-      newSocket.onmessage = (message) => {
+      newSocket.onmessage = async (message) => {
+        await this.refreshConnectionStatus();
         const { id, result, error } = this.parseRPCResponse(message.data);
         const callback = callbackMap.get(id);
         if (callback) {
