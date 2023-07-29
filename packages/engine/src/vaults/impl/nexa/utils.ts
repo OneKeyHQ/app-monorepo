@@ -539,7 +539,7 @@ export function buildDecodeTxFromTx({
 
   const decodedTx: IDecodedTx = {
     txid: tx.txid,
-    owner: fromAddress,
+    owner: dbAccountAddress,
     signer: fromAddress,
     nonce: 0,
     actions: tx.vin.map((vin, index) => {
@@ -564,28 +564,33 @@ export function buildDecodeTxFromTx({
         },
       };
     }),
-    outputActions: tx.vout.map((vout, index) => {
-      const amount = new BigNumber(vout.value_satoshi).shiftedBy(
-        -token.decimals,
-      );
-      const to = toAddresses[index];
-      return {
-        type: IDecodedTxActionType.TOKEN_TRANSFER,
-        direction: calDirection(
-          to,
-          fromAddress === dbAccountAddress,
-          to === dbAccountAddress,
-        ),
-        tokenTransfer: {
-          tokenInfo: token,
-          from: fromAddress,
-          to,
-          amount: amount.toFixed(),
-          amountValue: amount.toFixed(),
-          extraInfo: null,
-        },
-      };
-    }),
+    outputActions: tx.vout
+      .map((vout, index) => {
+        const amount = new BigNumber(vout.value_satoshi).shiftedBy(
+          -token.decimals,
+        );
+        const to = toAddresses[index];
+        if (fromAddress !== dbAccountAddress && to !== dbAccountAddress) {
+          return false;
+        }
+        return {
+          type: IDecodedTxActionType.TOKEN_TRANSFER,
+          direction: calDirection(
+            to,
+            fromAddress === dbAccountAddress,
+            to === dbAccountAddress,
+          ),
+          tokenTransfer: {
+            tokenInfo: token,
+            from: fromAddress,
+            to,
+            amount: amount.toFixed(),
+            amountValue: amount.toFixed(),
+            extraInfo: null,
+          },
+        };
+      })
+      .filter(Boolean),
     status: tx.confirmations
       ? IDecodedTxStatus.Confirmed
       : IDecodedTxStatus.Pending,
