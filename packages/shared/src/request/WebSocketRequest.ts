@@ -76,7 +76,7 @@ export class WebSocketRequest {
           times + 1,
         );
       }
-    }, 10); // wait 5 milisecond for the connection...
+    }, 10); // wait 10 milisecond for the connection...
   }
 
   private readySocketConnection(socket: WebSocket): Promise<WebSocket> {
