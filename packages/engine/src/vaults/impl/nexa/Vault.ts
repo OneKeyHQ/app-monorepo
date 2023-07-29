@@ -37,7 +37,6 @@ import { Nexa } from './sdk';
 import settings from './settings';
 import {
   buildDecodeTxFromTx,
-  decodeScriptBufferToNexaAddress,
   estimateFee,
   estimateSize,
   getNexaNetworkInfo,
@@ -54,12 +53,7 @@ import type {
 } from '../../../types/provider';
 import type { Token } from '../../../types/token';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
-import type {
-  IDecodedTxAction,
-  IDecodedTxLegacy,
-  IHistoryTx,
-  ISignedTxPro,
-} from '../../types';
+import type { IDecodedTxLegacy, IHistoryTx, ISignedTxPro } from '../../types';
 import type { EVMDecodedItem } from '../evm/decoder/types';
 import type { IEncodedTxNexa, INexaTransaction } from './types';
 
