@@ -2,7 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import {
   FailedToEstimatedGasError,
-  MimimumBalanceRequired,
+  InsufficientGasFee,
 } from '@onekeyhq/engine/src/errors';
 import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
 import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
@@ -68,7 +68,8 @@ export default class ServiceTransaction extends ServiceBase {
   private async checkAccountBalanceGreaterThan(params: {
     accountId: string;
     networkId: string;
-    amount: string;
+    totalFeeInNative: string;
+    prepaidFee?: string;
   }) {
     const { serviceToken, servicePassword, engine } = this.backgroundApi;
     const [result] = await serviceToken.getAccountBalanceFromRpc(
@@ -77,6 +78,7 @@ export default class ServiceTransaction extends ServiceBase {
       [],
       true,
     );
+
     const balanceStr = result?.main?.balance;
     if (!balanceStr) {
       throw new FailedToEstimatedGasError();
@@ -93,11 +95,13 @@ export default class ServiceTransaction extends ServiceBase {
       typeof frozenBalance === 'number'
         ? frozenBalance
         : frozenBalance?.main ?? 0;
-    const minimumGas = new BigNumber(frozenBalanceValue).plus(params.amount);
-
-    if (new BigNumber(balanceStr).lt(minimumGas)) {
+    const baseFee = new BigNumber(frozenBalanceValue).plus(
+      params.totalFeeInNative,
+    );
+    const totalGas = baseFee.plus(params.prepaidFee ?? '0');
+    if (new BigNumber(balanceStr).lt(totalGas)) {
       const token = await engine.getNativeTokenInfo(params.networkId);
-      throw new MimimumBalanceRequired(token.symbol, minimumGas.toFixed());
+      throw new InsufficientGasFee(token.symbol, baseFee.toFixed());
     }
   }
 
@@ -194,9 +198,8 @@ export default class ServiceTransaction extends ServiceBase {
     await this.checkAccountBalanceGreaterThan({
       accountId,
       networkId,
-      amount: new BigNumber(totalFeeInNative)
-        .plus(params.prepaidFee ?? '0')
-        .toFixed(),
+      totalFeeInNative,
+      prepaidFee: params.prepaidFee ?? '0',
     });
 
     const encodedTxWithFee = await engine.attachFeeInfoToEncodedTx({

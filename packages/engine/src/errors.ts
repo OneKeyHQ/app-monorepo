@@ -277,6 +277,14 @@ export class InsufficientBalance extends OneKeyError {
   override key = 'form__amount_invalid';
 }
 
+export class InsufficientGasFee extends OneKeyError {
+  override key = 'msg__suggest_reserving_str_as_gas_fee';
+
+  constructor(token: string, amount: string) {
+    super('', { '0': `${amount} ${token}` });
+  }
+}
+
 export class WalletNameLengthError extends StringLengthRequirement {
   override key = 'msg__engine__wallet_name_length_error';
 }
