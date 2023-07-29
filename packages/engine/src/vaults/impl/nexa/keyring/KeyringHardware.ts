@@ -37,8 +37,14 @@ export class KeyringHardware extends KeyringHardwareBase {
     params: IPrepareHardwareAccountsParams,
   ): Promise<Array<DBUTXOAccount>> {
     const { indexes, names, template } = params;
-    const { pathPrefix } = slicePathTemplate(template);
-    const paths = indexes.map((index) => `${pathPrefix}/${index}`);
+    const { pathPrefix, pathSuffix } = slicePathTemplate(template);
+    const paths = indexes.map(
+      (index) =>
+        // When the first digit is 0, it represents a receiving account,
+        // and when it is 0, it indicates a change account.
+        `${pathPrefix}/${pathSuffix.replace('{index}', index.toString())}`,
+    );
+    const idPaths = indexes.map((index) => `${pathPrefix}/${index}'`);
     const showOnOneKey = false;
     const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
@@ -57,7 +63,6 @@ export class KeyringHardware extends KeyringHardwareBase {
             path,
             showOnOneKey,
             prefix: getNexaPrefix(chainId),
-            scheme: SIGN_TYPE,
           })),
           ...passphraseState,
         },
@@ -72,12 +77,12 @@ export class KeyringHardware extends KeyringHardwareBase {
     }
 
     const ret: DBUTXOAccount[] = [];
-    let index = 0;
-    for (const addressInfo of addressesResponse.payload) {
+    return addressesResponse.payload.map((addressInfo, index) => {
       const { path, pub } = addressInfo;
       const name = (names || [])[index] || `${prefix} #${indexes[index] + 1}`;
-      ret.push({
-        id: `${this.walletId}--${path}`,
+      ret.push();
+      return {
+        id: `${this.walletId}--${idPaths[index]}`,
         name,
         type: AccountType.UTXO,
         path,
@@ -86,10 +91,8 @@ export class KeyringHardware extends KeyringHardwareBase {
         address: pub,
         addresses: { [this.networkId]: pub },
         template,
-      });
-      index += 1;
-    }
-    return ret;
+      };
+    });
   }
 
   async getAddress(params: IHardwareGetAddressParams): Promise<string> {
@@ -174,16 +177,14 @@ export class KeyringHardware extends KeyringHardwareBase {
     if (response.success) {
       const nexaSignatures = response.payload;
       const publicKey = Buffer.from(dbAccount.address, 'hex');
+      const defaultSignature = Buffer.from(nexaSignatures[0].signature, 'hex');
       const inputSigs: INexaInputSignature[] = inputSignatures.map(
-        (inputSig, index) => {
-          const signature = Buffer.from(nexaSignatures[index].signature, 'hex');
-          return {
-            ...inputSig,
-            publicKey,
-            signature,
-            scriptBuffer: buildInputScriptBuffer(publicKey, signature),
-          };
-        },
+        (inputSig) => ({
+          ...inputSig,
+          publicKey,
+          signature: defaultSignature,
+          scriptBuffer: buildInputScriptBuffer(publicKey, defaultSignature),
+        }),
       );
 
       const txid = buildTxid(inputSigs, outputSignatures);

@@ -109,21 +109,23 @@ export const ListHeader: FC = () => {
               }
             }}
           />
-          <SearchView
-            ref={searchViewRef}
-            visible={showSearch}
-            relativeComponent={ref.current}
-            onSearchContentChange={onChangeText}
-            searchContent={text}
-            onSelectorItem={(item: MatchDAppItemType) => {
-              setShowSearch(false);
-              setTimeout(() => {
-                onSearchSubmitEditing(item);
-                // eslint-disable-next-line
+          {showSearch ? (
+            <SearchView
+              ref={searchViewRef}
+              visible={showSearch}
+              relativeComponent={ref.current}
+              onSearchContentChange={onChangeText}
+              searchContent={text}
+              onSelectorItem={(item: MatchDAppItemType) => {
+                setShowSearch(false);
+                setTimeout(() => {
+                  onSearchSubmitEditing(item);
+                  // eslint-disable-next-line
                 (ref.current as any)?.blur?.();
-              }, 100);
-            }}
-          />
+                }, 100);
+              }}
+            />
+          ) : null}
         </Center>
         <Center>
           <Box w="360px">

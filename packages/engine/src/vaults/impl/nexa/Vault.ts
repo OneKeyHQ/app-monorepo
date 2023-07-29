@@ -43,6 +43,7 @@ import {
   getNexaNetworkInfo,
   publickeyToAddress,
   verifyNexaAddress,
+  verifyNexaAddressPrefix,
 } from './utils';
 
 import type { BaseClient } from '../../../client/BaseClient';
@@ -76,6 +77,10 @@ export default class Vault extends VaultBase {
     return new Nexa(url);
   }
 
+  override getFetchBalanceAddress(dbAccount: DBAccount): Promise<string> {
+    return this.getDisplayAddress(dbAccount.address);
+  }
+
   override async getOutputAccount(): Promise<Account> {
     const dbAccount = await this.getDbAccount({ noCache: true });
     const displayAddress =
@@ -97,8 +102,15 @@ export default class Vault extends VaultBase {
   }
 
   override async getDisplayAddress(address: string): Promise<string> {
-    const chainId = await this.getNetworkChainId();
-    return publickeyToAddress(Buffer.from(address, 'hex'), chainId);
+    try {
+      if (verifyNexaAddressPrefix(address)) {
+        return address;
+      }
+      const chainId = await this.getNetworkChainId();
+      return publickeyToAddress(Buffer.from(address, 'hex'), chainId);
+    } catch (error) {
+      return address;
+    }
   }
 
   override async addressFromBase(account: DBAccount): Promise<string> {
@@ -177,16 +189,12 @@ export default class Vault extends VaultBase {
   override async attachFeeInfoToEncodedTx(params: {
     encodedTx: IEncodedTxNexa;
     feeInfoValue: IFeeInfoUnit;
-  }): Promise<IEncodedTx> {
-    const { limit, price } = params.feeInfoValue;
-    if (limit && price) {
-      const network = await this.getNetwork();
-      params.encodedTx.gas = new BigNumber(limit)
-        .multipliedBy(price)
-        .shiftedBy(network.decimals)
-        .toFixed();
+  }): Promise<IEncodedTxNexa> {
+    const { btcFee } = params.feeInfoValue;
+    if (btcFee) {
+      params.encodedTx.gas = btcFee.toString();
     }
-    return params.encodedTx;
+    return Promise.resolve(params.encodedTx);
   }
 
   override async decodeTx(
@@ -313,24 +321,27 @@ export default class Vault extends VaultBase {
 
   override async fetchFeeInfo(
     encodedTx: IEncodedTxNexa,
-    signOnly?: boolean | undefined,
-    specifiedFeeRate?: string | undefined,
-    transferCount?: number | undefined,
+    signOnly?: boolean,
+    specifiedFeeRate?: string,
+    transferCount?: number,
   ): Promise<IFeeInfo> {
     const network = await this.getNetwork();
     const client = await this.getSDKClient();
     const estimateSizedSize = estimateSize(encodedTx);
     const remoteEstimateFee = await client.estimateFee(estimateSizedSize);
     const localEstimateFee = estimateFee(encodedTx);
-    const feeInfo = Math.max(remoteEstimateFee, localEstimateFee);
+    const feeInfo = specifiedFeeRate
+      ? estimateFee(encodedTx, Number(specifiedFeeRate))
+      : Math.max(remoteEstimateFee, localEstimateFee);
     return {
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
       feeSymbol: network.feeSymbol,
       feeDecimals: network.feeDecimals,
-      limit: new BigNumber(feeInfo.toString()).toFixed(),
       prices: [new BigNumber(1).shiftedBy(-network.decimals).toFixed()],
+      feeList: [feeInfo],
       defaultPresetIndex: '1',
+      isBtcForkChain: true,
       tx: null,
     };
   }

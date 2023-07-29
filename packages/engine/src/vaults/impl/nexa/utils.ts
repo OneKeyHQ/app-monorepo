@@ -90,6 +90,10 @@ function convertScriptToPushBuffer(key: Buffer): Buffer {
   return scriptChunksToBuffer([templateChunk]);
 }
 
+export function verifyNexaAddressPrefix(address: string) {
+  return address.startsWith('nexa:') || address.startsWith('nexatest:');
+}
+
 export function publickeyToAddress(
   publicKey: Buffer,
   chainId: string,
@@ -275,16 +279,28 @@ function buildSignatures(encodedTx: IEncodedTxNexa, dbAccountAddress: string) {
     (acc, output) => acc.add(new BN(output.satoshis)),
     new BN(0),
   );
-  const available = inputAmount.sub(outputAmount);
 
   const fee = new BN(gas || estimateFee(encodedTx));
+  const available = inputAmount.sub(fee);
+  if (available.lt(new BN(0))) {
+    console.error(inputAmount.toString(), fee.toString());
+    throw new Error(
+      `Available balance cannot be less than 0, inputAmount: ${inputAmount.toString()}, dust: ${fee.toString()}`,
+    );
+  }
 
-  // change address
-  newOutputs.push({
-    address: dbAccountAddress,
-    satoshis: available.sub(fee).toString(),
-    outType: 1,
-  });
+  if (available.gt(outputAmount)) {
+    // change address
+    newOutputs.push({
+      address: dbAccountAddress,
+      satoshis: available.sub(outputAmount).toString(),
+      outType: 1,
+    });
+  } else {
+    newOutputs[0].satoshis = available.gt(outputAmount)
+      ? newOutputs[0].satoshis
+      : available.toString();
+  }
 
   const outputSignatures = newOutputs.map((output) => ({
     address: output.address,

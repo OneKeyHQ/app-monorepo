@@ -11,13 +11,20 @@ const settings: IVaultSettings = Object.freeze({
   tokenEnabled: false,
   txCanBeReplaced: false,
 
+  isFeeRateMode: true,
   importedAccountEnabled: true,
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
+  displayChars: 8,
+
   minGasLimit: 10,
-  minTransferAmount: '0.00000546',
+
+  // can't send amount lower than the dust threshold, which si 546 satoshi or 5.46 NEX
+  minTransferAmount: '5.46',
+
+  hideInAllNetworksMode: true,
 
   isUTXOModel: true,
 

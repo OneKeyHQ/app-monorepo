@@ -46,6 +46,12 @@ const settings: IVaultSettings = Object.freeze({
 
   txExtraInfo: [
     {
+      key: 'preimage',
+      title: 'form__preimage' as LocaleIds,
+      canCopy: false,
+      isShorten: false,
+    },
+    {
       key: 'memo',
       title: 'content__description' as LocaleIds,
       canCopy: false,

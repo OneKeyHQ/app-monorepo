@@ -3,6 +3,8 @@ import elliptic from 'elliptic';
 
 import { hmacSHA256, sha256 } from '../../../../secret/hash';
 
+import { getBufferFromBN } from './bn';
+
 import type { curve } from 'elliptic';
 
 const EC = elliptic.ec;
@@ -81,16 +83,16 @@ function hasSquare(point: curve.base.BasePoint): boolean {
 }
 
 function getrBuffer(r: BN): Buffer {
-  const rNaturalLength = r.toBuffer().length;
+  const rNaturalLength = getBufferFromBN(r).length;
   if (rNaturalLength < 32) {
-    return r.toBuffer('be', 32);
+    return getBufferFromBN(r, 'be', 32);
   }
-  return r.toBuffer();
+  return getBufferFromBN(r);
 }
 
 function pointToCompressed(point: curve.base.BasePoint): Buffer {
-  const xbuf = point.getX().toBuffer('be', 32);
-  const ybuf = point.getY().toBuffer('be', 32);
+  const xbuf = getBufferFromBN(point.getX(), 'be', 32);
+  const ybuf = getBufferFromBN(point.getY(), 'be', 32);
 
   let prefix;
   const odd = ybuf[ybuf.length - 1] % 2;
@@ -107,7 +109,10 @@ function findSignature(d: BN, e: BN) {
   const G: curve.base.BasePoint = ec.curve.g as curve.base.BasePoint;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
   const n: BN = new BN(ec.curve.n.toArray());
-  let k = nonceFunctionRFC6979(d.toBuffer('be', 32), e.toBuffer('be', 32));
+  let k = nonceFunctionRFC6979(
+    getBufferFromBN(d, 'be', 32),
+    getBufferFromBN(e, 'be', 32),
+  );
   const P = G.mul(d as any);
   const R = G.mul(k as any);
 
@@ -121,7 +126,7 @@ function findSignature(d: BN, e: BN) {
       Buffer.concat([
         getrBuffer(r),
         pointToCompressed(P),
-        e.toBuffer('be', 32),
+        getBufferFromBN(e, 'be', 32),
       ]),
     ),
   );
@@ -137,7 +142,10 @@ export function sign(privateKey: Buffer, digest: Buffer): Buffer {
   const privateKeyBN = getBN(privateKey);
   const digestBN = getBN(digest);
   const { r, s } = findSignature(privateKeyBN, digestBN);
-  return Buffer.concat([r.toBuffer('be', 32), s.toBuffer('be', 32)]);
+  return Buffer.concat([
+    getBufferFromBN(r, 'be', 32),
+    getBufferFromBN(s, 'be', 32),
+  ]);
 }
 
 export function verify(

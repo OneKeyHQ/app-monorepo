@@ -89,6 +89,8 @@ export type IVaultSettings = {
   dust?: string;
 
   isUTXOModel: boolean;
+  isFeeRateMode?: boolean;
+
   activateAccountRequired?: boolean;
   activateTokenRequired?: boolean;
 
@@ -98,6 +100,7 @@ export type IVaultSettings = {
 
   cannotSendToSelf?: boolean;
 
+  displayChars?: number;
   /**
    * Deposit in account.
    * e.g. Polkadot https://wiki.polkadot.network/docs/build-protocol-info#existential-deposit

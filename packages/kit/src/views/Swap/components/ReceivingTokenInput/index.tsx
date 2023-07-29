@@ -158,6 +158,8 @@ const TokenInputReceivingAddress: FC = () => {
         <Typography.Body2Strong
           mr="1"
           color={recipientUnknown ? 'text-warning' : 'text-default'}
+          maxW="120"
+          isTruncated
         >
           {name}
         </Typography.Body2Strong>

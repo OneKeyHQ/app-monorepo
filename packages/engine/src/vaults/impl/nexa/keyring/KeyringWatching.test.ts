@@ -63,6 +63,29 @@ describe('Nexa KeyringWatching Tests', () => {
       },
     );
   });
+
+  it('Nexa KeyringWatching prepareAccounts with non-identical network address.', async () => {
+    const { network, watchingAccount4 } = nexaMockData;
+    try {
+      await testPrepareAccounts(
+        {
+          dbNetwork: network,
+          dbAccount: watchingAccount4.account,
+          password: watchingAccount4.password,
+          accountIdPrefix: 'external',
+        },
+        {
+          keyring({ vault }) {
+            return new KeyringWatching(vault);
+          },
+        },
+      );
+      // this is where the code hits the fan, indicating an error.
+      expect(false).toBeTruthy();
+    } catch (e: unknown) {
+      expect((e as InvalidAddress).message).toBe('InvalidAddress.');
+    }
+  });
 });
 
 export {};

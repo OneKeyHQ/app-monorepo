@@ -133,6 +133,7 @@ export type SendConfirmParams = SendConfirmSharedParams & {
   backRouteName?: keyof SendRoutesParams;
   feeInfoUseFeeInTx: boolean;
   feeInfoEditable: boolean;
+  prepaidFee?: string;
   onDetail?: (txid: string) => any;
   signOnly?: boolean;
   ignoreFetchFeeCalling?: boolean;
@@ -239,6 +240,9 @@ export type ITxConfirmViewProps = ModalProps & {
   feeInfoLoading: boolean;
   feeInfoEditable?: boolean;
   feeInput?: JSX.Element;
+
+  prepaidFee?: string;
+
   advancedSettings?: SendConfirmAdvancedSettings;
   advancedSettingsForm?: JSX.Element | null;
   feeInfoError?: Error | null;

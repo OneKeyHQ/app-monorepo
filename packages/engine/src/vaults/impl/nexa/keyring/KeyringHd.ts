@@ -87,12 +87,12 @@ export class KeyringHd extends KeyringHdBase {
       indexes.map((index) => pathSuffix.replace('{index}', index.toString())),
     );
 
+    const idPaths = indexes.map((index) => `${pathPrefix}/${index}'`);
+
     if (pubkeyInfos.length !== indexes.length) {
       throw new OneKeyInternalError('Unable to get publick key.');
     }
-    const ret: DBUTXOAccount[] = [];
-    let index = 0;
-    for (const info of pubkeyInfos) {
+    return pubkeyInfos.map((info, index) => {
       const {
         path,
         extendedKey: { key: pubkey },
@@ -100,8 +100,8 @@ export class KeyringHd extends KeyringHdBase {
       const name =
         (names || [])[index] || `${accountNamePrefix} #${indexes[index] + 1}`;
       const pub = pubkey.toString('hex');
-      ret.push({
-        id: `${this.walletId}--${path}`,
+      return {
+        id: `${this.walletId}--${idPaths[index]}`,
         name,
         type: AccountType.UTXO,
         path,
@@ -110,9 +110,7 @@ export class KeyringHd extends KeyringHdBase {
         address: pub,
         addresses: { [this.networkId]: pub },
         template,
-      });
-      index += 1;
-    }
-    return ret;
+      };
+    });
   }
 }

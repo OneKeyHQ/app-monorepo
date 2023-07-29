@@ -1,4 +1,9 @@
-import { FailedToEstimatedGasError } from '@onekeyhq/engine/src/errors';
+import BigNumber from 'bignumber.js';
+
+import {
+  FailedToEstimatedGasError,
+  InsufficientGasFee,
+} from '@onekeyhq/engine/src/errors';
 import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
 import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
@@ -30,6 +35,7 @@ export type ISendTransactionParams = {
   payload?: SendConfirmParams['payloadInfo'];
   feePresetIndex?: string;
   autoFallback?: boolean;
+  prepaidFee?: string;
 };
 
 export type ISignMessageParams = {
@@ -57,6 +63,46 @@ export default class ServiceTransaction extends ServiceBase {
       throw new Error('Failed to find the password');
     }
     return password;
+  }
+
+  private async checkAccountBalanceGreaterThan(params: {
+    accountId: string;
+    networkId: string;
+    totalFeeInNative: string;
+    prepaidFee?: string;
+  }) {
+    const { serviceToken, servicePassword, engine } = this.backgroundApi;
+    const [result] = await serviceToken.getAccountBalanceFromRpc(
+      params.networkId,
+      params.accountId,
+      [],
+      true,
+    );
+
+    const balanceStr = result?.main?.balance;
+    if (!balanceStr) {
+      throw new FailedToEstimatedGasError();
+    }
+
+    const password = await servicePassword.getPassword();
+    const frozenBalance = await engine.getFrozenBalance({
+      accountId: params.accountId,
+      networkId: params.networkId,
+      password,
+    });
+
+    const frozenBalanceValue =
+      typeof frozenBalance === 'number'
+        ? frozenBalance
+        : frozenBalance?.main ?? 0;
+    const baseFee = new BigNumber(frozenBalanceValue).plus(
+      params.totalFeeInNative,
+    );
+    const totalGas = baseFee.plus(params.prepaidFee ?? '0');
+    if (new BigNumber(balanceStr).lt(totalGas)) {
+      const token = await engine.getNativeTokenInfo(params.networkId);
+      throw new InsufficientGasFee(token.symbol, baseFee.toFixed());
+    }
   }
 
   @backgroundMethod()
@@ -138,9 +184,23 @@ export default class ServiceTransaction extends ServiceBase {
       }
     }
 
-    if (!feeInfoUnit) {
+    if (!feeInfoUnit || !feeInfo) {
       throw new FailedToEstimatedGasError();
     }
+
+    const total = calculateTotalFeeRange(feeInfoUnit, network.feeDecimals).max;
+
+    const totalFeeInNative = calculateTotalFeeNative({
+      amount: total,
+      info: feeInfo,
+    });
+
+    await this.checkAccountBalanceGreaterThan({
+      accountId,
+      networkId,
+      totalFeeInNative,
+      prepaidFee: params.prepaidFee ?? '0',
+    });
 
     const encodedTxWithFee = await engine.attachFeeInfoToEncodedTx({
       networkId,
@@ -178,13 +238,7 @@ export default class ServiceTransaction extends ServiceBase {
     }
 
     if (!decodedTx.totalFeeInNative) {
-      if (feeInfoUnit && feeInfo) {
-        const total = calculateTotalFeeRange(feeInfoUnit).max;
-        decodedTx.totalFeeInNative = calculateTotalFeeNative({
-          amount: total,
-          info: feeInfo,
-        });
-      }
+      decodedTx.totalFeeInNative = totalFeeInNative;
     }
 
     await serviceHistory.saveSendConfirmHistory({

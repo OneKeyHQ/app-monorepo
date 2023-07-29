@@ -79,10 +79,30 @@ export const dappSlicer = createSlice({
       info.lastTime = Date.now();
       state.connections = connections;
     },
+    dappUpdateSiteConnectionAddress(
+      state,
+      action: PayloadAction<DappSiteConnectionSavePayload>,
+    ) {
+      const { payload } = action;
+      const connections = [...state.connections];
+      const infos: DappSiteConnection[] = connections.filter(
+        (item) =>
+          item.site.origin === payload.site.origin &&
+          item.networkImpl === payload.networkImpl,
+      );
+      for (const info of infos) {
+        info.address = payload.address;
+        info.lastTime = Date.now();
+      }
+      if (infos.length) {
+        state.connections = connections;
+      }
+    },
   },
 });
 
 export const {
+  dappUpdateSiteConnectionAddress,
   dappSaveSiteConnection,
   dappClearSiteConnection,
   dappRemoveSiteConnections,
