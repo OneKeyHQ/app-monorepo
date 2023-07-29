@@ -97,15 +97,11 @@ export default class Vault extends VaultBase {
   }
 
   override async getDisplayAddress(address: string): Promise<string> {
-    try {
-      if (verifyNexaAddressPrefix(address)) {
-        return address;
-      }
-      const chainId = await this.getNetworkChainId();
-      return publickeyToAddress(Buffer.from(address, 'hex'), chainId);
-    } catch (error) {
+    if (verifyNexaAddressPrefix(address)) {
       return address;
     }
+    const chainId = await this.getNetworkChainId();
+    return publickeyToAddress(Buffer.from(address, 'hex'), chainId);
   }
 
   override async addressFromBase(account: DBAccount): Promise<string> {
