@@ -1,5 +1,6 @@
 import { sign, verify } from './sdk';
 import {
+  buildDecodeTxFromTx,
   decodeScriptBufferToNexaAddress,
   sha256sha256,
   signEncodedTx,
@@ -356,8 +357,940 @@ describe('Nexa Utils Tests', () => {
   });
 
   it('Nexa buildDecodeTxFromTx test', () => {
-    expect(true).toBeFalsy();
-  }); 
+    const testData0 = {
+      'tx': {
+        'blockhash':
+          '883d9ab547bd3627671589481f741531cf0f4a5c3365305d97a4408ff5678b28',
+        'blocktime': 1690620568,
+        'confirmations': 10,
+        'fee': 6.57,
+        'fee_satoshi': 657,
+        'hash':
+          '83733a87c75cd486f5de6232eb79544f8cd186f4cdc8dc7b05291bde3a078a54',
+        'height': 327692,
+        'hex':
+          '000100f65e88bbae07d0a1f62903d7ac3711824861c741bccc6d46cdbb9ddf0e2618de64222103d1becb4798abb1d016be6889cbb0ba0b19c9f1d5e07961779c089af3c63984bd40d3bfe5850c05b225c93e5312eb52025b59074cad775a43e061ae87a89e7e78c8b8fc6e279bbe09bcf1fc9675881c6f647d61be99d5fc922a51303dae9203178affffffffd1800000000000000101407e000000000000170051147cf62b8a1314b059e25d06a441e02dac445d287200000000',
+        'locktime': 0,
+        'size': 186,
+        'time': 1690620568,
+        'txid':
+          '83733a87c75cd486f5de6232eb79544f8cd186f4cdc8dc7b05291bde3a078a54',
+        'txidem':
+          '1c7387541400b5ce1965c8c5b831405be8b6cb0c85f263b1cfd6061256a4bb83',
+        'version': 0,
+        'vin': [
+          {
+            'coinbase': null,
+            'outpoint':
+              'de18260edf9dbbcd466dccbc41c76148821137acd70329f6a1d007aebb885ef6',
+            'scriptSig': {
+              'asm':
+                'OP_PUSHBYTES_34 2103d1becb4798abb1d016be6889cbb0ba0b19c9f1d5e07961779c089af3c63984bd OP_PUSHBYTES_64 d3bfe5850c05b225c93e5312eb52025b59074cad775a43e061ae87a89e7e78c8b8fc6e279bbe09bcf1fc9675881c6f647d61be99d5fc922a51303dae9203178a',
+              'hex':
+                '222103d1becb4798abb1d016be6889cbb0ba0b19c9f1d5e07961779c089af3c63984bd40d3bfe5850c05b225c93e5312eb52025b59074cad775a43e061ae87a89e7e78c8b8fc6e279bbe09bcf1fc9675881c6f647d61be99d5fc922a51303dae9203178a',
+            },
+            'sequence': 4294967295,
+            'value': 329.77,
+            'value_coin': 329.77,
+            'value_satoshi': 32977,
+          },
+        ],
+        'vout': [
+          {
+            'n': 0,
+            'scriptPubKey': {
+              'addresses': [],
+              'argsHash': '7cf62b8a1314b059e25d06a441e02dac445d2872',
+              'asm':
+                'OP_0 OP_PUSHNUM_1 OP_PUSHBYTES_20 7cf62b8a1314b059e25d06a441e02dac445d2872',
+              'group': null,
+              'groupAuthority': 0,
+              'groupQuantity': null,
+              'hex': '0051147cf62b8a1314b059e25d06a441e02dac445d2872',
+              'scriptHash': 'pay2pubkeytemplate',
+              'token_id_hex': null,
+              'type': 'scripttemplate',
+            },
+            'type': 1,
+            'value': 323.2,
+            'value_coin': 323.2,
+            'value_satoshi': 32320,
+          },
+        ],
+      },
+      'dbAccountAddress':
+        'nexa:nqtsq5g50nmzhzsnzjc9ncjaq6jyrcpd43z962rjffhrvpe0',
+      'addressPrefix': 'nexa',
+      'decimals': 2,
+      'token': {
+        'id': 'nexa--0',
+        'name': 'NEX',
+        'networkId': 'nexa--0',
+        'tokenIdOnNetwork': '',
+        'symbol': 'NEX',
+        'decimals': 2,
+        'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+        'impl': 'nexa',
+        'chainId': '0',
+        'address': '',
+        'source': '',
+        'isNative': true,
+      },
+      'networkId': 'nexa--0',
+      'accountId': "hd-1--m/44'/29223'/0'",
+    };
+    expect(buildDecodeTxFromTx(testData0)).toEqual({
+      'accountId': "hd-1--m/44'/29223'/0'",
+      'actions': [
+        {
+          'direction': 'IN',
+          'tokenTransfer': {
+            'amount': '329.77',
+            'amountValue': '329.77',
+            'extraInfo': null,
+            'from': 'nexa:nqtsq5g5xa04uklfmhm3nkrr2vrxv0reqw6npkatl7dx7fjz',
+            'to': 'nexa:nqtsq5g50nmzhzsnzjc9ncjaq6jyrcpd43z962rjffhrvpe0',
+            'tokenInfo': {
+              'address': '',
+              'chainId': '0',
+              'decimals': 2,
+              'id': 'nexa--0',
+              'impl': 'nexa',
+              'isNative': true,
+              'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+              'name': 'NEX',
+              'networkId': 'nexa--0',
+              'source': '',
+              'symbol': 'NEX',
+              'tokenIdOnNetwork': '',
+            },
+          },
+          'type': 'TOKEN_TRANSFER',
+        },
+      ],
+      'createdAt': 1690620568000,
+      'extraInfo': null,
+      'isFinal': true,
+      'networkId': 'nexa--0',
+      'nonce': 0,
+      'outputActions': [
+        {
+          'direction': 'IN',
+          'tokenTransfer': {
+            'amount': '323.2',
+            'amountValue': '323.2',
+            'extraInfo': null,
+            'from': 'nexa:nqtsq5g5xa04uklfmhm3nkrr2vrxv0reqw6npkatl7dx7fjz',
+            'to': 'nexa:nqtsq5g50nmzhzsnzjc9ncjaq6jyrcpd43z962rjffhrvpe0',
+            'tokenInfo': {
+              'address': '',
+              'chainId': '0',
+              'decimals': 2,
+              'id': 'nexa--0',
+              'impl': 'nexa',
+              'isNative': true,
+              'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+              'name': 'NEX',
+              'networkId': 'nexa--0',
+              'source': '',
+              'symbol': 'NEX',
+              'tokenIdOnNetwork': '',
+            },
+          },
+          'type': 'TOKEN_TRANSFER',
+        },
+      ],
+      'owner': 'nexa:nqtsq5g5xa04uklfmhm3nkrr2vrxv0reqw6npkatl7dx7fjz',
+      'signer': 'nexa:nqtsq5g5xa04uklfmhm3nkrr2vrxv0reqw6npkatl7dx7fjz',
+      'status': 'Confirmed',
+      'totalFeeInNative': '6.57',
+      'txid':
+        '83733a87c75cd486f5de6232eb79544f8cd186f4cdc8dc7b05291bde3a078a54',
+      'updatedAt': 1690620568000,
+    });
+    const testData1 = {
+      'tx': {
+        'blockhash':
+          'f45fb9167e49411aca54817b2e45399e91795553204742015ddfafb59c3f062f',
+        'blocktime': 1690620486,
+        'confirmations': 11,
+        'fee': 10.95,
+        'fee_satoshi': 1095,
+        'hash':
+          'e3bb34578c69d7d705b9fe054a4acb76c59d1026d719fd37520564dd28c0d22f',
+        'height': 327691,
+        'hex':
+          '00020004e5fac31a92877fa08a8d7d9847b6864128a8e927a96645b5a24fd63a7c67e464222103d1becb4798abb1d016be6889cbb0ba0b19c9f1d5e07961779c089af3c63984bd40c447c903813548077c52ae6db55f208ec000dbf25d12e1f39a6ebbe42a2fe5069146e0230928ad521c0ec827a75ad7afd560a4ef5a9db855e2b61c1f859a7ec8ffffffff220200000000000000875cded686fe492a6636c99e1b5a9df8c3ec7264926391f7d0d898dad2b7c06764222103d1becb4798abb1d016be6889cbb0ba0b19c9f1d5e07961779c089af3c63984bd40c447c903813548077c52ae6db55f208ec000dbf25d12e1f39a6ebbe42a2fe5069146e0230928ad521c0ec827a75ad7afd560a4ef5a9db855e2b61c1f859a7ec8ffffffffa98700000000000002012202000000000000170051147cf62b8a1314b059e25d06a441e02dac445d287201628300000000000017005114375f5e5be9ddf719d8635306663c7903b530dbab00000000',
+        'locktime': 0,
+        'size': 365,
+        'time': 1690620486,
+        'txid':
+          'e3bb34578c69d7d705b9fe054a4acb76c59d1026d719fd37520564dd28c0d22f',
+        'txidem':
+          '78fb104762a67eaea9092806e6c9c723058bc3a5ed4641630ea6d87c1ef7b326',
+        'version': 0,
+        'vin': [
+          {
+            'coinbase': null,
+            'outpoint':
+              'e4677c3ad64fa2b54566a927e9a8284186b647987d8d8aa07f87921ac3fae504',
+            'scriptSig': {
+              'asm':
+                'OP_PUSHBYTES_34 2103d1becb4798abb1d016be6889cbb0ba0b19c9f1d5e07961779c089af3c63984bd OP_PUSHBYTES_64 c447c903813548077c52ae6db55f208ec000dbf25d12e1f39a6ebbe42a2fe5069146e0230928ad521c0ec827a75ad7afd560a4ef5a9db855e2b61c1f859a7ec8',
+              'hex':
+                '222103d1becb4798abb1d016be6889cbb0ba0b19c9f1d5e07961779c089af3c63984bd40c447c903813548077c52ae6db55f208ec000dbf25d12e1f39a6ebbe42a2fe5069146e0230928ad521c0ec827a75ad7afd560a4ef5a9db855e2b61c1f859a7ec8',
+            },
+            'sequence': 4294967295,
+            'value': 5.46,
+            'value_coin': 5.46,
+            'value_satoshi': 546,
+          },
+          {
+            'coinbase': null,
+            'outpoint':
+              '67c0b7d2da98d8d0f79163926472ecc3f89d5a1b9ec936662a49fe86d6de5c87',
+            'scriptSig': {
+              'asm':
+                'OP_PUSHBYTES_34 2103d1becb4798abb1d016be6889cbb0ba0b19c9f1d5e07961779c089af3c63984bd OP_PUSHBYTES_64 c447c903813548077c52ae6db55f208ec000dbf25d12e1f39a6ebbe42a2fe5069146e0230928ad521c0ec827a75ad7afd560a4ef5a9db855e2b61c1f859a7ec8',
+              'hex':
+                '222103d1becb4798abb1d016be6889cbb0ba0b19c9f1d5e07961779c089af3c63984bd40c447c903813548077c52ae6db55f208ec000dbf25d12e1f39a6ebbe42a2fe5069146e0230928ad521c0ec827a75ad7afd560a4ef5a9db855e2b61c1f859a7ec8',
+            },
+            'sequence': 4294967295,
+            'value': 347.29,
+            'value_coin': 347.29,
+            'value_satoshi': 34729,
+          },
+        ],
+        'vout': [
+          {
+            'n': 0,
+            'scriptPubKey': {
+              'addresses': [],
+              'argsHash': '7cf62b8a1314b059e25d06a441e02dac445d2872',
+              'asm':
+                'OP_0 OP_PUSHNUM_1 OP_PUSHBYTES_20 7cf62b8a1314b059e25d06a441e02dac445d2872',
+              'group': null,
+              'groupAuthority': 0,
+              'groupQuantity': null,
+              'hex': '0051147cf62b8a1314b059e25d06a441e02dac445d2872',
+              'scriptHash': 'pay2pubkeytemplate',
+              'token_id_hex': null,
+              'type': 'scripttemplate',
+            },
+            'type': 1,
+            'value': 5.46,
+            'value_coin': 5.46,
+            'value_satoshi': 546,
+          },
+          {
+            'n': 1,
+            'scriptPubKey': {
+              'addresses': [],
+              'argsHash': '375f5e5be9ddf719d8635306663c7903b530dbab',
+              'asm':
+                'OP_0 OP_PUSHNUM_1 OP_PUSHBYTES_20 375f5e5be9ddf719d8635306663c7903b530dbab',
+              'group': null,
+              'groupAuthority': 0,
+              'groupQuantity': null,
+              'hex': '005114375f5e5be9ddf719d8635306663c7903b530dbab',
+              'scriptHash': 'pay2pubkeytemplate',
+              'token_id_hex': null,
+              'type': 'scripttemplate',
+            },
+            'type': 1,
+            'value': 336.34,
+            'value_coin': 336.34,
+            'value_satoshi': 33634,
+          },
+        ],
+      },
+      'dbAccountAddress':
+        'nexa:nqtsq5g50nmzhzsnzjc9ncjaq6jyrcpd43z962rjffhrvpe0',
+      'addressPrefix': 'nexa',
+      'decimals': 2,
+      'token': {
+        'id': 'nexa--0',
+        'name': 'NEX',
+        'networkId': 'nexa--0',
+        'tokenIdOnNetwork': '',
+        'symbol': 'NEX',
+        'decimals': 2,
+        'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+        'impl': 'nexa',
+        'chainId': '0',
+        'address': '',
+        'source': '',
+        'isNative': true,
+      },
+      'networkId': 'nexa--0',
+      'accountId': "hd-1--m/44'/29223'/0'",
+    };
+    expect(buildDecodeTxFromTx(testData1)).toEqual({
+      'accountId': "hd-1--m/44'/29223'/0'",
+      'actions': [
+        {
+          'direction': 'IN',
+          'tokenTransfer': {
+            'amount': '5.46',
+            'amountValue': '5.46',
+            'extraInfo': null,
+            'from': 'nexa:nqtsq5g5xa04uklfmhm3nkrr2vrxv0reqw6npkatl7dx7fjz',
+            'to': 'nexa:nqtsq5g50nmzhzsnzjc9ncjaq6jyrcpd43z962rjffhrvpe0',
+            'tokenInfo': {
+              'address': '',
+              'chainId': '0',
+              'decimals': 2,
+              'id': 'nexa--0',
+              'impl': 'nexa',
+              'isNative': true,
+              'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+              'name': 'NEX',
+              'networkId': 'nexa--0',
+              'source': '',
+              'symbol': 'NEX',
+              'tokenIdOnNetwork': '',
+            },
+          },
+          'type': 'TOKEN_TRANSFER',
+        },
+        {
+          'direction': 'IN',
+          'tokenTransfer': {
+            'amount': '347.29',
+            'amountValue': '347.29',
+            'extraInfo': null,
+            'from': 'nexa:nqtsq5g5xa04uklfmhm3nkrr2vrxv0reqw6npkatl7dx7fjz',
+            'to': 'nexa:nqtsq5g50nmzhzsnzjc9ncjaq6jyrcpd43z962rjffhrvpe0',
+            'tokenInfo': {
+              'address': '',
+              'chainId': '0',
+              'decimals': 2,
+              'id': 'nexa--0',
+              'impl': 'nexa',
+              'isNative': true,
+              'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+              'name': 'NEX',
+              'networkId': 'nexa--0',
+              'source': '',
+              'symbol': 'NEX',
+              'tokenIdOnNetwork': '',
+            },
+          },
+          'type': 'TOKEN_TRANSFER',
+        },
+      ],
+      'createdAt': 1690620486000,
+      'extraInfo': null,
+      'isFinal': true,
+      'networkId': 'nexa--0',
+      'nonce': 0,
+      'outputActions': [
+        {
+          'direction': 'IN',
+          'tokenTransfer': {
+            'amount': '5.46',
+            'amountValue': '5.46',
+            'extraInfo': null,
+            'from': 'nexa:nqtsq5g5xa04uklfmhm3nkrr2vrxv0reqw6npkatl7dx7fjz',
+            'to': 'nexa:nqtsq5g50nmzhzsnzjc9ncjaq6jyrcpd43z962rjffhrvpe0',
+            'tokenInfo': {
+              'address': '',
+              'chainId': '0',
+              'decimals': 2,
+              'id': 'nexa--0',
+              'impl': 'nexa',
+              'isNative': true,
+              'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+              'name': 'NEX',
+              'networkId': 'nexa--0',
+              'source': '',
+              'symbol': 'NEX',
+              'tokenIdOnNetwork': '',
+            },
+          },
+          'type': 'TOKEN_TRANSFER',
+        },
+        {
+          'direction': 'OTHER',
+          'tokenTransfer': {
+            'amount': '336.34',
+            'amountValue': '336.34',
+            'extraInfo': null,
+            'from': 'nexa:nqtsq5g5xa04uklfmhm3nkrr2vrxv0reqw6npkatl7dx7fjz',
+            'to': 'nexa:nqtsq5g5xa04uklfmhm3nkrr2vrxv0reqw6npkatl7dx7fjz',
+            'tokenInfo': {
+              'address': '',
+              'chainId': '0',
+              'decimals': 2,
+              'id': 'nexa--0',
+              'impl': 'nexa',
+              'isNative': true,
+              'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+              'name': 'NEX',
+              'networkId': 'nexa--0',
+              'source': '',
+              'symbol': 'NEX',
+              'tokenIdOnNetwork': '',
+            },
+          },
+          'type': 'TOKEN_TRANSFER',
+        },
+      ],
+      'owner': 'nexa:nqtsq5g5xa04uklfmhm3nkrr2vrxv0reqw6npkatl7dx7fjz',
+      'signer': 'nexa:nqtsq5g5xa04uklfmhm3nkrr2vrxv0reqw6npkatl7dx7fjz',
+      'status': 'Confirmed',
+      'totalFeeInNative': '10.95',
+      'txid':
+        'e3bb34578c69d7d705b9fe054a4acb76c59d1026d719fd37520564dd28c0d22f',
+      'updatedAt': 1690620486000,
+    });
+
+    const testData2 = {
+      'tx': {
+        'blockhash':
+          '9d091abed6ca67fbd37afeb358d8e1a80eb97d8a018dc0b5cd9f6b9c0317e5f1',
+        'blocktime': 1690527851,
+        'confirmations': 786,
+        'fee': 6.57,
+        'fee_satoshi': 657,
+        'hash':
+          '527224633117cd391a361b1781a8693ddf0bfa8cd5cd3e74f82501cb359c0339',
+        'height': 326916,
+        'hex':
+          '000100146071316651d85607ea31ba13bb7122a4de2e4b9f4db037827e4b9294f2de766422210340cd9f307400d42887f4e5231a14fa16749290f2775daa6bd7e403e28440d9024067415afb814e05bc8c54f27bbccddd784ff9b3d3512c981a0aa0c5d0eae184ceb4c1092810242e3b4088aadab05ba9b6e0ade3dfdd04b6ccb4426a481c21c905ffffffff0e556905000000000201204e00000000000017005114ee199ed68abcda4139c8439527080f3a6aee3bf2015d04690500000000170051147cf62b8a1314b059e25d06a441e02dac445d287200000000',
+        'locktime': 0,
+        'size': 219,
+        'time': 1690527851,
+        'txid':
+          '527224633117cd391a361b1781a8693ddf0bfa8cd5cd3e74f82501cb359c0339',
+        'txidem':
+          '506d9a442a7c725a152c73e1328cf8a157db89070543728e200b46e3c3b4e2a6',
+        'version': 0,
+        'vin': [
+          {
+            'coinbase': null,
+            'outpoint':
+              '76def294924b7e8237b04d9f4b2edea42271bb13ba31ea0756d8516631716014',
+            'scriptSig': {
+              'asm':
+                'OP_PUSHBYTES_34 210340cd9f307400d42887f4e5231a14fa16749290f2775daa6bd7e403e28440d902 OP_PUSHBYTES_64 67415afb814e05bc8c54f27bbccddd784ff9b3d3512c981a0aa0c5d0eae184ceb4c1092810242e3b4088aadab05ba9b6e0ade3dfdd04b6ccb4426a481c21c905',
+              'hex':
+                '22210340cd9f307400d42887f4e5231a14fa16749290f2775daa6bd7e403e28440d9024067415afb814e05bc8c54f27bbccddd784ff9b3d3512c981a0aa0c5d0eae184ceb4c1092810242e3b4088aadab05ba9b6e0ade3dfdd04b6ccb4426a481c21c905',
+            },
+            'sequence': 4294967295,
+            'value': 907891.34,
+            'value_coin': 907891.34,
+            'value_satoshi': 90789134,
+          },
+        ],
+        'vout': [
+          {
+            'n': 0,
+            'scriptPubKey': {
+              'addresses': [],
+              'argsHash': 'ee199ed68abcda4139c8439527080f3a6aee3bf2',
+              'asm':
+                'OP_0 OP_PUSHNUM_1 OP_PUSHBYTES_20 ee199ed68abcda4139c8439527080f3a6aee3bf2',
+              'group': null,
+              'groupAuthority': 0,
+              'groupQuantity': null,
+              'hex': '005114ee199ed68abcda4139c8439527080f3a6aee3bf2',
+              'scriptHash': 'pay2pubkeytemplate',
+              'token_id_hex': null,
+              'type': 'scripttemplate',
+            },
+            'type': 1,
+            'value': 200,
+            'value_coin': 200,
+            'value_satoshi': 20000,
+          },
+          {
+            'n': 1,
+            'scriptPubKey': {
+              'addresses': [],
+              'argsHash': '7cf62b8a1314b059e25d06a441e02dac445d2872',
+              'asm':
+                'OP_0 OP_PUSHNUM_1 OP_PUSHBYTES_20 7cf62b8a1314b059e25d06a441e02dac445d2872',
+              'group': null,
+              'groupAuthority': 0,
+              'groupQuantity': null,
+              'hex': '0051147cf62b8a1314b059e25d06a441e02dac445d2872',
+              'scriptHash': 'pay2pubkeytemplate',
+              'token_id_hex': null,
+              'type': 'scripttemplate',
+            },
+            'type': 1,
+            'value': 907684.77,
+            'value_coin': 907684.77,
+            'value_satoshi': 90768477,
+          },
+        ],
+      },
+      'dbAccountAddress':
+        'nexa:nqtsq5g50nmzhzsnzjc9ncjaq6jyrcpd43z962rjffhrvpe0',
+      'addressPrefix': 'nexa',
+      'decimals': 2,
+      'token': {
+        'id': 'nexa--0',
+        'name': 'NEX',
+        'networkId': 'nexa--0',
+        'tokenIdOnNetwork': '',
+        'symbol': 'NEX',
+        'decimals': 2,
+        'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+        'impl': 'nexa',
+        'chainId': '0',
+        'address': '',
+        'source': '',
+        'isNative': true,
+      },
+      'networkId': 'nexa--0',
+      'accountId': "hd-1--m/44'/29223'/0'",
+    };
+    expect(buildDecodeTxFromTx(testData2)).toEqual({
+      'accountId': "hd-1--m/44'/29223'/0'",
+      'actions': [
+        {
+          'direction': 'OUT',
+          'tokenTransfer': {
+            'amount': '907891.34',
+            'amountValue': '907891.34',
+            'extraInfo': null,
+            'from': 'nexa:nqtsq5g50nmzhzsnzjc9ncjaq6jyrcpd43z962rjffhrvpe0',
+            'to': 'nexa:nqtsq5g5acvea452hndyzwwggw2jwzq08f4wuwljenjtdvhc',
+            'tokenInfo': {
+              'address': '',
+              'chainId': '0',
+              'decimals': 2,
+              'id': 'nexa--0',
+              'impl': 'nexa',
+              'isNative': true,
+              'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+              'name': 'NEX',
+              'networkId': 'nexa--0',
+              'source': '',
+              'symbol': 'NEX',
+              'tokenIdOnNetwork': '',
+            },
+          },
+          'type': 'TOKEN_TRANSFER',
+        },
+      ],
+      'createdAt': 1690527851000,
+      'extraInfo': null,
+      'isFinal': true,
+      'networkId': 'nexa--0',
+      'nonce': 0,
+      'outputActions': [
+        {
+          'direction': 'OUT',
+          'tokenTransfer': {
+            'amount': '200',
+            'amountValue': '200',
+            'extraInfo': null,
+            'from': 'nexa:nqtsq5g50nmzhzsnzjc9ncjaq6jyrcpd43z962rjffhrvpe0',
+            'to': 'nexa:nqtsq5g5acvea452hndyzwwggw2jwzq08f4wuwljenjtdvhc',
+            'tokenInfo': {
+              'address': '',
+              'chainId': '0',
+              'decimals': 2,
+              'id': 'nexa--0',
+              'impl': 'nexa',
+              'isNative': true,
+              'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+              'name': 'NEX',
+              'networkId': 'nexa--0',
+              'source': '',
+              'symbol': 'NEX',
+              'tokenIdOnNetwork': '',
+            },
+          },
+          'type': 'TOKEN_TRANSFER',
+        },
+        {
+          'direction': 'SELF',
+          'tokenTransfer': {
+            'amount': '907684.77',
+            'amountValue': '907684.77',
+            'extraInfo': null,
+            'from': 'nexa:nqtsq5g50nmzhzsnzjc9ncjaq6jyrcpd43z962rjffhrvpe0',
+            'to': 'nexa:nqtsq5g50nmzhzsnzjc9ncjaq6jyrcpd43z962rjffhrvpe0',
+            'tokenInfo': {
+              'address': '',
+              'chainId': '0',
+              'decimals': 2,
+              'id': 'nexa--0',
+              'impl': 'nexa',
+              'isNative': true,
+              'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+              'name': 'NEX',
+              'networkId': 'nexa--0',
+              'source': '',
+              'symbol': 'NEX',
+              'tokenIdOnNetwork': '',
+            },
+          },
+          'type': 'TOKEN_TRANSFER',
+        },
+      ],
+      'owner': 'nexa:nqtsq5g50nmzhzsnzjc9ncjaq6jyrcpd43z962rjffhrvpe0',
+      'signer': 'nexa:nqtsq5g50nmzhzsnzjc9ncjaq6jyrcpd43z962rjffhrvpe0',
+      'status': 'Confirmed',
+      'totalFeeInNative': '6.57',
+      'txid':
+        '527224633117cd391a361b1781a8693ddf0bfa8cd5cd3e74f82501cb359c0339',
+      'updatedAt': 1690527851000,
+    });
+
+    const testData3 = {
+      'tx': {
+        'blockhash':
+          'f45fb9167e49411aca54817b2e45399e91795553204742015ddfafb59c3f062f',
+        'blocktime': 1690620486,
+        'confirmations': 25,
+        'fee': 6.57,
+        'fee_satoshi': 657,
+        'hash':
+          'cfd56e4702dc445e1150c144ce1c0ff91aaedb2d3ec580d3c50df7d8bc6c0fbc',
+        'height': 327691,
+        'hex':
+          '0001000e2acf067dae90dfa42bba210f53f9956ad9ba2f62959be1b26daf97e6d220cb64222103d1becb4798abb1d016be6889cbb0ba0b19c9f1d5e07961779c089af3c63984bd408f88d1555f0ae0036eba870a7e966c98934dcfde60f571184ca560d8f2dae18ad0ef95e3f927da5fbf7ceba672f99d1d4380a078316556b0e04541d64b052bfcffffffff62830000000000000101d18000000000000017005114375f5e5be9ddf719d8635306663c7903b530dbab00000000',
+        'locktime': 0,
+        'size': 186,
+        'time': 1690620486,
+        'txid':
+          'cfd56e4702dc445e1150c144ce1c0ff91aaedb2d3ec580d3c50df7d8bc6c0fbc',
+        'txidem':
+          '3fe1e04cf624e06d11e6849acd3f6c028d3764f526e57235821d9b23f483fd98',
+        'version': 0,
+        'vin': [
+          {
+            'coinbase': null,
+            'outpoint':
+              'cb20d2e697af6db2e19b95622fbad96a95f9530f21ba2ba4df90ae7d06cf2a0e',
+            'scriptSig': {
+              'asm':
+                'OP_PUSHBYTES_34 2103d1becb4798abb1d016be6889cbb0ba0b19c9f1d5e07961779c089af3c63984bd OP_PUSHBYTES_64 8f88d1555f0ae0036eba870a7e966c98934dcfde60f571184ca560d8f2dae18ad0ef95e3f927da5fbf7ceba672f99d1d4380a078316556b0e04541d64b052bfc',
+              'hex':
+                '222103d1becb4798abb1d016be6889cbb0ba0b19c9f1d5e07961779c089af3c63984bd408f88d1555f0ae0036eba870a7e966c98934dcfde60f571184ca560d8f2dae18ad0ef95e3f927da5fbf7ceba672f99d1d4380a078316556b0e04541d64b052bfc',
+            },
+            'sequence': 4294967295,
+            'value': 336.34,
+            'value_coin': 336.34,
+            'value_satoshi': 33634,
+          },
+        ],
+        'vout': [
+          {
+            'n': 0,
+            'scriptPubKey': {
+              'addresses': [],
+              'argsHash': '375f5e5be9ddf719d8635306663c7903b530dbab',
+              'asm':
+                'OP_0 OP_PUSHNUM_1 OP_PUSHBYTES_20 375f5e5be9ddf719d8635306663c7903b530dbab',
+              'group': null,
+              'groupAuthority': 0,
+              'groupQuantity': null,
+              'hex': '005114375f5e5be9ddf719d8635306663c7903b530dbab',
+              'scriptHash': 'pay2pubkeytemplate',
+              'token_id_hex': null,
+              'type': 'scripttemplate',
+            },
+            'type': 1,
+            'value': 329.77,
+            'value_coin': 329.77,
+            'value_satoshi': 32977,
+          },
+        ],
+      },
+      'dbAccountAddress':
+        'nexa:nqtsq5g5xa04uklfmhm3nkrr2vrxv0reqw6npkatl7dx7fjz',
+      'addressPrefix': 'nexa',
+      'decimals': 2,
+      'token': {
+        'id': 'nexa--0',
+        'name': 'NEX',
+        'networkId': 'nexa--0',
+        'tokenIdOnNetwork': '',
+        'symbol': 'NEX',
+        'decimals': 2,
+        'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+        'impl': 'nexa',
+        'chainId': '0',
+        'address': '',
+        'source': '',
+        'isNative': true,
+      },
+      'networkId': 'nexa--0',
+      'accountId': "hd-1--m/44'/29223'/1'",
+    };
+    expect(buildDecodeTxFromTx(testData3)).toEqual({
+      'accountId': "hd-1--m/44'/29223'/1'",
+      'actions': [
+        {
+          'direction': 'SELF',
+          'tokenTransfer': {
+            'amount': '336.34',
+            'amountValue': '336.34',
+            'extraInfo': null,
+            'from': 'nexa:nqtsq5g5xa04uklfmhm3nkrr2vrxv0reqw6npkatl7dx7fjz',
+            'to': 'nexa:nqtsq5g5xa04uklfmhm3nkrr2vrxv0reqw6npkatl7dx7fjz',
+            'tokenInfo': {
+              'address': '',
+              'chainId': '0',
+              'decimals': 2,
+              'id': 'nexa--0',
+              'impl': 'nexa',
+              'isNative': true,
+              'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+              'name': 'NEX',
+              'networkId': 'nexa--0',
+              'source': '',
+              'symbol': 'NEX',
+              'tokenIdOnNetwork': '',
+            },
+          },
+          'type': 'TOKEN_TRANSFER',
+        },
+      ],
+      'createdAt': 1690620486000,
+      'extraInfo': null,
+      'isFinal': true,
+      'networkId': 'nexa--0',
+      'nonce': 0,
+      'outputActions': [
+        {
+          'direction': 'SELF',
+          'tokenTransfer': {
+            'amount': '329.77',
+            'amountValue': '329.77',
+            'extraInfo': null,
+            'from': 'nexa:nqtsq5g5xa04uklfmhm3nkrr2vrxv0reqw6npkatl7dx7fjz',
+            'to': 'nexa:nqtsq5g5xa04uklfmhm3nkrr2vrxv0reqw6npkatl7dx7fjz',
+            'tokenInfo': {
+              'address': '',
+              'chainId': '0',
+              'decimals': 2,
+              'id': 'nexa--0',
+              'impl': 'nexa',
+              'isNative': true,
+              'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+              'name': 'NEX',
+              'networkId': 'nexa--0',
+              'source': '',
+              'symbol': 'NEX',
+              'tokenIdOnNetwork': '',
+            },
+          },
+          'type': 'TOKEN_TRANSFER',
+        },
+      ],
+      'owner': 'nexa:nqtsq5g5xa04uklfmhm3nkrr2vrxv0reqw6npkatl7dx7fjz',
+      'signer': 'nexa:nqtsq5g5xa04uklfmhm3nkrr2vrxv0reqw6npkatl7dx7fjz',
+      'status': 'Confirmed',
+      'totalFeeInNative': '6.57',
+      'txid':
+        'cfd56e4702dc445e1150c144ce1c0ff91aaedb2d3ec580d3c50df7d8bc6c0fbc',
+      'updatedAt': 1690620486000,
+    });
+
+    const testData4 = {
+      'tx': {
+        'blockhash':
+          'ef5c6db9a60f12476e3158753dc46477a8615bee32b11e9aa2223a15b6366647',
+        'blocktime': 1690440535,
+        'confirmations': 1541,
+        'fee': 6.57,
+        'fee_satoshi': 657,
+        'hash':
+          'ec435f39d0d2ad77e0a0046c26d9586deeb185e2b7e7146275ac7a5951939d7b',
+        'height': 326194,
+        'hex':
+          '00010034aefaf89ad98e8029c6f5f0984dd3f26f3b6a47a4873d94044e51bb937fb7ae6422210340cd9f307400d42887f4e5231a14fa16749290f2775daa6bd7e403e28440d90240431834e9f5de207aab26ddba0cd0945a8bf61e848fcb737553d43455eb3000981315c844660575286be056e4b4b1cad2d2f377ee134d132433e872d45000de4dffffffff78c36905000000000201e80300000000000017005114375f5e5be9ddf719d8635306663c7903b530dbab01ffbc690500000000170051147cf62b8a1314b059e25d06a441e02dac445d287200000000',
+        'locktime': 0,
+        'size': 219,
+        'time': 1690440535,
+        'txid':
+          'ec435f39d0d2ad77e0a0046c26d9586deeb185e2b7e7146275ac7a5951939d7b',
+        'txidem':
+          '4439c235e5b63d4eb662d686dfbfa28f9bc6c0922f7f1aecf1b01ffe4225b880',
+        'version': 0,
+        'vin': [
+          {
+            'coinbase': null,
+            'outpoint':
+              'aeb77f93bb514e04943d87a4476a3b6ff2d34d98f0f5c629808ed99af8faae34',
+            'scriptSig': {
+              'asm':
+                'OP_PUSHBYTES_34 210340cd9f307400d42887f4e5231a14fa16749290f2775daa6bd7e403e28440d902 OP_PUSHBYTES_64 431834e9f5de207aab26ddba0cd0945a8bf61e848fcb737553d43455eb3000981315c844660575286be056e4b4b1cad2d2f377ee134d132433e872d45000de4d',
+              'hex':
+                '22210340cd9f307400d42887f4e5231a14fa16749290f2775daa6bd7e403e28440d90240431834e9f5de207aab26ddba0cd0945a8bf61e848fcb737553d43455eb3000981315c844660575286be056e4b4b1cad2d2f377ee134d132433e872d45000de4d',
+            },
+            'sequence': 4294967295,
+            'value': 908174,
+            'value_coin': 908174,
+            'value_satoshi': 90817400,
+          },
+        ],
+        'vout': [
+          {
+            'n': 0,
+            'scriptPubKey': {
+              'addresses': [],
+              'argsHash': '375f5e5be9ddf719d8635306663c7903b530dbab',
+              'asm':
+                'OP_0 OP_PUSHNUM_1 OP_PUSHBYTES_20 375f5e5be9ddf719d8635306663c7903b530dbab',
+              'group': null,
+              'groupAuthority': 0,
+              'groupQuantity': null,
+              'hex': '005114375f5e5be9ddf719d8635306663c7903b530dbab',
+              'scriptHash': 'pay2pubkeytemplate',
+              'token_id_hex': null,
+              'type': 'scripttemplate',
+            },
+            'type': 1,
+            'value': 10,
+            'value_coin': 10,
+            'value_satoshi': 1000,
+          },
+          {
+            'n': 1,
+            'scriptPubKey': {
+              'addresses': [],
+              'argsHash': '7cf62b8a1314b059e25d06a441e02dac445d2872',
+              'asm':
+                'OP_0 OP_PUSHNUM_1 OP_PUSHBYTES_20 7cf62b8a1314b059e25d06a441e02dac445d2872',
+              'group': null,
+              'groupAuthority': 0,
+              'groupQuantity': null,
+              'hex': '0051147cf62b8a1314b059e25d06a441e02dac445d2872',
+              'scriptHash': 'pay2pubkeytemplate',
+              'token_id_hex': null,
+              'type': 'scripttemplate',
+            },
+            'type': 1,
+            'value': 908157.43,
+            'value_coin': 908157.43,
+            'value_satoshi': 90815743,
+          },
+        ],
+      },
+      'dbAccountAddress':
+        'nexa:nqtsq5g5xa04uklfmhm3nkrr2vrxv0reqw6npkatl7dx7fjz',
+      'addressPrefix': 'nexa',
+      'decimals': 2,
+      'token': {
+        'id': 'nexa--0',
+        'name': 'NEX',
+        'networkId': 'nexa--0',
+        'tokenIdOnNetwork': '',
+        'symbol': 'NEX',
+        'decimals': 2,
+        'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+        'impl': 'nexa',
+        'chainId': '0',
+        'address': '',
+        'source': '',
+        'isNative': true,
+      },
+      'networkId': 'nexa--0',
+      'accountId': "hd-1--m/44'/29223'/1'",
+    };
+    expect(buildDecodeTxFromTx(testData4)).toEqual({
+      'accountId': "hd-1--m/44'/29223'/1'",
+      'actions': [
+        {
+          'direction': 'IN',
+          'tokenTransfer': {
+            'amount': '908174',
+            'amountValue': '908174',
+            'extraInfo': null,
+            'from': 'nexa:nqtsq5g50nmzhzsnzjc9ncjaq6jyrcpd43z962rjffhrvpe0',
+            'to': 'nexa:nqtsq5g5xa04uklfmhm3nkrr2vrxv0reqw6npkatl7dx7fjz',
+            'tokenInfo': {
+              'address': '',
+              'chainId': '0',
+              'decimals': 2,
+              'id': 'nexa--0',
+              'impl': 'nexa',
+              'isNative': true,
+              'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+              'name': 'NEX',
+              'networkId': 'nexa--0',
+              'source': '',
+              'symbol': 'NEX',
+              'tokenIdOnNetwork': '',
+            },
+          },
+          'type': 'TOKEN_TRANSFER',
+        },
+      ],
+      'createdAt': 1690440535000,
+      'extraInfo': null,
+      'isFinal': true,
+      'networkId': 'nexa--0',
+      'nonce': 0,
+      'outputActions': [
+        {
+          'direction': 'IN',
+          'tokenTransfer': {
+            'amount': '10',
+            'amountValue': '10',
+            'extraInfo': null,
+            'from': 'nexa:nqtsq5g50nmzhzsnzjc9ncjaq6jyrcpd43z962rjffhrvpe0',
+            'to': 'nexa:nqtsq5g5xa04uklfmhm3nkrr2vrxv0reqw6npkatl7dx7fjz',
+            'tokenInfo': {
+              'address': '',
+              'chainId': '0',
+              'decimals': 2,
+              'id': 'nexa--0',
+              'impl': 'nexa',
+              'isNative': true,
+              'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+              'name': 'NEX',
+              'networkId': 'nexa--0',
+              'source': '',
+              'symbol': 'NEX',
+              'tokenIdOnNetwork': '',
+            },
+          },
+          'type': 'TOKEN_TRANSFER',
+        },
+        {
+          'direction': 'OTHER',
+          'tokenTransfer': {
+            'amount': '908157.43',
+            'amountValue': '908157.43',
+            'extraInfo': null,
+            'from': 'nexa:nqtsq5g50nmzhzsnzjc9ncjaq6jyrcpd43z962rjffhrvpe0',
+            'to': 'nexa:nqtsq5g50nmzhzsnzjc9ncjaq6jyrcpd43z962rjffhrvpe0',
+            'tokenInfo': {
+              'address': '',
+              'chainId': '0',
+              'decimals': 2,
+              'id': 'nexa--0',
+              'impl': 'nexa',
+              'isNative': true,
+              'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+              'name': 'NEX',
+              'networkId': 'nexa--0',
+              'source': '',
+              'symbol': 'NEX',
+              'tokenIdOnNetwork': '',
+            },
+          },
+          'type': 'TOKEN_TRANSFER',
+        },
+      ],
+      'owner': 'nexa:nqtsq5g50nmzhzsnzjc9ncjaq6jyrcpd43z962rjffhrvpe0',
+      'signer': 'nexa:nqtsq5g50nmzhzsnzjc9ncjaq6jyrcpd43z962rjffhrvpe0',
+      'status': 'Confirmed',
+      'totalFeeInNative': '6.57',
+      'txid':
+        'ec435f39d0d2ad77e0a0046c26d9586deeb185e2b7e7146275ac7a5951939d7b',
+      'updatedAt': 1690440535000,
+    });
+  });
 });
 
 export {};

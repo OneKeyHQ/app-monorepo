@@ -539,8 +539,8 @@ export function buildDecodeTxFromTx({
 
   const decodedTx: IDecodedTx = {
     txid: tx.txid,
-    owner: dbAccountAddress,
-    signer: dbAccountAddress,
+    owner: fromAddress,
+    signer: fromAddress,
     nonce: 0,
     actions: tx.vin.map((vin, index) => {
       const amount = new BigNumber(vin.value_satoshi).shiftedBy(
