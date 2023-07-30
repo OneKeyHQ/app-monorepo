@@ -54,27 +54,50 @@ export class WebSocketRequest {
     this.establishConnection();
   }
 
-  private waitForSocketConnection(socket: WebSocket, callback: () => void) {
+  private waitForSocketConnection(
+    socket: WebSocket,
+    resolveCallback: () => void,
+    rejectCallback: () => void,
+    times = 0,
+  ) {
+    // max times for waiting times.
+    if (times > 300) {
+      rejectCallback();
+      return;
+    }
     setTimeout(() => {
-      if (socket.readyState === 1 && callback) {
-        callback();
+      if (socket.readyState === 1) {
+        resolveCallback();
+      } else if (socket.readyState > 1) {
+        rejectCallback();
       } else {
-        this.waitForSocketConnection(socket, callback);
+        this.waitForSocketConnection(
+          socket,
+          resolveCallback,
+          rejectCallback,
+          times + 1,
+        );
       }
-    }, 5); // wait 5 milisecond for the connection...
+    }, 10); // wait 10 milisecond for the connection...
   }
 
   private readySocketConnection(socket: WebSocket): Promise<WebSocket> {
-    return new Promise((resolve) => {
-      this.waitForSocketConnection(socket, () => {
-        resolve(socket);
-      });
+    return new Promise((resolve, reject) => {
+      this.waitForSocketConnection(
+        socket,
+        () => {
+          resolve(socket);
+        },
+        () => {
+          reject(new Error('WebSocket connection timeout.'));
+        },
+      );
     });
   }
 
   private establishConnection(): Promise<WebSocket> {
     const socket = socketsMap.get(this.url);
-    if (socket) {
+    if (socket && socket.readyState < 2) {
       if (socket.readyState === 1) {
         return Promise.resolve(socket);
       }
@@ -99,14 +122,21 @@ export class WebSocketRequest {
     }
     const newSocket = new WebSocket(wsURL);
     socketsMap.set(this.url, newSocket);
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       newSocket.onopen = () => {
-        this.waitForSocketConnection(newSocket, () => {
-          resolve(newSocket);
-        });
+        this.waitForSocketConnection(
+          newSocket,
+          () => {
+            resolve(newSocket);
+          },
+          () => {
+            reject(new Error('WebSocket connection timeout.'));
+          },
+        );
       };
 
-      newSocket.onmessage = (message) => {
+      newSocket.onmessage = async (message) => {
+        await this.refreshConnectionStatus();
         const { id, result, error } = this.parseRPCResponse(message.data);
         const callback = callbackMap.get(id);
         if (callback) {
@@ -123,6 +153,7 @@ export class WebSocketRequest {
         callbackMap.delete(id);
       };
       newSocket.onerror = (error: unknown) => {
+        reject(error);
         console.error(error);
       };
     });
