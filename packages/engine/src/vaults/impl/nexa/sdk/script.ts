@@ -4,6 +4,7 @@ import { Buffer } from 'buffer';
 import BN from 'bn.js';
 
 import { decode } from './address';
+import { getBufferFromBN } from './bn';
 
 export enum Opcode {
   OP_FALSE = 0,
@@ -228,7 +229,7 @@ export function writeInt32LE(n: number) {
 }
 
 export function writeUInt64LEBN(bigNumber: BN) {
-  return bigNumber.toBuffer('le', 8);
+  return getBufferFromBN(bigNumber, 'le', 8);
 }
 
 export function varintBufNum(n: number) {

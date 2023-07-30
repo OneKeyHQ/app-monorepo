@@ -20,7 +20,9 @@ const settings: IVaultSettings = Object.freeze({
   displayChars: 8,
 
   minGasLimit: 10,
-  minTransferAmount: '1',
+
+  // can't send amount lower than the dust threshold, which si 546 satoshi or 5.46 NEX
+  minTransferAmount: '5.46',
 
   hideInAllNetworksMode: true,
 

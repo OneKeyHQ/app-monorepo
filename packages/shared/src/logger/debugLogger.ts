@@ -1,9 +1,12 @@
 import { format as fnsFormat } from 'date-fns';
 import { isArray, isNil } from 'lodash';
 import { InteractionManager } from 'react-native';
-import { FileLogger, LogLevel } from 'react-native-file-logger';
 import { logger as RNLogger, consoleTransport } from 'react-native-logs';
 
+import {
+  FileLogger,
+  LogLevel,
+} from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import { zip } from '@onekeyhq/shared/src/modules3rdParty/react-native-zip-archive';
 
 import platformEnv from '../platformEnv';
@@ -169,14 +172,17 @@ export const getLogZipPath = async (fileName: string) => {
   }
 };
 
-FileLogger.configure({
-  captureConsole: false,
-  dailyRolling: true,
-  maximumFileSize: 1024 * 1024 * 4,
-  maximumNumberOfFiles: 7,
-  logsDirectory: NATIVE_LOG_DIR_PATH,
-  logLevel: LogLevel.Info,
-});
+if (platformEnv.isNative) {
+  FileLogger.configure({
+    captureConsole: false,
+    dailyRolling: true,
+    maximumFileSize: 1024 * 1024 * 4,
+    maximumNumberOfFiles: 7,
+    logsDirectory: NATIVE_LOG_DIR_PATH,
+    logLevel: LogLevel.Info,
+  });
+}
+
 const fileAsyncTransport: transportFunctionType = (props) => {
   const { level, rawMsg, extension } = props;
   FileLogger.write(
@@ -214,6 +220,7 @@ export enum LoggerNames {
   onBoarding = 'onBoarding',
   hardwareSDK = 'hardwareSDK',
   http = 'http',
+  websocket = 'websocket',
   jsBridge = 'jsBridge',
   webview = 'webview',
   desktopInjected = 'desktopInjected',
@@ -266,6 +273,7 @@ const debugLogger: Record<
   [LoggerNames.redux]: Cache.createLogger(LoggerNames.redux),
   [LoggerNames.navigation]: Cache.createLogger(LoggerNames.navigation),
   [LoggerNames.http]: Cache.createLogger(LoggerNames.http),
+  [LoggerNames.websocket]: Cache.createLogger(LoggerNames.websocket),
   [LoggerNames.jsBridge]: Cache.createLogger(LoggerNames.jsBridge),
   [LoggerNames.webview]: Cache.createLogger(LoggerNames.webview),
   [LoggerNames.desktopInjected]: Cache.createLogger(
