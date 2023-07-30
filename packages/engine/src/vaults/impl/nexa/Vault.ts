@@ -3,14 +3,13 @@ import memoizee from 'memoizee';
 
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { InvalidAddress, OneKeyInternalError } from '../../../errors';
 import {
   type Account,
-  type AccountCredentialType,
   AccountType,
   type DBAccount,
-  type DBSimpleAccount,
 } from '../../../types/account';
 import {
   type IApproveInfo,
@@ -37,7 +36,7 @@ import {
 import { Nexa } from './sdk';
 import settings from './settings';
 import {
-  decodeScriptBufferToNexaAddress,
+  buildDecodeTxFromTx,
   estimateFee,
   estimateSize,
   getNexaNetworkInfo,
@@ -47,20 +46,16 @@ import {
 } from './utils';
 
 import type { BaseClient } from '../../../client/BaseClient';
+import type { DBUTXOAccount } from '../../../types/account';
 import type {
   PartialTokenInfo,
   TransactionStatus,
 } from '../../../types/provider';
 import type { Token } from '../../../types/token';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
-import type {
-  IDecodedTxAction,
-  IDecodedTxLegacy,
-  IHistoryTx,
-  ISignedTxPro,
-} from '../../types';
+import type { IDecodedTxLegacy, IHistoryTx, ISignedTxPro } from '../../types';
 import type { EVMDecodedItem } from '../evm/decoder/types';
-import type { IEncodedTxNexa } from './types';
+import type { IEncodedTxNexa, INexaTransaction } from './types';
 
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -101,16 +96,16 @@ export default class Vault extends VaultBase {
     };
   }
 
+  override async getAccountAddress(): Promise<string> {
+    return (await this.getOutputAccount()).address;
+  }
+
   override async getDisplayAddress(address: string): Promise<string> {
-    try {
-      if (verifyNexaAddressPrefix(address)) {
-        return address;
-      }
-      const chainId = await this.getNetworkChainId();
-      return publickeyToAddress(Buffer.from(address, 'hex'), chainId);
-    } catch (error) {
+    if (verifyNexaAddressPrefix(address)) {
       return address;
     }
+    const chainId = await this.getNetworkChainId();
+    return publickeyToAddress(Buffer.from(address, 'hex'), chainId);
   }
 
   override async addressFromBase(account: DBAccount): Promise<string> {
@@ -201,8 +196,7 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxNexa,
     payload?: any,
   ): Promise<IDecodedTx> {
-    const address = await this.getAccountAddress();
-    const displayAddress = await this.getDisplayAddress(address);
+    const displayAddress = await this.getAccountAddress();
     const amountValue = encodedTx.outputs.reduce(
       (acc, cur) => acc.plus(new BigNumber(cur.satoshis)),
       new BigNumber(0),
@@ -375,6 +369,33 @@ export default class Vault extends VaultBase {
     return signedTx;
   }
 
+  async buildDecodeTx(txHash: string): Promise<IDecodedTx | false> {
+    const client = await this.getSDKClient();
+    let tx: INexaTransaction;
+    try {
+      tx = await client.getTransaction(txHash);
+    } catch (error) {
+      // The result from Nexa Transaction API may be incomplete JSON, resulting in parsing failure.
+      debugLogger.common.error(`Failed to fetch Nexa transaction. `, txHash);
+      return false;
+    }
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const displayAddress = await this.getDisplayAddress(dbAccount.address);
+    const { decimals } = await this.engine.getNetwork(this.networkId);
+    const chainId = await this.getNetworkChainId();
+    const network = getNexaNetworkInfo(chainId);
+    const token: Token = await this.engine.getNativeTokenInfo(this.networkId);
+    return buildDecodeTxFromTx({
+      tx,
+      dbAccountAddress: displayAddress,
+      decimals,
+      addressPrefix: network.prefix,
+      token,
+      networkId: this.networkId,
+      accountId: this.accountId,
+    });
+  }
+
   override async fetchOnChainHistory(options: {
     tokenIdOnNetwork?: string | undefined;
     localHistory?: IHistoryTx[] | undefined;
@@ -386,8 +407,7 @@ export default class Vault extends VaultBase {
       return Promise.resolve([]);
     }
 
-    const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
-    const { decimals } = await this.engine.getNetwork(this.networkId);
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const client = await this.getSDKClient();
     const displayAddress = await this.getDisplayAddress(dbAccount.address);
     const onChainHistories = await client.getHistoryByAddress(displayAddress);
@@ -397,93 +417,27 @@ export default class Vault extends VaultBase {
           const historyTxToMerge = localHistories.find(
             (item) => item.decodedTx.txid === history.tx_hash,
           );
-          if (historyTxToMerge && !historyTxToMerge.decodedTx.isFinal) {
-            const tx = await client.getTransaction(history.tx_hash);
-            let action: IDecodedTxAction = {
-              type: IDecodedTxActionType.UNKNOWN,
-            };
-
-            const chainId = await this.getNetworkChainId();
-            const network = getNexaNetworkInfo(chainId);
-            const from = decodeScriptBufferToNexaAddress(
-              Buffer.from(tx.vin[0].scriptSig.hex, 'hex'),
-              network.prefix,
-            );
-            const to = decodeScriptBufferToNexaAddress(
-              Buffer.from(tx.vout[0].scriptPubKey.hex, 'hex'),
-              network.prefix,
-            );
-            const tokenAddress = displayAddress;
-            const amountValue = tx.vout.reduce((acc, cur) => {
-              if (
-                decodeScriptBufferToNexaAddress(
-                  Buffer.from(cur.scriptPubKey.hex, 'hex'),
-                  network.prefix,
-                ) !== tokenAddress
-              ) {
-                return acc.plus(new BigNumber(cur.value_satoshi));
+          if (historyTxToMerge) {
+            if (!historyTxToMerge.decodedTx.isFinal) {
+              const decodedTx = await this.buildDecodeTx(history.tx_hash);
+              if (decodedTx) {
+                decodedTx.createdAt =
+                  historyTxToMerge?.decodedTx.createdAt ?? decodedTx.createdAt;
+                return this.buildHistoryTx({
+                  decodedTx,
+                  historyTxToMerge,
+                });
               }
-              return acc;
-            }, new BigNumber(0));
-            if (amountValue && tokenAddress) {
-              let direction = IDecodedTxDirection.IN;
-              if (from === displayAddress) {
-                direction =
-                  to === displayAddress
-                    ? IDecodedTxDirection.SELF
-                    : IDecodedTxDirection.OUT;
-              }
-
-              const actionType = IDecodedTxActionType.TOKEN_TRANSFER;
-              const token: Token = await this.engine.getNativeTokenInfo(
-                this.networkId,
-              );
-              const actionKey = 'tokenTransfer';
-
-              action = {
-                type: actionType,
-                direction,
-                [actionKey]: {
-                  tokenInfo: token,
-                  from,
-                  to,
-                  amount: amountValue.shiftedBy(-token.decimals).toFixed(),
-                  amountValue: amountValue.toString(),
-                  extraInfo: null,
-                },
-              };
             }
-            const decodedTx: IDecodedTx = {
-              txid: history.tx_hash,
-              owner: displayAddress,
-              signer: displayAddress,
-              nonce: 0,
-              actions: [action],
-              status: tx.confirmations
-                ? IDecodedTxStatus.Confirmed
-                : IDecodedTxStatus.Pending,
-              networkId: this.networkId,
-              accountId: this.accountId,
-              encodedTx: {
-                from: displayAddress,
-                to: '',
-                value: '',
-                data: tx.hex,
-              },
-              extraInfo: null,
-              totalFeeInNative: new BigNumber(tx.fee_satoshi)
-                .shiftedBy(-decimals)
-                .toFixed(),
-            };
-            decodedTx.updatedAt = tx.time ? tx.time * 1000 : Date.now();
-            decodedTx.createdAt =
-              historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
-            decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
+            return historyTxToMerge;
+          }
+          const decodedTx = await this.buildDecodeTx(history.tx_hash);
+          if (decodedTx) {
             return this.buildHistoryTx({
               decodedTx,
-              historyTxToMerge,
             });
           }
+          return false;
         }),
       )
     ).filter(Boolean);
