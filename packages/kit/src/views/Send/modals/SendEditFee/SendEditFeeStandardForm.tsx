@@ -201,6 +201,8 @@ export function SendEditFeeStandardForm({
                   ? customFeeInfo?.price1559
                   : customFeeInfo?.price
               }
+              custom={customFeeInfo}
+              feeInfo={feeInfoPayload?.info}
               limit={customFeeInfo?.limit ?? feeInfoPayload?.info.limit ?? '0'}
             />
           </HStack>
