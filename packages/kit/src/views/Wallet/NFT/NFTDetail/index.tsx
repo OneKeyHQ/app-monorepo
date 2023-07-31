@@ -1,5 +1,4 @@
 import type { FC } from 'react';
-import { useEffect, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 
@@ -14,8 +13,6 @@ import NavigationButton from '@onekeyhq/components/src/Modal/Container/Header/Na
 import type { INFTAsset } from '@onekeyhq/engine/src/types/nft';
 import type { CollectiblesRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Collectibles';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
 import { getNFTDetailComponents } from './getNFTDetailComponents';
 
@@ -67,8 +64,6 @@ function ModalContent({
 }
 
 const NFTDetailModal: FC = () => {
-  const [accountId, setAccountId] = useState<string | undefined>();
-  const hardwareCancelFlagRef = useRef<boolean>(false);
   const navigation = useNavigation();
 
   const route =
@@ -79,20 +74,7 @@ const NFTDetailModal: FC = () => {
       >
     >();
 
-  const { asset, isOwner } = route.params;
-
-  useEffect(() => {
-    backgroundApiProxy.serviceAccount
-      .getAccountByAddress({
-        address: asset.accountAddress ?? '',
-        networkId: asset.networkId,
-      })
-      .then((account) => {
-        if (account) {
-          setAccountId(account?.id);
-        }
-      });
-  }, [asset]);
+  const { networkId, accountId, asset, isOwner } = route.params;
 
   return (
     <Modal
@@ -109,19 +91,15 @@ const NFTDetailModal: FC = () => {
         right={platformEnv.isExtensionUiPopup ? '8px' : '24px'}
         zIndex={1}
         onPress={() => {
-          hardwareCancelFlagRef.current = true;
           navigation.goBack?.();
         }}
       />
-      {accountId ? (
-        <ModalContent
-          // ref={hardwareCancelFlagRef}
-          asset={asset}
-          isOwner={isOwner}
-          networkId={asset.networkId ?? ''}
-          accountId={accountId}
-        />
-      ) : null}
+      <ModalContent
+        asset={asset}
+        isOwner={isOwner}
+        networkId={networkId}
+        accountId={accountId}
+      />
     </Modal>
   );
 };
