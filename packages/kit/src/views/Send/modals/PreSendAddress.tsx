@@ -38,6 +38,7 @@ import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounce
 import { useSingleToken } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { BulkSenderTypeEnum } from '../../BulkSender/types';
+import { lightningNetworkSendConfirm } from '../../LightningNetwork/Send/lightningNetworkSendUtils';
 import { BaseSendModal } from '../components/BaseSendModal';
 import NFTView from '../components/NFTView';
 import { SendModalRoutes } from '../types';
@@ -393,106 +394,6 @@ function PreSendAddress() {
     ],
   );
 
-  const lightningNetworkSendConfirm = useCallback(
-    async (toVal: string) => {
-      try {
-        const isZeroAmount = await serviceLightningNetwork.isZeroAmountInvoice({
-          payReq: toVal,
-          networkId,
-          accountId,
-        });
-        if (isZeroAmount) {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.Send,
-            params: {
-              screen: SendModalRoutes.PreSendAmount,
-              params: {
-                ...transferInfo,
-                networkId,
-                accountId,
-                to: toVal,
-              },
-            },
-          });
-          return;
-        }
-        setIsLoadingAssets(true);
-        const encodedTx = await engine.buildEncodedTxFromTransfer({
-          networkId,
-          accountId,
-          transferInfo: {
-            ...transferInfo,
-            to: toVal,
-          },
-        });
-
-        navigation.navigate(SendModalRoutes.SendConfirm, {
-          accountId,
-          networkId,
-          encodedTx,
-          feeInfoUseFeeInTx: false,
-          feeInfoEditable: true,
-          backRouteName: SendModalRoutes.PreSendAddress,
-          // @ts-expect-error
-          payload: {
-            payloadType: 'Transfer',
-            account,
-            network,
-            token: {
-              ...tokenInfo,
-              sendAddress: transferInfo.tokenSendAddress,
-              idOnNetwork: tokenInfo?.tokenIdOnNetwork ?? '',
-            },
-            to: toVal,
-            value: (encodedTx as IEncodedTxLightning).amount,
-            isMax: false,
-          },
-        });
-      } catch (e: any) {
-        console.error('lightningNetworkSendConfirm ERROR: ', e);
-
-        const { key: errorKey = '' } = e;
-        if (errorKey === 'form__amount_invalid') {
-          ToastManager.show(
-            {
-              title: intl.formatMessage(
-                { id: 'form__amount_invalid' },
-                { 0: tokenInfo?.symbol ?? '' },
-              ),
-            },
-            { type: 'error' },
-          );
-        } else if (errorKey) {
-          ToastManager.show(
-            {
-              title: intl.formatMessage({ id: errorKey }),
-            },
-            { type: 'error' },
-          );
-        } else {
-          ToastManager.show(
-            { title: typeof e === 'string' ? e : (e as Error).message },
-            { type: 'error' },
-          );
-        }
-      } finally {
-        setIsLoadingAssets(false);
-      }
-    },
-    [
-      accountId,
-      engine,
-      intl,
-      navigation,
-      networkId,
-      tokenInfo,
-      transferInfo,
-      account,
-      network,
-      serviceLightningNetwork,
-    ],
-  );
-
   const onSubmit = useCallback(
     (values: FormValues) => {
       const toVal = resolvedAddress || values.to;
@@ -502,7 +403,18 @@ function PreSendAddress() {
       if (isNFT) {
         nftSendConfirm(toVal);
       } else if (isLightningNetwork) {
-        lightningNetworkSendConfirm(toVal);
+        lightningNetworkSendConfirm({
+          toVal,
+          network,
+          networkId,
+          account,
+          accountId,
+          tokenInfo,
+          transferInfo,
+          navigation,
+          setIsLoadingAssets,
+          intl,
+        });
       } else {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
@@ -753,7 +665,9 @@ function PreSendAddress() {
                   }
                   placeholder={
                     isLightningNetwork
-                      ? intl.formatMessage({ id: 'content__enter_invoice' })
+                      ? intl.formatMessage({
+                          id: 'content__enter_invoice_lightning_address_or_lnurl',
+                        })
                       : undefined
                   }
                 />
