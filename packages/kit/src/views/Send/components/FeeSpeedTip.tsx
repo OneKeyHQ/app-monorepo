@@ -9,6 +9,7 @@ import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
 import type {
   IFeeInfo,
   IFeeInfoPrice,
+  IFeeInfoUnit,
 } from '@onekeyhq/engine/src/vaults/types';
 
 function FeeInfoItem({ title, value }: { title: string; value: string }) {
@@ -30,6 +31,7 @@ export function FeeSpeedTip({
   limit,
   feeInfo,
   prices,
+  custom,
 }: {
   index?: number | string;
   isCustom?: boolean;
@@ -38,6 +40,7 @@ export function FeeSpeedTip({
   limit?: string;
   feeInfo?: IFeeInfo;
   prices?: IFeeInfoPrice[];
+  custom?: IFeeInfoUnit;
 }) {
   const intl = useIntl();
   const indexInt = parseInt(index as string, 10);
@@ -113,9 +116,13 @@ export function FeeSpeedTip({
               <Box mt={1}>
                 <FeeInfoItem
                   title={intl.formatMessage({ id: 'form__fee_rate' })}
-                  value={`${new BigNumber(price as string)
-                    .shiftedBy(feeInfo?.feeDecimals ?? 8)
-                    .toFixed()} sat/vB`}
+                  value={
+                    isCustom
+                      ? `${custom?.feeRate ?? '0'} sat/vB`
+                      : `${new BigNumber(price as string)
+                          .shiftedBy(feeInfo?.feeDecimals ?? 8)
+                          .toFixed()} sat/vB`
+                  }
                 />
                 <FeeInfoItem
                   title={intl.formatMessage({ id: 'form__size' })}
