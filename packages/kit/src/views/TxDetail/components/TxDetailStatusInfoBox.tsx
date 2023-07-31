@@ -4,13 +4,21 @@ import { useNavigation } from '@react-navigation/core';
 import dayjs from 'dayjs';
 import { useIntl } from 'react-intl';
 
-import { Box, Button, HStack, Image, Text, ToastManager } from '@onekeyhq/components';
+import {
+  Box,
+  Button,
+  HStack,
+  Image,
+  Text,
+  ToastManager,
+} from '@onekeyhq/components';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
 import txFailedIcon from '@onekeyhq/kit/assets/transaction/status/tx_failed.png';
 import txPendingIcon from '@onekeyhq/kit/assets/transaction/status/tx_pending.png';
 import txSuccessedIcon from '@onekeyhq/kit/assets/transaction/status/tx_successed.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { TabRoutes } from '../../../routes/routesEnum';
@@ -22,7 +30,6 @@ import type { IBaseMenuOptions } from '../../Overlay/BaseMenu';
 import type { ITxActionListViewProps } from '../types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ImageURISource } from 'react-native';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 type Props = ITxActionListViewProps & {
   tokensInTx: Token[];
