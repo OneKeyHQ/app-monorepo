@@ -88,7 +88,7 @@ const NFTDetailModal: FC = () => {
   } = route.params;
 
   useEffect(() => {
-    if (isAllNetworks(originAccountId)) {
+    if (!isAllNetworks(networkId)) {
       setAccountId(originAccountId);
       return;
     }
@@ -127,7 +127,7 @@ const NFTDetailModal: FC = () => {
         // ref={hardwareCancelFlagRef}
         asset={asset}
         isOwner={isOwner}
-        networkId={asset.networkId ?? ''}
+        networkId={asset.networkId ?? networkId}
         accountId={accountId}
       />
     </Modal>
