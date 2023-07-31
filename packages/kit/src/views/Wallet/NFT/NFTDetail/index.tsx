@@ -11,6 +11,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import NavigationButton from '@onekeyhq/components/src/Modal/Container/Header/NavigationButton';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { INFTAsset } from '@onekeyhq/engine/src/types/nft';
 import type { CollectiblesRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Collectibles';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -79,9 +80,18 @@ const NFTDetailModal: FC = () => {
       >
     >();
 
-  const { asset, isOwner } = route.params;
+  const {
+    asset,
+    isOwner,
+    accountId: originAccountId,
+    networkId,
+  } = route.params;
 
   useEffect(() => {
+    if (isAllNetworks(originAccountId)) {
+      setAccountId(originAccountId);
+      return;
+    }
     backgroundApiProxy.serviceAccount
       .getAccountByAddress({
         address: asset.accountAddress ?? '',
@@ -92,7 +102,7 @@ const NFTDetailModal: FC = () => {
           setAccountId(account?.id);
         }
       });
-  }, [asset]);
+  }, [asset, originAccountId, networkId]);
 
   return (
     <Modal
@@ -113,15 +123,13 @@ const NFTDetailModal: FC = () => {
           navigation.goBack?.();
         }}
       />
-      {accountId ? (
-        <ModalContent
-          // ref={hardwareCancelFlagRef}
-          asset={asset}
-          isOwner={isOwner}
-          networkId={asset.networkId ?? ''}
-          accountId={accountId}
-        />
-      ) : null}
+      <ModalContent
+        // ref={hardwareCancelFlagRef}
+        asset={asset}
+        isOwner={isOwner}
+        networkId={asset.networkId ?? ''}
+        accountId={accountId}
+      />
     </Modal>
   );
 };
