@@ -172,13 +172,11 @@ SectionOpenBlockBrowser.displayName = 'SectionOpenBlockBrowser';
 type AccountUpdateTipsProps = {
   networkId: string;
   accountId: string;
-  onPressUpdate: () => void;
 };
 
 const AccountUpdateTips: FC<AccountUpdateTipsProps> = ({
   networkId,
   accountId,
-  onPressUpdate,
 }) => {
   const intl = useIntl();
   const [ellipsis, setEllipsis] = useState('');
@@ -274,14 +272,7 @@ const AccountUpdateTips: FC<AccountUpdateTipsProps> = ({
     return null;
   }
 
-  return (
-    <>
-      <Box size="1" bg="icon-subdued" borderRadius="999px" mx="2" />
-      <Pressable onPress={onPressUpdate}>
-        <Typography.Body2 color="text-subdued">{updateTips}</Typography.Body2>
-      </Pressable>
-    </>
-  );
+  return <Typography.Body2 color="text-subdued">{updateTips}</Typography.Body2>;
 };
 
 const SummedValueComp = memo(
@@ -317,6 +308,7 @@ SummedValueComp.displayName = 'SummedValueComp';
 type ChangedValueCompProps = AccountUpdateTipsProps & {
   amount24h: BigNumber;
   amount: BigNumber;
+  onPressUpdate: () => void;
 };
 
 const ChangedValueComp = memo(
@@ -363,11 +355,15 @@ const ChangedValueComp = memo(
             <Typography.Body2Strong color="text-subdued" ml="1">
               {intl.formatMessage({ id: 'content__today' })}
             </Typography.Body2Strong>
-            <AccountUpdateTips
-              networkId={networkId}
-              accountId={accountId}
-              onPressUpdate={onPressUpdate}
-            />
+            <>
+              <Box size="1" bg="icon-subdued" borderRadius="999px" mx="2" />
+              <Pressable onPress={onPressUpdate}>
+                <AccountUpdateTips
+                  networkId={networkId}
+                  accountId={accountId}
+                />
+              </Pressable>
+            </>
           </HStack>
         )}
       </Box>
