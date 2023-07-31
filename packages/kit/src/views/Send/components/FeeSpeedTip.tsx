@@ -117,8 +117,8 @@ export function FeeSpeedTip({
                 <FeeInfoItem
                   title={intl.formatMessage({ id: 'form__fee_rate' })}
                   value={
-                    isCustom
-                      ? `${custom?.feeRate ?? '0'} sat/vB`
+                    isCustom && custom?.feeRate
+                      ? `${custom.feeRate} sat/vB`
                       : `${new BigNumber(price as string)
                           .shiftedBy(feeInfo?.feeDecimals ?? 8)
                           .toFixed()} sat/vB`
