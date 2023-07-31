@@ -132,11 +132,20 @@ export const ButtonsSection: FC = () => {
 
   const { symbol, logoURI, fiatUrls } = context?.detailInfo ?? {};
 
-  const { tokens, loading, ethereumNativeToken } = context?.detailInfo ?? {};
+  const {
+    tokens,
+    loading: detailLoading,
+    ethereumNativeToken,
+  } = context?.detailInfo ?? {};
 
   const { wallet } = useWallet({
     walletId,
   });
+
+  const loading = useMemo(
+    () => isAllNetworks(networkId) && detailLoading,
+    [detailLoading, networkId],
+  );
 
   const { network: currentNetwork } = useNetwork({ networkId });
 
