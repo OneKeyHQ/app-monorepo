@@ -6,6 +6,7 @@ import {
   IMPL_APTOS,
   IMPL_SOL,
   IMPL_STC,
+  IMPL_SUI,
   IMPL_TRON,
   SEPERATOR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -43,6 +44,7 @@ export const caseSensitiveImpls = new Set([
   IMPL_STC,
   IMPL_TRON,
   IMPL_APTOS,
+  IMPL_SUI,
 ]);
 
 let cachedTokenSourceList: TokenSource[] = [];
