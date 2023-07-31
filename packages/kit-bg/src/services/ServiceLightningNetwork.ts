@@ -1,4 +1,5 @@
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
+import { getLnurlDetails } from '@onekeyhq/engine/src/vaults/impl/lightning-network/helper/lnurl';
 import type VaultLightning from '@onekeyhq/engine/src/vaults/impl/lightning-network/Vault';
 import {
   backgroundClass,
@@ -185,5 +186,10 @@ export default class ServiceLightningNetwork extends ServiceBase {
     });
     // @ts-expect-error
     return vault.validateSendAmount(amount);
+  }
+
+  @backgroundMethod()
+  async getLnurlDetails(lnurl: string) {
+    return getLnurlDetails(lnurl);
   }
 }

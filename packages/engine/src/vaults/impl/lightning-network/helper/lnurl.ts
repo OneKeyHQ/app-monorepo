@@ -74,7 +74,7 @@ export const isLNURLRequestError = (
 ): res is LNURLError => 'status' in res && res.status.toUpperCase() === 'ERROR';
 
 export const getLnurlDetails = memoizee(
-  async (lnurl: string): Promise<LNURLError | LNURLDetails> => {
+  async (lnurl: string): Promise<LNURLDetails> => {
     const url = parseLnurl(lnurl);
     const searchParamsTag = url.searchParams.get('tag');
     const searchParamsK1 = url.searchParams.get('k1');

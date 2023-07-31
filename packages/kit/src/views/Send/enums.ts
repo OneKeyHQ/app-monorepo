@@ -14,6 +14,7 @@ export enum SendModalRoutes {
   BatchSendConfirm = 'BatchSendConfirm',
   BatchSendProgress = 'BatchSendProgress',
   NFTDetailModal = 'NFTDetailModal',
+  LNPayRequest = 'LNPayRequest',
 }
 
 export enum ESendEditFeeTypes {

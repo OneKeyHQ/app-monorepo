@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { ToastManager } from '@onekeyhq/components';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Token } from '@onekeyhq/engine/src/types/token';
+import { findLnurl } from '@onekeyhq/engine/src/vaults/impl/lightning-network/helper/lnurl';
 import type { IEncodedTxLightning } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types';
 import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
 
@@ -44,6 +45,54 @@ async function lightningNetworkSendConfirm({
   intl: IntlShape;
 }) {
   const { serviceLightningNetwork, engine } = backgroundApiProxy;
+  setIsLoadingAssets(true);
+
+  try {
+    const lnurl = findLnurl(toVal);
+    if (lnurl) {
+      const lnurlDetails = await serviceLightningNetwork.getLnurlDetails(lnurl);
+
+      if (lnurlDetails.tag === 'login') {
+        // TODO: navigate to login auth page
+      }
+
+      if (lnurlDetails.tag === 'payRequest') {
+        // TODO: navigate to payRequest page
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendModalRoutes.LNPayRequest,
+            params: {
+              ...transferInfo,
+              networkId,
+              accountId,
+              to: toVal,
+            },
+          },
+        });
+      }
+
+      if (lnurlDetails.tag === 'withdrawRequest') {
+        // TODO: navigate to withdraw page
+      }
+      setIsLoadingAssets(false);
+      return;
+    }
+  } catch (e) {
+    // ignore error
+    console.error('Lnurl error: ', e);
+    ToastManager.show(
+      {
+        title: intl.formatMessage({
+          id: 'msg__invalid_lightning_payment_request',
+        }),
+      },
+      { type: 'error' },
+    );
+    setIsLoadingAssets(false);
+    return;
+  }
+
   try {
     const isZeroAmount = await serviceLightningNetwork.isZeroAmountInvoice({
       payReq: toVal,
@@ -65,7 +114,6 @@ async function lightningNetworkSendConfirm({
       });
       return;
     }
-    setIsLoadingAssets(true);
     const encodedTx = await engine.buildEncodedTxFromTransfer({
       networkId,
       accountId,

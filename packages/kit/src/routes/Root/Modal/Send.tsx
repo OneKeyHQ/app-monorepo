@@ -1,5 +1,6 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
+import { PayRequest as LNPayRequest } from '../../../views/LightningNetwork/Send/PayRequest';
 import { BaseSendRouteScreen } from '../../../views/Send/components/BaseSendRouteScreen';
 import { BatchSendConfirm } from '../../../views/Send/modals/BatchSendConfirm';
 import { BatchSendProgress } from '../../../views/Send/modals/BatchSendProgress';
@@ -88,6 +89,10 @@ const modalRoutes = [
   {
     name: SendModalRoutes.NFTDetailModal,
     component: NFTDetailView,
+  },
+  {
+    name: SendModalRoutes.LNPayRequest,
+    component: LNPayRequest,
   },
 ];
 
