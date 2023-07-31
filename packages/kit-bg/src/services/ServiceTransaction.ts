@@ -184,23 +184,26 @@ export default class ServiceTransaction extends ServiceBase {
       }
     }
 
-    if (!feeInfoUnit || !feeInfo) {
+    if (!feeInfoUnit) {
       throw new FailedToEstimatedGasError();
     }
 
     const total = calculateTotalFeeRange(feeInfoUnit, network.feeDecimals).max;
 
-    const totalFeeInNative = calculateTotalFeeNative({
-      amount: total,
-      info: feeInfo,
-    });
+    let totalFeeInNative = '';
+    if (feeInfo) {
+      totalFeeInNative = calculateTotalFeeNative({
+        amount: total,
+        info: feeInfo,
+      });
 
-    await this.checkAccountBalanceGreaterThan({
-      accountId,
-      networkId,
-      totalFeeInNative,
-      prepaidFee: params.prepaidFee ?? '0',
-    });
+      await this.checkAccountBalanceGreaterThan({
+        accountId,
+        networkId,
+        totalFeeInNative,
+        prepaidFee: params.prepaidFee ?? '0',
+      });
+    }
 
     const encodedTxWithFee = await engine.attachFeeInfoToEncodedTx({
       networkId,
@@ -237,7 +240,7 @@ export default class ServiceTransaction extends ServiceBase {
       decodedTx.feeInfo = feeInfoUnit;
     }
 
-    if (!decodedTx.totalFeeInNative) {
+    if (!decodedTx.totalFeeInNative && totalFeeInNative) {
       decodedTx.totalFeeInNative = totalFeeInNative;
     }
 
