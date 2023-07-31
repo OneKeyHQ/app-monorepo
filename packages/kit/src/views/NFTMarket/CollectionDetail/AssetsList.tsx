@@ -20,10 +20,11 @@ import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useNetworks } from '../../../hooks/redux';
+import { useGridListLayout } from '../../../hooks/useGridListLayout';
 import { useIsMounted } from '../../../hooks/useIsMounted';
 import { CollectiblesModalRoutes } from '../../../routes/routesEnum';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
-import { useGridListLayout } from '../../Wallet/NFT/SendNFTList';
 
 import { useCollectionDetailContext } from './context';
 

@@ -337,6 +337,8 @@ export type IOverviewTokenDetailListItem = {
   logoURI: string;
   type: string;
   balance: string;
+  availableBalance?: string;
+  transferBalance?: string;
   networkId: string;
   accountName?: string;
   protocolId?: string;

@@ -385,6 +385,7 @@ export enum CoinControlModalRoutes {
 }
 
 export enum InscribeModalRoutes {
+  BRC20Amount = 'BRC20Amount',
   InscribeModal = 'InscribeModal',
   ReceiveAddress = 'ReceiveAddress',
   CreateOrder = 'CreateOrder',

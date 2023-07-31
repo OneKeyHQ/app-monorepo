@@ -753,6 +753,34 @@ export const useAccountValues = (props: {
   );
 };
 
+export const useBRC20TokenBalance = ({
+  networkId,
+  accountId,
+  token,
+  fallback = {
+    balance: '0',
+    availableBalance: '0',
+    transferBalance: '0',
+  },
+}: {
+  networkId: string;
+  accountId: string;
+  token?: Partial<Token> | null;
+  fallback?: {
+    balance: string;
+    availableBalance: string;
+    transferBalance: string;
+  };
+}) => {
+  const balances = useAppSelector((s) => s.tokens.accountTokensBalance);
+
+  return useMemo(
+    () =>
+      balances?.[networkId]?.[accountId]?.[getBalanceKey(token)] ?? fallback,
+    [networkId, token, accountId, balances, fallback],
+  );
+};
+
 export const useTokenBalance = ({
   networkId,
   accountId,
@@ -763,6 +791,7 @@ export const useTokenBalance = ({
   accountId: string;
   token?: Partial<Token> | null;
   fallback?: string;
+  isBRC20?: boolean;
 }) => {
   const { data: tokens } = useAccountPortfolios({
     accountId,
@@ -947,6 +976,8 @@ export const useTokenPositionInfo = ({
 
   return useMemo(() => {
     let balance = new B(0);
+    let transferBalance = new B(0);
+    let availableBalance = new B(0);
     const items: IOverviewTokenDetailListItem[] = [];
     accountTokens.forEach((t) => {
       if (
@@ -967,12 +998,16 @@ export const useTokenPositionInfo = ({
               logoURI: t.logoURI ?? '',
               type: 'Token',
               balance: item.balance ?? '0',
+              availableBalance: t.availableBalance ?? '0',
+              transferBalance: t.transferBalance ?? '0',
               networkId: item.networkId,
               accountName: account?.name ?? '',
             });
           }
         });
         balance = balance.plus(t.balance ?? 0);
+        transferBalance = transferBalance.plus(t.transferBalance ?? '0');
+        availableBalance = availableBalance.plus(t.availableBalance ?? '0');
       }
     });
 
@@ -1025,6 +1060,8 @@ export const useTokenPositionInfo = ({
 
     return {
       balance,
+      transferBalance,
+      availableBalance,
       items,
     };
   }, [

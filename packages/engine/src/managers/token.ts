@@ -16,6 +16,7 @@ import { getFiatEndpoint } from '../endpoint';
 import { OneKeyInternalError } from '../errors';
 
 import type { Tool } from '../types/token';
+import { isBRC20Token } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 export type TokenQuery = {
   // for all chain search
@@ -179,6 +180,11 @@ export const getBalanceKey = (token?: Partial<Token> | null) => {
   if (!tokenAddress) {
     return 'main';
   }
+
+  if (isBRC20Token(tokenAddress)) {
+    return tokenAddress;
+  }
+
   if (sendAddress) {
     return `${tokenAddress}--${sendAddress}`;
   }

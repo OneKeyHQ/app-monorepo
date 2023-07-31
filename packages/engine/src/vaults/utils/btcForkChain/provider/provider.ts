@@ -21,6 +21,7 @@ import type {
   UTXO,
   UnsignedTx,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
+import { isBRC20Token } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import {
   getBitcoinBip32,
@@ -404,6 +405,13 @@ class Provider {
   verifyAddress(addr: string): AddressValidation {
     let encoding: string | undefined;
     const address = this.decodeAddress(addr);
+
+    if (isBRC20Token(address))
+      return {
+        isValid: true,
+        normalizedAddress: address,
+        displayAddress: address,
+      };
 
     try {
       const decoded = BitcoinJS.address.fromBase58Check(address);

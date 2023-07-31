@@ -33,6 +33,7 @@ import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { isBRC20Content } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
@@ -95,6 +96,11 @@ const CreateOrder: FC = () => {
   );
   const isVerticalLayout = useIsVerticalLayout();
   const isSendConfirm = useRef<boolean>(false);
+
+  const isBRC20Token = isBRC20Content({
+    content: bufferUtils.hexToText(contents[0].hex),
+    contentType: contents[0].mimetype,
+  });
 
   const [order, updateOrder] = useState<IInscriptionsOrder>();
   const { token: tokenInfo } = useSingleToken(networkId, '');
@@ -347,7 +353,10 @@ const CreateOrder: FC = () => {
             bounces={false}
             contentContainerStyle={{ paddingHorizontal: 16 }}
           >
-            <Steps numberOfSteps={3} currentStep={3} />
+            <Steps
+              numberOfSteps={isBRC20Token ? 2 : 3}
+              currentStep={isBRC20Token ? 2 : 3}
+            />
             <Text mt="16px" typography="Heading">
               {intl.formatMessage({ id: 'form__inscribe_preview' })}
             </Text>

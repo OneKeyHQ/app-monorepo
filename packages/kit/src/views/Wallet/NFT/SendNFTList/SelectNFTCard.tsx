@@ -4,9 +4,10 @@ import type { ComponentProps, FC } from 'react';
 import BigNumber from 'bignumber.js';
 import { MotiView } from 'moti';
 
-import { Badge, Box, Icon, Pressable, Text } from '@onekeyhq/components';
+import { Badge, Box, Pressable, Text } from '@onekeyhq/components';
 import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 
+import { SelectedIndicator } from '../../../../components/SelectedIndicator';
 import { useActiveSideAccount } from '../../../../hooks';
 import { showAmountInputDialog } from '../AmountInputDialog';
 import NFTListImage from '../NFTList/NFTListImage';
@@ -21,43 +22,6 @@ type Props = ComponentProps<typeof Box> & {
   accountId: string;
   networkId: string;
 };
-
-function SelectedIndicator({
-  multiSelect,
-  selected,
-  width,
-}: {
-  multiSelect?: boolean;
-  selected: boolean;
-  width: number;
-}) {
-  if (multiSelect === false && selected === false) {
-    return null;
-  }
-  return (
-    <Box
-      borderRadius="full"
-      justifyContent="center"
-      alignItems="center"
-      bgColor="icon-on-primary"
-      size={`${width}px`}
-    >
-      {selected && (
-        <MotiView
-          from={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: 'timing', duration: 150 }}
-        >
-          <Icon
-            name="CheckCircleMini"
-            color="interactive-default"
-            size={width}
-          />
-        </MotiView>
-      )}
-    </Box>
-  );
-}
 
 const SelectNFTCard: FC<Props> = ({
   accountId,

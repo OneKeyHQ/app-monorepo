@@ -15,6 +15,7 @@ import {
 import { withDebugRenderTracker } from '@onekeyhq/components/src/DebugRenderTracker';
 import type { ITokenFiatValuesInfo } from '@onekeyhq/engine/src/types/token';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { isBRC20Token } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import {
   FormatBalance,
@@ -102,6 +103,8 @@ function TokenCellBalance({
 }) {
   const { networkId, accountId, address, symbol } = token;
   const { network } = useActiveSideAccount({ accountId, networkId });
+  const tokenId = token?.address || 'main';
+  const isBRC20 = useMemo(() => isBRC20Token(tokenId), [tokenId]);
 
   const displayDecimal = useMemo(() => {
     const tokenId = address || 'main';
@@ -248,8 +251,6 @@ function TokenCellView(props: ITokenCellViewProps) {
     return null;
   }
 
-  const isDisabled = networkId === OnekeyNetwork.btc && !!token.address;
-
   return (
     <Pressable.Item
       p={4}
@@ -268,7 +269,6 @@ function TokenCellView(props: ITokenCellViewProps) {
       w="100%"
       flexDirection="row"
       alignItems="center"
-      isDisabled={isDisabled}
     >
       <Box flex={1}>
         <Token

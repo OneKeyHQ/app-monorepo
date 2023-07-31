@@ -75,3 +75,9 @@ export type Tool = {
 export enum BRCTokenType {
   BRC20 = 'brc-20',
 }
+
+export enum BRC20TokenOperation {
+  Mint = 'mint',
+  Transfer = 'transfer',
+  Deploy = 'deploy',
+}

@@ -80,6 +80,11 @@ export type LnUrlWithdrawParams = {
   lnurlDetails: LNURLWithdrawServiceResponse;
   isSendFlow: boolean;
 };
+export type PreSendBRC20TokenAmountParams = {
+  networkId: string;
+  accountId: string;
+  token: Token;
+};
 
 export type LnUrlAuthParams = {
   walletId: string;
@@ -147,6 +152,7 @@ export type SendConfirmPayloadInfo = {
   swapInfo?: ISwapInfo;
   stakeInfo?: IStakeInfo;
   nftInfo?: INFTInfo;
+  nftInfos?: INFTInfo[];
 };
 export type SendConfirmSharedParams = {
   networkId: string;
@@ -240,6 +246,7 @@ export type SendRoutesParams = {
   [SendModalRoutes.PreSendToken]: PreSendParams;
   [SendModalRoutes.PreSendAddress]: PreSendParams;
   [SendModalRoutes.PreSendAmount]: PreSendParams;
+  [SendModalRoutes.PreSendBRC20TokenAmount]: PreSendBRC20TokenAmountParams;
   [SendModalRoutes.SendEditFee]: EditFeeParams;
   [SendModalRoutes.TokenApproveAmountEdit]: TokenApproveAmountEditParams;
   [SendModalRoutes.SendConfirmFromDapp]: SendConfirmFromDappParams;
@@ -456,3 +463,13 @@ export enum EditableNonceStatusEnum {
   Less = 'Less',
   Greater = 'Greater',
 }
+
+export type BRC20TokenAmountItem = {
+  amount: string;
+  inscriptionId: string;
+  inscriptionNumber: string;
+};
+
+export type BRC20TokenAmountListResponse = {
+  transferBalanceList: BRC20TokenAmountItem[];
+};

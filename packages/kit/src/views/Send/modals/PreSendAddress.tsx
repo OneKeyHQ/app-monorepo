@@ -90,7 +90,7 @@ function PreSendAddress() {
     transferInfos && transferInfos.length > 0
       ? transferInfos[0]
       : (reset as ITransferInfo);
-  const { isNFT } = transferInfo;
+  const { isNFT, isBRC20 } = transferInfo;
   const { account, network, walletId } = useActiveSideAccount(routeParams);
   const isLightningNetwork = isLightningNetworkByImpl(network?.impl);
   const useFormReturn = useForm<FormValues>({
@@ -131,7 +131,7 @@ function PreSendAddress() {
   const [nftInfo, updateNFTInfo] = useState<INFTAsset>();
   useEffect(() => {
     (async () => {
-      if (isNFT) {
+      if (isNFT && !isBRC20) {
         const { nftTokenId } = transferInfo;
         if (nftTokenId) {
           const contractAddress = transferInfo.token;
@@ -279,6 +279,7 @@ function PreSendAddress() {
             tokenId: transferInfos[i].nftTokenId ?? '',
             local: true,
           });
+
           nftInfos.push({
             asset: (asset || {}) as NFTAsset,
             amount: transferInfo.amount,
@@ -403,7 +404,7 @@ function PreSendAddress() {
       if (isLoading || !toVal) {
         return;
       }
-      if (isNFT) {
+      if (isNFT || isBRC20) {
         nftSendConfirm(toVal);
       } else if (isLightningNetwork) {
         lightningNetworkSendConfirm({
@@ -599,7 +600,7 @@ function PreSendAddress() {
     ],
   );
 
-  // Refersh pending tx status before entering the send confirm modal
+  // Refresh pending tx status before entering the send confirm modal
   // To avoid pending tx alert on send confirm modal (actually there isn't)
   useEffect(() => {
     const refreshPendingTx = async () => {
@@ -638,7 +639,7 @@ function PreSendAddress() {
         children: (
           <Box>
             <Form>
-              {isNFT ? (
+              {isNFT && !isBRC20 ? (
                 <NFTView asset={nftInfo} total={transferInfos?.length || 1} />
               ) : (
                 <Box flexDirection="row" alignItems="center">
