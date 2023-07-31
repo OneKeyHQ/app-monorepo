@@ -1,9 +1,11 @@
 import type { FC, ReactNode } from 'react';
 import { createRef, useMemo } from 'react';
 
+import { config } from '@tamagui/config';
 import { NativeBaseProvider, StatusBar, extendTheme } from 'native-base';
 import { IntlProvider } from 'react-intl';
-import { Easing, StyleSheet, useWindowDimensions } from 'react-native';
+import { Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { TamaguiProvider, createTamagui } from 'tamagui'; // or '@tamagui/core'
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -53,6 +55,8 @@ function FontProvider({ children, waitFontLoaded = true }: IFontProviderProps) {
 }
 
 export const intlRef = createRef<IntlShape>();
+
+const appConfig = createTamagui(config);
 
 const Provider: FC<UIProviderProps> = ({
   children,
@@ -308,7 +312,11 @@ const Provider: FC<UIProviderProps> = ({
             }}
             theme={themeVar}
           >
-            {children}
+            <View>
+              <TamaguiProvider config={appConfig}>
+                <View>{children}</View>
+              </TamaguiProvider>
+            </View>
           </NativeBaseProvider>
         </IntlProvider>
       </Context.Provider>
