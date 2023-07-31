@@ -19,7 +19,7 @@ import type { GoPlusAddressSecurity } from '@onekeyhq/engine/src/types/goplus';
 import { GoPlusSupportApis } from '@onekeyhq/engine/src/types/goplus';
 import type { INFTAsset, NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import type { IEncodedTxLightning } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types';
+import { findLnurl } from '@onekeyhq/engine/src/vaults/impl/lightning-network/helper/lnurl';
 import type {
   INFTInfo,
   ITransferInfo,
@@ -74,8 +74,9 @@ function PreSendAddress() {
   const [isValidAddress, setIsValidAddress] = useState(false);
   const [validAddressMessage, setValidAddressMessage] =
     useState<MessageDescriptor['id']>();
-  const { serviceNFT, serviceBatchTransfer, serviceLightningNetwork, engine } =
-    backgroundApiProxy;
+  const [validAddressMessageProperty, setValidAddressMessageProperty] =
+    useState<Record<string, any>>();
+  const { serviceNFT, serviceBatchTransfer, engine } = backgroundApiProxy;
   const routeParams = useMemo(() => ({ ...route.params }), [route.params]);
   const {
     validateAddress,
@@ -565,7 +566,13 @@ function PreSendAddress() {
           } else {
             setIsValidAddress(true);
             if (isLightningNetwork) {
-              setValidAddressMessage('msg__valid_payment_request');
+              const isLnurl = findLnurl(toAddress);
+              if (isLnurl) {
+                setValidAddressMessage('msg__valid_str_payment_request');
+                setValidAddressMessageProperty({ 0: 'LNURL' });
+              } else {
+                setValidAddressMessage('msg__valid_payment_request');
+              }
             }
             setvalidateMessage({
               errorMessage: '',
@@ -686,6 +693,7 @@ function PreSendAddress() {
                 isContractAddress={isContractAddress}
                 isValidAddress={isValidAddress}
                 validAddressMessage={validAddressMessage}
+                validAddressMessageProperty={validAddressMessageProperty}
                 showValidAddressLabel
                 isLoading={
                   isLoading || isValidatingAddress || formState.isValidating

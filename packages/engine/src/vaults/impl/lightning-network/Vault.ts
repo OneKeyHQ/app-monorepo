@@ -30,6 +30,7 @@ import { VaultBase } from '../../VaultBase';
 
 import ClientLightning from './helper/ClientLightningNetwork';
 import { getInvoiceTransactionStatus } from './helper/invoice';
+import { findLnurl } from './helper/lnurl';
 import { signature } from './helper/signature';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -179,6 +180,17 @@ export default class Vault extends VaultBase {
   }
 
   override async validateAddress(address: string): Promise<string> {
+    // maybe it's a lnurl
+    try {
+      const lnurl = findLnurl(address);
+      if (!lnurl) {
+        throw new Error('not a lnurl');
+      }
+      return lnurl;
+    } catch (e) {
+      // ignore parsed lnurl error
+    }
+
     try {
       await this._decodedInvoceCache(address);
       return address;
