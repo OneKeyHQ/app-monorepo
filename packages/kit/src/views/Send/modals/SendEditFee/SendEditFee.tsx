@@ -360,13 +360,17 @@ function ScreenSendEditFee({ ...rest }) {
         setValue('gasPrice', new BigNumber(price ?? 0).toFixed());
       }
 
-      if (isBtcForkChain && !feeInfoValue.feeRate) {
-        setValue(
-          'feeRate',
-          new BigNumber(price ?? 0)
-            .shiftedBy(feeInfoPayload.info.feeDecimals ?? 8)
-            .toFixed(),
-        );
+      if (isBtcForkChain) {
+        if (feeInfoValue.feeRate) {
+          setValue('feeRate', feeInfoValue.feeRate);
+        } else {
+          setValue(
+            'feeRate',
+            new BigNumber(price ?? 0)
+              .shiftedBy(feeInfoPayload.info.feeDecimals ?? 8)
+              .toFixed(),
+          );
+        }
       }
       setValue('gasLimit', new BigNumber(limit ?? 0).toFixed());
     },
@@ -438,7 +442,7 @@ function ScreenSendEditFee({ ...rest }) {
         setRadioValue(presetValue);
       }
     } else if (type === 'custom') {
-      const customValues = cloneDeep(selected?.custom ?? {});
+      const customValues = currentCustom ?? cloneDeep(selected?.custom ?? {});
       if (customValues) {
         if (!radioValueInit.current) {
           radioValueInit.current = true;
@@ -497,6 +501,7 @@ function ScreenSendEditFee({ ...rest }) {
     }
   }, [
     autoConfirmAfterFeeSaved,
+    currentCustom,
     feeInfoPayload,
     feeInfoPayload?.selected,
     feeInfoPayload?.selected.type,
