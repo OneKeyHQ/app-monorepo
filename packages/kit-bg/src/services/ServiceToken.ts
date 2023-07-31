@@ -213,13 +213,20 @@ export default class ServiceToken extends ServiceBase {
         networkId,
       );
 
+      accountTokens = accountTokens.filter(
+        (t) => !removedTokens.includes(t.address ?? ''),
+      );
+
       dispatch(
         setAccountTokens({
           accountId,
           networkId,
-          tokens: accountTokens.filter(
-            (t) => !removedTokens.includes(t.address ?? ''),
-          ),
+          tokens: [
+            ...(accountTokensInRedux?.filter((t) =>
+              accountTokens.find((token) => token.address !== t.address),
+            ) ?? []),
+            ...accountTokens,
+          ],
         }),
         setOverviewPortfolioUpdatedAt({
           key: `${networkId}___${accountId}`,
