@@ -587,48 +587,51 @@ export const useSwapSubmit = () => {
       setProgressStatus?.({
         title: intl.formatMessage({ id: 'action__swapping_str' }, { '0': '' }),
       });
-
-      await sendSwapTx({
-        accountId: sendingAccount.id,
-        networkId: fromNetworkId,
-        gasEstimateFallback: Boolean(approveTx),
-        encodedTx: encodedTx as IEncodedTxEvm,
-        showSendFeedbackReceipt: true,
-        payloadInfo: {
-          type: 'InternalSwap',
-          swapInfo,
-        },
-        prepaidFee,
-        onDetail(txid) {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.Swap,
-            params: {
-              screen: SwapRoutes.Transaction,
+      try {
+        await sendSwapTx({
+          accountId: sendingAccount.id,
+          networkId: fromNetworkId,
+          gasEstimateFallback: Boolean(approveTx),
+          encodedTx: encodedTx as IEncodedTxEvm,
+          showSendFeedbackReceipt: true,
+          payloadInfo: {
+            type: 'InternalSwap',
+            swapInfo,
+          },
+          prepaidFee,
+          onDetail(txid) {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Swap,
               params: {
-                txid,
+                screen: SwapRoutes.Transaction,
+                params: {
+                  txid,
+                },
               },
-            },
-          });
-        },
-        onSuccess: async ({ result: swapResult, decodedTx }) => {
-          if (!res) {
-            return;
-          }
-          await addSwapTransaction({
-            hash: swapResult.txid,
-            decodedTx,
-            params: buildParams,
-            response: res,
-            quote,
-            recipient,
-          });
-          appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
-          onSuccess?.({ result: swapResult, decodedTx });
-        },
-        onFail: () => {
-          appUIEventBus.emit(AppUIEventBusNames.SwapError);
-        },
-      });
+            });
+          },
+          onSuccess: async ({ result: swapResult, decodedTx }) => {
+            if (!res) {
+              return;
+            }
+            await addSwapTransaction({
+              hash: swapResult.txid,
+              decodedTx,
+              params: buildParams,
+              response: res,
+              quote,
+              recipient,
+            });
+            appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
+            onSuccess?.({ result: swapResult, decodedTx });
+          },
+          onFail: () => {
+            appUIEventBus.emit(AppUIEventBusNames.SwapError);
+          },
+        });
+      } finally {
+        closeProgressStatus?.();
+      }
     };
 
     tasks.unshift(doSwap);
@@ -667,6 +670,9 @@ export const useSwapSubmit = () => {
             }
             await nextTask?.();
           },
+          onFail: () => {
+            closeProgressStatus?.();
+          },
         });
         tagLogger.end(LoggerTimerTags.approval);
       };
@@ -680,12 +686,12 @@ export const useSwapSubmit = () => {
           payloadInfo.swapInfo = { ...swapInfo, isApprove: true };
         }
         tagLogger.start(LoggerTimerTags.cancelApproval);
-        setProgressStatus?.({
-          title: intl.formatMessage(
-            { id: 'action__resetting_authorizing_str' },
-            { '0': '' },
-          ),
-        });
+        // setProgressStatus?.({
+        //   title: intl.formatMessage(
+        //     { id: 'action__resetting_authorizing_str' },
+        //     { '0': '' },
+        //   ),
+        // });
         await sendSwapTx({
           accountId: sendingAccount.id,
           networkId: fromNetworkId,
