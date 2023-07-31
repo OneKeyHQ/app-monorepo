@@ -84,7 +84,7 @@ async function doSpeedUpOrCancelTx(props: {
   };
   if (actionType === 'cancel') {
     encodedTxEvm.to = encodedTxEvm.from;
-    encodedTxEvm.value = '0';
+    encodedTxEvm.value = '0x0';
     encodedTxEvm.data = '0x';
   }
   if (actionType === 'speedUp') {
