@@ -20,6 +20,7 @@ import {
 import RefreshLightningNetworkToken from '@onekeyhq/kit/src/views/LightningNetwork/RefreshLightningNetworkToken';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -163,8 +164,10 @@ const WalletTabs: FC = () => {
   );
 
   const getHomeTabIndex = useCallback(
-    (tabName: string | undefined) =>
-      usedTabs.findIndex((tab) => tab.name === tabName),
+    (tabName: string | undefined) => {
+      const index = usedTabs.findIndex((tab) => tab.name === tabName);
+      return index === -1 ? 0 : index;
+    },
     [usedTabs],
   );
 
@@ -179,6 +182,7 @@ const WalletTabs: FC = () => {
 
       // Android animation redux causes ui stuttering
       timer.current = setTimeout(() => {
+        debugLogger.common.info('setHomeTabIndex', index);
         backgroundApiProxy.dispatch(
           setHomeTabName(getHomeTabNameByIndex(index)),
         );
