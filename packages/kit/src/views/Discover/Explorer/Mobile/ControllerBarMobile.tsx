@@ -29,7 +29,7 @@ import {
 } from '../../../../store/observable/webTabs';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import { OverlayPanel } from '../../../Overlay/OverlayPanel';
-import { PortalRender } from '../../../Overlay/RootPortal';
+import { PortalEntry } from '../../../Overlay/RootPortal';
 import { useWebController } from '../Controller/useWebController';
 import {
   MAX_OR_SHOW,
@@ -198,7 +198,7 @@ export const ControllerBarMobile: FC = () => {
     </Animated.View>
   );
   return (
-    <PortalRender container={`BottomTab-Overlay-${TabRoutes.Discover}`}>
+    <PortalEntry target={`BottomTab-Overlay-${TabRoutes.Discover}`}>
       <Animated.View
         style={[
           StyleSheet.absoluteFill,
@@ -223,6 +223,6 @@ export const ControllerBarMobile: FC = () => {
           {tabController}
         </Box>
       </Animated.View>
-    </PortalRender>
+    </PortalEntry>
   );
 };
