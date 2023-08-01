@@ -9,6 +9,8 @@ import type { Token } from '../types/token';
 import type { Filter, Log, Provider } from '@ethersproject/abstract-provider';
 import type { BigNumberish } from 'ethers';
 
+export const revokeUrl = 'https://revoke.cash/';
+
 export type Events = {
   transferEvents: Log[];
   approvalEvents: Log[];

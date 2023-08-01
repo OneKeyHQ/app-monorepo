@@ -934,6 +934,7 @@
   "content__your_total_assets": "إجمالي الأصول الخاصة بك",
   "content__your_wallet_is_now_ready": "محفظتك الآن <b> جاهزة </b>",
   "content__zero_is_not_the_end_it_s_a_brand_new_start": "الصفر ليس النهاية.\n إنها بداية جديدة تمامًا.",
+  "content_a_comment_to_the_recipient": "تعليق للمتلقي",
   "content_click_account_details": "انقر فوق القائمة الموجودة في الزاوية اليمنى العليا ، ثم انقر فوق \"تفاصيل الحساب\"",
   "dialog__backup_wallet_desc": "نسخة احتياطية من عبارة الاسترداد الخاصة بك قبل الحذف.",
   "dialog__backup_wallet_title": "المحفظة الاحتياطية",
@@ -1188,6 +1189,7 @@
   "form__coin_control": "التحكم في العملات",
   "form__coingecko_desc": "أخبار التشفير من Coingecko",
   "form__coingecko_trust_score_uppercase": "سجل COINGECKO TRUST",
+  "form__comment_optional": "التعليق (اختياري)",
   "form__compressing_failed_try_again": "فشل الضغط ، حاول مرة أخرى.",
   "form__connect_wallet_before_uploading": "قم بتوصيل المحفظة قبل التحميل",
   "form__connected_sites": "المواقع المتصلة",
@@ -1534,6 +1536,7 @@
   "form__pausable_transfer_desc": "يمكن لمالك العقد التوقف عن التداول في أي وقت ، وبعد ذلك يمكن فقط لمن لديهم سلطة معينة البيع.",
   "form__pay": "يدفع",
   "form__payment_address": "عنوان الدفع",
+  "form__payment_description": "وصف الدفع",
   "form__payment_hash": "تجزئة الدفع",
   "form__payment_info__uppercase": "معلومات الدفع",
   "form__pending_tx": "معلق Tx",
@@ -2054,6 +2057,8 @@
   "msg__address_deleted": "تم حذف العنوان",
   "msg__address_is_inconsistent_please_check_manually": "العنوان غير متسق. يرجى التحقق يدويًا.",
   "msg__alert_already_exists": "التنبيه موجود بالفعل",
+  "msg__amount_should_not_be_less_than_int": "يجب ألا يقل المبلغ عن {0}",
+  "msg__amount_should_not_exceed_int": "يجب ألا يتجاوز المبلغ {0}",
   "msg__amount_too_small": "مبلغ التحويل صغير جدًا",
   "msg__aptos_first_activation_token": "إذا تم تنشيط الرمز المميز لأول مرة ، فسيتم إصدار معاملة عملة.",
   "msg__asset_ratio": "نسبة الأصول",
@@ -2321,6 +2326,7 @@
   "msg__switch_to_str": "تحول إلى {0}",
   "msg__tab_has_reached_the_maximum_limit_of_str": "وصلت علامة التبويب إلى الحد الأقصى البالغ {0} .",
   "msg__text_file_cannot_be_blank": "لا يمكن أن يكون الملف النصي فارغًا",
+  "msg__text_length_should_not_exceed_int": "يجب ألا يتجاوز طول النص {0}",
   "msg__the_content_format_of_the_upload_file_is_incorrect": "تنسيق محتوى الملف الذي تم تحميله غير صحيح. راجع المثال لتعديل الملف المراد تحميله.",
   "msg__the_current_version_is_the_latest": "👏 الإصدار الحالي هو الأحدث",
   "msg__the_disk_path_was_not_found": "لم يتم العثور على مسار القرص",
@@ -2400,6 +2406,7 @@
   "msg__your_trade_may_fail_due_to_small_slippage": "قد تفشل تجارتك بسبب انزلاق بسيط.",
   "msg__your_transaction_may_be_frontrun": "قد تكون معاملتك في المقدمة",
   "msg__your_transaction_may_fail": "قد تفشل معاملتك",
+  "msg_connection_failed_it_may_be_an_invalid_lnurl_lightning_address_check_your_network_and_try_again": "فشل الاتصال ، قد يكون عنوان lnurl / lightning غير صالح. تحقق من شبكتك وحاول مرة أخرى",
   "msg_description_can_be_up_to_int_characters": "يمكن أن يصل الوصف إلى {0} من الأحرف",
   "msg_insufficient_gas_fee": "رسوم الغاز غير كافية",
   "msg_receipt_amount_should_be_less_than_int_sats": "يجب أن يكون مبلغ الإيصال أقل من {0} ساتس",
@@ -2547,6 +2554,7 @@
   "title__lets_play_the_dot_punching_game_desc": "سيقوم OneKey بتحويل عبارة الاسترداد إلى BIP39 dotmap. كل ما عليك القيام به هو اتباع dotmap لكمة النقاط على KeyTag باستخدام ثقب مركزي تلقائي ، ثم ستنتهي من النسخ الاحتياطي لمحفظتك. استمتع!",
   "title__lido_unstaking": "ليدو غير مقيدة",
   "title__lido_unstaking_desc": "عملية السحب بسيطة وسيتم تقسيمها إلى الخطوات التالية:",
+  "title__lnurl_pay": "دفع LNURL",
   "title__major_update": "تحديث رئيسي",
   "title__manage_account_dynamic": "إدارة الحساب الديناميكي",
   "title__manage_accounts": "إدارة الحسابات",
@@ -2672,7 +2680,7 @@
   "title__the_device_has_been_reset": "تم إعادة ضبط الجهاز!",
   "title__this_is_an_address_you_want_multiline": "هذا عنوان ،\n انت تريد...",
   "title__token_approvals": "الموافقات الرمزية",
-  "title__token_approvals_desc": "Revoke.gg - حماية الأصول الخاصة بك عن طريق إدارة أذونات العقد.",
+  "title__token_approvals_desc": "حماية الأصول الخاصة بك عن طريق إدارة الموافقات على العقود.",
   "title__token_that_needs_caution": "الرمز الذي يحتاج إلى الحذر",
   "title__token_that_needs_caution_desc": "استنادًا إلى البيانات متعددة الأطراف ، يجب عرض هذا الرمز المميز بحذر.",
   "title__top_gainers": "أعلى الرابحين",
