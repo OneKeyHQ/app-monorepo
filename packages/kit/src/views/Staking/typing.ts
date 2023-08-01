@@ -13,9 +13,11 @@ export enum StakingRoutes {
   KeleEthUnstakeShouldUnderstand = 'KeleEthUnstakeShouldUnderstand',
 
   LidoEthStakeShouldUnderstand = 'LidoEthStakeShouldUnderStand',
+  LidoMaticStakeShouldUnderstand = 'LidoMaticStakeShouldUnderstand',
   LidoEthUnstakeShouldUnderstand = 'LidoEthUnstakeShouldUnderStand',
   LidoEthUnstake = 'LidoEthUnstake',
   LidoEthUnstakeRoutes = 'LidoEthUnstakeRoutes',
+  LidoUnstakeRoutes = 'LidoUnstakeRoutes',
 
   ETHPoolSelector = 'ETHPoolSelector',
   KeleStakingModeSelector = 'KeleStakingModeSelector',
@@ -87,6 +89,11 @@ export type StakingRoutesParams = {
     accountId: string;
     readonly?: boolean;
   };
+  [StakingRoutes.LidoMaticStakeShouldUnderstand]: {
+    networkId: string;
+    accountId: string;
+    readonly?: boolean;
+  };
   [StakingRoutes.LidoEthUnstakeShouldUnderstand]: {
     networkId: string;
     accountId: string;
@@ -96,6 +103,13 @@ export type StakingRoutesParams = {
     accountId: string;
   };
   [StakingRoutes.LidoEthUnstakeRoutes]: {
+    networkId: string;
+    accountId: string;
+    source: string;
+    amount?: string;
+    onSelector?: (name: string) => void;
+  };
+  [StakingRoutes.LidoUnstakeRoutes]: {
     networkId: string;
     accountId: string;
     source: string;

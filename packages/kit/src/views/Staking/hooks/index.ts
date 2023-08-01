@@ -4,16 +4,11 @@ import { parse } from 'date-fns';
 import { useIntl } from 'react-intl';
 
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
 import { formatAmount, isEvmNetworkId } from '../../Swap/utils';
 import { getLidoContractAddress, getStMaticContractAdderess } from '../address';
-import {
-  MainnetLidoContractAddress,
-  TestnetLidoContractAddress,
-} from '../config';
 import { EthStakingSource } from '../typing';
 
 import type {

@@ -11,7 +11,9 @@ import LidoEthUnstake from '../../../views/Staking/LidoEthUnstake';
 import LidoEthUnstakeRoutes from '../../../views/Staking/LidoEthUnstakeRoutes';
 import LidoEthUnstakeShouldUnderstand from '../../../views/Staking/LidoEthUnstakeShouldUnderstand';
 import LidoMaticClaim from '../../../views/Staking/LidoMaticClaim';
+import LidoMaticStakeShouldUnderstand from '../../../views/Staking/LidoMaticStakeShouldUnderstand';
 import LidoMaticUnstake from '../../../views/Staking/LidoMaticUnstake';
+import LidoUnstakeRoutes from '../../../views/Staking/LidoUnstakeRoutes';
 import MaticStake from '../../../views/Staking/MaticStake';
 import StakedETHOnKele from '../../../views/Staking/StakedETHOnKele';
 import StakedETHOnLido from '../../../views/Staking/StakedETHOnLido';
@@ -86,6 +88,10 @@ const modalRoutes = [
     component: LidoEthUnstakeRoutes,
   },
   {
+    name: StakingRoutes.LidoUnstakeRoutes,
+    component: LidoUnstakeRoutes,
+  },
+  {
     name: StakingRoutes.KeleStakingModeSelector,
     component: KeleStakingModeSelector,
   },
@@ -104,6 +110,10 @@ const modalRoutes = [
   {
     name: StakingRoutes.LidoMaticClaim,
     component: LidoMaticClaim,
+  },
+  {
+    name: StakingRoutes.LidoMaticStakeShouldUnderstand,
+    component: LidoMaticStakeShouldUnderstand,
   },
 ];
 

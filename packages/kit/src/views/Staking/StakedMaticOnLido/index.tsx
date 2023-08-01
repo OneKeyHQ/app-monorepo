@@ -81,7 +81,7 @@ const ClaimAlert = () => {
     const items = lidoMaticOverview.nfts ?? [];
     const nfts = items.filter((item) => item.claimable);
     const requests = nfts.map((nft) => nft.nftId);
-    if (requests.length === 1) {
+    if (requests.length > 1) {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Staking,
         params: {
@@ -236,11 +236,11 @@ const ListHeaderComponent = () => {
     });
   }, [navigation, networkId, accountId]);
 
-  const onLidoEthStakeShouldUnderstand = useCallback(() => {
+  const onLidoMaticStakeShouldUnderstand = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Staking,
       params: {
-        screen: StakingRoutes.LidoEthStakeShouldUnderstand,
+        screen: StakingRoutes.LidoMaticStakeShouldUnderstand,
         params: {
           readonly: true,
           networkId,
@@ -283,7 +283,7 @@ const ListHeaderComponent = () => {
           type="plain"
           name="QuestionMarkCircleOutline"
           size="sm"
-          onPress={onLidoEthStakeShouldUnderstand}
+          onPress={onLidoMaticStakeShouldUnderstand}
         />
       </Box>
       <Box mt="2">

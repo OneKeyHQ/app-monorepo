@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FC } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
@@ -9,6 +9,7 @@ import {
   Box,
   Button,
   Center,
+  CustomSkeleton,
   HStack,
   Icon,
   Image,
@@ -25,17 +26,18 @@ import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AutoSizeText } from '../../../components/AutoSizeText';
 import { FormatCurrency } from '../../../components/Format';
+import { useDebounce } from '../../../hooks';
 import { useSimpleTokenPriceValue } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { addTransaction } from '../../../store/reducers/staking';
 import { formatAmount } from '../../../utils/priceUtils';
 import { SendModalRoutes } from '../../Send/types';
 import { useSwapSubmit } from '../../Swap/hooks/useSwapSubmit';
-import { div, multiply } from '../../Swap/utils';
+import { div, formatAmountExact, multiply } from '../../Swap/utils';
 import { StakingKeyboard } from '../components/StakingKeyboard';
 import { useLidoMaticOverview } from '../hooks';
+import { getStMaticToMaticQuote } from '../quote';
 import { StakingRoutes } from '../typing';
-import { buildWithdrawStEthTransaction } from '../utils';
 
 import type { StakingRoutesParams } from '../typing';
 import type { RouteProp } from '@react-navigation/core';
@@ -73,6 +75,70 @@ const UnstakeRouteOptions: FC<UnstakeRouteOptionsProps> = ({ value }) => {
       />
       <Typography.Body2Strong ml="2">OneKey Swap</Typography.Body2Strong>
       <Icon name="ChevronRightMini" />
+    </Box>
+  );
+};
+
+type YouWillReceiveTokenUsingSwapProps = {
+  value: string;
+  networkId: string;
+  accountId: string;
+};
+
+const YouWillReceiveTokenUsingSwap: FC<YouWillReceiveTokenUsingSwapProps> = (
+  props,
+) => {
+  const { value, networkId, accountId } = props;
+  const [loading, setLoading] = useState(false);
+  const [amountReceived, setAmountReceived] = useState('');
+  const ref = useRef<{ amount: string; num: number }>({ amount: '', num: 0 });
+  const amount = useDebounce(value, 500);
+  useEffect(() => {
+    async function main() {
+      if (!amount) {
+        return;
+      }
+      ref.current.amount = amount;
+      ref.current.num += 1;
+      try {
+        setLoading(true);
+        const amountToQuote = amount;
+        const res = await getStMaticToMaticQuote({
+          value: amountToQuote,
+          networkId,
+          accountId,
+        });
+        if (res && res.quote && amountToQuote === ref.current.amount) {
+          const estimatedAmount = multiply(
+            div(res.quote.buyAmount, res.quote.sellAmount),
+            amountToQuote,
+          );
+          console.log('estimatedAmount', estimatedAmount);
+          setAmountReceived(estimatedAmount);
+        }
+      } finally {
+        if (ref.current.num > 0) {
+          ref.current.num -= 1;
+        }
+        if (ref.current.num === 0) {
+          setLoading(false);
+        }
+      }
+    }
+    main();
+  }, [amount, networkId, accountId]);
+  if (loading) {
+    return (
+      <Box h="4" width="24" borderRadius="2px" overflow="hidden">
+        <CustomSkeleton />
+      </Box>
+    );
+  }
+  return (
+    <Box>
+      <Typography.Body2>
+        {formatAmountExact(amountReceived || '0', 4)} Matic
+      </Typography.Body2>
     </Box>
   );
 };
@@ -150,10 +216,10 @@ export default function LidoMaticUnstake() {
       networkId,
     );
     if (account && networkId) {
-      const { params, quote } = await buildWithdrawStEthTransaction({
+      const { params, quote } = await getStMaticToMaticQuote({
         networkId,
-        account,
-        typedValue: amount,
+        accountId,
+        value: amount,
       });
       await swapSubmit({
         params,
@@ -169,7 +235,7 @@ export default function LidoMaticUnstake() {
                 hash: result.txid,
                 accountId: account.id,
                 networkId,
-                type: 'lidoUnstake',
+                type: 'lidoUnstakeMatic',
                 nonce: decodedTx?.nonce,
                 addedTime: Date.now(),
               },
@@ -178,7 +244,7 @@ export default function LidoMaticUnstake() {
           navigation.replace(RootRoutes.Modal, {
             screen: ModalRoutes.Staking,
             params: {
-              screen: StakingRoutes.StakedETHOnLido,
+              screen: StakingRoutes.StakedMaticOnLido,
               params: {
                 accountId,
                 networkId,
@@ -280,7 +346,7 @@ export default function LidoMaticUnstake() {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Staking,
       params: {
-        screen: StakingRoutes.LidoEthUnstakeRoutes,
+        screen: StakingRoutes.LidoUnstakeRoutes,
         params: {
           source,
           amount,
@@ -451,6 +517,23 @@ export default function LidoMaticUnstake() {
                   )}{' '}
                   Matic
                 </Typography.Body2>
+              </Box>
+            ) : null}
+            {source === 'onekey' ? (
+              <Box
+                flexDirection="row"
+                justifyContent="space-between"
+                alignItems="center"
+                h="10"
+              >
+                <Typography.Body2 color="text-subdued">
+                  {intl.formatMessage({ id: 'form__you_receive' })}
+                </Typography.Body2>
+                <YouWillReceiveTokenUsingSwap
+                  value={amount}
+                  networkId={networkId}
+                  accountId={accountId}
+                />
               </Box>
             ) : null}
           </VStack>

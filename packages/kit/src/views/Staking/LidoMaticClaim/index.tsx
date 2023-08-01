@@ -37,7 +37,7 @@ type RouteProps = RouteProp<
   StakingRoutes.StakedMaticOnLido
 >;
 
-const ItemSeparatorComponent = () => <Box h="0" />;
+const ItemSeparatorComponent = () => <Box h="1" />;
 
 type ClaimItemProps = {
   item: LidoMaticNFTStatus;
@@ -139,7 +139,7 @@ const ClaimItem: FC<ClaimItemProps> = ({ item }) => {
 const ListFooterComponent = () => {
   const intl = useIntl();
   return (
-    <Box w="full">
+    <Box w="full" px="2" my="1">
       <Typography.Caption color="text-subdued">
         {intl.formatMessage({
           id: 'content__due_to_the_limitations_of_lido_you_must_claim_each_of_your_unstakes_separately',
