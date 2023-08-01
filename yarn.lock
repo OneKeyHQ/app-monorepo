@@ -5724,7 +5724,6 @@ __metadata:
     "@walletconnect/types": ^1.8.0
     "@walletconnect/utils": ^1.8.0
     asyncstorage-down: ^4.2.0
-    babel-plugin-transform-inline-environment-variables: ^0.4.4
     buffer: ^6.0.3
     expo: ^48.0.19
     expo-clipboard: ^4.1.2
@@ -13375,13 +13374,6 @@ __metadata:
   version: 0.4.3
   resolution: "babel-plugin-transform-inline-environment-variables@npm:0.4.3"
   checksum: 24248e81f36a2aa0a79aee18ddf177ddf76ceb24374189671eadb887033af44da592a90635a6d8c941e0b4b06af13b85081bab2cd712309621c78f5496fc4402
-  languageName: node
-  linkType: hard
-
-"babel-plugin-transform-inline-environment-variables@npm:^0.4.4":
-  version: 0.4.4
-  resolution: "babel-plugin-transform-inline-environment-variables@npm:0.4.4"
-  checksum: fa361287411301237fd8ce332aff4f8e8ccb8db30e87a2ddc7224c8bf7cd792eda47aca24dc2e09e70bce4c027bc8cbe22f4999056be37a25d2472945df21ef5
   languageName: node
   linkType: hard
 
