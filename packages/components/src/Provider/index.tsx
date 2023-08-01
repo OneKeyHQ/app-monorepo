@@ -1,12 +1,19 @@
 import type { FC, ReactNode } from 'react';
 import { createRef, useMemo } from 'react';
 
-import { config } from '@tamagui/config';
+import { setupReactNative } from '@tamagui/core';
 import { NativeBaseProvider, StatusBar, extendTheme } from 'native-base';
 import { IntlProvider } from 'react-intl';
-import { Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { TamaguiProvider, createTamagui } from 'tamagui'; // or '@tamagui/core'
+import {
+  Easing,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
+import { TamaguiProvider } from 'tamagui'; // or '@tamagui/core'
 
+import config from '@onekeyhq/app/tamagui.config';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -53,10 +60,12 @@ function FontProvider({ children, waitFontLoaded = true }: IFontProviderProps) {
   // but Native will throw error: Unrecognized font family "PlusJakartaSans-Bold"
   return <>{children}</>;
 }
-
 export const intlRef = createRef<IntlShape>();
 
-const appConfig = createTamagui(config);
+setupReactNative({
+  View,
+  Text,
+});
 
 const Provider: FC<UIProviderProps> = ({
   children,
@@ -312,10 +321,8 @@ const Provider: FC<UIProviderProps> = ({
             }}
             theme={themeVar}
           >
-            <View>
-              <TamaguiProvider config={appConfig}>
-                <View>{children}</View>
-              </TamaguiProvider>
+            <View style={{ flex: 1 }}>
+              <TamaguiProvider config={config}>{children}</TamaguiProvider>
             </View>
           </NativeBaseProvider>
         </IntlProvider>

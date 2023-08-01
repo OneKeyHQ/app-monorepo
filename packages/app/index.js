@@ -1,7 +1,8 @@
 /* eslint-disable import/first */
 if (process.env.NODE_ENV !== 'production') {
   const { Platform, NativeModules } = require('react-native');
-  const RCTAsyncStorage = NativeModules.RNC_AsyncSQLiteDBStorage || NativeModules.RNCAsyncStorage;
+  const RCTAsyncStorage =
+    NativeModules.RNC_AsyncSQLiteDBStorage || NativeModules.RNCAsyncStorage;
   let rrt;
   try {
     window.RCTAsyncStorage = RCTAsyncStorage;

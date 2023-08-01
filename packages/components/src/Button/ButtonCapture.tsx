@@ -1,5 +1,6 @@
 import { forwardRef, memo } from 'react';
 
+// import { Button } from 'native-base';
 import { Button } from 'tamagui';
 
 import { useBeforeOnPress } from '../utils/useBeforeOnPress';
@@ -9,11 +10,13 @@ import type { IButtonProps } from 'native-base';
 const ButtonCapture = forwardRef<any, IButtonProps>(
   ({ onPress, ...props }, ref) => {
     const onPressOverride = useBeforeOnPress(onPress);
+    // console.log('props', props);
     return (
       <Button
         // @ts-ignore
         ref={ref}
-        {...props}
+        // {...props}
+        onPressIn={props.onPressIn}
         onPress={onPressOverride}
       />
     );
