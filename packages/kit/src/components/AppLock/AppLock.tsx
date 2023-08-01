@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useEffect, useMemo } from 'react';
+import { Fragment, useEffect, useMemo } from 'react';
 
 import { Box, OverlayContainer } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -8,6 +8,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useDebounce } from '../../hooks';
 import { unlockWhiteListUrls } from '../../routes/linking.path';
 import { setAppRenderReady } from '../../store/reducers/data';
+import { LazyDisplayView } from '../LazyDisplayView';
 
 import { AppStateHeartbeat } from './AppStateHeartbeat';
 import { AppStateUnlock } from './AppStateUnlock';
@@ -53,12 +54,16 @@ export const AppLockView: FC<AppLockProps> = ({
     return <AppStateUnlock />;
   }
 
+  const Parent = platformEnv.isExtension ? LazyDisplayView : Fragment;
+
   return (
     <Box w="full" h="full" testID="AppLockView">
       {showUnlockView && renderAsOverlay ? (
-        <OverlayContainer>
-          <AppStateUnlock />
-        </OverlayContainer>
+        <Parent>
+          <OverlayContainer>
+            <AppStateUnlock />
+          </OverlayContainer>
+        </Parent>
       ) : null}
       {prerequisites && isUnlock ? <AppStateUpdater /> : null}
       {isUnlock ? <AppStateHeartbeat /> : null}
