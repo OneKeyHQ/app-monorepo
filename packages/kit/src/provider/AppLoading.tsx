@@ -91,7 +91,7 @@ const AppLoading: FC = ({ children }) => {
   }
 
   useEffect(() => {
-    async function main() {
+    function main() {
       // TODO initApp too slow, maybe do not need waiting for initApp in UI
       // await Promise.all([
       //   serviceApp.waitForAppInited({
@@ -100,9 +100,9 @@ const AppLoading: FC = ({ children }) => {
       // ]);
 
       // redux ready check move to ThemeApp
-
       // serviceApp.initApp();
-      await serviceApp.checkLockStatus();
+
+      serviceApp.checkLockStatus();
       setInitDataReady(true);
 
       // end splash screen to show AnimatedSplash after 50ms to avoid twinkling
