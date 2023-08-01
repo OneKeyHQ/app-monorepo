@@ -11,6 +11,15 @@ import type { RootSiblingManager } from 'react-native-root-siblings/lib/wrapRoot
 const portalManagers: Map<string, RootSiblingManager> = new Map();
 let portalUuid = 0;
 
+function setPortalManager(name: string, manager: RootSiblingManager) {
+  portalManagers.set(name, manager);
+
+  // simulate lazy set portal manager
+  // setTimeout(() => {
+  //   portalManagers.set(name, manager);
+  // }, 600);
+}
+
 function createPortalId(id: number): string {
   return `portal:${id}`;
 }
@@ -39,7 +48,7 @@ export function renderToPortal(
     manager.update(id, guest, callback);
   } else {
     throw new Error(
-      `react-native-root-portal: Can not find target PortalExit named:'${container}'.`,
+      `react-native-root-portal: Can not find target PortalContainer named:'${container}'.`,
     );
   }
 
@@ -58,6 +67,7 @@ export function PortalRender(props: {
   container?: string;
 }) {
   const { children, container } = props;
+  const [retry, setRetry] = useState(false);
 
   useEffect(() => {
     if (!container) {
@@ -74,9 +84,19 @@ export function PortalRender(props: {
       };
     }
     console.error(
-      `react-native-root-portal: Can not find target PortalExit named:'${container}'.`,
+      `react-native-root-portal: Can not find target PortalContainer named:'${container}'.`,
     );
-  }, [children, container]);
+    if (!retry) {
+      // manager not exists, may be portalManagers not init yet,
+      // try again in 600ms
+      setTimeout(() => {
+        console.error(
+          `react-native-root-portal: retry load PortalContainer:'${container}'.`,
+        );
+        setRetry(true);
+      }, 800);
+    }
+  }, [children, container, retry]);
 
   if (!container) {
     return <>{children}</>;
@@ -100,11 +120,11 @@ export function PortalContainer(props: {
 
     if (isPortalExisted(name)) {
       console.warn(
-        `react-native-root-portal: Another PortalExit named:'${name}' is already existed.`,
+        `react-native-root-portal: Another PortalContainer named:'${name}' is already existed.`,
       );
     }
 
-    portalManagers.set(name, manager);
+    setPortalManager(name, manager);
     return {
       Root,
       manager,
@@ -114,7 +134,7 @@ export function PortalContainer(props: {
 
   useEffect(() => {
     if (!portalManagers.has(name)) {
-      portalManagers.set(name, sibling.manager);
+      setPortalManager(name, sibling.manager);
     }
 
     return () => {
