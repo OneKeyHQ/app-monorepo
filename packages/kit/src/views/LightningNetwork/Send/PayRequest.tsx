@@ -4,7 +4,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { useCallback, useMemo, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { omit, pick } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -20,17 +20,25 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import type { IEncodedTxLightning } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types';
 import type { LNURLPaymentInfo } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/lnurl';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatCurrencyTokenOfAccount } from '../../../components/Format';
 import { useActiveSideAccount, useNativeToken } from '../../../hooks';
+import { useSingleToken } from '../../../hooks/useTokens';
+import { SendModalRoutes } from '../../Send/enums';
 
 import type { SendRoutesParams } from '../../../routes';
-import type { SendModalRoutes } from '../../Send/enums';
 import type { RouteProp } from '@react-navigation/core';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type RouteProps = RouteProp<SendRoutesParams, SendModalRoutes.LNPayRequest>;
+
+type NavigationProps = NativeStackNavigationProp<
+  SendRoutesParams,
+  SendModalRoutes.LNPayRequest
+>;
 
 type FormValues = {
   amount: string;
@@ -42,6 +50,7 @@ type FormValues = {
 const PayRequest = () => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
+  const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
 
   const lnurlDetails = useMemo(
@@ -53,7 +62,8 @@ const PayRequest = () => {
     [route.params],
   );
 
-  const { accountId, networkId, network } = useActiveSideAccount(transferInfo);
+  const { account, accountId, networkId, network } =
+    useActiveSideAccount(transferInfo);
   const { control, handleSubmit, watch } = useForm<FormValues>();
 
   const amountValue = watch('amount');
@@ -62,6 +72,10 @@ const PayRequest = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const nativeToken = useNativeToken(networkId);
+  const { token: tokenInfo } = useSingleToken(
+    networkId,
+    transferInfo.token ?? '',
+  );
 
   const siteImage = useMemo(() => {
     if (!lnurlDetails?.metadata) return;
@@ -151,7 +165,7 @@ const PayRequest = () => {
       if (!lnurlDetails) return;
       if (isLoading) return;
       setIsLoading(true);
-      const { serviceLightningNetwork } = backgroundApiProxy;
+      const { serviceLightningNetwork, engine } = backgroundApiProxy;
 
       let response: LNURLPaymentInfo;
       const amount = parseInt(values.amount) * 1000; // convert to milliSatoshi
@@ -178,6 +192,7 @@ const PayRequest = () => {
       }
 
       try {
+        const paymentRequest = response.pr;
         const isValidInvoice = await serviceLightningNetwork.verifyInvoice({
           paymentInfo: response,
           metadata: lnurlDetails.metadata,
@@ -192,6 +207,37 @@ const PayRequest = () => {
             }),
           });
         }
+
+        const encodedTx = await engine.buildEncodedTxFromTransfer({
+          networkId,
+          accountId,
+          transferInfo: {
+            ...transferInfo,
+            to: paymentRequest,
+          },
+        });
+        navigation.replace(SendModalRoutes.SendConfirm, {
+          accountId,
+          networkId,
+          encodedTx,
+          feeInfoUseFeeInTx: false,
+          feeInfoEditable: true,
+          backRouteName: SendModalRoutes.PreSendAddress,
+          // @ts-expect-error
+          payload: {
+            payloadType: 'Transfer',
+            account,
+            network,
+            token: {
+              ...tokenInfo,
+              sendAddress: transferInfo.tokenSendAddress,
+              idOnNetwork: tokenInfo?.tokenIdOnNetwork ?? '',
+            },
+            to: paymentRequest,
+            value: (encodedTx as IEncodedTxLightning).amount,
+            isMax: false,
+          },
+        });
       } catch (e) {
         console.error(e);
         ToastManager.show(
@@ -202,7 +248,18 @@ const PayRequest = () => {
       }
       // pay request
     },
-    [networkId, accountId, intl, isLoading, lnurlDetails],
+    [
+      network,
+      networkId,
+      account,
+      accountId,
+      intl,
+      isLoading,
+      lnurlDetails,
+      transferInfo,
+      navigation,
+      tokenInfo,
+    ],
   );
 
   const doSubmit = handleSubmit(onSubmit);
@@ -216,7 +273,6 @@ const PayRequest = () => {
         isDisabled: isLoading,
         isLoading,
       }}
-      hideSecondaryAction
       onPrimaryActionPress={() => doSubmit()}
       secondaryActionTranslationId="action__cancel"
       onSecondaryActionPress={() => {}}
