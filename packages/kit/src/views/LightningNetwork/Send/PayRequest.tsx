@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Box,
@@ -13,8 +14,10 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 
-import { useActiveSideAccount } from '../../../hooks';
+import { FormatCurrencyTokenOfAccount } from '../../../components/Format';
+import { useActiveSideAccount, useNativeToken } from '../../../hooks';
 
 import type { SendRoutesParams } from '../../../routes';
 import type { SendModalRoutes } from '../../Send/enums';
@@ -25,6 +28,8 @@ type RouteProps = RouteProp<SendRoutesParams, SendModalRoutes.PreSendAmount>;
 type FormValues = {
   amount: string;
   description: string;
+  connectTo: string;
+  comment: string;
 };
 
 const PayRequest = () => {
@@ -37,25 +42,28 @@ const PayRequest = () => {
   const { control, handleSubmit, watch } = useForm<FormValues>({
     mode: 'onChange',
   });
+  const amountValue = watch('amount');
   const [isLoading, setIsLoading] = useState(false);
   const [validateMessage, setvalidateMessage] = useState({
     errorMessage: '',
   });
 
+  const nativeToken = useNativeToken(networkId);
+
   const doSubmit = () => {};
   return (
     <Modal
-      // header={intl.formatMessage({ id: 'title__lnurl_pay' })}
-      header="LNURL Pay"
+      header={intl.formatMessage({ id: 'title__lnurl_pay' })}
       headerDescription="localhost.com"
-      hideSecondaryAction
       primaryActionTranslationId="action__next"
       primaryActionProps={{
         isDisabled: isLoading,
         isLoading,
       }}
       onPrimaryActionPress={() => doSubmit()}
-      height="418px"
+      secondaryActionTranslationId="action__cancel"
+      onSecondaryActionPress={() => {}}
+      height="auto"
       scrollViewProps={{
         contentContainerStyle: {
           flex: 1,
@@ -64,9 +72,65 @@ const PayRequest = () => {
         children: (
           <Form>
             <Form.Item
+              label="Connect to"
+              name="connectTo"
+              control={control}
+              formControlProps={{ width: 'full' }}
+            >
+              <Box
+                display="flex"
+                flexDirection="row"
+                justifyContent="flex-start"
+                alignItems="center"
+                borderWidth={StyleSheet.hairlineWidth}
+                borderColor="border-default"
+                borderRadius="xl"
+                py={2}
+                px={3}
+                bgColor="action-secondary-default"
+              >
+                <Image
+                  borderRadius="full"
+                  resizeMethod="auto"
+                  resizeMode="contain"
+                  width={8}
+                  height={8}
+                  source={qrcodeLogo}
+                />
+                <Text
+                  ml={3}
+                  typography="Body2Mono"
+                  color="text-subdued"
+                  lineHeight="1.5em"
+                >
+                  localhost.com
+                </Text>
+              </Box>
+            </Form.Item>
+            <Form.Item
+              label={intl.formatMessage({ id: 'form__payment_description' })}
+              name="description"
+              control={control}
+              formControlProps={{ width: 'full' }}
+            >
+              <Form.Input
+                size={isVerticalLayout ? 'xl' : 'default'}
+                defaultValue="This is a payment request"
+                isReadOnly
+                color="text-subdued"
+              />
+              {/* <Form.Textarea
+                size={isVerticalLayout ? 'xl' : 'default'}
+                totalLines={isVerticalLayout ? 1 : 3}
+                defaultValue="This is a payment request"
+                isReadOnly
+                color="text-subdued"
+              /> */}
+            </Form.Item>
+            <Form.Item
               label={`${intl.formatMessage({
                 id: 'content__amount',
-              })}(${intl.formatMessage({ id: 'form__sats__units' })})`}
+              })}`}
               control={control}
               errorMessage={validateMessage.errorMessage}
               name="amount"
@@ -102,22 +166,34 @@ const PayRequest = () => {
                 },
               }}
               defaultValue=""
+              isLabelAddonActions={false}
+              labelAddon={
+                <Text typography="Body2Strong" color="text-subdued">
+                  betweeen 21 and 100000000 sats
+                </Text>
+              }
             >
               <Form.Input
                 type="number"
                 size={isVerticalLayout ? 'xl' : 'default'}
                 placeholder={intl.formatMessage({ id: 'form__enter_amount' })}
-                rightCustomElement={
-                  <Text px={4} typography="Button1" color="text-subdued">
-                    {intl.formatMessage({ id: 'form__sats__units' })}
-                  </Text>
-                }
               />
             </Form.Item>
+            <FormatCurrencyTokenOfAccount
+              accountId={accountId ?? ''}
+              networkId={network?.id ?? ''}
+              token={nativeToken}
+              value={new BigNumber(amountValue)}
+              render={(ele) => (
+                <Text typography="Body2" color="text-subdued" mt="-18px">
+                  {ele}
+                </Text>
+              )}
+            />
             <Form.Item
-              label={intl.formatMessage({ id: 'form__description__optional' })}
+              label={intl.formatMessage({ id: 'form__comment_optional' })}
               control={control}
-              name="description"
+              name="comment"
               formControlProps={{ width: 'full' }}
               rules={{
                 maxLength: {
@@ -133,9 +209,6 @@ const PayRequest = () => {
               <Form.Textarea
                 size={isVerticalLayout ? 'xl' : 'default'}
                 totalLines={isVerticalLayout ? 3 : 5}
-                placeholder={intl.formatMessage({
-                  id: 'form__a_message_to_the_payer',
-                })}
               />
             </Form.Item>
           </Form>
