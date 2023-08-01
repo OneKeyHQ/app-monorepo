@@ -56,3 +56,15 @@ export interface LNURLChannelServiceResponse {
   domain: string;
   url: string;
 }
+
+export interface LNURLPaymentInfo {
+  pr: string;
+  successAction?: LNURLPaymentSuccessAction;
+}
+
+export interface LNURLPaymentSuccessAction {
+  tag: string;
+  description?: string;
+  message?: string;
+  url?: string;
+}

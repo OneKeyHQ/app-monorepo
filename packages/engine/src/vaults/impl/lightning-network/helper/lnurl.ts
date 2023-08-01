@@ -1,3 +1,5 @@
+import { sha256 } from '@noble/hashes/sha256';
+import { bytesToHex } from '@noble/hashes/utils';
 import axios from 'axios';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
@@ -5,10 +7,12 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { bech32Decode } from './bech32';
 
+import type { IInvoiceDecodedResponse } from '../types/invoice';
 import type {
   LNURLAuthServiceResponse,
   LNURLDetails,
   LNURLError,
+  LNURLPaymentInfo,
 } from '../types/lnurl';
 
 const parseLightingAddress = (emailAddress: string) => {
@@ -111,3 +115,39 @@ export const getLnurlDetails = memoizee(
     maxAge: getTimeDurationMs({ seconds: 3 }),
   },
 );
+
+export const verifyInvoice = ({
+  decodedInvoice,
+  paymentInfo,
+  metadata,
+  amount,
+}: {
+  decodedInvoice: IInvoiceDecodedResponse;
+  paymentInfo: LNURLPaymentInfo;
+  metadata: string;
+  amount: number;
+}) => {
+  let metadataHash = '';
+  try {
+    const dataToHash = metadata;
+    metadataHash = bytesToHex(sha256(dataToHash));
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+
+  const purposeCommitHash = decodedInvoice.tags.find(
+    (t) => t.tagName === 'purpose_commit_hash',
+  )?.data;
+
+  console.log(metadataHash);
+  switch (true) {
+    case purposeCommitHash !== metadataHash: // LN WALLET Verifies that h tag (description_hash) in provided invoice is a hash of metadata string converted to byte array in UTF-8 encoding
+    case decodedInvoice.millisatoshis !== String(amount):
+    case paymentInfo.successAction &&
+      !['url', 'message', 'aes'].includes(paymentInfo.successAction.tag):
+      return false;
+    default:
+      return true;
+  }
+};

@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -16,10 +16,13 @@ import {
   Image,
   Modal,
   Text,
+  ToastManager,
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import type { LNURLPaymentInfo } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/lnurl';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatCurrencyTokenOfAccount } from '../../../components/Format';
 import { useActiveSideAccount, useNativeToken } from '../../../hooks';
 
@@ -40,6 +43,7 @@ const PayRequest = () => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
   const route = useRoute<RouteProps>();
+
   const lnurlDetails = useMemo(
     () => pick(route.params, 'lnurlDetails').lnurlDetails,
     [route.params],
@@ -48,18 +52,15 @@ const PayRequest = () => {
     () => omit({ ...route.params }, ['lnurlDetails']),
     [route.params],
   );
-  console.log('===>lnurlDetails: ', lnurlDetails);
-  const { account, accountId, networkId, network } =
-    useActiveSideAccount(transferInfo);
-  const { control, handleSubmit, watch } = useForm<FormValues>({
-    mode: 'onChange',
-  });
-  const amountValue = watch('amount');
-  const [isLoading, setIsLoading] = useState(false);
-  const [validateMessage, setvalidateMessage] = useState({
-    errorMessage: '',
-  });
 
+  const { accountId, networkId, network } = useActiveSideAccount(transferInfo);
+  const { control, handleSubmit, watch } = useForm<FormValues>();
+
+  const amountValue = watch('amount');
+  const amountMin = Math.floor(+lnurlDetails.minSendable / 1000);
+  const amountMax = Math.floor(+lnurlDetails.maxSendable / 1000);
+
+  const [isLoading, setIsLoading] = useState(false);
   const nativeToken = useNativeToken(networkId);
 
   const siteImage = useMemo(() => {
@@ -81,10 +82,10 @@ const PayRequest = () => {
   const renderLabelAddon = useMemo(
     () => (
       <Text typography="Body2Strong" color="text-subdued">
-        betweeen {lnurlDetails.minSendable} and {lnurlDetails.maxSendable} sats
+        betweeen {amountMin} and {amountMax} sats
       </Text>
     ),
-    [lnurlDetails],
+    [amountMin, amountMax],
   );
 
   const renderMetadataText = useMemo(() => {
@@ -101,12 +102,26 @@ const PayRequest = () => {
                 formControlProps={{ width: 'full' }}
                 key={content}
               >
-                <Form.Input
-                  size={isVerticalLayout ? 'xl' : 'default'}
-                  defaultValue={content}
-                  isReadOnly
-                  color="text-subdued"
-                />
+                <Box
+                  display="flex"
+                  flexDirection="row"
+                  justifyContent="flex-start"
+                  alignItems="center"
+                  borderWidth={StyleSheet.hairlineWidth}
+                  borderColor="border-default"
+                  borderRadius="xl"
+                  py={2}
+                  px={3}
+                  bgColor="action-secondary-default"
+                >
+                  <Text
+                    typography="Body2Mono"
+                    color="text-subdued"
+                    lineHeight="1.5em"
+                  >
+                    {content}
+                  </Text>
+                </Box>
               </Form.Item>
             );
           }
@@ -117,7 +132,7 @@ const PayRequest = () => {
       console.error(e);
     }
     return [];
-  }, [control, intl, isVerticalLayout, lnurlDetails.metadata]);
+  }, [control, intl, lnurlDetails.metadata]);
 
   const commentAllowedLength = useMemo(() => {
     if (
@@ -130,16 +145,78 @@ const PayRequest = () => {
     return 0;
   }, [lnurlDetails]);
 
-  const doSubmit = () => {};
+  const onSubmit = useCallback(
+    async (values: FormValues) => {
+      console.log('=====>onSubmit');
+      if (!lnurlDetails) return;
+      if (isLoading) return;
+      setIsLoading(true);
+      const { serviceLightningNetwork } = backgroundApiProxy;
+
+      let response: LNURLPaymentInfo;
+      const amount = parseInt(values.amount) * 1000; // convert to milliSatoshi
+      try {
+        const params: {
+          amount: number;
+          comment?: string;
+        } = {
+          amount,
+          comment: values.comment && values.comment,
+        };
+        response = await serviceLightningNetwork.fetchLnurlPayRequestResult({
+          callback: lnurlDetails.callback,
+          params,
+        });
+      } catch (e) {
+        console.error(e);
+        ToastManager.show(
+          { title: e instanceof Error ? e.message : e },
+          { type: 'error' },
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const isValidInvoice = await serviceLightningNetwork.verifyInvoice({
+          paymentInfo: response,
+          metadata: lnurlDetails.metadata,
+          amount,
+          networkId,
+          accountId,
+        });
+        if (!isValidInvoice) {
+          ToastManager.show({
+            title: intl.formatMessage({
+              id: 'msg__invalid_lightning_payment_request',
+            }),
+          });
+        }
+      } catch (e) {
+        console.error(e);
+        ToastManager.show(
+          { title: e instanceof Error ? e.message : e },
+          { type: 'error' },
+        );
+        setIsLoading(false);
+      }
+      // pay request
+    },
+    [networkId, accountId, intl, isLoading, lnurlDetails],
+  );
+
+  const doSubmit = handleSubmit(onSubmit);
+
   return (
     <Modal
       header={intl.formatMessage({ id: 'title__lnurl_pay' })}
-      headerDescription="localhost.com"
+      headerDescription={lnurlDetails.domain}
       primaryActionTranslationId="action__next"
       primaryActionProps={{
         isDisabled: isLoading,
         isLoading,
       }}
+      hideSecondaryAction
       onPrimaryActionPress={() => doSubmit()}
       secondaryActionTranslationId="action__cancel"
       onSecondaryActionPress={() => {}}
@@ -195,18 +272,28 @@ const PayRequest = () => {
                 id: 'content__amount',
               })}`}
               control={control}
-              errorMessage={validateMessage.errorMessage}
               name="amount"
               formControlProps={{ width: 'full' }}
               rules={{
                 min: {
-                  value: 0,
+                  value: amountMin,
                   message: intl.formatMessage(
                     {
                       id: 'form__field_too_small',
                     },
                     {
-                      0: 0,
+                      0: amountMin,
+                    },
+                  ),
+                },
+                max: {
+                  value: amountMax,
+                  message: intl.formatMessage(
+                    {
+                      id: 'form__field_too_large',
+                    },
+                    {
+                      0: amountMax,
                     },
                   ),
                 },
@@ -218,8 +305,7 @@ const PayRequest = () => {
                 },
                 validate: (value) => {
                   // allow unspecified amount
-                  if (!value) return;
-
+                  if (amountMin === 0 && !value) return;
                   const valueBN = new BigNumber(value);
                   if (!valueBN.isInteger()) {
                     return intl.formatMessage({
@@ -228,7 +314,6 @@ const PayRequest = () => {
                   }
                 },
               }}
-              defaultValue=""
               isLabelAddonActions={false}
               labelAddon={renderLabelAddon}
             >

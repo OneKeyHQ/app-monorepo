@@ -1,5 +1,15 @@
+import axios from 'axios';
+
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
-import { getLnurlDetails } from '@onekeyhq/engine/src/vaults/impl/lightning-network/helper/lnurl';
+import { OneKeyError } from '@onekeyhq/engine/src/errors';
+import {
+  getLnurlDetails,
+  verifyInvoice,
+} from '@onekeyhq/engine/src/vaults/impl/lightning-network/helper/lnurl';
+import type {
+  LNURLError,
+  LNURLPaymentInfo,
+} from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/lnurl';
 import type VaultLightning from '@onekeyhq/engine/src/vaults/impl/lightning-network/Vault';
 import {
   backgroundClass,
@@ -191,5 +201,65 @@ export default class ServiceLightningNetwork extends ServiceBase {
   @backgroundMethod()
   async getLnurlDetails(lnurl: string) {
     return getLnurlDetails(lnurl);
+  }
+
+  @backgroundMethod()
+  async fetchLnurlPayRequestResult({
+    callback,
+    params,
+  }: {
+    callback: string;
+    params: {
+      amount: number;
+      comment?: string;
+    };
+  }) {
+    try {
+      const response = await axios.get<LNURLPaymentInfo | LNURLError>(
+        callback,
+        {
+          params,
+          validateStatus: () => true,
+        },
+      );
+      if (response.status >= 500) {
+        throw new OneKeyError('Recipient server error');
+      }
+
+      if (!Object.prototype.hasOwnProperty.call(response.data, 'pr')) {
+        throw new OneKeyError((response.data as LNURLError).reason);
+      }
+      return response.data as LNURLPaymentInfo;
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
+  }
+
+  @backgroundMethod()
+  async verifyInvoice({
+    paymentInfo,
+    metadata,
+    amount,
+    networkId,
+    accountId,
+  }: {
+    paymentInfo: LNURLPaymentInfo;
+    metadata: string;
+    amount: number;
+    networkId: string;
+    accountId: string;
+  }) {
+    const decodedInvoice = await this.decodedInvoice({
+      payReq: paymentInfo.pr,
+      networkId,
+      accountId,
+    });
+    return verifyInvoice({
+      decodedInvoice,
+      paymentInfo,
+      metadata,
+      amount,
+    });
   }
 }
