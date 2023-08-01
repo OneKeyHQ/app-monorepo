@@ -207,7 +207,7 @@ export default function MobileBottomTabBar({
         {tabs}
       </Box>
       <PortalContainer
-        // testID="Mobile-AppTabBar-PortalExit"
+        // testID="Mobile-AppTabBar-PortalContainer"
         name={`BottomTab-Overlay-${state.key}`}
       />
     </Box>
