@@ -19,20 +19,35 @@ export function parseTextProps(content: string) {
   }
 }
 
-export function isBRC20Content({
+export async function parseBRC20Content({
   content,
   contentType,
+  contentUrl,
 }: {
-  content: string;
+  content: string | null;
   contentType: string;
+  contentUrl?: string;
 }) {
+  let brc20Content = content;
+
   if (contentType === 'text/plain;charset=utf-8') {
-    const props = parseTextProps(content);
+    if (!brc20Content && contentUrl) {
+      const response = await fetch(contentUrl);
+      brc20Content = await response.text();
+    }
+
+    const props = parseTextProps(brc20Content ?? '');
     if (props?.p === 'brc-20') {
-      return true;
+      return {
+        isBRC20Content: true,
+        brc20Content: props,
+      };
     }
   }
-  return false;
+  return {
+    isBRC20Content: false,
+    brc20Content: null,
+  };
 }
 
 export function createBRC20TransferText(amount: string, tick: string) {

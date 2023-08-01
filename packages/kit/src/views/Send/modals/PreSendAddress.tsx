@@ -131,7 +131,7 @@ function PreSendAddress() {
   const [nftInfo, updateNFTInfo] = useState<INFTAsset>();
   useEffect(() => {
     (async () => {
-      if (isNFT && !isBRC20) {
+      if (isNFT) {
         const { nftTokenId } = transferInfo;
         if (nftTokenId) {
           const contractAddress = transferInfo.token;
@@ -280,12 +280,24 @@ function PreSendAddress() {
             local: true,
           });
 
-          nftInfos.push({
-            asset: (asset || {}) as NFTAsset,
-            amount: transferInfo.amount,
-            from: account.address,
-            to: toVal,
-          });
+          if (asset) {
+            nftInfos.push({
+              asset: (asset || {}) as NFTAsset,
+              amount: transferInfo.amount,
+              from: account.address,
+              to: toVal,
+            });
+          } else {
+            ToastManager.show(
+              {
+                title: intl.formatMessage({
+                  id: 'msg__nft_does_not_exist',
+                }),
+              },
+              { type: 'error' },
+            );
+            return;
+          }
         }
         setIsLoadingAssets(false);
 

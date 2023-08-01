@@ -21,7 +21,6 @@ import type {
   PartialTokenInfo,
   TxInput,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
-import { useSingleToken } from '@onekeyhq/kit/src/hooks/useTokens';
 import { appSelector } from '@onekeyhq/kit/src/store';
 import type { SendConfirmPayloadInfo } from '@onekeyhq/kit/src/views/Send/types';
 import {
@@ -31,8 +30,8 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
-  isBRC20Content,
   isBRC20Token,
+  parseBRC20Content,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import {
@@ -476,14 +475,19 @@ export default class VaultBtcFork extends VaultBase {
 
     if (ordinalsUTXOs && ordinalsUTXOs.length > 0 && nftInfos.length > 0) {
       const nftInfo = nftInfos[0];
-      const { content, content_type: contentType } =
-        nftInfo.asset as NFTBTCAssetModel;
-      const isBRC20 = isBRC20Content({
-        content: content ?? '',
+
+      const {
+        content,
+        content_type: contentType,
+        contentUrl,
+      } = nftInfo.asset as NFTBTCAssetModel;
+
+      const { isBRC20Content, brc20Content } = await parseBRC20Content({
+        content,
         contentType,
+        contentUrl,
       });
 
-      const brc20Content = parseTextProps(content ?? '');
       const tokenId =
         transferInfo.token ?? `brc-20--${brc20Content?.tick ?? ''}`;
 
@@ -491,9 +495,8 @@ export default class VaultBtcFork extends VaultBase {
         networkId: this.networkId,
         tokenIdOnNetwork: tokenId,
       });
-
       // only support batch transfer BRC20 token
-      if (isBRC20 && tokenInfo) {
+      if (isBRC20Content && tokenInfo) {
         actions = nftInfos.map((info) =>
           this.buildBRC20TokenAction({
             nftInfo: info,
@@ -580,7 +583,7 @@ export default class VaultBtcFork extends VaultBase {
     nftInfo: INFTInfo;
     token: Token;
     dbAccount: DBUTXOAccount;
-    brc20Content?: BRC20TextProps;
+    brc20Content?: BRC20TextProps | null;
   }) {
     const { from, to } = nftInfo;
 
@@ -897,15 +900,15 @@ export default class VaultBtcFork extends VaultBase {
       return [];
     }
 
-    const { content_type: contentType, content } = asset;
+    const { content_type: contentType, content, contentUrl } = asset;
 
-    if (
-      isBRC20Content({
-        content: content ?? '',
-        contentType,
-      })
-    ) {
-      const brc20Content = parseTextProps(content ?? '');
+    const { isBRC20Content, brc20Content } = await parseBRC20Content({
+      content,
+      contentType,
+      contentUrl,
+    });
+
+    if (isBRC20Content) {
       const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
       const token = await this.engine.findToken({
         networkId: this.networkId,
