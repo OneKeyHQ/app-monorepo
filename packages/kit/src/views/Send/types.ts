@@ -5,6 +5,7 @@ import type { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/e
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type { LNURLPayServiceResponse } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/lnurl';
 import type {
   IDecodedTx,
   IDecodedTxLegacy,
@@ -60,6 +61,10 @@ export type PreSendParams = {
   transferInfos?: ITransferInfo[];
   validateAddress?: (networkId: string, address: string) => Promise<void>;
 } & ITransferInfo;
+
+export type LnUrlPayParams = PreSendParams & {
+  lnurlDetails: LNURLPayServiceResponse;
+};
 
 export type TransferSendParamsPayload = SendConfirmPayloadBase & {
   to: string;
@@ -210,7 +215,7 @@ export type SendRoutesParams = {
   [SendModalRoutes.BatchSendConfirm]: BatchSendConfirmParams;
   [SendModalRoutes.BatchSendProgress]: BatchSendProgressParams;
   [SendModalRoutes.NFTDetailModal]: NFTDetailModalParams;
-  [SendModalRoutes.LNPayRequest]: PreSendParams;
+  [SendModalRoutes.LNPayRequest]: LnUrlPayParams;
 };
 
 export type ITxConfirmViewPropsHandleConfirm = ({

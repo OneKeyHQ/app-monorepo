@@ -1,7 +1,12 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/restrict-template-expressions */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
+import { omit, pick } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -14,7 +19,6 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 
 import { FormatCurrencyTokenOfAccount } from '../../../components/Format';
 import { useActiveSideAccount, useNativeToken } from '../../../hooks';
@@ -23,7 +27,7 @@ import type { SendRoutesParams } from '../../../routes';
 import type { SendModalRoutes } from '../../Send/enums';
 import type { RouteProp } from '@react-navigation/core';
 
-type RouteProps = RouteProp<SendRoutesParams, SendModalRoutes.PreSendAmount>;
+type RouteProps = RouteProp<SendRoutesParams, SendModalRoutes.LNPayRequest>;
 
 type FormValues = {
   amount: string;
@@ -36,7 +40,15 @@ const PayRequest = () => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
   const route = useRoute<RouteProps>();
-  const transferInfo = useMemo(() => ({ ...route.params }), [route.params]);
+  const lnurlDetails = useMemo(
+    () => pick(route.params, 'lnurlDetails').lnurlDetails,
+    [route.params],
+  );
+  const transferInfo = useMemo(
+    () => omit({ ...route.params }, ['lnurlDetails']),
+    [route.params],
+  );
+  console.log('===>lnurlDetails: ', lnurlDetails);
   const { account, accountId, networkId, network } =
     useActiveSideAccount(transferInfo);
   const { control, handleSubmit, watch } = useForm<FormValues>({
@@ -49,6 +61,74 @@ const PayRequest = () => {
   });
 
   const nativeToken = useNativeToken(networkId);
+
+  const siteImage = useMemo(() => {
+    if (!lnurlDetails?.metadata) return;
+
+    try {
+      const metadata = JSON.parse(lnurlDetails.metadata);
+      const image = metadata.find(
+        ([type]: [string]) =>
+          type === 'image/png;base64' || type === 'image/jpeg;base64',
+      );
+
+      if (image) return `data:${image[0]},${image[1]}`;
+    } catch (e) {
+      console.error(e);
+    }
+  }, [lnurlDetails?.metadata]);
+
+  const renderLabelAddon = useMemo(
+    () => (
+      <Text typography="Body2Strong" color="text-subdued">
+        betweeen {lnurlDetails.minSendable} and {lnurlDetails.maxSendable} sats
+      </Text>
+    ),
+    [lnurlDetails],
+  );
+
+  const renderMetadataText = useMemo(() => {
+    try {
+      const metadata = JSON.parse(lnurlDetails.metadata);
+      return metadata
+        .map(([type, content]: [string, string]) => {
+          if (type === 'text/plain' || type === 'text/long-desc') {
+            return (
+              <Form.Item
+                label={intl.formatMessage({ id: 'form__payment_description' })}
+                name="description"
+                control={control}
+                formControlProps={{ width: 'full' }}
+                key={content}
+              >
+                <Form.Input
+                  size={isVerticalLayout ? 'xl' : 'default'}
+                  defaultValue={content}
+                  isReadOnly
+                  color="text-subdued"
+                />
+              </Form.Item>
+            );
+          }
+          return undefined;
+        })
+        .filter(Boolean);
+    } catch (e) {
+      console.error(e);
+    }
+    return [];
+  }, [control, intl, isVerticalLayout, lnurlDetails.metadata]);
+
+  const commentAllowedLength = useMemo(() => {
+    if (
+      lnurlDetails &&
+      typeof lnurlDetails.commentAllowed === 'number' &&
+      lnurlDetails.commentAllowed > 0
+    ) {
+      return lnurlDetails.commentAllowed;
+    }
+    return 0;
+  }, [lnurlDetails]);
 
   const doSubmit = () => {};
   return (
@@ -89,44 +169,27 @@ const PayRequest = () => {
                 px={3}
                 bgColor="action-secondary-default"
               >
-                <Image
-                  borderRadius="full"
-                  resizeMethod="auto"
-                  resizeMode="contain"
-                  width={8}
-                  height={8}
-                  source={qrcodeLogo}
-                />
+                {siteImage && (
+                  <Image
+                    borderRadius="full"
+                    resizeMethod="auto"
+                    resizeMode="contain"
+                    width={8}
+                    height={8}
+                    source={{ uri: siteImage }}
+                  />
+                )}
                 <Text
-                  ml={3}
+                  ml={siteImage ? 3 : 0}
                   typography="Body2Mono"
                   color="text-subdued"
                   lineHeight="1.5em"
                 >
-                  localhost.com
+                  {lnurlDetails.domain}
                 </Text>
               </Box>
             </Form.Item>
-            <Form.Item
-              label={intl.formatMessage({ id: 'form__payment_description' })}
-              name="description"
-              control={control}
-              formControlProps={{ width: 'full' }}
-            >
-              <Form.Input
-                size={isVerticalLayout ? 'xl' : 'default'}
-                defaultValue="This is a payment request"
-                isReadOnly
-                color="text-subdued"
-              />
-              {/* <Form.Textarea
-                size={isVerticalLayout ? 'xl' : 'default'}
-                totalLines={isVerticalLayout ? 1 : 3}
-                defaultValue="This is a payment request"
-                isReadOnly
-                color="text-subdued"
-              /> */}
-            </Form.Item>
+            {renderMetadataText}
             <Form.Item
               label={`${intl.formatMessage({
                 id: 'content__amount',
@@ -167,11 +230,7 @@ const PayRequest = () => {
               }}
               defaultValue=""
               isLabelAddonActions={false}
-              labelAddon={
-                <Text typography="Body2Strong" color="text-subdued">
-                  betweeen 21 and 100000000 sats
-                </Text>
-              }
+              labelAddon={renderLabelAddon}
             >
               <Form.Input
                 type="number"
@@ -190,27 +249,29 @@ const PayRequest = () => {
                 </Text>
               )}
             />
-            <Form.Item
-              label={intl.formatMessage({ id: 'form__comment_optional' })}
-              control={control}
-              name="comment"
-              formControlProps={{ width: 'full' }}
-              rules={{
-                maxLength: {
-                  value: 40,
-                  message: intl.formatMessage(
-                    { id: 'msg_description_can_be_up_to_int_characters' },
-                    { 0: '40' },
-                  ),
-                },
-              }}
-              defaultValue=""
-            >
-              <Form.Textarea
-                size={isVerticalLayout ? 'xl' : 'default'}
-                totalLines={isVerticalLayout ? 3 : 5}
-              />
-            </Form.Item>
+            {commentAllowedLength > 0 && (
+              <Form.Item
+                label={intl.formatMessage({ id: 'form__comment_optional' })}
+                control={control}
+                name="comment"
+                formControlProps={{ width: 'full' }}
+                rules={{
+                  maxLength: {
+                    value: commentAllowedLength,
+                    message: intl.formatMessage(
+                      { id: 'msg_description_can_be_up_to_int_characters' },
+                      { 0: commentAllowedLength },
+                    ),
+                  },
+                }}
+                defaultValue=""
+              >
+                <Form.Textarea
+                  size={isVerticalLayout ? 'xl' : 'default'}
+                  totalLines={isVerticalLayout ? 3 : 5}
+                />
+              </Form.Item>
+            )}
           </Form>
         ),
       }}

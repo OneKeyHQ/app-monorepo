@@ -67,6 +67,7 @@ async function lightningNetworkSendConfirm({
               networkId,
               accountId,
               to: toVal,
+              lnurlDetails,
             },
           },
         });
