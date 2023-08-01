@@ -825,7 +825,7 @@ export const Debug = () => {
                 });
               }}
             >
-              <Typography.Body1>Open Gas Panel</Typography.Body1>
+              <Typography.Body1>Open Gas Panel000</Typography.Body1>
             </Pressable>
             <Pressable
               {...pressableProps}
