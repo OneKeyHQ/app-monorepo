@@ -330,6 +330,7 @@ function SendConfirm({
       navigation,
       dappApprove,
       serviceToken,
+      serviceLightningNetwork,
       payloadInfo?.swapInfo,
       wallet?.type,
       serviceHistory,

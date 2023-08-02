@@ -21,6 +21,8 @@ import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engin
 
 import ServiceBase from './ServiceBase';
 
+import type { AxiosError } from 'axios';
+
 @backgroundClass()
 export default class ServiceLightningNetwork extends ServiceBase {
   private previousRequestTokenAccountId = '';
@@ -276,5 +278,43 @@ export default class ServiceLightningNetwork extends ServiceBase {
   }) {
     if (!isLightningNetworkByNetworkId(networkId)) return null;
     return Promise.resolve((encodedTx as IEncodedTxLightning).successAction);
+  }
+
+  @backgroundMethod()
+  async fetchLnurlWithdrawRequestResult({
+    callback,
+    pr,
+    k1,
+  }: {
+    callback: string;
+    pr: string;
+    k1: string;
+  }) {
+    try {
+      const response = await axios.get<{
+        status: string;
+        reason: string;
+      }>(callback, {
+        params: {
+          k1,
+          pr,
+        },
+      });
+      if (response.status >= 500) {
+        throw new Error('Recipient server error');
+      }
+
+      if (response.data.status.toUpperCase() === 'OK') {
+        return response.data;
+      }
+      throw new OneKeyError(response.data.reason);
+    } catch (e) {
+      console.error(e);
+      const error = e as AxiosError<LNURLError>;
+      if (error.response?.data?.reason) {
+        throw new Error(error.response?.data.reason);
+      }
+      throw e;
+    }
   }
 }

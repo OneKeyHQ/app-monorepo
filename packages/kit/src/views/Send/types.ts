@@ -8,6 +8,7 @@ import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/V
 import type {
   LNURLPayServiceResponse,
   LNURLPaymentSuccessAction,
+  LNURLWithdrawServiceResponse,
 } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/lnurl';
 import type {
   IDecodedTx,
@@ -67,6 +68,12 @@ export type PreSendParams = {
 
 export type LnUrlPayParams = PreSendParams & {
   lnurlDetails: LNURLPayServiceResponse;
+};
+
+export type LnUrlWithdrawParams = {
+  networkId: string;
+  accountId: string;
+  lnurlDetails: LNURLWithdrawServiceResponse;
 };
 
 export type TransferSendParamsPayload = SendConfirmPayloadBase & {
@@ -181,7 +188,11 @@ export type SendSpecialWarningParams = SendAuthenticationParams & {
   hintMsgParams?: any;
 };
 
-export type SendFeedbackReceiptType = 'Send' | 'Sign' | 'SendUnconfirmed';
+export type SendFeedbackReceiptType =
+  | 'Send'
+  | 'Sign'
+  | 'SendUnconfirmed'
+  | 'LNURLWithdraw';
 
 export type SendFeedbackReceiptParams = {
   networkId: string;
@@ -220,6 +231,7 @@ export type SendRoutesParams = {
   [SendModalRoutes.BatchSendProgress]: BatchSendProgressParams;
   [SendModalRoutes.NFTDetailModal]: NFTDetailModalParams;
   [SendModalRoutes.LNURLPayRequest]: LnUrlPayParams;
+  [SendModalRoutes.LNURLWithdraw]: LnUrlWithdrawParams;
 };
 
 export type ITxConfirmViewPropsHandleConfirm = ({

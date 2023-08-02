@@ -1,5 +1,6 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
+import LNURLWithdraw from '../../../views/LightningNetwork/Send/LNURLWithdraw';
 import { LNURLPayRequest } from '../../../views/LightningNetwork/Send/LNURLPayRequest';
 import { BaseSendRouteScreen } from '../../../views/Send/components/BaseSendRouteScreen';
 import { BatchSendConfirm } from '../../../views/Send/modals/BatchSendConfirm';
@@ -93,6 +94,10 @@ const modalRoutes = [
   {
     name: SendModalRoutes.LNURLPayRequest,
     component: LNURLPayRequest,
+  },
+  {
+    name: SendModalRoutes.LNURLWithdraw,
+    component: LNURLWithdraw,
   },
 ];
 

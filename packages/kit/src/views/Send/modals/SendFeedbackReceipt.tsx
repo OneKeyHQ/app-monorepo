@@ -97,6 +97,10 @@ export function SendFeedbackReceipt() {
         id: 'modal__transaction_submitted_unconfirmed',
       });
     }
+    if (type === 'LNURLWithdraw') {
+      // TODO: i18n
+      return 'Withdraw Request Send';
+    }
     return intl.formatMessage({ id: 'msg__signature_done' });
   }, [intl, type]);
 

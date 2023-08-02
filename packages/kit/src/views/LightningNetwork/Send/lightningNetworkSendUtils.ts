@@ -57,7 +57,6 @@ async function lightningNetworkSendConfirm({
       }
 
       if (lnurlDetails.tag === 'payRequest') {
-        // TODO: navigate to payRequest page
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
           params: {
@@ -74,7 +73,17 @@ async function lightningNetworkSendConfirm({
       }
 
       if (lnurlDetails.tag === 'withdrawRequest') {
-        // TODO: navigate to withdraw page
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendModalRoutes.LNURLWithdraw,
+            params: {
+              networkId,
+              accountId,
+              lnurlDetails,
+            },
+          },
+        });
       }
       setIsLoadingAssets(false);
       return;
