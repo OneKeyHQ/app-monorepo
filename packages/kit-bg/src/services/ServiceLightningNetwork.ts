@@ -6,15 +6,18 @@ import {
   getLnurlDetails,
   verifyInvoice,
 } from '@onekeyhq/engine/src/vaults/impl/lightning-network/helper/lnurl';
+import type { IEncodedTxLightning } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types';
 import type {
   LNURLError,
   LNURLPaymentInfo,
 } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/lnurl';
 import type VaultLightning from '@onekeyhq/engine/src/vaults/impl/lightning-network/Vault';
+import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import ServiceBase from './ServiceBase';
 
@@ -261,5 +264,17 @@ export default class ServiceLightningNetwork extends ServiceBase {
       metadata,
       amount,
     });
+  }
+
+  @backgroundMethod()
+  async getSuccessAction({
+    networkId,
+    encodedTx,
+  }: {
+    networkId: string;
+    encodedTx: IEncodedTx;
+  }) {
+    if (!isLightningNetworkByNetworkId(networkId)) return null;
+    return Promise.resolve((encodedTx as IEncodedTxLightning).successAction);
   }
 }

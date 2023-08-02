@@ -214,6 +214,7 @@ const PayRequest = () => {
           transferInfo: {
             ...transferInfo,
             to: paymentRequest,
+            lnurlPaymentInfo: response,
           },
         });
         navigation.replace(SendModalRoutes.SendConfirm, {

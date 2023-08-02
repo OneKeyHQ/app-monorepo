@@ -279,6 +279,7 @@ export default class Vault extends VaultBase {
         lnConfig.maxSendAmount,
       ),
       config: lnConfig,
+      successAction: transferInfo.lnurlPaymentInfo?.successAction,
     };
   }
 

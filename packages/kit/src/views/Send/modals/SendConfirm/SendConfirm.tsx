@@ -55,7 +55,8 @@ function SendConfirm({
 }) {
   const intl = useIntl();
   useOnboardingRequired();
-  const { engine, serviceHistory, serviceToken } = backgroundApiProxy;
+  const { engine, serviceHistory, serviceToken, serviceLightningNetwork } =
+    backgroundApiProxy;
 
   const {
     navigation,
@@ -231,6 +232,11 @@ function SendConfirm({
           if (tx.pendingTx) {
             type = 'SendUnconfirmed';
           }
+
+          const successAction = await serviceLightningNetwork.getSuccessAction({
+            networkId,
+            encodedTx,
+          });
           const params: SendFeedbackReceiptParams = {
             networkId,
             accountId,
@@ -239,6 +245,7 @@ function SendConfirm({
             closeModal: close,
             onDetail: routeParams.onDetail,
             isSingleTransformMode: true,
+            successAction,
           };
           navigation.navigate(SendModalRoutes.SendFeedbackReceipt, params);
         } else {
