@@ -27,14 +27,26 @@ export function getHDAccountUUID(account: DBAccount): string {
     path,
     pub = '',
     xpub = '',
-  }: { type: AccountType; path: string; pub?: string; xpub?: string } = account;
+    address = '',
+  }: {
+    type: AccountType;
+    path: string;
+    pub?: string;
+    xpub?: string;
+    address?: string;
+  } = account;
 
   if ((type === 'simple' || type === 'variant') && pub.length > 0) {
     // Simple account & Variant address account should have a pubkey
     uuidName = `${path},${pub}`;
-  } else if (type === 'utxo' && xpub.length > 0) {
-    // UTXO account should have a xpub
-    uuidName = `${path},${xpub}`;
+  } else if (type === 'utxo') {
+    if (xpub.length > 0) {
+      // UTXO account should have a xpub in BCH, Doge and so on.
+      uuidName = `${path},${xpub}`;
+    } else {
+      // special UTXOs, such as those not utilizing xpub in Nexa.
+      uuidName = `${path},${address}`;
+    }
   }
 
   if (uuidName.length > 0) {

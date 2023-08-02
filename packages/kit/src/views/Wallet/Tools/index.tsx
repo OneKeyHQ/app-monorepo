@@ -20,7 +20,11 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
-import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
+import {
+  isAllNetworks,
+  parseNetworkId,
+} from '@onekeyhq/engine/src/managers/network';
+import { revokeUrl } from '@onekeyhq/engine/src/managers/revoke';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
@@ -54,7 +58,7 @@ import {
   useManageNetworks,
 } from '../../../hooks/useManageNetworks';
 import { buildAddressDetailsUrl } from '../../../hooks/useOpenBlockBrowser';
-import { openUrl } from '../../../utils/openUrl';
+import { openDapp, openUrl } from '../../../utils/openUrl';
 import { useIsVerticalOrMiddleLayout } from '../../Revoke/hooks';
 
 import type { ImageSourcePropType } from 'react-native';
@@ -216,15 +220,12 @@ const ToolsPage: FC = () => {
       account?: Account | null;
     }) => {
       if (key === 'revoke') {
-        navigation.navigate(RootRoutes.Main, {
-          screen: MainRoutes.Tab,
-          params: {
-            screen: TabRoutes.Home,
-            params: {
-              screen: HomeRoutes.Revoke,
-            },
-          },
-        });
+        const { chainId } = parseNetworkId(network?.id ?? '');
+        openDapp(
+          `${revokeUrl}address/${selectedAccount?.address ?? ''}?chainId=${
+            chainId ?? ''
+          }`,
+        );
       } else if (key === 'explorer') {
         const url = buildAddressDetailsUrl(
           selectedNetwork,
@@ -293,7 +294,7 @@ const ToolsPage: FC = () => {
         }
       }
     },
-    [tools, navigation, intl, appNavigation],
+    [network?.id, tools, navigation, intl, appNavigation],
   );
 
   const onItemPress = useCallback(
