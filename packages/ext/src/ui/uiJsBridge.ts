@@ -14,7 +14,7 @@ import type {
 
 function init() {
   const jsBridgeReceiveHandler = (payload: IJsBridgeMessagePayload) => {
-    // console.log('jsBridgeReceiveHandler Ext-UI', payload);
+    console.log('jsBridgeReceiveHandler Ext-UI', payload);
     const { method, params } = payload.data as IJsonRpcRequest;
     if (method === DISPATCH_ACTION_BROADCAST_METHOD_NAME) {
       const { actions } = params as IDispatchActionBroadcastParams;

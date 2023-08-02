@@ -19,7 +19,7 @@ import {
   swapAndMarketRoutes,
 } from '@onekeyhq/kit/src/routes/Root/Main/Tab/routes/tabRoutes.base';
 import { TabRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
-import { PortalContainer } from '@onekeyhq/kit/src/views/Overlay/RootPortal';
+import { PortalExit } from '@onekeyhq/kit/src/views/Overlay/RootPortal';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../../Box';
@@ -206,7 +206,7 @@ export default function MobileBottomTabBar({
       >
         {tabs}
       </Box>
-      <PortalContainer
+      <PortalExit
         // testID="Mobile-AppTabBar-PortalExit"
         name={`BottomTab-Overlay-${state.key}`}
       />

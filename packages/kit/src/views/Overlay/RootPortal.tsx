@@ -27,19 +27,19 @@ export interface PortalManager {
   destroy: (destroyCallback?: () => void) => void;
 }
 
-export function renderToPortal(
-  container: string,
+export function enterPortal(
+  target: string,
   guest: ReactNode,
   callback?: () => void,
 ): PortalManager {
-  const manager = portalManagers.get(container);
+  const manager = portalManagers.get(target);
   const id = createPortalId(++portalUuid);
 
   if (manager) {
     manager.update(id, guest, callback);
   } else {
     throw new Error(
-      `react-native-root-portal: Can not find target PortalExit named:'${container}'.`,
+      `react-native-root-portal: Can not find target PortalExit named:'${target}'.`,
     );
   }
 
@@ -53,39 +53,32 @@ export function renderToPortal(
   };
 }
 
-export function PortalRender(props: {
-  children: ReactNode;
-  container?: string;
-}) {
-  const { children, container } = props;
+export function PortalEntry(props: { children: ReactNode; target?: string }) {
+  const { children, target } = props;
+  const manager = target ? portalManagers.get(target) : null;
+  const [id] = useState<number>(() => ++portalUuid);
 
   useEffect(() => {
-    if (!container) {
-      return;
-    }
-    const manager = container ? portalManagers.get(container) : null;
-
     if (manager) {
-      const portalId = createPortalId(++portalUuid);
-      manager.update(portalId, <>{children}</>);
-      return () => {
-        // destroy component
-        manager.destroy(portalId);
-      };
+      return () => manager.destroy(createPortalId(id));
     }
-    console.error(
-      `react-native-root-portal: Can not find target PortalExit named:'${container}'.`,
-    );
-  }, [children, container]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manager]);
 
-  if (!container) {
+  if (manager) {
+    manager.update(createPortalId(id), <>{children}</>);
+  } else if (target) {
+    console.error(
+      `react-native-root-portal: Can not find target PortalExit named:'${target}'.`,
+    );
+  } else {
     return <>{children}</>;
   }
 
   return null;
 }
 
-export function PortalContainer(props: {
+export function PortalExit(props: {
   name: string;
   renderSibling?: (sibling: ReactNode) => ReactNode;
   children?: ReactNode;
@@ -131,3 +124,10 @@ export function PortalContainer(props: {
     </>
   );
 }
+
+export default {
+  Entry: PortalEntry,
+  Exit: PortalExit,
+  isExisted: isPortalExisted,
+  enter: enterPortal,
+};
