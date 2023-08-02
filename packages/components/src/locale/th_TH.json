@@ -839,7 +839,7 @@
   "content__str_transactions_failed": "{0} ธุรกรรมล้มเหลว!",
   "content__str_transactions_in_progress": "{content__str_transactions_in_progress, plural, other {# กำลังดำเนินการธุรกรรม...}}",
   "content__str_transactions_succeeded": "{content__str_transactions_succeeded, plural, other {# ธุรกรรมสำเร็จ!}}",
-  "content__str_withdraw_request_have_been_sent_to_str": "ส่งคำขอถอนเงิน {0} ไปยัง {0} แล้ว",
+  "content__str_withdraw_request_have_been_sent_to_str": "ส่งคำขอถอนเงิน {amount} ไปยัง {domain}",
   "content__submitted": "ส่ง",
   "content__support_csv_txt_or_excel": "รองรับ csv, txt หรือ Excel",
   "content__support_malicious_contract_detection_on_8_chains": "รองรับการตรวจจับสัญญาที่เป็นอันตรายใน 8 เชน",

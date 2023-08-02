@@ -839,7 +839,7 @@
   "content__str_transactions_failed": "{0}通のトランザクションが失敗になった！",
   "content__str_transactions_in_progress": "{content__str_transactions_in_progress, plural, other {#通の取引が進行中...}}",
   "content__str_transactions_succeeded": "{content__str_transactions_succeeded, plural, other {#通の取引が成功した！}}",
-  "content__str_withdraw_request_have_been_sent_to_str": "{0}引き出しリクエストが{0}に送信されました",
+  "content__str_withdraw_request_have_been_sent_to_str": "{amount}引き出しリクエストが{domain}に送信されました",
   "content__submitted": "提出済み",
   "content__support_csv_txt_or_excel": "csv、txt、または Excel をサポート",
   "content__support_malicious_contract_detection_on_8_chains": "8 つのチェーンで悪意のあるコントラクトを検出できる。",

@@ -839,7 +839,7 @@
   "content__str_transactions_failed": "{0} লেনদেন ব্যর্থ হয়েছে!",
   "content__str_transactions_in_progress": "{content__str_transactions_in_progress, plural, one {# লেনদেন চলছে...} other {# লেনদেন চলছে...}}",
   "content__str_transactions_succeeded": "{content__str_transactions_succeeded, plural, one {# লেনদেন সফল হয়েছে!} other {# লেনদেন সফল হয়েছে!}}",
-  "content__str_withdraw_request_have_been_sent_to_str": "{0} প্রত্যাহারের অনুরোধ {0} কে পাঠানো হয়েছে",
+  "content__str_withdraw_request_have_been_sent_to_str": "{amount} প্রত্যাহারের অনুরোধ {domain} এ পাঠানো হয়েছে",
   "content__submitted": "জমা দেওয়া হয়েছে",
   "content__support_csv_txt_or_excel": "csv, txt, বা Excel সমর্থন করুন",
   "content__support_malicious_contract_detection_on_8_chains": "8টি চেইনে ক্ষতিকারক চুক্তি সনাক্তকরণের জন্য সমর্থন।",

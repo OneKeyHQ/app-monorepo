@@ -839,7 +839,7 @@
   "content__str_transactions_failed": "{0} transazioni non riuscite!",
   "content__str_transactions_in_progress": "{content__str_transactions_in_progress, plural, one {# Transazione in corso...} other {# Transazioni in corso...}}",
   "content__str_transactions_succeeded": "{content__str_transactions_succeeded, plural, one {# transazione riuscita!} other {# transazioni riuscite!}}",
-  "content__str_withdraw_request_have_been_sent_to_str": "{0} richieste di prelievo sono state inviate a {0}",
+  "content__str_withdraw_request_have_been_sent_to_str": "La richiesta di prelievo di {amount} è stata inviata a {domain}",
   "content__submitted": "Inviato",
   "content__support_csv_txt_or_excel": "Supporta csv, txt o Excel",
   "content__support_malicious_contract_detection_on_8_chains": "Supporto per il rilevamento di contratti dannosi su 8 catene.",

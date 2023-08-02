@@ -839,7 +839,7 @@
   "content__str_transactions_failed": "{0} giao dịch không thành công!",
   "content__str_transactions_in_progress": "{content__str_transactions_in_progress, plural, other {# Đang thực hiện các giao dịch ...}}",
   "content__str_transactions_succeeded": "{content__str_transactions_succeeded, plural, other {# giao dịch thành công!}}",
-  "content__str_withdraw_request_have_been_sent_to_str": "{0} yêu cầu rút tiền đã được gửi tới {0}",
+  "content__str_withdraw_request_have_been_sent_to_str": "{amount} yêu cầu rút tiền đã được gửi đến {domain}",
   "content__submitted": "Đã đệ trình",
   "content__support_csv_txt_or_excel": "Hỗ trợ csv, txt hoặc Excel",
   "content__support_malicious_contract_detection_on_8_chains": "Hỗ trợ phát hiện hợp đồng độc hại trên 8 chuỗi.",

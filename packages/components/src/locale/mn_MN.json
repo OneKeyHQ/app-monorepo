@@ -839,7 +839,7 @@
   "content__str_transactions_failed": "{0} гүйлгээ амжилтгүй боллоо!",
   "content__str_transactions_in_progress": "{content__str_transactions_in_progress, plural, one {# Гүйлгээ хийгдэж байна...} other {# Гүйлгээ хийгдэж байна...}}",
   "content__str_transactions_succeeded": "{content__str_transactions_succeeded, plural, one {# гүйлгээ амжилттай боллоо!} other {# гүйлгээ амжилттай боллоо!}}",
-  "content__str_withdraw_request_have_been_sent_to_str": "{0} татгалзах хүсэлтийг {0} руу илгээсэн",
+  "content__str_withdraw_request_have_been_sent_to_str": "{amount} буцаан татах хүсэлтийг {domain} руу илгээсэн",
   "content__submitted": "Илгээсэн",
   "content__support_csv_txt_or_excel": "csv, txt эсвэл Excel-ийг дэмжинэ",
   "content__support_malicious_contract_detection_on_8_chains": "8 сүлжээн дэх хорлонтой гэрээг илрүүлэхэд дэмжлэг үзүүлэх.",

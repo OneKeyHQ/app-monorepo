@@ -839,7 +839,7 @@
   "content__str_transactions_failed": "{0} लेन-देन विफल!",
   "content__str_transactions_in_progress": "{content__str_transactions_in_progress, plural, one {# लेन-देन जारी है...} other {# लेन-देन जारी है...}}",
   "content__str_transactions_succeeded": "{content__str_transactions_succeeded, plural, one {# लेन-देन सफल हुआ!} other {# लेन-देन सफल हुआ!}}",
-  "content__str_withdraw_request_have_been_sent_to_str": "{0} निकासी अनुरोध {0} को भेज दिया गया है",
+  "content__str_withdraw_request_have_been_sent_to_str": "{amount} निकासी अनुरोध {domain} पर भेज दिया गया है",
   "content__submitted": "प्रस्तुत",
   "content__support_csv_txt_or_excel": "सीएसवी, टीएक्सटी, या एक्सेल का समर्थन करें",
   "content__support_malicious_contract_detection_on_8_chains": "8 श्रृंखलाओं पर दुर्भावनापूर्ण अनुबंध का पता लगाने के लिए समर्थन।",

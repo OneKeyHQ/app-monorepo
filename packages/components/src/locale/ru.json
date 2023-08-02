@@ -839,7 +839,7 @@
   "content__str_transactions_failed": "{0} транзакций не удалось!",
   "content__str_transactions_in_progress": "{content__str_transactions_in_progress, plural, one {# Выполняется транзакция...} few {} many {} other {# Выполняется транзакция...}}",
   "content__str_transactions_succeeded": "{content__str_transactions_succeeded, plural, one {# транзакция прошла успешно!} few {} many {} other {# транзакции успешно завершены!}}",
-  "content__str_withdraw_request_have_been_sent_to_str": "{0} запрос на снятие средств был отправлен {0}",
+  "content__str_withdraw_request_have_been_sent_to_str": "Запрос на снятие {amount} отправлен на {domain}",
   "content__submitted": "Отправлено",
   "content__support_csv_txt_or_excel": "Поддержка CSV, TXT или Excel",
   "content__support_malicious_contract_detection_on_8_chains": "Поддержка обнаружения вредоносных контрактов в 8 цепях.",

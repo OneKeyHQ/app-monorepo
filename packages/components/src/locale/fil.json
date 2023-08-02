@@ -839,7 +839,7 @@
   "content__str_transactions_failed": "Nabigo ang {0} mga transaksyon!",
   "content__str_transactions_in_progress": "{content__str_transactions_in_progress, plural, one {# Kasalukuyang isinasagawa ang transaksyon...} other {# Kasalukuyang mga transaksyon...}}",
   "content__str_transactions_succeeded": "{content__str_transactions_succeeded, plural, one {Nagtagumpay ang # transaksyon!} other {Nagtagumpay ang # na mga transaksyon!}}",
-  "content__str_withdraw_request_have_been_sent_to_str": "{0} ang kahilingan sa pag-withdraw ay naipadala sa {0}",
+  "content__str_withdraw_request_have_been_sent_to_str": "{amount} ang kahilingan sa pag-withdraw ay naipadala sa {domain}",
   "content__submitted": "Naisumite",
   "content__support_csv_txt_or_excel": "Suportahan ang csv, txt, o Excel",
   "content__support_malicious_contract_detection_on_8_chains": "Suporta para sa nakakahamak na pagtukoy ng kontrata sa 8 chain.",

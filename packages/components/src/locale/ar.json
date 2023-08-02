@@ -839,7 +839,7 @@
   "content__str_transactions_failed": "{0} فشلت المعاملات!",
   "content__str_transactions_in_progress": "{content__str_transactions_in_progress, plural, zero {} one {معاملة # قيد التقدم ...} two {} few {} many {} other {# المعاملات قيد التقدم ...}}",
   "content__str_transactions_succeeded": "{content__str_transactions_succeeded, plural, zero {} one {نجحت معاملة # !} two {} few {} many {} other {نجحت معاملات # !}}",
-  "content__str_withdraw_request_have_been_sent_to_str": "تم إرسال طلب سحب {0} إلى {0}",
+  "content__str_withdraw_request_have_been_sent_to_str": "تم إرسال طلب سحب {amount} إلى {domain}",
   "content__submitted": "مُقَدَّم",
   "content__support_csv_txt_or_excel": "دعم csv أو txt أو Excel",
   "content__support_malicious_contract_detection_on_8_chains": "دعم الكشف عن العقود الضارة في 8 سلاسل.",

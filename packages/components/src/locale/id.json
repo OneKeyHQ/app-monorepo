@@ -839,7 +839,7 @@
   "content__str_transactions_failed": "{0} transaksi gagal!",
   "content__str_transactions_in_progress": "{content__str_transactions_in_progress, plural, other {# Transaksi sedang diproses...}}",
   "content__str_transactions_succeeded": "{content__str_transactions_succeeded, plural, other {# transaksi berhasil!}}",
-  "content__str_withdraw_request_have_been_sent_to_str": "{0} permintaan penarikan telah dikirim ke {0}",
+  "content__str_withdraw_request_have_been_sent_to_str": "Permintaan penarikan {amount} telah dikirim ke {domain}",
   "content__submitted": "Dikirim",
   "content__support_csv_txt_or_excel": "Mendukung csv, txt, atau Excel",
   "content__support_malicious_contract_detection_on_8_chains": "Mendukung deteksi kontrak Berbahaya pada 8 rantai.",

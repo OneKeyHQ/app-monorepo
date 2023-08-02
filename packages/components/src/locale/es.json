@@ -839,7 +839,7 @@
   "content__str_transactions_failed": "¡Las transacciones {0} fallaron!",
   "content__str_transactions_in_progress": "{content__str_transactions_in_progress, plural, one {# Transacción en curso...} other {# Transacciones en curso...}}",
   "content__str_transactions_succeeded": "{content__str_transactions_succeeded, plural, one {¡ # transacción exitosa!} other {¡ # transacciones exitosas!}}",
-  "content__str_withdraw_request_have_been_sent_to_str": "{0} solicitud de retiro ha sido enviada a {0}",
+  "content__str_withdraw_request_have_been_sent_to_str": "Se ha enviado {amount} solicitud de retiro a {domain}",
   "content__submitted": "Enviado",
   "content__support_csv_txt_or_excel": "Admite csv, txt o Excel",
   "content__support_malicious_contract_detection_on_8_chains": "Soporte para detección de contratos maliciosos en 8 redes.",

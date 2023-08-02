@@ -839,7 +839,7 @@
   "content__str_transactions_failed": "Échec de la transaction {0} !",
   "content__str_transactions_in_progress": "{content__str_transactions_in_progress, plural, one {# Transaction en cours...} other {# Transactions en cours...}}",
   "content__str_transactions_succeeded": "{content__str_transactions_succeeded, plural, one {# transaction a réussi !} other {# transactions ont réussi !}}",
-  "content__str_withdraw_request_have_been_sent_to_str": "{0} demande de retrait a été envoyée à {0}",
+  "content__str_withdraw_request_have_been_sent_to_str": "La demande de retrait de {amount} a été envoyée à {domain}",
   "content__submitted": "Soumis",
   "content__support_csv_txt_or_excel": "Prise en charge de csv, txt ou Excel",
   "content__support_malicious_contract_detection_on_8_chains": "Prise en charge de la détection de contrats malveillants sur 8 chaînes.",

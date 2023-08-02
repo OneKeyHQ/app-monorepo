@@ -839,7 +839,7 @@
   "content__str_transactions_failed": "{0} транзакції не вдалися!",
   "content__str_transactions_in_progress": "{content__str_transactions_in_progress, plural, one {# Виконується транзакція...} few {} many {} other {# Виконуються транзакції...}}",
   "content__str_transactions_succeeded": "{content__str_transactions_succeeded, plural, one {Транзакція # виконана успішно!} few {} many {} other {# транзакцій успішно!}}",
-  "content__str_withdraw_request_have_been_sent_to_str": "{0} запит на відкликання надіслано до {0}",
+  "content__str_withdraw_request_have_been_sent_to_str": "{amount} запит на зняття надіслано на {domain}",
   "content__submitted": "Подано",
   "content__support_csv_txt_or_excel": "Підтримка csv, txt або Excel",
   "content__support_malicious_contract_detection_on_8_chains": "Підтримка виявлення шкідливих контрактів на 8 ланцюжках.",

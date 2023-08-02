@@ -839,7 +839,7 @@
   "content__str_transactions_failed": "{0} 条交易已失败！",
   "content__str_transactions_in_progress": "{content__str_transactions_in_progress, plural, other {# 条交易正在进行中...}}",
   "content__str_transactions_succeeded": "{content__str_transactions_succeeded, plural, other {# 条交易已完成！}}",
-  "content__str_withdraw_request_have_been_sent_to_str": "{0} 提款请求已发送至 {0}",
+  "content__str_withdraw_request_have_been_sent_to_str": "{amount} 提款请求已发送至 {domain}",
   "content__submitted": "已提交",
   "content__support_csv_txt_or_excel": "支持 csv、txt 或 Excel",
   "content__support_malicious_contract_detection_on_8_chains": "支持 8 条链上的恶意合约检测。",

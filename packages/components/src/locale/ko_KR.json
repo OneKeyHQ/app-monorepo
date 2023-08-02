@@ -839,7 +839,7 @@
   "content__str_transactions_failed": "{0} 트랜잭션이 실패했습니다!",
   "content__str_transactions_in_progress": "{content__str_transactions_in_progress, plural, other {# 트랜잭션이 진행 중입니다...}}",
   "content__str_transactions_succeeded": "{content__str_transactions_succeeded, plural, other {# 거래가 성공했습니다!}}",
-  "content__str_withdraw_request_have_been_sent_to_str": "{0} 철회 요청이 {0} 에게 전송되었습니다.",
+  "content__str_withdraw_request_have_been_sent_to_str": "{amount} 인출 요청이 {domain} 에 전송되었습니다.",
   "content__submitted": "제출 된",
   "content__support_csv_txt_or_excel": "csv, txt 또는 Excel 지원",
   "content__support_malicious_contract_detection_on_8_chains": "8개 체인에서 악성 계약 탐지 지원.",
