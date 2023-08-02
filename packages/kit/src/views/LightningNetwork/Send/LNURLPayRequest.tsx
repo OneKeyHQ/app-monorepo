@@ -290,7 +290,7 @@ const LNURLPayRequest = () => {
         children: (
           <Form>
             <Form.Item
-              label="Connect to"
+              label={intl.formatMessage({ id: 'form__connect_to' })}
               name="connectTo"
               control={control}
               formControlProps={{ width: 'full' }}

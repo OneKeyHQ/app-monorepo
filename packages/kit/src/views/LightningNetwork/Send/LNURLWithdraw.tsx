@@ -129,7 +129,7 @@ const LNURLWithdraw = () => {
 
   return (
     <Modal
-      header="LNURL Withdraw"
+      header={intl.formatMessage({ id: 'title__lnurl_withdraw' })}
       headerDescription={lnurlDetails.domain}
       primaryActionTranslationId="action__withdraw"
       primaryActionProps={{
@@ -152,7 +152,7 @@ const LNURLWithdraw = () => {
         children: (
           <Form>
             <Form.Item
-              label="Connect to"
+              label={intl.formatMessage({ id: 'form__connect_to' })}
               name="connectTo"
               control={control}
               formControlProps={{ width: 'full' }}
@@ -179,7 +179,7 @@ const LNURLWithdraw = () => {
               </Box>
             </Form.Item>
             <Form.Item
-              label="Withdraw Description"
+              label={intl.formatMessage({ id: 'form__withdraw_description' })}
               control={control}
               name="description"
               formControlProps={{ width: 'full' }}
