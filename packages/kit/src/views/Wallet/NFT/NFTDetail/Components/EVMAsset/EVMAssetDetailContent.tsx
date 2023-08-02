@@ -77,10 +77,24 @@ function EVMAssetDetailContent({
   const goToCollectionDetail = useCollectionDetail();
   const isVertical = useIsVerticalLayout();
   const [asset, updateAsset] = useState(outerAsset);
-  const isDisabled =
-    wallet?.type === WALLET_TYPE_WATCHING ||
-    asset.owner !== outerAsset.accountAddress ||
-    !accountId;
+  const isDisabled = useMemo(() => {
+    if (wallet?.type === WALLET_TYPE_WATCHING || !accountId) {
+      return true;
+    }
+    if (
+      asset.ercType === 'erc721' &&
+      asset.owner !== outerAsset.accountAddress
+    ) {
+      return true;
+    }
+    return false;
+  }, [
+    accountId,
+    asset.ercType,
+    asset.owner,
+    outerAsset.accountAddress,
+    wallet?.type,
+  ]);
 
   const { network } = useNetwork({ networkId });
 
