@@ -16,8 +16,12 @@ import { useAppSelector } from './useAppSelector';
 import type { IAppState } from '../store';
 
 export const useSingleToken = (networkId: string, address: string) => {
-  const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState<Token>();
+  const [state, setState] = useState<{
+    loading: boolean;
+    token?: Token;
+  }>({
+    loading: true,
+  });
 
   useEffect(() => {
     backgroundApiProxy.engine
@@ -27,17 +31,22 @@ export const useSingleToken = (networkId: string, address: string) => {
       })
       .then((t) => {
         if (t) {
-          setToken(t);
+          setState({
+            loading: false,
+            token: t,
+          });
         }
       })
-      .finally(() => {
-        setLoading(false);
+      .catch(() => {
+        setState({
+          loading: false,
+          token: undefined,
+        });
       });
   }, [address, networkId]);
 
   return {
-    loading,
-    token,
+    ...state,
   };
 };
 

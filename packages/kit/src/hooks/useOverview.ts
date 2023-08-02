@@ -171,10 +171,16 @@ export const useAccountPortfolios = <
     updatedAt: undefined,
     loading: true,
   });
-  const updateInfo = useOverviewAccountUpdateInfo({
-    networkId: networkId ?? '',
-    accountId: accountId ?? '',
-  });
+  const updateInfoUpdatedAt = useAppSelector(
+    useMemo(
+      () =>
+        updatedTimeSelector({
+          networkId: networkId ?? '',
+          accountId: accountId ?? '',
+        }),
+      [accountId, networkId],
+    ),
+  );
 
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
     accountId,
@@ -185,7 +191,7 @@ export const useAccountPortfolios = <
       setState({
         loading: false,
         data: [],
-        updatedAt: updateInfo?.updatedAt,
+        updatedAt: updateInfoUpdatedAt,
       });
       return;
     }
@@ -196,9 +202,9 @@ export const useAccountPortfolios = <
     setState({
       loading: false,
       data: res?.[type] || [],
-      updatedAt: updateInfo?.updatedAt,
+      updatedAt: updateInfoUpdatedAt,
     });
-  }, [accountId, networkId, type, networkAccountsMap, updateInfo?.updatedAt]);
+  }, [accountId, networkId, type, networkAccountsMap, updateInfoUpdatedAt]);
 
   useEffect(() => {
     fetchData();
@@ -942,15 +948,29 @@ export const useTokenDetailInfo = ({
   tokenAddress?: string;
   defaultInfo?: Record<string, unknown>;
 }) => {
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<ITokenDetailInfo | undefined>();
+  const [dataState, setDataState] = useState<{
+    data?: ITokenDetailInfo | undefined;
+    loading: boolean;
+  }>({
+    data: undefined,
+    loading: true,
+  });
   const { token, loading: tokenLoading } = useSingleToken(
     networkId ?? '',
     tokenAddress ?? '',
   );
 
   useEffect(() => {
-    setLoading(true);
+    setDataState((pre) => {
+      if (pre.loading) {
+        return pre;
+      }
+      return {
+        data: undefined,
+        loading: true,
+      };
+    });
+
     backgroundApiProxy.serviceToken
       .fetchTokenDetailInfo({
         coingeckoId,
@@ -958,13 +978,23 @@ export const useTokenDetailInfo = ({
         tokenAddress,
         accountId,
       })
-      .then((res) => setData(res))
-      .finally(() => setLoading(false));
+      .then((res) =>
+        setDataState({
+          data: res,
+          loading: false,
+        }),
+      )
+      .catch(() =>
+        setDataState({
+          data: undefined,
+          loading: false,
+        }),
+      );
   }, [coingeckoId, networkId, tokenAddress, accountId]);
 
   return useMemo(() => {
-    const { defaultChain } = data ?? {};
-    const tokens = data?.tokens ?? [];
+    const { defaultChain } = dataState?.data ?? {};
+    const tokens = dataState?.data?.tokens ?? [];
     if (!tokens.length && token) {
       tokens.push(token);
     }
@@ -984,11 +1014,11 @@ export const useTokenDetailInfo = ({
     return {
       ...defaultInfo,
       ...pick(token, 'name', 'symbol', 'logoURI'),
-      ...data,
-      loading: loading || tokenLoading,
+      ...dataState?.data,
+      loading: dataState?.loading || tokenLoading,
       tokens,
       defaultToken,
       ethereumNativeToken,
     };
-  }, [data, token, loading, tokenLoading, defaultInfo]);
+  }, [dataState?.data, token, dataState?.loading, tokenLoading, defaultInfo]);
 };
