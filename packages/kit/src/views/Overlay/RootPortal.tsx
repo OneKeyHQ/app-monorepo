@@ -69,24 +69,59 @@ export function PortalRender(props: {
   const { children, container } = props;
   const [retry, setRetry] = useState(false);
 
+  const managerController = useMemo(() => {
+    const manager = container ? portalManagers.get(container) : null;
+    let portalId = '';
+    if (manager) {
+      portalId = createPortalId(++portalUuid);
+    }
+    let prevChildren: ReactNode | null = null;
+    return {
+      destroy() {
+        if (manager && portalId) {
+          manager?.destroy(portalId);
+        }
+      },
+      update(c: ReactNode) {
+        if (!container) {
+          return;
+        }
+        if (c === prevChildren) {
+          return true;
+        }
+        if (manager && portalId) {
+          manager.update(portalId, <>{c}</>);
+          prevChildren = c;
+          return true;
+        }
+        console.error(
+          `react-native-root-portal: Can not find target PortalContainer named:'${container}'.`,
+        );
+      },
+    };
+  }, [container]);
+
+  // * try first time by sync (iOS required, web not inited yet)
+  managerController.update(children);
+
+  useEffect(
+    () => () => {
+      // * destroy component
+      managerController.destroy();
+    },
+    [managerController],
+  );
+
   useEffect(() => {
     if (!container) {
       return;
     }
-    const manager = container ? portalManagers.get(container) : null;
 
-    if (manager) {
-      const portalId = createPortalId(++portalUuid);
-      manager.update(portalId, <>{children}</>);
-      return () => {
-        // destroy component
-        manager.destroy(portalId);
-      };
-    }
-    console.error(
-      `react-native-root-portal: Can not find target PortalContainer named:'${container}'.`,
-    );
-    if (!retry) {
+    // * try 2nd time by async (web render here)
+    const isUpdated = managerController.update(children);
+
+    // * try 3rd time by setTimeout
+    if (!retry && !isUpdated) {
       // manager not exists, may be portalManagers not init yet,
       // try again in 600ms
       setTimeout(() => {
@@ -96,7 +131,7 @@ export function PortalRender(props: {
         setRetry(true);
       }, 800);
     }
-  }, [children, container, retry]);
+  }, [children, container, managerController, retry]);
 
   if (!container) {
     return <>{children}</>;
