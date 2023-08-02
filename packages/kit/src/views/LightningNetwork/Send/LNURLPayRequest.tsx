@@ -276,7 +276,11 @@ const LNURLPayRequest = () => {
       }}
       onPrimaryActionPress={() => doSubmit()}
       secondaryActionTranslationId="action__cancel"
-      onSecondaryActionPress={() => {}}
+      onSecondaryActionPress={() => {
+        if (navigation?.canGoBack?.()) {
+          navigation.goBack();
+        }
+      }}
       height="auto"
       scrollViewProps={{
         contentContainerStyle: {

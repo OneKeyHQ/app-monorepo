@@ -124,14 +124,19 @@ const LNURLWithdraw = () => {
     <Modal
       header="LNURL Withdraw"
       headerDescription={lnurlDetails.domain}
-      hideSecondaryAction
       primaryActionTranslationId="action__withdraw"
       primaryActionProps={{
         isDisabled: isLoading,
         isLoading,
       }}
       onPrimaryActionPress={() => doSubmit()}
-      height="418px"
+      secondaryActionTranslationId="action__cancel"
+      onSecondaryActionPress={() => {
+        if (navigation?.canGoBack?.()) {
+          navigation.goBack();
+        }
+      }}
+      height="auto"
       scrollViewProps={{
         contentContainerStyle: {
           flex: 1,
