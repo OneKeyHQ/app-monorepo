@@ -219,7 +219,7 @@ export type SendRoutesParams = {
   [SendModalRoutes.BatchSendConfirm]: BatchSendConfirmParams;
   [SendModalRoutes.BatchSendProgress]: BatchSendProgressParams;
   [SendModalRoutes.NFTDetailModal]: NFTDetailModalParams;
-  [SendModalRoutes.LNPayRequest]: LnUrlPayParams;
+  [SendModalRoutes.LNURLPayRequest]: LnUrlPayParams;
 };
 
 export type ITxConfirmViewPropsHandleConfirm = ({

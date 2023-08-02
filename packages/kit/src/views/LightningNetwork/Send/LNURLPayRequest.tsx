@@ -33,11 +33,11 @@ import type { SendRoutesParams } from '../../../routes';
 import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-type RouteProps = RouteProp<SendRoutesParams, SendModalRoutes.LNPayRequest>;
+type RouteProps = RouteProp<SendRoutesParams, SendModalRoutes.LNURLPayRequest>;
 
 type NavigationProps = NativeStackNavigationProp<
   SendRoutesParams,
-  SendModalRoutes.LNPayRequest
+  SendModalRoutes.LNURLPayRequest
 >;
 
 type FormValues = {
@@ -47,7 +47,7 @@ type FormValues = {
   comment: string;
 };
 
-const PayRequest = () => {
+const LNURLPayRequest = () => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
@@ -421,4 +421,4 @@ const PayRequest = () => {
   );
 };
 
-export { PayRequest };
+export { LNURLPayRequest };

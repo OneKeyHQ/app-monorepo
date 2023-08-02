@@ -61,7 +61,7 @@ async function lightningNetworkSendConfirm({
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
           params: {
-            screen: SendModalRoutes.LNPayRequest,
+            screen: SendModalRoutes.LNURLPayRequest,
             params: {
               ...transferInfo,
               networkId,
