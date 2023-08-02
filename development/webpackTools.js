@@ -51,6 +51,44 @@ function createDefaultResolveExtensions() {
   ];
 }
 
+function createDevServerProxy() {
+  return {
+    '/nexa_ws': {
+      target: 'wss://testnet-explorer.nexa.org:30004',
+      changeOrigin: true,
+      ws: true,
+    },
+    '/react-render-tracker@0.7.3/dist/react-render-tracker.js': {
+      // https://unpkg.com/react-render-tracker@0.7.3/dist/react-render-tracker.js
+      target: 'https://unpkg.com',
+      changeOrigin: true,
+      logLevel: 'debug',
+      onProxyRes: async (proxyRes, req, res) => {
+        if (
+          req.headers &&
+          req.headers.cookie &&
+          req.headers.cookie.includes('rrt=1')
+        ) {
+          proxyRes.headers['Cache-Control'] =
+            'no-store, no-cache, must-revalidate, proxy-revalidate';
+          proxyRes.headers.Expires = '0';
+          proxyRes.headers.Age = '0';
+        } else {
+          res.setHeader(
+            'Cache-Control',
+            'no-store, no-cache, must-revalidate, proxy-revalidate',
+          );
+          res.setHeader('Content-Type', 'text/javascript');
+          res.setHeader('Age', '0');
+          res.setHeader('Expires', '0');
+          res.write(`console.log('react-render-tracker is disabled')`);
+          res.end();
+        }
+      },
+    },
+  };
+}
+
 async function modifyExpoEnv({ env, platform }) {
   const locations = await getPathsAsync(env.projectRoot);
 
@@ -90,16 +128,6 @@ function normalizeConfig({
     if (PUBLIC_URL) config.output.publicPath = PUBLIC_URL;
     const isDev = process.env.NODE_ENV !== 'production';
 
-    // add devServer proxy
-    if (config.devServer) {
-      config.devServer.proxy = config.devServer.proxy || {};
-      config.devServer.proxy['/nexa_ws'] = {
-        target: 'wss://testnet-explorer.nexa.org:30004',
-        changeOrigin: true,
-        ws: true,
-      };
-    }
-
     config.plugins = [
       ...config.plugins,
       platform !== 'ext' ? new DuplicatePackageCheckerPlugin() : null,
@@ -117,32 +145,10 @@ function normalizeConfig({
 
     // add devServer proxy
     if (config.devServer) {
-      const logScript = `console.log('react-render-tracker is disabled')`;
       config.devServer.proxy = config.devServer.proxy || {};
-      config.devServer.proxy[
-        '/react-render-tracker@0.7.3/dist/react-render-tracker.js'
-      ] = {
-        target: 'https://unpkg.com',
-        changeOrigin: true,
-        logLevel: 'debug',
-        onProxyRes: async (proxyRes, req, res) => {
-          if (req.headers && req.headers.cookie && req.headers.cookie.includes('rrt=1')) {
-            proxyRes.headers['Cache-Control'] =
-              'no-store, no-cache, must-revalidate, proxy-revalidate';
-            proxyRes.headers.Expires = '0';
-            proxyRes.headers.Age = '0';
-          } else {
-            res.setHeader(
-              'Cache-Control',
-              'no-store, no-cache, must-revalidate, proxy-revalidate',
-            );
-            res.setHeader('Content-Type', 'text/javascript');
-            res.setHeader('Age', '0');
-            res.setHeader('Expires', '0');
-            res.write(logScript);
-            res.end();
-          }
-        },
+      config.devServer.proxy = {
+        ...config.devServer.proxy,
+        ...createDevServerProxy(),
       };
     }
 
@@ -329,4 +335,5 @@ module.exports = {
   developmentConsts,
   normalizeConfig,
   modifyExpoEnv,
+  createDevServerProxy,
 };

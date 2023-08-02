@@ -4,6 +4,30 @@
 - packages/ext/src/assets/preload-html-head.js
  */
 (function () {
+  // TODO runtime create script is not working for react-render-tracker
+  if (localStorage.getItem('$$OnekeyReactRenderTrackerEnabled') && false) {
+    // **** create RRT script
+    const script = document.createElement('script');
+    if (
+      window.location.protocol === 'http:' ||
+      window.location.protocol === 'https:'
+    ) {
+      script.src = '/react-render-tracker@0.7.3/dist/react-render-tracker.js';
+    } else {
+      // extension support
+      script.src =
+        'http://localhost:3100/react-render-tracker@0.7.3/dist/react-render-tracker.js';
+    }
+    script.dataset.config = 'inpage:true';
+    document.head.appendChild(script);
+    //
+    // **** connect to Rempl
+    const meta = document.createElement('meta');
+    meta.name = 'rempl:server';
+    meta.content = 'localhost:8177';
+    document.head.appendChild(meta);
+  }
+
   // $$onekeyPerfTrace start ----------------------------------------------
   window.$$onekeyPerfTrace = {
     timeline: [],

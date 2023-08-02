@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useCallback, useLayoutEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import fetch from 'cross-fetch';
@@ -830,7 +830,20 @@ export const Debug = () => {
             <Pressable
               {...pressableProps}
               onPress={() => {
-                changeRRTStatus(rrtStatus === '1' ? '0' : '1');
+                const status = rrtStatus === '1' ? '0' : '1';
+                changeRRTStatus(status);
+                if (platformEnv.isRuntimeBrowser) {
+                  if (status === '0') {
+                    localStorage.removeItem(
+                      '$$OnekeyReactRenderTrackerEnabled',
+                    );
+                  } else {
+                    localStorage.setItem(
+                      '$$OnekeyReactRenderTrackerEnabled',
+                      'true',
+                    );
+                  }
+                }
                 window.location.reload();
               }}
             >
