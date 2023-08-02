@@ -98,8 +98,7 @@ export function SendFeedbackReceipt() {
       });
     }
     if (type === 'LNURLWithdraw') {
-      // TODO: i18n
-      return 'Withdraw Request Send';
+      return intl.formatMessage({ id: 'title__lnurl_withdraw_request' });
     }
     return intl.formatMessage({ id: 'msg__signature_done' });
   }, [intl, type]);
@@ -148,6 +147,21 @@ export function SendFeedbackReceipt() {
         <Center my={2}>
           <Text typography="Body2" color="text-subdued" textAlign="center">
             {successAction.message}
+          </Text>
+        </Center>
+      );
+    }
+    if (successAction.tag === 'withdrawer') {
+      return (
+        <Center my={2}>
+          <Text typography="Body2" color="text-subdued" textAlign="center">
+            {intl.formatMessage(
+              { id: 'content__str_withdraw_request_have_been_sent_to_str' },
+              {
+                amount: successAction.amount,
+                domain: successAction.domain,
+              },
+            )}
           </Text>
         </Center>
       );

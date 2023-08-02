@@ -67,4 +67,7 @@ export interface LNURLPaymentSuccessAction {
   description?: string;
   message?: string;
   url?: string;
+  // for withdrawer result
+  amount?: string;
+  domain?: string;
 }

@@ -78,6 +78,13 @@ const LNURLWithdraw = () => {
           accountId,
           txid: 'unknown_txid',
           type: 'LNURLWithdraw',
+          successAction: {
+            tag: 'withdrawer',
+            amount: `${amount} ${intl.formatMessage({
+              id: 'form__sats__units',
+            })}`,
+            domain: lnurlDetails.domain,
+          },
         };
         navigation.navigate(SendModalRoutes.SendFeedbackReceipt, params);
       } catch (e: any) {
