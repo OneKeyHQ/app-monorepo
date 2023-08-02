@@ -52,7 +52,7 @@
     "@walletconnect/utils": "^1.8.0",
     "asyncstorage-down": "^4.2.0",
     "buffer": "^6.0.3",
-    "expo": "^48.0.19",
+    "expo": "49.0.6",
     "expo-clipboard": "^4.1.2",
     "expo-device": "^5.2.1",
     "expo-haptics": "^12.2.1",

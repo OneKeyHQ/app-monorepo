@@ -83,7 +83,7 @@
     "axios": "^0.27.2",
     "bitcoinjs-lib": "6.1.0",
     "bitcoinjs-message": "2.2.0",
-    "expo": "^48.0.19",
+    "expo": "49.0.6",
     "expo-device": "^5.0.0",
     "fast-json-stable-stringify": "^2.1.0",
     "jsrsasign": "^10.7.1",

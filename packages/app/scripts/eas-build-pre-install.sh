@@ -2,7 +2,7 @@
 # EAS Environment Secrets
 # Run Path: packages/app
 
-npm i -g expo-cli@6.0.8
+npm i -g expo-cli@6.3.10
 
 echo "@onekeyhq:registry=https://npm.pkg.github.com\n//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" > ~/.npmrc
 
