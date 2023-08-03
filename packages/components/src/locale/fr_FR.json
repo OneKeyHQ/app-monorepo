@@ -1220,6 +1220,7 @@
   "form__crypto": "Crypto-monnaie",
   "form__crypto_settings": "Crypto",
   "form__current": "Actuel",
+  "form__current_price": "Prix actuel",
   "form__current_str": "Actuel : {0}",
   "form__current_str_gas_fee": "Frais de gaz {0} actuels",
   "form__custom": "Personnaliser",

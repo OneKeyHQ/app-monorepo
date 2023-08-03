@@ -1220,6 +1220,7 @@
   "form__crypto": "ক্রিপ্টোকারেন্সি",
   "form__crypto_settings": "ক্রিপ্টো",
   "form__current": "কারেন্ট",
+  "form__current_price": "বর্তমান মূল্য",
   "form__current_str": "বর্তমান: {0}",
   "form__current_str_gas_fee": "বর্তমান {0} গ্যাস ফি",
   "form__custom": "কাস্টমাইজ করুন",

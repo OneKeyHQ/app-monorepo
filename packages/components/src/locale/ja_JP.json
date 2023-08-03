@@ -1220,6 +1220,7 @@
   "form__crypto": "暗号通貨",
   "form__crypto_settings": "クリプト",
   "form__current": "現在",
+  "form__current_price": "現在の価格",
   "form__current_str": "現在: {0}",
   "form__current_str_gas_fee": "現在の{0}ガス料金",
   "form__custom": "カスタマイズ",

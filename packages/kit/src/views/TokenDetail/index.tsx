@@ -15,7 +15,11 @@ import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { useTokenDetailInfo, useTokenPositionInfo } from '../../hooks';
+import {
+  useAppSelector,
+  useTokenDetailInfo,
+  useTokenPositionInfo,
+} from '../../hooks';
 import { SwapPlugins } from '../Swap/Plugins/Swap';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
@@ -24,6 +28,8 @@ import { TokenDetailContext } from './context';
 import MarketInfo from './MarketInfo';
 import TokenDetailHeader from './TokenDetailHeader';
 import { FavoritedButton } from './TokenDetailHeader/Header';
+import { HeaderOptions } from './TokenDetailHeader/HeaderOptions';
+import VerticalPriceChartSection from './TokenDetailHeader/VerticalPriceChartSection';
 
 import type { HomeRoutes } from '../../routes/routesEnum';
 import type { HomeRoutesParams } from '../../routes/types';
@@ -78,6 +84,8 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     walletId,
   });
 
+  const showChart = useAppSelector((s) => s.settings.showTokenDetailPriceChart);
+
   const isLightningNetwork = useMemo(
     () => isLightningNetworkByNetworkId(networkId),
     [networkId],
@@ -88,8 +96,11 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     if (detailInfo?.ethereumNativeToken && !isAllNetworks(networkId)) {
       height += 132;
     }
+    if (showChart && !isVerticalLayout) {
+      height += 332;
+    }
     return height;
-  }, [networkId, detailInfo?.ethereumNativeToken, isVerticalLayout]);
+  }, [networkId, detailInfo?.ethereumNativeToken, isVerticalLayout, showChart]);
 
   const headerTitle = useCallback(() => {
     if (!isVerticalLayout) {
@@ -105,7 +116,7 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
 
   const headerRight = useCallback(() => {
     if (!isVerticalLayout) {
-      return null;
+      return <HeaderOptions />;
     }
     return <FavoritedButton coingeckoId={coingeckoId} type="plain" size="xl" />;
   }, [isVerticalLayout, coingeckoId]);
@@ -138,7 +149,12 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
 
   return (
     <TokenDetailContext.Provider value={contextValue}>
-      <HStack flex={1} justifyContent="center" onLayout={onLayout}>
+      <HStack
+        flex={1}
+        justifyContent="center"
+        onLayout={onLayout}
+        position="relative"
+      >
         <Tabs.Container
           key={String(headerHeight)}
           disableRefresh
@@ -184,6 +200,8 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
             />
           </Box>
         ) : null}
+
+        {isVerticalLayout ? <VerticalPriceChartSection /> : null}
       </HStack>
     </TokenDetailContext.Provider>
   );
