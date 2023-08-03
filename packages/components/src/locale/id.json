@@ -1220,6 +1220,7 @@
   "form__crypto": "Mata uang kripto",
   "form__crypto_settings": "Kripto",
   "form__current": "Saat ini",
+  "form__current_price": "Harga sekarang",
   "form__current_str": "Saat ini: {0}",
   "form__current_str_gas_fee": "Tarif gas {0} saat ini",
   "form__custom": "Sesuaikan",

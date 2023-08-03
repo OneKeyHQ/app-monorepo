@@ -1220,6 +1220,7 @@
   "form__crypto": "Криптовалют",
   "form__crypto_settings": "Крипто",
   "form__current": "Одоогийн",
+  "form__current_price": "Одоогийн үнэ",
   "form__current_str": "Одоогийн: {0}",
   "form__current_str_gas_fee": "Одоогийн {0} хийн төлбөр",
   "form__custom": "Тохируулах",
