@@ -4,31 +4,30 @@ import { useIntl } from 'react-intl';
 
 import { ToggleButtonGroup } from '@onekeyhq/components';
 
-import { useCategories } from '../../hooks';
 import { DiscoverContext } from '../context';
 
-import type { CatagoryType } from '../../type';
+import type { CategoryType } from '../../type';
 
 export const DAppCategories = () => {
   const intl = useIntl();
-  const { categoryId, setCategoryId } = useContext(DiscoverContext);
-  const categories = useCategories();
-  const data = useMemo<CatagoryType[]>(() => {
+  const { categoryId, setCategoryId, categories } = useContext(DiscoverContext);
+
+  const data = useMemo<CategoryType[]>(() => {
     if (!categories) {
       return [];
     }
-    return [{ name: intl.formatMessage({ id: 'msg__mine' }), _id: '' }].concat(
+    return [{ name: intl.formatMessage({ id: 'msg__mine' }), id: '' }].concat(
       categories,
     );
   }, [categories, intl]);
 
   const [selectedIndex, setSelectedIndex] = useState(() =>
-    data.findIndex((item) => item._id === categoryId),
+    data.findIndex((item) => item.id === categoryId),
   );
 
   const onButtonPress = useCallback(
     (index: number) => {
-      const id = data[index]._id;
+      const { id } = data[index];
       setCategoryId(id);
       setSelectedIndex(index);
     },

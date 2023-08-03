@@ -20,7 +20,7 @@ let Desktop: any;
 const DAppList: FC = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
-  const { title, _title: $title } = route.params;
+  const { title } = route.params;
   const isSmall = useIsVerticalLayout();
   if (isSmall && !Mobile) {
     Mobile = require('./Mobile').Mobile;
@@ -32,7 +32,7 @@ const DAppList: FC = () => {
     navigation.setOptions({
       title,
     });
-  }, [navigation, title, $title]);
+  }, [navigation, title]);
 
   return (
     <Box flex="1" bg="background-default">

@@ -2,11 +2,11 @@ import { createSlice } from '@reduxjs/toolkit';
 
 import type {
   BookmarkItem,
-  CatagoryType,
+  CategoryType,
   DAppItemType,
   DiscoverHistory,
+  GroupDappsType,
   HistoryItemData,
-  TagDappsType,
   UserBrowserHistory,
   WebSiteHistory,
 } from '../../views/Discover/type';
@@ -31,12 +31,10 @@ type InitialState = {
   // REMOVED
 
   home?: {
-    categories: CatagoryType[];
-    tagDapps: TagDappsType[];
+    categories: CategoryType[];
+    tagDapps: GroupDappsType[];
   };
 
-  // enableIOSDappSearch?: boolean;
-  // showFullLayout?: boolean;
   showBookmark?: boolean;
 
   networkPrices?: Record<string, string>;
@@ -256,12 +254,13 @@ export const discoverSlice = createSlice({
       state.listedTags = undefined;
       state.categoryDapps = undefined;
       state.tagDapps = undefined;
+      state.home = undefined;
     },
     setHomeData(
       state,
       action: PayloadAction<{
-        categories: CatagoryType[];
-        tagDapps: TagDappsType[];
+        categories: CategoryType[];
+        tagDapps: GroupDappsType[];
       }>,
     ) {
       state.home = action.payload;
@@ -320,22 +319,22 @@ export const discoverSlice = createSlice({
 });
 
 export const {
+  // setDappItems,
+  // setListedCategories,
+  // setListedTags,
+  // setCategoryDapps,
+  // setTagDapps,
+  // setEnableIOSDappSearch,
+  // addFavorite,
+  // removeFavorite,
   updateHistory,
   updateFirstRemindDAPP,
   addWebSiteHistory,
   updateWebSiteHistory,
   setDappHistory,
   removeDappHistory,
-  // addFavorite,
-  // removeFavorite,
   removeWebSiteHistory,
-  // setDappItems,
-  // setListedCategories,
-  // setListedTags,
-  // setCategoryDapps,
-  // setTagDapps,
   clearHistory,
-  // setEnableIOSDappSearch,
   setShowBookmark,
   cleanOldState,
   setHomeData,

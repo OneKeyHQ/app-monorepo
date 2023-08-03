@@ -215,7 +215,9 @@ export const Desktop: FC<DAppListProps> = ({ ...rest }) => {
           key={`key${numColumns}`}
           ListEmptyComponent={EmptySkeleton}
         />
-      ) : null}
+      ) : (
+        <EmptySkeleton />
+      )}
     </Box>
   );
 };

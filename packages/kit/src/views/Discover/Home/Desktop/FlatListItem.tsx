@@ -1,41 +1,41 @@
 import type { FC } from 'react';
-import { useRef } from 'react';
+import { useContext, useMemo, useRef, useState } from 'react';
 
 import { chunk } from 'lodash';
-import { useWindowDimensions } from 'react-native';
 
 import { Box, Pressable, Typography } from '@onekeyhq/components';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useDebounce } from '../../../../hooks';
 import { Chains } from '../../Chains';
 import DAppIcon from '../../components/DAppIcon';
 import FavContainer from '../../Explorer/FavContainer';
-import { SectionTitle } from '../TitleView';
+import { DiscoverContext } from '../context';
+import { SectionTitle } from '../SectionTitle';
+import { SeeAllButton } from '../SeeAllButton';
+import { SelectorButton } from '../SelectorButton';
 
-import type { DAppItemType, SectionDataType } from '../../type';
+import type { DAppItemType, GroupDappsType } from '../../type';
 
-type RowProps = {
-  items: DAppItemType[];
-  cardWidth: number;
-  onItemSelect?: (o: DAppItemType) => void;
-};
-
-const Card: FC<{
+type CardProps = {
   item: DAppItemType;
   cardWidth: number;
-  onItemSelect?: (o: DAppItemType) => void;
-}> = ({ item, cardWidth, onItemSelect }) => {
+};
+
+const Card: FC<CardProps> = ({ item, cardWidth }) => {
   const ref = useRef<any>(null);
+  const hoverButtonProps = useMemo(
+    () => ({
+      right: '20px',
+      top: '20px',
+      iconSize: 20,
+    }),
+    [],
+  );
+  const { onItemSelect } = useContext(DiscoverContext);
   return (
-    <FavContainer
-      url={item.url}
-      hoverButtonProps={{
-        right: '20px',
-        top: '20px',
-        iconSize: 20,
-      }}
-    >
+    <FavContainer url={item.url} hoverButtonProps={hoverButtonProps}>
       <Box
         width={cardWidth}
         maxWidth={cardWidth}
@@ -90,15 +90,15 @@ const Card: FC<{
   );
 };
 
-const Row: FC<RowProps> = ({ items, cardWidth, onItemSelect }) => (
+type SectionRowProps = {
+  items: DAppItemType[];
+  cardWidth: number;
+};
+
+const SectionRow: FC<SectionRowProps> = ({ items, cardWidth }) => (
   <Box flexDirection="row" alignItems="center">
     {items.map((item) => (
-      <Card
-        key={item._id}
-        item={item}
-        cardWidth={cardWidth}
-        onItemSelect={onItemSelect}
-      />
+      <Card key={item._id} item={item} cardWidth={cardWidth} />
     ))}
   </Box>
 );
@@ -106,17 +106,15 @@ const Row: FC<RowProps> = ({ items, cardWidth, onItemSelect }) => (
 type SectionsProps = {
   width: number;
   data: DAppItemType[];
-  onItemSelect?: (o: DAppItemType) => void;
 };
 
 const Sections: FC<SectionsProps> = (props) => {
-  const { width, data, onItemSelect } = props;
-  const screenWidth = width - 270 - 48;
+  const { width, data } = props;
+  const screenWidth = width - 66;
   const minWidth = 250;
   const numColumns = Math.floor(screenWidth / minWidth);
   const cardWidth = screenWidth / numColumns;
-  const filterData = data.slice(0, 8);
-  const sections = chunk(filterData, numColumns).map((items) => ({
+  const sections = chunk(data, numColumns).map((items) => ({
     key: items[0]._id,
     items,
   }));
@@ -124,10 +122,9 @@ const Sections: FC<SectionsProps> = (props) => {
   return (
     <Box pl="6">
       {sections?.map((section) => (
-        <Row
+        <SectionRow
           items={section.items}
           key={section.key}
-          onItemSelect={onItemSelect}
           cardWidth={cardWidth}
         />
       ))}
@@ -135,24 +132,42 @@ const Sections: FC<SectionsProps> = (props) => {
   );
 };
 
-export const Desktop: FC<SectionDataType> = ({
-  title,
-  _title,
-  data,
-  onItemSelect,
-  tagId,
-}) => {
-  const { width } = useWindowDimensions();
+type FlatListItemProps = {
+  data: GroupDappsType;
+  width: number;
+};
+
+export const FlatListItem: FC<FlatListItemProps> = ({ data, width }) => {
   const w = useDebounce(width, 1000);
+  const [networkId, setNetworkId] = useState('all--0');
+
+  const networkIds = useMemo(() => {
+    let items = [] as string[];
+    items = items.concat(...data.items.map((o) => o.networkIds));
+    return Array.from(new Set(items));
+  }, [data]);
+
+  const items = useMemo(() => {
+    if (isAllNetworks(networkId)) {
+      return data.items;
+    }
+    return data.items.filter((o) => o.networkIds.includes(networkId));
+  }, [networkId, data]);
+
   return (
     <Box w="100%" mt="8">
-      <SectionTitle
-        title={title}
-        _title={_title}
-        tagId={tagId}
-        onItemSelect={onItemSelect}
-      />
-      <Sections data={data} onItemSelect={onItemSelect} width={w} />
+      <SectionTitle title={data.label}>
+        {data.id ? (
+          <SeeAllButton title={data.label} tagId={data.id} />
+        ) : (
+          <SelectorButton
+            networkIds={networkIds}
+            networkId={networkId}
+            onItemSelect={setNetworkId}
+          />
+        )}
+      </SectionTitle>
+      <Sections data={items} width={w} />
     </Box>
   );
 };
