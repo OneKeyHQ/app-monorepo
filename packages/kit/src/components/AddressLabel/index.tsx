@@ -28,6 +28,7 @@ type Props = {
   securityInfo?: (keyof GoPlusAddressSecurity)[];
   shouldCheckSecurity?: boolean;
   validAddressMessage?: MessageDescriptor['id'];
+  validAddressMessageProperty?: Record<string, any>;
   labelStyle?: ComponentProps<typeof Box>;
   labelProps?: ComponentProps<typeof Badge>;
   isLoading?: boolean;
@@ -72,6 +73,7 @@ function AddressLabel(props: Props) {
     isValidAddress,
     showValidAddressLabel = false,
     validAddressMessage,
+    validAddressMessageProperty,
     labelStyle,
     labelProps,
     isLoading,
@@ -248,6 +250,7 @@ function AddressLabel(props: Props) {
           title: validAddressMessage || 'form__enter_recipient_address_valid',
           type: 'default',
           icon: '👌',
+          description: validAddressMessageProperty,
         },
     ];
     return labels.filter(Boolean) as Label[];
@@ -262,35 +265,53 @@ function AddressLabel(props: Props) {
     isValidAddressLabel,
     securityInfo?.length,
     validAddressMessage,
+    validAddressMessageProperty,
   ]);
 
   const getTitle = useCallback(
     (label: Label) => {
+      const values =
+        validAddressMessageProperty &&
+        typeof validAddressMessageProperty === 'object'
+          ? validAddressMessageProperty
+          : undefined;
+
       if (label.icon) {
         if (label.desc) {
-          return `${label.icon} ${intl.formatMessage({
-            id: label.title,
-          })}: ${label.desc}`;
+          return `${label.icon} ${intl.formatMessage(
+            {
+              id: label.title,
+            },
+            values,
+          )}: ${label.desc}`;
         }
 
-        return `${label.icon} ${intl.formatMessage({
-          id: label.title,
-        })}`;
+        return `${label.icon} ${intl.formatMessage(
+          {
+            id: label.title,
+          },
+          values,
+        )}`;
       }
 
       if (label.desc) {
-        return `${intl.formatMessage({
-          id: label.title,
-        })}: ${label.desc}`;
+        return `${intl.formatMessage(
+          {
+            id: label.title,
+          },
+          values,
+        )}: ${label.desc}`;
       }
 
-      return `${intl.formatMessage({
-        id: label.title,
-      })}`;
+      return `${intl.formatMessage(
+        {
+          id: label.title,
+        },
+        values,
+      )}`;
     },
-    [intl],
+    [intl, validAddressMessageProperty],
   );
-
   if (
     securityLabels.length === 0 &&
     addressLabels.length === 0 &&
