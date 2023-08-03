@@ -20,7 +20,7 @@
     "cheerio": "^1.0.0-rc.12"
   },
   "dependencies": {
-    "@expo/next-adapter": "^4.0.13",
+    "@expo/next-adapter": "5.0.2",
     "@vespaiach/axios-fetch-adapter": "^0.3.1",
     "cross-env": "^7.0.3",
     "next": "^11.1.2",

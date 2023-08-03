@@ -104,6 +104,12 @@ function normalizeConfig({
       ...config.plugins,
       platform !== 'ext' ? new DuplicatePackageCheckerPlugin() : null,
       isDev ? new BuildDoneNotifyPlugin() : null,
+      new webpack.ProvidePlugin({
+        Buffer: ['buffer', 'Buffer'],
+      }),
+      new webpack.ProvidePlugin({
+        setImmediate: ['setImmediate', 'setimmediate'],
+      }),
       new webpack.DefinePlugin({
         // TODO use babelTools `transform-inline-environment-variables` instead
         'process.env.ONEKEY_BUILD_TYPE': JSON.stringify(platform),
@@ -126,7 +132,11 @@ function normalizeConfig({
         changeOrigin: true,
         logLevel: 'debug',
         onProxyRes: async (proxyRes, req, res) => {
-          if (req.headers && req.headers.cookie && req.headers.cookie.includes('rrt=1')) {
+          if (
+            req.headers &&
+            req.headers.cookie &&
+            req.headers.cookie.includes('rrt=1')
+          ) {
             proxyRes.headers['Cache-Control'] =
               'no-store, no-cache, must-revalidate, proxy-revalidate';
             proxyRes.headers.Expires = '0';
@@ -229,6 +239,12 @@ function normalizeConfig({
     type: 'javascript/auto',
   });
 
+  // support ejs
+  config.module.rules.push({
+    test: /\.ejs$/i,
+    use: ['html-loader', 'template-ejs-loader'],
+  });
+
   const normalizeModuleRule = (rule) => {
     if (!rule) {
       return;
@@ -276,13 +292,33 @@ function normalizeConfig({
     });
   config.resolve.alias = {
     ...config.resolve.alias,
-    '@solana/buffer-layout-utils':
-      '@solana/buffer-layout-utils/lib/cjs/index.js',
-    '@solana/spl-token': '@solana/spl-token/lib/cjs/index.js',
-    'aptos': 'aptos/dist/index.js',
-    'framer-motion': 'framer-motion/dist/framer-motion',
-    '@mysten/sui.js': '@mysten/sui.js/dist/index.js',
-    '@ipld/dag-cbor': '@ipld/dag-cbor/dist/index.min.js',
+    // '@solana/buffer-layout-utils':
+    // '@solana/buffer-layout-utils/lib/cjs/index.js',
+    // '@solana/spl-token': '@solana/spl-token/lib/cjs/index.js',
+    // 'aptos': 'aptos/dist/index.js',
+    // 'framer-motion': 'framer-motion/dist/framer-motion',
+    // '@mysten/sui.js': '@mysten/sui.js/dist/index.js',
+    // '@ipld/dag-cbor': '@ipld/dag-cbor/dist/index.min.js',
+    // 'ws': 'ws/browser.js',
+  };
+
+  config.resolve.fallback = {
+    ...config.resolve.fallback,
+    'crypto': require.resolve('crypto-browserify'),
+    'stream': require.resolve('stream-browserify'),
+    'path': false,
+    'https': false,
+    'http': false,
+    'net': false,
+    'zlib': false,
+    'tls': false,
+    'child_process': false,
+    'process': false,
+    'fs': false,
+    'util': false,
+    'os': false,
+    'buffer': require.resolve('buffer/'),
+    'setImmediate': require.resolve('setimmediate'),
   };
 
   // Why? do not change original config directly
@@ -298,7 +334,6 @@ function normalizeConfig({
     maxSize: 4 * 1024 * 1024,
     hidePathInfo: true,
     automaticNameDelimiter: '.',
-    automaticNameMaxLength: 15,
     name: false, // reduce module duplication across chunks
     maxInitialRequests: 50000, // reduce module duplication across chunks
     maxAsyncRequests: 50000, // reduce module duplication across chunks

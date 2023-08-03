@@ -1,0 +1,18 @@
+diff --git a/node_modules/@expo/webpack-config/webpack/plugins/ExpoHtmlWebpackPlugin.js b/node_modules/@expo/webpack-config/webpack/plugins/ExpoHtmlWebpackPlugin.js
+index 6b8ae60..7c7e758 100644
+--- a/node_modules/@expo/webpack-config/webpack/plugins/ExpoHtmlWebpackPlugin.js
++++ b/node_modules/@expo/webpack-config/webpack/plugins/ExpoHtmlWebpackPlugin.js
+@@ -68,7 +68,12 @@ class HtmlWebpackPlugin extends html_webpack_plugin_1.default {
+             // https://github.com/kangax/html-minifier#options-quick-reference
+             minify,
+             // The `webpack` require path to the template.
+-            template: locations.template.indexHtml,
++            // add EJS loader for html building
++            // template: locations.template.indexHtml,
++            // add EJS loader for html building
++            template: '!!ejs-loader?esModule=false!' + locations.template.indexHtml,
++             // EJS template parameters
++             templateParameters: locations.template.indexHtmlTemplateParameters || {},
+             meta,
+         });
+     }
