@@ -10,7 +10,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { TabRoutes } from '../../routes/routesEnum';
-import { PortalContainer, PortalRender } from '../Overlay/RootPortal';
+import { PortalEntry, PortalExit } from '../Overlay/RootPortal';
 import Swap from '../Swap';
 
 import MarketHeader from './Components/MarketList/MarketTopHeader';
@@ -32,9 +32,9 @@ export function ScreenMarketOrSwap({
     useCallback(() => {
       if (isNativeSmall) {
         sharedMobileTabRef.update(
-          <PortalRender container={`${routeName}-portal`}>
+          <PortalEntry target={`${routeName}-portal`}>
             <SharedMobileTab routeName={routeName} />
-          </PortalRender>,
+          </PortalEntry>,
         );
       }
     }, [routeName, isNativeSmall]),
@@ -43,10 +43,7 @@ export function ScreenMarketOrSwap({
   return (
     <Box flex={1} mt={`${top}px`}>
       {isNativeSmall ? (
-        <PortalContainer
-          key={`${routeName}-portal`}
-          name={`${routeName}-portal`}
-        />
+        <PortalExit key={`${routeName}-portal`} name={`${routeName}-portal`} />
       ) : (
         <>
           <MarketHeader marketTopTabName={routeName} />

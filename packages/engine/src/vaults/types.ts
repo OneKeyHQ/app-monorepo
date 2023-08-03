@@ -35,6 +35,7 @@ import type { IEncodedTxEvm } from './impl/evm/Vault';
 import type { IEncodedTxFil } from './impl/fil/types';
 import type { IEncodedTxKaspa } from './impl/kaspa/types';
 import type { IEncodedTxLightning } from './impl/lightning-network/types';
+import type { LNURLPaymentInfo } from './impl/lightning-network/types/lnurl';
 import type {
   IDecodedTxExtraNear,
   IEncodedTxNear,
@@ -184,6 +185,7 @@ export type ITransferInfo = {
   selectedUtxos?: string[]; // coin control
   coinControlDisabled?: boolean;
   coinSelectAlgorithm?: ICoinSelectAlgorithm;
+  lnurlPaymentInfo?: LNURLPaymentInfo;
 };
 export type IApproveInfo = {
   from: string; // token owner

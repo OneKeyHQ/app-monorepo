@@ -25,7 +25,7 @@ import '../routes/deepLink';
 import buildLinking from '../routes/linking';
 import { createLazyComponent } from '../utils/createLazyComponent';
 import { FULLWINDOW_OVERLAY_PORTAL } from '../utils/overlayUtils';
-import { PortalContainer } from '../views/Overlay/RootPortal';
+import { PortalExit } from '../views/Overlay/RootPortal';
 
 import RedirectProvider from './RedirectProvider';
 
@@ -133,7 +133,7 @@ const NavigationApp = () => {
       <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
         <ChainWebEmbed />
         <CustomToast bottomOffset={60} />
-        <PortalContainer name={FULLWINDOW_OVERLAY_PORTAL} />
+        <PortalExit name={FULLWINDOW_OVERLAY_PORTAL} />
       </View>
     ),
     [],
