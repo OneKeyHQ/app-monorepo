@@ -3920,10 +3920,10 @@ const serverPresetNetworks = [
   },
   {
     'balance2FeeDecimals': 0,
-    'chainId': 'mainnet',
+    'chainId': '0',
     'code': 'nexa',
     'decimals': 2,
-    'id': 'nexa--mainnet',
+    'id': 'nexa--0',
     'impl': 'nexa',
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
@@ -3941,7 +3941,7 @@ const serverPresetNetworks = [
       'decimals': 2,
       'symbol': 'nexa',
     },
-    'defaultEnabled': false,
+    'defaultEnabled': true,
     'priceConfigs': [],
     'explorers': [
       {

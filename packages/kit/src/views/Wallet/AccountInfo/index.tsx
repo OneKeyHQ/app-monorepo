@@ -27,7 +27,11 @@ import {
 } from '@onekeyhq/kit/src/routes/routesEnum';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useAccountValues, useOverviewPendingTasks } from '../../../hooks';
+import {
+  useAccountIsUpdating,
+  useAccountValues,
+  useOverviewPendingTasks,
+} from '../../../hooks';
 import { useAllNetworksWalletAccounts } from '../../../hooks/useAllNetwoks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
@@ -123,7 +127,10 @@ const SectionCopyAddress: FC = () => {
           mr={2}
           color="text-subdued"
         >
-          {shortenAddress(account?.displayAddress ?? account?.address ?? '')}
+          {shortenAddress(
+            account?.displayAddress ?? account?.address ?? '',
+            network?.settings.displayChars,
+          )}
         </Text>
         <Icon name="Square2StackOutline" color="icon-subdued" size={16} />
       </Pressable>
@@ -160,8 +167,12 @@ const SectionOpenBlockBrowser = () => {
 const AccountAmountInfo: FC = () => {
   const intl = useIntl();
   const [ellipsis, setEllipsis] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
   const { networkId, accountId } = useActiveWalletAccount();
+
+  const refreshing = useAccountIsUpdating({
+    networkId,
+    accountId,
+  });
 
   const accountAllValues = useAccountValues({
     networkId,
@@ -185,7 +196,7 @@ const AccountAmountInfo: FC = () => {
   }, [tasks?.length]);
 
   const updateTips = useMemo(() => {
-    if (tasks?.length) {
+    if (tasks?.length || refreshing) {
       return (
         intl.formatMessage({
           id: 'content__updating_assets',
@@ -211,29 +222,44 @@ const AccountAmountInfo: FC = () => {
     ) {
       return intl.formatMessage(
         {
-          id: 'form__updated_str_ago',
+          id: 'form__str_mins_ago',
         },
         {
-          0: `${Math.floor(duration / 1000 / 60)} m`,
+          0: Math.floor(duration / 1000 / 60),
+        },
+      );
+    }
+    if (
+      duration <
+      getTimeDurationMs({
+        hour: 24,
+      })
+    ) {
+      return intl.formatMessage(
+        {
+          id: 'form__str_hours_ago',
+        },
+        {
+          0: Math.floor(duration / 1000 / 60 / 60),
         },
       );
     }
     if (
       duration >
       getTimeDurationMs({
-        hour: 1,
+        hour: 24,
       })
     ) {
       return intl.formatMessage(
         {
-          id: 'form__updated_str_ago',
+          id: 'form__str_days_ago',
         },
         {
-          0: `${Math.floor(duration / 1000 / 60 / 60)} h`,
+          0: Math.floor(duration / 1000 / 60 / 60 / 24),
         },
       );
     }
-  }, [updatedAt, intl, tasks.length, ellipsis]);
+  }, [updatedAt, intl, tasks.length, ellipsis, refreshing]);
 
   const [showPercentage, setShowPercentage] = useState(false);
 
@@ -266,10 +292,7 @@ const AccountAmountInfo: FC = () => {
     if (tasks.length > 0) {
       return;
     }
-    setRefreshing(true);
-    backgroundApiProxy.serviceOverview.refreshCurrentAccount().finally(() => {
-      setTimeout(() => setRefreshing(false), 1000);
-    });
+    backgroundApiProxy.serviceOverview.refreshCurrentAccount();
   }, [tasks]);
 
   const changedValueComp = useMemo(() => {
@@ -304,30 +327,19 @@ const AccountAmountInfo: FC = () => {
         <Typography.Body2Strong color="text-subdued" ml="1">
           {intl.formatMessage({ id: 'content__today' })}
         </Typography.Body2Strong>
-        {updateTips || refreshing ? (
+        {updateTips ? (
           <>
             <Box size="1" bg="icon-subdued" borderRadius="999px" mx="2" />
-            {refreshing ? (
-              <Skeleton shape="Body2" />
-            ) : (
-              <Pressable onPress={onPressUpdate}>
-                <Typography.Body2 color="text-subdued">
-                  {updateTips}
-                </Typography.Body2>
-              </Pressable>
-            )}
+            <Pressable onPress={onPressUpdate}>
+              <Typography.Body2 color="text-subdued">
+                {updateTips}
+              </Typography.Body2>
+            </Pressable>
           </>
         ) : null}
       </HStack>
     );
-  }, [
-    intl,
-    accountAllValues,
-    updateTips,
-    onPressUpdate,
-    showPercentage,
-    refreshing,
-  ]);
+  }, [intl, accountAllValues, updateTips, onPressUpdate, showPercentage]);
 
   return (
     <Box alignItems="flex-start" flex="1">

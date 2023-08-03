@@ -83,18 +83,20 @@ const PriceObserver = () => {
 
   useEffect(() => {
     if (inputToken) {
-      backgroundApiProxy.servicePrice.getSimpleTokenPrice({
+      backgroundApiProxy.servicePrice.fetchSimpleTokenPrice({
         networkId: inputToken.networkId,
-        tokenId: inputToken.tokenIdOnNetwork,
+        accountId: '',
+        tokenIds: [inputToken.tokenIdOnNetwork],
       });
     }
   }, [inputToken]);
 
   useEffect(() => {
     if (outputToken) {
-      backgroundApiProxy.servicePrice.getSimpleTokenPrice({
+      backgroundApiProxy.servicePrice.fetchSimpleTokenPrice({
         networkId: outputToken.networkId,
-        tokenId: outputToken.tokenIdOnNetwork,
+        accountId: '',
+        tokenIds: [outputToken.tokenIdOnNetwork],
       });
     }
   }, [outputToken]);

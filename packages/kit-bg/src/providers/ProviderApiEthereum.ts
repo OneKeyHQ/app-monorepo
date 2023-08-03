@@ -63,10 +63,17 @@ function convertToEthereumChainResult(result: Network | undefined | null) {
 }
 
 function prefixTxValueToHex(value: string) {
-  if (value && !value.startsWith('0x') && !value.startsWith('0X')) {
-    if (value.length % 2 === 0) {
-      return `0x${value}`;
-    }
+  if (value?.startsWith?.('0X') && value?.slice) {
+    // eslint-disable-next-line no-param-reassign
+    value = value.slice(2);
+  }
+  if (
+    value &&
+    value.startsWith &&
+    !value.startsWith('0x') &&
+    !value.startsWith('0X')
+  ) {
+    return `0x${value}`;
   }
   return value;
 }

@@ -491,7 +491,6 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
                     id: 'form__priority_fee_booster',
                   })}
                   nativeMode={platformEnv.isNative}
-                  minimumTrackTintColor="#85D34C"
                   step={1}
                   value={debouncedPriorityBooster}
                   width="100%"

@@ -122,6 +122,7 @@ export type SettingsState = {
   };
   hardwareConnectSrc?: string;
   gasPanelEIP1559Enabled?: boolean;
+  showTokenDetailPriceChart?: boolean;
 };
 
 export const defaultPushNotification = {
@@ -619,6 +620,9 @@ export const settingsSlice = createSlice({
     setGasPanelEIP1559Enabled(state, action: PayloadAction<boolean>) {
       state.gasPanelEIP1559Enabled = action.payload;
     },
+    setShowTokenDetailPriceChart(state, action: PayloadAction<boolean>) {
+      state.showTokenDetailPriceChart = action.payload;
+    },
   },
 });
 
@@ -678,6 +682,7 @@ export const {
   setAdvancedSettings,
   setHardwareConnectSrc,
   setGasPanelEIP1559Enabled,
+  setShowTokenDetailPriceChart,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

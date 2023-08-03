@@ -11,12 +11,12 @@ import {
   VStack,
 } from '@onekeyhq/components';
 
-import { useManageNetworks } from '../../../hooks';
+import { useAllNetworksIncludedNetworks } from '../../../hooks/useAllNetwoks';
 
 function AllNetworksSupportedNetworks() {
   const intl = useIntl();
 
-  const { allNetworks } = useManageNetworks();
+  const allNetworks = useAllNetworksIncludedNetworks(false);
 
   return (
     <Modal
@@ -33,17 +33,14 @@ function AllNetworksSupportedNetworks() {
               {intl.formatMessage(
                 { id: 'title__str_supported_networks' },
                 {
-                  0: allNetworks.filter((n) => !n.isTestnet).length,
+                  0: allNetworks.length,
                 },
               )}
             </Typography.DisplayLarge>
             <Typography.Body1 color="text-subdued" mb="8">
               {intl.formatMessage({ id: 'title__str_supported_networks_desc' })}
             </Typography.Body1>
-            {chunk(
-              allNetworks.filter((n) => !n.settings.validationRequired),
-              3,
-            ).map((networks, i) => (
+            {chunk(allNetworks, 3).map((networks, i) => (
               <HStack key={String(i)}>
                 {networks.map((n, index) => (
                   <VStack

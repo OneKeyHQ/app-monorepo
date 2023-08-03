@@ -1,8 +1,18 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import BigNumber from 'bignumber.js';
 import BN from 'bn.js';
 
 import { InvalidAddress } from '../../../errors';
 import { hash160, sha256 } from '../../../secret/hash';
+import {
+  type IDecodedTx,
+  type IDecodedTxAction,
+  IDecodedTxActionType,
+  IDecodedTxDirection,
+  IDecodedTxStatus,
+  type ISignedTxPro,
+  type IUnsignedTxPro,
+} from '../../types';
 
 import {
   NexaAddressType,
@@ -27,8 +37,12 @@ import { type IEncodedTxNexa, NexaSignature } from './types';
 
 import type { Signer } from '../../../proxy';
 import type { DBAccount } from '../../../types/account';
-import type { ISignedTxPro, IUnsignedTxPro } from '../../types';
-import type { INexaInputSignature, INexaOutputSignature } from './types';
+import type { Token } from '../../../types/token';
+import type {
+  INexaInputSignature,
+  INexaOutputSignature,
+  INexaTransaction,
+} from './types';
 
 export function verifyNexaAddress(address: string) {
   try {
@@ -88,6 +102,10 @@ export function getNexaPrefix(chanid: string): string {
 function convertScriptToPushBuffer(key: Buffer): Buffer {
   const templateChunk = bufferToScripChunk(key);
   return scriptChunksToBuffer([templateChunk]);
+}
+
+export function verifyNexaAddressPrefix(address: string) {
+  return address.startsWith('nexa:') || address.startsWith('nexatest:');
 }
 
 export function publickeyToAddress(
@@ -275,16 +293,28 @@ function buildSignatures(encodedTx: IEncodedTxNexa, dbAccountAddress: string) {
     (acc, output) => acc.add(new BN(output.satoshis)),
     new BN(0),
   );
-  const available = inputAmount.sub(outputAmount);
 
   const fee = new BN(gas || estimateFee(encodedTx));
+  const available = inputAmount.sub(fee);
+  if (available.lt(new BN(0))) {
+    console.error(inputAmount.toString(), fee.toString());
+    throw new Error(
+      `Available balance cannot be less than 0, inputAmount: ${inputAmount.toString()}, dust: ${fee.toString()}`,
+    );
+  }
 
-  // change address
-  newOutputs.push({
-    address: dbAccountAddress,
-    satoshis: available.sub(fee).toString(),
-    outType: 1,
-  });
+  if (available.gt(outputAmount)) {
+    // change address
+    newOutputs.push({
+      address: dbAccountAddress,
+      satoshis: available.sub(outputAmount).toString(),
+      outType: 1,
+    });
+  } else {
+    newOutputs[0].satoshis = available.gt(outputAmount)
+      ? newOutputs[0].satoshis
+      : available.toString();
+  }
 
   const outputSignatures = newOutputs.map((output) => ({
     address: output.address,
@@ -448,4 +478,131 @@ export function decodeScriptBufferToNexaAddress(
     return encode(prefix, NexaAddressType.PayToScriptTemplate, hashBuffer);
   }
   return '';
+}
+
+const calDirection = (
+  account: string,
+  isFromSelf: boolean,
+  isToSelf: boolean,
+) => {
+  if (isFromSelf && isToSelf) {
+    return IDecodedTxDirection.SELF;
+  }
+
+  if (isFromSelf) {
+    return IDecodedTxDirection.OUT;
+  }
+
+  if (isToSelf) {
+    return IDecodedTxDirection.IN;
+  }
+
+  return IDecodedTxDirection.OTHER;
+};
+
+export function buildDecodeTxFromTx({
+  tx,
+  dbAccountAddress,
+  addressPrefix,
+  decimals,
+  token,
+  networkId,
+  accountId,
+}: {
+  tx: INexaTransaction;
+  dbAccountAddress: string;
+  addressPrefix: string;
+  decimals: number;
+  token: Token;
+  networkId: string;
+  accountId: string;
+}) {
+  const fromAddresses = tx.vin.map((vin) =>
+    decodeScriptBufferToNexaAddress(
+      Buffer.from(vin.scriptSig.hex, 'hex'),
+      addressPrefix,
+    ),
+  );
+  const toAddresses = tx.vout.map((vout) =>
+    decodeScriptBufferToNexaAddress(
+      Buffer.from(vout.scriptPubKey.hex, 'hex'),
+      addressPrefix,
+    ),
+  );
+
+  const fromAddress = !fromAddresses.includes(dbAccountAddress)
+    ? fromAddresses[0]
+    : dbAccountAddress;
+  const toAddress = fromAddresses.includes(dbAccountAddress)
+    ? toAddresses[0]
+    : dbAccountAddress;
+
+  const decodedTx: IDecodedTx = {
+    txid: tx.txid,
+    owner: dbAccountAddress,
+    signer: fromAddress,
+    nonce: 0,
+    actions: tx.vin.map((vin, index) => {
+      const amount = new BigNumber(vin.value_satoshi).shiftedBy(
+        -token.decimals,
+      );
+      const from = fromAddresses[index];
+      return {
+        type: IDecodedTxActionType.TOKEN_TRANSFER,
+        direction: calDirection(
+          from,
+          from === dbAccountAddress,
+          toAddress === dbAccountAddress,
+        ),
+        tokenTransfer: {
+          tokenInfo: token,
+          from,
+          to: toAddress,
+          amount: amount.toFixed(),
+          amountValue: amount.toFixed(),
+          extraInfo: null,
+        },
+      };
+    }),
+    outputActions: tx.vout
+      .map((vout, index) => {
+        const amount = new BigNumber(vout.value_satoshi).shiftedBy(
+          -token.decimals,
+        );
+        const to = toAddresses[index];
+        if (fromAddress !== dbAccountAddress && to !== dbAccountAddress) {
+          return false;
+        }
+        return {
+          type: IDecodedTxActionType.TOKEN_TRANSFER,
+          direction: calDirection(
+            to,
+            fromAddress === dbAccountAddress,
+            to === dbAccountAddress,
+          ),
+          tokenTransfer: {
+            tokenInfo: token,
+            from: fromAddress,
+            to,
+            amount: amount.toFixed(),
+            amountValue: amount.toFixed(),
+            extraInfo: null,
+          },
+        };
+      })
+      .filter(Boolean),
+    status: tx.confirmations
+      ? IDecodedTxStatus.Confirmed
+      : IDecodedTxStatus.Pending,
+    networkId,
+    accountId,
+    extraInfo: null,
+    totalFeeInNative: new BigNumber(tx.fee_satoshi)
+      .shiftedBy(-decimals)
+      .toFixed(),
+  };
+  decodedTx.updatedAt = tx.time ? tx.time * 1000 : Date.now();
+  decodedTx.createdAt = decodedTx.updatedAt;
+  decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
+  return decodedTx;
 }

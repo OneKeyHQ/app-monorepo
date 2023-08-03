@@ -213,13 +213,20 @@ export default class ServiceToken extends ServiceBase {
         networkId,
       );
 
+      accountTokens = accountTokens.filter(
+        (t) => !removedTokens.includes(t.address ?? ''),
+      );
+
       dispatch(
         setAccountTokens({
           accountId,
           networkId,
-          tokens: accountTokens.filter(
-            (t) => !removedTokens.includes(t.address ?? ''),
-          ),
+          tokens: [
+            ...(accountTokensInRedux?.filter((t) =>
+              accountTokens.find((token) => token.address !== t.address),
+            ) ?? []),
+            ...accountTokens,
+          ],
         }),
         setOverviewPortfolioUpdatedAt({
           key: `${networkId}___${accountId}`,
@@ -802,13 +809,39 @@ export default class ServiceToken extends ServiceBase {
     coingeckoId?: string;
     networkId?: string;
     tokenAddress?: string;
+    accountId?: string;
   }): Promise<ITokenDetailInfo> {
+    const { appSelector, engine } = this.backgroundApi;
+    const testMode =
+      appSelector((s) => s?.settings?.devMode?.onRamperTestMode) ?? false;
+    const mode = testMode ? 'test' : 'live';
+    const { accountId, networkId, ...rest } = params;
+
+    if (!isAllNetworks(networkId)) {
+      delete rest.coingeckoId;
+      if (networkId && accountId) {
+        const account = await engine.getAccount(accountId, networkId);
+        if (account) {
+          Object.assign(rest, {
+            accountAddress: account?.address,
+          });
+        }
+      }
+    }
     const data = await fetchData<
       | (Omit<ITokenDetailInfo, 'tokens'> & {
           tokens: ServerToken[];
         })
       | undefined
-    >('/token/detailInfo', params, undefined);
+    >(
+      '/token/detailInfo',
+      {
+        ...rest,
+        mode,
+        networkId,
+      },
+      undefined,
+    );
     return {
       ...data,
       tokens: data?.tokens.map((t) => formatServerToken(t)) ?? [],

@@ -277,6 +277,14 @@ export class InsufficientBalance extends OneKeyError {
   override key = 'form__amount_invalid';
 }
 
+export class InsufficientGasFee extends OneKeyError {
+  override key = 'msg__suggest_reserving_str_as_gas_fee';
+
+  constructor(token: string, amount: string) {
+    super('', { '0': `${amount} ${token}` });
+  }
+}
+
 export class WalletNameLengthError extends StringLengthRequirement {
   override key = 'msg__engine__wallet_name_length_error';
 }
@@ -385,6 +393,14 @@ export class BadAuthError extends OneKeyError {
 
 export class InvoiceExpiredError extends OneKeyError {
   override key = 'msg__the_invoice_has_expired';
+}
+
+export class MaxSendAmountError extends OneKeyError {
+  override key = 'msg__the_sending_amount_cannot_exceed_int_sats';
+
+  constructor(key: string, info?: IOneKeyErrorInfo, message?: string) {
+    super(message, info);
+  }
 }
 
 export class TaprootAddressError extends OneKeyError {

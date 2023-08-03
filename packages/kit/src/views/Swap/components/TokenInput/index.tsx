@@ -14,6 +14,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import type { Account } from '@onekeyhq/engine/src/types/account';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { FormatCurrency } from '../../../../components/Format';
@@ -87,7 +88,7 @@ const TokenInputSendingAccount: FC<TokenAccountProps> = ({
           alignItems="center"
         >
           <Box flexDirection="row" mr="1">
-            <Typography.Body2Strong mr="1">
+            <Typography.Body2Strong mr="1" maxW="120" isTruncated>
               {account.name}
             </Typography.Body2Strong>
             <Typography.Body2 color="text-subdued">
@@ -128,7 +129,34 @@ const TokenInput: FC<TokenInputProps> = ({
         await backgroundApiProxy.serviceSwap.getReservedNetworkFee(
           token.networkId,
         );
-      const v = BigNumber.max(0, new BigNumber(value).minus(reserved));
+
+      let frozenBalanceValue = 0;
+      if (account) {
+        try {
+          const password =
+            await backgroundApiProxy.servicePassword.getPassword();
+          const frozenBalance =
+            await backgroundApiProxy.engine.getFrozenBalance({
+              accountId: account.id,
+              networkId: token.networkId,
+              password,
+            });
+
+          frozenBalanceValue =
+            typeof frozenBalance === 'number'
+              ? frozenBalance
+              : frozenBalance?.[token.id] ?? 0;
+        } catch (e: unknown) {
+          debugLogger.swap.info(
+            'failed to get frozen balanace',
+            (e as Error).message,
+          );
+        }
+      }
+      const v = BigNumber.max(
+        0,
+        new BigNumber(value).minus(reserved).minus(frozenBalanceValue),
+      );
       if (v.gt(0)) {
         backgroundApiProxy.serviceSwap.userInput(type, v.toFixed());
       } else if (Number(value) > 0) {
@@ -147,7 +175,7 @@ const TokenInput: FC<TokenInputProps> = ({
         );
       }
     }
-  }, [token, value, type, intl]);
+  }, [token, value, type, intl, account]);
   let text = formatAmount(value, 6);
   if (!value || Number(value) === 0 || Number.isNaN(+value)) {
     text = '0';

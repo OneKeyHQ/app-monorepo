@@ -35,6 +35,7 @@ import type { IEncodedTxEvm } from './impl/evm/Vault';
 import type { IEncodedTxFil } from './impl/fil/types';
 import type { IEncodedTxKaspa } from './impl/kaspa/types';
 import type { IEncodedTxLightning } from './impl/lightning-network/types';
+import type { LNURLPaymentInfo } from './impl/lightning-network/types/lnurl';
 import type {
   IDecodedTxExtraNear,
   IEncodedTxNear,
@@ -89,6 +90,8 @@ export type IVaultSettings = {
   dust?: string;
 
   isUTXOModel: boolean;
+  isFeeRateMode?: boolean;
+
   activateAccountRequired?: boolean;
   activateTokenRequired?: boolean;
 
@@ -98,6 +101,7 @@ export type IVaultSettings = {
 
   cannotSendToSelf?: boolean;
 
+  displayChars?: number;
   /**
    * Deposit in account.
    * e.g. Polkadot https://wiki.polkadot.network/docs/build-protocol-info#existential-deposit
@@ -137,12 +141,14 @@ export type IVaultSettings = {
   hiddenAccountInfoMoreOption?: boolean;
   displayMemo?: boolean;
   hideFromToFieldIfValueEmpty?: boolean;
-  displayFullAddress?: boolean;
+  hideFeeSpeedInfo?: boolean;
   rpcStatusDisabled?: boolean;
   useSimpleTipForSpecialCheckEncodedTx?: boolean;
   hexDataEditable?: boolean;
 
   hiddenBlockBrowserTokenDetailLink?: boolean;
+
+  hideInAllNetworksMode?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
@@ -179,6 +185,7 @@ export type ITransferInfo = {
   selectedUtxos?: string[]; // coin control
   coinControlDisabled?: boolean;
   coinSelectAlgorithm?: ICoinSelectAlgorithm;
+  lnurlPaymentInfo?: LNURLPaymentInfo;
 };
 export type IApproveInfo = {
   from: string; // token owner

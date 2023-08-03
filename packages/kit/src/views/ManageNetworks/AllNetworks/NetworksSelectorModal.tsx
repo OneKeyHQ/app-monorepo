@@ -8,8 +8,10 @@ import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClos
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
-import { useManageNetworks } from '../../../hooks';
-import { useAllNetworksWalletAccounts } from '../../../hooks/useAllNetwoks';
+import {
+  useAllNetworksIncludedNetworks,
+  useAllNetworksWalletAccounts,
+} from '../../../hooks/useAllNetwoks';
 import { showAllNetworksAccountDerivationsSelector } from '../../Overlay/Accounts/AllNetworksSelectAccountDerivations';
 
 import type {
@@ -29,7 +31,7 @@ function AllNetworksNetworkSelectorModal() {
   const closeModal = useModalClose();
   const route = useRoute<RouteProps>();
 
-  const { enabledNetworks } = useManageNetworks();
+  const supportedNetworks = useAllNetworksIncludedNetworks();
 
   const { filter, onConfirm, accountId } = route?.params ?? {};
 
@@ -125,9 +127,9 @@ function AllNetworksNetworkSelectorModal() {
       height="560px"
     >
       <List
-        data={enabledNetworks}
+        data={supportedNetworks}
         contentContainerStyle={{
-          flex: enabledNetworks?.length ? undefined : 1,
+          flex: supportedNetworks?.length ? undefined : 1,
         }}
         renderItem={renderItem}
         keyExtractor={(item: Network) => item.id}

@@ -8,37 +8,6 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import type { MatchDAppItemType } from '../Explorer/explorerUtils';
 import type { DAppItemType } from '../type';
 
-export function useAllDapps(): DAppItemType[] {
-  return useAppSelector((s) => s.discover.dappItems || []);
-}
-
-const getShortHost = (host: string) => host.split('.').slice(-2).join('.');
-
-export function useAllDappMap(): {
-  idsMap: Record<string, DAppItemType>;
-  hostMap: Record<string, DAppItemType>;
-} {
-  const allDapps = useAllDapps();
-  const idsMap: Record<string, DAppItemType> = {};
-  const hostMap: Record<string, DAppItemType> = {};
-  for (let i = 0; i < allDapps.length; i += 1) {
-    const item = allDapps[i];
-    idsMap[item._id] = item;
-    if (item.url) {
-      const { host } = new URL(item.url);
-      if (host) {
-        hostMap[host] = item;
-      } else {
-        const shortHost = getShortHost(host);
-        if (shortHost) {
-          hostMap[shortHost] = item;
-        }
-      }
-    }
-  }
-  return { idsMap, hostMap };
-}
-
 export function useUserBrowserHistories(): MatchDAppItemType[] {
   const userBrowserHistories = useAppSelector(
     (s) => s.discover.userBrowserHistories,
@@ -54,6 +23,7 @@ export function useUserBrowserHistories(): MatchDAppItemType[] {
         title: item.title,
         favicon: item.logoUrl,
       },
+      timestamp: item.timestamp,
     }));
   }, [userBrowserHistories]);
 }

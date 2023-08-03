@@ -14,12 +14,13 @@ import {
 import { getPath } from '@onekeyhq/engine/src/managers/derivation';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isWalletCompatibleAllNetworks } from '@onekeyhq/engine/src/managers/wallet';
+import { networkIsPreset } from '@onekeyhq/engine/src/presets';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import {
   clearOverviewPendingTasks,
   removeAllNetworksAccountsMapByAccountId,
-  setAllNetworksAccountsLoading,
+  setAccountIsUpdating,
   setAllNetworksAccountsMap,
   setOverviewPortfolioUpdatedAt,
 } from '@onekeyhq/kit/src/store/reducers/overview';
@@ -205,10 +206,18 @@ export default class ServiceAllNetwork extends ServiceBase {
       return {};
     }
     const activeAccountId = accountId ?? `${walletId}--${index}`;
-    const networks = appSelector((s) => s.runtime.networks ?? []);
+    const networks = appSelector((s) => s.runtime.networks ?? []).filter(
+      (n) =>
+        n.enabled &&
+        !n.isTestnet &&
+        !n.settings?.validationRequired &&
+        !n.settings.hideInAllNetworksMode &&
+        networkIsPreset(n.id) &&
+        ![OnekeyNetwork.fevm, OnekeyNetwork.cfxespace].includes(n.id),
+    );
 
     dispatch(
-      setAllNetworksAccountsLoading({
+      setAccountIsUpdating({
         accountId: activeAccountId,
         data: true,
       }),
@@ -272,11 +281,10 @@ export default class ServiceAllNetwork extends ServiceBase {
 
     dispatch(...actions);
 
-    if (!refreshCurrentAccount) {
-      return networkAccountsMap;
+    if (refreshCurrentAccount) {
+      await serviceOverview.refreshCurrentAccount();
     }
 
-    await serviceOverview.refreshCurrentAccount();
     return networkAccountsMap;
   }
 

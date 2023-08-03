@@ -38,7 +38,7 @@ import { EOverviewScanTaskType } from '../../Overview/types';
 import { WalletHomeTabEnum } from '../type';
 
 import AssetsListHeader from './AssetsListHeader';
-import { EmptyListOfAccount } from './EmptyList';
+import { AllNetworksEmpty, EmptyListOfAccount } from './EmptyList';
 import AssetsListSkeleton from './Skeleton';
 import SvgAllNetwrorksLoadingLight from './Svg/SvgAllNetworksLoadingDark';
 import TokenCell from './TokenCell';
@@ -198,22 +198,24 @@ function AssetsList({
       // const filter = item.address
       //   ? undefined
       //   : (i: EVMDecodedItem) => i.txType === EVMDecodedTxType.NATIVE_TRANSFER;
+      //
 
       navigation.navigate(HomeRoutes.ScreenTokenDetail, {
-        walletId: walletId ?? '',
-        accountId: account?.id ?? '',
-        networkId: networkId ?? '',
+        walletId,
+        accountId,
+        networkId,
         coingeckoId: item.coingeckoId,
         sendAddress: item.sendAddress,
         tokenAddress: item.address,
         // historyFilter: filter,
         price: item.price,
+        price24h: item.price24h,
         symbol: item.symbol,
         name: item.name,
         logoURI: item.logoURI,
       });
     },
-    [account?.id, networkId, navigation, onTokenPress, walletId],
+    [networkId, navigation, onTokenPress, walletId, accountId],
   );
 
   const Container = singleton ? FlatList : Tabs.FlatList;
@@ -280,12 +282,17 @@ function AssetsList({
                 </Box>
               }
               title={intl.formatMessage({ id: 'empty__creating_data' })}
-              subTitle={intl.formatMessage({ id: 'empty__creating_data_desc' })}
+              subTitle={intl.formatMessage({
+                id: 'empty__creating_data_desc',
+              })}
             />
           </Box>
         );
       }
       return <AssetsListSkeleton />;
+    }
+    if (isAllNetworks(network?.id)) {
+      return <AllNetworksEmpty />;
     }
     return <EmptyListOfAccount network={network} accountId={accountId} />;
   }, [loading, accountId, network, updateInfo?.updatedAt, intl]);

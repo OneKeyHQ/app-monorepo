@@ -27,6 +27,8 @@ const settings: IVaultSettings = Object.freeze({
   addressDerivationDisabled: true,
   validationRequired: true,
 
+  hideInAllNetworksMode: true,
+
   accountNameInfo: {
     default: {
       prefix: 'XMR',

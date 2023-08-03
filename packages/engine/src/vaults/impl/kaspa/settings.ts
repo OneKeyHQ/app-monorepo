@@ -24,6 +24,8 @@ const settings: IVaultSettings = Object.freeze({
 
   minTransferAmount: new BigNumber(DUST_AMOUNT).shiftedBy(-8).toString(),
 
+  hideInAllNetworksMode: true,
+
   accountNameInfo: {
     default: {
       prefix: 'KASPA',

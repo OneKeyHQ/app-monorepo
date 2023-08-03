@@ -289,6 +289,11 @@ export const useSwapSubmit = () => {
       params.tokenIn,
       getTokenAmountValue(params.tokenIn, quote.sellAmount).toFixed(),
     );
+
+    let prepaidFee = '0';
+    if (!params.tokenIn.tokenIdOnNetwork) {
+      prepaidFee = inputAmount.value.toFixed();
+    }
     const outputAmount = new TokenAmount(
       params.tokenOut,
       getTokenAmountValue(params.tokenOut, quote.buyAmount).toFixed(),
@@ -344,15 +349,13 @@ export const useSwapSubmit = () => {
         true,
       );
     const balanceStr = result?.main?.balance;
-    if (!balanceStr) {
-      debugLogger.swap.info(
-        `${params.tokenIn.networkId} failed to fetch native token balance`,
-      );
-    } else {
-      debugLogger.swap.info(
-        `${params.tokenIn.networkId} native token balance is ${balanceStr}`,
-      );
-    }
+
+    const balanceMsg = balanceStr
+      ? `${params.tokenIn.networkId} native token balance is ${balanceStr}`
+      : `${params.tokenIn.networkId} failed to fetch native token balance`;
+
+    debugLogger.swap.info(balanceMsg);
+
     tagLogger.end(LoggerTimerTags.checkTokenBalance);
     const balance = new BigNumber(balanceStr ?? '0');
 
@@ -584,46 +587,51 @@ export const useSwapSubmit = () => {
       setProgressStatus?.({
         title: intl.formatMessage({ id: 'action__swapping_str' }, { '0': '' }),
       });
-      await sendSwapTx({
-        accountId: sendingAccount.id,
-        networkId: fromNetworkId,
-        gasEstimateFallback: Boolean(approveTx),
-        encodedTx: encodedTx as IEncodedTxEvm,
-        showSendFeedbackReceipt: true,
-        payloadInfo: {
-          type: 'InternalSwap',
-          swapInfo,
-        },
-        onDetail(txid) {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.Swap,
-            params: {
-              screen: SwapRoutes.Transaction,
+      try {
+        await sendSwapTx({
+          accountId: sendingAccount.id,
+          networkId: fromNetworkId,
+          gasEstimateFallback: Boolean(approveTx),
+          encodedTx: encodedTx as IEncodedTxEvm,
+          showSendFeedbackReceipt: true,
+          payloadInfo: {
+            type: 'InternalSwap',
+            swapInfo,
+          },
+          prepaidFee,
+          onDetail(txid) {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Swap,
               params: {
-                txid,
+                screen: SwapRoutes.Transaction,
+                params: {
+                  txid,
+                },
               },
-            },
-          });
-        },
-        onSuccess: async ({ result: swapResult, decodedTx }) => {
-          if (!res) {
-            return;
-          }
-          await addSwapTransaction({
-            hash: swapResult.txid,
-            decodedTx,
-            params: buildParams,
-            response: res,
-            quote,
-            recipient,
-          });
-          appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
-          onSuccess?.({ result: swapResult, decodedTx });
-        },
-        onFail: () => {
-          appUIEventBus.emit(AppUIEventBusNames.SwapError);
-        },
-      });
+            });
+          },
+          onSuccess: async ({ result: swapResult, decodedTx }) => {
+            if (!res) {
+              return;
+            }
+            await addSwapTransaction({
+              hash: swapResult.txid,
+              decodedTx,
+              params: buildParams,
+              response: res,
+              quote,
+              recipient,
+            });
+            appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
+            onSuccess?.({ result: swapResult, decodedTx });
+          },
+          onFail: () => {
+            appUIEventBus.emit(AppUIEventBusNames.SwapError);
+          },
+        });
+      } finally {
+        closeProgressStatus?.();
+      }
     };
 
     tasks.unshift(doSwap);
@@ -662,6 +670,9 @@ export const useSwapSubmit = () => {
             }
             await nextTask?.();
           },
+          onFail: () => {
+            closeProgressStatus?.();
+          },
         });
         tagLogger.end(LoggerTimerTags.approval);
       };
@@ -675,12 +686,12 @@ export const useSwapSubmit = () => {
           payloadInfo.swapInfo = { ...swapInfo, isApprove: true };
         }
         tagLogger.start(LoggerTimerTags.cancelApproval);
-        setProgressStatus?.({
-          title: intl.formatMessage(
-            { id: 'action__resetting_authorizing_str' },
-            { '0': '' },
-          ),
-        });
+        // setProgressStatus?.({
+        //   title: intl.formatMessage(
+        //     { id: 'action__resetting_authorizing_str' },
+        //     { '0': '' },
+        //   ),
+        // });
         await sendSwapTx({
           accountId: sendingAccount.id,
           networkId: fromNetworkId,

@@ -26,6 +26,7 @@ import {
 import { coingeckoId2StakingTypes } from '../Staking/utils';
 import { MarketStakeButton } from '../Staking/Widgets/MarketStakingButton';
 import { SwapPlugins } from '../Swap/Plugins/Swap';
+import { ButtonItem } from '../TokenDetail/TokenDetailHeader/ButtonsSections';
 
 import MarketDetailContent from './Components/MarketDetail/MarketDetailContent';
 import { useMarketDetail } from './hooks/useMarketDetail';
@@ -49,73 +50,81 @@ type NavigationProps = NativeStackNavigationProp<TabRoutesParams> &
   ModalScreenProps<FiatPayModalRoutesParams>;
 
 const FavoritButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
-  const isVertical = useIsVerticalLayout();
-
   const intl = useIntl();
+  const isVertical = useIsVerticalLayout();
+  const onPress = useCallback(() => {
+    if (!tokenItem) {
+      return;
+    }
+    if (tokenItem.favorited) {
+      backgroundApiProxy.serviceMarket.cancelMarketFavoriteToken(
+        tokenItem.coingeckoId,
+      );
+      ToastManager.show({
+        title: intl.formatMessage({ id: 'msg__removed' }),
+      });
+    } else {
+      backgroundApiProxy.serviceMarket.saveMarketFavoriteTokens([
+        {
+          coingeckoId: tokenItem.coingeckoId,
+          symbol: tokenItem.symbol,
+        },
+      ]);
+      ToastManager.show({
+        title: intl.formatMessage({ id: 'msg__added_to_favorites' }),
+      });
+    }
+  }, [intl, tokenItem]);
+  if (isVertical) {
+    return (
+      <Box>
+        <IconButton
+          ml={4}
+          mr={2}
+          type={isVertical ? 'plain' : 'basic'}
+          name={tokenItem?.favorited ? 'StarSolid' : 'StarOutline'}
+          size={isVertical ? 'xl' : 'base'}
+          circle
+          iconColor={tokenItem?.favorited ? 'icon-warning' : 'icon-default'}
+          onPress={onPress}
+        />
+      </Box>
+    );
+  }
   return (
-    <Box>
-      <IconButton
-        ml={4}
-        mr={2}
-        type={isVertical ? 'plain' : 'basic'}
-        name={tokenItem?.favorited ? 'StarSolid' : 'StarOutline'}
-        size={isVertical ? 'xl' : 'base'}
-        circle
-        iconColor={tokenItem?.favorited ? 'icon-warning' : 'icon-default'}
-        onPress={() => {
-          if (tokenItem) {
-            if (tokenItem.favorited) {
-              backgroundApiProxy.serviceMarket.cancelMarketFavoriteToken(
-                tokenItem.coingeckoId,
-              );
-              ToastManager.show({
-                title: intl.formatMessage({ id: 'msg__removed' }),
-              });
-            } else {
-              backgroundApiProxy.serviceMarket.saveMarketFavoriteTokens([
-                {
-                  coingeckoId: tokenItem.coingeckoId,
-                  symbol: tokenItem.symbol,
-                },
-              ]);
-              ToastManager.show({
-                title: intl.formatMessage({ id: 'msg__added_to_favorites' }),
-              });
-            }
-          }
-        }}
-      />
-    </Box>
+    <ButtonItem
+      icon={tokenItem?.favorited ? 'StarSolid' : 'StarOutline'}
+      text={
+        tokenItem?.favorited
+          ? intl.formatMessage({ id: 'action__unlike' })
+          : intl.formatMessage({ id: 'action__like' })
+      }
+      onPress={onPress}
+    />
   );
 };
 
-const SwapButton = ({ onPress }: { onPress: () => void }) => (
-  <Box>
-    <IconButton
-      ml={4}
-      type="basic"
-      name="ArrowsRightLeftMini"
-      size="base"
-      circle
-      iconColor="icon-default"
+const SwapButton = ({ onPress }: { onPress: () => void }) => {
+  const intl = useIntl();
+  return (
+    <ButtonItem
+      icon="ArrowsRightLeftMini"
+      text={intl.formatMessage({ id: 'title__swap' })}
       onPress={onPress}
     />
-  </Box>
-);
+  );
+};
 
-const PurchaseButton = ({ onPress }: { onPress: () => void }) => (
-  <Box>
-    <IconButton
-      ml={4}
-      type="basic"
-      name="PlusMini"
-      size="base"
-      circle
-      iconColor="icon-default"
+const PurchaseButton = ({ onPress }: { onPress: () => void }) => {
+  const intl = useIntl();
+  return (
+    <ButtonItem
+      icon="PlusMini"
+      text={intl.formatMessage({ id: 'Market__buy' })}
       onPress={onPress}
     />
-  </Box>
-);
+  );
+};
 
 const HeaderTitle = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
   const isVertical = useIsVerticalLayout();

@@ -31,6 +31,8 @@ export function SendConfirmErrorsAlert({
   pendingTxCount,
   isLNExceedTransferLimit,
   lightingNetworkTransferConfig,
+  prepaidFee,
+  fee,
 }: {
   networkId?: string;
   accountAddress?: string;
@@ -47,6 +49,8 @@ export function SendConfirmErrorsAlert({
   pendingTxCount?: string;
   isLNExceedTransferLimit?: boolean;
   lightingNetworkTransferConfig?: IInvoiceConfig | null;
+  prepaidFee?: string;
+  fee?: string;
 }) {
   const errors = [];
   const intl = useIntl();
@@ -89,24 +93,42 @@ export function SendConfirmErrorsAlert({
   if (balanceInsufficient) {
     const gasShop = find(tools, { title: 'GasShop' }) as Tool;
     errors.push(
-      <FormErrorMessage
-        isAlertStyle
-        action={
-          gasShop?.link ? intl.formatMessage({ id: 'action__buy' }) : undefined
-        }
-        onAction={() => {
-          if (gasShop && gasShop.link) {
-            openUrl(gasShop.link.replace('{address}', accountAddress ?? ''));
+      prepaidFee ? (
+        <FormErrorMessage
+          isAlertStyle
+          message={intl.formatMessage(
+            {
+              id: 'msg__your_str_balance_is_insufficient_desc',
+            },
+            {
+              '0': `${fee ?? ''} ${nativeToken?.symbol ?? ''}`,
+            },
+          )}
+        />
+      ) : (
+        <FormErrorMessage
+          isAlertStyle
+          action={
+            gasShop?.link
+              ? intl.formatMessage({ id: 'action__buy' })
+              : undefined
           }
-        }}
-        message={intl.formatMessage(
-          { id: 'msg__str_is_required_for_network_fees_top_up_str_to_make_tx' },
-          {
-            0: nativeToken?.symbol ?? '',
-            1: network?.name ?? '',
-          },
-        )}
-      />,
+          onAction={() => {
+            if (gasShop && gasShop.link) {
+              openUrl(gasShop.link.replace('{address}', accountAddress ?? ''));
+            }
+          }}
+          message={intl.formatMessage(
+            {
+              id: 'msg__str_is_required_for_network_fees_top_up_str_to_make_tx',
+            },
+            {
+              0: nativeToken?.symbol ?? '',
+              1: network?.name ?? '',
+            },
+          )}
+        />
+      ),
     );
   }
 
@@ -207,7 +229,7 @@ export function SendConfirmErrorsAlert({
         isAlertStyle
         message={intl.formatMessage(
           {
-            id: 'msg_receipt_amount_should_be_less_than_int_sats',
+            id: 'msg__the_sending_amount_cannot_exceed_int_sats',
           },
           {
             0: lightingNetworkTransferConfig?.maxSendAmount ?? '',

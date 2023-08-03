@@ -4,13 +4,21 @@ import { useNavigation } from '@react-navigation/core';
 import dayjs from 'dayjs';
 import { useIntl } from 'react-intl';
 
-import { Box, Button, HStack, Image, Text } from '@onekeyhq/components';
+import {
+  Box,
+  Button,
+  HStack,
+  Image,
+  Text,
+  ToastManager,
+} from '@onekeyhq/components';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
 import txFailedIcon from '@onekeyhq/kit/assets/transaction/status/tx_failed.png';
 import txPendingIcon from '@onekeyhq/kit/assets/transaction/status/tx_pending.png';
 import txSuccessedIcon from '@onekeyhq/kit/assets/transaction/status/tx_successed.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { TabRoutes } from '../../../routes/routesEnum';
@@ -51,11 +59,28 @@ function TxDetailStatusInfoBox(props: Props) {
   }, [decodedTx.status]);
 
   const handleToSwapOnPress = useCallback(
-    (token: Token) => {
-      backgroundApiProxy.serviceSwap.sellToken(token);
+    async (token: Token) => {
+      let checkToken = token;
+      if (checkToken) {
+        const supported = await backgroundApiProxy.serviceSwap.tokenIsSupported(
+          checkToken,
+        );
+        if (!supported) {
+          ToastManager.show(
+            {
+              title: intl.formatMessage({ id: 'msg__wrong_network_desc' }),
+            },
+            { type: 'default' },
+          );
+          checkToken = await backgroundApiProxy.engine.getNativeTokenInfo(
+            OnekeyNetwork.eth,
+          );
+        }
+      }
+      backgroundApiProxy.serviceSwap.sellToken(checkToken);
       navigation.navigate(TabRoutes.Swap);
     },
-    [navigation],
+    [intl, navigation],
   );
 
   const swapOptions = useMemo(() => {

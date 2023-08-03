@@ -1,9 +1,11 @@
 import type { FC } from 'react';
+import { useRef } from 'react';
 
 import { chunk } from 'lodash';
 import { useWindowDimensions } from 'react-native';
 
 import { Box, Pressable, Typography } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useDebounce, useTranslation } from '../../../../hooks';
 import { Chains } from '../../Chains';
@@ -24,6 +26,7 @@ const Card: FC<{
   cardWidth: number;
   onItemSelect?: (o: DAppItemType) => void;
 }> = ({ item, cardWidth, onItemSelect }) => {
+  const ref = useRef<any>(null);
   const t = useTranslation();
   return (
     <FavContainer
@@ -53,8 +56,13 @@ const Card: FC<{
           _hover={{ bgColor: 'surface-hovered' }}
           borderColor="border-subdued"
           onPress={() => {
+            if (platformEnv.isDesktop) {
+              // eslint-disable-next-line
+              ref.current?.blur?.();
+            }
             onItemSelect?.(item);
           }}
+          ref={ref}
         >
           <Box flexDirection="row">
             <DAppIcon

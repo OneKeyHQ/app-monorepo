@@ -180,7 +180,7 @@ const AssetsInfo: FC = () => {
       );
 
       const tokenItem = (
-        <HStack alignItems="center">
+        <HStack alignItems="center" flex={1}>
           {item.type === 'Token' ? (
             <Box
               size="8"
@@ -205,7 +205,7 @@ const AssetsInfo: FC = () => {
             />
           )}
           <VStack ml="3" alignItems="flex-start">
-            <Typography.Body1Strong>
+            <Typography.Body1Strong isTruncated maxW={56} numberOfLines={1}>
               {item.type === 'Token'
                 ? item.accountName || account?.name || item.name
                 : item.name}
@@ -265,7 +265,7 @@ const AssetsInfo: FC = () => {
               </Tooltip>
             </Box>
             <ListItem.Column
-              flex={2.5}
+              flex={1}
               text={{
                 label: (
                   <Typography.Body1Strong textAlign="right">
@@ -275,7 +275,7 @@ const AssetsInfo: FC = () => {
               }}
             />
             <ListItem.Column
-              flex={2.5}
+              flex={1}
               text={{
                 label: (
                   <Typography.Body1Strong textAlign="right">

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -23,6 +23,7 @@ import {
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import { getContentWithAsset } from '@onekeyhq/engine/src/managers/nft';
 import type { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import { NFTAssetType } from '@onekeyhq/engine/src/types/nft';
@@ -33,7 +34,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
-import { useActiveSideAccount, useNetwork } from '../../../../../../hooks';
+import { useNetwork, useWallet } from '../../../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../../../routes/routesEnum';
 import { deviceUtils } from '../../../../../../utils/hardware';
 import CollectionLogo from '../../../../../NFTMarket/CollectionLogo';
@@ -63,18 +64,37 @@ function EVMAssetDetailContent({
   const intl = useIntl();
   const { serviceNFT, serviceHardware } = backgroundApiProxy;
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { wallet } = useActiveSideAccount({
-    networkId,
-    accountId: accountId ?? '',
-  });
+
+  const walletId = useMemo(() => {
+    if (accountId) {
+      return getWalletIdFromAccountId(accountId);
+    }
+    return null;
+  }, [accountId]);
+
+  const { wallet } = useWallet({ walletId });
   const modalClose = useModalClose();
   const goToCollectionDetail = useCollectionDetail();
   const isVertical = useIsVerticalLayout();
   const [asset, updateAsset] = useState(outerAsset);
-  const isDisabled =
-    wallet?.type === WALLET_TYPE_WATCHING ||
-    asset.owner !== outerAsset.accountAddress ||
-    !accountId;
+  const isDisabled = useMemo(() => {
+    if (wallet?.type === WALLET_TYPE_WATCHING || !accountId) {
+      return true;
+    }
+    if (
+      asset.ercType === 'erc721' &&
+      asset.owner !== outerAsset.accountAddress
+    ) {
+      return true;
+    }
+    return false;
+  }, [
+    accountId,
+    asset.ercType,
+    asset.owner,
+    outerAsset.accountAddress,
+    wallet?.type,
+  ]);
 
   const { network } = useNetwork({ networkId });
 

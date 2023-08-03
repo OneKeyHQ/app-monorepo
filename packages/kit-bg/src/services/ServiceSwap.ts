@@ -20,7 +20,6 @@ import {
   setInputToken,
   setMode,
   setOutputToken,
-  setProgressStatus,
   setQuote,
   setQuoteLimited,
   setRecipient,
@@ -49,7 +48,6 @@ import type { SendConfirmParams } from '@onekeyhq/kit/src/views/Send/types';
 import type {
   FetchQuoteParams,
   FieldType,
-  ProgressStatus,
   QuoteData,
   QuoteLimited,
   Recipient,
@@ -894,8 +892,16 @@ export default class ServiceSwap extends ServiceBase {
     encodedTx: IEncodedTx;
     payload?: SendConfirmParams['payloadInfo'];
     autoFallback?: boolean;
+    prepaidFee?: string;
   }) {
-    const { accountId, networkId, encodedTx, payload, autoFallback } = params;
+    const {
+      accountId,
+      networkId,
+      encodedTx,
+      payload,
+      autoFallback,
+      prepaidFee,
+    } = params;
     const { appSelector, serviceTransaction } = this.backgroundApi;
     const swapFeePresetIndex = appSelector(
       (s) => s.swapTransactions.swapFeePresetIndex,
@@ -907,6 +913,7 @@ export default class ServiceSwap extends ServiceBase {
       payload,
       feePresetIndex: swapFeePresetIndex,
       autoFallback,
+      prepaidFee,
     });
   }
 
@@ -1031,28 +1038,6 @@ export default class ServiceSwap extends ServiceBase {
       result,
       attachment,
     });
-  }
-
-  @backgroundMethod()
-  async setProgressStatus(data?: ProgressStatus) {
-    const { dispatch, appSelector } = this.backgroundApi;
-    const progressStatus = appSelector((s) => s.swap.progressStatus);
-    if (!progressStatus) {
-      return;
-    }
-    dispatch(setProgressStatus(data));
-  }
-
-  @backgroundMethod()
-  async openProgressStatus() {
-    const { dispatch } = this.backgroundApi;
-    dispatch(setProgressStatus({}));
-  }
-
-  @backgroundMethod()
-  async closeProgressStatus() {
-    const { dispatch } = this.backgroundApi;
-    dispatch(setProgressStatus(undefined));
   }
 
   @bindThis()

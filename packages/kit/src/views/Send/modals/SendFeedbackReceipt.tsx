@@ -4,14 +4,23 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRoute } from '@react-navigation/native';
 import { isFunction } from 'lodash';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
-import { Box, LottieView, Text, VStack } from '@onekeyhq/components';
+import {
+  Box,
+  Button,
+  Center,
+  LottieView,
+  Text,
+  VStack,
+} from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount, useInterval } from '../../../hooks';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
+import { openUrl } from '../../../utils/openUrl';
 import { BaseSendModal } from '../components/BaseSendModal';
 
 import type { SendModalRoutes, SendRoutesParams } from '../types';
@@ -88,8 +97,76 @@ export function SendFeedbackReceipt() {
         id: 'modal__transaction_submitted_unconfirmed',
       });
     }
+    if (type === 'LNURLWithdraw') {
+      return intl.formatMessage({ id: 'title__lnurl_withdraw_request' });
+    }
     return intl.formatMessage({ id: 'msg__signature_done' });
   }, [intl, type]);
+
+  // Display successAction on the feedback page for lightning network
+  // https://github.com/lnurl/luds/blob/luds/09.md
+  const renderSuccessAction = useMemo(() => {
+    const { successAction } = route.params;
+    if (!successAction) return null;
+    if (successAction.tag === 'url') {
+      return (
+        <Center my={2}>
+          {successAction.description && (
+            <Text typography="Body2" color="text-subdued" textAlign="center">
+              {successAction.description}
+            </Text>
+          )}
+          {successAction.url && (
+            <>
+              <Button
+                mt={4}
+                type="plain"
+                leftIconName="ArrowTopRightOnSquareMini"
+                size="base"
+                borderWidth={StyleSheet.hairlineWidth}
+                borderColor="border-default"
+                onPress={() => openUrl(successAction.url || '')}
+              >
+                {intl.formatMessage({ id: 'action__view_in_browser' })}
+              </Button>
+              <Text
+                typography="Caption"
+                color="text-subdued"
+                mt={4}
+                textAlign="center"
+              >
+                {successAction.url}
+              </Text>
+            </>
+          )}
+        </Center>
+      );
+    }
+    if (successAction.tag === 'message') {
+      return (
+        <Center my={2}>
+          <Text typography="Body2" color="text-subdued" textAlign="center">
+            {successAction.message}
+          </Text>
+        </Center>
+      );
+    }
+    if (successAction.tag === 'withdrawer') {
+      return (
+        <Center my={2}>
+          <Text typography="Body2" color="text-subdued" textAlign="center">
+            {intl.formatMessage(
+              { id: 'content__str_withdraw_request_have_been_sent_to_str' },
+              {
+                amount: successAction.amount,
+                domain: successAction.domain,
+              },
+            )}
+          </Text>
+        </Center>
+      );
+    }
+  }, [intl, route.params]);
 
   return (
     <BaseSendModal
@@ -141,6 +218,7 @@ export function SendFeedbackReceipt() {
           />
         </Box>
         <Text typography="DisplayMedium">{message}</Text>
+        {renderSuccessAction}
         <Box h={8} />
       </VStack>
     </BaseSendModal>

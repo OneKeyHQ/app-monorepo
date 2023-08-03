@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -30,6 +30,7 @@ import type {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatCurrencyNumber } from '../../../components/Format';
 import {
+  useAccountIsUpdating,
   useAccountTokenValues,
   useAccountTokens,
   useAccountValues,
@@ -214,11 +215,9 @@ const ListHeader: FC<{
               {intl.formatMessage({ id: 'title__assets' })}
             </Typography.Subheading>
             <Typography.Subheading
-              ml="44px"
               color="text-subdued"
               flex={1}
               textAlign="right"
-              pr="6"
             >
               {intl.formatMessage({ id: 'content__price_uppercase' })}
             </Typography.Subheading>
@@ -250,11 +249,15 @@ const AssetsListHeader: FC<{
   innerHeaderBorderColor,
 }) => {
   const intl = useIntl();
-  const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation<NavigationProps>();
-  const { network, wallet } = useActiveWalletAccount();
+  const { network, wallet, networkId, accountId } = useActiveWalletAccount();
   const { tokenEnabled: networkTokenEnabled, activateTokenRequired } =
     network?.settings ?? { tokenEnabled: false, activateTokenRequired: false };
+
+  const loading = useAccountIsUpdating({
+    networkId,
+    accountId,
+  });
 
   const tokenEnabled = useMemo(() => {
     if (wallet?.type === WALLET_TYPE_WATCHING && activateTokenRequired) {
@@ -264,19 +267,13 @@ const AssetsListHeader: FC<{
   }, [activateTokenRequired, networkTokenEnabled, wallet?.type]);
 
   const refresh = useCallback(() => {
-    setRefreshing(true);
-    backgroundApiProxy.serviceOverview.refreshCurrentAccount().finally(() => {
-      setTimeout(() => setRefreshing(false), 1000);
-    });
+    backgroundApiProxy.serviceOverview.refreshCurrentAccount();
   }, []);
 
-  const refreshButton = useMemo(() => {
-    if (isAllNetworks(network?.id)) {
-      return null;
-    }
-    return (
+  const refreshButton = useMemo(
+    () => (
       <Box alignItems="center" justifyContent="center" w="8" h="8" mr="3">
-        {refreshing ? (
+        {loading ? (
           <Spinner size="sm" />
         ) : (
           <IconButton
@@ -288,8 +285,9 @@ const AssetsListHeader: FC<{
           />
         )}
       </Box>
-    );
-  }, [refreshing, refresh, network?.id]);
+    ),
+    [loading, refresh],
+  );
 
   return (
     <>

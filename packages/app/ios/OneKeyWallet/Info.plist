@@ -149,5 +149,7 @@
 		<string>oneinch</string>
 		<string>itms-apps</string>
 	</array>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 </dict>
 </plist>

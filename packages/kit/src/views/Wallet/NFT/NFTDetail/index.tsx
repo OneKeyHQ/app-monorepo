@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 
@@ -11,9 +11,12 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import NavigationButton from '@onekeyhq/components/src/Modal/Container/Header/NavigationButton';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { INFTAsset } from '@onekeyhq/engine/src/types/nft';
 import type { CollectiblesRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Collectibles';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
 import { getNFTDetailComponents } from './getNFTDetailComponents';
 
@@ -65,6 +68,7 @@ function ModalContent({
 }
 
 const NFTDetailModal: FC = () => {
+  const [accountId, setAccountId] = useState<string | undefined>();
   const hardwareCancelFlagRef = useRef<boolean>(false);
   const navigation = useNavigation();
 
@@ -76,7 +80,30 @@ const NFTDetailModal: FC = () => {
       >
     >();
 
-  const { networkId, accountId, asset, isOwner } = route.params;
+  const {
+    asset,
+    isOwner,
+    accountId: originAccountId,
+    networkId,
+  } = route.params;
+
+  useEffect(() => {
+    if (!isAllNetworks(networkId)) {
+      setAccountId(originAccountId);
+      return;
+    }
+    backgroundApiProxy.serviceAccount
+      .getAccountByAddress({
+        address: asset.accountAddress ?? '',
+        networkId: asset.networkId,
+      })
+      .then((account) => {
+        if (account) {
+          setAccountId(account?.id);
+        }
+      });
+  }, [asset, originAccountId, networkId]);
+
   return (
     <Modal
       size="2xl"
@@ -100,7 +127,7 @@ const NFTDetailModal: FC = () => {
         // ref={hardwareCancelFlagRef}
         asset={asset}
         isOwner={isOwner}
-        networkId={networkId}
+        networkId={asset.networkId ?? networkId}
         accountId={accountId}
       />
     </Modal>

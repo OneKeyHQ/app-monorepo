@@ -13,20 +13,21 @@ import type {
 import type { PayloadAction } from '@reduxjs/toolkit';
 
 type InitialState = {
-  dappHistory?: Record<string, HistoryItemData>;
-
   userBrowserHistories?: UserBrowserHistory[];
   bookmarks?: BookmarkItem[];
 
   favoritesMigrated?: boolean;
 
   // REMOVED
+  dappHistory?: Record<string, HistoryItemData>;
   dappFavorites?: string[];
   dappItems?: DAppItemType[] | null;
   listedCategories?: { name: string; _id: string }[];
   listedTags?: { name: string; _id: string }[];
   categoryDapps?: { label: string; id: string; items: DAppItemType[] }[];
   tagDapps?: { label: string; id: string; items: DAppItemType[] }[];
+  history: Record<string, DiscoverHistory>;
+  firstRemindDAPP: boolean;
   // REMOVED
 
   home?: {
@@ -34,8 +35,6 @@ type InitialState = {
     tagDapps: TagDappsType[];
   };
 
-  history: Record<string, DiscoverHistory>;
-  firstRemindDAPP: boolean;
   // enableIOSDappSearch?: boolean;
   // showFullLayout?: boolean;
   showBookmark?: boolean;
@@ -172,9 +171,6 @@ export const discoverSlice = createSlice({
     updateFirstRemindDAPP(state, action: PayloadAction<boolean>) {
       state.firstRemindDAPP = action.payload;
     },
-    // setDappItems(state, action: PayloadAction<DAppItemType[]>) {
-    //   state.dappItems = action.payload;
-    // },
     setDappHistory(state, action: PayloadAction<string>) {
       if (!state.dappHistory) {
         state.dappHistory = {};
@@ -270,7 +266,7 @@ export const discoverSlice = createSlice({
     ) {
       state.home = action.payload;
     },
-    setUserBrowserHistory(state, action: PayloadAction<UserBrowserHistory>) {
+    addUserBrowserHistory(state, action: PayloadAction<UserBrowserHistory>) {
       if (!state.userBrowserHistories) {
         state.userBrowserHistories = [];
       }
@@ -284,6 +280,19 @@ export const discoverSlice = createSlice({
         const data = { ...current, ...action.payload };
         state.userBrowserHistories.splice(index, 1);
         state.userBrowserHistories.unshift(data);
+      }
+    },
+    updateUserBrowserHistory(state, action: PayloadAction<UserBrowserHistory>) {
+      if (!state.userBrowserHistories) {
+        state.userBrowserHistories = [];
+      }
+      const index = state.userBrowserHistories.findIndex(
+        (o) => o.url === action.payload.url,
+      );
+      if (index >= 0) {
+        const current = state.userBrowserHistories[index];
+        const data = { ...current, ...action.payload };
+        state.userBrowserHistories[index] = data;
       }
     },
     removeUserBrowserHistory(state, action: PayloadAction<{ url: string }>) {
@@ -330,7 +339,8 @@ export const {
   setShowBookmark,
   cleanOldState,
   setHomeData,
-  setUserBrowserHistory,
+  addUserBrowserHistory,
+  updateUserBrowserHistory,
   removeUserBrowserHistory,
   addBookmark,
   removeBookmark,

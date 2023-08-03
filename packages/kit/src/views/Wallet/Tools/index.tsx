@@ -20,7 +20,11 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
-import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
+import {
+  isAllNetworks,
+  parseNetworkId,
+} from '@onekeyhq/engine/src/managers/network';
+import { revokeUrl } from '@onekeyhq/engine/src/managers/revoke';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
@@ -44,15 +48,17 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../hooks';
 import { useTools } from '../../../hooks/redux';
-import { useAllNetworksWalletAccounts } from '../../../hooks/useAllNetwoks';
+import {
+  useAllNetworksSelectNetworkAccount,
+  useAllNetworksWalletAccounts,
+} from '../../../hooks/useAllNetwoks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   getManageNetworks,
   useManageNetworks,
 } from '../../../hooks/useManageNetworks';
 import { buildAddressDetailsUrl } from '../../../hooks/useOpenBlockBrowser';
-import { openUrl } from '../../../utils/openUrl';
-import { useAllNetworksSelectNetworkAccount } from '../../ManageNetworks/hooks';
+import { openDapp, openUrl } from '../../../utils/openUrl';
 import { useIsVerticalOrMiddleLayout } from '../../Revoke/hooks';
 
 import type { ImageSourcePropType } from 'react-native';
@@ -146,8 +152,7 @@ const data: DataItem[] = [
 
 const ToolsPage: FC = () => {
   const intl = useIntl();
-  const { network, account, walletId, accountId, networkId } =
-    useActiveWalletAccount();
+  const { network, account, accountId, networkId } = useActiveWalletAccount();
   const isVertical = useIsVerticalOrMiddleLayout();
   const navigation = useNavigation();
   const { enabledNetworks } = useManageNetworks();
@@ -161,7 +166,6 @@ const ToolsPage: FC = () => {
 
   const selectNetworkAccount = useAllNetworksSelectNetworkAccount({
     networkId,
-    walletId,
     accountId,
   });
 
@@ -216,15 +220,12 @@ const ToolsPage: FC = () => {
       account?: Account | null;
     }) => {
       if (key === 'revoke') {
-        navigation.navigate(RootRoutes.Main, {
-          screen: MainRoutes.Tab,
-          params: {
-            screen: TabRoutes.Home,
-            params: {
-              screen: HomeRoutes.Revoke,
-            },
-          },
-        });
+        const { chainId } = parseNetworkId(network?.id ?? '');
+        openDapp(
+          `${revokeUrl}address/${selectedAccount?.address ?? ''}?chainId=${
+            chainId ?? ''
+          }`,
+        );
       } else if (key === 'explorer') {
         const url = buildAddressDetailsUrl(
           selectedNetwork,
@@ -293,7 +294,7 @@ const ToolsPage: FC = () => {
         }
       }
     },
-    [tools, navigation, intl, appNavigation],
+    [network?.id, tools, navigation, intl, appNavigation],
   );
 
   const onItemPress = useCallback(

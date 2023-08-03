@@ -3,6 +3,7 @@ import {
   JsonPRCResponseError,
   ResponseError,
 } from '@onekeyhq/shared/src/errors/request-errors';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
@@ -23,8 +24,10 @@ function normalizePayload(
 }
 
 const socketsMap = new Map<string, WebSocket>();
-
-const callbackMap = new Map<string, (result: any) => void>();
+const callbackMap = new Map<
+  string,
+  [(value: any) => void, (reason?: any) => void, ReturnType<typeof setTimeout>]
+>();
 
 interface IJsonRpcResponse {
   error?: {
@@ -44,34 +47,57 @@ export class WebSocketRequest {
 
   private expiredTimerId!: NodeJS.Timeout;
 
-  constructor(url: string, timeout = 30000, expiredTimeout = 60 * 1000) {
+  constructor(url: string, timeout = 20 * 1000, expiredTimeout = 60 * 1000) {
     this.url = url;
     this.timeout = timeout;
     this.expiredTimeout = expiredTimeout;
     this.establishConnection();
   }
 
-  private waitForSocketConnection(socket: WebSocket, callback: () => void) {
+  private waitForSocketConnection(
+    socket: WebSocket,
+    resolveCallback: () => void,
+    rejectCallback: () => void,
+    times = 0,
+  ) {
+    // max times for waiting times.
+    if (times > 300) {
+      rejectCallback();
+      return;
+    }
     setTimeout(() => {
-      if (socket.readyState === 1 && callback) {
-        callback();
+      if (socket.readyState === 1) {
+        resolveCallback();
+      } else if (socket.readyState > 1) {
+        rejectCallback();
       } else {
-        this.waitForSocketConnection(socket, callback);
+        this.waitForSocketConnection(
+          socket,
+          resolveCallback,
+          rejectCallback,
+          times + 1,
+        );
       }
-    }, 5); // wait 5 milisecond for the connection...
+    }, 10); // wait 10 milisecond for the connection...
   }
 
   private readySocketConnection(socket: WebSocket): Promise<WebSocket> {
-    return new Promise((resolve) => {
-      this.waitForSocketConnection(socket, () => {
-        resolve(socket);
-      });
+    return new Promise((resolve, reject) => {
+      this.waitForSocketConnection(
+        socket,
+        () => {
+          resolve(socket);
+        },
+        () => {
+          reject(new Error('WebSocket connection timeout.'));
+        },
+      );
     });
   }
 
   private establishConnection(): Promise<WebSocket> {
     const socket = socketsMap.get(this.url);
-    if (socket) {
+    if (socket && socket.readyState < 2) {
       if (socket.readyState === 1) {
         return Promise.resolve(socket);
       }
@@ -96,22 +122,38 @@ export class WebSocketRequest {
     }
     const newSocket = new WebSocket(wsURL);
     socketsMap.set(this.url, newSocket);
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       newSocket.onopen = () => {
-        this.waitForSocketConnection(newSocket, () => {
-          resolve(newSocket);
-        });
+        this.waitForSocketConnection(
+          newSocket,
+          () => {
+            resolve(newSocket);
+          },
+          () => {
+            reject(new Error('WebSocket connection timeout.'));
+          },
+        );
       };
 
-      newSocket.onmessage = (message) => {
-        const { id, result } = this.parseRPCResponse(message.data) as {
-          id: string;
-          result: any;
-        };
-        callbackMap.get(id)?.(result);
+      newSocket.onmessage = async (message) => {
+        await this.refreshConnectionStatus();
+        const { id, result, error } = this.parseRPCResponse(message.data);
+        const callback = callbackMap.get(id);
+        if (callback) {
+          const [callbackResolve, callbackReject, timerId] = callback;
+          clearTimeout(timerId);
+          if (error) {
+            const errorMesseage = `Error JSON PRC response ${error.code}: ${error.message}`;
+            debugLogger.websocket.error(errorMesseage);
+            callbackReject(new JsonPRCResponseError(errorMesseage));
+          } else {
+            callbackResolve(result);
+          }
+        }
         callbackMap.delete(id);
       };
       newSocket.onerror = (error: unknown) => {
+        reject(error);
         console.error(error);
       };
     });
@@ -134,11 +176,6 @@ export class WebSocketRequest {
         `Invalid JSON RPC response, result not found: ${message}`,
       );
     }
-    if (response.error) {
-      throw new JsonPRCResponseError(
-        `Error JSON PRC response ${response.error.code}: ${response.error.message}`,
-      );
-    }
     return response;
   }
 
@@ -157,9 +194,13 @@ export class WebSocketRequest {
     timeout?: number,
   ): Promise<T> {
     const socket = await this.refreshConnectionStatus();
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const id = generateUUID();
-      callbackMap.set(id, resolve);
+      const timerId = setTimeout(() => {
+        callbackMap.delete(id);
+        reject(new Error('Timeout Error'));
+      }, timeout || this.timeout);
+      callbackMap.set(id, [resolve, reject, timerId]);
       const requestParams = normalizePayload(method, params, id);
       if (socket) {
         socket.send(`${JSON.stringify(requestParams)}\n`);

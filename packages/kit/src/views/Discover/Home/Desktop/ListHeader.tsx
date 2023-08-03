@@ -1,5 +1,6 @@
-import { type FC, useCallback, useRef, useState } from 'react';
+import { type FC, useCallback, useEffect, useRef, useState } from 'react';
 
+import { wait } from '@onekeyfe/hd-core';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Input, Typography } from '@onekeyhq/components';
@@ -7,6 +8,8 @@ import { Box, Center, Input, Typography } from '@onekeyhq/components';
 import { gotoSite, openMatchDApp } from '../../Explorer/Controller/gotoSite';
 import SearchView from '../../Explorer/Search/SearchView';
 import { BrowserShortcuts } from '../BrowserShortcuts';
+
+import { discoverUIEventBus } from './eventBus';
 
 import type {
   MatchDAppItemType,
@@ -26,21 +29,47 @@ export const ListHeader: FC = () => {
   const searchViewRef = useRef<SearchViewRef>(null);
   const [text, onChangeText] = useState('');
   const [showSearch, setShowSearch] = useState(false);
-  const onSearch = useCallback(() => {
+  const onSearch = useCallback(async () => {
     if (text) {
+      setShowSearch(false);
+      await wait(200);
       gotoSite({ url: text, userTriggered: true });
+      setTimeout(() => {
+        onChangeText('');
+      }, 100);
     }
   }, [text]);
 
   const onKeyEvent = (event: SearchViewKeyEventType) =>
     searchViewRef.current?.onKeyPress(event);
 
-  const onSearchSubmitEditing = (dapp: MatchDAppItemType | string) => {
-    if (typeof dapp === 'string') {
-      return gotoSite({ url: dapp, userTriggered: true });
-    }
-    openMatchDApp(dapp);
-  };
+  const onSearchSubmitEditing = useCallback(
+    async (dapp: MatchDAppItemType | string) => {
+      if (typeof dapp === 'string') {
+        gotoSite({ url: dapp, userTriggered: true });
+      } else {
+        openMatchDApp(dapp);
+      }
+      setShowSearch(false);
+      await wait(200);
+      setTimeout(() => {
+        onChangeText('');
+      }, 100);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const fn = () => {
+      setShowSearch(false);
+      // eslint-disable-next-line
+      ref.current?.blur?.();
+    };
+    discoverUIEventBus.on('scroll', fn);
+    return () => {
+      discoverUIEventBus.off('scroll', fn);
+    };
+  }, []);
 
   return (
     <Center>
@@ -55,7 +84,7 @@ export const ListHeader: FC = () => {
             )}
           </Typography.DisplayXLarge>
         </Center>
-        <Center>
+        <Center position="relative">
           <Input
             size="xl"
             w="full"
@@ -80,21 +109,23 @@ export const ListHeader: FC = () => {
               }
             }}
           />
-          <SearchView
-            ref={searchViewRef}
-            visible={showSearch}
-            relativeComponent={ref.current}
-            onSearchContentChange={onChangeText}
-            searchContent={text}
-            onSelectorItem={(item: MatchDAppItemType) => {
-              setShowSearch(false);
-              setTimeout(() => {
-                onSearchSubmitEditing(item);
-                // eslint-disable-next-line
+          {showSearch ? (
+            <SearchView
+              ref={searchViewRef}
+              visible={showSearch}
+              relativeComponent={ref.current}
+              onSearchContentChange={onChangeText}
+              searchContent={text}
+              onSelectorItem={(item: MatchDAppItemType) => {
+                setShowSearch(false);
+                setTimeout(() => {
+                  onSearchSubmitEditing(item);
+                  // eslint-disable-next-line
                 (ref.current as any)?.blur?.();
-              }, 100);
-            }}
-          />
+                }, 100);
+              }}
+            />
+          ) : null}
         </Center>
         <Center>
           <Box w="360px">
