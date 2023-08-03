@@ -8,13 +8,18 @@ import {
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import {
+  getTaprootXpub,
+  isTaprootXpubSegwit,
+} from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
 
 import { FormatBalance } from '../../../components/Format';
 import { useActiveSideAccount } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useBRC20AmountList } from '../../../hooks/useBRC20AmountList';
+import { useBRC20Inscriptions } from '../../../hooks/useBRC20Inscriptions';
 import {
   InscribeModalRoutes,
+  InscriptionControlModalRoutes,
   ModalRoutes,
   ReceiveTokenModalRoutes,
   RootRoutes,
@@ -45,11 +50,13 @@ function BRC20TokenDetail() {
     networkId: networkId ?? '',
   });
 
-  const { amountList } = useBRC20AmountList({
+  const { availableInscriptions } = useBRC20Inscriptions({
     networkId,
-    tokenAddress,
     address: account?.address,
-    xpub: account?.xpub,
+    xpub: isTaprootXpubSegwit(account?.xpub ?? '')
+      ? getTaprootXpub(account?.xpub ?? '')
+      : account?.xpub,
+    tokenAddress: token?.tokenIdOnNetwork ?? token?.address,
     isPolling: true,
   });
 
@@ -102,6 +109,22 @@ function BRC20TokenDetail() {
     }
   }, [accountId, appNavigation, networkId, token]);
 
+  const handleInscriptionControlOnPress = useCallback(() => {
+    if (networkId && accountId && token) {
+      appNavigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.InscriptionControl,
+        params: {
+          screen: InscriptionControlModalRoutes.InscriptionControlModal,
+          params: {
+            networkId,
+            accountId,
+            token,
+          },
+        },
+      });
+    }
+  }, [accountId, appNavigation, networkId, token]);
+
   return (
     <Box paddingY={8} paddingX={isVertical ? 4 : 8}>
       {!isVertical ? (
@@ -142,7 +165,11 @@ function BRC20TokenDetail() {
           style={{ mb: 6 }}
         />
       ) : null}
-      <InscriptionEntry amountList={amountList} style={{ mb: 6 }} />
+      <InscriptionEntry
+        inscriptions={availableInscriptions}
+        onPress={handleInscriptionControlOnPress}
+        style={{ mb: 6 }}
+      />
       <TxHistoryListView
         accountId={accountId}
         networkId={networkId}

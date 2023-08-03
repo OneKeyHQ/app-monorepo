@@ -1337,6 +1337,16 @@ export default class VaultBtcFork extends VaultBase {
     return frozenUtxos.concat(dustUtxos);
   }
 
+  private async getRecycleInscriptionUtxos(xpub: string, utxos: IBtcUTXO[]) {
+    const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
+      this.networkId,
+      xpub,
+    );
+    const recycleInscriptionUtxos = archivedUtxos.filter(
+      (utxo) => utxo.recycle,
+    );
+  }
+
   private async buildTransferParamsWithCoinSelector({
     transferInfos,
     specifiedFeeRate,
@@ -1386,6 +1396,8 @@ export default class VaultBtcFork extends VaultBase {
           }
         : undefined,
     );
+
+    console.log(utxos);
 
     // Select the slowest fee rate as default, otherwise the UTXO selection
     // would be failed.

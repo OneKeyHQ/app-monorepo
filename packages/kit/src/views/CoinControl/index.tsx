@@ -54,6 +54,7 @@ const CoinControl = () => {
   >([]);
   const [utxosDust, setUtxosDust] = useState<ICoinControlListItem[]>([]);
   const [frozenUtxos, setFrozenUtxos] = useState<ICoinControlListItem[]>([]);
+  const [recycleUtxos, setRecycleUtxos] = useState<ICoinControlListItem[]>([]);
   const [selectedUtxos, setSelectedUtxos] = useState<string[]>(
     isSelectMode && encodedTx
       ? encodedTx.inputs.map((input) => getUtxoUniqueKey(input))
@@ -79,15 +80,21 @@ const CoinControl = () => {
     [encodedTx?.transferInfo.amount],
   );
 
-  const refreshUtxosData = useCallback(() => {
+  const refreshUtxosData = useCallback(async () => {
     setIsLoading(true);
+
     return backgroundApiProxy.serviceUtxos
-      .getUtxos(networkId, accountId, sortMethod)
+      .getUtxos({
+        networkId,
+        accountId,
+        sortBy: sortMethod,
+      })
       .then((response) => {
         setAllUtxos(response.utxos);
         setUtxosWithoutDust(response.utxosWithoutDust);
         setUtxosDust(response.utxosDust);
         setFrozenUtxos(response.frozenUtxos);
+        setRecycleUtxos(response.recycleUtxos);
         return response.utxos;
       })
       .finally(() => {
@@ -105,15 +112,30 @@ const CoinControl = () => {
 
   const availabelListDataSource = useMemo(() => {
     if (useDustUtxo) {
-      const data = utxosWithoutDust.map((item, index) => ({
+      let data = utxosWithoutDust.map((item, index) => ({
         ...item,
         dustSeparator:
           index === utxosWithoutDust.length - 1 && utxosDust.length > 0,
       })) as ICoinControlListItem[];
-      return data.concat(utxosDust);
+      data = data.concat(
+        utxosDust.map((item, idex) => ({
+          ...item,
+          recycleSeparator:
+            idex === utxosDust.length - 1 && recycleUtxos.length > 0,
+        })),
+      );
+
+      return data.concat(recycleUtxos);
     }
-    return utxosWithoutDust;
-  }, [utxosWithoutDust, utxosDust, useDustUtxo]);
+
+    const data = utxosWithoutDust.map((item, index) => ({
+      ...item,
+      dustSeparator:
+        index === utxosWithoutDust.length - 1 && recycleUtxos.length > 0,
+    })) as ICoinControlListItem[];
+
+    return data.concat(recycleUtxos);
+  }, [useDustUtxo, utxosWithoutDust, recycleUtxos, utxosDust]);
 
   const frozenListDataSource = useMemo(() => {
     if (!useDustUtxo) {

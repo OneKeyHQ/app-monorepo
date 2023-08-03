@@ -268,11 +268,12 @@ const CoinControlCell: FC<ICellProps> = ({
   );
 };
 
-const ItemSeparator: FC<{ isDustSeparator: boolean }> = ({
-  isDustSeparator,
-}) => {
+const ItemSeparator: FC<{
+  isDustSeparator?: boolean;
+  isRecycleSeparator?: boolean;
+}> = ({ isDustSeparator, isRecycleSeparator }) => {
   const intl = useIntl();
-  if (isDustSeparator) {
+  if (isDustSeparator || isRecycleSeparator) {
     return (
       <>
         <Divider w="auto" mx={2} />
@@ -609,7 +610,10 @@ const CoinControlList: FC<{
 
   const separator = useCallback(
     ({ leadingItem }: { leadingItem: ICoinControlListItem }) => (
-      <ItemSeparator isDustSeparator={!!leadingItem.dustSeparator} />
+      <ItemSeparator
+        isDustSeparator={!!leadingItem.dustSeparator}
+        isRecycleSeparator={!!leadingItem.recycleSeparator}
+      />
     ),
     [],
   );

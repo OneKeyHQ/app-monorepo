@@ -44,6 +44,7 @@ export type CheckBoxProps = {
   onChange?: (isSelected: boolean) => void;
   containerStyle?: ComponentProps<typeof Box>;
   checkBoxProps?: Partial<ComponentProps<typeof BaseCheckBox>>;
+  isIndeterminate?: boolean;
 } & ComponentProps<typeof Box>;
 
 const defaultProps = {
@@ -66,6 +67,7 @@ const CheckBox: FC<CheckBoxProps> = ({
   children,
   containerStyle,
   checkBoxProps,
+  isIndeterminate,
   ...props
 }) => {
   let titleColor = 'text-default';
@@ -100,7 +102,11 @@ const CheckBox: FC<CheckBoxProps> = ({
           value={value}
           name={name}
           onChange={onChangeCallback}
-          icon={getCheckBoxIcon(isDisabled ?? false, defaultIsChecked ?? false)}
+          icon={getCheckBoxIcon({
+            disable: Boolean(isDisabled),
+            defaultIsChecked: Boolean(defaultIsChecked),
+            indeterminate: Boolean(isIndeterminate),
+          })}
           defaultIsChecked={defaultIsChecked}
           isChecked={isChecked}
           focusable={focusable}

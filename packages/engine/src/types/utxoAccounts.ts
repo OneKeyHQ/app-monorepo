@@ -12,10 +12,12 @@ export type CoinControlBase = {
 export type CoinControlOption = {
   label: string;
   frozen: boolean;
+  recycle: boolean;
 };
 
 export type ICoinControlListItem = IBtcUTXO & {
   height: number;
   dustSeparator?: boolean;
+  recycleSeparator?: boolean;
   hideFrozenOption?: boolean;
 } & Partial<CoinControlOption>;
