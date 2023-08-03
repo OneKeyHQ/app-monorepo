@@ -1032,26 +1032,15 @@ export default class VaultBtcFork extends VaultBase {
 
           // eslint-disable-next-line no-constant-condition
           while (true) {
-            let leftFound = false;
-            let rightFound = false;
-
             if (leftIndex >= 0 && new BigNumber(fees[leftIndex]).gte(0)) {
-              leftFound = true;
+              fees[negativeIndex] = fees[leftIndex];
+              break;
             }
 
             if (
               rightIndex < fees.length &&
               new BigNumber(fees[rightIndex]).gte(0)
             ) {
-              rightFound = true;
-            }
-
-            if (leftFound) {
-              fees[negativeIndex] = fees[leftIndex];
-              break;
-            }
-
-            if (rightFound) {
               fees[negativeIndex] = fees[rightIndex];
               break;
             }
