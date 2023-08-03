@@ -29,6 +29,7 @@ import {
   ModalRoutes,
   RootRoutes,
 } from '../../../../routes/routesEnum';
+import { selectOnBoardingLoadingBehindModal } from '../../../../store/selectors';
 import Layout from '../../Layout';
 import { useOnboardingContext } from '../../OnboardingContext';
 
