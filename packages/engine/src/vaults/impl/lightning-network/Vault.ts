@@ -566,7 +566,7 @@ export default class Vault extends VaultBase {
           clearInterval(intervalId);
           reject(e);
         }
-      }, 3000);
+      }, 1500);
     });
   }
 
