@@ -54,6 +54,7 @@
   "action__backup_to_icloud": "نسخ احتياطي إلى {cloudName}",
   "action__building_transaction_data_str": "إنشاء بيانات المعاملات ... {0}",
   "action__bulk_add": "إضافة مجمعة",
+  "action__bulk_destroy": "تدمير بالجملة",
   "action__buy": "يشتري",
   "action__buy_crypto": "شراء العملات المشفرة",
   "action__buy_crypto_desc": "مع خيارات دفع متعددة",
@@ -124,6 +125,7 @@
   "action__delete_label": "حذف التسمية",
   "action__delete_wallet": "حذف المحفظة",
   "action__deny": "ينكر",
+  "action__destroy": "هدم",
   "action__device_settings": "إعدادات الجهاز",
   "action__disable": "تعطيل",
   "action__disable_sync": "تعطيل المزامنة",
@@ -174,6 +176,7 @@
   "action__go_to_view": "اذهب إلى عرض",
   "action__go_tobackup": "انتقل إلى النسخ الاحتياطي",
   "action__grid_view": "عرض شبكي",
+  "action__hide_chart": "إخفاء الرسم البياني",
   "action__hide_risky_nfts": "إخفاء NFTs المحفوفة بالمخاطر",
   "action__hide_risky_tokens_histories": "إخفاء تاريخ الرموز المحفوفة بالمخاطر",
   "action__hide_this_collection": "إخفاء هذه المجموعة",
@@ -285,6 +288,7 @@
   "action__set_to_mkt_desc": "إعادة تعيين أمر الحد إلى سعر السوق الحالي",
   "action__share": "شارك",
   "action__show_all_used_addresses": "إظهار العناوين المستخدمة",
+  "action__show_chart": "إظهار الرسم البياني",
   "action__show_dotmap_for_keytag": "إظهار Dotmap لـ KeyTag",
   "action__show_full_address": "إظهار العنوان الكامل",
   "action__show_it": "اظهره",
@@ -366,6 +370,7 @@
   "action__visit": "يزور",
   "action__watch_lowercase": "راقب",
   "action__withdraw": "ينسحب",
+  "action__withdraw__lnurl": "ينسحب",
   "action__wrap": "طَوّق",
   "action__wrap_eth": "التفاف ETH",
   "action__yes_i_have": "نعم لدي",
@@ -531,6 +536,7 @@
   "content__download_example": "تنزيل مثال",
   "content__downloading": "جارى التحميل",
   "content__downloading_str": "تحميل {0}",
+  "content__due_to_the_limitations_of_lido_you_must_claim_each_of_your_unstakes_separately": "نظرًا لقيود Lido ، يجب عليك المطالبة بكل من حصصك على حدة.",
   "content__duration": "مدة",
   "content__dust_refer_to_very_tiny_amount_of_bitcoin": "يشير الغبار إلى كميات صغيرة جدًا من البيتكوين (أقل من أو تساوي 546 ساتوشي) المتبقية أو غير المنفقة بعد المعاملة.",
   "content__each_line_should_include_the_address": "يجب أن يتضمن كل سطر العنوان. على سبيل المثال:",
@@ -835,6 +841,7 @@
   "content__str_transactions_failed": "{0} فشلت المعاملات!",
   "content__str_transactions_in_progress": "{content__str_transactions_in_progress, plural, zero {} one {معاملة # قيد التقدم ...} two {} few {} many {} other {# المعاملات قيد التقدم ...}}",
   "content__str_transactions_succeeded": "{content__str_transactions_succeeded, plural, zero {} one {نجحت معاملة # !} two {} few {} many {} other {نجحت معاملات # !}}",
+  "content__str_withdraw_request_have_been_sent_to_str": "تم إرسال طلب سحب {amount} إلى {domain}",
   "content__submitted": "مُقَدَّم",
   "content__support_csv_txt_or_excel": "دعم csv أو txt أو Excel",
   "content__support_malicious_contract_detection_on_8_chains": "دعم الكشف عن العقود الضارة في 8 سلاسل.",
@@ -1135,6 +1142,7 @@
   "form__beginner_guide": "دليل المبتدئين",
   "form__below_str": "أقل من {0}",
   "form__best_rate": "👍 أفضل سعر",
+  "form__between_int_and_int_sats": "بين {0} و {0} ساتس",
   "form__bip44_standard": "معيار BIP44",
   "form__bip44_standard_cointype_61": "معيار BIP44 (CoinType 61 ')",
   "form__bip44_standard_desc": "OneKey, MetaMask, Trezor, imToken",
@@ -1191,6 +1199,7 @@
   "form__coingecko_trust_score_uppercase": "سجل COINGECKO TRUST",
   "form__comment_optional": "التعليق (اختياري)",
   "form__compressing_failed_try_again": "فشل الضغط ، حاول مرة أخرى.",
+  "form__connect_to": "اتصل بـ",
   "form__connect_wallet_before_uploading": "قم بتوصيل المحفظة قبل التحميل",
   "form__connected_sites": "المواقع المتصلة",
   "form__contact_name": "اسم",
@@ -1370,6 +1379,7 @@
   "form__inscribing_fee": "رسوم التسجيل",
   "form__inscription_file_preview": "معاينة ملف",
   "form__inscription_file_size": "حجم الملف",
+  "form__inscription_id_uppercase": "معرف النقش",
   "form__inscription_inscribe_to": "قم بالتسجيل في",
   "form__inscription_owner": "مالك",
   "form__inscription_value": "قيمة الانتاج",
@@ -1391,6 +1401,7 @@
   "form__line_str": "خط {0}",
   "form__low": "قليل",
   "form__manage": "يدير",
+  "form__manage_inscriptions": "إدارة النقوش",
   "form__manage_menu_bar": "إدارة شريط القوائم",
   "form__manage_threshold": "إدارة العتبة",
   "form__mannual_added": "تمت إضافة Mannual",
@@ -1811,6 +1822,7 @@
   "form__use_removed_api_desc": "عندما يحاول موقع ويب استخدام واجهة برمجة تطبيقات window.web3 التي تمت إزالتها",
   "form__user_agreement": "اتفاقية المستخدم",
   "form__utxo_label": "تسمية UTXO",
+  "form__utxo_value_uppercase": "قيمة UTXO",
   "form__validator_max_length": "يجب أن يتكون هذا الحقل من {value} من الأحرف أو أقل",
   "form__value": "قيمة",
   "form__value_uppercase": "القيمة",
@@ -1830,15 +1842,18 @@
   "form__watchlist_desc": "تقلبات أسعار كبيرة لأصول قائمة المراقبة الخاصة بك",
   "form__website": "موقع الكتروني",
   "form__what_is_the_possible_risk_of_lido": "ما هي المخاطر المحتملة لليدو؟",
-  "form__what_is_the_possible_risk_of_lido_desc": "هناك مخاطر معينة في استخدام Lido من أجل Staking ETH ، مثل فشل الشبكة أو المدقق الذي قد يؤدي إلى فقدان الأصول المكدسة (العقوبات) ، أو ثغرات أو أخطاء في عقد Lido الذكي. على الرغم من أن الكود مفتوح المصدر ومدقق ومغطى على نطاق واسع ، فإن أي استثمار في العملة المشفرة يحمل مخاطر ويجب تقييمه بشكل مستقل.",
+  "form__what_is_the_possible_risk_of_lido_desc": "هناك مخاطر معينة في استخدام Lido للتخزين ، مثل فشل الشبكة أو المدقق الذي قد يؤدي إلى فقدان الأصول المكدسة (العقوبات) ، أو نقاط الضعف أو الأخطاء في عقد Lido الذكي. على الرغم من أن الكود مفتوح المصدر ومدقق ومغطى على نطاق واسع ، فإن أي استثمار في العملة المشفرة يحمل مخاطر ويجب تقييمه بشكل مستقل.",
   "form__when_you_stake_str_you_receive_str_you_can_trade_this_liquid_asset_at_any_time": "عندما تربح <a> {0} </a> تتلقى <b> {1} </b> . يمكنك تداول هذا الأصل السائل في أي وقت.",
   "form__whitelist_included": "وشملت القائمة البيضاء",
   "form__whitelist_included_desc": "قد لا يتم تداول بعض العناوين بانتظام إذا كانت هناك قائمة بيضاء.",
   "form__whitepaper": "ورق ابيض",
   "form__why_do_you_receive_steth": "لماذا تتلقى stETH؟",
   "form__why_do_you_receive_steth_desc": "عندما تقوم بإيداع ETH في Lido ، فإنك تتلقى رمز Lido الخاص بالرمز السائل ، stETH ، والذي يمثل مطالبتك النسبية بـ ETH في Lido. نظرًا لأن المدققين الذين يعملون على Lido يتلقون مكافآت ، فأنت مؤهل لتلقي مكافآت تتناسب مع حصتك ، والتي من المتوقع عادةً أن تحدث يوميًا.",
+  "form__why_do_you_receive_str": "لماذا تتلقى {0} ؟",
+  "form__why_do_you_receive_str_desc": "عند إيداع {0} في Lido ، تتلقى رمز Lido الخاص بالمخزن السائل ، {1} ، والذي يمثل مطالبتك النسبية بـ {0} في Lido. نظرًا لأن المدققين الذين يعملون على Lido يتلقون مكافآت ، فأنت مؤهل لتلقي مكافآت تتناسب مع حصتك.",
   "form__with_str": "مع {0}",
   "form__withdraw_desc": "لسحب ETH إلى حسابك ، تحتاج إلى بدء معاملة.",
+  "form__withdraw_description": "سحب الوصف",
   "form__you_have_no_wallet_yet": "ليس لديك محفظة بعد",
   "form__you_receive": "انت تستقبل",
   "form__you_start_earning_str": "تبدأ في كسب <a> كل يوم </a>",
@@ -2169,7 +2184,7 @@
   "msg__hardware_enter_boot_failure": "فشل بدء وضع التحديث.",
   "msg__hardware_failed_to_search_devices": "فشل البحث عن الأجهزة",
   "msg__hardware_firmware_download_error": "فشل تنزيل البرنامج الثابت",
-  "msg__hardware_init_iframe_load_error": "فشل تهيئة الأجهزة SDK ؛ يرجى التحقق من اتصال الشبكة أو تبديل عقدة الوكيل والمحاولة مرة أخرى",
+  "msg__hardware_init_iframe_load_error": "فشلت تهيئة SDK للأجهزة. يرجى التحقق من شبكتك أو تبديل الوكيل ثم حاول مرة أخرى.",
   "msg__hardware_invalid_pin_error": "رقم التعريف الشخصي الذي تم إدخاله غير صالح",
   "msg__hardware_manually_enter_boot": "تحتاج إلى إدخال التمهيد يدويًا.",
   "msg__hardware_not_opened_passphrase": "يرجى تشغيل عبارة المرور على جهازك لاستخدام المحفظة المخفية",
@@ -2555,10 +2570,13 @@
   "title__lido_unstaking": "ليدو غير مقيدة",
   "title__lido_unstaking_desc": "عملية السحب بسيطة وسيتم تقسيمها إلى الخطوات التالية:",
   "title__lnurl_pay": "دفع LNURL",
+  "title__lnurl_withdraw": "سحب LNURL",
+  "title__lnurl_withdraw_request": "تم إرسال طلب السحب",
   "title__major_update": "تحديث رئيسي",
   "title__manage_account_dynamic": "إدارة الحساب الديناميكي",
   "title__manage_accounts": "إدارة الحسابات",
   "title__manage_cryptos": "إدارة التشفير",
+  "title__manage_inscriptions": "إدارة النقوش",
   "title__manage_news": "إدارة الأخبار",
   "title__manage_news_sources": "إدارة مصادر الأخبار",
   "title__manage_price_alert": "إدارة تنبيه السعر",
