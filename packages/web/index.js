@@ -1,3 +1,4 @@
+import 'setimmediate';
 import { registerRootComponent } from 'expo';
 
 import App from './App';

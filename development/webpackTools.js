@@ -107,9 +107,6 @@ function normalizeConfig({
       new webpack.ProvidePlugin({
         Buffer: ['buffer', 'Buffer'],
       }),
-      new webpack.ProvidePlugin({
-        setImmediate: ['setImmediate', 'setimmediate'],
-      }),
       new webpack.DefinePlugin({
         // TODO use babelTools `transform-inline-environment-variables` instead
         'process.env.ONEKEY_BUILD_TYPE': JSON.stringify(platform),
@@ -318,7 +315,6 @@ function normalizeConfig({
     'util': false,
     'os': false,
     'buffer': require.resolve('buffer/'),
-    'setImmediate': require.resolve('setimmediate'),
   };
 
   // Why? do not change original config directly
