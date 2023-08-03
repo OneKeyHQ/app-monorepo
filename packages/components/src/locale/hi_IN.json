@@ -1220,6 +1220,7 @@
   "form__crypto": "cryptocurrency",
   "form__crypto_settings": "क्रिप्टो",
   "form__current": "मौजूदा",
+  "form__current_price": "मौजूदा कीमत",
   "form__current_str": "वर्तमान: {0}",
   "form__current_str_gas_fee": "वर्तमान {0} गैस शुल्क",
   "form__custom": "अनुकूलित करें",

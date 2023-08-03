@@ -1220,6 +1220,7 @@
   "form__crypto": "tiền điện tử",
   "form__crypto_settings": "tiền điện tử",
   "form__current": "Hiện hành",
+  "form__current_price": "Giá hiện tại",
   "form__current_str": "Hiện tại: {0}",
   "form__current_str_gas_fee": "Phí gas {0} hiện tại",
   "form__custom": "tùy chỉnh",

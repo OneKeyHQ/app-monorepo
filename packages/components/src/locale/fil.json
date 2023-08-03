@@ -1220,6 +1220,7 @@
   "form__crypto": "Cryptocurrency",
   "form__crypto_settings": "Crypto",
   "form__current": "Kasalukuyan",
+  "form__current_price": "Kasalukuyang presyo",
   "form__current_str": "Kasalukuyan: {0}",
   "form__current_str_gas_fee": "Kasalukuyang {0} bayad sa gas",
   "form__custom": "I-customize",

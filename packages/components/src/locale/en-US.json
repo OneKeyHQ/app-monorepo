@@ -1220,6 +1220,7 @@
   "form__crypto": "Cryptocurrency",
   "form__crypto_settings": "Crypto",
   "form__current": "Current",
+  "form__current_price": "Current Price",
   "form__current_str": "Current: {0}",
   "form__current_str_gas_fee": "Current {0} gas fee",
   "form__custom": "Customize",

@@ -1220,6 +1220,7 @@
   "form__crypto": "암호화폐",
   "form__crypto_settings": "암호화폐",
   "form__current": "현재의",
+  "form__current_price": "현재 가격",
   "form__current_str": "현재: {0}",
   "form__current_str_gas_fee": "현재 {0} 가스 요금",
   "form__custom": "커스터마이징",

@@ -119,6 +119,7 @@ export type HomeRoutesParams = {
     tokenAddress?: string;
     sendAddress?: string;
     historyFilter?: (item: any) => boolean;
+    price24h?: number;
   };
   [HomeRoutes.FullTokenListScreen]: {
     accountId?: string;

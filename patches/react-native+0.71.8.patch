@@ -71,6 +71,21 @@ index b06d1cb..6c2e083 100644
  
    'aria-live'?: ('polite' | 'assertive' | 'off') | undefined;
    'aria-modal'?: boolean | undefined;
+diff --git a/node_modules/react-native/Libraries/Renderer/implementations/ReactNativeRenderer-dev.js b/node_modules/react-native/Libraries/Renderer/implementations/ReactNativeRenderer-dev.js
+index 6c7116e..4f7fdbb 100644
+--- a/node_modules/react-native/Libraries/Renderer/implementations/ReactNativeRenderer-dev.js
++++ b/node_modules/react-native/Libraries/Renderer/implementations/ReactNativeRenderer-dev.js
+@@ -4333,7 +4333,9 @@ function injectInternals(internals) {
+     }
+ 
+     rendererID = hook.inject(internals); // We have successfully injected, so now it is safe to set up hooks.
+-
++    // For support react-render-tracker on iOS
++    globalThis.__REACT_DEVTOOLS_GLOBAL_INTERNALS__ = internals;
++    globalThis.__REACT_DEVTOOLS_GLOBAL_INTERNALS_RENDERER_ID__  = rendererID;
+     injectedHook = hook;
+   } catch (err) {
+     // Catch all errors because it is unsafe to throw during initialization.
 diff --git a/node_modules/react-native/ReactCommon/jsc/JSCRuntime.cpp b/node_modules/react-native/ReactCommon/jsc/JSCRuntime.cpp
 index bbc6065..dfe32f0 100644
 --- a/node_modules/react-native/ReactCommon/jsc/JSCRuntime.cpp
