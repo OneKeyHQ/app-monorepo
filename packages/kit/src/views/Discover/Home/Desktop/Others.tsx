@@ -22,7 +22,7 @@ import {
 } from '@onekeyhq/components';
 
 import dappColourPNG from '../../../../../assets/dapp_colour.png';
-import { useAppSelector, useTranslation } from '../../../../hooks';
+import { useAppSelector } from '../../../../hooks';
 import { Chains } from '../../Chains';
 import DAppIcon from '../../components/DAppIcon';
 import FavContainer from '../../Explorer/FavContainer';
@@ -122,7 +122,6 @@ const ListEmptyComponent = () => <EmptySkeletonContent offset={-120} />;
 
 const DappsContainer: FC<DappsContainerProps> = ({ dapps }) => {
   const { selectedNetworkId } = useContext(SelectedNetworkContext);
-  const t = useTranslation();
 
   const { onItemSelect } = useContext(DiscoverContext);
   const { width } = useWindowDimensions();
@@ -186,13 +185,13 @@ const DappsContainer: FC<DappsContainerProps> = ({ dapps }) => {
               textAlign="left"
               color="text-subdued"
             >
-              {t(item._subtitle) ?? item.subtitle}
+              {item.subtitle}
             </Typography.Caption>
           </Pressable>
         </Box>
       </FavContainer>
     ),
-    [cardWidth, onItemSelect, t],
+    [cardWidth, onItemSelect],
   );
 
   const data = useMemo(() => {

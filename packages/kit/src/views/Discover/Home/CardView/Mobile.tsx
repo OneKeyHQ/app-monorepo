@@ -2,7 +2,6 @@ import type { FC } from 'react';
 
 import { Box, Pressable, ScrollView, Typography } from '@onekeyhq/components';
 
-import { useTranslation } from '../../../../hooks';
 import DAppIcon from '../../components/DAppIcon';
 import FavContainer from '../../Explorer/FavContainer';
 import { SectionTitle } from '../TitleView';
@@ -22,46 +21,42 @@ const SimpleCardView: FC<SimpleCardViewProps> = ({
   item,
   onItemSelect,
   mt,
-}) => {
-  const t = useTranslation();
-
-  return (
-    <FavContainer
-      url={item.url}
-      hoverButtonProps={{
-        right: '4px',
-        bottom: '30px',
+}) => (
+  <FavContainer
+    url={item.url}
+    hoverButtonProps={{
+      right: '4px',
+      bottom: '30px',
+    }}
+  >
+    <Pressable
+      w="260px"
+      ml="4"
+      borderRadius="12px"
+      alignItems="center"
+      flexDirection="row"
+      onPress={() => {
+        onItemSelect?.(item);
       }}
+      mt={mt}
     >
-      <Pressable
-        w="260px"
-        ml="4"
-        borderRadius="12px"
-        alignItems="center"
-        flexDirection="row"
-        onPress={() => {
-          onItemSelect?.(item);
-        }}
-        mt={mt}
-      >
-        <DAppIcon size={48} url={item.logoURL} networkIds={item.networkIds} />
-        <Box flex={1} ml="2">
-          <Typography.Body2Strong numberOfLines={1}>
-            {item.name}
-          </Typography.Body2Strong>
-          <Typography.Caption
-            numberOfLines={1}
-            mt="1"
-            color="text-subdued"
-            overflow="hidden"
-          >
-            {t(item._subtitle) ?? item.subtitle}
-          </Typography.Caption>
-        </Box>
-      </Pressable>
-    </FavContainer>
-  );
-};
+      <DAppIcon size={48} url={item.logoURL} networkIds={item.networkIds} />
+      <Box flex={1} ml="2">
+        <Typography.Body2Strong numberOfLines={1}>
+          {item.name}
+        </Typography.Body2Strong>
+        <Typography.Caption
+          numberOfLines={1}
+          mt="1"
+          color="text-subdued"
+          overflow="hidden"
+        >
+          {item.subtitle}
+        </Typography.Caption>
+      </Box>
+    </Pressable>
+  </FavContainer>
+);
 
 type PairCardViewProps = {
   items: DappTypeTuple;

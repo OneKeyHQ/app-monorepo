@@ -18,7 +18,6 @@ import {
 import type { HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useTranslation } from '../../../../hooks';
 import { getAppNavigation } from '../../../../hooks/useAppNavigation';
 import { DiscoverModalRoutes } from '../../type';
 
@@ -44,7 +43,6 @@ export const SectionTitle: FC<SectionTitleProps> = ({
   onItemSelect,
 }) => {
   const intl = useIntl();
-  const t = useTranslation();
   const isSmallScreen = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
   const onSelected = useCallback(
@@ -66,9 +64,7 @@ export const SectionTitle: FC<SectionTitleProps> = ({
       mb="14px"
     >
       <Box flex={1}>
-        <Typography.Heading numberOfLines={1}>
-          {t(_title) ?? title}
-        </Typography.Heading>
+        <Typography.Heading numberOfLines={1}>{title}</Typography.Heading>
       </Box>
       <Button
         onPress={() => {

@@ -7,7 +7,6 @@ export const WhenAppActive = () => {
   const onActive = useCallback(() => {
     backgroundApiProxy.serviceSwap.getSwapConfig();
     backgroundApiProxy.serviceSetting.updateRemoteSetting();
-    backgroundApiProxy.serviceTranslation.fetchData();
   }, []);
   return <AppStatusActiveListener onActive={onActive} />;
 };

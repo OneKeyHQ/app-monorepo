@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import { ToggleButtonGroup } from '@onekeyhq/components';
 
-import { useTranslation } from '../../../../hooks';
 import { useCategories } from '../../hooks';
 import { DiscoverContext } from '../context';
 
@@ -14,7 +13,6 @@ export const DAppCategories = () => {
   const intl = useIntl();
   const { categoryId, setCategoryId } = useContext(DiscoverContext);
   const categories = useCategories();
-  const t = useTranslation();
 
   const data = useMemo(() => {
     if (!categories) {
@@ -39,8 +37,8 @@ export const DAppCategories = () => {
   );
 
   const buttons = useMemo(
-    () => data.map((item) => ({ text: t(item._name) ?? item.name }), []),
-    [data, t],
+    () => data.map((item) => ({ text: item.name }), []),
+    [data],
   );
 
   if (!data.length) {

@@ -21,6 +21,7 @@ import {
   updateBookmark,
   updateUserBrowserHistory,
 } from '@onekeyhq/kit/src/store/reducers/discover';
+import { getDefaultLocale } from '@onekeyhq/kit/src/utils/locale';
 import { getWebTabs } from '@onekeyhq/kit/src/views/Discover/Explorer/Controller/useWebTabs';
 import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
 import type {
@@ -43,6 +44,13 @@ class ServicDiscover extends ServiceBase {
   get baseUrl() {
     const url = getFiatEndpoint();
     return `${url}/discover`;
+  }
+
+  getLanguage() {
+    const { appSelector } = this.backgroundApi;
+    const locale = appSelector((s) => s.settings.locale);
+    const language = locale === 'system' ? getDefaultLocale() : locale;
+    return language;
   }
 
   init() {
@@ -69,7 +77,9 @@ class ServicDiscover extends ServiceBase {
 
   @backgroundMethod()
   async getCategoryDapps(categoryId: string) {
-    const url = `${this.baseUrl}/get_listing_category_dapps?categoryId=${categoryId}`;
+    const url = `${
+      this.baseUrl
+    }/get_listing_category_dapps?categoryId=${categoryId}&language=${this.getLanguage()}`;
     const res = await this.client.get(url);
     const data = res.data as DAppItemType[];
     return data;
@@ -77,7 +87,9 @@ class ServicDiscover extends ServiceBase {
 
   @backgroundMethod()
   async getTagDapps(tagId: string) {
-    const url = `${this.baseUrl}/get_listing_tag_dapps?tagId=${tagId}`;
+    const url = `${
+      this.baseUrl
+    }/get_listing_tag_dapps?tagId=${tagId}&language=${this.getLanguage()}`;
     const res = await this.client.get(url);
     const data = res.data as DAppItemType[];
     return data;

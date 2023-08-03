@@ -7,7 +7,7 @@ import { useWindowDimensions } from 'react-native';
 import { Box, Pressable, Typography } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useDebounce, useTranslation } from '../../../../hooks';
+import { useDebounce } from '../../../../hooks';
 import { Chains } from '../../Chains';
 import DAppIcon from '../../components/DAppIcon';
 import FavContainer from '../../Explorer/FavContainer';
@@ -27,7 +27,6 @@ const Card: FC<{
   onItemSelect?: (o: DAppItemType) => void;
 }> = ({ item, cardWidth, onItemSelect }) => {
   const ref = useRef<any>(null);
-  const t = useTranslation();
   return (
     <FavContainer
       url={item.url}
@@ -83,7 +82,7 @@ const Card: FC<{
             textAlign="left"
             color="text-subdued"
           >
-            {t(item._subtitle) ?? item.subtitle}
+            {item.subtitle}
           </Typography.Caption>
         </Pressable>
       </Box>

@@ -9,8 +9,6 @@ import { useRoute } from '@react-navigation/native';
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import type { HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 
-import { useTranslation } from '../../../hooks';
-
 import type { HomeRoutes } from '../../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/native';
 
@@ -21,7 +19,6 @@ let Desktop: any;
 
 const DAppList: FC = () => {
   const navigation = useNavigation();
-  const t = useTranslation();
   const route = useRoute<RouteProps>();
   const { title, _title: $title } = route.params;
   const isSmall = useIsVerticalLayout();
@@ -33,9 +30,9 @@ const DAppList: FC = () => {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: t($title) ?? title,
+      title,
     });
-  }, [navigation, title, t, $title]);
+  }, [navigation, title, $title]);
 
   return (
     <Box flex="1" bg="background-default">

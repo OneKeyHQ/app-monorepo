@@ -18,6 +18,7 @@ class ServicTranslation extends ServiceBase {
     return `${url}/translations`;
   }
 
+  // TODO remove
   @backgroundMethod()
   private async getTranslations() {
     const url = `${this.baseUrl}/all`;
@@ -26,6 +27,7 @@ class ServicTranslation extends ServiceBase {
     this.backgroundApi.dispatch(setTranslations(data));
   }
 
+  // TODO remove
   @backgroundMethod()
   async fetchData() {
     if (Date.now() - this.updatedAt > 60 * 60 * 1000) {

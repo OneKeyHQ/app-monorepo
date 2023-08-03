@@ -23,7 +23,7 @@ import {
 } from '@onekeyhq/components';
 
 import dappColourPNG from '../../../../../assets/dapp_colour.png';
-import { useAppSelector, useTranslation } from '../../../../hooks';
+import { useAppSelector } from '../../../../hooks';
 import DAppIcon from '../../components/DAppIcon';
 import FavContainer from '../../Explorer/FavContainer';
 import { useCategoryDapps } from '../../hooks';
@@ -125,7 +125,6 @@ const ChainsSelector: FC<{ networkIds: string[] }> = ({ networkIds }) => {
 
 const DappsContainerItem: FC<{ item: DAppItemType }> = ({ item }) => {
   const { onItemSelect } = useContext(DiscoverContext);
-  const t = useTranslation();
   return (
     <FavContainer
       url={item.url}
@@ -149,7 +148,7 @@ const DappsContainerItem: FC<{ item: DAppItemType }> = ({ item }) => {
             {item.name}
           </Typography.Body2Strong>
           <Typography.Caption numberOfLines={1} color="text-subdued">
-            {t(item._subtitle) ?? item.subtitle}
+            {item.subtitle}
           </Typography.Caption>
         </Box>
       </Pressable>

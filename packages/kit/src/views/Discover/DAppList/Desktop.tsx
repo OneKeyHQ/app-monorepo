@@ -12,7 +12,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
-import { useDebounce, useTranslation } from '../../../hooks';
+import { useDebounce } from '../../../hooks';
 import { Chains } from '../Chains';
 import DAppIcon from '../components/DAppIcon';
 import FavContainer from '../Explorer/FavContainer';
@@ -119,7 +119,6 @@ export const EmptySkeleton = () => (
 export const Desktop: FC<DAppListProps> = ({ ...rest }) => {
   const { tagId, onItemSelect } = rest;
   const data = useTagDapps(tagId);
-  const t = useTranslation();
 
   const [layoutWidth, setLayoutWidth] = useState<number>(0);
   const w = useDebounce(layoutWidth, 200);
@@ -183,13 +182,13 @@ export const Desktop: FC<DAppListProps> = ({ ...rest }) => {
               textAlign="left"
               color="text-subdued"
             >
-              {t(item._subtitle) ?? item.subtitle}
+              {item.subtitle}
             </Typography.Caption>
           </Pressable>
         </Box>
       </FavContainer>
     ),
-    [cardWidth, onItemSelect, t],
+    [cardWidth, onItemSelect],
   );
 
   return (
