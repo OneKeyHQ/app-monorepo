@@ -16,6 +16,7 @@ export enum SendModalRoutes {
   NFTDetailModal = 'NFTDetailModal',
   LNURLPayRequest = 'LNURLPayRequest',
   LNURLWithdraw = 'LNURLWithdraw',
+  LNURLAuth = 'LNURLAuth',
 }
 
 export enum ESendEditFeeTypes {
