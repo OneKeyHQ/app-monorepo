@@ -1022,24 +1022,42 @@ export default class VaultBtcFork extends VaultBase {
               .then((feeRate) => new BigNumber(feeRate).toFixed(0)),
           ),
         );
-        // Replace the negative number in the processing fee with the nearest element in the array
-        const negativeIndex = fees.findIndex((val) => new BigNumber(val).lt(0));
-        if (negativeIndex >= 0) {
-          let positiveIndex = negativeIndex;
-          while (
-            positiveIndex < fees.length - 1 &&
-            new BigNumber(fees[positiveIndex]).lt(0)
-          ) {
-            positiveIndex += 1;
+        // Find the index of the first negative fee.
+        let negativeIndex = fees.findIndex((val) => new BigNumber(val).lt(0));
+
+        // Keep replacing if there is any negative fee in the array.
+        while (negativeIndex >= 0) {
+          let leftIndex = negativeIndex - 1;
+          let rightIndex = negativeIndex + 1;
+
+          // eslint-disable-next-line no-constant-condition
+          while (true) {
+            if (leftIndex >= 0 && new BigNumber(fees[leftIndex]).gte(0)) {
+              fees[negativeIndex] = fees[leftIndex];
+              break;
+            }
+
+            if (
+              rightIndex < fees.length &&
+              new BigNumber(fees[rightIndex]).gte(0)
+            ) {
+              fees[negativeIndex] = fees[rightIndex];
+              break;
+            }
+
+            // Move pointers to expand searching range.
+            leftIndex -= 1;
+            rightIndex += 1;
+
+            if (leftIndex < 0 && rightIndex >= fees.length) {
+              break;
+            }
           }
-          while (
-            positiveIndex > 0 &&
-            new BigNumber(fees[positiveIndex]).lt(0)
-          ) {
-            positiveIndex -= 1;
-          }
-          fees.splice(negativeIndex, 1, fees[positiveIndex]);
+
+          // Find the next negative fee after replacement.
+          negativeIndex = fees.findIndex((val) => new BigNumber(val).lt(0));
         }
+
         return fees.sort((a, b) =>
           new BigNumber(a).comparedTo(new BigNumber(b)),
         );
