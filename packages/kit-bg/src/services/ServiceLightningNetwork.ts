@@ -17,7 +17,6 @@ import type {
   LNURLDetails,
   LNURLError,
   LNURLPaymentInfo,
-  LnurlAuthResponse,
 } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/lnurl';
 import type VaultLightning from '@onekeyhq/engine/src/vaults/impl/lightning-network/Vault';
 import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';

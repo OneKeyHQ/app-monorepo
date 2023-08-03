@@ -23,6 +23,7 @@ type NavigationProps = ModalScreenProps<SendRoutesParams>;
 
 async function lightningNetworkSendConfirm({
   toVal,
+  walletId,
   network,
   networkId,
   account,
@@ -34,6 +35,7 @@ async function lightningNetworkSendConfirm({
   intl,
 }: {
   toVal: string;
+  walletId: string;
   network: Network | null | undefined;
   networkId: string;
   account: Account | undefined;
@@ -58,6 +60,7 @@ async function lightningNetworkSendConfirm({
           params: {
             screen: SendModalRoutes.LNURLAuth,
             params: {
+              walletId,
               networkId,
               accountId,
               lnurlDetails,

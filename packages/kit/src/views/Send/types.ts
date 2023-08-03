@@ -78,6 +78,7 @@ export type LnUrlWithdrawParams = {
 };
 
 export type LnUrlAuthParams = {
+  walletId: string;
   networkId: string;
   accountId: string;
   lnurlDetails: LNURLAuthServiceResponse;

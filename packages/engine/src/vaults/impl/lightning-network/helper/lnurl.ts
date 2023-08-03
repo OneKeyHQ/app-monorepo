@@ -166,7 +166,7 @@ export function getPathSuffix(domain: string, privateKeyHex: string) {
 
   const pathSuffix = [];
   for (let i = 0; i < 4; i += 1) {
-    pathSuffix.push(buf.readUint32BE(i * 4));
+    pathSuffix.push(buf.readUInt32BE(i * 4));
   }
   return pathSuffix;
 }
