@@ -1220,6 +1220,7 @@
   "form__crypto": "Криптовалюта",
   "form__crypto_settings": "Крипто",
   "form__current": "поточний",
+  "form__current_price": "Поточна ціна",
   "form__current_str": "Поточний: {0}",
   "form__current_str_gas_fee": "Поточна плата за газ {0}",
   "form__custom": "Налаштувати",

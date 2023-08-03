@@ -1220,6 +1220,7 @@
   "form__crypto": "加密货币",
   "form__crypto_settings": "加密货币",
   "form__current": "当前",
+  "form__current_price": "当前价格",
   "form__current_str": "当前值：{0}",
   "form__current_str_gas_fee": "当前 {0} 的 gas 费",
   "form__custom": "自定义",

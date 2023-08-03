@@ -1220,6 +1220,7 @@
   "form__crypto": "สกุลเงินดิจิทัล",
   "form__crypto_settings": "คริปโต",
   "form__current": "ปัจจุบัน",
+  "form__current_price": "ราคาปัจจุบัน",
   "form__current_str": "ปัจจุบัน: {0}",
   "form__current_str_gas_fee": "ค่าน้ำมันปัจจุบัน {0}",
   "form__custom": "ปรับแต่ง",
