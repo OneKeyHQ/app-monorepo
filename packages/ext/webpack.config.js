@@ -138,6 +138,13 @@ function createConfig({ config }) {
     if (sourcemapBuilder.isSourcemapEnabled) {
       webpackConfig.plugins.push(sourcemapBuilder.createSourcemapBuildPlugin());
     }
+
+    webpackConfig.experiments = config.experiments || {};
+    webpackConfig.experiments.lazyCompilation = {
+      imports: true,
+      entries: false,
+      test: /engine/,
+    };
   } else {
     webpackConfig.optimization = {
       ...webpackConfig.optimization,

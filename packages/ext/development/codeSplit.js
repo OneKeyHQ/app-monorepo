@@ -30,7 +30,7 @@ function enableCodeSplitChunks({ config }) {
 
     hidePathInfo: true, // ._m => d0ae3f07    .. => 493df0b3
     automaticNameDelimiter: `.`, // ~ => .
-    automaticNameMaxLength: 15, // limit max length of auto-gen chunk file name
+    // automaticNameMaxLength: 15, // limit max length of auto-gen chunk file name
     // maxAsyncRequests: 5, // for each additional load no more than 5 files at a time
     // maxInitialRequests: 3, // each entrypoint should not request more then 3 js files
     // cacheGroups: {

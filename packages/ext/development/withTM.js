@@ -233,7 +233,13 @@ const withTmInitializer = (modules = [], options = {}) => {
     );
 
     // Resolve modules to their real paths
-    const modulesPaths = modules.map(getPackageRootDirectory);
+    const modulesPaths = modules
+      .map((name) =>
+        name.endsWith('/dist/main.cjs')
+          ? name.split('/dist/main.cjs')[0]
+          : name,
+      )
+      .map(getPackageRootDirectory);
 
     logger(
       `the following paths will get transpiled:\n${modulesPaths
