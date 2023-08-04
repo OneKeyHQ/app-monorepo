@@ -134,7 +134,7 @@ function createConfig({ config }) {
     // webpackConfig.devtool = 'inline-source-map';
     //
 
-    webpackConfig.devtool = false;
+    // webpackConfig.devtool = false;
     if (sourcemapBuilder.isSourcemapEnabled) {
       webpackConfig.plugins.push(sourcemapBuilder.createSourcemapBuildPlugin());
     }

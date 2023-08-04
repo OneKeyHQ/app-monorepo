@@ -331,6 +331,7 @@ const withTmInitializer = (modules = [], options = {}) => {
             test: /\.+(js|jsx|mjs|ts|tsx)$/,
             use: nextOptions.defaultLoaders.babel,
             include: matcher,
+            exclude: [/node_modules/],
             type: 'javascript/auto',
           });
 
@@ -338,8 +339,12 @@ const withTmInitializer = (modules = [], options = {}) => {
             __ruleName__: 'rn-js-rule@withTM',
             test: /(@?react-(navigation|native)).*\.(ts|js)x?$/,
             use: nextOptions.defaultLoaders.babel,
-            exclude: [/react-native-logs/],
-            // exclude: [/react-native-web/, /\.(native|ios|android)\.(ts|js)x?$/],
+            exclude: [
+              /react-native-logs/,
+              /react-native-modalize/,
+              /react-native-url-polyfill/,
+              /react-native-reanimated/,
+            ],
             type: 'javascript/auto',
           });
 
