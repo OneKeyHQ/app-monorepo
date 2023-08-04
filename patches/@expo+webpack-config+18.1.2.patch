@@ -16,3 +16,56 @@ index 6b8ae60..7c7e758 100644
              meta,
          });
      }
+diff --git a/node_modules/@expo/webpack-config/webpack/webpack.config.js b/node_modules/@expo/webpack-config/webpack/webpack.config.js
+index 4556fe1..73a0c4a 100644
+--- a/node_modules/@expo/webpack-config/webpack/webpack.config.js
++++ b/node_modules/@expo/webpack-config/webpack/webpack.config.js
+@@ -323,24 +323,31 @@ async function default_1(env, argv = {}) {
+             // @ts-ignore
+             rules: [
+                 // Handle node_modules packages that contain sourcemaps
+-                defaults_1.shouldUseSourceMap && {
+-                    enforce: 'pre',
+-                    exclude: /@babel(?:\/|\\{1,2})runtime/,
++                // defaults_1.shouldUseSourceMap && {
++                //     enforce: 'pre',
++                //     exclude: [/@babel(?:\/|\\{1,2})runtime/],
++                //     test: /\.(js|mjs|jsx|ts|tsx|css)$/,
++                //     use: [
++                //         {
++                //             loader: require.resolve('source-map-loader'),
++                //             options: {
++                //                 filterSourceMappingUrl(url, resourcePath) {
++                //                     // https://github.com/alewin/useWorker/issues/138
++                //                     if (resourcePath.match(/@koale\/useworker/)) {
++                //                         return 'remove';
++                //                     }
++                //                     return true;
++                //                 },
++                //             },
++                //         },
++                //     ],
++                //     resolve: {
++                //         fullySpecified: false,
++                //     },
++                // },
++                {
++                    exclude: [/@babel(?:\/|\\{1,2})runtime/],
+                     test: /\.(js|mjs|jsx|ts|tsx|css)$/,
+-                    use: [
+-                        {
+-                            loader: require.resolve('source-map-loader'),
+-                            options: {
+-                                filterSourceMappingUrl(url, resourcePath) {
+-                                    // https://github.com/alewin/useWorker/issues/138
+-                                    if (resourcePath.match(/@koale\/useworker/)) {
+-                                        return 'remove';
+-                                    }
+-                                    return true;
+-                                },
+-                            },
+-                        },
+-                    ],
+                     resolve: {
+                         fullySpecified: false,
+                     },
