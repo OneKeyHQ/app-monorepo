@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -45,81 +45,72 @@ const LNURLAuth = () => {
 
   const closeModal = useModalClose();
 
-  const allowText = useMemo(() => {
-    if (lnurlDetails.action === 'register') {
-      return intl.formatMessage({
-        id: 'content__allow_dapp_to_register_with_onekey',
-      });
-    }
-    if (lnurlDetails.action === 'link') {
-      return intl.formatMessage({
-        id: 'content__allow_dapp_to_link_with_onekey',
-      });
-    }
-    if (lnurlDetails.action === 'auth') {
-      return intl.formatMessage({
-        id: 'content__allow_dapp_to_connect_with_onekey',
-      });
-    }
-    return intl.formatMessage({
-      id: 'content__allow_dapp_to_login_with_onekey',
-    });
-  }, [lnurlDetails, intl]);
+  const [messages, setMessages] = useState({
+    allowText: '',
+    title: '',
+    actionI18nId: 'action__login__lnurl',
+    successText: '',
+  });
 
-  const title = useMemo(() => {
+  useEffect(() => {
     if (lnurlDetails.action === 'register') {
-      return intl.formatMessage({
-        id: 'title__lnurl_register',
+      setMessages({
+        allowText: intl.formatMessage({
+          id: 'content__allow_dapp_to_register_with_onekey',
+        }),
+        title: intl.formatMessage({
+          id: 'title__lnurl_register',
+        }),
+        actionI18nId: 'action__register__lnurl',
+        successText: intl.formatMessage({
+          id: 'msg__lnurl_register_successful',
+        }),
       });
+      return;
     }
     if (lnurlDetails.action === 'link') {
-      return intl.formatMessage({
-        id: 'title__lnurl_link',
+      setMessages({
+        allowText: intl.formatMessage({
+          id: 'content__allow_dapp_to_link_with_onekey',
+        }),
+        title: intl.formatMessage({
+          id: 'title__lnurl_link',
+        }),
+        actionI18nId: 'action__link__lnurl',
+        successText: intl.formatMessage({
+          id: 'msg__lnurl_link_successful',
+        }),
       });
+      return;
     }
     if (lnurlDetails.action === 'auth') {
-      return intl.formatMessage({
-        id: 'title__lnurl_authentication',
+      setMessages({
+        allowText: intl.formatMessage({
+          id: 'content__allow_dapp_to_connect_with_onekey',
+        }),
+        title: intl.formatMessage({
+          id: 'title__lnurl_authentication',
+        }),
+        actionI18nId: 'action__authorize__lnurl',
+        successText: intl.formatMessage({
+          id: 'msg__lnurl_authorization_successful',
+        }),
       });
+      return;
     }
-    return intl.formatMessage({
-      id: 'title__lnurl_login',
+    setMessages({
+      allowText: intl.formatMessage({
+        id: 'content__allow_dapp_to_login_with_onekey',
+      }),
+      title: intl.formatMessage({
+        id: 'title__lnurl_login',
+      }),
+      actionI18nId: 'action__login__lnurl',
+      successText: intl.formatMessage({
+        id: 'msg__lnurl_login_successful',
+      }),
     });
-  }, [lnurlDetails, intl]);
-
-  const actionI18nId = useMemo(() => {
-    if (lnurlDetails.action === 'register') {
-      return 'action__register__lnurl';
-    }
-    if (lnurlDetails.action === 'link') {
-      return 'action__link__lnurl';
-    }
-    if (lnurlDetails.action === 'auth') {
-      return 'action__authorize__lnurl';
-    }
-    return 'action__login__lnurl';
-  }, [lnurlDetails]);
-
-  const successText = useMemo(() => {
-    if (lnurlDetails.action === 'register') {
-      return intl.formatMessage({
-        id: 'msg__lnurl_register_successful',
-      });
-    }
-    if (lnurlDetails.action === 'link') {
-      return intl.formatMessage({
-        id: 'msg__lnurl_link_successful',
-      });
-    }
-    if (lnurlDetails.action === 'auth') {
-      return intl.formatMessage({
-        id: 'msg__lnurl_authorization_successful',
-      });
-    }
-    return intl.formatMessage({
-      id: 'msg__lnurl_login_successful',
-    });
-  }, [lnurlDetails, intl]);
+  }, [lnurlDetails.action, intl]);
 
   const connectTip = useCallback(
     (icon: ICON_NAMES, text: string) => (
@@ -184,7 +175,7 @@ const LNURLAuth = () => {
           lnurlDetail: lnurlDetails,
         });
         ToastManager.show({
-          title: successText,
+          title: messages.successText,
         });
         setTimeout(() => {
           // quit from password modal
@@ -202,7 +193,7 @@ const LNURLAuth = () => {
         setIsLoading(false);
       }
     },
-    [lnurlDetails, walletId, closeModal, successText],
+    [lnurlDetails, walletId, closeModal, messages.successText],
   );
 
   const onConfirmWithAuth = useCallback(
@@ -216,9 +207,9 @@ const LNURLAuth = () => {
 
   return (
     <Modal
-      header={title}
+      header={messages.title}
       headerDescription={<LNModalDescription networkId={networkId} />}
-      primaryActionTranslationId={actionI18nId}
+      primaryActionTranslationId={messages.actionI18nId as any}
       primaryActionProps={{
         isDisabled: isLoading,
         isLoading,
@@ -268,7 +259,7 @@ const LNURLAuth = () => {
               </Box>
             </Box>
             <Text my={4} typography="Heading">
-              {allowText}
+              {messages.allowText}
             </Text>
             <Box py={4}>{renderConnectTips}</Box>
             <Divider my={4} />
