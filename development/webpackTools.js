@@ -93,6 +93,7 @@ function normalizeConfig({
 
     config.plugins = [
       ...config.plugins,
+      new webpack.ProgressPlugin(),
       platform !== 'ext' ? new DuplicatePackageCheckerPlugin() : null,
       isDev ? new BuildDoneNotifyPlugin() : null,
       new webpack.ProvidePlugin({
@@ -121,10 +122,6 @@ function normalizeConfig({
 
     // add devServer proxy
     if (config.devServer) {
-      config.devServer.client = {
-        ...config.devServer.client,
-        progress: true,
-      };
       const logScript = `console.log('react-render-tracker is disabled')`;
       config.devServer.proxy = config.devServer.proxy || {};
       config.devServer.proxy[

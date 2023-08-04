@@ -36,6 +36,7 @@
     "electron-log": "^4.4.8",
     "electron-store": "^8.1.0",
     "electron-updater": "^5.2.1",
+    "expo": "49.0.6",
     "keytar": "^7.9.0",
     "node-fetch": "^2.6.7"
   },
