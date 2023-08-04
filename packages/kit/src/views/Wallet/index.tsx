@@ -1,4 +1,5 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
@@ -45,7 +46,7 @@ import { WalletHomeTabEnum } from './type';
 const AccountHeader = () => <AccountInfo />;
 
 // HomeTabs
-const WalletTabs = () => {
+const WalletTabs: FC = () => {
   const intl = useIntl();
   const ref = useRef<ForwardRefHandle>(null);
   const currentIndexRef = useRef<number>(0);
@@ -303,7 +304,7 @@ const WalletTabs = () => {
   return walletTabsContainer;
 };
 
-const Wallet = memo(() => {
+const Wallet = () => {
   useOnboardingRequired(true);
   useHtmlPreloadSplashLogoRemove();
 
@@ -317,7 +318,7 @@ const Wallet = memo(() => {
       <BottomView />
     </>
   );
-});
+};
 Wallet.displayName = 'HomeTabWallet';
 
 export default Wallet;
