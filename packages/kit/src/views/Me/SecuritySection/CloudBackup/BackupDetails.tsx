@@ -429,6 +429,7 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
     if (onboarding) {
       await onboardingDone({ delay: 200 });
     } else {
+      navigation?.popToTop();
       navigation?.navigate(RootRoutes.Main, {
         screen: MainRoutes.Tab,
         params: {
