@@ -100,5 +100,5 @@ export function useBRC20Inscriptions({
     }
   }, [mutate, shouldDoRefresh, networkId, fetchBRC20Inscriptions]);
 
-  return { inscriptions, availableInscriptions, isLoading, mutate };
+  return { inscriptions, availableInscriptions, isLoading, mutate, fetchBRC20Inscriptions };
 }

@@ -1,22 +1,22 @@
 import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
   Box,
   Button,
   Center,
-  Divider,
-  HStack,
   IconButton,
   Modal,
   Spinner,
   Text,
   ToastManager,
 } from '@onekeyhq/components';
-import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
+import {
+  getTaprootXpub,
+  isTaprootXpubSegwit,
+} from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccount } from '../../hooks';
@@ -30,10 +30,6 @@ import { RecycleDialog } from './RecycleDialog';
 import type { InscriptionControlRoutesParams } from '../../routes/Root/Modal/InscriptionControl';
 import type { InscriptionControlModalRoutes } from '../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/core';
-import {
-  getTaprootXpub,
-  isTaprootXpubSegwit,
-} from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
 
 type RouteProps = RouteProp<
   InscriptionControlRoutesParams,
@@ -56,7 +52,7 @@ function InscriptionControl() {
   const {
     isLoading,
     availableInscriptions = [],
-    mutate,
+    fetchBRC20Inscriptions,
   } = useBRC20Inscriptions({
     networkId,
     address: account?.address,
@@ -96,10 +92,15 @@ function InscriptionControl() {
             }),
           );
 
-          ToastManager.show({
-            title: intl.formatMessage({ id: 'msg__success' }),
-          });
-          mutate();
+          ToastManager.show(
+            {
+              title: intl.formatMessage({ id: 'msg__inscription_destroyed' }),
+            },
+            {
+              type: 'default',
+            },
+          );
+          fetchBRC20Inscriptions();
           setSelectedInscriptions([]);
         }}
       />,
@@ -107,62 +108,34 @@ function InscriptionControl() {
   }, [
     accountId,
     availableInscriptions,
+    fetchBRC20Inscriptions,
     intl,
-    mutate,
     networkId,
     selectedInscriptions,
   ]);
 
   const renderFooter = useCallback(() => {
-    const totalSats = availableInscriptions?.reduce(
-      (acc, cur) => new BigNumber(acc).plus(cur.output_value_sat).toFixed(),
-      '0',
-    );
+    if (!isSelectMode) return null;
 
     return (
       <Box paddingX={4} paddingBottom={4}>
-        <Divider mb={2} />
-        <HStack alignItems="center">
-          <Text typography="Subheading" color="text-subdued" numberOfLines={2}>
-            {intl.formatMessage(
-              { id: 'form__str_items__uppercase' },
-              { 0: availableInscriptions?.length ?? '0' },
-            )}
-          </Text>
-          <Text
-            flex={1}
-            textAlign="right"
-            typography="CaptionStrong"
-            color="text-subdued"
-            numberOfLines={2}
-          >
-            {totalSats} sats
-          </Text>
-        </HStack>
-        <Text typography="Caption" color="text-subdued" mt={2}>
-          回收铭文会将其附着的 UTXO
-          释放到您的账户余额，下次转账时会自动花费，一旦被花费，您将永久失去该铭文资产。
+        <Text typography="Caption" color="text-subdued">
+          {intl.formatMessage({
+            id: 'content__destroying_the_inscriptions_will_reclaim_theattached_utxos_value_toe_the_account_balance_once_these_utxos_are_spent_you_will_permanently_lose_the_inscription_assets',
+          })}
         </Text>
-        {isSelectMode ? (
-          <Button
-            isDisabled={selectedInscriptions.length === 0}
-            type="destructive"
-            size="lg"
-            onPress={handleRecycleOnPress}
-            mt={6}
-          >
-            Recycle
-          </Button>
-        ) : null}
+        <Button
+          isDisabled={selectedInscriptions.length === 0}
+          type="destructive"
+          size="lg"
+          onPress={handleRecycleOnPress}
+          mt={4}
+        >
+          {intl.formatMessage({ id: 'action__destroy' })}
+        </Button>
       </Box>
     );
-  }, [
-    handleRecycleOnPress,
-    availableInscriptions,
-    intl,
-    isSelectMode,
-    selectedInscriptions.length,
-  ]);
+  }, [handleRecycleOnPress, intl, isSelectMode, selectedInscriptions.length]);
   const renderHeaderRight = useCallback(() => {
     if (isSelectMode) {
       return (
@@ -185,7 +158,7 @@ function InscriptionControl() {
         menuWidth="full"
         options={[
           {
-            textValue: 'Recycle to account balance',
+            id: 'action__bulk_destroy',
             onPress: () => setIsSelectMode(true),
             icon: 'FireSolid',
             variant: 'desctructive',
@@ -232,7 +205,7 @@ function InscriptionControl() {
 
   return (
     <Modal
-      header="Manage Inscriptions"
+      header={intl.formatMessage({ id: 'title__manage_inscriptions' })}
       height="584px"
       headerDescription={
         <Text typography="Caption" color="text-subdued">{`${

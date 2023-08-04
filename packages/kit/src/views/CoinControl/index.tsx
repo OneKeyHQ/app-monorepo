@@ -54,7 +54,15 @@ const CoinControl = () => {
   >([]);
   const [utxosDust, setUtxosDust] = useState<ICoinControlListItem[]>([]);
   const [frozenUtxos, setFrozenUtxos] = useState<ICoinControlListItem[]>([]);
-  const [recycleUtxos, setRecycleUtxos] = useState<ICoinControlListItem[]>([]);
+  const [frozenUtxosWithoutRecycle, setFrozenUtxosWithoutRecycle] = useState<
+    ICoinControlListItem[]
+  >([]);
+  const [frozenRecycleUtxos, setFrozenRecycleUtxos] = useState<
+    ICoinControlListItem[]
+  >([]);
+  const [recycleUtxosWithoutFrozen, setRecycleUtxosWithoutFrozen] = useState<
+    ICoinControlListItem[]
+  >([]);
   const [selectedUtxos, setSelectedUtxos] = useState<string[]>(
     isSelectMode && encodedTx
       ? encodedTx.inputs.map((input) => getUtxoUniqueKey(input))
@@ -94,7 +102,9 @@ const CoinControl = () => {
         setUtxosWithoutDust(response.utxosWithoutDust);
         setUtxosDust(response.utxosDust);
         setFrozenUtxos(response.frozenUtxos);
-        setRecycleUtxos(response.recycleUtxos);
+        setFrozenUtxosWithoutRecycle(response.frozenUtxosWithoutRecycle);
+        setFrozenRecycleUtxos(response.frozenRecycleUtxos);
+        setRecycleUtxosWithoutFrozen(response.recycleUtxosWithoutFrozen);
         return response.utxos;
       })
       .finally(() => {
@@ -116,44 +126,98 @@ const CoinControl = () => {
         ...item,
         dustSeparator:
           index === utxosWithoutDust.length - 1 && utxosDust.length > 0,
+        recycleSeparator:
+          index === utxosWithoutDust.length - 1 &&
+          utxosDust.length === 0 &&
+          recycleUtxosWithoutFrozen.length > 0,
       })) as ICoinControlListItem[];
       data = data.concat(
-        utxosDust.map((item, idex) => ({
+        utxosDust.map((item, index) => ({
           ...item,
           recycleSeparator:
-            idex === utxosDust.length - 1 && recycleUtxos.length > 0,
+            index === utxosDust.length - 1 &&
+            recycleUtxosWithoutFrozen.length > 0,
         })),
       );
 
-      return data.concat(recycleUtxos);
+      return data.concat(recycleUtxosWithoutFrozen);
     }
 
     const data = utxosWithoutDust.map((item, index) => ({
       ...item,
       dustSeparator:
-        index === utxosWithoutDust.length - 1 && recycleUtxos.length > 0,
+        index === utxosWithoutDust.length - 1 &&
+        recycleUtxosWithoutFrozen.length > 0,
     })) as ICoinControlListItem[];
 
-    return data.concat(recycleUtxos);
-  }, [useDustUtxo, utxosWithoutDust, recycleUtxos, utxosDust]);
+    return data.concat(recycleUtxosWithoutFrozen);
+  }, [useDustUtxo, utxosWithoutDust, recycleUtxosWithoutFrozen, utxosDust]);
 
   const frozenListDataSource = useMemo(() => {
     if (!useDustUtxo) {
-      const data = frozenUtxos.map((item, index) => ({
+      let data = frozenUtxosWithoutRecycle.map((item, index) => ({
         ...item,
-        dustSeparator: index === frozenUtxos.length - 1 && utxosDust.length > 0,
+        dustSeparator:
+          index === frozenUtxosWithoutRecycle.length - 1 &&
+          utxosDust.length > 0,
+        recycleSeparator:
+          index === frozenUtxosWithoutRecycle.length - 1 &&
+          utxosDust.length === 0 &&
+          frozenRecycleUtxos.length > 0,
       })) as ICoinControlListItem[];
-      const dustsData = utxosDust.map((item) => ({
-        ...item,
-        hideFrozenOption: true,
-      }));
-      return data.concat(dustsData);
+
+      data = data.concat(
+        utxosDust.map((item, index) => ({
+          ...item,
+          hideFrozenOption: true,
+          recycleSeparator:
+            index === frozenUtxosWithoutRecycle.length - 1 &&
+            utxosDust.length === 0,
+        })),
+      );
+      return data.concat(frozenRecycleUtxos);
     }
-    return frozenUtxos;
-  }, [frozenUtxos, utxosDust, useDustUtxo]);
+
+    const data = frozenUtxosWithoutRecycle.map((item, index) => ({
+      ...item,
+      recycleSeparator:
+        index === frozenUtxosWithoutRecycle.length - 1 &&
+        frozenRecycleUtxos.length > 0,
+    })) as ICoinControlListItem[];
+
+    return data.concat(frozenRecycleUtxos);
+  }, [useDustUtxo, frozenUtxosWithoutRecycle, utxosDust, frozenRecycleUtxos]);
   const showDustListHeader = useMemo(
-    () => utxosDust.length > 0 && !useDustUtxo && frozenUtxos.length <= 0,
-    [frozenUtxos, useDustUtxo, utxosDust],
+    () =>
+      utxosDust.length > 0 &&
+      !useDustUtxo &&
+      frozenUtxosWithoutRecycle.length <= 0,
+    [frozenUtxosWithoutRecycle, useDustUtxo, utxosDust],
+  );
+
+  const showAvailableListRecycleHeader = useMemo(
+    () =>
+      recycleUtxosWithoutFrozen.length > 0 &&
+      utxosWithoutDust.length <= 0 &&
+      (useDustUtxo ? utxosDust.length <= 0 : true),
+    [
+      recycleUtxosWithoutFrozen.length,
+      useDustUtxo,
+      utxosDust.length,
+      utxosWithoutDust.length,
+    ],
+  );
+  const showFrozenListRecycleHeader = useMemo(
+    () =>
+      frozenRecycleUtxos.length > 0 &&
+      frozenUtxosWithoutRecycle.length <= 0 &&
+      (useDustUtxo ? true : utxosDust.length <= 0),
+    [
+      frozenRecycleUtxos.length,
+      frozenUtxosWithoutRecycle.length,
+      useDustUtxo,
+      utxosDust.length,
+    ],
   );
 
   useEffect(() => {
@@ -267,6 +331,33 @@ const CoinControl = () => {
     [networkId, accountId, refreshUtxosData, intl],
   );
 
+  const onRecycleUTXO = useCallback(
+    (item: ICoinControlListItem) => {
+      backgroundApiProxy.serviceUtxos
+        .updateRecycle({
+          networkId,
+          accountId,
+          utxo: item,
+          recycle: false,
+          frozen: false,
+        })
+        .then(() => {
+          ToastManager.show(
+            {
+              title: intl.formatMessage({
+                id: 'msg__inscription_restored',
+              }),
+            },
+            {
+              type: 'default',
+            },
+          );
+          refreshUtxosData();
+        });
+    },
+    [networkId, accountId, refreshUtxosData, intl],
+  );
+
   const renderEmpty = useMemo(
     () => (
       <Center flex={1}>
@@ -290,6 +381,7 @@ const CoinControl = () => {
   );
   const showAvailableListCheckbox = useMemo(() => isSelectMode, [isSelectMode]);
   // const showAvailableListCheckbox = useMemo(() => true, []);
+
   const showFrozenList = useMemo(
     () => frozenUtxos.length > 0 || (!useDustUtxo && utxosDust.length > 0),
     [frozenUtxos, useDustUtxo, utxosDust],
@@ -366,6 +458,7 @@ const CoinControl = () => {
             token={token}
             dataSource={availabelListDataSource}
             showDustListHeader={false}
+            showRecycleListHeader={showAvailableListRecycleHeader}
             showCheckbox={showAvailableListCheckbox}
             selectedUtxos={selectedUtxos}
             isAllSelected={isAllSelected}
@@ -375,6 +468,7 @@ const CoinControl = () => {
             onChange={onCheckBoxChange}
             onConfirmEditLabel={onConfirmEditLabel}
             onFrozenUTXO={onFrozenUTXO}
+            onRecycleUTXO={onRecycleUTXO}
           />
         ) : (
           renderEmpty
@@ -392,6 +486,7 @@ const CoinControl = () => {
             token={token}
             dataSource={frozenListDataSource}
             showDustListHeader={showDustListHeader}
+            showRecycleListHeader={showFrozenListRecycleHeader}
             showCheckbox={showFrozenListCheckbox}
             selectedUtxos={selectedUtxos}
             isAllSelected={isAllSelected}
@@ -401,6 +496,7 @@ const CoinControl = () => {
             onChange={onCheckBoxChange}
             onConfirmEditLabel={onConfirmEditLabel}
             onFrozenUTXO={onFrozenUTXO}
+            onRecycleUTXO={onRecycleUTXO}
           />
         ) : (
           renderEmpty

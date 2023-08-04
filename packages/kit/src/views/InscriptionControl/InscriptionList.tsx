@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 import { FlatList } from 'react-native';
 
 import { HStack, Icon, Pressable, Text, VStack } from '@onekeyhq/components';
@@ -9,7 +10,7 @@ import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 
 import { FormatCurrencyNativeOfAccount } from '../../components/Format';
 import OrdinalsSVG from '../../components/SVG/OrdinalsSVG';
-import { useNavigation } from '../../hooks';
+import { useNavigation, useNetworkSimple } from '../../hooks';
 import useFormatDate from '../../hooks/useFormatDate';
 import {
   CollectiblesModalRoutes,
@@ -37,8 +38,9 @@ function InscriptionList(props: Props) {
     selectedInscriptions,
     setSelectedInscriptions,
   } = props;
+  const intl = useIntl();
   const { formatDistanceToNow } = useFormatDate();
-
+  const network = useNetworkSimple(networkId);
   const navigation = useNavigation();
 
   const handleInscriptionOnPress = useCallback(
@@ -100,14 +102,17 @@ function InscriptionList(props: Props) {
             </VStack>
           </HStack>
           <VStack>
-            <Text
-              textAlign="right"
-              typography="Body2Strong"
-            >{`${item.output_value_sat} sats`}</Text>
+            <Text textAlign="right" typography="Body2Strong">{`${new BigNumber(
+              item.output_value_sat,
+            )
+              .shiftedBy(-(network?.decimals ?? '8'))
+              .toFixed()} ${network?.symbol ?? ''}`}</Text>
             <FormatCurrencyNativeOfAccount
               networkId={networkId}
               accountId={accountId}
-              value={new BigNumber(item.output_value_sat).shiftedBy(-8)}
+              value={new BigNumber(item.output_value_sat).shiftedBy(
+                -(network?.decimals ?? '8'),
+              )}
               render={(ele) => (
                 <Text textAlign="right" typography="Body2" color="text-subdued">
                   {ele}
@@ -123,6 +128,8 @@ function InscriptionList(props: Props) {
       formatDistanceToNow,
       handleInscriptionOnPress,
       isSelectMode,
+      network?.decimals,
+      network?.symbol,
       networkId,
       selectedInscriptions,
     ],
@@ -167,7 +174,7 @@ function InscriptionList(props: Props) {
               textTransform="uppercase"
               color="text-subdued"
             >
-              inscription id
+              {intl.formatMessage({ id: 'form__inscription_id_uppercase' })}
             </Text>
           </HStack>
           <Text
@@ -176,12 +183,12 @@ function InscriptionList(props: Props) {
             color="text-subdued"
             textAlign="right"
           >
-            utxo value
+            {intl.formatMessage({ id: 'form__utxo_value_uppercase' })}
           </Text>
         </HStack>
       </Pressable>
     ),
-    [handleToggleAllSelect, isIndeterminate, isSelectMode, isSelectedAll],
+    [handleToggleAllSelect, intl, isIndeterminate, isSelectMode, isSelectedAll],
   );
   return (
     <>

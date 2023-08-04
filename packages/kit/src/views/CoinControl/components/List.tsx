@@ -104,6 +104,7 @@ export type ICellProps = {
   onChange: (item: ICoinControlListItem, isSelected: boolean) => void;
   onConfirmEditLabel: (item: ICoinControlListItem, label: string) => void;
   onFrozenUTXO: (item: ICoinControlListItem, value: boolean) => void;
+  onRecycleUTXO: (item: ICoinControlListItem) => void;
 };
 
 const CoinControlCell: FC<ICellProps> = ({
@@ -119,6 +120,7 @@ const CoinControlCell: FC<ICellProps> = ({
   onChange,
   onConfirmEditLabel,
   onFrozenUTXO,
+  onRecycleUTXO,
 }) => {
   const { formatDate } = useFormatDate();
   const isSelected = selectedUtxos.find(
@@ -250,6 +252,7 @@ const CoinControlCell: FC<ICellProps> = ({
           network={network}
           onConfirmEditLabel={onConfirmEditLabel}
           onFrozenUTXO={onFrozenUTXO}
+          onRecycleUTXO={onRecycleUTXO}
           showFrozenOption={showFrozenOption}
         >
           <IconButton
@@ -284,7 +287,11 @@ const ItemSeparator: FC<{
               <Pressable {...props}>
                 <HStack alignItems="center" space={1} alignSelf="flex-start">
                   <Text typography="Subheading" color="text-subdued">
-                    {intl.formatMessage({ id: 'form__dust__uppercase' })}
+                    {intl.formatMessage({
+                      id: isDustSeparator
+                        ? 'form__dust__uppercase'
+                        : 'form__destroyed_inscriptions__uppercase',
+                    })}
                   </Text>
                   <Icon
                     name="QuestionMarkCircleMini"
@@ -298,7 +305,9 @@ const ItemSeparator: FC<{
               children: (
                 <Text>
                   {intl.formatMessage({
-                    id: 'content__dust_refer_to_very_tiny_amount_of_bitcoin',
+                    id: isDustSeparator
+                      ? 'content__dust_refer_to_very_tiny_amount_of_bitcoin'
+                      : 'content__here_is_a_list_of_inscriptions_destroyed_by_you_tap_more_button_and_restore_as_inscription',
                   })}
                 </Text>
               ),
@@ -453,12 +462,14 @@ const CoinControlList: FC<{
   selectedUtxos: string[];
   isAllSelected: boolean;
   showDustListHeader: boolean;
+  showRecycleListHeader: boolean;
   triggerAllSelected: (value: boolean) => void;
   blockTimeMap: Record<string, number>;
   showPath: boolean;
   onChange: (item: ICoinControlListItem, isSelected: boolean) => void;
   onConfirmEditLabel: (item: ICoinControlListItem, label: string) => void;
   onFrozenUTXO: (item: ICoinControlListItem, value: boolean) => void;
+  onRecycleUTXO: (item: ICoinControlListItem) => void;
 }> = ({
   type,
   config,
@@ -468,6 +479,7 @@ const CoinControlList: FC<{
   token,
   dataSource,
   showDustListHeader,
+  showRecycleListHeader,
   showCheckbox,
   selectedUtxos,
   isAllSelected,
@@ -477,6 +489,7 @@ const CoinControlList: FC<{
   onChange,
   onConfirmEditLabel,
   onFrozenUTXO,
+  onRecycleUTXO,
 }) => {
   const PAGE_SIZE = useMemo(() => (platformEnv.isNative ? 15 : 25), []);
   const pageKey = useMemo(
@@ -528,21 +541,23 @@ const CoinControlList: FC<{
           onChange={onChange}
           onConfirmEditLabel={onConfirmEditLabel}
           onFrozenUTXO={onFrozenUTXO}
+          onRecycleUTXO={onRecycleUTXO}
         />
       );
     },
     [
       type,
+      accountId,
+      network,
+      token,
       showCheckbox,
       selectedUtxos,
-      network,
       blockTimeMap,
-      token,
-      accountId,
       showPath,
       onChange,
       onConfirmEditLabel,
       onFrozenUTXO,
+      onRecycleUTXO,
     ],
   );
 
@@ -556,14 +571,16 @@ const CoinControlList: FC<{
           triggerAllSelected={triggerAllSelected}
         />
         {showDustSeparator && <ItemSeparator isDustSeparator />}
+        {showRecycleListHeader && <ItemSeparator isRecycleSeparator />}
       </>
     );
   }, [
+    type,
+    showDustListHeader,
     showCheckbox,
     isAllSelected,
     triggerAllSelected,
-    type,
-    showDustListHeader,
+    showRecycleListHeader,
   ]);
   const footerComponent = useCallback(
     () => (

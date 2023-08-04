@@ -1,5 +1,6 @@
-import { Dialog } from '@onekeyhq/components';
 import { useIntl } from 'react-intl';
+
+import { Dialog } from '@onekeyhq/components';
 
 type Props = {
   onConfirm: () => void;
@@ -13,7 +14,7 @@ function RecycleDialog({ onConfirm, onClose }: Props) {
     <Dialog
       visible
       footerButtonProps={{
-        primaryActionTranslationId: 'action__delete',
+        primaryActionTranslationId: 'action__destroy',
         primaryActionProps: {
           type: 'destructive',
         },
@@ -27,15 +28,11 @@ function RecycleDialog({ onConfirm, onClose }: Props) {
         iconName: 'FireSolid',
         iconType: 'danger',
         title: intl.formatMessage({
-          id: 'form__reset_app',
-          defaultMessage: '是否要回收所选铭文',
+          id: 'title__destroy_selected_inscription',
         }),
-        content: intl.formatMessage(
-          {
-            id: 'modal__reset_app_desc',
-          },
-          { 0: 'RESET' },
-        ),
+        content: intl.formatMessage({
+          id: 'dialog__destroy_selected_inscription',
+        }),
       }}
     />
   );

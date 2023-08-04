@@ -86,7 +86,10 @@ export default class ServiceUtxos extends ServiceBase {
     utxosWithoutDust: ICoinControlListItem[];
     utxosDust: ICoinControlListItem[];
     frozenUtxos: ICoinControlListItem[];
+    frozenUtxosWithoutRecycle: ICoinControlListItem[];
+    frozenRecycleUtxos: ICoinControlListItem[];
     recycleUtxos: ICoinControlListItem[];
+    recycleUtxosWithoutFrozen: ICoinControlListItem[];
   }> {
     return this._getUtxos(networkId, accountId, sortBy, options);
   }
@@ -164,16 +167,30 @@ export default class ServiceUtxos extends ServiceBase {
       );
       const dustData = utxos.filter(
         (utxo) =>
-          new BigNumber(utxo.value).isLessThanOrEqualTo(dust) && !utxo.frozen,
+          new BigNumber(utxo.value).isLessThanOrEqualTo(dust) &&
+          !utxo.frozen &&
+          !utxo.recycle,
       );
       const frozenUtxos = utxos.filter((utxo) => utxo.frozen);
+      const frozenUtxosWithoutRecycle = utxos.filter(
+        (utxo) => utxo.frozen && !utxo.recycle,
+      );
+      const frozenRecycleUtxos = frozenUtxos.filter(
+        (utxo) => utxo.recycle && utxo.frozen,
+      );
       const recycleUtxos = utxos.filter((utxo) => utxo.recycle);
+      const recycleUtxosWithoutFrozen = utxos.filter(
+        (utxo) => utxo.recycle && !utxo.frozen,
+      );
       const result = {
         utxos,
         utxosWithoutDust: dataSourceWithoutDust,
         utxosDust: dustData,
         frozenUtxos,
+        frozenUtxosWithoutRecycle,
+        frozenRecycleUtxos,
         recycleUtxos,
+        recycleUtxosWithoutFrozen,
       };
       return result;
     },
@@ -289,11 +306,13 @@ export default class ServiceUtxos extends ServiceBase {
     accountId,
     utxo,
     recycle,
+    frozen,
   }: {
     networkId: string;
     accountId: string;
     utxo: ICoinControlListItem;
     recycle: boolean;
+    frozen?: boolean;
   }) {
     const id = getUtxoId(networkId, utxo);
     const dbAccount = (await this.backgroundApi.engine.dbApi.getAccount(
@@ -312,7 +331,7 @@ export default class ServiceUtxos extends ServiceBase {
 
     return simpleDb.utxoAccounts.updateCoinControlItem(id, {
       label: existUtxo.label,
-      frozen: existUtxo.frozen,
+      frozen: frozen ?? existUtxo.frozen,
       recycle,
     });
   }
