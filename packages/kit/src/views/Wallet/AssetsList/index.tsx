@@ -209,6 +209,7 @@ function AssetsList({
         tokenAddress: item.address,
         // historyFilter: filter,
         price: item.price,
+        price24h: item.price24h,
         symbol: item.symbol,
         name: item.name,
         logoURI: item.logoURI,

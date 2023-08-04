@@ -69,11 +69,8 @@ class Geth extends BaseClient {
   }
 
   async getInfo(): Promise<ClientInfo> {
-    const latestBlock: any = await this.rpc.call('eth_getBlockByNumber', [
-      Geth.__LAST_BLOCK__,
-      false,
-    ]);
-    const bestBlockNumber = parseInt(latestBlock.number, 16);
+    const latestBlock: any = await this.rpc.call('eth_blockNumber');
+    const bestBlockNumber = new BigNumber(latestBlock)?.toNumber();
     // eslint-disable-next-line no-restricted-globals
     const isReady = !isNaN(bestBlockNumber) && bestBlockNumber > 0;
 

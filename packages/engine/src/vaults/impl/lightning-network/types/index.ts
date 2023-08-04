@@ -1,4 +1,5 @@
 import type { IInvoiceConfig } from './invoice';
+import type { LNURLPaymentSuccessAction } from './lnurl';
 
 export type IEncodedTxLightning = {
   invoice: string;
@@ -10,4 +11,5 @@ export type IEncodedTxLightning = {
   fee: number;
   isExceedTransferLimit: boolean;
   config: IInvoiceConfig;
+  successAction?: LNURLPaymentSuccessAction;
 };
