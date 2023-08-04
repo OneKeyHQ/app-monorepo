@@ -173,10 +173,7 @@
     "ts-jest": "^27.0.5",
     "typescript": "^5.0.4",
     "ultra-runner": "^3.10.5",
-    "webpack": "5.88.2",
-    "webpack-bundle-analyzer": "^4.7.0",
-    "webpack-cli": "5.1.4",
-    "webpack-dev-server": "4.15.1"
+    "webpack-bundle-analyzer": "^4.7.0"
   },
   "resolutions": {
     "@babel/core": "^7.20.0",
@@ -214,8 +211,6 @@
     "@solana/spl-token": "^0.3.7",
     "eventemitter3": "^4",
     "qrcode": "^1.5.1",
-    "webpack": "5.88.2",
-    "webpack-dev-server": "4.15.1",
     "semver": "^7.3.8",
     "react-is": "^17.0.2",
     "query-string": "^7",

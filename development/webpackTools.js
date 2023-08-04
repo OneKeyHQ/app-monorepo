@@ -85,20 +85,11 @@ function normalizeConfig({
   enableAnalyzerHtmlReport,
   buildTargetBrowser, // firefox or chrome, for extension build
 }) {
+  const isDev = process.env.NODE_ENV !== 'production';
   let resolveExtensions = createDefaultResolveExtensions();
   if (platform) {
     if (PUBLIC_URL) config.output.publicPath = PUBLIC_URL;
-    const isDev = process.env.NODE_ENV !== 'production';
-
-    // add devServer proxy
-    if (config.devServer) {
-      config.devServer.proxy = config.devServer.proxy || {};
-      config.devServer.proxy['/nexa_ws'] = {
-        target: 'wss://testnet-explorer.nexa.org:30004',
-        changeOrigin: true,
-        ws: true,
-      };
-    }
+    config.output.filename = 'static/js/[name].bundle.js';
 
     config.plugins = [
       ...config.plugins,
@@ -118,8 +109,18 @@ function normalizeConfig({
       isDev ? new ReactRefreshWebpackPlugin({ overlay: false }) : null,
     ].filter(Boolean);
 
+    // Compile entrypoints and dynamic imports only when they are in use.
+    if (isDev) {
+      config.experiments = config.experiments || {};
+      config.experiments.lazyCompilation = true;
+    }
+
     // add devServer proxy
     if (config.devServer) {
+      config.devServer.client = {
+        ...config.devServer.client,
+        progress: true,
+      };
       const logScript = `console.log('react-render-tracker is disabled')`;
       config.devServer.proxy = config.devServer.proxy || {};
       config.devServer.proxy[
@@ -153,38 +154,38 @@ function normalizeConfig({
       };
     }
 
-    if (process.env.ENABLE_ANALYZER) {
-      const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
-      config.plugins.push(
-        new BundleAnalyzerPlugin(
-          enableAnalyzerHtmlReport
-            ? {
-                analyzerMode: 'static',
-                reportFilename: `report${
-                  configName ? `-${configName}` : ''
-                }.html`,
-                openAnalyzer: false,
-              }
-            : {
-                analyzerMode: 'disabled',
-                generateStatsFile: true,
-                statsOptions: {
-                  reasons: false,
-                  warnings: false,
-                  errors: false,
-                  optimizationBailout: false,
-                  usedExports: false,
-                  providedExports: false,
-                  source: false,
-                  ids: false,
-                  children: false,
-                  chunks: false,
-                  modules: !!process.env.ANALYSE_MODULE,
-                },
-              },
-        ),
-      );
-    }
+    // if (process.env.ENABLE_ANALYZER) {
+    //   const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
+    //   config.plugins.push(
+    //     new BundleAnalyzerPlugin(
+    //       enableAnalyzerHtmlReport
+    //         ? {
+    //             analyzerMode: 'static',
+    //             reportFilename: `report${
+    //               configName ? `-${configName}` : ''
+    //             }.html`,
+    //             openAnalyzer: false,
+    //           }
+    //         : {
+    //             analyzerMode: 'disabled',
+    //             generateStatsFile: true,
+    //             statsOptions: {
+    //               reasons: false,
+    //               warnings: false,
+    //               errors: false,
+    //               optimizationBailout: false,
+    //               usedExports: false,
+    //               providedExports: false,
+    //               source: false,
+    //               ids: false,
+    //               children: false,
+    //               chunks: false,
+    //               modules: !!process.env.ANALYSE_MODULE,
+    //             },
+    //           },
+    //     ),
+    //   );
+    // }
 
     resolveExtensions = [
       // .chrome-ext.ts, .firefox-ext.ts
@@ -325,6 +326,7 @@ function normalizeConfig({
   config.optimization ??= {};
   config.optimization.splitChunks ??= {};
   config.optimization.splitChunks = {
+    ...config.optimization.splitChunks,
     chunks: 'all',
     minSize: 100 * 1024,
     maxSize: 4 * 1024 * 1024,
@@ -333,7 +335,6 @@ function normalizeConfig({
     name: false, // reduce module duplication across chunks
     maxInitialRequests: 50000, // reduce module duplication across chunks
     maxAsyncRequests: 50000, // reduce module duplication across chunks
-    ...config.optimization.splitChunks,
     cacheGroups: {
       // kit_assets: {
       //   test: /\/kit\/assets/,

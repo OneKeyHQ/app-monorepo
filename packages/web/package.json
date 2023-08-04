@@ -16,5 +16,8 @@
     "expo": "49.0.6",
     "firebase": "^9.8.2"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "webpack-cli": "^5.1.4"
+  }
 }
