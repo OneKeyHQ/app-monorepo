@@ -1,5 +1,6 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
+import LNURLAuthenticationModal from '../../../views/Account/AddNewAccount/Authentication';
 import LNURLAuth from '../../../views/LightningNetwork/Send/LNURLAuth';
 import { LNURLPayRequest } from '../../../views/LightningNetwork/Send/LNURLPayRequest';
 import LNURLWithdraw from '../../../views/LightningNetwork/Send/LNURLWithdraw';
@@ -103,6 +104,10 @@ const modalRoutes = [
   {
     name: SendModalRoutes.LNURLAuth,
     component: LNURLAuth,
+  },
+  {
+    name: SendModalRoutes.LNURLAuthentication,
+    component: LNURLAuthenticationModal,
   },
 ];
 

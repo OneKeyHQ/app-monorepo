@@ -21,11 +21,12 @@ import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClos
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccount, useNavigation } from '../../../hooks';
+import { SendModalRoutes } from '../../../routes/routesEnum';
 import { LNModalDescription } from '../components/LNModalDescription';
 
 import type { SendRoutesParams } from '../../../routes';
-import type { SendModalRoutes } from '../../../routes/routesEnum';
 import type { ModalScreenProps } from '../../../routes/types';
+import type { LnUrlAuthenticationParams } from '../../Send/types';
 import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<SendRoutesParams>;
@@ -120,7 +121,7 @@ const LNURLAuth = () => {
   );
 
   const renderConnectTips = useMemo(() => {
-    if (lnurlDetails.action !== 'register') {
+    if (lnurlDetails.action === 'auth') {
       return (
         <VStack space={4}>
           {connectTip(
@@ -152,27 +153,45 @@ const LNURLAuth = () => {
     );
   }, [connectTip, lnurlDetails, intl]);
 
-  const onConfirm = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      await backgroundApiProxy.serviceLightningNetwork.lnurlAuth({
-        password: '77777777',
-        walletId,
-        lnurlDetail: lnurlDetails,
-      });
-      ToastManager.show({ title: intl.formatMessage({ id: 'msg__success' }) });
-      setTimeout(() => {
+  const onDone = useCallback(
+    async (password: string) => {
+      try {
+        setIsLoading(true);
+        await backgroundApiProxy.serviceLightningNetwork.lnurlAuth({
+          password,
+          walletId,
+          lnurlDetail: lnurlDetails,
+        });
+        ToastManager.show({
+          title: intl.formatMessage({ id: 'msg__success' }),
+        });
+        setTimeout(() => {
+          // quit from password modal
+          closeModal();
+          closeModal();
+        }, 300);
+      } catch (e) {
+        ToastManager.show(
+          { title: e instanceof Error ? e.message : e },
+          { type: 'error' },
+        );
+        // quit from password modal
         closeModal();
-      }, 300);
-    } catch (e) {
-      ToastManager.show(
-        { title: e instanceof Error ? e.message : e },
-        { type: 'error' },
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [lnurlDetails, walletId, intl, closeModal]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [lnurlDetails, walletId, intl, closeModal],
+  );
+
+  const onConfirmWithAuth = useCallback(
+    () =>
+      navigation.navigate(SendModalRoutes.LNURLAuthentication, {
+        walletId,
+        onDone,
+      } as LnUrlAuthenticationParams),
+    [walletId, navigation, onDone],
+  );
 
   return (
     <Modal
@@ -183,7 +202,7 @@ const LNURLAuth = () => {
         isDisabled: isLoading,
         isLoading,
       }}
-      onPrimaryActionPress={() => onConfirm()}
+      onPrimaryActionPress={() => onConfirmWithAuth()}
       secondaryActionTranslationId="action__cancel"
       onSecondaryActionPress={() => {
         if (navigation?.canGoBack?.()) {

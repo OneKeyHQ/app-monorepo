@@ -84,6 +84,11 @@ export type LnUrlAuthParams = {
   lnurlDetails: LNURLAuthServiceResponse;
 };
 
+export type LnUrlAuthenticationParams = {
+  onDone: (password: string) => void;
+  walletId: string;
+};
+
 export type TransferSendParamsPayload = SendConfirmPayloadBase & {
   to: string;
   account: {
@@ -241,6 +246,7 @@ export type SendRoutesParams = {
   [SendModalRoutes.LNURLPayRequest]: LnUrlPayParams;
   [SendModalRoutes.LNURLWithdraw]: LnUrlWithdrawParams;
   [SendModalRoutes.LNURLAuth]: LnUrlAuthParams;
+  [SendModalRoutes.LNURLAuthentication]: LnUrlAuthenticationParams;
 };
 
 export type ITxConfirmViewPropsHandleConfirm = ({
