@@ -89,7 +89,7 @@ function normalizeConfig({
   let resolveExtensions = createDefaultResolveExtensions();
   if (platform) {
     if (PUBLIC_URL) config.output.publicPath = PUBLIC_URL;
-    config.output.filename = 'static/js/[name].bundle.js';
+    config.output.filename = '[name].bundle.js';
 
     config.plugins = [
       ...config.plugins,

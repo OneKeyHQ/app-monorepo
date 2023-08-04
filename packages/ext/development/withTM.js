@@ -341,9 +341,7 @@ const withTmInitializer = (modules = [], options = {}) => {
             use: nextOptions.defaultLoaders.babel,
             exclude: [
               /react-native-logs/,
-              /react-native-modalize/,
-              /react-native-url-polyfill/,
-              /react-native-reanimated/,
+              /react-native-modalize/
             ],
             type: 'javascript/auto',
           });

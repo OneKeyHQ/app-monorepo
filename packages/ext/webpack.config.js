@@ -125,7 +125,7 @@ function createConfig({ config }) {
 
   if (IS_DEV) {
     // FIX: Uncaught EvalError: Refused to evaluate a string as JavaScript because 'unsafe-eval' is not an allowed source of script in the following Content Security Policy directive: "script-src 'self'".
-    webpackConfig.devtool = 'cheap-module-source-map';
+    webpackConfig.devtool = 'source-map';
 
     //
     // Reset sourcemap here, withExpo will change this value
@@ -142,7 +142,7 @@ function createConfig({ config }) {
     webpackConfig.experiments = config.experiments || {};
     webpackConfig.experiments.lazyCompilation = {
       imports: true,
-      entries: false,
+      entries: true,
       test: /engine/,
     };
   } else {
@@ -163,7 +163,6 @@ function createConfig({ config }) {
     enableAnalyzerHtmlReport: true,
     buildTargetBrowser,
   });
-
   return webpackConfig;
 }
 
