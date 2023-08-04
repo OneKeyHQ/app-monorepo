@@ -1,4 +1,5 @@
 import type { ISimpleDbEntityUtxoData } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
+import type { BookmarkItem } from '@onekeyhq/kit/src/views/Discover/type';
 
 import type { Avatar } from '../../utils/emojiUtils';
 
@@ -15,6 +16,9 @@ export type PublicBackupData = {
     { name: string; avatar?: Avatar; accountUUIDs: Array<string> }
   >;
   simpleDb?: ISimpleDBBackUp;
+  discoverBookmarks?: BookmarkItem[];
+  marketFavorites?: string[];
+  // browserHistories?: UserBrowserHistory[];
 };
 
 export type IBackupItemSummary = {
