@@ -154,6 +154,7 @@ function createConfig({ config }) {
 
   devUtils.cleanWebpackDebugFields(webpackConfig);
 
+  webpackConfig.target = 'web';
   webpackConfig = webpackTools.normalizeConfig({
     platform: webpackTools.developmentConsts.platforms.ext,
     isManifestV3,

@@ -53,7 +53,7 @@ object-src 'self';
   'content_scripts': [
     {
       'matches': ['http://*/*', 'https://*/*', '<all_urls>'],
-      'js': ['content-script.bundle.js'],
+      'js': ['static/js/content-script.bundle.js'],
       'run_at': 'document_start', // MUST be document_start to inject ASAP
       'all_frames': true, // including iframe inject
     },

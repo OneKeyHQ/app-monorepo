@@ -69,7 +69,7 @@ function disabledDynamicImportChunks(config) {
       isPrepend: true,
       plugins: [
         // 'babel-plugin-dynamic-import-webpack' ,// TODO not working
-        'babel-plugin-transform-dynamic-imports-to-static-imports',
+        // 'babel-plugin-transform-dynamic-imports-to-static-imports',
       ],
     });
   }

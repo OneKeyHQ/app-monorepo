@@ -263,6 +263,10 @@ const withTmInitializer = (modules = [], options = {}) => {
           webpackConfig.resolve.symlinks = resolveSymlinks;
         }
 
+        webpackConfig.resolve.alias = {
+          ...webpackConfig.resolve.alias,
+          'react-native$': 'react-native-web',
+        };
         const hasInclude = (context, request) => {
           let absolutePath;
           // If we the code requires/import an absolute path
@@ -330,6 +334,15 @@ const withTmInitializer = (modules = [], options = {}) => {
             type: 'javascript/auto',
           });
 
+          webpackConfig.module.rules.push({
+            __ruleName__: 'rn-js-rule@withTM',
+            test: /(@?react-(navigation|native)).*\.(ts|js)x?$/,
+            use: nextOptions.defaultLoaders.babel,
+            exclude: [/react-native-logs/],
+            // exclude: [/react-native-web/, /\.(native|ios|android)\.(ts|js)x?$/],
+            type: 'javascript/auto',
+          });
+
           // nextWithTM/img-loader
           webpackConfig.module.rules.push({
             __ruleName__: 'file-rule@withTM',
@@ -346,6 +359,13 @@ const withTmInitializer = (modules = [], options = {}) => {
             // exclude: /node_modules/,
           });
 
+          webpackConfig.module.rules.push({
+            exclude: [/@babel(?:\/|\\{1,2})runtime/],
+            test: /\.(js|mjs|jsx|ts|tsx|css)$/,
+            resolve: {
+              fullySpecified: false,
+            },
+          });
           if (resolveSymlinks === false) {
             // IMPROVE ME: we are losing all the cache on node_modules, which is terrible
             // The problem is managedPaths does not allow to isolate specific specific folders
