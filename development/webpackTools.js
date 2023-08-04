@@ -112,7 +112,11 @@ function normalizeConfig({
     // Compile entrypoints and dynamic imports only when they are in use.
     if (isDev) {
       config.experiments = config.experiments || {};
-      config.experiments.lazyCompilation = true;
+      config.experiments.lazyCompilation = {
+        imports: true,
+        entries: false,
+        test: /engine/,
+      };
     }
 
     // add devServer proxy
@@ -326,14 +330,13 @@ function normalizeConfig({
   config.optimization ??= {};
   config.optimization.splitChunks ??= {};
   config.optimization.splitChunks = {
-    ...config.optimization.splitChunks,
     chunks: 'all',
     minSize: 100 * 1024,
     maxSize: 4 * 1024 * 1024,
     hidePathInfo: true,
     automaticNameDelimiter: '.',
     name: false, // reduce module duplication across chunks
-    maxInitialRequests: 50000, // reduce module duplication across chunks
+    maxInitialRequests: 20, // reduce module duplication across chunks
     maxAsyncRequests: 50000, // reduce module duplication across chunks
     cacheGroups: {
       // kit_assets: {
@@ -352,6 +355,7 @@ function normalizeConfig({
       //   chunks: 'all',
       // },
     },
+    ...config.optimization.splitChunks,
   };
 
   return config;
