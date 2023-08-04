@@ -100,6 +100,27 @@ const LNURLAuth = () => {
     return 'action__login__lnurl';
   }, [lnurlDetails]);
 
+  const successText = useMemo(() => {
+    if (lnurlDetails.action === 'register') {
+      return intl.formatMessage({
+        id: 'msg__lnurl_register_successful',
+      });
+    }
+    if (lnurlDetails.action === 'link') {
+      return intl.formatMessage({
+        id: 'msg__lnurl_link_successful',
+      });
+    }
+    if (lnurlDetails.action === 'auth') {
+      return intl.formatMessage({
+        id: 'msg__lnurl_authorization_successful',
+      });
+    }
+    return intl.formatMessage({
+      id: 'msg__lnurl_login_successful',
+    });
+  }, [lnurlDetails, intl]);
+
   const connectTip = useCallback(
     (icon: ICON_NAMES, text: string) => (
       <HStack alignItems="flex-start">
@@ -163,7 +184,7 @@ const LNURLAuth = () => {
           lnurlDetail: lnurlDetails,
         });
         ToastManager.show({
-          title: intl.formatMessage({ id: 'msg__success' }),
+          title: successText,
         });
         setTimeout(() => {
           // quit from password modal
@@ -181,7 +202,7 @@ const LNURLAuth = () => {
         setIsLoading(false);
       }
     },
-    [lnurlDetails, walletId, intl, closeModal],
+    [lnurlDetails, walletId, closeModal, successText],
   );
 
   const onConfirmWithAuth = useCallback(
