@@ -51,3 +51,26 @@ index 0b59f34..43dc959 100644
      return multiBundlerSettings;
  }
  
+diff --git a/node_modules/@expo/cli/build/src/utils/port.js b/node_modules/@expo/cli/build/src/utils/port.js
+index e4edb28..7d4dd8a 100644
+--- a/node_modules/@expo/cli/build/src/utils/port.js
++++ b/node_modules/@expo/cli/build/src/utils/port.js
+@@ -112,7 +112,8 @@ async function resolvePortAsync(projectRoot, { /** Should opt to reuse a port th
+     } else if (typeof defaultPort === "number") {
+         port = defaultPort;
+     } else {
+-        port = _env.env.RCT_METRO_PORT || fallbackPort || 8081;
++        // port = _env.env.RCT_METRO_PORT || fallbackPort || 8081;
++        port = fallbackPort || 8081;
+     }
+     // Only check the port when the bundler is running.
+     const resolvedPort = await choosePortAsync(projectRoot, {
+@@ -124,7 +125,7 @@ async function resolvePortAsync(projectRoot, { /** Should opt to reuse a port th
+     // Skip bundling if the port is null
+     } else {
+         // Use the new or resolved port
+-        process.env.RCT_METRO_PORT = String(resolvedPort);
++        // process.env.RCT_METRO_PORT = String(resolvedPort);
+     }
+     return resolvedPort;
+ }
