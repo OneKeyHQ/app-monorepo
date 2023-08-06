@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useContext, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -14,34 +14,45 @@ import {
 import type { ICON_NAMES } from '@onekeyhq/components';
 
 import BaseMenu from '../../Overlay/BaseMenu';
-import { TokenDetailContext } from '../context';
 
 type Props = {
   onPressSend: () => void;
   onPressReceive: () => void;
   onPressTransfer: () => void;
   style?: ComponentProps<typeof HStack>;
+  balanceWithoutRecycle: {
+    balance: string;
+    availableBalance: string;
+    transferBalance: string;
+  };
 };
 
 function TokenActions(props: Props) {
-  const { onPressSend, onPressReceive, onPressTransfer, style } = props;
+  const {
+    onPressSend,
+    onPressReceive,
+    onPressTransfer,
+    style,
+    balanceWithoutRecycle,
+  } = props;
 
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
-  const context = useContext(TokenDetailContext);
-
-  const positionInfo = context?.positionInfo;
 
   const isInsufficientTransferBalance = useMemo(
     () =>
-      new BigNumber(positionInfo?.transferBalance ?? 0).isLessThanOrEqualTo(0),
-    [positionInfo?.transferBalance],
+      new BigNumber(
+        balanceWithoutRecycle.transferBalance ?? 0,
+      ).isLessThanOrEqualTo(0),
+    [balanceWithoutRecycle.transferBalance],
   );
 
   const isInsufficientAvailableBalance = useMemo(
     () =>
-      new BigNumber(positionInfo?.availableBalance ?? 0).isLessThanOrEqualTo(0),
-    [positionInfo?.availableBalance],
+      new BigNumber(
+        balanceWithoutRecycle.availableBalance ?? 0,
+      ).isLessThanOrEqualTo(0),
+    [balanceWithoutRecycle.availableBalance],
   );
 
   const actions = useMemo(

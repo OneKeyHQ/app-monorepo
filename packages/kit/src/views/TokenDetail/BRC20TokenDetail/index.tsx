@@ -1,5 +1,6 @@
-import { useCallback, useContext } from 'react';
+import { useCallback, useContext, useEffect, useMemo } from 'react';
 
+import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -9,14 +10,15 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import {
-  getTaprootXpub,
-  isTaprootXpubSegwit,
-} from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import { FormatBalance } from '../../../components/Format';
 import { useActiveSideAccount } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useBRC20Inscriptions } from '../../../hooks/useBRC20Inscriptions';
+import { useBRC20TokenRecycleBalance } from '../../../hooks/useBRC20TokenRecycleBalance';
 import {
   InscribeModalRoutes,
   InscriptionControlModalRoutes,
@@ -50,15 +52,46 @@ function BRC20TokenDetail() {
     networkId: networkId ?? '',
   });
 
-  const { availableInscriptions } = useBRC20Inscriptions({
+  const { availableInscriptions, isLoading } = useBRC20Inscriptions({
     networkId,
     address: account?.address,
-    xpub: isTaprootXpubSegwit(account?.xpub ?? '')
-      ? getTaprootXpub(account?.xpub ?? '')
-      : account?.xpub,
+    xpub: account?.xpub,
     tokenAddress: token?.tokenIdOnNetwork ?? token?.address,
     isPolling: true,
   });
+
+  const { recycleBalance, refreshRecycleBalance } = useBRC20TokenRecycleBalance(
+    {
+      networkId,
+      xpub: account?.xpub,
+      address: account?.address,
+      tokenAddress,
+    },
+  );
+
+  const balanceWithoutRecycle = useMemo(() => {
+    const { balance, availableBalance, transferBalance } = positionInfo ?? {};
+
+    console.log('balance', balance);
+    console.log('recycleBalance', recycleBalance);
+
+    const balanceWithoutRecycle1 = new BigNumber(balance ?? '0').minus(
+      recycleBalance,
+    );
+    const transferBalanceWithoutRecycle = new BigNumber(
+      transferBalance ?? '0',
+    ).minus(recycleBalance);
+
+    return {
+      balance: balanceWithoutRecycle1.isLessThan(0)
+        ? '0'
+        : balanceWithoutRecycle1.toFixed(),
+      availableBalance: availableBalance?.toFixed() ?? '0',
+      transferBalance: transferBalanceWithoutRecycle.isLessThan(0)
+        ? '0'
+        : transferBalanceWithoutRecycle.toFixed(),
+    };
+  }, [positionInfo, recycleBalance]);
 
   const handleSendOnPress = useCallback(() => {
     if (accountId && networkId && token) {
@@ -119,11 +152,26 @@ function BRC20TokenDetail() {
             networkId,
             accountId,
             token,
+            refreshRecycleBalance,
           },
         },
       });
     }
-  }, [accountId, appNavigation, networkId, token]);
+  }, [accountId, appNavigation, networkId, refreshRecycleBalance, token]);
+
+  useEffect(() => {
+    appUIEventBus.on(
+      AppUIEventBusNames.InscriptionRecycleChanged,
+      refreshRecycleBalance,
+    );
+    return () => {
+      appUIEventBus.off(
+        AppUIEventBusNames.InscriptionRecycleChanged,
+        refreshRecycleBalance,
+      );
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <Box paddingY={8} paddingX={isVertical ? 4 : 8}>
@@ -132,12 +180,13 @@ function BRC20TokenDetail() {
           onPressSend={handleSendOnPress}
           onPressReceive={handleReceiveOnPress}
           onPressTransfer={handleTransferOnPress}
+          balanceWithoutRecycle={balanceWithoutRecycle}
           style={{ mb: 8 }}
         />
       ) : null}
       <VStack mb={6} space={1}>
         <FormatBalance
-          balance={positionInfo?.balance ?? 0}
+          balance={balanceWithoutRecycle?.balance ?? 0}
           suffix={symbol}
           formatOptions={{
             fixed: 6,
@@ -148,12 +197,12 @@ function BRC20TokenDetail() {
         />
         <Typography.Body2 color="text-subdued">
           {`${intl.formatMessage({ id: 'form__available_colon' })} ${
-            positionInfo?.availableBalance.toFixed() ?? '0'
+            balanceWithoutRecycle?.availableBalance ?? '0'
           }`}
         </Typography.Body2>
         <Typography.Body2 color="text-subdued">
           {`${intl.formatMessage({ id: 'form__transferable_colon' })} ${
-            positionInfo?.transferBalance.toFixed() ?? '0'
+            balanceWithoutRecycle?.transferBalance ?? '0'
           }`}
         </Typography.Body2>
       </VStack>
@@ -162,11 +211,13 @@ function BRC20TokenDetail() {
           onPressSend={handleSendOnPress}
           onPressReceive={handleReceiveOnPress}
           onPressTransfer={handleTransferOnPress}
+          balanceWithoutRecycle={balanceWithoutRecycle}
           style={{ mb: 6 }}
         />
       ) : null}
       <InscriptionEntry
         inscriptions={availableInscriptions}
+        isLoadingInscriptions={isLoading}
         onPress={handleInscriptionControlOnPress}
         style={{ mb: 6 }}
       />

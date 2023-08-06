@@ -19,6 +19,10 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { ICoinControlListItem } from '@onekeyhq/engine/src/types/utxoAccounts';
 import type { CoinControlRoutesParams } from '@onekeyhq/kit/src/routes';
 import type { CoinControlModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNetwork } from '../../hooks';
@@ -353,6 +357,7 @@ const CoinControl = () => {
             },
           );
           refreshUtxosData();
+          appUIEventBus.emit(AppUIEventBusNames.InscriptionRecycleChanged);
         });
     },
     [networkId, accountId, refreshUtxosData, intl],

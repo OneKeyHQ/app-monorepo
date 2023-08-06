@@ -6,6 +6,10 @@ import useSWR from 'swr';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
+import {
+  getTaprootXpub,
+  isTaprootXpubSegwit,
+} from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
 import { RestfulRequest } from '@onekeyhq/shared/src/request/RestfulRequest';
 
 export function useBRC20Inscriptions({
@@ -41,6 +45,8 @@ export function useBRC20Inscriptions({
 
     setIsLoading(true);
 
+    if (!networkId || !address || !tokenAddress || !xpub) return;
+
     try {
       const resp = (await req
         .get('/NFT/v2/list', query)
@@ -48,7 +54,9 @@ export function useBRC20Inscriptions({
 
       const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
         networkId ?? '',
-        xpub ?? '',
+        isTaprootXpubSegwit(xpub ?? '')
+          ? getTaprootXpub(xpub ?? '')
+          : xpub ?? '',
       );
 
       const recycleUtxos = archivedUtxos.filter((utxo) => utxo.recycle);
@@ -100,5 +108,11 @@ export function useBRC20Inscriptions({
     }
   }, [mutate, shouldDoRefresh, networkId, fetchBRC20Inscriptions]);
 
-  return { inscriptions, availableInscriptions, isLoading, mutate, fetchBRC20Inscriptions };
+  return {
+    inscriptions,
+    availableInscriptions,
+    isLoading,
+    mutate,
+    fetchBRC20Inscriptions,
+  };
 }

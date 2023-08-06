@@ -12,6 +12,11 @@ type Props = {
   onPressReceive: () => void;
   onPressTransfer: () => void;
   style?: ComponentProps<typeof HStack>;
+  balanceWithoutRecycle: {
+    balance: string;
+    availableBalance: string;
+    transferBalance: string;
+  };
 };
 
 function TokenDetailHeader(props: Props) {

@@ -17,6 +17,10 @@ import {
   getTaprootXpub,
   isTaprootXpubSegwit,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccount } from '../../hooks';
@@ -40,7 +44,7 @@ function InscriptionControl() {
   const route = useRoute<RouteProps>();
   const intl = useIntl();
 
-  const { accountId, networkId, token } = route.params;
+  const { accountId, networkId, token, refreshRecycleBalance } = route.params;
 
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedInscriptions, setSelectedInscriptions] = useState<string[]>(
@@ -72,25 +76,24 @@ function InscriptionControl() {
             selectedInscriptions.includes(item.inscription_id),
           );
 
-          await Promise.all(
-            inscriptions.map((inscription) => {
-              const [txid, vout] = inscription.output.split(':');
-              const voutNum = parseInt(vout, 10);
-              return backgroundApiProxy.serviceUtxos.updateRecycle({
-                networkId,
-                accountId,
-                utxo: {
-                  txid,
-                  vout: voutNum,
-                  address: inscription.owner,
-                  value: String(inscription.output_value_sat),
-                  path: '',
-                  height: NaN,
-                },
-                recycle: true,
-              });
-            }),
-          );
+          for (let i = 0, len = inscriptions.length; i < len; i += 1) {
+            const inscription = inscriptions[i];
+            const [txid, vout] = inscription.output.split(':');
+            const voutNum = parseInt(vout, 10);
+            await backgroundApiProxy.serviceUtxos.updateRecycle({
+              networkId,
+              accountId,
+              utxo: {
+                txid,
+                vout: voutNum,
+                address: inscription.owner,
+                value: String(inscription.output_value_sat),
+                path: '',
+                height: NaN,
+              },
+              recycle: true,
+            });
+          }
 
           ToastManager.show(
             {
@@ -102,6 +105,7 @@ function InscriptionControl() {
           );
           fetchBRC20Inscriptions();
           setSelectedInscriptions([]);
+          appUIEventBus.emit(AppUIEventBusNames.InscriptionRecycleChanged);
         }}
       />,
     );

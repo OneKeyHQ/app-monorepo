@@ -279,6 +279,8 @@ export interface IOverviewAllNetworksToken {
   symbol: string;
   coingeckoId: string;
   balance: string;
+  availableBalance?: string;
+  transferBalance?: string;
   price?: number;
   price24h?: number;
   value?: string;

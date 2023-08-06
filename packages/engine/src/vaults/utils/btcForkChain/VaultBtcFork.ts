@@ -53,6 +53,7 @@ import {
 } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import {
+  getBRC20TransactionHistory,
   getNFTTransactionHistory,
   parseTextProps,
 } from '../../../managers/nft';
@@ -984,7 +985,6 @@ export default class VaultBtcFork extends VaultBase {
     localHistory?: IHistoryTx[];
   }): Promise<IHistoryTx[]> {
     const { localHistory = [], tokenIdOnNetwork } = options;
-
     const provider = await this.getProvider();
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const { decimals, symbol, impl } = await this.engine.getNetwork(
@@ -992,6 +992,15 @@ export default class VaultBtcFork extends VaultBase {
     );
     const token = await this.engine.getNativeTokenInfo(this.networkId);
     let txs: Array<IBlockBookTransaction> = [];
+
+    if (tokenIdOnNetwork && isBRC20Token(tokenIdOnNetwork)) {
+      const history = await getBRC20TransactionHistory(
+        dbAccount.address,
+        tokenIdOnNetwork,
+      );
+      // TODO brc20 token history
+    }
+
     try {
       txs =
         (
@@ -1337,7 +1346,7 @@ export default class VaultBtcFork extends VaultBase {
     return frozenUtxos.concat(dustUtxos);
   }
 
-  private async getRecycleInscriptionUtxos(xpub: string, utxos: IBtcUTXO[]) {
+  private async getRecycleInscriptionUtxos(xpub: string) {
     const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
       this.networkId,
       xpub,
@@ -1345,6 +1354,8 @@ export default class VaultBtcFork extends VaultBase {
     const recycleInscriptionUtxos = archivedUtxos.filter(
       (utxo) => utxo.recycle,
     );
+
+    return recycleInscriptionUtxos;
   }
 
   private async buildTransferParamsWithCoinSelector({
@@ -1363,6 +1374,8 @@ export default class VaultBtcFork extends VaultBase {
     const isNftTransfer = Boolean(
       transferInfos.find((item) => item.isNFT || item.nftInscription),
     );
+    const network = await this.engine.getNetwork(this.networkId);
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const forceSelectUtxos: ICoinSelectUTXOLite[] = [];
     if (isNftTransfer) {
       if (isBatchTransfer) {
@@ -1386,9 +1399,21 @@ export default class VaultBtcFork extends VaultBase {
         vout: voutNum,
         address,
       });
+    } else {
+      const recycleUtxos = await this.getRecycleInscriptionUtxos(
+        dbAccount.xpub,
+      );
+
+      recycleUtxos.forEach((utxo) => {
+        const [txId, vout] = utxo.key.split('_');
+        forceSelectUtxos.push({
+          txId,
+          vout: parseInt(vout, 10),
+          address: dbAccount.address,
+        });
+      });
     }
-    const network = await this.engine.getNetwork(this.networkId);
-    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+
     let { utxos } = await this.collectUTXOsInfo(
       forceSelectUtxos.length
         ? {
@@ -1396,8 +1421,6 @@ export default class VaultBtcFork extends VaultBase {
           }
         : undefined,
     );
-
-    console.log(utxos);
 
     // Select the slowest fee rate as default, otherwise the UTXO selection
     // would be failed.
@@ -1554,15 +1577,27 @@ export default class VaultBtcFork extends VaultBase {
   }
 
   override async fetchBalanceDetails(): Promise<IBalanceDetails | undefined> {
-    const { utxos, valueDetails, ordQueryStatus } =
-      await this.collectUTXOsInfo();
-    if (ordQueryStatus === 'ERROR') {
-      this.collectUTXOsInfo.clear();
-    }
     const [dbAccount, network] = await Promise.all([
       this.getDbAccount() as Promise<DBUTXOAccount>,
       this.getNetwork(),
     ]);
+    const recycleUtxos = await this.getRecycleInscriptionUtxos(dbAccount.xpub);
+    const { utxos, valueDetails, ordQueryStatus } = await this.collectUTXOsInfo(
+      {
+        forceSelectUtxos: recycleUtxos.map((utxo) => {
+          const [txId, vout] = utxo.key.split('_');
+          return {
+            txId,
+            vout: parseInt(vout, 10),
+            address: dbAccount.address,
+          };
+        }),
+      },
+    );
+    if (ordQueryStatus === 'ERROR') {
+      this.collectUTXOsInfo.clear();
+    }
+
     // find frozen utxo
     const frozenUtxos = await this.getFrozenUtxos(dbAccount.xpub, utxos);
     const allFrozenUtxo = utxos.filter((utxo) =>

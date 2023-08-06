@@ -12,6 +12,7 @@ export type InscriptionControlRoutesParams = {
     networkId: string;
     accountId: string;
     token: Token;
+    refreshRecycleBalance?: () => void;
   };
 };
 

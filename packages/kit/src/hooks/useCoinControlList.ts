@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import type { CoinControlItem } from '@onekeyhq/engine/src/types/utxoAccounts';
+import {
+  getTaprootXpub,
+  isTaprootXpubSegwit,
+} from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
 
 function useCoinControlList({
   xpub,
@@ -18,7 +22,9 @@ function useCoinControlList({
       if (xpub && networkId) {
         const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
           networkId,
-          xpub,
+          isTaprootXpubSegwit(xpub ?? '')
+            ? getTaprootXpub(xpub ?? '')
+            : xpub ?? '',
         );
         setFrozenUtxos(archivedUtxos.filter((utxo) => utxo.frozen));
         setRecycleUtxos(archivedUtxos.filter((utxo) => utxo.recycle));

@@ -17,15 +17,19 @@ import OrdinalLogo from '@onekeyhq/kit/assets/Ordinal.png';
 
 type Props = {
   inscriptions: NFTBTCAssetModel[] | undefined;
+  isLoadingInscriptions: boolean;
   onPress: () => void;
   style?: ComponentProps<typeof Box>;
 };
 
 function InscriptionEntry(props: Props) {
   const intl = useIntl();
-  const { style, inscriptions, onPress } = props;
+  const { style, inscriptions, onPress, isLoadingInscriptions } = props;
 
-  const isDisabled = useMemo(() => !inscriptions?.length, [inscriptions]);
+  const isDisabled = useMemo(
+    () => !inscriptions?.length || isLoadingInscriptions,
+    [inscriptions?.length, isLoadingInscriptions],
+  );
 
   return (
     <Box {...style}>
@@ -38,7 +42,7 @@ function InscriptionEntry(props: Props) {
           <Image source={OrdinalLogo} size="40px" />
           <VStack flex={1}>
             <Text typography="Body1Strong">Manage Inscriptions</Text>
-            {inscriptions === undefined ? (
+            {isLoadingInscriptions ? (
               <Skeleton shape="Body2" />
             ) : (
               <Text typography="Body2" color="text-subdued">

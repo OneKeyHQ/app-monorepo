@@ -32,6 +32,7 @@ export function useBRC20AmountList({
   const isFocused = useIsFocused();
 
   const fetchBRC20AmountList = useCallback(async () => {
+    if (!networkId || !address || !tokenAddress) return;
     const req = new RestfulRequest(getFiatEndpoint(), {}, 60 * 1000);
 
     const query = {
@@ -57,13 +58,7 @@ export function useBRC20AmountList({
   }, [address, networkId, tokenAddress, xpub]);
 
   const shouldDoRefresh = useMemo((): boolean => {
-    if (
-      !networkId ||
-      !address ||
-      !tokenAddress ||
-      !tokenAddress ||
-      !isPolling
-    ) {
+    if (!networkId || !address || !tokenAddress || !isPolling) {
       return false;
     }
     if (!isFocused) {

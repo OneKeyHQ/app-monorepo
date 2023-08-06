@@ -524,6 +524,8 @@ export function useAccountTokens({
           address: undefined,
           logoURI: t.logoURI,
           balance: t.balance,
+          transferBalance: t.transferBalance,
+          availableBalance: t.availableBalance,
           usdValue: t.value ?? '0',
           value: new B(t.value ?? '0').toString(),
           value24h: new B(t.value24h ?? '0').toString(),
