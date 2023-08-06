@@ -21,6 +21,7 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { ValidationFields } from '../../../components/Protected';
 import { useNavigation } from '../../../hooks';
 import {
   ModalRoutes,
@@ -639,7 +640,10 @@ export const useSwapSubmit = () => {
     if (approveTx) {
       const doApprove = async (nextTask?: Task) => {
         const payloadInfo: any = { type: 'InternalSwap' };
-        if (wallet.type !== 'external') {
+        const paymentProtected = appSelector(
+          (s) => s.settings.validationSetting?.[ValidationFields.Payment],
+        );
+        if (wallet.type !== 'external' && !paymentProtected) {
           payloadInfo.swapInfo = { ...swapInfo, isApprove: true };
         }
         tagLogger.start(LoggerTimerTags.approval);
@@ -682,7 +686,10 @@ export const useSwapSubmit = () => {
     if (cancelApproveTx) {
       const doCancelApprove = async (nextTask?: Task) => {
         const payloadInfo: any = { type: 'InternalSwap' };
-        if (wallet.type !== 'external') {
+        const paymentProtected = appSelector(
+          (s) => s.settings.validationSetting?.[ValidationFields.Payment],
+        );
+        if (wallet.type !== 'external' && !paymentProtected) {
           payloadInfo.swapInfo = { ...swapInfo, isApprove: true };
         }
         tagLogger.start(LoggerTimerTags.cancelApproval);
