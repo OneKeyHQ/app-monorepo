@@ -208,6 +208,7 @@ export const History = () => {
           renderSectionHeader,
           // @ts-ignore
           keyExtractor,
+          stickySectionHeadersEnabled: false,
           ListHeaderComponent,
           ListEmptyComponent,
           ItemSeparatorComponent,
