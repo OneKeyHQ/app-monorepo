@@ -1032,9 +1032,11 @@ export default class ServiceToken extends ServiceBase {
   async fetchBalanceDetails({
     networkId,
     accountId,
+    useRecycleBalance,
   }: {
     networkId: string;
     accountId: string;
+    useRecycleBalance?: boolean;
   }) {
     const vault = await this.backgroundApi.engine.getVault({
       networkId,
@@ -1044,6 +1046,6 @@ export default class ServiceToken extends ServiceBase {
     if (vault.settings.validationRequired) {
       password = await this.backgroundApi.servicePassword.getPassword();
     }
-    return vault.fetchBalanceDetails({ password });
+    return vault.fetchBalanceDetails({ password, useRecycleBalance });
   }
 }

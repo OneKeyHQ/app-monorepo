@@ -3001,17 +3001,22 @@ class Engine {
     accountId,
     networkId,
     password,
+    useRecycleBalance,
   }: {
     accountId: string;
     networkId: string;
     password?: string;
+    useRecycleBalance?: boolean;
   }) {
     if (!networkId || !accountId) return 0;
     const vault = await this.getVault({
       accountId,
       networkId,
     });
-    return vault.getFrozenBalance(password);
+    return vault.getFrozenBalance({
+      password,
+      useRecycleBalance,
+    });
   }
 
   @backgroundMethod()

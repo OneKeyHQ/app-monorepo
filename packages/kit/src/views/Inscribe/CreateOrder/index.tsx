@@ -309,6 +309,7 @@ const CreateOrder: FC = () => {
                 name: tokenInfo?.name ?? '',
                 ...(tokenInfo || {}),
               }}
+              useRecycleBalance={false}
               render={(ele) => <Text typography="Body1Strong">{ele}</Text>}
             />
             {balanceDetailsInfo.enabled ? (

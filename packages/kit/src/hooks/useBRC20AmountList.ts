@@ -49,7 +49,7 @@ export function useBRC20AmountList({
         .get('/token/balances/brc20Detail', query)
         .then((r) => r.json())) as BRC20TokenAmountListResponse;
 
-      setAmountList([...resp.transferBalanceList]);
+      setAmountList([...(resp.transferBalanceList ?? [])]);
     } catch (e) {
       // pass
       console.log('fetchBRC20AmountList error', e);

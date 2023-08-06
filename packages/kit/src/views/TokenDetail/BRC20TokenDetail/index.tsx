@@ -72,9 +72,6 @@ function BRC20TokenDetail() {
   const balanceWithoutRecycle = useMemo(() => {
     const { balance, availableBalance, transferBalance } = positionInfo ?? {};
 
-    console.log('balance', balance);
-    console.log('recycleBalance', recycleBalance);
-
     const balanceWithoutRecycle1 = new BigNumber(balance ?? '0').minus(
       recycleBalance,
     );

@@ -100,6 +100,7 @@ const CoinControl = () => {
         networkId,
         accountId,
         sortBy: sortMethod,
+        useRecycleUtxos: true,
       })
       .then((response) => {
         setAllUtxos(response.utxos);
@@ -381,8 +382,15 @@ const CoinControl = () => {
   );
 
   const showAvailableList = useMemo(
-    () => utxosWithoutDust.length > 0 || utxosDust.length > 0,
-    [utxosWithoutDust, utxosDust],
+    () =>
+      utxosWithoutDust.length > 0 ||
+      utxosDust.length > 0 ||
+      recycleUtxosWithoutFrozen.length > 0,
+    [
+      utxosWithoutDust.length,
+      utxosDust.length,
+      recycleUtxosWithoutFrozen.length,
+    ],
   );
   const showAvailableListCheckbox = useMemo(() => isSelectMode, [isSelectMode]);
   // const showAvailableListCheckbox = useMemo(() => true, []);

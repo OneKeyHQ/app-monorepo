@@ -936,6 +936,7 @@ export default class ServiceInscribe extends ServiceBase {
       to,
       amount,
       coinControlDisabled: true,
+      isInscribe: true,
       coinSelectAlgorithm: 'accumulative_desc',
     });
     return encodedTx;

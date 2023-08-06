@@ -875,6 +875,17 @@ export default class VaultBtcFork extends VaultBase {
       txid,
       rawTx: signedTx.rawTx,
     });
+
+    const { inputs } = (signedTx.encodedTx as IEncodedTxBtc) ?? { inputs: [] };
+
+    const utoxIds = inputs.map((input) => getUtxoId(this.networkId, input));
+
+    try {
+      await simpleDb.utxoAccounts.deleteCoinControlItem(utoxIds);
+    } catch {
+      // pass
+    }
+
     return {
       ...signedTx,
       txid,
@@ -1374,6 +1385,10 @@ export default class VaultBtcFork extends VaultBase {
     const isNftTransfer = Boolean(
       transferInfos.find((item) => item.isNFT || item.nftInscription),
     );
+
+    const isInscribeTransfer = Boolean(
+      transferInfos.find((item) => item.isInscribe),
+    );
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const forceSelectUtxos: ICoinSelectUTXOLite[] = [];
@@ -1399,7 +1414,7 @@ export default class VaultBtcFork extends VaultBase {
         vout: voutNum,
         address,
       });
-    } else {
+    } else if (!isInscribeTransfer) {
       const recycleUtxos = await this.getRecycleInscriptionUtxos(
         dbAccount.xpub,
       );
@@ -1568,31 +1583,39 @@ export default class VaultBtcFork extends VaultBase {
     };
   }
 
-  override async getFrozenBalance(): Promise<number> {
-    const result = await this.fetchBalanceDetails();
+  override async getFrozenBalance({
+    useRecycleBalance,
+  }: { useRecycleBalance?: boolean } = {}): Promise<number> {
+    const result = await this.fetchBalanceDetails({ useRecycleBalance });
     if (result && !isNil(result?.unavailable)) {
       return new BigNumber(result.unavailable).toNumber();
     }
     throw new Error('getFrozenBalance ERROR');
   }
 
-  override async fetchBalanceDetails(): Promise<IBalanceDetails | undefined> {
+  override async fetchBalanceDetails({
+    useRecycleBalance,
+  }: {
+    useRecycleBalance?: boolean;
+  } = {}): Promise<IBalanceDetails | undefined> {
     const [dbAccount, network] = await Promise.all([
       this.getDbAccount() as Promise<DBUTXOAccount>,
       this.getNetwork(),
     ]);
     const recycleUtxos = await this.getRecycleInscriptionUtxos(dbAccount.xpub);
     const { utxos, valueDetails, ordQueryStatus } = await this.collectUTXOsInfo(
-      {
-        forceSelectUtxos: recycleUtxos.map((utxo) => {
-          const [txId, vout] = utxo.key.split('_');
-          return {
-            txId,
-            vout: parseInt(vout, 10),
-            address: dbAccount.address,
-          };
-        }),
-      },
+      useRecycleBalance
+        ? {
+            forceSelectUtxos: recycleUtxos.map((utxo) => {
+              const [txId, vout] = utxo.key.split('_');
+              return {
+                txId,
+                vout: parseInt(vout, 10),
+                address: dbAccount.address,
+              };
+            }),
+          }
+        : undefined,
     );
     if (ordQueryStatus === 'ERROR') {
       this.collectUTXOsInfo.clear();

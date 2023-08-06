@@ -181,6 +181,7 @@ export type ITransferInfo = {
   tokenSendAddress?: string; // for sol
   isNFT?: boolean;
   isBRC20?: boolean;
+  isInscribe?: boolean;
   nftTokenId?: string; // NFT token id, btc utxo txid & vout
   nftType?: IErcNftType; // NFT standard: erc721/erc1155
   nftInscription?: ITransferInfoNftInscription;

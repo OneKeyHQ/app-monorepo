@@ -822,17 +822,20 @@ export const useTokenBalanceWithoutFrozen = ({
   accountId,
   token,
   fallback = '0',
+  useRecycleBalance,
 }: {
   networkId: string;
   accountId: string;
   token?: Partial<Token> | null;
   fallback?: string;
+  useRecycleBalance?: boolean;
 }) => {
   const balance = useTokenBalance({ networkId, accountId, token, fallback });
   const frozenBalance = useFrozenBalance({
     networkId,
     accountId,
     tokenId: token?.tokenIdOnNetwork || 'main',
+    useRecycleBalance,
   });
 
   return useMemo(() => {

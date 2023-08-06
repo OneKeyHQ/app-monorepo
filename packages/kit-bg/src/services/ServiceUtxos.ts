@@ -76,11 +76,13 @@ export default class ServiceUtxos extends ServiceBase {
     accountId,
     sortBy = 'balance',
     options = {},
+    useRecycleUtxos = false,
   }: {
     networkId: string;
     accountId: string;
     sortBy?: ISortType;
     options?: ICollectUTXOsOptions;
+    useRecycleUtxos?: boolean;
   }): Promise<{
     utxos: ICoinControlListItem[];
     utxosWithoutDust: ICoinControlListItem[];
@@ -91,7 +93,13 @@ export default class ServiceUtxos extends ServiceBase {
     recycleUtxos: ICoinControlListItem[];
     recycleUtxosWithoutFrozen: ICoinControlListItem[];
   }> {
-    return this._getUtxos(networkId, accountId, sortBy, options);
+    return this._getUtxos(
+      networkId,
+      accountId,
+      sortBy,
+      useRecycleUtxos,
+      options,
+    );
   }
 
   _getUtxos = memoizee(
@@ -99,6 +107,7 @@ export default class ServiceUtxos extends ServiceBase {
       networkId: string,
       accountId: string,
       sortBy: ISortType = 'balance',
+      useRecycleUtxos: boolean,
       options: ICollectUTXOsOptions = {},
     ) => {
       const vault = (await this.backgroundApi.engine.getVault({
@@ -118,19 +127,25 @@ export default class ServiceUtxos extends ServiceBase {
         dbAccount.xpub,
       );
 
-      const { utxos: btcUtxos } = await vault.collectUTXOsInfo({
-        forceSelectUtxos: archivedUtxos
-          .filter((utxo) => utxo.recycle)
-          .map((utxo) => {
-            const [txId, vout] = utxo.key.split('_');
-            return {
-              txId,
-              vout: parseInt(vout, 10),
-              address: dbAccount.address,
-            };
-          }),
-        ...options,
-      });
+      const collectUTXOsInfoOptions = useRecycleUtxos
+        ? {
+            forceSelectUtxos: archivedUtxos
+              .filter((utxo) => utxo.recycle)
+              .map((utxo) => {
+                const [txId, vout] = utxo.key.split('_');
+                return {
+                  txId,
+                  vout: parseInt(vout, 10),
+                  address: dbAccount.address,
+                };
+              }),
+            ...options,
+          }
+        : options;
+
+      const { utxos: btcUtxos } = await vault.collectUTXOsInfo(
+        collectUTXOsInfoOptions,
+      );
 
       let compareFunction: ICompareFn = compareByBalanceOrHeight('value');
       if (sortBy === 'height') {

@@ -611,7 +611,7 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override async getFrozenBalance(password?: string) {
+  override async getFrozenBalance({ password }: { password?: string } = {}) {
     const client = await this.getClient({
       password,
     });
