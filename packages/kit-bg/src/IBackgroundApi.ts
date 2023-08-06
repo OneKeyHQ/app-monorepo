@@ -46,7 +46,6 @@ import type ServiceSocket from './services/ServiceSocket';
 import type ServiceSwap from './services/ServiceSwap';
 import type ServiceToken from './services/ServiceToken';
 import type ServiceTransaction from './services/ServiceTransaction';
-import type ServiceTranslation from './services/ServiceTranslation';
 import type ServiceUtxos from './services/ServiceUtxos';
 import type ServiceWalletConnect from './services/ServiceWalletConnect';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
@@ -115,7 +114,6 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   servicePrice: ServicePrice;
   serviceSwap: ServiceSwap;
   serviceOverview: ServiceOverview;
-  serviceTranslation: ServiceTranslation;
   serviceDiscover: ServiceDiscover;
   serviceMigrate: ServiceMigrate;
   serviceHTTP: ServiceHTTP;

@@ -5,6 +5,7 @@ import uuid from 'react-native-uuid';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { webTabsActions } from '@onekeyhq/kit/src/store/observable/webTabs';
+import { clearTranslations } from '@onekeyhq/kit/src/store/reducers/data';
 import {
   addBookmark,
   cleanOldState,
@@ -56,6 +57,7 @@ class ServicDiscover extends ServiceBase {
   clearData() {
     const { dispatch } = this.backgroundApi;
     dispatch(cleanOldState());
+    dispatch(clearTranslations());
   }
 
   async migrateFavorite() {
