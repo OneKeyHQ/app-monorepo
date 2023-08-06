@@ -344,6 +344,10 @@ export default function ETHStaking() {
 
       if (tokenInfo) {
         onClose?.();
+        await backgroundApiProxy.serviceStaking.registerOnKele({
+          payeeAddr: account.address,
+          networkId,
+        });
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
           params: {
