@@ -115,10 +115,7 @@ class BlockBook {
       .then((response) => {
         const { data } = response;
         const balance = new BigNumber(data.balance);
-        const unconfirmedBalance = new BigNumber(data.unconfirmedBalance);
-        return !unconfirmedBalance.isNaN() && !unconfirmedBalance.isZero()
-          ? balance.plus(unconfirmedBalance)
-          : balance;
+        return balance;
       });
   }
 
