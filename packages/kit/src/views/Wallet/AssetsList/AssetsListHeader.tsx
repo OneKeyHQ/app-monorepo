@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import {
   HomeRoutes,
   ModalRoutes,
@@ -270,11 +271,13 @@ const AssetsListHeader: FC<{
     backgroundApiProxy.serviceOverview.refreshCurrentAccount();
   }, []);
 
+  const homeTabName = useAppSelector((s) => s.status.homeTabName);
+
   const refreshButton = useMemo(
     () => (
       <Box alignItems="center" justifyContent="center" w="8" h="8" mr="3">
         {loading ? (
-          <Spinner size="sm" />
+          <Spinner size="sm" key={homeTabName} />
         ) : (
           <IconButton
             onPress={refresh}
@@ -286,7 +289,7 @@ const AssetsListHeader: FC<{
         )}
       </Box>
     ),
-    [loading, refresh],
+    [loading, refresh, homeTabName],
   );
 
   return (

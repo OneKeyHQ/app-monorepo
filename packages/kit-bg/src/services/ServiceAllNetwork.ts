@@ -135,7 +135,7 @@ export default class ServiceAllNetwork extends ServiceBase {
     if (index === -1) {
       return [];
     }
-    return new Array(index + 1).fill(1).map((_, i) =>
+    return new Array(Math.min(index + 1, 3)).fill(1).map((_, i) =>
       generateFakeAllnetworksAccount({
         accountId: `${walletId}--${i}`,
       }),

@@ -1,20 +1,21 @@
-import { useContext, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 
 import MarketPriceChart from '../../Market/Components/MarketDetail/MarketPriceChart';
 import PriceChart from '../../PriceChart/PriceChart';
-import { TokenDetailContext } from '../context';
 
-export const ChartSection = () => {
-  const context = useContext(TokenDetailContext);
+import type { HomeRoutes } from '../../../routes/routesEnum';
+import type { HomeRoutesParams } from '../../../routes/types';
 
-  const {
-    networkId = '',
-    coingeckoId,
-    tokenAddress,
-    symbol,
-  } = context?.routeParams ?? {};
+export const ChartSection: FC<
+  Pick<
+    HomeRoutesParams[HomeRoutes.ScreenTokenDetail],
+    'networkId' | 'coingeckoId' | 'tokenAddress' | 'symbol'
+  >
+> = (props) => {
+  const { networkId = '', coingeckoId, tokenAddress, symbol } = props;
 
   const content = useMemo(() => {
     if (isAllNetworks(networkId)) {

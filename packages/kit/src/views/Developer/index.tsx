@@ -5,7 +5,6 @@ import { useNavigation } from '@react-navigation/core';
 import fetch from 'cross-fetch';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
-import uuidLib from 'react-native-uuid';
 import useCookie from 'react-use-cookie';
 
 import {
@@ -43,7 +42,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import walletConnectUtils from '../../components/WalletConnect/utils/walletConnectUtils';
 import { WalletConnectDappSideTest } from '../../components/WalletConnect/WalletConnectDappSideTest';
-import { useNavigationActions } from '../../hooks';
+import { useAsyncStorage, useNavigationActions } from '../../hooks';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import {
   GalleryRoutes,
@@ -66,6 +65,8 @@ type NavigationProps = CompositeNavigationProp<
 
 const DEFAULT_TEST_EVM_ADDRESS_1 = '0x76f3f64cb3cd19debee51436df630a342b736c24';
 const DEFAULT_TEST_EVM_ADDRESS_2 = '0xA9b4d559A98ff47C83B74522b7986146538cD4dF';
+
+const useStorage = platformEnv.isWeb ? useCookie : useAsyncStorage;
 export const Debug = () => {
   const intl = useIntl();
   const [uri, setUri] = useState('');
@@ -215,7 +216,7 @@ export const Debug = () => {
     ],
   );
 
-  const [rrtStatus, changeRRTStatus] = useCookie('rrt', '0');
+  const [rrtStatus, changeRRTStatus] = useStorage('rrt', '0');
 
   return (
     <ScrollView px={4} py={{ base: 6, md: 8 }} bg="background-default">
@@ -830,8 +831,14 @@ export const Debug = () => {
             <Pressable
               {...pressableProps}
               onPress={() => {
-                changeRRTStatus(rrtStatus === '1' ? '0' : '1');
-                window.location.reload();
+                (changeRRTStatus as (value: string) => void)(
+                  rrtStatus === '1' ? '0' : '1',
+                );
+                if (platformEnv.isNative) {
+                  alert('Please manually restart the app.');
+                } else {
+                  window.location.reload();
+                }
               }}
             >
               <Typography.Body1>
