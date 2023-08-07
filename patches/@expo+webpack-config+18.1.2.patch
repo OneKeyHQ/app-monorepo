@@ -1,3 +1,16 @@
+diff --git a/node_modules/@expo/webpack-config/webpack/plugins/ExpectedErrors/parseNotFoundError.js b/node_modules/@expo/webpack-config/webpack/plugins/ExpectedErrors/parseNotFoundError.js
+index 8c29536..0dc7879 100644
+--- a/node_modules/@expo/webpack-config/webpack/plugins/ExpectedErrors/parseNotFoundError.js
++++ b/node_modules/@expo/webpack-config/webpack/plugins/ExpectedErrors/parseNotFoundError.js
+@@ -155,7 +155,7 @@ async function createStackTrace(projectRoot, { loc, originalSource }) {
+         };
+     }
+     catch (err) {
+-        console.log('Failed to parse source map:', err);
++        // console.log('Failed to parse source map:', err);
+         // Don't fail on failure to resolve sourcemaps
+         return null;
+     }
 diff --git a/node_modules/@expo/webpack-config/webpack/plugins/ExpoHtmlWebpackPlugin.js b/node_modules/@expo/webpack-config/webpack/plugins/ExpoHtmlWebpackPlugin.js
 index 6b8ae60..7c7e758 100644
 --- a/node_modules/@expo/webpack-config/webpack/plugins/ExpoHtmlWebpackPlugin.js
