@@ -40,8 +40,6 @@ type NavigationProps = NativeStackNavigationProp<TabRoutesParams>;
 function TxDetailStatusInfoBox(props: Props) {
   const { decodedTx, isSendConfirm, tokensInTx } = props;
 
-  console.log(decodedTx);
-
   const navigation = useNavigation<NavigationProps>();
 
   const intl = useIntl();
