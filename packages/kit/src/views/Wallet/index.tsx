@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
@@ -319,5 +319,6 @@ const Wallet = () => {
     </>
   );
 };
+Wallet.displayName = 'HomeTabWallet';
 
-export default memo(Wallet);
+export default Wallet;

@@ -16,6 +16,7 @@ import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { ModalRoutes, RootRoutes } from '../routes/routesEnum';
 import { getPreBaseValue } from '../utils/priceUtils';
+import { createDeepEqualSelector } from '../utils/reselectUtils';
 import {
   EOverviewScanTaskType,
   OverviewModalRoutes,
@@ -170,10 +171,16 @@ export const useAccountPortfolios = <
     updatedAt: undefined,
     loading: true,
   });
-  const updateInfo = useOverviewAccountUpdateInfo({
-    networkId: networkId ?? '',
-    accountId: accountId ?? '',
-  });
+  const updateInfoUpdatedAt = useAppSelector(
+    useMemo(
+      () =>
+        updatedTimeSelector({
+          networkId: networkId ?? '',
+          accountId: accountId ?? '',
+        }),
+      [accountId, networkId],
+    ),
+  );
 
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
     accountId,
@@ -184,7 +191,7 @@ export const useAccountPortfolios = <
       setState({
         loading: false,
         data: [],
-        updatedAt: updateInfo?.updatedAt,
+        updatedAt: updateInfoUpdatedAt,
       });
       return;
     }
@@ -195,9 +202,9 @@ export const useAccountPortfolios = <
     setState({
       loading: false,
       data: res?.[type] || [],
-      updatedAt: updateInfo?.updatedAt,
+      updatedAt: updateInfoUpdatedAt,
     });
-  }, [accountId, networkId, type, networkAccountsMap, updateInfo?.updatedAt]);
+  }, [accountId, networkId, type, networkAccountsMap, updateInfoUpdatedAt]);
 
   useEffect(() => {
     fetchData();
@@ -206,20 +213,64 @@ export const useAccountPortfolios = <
   return state;
 };
 
+const balancesSelector = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) =>
+  createDeepEqualSelector(
+    (s: IAppState) => {
+      const { accountTokensBalance } = s.tokens;
+      const accountBalance = accountTokensBalance?.[networkId]?.[accountId];
+      if (accountBalance) {
+        return Object.fromEntries(
+          Object.entries(accountBalance).map(([tokenId, data]) => [
+            tokenId,
+            { balance: data?.balance ?? '0' },
+          ]),
+        );
+      }
+      return {};
+    },
+    (tokenBalances) => tokenBalances,
+  );
+
+const tokensSelector = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) =>
+  createSelector(
+    (s: IAppState) => s.tokens.accountTokens?.[networkId]?.[accountId] ?? [],
+    (accountTokens) => accountTokens,
+  );
+
 export function useAccountTokensOnChain(
   networkId = '',
   accountId = '',
   useFilter = false,
 ) {
-  const { hideRiskTokens, hideSmallBalance, putMainTokenOnTop } =
-    useAppSelector((s) => s.settings);
-  const tokens =
-    useAppSelector((s) => s.tokens.accountTokens?.[networkId]?.[accountId]) ??
-    [];
+  const hideRiskTokens = useAppSelector((s) => s.settings.hideRiskTokens);
+  const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
+  const putMainTokenOnTop = useAppSelector((s) => s.settings.putMainTokenOnTop);
+  const tokens = useAppSelector(
+    useMemo(
+      () => tokensSelector({ networkId, accountId }),
+      [accountId, networkId],
+    ),
+  );
   const balances =
     useAppSelector(
-      (s) => s.tokens.accountTokensBalance?.[networkId]?.[accountId],
+      useMemo(
+        () => balancesSelector({ networkId, accountId }),
+        [accountId, networkId],
+      ),
     ) ?? [];
+
   const prices = useAppSelector((s) => s.tokens.tokenPriceMap) ?? {};
 
   const valueTokens = tokens.map((t) => {
@@ -236,7 +287,7 @@ export function useAccountTokensOnChain(
         vsCurrency: 'usd',
       }).usd ?? 0,
     );
-    const info = {
+    return {
       ...t,
       price,
       price24h,
@@ -245,7 +296,6 @@ export function useAccountTokensOnChain(
       usdValue: usdValue.toString(),
       value24h: value24h.toString(),
     };
-    return info;
   });
 
   return filterAccountTokens<IAccountTokenOnChain[]>({
@@ -367,8 +417,9 @@ export function useAccountTokens({
   useFilter?: boolean;
   limitSize?: number;
 }) {
-  const { hideRiskTokens, hideSmallBalance, putMainTokenOnTop } =
-    useAppSelector((s) => s.settings);
+  const hideRiskTokens = useAppSelector((s) => s.settings.hideRiskTokens);
+  const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
+  const putMainTokenOnTop = useAppSelector((s) => s.settings.putMainTokenOnTop);
 
   const { data: allNetworksTokens = [], loading: allNetworksTokensLoading } =
     useAccountPortfolios({
@@ -536,7 +587,9 @@ export const useAccountValues = (props: {
   accountId: string;
 }) => {
   const { networkId, accountId } = props;
-  const { includeNFTsInTotal } = useAppSelector((s) => s.settings);
+  const includeNFTsInTotal = useAppSelector(
+    (s) => s.settings.includeNFTsInTotal,
+  );
 
   const { data: defis = [] } = useAccountPortfolios({
     networkId,
@@ -895,15 +948,29 @@ export const useTokenDetailInfo = ({
   tokenAddress?: string;
   defaultInfo?: Record<string, unknown>;
 }) => {
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<ITokenDetailInfo | undefined>();
+  const [dataState, setDataState] = useState<{
+    data?: ITokenDetailInfo | undefined;
+    loading: boolean;
+  }>({
+    data: undefined,
+    loading: true,
+  });
   const { token, loading: tokenLoading } = useSingleToken(
     networkId ?? '',
     tokenAddress ?? '',
   );
 
   useEffect(() => {
-    setLoading(true);
+    setDataState((pre) => {
+      if (pre.loading) {
+        return pre;
+      }
+      return {
+        data: undefined,
+        loading: true,
+      };
+    });
+
     backgroundApiProxy.serviceToken
       .fetchTokenDetailInfo({
         coingeckoId,
@@ -911,13 +978,23 @@ export const useTokenDetailInfo = ({
         tokenAddress,
         accountId,
       })
-      .then((res) => setData(res))
-      .finally(() => setLoading(false));
+      .then((res) =>
+        setDataState({
+          data: res,
+          loading: false,
+        }),
+      )
+      .catch(() =>
+        setDataState({
+          data: undefined,
+          loading: false,
+        }),
+      );
   }, [coingeckoId, networkId, tokenAddress, accountId]);
 
   return useMemo(() => {
-    const { defaultChain } = data ?? {};
-    const tokens = data?.tokens ?? [];
+    const { defaultChain } = dataState?.data ?? {};
+    const tokens = dataState?.data?.tokens ?? [];
     if (!tokens.length && token) {
       tokens.push(token);
     }
@@ -937,11 +1014,11 @@ export const useTokenDetailInfo = ({
     return {
       ...defaultInfo,
       ...pick(token, 'name', 'symbol', 'logoURI'),
-      ...data,
-      loading: loading || tokenLoading,
+      ...dataState?.data,
+      loading: dataState?.loading || tokenLoading,
       tokens,
       defaultToken,
       ethereumNativeToken,
     };
-  }, [data, token, loading, tokenLoading, defaultInfo]);
+  }, [dataState?.data, token, dataState?.loading, tokenLoading, defaultInfo]);
 };

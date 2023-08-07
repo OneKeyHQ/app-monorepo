@@ -17,6 +17,7 @@
     "lint": "ultra lint:project",
     "reset-cache": "node development/resetCache.js",
     "native": "yarn workspace @onekeyhq/app start",
+    "native:start": "yarn workspace @onekeyhq/app react-start",
     "stats:ios": "node development/build-ios-stats.js",
     "ios": "yarn copy:inject && yarn workspace @onekeyhq/app ios",
     "ios:device": "yarn copy:inject && yarn workspace @onekeyhq/app ios:device",
@@ -50,7 +51,9 @@
     "stats:web": "yarn workspace @onekeyhq/web stats",
     "web-bundle-analyzer": "ANALYSE_MODULE=1 yarn stats:web && yarn webpack-bundle-analyzer packages/web/web-build/stats.json",
     "swap-lock-registry": "npx swap-lock-registry --yarn --parallel --url https://registry.yarnpkg.com yarn.lock",
-    "debug:hardware-sdk": "node ./development/debug-hardware-sdk.js"
+    "debug:hardware-sdk": "node ./development/debug-hardware-sdk.js",
+    "debug:android:tracker": "adb reverse tcp:8081 tcp:8081 && adb reverse tcp:8177 tcp:8177 && npx react-native-rempl",
+    "debug:tracker": "npx react-native-rempl"
   },
   "ultra": {
     "concurrent": [

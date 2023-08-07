@@ -22,9 +22,6 @@ export const useListSort = () => {
   return useMemo(() => listSort, [listSort]);
 };
 
-export const useMobileMarketTopTabName = () =>
-  useAppSelector((s) => s.market.marketTopTabName) || TabRoutes.Swap;
-
 const useMarketCategoryCoingeckoIds = () => {
   const selectedCategory = useMarketSelectedCategory();
   return useMemo(() => {
