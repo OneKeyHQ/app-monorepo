@@ -1,11 +1,11 @@
 import { useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { TxSettingTrigger } from '../TxSetting/TxSettingTrigger';
 import { BulkSenderRoutes, IntervalTypeEnum } from '../types';
-import { useIntl } from 'react-intl';
 
 type Props = {
   intervalType: IntervalTypeEnum;

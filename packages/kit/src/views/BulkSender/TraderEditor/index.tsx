@@ -65,8 +65,6 @@ function TraderEditor(props: Props) {
       ),
     });
 
-    console.log('trader', trader);
-
     setTrader(trader);
   }, [
     amountType,

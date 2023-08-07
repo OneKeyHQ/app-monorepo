@@ -278,6 +278,13 @@ export default class ServiceToken extends ServiceBase {
     const vaultSettings = await engine.getVaultSettings(networkId);
     const dbNetwork = await engine.dbApi.getNetwork(networkId);
     const dbAccounts = await engine.dbApi.getAccounts(accountIds);
+    let token: Token | undefined;
+    if (tokenAddress) {
+      token = await engine.findToken({
+        networkId,
+        tokenIdOnNetwork: tokenAddress,
+      });
+    }
 
     let balances: Array<BigNumber | undefined>;
     let password;
@@ -321,7 +328,9 @@ export default class ServiceToken extends ServiceBase {
     const data = dbAccounts.reduce((result, item, index) => {
       const balance = balances[index];
       result[item.id] = balance
-        ? balance.div(new BigNumber(10).pow(dbNetwork.decimals)).toFixed()
+        ? balance
+            .div(new BigNumber(10).pow(token?.decimals ?? dbNetwork.decimals))
+            .toFixed()
         : undefined;
       return result;
     }, {} as Record<string, string | undefined>);

@@ -104,7 +104,9 @@ function SendProgress({
 
   const interactInfo = useInteractWithInfo({ sourceInfo });
   const isManyToN = useMemo(
-    () => bulkType === BulkTypeEnum.ManyToMany || BulkTypeEnum.ManyToOne,
+    () =>
+      bulkType === BulkTypeEnum.ManyToMany ||
+      bulkType === BulkTypeEnum.ManyToOne,
     [bulkType],
   );
   const isExternal = useMemo(

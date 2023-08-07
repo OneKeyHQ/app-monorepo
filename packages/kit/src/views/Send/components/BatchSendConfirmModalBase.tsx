@@ -148,7 +148,7 @@ function BatchSendConfirmModalBase(props: IBatchTxsConfirmViewProps) {
           isAccountNotMatched={isAccountNotMatched}
         />
       )}
-      {network?.settings.nativeSupportBatchTransfer ? null : (
+      {network?.settings.nativeSupportBatchTransfer || isManyToN ? null : (
         <Box mb={3}>
           <Alert
             dismiss={false}

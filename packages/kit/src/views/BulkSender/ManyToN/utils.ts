@@ -216,10 +216,15 @@ export const verifyBulkTransferBeforeConfirm = async ({
 
           const feeRange = calculateTotalFeeRange(currentInfoUnit);
           const total = feeRange.max;
-          totalFeeNative = calculateTotalFeeNative({
-            amount: total,
-            info: feeInfo,
-          });
+          // use 1.5 times of the fee as the total fee to make sure the tx can be sent
+          totalFeeNative = new BigNumber(
+            calculateTotalFeeNative({
+              amount: total,
+              info: feeInfo,
+            }),
+          )
+            .times(1.5)
+            .toFixed();
         } catch {
           ToastManager.show({
             title: intl.formatMessage({
@@ -256,9 +261,8 @@ export const verifyBulkTransferBeforeConfirm = async ({
         walletId,
         networkId,
         accountIds: senderAccounts,
-        tokenAddress: token.tokenIdOnNetwork,
+        tokenAddress: token.tokenIdOnNetwork ?? token.address,
       });
-
   for (let i = 0; i < sender.length; i += 1) {
     let senderAmount = '0';
     const senderItem = sender[i];

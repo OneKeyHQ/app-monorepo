@@ -23,9 +23,12 @@ import {
   useTokenBalance,
 } from '@onekeyhq/kit/src/hooks';
 import {
+  HomeRoutes,
+  MainRoutes,
   ModalRoutes,
   RootRoutes,
   SendModalRoutes,
+  TabRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
 import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -33,20 +36,27 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AmountEditorTrigger } from '../AmountEditor/AmountEditorTrigger';
 import { showApprovalSelector } from '../ApprovalSelector';
 import { amountDefaultTypeMap } from '../constants';
-import { useValidteTrader } from '../hooks';
+import { useValidateTrader } from '../hooks';
 import { TraderExample } from '../TraderExample';
 import { TraderInput } from '../TraderInput';
 import { TxSettingPanel } from '../TxSetting/TxSettingPanel';
 import { TxSettingTrigger } from '../TxSetting/TxSettingTrigger';
 import { AmountTypeEnum, BulkSenderRoutes } from '../types';
 
+import type { RootRoutesParams } from '../../../routes/types';
 import type { TokenTrader } from '../types';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 interface Props {
   accountId: string;
   networkId: string;
   accountAddress: string;
 }
+
+type NavigationProps = NativeStackNavigationProp<
+  RootRoutesParams,
+  RootRoutes.Main
+>;
 
 const bulkType = BulkTypeEnum.OneToMany;
 
@@ -68,7 +78,7 @@ function OneToMany(props: Props) {
 
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProps>();
   const { network } = useNetwork({ networkId });
 
   const accountTokens = useAccountTokensOnChain(networkId, accountId, true);
@@ -92,7 +102,7 @@ function OneToMany(props: Props) {
     fallback: '0',
   });
 
-  const { isValid, isValidating, errors } = useValidteTrader({
+  const { isValid, isValidating, errors } = useValidateTrader({
     networkId,
     trader: receiver,
     token: currentToken,
@@ -193,7 +203,7 @@ function OneToMany(props: Props) {
         transferInfos.push({
           from: accountAddress,
           to: receiver[i].Address,
-          amount: receiver[i].Amount,
+          amount: receiver[i].Amount ?? amount[0],
           token: token?.tokenIdOnNetwork,
           tokenSendAddress: token?.sendAddress,
         });
@@ -295,6 +305,7 @@ function OneToMany(props: Props) {
   }, [
     accountAddress,
     accountId,
+    amount,
     initialToken,
     isBuildingTx,
     isUnlimited,
@@ -366,6 +377,30 @@ function OneToMany(props: Props) {
       setSelectedToken(null);
     }
   }, [accountId, networkId]);
+
+  useEffect(() => {
+    if (
+      network &&
+      !(network?.settings?.nativeSupportBatchTransfer
+        ? true
+        : batchTransferContractAddress[networkId])
+    ) {
+      navigation.replace(RootRoutes.Main, {
+        screen: MainRoutes.Tab,
+        params: {
+          screen: TabRoutes.Home,
+          params: {
+            screen: HomeRoutes.BulkSender,
+          },
+        },
+      });
+    }
+  }, [
+    navigation,
+    network,
+    network?.settings?.nativeSupportBatchTransfer,
+    networkId,
+  ]);
 
   return (
     <Box>

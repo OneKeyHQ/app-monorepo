@@ -11,7 +11,6 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
 import {
   useAccountTokensOnChain,
-  useAppSelector,
   useNativeToken,
   useNetwork,
 } from '@onekeyhq/kit/src/hooks';
@@ -25,7 +24,7 @@ import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AmountEditorTrigger } from '../AmountEditor/AmountEditorTrigger';
 import { amountDefaultTypeMap } from '../constants';
-import { useValidteTrader } from '../hooks';
+import { useValidateTrader } from '../hooks';
 import { IntervalEditorTrigger } from '../IntervalEditor/IntervalEditorTrigger';
 import { TraderExample } from '../TraderExample';
 import { TraderInput } from '../TraderInput';
@@ -49,6 +48,8 @@ interface Props {
   bulkType: BulkTypeEnum;
 }
 
+const DEFAULT_FEE_PRESET_INDEX = '2';
+
 function ManyToN(props: Props) {
   const { accountId, networkId, walletId, bulkType, accountAddress } = props;
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
@@ -62,8 +63,6 @@ function ManyToN(props: Props) {
   const [verifySenderErrors, setVerifySenderErrors] = useState<TraderError[]>(
     [],
   );
-
-  const [feePresetIndex, setFeePresetIndex] = useState('1');
 
   const [amountType, setAmountType] = useState<AmountTypeEnum>(
     amountDefaultTypeMap[bulkType] ?? AmountTypeEnum.Fixed,
@@ -94,7 +93,7 @@ function ManyToN(props: Props) {
     isValid: isValidSender,
     isValidating: isValidatingSender,
     errors: senderErrors,
-  } = useValidteTrader({
+  } = useValidateTrader({
     networkId,
     trader: sender,
     token: currentToken,
@@ -105,7 +104,7 @@ function ManyToN(props: Props) {
     isValid: isValidReceiver,
     isValidating: isValidatingReceiver,
     errors: receiverErrors,
-  } = useValidteTrader({
+  } = useValidateTrader({
     networkId,
     trader: receiver,
     token: currentToken,
@@ -211,7 +210,7 @@ function ManyToN(props: Props) {
         bulkType,
         token: currentToken,
         nativeToken,
-        feePresetIndex,
+        feePresetIndex: DEFAULT_FEE_PRESET_INDEX,
         intl,
       });
 
@@ -293,7 +292,6 @@ function ManyToN(props: Props) {
     amountType,
     bulkType,
     currentToken,
-    feePresetIndex,
     intervalType,
     intl,
     isDisabled,

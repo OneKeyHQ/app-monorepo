@@ -52,7 +52,7 @@ export function useDropUpload<T>(
   };
 }
 
-export function useValidteTrader({
+export function useValidateTrader({
   networkId,
   trader,
   token,

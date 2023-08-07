@@ -6,6 +6,8 @@ import {
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
+import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 
 import { useNetworkSimple } from '../../../hooks';
 
@@ -38,17 +40,44 @@ function ModelSelector(props: Props) {
   const isVertical = useIsVerticalLayout();
 
   const modes = useMemo(() => {
-    const supportedModes = network?.settings.supportBatchTransfer ?? [];
+    const supportedModes = network?.settings?.supportBatchTransfer ?? [];
 
-    return supportedModes.map((mode) => (
-      <ModeItem
-        mode={mode}
-        {...(isVertical
-          ? modeItemInVerticalLayoutStyle
-          : modeItemInHorizontalLayoutStyle)}
-      />
-    ));
-  }, [isVertical, network?.settings.supportBatchTransfer]);
+    return supportedModes
+      .map((mode) => {
+        if (mode === BulkTypeEnum.OneToMany) {
+          if (
+            network?.settings?.nativeSupportBatchTransfer
+              ? true
+              : batchTransferContractAddress[networkId]
+          ) {
+            return (
+              <ModeItem
+                mode={mode}
+                {...(isVertical
+                  ? modeItemInVerticalLayoutStyle
+                  : modeItemInHorizontalLayoutStyle)}
+              />
+            );
+          }
+          return null;
+        }
+
+        return (
+          <ModeItem
+            mode={mode}
+            {...(isVertical
+              ? modeItemInVerticalLayoutStyle
+              : modeItemInHorizontalLayoutStyle)}
+          />
+        );
+      })
+      .filter(Boolean);
+  }, [
+    isVertical,
+    network?.settings.nativeSupportBatchTransfer,
+    network?.settings.supportBatchTransfer,
+    networkId,
+  ]);
 
   return isVertical ? (
     <VStack space={3} padding={4}>

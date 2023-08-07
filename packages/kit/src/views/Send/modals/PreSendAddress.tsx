@@ -38,7 +38,6 @@ import { useActiveSideAccount, useNativeToken } from '../../../hooks';
 import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounced';
 import { useSingleToken } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
-import { BulkSenderTypeEnum } from '../../BulkSender/types';
 import { lightningNetworkSendConfirm } from '../../LightningNetwork/Send/lightningNetworkSendUtils';
 import { BaseSendModal } from '../components/BaseSendModal';
 import NFTView from '../components/NFTView';
