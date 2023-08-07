@@ -26,7 +26,7 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks';
 
 import DAppIcon, { FallbackIcon } from '../../components/DAppIcon';
 import { useUserBrowserHistories } from '../../hooks';
-import { useSearchLocalDapp } from '../../hooks/useSearchLocalDapp';
+import { useSearchDapps } from '../../hooks/useSearchDapps';
 
 import type {
   MatchDAppItemType,
@@ -57,10 +57,7 @@ const SearchView = forwardRef<SearchViewRef, SearchViewProps>(
     const ele = useRef<HTMLDivElement>(null);
     const flatListRef = useRef<any>(null);
 
-    const { searchedDapps } = useSearchLocalDapp(
-      searchContentTerm,
-      searchContent,
-    );
+    const { searchedDapps } = useSearchDapps(searchContentTerm, searchContent);
 
     const discoverHistory = useUserBrowserHistories();
 

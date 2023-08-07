@@ -162,7 +162,6 @@ export default class ServiceToken extends ServiceBase {
         accountTokens.push(...accountTokensInRedux);
       }
 
-      const { selectedFiatMoneySymbol } = appSelector((s) => s.settings);
       try {
         const [, autodetectedTokens = []] = await this.getAccountTokenBalance({
           accountId,
@@ -183,7 +182,6 @@ export default class ServiceToken extends ServiceBase {
         networkId,
         accountId,
         tokenIds: accountTokens.map((t) => t.tokenIdOnNetwork),
-        vsCurrency: selectedFiatMoneySymbol,
       });
 
       const vault = await engine.getVault({

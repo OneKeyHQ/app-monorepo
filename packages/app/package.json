@@ -4,6 +4,7 @@
   "version": "0.0.1",
   "scripts": {
     "start": "expo start --dev-client",
+    "react-start": "react-native start",
     "android": "ANDROID_CHANNEL=direct expo run:android --variant=DirectDebug",
     "android:device": "ANDROID_CHANNEL=direct expo run:android --variant=DirectDebug --device",
     "android:huawei": "ANDROID_CHANNEL=huawei expo run:android --variant=HuaweiDebug",

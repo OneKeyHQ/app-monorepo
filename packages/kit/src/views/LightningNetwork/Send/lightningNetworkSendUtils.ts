@@ -23,6 +23,7 @@ type NavigationProps = ModalScreenProps<SendRoutesParams>;
 
 async function lightningNetworkSendConfirm({
   toVal,
+  walletId,
   network,
   networkId,
   account,
@@ -34,6 +35,7 @@ async function lightningNetworkSendConfirm({
   intl,
 }: {
   toVal: string;
+  walletId: string;
   network: Network | null | undefined;
   networkId: string;
   account: Account | undefined;
@@ -53,7 +55,18 @@ async function lightningNetworkSendConfirm({
       const lnurlDetails = await serviceLightningNetwork.getLnurlDetails(lnurl);
 
       if (lnurlDetails.tag === 'login') {
-        // TODO: navigate to login auth page
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendModalRoutes.LNURLAuth,
+            params: {
+              walletId,
+              networkId,
+              accountId,
+              lnurlDetails,
+            },
+          },
+        });
       }
 
       if (lnurlDetails.tag === 'payRequest') {

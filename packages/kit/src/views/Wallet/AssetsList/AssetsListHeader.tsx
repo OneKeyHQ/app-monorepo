@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import {
   HomeRoutes,
   ModalRoutes,
@@ -34,20 +35,142 @@ import {
   useAccountTokenValues,
   useAccountTokens,
   useAccountValues,
+  useActiveWalletAccount,
   useNavigation,
 } from '../../../hooks';
-import { useActiveWalletAccount } from '../../../hooks/redux';
 import { ManageTokenModalRoutes } from '../../../routes/routesEnum';
 import { showHomeBalanceSettings } from '../../Overlay/HomeBalanceSettings';
 import { OverviewBadge } from '../../Overview/components/OverviewBadge';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type BigNumber from 'bignumber.js';
 
 type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
   RootRoutes.Main
 > &
   NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.FullTokenListScreen>;
+
+const RefreshButton = memo(
+  ({
+    refreshing,
+    onRefresh,
+  }: {
+    refreshing: boolean;
+    onRefresh: () => void;
+  }) => {
+    const homeTabName = useAppSelector((s) => s.status.homeTabName);
+
+    return (
+      <Box alignItems="center" justifyContent="center" w="8" h="8" mr="3">
+        {refreshing ? (
+          <Spinner size="sm" key={homeTabName} />
+        ) : (
+          <IconButton
+            onPress={onRefresh}
+            size="sm"
+            name="ArrowPathMini"
+            type="plain"
+            ml="auto"
+          />
+        )}
+      </Box>
+    );
+  },
+);
+RefreshButton.displayName = 'RefreshButton';
+
+const OuterHeader = memo(
+  ({
+    onNavigate,
+    onShowHomeBalanceSettings,
+    tokenEnabled,
+    networkId,
+    accountId,
+  }: {
+    onNavigate: () => void;
+    onShowHomeBalanceSettings: () => void;
+    tokenEnabled: boolean;
+    networkId: string;
+    accountId: string;
+  }) => {
+    const intl = useIntl();
+
+    const loading = useAccountIsUpdating({
+      networkId,
+      accountId,
+    });
+
+    const refresh = useCallback(() => {
+      backgroundApiProxy.serviceOverview.refreshCurrentAccount();
+    }, []);
+
+    return (
+      <Box
+        flexDirection="row"
+        justifyContent="space-between"
+        alignItems="center"
+        pb={3}
+      >
+        <Typography.Heading>
+          {intl.formatMessage({ id: 'title__assets' })}
+        </Typography.Heading>
+        {tokenEnabled && (
+          <HStack alignItems="center" justifyContent="flex-end">
+            {isAllNetworks(networkId) ? null : (
+              <RefreshButton refreshing={loading} onRefresh={refresh} />
+            )}
+            {isAllNetworks(networkId) ? null : (
+              <IconButton
+                onPress={onNavigate}
+                size="sm"
+                name="PlusMini"
+                type="plain"
+                ml="auto"
+                mr={3}
+              />
+            )}
+            <IconButton
+              onPress={onShowHomeBalanceSettings}
+              size="sm"
+              name="Cog8ToothMini"
+              type="plain"
+              mr={-2}
+            />
+          </HStack>
+        )}
+      </Box>
+    );
+  },
+);
+OuterHeader.displayName = 'OuterHeader';
+
+const TokenBalancesMemo = memo(
+  ({ tokenAmount }: { tokenAmount: BigNumber }) => (
+    <Text typography={{ sm: 'DisplayLarge', md: 'Heading' }}>
+      {Number.isNaN(tokenAmount) || tokenAmount.isNaN() ? (
+        ' '
+      ) : (
+        <FormatCurrencyNumber value={0} convertValue={tokenAmount} />
+      )}
+    </Text>
+  ),
+  (prevProps, nextProps) =>
+    prevProps.tokenAmount.isEqualTo(nextProps.tokenAmount),
+);
+TokenBalancesMemo.displayName = 'TokenBalancesMemo';
+
+const RateBadgeMemo = memo(
+  ({ rate }: { rate: BigNumber }) => {
+    if (rate.isNaN()) {
+      return null;
+    }
+
+    return <OverviewBadge rate={rate} />;
+  },
+  (prevProps, nextProps) => prevProps.rate.isEqualTo(nextProps.rate),
+);
+RateBadgeMemo.displayName = 'RateBadgeMemo';
 
 const ListHeader: FC<{
   showTokenCount?: boolean;
@@ -180,35 +303,17 @@ const ListHeader: FC<{
               borderRadius="2px"
               bg="text-default"
             />
-            <Text typography={{ sm: 'DisplayLarge', md: 'Heading' }}>
-              {accountTokensValue.isNaN() ? (
-                ' '
-              ) : (
-                <FormatCurrencyNumber
-                  value={0}
-                  convertValue={accountTokensValue}
-                />
-              )}
-            </Text>
+            <TokenBalancesMemo tokenAmount={accountTokensValue} />
           </Box>
         )}
-        {rate.isNaN() ? null : <OverviewBadge rate={rate} />}
+        <RateBadgeMemo rate={rate} />
         <Box ml="auto" flexDirection="row" alignItems="center">
           {tokenCountOrAddToken}
         </Box>
       </Box>
       <Box mt={isVerticalLayout ? '8px' : '16px'}>
         {isVerticalLayout ? (
-          <Text typography={{ sm: 'DisplayLarge', md: 'Heading' }}>
-            {Number.isNaN(accountTokensValue) ? (
-              ' '
-            ) : (
-              <FormatCurrencyNumber
-                value={0}
-                convertValue={accountTokensValue}
-              />
-            )}
-          </Text>
+          <TokenBalancesMemo tokenAmount={accountTokensValue} />
         ) : (
           <Box flexDirection="row" w="full">
             <Typography.Subheading color="text-subdued" flex={1}>
@@ -248,16 +353,10 @@ const AssetsListHeader: FC<{
   showInnerHeaderRoundTop,
   innerHeaderBorderColor,
 }) => {
-  const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  const { network, wallet, networkId, accountId } = useActiveWalletAccount();
+  const { network, wallet, accountId } = useActiveWalletAccount();
   const { tokenEnabled: networkTokenEnabled, activateTokenRequired } =
     network?.settings ?? { tokenEnabled: false, activateTokenRequired: false };
-
-  const loading = useAccountIsUpdating({
-    networkId,
-    accountId,
-  });
 
   const tokenEnabled = useMemo(() => {
     if (wallet?.type === WALLET_TYPE_WATCHING && activateTokenRequired) {
@@ -266,71 +365,27 @@ const AssetsListHeader: FC<{
     return networkTokenEnabled;
   }, [activateTokenRequired, networkTokenEnabled, wallet?.type]);
 
-  const refresh = useCallback(() => {
-    backgroundApiProxy.serviceOverview.refreshCurrentAccount();
-  }, []);
+  const navigationManageToken = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.ManageToken,
+      params: { screen: ManageTokenModalRoutes.Listing },
+    });
+  }, [navigation]);
 
-  const refreshButton = useMemo(
-    () => (
-      <Box alignItems="center" justifyContent="center" w="8" h="8" mr="3">
-        {loading ? (
-          <Spinner size="sm" />
-        ) : (
-          <IconButton
-            onPress={refresh}
-            size="sm"
-            name="ArrowPathMini"
-            type="plain"
-            ml="auto"
-          />
-        )}
-      </Box>
-    ),
-    [loading, refresh],
-  );
+  const showHomeBalanceSettingsDialog = useCallback(() => {
+    showHomeBalanceSettings({ networkId: network?.id });
+  }, [network?.id]);
 
   return (
     <>
       {showOuterHeader && (
-        <Box
-          flexDirection="row"
-          justifyContent="space-between"
-          alignItems="center"
-          pb={3}
-        >
-          <Typography.Heading>
-            {intl.formatMessage({ id: 'title__assets' })}
-          </Typography.Heading>
-          {tokenEnabled && (
-            <HStack alignItems="center" justifyContent="flex-end">
-              {refreshButton}
-              {isAllNetworks(network?.id) ? null : (
-                <IconButton
-                  onPress={() =>
-                    navigation.navigate(RootRoutes.Modal, {
-                      screen: ModalRoutes.ManageToken,
-                      params: { screen: ManageTokenModalRoutes.Listing },
-                    })
-                  }
-                  size="sm"
-                  name="PlusMini"
-                  type="plain"
-                  ml="auto"
-                  mr={3}
-                />
-              )}
-              <IconButton
-                onPress={() => {
-                  showHomeBalanceSettings({ networkId: network?.id });
-                }}
-                size="sm"
-                name="Cog8ToothMini"
-                type="plain"
-                mr={-2}
-              />
-            </HStack>
-          )}
-        </Box>
+        <OuterHeader
+          onNavigate={navigationManageToken}
+          onShowHomeBalanceSettings={showHomeBalanceSettingsDialog}
+          tokenEnabled={tokenEnabled}
+          networkId={network?.id ?? ''}
+          accountId={accountId ?? ''}
+        />
       )}
 
       {showInnerHeader && (

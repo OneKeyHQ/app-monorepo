@@ -1,6 +1,7 @@
 import { IconButton, useIsVerticalLayout } from '@onekeyhq/components';
 
 import { getAppNavigation } from '../../../hooks/useAppNavigation';
+import { ChainSelector } from '../../../views/Discover/ChainSelector';
 import DAppList from '../../../views/Discover/DAppList';
 import { EditBookmark } from '../../../views/Discover/EditBookmark';
 import { SearchModalView } from '../../../views/Discover/Explorer/Search/SearchModalView';
@@ -56,6 +57,10 @@ const modalRoutes = [
   {
     name: DiscoverModalRoutes.Favorites,
     component: Favorites,
+  },
+  {
+    name: DiscoverModalRoutes.ChainSelector,
+    component: ChainSelector,
   },
 ];
 

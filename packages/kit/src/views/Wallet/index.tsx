@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
@@ -49,6 +49,7 @@ const AccountHeader = () => <AccountInfo />;
 const WalletTabs: FC = () => {
   const intl = useIntl();
   const ref = useRef<ForwardRefHandle>(null);
+  const currentIndexRef = useRef<number>(0);
   const { screenWidth } = useUserDevice();
   const isVerticalLayout = useIsVerticalLayout();
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
@@ -173,6 +174,7 @@ const WalletTabs: FC = () => {
 
   const onIndexChange = useCallback(
     (index: number) => {
+      currentIndexRef.current = index;
       if (timer.current) clearTimeout(timer.current);
 
       let intervalTime = 0;
@@ -194,7 +196,6 @@ const WalletTabs: FC = () => {
   const setIndex = useDebouncedCallback(
     (index: number) => {
       ref.current?.setPageIndex?.(index);
-      onIndexChange(index);
     },
     1000,
     {
@@ -205,20 +206,9 @@ const WalletTabs: FC = () => {
   );
 
   useEffect(() => {
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-
     const idx = getHomeTabIndex(homeTabName);
-    if (platformEnv.isNativeIOS) {
-      timeout = setTimeout(() => {
-        setIndex(idx);
-      });
-    } else {
-      setIndex(idx);
-    }
-
-    return () => {
-      if (timeout) clearTimeout(timeout);
-    };
+    if (idx === currentIndexRef.current) return;
+    setIndex(idx);
   }, [homeTabName, getHomeTabIndex, setIndex]);
 
   const onRefresh = useCallback(() => {
@@ -247,9 +237,7 @@ const WalletTabs: FC = () => {
       initialTabName={homeTabName}
       refreshing={refreshing}
       onRefresh={onRefresh}
-      onIndexChange={(index: number) => {
-        onIndexChange(index);
-      }}
+      onIndexChange={onIndexChange}
       onStartChange={() => {
         if (timer.current) clearTimeout(timer.current);
       }}
@@ -331,5 +319,6 @@ const Wallet = () => {
     </>
   );
 };
+Wallet.displayName = 'HomeTabWallet';
 
-export default memo(Wallet);
+export default Wallet;

@@ -28,7 +28,11 @@ import {
   FormatBalance,
   FormatCurrencyNumber,
 } from '../../../components/Format';
-import { useAccount, useManageNetworks } from '../../../hooks';
+import {
+  useAccount,
+  useManageNetworks,
+  useTokenPositionInfo,
+} from '../../../hooks';
 import { TokenDetailContext } from '../context';
 
 import type { IOverviewTokenDetailListItem } from '../../Overview/types';
@@ -99,14 +103,30 @@ const AssetsInfo: FC = () => {
   const [selectedNetworkId, setSelectedNetworkId] = useState<string>(
     FAKE_ALL_NETWORK.id,
   );
-  const { price, networkId, accountId } = context?.routeParams ?? {};
+  const {
+    walletId,
+    accountId,
+    networkId,
+    tokenAddress,
+    coingeckoId,
+    price,
+    sendAddress,
+  } = context?.routeParams ?? {};
   const { account } = useAccount({
     networkId: networkId ?? '',
     accountId: accountId ?? '',
   });
-  const { items, balance } = context?.positionInfo ?? {};
   const { symbol } = context?.detailInfo ?? {};
   const isVerticalLayout = useIsVerticalLayout();
+
+  const { items, balance } = useTokenPositionInfo({
+    coingeckoId,
+    networkId,
+    tokenAddress,
+    accountId,
+    sendAddress,
+    walletId,
+  });
 
   const sections = useMemo(
     () =>

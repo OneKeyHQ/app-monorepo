@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { omit } from 'lodash';
@@ -26,12 +26,13 @@ import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig'
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveSideAccount, useAppSelector } from '../../../hooks';
 import {
   useAccountPortfolios,
   useAccountTokens,
+  useActiveSideAccount,
+  useAppSelector,
   useOverviewAccountUpdateInfo,
-} from '../../../hooks/useOverview';
+} from '../../../hooks';
 import { useVisibilityFocused } from '../../../hooks/useVisibilityFocused';
 import { OverviewDefiThumbnal } from '../../Overview/Thumbnail';
 import { EOverviewScanTaskType } from '../../Overview/types';
@@ -64,6 +65,78 @@ export type IAssetsListProps = Omit<FlatListProps, 'data' | 'renderItem'> & {
   renderDefiList?: boolean;
   walletId: string;
 };
+
+function HandleRefresh({
+  accountId,
+  networkId,
+  homeTabName,
+  isUnlock,
+  startRefresh,
+  stopRefresh,
+}: {
+  accountId: string;
+  networkId: string;
+  homeTabName: string | undefined;
+  isUnlock: boolean;
+  startRefresh: () => void;
+  stopRefresh: () => void;
+}) {
+  const isFocused = useVisibilityFocused();
+  const [delayedFocus, setDelayedFocus] = useState(isFocused);
+
+  const shouldRefreshBalances = useMemo(() => {
+    if (!isUnlock) {
+      return false;
+    }
+    if (!delayedFocus || !accountId || !networkId) {
+      return false;
+    }
+    if (homeTabName && homeTabName !== WalletHomeTabEnum.Tokens) {
+      return false;
+    }
+    return true;
+  }, [delayedFocus, accountId, networkId, homeTabName, isUnlock]);
+
+  useEffect(() => {
+    if (isFocused === delayedFocus) return;
+
+    const timeoutId = setTimeout(() => {
+      setDelayedFocus(isFocused);
+    }, 1000);
+
+    return () => clearTimeout(timeoutId);
+  }, [isFocused, delayedFocus]);
+
+  useEffect(() => {
+    if (shouldRefreshBalances) {
+      startRefresh();
+    } else {
+      stopRefresh();
+    }
+  }, [shouldRefreshBalances, startRefresh, stopRefresh]);
+
+  useEffect(() => {
+    if (!delayedFocus || !isUnlock) {
+      return;
+    }
+    if (isAllNetworks(networkId)) {
+      return;
+    }
+    backgroundApiProxy.serviceToken.refreshAccountTokens();
+  }, [delayedFocus, isUnlock, networkId]);
+
+  useEffect(() => {
+    if (networkId && !isAllNetworks(networkId) && accountId) {
+      backgroundApiProxy.serviceOverview.fetchAccountOverview({
+        networkId,
+        accountId,
+        scanTypes: [EOverviewScanTaskType.defi],
+      });
+    }
+  }, [networkId, accountId]);
+
+  return <Box />;
+}
 
 function AssetsList({
   showRoundTop,
@@ -144,39 +217,6 @@ function AssetsList({
       chrome.runtime.connect();
     }
   }, []);
-
-  const isFocused = useVisibilityFocused();
-
-  const shouldRefreshBalances = useMemo(() => {
-    if (!isUnlock) {
-      return false;
-    }
-    if (!isFocused || !accountId || !networkId) {
-      return false;
-    }
-    if (homeTabName && homeTabName !== WalletHomeTabEnum.Tokens) {
-      return false;
-    }
-    return true;
-  }, [isFocused, accountId, networkId, homeTabName, isUnlock]);
-
-  useEffect(() => {
-    if (shouldRefreshBalances) {
-      startRefresh();
-    } else {
-      stopRefresh();
-    }
-  }, [shouldRefreshBalances, startRefresh, stopRefresh]);
-
-  useEffect(() => {
-    if (!isFocused || !isUnlock) {
-      return;
-    }
-    if (isAllNetworks(networkId)) {
-      return;
-    }
-    backgroundApiProxy.serviceToken.refreshAccountTokens();
-  }, [isFocused, isUnlock, networkId]);
 
   useEffect(() => {
     if (networkId && !isAllNetworks(networkId) && accountId) {
@@ -298,44 +338,54 @@ function AssetsList({
   }, [loading, accountId, network, updateInfo?.updatedAt, intl]);
 
   return (
-    <Container
-      style={{
-        maxWidth: MAX_PAGE_CONTAINER_WIDTH,
-        width: '100%',
-        marginHorizontal: 'auto',
-        alignSelf: 'center',
-      }}
-      contentContainerStyle={[
-        {
-          paddingHorizontal: flatStyle ? 0 : responsivePadding(),
-          marginTop: 24,
-        },
-        contentContainerStyle,
-      ]}
-      data={accountTokens}
-      renderItem={renderListItem}
-      ListHeaderComponent={
-        !accountTokens?.length
-          ? null
-          : ListHeaderComponent ?? (
-              <AssetsListHeader
-                innerHeaderBorderColor={
-                  flatStyle ? 'transparent' : 'border-subdued'
-                }
-                showTokenCount={limitSize !== undefined}
-                showOuterHeader={limitSize !== undefined}
-                showInnerHeader={accountTokens.length > 0}
-                showInnerHeaderRoundTop={!flatStyle}
-              />
-            )
-      }
-      ItemSeparatorComponent={Divider}
-      ListEmptyComponent={() => empty}
-      ListFooterComponent={footer}
-      keyExtractor={(item: IAccountToken) => item.key}
-      extraData={isVerticalLayout}
-      showsVerticalScrollIndicator={false}
-    />
+    <Box>
+      <Container
+        style={{
+          maxWidth: MAX_PAGE_CONTAINER_WIDTH,
+          width: '100%',
+          marginHorizontal: 'auto',
+          alignSelf: 'center',
+        }}
+        contentContainerStyle={[
+          {
+            paddingHorizontal: flatStyle ? 0 : responsivePadding(),
+            marginTop: 24,
+          },
+          contentContainerStyle,
+        ]}
+        data={accountTokens}
+        renderItem={renderListItem}
+        ListHeaderComponent={
+          !accountTokens?.length
+            ? null
+            : ListHeaderComponent ?? (
+                <AssetsListHeader
+                  innerHeaderBorderColor={
+                    flatStyle ? 'transparent' : 'border-subdued'
+                  }
+                  showTokenCount={limitSize !== undefined}
+                  showOuterHeader={limitSize !== undefined}
+                  showInnerHeader={accountTokens.length > 0}
+                  showInnerHeaderRoundTop={!flatStyle}
+                />
+              )
+        }
+        ItemSeparatorComponent={Divider}
+        ListEmptyComponent={() => empty}
+        ListFooterComponent={footer}
+        keyExtractor={(item: IAccountToken) => item.key}
+        extraData={isVerticalLayout}
+        showsVerticalScrollIndicator={false}
+      />
+      <HandleRefresh
+        accountId={accountId}
+        networkId={networkId}
+        homeTabName={homeTabName}
+        isUnlock={isUnlock}
+        startRefresh={startRefresh}
+        stopRefresh={stopRefresh}
+      />
+    </Box>
   );
 }
 

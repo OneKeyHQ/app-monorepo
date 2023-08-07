@@ -21,5 +21,4 @@ export * from './useNetwork';
 export * from './useAccount';
 export * from './useWallet';
 export * from './useOverview';
-export * from './useTranslation';
 export * from './useAsyncStorage';

@@ -77,11 +77,8 @@ export const dataSlice = createSlice({
     setTools(state, action: PayloadAction<Tool[]>) {
       state.tools = action.payload;
     },
-    setTranslations(
-      state,
-      actions: PayloadAction<Record<string, Record<string, string>>>,
-    ) {
-      state.translations = actions.payload;
+    clearTranslations(state) {
+      state.translations = undefined;
     },
   },
 });
@@ -96,7 +93,7 @@ export const {
   setHandOperatedLock,
   setFeePresetIndex,
   setTools,
-  setTranslations,
+  clearTranslations,
   setIsPasswordLoadedInVault,
 } = dataSlice.actions;
 

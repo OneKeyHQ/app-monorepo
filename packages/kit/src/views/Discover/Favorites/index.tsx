@@ -12,7 +12,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
-import { useNavigation, useTranslation } from '../../../hooks';
+import { useNavigation } from '../../../hooks';
 import FavListMenu from '../../Overlay/Discover/FavListMenu';
 import DAppIcon from '../components/DAppIcon';
 import { openMatchDApp } from '../Explorer/Controller/gotoSite';
@@ -26,7 +26,6 @@ type FavoriteItemBoxProps = { item: MatchDAppItemType };
 
 const FavoriteItemBox: FC<FavoriteItemBoxProps> = ({ item }) => {
   const navigation = useNavigation();
-  const t = useTranslation();
   const onPress = useCallback(() => {
     openMatchDApp(item);
     navigation.goBack();
@@ -37,7 +36,7 @@ const FavoriteItemBox: FC<FavoriteItemBoxProps> = ({ item }) => {
   const networkIds = item.dapp?.networkIds;
   let description = 'Unknown';
   if (item.dapp) {
-    description = t(item.dapp._subtitle) ?? item.dapp.subtitle;
+    description = item.dapp.subtitle;
   } else if (url) {
     description = getUrlHost(url);
   }

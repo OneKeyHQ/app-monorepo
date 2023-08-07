@@ -6,6 +6,7 @@ import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
+  LNURLAuthServiceResponse,
   LNURLPayServiceResponse,
   LNURLPaymentSuccessAction,
   LNURLWithdrawServiceResponse,
@@ -74,6 +75,18 @@ export type LnUrlWithdrawParams = {
   networkId: string;
   accountId: string;
   lnurlDetails: LNURLWithdrawServiceResponse;
+};
+
+export type LnUrlAuthParams = {
+  walletId: string;
+  networkId: string;
+  accountId: string;
+  lnurlDetails: LNURLAuthServiceResponse;
+};
+
+export type LnUrlAuthenticationParams = {
+  onDone: (password: string) => void;
+  walletId: string;
 };
 
 export type TransferSendParamsPayload = SendConfirmPayloadBase & {
@@ -232,6 +245,8 @@ export type SendRoutesParams = {
   [SendModalRoutes.NFTDetailModal]: NFTDetailModalParams;
   [SendModalRoutes.LNURLPayRequest]: LnUrlPayParams;
   [SendModalRoutes.LNURLWithdraw]: LnUrlWithdrawParams;
+  [SendModalRoutes.LNURLAuth]: LnUrlAuthParams;
+  [SendModalRoutes.LNURLAuthentication]: LnUrlAuthenticationParams;
 };
 
 export type ITxConfirmViewPropsHandleConfirm = ({

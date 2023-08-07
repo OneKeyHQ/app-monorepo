@@ -6,7 +6,9 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Center,
   HStack,
+  Spinner,
   Token as TokenIcon,
   Typography,
   useIsVerticalLayout,
@@ -75,15 +77,6 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     defaultInfo,
   });
 
-  const positionInfo = useTokenPositionInfo({
-    coingeckoId,
-    networkId,
-    tokenAddress,
-    accountId,
-    sendAddress,
-    walletId,
-  });
-
   const showChart = useAppSelector((s) => s.settings.showTokenDetailPriceChart);
 
   const isLightningNetwork = useMemo(
@@ -142,10 +135,17 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     () => ({
       routeParams: route.params,
       detailInfo,
-      positionInfo,
     }),
-    [route.params, detailInfo, positionInfo],
+    [route.params, detailInfo],
   );
+
+  if (detailInfo.loading) {
+    return (
+      <Center>
+        <Spinner mt={18} size="lg" />
+      </Center>
+    );
+  }
 
   return (
     <TokenDetailContext.Provider value={contextValue}>

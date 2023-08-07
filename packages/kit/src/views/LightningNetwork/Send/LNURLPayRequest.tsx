@@ -28,6 +28,7 @@ import { FormatCurrencyTokenOfAccount } from '../../../components/Format';
 import { useActiveSideAccount, useNativeToken } from '../../../hooks';
 import { useSingleToken } from '../../../hooks/useTokens';
 import { SendModalRoutes } from '../../Send/enums';
+import { LNModalDescription } from '../components/LNModalDescription';
 
 import type { SendRoutesParams } from '../../../routes';
 import type { RouteProp } from '@react-navigation/core';
@@ -43,7 +44,7 @@ type NavigationProps = NativeStackNavigationProp<
 type FormValues = {
   amount: string;
   description: string;
-  connectTo: string;
+  requestFrom: string;
   comment: string;
 };
 
@@ -268,7 +269,7 @@ const LNURLPayRequest = () => {
   return (
     <Modal
       header={intl.formatMessage({ id: 'title__lnurl_pay' })}
-      headerDescription={lnurlDetails.domain}
+      headerDescription={<LNModalDescription networkId={networkId} />}
       primaryActionTranslationId="action__next"
       primaryActionProps={{
         isDisabled: isLoading,
@@ -290,8 +291,8 @@ const LNURLPayRequest = () => {
         children: (
           <Form>
             <Form.Item
-              label={intl.formatMessage({ id: 'form__connect_to' })}
-              name="connectTo"
+              label={intl.formatMessage({ id: 'form__request_from' })}
+              name="requestFrom"
               control={control}
               formControlProps={{ width: 'full' }}
             >
