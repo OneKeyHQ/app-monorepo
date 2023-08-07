@@ -24,6 +24,7 @@ export const generateConnectSrc = (hardwareConnectSrc?: string) => {
   if (hardwareConnectSrc && hardwareConnectSrc.indexOf('onekeycn.com') > -1) {
     connectSrc = `${HARDWARE_SDK_IFRAME_SRC_ONEKEYCN}/${HARDWARE_SDK_VERSION}/`;
   }
+  // connectSrc = 'https://localhost:8087/';
   return connectSrc;
 };
 
