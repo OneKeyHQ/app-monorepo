@@ -92,7 +92,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
-          npm i -g expo-cli@6.3.10 && yarn
+          yarn
 
       - name: Inject Environment Variables
         env:
