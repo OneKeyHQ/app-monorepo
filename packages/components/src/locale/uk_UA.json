@@ -1603,7 +1603,7 @@
   "form__provider_uppercase": "ПРОВАЙДЕР",
   "form__proxy_contract_found": "Проксі-контракт знайдено",
   "form__proxy_contract_found_desc": "Проксі-контракт дозволяє власнику змінювати функцію та ціну токена.",
-  "form__put_coins_at_the_top": "Покладіть монету вгору списку",
+  "form__put_coins_at_the_top": "Прикріпіть Native Token",
   "form__quantity": "Кількість",
   "form__quests": "Квести",
   "form__random": "Випадковий",

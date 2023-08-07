@@ -7,7 +7,6 @@ import type {
   IEncodedTxUpdatePayloadTransfer,
 } from '@onekeyhq/engine/src/vaults/types';
 import { IEncodedTxUpdateType } from '@onekeyhq/engine/src/vaults/types';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import {
@@ -16,6 +15,7 @@ import {
 } from '../../../../hooks';
 import { TxDetailView } from '../../../TxDetail/TxDetailView';
 import { BaseSendConfirmModal } from '../../components/BaseSendConfirmModal';
+import { getTransferAmountToUpdate } from '../../utils/useTransferAmountToUpdate';
 
 import type {
   ITxConfirmViewProps,
@@ -68,34 +68,16 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
       return '0';
     }
     if (isNativeMaxSend) {
-      const { type, nativeTransfer } = decodedTx.actions[0];
-      if (
-        type === 'NATIVE_TRANSFER' &&
-        typeof nativeTransfer !== 'undefined' &&
-        (typeof nativeTransfer.utxoFrom !== 'undefined' ||
-          [OnekeyNetwork.lightning, OnekeyNetwork.tlightning].includes(
-            nativeTransfer.tokenInfo.networkId,
-          ))
-      ) {
-        // For UTXO model, the decodedTx is updated with the new transfer amount.
-        // Use this instead of depending the incorrect feeInfoPayload results.
-        return nativeTransfer.amount;
-      }
-      const balanceBN = new BigNumber(balance);
-      const amountBN = new BigNumber(transferPayload.value ?? 0);
-      const transferAmountBn = BigNumber.min(balanceBN, amountBN);
-      const feeBN = new BigNumber(feeInfoPayload?.current?.totalNative ?? 0);
-      return transferAmountBn.minus(feeBN).toFixed();
+      return getTransferAmountToUpdate({
+        decodedTx,
+        balance,
+        amount: transferPayload.value,
+        totalNativeGasFee: feeInfoPayload?.current?.totalNative,
+      });
     }
 
     return transferPayload.value ?? '0';
-  }, [
-    transferPayload,
-    isNativeMaxSend,
-    decodedTx.actions,
-    balance,
-    feeInfoPayload,
-  ]);
+  }, [transferPayload, isNativeMaxSend, decodedTx, balance, feeInfoPayload]);
 
   const isAmountNegative = useMemo(
     () => new BigNumber(transferAmount).lt(0),

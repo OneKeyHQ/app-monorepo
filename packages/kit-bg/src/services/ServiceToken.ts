@@ -261,14 +261,16 @@ export default class ServiceToken extends ServiceBase {
     return this._refreshTokenBalanceWithMemo(options);
   }
 
-  async _batchFetchAccountBalances({
+  async _batchFetchAccountTokenBalances({
     walletId,
     networkId,
     accountIds,
+    tokenAddress,
   }: {
     walletId: string;
     networkId: string;
     accountIds: string[];
+    tokenAddress?: string;
   }) {
     const { dispatch, engine, servicePassword } = this.backgroundApi;
 
@@ -276,6 +278,13 @@ export default class ServiceToken extends ServiceBase {
     const vaultSettings = await engine.getVaultSettings(networkId);
     const dbNetwork = await engine.dbApi.getNetwork(networkId);
     const dbAccounts = await engine.dbApi.getAccounts(accountIds);
+    let token: Token | undefined;
+    if (tokenAddress) {
+      token = await engine.findToken({
+        networkId,
+        tokenIdOnNetwork: tokenAddress,
+      });
+    }
 
     let balances: Array<BigNumber | undefined>;
     let password;
@@ -303,8 +312,10 @@ export default class ServiceToken extends ServiceBase {
 
       const requests = balancesAddress.map((acc) => ({
         address: acc.address,
+        tokenAddress,
         accountId: acc.accountId,
       }));
+
       balances = await vault.getBalances(
         requests,
         password,
@@ -317,7 +328,9 @@ export default class ServiceToken extends ServiceBase {
     const data = dbAccounts.reduce((result, item, index) => {
       const balance = balances[index];
       result[item.id] = balance
-        ? balance.div(new BigNumber(10).pow(dbNetwork.decimals)).toFixed()
+        ? balance
+            .div(new BigNumber(10).pow(token?.decimals ?? dbNetwork.decimals))
+            .toFixed()
         : undefined;
       return result;
     }, {} as Record<string, string | undefined>);
@@ -329,11 +342,17 @@ export default class ServiceToken extends ServiceBase {
           setAccountTokensBalances({
             accountId: key,
             networkId,
-            tokensBalance: {
-              'main': {
-                balance: value,
-              },
-            },
+            tokensBalance: tokenAddress
+              ? {
+                  [tokenAddress]: {
+                    balance: value ?? '0',
+                  },
+                }
+              : {
+                  'main': {
+                    balance: value ?? '0',
+                  },
+                },
           }),
         );
       }
@@ -341,11 +360,13 @@ export default class ServiceToken extends ServiceBase {
     if (actions.length > 0) {
       dispatch(...actions);
     }
+
+    return Promise.resolve(data);
   }
 
   batchFetchAccountBalancesDebounce = debounce(
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    this._batchFetchAccountBalances,
+    this._batchFetchAccountTokenBalances,
     600,
     {
       leading: false,
@@ -354,15 +375,46 @@ export default class ServiceToken extends ServiceBase {
   );
 
   @backgroundMethod()
-  batchFetchAccountBalances({
+  async batchFetchAccountTokenBalances({
     walletId,
     networkId,
     accountIds,
+    tokenAddress,
   }: {
     walletId: string;
     networkId: string;
     accountIds: string[];
+    tokenAddress: string | undefined;
+    withMain?: boolean;
   }) {
+    return this._batchFetchAccountTokenBalances({
+      walletId,
+      networkId,
+      accountIds,
+      tokenAddress,
+    });
+  }
+
+  @backgroundMethod()
+  async batchFetchAccountBalances({
+    walletId,
+    networkId,
+    accountIds,
+    disableDebounce,
+  }: {
+    walletId: string;
+    networkId: string;
+    accountIds: string[];
+    disableDebounce?: boolean;
+  }) {
+    if (disableDebounce) {
+      return this._batchFetchAccountTokenBalances({
+        walletId,
+        networkId,
+        accountIds,
+      });
+    }
+
     return this.batchFetchAccountBalancesDebounce({
       walletId,
       networkId,

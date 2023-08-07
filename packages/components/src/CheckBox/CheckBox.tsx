@@ -43,6 +43,7 @@ export type CheckBoxProps = {
    */
   onChange?: (isSelected: boolean) => void;
   containerStyle?: ComponentProps<typeof Box>;
+  checkBoxProps?: Partial<ComponentProps<typeof BaseCheckBox>>;
 } & ComponentProps<typeof Box>;
 
 const defaultProps = {
@@ -64,6 +65,7 @@ const CheckBox: FC<CheckBoxProps> = ({
   onChange,
   children,
   containerStyle,
+  checkBoxProps,
   ...props
 }) => {
   let titleColor = 'text-default';
@@ -162,6 +164,7 @@ const CheckBox: FC<CheckBoxProps> = ({
             value,
             bg: 'action-primary-pressed',
           }}
+          {...checkBoxProps}
         >
           {children}
         </BaseCheckBox>

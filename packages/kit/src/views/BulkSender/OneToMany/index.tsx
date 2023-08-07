@@ -1,87 +1,99 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   Box,
   Button,
-  HStack,
-  Icon,
-  Pressable,
   Text,
   ToastManager,
-  Token as TokenComponent,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import { TokenIcon } from '@onekeyhq/components/src/Token';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
+import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
 import {
-  useAccountTokenLoading,
   useAccountTokensOnChain,
   useNetwork,
   useTokenBalance,
 } from '@onekeyhq/kit/src/hooks';
 import {
+  HomeRoutes,
+  MainRoutes,
   ModalRoutes,
   RootRoutes,
   SendModalRoutes,
+  TabRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
 import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AmountEditorTrigger } from '../AmountEditor/AmountEditorTrigger';
+import { showApprovalSelector } from '../ApprovalSelector';
+import { amountDefaultTypeMap } from '../constants';
+import { useValidateTrader } from '../hooks';
+import { TraderExample } from '../TraderExample';
+import { TraderInput } from '../TraderInput';
+import { TxSettingPanel } from '../TxSetting/TxSettingPanel';
+import { TxSettingTrigger } from '../TxSetting/TxSettingTrigger';
+import { AmountTypeEnum, BulkSenderRoutes } from '../types';
 
-import { showApprovalSelector } from './ApprovalSelector';
-import { useValidteReceiver } from './hooks';
-import { ReceiverExample } from './ReceiverExample';
-import { ReceiverInput } from './ReceiverInput';
-import { BulkSenderRoutes, BulkSenderTypeEnum } from './types';
-
-import type { TokenReceiver } from './types';
+import type { RootRoutesParams } from '../../../routes/types';
+import type { TokenTrader } from '../types';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 interface Props {
   accountId: string;
   networkId: string;
   accountAddress: string;
-  type: BulkSenderTypeEnum;
 }
 
-function TokenOutbox(props: Props) {
-  const { accountId, networkId, accountAddress, type } = props;
+type NavigationProps = NativeStackNavigationProp<
+  RootRoutesParams,
+  RootRoutes.Main
+>;
+
+const bulkType = BulkTypeEnum.OneToMany;
+
+function OneToMany(props: Props) {
+  const { accountId, networkId, accountAddress } = props;
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
-  const [receiver, setReceiver] = useState<TokenReceiver[]>([]);
-  const [receiverFromOut, setReceiverFromOut] = useState<TokenReceiver[]>([]);
+  const [receiver, setReceiver] = useState<TokenTrader[]>([]);
+  const [receiverFromOut, setReceiverFromOut] = useState<TokenTrader[]>([]);
   const [isUploadMode, setIsUploadMode] = useState(false);
   const [isBuildingTx, setIsBuildingTx] = useState(false);
   const [isUnlimited, setIsUnlimited] = useState(false);
   const [isAlreadyUnlimited, setIsAlreadyUnlimited] = useState(false);
+  const [isfetchingAllowance, setIsFetchingAllowance] = useState(false);
+
+  const [amountType, setAmountType] = useState<AmountTypeEnum>(
+    amountDefaultTypeMap[bulkType] ?? AmountTypeEnum.Fixed,
+  );
+  const [amount, setAmount] = useState<string[]>(['0']);
+
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProps>();
   const { network } = useNetwork({ networkId });
 
-  const loading = useAccountTokenLoading(networkId, accountId);
   const accountTokens = useAccountTokensOnChain(networkId, accountId, true);
-  const nativeToken = accountTokens.find((token) => token.isNative);
-  const tokens = accountTokens.filter(
-    (token) =>
-      !token.isNative &&
-      (network?.impl === IMPL_TRON
-        ? !new BigNumber(token.tokenIdOnNetwork).isInteger()
-        : true),
+  const tokens = accountTokens.filter((token) =>
+    network?.impl === IMPL_TRON
+      ? !new BigNumber(token.tokenIdOnNetwork).isInteger()
+      : true,
   );
 
   const { serviceBatchTransfer, serviceToken, serviceOverview } =
     backgroundApiProxy;
 
-  const isNative = type === BulkSenderTypeEnum.NativeToken;
-  const initialToken = isNative ? nativeToken : tokens[0];
+  const initialToken = tokens.find((token) => token.isNative) ?? tokens[0];
   const currentToken = selectedToken || initialToken;
+  const isNative = currentToken?.isNative;
 
   const tokenBalnace = useTokenBalance({
     accountId,
@@ -89,22 +101,12 @@ function TokenOutbox(props: Props) {
     token: currentToken,
     fallback: '0',
   });
-  const formatedBalance = useMemo(
-    () =>
-      intl.formatMessage(
-        { id: 'content__balance_str' },
-        {
-          0: `${tokenBalnace} ${currentToken?.symbol ?? ''}`,
-        },
-      ),
-    [currentToken?.symbol, intl, tokenBalnace],
-  );
 
-  const { isValid, isValidating, errors } = useValidteReceiver({
+  const { isValid, isValidating, errors } = useValidateTrader({
     networkId,
-    receiver,
-    type,
-    token: selectedToken || initialToken,
+    trader: receiver,
+    token: currentToken,
+    shouldValidateAmount: amountType === AmountTypeEnum.Custom,
   });
 
   const handleOnTokenSelected = useCallback((token: Token) => {
@@ -112,15 +114,32 @@ function TokenOutbox(props: Props) {
   }, []);
 
   const handleOnAmountChanged = useCallback(
-    (amount: string) => {
-      const receiverWithChangedAmount = receiver.map((item) => ({
-        ...item,
-        Amount: amount,
-      }));
+    ({
+      amount: amountFromEditor,
+      amountType: amountTypeFromEditor,
+    }: {
+      amount: string[];
+      amountType: AmountTypeEnum;
+    }) => {
+      let receiverWithChangedAmount = [];
+
+      if (amountTypeFromEditor === AmountTypeEnum.Custom) {
+        receiverWithChangedAmount = receiver.map((item) => ({
+          ...item,
+          Amount: amountFromEditor[0] ?? '0',
+        }));
+      } else {
+        receiverWithChangedAmount = receiver.map((item) => ({
+          ...item,
+        }));
+      }
+
+      setAmount(amountFromEditor);
+      setAmountType(amountTypeFromEditor);
 
       setReceiverFromOut(receiverWithChangedAmount);
     },
-    [receiver, setReceiverFromOut],
+    [receiver],
   );
 
   const handleOpenTokenSelector = useCallback(() => {
@@ -137,18 +156,6 @@ function TokenOutbox(props: Props) {
       },
     });
   }, [accountId, handleOnTokenSelected, navigation, networkId, tokens]);
-
-  const handleOpenAmountEditor = useCallback(() => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.BulkSender,
-      params: {
-        screen: BulkSenderRoutes.AmountEditor,
-        params: {
-          onAmountChanged: handleOnAmountChanged,
-        },
-      },
-    });
-  }, [handleOnAmountChanged, navigation]);
 
   const handleOpenApprovalSelector = useCallback(() => {
     showApprovalSelector({
@@ -196,7 +203,7 @@ function TokenOutbox(props: Props) {
         transferInfos.push({
           from: accountAddress,
           to: receiver[i].Address,
-          amount: receiver[i].Amount,
+          amount: receiver[i].Amount ?? amount[0],
           token: token?.tokenIdOnNetwork,
           tokenSendAddress: token?.sendAddress,
         });
@@ -278,7 +285,7 @@ function TokenOutbox(props: Props) {
             feeInfoEditable: true,
             encodedTxs: [...encodedApproveTxs, ...encodedTxs],
             transferCount: transferInfos.length,
-            transferType: type,
+            bulkType,
             payloadInfo: {
               type: 'Transfer',
               transferInfos,
@@ -298,6 +305,7 @@ function TokenOutbox(props: Props) {
   }, [
     accountAddress,
     accountId,
+    amount,
     initialToken,
     isBuildingTx,
     isUnlimited,
@@ -310,7 +318,6 @@ function TokenOutbox(props: Props) {
     receiver,
     selectedToken,
     serviceBatchTransfer,
-    type,
     verifyBulkTransferBeforeConfirm,
   ]);
 
@@ -338,15 +345,21 @@ function TokenOutbox(props: Props) {
         currentToken?.tokenIdOnNetwork &&
         contract
       ) {
-        const { isUnlimited: isUnlimitedAllowance } =
-          await serviceBatchTransfer.checkIsUnlimitedAllowance({
-            networkId,
-            owner: accountAddress,
-            spender: contract,
-            token: currentToken?.tokenIdOnNetwork,
-          });
-        setIsUnlimited(isUnlimitedAllowance);
-        setIsAlreadyUnlimited(isUnlimitedAllowance);
+        try {
+          setIsFetchingAllowance(true);
+          const { isUnlimited: isUnlimitedAllowance } =
+            await serviceBatchTransfer.checkIsUnlimitedAllowance({
+              networkId,
+              owner: accountAddress,
+              spender: contract,
+              token: currentToken?.tokenIdOnNetwork,
+            });
+          setIsUnlimited(isUnlimitedAllowance);
+          setIsAlreadyUnlimited(isUnlimitedAllowance);
+          setIsFetchingAllowance(false);
+        } catch {
+          setIsFetchingAllowance(false);
+        }
       }
     };
     fetchTokenAllowance();
@@ -365,119 +378,133 @@ function TokenOutbox(props: Props) {
     }
   }, [accountId, networkId]);
 
+  useEffect(() => {
+    if (
+      network &&
+      !(network?.settings?.nativeSupportBatchTransfer
+        ? true
+        : batchTransferContractAddress[networkId])
+    ) {
+      navigation.replace(RootRoutes.Main, {
+        screen: MainRoutes.Tab,
+        params: {
+          screen: TabRoutes.Home,
+          params: {
+            screen: HomeRoutes.BulkSender,
+          },
+        },
+      });
+    }
+  }, [
+    navigation,
+    network,
+    network?.settings?.nativeSupportBatchTransfer,
+    networkId,
+  ]);
+
   return (
-    <Tabs.ScrollView>
-      <Box paddingX={isVertical ? 4 : 0} paddingY={5}>
-        <Pressable.Item
-          disabled={loading || isNative}
-          px={4}
-          py={2}
-          borderColor="border-default"
-          borderWidth={1}
-          borderRadius={12}
+    <Box>
+      <TxSettingPanel>
+        <TxSettingTrigger
+          header={intl.formatMessage({ id: 'form__token' })}
+          title={currentToken?.symbol ?? ''}
+          desc={intl.formatMessage(
+            { id: 'content__balance_str' },
+            { 0: tokenBalnace },
+          )}
+          icon={<TokenIcon size={10} token={currentToken} />}
           onPress={handleOpenTokenSelector}
-        >
-          <HStack alignItems="center">
-            <TokenComponent
-              flex={1}
-              size={8}
-              showInfo
-              showTokenVerifiedIcon={false}
-              token={selectedToken || initialToken}
-              name={selectedToken?.name || initialToken?.name}
-              showExtra={false}
-              description={formatedBalance}
-            />
-            {!isNative && (
-              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
-            )}
-          </HStack>
-        </Pressable.Item>
-        <Box mt={6}>
-          <ReceiverInput
-            accountId={accountId}
-            networkId={networkId}
-            setReceiver={setReceiver}
-            receiverFromOut={receiverFromOut}
-            setReceiverFromOut={setReceiverFromOut}
-            receiverErrors={errors}
-            type={type}
-            isUploadMode={isUploadMode}
-            setIsUploadMode={setIsUploadMode}
+        />
+        <AmountEditorTrigger
+          accountAddress={accountAddress}
+          token={currentToken}
+          handleOnAmountChanged={handleOnAmountChanged}
+          transferCount={receiver.length}
+          amount={amount}
+          amountType={amountType}
+          bulkType={bulkType}
+          networkId={network?.id ?? ''}
+        />
+        {!isNative && network?.settings.batchTransferApprovalRequired && (
+          <TxSettingTrigger
+            isLoading={isfetchingAllowance}
+            header={intl.formatMessage({ id: 'form__allowance' })}
+            title={intl.formatMessage({
+              id: isUnlimited ? 'form__unlimited' : 'form__exact_amount',
+            })}
+            desc={
+              isAlreadyUnlimited && isUnlimited ? (
+                <Text typography="Body2" color="text-success">
+                  {intl.formatMessage({ id: 'form__approved' })}
+                </Text>
+              ) : (
+                intl.formatMessage({ id: 'form__going_to_approve' })
+              )
+            }
+            onPress={handleOpenApprovalSelector}
           />
-        </Box>
-        <Box display={isUploadMode ? 'none' : 'flex'}>
+        )}
+      </TxSettingPanel>
+      <Box mt={8}>
+        <TraderInput
+          header={intl.formatMessage({ id: 'form__receipient' })}
+          withAmount
+          accountId={accountId}
+          networkId={networkId}
+          token={currentToken}
+          amount={amount}
+          amountType={amountType}
+          trader={receiver}
+          setTrader={setReceiver}
+          traderFromOut={receiverFromOut}
+          setTraderFromOut={setReceiverFromOut}
+          traderErrors={errors}
+          isUploadMode={isUploadMode}
+          setIsUploadMode={setIsUploadMode}
+        />
+      </Box>
+      <Text fontSize={12} color="text-subdued" mt={isVertical ? 4 : 3}>
+        {amountType === AmountTypeEnum.Custom
+          ? `${intl.formatMessage({
+              id: 'content__each_line_should_include_the_address_and_amount',
+            })} ${accountAddress}, 0.1`
+          : `${intl.formatMessage({
+              id: 'content__each_line_should_include_the_address',
+            })} ${accountAddress}`}
+      </Text>
+
+      <Box display={isUploadMode ? 'none' : 'flex'}>
+        {network?.settings?.nativeSupportBatchTransfer ? null : (
           <Text fontSize={12} color="text-subdued" mt={isVertical ? 4 : 3}>
             {intl.formatMessage({
-              id: 'content__deflationary_token_transfers_are_not_supported_at_this_moment',
+              id: 'content__note_that_exchanges_may_not_accept_contract_transfers',
             })}
           </Text>
-          <HStack space={4} alignItems="center" flexWrap="wrap">
-            <Button
-              mt={4}
-              type="basic"
-              size="sm"
-              leftIconName="CurrencyDollarSolid"
-              onPress={handleOpenAmountEditor}
-            >
-              <Text typography="CaptionStrong">
-                {intl.formatMessage({ id: 'action__edit_amount' })}
-              </Text>
-            </Button>
-            {!isNative && network?.settings.batchTransferApprovalRequired && (
-              <Button
-                mt={4}
-                type="basic"
-                size="sm"
-                leftIconName="CurrencyDollarSolid"
-                onPress={handleOpenApprovalSelector}
-                paddingTop={isAlreadyUnlimited ? '4px' : '6px'}
-                paddingBottom={isAlreadyUnlimited ? '4px' : '6px'}
-              >
-                <HStack space={2} alignItems="center">
-                  <Text typography="CaptionStrong">
-                    {intl.formatMessage({
-                      id: isUnlimited
-                        ? 'action__approval_unlimited'
-                        : 'action__approval_exact_amount',
-                    })}
-                  </Text>
-                  {isAlreadyUnlimited && isUnlimited && (
-                    <Badge
-                      size="sm"
-                      color="text-success"
-                      bgColor="surface-success-default"
-                      title={intl.formatMessage({ id: 'form__approved' })}
-                    />
-                  )}
-                </HStack>
-              </Button>
-            )}
-          </HStack>
-          <Box mt={4}>
-            <Button
-              isLoading={isValidating || isBuildingTx}
-              isDisabled={
-                isValidating ||
-                !isValid ||
-                receiver.length === 0 ||
-                isBuildingTx
-              }
-              type="primary"
-              size="xl"
-              maxW={isVertical ? 'full' : '280px'}
-              onPress={handlePreviewTransfer}
-            >
-              {intl.formatMessage({ id: 'action__preview' })}
-            </Button>
-          </Box>
-          <Box mt={4}>
-            <ReceiverExample />
-          </Box>
+        )}
+        <Box mt={4}>
+          <Button
+            isLoading={isValidating || isBuildingTx}
+            isDisabled={
+              isValidating ||
+              !isValid ||
+              receiver.length === 0 ||
+              isBuildingTx ||
+              isfetchingAllowance
+            }
+            type="primary"
+            size="xl"
+            maxW={isVertical ? 'full' : '280px'}
+            onPress={handlePreviewTransfer}
+          >
+            {intl.formatMessage({ id: 'action__preview' })}
+          </Button>
+        </Box>
+        <Box mt={4}>
+          <TraderExample />
         </Box>
       </Box>
-    </Tabs.ScrollView>
+    </Box>
   );
 }
 
-export { TokenOutbox };
+export { OneToMany };

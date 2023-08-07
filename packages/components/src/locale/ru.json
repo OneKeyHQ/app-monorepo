@@ -1603,7 +1603,7 @@
   "form__provider_uppercase": "ПРОВАЙДЕР",
   "form__proxy_contract_found": "Прокси-контракт найден",
   "form__proxy_contract_found_desc": "Прокси-контракт позволяет владельцу изменять функцию и цену токена.",
-  "form__put_coins_at_the_top": "Поместите монету вверху списка",
+  "form__put_coins_at_the_top": "Вставьте собственный токен",
   "form__quantity": "Количество",
   "form__quests": "Квесты",
   "form__random": "Случайный",
