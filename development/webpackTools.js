@@ -155,38 +155,38 @@ function normalizeConfig({
       };
     }
 
-    // if (process.env.ENABLE_ANALYZER) {
-    //   const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
-    //   config.plugins.push(
-    //     new BundleAnalyzerPlugin(
-    //       enableAnalyzerHtmlReport
-    //         ? {
-    //             analyzerMode: 'static',
-    //             reportFilename: `report${
-    //               configName ? `-${configName}` : ''
-    //             }.html`,
-    //             openAnalyzer: false,
-    //           }
-    //         : {
-    //             analyzerMode: 'disabled',
-    //             generateStatsFile: true,
-    //             statsOptions: {
-    //               reasons: false,
-    //               warnings: false,
-    //               errors: false,
-    //               optimizationBailout: false,
-    //               usedExports: false,
-    //               providedExports: false,
-    //               source: false,
-    //               ids: false,
-    //               children: false,
-    //               chunks: false,
-    //               modules: !!process.env.ANALYSE_MODULE,
-    //             },
-    //           },
-    //     ),
-    //   );
-    // }
+    if (process.env.ENABLE_ANALYZER) {
+      const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
+      config.plugins.push(
+        new BundleAnalyzerPlugin(
+          enableAnalyzerHtmlReport
+            ? {
+                analyzerMode: 'static',
+                reportFilename: `report${
+                  configName ? `-${configName}` : ''
+                }.html`,
+                openAnalyzer: false,
+              }
+            : {
+                analyzerMode: 'disabled',
+                generateStatsFile: true,
+                statsOptions: {
+                  reasons: false,
+                  warnings: false,
+                  errors: false,
+                  optimizationBailout: false,
+                  usedExports: false,
+                  providedExports: false,
+                  source: false,
+                  ids: false,
+                  children: false,
+                  chunks: false,
+                  modules: !!process.env.ANALYSE_MODULE,
+                },
+              },
+        ),
+      );
+    }
 
     resolveExtensions = [
       // .chrome-ext.ts, .firefox-ext.ts
