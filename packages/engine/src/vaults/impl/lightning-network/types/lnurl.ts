@@ -71,3 +71,10 @@ export interface LNURLPaymentSuccessAction {
   amount?: string;
   domain?: string;
 }
+
+export type LnurlAuthResponse = {
+  success: boolean;
+  status: string;
+  reason?: string;
+  authResponseData: unknown;
+};
