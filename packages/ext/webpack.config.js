@@ -123,6 +123,9 @@ function createConfig({ config }) {
     projectRoot: __dirname,
   });
 
+  webpackConfig.experiments = config.experiments || {};
+  webpackConfig.experiments.asyncWebAssembly = true;
+
   if (IS_DEV) {
     // FIX: Uncaught EvalError: Refused to evaluate a string as JavaScript because 'unsafe-eval' is not an allowed source of script in the following Content Security Policy directive: "script-src 'self'".
     webpackConfig.devtool = 'source-map';
@@ -139,7 +142,6 @@ function createConfig({ config }) {
       webpackConfig.plugins.push(sourcemapBuilder.createSourcemapBuildPlugin());
     }
 
-    webpackConfig.experiments = config.experiments || {};
     webpackConfig.experiments.lazyCompilation = {
       imports: true,
       entries: true,
