@@ -45,16 +45,6 @@ export function useDiscoverFavorites(): MatchDAppItemType[] {
   }, [bookmarks]);
 }
 
-export function useTaggedDapps() {
-  const home = useAppSelector((s) => s.discover.home);
-  return useMemo(() => {
-    if (!home) {
-      return [];
-    }
-    return home.tagDapps.filter((item) => item.items.length > 0);
-  }, [home]);
-}
-
 export function useCategoryDapps(categoryId?: string): DAppItemType[] {
   const [categoryDapps, setCategoryDapps] = useState<DAppItemType[]>([]);
   useEffect(() => {
@@ -75,16 +65,6 @@ export function useTagDapps(tagId: string) {
     }
   }, [tagId]);
   return tagDapps;
-}
-
-export function useCategories() {
-  const home = useAppSelector((s) => s.discover.home);
-  return useMemo(() => {
-    if (!home) {
-      return [];
-    }
-    return home.categories;
-  }, [home]);
 }
 
 export function useShowBookmark() {

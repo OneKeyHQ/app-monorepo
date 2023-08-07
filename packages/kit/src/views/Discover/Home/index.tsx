@@ -1,16 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import type { FC } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
-import { useFocusEffect } from '@react-navigation/core';
-
-import { useIsVerticalLayout } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { DiscoverContext } from './context';
+import { DiscoverContext, type IDiscoverContext } from './context';
+import { Observer } from './observer';
 
-import type { ItemSource } from './context';
+import type { CategoryType, GroupDappsType } from '../type';
 import type { DiscoverProps } from './type';
 
 let Mobile: any;
@@ -26,35 +24,38 @@ const DiscoverPage: FC<DiscoverProps> = ({
   onItemSelect,
   onItemSelectHistory,
 }) => {
-  useFocusEffect(
-    useCallback(() => {
-      backgroundApiProxy.serviceDiscover.fetchData();
-      backgroundApiProxy.serviceTranslation.fetchData();
-    }, []),
-  );
-
+  const [dapps, setRawDapps] = useState<Record<string, GroupDappsType[]>>({});
   const [categoryId, setCategoryId] = useState('');
+  const [categories, setCategories] = useState<CategoryType[]>([]);
   const isSmall = useIsVerticalLayout();
   if (isSmall && !Mobile) {
     Mobile = require('./Mobile').Mobile;
   } else if (!isSmall && !Desktop) {
     Desktop = require('./Desktop').Desktop;
   }
-  const [itemSource, setItemSource] = useState<ItemSource>('Favorites');
-  const contextValue = useMemo(
+
+  const contextValue = useMemo<IDiscoverContext>(
     () => ({
+      dapps,
+      setDapps: (key, items: GroupDappsType[]) => {
+        const data = { ...dapps, [key]: items };
+        setRawDapps(data);
+      },
+      categories,
+      setCategories,
       categoryId,
       setCategoryId,
-      itemSource,
-      setItemSource,
       onItemSelect,
       onItemSelectHistory,
     }),
-    [categoryId, itemSource, onItemSelect, onItemSelectHistory],
+    [categoryId, categories, dapps, onItemSelect, onItemSelectHistory],
   );
   return (
     <DiscoverContext.Provider value={contextValue}>
-      {isSmall ? <Mobile /> : <Desktop />}
+      <Box flex="1">
+        {isSmall ? <Mobile /> : <Desktop />}
+        <Observer />
+      </Box>
     </DiscoverContext.Provider>
   );
 };

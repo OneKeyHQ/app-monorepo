@@ -5,28 +5,26 @@ import uuid from 'react-native-uuid';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { webTabsActions } from '@onekeyhq/kit/src/store/observable/webTabs';
+import { clearTranslations } from '@onekeyhq/kit/src/store/reducers/data';
 import {
   addBookmark,
-  addUserBrowserHistory,
   cleanOldState,
   clearHistory,
   removeBookmark,
-  removeDappHistory,
   removeUserBrowserHistory,
-  removeWebSiteHistory,
   resetBookmarks,
-  setDappHistory,
   setFavoritesMigrated,
-  setHomeData,
   updateBookmark,
   updateUserBrowserHistory,
 } from '@onekeyhq/kit/src/store/reducers/discover';
+import { getDefaultLocale } from '@onekeyhq/kit/src/utils/locale';
 import { getWebTabs } from '@onekeyhq/kit/src/views/Discover/Explorer/Controller/useWebTabs';
 import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
 import type {
   BookmarkItem,
+  CategoryType,
   DAppItemType,
-  TagDappsType,
+  GroupDappsType,
 } from '@onekeyhq/kit/src/views/Discover/type';
 import {
   backgroundClass,
@@ -38,104 +36,30 @@ import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 class ServicDiscover extends ServiceBase {
-  updatedAt = 0;
-
   get baseUrl() {
     const url = getFiatEndpoint();
     return `${url}/discover`;
   }
 
+  getLanguage() {
+    const { appSelector } = this.backgroundApi;
+    const locale = appSelector((s) => s.settings.locale);
+    const language = locale === 'system' ? getDefaultLocale() : locale;
+    return language;
+  }
+
   init() {
     this.migrateFavorite();
     this.organizeHistory();
+    this.clearData();
   }
 
-  async getList(url: string) {
+  clearData() {
     const { dispatch } = this.backgroundApi;
-    const res = await this.client.get(url);
-    const data = res.data as {
-      listedCategories: { name: string; _id: string }[];
-      tagDapps: TagDappsType[];
-    };
-
-    dispatch(
-      setHomeData({
-        categories: data.listedCategories,
-        tagDapps: data.tagDapps,
-      }),
-      cleanOldState(),
-    );
+    dispatch(cleanOldState());
+    dispatch(clearTranslations());
   }
 
-  @backgroundMethod()
-  async getCategoryDapps(categoryId: string) {
-    const url = `${this.baseUrl}/get_listing_category_dapps?categoryId=${categoryId}`;
-    const res = await this.client.get(url);
-    const data = res.data as DAppItemType[];
-    return data;
-  }
-
-  @backgroundMethod()
-  async getTagDapps(tagId: string) {
-    const url = `${this.baseUrl}/get_listing_tag_dapps?tagId=${tagId}`;
-    const res = await this.client.get(url);
-    const data = res.data as DAppItemType[];
-    return data;
-  }
-
-  @backgroundMethod()
-  async getDappsByIds(dappIds: string[]) {
-    const url = `${this.baseUrl}/get_listing_dapps`;
-    const res = await this.client.post(url, { dappIds });
-    const data = res.data as DAppItemType[];
-    return data;
-  }
-
-  @backgroundMethod()
-  async searchDapps(keyword: string) {
-    const url = `${this.baseUrl}/search_dapps?keyword=${keyword}`;
-    const res = await this.client.get(url);
-    const data = res.data as DAppItemType[];
-    return data;
-  }
-
-  @backgroundMethod()
-  async searchDappsWithUrl(urls: string[]) {
-    const url = `${this.baseUrl}/search_dapps_by_url`;
-    const res = await this.client.post(url, { urls });
-    const data = res.data as DAppItemType[];
-    return data;
-  }
-
-  @backgroundMethod()
-  async searchDappsWithRegExp(urls: string[]) {
-    const url = `${this.baseUrl}/search_dapps_by_url_regexp`;
-    const res = await this.client.post(url, { urls });
-    const data = res.data as DAppItemType[];
-    return data;
-  }
-
-  @backgroundMethod()
-  async getCompactList() {
-    const url = `${this.baseUrl}/compact_list`;
-    await this.getList(url);
-  }
-
-  @backgroundMethod()
-  async fetchData() {
-    if (Date.now() - this.updatedAt > 60 * 1000) {
-      await this.getCompactList();
-      this.updatedAt = Date.now();
-    }
-  }
-
-  @backgroundMethod()
-  removeWebSiteHistory(key: string) {
-    const { dispatch } = this.backgroundApi;
-    dispatch(removeWebSiteHistory(key));
-  }
-
-  @backgroundMethod()
   async migrateFavorite() {
     const { dispatch, appSelector } = this.backgroundApi;
     const dappFavorites = appSelector((s) => s.discover.dappFavorites);
@@ -204,6 +128,71 @@ class ServicDiscover extends ServiceBase {
     if (actions.length > 0) {
       dispatch(...actions);
     }
+  }
+
+  @backgroundMethod()
+  async getHomePageData(categoryId?: string) {
+    const url = `${this.baseUrl}/home_page_data`;
+    const res = await this.client.get(url, {
+      params: { categoryId, language: this.getLanguage() },
+    });
+    const data = res.data as {
+      items: GroupDappsType[];
+      categories: CategoryType[];
+    };
+    return data;
+  }
+
+  @backgroundMethod()
+  async getCategoryDapps(categoryId: string) {
+    const url = `${this.baseUrl}/get_listing_category_dapps`;
+    const res = await this.client.get(url, {
+      params: { categoryId, language: this.getLanguage() },
+    });
+    const data = res.data as DAppItemType[];
+    return data;
+  }
+
+  @backgroundMethod()
+  async getTagDapps(tagId: string) {
+    const url = `${this.baseUrl}/get_listing_tag_dapps`;
+    const res = await this.client.get(url, {
+      params: { tagId, language: this.getLanguage() },
+    });
+    const data = res.data as DAppItemType[];
+    return data;
+  }
+
+  @backgroundMethod()
+  async getDappsByIds(dappIds: string[]) {
+    const url = `${this.baseUrl}/get_listing_dapps`;
+    const res = await this.client.post(url, { dappIds });
+    const data = res.data as DAppItemType[];
+    return data;
+  }
+
+  @backgroundMethod()
+  async searchDapps(keyword: string) {
+    const url = `${this.baseUrl}/search_dapps?keyword=${keyword}`;
+    const res = await this.client.get(url);
+    const data = res.data as DAppItemType[];
+    return data;
+  }
+
+  @backgroundMethod()
+  async searchDappsWithUrl(urls: string[]) {
+    const url = `${this.baseUrl}/search_dapps_by_url`;
+    const res = await this.client.post(url, { urls });
+    const data = res.data as DAppItemType[];
+    return data;
+  }
+
+  @backgroundMethod()
+  async searchDappsWithRegExp(urls: string[]) {
+    const url = `${this.baseUrl}/search_dapps_by_url_regexp`;
+    const res = await this.client.post(url, { urls });
+    const data = res.data as DAppItemType[];
+    return data;
   }
 
   @backgroundMethod()
@@ -353,27 +342,13 @@ class ServicDiscover extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setDappHistory(dappId: string) {
-    const { dispatch } = this.backgroundApi;
-    dispatch(setDappHistory(dappId));
-  }
-
-  @backgroundMethod()
-  async removeDappHistory(dappId: string) {
-    const { dispatch } = this.backgroundApi;
-    dispatch(removeDappHistory(dappId));
-  }
-
-  @backgroundMethod()
   async removeMatchItem(item: MatchDAppItemType) {
     if (item.dapp) {
-      this.removeDappHistory(item.id);
       this.backgroundApi.dispatch(
         removeUserBrowserHistory({ url: item.dapp?.url }),
       );
     }
     if (item.webSite && item.webSite.url && new URL(item.webSite.url).host) {
-      this.removeWebSiteHistory(new URL(item.webSite.url).host);
       this.backgroundApi.dispatch(
         removeUserBrowserHistory({ url: item.webSite.url }),
       );

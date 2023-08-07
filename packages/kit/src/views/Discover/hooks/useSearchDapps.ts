@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { useShowBookmark } from '.';
-
 import Fuse from 'fuse.js';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -36,13 +34,12 @@ function searchDapps(dapps: DAppItemType[], terms: string): DAppItemType[] {
     .map((item) => item.item);
 }
 
-export const useSearchLocalDapp = (
+export const useSearchDapps = (
   terms: string,
   keyword: string,
 ): { loading: boolean; searchedDapps: MatchDAppItemType[] } => {
   const [loading, setLoading] = useState(false);
   const [allDapps, setAllDapps] = useState<DAppItemType[]>([]);
-  const showFullLayout = useShowBookmark();
 
   useEffect(() => {
     if (terms) {
@@ -59,18 +56,14 @@ export const useSearchLocalDapp = (
     }
     setLoading(true);
     try {
-      let items = allDapps;
-      if (!showFullLayout) {
-        items = [];
-      }
-      return searchDapps(items, terms).map((item) => ({
+      return searchDapps(allDapps, terms).map((item) => ({
         id: item._id,
         dapp: item,
       }));
     } finally {
       setLoading(false);
     }
-  }, [allDapps, terms, showFullLayout]);
+  }, [allDapps, terms]);
 
   return {
     loading,

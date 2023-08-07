@@ -7,14 +7,13 @@ import { StyleSheet } from 'react-native';
 import { Box, FlatList } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useTaggedDapps } from '../../hooks';
-import CardView from '../CardView';
-import { DiscoverContext } from '../context';
+import { DiscoverContext, useContextDapps } from '../context';
 
 import { EmptySkeletonContent } from './EmptySkeleton';
+import { FlatListItem } from './FlatListItem';
 import { ListHeader } from './ListHeader';
 
-import type { SectionDataType, TagDappsType } from '../../type';
+import type { GroupDappsType } from '../../type';
 import type { ListRenderItem } from 'react-native';
 
 const styles = StyleSheet.create({
@@ -32,23 +31,17 @@ const ListEmptyComponent = () => (
 
 const ListHeaderComponent = () => <ListHeader showDappCategories />;
 
-export const Mine = () => {
+export const Main = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const fullDapps = useTaggedDapps();
-  const [dapps, setDapps] = useState<TagDappsType[]>([]);
+  const dapps = useContextDapps();
   const [total, setTotal] = useState<number>(10);
   const { onItemSelect } = useContext(DiscoverContext);
 
-  const data = useMemo(() => {
-    const items = dapps.map((item) => ({
-      title: item.label,
-      data: item.items,
-      tagId: item.id,
-      _title: item._label,
-    }));
-    return total < items.length ? items.slice(0, total) : items;
-  }, [dapps, total]);
+  const data = useMemo(
+    () => (total < dapps.length ? dapps.slice(0, total) : dapps),
+    [dapps, total],
+  );
 
   useEffect(() => {
     if (platformEnv.isNative) {
@@ -58,13 +51,12 @@ export const Mine = () => {
         }),
       });
     }
-    setTimeout(() => {
-      setDapps(fullDapps);
-    });
-  }, [navigation, intl, fullDapps]);
+  }, [navigation, intl]);
 
-  const renderItem: ListRenderItem<SectionDataType> = useCallback(
-    ({ item }) => <CardView {...item} onItemSelect={onItemSelect} />,
+  const renderItem: ListRenderItem<GroupDappsType> = useCallback(
+    ({ item }) => (
+      <FlatListItem key={item.label} data={item} onItemSelect={onItemSelect} />
+    ),
     [onItemSelect],
   );
 
@@ -82,7 +74,7 @@ export const Mine = () => {
         removeClippedSubviews
         windowSize={10}
         renderItem={renderItem}
-        keyExtractor={(item, index) => `${item.title ?? ''}${index}`}
+        keyExtractor={(item) => `${item.label}`}
         ListHeaderComponent={ListHeaderComponent}
         ListEmptyComponent={ListEmptyComponent}
         showsVerticalScrollIndicator={false}
