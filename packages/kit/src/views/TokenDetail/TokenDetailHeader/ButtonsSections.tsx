@@ -281,19 +281,17 @@ export const ButtonsSection: FC = () => {
   const handlePress = useCallback(
     (item: IButtonItem) => {
       selectNetworkAccount().then(({ network, account }) => {
-        const token = tokens?.find((t) => {
-          const networksMatch =
-            network?.id === `${t.impl ?? ''}--${t.chainId ?? ''}`;
-          if (!sendAddress) {
-            return networksMatch;
-          }
-          return networksMatch && sendAddress === t.sendAddress;
-        });
+        const token = tokens?.find(
+          (t) => network?.id === `${t.impl ?? ''}--${t.chainId ?? ''}`,
+        );
         if (token) {
           item.onPress?.({
             network,
             account,
-            token,
+            token: {
+              ...token,
+              sendAddress,
+            },
           });
         }
       });
