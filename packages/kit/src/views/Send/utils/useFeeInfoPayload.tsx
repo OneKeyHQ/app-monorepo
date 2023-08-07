@@ -7,7 +7,6 @@ import BigNumber from 'bignumber.js';
 
 import { ToastManager } from '@onekeyhq/components';
 import { FailedToEstimatedGasError } from '@onekeyhq/engine/src/errors';
-import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IEncodedTx,

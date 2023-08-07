@@ -293,7 +293,13 @@ function FeeInfoInputForConfirmLite({
         )}
       </HStack>
     );
-  }, [encodedTx, feeInfoEditable, feeInfoPayload, isPreset]);
+  }, [
+    encodedTx,
+    feeInfoEditable,
+    feeInfoPayload,
+    isPreset,
+    network?.settings.hideFeeSpeedInfo,
+  ]);
 
   const subTitle = useMemo(() => {
     if (!encodedTx || !feeInfoPayload) {

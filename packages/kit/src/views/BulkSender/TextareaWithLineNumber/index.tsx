@@ -1,7 +1,5 @@
 import { useCallback, useLayoutEffect, useRef } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import { Box, Textarea } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -16,8 +14,6 @@ function TextareaWithLineNumber(props: Props) {
   const textAreaRef = useRef<HTMLTextAreaElement>();
   const textAreaLineNumberRef = useRef<HTMLTextAreaElement>();
   const { traderString, setTraderString } = props;
-
-  const intl = useIntl();
 
   const traderStringWithLineNumber = encodeTraderWithLineNumber(traderString);
 

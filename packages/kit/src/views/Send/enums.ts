@@ -12,7 +12,6 @@ export enum SendModalRoutes {
   SendFeedbackReceipt = 'SendFeedbackReceipt',
   HardwareSwapContinue = 'HardwareSwapContinue',
   BatchSendConfirm = 'BatchSendConfirm',
-  BatchSendManyToNConfirm = 'BatchSendManyToNConfirm',
   BatchSendProgress = 'BatchSendProgress',
   NFTDetailModal = 'NFTDetailModal',
   LNURLPayRequest = 'LNURLPayRequest',
