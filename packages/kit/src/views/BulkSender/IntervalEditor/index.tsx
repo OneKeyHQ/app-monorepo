@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Box,
@@ -34,6 +35,8 @@ function IntervalEditor() {
     intervalType: intervalTypeFromOut,
     onIntervalChanged,
   } = route.params;
+
+  const intl = useIntl();
 
   const [isIntervalEnabled, setIsIntervalEnabled] = useState(
     intervalTypeFromOut !== IntervalTypeEnum.Off,
@@ -86,7 +89,9 @@ function IntervalEditor() {
         }
 
         if (minValueBN.isGreaterThan(maxValue)) {
-          return 'min value must be less than max value';
+          return intl.formatMessage({
+            id: 'msg__the_maximum_interval_must_be_greater_than_or_equal_to_the_minimum_interval',
+          });
         }
       } else if (type === 'max') {
         const maxValueBN = new BigNumber(value);
@@ -95,11 +100,13 @@ function IntervalEditor() {
           setValue('maxInterval', new BigNumber(value).toFixed(3));
         }
         if (maxValueBN.isLessThan(minValue)) {
-          return 'max value must be greater than min value';
+          return intl.formatMessage({
+            id: 'msg__the_maximum_interval_must_be_greater_than_or_equal_to_the_minimum_interval',
+          });
         }
       }
     },
-    [getValues, setValue],
+    [getValues, intl, setValue],
   );
 
   const isConfirmDisabeld = useMemo(
@@ -110,15 +117,21 @@ function IntervalEditor() {
   const watchInterval = watch(['minInterval', 'maxInterval']);
   const intervalDesc = useMemo(
     () =>
-      `Sending time for all addresses will be randomized from ${
-        watchInterval[0] ?? '1'
-      }s to ${watchInterval[1] ?? '5'}s.`,
+      intl.formatMessage(
+        {
+          id: 'msg__sending_interval_for_all_addresses_will_be_randomized_from_str_to_str',
+        },
+        {
+          'min_s': `${watchInterval[0] ?? '1'}s`,
+          'max_s': `${watchInterval[1] ?? '5'}s`,
+        },
+      ),
     [watchInterval],
   );
 
   return (
     <Modal
-      header="Time Interval"
+      header={intl.formatMessage({ id: 'form__time_interval' })}
       hideSecondaryAction
       primaryActionTranslationId="action__confirm"
       primaryActionProps={{ isDisabled: isConfirmDisabeld }}
@@ -146,7 +159,7 @@ function IntervalEditor() {
               name="minInterval"
               control={control}
               defaultValue={intervalFromOut[0] || '1'}
-              label="Minimum Amount"
+              label={intl.formatMessage({ id: 'form__minimum_interval' })}
               rules={{
                 required: true,
                 validate: (value) => validateInterval(value, 'min'),
@@ -158,7 +171,7 @@ function IntervalEditor() {
               name="maxInterval"
               control={control}
               defaultValue={intervalFromOut[1] || '5'}
-              label="Maximum Amount"
+              label={intl.formatMessage({ id: 'form__maximum_interval' })}
               rules={{
                 required: true,
                 validate: (value) => validateInterval(value, 'max'),

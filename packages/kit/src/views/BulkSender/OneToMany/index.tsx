@@ -404,7 +404,7 @@ function OneToMany(props: Props) {
                   {intl.formatMessage({ id: 'form__approved' })}
                 </Text>
               ) : (
-                'To Be Approved'
+                intl.formatMessage({ id: 'form__going_to_approve' })
               )
             }
             onPress={handleOpenApprovalSelector}

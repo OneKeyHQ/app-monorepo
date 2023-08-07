@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/core';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { TxSettingTrigger } from '../TxSetting/TxSettingTrigger';
 import { BulkSenderRoutes, IntervalTypeEnum } from '../types';
+import { useIntl } from 'react-intl';
 
 type Props = {
   intervalType: IntervalTypeEnum;
@@ -21,6 +22,7 @@ type Props = {
 function IntervalEditorTrigger(props: Props) {
   const { intervalType, txInterval, handleOnIntervalChanged } = props;
 
+  const intl = useIntl();
   const navigation = useNavigation();
 
   const handleOpenIntervalSelector = useCallback(() => {
@@ -46,24 +48,24 @@ function IntervalEditorTrigger(props: Props) {
       case IntervalTypeEnum.Fixed:
         return {
           title: `${txInterval[0]}s`,
-          desc: 'Fixed Interval',
+          desc: intl.formatMessage({ id: 'form__fixed_interval' }),
         };
       case IntervalTypeEnum.Random:
         return {
           title: `${txInterval[0]} ~ ${txInterval[1]}s`,
-          desc: 'Random Interval',
+          desc: intl.formatMessage({ id: 'form__random_interval' }),
         };
       default:
         return {
           title: `${txInterval[0]} ~ ${txInterval[1]}s`,
-          desc: 'Random Interval',
+          desc: intl.formatMessage({ id: 'form__random_interval' }),
         };
     }
-  }, [intervalType, txInterval]);
+  }, [intervalType, intl, txInterval]);
 
   return (
     <TxSettingTrigger
-      header="Time Interval"
+      header={intl.formatMessage({ id: 'form__time_interval' })}
       title={title}
       desc={desc}
       onPress={handleOpenIntervalSelector}

@@ -56,7 +56,9 @@ function AmountEditorTrigger(props: Props) {
       case AmountTypeEnum.Random:
         return {
           title: `${amount[0]} ${token?.symbol} ~ ${amount[1]} ${token?.symbol}`,
-          desc: `Max Total: ${new BigNumber(amount[1] ?? 0)
+          desc: `${intl.formatMessage({
+            id: 'form__max_total',
+          })}: ${new BigNumber(amount[1] ?? 0)
             .times(transferCount)
             .toFixed()} ${token?.symbol}`,
         };
@@ -68,7 +70,9 @@ function AmountEditorTrigger(props: Props) {
       case AmountTypeEnum.Custom:
         return {
           title: intl.formatMessage({ id: 'title__custom' }),
-          desc: 'Set amounts for each accounts',
+          desc: intl.formatMessage({
+            id: 'content__set_amounts_for_each_accounts',
+          }),
         };
       default:
         return {

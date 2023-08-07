@@ -1,4 +1,5 @@
 import { isArray } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import {
   Box,
@@ -16,12 +17,12 @@ type Props = {
 function TxSettingPanel(props: Props) {
   const { children } = props;
   const isVertical = useIsVerticalLayout();
+  const intl = useIntl();
 
-  // TODO: replace entry
   return (
     <Box>
       <Text typography="Heading" mb={isVertical ? 10 : 4}>
-        Transactions Settings
+        {intl.formatMessage({ id: 'title__transaction_settings' })}
       </Text>
       {isVertical ? (
         <VStack>

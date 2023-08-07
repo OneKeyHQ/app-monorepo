@@ -134,12 +134,16 @@ function AmountEditor() {
       if (type === 'min') {
         const maxValue = getValues('maxAmount');
         if (new BigNumber(maxValue).isLessThanOrEqualTo(value)) {
-          return 'min value must be less than max value';
+          return intl.formatMessage({
+            id: 'msg__maximum_amount_must_be_greater_than_minimum_amount',
+          });
         }
       } else if (type === 'max') {
         const minValue = getValues('minAmount');
         if (new BigNumber(minValue).isGreaterThanOrEqualTo(value)) {
-          return 'max value must be greater than min value';
+          return intl.formatMessage({
+            id: 'msg__maximum_amount_must_be_greater_than_minimum_amount',
+          });
         }
       }
     },
@@ -233,7 +237,7 @@ function AmountEditor() {
             name="minAmount"
             control={control}
             defaultValue={amountFromOut[0] || '0'}
-            label="Minimum Amount"
+            label={intl.formatMessage({ id: 'form__minimum_amount' })}
             rules={{
               required: true,
               validate: (value) => validateAmount(value, 'min'),
@@ -251,7 +255,7 @@ function AmountEditor() {
             name="maxAmount"
             control={control}
             defaultValue={amountFromOut[1] || '1'}
-            label="Maximum Amount"
+            label={intl.formatMessage({ id: 'form__maximum_amount' })}
             rules={{
               required: true,
               validate: (value) => validateAmount(value, 'max'),
