@@ -261,6 +261,7 @@ export type LidoMaticNFTStatus = {
 
 export type LidoMaticOverview = {
   balance?: string;
+  stMaticAddress?: string;
   maticToStMaticRate?: string;
   nfts?: LidoMaticNFTStatus[];
 };

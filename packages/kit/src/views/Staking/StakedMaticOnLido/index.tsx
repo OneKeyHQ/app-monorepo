@@ -98,6 +98,7 @@ const ClaimAlert = () => {
       await backgroundApiProxy.serviceStaking.buildLidoMaticClaimWithdrawals({
         nftId: requests[0],
         networkId,
+        accountId,
       });
 
     const encodedTx: IEncodedTxEvm = {

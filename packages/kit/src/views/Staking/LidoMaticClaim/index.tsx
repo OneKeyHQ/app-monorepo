@@ -51,6 +51,7 @@ const ClaimItem: FC<ClaimItemProps> = ({ item }) => {
       await backgroundApiProxy.serviceStaking.buildLidoMaticClaimWithdrawals({
         nftId: item.nftId,
         networkId,
+        accountId,
       });
     const account = await backgroundApiProxy.engine.getAccount(
       accountId,

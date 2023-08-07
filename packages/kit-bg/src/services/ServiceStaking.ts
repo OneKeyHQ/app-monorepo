@@ -37,6 +37,7 @@ import type {
   KeleOpHistoryDTO,
   KeleUnstakeOverviewDTO,
   KeleWithdrawOverviewDTO,
+  LidoMaticOverview,
   LidoNFTStatus,
 } from '@onekeyhq/kit/src/views/Staking/typing';
 import { plus, toHex } from '@onekeyhq/kit/src/views/Swap/utils';
@@ -45,6 +46,13 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { ERC20PermitABI } from '@onekeyhq/shared/src/contracts/abi/erc20';
+import { LIDO_NFT_ABI } from '@onekeyhq/shared/src/contracts/abi/stETH';
+import {
+  StMaticABI,
+  poLidoNFTABI,
+  stakeManagerABI,
+} from '@onekeyhq/shared/src/contracts/abi/stMatic';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import ServiceBase from './ServiceBase';
@@ -82,9 +90,13 @@ export default class ServiceStaking extends ServiceBase {
     Record<string, SerializableTransactionReceipt>
   > = {};
 
+  private getServerEndPoint() {
+    // return 'http://127.0.0.1:9000/api';
+    return getFiatEndpoint();
+  }
+
   getKeleBaseUrl(networkId: string) {
     const base = getFiatEndpoint();
-    // const base = 'http://127.0.0.1:9000/api';
     if (networkId === OnekeyNetwork.eth) {
       return `${base}/keleMainnet`;
     }
@@ -140,30 +152,21 @@ export default class ServiceStaking extends ServiceBase {
   async buildTxForFastStakingETHtoKele(params: {
     value: string;
     networkId: string;
+    accountId: string;
   }) {
     const { engine } = this.backgroundApi;
     const baseUrl = this.getKeleBaseUrl(params.networkId);
-    const url = `${baseUrl}/fast/stake`;
-    const res = await this.client.get(url);
-    const data = res.data as { code: number; data: FastStakeResponse };
-    if (Number(data.code) !== 0 || !data.data) {
-      throw new Error('Failed to build kele pool fast stake transaction');
-    }
-    const network = await engine.getNetwork(params.networkId);
-    const bn = new BN(data.data.fast_stake_balance).shiftedBy(network.decimals);
-    if (bn.lt(params.value)) {
-      throw new Error(
-        `The Max fast stake amount is ${data.data.fast_stake_balance}`,
-      );
-    }
-    const fundAddr = data.data.fund_addr;
+    const account = await engine.getAccount(params.accountId, params.networkId);
+    const url = `${baseUrl}/build/fast/stake/tx`;
+    const res = await this.client.post(url, {
+      address: account.address,
+      amount: params.value,
+    });
+    const data = res.data as { to: string; data: string; value: string };
+    const fundAddr = data.to;
     await engine.validator.validateAddress(params.networkId, fundAddr);
-
-    return {
-      to: fundAddr,
-      value: toHex(params.value),
-      data: '0x',
-    };
+    data.value = toHex(data.value);
+    return data;
   }
 
   @backgroundMethod()
@@ -177,20 +180,6 @@ export default class ServiceStaking extends ServiceBase {
       data,
       to: getLidoContractAddress(params.networkId),
       value: toHex(params.value),
-    };
-  }
-
-  @backgroundMethod()
-  async buildTxForStakingMaticToLido(params: {
-    value: string;
-    networkId: string;
-  }) {
-    const { serviceContract } = this.backgroundApi;
-    const data = await serviceContract.buildMaticStakeTransaction(params.value);
-    return {
-      data,
-      to: getStMaticContractAdderess(params.networkId),
-      value: '0x0',
     };
   }
 
@@ -473,90 +462,16 @@ export default class ServiceStaking extends ServiceBase {
     if (networkId !== OnekeyNetwork.eth && networkId !== OnekeyNetwork.goerli) {
       return;
     }
-    const LIDO_NFT_ABI = [
-      {
-        inputs: [
-          {
-            internalType: 'address',
-            name: '_owner',
-            type: 'address',
-          },
-        ],
-        name: 'getWithdrawalRequests',
-        outputs: [
-          {
-            internalType: 'uint256[]',
-            name: 'requestsIds',
-            type: 'uint256[]',
-          },
-        ],
-        stateMutability: 'view',
-        type: 'function',
-      },
-      {
-        inputs: [
-          {
-            internalType: 'uint256[]',
-            name: '_requestIds',
-            type: 'uint256[]',
-          },
-        ],
-        name: 'getWithdrawalStatus',
-        outputs: [
-          {
-            components: [
-              {
-                internalType: 'uint256',
-                name: 'amountOfStETH',
-                type: 'uint256',
-              },
-              {
-                internalType: 'uint256',
-                name: 'amountOfShares',
-                type: 'uint256',
-              },
-              {
-                internalType: 'address',
-                name: 'owner',
-                type: 'address',
-              },
-              {
-                internalType: 'uint256',
-                name: 'timestamp',
-                type: 'uint256',
-              },
-              {
-                internalType: 'bool',
-                name: 'isFinalized',
-                type: 'bool',
-              },
-              {
-                internalType: 'bool',
-                name: 'isClaimed',
-                type: 'bool',
-              },
-            ],
-            internalType:
-              'struct WithdrawalQueueBase.WithdrawalRequestStatus[]',
-            name: 'statuses',
-            type: 'tuple[]',
-          },
-        ],
-        stateMutability: 'view',
-        type: 'function',
-      },
-    ];
 
     const account = await engine.getAccount(accountId, networkId);
     const nftAddr = getLidoNFTContractAddress(networkId);
     const lidoAddr = getLidoContractAddress(networkId);
 
-    const getWithdrawalRequestsCalldata =
-      await serviceContract.buildEvmCalldata({
-        abi: LIDO_NFT_ABI,
-        method: 'getWithdrawalRequests',
-        params: [account.address],
-      });
+    const getWithdrawalRequestsCalldata = serviceContract.buildEvmCalldata({
+      abi: LIDO_NFT_ABI,
+      method: 'getWithdrawalRequests',
+      params: [account.address],
+    });
 
     const vault = (await engine.getVault({ networkId, accountId })) as EvmVault;
     const client = await vault.getJsonRPCClient();
@@ -581,7 +496,7 @@ export default class ServiceStaking extends ServiceBase {
     const balance = result?.[tokenId]?.balance ?? '0';
 
     const requestsCalldata = calldatas[0];
-    const requestsResult = await serviceContract.parseJsonResponse({
+    const requestsResult = serviceContract.parseJsonResponse({
       abi: LIDO_NFT_ABI,
       method: 'getWithdrawalRequests',
       data: requestsCalldata,
@@ -591,7 +506,7 @@ export default class ServiceStaking extends ServiceBase {
     const requestsBN = requestsResult[0] as BigNumber[];
     const requestIds = requestsBN.map((o) => o.toNumber());
 
-    const getWithdrawalStatusCalldata = await serviceContract.buildEvmCalldata({
+    const getWithdrawalStatusCalldata = serviceContract.buildEvmCalldata({
       abi: LIDO_NFT_ABI,
       method: 'getWithdrawalStatus',
       params: [requestIds],
@@ -609,7 +524,7 @@ export default class ServiceStaking extends ServiceBase {
       ],
     });
 
-    const statusResult = await serviceContract.parseJsonResponse({
+    const statusResult = serviceContract.parseJsonResponse({
       abi: LIDO_NFT_ABI,
       method: 'getWithdrawalStatus',
       data: statusCalldata as string,
@@ -670,183 +585,220 @@ export default class ServiceStaking extends ServiceBase {
     dispatch(setLidoOverview({ accountId, networkId, overview }));
   }
 
+  private getStEthEip712Domain(networdId: string) {
+    return {
+      name: 'Liquid staked Ether 2.0',
+      version: '2',
+      chainId: networdId === OnekeyNetwork.eth ? 1 : 5,
+      verifyingContract: getLidoContractAddress(networdId),
+    };
+  }
+
   @backgroundMethod()
-  async fetchLidoMaticOverview(params: {
+  async buildStEthPermit(params: {
+    accountId: string;
+    networkId: string;
+    value: string;
+    deadline: number;
+  }) {
+    const { networkId, accountId, value, deadline } = params;
+    const eip712Domain = this.getStEthEip712Domain(networkId);
+
+    const { serviceContract, engine } = this.backgroundApi;
+    const account = await engine.getAccount(accountId, networkId);
+
+    const noncesCalldata = serviceContract.buildEvmCalldata({
+      abi: ERC20PermitABI,
+      method: 'nonces',
+      params: [account.address],
+    });
+
+    const contractAddress = getLidoContractAddress(networkId);
+
+    const nonceCalldata = await engine.proxyJsonRPCCall(networkId, {
+      method: 'eth_call',
+      params: [
+        {
+          from: account.address,
+          to: contractAddress,
+          data: noncesCalldata,
+        },
+        'latest',
+      ],
+    });
+
+    const nonceResult = serviceContract.parseJsonResponse({
+      abi: ERC20PermitABI,
+      method: 'nonces',
+      data: nonceCalldata as string,
+    });
+
+    if (!nonceResult[0]) {
+      return;
+    }
+    const nonceBN = nonceResult[0] as BigNumber;
+    const nonce = nonceBN.toNumber();
+
+    const nftAddress = getLidoNFTContractAddress(networkId);
+
+    const permitData = await serviceContract.buildERC20PermitData({
+      eip712Domain,
+      eip712Message: {
+        owner: account.address,
+        spender: nftAddress,
+        value,
+        nonce,
+        deadline,
+      },
+    });
+
+    return permitData;
+  }
+
+  @backgroundMethod()
+  async buildRequestWithdrawalsWithPermit(parmas: {
+    networkId: string;
+    amounts: string[];
+    owner: string;
+    permit: {
+      v: number;
+      s: string;
+      r: string;
+      value: string;
+      deadline: number;
+    };
+  }) {
+    const { serviceContract } = this.backgroundApi;
+    const { amounts, owner, permit, networkId } = parmas;
+    const data = serviceContract.buildEvmCalldata({
+      abi: LIDO_NFT_ABI,
+      method: 'requestWithdrawalsWithPermit',
+      params: [amounts, owner, permit],
+    });
+    const to = getLidoNFTContractAddress(networkId);
+    return { to, data, value: '0x0' };
+  }
+
+  @backgroundMethod()
+  async getLastCheckpointIndex(params: { networkId: string }) {
+    const { networkId } = params;
+    const to = getLidoNFTContractAddress(networkId);
+    const { serviceContract } = this.backgroundApi;
+    const lastIndexResult = await serviceContract.ethCallWithABI({
+      abi: LIDO_NFT_ABI,
+      method: 'getLastCheckpointIndex',
+      params: [],
+      networkId,
+      to,
+    });
+    if (!lastIndexResult?.[0]) {
+      throw new Error('Failed to fetch getLastCheckpointIndex');
+    }
+    const checkpointIndex = lastIndexResult[0] as BigNumber;
+    return checkpointIndex.toNumber();
+  }
+
+  @backgroundMethod()
+  async findLidoCheckpointHints(params: {
+    requestIds: number[];
+    firstIndex: number;
+    lastIndex: number;
+    networkId: string;
+  }): Promise<number[]> {
+    const { requestIds, firstIndex, lastIndex, networkId } = params;
+    const { serviceContract } = this.backgroundApi;
+    const to = getLidoNFTContractAddress(networkId);
+    const hintsResult = await serviceContract.ethCallWithABI({
+      abi: LIDO_NFT_ABI,
+      method: 'findCheckpointHints',
+      params: [requestIds, firstIndex, lastIndex],
+      networkId,
+      to,
+    });
+    if (!hintsResult?.[0]) {
+      throw new Error('Failed to fetch findCheckpointHints');
+    }
+    const hintsBN = hintsResult[0] as BigNumber[];
+    const hints = hintsBN.map((o) => o.toNumber());
+    return hints;
+  }
+
+  @backgroundMethod()
+  async buildLidoClaimWithdrawals(params: {
+    requestIds: number[];
+    networkId: string;
+  }) {
+    const { requestIds, networkId } = params;
+    const newRequestIds = [...requestIds];
+    const lastCheckpoint = await this.getLastCheckpointIndex({ networkId });
+    newRequestIds.sort((a, b) => a - b);
+    const hints = await this.findLidoCheckpointHints({
+      requestIds: newRequestIds,
+      firstIndex: 1,
+      lastIndex: lastCheckpoint,
+      networkId,
+    });
+    const { serviceContract } = this.backgroundApi;
+    const data = serviceContract.buildEvmCalldata({
+      abi: LIDO_NFT_ABI,
+      method: 'claimWithdrawals',
+      params: [requestIds, hints],
+    });
+    const to = getLidoNFTContractAddress(networkId);
+    return { to, data, value: '0x0' };
+  }
+
+  @backgroundMethod()
+  async getStEthToken(params: { networkId: string }) {
+    const { networkId } = params;
+    const baseToken: Token = {
+      id: '',
+      networkId: '',
+      tokenIdOnNetwork: '',
+      name: 'Liquid staked Ether 2.0',
+      symbol: 'stETH',
+      decimals: 18,
+      logoURI:
+        'https://common.onekey-asset.com/token/evm-1/0xae7ab96520de3a18e5e111b5eaab095312d7fe84.png',
+    };
+    if (networkId === OnekeyNetwork.eth) {
+      baseToken.id = `${OnekeyNetwork.eth}--${MainnetLidoContractAddress}`;
+      baseToken.networkId = OnekeyNetwork.eth;
+      baseToken.tokenIdOnNetwork = MainnetLidoContractAddress;
+    } else if (networkId === OnekeyNetwork.goerli) {
+      baseToken.id = `${OnekeyNetwork.goerli}--${TestnetLidoContractAddress}`;
+      baseToken.networkId = OnekeyNetwork.goerli;
+      baseToken.tokenIdOnNetwork = TestnetLidoContractAddress;
+    } else {
+      throw new Error('Wrong networkId');
+    }
+    return baseToken;
+  }
+
+  private async localRpcFetchLidoMaticOverview(params: {
     networkId: string;
     accountId: string;
-  }) {
+  }): Promise<LidoMaticOverview | undefined> {
     const { networkId, accountId } = params;
-    const { engine, serviceContract, serviceToken, dispatch } =
-      this.backgroundApi;
+    const { engine, serviceContract, serviceToken } = this.backgroundApi;
     if (networkId !== OnekeyNetwork.eth && networkId !== OnekeyNetwork.goerli) {
       return;
     }
-    const StMaticABI = [
-      {
-        'constant': true,
-        'inputs': [],
-        'name': 'stakeManager',
-        'outputs': [
-          {
-            'internalType': 'contract IStakeManager',
-            'name': '',
-            'type': 'address',
-          },
-        ],
-        'payable': false,
-        'stateMutability': 'view',
-        'type': 'function',
-      },
-      {
-        'inputs': [],
-        'name': 'poLidoNFT',
-        'outputs': [
-          {
-            'internalType': 'contract IPoLidoNFT',
-            'name': '',
-            'type': 'address',
-          },
-        ],
-        'stateMutability': 'view',
-        'type': 'function',
-      },
-      {
-        'inputs': [
-          {
-            'internalType': 'uint256',
-            'name': '_tokenId',
-            'type': 'uint256',
-          },
-        ],
-        'name': 'getMaticFromTokenId',
-        'outputs': [
-          {
-            'internalType': 'uint256',
-            'name': '',
-            'type': 'uint256',
-          },
-        ],
-        'stateMutability': 'view',
-        'type': 'function',
-      },
-      {
-        'inputs': [
-          {
-            'internalType': 'uint256',
-            'name': '_tokenId',
-            'type': 'uint256',
-          },
-        ],
-        'name': 'getToken2WithdrawRequests',
-        'outputs': [
-          {
-            'components': [
-              {
-                'internalType': 'uint256',
-                'name': 'amount2WithdrawFromStMATIC',
-                'type': 'uint256',
-              },
-              {
-                'internalType': 'uint256',
-                'name': 'validatorNonce',
-                'type': 'uint256',
-              },
-              {
-                'internalType': 'uint256',
-                'name': 'requestTime',
-                'type': 'uint256',
-              },
-              {
-                'internalType': 'address',
-                'name': 'validatorAddress',
-                'type': 'address',
-              },
-            ],
-            'internalType': 'struct IStMATIC.RequestWithdraw[]',
-            'name': '',
-            'type': 'tuple[]',
-          },
-        ],
-        'stateMutability': 'view',
-        'type': 'function',
-      },
-      {
-        'inputs': [
-          {
-            'internalType': 'uint256',
-            'name': '_amountInMatic',
-            'type': 'uint256',
-          },
-        ],
-        'name': 'convertMaticToStMatic',
-        'outputs': [
-          {
-            'internalType': 'uint256',
-            'name': 'amountInStMatic',
-            'type': 'uint256',
-          },
-          {
-            'internalType': 'uint256',
-            'name': 'totalStMaticSupply',
-            'type': 'uint256',
-          },
-          {
-            'internalType': 'uint256',
-            'name': 'totalPooledMatic',
-            'type': 'uint256',
-          },
-        ],
-        'stateMutability': 'view',
-        'type': 'function',
-      },
-      {
-        'inputs': [
-          {
-            'internalType': 'uint256',
-            'name': '_amountInStMatic',
-            'type': 'uint256',
-          },
-        ],
-        'name': 'convertStMaticToMatic',
-        'outputs': [
-          {
-            'internalType': 'uint256',
-            'name': 'amountInMatic',
-            'type': 'uint256',
-          },
-          {
-            'internalType': 'uint256',
-            'name': 'totalStMaticAmount',
-            'type': 'uint256',
-          },
-          {
-            'internalType': 'uint256',
-            'name': 'totalPooledMatic',
-            'type': 'uint256',
-          },
-        ],
-        'stateMutability': 'view',
-        'type': 'function',
-      },
-    ];
     const stMaticAddress = getStMaticContractAdderess(networkId);
 
-    const getStakeManagerRequestsCalldata =
-      await serviceContract.buildEvmCalldata({
-        abi: StMaticABI,
-        method: 'stakeManager',
-        params: [],
-      });
-    const getPoLidoNFTRequestsCalldata = await serviceContract.buildEvmCalldata(
-      {
-        abi: StMaticABI,
-        method: 'poLidoNFT',
-        params: [],
-      },
-    );
+    const getStakeManagerRequestsCalldata = serviceContract.buildEvmCalldata({
+      abi: StMaticABI,
+      method: 'stakeManager',
+      params: [],
+    });
+    const getPoLidoNFTRequestsCalldata = serviceContract.buildEvmCalldata({
+      abi: StMaticABI,
+      method: 'poLidoNFT',
+      params: [],
+    });
 
     const maticBN = new BN(1).shiftedBy(9);
-    const getStMaticRateCalldata = await serviceContract.buildEvmCalldata({
+    const getStMaticRateCalldata = serviceContract.buildEvmCalldata({
       abi: StMaticABI,
       method: 'convertMaticToStMatic',
       params: [maticBN.toFixed()],
@@ -867,19 +819,19 @@ export default class ServiceStaking extends ServiceBase {
       return;
     }
 
-    const stakeManagerResult = await serviceContract.parseJsonResponse({
+    const stakeManagerResult = serviceContract.parseJsonResponse({
       abi: StMaticABI,
       method: 'stakeManager',
       data: calldatas[0],
     });
 
-    const poLidoNFTResult = await serviceContract.parseJsonResponse({
+    const poLidoNFTResult = serviceContract.parseJsonResponse({
       abi: StMaticABI,
       method: 'poLidoNFT',
       data: calldatas[1],
     });
 
-    const stMaticRateResult = await serviceContract.parseJsonResponse({
+    const stMaticRateResult = serviceContract.parseJsonResponse({
       abi: StMaticABI,
       method: 'convertMaticToStMatic',
       data: calldatas[2],
@@ -901,55 +853,14 @@ export default class ServiceStaking extends ServiceBase {
       return;
     }
 
-    const poLidoNFTABI = [
-      {
-        'inputs': [
-          {
-            'internalType': 'address',
-            'name': '_address',
-            'type': 'address',
-          },
-        ],
-        'name': 'getOwnedTokens',
-        'outputs': [
-          {
-            'internalType': 'uint256[]',
-            'name': '',
-            'type': 'uint256[]',
-          },
-        ],
-        'stateMutability': 'view',
-        'type': 'function',
-      },
-    ];
-
-    const stakeManagerABI = [
-      {
-        'constant': true,
-        'inputs': [],
-        'name': 'epoch',
-        'outputs': [
-          {
-            'internalType': 'uint256',
-            'name': '',
-            'type': 'uint256',
-          },
-        ],
-        'payable': false,
-        'stateMutability': 'view',
-        'type': 'function',
-      },
-    ];
-
     const account = await engine.getAccount(accountId, networkId);
 
-    const getOwnedTokensRequestCalldata =
-      await serviceContract.buildEvmCalldata({
-        abi: poLidoNFTABI,
-        method: 'getOwnedTokens',
-        params: [account.address],
-      });
-    const getEpochRequestCalldata = await serviceContract.buildEvmCalldata({
+    const getOwnedTokensRequestCalldata = serviceContract.buildEvmCalldata({
+      abi: poLidoNFTABI,
+      method: 'getOwnedTokens',
+      params: [account.address],
+    });
+    const getEpochRequestCalldata = serviceContract.buildEvmCalldata({
       abi: stakeManagerABI,
       method: 'epoch',
       params: [],
@@ -966,13 +877,13 @@ export default class ServiceStaking extends ServiceBase {
       return;
     }
 
-    const getOwnedTokensResult = await serviceContract.parseJsonResponse({
+    const getOwnedTokensResult = serviceContract.parseJsonResponse({
       abi: poLidoNFTABI,
       method: 'getOwnedTokens',
       data: calldatas2[0],
     });
 
-    const getEpochResult = await serviceContract.parseJsonResponse({
+    const getEpochResult = serviceContract.parseJsonResponse({
       abi: stakeManagerABI,
       method: 'epoch',
       data: calldatas2[1],
@@ -1002,7 +913,7 @@ export default class ServiceStaking extends ServiceBase {
     });
 
     const requestsCalldatas = await Promise.all(
-      ([] as Promise<string>[])
+      ([] as string[])
         .concat(getToken2WithdrawRequestsPromises)
         .concat(getMaticFromTokenIdPromises),
     );
@@ -1021,7 +932,7 @@ export default class ServiceStaking extends ServiceBase {
     const withdrawRequestPromises = calldatas3
       .slice(0, getToken2WithdrawRequestsPromises.length)
       .map(async (item) => {
-        const result = await serviceContract.parseJsonResponse({
+        const result = serviceContract.parseJsonResponse({
           abi: StMaticABI,
           method: 'getToken2WithdrawRequests',
           data: item,
@@ -1058,7 +969,7 @@ export default class ServiceStaking extends ServiceBase {
     const maticFromTokenIdProise = calldatas3
       .slice(getToken2WithdrawRequestsPromises.length)
       .map(async (item) => {
-        const result = await serviceContract.parseJsonResponse({
+        const result = serviceContract.parseJsonResponse({
           abi: StMaticABI,
           method: 'getMaticFromTokenId',
           data: item,
@@ -1099,189 +1010,72 @@ export default class ServiceStaking extends ServiceBase {
     });
 
     const balance = result?.[tokenId]?.balance ?? '0';
-    const overview = { balance, nfts, maticToStMaticRate };
-    dispatch(
-      setLidoMaticOverview({
-        accountId,
-        networkId,
-        overview,
-      }),
-    );
+    const overview = { balance, nfts, maticToStMaticRate, stMaticAddress };
     return overview;
   }
 
-  private getStEthEip712Domain(networdId: string) {
-    return {
-      name: 'Liquid staked Ether 2.0',
-      version: '2',
-      chainId: networdId === OnekeyNetwork.eth ? 1 : 5,
-      verifyingContract: getLidoContractAddress(networdId),
-    };
-  }
-
-  @backgroundMethod()
-  async buildStEthPermit(params: {
+  private async remoteSeverFetchLidoMaticOverview(params: {
+    networkId: string;
     accountId: string;
-    networkId: string;
-    value: string;
-    deadline: number;
-  }) {
-    const { networkId, accountId, value, deadline } = params;
-    const eip712Domain = this.getStEthEip712Domain(networkId);
-
-    const ERC20_NONCE_ABI = [
-      {
-        'constant': true,
-        'inputs': [
-          {
-            'name': 'owner',
-            'type': 'address',
-          },
-        ],
-        'name': 'nonces',
-        'outputs': [
-          {
-            'name': '',
-            'type': 'uint256',
-          },
-        ],
-        'payable': false,
-        'stateMutability': 'view',
-        'type': 'function',
-      },
-    ];
-
-    const { serviceContract, engine } = this.backgroundApi;
+  }): Promise<LidoMaticOverview | undefined> {
+    const { accountId, networkId } = params;
+    const { engine, serviceToken } = this.backgroundApi;
+    const baseUrl = this.getServerEndPoint();
     const account = await engine.getAccount(accountId, networkId);
-
-    const noncesCalldata = await serviceContract.buildEvmCalldata({
-      abi: ERC20_NONCE_ABI,
-      method: 'nonces',
-      params: [account.address],
-    });
-
-    const contractAddress = getLidoContractAddress(networkId);
-
-    const nonceCalldata = await engine.proxyJsonRPCCall(networkId, {
-      method: 'eth_call',
-      params: [
-        {
-          from: account.address,
-          to: contractAddress,
-          data: noncesCalldata,
-        },
-        'latest',
-      ],
-    });
-
-    const nonceResult = await serviceContract.parseJsonResponse({
-      abi: ERC20_NONCE_ABI,
-      method: 'nonces',
-      data: nonceCalldata as string,
-    });
-
-    if (!nonceResult[0]) {
-      return;
-    }
-    const nonceBN = nonceResult[0] as BigNumber;
-    const nonce = nonceBN.toNumber();
-
-    const nftAddress = getLidoNFTContractAddress(networkId);
-
-    const permitData = await serviceContract.buildERC20PermitData({
-      eip712Domain,
-      eip712Message: {
-        owner: account.address,
-        spender: nftAddress,
-        value,
-        nonce,
-        deadline,
+    const url = `${baseUrl}/staking/stmatic/overview`;
+    const res = await this.client.get(url, {
+      params: {
+        address: account.address,
+        networkId,
       },
     });
-
-    return permitData;
+    const data = res.data as LidoMaticOverview | undefined;
+    if (data?.stMaticAddress) {
+      const tokenId = data.stMaticAddress.toLowerCase();
+      await serviceToken.getAccountTokenBalance({
+        networkId,
+        accountId,
+        tokenIds: [tokenId],
+        withMain: true,
+      });
+    }
+    return data;
   }
 
   @backgroundMethod()
-  async buildRequestWithdrawalsWithPermit(parmas: {
+  async fetchLidoMaticOverview(params: {
     networkId: string;
-    amounts: string[];
-    owner: string;
-    permit: {
-      v: number;
-      s: string;
-      r: string;
-      value: string;
-      deadline: number;
-    };
+    accountId: string;
   }) {
-    const ABI = [
-      {
-        'inputs': [
-          {
-            'internalType': 'uint256[]',
-            'name': '_amounts',
-            'type': 'uint256[]',
-          },
-          {
-            'internalType': 'address',
-            'name': '_owner',
-            'type': 'address',
-          },
-          {
-            'components': [
-              {
-                'internalType': 'uint256',
-                'name': 'value',
-                'type': 'uint256',
-              },
-              {
-                'internalType': 'uint256',
-                'name': 'deadline',
-                'type': 'uint256',
-              },
-              {
-                'internalType': 'uint8',
-                'name': 'v',
-                'type': 'uint8',
-              },
-              {
-                'internalType': 'bytes32',
-                'name': 'r',
-                'type': 'bytes32',
-              },
-              {
-                'internalType': 'bytes32',
-                'name': 's',
-                'type': 'bytes32',
-              },
-            ],
-            'internalType': 'struct WithdrawalQueue.PermitInput',
-            'name': '_permit',
-            'type': 'tuple',
-          },
-        ],
-        'name': 'requestWithdrawalsWithPermit',
-        'outputs': [
-          {
-            'internalType': 'uint256[]',
-            'name': 'requestIds',
-            'type': 'uint256[]',
-          },
-        ],
-        'stateMutability': 'nonpayable',
-        'type': 'function',
-      },
-    ];
-    const { serviceContract } = this.backgroundApi;
-    const { amounts, owner, permit, networkId } = parmas;
-    const data = await serviceContract.buildEvmCalldata({
-      abi: ABI,
-      method: 'requestWithdrawalsWithPermit',
-      params: [amounts, owner, permit],
+    let overview: LidoMaticOverview | undefined;
+    try {
+      overview = await this.remoteSeverFetchLidoMaticOverview(params);
+    } catch {
+      overview = await this.localRpcFetchLidoMaticOverview(params);
+    }
+    if (overview) {
+      const { dispatch } = this.backgroundApi;
+      dispatch(setLidoMaticOverview({ ...params, overview }));
+    }
+  }
+
+  @backgroundMethod()
+  async buildTxForStakingMaticToLido(params: {
+    accountId: string;
+    amount: string;
+    networkId: string;
+  }) {
+    const { engine } = this.backgroundApi;
+    const baseUrl = this.getServerEndPoint();
+    const account = await engine.getAccount(params.accountId, params.networkId);
+    const url = `${baseUrl}/staking/stmatic/build_stake_transaction`;
+    const res = await this.client.post(url, {
+      networkId: params.networkId,
+      amount: params.amount,
+      address: account.address,
     });
-    const to = getLidoNFTContractAddress(networkId);
-    return { to, data, value: '0x0' };
+    const data = res.data as { to: string; value: string; data: string };
+    return data;
   }
 
   @backgroundMethod()
@@ -1290,206 +1084,35 @@ export default class ServiceStaking extends ServiceBase {
     accountId: string;
     amount: string;
   }) {
-    const { serviceContract } = this.backgroundApi;
-    const data = await serviceContract.buildMaticUnstakeTransaction(
-      params.amount,
-    );
-    return {
-      data,
-      to: getStMaticContractAdderess(params.networkId),
-      value: '0x0',
-    };
-  }
-
-  @backgroundMethod()
-  async getLastCheckpointIndex(params: { networkId: string }) {
-    const ABI = [
-      {
-        'inputs': [],
-        'name': 'getLastCheckpointIndex',
-        'outputs': [
-          {
-            'internalType': 'uint256',
-            'name': '',
-            'type': 'uint256',
-          },
-        ],
-        'stateMutability': 'view',
-        'type': 'function',
-      },
-    ];
-    const { networkId } = params;
-    const to = getLidoNFTContractAddress(networkId);
-    const { serviceContract } = this.backgroundApi;
-    const lastIndexResult = await serviceContract.ethCallWithABI({
-      abi: ABI,
-      method: 'getLastCheckpointIndex',
-      params: [],
-      networkId,
-      to,
+    const { engine } = this.backgroundApi;
+    const baseUrl = this.getServerEndPoint();
+    const account = await engine.getAccount(params.accountId, params.networkId);
+    const url = `${baseUrl}/staking/stmatic/build_unstake_transaction`;
+    const res = await this.client.post(url, {
+      networkId: params.networkId,
+      amount: params.amount,
+      address: account.address,
     });
-    if (!lastIndexResult?.[0]) {
-      throw new Error('Failed to fetch getLastCheckpointIndex');
-    }
-    const checkpointIndex = lastIndexResult[0] as BigNumber;
-    return checkpointIndex.toNumber();
-  }
-
-  @backgroundMethod()
-  async findLidoCheckpointHints(params: {
-    requestIds: number[];
-    firstIndex: number;
-    lastIndex: number;
-    networkId: string;
-  }): Promise<number[]> {
-    const { requestIds, firstIndex, lastIndex, networkId } = params;
-    const ABI = [
-      {
-        'inputs': [
-          {
-            'internalType': 'uint256[]',
-            'name': '_requestIds',
-            'type': 'uint256[]',
-          },
-          {
-            'internalType': 'uint256',
-            'name': '_firstIndex',
-            'type': 'uint256',
-          },
-          {
-            'internalType': 'uint256',
-            'name': '_lastIndex',
-            'type': 'uint256',
-          },
-        ],
-        'name': 'findCheckpointHints',
-        'outputs': [
-          {
-            'internalType': 'uint256[]',
-            'name': 'hintIds',
-            'type': 'uint256[]',
-          },
-        ],
-        'stateMutability': 'view',
-        'type': 'function',
-      },
-    ];
-    const { serviceContract } = this.backgroundApi;
-    const to = getLidoNFTContractAddress(networkId);
-    const hintsResult = await serviceContract.ethCallWithABI({
-      abi: ABI,
-      method: 'findCheckpointHints',
-      params: [requestIds, firstIndex, lastIndex],
-      networkId,
-      to,
-    });
-    if (!hintsResult?.[0]) {
-      throw new Error('Failed to fetch findCheckpointHints');
-    }
-    const hintsBN = hintsResult[0] as BigNumber[];
-    const hints = hintsBN.map((o) => o.toNumber());
-    return hints;
-  }
-
-  @backgroundMethod()
-  async buildLidoClaimWithdrawals(params: {
-    requestIds: number[];
-    networkId: string;
-  }) {
-    const { requestIds, networkId } = params;
-    const newRequestIds = [...requestIds];
-    const lastCheckpoint = await this.getLastCheckpointIndex({ networkId });
-    newRequestIds.sort((a, b) => a - b);
-    const hints = await this.findLidoCheckpointHints({
-      requestIds: newRequestIds,
-      firstIndex: 1,
-      lastIndex: lastCheckpoint,
-      networkId,
-    });
-    const ABI = [
-      {
-        'inputs': [
-          {
-            'internalType': 'uint256[]',
-            'name': '_requestIds',
-            'type': 'uint256[]',
-          },
-          {
-            'internalType': 'uint256[]',
-            'name': '_hints',
-            'type': 'uint256[]',
-          },
-        ],
-        'name': 'claimWithdrawals',
-        'outputs': [],
-        'stateMutability': 'nonpayable',
-        'type': 'function',
-      },
-    ];
-    const { serviceContract } = this.backgroundApi;
-    const data = await serviceContract.buildEvmCalldata({
-      abi: ABI,
-      method: 'claimWithdrawals',
-      params: [requestIds, hints],
-    });
-    const to = getLidoNFTContractAddress(networkId);
-    return { to, data, value: '0x0' };
+    const data = res.data as { to: string; value: string; data: string };
+    return data;
   }
 
   @backgroundMethod()
   async buildLidoMaticClaimWithdrawals(params: {
     nftId: number;
     networkId: string;
+    accountId: string;
   }) {
-    const ABI = [
-      {
-        'inputs': [
-          {
-            'internalType': 'uint256',
-            'name': '_tokenId',
-            'type': 'uint256',
-          },
-        ],
-        'name': 'claimTokens',
-        'outputs': [],
-        'stateMutability': 'nonpayable',
-        'type': 'function',
-      },
-    ];
-    const { serviceContract } = this.backgroundApi;
-    const data = await serviceContract.buildEvmCalldata({
-      abi: ABI,
-      method: 'claimTokens',
-      params: [params.nftId],
+    const { engine } = this.backgroundApi;
+    const baseUrl = this.getServerEndPoint();
+    const account = await engine.getAccount(params.accountId, params.networkId);
+    const url = `${baseUrl}/staking/stmatic/build_claim_transaction`;
+    const res = await this.client.post(url, {
+      networkId: params.networkId,
+      nftId: params.nftId,
+      address: account.address,
     });
-    const to = getStMaticContractAdderess(params.networkId);
-    return { to, data, value: '0x0' };
-  }
-
-  @backgroundMethod()
-  async getStEthToken(params: { networkId: string }) {
-    const { networkId } = params;
-    const baseToken: Token = {
-      id: '',
-      networkId: '',
-      tokenIdOnNetwork: '',
-      name: 'Liquid staked Ether 2.0',
-      symbol: 'stETH',
-      decimals: 18,
-      logoURI:
-        'https://common.onekey-asset.com/token/evm-1/0xae7ab96520de3a18e5e111b5eaab095312d7fe84.png',
-    };
-    if (networkId === OnekeyNetwork.eth) {
-      baseToken.id = `${OnekeyNetwork.eth}--${MainnetLidoContractAddress}`;
-      baseToken.networkId = OnekeyNetwork.eth;
-      baseToken.tokenIdOnNetwork = MainnetLidoContractAddress;
-    } else if (networkId === OnekeyNetwork.goerli) {
-      baseToken.id = `${OnekeyNetwork.goerli}--${TestnetLidoContractAddress}`;
-      baseToken.networkId = OnekeyNetwork.goerli;
-      baseToken.tokenIdOnNetwork = TestnetLidoContractAddress;
-    } else {
-      throw new Error('Wrong networkId');
-    }
-    return baseToken;
+    const data = res.data as { to: string; value: string; data: string };
+    return data;
   }
 }

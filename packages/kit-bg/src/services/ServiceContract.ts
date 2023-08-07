@@ -6,6 +6,8 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { stETHABI } from '@onekeyhq/shared/src/contracts/abi/stETH';
+import { WETH9_ABI } from '@onekeyhq/shared/src/contracts/abi/weth9';
 
 import ServiceBase from './ServiceBase';
 
@@ -16,105 +18,15 @@ type IABI = string | readonly (string | Fragment | JsonFragment)[];
 
 const lidoReferralAddress = '0xc1e92BD5d1aa6e5f5F299D0490BefD9D8E5a887a';
 
-const LIDO_ABI = [
-  {
-    constant: false,
-    inputs: [{ name: '_referral', type: 'address' }],
-    name: 'submit',
-    outputs: [{ name: '', type: 'uint256' }],
-    payable: true,
-    stateMutability: 'payable',
-    type: 'function',
-  },
-];
-
-const WETH9_ABI = [
-  {
-    constant: false,
-    inputs: [
-      {
-        'name': 'wad',
-        'type': 'uint256',
-      },
-    ],
-    name: 'withdraw',
-    outputs: [],
-    payable: false,
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    constant: false,
-    inputs: [],
-    name: 'deposit',
-    outputs: [],
-    payable: true,
-    stateMutability: 'payable',
-    type: 'function',
-  },
-];
-
-const StMaticABI = [
-  {
-    'inputs': [
-      {
-        'internalType': 'uint256',
-        'name': '_amount',
-        'type': 'uint256',
-      },
-      {
-        'internalType': 'address',
-        'name': '_referral',
-        'type': 'address',
-      },
-    ],
-    'name': 'submit',
-    'outputs': [
-      {
-        'internalType': 'uint256',
-        'name': '',
-        'type': 'uint256',
-      },
-    ],
-    'stateMutability': 'nonpayable',
-    'type': 'function',
-  },
-  {
-    'inputs': [
-      {
-        'internalType': 'uint256',
-        'name': '_amount',
-        'type': 'uint256',
-      },
-      {
-        'internalType': 'address',
-        'name': '_referral',
-        'type': 'address',
-      },
-    ],
-    'name': 'requestWithdraw',
-    'outputs': [
-      {
-        'internalType': 'uint256',
-        'name': '',
-        'type': 'uint256',
-      },
-    ],
-    'stateMutability': 'nonpayable',
-    'type': 'function',
-  },
-];
-
 @backgroundClass()
 class ServiceContract extends ServiceBase {
-  async buildEvmCalldata(input: { abi: IABI; method: string; params: any[] }) {
+  buildEvmCalldata(input: { abi: IABI; method: string; params: any[] }) {
     const { abi, method, params } = input;
     const inter = new Interface(abi);
     return inter.encodeFunctionData(inter.getFunction(method), params);
   }
 
-  @backgroundMethod()
-  async parseJsonResponse(params: {
+  parseJsonResponse(params: {
     abi: string | readonly (string | Fragment | JsonFragment)[];
     method: string;
     data: BytesLike;
@@ -146,27 +58,9 @@ class ServiceContract extends ServiceBase {
   @backgroundMethod()
   async buildLidoStakeTransaction() {
     return this.buildEvmCalldata({
-      abi: LIDO_ABI,
+      abi: stETHABI,
       method: 'submit',
       params: [lidoReferralAddress],
-    });
-  }
-
-  @backgroundMethod()
-  async buildMaticStakeTransaction(amount: string) {
-    return this.buildEvmCalldata({
-      abi: StMaticABI,
-      method: 'submit',
-      params: [amount, lidoReferralAddress],
-    });
-  }
-
-  @backgroundMethod()
-  async buildMaticUnstakeTransaction(amount: string) {
-    return this.buildEvmCalldata({
-      abi: StMaticABI,
-      method: 'requestWithdraw',
-      params: [amount, lidoReferralAddress],
     });
   }
 
@@ -235,7 +129,7 @@ class ServiceContract extends ServiceBase {
     networkId: string;
   }) {
     const { abi, method, params, networkId, to } = input;
-    const data = await this.buildEvmCalldata({ abi, method, params });
+    const data = this.buildEvmCalldata({ abi, method, params });
     const { engine } = this.backgroundApi;
 
     const response = await engine.proxyJsonRPCCall(networkId, {
@@ -243,7 +137,7 @@ class ServiceContract extends ServiceBase {
       params: [{ to, data }, 'latest'],
     });
 
-    const result = await this.parseJsonResponse({
+    const result = this.parseJsonResponse({
       abi,
       method,
       data: response as string,

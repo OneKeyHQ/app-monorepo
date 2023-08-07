@@ -149,8 +149,9 @@ export default function MaticStaking() {
         let approveTx: IEncodedTxEvm | undefined;
         const stakingTx: StakingTransactionData =
           await backgroundApiProxy.serviceStaking.buildTxForStakingMaticToLido({
-            value,
+            amount: value,
             networkId,
+            accountId,
           });
         const allowance = await backgroundApiProxy.engine.getTokenAllowance({
           networkId,
