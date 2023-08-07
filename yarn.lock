@@ -6721,7 +6721,8 @@ __metadata:
     "@onekeyhq/kit": "*"
     expo: 49.0.6
     firebase: ^9.8.2
-    webpack-cli: ^5.1.4
+    webpack: 5.88.2
+    webpack-cli: 5.1.4
   languageName: unknown
   linkType: soft
 
@@ -34756,7 +34757,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"webpack-cli@npm:^5.1.4":
+"webpack-cli@npm:5.1.4":
   version: 5.1.4
   resolution: "webpack-cli@npm:5.1.4"
   dependencies:
@@ -34899,7 +34900,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"webpack@npm:^5.64.4":
+"webpack@npm:5.88.2, webpack@npm:^5.64.4":
   version: 5.88.2
   resolution: "webpack@npm:5.88.2"
   dependencies:
