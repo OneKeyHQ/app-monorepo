@@ -118,11 +118,7 @@ function AmountCard({
               </HStack>
             </MotiView>
             <Box position="absolute" right="6px" top="6px">
-              <SelectedIndicator
-                multiSelect={false}
-                selected={isSelected}
-                width={20}
-              />
+              <SelectedIndicator multiSelect selected={isSelected} width={20} />
             </Box>
           </>
         )}
@@ -194,9 +190,9 @@ function PreSendBRC20TokenAmount() {
   const handleAmountSelected = useCallback(
     (amountId: string, isSelected: boolean) => {
       if (isSelected) {
-        setSelectedAmounts([]);
+        setSelectedAmounts((prev) => prev.filter((id) => id !== amountId));
       } else {
-        setSelectedAmounts([amountId]);
+        setSelectedAmounts((prev) => [...prev, amountId]);
       }
     },
     [],
@@ -272,6 +268,8 @@ function PreSendBRC20TokenAmount() {
       }),
     );
 
+    setIsLoadingAmountDetail(false);
+
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Send,
       params: {
@@ -293,6 +291,7 @@ function PreSendBRC20TokenAmount() {
     });
   }, [
     accountId,
+    amountList,
     modalClose,
     navigation,
     networkId,

@@ -247,31 +247,10 @@ function PreSendAddress() {
 
       if (transferInfos && transferInfos.length > 1) {
         setIsLoadingAssets(true);
-        const encodedApproveTxs =
-          await serviceBatchTransfer.buildEncodedTxsFromBatchApprove({
-            networkId,
-            accountId,
-            transferInfos,
-          });
-
-        const prevTx = encodedApproveTxs[encodedApproveTxs.length - 1];
-
-        if (prevTx) {
-          prevNonce = (prevTx as IEncodedTxEvm).nonce;
-          prevNonce =
-            prevNonce !== undefined
-              ? new BigNumber(prevNonce).toNumber()
-              : prevNonce;
-        }
-
-        encodedTx = await serviceBatchTransfer.buildEncodedTxFromBatchTransfer({
-          networkId,
-          accountId,
-          transferInfos,
-          prevNonce,
-        });
 
         for (let i = 0; i < transferInfos.length; i += 1) {
+          transferInfos[i].from = account.address;
+          transferInfos[i].to = toVal;
           const asset = await serviceNFT.getAsset({
             accountId: account?.address ?? '',
             networkId,
@@ -299,6 +278,29 @@ function PreSendAddress() {
             return;
           }
         }
+        const encodedApproveTxs =
+          await serviceBatchTransfer.buildEncodedTxsFromBatchApprove({
+            networkId,
+            accountId,
+            transferInfos,
+          });
+
+        const prevTx = encodedApproveTxs[encodedApproveTxs.length - 1];
+
+        if (prevTx) {
+          prevNonce = (prevTx as IEncodedTxEvm).nonce;
+          prevNonce =
+            prevNonce !== undefined
+              ? new BigNumber(prevNonce).toNumber()
+              : prevNonce;
+        }
+
+        encodedTx = await serviceBatchTransfer.buildEncodedTxFromBatchTransfer({
+          networkId,
+          accountId,
+          transferInfos,
+          prevNonce,
+        });
         setIsLoadingAssets(false);
 
         navigation.navigate(RootRoutes.Modal, {

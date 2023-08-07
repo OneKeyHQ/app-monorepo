@@ -670,7 +670,6 @@ export default class VaultBtcFork extends VaultBase {
     const transferInfo = transferInfos[0];
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-
     const {
       inputs,
       outputs,
@@ -1386,6 +1385,8 @@ export default class VaultBtcFork extends VaultBase {
       transferInfos.find((item) => item.isNFT || item.nftInscription),
     );
 
+    const isBRC20Transfer = Boolean(transferInfos.find((item) => item.isBRC20));
+
     const isInscribeTransfer = Boolean(
       transferInfos.find((item) => item.isInscribe),
     );
@@ -1393,26 +1394,30 @@ export default class VaultBtcFork extends VaultBase {
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const forceSelectUtxos: ICoinSelectUTXOLite[] = [];
     if (isNftTransfer) {
-      if (isBatchTransfer) {
+      // only support BRC20 batch transfer
+      if (isBatchTransfer && !isBRC20Transfer) {
         throw new Error('BTC nft transfer is not supported in batch transfer');
       }
-      const { nftInscription } = transferInfos[0];
-      if (!nftInscription) {
-        throw new Error('nftInscription is required for nft transfer');
-      }
-      const { output, address } = nftInscription;
-      const [txId, vout] = output.split(':');
-      if (!txId || !vout || !address) {
-        throw new Error('invalid nftInscription output');
-      }
-      const voutNum = parseInt(vout, 10);
-      if (Number.isNaN(voutNum)) {
-        throw new Error('invalid nftInscription output: vout');
-      }
-      forceSelectUtxos.push({
-        txId,
-        vout: voutNum,
-        address,
+
+      transferInfos.forEach((transferInfo) => {
+        const { nftInscription } = transferInfo;
+        if (!nftInscription) {
+          throw new Error('nftInscription is required for nft transfer');
+        }
+        const { output, address } = nftInscription;
+        const [txId, vout] = output.split(':');
+        if (!txId || !vout || !address) {
+          throw new Error('invalid nftInscription output');
+        }
+        const voutNum = parseInt(vout, 10);
+        if (Number.isNaN(voutNum)) {
+          throw new Error('invalid nftInscription output: vout');
+        }
+        forceSelectUtxos.push({
+          txId,
+          vout: voutNum,
+          address,
+        });
       });
     } else if (!isInscribeTransfer) {
       const recycleUtxos = await this.getRecycleInscriptionUtxos(
@@ -1479,22 +1484,32 @@ export default class VaultBtcFork extends VaultBase {
         path,
       }),
     );
+
     let outputsForCoinSelect: IEncodedTxBtc['outputsForCoinSelect'] = [];
 
     if (isBatchTransfer) {
-      outputsForCoinSelect = transferInfos.map(({ to, amount }) => {
-        if (isNftTransfer) {
-          throw new Error(
-            'NFT Inscription transfer can only be single transfer',
-          );
-        }
-        return {
+      if (isNftTransfer && !isBRC20Transfer) {
+        throw new Error('NFT Inscription transfer can only be single transfer');
+      }
+
+      if (isBRC20Transfer) {
+        const { values } = this.validateInscriptionInputsForCoinSelect({
+          inputsForCoinSelect,
+          forceSelectUtxos,
+        });
+
+        outputsForCoinSelect = transferInfos.map(({ to }, index) => ({
+          address: to,
+          value: values[index],
+        }));
+      } else {
+        outputsForCoinSelect = transferInfos.map(({ to, amount }) => ({
           address: to,
           value: parseInt(
             new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
           ),
-        };
-      });
+        }));
+      }
     } else {
       const transferInfo = transferInfos[0];
       const { to, amount } = transferInfo;
@@ -1520,29 +1535,11 @@ export default class VaultBtcFork extends VaultBase {
         max = false;
         // value should be 546
         value = INSCRIPTION_PADDING_SATS_VALUES.default;
-        let founded: ICoinSelectUTXO | undefined;
-        for (const u of inputsForCoinSelect) {
-          const matchedUtxo = forceSelectUtxos.find(
-            (item) =>
-              item.address === u.address &&
-              item.txId === u.txId &&
-              item.vout === u.vout,
-          );
-          if (matchedUtxo) {
-            u.forceSelect = true;
-            founded = u;
-            break;
-          }
-        }
-        if (!founded) {
-          throw new UtxoNotFoundError();
-        }
-        // TODO inscription offset testing
-        // keep the original value of inscription
-        value = founded.value;
-        if (value < 0 || isNil(value)) {
-          throw new Error('Sending inscription utxo value is not valid.');
-        }
+        const { values } = this.validateInscriptionInputsForCoinSelect({
+          inputsForCoinSelect,
+          forceSelectUtxos,
+        });
+        [value] = values;
       }
 
       outputsForCoinSelect = [
@@ -1580,6 +1577,46 @@ export default class VaultBtcFork extends VaultBase {
       inputsForCoinSelect,
       outputsForCoinSelect,
       feeRate,
+    };
+  }
+
+  private validateInscriptionInputsForCoinSelect({
+    inputsForCoinSelect,
+    forceSelectUtxos,
+  }: {
+    inputsForCoinSelect: ICoinSelectUTXO[];
+    forceSelectUtxos: ICoinSelectUTXOLite[];
+  }) {
+    const foundedUtxos: ICoinSelectUTXO[] = [];
+    const values = [];
+    for (const u of inputsForCoinSelect) {
+      const matchedUtxo = forceSelectUtxos.find(
+        (item) =>
+          item.address === u.address &&
+          item.txId === u.txId &&
+          item.vout === u.vout,
+      );
+      if (matchedUtxo) {
+        // TODO inscription offset testing
+        // keep the original value of inscription
+        if (u.value < 0 || isNil(u.value)) {
+          throw new Error('Sending inscription utxo value is not valid.');
+        }
+        u.forceSelect = true;
+        values.push(u.value);
+        foundedUtxos.push(u);
+        if (forceSelectUtxos.length === 1) {
+          break;
+        }
+      }
+    }
+    if (foundedUtxos.length === 0) {
+      throw new UtxoNotFoundError();
+    }
+
+    return {
+      foundedUtxos,
+      values,
     };
   }
 
