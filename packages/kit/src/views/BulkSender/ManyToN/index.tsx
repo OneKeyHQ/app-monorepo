@@ -12,6 +12,7 @@ import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
 import {
   useAccountTokensOnChain,
   useAppSelector,
+  useNativeToken,
   useNetwork,
 } from '@onekeyhq/kit/src/hooks';
 import {
@@ -87,6 +88,7 @@ function ManyToN(props: Props) {
 
   const initialToken = tokens.find((token) => token.isNative) ?? tokens[0];
   const currentToken = selectedToken || initialToken;
+  const nativeToken = useNativeToken(networkId);
 
   const {
     isValid: isValidSender,
@@ -208,7 +210,9 @@ function ManyToN(props: Props) {
         amountType,
         bulkType,
         token: currentToken,
+        nativeToken,
         feePresetIndex,
+        intl,
       });
 
     if (!isVerified) {
@@ -291,7 +295,9 @@ function ManyToN(props: Props) {
     currentToken,
     feePresetIndex,
     intervalType,
+    intl,
     isDisabled,
+    nativeToken,
     navigation,
     networkId,
     receiver,
@@ -356,7 +362,7 @@ function ManyToN(props: Props) {
       </TxSettingPanel>
       <Box mt={8}>
         <TraderInput
-          header="Sender"
+          header={intl.formatMessage({ id: 'form__sender' })}
           withAmount
           accountId={accountId}
           networkId={networkId}
@@ -376,7 +382,7 @@ function ManyToN(props: Props) {
       </Box>
       <Box mt={8}>
         <TraderInput
-          header="Receiptent"
+          header={intl.formatMessage({ id: 'form__receipient' })}
           isSingleMode={bulkType === BulkTypeEnum.ManyToOne}
           accountId={accountId}
           networkId={networkId}

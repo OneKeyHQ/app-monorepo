@@ -1603,7 +1603,7 @@
   "form__provider_uppercase": "プロバイダー",
   "form__proxy_contract_found": "プロキシ コントラクトが見つかりました",
   "form__proxy_contract_found_desc": "代理契約により、所有者はトークンの機能と価格を変更できます。",
-  "form__put_coins_at_the_top": "コインをリストのトップに置く",
+  "form__put_coins_at_the_top": "ネイティブトークンを貼り付ける",
   "form__quantity": "量",
   "form__quests": "クエスト",
   "form__random": "ランダム",

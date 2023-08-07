@@ -1603,7 +1603,7 @@
   "form__provider_uppercase": "CÁC NHÀ CUNG CẤP",
   "form__proxy_contract_found": "Hợp đồng ủy quyền được tìm thấy",
   "form__proxy_contract_found_desc": "Hợp đồng ủy quyền cho phép chủ sở hữu thay đổi chức năng và giá của mã thông báo.",
-  "form__put_coins_at_the_top": "Đặt đồng xu lên đầu danh sách",
+  "form__put_coins_at_the_top": "Gắn mã thông báo gốc",
   "form__quantity": "Số lượng",
   "form__quests": "Nhiệm vụ",
   "form__random": "Ngẫu nhiên",

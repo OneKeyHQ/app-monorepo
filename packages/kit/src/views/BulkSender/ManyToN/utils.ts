@@ -15,6 +15,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AmountTypeEnum, IntervalTypeEnum } from '../types';
 
 import type { TokenTrader, TraderError } from '../types';
+import type { IntlShape } from 'react-intl';
 
 const randomBetween = ({
   min,
@@ -113,7 +114,9 @@ export const verifyBulkTransferBeforeConfirm = async ({
   amount,
   amountType,
   token,
+  nativeToken,
   feePresetIndex,
+  intl,
 }: {
   networkId: string;
   walletId: string;
@@ -123,7 +126,9 @@ export const verifyBulkTransferBeforeConfirm = async ({
   amount: string[];
   amountType: AmountTypeEnum;
   token: Token;
+  nativeToken: Token | undefined | null;
   feePresetIndex: string;
+  intl: IntlShape;
 }) => {
   if (
     bulkType === BulkTypeEnum.ManyToMany &&
@@ -131,8 +136,9 @@ export const verifyBulkTransferBeforeConfirm = async ({
   ) {
     const errors: TraderError[] = [
       {
-        message:
-          'The number of receiving address and sending address is inconsistent',
+        message: intl.formatMessage({
+          id: 'msg__inconsistency_between_the_number_of_sender_and_recipient_addresses',
+        }),
       },
     ];
 
@@ -146,27 +152,31 @@ export const verifyBulkTransferBeforeConfirm = async ({
   const senderAccounts: string[] = [];
   let feeInfo = null;
   let totalFeeNative = '0';
+  const senderSet = new Set();
   for (let i = 0; i < sender.length; i += 1) {
     const senderItem = sender[i];
-
     const senderAccount =
       await backgroundApiProxy.serviceAccount.getAccountByAddress({
         address: senderItem.Address,
         networkId,
       });
-
-    if (
+    if (senderSet.has(senderItem.Address)) {
+      errors.push({
+        lineNumber: i + 1,
+        message: intl.formatMessage({ id: 'msg__duplicated_address' }),
+      });
+    } else if (
       !senderAccount ||
       senderAccount.id.startsWith('watching-') ||
       senderAccount.id.startsWith('external-')
     ) {
       errors.push({
         lineNumber: i + 1,
-        message: 'This is not your address',
+        message: intl.formatMessage({ id: 'msg__you_dont_own_this_address' }),
       });
     } else {
       senderAccounts.push(senderAccount.id);
-
+      senderSet.add(senderItem.Address);
       if (feeInfo === null) {
         try {
           const encodedTxForEstimateFee =
@@ -212,7 +222,9 @@ export const verifyBulkTransferBeforeConfirm = async ({
           });
         } catch {
           ToastManager.show({
-            title: 'Failed to estimate fee, please try again later',
+            title: intl.formatMessage({
+              id: 'msg__failed_to_get_network_fees_please_try_again',
+            }),
             type: 'error',
           });
           return {
@@ -270,7 +282,15 @@ export const verifyBulkTransferBeforeConfirm = async ({
       if (new BigNumber(senderAmount).gt(senderNativeTokenBalance)) {
         errors.push({
           lineNumber: i + 1,
-          message: `Insufficient balance`,
+          message: intl.formatMessage(
+            {
+              id: 'msg__insufficient_balance_available_amount_str_str',
+            },
+            {
+              amount: senderNativeTokenBalance,
+              symbol: token.symbol,
+            },
+          ),
         });
       } else if (
         new BigNumber(senderAmount)
@@ -279,20 +299,44 @@ export const verifyBulkTransferBeforeConfirm = async ({
       ) {
         errors.push({
           lineNumber: i + 1,
-          message: `The balance is not enough to pay the handling fee`,
+          message: intl.formatMessage(
+            {
+              id: 'msg__insufficient_native_token_for_network_fees_available_amount_str_str',
+            },
+            {
+              amount: senderNativeTokenBalance,
+              symbol: token.symbol,
+            },
+          ),
         });
       }
     } else {
       if (new BigNumber(senderAmount).gt(senderTokenBalance)) {
         errors.push({
           lineNumber: i + 1,
-          message: `Insufficient balance`,
+          message: intl.formatMessage(
+            {
+              id: 'msg__insufficient_balance_available_amount_str_str',
+            },
+            {
+              amount: senderTokenBalance,
+              symbol: token.symbol,
+            },
+          ),
         });
       }
       if (new BigNumber(totalFeeNative).gt(senderNativeTokenBalance)) {
         errors.push({
           lineNumber: i + 1,
-          message: `The balance is not enough to pay the handling fee`,
+          message: intl.formatMessage(
+            {
+              id: 'msg__insufficient_native_token_for_network_fees_available_amount_str_str',
+            },
+            {
+              amount: senderNativeTokenBalance,
+              symbol: nativeToken?.symbol ?? '',
+            },
+          ),
         });
       }
     }

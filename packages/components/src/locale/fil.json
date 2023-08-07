@@ -1603,7 +1603,7 @@
   "form__provider_uppercase": "PROVIDER",
   "form__proxy_contract_found": "Natagpuan ang Proxy Contract",
   "form__proxy_contract_found_desc": "Hinahayaan ng proxy contract ang may-ari na baguhin ang function at presyo ng token.",
-  "form__put_coins_at_the_top": "Ilagay ang barya sa itaas ng listahan",
+  "form__put_coins_at_the_top": "Idikit ang Native Token",
   "form__quantity": "Dami",
   "form__quests": "Mga paghahanap",
   "form__random": "Random",

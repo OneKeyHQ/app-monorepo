@@ -275,13 +275,12 @@ function OneToMany(props: Props) {
             feeInfoEditable: true,
             encodedTxs: [...encodedApproveTxs, ...encodedTxs],
             transferCount: transferInfos.length,
-            transferType: type,
+            bulkType,
             payloadInfo: {
               type: 'Transfer',
               transferInfos,
             },
           },
-          bulkType,
         },
       });
     } catch (error) {
@@ -413,7 +412,7 @@ function OneToMany(props: Props) {
       </TxSettingPanel>
       <Box mt={8}>
         <TraderInput
-          header="Receiptent"
+          header={intl.formatMessage({ id: 'form__receipient' })}
           withAmount
           accountId={accountId}
           networkId={networkId}
