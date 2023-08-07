@@ -1,12 +1,12 @@
 export const isPassphraseValid = (
   passphrase: string,
   options?: {
-    onDevice?: boolean;
+    allowExtendedASCII?: boolean;
   },
 ): boolean => {
-  let regExp = /^[\x20-\xFF]*$/;
-  if (options?.onDevice) {
-    regExp = /^[\x20-\x7F]*$/;
+  let regExp = /^[\x20-\x7E]*$/;
+  if (options?.allowExtendedASCII) {
+    regExp = /^[\x20-\xFF]*$/;
   }
 
   return regExp.test(passphrase);

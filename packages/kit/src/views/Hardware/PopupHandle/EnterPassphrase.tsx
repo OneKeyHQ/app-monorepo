@@ -18,10 +18,11 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { SkipAppLock } from '@onekeyhq/kit/src/components/AppLock';
 import { setPendingRememberWalletConnectId } from '@onekeyhq/kit/src/store/reducers/hardware';
 
+import { isPassphraseValid } from '../../../utils/passphraseUtils';
+
 import BaseRequestView from './BaseRequest';
 
 import type { BaseRequestViewProps } from './BaseRequest';
-import { isPassphraseValid } from '../../../utils/passphraseUtils';
 
 type EnterPassphraseViewProps = {
   connectId: string;

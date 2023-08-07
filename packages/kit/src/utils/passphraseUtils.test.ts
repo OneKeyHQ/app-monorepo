@@ -2,104 +2,114 @@ import { isPassphraseValid } from './passphraseUtils';
 
 const passphraseTests = [
   {
-    description: 'empty passphrase',
+    description: 'empty passphrase in allowExtended',
     passphrase: '',
-    onDevice: false,
+    allowExtended: true,
     should: true,
   },
   {
-    description: 'empty passphrase on device',
+    description: 'empty passphrase',
     passphrase: '',
-    onDevice: true,
+    allowExtended: false,
     should: true,
   },
   {
     description: 'passphrase with only regular visible ASCII characters',
     passphrase: 'ThisIsAPassphrase123',
-    onDevice: false,
+    allowExtended: true,
     should: true,
   },
   {
-    description: 'passphrase with extended ASCII characters',
+    description: 'passphrase with extended ASCII characters in allowExtended',
     passphrase: '¥Øÿ', // 合法的扩展 ASCII 字符
-    onDevice: false,
+    allowExtended: true,
     should: true,
   },
   {
-    description: 'valid passphrase with extended ASCII characters on device',
-    passphrase: 'P@sswôrd€', // 包含错误 ASCII 字符
-    onDevice: true,
+    description: 'valid passphrase with extended ASCII characters',
+    passphrase: 'P@sswôrd€', // 包含 32 - 255 之外的 ASCII 字符
+    allowExtended: false,
     should: false,
   },
   {
     description: 'passphrase with space',
     passphrase: 'My Passphrase', // 包含空格
-    onDevice: true,
+    allowExtended: false,
     should: true,
   },
   {
     description: 'passphrase preceded by a space',
     passphrase: '  Passphrase', // 包含空格
-    onDevice: true,
+    allowExtended: false,
     should: true,
   },
   {
     description: 'passphrase with invalid characters',
     passphrase: 'Hello!#World',
-    onDevice: false,
+    allowExtended: true,
     should: true,
   },
 
   {
-    description: 'passphrase with leading and trailing spaces',
+    description:
+      'passphrase with leading and trailing spaces  in allowExtended',
     passphrase: '   SpacePassword123   ',
-    onDevice: false,
+    allowExtended: true,
     should: true,
   },
   {
-    description: 'passphrase with leading and trailing spaces on device',
+    description: 'passphrase with leading and trailing spaces',
     passphrase: '   SpacePassword123   ',
-    onDevice: true,
+    allowExtended: false,
+    should: true,
+  },
+  {
+    description: 'passphrase with only spaces  in allowExtended',
+    passphrase: '         ',
+    allowExtended: true,
     should: true,
   },
   {
     description: 'passphrase with only spaces',
     passphrase: '         ',
-    onDevice: false,
+    allowExtended: false,
     should: true,
-  },
-  {
-    description: 'passphrase with only spaces on device',
-    passphrase: '         ',
-    onDevice: true,
-    should: true,
-  },
-  {
-    description: 'invalid passphrase with non-ASCII characters on device',
-    passphrase: '私のパスワード',
-    onDevice: true,
-    should: false,
   },
   {
     description: 'invalid passphrase with non-ASCII characters',
-    passphrase: 'myسياسةpassphrase',
-    onDevice: false,
+    passphrase: '私のパスワード',
+    allowExtended: false,
     should: false,
   },
   {
-    description: 'valid passphrase with all ASCII characters on device',
+    description:
+      'invalid passphrase with non-ASCII characters  in allowExtended',
+    passphrase: 'myسياسةpassphrase',
+    allowExtended: true,
+    should: false,
+  },
+  {
+    description: 'valid passphrase with all ASCII characters',
+    passphrase: String.fromCharCode(
+      ...Array.from({ length: 95 }, (_, i) => i + 32),
+    ), // 32 to 126
+    allowExtended: false,
+    should: true,
+  },
+  {
+    description: 'error valid passphrase with all ASCII characters',
     passphrase: String.fromCharCode(
       ...Array.from({ length: 96 }, (_, i) => i + 32),
     ), // 32 to 127
-    onDevice: true,
-    should: true,
+    allowExtended: false,
+    should: false,
   },
   {
     description: 'valid passphrase with all extended ASCII characters',
     passphrase: String.fromCharCode(
       ...Array.from({ length: 224 }, (_, i) => i + 32),
     ), // 32 to 255
-    onDevice: false,
+    allowExtended: true,
     should: true,
   },
 ];
@@ -107,9 +117,9 @@ const passphraseTests = [
 describe('Passphrase Utils Tests', () => {
   passphraseTests.forEach((data) => {
     test(data.description, () => {
-      const { passphrase, onDevice, should } = data;
+      const { passphrase, allowExtended, should } = data;
       const result = isPassphraseValid(passphrase, {
-        onDevice,
+        allowExtendedASCII: allowExtended,
       });
       expect(result).toBe(should);
     });
