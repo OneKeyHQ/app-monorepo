@@ -148,6 +148,11 @@ function createConfig({ config }) {
       test: /engine/,
     };
   } else {
+    webpackConfig.performance = {
+      ...config.performance,
+      maxEntrypointSize: 3 * 1024 * 1024,
+      maxAssetSize: 3 * 1024 * 1024,
+    };
     webpackConfig.optimization = {
       ...webpackConfig.optimization,
       ...minimizeOptions.buildMinimizeOptions(),

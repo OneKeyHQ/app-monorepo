@@ -15,11 +15,11 @@ devUtils.cleanWebpackDebugFields(configs, { boilerplate: true });
 
 webpack(configs, (err, stats) => {
   if (err) {
-    console.error(stats);
+    console.error('build failed:', err);
     throw err;
   }
   if (stats.hasErrors()) {
-    console.error(stats);
+    console.error('build failed:', stats.toJson());
     process.exit(1);
   }
   // Done processing
