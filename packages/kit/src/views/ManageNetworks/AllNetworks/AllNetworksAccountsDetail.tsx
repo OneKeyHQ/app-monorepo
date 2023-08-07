@@ -1,307 +1,229 @@
 import type { FC } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import { omit, pick } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  Divider,
+  Alert,
+  Box,
+  CheckBox,
   HStack,
-  Icon,
   IconButton,
-  List,
   Modal,
-  Pressable,
-  ToastManager,
+  Searchbar,
+  SectionList,
   Token,
   Typography,
 } from '@onekeyhq/components';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
-import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useNavigation, useWallet } from '../../../hooks';
-import {
-  useAllNetworksIncludedNetworks,
-  useAllNetworksWalletAccounts,
-} from '../../../hooks/useAllNetwoks';
-import { navigationShortcuts } from '../../../routes/navigationShortcuts';
-import { ModalRoutes, RootRoutes, TabRoutes } from '../../../routes/routesEnum';
+import { useActiveWalletAccount } from '../../../hooks';
+import { setAllNetworksAccountsMap } from '../../../store/reducers/overview';
 import { showAllNetworksHelp } from '../../Overlay/AllNetworksHelp';
-import BaseMenu from '../../Overlay/BaseMenu';
-import { ReceiveTokenModalRoutes } from '../../ReceiveToken/types';
-import {
-  ScanQrcodeRoutes,
-  ScanSubResultCategory,
-} from '../../ScanQrcode/types';
-import { AllNetworksEmpty } from '../../Wallet/AssetsList/EmptyList';
-import { allNetworksSelectAccount } from '../hooks';
-import { ManageNetworkModalRoutes } from '../types';
+import { strIncludes } from '../Listing/NetworkListEmpty';
 
-import type { ManageNetworkRoutesParams } from '../types';
-import type { RouteProp } from '@react-navigation/core';
 import type { ListRenderItem } from 'react-native';
 
-type RouteProps = RouteProp<
-  ManageNetworkRoutesParams,
-  ManageNetworkModalRoutes.AllNetworksNetworkSelector
->;
+type Section = {
+  title: LocaleIds;
+  data: Network[];
+};
 
-type DataListItem = {
-  networkId: string;
+const ItemSeparatorComponent = () => <Box h="6" />;
+
+const NetworkItem: FC<{
   accounts: Account[];
+  logoURI: string;
+  name: string;
+  isChecked: boolean;
+  onChange: (value: boolean, accounts: Account[]) => void;
+}> = ({ accounts, name, logoURI, isChecked, onChange }) => {
+  const intl = useIntl();
+
+  const desc = (() => {
+    if (accounts.length === 0)
+      return intl.formatMessage({ id: 'empty__no_account_title' });
+    if (accounts?.length === 1)
+      return shortenAddress(accounts[0]?.address ?? '');
+    return intl.formatMessage(
+      { id: 'form__str_addresses' },
+      {
+        0: accounts.length,
+      },
+    );
+  })();
+
+  const handleChangeMap = useCallback(
+    (value: boolean) => {
+      if (accounts?.length) {
+        return onChange(value, accounts);
+      }
+    },
+    [accounts, onChange],
+  );
+
+  return (
+    <HStack>
+      <Token
+        flex="1"
+        token={{
+          logoURI,
+          name,
+          symbol: desc,
+        }}
+        showInfo
+      />
+      <CheckBox isChecked={isChecked} onChange={handleChangeMap} />
+    </HStack>
+  );
 };
 
 export const AllNetworksAccountsDetail: FC = () => {
   const intl = useIntl();
-  const navigation = useNavigation();
-  const route = useRoute<RouteProps>();
+  const [search, setSearch] = useState('');
+  const { accountId } = useActiveWalletAccount();
+  const [map, setMap] = useState<Record<string, Account[]>>({});
+  const [result, setResult] = useState<{
+    networks: Network[];
+    selectedNetorkAccountsMap: Record<string, Account[]>;
+    notSelectedNetworkAccountsMap: Record<string, Account[]>;
+  }>();
 
-  const { walletId, accountId } = route?.params ?? {};
-  const { data: allNetworksAccountsMap } = useAllNetworksWalletAccounts({
-    accountId,
-  });
+  const close = useModalClose();
 
-  const { wallet } = useWallet({ walletId });
+  useEffect(() => {
+    backgroundApiProxy.serviceAllNetwork
+      .getSelectableNetworkAccounts({
+        accountId,
+      })
+      .then((res) => {
+        if (res && res.selectedNetorkAccountsMap) {
+          setMap(res.selectedNetorkAccountsMap);
+        }
+        setResult(res);
+      })
+      .catch((e) => {
+        console.log(e);
+      });
+  }, [accountId]);
 
-  const supportedNetworks = useAllNetworksIncludedNetworks();
-
-  const allSupportedNetworks = useAllNetworksIncludedNetworks(false);
-
-  const data = useMemo(
-    () =>
-      Object.entries(allNetworksAccountsMap).map(([id, accounts]) => ({
-        networkId: id,
-        accounts,
-      })),
-    [allNetworksAccountsMap],
+  const getAccountsByNetworkId = useCallback(
+    (networkId: string) =>
+      ({
+        ...result?.selectedNetorkAccountsMap,
+        ...result?.notSelectedNetworkAccountsMap,
+      }[networkId] ?? []),
+    [result],
   );
 
-  const copyAddress = useCallback(
-    ({ account, network }: { account: Account; network: Network }) => {
-      if (!account) {
+  const sections: Section[] = useMemo(() => {
+    if (!result) return [];
+    const selected = [];
+    const available = [];
+    for (const n of result.networks.filter((d) => {
+      if (!getAccountsByNetworkId(d.id)?.length) {
+        return false;
+      }
+      for (const v of Object.values(
+        pick(d, 'name', 'shortName', 'id', 'symbol'),
+      )) {
+        if (strIncludes(String(v), search)) {
+          return true;
+        }
+      }
+      return false;
+    })) {
+      if (map[n.id]) {
+        selected.push(n);
+      } else {
+        available.push(n);
+      }
+    }
+    return [
+      {
+        title: 'form__selected_str_uppercase',
+        data: selected,
+      },
+      {
+        title: 'form__not__selected_str_uppercase',
+        data: available,
+      },
+    ];
+  }, [result, map, search, getAccountsByNetworkId]);
+
+  const handleChangeMap = useCallback(
+    ({
+      networkId,
+      value,
+      accounts,
+    }: {
+      networkId: string;
+      value: boolean;
+      accounts: Account[];
+    }) => {
+      if (!value) {
+        setMap((m) => omit(m, networkId));
         return;
       }
-      const { address, displayAddress, template } = account;
-      if (wallet?.type === 'hw') {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.Receive,
-          params: {
-            screen: ReceiveTokenModalRoutes.ReceiveToken,
-            params: {
-              address,
-              displayAddress,
-              wallet,
-              network,
-              account,
-              template,
-            },
-          },
-        });
-      } else {
-        if (!displayAddress && !address) return;
-        copyToClipboard(displayAddress ?? address ?? '');
-        ToastManager.show({
-          title: intl.formatMessage({ id: 'msg__address_copied' }),
-        });
-      }
-    },
-    [intl, wallet, navigation],
-  );
-
-  const onCopyAddress = useCallback(
-    ({ networkId, accounts }: DataListItem) => {
-      allNetworksSelectAccount({
-        networkId,
-        accounts,
-      }).then((res) => {
-        if (res) {
-          copyAddress(res);
-        }
-      });
-    },
-    [copyAddress],
-  );
-
-  const onViewAccount = useCallback(
-    async ({ network, account }: { network: Network; account: Account }) => {
-      const { serviceNetwork, serviceAccount } = backgroundApiProxy;
-      await serviceNetwork.changeActiveNetwork(network?.id);
-      await serviceAccount.changeActiveAccountByAccountId(account?.id);
-
-      navigationShortcuts.navigateToAppRootTab(TabRoutes.Home);
+      setMap((m) => ({ ...m, [networkId]: accounts }));
     },
     [],
   );
 
-  const onShowQrCode = useCallback(
-    ({ network, account }: { network: Network; account: Account }) => {
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.Receive,
-        params: {
-          screen: ReceiveTokenModalRoutes.ReceiveToken,
-          params: {
-            address: account.address,
-            displayAddress: account.displayAddress,
-            wallet,
-            network,
-            account,
-            template: account.template,
-          },
-        },
-      });
-    },
-    [navigation, wallet],
-  );
-
-  const onShowFullAddress = useCallback(
-    ({ network, account }: { network: Network; account: Account }) => {
-      if (!wallet) {
-        return;
-      }
-      if (wallet.type === WALLET_TYPE_HW) {
-        return onShowQrCode({ network, account });
-      }
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.ScanQrcode,
-        params: {
-          screen: ScanQrcodeRoutes.ScanQrcodeResult,
-          params: {
-            type: ScanSubResultCategory.TEXT,
-            data: account?.address ?? '',
-            hideMoreMenu: true,
-          },
-        },
-      });
-    },
-    [navigation, wallet, onShowQrCode],
-  );
-
-  const getMenus = useCallback(
-    (params: { networkId: string; accounts: Account[] }) =>
-      [
-        {
-          id: 'action__view_account',
-          onPress: onViewAccount,
-          icon: 'UserOutline',
-        },
-        {
-          id: 'action__show_full_address',
-          onPress: onShowFullAddress,
-          icon: 'MagnifyingGlassPlusOutline',
-        },
-        {
-          id: 'action__show_qrcode',
-          onPress: onShowQrCode,
-          icon: 'QrCodeOutline',
-        },
-      ].map((d) => ({
-        ...d,
-        onPress: () => {
-          allNetworksSelectAccount(params).then((res) => {
-            if (res) {
-              d.onPress?.(res);
-            }
+  const renderItem: ListRenderItem<Network> = useCallback(
+    ({ item }) => (
+      <NetworkItem
+        name={item.name}
+        logoURI={item.logoURI}
+        accounts={getAccountsByNetworkId(item.id)}
+        isChecked={!!map[item.id]}
+        onChange={(value: boolean, accounts: Account[]) => {
+          handleChangeMap({
+            networkId: item.id,
+            accounts,
+            value,
           });
-        },
-      })),
-    [onViewAccount, onShowQrCode, onShowFullAddress],
-  );
-
-  const renderItem: ListRenderItem<DataListItem> = useCallback(
-    ({ item: { networkId, accounts } }) => {
-      const network = supportedNetworks.find((n) => n.id === networkId);
-      if (!network) {
-        return null;
-      }
-      return (
-        <HStack key={networkId} mb="4">
-          <Token
-            showInfo
-            flex="1"
-            size={8}
-            token={{
-              name: network?.name,
-              symbol:
-                accounts.length > 1
-                  ? intl.formatMessage(
-                      { id: 'form__str_addresses' },
-                      {
-                        0: accounts.length,
-                      },
-                    )
-                  : shortenAddress(accounts[0].address),
-              logoURI: network?.logoURI,
-            }}
-          />
-          <IconButton
-            name="Square2StackOutline"
-            iconSize={20}
-            type="plain"
-            onPress={() => onCopyAddress({ networkId, accounts })}
-          />
-          <BaseMenu
-            options={
-              getMenus({
-                networkId,
-                accounts,
-              }) as any[]
-            }
-          >
-            <IconButton
-              name="EllipsisVerticalMini"
-              iconSize={20}
-              type="plain"
-            />
-          </BaseMenu>
-        </HStack>
-      );
-    },
-    [supportedNetworks, intl, onCopyAddress, getMenus],
-  );
-
-  const toAllSupportedNetworksPage = useCallback(() => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.ManageNetwork,
-      params: {
-        screen: ManageNetworkModalRoutes.AllNetworksSupportedNetworks,
-      },
-    });
-  }, [navigation]);
-
-  const footer = useMemo(
-    () => (
-      <>
-        <Divider />
-        <Pressable onPress={toAllSupportedNetworksPage} my="4">
-          <HStack alignItems="center" justifyContent="center">
-            <Typography.Body2 mr="4" color="text-subdued">
-              {intl.formatMessage(
-                { id: 'title__str_supported_networks' },
-                {
-                  0: allSupportedNetworks.length,
-                },
-              )}
-            </Typography.Body2>
-            <Icon
-              name="QuestionMarkCircleOutline"
-              size={20}
-              color="icon-subdued"
-            />
-          </HStack>
-        </Pressable>
-      </>
+        }}
+      />
     ),
-    [intl, allSupportedNetworks, toAllSupportedNetworksPage],
+    [map, handleChangeMap, getAccountsByNetworkId],
   );
+
+  const renderSectionHeader = useCallback(
+    ({ section }: { section: Section }) =>
+      search || !section.data?.length ? null : (
+        <Typography.Subheading pb="3" pt="6" bg="background-default">
+          {intl.formatMessage(
+            { id: section.title },
+            {
+              0: section.data?.length ?? 0,
+            },
+          )}
+        </Typography.Subheading>
+      ),
+    [intl, search],
+  );
+
+  const onConfirm = useCallback(() => {
+    backgroundApiProxy.dispatch(
+      setAllNetworksAccountsMap({
+        accountId,
+        data: map,
+      }),
+    );
+    backgroundApiProxy.serviceOverview.refreshCurrentAccount();
+    close();
+  }, [map, accountId, close]);
 
   return (
     <Modal
-      header={intl.formatMessage({ id: 'form__included_networks' })}
-      footer={footer}
+      header={intl.formatMessage({ id: 'title__select_networks' })}
       height="560px"
       rightContent={
         <IconButton
@@ -314,13 +236,35 @@ export const AllNetworksAccountsDetail: FC = () => {
           }}
         />
       }
+      hideSecondaryAction
+      onPrimaryActionPress={onConfirm}
     >
-      <List
-        data={data}
+      <Searchbar
+        w="full"
+        value={search}
+        mb="4"
+        onChangeText={(text) => setSearch(text)}
+        placeholder={intl.formatMessage({ id: 'content__search' })}
+        onClear={() => setSearch('')}
+      />
+      <SectionList
+        stickySectionHeadersEnabled={false}
+        sections={sections}
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyExtractor={(item: Network) => item.id}
         renderItem={renderItem}
-        keyExtractor={(item) => (item as { networkId: string }).networkId}
-        paddingX="2"
-        ListEmptyComponent={<AllNetworksEmpty />}
+        renderSectionHeader={renderSectionHeader}
+        ItemSeparatorComponent={ItemSeparatorComponent}
+        ListHeaderComponent={
+          <Alert
+            title={intl.formatMessage({
+              id: 'msg__tips_optimize_load_times_by_choosing_fewer_chains',
+            })}
+            dismiss
+            alertType="info"
+            customIconName="InformationCircleMini"
+          />
+        }
       />
     </Modal>
   );

@@ -127,7 +127,7 @@ function AllNetworksNetworkSelectorModal() {
       height="560px"
     >
       <List
-        data={supportedNetworks}
+        data={supportedNetworks.filter((n) => !!networkAccounts[n.id])}
         contentContainerStyle={{
           flex: supportedNetworks?.length ? undefined : 1,
         }}
