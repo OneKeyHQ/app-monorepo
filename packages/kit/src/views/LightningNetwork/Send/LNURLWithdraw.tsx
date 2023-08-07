@@ -19,6 +19,7 @@ import { FormatCurrencyTokenOfAccount } from '@onekeyhq/kit/src/components/Forma
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNativeToken, useNavigation, useNetwork } from '../../../hooks';
 import { SendModalRoutes } from '../../../routes/routesEnum';
+import { LNModalDescription } from '../components/LNModalDescription';
 
 import type { SendRoutesParams } from '../../../routes';
 import type { ModalScreenProps } from '../../../routes/types';
@@ -31,7 +32,7 @@ type RouteProps = RouteProp<SendRoutesParams, SendModalRoutes.LNURLWithdraw>;
 type FormValues = {
   amount: string;
   description: string;
-  connectTo: string;
+  requestFrom: string;
 };
 
 const LNURLWithdraw = () => {
@@ -130,7 +131,7 @@ const LNURLWithdraw = () => {
   return (
     <Modal
       header={intl.formatMessage({ id: 'title__lnurl_withdraw' })}
-      headerDescription={lnurlDetails.domain}
+      headerDescription={<LNModalDescription networkId={networkId} />}
       primaryActionTranslationId="action__withdraw"
       primaryActionProps={{
         isDisabled: isLoading,
@@ -152,8 +153,8 @@ const LNURLWithdraw = () => {
         children: (
           <Form>
             <Form.Item
-              label={intl.formatMessage({ id: 'form__connect_to' })}
-              name="connectTo"
+              label={intl.formatMessage({ id: 'form__request_from' })}
+              name="requestFrom"
               control={control}
               formControlProps={{ width: 'full' }}
             >
