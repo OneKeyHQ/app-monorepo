@@ -5,46 +5,42 @@ import { useIntl } from 'react-intl';
 
 import { HStack, Icon, Text } from '@onekeyhq/components';
 
-import type { ReceiverError } from '../types';
+import type { TraderError } from '../types';
 
 const MAX_ERROR_DISPLAY = 3;
 
 interface Props {
-  receiverErrors: ReceiverError[];
+  traderErrors: TraderError[];
   showFileError: boolean;
 }
 
-function ReceiverErrors(props: Props) {
-  const { receiverErrors, showFileError } = props;
+function TraderErrors(props: Props) {
+  const { traderErrors, showFileError } = props;
   const intl = useIntl();
 
   const receiverErrorsDisplayed = useMemo(() => {
     const result = [];
-    const errorCount = receiverErrors.length;
+    const errorCount = traderErrors.length;
     for (
       let i = 0, len = BigNumber.min(errorCount, MAX_ERROR_DISPLAY).toNumber();
       i < len;
       i += 1
     ) {
-      const error = receiverErrors[i];
+      const error = traderErrors[i];
       result.push(
-        <HStack space="10px" alignItems="center" key={error.lineNumber}>
+        <HStack space="10px" alignItems="center" key={i}>
           <Icon
             name="InformationCircleOutline"
             size={12}
             color="icon-warning"
           />
-          <Text
-            typography="Caption"
-            key={error.lineNumber}
-            color="text-warning"
-            fontSize={12}
-          >
-            {intl.formatMessage(
-              { id: 'form__line_str' },
-              { 0: error.lineNumber },
-            )}
-            : {error.message}
+          <Text typography="Caption" color="text-warning" fontSize={12}>
+            {error.lineNumber
+              ? `${intl.formatMessage(
+                  { id: 'form__line_str' },
+                  { 0: error.lineNumber },
+                )}: ${error.message}`
+              : error.message}
           </Text>
         </HStack>,
       );
@@ -68,7 +64,7 @@ function ReceiverErrors(props: Props) {
       );
     }
     return result;
-  }, [receiverErrors, intl]);
+  }, [traderErrors, intl]);
 
   return (
     <>
@@ -91,4 +87,4 @@ function ReceiverErrors(props: Props) {
   );
 }
 
-export { ReceiverErrors };
+export { TraderErrors };

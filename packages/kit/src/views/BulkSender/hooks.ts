@@ -10,9 +10,7 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNetworkSimple } from '../../hooks';
 
-import { BulkSenderTypeEnum } from './types';
-
-import type { ReceiverError, TokenReceiver } from './types';
+import type { TokenTrader, TraderError } from './types';
 import type { DropzoneOptions } from 'react-dropzone';
 
 export function useDropUpload<T>(
@@ -54,36 +52,32 @@ export function useDropUpload<T>(
   };
 }
 
-export function useValidteReceiver({
+export function useValidateTrader({
   networkId,
-  receiver,
-  type,
+  trader,
   token,
+  shouldValidateAmount,
 }: {
   networkId: string;
-  receiver: TokenReceiver[];
-  type: BulkSenderTypeEnum;
+  trader: TokenTrader[];
   token: Token | null | undefined;
+  shouldValidateAmount: boolean;
 }) {
   const [isValid, setIsValid] = useState(false);
   const [isValidating, setIsValidating] = useState(true);
-  const [errors, setErrors] = useState<ReceiverError[]>([]);
+  const [errors, setErrors] = useState<TraderError[]>([]);
   const intl = useIntl();
   const network = useNetworkSimple(networkId);
 
   useEffect(() => {
     (async () => {
-      const validateErrors: ReceiverError[] = [];
+      const validateErrors: TraderError[] = [];
       setIsValidating(true);
-      if (
-        type === BulkSenderTypeEnum.NativeToken ||
-        type === BulkSenderTypeEnum.Token
-      ) {
-        for (let i = 0; i < receiver.length; i += 1) {
-          const { Address, Amount } = receiver[i];
-          let hasError = false;
-
-          const amountBN = new BigNumber(Amount);
+      for (let i = 0; i < trader.length; i += 1) {
+        const { Address, Amount } = trader[i];
+        let hasError = false;
+        if (shouldValidateAmount) {
+          const amountBN = new BigNumber(Amount ?? 0);
           if (!hasError) {
             if (amountBN.isNaN() || amountBN.isNegative()) {
               validateErrors.push({
@@ -114,22 +108,6 @@ export function useValidteReceiver({
           }
 
           if (!hasError) {
-            try {
-              await backgroundApiProxy.validator.validateAddress(
-                networkId,
-                Address.trim(),
-              );
-            } catch {
-              validateErrors.push({
-                lineNumber: i + 1,
-                message: intl.formatMessage({
-                  id: 'form__incorrect_address_format',
-                }),
-              });
-              hasError = true;
-            }
-          }
-          if (!hasError) {
             if (network?.settings.minTransferAmount) {
               const minTransferAmountBN = new BigNumber(
                 network.settings.minTransferAmount,
@@ -148,19 +126,36 @@ export function useValidteReceiver({
           }
         }
 
-        setIsValidating(false);
-        setIsValid(validateErrors.length === 0);
-        setErrors(validateErrors);
+        if (!hasError) {
+          try {
+            await backgroundApiProxy.validator.validateAddress(
+              networkId,
+              Address.trim(),
+            );
+          } catch {
+            validateErrors.push({
+              lineNumber: i + 1,
+              message: intl.formatMessage({
+                id: 'form__incorrect_address_format',
+              }),
+            });
+            hasError = true;
+          }
+        }
       }
+
+      setIsValidating(false);
+      setIsValid(validateErrors.length === 0);
+      setErrors(validateErrors);
     })();
   }, [
     intl,
     network?.settings.minTransferAmount,
     networkId,
-    receiver,
+    shouldValidateAmount,
     token?.decimals,
     token?.symbol,
-    type,
+    trader,
   ]);
 
   return {

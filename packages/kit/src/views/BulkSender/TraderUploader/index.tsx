@@ -4,26 +4,22 @@ import { read, utils } from 'xlsx';
 
 import { Box, Center, Icon, Text, useThemeValue } from '@onekeyhq/components';
 
-import { ReceiverErrors } from '../ReceiverEditor/ReceiverErrors';
-import { ReceiverExample } from '../ReceiverExample';
-import { TokenReceiverEnum } from '../types';
+import { TraderErrors } from '../TraderEditor/TraderErrors';
+import { TraderExample } from '../TraderExample';
+import { TokenTraderEnum } from '../types';
 
-import type { TokenReceiver } from '../types';
+import type { TokenTrader } from '../types';
 
 interface Props {
-  setReceiverFromOut: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
+  setTraderFromOut: React.Dispatch<React.SetStateAction<TokenTrader[]>>;
   setIsUploadMode: React.Dispatch<React.SetStateAction<boolean>>;
   showFileError: boolean;
   setShowFileError: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-function ReceiverUploader(props: Props) {
-  const {
-    setReceiverFromOut,
-    setIsUploadMode,
-    showFileError,
-    setShowFileError,
-  } = props;
+function TraderUploader(props: Props) {
+  const { setTraderFromOut, setIsUploadMode, showFileError, setShowFileError } =
+    props;
   const [uploaderBg, uploaderBorderColor, uploaderActiveBorderColor] =
     useThemeValue(['surface-default', 'border-default', 'interactive-default']);
 
@@ -42,16 +38,16 @@ function ReceiverUploader(props: Props) {
       try {
         const file = await files[0].arrayBuffer();
         const wb = read(file, { raw: true });
-        const data = utils.sheet_to_json<TokenReceiver>(
+        const data = utils.sheet_to_json<TokenTrader>(
           wb.Sheets[wb.SheetNames[0]],
-          { header: [TokenReceiverEnum.Address, TokenReceiverEnum.Amount] },
+          { header: [TokenTraderEnum.Address, TokenTraderEnum.Amount] },
         );
         if (data && data[0] && data[0].Address && data[0].Amount) {
-          setReceiverFromOut(
+          setTraderFromOut(
             data.filter(
               (item) =>
-                item.Address !== TokenReceiverEnum.Address &&
-                item.Amount !== TokenReceiverEnum.Amount,
+                item.Address !== TokenTraderEnum.Address &&
+                item.Amount !== TokenTraderEnum.Amount,
             ),
           );
           setShowFileError(false);
@@ -93,13 +89,13 @@ function ReceiverUploader(props: Props) {
         </Center>
       </div>
       <Box mt={3}>
-        <ReceiverErrors receiverErrors={[]} showFileError={showFileError} />
+        <TraderErrors traderErrors={[]} showFileError={showFileError} />
       </Box>
       <Box mt={4}>
-        <ReceiverExample />
+        <TraderExample />
       </Box>
     </>
   );
 }
 
-export { ReceiverUploader };
+export { TraderUploader };

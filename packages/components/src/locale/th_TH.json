@@ -1603,7 +1603,7 @@
   "form__provider_uppercase": "ผู้ให้บริการ",
   "form__proxy_contract_found": "พบสัญญาพร็อกซี่",
   "form__proxy_contract_found_desc": "สัญญาพร็อกซี่ทำให้เจ้าของเปลี่ยนฟังก์ชันและราคาของโทเค็นได้",
-  "form__put_coins_at_the_top": "วางเหรียญไว้ด้านบนของรายการ",
+  "form__put_coins_at_the_top": "ติดโทเค็นพื้นเมือง",
   "form__quantity": "ปริมาณ",
   "form__quests": "เควส",
   "form__random": "สุ่ม",

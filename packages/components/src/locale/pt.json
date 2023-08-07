@@ -1603,7 +1603,7 @@
   "form__provider_uppercase": "FORNECEDOR",
   "form__proxy_contract_found": "Contrato de proxy encontrado",
   "form__proxy_contract_found_desc": "O contrato de proxy permite que o proprietário altere a função e o preço do token.",
-  "form__put_coins_at_the_top": "Coloque a moeda no topo da lista",
+  "form__put_coins_at_the_top": "Cole o token nativo",
   "form__quantity": "Quantidade",
   "form__quests": "Missões",
   "form__random": "Aleatório",

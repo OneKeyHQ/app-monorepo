@@ -1,12 +1,7 @@
+import type { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
-export enum BulkSenderTypeEnum {
-  NativeToken = 'NativeToken',
-  Token = 'Token',
-  NFT = 'NFT',
-}
-
-export enum TokenReceiverEnum {
+export enum TokenTraderEnum {
   Address = 'Address',
   Amount = 'Amount',
 }
@@ -14,12 +9,31 @@ export enum TokenReceiverEnum {
 export enum BulkSenderRoutes {
   TokenSelector = 'TokenSelectorModal',
   AmountEditor = 'AmountEditorModal',
+  IntervalEditor = 'IntervalEditorModal',
 }
 
-export enum ReceiverExampleType {
+export enum TraderExampleType {
   TXT = 'TXT',
   CSV = 'CSV',
   Excel = 'Excel',
+}
+
+export enum AmountTypeEnum {
+  All = 'All',
+  Custom = 'Custom',
+  Random = 'Random',
+  Fixed = 'Fixed',
+}
+
+export enum TraderTypeEnum {
+  Sender = 'Sender',
+  Receiver = 'Receiver',
+}
+
+export enum IntervalTypeEnum {
+  Off = 'Off',
+  Fixed = 'Fixed',
+  Random = 'Random',
 }
 
 export type BulkSenderRoutesParams = {
@@ -30,36 +44,71 @@ export type BulkSenderRoutesParams = {
     onTokenSelected: (token: Token) => void;
   };
   [BulkSenderRoutes.AmountEditor]: {
-    onAmountChanged: (amount: string) => void;
+    networkId: string;
+    bulkType: BulkTypeEnum;
+    amount: string[];
+    amountType: AmountTypeEnum;
+    token: Token;
+    accountAddress: string;
+    onAmountChanged: ({
+      amount,
+      amountType,
+    }: {
+      amount: string[];
+      amountType: AmountTypeEnum;
+    }) => void;
+  };
+  [BulkSenderRoutes.IntervalEditor]: {
+    txInterval: string[];
+    intervalType: IntervalTypeEnum;
+    onIntervalChanged: ({
+      txInterval,
+      intervalType,
+    }: {
+      txInterval: string[];
+      intervalType: IntervalTypeEnum;
+    }) => void;
   };
 };
 
-export type TokenReceiver = {
+export type TokenTrader = {
   Address: string;
-  Amount: string;
+  Amount?: string;
   LinerNumber?: number;
 };
 
-export type NFTReceiver = {
+export type NFTTrader = {
   Address: string;
   Amount: string;
   TokenId: string;
   LinerNumber?: number;
 };
 
-export type ReceiverError = {
-  lineNumber: number;
+export type TraderError = {
+  lineNumber?: number;
   message: string;
 };
 
-export type ReceiverInputParams = {
+export type TraderInputParams = {
+  header: string;
   accountId: string;
   networkId: string;
-  receiverFromOut: TokenReceiver[];
-  setReceiverFromOut: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
-  setReceiver: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
-  type: BulkSenderTypeEnum;
-  receiverErrors: ReceiverError[];
+  token: Token;
+  amount: string[];
+  amountType: AmountTypeEnum;
+  trader: TokenTrader[];
+  traderFromOut: TokenTrader[];
+  setTraderFromOut: React.Dispatch<React.SetStateAction<TokenTrader[]>>;
+  setTrader: React.Dispatch<React.SetStateAction<TokenTrader[]>>;
+  traderErrors: TraderError[];
   isUploadMode: boolean;
+  isSingleMode?: boolean;
+  withAmount?: boolean;
   setIsUploadMode: React.Dispatch<React.SetStateAction<boolean>>;
+};
+
+export type AmountEditorValues = {
+  amount: string;
+  maxAmount: string;
+  minAmount: string;
 };

@@ -140,6 +140,7 @@ class Geth extends BaseClient {
           ]
         : ['eth_getBalance', [i.address, Geth.__LAST_BLOCK__]],
     );
+
     const resp: Array<string | undefined> = await this.rpc.batchCall(
       calls,
       undefined,

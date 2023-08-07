@@ -7,7 +7,6 @@ import BigNumber from 'bignumber.js';
 
 import { ToastManager } from '@onekeyhq/components';
 import { FailedToEstimatedGasError } from '@onekeyhq/engine/src/errors';
-import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IEncodedTx,
@@ -19,6 +18,7 @@ import type {
 import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
+  getSelectedFeeInfoUnit,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -82,48 +82,6 @@ export function useFeeInfoPayload({
   const feeInfoSelectedInRouteParams = (
     route.params as { feeInfoSelected?: IFeeInfoSelected }
   )?.feeInfoSelected;
-  // TODO use standalone function
-  const getSelectedFeeInfoUnit = useCallback(
-    ({
-      info,
-      index,
-    }: {
-      info: IFeeInfo;
-      index: string | number;
-    }): IFeeInfoUnit => {
-      const indexNum = parseInt(index as string, 10);
-      const priceIndex =
-        indexNum > info.prices.length - 1 ? info.prices.length - 1 : indexNum;
-      const priceInfo = info.prices[priceIndex];
-
-      if (info.eip1559) {
-        return {
-          eip1559: true,
-          price1559: priceInfo as EIP1559Fee,
-          limit: info.limit,
-          limitForDisplay: info.limitForDisplay ?? info.limit,
-        };
-      }
-
-      if (info.isBtcForkChain) {
-        return {
-          eip1559: false,
-          price: priceInfo as string,
-          limit: info.limit,
-          isBtcForkChain: true,
-          btcFee: info.feeList?.[priceIndex],
-        };
-      }
-
-      return {
-        eip1559: false,
-        price: priceInfo as string,
-        limit: info.limit,
-        limitForDisplay: info.limitForDisplay ?? info.limit,
-      };
-    },
-    [],
-  );
 
   // prepareTransfer -> gasLimit
   // maxFeePerGas
@@ -324,7 +282,6 @@ export function useFeeInfoPayload({
       accountId,
       networkId,
       signOnly,
-      getSelectedFeeInfoUnit,
     ]);
 
   useEffect(() => {

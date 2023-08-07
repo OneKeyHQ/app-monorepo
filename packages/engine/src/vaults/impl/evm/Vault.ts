@@ -1108,6 +1108,7 @@ export default class Vault extends VaultBase {
     const network = await this.getNetwork();
     const dbAccount = await this.getDbAccount();
     const {
+      from,
       to,
       value,
       data,
@@ -1134,6 +1135,7 @@ export default class Vault extends VaultBase {
       shiftFeeDecimals: false,
       network,
       dbAccount,
+      from,
       to,
       valueOnChain: value,
       extra: {

@@ -4,15 +4,19 @@ import type { ComponentProps, FC } from 'react';
 import { Box, HStack, Pressable, Typography } from '@onekeyhq/components';
 
 export interface SectionHeaderProps extends ComponentProps<typeof HStack> {
-  title?: string;
+  title?: React.ReactNode;
   actions?: [{ label?: string; onPress: () => void }];
 }
 
 const SectionHeader: FC<SectionHeaderProps> = ({ title, actions, ...rest }) => (
   <HStack alignItems="center" p={2} pb={0} {...rest}>
-    <Typography.Subheading color="text-subdued" flex={1} mr={3}>
-      {title}
-    </Typography.Subheading>
+    {typeof title === 'string' ? (
+      <Typography.Subheading color="text-subdued" flex={1} mr={3}>
+        {title}
+      </Typography.Subheading>
+    ) : (
+      title
+    )}
     {actions?.length ? (
       <HStack space={6}>
         {actions.map((item, index) => (

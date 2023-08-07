@@ -1603,7 +1603,7 @@
   "form__provider_uppercase": "FOURNISSEUR",
   "form__proxy_contract_found": "Contrat de procuration trouvé",
   "form__proxy_contract_found_desc": "Le contrat de proxy permet au propriétaire de modifier la fonction et le prix du jeton.",
-  "form__put_coins_at_the_top": "Mettez la pièce en haut de la liste",
+  "form__put_coins_at_the_top": "Collez le jeton natif",
   "form__quantity": "Quantité",
   "form__quests": "Quêtes",
   "form__random": "Aléatoire",

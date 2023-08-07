@@ -11,7 +11,6 @@ import {
   Token,
   Tooltip,
 } from '@onekeyhq/components';
-import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import type { INetwork } from '@onekeyhq/engine/src/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -27,9 +26,7 @@ function NotSupported({ networkId }: { networkId: string }) {
     (n) =>
       n.enabled &&
       n?.settings.supportBatchTransfer &&
-      (n?.settings.nativeSupportBatchTransfer
-        ? true
-        : batchTransferContractAddress[n.id]),
+      n.settings.supportBatchTransfer.length > 0,
   );
 
   const handleSelecteNetwork = useCallback(
