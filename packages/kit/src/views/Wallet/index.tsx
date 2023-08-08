@@ -27,6 +27,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
 import { OneKeyPerfTraceLog } from '../../components/OneKeyPerfTraceLog';
 import Protected, { ValidationFields } from '../../components/Protected';
+import { useAllNetworksAccountSelectModalShow } from '../../hooks/useAllNetwoks';
 import { useHtmlPreloadSplashLogoRemove } from '../../hooks/useHtmlPreloadSplashLogoRemove';
 import { useOnboardingRequired } from '../../hooks/useOnboardingRequired';
 import { setHomeTabName } from '../../store/reducers/status';
@@ -307,6 +308,7 @@ const WalletTabs: FC = () => {
 const Wallet = () => {
   useOnboardingRequired(true);
   useHtmlPreloadSplashLogoRemove();
+  useAllNetworksAccountSelectModalShow();
 
   return (
     <>

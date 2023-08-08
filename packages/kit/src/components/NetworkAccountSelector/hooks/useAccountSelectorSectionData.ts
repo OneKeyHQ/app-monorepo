@@ -40,7 +40,6 @@ export const useAllNetworksAccountsData = ({
           }),
         )
         .filter((n) => walletId && n.id.startsWith(walletId))
-        .slice(0, 3)
         .sort((a, b) => a.id.localeCompare(b.id)),
     [allNetworksAccountsMap, walletId],
   );

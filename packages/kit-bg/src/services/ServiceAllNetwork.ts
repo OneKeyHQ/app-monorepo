@@ -18,6 +18,8 @@ import { AccountType } from '@onekeyhq/engine/src/types/account';
 import {
   clearOverviewPendingTasks,
   removeAllNetworksAccountsMapByAccountId,
+  removeMapNetworks,
+  removeWalletAccountsMap,
   setAccountIsUpdating,
   setAllNetworksAccountsMap,
   setOverviewPortfolioUpdatedAt,
@@ -35,13 +37,28 @@ import {
   IMPL_SOL,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  AppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
+
+const AllNetworksMaxAccounts = 3;
 
 @backgroundClass()
 export default class ServiceAllNetwork extends ServiceBase {
   @bindThis()
-  registerEvents() {}
+  registerEvents() {
+    appEventBus.on(AppEventBusNames.NetworkChanged, () => {
+      this.reloadCurrentAccount();
+    });
+    appEventBus.on(AppEventBusNames.AccountChanged, () => {
+      this.reloadCurrentAccount();
+    });
+    this.reloadCurrentAccount();
+  }
 
   @backgroundMethod()
   async switchWalletToCompatibleAllNetworks() {
@@ -62,6 +79,32 @@ export default class ServiceAllNetwork extends ServiceBase {
     return activeWalletId;
   }
 
+  getAccountIndex(account: Account, template: string) {
+    const isValidUtxoAccount =
+      account.type === AccountType.UTXO &&
+      !![
+        OnekeyNetwork.btc,
+        OnekeyNetwork.ltc,
+        OnekeyNetwork.bch,
+        OnekeyNetwork.doge,
+        OnekeyNetwork.ada,
+      ].find((nid) => isAccountCompatibleWithNetwork(account.id, nid));
+
+    const replaceStr = isValidUtxoAccount
+      ? new RegExp(`${INDEX_PLACEHOLDER.replace(/\$/g, '\\$')}.*$`)
+      : INDEX_PLACEHOLDER;
+
+    const walletId = getWalletIdFromAccountId(account.id);
+
+    const match = account.id.match(
+      new RegExp(`${walletId}--${template}`.replace(replaceStr, '(\\d+)')),
+    );
+
+    const accountIndex = Number.parseInt(match?.[1] ?? '');
+
+    return accountIndex;
+  }
+
   @backgroundMethod()
   async getAllNetworkAccountIndex({ walletId }: { walletId: string }) {
     const { engine } = this.backgroundApi;
@@ -72,31 +115,11 @@ export default class ServiceAllNetwork extends ServiceBase {
       { walletId },
     );
 
-    const isValidUtxoAccount = (account: Account) =>
-      account.type === AccountType.UTXO &&
-      !![
-        OnekeyNetwork.btc,
-        OnekeyNetwork.ltc,
-        OnekeyNetwork.bch,
-        OnekeyNetwork.doge,
-        OnekeyNetwork.ada,
-      ].find((nid) => isAccountCompatibleWithNetwork(account.id, nid));
-
     for (const [template, info] of Object.entries(accountDerivation)) {
       if (info?.accounts?.length) {
         const accounts = await engine.getAccounts(info.accounts);
         for (const account of accounts) {
-          const replaceStr = isValidUtxoAccount(account)
-            ? new RegExp(`${INDEX_PLACEHOLDER.replace(/\$/g, '\\$')}.*$`)
-            : INDEX_PLACEHOLDER;
-
-          const match = account.id.match(
-            new RegExp(
-              `${walletId}--${template}`.replace(replaceStr, '(\\d+)'),
-            ),
-          );
-
-          const accountIndex = Number.parseInt(match?.[1] ?? '');
+          const accountIndex = this.getAccountIndex(account, template);
 
           if (!Number.isNaN(accountIndex)) {
             maxAccountIndex = Math.max(accountIndex, maxAccountIndex);
@@ -120,11 +143,13 @@ export default class ServiceAllNetwork extends ServiceBase {
     if (index === -1) {
       return [];
     }
-    return new Array(Math.min(index + 1, 3)).fill(1).map((_, i) =>
-      generateFakeAllnetworksAccount({
-        accountId: `${walletId}--${i}`,
-      }),
-    );
+    return new Array(Math.min(index + 1, AllNetworksMaxAccounts))
+      .fill(1)
+      .map((_, i) =>
+        generateFakeAllnetworksAccount({
+          accountId: `${walletId}--${i}`,
+        }),
+      );
   }
 
   compareAccountPath({
@@ -156,7 +181,6 @@ export default class ServiceAllNetwork extends ServiceBase {
 
   @backgroundMethod()
   async generateAllNetworksWalletAccounts({
-    accountId,
     accountIndex,
     walletId,
   }: {
@@ -166,21 +190,19 @@ export default class ServiceAllNetwork extends ServiceBase {
     refreshCurrentAccount?: boolean;
   }): Promise<Record<string, Account[]>> {
     const { engine, appSelector, dispatch } = this.backgroundApi;
-    const networkAccountsMap: Record<string, Account[]> = {};
-    if (!isWalletCompatibleAllNetworks(walletId)) {
+    const index = accountIndex;
+    if (typeof index !== 'number' || Number.isNaN(index)) {
       return {};
     }
-    let index: number | undefined;
-    if (typeof accountIndex === 'number') {
-      index = accountIndex;
-    } else if (typeof accountId === 'string') {
-      const match = accountId.match(allNetworksAccountRegex);
-      if (match) {
-        index = Number.parseInt(match[1]);
-      }
-    }
+    const activeAccountId = `${walletId}--${index}`;
+    const networkAccountsMap =
+      appSelector(
+        (s) => s.overview.allNetworksAccountsMap?.[activeAccountId],
+      ) ?? {};
 
-    if (typeof index !== 'number' || Number.isNaN(index)) {
+    const map: typeof networkAccountsMap = {};
+
+    if (!isWalletCompatibleAllNetworks(walletId)) {
       return {};
     }
 
@@ -188,7 +210,7 @@ export default class ServiceAllNetwork extends ServiceBase {
     if (!wallet) {
       return {};
     }
-    const activeAccountId = accountId ?? `${walletId}--${index}`;
+
     const networks = appSelector((s) => s.runtime.networks ?? []).filter(
       (n) =>
         n.enabled &&
@@ -196,20 +218,11 @@ export default class ServiceAllNetwork extends ServiceBase {
         !n.settings?.validationRequired &&
         !n.settings.hideInAllNetworksMode &&
         networkIsPreset(n.id) &&
+        networkAccountsMap[n.id] &&
         ![OnekeyNetwork.fevm, OnekeyNetwork.cfxespace].includes(n.id),
     );
 
-    dispatch(
-      setAccountIsUpdating({
-        accountId: activeAccountId,
-        data: true,
-      }),
-    );
-
-    for (const n of networks.filter(
-      (item) =>
-        item.enabled && !item.isTestnet && !item.settings.validationRequired,
-    )) {
+    for (const n of networks) {
       const accounts = await engine.getAccounts(wallet.accounts, n.id);
       const filteredAccoutns = accounts.filter((a) => {
         if (!a.template) {
@@ -222,54 +235,25 @@ export default class ServiceAllNetwork extends ServiceBase {
           accountIndex: index,
         });
       });
-      if (filteredAccoutns?.length) {
-        networkAccountsMap[n.id] = filteredAccoutns;
+      map[n.id] = filteredAccoutns;
+      if (!filteredAccoutns?.length) {
+        delete map[n.id];
       }
     }
 
-    const dispatchKey = `${FAKE_ALL_NETWORK.id}___${activeAccountId}`;
-
-    const actions: any[] = [
-      clearOverviewPendingTasks(),
+    dispatch(
       setAllNetworksAccountsMap({
         accountId: activeAccountId,
-        data: networkAccountsMap,
+        data: map,
       }),
-    ];
+    );
 
-    if (Object.keys(networkAccountsMap).length === 0) {
-      // remove assets
-      await simpleDb.accountPortfolios.setAllNetworksPortfolio({
-        key: dispatchKey,
-        scanTypes: [
-          EOverviewScanTaskType.token,
-          EOverviewScanTaskType.nfts,
-          EOverviewScanTaskType.defi,
-        ],
-        data: {
-          token: [],
-          nfts: [],
-          defi: [],
-        },
-      });
-      actions.push(
-        setOverviewPortfolioUpdatedAt({
-          key: dispatchKey,
-          data: {
-            updatedAt: Date.now(),
-          },
-        }),
-      );
-    }
-
-    dispatch(...actions);
-
-    return networkAccountsMap;
+    return map;
   }
 
   @backgroundMethod()
   async createAllNetworksFakeAccount({ walletId }: { walletId: string }) {
-    const { appSelector, serviceAccount } = this.backgroundApi;
+    const { appSelector, serviceAccount, dispatch } = this.backgroundApi;
     const maxIndex = await this.getAllNetworkAccountIndex({
       walletId,
     });
@@ -288,9 +272,9 @@ export default class ServiceAllNetwork extends ServiceBase {
       n.startsWith(walletId),
     );
 
-    if (accountIds.length >= 3) {
+    if (accountIds.length >= AllNetworksMaxAccounts) {
       throw new AllNetworksUpto3LimitsError('', {
-        0: 3,
+        0: AllNetworksMaxAccounts,
       });
     }
 
@@ -310,23 +294,27 @@ export default class ServiceAllNetwork extends ServiceBase {
       });
     }
 
-    // TODO: change networksAccountMap
-    // const account = await this.generateAllNetworksWalletAccounts({
-    //   walletId,
-    //   accountId: fakeNewAccountId,
-    // });
+    dispatch(
+      setAllNetworksAccountsMap({
+        accountId: fakeNewAccountId,
+        data: undefined,
+      }),
+    );
 
+    debugLogger.allNetworks.info(
+      `[createAllNetworksFakeAccount] `,
+      fakeNewAccountId,
+    );
     await serviceAccount.autoChangeAccount({
       walletId,
     });
-
-    // return account;
   }
 
   @backgroundMethod()
   async deleteAllNetworksFakeAccount({ accountId }: { accountId: string }) {
     const { dispatch, serviceAccount } = this.backgroundApi;
 
+    debugLogger.allNetworks.info(`[deleteAllNetworksFakeAccount] `, accountId);
     dispatch(
       removeAllNetworksAccountsMapByAccountId({
         accountId,
@@ -342,7 +330,7 @@ export default class ServiceAllNetwork extends ServiceBase {
 
   @backgroundMethod()
   async getSelectableNetworkAccounts({ accountId }: { accountId: string }) {
-    const { appSelector, engine } = this.backgroundApi;
+    const { appSelector, engine, dispatch } = this.backgroundApi;
 
     if (!accountId) {
       return;
@@ -403,10 +391,166 @@ export default class ServiceAllNetwork extends ServiceBase {
       notSelectedNetworkAccountsMap[n.id] = filteredAccoutns;
     }
 
+    const disabledNetworkIds = Object.keys(selectedNetorkAccountsMap).filter(
+      (id) => !networks.find((n) => n.id === id),
+    );
+
+    if (disabledNetworkIds.length) {
+      debugLogger.allNetworks.warn(
+        `[getSelectableNetworkAccounts] `,
+        disabledNetworkIds.join(','),
+      );
+      dispatch(
+        removeMapNetworks({
+          accountId,
+          networkIds: disabledNetworkIds,
+        }),
+      );
+    }
+
     return {
       networks,
       selectedNetorkAccountsMap,
       notSelectedNetworkAccountsMap,
     };
+  }
+
+  @backgroundMethod()
+  async reloadCurrentAccount() {
+    const { appSelector, serviceOverview, dispatch } = this.backgroundApi;
+    const { activeNetworkId, activeAccountId } = appSelector((s) => s.general);
+    if (!isAllNetworks(activeNetworkId) || !activeAccountId) {
+      return;
+    }
+
+    const networkAccountsMap =
+      appSelector(
+        (s) => s.overview.allNetworksAccountsMap?.[activeAccountId],
+      ) ?? {};
+
+    const actions: any[] = [
+      setAccountIsUpdating({
+        accountId: activeAccountId,
+        data: true,
+      }),
+      clearOverviewPendingTasks(),
+    ];
+
+    if (Object.keys(networkAccountsMap).length === 0) {
+      const dispatchKey = `${FAKE_ALL_NETWORK.id}___${activeAccountId}`;
+      // remove assets
+      await simpleDb.accountPortfolios.setAllNetworksPortfolio({
+        key: dispatchKey,
+        scanTypes: [
+          EOverviewScanTaskType.token,
+          EOverviewScanTaskType.nfts,
+          EOverviewScanTaskType.defi,
+        ],
+        data: {
+          token: [],
+          nfts: [],
+          defi: [],
+        },
+      });
+      actions.push(
+        setOverviewPortfolioUpdatedAt({
+          key: dispatchKey,
+          data: {
+            updatedAt: Date.now(),
+          },
+        }),
+      );
+    }
+
+    dispatch(...actions);
+
+    return serviceOverview.refreshCurrentAccount();
+  }
+
+  @backgroundMethod()
+  async onNetworksDisabled({ networkIds }: { networkIds: string[] }) {
+    const { dispatch } = this.backgroundApi;
+
+    debugLogger.allNetworks.info(`[onNetworksDisabled] `, networkIds.join(','));
+    dispatch(
+      removeMapNetworks({
+        networkIds,
+      }),
+    );
+
+    return this.reloadCurrentAccount();
+  }
+
+  @backgroundMethod()
+  async onAccountChanged({
+    account,
+    networkId,
+  }: {
+    account: Account;
+    networkId: string;
+  }) {
+    const { dispatch, appSelector } = this.backgroundApi;
+
+    const network = appSelector((s) => s.runtime.networks).find(
+      (n) => n.id === networkId,
+    );
+
+    if (!network) {
+      debugLogger.allNetworks.warn(
+        `[onAccountChanged] network ${networkId} not found`,
+      );
+      return;
+    }
+
+    const index = this.getAccountIndex(account, account?.template ?? '');
+
+    if (index >= AllNetworksMaxAccounts || index < 0 || Number.isNaN(index)) {
+      debugLogger.allNetworks.warn(
+        `[onAccountChanged] invalid index networkId=${networkId}`,
+        account,
+      );
+      return;
+    }
+
+    const walletId = getWalletIdFromAccountId(account?.id);
+
+    const current = appSelector(
+      (s) => s.overview.allNetworksAccountsMap?.[`${walletId}--${index}`],
+    );
+
+    if (!current) {
+      return;
+    }
+
+    const accountId = `${walletId}--${index}`;
+
+    const map = await this.generateAllNetworksWalletAccounts({
+      accountIndex: index,
+      walletId,
+    });
+
+    debugLogger.allNetworks.info(`[onAccountChanged] generated map`, map);
+    dispatch(
+      setAllNetworksAccountsMap({
+        accountId,
+        data: map,
+      }),
+    );
+
+    const activeAccountId = appSelector((s) => s.general.activeAccountId);
+
+    if (accountId !== activeAccountId) {
+      return;
+    }
+
+    return this.reloadCurrentAccount();
+  }
+
+  @backgroundMethod()
+  async onWalletRemoved({ walletIds }: { walletIds: string[] }) {
+    const { dispatch } = this.backgroundApi;
+    debugLogger.allNetworks.info(`[onWalletRemoved] `, walletIds.join(','));
+    await simpleDb.accountPortfolios.removeWalletData(walletIds);
+    dispatch(removeWalletAccountsMap({ walletIds }));
   }
 }

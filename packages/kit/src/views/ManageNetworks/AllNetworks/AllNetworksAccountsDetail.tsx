@@ -23,10 +23,11 @@ import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../../hooks';
+import { useActiveWalletAccount, useAppSelector } from '../../../hooks';
 import { setAllNetworksAccountsMap } from '../../../store/reducers/overview';
+import { setHideAllNetworksSelectNetworkTips } from '../../../store/reducers/settings';
 import { showAllNetworksHelp } from '../../Overlay/AllNetworksHelp';
-import { strIncludes } from '../Listing/NetworkListEmpty';
+import { NetworkListEmpty, strIncludes } from '../Listing/NetworkListEmpty';
 
 import type { ListRenderItem } from 'react-native';
 
@@ -81,6 +82,26 @@ const NetworkItem: FC<{
       />
       <CheckBox isChecked={isChecked} onChange={handleChangeMap} />
     </HStack>
+  );
+};
+
+const SelectNetworkTips = () => {
+  const intl = useIntl();
+  const hideAllNetworksSelectNetworkTips =
+    useAppSelector((s) => s.settings.hideAllNetworksSelectNetworkTips) ?? false;
+
+  return hideAllNetworksSelectNetworkTips ? null : (
+    <Alert
+      title={intl.formatMessage({
+        id: 'msg__tips_optimize_load_times_by_choosing_fewer_chains',
+      })}
+      dismiss
+      alertType="info"
+      customIconName="InformationCircleMini"
+      onDismiss={() => {
+        backgroundApiProxy.dispatch(setHideAllNetworksSelectNetworkTips(true));
+      }}
+    />
   );
 };
 
@@ -217,9 +238,23 @@ export const AllNetworksAccountsDetail: FC = () => {
         data: map,
       }),
     );
-    backgroundApiProxy.serviceOverview.refreshCurrentAccount();
+    backgroundApiProxy.serviceAllNetwork.reloadCurrentAccount();
     close();
   }, [map, accountId, close]);
+
+  useEffect(
+    () => () => {
+      if (!Object.keys(map).length) {
+        backgroundApiProxy.dispatch(
+          setAllNetworksAccountsMap({
+            accountId,
+            data: {},
+          }),
+        );
+      }
+    },
+    [accountId, map],
+  );
 
   return (
     <Modal
@@ -256,14 +291,11 @@ export const AllNetworksAccountsDetail: FC = () => {
         renderSectionHeader={renderSectionHeader}
         ItemSeparatorComponent={ItemSeparatorComponent}
         ListHeaderComponent={
-          <Alert
-            title={intl.formatMessage({
-              id: 'msg__tips_optimize_load_times_by_choosing_fewer_chains',
-            })}
-            dismiss
-            alertType="info"
-            customIconName="InformationCircleMini"
-          />
+          sections.map((s) => s.data).flat()?.length ? (
+            <SelectNetworkTips />
+          ) : (
+            <NetworkListEmpty />
+          )
         }
       />
     </Modal>
