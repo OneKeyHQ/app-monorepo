@@ -836,6 +836,7 @@
   "content__state_logs": "Journaux d'état",
   "content__state_logs_desc": "Cela aidera l'assistance OneKey à déboguer tout problème que vous pourriez rencontrer. Veuillez envoyer à {0} ou à l'assistance OneKey uniquement.",
   "content__stats": "Statistiques",
+  "content__stay_tuned": "Restez à l'écoute!",
   "content__str_and_others_int_nfts": "{firstNFT} et autres {otherNFTs} NFT",
   "content__str_chain_is_unsupprted": "La chaîne {0} n'est pas encore prise en charge",
   "content__str_failed": "{0} a échoué !",

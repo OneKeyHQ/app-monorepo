@@ -836,6 +836,7 @@
   "content__state_logs": "Registri di stato",
   "content__state_logs_desc": "Ciò aiuterà OneKey a supportare il debug di qualsiasi problema che potresti riscontrare. Si prega di inviare a {0} o solo all'assistenza OneKey.",
   "content__stats": "Statistiche",
+  "content__stay_tuned": "Rimani sintonizzato!",
   "content__str_and_others_int_nfts": "{firstNFT} e altri {otherNFTs} NFT",
   "content__str_chain_is_unsupprted": "La catena {0} non è ancora supportata",
   "content__str_failed": "{0} fallito!",

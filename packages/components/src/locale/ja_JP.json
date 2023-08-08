@@ -836,6 +836,7 @@
   "content__state_logs": "ステータスログ",
   "content__state_logs_desc": "これは、OneKeyテクニカルサポートチームが問題をデバッグするのに役立つ。 {0}またはOneKeyテクニカルサポートにのみ送信してください。",
   "content__stats": "統計",
+  "content__stay_tuned": "乞うご期待！",
   "content__str_and_others_int_nfts": "{firstNFT}他{otherNFTs} NFT",
   "content__str_chain_is_unsupprted": "{0}チェーンはまだ対応されていない",
   "content__str_failed": "{0} 失敗した！",

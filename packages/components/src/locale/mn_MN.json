@@ -836,6 +836,7 @@
   "content__state_logs": "Төрийн бүртгэл",
   "content__state_logs_desc": "Энэ нь танд тохиолдож болзошгүй аливаа асуудлыг OneKey-н дэмжлэгт дибаг хийхэд тусална. Зөвхөн {0} эсвэл OneKey тусламж руу илгээнэ үү.",
   "content__stats": "Статистик",
+  "content__stay_tuned": "Хамтдаа байгаарай!",
   "content__str_and_others_int_nfts": "{firstNFT} болон бусад {otherNFTs} NFTs",
   "content__str_chain_is_unsupprted": "{0} сүлжээ хараахан дэмжигдээгүй байна",
   "content__str_failed": "{0} амжилтгүй боллоо!",

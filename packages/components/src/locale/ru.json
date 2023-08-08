@@ -836,6 +836,7 @@
   "content__state_logs": "Журналы состояния",
   "content__state_logs_desc": "Это поможет OneKey отладить любую проблему, с которой вы можете столкнуться. Отправьте только по адресу {0} или в службу поддержки OneKey.",
   "content__stats": "Статистика",
+  "content__stay_tuned": "Следите за обновлениями!",
   "content__str_and_others_int_nfts": "{firstNFT} и другие {otherNFTs} NFT",
   "content__str_chain_is_unsupprted": "Цепочка {0} еще не поддерживается",
   "content__str_failed": "{0} не удалось!",

@@ -836,6 +836,7 @@
   "content__state_logs": "রাজ্য লগ",
   "content__state_logs_desc": "এটি OneKey সমর্থনকে আপনার সম্মুখীন হতে পারে এমন যেকোনো সমস্যা ডিবাগ করতে সাহায্য করবে। অনুগ্রহ করে শুধুমাত্র {0} বা OneKey সমর্থনে পাঠান।",
   "content__stats": "পরিসংখ্যান",
+  "content__stay_tuned": "সাথে থাকুন!",
   "content__str_and_others_int_nfts": "{firstNFT} এবং অন্যান্য {otherNFTs} NFT",
   "content__str_chain_is_unsupprted": "{0} চেইন এখনও অসমর্থিত",
   "content__str_failed": "{0} ব্যর্থ!",

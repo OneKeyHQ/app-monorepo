@@ -836,6 +836,7 @@
   "content__state_logs": "Nhật ký trạng thái",
   "content__state_logs_desc": "Điều này sẽ giúp OneKey hỗ trợ gỡ lỗi bất kỳ sự cố nào bạn có thể gặp phải. Vui lòng chỉ gửi đến {0} hoặc bộ phận hỗ trợ OneKey.",
   "content__stats": "Số liệu thống kê",
+  "content__stay_tuned": "Giữ nguyên!",
   "content__str_and_others_int_nfts": "{firstNFT} và các loại khác {otherNFTs} NFT",
   "content__str_chain_is_unsupprted": "Chuỗi {0} chưa được hỗ trợ",
   "content__str_failed": "{0} không thành công!",

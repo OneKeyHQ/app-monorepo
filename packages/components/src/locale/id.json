@@ -836,6 +836,7 @@
   "content__state_logs": "Log Negara",
   "content__state_logs_desc": "Ini akan membantu OneKey mendukung debug masalah apa pun yang mungkin Anda temui. Silakan kirim ke dukungan {0} atau OneKey saja.",
   "content__stats": "Statistik",
+  "content__stay_tuned": "Pantau terus!",
   "content__str_and_others_int_nfts": "{firstNFT} dan {otherNFTs} lainnya",
   "content__str_chain_is_unsupprted": "Rantai {0} belum didukung",
   "content__str_failed": "{0} gagal!",

@@ -836,6 +836,7 @@
   "content__state_logs": "บันทึกสถานะ",
   "content__state_logs_desc": "วิธีนี้จะช่วยสนับสนุน OneKey ในการดีบักปัญหาใดๆ ที่คุณอาจพบ โปรดส่งไปที่ {0} หรือฝ่ายสนับสนุน OneKey เท่านั้น",
   "content__stats": "สถิติ",
+  "content__stay_tuned": "คอยติดตาม!",
   "content__str_and_others_int_nfts": "{firstNFT} และ NFT อื่นๆ อีก {otherNFTs} รายการ",
   "content__str_chain_is_unsupprted": "{0} ยังไม่รองรับโซ่",
   "content__str_failed": "{0} ล้มเหลว!",

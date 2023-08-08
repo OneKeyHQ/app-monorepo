@@ -836,6 +836,7 @@
   "content__state_logs": "상태 로그",
   "content__state_logs_desc": "이렇게 하면 OneKey 지원에서 발생할 수 있는 문제를 디버그하는 데 도움이 됩니다. {0} 또는 OneKey 지원팀으로만 보내주십시오.",
   "content__stats": "통계",
+  "content__stay_tuned": "채널 고정!",
   "content__str_and_others_int_nfts": "{firstNFT} 및 기타 {otherNFTs} NFT",
   "content__str_chain_is_unsupprted": "{0} 체인은 아직 지원되지 않습니다.",
   "content__str_failed": "{0} 실패!",

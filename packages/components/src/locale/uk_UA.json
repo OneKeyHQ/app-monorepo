@@ -836,6 +836,7 @@
   "content__state_logs": "Логи",
   "content__state_logs_desc": "Це допоможе підтримці OneKey усунути будь-яку проблему, з якою ви можете зіткнутися. Надішліть лише на адресу {0} або службу підтримки OneKey.",
   "content__stats": "статистика",
+  "content__stay_tuned": "Залишайтеся на зв'язку!",
   "content__str_and_others_int_nfts": "{firstNFT} та інші {otherNFTs} NFT",
   "content__str_chain_is_unsupprted": "Ланцюг {0} ще не підтримується",
   "content__str_failed": "{0} не вдалося!",

@@ -836,6 +836,7 @@
   "content__state_logs": "سجلات الدولة",
   "content__state_logs_desc": "سيساعد هذا OneKey في دعم تصحيح أي مشكلة قد تواجهها. الرجاء الإرسال إلى {0} أو دعم OneKey فقط.",
   "content__stats": "احصائيات",
+  "content__stay_tuned": "ابقوا متابعين!",
   "content__str_and_others_int_nfts": "{firstNFT} و {otherNFTs} NFTs أخرى",
   "content__str_chain_is_unsupprted": "سلسلة {0} غير معتمدة حتى الآن",
   "content__str_failed": "فشل {0} !",

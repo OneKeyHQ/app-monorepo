@@ -836,6 +836,7 @@
   "content__state_logs": "राज्य लॉग",
   "content__state_logs_desc": "यह OneKey को आपके सामने आने वाली किसी भी समस्या को डीबग करने में सहायता करेगा। कृपया {0} या केवल OneKey समर्थन को भेजें।",
   "content__stats": "आँकड़े",
+  "content__stay_tuned": "बने रहें!",
   "content__str_and_others_int_nfts": "{firstNFT} और अन्य {otherNFTs} NFTs",
   "content__str_chain_is_unsupprted": "{0} श्रृंखला अभी तक समर्थित नहीं है",
   "content__str_failed": "{0} विफल!",

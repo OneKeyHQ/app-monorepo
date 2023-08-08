@@ -423,6 +423,18 @@ export class UtxoNotFoundError extends OneKeyError {
   override key = 'msg__nft_does_not_exist';
 }
 
+export class MinimumTransferBalanceRequiredError extends OneKeyError {
+  override key =
+    'msg__the_minimum_value_for_transffering_to_a_new_account_is_str_str';
+
+  constructor(amount: string, symbol: string) {
+    super('', {
+      amount,
+      symbol,
+    });
+  }
+}
+
 // all networks ----------------------------------------------
 export class AllNetworksMinAccountsError extends OneKeyError {
   override key = 'msg__you_need_str_accounts_on_any_network_to_create';

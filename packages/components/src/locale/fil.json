@@ -836,6 +836,7 @@
   "content__state_logs": "Mga Tala ng Estado",
   "content__state_logs_desc": "Makakatulong ito sa OneKey na suportahan ang pag-debug ng anumang isyu na maaari mong makaharap. Mangyaring ipadala sa {0} o suporta sa OneKey lamang.",
   "content__stats": "Stats",
+  "content__stay_tuned": "Manatiling nakatutok!",
   "content__str_and_others_int_nfts": "{firstNFT} at iba {otherNFTs} NFT",
   "content__str_chain_is_unsupprted": "{0} chain ay hindi pa sinusuportahan",
   "content__str_failed": "Nabigo ang {0} !",
