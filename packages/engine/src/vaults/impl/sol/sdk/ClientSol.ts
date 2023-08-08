@@ -1,4 +1,5 @@
 // eslint-disable-next-line @typescript-eslint/naming-convention
+import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import BigNumber from 'bignumber.js';
 
 import { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
@@ -13,6 +14,7 @@ import type {
   FeePricePerUnit,
   PartialTokenInfo,
 } from '../../../../types/provider';
+import type { PublicKey } from '@solana/web3.js';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export enum RPC_METHODS {
@@ -150,6 +152,42 @@ export class ClientSol extends BaseClient {
       RPC_METHODS.GET_ACCOUNT_INFO,
       [address, { encoding: PARAMS_ENCODINGS.JSON_PARSED }],
     );
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return response.value;
+  }
+
+  async getTokenAccountsByOwner({
+    address,
+    programId = TOKEN_PROGRAM_ID,
+  }: {
+    address: string;
+    programId?: PublicKey;
+  }): Promise<
+    | {
+        account: {
+          data: {
+            parsed: {
+              info: {
+                mint: string;
+                owner: string;
+              };
+            };
+          };
+          owner: string;
+        };
+        pubkey: string;
+      }[]
+    | null
+  > {
+    const response: {
+      [key: string]: any;
+    } = await this.rpc.call(RPC_METHODS.GET_TOKEN_ACCOUNTS_BY_OWNER, [
+      address,
+      {
+        programId: programId.toString(),
+      },
+      { encoding: PARAMS_ENCODINGS.JSON_PARSED },
+    ]);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return response.value;
   }
