@@ -13,6 +13,7 @@ import {
   Modal,
   Searchbar,
   SectionList,
+  Spinner,
   Token,
   Typography,
 } from '@onekeyhq/components';
@@ -110,6 +111,7 @@ export const AllNetworksAccountsDetail: FC = () => {
   const [search, setSearch] = useState('');
   const { accountId } = useActiveWalletAccount();
   const [map, setMap] = useState<Record<string, Account[]>>({});
+  const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<{
     networks: Network[];
     selectedNetorkAccountsMap: Record<string, Account[]>;
@@ -129,8 +131,10 @@ export const AllNetworksAccountsDetail: FC = () => {
         }
         setResult(res);
       })
-      .catch((e) => {
-        console.log(e);
+      .finally(() => {
+        setTimeout(() => {
+          setLoading(false);
+        }, 500);
       });
   }, [accountId]);
 
@@ -218,15 +222,19 @@ export const AllNetworksAccountsDetail: FC = () => {
 
   const renderSectionHeader = useCallback(
     ({ section }: { section: Section }) =>
-      search || !section.data?.length ? null : (
-        <Typography.Subheading pb="3" pt="6" bg="background-default">
-          {intl.formatMessage(
-            { id: section.title },
-            {
-              0: section.data?.length ?? 0,
-            },
+      !section?.data?.length ? null : (
+        <Box pb="3" pt={6} bg="background-default">
+          {search || !section.data?.length ? null : (
+            <Typography.Subheading>
+              {intl.formatMessage(
+                { id: section.title },
+                {
+                  0: section.data?.length ?? 0,
+                },
+              )}
+            </Typography.Subheading>
           )}
-        </Typography.Subheading>
+        </Box>
       ),
     [intl, search],
   );
@@ -241,20 +249,6 @@ export const AllNetworksAccountsDetail: FC = () => {
     backgroundApiProxy.serviceAllNetwork.reloadCurrentAccount();
     close();
   }, [map, accountId, close]);
-
-  useEffect(
-    () => () => {
-      if (!Object.keys(map).length) {
-        backgroundApiProxy.dispatch(
-          setAllNetworksAccountsMap({
-            accountId,
-            data: {},
-          }),
-        );
-      }
-    },
-    [accountId, map],
-  );
 
   return (
     <Modal
@@ -274,30 +268,35 @@ export const AllNetworksAccountsDetail: FC = () => {
       hideSecondaryAction
       onPrimaryActionPress={onConfirm}
     >
-      <Searchbar
-        w="full"
-        value={search}
-        mb="4"
-        onChangeText={(text) => setSearch(text)}
-        placeholder={intl.formatMessage({ id: 'content__search' })}
-        onClear={() => setSearch('')}
-      />
-      <SectionList
-        stickySectionHeadersEnabled={false}
-        sections={sections}
-        contentContainerStyle={{ flexGrow: 1 }}
-        keyExtractor={(item: Network) => item.id}
-        renderItem={renderItem}
-        renderSectionHeader={renderSectionHeader}
-        ItemSeparatorComponent={ItemSeparatorComponent}
-        ListHeaderComponent={
-          sections.map((s) => s.data).flat()?.length ? (
-            <SelectNetworkTips />
-          ) : (
-            <NetworkListEmpty />
-          )
-        }
-      />
+      {loading ? (
+        <Spinner size="lg" />
+      ) : (
+        <>
+          <Searchbar
+            w="full"
+            value={search}
+            onChangeText={(text) => setSearch(text)}
+            placeholder={intl.formatMessage({ id: 'content__search' })}
+            onClear={() => setSearch('')}
+          />
+          <SectionList
+            stickySectionHeadersEnabled={false}
+            sections={sections}
+            contentContainerStyle={{ flexGrow: 1 }}
+            keyExtractor={(item: Network) => item.id}
+            renderItem={renderItem}
+            renderSectionHeader={renderSectionHeader}
+            ItemSeparatorComponent={ItemSeparatorComponent}
+            ListHeaderComponent={
+              sections.map((s) => s.data).flat()?.length ? (
+                <SelectNetworkTips />
+              ) : (
+                <NetworkListEmpty />
+              )
+            }
+          />
+        </>
+      )}
     </Modal>
   );
 };

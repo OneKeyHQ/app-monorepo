@@ -8,6 +8,7 @@ import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClos
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
+import { LazyDisplayView } from '../../../components/LazyDisplayView';
 import {
   useAllNetworksIncludedNetworks,
   useAllNetworksWalletAccounts,
@@ -35,7 +36,7 @@ function AllNetworksNetworkSelectorModal() {
 
   const { filter, onConfirm, accountId } = route?.params ?? {};
 
-  const { data: networkAccounts } = useAllNetworksWalletAccounts({
+  const { data: networkAccounts = {} } = useAllNetworksWalletAccounts({
     accountId,
   });
 
@@ -126,14 +127,16 @@ function AllNetworksNetworkSelectorModal() {
       footer={null}
       height="560px"
     >
-      <List
-        data={supportedNetworks.filter((n) => !!networkAccounts[n.id])}
-        contentContainerStyle={{
-          flex: supportedNetworks?.length ? undefined : 1,
-        }}
-        renderItem={renderItem}
-        keyExtractor={(item: Network) => item.id}
-      />
+      <LazyDisplayView delay={300}>
+        <List
+          data={supportedNetworks.filter((n) => !!networkAccounts[n.id])}
+          contentContainerStyle={{
+            flex: supportedNetworks?.length ? undefined : 1,
+          }}
+          renderItem={renderItem}
+          keyExtractor={(item: Network) => item.id}
+        />
+      </LazyDisplayView>
     </Modal>
   );
 }

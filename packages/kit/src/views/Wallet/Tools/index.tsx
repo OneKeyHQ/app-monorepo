@@ -194,7 +194,7 @@ const ToolsPage: FC = () => {
       return allItems.filter((n) => n.filter?.({ network, account }) ?? true);
     }
     return allItems.filter((item) => {
-      for (const [nid, accounts] of Object.entries(networkAccountsMap)) {
+      for (const [nid, accounts] of Object.entries(networkAccountsMap ?? {})) {
         const n = enabledNetworks.find((i) => i.id === nid);
         if (n) {
           for (const a of accounts) {
@@ -311,7 +311,7 @@ const ToolsPage: FC = () => {
       }
       selectNetworkAccount(item.filter).then(
         async ({ network: selectedNetwork, account: selectedAccount }) => {
-          if (key === 'revoke' || key === 'bulkSender' || key === 'pnl') {
+          if (key === 'bulkSender' || key === 'pnl') {
             const { serviceNetwork, serviceAccount } = backgroundApiProxy;
             await serviceNetwork.changeActiveNetwork(selectedNetwork?.id);
             await serviceAccount.changeActiveAccountByAccountId(
