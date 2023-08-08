@@ -23,8 +23,8 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { FormatCurrency } from '../../../components/Format';
 import { useAppSelector, useTokenBalance } from '../../../hooks';
 import {
-  useNativeToken,
   useSimpleTokenPriceValue,
+  useSingleToken,
 } from '../../../hooks/useTokens';
 import {
   ModalRoutes,
@@ -34,13 +34,18 @@ import {
 import { addTransaction } from '../../../store/reducers/staking';
 import { formatAmount } from '../../../utils/priceUtils';
 import { formatDecimalZero } from '../../Market/utils';
-import { formatAmountExact, gt } from '../../Swap/utils';
+import { formatAmountExact, gt, plus } from '../../Swap/utils';
+import { getMaticContractAdderess } from '../address';
 import { PendingLidoTransaction } from '../components/PendingTransaction';
-import { useLidoOverview } from '../hooks';
-import { EthStakingSource, StakingRoutes } from '../typing';
+import { useLidoMaticOverview } from '../hooks';
+import { StakingRoutes } from '../typing';
 import { StakingTypes, getTransactionStakingType } from '../utils';
 
-import type { LidoNFTStatus, StakingRoutesParams } from '../typing';
+import type {
+  LidoMaticNFTStatus,
+  LidoMaticOverview,
+  StakingRoutesParams,
+} from '../typing';
 import type { RouteProp } from '@react-navigation/core';
 import type { ListRenderItem } from 'react-native';
 
@@ -56,7 +61,7 @@ const formatstETHNum = (value: string) => {
   if (bn.lt('0.00000001')) {
     return formatDecimalZero(bn.toNumber());
   }
-  return formatAmount(value, 18);
+  return formatAmount(value, 6);
 };
 
 const ClaimAlert = () => {
@@ -64,23 +69,38 @@ const ClaimAlert = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const { networkId, accountId } = route.params;
-  const lidoOverview = useLidoOverview(networkId, accountId);
+  const lidoMaticOverview = useLidoMaticOverview(networkId, accountId);
   const onPress = useCallback(async () => {
-    if (!lidoOverview || !accountId) {
+    if (!lidoMaticOverview || !accountId) {
       return;
     }
-    const items = lidoOverview.nfts ?? [];
-    const nfts = items.filter((item) => !item.isClaimed && item.isFinalized);
-    const requests = nfts.map((nft) => nft.requestId);
-    const claimTx =
-      await backgroundApiProxy.serviceStaking.buildLidoClaimWithdrawals({
-        requestIds: requests,
-        networkId,
-      });
     const account = await backgroundApiProxy.engine.getAccount(
       accountId,
       networkId,
     );
+    const items = lidoMaticOverview.nfts ?? [];
+    const nfts = items.filter((item) => item.claimable);
+    const requests = nfts.map((nft) => nft.nftId);
+    if (requests.length > 1) {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Staking,
+        params: {
+          screen: StakingRoutes.LidoMaticClaim,
+          params: {
+            accountId: account.id,
+            networkId,
+          },
+        },
+      });
+      return;
+    }
+    const claimTx =
+      await backgroundApiProxy.serviceStaking.buildLidoMaticClaimWithdrawals({
+        nftId: requests[0],
+        networkId,
+        accountId,
+      });
+
     const encodedTx: IEncodedTxEvm = {
       ...claimTx,
       from: account.address,
@@ -104,7 +124,7 @@ const ClaimAlert = () => {
                   hash: tx.txid,
                   accountId: account.id,
                   networkId,
-                  type: 'lidoClaim',
+                  type: 'lidoClaimMatic',
                   nonce: data?.decodedTx?.nonce,
                   addedTime: Date.now(),
                 },
@@ -114,22 +134,32 @@ const ClaimAlert = () => {
         },
       },
     });
-  }, [navigation, lidoOverview, networkId, accountId]);
+  }, [navigation, lidoMaticOverview, networkId, accountId]);
 
-  if (
-    lidoOverview &&
-    lidoOverview.nfts &&
-    lidoOverview.nfts.length &&
-    lidoOverview.withdrawal &&
-    Number(lidoOverview.withdrawal) > 0
-  ) {
+  const claimable = useMemo(() => {
+    let withdrawal = '0';
+    const items = lidoMaticOverview?.nfts;
+    if (!items) {
+      return { withdrawal };
+    }
+    const claimableItems = items.filter((item) => item.claimable);
+    if (claimableItems.length > 0) {
+      withdrawal = claimableItems.reduce(
+        (result, item) => plus(result, item.maticAmount),
+        '0',
+      );
+    }
+    return { withdrawal, items: claimableItems };
+  }, [lidoMaticOverview]);
+
+  if (gt(claimable.withdrawal, '0')) {
     return (
       <Alert
         alertType="info"
         title={`${formatAmountExact(
-          lidoOverview.withdrawal,
+          claimable.withdrawal,
           4,
-        )} ETH ${intl.formatMessage({
+        )} MATIC ${intl.formatMessage({
           id: 'form__available_for_claim',
         })}`}
         dismiss={false}
@@ -154,7 +184,7 @@ const PendingTransactionAlert = () => {
     return items.filter(
       (item) =>
         !item.archive &&
-        getTransactionStakingType(item.type) === StakingTypes.eth,
+        getTransactionStakingType(item.type) === StakingTypes.matic,
     );
   }, [transactions, networkId, accountId]);
 
@@ -181,18 +211,24 @@ const ListHeaderComponent = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const { networkId, accountId } = route.params;
-  const symbol = 'stETH';
-  const lidoOverview = useLidoOverview(networkId, accountId);
-  const nativeToken = useNativeToken(networkId);
-  const balance = useTokenBalance({ networkId, accountId, token: nativeToken });
+  const symbol = 'stMATIC';
+  const lidoMaticOverview = useLidoMaticOverview(networkId, accountId);
+  const { token: maticToken } = useSingleToken(
+    networkId,
+    getMaticContractAdderess(networkId),
+  );
+  const balance = useTokenBalance({ networkId, accountId, token: maticToken });
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const mainPrice = useSimpleTokenPriceValue({ networkId });
+  const mainPrice = useSimpleTokenPriceValue({
+    networkId,
+    contractAdress: getMaticContractAdderess(networkId),
+  });
 
   const onUnstake = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Staking,
       params: {
-        screen: StakingRoutes.LidoEthUnstakeShouldUnderstand,
+        screen: StakingRoutes.LidoMaticUnstake,
         params: {
           networkId,
           accountId,
@@ -201,11 +237,11 @@ const ListHeaderComponent = () => {
     });
   }, [navigation, networkId, accountId]);
 
-  const onLidoEthStakeShouldUnderstand = useCallback(() => {
+  const onLidoMaticStakeShouldUnderstand = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Staking,
       params: {
-        screen: StakingRoutes.LidoEthStakeShouldUnderstand,
+        screen: StakingRoutes.LidoMaticStakeShouldUnderstand,
         params: {
           readonly: true,
           networkId,
@@ -219,17 +255,16 @@ const ListHeaderComponent = () => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Staking,
       params: {
-        screen: StakingRoutes.ETHStake,
+        screen: StakingRoutes.MaticStake,
         params: {
           networkId,
           accountId,
-          source: EthStakingSource.Lido,
         },
       },
     });
   }, [navigation, networkId, accountId]);
 
-  const totalAmount = lidoOverview?.balance ?? '0.00';
+  const totalAmount = lidoMaticOverview?.balance ?? '0.00';
   const totalAmountText = gt(totalAmount, '0')
     ? formatAmount(totalAmount, 8)
     : '0.00';
@@ -249,7 +284,7 @@ const ListHeaderComponent = () => {
           type="plain"
           name="QuestionMarkCircleOutline"
           size="sm"
-          onPress={onLidoEthStakeShouldUnderstand}
+          onPress={onLidoMaticStakeShouldUnderstand}
         />
       </Box>
       <Box mt="2">
@@ -283,7 +318,7 @@ const ListHeaderComponent = () => {
           {intl.formatMessage({ id: 'form__available_to_stake' })}
         </Typography.Body2>
         <Typography.Body2 color="text-default">
-          {formatAmount(balance, 6)} ETH
+          {formatAmount(balance, 6)} MATIC
         </Typography.Body2>
       </Box>
       <VStack space="4" mt="4">
@@ -313,29 +348,26 @@ export default function StakedETHOnLido() {
   const route = useRoute<RouteProps>();
   const { networkId, accountId } = route.params;
   useEffect(() => {
-    backgroundApiProxy.serviceStaking.fetchLidoOverview({
+    backgroundApiProxy.serviceStaking.fetchLidoMaticOverview({
       networkId,
       accountId,
     });
-    backgroundApiProxy.serviceStaking.fetchEthAprSma();
     // eslint-disable-next-line
   }, []);
-  const lidoOverview = useLidoOverview(networkId, accountId);
+  const lidoOverview = useLidoMaticOverview(networkId, accountId);
 
   const nfts = useMemo(() => {
     if (!lidoOverview) {
       return [];
     }
     const items = lidoOverview.nfts ? [...lidoOverview.nfts] : [];
-    return items.sort((a, b) => b.requestId - a.requestId);
+    return items.sort((a, b) => b.nftId - a.nftId);
   }, [lidoOverview]);
 
-  const renderItem: ListRenderItem<LidoNFTStatus> = useCallback(
+  const renderItem: ListRenderItem<LidoMaticNFTStatus> = useCallback(
     ({ item, index }) => (
       <Box
         py="4"
-        // px="6"
-        // bg="surface-default"
         overflow="hidden"
         borderTopRadius={index === 0 ? 12 : undefined}
         borderBottomRadius={nfts && index === nfts.length - 1 ? 12 : undefined}
@@ -361,7 +393,7 @@ export default function StakedETHOnLido() {
                 {intl.formatMessage({ id: 'action_unstake' })}
               </Typography.Body1Strong>
               <Typography.Body1Strong isTruncated>
-                +{formatstETHNum(item.stETH)}ETH
+                +{formatstETHNum(item.maticAmount)}MATIC
               </Typography.Body1Strong>
             </Box>
             <Box w="full" flexDirection="row" justifyContent="space-between">
@@ -371,13 +403,13 @@ export default function StakedETHOnLido() {
                   {
                     '0': intl.formatMessage(
                       { id: 'form__str_day' },
-                      { 0: ' 1 - 5' },
+                      { 0: ' 3 - 4' },
                     ),
                   },
                 )}
               </Typography.Body2>
               <Typography.Body2 color="text-highlight">
-                {item.isFinalized
+                {item.claimable
                   ? intl.formatMessage({ id: 'form__available_for_claim' })
                   : intl.formatMessage({ id: 'transaction__pending' })}
               </Typography.Body2>
@@ -400,7 +432,7 @@ export default function StakedETHOnLido() {
         ListHeaderComponent,
         ListEmptyComponent,
         // @ts-ignore
-        keyExtractor: (item: LidoNFTStatus) => String(item.requestId),
+        keyExtractor: (item: LidoMaticOverview) => String(item.nftId),
         ItemSeparatorComponent: Divider,
         showsVerticalScrollIndicator: false,
       }}

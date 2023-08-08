@@ -24,7 +24,7 @@ import { Header, ListEmptyComponent } from './Header';
 import type { DiscoverModalRoutes, DiscoverRoutesParams } from '../../type';
 import type { MatchDAppItemType } from '../explorerUtils';
 import type { RouteProp } from '@react-navigation/core';
-import type { ListRenderItem } from 'react-native';
+import type { FlatListProps, ListRenderItem } from 'react-native';
 
 type RouteProps = RouteProp<
   DiscoverRoutesParams,
@@ -105,17 +105,20 @@ export const SearchModalView: FC = () => {
     );
   };
 
+  const keyExtractor: FlatListProps<MatchDAppItemType>['keyExtractor'] = (
+    item,
+    index,
+  ) => `${index}-${item?.id}`;
+
   return (
     <Modal
       footer={null}
       flatListProps={{
         data: flatListData,
-        // @ts-expect-error
         renderItem,
         ItemSeparatorComponent,
-        // @ts-expect-error
         // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        keyExtractor: (item, index) => `${index}-${item?.id}`,
+        keyExtractor,
         showsVerticalScrollIndicator: false,
         ListEmptyComponent: (
           <ListEmptyComponent isLoading={loading} terms={searchContentTerm} />

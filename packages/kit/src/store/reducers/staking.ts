@@ -9,8 +9,8 @@ import type {
   KeleTransactionDetails,
   KeleUnstakeOverviewDTO,
   KeleWithdrawOverviewDTO,
+  LidoMaticOverview,
   LidoOverview,
-  // StakingActivity,
   TransactionDetails,
 } from '../../views/Staking/typing';
 import type { PayloadAction } from '@reduxjs/toolkit';
@@ -34,6 +34,10 @@ export type StakingState = {
   keleOpHistory?: Record<string, Record<string, KeleOpHistoryDTO[]>>;
   ethStakingApr?: EthStakingApr;
   lidoOverview?: Record<string, Record<string, LidoOverview | undefined>>;
+  lidoMaticOverview?: Record<
+    string,
+    Record<string, LidoMaticOverview | undefined>
+  >;
   transactions?: Record<string, Record<string, TransactionDetails[]>>;
   keleTransactions?: Record<string, Record<string, KeleTransactionDetails[]>>;
   stEthRate?: Record<string, string>;
@@ -45,23 +49,6 @@ export const stakingSlice = createSlice({
   name: 'staking',
   initialState,
   reducers: {
-    // setAccountStakingActivity(
-    //   state,
-    //   action: PayloadAction<{
-    //     networkId: string;
-    //     accountId: string;
-    //     data?: StakingActivity;
-    //   }>,
-    // ) {
-    //   const { networkId, accountId, data } = action.payload;
-    //   if (!state.stakingActivities) {
-    //     state.stakingActivities = {};
-    //   }
-    //   if (!state.stakingActivities?.[accountId]) {
-    //     state.stakingActivities[accountId] = {};
-    //   }
-    //   state.stakingActivities[accountId][networkId] = data;
-    // },
     setKeleNetworkDashboardGlobal(
       state,
       action: PayloadAction<{
@@ -75,9 +62,6 @@ export const stakingSlice = createSlice({
       }
       state.keleNetworkDashboardGlobal[networkId] = dashboard;
     },
-    // setKeleDashboardGlobal(state, action: PayloadAction<KeleDashboardGlobal>) {
-    //   state.keleDashboardGlobal = action.payload;
-    // },
     setKeleUnstakeOverview(
       state,
       action: PayloadAction<{
@@ -206,6 +190,23 @@ export const stakingSlice = createSlice({
       }
       state.lidoOverview[accountId][networkId] = overview;
     },
+    setLidoMaticOverview(
+      state,
+      action: PayloadAction<{
+        networkId: string;
+        accountId: string;
+        overview: LidoMaticOverview;
+      }>,
+    ) {
+      if (!state.lidoMaticOverview) {
+        state.lidoMaticOverview = {};
+      }
+      const { networkId, accountId, overview } = action.payload;
+      if (!state.lidoMaticOverview[accountId]) {
+        state.lidoMaticOverview[accountId] = {};
+      }
+      state.lidoMaticOverview[accountId][networkId] = overview;
+    },
     addTransaction(
       state,
       action: PayloadAction<{
@@ -315,6 +316,7 @@ export const {
   setKeleOpHistory,
   setETHStakingApr,
   setLidoOverview,
+  setLidoMaticOverview,
   addTransaction,
   addKeleTransaction,
   archiveTransaction,
