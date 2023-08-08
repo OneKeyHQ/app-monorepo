@@ -97,10 +97,16 @@ const LNURLPayRequest = () => {
   const renderLabelAddon = useMemo(
     () => (
       <Text typography="Body2Strong" color="text-subdued">
-        betweeen {amountMin} and {amountMax} sats
+        {intl.formatMessage(
+          { id: 'form__between_int_and_int_sats' },
+          {
+            min: amountMin,
+            max: amountMax,
+          },
+        )}
       </Text>
     ),
-    [amountMin, amountMax],
+    [amountMin, amountMax, intl],
   );
 
   const renderMetadataText = useMemo(() => {
