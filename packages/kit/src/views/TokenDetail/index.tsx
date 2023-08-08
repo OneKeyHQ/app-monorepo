@@ -22,6 +22,7 @@ import {
   useTokenDetailInfo,
   useTokenPositionInfo,
 } from '../../hooks';
+import { isSupportStakingType } from '../Staking/utils';
 import { SwapPlugins } from '../Swap/Plugins/Swap';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
@@ -86,14 +87,20 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
 
   const headerHeight = useMemo(() => {
     let height = isVerticalLayout ? 210 : 194;
-    if (detailInfo?.ethereumNativeToken && !isAllNetworks(networkId)) {
+    if (
+      isSupportStakingType({
+        networkId: detailInfo?.defaultToken?.networkId,
+        tokenIdOnNetwork: detailInfo?.defaultToken?.tokenIdOnNetwork,
+      }) &&
+      !isAllNetworks(networkId)
+    ) {
       height += 132;
     }
     if (showChart && !isVerticalLayout) {
       height += 332;
     }
     return height;
-  }, [networkId, detailInfo?.ethereumNativeToken, isVerticalLayout, showChart]);
+  }, [networkId, detailInfo, isVerticalLayout, showChart]);
 
   const headerTitle = useCallback(() => {
     if (!isVerticalLayout) {
