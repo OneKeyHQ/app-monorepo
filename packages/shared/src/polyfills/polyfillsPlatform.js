@@ -1,5 +1,4 @@
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
-import 'setimmediate';
 import './intlShim';
 import 'react-native-url-polyfill/auto';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
