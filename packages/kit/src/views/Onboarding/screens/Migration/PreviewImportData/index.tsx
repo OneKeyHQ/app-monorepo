@@ -33,7 +33,7 @@ import useLocalAuthenticationModal from '../../../../../hooks/useLocalAuthentica
 import { useOnboardingDone } from '../../../../../hooks/useOnboardingRequired';
 import {
   GroupedBackupDetails,
-  checkHasRemoteData,
+  checkHasData,
 } from '../../../../Me/SecuritySection/CloudBackup/BackupDetails';
 import { showUpgrateDialog } from '../../../../Me/SecuritySection/CloudBackup/UpgrateDialog';
 import { useOnboardingClose } from '../../../hooks';
@@ -215,7 +215,7 @@ const PreviewImportData = () => {
       .getBackupDetailsWithRemoteData(JSON.parse(data.public))
       .then((backupDetails) => {
         setBackupData(backupDetails);
-        setHasRemoteData(checkHasRemoteData(backupDetails.notOnDevice));
+        setHasRemoteData(checkHasData(backupDetails.notOnDevice));
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serviceCloudBackup]);
@@ -234,9 +234,7 @@ const PreviewImportData = () => {
             {hasRemoteData ? (
               <Box mx="-48px" my="-16px">
                 <GroupedBackupDetails
-                  onDevice={false}
                   publicBackupData={backupData.notOnDevice}
-                  showTitle={false}
                 />
               </Box>
             ) : (

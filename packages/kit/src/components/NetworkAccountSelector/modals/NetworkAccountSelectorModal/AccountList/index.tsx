@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type { IAccount } from '@onekeyhq/engine/src/types';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import { useDebounce, useNetwork } from '../../../../../hooks';
@@ -187,9 +188,23 @@ function DerivationSectionHeader({
 function AccountList({
   accountSelectorInfo,
   searchValue,
+  tokenShowBalance,
+  multiSelect,
+  singleSelect,
+  hideAccountActions,
+  selectedAccounts,
+  setSelectedAccounts,
+  onAccountsSelected,
 }: {
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
   searchValue: string;
+  tokenShowBalance?: Token;
+  multiSelect?: boolean;
+  singleSelect?: boolean;
+  hideAccountActions?: boolean;
+  selectedAccounts?: string[];
+  setSelectedAccounts?: (selectedAccounts: string[]) => void;
+  onAccountsSelected?: (selectedAccounts: string[]) => void;
 }) {
   const terms = useDebounce(searchValue, 500);
   const intl = useIntl();
@@ -418,6 +433,13 @@ function AccountList({
             address={shortenAddress(item.displayAddress || item.address)}
             // TODO wait Overview implements all accounts balance
             balance={undefined}
+            tokenShowBalance={tokenShowBalance}
+            singleSelect={singleSelect}
+            multiSelect={multiSelect}
+            hideAccountActions={hideAccountActions}
+            selectedAccounts={selectedAccounts}
+            onAccountsSelected={onAccountsSelected}
+            setSelectedAccounts={setSelectedAccounts}
           />
         );
       }}

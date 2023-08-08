@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import type { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
+import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { GoPlusAddressSecurity } from '@onekeyhq/engine/src/types/goplus';
 import { GoPlusSupportApis } from '@onekeyhq/engine/src/types/goplus';
 import type { INFTAsset, NFTAsset } from '@onekeyhq/engine/src/types/nft';
@@ -37,7 +38,6 @@ import { useActiveSideAccount, useNativeToken } from '../../../hooks';
 import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounced';
 import { useSingleToken } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
-import { BulkSenderTypeEnum } from '../../BulkSender/types';
 import { lightningNetworkSendConfirm } from '../../LightningNetwork/Send/lightningNetworkSendUtils';
 import { BaseSendModal } from '../components/BaseSendModal';
 import NFTView from '../components/NFTView';
@@ -91,7 +91,7 @@ function PreSendAddress() {
       ? transferInfos[0]
       : (reset as ITransferInfo);
   const { isNFT } = transferInfo;
-  const { account, network } = useActiveSideAccount(routeParams);
+  const { account, network, walletId } = useActiveSideAccount(routeParams);
   const isLightningNetwork = isLightningNetworkByImpl(network?.impl ?? '');
   const useFormReturn = useForm<FormValues>({
     mode: 'onBlur',
@@ -303,8 +303,8 @@ function PreSendAddress() {
                 nftInfos,
               },
               transferCount: transferInfos.length,
-              transferType: BulkSenderTypeEnum.NFT,
               onModalClose: closeModal,
+              bulkType: BulkTypeEnum.OneToMany,
             },
           },
         });
@@ -406,6 +406,7 @@ function PreSendAddress() {
       } else if (isLightningNetwork) {
         lightningNetworkSendConfirm({
           toVal,
+          walletId,
           network,
           networkId,
           account,

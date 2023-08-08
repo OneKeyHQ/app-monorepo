@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 
@@ -17,7 +17,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
-export const BottomView = () => {
+const BottomView = memo(() => {
   const [offline, setOffline] = useState(false);
 
   const transactions = useWalletsSwapTransactions();
@@ -76,4 +76,7 @@ export const BottomView = () => {
   }
 
   return null;
-};
+});
+BottomView.displayName = 'BottomView';
+
+export { BottomView };

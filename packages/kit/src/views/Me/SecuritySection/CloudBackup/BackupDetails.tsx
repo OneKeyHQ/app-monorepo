@@ -15,6 +15,7 @@ import {
   Spinner,
   Text,
   ToastManager,
+  VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type { ICON_NAMES } from '@onekeyhq/components/src/Icon';
@@ -64,159 +65,225 @@ type NavigationProps = NativeStackNavigationProp<
   RootRoutes.Main
 >;
 
-const WalletBackupItem = ({
-  name,
-  avatar,
-  accountUUIDs,
-}: {
+type ListItem = {
+  icon?: Avatar | ICON_NAMES;
+  iconType: 'Avatar' | 'Icon' | string;
   name: string;
-  avatar?: Avatar;
-  accountUUIDs: Array<string>;
-}) => {
-  const intl = useIntl();
-
-  return (
-    <Box
-      display="flex"
-      flexDirection="row"
-      justifyContent="space-between"
-      alignItems="center"
-      py={1}
-    >
-      <Center
-        rounded="full"
-        size="8"
-        bgColor={avatar?.bgColor ?? 'surface-neutral-default'}
-      >
-        {avatar?.emoji ? (
-          <Text typography="DisplayMedium">{avatar.emoji}</Text>
-        ) : undefined}
-      </Center>
-      <Text px="4" typography="Body2Strong" flex="1" isTruncated>
-        {name}
-      </Text>
-      <Text typography="Body2" color="text-subdued">
-        {intl.formatMessage(
-          { id: 'form__str_accounts' },
-          { count: accountUUIDs.length },
-        )}
-      </Text>
-    </Box>
-  );
+  desc: string;
+  uuid: string;
 };
 
-const GenericBackupItem = ({
-  iconName,
-  name,
-  address,
-}: {
-  iconName: ICON_NAMES;
-  name: string;
-  address: string;
-}) => (
-  <Box
-    display="flex"
-    flexDirection="row"
-    justifyContent="space-between"
-    alignItems="center"
-    py={1}
-  >
-    <Center rounded="full" size="8" bgColor="surface-neutral-default">
-      <Icon name={iconName} size={20} color="icon-default" />
-    </Center>
-    <Text px="4" typography="Body2Strong" flex="1" isTruncated>
-      {name}
-    </Text>
-    <Text typography="Body2" color="text-subdued">
-      {address}
-    </Text>
-  </Box>
-);
+type Section = {
+  title: string;
+  items: ListItem[];
+};
+
+function SectionItems({ section }: { section: Section }) {
+  const { title, items } = section;
+  return (
+    <Box>
+      <Text typography="Body2" color="text-subdued" mb="12px">
+        {title}
+      </Text>
+      <VStack space="16px">
+        {items.map(({ icon, iconType, name, desc, uuid }) => (
+          <Box
+            key={uuid}
+            display="flex"
+            flexDirection="row"
+            justifyContent="space-between"
+            alignItems="center"
+          >
+            <Center rounded="full" size="8" bgColor="surface-neutral-default">
+              {iconType === 'Avatar' ? (
+                <Text typography="DisplayMedium">{(icon as Avatar).emoji}</Text>
+              ) : (
+                <Icon
+                  name={icon as ICON_NAMES}
+                  size={20}
+                  color="icon-default"
+                />
+              )}
+            </Center>
+            <Text px="12px" typography="Body2Strong" flex="1" isTruncated>
+              {name}
+            </Text>
+            <Text typography="Body2Strong" color="text-subdued">
+              {desc}
+            </Text>
+          </Box>
+        ))}
+      </VStack>
+    </Box>
+  );
+}
 
 export const GroupedBackupDetails = ({
-  onDevice,
-  showTitle = true,
+  title,
   publicBackupData,
 }: {
-  showTitle?: boolean;
-  onDevice: boolean;
+  title?: string;
   publicBackupData: PublicBackupData;
 }) => {
   const intl = useIntl();
+  const [listData, setListData] = useState<Section[]>([]);
 
-  const walletsData = Object.entries(publicBackupData.HDWallets)
-    .map(([uuid, info]) => ({ uuid, ...info }))
-    .sort((a, b) => natsort({ insensitive: true })(a.name, b.name));
-  const importedAccountsData = Object.entries(publicBackupData.importedAccounts)
-    .map(([uuid, info]) => ({ uuid, ...info }))
-    .sort((a, b) => natsort({ insensitive: true })(a.name, b.name));
-  const watchingAccountsData = Object.entries(publicBackupData.watchingAccounts)
-    .map(([uuid, info]) => ({ uuid, ...info }))
-    .sort((a, b) => natsort({ insensitive: true })(a.name, b.name));
-  const contactsData = Object.entries(publicBackupData.contacts)
-    .map(([uuid, info]) => ({ uuid, ...info }))
-    .sort((a, b) => natsort({ insensitive: true })(a.name, b.name));
+  useEffect(() => {
+    const datas: Section[] = [];
 
-  const utxos = publicBackupData?.simpleDb?.utxoAccounts?.utxos;
+    const walletsItems: ListItem[] = Object.entries(publicBackupData.HDWallets)
+      .map(([uuid, info]) => ({
+        uuid,
+        iconType: 'Avatar',
+        name: info.name,
+        icon: info.avatar,
+        desc: intl.formatMessage(
+          { id: 'form__str_accounts' },
+          { count: info.accountUUIDs.length },
+        ),
+      }))
+      .sort((a, b) => natsort({ insensitive: true })(a.name, b.name));
+    const importedAccountsData = Object.entries(
+      publicBackupData.importedAccounts,
+    ).map(([uuid, info]) => ({ uuid, ...info }));
+
+    if (importedAccountsData.length > 0) {
+      walletsItems.push({
+        uuid: importedAccountsData[0].uuid,
+        name: intl.formatMessage({ id: 'wallet__imported_accounts' }),
+        iconType: 'Icon',
+        icon: 'InboxArrowDownOutline',
+        desc: intl.formatMessage(
+          { id: 'form__str_accounts' },
+          { count: importedAccountsData.length },
+        ),
+      });
+    }
+    const watchingAccountsData = Object.entries(
+      publicBackupData.watchingAccounts,
+    ).map(([uuid, info]) => ({ uuid, ...info }));
+
+    if (watchingAccountsData.length > 0) {
+      walletsItems.push({
+        uuid: watchingAccountsData[0].uuid,
+        name: intl.formatMessage({ id: 'wallet__watched_accounts' }),
+        iconType: 'Icon',
+        icon: 'EyeOutline',
+        desc: intl.formatMessage(
+          { id: 'form__str_accounts' },
+          { count: watchingAccountsData.length },
+        ),
+      });
+    }
+
+    if (walletsItems.length > 0) {
+      datas.push({ title: 'App WALLET', items: walletsItems });
+    }
+
+    const tokenItems: ListItem[] = [];
+    const marketFavorites = publicBackupData.marketFavorites ?? [];
+    if (marketFavorites.length > 0) {
+      tokenItems.push({
+        uuid: marketFavorites[0],
+        name: intl.formatMessage({ id: 'form__Watchlist' }),
+        iconType: 'Icon',
+        icon: 'HeartOutline',
+        desc: intl.formatMessage(
+          { id: 'content__int_items' },
+          { 0: marketFavorites.length },
+        ),
+      });
+    }
+
+    if (tokenItems.length > 0) {
+      datas.push({
+        title: intl.formatMessage({ id: 'form__token' }),
+        items: tokenItems,
+      });
+    }
+
+    const addressBookAndLabs: ListItem[] = [];
+    const contactsData = Object.entries(publicBackupData.contacts).map(
+      ([uuid, info]) => ({ uuid, ...info }),
+    );
+    if (contactsData.length > 0) {
+      addressBookAndLabs.push({
+        uuid: contactsData[0].name,
+        name: intl.formatMessage({ id: 'title__address_book' }),
+        iconType: 'Icon',
+        icon: 'BookOpenOutline',
+        desc: intl.formatMessage(
+          { id: 'content__int_items' },
+          { 0: contactsData.length },
+        ),
+      });
+    }
+    const utxos = publicBackupData?.simpleDb?.utxoAccounts?.utxos;
+    if (utxos && utxos.length > 0) {
+      addressBookAndLabs.push({
+        uuid: utxos[0].key,
+        name: intl.formatMessage({ id: 'form__utxo_label' }),
+        iconType: 'Icon',
+        icon: 'TagOutline',
+        desc: intl.formatMessage(
+          { id: 'content__int_items' },
+          { 0: utxos.length },
+        ),
+      });
+    }
+    if (addressBookAndLabs.length > 0) {
+      datas.push({ title: 'Address BOOK & LABELS', items: addressBookAndLabs });
+    }
+
+    const discoverBookmarks = publicBackupData.discoverBookmarks ?? [];
+    const exploreItems: ListItem[] = [];
+    if (discoverBookmarks.length > 0) {
+      exploreItems.push({
+        uuid: discoverBookmarks[0].id,
+        name: 'Favorite dApps',
+        iconType: 'Icon',
+        icon: 'StarOutline',
+        desc: intl.formatMessage(
+          { id: 'content__int_items' },
+          { 0: discoverBookmarks.length },
+        ),
+      });
+    }
+    // const browserHistories = publicBackupData.browserHistories ?? [];
+
+    // if (browserHistories.length > 0) {
+    //   exploreItems.push({
+    //     uuid: browserHistories[0].url,
+    //     name: intl.formatMessage({ id: 'transaction__history' }),
+    //     iconType: 'Icon',
+    //     icon: 'ClockOutline',
+    //     desc: intl.formatMessage(
+    //       { id: 'content__int_items' },
+    //       { 0: browserHistories.length },
+    //     ),
+    //   });
+    // }
+    if (exploreItems.length > 0) {
+      datas.push({
+        title: intl.formatMessage({ id: 'title__explore' }),
+        items: exploreItems,
+      });
+    }
+    setListData(datas);
+  }, [intl, publicBackupData]);
 
   return (
     <Box my={4} mx={12}>
-      {showTitle && (
+      {title && (
         <Text typography="Heading" pb="4">
-          {intl.formatMessage({
-            id: onDevice
-              ? 'content__active_on_this_device'
-              : 'content__not_on_this_device',
-          })}
+          {title}
         </Text>
       )}
-      {walletsData.map(({ uuid, name, avatar, accountUUIDs }) => (
-        <WalletBackupItem
-          name={name}
-          avatar={avatar}
-          accountUUIDs={accountUUIDs}
-          key={uuid}
-        />
-      ))}
-      {importedAccountsData.map(({ uuid, name, address }) => (
-        <GenericBackupItem
-          iconName="InboxArrowDownOutline"
-          name={name}
-          address={address}
-          key={uuid}
-        />
-      ))}
-      {watchingAccountsData.map(({ uuid, name, address }) => (
-        <GenericBackupItem
-          iconName="EyeOutline"
-          name={name}
-          address={address}
-          key={uuid}
-        />
-      ))}
-      {contactsData.map(({ uuid, name, address }) => (
-        <GenericBackupItem
-          iconName="BookOpenOutline"
-          name={name}
-          address={address}
-          key={uuid}
-        />
-      ))}
-
-      {utxos?.length ? (
-        <GenericBackupItem
-          iconName="TagOutline"
-          name={intl.formatMessage({
-            id: 'form__utxo_label',
-          })}
-          address={intl.formatMessage(
-            {
-              id: 'content__int_items',
-            },
-            { 0: utxos?.length },
-          )}
-        />
-      ) : null}
+      <VStack space="32px">
+        {listData.map((section) => (
+          <SectionItems section={section} key={section.title} />
+        ))}
+      </VStack>
     </Box>
   );
 };
@@ -262,7 +329,7 @@ const BackupActions = ({
   );
 };
 
-export function checkHasRemoteData(notOnDevice: PublicBackupData): boolean {
+export function checkHasData(notOnDevice: PublicBackupData): boolean {
   if (notOnDevice?.simpleDb?.utxoAccounts?.utxos.length) {
     return true;
   }
@@ -314,6 +381,8 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
       watchingAccounts: {},
       HDWallets: {},
       simpleDb: {} as ISimpleDBBackUp,
+      discoverBookmarks: [],
+      // browserHistories: [],
     },
     notOnDevice: {
       contacts: {},
@@ -321,6 +390,8 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
       watchingAccounts: {},
       HDWallets: {},
       simpleDb: {} as ISimpleDBBackUp,
+      discoverBookmarks: [],
+      // browserHistories: [],
     },
   });
   const [hasLocalData, setHasLocalData] = useState(false);
@@ -345,12 +416,8 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
       .then(({ backupDetails, appVersion }) => {
         setVersion(appVersion);
         setBackupData(backupDetails);
-        setHasLocalData(
-          Object.values(backupDetails.alreadyOnDevice).some(
-            (o) => Object.keys(o).length > 0,
-          ),
-        );
-        setHasRemoteData(checkHasRemoteData(backupDetails.notOnDevice));
+        setHasLocalData(checkHasData(backupDetails.alreadyOnDevice));
+        setHasRemoteData(checkHasData(backupDetails.notOnDevice));
         setDataReady(false);
       });
   }, [setDataReady, serviceCloudBackup, backupUUID]);
@@ -362,6 +429,7 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
     if (onboarding) {
       await onboardingDone({ delay: 200 });
     } else {
+      navigation?.popToTop();
       navigation?.navigate(RootRoutes.Main, {
         screen: MainRoutes.Tab,
         params: {
@@ -528,13 +596,15 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
         <Box flexDirection={isSmallScreen ? 'column' : 'row'} mx={-12}>
           {hasLocalData ? (
             <GroupedBackupDetails
-              onDevice
+              title={intl.formatMessage({
+                id: 'content__active_on_this_device',
+              })}
               publicBackupData={backupData.alreadyOnDevice}
             />
           ) : undefined}
           {hasRemoteData ? (
             <GroupedBackupDetails
-              onDevice={false}
+              title={intl.formatMessage({ id: 'content__not_on_this_device' })}
               publicBackupData={backupData.notOnDevice}
             />
           ) : undefined}

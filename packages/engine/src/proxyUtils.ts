@@ -20,6 +20,7 @@ import type { Token } from './types/token';
 export function fillUnsignedTxObj({
   network,
   dbAccount,
+  from,
   to,
   value,
   valueOnChain,
@@ -29,6 +30,7 @@ export function fillUnsignedTxObj({
 }: {
   network: Network;
   dbAccount: DBAccount;
+  from: string;
   to: string;
   value?: BigNumber;
   valueOnChain?: string;
@@ -80,7 +82,7 @@ export function fillUnsignedTxObj({
     payload.EIP1559Enabled = true;
   }
   const input: TxInput = {
-    address: dbAccount.address,
+    address: from ?? dbAccount.address,
     value: valueOnChainBN,
     tokenAddress: tokenIdOnNetwork,
   };
@@ -117,6 +119,7 @@ export function fillUnsignedTxObj({
 export function fillUnsignedTx(
   network: Network,
   dbAccount: DBAccount,
+  from: string,
   to: string,
   value: BigNumber,
   token?: Token,
@@ -125,6 +128,7 @@ export function fillUnsignedTx(
   return fillUnsignedTxObj({
     network,
     dbAccount,
+    from,
     to,
     value,
     token,

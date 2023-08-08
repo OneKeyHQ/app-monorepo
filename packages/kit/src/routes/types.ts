@@ -6,6 +6,7 @@ import type { ComponentType, FC } from 'react';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { HeaderTitleProps } from '@onekeyhq/components/src/NavHeader/HeaderTitle';
 import type { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
+import type { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
 import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
@@ -119,6 +120,7 @@ export type HomeRoutesParams = {
     tokenAddress?: string;
     sendAddress?: string;
     historyFilter?: (item: any) => boolean;
+    price24h?: number;
   };
   [HomeRoutes.FullTokenListScreen]: {
     accountId?: string;
@@ -130,7 +132,6 @@ export type HomeRoutesParams = {
   };
   [HomeRoutes.DAppListScreen]: {
     title: string;
-    _title?: string;
     tagId: string;
     onItemSelect?: (item: DAppItemType) => void;
   };
@@ -172,7 +173,11 @@ export type HomeRoutesParams = {
     accountId: string;
   };
   [HomeRoutes.WalletSwitch]: undefined;
-  [HomeRoutes.BulkSender]: undefined;
+  [HomeRoutes.BulkSender]:
+    | {
+        mode: BulkTypeEnum;
+      }
+    | undefined;
   [HomeRoutes.ClearCache]: undefined;
   [HomeRoutes.AdvancedSettings]: undefined;
   [HomeRoutes.HardwareBridgeSettings]: undefined;

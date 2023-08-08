@@ -1108,6 +1108,7 @@ export default class Vault extends VaultBase {
     const network = await this.getNetwork();
     const dbAccount = await this.getDbAccount();
     const {
+      from,
       to,
       value,
       data,
@@ -1134,6 +1135,7 @@ export default class Vault extends VaultBase {
       shiftFeeDecimals: false,
       network,
       dbAccount,
+      from,
       to,
       valueOnChain: value,
       extra: {
@@ -2099,9 +2101,9 @@ export default class Vault extends VaultBase {
     const client = await this.getJsonRPCClient();
     const start = performance.now();
     try {
-      const res = await client.rpc.batchCall<Array<{ number: string }>>(
+      const res = await client.rpc.batchCall<Array<string>>(
         [
-          ['eth_getBlockByNumber', ['latest', false]],
+          ['eth_blockNumber', []],
           [
             'eth_getBalance',
             // fake address
@@ -2114,14 +2116,7 @@ export default class Vault extends VaultBase {
         true,
         false,
       );
-      // eth_getBlockByNumber
-      // ethereum returns an object,
-      // polygon returns a string
-      let blockRes = res?.[0];
-      if (typeof blockRes === 'string') {
-        blockRes = JSON.parse(blockRes);
-      }
-      const latestBlock = parseInt(res[0].number);
+      const latestBlock = new BigNumber(res[0]).toNumber();
       if (
         Number.isNaN(latestBlock) ||
         typeof res[1] !== 'string' ||

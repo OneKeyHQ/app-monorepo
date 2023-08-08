@@ -20,7 +20,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
-import { useNavigation, useTranslation } from '../../../hooks';
+import { useNavigation } from '../../../hooks';
 import useFormatDate from '../../../hooks/useFormatDate';
 import FavListMenu from '../../Overlay/Discover/FavListMenu';
 import DAppIcon from '../components/DAppIcon';
@@ -36,7 +36,6 @@ const ItemSeparatorComponent = () => <Box h="4" />;
 type HistoryItemBoxProps = { item: MatchDAppItemType };
 
 const HistoryItemBox: FC<HistoryItemBoxProps> = ({ item }) => {
-  const t = useTranslation();
   const navigation = useNavigation();
 
   const onPress = useCallback(() => {
@@ -49,7 +48,7 @@ const HistoryItemBox: FC<HistoryItemBoxProps> = ({ item }) => {
   const networkIds = item.dapp?.networkIds;
   let description = 'Unknown';
   if (item.dapp) {
-    description = t(item.dapp._subtitle) ?? item.dapp.subtitle;
+    description = item.dapp.subtitle;
   } else if (url) {
     description = getUrlHost(url);
   }
@@ -209,6 +208,7 @@ export const History = () => {
           renderSectionHeader,
           // @ts-ignore
           keyExtractor,
+          stickySectionHeadersEnabled: false,
           ListHeaderComponent,
           ListEmptyComponent,
           ItemSeparatorComponent,

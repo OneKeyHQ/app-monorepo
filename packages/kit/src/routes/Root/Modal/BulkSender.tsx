@@ -1,7 +1,8 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import { AmountEditor } from '../../../views/BulkSender/AmountEditor';
-import { TokenSelector } from '../../../views/BulkSender/TokenSelector';
+import { IntervalEditor } from '../../../views/BulkSender/IntervalEditor';
+import { TokenSelectorModal } from '../../../views/BulkSender/TokenSelector';
 import { BulkSenderRoutes } from '../../../views/BulkSender/types';
 
 import createStackNavigator from './createStackNavigator';
@@ -13,11 +14,15 @@ const BulkSenderNavigator = createStackNavigator<BulkSenderRoutesParams>();
 const modalRoutes = [
   {
     name: BulkSenderRoutes.TokenSelector,
-    component: TokenSelector,
+    component: TokenSelectorModal,
   },
   {
     name: BulkSenderRoutes.AmountEditor,
     component: AmountEditor,
+  },
+  {
+    name: BulkSenderRoutes.IntervalEditor,
+    component: IntervalEditor,
   },
 ];
 

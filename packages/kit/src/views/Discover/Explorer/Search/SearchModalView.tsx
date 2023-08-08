@@ -16,7 +16,7 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks';
 import { homeTab } from '../../../../store/observable/webTabs';
 import DAppIcon from '../../components/DAppIcon';
 import { useUserBrowserHistories } from '../../hooks';
-import { useSearchLocalDapp } from '../../hooks/useSearchLocalDapp';
+import { useSearchDapps } from '../../hooks/useSearchDapps';
 import { getWebTabs } from '../Controller/useWebTabs';
 
 import { Header, ListEmptyComponent } from './Header';
@@ -50,7 +50,7 @@ export const SearchModalView: FC = () => {
   });
   const searchContentTerm = useDebounce(searchContent, 300);
 
-  const { loading, searchedDapps } = useSearchLocalDapp(
+  const { loading, searchedDapps } = useSearchDapps(
     searchContentTerm,
     searchContent,
   );

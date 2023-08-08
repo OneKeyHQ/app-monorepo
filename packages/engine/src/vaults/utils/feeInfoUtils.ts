@@ -7,6 +7,45 @@ function nilError(message: string): number {
   throw new Error(message);
 }
 
+export const getSelectedFeeInfoUnit = ({
+  info,
+  index,
+}: {
+  info: IFeeInfo;
+  index: string | number;
+}): IFeeInfoUnit => {
+  const indexNum = parseInt(index as string, 10);
+  const priceIndex =
+    indexNum > info.prices.length - 1 ? info.prices.length - 1 : indexNum;
+  const priceInfo = info.prices[priceIndex];
+
+  if (info.eip1559) {
+    return {
+      eip1559: true,
+      price1559: priceInfo as EIP1559Fee,
+      limit: info.limit,
+      limitForDisplay: info.limitForDisplay ?? info.limit,
+    };
+  }
+
+  if (info.isBtcForkChain) {
+    return {
+      eip1559: false,
+      price: priceInfo as string,
+      limit: info.limit,
+      isBtcForkChain: true,
+      btcFee: info.feeList?.[priceIndex],
+    };
+  }
+
+  return {
+    eip1559: false,
+    price: priceInfo as string,
+    limit: info.limit,
+    limitForDisplay: info.limitForDisplay ?? info.limit,
+  };
+};
+
 // onChainValue -> GWEI
 export function convertFeeValueToGwei({
   value,

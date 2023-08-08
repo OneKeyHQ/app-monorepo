@@ -25,7 +25,6 @@ import {
   parseNetworkId,
 } from '@onekeyhq/engine/src/managers/network';
 import { revokeUrl } from '@onekeyhq/engine/src/managers/revoke';
-import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import btcSetting from '@onekeyhq/engine/src/vaults/impl/btc/settings';
@@ -100,12 +99,12 @@ const data: DataItem[] = [
     title: 'title__bulksender',
     description: 'title__bulksender_desc',
     filter: ({ network, account }) =>
-      !!account &&
-      !account?.id.startsWith('watching-') &&
-      !!network?.settings?.supportBatchTransfer &&
-      (network.settings.nativeSupportBatchTransfer
-        ? true
-        : !!batchTransferContractAddress[network.id]),
+      !!(
+        !!account &&
+        !account?.id.startsWith('watching-') &&
+        network?.settings?.supportBatchTransfer &&
+        network?.settings?.supportBatchTransfer.length > 0
+      ),
   },
   {
     key: 'explorer',

@@ -65,7 +65,6 @@ const config: TabRouteConfig = {
     {
       name: HomeRoutes.BulkSender,
       component: BulkSender,
-      alwaysShowBackButton: true,
     },
   ],
 };
