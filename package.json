@@ -202,7 +202,7 @@
     "ws": "8.12.0",
     "axios": "0.27.2",
     "superagent": "6.1.0",
-    "rempl/socket.io-client": "2.5.0",
+    "react-native-rempl/socket.io-client": "2.5.0",
     "bn.js@4.11.6": "^4",
     "bn.js@4.11.8": "^4",
     "bn.js@4.12.0": "^4",
