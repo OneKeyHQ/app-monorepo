@@ -369,7 +369,10 @@ export default class Vault extends VaultBase {
   override validateAddress(address: string): Promise<string> {
     try {
       const publicKey = new PublicKey(address);
-      if (PublicKey.isOnCurve(publicKey.encode())) {
+      if (
+        PublicKey.isOnCurve(address) ||
+        PublicKey.isOnCurve(publicKey.encode())
+      ) {
         return Promise.resolve(address);
       }
     } catch {
