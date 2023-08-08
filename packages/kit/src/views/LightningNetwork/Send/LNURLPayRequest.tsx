@@ -188,13 +188,28 @@ const LNURLPayRequest = () => {
           callback: lnurlDetails.callback,
           params,
         });
-      } catch (e) {
+      } catch (e: any) {
         console.error(e);
+        setIsLoading(false);
+        const { key, info } = e;
+        if (key && key !== 'onekey_error') {
+          ToastManager.show(
+            {
+              title: intl.formatMessage(
+                {
+                  id: key,
+                },
+                info ?? {},
+              ),
+            },
+            { type: 'error' },
+          );
+          return false;
+        }
         ToastManager.show(
-          { title: e instanceof Error ? e.message : e },
+          { title: (e as Error)?.message || e },
           { type: 'error' },
         );
-        setIsLoading(false);
         return;
       }
 
@@ -246,13 +261,28 @@ const LNURLPayRequest = () => {
             isMax: false,
           },
         });
-      } catch (e) {
+      } catch (e: any) {
         console.error(e);
+        setIsLoading(false);
+        const { key, info } = e;
+        if (key && key !== 'onekey_error') {
+          ToastManager.show(
+            {
+              title: intl.formatMessage(
+                {
+                  id: key,
+                },
+                info ?? {},
+              ),
+            },
+            { type: 'error' },
+          );
+          return false;
+        }
         ToastManager.show(
-          { title: e instanceof Error ? e.message : e },
+          { title: (e as Error)?.message || e },
           { type: 'error' },
         );
-        setIsLoading(false);
       }
       // pay request
     },
