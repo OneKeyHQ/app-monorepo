@@ -36,7 +36,9 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import simpleDb from '../../../dbs/simple/simpleDb';
 import {
   InvalidAddress,
+  MinimumTransferBalanceRequiredError,
   NotImplemented,
+  OneKeyError,
   OneKeyInternalError,
   PendingQueueTooLong,
 } from '../../../errors';
@@ -731,6 +733,7 @@ export default class Vault extends VaultBase {
     let retryTime = 0;
     let lastRpcErrorMessage = '';
     const client = await this.getClient();
+    const network = await this.getNetwork();
 
     const doBroadcast = async () => {
       try {
@@ -760,7 +763,7 @@ export default class Vault extends VaultBase {
       } catch (error) {
         debugLogger.engine.error('broadcastTransaction error:', error);
         // @ts-ignore
-        const rpcErrorData = error?.data as
+        const rpcErrorData = (error?.data ?? error?.response?.error) as
           | {
               code: number;
               message: string;
@@ -768,6 +771,18 @@ export default class Vault extends VaultBase {
             }
           | undefined;
         if (error && rpcErrorData) {
+          // https://docs.solana.com/developing/intro/rent
+          if (
+            rpcErrorData.code === -32002 &&
+            rpcErrorData.message.endsWith('without insufficient funds for rent')
+          ) {
+            isNodeBehind = false;
+            throw new MinimumTransferBalanceRequiredError(
+              '0.00089088',
+              network.symbol,
+            );
+          }
+
           // https://marinade.finance/app/defi/
           // error.data
           //    {"code":-32005,"message":"Node is behind by 1018821 slots","data":{"numSlotsBehind":1018821}}
