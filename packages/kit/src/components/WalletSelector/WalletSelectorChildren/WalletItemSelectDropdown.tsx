@@ -45,6 +45,7 @@ import ManagerWalletDeleteDialog from '@onekeyhq/kit/src/views/ManagerWallet/Del
 import type { DeleteWalletProp } from '@onekeyhq/kit/src/views/ManagerWallet/DeleteWallet';
 
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
+import { selectSettingsHardware } from '../../../store/selectors';
 import { defaultMenuOffset } from '../../../views/Overlay/BaseMenu';
 import { useWalletSelectorStatus } from '../hooks/useWalletSelectorStatus';
 import { useHardwareWalletInfo } from '../WalletAvatar';
@@ -83,8 +84,8 @@ function HardwarePassphraseMenuOptions({
   const intl = useIntl();
   const { dispatch } = backgroundApiProxy;
   const rememberPassphraseWallets = useAppSelector(
-    (s) => s.settings?.hardware?.rememberPassphraseWallets,
-  );
+    selectSettingsHardware,
+  )?.rememberPassphraseWallets;
   const isRememberPassphrase = useMemo(
     () => rememberPassphraseWallets?.includes(wallet.id),
     [rememberPassphraseWallets, wallet.id],

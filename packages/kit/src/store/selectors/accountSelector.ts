@@ -44,3 +44,13 @@ export const selectAccountSelectorIsOpenDelay = createSelector(
   selectAccountSelector,
   (s) => s.isOpenDelay,
 );
+
+export const selectIsDesktopWalletSelectorVisible = createSelector(
+  selectAccountSelector,
+  (s) => s.isDesktopWalletSelectorVisible,
+);
+
+export const selectIsMobileWalletSelectorDrawerOpen = createSelector(
+  selectAccountSelector,
+  (s) => s.isMobileWalletSelectorDrawerOpen,
+);

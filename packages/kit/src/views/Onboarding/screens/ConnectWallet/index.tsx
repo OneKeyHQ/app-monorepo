@@ -169,7 +169,7 @@ const ConnectWallet = () => {
   const intl = useIntl();
   const bgColor = useThemeValue('background-default');
   const onBoardingLoadingBehindModal = useAppSelector(
-    (s) => s.runtime.onBoardingLoadingBehindModal,
+    selectOnBoardingLoadingBehindModal,
   );
   const route = useRoute<RouteProps>();
   const disableAnimation = route?.params?.disableAnimation;

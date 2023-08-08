@@ -7,6 +7,7 @@ import { useAppSelector } from '../../../hooks/redux';
 import {
   selectRuntimeNetworks,
   selectRuntimeWallets,
+  selectSwapTransactions,
 } from '../../../store/selectors';
 
 import type { TransactionDetails } from '../typings';
@@ -16,9 +17,7 @@ export function isTransactionRecent(tx: TransactionDetails): boolean {
 }
 
 export function useAllTransactions(): TransactionDetails[] {
-  const transactions = useAppSelector(
-    (state) => state.swapTransactions.transactions,
-  );
+  const transactions = useAppSelector(selectSwapTransactions);
   return useMemo(() => {
     const accountsTransactions = Object.values(transactions);
     const txs = accountsTransactions.reduce(

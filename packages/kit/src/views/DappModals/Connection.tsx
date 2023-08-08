@@ -33,6 +33,7 @@ import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
 import { useEffectOnUpdate } from '../../hooks/useEffectOnUpdate';
 import { refreshConnectedSites } from '../../store/reducers/refresher';
+import { selectCloseDappConnectionPreloadingTs } from '../../store/selectors';
 import { DappSecurityView } from '../Send/components/DappSecurityView';
 
 import RugConfirmDialog from './RugConfirmDialog';
@@ -234,7 +235,7 @@ const defaultSourceInfo = Object.freeze({}) as IDappSourceInfo;
 const Connection = () => {
   const { dispatch } = backgroundApiProxy;
   const closeDappConnectionPreloadingTs = useAppSelector(
-    (s) => s.refresher.closeDappConnectionPreloadingTs,
+    selectCloseDappConnectionPreloadingTs,
   );
   const [rugConfirmDialogVisible, setRugConfirmDialogVisible] = useState(false);
   const intl = useIntl();

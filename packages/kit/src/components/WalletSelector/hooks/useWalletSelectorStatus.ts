@@ -5,14 +5,18 @@ import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
 
 import { useAppSelector, usePrevious } from '../../../hooks';
 import { useRuntimeWallets } from '../../../hooks/redux';
+import {
+  selectIsDesktopWalletSelectorVisible,
+  selectIsMobileWalletSelectorDrawerOpen,
+} from '../../../store/selectors';
 
 function useWalletSelectorStatus() {
   const isVertical = useIsVerticalLayout();
   const isDesktopWalletSelectorVisible = useAppSelector(
-    (s) => s.accountSelector.isDesktopWalletSelectorVisible,
+    selectIsDesktopWalletSelectorVisible,
   );
   const isMobileWalletSelectorDrawerOpen = useAppSelector(
-    (s) => s.accountSelector.isMobileWalletSelectorDrawerOpen,
+    selectIsMobileWalletSelectorDrawerOpen,
   );
   const { wallets } = useRuntimeWallets();
 

@@ -18,3 +18,8 @@ export const selectRuntimeWallets = createSelector(
   selectRuntime,
   (s) => s.wallets,
 );
+
+export const selectOnBoardingLoadingBehindModal = createSelector(
+  selectRuntime,
+  (s) => s.onBoardingLoadingBehindModal,
+);

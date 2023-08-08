@@ -9,7 +9,10 @@ import type { Network } from '@onekeyhq/engine/src/types/network';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
 import { getManageNetworks } from '../../../hooks/useManageNetworks';
-import { selectActiveNetworkId } from '../../../store/selectors';
+import {
+  selectActiveNetworkId,
+  selectRpcStatus,
+} from '../../../store/selectors';
 import { getTimeDurationMs } from '../../../utils/helper';
 import { showAllNetworksAccountDerivationsSelector } from '../../Overlay/Accounts/AllNetworksSelectAccountDerivations';
 
@@ -145,9 +148,8 @@ export function getRpcMeasureStatus(status?: IRpcStatus) {
 
 export const useRpcMeasureStatus = (networkId?: string) => {
   const activeNetworkId = useAppSelector(selectActiveNetworkId);
-  const status = useAppSelector(
-    (s) => s.status.rpcStatus?.[networkId ?? activeNetworkId ?? ''],
-  );
+  const status =
+    useAppSelector(selectRpcStatus)?.[networkId ?? activeNetworkId ?? ''];
   return useMemo(() => getRpcMeasureStatus(status), [status]);
 };
 

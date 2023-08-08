@@ -9,8 +9,7 @@ export function useIsDevModeEnabled() {
 
 export function useShowWebEmbedWebviewAgent() {
   const isDevMode = useIsDevModeEnabled();
-  const showWebEmbedWebviewAgent = useAppSelector(
-    (s) => s?.settings?.devMode?.showWebEmbedWebviewAgent,
-  );
+  const showWebEmbedWebviewAgent =
+    useAppSelector(selectDevMode)?.showWebEmbedWebviewAgent;
   return isDevMode && showWebEmbedWebviewAgent;
 }

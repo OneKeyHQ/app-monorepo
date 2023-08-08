@@ -114,3 +114,28 @@ export const selectHideScamHistory = createSelector(
   selectSettings,
   (s) => s.hideScamHistory,
 );
+
+export const selectDisableExtSwitchTips = createSelector(
+  selectSettings,
+  (s) => s.disableExtSwitchTips,
+);
+
+export const selectHardwareConnectSrc = createSelector(
+  selectSettings,
+  (s) => s.hardwareConnectSrc,
+);
+
+export const selectSettingsHardware = createSelector(
+  selectSettings,
+  (s) => s.hardware,
+);
+
+export const selectLeftSidebarCollapsed = createSelector(
+  selectSettings,
+  (s) => s.leftSidebarCollapsed,
+);
+
+export const selectDisableSwapExactApproveAmount = createSelector(
+  selectSettings,
+  (s) => s.disableSwapExactApproveAmount,
+);

@@ -19,6 +19,7 @@ import { gotoScanQrcode } from '@onekeyhq/kit/src/utils/gotoScanQrcode';
 
 import Speedindicator from '../../../components/NetworkAccountSelector/modals/NetworkAccountSelectorModal/SpeedIndicator';
 import { useActiveWalletAccount, useAppSelector } from '../../../hooks';
+import { selectRefreshConnectedSitesTs } from '../../../store/selectors';
 import { wait } from '../../../utils/helper';
 
 import type { IWalletConnectUniversalSession } from '../../../components/WalletConnect/types';
@@ -35,9 +36,7 @@ const ConnectedSitesHeader: FC<ConnectedSitesHeaderProps> = ({
   const [walletConnectSessions, setSessions] = useState<
     IWalletConnectUniversalSession[]
   >(() => []);
-  const refreshConnectedSitesTs = useAppSelector(
-    (s) => s.refresher.refreshConnectedSitesTs,
-  );
+  const refreshConnectedSitesTs = useAppSelector(selectRefreshConnectedSitesTs);
   const [status, setStatus] = useState<{ connected?: boolean }>({
     connected: false,
   });

@@ -33,3 +33,33 @@ export const selectStakingStEthRate = createSelector(
   selectStaking,
   (s) => s.stEthRate,
 );
+
+export const selecKeleUnstakeOverviews = createSelector(
+  selectStaking,
+  (s) => s.keleUnstakeOverviews,
+);
+
+export const selecKeleWithdrawOverviews = createSelector(
+  selectStaking,
+  (s) => s.keleWithdrawOverviews,
+);
+
+export const selecKeleNetworkDashboardGlobal = createSelector(
+  selectStaking,
+  (s) => s.keleNetworkDashboardGlobal,
+);
+
+export const selecKeleIncomes = createSelector(
+  selectStaking,
+  (s) => s.keleIncomes,
+);
+
+export const selecKeleOpHistory = createSelector(
+  selectStaking,
+  (s) => s.keleOpHistory,
+);
+
+export const selecKelePendingWithdraw = createSelector(
+  selectStaking,
+  (s) => s.kelePendingWithdraw,
+);

@@ -20,11 +20,13 @@ import { useAppSelector, useNavigation, useNetwork } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { setDisableSwapExactApproveAmount } from '../../../../store/reducers/settings';
 import {
+  selectDisableSwapExactApproveAmount,
   selectSwapInputToken,
   selectSwapOutputToken,
   selectSwapQuote,
   selectSwapQuoteLimited,
   selectSwapShowMoreQuoteDetail,
+  selectSwapTransactionsSwapFeePresetIndex,
 } from '../../../../store/selectors';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import { ArrivalTime } from '../../components/ArrivalTime';
@@ -51,7 +53,7 @@ const SwapExactAmountAllowanceBottomSheetModal: FC<{ onClose: () => void }> = ({
 }) => {
   const intl = useIntl();
   const disableSwapExactApproveAmount = useAppSelector(
-    (s) => s.settings.disableSwapExactApproveAmount,
+    selectDisableSwapExactApproveAmount,
   );
   const [isDisableSwapExactApproveAmount, setState] = useState(
     !!disableSwapExactApproveAmount,
@@ -138,7 +140,7 @@ const SwapExactAmoutAllowance = () => {
   const intl = useIntl();
   const quote = useAppSelector(selectSwapQuote);
   const disableSwapExactApproveAmount = useAppSelector(
-    (s) => s.settings.disableSwapExactApproveAmount,
+    selectDisableSwapExactApproveAmount,
   );
 
   const onPress = useCallback(() => {
@@ -204,7 +206,7 @@ const SwapNetworkFeeEditable = () => {
   );
 
   const swapFeePresetIndex = useAppSelector(
-    (s) => s.swapTransactions.swapFeePresetIndex,
+    selectSwapTransactionsSwapFeePresetIndex,
   );
 
   const onPress = useCallback(() => {

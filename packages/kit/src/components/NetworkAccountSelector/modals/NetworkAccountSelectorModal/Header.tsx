@@ -23,6 +23,7 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { useAppSelector, useNavigation } from '../../../../hooks';
 import reducerAccountSelector from '../../../../store/reducers/reducerAccountSelector';
 import { setFistTimeShowCheckRPCNodeTooltip } from '../../../../store/reducers/status';
+import { selectFirstTimeShowCheckRPCNodeTooltip } from '../../../../store/selectors';
 import { wait } from '../../../../utils/helper';
 import { useRpcMeasureStatus } from '../../../../views/ManageNetworks/hooks';
 import { ManageNetworkModalRoutes } from '../../../../views/ManageNetworks/types';
@@ -56,7 +57,7 @@ function Header({
 }) {
   const intl = useIntl();
   const firstTimeShowCheckRPCNodeTooltip = useAppSelector(
-    (s) => s.status.firstTimeShowCheckRPCNodeTooltip,
+    selectFirstTimeShowCheckRPCNodeTooltip,
   );
   const [isOpen, setIsOpen] = useState(false);
   const { selectedNetwork, isLoading } = accountSelectorInfo;

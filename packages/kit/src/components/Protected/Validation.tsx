@@ -19,6 +19,7 @@ import { encodeSensitiveText } from '@onekeyhq/engine/src/secret/encryptors/aes2
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks/redux';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
+import { selectEnableLocalAuthentication } from '../../store/selectors';
 import { hasHardwareSupported } from '../../utils/localAuthentication';
 import LocalAuthenticationButton from '../LocalAuthenticationButton';
 
@@ -42,7 +43,7 @@ const Validation: FC<ValidationProps> = ({
   const intl = useIntl();
   const ref = useRef<any>();
   const enableLocalAuthentication = useAppSelector(
-    (s) => s.settings.enableLocalAuthentication,
+    selectEnableLocalAuthentication,
   );
   const useFormReturn = useForm<FieldValues>({
     mode: 'onBlur',

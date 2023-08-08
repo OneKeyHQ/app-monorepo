@@ -23,6 +23,7 @@ import {
   selectAccountSelectorWalletId,
   selectAccountsGroup,
   selectPreloadingCreateAccount,
+  selectRefreshAccountSelectorTs,
 } from '../../../store/selectors';
 import {
   ACCOUNT_SELECTOR_EMPTY_VIEW_SHOW_DELAY,
@@ -74,7 +75,7 @@ export function useAccountSelectorInfo() {
   activeNetworkRef.current = activeNetwork;
 
   const refreshAccountSelectorTs = useAppSelector(
-    (s) => s.refresher.refreshAccountSelectorTs,
+    selectRefreshAccountSelectorTs,
   );
 
   const selectedNetworkId = networkId;

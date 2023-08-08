@@ -12,6 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
 import { clearPreviousAddress } from '../../../store/reducers/hardware';
+import { selectHardwarePreviousAddress } from '../../../store/selectors';
 import { deviceUtils } from '../../../utils/hardware';
 import { wait } from '../../../utils/helper';
 
@@ -41,9 +42,7 @@ export function useFetchSetRangeAddress({
   const temporaryAccountsRef = useRef<ImportableHDAccount[]>([]);
   const checkAddressPathRef = useRef<{ address?: string; path: string }[]>([]);
   const [previousAddress, setPreviousAddress] = useState('');
-  const previousAddressPayload = useAppSelector(
-    (s) => s.hardware.previousAddress,
-  );
+  const previousAddressPayload = useAppSelector(selectHardwarePreviousAddress);
 
   const updateSetRangeAccountProgress = useCallback(
     (result: any[], forceFinish?: boolean) => {

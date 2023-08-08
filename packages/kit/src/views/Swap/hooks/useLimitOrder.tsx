@@ -14,6 +14,7 @@ import {
   selectLimitOrderTokenIn,
   selectLimitOrderTokenOut,
   selectLimitOrderTypedValue,
+  selectSwapTransactionsLimitOrderDetails,
 } from '../../../store/selectors';
 import { gt, lt, multiply } from '../utils';
 
@@ -64,7 +65,7 @@ export function useLimitOrderOutput() {
 
 export function useLimitOrders(accountId?: string, networkId?: string) {
   const limitOrderDetails = useAppSelector(
-    (s) => s.swapTransactions.limitOrderDetails,
+    selectSwapTransactionsLimitOrderDetails,
   );
   return useMemo(() => {
     if (!limitOrderDetails || !accountId) {
@@ -87,7 +88,7 @@ export function useLimitOrders(accountId?: string, networkId?: string) {
 
 export function useAllLimitOrders(): LimitOrderTransactionDetails[] {
   const limitOrderDetails = useAppSelector(
-    (state) => state.swapTransactions.limitOrderDetails,
+    selectSwapTransactionsLimitOrderDetails,
   );
   return useMemo(() => {
     if (!limitOrderDetails) {

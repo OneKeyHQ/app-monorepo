@@ -11,6 +11,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
 import { useIsMounted } from '../../../hooks/useIsMounted';
+import { selectAllNetworksAccountsMap } from '../../../store/selectors';
 
 import type { useAccountSelectorInfo } from './useAccountSelectorInfo';
 
@@ -27,9 +28,7 @@ export const useAllNetworksAccountsData = ({
 }: {
   walletId?: string;
 }) => {
-  const allNetworksAccountsMap = useAppSelector(
-    (s) => s.overview.allNetworksAccountsMap,
-  );
+  const allNetworksAccountsMap = useAppSelector(selectAllNetworksAccountsMap);
 
   const data = useMemo(
     () =>

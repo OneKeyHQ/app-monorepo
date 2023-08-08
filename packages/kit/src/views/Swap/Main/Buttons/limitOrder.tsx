@@ -20,6 +20,7 @@ import { addLimitOrderTransaction } from '../../../../store/reducers/swapTransac
 import {
   selectLimitOrderInstantRate,
   selectLimitOrderLoading,
+  selectSwapTransactionsLimitOrderMaintain,
 } from '../../../../store/selectors';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import { SwapTransactionsCancelApprovalBottomSheetModal } from '../../components/CancelApprovalModal';
@@ -349,7 +350,7 @@ const LimitOrderStateButton = () => {
 export const LimitOrderContentButton = () => {
   const intl = useIntl();
   const limitOrderMaintain = useAppSelector(
-    (s) => s.swapTransactions.limitOrderMaintain,
+    selectSwapTransactionsLimitOrderMaintain,
   );
   if (limitOrderMaintain) {
     return (

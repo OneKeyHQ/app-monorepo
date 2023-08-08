@@ -11,6 +11,7 @@ import {
   selectSwapOutputToken,
   selectSwapQuote,
   selectSwapTransactionsCoingeckoIds,
+  selectSwapTransactionsRecommendedSlippage,
   selectSwapTransactionsSlippage,
   selectSwapTransactionsSwapChartMode,
 } from '../../../store/selectors';
@@ -71,7 +72,7 @@ export function usePriceImpact() {
 
 export function useSlippageLevels() {
   const recommendedSlippage = useAppSelector(
-    (s) => s.swapTransactions.recommendedSlippage,
+    selectSwapTransactionsRecommendedSlippage,
   );
   return useMemo(
     () =>

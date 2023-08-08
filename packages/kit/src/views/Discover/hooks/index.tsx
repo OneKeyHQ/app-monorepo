@@ -4,14 +4,18 @@ import { useAppSelector } from '@onekeyhq/kit/src/hooks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import {
+  selectDevMode,
+  selectDiscoverBookmarks,
+  selectShowBookmark,
+  selectUserBrowserHistories,
+} from '../../../store/selectors';
 
 import type { MatchDAppItemType } from '../Explorer/explorerUtils';
 import type { DAppItemType } from '../type';
 
 export function useUserBrowserHistories(): MatchDAppItemType[] {
-  const userBrowserHistories = useAppSelector(
-    (s) => s.discover.userBrowserHistories,
-  );
+  const userBrowserHistories = useAppSelector(selectUserBrowserHistories);
   return useMemo(() => {
     if (!userBrowserHistories) {
       return [];
@@ -29,7 +33,7 @@ export function useUserBrowserHistories(): MatchDAppItemType[] {
 }
 
 export function useDiscoverFavorites(): MatchDAppItemType[] {
-  const bookmarks = useAppSelector((s) => s.discover.bookmarks);
+  const bookmarks = useAppSelector(selectDiscoverBookmarks);
   return useMemo(() => {
     if (!bookmarks) {
       return [];
@@ -69,10 +73,9 @@ export function useTagDapps(tagId: string) {
 
 export function useShowBookmark() {
   const isApple = platformEnv.isNativeIOS || platformEnv.isMas;
-  const showBookmark = useAppSelector((s) => s.discover.showBookmark);
-  const hideDiscoverContent = useAppSelector(
-    (s) => s.settings.devMode?.hideDiscoverContent,
-  );
+  const showBookmark = useAppSelector(selectShowBookmark);
+  const hideDiscoverContent =
+    useAppSelector(selectDevMode)?.hideDiscoverContent;
   return useMemo(() => {
     if (hideDiscoverContent) {
       return false;

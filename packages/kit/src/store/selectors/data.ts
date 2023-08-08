@@ -32,3 +32,8 @@ export const selectIsPasswordLoadedInVault = createSelector(
   selectData,
   (s) => s.isPasswordLoadedInVault,
 );
+
+export const selectHomePageCheckBoarding = createSelector(
+  selectData,
+  (s) => s.homePageCheckBoarding,
+);

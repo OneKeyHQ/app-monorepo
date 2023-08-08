@@ -2,30 +2,54 @@ import { createSelector } from '@reduxjs/toolkit';
 
 import type { IAppState } from '..';
 
-export const selectSwapTransactions = (state: IAppState) =>
-  state.swapTransactions;
+const SwapTransactionsSelector = (state: IAppState) => state.swapTransactions;
 
 export const selectSwapTransactionsTokenList = createSelector(
-  selectSwapTransactions,
+  SwapTransactionsSelector,
   (s) => s.tokenList,
 );
 
 export const selectSwapTransactionsMaintain = createSelector(
-  selectSwapTransactions,
+  SwapTransactionsSelector,
   (s) => s.swapMaintain,
 );
 
 export const selectSwapTransactionsSlippage = createSelector(
-  selectSwapTransactions,
+  SwapTransactionsSelector,
   (s) => s.slippage,
 );
 
 export const selectSwapTransactionsCoingeckoIds = createSelector(
-  selectSwapTransactions,
+  SwapTransactionsSelector,
   (s) => s.coingeckoIds,
 );
 
 export const selectSwapTransactionsSwapChartMode = createSelector(
-  selectSwapTransactions,
+  SwapTransactionsSelector,
   (s) => s.swapChartMode,
+);
+
+export const selectSwapTransactionsSwapFeePresetIndex = createSelector(
+  SwapTransactionsSelector,
+  (s) => s.swapFeePresetIndex,
+);
+
+export const selectSwapTransactionsLimitOrderDetails = createSelector(
+  SwapTransactionsSelector,
+  (s) => s.limitOrderDetails,
+);
+
+export const selectSwapTransactionsRecommendedSlippage = createSelector(
+  SwapTransactionsSelector,
+  (s) => s.recommendedSlippage,
+);
+
+export const selectSwapTransactions = createSelector(
+  SwapTransactionsSelector,
+  (s) => s.transactions,
+);
+
+export const selectSwapTransactionsLimitOrderMaintain = createSelector(
+  SwapTransactionsSelector,
+  (s) => s.limitOrderMaintain,
 );

@@ -7,7 +7,10 @@ import { IconButton, ToastManager } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useLocalAuthentication } from '../../hooks';
-import { selectEnableWebAuthn } from '../../store/selectors';
+import {
+  selectEnableLocalAuthentication,
+  selectEnableWebAuthn,
+} from '../../store/selectors';
 import {
   isContextSupportWebAuthn,
   webAuthenticate,
@@ -43,7 +46,7 @@ const AppStateUnlockButton: FC<AppStateUnlockButtonProps> = ({
   onNg,
 }) => {
   const enableLocalAuthentication = useAppSelector(
-    (s) => s.settings.enableLocalAuthentication,
+    selectEnableLocalAuthentication,
   );
   const { isOk } = useLocalAuthentication();
   if (!isOk || !enableLocalAuthentication) {

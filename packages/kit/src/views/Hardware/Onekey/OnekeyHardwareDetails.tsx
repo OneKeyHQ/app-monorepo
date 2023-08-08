@@ -30,6 +30,8 @@ import { getDeviceFirmwareVersion } from '@onekeyhq/kit/src/utils/hardware/OneKe
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
+import { selectSettingsHardware } from '../../../store/selectors';
+
 import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<
@@ -55,8 +57,8 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
 
   const { serviceHardware } = backgroundApiProxy;
   const deviceVerification = useAppSelector(
-    (s) => s.settings.hardware?.verification,
-  );
+    selectSettingsHardware,
+  )?.verification;
 
   const [deviceUUID, setDeviceUUID] = useState<string>('-');
   const [connectId, setConnectId] = useState<string>();

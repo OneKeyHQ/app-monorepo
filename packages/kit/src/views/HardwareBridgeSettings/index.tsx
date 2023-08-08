@@ -20,6 +20,7 @@ import {
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../hooks';
 import { setHardwareConnectSrc } from '../../store/reducers/settings';
+import { selectHardwareConnectSrc } from '../../store/selectors';
 
 import { showRefreshExtSheet } from './RefreshExtSheet';
 
@@ -45,9 +46,7 @@ function HardwareBridgeSettings() {
   const isSmallScreen = useIsVerticalLayout();
 
   const { dispatch, serviceHardware } = backgroundApiProxy;
-  const hardwareConnectSrc = useAppSelector(
-    (s) => s.settings.hardwareConnectSrc,
-  );
+  const hardwareConnectSrc = useAppSelector(selectHardwareConnectSrc);
 
   const onSetHardwareConnectSrc = useCallback(
     (item: IBridgeSettingItem) => {

@@ -12,6 +12,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAppSelector } from '../../../../hooks';
+import { selectOnBoardingLoadingBehindModal } from '../../../../store/selectors';
 import { OnboardingAddExistingWallet } from '../../../CreateWallet/AddExistingWallet';
 import Layout from '../../Layout';
 
@@ -35,7 +36,7 @@ const RecoveryWallet = () => {
   const intl = useIntl();
   const bgColor = useThemeValue('background-default');
   const onBoardingLoadingBehindModal = useAppSelector(
-    (s) => s.runtime.onBoardingLoadingBehindModal,
+    selectOnBoardingLoadingBehindModal,
   );
   const [drawerVisible, setDrawerVisible] = useState(false);
   const route = useRoute<RouteProps>();

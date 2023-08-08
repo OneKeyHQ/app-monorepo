@@ -13,6 +13,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useAppSelector, useNavigationActions } from '../../../hooks';
 import { useCloseOnEsc } from '../../../hooks/useOnKeydown';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
+import { selectIsDesktopWalletSelectorVisible } from '../../../store/selectors';
 import { useWalletSelectorStatus } from '../hooks/useWalletSelectorStatus';
 import WalletSelectorDesktop from '../WalletSelectorDesktop';
 
@@ -40,7 +41,7 @@ const WalletSelectorTrigger: FC<
   const triggerRef = useRef<HTMLElement>(null);
   const { dispatch } = backgroundApiProxy;
   const isDesktopWalletSelectorVisible = useAppSelector(
-    (s) => s.accountSelector.isDesktopWalletSelectorVisible,
+    selectIsDesktopWalletSelectorVisible,
   );
   const { toggleWalletSelector } = useNavigationActions();
   const { visible } = useWalletSelectorStatus();

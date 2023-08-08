@@ -26,6 +26,7 @@ import {
   setRecipient,
 } from '../../../../store/reducers/swap';
 import {
+  selectSwapAllowAnotherRecipientAddress,
   selectSwapIndependentField,
   selectSwapInputToken,
   selectSwapLoading,
@@ -303,7 +304,7 @@ const TokenInputReceivingAddressFieldShowControl = () => {
   const inputToken = useAppSelector(selectSwapInputToken);
   const outputToken = useAppSelector(selectSwapOutputToken);
   const allowAnotherRecipientAddress = useAppSelector(
-    (s) => s.swap.allowAnotherRecipientAddress,
+    selectSwapAllowAnotherRecipientAddress,
   );
   if (inputToken && outputToken) {
     const shouldBeSendingAccount = recipientMustBeSendingAccount(
@@ -324,7 +325,7 @@ const SendToAnotherAddress = () => {
   const inputToken = useAppSelector(selectSwapInputToken);
   const outputToken = useAppSelector(selectSwapOutputToken);
   const allowAnotherRecipientAddress = useAppSelector(
-    (s) => s.swap.allowAnotherRecipientAddress,
+    selectSwapAllowAnotherRecipientAddress,
   );
   const onToggle = useCallback(() => {
     const newValue = !allowAnotherRecipientAddress;

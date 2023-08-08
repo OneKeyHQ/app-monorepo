@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Box, Icon, SectionList, Typography } from '@onekeyhq/components';
 
 import { useAppSelector, useNavigation } from '../../../../hooks';
+import { selectDisableExtSwitchTips } from '../../../../store/selectors';
 import { showEnableExtTipsSheet } from '../enableExtSheet';
 
 import { WalletSwitchCell } from './component/WalletSwitchCell';
@@ -16,9 +17,7 @@ export type WalletGroup = { title: string; data: string[] };
 
 const WalletSwitch = () => {
   const navigation = useNavigation();
-  const disableShowSheet = useAppSelector(
-    (s) => s.settings.disableExtSwitchTips,
-  );
+  const disableShowSheet = useAppSelector(selectDisableExtSwitchTips);
   const intl = useIntl();
   useEffect(() => {
     navigation.setOptions({

@@ -5,6 +5,7 @@ import * as React from 'react';
 import { Box, Pressable, Text } from '@onekeyhq/components';
 
 import { useAccountValues, useAppSelector } from '../../../../../hooks';
+import { selectAccountSelectorMode } from '../../../../../store/selectors';
 import { FormatCurrencyNumber } from '../../../../Format';
 import { useAccountSelectorChangeAccountOnPress } from '../../../hooks/useAccountSelectorChangeAccountOnPress';
 
@@ -27,9 +28,7 @@ const AllNetworksListItem: FC<ListItemProps> = ({
   walletId,
   networkId,
 }) => {
-  const accountSelectorMode = useAppSelector(
-    (s) => s.accountSelector.accountSelectorMode,
-  );
+  const accountSelectorMode = useAppSelector(selectAccountSelectorMode);
 
   const { onPressChangeAccount } = useAccountSelectorChangeAccountOnPress();
 

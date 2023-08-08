@@ -13,3 +13,13 @@ export const selectUpdateFirmwareStep = createSelector(
   selectHardware,
   (s) => s.updateFirmwareStep,
 );
+
+export const selectHardwarePreviousAddress = createSelector(
+  selectHardware,
+  (s) => s.previousAddress,
+);
+
+export const selectHardwarePassphraseOpened = createSelector(
+  selectHardware,
+  (s) => s.passphraseOpened,
+);

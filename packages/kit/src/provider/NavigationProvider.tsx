@@ -23,7 +23,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useShortcuts } from '../hooks/useShortcuts';
 import '../routes/deepLink';
 import buildLinking from '../routes/linking';
-import { selectInstanceId } from '../store/selectors';
+import {
+  selectBackgroundShowToastOptions,
+  selectBackgroundShowToastTs,
+  selectInstanceId,
+} from '../store/selectors';
 import { createLazyComponent } from '../utils/createLazyComponent';
 import { FULLWINDOW_OVERLAY_PORTAL } from '../utils/overlayUtils';
 import { PortalContainer } from '../views/Overlay/RootPortal';
@@ -58,9 +62,10 @@ const NavigationApp = () => {
 
   const linking = useMemo(() => buildLinking(), []);
 
-  const { backgroundShowToastOptions, backgroundShowToastTs } = useAppSelector(
-    (s) => s.refresher,
+  const backgroundShowToastOptions = useAppSelector(
+    selectBackgroundShowToastOptions,
   );
+  const backgroundShowToastTs = useAppSelector(selectBackgroundShowToastTs);
 
   useEffect(() => {
     if (!backgroundShowToastOptions.title) {

@@ -17,6 +17,7 @@ import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAppSelector } from '../../../hooks';
+import { selectHardwareConnectSrc } from '../../../store/selectors';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -30,9 +31,7 @@ export const HardwareBridgeSection = () => {
   const navigation = useNavigation<NavigationProps>();
   const { themeVariant } = useTheme();
 
-  const hardwareConnectSrc = useAppSelector(
-    (s) => s.settings.hardwareConnectSrc,
-  );
+  const hardwareConnectSrc = useAppSelector(selectHardwareConnectSrc);
 
   const showBridgePortSetting = useMemo<boolean>(
     () => !!(platformEnv.isExtension || platformEnv.isWeb),

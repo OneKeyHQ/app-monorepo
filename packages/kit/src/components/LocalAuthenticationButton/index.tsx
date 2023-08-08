@@ -1,6 +1,7 @@
 import type { FC } from 'react';
 
 import { useAppSelector, useLocalAuthentication } from '../../hooks';
+import { selectEnableLocalAuthentication } from '../../store/selectors';
 
 import LocalAuthenticationButton from './LocalAuthenticationButton';
 
@@ -11,7 +12,7 @@ type LocalAuthenticationButtonProps = {
 
 const Button: FC<LocalAuthenticationButtonProps> = ({ onOk, onNg }) => {
   const enableLocalAuthentication = useAppSelector(
-    (s) => s.settings.enableLocalAuthentication,
+    selectEnableLocalAuthentication,
   );
   const { isOk } = useLocalAuthentication();
   if (!isOk || !enableLocalAuthentication) {

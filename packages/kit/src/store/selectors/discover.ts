@@ -20,3 +20,8 @@ export const selectDiscoverNetworkPrices = createSelector(
   selectDiscover,
   (s) => s.networkPrices,
 );
+
+export const selectUserBrowserHistories = createSelector(
+  selectDiscover,
+  (s) => s.userBrowserHistories,
+);

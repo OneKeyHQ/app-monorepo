@@ -16,6 +16,7 @@ import {
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useReduxReady } from '../hooks/useReduxReady';
 import { useSystemLocale } from '../hooks/useSystemLocale';
+import { selectLeftSidebarCollapsed } from '../store/selectors';
 
 import type { IAppState } from '../store';
 
@@ -74,9 +75,7 @@ export function useThemeProviderVariant() {
 const ThemeApp: FC = ({ children }) => {
   const { themeVariant, localeVariant } = useThemeProviderVariant();
   const { isReady } = useReduxReady();
-  const leftSidebarCollapsed = useAppSelector(
-    (s) => s.settings.leftSidebarCollapsed,
-  );
+  const leftSidebarCollapsed = useAppSelector(selectLeftSidebarCollapsed);
   useEffect(() => {
     if (isReady) {
       setThemePreloadToLocalStorage(themeVariant);

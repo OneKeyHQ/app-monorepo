@@ -26,6 +26,7 @@ import { useAppSelector } from '../../hooks/redux';
 import { setEnableLocalAuthentication } from '../../store/reducers/settings';
 import {
   selectAuthenticationType,
+  selectEnableLocalAuthentication,
   selectIsPasswordSet,
 } from '../../store/selectors';
 import { savePassword } from '../../utils/localAuthentication';
@@ -143,7 +144,7 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
   const ref = useRef({ unmount: false });
   const authenticationType = useAppSelector(selectAuthenticationType);
   const enableLocalAuthentication = useAppSelector(
-    (s) => s.settings.enableLocalAuthentication,
+    selectEnableLocalAuthentication,
   );
   const { isOk } = useLocalAuthentication();
 

@@ -17,6 +17,8 @@ import reducerAccountSelector, {
 } from '../store/reducers/reducerAccountSelector';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { selectIsDesktopWalletSelectorVisible } from '../store/selectors';
+
 import {
   HomeRoutes,
   MainRoutes,
@@ -146,7 +148,7 @@ export function useNavigationActions() {
   const navigation = useNavigation();
   const isVertical = useIsVerticalLayout();
   const isDesktopWalletSelectorVisible = useAppSelector(
-    (s) => s.accountSelector.isDesktopWalletSelectorVisible,
+    selectIsDesktopWalletSelectorVisible,
   );
   const openAccountSelector = useCallback(
     ({ mode }: { mode?: EAccountSelectorMode }) => {

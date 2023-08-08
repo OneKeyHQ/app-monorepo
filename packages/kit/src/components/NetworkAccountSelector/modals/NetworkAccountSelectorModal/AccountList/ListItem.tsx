@@ -14,6 +14,10 @@ import {
   useActiveWalletAccount,
   useAppSelector,
 } from '../../../../../hooks';
+import {
+  selectAccountSelectorMode,
+  selectActiveExternalWalletName,
+} from '../../../../../store/selectors';
 import { formatAmount } from '../../../../../utils/priceUtils';
 import ExternalAccountImg from '../../../../../views/ExternalAccount/components/ExternalAccountImg';
 import { useAccountSelectorChangeAccountOnPress } from '../../../hooks/useAccountSelectorChangeAccountOnPress';
@@ -60,9 +64,7 @@ const ListItem: FC<ListItemProps> = ({
   onAccountsSelected,
   onLastItemRender,
 }) => {
-  const accountSelectorMode = useAppSelector(
-    (s) => s.accountSelector.accountSelectorMode,
-  );
+  const accountSelectorMode = useAppSelector(selectAccountSelectorMode);
 
   const closeModal = useModalClose();
 
@@ -90,7 +92,7 @@ const ListItem: FC<ListItemProps> = ({
     networkId: activeNetworkId,
   } = useActiveWalletAccount();
   const activeExternalWalletName = useAppSelector(
-    (s) => s.general.activeExternalWalletName,
+    selectActiveExternalWalletName,
   );
   const isActive = useMemo(
     () =>

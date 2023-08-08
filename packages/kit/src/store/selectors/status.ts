@@ -9,6 +9,8 @@ export const selectIsStatusUnlock = createSelector(
   (s) => s.isUnlock,
 );
 
+export const selectRpcStatus = createSelector(selectStatus, (s) => s.rpcStatus);
+
 export const selectAuthenticationType = createSelector(
   selectStatus,
   (s) => s.authenticationType,
@@ -32,4 +34,9 @@ export const selectGuideToPushFirstTime = createSelector(
 export const selectWebviewGlobalKey = createSelector(
   selectStatus,
   (s) => s.webviewGlobalKey,
+);
+
+export const selectFirstTimeShowCheckRPCNodeTooltip = createSelector(
+  selectStatus,
+  (s) => s.firstTimeShowCheckRPCNodeTooltip,
 );

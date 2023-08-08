@@ -16,6 +16,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { selectHardwarePreviousAddress } from '../../../store/selectors';
 import { deviceUtils } from '../../../utils/hardware';
 import { wait } from '../../../utils/helper';
 
@@ -53,9 +54,7 @@ export function useFetchWalletAddress({
   const currentTemplateRef = useRef('');
 
   const [previousAddress, setPreviousAddress] = useState('');
-  const previousAddressPayload = useAppSelector(
-    (s) => s.hardware.previousAddress,
-  );
+  const previousAddressPayload = useAppSelector(selectHardwarePreviousAddress);
 
   const updateWalletsAccountProgress = useCallback(
     (result: IWalletAccounts[], forceFinish?: boolean) => {

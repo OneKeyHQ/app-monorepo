@@ -26,6 +26,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount, useAppSelector } from '../../../hooks';
+import { selectSwapTransactionsSwapFeePresetIndex } from '../../../store/selectors';
 
 import { useFeePresetIndex } from './useFeePresetIndex';
 
@@ -69,7 +70,7 @@ export function useFeeInfoPayload({
 
   let defaultFeePresetIndex = useFeePresetIndex(networkId);
   const swapFeePresetIndex = useAppSelector(
-    (s) => s.swapTransactions.swapFeePresetIndex,
+    selectSwapTransactionsSwapFeePresetIndex,
   );
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   if (payload && payload?.type === 'InternalSwap' && swapFeePresetIndex) {
