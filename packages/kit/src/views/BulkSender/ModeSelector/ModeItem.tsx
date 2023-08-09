@@ -3,6 +3,7 @@ import type { ComponentProps } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Box,
   HStack,
   Pressable,
@@ -120,7 +121,7 @@ function getModeInfo(mode: BulkTypeEnum): null | {
 }
 
 function ModeItem(props: Props) {
-  const { mode, ...rest } = props;
+  const { mode, isDisabled, ...rest } = props;
   const isVertical = useIsVerticalLayout();
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
@@ -133,38 +134,67 @@ function ModeItem(props: Props) {
 
   return (
     <Pressable
-      bg="surface-default"
+      bg={isDisabled ? 'surface-subdued' : 'surface-default'}
       _hover={{ bg: 'surface-hovered' }}
       _pressed={{ bg: 'surface-pressed' }}
       borderColor="border-subdued"
       borderWidth={1}
       borderRadius="12px"
       onPress={() => navigation.navigate(HomeRoutes.BulkSender, { mode })}
+      isDisabled={isDisabled}
       {...rest}
     >
       {isVertical ? (
         <HStack alignItems="center" space={12}>
           {mark}
-          <VStack>
+          <VStack height="full" justifyContent="center">
             <Text typography="Heading">
               {intl.formatMessage({ id: title })}
             </Text>
             <Text typography="Body1" color="text-subdued">
               {intl.formatMessage({ id: desc })}
             </Text>
+            {isDisabled ? (
+              <Badge
+                position="absolute"
+                left={0}
+                bottom="-10px"
+                size="sm"
+                title={intl.formatMessage({ id: 'content__stay_tuned' })}
+                type="info"
+              />
+            ) : null}
           </VStack>
         </HStack>
       ) : (
         <VStack>
           {mark}
-          <Text typography="Heading" textAlign="center" mt="52px">
+          <Text
+            typography="Heading"
+            textAlign="center"
+            mt="52px"
+            color={isDisabled ? 'text-subdued' : 'text-default'}
+          >
             {intl.formatMessage({ id: title })}
           </Text>
-          <Text typography="Body1" color="text-subdued" textAlign="center">
+          <Text
+            typography="Body1"
+            textAlign="center"
+            color={isDisabled ? 'text-disabled' : 'text-subdued'}
+          >
             {intl.formatMessage({ id: desc })}
           </Text>
         </VStack>
       )}
+      {isDisabled && !isVertical ? (
+        <Badge
+          position="absolute"
+          bottom={4}
+          size="sm"
+          title={intl.formatMessage({ id: 'content__stay_tuned' })}
+          type="info"
+        />
+      ) : null}
     </Pressable>
   );
 }

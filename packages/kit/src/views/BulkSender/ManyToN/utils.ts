@@ -103,7 +103,7 @@ export const getTxInterval = ({
     return randomBetween({
       min: txInterval[0],
       max: txInterval[1],
-      decimals: 3,
+      decimals: 1,
     });
   }
 };
