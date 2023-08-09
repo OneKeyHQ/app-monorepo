@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -6,7 +6,10 @@ import { StyleSheet } from 'react-native';
 
 import { Box, Form, Text, useIsVerticalLayout } from '@onekeyhq/components';
 import type { Token } from '@onekeyhq/engine/src/types/token';
+import type { IInvoiceConfig } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/invoice';
 import { FormatCurrencyTokenOfAccount } from '@onekeyhq/kit/src/components/Format';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import type { UseFormReturn } from 'react-hook-form';
 import type { MessageDescriptor } from 'react-intl';
@@ -51,17 +54,22 @@ const LNMakeInvoiceForm = (props: IMakeInvoiceFormProps) => {
 
   const minAmount = useMemo(() => Number(minimumAmount), [minimumAmount]);
   const maxAmount = useMemo(() => Number(maximumAmount), [maximumAmount]);
+
+  const [invoiceConfig, setInvoiceConfig] = useState<IInvoiceConfig | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!networkId || !accountId) return;
+    backgroundApiProxy.serviceLightningNetwork
+      .getInvoiceConfig({ networkId, accountId })
+      .then((config) => {
+        setInvoiceConfig(config);
+      });
+  }, [networkId, accountId]);
+
   const renderLabelAddon = useMemo(() => {
     if (Number(amount) > 0 || (minAmount > 0 && minAmount === maxAmount)) {
       return;
-    }
-    if (minAmount > 0 && maxAmount > 0 && minAmount > maxAmount) {
-      return (
-        <Text
-          typography="Body2Strong"
-          color="text-subdued"
-        >{`>= ${minAmount}`}</Text>
-      );
     }
     if (minAmount > 0 && maxAmount > 0) {
       return (
@@ -70,13 +78,87 @@ const LNMakeInvoiceForm = (props: IMakeInvoiceFormProps) => {
             { id: 'form__between_int_and_int_sats' },
             {
               min: minAmount,
-              max: maxAmount,
+              max:
+                maxAmount < minAmount
+                  ? invoiceConfig?.maxReceiveAmount
+                  : Math.min(
+                      maxAmount,
+                      Number(invoiceConfig?.maxReceiveAmount),
+                    ),
             },
           )}
         </Text>
       );
     }
-  }, [amount, minAmount, maxAmount, intl]);
+  }, [amount, minAmount, maxAmount, invoiceConfig, intl]);
+
+  const amountRules = useMemo(() => {
+    let max;
+    if (
+      maxAmount &&
+      maxAmount > 0 &&
+      maxAmount > minAmount &&
+      maxAmount < Number(invoiceConfig?.maxReceiveAmount)
+    ) {
+      max = maxAmount;
+    }
+    return {
+      min: {
+        value: minAmount,
+        message: intl.formatMessage(
+          {
+            id: 'form__field_too_small',
+          },
+          {
+            0: minAmount,
+          },
+        ),
+      },
+      max: max
+        ? {
+            value: max,
+            message: intl.formatMessage(
+              {
+                id: 'form__field_too_large',
+              },
+              {
+                0: max,
+              },
+            ),
+          }
+        : undefined,
+      pattern: {
+        value: /^[0-9]*$/,
+        message: intl.formatMessage({
+          id: 'form__field_only_integer',
+        }),
+      },
+      validate: (value: number) => {
+        // allow unspecified amount
+        if (minAmount <= 0 && !value) return;
+        const valueBN = new BigNumber(value);
+        if (!valueBN.isInteger()) {
+          return intl.formatMessage({
+            id: 'form__field_only_integer',
+          });
+        }
+
+        if (
+          invoiceConfig?.maxReceiveAmount &&
+          valueBN.isGreaterThan(invoiceConfig?.maxReceiveAmount)
+        ) {
+          return intl.formatMessage(
+            {
+              id: 'msg_receipt_amount_should_be_less_than_int_sats',
+            },
+            {
+              0: invoiceConfig?.maxReceiveAmount,
+            },
+          );
+        }
+      },
+    };
+  }, [minAmount, maxAmount, invoiceConfig, intl]);
 
   return (
     <Form>
@@ -159,46 +241,8 @@ const LNMakeInvoiceForm = (props: IMakeInvoiceFormProps) => {
         control={control}
         name="amount"
         formControlProps={{ width: 'full' }}
-        rules={{
-          min: {
-            value: minAmount,
-            message: intl.formatMessage(
-              {
-                id: 'form__field_too_small',
-              },
-              {
-                0: minAmount,
-              },
-            ),
-          },
-          max: {
-            value: minAmount,
-            message: intl.formatMessage(
-              {
-                id: 'form__field_too_large',
-              },
-              {
-                0: minAmount,
-              },
-            ),
-          },
-          pattern: {
-            value: /^[0-9]*$/,
-            message: intl.formatMessage({
-              id: 'form__field_only_integer',
-            }),
-          },
-          validate: (value) => {
-            // allow unspecified amount
-            if (minAmount === 0 && !value) return;
-            const valueBN = new BigNumber(value);
-            if (!valueBN.isInteger()) {
-              return intl.formatMessage({
-                id: 'form__field_only_integer',
-              });
-            }
-          },
-        }}
+        // @ts-expect-error
+        rules={amountRules}
         defaultValue=""
         isLabelAddonActions={false}
         labelAddon={renderLabelAddon}

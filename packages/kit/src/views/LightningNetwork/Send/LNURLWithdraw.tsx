@@ -1,39 +1,29 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import {
-  Box,
-  Form,
   Modal,
-  Text,
   ToastManager,
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { FormatCurrencyTokenOfAccount } from '@onekeyhq/kit/src/components/Format';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNativeToken, useNavigation, useNetwork } from '../../../hooks';
 import { SendModalRoutes } from '../../../routes/routesEnum';
+import LNMakeInvoiceForm from '../components/LNMakeInvoiceForm';
 import { LNModalDescription } from '../components/LNModalDescription';
 
 import type { SendRoutesParams } from '../../../routes';
 import type { ModalScreenProps } from '../../../routes/types';
 import type { SendFeedbackReceiptParams } from '../../Send/types';
+import type { IMakeInvoiceFormValues } from '../components/LNMakeInvoiceForm';
 import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<SendRoutesParams>;
 type RouteProps = RouteProp<SendRoutesParams, SendModalRoutes.LNURLWithdraw>;
-
-type FormValues = {
-  amount: string;
-  description: string;
-  requestFrom: string;
-};
 
 const LNURLWithdraw = () => {
   const intl = useIntl();
@@ -43,8 +33,8 @@ const LNURLWithdraw = () => {
 
   const { networkId, accountId, lnurlDetails } = route.params ?? {};
   const { network } = useNetwork({ networkId });
-  const { control, handleSubmit, watch } = useForm<FormValues>();
-  const amountValue = watch('amount');
+  const useFormReturn = useForm<IMakeInvoiceFormValues>();
+  const { handleSubmit } = useFormReturn;
   const amountMin = Math.floor(+lnurlDetails.minWithdrawable / 1000);
   const amountMax = Math.floor(+lnurlDetails.maxWithdrawable / 1000);
 
@@ -53,7 +43,7 @@ const LNURLWithdraw = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const onSubmit = useCallback(
-    async (values: FormValues) => {
+    async (values: IMakeInvoiceFormValues) => {
       if (isLoading) return;
       if (!networkId || !accountId) return;
       setIsLoading(true);
@@ -116,21 +106,6 @@ const LNURLWithdraw = () => {
     [isLoading, networkId, navigation, intl, accountId, lnurlDetails],
   );
 
-  const renderLabelAddon = useMemo(
-    () => (
-      <Text typography="Body2Strong" color="text-subdued">
-        {intl.formatMessage(
-          { id: 'form__between_int_and_int_sats' },
-          {
-            min: amountMin,
-            max: amountMax,
-          },
-        )}
-      </Text>
-    ),
-    [amountMin, amountMax, intl],
-  );
-
   const doSubmit = handleSubmit(onSubmit);
 
   return (
@@ -156,140 +131,17 @@ const LNURLWithdraw = () => {
           paddingVertical: isVerticalLayout ? 16 : 24,
         },
         children: (
-          <Form>
-            <Form.Item
-              label={intl.formatMessage({ id: 'form__request_from' })}
-              name="requestFrom"
-              control={control}
-              formControlProps={{ width: 'full' }}
-            >
-              <Box
-                display="flex"
-                flexDirection="row"
-                justifyContent="flex-start"
-                alignItems="center"
-                borderWidth={StyleSheet.hairlineWidth}
-                borderColor="border-default"
-                borderRadius="xl"
-                py={2}
-                px={3}
-                bgColor="action-secondary-default"
-              >
-                <Text
-                  typography="Body2Mono"
-                  color="text-subdued"
-                  lineHeight="1.5em"
-                >
-                  {lnurlDetails.domain}
-                </Text>
-              </Box>
-            </Form.Item>
-            <Form.Item
-              label={intl.formatMessage({ id: 'form__withdraw_description' })}
-              control={control}
-              name="description"
-              formControlProps={{ width: 'full' }}
-              rules={{
-                maxLength: {
-                  value: 40,
-                  message: intl.formatMessage(
-                    { id: 'msg_description_can_be_up_to_int_characters' },
-                    { 0: '40' },
-                  ),
-                },
-              }}
-              defaultValue=""
-            >
-              <Box
-                display="flex"
-                flexDirection="row"
-                justifyContent="flex-start"
-                alignItems="center"
-                borderWidth={StyleSheet.hairlineWidth}
-                borderColor="border-default"
-                borderRadius="xl"
-                py={2}
-                px={3}
-                bgColor="action-secondary-default"
-              >
-                <Text
-                  typography="Body2Mono"
-                  color="text-subdued"
-                  lineHeight="1.5em"
-                >
-                  {lnurlDetails.defaultDescription}
-                </Text>
-              </Box>
-            </Form.Item>
-            <Form.Item
-              label={`${intl.formatMessage({
-                id: 'content__amount',
-              })}`}
-              control={control}
-              name="amount"
-              formControlProps={{ width: 'full' }}
-              rules={{
-                min: {
-                  value: amountMin,
-                  message: intl.formatMessage(
-                    {
-                      id: 'form__field_too_small',
-                    },
-                    {
-                      0: amountMin,
-                    },
-                  ),
-                },
-                max: {
-                  value: amountMax,
-                  message: intl.formatMessage(
-                    {
-                      id: 'form__field_too_large',
-                    },
-                    {
-                      0: amountMax,
-                    },
-                  ),
-                },
-                pattern: {
-                  value: /^[0-9]*$/,
-                  message: intl.formatMessage({
-                    id: 'form__field_only_integer',
-                  }),
-                },
-                validate: (value) => {
-                  // allow unspecified amount
-                  if (amountMin === 0 && !value) return;
-                  const valueBN = new BigNumber(value);
-                  if (!valueBN.isInteger()) {
-                    return intl.formatMessage({
-                      id: 'form__field_only_integer',
-                    });
-                  }
-                },
-              }}
-              defaultValue=""
-              isLabelAddonActions={false}
-              labelAddon={renderLabelAddon}
-            >
-              <Form.Input
-                type="number"
-                size={isVerticalLayout ? 'xl' : 'default'}
-                placeholder={intl.formatMessage({ id: 'form__enter_amount' })}
-              />
-            </Form.Item>
-            <FormatCurrencyTokenOfAccount
-              accountId={accountId ?? ''}
-              networkId={network?.id ?? ''}
-              token={nativeToken}
-              value={new BigNumber(amountValue)}
-              render={(ele) => (
-                <Text typography="Body2" color="text-subdued" mt="-18px">
-                  {ele}
-                </Text>
-              )}
-            />
-          </Form>
+          <LNMakeInvoiceForm
+            accountId={accountId}
+            networkId={network?.id ?? ''}
+            useFormReturn={useFormReturn}
+            minimumAmount={amountMin}
+            maximumAmount={amountMax}
+            domain={lnurlDetails.domain}
+            descriptionLabelId="form__withdraw_description"
+            memo={lnurlDetails.defaultDescription}
+            nativeToken={nativeToken}
+          />
         ),
       }}
     />
