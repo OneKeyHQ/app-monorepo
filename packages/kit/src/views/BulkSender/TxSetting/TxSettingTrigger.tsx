@@ -39,7 +39,7 @@ function TxSettingTrigger(props: Props) {
             <>
               <HStack alignItems="center" space={3} flex={1}>
                 {icon}
-                <VStack space={1}>
+                <VStack space={1} flex={1}>
                   <Text typography="Body1Strong">{title}</Text>
                   {isString(desc) ? (
                     <Text
