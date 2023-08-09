@@ -1,6 +1,6 @@
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
-import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import type { RequestInvoiceArgs } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/webln';
 import {
   backgroundClass,
   providerApiMethod,
@@ -77,6 +77,25 @@ class ProviderApiWebln extends ProviderApiBase {
       methods: ['getInfo', 'makeInvoice', 'sendPayment', 'signMessage'],
       supports: ['lightning'],
     });
+  }
+
+  @providerApiMethod()
+  public async makeInvoice(request: IJsBridgeMessagePayload) {
+    try {
+      const params = (request.data as IJsonRpcRequest)
+        ?.params as RequestInvoiceArgs;
+      console.log('===> request: ', params);
+      const { paymentRequest } =
+        await this.backgroundApi.serviceDapp.openWeblnMakeInvoiceModal(
+          request,
+          params,
+        );
+      console.log('=====>makeinvoice request: ', paymentRequest);
+      return JSON.stringify({ paymentRequest });
+    } catch (e) {
+      console.error('=====>makeinvoice error: ', e);
+      throw e;
+    }
   }
 }
 

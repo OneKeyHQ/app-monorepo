@@ -31,6 +31,8 @@ export type IMakeInvoiceFormProps = {
   descriptionLabelId?: MessageDescriptor['id'];
   memo?: string;
   nativeToken?: Token;
+  isWebln?: boolean;
+  amountDisabled?: boolean;
 };
 
 const LNMakeInvoiceForm = (props: IMakeInvoiceFormProps) => {
@@ -45,6 +47,8 @@ const LNMakeInvoiceForm = (props: IMakeInvoiceFormProps) => {
     descriptionLabelId,
     memo,
     nativeToken,
+    isWebln,
+    amountDisabled,
   } = props;
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
@@ -185,25 +189,25 @@ const LNMakeInvoiceForm = (props: IMakeInvoiceFormProps) => {
           </Text>
         </Box>
       </Form.Item>
-      <Form.Item
-        label={intl.formatMessage({
-          id: descriptionLabelId ?? 'form__description__optional',
-        })}
-        control={control}
-        name="description"
-        formControlProps={{ width: 'full' }}
-        rules={{
-          maxLength: {
-            value: 40,
-            message: intl.formatMessage(
-              { id: 'msg_description_can_be_up_to_int_characters' },
-              { 0: '40' },
-            ),
-          },
-        }}
-        defaultValue=""
-      >
-        {memo && memo.length ? (
+      {!isWebln ? (
+        <Form.Item
+          label={intl.formatMessage({
+            id: descriptionLabelId ?? 'form__description__optional',
+          })}
+          control={control}
+          name="description"
+          formControlProps={{ width: 'full' }}
+          rules={{
+            maxLength: {
+              value: 40,
+              message: intl.formatMessage(
+                { id: 'msg_description_can_be_up_to_int_characters' },
+                { 0: '40' },
+              ),
+            },
+          }}
+          defaultValue=""
+        >
           <Box
             display="flex"
             flexDirection="row"
@@ -224,16 +228,8 @@ const LNMakeInvoiceForm = (props: IMakeInvoiceFormProps) => {
               {memo}
             </Text>
           </Box>
-        ) : (
-          <Form.Textarea
-            size={isVerticalLayout ? 'xl' : 'default'}
-            totalLines={isVerticalLayout ? 3 : 5}
-            placeholder={intl.formatMessage({
-              id: 'form__a_message_to_the_payer',
-            })}
-          />
-        )}
-      </Form.Item>
+        </Form.Item>
+      ) : null}
       <Form.Item
         label={`${intl.formatMessage({
           id: 'content__amount',
@@ -251,6 +247,7 @@ const LNMakeInvoiceForm = (props: IMakeInvoiceFormProps) => {
           type="number"
           size={isVerticalLayout ? 'xl' : 'default'}
           placeholder={intl.formatMessage({ id: 'form__enter_amount' })}
+          isDisabled={amountDisabled}
         />
       </Form.Item>
       <FormatCurrencyTokenOfAccount
@@ -264,6 +261,32 @@ const LNMakeInvoiceForm = (props: IMakeInvoiceFormProps) => {
           </Text>
         )}
       />
+      {isWebln ? (
+        <Form.Item
+          label={intl.formatMessage({ id: 'form__description__optional' })}
+          control={control}
+          name="description"
+          formControlProps={{ width: 'full' }}
+          rules={{
+            maxLength: {
+              value: 40,
+              message: intl.formatMessage(
+                { id: 'msg_description_can_be_up_to_int_characters' },
+                { 0: '40' },
+              ),
+            },
+          }}
+          defaultValue=""
+        >
+          <Form.Textarea
+            size={isVerticalLayout ? 'xl' : 'default'}
+            totalLines={isVerticalLayout ? 3 : 5}
+            placeholder={intl.formatMessage({
+              id: 'form__a_message_to_the_payer',
+            })}
+          />
+        </Form.Item>
+      ) : null}
     </Form>
   );
 };

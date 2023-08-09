@@ -6,7 +6,10 @@ import type {
   Account,
   DBVariantAccount,
 } from '@onekeyhq/engine/src/types/account';
-import type { RequestInvoiceArgs } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/webln';
+import type {
+  RequestInvoiceArgs,
+  RequestInvoiceResponse,
+} from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/webln';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { buildModalRouteParams } from '@onekeyhq/kit/src/hooks/useAutoNavigateOnMount';
 import type {
@@ -20,6 +23,7 @@ import {
   ModalRoutes,
   RootRoutes,
   SendModalRoutes,
+  WeblnModalRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
 import type {
   DappSiteConnection,
@@ -358,12 +362,12 @@ class ServiceDapp extends ServiceBase {
   openWeblnMakeInvoiceModal(
     request: IJsBridgeMessagePayload,
     params: RequestInvoiceArgs,
-  ) {
+  ): Promise<RequestInvoiceResponse> {
     return this.openModal({
       request,
-      screens: [ModalRoutes.Send, SendModalRoutes.LNURLWithdraw],
+      screens: [ModalRoutes.Webln, WeblnModalRoutes.MakeInvoice],
       params,
-    });
+    }) as unknown as Promise<RequestInvoiceResponse>;
   }
 
   isSendModalExisting() {

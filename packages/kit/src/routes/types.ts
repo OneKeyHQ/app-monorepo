@@ -86,6 +86,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.CoinControl]: NavigatorScreenParams<SubModalRoutesParams.CoinControlRoutesParams>;
   [ModalRoutes.GasPanel]: NavigatorScreenParams<SubModalRoutesParams.GasPanelRoutesParams>;
   [ModalRoutes.Inscribe]: NavigatorScreenParams<SubModalRoutesParams.InscribeModalRoutesParams>;
+  [ModalRoutes.Webln]: NavigatorScreenParams<SubModalRoutesParams.WeblnRoutesParams>;
 };
 /** Modal */
 
