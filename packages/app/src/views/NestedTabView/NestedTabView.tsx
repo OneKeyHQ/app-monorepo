@@ -117,7 +117,6 @@ const NestedTabView: ForwardRefRenderFunction<
 
   const setPageIndex = useCallback((pageIndex: number) => {
     try {
-      console.log(`=====>>>>> JS setPageIndex ${pageIndex}`);
       UIManager.dispatchViewManagerCommand(
         findNodeHandle(tabRef.current),
         'setPageIndex',
@@ -130,7 +129,6 @@ const NestedTabView: ForwardRefRenderFunction<
 
   const setRefreshing = useCallback((refreshing: boolean) => {
     try {
-      console.log(`=====>>>>> JS setRefreshing ${refreshing}`);
       UIManager.dispatchViewManagerCommand(
         findNodeHandle(tabRef.current),
         'setRefreshing',
