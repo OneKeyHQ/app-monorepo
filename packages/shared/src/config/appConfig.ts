@@ -8,9 +8,6 @@ export const COVALENT_API_KEY = process.env.COVALENT_KEY!;
 
 export const JPUSH_KEY = process.env.JPUSH_KEY!;
 
-export const SHORT_ONEKEYSO_URL = 'onekey.so';
-export const SHORT_ONEKEYCN_URL = 'onekeycn.com';
-
 export const HARDWARE_SDK_IFRAME_SRC_ONEKEYSO =
   process.env.HARDWARE_SDK_CONNECT_SRC || 'https://jssdk.onekey.so';
 

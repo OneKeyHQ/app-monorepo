@@ -7,9 +7,9 @@ import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import type { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 import type { FirmwareType } from '@onekeyhq/kit/src/views/Hardware/UpdateFirmware/Updating';
-import { SHORT_ONEKEYSO_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { defaultHapticStatus } from '@onekeyhq/shared/src/haptics';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EOnekeyDomain } from '@onekeyhq/shared/types';
 
 import { ValidationFields } from '../../components/Protected/types';
 
@@ -120,7 +120,7 @@ export type SettingsState = {
   advancedSettings?: {
     useDustUtxo?: boolean;
   };
-  hardwareConnectSrc?: string;
+  hardwareConnectSrc?: EOnekeyDomain;
   gasPanelEIP1559Enabled?: boolean;
   showTokenDetailPriceChart?: boolean;
   hideAllNetworksSelectNetworkTips?: boolean;
@@ -198,7 +198,7 @@ const initialState: SettingsState = {
   advancedSettings: {
     useDustUtxo: true,
   },
-  hardwareConnectSrc: SHORT_ONEKEYSO_URL,
+  hardwareConnectSrc: EOnekeyDomain.ONEKEY_SO,
   gasPanelEIP1559Enabled: true,
   hideAllNetworksSelectNetworkTips: false,
 };

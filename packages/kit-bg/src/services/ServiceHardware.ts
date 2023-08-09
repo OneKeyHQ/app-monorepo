@@ -43,7 +43,10 @@ import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
-import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+import type {
+  EOnekeyDomain,
+  IOneKeyDeviceFeatures,
+} from '@onekeyhq/shared/types';
 
 import ServiceBase from './ServiceBase';
 
@@ -938,7 +941,7 @@ class ServiceHardware extends ServiceBase {
   async updateSettings({
     hardwareConnectSrc,
   }: {
-    hardwareConnectSrc?: string;
+    hardwareConnectSrc?: EOnekeyDomain;
   }) {
     try {
       const hardwareSDK = await this.getSDKInstance();
