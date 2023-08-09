@@ -198,6 +198,7 @@ function ManyToN(props: Props) {
     const transferInfos: ITransferInfo[] = [];
 
     setIsBuildingTx(true);
+    setVerifySenderErrors([]);
 
     const { isVerified, errors, senderAccounts, tokensBalance } =
       await verifyBulkTransferBeforeConfirm({
@@ -332,6 +333,10 @@ function ManyToN(props: Props) {
 
     return BigNumber.min(sender.length, receiver.length).toNumber();
   }, [bulkType, receiver.length, sender.length]);
+
+  useEffect(() => {
+    setVerifySenderErrors([]);
+  }, [sender]);
 
   return (
     <Box>

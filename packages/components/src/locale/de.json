@@ -2314,6 +2314,7 @@
   "msg__previous_account_is_empty": "Vorheriges Konto ist leer",
   "msg__price_alert_reached": "🔔 Preisalarm!",
   "msg__price_alert_reached_desc": "{0} hat Ihren Zielwert von {1} erreicht",
+  "msg__processing_transactions": "Transaktionen werden bearbeitet...",
   "msg__received": "🤑 {assets} erhalten",
   "msg__received_a_nft": "🤑 NFT erhalten",
   "msg__received_desc": "Von {address}",
