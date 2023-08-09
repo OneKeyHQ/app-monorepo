@@ -42,7 +42,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import walletConnectUtils from '../../components/WalletConnect/utils/walletConnectUtils';
 import { WalletConnectDappSideTest } from '../../components/WalletConnect/WalletConnectDappSideTest';
-import { useAsyncStorage, useNavigationActions } from '../../hooks';
+import { useAppStorageSetting, useNavigationActions } from '../../hooks';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import {
   GalleryRoutes,
@@ -66,7 +66,7 @@ type NavigationProps = CompositeNavigationProp<
 const DEFAULT_TEST_EVM_ADDRESS_1 = '0x76f3f64cb3cd19debee51436df630a342b736c24';
 const DEFAULT_TEST_EVM_ADDRESS_2 = '0xA9b4d559A98ff47C83B74522b7986146538cD4dF';
 
-const useStorage = platformEnv.isWeb ? useCookie : useAsyncStorage;
+const useStorage = platformEnv.isNative ? useAppStorageSetting : useCookie;
 export const Debug = () => {
   const intl = useIntl();
   const [uri, setUri] = useState('');
@@ -216,7 +216,7 @@ export const Debug = () => {
     ],
   );
 
-  const [rrtStatus, changeRRTStatus] = useStorage('rrt', '0');
+  const [rrtStatus, changeRRTStatus] = useStorage('rrt');
 
   return (
     <ScrollView px={4} py={{ base: 6, md: 8 }} bg="background-default">
@@ -831,21 +831,30 @@ export const Debug = () => {
             <Pressable
               {...pressableProps}
               onPress={() => {
-                (changeRRTStatus as (value: string) => void)(
-                  rrtStatus === '1' ? '0' : '1',
-                );
                 if (platformEnv.isNative) {
+                  (changeRRTStatus as (value: boolean) => void)(!rrtStatus);
                   alert('Please manually restart the app.');
                 } else {
+                  (changeRRTStatus as (value: string) => void)(
+                    rrtStatus === '1' ? '0' : '1',
+                  );
                   window.location.reload();
                 }
               }}
             >
-              <Typography.Body1>
-                {rrtStatus === '1'
-                  ? 'Disabled react-render-tracker'
-                  : 'Enabled react-render-tracker'}
-              </Typography.Body1>
+              {platformEnv.isNative ? (
+                <Typography.Body1>
+                  {rrtStatus
+                    ? 'Disabled react-render-tracker'
+                    : 'Enabled react-render-tracker'}
+                </Typography.Body1>
+              ) : (
+                <Typography.Body1>
+                  {rrtStatus === '1'
+                    ? 'Disabled react-render-tracker'
+                    : 'Enabled react-render-tracker'}
+                </Typography.Body1>
+              )}
             </Pressable>
           </VStack>
         </Box>
