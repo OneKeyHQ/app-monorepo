@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { removeTrailingZeros } from '../../../utils/helper';
 import { AmountTypeEnum, IntervalTypeEnum } from '../types';
 
 import type { TokenTrader, TraderError } from '../types';
@@ -75,7 +76,9 @@ export const getTransferAmount = async ({
   if (amountType === AmountTypeEnum.Random) {
     const min = amount[0];
     const max = BigNumber.min(senderTokenBalance, amount[1]).toFixed();
-    return randomBetween({ min, max, decimals: token.decimals });
+    return removeTrailingZeros(
+      randomBetween({ min, max, decimals: token.decimals }),
+    );
   }
 
   if (amountType === AmountTypeEnum.All) {
