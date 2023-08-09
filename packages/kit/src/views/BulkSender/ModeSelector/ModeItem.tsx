@@ -34,7 +34,7 @@ function AddressElement({ elementText }: { elementText: string }) {
       height="24px"
       borderRadius="full"
       bgColor="surface-neutral-default"
-      alignItems="ceter"
+      alignItems="center"
       justifyContent="center"
     >
       <Text textAlign="center" typography="CaptionStrong">

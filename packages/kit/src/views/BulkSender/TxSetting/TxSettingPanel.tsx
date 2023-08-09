@@ -28,12 +28,12 @@ function TxSettingPanel(props: Props) {
         <VStack>
           {isArray(children)
             ? children.map((item, index) => (
-                <>
+                <Box key={index}>
                   {item}
                   {index === children.length - 1 ? null : (
                     <Divider marginY={4} />
                   )}
-                </>
+                </Box>
               ))
             : children}
         </VStack>

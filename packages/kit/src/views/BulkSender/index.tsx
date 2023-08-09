@@ -194,7 +194,11 @@ function BulkSender() {
           alignItems: 'center',
         }}
       >
-        <Box width="768px" paddingY={5} paddingX={isVertical ? 4 : 0}>
+        <Box
+          width={isVertical ? 'full' : '768px'}
+          paddingY={5}
+          paddingX={isVertical ? 4 : 0}
+        >
           {renderBulkSenderPanel()}
         </Box>
       </ScrollView>
