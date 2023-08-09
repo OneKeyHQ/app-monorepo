@@ -138,6 +138,10 @@ function AmountEditor() {
             id: 'msg__maximum_amount_must_be_greater_than_minimum_amount',
           });
         }
+
+        if (formState.errors.maxAmount) {
+          setTimeout(() => triggerForm('maxAmount'), 100);
+        }
       } else if (type === 'max') {
         const minValue = getValues('minAmount');
         if (new BigNumber(minValue).isGreaterThanOrEqualTo(value)) {
@@ -145,14 +149,20 @@ function AmountEditor() {
             id: 'msg__maximum_amount_must_be_greater_than_minimum_amount',
           });
         }
+        if (formState.errors.minAmount) {
+          setTimeout(() => triggerForm('minAmount'), 100);
+        }
       }
     },
     [
+      formState.errors.maxAmount,
+      formState.errors.minAmount,
       getValues,
       intl,
       network?.settings.minTransferAmount,
       token.decimals,
       token?.symbol,
+      triggerForm,
     ],
   );
 
