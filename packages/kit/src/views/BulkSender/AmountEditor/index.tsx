@@ -334,7 +334,7 @@ function AmountEditor() {
           }}
           values={amountTypes}
           tabStyle={{
-            width: '120px',
+            width: 120,
           }}
         />
         <Form mt={5}>{renderAmountEditorDetail()}</Form>

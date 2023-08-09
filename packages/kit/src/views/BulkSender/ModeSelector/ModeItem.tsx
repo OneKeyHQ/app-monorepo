@@ -147,24 +147,23 @@ function ModeItem(props: Props) {
       {isVertical ? (
         <HStack alignItems="center" space={12}>
           {mark}
-          <VStack height="full" justifyContent="center">
+          <VStack justifyContent="center">
             <Text typography="Heading">
               {intl.formatMessage({ id: title })}
             </Text>
             <Text typography="Body1" color="text-subdued">
               {intl.formatMessage({ id: desc })}
             </Text>
-            {isDisabled ? (
-              <Badge
-                position="absolute"
-                left={0}
-                bottom="-10px"
-                size="sm"
-                title={intl.formatMessage({ id: 'content__stay_tuned' })}
-                type="info"
-              />
-            ) : null}
           </VStack>
+          {isDisabled ? (
+            <Badge
+              left={0}
+              size="sm"
+              bottom="-10px"
+              title={intl.formatMessage({ id: 'content__stay_tuned' })}
+              type="info"
+            />
+          ) : null}
         </HStack>
       ) : (
         <VStack>

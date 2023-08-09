@@ -158,19 +158,22 @@ function TraderInput(props: TraderInputParams) {
             <>
               <IconButton
                 name="ArrowUpTrayMini"
-                bgColor="transparent"
+                bgColor="surface-default"
+                shadow="none"
                 borderWidth={0}
                 onPress={() => setIsUploadMode(!isUploadMode)}
               />
               <IconButton
                 name="UserCircleOutline"
-                bgColor="transparent"
+                bgColor="surface-default"
+                shadow="none"
                 borderWidth={0}
                 onPress={handleSelectAccountsOnPress}
               />
               <IconButton
                 name="BookOpenOutline"
-                bgColor="transparent"
+                bgColor="surface-default"
+                shadow="none"
                 borderWidth={0}
                 onPress={handleSelectContactOnPress}
               />

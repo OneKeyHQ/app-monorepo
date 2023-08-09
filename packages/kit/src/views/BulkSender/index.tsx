@@ -172,6 +172,7 @@ function BulkSender() {
       <Center width="full" height="full">
         <IdentityAssertion>
           <ScrollView
+            style={{ width: '100%' }}
             contentContainerStyle={{
               justifyContent: 'center',
               alignItems: 'center',
