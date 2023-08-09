@@ -115,12 +115,13 @@ const SelectNetworkTips = () => {
 };
 
 const SectionHeader: FC<{
-  section: Section;
+  title: LocaleIds;
+  length: number;
   search: string;
-}> = ({ section, search }) => {
+}> = ({ title, search, length }) => {
   const intl = useIntl();
 
-  if (!section.data?.length) {
+  if (!length) {
     return null;
   }
   return (
@@ -128,9 +129,9 @@ const SectionHeader: FC<{
       {search ? null : (
         <Typography.Subheading>
           {intl.formatMessage(
-            { id: section.title },
+            { id: title },
             {
-              0: section.data?.length ?? 0,
+              0: length ?? 0,
             },
           )}
         </Typography.Subheading>
@@ -233,7 +234,11 @@ export const AllNetworksAccountsDetail: FC = () => {
 
   const renderSectionHeader = useCallback(
     ({ section }: { section: Section }) => (
-      <SectionHeader section={section} search={search} />
+      <SectionHeader
+        title={section.title}
+        length={section.data.length}
+        search={search}
+      />
     ),
     [search],
   );
