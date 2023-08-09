@@ -301,6 +301,7 @@ function PreSendAddress() {
               payloadInfo: {
                 type: 'Transfer',
                 nftInfos,
+                transferInfos,
               },
               transferCount: transferInfos.length,
               onModalClose: closeModal,

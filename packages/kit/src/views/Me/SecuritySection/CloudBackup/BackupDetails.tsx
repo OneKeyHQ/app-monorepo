@@ -31,6 +31,7 @@ import { gtIgnore } from '@onekeyhq/shared/src/utils/semverUtils';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../../hooks';
 import { useAppSelector, useData } from '../../../../hooks/redux';
+import useFormatDate from '../../../../hooks/useFormatDate';
 import useImportBackupPasswordModal from '../../../../hooks/useImportBackupPasswordModal';
 import useLocalAuthenticationModal from '../../../../hooks/useLocalAuthenticationModal';
 import { useOnboardingDone } from '../../../../hooks/useOnboardingRequired';
@@ -177,7 +178,10 @@ export const GroupedBackupDetails = ({
     }
 
     if (walletsItems.length > 0) {
-      datas.push({ title: 'App WALLET', items: walletsItems });
+      datas.push({
+        title: intl.formatMessage({ id: 'wallet__app_wallet' }),
+        items: walletsItems,
+      });
     }
 
     const tokenItems: ListItem[] = [];
@@ -232,7 +236,12 @@ export const GroupedBackupDetails = ({
       });
     }
     if (addressBookAndLabs.length > 0) {
-      datas.push({ title: 'Address BOOK & LABELS', items: addressBookAndLabs });
+      datas.push({
+        title: intl.formatMessage({
+          id: 'form__address_book_labels_uppercase',
+        }),
+        items: addressBookAndLabs,
+      });
     }
 
     const discoverBookmarks = publicBackupData.discoverBookmarks ?? [];
@@ -273,7 +282,7 @@ export const GroupedBackupDetails = ({
   }, [intl, publicBackupData]);
 
   return (
-    <Box my={4} mx={12}>
+    <Box mx={12}>
       {title && (
         <Text typography="Heading" pb="4">
           {title}
@@ -360,15 +369,10 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
       title,
     });
   }, [navigation, intl]);
+  const formatDate = useFormatDate();
 
-  const {
-    backupUUID,
-    backupTime,
-    numOfHDWallets,
-    numOfImportedAccounts,
-    numOfWatchingAccounts,
-    numOfContacts,
-  } = route.params;
+  const { backupUUID, backupTime, numOfHDWallets, numOfAccounts } =
+    route.params;
 
   const [dataReady, setDataReady] = useState(true);
   const [backupData, setBackupData] = useState<{
@@ -565,14 +569,18 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
         <Box mb={{ base: 6, sm: 0 }} mr={{ sm: 6 }}>
           <BackupIcon size="lg" enabled />
         </Box>
-        <BackupSummary
-          backupTime={backupTime}
-          numOfHDWallets={numOfHDWallets}
-          numOfImportedAccounts={numOfImportedAccounts}
-          numOfWatchingAccounts={numOfWatchingAccounts}
-          numOfContacts={numOfContacts}
-          size="heading"
-        />
+        <Text typography="PageHeading">
+          {formatDate.format(new Date(backupTime), 'MMM d, yyyy, HH:mm')}
+        </Text>
+        <Text typography="Body2" mt="12px" color="text-subdued">
+          {`${intl.formatMessage(
+            { id: 'form__str_wallets' },
+            { 0: numOfHDWallets },
+          )} · ${intl.formatMessage(
+            { id: 'form__str_accounts' },
+            { count: numOfAccounts },
+          )}`}
+        </Text>
         {isSmallScreen ? undefined : (
           <BackupActions
             ready={dataReady}
@@ -587,8 +595,7 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
       <Box
         borderBottomWidth={StyleSheet.hairlineWidth}
         borderBottomColor="divider"
-        mt={{ base: 6, sm: 8 }}
-        mb={{ base: 2, sm: 4 }}
+        my={{ base: 8, sm: 6 }}
       />
       {dataReady ? (
         <Spinner size="lg" />

@@ -182,18 +182,33 @@ const LNURLAuth = () => {
           closeModal();
           closeModal();
         }, 300);
-      } catch (e) {
-        ToastManager.show(
-          { title: e instanceof Error ? e.message : e },
-          { type: 'error' },
-        );
+      } catch (e: any) {
+        const { key, info } = e;
+        if (key && key !== 'onekey_error') {
+          ToastManager.show(
+            {
+              title: intl.formatMessage(
+                {
+                  id: key,
+                },
+                info ?? {},
+              ),
+            },
+            { type: 'error' },
+          );
+        } else {
+          ToastManager.show(
+            { title: (e as Error)?.message || e },
+            { type: 'error' },
+          );
+        }
         // quit from password modal
         closeModal();
       } finally {
         setIsLoading(false);
       }
     },
-    [lnurlDetails, walletId, closeModal, messages.successText],
+    [lnurlDetails, walletId, closeModal, messages.successText, intl],
   );
 
   const onConfirmWithAuth = useCallback(

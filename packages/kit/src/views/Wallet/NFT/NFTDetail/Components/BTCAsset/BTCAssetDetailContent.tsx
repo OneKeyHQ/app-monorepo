@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
+  CustomSkeleton,
   HStack,
   Text,
   ToastManager,
@@ -143,15 +144,18 @@ function BTCAssetDetailContent({
 
   return (
     <VStack space="24px" mb="50px">
-      {asset?.inscription_number > 0 ? (
-        <Text
-          typography={{ sm: 'DisplayLarge', md: 'DisplayLarge' }}
-          fontWeight="700"
-        >
-          {`Inscription  #${asset?.inscription_number}`}
-        </Text>
-      ) : null}
-
+      <Text
+        typography={{ sm: 'DisplayLarge', md: 'DisplayLarge' }}
+        fontWeight="700"
+        alignItems="center"
+      >
+        Inscription #{' '}
+        {asset?.inscription_number === 0 ? (
+          <Text>{asset?.inscription_number}</Text>
+        ) : (
+          <CustomSkeleton borderRadius="10px" width={120} height="20px" />
+        )}
+      </Text>
       {isOwner && (
         <HStack space="16px">
           <Button

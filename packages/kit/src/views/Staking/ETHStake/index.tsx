@@ -41,7 +41,7 @@ import {
 import { showOverlay } from '../../../utils/overlayUtils';
 import { formatAmount } from '../../../utils/priceUtils';
 import { SendModalRoutes } from '../../Send/types';
-import { gt, minus, toHex } from '../../Swap/utils';
+import { gt, minus } from '../../Swap/utils';
 import { StakingKeyboard } from '../components/StakingKeyboard';
 import { useStakingAprValue } from '../hooks';
 import { EthStakingSource, KeleStakingMode, StakingRoutes } from '../typing';
@@ -456,11 +456,10 @@ export default function ETHStaking() {
                       fundAddr,
                     );
 
-                    txdata = {
-                      to: fundAddr,
-                      value: toHex(value),
-                      data: '0x',
-                    };
+                    txdata =
+                      await backgroundApiProxy.serviceStaking.buildTxForFastStakingETHtoKele(
+                        { value, networkId, accountId },
+                      );
 
                     doStaking({ stakingTx: txdata, onClose });
                   }}
@@ -474,11 +473,10 @@ export default function ETHStaking() {
               fundAddr,
             );
 
-            txdata = {
-              to: fundAddr,
-              value: toHex(value),
-              data: '0x',
-            };
+            txdata =
+              await backgroundApiProxy.serviceStaking.buildTxForFastStakingETHtoKele(
+                { value, networkId, accountId },
+              );
           } else {
             txdata =
               await backgroundApiProxy.serviceStaking.buildTxForStakingETHtoKele(
