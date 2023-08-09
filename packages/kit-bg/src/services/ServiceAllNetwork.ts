@@ -46,7 +46,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
 
-const AllNetworksMaxAccounts = 3;
+export const AllNetworksMaxAccounts = 3;
 
 @backgroundClass()
 export default class ServiceAllNetwork extends ServiceBase {
