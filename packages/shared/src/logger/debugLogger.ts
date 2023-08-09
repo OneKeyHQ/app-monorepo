@@ -1,4 +1,5 @@
 import { format as fnsFormat } from 'date-fns';
+import { stringify } from 'flatted';
 import { isArray, isNil } from 'lodash';
 import { InteractionManager } from 'react-native';
 import { logger as RNLogger, consoleTransport } from 'react-native-logs';
@@ -13,11 +14,6 @@ import { zip } from '@onekeyhq/shared/src/modules3rdParty/react-native-zip-archi
 import platformEnv from '../platformEnv';
 import appStorage from '../storage/appStorage';
 import { toPlainErrorObject } from '../utils/errorUtils';
-
-import type { transportFunctionType } from 'react-native-logs';
-
-// eslint-disable-next-line import/order
-import { stringify } from 'flatted';
 
 type IConsoleFuncProps = {
   msg: any;
@@ -122,14 +118,29 @@ function logToConsole(props: IConsoleFuncProps) {
   }
 }
 
-const LOCAL_WEB_LIKE_TRANSPORT_CONFIG = {
-  transport: [consoleTransport],
-  transportOptions: {
-    consoleFunc: (msg: string, props: IConsoleFuncProps) => {
+let prevLogContent: string | undefined;
+const consoleFunc = (msg: string, props: IConsoleFuncProps) => {
+  const logContent =
+    props?.rawMsg && isArray(props.rawMsg) ? props.rawMsg.join('') : '';
+  if (logContent === prevLogContent) {
+    return;
+  }
+  prevLogContent = logContent;
+  const { level, rawMsg, extension } = props;
+  if (platformEnv.isNative) {
+    if (process.env.NODE_ENV !== 'production') {
       logToConsole(props);
-      global.$backgroundApiProxy?.serviceApp?.addLogger?.(`${msg}\r\n`);
-    },
-  },
+    }
+    FileLogger.write(
+      level?.severity || LogLevel.Info,
+      `${extension || ''} | ${
+        isArray(rawMsg) ? rawMsg.join(' | ') : (rawMsg as string)
+      }`,
+    );
+  } else {
+    logToConsole(props);
+    global.$backgroundApiProxy?.serviceApp?.addLogger?.(`${msg}\r\n`);
+  }
 };
 
 const NATIVE_LOG_DIR_PATH = `${RNFS?.CachesDirectoryPath || 'OneKey'}/logs`;
@@ -186,37 +197,16 @@ if (platformEnv.isNative) {
   });
 }
 
-const fileAsyncTransport: transportFunctionType = (props) => {
-  const { level, rawMsg, extension } = props;
-  FileLogger.write(
-    level?.severity || LogLevel.Info,
-    `${extension || ''} | ${rawMsg as string}`,
-  );
-};
-
-const NATIVE_TRANSPORT_CONFIG = {
-  transport: platformEnv.isDev
-    ? [fileAsyncTransport, consoleTransport]
-    : [fileAsyncTransport],
-  transportOptions: {
-    consoleFunc: (msg: string, props: IConsoleFuncProps) => {
-      if (platformEnv.isDev) {
-        logToConsole(props);
-        global.$backgroundApiProxy?.serviceApp?.addLogger?.(`${msg}\r\n`);
-      }
-    },
-  },
-};
-
 export const logger = RNLogger.createLogger({
   async: true,
   // eslint-disable-next-line @typescript-eslint/unbound-method
   asyncFunc: InteractionManager.runAfterInteractions,
   stringifyFunc: stringifyLog,
   dateFormat: 'iso',
-  ...(platformEnv.isNative
-    ? NATIVE_TRANSPORT_CONFIG
-    : LOCAL_WEB_LIKE_TRANSPORT_CONFIG),
+  transport: [consoleTransport],
+  transportOptions: {
+    consoleFunc,
+  },
 });
 
 export enum LoggerNames {
