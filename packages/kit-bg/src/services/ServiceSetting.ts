@@ -17,7 +17,10 @@ import {
   setLimitOrderMaintain,
   setSwapMaintain,
 } from '@onekeyhq/kit/src/store/reducers/swapTransactions';
-import { selectInstanceId } from '@onekeyhq/kit/src/store/selectors';
+import {
+  selectInstanceId,
+  selectVersion,
+} from '@onekeyhq/kit/src/store/selectors';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import {
   backgroundClass,
@@ -77,7 +80,7 @@ export default class ServiceSetting extends ServiceBase {
         v = data.bookmarkVersion;
       }
       if (v && semver.valid(v)) {
-        const version = appSelector((s) => s.settings.version);
+        const version = appSelector(selectVersion);
         if (semver.lte(version, v)) {
           dispatch(setShowBookmark(true));
         }

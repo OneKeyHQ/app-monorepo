@@ -8,7 +8,7 @@ import {
   decrypt,
   encrypt,
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import {
+import cloudBackup, {
   incrBackupRequests,
   setDisabled,
   setEnabled,
@@ -24,7 +24,12 @@ import { setEnableLocalAuthentication } from '@onekeyhq/kit/src/store/reducers/s
 import { unlock } from '@onekeyhq/kit/src/store/reducers/status';
 import {
   selectActiveAccountId,
+  selectCloudBackupEnabled,
+  selectCloudBackupIsAvailable,
   selectContacts,
+  selectDiscoverBookmarks,
+  selectIsPasswordSet,
+  selectMarketCategorys,
 } from '@onekeyhq/kit/src/store/selectors';
 import { selectVersion } from '@onekeyhq/kit/src/store/selectors/settings';
 import {
@@ -130,12 +135,11 @@ class ServiceCloudBackup extends ServiceBase {
       };
     });
 
-    const { bookmarks } = this.backgroundApi.appSelector((s) => s.discover);
+    const bookmarks = this.backgroundApi.appSelector(selectDiscoverBookmarks);
     publicBackupData.discoverBookmarks = bookmarks;
     // publicBackupData.browserHistories = userBrowserHistories;
 
-    const { categorys } = this.backgroundApi.appSelector((s) => s.market);
-
+    const categorys = this.backgroundApi.appSelector(selectMarketCategorys);
     let marketFavorites: string[] = [];
     if (categorys && categorys[MARKET_FAVORITES_CATEGORYID]) {
       marketFavorites =
@@ -253,7 +257,7 @@ class ServiceCloudBackup extends ServiceBase {
   @backgroundMethod()
   async getBackupStatus() {
     const { appSelector, dispatch } = this.backgroundApi;
-    const { isAvailable } = appSelector((s) => s.cloudBackup);
+    const isAvailable = appSelector(selectCloudBackupIsAvailable);
     if (!(await CloudFs.isAvailable())) {
       if (isAvailable) {
         dispatch(setIsAvailable(false));
@@ -525,7 +529,7 @@ class ServiceCloudBackup extends ServiceBase {
       serviceApp,
       servicePassword,
     } = this.backgroundApi;
-    const { isPasswordSet } = appSelector((s) => s.data);
+    const isPasswordSet = appSelector(selectIsPasswordSet);
     const activeAccountId = appSelector(selectActiveAccountId);
 
     let data = '';
@@ -655,7 +659,7 @@ class ServiceCloudBackup extends ServiceBase {
   @backgroundMethod()
   requestBackup() {
     const { appSelector, dispatch } = this.backgroundApi;
-    const { enabled } = appSelector((s) => s.cloudBackup);
+    const enabled = appSelector(selectCloudBackupEnabled);
     if (enabled) {
       dispatch(incrBackupRequests());
       appEventBus.emit(AppEventBusNames.BackupRequired);

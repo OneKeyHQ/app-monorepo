@@ -17,6 +17,11 @@ import {
   updateBookmark,
   updateUserBrowserHistory,
 } from '@onekeyhq/kit/src/store/reducers/discover';
+import {
+  selectDappFavorites,
+  selectDiscoverBookmarks,
+  selectFavoritesMigrated,
+} from '@onekeyhq/kit/src/store/selectors';
 import { getDefaultLocale } from '@onekeyhq/kit/src/utils/locale';
 import { getWebTabs } from '@onekeyhq/kit/src/views/Discover/Explorer/Controller/useWebTabs';
 import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
@@ -62,10 +67,9 @@ class ServicDiscover extends ServiceBase {
 
   async migrateFavorite() {
     const { dispatch, appSelector } = this.backgroundApi;
-    const dappFavorites = appSelector((s) => s.discover.dappFavorites);
-    const favoritesMigrated = appSelector((s) => s.discover.favoritesMigrated);
-    const currentBookmarks = appSelector((s) => s.discover.bookmarks);
-
+    const dappFavorites = appSelector(selectDappFavorites);
+    const favoritesMigrated = appSelector(selectFavoritesMigrated);
+    const currentBookmarks = appSelector(selectDiscoverBookmarks);
     if (favoritesMigrated || !dappFavorites || dappFavorites.length === 0) {
       return;
     }
@@ -311,7 +315,7 @@ class ServicDiscover extends ServiceBase {
   @backgroundMethod()
   async removeFavorite(url: string) {
     const { dispatch, appSelector } = this.backgroundApi;
-    const bookmarks = appSelector((s) => s.discover.bookmarks);
+    const bookmarks = appSelector(selectDiscoverBookmarks);
     const item = bookmarks?.find((o) => o.url === url);
     if (item) {
       const base = removeBookmark(item);
@@ -332,7 +336,7 @@ class ServicDiscover extends ServiceBase {
       return;
     }
     const { appSelector } = this.backgroundApi;
-    const bookmarks = appSelector((s) => s.discover.bookmarks);
+    const bookmarks = appSelector(selectDiscoverBookmarks);
     const urls = bookmarks?.map((item) => item.url);
     if (!urls || !urls.includes(url)) {
       this.addFavorite(url);

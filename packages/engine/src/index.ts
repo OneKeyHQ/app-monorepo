@@ -19,6 +19,7 @@ import {
 import { appSelector } from '@onekeyhq/kit/src/store';
 import type { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { selectActiveWalletId } from '@onekeyhq/kit/src/store/selectors';
+import { selectDevMode } from '@onekeyhq/kit/src/store/selectors/settings';
 import {
   generateUUID,
   getTimeDurationMs,
@@ -2329,7 +2330,7 @@ class Engine {
   async listNetworks(enabledOnly = true): Promise<Array<Network>> {
     const dbNetworks = await this.dbApi.listNetworks();
 
-    const devModeEnable = appSelector((s) => s.settings.devMode?.enable);
+    const devModeEnable = appSelector(selectDevMode)?.enable;
     const networks = await Promise.all(
       dbNetworks
         .filter(

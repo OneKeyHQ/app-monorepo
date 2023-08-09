@@ -25,3 +25,13 @@ export const selectUserBrowserHistories = createSelector(
   selectDiscover,
   (s) => s.userBrowserHistories,
 );
+
+export const selectFavoritesMigrated = createSelector(
+  selectDiscover,
+  (s) => s.favoritesMigrated,
+);
+
+export const selectDappFavorites = createSelector(
+  selectDiscover,
+  (s) => s.dappFavorites,
+);

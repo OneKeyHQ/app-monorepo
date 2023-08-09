@@ -58,6 +58,7 @@ import {
   selectActiveNetworkId,
   selectActiveWalletId,
   selectBoardingCompleted,
+  selectIsPasswordSet,
   selectRuntimeAccounts,
   selectRuntimeNetworks,
   selectRuntimeWallets,
@@ -148,7 +149,7 @@ class ServiceAccount extends ServiceBase {
       serviceAccount,
       serviceAccountSelector,
     } = this.backgroundApi;
-    const wallets = appSelector((s) => s.runtime.wallets);
+    const wallets = appSelector(selectRuntimeWallets);
     for (let i = 0; i < wallets.length; i += 1) {
       const wallet = wallets[i];
       const { accounts } = wallet;
@@ -466,13 +467,13 @@ class ServiceAccount extends ServiceBase {
       title: 'serviceAccount.createHDWallet >> engine done',
     });
 
-    const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
+    const isPasswordSet = appSelector(selectIsPasswordSet);
     const boardingCompleted = appSelector(selectBoardingCompleted);
     const actions: any[] = [];
     if (!boardingCompleted) {
       actions.push(setBoardingCompleted());
     }
-    if (!data.isPasswordSet) {
+    if (!isPasswordSet) {
       actions.push(passwordSet());
       actions.push(setEnableAppLock(true));
     }
@@ -630,7 +631,9 @@ class ServiceAccount extends ServiceBase {
       // TODO skip change if match to current active address
       const account = await this.getDBAccountByAddress({ address, networkId });
       if (account) {
-        const { wallets, networks } = appSelector((s) => s.runtime);
+        const networks = appSelector(selectRuntimeNetworks);
+        const wallets = appSelector(selectRuntimeWallets);
+
         // TODO walletId in active
         const wallet = wallets.find((item) =>
           item.accounts.includes(account.id),
@@ -871,8 +874,8 @@ class ServiceAccount extends ServiceBase {
     }
 
     if (checkPasswordSet) {
-      const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
-      if (!data.isPasswordSet) {
+      const isPasswordSet = appSelector(selectIsPasswordSet);
+      if (!isPasswordSet) {
         actions.push(passwordSet());
         actions.push(setEnableAppLock(true));
       }
@@ -1595,7 +1598,7 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async changeActiveAccountByAccountId(accountId: string) {
     const { appSelector } = this.backgroundApi;
-    const { wallets } = appSelector((s) => s.runtime);
+    const wallets = appSelector(selectRuntimeWallets);
     const wallet = wallets.find((item) => item.accounts.includes(accountId));
     if (!wallet) {
       return;
@@ -1683,7 +1686,7 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async getUserAccounts() {
     const { engine, appSelector } = this.backgroundApi;
-    const wallets = appSelector((s) => s.runtime.wallets);
+    const wallets = appSelector(selectRuntimeWallets);
     const accounts = (
       await engine.getAccounts(wallets.map((w) => w.accounts).flat())
     )

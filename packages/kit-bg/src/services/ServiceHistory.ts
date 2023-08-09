@@ -10,6 +10,7 @@ import type {
 import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
 import { setIsPasswordLoadedInVault } from '@onekeyhq/kit/src/store/reducers/data';
 import { refreshHistory } from '@onekeyhq/kit/src/store/reducers/refresher';
+import { selectHideScamHistory } from '@onekeyhq/kit/src/store/selectors';
 import type {
   SendConfirmOnSuccessData,
   SendConfirmResendActionInfo,
@@ -55,7 +56,7 @@ class ServiceHistory extends ServiceBase {
      */
 
     const { engine, appSelector } = this.backgroundApi;
-    const hideScamHistory = appSelector((s) => s.settings.hideScamHistory);
+    const hideScamHistory = appSelector(selectHideScamHistory);
     const vaultSettings = await engine.getVaultSettings(networkId);
 
     const { items } = await simpleDb.history.getAccountHistory({

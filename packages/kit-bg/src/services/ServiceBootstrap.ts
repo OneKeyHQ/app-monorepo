@@ -16,6 +16,8 @@ import {
   selectGuideToPushFirstTime,
   selectInstanceId,
   selectPushNotification,
+  selectRuntimeNetworks,
+  selectVersion,
 } from '@onekeyhq/kit/src/store/selectors';
 import {
   backgroundClass,
@@ -211,7 +213,7 @@ export default class ServiceBootstrap extends ServiceBase {
   @backgroundMethod()
   async switchDefaultRpcToOnekeyRpcNode() {
     const { appSelector, dispatch, serviceNetwork } = this.backgroundApi;
-    const { networks } = appSelector((s) => s.runtime);
+    const networks = appSelector(selectRuntimeNetworks);
     const { autoSwitchDefaultRpcAtVersion, userSwitchedNetworkRpcFlag } =
       appSelector((s) => s.status);
 
@@ -264,7 +266,7 @@ export default class ServiceBootstrap extends ServiceBase {
       const dbMigrationVersion = appSelector(
         (s) => s.settings.accountDerivationDbMigrationVersion,
       );
-      const appVersion = appSelector((s) => s.settings.version);
+      const appVersion = appSelector(selectVersion);
       if (
         dbMigrationVersion &&
         semver.valid(dbMigrationVersion) &&
@@ -339,7 +341,7 @@ export default class ServiceBootstrap extends ServiceBase {
       const dbMigrationVersion = appSelector(
         (s) => s.settings.accountDerivationDbMigrationVersion,
       );
-      const appVersion = appSelector((s) => s.settings.version);
+      const appVersion = appSelector(selectVersion);
       if (
         dbMigrationVersion &&
         semver.valid(dbMigrationVersion) &&

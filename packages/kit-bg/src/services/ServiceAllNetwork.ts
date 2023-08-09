@@ -25,9 +25,12 @@ import {
   setOverviewPortfolioUpdatedAt,
 } from '@onekeyhq/kit/src/store/reducers/overview';
 import {
+  selectAccountSelectorWalletId,
   selectActiveAccountId,
   selectActiveNetworkId,
   selectActiveWalletId,
+  selectRuntimeNetworks,
+  selectRuntimeWallets,
 } from '@onekeyhq/kit/src/store/selectors';
 import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
 import {
@@ -66,8 +69,8 @@ export default class ServiceAllNetwork extends ServiceBase {
   @backgroundMethod()
   async switchWalletToCompatibleAllNetworks() {
     const { appSelector, serviceAccountSelector } = this.backgroundApi;
-    let activeWalletId = appSelector((s) => s.accountSelector.walletId);
-    const wallets = appSelector((s) => s.runtime.wallets);
+    let activeWalletId = appSelector(selectAccountSelectorWalletId);
+    const wallets = appSelector(selectRuntimeWallets);
 
     if (!isWalletCompatibleAllNetworks(activeWalletId)) {
       const newWalletId = wallets.find((w) =>
@@ -211,7 +214,7 @@ export default class ServiceAllNetwork extends ServiceBase {
       return {};
     }
     const activeAccountId = accountId ?? `${walletId}--${index}`;
-    const networks = appSelector((s) => s.runtime.networks ?? []).filter(
+    const networks = appSelector(selectRuntimeNetworks)?.filter(
       (n) =>
         n.enabled &&
         !n.isTestnet &&

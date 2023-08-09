@@ -15,6 +15,7 @@ import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
+import { selectRuntimeWallets } from '@onekeyhq/kit/src/store/selectors';
 import type { SendConfirmParams } from '@onekeyhq/kit/src/views/Send/types';
 import {
   backgroundClass,
@@ -48,7 +49,7 @@ export type ISignMessageParams = {
 export default class ServiceTransaction extends ServiceBase {
   private async getPassword(accountId: string) {
     const { servicePassword, appSelector } = this.backgroundApi;
-    const wallets = appSelector((s) => s.runtime.wallets);
+    const wallets = appSelector(selectRuntimeWallets);
     const activeWallet = wallets.find((wallet) =>
       wallet.accounts.includes(accountId),
     );

@@ -8,6 +8,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useAccountTokensBalance, useThrottle } from '../../../hooks';
 import { useSimpleTokenPriceValue } from '../../../hooks/useTokens';
 import { appSelector } from '../../../store';
+import { selectRuntimeNetworks } from '../../../store/selectors';
 
 type TokenSearchRef = {
   keyword: string;
@@ -61,7 +62,7 @@ export const useTokenSearch = (keyword: string, networkId?: string | null) => {
           tokens = await backgroundApiProxy.serviceSwap.searchTokens({
             keyword: prepare.symbol,
           });
-          const networks = appSelector((s) => s.runtime.networks);
+          const networks = appSelector(selectRuntimeNetworks);
           const matchedNetworkIds = networks
             .filter((o) =>
               o.name.toLowerCase().includes(prepare.networkName.toLowerCase()),

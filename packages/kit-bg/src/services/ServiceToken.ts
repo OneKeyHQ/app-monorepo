@@ -31,9 +31,12 @@ import {
   setAccountTokensBalances,
 } from '@onekeyhq/kit/src/store/reducers/tokens';
 import {
+  selectAccountTokens,
   selectActiveAccountId,
   selectActiveNetworkId,
   selectActiveWalletId,
+  selectDevMode,
+  selectFiatMoneySymbol,
 } from '@onekeyhq/kit/src/store/selectors';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import type { ITokenDetailInfo } from '@onekeyhq/kit/src/views/ManageTokens/types';
@@ -440,7 +443,7 @@ export default class ServiceToken extends ServiceBase {
     if (!address) {
       return;
     }
-    const accountTokens = appSelector((s) => s.tokens.accountTokens);
+    const accountTokens = appSelector(selectAccountTokens);
     const tokens = accountTokens[networkId]?.[accountId] ?? ([] as Token[]);
     const isExists = tokens.find(
       (item) => item.tokenIdOnNetwork === address && !item.autoDetected,
@@ -744,8 +747,7 @@ export default class ServiceToken extends ServiceBase {
       );
     }
     const accountTokensInRedux =
-      appSelector((s) => s.tokens.accountTokens)?.[networkId]?.[accountId] ??
-      [];
+      appSelector(selectAccountTokens)?.[networkId]?.[accountId] ?? [];
     const tokens = [...accountTokensInRedux, ...autodetectedTokens];
     if (includeTop50TokensQuery || serverApiFetchFailed) {
       const top50tokens = await engine.getTopTokensOnNetwork(networkId, 50);
@@ -869,8 +871,7 @@ export default class ServiceToken extends ServiceBase {
     accountId?: string;
   }): Promise<ITokenDetailInfo> {
     const { appSelector, engine } = this.backgroundApi;
-    const testMode =
-      appSelector((s) => s?.settings?.devMode?.onRamperTestMode) ?? false;
+    const testMode = appSelector(selectDevMode)?.onRamperTestMode ?? false;
     const mode = testMode ? 'test' : 'live';
     const { accountId, networkId, ...rest } = params;
 

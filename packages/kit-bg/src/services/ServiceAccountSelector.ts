@@ -8,6 +8,10 @@ import type { AccountGroup } from '@onekeyhq/kit/src/components/NetworkAccountSe
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { getManageNetworks } from '@onekeyhq/kit/src/hooks/useManageNetworks';
 import reducerAccountSelector from '@onekeyhq/kit/src/store/reducers/reducerAccountSelector';
+import {
+  selectAccountSelectorNetworkId,
+  selectAccountSelectorWalletId,
+} from '@onekeyhq/kit/src/store/selectors';
 import { wait } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
@@ -88,7 +92,8 @@ export default class ServiceAccountSelector extends ServiceBase {
 
     debugLogger.accountSelector.info('calling getAccountsByGroup');
     let groupData: AccountGroup[] = [];
-    const { networkId, walletId } = appSelector((s) => s.accountSelector);
+    const networkId = appSelector(selectAccountSelectorNetworkId);
+    const walletId = appSelector(selectAccountSelectorWalletId);
     if (!walletId) {
       return groupData;
     }

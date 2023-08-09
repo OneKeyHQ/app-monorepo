@@ -23,6 +23,15 @@ import {
   selectActiveAccountId,
   selectActiveNetworkId,
   selectActiveWalletId,
+  selectLimitOrderActiveAccount,
+  selectLimitOrderExpireIn,
+  selectLimitOrderInstantRate,
+  selectLimitOrderTokenIn,
+  selectLimitOrderTokenOut,
+  selectRuntimeNetworks,
+  selectRuntimeWallets,
+  selectSwapInputToken,
+  selectSwapTypedValue,
 } from '@onekeyhq/kit/src/store/selectors';
 import {
   WETH9,
@@ -184,8 +193,8 @@ class ServiceLimitOrder extends ServiceBase {
   @backgroundMethod()
   async setDefaultTokens() {
     const { appSelector } = this.backgroundApi;
-    const inputToken = appSelector((s) => s.swap.inputToken);
-    const typedValue = appSelector((s) => s.swap.typedValue);
+    const inputToken = appSelector(selectSwapInputToken);
+    const typedValue = appSelector(selectSwapTypedValue);
     let limitOrderInputToken: Token = WETH9[OnekeyNetwork.eth];
     if (inputToken && limitOrderNetworkIds.includes(inputToken.networkId)) {
       limitOrderInputToken = wToken(inputToken);
@@ -202,7 +211,7 @@ class ServiceLimitOrder extends ServiceBase {
       return;
     }
     const { appSelector, serviceSwap } = this.backgroundApi;
-    const tokenOut = appSelector((s) => s.limitOrder.tokenOut);
+    const tokenOut = appSelector(selectLimitOrderTokenOut);
     if (
       tokenOut?.networkId === inputToken.networkId &&
       tokenOut.tokenIdOnNetwork.toLowerCase() !==
@@ -231,8 +240,8 @@ class ServiceLimitOrder extends ServiceBase {
   @backgroundMethod()
   async setInputToken(newToken: Token) {
     const { appSelector, dispatch } = this.backgroundApi;
-    const tokenOut = appSelector((s) => s.limitOrder.tokenOut);
-    const tokenIn = appSelector((s) => s.limitOrder.tokenIn);
+    const tokenOut = appSelector(selectLimitOrderTokenOut);
+    const tokenIn = appSelector(selectLimitOrderTokenIn);
     if (tokenIn && tokenEqual(tokenIn, newToken)) {
       return;
     }
@@ -257,7 +266,7 @@ class ServiceLimitOrder extends ServiceBase {
   @backgroundMethod()
   async setOutputToken(newToken: Token) {
     const { dispatch, appSelector } = this.backgroundApi;
-    const tokenOut = appSelector((s) => s.limitOrder.tokenOut);
+    const tokenOut = appSelector(selectLimitOrderTokenOut);
     if (tokenOut && tokenEqual(tokenOut, newToken)) {
       return;
     }
@@ -275,7 +284,7 @@ class ServiceLimitOrder extends ServiceBase {
       return;
     }
     const { appSelector } = this.backgroundApi;
-    const networks = appSelector((s) => s.runtime.networks);
+    const networks = appSelector(selectRuntimeNetworks);
     return networks.find((network) => network.id === networkId);
   }
 
@@ -285,15 +294,15 @@ class ServiceLimitOrder extends ServiceBase {
       return;
     }
     const { dispatch, appSelector, engine } = this.backgroundApi;
-    const sendingAccount = appSelector((s) => s.limitOrder.activeAccount);
+    const sendingAccount = appSelector(selectLimitOrderActiveAccount);
     if (
       sendingAccount &&
       isAccountCompatibleWithNetwork(sendingAccount.id, network.id)
     ) {
       return sendingAccount;
     }
-    const wallets = appSelector((s) => s.runtime.wallets);
-    const { networks } = appSelector((s) => s.runtime);
+    const wallets = appSelector(selectRuntimeWallets);
+    const networks = appSelector(selectRuntimeNetworks);
 
     const activeAccountId = appSelector(selectActiveAccountId);
     const activeNetworkId = appSelector(selectActiveNetworkId);
@@ -339,8 +348,8 @@ class ServiceLimitOrder extends ServiceBase {
   @backgroundMethod()
   async switchTokens() {
     const { dispatch, appSelector } = this.backgroundApi;
-    const outputToken = appSelector((s) => s.limitOrder.tokenOut);
-    const inputToken = appSelector((s) => s.limitOrder.tokenIn);
+    const outputToken = appSelector(selectLimitOrderTokenOut);
+    const inputToken = appSelector(selectLimitOrderTokenIn);
     dispatch(setTokenIn(outputToken), setTokenOut(inputToken));
   }
 
@@ -357,7 +366,7 @@ class ServiceLimitOrder extends ServiceBase {
   }: BuildLimitOrderParams): Promise<LimitOrder | undefined> {
     const { appSelector } = this.backgroundApi;
     const { activeAccount, tokenIn, tokenOut, tokenInValue } = params;
-    const expireIn = appSelector((s) => s.limitOrder.expireIn);
+    const expireIn = appSelector(selectLimitOrderExpireIn);
     if (activeAccount && tokenIn && tokenOut && tokenInValue && instantRate) {
       const makerAmount = getTokenAmountString(tokenIn, tokenInValue);
       const takerAmount = getTokenAmountString(
@@ -615,9 +624,9 @@ class ServiceLimitOrder extends ServiceBase {
   async setRate(rate: string) {
     const { dispatch, appSelector } = this.backgroundApi;
     const actions: any[] = [setMktRate(rate)];
-    const instantRate = appSelector((s) => s.limitOrder.instantRate);
+    const instantRate = appSelector(selectLimitOrderInstantRate);
     if (!instantRate) {
-      const tokenIn = appSelector((s) => s.limitOrder.tokenIn);
+      const tokenIn = appSelector(selectLimitOrderTokenIn);
       if (tokenIn && this.isStableToken(tokenIn)) {
         const newRate = formatAmountExact(div(1, rate));
         actions.push(

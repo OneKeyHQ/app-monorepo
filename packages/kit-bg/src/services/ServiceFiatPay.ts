@@ -1,6 +1,7 @@
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { formatServerToken } from '@onekeyhq/engine/src/managers/token';
 import type { ServerToken } from '@onekeyhq/engine/src/types/token';
+import { selectDevMode } from '@onekeyhq/kit/src/store/selectors';
 import type { FiatPayModeType } from '@onekeyhq/kit/src/views/FiatPay/types';
 import {
   backgroundClass,
@@ -23,9 +24,7 @@ class ServiceFiatPay extends ServiceBase {
     tokenAddress?: string;
   }) {
     const { appSelector } = this.backgroundApi;
-    const testMode =
-      appSelector((s) => s?.settings?.devMode?.onRamperTestMode ?? false) ??
-      false;
+    const testMode = appSelector(selectDevMode)?.onRamperTestMode ?? false;
     const urlParams = new URLSearchParams({
       ...param,
       mode: testMode ? 'test' : 'live',

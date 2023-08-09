@@ -14,7 +14,10 @@ import {
 
 import { useAppSelector } from '../../../../hooks';
 import { appSelector } from '../../../../store';
-import { selectSwapLoading } from '../../../../store/selectors';
+import {
+  selectSwapLoading,
+  selectSwapQuoteLimited,
+} from '../../../../store/selectors';
 import { dangerRefs } from '../../refs';
 
 const RefreshButton = () => {
@@ -27,7 +30,7 @@ const RefreshButton = () => {
   const loading = useAppSelector(selectSwapLoading);
 
   const onRefresh = useCallback(() => {
-    const limited = appSelector((s) => s.swap.quoteLimited);
+    const limited = appSelector(selectSwapQuoteLimited);
     if (dangerRefs.submited || limited || !isFocused) {
       return;
     }

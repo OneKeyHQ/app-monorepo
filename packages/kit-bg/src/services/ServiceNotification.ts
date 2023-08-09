@@ -38,6 +38,7 @@ import {
   selectActiveAccountId,
   selectActiveNetworkId,
   selectInstanceId,
+  selectRuntimeWallets,
 } from '@onekeyhq/kit/src/store/selectors';
 import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
 import { getDefaultLocale } from '@onekeyhq/kit/src/utils/locale';
@@ -212,7 +213,7 @@ export default class ServiceNotification extends ServiceBase {
   @backgroundMethod()
   async syncLocalEnabledAccounts() {
     const { appSelector } = this.backgroundApi;
-    const wallets = appSelector((s) => s.runtime.wallets);
+    const wallets = appSelector(selectRuntimeWallets);
     const enabledAccounts = await this.queryAccountDynamic();
 
     const localEnabledAccounts = enabledAccounts

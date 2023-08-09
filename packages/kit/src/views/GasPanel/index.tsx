@@ -11,7 +11,10 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNativeToken } from '../../hooks';
 import { appSelector } from '../../store';
 import { setGasPanelEIP1559Enabled } from '../../store/reducers/settings';
-import { selectGasPanelEIP1559Enabled } from '../../store/selectors';
+import {
+  selectFiatMoneySymbol,
+  selectGasPanelEIP1559Enabled,
+} from '../../store/selectors';
 
 import { supportedNetworks, supportedNetworksSettings } from './config';
 import { GasList } from './GasList';
@@ -34,8 +37,7 @@ function GasPanel() {
 
   const { networkId = '' } = route.params;
 
-  const { selectedFiatMoneySymbol } = appSelector((s) => s.settings);
-
+  const selectedFiatMoneySymbol = appSelector(selectFiatMoneySymbol);
   const [selectedNetworkId, setSelectedNetworkId] = useState(
     supportedNetworks.includes(networkId) ? networkId : DEFAULT_NETWORK,
   );

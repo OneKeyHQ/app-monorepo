@@ -34,6 +34,7 @@ import {
   addTransaction,
   setSlippage,
 } from '../../../store/reducers/swapTransactions';
+import { selectSwapTransactionsSlippage } from '../../../store/selectors';
 import { wait } from '../../../utils/helper';
 import { showOverlay } from '../../../utils/overlayUtils';
 import { SwapTransactionsCancelApprovalBottomSheetModal } from '../components/CancelApprovalModal';
@@ -164,7 +165,7 @@ const addSwapTransaction = async ({
     }),
   );
   // backgroundApiProxy.serviceSwap.resetSwapSlippage();
-  const slippage = appSelector((s) => s.swapTransactions.slippage);
+  const slippage = appSelector(selectSwapTransactionsSlippage);
   if (slippage && slippage.autoReset) {
     actions.push(setSlippage({ mode: 'auto' }));
   }

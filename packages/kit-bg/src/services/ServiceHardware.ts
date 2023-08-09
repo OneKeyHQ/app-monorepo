@@ -17,6 +17,12 @@ import {
   setDeviceVersion,
   setVerification,
 } from '@onekeyhq/kit/src/store/reducers/settings';
+import {
+  selectDevMode,
+  selectDeviceUpdates,
+  selectHardware,
+  selectSettingsHardware,
+} from '@onekeyhq/kit/src/store/selectors';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import {
   BridgeTimeoutError,
@@ -379,7 +385,7 @@ class ServiceHardware extends ServiceBase {
     firmwareType: FirmwareType,
     deviceType: IDeviceType | undefined,
   ) {
-    const { dispatch } = this.backgroundApi;
+    const { dispatch, appSelector } = this.backgroundApi;
     dispatch(setUpdateFirmwareStep(''));
 
     const hardwareSDK = await this.getSDKInstance();
@@ -390,12 +396,13 @@ class ServiceHardware extends ServiceBase {
     hardwareSDK.on('ui-firmware-tip', listener);
 
     // dev
-    const settings = this.backgroundApi.appSelector((s) => s.settings);
-    const enable = settings?.devMode?.enable ?? false;
-    const updateDeviceRes = settings?.devMode?.updateDeviceRes ?? false;
+    const devMode = appSelector(selectDevMode);
+    const deviceUpdates = appSelector(selectDeviceUpdates);
+    const enable = devMode?.enable ?? false;
+    const updateDeviceRes = devMode?.updateDeviceRes ?? false;
 
     const forcedUpdateRes = enable && updateDeviceRes;
-    const version = settings.deviceUpdates?.[connectId][firmwareType]?.version;
+    const version = deviceUpdates?.[connectId][firmwareType]?.version;
 
     try {
       const response = await hardwareSDK.firmwareUpdateV2(
@@ -753,9 +760,9 @@ class ServiceHardware extends ServiceBase {
     const actions: any[] = [];
 
     // dev
-    const settings = this.backgroundApi.appSelector((s) => s.settings) ?? {};
-    const enable = settings?.devMode?.enable ?? false;
-    const updateDeviceSys = settings?.devMode?.updateDeviceSys ?? false;
+    const devMode = this.backgroundApi.appSelector(selectDevMode);
+    const enable = devMode?.enable ?? false;
+    const updateDeviceSys = devMode?.updateDeviceSys ?? false;
     const alwaysUpgrade = !!enable && !!updateDeviceSys;
 
     actions.push(
@@ -769,8 +776,10 @@ class ServiceHardware extends ServiceBase {
       }),
     );
 
+    const hardware = this.backgroundApi.appSelector(selectSettingsHardware);
+
     // check device version and set verified
-    const currentVersion = settings?.hardware?.versions?.[connectId];
+    const currentVersion = hardware?.versions?.[connectId];
     if (
       currentVersion == null ||
       payload.features?.onekey_version !== currentVersion
@@ -821,9 +830,9 @@ class ServiceHardware extends ServiceBase {
     }
 
     // dev
-    const settings = this.backgroundApi.appSelector((s) => s.settings) ?? {};
-    const enable = settings?.devMode?.enable ?? false;
-    const updateDeviceBle = settings?.devMode?.updateDeviceBle ?? false;
+    const devMode = this.backgroundApi.appSelector(selectDevMode);
+    const enable = devMode?.enable ?? false;
+    const updateDeviceBle = devMode?.updateDeviceBle ?? false;
     const alwaysUpgrade = !!enable && !!updateDeviceBle;
 
     const { dispatch } = this.backgroundApi;

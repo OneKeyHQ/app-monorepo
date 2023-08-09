@@ -24,6 +24,8 @@ import {
   selectAppLockDuration,
   selectBoardingCompleted,
   selectEnableAppLock,
+  selectIsPasswordSet,
+  selectIsStatusUnlock,
   selectIsUnlock,
 } from '@onekeyhq/kit/src/store/selectors';
 import type { OpenUrlRouteInfo } from '@onekeyhq/kit/src/utils/extUtils';
@@ -139,7 +141,7 @@ class ServiceApp extends ServiceBase {
   isUnlock(): Promise<boolean> {
     const { appSelector } = this.backgroundApi;
     const isUnlock = appSelector(selectIsUnlock);
-    const isStatusUnlock = appSelector((s) => s.status.isUnlock);
+    const isStatusUnlock = appSelector(selectIsStatusUnlock);
     return Promise.resolve(Boolean(isUnlock && isStatusUnlock));
   }
 
@@ -413,11 +415,11 @@ class ServiceApp extends ServiceBase {
       serviceCloudBackup,
     } = this.backgroundApi;
     await engine.updatePassword(oldPassword, newPassword);
-    const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
+    const isPasswordSet = appSelector(selectIsPasswordSet);
     const boardingCompleted = appSelector(selectBoardingCompleted);
 
     const actions = [];
-    if (!data.isPasswordSet) {
+    if (!isPasswordSet) {
       actions.push(passwordSet());
       actions.push(setEnableAppLock(true));
     }
@@ -443,7 +445,7 @@ class ServiceApp extends ServiceBase {
     dispatch(setHandOperatedLock(handOperated), lock());
 
     return sleepUntil({
-      conditionFn: () => appSelector((s) => s.data.isUnlock === false),
+      conditionFn: () => appSelector(selectIsUnlock) === false,
       until: 1000,
     });
   }

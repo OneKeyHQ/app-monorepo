@@ -12,13 +12,13 @@ import {
   useSafeAreaInsets,
   useUserDevice,
 } from '@onekeyhq/components';
-import { navigationShortcuts } from '@onekeyhq/kit/src/routes/navigationShortcuts';
 import {
   bottomTabBarDescriptors,
   bottomTabBarRoutes,
   swapAndMarketRoutes,
 } from '@onekeyhq/kit/src/routes/Root/Main/Tab/routes/tabRoutes.base';
 import { TabRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import { selectMarketTopTabName } from '@onekeyhq/kit/src/store/selectors';
 import { PortalContainer } from '@onekeyhq/kit/src/views/Overlay/RootPortal';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -90,7 +90,7 @@ export default function MobileBottomTabBar({
               const { appSelector } =
                 require('@onekeyhq/kit/src/store') as typeof import('@onekeyhq/kit/src/store');
               const marketTopTabName =
-                appSelector((s) => s.market.marketTopTabName) || TabRoutes.Swap;
+                appSelector(selectMarketTopTabName) || TabRoutes.Swap;
               navigation.navigate(marketTopTabName);
               // navigationShortcuts.navigateToAppRootTab(
               //   marketTopTabName as unknown as TabRoutes,

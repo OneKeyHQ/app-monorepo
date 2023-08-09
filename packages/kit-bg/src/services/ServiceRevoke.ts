@@ -60,7 +60,10 @@ import type {
   ISetApprovalForAll,
 } from '@onekeyhq/engine/src/vaults/types';
 import { appSelector } from '@onekeyhq/kit/src/store';
-import { selectFiatMoneySymbol } from '@onekeyhq/kit/src/store/selectors';
+import {
+  selectFiatMoneySymbol,
+  selectRuntimeNetworks,
+} from '@onekeyhq/kit/src/store/selectors';
 import { AssetType } from '@onekeyhq/kit/src/views/Revoke/types';
 import lib0xSequenceMulticall from '@onekeyhq/shared/src/asyncModules/lib0xSequenceMulticall';
 import {
@@ -113,7 +116,7 @@ export default class ServiceRevoke extends ServiceBase {
 
   @backgroundMethod()
   async getTransferEvents(networkId: string, address: string) {
-    const networks: Network[] = appSelector((s) => s.runtime.networks);
+    const networks: Network[] = appSelector(selectRuntimeNetworks);
     const network = networks.find((n) => n.id === networkId);
     if (!network) {
       throw new Error(`no active network found`);

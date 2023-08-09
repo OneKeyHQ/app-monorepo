@@ -45,12 +45,27 @@ import {
   updateTokenList,
 } from '@onekeyhq/kit/src/store/reducers/swapTransactions';
 import {
+  selectAccountTokens,
   selectActiveAccountId,
   selectActiveNetworkId,
   selectActiveWalletId,
   selectRuntimeNetworks,
   selectRuntimeWallets,
+  selectSwapError,
+  selectSwapInputToken,
+  selectSwapMode,
+  selectSwapOutputToken,
+  selectSwapQuote,
+  selectSwapRecipient,
+  selectSwapSendingAccount,
+  selectSwapTransactionsCoingeckoIds,
+  selectSwapTransactionsSlippage,
+  selectSwapTransactionsTokenList,
 } from '@onekeyhq/kit/src/store/selectors';
+import {
+  selectSwapInputTokenNetwork,
+  selectSwapOutputTokenNetwork,
+} from '@onekeyhq/kit/src/store/selectors/swap';
 import type { SendConfirmParams } from '@onekeyhq/kit/src/views/Send/types';
 import type {
   FetchQuoteParams,
@@ -136,11 +151,11 @@ export default class ServiceSwap extends ServiceBase {
 
     const network = await engine.getNetwork(OnekeyNetwork.eth);
     const nativeToken = await engine.getNativeTokenInfo(network.id);
-    const inputToken = appSelector((s) => s.swap.inputToken);
+    const inputToken = appSelector(selectSwapInputToken);
     if (nativeToken && !inputToken) {
       this.setInputToken(nativeToken);
     }
-    const outputToken = appSelector((s) => s.swap.outputToken);
+    const outputToken = appSelector(selectSwapOutputToken);
     if (!outputToken) {
       const token = formatServerToken(USDC);
       this.setOutputToken({ ...token, coingeckoId: 'usd-coin' });
@@ -150,8 +165,8 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async setInputToken(token: Token) {
     const { appSelector, engine } = this.backgroundApi;
-    const outputToken = appSelector((s) => s.swap.outputToken);
-    const inputToken = appSelector((s) => s.swap.inputToken);
+    const outputToken = appSelector(selectSwapOutputToken);
+    const inputToken = appSelector(selectSwapInputToken);
     if (outputToken && tokenEqual(outputToken, token)) {
       let network: Network | undefined;
       if (inputToken?.networkId) {
@@ -167,8 +182,8 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async setOutputToken(token: Token) {
     const { appSelector, engine } = this.backgroundApi;
-    const outputToken = appSelector((s) => s.swap.outputToken);
-    const inputToken = appSelector((s) => s.swap.inputToken);
+    const outputToken = appSelector(selectSwapOutputToken);
+    const inputToken = appSelector(selectSwapInputToken);
     if (inputToken && tokenEqual(inputToken, token)) {
       if (getActiveWalletAccount().networkId !== outputToken?.networkId) {
         this.selectToken('INPUT');
@@ -187,8 +202,8 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async switchTokens() {
     const { dispatch, appSelector, engine } = this.backgroundApi;
-    const outputToken = appSelector((s) => s.swap.outputToken);
-    const inputToken = appSelector((s) => s.swap.inputToken);
+    const outputToken = appSelector(selectSwapOutputToken);
+    const inputToken = appSelector(selectSwapInputToken);
     dispatch(setQuote(undefined), setResponses(undefined), switchTokens());
     if (outputToken) {
       const network = await engine.getNetwork(outputToken.networkId);
@@ -245,7 +260,7 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async refreshParams(params: FetchQuoteParams | undefined) {
-    const quote = this.backgroundApi.appSelector((s) => s.swap.quote);
+    const quote = this.backgroundApi.appSelector(selectSwapQuote);
     let result = false;
     if (this.prevParams) {
       const hash = JSON.stringify(params);
@@ -336,14 +351,14 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async getSwapInputToken() {
     const { appSelector } = this.backgroundApi;
-    const inputToken = appSelector((s) => s.swap.inputToken);
+    const inputToken = appSelector(selectSwapInputToken);
     return inputToken;
   }
 
   @backgroundMethod()
   async setRecipient(network: Network): Promise<Recipient | undefined> {
     const { dispatch, appSelector, engine } = this.backgroundApi;
-    const recipient = appSelector((s) => s.swap.recipient);
+    const recipient = appSelector(selectSwapRecipient);
     if (recipient?.address && recipient.networkImpl === network.impl) {
       return recipient;
     }
@@ -397,11 +412,11 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async refreshSendingAccount() {
     const { appSelector, engine } = this.backgroundApi;
-    const sendingAccount = appSelector((s) => s.swap.sendingAccount);
+    const sendingAccount = appSelector(selectSwapSendingAccount);
     if (sendingAccount !== null) {
       return;
     }
-    const inputToken = appSelector((s) => s.swap.inputToken);
+    const inputToken = appSelector(selectSwapInputToken);
     if (!inputToken) {
       return;
     }
@@ -412,11 +427,11 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async handleAccountRemoved(account: Account) {
     const { appSelector, dispatch } = this.backgroundApi;
-    const sendingAccount = appSelector((s) => s.swap.sendingAccount);
+    const sendingAccount = appSelector(selectSwapSendingAccount);
     if (sendingAccount && sendingAccount.id === account.id) {
       dispatch(setSendingAccount(undefined));
     }
-    const recipient = appSelector((s) => s.swap.recipient);
+    const recipient = appSelector(selectSwapRecipient);
     if (recipient && recipient?.accountId === account.id) {
       dispatch(setRecipient(undefined));
     }
@@ -426,11 +441,11 @@ export default class ServiceSwap extends ServiceBase {
   async handleWalletRemove(wallet: Wallet) {
     if (wallet && wallet.accounts.length > 0) {
       const { appSelector, dispatch } = this.backgroundApi;
-      const sendingAccount = appSelector((s) => s.swap.sendingAccount);
+      const sendingAccount = appSelector(selectSwapSendingAccount);
       if (sendingAccount && wallet.accounts.includes(sendingAccount?.id)) {
         dispatch(setSendingAccount(undefined));
       }
-      const recipient = appSelector((s) => s.swap.recipient);
+      const recipient = appSelector(selectSwapRecipient);
       if (
         recipient &&
         recipient.accountId &&
@@ -449,7 +464,7 @@ export default class ServiceSwap extends ServiceBase {
       return;
     }
     const { dispatch, appSelector, engine } = this.backgroundApi;
-    const sendingAccount = appSelector((s) => s.swap.sendingAccount);
+    const sendingAccount = appSelector(selectSwapSendingAccount);
     if (
       sendingAccount &&
       isAccountCompatibleWithNetwork(sendingAccount.id, network.id)
@@ -521,9 +536,9 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async getRecipient(): Promise<Recipient | undefined> {
     const { appSelector } = this.backgroundApi;
-    const recipient = appSelector((s) => s.swap.recipient);
-    const inputToken = appSelector((s) => s.swap.inputToken);
-    const outputToken = appSelector((s) => s.swap.outputToken);
+    const recipient = appSelector(selectSwapRecipient);
+    const inputToken = appSelector(selectSwapInputToken);
+    const outputToken = appSelector(selectSwapOutputToken);
     const allowAnotherRecipientAddress = appSelector(
       (s) => s.swap.allowAnotherRecipientAddress,
     );
@@ -533,7 +548,7 @@ export default class ServiceSwap extends ServiceBase {
         outputToken,
         allowAnotherRecipientAddress,
       );
-      const sendingAccount = appSelector((s) => s.swap.sendingAccount);
+      const sendingAccount = appSelector(selectSwapSendingAccount);
       if (sendingAccount && shouldBeSendingAccount) {
         return {
           accountId: sendingAccount.id,
@@ -550,7 +565,7 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async getAccountRelatedWallet(accountId: string) {
     const { appSelector } = this.backgroundApi;
-    const wallets = appSelector((s) => s.runtime.wallets);
+    const wallets = appSelector(selectRuntimeWallets);
     for (let i = 0; i < wallets.length; i += 1) {
       const wallet = wallets[i];
       const { accounts } = wallet;
@@ -569,7 +584,7 @@ export default class ServiceSwap extends ServiceBase {
     keyword?: string;
   }) {
     const { engine, appSelector } = this.backgroundApi;
-    const networks = appSelector((s) => s.runtime.networks);
+    const networks = appSelector(selectRuntimeNetworks);
     if (!keyword || !keyword.trim()) {
       return [];
     }
@@ -582,7 +597,7 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async checkAccountInWallets(accountId: string) {
     const { appSelector } = this.backgroundApi;
-    const wallets = appSelector((s) => s.runtime.wallets);
+    const wallets = appSelector(selectRuntimeWallets);
     for (let i = 0; i < wallets.length; i += 1) {
       const wallet = wallets[i];
       if (wallet.accounts.includes(accountId)) {
@@ -595,7 +610,7 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async initSwap() {
     const { appSelector, dispatch } = this.backgroundApi;
-    const slippage = appSelector((s) => s.swapTransactions.slippage);
+    const slippage = appSelector(selectSwapTransactionsSlippage);
     if (!slippage) {
       dispatch(setSlippage({ mode: 'auto' }));
     }
@@ -744,7 +759,7 @@ export default class ServiceSwap extends ServiceBase {
       return true;
     }
     const { appSelector } = this.backgroundApi;
-    const wallets = appSelector((s) => s.runtime.wallets);
+    const wallets = appSelector(selectRuntimeWallets);
     const watchingWallet = wallets.find((wallet) => wallet.type === 'watching');
     if (watchingWallet) {
       return watchingWallet.accounts.includes(recipient.accountId);
@@ -767,7 +782,7 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async tokenIsSupported(token: Token) {
     const { appSelector } = this.backgroundApi;
-    const tokenList = appSelector((s) => s.swapTransactions.tokenList);
+    const tokenList = appSelector(selectSwapTransactionsTokenList);
     const networkIds = (tokenList ?? [])
       ?.map((o) => o.networkId)
       .filter((networkId) => networkId !== 'All');
@@ -777,7 +792,7 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async buyToken(token: Token) {
     const { engine, appSelector, dispatch } = this.backgroundApi;
-    const mode = appSelector((s) => s.swap.mode);
+    const mode = appSelector(selectSwapMode);
     if (mode !== 'swap') {
       dispatch(setMode('swap'));
     }
@@ -797,7 +812,7 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async sellToken(token: Token) {
     const { engine, appSelector, dispatch } = this.backgroundApi;
-    const mode = appSelector((s) => s.swap.mode);
+    const mode = appSelector(selectSwapMode);
     if (mode !== 'swap') {
       dispatch(setMode('swap'));
     }
@@ -888,8 +903,8 @@ export default class ServiceSwap extends ServiceBase {
     if (!userSelectedQuoter) {
       return undefined;
     }
-    const inputToken = appSelector((s) => s.swap.inputToken);
-    const outputToken = appSelector((s) => s.swap.outputToken);
+    const inputToken = appSelector(selectSwapInputToken);
+    const outputToken = appSelector(selectSwapOutputToken);
     const hash = stringifyTokens(inputToken, outputToken);
     if (!hash) {
       return undefined;
@@ -932,19 +947,19 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async getSwapError() {
     const { appSelector } = this.backgroundApi;
-    return appSelector((s) => s.swap.error);
+    return appSelector(selectSwapError);
   }
 
   @backgroundMethod()
   async getCurrentSwapSlippageStatus() {
     const { appSelector } = this.backgroundApi;
-    const inputToken = appSelector((s) => s.swap.inputToken);
-    const outputToken = appSelector((s) => s.swap.outputToken);
-    const slippage = appSelector((s) => s.swapTransactions.slippage);
+    const inputToken = appSelector(selectSwapInputToken);
+    const outputToken = appSelector(selectSwapOutputToken);
+    const slippage = appSelector(selectSwapTransactionsSlippage);
     const recommendedSlippage = appSelector(
       (s) => s.swapTransactions.recommendedSlippage,
     );
-    const coingeckoIds = appSelector((s) => s.swapTransactions.coingeckoIds);
+    const coingeckoIds = appSelector(selectSwapTransactionsCoingeckoIds);
 
     const defaultSlippage = '1';
     const getSlippageByCoingeckoId = (coingeckoId?: string) => {
@@ -996,13 +1011,13 @@ export default class ServiceSwap extends ServiceBase {
       return;
     }
     const { appSelector } = this.backgroundApi;
-    const tokenList = appSelector((s) => s.swapTransactions.tokenList);
+    const tokenList = appSelector(selectSwapTransactionsTokenList);
     if (!tokenList) {
       return;
     }
     const data = tokenList.find((item) => item.networkId === networkId);
     const tokensA = data?.tokens ?? [];
-    const accountTokens = appSelector((s) => s.tokens.accountTokens);
+    const accountTokens = appSelector(selectAccountTokens);
     const tokensB = accountTokens?.[networkId]?.[accountId] ?? [];
 
     let tokens = [...tokensA, ...tokensB];
@@ -1028,7 +1043,7 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   resetSwapSlippage() {
     const { appSelector, dispatch } = this.backgroundApi;
-    const slippage = appSelector((s) => s.swapTransactions.slippage);
+    const slippage = appSelector(selectSwapTransactionsSlippage);
     if (slippage && slippage.autoReset) {
       dispatch(setSlippage({ mode: 'auto' }));
     }
@@ -1055,8 +1070,12 @@ export default class ServiceSwap extends ServiceBase {
   @bindThis()
   async refreshSelectedTokenPrice() {
     const { appSelector, servicePrice } = this.backgroundApi;
-    const { inputToken, inputTokenNetwork, outputToken, outputTokenNetwork } =
-      appSelector((s) => s.swap ?? {});
+
+    const inputToken = appSelector(selectSwapInputToken);
+    const outputToken = appSelector(selectSwapOutputToken);
+    const inputTokenNetwork = appSelector(selectSwapInputTokenNetwork);
+    const outputTokenNetwork = appSelector(selectSwapOutputTokenNetwork);
+
     const activeNetworkId = appSelector(selectActiveNetworkId);
     const inputNetworkId = inputTokenNetwork?.id ?? inputToken?.networkId ?? '';
     const outputNetworkId =

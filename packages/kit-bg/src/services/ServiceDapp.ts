@@ -26,7 +26,10 @@ import {
   dappSaveSiteConnection,
   dappUpdateSiteConnectionAddress,
 } from '@onekeyhq/kit/src/store/reducers/dapp';
-import { selectDappConnections } from '@onekeyhq/kit/src/store/selectors';
+import {
+  selectDappConnections,
+  selectIsUnlock,
+} from '@onekeyhq/kit/src/store/selectors';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
 import { isSendModalRouteExisting } from '@onekeyhq/kit/src/utils/routeUtils';
@@ -110,7 +113,7 @@ class ServiceDapp extends ServiceBase {
     const connections: DappSiteConnection[] = appSelector(
       selectDappConnections,
     );
-    const { isUnlock } = appSelector((s) => s.status);
+    const isUnlock = appSelector(selectIsUnlock);
     if (!isUnlock) {
       // TODO unlock status check
       //   return [];

@@ -34,6 +34,7 @@ import {
   selectActiveAccountId,
   selectActiveNetworkId,
   selectActiveWalletId,
+  selectRuntimeNetworks,
 } from '@onekeyhq/kit/src/store/selectors';
 import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
 import {
@@ -101,7 +102,7 @@ class ServiceNetwork extends ServiceBase {
     const activeNetworkId = appSelector(selectActiveNetworkId);
     const activeWalletId = appSelector(selectActiveWalletId);
 
-    const networks: Network[] = appSelector((s) => s.runtime.networks);
+    const networks: Network[] = appSelector(selectRuntimeNetworks);
     const previousNetwork = networks.find(
       (network) => network.id === activeNetworkId,
     );
@@ -347,8 +348,8 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async getNetworkWithRuntime(networkId: string) {
     const { appSelector } = this.backgroundApi;
-    const network = appSelector((s) =>
-      s.runtime.networks.find((n) => n.id === networkId),
+    const network = appSelector(selectRuntimeNetworks).find(
+      (n) => n.id === networkId,
     );
     return Promise.resolve(network);
   }

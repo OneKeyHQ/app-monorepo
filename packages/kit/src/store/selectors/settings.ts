@@ -139,3 +139,8 @@ export const selectDisableSwapExactApproveAmount = createSelector(
   selectSettings,
   (s) => s.disableSwapExactApproveAmount,
 );
+
+export const selectShowTokenDetailPriceChart = createSelector(
+  selectSettings,
+  (s) => s.showTokenDetailPriceChart,
+);

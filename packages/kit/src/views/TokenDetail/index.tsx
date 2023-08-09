@@ -17,11 +17,8 @@ import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import {
-  useAppSelector,
-  useTokenDetailInfo,
-  useTokenPositionInfo,
-} from '../../hooks';
+import { useAppSelector, useTokenDetailInfo } from '../../hooks';
+import { selectShowTokenDetailPriceChart } from '../../store/selectors';
 import { isSupportStakingType } from '../Staking/utils';
 import { SwapPlugins } from '../Swap/Plugins/Swap';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
@@ -78,7 +75,7 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     defaultInfo,
   });
 
-  const showChart = useAppSelector((s) => s.settings.showTokenDetailPriceChart);
+  const showChart = useAppSelector(selectShowTokenDetailPriceChart);
 
   const isLightningNetwork = useMemo(
     () => isLightningNetworkByNetworkId(networkId),

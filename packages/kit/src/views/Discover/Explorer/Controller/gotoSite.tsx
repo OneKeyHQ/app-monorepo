@@ -2,6 +2,7 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { appSelector } from '../../../../store';
 import { webTabsActions } from '../../../../store/observable/webTabs';
 import { addUserBrowserHistory } from '../../../../store/reducers/discover';
+import { selectDiscoverBookmarks } from '../../../../store/selectors';
 import { openUrl } from '../../../../utils/openUrl';
 import { crossWebviewLoadUrl, validateUrl, webHandler } from '../explorerUtils';
 
@@ -26,9 +27,7 @@ export const gotoSite = ({
   id?: string;
   userTriggered?: boolean;
 }) => {
-  const {
-    discover: { bookmarks },
-  } = appSelector((s) => s);
+  const bookmarks = appSelector(selectDiscoverBookmarks);
   const { tabs, currentTabId } = getWebTabs();
   const curId = id || currentTabId;
   const tab = tabs.find((t) => t.id === curId);

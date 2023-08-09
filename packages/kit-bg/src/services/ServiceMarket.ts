@@ -32,6 +32,10 @@ import {
 import {
   selectFiatMoneySymbol,
   selectInstanceId,
+  selectLocale,
+  selectMarketCategorys,
+  selectMarketTokens,
+  selectSelectedCategoryId,
 } from '@onekeyhq/kit/src/store/selectors';
 import type { ServerToken } from '@onekeyhq/kit/src/store/typings';
 import { getDefaultLocale } from '@onekeyhq/kit/src/utils/locale';
@@ -49,7 +53,7 @@ export default class ServiceMarket extends ServiceBase {
   @backgroundMethod()
   async fetchMarketCategorys() {
     const { appSelector, dispatch } = this.backgroundApi;
-    const locale = appSelector((s) => s.settings.locale);
+    const locale = appSelector(selectLocale);
     const path = '/market/category/list';
     const datas: MarketCategory[] = await fetchData(
       path,
@@ -71,8 +75,8 @@ export default class ServiceMarket extends ServiceBase {
     dispatch(saveMarketCategorys(datas));
 
     // toggle default category
-    const selectedCategoryId = appSelector((s) => s.market.selectedCategoryId);
-    const categorys = appSelector((s) => s.market.categorys);
+    const selectedCategoryId = appSelector(selectSelectedCategoryId);
+    const categorys = appSelector(selectMarketCategorys);
     const defaultCategory = Object.values(categorys).find(
       (c) => c.defaultSelected,
     );
@@ -138,7 +142,7 @@ export default class ServiceMarket extends ServiceBase {
     }
     dispatch(updateMarketTokens({ categoryId, marketTokens: data }));
     // check token base(tokens & logoURI)
-    const marketTokens = appSelector((s) => s.market.marketTokens);
+    const marketTokens = appSelector(selectMarketTokens);
     const imperfectMatketTokens = data.filter(
       (t) => !marketTokens[t.coingeckoId]?.tokens,
     );

@@ -4,7 +4,10 @@ import {
   encrypt,
   getBgSensitiveTextEncodeKey,
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import { selectEnableAppLock } from '@onekeyhq/kit/src/store/selectors';
+import {
+  selectEnableAppLock,
+  selectInstanceId,
+} from '@onekeyhq/kit/src/store/selectors';
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
@@ -51,7 +54,7 @@ export default class ServicePassword extends ServiceBase {
     } = {},
   ): Promise<string> {
     const { appSelector } = this.backgroundApi;
-    const { instanceId } = appSelector((s) => s.settings);
+    const instanceId = appSelector(selectInstanceId);
     const output = encrypt(instanceId, Buffer.from(input, inputEncoding), {
       skipSafeCheck: true,
     }).toString(outputEncoding);
@@ -70,7 +73,7 @@ export default class ServicePassword extends ServiceBase {
     } = {},
   ): Promise<string> {
     const { appSelector } = this.backgroundApi;
-    const { instanceId } = appSelector((s) => s.settings);
+    const instanceId = appSelector(selectInstanceId);
     const output = decrypt(instanceId, Buffer.from(input, inputEncoding), {
       skipSafeCheck: true,
     }).toString(outputEncoding);

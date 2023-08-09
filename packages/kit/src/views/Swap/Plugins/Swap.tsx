@@ -7,6 +7,10 @@ import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { getActiveWalletAccount } from '../../../hooks/redux';
 import { appSelector } from '../../../store';
+import {
+  selectSwapInputToken,
+  selectSwapSendingAccount,
+} from '../../../store/selectors';
 import { SwapObserver } from '../Main/Observers/swap';
 import { SwapMain } from '../Main/Swap';
 import { tokenEqual } from '../utils';
@@ -29,14 +33,14 @@ export const SwapPlugins: FC<SwapTokenPluginsProps> = ({
         networkId,
         tokenId,
       );
-      const inputToken = appSelector((s) => s.swap.inputToken);
+      const inputToken = appSelector(selectSwapInputToken);
       if (!token || (inputToken && tokenEqual(inputToken, token))) {
         return;
       }
       await backgroundApiProxy.serviceSwap.buyToken(token);
       const timer = setTimeout(() => {
-        const sendingAccount = appSelector((s) => s.swap.sendingAccount);
-        const currentToken = appSelector((s) => s.swap.inputToken);
+        const sendingAccount = appSelector(selectSwapSendingAccount);
+        const currentToken = appSelector(selectSwapInputToken);
         const { account, wallet } = getActiveWalletAccount();
         if (wallet?.type === 'watching') {
           backgroundApiProxy.serviceSwap.setSendingAccountSimple(null);
