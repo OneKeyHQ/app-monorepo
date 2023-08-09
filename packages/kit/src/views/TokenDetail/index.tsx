@@ -17,11 +17,7 @@ import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import {
-  useAppSelector,
-  useTokenDetailInfo,
-  useTokenPositionInfo,
-} from '../../hooks';
+import { useAppSelector, useTokenDetailInfo } from '../../hooks';
 import { isSupportStakingType } from '../Staking/utils';
 import { SwapPlugins } from '../Swap/Plugins/Swap';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
