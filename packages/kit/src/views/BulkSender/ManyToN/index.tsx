@@ -198,6 +198,7 @@ function ManyToN(props: Props) {
     const transferInfos: ITransferInfo[] = [];
 
     setIsBuildingTx(true);
+    setVerifySenderErrors([]);
 
     const { isVerified, errors, senderAccounts, tokensBalance } =
       await verifyBulkTransferBeforeConfirm({
