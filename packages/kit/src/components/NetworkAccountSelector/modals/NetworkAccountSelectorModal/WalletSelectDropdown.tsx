@@ -8,7 +8,6 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Box,
-  HStack,
   Icon,
   Pressable,
   Select,
@@ -145,134 +144,133 @@ export function WalletSelectDropdown({
   // TODO: replace entry
   return (
     <>
-      <HStack alignItems="center" flexGrow={isDisabled ? 'initial' : 1}>
-        <Select
-          title={intl.formatMessage({ id: 'title__wallets' })}
-          footer={null}
-          value={selectedWalletId}
-          activatable={false}
-          containerProps={{
-            flex: 1,
-            alignItems: 'flex-start',
-          }}
-          options={data}
-          triggerProps={{
-            isDisabled,
-          }}
-          renderTrigger={({ visible, onPress }) => (
-            <Pressable onPress={onPress}>
-              {({ isHovered, isPressed }) => (
-                <Box
-                  flexDirection="row"
-                  alignItems="center"
-                  maxW="240px"
-                  p={2}
-                  rounded="xl"
-                  bgColor={
-                    visible
-                      ? 'surface-selected'
-                      : isPressed
-                      ? 'surface-pressed'
-                      : isHovered
-                      ? 'surface-hovered'
-                      : undefined
-                  }
+      <Select
+        title={intl.formatMessage({ id: 'title__wallets' })}
+        footer={null}
+        value={selectedWalletId}
+        activatable={false}
+        containerProps={{
+          flex: 1,
+          alignItems: 'flex-start',
+        }}
+        options={data}
+        triggerProps={{
+          isDisabled,
+        }}
+        renderTrigger={({ visible, onPress }) => (
+          <Pressable onPress={onPress}>
+            {({ isHovered, isPressed }) => (
+              <Box
+                flexDirection="row"
+                alignItems="center"
+                maxW="240px"
+                p={2}
+                rounded="xl"
+                bgColor={
+                  visible
+                    ? 'surface-selected'
+                    : isPressed
+                    ? 'surface-pressed'
+                    : isHovered
+                    ? 'surface-hovered'
+                    : undefined
+                }
+              >
+                {selectedWallet ? (
+                  <WalletAvatarPro
+                    wallet={selectedWallet}
+                    size="xs"
+                    devicesStatus={undefined}
+                  />
+                ) : null}
+                <Text
+                  typography="Body2Strong"
+                  ml={2}
+                  mr={1}
+                  color="text-subdued"
+                  isTruncated
                 >
-                  {selectedWallet ? (
-                    <WalletAvatarPro
-                      wallet={selectedWallet}
-                      size="xs"
-                      devicesStatus={undefined}
-                    />
-                  ) : null}
-                  <Text
-                    typography="Body2Strong"
-                    ml={2}
-                    mr={1}
-                    color="text-subdued"
-                    isTruncated
-                  >
-                    {getWalletName({
-                      wallet: selectedWallet,
-                      intl,
-                    })}
-                  </Text>
-                  {isDisabled ? null : (
-                    <Box>
-                      <Icon
-                        name="ChevronUpDownMini"
-                        color="icon-subdued"
-                        size={20}
-                      />
-                    </Box>
-                  )}
-                </Box>
-              )}
-            </Pressable>
-          )}
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          renderItem={(item, isActive, onChange) => (
-            <Pressable
-              key={item.value}
-              onPress={async () => {
-                // call internal select onChange to make sure selector closed
-                onChange?.(item.value, item);
-                await serviceAccountSelector.updateSelectedWallet(item.value);
-              }}
-            >
-              {({ isHovered, isPressed }) => (
-                <Box
-                  p={2}
-                  pr={{ base: 3, md: 2 }}
-                  flexDirection="row"
-                  alignItems="center"
-                  bgColor={
-                    isPressed
-                      ? 'surface-pressed'
-                      : isHovered
-                      ? 'surface-hovered'
-                      : undefined
-                  }
-                  rounded="xl"
-                >
-                  {
-                    // @ts-expect-error
-                    item.wallet ? (
-                      <WalletAvatarPro
-                        // @ts-expect-error
-                        wallet={item.wallet}
-                        devicesStatus={undefined}
-                        size={isVerticalLayout ? 'lg' : 'xs'}
-                      />
-                    ) : null
-                  }
-
-                  <Text
-                    typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                    flex={1}
-                    mx={3}
-                  >
-                    {item.label}
-                  </Text>
-                  {isActive ? (
+                  {getWalletName({
+                    wallet: selectedWallet,
+                    intl,
+                  })}
+                </Text>
+                {isDisabled ? null : (
+                  <Box>
                     <Icon
-                      name={isVerticalLayout ? 'CheckOutline' : 'CheckMini'}
-                      size={isVerticalLayout ? 24 : 20}
-                      color="interactive-default"
+                      name="ChevronUpDownMini"
+                      color="icon-subdued"
+                      size={20}
                     />
-                  ) : null}
-                </Box>
-              )}
-            </Pressable>
-          )}
+                  </Box>
+                )}
+              </Box>
+            )}
+          </Pressable>
+        )}
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        renderItem={(item, isActive, onChange) => (
+          <Pressable
+            key={item.value}
+            onPress={async () => {
+              // call internal select onChange to make sure selector closed
+              onChange?.(item.value, item);
+              await serviceAccountSelector.updateSelectedWallet(item.value);
+            }}
+          >
+            {({ isHovered, isPressed }) => (
+              <Box
+                p={2}
+                pr={{ base: 3, md: 2 }}
+                flexDirection="row"
+                alignItems="center"
+                bgColor={
+                  isPressed
+                    ? 'surface-pressed'
+                    : isHovered
+                    ? 'surface-hovered'
+                    : undefined
+                }
+                rounded="xl"
+              >
+                {
+                  // @ts-expect-error
+                  item.wallet ? (
+                    <WalletAvatarPro
+                      // @ts-expect-error
+                      wallet={item.wallet}
+                      devicesStatus={undefined}
+                      size={isVerticalLayout ? 'lg' : 'xs'}
+                    />
+                  ) : null
+                }
+
+                <Text
+                  typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                  flex={1}
+                  mx={3}
+                >
+                  {item.label}
+                </Text>
+                {isActive ? (
+                  <Icon
+                    name={isVerticalLayout ? 'CheckOutline' : 'CheckMini'}
+                    size={isVerticalLayout ? 24 : 20}
+                    color="interactive-default"
+                  />
+                ) : null}
+              </Box>
+            )}
+          </Pressable>
+        )}
+      />
+      {multiSelect && selectedAccounts && selectedAccounts.length > 0 ? (
+        <Badge
+          size="sm"
+          title={`${selectedAccounts?.length} Accounts Selected`}
         />
-        {multiSelect && selectedAccounts && selectedAccounts.length > 0 ? (
-          <Badge
-            size="sm"
-            title={`${selectedAccounts?.length} Accounts Selected`}
-          />
-        ) : null}
-      </HStack>
+      ) : null}
+
       {!hideCreateAccount ? (
         <CreateAccountButton
           walletId={selectedWalletId || ''}

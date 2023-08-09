@@ -9,10 +9,13 @@ import { SwapQuoter } from '../Swap/quoter';
 
 import {
   MainnetLidoContractAddress,
+  MainnetMaticContractAddress,
   TestnetLidoContractAddress,
+  TestnetMaticContractAddress,
 } from './config';
 
 import type { FetchQuoteParams } from '../Swap/typings';
+import type { TransactionType } from './typing';
 
 const assembleTokenAddress = (params: {
   networkId?: string;
@@ -32,18 +35,45 @@ const tokensSupportETHStake: string[] = [
   OnekeyNetwork.goerli,
 ];
 
-const tokenSupportMaticStake: string[] = [];
+const tokenSupportMaticStake: string[] = [
+  `${OnekeyNetwork.eth}--${MainnetMaticContractAddress}`,
+  `${OnekeyNetwork.goerli}--${TestnetMaticContractAddress}`,
+];
 
 export enum StakingTypes {
   eth = 'eth',
   matic = 'matic',
 }
 
+const TransactionType2StakingType: Record<StakingTypes, TransactionType[]> = {
+  [StakingTypes.eth]: ['lidoClaim', 'lidoStake', 'lidoUnstake'],
+  [StakingTypes.matic]: [
+    'lidoClaimMatic',
+    'lidoStakeMatic',
+    'lidoUnstakeMatic',
+  ],
+};
+
+export const getTransactionStakingType = (
+  tx: TransactionType,
+): string | undefined => {
+  const entries = Object.entries(TransactionType2StakingType);
+  for (let i = 0; i < entries.length; i += 1) {
+    const item = entries[i];
+    const stakingType = item[0];
+    const transactionTypes = item[1];
+    if (transactionTypes.includes(tx)) {
+      return stakingType;
+    }
+  }
+};
+
 export const coingeckoId2StakingTypes: Record<
   string,
   StakingTypes | undefined
 > = {
   ethereum: StakingTypes.eth,
+  'matic-network': StakingTypes.matic,
 };
 
 const stakingType2NetworkIds: Record<string, string[] | undefined> = {
