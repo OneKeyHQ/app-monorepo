@@ -12,11 +12,7 @@ Après avoir récupéré le dernier code via l'outil en ligne de commande git, i
 ```
 # Installer toutes les dépendances JS et les dépendances du sous-module
 
-fils
-
-# Installer globalement l'outil de ligne de commande expo
-
-npm install -g expo-cli
+yarn
 ```
 
 ## 🛠 Développement
