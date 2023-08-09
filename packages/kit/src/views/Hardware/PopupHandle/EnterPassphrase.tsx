@@ -18,6 +18,8 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { SkipAppLock } from '@onekeyhq/kit/src/components/AppLock';
 import { setPendingRememberWalletConnectId } from '@onekeyhq/kit/src/store/reducers/hardware';
 
+import { isPassphraseValid } from '../../../utils/passphraseUtils';
+
 import BaseRequestView from './BaseRequest';
 
 import type { BaseRequestViewProps } from './BaseRequest';
@@ -74,12 +76,7 @@ const SetupPassphraseView = ({
             },
             validate: (value) => {
               if (!value.length) return true;
-              // eslint-disable-next-line prefer-regex-literals
-              const passphraseReg = new RegExp(
-                '^[a-zA-Z0-9-><_.:@\\|*!()+%&-\\[\\]?{},#\'`;"~$\\^=]+$',
-                'i',
-              );
-              if (!passphraseReg.test(value)) {
+              if (!isPassphraseValid(value)) {
                 return intl.formatMessage({
                   id: 'form__add_exsting_wallet_invalid',
                 });
