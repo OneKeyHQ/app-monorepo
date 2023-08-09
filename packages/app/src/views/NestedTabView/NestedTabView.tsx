@@ -34,6 +34,7 @@ import type { NativeSyntheticEvent } from 'react-native';
 
 export type ForwardRefHandle = {
   setPageIndex: (pageIndex: number) => void;
+  setRefreshing: (refreshing: boolean) => void;
 };
 
 // const failedDistance = 5;
@@ -116,9 +117,10 @@ const NestedTabView: ForwardRefRenderFunction<
 
   const setPageIndex = useCallback((pageIndex: number) => {
     try {
+      console.log(`=====>>>>> JS setPageIndex ${pageIndex}`);
       UIManager.dispatchViewManagerCommand(
         findNodeHandle(tabRef.current),
-        getViewManagerConfig().Commands.setPageIndex,
+        'setPageIndex',
         [pageIndex],
       );
     } catch (error) {
@@ -126,8 +128,22 @@ const NestedTabView: ForwardRefRenderFunction<
     }
   }, []);
 
+  const setRefreshing = useCallback((refreshing: boolean) => {
+    try {
+      console.log(`=====>>>>> JS setRefreshing ${refreshing}`);
+      UIManager.dispatchViewManagerCommand(
+        findNodeHandle(tabRef.current),
+        'setRefreshing',
+        [refreshing],
+      );
+    } catch (error) {
+      debugLogger.common.error(`set refreshing error`, error);
+    }
+  }, []);
+
   useImperativeHandle(ref, () => ({
     setPageIndex,
+    setRefreshing,
   }));
 
   // const canOpenDrawer = useCallback(() => {

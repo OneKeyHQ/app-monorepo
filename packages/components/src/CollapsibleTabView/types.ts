@@ -4,8 +4,6 @@ import type { StyleProp, ViewStyle } from 'react-native';
 
 export interface CollapsibleContainerProps {
   disableRefresh?: boolean;
-  refreshing?: boolean;
-
   initialTabName?: string;
   headerView?: ReactNode;
   headerHeight: number;

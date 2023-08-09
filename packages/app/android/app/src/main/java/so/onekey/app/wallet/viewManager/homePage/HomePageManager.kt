@@ -20,6 +20,11 @@ data class TabProps(
 )
 
 class HomePageManager : ViewGroupManager<HomePageView>() {
+    companion object {
+        const val COMMAND_SET_PAGE_INDEX = "setPageIndex"
+        const val COMMAND_SET_REFRESHING = "setRefreshing"
+    }
+
     private val REACT_CLASS = "NestedTabView"
 
     override fun getName() = REACT_CLASS
@@ -62,11 +67,6 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
     @ReactProp(name = "disableRefresh")
     fun setDisableRefresh(view: HomePageView, disable: Boolean) {
         view.setEnableRefresh(!disable)
-    }
-
-    @ReactProp(name = "refresh")
-    fun setRefresh(view: HomePageView, refresh: Boolean) {
-        view.setRefresh(refresh)
     }
 
     @ReactProp(name = "scrollEnabled")
@@ -129,14 +129,25 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
         }
     }
 
-    @ReactProp(name = "defaultIndex")
-    fun setDefaultIndex(view: HomePageView, index: Int?) {
-        view.setCurrentIndex(index)
-    }
-
     @ReactProp(name = "slideDisable")
     fun setSlideDisable(view: HomePageView, disable: Boolean?) {
         view.setSlideDisable(disable)
+    }
+
+
+    override fun receiveCommand(view: HomePageView, commandId: String?, args: ReadableArray?) {
+        super.receiveCommand(view, commandId, args)
+        when (commandId) {
+            COMMAND_SET_PAGE_INDEX -> if (args != null) {
+                val pageIndex: Int = args.getInt(0)
+                view.setCurrentIndex(pageIndex)
+            }
+
+            COMMAND_SET_REFRESHING -> if (args != null) {
+                val refresh = args.getBoolean(0)
+                view.setRefresh(refresh)
+            }
+        }
     }
 
     override fun getChildCount(parent: HomePageView): Int {

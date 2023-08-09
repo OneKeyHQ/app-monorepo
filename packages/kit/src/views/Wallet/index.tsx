@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -60,7 +60,6 @@ const WalletTabs: FC = () => {
   const homeTabName = useHomeTabName();
   const { wallet, network, accountId, networkId, walletId } =
     useActiveWalletAccount();
-  const [refreshing, setRefreshing] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
 
   // LazyRenderCurrentHomeTab
@@ -177,9 +176,9 @@ const WalletTabs: FC = () => {
   }, [network?.settings, networkId, tokensTab, nftTab, historyTab, toolsTab]);
 
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
+    ref?.current?.setRefreshing(true);
     backgroundApiProxy.serviceOverview.refreshCurrentAccount().finally(() => {
-      setTimeout(() => setRefreshing(false), 50);
+      setTimeout(() => ref?.current?.setRefreshing(false), 50);
     });
   }, []);
 
@@ -238,8 +237,8 @@ const WalletTabs: FC = () => {
       // otherwise android app will crash when tabs are changed
       key={platformEnv.isNativeAndroid ? `${tabContents.length}` : undefined}
       canOpenDrawer
-      initialTabName={homeTabName}
-      refreshing={refreshing}
+      // initialTabName={homeTabName}
+      // refreshing={refreshing}
       onRefresh={onRefresh}
       onIndexChange={onIndexChange}
       onStartChange={onStartChange}

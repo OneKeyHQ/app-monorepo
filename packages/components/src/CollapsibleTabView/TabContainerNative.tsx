@@ -18,7 +18,6 @@ const TabContainerNativeView: ForwardRefRenderFunction<
 > = (
   {
     disableRefresh,
-    refreshing,
     headerView,
     children,
     onIndexChange,
@@ -107,7 +106,6 @@ const TabContainerNativeView: ForwardRefRenderFunction<
       defaultIndex={tabsInfo.selectedIndex}
       style={containerStyle}
       disableRefresh={disableRefresh}
-      refresh={refreshing}
       spinnerColor={platformEnv.isNativeIOS ? spinnerColor : undefined} // only ios?
       tabViewStyle={tabViewStyle}
       onRefreshCallBack={onRefreshCallBack}

@@ -1,6 +1,7 @@
 // android
 import { Fragment, forwardRef } from 'react';
 
+import type { NativeSyntheticEvent } from 'react-native';
 // @ts-expect-error
 import NestedScrollView from 'react-native-nested-scroll-view';
 

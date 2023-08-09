@@ -147,6 +147,8 @@ open class HomePageLayout @JvmOverloads constructor(
     fun initRefreshListener() {
         content.findViewById<SwipeRefreshLayout>(R.id.layout_refresh)?.let {
             it.setOnRefreshListener {
+                Log.i("initRefreshListener", "initRefreshListener: true")
+                it.isRefreshing = true
                 val event = Arguments.createMap()
                 event.putBoolean("refresh", true)
                 val reactContext = context as ReactContext
