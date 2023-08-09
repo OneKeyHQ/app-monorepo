@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Button,
+  Center,
   HStack,
   IconButton,
   ScrollView,
@@ -15,13 +15,12 @@ import {
 } from '@onekeyhq/components';
 import NavHeader from '@onekeyhq/components/src/NavHeader/NavHeader';
 import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import IdentityAssertion from '../../components/IdentityAssertion';
 import { NetworkAccountSelectorTrigger } from '../../components/NetworkAccountSelector';
 import { useActiveWalletAccount } from '../../hooks';
 import { navigationShortcuts } from '../../routes/navigationShortcuts';
 import { HomeRoutes } from '../../routes/routesEnum';
-import { useConnectAndCreateExternalAccount } from '../ExternalAccount/useConnectAndCreateExternalAccount';
 
 import { ManyToN } from './ManyToN';
 import { ModelSelector } from './ModeSelector';
@@ -63,22 +62,6 @@ function BulkSender() {
   ) {
     [selectedMode] = network.settings.supportBatchTransfer;
   }
-
-  const { connectAndCreateExternalAccount } =
-    useConnectAndCreateExternalAccount({
-      networkId,
-    });
-
-  const walletConnectButton = useMemo(() => {
-    if (!platformEnv.isWeb || accountId) {
-      return null;
-    }
-    return (
-      <Button onPress={connectAndCreateExternalAccount} mr={6}>
-        {intl.formatMessage({ id: 'action__connect_wallet' })}
-      </Button>
-    );
-  }, [intl, connectAndCreateExternalAccount, accountId]);
 
   const renderBulkSenderPanel = useCallback(() => {
     if (selectedMode === BulkTypeEnum.OneToMany) {
@@ -162,16 +145,14 @@ function BulkSender() {
     [isVertical, mode, navigation, title],
   );
 
-  const headerRight = useCallback(() => {
-    if (!accountId) {
-      return walletConnectButton;
-    }
-    return (
+  const headerRight = useCallback(
+    () => (
       <Box pr="6">
         <NetworkAccountSelectorTrigger type={isVertical ? 'basic' : 'plain'} />
       </Box>
-    );
-  }, [accountId, isVertical, walletConnectButton]);
+    ),
+    [isVertical],
+  );
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -188,20 +169,24 @@ function BulkSender() {
 
   if (selectedMode) {
     return (
-      <ScrollView
-        contentContainerStyle={{
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        <Box
-          width={isVertical ? 'full' : '768px'}
-          paddingY={5}
-          paddingX={isVertical ? 4 : 0}
-        >
-          {renderBulkSenderPanel()}
-        </Box>
-      </ScrollView>
+      <Center width="full" height="full">
+        <IdentityAssertion>
+          <ScrollView
+            contentContainerStyle={{
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Box
+              width={isVertical ? 'full' : '768px'}
+              paddingY={5}
+              paddingX={isVertical ? 4 : 0}
+            >
+              {renderBulkSenderPanel()}
+            </Box>
+          </ScrollView>
+        </IdentityAssertion>
+      </Center>
     );
   }
 
