@@ -6,6 +6,7 @@ import type {
   Account,
   DBVariantAccount,
 } from '@onekeyhq/engine/src/types/account';
+import type { RequestInvoiceArgs } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/webln';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { buildModalRouteParams } from '@onekeyhq/kit/src/hooks/useAutoNavigateOnMount';
 import type {
@@ -350,6 +351,17 @@ class ServiceDapp extends ServiceBase {
     return this.openModal({
       request,
       screens: [ModalRoutes.ManageNetwork, ManageNetworkModalRoutes.SwitchRpc],
+      params,
+    });
+  }
+
+  openWeblnMakeInvoiceModal(
+    request: IJsBridgeMessagePayload,
+    params: RequestInvoiceArgs,
+  ) {
+    return this.openModal({
+      request,
+      screens: [ModalRoutes.Send, SendModalRoutes.LNURLWithdraw],
       params,
     });
   }
