@@ -189,7 +189,7 @@ export const verifyBulkTransferBeforeConfirm = async ({
               transferInfo: {
                 from: senderItem.Address,
                 to: receiver[0].Address,
-                amount: '0',
+                amount: new BigNumber(1).shiftedBy(-token.decimals).toFixed(),
                 token: token.tokenIdOnNetwork,
               },
             });
@@ -229,12 +229,16 @@ export const verifyBulkTransferBeforeConfirm = async ({
             .times(1.5)
             .toFixed();
         } catch {
-          ToastManager.show({
-            title: intl.formatMessage({
-              id: 'msg__failed_to_get_network_fees_please_try_again',
-            }),
-            type: 'error',
-          });
+          ToastManager.show(
+            {
+              title: intl.formatMessage({
+                id: 'msg__failed_to_get_network_fees_please_try_again',
+              }),
+            },
+            {
+              type: 'error',
+            },
+          );
           return {
             isVerified: false,
           };
@@ -276,7 +280,7 @@ export const verifyBulkTransferBeforeConfirm = async ({
     } else if (amountType === AmountTypeEnum.Fixed) {
       [senderAmount] = amount;
     } else if (amountType === AmountTypeEnum.Random) {
-      [, senderAmount] = amount;
+      [senderAmount] = amount;
     } else {
       senderAmount = '0';
     }

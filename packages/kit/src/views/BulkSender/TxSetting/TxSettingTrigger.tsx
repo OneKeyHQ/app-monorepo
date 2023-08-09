@@ -45,6 +45,7 @@ function TxSettingTrigger(props: Props) {
                     <Text
                       typography="Body2"
                       color="text-subdued"
+                      numberOfLines={2}
                       {...descStyle}
                     >
                       {desc}
