@@ -93,7 +93,7 @@ const SectionCopyAddress: FC = memo(() => {
           {intl.formatMessage(
             { id: 'form__all_networks_str' },
             {
-              0: Object.keys(networkAccountsMap).length,
+              0: Object.keys(networkAccountsMap ?? {}).length,
             },
           )}
         </Text>

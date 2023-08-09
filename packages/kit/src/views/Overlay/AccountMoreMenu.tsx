@@ -5,7 +5,12 @@ import { useAsync } from 'react-async-hook';
 import { useIntl } from 'react-intl';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
-import { ToastManager } from '@onekeyhq/components';
+import {
+  Box,
+  IconButton,
+  ToastManager,
+  Typography,
+} from '@onekeyhq/components';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
@@ -38,12 +43,16 @@ import { useFiatPay } from '../Wallet/AccountInfo/hooks';
 
 import BaseMenu from './BaseMenu';
 
-import type { IMenu } from './BaseMenu';
 import type { MessageDescriptor } from 'react-intl';
 
 const NeedActivateAccountImpl = [IMPL_APTOS, IMPL_SUI];
 
-const AccountMoreMenu: FC<IMenu> = (props) => {
+interface Props {
+  iconBoxFlex: number;
+  isSmallView: boolean;
+}
+
+const AccountMoreMenu: FC<Props> = ({ iconBoxFlex, isSmallView }) => {
   const intl = useIntl();
   const navigation = useNavigation();
   const { network, account, wallet, accountId, networkId } =
@@ -282,16 +291,35 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
     ],
   );
 
+  if (!options.filter(Boolean)?.length) {
+    return null;
+  }
+
   return (
-    <BaseMenu
-      w={220}
-      options={options}
-      {...props}
-      onOpen={() => {
-        refresh();
-        execute();
-      }}
-    />
+    <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
+      <BaseMenu
+        w={220}
+        options={options}
+        onOpen={() => {
+          refresh();
+          execute();
+        }}
+      >
+        <IconButton
+          circle
+          size={isSmallView ? 'xl' : 'lg'}
+          name="EllipsisVerticalOutline"
+          type="basic"
+        />
+      </BaseMenu>
+      <Typography.CaptionStrong
+        textAlign="center"
+        mt="8px"
+        color="text-default"
+      >
+        {intl.formatMessage({ id: 'action__more' })}
+      </Typography.CaptionStrong>
+    </Box>
   );
 };
 

@@ -98,7 +98,7 @@ function generateFakeAllnetworksAccount({
 
   const index = Number.parseInt(match?.[1] ?? '');
 
-  ok(!Number.isNaN(index), 'invalid accountId');
+  ok(!Number.isNaN(index), `invalid accountId, accontId=${accountId ?? ''}}`);
 
   return {
     id: accountId,

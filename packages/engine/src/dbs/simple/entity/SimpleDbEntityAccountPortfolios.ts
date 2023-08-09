@@ -64,4 +64,19 @@ export class SimpleDbEntityAccountPortfolios extends SimpleDbEntityBase<ISimpleD
   async clear() {
     return this.setRawData(defaultData);
   }
+
+  async removeWalletData(walletIds: string[]) {
+    const { portfolios } = await this.getData();
+    for (const key of Object.keys(portfolios)) {
+      const [, accountId] = key.split('___');
+      for (const walletId of walletIds) {
+        if (accountId && accountId.startsWith(walletId)) {
+          delete portfolios[key];
+        }
+      }
+    }
+    return this.setRawData({
+      portfolios,
+    });
+  }
 }
