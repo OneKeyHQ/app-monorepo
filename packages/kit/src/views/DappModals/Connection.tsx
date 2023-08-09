@@ -21,7 +21,10 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import type { IAccount, INetwork } from '@onekeyhq/engine/src/types';
 import Logo from '@onekeyhq/kit/assets/logo_round.png';
-import { IMPL_COSMOS } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_COSMOS,
+  isLightningNetworkByImpl,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
@@ -346,7 +349,10 @@ const Connection = () => {
   const getResolveDataAsync = useCallback(async () => {
     // throw web3Errors.provider.unauthorized();
     // throw new Error('Testing: some error occur in approval.');
-    if (!networkImpl || !accountAddress) {
+    if (
+      (!networkImpl || !accountAddress) &&
+      !isLightningNetworkByImpl(networkImpl)
+    ) {
       throw new Error(
         'Wallet or account not selected, you should create or import one.',
       );
@@ -371,6 +377,13 @@ const Connection = () => {
     if (scope === 'solana') {
       accounts = address;
     }
+    if (scope === 'webln') {
+      const { hashAddress } = JSON.parse(account?.addresses ?? '');
+      if (!hashAddress) {
+        throw new Error('Wrong lightning account.');
+      }
+      address = hashAddress;
+    }
 
     await backgroundApiProxy.serviceDapp.saveConnectedAccounts({
       site: {
@@ -380,7 +393,7 @@ const Connection = () => {
       address,
     });
     return accounts;
-  }, [accountAddress, accountPubKey, networkImpl, origin, scope]);
+  }, [accountAddress, accountPubKey, account, networkImpl, origin, scope]);
 
   const dappApprove = useDappApproveAction({
     id,

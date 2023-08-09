@@ -13,6 +13,7 @@ import ProviderApiSolana from './ProviderApiSolana';
 import ProviderApiStarcoin from './ProviderApiStarcoin';
 import ProviderApiSui from './ProviderApiSui';
 import ProviderApiTron from './ProviderApiTron';
+import ProviderApiWebln from './ProviderApiWebln';
 
 import type { IBackgroundApi, IBackgroundApiBridge } from '../IBackgroundApi';
 import type ProviderApiBase from './ProviderApiBase';
@@ -60,6 +61,9 @@ function createBackgroundProviders({
       backgroundApi,
     }),
     [IInjectedProviderNames.polkadot]: new ProviderApiPolkadot({
+      backgroundApi,
+    }),
+    [IInjectedProviderNames.webln]: new ProviderApiWebln({
       backgroundApi,
     }),
     // near
