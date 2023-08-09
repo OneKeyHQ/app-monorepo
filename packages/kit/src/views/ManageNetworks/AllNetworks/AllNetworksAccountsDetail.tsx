@@ -92,17 +92,21 @@ const SelectNetworkTips = () => {
     useAppSelector((s) => s.settings.hideAllNetworksSelectNetworkTips) ?? false;
 
   return hideAllNetworksSelectNetworkTips ? null : (
-    <Alert
-      title={intl.formatMessage({
-        id: 'msg__tips_optimize_load_times_by_choosing_fewer_chains',
-      })}
-      dismiss
-      alertType="info"
-      customIconName="InformationCircleMini"
-      onDismiss={() => {
-        backgroundApiProxy.dispatch(setHideAllNetworksSelectNetworkTips(true));
-      }}
-    />
+    <Box mt="6">
+      <Alert
+        title={intl.formatMessage({
+          id: 'msg__tips_optimize_load_times_by_choosing_fewer_chains',
+        })}
+        dismiss
+        alertType="info"
+        customIconName="InformationCircleMini"
+        onDismiss={() => {
+          backgroundApiProxy.dispatch(
+            setHideAllNetworksSelectNetworkTips(true),
+          );
+        }}
+      />
+    </Box>
   );
 };
 
@@ -267,6 +271,7 @@ export const AllNetworksAccountsDetail: FC = () => {
       }
       hideSecondaryAction
       onPrimaryActionPress={onConfirm}
+      primaryActionTranslationId="action__done"
     >
       {loading ? (
         <Spinner size="lg" />

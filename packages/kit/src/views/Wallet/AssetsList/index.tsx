@@ -338,7 +338,7 @@ function AssetsList({
   }, [loading, accountId, network, updateInfo?.updatedAt, intl]);
 
   return (
-    <>
+    <Box h="full">
       <Container
         style={{
           maxWidth: MAX_PAGE_CONTAINER_WIDTH,
@@ -385,7 +385,7 @@ function AssetsList({
         startRefresh={startRefresh}
         stopRefresh={stopRefresh}
       />
-    </>
+    </Box>
   );
 }
 
