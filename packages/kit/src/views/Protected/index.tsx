@@ -14,8 +14,12 @@ import {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { ValidationFields } from '../../components/Protected';
-import { useAppSelector, useNavigation, useSettings } from '../../hooks';
+import { useAppSelector, useNavigation } from '../../hooks';
 import { setValidationState } from '../../store/reducers/settings';
+import {
+  selectAuthenticationType,
+  selectValidationSetting,
+} from '../../store/selectors';
 
 type OptionsProps = {
   title?: string;
@@ -52,8 +56,9 @@ const Options: FC<OptionsProps> = ({ title, onToggle, divider, isChecked }) => (
 const Protected = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const authenticationType = useAppSelector((s) => s.status.authenticationType);
-  const { validationSetting = {} } = useSettings();
+  const authenticationType = useAppSelector(selectAuthenticationType);
+  const validationSetting = useAppSelector(selectValidationSetting) ?? {};
+
   const { themeVariant } = useTheme();
 
   useLayoutEffect(() => {

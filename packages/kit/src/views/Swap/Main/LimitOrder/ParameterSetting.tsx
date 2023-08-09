@@ -19,6 +19,14 @@ import {
   setInstantRate,
   setTypedPrice,
 } from '../../../../store/reducers/limitOrder';
+import {
+  selectLimitOrderExpireIn,
+  selectLimitOrderInstantRate,
+  selectLimitOrderMktRate,
+  selectLimitOrderTokenIn,
+  selectLimitOrderTokenOut,
+  selectLimitOrderTypedPrice,
+} from '../../../../store/selectors';
 import { div, formatAmountExact } from '../../utils';
 
 function formatExpireInString(expireIn: number) {
@@ -37,12 +45,12 @@ function formatExpireInString(expireIn: number) {
 
 function InstantRateSetting() {
   const intl = useIntl();
-  const typedPrice = useAppSelector((s) => s.limitOrder.typedPrice);
+  const typedPrice = useAppSelector(selectLimitOrderTypedPrice);
 
-  const tokenIn = useAppSelector((s) => s.limitOrder.tokenIn);
-  const tokenOut = useAppSelector((s) => s.limitOrder.tokenOut);
-  const instantRate = useAppSelector((s) => s.limitOrder.instantRate);
-  const mktRate = useAppSelector((s) => s.limitOrder.mktRate);
+  const tokenIn = useAppSelector(selectLimitOrderTokenIn);
+  const tokenOut = useAppSelector(selectLimitOrderTokenOut);
+  const instantRate = useAppSelector(selectLimitOrderInstantRate);
+  const mktRate = useAppSelector(selectLimitOrderMktRate);
 
   const onChangeText = useCallback(
     (value: string) => {
@@ -174,7 +182,7 @@ function ExpireSetting() {
     return data;
   }, [intl]);
 
-  const expireIn = useAppSelector((s) => s.limitOrder.expireIn);
+  const expireIn = useAppSelector(selectLimitOrderExpireIn);
   const onSetExpireIn = useCallback((value: number) => {
     backgroundApiProxy.dispatch(setExpireIn(value));
   }, []);

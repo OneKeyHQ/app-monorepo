@@ -6,6 +6,7 @@ import { Box, NumberInput, Pressable, Typography } from '@onekeyhq/components';
 
 import { FormatCurrency } from '../../../../components/Format';
 import { useAppSelector } from '../../../../hooks';
+import { selectLimitOrderTokenOut } from '../../../../store/selectors';
 import { useTokenPrice } from '../../hooks/useSwapTokenUtils';
 import { TokenDisplay } from '../TokenDisplay';
 
@@ -27,7 +28,7 @@ const TokenInput: FC<TokenInputProps> = ({
   isDisabled,
 }) => {
   const intl = useIntl();
-  const token = useAppSelector((s) => s.limitOrder.tokenOut);
+  const token = useAppSelector(selectLimitOrderTokenOut);
   const price = useTokenPrice(token);
 
   return (

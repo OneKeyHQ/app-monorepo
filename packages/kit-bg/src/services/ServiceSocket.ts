@@ -2,6 +2,7 @@ import { io } from 'socket.io-client';
 
 import { getSocketEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { appSelector } from '@onekeyhq/kit/src/store';
+import { selectInstanceId } from '@onekeyhq/kit/src/store/selectors';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
@@ -73,7 +74,7 @@ export default class ServiceSocket extends ServiceBase {
 
   @backgroundMethod()
   login() {
-    const instanceId = appSelector((s) => s.settings.instanceId);
+    const instanceId = appSelector(selectInstanceId);
     if (!instanceId) {
       return;
     }

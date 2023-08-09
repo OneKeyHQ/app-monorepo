@@ -5,6 +5,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 
 import { useAppSelector } from '../../../hooks';
+import { selectSwapSendingAccount } from '../../../store/selectors';
 import AccountSelectorModal from '../components/AccountSelectorModal';
 
 import type { SwapRoutes, SwapRoutesParams } from '../typings';
@@ -15,7 +16,7 @@ type RouteProps = RouteProp<SwapRoutesParams, SwapRoutes.SelectSendingAccount>;
 const SelectSendingAccount = () => {
   const route = useRoute<RouteProps>();
   const navigation = useNavigation();
-  const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
+  const sendingAccount = useAppSelector(selectSwapSendingAccount);
 
   const onSelected = useCallback(
     (acc: Account) => {

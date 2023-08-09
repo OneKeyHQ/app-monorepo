@@ -22,6 +22,8 @@ import ChainSelector from '../../../../components/Form/ChainSelector';
 import { useAppSelector, useDebounce } from '../../../../hooks';
 // import { setHideAddressBookAttention } from '../../../../store/reducers/status';
 
+import { selectContacts } from '../../../../store/selectors';
+
 import type { ContactValues } from '../../routes';
 
 type ModalViewProps = ComponentProps<typeof Modal> & {
@@ -43,7 +45,7 @@ const ModalView: FC<ModalViewProps> = ({
 }) => {
   const intl = useIntl();
   const validateAddressError = useRef<boolean>();
-  const contacts = useAppSelector((s) => s.contacts.contacts);
+  const contacts = useAppSelector(selectContacts);
   // const hideAddressBookAttention = useAppSelector(
   //   (s) => s.status.hideAddressBookAttention,
   // );

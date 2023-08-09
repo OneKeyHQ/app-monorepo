@@ -27,6 +27,12 @@ import { useNavigation } from '../../../../hooks';
 import { useAppSelector } from '../../../../hooks/redux';
 import useFormatDate from '../../../../hooks/useFormatDate';
 import { HomeRoutes } from '../../../../routes/routesEnum';
+import {
+  selectCloudBackupEnabled,
+  selectCloudBackupInProgress,
+  selectCloudBackupIsAvailable,
+  selectLastBackup,
+} from '../../../../store/selectors';
 import { showOverlay } from '../../../../utils/overlayUtils';
 
 import BackupIcon from './BackupIcon';
@@ -237,12 +243,11 @@ const CloudBackup = () => {
     });
   }, [navigation, intl]);
 
-  const {
-    isAvailable,
-    enabled: backupEnabled,
-    inProgress,
-    lastBackup = 0,
-  } = useAppSelector((s) => s.cloudBackup);
+  const isAvailable = useAppSelector(selectCloudBackupIsAvailable);
+  const backupEnabled = useAppSelector(selectCloudBackupEnabled);
+  const inProgress = useAppSelector(selectCloudBackupInProgress);
+  const lastBackup = useAppSelector(selectLastBackup) ?? 0;
+
   const [hasPreviousBackups, setHasPreviousBackups] = useState(false);
 
   useEffect(() => {

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { INetwork } from '@onekeyhq/engine/src/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { selectRuntimeNetworks } from '../store/selectors';
 
 import { useAppSelector } from './useAppSelector';
 
@@ -17,8 +18,8 @@ function useNetwork({
   if (networkId === 'all') {
     debugger;
   }
-  const networkInRedux = useAppSelector((s) =>
-    s.runtime.networks?.find((n) => n.id === networkId),
+  const networkInRedux = useAppSelector(selectRuntimeNetworks)?.find(
+    (n) => n.id === networkId,
   );
   const [networkInDb, setNetworkInDb] = useState<INetwork | undefined>(
     networkInRedux,

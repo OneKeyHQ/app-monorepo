@@ -12,6 +12,7 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../../hooks';
 import { setNetworkPrice } from '../../../../store/reducers/discover';
+import { selectDiscoverNetworkPrices } from '../../../../store/selectors';
 
 class GasPriceUpdater {
   private loading = false;
@@ -44,7 +45,7 @@ class GasPriceUpdater {
 }
 
 export const GasPrice = () => {
-  const networkPrices = useAppSelector((s) => s.discover.networkPrices);
+  const networkPrices = useAppSelector(selectDiscoverNetworkPrices);
   const price = networkPrices?.[OnekeyNetwork.eth];
   useEffect(() => {
     GasPriceUpdater.instance.refresh();
@@ -76,7 +77,7 @@ export const GasPrice = () => {
 };
 
 export const GasPriceMini = () => {
-  const networkPrices = useAppSelector((s) => s.discover.networkPrices);
+  const networkPrices = useAppSelector(selectDiscoverNetworkPrices);
   const price = networkPrices?.[OnekeyNetwork.eth];
   useEffect(() => {
     const t = setInterval(() => GasPriceUpdater.instance.refresh(), 60 * 1000);

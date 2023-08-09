@@ -11,7 +11,6 @@ import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useAppSelector,
-  useData,
   useGetWalletDetail,
 } from '@onekeyhq/kit/src/hooks/redux';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
@@ -19,6 +18,10 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { useNetwork } from '../../hooks';
+import {
+  selectIsPasswordLoadedInVault,
+  selectIsPasswordSet,
+} from '../../store/selectors';
 
 import Session from './Session';
 import Setup from './Setup';
@@ -69,11 +72,9 @@ const Protected: FC<ProtectedProps> = ({
   const [withEnableAuthentication, setWithEnableAuthentication] =
     useState<boolean>();
   const [isLocalAuthentication, setLocalAuthentication] = useState<boolean>();
-  const { isPasswordSet } = useData();
+  const isPasswordSet = useAppSelector(selectIsPasswordSet);
   const [hasPassword] = useState(isPasswordSet);
-  const isPasswordLoadedInVault = useAppSelector(
-    (s) => s.data.isPasswordLoadedInVault,
-  );
+  const isPasswordLoadedInVault = useAppSelector(selectIsPasswordLoadedInVault);
 
   const [isNeedInputPassword, setIsNeedInputPassword] = useState<
     boolean | undefined

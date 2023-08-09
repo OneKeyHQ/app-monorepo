@@ -21,8 +21,12 @@ import type {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNetwork } from '../../../hooks';
-import { useRuntime } from '../../../hooks/redux';
+import { useAppSelector } from '../../../hooks/redux';
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
+import {
+  selectRuntimeNetworks,
+  selectRuntimeWallets,
+} from '../../../store/selectors';
 import { deviceUtils } from '../../../utils/hardware';
 
 import {
@@ -68,7 +72,9 @@ const BitcoinUsedAddress: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const { networkId, accountId, walletId, entry } = route.params;
-  const { networks, wallets } = useRuntime();
+  const wallets = useAppSelector(selectRuntimeWallets);
+  const networks = useAppSelector(selectRuntimeNetworks);
+
   const network = networks.find((n) => n.id === networkId);
   const wallet = wallets.find((w) => w.id === walletId);
 

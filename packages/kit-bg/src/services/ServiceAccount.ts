@@ -53,6 +53,15 @@ import {
   setBoardingNotCompleted,
   unlock,
 } from '@onekeyhq/kit/src/store/reducers/status';
+import {
+  selectActiveAccountId,
+  selectActiveNetworkId,
+  selectActiveWalletId,
+  selectBoardingCompleted,
+  selectRuntimeAccounts,
+  selectRuntimeNetworks,
+  selectRuntimeWallets,
+} from '@onekeyhq/kit/src/store/selectors';
 import { DeviceNotOpenedPassphrase } from '@onekeyhq/kit/src/utils/hardware/errors';
 import { wait } from '@onekeyhq/kit/src/utils/helper';
 import { getNetworkIdImpl } from '@onekeyhq/kit/src/views/Swap/utils';
@@ -172,7 +181,8 @@ class ServiceAccount extends ServiceBase {
     shouldReloadAccountsWhenWalletChanged?: boolean;
   }) {
     const { dispatch, appSelector } = this.backgroundApi;
-    const { activeNetworkId, activeWalletId } = appSelector((s) => s.general);
+    const activeNetworkId = appSelector(selectActiveNetworkId);
+    const activeWalletId = appSelector(selectActiveWalletId);
     // await this.initWallets();
     if (shouldReloadAccountsWhenWalletChanged && activeWalletId !== walletId) {
       await this.reloadAccountsByWalletIdNetworkId(walletId, activeNetworkId);
@@ -272,9 +282,9 @@ class ServiceAccount extends ServiceBase {
       dispatch(updateWallet(wallet));
     }
 
-    const activeNetworkId = appSelector((s) => s.general.activeNetworkId);
-    const activeAccountId = appSelector((s) => s.general.activeAccountId);
-    const networks = appSelector((s) => s.runtime.networks);
+    const activeNetworkId = appSelector(selectActiveNetworkId);
+    const activeAccountId = appSelector(selectActiveAccountId);
+    const networks = appSelector(selectRuntimeNetworks);
 
     if (!networks?.length) {
       return;
@@ -339,7 +349,7 @@ class ServiceAccount extends ServiceBase {
   initCheckingWallet(wallets: Wallet[]): string | null {
     const { appSelector } = this.backgroundApi;
     // first time read from local storage
-    const previousWalletId = appSelector((s) => s.general.activeWalletId);
+    const previousWalletId = appSelector(selectActiveWalletId);
     const isValidNetworkId = wallets.some(
       (wallet) => wallet.id === previousWalletId,
     );
@@ -359,8 +369,8 @@ class ServiceAccount extends ServiceBase {
     const { engine, appSelector, serviceNetwork } = this.backgroundApi;
     const wallets = await this.initWallets();
 
-    const { networks } = appSelector((s) => s.runtime);
-    const { activeNetworkId } = appSelector((s) => s.general);
+    const networks = appSelector(selectRuntimeNetworks);
+    const activeNetworkId = appSelector(selectActiveNetworkId);
     if (!activeNetworkId || !networks.length) {
       return;
     }
@@ -457,9 +467,9 @@ class ServiceAccount extends ServiceBase {
     });
 
     const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
-    const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
+    const boardingCompleted = appSelector(selectBoardingCompleted);
     const actions: any[] = [];
-    if (!status.boardingCompleted) {
+    if (!boardingCompleted) {
       actions.push(setBoardingCompleted());
     }
     if (!data.isPasswordSet) {
@@ -854,10 +864,8 @@ class ServiceAccount extends ServiceBase {
     const actions = [];
 
     if (checkOnBoarding) {
-      const status: { boardingCompleted: boolean } = appSelector(
-        (s) => s.status,
-      );
-      if (!status.boardingCompleted) {
+      const boardingCompleted = appSelector(selectBoardingCompleted);
+      if (!boardingCompleted) {
         actions.push(setBoardingCompleted());
       }
     }
@@ -1043,7 +1051,7 @@ class ServiceAccount extends ServiceBase {
     const { dispatch, engine, serviceAccount, serviceHardware, appSelector } =
       this.backgroundApi;
     const devices = await engine.getHWDevices();
-    const networkId = appSelector((s) => s.general.activeNetworkId) || '';
+    const networkId = appSelector(selectActiveNetworkId) || '';
     const wallets: Wallet[] = await engine.dbApi.getWallets({
       includeAllPassphraseWallet: true,
     });
@@ -1156,9 +1164,8 @@ class ServiceAccount extends ServiceBase {
       );
     }
 
-    const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
-
-    if (!status.boardingCompleted) {
+    const boardingCompleted = appSelector(selectBoardingCompleted);
+    if (!boardingCompleted) {
       actions.push(setBoardingCompleted());
     }
 
@@ -1179,7 +1186,8 @@ class ServiceAccount extends ServiceBase {
 
     const { appSelector } = this.backgroundApi;
     // first time read from local storage
-    const previousAccountId = appSelector((s) => s.general.activeAccountId);
+    const previousAccountId = appSelector(selectActiveAccountId);
+
     const isValidAccountId = accounts.some(
       (account) => account.id === previousAccountId,
     );
@@ -1197,7 +1205,7 @@ class ServiceAccount extends ServiceBase {
     });
 
     const { engine, appSelector } = this.backgroundApi;
-    const activeWalletId = appSelector((s) => s.general.activeWalletId);
+    const activeWalletId = appSelector(selectActiveWalletId);
 
     const accounts = new Set<Account>();
     const removeWalletIds = new Set<string>();
@@ -1248,7 +1256,7 @@ class ServiceAccount extends ServiceBase {
     });
 
     const { appSelector, engine } = this.backgroundApi;
-    const activeWalletId = appSelector((s) => s.general.activeWalletId);
+    const activeWalletId = appSelector(selectActiveWalletId);
 
     const wallet = await engine.getWallet(walletId);
     const accounts = await engine.getAccounts(wallet.accounts);
@@ -1376,7 +1384,8 @@ class ServiceAccount extends ServiceBase {
         addressList: [account.address],
       });
     }
-    const { activeAccountId, activeNetworkId } = appSelector((s) => s.general);
+    const activeAccountId = appSelector(selectActiveAccountId);
+    const activeNetworkId = appSelector(selectActiveNetworkId);
     await engine.removeAccount(accountId, password ?? '', networkId);
     await simpleDb.walletConnect.removeAccount({ accountId });
     await engine.dbApi.removeAccountDerivationByAccountId({
@@ -1531,10 +1540,11 @@ class ServiceAccount extends ServiceBase {
     networkId?: string;
   }) {
     const { engine, appSelector } = this.backgroundApi;
-    const { activeWalletId, activeNetworkId, activeAccountId } = appSelector(
-      (s) => s.general,
-    );
-    const { wallets, accounts } = appSelector((s) => s.runtime);
+    const activeAccountId = appSelector(selectActiveAccountId);
+    const activeNetworkId = appSelector(selectActiveNetworkId);
+    const activeWalletId = appSelector(selectActiveWalletId);
+    const wallets = appSelector(selectRuntimeWallets);
+    const accounts = appSelector(selectRuntimeAccounts);
     const map = appSelector((s) => s.overview.allNetworksAccountsMap);
     const findMatchAccount = (list: Account[]): Account | undefined => {
       const a = list.find((item) => item.address === address);
@@ -1599,8 +1609,8 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async changeActiveExternalWalletName(accountId: string | null) {
     const { dispatch, appSelector } = this.backgroundApi;
-    const activeWalletId = appSelector((s) => s.general.activeWalletId);
-    const activeAccountId = appSelector((s) => s.general.activeAccountId);
+    const activeWalletId = appSelector(selectActiveWalletId);
+    const activeAccountId = appSelector(selectActiveAccountId);
     let activeExternalWalletName = null;
     if (
       activeWalletId === 'external' &&

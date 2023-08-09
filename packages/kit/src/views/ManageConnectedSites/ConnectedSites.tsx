@@ -30,6 +30,7 @@ import {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useAppSelector } from '../../hooks/redux';
+import { selectDappConnections } from '../../store/selectors';
 import { wait } from '../../utils/helper';
 import { showDialog, showOverlay } from '../../utils/overlayUtils';
 
@@ -144,7 +145,7 @@ function ConnectedSiteItemAddress({ item }: { item: DappSiteConnection }) {
 export default function ConnectedSites() {
   const intl = useIntl();
   const connections: DappSiteConnection[] = useAppSelector(
-    (s) => s.dapp.connections,
+    selectDappConnections,
   );
   const parsedConnections = useMemo(
     () => parseConnectionsSite(connections),

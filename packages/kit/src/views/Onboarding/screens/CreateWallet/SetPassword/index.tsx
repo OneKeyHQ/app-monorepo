@@ -11,8 +11,9 @@ import backgroundApiProxy from '../../../../../background/instance/backgroundApi
 import Protected, {
   ValidationFields,
 } from '../../../../../components/Protected';
-import { useData } from '../../../../../hooks/redux';
+import { useAppSelector } from '../../../../../hooks/redux';
 import useAppNavigation from '../../../../../hooks/useAppNavigation';
+import { selectIsPasswordSet } from '../../../../../store/selectors';
 import { wait } from '../../../../../utils/helper';
 import { showDialog } from '../../../../../utils/overlayUtils';
 import Layout from '../../../Layout';
@@ -132,7 +133,7 @@ const RedirectToRecoveryPhraseMemo = memo(RedirectToRecoveryPhrase);
 
 const SetPassword = () => {
   const intl = useIntl();
-  const { isPasswordSet } = useData();
+  const isPasswordSet = useAppSelector(selectIsPasswordSet);
   const route = useRoute<RouteProps>();
   const mnemonic = route.params?.mnemonic;
   const disableAnimation = route?.params?.disableAnimation;

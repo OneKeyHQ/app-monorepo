@@ -20,6 +20,11 @@ import {
   updateLimitOrderTransaction,
 } from '@onekeyhq/kit/src/store/reducers/swapTransactions';
 import {
+  selectActiveAccountId,
+  selectActiveNetworkId,
+  selectActiveWalletId,
+} from '@onekeyhq/kit/src/store/selectors';
+import {
   WETH9,
   limitOrderNetworkIds,
   wToken,
@@ -289,9 +294,11 @@ class ServiceLimitOrder extends ServiceBase {
     }
     const wallets = appSelector((s) => s.runtime.wallets);
     const { networks } = appSelector((s) => s.runtime);
-    const { activeNetworkId, activeWalletId, activeAccountId } = appSelector(
-      (s) => s.general,
-    );
+
+    const activeAccountId = appSelector(selectActiveAccountId);
+    const activeNetworkId = appSelector(selectActiveNetworkId);
+    const activeWalletId = appSelector(selectActiveWalletId);
+
     const activeWallet = wallets.find((item) => item.id === activeWalletId);
     const activeNetwork = networks.find((item) => item.id === activeNetworkId);
     if (!activeWallet || !activeNetwork) {

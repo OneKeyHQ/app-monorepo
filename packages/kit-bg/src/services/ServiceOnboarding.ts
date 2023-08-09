@@ -1,4 +1,5 @@
 import { setBoardingCompleted } from '@onekeyhq/kit/src/store/reducers/status';
+import { selectBoardingCompleted } from '@onekeyhq/kit/src/store/selectors';
 import {
   backgroundClass,
   backgroundMethod,
@@ -11,7 +12,7 @@ export default class ServiceOnboarding extends ServiceBase {
   @backgroundMethod()
   async checkOnboardingStatus() {
     const { engine, dispatch, appSelector } = this.backgroundApi;
-    const boardingCompleted = appSelector((s) => s.status.boardingCompleted);
+    const boardingCompleted = appSelector(selectBoardingCompleted);
     if (boardingCompleted) {
       return;
     }

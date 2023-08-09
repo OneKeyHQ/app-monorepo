@@ -12,10 +12,10 @@ import {
   useActiveSideAccount,
   useActiveWalletAccount,
   useAppSelector,
-  useSettings,
   useTokenBalanceWithoutFrozen,
 } from '../../hooks';
 import { useSimpleTokenPriceValue } from '../../hooks/useTokens';
+import { selectFiatMap, selectFiatMoneySymbol } from '../../store/selectors';
 import { getSuggestedDecimals } from '../../utils/priceUtils';
 import { formatDecimalZero } from '../../views/Market/utils';
 
@@ -136,8 +136,9 @@ export function useFormatAmount() {
     formatOptions?: FormatOptions,
   ) => {
     // Because token prices are pulled with fiat parameters, the local fiat conversion is removed
-    const { selectedFiatMoneySymbol = 'usd' } = useSettings();
-    const map = useAppSelector((s) => s.fiatMoney.map);
+    const selectedFiatMoneySymbol =
+      useAppSelector(selectFiatMoneySymbol) ?? 'usd';
+    const map = useAppSelector(selectFiatMap);
     const unit = map[selectedFiatMoneySymbol]?.unit ?? '';
     // const fiat = map[selectedFiatMoneySymbol];
     const fiat = 1;
@@ -400,8 +401,9 @@ export function FormatCurrencyNumber({
   onlyNumber?: boolean;
   convertValue?: number | BigNumber | '' | null | undefined;
 }) {
-  const { selectedFiatMoneySymbol = 'usd' } = useSettings();
-  const fiatMap = useAppSelector((s) => s.fiatMoney.map);
+  const selectedFiatMoneySymbol =
+    useAppSelector(selectFiatMoneySymbol) ?? 'usd';
+  const fiatMap = useAppSelector(selectFiatMap);
   if (typeof value !== 'number' && !(value instanceof BigNumber)) {
     return null;
   }

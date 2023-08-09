@@ -29,8 +29,9 @@ import type { SubmitRequestModalRoutesParams } from '@onekeyhq/kit/src/routes';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SkipAppLock } from '../../../components/AppLock';
-import { useSettings } from '../../../hooks/redux';
+import { useAppSelector } from '../../../hooks/redux';
 import { useNavigationBack } from '../../../hooks/useAppNavigation';
+import { selectInstanceId, selectVersion } from '../../../store/selectors';
 
 import { requestTicketDetail, submitUri, uploadImage } from './TicketService';
 
@@ -155,7 +156,7 @@ export const SubmitRequest: FC = () => {
   const isSmallScreen = useIsVerticalLayout();
 
   const navigation = useNavigation<NavigationProps>();
-  const { instanceId } = useSettings();
+  const instanceId = useAppSelector(selectInstanceId);
   const modalWidth = isSmallScreen ? width : 400;
   const padding = isSmallScreen ? 16 : 24;
   const imageWidth = (modalWidth - padding * 2) / 4;
@@ -393,8 +394,7 @@ export const SubmitRequest: FC = () => {
       navigation.removeListener('beforeRemove', beforeRemoveCallBack);
   }, [beforeRemoveCallBack, navigation]);
 
-  const { version } = useSettings();
-
+  const version = useAppSelector(selectVersion);
   return (
     <>
       <SkipAppLock />

@@ -15,7 +15,7 @@ import {
 } from '@onekeyhq/components';
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import { useNetwork, useSettings } from '@onekeyhq/kit/src/hooks';
+import { useAppSelector, useNetwork } from '@onekeyhq/kit/src/hooks';
 import type {
   MarketEXplorer,
   MarketLinks,
@@ -23,6 +23,7 @@ import type {
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
 import useOpenBlockBrowser from '../../../../hooks/useOpenBlockBrowser';
+import { selectFiatMoneySymbol } from '../../../../store/selectors';
 import { useCurrencyUnit } from '../../../Me/GenaralSection/CurrencySelect/hooks';
 import { defaultMenuOffset } from '../../../Overlay/BaseMenu';
 import { GridLayout, useGridBoxStyle } from '../../hooks/useMarketLayout';
@@ -190,7 +191,7 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
   ath,
 }) => {
   const intl = useIntl();
-  const { selectedFiatMoneySymbol } = useSettings();
+  const selectedFiatMoneySymbol = useAppSelector(selectFiatMoneySymbol);
   const unit = useCurrencyUnit(selectedFiatMoneySymbol);
   const { athTime, atlTime } = useMemo(() => {
     const athDate = new Date(ath?.time ?? '');

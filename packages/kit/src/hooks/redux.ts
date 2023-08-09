@@ -17,11 +17,18 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { appSelector } from '../store';
+import {
+  selectActiveAccountId,
+  selectActiveNetworkId,
+  selectActiveWalletId,
+  selectRuntimeAccounts,
+  selectRuntimeNetworks,
+  selectRuntimeWallets,
+  selectTools,
+} from '../store/selectors';
 import { useTransactionSendContext } from '../views/Send/utils/TransactionSendContext';
 
 import { useAppSelector } from './useAppSelector';
-
-import type { StatusState } from '../store/reducers/status';
 
 export { useAppSelector };
 export type ISelectorBuilder<T> = (
@@ -53,43 +60,11 @@ export function makeSelector<T, P = undefined>(builder: ISelectorBuilder<P>) {
   };
 }
 
-export const useSettings = () => {
-  const settings = useAppSelector((s) => s.settings);
-  return settings;
-};
-
-export const useDiscover = () => {
-  const discover = useAppSelector((s) => s.discover);
-  return discover;
-};
-
-/**
- * @deprecated use useAppSelector instead
- */
-export const { use: useStatus, get: getStatus } = makeSelector<StatusState>(
-  (selector) => selector((s) => s.status),
-);
-
-export const useData = () => {
-  const data = useAppSelector((s) => s.data);
-  return data;
-};
-
-export const useGeneral = () => {
-  const general = useAppSelector((s) => s.general);
-  return general;
-};
-
-/**
- * @deprecated use useAppSelector instead
- */
-export const useRuntime = () => useAppSelector((s) => s.runtime);
-
-export const useNetworks = () => useAppSelector((s) => s.runtime.networks);
+export const useNetworks = () => useAppSelector(selectRuntimeNetworks);
 
 // TODO rename like useManageNetworks
 export const useRuntimeWallets = () => {
-  const wallets = useAppSelector((s) => s.runtime.wallets);
+  const wallets = useAppSelector(selectRuntimeWallets);
   const hardwareWallets = useMemo(
     () => wallets.filter((w) => w.type === WALLET_TYPE_HW),
     [wallets],
@@ -99,8 +74,6 @@ export const useRuntimeWallets = () => {
     hardwareWallets,
   };
 };
-
-export const useAutoUpdate = () => useAppSelector((s) => s.autoUpdate);
 
 export type IActiveWalletAccount = {
   wallet: IWallet | null;
@@ -122,9 +95,9 @@ export const {
   get: getActiveWalletAccount,
   // eslint-disable-next-line @typescript-eslint/no-shadow
 } = makeSelector<IActiveWalletAccount>((selector, { useMemo }) => {
-  const { activeAccountId, activeWalletId, activeNetworkId } = selector(
-    (s) => s.general,
-  );
+  const activeAccountId = selector(selectActiveAccountId);
+  const activeWalletId = selector(selectActiveWalletId);
+  const activeNetworkId = selector(selectActiveNetworkId);
   const allNetworksAccountInfo = useMemo(() => {
     if (!isAllNetworks(activeNetworkId)) {
       return;
@@ -136,7 +109,9 @@ export const {
   }, [activeAccountId, activeNetworkId]);
 
   // TODO init runtime data from background
-  const { wallets, networks, accounts } = selector((s) => s.runtime);
+  const wallets = selector(selectRuntimeWallets);
+  const networks = selector(selectRuntimeNetworks);
+  const accounts = selector(selectRuntimeAccounts);
 
   const externalWallet =
     wallets.find((wallet) => wallet.id === WALLET_TYPE_EXTERNAL) ?? null;
@@ -222,14 +197,13 @@ export function useActiveWalletAccount() {
 
 export const useGetWalletDetail = (walletId: string | null) => {
   const wallet =
-    useAppSelector((s) =>
-      s.runtime.wallets?.find?.((w) => w.id === walletId),
-    ) ?? null;
+    useAppSelector(selectRuntimeWallets)?.find?.((w) => w.id === walletId) ??
+    null;
   return wallet;
 };
 
 export const useTools = (networkId?: string) => {
-  const tools = useAppSelector((s) => s.data.tools ?? []);
+  const tools = useAppSelector(selectTools);
   return useMemo(() => {
     if (isAllNetworks(networkId)) {
       return tools;

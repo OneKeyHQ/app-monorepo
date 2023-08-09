@@ -26,6 +26,10 @@ import {
   closeHardwarePopup,
   setHardwarePopup,
 } from '../../../../store/reducers/hardware';
+import {
+  selectDeviceUpdates,
+  selectUpdateFirmwareStep,
+} from '../../../../store/selectors';
 import { wait } from '../../../../utils/helper';
 import { UI_REQUEST } from '../../PopupHandle/showHardwarePopup.consts';
 import RunningView from '../Updating/RunningView';
@@ -60,7 +64,7 @@ const UpdatingBootloader: FC = () => {
   const { dispatch, serviceHardware, engine } = backgroundApiProxy;
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { device, onSuccess } = useRoute<RouteProps>().params;
-  const updateEvent = useAppSelector((s) => s.hardware).updateFirmwareStep;
+  const updateEvent = useAppSelector(selectUpdateFirmwareStep);
 
   const [progressStep, setProgressStep] = useState<ProgressStepType>();
   const progressStepRef = useRef<ProgressStepType>();
@@ -82,7 +86,7 @@ const UpdatingBootloader: FC = () => {
     [device],
   );
 
-  const deviceUpdates = useAppSelector((s) => s.settings.deviceUpdates);
+  const deviceUpdates = useAppSelector(selectDeviceUpdates);
   const willUpdateVersion = deviceUpdates?.[connectId].firmware?.version;
 
   const firstUpdateRef = useRef(true);

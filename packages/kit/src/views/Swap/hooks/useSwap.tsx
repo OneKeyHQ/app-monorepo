@@ -4,6 +4,20 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { useAppSelector, useDebounce } from '../../../hooks';
+import {
+  selectSwapAllowAnotherRecipientAddress,
+  selectSwapError,
+  selectSwapIndependentField,
+  selectSwapInputToken,
+  selectSwapInputTokenNetwork,
+  selectSwapOutputToken,
+  selectSwapOutputTokenNetwork,
+  selectSwapQuote,
+  selectSwapQuoteLimited,
+  selectSwapRecipient,
+  selectSwapSendingAccount,
+  selectSwapTypedValue,
+} from '../../../store/selectors';
 import { SwapError } from '../typings';
 import {
   formatAmount,
@@ -58,12 +72,12 @@ export function useSwapState() {
 }
 
 export function useSwapRecipient() {
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const outputToken = useAppSelector((s) => s.swap.outputToken);
-  const recipient = useAppSelector((s) => s.swap.recipient);
-  const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
+  const inputToken = useAppSelector(selectSwapInputToken);
+  const outputToken = useAppSelector(selectSwapOutputToken);
+  const recipient = useAppSelector(selectSwapRecipient);
+  const sendingAccount = useAppSelector(selectSwapSendingAccount);
   const allowAnotherRecipientAddress = useAppSelector(
-    (s) => s.swap.allowAnotherRecipientAddress,
+    selectSwapAllowAnotherRecipientAddress,
   );
   return useMemo(() => {
     if (inputToken && outputToken) {
@@ -94,13 +108,13 @@ export function useSwapRecipient() {
 
 export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
   const { value: swapSlippagePercent } = useSwapSlippage();
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const outputToken = useAppSelector((s) => s.swap.outputToken);
-  const independentField = useAppSelector((s) => s.swap.independentField);
-  const typedValue = useAppSelector((s) => s.swap.typedValue);
-  const inputTokenNetwork = useAppSelector((s) => s.swap.inputTokenNetwork);
-  const outputTokenNetwork = useAppSelector((s) => s.swap.outputTokenNetwork);
-  const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
+  const inputToken = useAppSelector(selectSwapInputToken);
+  const outputToken = useAppSelector(selectSwapOutputToken);
+  const independentField = useAppSelector(selectSwapIndependentField);
+  const typedValue = useAppSelector(selectSwapTypedValue);
+  const inputTokenNetwork = useAppSelector(selectSwapInputTokenNetwork);
+  const outputTokenNetwork = useAppSelector(selectSwapOutputTokenNetwork);
+  const sendingAccount = useAppSelector(selectSwapSendingAccount);
   const recipient = useSwapRecipient();
   const receivingAddress = recipient?.address;
 
@@ -143,11 +157,11 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
 }
 
 export function useDerivedSwapState() {
-  const independentField = useAppSelector((s) => s.swap.independentField);
-  const typedValue = useAppSelector((s) => s.swap.typedValue);
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const outputToken = useAppSelector((s) => s.swap.outputToken);
-  const swapQuote = useAppSelector((s) => s.swap.quote);
+  const independentField = useAppSelector(selectSwapIndependentField);
+  const typedValue = useAppSelector(selectSwapTypedValue);
+  const inputToken = useAppSelector(selectSwapInputToken);
+  const outputToken = useAppSelector(selectSwapOutputToken);
+  const swapQuote = useAppSelector(selectSwapQuote);
   const inputAmount = useTokenAmount(
     inputToken,
     greaterThanZeroOrUndefined(swapQuote?.sellAmount),
@@ -176,8 +190,8 @@ export function useDerivedSwapState() {
 }
 
 export function useSwapInputAmount() {
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const typedValue = useAppSelector((s) => s.swap.typedValue);
+  const inputToken = useAppSelector(selectSwapInputToken);
+  const typedValue = useAppSelector(selectSwapTypedValue);
   return useMemo(() => {
     if (inputToken && typedValue) {
       return getTokenAmountString(inputToken, typedValue);
@@ -186,8 +200,8 @@ export function useSwapInputAmount() {
 }
 
 export const useCheckInputBalance = () => {
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
+  const inputToken = useAppSelector(selectSwapInputToken);
+  const sendingAccount = useAppSelector(selectSwapSendingAccount);
   const inputAmount = useSwapInputAmount();
   const inputBalance = useTokenBalance(
     inputAmount ? inputToken : undefined,
@@ -202,7 +216,7 @@ export const useCheckInputBalance = () => {
 };
 
 export const useSwapError = () => {
-  const error = useAppSelector((s) => s.swap.error);
+  const error = useAppSelector(selectSwapError);
   const balanceInfo = useCheckInputBalance();
   return useMemo(() => {
     if (error) return error;
@@ -216,8 +230,8 @@ export function useInputLimitsError():
   | { message: string; value: string }
   | undefined {
   const intl = useIntl();
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const quoteLimited = useAppSelector((s) => s.swap.quoteLimited);
+  const inputToken = useAppSelector(selectSwapInputToken);
+  const quoteLimited = useAppSelector(selectSwapQuoteLimited);
   const { inputAmount } = useDerivedSwapState();
   const maxAmount = useTokenAmount(inputToken, quoteLimited?.max);
   const minAmount = useTokenAmount(inputToken, quoteLimited?.min);

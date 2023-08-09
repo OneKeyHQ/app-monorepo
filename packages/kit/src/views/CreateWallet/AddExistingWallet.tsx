@@ -25,8 +25,7 @@ import NameServiceResolver, {
 } from '@onekeyhq/kit/src/components/NameServiceResolver';
 import {
   useActiveWalletAccount,
-  useGeneral,
-  useRuntime,
+  useAppSelector,
 } from '@onekeyhq/kit/src/hooks/redux';
 import type {
   CreateWalletRoutesParams,
@@ -54,6 +53,10 @@ import { useManageNetworks } from '../../hooks';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { useOnboardingDone } from '../../hooks/useOnboardingRequired';
 import { useWalletName } from '../../hooks/useWalletName';
+import {
+  selectActiveNetworkId,
+  selectRuntimeWallets,
+} from '../../store/selectors';
 import { wait } from '../../utils/helper';
 import { useOnboardingContext } from '../Onboarding/OnboardingContext';
 import { EOnboardingRoutes } from '../Onboarding/routes/enums';
@@ -94,8 +97,8 @@ function useAddExistingWallet({
   const route = useRoute();
   const intl = useIntl();
 
-  const { activeNetworkId } = useGeneral();
-  const { wallets } = useRuntime();
+  const activeNetworkId = useAppSelector(selectActiveNetworkId);
+  const wallets = useAppSelector(selectRuntimeWallets);
   const onboardingDone = useOnboardingDone();
   let { mode = 'all', presetText = '' } = (route.params ||
     emptyParams) as IAddExistingWalletModalParams;

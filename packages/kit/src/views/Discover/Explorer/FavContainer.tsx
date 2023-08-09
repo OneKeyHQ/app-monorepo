@@ -6,6 +6,7 @@ import type { HoverContainerProps } from '@onekeyhq/components/src/HoverContaine
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
+import { selectDiscoverBookmarks } from '../../../store/selectors';
 
 const FavContainer: FC<
   PropsWithChildren<HoverContainerProps & { url: string }>
@@ -14,7 +15,7 @@ const FavContainer: FC<
     backgroundApiProxy.serviceDiscover.toggleFavorite(url);
     hoverButtonProps?.onPress?.();
   }, [hoverButtonProps, url]);
-  const bookmarks = useAppSelector((s) => s.discover.bookmarks);
+  const bookmarks = useAppSelector(selectDiscoverBookmarks);
   const isFaved = bookmarks?.some((i) => i.url === url);
   return (
     <HoverContainer

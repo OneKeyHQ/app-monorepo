@@ -30,6 +30,10 @@ import {
   RootRoutes,
   SendModalRoutes,
 } from '../../../../routes/routesEnum';
+import {
+  selectActiveAccountId,
+  selectActiveNetworkId,
+} from '../../../../store/selectors';
 import { EOverviewScanTaskType } from '../../../Overview/types';
 
 import SelectNFTCard from './SelectNFTCard';
@@ -202,7 +206,8 @@ function SendNFTList({
   networkId: string;
 }) {
   const intl = useIntl();
-  const { activeNetworkId, activeAccountId } = useAppSelector((s) => s.general);
+  const activeNetworkId = useAppSelector(selectActiveNetworkId);
+  const activeAccountId = useAppSelector(selectActiveAccountId);
   const { network, accountAddress } = useActiveSideAccount({
     networkId,
     accountId,

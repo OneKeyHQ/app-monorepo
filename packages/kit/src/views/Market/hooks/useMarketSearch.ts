@@ -10,13 +10,19 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
+import {
+  selectMarketSearchHistory,
+  selectMarketSearchKeyword,
+  selectMarketSearchTabCategoryId,
+  selectMarketSearchTokens,
+} from '../../../store/selectors';
 
 import { useMarketSearchCategoryList } from './useMarketCategory';
 
 const MARKET_SEARCH_CHANGE_DELAY = 500;
 
 export const useMarketSearchHistory = () => {
-  const reduxHistory = useAppSelector((s) => s.market.searchHistory);
+  const reduxHistory = useAppSelector(selectMarketSearchHistory);
   useEffect(() => {
     if (!reduxHistory) {
       backgroundApiProxy.serviceMarket.syncSearchHistory();
@@ -26,9 +32,7 @@ export const useMarketSearchHistory = () => {
 };
 
 export const useMarketSearchSelectedCategory = () => {
-  const searchTabCategoryId = useAppSelector(
-    (s) => s.market.searchTabCategoryId,
-  );
+  const searchTabCategoryId = useAppSelector(selectMarketSearchTabCategoryId);
   const searchCategory = useMarketSearchCategoryList();
 
   useEffect(() => {
@@ -73,8 +77,8 @@ export const useMarketSearchContainerStyle = () => {
 };
 
 export const useMarketSearchTokens = () => {
-  const searchKeyword = useAppSelector((s) => s.market.searchKeyword);
-  const cacheTokens = useAppSelector((s) => s.market.searchTokens);
+  const searchKeyword = useAppSelector(selectMarketSearchKeyword);
+  const cacheTokens = useAppSelector(selectMarketSearchTokens);
   const searchTokens = useMemo(() => {
     if (searchKeyword && searchKeyword.length > 0) {
       return cacheTokens[searchKeyword];

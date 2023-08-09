@@ -19,6 +19,14 @@ import {
   useActiveWalletAccount,
   useAppSelector,
 } from '../../../../hooks/redux';
+import {
+  selectSwapIndependentField,
+  selectSwapInputToken,
+  selectSwapLoading,
+  selectSwapSendingAccount,
+  selectSwapTransactionsMaintain,
+  selectSwapTypedValue,
+} from '../../../../store/selectors';
 import { SharedMobileTabContext } from '../../../Market/SharedMobileTabContext';
 import PercentInput from '../../components/PercentInput';
 import ReceivingTokenInput from '../../components/ReceivingTokenInput';
@@ -29,10 +37,10 @@ import { SwapRoutes } from '../../typings';
 import { div, formatAmountExact, multiply } from '../../utils';
 
 const PercentInputContainer = () => {
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
+  const inputToken = useAppSelector(selectSwapInputToken);
+  const sendingAccount = useAppSelector(selectSwapSendingAccount);
   const inputBalance = useTokenBalance(inputToken, sendingAccount?.id);
-  const typedValue = useAppSelector((s) => s.swap.typedValue);
+  const typedValue = useAppSelector(selectSwapTypedValue);
 
   const percent = useMemo(() => {
     if (inputBalance && typedValue) {
@@ -96,10 +104,10 @@ export const SwapContent = () => {
   const intl = useIntl();
   const isSmall = useIsVerticalLayout();
   const navigation = useNavigation();
-  const independentField = useAppSelector((s) => s.swap.independentField);
-  const loading = useAppSelector((s) => s.swap.loading);
+  const independentField = useAppSelector(selectSwapIndependentField);
+  const loading = useAppSelector(selectSwapLoading);
   const { wallet, network } = useActiveWalletAccount();
-  const swapMaintain = useAppSelector((s) => s.swapTransactions.swapMaintain);
+  const swapMaintain = useAppSelector(selectSwapTransactionsMaintain);
   const { formattedAmounts } = useDerivedSwapState();
 
   const isDisabled = !wallet || !network || swapMaintain;

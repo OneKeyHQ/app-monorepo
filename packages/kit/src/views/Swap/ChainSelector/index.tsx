@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 
 import { useAppSelector, useNavigation } from '../../../hooks';
+import { selectSwapTransactionsTokenList } from '../../../store/selectors';
 
 import type { SwapRoutes, SwapRoutesParams } from '../typings';
 import type { RouteProp } from '@react-navigation/core';
@@ -59,7 +60,7 @@ const ChainSelector = () => {
   const route = useRoute<RouteProps>();
   const navigation = useNavigation();
   const [searchContent, setSearchContext] = useState('');
-  const tokenList = useAppSelector((s) => s.swapTransactions.tokenList);
+  const tokenList = useAppSelector(selectSwapTransactionsTokenList);
 
   const items = useMemo(() => {
     if (!route.params.networkIds) {

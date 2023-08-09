@@ -9,6 +9,7 @@ import { formatMessage } from '@onekeyhq/components/src/Provider';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 
+import { selectDisPlayPriceType } from '../../store/selectors';
 import { showOverlay } from '../../utils/overlayUtils';
 
 import { OverlayPanel } from './OverlayPanel';
@@ -19,7 +20,7 @@ const SelectNFTPriceType: FC<{ closeOverlay: () => void }> = ({
   closeOverlay,
 }) => {
   const intl = useIntl();
-  const disPlayPriceType = useAppSelector((s) => s.nft.disPlayPriceType);
+  const disPlayPriceType = useAppSelector(selectDisPlayPriceType);
 
   const { serviceNFT } = backgroundApiProxy;
 

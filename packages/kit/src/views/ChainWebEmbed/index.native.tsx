@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useGeneral } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   AppUIEventBusNames,
@@ -8,11 +8,13 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { selectActiveNetworkId } from '../../store/selectors';
+
 import { ChainWebEmbedViewCardano } from './ChainWebEmbedViewCardano';
 import { ChainWebEmbedViewMonero } from './ChainWebEmbedViewMonero';
 
 function ChainWebEmbed() {
-  const { activeNetworkId } = useGeneral();
+  const activeNetworkId = useAppSelector(selectActiveNetworkId);
   const [usedNetworks, setUsedNetworks] = useState<string[]>([]);
   const usedNetworksRef = useRef<string[]>([]);
 

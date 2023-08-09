@@ -30,7 +30,7 @@ import { gtIgnore } from '@onekeyhq/shared/src/utils/semverUtils';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../../hooks';
-import { useAppSelector, useData } from '../../../../hooks/redux';
+import { useAppSelector } from '../../../../hooks/redux';
 import useFormatDate from '../../../../hooks/useFormatDate';
 import useImportBackupPasswordModal from '../../../../hooks/useImportBackupPasswordModal';
 import useLocalAuthenticationModal from '../../../../hooks/useLocalAuthenticationModal';
@@ -41,6 +41,10 @@ import {
   RootRoutes,
   TabRoutes,
 } from '../../../../routes/routesEnum';
+import {
+  selectIsPasswordSet,
+  selectVersion,
+} from '../../../../store/selectors';
 import { showOverlay } from '../../../../utils/overlayUtils';
 
 import BackupIcon from './BackupIcon';
@@ -355,9 +359,9 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
   const isSmallScreen = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<BackupDetailsRouteProp>();
-  const localVersion = useAppSelector((s) => s.settings.version);
+  const localVersion = useAppSelector(selectVersion);
 
-  const { isPasswordSet } = useData();
+  const isPasswordSet = useAppSelector(selectIsPasswordSet);
   const { serviceCloudBackup } = backgroundApiProxy;
   const { showVerify } = useLocalAuthenticationModal();
   const { requestBackupPassword } = useImportBackupPasswordModal();

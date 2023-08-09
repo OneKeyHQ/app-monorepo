@@ -11,6 +11,13 @@ import { getPresetNetworks } from '@onekeyhq/engine/src/presets';
 import { setAccountDerivationDbMigrationVersion } from '@onekeyhq/kit/src/store/reducers/settings';
 import { updateAutoSwitchDefaultRpcAtVersion } from '@onekeyhq/kit/src/store/reducers/status';
 import {
+  selectActiveAccountId,
+  selectActiveNetworkId,
+  selectGuideToPushFirstTime,
+  selectInstanceId,
+  selectPushNotification,
+} from '@onekeyhq/kit/src/store/selectors';
+import {
   backgroundClass,
   backgroundMethod,
   bindThis,
@@ -159,7 +166,7 @@ export default class ServiceBootstrap extends ServiceBase {
     const notificationConfig =
       await serviceNotification.getNotificationConfig();
 
-    const instanceId = appSelector((s) => s.settings.instanceId);
+    const instanceId = appSelector(selectInstanceId);
 
     return fetchData(
       path,
@@ -177,13 +184,11 @@ export default class ServiceBootstrap extends ServiceBase {
   @backgroundMethod()
   async checkShouldShowNotificationGuide(): Promise<boolean> {
     const { appSelector } = this.backgroundApi;
-    const { accountId, pushNotification, guideToPushFirstTime, networkId } =
-      appSelector((s) => ({
-        accountId: s.general.activeAccountId,
-        networkId: s.general.activeNetworkId,
-        pushNotification: s.settings.pushNotification,
-        guideToPushFirstTime: s.status.guideToPushFirstTime,
-      }));
+    const accountId = appSelector(selectActiveAccountId);
+    const networkId = appSelector(selectActiveNetworkId);
+    const pushNotification = appSelector(selectPushNotification);
+    const guideToPushFirstTime = appSelector(selectGuideToPushFirstTime);
+
     if (!accountId) {
       return false;
     }

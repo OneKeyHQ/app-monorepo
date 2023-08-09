@@ -21,12 +21,17 @@ import type { IAccount } from '@onekeyhq/engine/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks';
-import { useGeneral, useRuntime } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import type { CreateAccountRoutesParams } from '@onekeyhq/kit/src/routes';
 import { CreateAccountModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
+import {
+  selectActiveNetworkId,
+  selectRuntimeNetworks,
+  selectRuntimeWallets,
+} from '../../../store/selectors';
 import { deviceUtils } from '../../../utils/hardware';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -56,12 +61,13 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
     useForm<PrivateKeyFormValues>({
       defaultValues: { name: '', addressType: 'default' },
     });
-  const { activeNetworkId } = useGeneral();
+  const activeNetworkId = useAppSelector(selectActiveNetworkId);
   const [isLoading, setIsLoading] = useState<true | undefined>(undefined);
 
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
-  const { wallets, networks } = useRuntime();
+  const wallets = useAppSelector(selectRuntimeWallets);
+  const networks = useAppSelector(selectRuntimeNetworks);
 
   const isSmallScreen = useIsVerticalLayout();
 

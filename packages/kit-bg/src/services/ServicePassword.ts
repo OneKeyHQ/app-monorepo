@@ -4,6 +4,7 @@ import {
   encrypt,
   getBgSensitiveTextEncodeKey,
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import { selectEnableAppLock } from '@onekeyhq/kit/src/store/selectors';
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
@@ -118,7 +119,7 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async getPassword() {
     const { appSelector } = this.backgroundApi;
-    const enableAppLock = appSelector((s) => s.settings.enableAppLock);
+    const enableAppLock = appSelector(selectEnableAppLock);
     const ttl = !enableAppLock ? 240 * 60 * 1000 : undefined;
     return this.getPasswordWithTTL(ttl);
   }

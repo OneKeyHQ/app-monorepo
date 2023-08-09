@@ -14,12 +14,13 @@ import {
 import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useSettings } from '../../../hooks/redux';
+import { useAppSelector } from '../../../hooks';
 import { setSwapSlippagePercent } from '../../../store/reducers/settings';
+import { selectSwapSlippagePercent } from '../../../store/selectors';
 
 const Setting = () => {
   const intl = useIntl();
-  const { swapSlippagePercent } = useSettings();
+  const swapSlippagePercent = useAppSelector(selectSwapSlippagePercent);
   const [slippage, setSlippage] = useState(swapSlippagePercent || '3');
   const onChange = useCallback((text: string) => {
     setSlippage(text.trim());

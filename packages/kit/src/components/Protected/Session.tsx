@@ -7,6 +7,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
+import {
+  selectHandOperatedLock,
+  selectValidationSetting,
+} from '../../store/selectors';
 
 import { ValidationFields } from './types';
 import Validation from './Validation';
@@ -31,8 +35,9 @@ const Session: FC<SessionProps> = ({
   const [loaded, setLoaded] = useState(false);
   const [verifiedPwd, setVerifiedPwd] = useState(false);
   const [hasvPw, setHasPw] = useState<boolean | undefined>();
-  const validationSetting = useAppSelector((s) => s.settings.validationSetting);
-  const { handOperatedLock } = useAppSelector((s) => s.data);
+  const validationSetting = useAppSelector(selectValidationSetting);
+  const handOperatedLock = useAppSelector(selectHandOperatedLock);
+
   const isAlwaysNeedInputPassword = useMemo(() => {
     const value = field ? !!validationSetting?.[field] : false;
     if (field && field === ValidationFields.Secret) {

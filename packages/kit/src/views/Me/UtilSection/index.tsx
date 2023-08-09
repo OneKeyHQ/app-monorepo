@@ -24,6 +24,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
+import { selectIsPasswordSet } from '../../../store/selectors';
 import { gotoScanQrcode } from '../../../utils/gotoScanQrcode';
 import { ManageConnectedSitesRoutes } from '../../ManageConnectedSites/types';
 
@@ -37,7 +38,7 @@ export const UtilSection = () => {
   const { themeVariant } = useTheme();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const stackNavigation = useNavigation<NavigationStackProps>();
-  const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
+  const isPasswordSet = useAppSelector(selectIsPasswordSet);
   const onLock = useCallback(() => {
     backgroundApiProxy.serviceApp.lock(true);
   }, []);

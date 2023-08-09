@@ -22,6 +22,7 @@ import type {
   TxInput,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import { appSelector } from '@onekeyhq/kit/src/store';
+import { selectAdvancedSettings } from '@onekeyhq/kit/src/store/selectors';
 import type { SendConfirmPayloadInfo } from '@onekeyhq/kit/src/views/Send/types';
 import {
   COINTYPE_BTC,
@@ -1149,8 +1150,7 @@ export default class VaultBtcFork extends VaultBase {
 
   private async getFrozenUtxos(xpub: string, utxos: IBtcUTXO[]) {
     const useDustUtxo =
-      appSelector((s) => s.settings.advancedSettings?.useDustUtxo) ?? true;
-
+      appSelector(selectAdvancedSettings)?.useDustUtxo ?? true;
     let dustUtxos: CoinControlItem[] = [];
     if (!useDustUtxo) {
       const network = await this.getNetwork();

@@ -9,7 +9,8 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
-import { useSettings } from '../../../../hooks';
+import { useAppSelector } from '../../../../hooks';
+import { selectFiatMoneySymbol } from '../../../../store/selectors';
 import { useCurrencyUnit } from '../../../Me/GenaralSection/CurrencySelect/hooks';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 import {
@@ -32,7 +33,7 @@ const MarketTokenCellVertival: FC<IMarketTokenCellVertivalProps> = ({
   marketTokenId,
   onLongPress,
 }) => {
-  const { selectedFiatMoneySymbol } = useSettings();
+  const selectedFiatMoneySymbol = useAppSelector(selectFiatMoneySymbol);
   const unit = useCurrencyUnit(selectedFiatMoneySymbol);
   const marketTokenItem: MarketTokenItem | undefined = useMarketTokenItem({
     coingeckoId: marketTokenId,

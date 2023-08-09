@@ -11,6 +11,7 @@ import {
   useAppSelector,
   useNavigationActions,
 } from '../../../hooks';
+import { selectActiveExternalWalletName } from '../../../store/selectors';
 import ExternalAccountImg from '../../../views/ExternalAccount/components/ExternalAccountImg';
 
 import { BaseSelectorTrigger } from './BaseSelectorTrigger';
@@ -31,7 +32,7 @@ const AccountSelectorTrigger: FC<AccountSelectorTriggerProps> = ({
   const { account, networkId } = useActiveWalletAccount();
   const { openAccountSelector } = useNavigationActions();
   const activeExternalWalletName = useAppSelector(
-    (s) => s.general.activeExternalWalletName,
+    selectActiveExternalWalletName,
   );
 
   const intl = useIntl();

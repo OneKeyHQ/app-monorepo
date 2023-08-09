@@ -13,10 +13,17 @@ import {
   ToastManager,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAutoUpdate, useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import { setUpdateSetting } from '@onekeyhq/kit/src/store/reducers/settings';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import {
+  selectAutoUpdateLatest,
+  selectAutoUpdateProgress,
+  selectAutoUpdateState,
+  selectUpdateSetting,
+} from '../../../store/selectors';
 
 import type { DesktopVersion } from '../../../utils/updates/type';
 
@@ -24,8 +31,11 @@ const AutoUpdateSectionItem: FC = () => {
   const intl = useIntl();
 
   const { dispatch } = backgroundApiProxy;
-  const { state, progress, latest } = useAutoUpdate();
-  const { autoDownload = true } = useSettings().updateSetting ?? {};
+  const latest = useAppSelector(selectAutoUpdateLatest);
+  const progress = useAppSelector(selectAutoUpdateProgress);
+  const state = useAppSelector(selectAutoUpdateState);
+
+  const { autoDownload = true } = useAppSelector(selectUpdateSetting) ?? {};
   const [showAvailabelBadge, setShowAvailableBadge] = useState(true);
 
   const onCheckUpdate = useCallback(() => {

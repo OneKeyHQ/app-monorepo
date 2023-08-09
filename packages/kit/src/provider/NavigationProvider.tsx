@@ -23,6 +23,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useShortcuts } from '../hooks/useShortcuts';
 import '../routes/deepLink';
 import buildLinking from '../routes/linking';
+import { selectInstanceId } from '../store/selectors';
 import { createLazyComponent } from '../utils/createLazyComponent';
 import { FULLWINDOW_OVERLAY_PORTAL } from '../utils/overlayUtils';
 import { PortalContainer } from '../views/Overlay/RootPortal';
@@ -96,7 +97,7 @@ const NavigationApp = () => {
     [bgColor, textColor, dividerColor, showFixedBg],
   );
 
-  const instanceId = useAppSelector((s) => s.settings.instanceId);
+  const instanceId = useAppSelector(selectInstanceId);
 
   useEffect(() => {
     analyticLogEvent('initialized', {

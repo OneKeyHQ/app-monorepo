@@ -21,8 +21,12 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useSettings } from '../../hooks/redux';
+import { useAppSelector } from '../../hooks/redux';
 import { useCurrentNetworkTokenInfoByCoingeckoId } from '../../hooks/useTokens';
+import {
+  selectFiatMoneySymbol,
+  selectPushNotification,
+} from '../../store/selectors';
 import { getSuggestedDecimals } from '../../utils/priceUtils';
 import { PreSendAmountPreview } from '../Send/modals/PreSendAmount';
 
@@ -49,13 +53,14 @@ export const PriceAlertAddModal: FC = () => {
   const { token, alerts, price } = route.params;
   const { height } = useWindowDimensions();
   const isSmallScreen = useIsVerticalLayout();
-  const { pushNotification } = useSettings();
+  const pushNotification = useAppSelector(selectPushNotification);
   const navigation = useNavigation<NavigationProps>();
 
   const tokenInfo = useCurrentNetworkTokenInfoByCoingeckoId(
     token.coingeckoId ?? '',
   );
-  const { selectedFiatMoneySymbol } = useSettings();
+
+  const selectedFiatMoneySymbol = useAppSelector(selectFiatMoneySymbol);
 
   const { serviceNotification } = backgroundApiProxy;
 

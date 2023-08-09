@@ -60,6 +60,7 @@ import type {
   ISetApprovalForAll,
 } from '@onekeyhq/engine/src/vaults/types';
 import { appSelector } from '@onekeyhq/kit/src/store';
+import { selectFiatMoneySymbol } from '@onekeyhq/kit/src/store/selectors';
 import { AssetType } from '@onekeyhq/kit/src/views/Revoke/types';
 import lib0xSequenceMulticall from '@onekeyhq/shared/src/asyncModules/lib0xSequenceMulticall';
 import {
@@ -548,7 +549,7 @@ export default class ServiceRevoke extends ServiceBase {
     addresses: string[],
   ): Promise<Record<string, number>> {
     const { servicePrice } = this.backgroundApi;
-    const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
+    const vsCurrency = appSelector(selectFiatMoneySymbol);
     const pricesMap = await servicePrice.getCgkTokenPrice({
       platform: networkId,
       contractAddresses: addresses,

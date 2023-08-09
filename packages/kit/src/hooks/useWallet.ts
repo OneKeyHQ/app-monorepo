@@ -3,12 +3,13 @@ import { useEffect, useState } from 'react';
 import type { IWallet } from '@onekeyhq/engine/src/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { selectRuntimeWallets } from '../store/selectors';
 
 import { useAppSelector } from './useAppSelector';
 
 export const useWalletSimple = (walletId: string | null) => {
-  const wallet = useAppSelector((s) =>
-    s.runtime.wallets?.find((n) => n.id === walletId),
+  const wallet = useAppSelector(selectRuntimeWallets)?.find(
+    (n) => n.id === walletId,
   );
   return wallet ?? null;
 };

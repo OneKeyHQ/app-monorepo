@@ -5,6 +5,7 @@ import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import { useAppSelector } from '../../../hooks';
+import { selectActiveNetworkId } from '../../../store/selectors';
 import { TxActionElementIconLarge } from '../elements/TxActionElementIcon';
 import { TxActionElementTitleNormal } from '../elements/TxActionElementTitle';
 import { fallbackTextComponent } from '../utils/utilsTxDetail';
@@ -63,7 +64,7 @@ export function TxListActionBox(props: ITxListActionBoxProps) {
     symbol,
     network,
   } = props;
-  const { activeNetworkId } = useAppSelector((s) => s.general);
+  const activeNetworkId = useAppSelector(selectActiveNetworkId);
   const titleView = fallbackTextComponent(title, TxListActionBoxTitleText) ?? (
     <TxActionElementTitleNormal titleInfo={titleInfo} />
   );

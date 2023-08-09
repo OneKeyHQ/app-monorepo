@@ -30,6 +30,7 @@ import Protected, { ValidationFields } from '../../components/Protected';
 import { useHtmlPreloadSplashLogoRemove } from '../../hooks/useHtmlPreloadSplashLogoRemove';
 import { useOnboardingRequired } from '../../hooks/useOnboardingRequired';
 import { setHomeTabName } from '../../store/reducers/status';
+import { selectHomeTabName } from '../../store/selectors';
 import { GuideToPushFirstTimeCheck } from '../PushNotification/GuideToPushFirstTime';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
@@ -52,7 +53,7 @@ const WalletTabs: FC = () => {
   const currentIndexRef = useRef<number>(0);
   const { screenWidth } = useUserDevice();
   const isVerticalLayout = useIsVerticalLayout();
-  const homeTabName = useAppSelector((s) => s.status.homeTabName);
+  const homeTabName = useAppSelector(selectHomeTabName);
   const { wallet, network, accountId, networkId, walletId } =
     useActiveWalletAccount();
   const [refreshing, setRefreshing] = useState(false);

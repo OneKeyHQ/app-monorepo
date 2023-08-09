@@ -5,12 +5,13 @@ import type { IAccount } from '@onekeyhq/engine/src/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { selectRuntimeAccounts } from '../store/selectors';
 
 import { useAppSelector } from './useAppSelector';
 
 export const useAccountSimple = (accountId: string | null) => {
-  const account = useAppSelector((s) =>
-    s.runtime.accounts?.find((n) => n.id === accountId),
+  const account = useAppSelector(selectRuntimeAccounts)?.find(
+    (n) => n.id === accountId,
   );
   return account ?? null;
 };

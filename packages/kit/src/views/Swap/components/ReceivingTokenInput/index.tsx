@@ -25,6 +25,14 @@ import {
   setAllowAnotherRecipientAddress,
   setRecipient,
 } from '../../../../store/reducers/swap';
+import {
+  selectSwapIndependentField,
+  selectSwapInputToken,
+  selectSwapLoading,
+  selectSwapOutputToken,
+  selectSwapOutputTokenNetwork,
+  selectSwapSendingAccount,
+} from '../../../../store/selectors';
 import { useSwapRecipient } from '../../hooks/useSwap';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
@@ -49,8 +57,8 @@ type TokenInputProps = {
 const TokenInputReceivingAddress: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const outputTokenNetwork = useAppSelector((s) => s.swap.outputTokenNetwork);
-  const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
+  const outputTokenNetwork = useAppSelector(selectSwapOutputTokenNetwork);
+  const sendingAccount = useAppSelector(selectSwapSendingAccount);
   const recipient = useSwapRecipient();
   const [tooltip, setTooltip] = useState<string | undefined>();
   const [recipientUnknown, setRecipientUnknown] = useState<boolean>(false);
@@ -258,7 +266,7 @@ const TokenInputReceivingAddress: FC = () => {
 };
 
 const TokenInputReceivingAddressField = () => {
-  const token = useAppSelector((s) => s.swap.outputToken);
+  const token = useAppSelector(selectSwapOutputToken);
   const recipient = useSwapRecipient();
   const balance = useTokenBalance(token, recipient?.accountId);
   const value = balance ?? '0';
@@ -292,8 +300,8 @@ const TokenInputReceivingAddressField = () => {
 };
 
 const TokenInputReceivingAddressFieldShowControl = () => {
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const inputToken = useAppSelector(selectSwapInputToken);
+  const outputToken = useAppSelector(selectSwapOutputToken);
   const allowAnotherRecipientAddress = useAppSelector(
     (s) => s.swap.allowAnotherRecipientAddress,
   );
@@ -313,8 +321,8 @@ const TokenInputReceivingAddressFieldShowControl = () => {
 const SendToAnotherAddress = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const inputToken = useAppSelector(selectSwapInputToken);
+  const outputToken = useAppSelector(selectSwapOutputToken);
   const allowAnotherRecipientAddress = useAppSelector(
     (s) => s.swap.allowAnotherRecipientAddress,
   );
@@ -392,10 +400,10 @@ const TokenInput: FC<TokenInputProps> = ({
   isDisabled,
 }) => {
   const intl = useIntl();
-  const token = useAppSelector((s) => s.swap.outputToken);
+  const token = useAppSelector(selectSwapOutputToken);
   const price = useTokenPrice(token);
-  const loading = useAppSelector((s) => s.swap.loading);
-  const independentField = useAppSelector((s) => s.swap.independentField);
+  const loading = useAppSelector(selectSwapLoading);
+  const independentField = useAppSelector(selectSwapIndependentField);
 
   return (
     <Box {...containerProps} position="relative">

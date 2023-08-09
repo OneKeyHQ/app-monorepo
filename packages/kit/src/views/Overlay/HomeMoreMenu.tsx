@@ -5,6 +5,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
+import { selectIsPasswordSet } from '../../store/selectors';
 import { gotoScanQrcode } from '../../utils/gotoScanQrcode';
 
 import BaseMenu from './BaseMenu';
@@ -13,7 +14,7 @@ import useUpdateItem from './useUpdateItem';
 import type { IBaseMenuOptions, IMenu } from './BaseMenu';
 
 const HomeMoreMenu: FC<IMenu> = (props) => {
-  const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
+  const isPasswordSet = useAppSelector(selectIsPasswordSet);
   const updateItemOptions = useUpdateItem();
   const options = useMemo(() => {
     const baseOptions: IBaseMenuOptions = [

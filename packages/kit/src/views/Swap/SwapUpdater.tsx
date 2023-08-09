@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
+import { selectLimitOrderActiveAccount } from '../../store/selectors';
 
 import PendingTransaction from './components/PendingTransaction';
 import { useWalletsSwapTransactions } from './hooks/useTransactions';
@@ -22,7 +23,7 @@ const TransactionsUpdater = () => {
 };
 
 const LimitOrderUpdator = () => {
-  const activeAccount = useAppSelector((s) => s.limitOrder.activeAccount);
+  const activeAccount = useAppSelector(selectLimitOrderActiveAccount);
   const refresh = useCallback(() => {
     if (activeAccount) {
       backgroundApiProxy.serviceLimitOrder.syncAccount({

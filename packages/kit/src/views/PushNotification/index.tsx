@@ -19,7 +19,6 @@ import type { PressableItemProps } from '@onekeyhq/components/src/Pressable/Pres
 import type { SelectItem } from '@onekeyhq/components/src/Select';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '@onekeyhq/kit/src/hooks';
-import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import type { SettingsState } from '@onekeyhq/kit/src/store/reducers/settings';
 import {
   defaultPushNotification,
@@ -27,6 +26,11 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/settings';
 
 import { HomeRoutes } from '../../routes/routesEnum';
+import {
+  selectAuthenticationType,
+  selectDevMode,
+  selectPushNotification,
+} from '../../store/selectors';
 
 import { useEnabledAccountDynamicAccounts, usePriceAlertlist } from './hooks';
 
@@ -190,10 +194,12 @@ const PushNotification = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const isFocused = useIsFocused();
-  const authenticationType = useAppSelector((s) => s.status.authenticationType);
   const { alerts, fetchPriceAlerts } = usePriceAlertlist();
   const { enabledAccounts, refresh } = useEnabledAccountDynamicAccounts();
-  const { pushNotification = defaultPushNotification, devMode } = useSettings();
+  const authenticationType = useAppSelector(selectAuthenticationType);
+  const pushNotification =
+    useAppSelector(selectPushNotification) ?? defaultPushNotification;
+  const devMode = useAppSelector(selectDevMode);
   const { serviceNotification } = backgroundApiProxy;
 
   useLayoutEffect(() => {

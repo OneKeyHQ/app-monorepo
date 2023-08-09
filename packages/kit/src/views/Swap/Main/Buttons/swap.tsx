@@ -18,6 +18,13 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { useNetwork } from '../../../../hooks';
 import { useAppSelector } from '../../../../hooks/redux';
 import { addTransaction } from '../../../../store/reducers/swapTransactions';
+import {
+  selectSwapInputToken,
+  selectSwapLoading,
+  selectSwapOutputToken,
+  selectSwapQuote,
+  selectSwapTransactionsMaintain,
+} from '../../../../store/selectors';
 import { SwapButtonProgressContext } from '../../context';
 import {
   useCheckInputBalance,
@@ -134,8 +141,8 @@ const LinearGradientExchangeButton: FC<LinearGradientExchangeButtonProps> = ({
   ...props
 }) => {
   const intl = useIntl();
-  const tokenA = useAppSelector((s) => s.swap.inputToken);
-  const tokenB = useAppSelector((s) => s.swap.outputToken);
+  const tokenA = useAppSelector(selectSwapInputToken);
+  const tokenB = useAppSelector(selectSwapOutputToken);
 
   if (
     !isDisabled &&
@@ -167,7 +174,7 @@ const LinearGradientExchangeButton: FC<LinearGradientExchangeButtonProps> = ({
 const ExchangeButton = () => {
   const intl = useIntl();
   const ref = useRef(false);
-  const quote = useAppSelector((s) => s.swap.quote);
+  const quote = useAppSelector(selectSwapQuote);
   const params = useSwapQuoteRequestParams();
   const btnCtx = useContext(SwapButtonProgressContext);
   const swapSubmit = useSwapSubmit();
@@ -221,9 +228,9 @@ const ExchangeButton = () => {
 
 const ExchangeStateButton = () => {
   const intl = useIntl();
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const quote = useAppSelector((s) => s.swap.quote);
-  const loading = useAppSelector((s) => s.swap.loading);
+  const inputToken = useAppSelector(selectSwapInputToken);
+  const quote = useAppSelector(selectSwapQuote);
+  const loading = useAppSelector(selectSwapLoading);
   const error = useSwapError();
   const limitsError = useInputLimitsError();
 
@@ -291,7 +298,7 @@ const ExchangeStateButton = () => {
 const WETH9Button = () => {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
-  const wrapperTxInfo = useAppSelector((s) => s.swap.quote?.wrapperTxInfo);
+  const wrapperTxInfo = useAppSelector(selectSwapQuote)?.wrapperTxInfo;
   const params = useSwapQuoteRequestParams();
   const sendTx = useSwapSend();
   const onSubmit = useCallback(async () => {
@@ -397,13 +404,13 @@ const WETH9StateButton = () => {
 };
 
 export const SwapButton = () => {
-  const wrapperTxInfo = useAppSelector((s) => s.swap.quote?.wrapperTxInfo);
+  const wrapperTxInfo = useAppSelector(selectSwapQuote)?.wrapperTxInfo;
   return wrapperTxInfo ? <WETH9StateButton /> : <ExchangeStateButton />;
 };
 
 export const SwapContentButton = () => {
   const intl = useIntl();
-  const swapMaintain = useAppSelector((s) => s.swapTransactions.swapMaintain);
+  const swapMaintain = useAppSelector(selectSwapTransactionsMaintain);
   if (swapMaintain) {
     return (
       <Button size="xl" type="primary" isDisabled key="swapMaintain">

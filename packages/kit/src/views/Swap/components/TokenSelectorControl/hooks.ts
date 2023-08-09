@@ -7,6 +7,10 @@ import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import { useAccountTokensOnChain, useAppSelector } from '../../../../hooks';
+import {
+  selectFiatMoneySymbol,
+  selectTokenPriceMap,
+} from '../../../../store/selectors';
 import { useCachedBalances } from '../../hooks/useSwapTokenUtils';
 import { formatAmount } from '../../utils';
 
@@ -35,10 +39,8 @@ export function useContextAccountTokens(
   const accountTokens = useAccountTokensOnChain(networkId, accountId);
   const balances = useCachedBalances(networkId, accountId);
 
-  const prices = useAppSelector((s) => s.tokens.tokenPriceMap);
-  const selectedFiatMoneySymbol = useAppSelector(
-    (s) => s.settings.selectedFiatMoneySymbol,
-  );
+  const prices = useAppSelector(selectTokenPriceMap);
+  const selectedFiatMoneySymbol = useAppSelector(selectFiatMoneySymbol);
 
   const getPrice = useCallback(
     (token: Token) => {

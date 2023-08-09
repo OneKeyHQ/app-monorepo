@@ -23,7 +23,8 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SkipAppLock } from '../../../components/AppLock';
-import { useSettings } from '../../../hooks/redux';
+import { useAppSelector } from '../../../hooks/redux';
+import { selectInstanceId } from '../../../store/selectors';
 
 import { ImageView } from './SubmitRequest';
 import { updateTicketUri, uploadImage } from './TicketService';
@@ -49,7 +50,7 @@ export const ReplyTicket: FC = () => {
   const { width } = useWindowDimensions();
   const isSmallScreen = useIsVerticalLayout();
   const navigation = useNavigation();
-  const { instanceId } = useSettings();
+  const instanceId = useAppSelector(selectInstanceId);
 
   const route = useRoute<RouteProps>();
   const { id } = route?.params.order || {};

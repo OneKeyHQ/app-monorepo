@@ -24,9 +24,10 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useRuntime } from '../../../../hooks/redux';
+import { useAppSelector } from '../../../../hooks/redux';
 import { useIsMounted } from '../../../../hooks/useIsMounted';
 import { getWalletName } from '../../../../hooks/useWalletName';
+import { selectRuntimeWallets } from '../../../../store/selectors';
 import { WalletAvatarPro } from '../../../WalletSelector/WalletAvatar';
 
 import { CreateAccountButton } from './CreateAccountButton';
@@ -86,7 +87,8 @@ export function WalletSelectDropdown({
 
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
-  const { wallets } = useRuntime();
+  const wallets = useAppSelector(selectRuntimeWallets);
+
   const [data, setData] = useState<
     { label: string; value: string; wallet: IWallet }[]
   >([]);

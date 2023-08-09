@@ -34,6 +34,7 @@ import {
   useOverviewAccountUpdateInfo,
 } from '../../../hooks';
 import { useVisibilityFocused } from '../../../hooks/useVisibilityFocused';
+import { selectHomeTabName, selectIsUnlock } from '../../../store/selectors';
 import { OverviewDefiThumbnal } from '../../Overview/Thumbnail';
 import { EOverviewScanTaskType } from '../../Overview/types';
 import { WalletHomeTabEnum } from '../type';
@@ -155,8 +156,8 @@ function AssetsList({
 }: IAssetsListProps) {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
-  const homeTabName = useAppSelector((s) => s.status.homeTabName);
-  const isUnlock = useAppSelector((s) => s.status.isUnlock);
+  const homeTabName = useAppSelector(selectHomeTabName);
+  const isUnlock = useAppSelector(selectIsUnlock);
   const { data: accountTokens, loading } = useAccountTokens({
     networkId,
     accountId,

@@ -44,6 +44,13 @@ import {
   setWrapperTokens,
   updateTokenList,
 } from '@onekeyhq/kit/src/store/reducers/swapTransactions';
+import {
+  selectActiveAccountId,
+  selectActiveNetworkId,
+  selectActiveWalletId,
+  selectRuntimeNetworks,
+  selectRuntimeWallets,
+} from '@onekeyhq/kit/src/store/selectors';
 import type { SendConfirmParams } from '@onekeyhq/kit/src/views/Send/types';
 import type {
   FetchQuoteParams,
@@ -340,10 +347,13 @@ export default class ServiceSwap extends ServiceBase {
     if (recipient?.address && recipient.networkImpl === network.impl) {
       return recipient;
     }
-    const { wallets, networks } = appSelector((s) => s.runtime);
-    const { activeNetworkId, activeWalletId, activeAccountId } = appSelector(
-      (s) => s.general,
-    );
+    const wallets = appSelector(selectRuntimeWallets);
+    const networks = appSelector(selectRuntimeNetworks);
+
+    const activeAccountId = appSelector(selectActiveAccountId);
+    const activeNetworkId = appSelector(selectActiveNetworkId);
+    const activeWalletId = appSelector(selectActiveWalletId);
+
     const activeWallet = wallets.find((item) => item.id === activeWalletId);
     const activeNetwork = networks.find((item) => item.id === activeNetworkId);
     if (!activeWallet || !activeNetwork) {
@@ -446,11 +456,13 @@ export default class ServiceSwap extends ServiceBase {
     ) {
       return sendingAccount;
     }
-    const wallets = appSelector((s) => s.runtime.wallets);
-    const networks = appSelector((s) => s.runtime.networks);
-    const { activeNetworkId, activeWalletId, activeAccountId } = appSelector(
-      (s) => s.general,
-    );
+
+    const wallets = appSelector(selectRuntimeWallets);
+    const networks = appSelector(selectRuntimeNetworks);
+
+    const activeAccountId = appSelector(selectActiveAccountId);
+    const activeNetworkId = appSelector(selectActiveNetworkId);
+    const activeWalletId = appSelector(selectActiveWalletId);
 
     let activeWallet = wallets.find((item) => item.id === activeWalletId);
     let activeNetwork = networks.find((item) => item.id === activeNetworkId);
@@ -1045,7 +1057,7 @@ export default class ServiceSwap extends ServiceBase {
     const { appSelector, servicePrice } = this.backgroundApi;
     const { inputToken, inputTokenNetwork, outputToken, outputTokenNetwork } =
       appSelector((s) => s.swap ?? {});
-    const activeNetworkId = appSelector((s) => s.general.activeNetworkId);
+    const activeNetworkId = appSelector(selectActiveNetworkId);
     const inputNetworkId = inputTokenNetwork?.id ?? inputToken?.networkId ?? '';
     const outputNetworkId =
       outputTokenNetwork?.id ?? outputToken?.networkId ?? '';

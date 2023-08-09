@@ -20,7 +20,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
-import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import type { ManagerWalletRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/ManagerWallet';
 import {
   ManagerWalletModalRoutes,
@@ -30,6 +30,8 @@ import {
 import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { defaultAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
+
+import { selectRuntimeWallets } from '../../../store/selectors';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -47,7 +49,7 @@ const ModifyWalletNameViewModal: FC = () => {
   const { walletId } = useRoute<RouteProps>().params;
   const { engine, dispatch, serviceCloudBackup, serviceAccount } =
     backgroundApiProxy;
-  const { wallets } = useRuntime();
+  const wallets = useAppSelector(selectRuntimeWallets);
   const wallet = wallets.find((w) => w.id === walletId) ?? null;
   const [isLoading, setIsLoading] = useState(false);
   const [editAvatar, updateAvatar] = useState<Avatar>(

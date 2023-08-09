@@ -16,6 +16,11 @@ import {
   setAccountIsUpdating,
   setOverviewPortfolioUpdatedAt,
 } from '@onekeyhq/kit/src/store/reducers/overview';
+import {
+  selectActiveAccountId,
+  selectActiveNetworkId,
+  selectActiveWalletId,
+} from '@onekeyhq/kit/src/store/selectors';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import type {
   IOverviewQueryTaskItem,
@@ -90,9 +95,8 @@ class ServiceOverview extends ServiceBase {
   async queryPendingTasks() {
     const { dispatch, appSelector } = this.backgroundApi;
 
-    const { activeNetworkId: networkId = '', activeAccountId: accountId = '' } =
-      appSelector((s) => s.general);
-
+    const accountId = appSelector(selectActiveAccountId) ?? '';
+    const networkId = appSelector(selectActiveNetworkId) ?? '';
     if (!networkId || !accountId) {
       return;
     }
@@ -399,11 +403,9 @@ class ServiceOverview extends ServiceBase {
   refreshCurrentAccountWithDebounce = debounce(
     async () => {
       const { appSelector, dispatch } = this.backgroundApi;
-      const {
-        activeAccountId: accountId,
-        activeNetworkId: networkId,
-        activeWalletId: walletId,
-      } = appSelector((s) => s.general);
+      const accountId = appSelector(selectActiveAccountId);
+      const networkId = appSelector(selectActiveNetworkId);
+      const walletId = appSelector(selectActiveWalletId);
 
       if (!accountId || !networkId) {
         return;

@@ -4,6 +4,7 @@ import qs from 'qs';
 
 import { appSelector } from '@onekeyhq/kit/src/store';
 import type { SettingsState } from '@onekeyhq/kit/src/store/reducers/settings';
+import { selectInstanceId } from '@onekeyhq/kit/src/store/selectors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { getFiatEndpoint } from '../endpoint';
@@ -85,7 +86,7 @@ async function fetchData<T>(
 ): Promise<T> {
   const endpoint = getFiatEndpoint();
   let apiUrl = `${endpoint}${path}`;
-  const instanceId = appSelector((state) => state?.settings?.instanceId);
+  const instanceId = appSelector(selectInstanceId);
   if (!instanceId) {
     debugLogger.notification.warn(
       'syncPushNotificationConfig',

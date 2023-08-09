@@ -21,6 +21,7 @@ import {
   RootRoutes,
 } from '../../../../routes/routesEnum';
 import { refreshAccountSelector } from '../../../../store/reducers/refresher';
+import { selectRuntimeNetworks } from '../../../../store/selectors';
 import { showDialog } from '../../../../utils/overlayUtils';
 import AccountModifyNameDialog from '../../../../views/ManagerAccount/ModifyAccount';
 import useRemoveAccountDialog from '../../../../views/ManagerAccount/RemoveAccount';
@@ -104,7 +105,7 @@ function AccountItemSelectDropdown({
     account,
     network,
   });
-  const networks = useAppSelector((s) => s.runtime.networks);
+  const networks = useAppSelector(selectRuntimeNetworks);
 
   const [showAllUsedAddressOption, setShowAllUsedAddressOption] =
     useState(false);

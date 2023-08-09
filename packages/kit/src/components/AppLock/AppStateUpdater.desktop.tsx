@@ -4,6 +4,10 @@ import type { IDesktopAppState } from '@onekeyhq/desktop/src-electron/preload';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks/redux';
+import {
+  selectEnableAppLock,
+  selectIsPasswordSet,
+} from '../../store/selectors';
 
 import { AppLockBypass } from './AppLockBypass';
 
@@ -25,8 +29,8 @@ const DesktopUpdator = () => {
 };
 
 export const AppStateUpdater = () => {
-  const enableAppLock = useAppSelector((s) => s.settings.enableAppLock);
-  const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
+  const enableAppLock = useAppSelector(selectEnableAppLock);
+  const isPasswordSet = useAppSelector(selectIsPasswordSet);
   if (!enableAppLock || !isPasswordSet) {
     return null;
   }

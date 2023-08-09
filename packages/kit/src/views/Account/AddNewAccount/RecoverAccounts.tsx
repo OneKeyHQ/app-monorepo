@@ -33,7 +33,7 @@ import type {
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import showDerivationPathBottomSheetModal from '@onekeyhq/kit/src/components/NetworkAccountSelector/modals/NetworkAccountSelectorModal/DerivationPathBottomSheetModal';
-import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import type { CreateAccountRoutesParams } from '@onekeyhq/kit/src/routes';
 import {
   CreateAccountModalRoutes,
@@ -48,6 +48,10 @@ import { FormatBalance } from '../../../components/Format';
 import { useDerivationPath } from '../../../components/NetworkAccountSelector/hooks/useDerivationPath';
 import { usePrevious } from '../../../hooks';
 import { RecoverAccountModalRoutes } from '../../../routes/routesEnum';
+import {
+  selectRuntimeNetworks,
+  selectRuntimeWallets,
+} from '../../../store/selectors';
 import { deviceUtils } from '../../../utils/hardware';
 
 import { showJumpPageDialog } from './JumpPage';
@@ -411,7 +415,9 @@ const RecoverAccounts: FC = () => {
     RecoverAccountType[]
   >([]);
 
-  const { wallets, networks } = useRuntime();
+  const wallets = useAppSelector(selectRuntimeWallets);
+  const networks = useAppSelector(selectRuntimeNetworks);
+
   const [pageWidth, setPageWidth] = useState<number>(0);
   const selectedNetWork = networks.filter((n) => n.id === network)[0];
   const decimal = selectedNetWork?.nativeDisplayDecimals;

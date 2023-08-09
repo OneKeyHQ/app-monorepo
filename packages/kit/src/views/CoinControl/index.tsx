@@ -22,6 +22,7 @@ import type { CoinControlModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNetwork } from '../../hooks';
+import { selectAdvancedSettings } from '../../store/selectors';
 
 import {
   CoinControlListMenu,
@@ -44,7 +45,7 @@ const CoinControl = () => {
     route.params;
 
   const useDustUtxo =
-    useAppSelector((s) => s.settings.advancedSettings?.useDustUtxo) ?? true;
+    useAppSelector(selectAdvancedSettings)?.useDustUtxo ?? true;
 
   const [isLoading, setIsLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);

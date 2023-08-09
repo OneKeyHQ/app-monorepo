@@ -27,10 +27,14 @@ import type {
 import { gtIgnore } from '@onekeyhq/shared/src/utils/semverUtils';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
-import { useAppSelector, useData } from '../../../../../hooks/redux';
+import { useAppSelector } from '../../../../../hooks/redux';
 import useImportBackupPasswordModal from '../../../../../hooks/useImportBackupPasswordModal';
 import useLocalAuthenticationModal from '../../../../../hooks/useLocalAuthenticationModal';
 import { useOnboardingDone } from '../../../../../hooks/useOnboardingRequired';
+import {
+  selectIsPasswordSet,
+  selectVersion,
+} from '../../../../../store/selectors';
 import {
   GroupedBackupDetails,
   checkHasData,
@@ -56,9 +60,9 @@ const PreviewImportData = () => {
   const { data } = route.params;
   const navigation = useNavigation();
   const { serviceCloudBackup } = backgroundApiProxy;
-  const version = useAppSelector((s) => s.settings.version);
+  const version = useAppSelector(selectVersion);
   const isVerticalLayout = useIsVerticalLayout();
-  const { isPasswordSet } = useData();
+  const isPasswordSet = useAppSelector(selectIsPasswordSet);
   const { showVerify } = useLocalAuthenticationModal();
   const onboardingDone = useOnboardingDone();
   const { onboardingGoBack } = useOnboardingClose();

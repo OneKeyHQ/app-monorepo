@@ -11,6 +11,10 @@ import {
   useActiveWalletAccount,
   useAppSelector,
 } from '../../../../hooks/redux';
+import {
+  selectSwapTransactionsMaintain,
+  selectSwapTypedValue,
+} from '../../../../store/selectors';
 import LimitOrderReceivingTokenInput from '../../components/LimitOrderReceivingTokenInput';
 import LimitOrderTokenInput from '../../components/LimitOrderTokenInput';
 import { useLimitOrderOutput } from '../../hooks/useLimitOrder';
@@ -21,9 +25,9 @@ export const MainContent = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const { wallet, network } = useActiveWalletAccount();
-  const swapMaintain = useAppSelector((s) => s.swapTransactions.swapMaintain);
+  const swapMaintain = useAppSelector(selectSwapTransactionsMaintain);
   const isDisabled = !wallet || !network || swapMaintain;
-  const typedValue = useAppSelector((s) => s.limitOrder.typedValue);
+  const typedValue = useAppSelector(selectSwapTypedValue);
   const tokenOutValue = useLimitOrderOutput();
   const onSelectInput = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {

@@ -4,6 +4,10 @@ import type { Account } from '@onekeyhq/engine/src/types/account';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks/redux';
+import {
+  selectRuntimeNetworks,
+  selectRuntimeWallets,
+} from '../../../store/selectors';
 
 import type { TransactionDetails } from '../typings';
 
@@ -34,7 +38,7 @@ function useSwapTransactions(): TransactionDetails[] {
 }
 
 export function useWalletsAccounts() {
-  const wallets = useAppSelector((s) => s.runtime.wallets);
+  const wallets = useAppSelector(selectRuntimeWallets);
   return useMemo(
     () =>
       wallets.reduce(
@@ -54,7 +58,7 @@ export function useWalletsAccounts() {
 export function useWalletsSwapTransactions() {
   const swapTransations = useSwapTransactions();
   const walletsAccounts = useWalletsAccounts();
-  const networks = useAppSelector((s) => s.runtime.networks);
+  const networks = useAppSelector(selectRuntimeNetworks);
   const networkIds = useMemo(() => networks.map((item) => item.id), [networks]);
   const accountIds = useMemo(
     () => walletsAccounts.map((item) => item.accountId),

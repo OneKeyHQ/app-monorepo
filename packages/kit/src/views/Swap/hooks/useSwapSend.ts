@@ -13,6 +13,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppSelector } from '../../../hooks/useAppSelector';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
+import { selectValidationSetting } from '../../../store/selectors';
 import { deviceUtils } from '../../../utils/hardware';
 import { SendModalRoutes } from '../../Send/types';
 import { LoggerTimerTags, createLoggerTimer } from '../utils';
@@ -47,7 +48,7 @@ type SwapSignMessageParams = {
 
 export function useSwapSend() {
   const navigation = useAppNavigation();
-  const validationSetting = useAppSelector((s) => s.settings.validationSetting);
+  const validationSetting = useAppSelector(selectValidationSetting);
   return useCallback(
     async ({
       encodedTx,
@@ -137,7 +138,7 @@ export function useSwapSend() {
 
 export function useSwapSignMessage() {
   const navigation = useAppNavigation();
-  const validationSetting = useAppSelector((s) => s.settings.validationSetting);
+  const validationSetting = useAppSelector(selectValidationSetting);
   return useCallback(
     async ({
       accountId,

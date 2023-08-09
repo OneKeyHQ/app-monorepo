@@ -20,6 +20,12 @@ import {
   setBoardingCompleted,
   unlock,
 } from '@onekeyhq/kit/src/store/reducers/status';
+import {
+  selectAppLockDuration,
+  selectBoardingCompleted,
+  selectEnableAppLock,
+  selectIsUnlock,
+} from '@onekeyhq/kit/src/store/selectors';
 import type { OpenUrlRouteInfo } from '@onekeyhq/kit/src/utils/extUtils';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import {
@@ -109,8 +115,8 @@ class ServiceApp extends ServiceBase {
   async checkLockStatus(offset = 0) {
     const { appSelector, engine } = this.backgroundApi;
 
-    const enableAppLock = appSelector((s) => s.settings.enableAppLock);
-    const appLockDuration = appSelector((s) => s.settings.appLockDuration);
+    const enableAppLock = appSelector(selectEnableAppLock);
+    const appLockDuration = appSelector(selectAppLockDuration);
 
     const lastActivity = await simpleDb.lastActivity.getValue();
     const isPasswordSet = await engine.isMasterPasswordSet();
@@ -132,7 +138,7 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   isUnlock(): Promise<boolean> {
     const { appSelector } = this.backgroundApi;
-    const isUnlock = appSelector((s) => s.data.isUnlock);
+    const isUnlock = appSelector(selectIsUnlock);
     const isStatusUnlock = appSelector((s) => s.status.isUnlock);
     return Promise.resolve(Boolean(isUnlock && isStatusUnlock));
   }
@@ -408,14 +414,14 @@ class ServiceApp extends ServiceBase {
     } = this.backgroundApi;
     await engine.updatePassword(oldPassword, newPassword);
     const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
-    const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
+    const boardingCompleted = appSelector(selectBoardingCompleted);
 
     const actions = [];
     if (!data.isPasswordSet) {
       actions.push(passwordSet());
       actions.push(setEnableAppLock(true));
     }
-    if (!status.boardingCompleted) {
+    if (!boardingCompleted) {
       actions.push(setBoardingCompleted());
     }
     dispatch(...actions, unlock(), release());

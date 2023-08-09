@@ -22,8 +22,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import LocalAuthenticationButton from '../../components/LocalAuthenticationButton';
 import { useLocalAuthentication } from '../../hooks';
-import { useAppSelector, useData } from '../../hooks/redux';
+import { useAppSelector } from '../../hooks/redux';
 import { setEnableLocalAuthentication } from '../../store/reducers/settings';
+import {
+  selectAuthenticationType,
+  selectIsPasswordSet,
+} from '../../store/selectors';
 import { savePassword } from '../../utils/localAuthentication';
 
 import type { PasswordRoutes, PasswordRoutesParams } from './types';
@@ -137,7 +141,7 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
   const { dispatch } = backgroundApiProxy;
 
   const ref = useRef({ unmount: false });
-  const authenticationType = useAppSelector((s) => s.status.authenticationType);
+  const authenticationType = useAppSelector(selectAuthenticationType);
   const enableLocalAuthentication = useAppSelector(
     (s) => s.settings.enableLocalAuthentication,
   );
@@ -384,7 +388,7 @@ const ChangePassword = () => {
 };
 
 export const Password = () => {
-  const { isPasswordSet } = useData();
+  const isPasswordSet = useAppSelector(selectIsPasswordSet);
   const [isHasPassword] = useState(isPasswordSet);
 
   return (

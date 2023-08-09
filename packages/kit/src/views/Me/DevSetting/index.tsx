@@ -23,7 +23,7 @@ import {
   getSocketEndpoint,
 } from '@onekeyhq/engine/src/endpoint';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import type { ISettingsDevModeInfo } from '@onekeyhq/kit/src/store/reducers/settings';
 import {
   setDevMode,
@@ -45,6 +45,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NetworkAccountSelectorTrigger } from '../../../components/NetworkAccountSelector';
 import { EAccountSelectorMode } from '../../../store/reducers/reducerAccountSelector';
+import {
+  selectDevMode,
+  selectInstanceId,
+  selectPushNotification,
+} from '../../../store/selectors';
 
 import {
   requestsInterceptTest,
@@ -88,7 +93,11 @@ function usePerfCheck({ enablePerfCheck }: { enablePerfCheck?: boolean }) {
 const emptyObj: any = Object.freeze({});
 export const DevSettingSection = () => {
   const { themeVariant } = useTheme();
-  const { devMode, pushNotification, instanceId } = useSettings();
+
+  const instanceId = useAppSelector(selectInstanceId);
+  const pushNotification = useAppSelector(selectPushNotification);
+  const devMode = useAppSelector(selectDevMode);
+
   const registrationId = pushNotification?.registrationId;
   const devModeData: ISettingsDevModeInfo = devMode || emptyObj;
   const {

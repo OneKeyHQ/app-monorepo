@@ -29,6 +29,10 @@ import {
   updateSearchTokens,
   updateSelectedCategory,
 } from '@onekeyhq/kit/src/store/reducers/market';
+import {
+  selectFiatMoneySymbol,
+  selectInstanceId,
+} from '@onekeyhq/kit/src/store/selectors';
 import type { ServerToken } from '@onekeyhq/kit/src/store/typings';
 import { getDefaultLocale } from '@onekeyhq/kit/src/utils/locale';
 import {
@@ -117,7 +121,7 @@ export default class ServiceMarket extends ServiceBase {
     const { dispatch, appSelector } = this.backgroundApi;
     const path = '/market/tokens';
     const coingeckoIds = ids && ids.length > 0 ? ids : undefined;
-    const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
+    const vsCurrency = appSelector(selectFiatMoneySymbol);
     const data = await fetchData<MarketTokenItem[]>(
       path,
       {
@@ -171,7 +175,7 @@ export default class ServiceMarket extends ServiceBase {
     locale: string;
   }) {
     const { appSelector, dispatch } = this.backgroundApi;
-    const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
+    const vsCurrency = appSelector(selectFiatMoneySymbol);
     const path = '/market/detail';
     const data = await fetchData(
       path,
@@ -205,7 +209,7 @@ export default class ServiceMarket extends ServiceBase {
   async marketTokenCancelFavoriteForNtf(coingeckoId: string) {
     const path = '/notification/favorite';
     const { appSelector } = this.backgroundApi;
-    const instanceId = appSelector((s) => s.settings.instanceId);
+    const instanceId = appSelector(selectInstanceId);
     const data = await fetchData<{
       acknowledged: boolean;
       deletedCount: number;
@@ -220,7 +224,7 @@ export default class ServiceMarket extends ServiceBase {
   async marketTokenAddFavoriteForNtf(coingeckoId: string, symbol: string) {
     const path = '/notification/favorite';
     const { appSelector } = this.backgroundApi;
-    const instanceId = appSelector((s) => s.settings.instanceId);
+    const instanceId = appSelector(selectInstanceId);
     const data = await fetchData<{ coingeckoId: string } | null>(
       path,
       { instanceId, coingeckoId, symbol },
@@ -245,7 +249,7 @@ export default class ServiceMarket extends ServiceBase {
   }): Promise<[number, number][]> {
     const path = '/market/token/chart';
     const { appSelector, dispatch } = this.backgroundApi;
-    const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
+    const vsCurrency = appSelector(selectFiatMoneySymbol);
     const data = await fetchData(
       path,
       {

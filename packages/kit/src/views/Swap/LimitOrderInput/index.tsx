@@ -8,6 +8,12 @@ import {
   useAppSelector,
   useNavigation,
 } from '../../../hooks';
+import {
+  selectLimitOrderActiveAccount,
+  selectLimitOrderTokenIn,
+  selectLimitOrderTokenOut,
+  selectSwapTransactionsTokenList,
+} from '../../../store/selectors';
 import TokenSelector from '../components/TokenSelector';
 import { TokenSelectorContext } from '../components/TokenSelector/context';
 import { limitOrderNetworkIds } from '../config';
@@ -19,11 +25,11 @@ const Input = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const { network } = useActiveWalletAccount();
-  const inputToken = useAppSelector((s) => s.limitOrder.tokenIn);
-  const outputToken = useAppSelector((s) => s.limitOrder.tokenOut);
-  const sendingAccount = useAppSelector((s) => s.limitOrder.activeAccount);
+  const inputToken = useAppSelector(selectLimitOrderTokenIn);
+  const outputToken = useAppSelector(selectLimitOrderTokenOut);
+  const sendingAccount = useAppSelector(selectLimitOrderActiveAccount);
 
-  const tokenList = useAppSelector((s) => s.swapTransactions.tokenList);
+  const tokenList = useAppSelector(selectSwapTransactionsTokenList);
 
   const [networkSelectorId, onSelectNetworkId] = useState<string | undefined>(
     () => {

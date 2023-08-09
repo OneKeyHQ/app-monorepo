@@ -15,6 +15,7 @@ import {
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../hooks';
 import { setAdvancedSettings } from '../../store/reducers/settings';
+import { selectAdvancedSettings } from '../../store/selectors';
 
 import type { HomeRoutes } from '../../routes/routesEnum';
 import type { HomeRoutesParams } from '../../routes/types';
@@ -44,7 +45,8 @@ function AdvancedSettings() {
   const navigation = useNavigation<NavigationProps>();
   const { themeVariant } = useTheme();
   const useDustUtxo =
-    useAppSelector((s) => s.settings.advancedSettings?.useDustUtxo) ?? true;
+    useAppSelector(selectAdvancedSettings)?.useDustUtxo ?? true;
+
   const setUseDustUtxoSetting = useCallback(() => {
     backgroundApiProxy.dispatch(
       setAdvancedSettings({

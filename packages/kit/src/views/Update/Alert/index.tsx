@@ -11,7 +11,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAutoUpdate } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   ModalRoutes,
@@ -22,9 +22,16 @@ import { disable } from '@onekeyhq/kit/src/store/reducers/autoUpdater';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import {
+  selectAutoUpdateEnabled,
+  selectAutoUpdateLatest,
+} from '../../../store/selectors';
+
 const UpdateAlert: FC = () => {
   const intl = useIntl();
-  const { enabled, latest: lastVersion } = useAutoUpdate();
+
+  const enabled = useAppSelector(selectAutoUpdateEnabled);
+  const lastVersion = useAppSelector(selectAutoUpdateLatest);
 
   const navigation = useAppNavigation();
   const isSmallScreen = useIsVerticalLayout();

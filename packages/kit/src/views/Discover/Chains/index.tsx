@@ -3,12 +3,14 @@ import type { FC } from 'react';
 import { Box, Center, Icon, Image } from '@onekeyhq/components';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks';
 
+import { selectRuntimeNetworks } from '../../../store/selectors';
+
 interface ChainsProps {
   networkIds?: string[];
 }
 
 export const Chains: FC<ChainsProps> = ({ networkIds }) => {
-  const networks = useAppSelector((s) => s.runtime.networks);
+  const networks = useAppSelector(selectRuntimeNetworks);
   const items = networks.filter((network) => networkIds?.includes(network.id));
   return (
     <Box flexDirection="row">

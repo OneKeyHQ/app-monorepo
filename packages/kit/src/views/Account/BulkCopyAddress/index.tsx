@@ -14,8 +14,9 @@ import {
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import { useDebounce } from '../../../hooks';
-import { useRuntime } from '../../../hooks/redux';
+import { useAppSelector } from '../../../hooks/redux';
 import { CreateAccountModalRoutes } from '../../../routes/routesEnum';
+import { selectRuntimeNetworks } from '../../../store/selectors';
 
 import SetRange from './SetRange';
 import WalletAccounts from './WalletAccounts';
@@ -70,7 +71,7 @@ const BulkCopyAddress: FC = () => {
   const route = useRoute<RouteProps>();
   const { walletId, networkId, password, entry, template } = route.params;
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { networks } = useRuntime();
+  const networks = useAppSelector(selectRuntimeNetworks);
   const network = networks.filter((n) => n.id === networkId)[0];
 
   const [selectedIndex, setSelectedIndex] = useState<number>(

@@ -28,6 +28,7 @@ import {
   useSimpleTokenPriceValue,
 } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
+import { selectKeleTransactions } from '../../../store/selectors';
 import { formatAmount } from '../../../utils/priceUtils';
 import { PendingKeleTransaction } from '../components/PendingTransaction';
 import {
@@ -222,7 +223,7 @@ const PendingStakeContent = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const { networkId, accountId } = route.params;
-  const transactions = useAppSelector((s) => s.staking.keleTransactions);
+  const transactions = useAppSelector(selectKeleTransactions);
   const txs = useMemo(() => {
     if (!transactions) {
       return [];

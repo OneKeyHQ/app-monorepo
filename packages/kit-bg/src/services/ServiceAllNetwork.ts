@@ -24,6 +24,11 @@ import {
   setAllNetworksAccountsMap,
   setOverviewPortfolioUpdatedAt,
 } from '@onekeyhq/kit/src/store/reducers/overview';
+import {
+  selectActiveAccountId,
+  selectActiveNetworkId,
+  selectActiveWalletId,
+} from '@onekeyhq/kit/src/store/selectors';
 import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
 import {
   backgroundClass,
@@ -298,11 +303,9 @@ export default class ServiceAllNetwork extends ServiceBase {
       } catch (error) {
         debugLogger.common.error(error);
       }
-      const {
-        activeWalletId: walletId,
-        activeAccountId: accountId,
-        activeNetworkId,
-      } = appSelector((s) => s.general);
+      const walletId = appSelector(selectActiveWalletId);
+      const accountId = appSelector(selectActiveAccountId);
+      const activeNetworkId = appSelector(selectActiveNetworkId);
       if (!walletId || !accountId) {
         return;
       }

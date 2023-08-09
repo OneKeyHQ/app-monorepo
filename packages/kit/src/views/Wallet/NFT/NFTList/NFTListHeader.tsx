@@ -10,6 +10,7 @@ import {
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
 import { useNFTValues } from '../../../../hooks';
+import { selectDisPlayPriceType } from '../../../../store/selectors';
 // import { showSelectNFTPriceType } from '../../../Overlay/SelectNFTPriceType';
 
 type NFTListHeaderProps = {
@@ -25,7 +26,7 @@ const NFTListHeader = ({ isNFTSupport }: NFTListHeaderProps) => {
     accountId: account?.id,
     networkId: network?.id,
   });
-  const disPlayPriceType = useAppSelector((s) => s.nft.disPlayPriceType);
+  const disPlayPriceType = useAppSelector(selectDisPlayPriceType);
   const subDesc =
     disPlayPriceType === 'lastSalePrice'
       ? intl.formatMessage({ id: 'form__last_price' })

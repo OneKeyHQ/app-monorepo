@@ -6,6 +6,10 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
+import {
+  selectMarketCharts,
+  selectMarketTokens,
+} from '../../../store/selectors';
 
 import { useMarketMidLayout } from './useMarketLayout';
 
@@ -20,7 +24,7 @@ export const useMarketTokenChart = ({
   points?: string;
   pollingIntervall?: number;
 }) => {
-  const charts = useAppSelector((s) => s.market.charts);
+  const charts = useAppSelector(selectMarketCharts);
   const isFocused = useIsFocused();
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | undefined;
@@ -65,7 +69,7 @@ export const useMarketTokenItem = ({
 }) => {
   const isVertical = useIsVerticalLayout();
   const isMidLayout = useMarketMidLayout();
-  const marketTokens = useAppSelector((s) => s.market.marketTokens);
+  const marketTokens = useAppSelector(selectMarketTokens);
   useEffect(() => {
     if (coingeckoId?.length) {
       const marketTokenItem = marketTokens[coingeckoId];

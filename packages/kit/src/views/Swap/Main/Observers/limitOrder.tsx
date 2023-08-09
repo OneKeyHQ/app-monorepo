@@ -7,6 +7,10 @@ import {
   setMktRate,
   setTypedPrice,
 } from '../../../../store/reducers/limitOrder';
+import {
+  selectLimitOrderTokenIn,
+  selectLimitOrderTokenOut,
+} from '../../../../store/selectors';
 import { fetchOrderInstantRate } from '../../doLimitOrder';
 import { useLimitOrderParams } from '../../hooks/useLimitOrder';
 
@@ -19,8 +23,8 @@ const LimitOrderParamsObserver = () => {
 };
 
 const LimitOrderRateResetObserver = () => {
-  const tokenIn = useAppSelector((s) => s.limitOrder.tokenIn);
-  const tokenOut = useAppSelector((s) => s.limitOrder.tokenOut);
+  const tokenIn = useAppSelector(selectLimitOrderTokenIn);
+  const tokenOut = useAppSelector(selectLimitOrderTokenOut);
   useEffect(() => {
     backgroundApiProxy.dispatch(
       setMktRate(''),

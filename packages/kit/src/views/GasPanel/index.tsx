@@ -8,9 +8,10 @@ import type { IGasInfo } from '@onekeyhq/engine/src/types/gas';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useNativeToken, useSettings } from '../../hooks';
+import { useAppSelector, useNativeToken } from '../../hooks';
 import { appSelector } from '../../store';
 import { setGasPanelEIP1559Enabled } from '../../store/reducers/settings';
+import { selectGasPanelEIP1559Enabled } from '../../store/selectors';
 
 import { supportedNetworks, supportedNetworksSettings } from './config';
 import { GasList } from './GasList';
@@ -43,8 +44,8 @@ function GasPanel() {
   const [leftSeconds, setLeftSeconds] = useState(
     REFRESH_GAS_INFO_INTERVAL / 1000,
   );
-  const settings = useSettings();
 
+  const gasPanelEIP1559Enabled = useAppSelector(selectGasPanelEIP1559Enabled);
   const token = useNativeToken(selectedNetworkId);
 
   const { serviceGas } = backgroundApiProxy;
@@ -60,7 +61,7 @@ function GasPanel() {
     return false;
   }, [gasInfo]);
 
-  const isEIP1559Enabled = settings?.gasPanelEIP1559Enabled ?? true;
+  const isEIP1559Enabled = gasPanelEIP1559Enabled ?? true;
 
   const setIsEIP1559Enabled = useCallback((isEnabled) => {
     backgroundApiProxy.dispatch(setGasPanelEIP1559Enabled(isEnabled));

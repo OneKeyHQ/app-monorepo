@@ -18,6 +18,7 @@ import { useNavigation } from '../../../hooks';
 import { useAppSelector } from '../../../hooks/redux';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { setSlippage as setSlippageAction } from '../../../store/reducers/swapTransactions';
+import { selectSwapTransactionsSlippage } from '../../../store/selectors';
 import { useSlippageLevels, useSwapSlippageAuto } from '../hooks/useSwapUtils';
 import { SwapRoutes } from '../typings';
 
@@ -111,7 +112,7 @@ const Slippage = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const levels = useSlippageLevels();
-  const slippage = useAppSelector((s) => s.swapTransactions.slippage);
+  const slippage = useAppSelector(selectSwapTransactionsSlippage);
 
   const [slippageCurrent, setCurrentSlippage] = useState<ISlippageSetting>(() =>
     !slippage ? { mode: 'auto' } : slippage,

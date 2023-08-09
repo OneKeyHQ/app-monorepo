@@ -36,6 +36,10 @@ import {
 } from '../../hooks';
 import { useSingleToken } from '../../hooks/useTokens';
 import { ManageTokenModalRoutes } from '../../routes/routesEnum';
+import {
+  selectHideRiskTokens,
+  selectHideSmallBalance,
+} from '../../store/selectors';
 import { deviceUtils } from '../../utils/hardware';
 import { showOverlay } from '../../utils/overlayUtils';
 import { getTokenValue } from '../../utils/priceUtils';
@@ -266,8 +270,8 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
   const navigation = useNavigation<NavigationProps>();
   const { walletId, accountId, networkId } = useActiveWalletAccount();
   const accountTokens = useAccountTokensOnChain(networkId, accountId);
-  const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
-  const hideRiskTokens = useAppSelector((s) => s.settings.hideRiskTokens);
+  const hideSmallBalance = useAppSelector(selectHideSmallBalance);
+  const hideRiskTokens = useAppSelector(selectHideRiskTokens);
 
   const isOwned = accountTokens.some(
     (t) => item.tokenIdOnNetwork === t.address && !t.autoDetected,

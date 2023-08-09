@@ -10,6 +10,10 @@ import { useAppSelector } from '../../../hooks';
 import { getAppNavigation } from '../../../hooks/useAppNavigation';
 import { TabRoutes } from '../../../routes/routesEnum';
 import { MARKET_FAVORITES_CATEGORYID } from '../../../store/reducers/market';
+import {
+  selectMarketListSort,
+  selectMarketTopTabName,
+} from '../../../store/selectors';
 import { isAtAppRootTab } from '../../../utils/routeUtils';
 
 import { useMarketSelectedCategory } from './useMarketCategory';
@@ -18,9 +22,12 @@ import { useMarketMidLayout } from './useMarketLayout';
 import type { MarketTopTabName } from '../../../store/reducers/market';
 
 export const useListSort = () => {
-  const listSort = useAppSelector((s) => s.market.listSort);
+  const listSort = useAppSelector(selectMarketListSort);
   return useMemo(() => listSort, [listSort]);
 };
+
+export const useMobileMarketTopTabName = () =>
+  useAppSelector(selectMarketTopTabName) || TabRoutes.Swap;
 
 const useMarketCategoryCoingeckoIds = () => {
   const selectedCategory = useMarketSelectedCategory();

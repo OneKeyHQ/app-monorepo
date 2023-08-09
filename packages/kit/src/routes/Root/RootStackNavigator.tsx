@@ -15,6 +15,7 @@ import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useHtmlPreloadSplashLogoRemove } from '../../hooks/useHtmlPreloadSplashLogoRemove';
+import { selectBuildNumber, selectVersion } from '../../store/selectors';
 import {
   ModalRoutes,
   RootRoutes,
@@ -29,8 +30,8 @@ import type { UpdateFeatureRoutesParams } from './Modal/UpdateFeature';
 type NavigationProps = ModalScreenProps<UpdateFeatureRoutesParams>;
 
 export const RootStackNavigator = memo(() => {
-  const version = useAppSelector((s) => s.settings.version);
-  const buildNumber = useAppSelector((s) => s.settings.buildNumber);
+  const version = useAppSelector(selectVersion);
+  const buildNumber = useAppSelector(selectBuildNumber);
   const { dispatch } = backgroundApiProxy;
   const navigation = useNavigation<NavigationProps['navigation']>();
 

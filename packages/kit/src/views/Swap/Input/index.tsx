@@ -9,6 +9,12 @@ import {
   useNavigation,
   usePrevious,
 } from '../../../hooks';
+import {
+  selectSwapInputToken,
+  selectSwapOutputToken,
+  selectSwapSendingAccount,
+  selectSwapTransactionsTokenList,
+} from '../../../store/selectors';
 import TokenSelectorControl from '../components/TokenSelectorControl';
 import { TokenSelectorControlContext } from '../components/TokenSelectorControl/context';
 
@@ -24,10 +30,10 @@ const Input = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const { network } = useActiveWalletAccount();
-  const outputToken = useAppSelector((s) => s.swap.outputToken);
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const tokenList = useAppSelector((s) => s.swapTransactions.tokenList);
-  const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
+  const inputToken = useAppSelector(selectSwapInputToken);
+  const outputToken = useAppSelector(selectSwapOutputToken);
+  const tokenList = useAppSelector(selectSwapTransactionsTokenList);
+  const sendingAccount = useAppSelector(selectSwapSendingAccount);
   const [networkSelectorId, onSelectNetworkId] = useState<string | undefined>(
     () => {
       const networkIds = (tokenList ?? []).map((item) => item.networkId);

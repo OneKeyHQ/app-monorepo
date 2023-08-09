@@ -16,6 +16,7 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
+import { selectEthStakingApr } from '../../../../store/selectors';
 import { formatAmount } from '../../../../utils/priceUtils';
 import { EthStakingSource, StakingRoutes } from '../../typing';
 import { isSTETH, isSupportStakingType } from '../../utils';
@@ -95,7 +96,7 @@ const EthAprOption: FC<EthAprOptionProps> = ({ networkId, accountId }) => {
     backgroundApiProxy.serviceStaking.fetchEthAprSma();
   }, []);
 
-  const ethStakingApr = useAppSelector((s) => s.staking.ethStakingApr);
+  const ethStakingApr = useAppSelector(selectEthStakingApr);
 
   const topApr = useMemo(() => {
     if (!ethStakingApr) return undefined;
@@ -212,7 +213,7 @@ const EthAprOption: FC<EthAprOptionProps> = ({ networkId, accountId }) => {
 const RelatedPool: FC<EthAprOptionProps> = ({ networkId, accountId }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const ethStakingApr = useAppSelector((s) => s.staking.ethStakingApr);
+  const ethStakingApr = useAppSelector(selectEthStakingApr);
   const lidoApr = useMemo(() => {
     if (!ethStakingApr) return undefined;
     const items =

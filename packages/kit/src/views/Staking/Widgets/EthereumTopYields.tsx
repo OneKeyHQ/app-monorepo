@@ -15,6 +15,7 @@ import {
 } from '../../../hooks';
 import { useAllNetworksSelectNetworkAccount } from '../../../hooks/useAllNetwoks';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
+import { selectEthStakingApr } from '../../../store/selectors';
 import { formatAmount } from '../../../utils/priceUtils';
 import { Options } from '../components/EthereumUtilsComponent';
 import { EthStakingSource, StakingRoutes } from '../typing';
@@ -46,7 +47,7 @@ const EthereumTopYieldsContent: FC<EthereumTopYieldsContentProps> = ({
     backgroundApiProxy.serviceStaking.fetchEthAprSma();
   }, []);
 
-  const ethStakingApr = useAppSelector((s) => s.staking.ethStakingApr);
+  const ethStakingApr = useAppSelector(selectEthStakingApr);
 
   const topApr = useMemo(() => {
     if (!ethStakingApr) return undefined;

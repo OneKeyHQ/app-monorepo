@@ -17,7 +17,8 @@ import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUt
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useRuntime } from '../../hooks/redux';
+import { useAppSelector } from '../../hooks/redux';
+import { selectRuntimeWallets } from '../../store/selectors';
 
 export type WalletData = Omit<Wallet, 'accounts'> & {
   accounts: Account[];
@@ -31,7 +32,7 @@ const isBurnAddress = (address: string) =>
 export const useEvmWalletsAndAccounts = () => {
   const { engine } = backgroundApiProxy;
   const [wallets, setWallets] = useState<WalletData[]>([]);
-  const { wallets: walletsWithoutAccount } = useRuntime();
+  const walletsWithoutAccount = useAppSelector(selectRuntimeWallets);
 
   const getWalletsAndAccounts = useCallback(async () => {
     const data = await Promise.all(

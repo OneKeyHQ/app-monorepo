@@ -10,8 +10,9 @@ import { useIntl } from 'react-intl';
 import { Box, Modal, NetImage, Text } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useSettings } from '../../../hooks/redux';
+import { useAppSelector } from '../../../hooks/redux';
 import useFormatDate from '../../../hooks/useFormatDate';
+import { selectInstanceId, selectVersion } from '../../../store/selectors';
 
 import { attachmentUri, commentsUri } from './TicketService';
 import { HistoryRequestRoutes } from './types';
@@ -32,7 +33,7 @@ type RouteProps = RouteProp<
 >;
 
 const Attachment: FC<AttachmentsType> = ({ id, size }) => {
-  const { instanceId } = useSettings();
+  const instanceId = useAppSelector(selectInstanceId);
   const [data, updateData] = useState('');
 
   useEffect(() => {
@@ -101,8 +102,8 @@ export const TicketDetail: FC = () => {
   const submitterId = route.params.order.submitter_id;
   const imageSize = (260 - 16) / 3;
   const navigation = useNavigation<NavigationProps>();
-  const { version } = useSettings();
-  const { instanceId } = useSettings();
+  const version = useAppSelector(selectVersion);
+  const instanceId = useAppSelector(selectInstanceId);
   const { formatDate } = useFormatDate();
   const [comments, updateComments] = useState<CommentType[]>([]);
 

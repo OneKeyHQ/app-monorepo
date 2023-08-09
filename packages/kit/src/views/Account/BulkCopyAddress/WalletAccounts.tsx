@@ -20,7 +20,8 @@ import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useDerivationPath } from '../../../components/NetworkAccountSelector/hooks/useDerivationPath';
-import { useRuntime } from '../../../hooks/redux';
+import { useAppSelector } from '../../../hooks/redux';
+import { selectRuntimeWallets } from '../../../store/selectors';
 
 import { formatDerivationLabel } from './helper';
 
@@ -52,7 +53,7 @@ export type IWalletAccountsRefType = {
 const WalletAccounts = forwardRef<IWalletAccountsRefType, IProps>(
   ({ walletId, networkId, setButtonDisabled }: IProps, ref) => {
     const intl = useIntl();
-    const { wallets } = useRuntime();
+    const wallets = useAppSelector(selectRuntimeWallets);
     const wallet = wallets.find((item) => item.id === walletId);
 
     const { derivationOptions } = useDerivationPath(walletId, networkId);

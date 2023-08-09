@@ -1,4 +1,6 @@
-import { useSettings } from './redux';
+import { selectLocale } from '../store/selectors';
+
+import { useAppSelector } from './redux';
 import { useSystemLocale } from './useSystemLocale';
 
 function normalizePath(path?: string) {
@@ -9,7 +11,7 @@ export const HELP_LINK = 'https://help.onekey.so/hc';
 
 export function useHelpLink({ path = '' }: { path: string }) {
   const systemLocale = useSystemLocale();
-  const { locale } = useSettings();
+  const locale = useAppSelector(selectLocale);
   const currentLocale = locale === 'system' ? systemLocale : locale;
   // Replace all "_" to "-"
   const normalizedLocale = currentLocale.replace(/_/g, '-').toLowerCase();

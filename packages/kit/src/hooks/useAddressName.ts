@@ -1,10 +1,12 @@
 import { useMemo } from 'react';
 
-import { useAppSelector, useRuntime } from './redux';
+import { selectContacts, selectRuntimeAccounts } from '../store/selectors';
+
+import { useAppSelector } from './redux';
 
 function useAddressName({ address }: { address?: string }): string | undefined {
-  const contactsRecords = useAppSelector((s) => s.contacts.contacts);
-  const { accounts } = useRuntime();
+  const contactsRecords = useAppSelector(selectContacts);
+  const accounts = useAppSelector(selectRuntimeAccounts);
   return useMemo(() => {
     if (!address) {
       return;

@@ -24,7 +24,7 @@ import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import WalletAvatar from '../../../components/WalletSelector/WalletAvatar';
 import { useAppSelector } from '../../../hooks';
-import { useRuntime } from '../../../hooks/redux';
+import { selectContacts, selectRuntimeWallets } from '../../../store/selectors';
 import { SwapRoutes } from '../typings';
 
 import type { Contact } from '../../../store/reducers/contacts';
@@ -45,7 +45,7 @@ const AddressBook = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const { networkId, onSelected } = route.params ?? {};
-  const contacts = useAppSelector((s) => s.contacts.contacts);
+  const contacts = useAppSelector(selectContacts);
   const items = useMemo(() => {
     let values = Object.values(contacts);
     values = values.sort((a, b) => (a.createAt > b.createAt ? -1 : -1));
@@ -141,7 +141,7 @@ type WalletAccount = {
 };
 
 const MyWallet = () => {
-  const { wallets } = useRuntime();
+  const wallets = useAppSelector(selectRuntimeWallets);
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const { networkId, onSelected } = route.params ?? {};

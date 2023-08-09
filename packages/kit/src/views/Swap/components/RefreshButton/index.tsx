@@ -14,6 +14,7 @@ import {
 
 import { useAppSelector } from '../../../../hooks';
 import { appSelector } from '../../../../store';
+import { selectSwapLoading } from '../../../../store/selectors';
 import { dangerRefs } from '../../refs';
 
 const RefreshButton = () => {
@@ -23,7 +24,7 @@ const RefreshButton = () => {
 
   const loadingAnim = useRef(new Animated.Value(0)).current;
   const processAnim = useRef(new Animated.Value(0)).current;
-  const loading = useAppSelector((s) => s.swap.loading);
+  const loading = useAppSelector(selectSwapLoading);
 
   const onRefresh = useCallback(() => {
     const limited = appSelector((s) => s.swap.quoteLimited);

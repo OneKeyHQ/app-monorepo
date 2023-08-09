@@ -19,6 +19,13 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { useAppSelector, useNavigation, useNetwork } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { setDisableSwapExactApproveAmount } from '../../../../store/reducers/settings';
+import {
+  selectSwapInputToken,
+  selectSwapOutputToken,
+  selectSwapQuote,
+  selectSwapQuoteLimited,
+  selectSwapShowMoreQuoteDetail,
+} from '../../../../store/selectors';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import { ArrivalTime } from '../../components/ArrivalTime';
 import RefreshButton from '../../components/RefreshButton';
@@ -129,7 +136,7 @@ const SwapExactAmountAllowanceBottomSheetModal: FC<{ onClose: () => void }> = ({
 
 const SwapExactAmoutAllowance = () => {
   const intl = useIntl();
-  const quote = useAppSelector((s) => s.swap.quote);
+  const quote = useAppSelector(selectSwapQuote);
   const disableSwapExactApproveAmount = useAppSelector(
     (s) => s.settings.disableSwapExactApproveAmount,
   );
@@ -269,14 +276,14 @@ const SwapNetworkFeeEditable = () => {
 };
 
 const SwapNetworkFeeInfo = () => {
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const inputToken = useAppSelector(selectSwapInputToken);
   const { network } = useNetwork({ networkId: inputToken?.networkId });
   return network?.settings?.feeInfoEditable ? <SwapNetworkFeeEditable /> : null;
 };
 
 const SwapMinimumReceived = () => {
   const value = useSwapMinimumReceivedAmount();
-  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const outputToken = useAppSelector(selectSwapOutputToken);
 
   if (outputToken && value) {
     const amount = getTokenAmountValue(outputToken, String(value));
@@ -291,7 +298,7 @@ const SwapMinimumReceived = () => {
 
 const SwapPriceImpact = () => {
   const intl = useIntl();
-  const quote = useAppSelector((s) => s.swap.quote);
+  const quote = useAppSelector(selectSwapQuote);
   if (!quote) {
     return null;
   }
@@ -326,7 +333,7 @@ const SwapPriceImpact = () => {
 
 const SwapProtocalsFees = () => {
   const intl = useIntl();
-  const protocolFees = useAppSelector((s) => s.swap.quote?.protocolFees);
+  const protocolFees = useAppSelector(selectSwapQuote)?.protocolFees;
   if (protocolFees) {
     const result = calculateProtocalsFee(protocolFees);
     if (Number(result.value) > 0) {
@@ -361,8 +368,8 @@ const SwapProtocalsFees = () => {
 const SwapSmartRoute = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const quote = useAppSelector((s) => s.swap.quote);
-  const quoteLimited = useAppSelector((s) => s.swap.quoteLimited);
+  const quote = useAppSelector(selectSwapQuote);
+  const quoteLimited = useAppSelector(selectSwapQuoteLimited);
   const onSelectRoute = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Swap,
@@ -461,7 +468,7 @@ const SwapSlippage = () => {
 
 const SwapOnekeyFee = () => {
   const intl = useIntl();
-  const quote = useAppSelector((s) => s.swap.quote);
+  const quote = useAppSelector(selectSwapQuote);
   if (!quote) {
     return null;
   }
@@ -497,7 +504,7 @@ const SwapOnekeyFee = () => {
 
 const SwapArrivalTime = () => {
   const intl = useIntl();
-  const arrivalTime = useAppSelector((s) => s.swap.quote?.arrivalTime);
+  const arrivalTime = useAppSelector(selectSwapQuote)?.arrivalTime;
   return (
     <Box
       display="flex"
@@ -527,7 +534,7 @@ const SwapArrivalTime = () => {
 
 const SwapAPIIntro = () => {
   const intl = useIntl();
-  const quote = useAppSelector((s) => s.swap.quote);
+  const quote = useAppSelector(selectSwapQuote);
   if (!quote) {
     return null;
   }
@@ -549,9 +556,9 @@ const SwapAPIIntro = () => {
 };
 
 const SwapTransactionRate = () => {
-  const quote = useAppSelector((s) => s.swap.quote);
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const quote = useAppSelector(selectSwapQuote);
+  const inputToken = useAppSelector(selectSwapInputToken);
+  const outputToken = useAppSelector(selectSwapOutputToken);
   if (quote) {
     return (
       <Center py="3">
@@ -577,7 +584,7 @@ const SwapTransactionRate = () => {
 
 const SwapMoreQuote = () => {
   const intl = useIntl();
-  const showMoreQuoteDetail = useAppSelector((s) => s.swap.showMoreQuoteDetail);
+  const showMoreQuoteDetail = useAppSelector(selectSwapShowMoreQuoteDetail);
 
   const onExpand = useCallback(() => {
     backgroundApiProxy.serviceSwap.setShowMoreQuoteDetail(true);
@@ -675,7 +682,7 @@ const SwapWrapperTxQuote = () => (
 );
 
 export const SwapQuote = () => {
-  const quote = useAppSelector((s) => s.swap.quote);
+  const quote = useAppSelector(selectSwapQuote);
   if (!quote) {
     return null;
   }

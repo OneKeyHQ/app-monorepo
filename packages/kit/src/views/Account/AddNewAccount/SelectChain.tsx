@@ -14,10 +14,12 @@ import {
 } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import { useManageNetworks } from '@onekeyhq/kit/src/hooks';
-import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import type { CreateAccountRoutesParams } from '@onekeyhq/kit/src/routes';
 import { CreateAccountModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+
+import { selectRuntimeWallets } from '../../../store/selectors';
 
 import type { RouteProp } from '@react-navigation/native';
 import type { ListRenderItem } from 'react-native';
@@ -35,7 +37,7 @@ const RecoverSelectChainModal: FC = () => {
   const intl = useIntl();
 
   const route = useRoute<RouteProps>();
-  const { wallets } = useRuntime();
+  const wallets = useAppSelector(selectRuntimeWallets);
   const { enabledNetworks: networks } = useManageNetworks();
   const navigation = useNavigation<NavigationProps['navigation']>();
 

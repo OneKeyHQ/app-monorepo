@@ -32,6 +32,7 @@ import {
   SendModalRoutes,
 } from '../../../routes/routesEnum';
 import { addTransaction } from '../../../store/reducers/staking';
+import { selectStakingTransactions } from '../../../store/selectors';
 import { formatAmount } from '../../../utils/priceUtils';
 import { formatDecimalZero } from '../../Market/utils';
 import { formatAmountExact, gt } from '../../Swap/utils';
@@ -145,7 +146,7 @@ const PendingTransactionAlert = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const { networkId, accountId } = route.params;
-  const transactions = useAppSelector((s) => s.staking.transactions);
+  const transactions = useAppSelector(selectStakingTransactions);
   const txs = useMemo(() => {
     if (!transactions) {
       return [];

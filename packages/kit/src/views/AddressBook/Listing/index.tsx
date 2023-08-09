@@ -20,6 +20,7 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
 import { useAppSelector } from '../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
+import { selectContacts } from '../../../store/selectors';
 import { AddressBookRoutes } from '../routes';
 
 import AddressBookMenu from './menu';
@@ -48,7 +49,7 @@ type ListProps = {
 
 const AddressList = ({ networkId, onNew, onSelected }: ListProps) => {
   const intl = useIntl();
-  const contacts = useAppSelector((s) => s.contacts.contacts);
+  const contacts = useAppSelector(selectContacts);
   const { bottom } = useSafeAreaInsets();
 
   const data = useMemo(() => {

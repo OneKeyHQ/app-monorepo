@@ -36,8 +36,12 @@ import {
   useNetwork,
   useNetworkSimple,
 } from '../../../../hooks';
-import { useAppSelector, useRuntime } from '../../../../hooks/redux';
+import { useAppSelector } from '../../../../hooks/redux';
 import { getWalletName } from '../../../../hooks/useWalletName';
+import {
+  selectActiveExternalWalletName,
+  selectRuntimeWallets,
+} from '../../../../store/selectors';
 import ExternalAccountImg from '../../../ExternalAccount/components/ExternalAccountImg';
 import { formatAmount } from '../../utils';
 
@@ -51,7 +55,7 @@ const WalletSelectDropdown: FC<WalletSelectDropdownProps> = ({
 }) => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
-  const { wallets } = useRuntime();
+  const wallets = useAppSelector(selectRuntimeWallets);
   const data = useMemo(() => {
     const items = wallets
       .filter((o) => o.type !== 'watching')
@@ -236,7 +240,7 @@ const AccountView: FC<AccountViewProps> = ({
   const network = useNetworkSimple(networkId);
   const nativeBalance = useNativeTokenBalance(network?.id, account.id);
   const activeExternalWalletName = useAppSelector(
-    (s) => s.general.activeExternalWalletName,
+    selectActiveExternalWalletName,
   );
   const onPress = useCallback(() => {
     onSelect?.(account);
@@ -407,7 +411,7 @@ const PickAccount: FC<PickAccountProps> = ({
   const intl = useIntl();
   const [search, setSearch] = useState('');
   const [accounts, setAccounts] = useState<Account[]>();
-  const wallets = useAppSelector((s) => s.runtime.wallets);
+  const wallets = useAppSelector(selectRuntimeWallets);
   const [walletId, setWalletId] = useState(() => {
     if (accountId) {
       for (let i = 0; i < wallets.length; i += 1) {

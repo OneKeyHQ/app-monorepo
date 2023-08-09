@@ -17,6 +17,10 @@ import { useNavigation } from '../../../../hooks';
 import { useAppSelector } from '../../../../hooks/redux';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { addLimitOrderTransaction } from '../../../../store/reducers/swapTransactions';
+import {
+  selectLimitOrderInstantRate,
+  selectLimitOrderLoading,
+} from '../../../../store/selectors';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import { SwapTransactionsCancelApprovalBottomSheetModal } from '../../components/CancelApprovalModal';
 import { ZeroExchangeAddress } from '../../config';
@@ -46,7 +50,7 @@ const LimitOrderButton = () => {
   const navigation = useNavigation();
   const params = useLimitOrderParams();
   const progressStatusCtx = useContext(LimitOrderButtonProgressContext);
-  const instantRate = useAppSelector((s) => s.limitOrder.instantRate);
+  const instantRate = useAppSelector(selectLimitOrderInstantRate);
   const sendSwapTx = useSwapSend();
   const sendSignMessage = useSwapSignMessage();
 
@@ -307,7 +311,7 @@ const LimitOrderButton = () => {
 
 const LimitOrderStateButton = () => {
   const intl = useIntl();
-  const loading = useAppSelector((s) => s.limitOrder.loading);
+  const loading = useAppSelector(selectLimitOrderLoading);
   const output = useLimitOrderOutput();
   const balanceInfo = useCheckLimitOrderInputBalance();
   const lessThanZero = lte(output, 0);

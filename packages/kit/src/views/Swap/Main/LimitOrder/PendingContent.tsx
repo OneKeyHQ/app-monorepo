@@ -19,6 +19,10 @@ import { useAccount, useAppSelector, useNavigation } from '../../../../hooks';
 import useFormatDate from '../../../../hooks/useFormatDate';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import {
+  selectLimitOrderActiveAccount,
+  selectSwapMode,
+} from '../../../../store/selectors';
+import {
   useCancelLimitOrderCallback,
   useLimitOrders,
 } from '../../hooks/useLimitOrder';
@@ -314,8 +318,8 @@ const FullViewList: FC<{ orders?: LimitOrderTransactionDetails[] }> = ({
 };
 
 export function PendingLimitOrdersSimpleContent() {
-  const activeAccount = useAppSelector((s) => s.limitOrder.activeAccount);
-  const mode = useAppSelector((s) => s.swap.mode);
+  const activeAccount = useAppSelector(selectLimitOrderActiveAccount);
+  const mode = useAppSelector(selectSwapMode);
   const orders = useLimitOrders(activeAccount?.id);
   const intl = useIntl();
   return mode === 'limit' ? (
@@ -332,8 +336,8 @@ export function PendingLimitOrdersSimpleContent() {
 
 export function PendingLimitOrdersProfessionalContent() {
   const intl = useIntl();
-  const mode = useAppSelector((s) => s.swap.mode);
-  const { activeAccount } = useAppSelector((s) => s.limitOrder);
+  const mode = useAppSelector(selectSwapMode);
+  const activeAccount = useAppSelector(selectLimitOrderActiveAccount);
   const orders = useLimitOrders(activeAccount?.id);
   return mode === 'limit' ? (
     <Box px="4" mt="4">

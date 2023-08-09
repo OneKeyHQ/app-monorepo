@@ -6,8 +6,10 @@ import { Form, useIsVerticalLayout } from '@onekeyhq/components';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import { useManageNetworks } from '@onekeyhq/kit/src/hooks';
-import { useGeneral } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+
+import { selectActiveNetworkId } from '../../store/selectors';
 
 import type { ControllerProps, FieldValues } from 'react-hook-form';
 
@@ -27,7 +29,7 @@ function FormChainSelector<TFieldValues extends FieldValues = FieldValues>({
 }: Omit<ControllerProps<TFieldValues>, 'render'> & FormChainSelectorProps) {
   const intl = useIntl();
   const { enabledNetworks: networks } = useManageNetworks();
-  const { activeNetworkId: currentNetworkId } = useGeneral();
+  const currentNetworkId = useAppSelector(selectActiveNetworkId);
   const isSmallScreen = useIsVerticalLayout();
 
   let defaultNetworkId =

@@ -22,12 +22,13 @@ import {
 } from '@onekeyhq/components';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useSettings } from '@onekeyhq/kit/src/hooks';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks';
 import { TabRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { TabRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import type { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
 import { MARKET_FAVORITES_CATEGORYID } from '@onekeyhq/kit/src/store/reducers/market';
 
+import { selectFiatMoneySymbol } from '../../../../store/selectors';
 import { useCurrencyUnit } from '../../../Me/GenaralSection/CurrencySelect/hooks';
 import { EMarketCellData } from '../../config';
 import { useMarketSelectedCategoryId } from '../../hooks/useMarketCategory';
@@ -84,7 +85,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
   onLongPress,
 }) => {
   const isVerticalLayout = useIsVerticalLayout();
-  const { selectedFiatMoneySymbol } = useSettings();
+  const selectedFiatMoneySymbol = useAppSelector(selectFiatMoneySymbol);
   const unit = useCurrencyUnit(selectedFiatMoneySymbol);
   const { size } = useUserDevice();
   const isNormalDevice = useMemo(() => ['NORMAL'].includes(size), [size]);

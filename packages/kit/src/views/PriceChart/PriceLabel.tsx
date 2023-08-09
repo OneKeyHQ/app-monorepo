@@ -41,7 +41,6 @@ const PriceLabel: FC<PriceLabelProps> = ({
       </Typography.Body2Strong>
     );
   }
-  // const { selectedFiatMoneySymbol } = useSettings();
   return (
     <Box flexDirection="column">
       <Pressable

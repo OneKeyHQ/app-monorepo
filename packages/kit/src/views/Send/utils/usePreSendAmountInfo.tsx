@@ -11,8 +11,9 @@ import {
   FormatCurrencyTokenOfAccount,
   formatBalanceDisplay,
 } from '../../../components/Format';
-import { useSettings } from '../../../hooks';
+import { useAppSelector } from '../../../hooks';
 import { useSimpleTokenPriceValue } from '../../../hooks/useTokens';
+import { selectFiatMoneySymbol } from '../../../store/selectors';
 
 export function usePreSendAmountInfo({
   tokenInfo,
@@ -52,7 +53,10 @@ export function usePreSendAmountInfo({
     networkId,
     contractAdress: tokenInfo?.tokenIdOnNetwork,
   });
-  const { selectedFiatMoneySymbol = 'usd' } = useSettings();
+
+  const selectedFiatMoneySymbol =
+    useAppSelector(selectFiatMoneySymbol) ?? 'usd';
+
   const fiatUnit = selectedFiatMoneySymbol.toUpperCase().trim();
   const [isFiatMode, setIsFiatMode] = useState(false);
   const fiatModeDecimal = selectedFiatMoneySymbol === 'btc' ? 8 : 2;

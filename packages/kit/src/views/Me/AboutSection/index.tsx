@@ -13,10 +13,11 @@ import {
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { setDevMode } from '@onekeyhq/kit/src/store/reducers/settings';
 
+import { selectBuildNumber, selectVersion } from '../../../store/selectors';
 import { openUrlByWebview, openUrlExternal } from '../../../utils/openUrl';
 
 import AppRateSectionItem from './AppRateSectionItem';
@@ -29,7 +30,9 @@ export const AboutSection = () => {
   const { themeVariant } = useTheme();
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
-  const settings = useSettings();
+  const currentVersion = useAppSelector(selectVersion);
+  const buildNumber = useAppSelector(selectBuildNumber);
+
   let lastTime: Date | undefined;
   let num = 0;
   const openDebugMode = () => {
@@ -82,9 +85,7 @@ export const AboutSection = () => {
           onPress={() => {
             openDebugMode();
             handleCopyVersion(
-              `${settings.version}${
-                settings.buildNumber ? `-${settings.buildNumber}` : ''
-              }`,
+              `${currentVersion}${buildNumber ? `-${buildNumber}` : ''}`,
             );
           }}
         >
@@ -109,8 +110,8 @@ export const AboutSection = () => {
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             color="text-subdued"
           >
-            {settings.version}
-            {settings.buildNumber ? `-${settings.buildNumber}` : ''}
+            {currentVersion}
+            {buildNumber ? `-${buildNumber}` : ''}
           </Text>
         </Pressable>
         <AutoUpdateSectionItem />

@@ -7,6 +7,7 @@ import { Box, Switch, Typography } from '@onekeyhq/components';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useAppSelector } from '../../hooks';
 import { setIncludeNFTsInTotal } from '../../store/reducers/settings';
+import { selectIncludeNFTsInTotal } from '../../store/selectors';
 import { showOverlay } from '../../utils/overlayUtils';
 
 import {
@@ -20,8 +21,7 @@ import {
 
 const AccountValueSettings: FC = () => {
   const intl = useIntl();
-  const includeNFTsInTotal =
-    useAppSelector((s) => s.settings.includeNFTsInTotal) ?? true;
+  const includeNFTsInTotal = useAppSelector(selectIncludeNFTsInTotal) ?? true;
 
   const { accountId, networkId } = useActiveWalletAccount();
   const info = useAccountBalanceDetailsInfo({ networkId, accountId });

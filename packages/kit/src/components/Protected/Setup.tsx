@@ -17,6 +17,10 @@ import { encodeSensitiveText } from '@onekeyhq/engine/src/secret/encryptors/aes2
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useLocalAuthentication } from '../../hooks';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
+import {
+  selectAuthenticationType,
+  selectBoardingCompleted,
+} from '../../store/selectors';
 
 type FieldValues = {
   password: string;
@@ -39,8 +43,8 @@ const Setup: FC<SetupProps> = ({
 }) => {
   const intl = useIntl();
   const { isOk } = useLocalAuthentication();
-  const boardingCompleted = useAppSelector((s) => s.status.boardingCompleted);
-  const authenticationType = useAppSelector((s) => s.status.authenticationType);
+  const boardingCompleted = useAppSelector(selectBoardingCompleted);
+  const authenticationType = useAppSelector(selectAuthenticationType);
 
   const useFormReturn = useForm<FieldValues>({
     mode: 'onBlur',

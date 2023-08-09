@@ -2,11 +2,12 @@ import { useEffect, useMemo } from 'react';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
+import { selectLocale, selectMarketDetails } from '../../../store/selectors';
 import { getDefaultLocale } from '../../../utils/locale';
 
 export const useMarketDetail = ({ coingeckoId }: { coingeckoId: string }) => {
-  const marketDetails = useAppSelector((s) => s.market.details);
-  const locale = useAppSelector((s) => s.settings.locale);
+  const marketDetails = useAppSelector(selectMarketDetails);
+  const locale = useAppSelector(selectLocale);
   const tokenDetail = useMemo(
     () => marketDetails[coingeckoId],
     [coingeckoId, marketDetails],

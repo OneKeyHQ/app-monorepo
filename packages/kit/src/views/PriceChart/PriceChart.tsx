@@ -8,13 +8,14 @@ import { isValidCoingeckoId } from '@onekeyhq/engine/src/managers/token';
 import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useSettings } from '../../hooks';
+import { useAppSelector } from '../../hooks';
 import { useSimpleTokenPriceValue } from '../../hooks/useTokens';
 import {
   ManageTokenModalRoutes,
   ModalRoutes,
   RootRoutes,
 } from '../../routes/routesEnum';
+import { selectFiatMoneySymbol } from '../../store/selectors';
 import { useMarketTokenItem } from '../Market/hooks/useMarketToken';
 
 import { fetchChartData } from './chartService';
@@ -54,7 +55,7 @@ const PriceChart: FC<PriceChartProps> = ({
     selectedTimeIndex,
     dataMap.current?.[selectedTimeIndex]?.[0]?.[0],
   );
-  const { selectedFiatMoneySymbol } = useSettings();
+  const selectedFiatMoneySymbol = useAppSelector(selectFiatMoneySymbol);
   const isNoPriceData = price === undefined || price === null;
   let points: string | undefined;
   const isVertical = useIsVerticalLayout();

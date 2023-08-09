@@ -7,6 +7,7 @@ import { Modal, VStack } from '@onekeyhq/components';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import { useAppSelector } from '../../../hooks';
+import { selectEthStakingApr } from '../../../store/selectors';
 import { formatAmount } from '../../../utils/priceUtils';
 import { Options } from '../components/EthereumUtilsComponent';
 import { EthStakingSource } from '../typing';
@@ -20,7 +21,7 @@ const ETHPool = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const { networkId } = route.params;
-  const ethStakingApr = useAppSelector((s) => s.staking.ethStakingApr);
+  const ethStakingApr = useAppSelector(selectEthStakingApr);
   const items = useMemo(() => {
     if (!ethStakingApr) {
       return [];

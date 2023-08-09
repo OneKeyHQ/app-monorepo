@@ -6,7 +6,7 @@ export { useHelpLink } from './useHelpLink';
 export { useNavigationActions } from './useNavigationActions';
 export { default as useNavigation } from './useNavigation';
 export { useAppSelector } from './useAppSelector';
-export { useActiveWalletAccount, useSettings } from './redux';
+export { useActiveWalletAccount } from './redux';
 export {
   useAccountTokensBalance,
   useNetworkTokens,

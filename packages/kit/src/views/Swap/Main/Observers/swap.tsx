@@ -9,6 +9,13 @@ import {
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useAppSelector, usePrevious } from '../../../../hooks';
+import {
+  selectRuntimeAccounts,
+  selectSwapIndependentField,
+  selectSwapInputToken,
+  selectSwapOutputToken,
+  selectSwapTypedValue,
+} from '../../../../store/selectors';
 import { useRpcMeasureStatus } from '../../../ManageNetworks/hooks';
 import { doQuote } from '../../doQuote';
 import { useSwapQuoteRequestParams } from '../../hooks/useSwap';
@@ -38,7 +45,7 @@ const AccountsObserver = () => {
       appUIEventBus.off(AppUIEventBusNames.RemoveAccount, fn);
     };
   }, []);
-  const accounts = useAppSelector((s) => s.runtime.accounts);
+  const accounts = useAppSelector(selectRuntimeAccounts);
   useEffect(() => {
     backgroundApiProxy.serviceSwap.refreshSendingAccount();
   }, [accounts]);
@@ -46,8 +53,8 @@ const AccountsObserver = () => {
 };
 
 const UserSelectedQuoterObserver = () => {
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const inputToken = useAppSelector(selectSwapInputToken);
+  const outputToken = useAppSelector(selectSwapOutputToken);
   const tokensHash = useMemo(
     () => stringifyTokens(inputToken, outputToken),
     [inputToken, outputToken],
@@ -78,8 +85,8 @@ const NetworkStatusObserver = () => {
 };
 
 const PriceObserver = () => {
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const inputToken = useAppSelector(selectSwapInputToken);
+  const outputToken = useAppSelector(selectSwapOutputToken);
 
   useEffect(() => {
     if (inputToken) {
@@ -106,10 +113,10 @@ const PriceObserver = () => {
 
 const SwapQuoteResetObserver = () => {
   // When the following parameters change, the state needs to be cleared immediately.
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const outputToken = useAppSelector((s) => s.swap.outputToken);
-  const typedValue = useAppSelector((s) => s.swap.typedValue);
-  const independentField = useAppSelector((s) => s.swap.independentField);
+  const inputToken = useAppSelector(selectSwapInputToken);
+  const outputToken = useAppSelector(selectSwapOutputToken);
+  const typedValue = useAppSelector(selectSwapTypedValue);
+  const independentField = useAppSelector(selectSwapIndependentField);
   useEffect(() => {
     backgroundApiProxy.serviceSwap.setQuote(undefined);
   }, [inputToken, outputToken, typedValue, independentField]);

@@ -13,14 +13,15 @@ import {
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
 import { setMode } from '../../store/reducers/swap';
+import { selectSwapInputToken, selectSwapMode } from '../../store/selectors';
 
 import { limitOrderNetworkIds } from './config';
 import { HistoryButton } from './HistoryButton';
 
 export const SwapHeaderTab = () => {
   const intl = useIntl();
-  const swapMode = useAppSelector((s) => s.swap.mode);
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const swapMode = useAppSelector(selectSwapMode);
+  const inputToken = useAppSelector(selectSwapInputToken);
   const isSwap = swapMode === 'swap';
 
   const setLimitOrderMode = useCallback(() => {

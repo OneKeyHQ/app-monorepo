@@ -16,12 +16,13 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import PermissionDialog from '../components/PermissionDialog/PermissionDialog';
 import { useAppStateChange } from '../hooks/useAppStateChange';
 import { setPushNotificationConfig } from '../store/reducers/settings';
+import { selectPushNotification } from '../store/selectors';
 import { showDialog } from '../utils/overlayUtils';
 
 const NotificationProvider: FC<{
   launchNotification?: NotificationExtra;
 }> = ({ launchNotification }) => {
-  const pushNotification = useAppSelector((s) => s.settings.pushNotification);
+  const pushNotification = useAppSelector(selectPushNotification);
 
   const { dispatch, serviceNotification } = backgroundApiProxy;
 

@@ -31,10 +31,6 @@ const RootStack = createStackNavigator();
 
 const RootNavigatorContainer: FC = ({ children }) => {
   const isVerticalLayout = useIsVerticalLayout();
-  // const boardingCompleted = useAppSelector((s) => s.status.boardingCompleted);
-  // const initialRouteName = boardingCompleted
-  //   ? RootRoutes.Root
-  //   : RootRoutes.Onboarding;
   const initialRouteName = RootRoutes.Main;
   const screenOptions = useMemo(
     () => ({

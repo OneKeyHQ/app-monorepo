@@ -25,6 +25,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountPortfolios, useAppSelector } from '../../hooks';
 import useFormatDate from '../../hooks/useFormatDate';
 import { useVisibilityFocused } from '../../hooks/useVisibilityFocused';
+import { selectRefreshHistoryTs } from '../../store/selectors';
 import { wait } from '../../utils/helper';
 import { useIsAtHomeTab } from '../../utils/routeUtils';
 import { EOverviewScanTaskType } from '../Overview/types';
@@ -245,7 +246,7 @@ function TxHistoryListViewComponent({
 
   const isAtHomeTabOfHistory = useIsAtHomeTab(WalletHomeTabEnum.History);
   const { serviceHistory } = backgroundApiProxy;
-  const refreshHistoryTs = useAppSelector((s) => s.refresher.refreshHistoryTs);
+  const refreshHistoryTs = useAppSelector(selectRefreshHistoryTs);
 
   const allNetworksAccontsMap = useAppSelector(
     (s) => s.overview.allNetworksAccountsMap?.[accountId || ''] ?? {},

@@ -5,6 +5,10 @@ import { setSelectedFiatMoneySymbol } from '@onekeyhq/kit/src/store/reducers/set
 import type { SimpleTokenPrices } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { setTokenPriceMap } from '@onekeyhq/kit/src/store/reducers/tokens';
 import {
+  selectFiatMoneySymbol,
+  selectTokenPriceMap,
+} from '@onekeyhq/kit/src/store/selectors';
+import {
   backgroundClass,
   backgroundMethod,
   bindThis,
@@ -85,7 +89,7 @@ export default class ServicePrice extends ServiceBase {
     const { appSelector } = this.backgroundApi;
     const cachedTokenIds = [];
     const cachePrices: Record<string, SimpleTokenPrices> = {};
-    const tokenPricesInCache = appSelector((s) => s.tokens.tokenPriceMap ?? {});
+    const tokenPricesInCache = appSelector(selectTokenPriceMap) ?? {};
     for (const tokenId of tokenIds) {
       const key = tokenId ? `${networkId}-${tokenId}` : networkId;
       const price = tokenPricesInCache?.[key];
@@ -123,9 +127,9 @@ export default class ServicePrice extends ServiceBase {
     tokenId?: string;
   }) {
     const { appSelector } = this.backgroundApi;
-    const priceMap = appSelector((s) => s.tokens.tokenPriceMap);
+    const priceMap = appSelector(selectTokenPriceMap);
     const priceId = `${networkId}${tokenId ? `-${tokenId}` : ''}`;
-    const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
+    const vsCurrency = appSelector(selectFiatMoneySymbol);
     if (priceMap?.[priceId] && priceMap[priceId]?.[vsCurrency]) {
       return priceMap[priceId][vsCurrency];
     }
@@ -140,7 +144,7 @@ export default class ServicePrice extends ServiceBase {
   @backgroundMethod()
   async getSimpleTokenPriceByCgkId(coingeckId: string) {
     const { appSelector } = this.backgroundApi;
-    const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
+    const vsCurrency = appSelector(selectFiatMoneySymbol);
     const data = await this.getCgkTokenPrice({
       vsCurrency,
       coingeckIds: [coingeckId],

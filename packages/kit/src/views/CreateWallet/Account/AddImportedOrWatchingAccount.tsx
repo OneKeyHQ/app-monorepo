@@ -8,10 +8,15 @@ import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
-import { useGeneral, useRuntime } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/CreateWallet';
 import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+
+import {
+  selectActiveNetworkId,
+  selectRuntimeWallets,
+} from '../../../store/selectors';
 
 import type { RouteProp } from '@react-navigation/native';
 
@@ -44,9 +49,9 @@ const AddImportedOrWatchingAccount = () => {
   const {
     params: { text, checkResults, onSuccess, defaultName },
   } = useRoute<RouteProps>();
+  const activeNetworkId = useAppSelector(selectActiveNetworkId);
 
-  const { activeNetworkId } = useGeneral();
-  const { wallets } = useRuntime();
+  const wallets = useAppSelector(selectRuntimeWallets);
 
   const selectableNetworks = useMemo(
     () => [

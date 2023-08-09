@@ -20,13 +20,14 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useSettings } from '../../../hooks/redux';
+import { useAppSelector } from '../../../hooks/redux';
 import useFormatDate from '../../../hooks/useFormatDate';
 import {
   ModalRoutes,
   RootRoutes,
   SubmitRequestModalRoutes,
 } from '../../../routes/routesEnum';
+import { selectInstanceId } from '../../../store/selectors';
 
 import { listUri } from './TicketService';
 import { HistoryRequestRoutes } from './types';
@@ -43,8 +44,8 @@ type NavigationProps = NativeStackNavigationProp<
 type PageStatusType = 'empty' | 'network' | 'loading' | 'data';
 export const HistoryRequest: FC = () => {
   const intl = useIntl();
-  const { instanceId } = useSettings();
   const { formatDate } = useFormatDate();
+  const instanceId = useAppSelector(selectInstanceId);
 
   const navigation = useNavigation<NavigationProps>();
   const [historyList, updateHistoryList] = useState<TicketType[]>([]);

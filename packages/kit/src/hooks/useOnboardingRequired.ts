@@ -6,6 +6,7 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { MainRoutes, RootRoutes, TabRoutes } from '../routes/routesEnum';
 import { setHomePageCheckBoarding } from '../store/reducers/data';
 import { setOnBoardingLoadingBehindModal } from '../store/reducers/runtime';
+import { selectBoardingCompleted } from '../store/selectors';
 import { wait } from '../utils/helper';
 import { EOnboardingRoutes } from '../views/Onboarding/routes/enums';
 
@@ -26,7 +27,7 @@ export function closeExtensionWindowIfOnboardingFinished() {
 
 export const useOnboardingRequired = (isHomeCheck?: boolean) => {
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const boardingCompleted = useAppSelector((s) => s.status.boardingCompleted);
+  const boardingCompleted = useAppSelector(selectBoardingCompleted);
   const homePageCheckBoarding = useAppSelector(
     (s) => s.data.homePageCheckBoarding,
   );

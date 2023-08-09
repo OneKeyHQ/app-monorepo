@@ -7,6 +7,7 @@ import { IconButton, ToastManager } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useLocalAuthentication } from '../../hooks';
+import { selectEnableWebAuthn } from '../../store/selectors';
 import {
   isContextSupportWebAuthn,
   webAuthenticate,
@@ -15,7 +16,7 @@ import LocalAuthenticationButton from '../LocalAuthenticationButton';
 
 const WebAuthnButton = () => {
   const intl = useIntl();
-  const enableWebAuthn = useAppSelector((s) => s.settings.enableWebAuthn);
+  const enableWebAuthn = useAppSelector(selectEnableWebAuthn);
   const onPress = useCallback(async () => {
     const isOk = await webAuthenticate();
     if (isOk) {

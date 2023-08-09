@@ -10,6 +10,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import Protected from '../../components/Protected';
 import { useAppSelector } from '../../hooks/redux';
+import { selectEnableWebAuthn } from '../../store/selectors';
 import {
   disableWebAuthn as disableWebAuthnCall,
   enableWebAuthn as enableWebAuthnCall,
@@ -22,7 +23,7 @@ type EnableWebAuthnProps = {
 const EnableWebAuthnDone: FC<EnableWebAuthnProps> = () => {
   const intl = useIntl();
 
-  const enableWebAuthn = useAppSelector((s) => s.settings.enableWebAuthn);
+  const enableWebAuthn = useAppSelector(selectEnableWebAuthn);
 
   const navigation = useNavigation();
   useEffect(() => {

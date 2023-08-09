@@ -12,6 +12,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
 import { refreshHistory } from '../../store/reducers/refresher';
 import { setHideScamHistory } from '../../store/reducers/settings';
+import { selectHideScamHistory } from '../../store/selectors';
 import { showOverlay } from '../../utils/overlayUtils';
 
 function TokenValueSettingsBottomSheetModal({
@@ -20,8 +21,7 @@ function TokenValueSettingsBottomSheetModal({
   closeOverlay: () => void;
 }) {
   const intl = useIntl();
-  const hideScamHistory =
-    useAppSelector((s) => s.settings.hideScamHistory) ?? true;
+  const hideScamHistory = useAppSelector(selectHideScamHistory) ?? true;
 
   return (
     <BottomSheetModal

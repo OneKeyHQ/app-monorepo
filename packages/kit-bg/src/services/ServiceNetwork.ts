@@ -30,6 +30,11 @@ import {
   setRpcStatus,
   updateUserSwitchNetworkFlag,
 } from '@onekeyhq/kit/src/store/reducers/status';
+import {
+  selectActiveAccountId,
+  selectActiveNetworkId,
+  selectActiveWalletId,
+} from '@onekeyhq/kit/src/store/selectors';
 import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
@@ -92,9 +97,10 @@ class ServiceNetwork extends ServiceBase {
     networkId: NonNullable<GeneralInitialState['activeNetworkId']>,
   ) {
     const { appSelector, serviceAccount, engine } = this.backgroundApi;
-    const { activeWalletId, activeNetworkId, activeAccountId } = appSelector(
-      (s) => s.general,
-    );
+    const activeAccountId = appSelector(selectActiveAccountId);
+    const activeNetworkId = appSelector(selectActiveNetworkId);
+    const activeWalletId = appSelector(selectActiveWalletId);
+
     const networks: Network[] = appSelector((s) => s.runtime.networks);
     const previousNetwork = networks.find(
       (network) => network.id === activeNetworkId,
@@ -280,7 +286,7 @@ class ServiceNetwork extends ServiceBase {
     const { appSelector } = this.backgroundApi;
     // first time read from local storage
     const previousActiveNetworkId: string | null = appSelector(
-      (s) => s.general.activeNetworkId,
+      selectActiveNetworkId,
     );
     const isValidNetworkId = networks.some(
       (network) => network.id === previousActiveNetworkId,
@@ -368,7 +374,7 @@ class ServiceNetwork extends ServiceBase {
       });
     }
     if (!networkId) {
-      networkId = appSelector((s) => s.general.activeNetworkId);
+      networkId = appSelector(selectActiveNetworkId);
     }
     if (!networkId || isAllNetworks(networkId)) {
       return;
@@ -454,7 +460,7 @@ class ServiceNetwork extends ServiceBase {
       return false;
     });
 
-    const currentNetworkId = appSelector((s) => s.general.activeNetworkId);
+    const currentNetworkId = appSelector(selectActiveNetworkId) ?? '';
 
     const firstAvailableNetwork = dbNetworks.find(
       (n) => !networksToRemoved.find((network) => network.id === n.id),

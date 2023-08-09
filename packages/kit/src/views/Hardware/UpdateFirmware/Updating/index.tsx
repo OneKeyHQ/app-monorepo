@@ -9,7 +9,7 @@ import { useIntl } from 'react-intl';
 import { Modal, ToastManager } from '@onekeyhq/components';
 import type { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/HardwareUpdate';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { setDeviceDoneUpdate } from '@onekeyhq/kit/src/store/reducers/settings';
@@ -20,6 +20,10 @@ import {
   closeHardwarePopup,
   setHardwarePopup,
 } from '../../../../store/reducers/hardware';
+import {
+  selectDeviceUpdates,
+  selectUpdateFirmwareStep,
+} from '../../../../store/selectors';
 import { UI_REQUEST } from '../../PopupHandle/showHardwarePopup.consts';
 
 import RunningView from './RunningView';
@@ -55,9 +59,9 @@ const UpdatingModal: FC = () => {
   const { dispatch, serviceHardware, engine } = backgroundApiProxy;
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { device, onSuccess } = useRoute<RouteProps>().params;
-  const deviceUpdates = useSettings().deviceUpdates || {};
+  const deviceUpdates = useAppSelector(selectDeviceUpdates) || {};
   const { ble: bleFirmware, firmware } = deviceUpdates[device?.mac ?? ''] || {};
-  const updateEvent = useAppSelector((s) => s.hardware).updateFirmwareStep;
+  const updateEvent = useAppSelector(selectUpdateFirmwareStep);
 
   const [firmwareType, setFirmwareType] = useState<FirmwareType>();
 

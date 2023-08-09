@@ -30,6 +30,7 @@ import { useAppSelector } from '../../../hooks';
 import { useSimpleTokenPriceValue } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { addTransaction } from '../../../store/reducers/staking';
+import { selectStakingStEthRate } from '../../../store/selectors';
 import { formatAmount } from '../../../utils/priceUtils';
 import { SendModalRoutes } from '../../Send/types';
 import { useSwapSubmit } from '../../Swap/hooks/useSwapSubmit';
@@ -90,7 +91,7 @@ export default function UnstakeAmount() {
   const lidoOverview = useLidoOverview(networkId, accountId);
   const balance = lidoOverview?.balance ?? '0';
   const tokenSymbol = 'stETH';
-  const stEthRate = useAppSelector((s) => s.staking.stEthRate);
+  const stEthRate = useAppSelector(selectStakingStEthRate);
   const [source, setSource] = useState<UnstakeRouteOptionsValue>('lido');
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);

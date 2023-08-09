@@ -34,6 +34,11 @@ import {
 } from '@onekeyhq/kit/src/routes/routesEnum';
 import { setPushNotificationConfig } from '@onekeyhq/kit/src/store/reducers/settings';
 import { setHomeTabName } from '@onekeyhq/kit/src/store/reducers/status';
+import {
+  selectActiveAccountId,
+  selectActiveNetworkId,
+  selectInstanceId,
+} from '@onekeyhq/kit/src/store/selectors';
 import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
 import { getDefaultLocale } from '@onekeyhq/kit/src/utils/locale';
 import { WalletHomeTabEnum } from '@onekeyhq/kit/src/views/Wallet/type';
@@ -135,7 +140,7 @@ export default class ServiceNotification extends ServiceBase {
   @backgroundMethod()
   async getNotificationConfig() {
     const { appSelector } = this.backgroundApi;
-    const instanceId = appSelector((state) => state?.settings?.instanceId);
+    const instanceId = appSelector(selectInstanceId);
 
     const config: PartialNotificationType = appSelector((state) => ({
       ...(state?.settings?.pushNotification || {}),
@@ -264,8 +269,9 @@ export default class ServiceNotification extends ServiceBase {
   async switchToTokenDetailScreen(params: NotificationExtra['params']) {
     const navigation = getAppNavigation();
     const { appSelector, serviceApp } = this.backgroundApi;
-    const { activeAccountId: accountId, activeNetworkId: networkId } =
-      appSelector((s) => s.general);
+
+    const accountId = appSelector(selectActiveAccountId);
+    const networkId = appSelector(selectActiveNetworkId);
 
     const isToMarketDetail = !!params?.coingeckoId;
 
@@ -348,8 +354,8 @@ export default class ServiceNotification extends ServiceBase {
     debugLogger.notification.info('notification', result);
     this.emitNotificationStatusChange(result);
     const { appSelector, serviceAccount, serviceNetwork } = this.backgroundApi;
-    const { activeAccountId: accountId, activeNetworkId: networkId } =
-      appSelector((s) => s.general);
+    const accountId = appSelector(selectActiveAccountId);
+    const networkId = appSelector(selectActiveNetworkId);
     if (!accountId || !networkId) {
       return;
     }

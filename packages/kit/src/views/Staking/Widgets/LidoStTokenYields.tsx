@@ -14,6 +14,7 @@ import {
 } from '../../../hooks';
 import { useAllNetworksSelectNetworkAccount } from '../../../hooks/useAllNetwoks';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
+import { selectEthStakingApr } from '../../../store/selectors';
 import { formatAmount } from '../../../utils/priceUtils';
 import { Options } from '../components/EthereumUtilsComponent';
 import { StakingRoutes } from '../typing';
@@ -35,7 +36,7 @@ const LidoStTokenYieldsContent: FC<LidoStTokenYieldsContentProps> = ({
   const intl = useIntl();
   const navigation = useNavigation();
   const { accountId, networkId } = useActiveWalletAccount();
-  const ethStakingApr = useAppSelector((s) => s.staking.ethStakingApr);
+  const ethStakingApr = useAppSelector(selectEthStakingApr);
   const selectNetworkAccount = useAllNetworksSelectNetworkAccount({
     accountId,
     networkId,

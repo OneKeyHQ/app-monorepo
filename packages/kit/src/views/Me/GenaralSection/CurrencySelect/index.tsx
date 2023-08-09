@@ -21,7 +21,11 @@ import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClos
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useAppSelector, useDebounce, useSettings } from '../../../../hooks';
+import { useAppSelector, useDebounce } from '../../../../hooks';
+import {
+  selectFiatMap,
+  selectFiatMoneySymbol,
+} from '../../../../store/selectors';
 
 import { useCurrencyData, useCurrencyListData } from './hooks';
 import { fuseSearch } from './utils';
@@ -42,7 +46,8 @@ const PopularCard: FC<PopularCardProps> = ({
   boxWidth,
 }) => {
   const currencyData = useCurrencyData(currency);
-  const { selectedFiatMoneySymbol } = useSettings();
+  const selectedFiatMoneySymbol = useAppSelector(selectFiatMoneySymbol);
+
   const isVerticalLayout = useIsVerticalLayout();
   const { width, ml } = useMemo(() => {
     const xSpace = isVerticalLayout ? 32 : 48;
@@ -147,7 +152,7 @@ type CurrencyCellProps = {
 
 const CurrencyCell: FC<CurrencyCellProps> = ({ item, onPress }) => {
   const currencyData = useCurrencyData(item);
-  const { selectedFiatMoneySymbol } = useSettings();
+  const selectedFiatMoneySymbol = useAppSelector(selectFiatMoneySymbol);
   return (
     <Pressable
       px={{ base: '16px', md: '24px' }}
@@ -208,7 +213,7 @@ const CurrencySelectModal: FC = () => {
   const { bottom } = useSafeAreaInsets();
   const terms = useDebounce(keyword, 500);
   const { popularList, ratesSectionList } = useCurrencyListData();
-  const fiatMoneyMap = useAppSelector((s) => s.fiatMoney.map);
+  const fiatMoneyMap = useAppSelector(selectFiatMap);
   const onClose = useModalClose();
   const { screenWidth } = useUserDevice();
   const defaultBoxWidth = screenWidth > SCREEN_SIZE.LARGE ? 720 : screenWidth;

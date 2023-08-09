@@ -18,6 +18,7 @@ import {
 import { useActiveWalletAccount, useAppSelector } from '../../../hooks/redux';
 import { useWalletName } from '../../../hooks/useWalletName';
 import { RootRoutes } from '../../../routes/routesEnum';
+import { selectAccountSelectorIsLoading } from '../../../store/selectors';
 import { useDeviceStatusOfHardwareWallet } from '../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
 import { WalletAvatarPro } from '../WalletAvatar';
 
@@ -38,7 +39,7 @@ export const WalletSelectorTriggerElement: FC<
   const isVerticalLayout = useIsVerticalLayout();
   const { wallet } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const isLoading = useAppSelector((s) => s.accountSelector.isLoading);
+  const isLoading = useAppSelector(selectAccountSelectorIsLoading);
   const walletName = useWalletName({ wallet });
   const { devicesStatus } = useDeviceStatusOfHardwareWallet();
 

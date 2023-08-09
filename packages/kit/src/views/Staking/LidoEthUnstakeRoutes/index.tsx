@@ -16,6 +16,7 @@ import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { getActiveWalletAccount, useAppSelector } from '../../../hooks/redux';
 import { setStEthRate } from '../../../store/reducers/staking';
+import { selectStakingStEthRate } from '../../../store/selectors';
 import { formatAmount, multiply } from '../../Swap/utils';
 import { fetchStEthRate } from '../utils';
 
@@ -32,7 +33,7 @@ const LidoEthUnstakeRoutes = () => {
   const route = useRoute<RouteProps>();
   const { source, onSelector, amount, networkId } = route.params;
   const [loading, setLoading] = useState(true);
-  const rates = useAppSelector((s) => s.staking.stEthRate);
+  const rates = useAppSelector(selectStakingStEthRate);
   const stEthRate = useMemo(() => rates?.[networkId], [rates, networkId]);
 
   useEffect(() => {

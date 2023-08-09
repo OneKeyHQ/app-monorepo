@@ -17,6 +17,7 @@ import type { MarketTokenDetail } from '@onekeyhq/kit/src/store/reducers/market'
 
 import { useAppSelector } from '../../../../hooks';
 import { TabRoutes } from '../../../../routes/routesEnum';
+import { selectLocale } from '../../../../store/selectors';
 import { getDefaultLocale } from '../../../../utils/locale';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 
@@ -116,7 +117,7 @@ const MarketDetailContent: FC<MarketDetailTabsProps> = ({
   const isVerticalLayout = useIsVerticalLayout();
   const [refreshing, setRefreshing] = useState(false);
   const contentPadding = isVerticalLayout ? '16px' : '0px';
-  const locale = useAppSelector((s) => s.settings.locale);
+  const locale = useAppSelector(selectLocale);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

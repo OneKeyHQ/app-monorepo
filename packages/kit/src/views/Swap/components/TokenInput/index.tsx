@@ -21,6 +21,12 @@ import { FormatCurrency } from '../../../../components/Format';
 import { useAppSelector, useNavigation } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { setSendingAccount } from '../../../../store/reducers/swap';
+import {
+  selectSwapIndependentField,
+  selectSwapInputToken,
+  selectSwapLoading,
+  selectSwapSendingAccount,
+} from '../../../../store/selectors';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
 import { formatAmount, truncate } from '../../utils';
@@ -111,11 +117,11 @@ const TokenInput: FC<TokenInputProps> = ({
   isDisabled,
 }) => {
   const intl = useIntl();
-  const token = useAppSelector((s) => s.swap.inputToken);
-  const account = useAppSelector((s) => s.swap.sendingAccount);
+  const token = useAppSelector(selectSwapInputToken);
+  const account = useAppSelector(selectSwapSendingAccount);
   const balance = useTokenBalance(token, account?.id);
-  const loading = useAppSelector((s) => s.swap.loading);
-  const independentField = useAppSelector((s) => s.swap.independentField);
+  const loading = useAppSelector(selectSwapLoading);
+  const independentField = useAppSelector(selectSwapIndependentField);
   const price = useTokenPrice(token);
   const value = balance ?? '0';
   const onMax = useCallback(async () => {

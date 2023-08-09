@@ -42,7 +42,6 @@ const PriceLabel: FC<SwapPriceLabelProps> = ({ price, basePrice, time }) => {
       </>
     );
   }
-  // const { selectedFiatMoneySymbol } = useSettings();
   return (
     <Box flexDirection="column">
       <Box flexDirection="row" alignItems="center">

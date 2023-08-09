@@ -8,9 +8,10 @@ import { Center, Modal, Spinner, ToastManager } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import Protected from '../../components/Protected';
-import { useSettings } from '../../hooks/redux';
+import { useAppSelector } from '../../hooks/redux';
 import { useLocalAuthentication } from '../../hooks/useLocalAuthentication';
 import { toggleEnableLocalAuthentication } from '../../store/reducers/settings';
+import { selectEnableLocalAuthentication } from '../../store/selectors';
 
 type EnableLocalAuthenticationProps = {
   password: string;
@@ -23,8 +24,9 @@ const EnableLocalAuthenticationDone: FC<EnableLocalAuthenticationProps> = ({
 }) => {
   const { dispatch } = backgroundApiProxy;
   const intl = useIntl();
-  const { enableLocalAuthentication } = useSettings();
-
+  const enableLocalAuthentication = useAppSelector(
+    selectEnableLocalAuthentication,
+  );
   const { localAuthenticate, savePassword } = useLocalAuthentication();
 
   const navigation = useNavigation();

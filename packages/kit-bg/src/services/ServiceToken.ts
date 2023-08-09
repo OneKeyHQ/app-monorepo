@@ -30,6 +30,11 @@ import {
   setAccountTokens,
   setAccountTokensBalances,
 } from '@onekeyhq/kit/src/store/reducers/tokens';
+import {
+  selectActiveAccountId,
+  selectActiveNetworkId,
+  selectActiveWalletId,
+} from '@onekeyhq/kit/src/store/selectors';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import type { ITokenDetailInfo } from '@onekeyhq/kit/src/views/ManageTokens/types';
 import {
@@ -84,7 +89,9 @@ export default class ServiceToken extends ServiceBase {
   @backgroundMethod()
   refreshAccountTokens(options: Partial<IFetchAccountTokensParams> = {}) {
     const { appSelector } = this.backgroundApi;
-    const { activeNetworkId, activeAccountId } = appSelector((s) => s.general);
+    const activeAccountId = appSelector(selectActiveAccountId);
+    const activeNetworkId = appSelector(selectActiveNetworkId);
+
     if (!activeNetworkId || !activeAccountId) {
       return;
     }
@@ -103,7 +110,7 @@ export default class ServiceToken extends ServiceBase {
       return;
     }
     const { appSelector } = this.backgroundApi;
-    const { activeWalletId } = appSelector((s) => s.general);
+    const activeWalletId = appSelector(selectActiveWalletId);
     const duration =
       activeWalletId === WALLET_TYPE_WATCHING
         ? getTimeDurationMs({ minute: 1 })

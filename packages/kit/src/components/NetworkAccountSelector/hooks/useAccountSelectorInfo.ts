@@ -15,6 +15,16 @@ import {
 import { useRuntimeWallets } from '../../../hooks/redux';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
+  selectAccountSelectorIsLoading,
+  selectAccountSelectorIsOpen,
+  selectAccountSelectorIsOpenDelay,
+  selectAccountSelectorMode,
+  selectAccountSelectorNetworkId,
+  selectAccountSelectorWalletId,
+  selectAccountsGroup,
+  selectPreloadingCreateAccount,
+} from '../../../store/selectors';
+import {
   ACCOUNT_SELECTOR_EMPTY_VIEW_SHOW_DELAY,
   ACCOUNT_SELECTOR_IS_OPEN_VISIBLE_DELAY,
 } from '../consts';
@@ -25,16 +35,14 @@ export function useAccountSelectorInfo() {
   const { engine } = backgroundApiProxy;
   const isVertical = useIsVerticalLayout();
 
-  const {
-    networkId,
-    walletId,
-    accountsGroup,
-    isLoading,
-    preloadingCreateAccount,
-    isOpenDelay,
-    isOpen,
-    accountSelectorMode,
-  } = useAppSelector((s) => s.accountSelector);
+  const networkId = useAppSelector(selectAccountSelectorNetworkId);
+  const walletId = useAppSelector(selectAccountSelectorWalletId);
+  const isLoading = useAppSelector(selectAccountSelectorIsLoading);
+  const accountsGroup = useAppSelector(selectAccountsGroup);
+  const isOpen = useAppSelector(selectAccountSelectorIsOpen);
+  const isOpenDelay = useAppSelector(selectAccountSelectorIsOpenDelay);
+  const preloadingCreateAccount = useAppSelector(selectPreloadingCreateAccount);
+  const accountSelectorMode = useAppSelector(selectAccountSelectorMode);
 
   const isOpenDelayForShow = useDebounce(
     isOpen,

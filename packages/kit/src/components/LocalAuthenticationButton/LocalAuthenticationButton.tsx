@@ -9,6 +9,10 @@ import { IconButton, ToastManager } from '@onekeyhq/components';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useLocalAuthentication } from '../../hooks';
 import { useAppSelector } from '../../hooks/redux';
+import {
+  selectAuthenticationType,
+  selectHandOperatedLock,
+} from '../../store/selectors';
 import { AppStatusActiveListener } from '../AppStatusActiveListener';
 
 type LocalAuthenticationButtonProps = {
@@ -25,8 +29,8 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
   const loading = useRef(false);
   const lasttime = useRef(0);
 
-  const authenticationType = useAppSelector((s) => s.status.authenticationType);
-  const handOperatedLock = useAppSelector((s) => s.data.handOperatedLock);
+  const authenticationType = useAppSelector(selectAuthenticationType);
+  const handOperatedLock = useAppSelector(selectHandOperatedLock);
   const { localAuthenticate, getPassword } = useLocalAuthentication();
 
   const onLocalAuthenticate = useCallback(async () => {

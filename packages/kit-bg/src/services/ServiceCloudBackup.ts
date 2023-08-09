@@ -17,12 +17,16 @@ import {
   setNotInProgress,
 } from '@onekeyhq/kit/src/store/reducers/cloudBackup';
 import { create } from '@onekeyhq/kit/src/store/reducers/contacts';
-import type { Contact } from '@onekeyhq/kit/src/store/reducers/contacts';
 import { release } from '@onekeyhq/kit/src/store/reducers/data';
 import { addBookmark } from '@onekeyhq/kit/src/store/reducers/discover';
 import { MARKET_FAVORITES_CATEGORYID } from '@onekeyhq/kit/src/store/reducers/market';
 import { setEnableLocalAuthentication } from '@onekeyhq/kit/src/store/reducers/settings';
 import { unlock } from '@onekeyhq/kit/src/store/reducers/status';
+import {
+  selectActiveAccountId,
+  selectContacts,
+} from '@onekeyhq/kit/src/store/selectors';
+import { selectVersion } from '@onekeyhq/kit/src/store/selectors/settings';
 import {
   hasHardwareSupported,
   savePassword,
@@ -110,10 +114,9 @@ class ServiceCloudBackup extends ServiceBase {
       // browserHistories: [],
     };
     const backupedContacts: BackupedContacts = {};
-    const { version } = this.backgroundApi.appSelector((s) => s.settings);
+    const version = this.backgroundApi.appSelector(selectVersion);
+    const contacts = this.backgroundApi.appSelector(selectContacts);
 
-    const { contacts }: { contacts: Record<string, Contact> } =
-      this.backgroundApi.appSelector((s) => s.contacts);
     Object.values(contacts).forEach((contact) => {
       const contactUUID = getContactUUID(contact);
       publicBackupData.contacts[contactUUID] = {
@@ -523,7 +526,7 @@ class ServiceCloudBackup extends ServiceBase {
       servicePassword,
     } = this.backgroundApi;
     const { isPasswordSet } = appSelector((s) => s.data);
-    const activeAccountId = appSelector((s) => s.general.activeAccountId);
+    const activeAccountId = appSelector(selectActiveAccountId);
 
     let data = '';
     try {

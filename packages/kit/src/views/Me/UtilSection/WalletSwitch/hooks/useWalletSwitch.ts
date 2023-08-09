@@ -2,12 +2,13 @@ import { useEffect, useMemo } from 'react';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../../../hooks';
+import { selectWalletSwitchData } from '../../../../../store/selectors';
 import { CWalletSwitchDefaultConfig } from '../config';
 
 import type { WalletGroup } from '..';
 
 export const useWalletSwitch = () => {
-  const walletSwitchData = useAppSelector((s) => s.settings.walletSwitchData);
+  const walletSwitchData = useAppSelector(selectWalletSwitchData);
   useEffect(() => {
     if (
       !walletSwitchData ||
@@ -41,7 +42,7 @@ export const useWalletSwitch = () => {
 };
 
 export const useWalletSwitchConfig = ({ walletId }: { walletId: string }) => {
-  const walletSwitchData = useAppSelector((s) => s.settings.walletSwitchData);
+  const walletSwitchData = useAppSelector(selectWalletSwitchData);
   return useMemo(
     () => walletSwitchData?.[walletId],
     [walletId, walletSwitchData],

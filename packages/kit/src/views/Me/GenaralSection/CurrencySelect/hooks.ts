@@ -3,18 +3,19 @@ import { useMemo } from 'react';
 import { intersection } from 'lodash';
 
 import { useAppSelector } from '../../../../hooks';
+import { selectFiatMap, selectSymbolList } from '../../../../store/selectors';
 
 const CDefaultPopular = ['usd', 'eur', 'gbp', 'jpy', 'cny', 'hkd'];
 const CDefaultCrypto = ['btc', 'eth', 'sats', 'bits'];
 
 export const useCurrencyData = (key: string) => {
-  const fiatMoneyMap = useAppSelector((s) => s.fiatMoney.map);
+  const fiatMoneyMap = useAppSelector(selectFiatMap);
   return useMemo(() => fiatMoneyMap[key] ?? {}, [fiatMoneyMap, key]);
 };
 
 export const useCurrencyListData = () => {
-  const symbolList = useAppSelector((s) => s.fiatMoney.symbolList);
-  const fiatMoneyMap = useAppSelector((s) => s.fiatMoney.map);
+  const symbolList = useAppSelector(selectSymbolList);
+  const fiatMoneyMap = useAppSelector(selectFiatMap);
   const popularList = intersection(CDefaultPopular, symbolList);
   const crypto = intersection(CDefaultCrypto, symbolList);
   const ratesSectionList = [

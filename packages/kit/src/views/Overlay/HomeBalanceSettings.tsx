@@ -12,6 +12,11 @@ import {
   setHideSmallBalance,
   setPutMainTokenOnTop,
 } from '../../store/reducers/settings';
+import {
+  selectHideRiskTokens,
+  selectHideSmallBalance,
+  selectPutMainTokenOnTop,
+} from '../../store/selectors';
 import { showOverlay } from '../../utils/overlayUtils';
 
 import {
@@ -21,8 +26,10 @@ import {
 
 const HomeBalanceSettings: FC<{ networkId?: string }> = ({ networkId }) => {
   const intl = useIntl();
-  const { hideSmallBalance, hideRiskTokens, putMainTokenOnTop } =
-    useAppSelector((s) => s.settings);
+  const hideRiskTokens = useAppSelector(selectHideRiskTokens);
+  const hideSmallBalance = useAppSelector(selectHideSmallBalance);
+  const putMainTokenOnTop = useAppSelector(selectPutMainTokenOnTop);
+
   return (
     <>
       <Typography.Subheading mb="3" color="text-subdued">

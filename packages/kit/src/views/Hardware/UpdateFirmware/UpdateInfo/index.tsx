@@ -25,7 +25,7 @@ import {
 import type { Device } from '@onekeyhq/engine/src/types/device';
 import TouchConnectDesktop from '@onekeyhq/kit/assets/illus_touch_connect_desktop.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/HardwareUpdate';
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
@@ -40,6 +40,7 @@ import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import NeedBridgeDialog from '../../../../components/NeedBridgeDialog';
+import { selectDeviceUpdates } from '../../../../store/selectors';
 import { deviceUtils } from '../../../../utils/hardware';
 import { openUrlExternal } from '../../../../utils/openUrl';
 
@@ -63,8 +64,7 @@ const UpdateInfoModal: FC = () => {
   const deviceConnectId = get(routeParams, 'connectId', null);
 
   const { engine, serviceHardware } = backgroundApiProxy;
-  const { deviceUpdates } = useSettings();
-
+  const deviceUpdates = useAppSelector(selectDeviceUpdates);
   const [device, setDevice] = useState<Device>();
   const [features, setFeatures] = useState<IOneKeyDeviceFeatures>();
   const [bleFirmware, setBleFirmware] = useState<BLEFirmwareInfo>();

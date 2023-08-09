@@ -6,9 +6,13 @@ import { useIntl } from 'react-intl';
 import { Box, Switch, Text, useTheme } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '@onekeyhq/kit/src/hooks';
-import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { setEnableHaptics } from '@onekeyhq/kit/src/store/reducers/settings';
 import { defaultHapticStatus } from '@onekeyhq/shared/src/haptics';
+
+import {
+  selectAuthenticationType,
+  selectEnableHaptics,
+} from '../../../../store/selectors';
 
 type OptionsProps = {
   title?: string;
@@ -50,8 +54,10 @@ const Options: FC<OptionsProps> = ({ title, onToggle, divider, isChecked }) => (
 const VolumeHaptic = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const authenticationType = useAppSelector((s) => s.status.authenticationType);
-  const { enableHaptics = defaultHapticStatus } = useSettings();
+  const authenticationType = useAppSelector(selectAuthenticationType);
+  const enableHaptics =
+    useAppSelector(selectEnableHaptics) ?? defaultHapticStatus;
+
   const { themeVariant } = useTheme();
   const { dispatch } = backgroundApiProxy;
   useLayoutEffect(() => {

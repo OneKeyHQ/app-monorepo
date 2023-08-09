@@ -10,11 +10,15 @@ import {
   MARKET_FAVORITES_CATEGORYID,
   MarketCategoryType,
 } from '../../../store/reducers/market';
+import {
+  selectMarketCategorys,
+  selectSelectedCategoryId,
+} from '../../../store/selectors';
 
 export const useMarketSelectedCategoryId = () =>
-  useAppSelector((s) => s.market.selectedCategoryId);
+  useAppSelector(selectSelectedCategoryId);
 
-const useMarketCategories = () => useAppSelector((s) => s.market.categorys);
+const useMarketCategories = () => useAppSelector(selectMarketCategorys);
 
 export const useMarketSelectedCategory = () => {
   const selectedCategoryId = useMarketSelectedCategoryId();

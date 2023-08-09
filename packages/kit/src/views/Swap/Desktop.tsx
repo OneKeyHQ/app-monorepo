@@ -15,6 +15,7 @@ import {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../hooks';
+import { selectSwapInputToken } from '../../store/selectors';
 import SwapChart from '../PriceChart/SwapChart';
 
 import { useSwapChartMode } from './hooks/useSwapUtils';
@@ -115,8 +116,8 @@ const DesktopMain = () => (
 );
 
 const DesktopChart = () => {
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const inputToken = useAppSelector(selectSwapInputToken);
+  const outputToken = useAppSelector(selectSwapInputToken);
 
   if (!inputToken || !outputToken) {
     return null;
@@ -130,8 +131,8 @@ const DesktopChart = () => {
 };
 
 const DesktopChartLabel = () => {
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const inputToken = useAppSelector(selectSwapInputToken);
+  const outputToken = useAppSelector(selectSwapInputToken);
   return (
     <Box flexDirection="row">
       <Box flexDirection="row">

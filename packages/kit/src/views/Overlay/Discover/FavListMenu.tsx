@@ -10,6 +10,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
+import { selectDiscoverBookmarks } from '../../../store/selectors';
 import { DiscoverModalRoutes } from '../../Discover/type';
 import BaseMenu from '../BaseMenu';
 
@@ -23,7 +24,7 @@ const FavListMenu: FC<IMenu & { item: MatchDAppItemType; isFav?: boolean }> = ({
 }) => {
   const isVerticalLayout = useIsVerticalLayout();
   const intl = useIntl();
-  const bookmarks = useAppSelector((s) => s.discover.bookmarks);
+  const bookmarks = useAppSelector(selectDiscoverBookmarks);
   const navigation = useNavigation();
   const options: IBaseMenuOptions = useMemo(
     () => [

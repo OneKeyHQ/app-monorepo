@@ -30,7 +30,7 @@ import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import KeepDeviceAroundSource from '@onekeyhq/kit/assets/wallet/keep_device_close.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NeedBridgeDialog from '@onekeyhq/kit/src/components/NeedBridgeDialog';
-import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/CreateWallet';
 import {
   CreateWalletModalRoutes,
@@ -48,6 +48,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
+import { selectRuntimeWallets } from '../../../store/selectors';
 import {
   BleLocationServiceError,
   InitIframeLoadFail,
@@ -109,7 +110,7 @@ const ConnectHardwareModal: FC = () => {
   const [checkBonded, setCheckBonded] = useState(false);
   const [devices, setDevices] = useState<SearchDeviceInfo[]>([]);
 
-  const { wallets } = useRuntime();
+  const wallets = useAppSelector(selectRuntimeWallets);
   const [existHwWallets, setExistHwWallets] = useState<ExistHwWallet[]>();
 
   useEffect(() => {

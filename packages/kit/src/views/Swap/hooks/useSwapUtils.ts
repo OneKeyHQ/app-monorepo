@@ -6,6 +6,14 @@ import { useIntl } from 'react-intl';
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import { useAppSelector, useDebounce } from '../../../hooks';
+import {
+  selectSwapInputToken,
+  selectSwapOutputToken,
+  selectSwapQuote,
+  selectSwapTransactionsCoingeckoIds,
+  selectSwapTransactionsSlippage,
+  selectSwapTransactionsSwapChartMode,
+} from '../../../store/selectors';
 import { div, formatAmount, lte, minus, multiply } from '../utils';
 
 import { useTokenPrice } from './useSwapTokenUtils';
@@ -46,11 +54,11 @@ export function useSummaryTx() {
 }
 
 export function usePriceImpact() {
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const inputToken = useAppSelector(selectSwapInputToken);
+  const outputToken = useAppSelector(selectSwapOutputToken);
   const inputPrice = useTokenPrice(inputToken);
   const outputPrice = useTokenPrice(outputToken);
-  const instantRate = useAppSelector((s) => s.swap.quote?.instantRate);
+  const instantRate = useAppSelector(selectSwapQuote)?.instantRate;
   if (outputPrice && inputPrice && instantRate) {
     const rate = div(inputPrice, outputPrice);
     if (lte(instantRate, rate)) {
@@ -77,10 +85,10 @@ export function useSlippageLevels() {
 }
 
 export function useSwapSlippageAuto(): ISlippageAuto {
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const outputToken = useAppSelector((s) => s.swap.outputToken);
-  const slippage = useAppSelector((s) => s.swapTransactions.slippage);
-  const coingeckoIds = useAppSelector((s) => s.swapTransactions.coingeckoIds);
+  const inputToken = useAppSelector(selectSwapInputToken);
+  const outputToken = useAppSelector(selectSwapOutputToken);
+  const slippage = useAppSelector(selectSwapTransactionsSlippage);
+  const coingeckoIds = useAppSelector(selectSwapTransactionsCoingeckoIds);
   const levels = useSlippageLevels();
 
   const getSlippageByCoingeckoId = useCallback(
@@ -118,7 +126,7 @@ export function useSwapSlippageAuto(): ISlippageAuto {
 }
 
 export function useSwapSlippage(): ISlippage {
-  const slippage = useAppSelector((s) => s.swapTransactions.slippage);
+  const slippage = useAppSelector(selectSwapTransactionsSlippage);
   const slippageAutoMode = useSwapSlippageAuto();
   const value = useMemo<ISlippage>(() => {
     if (slippageAutoMode) {
@@ -130,7 +138,7 @@ export function useSwapSlippage(): ISlippage {
 }
 
 export const useSwapMinimumReceivedAmount = () => {
-  const quote = useAppSelector((s) => s.swap.quote);
+  const quote = useAppSelector(selectSwapQuote);
   const { value: swapSlippagePercent } = useSwapSlippage();
   return useMemo(() => {
     if (!quote) {
@@ -153,7 +161,7 @@ export const useSwapMinimumReceivedAmount = () => {
 };
 
 export const useSwapChartMode = () => {
-  const swapChartMode = useAppSelector((s) => s.swapTransactions.swapChartMode);
+  const swapChartMode = useAppSelector(selectSwapTransactionsSwapChartMode);
   const isSmall = useIsVerticalLayout();
   if (isSmall) {
     return 'simple';

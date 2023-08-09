@@ -32,12 +32,13 @@ import {
   formatBalanceDisplay,
 } from '../../../components/Format';
 import { useNetworkSimple, useTokenBalanceWithoutFrozen } from '../../../hooks';
-import { useSettings } from '../../../hooks/redux';
+import { useAppSelector } from '../../../hooks/redux';
 import {
   useSimpleTokenPriceValue,
   useSingleToken,
 } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
+import { selectFiatMoneySymbol } from '../../../store/selectors';
 import { wait } from '../../../utils/helper';
 import { StakingRoutes } from '../typing';
 
@@ -126,8 +127,9 @@ function usePreSendAmountInfo({
     const pattern = `^(0|([1-9][0-9]*))?\\.?([0-9]{1,${amountInputDecimals}})?$`;
     return new RegExp(pattern);
   }, [amountInputDecimals]);
+  const selectedFiatMoneySymbol =
+    useAppSelector(selectFiatMoneySymbol) ?? 'usd';
 
-  const { selectedFiatMoneySymbol = 'usd' } = useSettings();
   const fiatUnit = selectedFiatMoneySymbol.toUpperCase().trim();
   const [isFiatMode, setIsFiatMode] = useState(false);
 

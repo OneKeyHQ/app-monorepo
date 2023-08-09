@@ -17,6 +17,7 @@ import {
   setLimitOrderMaintain,
   setSwapMaintain,
 } from '@onekeyhq/kit/src/store/reducers/swapTransactions';
+import { selectInstanceId } from '@onekeyhq/kit/src/store/selectors';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import {
   backgroundClass,
@@ -87,7 +88,7 @@ export default class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   async getInstanceId() {
     const { appSelector } = this.backgroundApi;
-    return appSelector((s) => s.settings.instanceId);
+    return appSelector(selectInstanceId);
   }
 
   @backgroundMethod()

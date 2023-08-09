@@ -24,6 +24,12 @@ import {
   useAppSelector,
   useNetworkSimple,
 } from '../../../../hooks';
+import {
+  selectRuntimeAccounts,
+  selectSwapError,
+  selectSwapOutputToken,
+  selectSwapQuote,
+} from '../../../../store/selectors';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import { useInputLimitsError, useSwapRecipient } from '../../hooks/useSwap';
 import { usePriceImpact, useSwapSlippage } from '../../hooks/useSwapUtils';
@@ -32,8 +38,8 @@ import { SwapError } from '../../typings';
 const RecipientBox = () => {
   const intl = useIntl();
   const { wallet } = useActiveWalletAccount();
-  const accounts = useAppSelector((s) => s.runtime.accounts);
-  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const accounts = useAppSelector(selectRuntimeAccounts);
+  const outputToken = useAppSelector(selectSwapOutputToken);
 
   const network = useNetworkSimple(outputToken?.networkId);
   const { createAccount } = useCreateAccountInWallet({
@@ -150,7 +156,7 @@ const NotSupportAlertContent = () => {
 };
 
 const ErrorAlert = () => {
-  const error = useAppSelector((s) => s.swap.error);
+  const error = useAppSelector(selectSwapError);
   if (error === SwapError.NotSupport) {
     return <NotSupportAlertContent />;
   }
@@ -279,7 +285,7 @@ const SlippageAlertContent: FC<SlippageAlertContentProps> = ({ value }) => {
 };
 
 const SlippageAlert = () => {
-  const quote = useAppSelector((s) => s.swap.quote);
+  const quote = useAppSelector(selectSwapQuote);
   const slippage = useSwapSlippage();
   if (quote && slippage.mode === 'custom') {
     const num = Number(slippage.value);

@@ -6,13 +6,18 @@ import { useIntl } from 'react-intl';
 import { Alert, Box } from '@onekeyhq/components';
 
 import { useAppSelector } from '../../../../hooks';
+import {
+  selectLimitOrderInstantRate,
+  selectLimitOrderMktRate,
+  selectLimitOrderTokenIn,
+} from '../../../../store/selectors';
 import { gt } from '../../utils';
 
 export function PriceWarning() {
   const intl = useIntl();
-  const tokenIn = useAppSelector((s) => s.limitOrder.tokenIn);
-  const instantRate = useAppSelector((s) => s.limitOrder.instantRate);
-  const mktRate = useAppSelector((s) => s.limitOrder.mktRate);
+  const tokenIn = useAppSelector(selectLimitOrderTokenIn);
+  const instantRate = useAppSelector(selectLimitOrderInstantRate);
+  const mktRate = useAppSelector(selectLimitOrderMktRate);
 
   const percent = useMemo(() => {
     if (instantRate && mktRate && instantRate !== mktRate) {

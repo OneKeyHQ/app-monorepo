@@ -24,6 +24,10 @@ import {
 } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { setActiveAccount } from '../../../../store/reducers/limitOrder';
+import {
+  selectLimitOrderActiveAccount,
+  selectLimitOrderTokenIn,
+} from '../../../../store/selectors';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
 import { formatAmount } from '../../utils';
@@ -137,8 +141,8 @@ const TokenInput: FC<TokenInputProps> = ({
   isDisabled,
 }) => {
   const intl = useIntl();
-  const token = useAppSelector((s) => s.limitOrder.tokenIn);
-  const account = useAppSelector((s) => s.limitOrder.activeAccount);
+  const token = useAppSelector(selectLimitOrderTokenIn);
+  const account = useAppSelector(selectLimitOrderActiveAccount);
   const balance = useTokenBalance(token, account?.id);
   const price = useTokenPrice(token);
   const value = balance ?? '0';

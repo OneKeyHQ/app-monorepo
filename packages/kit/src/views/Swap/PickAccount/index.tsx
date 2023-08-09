@@ -18,7 +18,8 @@ import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import WalletAvatar from '../../../components/WalletSelector/WalletAvatar';
-import { useRuntime } from '../../../hooks/redux';
+import { useAppSelector } from '../../../hooks/redux';
+import { selectRuntimeWallets } from '../../../store/selectors';
 
 import type { SwapRoutes, SwapRoutesParams } from '../typings';
 import type { RouteProp } from '@react-navigation/native';
@@ -32,7 +33,7 @@ type WalletAccount = {
 };
 
 const MyWallet = () => {
-  const { wallets } = useRuntime();
+  const wallets = useAppSelector(selectRuntimeWallets);
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const { networkId, onSelected } = route.params ?? {};

@@ -7,6 +7,11 @@ import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/ac
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
+import {
+  selectEthStakingApr,
+  selectKeleMinerOverviews,
+  selectLidoOverview,
+} from '../../../store/selectors';
 import { formatAmount, isEvmNetworkId } from '../../Swap/utils';
 import { getLidoContractAddress, getStMaticContractAdderess } from '../address';
 import { EthStakingSource } from '../typing';
@@ -52,9 +57,9 @@ export function useKeleWithdrawOverview(networkId: string, accountId: string) {
 }
 
 export function useKeleMinerOverview(networkId?: string, accountId?: string) {
-  return useAppSelector(
-    (s) => s.staking.keleMinerOverviews?.[accountId ?? '']?.[networkId ?? ''],
-  );
+  return useAppSelector(selectKeleMinerOverviews)?.[accountId ?? '']?.[
+    networkId ?? ''
+  ];
 }
 
 export function useKeleDashboardInfo(networkId?: string) {
@@ -133,7 +138,7 @@ export const useStakingAprValue = (
   source: EthStakingSource,
   isTestnet?: boolean,
 ) => {
-  const ethStakingApr = useAppSelector((s) => s.staking.ethStakingApr);
+  const ethStakingApr = useAppSelector(selectEthStakingApr);
   if (!ethStakingApr) {
     return '';
   }
@@ -147,7 +152,7 @@ export const useLidoOverview = (
   networkId?: string,
   accountId?: string,
 ): LidoOverview | undefined => {
-  const lidoOverview = useAppSelector((s) => s.staking.lidoOverview);
+  const lidoOverview = useAppSelector(selectLidoOverview);
   const balances = useAppSelector(
     (s) => s.tokens.accountTokensBalance?.[networkId ?? '']?.[accountId ?? ''],
   );

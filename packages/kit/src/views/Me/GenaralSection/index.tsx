@@ -16,7 +16,7 @@ import {
 import { LOCALES_OPTION } from '@onekeyhq/components/src/locale';
 import type { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import {
   HomeRoutes,
   ModalRoutes,
@@ -30,6 +30,11 @@ import type {
 import { setLocale, setTheme } from '@onekeyhq/kit/src/store/reducers/settings';
 import { supportedHaptics } from '@onekeyhq/shared/src/haptics';
 
+import {
+  selectFiatMoneySymbol,
+  selectLocale,
+  selectTheme,
+} from '../../../store/selectors';
 import { SelectTrigger } from '../SelectTrigger';
 
 import { CurrencySelectModal } from './CurrencySelect/types';
@@ -50,7 +55,9 @@ export const GenaralSection = () => {
   const navigation = useNavigation<NavigationProps>();
   const modalNavigation = useNavigation<ModalNavigationProps['navigation']>();
   const { dispatch, serviceNotification } = backgroundApiProxy;
-  const { theme, locale, selectedFiatMoneySymbol } = useSettings();
+  const theme = useAppSelector(selectTheme);
+  const locale = useAppSelector(selectLocale);
+  const selectedFiatMoneySymbol = useAppSelector(selectFiatMoneySymbol);
   const { themeVariant } = useTheme();
   const localeOptions = useMemo(
     () =>

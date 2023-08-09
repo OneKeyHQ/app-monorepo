@@ -2,13 +2,20 @@ import { useMemo } from 'react';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import {
+  selectAutoUpdateLatest,
+  selectAutoUpdateState,
+  selectUpdateSetting,
+} from '../store/selectors';
 import appUpdates from '../utils/updates/AppUpdates';
 
-import { useAutoUpdate, useSettings } from './redux';
+import { useAppSelector } from './redux';
 
 function useCheckUpdate() {
-  const { latest, state } = useAutoUpdate();
-  const { autoDownload } = useSettings().updateSetting ?? {};
+  const latest = useAppSelector(selectAutoUpdateLatest);
+  const state = useAppSelector(selectAutoUpdateState);
+
+  const { autoDownload } = useAppSelector(selectUpdateSetting) ?? {};
   const showUpdateBadge = useMemo(() => {
     let showBadge = false;
     if (!autoDownload && state === 'available') {

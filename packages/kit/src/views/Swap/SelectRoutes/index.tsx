@@ -22,6 +22,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../../hooks';
+import {
+  selectSwapInputToken,
+  selectSwapOutputToken,
+  selectSwapQuote,
+  selectSwapResponses,
+} from '../../../store/selectors';
 import { ArrivalTime } from '../components/ArrivalTime';
 import { stringifyTokens } from '../utils';
 
@@ -74,7 +80,8 @@ const PlaceholderLine: FC<PlaceholderLineProps> = ({ ...rest }) => (
 
 const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
   const intl = useIntl();
-  const { inputToken, outputToken } = useAppSelector((s) => s.swap);
+  const inputToken = useAppSelector(selectSwapInputToken);
+  const outputToken = useAppSelector(selectSwapOutputToken);
   const { selectedIndex, onSelect } = useContext(SelectRoutesContext);
   const { data, limited } = response;
   const buyAmount = data?.estimatedBuyAmount ?? data?.buyAmount;
@@ -188,10 +195,10 @@ const SelectRoutes = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const [selectedIndex, onSelectIndex] = useState(-1);
-  const tokenIn = useAppSelector((s) => s.swap.inputToken);
-  const tokenOut = useAppSelector((s) => s.swap.outputToken);
-  const quote = useAppSelector((s) => s.swap.quote);
-  const responses = useAppSelector((s) => s.swap.responses);
+  const tokenIn = useAppSelector(selectSwapInputToken);
+  const tokenOut = useAppSelector(selectSwapOutputToken);
+  const quote = useAppSelector(selectSwapQuote);
+  const responses = useAppSelector(selectSwapResponses);
   const data = useMemo(() => responses ?? [], [responses]);
 
   useEffect(() => {

@@ -11,9 +11,10 @@ import type { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification'
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useSettings } from '../../hooks/redux';
+import { useAppSelector } from '../../hooks/redux';
 import { ManageTokenModalRoutes } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
+import { selectPushNotification } from '../../store/selectors';
 
 import { ListEmptyComponent } from './Empty';
 import PriceItem from './PriceItem';
@@ -40,7 +41,7 @@ export const PriceAlertListModal: FC = () => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<PriceAlertItem[]>([]);
   const route = useRoute<RouteProps>();
-  const { pushNotification } = useSettings();
+  const pushNotification = useAppSelector(selectPushNotification);
   const { token, price } = route.params;
   const navigation = useNavigation<NavigationProps>();
 

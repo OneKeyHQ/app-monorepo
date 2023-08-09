@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { appSelector } from '@onekeyhq/kit/src/store';
 import type { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
+import { selectActiveWalletId } from '@onekeyhq/kit/src/store/selectors';
 import {
   generateUUID,
   getTimeDurationMs,
@@ -614,7 +615,7 @@ class Engine {
 
     const checkActiveWallet = () => {
       setTimeout(() => {
-        const activeWalletId = appSelector((s) => s.general.activeWalletId);
+        const activeWalletId = appSelector(selectActiveWalletId);
         if (!activeWalletId && platformEnv.isNative) {
           RNRestart.Restart();
         }

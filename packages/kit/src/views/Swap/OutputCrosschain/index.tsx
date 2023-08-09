@@ -6,6 +6,11 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../../hooks';
+import {
+  selectSwapInputToken,
+  selectSwapOutputToken,
+  selectSwapTransactionsTokenList,
+} from '../../../store/selectors';
 import { useSwapRecipient } from '../hooks/useSwap';
 
 import OutputCrosschainTokenSelector from './OutputCrosschainTokenSelector';
@@ -19,9 +24,9 @@ const OutputCrosschain = () => {
   const intl = useIntl();
   const navigation = useNavigation();
 
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const outputToken = useAppSelector((s) => s.swap.outputToken);
-  const tokenList = useAppSelector((s) => s.swapTransactions.tokenList);
+  const inputToken = useAppSelector(selectSwapInputToken);
+  const outputToken = useAppSelector(selectSwapOutputToken);
+  const tokenList = useAppSelector(selectSwapTransactionsTokenList);
   const recipient = useSwapRecipient();
 
   const [networkSelectorId, onSelectNetworkId] = useState<string | undefined>(

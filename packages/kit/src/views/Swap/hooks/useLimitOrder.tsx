@@ -8,6 +8,13 @@ import type { Account } from '@onekeyhq/engine/src/types/account';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useDebounce } from '../../../hooks';
 import { updateLimitOrderTransaction } from '../../../store/reducers/swapTransactions';
+import {
+  selectLimitOrderActiveAccount,
+  selectLimitOrderInstantRate,
+  selectLimitOrderTokenIn,
+  selectLimitOrderTokenOut,
+  selectLimitOrderTypedValue,
+} from '../../../store/selectors';
 import { gt, lt, multiply } from '../utils';
 
 import { useSwapSend } from './useSwapSend';
@@ -19,10 +26,11 @@ import type {
 } from '../typings';
 
 export function useLimitOrderParams(): ILimitOrderQuoteParams | undefined {
-  const tokenIn = useAppSelector((s) => s.limitOrder.tokenIn);
-  const tokenOut = useAppSelector((s) => s.limitOrder.tokenOut);
-  const typedValue = useAppSelector((s) => s.limitOrder.typedValue);
-  const activeAccount = useAppSelector((s) => s.limitOrder.activeAccount);
+  const tokenIn = useAppSelector(selectLimitOrderTokenIn);
+
+  const tokenOut = useAppSelector(selectLimitOrderTokenOut);
+  const typedValue = useAppSelector(selectLimitOrderTypedValue);
+  const activeAccount = useAppSelector(selectLimitOrderActiveAccount);
   const params = useMemo(() => {
     if (
       tokenIn &&
@@ -44,8 +52,8 @@ export function useLimitOrderParams(): ILimitOrderQuoteParams | undefined {
 }
 
 export function useLimitOrderOutput() {
-  const instantRate = useAppSelector((s) => s.limitOrder.instantRate);
-  const typedValue = useAppSelector((s) => s.limitOrder.typedValue);
+  const instantRate = useAppSelector(selectLimitOrderInstantRate);
+  const typedValue = useAppSelector(selectLimitOrderTypedValue);
   return useMemo(() => {
     if (instantRate && typedValue) {
       return multiply(typedValue, instantRate);
@@ -95,9 +103,9 @@ export function useAllLimitOrders(): LimitOrderTransactionDetails[] {
 }
 
 export const useCheckLimitOrderInputBalance = () => {
-  const tokenIn = useAppSelector((s) => s.limitOrder.tokenIn);
-  const sendingAccount = useAppSelector((s) => s.limitOrder.activeAccount);
-  const typedValue = useAppSelector((s) => s.limitOrder.typedValue);
+  const tokenIn = useAppSelector(selectLimitOrderTokenIn);
+  const sendingAccount = useAppSelector(selectLimitOrderActiveAccount);
+  const typedValue = useAppSelector(selectLimitOrderTypedValue);
   const tokenBalance = useTokenBalance(
     gt(typedValue, 0) ? tokenIn : undefined,
     sendingAccount?.id,

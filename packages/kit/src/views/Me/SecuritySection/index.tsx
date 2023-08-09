@@ -29,6 +29,13 @@ import {
   RootRoutes,
 } from '../../../routes/routesEnum';
 import {
+  selectAppLockDuration,
+  selectAuthenticationType,
+  selectEnableLocalAuthentication,
+  selectEnableWebAuthn,
+  selectIsPasswordSet,
+} from '../../../store/selectors';
+import {
   isContextSupportWebAuthn,
   isMac,
   isSupportedPlatform,
@@ -61,14 +68,14 @@ export const SecuritySection = () => {
       );
     }
   }, []);
-  const enableWebAuthn = useAppSelector((s) => s.settings.enableWebAuthn);
-  const enableAppLock = useAppSelector((s) => s.settings.enableAppLock);
-  const appLockDuration = useAppSelector((s) => s.settings.appLockDuration);
+  const enableWebAuthn = useAppSelector(selectEnableWebAuthn);
+  const enableAppLock = useAppSelector(selectIsPasswordSet);
+  const appLockDuration = useAppSelector(selectAppLockDuration);
   const enableLocalAuthentication = useAppSelector(
-    (s) => s.settings.enableLocalAuthentication,
+    selectEnableLocalAuthentication,
   );
-  const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
-  const authenticationType = useAppSelector((s) => s.status.authenticationType);
+  const isPasswordSet = useAppSelector(selectIsPasswordSet);
+  const authenticationType = useAppSelector(selectAuthenticationType);
 
   const { isOk } = useLocalAuthentication();
   const navigation = useNavigation<NavigationProps>();

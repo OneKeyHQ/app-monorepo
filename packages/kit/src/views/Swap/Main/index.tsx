@@ -1,6 +1,7 @@
 import { Box } from '@onekeyhq/components';
 
 import { useAppSelector } from '../../../hooks';
+import { selectSwapMode } from '../../../store/selectors';
 import {
   LimitOrderButtonProgressContext,
   SwapButtonProgressContext,
@@ -11,7 +12,7 @@ import { LimitOrderMain } from './LimitOrder';
 import { SwapMain } from './Swap';
 
 export function Main() {
-  const mode = useAppSelector((s) => s.swap.mode);
+  const mode = useAppSelector(selectSwapMode);
   const swapContext = useProgressStatusContext();
   const limitOrderContext = useProgressStatusContext();
   return (
