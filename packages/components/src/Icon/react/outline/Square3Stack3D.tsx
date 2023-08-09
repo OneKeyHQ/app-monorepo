@@ -5,7 +5,6 @@ const SvgSquare3Stack3D = (props: SvgProps) => (
     viewBox="0 0 24 24"
     strokeWidth={1.5}
     stroke="currentColor"
-    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
