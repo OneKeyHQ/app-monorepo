@@ -20,10 +20,7 @@ import { create } from '@onekeyhq/kit/src/store/reducers/contacts';
 import type { Contact } from '@onekeyhq/kit/src/store/reducers/contacts';
 import { release } from '@onekeyhq/kit/src/store/reducers/data';
 import { addBookmark } from '@onekeyhq/kit/src/store/reducers/discover';
-import {
-  MARKET_FAVORITES_CATEGORYID,
-  saveMarketFavorite,
-} from '@onekeyhq/kit/src/store/reducers/market';
+import { MARKET_FAVORITES_CATEGORYID } from '@onekeyhq/kit/src/store/reducers/market';
 import { setEnableLocalAuthentication } from '@onekeyhq/kit/src/store/reducers/settings';
 import { unlock } from '@onekeyhq/kit/src/store/reducers/status';
 import {
@@ -307,14 +304,20 @@ class ServiceCloudBackup extends ServiceBase {
         if (typeof backupSummaries[backupDeviceId] === 'undefined') {
           backupSummaries[backupDeviceId] = [];
         }
+        const numOfAccounts =
+          Object.values(HDWallets).reduce(
+            (count, wallet) => count + wallet.accountUUIDs.length,
+            0,
+          ) +
+          Object.keys(importedAccounts).length +
+          Object.keys(watchingAccounts).length;
+
         backupSummaries[backupDeviceId].push({
           backupUUID,
           backupTime,
           deviceInfo,
           numOfHDWallets: Object.keys(HDWallets).length,
-          numOfImportedAccounts: Object.keys(importedAccounts).length,
-          numOfWatchingAccounts: Object.keys(watchingAccounts).length,
-          numOfContacts: Object.keys(contacts).length,
+          numOfAccounts,
         });
       } catch (e) {
         debugLogger.cloudBackup.error((e as Error).message);
@@ -556,7 +559,11 @@ class ServiceCloudBackup extends ServiceBase {
       }
 
       if (notOnDevice.marketFavorites) {
-        dispatch(saveMarketFavorite(notOnDevice.marketFavorites));
+        await this.backgroundApi.serviceMarket.saveMarketFavoriteTokens(
+          notOnDevice.marketFavorites?.map((id) => ({
+            coingeckoId: id,
+          })),
+        );
       }
 
       for (const contactUUID of Object.keys(notOnDevice.contacts)) {

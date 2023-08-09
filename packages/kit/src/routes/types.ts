@@ -144,9 +144,7 @@ export type HomeRoutesParams = {
     backupUUID: string;
     backupTime: number;
     numOfHDWallets: number;
-    numOfImportedAccounts: number;
-    numOfWatchingAccounts: number;
-    numOfContacts: number;
+    numOfAccounts: number;
   };
   [HomeRoutes.PushNotification]: undefined;
   [HomeRoutes.PushNotificationManagePriceAlert]: {
