@@ -24,6 +24,7 @@ import {
   setAllNetworksAccountsMap,
   setOverviewPortfolioUpdatedAt,
 } from '@onekeyhq/kit/src/store/reducers/overview';
+import type { NetworkWithAccounts } from '@onekeyhq/kit/src/views/ManageNetworks/types';
 import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
 import {
   backgroundClass,
@@ -358,8 +359,6 @@ export default class ServiceAllNetwork extends ServiceBase {
       appSelector((s) => s.overview.allNetworksAccountsMap ?? {})[accountId] ??
       {};
 
-    const notSelectedNetworkAccountsMap: Record<string, Account[]> = {};
-
     const networks = appSelector((s) => s.runtime.networks ?? []).filter(
       (n) =>
         n.enabled &&
@@ -371,12 +370,20 @@ export default class ServiceAllNetwork extends ServiceBase {
         ![OnekeyNetwork.fevm, OnekeyNetwork.cfxespace].includes(n.id),
     );
 
+    const networksWithAccounts: NetworkWithAccounts[] = [];
+
     for (const n of networks) {
-      if (selectedNetorkAccountsMap?.[n.id]) {
+      let accounts = selectedNetorkAccountsMap?.[n.id];
+      if (accounts?.length) {
+        networksWithAccounts.push({
+          ...n,
+          selected: true,
+          accounts,
+        });
         // eslint-disable-next-line no-continue
         continue;
       }
-      const accounts = await engine.getAccounts(wallet.accounts, n.id);
+      accounts = await engine.getAccounts(wallet.accounts, n.id);
       const filteredAccoutns = accounts.filter((a) => {
         if (!a.template) {
           return false;
@@ -388,7 +395,13 @@ export default class ServiceAllNetwork extends ServiceBase {
           accountIndex: index,
         });
       });
-      notSelectedNetworkAccountsMap[n.id] = filteredAccoutns;
+      if (filteredAccoutns?.length) {
+        networksWithAccounts.push({
+          ...n,
+          selected: false,
+          accounts: filteredAccoutns,
+        });
+      }
     }
 
     const disabledNetworkIds = Object.keys(selectedNetorkAccountsMap).filter(
@@ -408,11 +421,7 @@ export default class ServiceAllNetwork extends ServiceBase {
       );
     }
 
-    return {
-      networks,
-      selectedNetorkAccountsMap,
-      notSelectedNetworkAccountsMap,
-    };
+    return networksWithAccounts;
   }
 
   @backgroundMethod()
@@ -552,5 +561,31 @@ export default class ServiceAllNetwork extends ServiceBase {
     debugLogger.allNetworks.info(`[onWalletRemoved] `, walletIds.join(','));
     await simpleDb.accountPortfolios.removeWalletData(walletIds);
     dispatch(removeWalletAccountsMap({ walletIds }));
+  }
+
+  @backgroundMethod()
+  async updateAllNetworksAccountsMap({
+    accountId,
+    selectedNetworkAccounts,
+  }: {
+    accountId: string;
+    selectedNetworkAccounts: NetworkWithAccounts[];
+  }) {
+    if (!selectedNetworkAccounts) {
+      return;
+    }
+    const { dispatch } = this.backgroundApi;
+
+    dispatch(
+      setAllNetworksAccountsMap({
+        accountId,
+        data: selectedNetworkAccounts.reduce((sum, n) => {
+          sum[n.id] = n.accounts;
+          return sum;
+        }, {} as Record<string, Account[]>),
+      }),
+    );
+
+    return this.reloadCurrentAccount();
   }
 }

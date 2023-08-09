@@ -27,6 +27,8 @@ type RouteProps = RouteProp<
   ManageNetworkModalRoutes.AllNetworksNetworkSelector
 >;
 
+const empty = Object.freeze({} as Record<string, Account[]>);
+
 function AllNetworksNetworkSelectorModal() {
   const intl = useIntl();
   const closeModal = useModalClose();
@@ -36,7 +38,7 @@ function AllNetworksNetworkSelectorModal() {
 
   const { filter, onConfirm, accountId } = route?.params ?? {};
 
-  const { data: networkAccounts = {} } = useAllNetworksWalletAccounts({
+  const { data: networkAccounts = empty } = useAllNetworksWalletAccounts({
     accountId,
   });
 

@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { omit, pick } from 'lodash';
+import { pick } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -21,20 +21,19 @@ import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type { Account } from '@onekeyhq/engine/src/types/account';
-import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useAppSelector } from '../../../hooks';
-import { setAllNetworksAccountsMap } from '../../../store/reducers/overview';
 import { setHideAllNetworksSelectNetworkTips } from '../../../store/reducers/settings';
 import { showAllNetworksHelp } from '../../Overlay/AllNetworksHelp';
 import { NetworkListEmpty, strIncludes } from '../Listing/NetworkListEmpty';
 
+import type { NetworkWithAccounts } from '../types';
 import type { ListRenderItem } from 'react-native';
 
 type Section = {
   title: LocaleIds;
-  data: Network[];
+  data: NetworkWithAccounts[];
 };
 
 const ItemSeparatorComponent = () => <Box h="6" />;
@@ -44,30 +43,35 @@ const NetworkItem: FC<{
   logoURI: string;
   name: string;
   isChecked: boolean;
-  onChange: (value: boolean, accounts: Account[]) => void;
-}> = ({ accounts, name, logoURI, isChecked, onChange }) => {
+  networkId: string;
+  onChange: (params: {
+    networkId: string;
+    value: boolean;
+    accounts: Account[];
+  }) => void;
+}> = ({ accounts, name, logoURI, isChecked, onChange, networkId }) => {
   const intl = useIntl();
 
-  const desc = (() => {
-    if (accounts.length === 0)
-      return intl.formatMessage({ id: 'empty__no_account_title' });
+  const desc = useMemo(() => {
     if (accounts?.length === 1)
       return shortenAddress(accounts[0]?.address ?? '');
+
     return intl.formatMessage(
       { id: 'form__str_addresses' },
       {
         0: accounts.length,
       },
     );
-  })();
+  }, [accounts, intl]);
 
   const handleChangeMap = useCallback(
-    (value: boolean) => {
-      if (accounts?.length) {
-        return onChange(value, accounts);
-      }
-    },
-    [accounts, onChange],
+    (value: boolean) =>
+      onChange({
+        networkId,
+        value,
+        accounts,
+      }),
+    [accounts, onChange, networkId],
   );
 
   return (
@@ -110,17 +114,37 @@ const SelectNetworkTips = () => {
   );
 };
 
+const SectionHeader: FC<{
+  section: Section;
+  search: string;
+}> = ({ section, search }) => {
+  const intl = useIntl();
+
+  if (!section.data?.length) {
+    return null;
+  }
+  return (
+    <Box pb="3" pt={6} bg="background-default">
+      {search ? null : (
+        <Typography.Subheading>
+          {intl.formatMessage(
+            { id: section.title },
+            {
+              0: section.data?.length ?? 0,
+            },
+          )}
+        </Typography.Subheading>
+      )}
+    </Box>
+  );
+};
+
 export const AllNetworksAccountsDetail: FC = () => {
   const intl = useIntl();
   const [search, setSearch] = useState('');
   const { accountId } = useActiveWalletAccount();
-  const [map, setMap] = useState<Record<string, Account[]>>({});
   const [loading, setLoading] = useState(true);
-  const [result, setResult] = useState<{
-    networks: Network[];
-    selectedNetorkAccountsMap: Record<string, Account[]>;
-    notSelectedNetworkAccountsMap: Record<string, Account[]>;
-  }>();
+  const [networks, setNetworks] = useState<NetworkWithAccounts[]>();
 
   const close = useModalClose();
 
@@ -130,10 +154,7 @@ export const AllNetworksAccountsDetail: FC = () => {
         accountId,
       })
       .then((res) => {
-        if (res && res.selectedNetorkAccountsMap) {
-          setMap(res.selectedNetorkAccountsMap);
-        }
-        setResult(res);
+        setNetworks(res);
       })
       .finally(() => {
         setTimeout(() => {
@@ -142,23 +163,14 @@ export const AllNetworksAccountsDetail: FC = () => {
       });
   }, [accountId]);
 
-  const getAccountsByNetworkId = useCallback(
-    (networkId: string) =>
-      ({
-        ...result?.selectedNetorkAccountsMap,
-        ...result?.notSelectedNetworkAccountsMap,
-      }[networkId] ?? []),
-    [result],
-  );
-
-  const sections: Section[] = useMemo(() => {
-    if (!result) return [];
-    const selected = [];
-    const available = [];
-    for (const n of result.networks.filter((d) => {
-      if (!getAccountsByNetworkId(d.id)?.length) {
-        return false;
-      }
+  const filteredNetworks = useMemo(() => {
+    if (!networks) {
+      return [];
+    }
+    if (!search) {
+      return networks;
+    }
+    return networks.filter((d) => {
       for (const v of Object.values(
         pick(d, 'name', 'shortName', 'id', 'symbol'),
       )) {
@@ -167,8 +179,15 @@ export const AllNetworksAccountsDetail: FC = () => {
         }
       }
       return false;
-    })) {
-      if (map[n.id]) {
+    });
+  }, [networks, search]);
+
+  const sections: Section[] = useMemo(() => {
+    if (!networks) return [];
+    const selected = [];
+    const available = [];
+    for (const n of filteredNetworks) {
+      if (n.selected) {
         selected.push(n);
       } else {
         available.push(n);
@@ -184,75 +203,61 @@ export const AllNetworksAccountsDetail: FC = () => {
         data: available,
       },
     ];
-  }, [result, map, search, getAccountsByNetworkId]);
+  }, [networks, filteredNetworks]);
 
   const handleChangeMap = useCallback(
-    ({
-      networkId,
-      value,
-      accounts,
-    }: {
-      networkId: string;
-      value: boolean;
-      accounts: Account[];
-    }) => {
-      if (!value) {
-        setMap((m) => omit(m, networkId));
-        return;
-      }
-      setMap((m) => ({ ...m, [networkId]: accounts }));
+    ({ networkId }: { networkId: string }) => {
+      setNetworks(
+        (ns) =>
+          ns?.map((n) =>
+            n.id === networkId ? { ...n, selected: !n.selected } : n,
+          ) ?? [],
+      );
     },
     [],
   );
 
-  const renderItem: ListRenderItem<Network> = useCallback(
+  const renderItem: ListRenderItem<NetworkWithAccounts> = useCallback(
     ({ item }) => (
       <NetworkItem
         name={item.name}
         logoURI={item.logoURI}
-        accounts={getAccountsByNetworkId(item.id)}
-        isChecked={!!map[item.id]}
-        onChange={(value: boolean, accounts: Account[]) => {
-          handleChangeMap({
-            networkId: item.id,
-            accounts,
-            value,
-          });
-        }}
+        accounts={item.accounts}
+        isChecked={item.selected}
+        networkId={item.id}
+        onChange={handleChangeMap}
       />
     ),
-    [map, handleChangeMap, getAccountsByNetworkId],
+    [handleChangeMap],
   );
 
   const renderSectionHeader = useCallback(
-    ({ section }: { section: Section }) =>
-      !section?.data?.length ? null : (
-        <Box pb="3" pt={6} bg="background-default">
-          {search || !section.data?.length ? null : (
-            <Typography.Subheading>
-              {intl.formatMessage(
-                { id: section.title },
-                {
-                  0: section.data?.length ?? 0,
-                },
-              )}
-            </Typography.Subheading>
-          )}
-        </Box>
-      ),
-    [intl, search],
+    ({ section }: { section: Section }) => (
+      <SectionHeader section={section} search={search} />
+    ),
+    [search],
   );
 
   const onConfirm = useCallback(() => {
-    backgroundApiProxy.dispatch(
-      setAllNetworksAccountsMap({
-        accountId,
-        data: map,
-      }),
-    );
-    backgroundApiProxy.serviceAllNetwork.reloadCurrentAccount();
+    backgroundApiProxy.serviceAllNetwork.updateAllNetworksAccountsMap({
+      accountId,
+      selectedNetworkAccounts: networks?.filter((n) => n.selected) ?? [],
+    });
     close();
-  }, [map, accountId, close]);
+  }, [accountId, close, networks]);
+
+  const clearSearch = useCallback(() => {
+    setSearch('');
+  }, []);
+
+  const keyExtractor = useCallback((item: NetworkWithAccounts) => item.id, []);
+
+  const listHeader = useMemo(() => {
+    if (filteredNetworks?.length) {
+      return <SelectNetworkTips />;
+    }
+    return <NetworkListEmpty />;
+  }, [filteredNetworks?.length]);
 
   return (
     <Modal
@@ -264,9 +269,7 @@ export const AllNetworksAccountsDetail: FC = () => {
           size="lg"
           circle
           name="QuestionMarkCircleOutline"
-          onPress={() => {
-            showAllNetworksHelp();
-          }}
+          onPress={showAllNetworksHelp}
         />
       }
       hideSecondaryAction
@@ -280,25 +283,19 @@ export const AllNetworksAccountsDetail: FC = () => {
           <Searchbar
             w="full"
             value={search}
-            onChangeText={(text) => setSearch(text)}
+            onChangeText={setSearch}
             placeholder={intl.formatMessage({ id: 'content__search' })}
-            onClear={() => setSearch('')}
+            onClear={clearSearch}
           />
           <SectionList
             stickySectionHeadersEnabled={false}
             sections={sections}
             contentContainerStyle={{ flexGrow: 1 }}
-            keyExtractor={(item: Network) => item.id}
+            keyExtractor={keyExtractor}
             renderItem={renderItem}
             renderSectionHeader={renderSectionHeader}
             ItemSeparatorComponent={ItemSeparatorComponent}
-            ListHeaderComponent={
-              sections.map((s) => s.data).flat()?.length ? (
-                <SelectNetworkTips />
-              ) : (
-                <NetworkListEmpty />
-              )
-            }
+            ListHeaderComponent={listHeader}
           />
         </>
       )}
