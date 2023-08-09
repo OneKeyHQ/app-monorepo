@@ -334,6 +334,10 @@ function ManyToN(props: Props) {
     return BigNumber.min(sender.length, receiver.length).toNumber();
   }, [bulkType, receiver.length, sender.length]);
 
+  useEffect(() => {
+    setVerifySenderErrors([]);
+  }, [sender]);
+
   return (
     <Box>
       <TxSettingPanel>
