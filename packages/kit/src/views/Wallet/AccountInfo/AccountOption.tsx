@@ -223,23 +223,10 @@ const AccountOption: FC<AccountOptionProps> = memo(
         )}
 
         {network?.settings.hiddenAccountInfoMoreOption ? null : (
-          <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
-            <AccountMoreMenu>
-              <IconButton
-                circle
-                size={isSmallView ? 'xl' : 'lg'}
-                name="EllipsisVerticalOutline"
-                type="basic"
-              />
-            </AccountMoreMenu>
-            <Typography.CaptionStrong
-              textAlign="center"
-              mt="8px"
-              color="text-default"
-            >
-              {intl.formatMessage({ id: 'action__more' })}
-            </Typography.CaptionStrong>
-          </Box>
+          <AccountMoreMenu
+            isSmallView={isSmallView}
+            iconBoxFlex={iconBoxFlex}
+          />
         )}
       </Box>
     );

@@ -123,6 +123,7 @@ export type SettingsState = {
   hardwareConnectSrc?: string;
   gasPanelEIP1559Enabled?: boolean;
   showTokenDetailPriceChart?: boolean;
+  hideAllNetworksSelectNetworkTips?: boolean;
 };
 
 export const defaultPushNotification = {
@@ -199,6 +200,7 @@ const initialState: SettingsState = {
   },
   hardwareConnectSrc: SHORT_ONEKEYSO_URL,
   gasPanelEIP1559Enabled: true,
+  hideAllNetworksSelectNetworkTips: false,
 };
 
 export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
@@ -623,6 +625,9 @@ export const settingsSlice = createSlice({
     setShowTokenDetailPriceChart(state, action: PayloadAction<boolean>) {
       state.showTokenDetailPriceChart = action.payload;
     },
+    setHideAllNetworksSelectNetworkTips(state, action: PayloadAction<boolean>) {
+      state.hideAllNetworksSelectNetworkTips = action.payload;
+    },
   },
 });
 
@@ -683,6 +688,7 @@ export const {
   setHardwareConnectSrc,
   setGasPanelEIP1559Enabled,
   setShowTokenDetailPriceChart,
+  setHideAllNetworksSelectNetworkTips,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

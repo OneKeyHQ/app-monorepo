@@ -154,6 +154,9 @@ export const Listing: FC = () => {
       return n;
     });
     updateNetworks(allNetworkRefList.current);
+    backgroundApiProxy.serviceAllNetwork.onNetworksDisabled({
+      networkIds: [item.id],
+    });
   }, []);
 
   useFocusEffect(

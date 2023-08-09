@@ -338,7 +338,7 @@ function AssetsList({
   }, [loading, accountId, network, updateInfo?.updatedAt, intl]);
 
   return (
-    <Box>
+    <Box h={flatStyle ? 'full' : undefined}>
       <Container
         style={{
           maxWidth: MAX_PAGE_CONTAINER_WIDTH,

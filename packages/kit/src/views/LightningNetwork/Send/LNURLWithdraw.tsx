@@ -89,9 +89,8 @@ const LNURLWithdraw = () => {
         };
         navigation.navigate(SendModalRoutes.SendFeedbackReceipt, params);
       } catch (e: any) {
-        console.error(e);
         const { key, info } = e;
-        if (key) {
+        if (key && key !== 'onekey_error') {
           ToastManager.show(
             {
               title: intl.formatMessage(
@@ -106,7 +105,7 @@ const LNURLWithdraw = () => {
           return false;
         }
         ToastManager.show(
-          { title: e instanceof Error ? e.message : e },
+          { title: (e as Error)?.message || e },
           { type: 'error' },
         );
         return false;
@@ -120,10 +119,16 @@ const LNURLWithdraw = () => {
   const renderLabelAddon = useMemo(
     () => (
       <Text typography="Body2Strong" color="text-subdued">
-        betweeen {amountMin} and {amountMax} sats
+        {intl.formatMessage(
+          { id: 'form__between_int_and_int_sats' },
+          {
+            min: amountMin,
+            max: amountMax,
+          },
+        )}
       </Text>
     ),
-    [amountMin, amountMax],
+    [amountMin, amountMax, intl],
   );
 
   const doSubmit = handleSubmit(onSubmit);

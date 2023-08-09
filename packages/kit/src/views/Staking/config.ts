@@ -12,3 +12,13 @@ export const TestnetLidoWithdrawalERC721 =
   '0xCF117961421cA9e546cD7f50bC73abCdB3039533';
 export const MainnetLidoWithdrawalERC721 =
   '0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1';
+
+export const TestnetMaticContractAddress =
+  '0x499d11e0b6eac7c0593d8fb292dcbbf815fb29ae';
+export const MainnetMaticContractAddress =
+  '0x7d1afa7b718fb893db30a3abc0cfc608aacfebb0';
+
+export const TestnetStMaticContractAddress =
+  '0x9a7c69a167160c507602ecb3df4911e8e98e1279';
+export const MainnetStMaticContractAddress =
+  '0x9ee91f9f426fa633d227f7a9b000e28b9dfd8599';

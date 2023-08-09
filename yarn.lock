@@ -6451,7 +6451,7 @@ __metadata:
     react-native-view-shot: ^3.6.0
     react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#feat/refactor-webview"
     react-native-zip-archive: ^6.0.9
-    react-render-tracker: "https://github.com/huhuanming/react-render-tracker.git#9141b4b2db5b775556a292ebd748ba5308c8bab4"
+    react-render-tracker: "npm:react-native-render-tracker@0.0.1"
     readable-stream: ^3.6.0
     realm: ^11.9.0
     realm-flipper-plugin-device: ^1.1.0
@@ -29734,12 +29734,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-render-tracker@https://github.com/huhuanming/react-render-tracker.git#9141b4b2db5b775556a292ebd748ba5308c8bab4":
-  version: 0.7.3
-  resolution: "react-render-tracker@https://github.com/huhuanming/react-render-tracker.git#commit=9141b4b2db5b775556a292ebd748ba5308c8bab4"
+"react-render-tracker@npm:react-native-render-tracker@0.0.1":
+  version: 0.0.1
+  resolution: "react-native-render-tracker@npm:0.0.1"
   dependencies:
-    rempl: "https://github.com/huhuanming/rempl.git#3ed018347475dea459ac3200ad635d380da526a5"
-  checksum: 76a3f976378d39d2a13816b0228124c5d6bab8d6f4285896a3d266d5e12d4b349d5b577f675469b912857f106cf8ca4cedcf8250a4efe42f5905b0f873289234
+    rempl: "npm:react-native-rempl@1.0.2"
+  checksum: 2e25e80290bc4d8b7a8476db10f988c0d0130dfd42270870696e7c6c203a7fd412e874c05521bc99ad27eeece0dd43a2001bcda3403cac79dfa8afd4d2f4c935
   languageName: node
   linkType: hard
 
@@ -30270,21 +30270,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rempl@https://github.com/huhuanming/rempl.git#3ed018347475dea459ac3200ad635d380da526a5":
-  version: 1.0.0-alpha.24
-  resolution: "rempl@https://github.com/huhuanming/rempl.git#commit=3ed018347475dea459ac3200ad635d380da526a5"
-  dependencies:
-    basisjs-tools-server: 1.0.2
-    chalk: ~4.1.2
-    clap: ~1.1.3
-    rimraf: ^5.0.1
-    socket.io-client: ^2.5.0
-  bin:
-    rempl: ./bin/rempl
-  checksum: 169c7813a158a6813d4fe91b8b8d60db5dfeb34c54a40daa5bc3aef1ec2cc789d468585bffb39c8e26f41e61973881d9c77fc33f23601ddc17549c05fab860e8
-  languageName: node
-  linkType: hard
-
 "rempl@npm:1.0.0-alpha15":
   version: 1.0.0-alpha15
   resolution: "rempl@npm:1.0.0-alpha15"
@@ -30292,6 +30277,21 @@ __metadata:
     chalk: ~1.1.3
     socket.io-client: ^1.7.1
   checksum: 74585f3c148c7d2ad4e69c6e2a9d1b42fcdd079446ec19da41f00af42ecfea83e30f5575f309ebf740ba9b8c2718cd509b8731b5a498c2fd75e23998dae75a29
+  languageName: node
+  linkType: hard
+
+"rempl@npm:react-native-rempl@1.0.2":
+  version: 1.0.2
+  resolution: "react-native-rempl@npm:1.0.2"
+  dependencies:
+    basisjs-tools-server: 1.0.2
+    chalk: ~4.1.2
+    clap: ~1.1.3
+    rimraf: ^5.0.1
+    socket.io-client: ^2.5.0
+  bin:
+    react-native-rempl: bin/rempl
+  checksum: 7a6bd023da5359dd184930cea3143e35291aeb9007b05b89275f79a7c50a190b25405e6e77d41801681626860852b2d9b32e6607a53a41de18c1b966c12721eb
   languageName: node
   linkType: hard
 

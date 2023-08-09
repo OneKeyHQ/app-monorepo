@@ -101,14 +101,15 @@ async function lightningNetworkSendConfirm({
       setIsLoadingAssets(false);
       return;
     }
-  } catch (e) {
+  } catch (e: unknown) {
     // ignore error
     console.error('Lnurl error: ', e);
+    const errorMessage = `${intl.formatMessage({
+      id: 'msg__invalid_lightning_payment_request',
+    })}. ${(e as Error)?.message ?? ''}`;
     ToastManager.show(
       {
-        title: intl.formatMessage({
-          id: 'msg__invalid_lightning_payment_request',
-        }),
+        title: errorMessage,
       },
       { type: 'error' },
     );
