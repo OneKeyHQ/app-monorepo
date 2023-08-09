@@ -155,7 +155,9 @@ function IntervalEditor() {
     >
       <Box flex={1}>
         <HStack alignItems="center" justifyContent="space-between">
-          <Text typography="Body2Strong">Random Time Interval</Text>
+          <Text typography="Body2Strong">
+            {intl.formatMessage({ id: 'form__random_interval' })}
+          </Text>
           <Switch
             labelType="false"
             isChecked={isIntervalEnabled}
