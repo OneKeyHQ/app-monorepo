@@ -363,14 +363,20 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       groupTransactionsData.push({
         headerProps: {
           title: (
-            <HStack space="10px" alignItems="center" mb={2}>
-              <Text typography="Subheading" color="text-subdued" lineHeight={1}>
+            <HStack space="10px" alignItems="center">
+              <Text
+                typography="Subheading"
+                color="text-subdued"
+                height="14px"
+                letterSpacing={0}
+              >
                 {`${intl.formatMessage({ id: 'form__transaction' })} #${i + 1}
                 `.toUpperCase()}
               </Text>
               {isNil(transferInfos?.[i]?.txInterval) ? null : (
                 <Badge
                   size="sm"
+                  margin={0}
                   title={
                     transferInfos?.[i].txInterval
                       ? intl.formatMessage(
