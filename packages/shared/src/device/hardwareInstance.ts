@@ -7,6 +7,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
+import { EOnekeyDomain } from '../../types';
 import { importHardwareSDK, importHardwareSDKLowLevel } from './sdk-loader';
 
 import type {
@@ -19,9 +20,9 @@ import type {
 let HardwareSDK: CoreApi;
 let HardwareLowLevelSDK: LowLevelCoreApi;
 
-export const generateConnectSrc = (hardwareConnectSrc?: string) => {
+export const generateConnectSrc = (hardwareConnectSrc?: EOnekeyDomain) => {
   let connectSrc = `${HARDWARE_SDK_IFRAME_SRC_ONEKEYSO}/${HARDWARE_SDK_VERSION}/`;
-  if (hardwareConnectSrc && hardwareConnectSrc.indexOf('onekeycn.com') > -1) {
+  if (hardwareConnectSrc === EOnekeyDomain.ONEKEY_CN) {
     connectSrc = `${HARDWARE_SDK_IFRAME_SRC_ONEKEYCN}/${HARDWARE_SDK_VERSION}/`;
   }
   // connectSrc = 'https://localhost:8087/';
@@ -29,7 +30,10 @@ export const generateConnectSrc = (hardwareConnectSrc?: string) => {
 };
 
 export const getHardwareSDKInstance = memoizee(
-  async (params: { isPreRelease: boolean; hardwareConnectSrc?: string }) =>
+  async (params: {
+    isPreRelease: boolean;
+    hardwareConnectSrc?: EOnekeyDomain;
+  }) =>
     // eslint-disable-next-line no-async-promise-executor
     new Promise<CoreApi>(async (resolve, reject) => {
       if (HardwareSDK) {

@@ -4,7 +4,10 @@ import semver from 'semver';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
-import { setShowBookmark } from '@onekeyhq/kit/src/store/reducers/discover';
+import {
+  setEnableIOSDappSearch,
+  setShowBookmark,
+} from '@onekeyhq/kit/src/store/reducers/discover';
 import type { WalletSwitchItem } from '@onekeyhq/kit/src/store/reducers/settings';
 import {
   disableExtSwitchTips,
@@ -35,6 +38,7 @@ type RemoteSetting = {
   enableETH2Unstake: boolean;
   helloVersion: string;
   bookmarkVersion: string;
+  iOSSupportSearchVersion?: string;
   disabledRpcBatchHosts: string[];
 };
 
@@ -65,9 +69,11 @@ export default class ServiceSetting extends ServiceBase {
         url: u,
       })),
     );
-    dispatch(setEnableETH2Unstake(data.enableETH2Unstake));
-    dispatch(setSwapMaintain(data.swapMaintain));
-    dispatch(setLimitOrderMaintain(!!data.limitOrderMaintain));
+    const actions = [
+      setEnableETH2Unstake(data.enableETH2Unstake),
+      setSwapMaintain(data.swapMaintain),
+      setLimitOrderMaintain(!!data.limitOrderMaintain),
+    ] as any[];
     let v = '';
     if (platformEnv.isNativeIOS || platformEnv.isMas) {
       if (platformEnv.isNativeIOS && data.helloVersion) {
@@ -78,10 +84,20 @@ export default class ServiceSetting extends ServiceBase {
       if (v && semver.valid(v)) {
         const version = appSelector((s) => s.settings.version);
         if (semver.lte(version, v)) {
-          dispatch(setShowBookmark(true));
+          actions.push(setShowBookmark(true));
+        }
+      }
+      if (data.iOSSupportSearchVersion) {
+        const version = appSelector((s) => s.settings.version);
+        if (
+          data.iOSSupportSearchVersion &&
+          semver.lte(version, data.iOSSupportSearchVersion)
+        ) {
+          actions.push(setEnableIOSDappSearch(true));
         }
       }
     }
+    dispatch(...actions);
   }
 
   @backgroundMethod()

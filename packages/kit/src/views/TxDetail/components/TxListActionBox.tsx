@@ -1,6 +1,7 @@
 import type { ComponentProps } from 'react';
 
-import { Box, HStack, Text, Token } from '@onekeyhq/components';
+import { Box, HStack, Text } from '@onekeyhq/components';
+import { NetworkDarkIcon } from '@onekeyhq/components/src/Network/DarkIcon';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
@@ -104,13 +105,10 @@ export function TxListActionBox(props: ITxListActionBoxProps) {
                 flex={hasExtraView ? undefined : 1}
                 alignItems="center"
               >
-                {isAllNetworks(activeNetworkId) && network?.logoURI ? (
-                  <Token
-                    token={{ logoURI: network?.logoURI }}
-                    showInfo={false}
-                    size={4}
-                    mr="2px"
-                  />
+                {isAllNetworks(activeNetworkId) && network?.id ? (
+                  <Box mr="2px">
+                    <NetworkDarkIcon networkId={network.id} />
+                  </Box>
                 ) : null}
                 {subTitleView}
               </HStack>
