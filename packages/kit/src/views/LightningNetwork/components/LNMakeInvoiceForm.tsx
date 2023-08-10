@@ -4,13 +4,7 @@ import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import {
-  Box,
-  Form,
-  Image,
-  Text,
-  useIsVerticalLayout,
-} from '@onekeyhq/components';
+import { Box, Form, Text, useIsVerticalLayout } from '@onekeyhq/components';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IInvoiceConfig } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/invoice';
 import { FormatCurrencyTokenOfAccount } from '@onekeyhq/kit/src/components/Format';
