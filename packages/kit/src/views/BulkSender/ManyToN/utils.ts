@@ -160,7 +160,7 @@ export const verifyBulkTransferBeforeConfirm = async ({
     const senderItem = sender[i];
     const senderAccount =
       await backgroundApiProxy.serviceAccount.getAccountByAddress({
-        address: senderItem.Address,
+        address: senderItem.Address.toLowerCase(),
         networkId,
       });
     if (senderSet.has(senderItem.Address)) {
