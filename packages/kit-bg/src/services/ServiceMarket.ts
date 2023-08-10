@@ -300,11 +300,13 @@ export default class ServiceMarket extends ServiceBase {
         f.symbol ?? 'UNKOWN',
       );
     }
+    this.backgroundApi.serviceCloudBackup.requestBackup();
     return simpleDb.market.saveFavoriteMarketTokens(coingeckoIds);
   }
 
   @backgroundMethod()
   async clearMarketFavoriteTokens() {
+    this.backgroundApi.serviceCloudBackup.requestBackup();
     return simpleDb.market.clearRawData();
   }
 
@@ -312,6 +314,7 @@ export default class ServiceMarket extends ServiceBase {
   async cancelMarketFavoriteToken(coingeckoId: string) {
     this.backgroundApi.dispatch(cancleMarketFavorite(coingeckoId));
     this.marketTokenCancelFavoriteForNtf(coingeckoId);
+    this.backgroundApi.serviceCloudBackup.requestBackup();
     return simpleDb.market.deleteFavoriteMarketToken(coingeckoId);
   }
 
