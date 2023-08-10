@@ -11,6 +11,7 @@ import { Body2StrongProps } from '../Typography';
 
 import type { CollapsibleContainerProps } from './types';
 import type { NativeSyntheticEvent } from 'react-native';
+import { OnPageChangeEvent } from '@onekeyhq/app/src/views/NestedTabView/types';
 
 const TabContainerNativeView: ForwardRefRenderFunction<
   ForwardRefHandle,
@@ -92,8 +93,8 @@ const TabContainerNativeView: ForwardRefRenderFunction<
     });
   }, [onRefresh]);
 
-  const onChange = useCallback(
-    (e: NativeSyntheticEvent<{ tabName: string; index: number }>) => {
+  const onPageChange = useCallback(
+    (e: OnPageChangeEvent) => {
       onIndexChange?.(e.nativeEvent?.index);
     },
     [onIndexChange],
@@ -110,7 +111,7 @@ const TabContainerNativeView: ForwardRefRenderFunction<
       tabViewStyle={tabViewStyle}
       onRefreshCallBack={onRefreshCallBack}
       headerView={headerView}
-      onChange={onChange}
+      onPageChange={onPageChange}
       scrollEnabled={scrollEnabled}
       {...props}
     >

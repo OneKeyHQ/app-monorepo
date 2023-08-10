@@ -12,6 +12,9 @@ import com.th3rdwave.safeareacontext.getReactContext
 import so.onekey.app.wallet.extensions.getBooleanOrNull
 import so.onekey.app.wallet.extensions.getIntOrNull
 import so.onekey.app.wallet.extensions.getStringOrNull
+import so.onekey.app.wallet.viewManager.homePage.event.PageSelectedEvent
+import so.onekey.app.wallet.viewManager.homePage.event.PageStartScrollEvent
+import so.onekey.app.wallet.viewManager.homePage.event.SwipeRefreshEvent
 import javax.annotation.Nullable
 
 data class TabProps(
@@ -32,31 +35,12 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
     override fun createViewInstance(reactContext: ThemedReactContext): HomePageView {
         Log.d("HomePageManager", "createViewInstance")
         return HomePageView(reactContext).also {
+//            it.isSaveEnabled = false
             val activity = getReactContext(it).currentActivity
             if (activity is FragmentActivity) {
                 it.setViewPager(activity)
             }
         }
-    }
-
-    override fun getExportedCustomBubblingEventTypeConstants(): Map<String, Any> {
-        return mapOf(
-            "tabPageChange" to mapOf(
-                "phasedRegistrationNames" to mapOf(
-                    "bubbled" to "onChange"
-                )
-            ),
-            "swipeRefreshChange" to mapOf(
-                "phasedRegistrationNames" to mapOf(
-                    "bubbled" to "onRefreshCallBack"
-                )
-            ),
-            "startTabPageChange" to mapOf(
-                "phasedRegistrationNames" to mapOf(
-                    "bubbled" to "onStartChange"
-                )
-            )
-        )
     }
 
     @ReactProp(name = "headerHeight")
@@ -134,6 +118,19 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
         view.setSlideDisable(disable)
     }
 
+    override fun getExportedCustomBubblingEventTypeConstants(): Map<String, Any> {
+        return mapOf(
+            PageSelectedEvent.EVENT_NAME to mapOf(
+                "phasedRegistrationNames" to mapOf("bubbled" to "onPageChange")
+            ),
+            SwipeRefreshEvent.EVENT_NAME to mapOf(
+                "phasedRegistrationNames" to mapOf("bubbled" to "onRefreshCallBack")
+            ),
+            PageStartScrollEvent.EVENT_NAME to mapOf(
+                "phasedRegistrationNames" to mapOf("bubbled" to "onPageStartScroll")
+            )
+        )
+    }
 
     override fun receiveCommand(view: HomePageView, commandId: String?, args: ReadableArray?) {
         super.receiveCommand(view, commandId, args)

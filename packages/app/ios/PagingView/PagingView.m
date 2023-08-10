@@ -16,7 +16,7 @@
 
 @interface PagingView ()<JXPagerViewDelegate,JXCategoryViewDelegate>
 @property (nonatomic, strong) JXPagerView *pagingView;
-@property (nonatomic, copy) RCTBubblingEventBlock onChange;
+@property (nonatomic, copy) RCTBubblingEventBlock onPageChange;
 @property (nonatomic, copy) RCTBubblingEventBlock onRefreshCallBack;
 
 @property (nonatomic, assign) CGFloat headerHeight;
@@ -233,9 +233,9 @@
 }
 
 - (void)categoryView:(JXCategoryBaseView *)categoryView didSelectedItemAtIndex:(NSInteger)index {
-  if (_onChange) {
+  if (_onPageChange) {
     NSDictionary *value = _values[index];
-    _onChange(@{@"tabName":value[@"name"],@"index":@(index)});
+    _onPageChange(@{@"tabName":value[@"name"],@"index":@(index)});
   }
 }
 

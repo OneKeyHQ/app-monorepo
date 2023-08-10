@@ -20,16 +20,9 @@ import { enableOnPressAnim } from '@onekeyhq/components/src/utils/useBeforeOnPre
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import NativeNestedTabView, {
-  getViewManagerConfig,
-} from './NativeNestedTabView';
-// import {
-// nestedTabStartX,
-// nestedTabTransX,
-// resetNestedTabTransX,
-// } from './types';
+import NativeNestedTabView from './NativeNestedTabView';
 
-import type { NestedTabViewProps } from './types';
+import type { NestedTabViewProps, OnPageChangeEvent } from './types';
 import type { NativeSyntheticEvent } from 'react-native';
 
 export type ForwardRefHandle = {
@@ -54,13 +47,15 @@ const NestedTabView: ForwardRefRenderFunction<
   {
     headerView,
     children,
-    onChange,
+    onPageChange,
+    onPageStartScroll,
     defaultIndex,
     scrollEnabled = true,
     ...rest
   },
   ref,
 ) => {
+  const isScrolling = useRef(false);
   const isVerticalLayout = useIsVerticalLayout();
   const enableOpenDrawer = rest.canOpenDrawer && isVerticalLayout;
   // disable drawer swipe gesture
@@ -191,6 +186,7 @@ const NestedTabView: ForwardRefRenderFunction<
     if (platformEnv.isNativeIOS) {
       return STATIC_GESTURE_PAN;
     }
+    // return STATIC_GESTURE_PAN;
     const basePan = Gesture.Pan();
     if (enableOpenDrawer) {
       basePan.onTouchesDown(() =>
@@ -268,19 +264,32 @@ const NestedTabView: ForwardRefRenderFunction<
   ]);
 
   const onTabChange = useCallback(
-    (e: NativeSyntheticEvent<{ tabName: string; index: number }>) => {
+    (e: OnPageChangeEvent) => {
       tabIndex.value = e.nativeEvent.index;
-      onChange?.(e);
+      onPageChange?.(e);
+      isScrolling.current = false;
     },
-    [onChange, tabIndex],
+    [onPageChange, tabIndex],
   );
+
+  const onStartChangeCall = useCallback(() => {
+    isScrolling.current = true;
+    onPageStartScroll?.();
+  }, [onPageStartScroll]);
+
+  const onMoveShouldSetResponderCapture = useCallback(() => {
+    if (platformEnv.isNativeIOS) return false;
+    return isScrolling.current;
+  }, []);
 
   const content = (
     <NativeNestedTabView
       defaultIndex={defaultIndex}
-      onChange={onTabChange}
+      onPageChange={onTabChange}
+      onPageStartScroll={onStartChangeCall}
       scrollEnabled={scrollEnabled}
       // disableTabSlide={disableTabSlide}
+      onMoveShouldSetResponderCapture={onMoveShouldSetResponderCapture}
       disableTabSlide={false}
       // @ts-ignore
       ref={tabRef}
@@ -292,6 +301,8 @@ const NestedTabView: ForwardRefRenderFunction<
     </NativeNestedTabView>
   );
 
+  return content;
+
   return (
     <GestureDetector
       gesture={
@@ -302,9 +313,8 @@ const NestedTabView: ForwardRefRenderFunction<
         //   ? Gesture.Simultaneous(native, pan)
         //   : // to solve ios system back gesture conflict
         //     // in tab pages without drawer
-        platformEnv.isNativeAndroid
-          ? Gesture.Exclusive(native, pan)
-          : Gesture.Race(native, pan)
+        Gesture.Race(native, pan)
+        // Gesture.Race(native, pan)
       }
     >
       {content}

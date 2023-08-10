@@ -213,7 +213,7 @@ const WalletTabs: FC = () => {
     [getHomeTabNameByIndex],
   );
 
-  const onStartChange = useCallback(() => {
+  const onPageStartScroll = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
   }, []);
 
@@ -241,7 +241,7 @@ const WalletTabs: FC = () => {
       // refreshing={refreshing}
       onRefresh={onRefresh}
       onIndexChange={onIndexChange}
-      onStartChange={onStartChange}
+      onPageStartScroll={onPageStartScroll}
       headerView={<AccountHeaderMemo />}
       ref={ref}
       containerStyle={containerStyle}

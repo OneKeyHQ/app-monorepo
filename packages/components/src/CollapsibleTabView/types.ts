@@ -15,5 +15,5 @@ export interface CollapsibleContainerProps {
   children?: JSX.Element | JSX.Element[];
 
   // Android only
-  onStartChange?: () => void;
+  onPageStartScroll?: () => void;
 }
