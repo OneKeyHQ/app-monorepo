@@ -96,7 +96,7 @@ export const ListHeader: FC = () => {
             onChangeText={onChangeText}
             onSubmitEditing={onSearch}
             onFocus={() => setShowSearch(true)}
-            onBlur={() => setTimeout(() => setShowSearch(false), 100)}
+            onBlur={() => setTimeout(() => setShowSearch(false), 200)}
             ref={ref}
             // @ts-ignore
             onKeyPress={(event) => {

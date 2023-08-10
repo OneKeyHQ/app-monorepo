@@ -13,10 +13,7 @@ export interface IPortfolioUpdatedAt {
 export interface IOverviewPortfolio {
   // allNetworks fake accountId = `${walletId}--${accountIndex}`
   // Recrod<accountId, Record<networkId, accounts>>
-  allNetworksAccountsMap?: Record<
-    string,
-    Record<string, Account[]> | undefined
-  >;
+  allNetworksAccountsMap?: Record<string, Record<string, Account[]> | null>;
   tasks: Record<string, IOverviewQueryTaskItem>;
   updatedTimeMap: Record<string, IPortfolioUpdatedAt>;
   // Recrod<accountId, boolean>
@@ -94,7 +91,7 @@ export const overviewSlice = createSlice({
       state,
       action: PayloadAction<{
         accountId: string;
-        data: Record<string, Account[]> | undefined;
+        data: Record<string, Account[]> | null;
       }>,
     ) {
       const { accountId, data } = action.payload;

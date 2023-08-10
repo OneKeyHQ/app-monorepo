@@ -18,7 +18,7 @@ import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { useAppSelector, useTokenDetailInfo } from '../../hooks';
-import { isSupportStakingType } from '../Staking/utils';
+import { isSTETH, isSupportStakingType } from '../Staking/utils';
 import { SwapPlugins } from '../Swap/Plugins/Swap';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
@@ -84,13 +84,17 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
   const headerHeight = useMemo(() => {
     let height = isVerticalLayout ? 210 : 194;
     if (
-      isSupportStakingType({
+      (isSupportStakingType({
         networkId: detailInfo?.defaultToken?.networkId,
         tokenIdOnNetwork: detailInfo?.defaultToken?.tokenIdOnNetwork,
-      }) &&
+      }) ||
+        isSTETH(
+          detailInfo?.defaultToken?.networkId,
+          detailInfo?.defaultToken?.tokenIdOnNetwork,
+        )) &&
       !isAllNetworks(networkId)
     ) {
-      height += 132;
+      height += 60;
     }
     if (showChart && !isVerticalLayout) {
       height += 332;
@@ -114,7 +118,7 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     if (!isVerticalLayout) {
       return <HeaderOptions />;
     }
-    return <FavoritedButton coingeckoId={coingeckoId} type="plain" size="xl" />;
+    return <FavoritedButton coingeckoId={coingeckoId} />;
   }, [isVerticalLayout, coingeckoId]);
 
   useLayoutEffect(() => {
@@ -153,10 +157,14 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
   return (
     <TokenDetailContext.Provider value={contextValue}>
       <HStack
-        flex={1}
-        justifyContent="center"
         onLayout={onLayout}
         position="relative"
+        maxWidth="2155px"
+        mx="auto"
+        w="full"
+        flex="1"
+        justifyContent="center"
+        alignItems="flex-start"
       >
         <Tabs.Container
           key={String(headerHeight)}
@@ -196,7 +204,7 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
         showSwapPanel &&
         !isAllNetworks(networkId) &&
         !isLightningNetwork ? (
-          <Box width="360px" mt="6" mr="8">
+          <Box width="360px" mr="4">
             <SwapPlugins
               tokenId={tokenAddress ?? 'main'}
               networkId={networkId}

@@ -339,7 +339,7 @@ export type BatchSendConfirmPayloadInfo = {
   swapInfos?: ISwapInfo[];
   stakeInfos?: IStakeInfo[];
   nftInfos?: INFTInfo[];
-  senderAccounts?: string[];
+  senderAccounts?: { accountId: string; walletId: string }[];
   tokenInfo?: Token;
 };
 
@@ -430,7 +430,7 @@ export type BatchSendConfirmOnSuccessData = {
   signedTxs?: ISignedTxPro[];
   encodedTxs?: IEncodedTx[];
   decodedTxs?: IDecodedTx[];
-  senderAccounts?: string[];
+  senderAccounts?: { accountId: string; walletId: string }[];
   isAborted?: boolean;
 };
 

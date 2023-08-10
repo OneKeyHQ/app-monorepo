@@ -50,7 +50,7 @@ function fixNumberValue(t: string, decimal?: number) {
 
   let result = text;
   if (text) {
-    result = text.replace(/^\D*(\d*(?:\.\d*)?).*$/g, '$1');
+    result = text.replace(/^\D*(\d*(?:\.\d*)?)/g, '$1');
 
     if (decimal === 0) {
       result = result.replace('.', '');

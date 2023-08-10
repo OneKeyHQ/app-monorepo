@@ -17,7 +17,7 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 import { enableOnPressAnim } from '@onekeyhq/components/src/utils/useBeforeOnPress';
 // import { useNavigationActions } from '@onekeyhq/kit/src/hooks';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+// import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import NativeNestedTabView, {
   getViewManagerConfig,
@@ -38,11 +38,11 @@ export type ForwardRefHandle = {
 // const failedDistance = 5;
 // const drawerOpenDistance = 50;
 
-enum LockDirection {
-  None = 0,
-  Vertical = 1,
-  Horizontal = 2,
-}
+// enum LockDirection {
+//   None = 0,
+//   Vertical = 1,
+//   Horizontal = 2,
+// }
 
 const STATIC_GESTURE_PAN = Gesture.Pan();
 const NestedTabView: ForwardRefRenderFunction<
@@ -77,18 +77,18 @@ const NestedTabView: ForwardRefRenderFunction<
 
   // const [disableTabSlide, setDisableTabSlide] = useState(false);
 
-  const lockVertical = useCallback(() => {
-    // when fingers move,
-    // disable the onPress function
-    enableOnPressAnim.value = 0;
-    if (platformEnv.isNativeAndroid) {
-      // console.log('lockVertical');
-      lockDirection.value = LockDirection.Vertical;
-      lastTransX.value = 0;
-      pan.enabled(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastTransX, lockDirection]);
+  // const lockVertical = useCallback(() => {
+  //   // when fingers move,
+  //   // disable the onPress function
+  //   enableOnPressAnim.value = 0;
+  //   if (platformEnv.isNativeAndroid) {
+  //     // console.log('lockVertical');
+  //     lockDirection.value = LockDirection.Vertical;
+  //     lastTransX.value = 0;
+  //     pan.enabled(false);
+  //   }
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [lastTransX, lockDirection]);
 
   const lockHorizontal = useCallback(() => {
     // when fingers move,
@@ -214,15 +214,15 @@ const NestedTabView: ForwardRefRenderFunction<
             return;
           }
 
-          if (
-            Math.abs(allTouches[0].absoluteY - startY.value) >
-            Math.abs(allTouches[0].absoluteX - startX.value)
-          ) {
-            lockHorizontal();
-            return;
-          }
-          lockVertical();
-        }
+  //         if (
+  //           Math.abs(allTouches[0].absoluteY - startY.value) >
+  //           Math.abs(allTouches[0].absoluteX - startX.value)
+  //         ) {
+  //           lockHorizontal();
+  //           return;
+  //         }
+  //         lockVertical();
+  //       }
 
         // use Math.max to ensure the translation always increase
         // const transX = allTouches[0].absoluteX - nestedTabStartX.value;

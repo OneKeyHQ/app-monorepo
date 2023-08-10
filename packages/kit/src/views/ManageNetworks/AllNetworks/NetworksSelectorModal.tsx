@@ -69,10 +69,10 @@ function AllNetworksNetworkSelectorModal() {
 
   const renderItem: ListRenderItem<Network> = useCallback(
     ({ item }) => {
-      let accounts = networkAccounts[item.id] ?? [];
+      let accounts = networkAccounts?.[item.id] ?? [];
       if (typeof filter === 'function') {
         if (accounts.length) {
-          accounts = (networkAccounts[item.id] ?? []).filter((a) =>
+          accounts = (networkAccounts?.[item.id] ?? []).filter((a) =>
             filter({ network: item, account: a }),
           );
           if (!accounts.length) return null;
@@ -131,7 +131,7 @@ function AllNetworksNetworkSelectorModal() {
     >
       <LazyDisplayView delay={300}>
         <List
-          data={supportedNetworks.filter((n) => !!networkAccounts[n.id])}
+          data={supportedNetworks.filter((n) => !!networkAccounts?.[n.id])}
           contentContainerStyle={{
             flex: supportedNetworks?.length ? undefined : 1,
           }}

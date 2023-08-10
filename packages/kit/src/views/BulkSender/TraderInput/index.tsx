@@ -153,7 +153,7 @@ function TraderInput(props: TraderInputParams) {
         <Text fontSize={18} typography="Heading">
           {header}
         </Text>
-        <HStack>
+        <HStack space={isVertical ? 1 : 0}>
           {isVertical ? (
             <>
               <IconButton
@@ -161,6 +161,7 @@ function TraderInput(props: TraderInputParams) {
                 bgColor="surface-default"
                 shadow="none"
                 borderWidth={0}
+                circle
                 onPress={() => setIsUploadMode(!isUploadMode)}
               />
               <IconButton
@@ -168,6 +169,7 @@ function TraderInput(props: TraderInputParams) {
                 bgColor="surface-default"
                 shadow="none"
                 borderWidth={0}
+                circle
                 onPress={handleSelectAccountsOnPress}
               />
               <IconButton
@@ -175,6 +177,7 @@ function TraderInput(props: TraderInputParams) {
                 bgColor="surface-default"
                 shadow="none"
                 borderWidth={0}
+                circle
                 onPress={handleSelectContactOnPress}
               />
             </>

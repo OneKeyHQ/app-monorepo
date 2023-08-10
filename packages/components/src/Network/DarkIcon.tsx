@@ -59,6 +59,10 @@ export const NetworkDarkIconNameMap: Record<string, ICON_NAMES> = {
   [OnekeyNetwork.xrp]: 'RippleIllus',
   [OnekeyNetwork.lightning]: 'LightningNetworkIllus',
   [OnekeyNetwork.nexa]: 'NexaIllus',
+  [OnekeyNetwork.base]: 'BaseIllus',
+  [OnekeyNetwork.linea]: 'LineaIllus',
+  [OnekeyNetwork.mantle]: 'MantleIllus',
+  [OnekeyNetwork.scroll]: 'ScrollIllus',
   more: 'MoreIllus',
 };
 
@@ -69,7 +73,7 @@ export const NetworkDarkIcon: FC<{
 }> = ({ networkId, fallback, size = 4 }) => {
   const iconName = NetworkDarkIconNameMap[networkId];
   if (iconName) {
-    return <Icon size={4 * size} name={iconName} />;
+    return <Icon size={4 * size} name={iconName} color="icon-subdued" />;
   }
   return (
     <TokenIcon

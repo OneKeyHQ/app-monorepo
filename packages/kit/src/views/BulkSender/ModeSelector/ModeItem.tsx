@@ -16,7 +16,9 @@ import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import { useNavigation } from '../../../hooks';
 import { HomeRoutes } from '../../../routes/routesEnum';
 
-import GroupIcon from './GroupIcon';
+import ManyToManyIcon from './ManyToManyIcon';
+import ManyToOneIcon from './ManyToOneIcon';
+import OneToManyIcon from './OneToManyIcon';
 
 import type { HomeRoutesParams } from '../../../routes/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -49,7 +51,7 @@ function OneToMany() {
   return (
     <HStack space={3} alignItems="center" justifyContent="center">
       <AddressElement elementText="A" />
-      <GroupIcon />
+      <OneToManyIcon />
       <VStack space={2}>
         {['I', 'II', 'III'].map((text) => (
           <AddressElement elementText={text} />
@@ -67,7 +69,7 @@ function ManyToMany() {
           <AddressElement elementText={text} />
         ))}
       </VStack>
-      <GroupIcon />
+      <ManyToManyIcon width="24px" />
       <VStack space={2}>
         {['I', 'II', 'III'].map((text) => (
           <AddressElement elementText={text} />
@@ -85,7 +87,7 @@ function ManyToOne() {
           <AddressElement elementText={text} />
         ))}
       </VStack>
-      <GroupIcon />
+      <ManyToOneIcon />
       <VStack>
         <AddressElement elementText="A" />
       </VStack>
@@ -145,25 +147,26 @@ function ModeItem(props: Props) {
       {...rest}
     >
       {isVertical ? (
-        <HStack alignItems="center" space={12}>
+        <HStack alignItems="center" space={10}>
           {mark}
-          <VStack justifyContent="center">
+          <VStack justifyContent="center" alignItems="flex-start">
             <Text typography="Heading">
               {intl.formatMessage({ id: title })}
             </Text>
             <Text typography="Body1" color="text-subdued">
               {intl.formatMessage({ id: desc })}
             </Text>
+            <Box>
+              {isDisabled ? (
+                <Badge
+                  mt={1}
+                  size="sm"
+                  title={intl.formatMessage({ id: 'content__stay_tuned' })}
+                  type="info"
+                />
+              ) : null}
+            </Box>
           </VStack>
-          {isDisabled ? (
-            <Badge
-              left={0}
-              size="sm"
-              bottom="-10px"
-              title={intl.formatMessage({ id: 'content__stay_tuned' })}
-              type="info"
-            />
-          ) : null}
         </HStack>
       ) : (
         <VStack>
