@@ -3,7 +3,7 @@ import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Typography } from '@onekeyhq/components';
+import { Box, Pressable, Typography } from '@onekeyhq/components';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import { useActiveWalletAccount, useNavigation } from '../../../hooks';
@@ -56,26 +56,27 @@ const LidoMaticYieldsContent: FC<LidoMaticYieldsContentProps> = ({
   }, [navigation, selectNetworkAccount]);
 
   return (
-    <Box>
+    <Pressable onPress={onPress}>
       <Box
+        w="full"
         flexDirection="row"
         justifyContent="space-between"
         alignItems="center"
-        h="16"
+        bg="surface-default"
+        py="3"
+        px="4"
+        borderRadius={12}
+        borderWidth="1"
+        borderColor="border-subdued"
       >
-        <Typography.Heading>
-          {intl.formatMessage({ id: 'form__top_yields' })}
-        </Typography.Heading>
+        <Typography.Body2Strong>
+          {intl.formatMessage({ id: 'title__stake_str' }, { '0': 'MATIC' })}
+        </Typography.Body2Strong>
+        <Typography.Body2 color="text-subdued">
+          Up to {topApr.value} APY
+        </Typography.Body2>
       </Box>
-      <Options
-        title="MATIC"
-        source={require('@onekeyhq/kit/assets/staking/matic_logo.png')}
-        subtitle={topApr.name}
-        num={topApr.value}
-        logo={topApr.logo}
-        onPress={onPress}
-      />
-    </Box>
+    </Pressable>
   );
 };
 

@@ -35,9 +35,6 @@ import {
 } from '../../../routes/routesEnum';
 import BaseMenu from '../../Overlay/BaseMenu';
 import { SendModalRoutes } from '../../Send/enums';
-import { EthereumTopYields } from '../../Staking/Widgets/EthereumTopYields';
-import { LidoMaticYields } from '../../Staking/Widgets/LidoMaticYields';
-import { LidoStTokenYields } from '../../Staking/Widgets/LidoStTokenYields';
 import { TokenDetailContext } from '../context';
 
 import type { MessageDescriptor } from 'react-intl';
@@ -422,11 +419,6 @@ export const ButtonsSection: FC = () => {
           ) : null}
         </HStack>
       </HStack>
-      <Box>
-        <EthereumTopYields token={defaultToken} />
-        <LidoStTokenYields token={defaultToken} />
-        <LidoMaticYields token={defaultToken} />
-      </Box>
     </Box>
   );
 };
