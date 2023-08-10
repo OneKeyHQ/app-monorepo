@@ -91,6 +91,10 @@ export type LnUrlAuthenticationParams = {
   walletId: string;
 };
 
+export type WeblnSendPaymentParams = {
+  paymentRequest: string;
+};
+
 export type TransferSendParamsPayload = SendConfirmPayloadBase & {
   to: string;
   account: {
@@ -249,6 +253,7 @@ export type SendRoutesParams = {
   [SendModalRoutes.LNURLWithdraw]: LnUrlWithdrawParams;
   [SendModalRoutes.LNURLAuth]: LnUrlAuthParams;
   [SendModalRoutes.LNURLAuthentication]: LnUrlAuthenticationParams;
+  [SendModalRoutes.WeblnSendPayment]: WeblnSendPaymentParams;
 };
 
 export type ITxConfirmViewPropsHandleConfirm = ({

@@ -135,6 +135,8 @@ const LNURLWithdraw = () => {
             accountId={accountId}
             networkId={network?.id ?? ''}
             useFormReturn={useFormReturn}
+            amount={amountMin === amountMax ? amountMin : undefined}
+            amountReadOnly={amountMin === amountMax}
             minimumAmount={amountMin}
             maximumAmount={amountMax}
             domain={lnurlDetails.domain}

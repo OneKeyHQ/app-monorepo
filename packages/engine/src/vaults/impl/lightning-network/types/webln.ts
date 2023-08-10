@@ -26,7 +26,13 @@ export interface RequestInvoiceArgs {
   defaultMemo?: string;
 }
 
-interface SendPaymentResponse {
+export interface SendPaymentArgs {
+  paymentRequest: string;
+  networkId: string;
+  accountId: string;
+}
+
+export interface SendPaymentResponse {
   preimage: string;
 }
 
