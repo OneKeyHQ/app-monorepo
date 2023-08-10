@@ -283,7 +283,9 @@ export const ButtonsSection: FC = () => {
     (item: IButtonItem) => {
       selectNetworkAccount().then(({ network, account }) => {
         const token = tokens?.find(
-          (t) => network?.id === `${t.impl ?? ''}--${t.chainId ?? ''}`,
+          (t) =>
+            network?.id ===
+            (t.networkId ?? `${t.impl ?? ''}--${t.chainId ?? ''}`),
         );
         if (token) {
           item.onPress?.({

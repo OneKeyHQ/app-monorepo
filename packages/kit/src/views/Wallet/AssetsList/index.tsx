@@ -218,16 +218,6 @@ function AssetsList({
     }
   }, []);
 
-  useEffect(() => {
-    if (networkId && !isAllNetworks(networkId) && accountId) {
-      backgroundApiProxy.serviceOverview.fetchAccountOverview({
-        networkId,
-        accountId,
-        scanTypes: [EOverviewScanTaskType.defi],
-      });
-    }
-  }, [networkId, accountId]);
-
   const onTokenCellPress = useCallback(
     (item: IAccountToken) => {
       if (onTokenPress) {
@@ -338,7 +328,7 @@ function AssetsList({
   }, [loading, accountId, network, updateInfo?.updatedAt, intl]);
 
   return (
-    <Box h={flatStyle ? 'full' : undefined}>
+    <Box h={flatStyle || singleton ? 'full' : undefined}>
       <Container
         style={{
           maxWidth: MAX_PAGE_CONTAINER_WIDTH,
