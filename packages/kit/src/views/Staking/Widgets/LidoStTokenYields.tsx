@@ -83,7 +83,7 @@ const LidoStTokenYieldsContent: FC<LidoStTokenYieldsContentProps> = ({
           {intl.formatMessage({ id: 'title__stake_str' }, { '0': 'ETH' })}
         </Typography.Body2Strong>
         <Typography.Body2 color="text-subdued">
-          Up to {lidoApr} APY
+          {intl.formatMessage({ id: 'content__up_to_apy' }, { '0': lidoApr })}
         </Typography.Body2>
       </Box>
     </Pressable>
