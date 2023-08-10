@@ -35,6 +35,8 @@ import { wait } from '../../utils/helper';
 import { SiteSection } from '../ManageNetworks/components/SiteSection';
 import { defaultMenuOffset } from '../Overlay/BaseMenu';
 
+import { notifyIfRiskToken } from './helpers/TokenSecurityModalWrapper';
+
 import type { ListItem } from '../ManageNetworks/SwitchRpc';
 import type { ManageTokenRoutesParams } from './types';
 import type { RouteProp } from '@react-navigation/core';
@@ -345,12 +347,15 @@ function AddTokenModal() {
             address,
             logoURI,
           );
-          ToastManager.show({
-            title: intl.formatMessage({
-              id: 'msg__token_added',
-              defaultMessage: 'Token Added',
-            }),
-          });
+          if (addedToken) {
+            notifyIfRiskToken(addedToken);
+            ToastManager.show({
+              title: intl.formatMessage({
+                id: 'msg__token_added',
+                defaultMessage: 'Token Added',
+              }),
+            });
+          }
         }
         await wait(1000);
         await dappApprove.resolve({ close, result: addedToken });

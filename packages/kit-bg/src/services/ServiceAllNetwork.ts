@@ -428,7 +428,11 @@ export default class ServiceAllNetwork extends ServiceBase {
   async reloadCurrentAccount() {
     const { appSelector, serviceOverview, dispatch } = this.backgroundApi;
     const { activeNetworkId, activeAccountId } = appSelector((s) => s.general);
-    if (!isAllNetworks(activeNetworkId) || !activeAccountId) {
+    if (
+      !activeAccountId ||
+      !activeNetworkId ||
+      !isAllNetworks(activeNetworkId)
+    ) {
       return;
     }
 
