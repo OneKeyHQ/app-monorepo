@@ -58,6 +58,7 @@ const TokenInputSendingAccount: FC<TokenAccountProps> = ({
         screen: SwapRoutes.SelectSendingAccount,
         params: {
           networkId: token?.networkId,
+          accountId: appSelector((s) => s.swap.sendingAccount?.id),
           onSelected: (acc) => {
             backgroundApiProxy.dispatch(setSendingAccount(acc));
           },
