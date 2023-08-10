@@ -1,5 +1,6 @@
 /* eslint-disable import/first */
 if (process.env.NODE_ENV !== 'production') {
+  // react-render-tracker needs to be loaded before render initialization.
   const { appSetting } = require('@onekeyhq/shared/src/storage/appSetting');
   const rrt = appSetting.getBoolean('rrt');
   if (rrt) {

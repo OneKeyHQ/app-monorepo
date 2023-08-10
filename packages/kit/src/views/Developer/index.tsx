@@ -39,10 +39,11 @@ import type {
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import walletConnectUtils from '../../components/WalletConnect/utils/walletConnectUtils';
 import { WalletConnectDappSideTest } from '../../components/WalletConnect/WalletConnectDappSideTest';
-import { useAppStorageSetting, useNavigationActions } from '../../hooks';
+import { useNavigationActions } from '../../hooks';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import {
   GalleryRoutes,
@@ -66,7 +67,19 @@ type NavigationProps = CompositeNavigationProp<
 const DEFAULT_TEST_EVM_ADDRESS_1 = '0x76f3f64cb3cd19debee51436df630a342b736c24';
 const DEFAULT_TEST_EVM_ADDRESS_2 = '0xA9b4d559A98ff47C83B74522b7986146538cD4dF';
 
-const useStorage = platformEnv.isNative ? useAppStorageSetting : useCookie;
+// read settings from native mmkv or web cookie
+const useStorage = platformEnv.isNative
+  ? (key: string, initialValue?: boolean) => {
+      const [data, setData] = useState(
+        initialValue || appStorage.getSettingBoolean(key),
+      );
+      const setNewData = (value: boolean) => {
+        appStorage.setSetting(key, value);
+        setData(value);
+      };
+      return [data, setNewData];
+    }
+  : useCookie;
 export const Debug = () => {
   const intl = useIntl();
   const [uri, setUri] = useState('');
