@@ -86,13 +86,13 @@ class ProviderApiWebln extends ProviderApiBase {
       const params = (request.data as IJsonRpcRequest)
         ?.params as RequestInvoiceArgs;
       console.log('===> request: ', params);
-      const { paymentRequest } =
+      const { paymentRequest, paymentHash } =
         await this.backgroundApi.serviceDapp.openWeblnMakeInvoiceModal(
           request,
           params,
         );
       console.log('=====>makeinvoice request: ', paymentRequest);
-      return { paymentRequest };
+      return { paymentRequest, paymentHash, rHash: paymentHash };
     } catch (e) {
       console.error('=====>makeinvoice error: ', e);
       throw e;
@@ -106,7 +106,7 @@ class ProviderApiWebln extends ProviderApiBase {
         ?.params as string;
       console.log('===> request: ', paymentRequest);
       const { networkId, accountId } = getActiveWalletAccount();
-      const { preimage } =
+      const txid =
         await this.backgroundApi.serviceDapp.openWeblnSendPaymentModal(
           request,
           {
@@ -115,8 +115,14 @@ class ProviderApiWebln extends ProviderApiBase {
             accountId,
           },
         );
-      console.log('=====>sendpayment request: ', paymentRequest);
-      return { preimage };
+      const invoice =
+        await this.backgroundApi.serviceLightningNetwork.fetchSpecialInvoice({
+          paymentHash: txid,
+          networkId,
+          accountId,
+        });
+      console.log('=====>sendpayment request: ', txid);
+      return { preimage: invoice.payment_preimage };
     } catch (e) {
       console.error('=====>sendPayment error: ', e);
       throw e;

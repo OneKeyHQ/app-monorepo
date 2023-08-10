@@ -375,12 +375,12 @@ class ServiceDapp extends ServiceBase {
   openWeblnSendPaymentModal(
     request: IJsBridgeMessagePayload,
     params: SendPaymentArgs,
-  ): Promise<SendPaymentResponse> {
+  ): Promise<string> {
     return this.openModal({
       request,
       screens: [ModalRoutes.Send, SendModalRoutes.WeblnSendPayment],
       params,
-    }) as unknown as Promise<SendPaymentResponse>;
+    }) as unknown as Promise<string>;
   }
 
   isSendModalExisting() {

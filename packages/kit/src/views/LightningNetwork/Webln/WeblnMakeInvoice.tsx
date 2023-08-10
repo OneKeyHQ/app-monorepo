@@ -78,7 +78,10 @@ const WeblnMakeInvoice = () => {
         });
         await dappApprove.resolve({
           close: closeModalRef.current,
-          result: { paymentRequest: invoice.payment_request },
+          result: {
+            paymentRequest: invoice.payment_request,
+            paymentHash: invoice.payment_hash,
+          },
         });
       } catch (e: any) {
         const { key, info } = e;

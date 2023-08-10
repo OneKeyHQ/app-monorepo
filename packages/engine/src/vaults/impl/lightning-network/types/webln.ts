@@ -38,6 +38,7 @@ export interface SendPaymentResponse {
 
 export interface RequestInvoiceResponse {
   paymentRequest: string;
+  paymentHash: string;
 }
 
 export interface SignMessageResponse {

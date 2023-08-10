@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
-import { omit, pick } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,24 +12,17 @@ import {
 } from '@onekeyhq/components';
 import type { IEncodedTxLightning } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types';
 import type { IInvoiceDecodedResponse } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/invoice';
-import type { LNURLPaymentInfo } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/lnurl';
-import type { SendPaymentArgs } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/webln';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
-  useActiveSideAccount,
-  useActiveWalletAccount,
-  useNativeToken,
-} from '../../../hooks';
+import { useActiveSideAccount, useNativeToken } from '../../../hooks';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappParams from '../../../hooks/useDappParams';
 import { useSingleToken } from '../../../hooks/useTokens';
-import network from '../../../store/reducers/network';
+import { SendModalRoutes } from '../../Send/enums';
 import { LNModalDescription } from '../components/LNModalDescription';
 import LNSendPaymentForm from '../components/LNSendPaymentForm';
 
 import type { SendRoutesParams } from '../../../routes';
-import type { SendModalRoutes } from '../../Send/enums';
 import type { ISendPaymentFormValues } from '../components/LNSendPaymentForm';
 import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -50,6 +42,14 @@ const WeblnSendPayment = () => {
 
   // @ts-expect-error
   const { sourceInfo, networkId, accountId } = useDappParams();
+  const transferInfo = useMemo(
+    () => ({
+      networkId: networkId ?? '',
+      accountId: (accountId ?? '') as string,
+    }),
+    [networkId, accountId],
+  );
+  const { account, network } = useActiveSideAccount(transferInfo);
   console.log('====>route params: ', route.params);
   console.log('===>sourceInfo: ', sourceInfo, accountId, networkId);
   const paymentRequest = sourceInfo?.data.params as string;
@@ -89,6 +89,9 @@ const WeblnSendPayment = () => {
         : new BigNumber(decodedInvoice?.satoshis ?? '0'),
     [decodedInvoice],
   );
+  useEffect(() => {
+    useFormReturn.setValue('amount', amount.toFixed());
+  }, [amount, useFormReturn]);
 
   const description = useMemo(() => {
     const memo = decodedInvoice?.tags.find(
@@ -96,6 +99,92 @@ const WeblnSendPayment = () => {
     );
     return memo?.data as string;
   }, [decodedInvoice]);
+
+  const onSubmit = useCallback(
+    async (values: ISendPaymentFormValues) => {
+      if (isLoading) return;
+      setIsLoading(true);
+      const { engine } = backgroundApiProxy;
+      try {
+        const encodedTx = await engine.buildEncodedTxFromTransfer({
+          networkId: networkId ?? '',
+          accountId,
+          transferInfo: {
+            ...transferInfo,
+            from: '',
+            amount: values.amount,
+            to: paymentRequest,
+          },
+        });
+        navigation.navigate(SendModalRoutes.SendConfirm, {
+          accountId,
+          networkId: networkId ?? '',
+          encodedTx,
+          feeInfoUseFeeInTx: false,
+          feeInfoEditable: true,
+          backRouteName: SendModalRoutes.WeblnSendPayment,
+          // @ts-expect-error
+          payload: {
+            payloadType: 'Transfer',
+            account,
+            network,
+            token: {
+              ...tokenInfo,
+              sendAddress: '',
+              idOnNetwork: tokenInfo?.tokenIdOnNetwork ?? '',
+            },
+            to: paymentRequest,
+            value: (encodedTx as IEncodedTxLightning).amount,
+            isMax: false,
+          },
+          sourceInfo,
+          onFail: (args) => {
+            console.log('payfail: ', args);
+            dappApprove.reject();
+          },
+        });
+      } catch (e: any) {
+        console.error(e);
+        const { key, info } = e;
+        if (key && key !== 'onekey_error') {
+          ToastManager.show(
+            {
+              title: intl.formatMessage(
+                {
+                  id: key,
+                },
+                info ?? {},
+              ),
+            },
+            { type: 'error' },
+          );
+          return false;
+        }
+        ToastManager.show(
+          { title: (e as Error)?.message || e },
+          { type: 'error' },
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [
+      account,
+      intl,
+      isLoading,
+      navigation,
+      network,
+      paymentRequest,
+      tokenInfo,
+      transferInfo,
+      accountId,
+      networkId,
+      dappApprove,
+      sourceInfo,
+    ],
+  );
+
+  const doSubmit = handleSubmit(onSubmit);
 
   return (
     <Modal
@@ -108,7 +197,7 @@ const WeblnSendPayment = () => {
       }}
       onPrimaryActionPress={({ close }) => {
         closeModalRef.current = close;
-        // TODO: submit
+        doSubmit();
       }}
       secondaryActionTranslationId="action__cancel"
       onSecondaryActionPress={() => {
@@ -132,8 +221,7 @@ const WeblnSendPayment = () => {
             networkId={networkId ?? ''}
             useFormReturn={useFormReturn}
             amount={amount.toNumber()}
-            domain={sourceInfo?.hostname ?? ''}
-            origin={sourceInfo?.origin}
+            origin={sourceInfo?.origin ?? ''}
             memo={description}
             nativeToken={nativeToken}
             amountReadOnly={amount.toNumber() !== 0}

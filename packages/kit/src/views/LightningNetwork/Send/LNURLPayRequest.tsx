@@ -265,7 +265,7 @@ const LNURLPayRequest = () => {
             amountReadOnly={amountMin === amountMax}
             minimumAmount={amountMin}
             maximumAmount={amountMax}
-            domain={lnurlDetails.domain}
+            origin={new URL(lnurlDetails.url).origin}
             siteImage={siteImage}
             commentAllowedLength={commentAllowedLength}
             metadata={lnurlDetails.metadata}
