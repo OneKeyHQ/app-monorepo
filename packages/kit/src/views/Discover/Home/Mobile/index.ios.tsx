@@ -1,6 +1,6 @@
 import { Box } from '@onekeyhq/components';
 
-import { useShowBookmark } from '../../hooks';
+import { useShowBookmark } from '../../hooks/useControl';
 
 import { Main } from './Main';
 import { Restricted } from './Restricted';
