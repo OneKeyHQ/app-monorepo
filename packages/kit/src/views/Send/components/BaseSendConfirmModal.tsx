@@ -81,19 +81,24 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
   const [isPendingTxSameNonce, setIsPendingTxSameNonce] = useState(false);
 
   const balanceInsufficient = useMemo(() => {
-    let nativeBalanceTransferBN = new BigNumber(0);
-    for (const action of (decodedTx as IDecodedTx)?.actions ?? []) {
-      if (action.type === IDecodedTxActionType.NATIVE_TRANSFER) {
-        nativeBalanceTransferBN = nativeBalanceTransferBN.plus(
-          action.nativeTransfer?.amount ?? 0,
-        );
+    if (sourceInfo) {
+      let nativeBalanceTransferBN = new BigNumber(0);
+      for (const action of (decodedTx as IDecodedTx)?.actions ?? []) {
+        if (action.type === IDecodedTxActionType.NATIVE_TRANSFER) {
+          nativeBalanceTransferBN = nativeBalanceTransferBN.plus(
+            action.nativeTransfer?.amount ?? 0,
+          );
+        }
       }
-    }
 
-    return new BigNumber(nativeBalance ?? '0').lt(
-      nativeBalanceTransferBN.plus(fee).plus(prepaidFee || '0'),
+      return new BigNumber(nativeBalance).lt(
+        nativeBalanceTransferBN.plus(fee).plus(prepaidFee || '0'),
+      );
+    }
+    return new BigNumber(nativeBalance).lt(
+      new BigNumber(fee).plus(prepaidFee || '0'),
     );
-  }, [decodedTx, fee, nativeBalance, prepaidFee]);
+  }, [decodedTx, fee, nativeBalance, prepaidFee, sourceInfo]);
 
   const editableNonceStatus = useMemo(() => {
     if (network?.settings.nonceEditable && advancedSettings?.currentNonce) {
