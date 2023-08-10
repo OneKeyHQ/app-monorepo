@@ -4,7 +4,15 @@ import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { Box, Form, Text, useIsVerticalLayout } from '@onekeyhq/components';
+import {
+  Box,
+  Center,
+  Form,
+  Icon,
+  Image,
+  Text,
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IInvoiceConfig } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/invoice';
 import { FormatCurrencyTokenOfAccount } from '@onekeyhq/kit/src/components/Format';
@@ -28,6 +36,7 @@ export type IMakeInvoiceFormProps = {
   minimumAmount?: number;
   maximumAmount?: number;
   domain: string;
+  origin?: string;
   descriptionLabelId?: MessageDescriptor['id'];
   memo?: string;
   nativeToken?: Token;
@@ -44,6 +53,7 @@ const LNMakeInvoiceForm = (props: IMakeInvoiceFormProps) => {
     minimumAmount,
     maximumAmount,
     domain,
+    origin,
     descriptionLabelId,
     memo,
     nativeToken,
@@ -184,6 +194,15 @@ const LNMakeInvoiceForm = (props: IMakeInvoiceFormProps) => {
           px={3}
           bgColor="action-secondary-default"
         >
+          {origin && (
+            <Image
+              size="32px"
+              mr={3}
+              borderRadius={100}
+              source={{ uri: `${origin}/favicon.ico` }}
+              fallbackElement={<Box />}
+            />
+          )}
           <Text typography="Body2Mono" color="text-subdued" lineHeight="1.5em">
             {domain}
           </Text>

@@ -148,6 +148,7 @@ const WeblnMakeInvoice = () => {
             minimumAmount={Number(makeInvoiceParams.minimumAmount)}
             maximumAmount={Number(makeInvoiceParams.maximumAmount)}
             domain={sourceInfo?.hostname ?? ''}
+            origin={sourceInfo?.origin}
             memo={makeInvoiceParams.defaultMemo}
             nativeToken={nativeToken}
             amountDisabled={Number(makeInvoiceParams.amount) > 0}
