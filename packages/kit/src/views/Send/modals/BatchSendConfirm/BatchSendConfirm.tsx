@@ -146,7 +146,6 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     () =>
       decodedTxs.map((tx, index) => {
         if (!transferInfos) return '0';
-
         if (isNativeMaxSend) {
           return getTransferAmountToUpdate({
             decodedTx: tx,
@@ -155,7 +154,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
             totalNativeGasFee: feeInfoPayloads[index]?.current.totalNative,
           });
         }
-        return transferInfos[index].amount;
+        return transferInfos[index]?.amount ?? '0';
       }),
     [decodedTxs, feeInfoPayloads, isNativeMaxSend, transferInfos],
   );
@@ -369,7 +368,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
                 {`${intl.formatMessage({ id: 'form__transaction' })} #${i + 1}
                 `.toUpperCase()}
               </Text>
-              {isNil(transferInfos?.[i].txInterval) ? null : (
+              {isNil(transferInfos?.[i]?.txInterval) ? null : (
                 <Badge
                   size="sm"
                   title={
