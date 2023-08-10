@@ -146,7 +146,6 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     () =>
       decodedTxs.map((tx, index) => {
         if (!transferInfos) return '0';
-
         if (isNativeMaxSend) {
           return getTransferAmountToUpdate({
             decodedTx: tx,
@@ -155,7 +154,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
             totalNativeGasFee: feeInfoPayloads[index]?.current.totalNative,
           });
         }
-        return transferInfos[index].amount;
+        return transferInfos[index]?.amount ?? '0';
       }),
     [decodedTxs, feeInfoPayloads, isNativeMaxSend, transferInfos],
   );
@@ -196,12 +195,16 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
           serviceToken.batchFetchAccountBalances({
             networkId,
             walletId,
-            accountIds: senderAccounts.slice(0, signedTxs.length),
+            accountIds: senderAccounts
+              .slice(0, signedTxs.length)
+              .map((item) => item.accountId),
           });
           serviceToken.batchFetchAccountTokenBalances({
             networkId,
             walletId,
-            accountIds: senderAccounts.slice(0, signedTxs.length),
+            accountIds: senderAccounts
+              .slice(0, signedTxs.length)
+              .map((item) => item.accountId),
             tokenAddress: tokenInfo?.tokenIdOnNetwork,
           });
         } else {
@@ -364,14 +367,20 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       groupTransactionsData.push({
         headerProps: {
           title: (
-            <HStack space="10px" alignItems="center" mb={2}>
-              <Text typography="Subheading" color="text-subdued" lineHeight={1}>
+            <HStack space="10px" alignItems="center">
+              <Text
+                typography="Subheading"
+                color="text-subdued"
+                height="14px"
+                letterSpacing={0}
+              >
                 {`${intl.formatMessage({ id: 'form__transaction' })} #${i + 1}
                 `.toUpperCase()}
               </Text>
-              {isNil(transferInfos?.[i].txInterval) ? null : (
+              {isNil(transferInfos?.[i]?.txInterval) ? null : (
                 <Badge
                   size="sm"
+                  margin={0}
                   title={
                     transferInfos?.[i].txInterval
                       ? intl.formatMessage(
@@ -413,7 +422,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       isBatchSendConfirm
       isSingleTransformMode={isSingleTransformMode}
       decodedTx={decodedTx}
-      transferAmount={transfersAmountToUpdate[0]}
+      transferAmount={isNativeMaxSend ? transfersAmountToUpdate[0] : undefined}
     />
   ) : (
     <>

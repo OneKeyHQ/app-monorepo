@@ -22,6 +22,7 @@ import {
 import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { appSelector } from '../../../store';
 import { AmountEditorTrigger } from '../AmountEditor/AmountEditorTrigger';
 import { amountDefaultTypeMap } from '../constants';
 import { useValidateTrader } from '../hooks';
@@ -75,6 +76,7 @@ function ManyToN(props: Props) {
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation();
   const { network } = useNetwork({ networkId });
+  const { wallets } = appSelector((s) => s.runtime);
 
   const accountTokens = useAccountTokensOnChain(networkId, accountId, true);
   const tokens = accountTokens.filter((token) =>
@@ -213,6 +215,7 @@ function ManyToN(props: Props) {
         nativeToken,
         feePresetIndex: DEFAULT_FEE_PRESET_INDEX,
         intl,
+        wallets,
       });
 
     if (!isVerified) {
@@ -303,6 +306,7 @@ function ManyToN(props: Props) {
     sender,
     txInterval,
     walletId,
+    wallets,
   ]);
 
   useFocusEffect(
