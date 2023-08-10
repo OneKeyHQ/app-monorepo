@@ -21,7 +21,6 @@ import {
   RootRoutes,
 } from '../routes/routesEnum';
 
-import { useActiveWalletAccount } from './redux';
 import { useAccount, useWalletIdFromAccountIdWithFallback } from './useAccount';
 import { useAppSelector } from './useAppSelector';
 import { useManageNetworks } from './useManageNetworks';
@@ -271,31 +270,4 @@ export const useActionForAllNetworks = ({
     visible,
     process,
   };
-};
-
-export const useAllNetworksAccountSelectModalShow = () => {
-  const { networkId, accountId, walletId } = useActiveWalletAccount();
-
-  const navigation = useNavigation();
-
-  const { data } = useAllNetworksWalletAccounts({
-    accountId,
-  });
-
-  useEffect(() => {
-    if (isAllNetworks(networkId) && data === null) {
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.ManageNetwork,
-        params: {
-          screen: ManageNetworkModalRoutes.AllNetworksAccountsDetail,
-          params: {
-            walletId,
-            accountId,
-          },
-        },
-      });
-    }
-  }, [networkId, data, walletId, navigation, accountId]);
-
-  return null;
 };

@@ -9,6 +9,7 @@ import {
   IconButton,
   Pressable,
   Typography,
+  VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
@@ -46,10 +47,10 @@ export const ButtonItem = ({
   const isVertical = useIsVerticalLayout();
   const content = useMemo(() => {
     let ele = (
-      <Box
+      <VStack
         mx={isVertical ? 0 : 3}
         alignItems="center"
-        flex={isVertical ? 1 : undefined}
+        justifyContent="center"
       >
         {typeof onPress === 'function' ? (
           <TouchableWithoutFeedback>
@@ -87,7 +88,7 @@ export const ButtonItem = ({
         >
           {text}
         </Typography.CaptionStrong>
-      </Box>
+      </VStack>
     );
 
     if (typeof onPress === 'function') {

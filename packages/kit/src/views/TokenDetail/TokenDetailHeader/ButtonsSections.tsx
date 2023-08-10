@@ -336,12 +336,12 @@ export const ButtonsSection: FC = () => {
               isDisabled={loading}
             />
           ))}
-          {isValidCoingeckoId(coingeckoId) ? (
+          {isValidCoingeckoId(coingeckoId) && !isVerticalLayout ? (
             <FavoritedButton coingeckoId={coingeckoId} />
           ) : null}
           {showMoreOption && options?.length ? (
             <BaseMenu ml="26px" options={options}>
-              <Pressable>
+              <Pressable flex={isVerticalLayout ? 1 : undefined}>
                 <ButtonItem
                   icon="EllipsisVerticalOutline"
                   text={intl.formatMessage({
