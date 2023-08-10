@@ -114,7 +114,7 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     if (!isVerticalLayout) {
       return <HeaderOptions />;
     }
-    return <FavoritedButton coingeckoId={coingeckoId} type="plain" size="xl" />;
+    return <FavoritedButton coingeckoId={coingeckoId} />;
   }, [isVerticalLayout, coingeckoId]);
 
   useLayoutEffect(() => {
@@ -153,10 +153,14 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
   return (
     <TokenDetailContext.Provider value={contextValue}>
       <HStack
-        flex={1}
-        justifyContent="center"
         onLayout={onLayout}
         position="relative"
+        maxWidth="2155px"
+        mx="auto"
+        w="full"
+        flex="1"
+        justifyContent="center"
+        alignItems="flex-start"
       >
         <Tabs.Container
           key={String(headerHeight)}
@@ -196,7 +200,7 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
         showSwapPanel &&
         !isAllNetworks(networkId) &&
         !isLightningNetwork ? (
-          <Box width="360px" mt="6" mr="8">
+          <Box width="360px" mr="4">
             <SwapPlugins
               tokenId={tokenAddress ?? 'main'}
               networkId={networkId}

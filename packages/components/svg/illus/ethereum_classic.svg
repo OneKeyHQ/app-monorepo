@@ -1,7 +1,5 @@
 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect x="0.5" y="0.5" width="15" height="15" rx="7.5" fill="#303040"/>
-<path fill-rule="evenodd" clip-rule="evenodd" d="M12.0392 7.26879L8.07678 1L4 7.26879L8.07678 5.57889L12.0392 7.26879Z" fill="#E2E2E8"/>
-<path fill-rule="evenodd" clip-rule="evenodd" d="M4.16064 8.99561L8.12303 15.133L12.1998 8.99561L8.12303 11.4357L4.16064 8.99561Z" fill="#E2E2E8"/>
-<path fill-rule="evenodd" clip-rule="evenodd" d="M12.1997 8.18938L8.07678 6.47168L4 8.18938L8.07678 10.631L12.1997 8.18938Z" fill="#E2E2E8"/>
-<rect x="0.5" y="0.5" width="15" height="15" rx="7.5" stroke="#1E1E2A"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M11.4448 7.38915L8.08028 2.06641L4.61865 7.38915L8.08028 5.95428L11.4448 7.38915Z" fill="#8C8CA1"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M4.75537 8.85547L8.11987 14.0667L11.5815 8.85547L8.11987 10.9274L4.75537 8.85547Z" fill="#8C8CA1"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M11.5811 8.17088L8.08028 6.7124L4.61865 8.17088L8.08028 10.2441L11.5811 8.17088Z" fill="#8C8CA1"/>
 </svg>
