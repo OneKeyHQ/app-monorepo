@@ -147,28 +147,26 @@ function ModeItem(props: Props) {
       {...rest}
     >
       {isVertical ? (
-        <HStack alignItems="center" space={2}>
-          <HStack alignItems="center" space={12}>
-            {mark}
-            <VStack justifyContent="center">
-              <Text typography="Heading">
-                {intl.formatMessage({ id: title })}
-              </Text>
-              <Text typography="Body1" color="text-subdued">
-                {intl.formatMessage({ id: desc })}
-              </Text>
-            </VStack>
-          </HStack>
-          <Box flex={1} justifyContent="center">
-            {isDisabled ? (
-              <Badge
-                left={0}
-                size="sm"
-                title={intl.formatMessage({ id: 'content__stay_tuned' })}
-                type="info"
-              />
-            ) : null}
-          </Box>
+        <HStack alignItems="center" space={10}>
+          {mark}
+          <VStack justifyContent="center" alignItems="flex-start">
+            <Text typography="Heading">
+              {intl.formatMessage({ id: title })}
+            </Text>
+            <Text typography="Body1" color="text-subdued">
+              {intl.formatMessage({ id: desc })}
+            </Text>
+            <Box>
+              {isDisabled ? (
+                <Badge
+                  mt={1}
+                  size="sm"
+                  title={intl.formatMessage({ id: 'content__stay_tuned' })}
+                  type="info"
+                />
+              ) : null}
+            </Box>
+          </VStack>
         </HStack>
       ) : (
         <VStack>
