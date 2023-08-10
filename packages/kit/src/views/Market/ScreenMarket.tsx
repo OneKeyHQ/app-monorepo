@@ -1,7 +1,13 @@
-import { TabRoutes } from '../../routes/routesEnum';
+import { Box, useSafeAreaInsets } from '@onekeyhq/components';
 
-import { ScreenMarketOrSwap } from './ScreenMarketOrSwap';
+import Market from './MarketList';
 
 export function ScreenMarket() {
-  return <ScreenMarketOrSwap routeName={TabRoutes.Market} />;
+  const { top } = useSafeAreaInsets();
+  console.log('top', top);
+  return (
+    <Box w="full" h="full" pt={`${top}px`}>
+      <Market />
+    </Box>
+  );
 }
