@@ -1,27 +1,18 @@
-import Svg, { SvgProps, Rect, G, Path, Defs, ClipPath } from 'react-native-svg';
+import Svg, { SvgProps, G, Path, Defs, ClipPath } from 'react-native-svg';
 const SvgEthereumpow = (props: SvgProps) => (
   <Svg viewBox="0 0 16 16" fill="none" accessibilityRole="image" {...props}>
-    <Rect x={0.5} y={0.5} width={15} height={15} rx={7.5} fill="#303040" />
-    <G clipPath="url(#a)">
-      <Path
-        d="m4 8.047 4-6.66v4.978L4 8.047ZM12 8.047l-4-6.66v4.978l4 1.682Z"
-        fill="#E2E2E8"
-      />
-      <Path
-        d="M8 6.35 4 8.036l4 2.333V6.35ZM8 6.35l4 1.687-4 2.333V6.35ZM4 8.815l4 5.799v-3.46l-4-2.34ZM12 8.815l-4 5.799v-3.46l4-2.34Z"
-        fill="#E2E2E8"
-      />
+    <G clipPath="url(#a)" fill="#8C8CA1">
+      <Path d="M4.371 8.043 8 2v4.516L4.371 8.043ZM11.629 8.043 8 2v4.516l3.629 1.527Z" />
+      <Path d="M8 6.502 4.371 8.033 8 10.15V6.502ZM8 6.502l3.629 1.531L8 10.15V6.502ZM4.371 8.739 8 13.999V10.86L4.371 8.74ZM11.629 8.739 8 13.999V10.86l3.629-2.121Z" />
       <Path
         fillRule="evenodd"
         clipRule="evenodd"
-        d="M6.35 5.09c0 .258-.199.47-.45.49l.159 2.923h.005a.49.49 0 0 1 .273.083l1.356-1.83a.491.491 0 1 1 .576.035l1.319 1.78a.49.49 0 0 1 .248-.068h.005L10 5.577a.492.492 0 1 1 .047.005l-.16 2.924a.492.492 0 1 1-.34.09l-1.32-1.781a.49.49 0 0 1-.497-.03L6.375 8.614a.491.491 0 1 1-.364-.108l-.16-2.924a.492.492 0 1 1 .498-.492Z"
-        fill="#8C8CA1"
+        d="M6.503 5.36c0 .233-.18.425-.409.444l.145 2.652h.005c.091 0 .177.027.247.075l1.23-1.66a.446.446 0 1 1 .523.032l1.197 1.614a.444.444 0 0 1 .225-.061h.004l.145-2.654a.446.446 0 1 1 .043.003l-.145 2.653a.446.446 0 1 1-.308.082L8.207 6.924a.445.445 0 0 1-.45-.027l-1.23 1.66a.445.445 0 1 1-.331-.099l-.145-2.652a.446.446 0 1 1 .452-.447Z"
       />
     </G>
-    <Rect x={0.5} y={0.5} width={15} height={15} rx={7.5} stroke="#1E1E2A" />
     <Defs>
       <ClipPath id="a">
-        <Path fill="#fff" transform="translate(4 1.386)" d="M0 0h8v13.227H0z" />
+        <Path fill="#fff" transform="translate(4.371 2)" d="M0 0h7.258v12H0z" />
       </ClipPath>
     </Defs>
   </Svg>

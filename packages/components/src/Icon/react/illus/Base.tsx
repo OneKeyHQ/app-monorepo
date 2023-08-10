@@ -1,12 +1,12 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-const SvgZksyncEraMainnet = (props: SvgProps) => (
+const SvgBase = (props: SvgProps) => (
   <Svg viewBox="0 0 16 16" fill="none" accessibilityRole="image" {...props}>
     <Path
       fillRule="evenodd"
       clipRule="evenodd"
-      d="M4.85 6.25v-2.1L1 7.825l3.85 4.025v-2.8l4.2-2.8h-4.2ZM15 8l-3.85-3.85v2.8l-4.2 2.8h4.2v2.1L15 8Z"
+      d="M14.015 8c0 3.313-2.69 5.998-6.01 5.998s-5.734-2.417-5.99-5.494H9.96v-1.01H2.015a6.005 6.005 0 0 1 5.99-5.493c3.32 0 6.01 2.686 6.01 5.999Z"
       fill="#8C8CA1"
     />
   </Svg>
 );
-export default SvgZksyncEraMainnet;
+export default SvgBase;

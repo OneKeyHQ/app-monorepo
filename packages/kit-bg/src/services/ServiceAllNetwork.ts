@@ -138,19 +138,20 @@ export default class ServiceAllNetwork extends ServiceBase {
   }: {
     walletId: string;
   }): Promise<Account[]> {
-    const index = await this.getAllNetworkAccountIndex({
-      walletId,
-    });
-    if (index === -1) {
-      return [];
-    }
-    return new Array(Math.min(index + 1, AllNetworksMaxAccounts))
-      .fill(1)
-      .map((_, i) =>
+    const { appSelector } = this.backgroundApi;
+    const map = appSelector((s) => s.overview.allNetworksAccountsMap);
+    const accounts = Object.keys(map ?? {})
+      .filter((accountId) => accountId.startsWith(walletId))
+      .map((accountId) =>
         generateFakeAllnetworksAccount({
-          accountId: `${walletId}--${i}`,
+          accountId,
         }),
-      );
+      )
+      // @ts-ignore
+      .sort((a, b) => a.index - b.index)
+      .slice(0, AllNetworksMaxAccounts);
+
+    return Promise.resolve(accounts);
   }
 
   compareAccountPath({
@@ -282,7 +283,10 @@ export default class ServiceAllNetwork extends ServiceBase {
     let accountMaxIndex = 0;
 
     for (; accountMaxIndex < Math.min(maxIndex, 2); accountMaxIndex += 1) {
-      if (!allNetworksAccountsMap?.[`${walletId}--${accountMaxIndex}`]) {
+      if (
+        typeof allNetworksAccountsMap?.[`${walletId}--${accountMaxIndex}`] ===
+        'undefined'
+      ) {
         break;
       }
     }
@@ -298,7 +302,7 @@ export default class ServiceAllNetwork extends ServiceBase {
     dispatch(
       setAllNetworksAccountsMap({
         accountId: fakeNewAccountId,
-        data: undefined,
+        data: null,
       }),
     );
 
