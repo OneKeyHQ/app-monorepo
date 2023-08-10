@@ -14,8 +14,10 @@ import {
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IInvoiceConfig } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/invoice';
 import { FormatCurrencyTokenOfAccount } from '@onekeyhq/kit/src/components/Format';
+import { TxInteractInfo } from '@onekeyhq/kit/src/views/TxDetail/components/TxInteractInfo';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useInteractWithInfo } from '../../../hooks/useDecodedTx';
 
 import type { UseFormReturn } from 'react-hook-form';
 import type { MessageDescriptor } from 'react-intl';
@@ -33,8 +35,7 @@ export type IMakeInvoiceFormProps = {
   amount?: number;
   minimumAmount?: number;
   maximumAmount?: number;
-  domain: string;
-  origin?: string;
+  origin: string;
   descriptionLabelId?: MessageDescriptor['id'];
   memo?: string;
   nativeToken?: Token;
@@ -50,7 +51,6 @@ const LNMakeInvoiceForm = (props: IMakeInvoiceFormProps) => {
     amount,
     minimumAmount,
     maximumAmount,
-    domain,
     origin,
     descriptionLabelId,
     memo,
@@ -66,6 +66,18 @@ const LNMakeInvoiceForm = (props: IMakeInvoiceFormProps) => {
 
   const minAmount = useMemo(() => Number(minimumAmount), [minimumAmount]);
   const maxAmount = useMemo(() => Number(maximumAmount), [maximumAmount]);
+
+  const interactInfo = useInteractWithInfo({
+    sourceInfo: {
+      id: 'mockId',
+      hostname: '',
+      scope: 'webln',
+      origin,
+      data: {
+        method: 'makeInvoice',
+      },
+    },
+  });
 
   const [invoiceConfig, setInvoiceConfig] = useState<IInvoiceConfig | null>(
     null,
@@ -180,31 +192,13 @@ const LNMakeInvoiceForm = (props: IMakeInvoiceFormProps) => {
         control={control}
         formControlProps={{ width: 'full' }}
       >
-        <Box
-          display="flex"
-          flexDirection="row"
-          justifyContent="flex-start"
-          alignItems="center"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="border-default"
-          borderRadius="xl"
-          py={2}
-          px={3}
-          bgColor="action-secondary-default"
-        >
-          {origin && (
-            <Image
-              size="32px"
-              mr={3}
-              borderRadius={100}
-              source={{ uri: `${origin}/favicon.ico` }}
-              fallbackElement={<Box />}
-            />
-          )}
-          <Text typography="Body2Mono" color="text-subdued" lineHeight="1.5em">
-            {domain}
-          </Text>
-        </Box>
+        <TxInteractInfo
+          origin={interactInfo?.url ?? ''}
+          name={interactInfo?.name}
+          icon={interactInfo?.icons[0]}
+          networkId={networkId}
+          mb={0}
+        />
       </Form.Item>
       {!isWebln ? (
         <Form.Item

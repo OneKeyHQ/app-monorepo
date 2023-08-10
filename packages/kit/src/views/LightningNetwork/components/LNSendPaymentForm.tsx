@@ -75,7 +75,7 @@ const LNSendPaymentForm = (props: ISendPaymentFormProps) => {
       scope: 'webln',
       origin,
       data: {
-        method: 'sendImage',
+        method: 'sendPayment',
       },
     },
   });

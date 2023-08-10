@@ -139,7 +139,7 @@ const LNURLWithdraw = () => {
             amountReadOnly={amountMin === amountMax}
             minimumAmount={amountMin}
             maximumAmount={amountMax}
-            domain={lnurlDetails.domain}
+            origin={new URL(lnurlDetails.url).origin}
             descriptionLabelId="form__withdraw_description"
             memo={lnurlDetails.defaultDescription}
             nativeToken={nativeToken}
