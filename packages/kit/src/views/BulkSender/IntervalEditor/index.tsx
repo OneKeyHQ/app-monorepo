@@ -84,8 +84,8 @@ function IntervalEditor() {
       if (type === 'min') {
         const minValueBN = new BigNumber(value);
         const maxValue = getValues('maxInterval');
-        if (minValueBN.decimalPlaces() > 3) {
-          setValue('minInterval', new BigNumber(value).toFixed(3));
+        if (minValueBN.decimalPlaces() > 1) {
+          setValue('minInterval', new BigNumber(value).toFixed(1));
         }
 
         if (minValueBN.isGreaterThan(maxValue)) {
@@ -93,20 +93,33 @@ function IntervalEditor() {
             id: 'msg__the_maximum_interval_must_be_greater_than_or_equal_to_the_minimum_interval',
           });
         }
+        if (formState.errors.maxInterval) {
+          setTimeout(() => triggerForm('maxInterval'), 100);
+        }
       } else if (type === 'max') {
         const maxValueBN = new BigNumber(value);
         const minValue = getValues('minInterval');
-        if (maxValueBN.decimalPlaces() > 3) {
-          setValue('maxInterval', new BigNumber(value).toFixed(3));
+        if (maxValueBN.decimalPlaces() > 1) {
+          setValue('maxInterval', new BigNumber(value).toFixed(1));
         }
         if (maxValueBN.isLessThan(minValue)) {
           return intl.formatMessage({
             id: 'msg__the_maximum_interval_must_be_greater_than_or_equal_to_the_minimum_interval',
           });
         }
+        if (formState.errors.minInterval) {
+          setTimeout(() => triggerForm('minInterval'), 100);
+        }
       }
     },
-    [getValues, intl, setValue],
+    [
+      formState.errors.maxInterval,
+      formState.errors.minInterval,
+      getValues,
+      intl,
+      setValue,
+      triggerForm,
+    ],
   );
 
   const isConfirmDisabeld = useMemo(
@@ -126,7 +139,7 @@ function IntervalEditor() {
           'max_s': `${watchInterval[1] ?? '5'}s`,
         },
       ),
-    [watchInterval],
+    [intl, watchInterval],
   );
 
   return (
@@ -142,7 +155,9 @@ function IntervalEditor() {
     >
       <Box flex={1}>
         <HStack alignItems="center" justifyContent="space-between">
-          <Text typography="Body2Strong">Random Time Interval</Text>
+          <Text typography="Body2Strong">
+            {intl.formatMessage({ id: 'form__random_interval' })}
+          </Text>
           <Switch
             labelType="false"
             isChecked={isIntervalEnabled}

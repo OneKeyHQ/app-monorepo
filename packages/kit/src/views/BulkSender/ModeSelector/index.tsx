@@ -45,21 +45,19 @@ function ModelSelector(props: Props) {
     return supportedModes
       .map((mode) => {
         if (mode === BulkTypeEnum.OneToMany) {
-          if (
-            network?.settings?.nativeSupportBatchTransfer
-              ? true
-              : batchTransferContractAddress[networkId]
-          ) {
-            return (
-              <ModeItem
-                mode={mode}
-                {...(isVertical
-                  ? modeItemInVerticalLayoutStyle
-                  : modeItemInHorizontalLayoutStyle)}
-              />
-            );
-          }
-          return null;
+          return (
+            <ModeItem
+              mode={mode}
+              isDisabled={
+                !(network?.settings?.nativeSupportBatchTransfer
+                  ? true
+                  : batchTransferContractAddress[networkId])
+              }
+              {...(isVertical
+                ? modeItemInVerticalLayoutStyle
+                : modeItemInHorizontalLayoutStyle)}
+            />
+          );
         }
 
         return (

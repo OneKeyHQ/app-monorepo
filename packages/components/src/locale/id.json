@@ -2314,6 +2314,7 @@
   "msg__previous_account_is_empty": "Akun sebelumnya kosong",
   "msg__price_alert_reached": "🔔 Peringatan Harga!",
   "msg__price_alert_reached_desc": "{0} telah mencapai nilai target Anda sebesar {1}",
+  "msg__processing_transactions": "Memproses transaksi...",
   "msg__received": "🤑 Menerima {assets}",
   "msg__received_a_nft": "🤑 Menerima NFT",
   "msg__received_desc": "Dari {address}",
