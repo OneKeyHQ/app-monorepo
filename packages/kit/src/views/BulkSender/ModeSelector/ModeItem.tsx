@@ -16,7 +16,9 @@ import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import { useNavigation } from '../../../hooks';
 import { HomeRoutes } from '../../../routes/routesEnum';
 
-import GroupIcon from './GroupIcon';
+import ManyToManyIcon from './ManyToManyIcon';
+import ManyToOneIcon from './ManyToOneIcon';
+import OneToManyIcon from './OneToManyIcon';
 
 import type { HomeRoutesParams } from '../../../routes/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -49,7 +51,7 @@ function OneToMany() {
   return (
     <HStack space={3} alignItems="center" justifyContent="center">
       <AddressElement elementText="A" />
-      <GroupIcon />
+      <OneToManyIcon />
       <VStack space={2}>
         {['I', 'II', 'III'].map((text) => (
           <AddressElement elementText={text} />
@@ -67,7 +69,7 @@ function ManyToMany() {
           <AddressElement elementText={text} />
         ))}
       </VStack>
-      <GroupIcon />
+      <ManyToManyIcon width="24px" />
       <VStack space={2}>
         {['I', 'II', 'III'].map((text) => (
           <AddressElement elementText={text} />
@@ -85,7 +87,7 @@ function ManyToOne() {
           <AddressElement elementText={text} />
         ))}
       </VStack>
-      <GroupIcon />
+      <ManyToOneIcon />
       <VStack>
         <AddressElement elementText="A" />
       </VStack>
