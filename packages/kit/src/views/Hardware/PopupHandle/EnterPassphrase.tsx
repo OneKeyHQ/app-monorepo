@@ -112,12 +112,7 @@ const SetupPassphraseView = ({
             },
             validate: (value) => {
               if (!value.length) return true;
-              // eslint-disable-next-line prefer-regex-literals
-              const passphraseReg = new RegExp(
-                '^[a-zA-Z0-9-><_.:@\\|*!()+%&-\\[\\]?{},#\'`;"~$\\^=]+$',
-                'i',
-              );
-              if (!passphraseReg.test(value)) {
+              if (!isPassphraseValid(value)) {
                 return intl.formatMessage({
                   id: 'form__add_exsting_wallet_invalid',
                 });
@@ -181,12 +176,7 @@ const PassphraseView = ({
             },
             validate: (value) => {
               if (!value.length) return true;
-              // eslint-disable-next-line prefer-regex-literals
-              const passphraseReg = new RegExp(
-                '^[a-zA-Z0-9-><_.:@\\|*!()+%&-\\[\\]?{},#\'`;"~$\\^=]+$',
-                'i',
-              );
-              if (!passphraseReg.test(value)) {
+              if (!isPassphraseValid(value)) {
                 return intl.formatMessage({
                   id: 'form__add_exsting_wallet_invalid',
                 });
