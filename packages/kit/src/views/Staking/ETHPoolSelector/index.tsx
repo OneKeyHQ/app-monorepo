@@ -32,15 +32,17 @@ const ETHPool = () => {
     return [
       {
         name: EthStakingSource.Kele,
+        num: data.kele,
         value: `${formatAmount(data.kele, 2)}%`,
         logo: require('@onekeyhq/kit/assets/staking/kele_pool.png'),
       },
       {
         name: EthStakingSource.Lido,
+        num: data.lido,
         value: `${formatAmount(data.lido, 2)}%`,
         logo: require('@onekeyhq/kit/assets/staking/lido_pool.png'),
       },
-    ];
+    ].sort((a, b) => b.num - a.num);
   }, [networkId, ethStakingApr]);
 
   return (

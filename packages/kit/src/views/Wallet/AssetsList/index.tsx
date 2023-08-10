@@ -33,7 +33,6 @@ import {
   useAppSelector,
   useOverviewAccountUpdateInfo,
 } from '../../../hooks';
-import { useAllNetworksAccountSelectModalShow } from '../../../hooks/useAllNetwoks';
 import { useVisibilityFocused } from '../../../hooks/useVisibilityFocused';
 import { OverviewDefiThumbnal } from '../../Overview/Thumbnail';
 import { EOverviewScanTaskType } from '../../Overview/types';
@@ -84,9 +83,6 @@ function HandleRefresh({
 }) {
   const isFocused = useVisibilityFocused();
   const [delayedFocus, setDelayedFocus] = useState(isFocused);
-
-  useAllNetworksAccountSelectModalShow();
-
   const shouldRefreshBalances = useMemo(() => {
     if (!isUnlock) {
       return false;

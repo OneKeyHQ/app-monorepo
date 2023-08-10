@@ -1,3 +1,4 @@
+import type { ISimpleDbEntityMarktData } from '../dbs/simple/entity/SimpleDbEntityMarket';
 import type { ISimpleDbEntityUtxoData } from '../dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import type { DBAccount } from './account';
 import type { Wallet } from './wallet';
@@ -28,5 +29,6 @@ export type BackupObject = {
   wallets: Record<string, ImportableHDWallet>;
   simpleDb?: {
     utxoAccounts?: ISimpleDbEntityUtxoData;
+    market?: ISimpleDbEntityMarktData;
   };
 };

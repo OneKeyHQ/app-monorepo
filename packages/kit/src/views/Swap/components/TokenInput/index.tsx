@@ -20,6 +20,7 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { FormatCurrency } from '../../../../components/Format';
 import { useAppSelector, useNavigation } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
+import { appSelector } from '../../../../store';
 import { setSendingAccount } from '../../../../store/reducers/swap';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
@@ -57,6 +58,7 @@ const TokenInputSendingAccount: FC<TokenAccountProps> = ({
         screen: SwapRoutes.SelectSendingAccount,
         params: {
           networkId: token?.networkId,
+          accountId: appSelector((s) => s.swap.sendingAccount?.id),
           onSelected: (acc) => {
             backgroundApiProxy.dispatch(setSendingAccount(acc));
           },
@@ -125,27 +127,54 @@ const TokenInput: FC<TokenInputProps> = ({
     if (token.tokenIdOnNetwork) {
       backgroundApiProxy.serviceSwap.userInput(type, value);
     } else {
-      const reserved =
-        await backgroundApiProxy.serviceSwap.getReservedNetworkFee(
-          token.networkId,
-        );
+      const getReservedNetworkFee = (networkId: string) =>
+        new Promise<string>((resolve) => {
+          backgroundApiProxy.serviceSwap
+            .getReservedNetworkFee(token.networkId)
+            .then(resolve);
+          setTimeout(() => {
+            const reservedNetworkFees = appSelector(
+              (s) => s.swapTransactions.reservedNetworkFees,
+            );
+            const finalValue = reservedNetworkFees?.[networkId];
+            if (finalValue) {
+              resolve(finalValue);
+            }
+          }, 500);
+        });
+      const getFrozenBalanceValue = (params: {
+        accountId: string;
+        networkId: string;
+      }) =>
+        new Promise<string>((resolve) => {
+          backgroundApiProxy.servicePassword
+            .getPassword()
+            .then((password) =>
+              backgroundApiProxy.engine.getFrozenBalance({
+                accountId: params.accountId,
+                networkId: params.networkId,
+                password,
+              }),
+            )
+            .then((frozenBalance) => {
+              const frozenBalanceValue =
+                typeof frozenBalance === 'number'
+                  ? frozenBalance
+                  : frozenBalance?.[token.id] ?? 0;
+              resolve(String(frozenBalanceValue));
+            });
+          setTimeout(() => resolve('0'), 500);
+        });
 
-      let frozenBalanceValue = 0;
+      const reserved = await getReservedNetworkFee(token.networkId);
+
+      let frozenBalanceValue = '0';
       if (account) {
         try {
-          const password =
-            await backgroundApiProxy.servicePassword.getPassword();
-          const frozenBalance =
-            await backgroundApiProxy.engine.getFrozenBalance({
-              accountId: account.id,
-              networkId: token.networkId,
-              password,
-            });
-
-          frozenBalanceValue =
-            typeof frozenBalance === 'number'
-              ? frozenBalance
-              : frozenBalance?.[token.id] ?? 0;
+          frozenBalanceValue = await getFrozenBalanceValue({
+            accountId: account.id,
+            networkId: token.networkId,
+          });
         } catch (e: unknown) {
           debugLogger.swap.info(
             'failed to get frozen balanace',
@@ -173,6 +202,7 @@ const TokenInput: FC<TokenInputProps> = ({
           },
           { type: 'error' },
         );
+        backgroundApiProxy.serviceSwap.userInput(type, value);
       }
     }
   }, [token, value, type, intl, account]);
