@@ -3,7 +3,6 @@ const SvgArrowDownOnSquareStack = (props: SvgProps) => (
   <Svg
     viewBox="0 0 24 24"
     fill="currentColor"
-    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >

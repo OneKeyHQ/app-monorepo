@@ -158,7 +158,7 @@ export function WalletSelectDropdown({
           isDisabled,
         }}
         renderTrigger={({ visible, onPress }) => (
-          <Pressable onPress={onPress}>
+          <Pressable onPress={onPress} isDisabled={isDisabled}>
             {({ isHovered, isPressed }) => (
               <Box
                 flexDirection="row"

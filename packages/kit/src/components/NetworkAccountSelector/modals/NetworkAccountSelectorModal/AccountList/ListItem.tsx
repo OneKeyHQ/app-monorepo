@@ -8,6 +8,7 @@ import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClos
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IVaultSettings } from '@onekeyhq/engine/src/vaults/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   useAccountTokensBalance,
@@ -161,6 +162,7 @@ const ListItem: FC<ListItemProps> = ({
             accountId={account?.id}
             walletName={isActive ? activeExternalWalletName : null}
           />
+
           <Box flex={1} mr={3}>
             <Text typography="Body2Strong" isTruncated numberOfLines={1}>
               {label}
@@ -197,14 +199,18 @@ const ListItem: FC<ListItemProps> = ({
             </Box>
           </Box>
           {multiSelect ? (
-            <CheckBox
-              isChecked={isChecked}
-              containerStyle={{ mr: 0 }}
-              checkBoxProps={{
-                accessibilityLabel: account.address,
-                size: 'sm',
-              }}
-            />
+            <Box>
+              <CheckBox
+                isChecked={isChecked}
+                containerStyle={{ mr: 0 }}
+                checkBoxProps={{
+                  size: 'sm',
+                  ...(platformEnv.isNative
+                    ? undefined
+                    : { accessibilityLabel: account.address }),
+                }}
+              />
+            </Box>
           ) : null}
           {!hideAccountActions ? (
             <AccountItemSelectDropdown

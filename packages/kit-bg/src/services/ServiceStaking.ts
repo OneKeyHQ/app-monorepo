@@ -91,12 +91,11 @@ export default class ServiceStaking extends ServiceBase {
   > = {};
 
   private getServerEndPoint() {
-    // return 'http://127.0.0.1:9000/api';
     return getFiatEndpoint();
   }
 
   getKeleBaseUrl(networkId: string) {
-    const base = getFiatEndpoint();
+    const base = this.getServerEndPoint();
     if (networkId === OnekeyNetwork.eth) {
       return `${base}/keleMainnet`;
     }
@@ -419,7 +418,7 @@ export default class ServiceStaking extends ServiceBase {
   private _fetchEthAprSma = memoizee(
     async () => {
       const { dispatch } = this.backgroundApi;
-      const base = getFiatEndpoint();
+      const base = this.getServerEndPoint();
       const url = `${base}/staking/eth/apr/overview`;
       const res = await this.client.get(url);
       const data = res.data as EthStakingApr;
