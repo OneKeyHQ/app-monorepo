@@ -195,12 +195,16 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
           serviceToken.batchFetchAccountBalances({
             networkId,
             walletId,
-            accountIds: senderAccounts.slice(0, signedTxs.length),
+            accountIds: senderAccounts
+              .slice(0, signedTxs.length)
+              .map((item) => item.accountId),
           });
           serviceToken.batchFetchAccountTokenBalances({
             networkId,
             walletId,
-            accountIds: senderAccounts.slice(0, signedTxs.length),
+            accountIds: senderAccounts
+              .slice(0, signedTxs.length)
+              .map((item) => item.accountId),
             tokenAddress: tokenInfo?.tokenIdOnNetwork,
           });
         } else {
