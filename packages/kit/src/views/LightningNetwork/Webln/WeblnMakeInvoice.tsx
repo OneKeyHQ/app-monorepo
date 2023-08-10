@@ -151,7 +151,7 @@ const WeblnMakeInvoice = () => {
             origin={sourceInfo?.origin}
             memo={makeInvoiceParams.defaultMemo}
             nativeToken={nativeToken}
-            amountDisabled={Number(makeInvoiceParams.amount) > 0}
+            amountReadOnly={Number(makeInvoiceParams.amount) > 0}
           />
         ),
       }}

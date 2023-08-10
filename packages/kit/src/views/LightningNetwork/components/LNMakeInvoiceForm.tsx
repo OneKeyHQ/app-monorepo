@@ -6,9 +6,7 @@ import { StyleSheet } from 'react-native';
 
 import {
   Box,
-  Center,
   Form,
-  Icon,
   Image,
   Text,
   useIsVerticalLayout,
@@ -41,7 +39,7 @@ export type IMakeInvoiceFormProps = {
   memo?: string;
   nativeToken?: Token;
   isWebln?: boolean;
-  amountDisabled?: boolean;
+  amountReadOnly?: boolean;
 };
 
 const LNMakeInvoiceForm = (props: IMakeInvoiceFormProps) => {
@@ -58,7 +56,7 @@ const LNMakeInvoiceForm = (props: IMakeInvoiceFormProps) => {
     memo,
     nativeToken,
     isWebln,
-    amountDisabled,
+    amountReadOnly,
   } = props;
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
@@ -262,12 +260,42 @@ const LNMakeInvoiceForm = (props: IMakeInvoiceFormProps) => {
         isLabelAddonActions={false}
         labelAddon={renderLabelAddon}
       >
-        <Form.Input
-          type="number"
-          size={isVerticalLayout ? 'xl' : 'default'}
-          placeholder={intl.formatMessage({ id: 'form__enter_amount' })}
-          isDisabled={amountDisabled}
-        />
+        {amountReadOnly ? (
+          <Box
+            display="flex"
+            flexDirection="row"
+            justifyContent="flex-start"
+            alignItems="center"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="border-default"
+            borderRadius="xl"
+            py={2}
+            px={3}
+            bgColor="action-secondary-default"
+          >
+            <Text
+              typography="Body2Mono"
+              color="text-subdued"
+              lineHeight="1.5em"
+            >
+              {`${Number(amount)} ${intl.formatMessage({
+                id: 'form__sats__units',
+              })}`}
+            </Text>
+          </Box>
+        ) : (
+          <Form.Input
+            type="number"
+            size={isVerticalLayout ? 'xl' : 'default'}
+            placeholder={intl.formatMessage({ id: 'form__enter_amount' })}
+            isReadOnly={amountReadOnly}
+            rightCustomElement={
+              <Text px={4} typography="Button1" color="text-subdued">
+                {intl.formatMessage({ id: 'form__sats__units' })}
+              </Text>
+            }
+          />
+        )}
       </Form.Item>
       <FormatCurrencyTokenOfAccount
         accountId={accountId}
