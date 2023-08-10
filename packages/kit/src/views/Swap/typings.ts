@@ -51,6 +51,7 @@ export type SwapRoutesParams = {
     | undefined;
   [SwapRoutes.SelectSendingAccount]:
     | {
+        accountId?: string;
         networkId?: string;
         onSelected?: (acc: Account) => void;
       }
