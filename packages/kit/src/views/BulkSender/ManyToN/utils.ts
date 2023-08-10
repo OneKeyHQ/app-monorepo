@@ -201,7 +201,6 @@ export const verifyBulkTransferBeforeConfirm = async ({
           });
 
           feeInfo.defaultPresetIndex = feePresetIndex;
-
           if (
             parseFloat(feeInfo.defaultPresetIndex) >
             feeInfo.prices.length - 1
@@ -219,14 +218,14 @@ export const verifyBulkTransferBeforeConfirm = async ({
 
           const feeRange = calculateTotalFeeRange(currentInfoUnit);
           const total = feeRange.max;
-          // use 1.5 times of the fee as the total fee to make sure the tx can be sent
+          // use 2 times of the fee as the total fee to make sure the tx can be sent
           totalFeeNative = new BigNumber(
             calculateTotalFeeNative({
               amount: total,
               info: feeInfo,
             }),
           )
-            .times(1.5)
+            .times(2)
             .toFixed();
         } catch {
           ToastManager.show(

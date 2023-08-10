@@ -730,7 +730,6 @@ export default class Vault extends VaultBase {
     let paramTypes: string[];
     let ParamValues: any[];
     let totalAmountBN = new BigNumber(0);
-
     if (isTransferToken) {
       if (isNFT && nftType && nftTokenId) {
         batchMethod = BatchTransferSelectors.disperseNFT;

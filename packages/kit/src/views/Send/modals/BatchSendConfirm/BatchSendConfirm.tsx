@@ -418,7 +418,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       isBatchSendConfirm
       isSingleTransformMode={isSingleTransformMode}
       decodedTx={decodedTx}
-      transferAmount={transfersAmountToUpdate[0]}
+      transferAmount={isNativeMaxSend ? transfersAmountToUpdate[0] : undefined}
     />
   ) : (
     <>
