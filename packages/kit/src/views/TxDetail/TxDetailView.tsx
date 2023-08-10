@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Alert, Box, Container, Text } from '@onekeyhq/components';
@@ -60,7 +61,10 @@ export function TxDetailView(props: ITxActionListViewProps) {
         intl,
         historyTx: undefined,
       });
-      metaInfo.meta.transferAmount = transferAmount;
+
+      if (!isNil(transferAmount)) {
+        metaInfo.meta.transferAmount = transferAmount;
+      }
 
       const { meta, components } = metaInfo;
       const TxActionComponent = components[transformType];
