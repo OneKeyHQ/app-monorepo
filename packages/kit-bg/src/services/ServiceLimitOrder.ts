@@ -22,7 +22,7 @@ import {
 import {
   WETH9,
   limitOrderNetworkIds,
-  wToken,
+  wrapToken,
 } from '@onekeyhq/kit/src/views/Swap/config';
 import type {
   ILimitOrderQuoteParams,
@@ -183,7 +183,7 @@ class ServiceLimitOrder extends ServiceBase {
     const typedValue = appSelector((s) => s.swap.typedValue);
     let limitOrderInputToken: Token = WETH9[OnekeyNetwork.eth];
     if (inputToken && limitOrderNetworkIds.includes(inputToken.networkId)) {
-      limitOrderInputToken = wToken(inputToken);
+      limitOrderInputToken = wrapToken(inputToken);
     }
 
     this.setInputToken(limitOrderInputToken);
@@ -224,39 +224,45 @@ class ServiceLimitOrder extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setInputToken(newToken: Token) {
+  async setInputToken(token: Token) {
     const { appSelector, dispatch } = this.backgroundApi;
     const tokenOut = appSelector((s) => s.limitOrder.tokenOut);
-    const tokenIn = appSelector((s) => s.limitOrder.tokenIn);
-    if (tokenIn && tokenEqual(tokenIn, newToken)) {
+    const oldTokenIn = appSelector((s) => s.limitOrder.tokenIn);
+    const newTokenIn = wrapToken(token);
+    if (oldTokenIn && tokenEqual(oldTokenIn, newTokenIn)) {
       return;
     }
-    const limitOrderInputToken = wToken(newToken);
-    dispatch(setTokenIn(limitOrderInputToken));
-    if (limitOrderInputToken.networkId === tokenIn?.networkId) {
+    dispatch(setTokenIn(newTokenIn));
+    // set output token
+    if (newTokenIn.networkId === oldTokenIn?.networkId) {
       if (
         tokenOut &&
-        tokenOut.networkId === limitOrderInputToken.networkId &&
-        tokenOut.tokenIdOnNetwork === limitOrderInputToken.tokenIdOnNetwork
+        tokenOut.networkId === newTokenIn.networkId &&
+        tokenOut.tokenIdOnNetwork === newTokenIn.tokenIdOnNetwork
       ) {
-        dispatch(setTokenOut(tokenIn));
+        dispatch(setTokenOut(oldTokenIn));
       }
     } else {
-      this.setSmartOutput(limitOrderInputToken);
+      this.setSmartOutput(newTokenIn);
     }
-    this.setSendingAccountByNetwork(
-      this.getNetwork(limitOrderInputToken.networkId),
-    );
+    this.setSendingAccountByNetwork(this.getNetwork(newTokenIn.networkId));
   }
 
   @backgroundMethod()
-  async setOutputToken(newToken: Token) {
+  async setOutputToken(token: Token) {
     const { dispatch, appSelector } = this.backgroundApi;
-    const tokenOut = appSelector((s) => s.limitOrder.tokenOut);
-    if (tokenOut && tokenEqual(tokenOut, newToken)) {
+    const oldTokenOut = appSelector((s) => s.limitOrder.tokenOut);
+    const tokenIn = appSelector((s) => s.limitOrder.tokenIn);
+    const newTokenOut = wrapToken(token);
+    if (oldTokenOut && tokenEqual(oldTokenOut, newTokenOut)) {
       return;
     }
-    dispatch(setTokenOut(newToken));
+    const actions = [] as any[];
+    if (tokenIn && tokenEqual(tokenIn, newTokenOut)) {
+      actions.push(setTokenIn(oldTokenOut));
+    }
+    actions.push(setTokenOut(newTokenOut));
+    dispatch(...actions);
   }
 
   @backgroundMethod()

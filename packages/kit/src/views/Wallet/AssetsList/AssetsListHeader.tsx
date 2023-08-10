@@ -117,9 +117,7 @@ const OuterHeader = memo(
         </Typography.Heading>
         {tokenEnabled && (
           <HStack alignItems="center" justifyContent="flex-end">
-            {isAllNetworks(networkId) ? null : (
-              <RefreshButton refreshing={loading} onRefresh={refresh} />
-            )}
+            <RefreshButton refreshing={loading} onRefresh={refresh} />
             {isAllNetworks(networkId) ? null : (
               <IconButton
                 onPress={onNavigate}

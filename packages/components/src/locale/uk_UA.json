@@ -2314,6 +2314,7 @@
   "msg__previous_account_is_empty": "Попередній обліковий запис порожній",
   "msg__price_alert_reached": "🔔 Сповіщення про ціни!",
   "msg__price_alert_reached_desc": "{0} досяг цільового значення {1}",
+  "msg__processing_transactions": "Обробка транзакцій...",
   "msg__received": "🤑 Отримано {assets}",
   "msg__received_a_nft": "🤑 Отримав NFT",
   "msg__received_desc": "З {address}",

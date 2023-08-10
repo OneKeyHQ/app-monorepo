@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { removeTrailingZeros } from '../../../utils/helper';
 import { AmountTypeEnum, IntervalTypeEnum } from '../types';
 
 import type { TokenTrader, TraderError } from '../types';
@@ -75,7 +76,9 @@ export const getTransferAmount = async ({
   if (amountType === AmountTypeEnum.Random) {
     const min = amount[0];
     const max = BigNumber.min(senderTokenBalance, amount[1]).toFixed();
-    return randomBetween({ min, max, decimals: token.decimals });
+    return removeTrailingZeros(
+      randomBetween({ min, max, decimals: token.decimals }),
+    );
   }
 
   if (amountType === AmountTypeEnum.All) {
@@ -100,7 +103,7 @@ export const getTxInterval = ({
     return randomBetween({
       min: txInterval[0],
       max: txInterval[1],
-      decimals: 3,
+      decimals: 1,
     });
   }
 };
@@ -186,7 +189,7 @@ export const verifyBulkTransferBeforeConfirm = async ({
               transferInfo: {
                 from: senderItem.Address,
                 to: receiver[0].Address,
-                amount: '0',
+                amount: new BigNumber(1).shiftedBy(-token.decimals).toFixed(),
                 token: token.tokenIdOnNetwork,
               },
             });
@@ -226,12 +229,16 @@ export const verifyBulkTransferBeforeConfirm = async ({
             .times(1.5)
             .toFixed();
         } catch {
-          ToastManager.show({
-            title: intl.formatMessage({
-              id: 'msg__failed_to_get_network_fees_please_try_again',
-            }),
-            type: 'error',
-          });
+          ToastManager.show(
+            {
+              title: intl.formatMessage({
+                id: 'msg__failed_to_get_network_fees_please_try_again',
+              }),
+            },
+            {
+              type: 'error',
+            },
+          );
           return {
             isVerified: false,
           };
@@ -273,7 +280,7 @@ export const verifyBulkTransferBeforeConfirm = async ({
     } else if (amountType === AmountTypeEnum.Fixed) {
       [senderAmount] = amount;
     } else if (amountType === AmountTypeEnum.Random) {
-      [, senderAmount] = amount;
+      [senderAmount] = amount;
     } else {
       senderAmount = '0';
     }

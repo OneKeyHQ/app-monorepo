@@ -372,7 +372,18 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
               {isNil(transferInfos?.[i].txInterval) ? null : (
                 <Badge
                   size="sm"
-                  title={`delay ${transferInfos?.[i].txInterval as string}s`}
+                  title={
+                    transferInfos?.[i].txInterval
+                      ? intl.formatMessage(
+                          { id: 'form__delay_str' },
+                          {
+                            duration: `${
+                              transferInfos?.[i].txInterval as string
+                            }s`,
+                          },
+                        )
+                      : ''
+                  }
                 />
               )}
             </HStack>
