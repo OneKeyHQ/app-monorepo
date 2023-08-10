@@ -190,6 +190,8 @@ function SOLAssetDetailContent({
           <Text
             typography={{ sm: 'DisplayLarge', md: 'DisplayLarge' }}
             fontWeight="700"
+            isTruncated
+            flex="1"
           >
             {asset.name && asset.name.length > 0
               ? asset.name

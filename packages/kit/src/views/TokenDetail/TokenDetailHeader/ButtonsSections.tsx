@@ -36,6 +36,7 @@ import {
 import BaseMenu from '../../Overlay/BaseMenu';
 import { SendModalRoutes } from '../../Send/enums';
 import { EthereumTopYields } from '../../Staking/Widgets/EthereumTopYields';
+import { LidoMaticYields } from '../../Staking/Widgets/LidoMaticYields';
 import { LidoStTokenYields } from '../../Staking/Widgets/LidoStTokenYields';
 import { TokenDetailContext } from '../context';
 
@@ -135,7 +136,7 @@ export const ButtonsSection: FC = () => {
   const {
     tokens,
     loading: detailLoading,
-    ethereumNativeToken,
+    defaultToken,
   } = context?.detailInfo ?? {};
 
   const { wallet } = useWallet({
@@ -282,7 +283,9 @@ export const ButtonsSection: FC = () => {
     (item: IButtonItem) => {
       selectNetworkAccount().then(({ network, account }) => {
         const token = tokens?.find(
-          (t) => network?.id === `${t.impl ?? ''}--${t.chainId ?? ''}`,
+          (t) =>
+            network?.id ===
+            (t.networkId ?? `${t.impl ?? ''}--${t.chainId ?? ''}`),
         );
         if (token) {
           item.onPress?.({
@@ -419,12 +422,11 @@ export const ButtonsSection: FC = () => {
           ) : null}
         </HStack>
       </HStack>
-      {ethereumNativeToken && !isAllNetworks(networkId) ? (
-        <Box>
-          <EthereumTopYields token={ethereumNativeToken} />
-          <LidoStTokenYields token={ethereumNativeToken} />
-        </Box>
-      ) : null}
+      <Box>
+        <EthereumTopYields token={defaultToken} />
+        <LidoStTokenYields token={defaultToken} />
+        <LidoMaticYields token={defaultToken} />
+      </Box>
     </Box>
   );
 };

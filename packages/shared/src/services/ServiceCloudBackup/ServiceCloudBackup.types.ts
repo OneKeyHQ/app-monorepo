@@ -26,9 +26,7 @@ export type IBackupItemSummary = {
   backupTime: number;
   deviceInfo: { osName: string; deviceName: string };
   numOfHDWallets: number;
-  numOfImportedAccounts: number;
-  numOfWatchingAccounts: number;
-  numOfContacts: number;
+  numOfAccounts: number;
 };
 
 export type BackupedContacts = Record<

@@ -30,7 +30,11 @@ import {
   SendModalRoutes,
   TabRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
-import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_BTC,
+  IMPL_TBTC,
+  IMPL_TRON,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AmountEditorTrigger } from '../AmountEditor/AmountEditorTrigger';
@@ -85,7 +89,10 @@ function OneToMany(props: Props) {
   const tokens = accountTokens.filter((token) =>
     network?.impl === IMPL_TRON
       ? !new BigNumber(token.tokenIdOnNetwork).isInteger()
-      : true,
+      : true ||
+        (network?.impl === IMPL_BTC || network?.impl === IMPL_TBTC
+          ? token.isNative
+          : true),
   );
 
   const { serviceBatchTransfer, serviceToken, serviceOverview } =

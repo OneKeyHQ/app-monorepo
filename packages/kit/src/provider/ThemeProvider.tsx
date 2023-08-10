@@ -1,8 +1,6 @@
 import type { ComponentProps, FC } from 'react';
 import { memo, useCallback, useEffect, useState } from 'react';
 
-import { createSelector } from '@reduxjs/toolkit';
-
 import { Provider } from '@onekeyhq/components';
 import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import LOCALES from '@onekeyhq/components/src/locale';
@@ -16,25 +14,10 @@ import {
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useReduxReady } from '../hooks/useReduxReady';
 import { useSystemLocale } from '../hooks/useSystemLocale';
-
-import type { IAppState } from '../store';
+import { themeProviderSelector } from '../store/selectors/theme';
 
 export function useThemeProviderVariant() {
-  const { theme, locale, lastLocale } = useAppSelector(
-    createSelector(
-      [
-        (s: IAppState) => s.settings.theme,
-        (s: IAppState) => s.settings.locale,
-        (s: IAppState) => s.settings.lastLocale,
-      ],
-      // eslint-disable-next-line @typescript-eslint/no-shadow
-      (theme, locale, lastLocale) => ({
-        theme,
-        locale,
-        lastLocale,
-      }),
-    ),
-  );
+  const { theme, locale, lastLocale } = useAppSelector(themeProviderSelector);
   const systemLocale = useSystemLocale();
   const colorScheme = useColorScheme();
   const themeVariant = theme === 'system' ? colorScheme ?? 'dark' : theme;

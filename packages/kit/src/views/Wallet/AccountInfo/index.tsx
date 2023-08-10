@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import type { FC } from 'react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -17,6 +18,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
+import { NetworkDarkIcon } from '@onekeyhq/components/src/Network/DarkIcon';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { FormatCurrencyNumber } from '@onekeyhq/kit/src/components/Format';
@@ -48,6 +50,33 @@ import type BigNumber from 'bignumber.js';
 export const FIXED_VERTICAL_HEADER_HEIGHT = 238;
 export const FIXED_HORIZONTAL_HEDER_HEIGHT = 152;
 
+const SectionNetworkIconGroup: FC<{
+  networkIds: string[];
+}> = memo(({ networkIds }) => {
+  const data = useMemo(() => {
+    if (!networkIds?.length) {
+      return [];
+    }
+    const ns = networkIds.slice(0, 4);
+    if (networkIds.length > 4) {
+      ns.push('more');
+    }
+    return ns;
+  }, [networkIds]);
+
+  return (
+    <>
+      {data.map((n, idx) => (
+        <Box key={n} ml={idx === 0 ? 0 : -1}>
+          <NetworkDarkIcon networkId={n} />
+        </Box>
+      ))}
+    </>
+  );
+});
+
+SectionNetworkIconGroup.displayName = 'SectionNetworkIconGroup';
+
 const SectionCopyAddress: FC = memo(() => {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -58,6 +87,11 @@ const SectionCopyAddress: FC = memo(() => {
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
     accountId,
   });
+
+  const enabledNetworks = useMemo(
+    () => Object.keys(networkAccountsMap ?? {}),
+    [networkAccountsMap],
+  );
 
   const displayAddress = useMemo(
     () => !network?.settings.hiddenAddress,
@@ -91,13 +125,14 @@ const SectionCopyAddress: FC = memo(() => {
       >
         <Text typography="Body2Strong" mr={2} color="text-subdued">
           {intl.formatMessage(
-            { id: 'form__all_networks_str' },
+            { id: 'form__str_networks' },
             {
-              0: Object.keys(networkAccountsMap).length,
+              0: enabledNetworks.length,
             },
           )}
         </Text>
-        <Icon name="ChevronDownMini" color="icon-subdued" size={16} />
+        <SectionNetworkIconGroup networkIds={enabledNetworks} />
+        <Icon name="ChevronDownMini" size={20} color="icon-subdued" />
       </Pressable>
     );
   }

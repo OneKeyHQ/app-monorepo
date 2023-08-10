@@ -344,7 +344,7 @@ class ServiceOverview extends ServiceBase {
     if (!tasks.length) {
       return;
     }
-    debugLogger.overview.info('subscribe overview tasks=', tasks);
+    debugLogger.allNetworks.info('subscribe overview tasks=', tasks);
     const res = await fetchData<{
       tasks?: IOverviewScanTaskItem[];
     }>(

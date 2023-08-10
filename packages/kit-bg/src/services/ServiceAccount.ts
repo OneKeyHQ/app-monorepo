@@ -849,6 +849,7 @@ class ServiceAccount extends ServiceBase {
       serviceAccount,
       appSelector,
       serviceCloudBackup,
+      serviceAllNetwork,
     } = this.backgroundApi;
 
     const actions = [];
@@ -917,6 +918,11 @@ class ServiceAccount extends ServiceBase {
         activeNetworkId: networkId,
       }),
     );
+
+    await serviceAllNetwork.onAccountChanged({
+      account,
+      networkId,
+    });
 
     this.backgroundApi.serviceNetwork.notifyChainChanged();
     this.backgroundApi.serviceAccount.notifyAccountsChanged();
@@ -1289,8 +1295,12 @@ class ServiceAccount extends ServiceBase {
     activeWalletId: string | undefined | null;
     removedWalletId: string[];
   }) {
-    const { serviceNotification, dispatch, serviceCloudBackup } =
-      this.backgroundApi;
+    const {
+      serviceNotification,
+      dispatch,
+      serviceCloudBackup,
+      serviceAllNetwork,
+    } = this.backgroundApi;
 
     timelinePerfTrace.mark({
       name: ETimelinePerfNames.postWalletRemoved,
@@ -1313,6 +1323,8 @@ class ServiceAccount extends ServiceBase {
         title: 'ServiceAccount.postWalletRemoved >> initWallets DONE',
       });
     }
+
+    serviceAllNetwork.onWalletRemoved({ walletIds: removedWalletId });
 
     serviceNotification.removeAccountDynamicBatch({
       addressList: accounts
@@ -1367,16 +1379,13 @@ class ServiceAccount extends ServiceBase {
       serviceNotification,
       serviceAllNetwork,
     } = this.backgroundApi;
-    const account = await this.getAccount({
-      walletId,
-      accountId,
-    });
+    const account = await engine.getAccount(accountId, networkId);
     if (account) {
       serviceNotification.removeAccountDynamicBatch({
         addressList: [account.address],
       });
     }
-    const { activeAccountId, activeNetworkId } = appSelector((s) => s.general);
+    const { activeAccountId } = appSelector((s) => s.general);
     await engine.removeAccount(accountId, password ?? '', networkId);
     await simpleDb.walletConnect.removeAccount({ accountId });
     await engine.dbApi.removeAccountDerivationByAccountId({
@@ -1396,11 +1405,12 @@ class ServiceAccount extends ServiceBase {
     if (!walletId.startsWith('hw')) {
       serviceCloudBackup.requestBackup();
     }
-    if (
-      isAllNetworks(activeNetworkId) &&
-      isWalletCompatibleAllNetworks(walletId)
-    ) {
-      serviceAllNetwork.refreshCurrentAllNetworksAccountMap();
+
+    if (account) {
+      await serviceAllNetwork.onAccountChanged({
+        account,
+        networkId,
+      });
     }
   }
 

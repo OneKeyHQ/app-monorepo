@@ -187,7 +187,10 @@ export const useAccountPortfolios = <
   });
 
   const fetchData = useCallback(async () => {
-    if (isAllNetworks(networkId) && !Object.keys(networkAccountsMap)?.length) {
+    if (
+      isAllNetworks(networkId) &&
+      !Object.keys(networkAccountsMap ?? {})?.length
+    ) {
       setState({
         loading: false,
         data: [],
@@ -363,10 +366,6 @@ export const useAccountIsUpdating = ({
 export function useAccountTokenLoading(networkId: string, accountId: string) {
   const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
 
-  const { data } = useAllNetworksWalletAccounts({
-    accountId,
-  });
-
   const accountIsUpdating = useAccountIsUpdating({
     networkId,
     accountId,
@@ -377,13 +376,10 @@ export function useAccountTokenLoading(networkId: string, accountId: string) {
       if (accountIsUpdating) {
         return true;
       }
-      if (!Object.keys(data).length) {
-        return true;
-      }
       return false;
     }
     return typeof accountTokens[networkId]?.[accountId] === 'undefined';
-  }, [networkId, accountId, accountTokens, data, accountIsUpdating]);
+  }, [networkId, accountId, accountTokens, accountIsUpdating]);
 }
 
 export function useNFTIsLoading({
@@ -562,7 +558,7 @@ export const useNFTValues = ({
       return p * v;
     }
 
-    for (const [nid, accounts] of Object.entries(networkAccountsMap)) {
+    for (const [nid, accounts] of Object.entries(networkAccountsMap ?? {})) {
       const p = prices?.[nid]?.usd ?? 0;
       for (const a of accounts) {
         const nftPrice = nftPrices?.[a.id]?.[nid]?.[disPlayPriceType] ?? 0;

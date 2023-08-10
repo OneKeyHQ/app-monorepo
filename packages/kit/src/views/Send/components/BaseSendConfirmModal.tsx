@@ -9,7 +9,11 @@ import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClos
 import { NetworkCongestionThresholds } from '@onekeyhq/engine/src/types/network';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { IEncodedTxLightning } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types';
-import { IDecodedTxDirection } from '@onekeyhq/engine/src/vaults/types';
+import type { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
+import {
+  IDecodedTxActionType,
+  IDecodedTxDirection,
+} from '@onekeyhq/engine/src/vaults/types';
 import {
   IMPL_EVM,
   isLightningNetworkByImpl,
@@ -76,13 +80,25 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
   ] = useState(false);
   const [isPendingTxSameNonce, setIsPendingTxSameNonce] = useState(false);
 
-  const balanceInsufficient = useMemo(
-    () =>
-      new BigNumber(nativeBalance).lt(
-        new BigNumber(fee).plus(prepaidFee || '0'),
-      ),
-    [fee, nativeBalance, prepaidFee],
-  );
+  const balanceInsufficient = useMemo(() => {
+    if (sourceInfo) {
+      let nativeBalanceTransferBN = new BigNumber(0);
+      for (const action of (decodedTx as IDecodedTx)?.actions ?? []) {
+        if (action.type === IDecodedTxActionType.NATIVE_TRANSFER) {
+          nativeBalanceTransferBN = nativeBalanceTransferBN.plus(
+            action.nativeTransfer?.amount ?? 0,
+          );
+        }
+      }
+
+      return new BigNumber(nativeBalance).lt(
+        nativeBalanceTransferBN.plus(fee).plus(prepaidFee || '0'),
+      );
+    }
+    return new BigNumber(nativeBalance).lt(
+      new BigNumber(fee).plus(prepaidFee || '0'),
+    );
+  }, [decodedTx, fee, nativeBalance, prepaidFee, sourceInfo]);
 
   const editableNonceStatus = useMemo(() => {
     if (network?.settings.nonceEditable && advancedSettings?.currentNonce) {

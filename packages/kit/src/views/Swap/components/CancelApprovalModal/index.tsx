@@ -26,8 +26,10 @@ export const SwapTransactionsCancelApprovalBottomSheetModal: FC<
   }, [close, onSubmit]);
   return (
     <BottomSheetModal closeOverlay={close} title="" showHeader={false}>
-      <Center h="16">
-        <Typography.Heading fontSize={60}> ℹ️ </Typography.Heading>
+      <Center h="64px">
+        <Typography.Heading fontSize={60} lineHeight={64}>
+          ℹ️
+        </Typography.Heading>
       </Center>
       <Typography.DisplayMedium mt="4">
         {intl.formatMessage(

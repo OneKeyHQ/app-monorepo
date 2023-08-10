@@ -12,6 +12,7 @@ import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { ButtonItem } from '../../TokenDetail/TokenDetailHeader/ButtonsSections';
 import { StakingRoutes } from '../typing';
 import {
+  StakingTypes,
   getStakeSelectNetworkAccountFilter,
   isAccountCompatibleWithStakingTypes,
 } from '../utils';
@@ -20,6 +21,16 @@ import { WidgetContainer } from './WidgetContainer';
 
 type MarketStakeButtonContentProps = {
   stakingType: string;
+};
+
+const getStakingRoute = (stakingType: string) => {
+  if (stakingType === StakingTypes.eth) {
+    return StakingRoutes.ETHStake;
+  }
+  if (stakingType === StakingTypes.matic) {
+    return StakingRoutes.MaticStake;
+  }
+  throw new Error('wrong stake type params');
 };
 
 export const MarketStakeButtonContent: FC<MarketStakeButtonContentProps> = ({
@@ -41,10 +52,11 @@ export const MarketStakeButtonContent: FC<MarketStakeButtonContentProps> = ({
       debugLogger.staking.info(
         `use networkId: ${network.id} and account id ${account.id} to stake asset`,
       );
+      const screen = getStakingRoute(stakingType);
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Staking,
         params: {
-          screen: StakingRoutes.ETHStake,
+          screen,
           params: {
             networkId: network.id,
             accountId: account.id,
@@ -54,7 +66,7 @@ export const MarketStakeButtonContent: FC<MarketStakeButtonContentProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [selectNetworkAccount, navigation]);
+  }, [selectNetworkAccount, navigation, stakingType]);
   return stakingType && !loading ? (
     <ButtonItem
       icon="InboxArrowDownMini"

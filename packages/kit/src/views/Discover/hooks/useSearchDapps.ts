@@ -4,6 +4,8 @@ import Fuse from 'fuse.js';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
+import { useSearchControl } from './useControl';
+
 import type { MatchDAppItemType } from '../Explorer/explorerUtils';
 import type { DAppItemType } from '../type';
 
@@ -39,6 +41,7 @@ export const useSearchDapps = (
   keyword: string,
 ): { loading: boolean; searchedDapps: MatchDAppItemType[] } => {
   const [loading, setLoading] = useState(false);
+  const isEnableSearch = useSearchControl();
   const [allDapps, setAllDapps] = useState<DAppItemType[]>([]);
 
   useEffect(() => {
@@ -56,6 +59,9 @@ export const useSearchDapps = (
     }
     setLoading(true);
     try {
+      if (!isEnableSearch) {
+        return [];
+      }
       return searchDapps(allDapps, terms).map((item) => ({
         id: item._id,
         dapp: item,
@@ -63,7 +69,7 @@ export const useSearchDapps = (
     } finally {
       setLoading(false);
     }
-  }, [allDapps, terms]);
+  }, [allDapps, terms, isEnableSearch]);
 
   return {
     loading,
