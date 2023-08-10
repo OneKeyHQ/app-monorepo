@@ -29,7 +29,7 @@ const Wrapper: FC<WrapperProps> = ({ children, footer }) => {
         {children}
       </ScrollView>
       {footer ? (
-        <Box mx={4} py={4} mb={`${bottom}px`}>
+        <Box mx={4} py={4} my={`${bottom}px`}>
           {footer}
         </Box>
       ) : null}
