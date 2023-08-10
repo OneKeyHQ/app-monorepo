@@ -185,7 +185,7 @@ export const GroupedBackupDetails = ({
     }
 
     const tokenItems: ListItem[] = [];
-    const marketFavorites = publicBackupData.marketFavorites ?? [];
+    const marketFavorites = publicBackupData?.simpleDb?.market?.favorites ?? [];
     if (marketFavorites.length > 0) {
       tokenItems.push({
         uuid: marketFavorites[0],
@@ -249,7 +249,7 @@ export const GroupedBackupDetails = ({
     if (discoverBookmarks.length > 0) {
       exploreItems.push({
         uuid: discoverBookmarks[0].id,
-        name: 'Favorite dApps',
+        name: intl.formatMessage({ id: 'form__favorite_dapps' }),
         iconType: 'Icon',
         icon: 'StarOutline',
         desc: intl.formatMessage(
@@ -282,7 +282,7 @@ export const GroupedBackupDetails = ({
   }, [intl, publicBackupData]);
 
   return (
-    <Box mx={12}>
+    <Box mx={12} mb={4}>
       {title && (
         <Text typography="Heading" pb="4">
           {title}
@@ -340,6 +340,9 @@ const BackupActions = ({
 
 export function checkHasData(notOnDevice: PublicBackupData): boolean {
   if (notOnDevice?.simpleDb?.utxoAccounts?.utxos.length) {
+    return true;
+  }
+  if (notOnDevice?.simpleDb?.market?.favorites.length) {
     return true;
   }
   return (

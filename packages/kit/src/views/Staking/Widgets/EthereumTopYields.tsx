@@ -3,7 +3,7 @@ import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Button, Typography } from '@onekeyhq/components';
+import { Box, Pressable, Typography } from '@onekeyhq/components';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
@@ -16,7 +16,6 @@ import {
 import { useAllNetworksSelectNetworkAccount } from '../../../hooks/useAllNetwoks';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { formatAmount } from '../../../utils/priceUtils';
-import { Options } from '../components/EthereumUtilsComponent';
 import { EthStakingSource, StakingRoutes } from '../typing';
 import {
   StakingTypes,
@@ -98,17 +97,6 @@ const EthereumTopYieldsContent: FC<EthereumTopYieldsContentProps> = ({
   );
 
   const onPress = useCallback(() => {
-    if (!topApr) {
-      return;
-    }
-    if (topApr.name === 'Kele • Ethereum') {
-      onSelect(EthStakingSource.Kele);
-    } else {
-      onSelect(EthStakingSource.Lido);
-    }
-  }, [topApr, onSelect]);
-
-  const onViewAll = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Staking,
       params: {
@@ -127,34 +115,30 @@ const EthereumTopYieldsContent: FC<EthereumTopYieldsContentProps> = ({
   }
 
   return (
-    <Box>
+    <Pressable onPress={onPress}>
       <Box
+        w="full"
         flexDirection="row"
         justifyContent="space-between"
         alignItems="center"
-        h="16"
+        bg="surface-default"
+        py="3"
+        px="4"
+        borderRadius={12}
+        borderWidth="1"
+        borderColor="border-subdued"
       >
-        <Typography.Heading>
-          {intl.formatMessage({ id: 'form__top_yields' })}
-        </Typography.Heading>
-        <Button
-          type="plain"
-          size="sm"
-          pr="0"
-          rightIconName="ChevronRightMini"
-          onPress={onViewAll}
-        >
-          {intl.formatMessage({ id: 'action__view_all' })}
-        </Button>
+        <Typography.Body2Strong>
+          {intl.formatMessage({ id: 'title__stake_str' }, { '0': 'ETH' })}
+        </Typography.Body2Strong>
+        <Typography.Body2 color="text-subdued">
+          {intl.formatMessage(
+            { id: 'content__up_to_apy' },
+            { '0': topApr.value },
+          )}
+        </Typography.Body2>
       </Box>
-      <Options
-        title="ETH"
-        subtitle={topApr.name}
-        num={topApr.value}
-        logo={topApr.logo}
-        onPress={onPress}
-      />
-    </Box>
+    </Pressable>
   );
 };
 

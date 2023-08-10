@@ -395,6 +395,7 @@ const EmptyAccountState: FC<EmptyAccountStateProps> = ({
 type PickAccountProps = ComponentProps<typeof Modal> & {
   networkId?: string;
   accountId?: string;
+  excluded?: { networkId?: string; accountId?: string };
   onSelect?: (acc: Account) => void;
 };
 
@@ -402,6 +403,7 @@ const PickAccount: FC<PickAccountProps> = ({
   networkId,
   accountId,
   onSelect,
+  excluded,
   ...rest
 }) => {
   const intl = useIntl();
@@ -427,14 +429,23 @@ const PickAccount: FC<PickAccountProps> = ({
 
   useEffect(() => {
     async function main() {
-      const data = await backgroundApiProxy.engine.getAccounts(
+      let data = await backgroundApiProxy.engine.getAccounts(
         wallet?.accounts ?? [],
         networkId,
       );
+      if (accountId && networkId && excluded) {
+        if (excluded.accountId && excluded.networkId) {
+          const current = await backgroundApiProxy.engine.getAccount(
+            excluded.accountId,
+            excluded.networkId,
+          );
+          data = data.filter((acc) => acc.address !== current.address);
+        }
+      }
       setAccounts(data);
     }
     main();
-  }, [wallet, networkId, wallets]);
+  }, [wallet, networkId, accountId, wallets, excluded]);
 
   return (
     <Modal
