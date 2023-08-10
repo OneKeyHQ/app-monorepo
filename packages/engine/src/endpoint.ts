@@ -1,5 +1,5 @@
 const endpointsMap: Record<
-  'fiat' | 'wss' | 'covalent' | 'mempool' | 'getblock',
+  'fiat' | 'wss' | 'covalent' | 'mempool' | 'getblock' | 'algosigner',
   { prd: string; test: string }
 > = {
   fiat: {
@@ -22,6 +22,10 @@ const endpointsMap: Record<
   getblock: {
     prd: 'https://node.onekey.so/getblock-{chain}-{network}',
     test: 'https://node.onekeytest.com/getblock-{chain}-{network}',
+  },
+  algosigner: {
+    prd: 'https://node.onekey.so/algosigner/{network}/indexer',
+    test: 'https://node.onekeytest.com/algosigner/{network}/indexer',
   },
 };
 
@@ -57,4 +61,12 @@ export function getGetblockEndpoint({
   return endpointsMap.getblock[endpointType]
     .replace('{chain}', chain)
     .replace('{network}', network);
+}
+
+export function getAlgoSignerEndpoint({
+  network,
+}: {
+  network: 'mainnet' | 'testnet';
+}) {
+  return endpointsMap.algosigner[endpointType].replace('{network}', network);
 }

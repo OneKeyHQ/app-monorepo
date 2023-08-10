@@ -11,6 +11,7 @@ import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
+import { getAlgoSignerEndpoint } from '../../../endpoint';
 import {
   InvalidAddress,
   InvalidTokenAddress,
@@ -95,12 +96,11 @@ export default class Vault extends VaultBase {
     async () => {
       const { isTestnet = true } = await this.engine.getNetwork(this.networkId);
       const network = isTestnet ? 'testnet' : 'mainnet';
+
+      const indexer = getAlgoSignerEndpoint({ network });
+
       // client: superagent
-      return new sdk.Indexer(
-        '',
-        `https://algosigner.api.purestake.io/${network}/indexer`,
-        443,
-      );
+      return new sdk.Indexer('', indexer, 443);
     },
     {
       maxAge: getTimeDurationMs({ minute: 3 }),

@@ -465,11 +465,14 @@ function SendProgress({
       {inProgress ? (
         <Text typography="Body1Strong" color="text-subdued">
           {currentTxInterval
-            ? `Delay ${currentTxInterval}s...`
-            : 'Processing transaction...'}
+            ? intl.formatMessage(
+                { id: 'form__delay_str' },
+                { duration: `${currentTxInterval}s` },
+              )
+            : ''}
         </Text>
       ) : null}
-      {!isManyToN && wallet?.type === 'hw' && inProgress && (
+      {txCount > 1 && wallet?.type === 'hw' && inProgress && (
         <Text
           textAlign="center"
           mt="4px"

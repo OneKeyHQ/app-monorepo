@@ -2314,6 +2314,7 @@
   "msg__previous_account_is_empty": "الحساب السابق فارغ",
   "msg__price_alert_reached": "🔔 تنبيه السعر!",
   "msg__price_alert_reached_desc": "وصل {0} إلى القيمة المستهدفة {1}",
+  "msg__processing_transactions": "معالجة المعاملات ...",
   "msg__received": "🤑 تم استلام {assets}",
   "msg__received_a_nft": "🤑 حصل على NFT",
   "msg__received_desc": "من {address}",

@@ -355,6 +355,7 @@ export { default as ShoppingBag } from './ShoppingBag';
 export { default as ShoppingCart } from './ShoppingCart';
 export { default as SignalSlash } from './SignalSlash';
 export { default as Signal } from './Signal';
+export { default as SnowFlake } from './SnowFlake';
 export { default as Sparkles } from './Sparkles';
 export { default as SpeakerWave } from './SpeakerWave';
 export { default as SpeakerXMark } from './SpeakerXMark';
