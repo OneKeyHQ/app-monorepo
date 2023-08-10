@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { createSelector } from '@reduxjs/toolkit';
 
@@ -275,7 +275,6 @@ export const useActionForAllNetworks = ({
 
 export const useAllNetworksAccountSelectModalShow = () => {
   const { networkId, accountId, walletId } = useActiveWalletAccount();
-  const hasShown = useRef(false);
 
   const navigation = useNavigation();
 
@@ -284,11 +283,7 @@ export const useAllNetworksAccountSelectModalShow = () => {
   });
 
   useEffect(() => {
-    if (
-      !hasShown.current &&
-      isAllNetworks(networkId) &&
-      typeof data === 'undefined'
-    ) {
+    if (isAllNetworks(networkId) && data === null) {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.ManageNetwork,
         params: {
@@ -299,7 +294,6 @@ export const useAllNetworksAccountSelectModalShow = () => {
           },
         },
       });
-      hasShown.current = true;
     }
   }, [networkId, data, walletId, navigation, accountId]);
 
