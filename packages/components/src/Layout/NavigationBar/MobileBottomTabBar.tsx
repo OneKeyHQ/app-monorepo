@@ -12,13 +12,13 @@ import {
   useSafeAreaInsets,
   useUserDevice,
 } from '@onekeyhq/components';
-import { navigationShortcuts } from '@onekeyhq/kit/src/routes/navigationShortcuts';
+// import { navigationShortcuts } from '@onekeyhq/kit/src/routes/navigationShortcuts';
 import {
   bottomTabBarDescriptors,
   bottomTabBarRoutes,
   swapAndMarketRoutes,
 } from '@onekeyhq/kit/src/routes/Root/Main/Tab/routes/tabRoutes.base';
-import { TabRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import type { TabRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { PortalContainer } from '@onekeyhq/kit/src/views/Overlay/RootPortal';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -73,7 +73,7 @@ export default function MobileBottomTabBar({
     deviceSize: size,
   });
 
-  const isVertical = useIsVerticalLayout();
+  // const isVertical = useIsVerticalLayout();
 
   const tabs = useMemo(
     () =>
@@ -83,22 +83,23 @@ export default function MobileBottomTabBar({
 
         const onPress = () => {
           if (inlineMode) {
-            const isSwapOrMarketRoute = swapAndMarketRoutes.includes(
-              route.name as TabRoutes,
-            );
-            if (isVertical && isSwapOrMarketRoute) {
-              const { appSelector } =
-                require('@onekeyhq/kit/src/store') as typeof import('@onekeyhq/kit/src/store');
-              const marketTopTabName =
-                appSelector((s) => s.market.marketTopTabName) || TabRoutes.Swap;
-              navigation.navigate(marketTopTabName);
-              // navigationShortcuts.navigateToAppRootTab(
-              //   marketTopTabName as unknown as TabRoutes,
-              // );
-            } else {
-              navigation.navigate(route.name);
-              // navigationShortcuts.navigateToAppRootTab(route.name as TabRoutes);
-            }
+            // const isSwapOrMarketRoute = swapAndMarketRoutes.includes(
+            //   route.name as TabRoutes,
+            // );
+            // if (isVertical && isSwapOrMarketRoute) {
+            //   const { appSelector } =
+            //     require('@onekeyhq/kit/src/store') as typeof import('@onekeyhq/kit/src/store');
+            //   const marketTopTabName =
+            //     appSelector((s) => s.market.marketTopTabName) || TabRoutes.Swap;
+            //   navigation.navigate(marketTopTabName);
+            //   // navigationShortcuts.navigateToAppRootTab(
+            //   //   marketTopTabName as unknown as TabRoutes,
+            //   // );
+            // } else {
+            //   navigation.navigate(route.name);
+            //   // navigationShortcuts.navigateToAppRootTab(route.name as TabRoutes);
+            // }
+            navigation.navigate(route.name);
             return;
           }
 
@@ -174,7 +175,7 @@ export default function MobileBottomTabBar({
       inlineMode,
       intl,
       isHide,
-      isVertical,
+      // isVertical,
       navigation,
       routes,
       state.index,
