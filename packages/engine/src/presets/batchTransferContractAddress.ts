@@ -19,6 +19,8 @@ export const batchTransferContractAddress: {
 } = {
   // https://etherscan.io/address/0xe9e4dfabbde4d16b890dfc068d9f27a4a623d338
   [OnekeyNetwork.eth]: '0xe9e4dfabbde4d16b890dfc068d9f27a4a623d338',
+  // https://goerli.etherscan.io/address/0x8fc0ee8b841265141e7461e0662059aa45101365
+  [OnekeyNetwork.goerli]: '0x8fc0ee8b841265141e7461e0662059aa45101365',
   // https://polygonscan.com/address/0xbb4b1ce29767346cf5d51b4b7557774b1ebf7db0
   [OnekeyNetwork.polygon]: '0xbb4b1ce29767346cf5d51b4b7557774b1ebf7db0',
   // https://bscscan.com/address/0x4fa8257d636b4b017cf06c164e35e981c23925d5
