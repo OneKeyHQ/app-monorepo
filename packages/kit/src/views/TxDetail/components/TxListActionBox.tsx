@@ -1,6 +1,7 @@
 import type { ComponentProps } from 'react';
 
 import { Box, HStack, Text } from '@onekeyhq/components';
+import { NetworkDarkIcon } from '@onekeyhq/components/src/Network/DarkIcon';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
@@ -10,7 +11,6 @@ import { TxActionElementTitleNormal } from '../elements/TxActionElementTitle';
 import { fallbackTextComponent } from '../utils/utilsTxDetail';
 
 import type { ITxActionMetaIcon, ITxActionMetaTitle } from '../types';
-import { NetworkDarkIcon } from '@onekeyhq/components/src/Network/DarkIcon';
 
 export type ITxListActionBoxProps = {
   icon?: JSX.Element;
