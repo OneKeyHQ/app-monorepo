@@ -202,6 +202,20 @@ const ListItem: FC<ListItemProps> = ({
             <Box>
               <CheckBox
                 isChecked={isChecked}
+                onChange={(isSelected) => {
+                  if (isSelected) {
+                    setSelectedAccounts?.([
+                      ...(selectedAccounts || []),
+                      account.address,
+                    ]);
+                  } else {
+                    setSelectedAccounts?.(
+                      selectedAccounts?.filter(
+                        (item) => item !== account.address,
+                      ) ?? [],
+                    );
+                  }
+                }}
                 containerStyle={{ mr: 0 }}
                 checkBoxProps={{
                   size: 'sm',
