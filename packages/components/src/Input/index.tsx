@@ -41,7 +41,7 @@ interface Props extends ComponentProps<typeof BaseInput> {
   onPressSecondaryRightIcon?: () => void;
 }
 
-const numberPattern = /^(\d+)?(\.?(\d*))?$/;
+const numberPattern = /^(?:\d+)?(?:\.\d*)?$/;
 const Input = forwardRef<typeof BaseInput, Props>(
   (
     {
