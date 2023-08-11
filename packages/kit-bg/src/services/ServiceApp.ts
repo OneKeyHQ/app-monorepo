@@ -167,6 +167,7 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   exitApp() {
     if (platformEnv.isNative) {
+      if (!RNExitApp) return;
       return RNExitApp.exitApp();
     }
   }
