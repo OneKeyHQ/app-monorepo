@@ -218,8 +218,6 @@ function AddressLabel(props: Props) {
     }
   }, [address, isValidAddress, networkId, showValidAddressLabel]);
 
-  console.log(accountWallet);
-
   const addressLabels = useMemo(() => {
     const labels = [
       isAccountLabel && {
