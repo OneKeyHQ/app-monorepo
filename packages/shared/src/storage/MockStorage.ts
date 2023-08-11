@@ -4,6 +4,28 @@ import type { AsyncStorageStatic } from '@react-native-async-storage/async-stora
 // ExtensionUi redux-persist use MockStorage to do nothing
 // redux-persist actual storage logic is running at Ext background
 class MockStorage implements AsyncStorageStatic {
+  setSetting() {}
+
+  getSettingString() {
+    return '';
+  }
+
+  getSettingNumber() {
+    return 0;
+  }
+
+  getSettingBoolean() {
+    return false;
+  }
+
+  deleteSetting() {}
+
+  clearSetting() {}
+
+  getAllKeysOfSetting() {
+    return [];
+  }
+
   getItem(): Promise<string | null> {
     return Promise.resolve(null);
   }
