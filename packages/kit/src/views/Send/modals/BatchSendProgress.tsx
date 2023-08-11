@@ -80,6 +80,7 @@ function SendProgress({
 
   const intl = useIntl();
   const route = useRoute<RouteProps>();
+  const [currentProgress, setCurrentProgress] = useState(currentStep);
   const submitted = useRef(false);
   const enableGoBack = useRef(true);
   const progressInterval = useRef<ReturnType<typeof setInterval>>();
@@ -139,7 +140,7 @@ function SendProgress({
   });
 
   const txCount = encodedTxs.length;
-  const progress = new BigNumber(currentStep / txCount).toNumber();
+  const progress = new BigNumber(currentProgress / txCount).toNumber();
 
   const waitUntilInProgress: () => Promise<boolean> = useCallback(async () => {
     if (
@@ -238,8 +239,6 @@ function SendProgress({
         route.params,
         result,
       );
-      // eslint-disable-next-line @typescript-eslint/no-shadow
-      setCurrentStep(i + 1);
 
       if (signedTx?.txid && i < txsLength - 1 && network?.impl === IMPL_SOL) {
         let status =
@@ -262,6 +261,12 @@ function SendProgress({
           retryTime += 1;
         }
       }
+
+      if (i < txsLength - 1) {
+        setCurrentStep(i + 1);
+      }
+
+      setCurrentProgress(i + 1);
     }
     return result;
   }, [
@@ -460,7 +465,7 @@ function SendProgress({
                     <Text
                       typography="DisplayMedium"
                       textAlign="center"
-                    >{`${currentStep} / ${txCount}\n`}</Text>
+                    >{`${currentProgress} / ${txCount}\n`}</Text>
                   ),
                 },
               )}
