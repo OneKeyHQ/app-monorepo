@@ -24,7 +24,7 @@ export function encodeTrader({
   if (withAmount) {
     return trader.reduce(
       (acc, cur, index) =>
-        `${acc}${[cur.Address.toLowerCase(), cur.Amount].join(',')}${
+        `${acc}${[cur.Address, cur.Amount].join(',')}${
           index === count - 1 ? '' : '\n'
         }`,
       '',
@@ -63,12 +63,12 @@ export function decodeTrader<T>({
     if (withAmount) {
       const traderData = line.split(',');
       trader.push({
-        Address: trim(traderData[0]).toLowerCase(),
+        Address: trim(traderData[0]),
         Amount: trim(traderData[1]),
       } as T);
     } else {
       trader.push({
-        Address: trim(line).toLowerCase(),
+        Address: trim(line),
       } as T);
     }
   }
