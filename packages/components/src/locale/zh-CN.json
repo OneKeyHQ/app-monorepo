@@ -1882,6 +1882,7 @@
   "form__your_reply": "您的回复",
   "form__your_request": "您的工单",
   "form_burn_nft": "销毁 NFT",
+  "form_int_accounts_selected": "已选择 {0} 个账户",
   "form_mint_nft": "铸造 NFT",
   "form_opened": "打开",
   "form_receive_airdrop_nft": "接收 NFT 🪂",

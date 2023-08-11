@@ -1882,6 +1882,7 @@
   "form__your_reply": "Ваш ответ",
   "form__your_request": "Ваш запрос",
   "form_burn_nft": "Сжечь NFT",
+  "form_int_accounts_selected": "{0} Выбранные аккаунты",
   "form_mint_nft": "Монетный двор NFT",
   "form_opened": "Открыто",
   "form_receive_airdrop_nft": "Получить NFT 🪂",
