@@ -11,6 +11,7 @@ import {
   type GoPlusAddressSecurity,
   GoPlusSupportApis,
 } from '@onekeyhq/engine/src/types/goplus';
+import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
@@ -34,6 +35,7 @@ type Props = {
   isLoading?: boolean;
   accountLabel?: string;
   addressBookLabel?: string;
+  walletId?: string;
 } & ComponentProps<typeof HStack>;
 
 type Label = {
@@ -67,6 +69,7 @@ function AddressLabel(props: Props) {
     isWatchAccount,
     accountLabel: accountLabelFromOut,
     addressBookLabel: addressBookLabelFromOut,
+    walletId: WalletIdFromOut,
     isAddressBook,
     isContractAddress,
     shouldCheckSecurity,
@@ -86,6 +89,7 @@ function AddressLabel(props: Props) {
   const [accountLabel, setAccountLabel] = useState<string | undefined>(
     accountLabelFromOut,
   );
+  const [accountWallet, setAccountWallet] = useState<Wallet>();
   const [addressBookLabel, setAddressBookLabel] = useState<string | undefined>(
     addressBookLabelFromOut,
   );
@@ -108,6 +112,11 @@ function AddressLabel(props: Props) {
       if (!isNil(isWatchAccount)) {
         setIsWatchAccountLabel(isWatchAccount);
       }
+      if (WalletIdFromOut) {
+        backgroundApiProxy.engine
+          .getWallet(WalletIdFromOut)
+          .then((wallet) => setAccountWallet(wallet));
+      }
     } else {
       setIsLoadingAccountLabel(true);
       backgroundApiProxy.serviceAccount
@@ -119,6 +128,12 @@ function AddressLabel(props: Props) {
           setIsAccountLabel(!!resp.label);
           setAccountLabel(resp.label);
           setIsWatchAccountLabel(resp.accountId.startsWith('watching--'));
+
+          if (resp.walletId) {
+            backgroundApiProxy.engine
+              .getWallet(resp.walletId)
+              .then((wallet) => setAccountWallet(wallet));
+          }
         })
         .finally(() => setIsLoadingAccountLabel(false));
     }
@@ -149,6 +164,7 @@ function AddressLabel(props: Props) {
         .finally(() => setIsLoadingContractAddressLabel(false));
     }
   }, [
+    WalletIdFromOut,
     accountLabelFromOut,
     address,
     addressBookLabelFromOut,
@@ -202,14 +218,16 @@ function AddressLabel(props: Props) {
     }
   }, [address, isValidAddress, networkId, showValidAddressLabel]);
 
+  console.log(accountWallet);
+
   const addressLabels = useMemo(() => {
     const labels = [
       isAccountLabel && {
-        title: isWatchAccountLabel
-          ? 'form__watched_address'
-          : 'form__my_account',
+        title:
+          accountWallet?.name ??
+          (isWatchAccountLabel ? 'form__watched_address' : 'form__my_account'),
         type: 'success',
-        icon: '👤',
+        icon: accountWallet?.avatar?.emoji ?? '👤',
         desc: accountLabel,
       },
       isAddressBookLabel && {
@@ -227,6 +245,8 @@ function AddressLabel(props: Props) {
     return labels.filter(Boolean) as Label[];
   }, [
     accountLabel,
+    accountWallet?.avatar?.emoji,
+    accountWallet?.name,
     addressBookLabel,
     isAccountLabel,
     isAddressBookLabel,
