@@ -192,6 +192,8 @@ function SendProgress({
         setCurrentTxInterval('');
       }
 
+      await waitUntilInProgress();
+
       if (isAborted.current) {
         return signedTx ?? [];
       }
