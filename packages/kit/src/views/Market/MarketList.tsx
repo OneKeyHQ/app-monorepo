@@ -120,7 +120,6 @@ const MarketList: FC = () => {
     <>
       <FlatList
         flex={1}
-        mt={3}
         px={isVerticalLayout ? 2 : 3}
         refreshing={refreshing}
         onRefresh={onRefresh}
