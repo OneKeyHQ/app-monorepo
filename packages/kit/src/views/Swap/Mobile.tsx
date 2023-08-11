@@ -2,7 +2,12 @@ import { useCallback, useState } from 'react';
 
 import { RefreshControl } from 'react-native';
 
-import { Box, Center, ScrollView } from '@onekeyhq/components';
+import {
+  Box,
+  Center,
+  ScrollView,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import {
   AppUIEventBusNames,
   appUIEventBus,
@@ -15,7 +20,7 @@ import SwapUpdater from './SwapUpdater';
 
 export const Mobile = () => {
   const [refreshing, setRefreshing] = useState(false);
-
+  const { top } = useSafeAreaInsets();
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     appUIEventBus.emit(AppUIEventBusNames.SwapRefresh);
@@ -27,7 +32,7 @@ export const Mobile = () => {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      <Center>
+      <Center pt={`${top + 16}px`}>
         <Box maxW={{ md: '480px' }} width="full">
           <Box px="4" mb="4" zIndex={1}>
             <SwapHeader />

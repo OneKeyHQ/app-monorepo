@@ -83,7 +83,6 @@ function HandleRefresh({
 }) {
   const isFocused = useVisibilityFocused();
   const [delayedFocus, setDelayedFocus] = useState(isFocused);
-
   const shouldRefreshBalances = useMemo(() => {
     if (!isUnlock) {
       return false;
