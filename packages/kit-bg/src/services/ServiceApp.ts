@@ -50,6 +50,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import RNExitApp from '@onekeyhq/shared/src/modules3rdParty/react-native-exit-app';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -160,6 +161,13 @@ class ServiceApp extends ServiceBase {
     }
     if (platformEnv.isRuntimeBrowser) {
       return window?.location?.reload?.();
+    }
+  }
+
+  @backgroundMethod()
+  exitApp() {
+    if (platformEnv.isNative) {
+      return RNExitApp.exitApp();
     }
   }
 
