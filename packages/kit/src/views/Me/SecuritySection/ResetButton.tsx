@@ -91,7 +91,7 @@ const ReOpenAppDialog: FC = () => {
         },
         hideSecondaryAction: true,
         onPrimaryActionPress: () => {
-          backgroundApiProxy.serviceApp.restartApp();
+          backgroundApiProxy.serviceApp.exitApp();
         },
       }}
       contentProps={{
