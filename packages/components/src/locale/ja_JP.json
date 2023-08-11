@@ -1882,6 +1882,7 @@
   "form__your_reply": "ご返信",
   "form__your_request": "ご要望",
   "form_burn_nft": "NFTをバーンする",
+  "form_int_accounts_selected": "{0}アカウントが選択されました",
   "form_mint_nft": "NFTをミントする",
   "form_opened": "開いた",
   "form_receive_airdrop_nft": "NFTを受信する 🪂",

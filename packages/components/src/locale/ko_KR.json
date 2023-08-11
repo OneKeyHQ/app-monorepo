@@ -1882,6 +1882,7 @@
   "form__your_reply": "당신의 답장",
   "form__your_request": "당신의 요청",
   "form_burn_nft": "소각 NFT",
+  "form_int_accounts_selected": "{0} 선택된 계정",
   "form_mint_nft": "민트 NFT",
   "form_opened": "오픈",
   "form_receive_airdrop_nft": "NFT 받기 🪂",
