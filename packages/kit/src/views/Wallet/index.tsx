@@ -129,21 +129,9 @@ const WalletTabs: FC = () => {
   const usedTabs = useMemo(() => {
     const defaultTabs = [
       {
-        name: WalletHomeTabEnum.Tokens,
-        tab: tokensTab,
-      },
-      {
-        name: WalletHomeTabEnum.Collectibles,
-        tab: nftTab,
-      },
-      {
         name: WalletHomeTabEnum.History,
         tab: historyTab,
-      },
-      {
-        name: WalletHomeTabEnum.Tools,
-        tab: toolsTab,
-      },
+      }
     ];
     return defaultTabs.filter((t) => {
       if (t.name === WalletHomeTabEnum.Collectibles) {
