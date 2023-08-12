@@ -37,6 +37,7 @@
     "react-intl": "^5.21.2",
     "react-native-animated-splash-screen": "^2.0.5",
     "react-native-camera-kit": "14.0.0-beta2",
+    "react-native-size-matters": "^0.4.0",
     "react-native-uuid": "^2.0.1",
     "react-redux": "^8.0.5",
     "redux-logger": "^3.0.6",

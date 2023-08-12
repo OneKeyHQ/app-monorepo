@@ -8,8 +8,8 @@ export const tabRoutesOrders = [
   TabRoutes.Swap,
   TabRoutes.NFT,
   TabRoutes.Discover,
-  TabRoutes.Me,
   TabRoutes.Wallet,
+  TabRoutes.Me,
 ];
 if (process.env.NODE_ENV !== 'production') {
   tabRoutesOrders.push(TabRoutes.Developer);
