@@ -5613,7 +5613,6 @@ __metadata:
     react-intl: ^5.21.2
     react-native-animated-splash-screen: ^2.0.5
     react-native-camera-kit: 14.0.0-beta2
-    react-native-size-matters: ^0.4.0
     react-native-uuid: ^2.0.1
     react-redux: ^8.0.5
     redux-logger: ^3.0.6
@@ -28908,15 +28907,6 @@ __metadata:
   version: 8.2.2
   resolution: "react-native-share@npm:8.2.2"
   checksum: 0f69911fda2ca1856b439d8b4fcc2ac9c74bd92590fb6a7db60282181f0a9612f218985b3c69b0bbe73da5395a3aa197e91ac8de9a05c07c0b0da5a096a0e294
-  languageName: node
-  linkType: hard
-
-"react-native-size-matters@npm:^0.4.0":
-  version: 0.4.0
-  resolution: "react-native-size-matters@npm:0.4.0"
-  peerDependencies:
-    react-native: "*"
-  checksum: 8ad239c76410968cbf8b5a5ded49e8b08d10aa0c775fad0d074adda409efb571332ccdb24562cae8c8fc95b36af5755b280749b8bd093dc13eb8123a3645b03d
   languageName: node
   linkType: hard
 

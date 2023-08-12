@@ -2792,5 +2792,6 @@
   "wallet__hardware_wallet": "กระเป๋าเงินฮาร์ดแวร์",
   "wallet__imported_accounts": "บัญชีโซ่เดียว",
   "wallet__wallet": "กระเป๋าสตางค์",
-  "wallet__watched_accounts": "ดูบัญชี"
+  "wallet__watched_accounts": "ดูบัญชี",
+  "custom__wallet": "Apple Wallet"
 }

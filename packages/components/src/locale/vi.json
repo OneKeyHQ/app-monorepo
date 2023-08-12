@@ -2792,5 +2792,6 @@
   "wallet__hardware_wallet": "Ví phần cứng",
   "wallet__imported_accounts": "Tài khoản chuỗi đơn",
   "wallet__wallet": "Cái ví",
-  "wallet__watched_accounts": "Tài khoản đã theo dõi"
+  "wallet__watched_accounts": "Tài khoản đã theo dõi",
+  "custom__wallet": "Apple Wallet"
 }

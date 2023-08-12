@@ -2792,5 +2792,6 @@
   "wallet__hardware_wallet": "Carteira de Hardware",
   "wallet__imported_accounts": "Contas de cadeia única",
   "wallet__wallet": "Carteira",
-  "wallet__watched_accounts": "Contas monitoradas"
+  "wallet__watched_accounts": "Contas monitoradas",
+  "custom__wallet": "Apple Wallet"
 }

@@ -2792,5 +2792,6 @@
   "wallet__hardware_wallet": "Portefeuille matériel",
   "wallet__imported_accounts": "Comptes à chaîne unique",
   "wallet__wallet": "Portefeuille",
-  "wallet__watched_accounts": "Comptes surveillés"
+  "wallet__watched_accounts": "Comptes surveillés",
+  "custom__wallet": "Apple Wallet"
 }

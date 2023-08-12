@@ -2792,5 +2792,6 @@
   "wallet__hardware_wallet": "ハードウェアウォレット",
   "wallet__imported_accounts": "シングルチェーンアカウント",
   "wallet__wallet": "ウォレット",
-  "wallet__watched_accounts": "閲覧用アカウント"
+  "wallet__watched_accounts": "閲覧用アカウント",
+  "custom__wallet": "Apple Wallet"
 }

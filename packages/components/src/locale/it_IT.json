@@ -2792,5 +2792,6 @@
   "wallet__hardware_wallet": "Portafoglio hardware",
   "wallet__imported_accounts": "Conti a catena singola",
   "wallet__wallet": "Portafoglio",
-  "wallet__watched_accounts": "Conti guardati"
+  "wallet__watched_accounts": "Conti guardati",
+  "custom__wallet": "Apple Wallet"
 }

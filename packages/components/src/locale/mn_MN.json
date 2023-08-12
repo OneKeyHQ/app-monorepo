@@ -2792,5 +2792,6 @@
   "wallet__hardware_wallet": "Техник хангамжийн түрийвч",
   "wallet__imported_accounts": "Нэг хэлхээтэй дансууд",
   "wallet__wallet": "Түрийвч",
-  "wallet__watched_accounts": "Үзсэн бүртгэлүүд"
+  "wallet__watched_accounts": "Үзсэн бүртгэлүүд",
+  "custom__wallet": "Apple Wallet"
 }

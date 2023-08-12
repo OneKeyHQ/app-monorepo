@@ -2792,5 +2792,6 @@
   "wallet__hardware_wallet": "हार्डवेयर वॉलेट",
   "wallet__imported_accounts": "एकल-श्रृंखला खाते",
   "wallet__wallet": "बटुआ",
-  "wallet__watched_accounts": "देखे गए खाते"
+  "wallet__watched_accounts": "देखे गए खाते",
+  "custom__wallet": "Apple Wallet"
 }

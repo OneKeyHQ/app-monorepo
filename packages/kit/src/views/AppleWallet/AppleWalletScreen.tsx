@@ -7,7 +7,6 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { s } from 'react-native-size-matters/extend';
 
 import { ScrollView } from '@onekeyhq/components';
 
@@ -71,7 +70,7 @@ const AppleWalletScreen = () => {
         <Animated.ScrollView
           style={styles.container}
           contentContainerStyle={{
-            paddingTop: BACK_BUTTON_HEIGHT + insets.top + s(16),
+            paddingTop: BACK_BUTTON_HEIGHT + insets.top + 16,
             paddingBottom:
               CARD_HEIGHT_CLOSED +
               CARD_MARGIN * (CARDS.length - 1) +
@@ -98,7 +97,7 @@ const AppleWalletScreen = () => {
       <BackButton
         color="rgba(0,0,0,0.8)"
         style={styles.backButton}
-        iconSize={s(26)}
+        iconSize={26}
       />
     </ScrollView>
   );

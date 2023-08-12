@@ -2792,5 +2792,5 @@
   "wallet__hardware_wallet": "Апаратний гаманець",
   "wallet__imported_accounts": "Одноланцюгові облікові записи",
   "wallet__wallet": "гаманець",
-  "wallet__watched_accounts": "Переглянуті акаунти"
+  "wallet__watched_accounts": "Переглянуті акаунти",  "custom__wallet": "Apple Wallet"
 }

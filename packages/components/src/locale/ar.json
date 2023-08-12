@@ -2792,5 +2792,6 @@
   "wallet__hardware_wallet": "محفظة الأجهزة",
   "wallet__imported_accounts": "حسابات سلسلة واحدة",
   "wallet__wallet": "محفظة",
-  "wallet__watched_accounts": "حسابات مراقب"
+  "wallet__watched_accounts": "حسابات مراقب",
+  "custom__wallet": "Apple Wallet"
 }

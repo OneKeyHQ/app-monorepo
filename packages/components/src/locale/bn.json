@@ -2792,5 +2792,6 @@
   "wallet__hardware_wallet": "হার্ডওয়্যার ওয়ালেট",
   "wallet__imported_accounts": "একক-চেইন অ্যাকাউন্ট",
   "wallet__wallet": "ওয়ালেট",
-  "wallet__watched_accounts": "অ্যাকাউন্ট দেখা"
+  "wallet__watched_accounts": "অ্যাকাউন্ট দেখা",
+  "custom__wallet": "Apple Wallet"
 }

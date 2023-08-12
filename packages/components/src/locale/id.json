@@ -2792,5 +2792,6 @@
   "wallet__hardware_wallet": "Dompet Perangkat Keras",
   "wallet__imported_accounts": "Akun rantai tunggal",
   "wallet__wallet": "Dompet",
-  "wallet__watched_accounts": "Akun khusus tontonan"
+  "wallet__watched_accounts": "Akun khusus tontonan",
+  "custom__wallet": "Apple Wallet"
 }

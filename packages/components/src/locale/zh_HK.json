@@ -2792,5 +2792,6 @@
   "wallet__hardware_wallet": "硬件錢包",
   "wallet__imported_accounts": "單鏈賬戶",
   "wallet__wallet": "錢包",
-  "wallet__watched_accounts": "觀察賬戶"
+  "wallet__watched_accounts": "觀察賬戶",
+  "custom__wallet": "Apple Wallet"
 }

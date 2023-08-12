@@ -2792,5 +2792,6 @@
   "wallet__hardware_wallet": "Аппаратный кошелек",
   "wallet__imported_accounts": "Счета с одной цепью",
   "wallet__wallet": "Бумажник",
-  "wallet__watched_accounts": "Просмотренные аккаунты"
+  "wallet__watched_accounts": "Просмотренные аккаунты",
+  "custom__wallet": "Apple Wallet"
 }

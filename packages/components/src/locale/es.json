@@ -2792,5 +2792,6 @@
   "wallet__hardware_wallet": "Billetera física",
   "wallet__imported_accounts": "Cuentas de cadena única",
   "wallet__wallet": "Billetera",
-  "wallet__watched_accounts": "Cuentas vigiladas"
+  "wallet__watched_accounts": "Cuentas vigiladas",
+  "custom__wallet": "Apple Wallet"
 }

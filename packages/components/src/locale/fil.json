@@ -2792,5 +2792,6 @@
   "wallet__hardware_wallet": "Hardware Wallet",
   "wallet__imported_accounts": "Mga Single-chain na Account",
   "wallet__wallet": "wallet",
-  "wallet__watched_accounts": "Mga Napanood na Account"
+  "wallet__watched_accounts": "Mga Napanood na Account",
+  "custom__wallet": "Apple Wallet"
 }

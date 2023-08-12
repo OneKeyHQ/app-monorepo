@@ -20,7 +20,6 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { mvs, s } from 'react-native-size-matters/extend';
 
 import {
   BACK_BUTTON_HEIGHT,
@@ -45,12 +44,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   cardSubContainer: {
-    paddingHorizontal: s(16),
-    paddingBottom: s(16),
+    paddingHorizontal: 16,
+    paddingBottom: 16,
     height: CARD_HEIGHT_OPEN - CARD_HEADER_HEIGHT - CARD_IMAGE_HEIGTH,
   },
   title: {
-    fontSize: mvs(18),
+    fontSize: 18,
     fontWeight: 'bold',
     color: theme.colors.white,
   },
@@ -58,22 +57,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: s(16),
+    paddingHorizontal: 16,
     height: CARD_HEADER_HEIGHT,
   },
   headerSubcontainer: {
     alignItems: 'center',
   },
-  fieldSpacer: { marginTop: s(32) },
+  fieldSpacer: { marginTop: 32 },
   stContainer: { flexDirection: 'row', justifyContent: 'space-between' },
   fieldLabel: {
-    fontSize: mvs(11),
+    fontSize: 11,
     fontWeight: '600',
     color: theme.colors.white,
     textTransform: 'uppercase',
   },
   fieldValue: {
-    fontSize: mvs(21),
+    fontSize: 21,
     color: theme.colors.white,
   },
   image: {
@@ -82,11 +81,11 @@ const styles = StyleSheet.create({
   },
   qrContainer: {
     alignSelf: 'center',
-    padding: s(8),
+    padding: 8,
     backgroundColor: theme.colors.white,
-    borderRadius: s(6),
+    borderRadius: 6,
   },
-  qr: { width: s(140), height: s(140) },
+  qr: { width: 140, height: 140 },
   borderOverlay: {
     ...StyleSheet.absoluteFillObject,
     position: 'absolute',

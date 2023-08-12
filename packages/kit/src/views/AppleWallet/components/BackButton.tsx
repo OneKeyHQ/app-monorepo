@@ -1,6 +1,5 @@
 import { StyleSheet, TouchableOpacity, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { s } from 'react-native-size-matters/extend';
 
 import useNavigation from '../../../hooks/useNavigation';
 
@@ -15,9 +14,9 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     alignItems: 'center',
     justifyContent: 'center',
-    left: s(20),
-    width: s(48),
-    height: s(48),
+    left: 20,
+    width: 48,
+    height: 48,
   },
 });
 
@@ -31,7 +30,7 @@ export const BackButton = ({ style, color, iconSize }: BackButtonProps) => {
         styles.container,
         {
           position: 'absolute',
-          top: top === 0 ? s(20) : top,
+          top: top === 0 ? 20 : top,
         },
         style,
       ])}
