@@ -31,7 +31,7 @@ export const tabRoutesConfigBaseMap: Record<TabRoutes, TabRouteConfigBase> = {
     translationId: 'market__market',
     hideDesktopNavHeader: true,
     hideMobileNavHeader: true,
-    // hideOnMobile: true,
+    hideOnMobile: true,
   },
   [TabRoutes.Swap]: {
     name: TabRoutes.Swap,
