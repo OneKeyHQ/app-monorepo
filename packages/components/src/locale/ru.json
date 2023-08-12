@@ -2793,5 +2793,6 @@
   "wallet__imported_accounts": "Счета с одной цепью",
   "wallet__wallet": "Бумажник",
   "wallet__watched_accounts": "Просмотренные аккаунты",
-  "custom__wallet": "Apple Wallet"
+  "custom__wallet": "Apple Wallet",
+  "custom__history": "Latest Transactions"
 }

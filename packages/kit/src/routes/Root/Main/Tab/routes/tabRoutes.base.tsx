@@ -50,7 +50,6 @@ export const tabRoutesConfigBaseMap: Record<TabRoutes, TabRouteConfigBase> = {
     hideDesktopNavHeader: true,
     hideMobileNavHeader: true,
     hideOnMobile: true,
-    hideOnMobile: true,
   },
   [TabRoutes.Discover]: {
     name: TabRoutes.Discover,

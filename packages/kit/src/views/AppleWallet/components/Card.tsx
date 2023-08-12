@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-expressions */
-/* eslint-disable no-unused-expressions */
+import { useState } from 'react';
 
 import {
   Image,
@@ -21,37 +20,46 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { Box } from '@onekeyhq/components';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
+
+import { useActiveWalletAccount } from '../../../hooks';
 import {
   BACK_BUTTON_HEIGHT,
   CARD_HEADER_HEIGHT,
   CARD_HEIGHT_CLOSED,
   CARD_HEIGHT_OPEN,
-  CARD_IMAGE_HEIGTH,
   CARD_MARGIN,
   SPRING_CONFIG,
 } from '../assets/config';
 import { theme } from '../assets/theme';
 import { metrics } from '../constants/metrics';
 
+import { ButtonsSection } from './ButtonsSections';
+import { TxHistoryListView } from './TxHistoryListView';
+
 import type { CardProps } from '../assets/types';
 
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 const styles = StyleSheet.create({
   cardContainer: {
-    borderRadius: 12,
+    borderRadius: 20,
     position: 'absolute',
     width: '100%',
     overflow: 'hidden',
+    borderWidth: 1,
+    color: 'lightgrey',
   },
   cardSubContainer: {
     paddingHorizontal: 16,
-    paddingBottom: 16,
-    height: CARD_HEIGHT_OPEN - CARD_HEADER_HEIGHT - CARD_IMAGE_HEIGTH,
+    display: 'flex',
+    flexDirection: 'column',
+    height: CARD_HEIGHT_OPEN - CARD_HEADER_HEIGHT,
+    backgroundColor: '#FDC921',
   },
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: theme.colors.white,
+    color: '#13070C',
   },
   headerContainer: {
     flexDirection: 'row',
@@ -59,25 +67,31 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     height: CARD_HEADER_HEIGHT,
+    backgroundColor: '#FDC921',
   },
   headerSubcontainer: {
     alignItems: 'center',
   },
-  fieldSpacer: { marginTop: 32 },
+  fieldSpacer: { marginTop: 16 },
   stContainer: { flexDirection: 'row', justifyContent: 'space-between' },
   fieldLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: theme.colors.white,
+    color: '#13070C',
     textTransform: 'uppercase',
+    textAlign: 'right',
   },
   fieldValue: {
     fontSize: 21,
-    color: theme.colors.white,
+    color: '#13070C',
+    textAlign: 'right',
   },
   image: {
-    height: CARD_IMAGE_HEIGTH,
-    width: '100%',
+    height: 40,
+    width: 40,
+    borderRadius: 1000,
+    marginRight: 8,
+    borderWidth: 1,
   },
   qrContainer: {
     alignSelf: 'center',
@@ -86,15 +100,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   qr: { width: 140, height: 140 },
-  borderOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    position: 'absolute',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
 });
-/* eslint-enable @typescript-eslint/no-unsafe-call */
 
 export const Flex = ({ children, style, ...rest }: ViewProps) => (
   <View style={[{ flex: 1 }, style]} {...rest}>
@@ -110,12 +116,14 @@ const Card = ({
   swipeY,
   inTransition,
 }: CardProps) => {
+  const [isOpened, setIsOpened] = useState(false);
   const animatedHeight = useSharedValue(CARD_HEIGHT_CLOSED);
   const transY = useSharedValue(0);
   const scale = useSharedValue(1);
   const marginTop = index * CARD_MARGIN;
   const spread = 70 * index;
   const spreadOffset = Math.min(2.5 * index * index, spread);
+  const { accountId, networkId } = useActiveWalletAccount();
 
   const animatedStyle = useAnimatedStyle(() => ({
     height: animatedHeight.value,
@@ -164,8 +172,8 @@ const Card = ({
 
         if (isSelected) {
           animatedHeight.value = withTiming(CARD_HEIGHT_OPEN);
-        } else {
-          slideUp && (scale.value = withTiming(0.9));
+        } else if (slideUp) {
+          scale.value = withTiming(0.9);
         }
       } else {
         if (previousSelection === index) {
@@ -178,12 +186,21 @@ const Card = ({
               easing: Easing.out(Easing.quad),
             }),
           );
-          wasAbove && (scale.value = withTiming(1));
+          if (wasAbove) {
+            scale.value = withTiming(1);
+          }
         }
-
-        animatedHeight.value > CARD_HEIGHT_CLOSED &&
-          (animatedHeight.value = withTiming(CARD_HEIGHT_CLOSED));
+        if (animatedHeight.value > CARD_HEIGHT_CLOSED) {
+          animatedHeight.value = withTiming(CARD_HEIGHT_CLOSED);
+        }
       }
+    },
+  );
+
+  useAnimatedReaction(
+    () => selectedCard.value === index,
+    (showModal) => {
+      setIsOpened(showModal);
     },
   );
 
@@ -194,64 +211,85 @@ const Card = ({
   };
 
   return (
-    <TouchableWithoutFeedback onPress={handleCardPress} disabled={false}>
+    <TouchableWithoutFeedback
+      onPress={handleCardPress}
+      disabled={isOpened}
+      style={{
+        height: '100%',
+      }}
+    >
       <Animated.View
         style={[
           styles.cardContainer,
           {
             marginTop,
-            backgroundColor: item.bg,
+            shadowColor: 'black',
+            shadowOffset: {
+              width: 0,
+              height: 8,
+            },
+            shadowRadius: 4,
+            shadowOpacity: 0.1,
+            height: '100%',
           },
           animatedStyle,
         ]}
       >
-        <View style={styles.headerContainer}>
-          <Text style={styles.title}>{item.title}</Text>
-          <View style={styles.headerSubcontainer}>
-            <Text style={styles.fieldLabel}>{item.headerField.label}</Text>
-            <Text style={styles.fieldValue}>{item.headerField.value}</Text>
-          </View>
-        </View>
-        <Image resizeMode="cover" source={item.image} style={styles.image} />
-        <View style={styles.cardSubContainer}>
-          <Flex>
-            <View style={styles.fieldSpacer}>
-              <Text style={styles.fieldLabel}>{item.auxiliaryField.label}</Text>
-              <Text style={[styles.fieldValue, { textTransform: 'uppercase' }]}>
-                {item.auxiliaryField.value}
+        <View style={[styles.headerContainer]}>
+          <View
+            style={{
+              display: 'flex',
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              width: '100%',
+            }}
+          >
+            <View
+              style={{
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}
+            >
+              <Image
+                source={{
+                  uri: item.logoURI || '',
+                }}
+                style={styles.image}
+              />
+              <Text style={styles.title}>{item.name}</Text>
+            </View>
+            <View style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Text style={styles.fieldLabel}>Balance</Text>
+              <Text style={styles.fieldValue}>
+                {item.balance} {item.symbol}
               </Text>
             </View>
-
-            <View style={[styles.fieldSpacer, styles.stContainer]}>
-              <View>
-                <Text style={styles.fieldLabel}>
-                  {item.secondaryField.label}
-                </Text>
-                <Text style={styles.fieldValue}>
-                  {item.secondaryField.value}
-                </Text>
-              </View>
-
-              <View>
-                <Text style={styles.fieldLabel}>
-                  {item.tertiaryField.label}
-                </Text>
-                <Text style={[styles.fieldValue, { textAlign: 'right' }]}>
-                  {item.tertiaryField.value}
-                </Text>
-              </View>
-            </View>
-          </Flex>
-
-          <View style={styles.qrContainer}>
-            <Image
-              source={require('../assets/images/qr-code.png')}
-              style={styles.qr}
-            />
           </View>
         </View>
 
-        <View style={styles.borderOverlay} />
+        <View style={styles.cardSubContainer}>
+          {isOpened && (
+            <>
+              <View
+                style={[
+                  styles.fieldSpacer,
+                  styles.stContainer,
+                  { width: '100%' },
+                ]}
+              >
+                <ButtonsSection {...item} />
+              </View>
+              <TxHistoryListView
+                accountId={accountId}
+                networkId={networkId}
+                tokenId={
+                  isAllNetworks(networkId) ? item.coingeckoId : item.address
+                }
+              />
+            </>
+          )}
+        </View>
       </Animated.View>
     </TouchableWithoutFeedback>
   );

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { TouchableWithoutFeedback } from 'react-native';
+import { TouchableWithoutFeedback, View } from 'react-native';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
 import {
@@ -93,7 +93,10 @@ export const ButtonItem = ({
 
     if (typeof onPress === 'function') {
       ele = (
-        <Pressable flex={isVertical ? 1 : undefined} onPress={onPress}>
+        <Pressable
+          style={{ flex: isVertical ? 1 : undefined }}
+          onTouchStart={onPress}
+        >
           {ele}
         </Pressable>
       );

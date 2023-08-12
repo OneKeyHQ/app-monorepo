@@ -1,6 +1,8 @@
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { withDelay, withSpring, withTiming } from 'react-native-reanimated';
+
 import { CLOSE_THRESHOLD, SPRING_CONFIG } from '../assets/config';
+
 import type { SwipeGestureProps } from '../assets/types';
 
 const SwipeGesture = ({

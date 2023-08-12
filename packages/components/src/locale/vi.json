@@ -2793,5 +2793,6 @@
   "wallet__imported_accounts": "Tài khoản chuỗi đơn",
   "wallet__wallet": "Cái ví",
   "wallet__watched_accounts": "Tài khoản đã theo dõi",
-  "custom__wallet": "Apple Wallet"
+  "custom__wallet": "Apple Wallet",
+  "custom__history": "Latest Transactions"
 }

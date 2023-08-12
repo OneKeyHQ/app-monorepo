@@ -1,3 +1,4 @@
+import type { IAccountToken } from '../../Overview/types';
 import type { SharedValue } from 'react-native-reanimated';
 
 type Field = {
@@ -5,18 +6,8 @@ type Field = {
   value: string;
 };
 
-export type CardContentProps = {
-  title: string;
-  headerField: Field;
-  auxiliaryField: Field;
-  secondaryField: Field;
-  tertiaryField: Field;
-  image: any;
-  bg: string;
-};
-
 export type CardProps = {
-  item: CardContentProps;
+  item: IAccountToken;
   index: number;
   selectedCard: SharedValue<number>;
   scrollY: SharedValue<number>;

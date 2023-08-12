@@ -2793,5 +2793,6 @@
   "wallet__imported_accounts": "एकल-श्रृंखला खाते",
   "wallet__wallet": "बटुआ",
   "wallet__watched_accounts": "देखे गए खाते",
-  "custom__wallet": "Apple Wallet"
+  "custom__wallet": "Apple Wallet",
+  "custom__history": "Latest Transactions"
 }

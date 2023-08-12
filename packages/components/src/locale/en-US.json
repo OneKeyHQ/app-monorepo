@@ -2793,5 +2793,6 @@
   "wallet__imported_accounts": "Single-chain Accounts",
   "wallet__wallet": "Pay",
   "wallet__watched_accounts": "Watch-only Accounts",
-  "custom__wallet": "Invest"
+  "custom__wallet": "Invest",
+  "custom__history": "Latest Transactions"
 }

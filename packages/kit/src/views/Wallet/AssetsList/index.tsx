@@ -47,7 +47,7 @@ import TokenCell from './TokenCell';
 import type { IAccountToken } from '../../Overview/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-type NavigationProps = NativeStackNavigationProp<
+export type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
   RootRoutes.Main
 > &

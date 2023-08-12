@@ -2793,5 +2793,6 @@
   "wallet__imported_accounts": "Contas de cadeia única",
   "wallet__wallet": "Carteira",
   "wallet__watched_accounts": "Contas monitoradas",
-  "custom__wallet": "Apple Wallet"
+  "custom__wallet": "Apple Wallet",
+  "custom__history": "Latest Transactions"
 }

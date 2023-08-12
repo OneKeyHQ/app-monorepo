@@ -2793,5 +2793,6 @@
   "wallet__imported_accounts": "Akun rantai tunggal",
   "wallet__wallet": "Dompet",
   "wallet__watched_accounts": "Akun khusus tontonan",
-  "custom__wallet": "Apple Wallet"
+  "custom__wallet": "Apple Wallet",
+  "custom__history": "Latest Transactions"
 }

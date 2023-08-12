@@ -80,7 +80,7 @@ const NavHeader: FC<HeaderProps & Partial<NativeStackHeaderProps>> = ({
         pointerEvents="box-none"
         style={[
           StyleSheet.absoluteFill,
-          { zIndex: 0, backgroundColor: bgColor },
+          { zIndex: 0, backgroundColor: '#ffefee' },
         ]}
       />
       <View

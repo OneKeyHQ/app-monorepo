@@ -2793,5 +2793,6 @@
   "wallet__imported_accounts": "단일 체인 계정",
   "wallet__wallet": "지갑",
   "wallet__watched_accounts": "시청 계정",
-  "custom__wallet": "Apple Wallet"
+  "custom__wallet": "Apple Wallet",
+  "custom__history": "Latest Transactions"
 }

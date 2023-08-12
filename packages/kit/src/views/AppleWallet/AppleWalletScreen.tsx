@@ -1,4 +1,4 @@
-import { StatusBar, StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -10,14 +10,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ScrollView } from '@onekeyhq/components';
 
+import { useAccountTokens, useActiveWalletAccount } from '../../hooks';
+
 import {
   BACK_BUTTON_HEIGHT,
-  CARDS,
   CARD_HEIGHT_CLOSED,
   CARD_MARGIN,
 } from './assets/config';
-import { theme } from './assets/theme';
-import { BackButton } from './components/BackButton';
 import Card from './components/Card';
 import SwipeGesture from './components/SwipeGesture';
 import { metrics } from './constants/metrics';
@@ -25,14 +24,8 @@ import { metrics } from './constants/metrics';
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
     paddingHorizontal: 16,
-  },
-  backButton: {
-    height: BACK_BUTTON_HEIGHT,
-    width: BACK_BUTTON_HEIGHT,
-    backgroundColor: 'rgba(255,255,255,0.5)',
-    borderRadius: 17,
+    height: '100%',
   },
 });
 
@@ -46,6 +39,13 @@ const AppleWalletScreen = () => {
     (e) => (scrollY.value = e.contentOffset.y),
   );
   const inTransition = useSharedValue(0);
+  const { accountId, networkId, walletId } = useActiveWalletAccount();
+  const { data: accountTokens, loading } = useAccountTokens({
+    networkId,
+    accountId,
+    useFilter: true,
+    limitSize: 5,
+  });
 
   const scrollContainerStyle = useAnimatedStyle(() => {
     if (metrics.isIOS) return {};
@@ -64,8 +64,7 @@ const AppleWalletScreen = () => {
   });
 
   return (
-    <ScrollView>
-      <StatusBar barStyle="light-content" />
+    <ScrollView style={{ height: '100%' }}>
       <SwipeGesture {...{ selectedCard, swipeY, inTransition }}>
         <Animated.ScrollView
           style={styles.container}
@@ -73,7 +72,7 @@ const AppleWalletScreen = () => {
             paddingTop: BACK_BUTTON_HEIGHT + insets.top + 16,
             paddingBottom:
               CARD_HEIGHT_CLOSED +
-              CARD_MARGIN * (CARDS.length - 1) +
+              CARD_MARGIN * (accountTokens.length - 1) +
               insets.bottom,
           }}
           showsVerticalScrollIndicator={false}
@@ -82,11 +81,18 @@ const AppleWalletScreen = () => {
           scrollEnabled={selectedCard.value === -1}
           decelerationRate="fast"
         >
-          <Animated.View style={metrics.isIOS && scrollContainerStyle}>
-            {CARDS.map((e, i) => (
+          <Animated.View
+            style={[
+              metrics.isIOS && scrollContainerStyle,
+              {
+                height: '100%',
+              },
+            ]}
+          >
+            {accountTokens.map((accountToken, i) => (
               <Card
                 key={i}
-                item={e}
+                item={accountToken}
                 index={i}
                 {...{ selectedCard, scrollY, swipeY, inTransition }}
               />
@@ -94,11 +100,6 @@ const AppleWalletScreen = () => {
           </Animated.View>
         </Animated.ScrollView>
       </SwipeGesture>
-      <BackButton
-        color="rgba(0,0,0,0.8)"
-        style={styles.backButton}
-        iconSize={26}
-      />
     </ScrollView>
   );
 };

@@ -2793,5 +2793,6 @@
   "wallet__imported_accounts": "บัญชีโซ่เดียว",
   "wallet__wallet": "กระเป๋าสตางค์",
   "wallet__watched_accounts": "ดูบัญชี",
-  "custom__wallet": "Apple Wallet"
+  "custom__wallet": "Apple Wallet",
+  "custom__history": "Latest Transactions"
 }

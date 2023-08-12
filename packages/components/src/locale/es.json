@@ -2793,5 +2793,6 @@
   "wallet__imported_accounts": "Cuentas de cadena única",
   "wallet__wallet": "Billetera",
   "wallet__watched_accounts": "Cuentas vigiladas",
-  "custom__wallet": "Apple Wallet"
+  "custom__wallet": "Apple Wallet",
+  "custom__history": "Latest Transactions"
 }
