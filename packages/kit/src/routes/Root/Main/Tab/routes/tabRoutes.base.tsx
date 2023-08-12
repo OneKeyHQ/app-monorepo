@@ -9,6 +9,7 @@ export const tabRoutesOrders = [
   TabRoutes.NFT,
   TabRoutes.Discover,
   TabRoutes.Me,
+  TabRoutes.Wallet,
 ];
 if (process.env.NODE_ENV !== 'production') {
   tabRoutesOrders.push(TabRoutes.Developer);
@@ -61,6 +62,12 @@ export const tabRoutesConfigBaseMap: Record<TabRoutes, TabRouteConfigBase> = {
     tabBarIcon: (focused) => (focused ? 'Bars4Solid' : 'Bars4Outline'),
     translationId: 'title__menu',
     navHeaderType: 'AccountSelector',
+  },
+  [TabRoutes.Wallet]: {
+    name: TabRoutes.Wallet,
+    tabBarIcon: (focused) =>
+      focused ? 'CreditCardSolid' : 'CreditCardOutline',
+    translationId: 'custom__wallet',
   },
   [TabRoutes.Developer]: {
     name: TabRoutes.Developer,

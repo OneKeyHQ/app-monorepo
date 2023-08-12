@@ -2792,5 +2792,6 @@
   "wallet__hardware_wallet": "Hardware Wallet",
   "wallet__imported_accounts": "Single-chain Accounts",
   "wallet__wallet": "Wallet",
-  "wallet__watched_accounts": "Watch-only Accounts"
+  "wallet__watched_accounts": "Watch-only Accounts",
+  "custom__wallet": "Apple Wallet"
 }

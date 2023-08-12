@@ -37,6 +37,7 @@ export enum TabRoutes {
   NFT = 'NFT',
   Discover = 'discover',
   Me = 'me',
+  Wallet = 'wallet',
   Developer = 'developer',
 }
 
