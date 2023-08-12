@@ -1,7 +1,7 @@
 import { metrics } from '../constants/metrics';
 
 export const CARD_HEIGHT_CLOSED = 224;
-export const CARD_HEIGHT_OPEN = 300;
+export const CARD_HEIGHT_OPEN = 260;
 export const CARD_HEADER_HEIGHT = 60;
 export const CARD_MARGIN = 80;
 export const BACK_BUTTON_HEIGHT = 40;

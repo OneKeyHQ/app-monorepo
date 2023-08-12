@@ -1,9 +1,10 @@
 import { useIntl } from 'react-intl';
 
 import { Box } from '@onekeyhq/components';
-import Empty from './Empty';
 
 import { useTxHistoryContext } from '../../TxHistory/TxHistoryContext';
+
+import Empty from './Empty';
 
 export function TxHistoryListViewEmpty({
   isLoading,
@@ -14,10 +15,14 @@ export function TxHistoryListViewEmpty({
 }) {
   const intl = useIntl();
   const txDetailContext = useTxHistoryContext();
+
+  const title = isLoading
+    ? 'Loading...'
+    : intl.formatMessage({ id: 'transaction__history_empty_title' });
   return (
     <Box py={4} flexDirection="column" alignItems="center">
       <Empty
-        title={intl.formatMessage({ id: 'transaction__history_empty_title' })}
+        title={title}
         actionTitle={intl.formatMessage({ id: 'action__refresh' })}
         isLoading={Boolean(txDetailContext?.context.isLoading || isLoading)}
       />

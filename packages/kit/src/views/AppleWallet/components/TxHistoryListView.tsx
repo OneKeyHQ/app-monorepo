@@ -211,7 +211,9 @@ function TxHistoryListSectionList(props: {
     stickySectionHeadersEnabled: false,
   };
 
-  return <SectionListComponent {...sectionListProps} />;
+  return (
+    <SectionListComponent {...sectionListProps} style={{ height: '100%' }} />
+  );
 }
 const TxHistoryListSectionsMemo = memo(TxHistoryListSectionList);
 

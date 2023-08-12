@@ -23,6 +23,10 @@ import Animated, {
 import { Box } from '@onekeyhq/components';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 
+import {
+  FormatBalance,
+  FormatCurrencyNumber,
+} from '../../../components/Format';
 import { useActiveWalletAccount } from '../../../hooks';
 import {
   BACK_BUTTON_HEIGHT,
@@ -43,7 +47,6 @@ import type { CardProps } from '../assets/types';
 const styles = StyleSheet.create({
   cardContainer: {
     borderRadius: 20,
-    position: 'absolute',
     width: '100%',
     overflow: 'hidden',
     borderWidth: 1,
@@ -53,6 +56,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     display: 'flex',
     flexDirection: 'column',
+    paddingTop: 12,
     height: CARD_HEIGHT_OPEN - CARD_HEADER_HEIGHT,
     backgroundColor: '#FDC921',
   },
@@ -177,6 +181,7 @@ const Card = ({
         }
       } else {
         if (previousSelection === index) {
+          console.log({ previousSelection, currentSelection });
           transY.value = withSpring(0, SPRING_CONFIG.CLOSE);
         } else {
           const wasAbove = (previousSelection ?? 0) > index;
@@ -218,79 +223,114 @@ const Card = ({
         height: '100%',
       }}
     >
-      <Animated.View
-        style={[
-          styles.cardContainer,
-          {
-            marginTop,
-            shadowColor: 'black',
-            shadowOffset: {
-              width: 0,
-              height: 8,
+      <View>
+        <Animated.View
+          style={[
+            styles.cardContainer,
+            {
+              marginTop,
+              shadowColor: 'black',
+              shadowOffset: {
+                width: 0,
+                height: 8,
+              },
+              shadowRadius: 4,
+              shadowOpacity: 0.1,
+              height: '100%',
+              marginBottom: -marginTop,
             },
-            shadowRadius: 4,
-            shadowOpacity: 0.1,
-            height: '100%',
-          },
-          animatedStyle,
-        ]}
-      >
-        <View style={[styles.headerContainer]}>
-          <View
-            style={{
-              display: 'flex',
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              width: '100%',
-            }}
-          >
+            {
+              position:
+                isOpened && !inTransition.value ? 'relative' : 'absolute',
+            },
+            animatedStyle,
+          ]}
+        >
+          <View style={[styles.headerContainer]}>
             <View
               style={{
                 display: 'flex',
                 flexDirection: 'row',
-                alignItems: 'center',
+                justifyContent: 'space-between',
+                width: '100%',
+                height: '100%',
               }}
             >
-              <Image
-                source={{
-                  uri: item.logoURI || '',
+              <View
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'center',
                 }}
-                style={styles.image}
-              />
-              <Text style={styles.title}>{item.name}</Text>
+              >
+                <Image
+                  source={{
+                    uri: item.logoURI || '',
+                  }}
+                  style={styles.image}
+                />
+                <Text style={styles.title}>{item.name}</Text>
+              </View>
+              <View
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                }}
+              >
+                <FormatBalance
+                  balance={item.balance}
+                  suffix={item.symbol}
+                  formatOptions={{
+                    fixed: 4,
+                  }}
+                  render={(ele) => <Text style={styles.fieldValue}>{ele}</Text>}
+                />
+                <Text style={styles.fieldLabel}>
+                  <FormatCurrencyNumber
+                    decimals={2}
+                    value={0}
+                    convertValue={+item.usdValue}
+                  />
+                </Text>
+              </View>
             </View>
-            <View style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Text style={styles.fieldLabel}>Balance</Text>
-              <Text style={styles.fieldValue}>
-                {item.balance} {item.symbol}
+          </View>
+          <View
+            style={[
+              styles.cardSubContainer,
+              {
+                display: 'flex',
+                justifyContent: 'flex-end',
+                paddingBottom: isOpened ? 24 : 52,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.fieldSpacer,
+                styles.stContainer,
+                { width: '100%' },
+              ]}
+            >
+              <Text style={{ fontSize: 24, fontFamily: 'monospace' }}>
+                4242 4242 4242 4242
               </Text>
             </View>
           </View>
-        </View>
-
-        <View style={styles.cardSubContainer}>
-          {isOpened && (
-            <>
-              <View
-                style={[
-                  styles.fieldSpacer,
-                  styles.stContainer,
-                  { width: '100%' },
-                ]}
-              >
-                <ButtonsSection {...item} />
-              </View>
-              <TxHistoryListView
-                accountId={accountId}
-                networkId={networkId}
-                tokenId={
-                  isAllNetworks(networkId) ? item.coingeckoId : item.address
-                }
-              />
-            </>
-          )}
-        </View>
-      </Animated.View>
+        </Animated.View>
+        {isOpened && (
+          <>
+            <ButtonsSection {...item} />
+            <TxHistoryListView
+              accountId={accountId}
+              networkId={networkId}
+              tokenId={
+                isAllNetworks(networkId) ? item.coingeckoId : item.address
+              }
+            />
+          </>
+        )}
+      </View>
     </TouchableWithoutFeedback>
   );
 };
