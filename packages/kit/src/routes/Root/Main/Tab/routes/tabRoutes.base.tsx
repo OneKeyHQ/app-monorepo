@@ -41,6 +41,7 @@ export const tabRoutesConfigBaseMap: Record<TabRoutes, TabRouteConfigBase> = {
     translationId: 'form__trade',
     hideDesktopNavHeader: true,
     hideMobileNavHeader: true,
+    hideOnMobile: true,
   },
   [TabRoutes.NFT]: {
     name: TabRoutes.NFT,
@@ -49,6 +50,7 @@ export const tabRoutesConfigBaseMap: Record<TabRoutes, TabRouteConfigBase> = {
     hideDesktopNavHeader: true,
     hideMobileNavHeader: true,
     hideOnMobile: true,
+    hideOnMobile: true,
   },
   [TabRoutes.Discover]: {
     name: TabRoutes.Discover,
@@ -56,12 +58,14 @@ export const tabRoutesConfigBaseMap: Record<TabRoutes, TabRouteConfigBase> = {
     translationId: 'title__explore',
     hideDesktopNavHeader: true,
     hideMobileNavHeader: true,
+    hideOnMobile: true,
   },
   [TabRoutes.Me]: {
     name: TabRoutes.Me,
     tabBarIcon: (focused) => (focused ? 'Bars4Solid' : 'Bars4Outline'),
     translationId: 'title__menu',
     navHeaderType: 'AccountSelector',
+    hideOnMobile: true,
   },
   [TabRoutes.Wallet]: {
     name: TabRoutes.Wallet,
@@ -74,6 +78,7 @@ export const tabRoutesConfigBaseMap: Record<TabRoutes, TabRouteConfigBase> = {
     tabBarIcon: (focused) => (focused ? 'ChipOutline' : 'ChipOutline'),
     translationId: 'form__dev_mode',
     hideOnProduction: true,
+    hideOnMobile: true,
   },
 };
 

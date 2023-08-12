@@ -2791,7 +2791,7 @@
   "wallet__app_wallet": "APP Wallet",
   "wallet__hardware_wallet": "Hardware Wallet",
   "wallet__imported_accounts": "Single-chain Accounts",
-  "wallet__wallet": "Wallet",
+  "wallet__wallet": "Pay",
   "wallet__watched_accounts": "Watch-only Accounts",
-  "custom__wallet": "Apple Wallet"
+  "custom__wallet": "Invest"
 }
