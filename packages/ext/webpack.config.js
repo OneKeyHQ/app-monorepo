@@ -126,6 +126,18 @@ function createConfig({ config }) {
   webpackConfig.experiments = config.experiments || {};
   webpackConfig.experiments.asyncWebAssembly = true;
 
+  devUtils.cleanWebpackDebugFields(webpackConfig);
+
+  webpackConfig.target = 'web';
+  webpackConfig = webpackTools.normalizeConfig({
+    platform: webpackTools.developmentConsts.platforms.ext,
+    isManifestV3,
+    config: webpackConfig,
+    configName: config.name,
+    enableAnalyzerHtmlReport: true,
+    buildTargetBrowser,
+  });
+
   if (IS_DEV) {
     // FIX: Uncaught EvalError: Refused to evaluate a string as JavaScript because 'unsafe-eval' is not an allowed source of script in the following Content Security Policy directive: "script-src 'self'".
     webpackConfig.devtool = 'source-map';
@@ -141,12 +153,7 @@ function createConfig({ config }) {
     if (sourcemapBuilder.isSourcemapEnabled) {
       webpackConfig.plugins.push(sourcemapBuilder.createSourcemapBuildPlugin());
     }
-
-    webpackConfig.experiments.lazyCompilation = {
-      imports: true,
-      entries: true,
-      test: /engine/,
-    };
+    webpackConfig.experiments.lazyCompilation = false;
   } else {
     webpackConfig.performance = {
       ...config.performance,
@@ -158,18 +165,6 @@ function createConfig({ config }) {
       ...minimizeOptions.buildMinimizeOptions(),
     };
   }
-
-  devUtils.cleanWebpackDebugFields(webpackConfig);
-
-  webpackConfig.target = 'web';
-  webpackConfig = webpackTools.normalizeConfig({
-    platform: webpackTools.developmentConsts.platforms.ext,
-    isManifestV3,
-    config: webpackConfig,
-    configName: config.name,
-    enableAnalyzerHtmlReport: true,
-    buildTargetBrowser,
-  });
   return webpackConfig;
 }
 

@@ -56,6 +56,7 @@ function disableCodeSplitChunks({ config }) {
   const { name } = config;
   config.optimization = config.optimization || {};
   delete config.optimization.splitChunks;
+  config.output.asyncChunks = false;
 }
 
 function disabledDynamicImportChunks(config) {
