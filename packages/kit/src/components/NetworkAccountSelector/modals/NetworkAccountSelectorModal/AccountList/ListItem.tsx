@@ -202,12 +202,18 @@ const ListItem: FC<ListItemProps> = ({
             <Box>
               <CheckBox
                 isChecked={isChecked}
+                isDisabled
                 containerStyle={{ mr: 0 }}
                 checkBoxProps={{
                   size: 'sm',
-                  ...(platformEnv.isNative
-                    ? undefined
-                    : { accessibilityLabel: account.address }),
+                  opacity: 1,
+                  _icon: {
+                    color: 'icon-on-primary',
+                  },
+                  _disabled: {
+                    opacity: 1,
+                  },
+                  accessibilityLabel: account.address,
                 }}
               />
             </Box>

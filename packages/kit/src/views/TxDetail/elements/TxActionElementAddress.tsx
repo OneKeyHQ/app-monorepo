@@ -7,7 +7,7 @@ import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engin
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AddressLabel } from '../../../components/AddressLabel';
-import { useNavigation, useNetwork } from '../../../hooks';
+import { useNavigation, useNetwork, useWallet } from '../../../hooks';
 import { useClipboard } from '../../../hooks/useClipboard';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 import { navigationShortcuts } from '../../../routes/navigationShortcuts';
@@ -39,6 +39,7 @@ export function useAddressLabel({
   networkId?: string;
 }) {
   const [label, setLabel] = useState('');
+  const [walletId, setWalletId] = useState('');
   const [isWatchAccount, setIsWatchAccount] = useState(false);
   useEffect(() => {
     (async () => {
@@ -48,12 +49,14 @@ export function useAddressLabel({
       });
       if (result && result.label) {
         setLabel(result.label);
+        setWalletId(result.walletId);
         setIsWatchAccount(result.accountId.startsWith('watching--'));
       }
     })();
   }, [address, networkId]);
   return {
     label,
+    walletId,
     isWatchAccount,
   };
 }
@@ -190,7 +193,11 @@ export function TxActionElementAddress(
     shouldCheckSecurity ? address : '',
   );
 
-  const { label, isWatchAccount } = useAddressLabel({ address, networkId });
+  const {
+    label,
+    isWatchAccount,
+    walletId: accountWalletId,
+  } = useAddressLabel({ address, networkId });
   const contact = useAddressBookItem({ address });
   const showAddress = !isLightningNetworkByNetworkId(networkId ?? '');
   const text = isShorten ? shortenAddress(address) : address;
@@ -218,6 +225,7 @@ export function TxActionElementAddress(
             shouldCheckSecurity={shouldCheckSecurity}
             isAccount={!!label}
             accountLabel={label}
+            walletId={accountWalletId}
             isWatchAccount={isWatchAccount}
             isAddressBook={!!contact}
             addressBookLabel={contact?.name}

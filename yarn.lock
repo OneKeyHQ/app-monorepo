@@ -6425,6 +6425,7 @@ __metadata:
     react-native-confirmation-code-field: ^7.3.1
     react-native-crypto: ^2.2.0
     react-native-document-picker: ^9.0.1
+    react-native-exit-app: ^2.0.0
     react-native-fast-image: ^8.6.3
     react-native-file-logger: ^0.4.1
     react-native-flipper: 0.162.0
@@ -29155,6 +29156,13 @@ __metadata:
     react-native-gesture-handler: ">=2.0.0"
     react-native-reanimated: ">=2.8.0"
   checksum: f904e3f30737a883b683e12e119856188e81d7b6cd8811e38124353630391326385bec040a3c200a06535bcd4bbbe973e504c2e0546f7aa4cc96aa573787813d
+  languageName: node
+  linkType: hard
+
+"react-native-exit-app@npm:^2.0.0":
+  version: 2.0.0
+  resolution: "react-native-exit-app@npm:2.0.0"
+  checksum: d455ddd3a688625ec0521c0260a709e9e1dedaa7ef5bdebc76b87017056950f79366e2b4686f864c8127555a5359b6bfc5b2636477f99f86ad1920ea1d87360e
   languageName: node
   linkType: hard
 

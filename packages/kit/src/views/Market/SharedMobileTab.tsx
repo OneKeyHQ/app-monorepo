@@ -32,8 +32,9 @@ const SharedMobileTab = ({ routeName }: { routeName: MarketTopTabName }) => {
   const layout = useWindowDimensions();
 
   const renderTabBar = useCallback(
-    () => <MarketHeader marketTopTabName={routeName} />,
-    [routeName],
+    // () => <MarketHeader marketTopTabName={routeName} />,
+    () => <MarketHeader />,
+    [],
   );
 
   const navigationState = useMemo(

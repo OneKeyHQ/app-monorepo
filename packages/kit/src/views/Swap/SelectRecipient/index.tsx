@@ -5,6 +5,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
+import { appSelector } from '../../../store';
 import AccountSelectorModal from '../components/AccountSelectorModal';
 import { useSwapRecipient } from '../hooks/useSwap';
 import { SwapRoutes } from '../typings';
@@ -56,6 +57,10 @@ const SelectSendingAccount = () => {
     <AccountSelectorModal
       accountId={recipient?.accountId}
       networkId={route.params?.networkId}
+      excluded={{
+        accountId: appSelector((s) => s.swap.sendingAccount?.id),
+        networkId: appSelector((s) => s.swap.inputToken?.networkId),
+      }}
       onSelect={onSelected}
       hideSecondaryAction
       primaryActionTranslationId="form__enter_address"

@@ -267,7 +267,14 @@ export function WalletSelectDropdown({
       {multiSelect && selectedAccounts && selectedAccounts.length > 0 ? (
         <Badge
           size="sm"
-          title={`${selectedAccounts?.length} Accounts Selected`}
+          title={intl.formatMessage(
+            {
+              id: 'form_int_accounts_selected',
+            },
+            {
+              '0': selectedAccounts.length,
+            },
+          )}
         />
       ) : null}
 

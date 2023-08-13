@@ -14,7 +14,6 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import type { MarketTopTabName } from '@onekeyhq/kit/src/store/reducers/market';
 import { setMarketSwapTabName } from '@onekeyhq/kit/src/views/Market/hooks/useMarketList';
 
 import {
@@ -65,13 +64,7 @@ const Header: FC<{ onPressSearch: () => void }> = ({ onPressSearch }) => {
 //   TabRoutes.Market
 // >;
 
-function HeaderSmall({
-  marketTopTabName,
-  onPressSearch,
-}: {
-  marketTopTabName: MarketTopTabName;
-  onPressSearch: () => void;
-}) {
+function HeaderSmall({ onPressSearch }: { onPressSearch: () => void }) {
   // const marketTopTabName = useMarketTopTabName();
   const intl = useIntl();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -87,55 +80,29 @@ function HeaderSmall({
     >
       <Box flexDirection="row" h="9" alignContent="center">
         <Pressable
-          mr="3"
-          onPress={() => {
-            setMarketSwapTabName(TabRoutes.Swap);
-          }}
-        >
-          <Typography.DisplayMedium
-            color={
-              marketTopTabName === TabRoutes.Swap
-                ? 'text-default'
-                : 'text-disabled'
-            }
-          >
-            {intl.formatMessage({ id: 'title__Swap_Bridge' })}
-          </Typography.DisplayMedium>
-        </Pressable>
-        <Pressable
           onPress={() => {
             setMarketSwapTabName(TabRoutes.Market);
           }}
         >
-          <Typography.DisplayMedium
-            color={
-              marketTopTabName === TabRoutes.Market
-                ? 'text-default'
-                : 'text-disabled'
-            }
-          >
+          <Typography.DisplayMedium color="text-default">
             {intl.formatMessage({ id: 'market__market' })}
           </Typography.DisplayMedium>
         </Pressable>
       </Box>
       <Box>
-        {marketTopTabName === TabRoutes.Market ? (
-          <IconButton
-            size="base"
-            name="MagnifyingGlassMini"
-            type="plain"
-            // iconSize={16}
-            onPress={onPressSearch}
-          />
-        ) : null}
+        <IconButton
+          size="base"
+          name="MagnifyingGlassMini"
+          type="plain"
+          // iconSize={16}
+          onPress={onPressSearch}
+        />
       </Box>
     </Box>
   );
 }
 
-const MarketHeader: FC<{
-  marketTopTabName: MarketTopTabName;
-}> = ({ marketTopTabName }) => {
+const MarketHeader: FC = () => {
   const navigation = useNavigation<ModalNavigationProps['navigation']>();
 
   const isVerticalLayout = useIsVerticalLayout();
@@ -148,15 +115,7 @@ const MarketHeader: FC<{
     });
   }, [navigation]);
   if (isVerticalLayout) {
-    return (
-      <HeaderSmall
-        onPressSearch={onPressSearch}
-        marketTopTabName={marketTopTabName}
-      />
-    );
-  }
-  if (marketTopTabName === TabRoutes.Swap) {
-    return null;
+    return <HeaderSmall onPressSearch={onPressSearch} />;
   }
   return <Header onPressSearch={onPressSearch} />;
 };
