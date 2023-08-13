@@ -159,9 +159,9 @@ export const AppStateUnlock = () => {
           <Box width="full" py={py}>
             <Box display="flex" flexDirection="column" alignItems="center">
               <Box minH={50}>
-                <Icon name="BrandLogoIllus" size={50} />
+                <Icon name="BrandLogoIllus" size={250} />
               </Box>
-              <Typography.DisplayXLarge my="2">OneKey</Typography.DisplayXLarge>
+              <Typography.DisplayXLarge my="2">Zap</Typography.DisplayXLarge>
               <Typography.Body1 color="text-subdued">
                 {intl.formatMessage({
                   id: 'content__the_decentralized_web_awaits',

@@ -144,7 +144,7 @@ export const GenaralSection = () => {
               defaultValue={locale}
               headerShown={false}
               onChange={(l) => {
-                dispatch(setLocale(l as 'zh-CN'));
+                dispatch(setLocale(l as 'en-US'));
                 serviceNotification.syncPushNotificationConfig();
               }}
               options={localeOptions}

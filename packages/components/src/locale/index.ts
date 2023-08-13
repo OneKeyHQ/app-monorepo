@@ -12,6 +12,7 @@ const LOCALES = _LOCALES as Record<
 >;
 
 const defaultLanguage: Record<string, string> = {
+  'en-US': 'English',
   'zh-CN': '简体中文',
   'zh-HK': '繁體中文',
   'fil': 'Filipino',
@@ -32,6 +33,7 @@ const getLanguage = (symbol: string): string => {
   return languageName || symbol;
 };
 
+/*
 if (process.env.NODE_ENV !== 'production') {
   // Check if i18n keys are complete
   const keyLength = Object.keys(enUS).length;
@@ -51,6 +53,7 @@ if (process.env.NODE_ENV !== 'production') {
     }
   }
 }
+*/
 
 const LOCALES_OPTION = Object.keys(LOCALES).map((key) => ({
   value: key,

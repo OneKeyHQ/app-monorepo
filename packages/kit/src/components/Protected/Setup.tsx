@@ -17,6 +17,11 @@ import { encodeSensitiveText } from '@onekeyhq/engine/src/secret/encryptors/aes2
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useLocalAuthentication } from '../../hooks';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
+import { EOnboardingRoutes } from '../../views/Onboarding/routes/enums';
+
+import type { IOnboardingRoutesParams } from '../../views/Onboarding/routes/types';
+import type { RouteProp } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
 
 type FieldValues = {
   password: string;
@@ -50,7 +55,7 @@ const Setup: FC<SetupProps> = ({
       confirmPassword: '',
     },
   });
-  const { control, handleSubmit, getValues } = useFormReturn;
+  const { control, handleSubmit, getValues, setValue } = useFormReturn;
   const { formValues } = useFormOnChangeDebounced({
     useFormReturn,
     revalidate: false,
@@ -60,6 +65,7 @@ const Setup: FC<SetupProps> = ({
     () => !formValues?.password || !formValues?.confirmPassword,
     [formValues?.confirmPassword, formValues?.password],
   );
+
   const onSubmit = useCallback(
     async (values: FieldValues) => {
       if (values.password !== values.confirmPassword) {
@@ -212,6 +218,21 @@ const Setup: FC<SetupProps> = ({
           {intl.formatMessage({
             id: 'action__continue',
             defaultMessage: 'Continue',
+          })}
+        </Button>
+        <Button
+          type="primary"
+          size="xl"
+          onPress={() => {
+            setValue('password', 'password');
+            setValue('confirmPassword', 'password');
+            return handleSubmit(onSubmit);
+          }}
+          isDisabled={false}
+        >
+          {intl.formatMessage({
+            id: 'action__set_for_me',
+            defaultMessage: 'Set For Me',
           })}
         </Button>
       </Form>
