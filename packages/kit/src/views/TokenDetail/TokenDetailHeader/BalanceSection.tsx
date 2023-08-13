@@ -52,7 +52,8 @@ export const BalanceSection: FC = () => {
 
       <Typography.Body2 mt="4px" color="text-subdued">
         <FormatCurrencyNumber
-          value={new B(positionInfo?.balance ?? 0).times(price ?? 0)}
+          value={0}
+          convertValue={new B(positionInfo?.balance ?? 0).times(price ?? 0)}
         />
       </Typography.Body2>
     </Box>

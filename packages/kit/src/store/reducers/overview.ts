@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { omit, omitBy } from 'lodash';
+import { isEmpty, omit, omitBy } from 'lodash';
 
 import type { Account } from '@onekeyhq/engine/src/types/account';
 
@@ -60,6 +60,9 @@ export const overviewSlice = createSlice({
       };
     },
     clearOverviewPendingTasks(state) {
+      if (isEmpty(state.tasks)) {
+        return;
+      }
       state.tasks = {};
     },
     removeOverviewPendingTasks(

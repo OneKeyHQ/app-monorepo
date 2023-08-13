@@ -47,6 +47,9 @@ type IAccountTokenOnChain = Token & {
 
 type ICombinedAccountToken = IAccountToken | IAccountTokenOnChain;
 
+const emptyArray = Object.freeze([]);
+const emptyObject = Object.freeze({});
+
 const filterAccountTokens = <T>({
   tokens,
   useFilter,
@@ -248,7 +251,8 @@ const tokensSelector = ({
   accountId: string;
 }) =>
   createSelector(
-    (s: IAppState) => s.tokens.accountTokens?.[networkId]?.[accountId] ?? [],
+    (s: IAppState) =>
+      s.tokens.accountTokens?.[networkId]?.[accountId] ?? emptyArray,
     (accountTokens) => accountTokens,
   );
 
@@ -272,9 +276,9 @@ export function useAccountTokensOnChain(
         () => balancesSelector({ networkId, accountId }),
         [accountId, networkId],
       ),
-    ) ?? [];
+    ) ?? emptyArray;
 
-  const prices = useAppSelector((s) => s.tokens.tokenPriceMap) ?? {};
+  const prices = useAppSelector((s) => s.tokens.tokenPriceMap) ?? emptyObject;
 
   const valueTokens = tokens.map((t) => {
     const priceInfo =
@@ -301,14 +305,25 @@ export function useAccountTokensOnChain(
     };
   });
 
-  return filterAccountTokens<IAccountTokenOnChain[]>({
-    networkId,
-    tokens: valueTokens,
-    useFilter,
-    hideSmallBalance,
-    hideRiskTokens,
-    putMainTokenOnTop,
-  });
+  return useMemo(
+    () =>
+      filterAccountTokens<IAccountTokenOnChain[]>({
+        networkId,
+        tokens: valueTokens,
+        useFilter,
+        hideSmallBalance,
+        hideRiskTokens,
+        putMainTokenOnTop,
+      }),
+    [
+      networkId,
+      valueTokens,
+      useFilter,
+      hideSmallBalance,
+      hideRiskTokens,
+      putMainTokenOnTop,
+    ],
+  );
 }
 
 export const useOverviewPendingTasks = ({
@@ -332,10 +347,13 @@ export const useOverviewPendingTasks = ({
     ),
   );
 
-  return {
-    tasks,
-    updatedAt,
-  };
+  return useMemo(
+    () => ({
+      tasks,
+      updatedAt,
+    }),
+    [tasks, updatedAt],
+  );
 };
 
 export const useAccountIsUpdating = ({
@@ -417,12 +435,14 @@ export function useAccountTokens({
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
   const putMainTokenOnTop = useAppSelector((s) => s.settings.putMainTokenOnTop);
 
-  const { data: allNetworksTokens = [], loading: allNetworksTokensLoading } =
-    useAccountPortfolios({
-      networkId,
-      accountId,
-      type: EOverviewScanTaskType.token,
-    });
+  const {
+    data: allNetworksTokens = emptyArray,
+    loading: allNetworksTokensLoading,
+  } = useAccountPortfolios({
+    networkId,
+    accountId,
+    type: EOverviewScanTaskType.token,
+  });
 
   const accountTokensOnChain = useAccountTokensOnChain(
     networkId,
@@ -493,17 +513,33 @@ export function useAccountTokens({
     return accountTokens;
   }, [networkId, allNetworksTokens, limitSize, accountTokensOnChain]);
 
-  return {
-    loading,
-    data: filterAccountTokens<IAccountToken[]>({
+  const data = useMemo(
+    () =>
+      filterAccountTokens<IAccountToken[]>({
+        networkId,
+        tokens: valueTokens,
+        useFilter,
+        hideRiskTokens,
+        hideSmallBalance,
+        putMainTokenOnTop,
+      }),
+    [
       networkId,
-      tokens: valueTokens,
+      valueTokens,
       useFilter,
       hideRiskTokens,
       hideSmallBalance,
       putMainTokenOnTop,
+    ],
+  );
+
+  return useMemo(
+    () => ({
+      loading,
+      data,
     }),
-  };
+    [loading, data],
+  );
 }
 
 export function useAccountTokenValues(
@@ -575,6 +611,7 @@ export const useNFTValues = ({
     accountId,
     networkId,
   ]);
+
   return value;
 };
 
@@ -629,16 +666,20 @@ export const useAccountValues = (props: {
     };
   }, [nftValue, includeNFTsInTotal]);
 
-  return [defiValues, tokenValues, nftValues].reduce(
-    (sum, next) => ({
-      ...sum,
-      value: sum.value.plus(next.value),
-      value24h: sum.value24h.plus(next.value24h),
-    }),
-    {
-      value: new B(0),
-      value24h: new B(0),
-    },
+  return useMemo(
+    () =>
+      [defiValues, tokenValues, nftValues].reduce(
+        (sum, next) => ({
+          ...sum,
+          value: sum.value.plus(next.value),
+          value24h: sum.value24h.plus(next.value24h),
+        }),
+        {
+          value: new B(0),
+          value24h: new B(0),
+        },
+      ),
+    [defiValues, tokenValues, nftValues],
   );
 };
 
