@@ -11,6 +11,7 @@
     "build:all": "yarn clean && yarn build && node ./development/zip.js",
     "build:all:v3": "yarn clean && yarn build && cross-env EXT_MANIFEST_V3=1 yarn build && node ./development/zip.js",
     "start": "node ./development/devServer.js",
+    "start:v3": "EXT_MANIFEST_V3=1 node ./development/devServer.js",
     "firefox": "echo 'run first: \n\t yarn ext --firefox \n\n' && web-ext -s build/firefox/ run --verbose",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "prettier": "prettier --write '**/*.{js,jsx,ts,tsx,json,css,scss,md}'"
