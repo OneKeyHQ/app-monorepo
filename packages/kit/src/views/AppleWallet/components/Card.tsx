@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import {
   Image,
+  ImageBackground,
   StyleSheet,
   Text,
   TouchableWithoutFeedback,
@@ -47,6 +48,8 @@ import type { CardProps } from '../assets/types';
 const styles = StyleSheet.create({
   cardContainer: {
     borderRadius: 20,
+    border: 0,
+    position: 'absolute',
     width: '100%',
     overflow: 'hidden',
     borderWidth: 1,
@@ -58,7 +61,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     paddingTop: 12,
     height: CARD_HEIGHT_OPEN - CARD_HEADER_HEIGHT,
-    backgroundColor: '#FDC921',
+    // backgroundColor: '#FDC921',
   },
   title: {
     fontSize: 18,
@@ -71,7 +74,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     height: CARD_HEADER_HEIGHT,
-    backgroundColor: '#FDC921',
+    border: 0,
+    // backgroundImage:
+    //   'linear-gradient( 111.4deg,  rgba(238,113,113,1) 1%, rgba(246,215,148,1) 58% )',
   },
   headerSubcontainer: {
     alignItems: 'center',
@@ -104,6 +109,11 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   qr: { width: 140, height: 140 },
+  bgImg: {
+    flex: 1,
+    resizeMode: 'cover', // or 'stretch' or 'contain'
+    justifyContent: 'center', // optional
+  },
 });
 
 export const Flex = ({ children, style, ...rest }: ViewProps) => (
@@ -128,6 +138,19 @@ const Card = ({
   const spread = 70 * index;
   const spreadOffset = Math.min(2.5 * index * index, spread);
   const { accountId, networkId } = useActiveWalletAccount();
+  const bgImgUrls = [
+    require('../assets/hexagons.png'),
+    require('../assets/45-degree-fabric-light.png'),
+    require('../assets/gplay.png'),
+  ];
+  const bgImgUrl = bgImgUrls[index % bgImgUrls.length];
+
+  const linearGradients = [
+    'linear-gradient( 111.4deg,  rgba(238,113,113,1) 1%, rgba(246,215,148,1) 58% )',
+    'linear-gradient( 111.4deg,  #a1f694 1%, #717bee 58% )',
+    'linear-gradient( 111.4deg,  #3a99ed 1%, #f38cee 58% )',
+  ];
+  const linearGradient = linearGradients[index % linearGradients.length];
 
   const animatedStyle = useAnimatedStyle(() => ({
     height: animatedHeight.value,
@@ -246,7 +269,12 @@ const Card = ({
             animatedStyle,
           ]}
         >
-          <View style={[styles.headerContainer]}>
+          <View
+            style={{
+              ...styles.headerContainer,
+              backgroundImage: linearGradient,
+            }}
+          >
             <View
               style={{
                 display: 'flex',
@@ -295,28 +323,35 @@ const Card = ({
               </View>
             </View>
           </View>
-          <View
-            style={[
-              styles.cardSubContainer,
-              {
-                display: 'flex',
-                justifyContent: 'flex-end',
-                paddingBottom: isOpened ? 24 : 52,
-              },
-            ]}
+
+          {/* <ImageBackground source={{ uri: bgImgUrl }} style={styles.bgImg}> */}
+          <ImageBackground
+            source={{ uri: bgImgUrl }}
+            style={{ backgroundImage: linearGradient, ...styles.bgImg }}
           >
             <View
               style={[
-                styles.fieldSpacer,
-                styles.stContainer,
-                { width: '100%' },
+                styles.cardSubContainer,
+                {
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  paddingBottom: isOpened ? 24 : 52,
+                },
               ]}
             >
-              <Text style={{ fontSize: 24, fontFamily: 'monospace' }}>
-                4242 4242 4242 4242
-              </Text>
+              <View
+                style={[
+                  styles.fieldSpacer,
+                  styles.stContainer,
+                  { width: '100%' },
+                ]}
+              >
+                <Text style={{ fontSize: 24, fontFamily: 'monospace' }}>
+                  4242 4242 4242 4242
+                </Text>
+              </View>
             </View>
-          </View>
+          </ImageBackground>
         </Animated.View>
         {isOpened && (
           <>
