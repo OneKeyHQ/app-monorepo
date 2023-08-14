@@ -556,7 +556,6 @@ export default class Vault extends VaultBase {
     const apiExplorer = await this.getApiExplorer();
     const client = await this.getClient();
     const address = await this.getAccountAddress();
-    const actionsFromTransferHistory: IDecodedTxAction[] = [];
 
     const transferType = getApiExplorerTransferType(tokenIdOnNetwork);
 
@@ -582,6 +581,7 @@ export default class Vault extends VaultBase {
       const explorerTxs = resp.data.data.list;
 
       const promises = explorerTxs.map(async (tx) => {
+        const actionsFromTransferHistory: IDecodedTxAction[] = [];
         const historyTxToMerge = localHistory.find(
           (item) => item.decodedTx.txid === tx.transactionHash,
         );
@@ -603,18 +603,19 @@ export default class Vault extends VaultBase {
         // If the history record is not requested through the 'transaction' type,
         // additional transaction information needs to be requested
         if (transferType !== IOnChainTransferType.Transaction) {
-          const txDetail = await client.getTransactionByHash(
-            tx.transactionHash,
-          );
+          let txDetail;
+          try {
+            txDetail = await client.getTransactionByHash(tx.transactionHash);
+          } catch {
+            // pass;
+          }
+
           if (txDetail) {
             encodedTx.gasFee = new BigNumber(txDetail.gas)
               .multipliedBy(txDetail.gasPrice)
               .toFixed();
             encodedTx.nonce = new BigNumber(txDetail.nonce).toNumber();
             encodedTx.data = txDetail.data;
-            if (transferType === IOnChainTransferType.Transfer20) {
-              encodedTx.to = txDetail.to || tx.contract || encodedTx.to;
-            }
           }
 
           // If it is crc20 transfer, the corresponding transaction may be a complex contract call with multiple processes
