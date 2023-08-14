@@ -18,6 +18,8 @@ import { useReloadAccountBalance } from '../utils/useReloadAccountBalance';
 import type { SendRoutesParams } from '../types';
 import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { LazyDisplayView } from '../../../components/LazyDisplayView';
 
 type NavigationProps = NativeStackNavigationProp<
   SendRoutesParams,
@@ -95,6 +97,15 @@ function PreSendTokenScreen() {
     return emptyView;
   }, [accountId, emptyView, navigation, networkId, transferInfo, walletId]);
 
+  // Due to the frequent re-rendering of "AssetList," which blocks the modal animation.
+  // we are adopting a lazy loading approach to prioritize the completion of the modal animation.
+  // If the hooks for "AssetList" have completed rendering optimization, please remove this lazy loading Component.
+  const LazySendTokenTabViewComponent = platformEnv.isNative ? () => (
+      <LazyDisplayView delay={100}>
+        {sendTokenTabViewComponent()}
+      </LazyDisplayView>
+    ): sendTokenTabViewComponent
+
   const sendNftsTabViewComponent = useCallback(
     () =>
       accountId ? (
@@ -121,7 +132,7 @@ function PreSendTokenScreen() {
           {
             label: 'token',
             title: 'Tokens',
-            view: sendTokenTabViewComponent,
+            view: LazySendTokenTabViewComponent,
           },
           {
             label: 'nft',
