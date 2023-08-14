@@ -79,6 +79,7 @@ const VerticalPriceChartSection: FC = () => {
       borderTopWidth="1px"
       borderTopColor="border-subdued"
       onPress={showChart}
+      bg="background-default"
     >
       <Typography.Body2Strong flex="1" display="flex">
         {intl.formatMessage({ id: 'form__current_price' })}

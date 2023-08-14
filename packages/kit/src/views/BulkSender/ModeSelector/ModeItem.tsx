@@ -3,6 +3,7 @@ import type { ComponentProps } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Box,
   HStack,
   Pressable,
@@ -15,7 +16,9 @@ import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import { useNavigation } from '../../../hooks';
 import { HomeRoutes } from '../../../routes/routesEnum';
 
-import GroupIcon from './GroupIcon';
+import ManyToManyIcon from './ManyToManyIcon';
+import ManyToOneIcon from './ManyToOneIcon';
+import OneToManyIcon from './OneToManyIcon';
 
 import type { HomeRoutesParams } from '../../../routes/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -34,7 +37,7 @@ function AddressElement({ elementText }: { elementText: string }) {
       height="24px"
       borderRadius="full"
       bgColor="surface-neutral-default"
-      alignItems="ceter"
+      alignItems="center"
       justifyContent="center"
     >
       <Text textAlign="center" typography="CaptionStrong">
@@ -48,7 +51,7 @@ function OneToMany() {
   return (
     <HStack space={3} alignItems="center" justifyContent="center">
       <AddressElement elementText="A" />
-      <GroupIcon />
+      <OneToManyIcon />
       <VStack space={2}>
         {['I', 'II', 'III'].map((text) => (
           <AddressElement elementText={text} />
@@ -66,7 +69,7 @@ function ManyToMany() {
           <AddressElement elementText={text} />
         ))}
       </VStack>
-      <GroupIcon />
+      <ManyToManyIcon width="24px" />
       <VStack space={2}>
         {['I', 'II', 'III'].map((text) => (
           <AddressElement elementText={text} />
@@ -84,7 +87,7 @@ function ManyToOne() {
           <AddressElement elementText={text} />
         ))}
       </VStack>
-      <GroupIcon />
+      <ManyToOneIcon />
       <VStack>
         <AddressElement elementText="A" />
       </VStack>
@@ -120,7 +123,7 @@ function getModeInfo(mode: BulkTypeEnum): null | {
 }
 
 function ModeItem(props: Props) {
-  const { mode, ...rest } = props;
+  const { mode, isDisabled, ...rest } = props;
   const isVertical = useIsVerticalLayout();
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
@@ -133,38 +136,67 @@ function ModeItem(props: Props) {
 
   return (
     <Pressable
-      bg="surface-default"
+      bg={isDisabled ? 'surface-subdued' : 'surface-default'}
       _hover={{ bg: 'surface-hovered' }}
       _pressed={{ bg: 'surface-pressed' }}
       borderColor="border-subdued"
       borderWidth={1}
       borderRadius="12px"
       onPress={() => navigation.navigate(HomeRoutes.BulkSender, { mode })}
+      isDisabled={isDisabled}
       {...rest}
     >
       {isVertical ? (
-        <HStack alignItems="center" space={12}>
+        <HStack alignItems="center" space={10}>
           {mark}
-          <VStack>
+          <VStack justifyContent="center" alignItems="flex-start">
             <Text typography="Heading">
               {intl.formatMessage({ id: title })}
             </Text>
             <Text typography="Body1" color="text-subdued">
               {intl.formatMessage({ id: desc })}
             </Text>
+            <Box>
+              {isDisabled ? (
+                <Badge
+                  mt={1}
+                  size="sm"
+                  title={intl.formatMessage({ id: 'content__stay_tuned' })}
+                  type="info"
+                />
+              ) : null}
+            </Box>
           </VStack>
         </HStack>
       ) : (
         <VStack>
           {mark}
-          <Text typography="Heading" textAlign="center" mt="52px">
+          <Text
+            typography="Heading"
+            textAlign="center"
+            mt="52px"
+            color={isDisabled ? 'text-subdued' : 'text-default'}
+          >
             {intl.formatMessage({ id: title })}
           </Text>
-          <Text typography="Body1" color="text-subdued" textAlign="center">
+          <Text
+            typography="Body1"
+            textAlign="center"
+            color={isDisabled ? 'text-disabled' : 'text-subdued'}
+          >
             {intl.formatMessage({ id: desc })}
           </Text>
         </VStack>
       )}
+      {isDisabled && !isVertical ? (
+        <Badge
+          position="absolute"
+          bottom={4}
+          size="sm"
+          title={intl.formatMessage({ id: 'content__stay_tuned' })}
+          type="info"
+        />
+      ) : null}
     </Pressable>
   );
 }

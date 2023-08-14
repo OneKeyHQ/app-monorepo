@@ -283,7 +283,7 @@ class ServicDiscover extends ServiceBase {
 
   @backgroundMethod()
   async addFavorite(url: string) {
-    const { dispatch } = this.backgroundApi;
+    const { dispatch, serviceCloudBackup } = this.backgroundApi;
     const bookmarkId = uuid.v4() as string;
     const { tabs } = getWebTabs();
     const list = tabs.filter((tab) => tab.url === url);
@@ -306,11 +306,12 @@ class ServicDiscover extends ServiceBase {
         }),
       );
     }
+    serviceCloudBackup.requestBackup();
   }
 
   @backgroundMethod()
   async removeFavorite(url: string) {
-    const { dispatch, appSelector } = this.backgroundApi;
+    const { dispatch, appSelector, serviceCloudBackup } = this.backgroundApi;
     const bookmarks = appSelector((s) => s.discover.bookmarks);
     const item = bookmarks?.find((o) => o.url === url);
     if (item) {
@@ -324,6 +325,7 @@ class ServicDiscover extends ServiceBase {
         );
       });
     }
+    serviceCloudBackup.requestBackup();
   }
 
   @backgroundMethod()

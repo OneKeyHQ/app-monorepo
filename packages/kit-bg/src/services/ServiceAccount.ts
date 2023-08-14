@@ -1414,7 +1414,10 @@ class ServiceAccount extends ServiceBase {
     }
   }
 
-  addressLabelCache: Record<string, { label: string; accountId: string }> = {};
+  addressLabelCache: Record<
+    string,
+    { label: string; accountId: string; walletId: string }
+  > = {};
 
   // getAccountNameByAddress
   @backgroundMethod()
@@ -1424,7 +1427,12 @@ class ServiceAccount extends ServiceBase {
   }: {
     address: string;
     networkId?: string;
-  }): Promise<{ label: string; address: string; accountId: string }> {
+  }): Promise<{
+    label: string;
+    address: string;
+    accountId: string;
+    walletId: string;
+  }> {
     const { engine } = this.backgroundApi;
     const {
       wallet,
@@ -1440,10 +1448,14 @@ class ServiceAccount extends ServiceBase {
       return Promise.resolve({
         label: this.addressLabelCache[cacheKey].label,
         accountId: this.addressLabelCache[cacheKey].accountId,
+        walletId: this.addressLabelCache[cacheKey].walletId,
         address,
       });
     }
-    const findNameLabelByAccountIds = async (accountIds: string[]) => {
+    const findNameLabelByAccountIds = async (
+      accountIds: string[],
+      wallets: Wallet[],
+    ) => {
       const accounts = await this.backgroundApi.engine.getAccounts(
         accountIds,
         networkId,
@@ -1493,29 +1505,36 @@ class ServiceAccount extends ServiceBase {
 
       const label = targetAccount?.name ?? '';
       const accountId = targetAccount?.id ?? '';
-      if (label && address) {
+      const accountWalletId =
+        wallets.find((w) => w.accounts.includes(accountId))?.id ?? '';
+      if (label && address && accountWalletId) {
         this.addressLabelCache[cacheKey] = {
           label,
           accountId,
+          walletId: accountWalletId,
         };
       }
       return {
         label,
         address,
         accountId,
+        walletId: accountWalletId,
       };
     };
     // TODO search from wallet in params
     // search from active wallet
     if (wallet && wallet.accounts && wallet.accounts.length) {
-      const { label, accountId } = await findNameLabelByAccountIds(
-        wallet.accounts,
-      );
+      const {
+        label,
+        accountId,
+        walletId: accountWalletId,
+      } = await findNameLabelByAccountIds(wallet.accounts, [wallet]);
       if (label) {
         return {
           label,
           address,
           accountId,
+          walletId: accountWalletId,
         };
       }
     }
@@ -1524,11 +1543,16 @@ class ServiceAccount extends ServiceBase {
       includeAllPassphraseWallet: true,
     });
     const accountIds = flatten(wallets.map((w) => w.accounts));
-    const { label, accountId } = await findNameLabelByAccountIds(accountIds);
+    const {
+      label,
+      accountId,
+      walletId: accountWalletId,
+    } = await findNameLabelByAccountIds(accountIds, wallets);
     return {
       label,
       address,
       accountId,
+      walletId: accountWalletId,
     };
   }
 
@@ -1547,7 +1571,9 @@ class ServiceAccount extends ServiceBase {
     const { wallets, accounts } = appSelector((s) => s.runtime);
     const map = appSelector((s) => s.overview.allNetworksAccountsMap);
     const findMatchAccount = (list: Account[]): Account | undefined => {
-      const a = list.find((item) => item.address === address);
+      const a = list.find(
+        (item) => item.address.toLowerCase() === address.toLowerCase(),
+      );
       if (!a) {
         return undefined;
       }

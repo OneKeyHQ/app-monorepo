@@ -17,6 +17,7 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
+import type { WalletType } from '@onekeyhq/engine/src/types/wallet';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -47,12 +48,14 @@ function Header({
   hideCreateAccount,
   multiSelect,
   selectedAccounts,
+  walletsToHide,
 }: {
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
   showCustomLegacyHeader?: boolean;
   hideCreateAccount?: boolean;
   selectedAccounts?: string[];
   multiSelect?: boolean;
+  walletsToHide?: WalletType[];
 }) {
   const intl = useIntl();
   const firstTimeShowCheckRPCNodeTooltip = useAppSelector(
@@ -198,6 +201,7 @@ function Header({
           hideCreateAccount={hideCreateAccount}
           multiSelect={multiSelect}
           selectedAccounts={selectedAccounts}
+          walletsToHide={walletsToHide}
         />
       </Box>
     </Box>

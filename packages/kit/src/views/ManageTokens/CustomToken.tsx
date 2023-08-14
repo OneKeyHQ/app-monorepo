@@ -27,6 +27,8 @@ import {
   RootRoutes,
 } from '../../routes/routesEnum';
 
+import { notifyIfRiskToken } from './helpers/TokenSecurityModalWrapper';
+
 import type { ManageTokenRoutesParams } from './types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -98,6 +100,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
         $address,
       );
       if (result) {
+        notifyIfRiskToken(result);
         ToastManager.show({
           title: intl.formatMessage({
             id: 'msg__token_added',

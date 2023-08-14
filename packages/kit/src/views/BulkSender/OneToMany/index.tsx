@@ -30,7 +30,11 @@ import {
   SendModalRoutes,
   TabRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
-import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_BTC,
+  IMPL_TBTC,
+  IMPL_TRON,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AmountEditorTrigger } from '../AmountEditor/AmountEditorTrigger';
@@ -41,7 +45,7 @@ import { TraderExample } from '../TraderExample';
 import { TraderInput } from '../TraderInput';
 import { TxSettingPanel } from '../TxSetting/TxSettingPanel';
 import { TxSettingTrigger } from '../TxSetting/TxSettingTrigger';
-import { AmountTypeEnum, BulkSenderRoutes } from '../types';
+import { AmountTypeEnum, BulkSenderRoutes, TraderTypeEnum } from '../types';
 
 import type { RootRoutesParams } from '../../../routes/types';
 import type { TokenTrader } from '../types';
@@ -85,7 +89,10 @@ function OneToMany(props: Props) {
   const tokens = accountTokens.filter((token) =>
     network?.impl === IMPL_TRON
       ? !new BigNumber(token.tokenIdOnNetwork).isInteger()
-      : true,
+      : true ||
+        (network?.impl === IMPL_BTC || network?.impl === IMPL_TBTC
+          ? token.isNative
+          : true),
   );
 
   const { serviceBatchTransfer, serviceToken, serviceOverview } =
@@ -461,6 +468,7 @@ function OneToMany(props: Props) {
           traderErrors={errors}
           isUploadMode={isUploadMode}
           setIsUploadMode={setIsUploadMode}
+          traderType={TraderTypeEnum.Receiver}
         />
       </Box>
       <Text fontSize={12} color="text-subdued" mt={isVertical ? 4 : 3}>

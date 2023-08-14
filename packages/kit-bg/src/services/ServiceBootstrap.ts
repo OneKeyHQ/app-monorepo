@@ -225,7 +225,7 @@ export default class ServiceBootstrap extends ServiceBase {
       const onekeyRpc = Object.values(getPresetNetworks())
         .find((item) => item.id === n.id)
         ?.rpcURLs?.find((rpc) =>
-          rpc.url?.startsWith('https://node.onekey.so'),
+          rpc.url?.startsWith('https://node.onekey.so/'),
         )?.url;
       const isUserSwitched = userSwitchedNetworkRpcFlag?.[n.id] ?? false;
       if (

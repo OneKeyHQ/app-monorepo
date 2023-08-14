@@ -3,7 +3,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Button, HStack, Text } from '@onekeyhq/components';
+import {
+  Box,
+  Button,
+  HStack,
+  IconButton,
+  Text,
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
+import type { WalletType } from '@onekeyhq/engine/src/types/wallet';
 
 import {
   ManageNetworkModalRoutes,
@@ -13,7 +21,13 @@ import {
 import { AddressBookRoutes } from '../../AddressBook/routes';
 import { TraderEditor } from '../TraderEditor';
 import { TraderUploader } from '../TraderUploader';
-import { AmountTypeEnum, type TraderInputParams } from '../types';
+import {
+  AmountTypeEnum,
+  type TraderInputParams,
+  TraderTypeEnum,
+} from '../types';
+
+const SENDER_WALLETS_TO_HIDE = ['external', 'watching'] as WalletType[];
 
 function TraderInput(props: TraderInputParams) {
   const {
@@ -32,10 +46,12 @@ function TraderInput(props: TraderInputParams) {
     isSingleMode,
     setIsUploadMode,
     withAmount,
+    traderType,
   } = props;
   const intl = useIntl();
   const [showFileError, setShowFileError] = useState(false);
   const navigation = useNavigation();
+  const isVertical = useIsVerticalLayout();
 
   const handleSelectAccountsOnPress = useCallback(() => {
     setIsUploadMode(false);
@@ -52,6 +68,8 @@ function TraderInput(props: TraderInputParams) {
           tokenShowBalance: token,
           multiSelect: !isSingleMode,
           singleSelect: isSingleMode,
+          walletsToHide:
+            traderType === TraderTypeEnum.Sender ? SENDER_WALLETS_TO_HIDE : [],
           onAccountsSelected: (addresses) => {
             setIsUploadMode(false);
             if (isSingleMode) {
@@ -88,6 +106,7 @@ function TraderInput(props: TraderInputParams) {
     setTraderFromOut,
     token,
     trader,
+    traderType,
     withAmount,
   ]);
 
@@ -98,6 +117,8 @@ function TraderInput(props: TraderInputParams) {
         screen: AddressBookRoutes.PickAddressRoute,
         params: {
           networkId,
+          walletsToHide:
+            traderType === TraderTypeEnum.Sender ? SENDER_WALLETS_TO_HIDE : [],
           onSelected: ({ address }) => {
             setIsUploadMode(false);
             if (isSingleMode) {
@@ -145,30 +166,61 @@ function TraderInput(props: TraderInputParams) {
         <Text fontSize={18} typography="Heading">
           {header}
         </Text>
-        <HStack>
-          <Button
-            type="plain"
-            leftIconName="ArrowUpTrayMini"
-            onPress={() => setIsUploadMode(!isUploadMode)}
-          >
-            {intl.formatMessage({
-              id: isUploadMode ? 'action__edit' : 'action__upload',
-            })}
-          </Button>
-          <Button
-            type="plain"
-            leftIconName="UserCircleOutline"
-            onPress={handleSelectAccountsOnPress}
-          >
-            {intl.formatMessage({ id: 'form__account' })}
-          </Button>
-          <Button
-            type="plain"
-            leftIconName="BookOpenOutline"
-            onPress={handleSelectContactOnPress}
-          >
-            {intl.formatMessage({ id: 'title__address_book' })}
-          </Button>
+        <HStack space={isVertical ? 1 : 0}>
+          {isVertical ? (
+            <>
+              <IconButton
+                name="ArrowUpTrayMini"
+                bgColor="surface-default"
+                shadow="none"
+                borderWidth={0}
+                circle
+                onPress={() => setIsUploadMode(!isUploadMode)}
+              />
+              <IconButton
+                name="UserCircleOutline"
+                bgColor="surface-default"
+                shadow="none"
+                borderWidth={0}
+                circle
+                onPress={handleSelectAccountsOnPress}
+              />
+              <IconButton
+                name="BookOpenOutline"
+                bgColor="surface-default"
+                shadow="none"
+                borderWidth={0}
+                circle
+                onPress={handleSelectContactOnPress}
+              />
+            </>
+          ) : (
+            <>
+              <Button
+                type="plain"
+                leftIconName="ArrowUpTrayMini"
+                onPress={() => setIsUploadMode(!isUploadMode)}
+              >
+                {intl.formatMessage({
+                  id: isUploadMode ? 'action__edit' : 'action__upload',
+                })}
+              </Button>
+              <Button
+                type="plain"
+                leftIconName="UserCircleOutline"
+                onPress={handleSelectAccountsOnPress}
+              >
+                {intl.formatMessage({ id: 'form__account' })}
+              </Button>
+              <Button
+                type="plain"
+                leftIconName="BookOpenOutline"
+                onPress={handleSelectContactOnPress}
+              >
+                {intl.formatMessage({ id: 'title__address_book' })}
+              </Button>
+            </>
+          )}
         </HStack>
       </HStack>
       <Box display={isUploadMode ? 'flex' : 'none'}>
@@ -182,6 +234,7 @@ function TraderInput(props: TraderInputParams) {
       <Box display={isUploadMode ? 'none' : 'flex'}>
         <TraderEditor
           amount={amount}
+          traderType={traderType}
           amountType={amountType}
           accountId={accountId}
           networkId={networkId}
