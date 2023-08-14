@@ -1,5 +1,8 @@
+import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
+import { CommonMessageTypes } from '@onekeyhq/engine/src/types/message';
+import type { SignMessageResponse } from '@onekeyhq/engine/src/vaults/impl/apt/types';
 import type { RequestInvoiceArgs } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/webln';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
@@ -52,6 +55,7 @@ class ProviderApiWebln extends ProviderApiBase {
   }
 
   public async rpcCall(request: IJsonRpcRequest): Promise<any> {
+    console.log('===>>>rpcCall: ', request);
     return Promise.resolve();
   }
 
@@ -84,11 +88,13 @@ class ProviderApiWebln extends ProviderApiBase {
     try {
       const params = (request.data as IJsonRpcRequest)
         ?.params as RequestInvoiceArgs;
+      console.log('===> request: ', params);
       const { paymentRequest, paymentHash } =
         await this.backgroundApi.serviceDapp.openWeblnMakeInvoiceModal(
           request,
           params,
         );
+      console.log('=====>makeinvoice request: ', paymentRequest);
       return { paymentRequest, paymentHash, rHash: paymentHash };
     } catch (e) {
       console.error('=====>makeinvoice error: ', e);
@@ -101,6 +107,7 @@ class ProviderApiWebln extends ProviderApiBase {
     try {
       const paymentRequest = (request.data as IJsonRpcRequest)
         ?.params as string;
+      console.log('===> request: ', paymentRequest);
       const { networkId, accountId } = getActiveWalletAccount();
       const txid =
         await this.backgroundApi.serviceDapp.openWeblnSendPaymentModal(
@@ -117,9 +124,33 @@ class ProviderApiWebln extends ProviderApiBase {
           networkId,
           accountId,
         });
+      console.log('=====>sendpayment request: ', txid);
       return { preimage: invoice.payment_preimage };
     } catch (e) {
-      console.error(e);
+      console.error('=====>sendPayment error: ', e);
+      throw e;
+    }
+  }
+
+  @providerApiMethod()
+  public async signMessage(request: IJsBridgeMessagePayload) {
+    try {
+      const message = (request.data as IJsonRpcRequest)?.params as string;
+      if (typeof message !== 'string') {
+        throw web3Errors.rpc.invalidInput();
+      }
+
+      const signature =
+        await this.backgroundApi.serviceDapp?.openSignAndSendModal(request, {
+          unsignedMessage: {
+            type: CommonMessageTypes.SIMPLE_SIGN,
+            message,
+          },
+        });
+      console.log('====> signature: ', signature);
+      return JSON.parse(signature as string) as SignMessageResponse;
+    } catch (e) {
+      console.error('=====>signature error: ', e);
       throw e;
     }
   }

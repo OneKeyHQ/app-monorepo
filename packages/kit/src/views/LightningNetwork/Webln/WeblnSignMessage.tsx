@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -9,79 +9,63 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import type { RequestInvoiceArgs } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/webln';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
-  useActiveWalletAccount,
-  useNativeToken,
-  useNavigation,
-} from '../../../hooks';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappParams from '../../../hooks/useDappParams';
-import LNMakeInvoiceForm from '../components/LNMakeInvoiceForm';
 import { LNModalDescription } from '../components/LNModalDescription';
+import LNSignMessageForm from '../components/LNSignMessageForm';
 
-import type { WeblnModalRoutes } from '../../../routes/routesEnum';
-import type { ModalScreenProps } from '../../../routes/types';
-import type { IMakeInvoiceFormValues } from '../components/LNMakeInvoiceForm';
+import { WeblnModalRoutes } from './types';
+
+import type { ISignMessageFormValues } from '../components/LNSignMessageForm';
 import type { WeblnRoutesParams } from './types';
 import type { RouteProp } from '@react-navigation/core';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-type NavigationProps = ModalScreenProps<WeblnRoutesParams>;
-type RouteProps = RouteProp<WeblnRoutesParams, WeblnModalRoutes.MakeInvoice>;
+type RouteProps = RouteProp<WeblnRoutesParams, WeblnModalRoutes.SignMessage>;
 
-const WeblnMakeInvoice = () => {
+type NavigationProps = NativeStackNavigationProp<
+  WeblnRoutesParams,
+  WeblnModalRoutes.SignMessage
+>;
+
+const WeblnSignMessage = () => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
+  const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
-  const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const { accountId, networkId } = useActiveWalletAccount();
-  const { sourceInfo } = useDappParams();
+  // @ts-expect-error
+  const { sourceInfo, networkId, accountId, walletId } = useDappParams();
   console.log('====>route params: ', route.params);
-  console.log('===>sourceInfo: ', sourceInfo);
-  const makeInvoiceParams = sourceInfo?.data.params as RequestInvoiceArgs;
+  console.log('===>sourceInfo: ', sourceInfo, accountId, networkId);
+  const message = sourceInfo?.data.params as string;
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
   });
 
-  const useFormReturn = useForm<IMakeInvoiceFormValues>({
-    defaultValues: {
-      amount: `${makeInvoiceParams.amount ?? ''}`,
-      description: makeInvoiceParams.defaultMemo ?? '',
-    },
-  });
-  const { handleSubmit } = useFormReturn;
-  const nativeToken = useNativeToken(networkId);
+  const useFormReturn = useForm<ISignMessageFormValues>();
 
   const [isLoading, setIsLoading] = useState(false);
   const closeModalRef = useRef<() => void | undefined>();
 
-  const onSubmit = useCallback(
-    async (values: IMakeInvoiceFormValues) => {
+  const onDone = useCallback(
+    async (password: string) => {
       if (isLoading) return;
-      if (!networkId || !accountId) return;
       setIsLoading(true);
-      const amount = values.amount || '0';
       try {
-        const invoice =
-          await backgroundApiProxy.serviceLightningNetwork.createInvoice({
-            networkId,
+        const result =
+          await backgroundApiProxy.serviceLightningNetwork.weblnSignMessage({
+            password,
+            message,
             accountId,
-            amount,
-            description: values.description,
+            networkId: networkId ?? '',
           });
-        ToastManager.show({
-          title: 'Invoice created',
-        });
         await dappApprove.resolve({
           close: closeModalRef.current,
-          result: {
-            paymentRequest: invoice.payment_request,
-            paymentHash: invoice.payment_hash,
-          },
+          result,
         });
       } catch (e: any) {
         const { key, info } = e;
@@ -97,35 +81,42 @@ const WeblnMakeInvoice = () => {
             },
             { type: 'error' },
           );
+          dappApprove.reject();
           return false;
         }
         ToastManager.show(
           { title: (e as Error)?.message || e },
           { type: 'error' },
         );
-        dappApprove.reject();
         return false;
       } finally {
         setIsLoading(false);
       }
     },
-    [isLoading, networkId, intl, accountId, dappApprove],
+    [intl, isLoading, accountId, networkId, dappApprove, message],
   );
 
-  const doSubmit = handleSubmit(onSubmit);
+  const onConfirmWithAuth = useCallback(
+    () =>
+      navigation.navigate(WeblnModalRoutes.WeblnAuthentication, {
+        walletId,
+        onDone,
+      }),
+    [walletId, navigation, onDone],
+  );
 
   return (
     <Modal
-      header="Create Invoice"
+      header="Invoice Pay"
       headerDescription={<LNModalDescription networkId={networkId} />}
-      primaryActionTranslationId="action__create"
+      primaryActionTranslationId="action__next"
       primaryActionProps={{
         isDisabled: isLoading,
         isLoading,
       }}
       onPrimaryActionPress={({ close }) => {
         closeModalRef.current = close;
-        doSubmit();
+        onConfirmWithAuth();
       }}
       secondaryActionTranslationId="action__cancel"
       onSecondaryActionPress={() => {
@@ -143,18 +134,12 @@ const WeblnMakeInvoice = () => {
           paddingVertical: isVerticalLayout ? 16 : 24,
         },
         children: (
-          <LNMakeInvoiceForm
-            isWebln
+          <LNSignMessageForm
             accountId={accountId}
             networkId={networkId ?? ''}
             useFormReturn={useFormReturn}
-            amount={Number(makeInvoiceParams.amount)}
-            minimumAmount={Number(makeInvoiceParams.minimumAmount)}
-            maximumAmount={Number(makeInvoiceParams.maximumAmount)}
             origin={sourceInfo?.origin ?? ''}
-            memo={makeInvoiceParams.defaultMemo}
-            nativeToken={nativeToken}
-            amountReadOnly={Number(makeInvoiceParams.amount) > 0}
+            message={message}
           />
         ),
       }}
@@ -162,4 +147,4 @@ const WeblnMakeInvoice = () => {
   );
 };
 
-export default WeblnMakeInvoice;
+export default WeblnSignMessage;

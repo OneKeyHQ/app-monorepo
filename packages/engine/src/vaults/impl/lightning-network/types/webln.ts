@@ -41,6 +41,13 @@ export interface RequestInvoiceResponse {
   paymentHash: string;
 }
 
+export interface SignMessageArgs {
+  message: string;
+  walletId: string;
+  networkId: string;
+  accountId: string;
+}
+
 export interface SignMessageResponse {
   message: string;
   signature: string;

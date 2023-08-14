@@ -408,36 +408,6 @@ export default class ServiceLightningNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async weblnSignMessage({
-    password,
-    accountId,
-    networkId,
-    message,
-  }: {
-    password: string;
-    accountId: string;
-    networkId: string;
-    message: string;
-  }) {
-    const vault = (await this.backgroundApi.engine.getVault({
-      networkId,
-      accountId,
-    })) as VaultLightning;
-    const account = await vault.getDbAccount();
-    const network = await vault.getNetwork();
-    const connector = new connectors.LndHub({
-      backgroundApi: this.backgroundApi,
-    });
-    return connector.signMessage({
-      password,
-      walletId: vault.walletId,
-      message,
-      path: account.path,
-      isTestnet: network.isTestnet,
-    });
-  }
-
-  @backgroundMethod()
   async weblnVerifyMessage({
     accountId,
     networkId,
@@ -449,9 +419,7 @@ export default class ServiceLightningNetwork extends ServiceBase {
     message: string;
     signature: string;
   }) {
-    const connector = new connectors.LndHub({
-      backgroundApi: this.backgroundApi,
-    });
+    const connector = new connectors.LndHub();
     return connector.verifyMessage({
       accountId,
       networkId,

@@ -1,66 +1,59 @@
 import type VaultLightning from '@onekeyhq/engine/src/vaults/impl/lightning-network/Vault';
-import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/IBackgroundApi';
-import type { IServiceBaseProps } from '@onekeyhq/kit-bg/src/services/ServiceBase';
 
 import { getBtcProvider } from '../helper/account';
 
-import type { ExportedSeedCredential } from '../../../../dbs/base';
+import type { Engine } from '../../../..';
+import type { SignMessageResponse } from '../types/webln';
 
 export default class LndHub {
-  backgroundApi: IBackgroundApi;
-
-  constructor({ backgroundApi }: IServiceBaseProps) {
-    this.backgroundApi = backgroundApi;
-  }
-
   async signMessage({
     password,
-    walletId,
+    engine,
+    entropy,
     message,
     path,
     isTestnet,
   }: {
+    engine: Engine;
     password: string;
-    walletId: string;
+    entropy: Buffer;
     message: string;
     path: string;
     isTestnet: boolean;
-  }) {
-    const { entropy } = (await this.backgroundApi.engine.dbApi.getCredential(
-      walletId,
-      password,
-    )) as ExportedSeedCredential;
-    const provider = await getBtcProvider(this.backgroundApi.engine, isTestnet);
+  }): Promise<SignMessageResponse> {
+    const provider = await getBtcProvider(engine, isTestnet);
     const result = provider.signMessage(
       password,
       entropy,
       `${path}/0/0`,
       message,
     );
-    return result.toString('hex');
+    return {
+      message,
+      signature: result.toString('hex'),
+    };
   }
 
   async verifyMessage({
+    engine,
     accountId,
     networkId,
     message,
     signature,
   }: {
+    engine: Engine;
     accountId: string;
     networkId: string;
     message: string;
     signature: string;
   }) {
-    const vault = (await this.backgroundApi.engine.getVault({
+    const vault = (await engine.getVault({
       networkId,
       accountId,
     })) as VaultLightning;
     const address = await vault.getCurrentBalanceAddress();
     const network = await vault.getNetwork();
-    const provider = await getBtcProvider(
-      this.backgroundApi.engine,
-      network.isTestnet,
-    );
+    const provider = await getBtcProvider(engine, network.isTestnet);
     return provider.verifyMessage({ message, address, signature });
   }
 }

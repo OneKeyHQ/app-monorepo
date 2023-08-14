@@ -1,7 +1,7 @@
 import LndHub from './lndhub';
 
 const connectors = {
-  LndHub: LndHub,
+  LndHub,
 };
 
 export default connectors;
