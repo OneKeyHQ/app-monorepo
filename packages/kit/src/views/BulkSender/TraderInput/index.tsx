@@ -11,6 +11,7 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import type { WalletType } from '@onekeyhq/engine/src/types/wallet';
 
 import {
   ManageNetworkModalRoutes,
@@ -20,7 +21,13 @@ import {
 import { AddressBookRoutes } from '../../AddressBook/routes';
 import { TraderEditor } from '../TraderEditor';
 import { TraderUploader } from '../TraderUploader';
-import { AmountTypeEnum, type TraderInputParams } from '../types';
+import {
+  AmountTypeEnum,
+  type TraderInputParams,
+  TraderTypeEnum,
+} from '../types';
+
+const SENDER_WALLETS_TO_HIDE = ['external', 'watching'] as WalletType[];
 
 function TraderInput(props: TraderInputParams) {
   const {
@@ -39,6 +46,7 @@ function TraderInput(props: TraderInputParams) {
     isSingleMode,
     setIsUploadMode,
     withAmount,
+    traderType,
   } = props;
   const intl = useIntl();
   const [showFileError, setShowFileError] = useState(false);
@@ -60,6 +68,8 @@ function TraderInput(props: TraderInputParams) {
           tokenShowBalance: token,
           multiSelect: !isSingleMode,
           singleSelect: isSingleMode,
+          walletsToHide:
+            traderType === TraderTypeEnum.Sender ? SENDER_WALLETS_TO_HIDE : [],
           onAccountsSelected: (addresses) => {
             setIsUploadMode(false);
             if (isSingleMode) {
@@ -96,6 +106,7 @@ function TraderInput(props: TraderInputParams) {
     setTraderFromOut,
     token,
     trader,
+    traderType,
     withAmount,
   ]);
 
@@ -106,6 +117,8 @@ function TraderInput(props: TraderInputParams) {
         screen: AddressBookRoutes.PickAddressRoute,
         params: {
           networkId,
+          walletsToHide:
+            traderType === TraderTypeEnum.Sender ? SENDER_WALLETS_TO_HIDE : [],
           onSelected: ({ address }) => {
             setIsUploadMode(false);
             if (isSingleMode) {
@@ -221,6 +234,7 @@ function TraderInput(props: TraderInputParams) {
       <Box display={isUploadMode ? 'none' : 'flex'}>
         <TraderEditor
           amount={amount}
+          traderType={traderType}
           amountType={amountType}
           accountId={accountId}
           networkId={networkId}

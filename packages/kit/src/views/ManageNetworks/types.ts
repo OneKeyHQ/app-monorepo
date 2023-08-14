@@ -6,6 +6,7 @@ import type {
   SwitchRpcParams,
 } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
+import type { WalletType } from '@onekeyhq/engine/src/types/wallet';
 
 import { ManageNetworkModalRoutes } from '../../routes/routesEnum';
 
@@ -24,6 +25,7 @@ export type ManageNetworkRoutesParams = {
         singleSelect?: boolean;
         tokenShowBalance?: Token;
         onAccountsSelected?: (accounts: string[]) => void;
+        walletsToHide?: WalletType[];
       };
   [ManageNetworkModalRoutes.NetworkSelector]:
     | undefined

@@ -4,11 +4,11 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { buildAppStorageFactory } from './appSetting';
 import { createPrintMethod } from './createPrintMethod';
 import MockStorage from './MockStorage';
 
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
-import { buildAppStorageFactory } from './appSetting';
 
 const appStorage: AsyncStorageStatic = // iOS/Android AsyncStorage
   AsyncStorage;

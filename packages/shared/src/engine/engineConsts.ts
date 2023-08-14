@@ -231,7 +231,10 @@ export const PRICE_EXPIRED_TIME = getTimeDurationMs({ minute: 15 });
 export const ACCOUNT_DERIVATION_DB_MIGRATION_VERSION = '4.0.0';
 export const FIX_COSMOS_TEMPLATE_DB_MIGRATION_VERSION = '4.2.0';
 
-export const CHAINS_DISPLAYED_IN_DEV: string[] = [];
+export const CHAINS_DISPLAYED_IN_DEV: string[] = [
+  IMPL_LIGHTNING,
+  IMPL_LIGHTNING_TESTNET,
+];
 
 // If the token uses these symbols but it is not an offical token,
 // it will be marked as a risky token and the history containing these tokens can be hidden

@@ -71,13 +71,14 @@ export function useAccountInfoDataSource({
         keys.push(ManageAccountKeys.HardwareCanNotExportPrivateKey);
       }
       keys.push(ManageAccountKeys.RemoveAccount);
-      setDataSource((prev) => [
-        ...prev,
-        {
-          title: intl.formatMessage({ id: 'form__security_uppercase' }),
-          data: keys.map((key) => manageAccountOptions[key]),
-        },
-      ]);
+      const title = intl.formatMessage({ id: 'form__security_uppercase' });
+      const data = Array.from(
+        new Set(keys.map((key) => manageAccountOptions[key])),
+      );
+      setDataSource((prev) => {
+        const result = prev.filter((item) => item.title !== title);
+        return [...result, { title, data }];
+      });
     }
   }, [network, wallet, intl, manageAccountOptions, account?.xpub]);
 

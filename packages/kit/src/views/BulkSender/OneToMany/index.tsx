@@ -45,7 +45,7 @@ import { TraderExample } from '../TraderExample';
 import { TraderInput } from '../TraderInput';
 import { TxSettingPanel } from '../TxSetting/TxSettingPanel';
 import { TxSettingTrigger } from '../TxSetting/TxSettingTrigger';
-import { AmountTypeEnum, BulkSenderRoutes } from '../types';
+import { AmountTypeEnum, BulkSenderRoutes, TraderTypeEnum } from '../types';
 
 import type { RootRoutesParams } from '../../../routes/types';
 import type { TokenTrader } from '../types';
@@ -468,6 +468,7 @@ function OneToMany(props: Props) {
           traderErrors={errors}
           isUploadMode={isUploadMode}
           setIsUploadMode={setIsUploadMode}
+          traderType={TraderTypeEnum.Receiver}
         />
       </Box>
       <Text fontSize={12} color="text-subdued" mt={isVertical ? 4 : 3}>

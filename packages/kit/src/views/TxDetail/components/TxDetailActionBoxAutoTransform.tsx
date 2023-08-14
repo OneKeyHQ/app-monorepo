@@ -53,6 +53,7 @@ export function TxDetailActionBoxAutoTransform(
   const detailContext = useTxDetailContext();
   const isMultipleActions = detailContext?.context?.isMultipleActions;
   const isHistoryDetail = detailContext?.context?.isHistoryDetail;
+  const isSendConfirm = detailContext?.context?.isSendConfirm;
   const isSingleTransformMode = !isMultipleActions;
 
   let amountView;
@@ -63,6 +64,7 @@ export function TxDetailActionBoxAutoTransform(
         direction={amountInfo.direction}
         amount={amountInfo.amount}
         symbol={amountInfo.symbol}
+        isSendConfirm={isSendConfirm}
         mb={4}
       />
     );
@@ -71,6 +73,7 @@ export function TxDetailActionBoxAutoTransform(
         direction={amountInfo.direction}
         amount={amountInfo.amount}
         symbol={amountInfo.symbol}
+        isSendConfirm={isSendConfirm}
         decimals={8}
         color="text-subdued"
         typography="Body2Strong"
