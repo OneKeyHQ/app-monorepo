@@ -119,12 +119,25 @@ function logToConsole(props: IConsoleFuncProps) {
 }
 
 let prevLogContent: string | undefined;
+let repeatContentCount = 0;
 const consoleFunc = (msg: string, props: IConsoleFuncProps) => {
   const logContent =
     props?.rawMsg && isArray(props.rawMsg) ? props.rawMsg.join('') : '';
   if (logContent === prevLogContent) {
+    repeatContentCount += 1;
     return;
   }
+
+  if (repeatContentCount > 0) {
+    const message = `---[${repeatContentCount}]`
+    repeatContentCount = 0;
+    consoleFunc(message, {
+      ...props,
+      msg: message,
+      rawMsg: [message],
+    });
+  }
+
   prevLogContent = logContent;
   const { level, rawMsg, extension } = props;
   if (platformEnv.isNative) {
