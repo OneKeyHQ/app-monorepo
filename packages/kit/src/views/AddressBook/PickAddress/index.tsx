@@ -18,7 +18,7 @@ import {
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type { Account } from '@onekeyhq/engine/src/types/account';
-import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import type { Wallet, WalletType } from '@onekeyhq/engine/src/types/wallet';
 import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
 import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
@@ -180,8 +180,10 @@ type WalletAccount = {
 
 const MyWallet = ({
   addressFilter,
+  walletsToHide,
 }: {
   addressFilter?: (address: string) => Promise<boolean>;
+  walletsToHide?: WalletType[];
 }) => {
   const intl = useIntl();
   const { wallets } = useRuntime();
@@ -212,17 +214,19 @@ const MyWallet = ({
     async function main() {
       for (let i = 0; i < wallets.length; i += 1) {
         const wallet = wallets[i];
-        let accounts = await backgroundApiProxy.engine.getAccounts(
-          wallet.accounts,
-          networkId,
-        );
-        accounts = await filterAccounts(accounts);
+        if (!walletsToHide?.includes(wallet.type)) {
+          let accounts = await backgroundApiProxy.engine.getAccounts(
+            wallet.accounts,
+            networkId,
+          );
+          accounts = await filterAccounts(accounts);
 
-        if (accounts && accounts.length > 0) {
-          setSections((prev) => [
-            ...prev,
-            { wallet, data: accounts, key: wallet.id },
-          ]);
+          if (accounts && accounts.length > 0) {
+            setSections((prev) => [
+              ...prev,
+              { wallet, data: accounts, key: wallet.id },
+            ]);
+          }
         }
       }
     }
@@ -318,7 +322,8 @@ const MyWallet = ({
 const PickAddress = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { addressFilter, contactExcludeWalletAccount } = route.params ?? {};
+  const { addressFilter, contactExcludeWalletAccount, walletsToHide } =
+    route.params ?? {};
 
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const navigation = useNavigation<NavigationProps>();
@@ -326,8 +331,10 @@ const PickAddress = () => {
     navigation.navigate(AddressBookRoutes.NewAddressRoute);
   }, [navigation]);
   const wallet = useMemo(
-    () => <MyWallet addressFilter={addressFilter} />,
-    [addressFilter],
+    () => (
+      <MyWallet addressFilter={addressFilter} walletsToHide={walletsToHide} />
+    ),
+    [addressFilter, walletsToHide],
   );
   const addressbook = useMemo(
     () => <AddressBook addressFilter={addressFilter} />,

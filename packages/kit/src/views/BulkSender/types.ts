@@ -104,6 +104,7 @@ export type TraderInputParams = {
   isUploadMode: boolean;
   isSingleMode?: boolean;
   withAmount?: boolean;
+  traderType: TraderTypeEnum;
   setIsUploadMode: React.Dispatch<React.SetStateAction<boolean>>;
 };
 

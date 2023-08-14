@@ -113,12 +113,9 @@ function SendProgress({
       bulkType === BulkTypeEnum.ManyToOne,
     [bulkType],
   );
-  const isExternal = useMemo(
-    () => isExternalAccount({ accountId }),
-    [accountId],
-  );
+
   const { sendTxForExternalAccount } = useSignOrSendOfExternalAccount({
-    encodedTx: undefined,
+    encodedTx: encodedTxs[0],
     sourceInfo,
     networkId,
     accountId,
@@ -198,7 +195,7 @@ function SendProgress({
         return signedTx ?? [];
       }
 
-      if (isExternal) {
+      if (isExternalAccount({ accountId: senderAccountId })) {
         signedTx = await sendTxForExternalAccount(encodedTx);
       } else {
         signedTx =
@@ -280,7 +277,6 @@ function SendProgress({
     route.params,
     transferInfos,
     isManyToN,
-    isExternal,
     setCurrentStep,
     network?.impl,
     accountId,
