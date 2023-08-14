@@ -53,6 +53,7 @@ export type ITxActionAmountProps = ComponentProps<typeof Text> & {
   decimals?: number;
   onPress?: (() => void) | null;
   subText?: string | JSX.Element;
+  isSendConfirm?: boolean;
 };
 
 export type ITxActionElementDetail = {
