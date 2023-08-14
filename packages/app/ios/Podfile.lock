@@ -37,7 +37,7 @@ PODS:
     - ExpoModulesCore
   - ExpoClipboard (4.2.0):
     - ExpoModulesCore
-  - ExpoDevice (5.3.0):
+  - ExpoDevice (5.4.0):
     - ExpoModulesCore
   - ExpoHaptics (12.3.0):
     - ExpoModulesCore
@@ -1097,7 +1097,7 @@ SPEC CHECKSUMS:
   Expo: 5601f86edc81c7e7e1772b9af9ae58fa3b45ad53
   ExpoBlur: 83186055c9c5c7ea564d04c6ed766ef7896889ed
   ExpoClipboard: 872ae8ea230649404705b7cc09a155531e74b7bb
-  ExpoDevice: 516146e17529c3eae3f5c2c09e826efc9ffc6938
+  ExpoDevice: 1c1b0c9cad96c292c1de73948649cfd654b2b3c0
   ExpoHaptics: fb64dfe302cba07591bf1679ecb9531dadfc13cf
   ExpoImageManipulator: b8d510b4d15689d8f276dff3482df5707836035b
   ExpoImagePicker: 432af66697986cc210bc814dee782a07b2037a61
