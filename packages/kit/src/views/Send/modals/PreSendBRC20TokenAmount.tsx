@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -17,6 +17,7 @@ import {
   Pressable,
   Spinner,
   Text,
+  ToastManager,
   VStack,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
@@ -35,7 +36,6 @@ import { SelectedIndicator } from '../../../components/SelectedIndicator';
 import OrdinalsSVG from '../../../components/SVG/OrdinalsSVG';
 import { useAccountSimple } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useBRC20AmountList } from '../../../hooks/useBRC20AmountList';
 import {
   InscribeModalRoutes,
   ModalRoutes,
@@ -175,17 +175,12 @@ function PreSendBRC20TokenAmount() {
   const modalClose = useModalClose();
   const [isLoadingAmountDetail, setIsLoadingAmountDetail] = useState(false);
   const [selectedAmounts, setSelectedAmounts] = useState<string[]>([]);
+  const [isLoadingList, setIsLoadingList] = useState(true);
+  const [amountList, setAmountList] = useState<BRC20TokenAmountItem[]>([]);
 
   const { accountId, networkId, token } = route.params ?? {};
 
   const account = useAccountSimple(accountId);
-
-  const { amountList, isLoadingList } = useBRC20AmountList({
-    networkId,
-    address: account?.address,
-    tokenAddress: token?.tokenIdOnNetwork || token?.address,
-    xpub: account?.xpub,
-  });
 
   const handleAmountSelected = useCallback(
     (amountId: string, isSelected: boolean) => {
@@ -246,6 +241,14 @@ function PreSendBRC20TokenAmount() {
     ).filter((item) => item) as NFTBTCAssetModel[];
 
     if (amountDetails.length !== selectedAmounts.length) {
+      ToastManager.show(
+        {
+          title: intl.formatMessage({
+            id: 'msg__nft_does_not_exist',
+          }),
+        },
+        { type: 'error' },
+      );
       setIsLoadingAmountDetail(false);
       return;
     }
@@ -291,7 +294,7 @@ function PreSendBRC20TokenAmount() {
     });
   }, [
     accountId,
-    amountList,
+    intl,
     modalClose,
     navigation,
     networkId,
@@ -465,6 +468,24 @@ function PreSendBRC20TokenAmount() {
       />
     );
   }, [AmountListFooter, amountList, isLoadingList, renderItem]);
+
+  const fetchAmountList = useCallback(async () => {
+    if (account && networkId && token) {
+      setIsLoadingList(true);
+      const resp = await backgroundApiProxy.serviceBRC20.getBRC20AmountList({
+        networkId,
+        address: account.address,
+        xpub: account.xpub ?? '',
+        tokenAddress: token.tokenIdOnNetwork ?? token.address,
+      });
+      setAmountList(resp.transferBalanceList);
+      setIsLoadingList(false);
+    }
+  }, [account, networkId, token]);
+
+  useEffect(() => {
+    fetchAmountList();
+  }, [fetchAmountList]);
 
   return (
     <Modal

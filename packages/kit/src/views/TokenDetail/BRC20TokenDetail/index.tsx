@@ -1,5 +1,6 @@
-import { useCallback, useContext, useEffect, useMemo } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -9,16 +10,16 @@ import {
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import {
   AppUIEventBusNames,
   appUIEventBus,
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../../components/Format';
 import { useActiveSideAccount } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useBRC20Inscriptions } from '../../../hooks/useBRC20Inscriptions';
-import { useBRC20TokenRecycleBalance } from '../../../hooks/useBRC20TokenRecycleBalance';
 import {
   InscribeModalRoutes,
   InscriptionControlModalRoutes,
@@ -34,15 +35,30 @@ import { InscriptionEntry } from './InscriptionEntry';
 import { TokenActions } from './TokenActions';
 import { TokenDetailHeader } from './TokenDetailHeader';
 
+const POLLING_INTERVAL = 30000;
+
+let pollingTimer: NodeJS.Timeout | null = null;
+
 function BRC20TokenDetail() {
   const intl = useIntl();
   const context = useContext(TokenDetailContext);
   const isVertical = useIsVerticalLayout();
   const appNavigation = useAppNavigation();
+  const isFocused = useIsFocused();
+
+  const [balanceInfo, setBalanceInfo] = useState({
+    balance: '0',
+    availableBalance: '0',
+    transferBalance: '0',
+  });
+  const [recycleBalance, setRecycleBalance] = useState('0');
+  const [isLoadingInscriptions, setIsLoadingInscriptions] = useState(false);
+  const [availableInscriptions, setAvailableInscriptions] = useState<
+    NFTBTCAssetModel[]
+  >([]);
 
   const { symbol, networkId, tokenAddress, accountId } =
     context?.routeParams ?? {};
-  const positionInfo = context?.positionInfo;
   const detailInfo = context?.detailInfo;
 
   const token = detailInfo?.tokens[0];
@@ -52,25 +68,8 @@ function BRC20TokenDetail() {
     networkId: networkId ?? '',
   });
 
-  const { availableInscriptions, isLoading } = useBRC20Inscriptions({
-    networkId,
-    address: account?.address,
-    xpub: account?.xpub,
-    tokenAddress: token?.tokenIdOnNetwork ?? token?.address,
-    isPolling: true,
-  });
-
-  const { recycleBalance, refreshRecycleBalance } = useBRC20TokenRecycleBalance(
-    {
-      networkId,
-      xpub: account?.xpub,
-      address: account?.address,
-      tokenAddress,
-    },
-  );
-
   const balanceWithoutRecycle = useMemo(() => {
-    const { balance, availableBalance, transferBalance } = positionInfo ?? {};
+    const { balance, availableBalance, transferBalance } = balanceInfo;
 
     const balanceWithoutRecycle1 = new BigNumber(balance ?? '0').minus(
       recycleBalance,
@@ -83,12 +82,12 @@ function BRC20TokenDetail() {
       balance: balanceWithoutRecycle1.isLessThan(0)
         ? '0'
         : balanceWithoutRecycle1.toFixed(),
-      availableBalance: availableBalance?.toFixed() ?? '0',
+      availableBalance,
       transferBalance: transferBalanceWithoutRecycle.isLessThan(0)
         ? '0'
         : transferBalanceWithoutRecycle.toFixed(),
     };
-  }, [positionInfo, recycleBalance]);
+  }, [balanceInfo, recycleBalance]);
 
   const handleSendOnPress = useCallback(() => {
     if (accountId && networkId && token) {
@@ -149,22 +148,82 @@ function BRC20TokenDetail() {
             networkId,
             accountId,
             token,
-            refreshRecycleBalance,
           },
         },
       });
     }
-  }, [accountId, appNavigation, networkId, refreshRecycleBalance, token]);
+  }, [accountId, appNavigation, networkId, token]);
+
+  const fetchRecycleBalance = useCallback(async () => {
+    if (networkId && account && token) {
+      const amountResp =
+        await backgroundApiProxy.serviceBRC20.getBRC20AmountList({
+          networkId,
+          address: account.address,
+          xpub: account.xpub ?? '',
+          tokenAddress: token.tokenIdOnNetwork ?? token.address,
+        });
+
+      const recycleResp =
+        await backgroundApiProxy.serviceBRC20.getBRC20RecycleBalance({
+          networkId,
+          address: account.address,
+          xpub: account.xpub ?? '',
+          tokenAddress: token.tokenIdOnNetwork ?? token.address,
+          transferBalanceList: amountResp.transferBalanceList,
+        });
+      setRecycleBalance(recycleResp);
+      setBalanceInfo({
+        balance: amountResp.balance,
+        availableBalance: amountResp.availableBalance,
+        transferBalance: amountResp.transferBalance,
+      });
+    }
+  }, [account, networkId, token]);
+
+  const fetchAvailableInscriptions = useCallback(async () => {
+    if (networkId && account && token) {
+      setIsLoadingInscriptions(true);
+      const resp = await backgroundApiProxy.serviceBRC20.getBRC20Inscriptions({
+        networkId,
+        address: account.address,
+        xpub: account.xpub ?? '',
+        tokenAddress: token.tokenIdOnNetwork ?? token.address,
+      });
+      setAvailableInscriptions(resp.availableInscriptions);
+      setIsLoadingInscriptions(false);
+    }
+  }, [account, networkId, token]);
+
+  useEffect(() => {
+    if (pollingTimer) {
+      clearInterval(pollingTimer);
+    }
+    fetchRecycleBalance();
+    fetchAvailableInscriptions();
+    pollingTimer = setInterval(() => {
+      if (isFocused) {
+        fetchRecycleBalance();
+        fetchAvailableInscriptions();
+      }
+    }, POLLING_INTERVAL);
+    return () => {
+      if (pollingTimer) {
+        clearInterval(pollingTimer);
+        pollingTimer = null;
+      }
+    };
+  }, [fetchAvailableInscriptions, fetchRecycleBalance, isFocused]);
 
   useEffect(() => {
     appUIEventBus.on(
       AppUIEventBusNames.InscriptionRecycleChanged,
-      refreshRecycleBalance,
+      fetchRecycleBalance,
     );
     return () => {
       appUIEventBus.off(
         AppUIEventBusNames.InscriptionRecycleChanged,
-        refreshRecycleBalance,
+        fetchRecycleBalance,
       );
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -214,7 +273,7 @@ function BRC20TokenDetail() {
       ) : null}
       <InscriptionEntry
         inscriptions={availableInscriptions}
-        isLoadingInscriptions={isLoading}
+        isLoadingInscriptions={isLoadingInscriptions}
         onPress={handleInscriptionControlOnPress}
         style={{ mb: 6 }}
       />

@@ -55,7 +55,6 @@ import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import {
   getBRC20TransactionHistory,
   getNFTTransactionHistory,
-  parseTextProps,
 } from '../../../managers/nft';
 import {
   type BTCTransactionsModel,
@@ -1420,6 +1419,7 @@ export default class VaultBtcFork extends VaultBase {
         });
       });
     } else if (!isInscribeTransfer) {
+      // only native btc transfer can select inscription utxos marked as recycle utxos
       const recycleUtxos = await this.getRecycleInscriptionUtxos(
         dbAccount.xpub,
       );

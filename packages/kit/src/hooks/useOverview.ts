@@ -262,7 +262,11 @@ const balancesSelector = ({
         return Object.fromEntries(
           Object.entries(accountBalance).map(([tokenId, data]) => [
             tokenId,
-            { balance: data?.balance ?? '0' },
+            {
+              balance: data?.balance ?? '0',
+              availableBalance: data?.availableBalance ?? '0',
+              transferBalance: data?.transferBalance ?? '0',
+            },
           ]),
         );
       }

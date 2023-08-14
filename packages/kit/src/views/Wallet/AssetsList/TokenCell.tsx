@@ -17,6 +17,7 @@ import type { ITokenFiatValuesInfo } from '@onekeyhq/engine/src/types/token';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { isBRC20Token } from '@onekeyhq/shared/src/utils/tokenUtils';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   FormatBalance,
   FormatCurrencyNumber,
@@ -246,6 +247,10 @@ function TokenCellView(props: ITokenCellViewProps) {
   const handlePress = useCallback(() => {
     onPress?.(token);
   }, [onPress, token]);
+
+  useEffect(() => {
+    fetchRecycleBalance();
+  }, [fetchRecycleBalance]);
 
   if (!token) {
     return null;

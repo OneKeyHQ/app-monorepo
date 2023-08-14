@@ -13,10 +13,7 @@ import {
   Text,
   ToastManager,
 } from '@onekeyhq/components';
-import {
-  getTaprootXpub,
-  isTaprootXpubSegwit,
-} from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
+import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import {
   AppUIEventBusNames,
   appUIEventBus,
@@ -24,7 +21,6 @@ import {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccount } from '../../hooks';
-import { useBRC20Inscriptions } from '../../hooks/useBRC20Inscriptions';
 import { showDialog } from '../../utils/overlayUtils';
 import BaseMenu from '../Overlay/BaseMenu';
 
@@ -44,27 +40,33 @@ function InscriptionControl() {
   const route = useRoute<RouteProps>();
   const intl = useIntl();
 
-  const { accountId, networkId, token, refreshRecycleBalance } = route.params;
+  const { accountId, networkId, token } = route.params;
 
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedInscriptions, setSelectedInscriptions] = useState<string[]>(
     [],
   );
 
+  const [isLoadingInscriptions, setIsLoadingInscriptions] = useState(false);
+  const [availableInscriptions, setAvailableInscriptions] = useState<
+    NFTBTCAssetModel[]
+  >([]);
+
   const { account } = useAccount({ accountId, networkId });
 
-  const {
-    isLoading,
-    availableInscriptions = [],
-    fetchBRC20Inscriptions,
-  } = useBRC20Inscriptions({
-    networkId,
-    address: account?.address,
-    xpub: isTaprootXpubSegwit(account?.xpub ?? '')
-      ? getTaprootXpub(account?.xpub ?? '')
-      : account?.xpub,
-    tokenAddress: token?.tokenIdOnNetwork ?? token?.address,
-  });
+  const fetchAvailableInscriptions = useCallback(async () => {
+    if (networkId && account && token) {
+      setIsLoadingInscriptions(true);
+      const resp = await backgroundApiProxy.serviceBRC20.getBRC20Inscriptions({
+        networkId,
+        address: account.address,
+        xpub: account.xpub ?? '',
+        tokenAddress: token.tokenIdOnNetwork ?? token.address,
+      });
+      setAvailableInscriptions(resp.availableInscriptions);
+      setIsLoadingInscriptions(false);
+    }
+  }, [account, networkId, token]);
 
   const handleRecycleOnPress = useCallback(() => {
     showDialog(
@@ -103,7 +105,7 @@ function InscriptionControl() {
               type: 'default',
             },
           );
-          fetchBRC20Inscriptions();
+          fetchAvailableInscriptions();
           setSelectedInscriptions([]);
           appUIEventBus.emit(AppUIEventBusNames.InscriptionRecycleChanged);
         }}
@@ -112,7 +114,7 @@ function InscriptionControl() {
   }, [
     accountId,
     availableInscriptions,
-    fetchBRC20Inscriptions,
+    fetchAvailableInscriptions,
     intl,
     networkId,
     selectedInscriptions,
@@ -181,7 +183,7 @@ function InscriptionControl() {
   }, [isSelectMode]);
 
   const renderContent = useCallback(() => {
-    if (isLoading)
+    if (isLoadingInscriptions)
       return (
         <Center width="full" height="full">
           <Spinner />
@@ -201,7 +203,7 @@ function InscriptionControl() {
   }, [
     accountId,
     availableInscriptions,
-    isLoading,
+    isLoadingInscriptions,
     isSelectMode,
     networkId,
     selectedInscriptions,

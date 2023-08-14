@@ -471,5 +471,8 @@ export type BRC20TokenAmountItem = {
 };
 
 export type BRC20TokenAmountListResponse = {
+  balance: string;
+  availableBalance: string;
+  transferBalance: string;
   transferBalanceList: BRC20TokenAmountItem[];
 };
