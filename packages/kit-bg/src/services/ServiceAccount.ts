@@ -1571,7 +1571,9 @@ class ServiceAccount extends ServiceBase {
     const { wallets, accounts } = appSelector((s) => s.runtime);
     const map = appSelector((s) => s.overview.allNetworksAccountsMap);
     const findMatchAccount = (list: Account[]): Account | undefined => {
-      const a = list.find((item) => item.address === address);
+      const a = list.find(
+        (item) => item.address.toLowerCase() === address.toLowerCase(),
+      );
       if (!a) {
         return undefined;
       }
