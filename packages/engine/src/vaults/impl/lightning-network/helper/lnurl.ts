@@ -141,7 +141,6 @@ export const verifyInvoice = ({
     (t) => t.tagName === 'purpose_commit_hash',
   )?.data;
 
-  console.log(metadataHash);
   switch (true) {
     case purposeCommitHash !== metadataHash: // LN WALLET Verifies that h tag (description_hash) in provided invoice is a hash of metadata string converted to byte array in UTF-8 encoding
     case decodedInvoice.millisatoshis !== String(amount):
