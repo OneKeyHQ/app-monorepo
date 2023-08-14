@@ -8,16 +8,10 @@ import type {
   GroupDappsType,
   HistoryItemData,
   UserBrowserHistory,
-  WebSiteHistory,
 } from '../../views/Discover/type';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
 type InitialState = {
-  userBrowserHistories?: UserBrowserHistory[];
-  bookmarks?: BookmarkItem[];
-
-  favoritesMigrated?: boolean;
-
   // REMOVED
   dappHistory?: Record<string, HistoryItemData>;
   dappFavorites?: string[];
@@ -28,15 +22,17 @@ type InitialState = {
   tagDapps?: { label: string; id: string; items: DAppItemType[] }[];
   history: Record<string, DiscoverHistory>;
   firstRemindDAPP: boolean;
-  // REMOVED
-
   home?: {
     categories: CategoryType[];
     tagDapps: GroupDappsType[];
   };
+  // REMOVED
 
+  userBrowserHistories?: UserBrowserHistory[];
+  bookmarks?: BookmarkItem[];
+  favoritesMigrated?: boolean;
   showBookmark?: boolean;
-
+  enableIOSDappSearch?: boolean;
   networkPrices?: Record<string, string>;
 };
 
@@ -46,152 +42,10 @@ const initialState: InitialState = {
   dappHistory: {},
 };
 
-function getUrlHostName(urlStr: string | undefined): string | undefined {
-  if (!urlStr) {
-    return undefined;
-  }
-  try {
-    const url = new URL(urlStr);
-    return url.hostname.toLowerCase();
-  } catch (error) {
-    return undefined;
-  }
-}
-function diffWebSite(
-  oldWebSite: WebSiteHistory | undefined,
-  newWebSite: WebSiteHistory | undefined,
-): WebSiteHistory {
-  const {
-    title: oldTitle,
-    url: oldUrl,
-    favicon: oldFavicon,
-  } = oldWebSite || {};
-  const { title, url, favicon } = newWebSite || {};
-
-  const newUrl = url && url !== '' ? url : oldUrl;
-  const newTitle = title && title !== '' ? title : oldTitle;
-  const newFavicon = favicon && favicon !== '' ? favicon : oldFavicon;
-
-  return { title: newTitle, url: newUrl, favicon: newFavicon };
-}
-
-/**
- * 校验域名
- */
-function compareDomainNames(
-  hostname: string,
-  url: string | undefined,
-): boolean {
-  if (!url) {
-    return false;
-  }
-  try {
-    const urlObj = new URL(url);
-    const urlHostName = urlObj.hostname.toLowerCase();
-    return urlHostName === hostname;
-  } catch (error) {
-    return false;
-  }
-}
-
 export const discoverSlice = createSlice({
   name: 'discover',
   initialState,
   reducers: {
-    updateHistory(state, action: PayloadAction<string>) {
-      const history = state.history[action.payload];
-      if (history) {
-        state.history[action.payload] = {
-          'clicks': (history?.clicks ?? 1) + 1,
-          'timestamp': new Date().getTime(),
-        };
-      } else {
-        state.history[action.payload] = {
-          'clicks': 1,
-          'timestamp': new Date().getTime(),
-        };
-      }
-    },
-    addWebSiteHistory(
-      state,
-      action: PayloadAction<{
-        keyUrl?: string;
-        webSite: WebSiteHistory;
-      }>,
-    ) {
-      let hostname = action.payload.keyUrl;
-      if (!hostname) {
-        hostname = getUrlHostName(action.payload.webSite.url);
-      }
-      if (!hostname) return;
-
-      const history = state.history[hostname];
-      if (history) {
-        state.history[hostname] = {
-          webSite: diffWebSite(history?.webSite, action?.payload?.webSite),
-          clicks: (history?.clicks ?? 1) + 1,
-          timestamp: new Date().getTime(),
-        };
-      } else {
-        state.history[hostname] = {
-          webSite: diffWebSite(undefined, action?.payload?.webSite),
-          clicks: 1,
-          timestamp: new Date().getTime(),
-        };
-      }
-    },
-    removeWebSiteHistory(state, action: PayloadAction<string>) {
-      delete state.history[action.payload];
-    },
-    updateWebSiteHistory(
-      state,
-      action: PayloadAction<{
-        keyUrl?: string | undefined;
-        webSite: WebSiteHistory;
-      }>,
-    ) {
-      let hostname = action.payload.keyUrl;
-      if (!hostname) {
-        hostname = getUrlHostName(action.payload.webSite.url);
-      }
-      if (!hostname) return;
-
-      if (!compareDomainNames(hostname, action.payload.webSite.url)) return;
-
-      const history = state.history[hostname];
-      if (history && history.webSite) {
-        state.history[hostname] = {
-          ...history,
-          webSite: diffWebSite(history?.webSite, action?.payload?.webSite),
-        };
-      }
-    },
-    updateFirstRemindDAPP(state, action: PayloadAction<boolean>) {
-      state.firstRemindDAPP = action.payload;
-    },
-    setDappHistory(state, action: PayloadAction<string>) {
-      if (!state.dappHistory) {
-        state.dappHistory = {};
-      }
-      const dappHistory = state.dappHistory[action.payload];
-      if (dappHistory) {
-        state.dappHistory[action.payload] = {
-          'clicks': (dappHistory?.clicks ?? 1) + 1,
-          'timestamp': new Date().getTime(),
-        };
-      } else {
-        state.dappHistory[action.payload] = {
-          'clicks': 1,
-          'timestamp': new Date().getTime(),
-        };
-      }
-    },
-    removeDappHistory(state, action: PayloadAction<string>) {
-      if (!state.dappHistory) {
-        state.dappHistory = {};
-      }
-      delete state.dappHistory[action.payload];
-    },
     clearHistory(state) {
       state.dappHistory = {};
       state.userBrowserHistories = [];
@@ -248,6 +102,9 @@ export const discoverSlice = createSlice({
     setShowBookmark(state, action: PayloadAction<boolean>) {
       state.showBookmark = action.payload;
     },
+    setEnableIOSDappSearch(state, action: PayloadAction<boolean>) {
+      state.enableIOSDappSearch = action.payload;
+    },
     cleanOldState(state) {
       state.dappItems = undefined;
       state.listedCategories = undefined;
@@ -255,15 +112,6 @@ export const discoverSlice = createSlice({
       state.categoryDapps = undefined;
       state.tagDapps = undefined;
       state.home = undefined;
-    },
-    setHomeData(
-      state,
-      action: PayloadAction<{
-        categories: CategoryType[];
-        tagDapps: GroupDappsType[];
-      }>,
-    ) {
-      state.home = action.payload;
     },
     addUserBrowserHistory(state, action: PayloadAction<UserBrowserHistory>) {
       if (!state.userBrowserHistories) {
@@ -319,25 +167,10 @@ export const discoverSlice = createSlice({
 });
 
 export const {
-  // setDappItems,
-  // setListedCategories,
-  // setListedTags,
-  // setCategoryDapps,
-  // setTagDapps,
-  // setEnableIOSDappSearch,
-  // addFavorite,
-  // removeFavorite,
-  updateHistory,
-  updateFirstRemindDAPP,
-  addWebSiteHistory,
-  updateWebSiteHistory,
-  setDappHistory,
-  removeDappHistory,
-  removeWebSiteHistory,
   clearHistory,
   setShowBookmark,
+  setEnableIOSDappSearch,
   cleanOldState,
-  setHomeData,
   addUserBrowserHistory,
   updateUserBrowserHistory,
   removeUserBrowserHistory,

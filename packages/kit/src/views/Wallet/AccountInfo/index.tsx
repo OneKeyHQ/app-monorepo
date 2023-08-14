@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import type { FC } from 'react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -17,6 +18,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
+import { NetworkDarkIcon } from '@onekeyhq/components/src/Network/DarkIcon';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { FormatCurrencyNumber } from '@onekeyhq/kit/src/components/Format';
@@ -48,21 +50,60 @@ import type BigNumber from 'bignumber.js';
 export const FIXED_VERTICAL_HEADER_HEIGHT = 238;
 export const FIXED_HORIZONTAL_HEDER_HEIGHT = 152;
 
-const SectionCopyAddress: FC = memo(() => {
+const SectionNetworkIconGroup: FC<{
+  networkIds: string[];
+}> = memo(({ networkIds }) => {
+  const data = useMemo(() => {
+    if (!networkIds?.length) {
+      return [];
+    }
+    const ns = networkIds.slice(0, 4);
+    if (networkIds.length > 4) {
+      ns.push('more');
+    }
+    return ns;
+  }, [networkIds]);
+
+  return (
+    <>
+      {data.map((n, idx) => (
+        <Box key={n} ml={idx === 0 ? 0 : -1}>
+          <NetworkDarkIcon networkId={n} />
+        </Box>
+      ))}
+    </>
+  );
+});
+
+SectionNetworkIconGroup.displayName = 'SectionNetworkIconGroup';
+
+const SectionNetworks: FC = memo(() => {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { account, networkId, network, wallet, walletId, accountId } =
-    useActiveWalletAccount();
-  const { copyAddress } = useCopyAddress({ wallet });
+  const { networkId, walletId, accountId } = useActiveWalletAccount();
 
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
     accountId,
   });
-
-  const displayAddress = useMemo(
-    () => !network?.settings.hiddenAddress,
-    [network?.settings.hiddenAddress],
+  const enabledNetworks = useMemo(
+    () => Object.keys(networkAccountsMap ?? {}),
+    [networkAccountsMap],
   );
+
+  useEffect(() => {
+    if (isAllNetworks(networkId) && networkAccountsMap === null) {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.ManageNetwork,
+        params: {
+          screen: ManageNetworkModalRoutes.AllNetworksAccountsDetail,
+          params: {
+            walletId,
+            accountId,
+          },
+        },
+      });
+    }
+  }, [networkId, networkAccountsMap, walletId, navigation, accountId]);
 
   const toAllNetworksAccountsDetail = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -76,30 +117,45 @@ const SectionCopyAddress: FC = memo(() => {
       },
     });
   }, [walletId, accountId, navigation]);
+  return (
+    <Pressable
+      flexDirection="row"
+      alignItems="center"
+      py="4px"
+      px="8px"
+      rounded="12px"
+      _hover={{ bg: 'surface-hovered' }}
+      _pressed={{ bg: 'surface-pressed' }}
+      onPress={toAllNetworksAccountsDetail}
+    >
+      <Text typography="Body2Strong" mr={2} color="text-subdued">
+        {intl.formatMessage(
+          { id: 'form__str_networks' },
+          {
+            0: enabledNetworks.length,
+          },
+        )}
+      </Text>
+      <SectionNetworkIconGroup networkIds={enabledNetworks} />
+      <Icon name="ChevronDownMini" size={20} color="icon-subdued" />
+    </Pressable>
+  );
+});
+
+SectionNetworks.displayName = 'SectionNetworks';
+
+const SectionCopyAddress: FC = memo(() => {
+  const intl = useIntl();
+  const { account, networkId, network, wallet } = useActiveWalletAccount();
+  const { copyAddress } = useCopyAddress({ wallet });
+
+  const displayAddress = useMemo(
+    () => !network?.settings.hiddenAddress,
+    [network?.settings.hiddenAddress],
+  );
 
   if (isAllNetworks(networkId)) {
-    return (
-      <Pressable
-        flexDirection="row"
-        alignItems="center"
-        py="4px"
-        px="8px"
-        rounded="12px"
-        _hover={{ bg: 'surface-hovered' }}
-        _pressed={{ bg: 'surface-pressed' }}
-        onPress={toAllNetworksAccountsDetail}
-      >
-        <Text typography="Body2Strong" mr={2} color="text-subdued">
-          {intl.formatMessage(
-            { id: 'form__all_networks_str' },
-            {
-              0: Object.keys(networkAccountsMap).length,
-            },
-          )}
-        </Text>
-        <Icon name="ChevronDownMini" color="icon-subdued" size={16} />
-      </Pressable>
-    );
+    return <SectionNetworks />;
   }
   if (!displayAddress) {
     return null;

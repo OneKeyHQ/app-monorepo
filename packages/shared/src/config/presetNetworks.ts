@@ -880,7 +880,7 @@ const serverPresetNetworks = [
         'transaction': 'https://finder.terra.money/mainnet/tx/{transaction}',
       },
     ],
-    'status': 'LISTED',
+    'status': 'TRASH',
     'createdAt': '2023-05-31T00:29:24.951Z',
     'updatedAt': '2023-05-31T00:29:24.951Z',
   },
@@ -3991,6 +3991,152 @@ const serverPresetNetworks = [
     'status': 'LISTED',
     'createdAt': '2023-06-19T00:29:24.951Z',
     'updatedAt': '2023-06-19T00:29:24.951Z',
+  },
+  {
+    'chainId': '59144',
+    'code': 'linea',
+    'id': 'evm--59144',
+    'logoURI': 'https://onekey-asset.com/assets/linea/linea.png',
+    'name': 'Linea',
+    'rpcURLs': [
+      {
+        'url': 'https://rpc.linea.build',
+      },
+      {
+        'url': 'https://linea.blockpi.network/v1/rpc/public',
+      },
+    ],
+    'shortcode': 'linea',
+    'shortname': 'Linea',
+    'feeMeta': {
+      'code': 'Linea',
+      'decimals': 9,
+      'symbol': 'Gwei',
+    },
+    'explorers': [
+      {
+        'address': 'https://lineascan.build/address/{address}',
+        'block': 'https://lineascan.build/block/{block}',
+        'name': 'https://lineascan.build/',
+        'transaction': 'https://lineascan.build/tx/{transaction}',
+      },
+    ],
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'ethereum',
+        'platform': 'ethereum',
+      },
+    ],
+    'symbol': 'ETH',
+    'decimals': 18,
+    'balance2FeeDecimals': 9,
+    'impl': 'evm',
+    'isTestnet': false,
+    'defaultEnabled': true,
+    'status': 'LISTED',
+    'createdAt': '2023-08-10T00:29:24.951Z',
+    'updatedAt': '2023-08-10T00:29:24.951Z',
+  },
+  {
+    'chainId': '8453',
+    'code': 'base',
+    'id': 'evm--8453',
+    'logoURI': 'https://onekey-asset.com/assets/base/base.png',
+    'name': 'Base',
+    'rpcURLs': [
+      {
+        'url': 'https://mainnet.base.org',
+      },
+      {
+        'url': 'https://base.meowrpc.com',
+      },
+      {
+        'url': 'https://1rpc.io/base',
+      },
+      {
+        'url': 'https://base.blockpi.network/v1/rpc/public',
+      },
+    ],
+    'shortcode': 'base',
+    'shortname': 'Base',
+    'feeMeta': {
+      'code': 'base',
+      'decimals': 9,
+      'symbol': 'Gwei',
+    },
+    'explorers': [
+      {
+        'address': 'https://basescan.org/address/{address}',
+        'block': 'https://basescan.org/block/{block}',
+        'name': 'https://basescan.org/',
+        'transaction': 'https://basescan.org/tx/{transaction}',
+      },
+    ],
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'ethereum',
+        'platform': 'ethereum',
+      },
+    ],
+    'symbol': 'ETH',
+    'decimals': 18,
+    'balance2FeeDecimals': 9,
+    'impl': 'evm',
+    'isTestnet': false,
+    'defaultEnabled': true,
+    'status': 'LISTED',
+    'createdAt': '2023-08-10T00:29:24.951Z',
+    'updatedAt': '2023-08-10T00:29:24.951Z',
+  },
+  {
+    'chainId': '5000',
+    'code': 'mantle',
+    'id': 'evm--5000',
+    'logoURI': 'https://onekey-asset.com/assets/mantle/mantle.png',
+    'name': 'Mantle',
+    'rpcURLs': [
+      {
+        'url': 'https://rpc.mantle.xyz',
+      },
+      {
+        'url': 'https://mantle-mainnet.public.blastapi.io',
+      },
+      {
+        'url': 'https://mantle.publicnode.com',
+      },
+    ],
+    'shortcode': 'mantle',
+    'shortname': 'Mantle',
+    'feeMeta': {
+      'code': 'mantle',
+      'decimals': 9,
+      'symbol': 'Gwei',
+    },
+    'symbol': 'MNT',
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'mantle',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://explorer.mantle.xyz/address/{address}',
+        'block': 'https://explorer.mantle.xyz/block/{block}',
+        'name': 'https://explorer.mantle.xyz/',
+        'transaction': 'https://explorer.mantle.xyz/tx/{transaction}',
+      },
+    ],
+    'decimals': 18,
+    'balance2FeeDecimals': 9,
+    'impl': 'evm',
+    'isTestnet': false,
+    'defaultEnabled': true,
+    'status': 'LISTED',
+    'createdAt': '2023-08-10T00:29:24.951Z',
+    'updatedAt': '2023-08-10T00:29:24.951Z',
   },
 ] as unknown as IServerNetwork[];
 

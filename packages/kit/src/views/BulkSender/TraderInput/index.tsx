@@ -3,7 +3,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Button, HStack, Text } from '@onekeyhq/components';
+import {
+  Box,
+  Button,
+  HStack,
+  IconButton,
+  Text,
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
 
 import {
   ManageNetworkModalRoutes,
@@ -36,6 +43,7 @@ function TraderInput(props: TraderInputParams) {
   const intl = useIntl();
   const [showFileError, setShowFileError] = useState(false);
   const navigation = useNavigation();
+  const isVertical = useIsVerticalLayout();
 
   const handleSelectAccountsOnPress = useCallback(() => {
     setIsUploadMode(false);
@@ -145,30 +153,61 @@ function TraderInput(props: TraderInputParams) {
         <Text fontSize={18} typography="Heading">
           {header}
         </Text>
-        <HStack>
-          <Button
-            type="plain"
-            leftIconName="ArrowUpTrayMini"
-            onPress={() => setIsUploadMode(!isUploadMode)}
-          >
-            {intl.formatMessage({
-              id: isUploadMode ? 'action__edit' : 'action__upload',
-            })}
-          </Button>
-          <Button
-            type="plain"
-            leftIconName="UserCircleOutline"
-            onPress={handleSelectAccountsOnPress}
-          >
-            {intl.formatMessage({ id: 'form__account' })}
-          </Button>
-          <Button
-            type="plain"
-            leftIconName="BookOpenOutline"
-            onPress={handleSelectContactOnPress}
-          >
-            {intl.formatMessage({ id: 'title__address_book' })}
-          </Button>
+        <HStack space={isVertical ? 1 : 0}>
+          {isVertical ? (
+            <>
+              <IconButton
+                name="ArrowUpTrayMini"
+                bgColor="surface-default"
+                shadow="none"
+                borderWidth={0}
+                circle
+                onPress={() => setIsUploadMode(!isUploadMode)}
+              />
+              <IconButton
+                name="UserCircleOutline"
+                bgColor="surface-default"
+                shadow="none"
+                borderWidth={0}
+                circle
+                onPress={handleSelectAccountsOnPress}
+              />
+              <IconButton
+                name="BookOpenOutline"
+                bgColor="surface-default"
+                shadow="none"
+                borderWidth={0}
+                circle
+                onPress={handleSelectContactOnPress}
+              />
+            </>
+          ) : (
+            <>
+              <Button
+                type="plain"
+                leftIconName="ArrowUpTrayMini"
+                onPress={() => setIsUploadMode(!isUploadMode)}
+              >
+                {intl.formatMessage({
+                  id: isUploadMode ? 'action__edit' : 'action__upload',
+                })}
+              </Button>
+              <Button
+                type="plain"
+                leftIconName="UserCircleOutline"
+                onPress={handleSelectAccountsOnPress}
+              >
+                {intl.formatMessage({ id: 'form__account' })}
+              </Button>
+              <Button
+                type="plain"
+                leftIconName="BookOpenOutline"
+                onPress={handleSelectContactOnPress}
+              >
+                {intl.formatMessage({ id: 'title__address_book' })}
+              </Button>
+            </>
+          )}
         </HStack>
       </HStack>
       <Box display={isUploadMode ? 'flex' : 'none'}>

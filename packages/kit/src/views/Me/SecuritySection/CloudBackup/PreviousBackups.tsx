@@ -4,14 +4,7 @@ import { useEffect, useLayoutEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import {
-  Box,
-  Center,
-  Icon,
-  Pressable,
-  Spinner,
-  Text,
-} from '@onekeyhq/components';
+import { Box, Center, Spinner, Text } from '@onekeyhq/components';
 import type { IBackupItemSummary } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -38,45 +31,25 @@ const PressableBackupSummary: FC<Omit<IBackupItemSummary, 'deviceInfo'>> = ({
   backupUUID,
   backupTime,
   numOfHDWallets,
-  numOfImportedAccounts,
-  numOfWatchingAccounts,
-  numOfContacts,
+  numOfAccounts,
 }) => {
   const navigation = useNavigation<NavigationProps>();
 
   return (
-    <Pressable
-      flexDirection="row"
-      justifyContent="space-between"
-      alignItems="center"
-      p={2}
-      mt={2}
-      rounded="xl"
-      _hover={{ bgColor: 'surface-hovered' }}
-      _pressed={{ bgColor: 'surface-pressed' }}
+    <BackupSummary
       onPress={() => {
         navigation.navigate(HomeRoutes.CloudBackupDetails, {
           backupUUID,
           backupTime,
           numOfHDWallets,
-          numOfImportedAccounts,
-          numOfWatchingAccounts,
-          numOfContacts,
+          numOfAccounts,
         });
       }}
-    >
-      <BackupSummary
-        backupTime={backupTime}
-        numOfHDWallets={numOfHDWallets}
-        numOfImportedAccounts={numOfImportedAccounts}
-        numOfWatchingAccounts={numOfWatchingAccounts}
-        numOfContacts={numOfContacts}
-        size="normal"
-      />
-      <Box>
-        <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
-      </Box>
-    </Pressable>
+      backupTime={backupTime}
+      numOfHDWallets={numOfHDWallets}
+      numOfAccounts={numOfAccounts}
+      size="normal"
+    />
   );
 };
 
@@ -123,20 +96,10 @@ const CloudBackup = () => {
                   bgColor="divider"
                 />
               ) : null}
-              <Box flexDirection="row">
-                <Icon
-                  name={
-                    group[0].deviceInfo.osName === 'iPadOS'
-                      ? 'DeviceTabletOutline'
-                      : 'DeviceMobileOutline'
-                  }
-                  size={20}
-                />
-                <Text typography="Body2Strong" color="text-subdued" ml={2}>
-                  {group[0].deviceInfo.deviceName}
-                </Text>
-              </Box>
-              <Box mx={-2}>
+              <Text typography="Body2Strong" color="text-subdued">
+                {group[0].deviceInfo.deviceName}
+              </Text>
+              <Box>
                 {group.map((item) => (
                   <PressableBackupSummary key={item.backupUUID} {...item} />
                 ))}

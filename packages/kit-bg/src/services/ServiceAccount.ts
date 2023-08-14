@@ -849,6 +849,7 @@ class ServiceAccount extends ServiceBase {
       serviceAccount,
       appSelector,
       serviceCloudBackup,
+      serviceAllNetwork,
     } = this.backgroundApi;
 
     const actions = [];
@@ -917,6 +918,11 @@ class ServiceAccount extends ServiceBase {
         activeNetworkId: networkId,
       }),
     );
+
+    await serviceAllNetwork.onAccountChanged({
+      account,
+      networkId,
+    });
 
     this.backgroundApi.serviceNetwork.notifyChainChanged();
     this.backgroundApi.serviceAccount.notifyAccountsChanged();
@@ -1289,8 +1295,12 @@ class ServiceAccount extends ServiceBase {
     activeWalletId: string | undefined | null;
     removedWalletId: string[];
   }) {
-    const { serviceNotification, dispatch, serviceCloudBackup } =
-      this.backgroundApi;
+    const {
+      serviceNotification,
+      dispatch,
+      serviceCloudBackup,
+      serviceAllNetwork,
+    } = this.backgroundApi;
 
     timelinePerfTrace.mark({
       name: ETimelinePerfNames.postWalletRemoved,
@@ -1313,6 +1323,8 @@ class ServiceAccount extends ServiceBase {
         title: 'ServiceAccount.postWalletRemoved >> initWallets DONE',
       });
     }
+
+    serviceAllNetwork.onWalletRemoved({ walletIds: removedWalletId });
 
     serviceNotification.removeAccountDynamicBatch({
       addressList: accounts
@@ -1367,16 +1379,13 @@ class ServiceAccount extends ServiceBase {
       serviceNotification,
       serviceAllNetwork,
     } = this.backgroundApi;
-    const account = await this.getAccount({
-      walletId,
-      accountId,
-    });
+    const account = await engine.getAccount(accountId, networkId);
     if (account) {
       serviceNotification.removeAccountDynamicBatch({
         addressList: [account.address],
       });
     }
-    const { activeAccountId, activeNetworkId } = appSelector((s) => s.general);
+    const { activeAccountId } = appSelector((s) => s.general);
     await engine.removeAccount(accountId, password ?? '', networkId);
     await simpleDb.walletConnect.removeAccount({ accountId });
     await engine.dbApi.removeAccountDerivationByAccountId({
@@ -1396,15 +1405,19 @@ class ServiceAccount extends ServiceBase {
     if (!walletId.startsWith('hw')) {
       serviceCloudBackup.requestBackup();
     }
-    if (
-      isAllNetworks(activeNetworkId) &&
-      isWalletCompatibleAllNetworks(walletId)
-    ) {
-      serviceAllNetwork.refreshCurrentAllNetworksAccountMap();
+
+    if (account) {
+      await serviceAllNetwork.onAccountChanged({
+        account,
+        networkId,
+      });
     }
   }
 
-  addressLabelCache: Record<string, { label: string; accountId: string }> = {};
+  addressLabelCache: Record<
+    string,
+    { label: string; accountId: string; walletId: string }
+  > = {};
 
   // getAccountNameByAddress
   @backgroundMethod()
@@ -1414,7 +1427,12 @@ class ServiceAccount extends ServiceBase {
   }: {
     address: string;
     networkId?: string;
-  }): Promise<{ label: string; address: string; accountId: string }> {
+  }): Promise<{
+    label: string;
+    address: string;
+    accountId: string;
+    walletId: string;
+  }> {
     const { engine } = this.backgroundApi;
     const {
       wallet,
@@ -1430,10 +1448,14 @@ class ServiceAccount extends ServiceBase {
       return Promise.resolve({
         label: this.addressLabelCache[cacheKey].label,
         accountId: this.addressLabelCache[cacheKey].accountId,
+        walletId: this.addressLabelCache[cacheKey].walletId,
         address,
       });
     }
-    const findNameLabelByAccountIds = async (accountIds: string[]) => {
+    const findNameLabelByAccountIds = async (
+      accountIds: string[],
+      wallets: Wallet[],
+    ) => {
       const accounts = await this.backgroundApi.engine.getAccounts(
         accountIds,
         networkId,
@@ -1483,29 +1505,36 @@ class ServiceAccount extends ServiceBase {
 
       const label = targetAccount?.name ?? '';
       const accountId = targetAccount?.id ?? '';
-      if (label && address) {
+      const accountWalletId =
+        wallets.find((w) => w.accounts.includes(accountId))?.id ?? '';
+      if (label && address && accountWalletId) {
         this.addressLabelCache[cacheKey] = {
           label,
           accountId,
+          walletId: accountWalletId,
         };
       }
       return {
         label,
         address,
         accountId,
+        walletId: accountWalletId,
       };
     };
     // TODO search from wallet in params
     // search from active wallet
     if (wallet && wallet.accounts && wallet.accounts.length) {
-      const { label, accountId } = await findNameLabelByAccountIds(
-        wallet.accounts,
-      );
+      const {
+        label,
+        accountId,
+        walletId: accountWalletId,
+      } = await findNameLabelByAccountIds(wallet.accounts, [wallet]);
       if (label) {
         return {
           label,
           address,
           accountId,
+          walletId: accountWalletId,
         };
       }
     }
@@ -1514,11 +1543,16 @@ class ServiceAccount extends ServiceBase {
       includeAllPassphraseWallet: true,
     });
     const accountIds = flatten(wallets.map((w) => w.accounts));
-    const { label, accountId } = await findNameLabelByAccountIds(accountIds);
+    const {
+      label,
+      accountId,
+      walletId: accountWalletId,
+    } = await findNameLabelByAccountIds(accountIds, wallets);
     return {
       label,
       address,
       accountId,
+      walletId: accountWalletId,
     };
   }
 

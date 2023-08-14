@@ -6,7 +6,6 @@ import type {
   SwitchRpcParams,
 } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
-import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
 import { ManageNetworkModalRoutes } from '../../routes/routesEnum';
 
@@ -97,4 +96,9 @@ export type ManageNetworkRoutesParams = {
     accountId: string;
   };
   [ManageNetworkModalRoutes.AllNetworksSupportedNetworks]: undefined;
+};
+
+export type NetworkWithAccounts = Network & {
+  accounts: Account[];
+  selected: boolean;
 };

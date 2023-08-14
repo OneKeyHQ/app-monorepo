@@ -13,7 +13,7 @@ import { TabRoutes } from '../../routes/routesEnum';
 import { PortalContainer, PortalRender } from '../Overlay/RootPortal';
 import Swap from '../Swap';
 
-import MarketHeader from './Components/MarketList/MarketTopHeader';
+// import MarketHeader from './Components/MarketList/MarketTopHeader';
 import MarketList from './MarketList';
 import SharedMobileTab from './SharedMobileTab';
 import { sharedMobileTabRef } from './sharedMobileTabRef';
@@ -49,7 +49,7 @@ export function ScreenMarketOrSwap({
         />
       ) : (
         <>
-          <MarketHeader marketTopTabName={routeName} />
+          {/* <MarketHeader marketTopTabName={routeName} /> */}
           {routeName === TabRoutes.Swap ? (
             <Swap hideBottomTabBar />
           ) : (

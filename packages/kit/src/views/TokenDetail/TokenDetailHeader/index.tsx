@@ -1,9 +1,10 @@
 import type { FC } from 'react';
 import { useContext, useMemo } from 'react';
 
-import { VStack, useUserDevice } from '@onekeyhq/components';
+import { Box, VStack, useUserDevice } from '@onekeyhq/components';
 
 import { useAppSelector } from '../../../hooks';
+import { StakingWidgets } from '../../Staking/Widgets/StakingWidgets';
 import { TokenDetailContext } from '../context';
 
 import { BalanceSection } from './BalanceSection';
@@ -25,6 +26,7 @@ const TokenDetailHeader: FC = () => {
         <>
           <BalanceSection />
           <ButtonsSection />
+          <StakingWidgets token={context?.detailInfo.defaultToken} />
         </>
       );
     }
@@ -36,9 +38,15 @@ const TokenDetailHeader: FC = () => {
           <ChartSection {...context?.routeParams} />
         ) : null}
         <BalanceSection />
+        <StakingWidgets token={context?.detailInfo.defaultToken} />
       </>
     );
-  }, [size, showTokenDetailPriceChart, context?.routeParams]);
+  }, [
+    size,
+    showTokenDetailPriceChart,
+    context?.routeParams,
+    context?.detailInfo.defaultToken,
+  ]);
   return (
     <VStack
       px={['NORMAL', 'LARGE'].includes(size) ? 8 : 4}

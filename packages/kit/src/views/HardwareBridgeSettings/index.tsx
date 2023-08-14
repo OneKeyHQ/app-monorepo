@@ -12,10 +12,7 @@ import {
   useIsVerticalLayout,
   useTheme,
 } from '@onekeyhq/components';
-import {
-  SHORT_ONEKEYCN_URL,
-  SHORT_ONEKEYSO_URL,
-} from '@onekeyhq/shared/src/config/appConfig';
+import { EOnekeyDomain } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../hooks';
@@ -33,7 +30,7 @@ type NavigationProps = NativeStackNavigationProp<
 >;
 
 type IBridgeSettingItem = {
-  label: string;
+  label: EOnekeyDomain;
   description: string;
   isActive: boolean | undefined;
 };
@@ -68,16 +65,16 @@ function HardwareBridgeSettings() {
   const hardwareSDKOptions = useMemo<IBridgeSettingItem[]>(
     () => [
       {
-        label: SHORT_ONEKEYSO_URL,
+        label: EOnekeyDomain.ONEKEY_SO,
         description: intl.formatMessage({ id: 'form__default' }),
-        isActive: hardwareConnectSrc?.includes(SHORT_ONEKEYSO_URL),
+        isActive: hardwareConnectSrc === EOnekeyDomain.ONEKEY_SO,
       },
       {
-        label: SHORT_ONEKEYCN_URL,
+        label: EOnekeyDomain.ONEKEY_CN,
         description: intl.formatMessage({
           id: 'form__optimized_for_china_mainland_network',
         }),
-        isActive: hardwareConnectSrc?.includes(SHORT_ONEKEYCN_URL),
+        isActive: hardwareConnectSrc === EOnekeyDomain.ONEKEY_CN,
       },
     ],
     [intl, hardwareConnectSrc],

@@ -1,10 +1,12 @@
+import type { ISimpleDbEntityMarktData } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityMarket';
 import type { ISimpleDbEntityUtxoData } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import type { BookmarkItem } from '@onekeyhq/kit/src/views/Discover/type';
 
 import type { Avatar } from '../../utils/emojiUtils';
 
 export type ISimpleDBBackUp = {
-  utxoAccounts?: ISimpleDbEntityUtxoData;
+  utxoAccounts: Pick<ISimpleDbEntityUtxoData, 'utxos'>;
+  market: Pick<ISimpleDbEntityMarktData, 'favorites'>;
 };
 
 export type PublicBackupData = {
@@ -17,7 +19,6 @@ export type PublicBackupData = {
   >;
   simpleDb?: ISimpleDBBackUp;
   discoverBookmarks?: BookmarkItem[];
-  marketFavorites?: string[];
   // browserHistories?: UserBrowserHistory[];
 };
 
@@ -26,9 +27,7 @@ export type IBackupItemSummary = {
   backupTime: number;
   deviceInfo: { osName: string; deviceName: string };
   numOfHDWallets: number;
-  numOfImportedAccounts: number;
-  numOfWatchingAccounts: number;
-  numOfContacts: number;
+  numOfAccounts: number;
 };
 
 export type BackupedContacts = Record<

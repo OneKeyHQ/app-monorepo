@@ -3,7 +3,7 @@ import { debounce } from 'lodash';
 import uuid from 'react-native-uuid';
 
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import type { ISimpleDbEntityUtxoData } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
   decrypt,
   encrypt,
@@ -20,10 +20,6 @@ import { create } from '@onekeyhq/kit/src/store/reducers/contacts';
 import type { Contact } from '@onekeyhq/kit/src/store/reducers/contacts';
 import { release } from '@onekeyhq/kit/src/store/reducers/data';
 import { addBookmark } from '@onekeyhq/kit/src/store/reducers/discover';
-import {
-  MARKET_FAVORITES_CATEGORYID,
-  saveMarketFavorite,
-} from '@onekeyhq/kit/src/store/reducers/market';
 import { setEnableLocalAuthentication } from '@onekeyhq/kit/src/store/reducers/settings';
 import { unlock } from '@onekeyhq/kit/src/store/reducers/status';
 import {
@@ -47,6 +43,7 @@ import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/
 import type {
   BackupedContacts,
   IBackupItemSummary,
+  ISimpleDBBackUp,
   PublicBackupData,
 } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -107,9 +104,8 @@ class ServiceCloudBackup extends ServiceBase {
       importedAccounts: {},
       watchingAccounts: {},
       HDWallets: {},
-      simpleDb: {},
+      simpleDb: { market: { favorites: [] }, utxoAccounts: { utxos: [] } },
       discoverBookmarks: [],
-      marketFavorites: [],
       // browserHistories: [],
     };
     const backupedContacts: BackupedContacts = {};
@@ -130,18 +126,21 @@ class ServiceCloudBackup extends ServiceBase {
       };
     });
 
+    const { utxoAccounts, market } = simpleDb;
+    const utxoAccountsRawData = await utxoAccounts.getRawData();
+    const marketRawData = await market.getRawData();
+    const utxos = utxoAccountsRawData?.utxos ?? [];
+    const favorites = marketRawData?.favorites ?? [];
+
+    const backupedSimpleDB = {
+      utxoAccounts: { utxos },
+      market: { favorites },
+    };
+    publicBackupData.simpleDb = backupedSimpleDB;
+
     const { bookmarks } = this.backgroundApi.appSelector((s) => s.discover);
     publicBackupData.discoverBookmarks = bookmarks;
     // publicBackupData.browserHistories = userBrowserHistories;
-
-    const { categorys } = this.backgroundApi.appSelector((s) => s.market);
-
-    let marketFavorites: string[] = [];
-    if (categorys && categorys[MARKET_FAVORITES_CATEGORYID]) {
-      marketFavorites =
-        categorys[MARKET_FAVORITES_CATEGORYID]?.coingeckoIds ?? [];
-      publicBackupData.marketFavorites = marketFavorites;
-    }
 
     const backupObject = await this.backgroundApi.engine.dumpDataForBackup(
       password,
@@ -174,14 +173,6 @@ class ServiceCloudBackup extends ServiceBase {
       publicBackupData.HDWallets[walletId] = { name, avatar, accountUUIDs };
     }
 
-    if (backupObject.simpleDb?.utxoAccounts) {
-      if (!publicBackupData.simpleDb) {
-        publicBackupData.simpleDb = {};
-      }
-      publicBackupData.simpleDb.utxoAccounts =
-        backupObject.simpleDb.utxoAccounts;
-    }
-
     return {
       private: '{}',
       public: '{}',
@@ -193,8 +184,8 @@ class ServiceCloudBackup extends ServiceBase {
                 ...backupObject,
                 contacts: backupedContacts,
                 discoverBookmarks: bookmarks,
+                simpleDb: backupedSimpleDB,
                 // browserHistories: userBrowserHistories,
-                marketFavorites,
               }),
               'utf8',
             ),
@@ -295,7 +286,6 @@ class ServiceCloudBackup extends ServiceBase {
           public: string;
         } = cloudData;
         const {
-          contacts = {},
           HDWallets = {},
           importedAccounts = {},
           watchingAccounts = {},
@@ -307,14 +297,20 @@ class ServiceCloudBackup extends ServiceBase {
         if (typeof backupSummaries[backupDeviceId] === 'undefined') {
           backupSummaries[backupDeviceId] = [];
         }
+        const numOfAccounts =
+          Object.values(HDWallets).reduce(
+            (count, wallet) => count + wallet.accountUUIDs.length,
+            0,
+          ) +
+          Object.keys(importedAccounts).length +
+          Object.keys(watchingAccounts).length;
+
         backupSummaries[backupDeviceId].push({
           backupUUID,
           backupTime,
           deviceInfo,
           numOfHDWallets: Object.keys(HDWallets).length,
-          numOfImportedAccounts: Object.keys(importedAccounts).length,
-          numOfWatchingAccounts: Object.keys(watchingAccounts).length,
-          numOfContacts: Object.keys(contacts).length,
+          numOfAccounts,
         });
       } catch (e) {
         debugLogger.cloudBackup.error((e as Error).message);
@@ -332,24 +328,27 @@ class ServiceCloudBackup extends ServiceBase {
       importedAccounts: {},
       watchingAccounts: {},
       HDWallets: {},
-      simpleDb: {
-        utxoAccounts: {} as ISimpleDbEntityUtxoData,
-      },
+      simpleDb: {} as ISimpleDBBackUp,
       discoverBookmarks: [],
       // browserHistories: [],
-      marketFavorites: [],
     };
+
     const notOnDevice: PublicBackupData = {
       contacts: {},
       importedAccounts: {},
       watchingAccounts: {},
       HDWallets: {},
-      simpleDb: {
-        utxoAccounts: {} as ISimpleDbEntityUtxoData,
-      },
+      simpleDb: {} as ISimpleDBBackUp,
       discoverBookmarks: [],
       // browserHistories: [],
-      marketFavorites: [],
+    };
+    alreadyOnDevice.simpleDb = {
+      utxoAccounts: { utxos: [] },
+      market: { favorites: [] },
+    };
+    notOnDevice.simpleDb = {
+      utxoAccounts: { utxos: [] },
+      market: { favorites: [] },
     };
 
     try {
@@ -367,17 +366,6 @@ class ServiceCloudBackup extends ServiceBase {
           alreadyOnDevice.discoverBookmarks?.push(remoteBookMark);
         } else {
           notOnDevice.discoverBookmarks?.push(remoteBookMark);
-        }
-      });
-
-      remoteData?.marketFavorites?.forEach((remoteId) => {
-        if (
-          localData?.marketFavorites &&
-          localData?.marketFavorites.includes(remoteId)
-        ) {
-          alreadyOnDevice.marketFavorites?.push(remoteId);
-        } else {
-          notOnDevice.marketFavorites?.push(remoteId);
         }
       });
 
@@ -450,12 +438,6 @@ class ServiceCloudBackup extends ServiceBase {
       }
 
       // simpleDb
-      if (!notOnDevice.simpleDb) {
-        notOnDevice.simpleDb = {};
-      }
-      if (!notOnDevice.simpleDb.utxoAccounts) {
-        notOnDevice.simpleDb.utxoAccounts = { utxos: [] };
-      }
       notOnDevice.simpleDb.utxoAccounts.utxos = (
         remoteData.simpleDb?.utxoAccounts?.utxos ?? []
       ).filter(
@@ -465,13 +447,6 @@ class ServiceCloudBackup extends ServiceBase {
           ) < 0,
       );
 
-      if (!alreadyOnDevice.simpleDb) {
-        alreadyOnDevice.simpleDb = {};
-      }
-      if (!alreadyOnDevice.simpleDb.utxoAccounts) {
-        alreadyOnDevice.simpleDb.utxoAccounts = { utxos: [] };
-      }
-
       alreadyOnDevice.simpleDb.utxoAccounts.utxos = (
         remoteData.simpleDb?.utxoAccounts?.utxos ?? []
       ).filter(
@@ -480,6 +455,17 @@ class ServiceCloudBackup extends ServiceBase {
             (localUtxo) => localUtxo.id === utxo.id,
           ) > -1,
       );
+
+      remoteData?.simpleDb?.market?.favorites?.forEach((remoteId) => {
+        if (
+          localData.simpleDb?.market.favorites &&
+          localData.simpleDb?.market.favorites.includes(remoteId)
+        ) {
+          alreadyOnDevice.simpleDb?.market.favorites.push(remoteId);
+        } else {
+          notOnDevice.simpleDb?.market.favorites.push(remoteId);
+        }
+      });
     } catch (e) {
       debugLogger.cloudBackup.error((e as Error).message);
     }
@@ -555,8 +541,12 @@ class ServiceCloudBackup extends ServiceBase {
         }
       }
 
-      if (notOnDevice.marketFavorites) {
-        dispatch(saveMarketFavorite(notOnDevice.marketFavorites));
+      if (notOnDevice.simpleDb?.market.favorites) {
+        await this.backgroundApi.serviceMarket.saveMarketFavoriteTokens(
+          notOnDevice.simpleDb.market.favorites?.map((id) => ({
+            coingeckoId: id,
+          })),
+        );
       }
 
       for (const contactUUID of Object.keys(notOnDevice.contacts)) {

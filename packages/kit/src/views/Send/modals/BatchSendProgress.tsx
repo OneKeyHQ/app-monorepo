@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/engine/src/errors';
 import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
+import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -31,7 +32,6 @@ import Protected, { ValidationFields } from '../../../components/Protected';
 import { useNetwork } from '../../../hooks';
 import { useInteractWithInfo } from '../../../hooks/useDecodedTx';
 import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';
-import { useWallet } from '../../../hooks/useWallet';
 import { deviceUtils } from '../../../utils/hardware';
 import { wait } from '../../../utils/helper';
 import { useSignOrSendOfExternalAccount } from '../../ExternalAccount/SendConfirm/useSignOrSendOfExternalAccount';
@@ -60,6 +60,8 @@ type NavigationProps = NavigationProp<
 type EnableLocalAuthenticationProps = {
   password: string;
   currentState: BatchSendState;
+  currentStep: number;
+  setCurrentStep: (step: number) => void;
   setCurrentState: (state: BatchSendState) => void;
   setTitleInfo: (titleInfo: ISendAuthenticationModalTitleInfo) => void;
   setIsAuthorized: (isAuthorized: boolean) => void;
@@ -69,10 +71,11 @@ const MAX_CONFIRM_RETRY = 10;
 
 function SendProgress({
   password,
+  currentStep,
+  setCurrentStep,
   currentState,
   setIsAuthorized,
 }: EnableLocalAuthenticationProps) {
-  const [currentFinished, setCurrentFinished] = useState(0);
   const navigation = useNavigation<NavigationProps>();
 
   const intl = useIntl();
@@ -122,7 +125,7 @@ function SendProgress({
   });
   const progressState = useRef(currentState);
   const isAborted = useRef(false);
-  const { wallet } = useWallet({ walletId });
+  const [currentWallet, setCurrentWallet] = useState<Wallet>();
   const { network } = useNetwork({ networkId });
 
   const inProgress = currentState === BatchSendState.inProgress;
@@ -136,7 +139,7 @@ function SendProgress({
   });
 
   const txCount = encodedTxs.length;
-  const progress = new BigNumber(currentFinished / txCount).toNumber();
+  const progress = new BigNumber(currentStep / txCount).toNumber();
 
   const waitUntilInProgress: () => Promise<boolean> = useCallback(async () => {
     if (
@@ -150,7 +153,16 @@ function SendProgress({
 
   const sendTxs = useCallback(async (): Promise<ISignedTxPro[]> => {
     const result: ISignedTxPro[] = [];
-    for (let i = 0, txsLength = encodedTxs.length; i < txsLength; i += 1) {
+    for (
+      let i = currentStep, txsLength = encodedTxs.length;
+      i < txsLength;
+      i += 1
+    ) {
+      setCurrentWallet(
+        await backgroundApiProxy.engine.getWallet(
+          senderAccounts?.[i]?.walletId ?? walletId,
+        ),
+      );
       await waitUntilInProgress();
 
       debugLogger.sendTx.info('Authentication sendTx:', route.params);
@@ -161,7 +173,7 @@ function SendProgress({
       const transferInfo = transferInfos?.[i];
 
       if (isManyToN) {
-        senderAccountId = senderAccounts?.[i];
+        senderAccountId = senderAccounts?.[i]?.accountId;
       } else {
         senderAccountId = accountId;
       }
@@ -227,7 +239,7 @@ function SendProgress({
         result,
       );
       // eslint-disable-next-line @typescript-eslint/no-shadow
-      setCurrentFinished(i + 1);
+      setCurrentStep(i + 1);
 
       if (signedTx?.txid && i < txsLength - 1 && network?.impl === IMPL_SOL) {
         let status =
@@ -253,15 +265,17 @@ function SendProgress({
     }
     return result;
   }, [
+    currentStep,
     encodedTxs,
+    senderAccounts,
+    walletId,
     waitUntilInProgress,
-    isAborted,
     route.params,
     transferInfos,
     isManyToN,
     isExternal,
+    setCurrentStep,
     network?.impl,
-    senderAccounts,
     accountId,
     sendTxForExternalAccount,
     password,
@@ -446,7 +460,7 @@ function SendProgress({
                     <Text
                       typography="DisplayMedium"
                       textAlign="center"
-                    >{`${currentFinished} / ${txCount}\n`}</Text>
+                    >{`${currentStep} / ${txCount}\n`}</Text>
                   ),
                 },
               )}
@@ -465,11 +479,14 @@ function SendProgress({
       {inProgress ? (
         <Text typography="Body1Strong" color="text-subdued">
           {currentTxInterval
-            ? `Delay ${currentTxInterval}s...`
-            : 'Processing transaction...'}
+            ? intl.formatMessage(
+                { id: 'form__delay_str' },
+                { duration: `${currentTxInterval}s` },
+              )
+            : ''}
         </Text>
       ) : null}
-      {!isManyToN && wallet?.type === 'hw' && inProgress && (
+      {txCount > 1 && currentWallet?.type === 'hw' && inProgress && (
         <Text
           textAlign="center"
           mt="4px"
@@ -501,13 +518,27 @@ const SendProgressMemo = memo(SendProgress);
 function BatchSendProgress() {
   const route = useRoute<RouteProps>();
   const { params } = route;
-  const { walletId, onModalClose, networkId, accountId } = params;
+  const {
+    walletId,
+    onModalClose,
+    networkId,
+    accountId,
+    payloadInfo,
+    encodedTxs,
+  } = params;
   const [titleInfo, setTitleInfo] = useState<
     ISendAuthenticationModalTitleInfo | undefined
   >();
   const [currentState, setCurrentState] = useState(BatchSendState.inProgress);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
   const onPause = currentState === BatchSendState.onPause;
+
+  const payload = payloadInfo as BatchSendConfirmPayloadInfo;
+
+  const { senderAccounts } = payload;
+
+  const canPause = currentStep < encodedTxs.length - 1;
 
   return (
     <BaseSendModal
@@ -530,6 +561,9 @@ function BatchSendProgress() {
         onPause ? 'action__continue' : 'action__pause'
       }
       secondaryActionTranslationId="action__abort"
+      primaryActionProps={{
+        isDisabled: !canPause && !onPause,
+      }}
       onPrimaryActionPress={() =>
         setCurrentState(
           onPause ? BatchSendState.inProgress : BatchSendState.onPause,
@@ -537,13 +571,18 @@ function BatchSendProgress() {
       }
     >
       <Box flex={1}>
-        <Protected walletId={walletId} field={ValidationFields.Payment}>
+        <Protected
+          walletId={senderAccounts?.[currentStep]?.walletId ?? walletId}
+          field={ValidationFields.Payment}
+        >
           {(password) => (
             <SendProgressMemo
               setIsAuthorized={setIsAuthorized}
               setTitleInfo={setTitleInfo}
               password={password}
               currentState={currentState}
+              currentStep={currentStep}
+              setCurrentStep={setCurrentStep}
               setCurrentState={setCurrentState}
             />
           )}

@@ -30,12 +30,10 @@ export const useSingleToken = (networkId: string, address: string) => {
         tokenIdOnNetwork: address,
       })
       .then((t) => {
-        if (t) {
-          setState({
-            loading: false,
-            token: t,
-          });
-        }
+        setState({
+          loading: false,
+          token: t,
+        });
       })
       .catch(() => {
         setState({
