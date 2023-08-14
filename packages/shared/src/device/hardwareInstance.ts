@@ -26,7 +26,6 @@ export const generateConnectSrc = (hardwareConnectSrc?: EOnekeyDomain) => {
   if (hardwareConnectSrc === EOnekeyDomain.ONEKEY_CN) {
     connectSrc = `${HARDWARE_SDK_IFRAME_SRC_ONEKEYCN}/${HARDWARE_SDK_VERSION}/`;
   }
-  connectSrc = 'https://localhost:8087/';
   return connectSrc;
 };
 
