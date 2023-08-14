@@ -110,7 +110,11 @@ function BatchSendTokenInfo(props: Props) {
       <HStack paddingY={4} space={2}>
         <TokenInfoBlock
           title={intl.formatMessage({ id: 'form__address_count' })}
-          content={isManyToN ? transferInfos.length : addresses.size}
+          content={
+            isManyToN
+              ? transferInfos.length.toString()
+              : addresses.size.toString()
+          }
         />
         <TokenInfoBlock
           title={intl.formatMessage({ id: 'form__transfer_amount' })}
