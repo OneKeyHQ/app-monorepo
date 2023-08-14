@@ -87,12 +87,10 @@ export default class ServiceSetting extends ServiceBase {
           actions.push(setShowBookmark(true));
         }
       }
-      if (data.iOSSupportSearchVersion) {
+      const v2 = data.iOSSupportSearchVersion;
+      if (v2 && semver.valid(v2)) {
         const version = appSelector((s) => s.settings.version);
-        if (
-          data.iOSSupportSearchVersion &&
-          semver.lte(version, data.iOSSupportSearchVersion)
-        ) {
+        if (semver.lte(version, v2)) {
           actions.push(setEnableIOSDappSearch(true));
         }
       }
