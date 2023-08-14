@@ -648,7 +648,8 @@ function AddExistingWalletView(
             }}
             helpText={helpText}
           >
-            {mode === 'imported' ? (
+            {mode === 'imported' &&
+            !selectedNetwork.settings.mnemonicAsPrivatekey ? (
               <Form.Input
                 inputAccessoryViewID="1"
                 autoFocusDelay={600}
