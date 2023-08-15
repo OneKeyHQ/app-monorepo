@@ -71,12 +71,14 @@ export type PreSendParams = {
 
 export type LnUrlPayParams = PreSendParams & {
   lnurlDetails: LNURLPayServiceResponse;
+  isSendFlow: boolean;
 };
 
 export type LnUrlWithdrawParams = {
   networkId: string;
   accountId: string;
   lnurlDetails: LNURLWithdrawServiceResponse;
+  isSendFlow: boolean;
 };
 
 export type LnUrlAuthParams = {
@@ -84,6 +86,7 @@ export type LnUrlAuthParams = {
   networkId: string;
   accountId: string;
   lnurlDetails: LNURLAuthServiceResponse;
+  isSendFlow: boolean;
 };
 
 export type LnUrlAuthenticationParams = {

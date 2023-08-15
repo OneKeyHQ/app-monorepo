@@ -2,12 +2,21 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import { CommonMessageTypes } from '@onekeyhq/engine/src/types/message';
+import {
+  findLnurl,
+  getLnurlDetails,
+  isLNURLRequestError,
+} from '@onekeyhq/engine/src/vaults/impl/lightning-network/helper/lnurl';
 import type {
   RequestInvoiceArgs,
   SignMessageResponse,
   VerifyMessageArgs,
 } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/webln';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  ModalRoutes,
+  SendModalRoutes,
+} from '@onekeyhq/kit/src/routes/routesEnum';
 import {
   backgroundClass,
   providerApiMethod,
@@ -190,6 +199,46 @@ class ProviderApiWebln extends ProviderApiBase {
     } catch (e) {
       console.error('=====>verifyMessage error: ', e);
       throw e;
+    }
+  }
+
+  @providerApiMethod()
+  public async lnurl(request: IJsBridgeMessagePayload) {
+    const originLnurl = (request.data as IJsonRpcRequest)?.params as string;
+    if (typeof originLnurl !== 'string') {
+      throw web3Errors.rpc.invalidInput();
+    }
+    const lnurlEncoded = findLnurl(originLnurl);
+    if (!lnurlEncoded) {
+      return { error: 'Invalid LNURL' };
+    }
+    let lnurlDetails;
+    try {
+      lnurlDetails = await getLnurlDetails(lnurlEncoded);
+      if (isLNURLRequestError(lnurlDetails)) {
+        return { error: lnurlDetails.reason };
+      }
+    } catch (e) {
+      console.error('parse lnurl error: ', e);
+      return { error: 'Failed to parse LNURL' };
+    }
+
+    const { networkId, accountId, walletId } = getActiveWalletAccount();
+    switch (lnurlDetails.tag) {
+      case 'login': {
+        return this.backgroundApi.serviceDapp.openModal({
+          request,
+          screens: [ModalRoutes.Send, SendModalRoutes.LNURLAuth],
+          params: {
+            walletId,
+            networkId,
+            accountId,
+            lnurlDetails,
+          },
+        });
+      }
+      default:
+        return { error: 'not implemented' };
     }
   }
 }
