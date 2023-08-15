@@ -25,8 +25,11 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import type { WatchAssetParameters } from '@onekeyhq/shared/src/providerApis/ProviderApiEthereum/ProviderApiEthereum.types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAccountTokensBalance, useAccountTokensOnChain } from '../../hooks';
-import { useActiveWalletAccount } from '../../hooks/redux';
+import {
+  useAccountTokensBalance,
+  useAccountTokensOnChain,
+  useActiveWalletAccount,
+} from '../../hooks';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
 import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
@@ -212,7 +215,7 @@ function ViewTokenModal(props: IViewTokenModalProps) {
   useEffect(() => {
     async function fetchBalance() {
       if (activeAccount && activeNetwork) {
-        await backgroundApiProxy.serviceToken.getAccountTokenBalance({
+        await backgroundApiProxy.serviceToken.fetchAndSaveAccountTokenBalance({
           accountId: activeAccount.id,
           networkId: activeNetwork.id,
           tokenIds: [address],

@@ -17,8 +17,7 @@ import {
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useDebounce } from '../../../hooks';
-import { useActiveWalletAccount } from '../../../hooks/redux';
+import { useActiveWalletAccount, useDebounce } from '../../../hooks';
 import { RpcNodePattern } from '../constants';
 
 import type {

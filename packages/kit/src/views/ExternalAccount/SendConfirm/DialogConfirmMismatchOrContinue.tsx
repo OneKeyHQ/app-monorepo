@@ -87,7 +87,7 @@ export function DialogConfirmMismatchOrContinue(
       debugLogger.common.error(error);
       return undefined;
     }
-  }, [peerChainId]);
+  }, [engine, peerChainId]);
   const msgId = useMemo(() => {
     if (isAddressMismatched && isChainMismatched) {
       return 'content__account_and_network_not_matched';

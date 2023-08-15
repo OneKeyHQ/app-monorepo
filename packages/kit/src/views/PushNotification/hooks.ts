@@ -135,7 +135,7 @@ export const usePriceAlertlist = () => {
 };
 
 export const checkAccountCanSubscribe = async (
-  account: Account | null,
+  account: Account | null | undefined,
   networkId: string,
 ) => {
   if (!account) {

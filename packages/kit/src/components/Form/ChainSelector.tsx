@@ -26,7 +26,7 @@ function FormChainSelector<TFieldValues extends FieldValues = FieldValues>({
   ...props
 }: Omit<ControllerProps<TFieldValues>, 'render'> & FormChainSelectorProps) {
   const intl = useIntl();
-  const { enabledNetworks: networks } = useManageNetworks();
+  const { enabledNetworks: networks } = useManageNetworks(undefined);
   const { activeNetworkId: currentNetworkId } = useGeneral();
   const isSmallScreen = useIsVerticalLayout();
 
