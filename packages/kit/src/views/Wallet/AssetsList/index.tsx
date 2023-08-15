@@ -134,7 +134,7 @@ function HandleRefresh({
     }
   }, [networkId, accountId]);
 
-  return <Box />;
+  return null;
 }
 
 function AssetsList({
@@ -327,7 +327,7 @@ function AssetsList({
   }, [loading, accountId, network, updateInfo?.updatedAt, intl]);
 
   return (
-    <Box h={flatStyle || singleton ? 'full' : undefined}>
+    <>
       <Container
         style={{
           maxWidth: MAX_PAGE_CONTAINER_WIDTH,
@@ -374,7 +374,7 @@ function AssetsList({
         startRefresh={startRefresh}
         stopRefresh={stopRefresh}
       />
-    </Box>
+    </>
   );
 }
 

@@ -31,7 +31,12 @@ import { TraderExample } from '../TraderExample';
 import { TraderInput } from '../TraderInput';
 import { TxSettingPanel } from '../TxSetting/TxSettingPanel';
 import { TxSettingTrigger } from '../TxSetting/TxSettingTrigger';
-import { AmountTypeEnum, BulkSenderRoutes, IntervalTypeEnum } from '../types';
+import {
+  AmountTypeEnum,
+  BulkSenderRoutes,
+  IntervalTypeEnum,
+  TraderTypeEnum,
+} from '../types';
 
 import {
   getTransferAmount,
@@ -378,6 +383,7 @@ function ManyToN(props: Props) {
           amountType={amountType}
           trader={sender}
           setTrader={setSender}
+          traderType={TraderTypeEnum.Sender}
           traderFromOut={senderFromOut}
           setTraderFromOut={setSenderFromOut}
           traderErrors={
@@ -398,6 +404,7 @@ function ManyToN(props: Props) {
           amountType={amountType}
           trader={receiver}
           setTrader={setReceiver}
+          traderType={TraderTypeEnum.Receiver}
           traderFromOut={receiverFromOut}
           setTraderFromOut={setReceiverFromOut}
           traderErrors={receiverErrors}
