@@ -124,9 +124,8 @@ function normalizeConfig({
 
     // add devServer proxy
     if (config.devServer) {
-      const originalBefore = config.devServer.before;
-      config.devServer.before = (app, server, compiler) => {
-        app.get(
+      config.devServer.onBeforeSetupMiddleware = (devServer) => {
+        devServer.app.get(
           '/react-render-tracker@0.7.3/dist/react-render-tracker.js',
           (req, res) => {
             const sendResponse = (text) => {
@@ -164,10 +163,6 @@ function normalizeConfig({
             }
           },
         );
-
-        if (originalBefore) {
-          originalBefore(app, server, compiler);
-        }
       };
     }
 
