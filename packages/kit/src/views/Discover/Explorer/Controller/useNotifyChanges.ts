@@ -6,7 +6,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useIsFocusedInTab } from '../../../../hooks/useIsFocusedInTab';
+import { useIsFocusedAllInOne } from '../../../../hooks/useIsFocusedAllInOne';
 import { useIsMounted } from '../../../../hooks/useIsMounted';
 import { TabRoutes } from '../../../../routes/routesEnum';
 import {
@@ -40,8 +40,10 @@ export const useNotifyChanges = () => {
   const tabId = tab?.id;
 
   const webviewRef = getWebviewWrapperRef(tabId);
-
-  const isFocusedInDiscoverTab = useIsFocusedInTab(TabRoutes.Discover);
+  const { isFocused, rootTabFocused } = useIsFocusedAllInOne({
+    rootTabName: TabRoutes.Discover,
+  });
+  const isFocusedInDiscoverTab = isFocused || rootTabFocused;
   useEffect(() => {
     if (!platformEnv.isNative && !platformEnv.isDesktop) {
       return;

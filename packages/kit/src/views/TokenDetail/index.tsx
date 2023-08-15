@@ -145,6 +145,14 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     }),
     [route.params, detailInfo],
   );
+  const tabsHeader = useMemo(
+    () => (
+      <Box h={headerHeight}>
+        <TokenDetailHeader />
+      </Box>
+    ),
+    [headerHeight],
+  );
 
   if (detailInfo.loading) {
     return (
@@ -167,10 +175,10 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
         alignItems="flex-start"
       >
         <Tabs.Container
+          headerHeight={headerHeight}
           key={String(headerHeight)}
           disableRefresh
-          renderHeader={() => <TokenDetailHeader />}
-          headerHeight={headerHeight}
+          headerView={tabsHeader}
           containerStyle={{
             maxWidth: 1088, // 1024+32*2
             flex: 1,

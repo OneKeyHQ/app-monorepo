@@ -5269,6 +5269,7 @@ __metadata:
     jest-environment-jsdom: ^29.3.1
     jest-expo: ^47.0.1
     jest-html-reporter: ^3.7.0
+    jotai: ^2.3.1
     json-stringify-safe: ^5.0.1
     jsrsasign: ^10.7.1
     lint-staged: ^11.2.6
@@ -5282,6 +5283,7 @@ __metadata:
     react-native-bundle-visualizer: ^3.1.3
     react-native-web: ~0.18.11
     react-refresh: ^0.14.0
+    react-render-tracker: 0.7.3
     react-test-renderer: 18.1.0
     react-use-cookie: ^1.4.0
     rimraf: ^3
@@ -22629,6 +22631,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"jotai@npm:^2.3.1":
+  version: 2.3.1
+  resolution: "jotai@npm:2.3.1"
+  peerDependencies:
+    "@types/react": ">=17.0.0"
+    react: ">=17.0.0"
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    react:
+      optional: true
+  checksum: c2e3dcb3206749cd7f63ab9cfec5d0bacd19ac8c1710e688716fcbdaa031c6bb78f10ed24ea8da65cd98b4dc3c04170c05eedb4d3284b9ad80858f834c69a914
+  languageName: node
+  linkType: hard
+
 "jpush-react-native@https://github.com/OneKeyHQ/jpush-react-native.git":
   version: 2.9.2
   resolution: "jpush-react-native@https://github.com/OneKeyHQ/jpush-react-native.git#commit=f10dfb5fe18fc042e6d4a82ec12f6b1d431adac7"
@@ -29162,6 +29179,13 @@ __metadata:
   version: 0.4.3
   resolution: "react-refresh@npm:0.4.3"
   checksum: 58d3b899ede4c890b1d06a2d02254a77d1c0dea400be139940e47b1c451ff1c4cbb3ca5d0a9d6ee9574e570075ab6c1bef15e77b7270d4a6f571847d2b26f4fc
+  languageName: node
+  linkType: hard
+
+"react-render-tracker@npm:0.7.3":
+  version: 0.7.3
+  resolution: "react-render-tracker@npm:0.7.3"
+  checksum: fe0ffbd9684c2775b411292141aef2dc4d56490f48e7078960e87867763c9822e1f8c187e2b4267df3c1d1aeb2e5d00343e713b18d89cb034fe4ad792bfe221d
   languageName: node
   linkType: hard
 

@@ -37,7 +37,7 @@ export const ManageNetworkQuickAdd: FC = () => {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [search, setSearch] = useState('');
-  const { allNetworks } = useManageNetworks();
+  const { allNetworks } = useManageNetworks(undefined);
   const [loading, setLoading] = useState(false);
   const [currentChain, setCurrentChain] = useState<ChainListConfig | null>(
     null,

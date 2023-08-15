@@ -24,11 +24,7 @@ import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batch
 import { INSCRIPTION_PADDING_SATS_VALUES } from '@onekeyhq/engine/src/vaults/impl/btc/inscribe/consts';
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  getActiveWalletAccount,
-  useActiveWalletAccount,
-  useAppSelector,
-} from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import {
   HomeRoutes,
   ModalRoutes,
@@ -43,7 +39,7 @@ import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import walletConnectUtils from '../../components/WalletConnect/utils/walletConnectUtils';
 import { WalletConnectDappSideTest } from '../../components/WalletConnect/WalletConnectDappSideTest';
-import { useNavigationActions } from '../../hooks';
+import { useActiveWalletAccount, useNavigationActions } from '../../hooks';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import {
   GalleryRoutes,
@@ -375,6 +371,17 @@ export const Debug = () => {
                   wallet,
                   network,
                 });
+                console.log(
+                  JSON.stringify(
+                    {
+                      accountId: account?.id,
+                      networkId: network?.id,
+                      walletId: wallet?.id,
+                    },
+                    null,
+                    2,
+                  ),
+                );
                 const {
                   href,
                   protocol,

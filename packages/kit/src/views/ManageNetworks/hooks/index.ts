@@ -8,7 +8,7 @@ import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
-import { getManageNetworks } from '../../../hooks/useManageNetworks';
+import { getManageNetworks } from '../../../hooks/crossHooks/useManageNetworks';
 import { getTimeDurationMs } from '../../../utils/helper';
 import { showAllNetworksAccountDerivationsSelector } from '../../Overlay/Accounts/AllNetworksSelectAccountDerivations';
 
@@ -157,7 +157,7 @@ export const allNetworksSelectAccount = ({
   networkId: string;
   accounts: Account[];
 }): Promise<{ network: Network; account: Account } | undefined> => {
-  const { enabledNetworks } = getManageNetworks();
+  const { enabledNetworks } = getManageNetworks(undefined);
 
   const network = enabledNetworks.find((n) => n.id === networkId);
   return new Promise((resolve) => {

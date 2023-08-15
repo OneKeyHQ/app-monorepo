@@ -17,7 +17,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useManageNetworks, useNetwork } from '../../hooks';
 
 function NotSupported({ networkId }: { networkId: string }) {
-  const { allNetworks } = useManageNetworks();
+  const { allNetworks } = useManageNetworks(undefined);
   const { network } = useNetwork({ networkId });
   const { serviceNetwork } = backgroundApiProxy;
   const intl = useIntl();

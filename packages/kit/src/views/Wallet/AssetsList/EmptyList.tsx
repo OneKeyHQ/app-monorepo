@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { memo, useCallback } from 'react';
 
 import { LinearGradient } from 'expo-linear-gradient';
 import { useIntl } from 'react-intl';
@@ -14,7 +14,14 @@ import {
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { INetwork } from '@onekeyhq/engine/src/types';
 
-import { useNavigation, useNavigationActions } from '../../../hooks';
+import { LazyDisplayView } from '../../../components/LazyDisplayView';
+import {
+  useNavigation,
+  useNavigationActions,
+  useNetwork,
+  useOverviewAccountUpdateInfo,
+  useOverviewLoading,
+} from '../../../hooks';
 import { useActionForAllNetworks } from '../../../hooks/useAllNetwoks';
 import {
   FiatPayModalRoutes,
@@ -22,6 +29,13 @@ import {
   ModalRoutes,
   RootRoutes,
 } from '../../../routes/routesEnum';
+
+import {
+  atomTokenAssetsListLoading,
+  useAtomAssetsList,
+} from './contextAssetsList';
+import AssetsListSkeleton from './Skeleton';
+import SvgAllNetwrorksLoadingLight from './Svg/SvgAllNetworksLoadingDark';
 
 export const AllNetworksEmpty = () => {
   const intl = useIntl();
@@ -146,4 +160,60 @@ function EmptyListOfAccount({
   );
 }
 
+function AccountAssetsEmptyListView({
+  networkId,
+  accountId,
+  showSkeletonHeader,
+}: {
+  networkId: string;
+  accountId: string;
+  showSkeletonHeader?: boolean;
+}) {
+  const intl = useIntl();
+  const loading = useOverviewLoading({
+    networkId,
+    accountId,
+  });
+  const [isLoading] = useAtomAssetsList(atomTokenAssetsListLoading);
+  const updateInfo = useOverviewAccountUpdateInfo({
+    networkId: networkId ?? '',
+    accountId: accountId ?? '',
+  });
+  const { network } = useNetwork({ networkId });
+  if (loading || isLoading) {
+    if (isAllNetworks(network?.id) && !updateInfo?.updatedAt) {
+      return (
+        <Box alignItems="center" mt="8">
+          <Empty
+            w="260px"
+            icon={
+              <Box mb="6">
+                <SvgAllNetwrorksLoadingLight />
+              </Box>
+            }
+            title={intl.formatMessage({ id: 'empty__creating_data' })}
+            subTitle={intl.formatMessage({
+              id: 'empty__creating_data_desc',
+            })}
+          />
+        </Box>
+      );
+    }
+    return <AssetsListSkeleton showSkeletonHeader={showSkeletonHeader} />;
+  }
+  if (isAllNetworks(network?.id)) {
+    return <AllNetworksEmpty />;
+  }
+  return (
+    <LazyDisplayView
+      delay={0}
+      defaultView={
+        <AssetsListSkeleton showSkeletonHeader={showSkeletonHeader} />
+      }
+    >
+      <EmptyListOfAccount network={network} accountId={accountId} />
+    </LazyDisplayView>
+  );
+}
+export const AccountAssetsEmptyList = memo(AccountAssetsEmptyListView);
 export { EmptyListOfAccount };
