@@ -8,6 +8,7 @@ import { SWRConfig } from 'swr';
 import type { NotificationExtra } from '@onekeyhq/engine/src/managers/notification';
 import { ErrorBoundary } from '@onekeyhq/kit/src/components/ErrorBoundary';
 import store from '@onekeyhq/kit/src/store';
+import { freezedEmptyObject } from '@onekeyhq/shared/src/consts/sharedConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import AppLoading from './AppLoading';
@@ -39,10 +40,9 @@ const swrConfig = {
 
 const flexStyle = { flex: 1 };
 
-const empty = Object.freeze({});
 // TODO: detect network change & APP in background mode
 const KitProvider: FC<LaunchProps> = (propsRaw) => {
-  const props = propsRaw || empty;
+  const props = propsRaw || freezedEmptyObject;
   const {
     UIApplicationLaunchOptionsRemoteNotificationKey: launchNotification,
   } = props;

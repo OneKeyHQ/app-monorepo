@@ -164,6 +164,7 @@ export default class ServiceToken extends ServiceBase {
   async stopRefreshAccountTokens() {
     clearInterval(this.interval);
     this.interval = null;
+    this.intervalPaused = true;
     debugLogger.common.info(`stopRefreshAccountTokens`);
   }
 

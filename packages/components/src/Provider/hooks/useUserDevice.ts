@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 
+import { freezedEmptyObject } from '@onekeyhq/shared/src/consts/sharedConsts';
+
 import useProviderValue from './useProviderValue';
 
-const empty = Object.freeze({});
 export default function useUserDevice() {
   const context = useProviderValue();
-  return useMemo(() => context.device || empty, [context.device]);
+  return useMemo(() => context.device || freezedEmptyObject, [context.device]);
 }
