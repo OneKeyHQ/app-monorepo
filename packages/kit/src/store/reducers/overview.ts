@@ -41,7 +41,7 @@ export interface IOverviewPortfolio {
   tasks: Record<string, IOverviewQueryTaskItem>;
   updatedTimeMap: Record<string, IPortfolioUpdatedAt>;
   // Recrod<accountId, boolean>
-  accountIsUpdating?: Record<string, boolean>; // TODO remove this from previous DB
+  // accountIsUpdating?: Record<string, boolean>; // TODO remove this from previous DB
 
   overviewStats?: IOverviewStatsPayload;
 }
@@ -50,7 +50,6 @@ const initialState: IOverviewPortfolio = {
   tasks: {},
   updatedTimeMap: {},
   allNetworksAccountsMap: {},
-  accountIsUpdating: {},
   overviewStats: {},
 };
 
@@ -149,19 +148,6 @@ export const overviewSlice = createSlice({
 
       state.allNetworksAccountsMap = map;
     },
-    setAccountIsUpdating(
-      state,
-      action: PayloadAction<{
-        accountId: string;
-        data: boolean;
-      }>,
-    ) {
-      const { accountId, data } = action.payload;
-      if (!state.accountIsUpdating) {
-        state.accountIsUpdating = {};
-      }
-      state.accountIsUpdating[accountId] = data;
-    },
     removeWalletAccountsMap(
       state,
       action: PayloadAction<{
@@ -171,9 +157,10 @@ export const overviewSlice = createSlice({
       const { walletIds } = action.payload;
       const map = state.allNetworksAccountsMap ?? {};
 
-      state.accountIsUpdating = omitBy(state.accountIsUpdating, (_v, k) =>
-        walletIds.find((id) => k.startsWith(id)),
-      );
+      // TODO updating is moved to refresher.overviewAccountIsUpdating
+      // state.accountIsUpdating = omitBy(state.accountIsUpdating, (_v, k) =>
+      //   walletIds.find((id) => k.startsWith(id)),
+      // );
 
       state.updatedTimeMap = omitBy(state.updatedTimeMap, (_v, k) =>
         walletIds.find((id) => k?.split?.('___')?.[1]?.startsWith?.(id)),
@@ -212,7 +199,6 @@ export const {
   updateOverviewStats,
   addOverviewPendingTasks,
   removeOverviewPendingTasks,
-  setAccountIsUpdating,
   setOverviewPortfolioUpdatedAt,
   setAllNetworksAccountsMap,
   clearOverviewPendingTasks,
