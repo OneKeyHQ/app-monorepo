@@ -69,7 +69,7 @@ class ProviderApiWebln extends ProviderApiBase {
   }
 
   public async rpcCall(request: IJsonRpcRequest): Promise<any> {
-    console.log('===>>>rpcCall: ', request);
+    debugLogger.providerApi.info('webln rpcCall: ', request);
     return Promise.resolve();
   }
 
@@ -80,7 +80,7 @@ class ProviderApiWebln extends ProviderApiBase {
       await this.backgroundApi.serviceDapp.openConnectionModal(request);
       return { enabled: true };
     } catch (error) {
-      console.error('===>>>enable error:::::', error);
+      debugLogger.providerApi.error(`webln.enable error: `, error);
       throw error;
     }
   }
@@ -111,17 +111,16 @@ class ProviderApiWebln extends ProviderApiBase {
     try {
       const params = (request.data as IJsonRpcRequest)
         ?.params as RequestInvoiceArgs;
-      console.log('===> request: ', params);
       const { paymentRequest, paymentHash } =
         (await this.backgroundApi.serviceDapp.openModal({
           request,
           screens: [ModalRoutes.Webln, WeblnModalRoutes.MakeInvoice],
           params,
         })) as RequestInvoiceResponse;
-      console.log('=====>makeinvoice request: ', paymentRequest);
+      debugLogger.providerApi.info('webln.makeInvoice: ', paymentRequest);
       return { paymentRequest, paymentHash, rHash: paymentHash };
     } catch (e) {
-      console.error('=====>makeinvoice error: ', e);
+      debugLogger.providerApi.error(`webln.makeInvoice error: `, e);
       throw e;
     }
   }
@@ -131,7 +130,6 @@ class ProviderApiWebln extends ProviderApiBase {
     try {
       const paymentRequest = (request.data as IJsonRpcRequest)
         ?.params as string;
-      console.log('===> request: ', paymentRequest);
       const { networkId, accountId } = getActiveWalletAccount();
       const txid = (await this.backgroundApi.serviceDapp.openModal({
         request,
@@ -148,10 +146,10 @@ class ProviderApiWebln extends ProviderApiBase {
           networkId,
           accountId,
         });
-      console.log('=====>sendpayment request: ', txid);
+      debugLogger.providerApi.info('webln.sendPayment: ', txid, invoice);
       return { preimage: invoice.payment_preimage };
     } catch (e) {
-      console.error('=====>sendPayment error: ', e);
+      debugLogger.providerApi.error(`webln.sendPayment error: `, e);
       throw e;
     }
   }
@@ -171,10 +169,10 @@ class ProviderApiWebln extends ProviderApiBase {
             message,
           },
         });
-      console.log('====> signature: ', signature);
+      debugLogger.providerApi.info('webln.signMessage: ', message, signature);
       return JSON.parse(signature as string) as SignMessageResponse;
     } catch (e) {
-      console.error('=====>signature error: ', e);
+      debugLogger.providerApi.error(`webln.signMessage error: `, e);
       throw e;
     }
   }
@@ -198,9 +196,9 @@ class ProviderApiWebln extends ProviderApiBase {
           accountId,
         },
       });
-      console.log('====> verifyMessage: ', message, signature);
+      debugLogger.providerApi.info('webln.verifyMessage: ', message, signature);
     } catch (e) {
-      console.error('=====>verifyMessage error: ', e);
+      debugLogger.providerApi.error(`webln.verifyMessage error: `, e);
       throw e;
     }
   }
@@ -221,8 +219,9 @@ class ProviderApiWebln extends ProviderApiBase {
       if (isLNURLRequestError(lnurlDetails)) {
         return { error: lnurlDetails.reason };
       }
+      debugLogger.providerApi.info('webln.lnurl: ', lnurlDetails);
     } catch (e) {
-      console.error('parse lnurl error: ', e);
+      debugLogger.providerApi.error(`webln.lnurl error: `, e);
       return { error: 'Failed to parse LNURL' };
     }
 
@@ -282,7 +281,7 @@ class ProviderApiWebln extends ProviderApiBase {
         accountId,
         networkId,
       });
-    console.log('====> getBalance: ', result);
+    debugLogger.providerApi.info('webln.getBalance: ', result, accountId);
     return result;
   }
 }
