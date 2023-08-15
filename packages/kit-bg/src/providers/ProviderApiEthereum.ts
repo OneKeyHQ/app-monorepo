@@ -457,7 +457,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     let from = messages[1] as string;
 
     const accounts = await this.eth_accounts(req);
-    // FIX:  dydx use second param as message
+    // FIX:  dydx, kava evm use second param as message
     if (accounts && accounts.length) {
       const a = fixAddressCase({
         impl: IMPL_EVM,
