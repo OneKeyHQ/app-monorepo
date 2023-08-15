@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/engine/src/vaults/impl/lightning-network/helper/lnurl';
 import type {
   RequestInvoiceArgs,
+  RequestInvoiceResponse,
   SignMessageResponse,
   VerifyMessageArgs,
 } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/webln';
@@ -16,6 +17,7 @@ import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   ModalRoutes,
   SendModalRoutes,
+  WeblnModalRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
 import {
   backgroundClass,
@@ -86,7 +88,6 @@ class ProviderApiWebln extends ProviderApiBase {
   @providerApiMethod()
   public async getInfo() {
     return Promise.resolve({
-      // TODO: add getinfo api
       node: {
         alias: 'OneKey',
       },
@@ -112,10 +113,11 @@ class ProviderApiWebln extends ProviderApiBase {
         ?.params as RequestInvoiceArgs;
       console.log('===> request: ', params);
       const { paymentRequest, paymentHash } =
-        await this.backgroundApi.serviceDapp.openWeblnMakeInvoiceModal(
+        (await this.backgroundApi.serviceDapp.openModal({
           request,
+          screens: [ModalRoutes.Webln, WeblnModalRoutes.MakeInvoice],
           params,
-        );
+        })) as RequestInvoiceResponse;
       console.log('=====>makeinvoice request: ', paymentRequest);
       return { paymentRequest, paymentHash, rHash: paymentHash };
     } catch (e) {
@@ -131,15 +133,15 @@ class ProviderApiWebln extends ProviderApiBase {
         ?.params as string;
       console.log('===> request: ', paymentRequest);
       const { networkId, accountId } = getActiveWalletAccount();
-      const txid =
-        await this.backgroundApi.serviceDapp.openWeblnSendPaymentModal(
-          request,
-          {
-            paymentRequest,
-            networkId,
-            accountId,
-          },
-        );
+      const txid = (await this.backgroundApi.serviceDapp.openModal({
+        request,
+        screens: [ModalRoutes.Send, SendModalRoutes.WeblnSendPayment],
+        params: {
+          paymentRequest,
+          networkId,
+          accountId,
+        },
+      })) as string;
       const invoice =
         await this.backgroundApi.serviceLightningNetwork.fetchSpecialInvoice({
           paymentHash: txid,
@@ -186,15 +188,16 @@ class ProviderApiWebln extends ProviderApiBase {
         throw web3Errors.rpc.invalidInput();
       }
       const { networkId, accountId } = getActiveWalletAccount();
-      await this.backgroundApi.serviceDapp.openWeblnVerifyMessageModal(
+      await this.backgroundApi.serviceDapp.openModal({
         request,
-        {
+        screens: [ModalRoutes.Webln, WeblnModalRoutes.VerifyMessage],
+        params: {
           message,
           signature,
           networkId,
           accountId,
         },
-      );
+      });
       console.log('====> verifyMessage: ', message, signature);
     } catch (e) {
       console.error('=====>verifyMessage error: ', e);
@@ -233,6 +236,35 @@ class ProviderApiWebln extends ProviderApiBase {
             walletId,
             networkId,
             accountId,
+            lnurlDetails,
+          },
+        });
+      }
+      case 'payRequest': {
+        return this.backgroundApi.serviceDapp.openModal({
+          request,
+          screens: [ModalRoutes.Send, SendModalRoutes.LNURLPayRequest],
+          params: {
+            networkId,
+            accountId,
+            walletId,
+            lnurlDetails,
+            transferInfo: {
+              accountId,
+              networkId,
+              to: lnurlEncoded,
+            },
+          },
+        });
+      }
+      case 'withdrawRequest': {
+        return this.backgroundApi.serviceDapp.openModal({
+          request,
+          screens: [ModalRoutes.Send, SendModalRoutes.LNURLWithdraw],
+          params: {
+            networkId,
+            accountId,
+            walletId,
             lnurlDetails,
           },
         });

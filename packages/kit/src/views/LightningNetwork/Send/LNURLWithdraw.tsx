@@ -9,9 +9,12 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import type { LNURLWithdrawServiceResponse } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/lnurl';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNativeToken, useNavigation, useNetwork } from '../../../hooks';
+import useDappApproveAction from '../../../hooks/useDappApproveAction';
+import useDappParams from '../../../hooks/useDappParams';
 import { SendModalRoutes } from '../../../routes/routesEnum';
 import LNMakeInvoiceForm from '../components/LNMakeInvoiceForm';
 import { LNModalDescription } from '../components/LNModalDescription';
@@ -31,7 +34,26 @@ const LNURLWithdraw = () => {
   const route = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const { networkId, accountId, lnurlDetails } = route.params ?? {};
+  const {
+    networkId: routeNetworkId,
+    accountId: routeAccountId,
+    lnurlDetails: routeLnurlDetails,
+    isSendFlow,
+  } = route.params ?? {};
+  const {
+    sourceInfo,
+    networkId: dAppNetworkId,
+    accountId: dAppAccountId,
+    lnurlDetails: dAppLnurlDetails,
+  } = useDappParams();
+  const networkId = isSendFlow ? routeNetworkId : dAppNetworkId;
+  const accountId = isSendFlow ? routeAccountId : dAppAccountId;
+  const lnurlDetails = isSendFlow
+    ? routeLnurlDetails
+    : (dAppLnurlDetails as LNURLWithdrawServiceResponse);
+
+  const dappApprove = useDappApproveAction({ id: sourceInfo?.id ?? '' });
+
   const { network } = useNetwork({ networkId });
   const useFormReturn = useForm<IMakeInvoiceFormValues>();
   const { handleSubmit } = useFormReturn;
@@ -78,6 +100,9 @@ const LNURLWithdraw = () => {
           },
         };
         navigation.navigate(SendModalRoutes.SendFeedbackReceipt, params);
+        if (!isSendFlow) {
+          dappApprove.resolve();
+        }
       } catch (e: any) {
         const { key, info } = e;
         if (key && key !== 'onekey_error') {
@@ -98,12 +123,24 @@ const LNURLWithdraw = () => {
           { title: (e as Error)?.message || e },
           { type: 'error' },
         );
+        if (!isSendFlow) {
+          dappApprove.reject();
+        }
         return false;
       } finally {
         setIsLoading(false);
       }
     },
-    [isLoading, networkId, navigation, intl, accountId, lnurlDetails],
+    [
+      isLoading,
+      networkId,
+      navigation,
+      intl,
+      accountId,
+      lnurlDetails,
+      dappApprove,
+      isSendFlow,
+    ],
   );
 
   const doSubmit = handleSubmit(onSubmit);
@@ -116,6 +153,11 @@ const LNURLWithdraw = () => {
       primaryActionProps={{
         isDisabled: isLoading,
         isLoading,
+      }}
+      onModalClose={() => {
+        if (!isSendFlow) {
+          dappApprove.reject();
+        }
       }}
       onPrimaryActionPress={() => doSubmit()}
       secondaryActionTranslationId="action__cancel"
@@ -132,7 +174,7 @@ const LNURLWithdraw = () => {
         },
         children: (
           <LNMakeInvoiceForm
-            accountId={accountId}
+            accountId={accountId ?? ''}
             networkId={network?.id ?? ''}
             useFormReturn={useFormReturn}
             amount={amountMin === amountMax ? amountMin : undefined}
