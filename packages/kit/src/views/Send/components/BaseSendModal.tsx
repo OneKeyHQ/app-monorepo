@@ -13,7 +13,6 @@ function BaseSendModal(props: IBaseSendModal) {
   const { networkId } = props;
   const { network } = useNetwork({ networkId });
   const { children, scrollViewProps, ...restProps } = props;
-  console.log(children);
   return (
     <Modal
       headerDescription={
