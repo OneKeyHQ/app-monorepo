@@ -6,7 +6,7 @@ import type {
   Account,
   DBVariantAccount,
 } from '@onekeyhq/engine/src/types/account';
-import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import { buildModalRouteParams } from '@onekeyhq/kit/src/hooks/useAutoNavigateOnMount';
 import type {
   IDappConnectionParams,

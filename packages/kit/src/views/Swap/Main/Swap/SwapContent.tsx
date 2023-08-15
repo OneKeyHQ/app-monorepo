@@ -14,11 +14,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { LazyDisplayView } from '../../../../components/LazyDisplayView';
-import { useNavigation } from '../../../../hooks';
 import {
   useActiveWalletAccount,
   useAppSelector,
-} from '../../../../hooks/redux';
+  useNavigation,
+} from '../../../../hooks';
 import { SharedMobileTabContext } from '../../../Market/SharedMobileTabContext';
 import PercentInput from '../../components/PercentInput';
 import ReceivingTokenInput from '../../components/ReceivingTokenInput';

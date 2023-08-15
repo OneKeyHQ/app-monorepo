@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 
 import { Box, Button, Empty, ToastManager } from '@onekeyhq/components';
 import type { IWallet } from '@onekeyhq/engine/src/types';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import { RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';

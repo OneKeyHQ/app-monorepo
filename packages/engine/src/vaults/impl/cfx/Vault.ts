@@ -552,89 +552,110 @@ export default class Vault extends VaultBase {
     localHistory?: IHistoryTx[];
   }): Promise<IHistoryTx[]> {
     const { tokenIdOnNetwork, localHistory = [] } = options;
-    const network = await this.getNetwork();
     const apiExplorer = await this.getApiExplorer();
-    const client = await this.getClient();
     const address = await this.getAccountAddress();
-    const actionsFromTransferHistory: IDecodedTxAction[] = [];
+    const network = await this.getNetwork();
 
-    const transferType = getApiExplorerTransferType(tokenIdOnNetwork);
+    let fetchTxs;
 
-    const params = omitBy(
-      {
-        account: address,
-        limit: 50,
-        transferType,
-        contract: tokenIdOnNetwork,
-      },
-      (value) => isNil(value) || isEmpty(value),
-    );
+    const commonParams = {
+      account: address,
+      limit: 50,
+    };
+
+    // native token
+    if (tokenIdOnNetwork === '') {
+      fetchTxs = [
+        apiExplorer.get<ITxOnChainHistoryResp>('/account/transfers', {
+          params: {
+            ...commonParams,
+            transferType: IOnChainTransferType.Call,
+          },
+        }),
+      ];
+    } else if (tokenIdOnNetwork) {
+      fetchTxs = [
+        apiExplorer.get<ITxOnChainHistoryResp>('/account/transfers', {
+          params: {
+            account: address,
+            limit: 50,
+            transferType: IOnChainTransferType.Transfer20,
+            contract: tokenIdOnNetwork,
+          },
+        }),
+      ];
+    } else {
+      fetchTxs = [
+        apiExplorer.get<ITxOnChainHistoryResp>('/account/transfers', {
+          params: {
+            ...commonParams,
+            transferType: IOnChainTransferType.Transaction,
+          },
+        }),
+        apiExplorer.get<ITxOnChainHistoryResp>('/account/transfers', {
+          params: {
+            ...commonParams,
+            transferType: IOnChainTransferType.Transfer20,
+          },
+        }),
+      ];
+    }
 
     try {
-      const resp = await apiExplorer.get<ITxOnChainHistoryResp>(
-        '/account/transfers',
-        {
-          params,
-        },
-      );
-      if (resp.data.code !== 0) return await Promise.resolve([]);
+      const resp = await Promise.all(fetchTxs);
 
-      const explorerTxs = resp.data.data.list;
+      const explorerTxs = !isNil(tokenIdOnNetwork)
+        ? resp[0].data.data.list
+        : [...resp[0].data.data.list, ...resp[1].data.data.list];
+
+      const txSet = new Set();
 
       const promises = explorerTxs.map(async (tx) => {
+        const actionsFromTransferHistory: IDecodedTxAction[] = [];
         const historyTxToMerge = localHistory.find(
           (item) => item.decodedTx.txid === tx.transactionHash,
         );
 
-        if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
+        if (
+          tx.transactionHash === '0xundefined' ||
+          (historyTxToMerge && historyTxToMerge.decodedTx.isFinal)
+        ) {
           return Promise.resolve(null);
         }
+
+        if (txSet.has(tx.transactionHash)) {
+          return Promise.resolve(null);
+        }
+
+        txSet.add(tx.transactionHash);
 
         const encodedTx: IEncodedTxCfx = {
           ...tx,
           hash: tx.transactionHash,
           value:
-            transferType === IOnChainTransferType.Transfer20
+            tx.type === IOnChainTransferType.Transfer20
               ? '0x'
               : toBigIntHex(new BigNumber(tx.amount)),
           data: tx.input,
         };
 
-        // If the history record is not requested through the 'transaction' type,
-        // additional transaction information needs to be requested
-        if (transferType !== IOnChainTransferType.Transaction) {
-          const txDetail = await client.getTransactionByHash(
-            tx.transactionHash,
-          );
-          if (txDetail) {
-            encodedTx.gasFee = new BigNumber(txDetail.gas)
-              .multipliedBy(txDetail.gasPrice)
-              .toFixed();
-            encodedTx.nonce = new BigNumber(txDetail.nonce).toNumber();
-            encodedTx.data = txDetail.data;
-            if (transferType === IOnChainTransferType.Transfer20) {
-              encodedTx.to = txDetail.to || tx.contract || encodedTx.to;
-            }
-          }
-
-          // If it is crc20 transfer, the corresponding transaction may be a complex contract call with multiple processes
-          // Build and return action directly to avoid further parsing
-          if (transferType === IOnChainTransferType.Transfer20) {
-            const token = await this.engine.findToken({
-              networkId: this.networkId,
-              tokenIdOnNetwork: tokenIdOnNetwork as string,
+        // If it is crc20 transfer, the corresponding transaction may be a complex contract call with multiple processes
+        // Build and return action directly to avoid further parsing
+        if (tx.type === IOnChainTransferType.Transfer20) {
+          const token = await this.engine.findToken({
+            networkId: this.networkId,
+            tokenIdOnNetwork: tx.contract ?? tx.to,
+          });
+          if (token) {
+            actionsFromTransferHistory.push({
+              type: IDecodedTxActionType.TOKEN_TRANSFER,
+              tokenTransfer: this.buildTokenTransferAction({
+                from: tx.from,
+                to: tx.to,
+                token,
+                amount: tx.amount,
+              }),
             });
-            if (token) {
-              actionsFromTransferHistory.push({
-                type: IDecodedTxActionType.TOKEN_TRANSFER,
-                tokenTransfer: this.buildTokenTransferAction({
-                  from: tx.from,
-                  to: tx.to,
-                  token,
-                  amount: tx.amount,
-                }),
-              });
-            }
           }
         }
 
@@ -651,9 +672,9 @@ export default class Vault extends VaultBase {
           accountId: this.accountId,
           encodedTx,
           extraInfo: null,
-          totalFeeInNative: new BigNumber(encodedTx.gasFee as string)
-            .shiftedBy(-network.decimals)
-            .toFixed(),
+          totalFeeInNative: tx.gasFee
+            ? new BigNumber(tx.gasFee).shiftedBy(-network.decimals).toFixed()
+            : undefined,
         };
 
         decodedTx.updatedAt = tx.timestamp * 1000;
@@ -670,6 +691,25 @@ export default class Vault extends VaultBase {
       return (await Promise.all(promises)).filter(Boolean);
     } catch (e) {
       return Promise.resolve([]);
+    }
+  }
+
+  override async getTransactionFeeInNative(txid: string) {
+    try {
+      const client = await this.getClient();
+      const network = await this.getNetwork();
+
+      const txDetail = await client.getTransactionReceipt(txid);
+
+      if (txDetail) {
+        return new BigNumber(txDetail.gasFee)
+          .shiftedBy(-network.decimals)
+          .toFixed();
+      }
+
+      return '';
+    } catch {
+      return '';
     }
   }
 
@@ -717,7 +757,7 @@ export default class Vault extends VaultBase {
     ) {
       const token = await this.engine.findToken({
         networkId: this.networkId,
-        tokenIdOnNetwork: encodedTx.to,
+        tokenIdOnNetwork: encodedTx.contract ?? encodedTx.to,
       });
 
       if (token && abiDecodeResult) {

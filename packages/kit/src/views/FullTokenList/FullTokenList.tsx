@@ -3,7 +3,7 @@ import type { FC } from 'react';
 import { Box, useSafeAreaInsets } from '@onekeyhq/components';
 
 import { useActiveWalletAccount } from '../../hooks';
-import AssetsList from '../Wallet/AssetsList';
+import { FullTokenAssetsList } from '../Wallet/AssetsList';
 
 import type { HomeRoutes } from '../../routes/routesEnum';
 import type { FullTokenListRoutesParams } from './routes';
@@ -21,7 +21,7 @@ const FullTokenList: FC<FullTokenListProps> = () => {
   const { accountId, networkId, walletId } = useActiveWalletAccount();
 
   return (
-    <AssetsList
+    <FullTokenAssetsList
       walletId={walletId}
       accountId={accountId}
       networkId={networkId}

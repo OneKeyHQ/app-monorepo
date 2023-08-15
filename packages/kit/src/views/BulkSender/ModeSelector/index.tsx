@@ -43,7 +43,7 @@ function ModelSelector(props: Props) {
     const supportedModes = network?.settings?.supportBatchTransfer ?? [];
 
     return supportedModes
-      .map((mode) => {
+      .map((mode: BulkTypeEnum) => {
         if (mode === BulkTypeEnum.OneToMany) {
           return (
             <ModeItem

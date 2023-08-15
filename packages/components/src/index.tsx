@@ -22,6 +22,7 @@ export { default as CheckBox } from './CheckBox';
 export { default as Divider } from './Divider';
 export { default as Empty } from './Empty';
 export { default as FlatList } from './FlatList';
+export { FlatListPlain } from './FlatListPlain';
 export { default as FormControl } from './FormControl';
 export { default as HStack } from './HStack';
 export { default as Icon } from './Icon';

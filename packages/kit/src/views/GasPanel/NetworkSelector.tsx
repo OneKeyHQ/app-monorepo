@@ -23,7 +23,7 @@ interface Props {
 function NetworkSelector(props: Props) {
   const { selectedNetworkId, setSelectedNetworkId } = props;
 
-  const { allNetworks } = useManageNetworks();
+  const { allNetworks } = useManageNetworks(undefined);
 
   const selectableNetworks = useMemo(
     () =>

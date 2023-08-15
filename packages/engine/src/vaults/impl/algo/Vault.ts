@@ -249,8 +249,8 @@ export default class Vault extends VaultBase {
           }
           return TransactionStatus.PENDING;
         } catch (e) {
-          const { status } = e as IClientError;
-          if (status === 404) {
+          const { status, name } = e as IClientError;
+          if (status === 404 || name === 'RangeError') {
             // Not found in pool.
             try {
               await indexer.lookupTransactionByID(txid).do();

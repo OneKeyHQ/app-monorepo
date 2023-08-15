@@ -96,7 +96,7 @@ export const SortableView: FC = () => {
   const ref = useRef<any>();
   const isSmallScreen = useIsVerticalLayout();
   const [visible, setVisible] = useState(false);
-  const { enabledNetworks } = useManageNetworks();
+  const { enabledNetworks } = useManageNetworks(undefined);
   const [list, setList] = useState<Network[]>(enabledNetworks ?? []);
 
   const [initialData] = useState(() =>

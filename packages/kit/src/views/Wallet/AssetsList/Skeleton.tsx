@@ -12,9 +12,10 @@ import {
 } from '@onekeyhq/components';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
-const ListItemSkeleton: FC<{ borderBottomRadius?: number }> = ({
-  borderBottomRadius = 0,
-}) => {
+const ListItemSkeleton: FC<{
+  borderTopRadius?: number;
+  borderBottomRadius?: number;
+}> = ({ borderBottomRadius = 0, borderTopRadius = 0 }) => {
   const isVerticalLayout = useIsVerticalLayout();
   return (
     <Box
@@ -26,6 +27,7 @@ const ListItemSkeleton: FC<{ borderBottomRadius?: number }> = ({
       borderTopWidth={1}
       borderBottomWidth={1}
       borderBottomRadius={borderBottomRadius}
+      borderTopRadius={borderTopRadius}
       w="100%"
       flexDirection="row"
       alignItems="center"
@@ -128,7 +130,11 @@ const ListHeaderSkeleton = () => {
   );
 };
 
-const AssetsListSkeleton = () => (
+const AssetsListSkeleton = ({
+  showSkeletonHeader = true,
+}: {
+  showSkeletonHeader?: boolean;
+}) => (
   <Box
     style={{
       maxWidth: MAX_PAGE_CONTAINER_WIDTH,
@@ -136,8 +142,8 @@ const AssetsListSkeleton = () => (
       marginHorizontal: 'auto',
     }}
   >
-    <ListHeaderSkeleton />
-    <ListItemSkeleton />
+    {showSkeletonHeader ? <ListHeaderSkeleton /> : null}
+    <ListItemSkeleton borderTopRadius={showSkeletonHeader ? 0 : 12} />
     <ListItemSkeleton />
     <ListItemSkeleton borderBottomRadius={12} />
   </Box>

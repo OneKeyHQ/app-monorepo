@@ -575,7 +575,7 @@ class ServiceLimitOrder extends ServiceBase {
             orderHash,
           }),
         );
-        serviceToken.getAccountTokenBalance({
+        serviceToken.fetchAndSaveAccountTokenBalance({
           accountId: details.accountId,
           networkId: details.networkId,
           tokenIds: [details.tokenIn.tokenIdOnNetwork],

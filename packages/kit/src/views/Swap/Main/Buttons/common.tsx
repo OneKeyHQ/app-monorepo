@@ -5,8 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { Box, Button } from '@onekeyhq/components';
 
-import { useNavigation } from '../../../../hooks';
-import { useActiveWalletAccount } from '../../../../hooks/redux';
+import { useActiveWalletAccount, useNavigation } from '../../../../hooks';
 import { RootRoutes } from '../../../../routes/routesEnum';
 
 export const WalletACLButton: FC = ({ children }) => {

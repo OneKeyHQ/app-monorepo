@@ -18,7 +18,7 @@ export type IPendingTransactionInformation = {
   'pool-error': string;
 };
 
-export type IClientError = { status: number };
+export type IClientError = { status: number; name: string };
 
 type AccountTransaction = {
   id: string;

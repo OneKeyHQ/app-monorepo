@@ -6,11 +6,11 @@ import { Box, Center, IconButton } from '@onekeyhq/components';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useNavigation } from '../../../../hooks';
 import {
   useActiveWalletAccount,
   useAppSelector,
-} from '../../../../hooks/redux';
+  useNavigation,
+} from '../../../../hooks';
 import LimitOrderReceivingTokenInput from '../../components/LimitOrderReceivingTokenInput';
 import LimitOrderTokenInput from '../../components/LimitOrderTokenInput';
 import { useLimitOrderOutput } from '../../hooks/useLimitOrder';

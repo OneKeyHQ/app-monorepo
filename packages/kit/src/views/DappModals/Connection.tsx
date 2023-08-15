@@ -82,7 +82,7 @@ function ConnectionContent({
   hostname,
   network,
 }: {
-  account: IAccount | null;
+  account: IAccount | null | undefined;
   network: INetwork | null;
   isWalletConnectPreloading: boolean;
   walletConnectError: string;

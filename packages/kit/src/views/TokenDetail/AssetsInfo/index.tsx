@@ -96,7 +96,7 @@ const Header: FC<{
 };
 
 const AssetsInfo: FC = () => {
-  const { allNetworks } = useManageNetworks();
+  const { allNetworks } = useManageNetworks(undefined);
   const context = useContext(TokenDetailContext);
 
   const intl = useIntl();

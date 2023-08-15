@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import { StackActions, useNavigation } from '@react-navigation/native';
 import { AppState } from 'react-native';
 
-import { getActiveWalletAccount } from '../../../hooks/redux';
+import { getActiveWalletAccount } from '../../../hooks';
 import useDappParams from '../../../hooks/useDappParams';
 import { useReduxReady } from '../../../hooks/useReduxReady';
 import { SendModalRoutes } from '../types';

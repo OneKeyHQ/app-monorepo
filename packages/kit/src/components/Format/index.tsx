@@ -389,16 +389,17 @@ export function FormatBalanceToken({
   );
 }
 
+// TODO use BigNumber
 export function FormatCurrencyNumber({
   decimals,
   value,
   onlyNumber,
-  convertValue,
+  convertValue, // USD fiat value
 }: {
   value: number | BigNumber | '' | null | undefined;
   decimals?: number;
   onlyNumber?: boolean;
-  convertValue?: number | BigNumber | '' | null | undefined;
+  convertValue?: number | string | BigNumber | '' | null | undefined;
 }) {
   const { selectedFiatMoneySymbol = 'usd' } = useSettings();
   const fiatMap = useAppSelector((s) => s.fiatMoney.map);

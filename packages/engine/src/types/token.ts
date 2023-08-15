@@ -1,4 +1,8 @@
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import type {
+  IAmountValue,
+  ITokenPriceValue,
+} from '@onekeyhq/kit/src/store/reducers/tokens';
 
 import type { HasName } from './base';
 
@@ -50,15 +54,16 @@ export type Token = HasName & {
 
   riskLevel?: TokenRiskLevel;
 };
-
-export type IAccountTokenData = Token & {
-  price: number;
-  balance: string;
-  value: string;
-  usdValue: string;
-  value24h: string;
+export type IToken = Token;
+export type ITokenFiatValuesInfo = {
+  balance?: IAmountValue;
+  price?: ITokenPriceValue;
+  price24h?: ITokenPriceValue;
+  value?: IAmountValue;
+  value24h?: IAmountValue;
+  usdValue?: IAmountValue;
 };
-
+export type IAccountTokenData = IToken & ITokenFiatValuesInfo;
 export type Tool = {
   networkId: string;
   title: LocaleIds;

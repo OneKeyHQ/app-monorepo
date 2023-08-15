@@ -21,8 +21,11 @@ import type { IAccount } from '@onekeyhq/engine/src/types';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
-import { useDebounce, useNetwork } from '../../../../../hooks';
-import { useActiveWalletAccount } from '../../../../../hooks/redux';
+import {
+  useActiveWalletAccount,
+  useDebounce,
+  useNetwork,
+} from '../../../../../hooks';
 import { scrollToSectionItem } from '../../../../WalletSelector';
 import { AccountSectionLoadingSkeleton } from '../../../AccountSectionLoadingSkeleton';
 import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_ACCOUNT } from '../../../consts';
