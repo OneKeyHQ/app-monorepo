@@ -10,6 +10,30 @@ export interface IPortfolioUpdatedAt {
   updatedAt: number;
 }
 
+export interface IOverviewStatsInfo {
+  totalCounts?: number;
+  totalValue: string | undefined;
+  totalValue24h: string | undefined;
+}
+export interface IOverviewStatsSummary {
+  totalValue: string | undefined;
+  totalValue24h: string | undefined;
+  shareTokens: number;
+  shareDefis: number;
+  shareNfts: number;
+}
+export interface IOverviewStats {
+  summary?: IOverviewStatsSummary;
+  tokens?: IOverviewStatsInfo;
+  defis?: IOverviewStatsInfo;
+  nfts?: IOverviewStatsInfo;
+}
+export interface IOverviewStatsPayload {
+  [networkId: string]: {
+    [accountId: string]: IOverviewStats;
+  };
+}
+
 export interface IOverviewPortfolio {
   // allNetworks fake accountId = `${walletId}--${accountIndex}`
   // Recrod<accountId, Record<networkId, accounts>>
@@ -17,7 +41,9 @@ export interface IOverviewPortfolio {
   tasks: Record<string, IOverviewQueryTaskItem>;
   updatedTimeMap: Record<string, IPortfolioUpdatedAt>;
   // Recrod<accountId, boolean>
-  accountIsUpdating?: Record<string, boolean>;
+  accountIsUpdating?: Record<string, boolean>; // TODO remove this from previous DB
+
+  overviewStats?: IOverviewStatsPayload;
 }
 
 const initialState: IOverviewPortfolio = {
@@ -25,6 +51,7 @@ const initialState: IOverviewPortfolio = {
   updatedTimeMap: {},
   allNetworksAccountsMap: {},
   accountIsUpdating: {},
+  overviewStats: {},
 };
 
 export const overviewSlice = createSlice({
@@ -76,19 +103,6 @@ export const overviewSlice = createSlice({
         return;
       }
       state.tasks = omit(state.tasks, ...ids);
-    },
-    setAccountIsUpdating(
-      state,
-      action: PayloadAction<{
-        accountId: string;
-        data: boolean;
-      }>,
-    ) {
-      const { accountId, data } = action.payload;
-      if (!state.accountIsUpdating) {
-        state.accountIsUpdating = {};
-      }
-      state.accountIsUpdating[accountId] = data;
     },
     setAllNetworksAccountsMap(
       state,
@@ -156,14 +170,36 @@ export const overviewSlice = createSlice({
         walletIds.find((id) => k.startsWith(id)),
       );
     },
+    updateOverviewStats(
+      state,
+      action: PayloadAction<{
+        accountId: string;
+        networkId: string;
+        stats: IOverviewStats;
+      }>,
+    ) {
+      const { accountId, networkId, stats } = action.payload;
+      if (!state.overviewStats) {
+        state.overviewStats = {};
+      }
+      if (!state.overviewStats[networkId]) {
+        state.overviewStats[networkId] = {};
+      }
+      if (!state.overviewStats[networkId][accountId]) {
+        state.overviewStats[networkId][accountId] = {};
+      }
+      state.overviewStats[networkId][accountId] = {
+        ...stats,
+      };
+    },
   },
 });
 
 export const {
+  updateOverviewStats,
   addOverviewPendingTasks,
   removeOverviewPendingTasks,
   setOverviewPortfolioUpdatedAt,
-  setAccountIsUpdating,
   setAllNetworksAccountsMap,
   clearOverviewPendingTasks,
   removeAllNetworksAccountsMapByAccountId,

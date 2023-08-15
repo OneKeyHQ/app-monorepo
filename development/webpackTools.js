@@ -5,6 +5,8 @@ const lodash = require('lodash');
 const notifier = require('node-notifier');
 const { getPathsAsync } = require('@expo/webpack-config/env');
 const path = require('path');
+const fs = require('fs');
+
 const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
 const DuplicatePackageCheckerPlugin = require('duplicate-package-checker-webpack-plugin');
 const devUtils = require('@onekeyhq/ext/development/devUtils');
@@ -117,32 +119,53 @@ function normalizeConfig({
 
     // add devServer proxy
     if (config.devServer) {
-      const logScript = `console.log('react-render-tracker is disabled')`;
       config.devServer.proxy = config.devServer.proxy || {};
-      config.devServer.proxy[
-        '/react-render-tracker@0.7.3/dist/react-render-tracker.js'
-      ] = {
-        target: 'https://unpkg.com',
-        changeOrigin: true,
-        logLevel: 'debug',
-        onProxyRes: async (proxyRes, req, res) => {
-          if (req.headers && req.headers.cookie && req.headers.cookie.includes('rrt=1')) {
-            proxyRes.headers['Cache-Control'] =
-              'no-store, no-cache, must-revalidate, proxy-revalidate';
-            proxyRes.headers.Expires = '0';
-            proxyRes.headers.Age = '0';
-          } else {
-            res.setHeader(
-              'Cache-Control',
-              'no-store, no-cache, must-revalidate, proxy-revalidate',
-            );
-            res.setHeader('Content-Type', 'text/javascript');
-            res.setHeader('Age', '0');
-            res.setHeader('Expires', '0');
-            res.write(logScript);
-            res.end();
-          }
-        },
+    }
+    if (config.devServer) {
+      const originalBefore = config.devServer.before;
+      config.devServer.before = (app, server, compiler) => {
+        app.get(
+          '/react-render-tracker@0.7.3/dist/react-render-tracker.js',
+          (req, res) => {
+            const sendResponse = (text) => {
+              res.setHeader(
+                'Cache-Control',
+                'no-store, no-cache, must-revalidate, proxy-revalidate',
+              );
+              res.setHeader('Age', '0');
+              res.setHeader('Expires', '0');
+              res.setHeader('Content-Type', 'text/javascript');
+              res.write(text);
+              res.end();
+            };
+            if (
+              req.headers &&
+              req.headers.cookie &&
+              req.headers.cookie.includes('rrt=1')
+            ) {
+              // 读取 node_modules/react-render-tracker/dist/react-render-tracker.js 文件内容并返回
+              const filePath = path.join(
+                __dirname,
+                '../node_modules/react-render-tracker/dist/react-render-tracker.js',
+              );
+              fs.readFile(filePath, 'utf8', (err, data) => {
+                if (err) {
+                  console.error(err);
+                  res.status(500).send(`Error reading file:  ${filePath}`);
+                  return;
+                }
+                sendResponse(data);
+              });
+            } else {
+              const logScript = `console.log('react-render-tracker is disabled')`;
+              sendResponse(logScript);
+            }
+          },
+        );
+
+        if (originalBefore) {
+          originalBefore(app, server, compiler);
+        }
       };
     }
 

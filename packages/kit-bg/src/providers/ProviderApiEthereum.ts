@@ -20,7 +20,7 @@ import type {
   IEncodedTxEvm,
   IUnsignedMessageEvm,
 } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   backgroundClass,
   permissionRequired,

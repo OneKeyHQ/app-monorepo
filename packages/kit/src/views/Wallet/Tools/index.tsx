@@ -46,16 +46,16 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../hooks';
+import {
+  getManageNetworks,
+  useManageNetworks,
+} from '../../../hooks/crossHooks';
 import { useTools } from '../../../hooks/redux';
 import {
   useAllNetworksSelectNetworkAccount,
   useAllNetworksWalletAccounts,
 } from '../../../hooks/useAllNetwoks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import {
-  getManageNetworks,
-  useManageNetworks,
-} from '../../../hooks/useManageNetworks';
 import { buildAddressDetailsUrl } from '../../../hooks/useOpenBlockBrowser';
 import { openDapp, openUrl } from '../../../utils/openUrl';
 import { useIsVerticalOrMiddleLayout } from '../../Revoke/hooks';
@@ -116,8 +116,9 @@ const data: DataItem[] = [
     title: 'title__blockchain_explorer',
     description: 'title__blockchain_explorer_desc',
     filter: ({ network, account }) =>
-      !!getManageNetworks().allNetworks?.find?.((n) => n.id === network?.id)
-        ?.blockExplorerURL?.address && !!account?.address,
+      !!getManageNetworks(undefined).allNetworks?.find?.(
+        (n) => n.id === network?.id,
+      )?.blockExplorerURL?.address && !!account?.address,
   },
   {
     key: 'pnl',
@@ -154,7 +155,7 @@ const ToolsPage: FC = () => {
   const { network, account, accountId, networkId } = useActiveWalletAccount();
   const isVertical = useIsVerticalOrMiddleLayout();
   const navigation = useNavigation();
-  const { enabledNetworks } = useManageNetworks();
+  const { enabledNetworks } = useManageNetworks(undefined);
 
   const appNavigation = useAppNavigation();
   const tools = useTools(network?.id);

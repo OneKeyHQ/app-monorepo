@@ -81,8 +81,9 @@ export function useMobileRegistryOfWalletServices() {
   const { serviceWalletConnect } = backgroundApiProxy;
   // https://registry.walletconnect.org/data/wallets.json
   const { error, data: walletServicesRemote } = useMobileRegistry();
-  const { result: walletServicesLocal } = usePromiseResult(() =>
-    serviceWalletConnect.getWalletServicesList(),
+  const { result: walletServicesLocal } = usePromiseResult(
+    () => serviceWalletConnect.getWalletServicesList(),
+    [serviceWalletConnect],
   );
   const isVerticalLayout = useIsVerticalLayout();
   useEffect(() => {

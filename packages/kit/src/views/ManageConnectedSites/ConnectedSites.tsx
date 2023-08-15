@@ -29,7 +29,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount, useAppSelector } from '../../hooks/redux';
+import { useActiveWalletAccount, useAppSelector } from '../../hooks';
 import { wait } from '../../utils/helper';
 import { showDialog, showOverlay } from '../../utils/overlayUtils';
 

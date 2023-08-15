@@ -1,7 +1,9 @@
+import { useMemo } from 'react';
+
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { useIsVerticalLayout, useUserDevice } from '@onekeyhq/components';
+import { Box, useIsVerticalLayout, useUserDevice } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -33,6 +35,19 @@ const Screen = () => {
   if (platformEnv.isNativeIOSPad) {
     headerHeight = screenWidth < screenHeight ? 264 : 216;
   }
+
+  const tabsHeader = useMemo(
+    () => (
+      <Box h={headerHeight}>
+        <CollectionInfo
+          height={headerHeight ? 296 : 216}
+          p={{ base: '16px', md: '32px' }}
+          bgColor="background-default"
+        />
+      </Box>
+    ),
+    [headerHeight],
+  );
   return (
     <Tabs.Container
       refreshing={context?.refreshing}
@@ -42,19 +57,12 @@ const Screen = () => {
         }
       }}
       initialTabName="items"
-      renderHeader={() => (
-        <CollectionInfo
-          height={headerHeight ? 296 : 216}
-          p={{ base: '16px', md: '32px' }}
-          bgColor="background-default"
-        />
-      )}
+      headerView={tabsHeader}
       onIndexChange={(index) => {
         if (setContext) {
           setContext((ctx) => ({ ...ctx, selectedIndex: index }));
         }
       }}
-      headerHeight={headerHeight}
       containerStyle={{
         alignSelf: 'center',
         flex: 1,

@@ -1,4 +1,4 @@
-import type { FC } from 'react';
+import { type FC, useMemo } from 'react';
 
 import axios from 'axios';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -17,6 +17,7 @@ import ThemeProvider from './ThemeProvider';
 import { WhenAppActive } from './WhenAppActive';
 
 type LaunchProps = {
+  // iOS notification launched payload
   UIApplicationLaunchOptionsRemoteNotificationKey?: NotificationExtra;
 };
 
@@ -38,9 +39,10 @@ const swrConfig = {
 
 const flexStyle = { flex: 1 };
 
+const empty = Object.freeze({});
 // TODO: detect network change & APP in background mode
 const KitProvider: FC<LaunchProps> = (propsRaw) => {
-  const props = propsRaw || {};
+  const props = propsRaw || empty;
   const {
     UIApplicationLaunchOptionsRemoteNotificationKey: launchNotification,
   } = props;
@@ -48,19 +50,23 @@ const KitProvider: FC<LaunchProps> = (propsRaw) => {
     name: 'KitProvider render',
     payload: props,
   });
+  const content = useMemo(
+    () => (
+      <AppLoading>
+        <ErrorBoundary>
+          <NotificationProvider launchNotification={launchNotification} />
+          <NavigationProvider />
+          <WhenAppActive />
+        </ErrorBoundary>
+      </AppLoading>
+    ),
+    [launchNotification],
+  );
   return (
     <SWRConfig value={swrConfig}>
       <ReduxProvider store={store}>
         <GestureHandlerRootView style={flexStyle}>
-          <ThemeProvider>
-            <AppLoading>
-              <ErrorBoundary>
-                <NotificationProvider launchNotification={launchNotification} />
-                <NavigationProvider />
-                <WhenAppActive />
-              </ErrorBoundary>
-            </AppLoading>
-          </ThemeProvider>
+          <ThemeProvider>{content}</ThemeProvider>
         </GestureHandlerRootView>
       </ReduxProvider>
     </SWRConfig>

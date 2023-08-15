@@ -14,7 +14,7 @@ import {
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { getActiveWalletAccount, useAppSelector } from '../../../hooks/redux';
+import { getActiveWalletAccount, useAppSelector } from '../../../hooks';
 import { setStEthRate } from '../../../store/reducers/staking';
 import { formatAmount, multiply } from '../../Swap/utils';
 import { fetchStEthRate } from '../utils';

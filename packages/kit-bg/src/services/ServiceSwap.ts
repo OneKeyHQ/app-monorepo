@@ -11,7 +11,7 @@ import type { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   clearState,
   clearUserSelectedQuoter,
@@ -1006,7 +1006,7 @@ export default class ServiceSwap extends ServiceBase {
 
     const { serviceToken } = this.backgroundApi;
 
-    serviceToken.getAccountTokenBalance({
+    serviceToken.fetchAndSaveAccountTokenBalance({
       accountId,
       networkId,
       tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
