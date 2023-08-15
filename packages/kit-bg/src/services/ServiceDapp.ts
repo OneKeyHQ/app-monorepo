@@ -10,9 +10,7 @@ import type {
   RequestInvoiceArgs,
   RequestInvoiceResponse,
   SendPaymentArgs,
-  SendPaymentResponse,
-  SignMessageArgs,
-  SignMessageResponse,
+  VerifyMessageArgs,
 } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/webln';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { buildModalRouteParams } from '@onekeyhq/kit/src/hooks/useAutoNavigateOnMount';
@@ -385,15 +383,15 @@ class ServiceDapp extends ServiceBase {
     }) as unknown as Promise<string>;
   }
 
-  openWeblnSignMessageModal(
+  openWeblnVerifyMessageModal(
     request: IJsBridgeMessagePayload,
-    params: SignMessageArgs,
-  ): Promise<SignMessageResponse> {
+    params: VerifyMessageArgs,
+  ): Promise<void> {
     return this.openModal({
       request,
-      screens: [ModalRoutes.Webln, WeblnModalRoutes.SignMessage],
+      screens: [ModalRoutes.Webln, WeblnModalRoutes.VerifyMessage],
       params,
-    }) as unknown as Promise<SignMessageResponse>;
+    }) as unknown as Promise<void>;
   }
 
   isSendModalExisting() {

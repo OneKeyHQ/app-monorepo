@@ -2,8 +2,11 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import { CommonMessageTypes } from '@onekeyhq/engine/src/types/message';
-import type { SignMessageResponse } from '@onekeyhq/engine/src/vaults/impl/apt/types';
-import type { RequestInvoiceArgs } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/webln';
+import type {
+  RequestInvoiceArgs,
+  SignMessageResponse,
+  VerifyMessageArgs,
+} from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/webln';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   backgroundClass,
@@ -78,7 +81,17 @@ class ProviderApiWebln extends ProviderApiBase {
       node: {
         alias: 'OneKey',
       },
-      methods: ['getInfo', 'makeInvoice', 'sendPayment', 'signMessage'],
+      methods: [
+        'getInfo',
+        'makeInvoice',
+        'sendPayment',
+        'signMessage',
+        'verifyMessage',
+        'lnurl',
+        'on',
+        'off',
+        'getBalance',
+      ],
       supports: ['lightning'],
     });
   }
@@ -151,6 +164,31 @@ class ProviderApiWebln extends ProviderApiBase {
       return JSON.parse(signature as string) as SignMessageResponse;
     } catch (e) {
       console.error('=====>signature error: ', e);
+      throw e;
+    }
+  }
+
+  @providerApiMethod()
+  public async verifyMessage(request: IJsBridgeMessagePayload) {
+    try {
+      const { message, signature } = (request.data as IJsonRpcRequest)
+        ?.params as VerifyMessageArgs;
+      if (typeof message !== 'string' || typeof signature !== 'string') {
+        throw web3Errors.rpc.invalidInput();
+      }
+      const { networkId, accountId } = getActiveWalletAccount();
+      await this.backgroundApi.serviceDapp.openWeblnVerifyMessageModal(
+        request,
+        {
+          message,
+          signature,
+          networkId,
+          accountId,
+        },
+      );
+      console.log('====> verifyMessage: ', message, signature);
+    } catch (e) {
+      console.error('=====>verifyMessage error: ', e);
       throw e;
     }
   }

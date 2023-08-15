@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -9,6 +9,7 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import type { VerifyMessageArgs } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/webln';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
@@ -16,18 +17,16 @@ import useDappParams from '../../../hooks/useDappParams';
 import { LNModalDescription } from '../components/LNModalDescription';
 import LNSignMessageForm from '../components/LNSignMessageForm';
 
-import { WeblnModalRoutes } from './types';
-
 import type { ISignMessageFormValues } from '../components/LNSignMessageForm';
-import type { WeblnRoutesParams } from './types';
+import type { WeblnModalRoutes, WeblnRoutesParams } from './types';
 import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-type RouteProps = RouteProp<WeblnRoutesParams, WeblnModalRoutes.SignMessage>;
+type RouteProps = RouteProp<WeblnRoutesParams, WeblnModalRoutes.VerifyMessage>;
 
 type NavigationProps = NativeStackNavigationProp<
   WeblnRoutesParams,
-  WeblnModalRoutes.SignMessage
+  WeblnModalRoutes.VerifyMessage
 >;
 
 const WeblnSignMessage = () => {
@@ -37,10 +36,10 @@ const WeblnSignMessage = () => {
   const route = useRoute<RouteProps>();
 
   // @ts-expect-error
-  const { sourceInfo, networkId, accountId, walletId } = useDappParams();
+  const { sourceInfo, networkId, accountId } = useDappParams();
   console.log('====>route params: ', route.params);
+  const { message, signature } = sourceInfo?.data.params as VerifyMessageArgs;
   console.log('===>sourceInfo: ', sourceInfo, accountId, networkId);
-  const message = sourceInfo?.data.params as string;
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -49,22 +48,27 @@ const WeblnSignMessage = () => {
   const useFormReturn = useForm<ISignMessageFormValues>();
 
   const [isLoading, setIsLoading] = useState(false);
-  const closeModalRef = useRef<() => void | undefined>();
 
-  const onDone = useCallback(
-    async (password: string) => {
+  const onSubmit = useCallback(
+    async ({ close }) => {
       if (isLoading) return;
       setIsLoading(true);
       try {
         const result =
-          await backgroundApiProxy.serviceLightningNetwork.weblnSignMessage({
-            password,
-            message,
+          await backgroundApiProxy.serviceLightningNetwork.weblnVerifyMessage({
             accountId,
             networkId: networkId ?? '',
+            message,
+            signature,
           });
+        if (!result) {
+          dappApprove.reject();
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          close?.();
+          return;
+        }
         await dappApprove.resolve({
-          close: closeModalRef.current,
+          close,
           result,
         });
       } catch (e: any) {
@@ -93,30 +97,20 @@ const WeblnSignMessage = () => {
         setIsLoading(false);
       }
     },
-    [intl, isLoading, accountId, networkId, dappApprove, message],
-  );
-
-  const onConfirmWithAuth = useCallback(
-    () =>
-      navigation.navigate(WeblnModalRoutes.WeblnAuthentication, {
-        walletId,
-        onDone,
-      }),
-    [walletId, navigation, onDone],
+    [intl, isLoading, accountId, networkId, dappApprove, message, signature],
   );
 
   return (
     <Modal
       header="Invoice Pay"
       headerDescription={<LNModalDescription networkId={networkId} />}
-      primaryActionTranslationId="action__next"
+      primaryActionTranslationId="action__confirm"
       primaryActionProps={{
         isDisabled: isLoading,
         isLoading,
       }}
       onPrimaryActionPress={({ close }) => {
-        closeModalRef.current = close;
-        onConfirmWithAuth();
+        onSubmit({ close });
       }}
       secondaryActionTranslationId="action__cancel"
       onSecondaryActionPress={() => {
@@ -140,6 +134,7 @@ const WeblnSignMessage = () => {
             useFormReturn={useFormReturn}
             origin={sourceInfo?.origin ?? ''}
             message={message}
+            signature={signature}
           />
         ),
       }}

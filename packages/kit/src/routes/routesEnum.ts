@@ -393,6 +393,6 @@ export enum InscribeModalRoutes {
 
 export enum WeblnModalRoutes {
   MakeInvoice = 'MakeInvoice',
-  SignMessage = 'SignMessage',
+  VerifyMessage = 'VerifyMessage',
   WeblnAuthentication = 'WeblnAuthentication',
 }

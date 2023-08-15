@@ -146,6 +146,7 @@ const LNSendPaymentForm = (props: ISendPaymentFormProps) => {
                     typography="Body2Mono"
                     color="text-subdued"
                     lineHeight="1.5em"
+                    numberOfLines={10}
                   >
                     {content}
                   </Text>
@@ -282,6 +283,7 @@ const LNSendPaymentForm = (props: ISendPaymentFormProps) => {
               typography="Body2Mono"
               color="text-subdued"
               lineHeight="1.5em"
+              numberOfLines={10}
             >
               {memo}
             </Text>

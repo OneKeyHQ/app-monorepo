@@ -421,6 +421,7 @@ export default class ServiceLightningNetwork extends ServiceBase {
   }) {
     const connector = new connectors.LndHub();
     return connector.verifyMessage({
+      engine: this.backgroundApi.engine,
       accountId,
       networkId,
       message,

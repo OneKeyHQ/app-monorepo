@@ -56,6 +56,8 @@ export interface SignMessageResponse {
 export interface VerifyMessageArgs {
   signature: string;
   message: string;
+  accountId: string;
+  networkId: string;
 }
 
 export type LNURLResponse =

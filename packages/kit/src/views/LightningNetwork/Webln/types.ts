@@ -8,7 +8,7 @@ export type WeblnRoutesParams = {
   [WeblnModalRoutes.MakeInvoice]: {
     sourceInfo: IDappSourceInfo;
   };
-  [WeblnModalRoutes.SignMessage]: {
+  [WeblnModalRoutes.VerifyMessage]: {
     sourceInfo: IDappSourceInfo;
   };
   [WeblnModalRoutes.WeblnAuthentication]: {
