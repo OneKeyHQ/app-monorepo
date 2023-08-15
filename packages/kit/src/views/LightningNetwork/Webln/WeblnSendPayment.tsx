@@ -40,18 +40,15 @@ const WeblnSendPayment = () => {
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
 
-  // @ts-expect-error
   const { sourceInfo, networkId, accountId } = useDappParams();
   const transferInfo = useMemo(
     () => ({
       networkId: networkId ?? '',
-      accountId: (accountId ?? '') as string,
+      accountId: accountId ?? '',
     }),
     [networkId, accountId],
   );
   const { account, network } = useActiveSideAccount(transferInfo);
-  console.log('====>route params: ', route.params);
-  console.log('===>sourceInfo: ', sourceInfo, accountId, networkId);
   const paymentRequest = sourceInfo?.data.params as string;
 
   const dappApprove = useDappApproveAction({
@@ -75,7 +72,7 @@ const WeblnSendPayment = () => {
       .decodedInvoice({
         payReq: paymentRequest,
         networkId: networkId ?? '',
-        accountId,
+        accountId: accountId ?? '',
       })
       .then((invoice) => {
         setDecodedInvoice(invoice);
@@ -108,7 +105,7 @@ const WeblnSendPayment = () => {
       try {
         const encodedTx = await engine.buildEncodedTxFromTransfer({
           networkId: networkId ?? '',
-          accountId,
+          accountId: accountId ?? '',
           transferInfo: {
             ...transferInfo,
             from: '',
@@ -117,7 +114,7 @@ const WeblnSendPayment = () => {
           },
         });
         navigation.navigate(SendModalRoutes.SendConfirm, {
-          accountId,
+          accountId: accountId ?? '',
           networkId: networkId ?? '',
           encodedTx,
           feeInfoUseFeeInTx: false,
@@ -217,7 +214,7 @@ const WeblnSendPayment = () => {
         children: (
           <LNSendPaymentForm
             isWebln
-            accountId={accountId}
+            accountId={accountId ?? ''}
             networkId={networkId ?? ''}
             useFormReturn={useFormReturn}
             amount={amount.toNumber()}

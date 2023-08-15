@@ -1,6 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -22,25 +21,19 @@ import useDappParams from '../../../hooks/useDappParams';
 import LNMakeInvoiceForm from '../components/LNMakeInvoiceForm';
 import { LNModalDescription } from '../components/LNModalDescription';
 
-import type { WeblnModalRoutes } from '../../../routes/routesEnum';
 import type { ModalScreenProps } from '../../../routes/types';
 import type { IMakeInvoiceFormValues } from '../components/LNMakeInvoiceForm';
 import type { WeblnRoutesParams } from './types';
-import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<WeblnRoutesParams>;
-type RouteProps = RouteProp<WeblnRoutesParams, WeblnModalRoutes.MakeInvoice>;
 
 const WeblnMakeInvoice = () => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
-  const route = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const { accountId, networkId } = useActiveWalletAccount();
   const { sourceInfo } = useDappParams();
-  console.log('====>route params: ', route.params);
-  console.log('===>sourceInfo: ', sourceInfo);
   const makeInvoiceParams = sourceInfo?.data.params as RequestInvoiceArgs;
 
   const dappApprove = useDappApproveAction({

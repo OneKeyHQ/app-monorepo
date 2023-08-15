@@ -35,11 +35,8 @@ const WeblnSignMessage = () => {
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
 
-  // @ts-expect-error
   const { sourceInfo, networkId, accountId } = useDappParams();
-  console.log('====>route params: ', route.params);
   const { message, signature } = sourceInfo?.data.params as VerifyMessageArgs;
-  console.log('===>sourceInfo: ', sourceInfo, accountId, networkId);
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -56,7 +53,7 @@ const WeblnSignMessage = () => {
       try {
         const result =
           await backgroundApiProxy.serviceLightningNetwork.weblnVerifyMessage({
-            accountId,
+            accountId: accountId ?? '',
             networkId: networkId ?? '',
             message,
             signature,
@@ -129,7 +126,7 @@ const WeblnSignMessage = () => {
         },
         children: (
           <LNSignMessageForm
-            accountId={accountId}
+            accountId={accountId ?? ''}
             networkId={networkId ?? ''}
             useFormReturn={useFormReturn}
             origin={sourceInfo?.origin ?? ''}
