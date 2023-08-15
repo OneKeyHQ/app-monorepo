@@ -60,7 +60,7 @@ class ProviderApiWebln extends ProviderApiBase {
       },
     );
 
-    return Promise.resolve({ address: account.address });
+    return Promise.resolve({ address: account?.address });
   }
 
   public notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo) {
@@ -272,6 +272,18 @@ class ProviderApiWebln extends ProviderApiBase {
       default:
         return { error: 'not implemented' };
     }
+  }
+
+  @providerApiMethod()
+  public async getBalance() {
+    const { networkId, accountId } = getActiveWalletAccount();
+    const result =
+      await this.backgroundApi.serviceLightningNetwork.weblnGetBalance({
+        accountId,
+        networkId,
+      });
+    console.log('====> getBalance: ', result);
+    return result;
   }
 }
 

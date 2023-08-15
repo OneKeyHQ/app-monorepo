@@ -66,3 +66,8 @@ export type LNURLResponse =
       data?: unknown;
     }
   | { status: 'ERROR'; reason: string };
+
+export type BalanceResponse = {
+  balance: number;
+  currency?: 'sats' | 'EUR' | 'USD';
+};
