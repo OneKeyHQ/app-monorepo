@@ -18,6 +18,7 @@ export type IEncodedTxCfx = {
   storageLimit?: string;
   chainId?: number;
   epochHeight?: number;
+  contract?: string;
 };
 
 export type ITxAbiDecodeResult = {
@@ -49,6 +50,14 @@ export type ITxOnChainHistoryResp = {
   data: {
     total: number;
     list: ITxOnChainHistoryItem[];
+  };
+};
+
+export type ITxOnChainDetailResp = {
+  code: number;
+  message: string;
+  data: {
+    gasFee: string;
   };
 };
 

@@ -153,6 +153,7 @@ function TraderInput(props: TraderInputParams) {
     setIsUploadMode,
     setTraderFromOut,
     trader,
+    traderType,
     withAmount,
   ]);
 

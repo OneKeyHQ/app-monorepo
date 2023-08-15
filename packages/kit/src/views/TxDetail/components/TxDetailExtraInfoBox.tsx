@@ -30,6 +30,7 @@ function getFeeInNativeText(options: {
     decodedTx: { feeInfo, totalFeeInNative, networkId, accountId },
     network,
   } = options;
+
   if (!!totalFeeInNative && !!network) {
     return `${totalFeeInNative} ${network.symbol}`;
   }
