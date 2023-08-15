@@ -95,10 +95,6 @@ function PreSendTokenScreen() {
     return emptyView;
   }, [accountId, emptyView, navigation, networkId, transferInfo, walletId]);
 
-  // Due to the frequent re-rendering of "AssetList," which blocks the modal animation.
-  // we are adopting a lazy loading approach to prioritize the completion of the modal animation.
-  // If the hooks for "AssetList" have completed rendering optimization, please remove this lazy loading Component.
-
   const sendNftsTabViewComponent = useCallback(
     () =>
       accountId ? (
