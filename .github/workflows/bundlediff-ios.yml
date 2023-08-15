@@ -100,7 +100,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
         run: |
-          npm i -g expo-cli@6.0.8 && yarn
+          yarn
 
       - name: Generate stats.json
         env:
