@@ -31,10 +31,6 @@ import {
   getTaprootXpub,
   isTaprootXpubSegwit,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-} from '@onekeyhq/kit/src/hooks/redux';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 import {
   AppUIEventBusNames,
@@ -44,7 +40,11 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useAccountPortfolios, useNFTIsLoading } from '../../../../hooks';
+import {
+  useAccountPortfolios,
+  useActiveWalletAccount,
+  useNFTIsLoading,
+} from '../../../../hooks';
 import { useHomeTabName } from '../../../../hooks/useHomeTabName';
 import { EOverviewScanTaskType } from '../../../Overview/types';
 import { WalletHomeTabEnum } from '../../type';

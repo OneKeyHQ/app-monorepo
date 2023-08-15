@@ -11,12 +11,12 @@ import {
   SEPERATOR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { isBRC20Token } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { getFiatEndpoint } from '../endpoint';
 import { OneKeyInternalError } from '../errors';
 
 import type { Tool } from '../types/token';
-import { isBRC20Token } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 export type TokenQuery = {
   // for all chain search

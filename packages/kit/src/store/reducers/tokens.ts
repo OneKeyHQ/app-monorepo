@@ -18,6 +18,8 @@ export type TokenBalanceValue =
   | IValueNull;
 export type ITokenBalanceInfo = {
   balance: IAmountValue;
+  availableBalance?: string;
+  transferBalance?: string;
   blockHeight?: string;
 };
 export type TokenChartData = [number, number][];

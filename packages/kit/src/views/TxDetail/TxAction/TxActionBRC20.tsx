@@ -1,12 +1,20 @@
 import { useIntl } from 'react-intl';
 
+import { shortenAddress } from '@onekeyhq/components/src/utils';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
 } from '@onekeyhq/engine/src/vaults/types';
 
+import { FormatCurrencyTokenOfAccount } from '../../../components/Format';
 import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBoxAutoTransform';
+import {
+  TxListActionBox,
+  TxListActionBoxExtraText,
+} from '../components/TxListActionBox';
+import { TxStatusBarInList } from '../components/TxStatusBar';
 import { getTxActionElementAddressWithSecurityInfo } from '../elements/TxActionElementAddress';
+import { TxActionElementAmountNormal } from '../elements/TxActionElementAmount';
 
 import type {
   ITxActionCardProps,
@@ -14,14 +22,6 @@ import type {
   ITxActionMetaIcon,
   ITxActionMetaTitle,
 } from '../types';
-import {
-  TxListActionBox,
-  TxListActionBoxExtraText,
-} from '../components/TxListActionBox';
-import { TxStatusBarInList } from '../components/TxStatusBar';
-import { shortenAddress } from '@onekeyhq/components/src/utils';
-import { TxActionElementAmountNormal } from '../elements/TxActionElementAmount';
-import { FormatCurrencyTokenOfAccount } from '../../../components/Format';
 
 function getTitleInfo({
   isOut,

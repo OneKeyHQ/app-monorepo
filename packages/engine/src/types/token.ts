@@ -57,6 +57,8 @@ export type Token = HasName & {
 export type IToken = Token;
 export type ITokenFiatValuesInfo = {
   balance?: IAmountValue;
+  availableBalance?: IAmountValue;
+  transferBalance?: IAmountValue;
   price?: ITokenPriceValue;
   price24h?: ITokenPriceValue;
   value?: IAmountValue;
