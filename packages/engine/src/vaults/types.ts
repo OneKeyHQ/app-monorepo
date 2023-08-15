@@ -151,6 +151,7 @@ export type IVaultSettings = {
   hiddenBlockBrowserTokenDetailLink?: boolean;
 
   hideInAllNetworksMode?: boolean;
+  mnemonicAsPrivatekey?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;

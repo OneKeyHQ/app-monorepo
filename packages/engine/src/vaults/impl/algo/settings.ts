@@ -31,6 +31,7 @@ const settings: IVaultSettings = Object.freeze({
   },
 
   hideInAllNetworksMode: true,
+  mnemonicAsPrivatekey: true,
 
   txExtraInfo: [
     {
