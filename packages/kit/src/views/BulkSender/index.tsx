@@ -35,6 +35,22 @@ import type { MessageDescriptor } from 'react-intl';
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.BulkSender>;
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function BulkSenderHeader() {
+  const isVertical = useIsVerticalLayout();
+  const headerHeight = isVertical ? 0 : 30;
+  return (
+    <Box
+      h={headerHeight || 'auto'}
+      style={{
+        width: '100%',
+        maxWidth: 768,
+      }}
+    >
+      <Text />
+    </Box>
+  );
+}
 function BulkSender() {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
@@ -192,6 +208,24 @@ function BulkSender() {
   }
 
   return <ModelSelector networkId={networkId} />;
+  // const tabsHeader = useMemo(() => <BulkSenderHeader />, []);
+  // return (
+  //   <Tabs.Container
+  //     containerStyle={{
+  //       width: '100%',
+  //       maxWidth: 768,
+  //       marginHorizontal: 'auto',
+  //       backgroundColor: tabbarBgColor,
+  //       alignSelf: 'center',
+  //       flex: 1,
+  //     }}
+  //     headerView={tabsHeader}
+  //     // scrollEnabled={false}
+  //     disableRefresh
+  //   >
+  //     {bulkSenderTabs}
+  //   </Tabs.Container>
+  // );
 }
 
 export default BulkSender;

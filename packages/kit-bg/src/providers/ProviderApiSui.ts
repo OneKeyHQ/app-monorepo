@@ -11,7 +11,7 @@ import { CommonMessageTypes } from '@onekeyhq/engine/src/types/message';
 import type { IEncodedTxSUI } from '@onekeyhq/engine/src/vaults/impl/sui/types';
 import type VaultSUI from '@onekeyhq/engine/src/vaults/impl/sui/Vault';
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
-import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   backgroundClass,
   permissionRequired,

@@ -5,13 +5,15 @@ export function LazyDisplayView({
   hideOnUnmount = false,
   children,
   isLazyDisabled = false,
+  defaultView = null,
 }: {
   delay?: number;
   hideOnUnmount?: boolean;
   children: JSX.Element | null;
   isLazyDisabled?: boolean;
+  defaultView?: JSX.Element | null;
 }) {
-  const [view, setView] = useState<JSX.Element | null>(null);
+  const [view, setView] = useState<JSX.Element | null>(defaultView);
   useEffect(() => {
     if (isLazyDisabled) {
       return;

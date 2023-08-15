@@ -45,23 +45,23 @@ function ExternalAccountImg({
   const { result: accountImg } = usePromiseResult(
     async () => {
       // eslint-disable-next-line no-param-reassign
-      accountId = accountId || account?.id || '';
-      if (isExternalAccount({ accountId })) {
+      const $accountId = accountId || account?.id || '';
+      if (isExternalAccount({ accountId: $accountId })) {
         let imgInfo = await serviceExternalAccount.getExternalAccountImage({
-          accountId,
+          accountId: $accountId,
         });
         // may be simpleDB not saved yet, try again
         if (!imgInfo) {
           await wait(1000);
           imgInfo = await serviceExternalAccount.getExternalAccountImage({
-            accountId,
+            accountId: $accountId,
           });
         }
         return imgInfo?.sm || imgInfo?.md || imgInfo?.lg || '';
       }
       return '';
     },
-    [accountId, account, walletName],
+    [account?.id, accountId, serviceExternalAccount],
     { checkIsMounted: true },
   );
 

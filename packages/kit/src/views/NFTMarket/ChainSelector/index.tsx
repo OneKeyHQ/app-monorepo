@@ -39,7 +39,7 @@ const ChainSelector: FC<Props> = ({
 }) => {
   const intl = useIntl();
   const isSmallScreen = useIsVerticalLayout();
-  const { enabledNetworks: networks } = useManageNetworks();
+  const { enabledNetworks: networks } = useManageNetworks(undefined);
 
   const options = useMemo(() => {
     if (!networks) return [];

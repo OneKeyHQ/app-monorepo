@@ -20,10 +20,10 @@ import {
   removeAllNetworksAccountsMapByAccountId,
   removeMapNetworks,
   removeWalletAccountsMap,
-  setAccountIsUpdating,
   setAllNetworksAccountsMap,
   setOverviewPortfolioUpdatedAt,
 } from '@onekeyhq/kit/src/store/reducers/overview';
+import { setOverviewAccountIsUpdating } from '@onekeyhq/kit/src/store/reducers/refresher';
 import type { NetworkWithAccounts } from '@onekeyhq/kit/src/views/ManageNetworks/types';
 import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
 import {
@@ -446,7 +446,7 @@ export default class ServiceAllNetwork extends ServiceBase {
       ) ?? {};
 
     const actions: any[] = [
-      setAccountIsUpdating({
+      setOverviewAccountIsUpdating({
         accountId: activeAccountId,
         data: true,
       }),

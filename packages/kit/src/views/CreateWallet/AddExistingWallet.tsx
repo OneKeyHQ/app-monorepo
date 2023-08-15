@@ -23,11 +23,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import NameServiceResolver, {
   useNameServiceStatus,
 } from '@onekeyhq/kit/src/components/NameServiceResolver';
-import {
-  useActiveWalletAccount,
-  useGeneral,
-  useRuntime,
-} from '@onekeyhq/kit/src/hooks/redux';
+import { useGeneral, useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import type {
   CreateWalletRoutesParams,
   IAddExistingWalletModalParams,
@@ -50,7 +46,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import showDerivationPathBottomSheetModal from '../../components/NetworkAccountSelector/modals/NetworkAccountSelectorModal/DerivationPathBottomSheetModal';
 import { BaseSelectorTrigger } from '../../components/NetworkAccountSelector/triggers/BaseSelectorTrigger';
 import { ImportAccountNetworkSelectorTrigger } from '../../components/NetworkAccountSelector/triggers/ImportAccountNetworkSelectorTrigger';
-import { useManageNetworks } from '../../hooks';
+import { useActiveWalletAccount, useManageNetworks } from '../../hooks';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { useOnboardingDone } from '../../hooks/useOnboardingRequired';
 import { useWalletName } from '../../hooks/useWalletName';
@@ -437,7 +433,7 @@ function AddExistingWalletView(
     getValues,
   } = props;
 
-  const { enabledNetworks } = useManageNetworks();
+  const { enabledNetworks } = useManageNetworks(undefined);
   const { network: activeNetwork } = useActiveWalletAccount();
   const closeModal = useModalClose();
   const [selectedDerivation, setSelectedDerivation] =
@@ -648,7 +644,8 @@ function AddExistingWalletView(
             }}
             helpText={helpText}
           >
-            {mode === 'imported' ? (
+            {mode === 'imported' &&
+            !selectedNetwork.settings.mnemonicAsPrivatekey ? (
               <Form.Input
                 inputAccessoryViewID="1"
                 autoFocusDelay={600}

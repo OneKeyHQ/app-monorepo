@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { INetwork } from '@onekeyhq/engine/src/types';
 
@@ -35,7 +35,8 @@ function useNetwork({
       setNetworkInDb(result);
     })();
   }, [networkId, networkInRedux]);
-  return { network: networkInRedux ?? networkInDb ?? networkFallback };
+  const finalNetwork = networkInRedux ?? networkInDb ?? networkFallback ?? null;
+  return useMemo(() => ({ network: finalNetwork }), [finalNetwork]);
 }
 
 export const useNetworkSimple = (
@@ -43,7 +44,7 @@ export const useNetworkSimple = (
   networkFallback?: INetwork | null,
 ) => {
   const { network } = useNetwork({ networkId, networkFallback });
-  return network ?? null;
+  return network;
 };
 
 export { useNetwork };

@@ -5,8 +5,10 @@ import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/ac
 import type { INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import { ACCOUNT_SELECTOR_REFRESH_DEBOUNCE } from '@onekeyhq/kit/src/components/NetworkAccountSelector/consts';
 import type { AccountGroup } from '@onekeyhq/kit/src/components/NetworkAccountSelector/types';
-import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
-import { getManageNetworks } from '@onekeyhq/kit/src/hooks/useManageNetworks';
+import {
+  getActiveWalletAccount,
+  getManageNetworks,
+} from '@onekeyhq/kit/src/hooks/crossHooks';
 import reducerAccountSelector from '@onekeyhq/kit/src/store/reducers/reducerAccountSelector';
 import { wait } from '@onekeyhq/kit/src/utils/helper';
 import {
@@ -121,7 +123,7 @@ export default class ServiceAccountSelector extends ServiceBase {
           },
         ];
     } else {
-      const { enabledNetworks } = getManageNetworks();
+      const { enabledNetworks } = getManageNetworks(undefined);
       enabledNetworks.forEach((networkItem) => {
         const data = accountsList.filter((account) =>
           isAccountCompatibleWithNetwork(account.id, networkItem.id),

@@ -14,15 +14,13 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  getActiveWalletAccount,
-  useActiveWalletAccount,
-} from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
 import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import FormChainSelector from '../../components/Form/ChainSelector';
 import WalletAvatar from '../../components/WalletSelector/WalletAvatar';
+import { getActiveWalletAccount } from '../../hooks/crossHooks';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { SendModalRoutes } from '../Send/types';
 

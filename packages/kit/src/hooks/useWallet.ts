@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { IWallet } from '@onekeyhq/engine/src/types';
 
@@ -34,7 +34,11 @@ export function useWallet({
     })();
   }, [walletId, walletInRedux]);
 
-  return {
-    wallet: walletInRedux ?? walletInDb ?? walletFallback,
-  };
+  const finalWallet = walletInRedux ?? walletInDb ?? walletFallback;
+  return useMemo(
+    () => ({
+      wallet: finalWallet,
+    }),
+    [finalWallet],
+  );
 }

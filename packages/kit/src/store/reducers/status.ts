@@ -1,5 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 
+import type { WalletHomeTabEnum } from '../../views/Wallet/type';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
 export type IRpcStatus =
@@ -17,7 +18,7 @@ export type StatusState = {
   webviewGlobalKey: number;
   authenticationType?: 'FINGERPRINT' | 'FACIAL';
   hideAddressBookAttention?: boolean;
-  homeTabName?: string;
+  homeTabName?: WalletHomeTabEnum;
   swapPopoverShown?: boolean;
   guideToPushFirstTime?: boolean;
   firstTimeShowCheckRPCNodeTooltip?: boolean;
@@ -43,7 +44,7 @@ export const slice = createSlice({
   name: 'status',
   initialState,
   reducers: {
-    setHomeTabName(state, action: PayloadAction<string>) {
+    setHomeTabName(state, action: PayloadAction<WalletHomeTabEnum>) {
       state.homeTabName = action.payload;
     },
     setBoardingCompleted: (state) => {
