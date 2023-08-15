@@ -1,5 +1,7 @@
-import { Center, Spinner } from '@onekeyhq/components';
 import { useEffect, useState } from 'react';
+
+import { Center, Spinner } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function LazyDisplayView({
   delay = 0,
@@ -10,9 +12,9 @@ export function LazyDisplayView({
 }: {
   delay?: number;
   hideOnUnmount?: boolean;
-  children: JSX.Element | null;
+  children: React.ReactElement | null;
   isLazyDisabled?: boolean;
-  loadingView?: JSX.Element | null;
+  loadingView?: React.ReactElement | null;
 }) {
   const [view, setView] = useState<JSX.Element | null>(loadingView);
   useEffect(() => {
@@ -31,16 +33,28 @@ export function LazyDisplayView({
   return isLazyDisabled ? children : view;
 }
 
-export function LazyLoadingDisplayView({ children, delay = 50 }: { delay?: number; children: JSX.Element }) {
+// Resolve the issue of rendering lag in interactive animations during app page transitions.
+export function LazyLoadingDisplayView({
+  children = null,
+  delay = 50,
+}: {
+  delay?: number;
+  children: React.ReactElement | null;
+}) {
+  // Only works within the app.
+  if (!platformEnv.isNative) {
+    return children;
+  }
   return (
     <LazyDisplayView
       delay={delay}
       loadingView={
         <Center>
           <Spinner mt={18} size="lg" />
-        </Center>}
+        </Center>
+      }
     >
       {children}
     </LazyDisplayView>
-  )
+  );
 }
