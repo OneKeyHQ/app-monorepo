@@ -454,9 +454,10 @@ class ProviderApiEthereum extends ProviderApiBase {
   @providerApiMethod()
   async personal_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
     let message = messages[0] as string;
+    let from = messages[1] as string;
 
     const accounts = await this.eth_accounts(req);
-    // FIX:  dydx use second param as message
+    // FIX:  dydx, kava evm use second param as message
     if (accounts && accounts.length) {
       const a = fixAddressCase({
         impl: IMPL_EVM,
@@ -468,6 +469,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       });
       if (a && a === b && messages[1]) {
         message = messages[1] as string;
+        from = messages[0] as string;
       }
     }
 
@@ -476,7 +478,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     return this._showSignMessageModal(req, {
       type: ETHMessageTypes.PERSONAL_SIGN,
       message,
-      payload: messages,
+      payload: [message, from],
     });
   }
 
