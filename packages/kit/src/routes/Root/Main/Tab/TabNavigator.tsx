@@ -70,6 +70,8 @@ export const getStackTabScreen = (
               name={name}
               component={component}
               options={{
+                // @ts-ignore
+                key: `${name}.Stack.Screen.component`,
                 header: headerRender,
                 headerShown,
               }}

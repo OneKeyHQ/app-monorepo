@@ -21,11 +21,11 @@ import {
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { getActiveWalletAccount } from '../../../hooks/redux';
 import {
+  getActiveWalletAccount,
   getManageNetworks,
   useManageNetworks,
-} from '../../../hooks/useManageNetworks';
+} from '../../../hooks/crossHooks';
 import { ManageNetworkModalRoutes } from '../../../routes/routesEnum';
 
 import { NetworkListEmpty, strIncludes } from './NetworkListEmpty';
@@ -106,7 +106,7 @@ const NetworkItem: FC<{
 export const Listing: FC = () => {
   const intl = useIntl();
   const isSmallScreen = useIsVerticalLayout();
-  const { allNetworks } = useManageNetworks();
+  const { allNetworks } = useManageNetworks(undefined);
   const [search, setSearch] = useState('');
   const navigation = useNavigation<NavigationProps>();
   const [activeNetwork, setActiveNetwork] = useState(
@@ -114,7 +114,7 @@ export const Listing: FC = () => {
   );
 
   const allNetworkRefList = useRef<[string, boolean][]>(
-    getManageNetworks().allNetworks.map((n) => [n.id, n.enabled]),
+    getManageNetworks(undefined).allNetworks.map((n) => [n.id, n.enabled]),
   );
 
   useEffect(() => {

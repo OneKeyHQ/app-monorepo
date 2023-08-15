@@ -13,6 +13,7 @@ import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
 
 // define enum here to avoid cycle import
 
+import type { ITokenPriceValue } from '../store/reducers/tokens';
 import type { IOnboardingRoutesParams } from '../views/Onboarding/routes/types';
 import type { GalleryParams } from './Root/Gallery';
 import type * as SubModalRoutesParams from './Root/Modal/types';
@@ -109,7 +110,8 @@ export type MainRoutesParams = {
 };
 export type HomeRoutesParams = {
   [HomeRoutes.ScreenTokenDetail]: {
-    price?: number;
+    price?: ITokenPriceValue;
+    price24h?: ITokenPriceValue;
     logoURI?: string;
     symbol?: string;
     name?: string;
@@ -120,7 +122,6 @@ export type HomeRoutesParams = {
     tokenAddress?: string;
     sendAddress?: string;
     historyFilter?: (item: any) => boolean;
-    price24h?: number;
   };
   [HomeRoutes.FullTokenListScreen]: {
     accountId?: string;

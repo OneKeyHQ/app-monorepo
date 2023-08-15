@@ -2,7 +2,7 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { cloneDeep, debounce } from 'lodash';
 
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
-import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import { buildModalRouteParams } from '@onekeyhq/kit/src/hooks/useAutoNavigateOnMount';
 import type {
   IDappConnectionParams,

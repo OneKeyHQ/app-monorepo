@@ -8,15 +8,15 @@ export function LazyDisplayView({
   hideOnUnmount = false,
   children,
   isLazyDisabled = false,
-  loadingView = null,
+  defaultView = null,
 }: {
   delay?: number;
   hideOnUnmount?: boolean;
   children: React.ReactElement | null;
   isLazyDisabled?: boolean;
-  loadingView?: React.ReactElement | null;
+  defaultView?: JSX.Element | null;
 }) {
-  const [view, setView] = useState<JSX.Element | null>(loadingView);
+  const [view, setView] = useState<JSX.Element | null>(defaultView);
   useEffect(() => {
     if (isLazyDisabled) {
       return;
@@ -48,7 +48,7 @@ export function LazyLoadingDisplayView({
   return (
     <LazyDisplayView
       delay={delay}
-      loadingView={
+      defaultView={
         <Center>
           <Spinner mt={18} size="lg" />
         </Center>

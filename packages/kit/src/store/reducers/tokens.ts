@@ -6,21 +6,32 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import type { PayloadAction } from '@reduxjs/toolkit';
 
+export type IAmountValue = string | IValueLoading | IValueNull;
 export type TokenBalanceValue =
   | {
       balance: string;
       blockHeight?: string;
     }
-  | undefined;
+  | IValueLoading
+  | IValueNull;
+export type ITokenBalanceInfo = {
+  balance: IAmountValue;
+  blockHeight?: string;
+};
 export type TokenChartData = [number, number][];
-
-export type PriceLoading = undefined;
-export type NoPriceData = null;
-export type TokenPrices = Record<TokenId, string | PriceLoading | NoPriceData>;
-export type SimpleTokenPrices = Record<
-  string,
-  number | PriceLoading | NoPriceData
->;
+export const CValueLoading = undefined;
+export const CValueNull = null;
+export type IValueLoading = typeof CValueLoading;
+export type IValueNull = typeof CValueNull;
+export type ITokenPriceValue = number | IValueLoading | IValueNull;
+export type SimpleTokenPrices = Record<string, ITokenPriceValue>;
+export type ITokensPricesMap = Record<PriceId, SimpleTokenPrices>;
+export type ITokenPriceInfo = {
+  priceKey?: string;
+  priceRawInfo?: SimpleTokenPrices;
+  price: ITokenPriceValue;
+  price24h: ITokenPriceValue;
+};
 
 type NetworkId = string;
 type AccountId = string;
@@ -33,12 +44,13 @@ export type SimplifiedToken = {
   autoDetected?: boolean;
 };
 
+export type IAccountTokensBalanceMap = Record<TokenId, TokenBalanceValue>;
 export type TokenInitialState = {
-  tokenPriceMap: Record<PriceId, SimpleTokenPrices>;
+  tokenPriceMap: ITokensPricesMap;
   accountTokens: Record<NetworkId, Record<AccountId, Token[]>>;
   accountTokensBalance: Record<
     NetworkId,
-    Record<AccountId, Record<TokenId, TokenBalanceValue>>
+    Record<AccountId, IAccountTokensBalanceMap>
   >;
 };
 

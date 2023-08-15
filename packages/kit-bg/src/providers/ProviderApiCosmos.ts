@@ -17,7 +17,7 @@ import {
 } from '@onekeyhq/engine/src/vaults/impl/cosmos/utils';
 import type VaultCosmos from '@onekeyhq/engine/src/vaults/impl/cosmos/Vault';
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
-import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   backgroundClass,
   permissionRequired,

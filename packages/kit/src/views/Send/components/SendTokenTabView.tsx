@@ -1,5 +1,5 @@
 import type { ComponentType, FC } from 'react';
-import { useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { TabView as RNTabView } from 'react-native-tab-view';
 
@@ -11,14 +11,14 @@ import {
 
 import type { Route as TabViewRoute } from 'react-native-tab-view';
 
-type TabViewItem = {
+export type ISendTokenTabViewItem = {
   label: string;
   title: string;
   view: ComponentType<any>;
 };
 type Props = {
   onIndexChange?: (index: number) => void;
-  options: TabViewItem[];
+  options: ISendTokenTabViewItem[];
 };
 
 const SendTokenTabView: FC<Props> = ({ onIndexChange, options }) => {
@@ -43,28 +43,44 @@ const SendTokenTabView: FC<Props> = ({ onIndexChange, options }) => {
     return SceneMap(scenes);
   }, [options]);
 
+  const renderTabBar = useCallback(
+    () => (
+      <SegmentedControl
+        selectedIndex={index}
+        onChange={setIndex}
+        values={options.map((item) => item.title)}
+      />
+    ),
+    [index, options],
+  );
+
+  const onIndexChangeInner = useCallback(
+    (changeIndex: number) => {
+      setIndex(changeIndex);
+      if (onIndexChange) {
+        onIndexChange(changeIndex);
+      }
+    },
+    [onIndexChange],
+  );
+
+  const style = useMemo(
+    () => ({
+      backgroundColor: bgColor,
+    }),
+    [bgColor],
+  );
+
   return (
     <RNTabView
+      lazy
       navigationState={{ index, routes }}
       renderScene={renderScene}
-      renderTabBar={() => (
-        <SegmentedControl
-          selectedIndex={index}
-          onChange={setIndex}
-          values={options.map((item) => item.title)}
-        />
-      )}
-      onIndexChange={(changeIndex: number) => {
-        setIndex(changeIndex);
-        if (onIndexChange) {
-          onIndexChange(changeIndex);
-        }
-      }}
-      style={{
-        backgroundColor: bgColor,
-      }}
+      renderTabBar={renderTabBar}
+      onIndexChange={onIndexChangeInner}
+      style={style}
     />
   );
 };
 export { SceneMap } from 'react-native-tab-view';
-export default SendTokenTabView;
+export default memo(SendTokenTabView);

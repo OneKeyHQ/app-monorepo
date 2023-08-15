@@ -485,7 +485,7 @@ export default class ServiceStaking extends ServiceBase {
 
     const tokenId = lidoAddr.toLowerCase();
 
-    const [result] = await serviceToken.getAccountTokenBalance({
+    const [result] = await serviceToken.fetchAndSaveAccountTokenBalance({
       networkId,
       accountId,
       tokenIds: [tokenId],
@@ -1001,7 +1001,7 @@ export default class ServiceStaking extends ServiceBase {
 
     const tokenId = stMaticAddress.toLowerCase();
 
-    const [result] = await serviceToken.getAccountTokenBalance({
+    const [result] = await serviceToken.fetchAndSaveAccountTokenBalance({
       networkId,
       accountId,
       tokenIds: [tokenId],
@@ -1031,7 +1031,7 @@ export default class ServiceStaking extends ServiceBase {
     const data = res.data as LidoMaticOverview | undefined;
     if (data?.stMaticAddress) {
       const tokenId = data.stMaticAddress.toLowerCase();
-      await serviceToken.getAccountTokenBalance({
+      await serviceToken.fetchAndSaveAccountTokenBalance({
         networkId,
         accountId,
         tokenIds: [tokenId],

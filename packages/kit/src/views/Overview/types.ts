@@ -4,6 +4,11 @@ import type {
 } from '@onekeyhq/engine/src/types/nft';
 import type { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 
+import type {
+  IAmountValue,
+  ITokenPriceValue,
+} from '../../store/reducers/tokens';
+
 export interface IBaseOverviewQuery {
   networkId: string;
   address: string; // accountAddress
@@ -288,24 +293,26 @@ export interface IOverviewAllNetworksToken {
     accountAddress?: string;
     address: string;
     xpub?: string;
-    balance: string;
+    balance: IAmountValue;
     decimals: number;
     riskLevel: TokenRiskLevel;
-    value: string;
+    value: IAmountValue;
   }[];
 }
 
 export interface IAccountToken {
+  accountId: string;
+  networkId: string;
   name: string;
   symbol: string;
   address?: string;
   logoURI?: string;
-  balance: string;
-  usdValue: string;
-  value: string;
-  value24h?: string;
-  price: number;
-  price24h?: number;
+  balance: IAmountValue;
+  usdValue: IAmountValue;
+  value: IAmountValue;
+  value24h?: IAmountValue;
+  price: ITokenPriceValue;
+  price24h?: ITokenPriceValue;
   isNative?: boolean;
   riskLevel?: TokenRiskLevel;
   sendAddress?: string;
@@ -314,6 +321,12 @@ export interface IAccountToken {
   autoDetected?: boolean;
   tokens: IOverviewAllNetworksToken['tokens'];
 }
+
+export type IReduxHooksQueryToken = {
+  networkId: string | undefined;
+  accountId?: string | undefined;
+  address?: string;
+};
 
 export type IOverviewTokenDetailListItem = {
   name: string;
