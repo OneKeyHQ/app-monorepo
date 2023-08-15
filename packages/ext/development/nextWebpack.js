@@ -21,14 +21,26 @@ function nextWebpack(
     webpack: (config, { isServer }) => {
       // Fixes npm packages that depend on `fs` module
       if (!isServer) {
-        config.node = {
-          fs: 'empty',
-          net: 'mock',
-          tls: 'mock',
+        config.resolve = config.resolve || {};
+        config.resolve.fallback = {
+          ...config.resolve.fallback,
+          'crypto': require.resolve('crypto-browserify'),
+          'stream': require.resolve('stream-browserify'),
+          'path': false,
+          'https': false,
+          'http': false,
+          'net': false,
+          'zlib': false,
+          'tls': false,
+          'child_process': false,
+          'process': false,
+          'fs': false,
+          'util': false,
+          'os': false,
+          'buffer': require.resolve('buffer/'),
         };
+        return config;
       }
-
-      return config;
     },
     // webpack:() => config
   };

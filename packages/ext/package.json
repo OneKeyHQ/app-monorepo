@@ -6,10 +6,12 @@
   "scripts": {
     "clean": "rm -rf ./build",
     "build": "cross-env NODE_ENV=production ENABLE_ANALYZER=1 GENERATE_SOURCEMAP=false node --max-old-space-size=8192 ./development/build.js",
+    "build:v3": "cross-env NODE_ENV=production ENABLE_ANALYZER=1 GENERATE_SOURCEMAP=false EXT_MANIFEST_V3=1 node --max-old-space-size=8192 ./development/build.js",
     "build:all-with-firefox": "yarn clean && yarn build && yarn build --firefox && node ./development/zip.js",
     "build:all": "yarn clean && yarn build && node ./development/zip.js",
     "build:all:v3": "yarn clean && yarn build && cross-env EXT_MANIFEST_V3=1 yarn build && node ./development/zip.js",
     "start": "node ./development/devServer.js",
+    "start:v3": "EXT_MANIFEST_V3=1 node ./development/devServer.js",
     "firefox": "echo 'run first: \n\t yarn ext --firefox \n\n' && web-ext -s build/firefox/ run --verbose",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "prettier": "prettier --write '**/*.{js,jsx,ts,tsx,json,css,scss,md}'"
@@ -20,7 +22,7 @@
     "cheerio": "^1.0.0-rc.12"
   },
   "dependencies": {
-    "@expo/next-adapter": "^4.0.13",
+    "@expo/next-adapter": "5.0.2",
     "@vespaiach/axios-fetch-adapter": "^0.3.1",
     "cross-env": "^7.0.3",
     "next": "^11.1.2",
