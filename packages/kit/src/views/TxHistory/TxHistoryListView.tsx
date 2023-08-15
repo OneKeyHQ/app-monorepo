@@ -24,7 +24,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountPortfolios, useAppSelector } from '../../hooks';
 import useFormatDate from '../../hooks/useFormatDate';
-import { useVisibilityFocused } from '../../hooks/useVisibilityFocused';
+import { useIsFocusedAllInOne } from '../../hooks/useIsFocusedAllInOne';
 import { wait } from '../../utils/helper';
 import { useIsAtHomeTab } from '../../utils/routeUtils';
 import { EOverviewScanTaskType } from '../Overview/types';
@@ -251,7 +251,7 @@ function TxHistoryListViewComponent({
     (s) => s.overview.allNetworksAccountsMap?.[accountId || ''] ?? {},
   );
 
-  const isFocused = useVisibilityFocused();
+  const { isFocused } = useIsFocusedAllInOne();
 
   const { data: allNetworksTokens } = useAccountPortfolios({
     networkId,

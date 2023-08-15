@@ -1,4 +1,4 @@
-import { debounce, uniq, xor } from 'lodash';
+import { debounce, random, uniq, xor } from 'lodash';
 
 import { updateFiatMoneyMap } from '@onekeyhq/kit/src/store/reducers/fiatMoney';
 import { setSelectedFiatMoneySymbol } from '@onekeyhq/kit/src/store/reducers/settings';
@@ -73,6 +73,38 @@ export default class ServicePrice extends ServiceBase {
       dispatch(setTokenPriceMap({ prices: datas, vsCurrency }));
     }
     return datas;
+  }
+
+  @backgroundMethod()
+  testUpdateTokenPriceMap() {
+    const { appSelector, dispatch, engine } = this.backgroundApi;
+    dispatch(
+      setTokenPriceMap({
+        prices: {
+          'evm--1': {
+            'usd': random(1800, 2500),
+            'usd_24h_change': -0.28172809241920566,
+          },
+          'evm--1-0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': {
+            'usd': random(1800, 2500),
+            'usd_24h_change': null,
+          },
+          'evm--1-0x630fe3adb53f3d2e0c594bc180309fdfdd0a854d': {
+            'usd': null,
+            'usd_24h_change': null,
+          },
+          'evm--1-0x7f08c7cc37fe1718017e7900fe63fe7604daf253': {
+            'usd': null,
+            'usd_24h_change': null,
+          },
+          'evm--1-0x9d6b29308ff0dd2f0e3115fb08baa0819313834c': {
+            'usd': null,
+            'usd_24h_change': null,
+          },
+        },
+        vsCurrency: 'usd',
+      }),
+    );
   }
 
   @bindThis()

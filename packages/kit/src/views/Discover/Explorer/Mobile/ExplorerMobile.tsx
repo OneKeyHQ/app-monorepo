@@ -6,7 +6,7 @@ import { Freeze } from 'react-freeze';
 import { Box, useSafeAreaInsets } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useIsFocusedInTab } from '../../../../hooks/useIsFocusedInTab';
+import { useIsFocusedAllInOne } from '../../../../hooks/useIsFocusedAllInOne';
 import { TabRoutes } from '../../../../routes/routesEnum';
 import { useExplorerSearch } from '../../hooks/useExplorerSearch';
 import WebHomeContainer from '../Content/WebHomeContainer';
@@ -23,7 +23,10 @@ const ExplorerMobile: FC = () => {
   const [showContent, setShowContent] = useState(false);
   const [showHome, setShowHome] = useState(true);
   const beforeMinimize = useCallback(() => setShowHome(true), []);
-  const isFocusedInDiscoverTab = useIsFocusedInTab(TabRoutes.Discover);
+  const { isFocused, rootTabFocused } = useIsFocusedAllInOne({
+    rootTabName: TabRoutes.Discover,
+  });
+  const isFocusedInDiscoverTab = isFocused || rootTabFocused;
 
   useEffect(() => {
     if (isFocusedInDiscoverTab) {

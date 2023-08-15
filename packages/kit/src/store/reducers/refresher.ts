@@ -10,14 +10,20 @@ export type IBackgroundShowToastOptions = {
 };
 
 type InitialState = {
+  refreshHomeOverviewTs?: number; // TODO rename refreshHomeTokensTs
   refreshHistoryTs: number;
   refreshAccountSelectorTs: number;
   refreshConnectedSitesTs: number;
   closeDappConnectionPreloadingTs: number;
   backgroundShowToastTs: number;
   backgroundShowToastOptions: IBackgroundShowToastOptions;
+  overviewAccountIsUpdating?: Record<string, boolean>;
+  overviewHomeTokensLoading?: boolean;
 };
 const initialState: InitialState = {
+  overviewAccountIsUpdating: {},
+  overviewHomeTokensLoading: false,
+  refreshHomeOverviewTs: 0,
   refreshHistoryTs: 0,
   refreshAccountSelectorTs: 0,
   refreshConnectedSitesTs: 0,
@@ -33,6 +39,29 @@ export const slicer = createSlice({
   name: NAME,
   initialState,
   reducers: {
+    setOverviewHomeTokensLoading(state, action: PayloadAction<boolean>) {
+      const loading = action.payload;
+      if (loading !== state.overviewHomeTokensLoading) {
+        state.overviewHomeTokensLoading = loading;
+      }
+    },
+    // original: setAccountIsUpdating
+    setOverviewAccountIsUpdating(
+      state,
+      action: PayloadAction<{
+        accountId: string;
+        data: boolean;
+      }>,
+    ) {
+      const { accountId, data } = action.payload;
+      if (!state.overviewAccountIsUpdating) {
+        state.overviewAccountIsUpdating = {};
+      }
+      state.overviewAccountIsUpdating[accountId] = data;
+    },
+    updateRefreshHomeOverviewTs(state) {
+      state.refreshHomeOverviewTs = Date.now();
+    },
     refreshHistory(state) {
       state.refreshHistoryTs = Date.now();
     },
@@ -59,6 +88,9 @@ export const slicer = createSlice({
 });
 
 export const {
+  setOverviewHomeTokensLoading,
+  setOverviewAccountIsUpdating,
+  updateRefreshHomeOverviewTs,
   refreshHistory,
   refreshAccountSelector,
   refreshConnectedSites,

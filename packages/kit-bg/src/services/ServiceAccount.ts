@@ -27,8 +27,8 @@ import type {
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Wallet, WalletType } from '@onekeyhq/engine/src/types/wallet';
-import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
-import { getManageNetworks } from '@onekeyhq/kit/src/hooks/useManageNetworks';
+import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
+import { getManageNetworks } from '@onekeyhq/kit/src/hooks/crossHooks';
 import { passwordSet, release } from '@onekeyhq/kit/src/store/reducers/data';
 import {
   changeActiveAccount,
@@ -784,7 +784,7 @@ class ServiceAccount extends ServiceBase {
       impl,
       chainId,
     });
-    const { enabledNetworks } = getManageNetworks();
+    const { enabledNetworks } = getManageNetworks(undefined);
     const isNetworkEnabled = Boolean(
       enabledNetworks.find((item) => item.id === networkId),
     );

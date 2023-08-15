@@ -126,7 +126,7 @@ export function useCreateAccountInWallet({
       isAddressDerivationSupported,
       showCreateAccountMenu,
     };
-  }, [networkId, walletId]);
+  }, [engine, networkId, walletId]);
 
   const selectedTemplateRef = useRef<IDerivationOption | null>();
   const quickCreateAllNetworksFakeAccount = useCallback(async () => {

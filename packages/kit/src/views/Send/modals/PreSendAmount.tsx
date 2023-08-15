@@ -49,6 +49,7 @@ import { BaseSendModal } from '../components/BaseSendModal';
 import { PreSendAmountAlert } from '../components/PreSendAmountAlert';
 import { SendModalRoutes } from '../enums';
 import { usePreSendAmountInfo } from '../utils/usePreSendAmountInfo';
+import { useReloadAccountBalance } from '../utils/useReloadAccountBalance';
 
 import type { SendRoutesParams } from '../types';
 import type { RouteProp } from '@react-navigation/core';
@@ -175,6 +176,11 @@ function PreSendAmount() {
   const { account, accountId, networkId, network } =
     useActiveSideAccount(transferInfo);
   const { engine } = backgroundApiProxy;
+
+  useReloadAccountBalance({
+    networkId,
+    accountId,
+  });
 
   const tokenIdOnNetwork = transferInfo.token;
   const { token: tokenInfo } = useSingleToken(

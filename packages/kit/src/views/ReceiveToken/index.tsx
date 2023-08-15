@@ -21,11 +21,11 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import BlurQRCode from '@onekeyhq/kit/assets/blur-qrcode.png';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { IActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import type { IActiveWalletAccount } from '../../hooks';
 import type {
   ReceiveTokenModalRoutes,
   ReceiveTokenRoutesParams,

@@ -44,7 +44,7 @@ export const useSearchTokens = (
         setLoading(false);
       }
       const [balances] =
-        await backgroundApiProxy.serviceToken.getAccountTokenBalance({
+        await backgroundApiProxy.serviceToken.fetchAndSaveAccountTokenBalance({
           accountId,
           networkId,
           tokenIds: tokens.map((i) => i.tokenIdOnNetwork),
