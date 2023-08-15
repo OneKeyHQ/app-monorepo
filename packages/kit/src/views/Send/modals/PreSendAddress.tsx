@@ -47,7 +47,7 @@ import type { ModalScreenProps } from '../../../routes/types';
 import type { SendRoutesParams } from '../types';
 import type { RouteProp } from '@react-navigation/core';
 import type { MessageDescriptor } from 'react-intl';
-import { LazyDisplayView } from '../../../components/LazyDisplayView';
+import { LazyLoadingDisplayView } from '../../../components/LazyDisplayView';
 
 type NavigationProps = ModalScreenProps<SendRoutesParams>;
 
@@ -636,7 +636,7 @@ function PreSendAddress() {
       onPrimaryActionPress={() => doSubmit()}
       scrollViewProps={{
         children: (
-         <LazyDisplayView>
+         <LazyLoadingDisplayView>
            <Box>
             <Form>
               {isNFT ? (
@@ -727,7 +727,7 @@ function PreSendAddress() {
               />
             )}
           </Box>
-         </LazyDisplayView>
+         </LazyLoadingDisplayView>
         ),
       }}
     />

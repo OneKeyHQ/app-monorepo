@@ -19,7 +19,7 @@ import type { SendRoutesParams } from '../types';
 import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { LazyDisplayView } from '../../../components/LazyDisplayView';
+import { LazyLoadingDisplayView } from '../../../components/LazyDisplayView';
 
 type NavigationProps = NativeStackNavigationProp<
   SendRoutesParams,
@@ -101,9 +101,9 @@ function PreSendTokenScreen() {
   // we are adopting a lazy loading approach to prioritize the completion of the modal animation.
   // If the hooks for "AssetList" have completed rendering optimization, please remove this lazy loading Component.
   const LazySendTokenTabViewComponent = platformEnv.isNative ? () => (
-      <LazyDisplayView delay={100}>
+      <LazyLoadingDisplayView>
         {sendTokenTabViewComponent()}
-      </LazyDisplayView>
+      </LazyLoadingDisplayView>
     ): sendTokenTabViewComponent
 
   const sendNftsTabViewComponent = useCallback(
