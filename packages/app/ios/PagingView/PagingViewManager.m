@@ -12,6 +12,7 @@
 @implementation PagingViewManager
 RCT_EXPORT_MODULE(NestedTabView)
 RCT_EXPORT_VIEW_PROPERTY(onPageChange, RCTBubblingEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onPageStartScroll, RCTBubblingEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(headerHeight, CGFloat);
 RCT_EXPORT_VIEW_PROPERTY(defaultIndex, NSInteger);
 RCT_EXPORT_VIEW_PROPERTY(pageIndex, NSInteger);

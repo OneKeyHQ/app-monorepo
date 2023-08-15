@@ -67,10 +67,10 @@ export interface NativeNestedTabViewProps {
   spinnerColor?: string;
   onRefreshCallBack?: (e: OnRefreshCallBackEvent) => void;
   onPageChange?: (e: OnPageChangeEvent) => void;
+  onPageStartScroll?: () => void;
 
   // Android only
   slideDisable?: boolean;
-  onPageStartScroll?: () => void;
 }
 
 export interface NestedTabViewProps extends NativeNestedTabViewProps {

@@ -11,7 +11,7 @@ import {
 } from 'react';
 
 import { UIManager, findNodeHandle } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture } from 'react-native-gesture-handler';
 import { useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
@@ -23,7 +23,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import NativeNestedTabView from './NativeNestedTabView';
 
 import type { NestedTabViewProps, OnPageChangeEvent } from './types';
-import type { NativeSyntheticEvent } from 'react-native';
 
 export type ForwardRefHandle = {
   setPageIndex: (pageIndex: number) => void;
@@ -277,12 +276,12 @@ const NestedTabView: ForwardRefRenderFunction<
     onPageStartScroll?.();
   }, [onPageStartScroll]);
 
-  const onMoveShouldSetResponderCapture = useCallback(() => {
-    if (platformEnv.isNativeIOS) return false;
-    return isScrolling.current;
-  }, []);
+  const onMoveShouldSetResponderCapture = useCallback(
+    () => isScrolling.current,
+    [],
+  );
 
-  const content = (
+  return (
     <NativeNestedTabView
       defaultIndex={defaultIndex}
       onPageChange={onTabChange}
@@ -301,25 +300,23 @@ const NestedTabView: ForwardRefRenderFunction<
     </NativeNestedTabView>
   );
 
-  return content;
-
-  return (
-    <GestureDetector
-      gesture={
-        // eslint-disable-next-line no-nested-ternary
-        // platformEnv.isNativeAndroid
-        //   ? Gesture.Exclusive(native, pan)
-        //   : enableOpenDrawer
-        //   ? Gesture.Simultaneous(native, pan)
-        //   : // to solve ios system back gesture conflict
-        //     // in tab pages without drawer
-        Gesture.Race(native, pan)
-        // Gesture.Race(native, pan)
-      }
-    >
-      {content}
-    </GestureDetector>
-  );
+  // return (
+  //   <GestureDetector
+  //     gesture={
+  //       // eslint-disable-next-line no-nested-ternary
+  //       // platformEnv.isNativeAndroid
+  //       //   ? Gesture.Exclusive(native, pan)
+  //       //   : enableOpenDrawer
+  //       //   ? Gesture.Simultaneous(native, pan)
+  //       //   : // to solve ios system back gesture conflict
+  //       //     // in tab pages without drawer
+  //       Gesture.Race(native, pan)
+  //       // Gesture.Race(native, pan)
+  //     }
+  //   >
+  //     {content}
+  //   </GestureDetector>
+  // );
 };
 
 export default memo(forwardRef(NestedTabView));
