@@ -33,7 +33,9 @@ const FormControlMessage: FC<FormControlMessageProps> = ({ message, type }) => {
       <Box mr="2">
         <Icon size={20} name={iconName} color={iconColor} />
       </Box>
-      <Typography.Body2 color={textColor}>{message}</Typography.Body2>
+      <Typography.Body2 flex={1} color={textColor}>
+        {message}
+      </Typography.Body2>
     </Box>
   );
 };
