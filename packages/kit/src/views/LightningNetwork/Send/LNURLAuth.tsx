@@ -208,17 +208,17 @@ const LNURLAuth = () => {
         ToastManager.show({
           title: messages.successText,
         });
-        if (isSendFlow) {
-          setTimeout(() => {
+        setTimeout(() => {
+          if (isSendFlow) {
             // quit from password modal
             closeModal();
             closeModal();
-          }, 300);
-        } else {
-          dappApprove.resolve({
-            close: closeModal,
-          });
-        }
+          } else {
+            dappApprove.resolve({
+              close: closeModal,
+            });
+          }
+        }, 300);
       } catch (e: any) {
         const { key, info } = e;
         if (key && key !== 'onekey_error') {
@@ -239,10 +239,8 @@ const LNURLAuth = () => {
             { type: 'error' },
           );
         }
-        if (isSendFlow) {
-          // quit from password modal
-          closeModal();
-        } else {
+        closeModal();
+        if (!isSendFlow) {
           dappApprove.reject();
         }
       } finally {

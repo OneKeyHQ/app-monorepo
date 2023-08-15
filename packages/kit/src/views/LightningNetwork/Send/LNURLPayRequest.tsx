@@ -15,16 +15,22 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type { IEncodedTxLightning } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types';
-import type { LNURLPaymentInfo } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/lnurl';
+import type {
+  LNURLPayServiceResponse,
+  LNURLPaymentInfo,
+} from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/lnurl';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount, useNativeToken } from '../../../hooks';
+import useDappApproveAction from '../../../hooks/useDappApproveAction';
+import useDappParams from '../../../hooks/useDappParams';
 import { useSingleToken } from '../../../hooks/useTokens';
 import { SendModalRoutes } from '../../Send/enums';
 import { LNModalDescription } from '../components/LNModalDescription';
 import LNSendPaymentForm from '../components/LNSendPaymentForm';
 
 import type { SendRoutesParams } from '../../../routes';
+import type { SendConfirmParams } from '../../Send/types';
 import type { ISendPaymentFormValues } from '../components/LNSendPaymentForm';
 import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -41,21 +47,38 @@ const LNURLPayRequest = () => {
   const isVerticalLayout = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
+  const { isSendFlow } = route.params ?? {};
 
-  const lnurlDetails = useMemo(
-    () => pick(route.params, 'lnurlDetails').lnurlDetails,
-    [route.params],
-  );
-  const transferInfo = useMemo(
-    () => omit({ ...route.params }, ['lnurlDetails']),
-    [route.params],
-  );
+  const {
+    sourceInfo,
+    lnurlDetails: dAppLnurlDetails,
+    // @ts-expect-error
+    transferInfo: dAppTransferInfo,
+  } = useDappParams();
+
+  const dappApprove = useDappApproveAction({ id: sourceInfo?.id ?? '' });
+
+  const lnurlDetails = useMemo(() => {
+    if (isSendFlow) {
+      return pick(route.params, 'lnurlDetails').lnurlDetails;
+    }
+    return dAppLnurlDetails as LNURLPayServiceResponse;
+  }, [route.params, dAppLnurlDetails, isSendFlow]);
+
+  const transferInfo = useMemo(() => {
+    if (isSendFlow) {
+      return omit({ ...route.params }, ['lnurlDetails']);
+    }
+    return dAppTransferInfo;
+  }, [route.params, dAppTransferInfo, isSendFlow]);
+
+  console.log('transferInfo:=====>>>: ', transferInfo);
 
   const { account, accountId, networkId, network } =
     useActiveSideAccount(transferInfo);
 
-  const amountMin = Math.floor(+lnurlDetails.minSendable / 1000);
-  const amountMax = Math.floor(+lnurlDetails.maxSendable / 1000);
+  const amountMin = Math.floor(Number(lnurlDetails?.minSendable ?? 0) / 1000);
+  const amountMax = Math.floor(Number(lnurlDetails?.maxSendable ?? 0) / 1000);
 
   const useFormReturn = useForm<ISendPaymentFormValues>({
     defaultValues: {
@@ -142,6 +165,7 @@ const LNURLPayRequest = () => {
           { title: (e as Error)?.message || e },
           { type: 'error' },
         );
+        dappApprove.reject();
         return;
       }
 
@@ -171,7 +195,7 @@ const LNURLPayRequest = () => {
             lnurlPaymentInfo: response,
           },
         });
-        navigation.replace(SendModalRoutes.SendConfirm, {
+        const params: SendConfirmParams = {
           accountId,
           networkId,
           encodedTx,
@@ -192,7 +216,15 @@ const LNURLPayRequest = () => {
             value: (encodedTx as IEncodedTxLightning).amount,
             isMax: false,
           },
-        });
+        };
+        if (!isSendFlow) {
+          params.sourceInfo = sourceInfo;
+          params.onFail = (args) => {
+            console.log('onFail', args);
+            // dappApprove.reject();
+          };
+        }
+        navigation.replace(SendModalRoutes.SendConfirm, params);
       } catch (e: any) {
         console.error(e);
         setIsLoading(false);
@@ -215,8 +247,8 @@ const LNURLPayRequest = () => {
           { title: (e as Error)?.message || e },
           { type: 'error' },
         );
+        dappApprove.reject();
       }
-      // pay request
     },
     [
       network,
@@ -229,6 +261,9 @@ const LNURLPayRequest = () => {
       transferInfo,
       navigation,
       tokenInfo,
+      dappApprove,
+      sourceInfo,
+      isSendFlow,
     ],
   );
 
