@@ -42,6 +42,7 @@ function AssetsListViewCmp({
   itemsCountForAutoFallbackToPlainList = 0, // TODO scroll issue
   accountTokens,
   showSkeletonHeader,
+  showTokenBalanceDetail,
 }: IAssetsListProps) {
   const navigation = useNavigation<NavigationProps>();
   const isVerticalLayout = useIsVerticalLayout();
@@ -97,6 +98,7 @@ function AssetsListViewCmp({
           borderBottomWidth: row.index === accountTokensLength - 1 ? 1 : 0,
           borderColor: flatStyle ? 'transparent' : 'border-subdued',
           onPress: onTokenCellPress,
+          showTokenBalanceDetail,
         };
 
         return isString(row.item) ? (
@@ -117,6 +119,7 @@ function AssetsListViewCmp({
         networkId,
         onTokenCellPress,
         showRoundTop,
+        showTokenBalanceDetail,
       ],
     );
 

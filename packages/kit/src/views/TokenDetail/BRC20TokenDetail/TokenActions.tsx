@@ -117,7 +117,7 @@ function TokenActions(props: Props) {
   return (
     <HStack space={4} {...style}>
       {actions.map((action) => (
-        <TouchableWithoutFeedback>
+        <TouchableWithoutFeedback key={action.id}>
           <IconButton
             circle
             size="base"

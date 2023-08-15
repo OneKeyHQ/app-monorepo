@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -208,6 +208,10 @@ function InscriptionControl() {
     networkId,
     selectedInscriptions,
   ]);
+
+  useEffect(() => {
+    fetchAvailableInscriptions();
+  }, [fetchAvailableInscriptions]);
 
   return (
     <Modal

@@ -14,6 +14,10 @@ import {
 } from '@onekeyhq/components';
 import { withDebugRenderTracker } from '@onekeyhq/components/src/DebugRenderTracker';
 import type { ITokenFiatValuesInfo } from '@onekeyhq/engine/src/types/token';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import { isBRC20Token } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -58,6 +62,7 @@ export type ITokenCellSharedProps = {
   accountId: string;
   networkId: string;
   sendAddress?: string;
+  showTokenBalanceDetail?: boolean;
 };
 export type ITokenCellByKeyProps = ITokenCellSharedProps & {
   tokenKey: string;
@@ -99,11 +104,13 @@ function TokenCellBalance({
   balance,
   availableBalance,
   transferBalance,
+  showTokenBalanceDetail,
 }: {
   token: IAccountToken;
   balance: IAmountValue;
   transferBalance: IAmountValue;
   availableBalance: IAmountValue;
+  showTokenBalanceDetail?: boolean;
 }) {
   const intl = useIntl();
   const { networkId, accountId, symbol } = token;
@@ -143,11 +150,25 @@ function TokenCellBalance({
     fetchRecycleBalance();
   }, [fetchRecycleBalance]);
 
+  useEffect(() => {
+    appUIEventBus.on(
+      AppUIEventBusNames.InscriptionRecycleChanged,
+      fetchRecycleBalance,
+    );
+    return () => {
+      appUIEventBus.off(
+        AppUIEventBusNames.InscriptionRecycleChanged,
+        fetchRecycleBalance,
+      );
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (typeof balance === 'undefined') {
     return <Skeleton shape="Body2" />;
   }
 
-  if (isBRC20) {
+  if (isBRC20 && showTokenBalanceDetail) {
     return (
       <VStack>
         <Typography.Body2 color="text-subdued">
@@ -183,7 +204,13 @@ function TokenCellBalance({
 }
 
 // $backgroundApiProxy.backgroundApi.serviceToken.testUpdateTokensBalances()
-function TokenCellBalanceDeepFresh({ token }: { token: IAccountToken }) {
+function TokenCellBalanceDeepFresh({
+  token,
+  showTokenBalanceDetail,
+}: {
+  token: IAccountToken;
+  showTokenBalanceDetail?: boolean;
+}) {
   const { balance, availableBalance, transferBalance } =
     useReduxSingleTokenBalanceSimple({ token });
 
@@ -203,6 +230,7 @@ function TokenCellBalanceDeepFresh({ token }: { token: IAccountToken }) {
       availableBalance={availableBalance}
       transferBalance={transferBalance}
       token={token}
+      showTokenBalanceDetail={showTokenBalanceDetail}
     />
   );
 }
@@ -365,6 +393,7 @@ function TokenCell(props: TokenCellProps) {
     borderTopWidth,
     onPress,
     deepRefreshMode,
+    showTokenBalanceDetail,
     ...token
   } = props;
 
@@ -384,7 +413,12 @@ function TokenCell(props: TokenCellProps) {
 
   const balanceView = useMemo(() => {
     if (deepRefreshMode) {
-      return <TokenCellBalanceDeepFresh token={token} />;
+      return (
+        <TokenCellBalanceDeepFresh
+          token={token}
+          showTokenBalanceDetail={showTokenBalanceDetail}
+        />
+      );
     }
     return (
       <TokenCellBalance
@@ -392,9 +426,10 @@ function TokenCell(props: TokenCellProps) {
         availableBalance={token.availableBalance}
         transferBalance={token.transferBalance}
         token={token}
+        showTokenBalanceDetail={showTokenBalanceDetail}
       />
     );
-  }, [deepRefreshMode, token]);
+  }, [deepRefreshMode, showTokenBalanceDetail, token]);
 
   return (
     <TokenCellView
