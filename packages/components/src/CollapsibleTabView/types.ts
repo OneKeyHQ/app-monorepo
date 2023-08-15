@@ -7,13 +7,11 @@ export interface CollapsibleContainerProps {
   initialTabName?: string;
   headerView?: ReactNode;
   headerHeight: number;
-  onIndexChange?: (index: number) => void;
   onRefresh?: () => void;
+  onIndexChange?: (index: number) => void;
+  onPageStartScroll?: () => void;
   containerStyle?: StyleProp<ViewStyle>;
   scrollEnabled?: boolean;
   canOpenDrawer?: boolean;
   children?: JSX.Element | JSX.Element[];
-
-  // Android only
-  onPageStartScroll?: () => void;
 }

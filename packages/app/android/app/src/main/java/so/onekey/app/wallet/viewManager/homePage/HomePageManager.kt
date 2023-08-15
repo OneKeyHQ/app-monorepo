@@ -35,7 +35,7 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
     override fun createViewInstance(reactContext: ThemedReactContext): HomePageView {
         Log.d("HomePageManager", "createViewInstance")
         return HomePageView(reactContext).also {
-//            it.isSaveEnabled = false
+            it.isSaveEnabled = false
             val activity = getReactContext(it).currentActivity
             if (activity is FragmentActivity) {
                 it.setViewPager(activity)
