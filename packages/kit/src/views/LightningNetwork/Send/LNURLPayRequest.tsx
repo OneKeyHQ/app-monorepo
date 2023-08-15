@@ -201,7 +201,9 @@ const LNURLPayRequest = () => {
           encodedTx,
           feeInfoUseFeeInTx: false,
           feeInfoEditable: true,
-          backRouteName: SendModalRoutes.PreSendAddress,
+          backRouteName: isSendFlow
+            ? SendModalRoutes.PreSendAddress
+            : undefined,
           // @ts-expect-error
           payload: {
             payloadType: 'Transfer',
@@ -221,7 +223,7 @@ const LNURLPayRequest = () => {
           params.sourceInfo = sourceInfo;
           params.onFail = (args) => {
             console.log('onFail', args);
-            // dappApprove.reject();
+            dappApprove.reject();
           };
         }
         navigation.replace(SendModalRoutes.SendConfirm, params);
