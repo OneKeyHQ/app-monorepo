@@ -175,6 +175,7 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
         alignItems="flex-start"
       >
         <Tabs.Container
+          headerHeight={headerHeight}
           key={String(headerHeight)}
           disableRefresh
           headerView={tabsHeader}

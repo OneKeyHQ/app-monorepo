@@ -149,6 +149,19 @@ export const overviewSlice = createSlice({
 
       state.allNetworksAccountsMap = map;
     },
+    setAccountIsUpdating(
+      state,
+      action: PayloadAction<{
+        accountId: string;
+        data: boolean;
+      }>,
+    ) {
+      const { accountId, data } = action.payload;
+      if (!state.accountIsUpdating) {
+        state.accountIsUpdating = {};
+      }
+      state.accountIsUpdating[accountId] = data;
+    },
     removeWalletAccountsMap(
       state,
       action: PayloadAction<{
@@ -199,6 +212,7 @@ export const {
   updateOverviewStats,
   addOverviewPendingTasks,
   removeOverviewPendingTasks,
+  setAccountIsUpdating,
   setOverviewPortfolioUpdatedAt,
   setAllNetworksAccountsMap,
   clearOverviewPendingTasks,
