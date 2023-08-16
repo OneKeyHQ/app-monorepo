@@ -58,14 +58,13 @@ open class HomePageLayout @JvmOverloads constructor(
         (context as ReactContext).getNativeModule(UIManagerModule::class.java)?.eventDispatcher
 
     private val mPageChangeCallback = object : OnPageChangeCallback() {
-        var currentPosition = 0
         var currentState = ViewPager2.SCROLL_STATE_IDLE
 
         override fun onPageSelected(position: Int) {
             super.onPageSelected(position)
 
             if (mTabProps.isNotEmpty() && position >= 0 && position < mTabProps.size) {
-                currentPosition = position
+                sendChangeTabsNativeEvent(position, mTabProps[position])
             }
         }
 
@@ -73,9 +72,6 @@ open class HomePageLayout @JvmOverloads constructor(
             content.findViewById<SwipeRefreshLayout>(R.id.layout_refresh)?.let {
                 it.isEnabled =
                     if (state == ViewPager2.SCROLL_STATE_IDLE) mRefreshEnabled && mAppBarExtended else false
-            }
-            if ((state == ViewPager2.SCROLL_STATE_IDLE || state == ViewPager2.SCROLL_STATE_SETTLING) && currentPosition >= 0 && currentPosition < mTabProps.size) {
-                sendChangeTabsNativeEvent(currentPosition, mTabProps[currentPosition])
             }
 
             if (currentState == ViewPager2.SCROLL_STATE_IDLE && state == ViewPager2.SCROLL_STATE_DRAGGING) {

@@ -197,18 +197,13 @@ const WalletTabs: FC = () => {
       currentIndexRef.current = index;
       if (timer.current) clearTimeout(timer.current);
 
-      let intervalTime = 0;
-      if (platformEnv.isNativeAndroid) {
-        intervalTime = 500;
-      }
-
       // Android animation redux causes ui stuttering
       timer.current = setTimeout(() => {
         debugLogger.common.info('setHomeTabIndex', index);
         backgroundApiProxy.dispatch(
           setHomeTabName(getHomeTabNameByIndex(index)),
         );
-      }, intervalTime);
+      });
     },
     [getHomeTabNameByIndex],
   );
