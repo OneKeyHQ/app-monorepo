@@ -63,6 +63,7 @@ import WalletSelectorGallery from '../../../views/Components/stories/WalletSelec
 import WebViewGallery from '../../../views/Components/stories/WebView';
 import { GalleryRoutes } from '../../routesEnum';
 import renderCustomSubStackHeader from '../Main/Header';
+import MonitorGallery from '../../../views/Components/stories/Monitor';
 
 export type GalleryParams = {
   [GalleryRoutes.Components]: { ts: number };
@@ -105,6 +106,7 @@ export type GalleryParams = {
   [GalleryRoutes.ComponentSegmentedControl]: undefined;
   [GalleryRoutes.ComponentReduxMessage]: undefined;
   [GalleryRoutes.ComponentLogger]: undefined;
+  [GalleryRoutes.ComponentMonitor]: undefined;
   [GalleryRoutes.ComponentFirebase]: undefined;
   [GalleryRoutes.ComponentWebview]: undefined;
   [GalleryRoutes.ComponentPinCode]: undefined;
@@ -197,6 +199,10 @@ export const stackScreenList = [
   {
     name: GalleryRoutes.ComponentLogger,
     component: LoggerGallery,
+  },
+  {
+    name: GalleryRoutes.ComponentMonitor,
+    component: MonitorGallery,
   },
   {
     name: GalleryRoutes.ComponentWebview,

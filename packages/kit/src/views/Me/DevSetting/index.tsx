@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -44,6 +45,7 @@ import timelinePerfTrace from '@onekeyhq/shared/src/perf/timelinePerfTrace';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NetworkAccountSelectorTrigger } from '../../../components/NetworkAccountSelector';
+import { GalleryRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { EAccountSelectorMode } from '../../../store/reducers/reducerAccountSelector';
 
 import {
@@ -51,6 +53,16 @@ import {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   requestsInterceptTest2,
 } from './requestsInterceptTest';
+
+import type { GalleryParams } from '../../../routes/Root/Gallery';
+import type { RootRoutesParams } from '../../../routes/types';
+import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type NavigationProps = CompositeNavigationProp<
+  NativeStackNavigationProp<RootRoutesParams, RootRoutes.Main>,
+  NativeStackNavigationProp<GalleryParams, GalleryRoutes.Components>
+>;
 
 interface IOneKeyPerfCheckPayload {
   testID?: string;
@@ -109,6 +121,8 @@ export const DevSettingSection = () => {
   const { dispatch } = backgroundApiProxy;
   const intl = useIntl();
   usePerfCheck({ enablePerfCheck });
+
+  const navigation = useNavigation<NavigationProps>();
 
   const pushId = useMemo(() => {
     if (platformEnv.isNative) {
@@ -412,6 +426,18 @@ export const DevSettingSection = () => {
             }}
           >
             Intercept Test
+          </Button>
+        </Container.Item>
+        <Container.Item title="Monitor" titleColor="text-critical">
+          <Button
+            size="xs"
+            onPress={() => {
+              navigation.navigate(RootRoutes.Gallery, {
+                screen: GalleryRoutes.ComponentMonitor,
+              });
+            }}
+          >
+            settings
           </Button>
         </Container.Item>
       </Container.Box>
