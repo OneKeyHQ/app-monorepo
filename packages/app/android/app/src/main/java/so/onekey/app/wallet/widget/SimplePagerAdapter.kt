@@ -16,7 +16,15 @@ class SimplePagerAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val container: FrameLayout = holder.container
-        viewArrayList.getOrNull(position).let {
+        viewArrayList.getOrNull(position)?.let {
+            if (container.childCount > 0) {
+                container.removeAllViews()
+            }
+
+            if (it.parent != null) {
+                (it.parent as FrameLayout).removeView(it)
+            }
+
             container.addView(it, 0)
         }
     }

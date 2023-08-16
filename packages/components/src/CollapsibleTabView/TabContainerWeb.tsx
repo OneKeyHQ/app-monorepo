@@ -96,7 +96,7 @@ const TabContainerWebView: ForwardRefRenderFunction<
     setPageIndex: (pageIndex: number) => {
       setIndex(pageIndex);
     },
-    setRefreshing: (refreshing: boolean) => {},
+    setRefreshing: (_: boolean) => {},
   }));
 
   const renderTabBar = useCallback(

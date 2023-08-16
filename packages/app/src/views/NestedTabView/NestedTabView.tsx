@@ -9,7 +9,6 @@ import {
 } from 'react';
 
 import { UIManager, findNodeHandle } from 'react-native';
-import { useSharedValue } from 'react-native-reanimated';
 
 import { Box } from '@onekeyhq/components';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -33,7 +32,6 @@ const NestedTabView: ForwardRefRenderFunction<
     children,
     onPageChange,
     onPageStartScroll,
-    defaultIndex,
     scrollEnabled = true,
     ...rest
   },
@@ -41,7 +39,6 @@ const NestedTabView: ForwardRefRenderFunction<
 ) => {
   const isScrolling = useRef(false);
   const tabRef = useRef<PagerViewViewManagerType>(null);
-  const tabIndex = useSharedValue(defaultIndex);
 
   const setPageIndex = useCallback((pageIndex: number) => {
     try {
@@ -74,11 +71,10 @@ const NestedTabView: ForwardRefRenderFunction<
 
   const onTabChange = useCallback(
     (e: OnPageChangeEvent) => {
-      tabIndex.value = e.nativeEvent.index;
       onPageChange?.(e);
       isScrolling.current = false;
     },
-    [onPageChange, tabIndex],
+    [onPageChange],
   );
 
   const onStartChangeCall = useCallback(() => {
@@ -93,7 +89,6 @@ const NestedTabView: ForwardRefRenderFunction<
 
   return (
     <NativeNestedTabView
-      defaultIndex={defaultIndex}
       onPageChange={onTabChange}
       onPageStartScroll={onStartChangeCall}
       scrollEnabled={scrollEnabled}

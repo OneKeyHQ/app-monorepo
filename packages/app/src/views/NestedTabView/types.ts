@@ -1,7 +1,7 @@
 import type { ForwardedRef, ReactNode } from 'react';
 
 import { Dimensions } from 'react-native';
-import { makeMutable, withSpring } from 'react-native-reanimated';
+import { makeMutable } from 'react-native-reanimated';
 
 import type { FontProps } from '@onekeyhq/components/src/Typography';
 
@@ -55,7 +55,6 @@ export type TabProps = {
 };
 
 export interface NativeNestedTabViewProps {
-  defaultIndex?: number;
   values: TabProps[];
   headerHeight?: number;
   scrollEnabled?: boolean;

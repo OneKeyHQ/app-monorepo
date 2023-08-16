@@ -274,7 +274,6 @@ open class HomePageLayout @JvmOverloads constructor(
         viewpager.setPageTransformer(CompositePageTransformer())
         tabLayout.setViewPager(viewpager, titles)
 
-
         viewpager.unregisterOnPageChangeCallback(mPageChangeCallback)
         viewpager.registerOnPageChangeCallback(mPageChangeCallback)
         return adapter

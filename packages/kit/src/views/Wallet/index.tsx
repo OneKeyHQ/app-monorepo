@@ -237,8 +237,7 @@ const WalletTabs: FC = () => {
       // otherwise android app will crash when tabs are changed
       key={platformEnv.isNativeAndroid ? `${tabContents.length}` : undefined}
       canOpenDrawer
-      // initialTabName={homeTabName}
-      // refreshing={refreshing}
+      initialTabName={homeTabName}
       onRefresh={onRefresh}
       onIndexChange={onIndexChange}
       onPageStartScroll={onPageStartScroll}
