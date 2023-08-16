@@ -134,6 +134,13 @@ function normalizeConfig({
 
     // add devServer proxy
     if (config.devServer) {
+      config.devServer.proxy = {
+        ...config.devServer.proxy,
+        ...createDevServerProxy(),
+      };
+    }
+
+    if (config.devServer) {
       config.devServer.onBeforeSetupMiddleware = (devServer) => {
         devServer.app.get(
           '/react-render-tracker@0.7.3/dist/react-render-tracker.js',
