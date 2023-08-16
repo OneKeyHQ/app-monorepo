@@ -10,6 +10,7 @@ import {
   IconButton,
   useUserDevice,
 } from '@onekeyhq/components';
+import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
 import { HomeRoutes } from '../../routes/routesEnum';
 import { MARKET_FAVORITES_CATEGORYID } from '../../store/reducers/market';
@@ -20,13 +21,19 @@ import MarketListHeader from './Components/MarketList/MarketListHeader';
 import MarketRecomment from './Components/MarketList/MarketRecomment';
 import MarketTokenCell from './Components/MarketList/MarketTokenCell';
 import MarketTokenCellVertival from './Components/MarketList/MarketTokenCellVertival';
-import { ListHeadTags, MARKET_FAKE_SKELETON_LIST_ARRAY } from './config';
+import {
+  ListHeadTags,
+  MARKET_FAKE_SKELETON_LIST_ARRAY,
+  MARKET_LIST_COLUMN_SHOW_WIDTH_1,
+  MARKET_LIST_COLUMN_SHOW_WIDTH_2,
+  MARKET_LIST_COLUMN_SHOW_WIDTH_3,
+} from './config';
 import {
   useMarketCategoryList,
   useMarketFavoriteCategoryTokenIds,
   useMarketFavoriteRecommentedList,
 } from './hooks/useMarketCategory';
-import { useMarketList } from './hooks/useMarketList';
+import { useMarketList, useMarketWidthLayout } from './hooks/useMarketList';
 
 import type { HomeRoutesParams } from '../../routes/types';
 import type { MarketCategory } from '../../store/reducers/market';
@@ -41,22 +48,34 @@ import type {
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
 const MarketList: FC = () => {
-  const { size } = useUserDevice();
-  const isVerticalLayout = size === 'SMALL';
+  const { screenWidth } = useUserDevice();
+  const { marketFillWidth, isVerticalLayout } = useMarketWidthLayout();
   const categorys: MarketCategory[] = useMarketCategoryList();
   const recommendedTokens = useMarketFavoriteRecommentedList();
   const favoriteTokens = useMarketFavoriteCategoryTokenIds();
   const { selectedCategory, onRefreshingMarketList } = useMarketList();
   const listHeadTags = useMemo(() => {
-    const isMidLayout = size === 'NORMAL';
-    if (isMidLayout) {
-      return ListHeadTags.filter((t) => t.showNorMalDevice);
-    }
     if (isVerticalLayout) {
       return ListHeadTags.filter((t) => t.showVerticalLayout);
     }
+    if (marketFillWidth <= MARKET_LIST_COLUMN_SHOW_WIDTH_1) {
+      return ListHeadTags.filter((t) => !t.hide824Width);
+    }
+    if (
+      marketFillWidth > MARKET_LIST_COLUMN_SHOW_WIDTH_1 &&
+      marketFillWidth <= MARKET_LIST_COLUMN_SHOW_WIDTH_2
+    ) {
+      return ListHeadTags.filter((t) => !t.hide924Width);
+    }
+    if (
+      marketFillWidth > MARKET_LIST_COLUMN_SHOW_WIDTH_2 &&
+      marketFillWidth < MARKET_LIST_COLUMN_SHOW_WIDTH_3
+    ) {
+      // 去掉缩略图
+      return ListHeadTags.filter((t) => !t.hide1024Width);
+    }
     return ListHeadTags;
-  }, [isVerticalLayout, size]);
+  }, [isVerticalLayout, marketFillWidth]);
   const navigation = useNavigation<NavigationProps>();
   const scrollRef = useRef<FlatListType>(null);
   const renderItem: ListRenderItem<string> = useCallback(
@@ -120,6 +139,12 @@ const MarketList: FC = () => {
     <>
       <FlatList
         flex={1}
+        style={{
+          maxWidth: MAX_PAGE_CONTAINER_WIDTH,
+          width: '100%',
+          marginHorizontal: 'auto',
+          alignSelf: 'center',
+        }}
         px={isVerticalLayout ? 2 : 3}
         refreshing={refreshing}
         onRefresh={onRefresh}
@@ -161,7 +186,7 @@ const MarketList: FC = () => {
           size="base"
           type="basic"
           bottom="80px"
-          right="20px"
+          right={screenWidth > 1144 ? `${(screenWidth - 1144) / 2}px` : '20px'}
           onPress={() => {
             scrollRef.current?.scrollToOffset({ offset: 0, animated: true });
           }}

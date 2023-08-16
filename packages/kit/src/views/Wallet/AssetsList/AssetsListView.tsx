@@ -4,7 +4,6 @@ import { useNavigation } from '@react-navigation/core';
 import { isString, omit } from 'lodash';
 
 import {
-  Box,
   Divider,
   FlatList,
   // FlatListPlain,
@@ -18,10 +17,6 @@ import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig'
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import AssetsListHeader from './AssetsListHeader';
-import {
-  atomHomeOverviewAccountTokens,
-  useAtomAssetsList,
-} from './contextAssetsList';
 import { AccountAssetsEmptyList } from './EmptyList';
 import TokenCell, { TokenCellByKey } from './TokenCell';
 import { useAssetsListLayout } from './useAssetsListLayout';

@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 import { useContext, useMemo } from 'react';
 
-import { Box, VStack, useUserDevice } from '@onekeyhq/components';
+import { VStack, useUserDevice } from '@onekeyhq/components';
 
 import { useAppSelector } from '../../../hooks';
 import { StakingWidgets } from '../../Staking/Widgets/StakingWidgets';

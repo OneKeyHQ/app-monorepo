@@ -368,6 +368,7 @@ export const MarketSlicer = createSlice({
                     : (marketTokens[id1]?.totalVolume ?? 0) -
                         (marketTokens[id2]?.totalVolume ?? 0);
                 }
+                case EMarketCellData.CollectionStarOrSerialNumber:
                 case EMarketCellData.TokenMarketCap: {
                   return payload.direction === 'down'
                     ? (marketTokens[id2]?.marketCap ?? 0) -

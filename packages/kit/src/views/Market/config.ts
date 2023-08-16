@@ -2,27 +2,30 @@ import type { ListHeadTagType } from './types';
 
 export const SUBMIT_TOKEN_URL = 'https://gr4yl99ujhl.typeform.com/to/ZM0qyr9e';
 
+export const MARKET_LIST_COLUMN_SHOW_WIDTH_1 = 824;
+export const MARKET_LIST_COLUMN_SHOW_WIDTH_2 = 924;
+export const MARKET_LIST_COLUMN_SHOW_WIDTH_3 = 1024;
 export const MARKET_FAKE_SKELETON_LIST_ARRAY = new Array(5).fill(null);
 export const MARKET_FAKE_SKELETON_CATEGORY_ARRAY = new Array(5).fill(0);
 
 export enum EMarketCellData {
-  CollectionStar = 'CollectionStar',
+  CollectionStarOrSerialNumber = 'CollectionStarOrSerialNumber',
   TokenInfo = 'TokenInfo',
+  TokenSwapStatus = 'TokenSwapStatus',
   TokenPrice = 'TokenPrice',
   Token24hChange = 'Token24hChange',
   Token24hVolume = 'Token24hVolume',
   TokenMarketCap = 'TokenMarketCap',
   TokenSparklineChart = 'TokenSparklineChart',
-  TokenSwapStatus = 'TokenSwapStatus',
+  TokenCollectionStarAndMore = 'TokenCollectionStarAndMore',
 }
 
 export const ListHeadTagsForSearch: ListHeadTagType[] = [
   {
-    id: EMarketCellData.CollectionStar,
-    minW: '52px',
+    id: EMarketCellData.CollectionStarOrSerialNumber,
+    minW: '42px',
     textAlign: 'center',
     showVerticalLayout: true,
-    showNorMalDevice: true,
     isSearch: true,
   },
   {
@@ -31,7 +34,6 @@ export const ListHeadTagsForSearch: ListHeadTagType[] = [
     minW: '100px',
     textAlign: 'left',
     showVerticalLayout: true,
-    showNorMalDevice: true,
     isSearch: true,
   },
   {
@@ -40,7 +42,6 @@ export const ListHeadTagsForSearch: ListHeadTagType[] = [
     minW: '100px',
     textAlign: 'right',
     showVerticalLayout: true,
-    showNorMalDevice: true,
     isSearch: true,
   },
   {
@@ -49,30 +50,32 @@ export const ListHeadTagsForSearch: ListHeadTagType[] = [
     minW: '100px',
     textAlign: 'right',
     showVerticalLayout: true,
-    showNorMalDevice: true,
     isSearch: true,
   },
 ];
 
 export const ListHeadTags: ListHeadTagType[] = [
   {
-    id: EMarketCellData.CollectionStar,
-    minW: '52px',
-    textAlign: 'center',
+    id: EMarketCellData.CollectionStarOrSerialNumber,
+    minW: '32px',
+    textAlign: 'left',
     showVerticalLayout: false,
-    showNorMalDevice: true,
   },
   {
     id: EMarketCellData.TokenInfo,
     title: 'form__name_uppercase',
-    minW: '100px',
+    minW: '120px',
     textAlign: 'left',
     showVerticalLayout: true,
-    showNorMalDevice: true,
     dislocation: {
       id: EMarketCellData.TokenMarketCap,
       title: 'form__market_cap_uppercase',
     },
+  },
+  {
+    id: EMarketCellData.TokenSwapStatus,
+    minW: '100px',
+    showVerticalLayout: false,
   },
   {
     id: EMarketCellData.TokenPrice,
@@ -80,15 +83,13 @@ export const ListHeadTags: ListHeadTagType[] = [
     minW: '100px',
     textAlign: 'right',
     showVerticalLayout: true,
-    showNorMalDevice: true,
   },
   {
     id: EMarketCellData.Token24hChange,
     title: 'form__24h%_uppercase',
-    minW: '100px',
+    minW: '70px',
     textAlign: 'right',
     showVerticalLayout: true,
-    showNorMalDevice: true,
   },
   {
     id: EMarketCellData.TokenMarketCap,
@@ -96,6 +97,7 @@ export const ListHeadTags: ListHeadTagType[] = [
     minW: '130px',
     textAlign: 'right',
     showVerticalLayout: false,
+    hide824Width: true,
   },
   {
     id: EMarketCellData.Token24hVolume,
@@ -103,6 +105,8 @@ export const ListHeadTags: ListHeadTagType[] = [
     minW: '120px',
     textAlign: 'right',
     showVerticalLayout: false,
+    hide924Width: true,
+    hide824Width: true,
   },
   {
     id: EMarketCellData.TokenSparklineChart,
@@ -110,11 +114,13 @@ export const ListHeadTags: ListHeadTagType[] = [
     minW: '100px',
     textAlign: 'right',
     showVerticalLayout: false,
+    hide924Width: true,
+    hide824Width: true,
+    hide1024Width: true,
   },
   {
-    id: EMarketCellData.TokenSwapStatus,
+    id: EMarketCellData.TokenCollectionStarAndMore,
     minW: '100px',
     showVerticalLayout: false,
-    showNorMalDevice: true,
   },
 ];

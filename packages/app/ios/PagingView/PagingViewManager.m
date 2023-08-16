@@ -11,7 +11,8 @@
 
 @implementation PagingViewManager
 RCT_EXPORT_MODULE(NestedTabView)
-RCT_EXPORT_VIEW_PROPERTY(onChange, RCTBubblingEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onPageChange, RCTBubblingEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onPageStartScroll, RCTBubblingEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(headerHeight, CGFloat);
 RCT_EXPORT_VIEW_PROPERTY(defaultIndex, NSInteger);
 RCT_EXPORT_VIEW_PROPERTY(pageIndex, NSInteger);
@@ -24,14 +25,22 @@ RCT_EXPORT_VIEW_PROPERTY(disableRefresh, BOOL);
 RCT_EXPORT_VIEW_PROPERTY(onRefreshCallBack, RCTBubblingEventBlock)
 
 
-RCT_EXPORT_METHOD(setPageIndex:(nonnull NSNumber *)reactTag index:(nonnull NSNumber *)index) {
-  [self.bridge.uiManager addUIBlock:^(RCTUIManager *uiManager,NSDictionary<NSNumber *, UIView *> *viewRegistry) {
-    PagingView *view = (PagingView *)viewRegistry[reactTag];
-    if (!view || ![view isKindOfClass:[PagingView class]]) {
-      return;
-    }
-    [view setPageIndex:index.integerValue];
-  }];
+RCT_EXPORT_METHOD(setPageIndex:(nonnull NSNumber *)reactTag pageIndex:(NSInteger)pageIndex) {
+    [self.bridge.uiManager addUIBlock:^(RCTUIManager *uiManager, NSDictionary<NSNumber *,UIView *> *viewRegistry) {
+        PagingView *view = (PagingView *)viewRegistry[reactTag];
+        if (!!view && [view isKindOfClass:[PagingView class]]) {
+            [view setPageIndex:pageIndex];
+        }
+    }];
+}
+
+RCT_EXPORT_METHOD(setRefreshing:(nonnull NSNumber *)reactTag refreshing:(BOOL)refreshing) {
+    [self.bridge.uiManager addUIBlock:^(RCTUIManager *uiManager, NSDictionary<NSNumber *,UIView *> *viewRegistry) {
+        PagingView *view = (PagingView *)viewRegistry[reactTag];
+        if (!!view && [view isKindOfClass:[PagingView class]]) {
+            [view setRefresh:refreshing];
+        }
+    }];
 }
 
 - (UIView *)view
