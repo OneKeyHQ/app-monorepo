@@ -59,7 +59,7 @@
   NSLog(@"pagingview dealloc");
   [self stopObservingViewPosition];
   if (_pagingView.listContainerView.scrollView) {
-    [_pagingView.listContainerView.scrollView addObserver:self forKeyPath:@"contentOffset" options:NSKeyValueObservingOptionNew context:nil];
+    [_pagingView.listContainerView.scrollView removeObserver:self forKeyPath:@"contentOffset"];
   }
 }
 
