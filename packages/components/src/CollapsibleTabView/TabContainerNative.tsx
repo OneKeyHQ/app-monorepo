@@ -3,14 +3,16 @@ import { Children, useCallback, useMemo } from 'react';
 
 import type { ForwardRefHandle } from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
 import NestedTabView from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
-import type { TabProps } from '@onekeyhq/app/src/views/NestedTabView/types';
+import type {
+  OnPageChangeEvent,
+  TabProps,
+} from '@onekeyhq/app/src/views/NestedTabView/types';
 import { useThemeValue } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Body2StrongProps } from '../Typography';
 
 import type { CollapsibleContainerProps } from './types';
-import type { NativeSyntheticEvent } from 'react-native';
 
 const TabContainerNativeView: ForwardRefRenderFunction<
   ForwardRefHandle,
@@ -18,7 +20,6 @@ const TabContainerNativeView: ForwardRefRenderFunction<
 > = (
   {
     disableRefresh,
-    refreshing,
     headerView,
     children,
     onIndexChange,
@@ -37,15 +38,10 @@ const TabContainerNativeView: ForwardRefRenderFunction<
       ({ name: child.props.name, label: child.props.label }),
     ) as TabProps[];
 
-    let selectedIndex = tabs.findIndex((tab) => tab.name === initialTabName);
-    if (selectedIndex < 0) {
-      selectedIndex = 0;
-    }
     return {
       tabs,
-      selectedIndex,
     };
-  }, [children, initialTabName]);
+  }, [children]);
 
   const [
     activeLabelColor,
@@ -93,8 +89,9 @@ const TabContainerNativeView: ForwardRefRenderFunction<
     });
   }, [onRefresh]);
 
-  const onChange = useCallback(
-    (e: NativeSyntheticEvent<{ tabName: string; index: number }>) => {
+  const onPageChange = useCallback(
+    (e: OnPageChangeEvent) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       onIndexChange?.(e.nativeEvent?.index);
     },
     [onIndexChange],
@@ -104,15 +101,13 @@ const TabContainerNativeView: ForwardRefRenderFunction<
     <NestedTabView
       ref={ref}
       values={tabsInfo.tabs}
-      defaultIndex={tabsInfo.selectedIndex}
       style={containerStyle}
       disableRefresh={disableRefresh}
-      refresh={refreshing}
       spinnerColor={platformEnv.isNativeIOS ? spinnerColor : undefined} // only ios?
       tabViewStyle={tabViewStyle}
       onRefreshCallBack={onRefreshCallBack}
       headerView={headerView}
-      onChange={onChange}
+      onPageChange={onPageChange}
       scrollEnabled={scrollEnabled}
       {...props}
     >

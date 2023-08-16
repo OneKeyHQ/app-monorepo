@@ -31,7 +31,6 @@ function HomeTabIndexSyncCmp({
   const setIndex = useDebouncedCallback(
     (index: number) => {
       tabsContainerRef?.current?.setPageIndex?.(index);
-      // onIndexChange(index);
     },
     1000,
     {
