@@ -71,6 +71,7 @@ function TokenCellPrice({ price }: { price: ITokenPriceValue }) {
     </Typography.Body2Strong>
   );
 }
+const TokenCellPriceMemo = memo(TokenCellPrice);
 
 // $backgroundApiProxy.backgroundApi.servicePrice.testUpdateTokenPriceMap()
 function TokenCellPriceDeepFresh({ token }: { token: IAccountToken }) {
@@ -87,7 +88,7 @@ function TokenCellPriceDeepFresh({ token }: { token: IAccountToken }) {
   // );
   // const price = data?.price;
 
-  return <TokenCellPrice price={price} />;
+  return <TokenCellPriceMemo price={price} />;
 }
 
 function TokenCellBalance({
