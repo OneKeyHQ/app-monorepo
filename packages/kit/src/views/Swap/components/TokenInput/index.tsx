@@ -14,15 +14,17 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import type { Account } from '@onekeyhq/engine/src/types/account';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { FormatCurrency } from '../../../../components/Format';
 import { useAppSelector, useNavigation } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
+import { appSelector } from '../../../../store';
 import { setSendingAccount } from '../../../../store/reducers/swap';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
-import { formatAmount } from '../../utils';
+import { formatAmount, truncate } from '../../utils';
 import { TokenDisplay } from '../TokenDisplay';
 
 import type { Token as TokenType } from '../../../../store/typings';
@@ -56,6 +58,7 @@ const TokenInputSendingAccount: FC<TokenAccountProps> = ({
         screen: SwapRoutes.SelectSendingAccount,
         params: {
           networkId: token?.networkId,
+          accountId: appSelector((s) => s.swap.sendingAccount?.id),
           onSelected: (acc) => {
             backgroundApiProxy.dispatch(setSendingAccount(acc));
           },
@@ -87,7 +90,7 @@ const TokenInputSendingAccount: FC<TokenAccountProps> = ({
           alignItems="center"
         >
           <Box flexDirection="row" mr="1">
-            <Typography.Body2Strong mr="1">
+            <Typography.Body2Strong mr="1" maxW="120" isTruncated>
               {account.name}
             </Typography.Body2Strong>
             <Typography.Body2 color="text-subdued">
@@ -124,11 +127,65 @@ const TokenInput: FC<TokenInputProps> = ({
     if (token.tokenIdOnNetwork) {
       backgroundApiProxy.serviceSwap.userInput(type, value);
     } else {
-      const reserved =
-        await backgroundApiProxy.serviceSwap.getReservedNetworkFee(
-          token.networkId,
-        );
-      const v = BigNumber.max(0, new BigNumber(value).minus(reserved));
+      const getReservedNetworkFee = (networkId: string) =>
+        new Promise<string>((resolve) => {
+          backgroundApiProxy.serviceSwap
+            .getReservedNetworkFee(token.networkId)
+            .then(resolve);
+          setTimeout(() => {
+            const reservedNetworkFees = appSelector(
+              (s) => s.swapTransactions.reservedNetworkFees,
+            );
+            const finalValue = reservedNetworkFees?.[networkId];
+            if (finalValue) {
+              resolve(finalValue);
+            }
+          }, 500);
+        });
+      const getFrozenBalanceValue = (params: {
+        accountId: string;
+        networkId: string;
+      }) =>
+        new Promise<string>((resolve) => {
+          backgroundApiProxy.servicePassword
+            .getPassword()
+            .then((password) =>
+              backgroundApiProxy.engine.getFrozenBalance({
+                accountId: params.accountId,
+                networkId: params.networkId,
+                password,
+              }),
+            )
+            .then((frozenBalance) => {
+              const frozenBalanceValue =
+                typeof frozenBalance === 'number'
+                  ? frozenBalance
+                  : frozenBalance?.[token.id] ?? 0;
+              resolve(String(frozenBalanceValue));
+            });
+          setTimeout(() => resolve('0'), 500);
+        });
+
+      const reserved = await getReservedNetworkFee(token.networkId);
+
+      let frozenBalanceValue = '0';
+      if (account) {
+        try {
+          frozenBalanceValue = await getFrozenBalanceValue({
+            accountId: account.id,
+            networkId: token.networkId,
+          });
+        } catch (e: unknown) {
+          debugLogger.swap.info(
+            'failed to get frozen balanace',
+            (e as Error).message,
+          );
+        }
+      }
+      const v = BigNumber.max(
+        0,
+        new BigNumber(value).minus(reserved).minus(frozenBalanceValue),
+      );
       if (v.gt(0)) {
         backgroundApiProxy.serviceSwap.userInput(type, v.toFixed());
       } else if (Number(value) > 0) {
@@ -145,9 +202,10 @@ const TokenInput: FC<TokenInputProps> = ({
           },
           { type: 'error' },
         );
+        backgroundApiProxy.serviceSwap.userInput(type, value);
       }
     }
-  }, [token, value, type, intl]);
+  }, [token, value, type, intl, account]);
   let text = formatAmount(value, 6);
   if (!value || Number(value) === 0 || Number.isNaN(+value)) {
     text = '0';
@@ -177,7 +235,9 @@ const TokenInput: FC<TokenInputProps> = ({
           >
             <Box flexDirection="row" alignItems="center">
               <Typography.Caption color="text-subdued" fontWeight={500}>
-                {token ? `${text} ${token.symbol.toUpperCase()}` : '-'}
+                {token
+                  ? `${text} ${truncate(token.symbol.toUpperCase(), 8)}`
+                  : '-'}
               </Typography.Caption>
             </Box>
           </Pressable>

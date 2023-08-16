@@ -11,8 +11,8 @@ type FaviconProps = {
 };
 export const Favicon: FC<FaviconProps> = ({ logoURL, url, isHovered }) => {
   useEffect(() => {
-    if (!logoURL && url) {
-      backgroundApiProxy.serviceDiscover.updateUserBrowserHistoryLogo({ url });
+    if (url && !logoURL) {
+      backgroundApiProxy.serviceDiscover.fillInUserBrowserHistory({ url });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

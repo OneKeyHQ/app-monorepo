@@ -7,6 +7,45 @@ function nilError(message: string): number {
   throw new Error(message);
 }
 
+export const getSelectedFeeInfoUnit = ({
+  info,
+  index,
+}: {
+  info: IFeeInfo;
+  index: string | number;
+}): IFeeInfoUnit => {
+  const indexNum = parseInt(index as string, 10);
+  const priceIndex =
+    indexNum > info.prices.length - 1 ? info.prices.length - 1 : indexNum;
+  const priceInfo = info.prices[priceIndex];
+
+  if (info.eip1559) {
+    return {
+      eip1559: true,
+      price1559: priceInfo as EIP1559Fee,
+      limit: info.limit,
+      limitForDisplay: info.limitForDisplay ?? info.limit,
+    };
+  }
+
+  if (info.isBtcForkChain) {
+    return {
+      eip1559: false,
+      price: priceInfo as string,
+      limit: info.limit,
+      isBtcForkChain: true,
+      btcFee: info.feeList?.[priceIndex],
+    };
+  }
+
+  return {
+    eip1559: false,
+    price: priceInfo as string,
+    limit: info.limit,
+    limitForDisplay: info.limitForDisplay ?? info.limit,
+  };
+};
+
 // onChainValue -> GWEI
 export function convertFeeValueToGwei({
   value,
@@ -74,11 +113,11 @@ export function convertFeeNativeToValue({
 export function calculateTotalFeeNative({
   amount, // in GWEI
   info,
-  decimal = 8,
+  displayDecimal = 8,
 }: {
   amount: string | BigNumber;
   info: IFeeInfo;
-  decimal?: number;
+  displayDecimal?: number;
 }) {
   return new BigNumber(amount)
     .plus(info.baseFeeValue ?? 0)
@@ -92,7 +131,7 @@ export function calculateTotalFeeNative({
         nilError('calculateTotalFeeNative ERROR: info.nativeDecimals missing')
       ),
     ) // onChainValue -> nativeAmount
-    .toFixed(decimal);
+    .toFixed(displayDecimal);
 }
 
 function nanToZeroString(value: string | number | unknown) {
@@ -102,7 +141,10 @@ function nanToZeroString(value: string | number | unknown) {
   return value as string;
 }
 
-export function calculateTotalFeeRange(feeValue: IFeeInfoUnit, decimal = 8) {
+export function calculateTotalFeeRange(
+  feeValue: IFeeInfoUnit,
+  displayDecimals = 8,
+) {
   const limit = feeValue.limitUsed || feeValue.limit;
   const limitForDisplay = feeValue.limitForDisplay ?? limit;
   if (feeValue.eip1559) {
@@ -112,22 +154,22 @@ export function calculateTotalFeeRange(feeValue: IFeeInfoUnit, decimal = 8) {
       .times(
         new BigNumber(priceInfo.baseFee).plus(priceInfo.maxPriorityFeePerGas),
       )
-      .toFixed(decimal);
+      .toFixed(displayDecimals);
 
     const minForDisplay = new BigNumber(limitForDisplay as string)
       .times(
         new BigNumber(priceInfo.baseFee).plus(priceInfo.maxPriorityFeePerGas),
       )
-      .toFixed(decimal);
+      .toFixed(displayDecimals);
 
     // MAX: maxFeePerGas * limit
     const max = new BigNumber(limit as string)
       .times(priceInfo.gasPrice || priceInfo.maxFeePerGas)
-      .toFixed(decimal);
+      .toFixed(displayDecimals);
 
     const maxForDisplay = new BigNumber(limitForDisplay as string)
       .times(priceInfo.gasPrice || priceInfo.maxFeePerGas)
-      .toFixed(decimal);
+      .toFixed(displayDecimals);
     return {
       min: nanToZeroString(min),
       max: nanToZeroString(max),
@@ -138,8 +180,8 @@ export function calculateTotalFeeRange(feeValue: IFeeInfoUnit, decimal = 8) {
 
   if (feeValue.isBtcForkChain) {
     const fee = new BigNumber(feeValue.btcFee ?? '0')
-      .shiftedBy(-decimal)
-      .toFixed(decimal);
+      .shiftedBy(-displayDecimals)
+      .toFixed(displayDecimals);
     return {
       min: nanToZeroString(fee),
       max: nanToZeroString(fee),

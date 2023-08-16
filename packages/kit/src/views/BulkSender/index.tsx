@@ -1,167 +1,231 @@
 import { useCallback, useLayoutEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { HeaderBackButton as NavigationHeaderBackButton } from '@react-navigation/elements';
+import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Button,
+  Center,
   HStack,
+  IconButton,
+  ScrollView,
   Text,
   useIsVerticalLayout,
-  useThemeValue,
 } from '@onekeyhq/components';
-import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
-import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
-import { useNativeToken } from '@onekeyhq/kit/src/hooks';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import NavHeader from '@onekeyhq/components/src/NavHeader/NavHeader';
+import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 
+import IdentityAssertion from '../../components/IdentityAssertion';
 import { NetworkAccountSelectorTrigger } from '../../components/NetworkAccountSelector';
 import { useActiveWalletAccount } from '../../hooks';
-import { useNavigationBack } from '../../hooks/useAppNavigation';
-import { useConnectAndCreateExternalAccount } from '../ExternalAccount/useConnectAndCreateExternalAccount';
+import { navigationShortcuts } from '../../routes/navigationShortcuts';
+import { HomeRoutes } from '../../routes/routesEnum';
 
+import { ManyToN } from './ManyToN';
+import { ModelSelector } from './ModeSelector';
 import { NotSupported } from './NotSupported';
-import { TokenOutbox } from './TokenOutbox';
-import { BulkSenderTypeEnum } from './types';
+import { OneToMany } from './OneToMany';
 
-const emptyHeader = () => <Text />;
+import type { HomeRoutesParams } from '../../routes/types';
+import type { RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { MessageDescriptor } from 'react-intl';
+
+type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.BulkSender>;
+type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function BulkSenderHeader() {
+  const isVertical = useIsVerticalLayout();
+  const headerHeight = isVertical ? 0 : 30;
+  return (
+    <Box
+      h={headerHeight || 'auto'}
+      style={{
+        width: '100%',
+        maxWidth: 768,
+      }}
+    >
+      <Text />
+    </Box>
+  );
+}
 function BulkSender() {
   const intl = useIntl();
-  const goBack = useNavigationBack();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProps>();
   const isVertical = useIsVerticalLayout();
-  const [tabbarBgColor] = useThemeValue(['background-default']);
+  const route = useRoute<RouteProps>();
 
-  const { accountId, networkId, accountAddress, network } =
+  const routeParams = route.params;
+  const mode = routeParams?.mode;
+
+  const { accountId, networkId, network, accountAddress, walletId } =
     useActiveWalletAccount();
 
-  const isSupported =
+  let selectedMode = mode;
+
+  const isSupported = !!(
     network?.enabled &&
-    network?.settings.supportBatchTransfer &&
-    (network?.settings.nativeSupportBatchTransfer
-      ? true
-      : batchTransferContractAddress[networkId]);
+    network.settings?.supportBatchTransfer &&
+    network.settings.supportBatchTransfer.length > 0
+  );
 
-  const nativeToken = useNativeToken(networkId);
+  if (
+    network?.enabled &&
+    network.settings?.supportBatchTransfer &&
+    network.settings.supportBatchTransfer.length === 1
+  ) {
+    [selectedMode] = network.settings.supportBatchTransfer;
+  }
 
-  const { connectAndCreateExternalAccount } =
-    useConnectAndCreateExternalAccount({
-      networkId,
-    });
-
-  const walletConnectButton = useMemo(() => {
-    if (!platformEnv.isWeb || accountId) {
-      return null;
+  const renderBulkSenderPanel = useCallback(() => {
+    if (selectedMode === BulkTypeEnum.OneToMany) {
+      return (
+        <OneToMany
+          accountId={accountId}
+          networkId={networkId}
+          accountAddress={accountAddress}
+        />
+      );
     }
-    return (
-      <Button onPress={connectAndCreateExternalAccount} mr={6}>
-        {intl.formatMessage({ id: 'action__connect_wallet' })}
-      </Button>
-    );
-  }, [intl, connectAndCreateExternalAccount, accountId]);
+    if (selectedMode === BulkTypeEnum.ManyToOne) {
+      return (
+        <ManyToN
+          accountId={accountId}
+          networkId={networkId}
+          walletId={walletId}
+          accountAddress={accountAddress}
+          bulkType={BulkTypeEnum.ManyToOne}
+        />
+      );
+    }
+    if (selectedMode === BulkTypeEnum.ManyToMany) {
+      return (
+        <ManyToN
+          accountId={accountId}
+          networkId={networkId}
+          walletId={walletId}
+          accountAddress={accountAddress}
+          bulkType={BulkTypeEnum.ManyToMany}
+        />
+      );
+    }
+  }, [accountAddress, accountId, networkId, selectedMode, walletId]);
+
+  const title = useMemo(() => {
+    let desc: MessageDescriptor['id'];
+    if (mode === BulkTypeEnum.OneToMany) {
+      desc = 'form__one_to_many';
+    } else if (mode === BulkTypeEnum.ManyToOne) {
+      desc = 'form__many_to_one';
+    } else if (mode === BulkTypeEnum.ManyToMany) {
+      desc = 'form__many_to_many';
+    }
+
+    if (desc)
+      return `${intl.formatMessage({
+        id: 'title__bulksender',
+      })} - ${intl.formatMessage({ id: desc })}`;
+
+    return intl.formatMessage({ id: 'title__bulksender' });
+  }, [intl, mode]);
 
   const headerLeft = useCallback(
-    ({ tintColor }) => (
+    () => (
       <HStack alignItems="center">
-        <NavigationHeaderBackButton
-          tintColor={tintColor}
-          onPress={goBack}
-          canGoBack
-        />
+        <Box ml="-6px" mr="8px">
+          <IconButton
+            type="plain"
+            size="lg"
+            name={isVertical ? 'ArrowLeftOutline' : 'ArrowSmallLeftOutline'}
+            onPress={() => {
+              if (mode) {
+                navigation.navigate(HomeRoutes.BulkSender);
+              } else if (navigation?.canGoBack()) {
+                navigation?.goBack();
+              } else {
+                navigationShortcuts.navigateToHome();
+              }
+            }}
+            circle
+          />
+        </Box>
         {!isVertical && (
           <Text typography="Heading" color="text-default">
-            Bulk Send
+            {title}
           </Text>
         )}
       </HStack>
     ),
-    [goBack, isVertical],
+    [isVertical, mode, navigation, title],
   );
 
-  const headerRight = useCallback(() => {
-    if (!accountId) {
-      return walletConnectButton;
-    }
-    return (
+  const headerRight = useCallback(
+    () => (
       <Box pr="6">
         <NetworkAccountSelectorTrigger type={isVertical ? 'basic' : 'plain'} />
       </Box>
-    );
-  }, [accountId, isVertical, walletConnectButton]);
+    ),
+    [isVertical],
+  );
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: '',
-      headerRight,
+      headerShown: true,
+      title: isVertical ? title : undefined,
+      // eslint-disable-next-line react/no-unstable-nested-components
+      header: () => (
+        <NavHeader headerRight={headerRight} headerLeft={headerLeft} />
+      ),
     });
-  }, [navigation, headerLeft, headerRight]);
-
-  const bulkSenderTabs = useMemo(() => {
-    const tabs = [
-      <Tabs.Tab
-        name={BulkSenderTypeEnum.NativeToken}
-        label={nativeToken?.symbol ?? ''}
-      >
-        <TokenOutbox
-          accountId={accountId}
-          networkId={networkId}
-          accountAddress={accountAddress}
-          type={BulkSenderTypeEnum.NativeToken}
-        />
-      </Tabs.Tab>,
-    ];
-
-    if (network?.settings.tokenEnabled) {
-      tabs.push(
-        <Tabs.Tab
-          name={BulkSenderTypeEnum.Token}
-          label={intl.formatMessage({ id: 'form__token' })}
-        >
-          <TokenOutbox
-            accountId={accountId}
-            networkId={networkId}
-            accountAddress={accountAddress}
-            type={BulkSenderTypeEnum.Token}
-          />
-        </Tabs.Tab>,
-      );
-    }
-    return tabs;
-  }, [
-    accountAddress,
-    accountId,
-    intl,
-    nativeToken?.symbol,
-    network?.settings.tokenEnabled,
-    networkId,
-  ]);
+  }, [headerLeft, headerRight, intl, isVertical, navigation, title]);
 
   if (!isSupported) return <NotSupported networkId={networkId} />;
 
-  return (
-    <Tabs.Container
-      headerContainerStyle={{
-        width: '100%',
-        maxWidth: 768,
-      }}
-      containerStyle={{
-        width: '100%',
-        maxWidth: 768,
-        marginHorizontal: 'auto',
-        backgroundColor: tabbarBgColor,
-        alignSelf: 'center',
-        flex: 1,
-      }}
-      renderHeader={emptyHeader}
-      headerHeight={isVertical ? 0 : 30}
-      // scrollEnabled={false}
-      disableRefresh
-    >
-      {bulkSenderTabs}
-    </Tabs.Container>
-  );
+  if (selectedMode) {
+    return (
+      <Center width="full" height="full">
+        <IdentityAssertion>
+          <ScrollView
+            style={{ width: '100%' }}
+            contentContainerStyle={{
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Box
+              width={isVertical ? 'full' : '768px'}
+              paddingY={5}
+              paddingX={isVertical ? 4 : 0}
+            >
+              {renderBulkSenderPanel()}
+            </Box>
+          </ScrollView>
+        </IdentityAssertion>
+      </Center>
+    );
+  }
+
+  return <ModelSelector networkId={networkId} />;
+  // const tabsHeader = useMemo(() => <BulkSenderHeader />, []);
+  // return (
+  //   <Tabs.Container
+  //     containerStyle={{
+  //       width: '100%',
+  //       maxWidth: 768,
+  //       marginHorizontal: 'auto',
+  //       backgroundColor: tabbarBgColor,
+  //       alignSelf: 'center',
+  //       flex: 1,
+  //     }}
+  //     headerView={tabsHeader}
+  //     // scrollEnabled={false}
+  //     disableRefresh
+  //   >
+  //     {bulkSenderTabs}
+  //   </Tabs.Container>
+  // );
 }
 
 export default BulkSender;

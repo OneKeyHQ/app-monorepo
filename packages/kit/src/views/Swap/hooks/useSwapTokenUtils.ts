@@ -41,6 +41,7 @@ export const useTokenSearch = (keyword: string, networkId?: string | null) => {
   useEffect(() => {
     ref.current.keyword = keyword;
     ref.current.networkId = networkId;
+
     async function search(
       keywordToSearch: string,
       networkIdToSearch?: string | null,
@@ -94,6 +95,7 @@ export const useTokenSearch = (keyword: string, networkId?: string | null) => {
         }
       }
     }
+
     search(keyword, networkId);
   }, [keyword, networkId]);
   return {
@@ -118,11 +120,11 @@ export const useTokenBalanceSimple = (token?: Token, accountId?: string) => {
 };
 
 export const useTokenBalance = (token?: Token, accountId?: string) => {
-  const balances = useCachedBalances(token?.networkId, accountId);
+  const balances = useAccountTokensBalance(token?.networkId, accountId);
   useEffect(() => {
     if (token && accountId) {
       if (isAccountCompatibleWithNetwork(accountId, token.networkId)) {
-        backgroundApiProxy.serviceToken.getAccountTokenBalance({
+        backgroundApiProxy.serviceToken.fetchAndSaveAccountTokenBalance({
           accountId,
           networkId: token.networkId,
           tokenIds: token.tokenIdOnNetwork ? [token.tokenIdOnNetwork] : [],

@@ -22,6 +22,8 @@ const settings: IVaultSettings = Object.freeze({
 
   signOnlyReturnFullTx: true,
 
+  hideInAllNetworksMode: true,
+
   accountNameInfo: {
     default: {
       prefix: 'DOT',

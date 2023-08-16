@@ -4,7 +4,7 @@ import { Modalize } from 'react-native-modalize';
 
 import { useSafeAreaInsets, useThemeValue } from '@onekeyhq/components';
 import { FULLWINDOW_OVERLAY_PORTAL } from '@onekeyhq/kit/src/utils/overlayUtils';
-import { PortalEntry } from '@onekeyhq/kit/src/views/Overlay/RootPortal';
+import { PortalRender } from '@onekeyhq/kit/src/views/Overlay/RootPortal';
 
 import Box from '../../Box';
 import Button from '../../Button';
@@ -148,7 +148,7 @@ function Mobile<T>({
   );
 
   return (
-    <PortalEntry target={FULLWINDOW_OVERLAY_PORTAL}>{content}</PortalEntry>
+    <PortalRender container={FULLWINDOW_OVERLAY_PORTAL}>{content}</PortalRender>
   );
 }
 

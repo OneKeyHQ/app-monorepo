@@ -3,8 +3,16 @@ import type { ReactElement } from 'react';
 import type { ModalProps } from '@onekeyhq/components/src/Modal';
 import type { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 import type { Account } from '@onekeyhq/engine/src/types/account';
+import type { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type {
+  LNURLAuthServiceResponse,
+  LNURLPayServiceResponse,
+  LNURLPaymentSuccessAction,
+  LNURLWithdrawServiceResponse,
+} from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/lnurl';
 import type {
   IDecodedTx,
   IDecodedTxLegacy,
@@ -23,7 +31,9 @@ import { SendModalRoutes } from './enums';
 
 import type { WalletService } from '../../components/WalletConnect/types';
 import type { WalletConnectClientForDapp } from '../../components/WalletConnect/WalletConnectClientForDapp';
-import type { BulkSenderTypeEnum } from '../BulkSender/types';
+import type { CollectiblesRoutesParams } from '../../routes/Root/Modal/Collectibles';
+import type { CollectiblesModalRoutes } from '../../routes/routesEnum';
+import type { AmountTypeEnum } from '../BulkSender/types';
 import type { InjectedConnectorInfo } from '../ExternalAccount/injectedConnectors';
 import type { SwapQuoteTx } from '../Swap/typings';
 import type { IWalletConnectSession } from '@walletconnect/types';
@@ -58,6 +68,28 @@ export type PreSendParams = {
   transferInfos?: ITransferInfo[];
   validateAddress?: (networkId: string, address: string) => Promise<void>;
 } & ITransferInfo;
+
+export type LnUrlPayParams = PreSendParams & {
+  lnurlDetails: LNURLPayServiceResponse;
+};
+
+export type LnUrlWithdrawParams = {
+  networkId: string;
+  accountId: string;
+  lnurlDetails: LNURLWithdrawServiceResponse;
+};
+
+export type LnUrlAuthParams = {
+  walletId: string;
+  networkId: string;
+  accountId: string;
+  lnurlDetails: LNURLAuthServiceResponse;
+};
+
+export type LnUrlAuthenticationParams = {
+  onDone: (password: string) => void;
+  walletId: string;
+};
 
 export type TransferSendParamsPayload = SendConfirmPayloadBase & {
   to: string;
@@ -131,6 +163,7 @@ export type SendConfirmParams = SendConfirmSharedParams & {
   backRouteName?: keyof SendRoutesParams;
   feeInfoUseFeeInTx: boolean;
   feeInfoEditable: boolean;
+  prepaidFee?: string;
   onDetail?: (txid: string) => any;
   signOnly?: boolean;
   ignoreFetchFeeCalling?: boolean;
@@ -170,7 +203,11 @@ export type SendSpecialWarningParams = SendAuthenticationParams & {
   hintMsgParams?: any;
 };
 
-export type SendFeedbackReceiptType = 'Send' | 'Sign' | 'SendUnconfirmed';
+export type SendFeedbackReceiptType =
+  | 'Send'
+  | 'Sign'
+  | 'SendUnconfirmed'
+  | 'LNURLWithdraw';
 
 export type SendFeedbackReceiptParams = {
   networkId: string;
@@ -180,6 +217,7 @@ export type SendFeedbackReceiptParams = {
   closeModal?: () => any;
   onDetail?: (txid: string) => any;
   isSingleTransformMode?: boolean;
+  successAction?: LNURLPaymentSuccessAction | null;
 };
 
 export type HardwareSwapContinueParams = {
@@ -187,6 +225,9 @@ export type HardwareSwapContinueParams = {
   accountId: string;
   closeModal?: () => any;
 };
+
+type NFTDetailModalParams =
+  CollectiblesRoutesParams[CollectiblesModalRoutes.NFTDetailModal];
 
 export type SendRoutesParams = {
   [SendModalRoutes.PreSendToken]: PreSendParams;
@@ -203,6 +244,11 @@ export type SendRoutesParams = {
   [SendModalRoutes.HardwareSwapContinue]: HardwareSwapContinueParams;
   [SendModalRoutes.BatchSendConfirm]: BatchSendConfirmParams;
   [SendModalRoutes.BatchSendProgress]: BatchSendProgressParams;
+  [SendModalRoutes.NFTDetailModal]: NFTDetailModalParams;
+  [SendModalRoutes.LNURLPayRequest]: LnUrlPayParams;
+  [SendModalRoutes.LNURLWithdraw]: LnUrlWithdrawParams;
+  [SendModalRoutes.LNURLAuth]: LnUrlAuthParams;
+  [SendModalRoutes.LNURLAuthentication]: LnUrlAuthenticationParams;
 };
 
 export type ITxConfirmViewPropsHandleConfirm = ({
@@ -233,6 +279,9 @@ export type ITxConfirmViewProps = ModalProps & {
   feeInfoLoading: boolean;
   feeInfoEditable?: boolean;
   feeInput?: JSX.Element;
+
+  prepaidFee?: string;
+
   advancedSettings?: SendConfirmAdvancedSettings;
   advancedSettingsForm?: JSX.Element | null;
   feeInfoError?: Error | null;
@@ -290,6 +339,8 @@ export type BatchSendConfirmPayloadInfo = {
   swapInfos?: ISwapInfo[];
   stakeInfos?: IStakeInfo[];
   nftInfos?: INFTInfo[];
+  senderAccounts?: { accountId: string; walletId: string }[];
+  tokenInfo?: Token;
 };
 
 export type BatchSendConfirmShared = {
@@ -316,9 +367,11 @@ export type BatchSendConfirmParams = BatchSendConfirmShared & {
   signOnly?: boolean;
   feeInfoUseFeeInTx: boolean;
   feeInfoEditable: boolean;
+  feeInfoReuseable?: boolean;
   transferCount: number;
-  transferType: BulkSenderTypeEnum;
   skipSaveHistory?: boolean;
+  bulkType: BulkTypeEnum;
+  amountType?: AmountTypeEnum;
 };
 
 export type IBatchTxsConfirmViewPropsHandleConfirm = ({
@@ -377,6 +430,8 @@ export type BatchSendConfirmOnSuccessData = {
   signedTxs?: ISignedTxPro[];
   encodedTxs?: IEncodedTx[];
   decodedTxs?: IDecodedTx[];
+  senderAccounts?: { accountId: string; walletId: string }[];
+  isAborted?: boolean;
 };
 
 export type SendConfirmAdvancedSettings = {

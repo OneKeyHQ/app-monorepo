@@ -12,7 +12,7 @@ export const HistoryFavicon = ({
 }) => {
   useEffect(() => {
     if (!logoURL && url) {
-      backgroundApiProxy.serviceDiscover.updateUserBrowserHistoryLogo({ url });
+      backgroundApiProxy.serviceDiscover.fillInUserBrowserHistory({ url });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

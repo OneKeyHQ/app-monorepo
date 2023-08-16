@@ -1,20 +1,11 @@
 import type { FC } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Divider,
-  HStack,
-  Icon,
-  IconButton,
-  Pressable,
-  Spinner,
-  Text,
-  Typography,
-  useIsVerticalLayout,
-} from '@onekeyhq/components';
+import type { ICON_NAMES } from '@onekeyhq/components';
+import { Divider } from '@onekeyhq/components';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import {
@@ -28,17 +19,22 @@ import type {
 } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { FormatCurrencyNumber } from '../../../components/Format';
 import {
-  useAccountTokenValues,
-  useAccountTokens,
   useAccountValues,
+  useActiveWalletAccount,
+  useAppSelector,
   useNavigation,
+  useOverviewLoading,
 } from '../../../hooks';
-import { useActiveWalletAccount } from '../../../hooks/redux';
 import { ManageTokenModalRoutes } from '../../../routes/routesEnum';
 import { showHomeBalanceSettings } from '../../Overlay/HomeBalanceSettings';
-import { OverviewBadge } from '../../Overview/components/OverviewBadge';
+import { HomeTabActionHeader } from '../HomeTabActionHeader';
+import { HomeTabAssetsHeader } from '../HomeTabAssetsHeader';
+
+import {
+  atomHomeOverviewAccountTokens,
+  useAtomAssetsList,
+} from './contextAssetsList';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -48,7 +44,7 @@ type NavigationProps = NativeStackNavigationProp<
 > &
   NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.FullTokenListScreen>;
 
-const ListHeader: FC<{
+const AssetsListHeaderInner: FC<{
   showTokenCount?: boolean;
   showRoundTop?: boolean;
   borderColor?: string;
@@ -59,182 +55,125 @@ const ListHeader: FC<{
   borderColor = 'border-subdued',
   tokenEnabled,
 }) => {
-  const intl = useIntl();
+  const { account, network, networkId, accountId } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
-  const isVerticalLayout = useIsVerticalLayout();
-  const { account, network, networkId } = useActiveWalletAccount();
-  const iconOuterWidth = isVerticalLayout ? '24px' : '32px';
-  const iconInnerWidth = isVerticalLayout ? 12 : 16;
-  const iconBorderRadius = isVerticalLayout ? '12px' : '16px';
+  const intl = useIntl();
 
-  const { data: accountTokens } = useAccountTokens({
-    networkId,
-    accountId: account?.id,
-    useFilter: true,
-  });
-
-  const tokenCountOrAddToken = useMemo(
-    () =>
-      showTokenCount ? (
-        <>
-          <Text
-            color="text-subdued"
-            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-          >
-            {accountTokens.length}
-          </Text>
-          <Icon name="ChevronRightMini" color="icon-subdued" />
-        </>
-      ) : (
-        tokenEnabled &&
-        !isAllNetworks(networkId) && (
-          <IconButton
-            size="sm"
-            borderRadius={17}
-            name="PlusMini"
-            bg="action-secondary-default"
-            onPress={() =>
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.ManageToken,
-                params: { screen: ManageTokenModalRoutes.Listing },
-              })
-            }
-          />
-        )
-      ),
-    [accountTokens.length, navigation, showTokenCount, tokenEnabled, networkId],
+  const stats = useAppSelector(
+    (s) => s.overview.overviewStats?.[networkId]?.[accountId],
   );
-  const Container = showTokenCount ? Pressable.Item : Box;
 
-  const accountTokensValue = useAccountTokenValues(
+  const accountTokensValue = stats?.tokens?.totalValue;
+
+  const shareRate = useMemo(
+    () => new BigNumber(stats?.summary?.shareTokens ?? 0).times(100),
+    [stats?.summary?.shareTokens],
+  );
+
+  const extraInfo = useMemo(() => {
+    let extraIcon: ICON_NAMES | undefined;
+    let extraLabel = '';
+    let onExtraPress: (() => void) | undefined;
+    if (showTokenCount) {
+      extraIcon = 'ChevronRightMini';
+      extraLabel = stats?.tokens?.totalCounts?.toString() ?? '0';
+    } else if (tokenEnabled && !isAllNetworks(networkId)) {
+      extraIcon = 'PlusMini';
+      onExtraPress = () =>
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.ManageToken,
+          params: { screen: ManageTokenModalRoutes.Listing },
+        });
+    }
+
+    return {
+      extraIcon,
+      extraLabel,
+      onExtraPress,
+    };
+  }, [
+    navigation,
     networkId,
-    account?.id ?? '',
-    true,
-  ).value;
+    showTokenCount,
+    stats?.tokens?.totalCounts,
+    tokenEnabled,
+  ]);
 
-  const accountAllValue = useAccountValues({
-    networkId,
-    accountId: account?.id ?? '',
-  }).value;
-
-  const rate = useMemo(
-    () => accountTokensValue.div(accountAllValue).multipliedBy(100),
-    [accountAllValue, accountTokensValue],
+  const onPress = useMemo(
+    () =>
+      showTokenCount
+        ? () => {
+            navigation.navigate(HomeRoutes.FullTokenListScreen, {
+              accountId: account?.id,
+              networkId: network?.id,
+            });
+          }
+        : undefined,
+    [account?.id, navigation, network?.id, showTokenCount],
   );
 
   return (
-    <Container
-      p={4}
-      shadow={undefined}
-      borderTopRadius={showRoundTop ? '12px' : 0}
-      borderTopWidth={showRoundTop ? 1 : 0}
-      borderWidth={1}
-      borderBottomWidth={0}
+    <HomeTabAssetsHeader
+      icon="DatabaseOutline"
+      title={intl.formatMessage({ id: 'asset__tokens' })}
+      usdFiatValue={accountTokensValue}
+      shareRate={shareRate}
+      extraIcon={extraInfo.extraIcon}
+      extraLabel={extraInfo.extraLabel}
+      onExtraPress={extraInfo.onExtraPress}
+      showRoundTop={showRoundTop}
       borderColor={borderColor}
-      onPress={
-        showTokenCount
-          ? () => {
-              navigation.navigate(HomeRoutes.FullTokenListScreen, {
-                accountId: account?.id,
-                networkId: network?.id,
-              });
-            }
-          : undefined
-      }
-      flexDirection="column"
-      bg="surface-subdued"
-    >
-      <Box
-        flexDirection="row"
-        alignItems="center"
-        justifyContent="space-between"
-      >
-        <Box
-          w={iconOuterWidth}
-          h={iconOuterWidth}
-          borderRadius={iconBorderRadius}
-          bg="decorative-icon-one"
-          justifyContent="center"
-          alignItems="center"
-          mr={isVerticalLayout ? '8px' : '12px'}
-        >
-          <Icon
-            size={iconInnerWidth}
-            color="icon-on-primary"
-            name="DatabaseOutline"
-          />
-        </Box>
-        <Text typography={{ sm: 'Body1Strong', md: 'Heading' }}>
-          {intl.formatMessage({
-            id: 'asset__tokens',
-          })}
-        </Text>
-        {!isVerticalLayout && (
-          <Box flexDirection="row" alignItems="center">
-            <Box
-              mx="8px"
-              my="auto"
-              w="4px"
-              h="4px"
-              borderRadius="2px"
-              bg="text-default"
-            />
-            <Text typography={{ sm: 'DisplayLarge', md: 'Heading' }}>
-              {accountTokensValue.isNaN() ? (
-                ' '
-              ) : (
-                <FormatCurrencyNumber
-                  value={0}
-                  convertValue={accountTokensValue}
-                />
-              )}
-            </Text>
-          </Box>
-        )}
-        {rate.isNaN() ? null : <OverviewBadge rate={rate} />}
-        <Box ml="auto" flexDirection="row" alignItems="center">
-          {tokenCountOrAddToken}
-        </Box>
-      </Box>
-      <Box mt={isVerticalLayout ? '8px' : '16px'}>
-        {isVerticalLayout ? (
-          <Text typography={{ sm: 'DisplayLarge', md: 'Heading' }}>
-            {Number.isNaN(accountTokensValue) ? (
-              ' '
-            ) : (
-              <FormatCurrencyNumber
-                value={0}
-                convertValue={accountTokensValue}
-              />
-            )}
-          </Text>
-        ) : (
-          <Box flexDirection="row" w="full">
-            <Typography.Subheading color="text-subdued" flex={1}>
-              {intl.formatMessage({ id: 'title__assets' })}
-            </Typography.Subheading>
-            <Typography.Subheading
-              ml="44px"
-              color="text-subdued"
-              flex={1}
-              textAlign="right"
-              pr="6"
-            >
-              {intl.formatMessage({ id: 'content__price_uppercase' })}
-            </Typography.Subheading>
-            <Typography.Subheading
-              color="text-subdued"
-              flex={1}
-              textAlign="right"
-            >
-              {intl.formatMessage({ id: 'form__value' })}
-            </Typography.Subheading>
-          </Box>
-        )}
-      </Box>
-    </Container>
+      onPress={onPress}
+    />
   );
 };
+
+function AssetsListHeaderOuter({
+  networkId,
+  accountId,
+  tokenEnabled,
+}: {
+  networkId: string;
+  accountId: string;
+  tokenEnabled: boolean;
+}) {
+  const intl = useIntl();
+  const navigation = useNavigation<NavigationProps>();
+
+  const loading = useOverviewLoading({
+    networkId,
+    accountId,
+  });
+  const refresh = useCallback(() => {
+    backgroundApiProxy.serviceOverview.refreshCurrentAccount({
+      debounceEnabled: false,
+    });
+  }, []);
+  const showSettings = useCallback(
+    () => showHomeBalanceSettings({ networkId }),
+    [networkId],
+  );
+  const goToTokenManagement = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.ManageToken,
+      params: { screen: ManageTokenModalRoutes.Listing },
+    });
+  }, [navigation]);
+
+  return (
+    <HomeTabActionHeader
+      title={intl.formatMessage({ id: 'title__assets' })}
+      loading={loading}
+      onClickRefresh={refresh}
+      onClickAdd={
+        isAllNetworks(networkId) || !tokenEnabled
+          ? undefined
+          : goToTokenManagement
+      }
+      onClickSettings={showSettings}
+    />
+  );
+}
 
 const AssetsListHeader: FC<{
   showInnerHeader?: boolean;
@@ -249,10 +188,7 @@ const AssetsListHeader: FC<{
   showInnerHeaderRoundTop,
   innerHeaderBorderColor,
 }) => {
-  const intl = useIntl();
-  const [refreshing, setRefreshing] = useState(false);
-  const navigation = useNavigation<NavigationProps>();
-  const { network, wallet } = useActiveWalletAccount();
+  const { network, wallet, accountId, networkId } = useActiveWalletAccount();
   const { tokenEnabled: networkTokenEnabled, activateTokenRequired } =
     network?.settings ?? { tokenEnabled: false, activateTokenRequired: false };
 
@@ -263,81 +199,19 @@ const AssetsListHeader: FC<{
     return networkTokenEnabled;
   }, [activateTokenRequired, networkTokenEnabled, wallet?.type]);
 
-  const refresh = useCallback(() => {
-    setRefreshing(true);
-    backgroundApiProxy.serviceOverview.refreshCurrentAccount().finally(() => {
-      setTimeout(() => setRefreshing(false), 1000);
-    });
-  }, []);
-
-  const refreshButton = useMemo(() => {
-    if (isAllNetworks(network?.id)) {
-      return null;
-    }
-    return (
-      <Box alignItems="center" justifyContent="center" w="8" h="8" mr="3">
-        {refreshing ? (
-          <Spinner size="sm" />
-        ) : (
-          <IconButton
-            onPress={refresh}
-            size="sm"
-            name="ArrowPathMini"
-            type="plain"
-            ml="auto"
-          />
-        )}
-      </Box>
-    );
-  }, [refreshing, refresh, network?.id]);
-
   return (
     <>
-      {showOuterHeader && (
-        <Box
-          flexDirection="row"
-          justifyContent="space-between"
-          alignItems="center"
-          pb={3}
-        >
-          <Typography.Heading>
-            {intl.formatMessage({ id: 'title__assets' })}
-          </Typography.Heading>
-          {tokenEnabled && (
-            <HStack alignItems="center" justifyContent="flex-end">
-              {refreshButton}
-              {isAllNetworks(network?.id) ? null : (
-                <IconButton
-                  onPress={() =>
-                    navigation.navigate(RootRoutes.Modal, {
-                      screen: ModalRoutes.ManageToken,
-                      params: { screen: ManageTokenModalRoutes.Listing },
-                    })
-                  }
-                  size="sm"
-                  name="PlusMini"
-                  type="plain"
-                  ml="auto"
-                  mr={3}
-                />
-              )}
-              <IconButton
-                onPress={() => {
-                  showHomeBalanceSettings({ networkId: network?.id });
-                }}
-                size="sm"
-                name="Cog8ToothMini"
-                type="plain"
-                mr={-2}
-              />
-            </HStack>
-          )}
-        </Box>
-      )}
+      {showOuterHeader ? (
+        <AssetsListHeaderOuter
+          accountId={accountId}
+          networkId={networkId}
+          tokenEnabled={tokenEnabled}
+        />
+      ) : null}
 
       {showInnerHeader && (
         <>
-          <ListHeader
+          <AssetsListHeaderInner
             borderColor={innerHeaderBorderColor}
             showRoundTop={showInnerHeaderRoundTop}
             showTokenCount={showTokenCount}
@@ -351,4 +225,4 @@ const AssetsListHeader: FC<{
 };
 AssetsListHeader.displayName = 'AssetsListHeader';
 
-export default AssetsListHeader;
+export default memo(AssetsListHeader);

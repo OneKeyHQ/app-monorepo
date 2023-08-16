@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useContext, useRef, useState } from 'react';
 import type { ComponentProps, FC } from 'react';
 
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,6 +18,7 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { useNetwork } from '../../../../hooks';
 import { useAppSelector } from '../../../../hooks/redux';
 import { addTransaction } from '../../../../store/reducers/swapTransactions';
+import { SwapButtonProgressContext } from '../../context';
 import {
   useCheckInputBalance,
   useInputLimitsError,
@@ -30,6 +31,7 @@ import { dangerRefs } from '../../refs';
 import { SwapError } from '../../typings';
 import { calculateDecodedTxNetworkFee } from '../../utils';
 
+import { WalletACLButton } from './common';
 import { SwapProgressButton } from './progress';
 
 type TokenNetworkDisplayProps = {
@@ -52,6 +54,13 @@ const LinearGradientButton: FC<LinearGradientButtonProps> = ({
   onPress,
 }) => {
   const intl = useIntl();
+  let title = intl.formatMessage({ id: 'title__swap' });
+  if (tokenB?.symbol) {
+    title = intl.formatMessage(
+      { id: 'action__cross_chain_swap_to_str' },
+      { '0': tokenB?.symbol || '' },
+    );
+  }
   return (
     <Box h="50px" w="full" shadow="1" borderRadius="12" overflow="hidden">
       <LinearGradient
@@ -109,7 +118,7 @@ const LinearGradientButton: FC<LinearGradientButtonProps> = ({
             </Box>
           </Box>
           <Typography.Button1 color="text-on-primary">
-            {intl.formatMessage({ id: 'form__cross_chain_swap' })}
+            {title}
           </Typography.Button1>
         </Pressable>
       </LinearGradient>
@@ -124,8 +133,10 @@ const LinearGradientExchangeButton: FC<LinearGradientExchangeButtonProps> = ({
   isLoading,
   ...props
 }) => {
+  const intl = useIntl();
   const tokenA = useAppSelector((s) => s.swap.inputToken);
   const tokenB = useAppSelector((s) => s.swap.outputToken);
+
   if (
     !isDisabled &&
     !isLoading &&
@@ -133,18 +144,32 @@ const LinearGradientExchangeButton: FC<LinearGradientExchangeButtonProps> = ({
     tokenB &&
     tokenA.networkId !== tokenB?.networkId
   ) {
-    return <LinearGradientButton tokenA={tokenA} tokenB={tokenB} {...props} />;
+    return (
+      <LinearGradientButton tokenA={tokenA} tokenB={tokenB} {...props}>
+        {intl.formatMessage({ id: 'title__swap' })}
+      </LinearGradientButton>
+    );
   }
-  return <Button isDisabled={isDisabled} isLoading={isLoading} {...props} />;
+  let title = intl.formatMessage({ id: 'title__swap' });
+  if (!isDisabled && !isLoading && tokenB?.symbol) {
+    title = intl.formatMessage(
+      { id: 'action__swap_to_str' },
+      { '0': tokenB?.symbol || '' },
+    );
+  }
+  return (
+    <Button isDisabled={isDisabled} isLoading={isLoading} {...props}>
+      {title}
+    </Button>
+  );
 };
 
 const ExchangeButton = () => {
   const intl = useIntl();
   const ref = useRef(false);
-  const progressStatus = useAppSelector((s) => s.swap.progressStatus);
   const quote = useAppSelector((s) => s.swap.quote);
   const params = useSwapQuoteRequestParams();
-
+  const btnCtx = useContext(SwapButtonProgressContext);
   const swapSubmit = useSwapSubmit();
 
   const onSubmit = useCallback(async () => {
@@ -153,17 +178,13 @@ const ExchangeButton = () => {
       quote,
       params,
       recipient,
-      openProgressStatus: () => {
-        backgroundApiProxy.serviceSwap.openProgressStatus();
-      },
-      closeProgressStatus: () => {
-        backgroundApiProxy.serviceSwap.closeProgressStatus();
-      },
+      openProgressStatus: btnCtx.openProgressStatus,
+      closeProgressStatus: btnCtx.closeProgressStatus,
       setProgressStatus(status) {
-        backgroundApiProxy.serviceSwap.setProgressStatus(status);
+        btnCtx.setProgressStatus?.(status);
       },
     });
-  }, [params, quote, swapSubmit]);
+  }, [params, quote, swapSubmit, btnCtx]);
 
   const onPress = useCallback(async () => {
     if (ref.current) {
@@ -172,16 +193,16 @@ const ExchangeButton = () => {
     try {
       ref.current = true;
       dangerRefs.submited = true;
-      backgroundApiProxy.serviceSwap.openProgressStatus();
+      btnCtx.openProgressStatus?.();
       await onSubmit();
     } finally {
       ref.current = false;
       dangerRefs.submited = false;
-      backgroundApiProxy.serviceSwap.closeProgressStatus();
+      btnCtx.closeProgressStatus?.();
     }
-  }, [onSubmit]);
+  }, [onSubmit, btnCtx]);
 
-  if (progressStatus) {
+  if (btnCtx.progressStatus) {
     return <SwapProgressButton />;
   }
 
@@ -380,7 +401,7 @@ export const SwapButton = () => {
   return wrapperTxInfo ? <WETH9StateButton /> : <ExchangeStateButton />;
 };
 
-export const SwapMainButton = () => {
+export const SwapContentButton = () => {
   const intl = useIntl();
   const swapMaintain = useAppSelector((s) => s.swapTransactions.swapMaintain);
   if (swapMaintain) {
@@ -392,3 +413,9 @@ export const SwapMainButton = () => {
   }
   return <SwapButton />;
 };
+
+export const SwapMainButton = () => (
+  <WalletACLButton>
+    <SwapContentButton />
+  </WalletACLButton>
+);

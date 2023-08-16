@@ -6,7 +6,9 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Center,
   HStack,
+  Spinner,
   Token as TokenIcon,
   Typography,
   useIsVerticalLayout,
@@ -15,7 +17,8 @@ import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { useTokenDetailInfo, useTokenPositionInfo } from '../../hooks';
+import { useAppSelector, useTokenDetailInfo } from '../../hooks';
+import { isSTETH, isSupportStakingType } from '../Staking/utils';
 import { SwapPlugins } from '../Swap/Plugins/Swap';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
@@ -24,6 +27,8 @@ import { TokenDetailContext } from './context';
 import MarketInfo from './MarketInfo';
 import TokenDetailHeader from './TokenDetailHeader';
 import { FavoritedButton } from './TokenDetailHeader/Header';
+import { HeaderOptions } from './TokenDetailHeader/HeaderOptions';
+import VerticalPriceChartSection from './TokenDetailHeader/VerticalPriceChartSection';
 
 import type { HomeRoutes } from '../../routes/routesEnum';
 import type { HomeRoutesParams } from '../../routes/types';
@@ -58,25 +63,18 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     tokenAddress,
     accountId,
     sendAddress,
-    symbol,
-    name,
-    logoURI,
+    ...defaultInfo
   } = route.params;
 
   const detailInfo = useTokenDetailInfo({
     networkId,
+    accountId,
     tokenAddress,
     coingeckoId,
+    defaultInfo,
   });
 
-  const positionInfo = useTokenPositionInfo({
-    coingeckoId,
-    networkId,
-    tokenAddress,
-    accountId,
-    sendAddress,
-    walletId,
-  });
+  const showChart = useAppSelector((s) => s.settings.showTokenDetailPriceChart);
 
   const isLightningNetwork = useMemo(
     () => isLightningNetworkByNetworkId(networkId),
@@ -84,12 +82,25 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
   );
 
   const headerHeight = useMemo(() => {
-    let height = 529;
-    if (detailInfo?.ethereumNativeToken && !isAllNetworks(networkId)) {
-      height += 132;
+    let height = isVerticalLayout ? 210 : 194;
+    if (
+      (isSupportStakingType({
+        networkId: detailInfo?.defaultToken?.networkId,
+        tokenIdOnNetwork: detailInfo?.defaultToken?.tokenIdOnNetwork,
+      }) ||
+        isSTETH(
+          detailInfo?.defaultToken?.networkId,
+          detailInfo?.defaultToken?.tokenIdOnNetwork,
+        )) &&
+      !isAllNetworks(networkId)
+    ) {
+      height += 60;
+    }
+    if (showChart && !isVerticalLayout) {
+      height += 332;
     }
     return height;
-  }, [networkId, detailInfo?.ethereumNativeToken]);
+  }, [networkId, detailInfo, isVerticalLayout, showChart]);
 
   const headerTitle = useCallback(() => {
     if (!isVerticalLayout) {
@@ -97,25 +108,17 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     }
     return (
       <HStack space="8px" alignItems="center">
-        <TokenIcon
-          size="24px"
-          showTokenVerifiedIcon
-          token={{
-            symbol,
-            name,
-            logoURI,
-          }}
-        />
-        <Typography.Heading>{symbol}</Typography.Heading>
+        <TokenIcon size="24px" showTokenVerifiedIcon token={detailInfo} />
+        <Typography.Heading>{detailInfo?.symbol}</Typography.Heading>
       </HStack>
     );
-  }, [isVerticalLayout, symbol, name, logoURI]);
+  }, [isVerticalLayout, detailInfo]);
 
   const headerRight = useCallback(() => {
     if (!isVerticalLayout) {
-      return null;
+      return <HeaderOptions />;
     }
-    return <FavoritedButton coingeckoId={coingeckoId} type="plain" size="xl" />;
+    return <FavoritedButton coingeckoId={coingeckoId} />;
   }, [isVerticalLayout, coingeckoId]);
 
   useLayoutEffect(() => {
@@ -139,19 +142,43 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     () => ({
       routeParams: route.params,
       detailInfo,
-      positionInfo,
     }),
-    [route.params, detailInfo, positionInfo],
+    [route.params, detailInfo],
   );
+  const tabsHeader = useMemo(
+    () => (
+      <Box h={headerHeight}>
+        <TokenDetailHeader />
+      </Box>
+    ),
+    [headerHeight],
+  );
+
+  if (detailInfo.loading) {
+    return (
+      <Center>
+        <Spinner mt={18} size="lg" />
+      </Center>
+    );
+  }
 
   return (
     <TokenDetailContext.Provider value={contextValue}>
-      <HStack flex={1} justifyContent="center" onLayout={onLayout}>
+      <HStack
+        onLayout={onLayout}
+        position="relative"
+        maxWidth="2155px"
+        mx="auto"
+        w="full"
+        flex="1"
+        justifyContent="center"
+        alignItems="flex-start"
+      >
         <Tabs.Container
+          headerHeight={headerHeight}
           key={String(headerHeight)}
           disableRefresh
-          renderHeader={() => <TokenDetailHeader />}
-          headerHeight={headerHeight}
+          headerView={tabsHeader}
           containerStyle={{
             maxWidth: 1088, // 1024+32*2
             flex: 1,
@@ -185,13 +212,15 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
         showSwapPanel &&
         !isAllNetworks(networkId) &&
         !isLightningNetwork ? (
-          <Box width="360px" mt="6" mr="8">
+          <Box width="360px" mr="4">
             <SwapPlugins
               tokenId={tokenAddress ?? 'main'}
               networkId={networkId}
             />
           </Box>
         ) : null}
+
+        {isVerticalLayout ? <VerticalPriceChartSection /> : null}
       </HStack>
     </TokenDetailContext.Provider>
   );

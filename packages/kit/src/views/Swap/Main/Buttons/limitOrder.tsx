@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useContext, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -20,6 +20,7 @@ import { addLimitOrderTransaction } from '../../../../store/reducers/swapTransac
 import { showOverlay } from '../../../../utils/overlayUtils';
 import { SwapTransactionsCancelApprovalBottomSheetModal } from '../../components/CancelApprovalModal';
 import { ZeroExchangeAddress } from '../../config';
+import { LimitOrderButtonProgressContext } from '../../context';
 import {
   useCheckLimitOrderInputBalance,
   useLimitOrderOutput,
@@ -34,6 +35,7 @@ import {
   lte,
 } from '../../utils';
 
+import { WalletACLButton } from './common';
 import { LimitOrderProgressButton } from './progress';
 
 import type { Task } from '../../utils';
@@ -43,7 +45,7 @@ const LimitOrderButton = () => {
   const ref = useRef(false);
   const navigation = useNavigation();
   const params = useLimitOrderParams();
-  const progressStatus = useAppSelector((s) => s.limitOrder.progressStatus);
+  const progressStatusCtx = useContext(LimitOrderButtonProgressContext);
   const instantRate = useAppSelector((s) => s.limitOrder.instantRate);
   const sendSwapTx = useSwapSend();
   const sendSignMessage = useSwapSignMessage();
@@ -60,7 +62,7 @@ const LimitOrderButton = () => {
     }
     const walletId = getWalletIdFromAccountId(params.activeAccount.id);
     const wallet = await backgroundApiProxy.engine.getWallet(walletId);
-    backgroundApiProxy.serviceLimitOrder.setProgressStatus({
+    progressStatusCtx?.setProgressStatus?.({
       title: intl.formatMessage(
         { id: 'action__building_transaction_data_str' },
         { '0': '' },
@@ -93,7 +95,7 @@ const LimitOrderButton = () => {
       const { networkId } = params.tokenIn;
       const { tokenIn } = params;
       const { tokenOut } = params;
-      backgroundApiProxy.serviceLimitOrder.setProgressStatus({
+      progressStatusCtx?.setProgressStatus?.({
         title: intl.formatMessage(
           { id: 'action__submitting_order_str' },
           { '0': '' },
@@ -204,7 +206,7 @@ const LimitOrderButton = () => {
 
     if (approveTx) {
       const doApprove = async (nextTask?: Task) => {
-        backgroundApiProxy.serviceLimitOrder.setProgressStatus({
+        progressStatusCtx?.setProgressStatus?.({
           title: intl.formatMessage(
             { id: 'action__authorizing_str' },
             { '0': '' },
@@ -233,7 +235,7 @@ const LimitOrderButton = () => {
 
     if (cancelApproveTx) {
       const doCancelApprove = async (nextTask?: Task) => {
-        backgroundApiProxy.serviceLimitOrder.setProgressStatus({
+        progressStatusCtx?.setProgressStatus?.({
           title: intl.formatMessage(
             { id: 'action__resetting_authorizing_str' },
             { '0': '' },
@@ -256,10 +258,10 @@ const LimitOrderButton = () => {
           close={close}
           onSubmit={async () => {
             try {
-              backgroundApiProxy.serviceLimitOrder.openProgressStatus();
+              progressStatusCtx?.openProgressStatus?.();
               await combinedTasks(tasks);
             } finally {
-              backgroundApiProxy.serviceLimitOrder.closeProgressStatus();
+              progressStatusCtx?.closeProgressStatus?.();
             }
           }}
         />
@@ -267,7 +269,15 @@ const LimitOrderButton = () => {
     } else {
       await combinedTasks(tasks);
     }
-  }, [params, instantRate, intl, sendSignMessage, sendSwapTx, navigation]);
+  }, [
+    params,
+    instantRate,
+    intl,
+    sendSignMessage,
+    sendSwapTx,
+    navigation,
+    progressStatusCtx,
+  ]);
 
   const onPress = useCallback(async () => {
     if (ref.current) {
@@ -276,15 +286,15 @@ const LimitOrderButton = () => {
 
     ref.current = true;
     try {
-      backgroundApiProxy.serviceLimitOrder.openProgressStatus();
+      progressStatusCtx?.openProgressStatus?.();
       await onSubmit();
     } finally {
       ref.current = false;
-      backgroundApiProxy.serviceLimitOrder.closeProgressStatus();
+      progressStatusCtx?.closeProgressStatus?.();
     }
-  }, [onSubmit]);
+  }, [onSubmit, progressStatusCtx]);
 
-  if (progressStatus) {
+  if (progressStatusCtx.progressStatus) {
     return <LimitOrderProgressButton />;
   }
 
@@ -332,7 +342,7 @@ const LimitOrderStateButton = () => {
   return <LimitOrderButton />;
 };
 
-export const LimitOrderMainButton = () => {
+export const LimitOrderContentButton = () => {
   const intl = useIntl();
   const limitOrderMaintain = useAppSelector(
     (s) => s.swapTransactions.limitOrderMaintain,
@@ -346,3 +356,9 @@ export const LimitOrderMainButton = () => {
   }
   return <LimitOrderStateButton />;
 };
+
+export const LimitOrderMainButton = () => (
+  <WalletACLButton>
+    <LimitOrderContentButton />
+  </WalletACLButton>
+);

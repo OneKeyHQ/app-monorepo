@@ -47,7 +47,7 @@ export function useAccountSelectorInfo() {
   const isCloseFromOpen = isOpenPrev && !isOpen;
 
   const { wallets } = useRuntimeWallets();
-  const { enabledNetworks } = useManageNetworks();
+  const { enabledNetworks } = useManageNetworks(undefined);
   const { devicesStatus } = useDeviceStatusOfHardwareWallet();
 
   const {
@@ -79,17 +79,17 @@ export function useAccountSelectorInfo() {
   const { result: selectedWallet } = usePromiseResult(
     (): Promise<IWallet | null | undefined> =>
       walletId ? engine.getWalletSafe(walletId) : Promise.resolve(null),
-    [walletId, wallets],
+    [engine, walletId],
   );
   const { result: selectedNetwork } = usePromiseResult(
     (): Promise<INetwork | null | undefined> =>
       networkId ? engine.getNetworkSafe(networkId) : Promise.resolve(null),
-    [networkId, enabledNetworks],
+    [networkId, engine],
   );
   const { result: selectedNetworkSettings } = usePromiseResult(
     (): Promise<IVaultSettings | null | undefined> =>
       networkId ? engine.getVaultSettings(networkId) : Promise.resolve(null),
-    [networkId, enabledNetworks],
+    [networkId, engine],
   );
 
   const isAccountsGroupEmpty = useMemo(() => {

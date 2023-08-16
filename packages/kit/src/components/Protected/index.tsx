@@ -3,6 +3,7 @@ import type { FC, ReactNode } from 'react';
 import { memo, useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { isBoolean } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Box, Spinner, ToastManager, Typography } from '@onekeyhq/components';
@@ -41,6 +42,7 @@ type ProtectedProps = {
   title?: string;
   subTitle?: string;
   networkId?: string;
+  checkIsNeedPassword?: () => Promise<boolean>;
 };
 
 // Protected
@@ -55,6 +57,7 @@ const Protected: FC<ProtectedProps> = ({
   title,
   subTitle,
   networkId,
+  checkIsNeedPassword,
 }) => {
   const navigation = useNavigation();
   const walletDetail = useGetWalletDetail(walletId);
@@ -68,7 +71,13 @@ const Protected: FC<ProtectedProps> = ({
   const [isLocalAuthentication, setLocalAuthentication] = useState<boolean>();
   const { isPasswordSet } = useData();
   const [hasPassword] = useState(isPasswordSet);
-  const { isPasswordLoadedInVault } = useAppSelector((s) => s.data);
+  const isPasswordLoadedInVault = useAppSelector(
+    (s) => s.data.isPasswordLoadedInVault,
+  );
+
+  const [isNeedInputPassword, setIsNeedInputPassword] = useState<
+    boolean | undefined
+  >(undefined);
 
   const onValidationOk = useCallback((text: string, value?: boolean) => {
     setLocalAuthentication(value);
@@ -95,7 +104,13 @@ const Protected: FC<ProtectedProps> = ({
   const isExternalWallet = walletDetail?.type === WALLET_TYPE_EXTERNAL;
 
   useEffect(() => {
-    serviceApp.checkUpdateStatus();
+    const timer = setTimeout(() => {
+      serviceApp.checkUpdateStatus();
+    }, 1000);
+
+    return () => {
+      clearTimeout(timer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -152,6 +167,7 @@ const Protected: FC<ProtectedProps> = ({
       // device connect success
       setDeviceFeatures(features);
     }
+
     loadDevices();
   }, [isHardware, engine, walletDetail?.id, intl, safeGoBack, serviceHardware]);
 
@@ -160,6 +176,14 @@ const Protected: FC<ProtectedProps> = ({
       setPassword('');
     }
   }, [isPasswordLoadedInVault, network]);
+
+  useEffect(() => {
+    if (checkIsNeedPassword) {
+      checkIsNeedPassword().then((value) => {
+        setIsNeedInputPassword(value);
+      });
+    }
+  }, [checkIsNeedPassword]);
 
   if (isExternalWallet) {
     return (
@@ -172,7 +196,7 @@ const Protected: FC<ProtectedProps> = ({
     );
   }
 
-  if (password) {
+  if (password || (isBoolean(isNeedInputPassword) && !isNeedInputPassword)) {
     return (
       <Box w="full" h="full">
         {children(password, {
@@ -202,6 +226,14 @@ const Protected: FC<ProtectedProps> = ({
         <Typography.DisplayMedium mt={6}>
           {intl.formatMessage({ id: 'modal__device_status_check' })}
         </Typography.DisplayMedium>
+      </Box>
+    );
+  }
+
+  if (checkIsNeedPassword && typeof isNeedInputPassword === 'undefined') {
+    return (
+      <Box h="100%" justifyContent="center" alignItems="center">
+        <Spinner size="lg" />
       </Box>
     );
   }

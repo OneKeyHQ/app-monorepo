@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 
+import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Button,
   Image,
   Modal,
   Pressable,
@@ -11,6 +13,7 @@ import {
   Searchbar,
   Typography,
 } from '@onekeyhq/components';
+import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 
 import { LazyDisplayView } from '../../../LazyDisplayView';
@@ -22,17 +25,41 @@ import Header from './Header';
 import { NetWorkExtraInfo } from './NetworkExtraInfo';
 import SideChainSelector from './SideChainSelector';
 
+import type { ManageNetworkRoutesParams } from '../../../../routes';
+import type { ManageNetworkModalRoutes } from '../../../../routes/routesEnum';
 import type { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
+import type { RouteProp } from '@react-navigation/native';
 
-function LazyDisplayContentView({
-  showSideChainSelector,
-  showCustomLegacyHeader,
-  accountSelectorInfo,
-}: {
+type RouteProps = RouteProp<
+  ManageNetworkRoutesParams,
+  ManageNetworkModalRoutes.NetworkAccountSelector
+>;
+
+type LazyDisplayContentViewProps = {
   showSideChainSelector: boolean;
   showCustomLegacyHeader: boolean;
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
-}) {
+  selectedAccounts: string[];
+  setSelectedAccounts: (selectedAccounts: string[]) => void;
+} & ManageNetworkRoutesParams['NetworkAccountSelector'];
+
+function LazyDisplayContentView(props: LazyDisplayContentViewProps) {
+  const {
+    accountSelectorInfo,
+    showCustomLegacyHeader,
+    showSideChainSelector,
+    hideAllNetworks,
+    hideSearchBar,
+    hideCreateAccount,
+    hideAccountActions,
+    multiSelect,
+    singleSelect,
+    selectedAccounts,
+    setSelectedAccounts,
+    onAccountsSelected,
+    tokenShowBalance,
+    walletsToHide,
+  } = props;
   const [search, setSearch] = useState('');
 
   return (
@@ -47,17 +74,24 @@ function LazyDisplayContentView({
         <Header
           accountSelectorInfo={accountSelectorInfo}
           showCustomLegacyHeader={showCustomLegacyHeader}
+          hideCreateAccount={hideCreateAccount}
+          multiSelect={multiSelect}
+          selectedAccounts={selectedAccounts}
+          walletsToHide={walletsToHide}
         />
-        <Box px={{ base: 4, md: 6 }} mb="16px">
-          <Searchbar
-            w="full"
-            value={search}
-            onChangeText={setSearch}
-            onClear={() => setSearch('')}
-          />
-        </Box>
+        {!hideSearchBar ? (
+          <Box px={{ base: 4, md: 6 }} mb="16px">
+            <Searchbar
+              w="full"
+              value={search}
+              onChangeText={setSearch}
+              onClear={() => setSearch('')}
+            />
+          </Box>
+        ) : null}
         <ScrollView>
-          {isAllNetworks(accountSelectorInfo?.selectedNetworkId) ? (
+          {!hideAllNetworks &&
+          isAllNetworks(accountSelectorInfo?.selectedNetworkId) ? (
             <AllNetworksAccountList
               accountSelectorInfo={accountSelectorInfo}
               searchValue={search}
@@ -67,6 +101,13 @@ function LazyDisplayContentView({
               <AccountList
                 accountSelectorInfo={accountSelectorInfo}
                 searchValue={search}
+                multiSelect={multiSelect}
+                singleSelect={singleSelect}
+                tokenShowBalance={tokenShowBalance}
+                hideAccountActions={hideAccountActions}
+                selectedAccounts={selectedAccounts}
+                setSelectedAccounts={setSelectedAccounts}
+                onAccountsSelected={onAccountsSelected}
               />
               <NetWorkExtraInfo
                 accountId={accountSelectorInfo.activeAccount?.id}
@@ -80,7 +121,13 @@ function LazyDisplayContentView({
   );
 }
 function NetworkAccountSelectorModal() {
+  const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
+
   const intl = useIntl();
+  const route = useRoute<RouteProps>();
+  const closeModal = useModalClose();
+
+  const { hideSideChain, multiSelect, onAccountsSelected } = route.params ?? {};
 
   const [showSideChainSelector, setShowSideChainSelector] = useState(false);
   // use Modal header or custom header
@@ -106,6 +153,7 @@ function NetworkAccountSelectorModal() {
       header={intl.formatMessage({ id: 'title__accounts' })}
       headerDescription={
         <Pressable
+          isDisabled={!hideSideChain}
           onLongPress={() => {
             setShowCustomLegacyHeader(!showCustomLegacyHeader);
           }}
@@ -129,7 +177,23 @@ function NetworkAccountSelectorModal() {
           </Typography.Caption>
         </Pressable>
       }
-      footer={null}
+      footer={
+        multiSelect ? (
+          <Box padding={4}>
+            <Button
+              type="primary"
+              size="xl"
+              isDisabled={selectedAccounts.length === 0}
+              onPress={() => {
+                closeModal();
+                onAccountsSelected?.(selectedAccounts);
+              }}
+            >
+              {intl.formatMessage({ id: 'action__add' })}
+            </Button>
+          </Box>
+        ) : null
+      }
       staticChildrenProps={{
         flex: 1,
         padding: 0,
@@ -141,6 +205,9 @@ function NetworkAccountSelectorModal() {
           accountSelectorInfo={accountSelectorInfo}
           showSideChainSelector={showSideChainSelector}
           showCustomLegacyHeader={showCustomLegacyHeader}
+          selectedAccounts={selectedAccounts}
+          setSelectedAccounts={setSelectedAccounts}
+          {...route.params}
         />
       </LazyDisplayView>
     </Modal>

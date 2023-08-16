@@ -8,19 +8,27 @@ import { useIntl } from 'react-intl';
 
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
-import type { Token } from '@onekeyhq/engine/src/types/token';
+import type {
+  IAccountTokenData,
+  Token,
+} from '@onekeyhq/engine/src/types/token';
 import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 import KeleLogoPNG from '@onekeyhq/kit/assets/staking/kele_pool.png';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { getTimeDurationMs } from '../utils/helper';
+import { ModalRoutes, RootRoutes } from '../routes/routesEnum';
 import { getPreBaseValue } from '../utils/priceUtils';
-import { EOverviewScanTaskType } from '../views/Overview/types';
+import { createDeepEqualSelector } from '../utils/reselectUtils';
+import {
+  EOverviewScanTaskType,
+  OverviewModalRoutes,
+} from '../views/Overview/types';
+import { StakingRoutes } from '../views/Staking/typing';
 
 import { useAllNetworksWalletAccounts } from './useAllNetwoks';
 import { useAppSelector } from './useAppSelector';
+import useNavigation from './useNavigation';
 import { useFrozenBalance, useSingleToken } from './useTokens';
 
 import type { IAppState } from '../store';
@@ -31,16 +39,11 @@ import type {
   OverviewAllNetworksPortfolioRes,
 } from '../views/Overview/types';
 
-type IAccountTokenOnChain = Token & {
-  price: number;
-  price24h: number;
-  balance: string;
-  value: string;
-  usdValue: string;
-  value24h: string;
-};
-
+type IAccountTokenOnChain = IAccountTokenData;
 type ICombinedAccountToken = IAccountToken | IAccountTokenOnChain;
+
+const emptyArray = Object.freeze([]);
+const emptyObject = Object.freeze({});
 
 const filterAccountTokens = <T>({
   tokens,
@@ -48,19 +51,54 @@ const filterAccountTokens = <T>({
   hideSmallBalance,
   hideRiskTokens,
   putMainTokenOnTop,
+  networkId,
 }: {
+  networkId: string;
   tokens: ICombinedAccountToken[];
   useFilter?: boolean;
   hideSmallBalance?: boolean;
   hideRiskTokens?: boolean;
   putMainTokenOnTop?: boolean;
 }): T => {
+  try {
+    throw new Error();
+  } catch (error) {
+    // @ts-ignore
+    if (error) error.$$autoPrintErrorIgnore = true;
+
+    const formatStack = (stack: string) => {
+      const arr: string[] = [];
+      let stop = false;
+      stack
+        .split('\n')
+        .filter(Boolean)
+        .forEach((line) => {
+          line
+            .split(' ')
+            .filter(Boolean)
+            .forEach((word, index) => {
+              if (index === 1 && !stop) {
+                arr.push(word);
+                if (word === 'renderWithHooks') {
+                  stop = true;
+                }
+              }
+            });
+        });
+
+      return arr;
+    };
+    console.log(
+      'filterAccountTokens ================',
+      formatStack((error as Error | undefined)?.stack || ''),
+    );
+  }
   const valueTokens = tokens.sort(
     (a, b) =>
       // By value
-      new B(b.value).comparedTo(a.value) ||
+      new B(b.value ?? 0).comparedTo(a.value ?? 0) ||
       // By price
-      new B(b.price).comparedTo(a.price) ||
+      new B(b.price ?? 0).comparedTo(a.price ?? 0) ||
       // By native token
       (b.isNative ? 1 : 0) ||
       (a.isNative ? -1 : 0) ||
@@ -73,14 +111,21 @@ const filterAccountTokens = <T>({
   }
 
   const filteredTokens = valueTokens.filter((t) => {
-    if (hideSmallBalance && new B(t.usdValue).isLessThan(1)) {
-      return false;
+    const isNative = (t.isNative || !t.address) && !isAllNetworks(networkId);
+    if (hideSmallBalance && new B(t.usdValue ?? 0).isLessThan(1)) {
+      if (!isNative) {
+        return false;
+      }
     }
-    if (hideRiskTokens && t.riskLevel && t.riskLevel > TokenRiskLevel.WARN) {
-      return false;
+    if (putMainTokenOnTop) {
+      if (isNative) {
+        return false;
+      }
     }
-    if (putMainTokenOnTop && (t.isNative || !t.address)) {
-      return false;
+    if (hideRiskTokens) {
+      if (t.riskLevel && t.riskLevel > TokenRiskLevel.WARN) {
+        return false;
+      }
     }
     return true;
   });
@@ -93,6 +138,49 @@ const filterAccountTokens = <T>({
   }
   return filteredTokens as T;
 };
+
+const tasksSelector = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) =>
+  createSelector([(s: IAppState) => s.overview.tasks], (tasks) => {
+    const data = Object.values(tasks || {});
+    return data.filter((t) => t.key === `${networkId}___${accountId}`);
+  });
+
+const updatedTimeSelector = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) =>
+  createSelector(
+    (s: IAppState) => s.overview.updatedTimeMap,
+    (updatedTimeMap) =>
+      updatedTimeMap?.[`${networkId}___${accountId}`]?.updatedAt,
+  );
+
+export const useOverviewAccountUpdateInfo = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) =>
+  useAppSelector(
+    useMemo(
+      () =>
+        createSelector(
+          (s: IAppState) => s.overview.updatedTimeMap,
+          (m) => m?.[`${networkId ?? ''}___${accountId ?? ''}`] ?? {},
+        ),
+      [accountId, networkId],
+    ),
+  );
 
 export const useAccountPortfolios = <
   T extends keyof OverviewAllNetworksPortfolioRes,
@@ -114,10 +202,15 @@ export const useAccountPortfolios = <
     updatedAt: undefined,
     loading: true,
   });
-  const updateInfo = useAppSelector(
-    (s) =>
-      s.overview.updatedTimeMap?.[`${networkId ?? ''}___${accountId ?? ''}`] ??
-      {},
+  const updateInfoUpdatedAt = useAppSelector(
+    useMemo(
+      () =>
+        updatedTimeSelector({
+          networkId: networkId ?? '',
+          accountId: accountId ?? '',
+        }),
+      [accountId, networkId],
+    ),
   );
 
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
@@ -125,11 +218,14 @@ export const useAccountPortfolios = <
   });
 
   const fetchData = useCallback(async () => {
-    if (isAllNetworks(networkId) && !Object.keys(networkAccountsMap)?.length) {
+    if (
+      isAllNetworks(networkId) &&
+      !Object.keys(networkAccountsMap ?? {})?.length
+    ) {
       setState({
         loading: false,
         data: [],
-        updatedAt: updateInfo?.updatedAt,
+        updatedAt: updateInfoUpdatedAt,
       });
       return;
     }
@@ -140,9 +236,9 @@ export const useAccountPortfolios = <
     setState({
       loading: false,
       data: res?.[type] || [],
-      updatedAt: updateInfo?.updatedAt,
+      updatedAt: updateInfoUpdatedAt,
     });
-  }, [accountId, networkId, type, networkAccountsMap, updateInfo?.updatedAt]);
+  }, [accountId, networkId, type, networkAccountsMap, updateInfoUpdatedAt]);
 
   useEffect(() => {
     fetchData();
@@ -151,42 +247,82 @@ export const useAccountPortfolios = <
   return state;
 };
 
+const balancesSelector = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) =>
+  createDeepEqualSelector(
+    (s: IAppState) => {
+      const { accountTokensBalance } = s.tokens;
+      const accountBalance = accountTokensBalance?.[networkId]?.[accountId];
+      if (accountBalance) {
+        return Object.fromEntries(
+          Object.entries(accountBalance).map(([tokenId, data]) => [
+            tokenId,
+            { balance: data?.balance ?? '0' },
+          ]),
+        );
+      }
+      return {};
+    },
+    (tokenBalances) => tokenBalances,
+  );
+
+const tokensSelector = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) =>
+  createSelector(
+    (s: IAppState) =>
+      s.tokens.accountTokens?.[networkId]?.[accountId] ?? emptyArray,
+    (accountTokens) => accountTokens,
+  );
+
 export function useAccountTokensOnChain(
   networkId = '',
   accountId = '',
   useFilter = false,
 ) {
-  const {
-    hideRiskTokens,
-    hideSmallBalance,
-    putMainTokenOnTop,
-    selectedFiatMoneySymbol,
-  } = useAppSelector((s) => s.settings);
-  const fiatMap = useAppSelector((s) => s.fiatMoney.map);
-  const fiat = fiatMap[selectedFiatMoneySymbol]?.value || 0;
+  const hideRiskTokens = useAppSelector((s) => s.settings.hideRiskTokens);
+  const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
+  const putMainTokenOnTop = useAppSelector((s) => s.settings.putMainTokenOnTop);
   const tokens = useAppSelector(
-    (s) => s.tokens.accountTokens?.[networkId]?.[accountId] ?? [],
+    useMemo(
+      () => tokensSelector({ networkId, accountId }),
+      [accountId, networkId],
+    ),
   );
-  const balances = useAppSelector(
-    (s) => s.tokens.accountTokensBalance?.[networkId]?.[accountId] ?? [],
-  );
-  const prices = useAppSelector((s) => s.tokens.tokenPriceMap ?? {});
+  const balances =
+    useAppSelector(
+      useMemo(
+        () => balancesSelector({ networkId, accountId }),
+        [accountId, networkId],
+      ),
+    ) ?? emptyArray;
+
+  const prices = useAppSelector((s) => s.tokens.tokenPriceMap) ?? emptyObject;
 
   const valueTokens = tokens.map((t) => {
     const priceInfo =
       prices[`${networkId}${t.address ? '-' : ''}${t.address ?? ''}`];
-    const price = priceInfo?.[selectedFiatMoneySymbol] ?? 0;
-    const price24h = priceInfo?.[`${selectedFiatMoneySymbol}_24h_change`] ?? 0;
+    const price = priceInfo?.usd ?? 0;
+    const price24h = priceInfo?.usd_24h_change ?? 0;
     const balance = balances[getBalanceKey(t)]?.balance ?? '0';
     const value = new B(price).multipliedBy(balance);
-    const usdValue = fiat === 0 ? 0 : value.div(fiat);
+    const usdValue = value;
     const value24h = new B(balance).multipliedBy(
       getPreBaseValue({
         priceInfo,
-        vsCurrency: selectedFiatMoneySymbol,
-      })[selectedFiatMoneySymbol] ?? 0,
+        vsCurrency: 'usd',
+      }).usd ?? 0,
     );
-    const info = {
+    return {
       ...t,
       price,
       price24h,
@@ -195,16 +331,144 @@ export function useAccountTokensOnChain(
       usdValue: usdValue.toString(),
       value24h: value24h.toString(),
     };
-    return info;
   });
 
-  return filterAccountTokens<IAccountTokenOnChain[]>({
-    tokens: valueTokens,
-    useFilter,
-    hideSmallBalance,
-    hideRiskTokens,
-    putMainTokenOnTop,
+  return useMemo(
+    () =>
+      filterAccountTokens<IAccountTokenOnChain[]>({
+        networkId,
+        tokens: valueTokens,
+        useFilter,
+        hideSmallBalance,
+        hideRiskTokens,
+        putMainTokenOnTop,
+      }),
+    [
+      networkId,
+      valueTokens,
+      useFilter,
+      hideSmallBalance,
+      hideRiskTokens,
+      putMainTokenOnTop,
+    ],
+  );
+}
+
+export const useOverviewPendingTasks = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) => {
+  const updatedAt = useAppSelector(
+    useMemo(
+      () => updatedTimeSelector({ networkId, accountId }),
+      [networkId, accountId],
+    ),
+  );
+
+  const tasks = useAppSelector(
+    useMemo(
+      () => tasksSelector({ networkId, accountId }),
+      [networkId, accountId],
+    ),
+  );
+
+  return useMemo(
+    () => ({
+      tasks,
+      updatedAt,
+    }),
+    [tasks, updatedAt],
+  );
+};
+
+export const useAccountIsUpdating = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) => {
+  const isUpdating = useAppSelector(
+    useMemo(
+      () =>
+        createSelector(
+          (s: IAppState) => s.refresher.overviewAccountIsUpdating,
+          (map) => map?.[accountId] ?? false,
+        ),
+      [accountId],
+    ),
+  );
+  const { tasks } = useOverviewPendingTasks({ networkId, accountId });
+
+  return useMemo(
+    () => isUpdating || tasks?.length > 0,
+    [isUpdating, tasks?.length],
+  );
+};
+
+export function useAccountTokenLoading(networkId: string, accountId: string) {
+  const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
+
+  const accountIsUpdating = useAccountIsUpdating({
+    networkId,
+    accountId,
   });
+
+  return useMemo(() => {
+    if (isAllNetworks(networkId)) {
+      if (accountIsUpdating) {
+        return true;
+      }
+      return false;
+    }
+    return typeof accountTokens[networkId]?.[accountId] === 'undefined';
+  }, [networkId, accountId, accountTokens, accountIsUpdating]);
+}
+
+export function useNFTIsLoading({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) {
+  const { tasks, updatedAt } = useOverviewPendingTasks({
+    networkId,
+    accountId,
+  });
+
+  return useMemo(
+    () =>
+      tasks?.filter((t) => t.scanType === EOverviewScanTaskType.nfts).length >
+        0 || typeof updatedAt === 'undefined',
+    [tasks, updatedAt],
+  );
+}
+
+export function useOverviewLoading({
+  networkId = '',
+  accountId = '',
+}: {
+  networkId?: string;
+  accountId?: string;
+}) {
+  const tokensLoading =
+    useAppSelector((s) => s.refresher.overviewHomeTokensLoading) ?? false;
+  const { loading: allNetworksTokensLoading } = useAccountPortfolios({
+    networkId,
+    accountId,
+    type: EOverviewScanTaskType.token,
+  });
+  const accountTokensLoading = useAccountTokenLoading(networkId, accountId);
+
+  const loading = useMemo(
+    () => accountTokensLoading || allNetworksTokensLoading || tokensLoading,
+    [accountTokensLoading, allNetworksTokensLoading, tokensLoading],
+  );
+  return loading;
 }
 
 export function useAccountTokens({
@@ -218,10 +482,14 @@ export function useAccountTokens({
   useFilter?: boolean;
   limitSize?: number;
 }) {
-  const { hideRiskTokens, hideSmallBalance, putMainTokenOnTop } =
-    useAppSelector((s) => s.settings);
+  const hideRiskTokens = useAppSelector((s) => s.settings.hideRiskTokens);
+  const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
+  const putMainTokenOnTop = useAppSelector((s) => s.settings.putMainTokenOnTop);
 
-  const { data: allNetworksTokens = [], loading } = useAccountPortfolios({
+  const {
+    data: allNetworksTokens = emptyArray,
+    loading: allNetworksTokensLoading,
+  } = useAccountPortfolios({
     networkId,
     accountId,
     type: EOverviewScanTaskType.token,
@@ -233,9 +501,19 @@ export function useAccountTokens({
     false,
   );
 
+  const accountTokensLoading = useAccountTokenLoading(networkId, accountId);
+
+  const loading = useMemo(
+    () => accountTokensLoading || allNetworksTokensLoading,
+    [accountTokensLoading, allNetworksTokensLoading],
+  );
+
   const valueTokens: IAccountToken[] = useMemo(() => {
     const accountTokens = isAllNetworks(networkId)
-      ? allNetworksTokens.slice(0, limitSize).map((t) => ({
+      ? // all chain tokens
+        allNetworksTokens.slice(0, limitSize).map((t) => ({
+          networkId,
+          accountId,
           name: t.name,
           symbol: t.symbol,
           address: undefined,
@@ -254,8 +532,11 @@ export function useAccountTokens({
           autoDetected: false,
           tokens: t.tokens ?? [],
         }))
-      : accountTokensOnChain.slice(0, limitSize).map((t) => {
+      : // single chain tokens
+        accountTokensOnChain.slice(0, limitSize).map((t) => {
           const info = {
+            networkId,
+            accountId,
             name: t.name,
             symbol: t.symbol,
             address: t.address,
@@ -287,25 +568,41 @@ export function useAccountTokens({
         });
 
     return accountTokens;
-  }, [networkId, allNetworksTokens, limitSize, accountTokensOnChain]);
+  }, [
+    accountId,
+    accountTokensOnChain,
+    allNetworksTokens,
+    limitSize,
+    networkId,
+  ]);
 
-  if (loading) {
-    return {
-      loading,
-      data: [],
-    };
-  }
-
-  return {
-    loading: false,
-    data: filterAccountTokens<IAccountToken[]>({
-      tokens: valueTokens,
+  const data = useMemo(
+    () =>
+      filterAccountTokens<IAccountToken[]>({
+        networkId,
+        tokens: valueTokens,
+        useFilter,
+        hideRiskTokens,
+        hideSmallBalance,
+        putMainTokenOnTop,
+      }),
+    [
+      networkId,
+      valueTokens,
       useFilter,
       hideRiskTokens,
       hideSmallBalance,
       putMainTokenOnTop,
+    ],
+  );
+
+  return useMemo(
+    () => ({
+      loading,
+      data,
     }),
-  };
+    [loading, data],
+  );
 }
 
 export function useAccountTokenValues(
@@ -323,7 +620,7 @@ export function useAccountTokenValues(
     let value = new B(0);
     let value24h = new B(0);
     for (const t of accountTokens) {
-      value = value.plus(t.value);
+      value = value.plus(t.value ?? 0);
       value24h = value24h.plus(t.value24h ?? 0);
     }
     return {
@@ -360,7 +657,7 @@ export const useNFTValues = ({
       return p * v;
     }
 
-    for (const [nid, accounts] of Object.entries(networkAccountsMap)) {
+    for (const [nid, accounts] of Object.entries(networkAccountsMap ?? {})) {
       const p = prices?.[nid]?.usd ?? 0;
       for (const a of accounts) {
         const nftPrice = nftPrices?.[a.id]?.[nid]?.[disPlayPriceType] ?? 0;
@@ -377,6 +674,7 @@ export const useNFTValues = ({
     accountId,
     networkId,
   ]);
+
   return value;
 };
 
@@ -385,7 +683,9 @@ export const useAccountValues = (props: {
   accountId: string;
 }) => {
   const { networkId, accountId } = props;
-  const { includeNFTsInTotal } = useAppSelector((s) => s.settings);
+  const includeNFTsInTotal = useAppSelector(
+    (s) => s.settings.includeNFTsInTotal,
+  );
 
   const { data: defis = [] } = useAccountPortfolios({
     networkId,
@@ -429,16 +729,20 @@ export const useAccountValues = (props: {
     };
   }, [nftValue, includeNFTsInTotal]);
 
-  return [defiValues, tokenValues, nftValues].reduce(
-    (sum, next) => ({
-      ...sum,
-      value: sum.value.plus(next.value),
-      value24h: sum.value24h.plus(next.value24h),
-    }),
-    {
-      value: new B(0),
-      value24h: new B(0),
-    },
+  return useMemo(
+    () =>
+      [defiValues, tokenValues, nftValues].reduce(
+        (sum, next) => ({
+          ...sum,
+          value: sum.value.plus(next.value),
+          value24h: sum.value24h.plus(next.value24h),
+        }),
+        {
+          value: new B(0),
+          value24h: new B(0),
+        },
+      ),
+    [defiValues, tokenValues, nftValues],
   );
 };
 
@@ -518,6 +822,7 @@ export const useTokenPositionInfo = ({
   coingeckoId?: string;
 }) => {
   const intl = useIntl();
+  const navigation = useNavigation();
   const { data: defis } = useAccountPortfolios({
     accountId,
     networkId,
@@ -534,9 +839,27 @@ export const useTokenPositionInfo = ({
     accountId,
   });
 
-  // TODO: fetch minerOverview
-
   const minerOverview = useAppSelector((s) => s.staking.keleMinerOverviews);
+
+  useEffect(() => {
+    if (isAllNetworks(networkId)) {
+      return;
+    }
+    backgroundApiProxy.serviceStaking
+      .fetchMinerOverview({
+        networkId,
+        accountId,
+      })
+      .catch(() => {
+        // pass
+      });
+  }, [networkId, accountId]);
+
+  const getAccountFromAccountAddress = useCallback(
+    (nid: string, accountAddress: string) =>
+      allNetworksAccountsMap?.[nid]?.find((a) => a.address === accountAddress),
+    [allNetworksAccountsMap],
+  );
 
   const getStakingAmountInfo = useCallback(
     ({
@@ -547,41 +870,29 @@ export const useTokenPositionInfo = ({
       accountId: string;
     }) => {
       let total = new B(0);
-      if (!minerOverview) return;
-      if (coingeckoId !== 'ethereum' || tokenAddress) {
-        return;
+      if (
+        !minerOverview ||
+        coingeckoId !== 'ethereum' ||
+        tokenAddress ||
+        isAllNetworks(networkId)
+      ) {
+        return total;
       }
+      const current = minerOverview?.[aid]?.[nid];
+      total = total
+        .plus(current?.amount?.total_amount ?? 0)
+        .plus(current?.amount.withdrawable ?? 0);
 
-      if (isAllNetworks(nid)) {
-        for (const a of allNetworksAccountsMap[OnekeyNetwork.eth] ?? []) {
-          total = total.plus(
-            getStakingAmountInfo({
-              networkId: OnekeyNetwork.eth,
-              accountId: a.id,
-            })?.total ?? 0,
-          );
-        }
-      } else {
-        const current = minerOverview?.[aid]?.[nid];
-        total = total
-          .plus(current?.amount?.total_amount ?? 0)
-          .plus(current?.amount.withdrawable ?? 0);
-      }
-
-      return {
-        total,
-        networkId: nid,
-      };
+      return total;
     },
-    [minerOverview, allNetworksAccountsMap, coingeckoId, tokenAddress],
+    [minerOverview, coingeckoId, tokenAddress, networkId],
   );
 
   const keleStakingInfo = useMemo(() => {
-    const { total = new B(0), networkId: nid } =
-      getStakingAmountInfo({
-        networkId,
-        accountId,
-      }) ?? {};
+    const total = getStakingAmountInfo({
+      networkId,
+      accountId,
+    });
     return {
       name: 'Kelepool',
       logoURI: KeleLogoPNG,
@@ -589,9 +900,43 @@ export const useTokenPositionInfo = ({
       sendAddress: undefined,
       type: intl.formatMessage({ id: 'form__staking' }),
       balance: total,
-      networkId: nid,
+      networkId,
     };
   }, [getStakingAmountInfo, intl, accountId, networkId]);
+
+  const onPresDefiProtocol = useCallback(
+    ({ protocolId, poolCode }: { protocolId: string; poolCode: string }) => {
+      if (!networkId || !accountId) {
+        return;
+      }
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Overview,
+        params: {
+          screen: OverviewModalRoutes.OverviewProtocolDetail,
+          params: {
+            protocolId,
+            networkId,
+            accountId,
+            poolCode,
+          },
+        },
+      });
+    },
+    [navigation, accountId, networkId],
+  );
+
+  const onPressStaking = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.Staking,
+      params: {
+        screen: StakingRoutes.StakedETHOnKele,
+        params: {
+          networkId,
+          accountId,
+        },
+      },
+    });
+  }, [navigation, networkId, accountId]);
 
   return useMemo(() => {
     let balance = new B(0);
@@ -603,17 +948,24 @@ export const useTokenPositionInfo = ({
           : t.address === tokenAddress && t.sendAddress === sendAddress
       ) {
         t.tokens?.forEach((item) => {
-          items.push({
-            name: t.name,
-            address: t.address,
-            symbol: t.symbol,
-            logoURI: t.logoURI ?? '',
-            type: 'Token',
-            balance: item.balance,
-            networkId: item.networkId,
-          });
+          const account = getAccountFromAccountAddress(
+            item.networkId,
+            item.accountAddress ?? '',
+          );
+          if (new B(item.balance ?? 0).isGreaterThan(0)) {
+            items.push({
+              name: t.name,
+              address: t.address,
+              symbol: t.symbol,
+              logoURI: t.logoURI ?? '',
+              type: 'Token',
+              balance: item.balance ?? '0',
+              networkId: item.networkId,
+              accountName: account?.name ?? '',
+            });
+          }
         });
-        balance = balance.plus(t.balance);
+        balance = balance.plus(t.balance ?? 0);
       }
     });
 
@@ -634,6 +986,11 @@ export const useTokenPositionInfo = ({
                 type: p[0],
                 balance: t.balanceParsed ?? '0',
                 networkId: d._id.networkId,
+                onPress: () =>
+                  onPresDefiProtocol({
+                    protocolId: d._id.protocolId,
+                    poolCode: item.poolCode,
+                  }),
               });
               balance = balance.plus(t.balanceParsed ?? 0);
             }
@@ -643,7 +1000,8 @@ export const useTokenPositionInfo = ({
     });
 
     const { balance: stakingBalance, networkId: stakingNetworkId } =
-      keleStakingInfo ?? {};
+      keleStakingInfo;
+
     if (stakingBalance?.gt(0) && stakingNetworkId) {
       balance = balance.plus(keleStakingInfo.balance);
       items.push({
@@ -654,6 +1012,7 @@ export const useTokenPositionInfo = ({
         type: intl.formatMessage({ id: 'form__staking' }),
         balance: stakingBalance.toFixed(),
         networkId: stakingNetworkId,
+        onPress: onPressStaking,
       });
     }
 
@@ -662,6 +1021,9 @@ export const useTokenPositionInfo = ({
       items,
     };
   }, [
+    onPressStaking,
+    onPresDefiProtocol,
+    getAccountFromAccountAddress,
     sendAddress,
     intl,
     accountTokens,
@@ -677,29 +1039,62 @@ export const useTokenDetailInfo = ({
   coingeckoId,
   networkId,
   tokenAddress,
+  accountId,
+  defaultInfo = {},
 }: {
   coingeckoId?: string;
   networkId?: string;
+  accountId?: string;
   tokenAddress?: string;
+  defaultInfo?: Record<string, unknown>;
 }) => {
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<ITokenDetailInfo | undefined>();
+  const [dataState, setDataState] = useState<{
+    data?: ITokenDetailInfo | undefined;
+    loading: boolean;
+  }>({
+    data: undefined,
+    loading: true,
+  });
   const { token, loading: tokenLoading } = useSingleToken(
     networkId ?? '',
     tokenAddress ?? '',
   );
 
   useEffect(() => {
-    setLoading(true);
+    setDataState((pre) => {
+      if (pre.loading) {
+        return pre;
+      }
+      return {
+        data: undefined,
+        loading: true,
+      };
+    });
+
     backgroundApiProxy.serviceToken
-      .fetchTokenDetailInfo({ coingeckoId, networkId, tokenAddress })
-      .then((res) => setData(res))
-      .finally(() => setLoading(false));
-  }, [coingeckoId, networkId, tokenAddress]);
+      .fetchTokenDetailInfo({
+        coingeckoId,
+        networkId,
+        tokenAddress,
+        accountId,
+      })
+      .then((res) =>
+        setDataState({
+          data: res,
+          loading: false,
+        }),
+      )
+      .catch(() =>
+        setDataState({
+          data: undefined,
+          loading: false,
+        }),
+      );
+  }, [coingeckoId, networkId, tokenAddress, accountId]);
 
   return useMemo(() => {
-    const { defaultChain } = data ?? {};
-    const tokens = data?.tokens ?? [];
+    const { defaultChain } = dataState?.data ?? {};
+    const tokens = dataState?.data?.tokens ?? [];
     if (!tokens.length && token) {
       tokens.push(token);
     }
@@ -717,139 +1112,13 @@ export const useTokenDetailInfo = ({
     );
 
     return {
+      ...defaultInfo,
       ...pick(token, 'name', 'symbol', 'logoURI'),
-      ...data,
-      loading: loading || tokenLoading,
+      ...dataState?.data,
+      loading: dataState?.loading || tokenLoading,
       tokens,
       defaultToken,
       ethereumNativeToken,
     };
-  }, [data, token, loading, tokenLoading]);
+  }, [dataState?.data, token, dataState?.loading, tokenLoading, defaultInfo]);
 };
-
-const tasksSelector = ({
-  networkId,
-  accountId,
-}: {
-  networkId: string;
-  accountId: string;
-}) =>
-  createSelector([(s: IAppState) => s.overview.tasks], (tasks) => {
-    const data = Object.values(tasks || {});
-    return data.filter((t) => t.key === `${networkId}___${accountId}`);
-  });
-
-const updatedTimeSelector = ({
-  networkId,
-  accountId,
-}: {
-  networkId: string;
-  accountId: string;
-}) =>
-  createSelector(
-    (s: IAppState) => s.overview.updatedTimeMap,
-    (updatedTimeMap) =>
-      updatedTimeMap?.[`${networkId}___${accountId}`]?.updatedAt,
-  );
-
-export const useOverviewPendingTasks = ({
-  networkId,
-  accountId,
-}: {
-  networkId: string;
-  accountId: string;
-}) => {
-  const intl = useIntl();
-
-  const updatedAt = useAppSelector(
-    useMemo(
-      () => updatedTimeSelector({ networkId, accountId }),
-      [networkId, accountId],
-    ),
-  );
-
-  const tasks = useAppSelector(
-    useMemo(
-      () => tasksSelector({ networkId, accountId }),
-      [networkId, accountId],
-    ),
-  );
-
-  const updateTips = useMemo(() => {
-    if (tasks?.length) {
-      return intl.formatMessage({
-        id: 'content__updating_assets',
-      });
-    }
-    const duration = Date.now() - updatedAt;
-    if (
-      duration <
-      getTimeDurationMs({
-        minute: 2,
-      })
-    ) {
-      return intl.formatMessage({
-        id: 'form__updated_just_now',
-      });
-    }
-    if (
-      duration <
-      getTimeDurationMs({
-        hour: 1,
-      })
-    ) {
-      return intl.formatMessage(
-        {
-          id: 'form__updated_str_ago',
-        },
-        {
-          0: `${Math.floor(duration / 1000 / 60)} m`,
-        },
-      );
-    }
-    if (
-      duration >
-      getTimeDurationMs({
-        hour: 1,
-      })
-    ) {
-      return intl.formatMessage(
-        {
-          id: 'form__updated_str_ago',
-        },
-        {
-          0: `${Math.floor(duration / 1000 / 60 / 60)} h`,
-        },
-      );
-    }
-  }, [tasks, updatedAt, intl]);
-
-  return {
-    tasks,
-    updatedAt,
-    updateTips,
-  };
-};
-
-export function useAccountTokenLoading(networkId: string, accountId: string) {
-  const pendingTasks = useOverviewPendingTasks({ networkId, accountId });
-  const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
-
-  const { data } = useAllNetworksWalletAccounts({
-    accountId,
-  });
-
-  return useMemo(() => {
-    if (isAllNetworks(networkId)) {
-      const { tasks, updatedAt } = pendingTasks;
-      if (!Object.keys(data).length) {
-        return false;
-      }
-      return (
-        tasks?.filter((t) => t.scanType === EOverviewScanTaskType.token)
-          .length > 0 || typeof updatedAt === 'undefined'
-      );
-    }
-    return typeof accountTokens[networkId]?.[accountId] === 'undefined';
-  }, [networkId, accountId, accountTokens, pendingTasks, data]);
-}

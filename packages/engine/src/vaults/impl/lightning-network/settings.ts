@@ -34,16 +34,23 @@ const settings: IVaultSettings = Object.freeze({
   hiddenAddress: true,
   hiddenAccountInfoSwapOption: true,
   hiddenAccountInfoMoreOption: true,
-  hiddenFeeOnTxDetail: true,
   displayMemo: true,
   hideFromToFieldIfValueEmpty: true,
-  displayFullAddress: true,
+  hideFeeSpeedInfo: true,
   rpcStatusDisabled: true,
   useSimpleTipForSpecialCheckEncodedTx: true,
+
+  hideInAllNetworksMode: true,
 
   allowZeroFee: true,
 
   txExtraInfo: [
+    {
+      key: 'preimage',
+      title: 'form__preimage' as LocaleIds,
+      canCopy: false,
+      isShorten: false,
+    },
     {
       key: 'memo',
       title: 'content__description' as LocaleIds,

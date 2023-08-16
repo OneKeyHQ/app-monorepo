@@ -1,5 +1,9 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
+import LNURLAuthenticationModal from '../../../views/Account/AddNewAccount/Authentication';
+import LNURLAuth from '../../../views/LightningNetwork/Send/LNURLAuth';
+import { LNURLPayRequest } from '../../../views/LightningNetwork/Send/LNURLPayRequest';
+import LNURLWithdraw from '../../../views/LightningNetwork/Send/LNURLWithdraw';
 import { BaseSendRouteScreen } from '../../../views/Send/components/BaseSendRouteScreen';
 import { BatchSendConfirm } from '../../../views/Send/modals/BatchSendConfirm';
 import { BatchSendProgress } from '../../../views/Send/modals/BatchSendProgress';
@@ -17,6 +21,7 @@ import { SignMessageConfirm } from '../../../views/Send/modals/SignMessageConfir
 import { TokenApproveAmountEdit } from '../../../views/Send/modals/TokenApproveAmountEdit';
 import { SendModalRoutes } from '../../../views/Send/types';
 import { TransactionSendContextProvider } from '../../../views/Send/utils/TransactionSendContext';
+import NFTDetailView from '../../../views/Wallet/NFT/NFTDetail';
 
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
@@ -83,6 +88,26 @@ const modalRoutes = [
   {
     name: SendModalRoutes.HardwareSwapContinue,
     component: BaseSendRouteScreen.wrap(HardwareSwapContinue),
+  },
+  {
+    name: SendModalRoutes.NFTDetailModal,
+    component: NFTDetailView,
+  },
+  {
+    name: SendModalRoutes.LNURLPayRequest,
+    component: LNURLPayRequest,
+  },
+  {
+    name: SendModalRoutes.LNURLWithdraw,
+    component: LNURLWithdraw,
+  },
+  {
+    name: SendModalRoutes.LNURLAuth,
+    component: LNURLAuth,
+  },
+  {
+    name: SendModalRoutes.LNURLAuthentication,
+    component: LNURLAuthenticationModal,
   },
 ];
 

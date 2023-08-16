@@ -13,6 +13,7 @@ import type {
   IEncodedTx,
   ISwapInfo,
 } from '@onekeyhq/engine/src/vaults/types';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   AppUIEventBusNames,
   appUIEventBus,
@@ -20,6 +21,7 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { ValidationFields } from '../../../components/Protected';
 import { useNavigation } from '../../../hooks';
 import {
   ModalRoutes,
@@ -46,6 +48,8 @@ import {
   formatAmount,
   getTokenAmountString,
   getTokenAmountValue,
+  plus,
+  toHex,
 } from '../utils';
 
 import { useSwapSend } from './useSwapSend';
@@ -286,6 +290,11 @@ export const useSwapSubmit = () => {
       params.tokenIn,
       getTokenAmountValue(params.tokenIn, quote.sellAmount).toFixed(),
     );
+
+    let prepaidFee = '0';
+    if (!params.tokenIn.tokenIdOnNetwork) {
+      prepaidFee = inputAmount.value.toFixed();
+    }
     const outputAmount = new TokenAmount(
       params.tokenOut,
       getTokenAmountValue(params.tokenOut, quote.buyAmount).toFixed(),
@@ -341,15 +350,13 @@ export const useSwapSubmit = () => {
         true,
       );
     const balanceStr = result?.main?.balance;
-    if (!balanceStr) {
-      debugLogger.swap.info(
-        `${params.tokenIn.networkId} failed to fetch native token balance`,
-      );
-    } else {
-      debugLogger.swap.info(
-        `${params.tokenIn.networkId} native token balance is ${balanceStr}`,
-      );
-    }
+
+    const balanceMsg = balanceStr
+      ? `${params.tokenIn.networkId} native token balance is ${balanceStr}`
+      : `${params.tokenIn.networkId} failed to fetch native token balance`;
+
+    debugLogger.swap.info(balanceMsg);
+
     tagLogger.end(LoggerTimerTags.checkTokenBalance);
     const balance = new BigNumber(balanceStr ?? '0');
 
@@ -368,10 +375,35 @@ export const useSwapSubmit = () => {
       );
       return;
     }
-    const safeReservedValueForGasFee =
+    let frozenBalanceValue = 0;
+    if (balance.gt(0)) {
+      try {
+        const password = await backgroundApiProxy.servicePassword.getPassword();
+        const frozenBalance = await backgroundApiProxy.engine.getFrozenBalance({
+          accountId: sendingAccount.id,
+          networkId: fromNetwork.id,
+          password,
+        });
+
+        debugLogger.swap.info('get frozenBalance ', frozenBalance);
+        frozenBalanceValue =
+          typeof frozenBalance === 'number'
+            ? frozenBalance
+            : frozenBalance?.[params.tokenIn.id] ?? 0;
+      } catch (e: any) {
+        debugLogger.swap.info('failed to get frozen balanace', e.message);
+      }
+    }
+
+    let safeReservedValueForGasFee =
       await backgroundApiProxy.serviceSwap.getReservedNetworkFee(
         fromNetwork.id,
       );
+
+    safeReservedValueForGasFee = plus(
+      safeReservedValueForGasFee,
+      frozenBalanceValue,
+    );
 
     const currentReservedValueForGasFee = !params.tokenIn.tokenIdOnNetwork
       ? balance.minus(inputAmount.typedValue)
@@ -380,14 +412,26 @@ export const useSwapSubmit = () => {
       const nativeToken = await backgroundApiProxy.engine.getNativeTokenInfo(
         fromNetworkId,
       );
+      const symbol = nativeToken.symbol.toUpperCase();
+      const errMsg =
+        frozenBalanceValue === 0
+          ? intl.formatMessage(
+              { id: 'msg__suggest_reserving_str_as_gas_fee' },
+              {
+                '0': `${safeReservedValueForGasFee} ${symbol}`,
+              },
+            )
+          : intl.formatMessage(
+              { id: 'msg__insufficient_funds_for_transaction' },
+              {
+                '0': `${frozenBalanceValue} ${symbol}`,
+                '1': `${safeReservedValueForGasFee} ${symbol}`,
+              },
+            );
+
       ToastManager.show(
         {
-          title: intl.formatMessage(
-            { id: 'msg__suggest_reserving_str_as_gas_fee' },
-            {
-              '0': `${safeReservedValueForGasFee} ${nativeToken.symbol.toUpperCase()}`,
-            },
-          ),
+          title: errMsg,
         },
         { type: 'error' },
       );
@@ -448,6 +492,15 @@ export const useSwapSubmit = () => {
       );
       return;
     }
+
+    if (fromNetwork.impl === IMPL_EVM) {
+      const rawValue = (encodedTx as IEncodedTxEvm).value;
+      if (!rawValue.startsWith('0x')) {
+        (encodedTx as IEncodedTxEvm).value = toHex(rawValue);
+      }
+    }
+
+    debugLogger.swap.info('swap encodedTx: ', JSON.stringify(encodedTx));
 
     const newQuote = res.result;
 
@@ -535,46 +588,51 @@ export const useSwapSubmit = () => {
       setProgressStatus?.({
         title: intl.formatMessage({ id: 'action__swapping_str' }, { '0': '' }),
       });
-      await sendSwapTx({
-        accountId: sendingAccount.id,
-        networkId: fromNetworkId,
-        gasEstimateFallback: Boolean(approveTx),
-        encodedTx: encodedTx as IEncodedTxEvm,
-        showSendFeedbackReceipt: true,
-        payloadInfo: {
-          type: 'InternalSwap',
-          swapInfo,
-        },
-        onDetail(txid) {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.Swap,
-            params: {
-              screen: SwapRoutes.Transaction,
+      try {
+        await sendSwapTx({
+          accountId: sendingAccount.id,
+          networkId: fromNetworkId,
+          gasEstimateFallback: Boolean(approveTx),
+          encodedTx: encodedTx as IEncodedTxEvm,
+          showSendFeedbackReceipt: true,
+          payloadInfo: {
+            type: 'InternalSwap',
+            swapInfo,
+          },
+          prepaidFee,
+          onDetail(txid) {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Swap,
               params: {
-                txid,
+                screen: SwapRoutes.Transaction,
+                params: {
+                  txid,
+                },
               },
-            },
-          });
-        },
-        onSuccess: async ({ result: swapResult, decodedTx }) => {
-          if (!res) {
-            return;
-          }
-          await addSwapTransaction({
-            hash: swapResult.txid,
-            decodedTx,
-            params: buildParams,
-            response: res,
-            quote,
-            recipient,
-          });
-          appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
-          onSuccess?.({ result: swapResult, decodedTx });
-        },
-        onFail: () => {
-          appUIEventBus.emit(AppUIEventBusNames.SwapError);
-        },
-      });
+            });
+          },
+          onSuccess: async ({ result: swapResult, decodedTx }) => {
+            if (!res) {
+              return;
+            }
+            await addSwapTransaction({
+              hash: swapResult.txid,
+              decodedTx,
+              params: buildParams,
+              response: res,
+              quote,
+              recipient,
+            });
+            appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
+            onSuccess?.({ result: swapResult, decodedTx });
+          },
+          onFail: () => {
+            appUIEventBus.emit(AppUIEventBusNames.SwapError);
+          },
+        });
+      } finally {
+        closeProgressStatus?.();
+      }
     };
 
     tasks.unshift(doSwap);
@@ -582,7 +640,10 @@ export const useSwapSubmit = () => {
     if (approveTx) {
       const doApprove = async (nextTask?: Task) => {
         const payloadInfo: any = { type: 'InternalSwap' };
-        if (wallet.type !== 'external') {
+        const paymentProtected = appSelector(
+          (s) => s.settings.validationSetting?.[ValidationFields.Payment],
+        );
+        if (wallet.type !== 'external' && !paymentProtected) {
           payloadInfo.swapInfo = { ...swapInfo, isApprove: true };
         }
         tagLogger.start(LoggerTimerTags.approval);
@@ -613,6 +674,9 @@ export const useSwapSubmit = () => {
             }
             await nextTask?.();
           },
+          onFail: () => {
+            closeProgressStatus?.();
+          },
         });
         tagLogger.end(LoggerTimerTags.approval);
       };
@@ -622,16 +686,19 @@ export const useSwapSubmit = () => {
     if (cancelApproveTx) {
       const doCancelApprove = async (nextTask?: Task) => {
         const payloadInfo: any = { type: 'InternalSwap' };
-        if (wallet.type !== 'external') {
+        const paymentProtected = appSelector(
+          (s) => s.settings.validationSetting?.[ValidationFields.Payment],
+        );
+        if (wallet.type !== 'external' && !paymentProtected) {
           payloadInfo.swapInfo = { ...swapInfo, isApprove: true };
         }
         tagLogger.start(LoggerTimerTags.cancelApproval);
-        setProgressStatus?.({
-          title: intl.formatMessage(
-            { id: 'action__resetting_authorizing_str' },
-            { '0': '' },
-          ),
-        });
+        // setProgressStatus?.({
+        //   title: intl.formatMessage(
+        //     { id: 'action__resetting_authorizing_str' },
+        //     { '0': '' },
+        //   ),
+        // });
         await sendSwapTx({
           accountId: sendingAccount.id,
           networkId: fromNetworkId,

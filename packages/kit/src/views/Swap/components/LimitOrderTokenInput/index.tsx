@@ -23,6 +23,7 @@ import {
   useNavigation,
 } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
+import { appSelector } from '../../../../store';
 import { setActiveAccount } from '../../../../store/reducers/limitOrder';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
@@ -61,6 +62,7 @@ const TokenInputSendingAccount: FC<TokenAccountProps> = ({
         screen: SwapRoutes.SelectSendingAccount,
         params: {
           networkId: token?.networkId,
+          accountId: appSelector((s) => s.limitOrder.activeAccount?.id),
           onSelected: (acc) => {
             backgroundApiProxy.dispatch(setActiveAccount(acc));
           },
@@ -115,7 +117,7 @@ const TokenInputSendingAccount: FC<TokenAccountProps> = ({
           alignItems="center"
         >
           <Box flexDirection="row" mr="1">
-            <Typography.Body2Strong mr="1">
+            <Typography.Body2Strong mr="1" maxW="120" isTruncated>
               {account.name}
             </Typography.Body2Strong>
             <Typography.Body2 color="text-subdued">

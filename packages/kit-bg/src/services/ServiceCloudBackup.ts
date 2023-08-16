@@ -3,7 +3,7 @@ import { debounce } from 'lodash';
 import uuid from 'react-native-uuid';
 
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import type { ISimpleDbEntityUtxoData } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
   decrypt,
   encrypt,
@@ -19,6 +19,7 @@ import {
 import { create } from '@onekeyhq/kit/src/store/reducers/contacts';
 import type { Contact } from '@onekeyhq/kit/src/store/reducers/contacts';
 import { release } from '@onekeyhq/kit/src/store/reducers/data';
+import { addBookmark } from '@onekeyhq/kit/src/store/reducers/discover';
 import { setEnableLocalAuthentication } from '@onekeyhq/kit/src/store/reducers/settings';
 import { unlock } from '@onekeyhq/kit/src/store/reducers/status';
 import {
@@ -36,11 +37,13 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.enums';
 import type {
   BackupedContacts,
   IBackupItemSummary,
+  ISimpleDBBackUp,
   PublicBackupData,
 } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -64,10 +67,6 @@ function getContactUUID({
   return uuid.v5(`${networkId},${address}`, CONTACT_NAMESPACE) as string;
 }
 
-const RNFS: typeof import('react-native-fs') = platformEnv.isNative
-  ? require('react-native-fs')
-  : {};
-
 @backgroundClass()
 class ServiceCloudBackup extends ServiceBase {
   private backupUUID = '';
@@ -86,6 +85,7 @@ class ServiceCloudBackup extends ServiceBase {
   }
 
   private getTempFilePath(backupUUID: string) {
+    if (!RNFS) return;
     return `${RNFS.DocumentDirectoryPath ?? ''}/${this.getBackupFilename(
       backupUUID,
     )}`;
@@ -104,10 +104,13 @@ class ServiceCloudBackup extends ServiceBase {
       importedAccounts: {},
       watchingAccounts: {},
       HDWallets: {},
-      simpleDb: {},
+      simpleDb: { market: { favorites: [] }, utxoAccounts: { utxos: [] } },
+      discoverBookmarks: [],
+      // browserHistories: [],
     };
     const backupedContacts: BackupedContacts = {};
     const { version } = this.backgroundApi.appSelector((s) => s.settings);
+
     const { contacts }: { contacts: Record<string, Contact> } =
       this.backgroundApi.appSelector((s) => s.contacts);
     Object.values(contacts).forEach((contact) => {
@@ -123,9 +126,26 @@ class ServiceCloudBackup extends ServiceBase {
       };
     });
 
+    const { utxoAccounts, market } = simpleDb;
+    const utxoAccountsRawData = await utxoAccounts.getRawData();
+    const marketRawData = await market.getRawData();
+    const utxos = utxoAccountsRawData?.utxos ?? [];
+    const favorites = marketRawData?.favorites ?? [];
+
+    const backupedSimpleDB = {
+      utxoAccounts: { utxos },
+      market: { favorites },
+    };
+    publicBackupData.simpleDb = backupedSimpleDB;
+
+    const { bookmarks } = this.backgroundApi.appSelector((s) => s.discover);
+    publicBackupData.discoverBookmarks = bookmarks;
+    // publicBackupData.browserHistories = userBrowserHistories;
+
     const backupObject = await this.backgroundApi.engine.dumpDataForBackup(
       password,
     );
+
     for (const [importedAccountUUID, { name, id, address }] of Object.entries(
       backupObject.importedAccounts,
     )) {
@@ -153,14 +173,6 @@ class ServiceCloudBackup extends ServiceBase {
       publicBackupData.HDWallets[walletId] = { name, avatar, accountUUIDs };
     }
 
-    if (backupObject.simpleDb?.utxoAccounts) {
-      if (!publicBackupData.simpleDb) {
-        publicBackupData.simpleDb = {};
-      }
-      publicBackupData.simpleDb.utxoAccounts =
-        backupObject.simpleDb.utxoAccounts;
-    }
-
     return {
       private: '{}',
       public: '{}',
@@ -168,7 +180,13 @@ class ServiceCloudBackup extends ServiceBase {
         ? encrypt(
             password,
             Buffer.from(
-              JSON.stringify({ ...backupObject, contacts: backupedContacts }),
+              JSON.stringify({
+                ...backupObject,
+                contacts: backupedContacts,
+                discoverBookmarks: bookmarks,
+                simpleDb: backupedSimpleDB,
+                // browserHistories: userBrowserHistories,
+              }),
               'utf8',
             ),
           ).toString('base64')
@@ -268,7 +286,6 @@ class ServiceCloudBackup extends ServiceBase {
           public: string;
         } = cloudData;
         const {
-          contacts = {},
           HDWallets = {},
           importedAccounts = {},
           watchingAccounts = {},
@@ -280,14 +297,20 @@ class ServiceCloudBackup extends ServiceBase {
         if (typeof backupSummaries[backupDeviceId] === 'undefined') {
           backupSummaries[backupDeviceId] = [];
         }
+        const numOfAccounts =
+          Object.values(HDWallets).reduce(
+            (count, wallet) => count + wallet.accountUUIDs.length,
+            0,
+          ) +
+          Object.keys(importedAccounts).length +
+          Object.keys(watchingAccounts).length;
+
         backupSummaries[backupDeviceId].push({
           backupUUID,
           backupTime,
           deviceInfo,
           numOfHDWallets: Object.keys(HDWallets).length,
-          numOfImportedAccounts: Object.keys(importedAccounts).length,
-          numOfWatchingAccounts: Object.keys(watchingAccounts).length,
-          numOfContacts: Object.keys(contacts).length,
+          numOfAccounts,
         });
       } catch (e) {
         debugLogger.cloudBackup.error((e as Error).message);
@@ -305,24 +328,59 @@ class ServiceCloudBackup extends ServiceBase {
       importedAccounts: {},
       watchingAccounts: {},
       HDWallets: {},
-      simpleDb: {
-        utxoAccounts: {} as ISimpleDbEntityUtxoData,
-      },
+      simpleDb: {} as ISimpleDBBackUp,
+      discoverBookmarks: [],
+      // browserHistories: [],
     };
+
     const notOnDevice: PublicBackupData = {
       contacts: {},
       importedAccounts: {},
       watchingAccounts: {},
       HDWallets: {},
-      simpleDb: {
-        utxoAccounts: {} as ISimpleDbEntityUtxoData,
-      },
+      simpleDb: {} as ISimpleDBBackUp,
+      discoverBookmarks: [],
+      // browserHistories: [],
+    };
+    alreadyOnDevice.simpleDb = {
+      utxoAccounts: { utxos: [] },
+      market: { favorites: [] },
+    };
+    notOnDevice.simpleDb = {
+      utxoAccounts: { utxos: [] },
+      market: { favorites: [] },
     };
 
     try {
       const localData = JSON.parse(
         (await this.getDataForBackup('')).publicData,
       ) as PublicBackupData;
+
+      remoteData?.discoverBookmarks?.forEach((remoteBookMark) => {
+        if (
+          localData?.discoverBookmarks &&
+          localData?.discoverBookmarks?.findIndex(
+            (localBookMark) => localBookMark.id === remoteBookMark.id,
+          ) > -1
+        ) {
+          alreadyOnDevice.discoverBookmarks?.push(remoteBookMark);
+        } else {
+          notOnDevice.discoverBookmarks?.push(remoteBookMark);
+        }
+      });
+
+      // remoteData?.browserHistories?.forEach((remoteHis) => {
+      //   if (
+      //     localData?.browserHistories &&
+      //     localData?.browserHistories?.findIndex(
+      //       (localHis) => localHis.url === remoteHis.url,
+      //     ) > -1
+      //   ) {
+      //     alreadyOnDevice.browserHistories?.push(remoteHis);
+      //   } else {
+      //     notOnDevice.browserHistories?.push(remoteHis);
+      //   }
+      // });
 
       for (const [contactUUID, contact] of Object.entries(
         remoteData.contacts,
@@ -379,12 +437,7 @@ class ServiceCloudBackup extends ServiceBase {
         }
       }
 
-      if (!notOnDevice.simpleDb) {
-        notOnDevice.simpleDb = {};
-      }
-      if (!notOnDevice.simpleDb.utxoAccounts) {
-        notOnDevice.simpleDb.utxoAccounts = { utxos: [] };
-      }
+      // simpleDb
       notOnDevice.simpleDb.utxoAccounts.utxos = (
         remoteData.simpleDb?.utxoAccounts?.utxos ?? []
       ).filter(
@@ -394,13 +447,6 @@ class ServiceCloudBackup extends ServiceBase {
           ) < 0,
       );
 
-      if (!alreadyOnDevice.simpleDb) {
-        alreadyOnDevice.simpleDb = {};
-      }
-      if (!alreadyOnDevice.simpleDb.utxoAccounts) {
-        alreadyOnDevice.simpleDb.utxoAccounts = { utxos: [] };
-      }
-
       alreadyOnDevice.simpleDb.utxoAccounts.utxos = (
         remoteData.simpleDb?.utxoAccounts?.utxos ?? []
       ).filter(
@@ -409,6 +455,17 @@ class ServiceCloudBackup extends ServiceBase {
             (localUtxo) => localUtxo.id === utxo.id,
           ) > -1,
       );
+
+      remoteData?.simpleDb?.market?.favorites?.forEach((remoteId) => {
+        if (
+          localData.simpleDb?.market.favorites &&
+          localData.simpleDb?.market.favorites.includes(remoteId)
+        ) {
+          alreadyOnDevice.simpleDb?.market.favorites.push(remoteId);
+        } else {
+          notOnDevice.simpleDb?.market.favorites.push(remoteId);
+        }
+      });
     } catch (e) {
       debugLogger.cloudBackup.error((e as Error).message);
     }
@@ -472,8 +529,26 @@ class ServiceCloudBackup extends ServiceBase {
           HDWallets: Object.keys(notOnDevice.HDWallets),
         },
       });
-      const { contacts: backupedContacts }: { contacts: BackupedContacts } =
-        JSON.parse(data);
+      const {
+        contacts: backupedContacts,
+      }: {
+        contacts: BackupedContacts;
+      } = JSON.parse(data);
+
+      if (notOnDevice.discoverBookmarks) {
+        for (const bookmark of notOnDevice.discoverBookmarks) {
+          dispatch(addBookmark(bookmark));
+        }
+      }
+
+      if (notOnDevice.simpleDb?.market.favorites) {
+        await this.backgroundApi.serviceMarket.saveMarketFavoriteTokens(
+          notOnDevice.simpleDb.market.favorites?.map((id) => ({
+            coingeckoId: id,
+          })),
+        );
+      }
+
       for (const contactUUID of Object.keys(notOnDevice.contacts)) {
         const { name, address, networkId } = backupedContacts[contactUUID];
         if (name && address && networkId) {
@@ -615,11 +690,15 @@ class ServiceCloudBackup extends ServiceBase {
   );
 
   private async saveDataToCloud(data: string) {
+    if (!RNFS) return;
     const backupUUID = await this.ensureUUID();
     if (!backupUUID) {
       throw Error('Invalid backup uuid.');
     }
     const localTempFilePath = this.getTempFilePath(backupUUID);
+    if (!localTempFilePath) {
+      throw new Error('Invalid local temp file path.');
+    }
     await RNFS.writeFile(localTempFilePath, data, 'utf8');
     debugLogger.cloudBackup.debug(`Backup file ${localTempFilePath} written.`);
     await CloudFs.uploadToCloud(

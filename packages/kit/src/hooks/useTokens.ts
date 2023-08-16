@@ -4,17 +4,24 @@ import { pick } from 'lodash';
 import { useAsync } from 'react-async-hook';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { appSelector } from '../store';
+import { createDeepEqualSelector } from '../utils/reselectUtils';
 
 import { useAppSelector } from './useAppSelector';
 
+import type { IAppState } from '../store';
+
 export const useSingleToken = (networkId: string, address: string) => {
-  const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState<Token>();
+  const [state, setState] = useState<{
+    loading: boolean;
+    token?: Token;
+  }>({
+    loading: true,
+  });
 
   useEffect(() => {
     backgroundApiProxy.engine
@@ -23,18 +30,21 @@ export const useSingleToken = (networkId: string, address: string) => {
         tokenIdOnNetwork: address,
       })
       .then((t) => {
-        if (t) {
-          setToken(t);
-        }
+        setState({
+          loading: false,
+          token: t,
+        });
       })
-      .finally(() => {
-        setLoading(false);
+      .catch(() => {
+        setState({
+          loading: false,
+          token: undefined,
+        });
       });
   }, [address, networkId]);
 
   return {
-    loading,
-    token,
+    ...state,
   };
 };
 
@@ -59,17 +69,38 @@ export function useCurrentNetworkTokenInfoByCoingeckoId(
   }, [coingeckoId, accountTokens]);
 }
 
+const accountTokensBalanceSelector = (networkId?: string, accountId?: string) =>
+  createDeepEqualSelector(
+    (s: IAppState) => {
+      if (!networkId || !accountId) {
+        return {};
+      }
+
+      const accountTokensBalance = s.tokens.accountTokensBalance || {};
+      const accountBalance = accountTokensBalance?.[networkId]?.[accountId];
+      if (accountBalance) {
+        return Object.fromEntries(
+          Object.entries(accountBalance).map(([tokenId, data]) => [
+            tokenId,
+            { balance: data?.balance ?? '0' },
+          ]),
+        );
+      }
+      return {};
+    },
+    (tokenBalances) => tokenBalances,
+  );
+
 export function useAccountTokensBalance(
   networkId?: string,
   accountId?: string,
 ) {
-  const balances = useAppSelector((s) => s.tokens.accountTokensBalance);
-  return useMemo(() => {
-    if (!networkId || !accountId) {
-      return {};
-    }
-    return balances[networkId]?.[accountId] ?? {};
-  }, [networkId, accountId, balances]);
+  return useAppSelector(
+    useMemo(
+      () => accountTokensBalanceSelector(networkId, accountId),
+      [accountId, networkId],
+    ),
+  );
 }
 
 export const useNativeTokenBalance = (

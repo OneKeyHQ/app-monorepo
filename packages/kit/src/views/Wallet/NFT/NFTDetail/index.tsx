@@ -1,7 +1,7 @@
 import type { FC } from 'react';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 
 import {
   Box,
@@ -11,11 +11,12 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import NavigationButton from '@onekeyhq/components/src/Modal/Container/Header/NavigationButton';
-import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
-import type { Network } from '@onekeyhq/engine/src/types/network';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { INFTAsset } from '@onekeyhq/engine/src/types/nft';
 import type { CollectiblesRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Collectibles';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
 import { getNFTDetailComponents } from './getNFTDetailComponents';
 
@@ -25,10 +26,12 @@ import type { RouteProp } from '@react-navigation/core';
 function ModalContent({
   isOwner,
   asset,
-  network,
+  accountId,
+  networkId,
 }: {
   asset: INFTAsset;
-  network: Network;
+  networkId: string;
+  accountId?: string;
   isOwner: boolean;
 }) {
   const isVertical = useIsVerticalLayout();
@@ -37,27 +40,37 @@ function ModalContent({
   if (isVertical || platformEnv.isNativeIOSPad) {
     return (
       <ScrollView p="16px">
-        <ImageContent asset={asset} isOwner={isOwner} network={network} />
+        <ImageContent asset={asset} isOwner={isOwner} networkId={networkId} />
         <Box mt="24px" mb={bottom}>
-          <DetailContent asset={asset} isOwner={isOwner} network={network} />
+          <DetailContent
+            asset={asset}
+            isOwner={isOwner}
+            networkId={networkId}
+            accountId={accountId}
+          />
         </Box>
       </ScrollView>
     );
   }
   return (
     <Box flexDirection="row">
-      <ImageContent asset={asset} isOwner={isOwner} network={network} />
+      <ImageContent asset={asset} isOwner={isOwner} networkId={networkId} />
       <ScrollView h="640px" p="24px">
-        <DetailContent asset={asset} isOwner={isOwner} network={network} />
+        <DetailContent
+          asset={asset}
+          isOwner={isOwner}
+          networkId={networkId}
+          accountId={accountId}
+        />
       </ScrollView>
     </Box>
   );
 }
 
 const NFTDetailModal: FC = () => {
-  const modalClose = useModalClose();
-
+  const [accountId, setAccountId] = useState<string | undefined>();
   const hardwareCancelFlagRef = useRef<boolean>(false);
+  const navigation = useNavigation();
 
   const route =
     useRoute<
@@ -67,7 +80,30 @@ const NFTDetailModal: FC = () => {
       >
     >();
 
-  const { network, asset, isOwner } = route.params;
+  const {
+    asset,
+    isOwner,
+    accountId: originAccountId,
+    networkId,
+  } = route.params;
+
+  useEffect(() => {
+    if (!isAllNetworks(networkId)) {
+      setAccountId(originAccountId);
+      return;
+    }
+    backgroundApiProxy.serviceAccount
+      .getAccountByAddress({
+        address: asset.accountAddress ?? '',
+        networkId: asset.networkId,
+      })
+      .then((account) => {
+        if (account) {
+          setAccountId(account?.id);
+        }
+      });
+  }, [asset, originAccountId, networkId]);
+
   return (
     <Modal
       size="2xl"
@@ -84,14 +120,15 @@ const NFTDetailModal: FC = () => {
         zIndex={1}
         onPress={() => {
           hardwareCancelFlagRef.current = true;
-          modalClose();
+          navigation.goBack?.();
         }}
       />
       <ModalContent
         // ref={hardwareCancelFlagRef}
         asset={asset}
         isOwner={isOwner}
-        network={network}
+        networkId={asset.networkId ?? networkId}
+        accountId={accountId}
       />
     </Modal>
   );

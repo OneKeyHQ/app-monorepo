@@ -13,8 +13,12 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import {
+  deviceUtils,
+  getDeviceTypeByDeviceId,
+} from '@onekeyhq/kit/src/utils/hardware';
 import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import DisablePassphraseDialog from './DisablePassphraseDialog';
@@ -174,6 +178,15 @@ function DeviceAdvancedSettingsBottomSheetModal({
   const [deviceId, setDeviceId] = useState<string>();
   const [deviceFeatures, setDeviceFeatures] = useState<IOneKeyDeviceFeatures>();
 
+  const isModeTouch = useCallback(
+    async (features: IOneKeyDeviceFeatures | undefined) => {
+      const { getDeviceType } = await CoreSDKLoader();
+      const currentDeviceType = getDeviceType(features);
+      return currentDeviceType === 'touch' || currentDeviceType === 'pro';
+    },
+    [],
+  );
+
   useEffect(() => {
     (async () => {
       try {
@@ -184,9 +197,12 @@ function DeviceAdvancedSettingsBottomSheetModal({
         setDeviceId(device?.deviceId);
 
         let features: IOneKeyDeviceFeatures | undefined;
+        let locked = true;
         try {
           // Prevent connection status conflict with check
           features = await serviceHardware.getFeatures(connectId);
+          const isModeT = await isModeTouch(features);
+          locked = features?.unlocked === false && isModeT;
         } catch (error) {
           // @ts-expect-error
           const { code } = error || {};
@@ -195,7 +211,7 @@ function DeviceAdvancedSettingsBottomSheetModal({
 
         await serviceHardware.unlockDevice(connectId);
 
-        if (!features) {
+        if (!features || locked) {
           features = await serviceHardware.getFeatures(connectId);
         }
         setDeviceFeatures(features);
@@ -208,7 +224,7 @@ function DeviceAdvancedSettingsBottomSheetModal({
         deviceUtils.showErrorToast(error, 'action__connection_timeout');
       }
     })();
-  }, [closeOverlay, engine, serviceHardware, walletId]);
+  }, [closeOverlay, engine, isModeTouch, serviceHardware, walletId]);
 
   return (
     <BottomSheetModal

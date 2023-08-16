@@ -25,8 +25,11 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import type { WatchAssetParameters } from '@onekeyhq/shared/src/providerApis/ProviderApiEthereum/ProviderApiEthereum.types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAccountTokensBalance, useAccountTokensOnChain } from '../../hooks';
-import { useActiveWalletAccount } from '../../hooks/redux';
+import {
+  useAccountTokensBalance,
+  useAccountTokensOnChain,
+  useActiveWalletAccount,
+} from '../../hooks';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
 import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
@@ -34,6 +37,8 @@ import { ManageTokenModalRoutes } from '../../routes/routesEnum';
 import { wait } from '../../utils/helper';
 import { SiteSection } from '../ManageNetworks/components/SiteSection';
 import { defaultMenuOffset } from '../Overlay/BaseMenu';
+
+import { notifyIfRiskToken } from './helpers/TokenSecurityModalWrapper';
 
 import type { ListItem } from '../ManageNetworks/SwitchRpc';
 import type { ManageTokenRoutesParams } from './types';
@@ -210,7 +215,7 @@ function ViewTokenModal(props: IViewTokenModalProps) {
   useEffect(() => {
     async function fetchBalance() {
       if (activeAccount && activeNetwork) {
-        await backgroundApiProxy.serviceToken.getAccountTokenBalance({
+        await backgroundApiProxy.serviceToken.fetchAndSaveAccountTokenBalance({
           accountId: activeAccount.id,
           networkId: activeNetwork.id,
           tokenIds: [address],
@@ -345,12 +350,15 @@ function AddTokenModal() {
             address,
             logoURI,
           );
-          ToastManager.show({
-            title: intl.formatMessage({
-              id: 'msg__token_added',
-              defaultMessage: 'Token Added',
-            }),
-          });
+          if (addedToken) {
+            notifyIfRiskToken(addedToken);
+            ToastManager.show({
+              title: intl.formatMessage({
+                id: 'msg__token_added',
+                defaultMessage: 'Token Added',
+              }),
+            });
+          }
         }
         await wait(1000);
         await dappApprove.resolve({ close, result: addedToken });

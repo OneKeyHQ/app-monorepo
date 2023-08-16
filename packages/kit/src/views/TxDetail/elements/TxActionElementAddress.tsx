@@ -3,18 +3,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { HStack, IconButton, Text, VStack } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AddressLabel } from '../../../components/AddressLabel';
-import { useNavigation, useNetwork } from '../../../hooks';
+import { useNavigation, useNetwork, useWallet } from '../../../hooks';
 import { useClipboard } from '../../../hooks/useClipboard';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
-import {
-  MainRoutes,
-  ModalRoutes,
-  RootRoutes,
-  TabRoutes,
-} from '../../../routes/routesEnum';
+import { navigationShortcuts } from '../../../routes/navigationShortcuts';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { setHomeTabName } from '../../../store/reducers/status';
 import { AddressBookRoutes } from '../../AddressBook/routes';
 import { useAddressSecurityInfo } from '../../ManageTokens/hooks';
@@ -42,6 +39,7 @@ export function useAddressLabel({
   networkId?: string;
 }) {
   const [label, setLabel] = useState('');
+  const [walletId, setWalletId] = useState('');
   const [isWatchAccount, setIsWatchAccount] = useState(false);
   useEffect(() => {
     (async () => {
@@ -51,12 +49,14 @@ export function useAddressLabel({
       });
       if (result && result.label) {
         setLabel(result.label);
+        setWalletId(result.walletId);
         setIsWatchAccount(result.accountId.startsWith('watching--'));
       }
     })();
   }, [address, networkId]);
   return {
     label,
+    walletId,
     isWatchAccount,
   };
 }
@@ -94,31 +94,34 @@ function TxActionElementAddressMoreMenu(props: AddressMoreMenuProps) {
     [address, amount, copyText],
   );
 
+  const onOpenAccount = useCallback(async () => {
+    const account = await backgroundApiProxy.serviceAccount.getAccountByAddress(
+      {
+        address,
+        networkId,
+      },
+    );
+    if (account && networkId) {
+      await backgroundApiProxy.serviceAccount.changeCurrrentAccount({
+        accountId: account.id,
+        networkId,
+      });
+    }
+    backgroundApiProxy.dispatch(setHomeTabName(WalletHomeTabEnum.Tokens));
+    navigationShortcuts.navigateToHome();
+  }, [networkId, address]);
+
   const options = useMemo(() => {
     const baseOptions: IBaseMenuOptions = [
       isCopy && {
         id: 'action__copy_address',
         onPress: () => handleCopyText(address),
+        icon: 'Square2StackMini',
       },
       isAccount && {
         id: 'action__view_account',
-        onPress: async () => {
-          const account =
-            await backgroundApiProxy.serviceAccount.getAccountByAddress({
-              address,
-              networkId,
-            });
-          await backgroundApiProxy.serviceAccount.changeActiveAccountByAccountId(
-            account?.id ?? '',
-          );
-          backgroundApiProxy.dispatch(setHomeTabName(WalletHomeTabEnum.Tokens));
-          navigation?.navigate(RootRoutes.Main, {
-            screen: MainRoutes.Tab,
-            params: {
-              screen: TabRoutes.Home,
-            },
-          });
-        },
+        onPress: onOpenAccount,
+        icon: 'UserCircleSolid',
       },
       !!contact && {
         id: 'action__edit',
@@ -138,21 +141,23 @@ function TxActionElementAddressMoreMenu(props: AddressMoreMenuProps) {
             },
           });
         },
+        icon: 'PencilSquareMini',
       },
       openBlockBrowser.hasAvailable && {
         id: 'action__view_in_browser',
         onPress: () => openBlockBrowser.openAddressDetails(address),
+        icon: 'GlobeAltMini',
       },
     ];
     return baseOptions.filter(Boolean);
   }, [
+    onOpenAccount,
     address,
     handleCopyText,
     isAccount,
     contact,
     isCopy,
     navigation,
-    networkId,
     openBlockBrowser,
   ]);
 
@@ -165,7 +170,6 @@ export function TxActionElementAddress(
   props: {
     address: string;
     isShorten?: boolean;
-    isLabelShow?: boolean;
     isCopy?: boolean;
     flex?: number;
     checkSecurity?: boolean;
@@ -176,7 +180,6 @@ export function TxActionElementAddress(
   const {
     address,
     isShorten = true,
-    isLabelShow = true,
     isCopy = true,
     checkSecurity = false,
     networkId,
@@ -190,26 +193,30 @@ export function TxActionElementAddress(
     shouldCheckSecurity ? address : '',
   );
 
-  const { label, isWatchAccount } = useAddressLabel({ address, networkId });
+  const {
+    label,
+    isWatchAccount,
+    walletId: accountWalletId,
+  } = useAddressLabel({ address, networkId });
   const contact = useAddressBookItem({ address });
-  let text = isShorten ? shortenAddress(address) : address;
-  if (label && isLabelShow) {
-    text = `${label}(${address.slice(-4)})`;
-  }
+  const showAddress = !isLightningNetworkByNetworkId(networkId ?? '');
+  const text = isShorten ? shortenAddress(address) : address;
 
   return (
     <VStack flex={flex}>
       <HStack alignItems="flex-start" space={1}>
         <VStack space={1} flex={1}>
-          <Text
-            ml={securityInfo?.length ? 1 : 0}
-            isTruncated
-            numberOfLines={2}
-            {...others}
-            color={securityInfo?.length ? 'text-critical' : 'text-default'}
-          >
-            {text}
-          </Text>
+          {showAddress && (
+            <Text
+              ml={securityInfo?.length ? 1 : 0}
+              isTruncated
+              numberOfLines={2}
+              {...others}
+              color={securityInfo?.length ? 'text-critical' : 'text-default'}
+            >
+              {text}
+            </Text>
+          )}
           <AddressLabel
             mt={-1}
             address={address}
@@ -217,6 +224,8 @@ export function TxActionElementAddress(
             securityInfo={securityInfo}
             shouldCheckSecurity={shouldCheckSecurity}
             isAccount={!!label}
+            accountLabel={label}
+            walletId={accountWalletId}
             isWatchAccount={isWatchAccount}
             isAddressBook={!!contact}
             addressBookLabel={contact?.name}

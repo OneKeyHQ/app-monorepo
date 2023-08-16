@@ -19,6 +19,7 @@ const settings: IVaultSettings = Object.freeze({
 
   isUTXOModel: false,
   activateTokenRequired: true,
+  allowZeroFee: true,
 
   accountNameInfo: {
     default: {
@@ -28,6 +29,9 @@ const settings: IVaultSettings = Object.freeze({
       coinType: COINTYPE_ALGO,
     },
   },
+
+  hideInAllNetworksMode: true,
+  mnemonicAsPrivatekey: true,
 
   txExtraInfo: [
     {

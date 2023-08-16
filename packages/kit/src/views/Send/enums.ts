@@ -13,6 +13,11 @@ export enum SendModalRoutes {
   HardwareSwapContinue = 'HardwareSwapContinue',
   BatchSendConfirm = 'BatchSendConfirm',
   BatchSendProgress = 'BatchSendProgress',
+  NFTDetailModal = 'NFTDetailModal',
+  LNURLPayRequest = 'LNURLPayRequest',
+  LNURLWithdraw = 'LNURLWithdraw',
+  LNURLAuth = 'LNURLAuth',
+  LNURLAuthentication = 'LNURLAuthentication',
 }
 
 export enum ESendEditFeeTypes {

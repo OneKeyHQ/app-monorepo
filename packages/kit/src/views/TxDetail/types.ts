@@ -53,6 +53,7 @@ export type ITxActionAmountProps = ComponentProps<typeof Text> & {
   decimals?: number;
   onPress?: (() => void) | null;
   subText?: string | JSX.Element;
+  isSendConfirm?: boolean;
 };
 
 export type ITxActionElementDetail = {
@@ -67,7 +68,7 @@ export type ITxActionCardViewProps = {
   desc?: JSX.Element;
   icon?: JSX.Element;
   content?: JSX.Element;
-  details?: Array<ITxActionElementDetail | undefined | null>;
+  details?: Array<ITxActionElementDetail | JSX.Element | undefined | null>;
   isSingleTransformMode?: boolean;
   showTitleDivider?: boolean;
   showContentDivider?: boolean;

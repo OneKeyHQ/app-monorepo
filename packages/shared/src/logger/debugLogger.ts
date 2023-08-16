@@ -1,9 +1,13 @@
 import { format as fnsFormat } from 'date-fns';
 import { isArray, isNil } from 'lodash';
 import { InteractionManager } from 'react-native';
-import { FileLogger, LogLevel } from 'react-native-file-logger';
 import { logger as RNLogger, consoleTransport } from 'react-native-logs';
 
+import {
+  FileLogger,
+  LogLevel,
+} from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
+import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import { zip } from '@onekeyhq/shared/src/modules3rdParty/react-native-zip-archive';
 
 import platformEnv from '../platformEnv';
@@ -14,10 +18,6 @@ import type { transportFunctionType } from 'react-native-logs';
 
 // eslint-disable-next-line import/order
 import { stringify } from 'flatted';
-
-const RNFS: typeof import('react-native-fs') = platformEnv.isNative
-  ? require('react-native-fs')
-  : {};
 
 type IConsoleFuncProps = {
   msg: any;
@@ -132,10 +132,13 @@ const LOCAL_WEB_LIKE_TRANSPORT_CONFIG = {
   },
 };
 
-const NATIVE_LOG_DIR_PATH = `${RNFS.CachesDirectoryPath}/logs`;
-const NATIVE_LOG_ZIP_DIR_PATH = `${RNFS.CachesDirectoryPath}/log_zip`;
+const NATIVE_LOG_DIR_PATH = `${RNFS?.CachesDirectoryPath || 'OneKey'}/logs`;
+const NATIVE_LOG_ZIP_DIR_PATH = `${
+  RNFS?.CachesDirectoryPath || 'OneKey'
+}/log_zip`;
 
 const removeLogZipDir = async () => {
+  if (!RNFS) return;
   const isExist = await RNFS.exists(NATIVE_LOG_ZIP_DIR_PATH);
   if (isExist) {
     await RNFS.unlink(NATIVE_LOG_ZIP_DIR_PATH);
@@ -143,18 +146,23 @@ const removeLogZipDir = async () => {
 };
 
 const createLogZipDir = async () => {
+  if (!RNFS) return;
   await RNFS.mkdir(NATIVE_LOG_ZIP_DIR_PATH);
 };
 
 export const getLogZipPath = async (fileName: string) => {
   try {
+    if (!RNFS) return;
     await removeLogZipDir();
     await createLogZipDir();
-    return await zip(
-      NATIVE_LOG_DIR_PATH,
-      `${NATIVE_LOG_ZIP_DIR_PATH}/${fileName}`,
-    );
+    const distLogPath = `${NATIVE_LOG_ZIP_DIR_PATH}/${fileName}`;
+    await zip(NATIVE_LOG_DIR_PATH, `${NATIVE_LOG_ZIP_DIR_PATH}/${fileName}`);
+    if (!(await RNFS.exists(distLogPath))) {
+      throw new Error('zip log path is not exist');
+    }
+    return platformEnv.isNativeAndroid ? `file://${distLogPath}` : distLogPath;
   } catch (e) {
+    if (!RNFS) return;
     const files = await RNFS.readDir(NATIVE_LOG_DIR_PATH);
     const sortedFiles = files
       .filter((f) => f.name.endsWith('.log'))
@@ -167,14 +175,17 @@ export const getLogZipPath = async (fileName: string) => {
   }
 };
 
-FileLogger.configure({
-  captureConsole: false,
-  dailyRolling: true,
-  maximumFileSize: 1024 * 1024 * 4,
-  maximumNumberOfFiles: 7,
-  logsDirectory: NATIVE_LOG_DIR_PATH,
-  logLevel: LogLevel.Info,
-});
+if (platformEnv.isNative) {
+  FileLogger.configure({
+    captureConsole: false,
+    dailyRolling: true,
+    maximumFileSize: 1024 * 1024 * 4,
+    maximumNumberOfFiles: 7,
+    logsDirectory: NATIVE_LOG_DIR_PATH,
+    logLevel: LogLevel.Info,
+  });
+}
+
 const fileAsyncTransport: transportFunctionType = (props) => {
   const { level, rawMsg, extension } = props;
   FileLogger.write(
@@ -212,6 +223,7 @@ export enum LoggerNames {
   onBoarding = 'onBoarding',
   hardwareSDK = 'hardwareSDK',
   http = 'http',
+  websocket = 'websocket',
   jsBridge = 'jsBridge',
   webview = 'webview',
   desktopInjected = 'desktopInjected',
@@ -235,9 +247,9 @@ export enum LoggerNames {
   autoUpdate = 'autoUpdate',
   migrate = 'migrate',
   onekeyLite = 'onekeyLite',
-  overview = 'overview',
   native = 'native',
   staking = 'staking',
+  allNetworks = 'allNetworks',
 }
 
 export type LoggerEntity = {
@@ -264,6 +276,7 @@ const debugLogger: Record<
   [LoggerNames.redux]: Cache.createLogger(LoggerNames.redux),
   [LoggerNames.navigation]: Cache.createLogger(LoggerNames.navigation),
   [LoggerNames.http]: Cache.createLogger(LoggerNames.http),
+  [LoggerNames.websocket]: Cache.createLogger(LoggerNames.websocket),
   [LoggerNames.jsBridge]: Cache.createLogger(LoggerNames.jsBridge),
   [LoggerNames.webview]: Cache.createLogger(LoggerNames.webview),
   [LoggerNames.desktopInjected]: Cache.createLogger(
@@ -291,9 +304,9 @@ const debugLogger: Record<
   [LoggerNames.autoUpdate]: Cache.createLogger(LoggerNames.autoUpdate),
   [LoggerNames.migrate]: Cache.createLogger(LoggerNames.migrate),
   [LoggerNames.onekeyLite]: Cache.createLogger(LoggerNames.onekeyLite),
-  [LoggerNames.overview]: Cache.createLogger(LoggerNames.overview),
   [LoggerNames.native]: Cache.createLogger(LoggerNames.native),
   [LoggerNames.staking]: Cache.createLogger(LoggerNames.staking),
+  [LoggerNames.allNetworks]: Cache.createLogger(LoggerNames.allNetworks),
 };
 
 if (platformEnv.isDev) {
@@ -304,6 +317,7 @@ if (platformEnv.isDev) {
 if (platformEnv.isNative) {
   const removePreviousLogFile = async () => {
     try {
+      if (!RNFS) return;
       const filePath = `${RNFS.CachesDirectoryPath ?? ''}log.txt`;
       await RNFS.unlink(filePath);
       debugLogger.backgroundApi.info('previous log file deleted at init');

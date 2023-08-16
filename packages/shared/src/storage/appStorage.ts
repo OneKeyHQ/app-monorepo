@@ -4,6 +4,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { buildAppStorageFactory } from './appSetting';
 import { createPrintMethod } from './createPrintMethod';
 import MockStorage from './MockStorage';
 
@@ -27,4 +28,4 @@ if (process.env.NODE_ENV !== 'production') {
   global.$$appStorage.print = createPrintMethod({ storage: appStorage });
 }
 
-export default appStorage;
+export default buildAppStorageFactory(appStorage);

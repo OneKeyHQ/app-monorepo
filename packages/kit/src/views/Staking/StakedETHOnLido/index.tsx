@@ -38,6 +38,7 @@ import { formatAmountExact, gt } from '../../Swap/utils';
 import { PendingLidoTransaction } from '../components/PendingTransaction';
 import { useLidoOverview } from '../hooks';
 import { EthStakingSource, StakingRoutes } from '../typing';
+import { StakingTypes, getTransactionStakingType } from '../utils';
 
 import type { LidoNFTStatus, StakingRoutesParams } from '../typing';
 import type { RouteProp } from '@react-navigation/core';
@@ -150,7 +151,11 @@ const PendingTransactionAlert = () => {
       return [];
     }
     const items = transactions[accountId]?.[networkId] ?? [];
-    return items.filter((item) => !item.archive);
+    return items.filter(
+      (item) =>
+        !item.archive &&
+        getTransactionStakingType(item.type) === StakingTypes.eth,
+    );
   }, [transactions, networkId, accountId]);
 
   return txs.length > 0 ? (

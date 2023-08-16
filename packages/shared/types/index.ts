@@ -68,3 +68,8 @@ export type IServerNetwork = {
   explorers: INetworkExplorerConfig[];
   extensions: Record<string, unknown>;
 };
+
+export enum EOnekeyDomain {
+  ONEKEY_SO = 'onekey.so',
+  ONEKEY_CN = 'onekeycn.com',
+}

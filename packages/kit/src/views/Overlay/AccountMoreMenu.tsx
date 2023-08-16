@@ -5,7 +5,12 @@ import { useAsync } from 'react-async-hook';
 import { useIntl } from 'react-intl';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
-import { ToastManager } from '@onekeyhq/components';
+import {
+  Box,
+  IconButton,
+  ToastManager,
+  Typography,
+} from '@onekeyhq/components';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
@@ -16,7 +21,6 @@ import {
   enabledAccountDynamicNetworkIds,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useNavigation } from '../../hooks';
@@ -26,7 +30,6 @@ import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
 import { useIsDevModeEnabled } from '../../hooks/useSettingsDevMode';
 import {
   CoinControlModalRoutes,
-  FiatPayModalRoutes,
   ModalRoutes,
   RootRoutes,
 } from '../../routes/routesEnum';
@@ -36,18 +39,24 @@ import {
   checkAccountCanSubscribe,
   useEnabledAccountDynamicAccounts,
 } from '../PushNotification/hooks';
+import { useFiatPay } from '../Wallet/AccountInfo/hooks';
 
 import BaseMenu from './BaseMenu';
 
-import type { IMenu } from './BaseMenu';
 import type { MessageDescriptor } from 'react-intl';
 
 const NeedActivateAccountImpl = [IMPL_APTOS, IMPL_SUI];
 
-const AccountMoreMenu: FC<IMenu> = (props) => {
+interface Props {
+  iconBoxFlex: number;
+  isSmallView: boolean;
+}
+
+const AccountMoreMenu: FC<Props> = ({ iconBoxFlex, isSmallView }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { network, account, wallet, accountId } = useActiveWalletAccount();
+  const { network, account, wallet, accountId, networkId } =
+    useActiveWalletAccount();
   const { openAddressDetails } = useOpenBlockBrowser(network);
   const { copyAddress } = useCopyAddress({ wallet });
   const { serviceNotification, dispatch } = backgroundApiProxy;
@@ -109,7 +118,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
     enabledAccountDynamicNetworkIds.includes(network?.id || '') &&
     isCoinTypeCompatibleWithImpl(account.coinType, IMPL_EVM);
 
-  const showCoinControl = network?.settings.isBtcForkChain;
+  const showCoinControl = network?.settings.isBtcForkChain && !!account?.xpub;
 
   const accountSubscriptionIcon = useMemo(
     () => (enabledNotification ? 'BellSlashMini' : 'BellMini'),
@@ -172,7 +181,17 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
     });
   }, [navigation, network?.id, accountId]);
 
-  const walletType = wallet?.type;
+  const buy = useFiatPay({
+    accountId,
+    networkId,
+    type: 'buy',
+  });
+
+  const sell = useFiatPay({
+    accountId,
+    networkId,
+    type: 'sell',
+  });
 
   const options: (
     | {
@@ -197,46 +216,16 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
         icon: 'LightBulbMini',
       },
       // TODO Connected Sites
-      walletType !== 'watching' &&
-        !isAllNetworks(network?.id) &&
-        !platformEnv.isAppleStoreEnv && {
-          id: 'action__buy_crypto',
-          onPress: () => {
-            if (!account) return;
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.FiatPay,
-              params: {
-                screen: FiatPayModalRoutes.SupportTokenListModal,
-                params: {
-                  networkId: network?.id ?? '',
-                  accountId,
-                  type: 'buy',
-                },
-              },
-            });
-          },
-          icon: 'PlusMini',
-        },
-      walletType !== 'watching' &&
-        !isAllNetworks(network?.id) &&
-        !platformEnv.isAppleStoreEnv && {
-          id: 'action__sell_crypto',
-          onPress: () => {
-            if (!account) return;
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.FiatPay,
-              params: {
-                screen: FiatPayModalRoutes.SupportTokenListModal,
-                params: {
-                  networkId: network?.id ?? '',
-                  type: 'sell',
-                  accountId,
-                },
-              },
-            });
-          },
-          icon: 'BanknotesMini',
-        },
+      buy.visible && {
+        id: 'action__buy_crypto',
+        onPress: buy.process,
+        icon: 'PlusMini',
+      },
+      sell.visible && {
+        id: 'action__sell_crypto',
+        onPress: sell.process,
+        icon: 'BanknotesMini',
+      },
       !!account?.address && {
         id: 'action__view_in_explorer',
         icon: 'GlobeAltMini',
@@ -284,8 +273,9 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
       // TODO Share
     ],
     [
+      buy,
+      sell,
       needActivateAccount,
-      walletType,
       showSubscriptionIcon,
       enabledNotification,
       onChangeAccountSubscribe,
@@ -296,22 +286,40 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
       account,
       network,
       navigation,
-      accountId,
       copyAddress,
       openAddressDetails,
     ],
   );
 
+  if (!options.filter(Boolean)?.length) {
+    return null;
+  }
+
   return (
-    <BaseMenu
-      w={220}
-      options={options}
-      {...props}
-      onOpen={() => {
-        refresh();
-        execute();
-      }}
-    />
+    <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
+      <BaseMenu
+        w={220}
+        options={options}
+        onOpen={() => {
+          refresh();
+          execute();
+        }}
+      >
+        <IconButton
+          circle
+          size={isSmallView ? 'xl' : 'lg'}
+          name="EllipsisVerticalOutline"
+          type="basic"
+        />
+      </BaseMenu>
+      <Typography.CaptionStrong
+        textAlign="center"
+        mt="8px"
+        color="text-default"
+      >
+        {intl.formatMessage({ id: 'action__more' })}
+      </Typography.CaptionStrong>
+    </Box>
   );
 };
 

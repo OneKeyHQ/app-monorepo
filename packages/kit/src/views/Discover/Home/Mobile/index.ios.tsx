@@ -1,22 +1,15 @@
-import { useContext } from 'react';
-
 import { Box } from '@onekeyhq/components';
 
-import { useShowBookmark } from '../../hooks';
-import { DiscoverContext } from '../context';
+import { useShowBookmark } from '../../hooks/useControl';
 
-import { Mine } from './Mine';
-import { Others } from './Others';
+import { Main } from './Main';
 import { Restricted } from './Restricted';
 
-export const Unrestricted = () => {
-  const { categoryId } = useContext(DiscoverContext);
-  return (
-    <Box flex="1" bg="background-default">
-      {categoryId ? <Others /> : <Mine />}
-    </Box>
-  );
-};
+export const Unrestricted = () => (
+  <Box flex="1" bg="background-default">
+    <Main />
+  </Box>
+);
 
 export const Mobile = () => {
   const showBookmark = useShowBookmark();

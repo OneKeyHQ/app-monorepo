@@ -27,6 +27,7 @@ export type InscribeModalRoutesParams = {
   [InscribeModalRoutes.ReceiveAddress]: {
     networkId: string;
     accountId: string;
+    address?: string;
     contents: IInscriptionContent[];
     size: number;
     file?: InscribeFile;

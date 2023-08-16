@@ -401,12 +401,12 @@ function createMainWindow() {
     (details, callback) => {
       const { url } = details;
       if (
-        url.startsWith('http://127.0.0.1:21320') ||
-        url.startsWith('http://localhost:21320')
+        url.startsWith('http://127.0.0.1:21320/') ||
+        url.startsWith('http://localhost:21320/')
       ) {
         // resolve onekey bridge CORS error
         details.requestHeaders.Origin = 'https://jssdk.onekey.so';
-      } else if (url.startsWith('https://mainnet.optimism.io')) {
+      } else if (url.startsWith('https://mainnet.optimism.io/')) {
         // add metamask header to resolve rate-limit
         details.requestHeaders.Origin =
           'chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn';

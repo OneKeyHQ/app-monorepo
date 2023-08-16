@@ -59,7 +59,7 @@ const OverviewDefiListComponent: FC = () => {
       mx={isVertical ? 4 : '50px'}
       data={defis.slice(0, page * pageSize)}
       keyExtractor={(item) => item._id?.protocolId}
-      showDivider
+      showDivider={false}
       renderItem={({ item }) => <OverviewDefiProtocol {...item} />}
       onEndReached={loadMore}
     />

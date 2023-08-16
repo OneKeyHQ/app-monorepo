@@ -5,14 +5,28 @@ import type {
   Network,
   SwitchRpcParams,
 } from '@onekeyhq/engine/src/types/network';
-import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import type { Token } from '@onekeyhq/engine/src/types/token';
+import type { WalletType } from '@onekeyhq/engine/src/types/wallet';
 
 import { ManageNetworkModalRoutes } from '../../routes/routesEnum';
 
 export { ManageNetworkModalRoutes };
 
 export type ManageNetworkRoutesParams = {
-  [ManageNetworkModalRoutes.NetworkAccountSelector]: undefined;
+  [ManageNetworkModalRoutes.NetworkAccountSelector]:
+    | undefined
+    | {
+        hideAllNetworks?: boolean;
+        hideSideChain?: boolean;
+        hideSearchBar?: boolean;
+        hideCreateAccount?: boolean;
+        hideAccountActions?: boolean;
+        multiSelect?: boolean;
+        singleSelect?: boolean;
+        tokenShowBalance?: Token;
+        onAccountsSelected?: (accounts: string[]) => void;
+        walletsToHide?: WalletType[];
+      };
   [ManageNetworkModalRoutes.NetworkSelector]:
     | undefined
     | {
@@ -84,4 +98,9 @@ export type ManageNetworkRoutesParams = {
     accountId: string;
   };
   [ManageNetworkModalRoutes.AllNetworksSupportedNetworks]: undefined;
+};
+
+export type NetworkWithAccounts = Network & {
+  accounts: Account[];
+  selected: boolean;
 };

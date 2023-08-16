@@ -458,7 +458,10 @@ export default class Vault extends VaultBase {
     interactInfo?: IDecodedTxInteractInfo;
   }): Promise<IDecodedTx> {
     // batch transfer
-    if (encodedTx.to === batchTransferContractAddress[this.networkId]) {
+    if (
+      encodedTx.to.toLowerCase() ===
+      batchTransferContractAddress[this.networkId]?.toLowerCase()
+    ) {
       const decodeTx = await this.decodeBatchTransferTx(
         decodedTxLegacy,
         encodedTx,
@@ -727,7 +730,6 @@ export default class Vault extends VaultBase {
     let paramTypes: string[];
     let ParamValues: any[];
     let totalAmountBN = new BigNumber(0);
-
     if (isTransferToken) {
       if (isNFT && nftType && nftTokenId) {
         batchMethod = BatchTransferSelectors.disperseNFT;
@@ -1108,6 +1110,7 @@ export default class Vault extends VaultBase {
     const network = await this.getNetwork();
     const dbAccount = await this.getDbAccount();
     const {
+      from,
       to,
       value,
       data,
@@ -1134,6 +1137,7 @@ export default class Vault extends VaultBase {
       shiftFeeDecimals: false,
       network,
       dbAccount,
+      from,
       to,
       valueOnChain: value,
       extra: {
@@ -2099,9 +2103,9 @@ export default class Vault extends VaultBase {
     const client = await this.getJsonRPCClient();
     const start = performance.now();
     try {
-      const res = await client.rpc.batchCall<Array<{ number: string }>>(
+      const res = await client.rpc.batchCall<Array<string>>(
         [
-          ['eth_getBlockByNumber', ['latest', false]],
+          ['eth_blockNumber', []],
           [
             'eth_getBalance',
             // fake address
@@ -2114,7 +2118,7 @@ export default class Vault extends VaultBase {
         true,
         false,
       );
-      const latestBlock = parseInt(res[0].number);
+      const latestBlock = new BigNumber(res[0]).toNumber();
       if (
         Number.isNaN(latestBlock) ||
         typeof res[1] !== 'string' ||

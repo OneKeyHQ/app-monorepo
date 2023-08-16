@@ -17,6 +17,7 @@ import {
   IMPL_LIGHTNING_TESTNET,
   IMPL_LTC,
   IMPL_NEAR,
+  IMPL_NEXA,
   IMPL_SOL,
   IMPL_STC,
   IMPL_SUI,
@@ -105,6 +106,9 @@ export function createVaultSettings(options: {
   }
   if (impl === IMPL_KASPA) {
     return require('./impl/kaspa/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_NEXA) {
+    return require('./impl/nexa/settings').default as IVaultSettings;
   }
   if (impl === IMPL_LIGHTNING) {
     return require('./impl/lightning-network/settings')

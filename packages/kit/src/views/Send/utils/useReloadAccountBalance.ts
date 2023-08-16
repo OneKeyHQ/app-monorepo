@@ -16,6 +16,7 @@ export function useReloadAccountBalance({
     backgroundApiProxy.serviceToken.fetchAccountTokens({
       accountId,
       networkId,
+      simpleRefreshBalanceOnly: true,
     });
   }, [accountId, networkId]);
 }

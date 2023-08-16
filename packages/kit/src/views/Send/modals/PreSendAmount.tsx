@@ -19,6 +19,7 @@ import {
   Icon,
   Keyboard,
   Pressable,
+  RichTooltip,
   Spinner,
   Text,
   ToastManager,
@@ -26,6 +27,8 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -46,6 +49,7 @@ import { BaseSendModal } from '../components/BaseSendModal';
 import { PreSendAmountAlert } from '../components/PreSendAmountAlert';
 import { SendModalRoutes } from '../enums';
 import { usePreSendAmountInfo } from '../utils/usePreSendAmountInfo';
+import { useReloadAccountBalance } from '../utils/useReloadAccountBalance';
 
 import type { SendRoutesParams } from '../types';
 import type { RouteProp } from '@react-navigation/core';
@@ -75,6 +79,14 @@ export function PreSendAmountPreview({
   loading?: boolean;
   placeholder?: string;
 }) {
+  const intl = useIntl();
+  const [isVisible, setIsVisible] = useState(false);
+  const onPaste = useCallback(async () => {
+    const pastedText = await getClipboard();
+    onChangeText?.(pastedText);
+    setIsVisible(false);
+  }, [onChangeText]);
+
   const descView = useMemo(() => {
     if (!desc) {
       return null;
@@ -93,6 +105,18 @@ export function PreSendAmountPreview({
       </Text>
     );
   }, [desc]);
+
+  const TextView = useMemo(
+    () => (
+      <AutoSizeText
+        autoFocus
+        text={text}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+      />
+    ),
+    [onChangeText, placeholder, text],
+  );
   return (
     <Box height="140px">
       {!!title && (
@@ -108,15 +132,28 @@ export function PreSendAmountPreview({
           {titleAction}
         </HStack>
       )}
-
-      {/* placeholder={intl.formatMessage({ id: 'content__amount' })} */}
       <Center flex={1} maxH="64px" mt={2} mb={3}>
-        <AutoSizeText
-          autoFocus
-          text={text}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-        />
+        {platformEnv.isNative ? (
+          <RichTooltip
+            // eslint-disable-next-line
+            trigger={({ ...props }) => (
+              <Pressable {...props}>{TextView}</Pressable>
+            )}
+            bodyProps={{
+              children: (
+                <Pressable onPress={onPaste}>
+                  <Text typography="Body2" fontSize={15}>
+                    {intl.formatMessage({ id: 'action__paste' })}
+                  </Text>
+                </Pressable>
+              ),
+            }}
+            visible={isVisible}
+            onToggle={setIsVisible}
+          />
+        ) : (
+          TextView
+        )}
       </Center>
 
       {loading ? <Spinner size="sm" /> : descView}
@@ -139,6 +176,11 @@ function PreSendAmount() {
   const { account, accountId, networkId, network } =
     useActiveSideAccount(transferInfo);
   const { engine } = backgroundApiProxy;
+
+  useReloadAccountBalance({
+    networkId,
+    accountId,
+  });
 
   const tokenIdOnNetwork = transferInfo.token;
   const { token: tokenInfo } = useSingleToken(
@@ -214,6 +256,7 @@ function PreSendAmount() {
     return [true, false];
   }, [minAmountBN, amount]);
 
+  const hiddenAmountError = isLightningNetworkByNetworkId(networkId);
   const [invalidAmountError, setInvalidAmountError] = useState<{
     key: MessageDescriptor['id'];
     info: any;
@@ -268,7 +311,7 @@ function PreSendAmount() {
             { 0: minAmountBN.toFixed(), 1: tokenInfo?.symbol },
           )}
         </Typography.Body1Strong>
-      ) : invalidAmountError ? (
+      ) : invalidAmountError && !hiddenAmountError ? (
         <Typography.Body1Strong color="text-critical">
           {intl.formatMessage(
             { id: invalidAmountError.key },
@@ -282,6 +325,7 @@ function PreSendAmount() {
       minAmountNoticeNeeded,
       tokenInfo?.symbol,
       invalidAmountError,
+      hiddenAmountError,
     ],
   );
 
@@ -398,6 +442,7 @@ function PreSendAmount() {
           accountId={accountId}
           networkId={networkId}
           tokenId={tokenInfo?.id ?? ''}
+          amount={amount}
         />
         <Box flexDirection="row" alignItems="baseline">
           <Typography.Body2Strong mr={2} color="text-subdued">

@@ -30,6 +30,7 @@ type SwapSendParams = {
   networkId: string;
   payloadInfo?: any;
   gasEstimateFallback?: boolean;
+  prepaidFee?: string;
   onDetail?: (txid: string) => any;
   onFail?: (e: Error) => void;
   onSuccess?: SendSuccessCallback;
@@ -53,6 +54,7 @@ export function useSwapSend() {
       accountId,
       networkId,
       payloadInfo,
+      prepaidFee,
       onFail,
       onSuccess,
       onDetail,
@@ -74,6 +76,7 @@ export function useSwapSend() {
               encodedTx,
               payload: payloadInfo,
               autoFallback: gasEstimateFallback,
+              prepaidFee,
             });
           tagLogger.end(LoggerTimerTags.sendTransaction);
           await onSuccess?.({ result, decodedTx });
@@ -114,6 +117,7 @@ export function useSwapSend() {
               feeInfoEditable: true,
               feeInfoUseFeeInTx: false,
               encodedTx,
+              prepaidFee,
               hideSendFeedbackReceipt: !showSendFeedbackReceipt,
               onDetail,
               onSuccess: (result, data) => {

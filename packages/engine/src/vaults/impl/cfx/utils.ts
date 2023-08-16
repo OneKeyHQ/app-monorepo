@@ -72,12 +72,12 @@ export async function parseTransaction(
   actionType: IDecodedTxActionType;
   abiDecodeResult: ITxAbiDecodeResult | null;
 }> {
-  if (
-    await isCfxNativeTransferType(
-      { data: encodedTx.data, to: encodedTx.to },
-      client,
-    )
-  ) {
+  const isNativeTransfer = await isCfxNativeTransferType(
+    { data: encodedTx.data, to: encodedTx.contract ?? encodedTx.to },
+    client,
+  );
+
+  if (isNativeTransfer) {
     return {
       actionType: IDecodedTxActionType.NATIVE_TRANSFER,
       abiDecodeResult: null,
@@ -85,7 +85,9 @@ export async function parseTransaction(
   }
 
   try {
-    const crc20: ISdkCfxContract = client.CRC20(encodedTx.to);
+    const crc20: ISdkCfxContract = client.CRC20(
+      encodedTx.contract ?? encodedTx.to,
+    );
     let txType = IDecodedTxActionType.UNKNOWN;
     const abiDecodeResult = crc20.abi.decodeData(encodedTx.data);
     if (abiDecodeResult) {
@@ -147,9 +149,7 @@ export function getApiExplorerTransferType(
 ) {
   if (tokenIdOnNetwork) return IOnChainTransferType.Transfer20;
 
-  if (tokenIdOnNetwork === '') return IOnChainTransferType.Call;
-
-  return IOnChainTransferType.Transaction;
+  return IOnChainTransferType.Call;
 }
 
 export function ethAddressToCfxAddress(address: string): string {

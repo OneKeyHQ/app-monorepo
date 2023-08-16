@@ -6,6 +6,7 @@ import type { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
 
 import type { Engine } from '../index';
 import type { AccountCredential } from '../types/account';
+import type { BulkTypeEnum } from '../types/batchTransfer';
 import type { AccountNameInfo, EIP1559Fee } from '../types/network';
 import type {
   IErcNftType,
@@ -35,11 +36,13 @@ import type { IEncodedTxEvm } from './impl/evm/Vault';
 import type { IEncodedTxFil } from './impl/fil/types';
 import type { IEncodedTxKaspa } from './impl/kaspa/types';
 import type { IEncodedTxLightning } from './impl/lightning-network/types';
+import type { LNURLPaymentInfo } from './impl/lightning-network/types/lnurl';
 import type {
   IDecodedTxExtraNear,
   IEncodedTxNear,
   INativeTxNear,
 } from './impl/near/types';
+import type { IEncodedTxNexa } from './impl/nexa/types';
 import type { IEncodedTxSol, INativeTxSol } from './impl/sol/types';
 import type { IEncodedTxSTC } from './impl/stc/types';
 import type { IEncodedTxSUI } from './impl/sui/types';
@@ -88,6 +91,8 @@ export type IVaultSettings = {
   dust?: string;
 
   isUTXOModel: boolean;
+  isFeeRateMode?: boolean;
+
   activateAccountRequired?: boolean;
   activateTokenRequired?: boolean;
 
@@ -97,6 +102,7 @@ export type IVaultSettings = {
 
   cannotSendToSelf?: boolean;
 
+  displayChars?: number;
   /**
    * Deposit in account.
    * e.g. Polkadot https://wiki.polkadot.network/docs/build-protocol-info#existential-deposit
@@ -116,12 +122,13 @@ export type IVaultSettings = {
   };
 
   supportFilterScam?: boolean;
-  supportBatchTransfer?: boolean;
+
+  supportBatchTransfer?: BulkTypeEnum[];
   nativeSupportBatchTransfer?: boolean;
-  supportDeflationary?: boolean;
   batchTransferApprovalRequired?: boolean;
   batchTransferApprovalConfirmRequired?: boolean;
   maxActionsInTx?: number;
+
   hardwareMaxActionsEnabled?: boolean;
   transactionIdPattern?: string;
   isBtcForkChain?: boolean;
@@ -134,15 +141,17 @@ export type IVaultSettings = {
   hiddenAddress?: boolean;
   hiddenAccountInfoSwapOption?: boolean;
   hiddenAccountInfoMoreOption?: boolean;
-  hiddenFeeOnTxDetail?: boolean;
   displayMemo?: boolean;
   hideFromToFieldIfValueEmpty?: boolean;
-  displayFullAddress?: boolean;
+  hideFeeSpeedInfo?: boolean;
   rpcStatusDisabled?: boolean;
   useSimpleTipForSpecialCheckEncodedTx?: boolean;
   hexDataEditable?: boolean;
 
   hiddenBlockBrowserTokenDetailLink?: boolean;
+
+  hideInAllNetworksMode?: boolean;
+  mnemonicAsPrivatekey?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
@@ -179,6 +188,8 @@ export type ITransferInfo = {
   selectedUtxos?: string[]; // coin control
   coinControlDisabled?: boolean;
   coinSelectAlgorithm?: ICoinSelectAlgorithm;
+  lnurlPaymentInfo?: LNURLPaymentInfo;
+  txInterval?: string;
 };
 export type IApproveInfo = {
   from: string; // token owner
@@ -250,6 +261,7 @@ export type IEncodedTx =
   | IEncodedTxDot
   | IEncodedTxXmr
   | IEncodedTxKaspa
+  | IEncodedTxNexa
   | IEncodedTxLightning;
 
 export type INativeTx =

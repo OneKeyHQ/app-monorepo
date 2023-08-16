@@ -32,6 +32,7 @@ type AddressInputProps = ComponentProps<typeof Textarea> & {
   contactExcludeWalletAccount?: boolean;
   placeholder?: string;
   description?: string;
+  addressFilter?: (address: string) => Promise<boolean>;
 };
 
 const AddressInput: FC<AddressInputProps> = ({
@@ -43,6 +44,7 @@ const AddressInput: FC<AddressInputProps> = ({
   contactExcludeWalletAccount,
   placeholder,
   description,
+  addressFilter,
   ...rest
 }) => {
   const intl = useIntl();
@@ -90,6 +92,7 @@ const AddressInput: FC<AddressInputProps> = ({
         params: {
           networkId,
           contactExcludeWalletAccount,
+          addressFilter,
           onSelected: ({ address, name }) => {
             onChangeValue?.(address, false);
             if (name) {
@@ -101,10 +104,11 @@ const AddressInput: FC<AddressInputProps> = ({
     });
   }, [
     navigation,
-    onChangeValue,
     networkId,
-    onChangeAddressName,
     contactExcludeWalletAccount,
+    addressFilter,
+    onChangeValue,
+    onChangeAddressName,
   ]);
 
   const onBlur = useCallback(() => {

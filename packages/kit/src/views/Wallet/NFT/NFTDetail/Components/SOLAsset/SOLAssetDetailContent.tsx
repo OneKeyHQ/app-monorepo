@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import { getContentWithAsset } from '@onekeyhq/engine/src/managers/nft';
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
@@ -26,8 +27,7 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
-import { useNetwork } from '../../../../../../hooks';
-import { useActiveWalletAccount } from '../../../../../../hooks/redux';
+import { useNetwork, useWallet } from '../../../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../../../routes/routesEnum';
 import { deviceUtils } from '../../../../../../utils/hardware';
 import { SendModalRoutes } from '../../../../../Send/enums';
@@ -43,21 +43,34 @@ type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 function SOLAssetDetailContent({
   asset: outerAsset,
   isOwner,
+  networkId,
+  accountId,
 }: {
   asset: NFTAsset;
   isOwner: boolean;
+  networkId: string;
+  accountId?: string;
 }) {
   const intl = useIntl();
   const { serviceNFT, serviceHardware } = backgroundApiProxy;
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { wallet } = useActiveWalletAccount();
+  const walletId = useMemo(() => {
+    if (accountId) {
+      return getWalletIdFromAccountId(accountId);
+    }
+    return null;
+  }, [accountId]);
+
+  const { wallet } = useWallet({ walletId });
   const modalClose = useModalClose();
   const isVertical = useIsVerticalLayout();
   const [asset, updateAsset] = useState(outerAsset);
-  const isDisabled = wallet?.type === WALLET_TYPE_WATCHING;
-
+  const isDisabled =
+    wallet?.type === WALLET_TYPE_WATCHING ||
+    asset.owner !== outerAsset.accountAddress ||
+    !accountId;
   const { network } = useNetwork({
-    networkId: outerAsset?.networkId ?? '',
+    networkId,
   });
 
   const [menuLoading, setMenuLoading] = useState(false);
@@ -144,17 +157,8 @@ function SOLAssetDetailContent({
   }, [asset, device, intl, serviceHardware, network]);
 
   const sendNFTWithAmount = useCallback(
-    async (amount: string) => {
-      const { accountAddress, networkId } = outerAsset ?? {};
-      if (!networkId || !accountAddress) {
-        return;
-      }
-      const account =
-        await backgroundApiProxy.serviceAccount.getAccountByAddress({
-          networkId,
-          address: accountAddress ?? '',
-        });
-      if (!account) {
+    (amount: string) => {
+      if (!accountId || !networkId) {
         return;
       }
       navigation.navigate(RootRoutes.Modal, {
@@ -162,7 +166,7 @@ function SOLAssetDetailContent({
         params: {
           screen: SendModalRoutes.PreSendAddress,
           params: {
-            accountId: account?.id,
+            accountId,
             networkId,
             isNFT: true,
             from: '',
@@ -175,7 +179,7 @@ function SOLAssetDetailContent({
         },
       });
     },
-    [asset.tokenAddress, modalClose, navigation, outerAsset],
+    [accountId, asset.tokenAddress, modalClose, navigation, networkId],
   );
 
   return (
@@ -186,6 +190,8 @@ function SOLAssetDetailContent({
           <Text
             typography={{ sm: 'DisplayLarge', md: 'DisplayLarge' }}
             fontWeight="700"
+            isTruncated
+            flex="1"
           >
             {asset.name && asset.name.length > 0
               ? asset.name

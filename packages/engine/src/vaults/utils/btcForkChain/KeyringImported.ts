@@ -114,6 +114,7 @@ export class KeyringImported extends KeyringImportedBase {
   async prepareAccounts(
     params: IPrepareImportedAccountsParams,
   ): Promise<DBUTXOAccount[]> {
+    initBitcoinEcc();
     const { privateKey, name } = params;
     const provider = await (
       this.vault as unknown as BTCForkVault

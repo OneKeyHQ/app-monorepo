@@ -1,10 +1,12 @@
 import { IconButton, useIsVerticalLayout } from '@onekeyhq/components';
 
 import { getAppNavigation } from '../../../hooks/useAppNavigation';
+import { ChainSelector } from '../../../views/Discover/ChainSelector';
 import DAppList from '../../../views/Discover/DAppList';
 import { EditBookmark } from '../../../views/Discover/EditBookmark';
 import { SearchModalView } from '../../../views/Discover/Explorer/Search/SearchModalView';
-import MyDAppList from '../../../views/Discover/MyDAppList';
+import { Favorites } from '../../../views/Discover/Favorites';
+import { History } from '../../../views/Discover/History';
 import { ShareView } from '../../../views/Discover/Share';
 import { DiscoverModalRoutes } from '../../../views/Discover/type';
 
@@ -45,13 +47,20 @@ const modalRoutes = [
     options: withBackHeaderOptions,
   },
   {
-    name: DiscoverModalRoutes.MyDAppListModal,
-    component: MyDAppList,
-    options: withBackHeaderOptions,
-  },
-  {
     name: DiscoverModalRoutes.EditBookmark,
     component: EditBookmark,
+  },
+  {
+    name: DiscoverModalRoutes.History,
+    component: History,
+  },
+  {
+    name: DiscoverModalRoutes.Favorites,
+    component: Favorites,
+  },
+  {
+    name: DiscoverModalRoutes.ChainSelector,
+    component: ChainSelector,
   },
 ];
 

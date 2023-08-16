@@ -19,6 +19,7 @@ import {
 import type { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
 import { FormatCurrencyNativeOfAccount } from '../../../components/Format';
+import { useNetwork } from '../../../hooks';
 import { removeTrailingZeros } from '../../../utils/helper';
 import { SendModalRoutes } from '../types';
 import { IS_REPLACE_ROUTE_TO_FEE_EDIT } from '../utils/sendConfirmConsts';
@@ -219,6 +220,7 @@ function FeeInfoInputForConfirmLite({
   const isPreset = feeInfoPayload?.selected?.type === 'preset';
 
   const [hasTooltipOpen, setHasTooltipOpen] = useState(false);
+  const { network } = useNetwork({ networkId });
 
   const totalNativeForDisplay =
     feeInfoPayload?.current?.totalNativeForDisplay ?? '';
@@ -260,26 +262,28 @@ function FeeInfoInputForConfirmLite({
       : custom?.waitingSeconds;
     return (
       <HStack alignItems="center">
-        <HStack
-          testID="FeeInfoInputForConfirmLite-ContentTitle-0"
-          flex={1}
-          space={2}
-          alignItems="center"
-        >
-          <FeeSpeedLabel
-            prices={feeInfoPayload?.info?.prices}
-            isCustom={!isPreset}
-            index={feeInfoPayload?.selected?.preset}
-            space={1}
-          />
-          <FeeSpeedTime
-            prices={feeInfoPayload?.info?.prices}
-            index={index ?? 0}
-            waitingSeconds={waitingSeconds}
-            typography="Body1Strong"
-            withColor
-          />
-        </HStack>
+        {!network?.settings.hideFeeSpeedInfo ? (
+          <HStack
+            testID="FeeInfoInputForConfirmLite-ContentTitle-0"
+            flex={1}
+            space={2}
+            alignItems="center"
+          >
+            <FeeSpeedLabel
+              prices={feeInfoPayload?.info?.prices}
+              isCustom={!isPreset}
+              index={feeInfoPayload?.selected?.preset}
+              space={1}
+            />
+            <FeeSpeedTime
+              prices={feeInfoPayload?.info?.prices}
+              index={index ?? 0}
+              waitingSeconds={waitingSeconds}
+              typography="Body1Strong"
+              withColor
+            />
+          </HStack>
+        ) : null}
         {feeInfoEditable && (
           <Icon
             testID="FeeInfoInputForConfirmLite-ChevronRightMini-Icon"
@@ -289,7 +293,13 @@ function FeeInfoInputForConfirmLite({
         )}
       </HStack>
     );
-  }, [encodedTx, feeInfoEditable, feeInfoPayload, isPreset]);
+  }, [
+    encodedTx,
+    feeInfoEditable,
+    feeInfoPayload,
+    isPreset,
+    network?.settings.hideFeeSpeedInfo,
+  ]);
 
   const subTitle = useMemo(() => {
     if (!encodedTx || !feeInfoPayload) {
@@ -308,7 +318,7 @@ function FeeInfoInputForConfirmLite({
           networkId={networkId}
           accountId={accountId}
           value={totalNative}
-          render={(ele) => <Text color="text-subdued">{ele}</Text>}
+          render={(ele) => <Text color="text-subdued">({ele})</Text>}
         />
         {loading && <Spinner size="sm" />}
       </HStack>

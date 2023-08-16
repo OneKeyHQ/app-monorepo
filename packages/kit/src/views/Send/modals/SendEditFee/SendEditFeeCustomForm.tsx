@@ -491,7 +491,6 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
                     id: 'form__priority_fee_booster',
                   })}
                   nativeMode={platformEnv.isNative}
-                  minimumTrackTintColor="#85D34C"
                   step={1}
                   value={debouncedPriorityBooster}
                   width="100%"
@@ -671,30 +670,31 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
       </Form>
     );
   }, [
-    autoConfirmAfterFeeSaved,
-    control,
+    formValues?.maxFeePerGas,
+    formValues?.gasLimit,
+    formValues?.maxPriorityFeePerGas,
     feeInfoPayload?.info.feeDecimals,
     feeInfoPayload?.info?.limit,
-    feeSymbol,
-    firstPresetFeeInfo,
-    formValues?.gasLimit,
-    formValues?.maxFeePerGas,
-    formValues?.maxPriorityFeePerGas,
-    getValues,
-    handleBoosterOnChange,
-    intl,
-    isEIP1559Fee,
     isBtcForkChain,
-    isSmallScreen,
-    lastPresetFeeInfo,
+    isEIP1559Fee,
+    feeSymbol,
+    control,
     nativeSymbol,
-    networkId,
-    originLimit,
+    isSmallScreen,
+    intl,
     debouncedPriorityBooster,
-    selectedFeeInfo?.custom?.price,
-    selectedFeeInfo?.custom?.price1559,
-    setValue,
+    handleBoosterOnChange,
+    priorityBooster,
+    originLimit,
     feeRateFormValidator,
+    firstPresetFeeInfo,
+    lastPresetFeeInfo,
+    networkId,
+    getValues,
+    autoConfirmAfterFeeSaved,
+    selectedFeeInfo?.custom?.price1559,
+    selectedFeeInfo?.custom?.price,
+    setValue,
   ]);
 
   const customAlert = useMemo(

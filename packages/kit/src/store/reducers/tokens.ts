@@ -1,25 +1,37 @@
 import { createSlice } from '@reduxjs/toolkit';
+import stringify from 'fast-json-stable-stringify';
 import { uniqBy } from 'lodash';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import type { PayloadAction } from '@reduxjs/toolkit';
 
+export type IAmountValue = string | IValueLoading | IValueNull;
 export type TokenBalanceValue =
   | {
       balance: string;
       blockHeight?: string;
     }
-  | undefined;
+  | IValueLoading
+  | IValueNull;
+export type ITokenBalanceInfo = {
+  balance: IAmountValue;
+  blockHeight?: string;
+};
 export type TokenChartData = [number, number][];
-
-export type PriceLoading = undefined;
-export type NoPriceData = null;
-export type TokenPrices = Record<TokenId, string | PriceLoading | NoPriceData>;
-export type SimpleTokenPrices = Record<
-  string,
-  number | PriceLoading | NoPriceData
->;
+export const CValueLoading = undefined;
+export const CValueNull = null;
+export type IValueLoading = typeof CValueLoading;
+export type IValueNull = typeof CValueNull;
+export type ITokenPriceValue = number | IValueLoading | IValueNull;
+export type SimpleTokenPrices = Record<string, ITokenPriceValue>;
+export type ITokensPricesMap = Record<PriceId, SimpleTokenPrices>;
+export type ITokenPriceInfo = {
+  priceKey?: string;
+  priceRawInfo?: SimpleTokenPrices;
+  price: ITokenPriceValue;
+  price24h: ITokenPriceValue;
+};
 
 type NetworkId = string;
 type AccountId = string;
@@ -32,12 +44,13 @@ export type SimplifiedToken = {
   autoDetected?: boolean;
 };
 
+export type IAccountTokensBalanceMap = Record<TokenId, TokenBalanceValue>;
 export type TokenInitialState = {
-  tokenPriceMap: Record<PriceId, SimpleTokenPrices>;
+  tokenPriceMap: ITokensPricesMap;
   accountTokens: Record<NetworkId, Record<AccountId, Token[]>>;
   accountTokensBalance: Record<
     NetworkId,
-    Record<AccountId, Record<TokenId, TokenBalanceValue>>
+    Record<AccountId, IAccountTokensBalanceMap>
   >;
 };
 
@@ -73,11 +86,18 @@ export const tokensSlice = createSlice({
       if (!state.tokenPriceMap) state.tokenPriceMap = {};
       Object.keys(prices).forEach((key) => {
         const cachePrice = state.tokenPriceMap[key] || {};
-        state.tokenPriceMap[key] = {
-          ...cachePrice,
-          ...prices[key],
-          [`updatedAt--${vsCurrency}`]: Date.now(),
-        };
+
+        // The content is not updated at any time if it has not changed
+        if (
+          stringify(cachePrice[vsCurrency]) !==
+          stringify(prices[key][vsCurrency])
+        ) {
+          state.tokenPriceMap[key] = {
+            ...cachePrice,
+            ...prices[key],
+            [`updatedAt--${vsCurrency}`]: Date.now(),
+          };
+        }
       });
     },
     setAccountTokens(state, action: PayloadAction<TokenPayloadAction>) {

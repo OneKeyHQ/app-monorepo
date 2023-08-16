@@ -2,7 +2,7 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { cloneDeep, debounce } from 'lodash';
 
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
-import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import { buildModalRouteParams } from '@onekeyhq/kit/src/hooks/useAutoNavigateOnMount';
 import type {
   IDappConnectionParams,
@@ -24,6 +24,7 @@ import type {
 import {
   dappRemoveSiteConnections,
   dappSaveSiteConnection,
+  dappUpdateSiteConnectionAddress,
 } from '@onekeyhq/kit/src/store/reducers/dapp';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
@@ -135,6 +136,7 @@ class ServiceDapp extends ServiceBase {
 
     if (accounts.length) {
       const list = cloneDeep(accounts);
+      const actionsToUpdate: any[] = [];
       // support all accounts for dapp connection, do NOT need approval again
       list.forEach((item) => {
         if (
@@ -144,10 +146,18 @@ class ServiceDapp extends ServiceBase {
           )
         ) {
           if (impl !== IMPL_COSMOS) {
-            item.address = accountAddress;
+            if (item.address !== accountAddress) {
+              item.address = accountAddress;
+              actionsToUpdate.push(dappUpdateSiteConnectionAddress(item));
+            }
           }
         }
       });
+      if (actionsToUpdate.length) {
+        setTimeout(() => {
+          this.backgroundApi.dispatch(...actionsToUpdate);
+        }, 800);
+      }
       return list;
     }
     return accounts;

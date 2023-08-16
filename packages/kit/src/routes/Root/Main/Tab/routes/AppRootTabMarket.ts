@@ -1,5 +1,4 @@
 import { withTabLayout } from '@onekeyhq/components/src/Layout/withTabLayout';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { toFocusedLazy } from '../../../../../components/LazyRenderWhenFocus';
 import MarketDetail from '../../../../../views/Market/MarketDetail';
@@ -16,7 +15,6 @@ const config: TabRouteConfig = {
   component: withTabLayout(
     toFocusedLazy(ScreenMarket, {
       rootTabName: name,
-      freezeWhenBlur: !platformEnv.isNativeAndroid,
     }),
     name,
   ),

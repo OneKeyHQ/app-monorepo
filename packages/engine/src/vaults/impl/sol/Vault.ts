@@ -8,10 +8,9 @@ import {
   decodeInstruction,
   decodeTransferCheckedInstruction,
   decodeTransferInstruction,
-  getAssociatedTokenAddress,
+  getAssociatedTokenAddressSync,
 } from '@solana/spl-token';
 import {
-  AccountMeta,
   PublicKey,
   SystemInstruction,
   SystemProgram,
@@ -37,7 +36,9 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import simpleDb from '../../../dbs/simple/simpleDb';
 import {
   InvalidAddress,
+  MinimumTransferBalanceRequiredError,
   NotImplemented,
+  OneKeyError,
   OneKeyInternalError,
   PendingQueueTooLong,
 } from '../../../errors';
@@ -368,7 +369,11 @@ export default class Vault extends VaultBase {
 
   override validateAddress(address: string): Promise<string> {
     try {
-      if (PublicKey.isOnCurve(address)) {
+      const publicKey = new PublicKey(address);
+      if (
+        PublicKey.isOnCurve(address) ||
+        PublicKey.isOnCurve(publicKey.encode())
+      ) {
         return Promise.resolve(address);
       }
     } catch {
@@ -507,81 +512,10 @@ export default class Vault extends VaultBase {
     if (!transferInfo.to) {
       throw new Error('Invalid transferInfo.to params');
     }
-    const {
-      from,
-      to,
-      amount,
-      token: tokenAddress,
-      tokenSendAddress,
-    } = transferInfo;
-    const network = await this.getNetwork();
-    const client = await this.getClient();
-    const token = await this.engine.ensureTokenInDB(
-      this.networkId,
-      tokenAddress ?? '',
-    );
-    if (!token) {
-      throw new OneKeyInternalError(
-        `Token not found: ${tokenAddress || 'main'}`,
-      );
-    }
 
-    const feePayer = new PublicKey(from);
-    const receiver = new PublicKey(to);
-    const nativeTx = new Transaction();
-    [, nativeTx.recentBlockhash] = await client.getFees();
-    nativeTx.feePayer = feePayer;
-
-    if (tokenAddress) {
-      const mint = new PublicKey(tokenAddress);
-      let associatedTokenAddress = receiver;
-      if (PublicKey.isOnCurve(receiver.toString())) {
-        // system account, get token receiver address
-        associatedTokenAddress = await getAssociatedTokenAddress(
-          mint,
-          receiver,
-        );
-      }
-      const associatedAccountInfo = await client.getAccountInfo(
-        associatedTokenAddress.toString(),
-      );
-      if (associatedAccountInfo === null) {
-        nativeTx.add(
-          createAssociatedTokenAccountInstruction(
-            feePayer,
-            associatedTokenAddress,
-            receiver,
-            mint,
-          ),
-        );
-      }
-
-      const source = tokenSendAddress
-        ? new PublicKey(tokenSendAddress)
-        : await getAssociatedTokenAddress(mint, feePayer);
-      nativeTx.add(
-        createTransferCheckedInstruction(
-          source,
-          mint,
-          associatedTokenAddress,
-          feePayer,
-          BigInt(new BigNumber(amount).shiftedBy(token.decimals).toFixed()),
-          token.decimals,
-        ),
-      );
-    } else {
-      nativeTx.add(
-        SystemProgram.transfer({
-          fromPubkey: new PublicKey(from),
-          toPubkey: new PublicKey(to),
-          lamports: BigInt(
-            new BigNumber(amount).shiftedBy(token.decimals).toFixed(),
-          ),
-        }),
-      );
-    }
-
-    return bs58.encode(nativeTx.serialize({ requireAllSignatures: false }));
+    return this.buildEncodedTxFromBatchTransfer({
+      transferInfos: [transferInfo],
+    });
   }
 
   override async buildEncodedTxFromBatchTransfer({
@@ -654,11 +588,13 @@ export default class Vault extends VaultBase {
         let associatedTokenAddress = receiver;
         if (PublicKey.isOnCurve(receiver.toString())) {
           // system account, get token receiver address
-          associatedTokenAddress = await getAssociatedTokenAddress(
+          associatedTokenAddress = await this.getAssociatedTokenAddress({
             mint,
-            receiver,
-          );
+            owner: receiver,
+            isNFT,
+          });
         }
+
         const associatedAccountInfo = await client.getAccountInfo(
           associatedTokenAddress.toString(),
         );
@@ -675,7 +611,11 @@ export default class Vault extends VaultBase {
 
         const source = tokenSendAddress
           ? new PublicKey(tokenSendAddress)
-          : await getAssociatedTokenAddress(mint, feePayer);
+          : await this.getAssociatedTokenAddress({
+              mint,
+              owner: feePayer,
+              isNFT,
+            });
         nativeTx.add(
           createTransferCheckedInstruction(
             source,
@@ -700,6 +640,33 @@ export default class Vault extends VaultBase {
     }
 
     return bs58.encode(nativeTx.serialize({ requireAllSignatures: false }));
+  }
+
+  private async getAssociatedTokenAddress({
+    mint,
+    owner,
+    isNFT,
+  }: {
+    mint: PublicKey;
+    owner: PublicKey;
+    isNFT?: boolean;
+  }) {
+    if (isNFT) {
+      const client = await this.getClient();
+      const tokenAccounts = await client.getTokenAccountsByOwner({
+        address: owner.toString(),
+      });
+
+      const account = tokenAccounts?.find(
+        (item) => item.account.data.parsed.info.mint === mint.toString(),
+      );
+
+      if (account) {
+        return new PublicKey(account.pubkey);
+      }
+    }
+
+    return Promise.resolve(getAssociatedTokenAddressSync(mint, owner));
   }
 
   override buildEncodedTxFromApprove(
@@ -766,6 +733,7 @@ export default class Vault extends VaultBase {
     let retryTime = 0;
     let lastRpcErrorMessage = '';
     const client = await this.getClient();
+    const network = await this.getNetwork();
 
     const doBroadcast = async () => {
       try {
@@ -795,7 +763,7 @@ export default class Vault extends VaultBase {
       } catch (error) {
         debugLogger.engine.error('broadcastTransaction error:', error);
         // @ts-ignore
-        const rpcErrorData = error?.data as
+        const rpcErrorData = (error?.data ?? error?.response?.error) as
           | {
               code: number;
               message: string;
@@ -803,6 +771,18 @@ export default class Vault extends VaultBase {
             }
           | undefined;
         if (error && rpcErrorData) {
+          // https://docs.solana.com/developing/intro/rent
+          if (
+            rpcErrorData.code === -32002 &&
+            rpcErrorData.message.endsWith('without insufficient funds for rent')
+          ) {
+            isNodeBehind = false;
+            throw new MinimumTransferBalanceRequiredError(
+              '0.00089088',
+              network.symbol,
+            );
+          }
+
           // https://marinade.finance/app/defi/
           // error.data
           //    {"code":-32005,"message":"Node is behind by 1018821 slots","data":{"numSlotsBehind":1018821}}

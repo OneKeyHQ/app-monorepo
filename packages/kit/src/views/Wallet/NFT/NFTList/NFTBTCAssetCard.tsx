@@ -5,17 +5,14 @@ import {
   HStack,
   Pressable,
   Text,
-  Token,
   useIsVerticalLayout,
   useTheme,
   useUserDevice,
 } from '@onekeyhq/components';
-import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
-import { useActiveWalletAccount, useNetwork } from '../../../../hooks';
-
+import { NFTNetworkIcon } from './NetworkIcon';
 import NFTBTCContent from './NFTBTCContent';
 
 import type { ListDataType, ListItemComponentType, ListItemType } from './type';
@@ -32,18 +29,6 @@ function NFTBTCAssetCard({
 }: ListItemComponentType<NFTBTCAssetModel>) {
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
-  const { networkId: activeNetworkId } = useActiveWalletAccount();
-
-  const { network } = useNetwork({
-    networkId: asset.networkId,
-  });
-
-  const networkIcon = useMemo(() => {
-    if (!isAllNetworks(activeNetworkId)) {
-      return null;
-    }
-    return network?.logoURI;
-  }, [network, activeNetworkId]);
 
   const MARGIN = isSmallScreen ? 16 : 20;
   const padding = isSmallScreen ? 8 : 12;
@@ -81,7 +66,10 @@ function NFTBTCAssetCard({
           }
         }}
       >
-        <NFTBTCContent size={cardWidth - 2 * padding} asset={asset} />
+        <Box position="relative">
+          <NFTBTCContent size={cardWidth - 2 * padding} asset={asset} />
+          <NFTNetworkIcon networkId={asset.networkId} />
+        </Box>
         <HStack justifyContent="space-between">
           <Text
             typography="Body2"
@@ -91,14 +79,6 @@ function NFTBTCAssetCard({
           >
             {title}
           </Text>
-          {networkIcon ? (
-            <Token
-              size={4}
-              token={{
-                logoURI: networkIcon,
-              }}
-            />
-          ) : null}
         </HStack>
       </Pressable>
     </Box>

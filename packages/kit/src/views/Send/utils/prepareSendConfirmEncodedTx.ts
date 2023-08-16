@@ -1,5 +1,4 @@
 // TODO move to Vault / Service
-import BigNumber from 'bignumber.js';
 import { toLower } from 'lodash';
 
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
@@ -82,11 +81,14 @@ export async function prepareSendConfirmEncodedTx({
     if (sendConfirmParams.sourceInfo) {
       tx = removeFeeInfoInTx(tx);
     }
-    const valueBn = new BigNumber(tx.value);
-    if (!valueBn.isNaN()) {
-      // Ensure IEncodedTxEvm's value is hex string.
-      tx.value = `0x${valueBn.toString(16)}`;
+
+    // Ensure IEncodedTxEvm's value is hex string.
+    if (tx.value && tx.value.startsWith && !tx.value.startsWith('0x')) {
+      throw new Error(
+        'prepareSendConfirmEncodedTx ERROR: tx value is not hex string (only 0x prefixed hex string allowed)',
+      );
     }
+
     try {
       // convert from & to to lower-case, as Metamask support it
       if (tx.from) {
@@ -134,7 +136,9 @@ export async function prepareSendConfirmEncodedTx({
       return updatedTx;
     }
 
-    if (vaultSetting.isBtcForkChain) {
+    const isFeeRateMode =
+      vaultSetting.isFeeRateMode || vaultSetting.isBtcForkChain;
+    if (isFeeRateMode) {
       const encodedTxBtc = encodedTx as IEncodedTxBtc;
       if (!accountId) {
         return Promise.resolve(encodedTx);

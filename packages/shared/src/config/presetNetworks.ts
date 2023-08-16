@@ -880,7 +880,7 @@ const serverPresetNetworks = [
         'transaction': 'https://finder.terra.money/mainnet/tx/{transaction}',
       },
     ],
-    'status': 'LISTED',
+    'status': 'TRASH',
     'createdAt': '2023-05-31T00:29:24.951Z',
     'updatedAt': '2023-05-31T00:29:24.951Z',
   },
@@ -1362,6 +1362,9 @@ const serverPresetNetworks = [
       {
         'url': 'https://1rpc.io/eth',
       },
+      {
+        'url': 'https://onekey-eth.rpc.blxrbdn.com',
+      },
     ],
     'shortcode': 'eth',
     'shortname': 'ETH',
@@ -1786,6 +1789,9 @@ const serverPresetNetworks = [
       {
         'url': 'https://1rpc.io/matic',
       },
+      {
+        'url': 'https://onekey-polygon.rpc.blxrbdn.com',
+      },
     ],
     'shortcode': 'polygon',
     'shortname': 'Polygon',
@@ -2093,6 +2099,9 @@ const serverPresetNetworks = [
     'rpcURLs': [
       {
         'url': 'https://zksync2-mainnet.zksync.io',
+      },
+      {
+        'url': 'https://1rpc.io/zksync2-era',
       },
     ],
     'shortcode': 'zksyncera',
@@ -2432,6 +2441,9 @@ const serverPresetNetworks = [
       },
       {
         'url': 'https://1rpc.io/bnb',
+      },
+      {
+        'url': 'https://onekey-bnb.rpc.blxrbdn.com',
       },
     ],
     'shortcode': 'bsc',
@@ -3498,6 +3510,9 @@ const serverPresetNetworks = [
       {
         'url': 'https://fullnode.mainnet.sui.io',
       },
+      {
+        'url': 'https://1rpc.io/sui',
+      },
     ],
     'shortcode': 'sui',
     'shortname': 'SUI',
@@ -3902,6 +3917,226 @@ const serverPresetNetworks = [
     'status': 'LISTED',
     'createdAt': '2023-06-14T00:29:24.951Z',
     'updatedAt': '2023-06-14T00:29:24.951Z',
+  },
+  {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'nexa',
+    'decimals': 2,
+    'id': 'nexa--0',
+    'impl': 'nexa',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+    'name': 'Nexa',
+    'rpcURLs': [
+      {
+        'url': 'wss://electrum.nexa.org:20004',
+      },
+    ],
+    'shortcode': 'nexa',
+    'shortname': 'Nexa',
+    'symbol': 'NEX',
+    'feeMeta': {
+      'code': 'nexa',
+      'decimals': 2,
+      'symbol': 'nexa',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://explorer.nexa.org/address/{address}',
+        'block': 'https://explorer.nexa.org/block-height/{block}',
+        'name': 'https://explorer.nexa.org',
+        'transaction': 'https://explorer.nexa.org/tx/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2023-06-19T00:29:24.951Z',
+    'updatedAt': '2023-06-19T00:29:24.951Z',
+  },
+  {
+    'balance2FeeDecimals': 0,
+    'chainId': 'testnet',
+    'code': 'nexatest',
+    'decimals': 2,
+    'id': 'nexa--testnet',
+    'impl': 'nexa',
+    'isTestnet': true,
+    'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+    'name': 'Nexa Testnet',
+    'rpcURLs': [
+      {
+        'url': 'wss://testnet-explorer.nexa.org:30004/nexa_ws',
+      },
+    ],
+    'shortcode': 'nexatest',
+    'shortname': 'NexaTest',
+    'symbol': 'TNEX',
+    'feeMeta': {
+      'code': 'nexatest',
+      'decimals': 2,
+      'symbol': 'NEXATEST',
+    },
+    'defaultEnabled': false,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://testnet-explorer.nexa.org/address/{address}',
+        'block': 'https://testnet-explorer.nexa.org/block-height/{block}',
+        'name': 'https://testnet-explorer.nexa.org',
+        'transaction': 'https://testnet-explorer.nexa.org/tx/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2023-06-19T00:29:24.951Z',
+    'updatedAt': '2023-06-19T00:29:24.951Z',
+  },
+  {
+    'chainId': '59144',
+    'code': 'linea',
+    'id': 'evm--59144',
+    'logoURI': 'https://onekey-asset.com/assets/linea/linea.png',
+    'name': 'Linea',
+    'rpcURLs': [
+      {
+        'url': 'https://rpc.linea.build',
+      },
+      {
+        'url': 'https://linea.blockpi.network/v1/rpc/public',
+      },
+    ],
+    'shortcode': 'linea',
+    'shortname': 'Linea',
+    'feeMeta': {
+      'code': 'Linea',
+      'decimals': 9,
+      'symbol': 'Gwei',
+    },
+    'explorers': [
+      {
+        'address': 'https://lineascan.build/address/{address}',
+        'block': 'https://lineascan.build/block/{block}',
+        'name': 'https://lineascan.build/',
+        'transaction': 'https://lineascan.build/tx/{transaction}',
+      },
+    ],
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'ethereum',
+        'platform': 'ethereum',
+      },
+    ],
+    'symbol': 'ETH',
+    'decimals': 18,
+    'balance2FeeDecimals': 9,
+    'impl': 'evm',
+    'isTestnet': false,
+    'defaultEnabled': true,
+    'status': 'LISTED',
+    'createdAt': '2023-08-10T00:29:24.951Z',
+    'updatedAt': '2023-08-10T00:29:24.951Z',
+  },
+  {
+    'chainId': '8453',
+    'code': 'base',
+    'id': 'evm--8453',
+    'logoURI': 'https://onekey-asset.com/assets/base/base.png',
+    'name': 'Base',
+    'rpcURLs': [
+      {
+        'url': 'https://mainnet.base.org',
+      },
+      {
+        'url': 'https://base.meowrpc.com',
+      },
+      {
+        'url': 'https://1rpc.io/base',
+      },
+      {
+        'url': 'https://base.blockpi.network/v1/rpc/public',
+      },
+    ],
+    'shortcode': 'base',
+    'shortname': 'Base',
+    'feeMeta': {
+      'code': 'base',
+      'decimals': 9,
+      'symbol': 'Gwei',
+    },
+    'explorers': [
+      {
+        'address': 'https://basescan.org/address/{address}',
+        'block': 'https://basescan.org/block/{block}',
+        'name': 'https://basescan.org/',
+        'transaction': 'https://basescan.org/tx/{transaction}',
+      },
+    ],
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'ethereum',
+        'platform': 'ethereum',
+      },
+    ],
+    'symbol': 'ETH',
+    'decimals': 18,
+    'balance2FeeDecimals': 9,
+    'impl': 'evm',
+    'isTestnet': false,
+    'defaultEnabled': true,
+    'status': 'LISTED',
+    'createdAt': '2023-08-10T00:29:24.951Z',
+    'updatedAt': '2023-08-10T00:29:24.951Z',
+  },
+  {
+    'chainId': '5000',
+    'code': 'mantle',
+    'id': 'evm--5000',
+    'logoURI': 'https://onekey-asset.com/assets/mantle/mantle.png',
+    'name': 'Mantle',
+    'rpcURLs': [
+      {
+        'url': 'https://rpc.mantle.xyz',
+      },
+      {
+        'url': 'https://mantle-mainnet.public.blastapi.io',
+      },
+      {
+        'url': 'https://mantle.publicnode.com',
+      },
+    ],
+    'shortcode': 'mantle',
+    'shortname': 'Mantle',
+    'feeMeta': {
+      'code': 'mantle',
+      'decimals': 9,
+      'symbol': 'Gwei',
+    },
+    'symbol': 'MNT',
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'mantle',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://explorer.mantle.xyz/address/{address}',
+        'block': 'https://explorer.mantle.xyz/block/{block}',
+        'name': 'https://explorer.mantle.xyz/',
+        'transaction': 'https://explorer.mantle.xyz/tx/{transaction}',
+      },
+    ],
+    'decimals': 18,
+    'balance2FeeDecimals': 9,
+    'impl': 'evm',
+    'isTestnet': false,
+    'defaultEnabled': true,
+    'status': 'LISTED',
+    'createdAt': '2023-08-10T00:29:24.951Z',
+    'updatedAt': '2023-08-10T00:29:24.951Z',
   },
 ] as unknown as IServerNetwork[];
 

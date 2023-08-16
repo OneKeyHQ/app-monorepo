@@ -1,7 +1,6 @@
 import { type FC, useCallback, useContext, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Platform, Share } from 'react-native';
 
 import {
   Box,
@@ -13,7 +12,11 @@ import {
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
+import { useNavigation } from '../../../../../hooks';
+import { ModalRoutes, RootRoutes } from '../../../../../routes/routesEnum';
+import { getUrlDomain } from '../../../../../utils/uriUtils';
 import { type ValidOption } from '../../../../Overlay/BaseMenu';
+import { DiscoverModalRoutes } from '../../../type';
 import { DiscoverContext } from '../../context';
 import { Favicon } from '../Favicon';
 
@@ -30,6 +33,7 @@ export const RecentHistory: FC<RecentHistoryProps> = ({ item }) => {
   const url = item.dapp?.url || item.webSite?.url || '';
 
   const intl = useIntl();
+  const navigation = useNavigation();
   const [isOpen, setOpen] = useState(false);
 
   const options = useMemo(
@@ -39,15 +43,17 @@ export const RecentHistory: FC<RecentHistoryProps> = ({ item }) => {
           id: 'action__share',
           onPress: () => {
             setOpen(false);
-            Share.share(
-              Platform.OS === 'ios'
-                ? {
-                    url,
-                  }
-                : {
-                    message: url,
-                  },
-            ).catch();
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Discover,
+              params: {
+                screen: DiscoverModalRoutes.ShareModal,
+                params: {
+                  url,
+                  name,
+                  logoURL,
+                },
+              },
+            });
           },
           icon: 'ShareMini',
         },
@@ -77,7 +83,7 @@ export const RecentHistory: FC<RecentHistoryProps> = ({ item }) => {
           icon: 'TrashMini',
         },
       ] as (ValidOption & { id: MessageDescriptor['id'] })[],
-    [url, intl, item],
+    [url, intl, item, navigation, logoURL, name],
   );
 
   const { onItemSelectHistory } = useContext(DiscoverContext);
@@ -121,7 +127,7 @@ export const RecentHistory: FC<RecentHistoryProps> = ({ item }) => {
                   textAlign="center"
                   noOfLines={2}
                 >
-                  {name ?? 'Unknown'}
+                  {name || getUrlDomain(url) || 'Unknown'}
                 </Typography.Caption>
               </Box>
             )}

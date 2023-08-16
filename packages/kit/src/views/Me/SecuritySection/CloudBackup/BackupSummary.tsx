@@ -1,85 +1,52 @@
-import type { FC } from 'react';
-import { useMemo } from 'react';
+import type { ComponentProps, FC } from 'react';
 
-import type { ICON_NAMES } from '@onekeyhq/components';
-import { Box, Icon, Text, useIsVerticalLayout } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { Box, Icon, ListItem, useIsVerticalLayout } from '@onekeyhq/components';
 
 import useFormatDate from '../../../../hooks/useFormatDate';
-
-import type { IBoxProps } from 'native-base';
 
 type BackupSummaryDisplayProps = {
   backupTime: number;
   numOfHDWallets: number;
-  numOfImportedAccounts: number;
-  numOfWatchingAccounts: number;
-  numOfContacts: number;
-  size: 'normal' | 'heading';
-} & IBoxProps;
+  numOfAccounts: number;
+} & ComponentProps<typeof ListItem>;
 
 const BackupSummary: FC<BackupSummaryDisplayProps> = ({
   backupTime,
   numOfHDWallets,
-  numOfImportedAccounts,
-  numOfWatchingAccounts,
-  numOfContacts,
+  numOfAccounts,
   size,
   ...rest
 }) => {
   const isSmallScreen = useIsVerticalLayout();
   const formatDate = useFormatDate();
-
-  const items: Array<{ iconName: ICON_NAMES; count: number }> = useMemo(
-    () => [
-      {
-        iconName: 'WalletOutline',
-        count: numOfHDWallets,
-      },
-      {
-        iconName: 'InboxArrowDownOutline',
-        count: numOfImportedAccounts,
-      },
-      {
-        iconName: 'EyeOutline',
-        count: numOfWatchingAccounts,
-      },
-      {
-        iconName: 'BookOpenOutline',
-        count: numOfContacts,
-      },
-    ],
-    [
-      numOfContacts,
-      numOfHDWallets,
-      numOfImportedAccounts,
-      numOfWatchingAccounts,
-    ],
-  );
+  const intl = useIntl();
 
   return (
-    <Box
-      alignItems={size === 'heading' && isSmallScreen ? 'center' : undefined}
-      {...rest}
-    >
-      <Text typography={size === 'heading' ? 'PageHeading' : 'Body1Strong'}>
-        {formatDate.format(new Date(backupTime), 'MMM d, yyyy, HH:mm')}
-      </Text>
-      <Box
-        flexDirection="row"
-        mt={size === 'heading' ? 3 : 1}
-        mx={-3}
-        flexWrap="wrap"
-      >
-        {items.map((item, index) => (
-          <Box key={index} flexDirection="row" mx={3}>
-            <Icon name={item.iconName} size={20} color="icon-subdued" />
-            <Text typography="Body2" color="text-subdued" pl={2}>
-              {item.count}
-            </Text>
-          </Box>
-        ))}
+    <ListItem mx={-4} {...rest}>
+      <Box bgColor="surface-neutral-subdued" padding="6px" borderRadius="full">
+        <Icon size={20} name="DeviceMobileOutline" />
       </Box>
-    </Box>
+      <ListItem.Column
+        flex={1}
+        flexDirection={isSmallScreen ? 'column' : 'row'}
+        text={{
+          label: formatDate.format(new Date(backupTime), 'MMM d, yyyy, HH:mm'),
+          labelProps: { flex: 1, typography: 'Body1Strong' },
+          description: `${intl.formatMessage(
+            { id: 'form__str_wallets' },
+            { 0: numOfHDWallets },
+          )} · ${intl.formatMessage(
+            { id: 'form__str_accounts' },
+            { count: numOfAccounts },
+          )}`,
+        }}
+      />
+      <ListItem.Column
+        icon={{ size: 20, name: 'ChevronRightMini', color: 'icon-subdued' }}
+      />
+    </ListItem>
   );
 };
 

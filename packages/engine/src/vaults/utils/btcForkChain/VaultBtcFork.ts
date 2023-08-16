@@ -213,6 +213,9 @@ export default class VaultBtcFork extends VaultBase {
   }
 
   override async validateWatchingCredential(input: string): Promise<boolean> {
+    if (!input) {
+      return Promise.resolve(false);
+    }
     const xpubReg = this.getXpubReg();
     let ret = false;
     try {
@@ -223,6 +226,21 @@ export default class VaultBtcFork extends VaultBase {
     } catch {
       // ignore
     }
+
+    if (!ret) {
+      console.error(
+        `BTCfork validateWatchingCredential ERROR: not valid xpub:${input}`,
+      );
+      try {
+        ret = Boolean(await this.validateAddress(input));
+      } catch (error) {
+        ret = false;
+        console.error(
+          `BTCfork validateWatchingCredential ERROR: not valid address:${input}`,
+        );
+      }
+    }
+
     return Promise.resolve(ret);
   }
 
@@ -293,10 +311,15 @@ export default class VaultBtcFork extends VaultBase {
     }
     const account = (await this.getDbAccount()) as DBUTXOAccount;
     const xpub = this.getAccountXpub(account);
-    if (!xpub) {
-      return [new BigNumber('0'), ...ret];
+
+    let mainBalance: BigNumber | undefined; // do not set 0 as default here
+    if (xpub) {
+      [mainBalance] = await this.getBalances([{ address: xpub }]);
+    } else if (account.address) {
+      [mainBalance] = await this.getBalancesByAddress([
+        { address: account.address },
+      ]);
     }
-    const [mainBalance] = await this.getBalances([{ address: xpub }]);
     return [mainBalance].concat(ret);
   }
 
@@ -999,24 +1022,42 @@ export default class VaultBtcFork extends VaultBase {
               .then((feeRate) => new BigNumber(feeRate).toFixed(0)),
           ),
         );
-        // Replace the negative number in the processing fee with the nearest element in the array
-        const negativeIndex = fees.findIndex((val) => new BigNumber(val).lt(0));
-        if (negativeIndex >= 0) {
-          let positiveIndex = negativeIndex;
-          while (
-            positiveIndex < fees.length - 1 &&
-            new BigNumber(fees[positiveIndex]).lt(0)
-          ) {
-            positiveIndex += 1;
+        // Find the index of the first negative fee.
+        let negativeIndex = fees.findIndex((val) => new BigNumber(val).lt(0));
+
+        // Keep replacing if there is any negative fee in the array.
+        while (negativeIndex >= 0) {
+          let leftIndex = negativeIndex - 1;
+          let rightIndex = negativeIndex + 1;
+
+          // eslint-disable-next-line no-constant-condition
+          while (true) {
+            if (leftIndex >= 0 && new BigNumber(fees[leftIndex]).gte(0)) {
+              fees[negativeIndex] = fees[leftIndex];
+              break;
+            }
+
+            if (
+              rightIndex < fees.length &&
+              new BigNumber(fees[rightIndex]).gte(0)
+            ) {
+              fees[negativeIndex] = fees[rightIndex];
+              break;
+            }
+
+            // Move pointers to expand searching range.
+            leftIndex -= 1;
+            rightIndex += 1;
+
+            if (leftIndex < 0 && rightIndex >= fees.length) {
+              break;
+            }
           }
-          while (
-            positiveIndex > 0 &&
-            new BigNumber(fees[positiveIndex]).lt(0)
-          ) {
-            positiveIndex -= 1;
-          }
-          fees.splice(negativeIndex, 1, fees[positiveIndex]);
+
+          // Find the next negative fee after replacement.
+          negativeIndex = fees.findIndex((val) => new BigNumber(val).lt(0));
         }
+
         return fees.sort((a, b) =>
           new BigNumber(a).comparedTo(new BigNumber(b)),
         );
@@ -1281,6 +1322,12 @@ export default class VaultBtcFork extends VaultBase {
         }
         if (!founded) {
           throw new UtxoNotFoundError();
+        }
+        // TODO inscription offset testing
+        // keep the original value of inscription
+        value = founded.value;
+        if (value < 0 || isNil(value)) {
+          throw new Error('Sending inscription utxo value is not valid.');
         }
       }
 

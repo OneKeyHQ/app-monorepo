@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Box, VStack } from '@onekeyhq/components';
 import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
 import type { Token, Tool } from '@onekeyhq/engine/src/types/token';
+import type { IInvoiceConfig } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/invoice';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNetwork } from '../../../hooks';
@@ -12,6 +13,7 @@ import { useTools } from '../../../hooks/redux';
 import { MainRoutes, RootRoutes, TabRoutes } from '../../../routes/routesEnum';
 import { setHomeTabName } from '../../../store/reducers/status';
 import { openUrl } from '../../../utils/openUrl';
+import { WalletHomeTabEnum } from '../../Wallet/type';
 import { EditableNonceStatusEnum } from '../types';
 
 export function SendConfirmErrorsAlert({
@@ -28,6 +30,10 @@ export function SendConfirmErrorsAlert({
   isPendingTxSameNonceWithLowerGas,
   isLowMaxFee,
   pendingTxCount,
+  isLNExceedTransferLimit,
+  lightingNetworkTransferConfig,
+  prepaidFee,
+  fee,
 }: {
   networkId?: string;
   accountAddress?: string;
@@ -42,6 +48,10 @@ export function SendConfirmErrorsAlert({
   editableNonceStatus?: EditableNonceStatusEnum;
   isLowMaxFee?: boolean;
   pendingTxCount?: string;
+  isLNExceedTransferLimit?: boolean;
+  lightingNetworkTransferConfig?: IInvoiceConfig | null;
+  prepaidFee?: string;
+  fee?: string;
 }) {
   const errors = [];
   const intl = useIntl();
@@ -84,24 +94,42 @@ export function SendConfirmErrorsAlert({
   if (balanceInsufficient) {
     const gasShop = find(tools, { title: 'GasShop' }) as Tool;
     errors.push(
-      <FormErrorMessage
-        isAlertStyle
-        action={
-          gasShop?.link ? intl.formatMessage({ id: 'action__buy' }) : undefined
-        }
-        onAction={() => {
-          if (gasShop && gasShop.link) {
-            openUrl(gasShop.link.replace('{address}', accountAddress ?? ''));
+      prepaidFee ? (
+        <FormErrorMessage
+          isAlertStyle
+          message={intl.formatMessage(
+            {
+              id: 'msg__your_str_balance_is_insufficient_desc',
+            },
+            {
+              '0': `${fee ?? ''} ${nativeToken?.symbol ?? ''}`,
+            },
+          )}
+        />
+      ) : (
+        <FormErrorMessage
+          isAlertStyle
+          action={
+            gasShop?.link
+              ? intl.formatMessage({ id: 'action__buy' })
+              : undefined
           }
-        }}
-        message={intl.formatMessage(
-          { id: 'msg__str_is_required_for_network_fees_top_up_str_to_make_tx' },
-          {
-            0: nativeToken?.symbol ?? '',
-            1: network?.name ?? '',
-          },
-        )}
-      />,
+          onAction={() => {
+            if (gasShop && gasShop.link) {
+              openUrl(gasShop.link.replace('{address}', accountAddress ?? ''));
+            }
+          }}
+          message={intl.formatMessage(
+            {
+              id: 'msg__str_is_required_for_network_fees_top_up_str_to_make_tx',
+            },
+            {
+              0: nativeToken?.symbol ?? '',
+              1: network?.name ?? '',
+            },
+          )}
+        />
+      ),
     );
   }
 
@@ -172,7 +200,9 @@ export function SendConfirmErrorsAlert({
         )}
         action={intl.formatMessage({ id: 'action__view' })}
         onAction={() => {
-          backgroundApiProxy.dispatch(setHomeTabName('History'));
+          backgroundApiProxy.dispatch(
+            setHomeTabName(WalletHomeTabEnum.History),
+          );
           navigation?.navigate(RootRoutes.Main, {
             screen: MainRoutes.Tab,
             params: {
@@ -191,6 +221,23 @@ export function SendConfirmErrorsAlert({
         message={intl.formatMessage({
           id: 'msg__eth_tx_warning_network_busy_gas_is_high',
         })}
+      />,
+    );
+  }
+
+  if (isLNExceedTransferLimit) {
+    errors.push(
+      <FormErrorMessage
+        alertType="error"
+        isAlertStyle
+        message={intl.formatMessage(
+          {
+            id: 'msg__the_sending_amount_cannot_exceed_int_sats',
+          },
+          {
+            0: lightingNetworkTransferConfig?.maxSendAmount ?? '',
+          },
+        )}
       />,
     );
   }

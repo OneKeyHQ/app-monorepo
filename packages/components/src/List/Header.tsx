@@ -5,15 +5,19 @@ import { isValidElement } from 'react';
 import { Box, HStack, Pressable, Text } from '@onekeyhq/components';
 
 export interface HeaderProps {
-  title?: string;
+  title?: React.ReactNode;
   actions?: [{ label?: string; onPress: () => void }];
 }
 
 const Header: FC<HeaderProps> = ({ title, actions }) => (
   <HStack alignItems="center" p={2}>
-    <Text typography="Heading" flex={1} mr={3}>
-      {title}
-    </Text>
+    {typeof title === 'string' ? (
+      <Text typography="Heading" flex={1} mr={3}>
+        {title}
+      </Text>
+    ) : (
+      title
+    )}
     {actions?.length ? (
       <HStack space={6}>
         {actions.map((item) => {

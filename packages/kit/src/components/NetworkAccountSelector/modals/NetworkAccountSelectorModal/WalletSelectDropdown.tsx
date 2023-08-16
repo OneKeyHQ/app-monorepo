@@ -6,6 +6,7 @@ import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Box,
   Icon,
   Pressable,
@@ -16,6 +17,7 @@ import {
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isWalletCompatibleAllNetworks } from '@onekeyhq/engine/src/managers/wallet';
 import type { IWallet } from '@onekeyhq/engine/src/types';
+import type { WalletType } from '@onekeyhq/engine/src/types/wallet';
 import {
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
@@ -38,18 +40,24 @@ const buildData = debounce(
     setData,
     wallets,
     intl,
+    walletsToHide,
   }: {
     intl: IntlShape;
     wallets: IWallet[];
     setData: Dispatch<
       SetStateAction<{ label: string; value: string; wallet: IWallet }[]>
     >;
+    walletsToHide?: WalletType[];
   }) => {
-    const data = wallets.map((wallet) => ({
+    let data = wallets.map((wallet) => ({
       label: getWalletName({ wallet, intl }) || '-',
       value: wallet.id,
       wallet,
     }));
+
+    if (walletsToHide && walletsToHide.length > 0) {
+      data = data.filter((item) => !walletsToHide.includes(item.wallet.type));
+    }
     debugLogger.accountSelector.info(
       'rebuild NetworkAccountSelector walletList data',
     );
@@ -64,8 +72,16 @@ const buildData = debounce(
 
 export function WalletSelectDropdown({
   accountSelectorInfo,
+  hideCreateAccount,
+  multiSelect,
+  selectedAccounts,
+  walletsToHide,
 }: {
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
+  hideCreateAccount?: boolean;
+  selectedAccounts?: string[];
+  multiSelect?: boolean;
+  walletsToHide?: WalletType[];
 }) {
   const {
     selectedNetworkId,
@@ -100,9 +116,10 @@ export function WalletSelectDropdown({
         wallets: filteredWallets,
         setData,
         intl,
+        walletsToHide,
       });
     }
-  }, [intl, isOpenDelay, isOpen, filteredWallets, isMounted]);
+  }, [intl, isOpenDelay, isOpen, filteredWallets, isMounted, walletsToHide]);
 
   useEffect(() => {
     if (
@@ -129,6 +146,12 @@ export function WalletSelectDropdown({
     ],
   );
 
+  const isDisabled = useMemo(
+    () => multiSelect && selectedAccounts && selectedAccounts.length > 0,
+    [multiSelect, selectedAccounts],
+  );
+
+  // TODO: replace entry
   return (
     <>
       <Select
@@ -141,8 +164,11 @@ export function WalletSelectDropdown({
           alignItems: 'flex-start',
         }}
         options={data}
+        triggerProps={{
+          isDisabled,
+        }}
         renderTrigger={({ visible, onPress }) => (
-          <Pressable onPress={onPress}>
+          <Pressable onPress={onPress} isDisabled={isDisabled}>
             {({ isHovered, isPressed }) => (
               <Box
                 flexDirection="row"
@@ -179,13 +205,15 @@ export function WalletSelectDropdown({
                     intl,
                   })}
                 </Text>
-                <Box>
-                  <Icon
-                    name="ChevronUpDownMini"
-                    color="icon-subdued"
-                    size={20}
-                  />
-                </Box>
+                {isDisabled ? null : (
+                  <Box>
+                    <Icon
+                      name="ChevronUpDownMini"
+                      color="icon-subdued"
+                      size={20}
+                    />
+                  </Box>
+                )}
               </Box>
             )}
           </Pressable>
@@ -246,11 +274,27 @@ export function WalletSelectDropdown({
           </Pressable>
         )}
       />
-      <CreateAccountButton
-        walletId={selectedWalletId || ''}
-        networkId={selectedNetworkId}
-        isLoading={isPreloadingCreate}
-      />
+      {multiSelect && selectedAccounts && selectedAccounts.length > 0 ? (
+        <Badge
+          size="sm"
+          title={intl.formatMessage(
+            {
+              id: 'form_int_accounts_selected',
+            },
+            {
+              '0': selectedAccounts.length,
+            },
+          )}
+        />
+      ) : null}
+
+      {!hideCreateAccount ? (
+        <CreateAccountButton
+          walletId={selectedWalletId || ''}
+          networkId={selectedNetworkId}
+          isLoading={isPreloadingCreate}
+        />
+      ) : null}
     </>
   );
 }

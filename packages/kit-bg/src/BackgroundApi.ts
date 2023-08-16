@@ -323,16 +323,6 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get serviceTranslation() {
-    const ServiceTransaction =
-      require('./services/ServiceTranslation') as typeof import('./services/ServiceTranslation');
-    const value = new ServiceTransaction.default({
-      backgroundApi: this,
-    });
-    Object.defineProperty(this, 'serviceTranslation', { value });
-    return value;
-  }
-
   get serviceMigrate() {
     const ServiceMigrate =
       require('./services/ServiceMigrate') as typeof import('./services/ServiceMigrate');
@@ -453,6 +443,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceAllNetwork', { value });
+    return value;
+  }
+
+  get serviceDappMetaData() {
+    const ServiceDappMetaData =
+      require('./services/ServiceDappMetaData') as typeof import('./services/ServiceDappMetaData');
+    const value = new ServiceDappMetaData.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceDappMetaData', { value });
     return value;
   }
 }

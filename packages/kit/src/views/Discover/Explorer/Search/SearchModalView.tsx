@@ -15,8 +15,8 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks';
 
 import { homeTab } from '../../../../store/observable/webTabs';
 import DAppIcon from '../../components/DAppIcon';
-import { useDiscoverHistory } from '../../hooks';
-import { useSearchLocalDapp } from '../../hooks/useSearchLocalDapp';
+import { useUserBrowserHistories } from '../../hooks';
+import { useSearchDapps } from '../../hooks/useSearchDapps';
 import { getWebTabs } from '../Controller/useWebTabs';
 
 import { Header, ListEmptyComponent } from './Header';
@@ -24,7 +24,7 @@ import { Header, ListEmptyComponent } from './Header';
 import type { DiscoverModalRoutes, DiscoverRoutesParams } from '../../type';
 import type { MatchDAppItemType } from '../explorerUtils';
 import type { RouteProp } from '@react-navigation/core';
-import type { ListRenderItem } from 'react-native';
+import type { FlatListProps, ListRenderItem } from 'react-native';
 
 type RouteProps = RouteProp<
   DiscoverRoutesParams,
@@ -50,15 +50,15 @@ export const SearchModalView: FC = () => {
   });
   const searchContentTerm = useDebounce(searchContent, 300);
 
-  const { loading, searchedDapps } = useSearchLocalDapp(
+  const { loading, searchedDapps } = useSearchDapps(
     searchContentTerm,
     searchContent,
   );
 
-  const allHistories = useDiscoverHistory();
+  const allHistories = useUserBrowserHistories();
 
   const flatListData = useMemo(
-    () => (searchContentTerm ? searchedDapps : allHistories),
+    () => (searchContentTerm ? searchedDapps : allHistories.slice(0, 8)),
     [searchContentTerm, allHistories, searchedDapps],
   );
 
@@ -105,17 +105,20 @@ export const SearchModalView: FC = () => {
     );
   };
 
+  const keyExtractor: FlatListProps<MatchDAppItemType>['keyExtractor'] = (
+    item,
+    index,
+  ) => `${index}-${item?.id}`;
+
   return (
     <Modal
       footer={null}
       flatListProps={{
         data: flatListData,
-        // @ts-expect-error
         renderItem,
         ItemSeparatorComponent,
-        // @ts-expect-error
         // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        keyExtractor: (item, index) => `${index}-${item?.id}`,
+        keyExtractor,
         showsVerticalScrollIndicator: false,
         ListEmptyComponent: (
           <ListEmptyComponent isLoading={loading} terms={searchContentTerm} />

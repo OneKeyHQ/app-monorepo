@@ -20,8 +20,11 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
-import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
-import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
+import {
+  isAllNetworks,
+  parseNetworkId,
+} from '@onekeyhq/engine/src/managers/network';
+import { revokeUrl } from '@onekeyhq/engine/src/managers/revoke';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import btcSetting from '@onekeyhq/engine/src/vaults/impl/btc/settings';
@@ -43,16 +46,18 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../hooks';
-import { useTools } from '../../../hooks/redux';
-import { useAllNetworksWalletAccounts } from '../../../hooks/useAllNetwoks';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   getManageNetworks,
   useManageNetworks,
-} from '../../../hooks/useManageNetworks';
+} from '../../../hooks/crossHooks';
+import { useTools } from '../../../hooks/redux';
+import {
+  useAllNetworksSelectNetworkAccount,
+  useAllNetworksWalletAccounts,
+} from '../../../hooks/useAllNetwoks';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { buildAddressDetailsUrl } from '../../../hooks/useOpenBlockBrowser';
-import { openUrl } from '../../../utils/openUrl';
-import { useAllNetworksSelectNetworkAccount } from '../../ManageNetworks/hooks';
+import { openDapp, openUrl } from '../../../utils/openUrl';
 import { useIsVerticalOrMiddleLayout } from '../../Revoke/hooks';
 
 import type { ImageSourcePropType } from 'react-native';
@@ -93,11 +98,13 @@ const data: DataItem[] = [
     iconBg: 'decorative-surface-two',
     title: 'title__bulksender',
     description: 'title__bulksender_desc',
-    filter: ({ network }) =>
-      !!network?.settings?.supportBatchTransfer &&
-      (network.settings.nativeSupportBatchTransfer
-        ? true
-        : !!batchTransferContractAddress[network.id]),
+    filter: ({ network, account }) =>
+      !!(
+        !!account &&
+        !account?.id.startsWith('watching-') &&
+        network?.settings?.supportBatchTransfer &&
+        network?.settings?.supportBatchTransfer.length > 0
+      ),
   },
   {
     key: 'explorer',
@@ -109,8 +116,9 @@ const data: DataItem[] = [
     title: 'title__blockchain_explorer',
     description: 'title__blockchain_explorer_desc',
     filter: ({ network, account }) =>
-      !!getManageNetworks().allNetworks?.find?.((n) => n.id === network?.id)
-        ?.blockExplorerURL?.address && !!account?.address,
+      !!getManageNetworks(undefined).allNetworks?.find?.(
+        (n) => n.id === network?.id,
+      )?.blockExplorerURL?.address && !!account?.address,
   },
   {
     key: 'pnl',
@@ -144,11 +152,10 @@ const data: DataItem[] = [
 
 const ToolsPage: FC = () => {
   const intl = useIntl();
-  const { network, account, walletId, accountId, networkId } =
-    useActiveWalletAccount();
+  const { network, account, accountId, networkId } = useActiveWalletAccount();
   const isVertical = useIsVerticalOrMiddleLayout();
   const navigation = useNavigation();
-  const { enabledNetworks } = useManageNetworks();
+  const { enabledNetworks } = useManageNetworks(undefined);
 
   const appNavigation = useAppNavigation();
   const tools = useTools(network?.id);
@@ -159,14 +166,13 @@ const ToolsPage: FC = () => {
 
   const selectNetworkAccount = useAllNetworksSelectNetworkAccount({
     networkId,
-    walletId,
     accountId,
   });
 
   const items = useMemo(() => {
     let allItems = data;
     allItems = allItems.concat(
-      Object.values(groupBy(tools, 'networkId'))
+      Object.values(groupBy(tools, 'title'))
         .filter((ts) => ts.length > 0)
         .map((ts) => {
           const t = ts[0];
@@ -188,20 +194,19 @@ const ToolsPage: FC = () => {
     if (!isAllNetworks(network?.id)) {
       return allItems.filter((n) => n.filter?.({ network, account }) ?? true);
     }
-    return allItems.filter((item) =>
-      Object.entries(networkAccountsMap).some(([nid, accounts]) => {
+    return allItems.filter((item) => {
+      for (const [nid, accounts] of Object.entries(networkAccountsMap ?? {})) {
         const n = enabledNetworks.find((i) => i.id === nid);
-        if (!n) {
-          return false;
-        }
-        for (const a of accounts) {
-          if (item.filter && !item.filter({ network: n, account: a })) {
-            return true;
+        if (n) {
+          for (const a of accounts) {
+            if (!item.filter || item.filter({ network: n, account: a })) {
+              return true;
+            }
           }
         }
-        return false;
-      }),
-    );
+      }
+      return false;
+    });
   }, [account, network, tools, networkAccountsMap, enabledNetworks]);
 
   const handlePress = useCallback(
@@ -215,15 +220,12 @@ const ToolsPage: FC = () => {
       account?: Account | null;
     }) => {
       if (key === 'revoke') {
-        navigation.navigate(RootRoutes.Main, {
-          screen: MainRoutes.Tab,
-          params: {
-            screen: TabRoutes.Home,
-            params: {
-              screen: HomeRoutes.Revoke,
-            },
-          },
-        });
+        const { chainId } = parseNetworkId(network?.id ?? '');
+        openDapp(
+          `${revokeUrl}address/${selectedAccount?.address ?? ''}?chainId=${
+            chainId ?? ''
+          }`,
+        );
       } else if (key === 'explorer') {
         const url = buildAddressDetailsUrl(
           selectedNetwork,
@@ -292,7 +294,7 @@ const ToolsPage: FC = () => {
         }
       }
     },
-    [tools, navigation, intl, appNavigation],
+    [network?.id, tools, navigation, intl, appNavigation],
   );
 
   const onItemPress = useCallback(
@@ -310,7 +312,7 @@ const ToolsPage: FC = () => {
       }
       selectNetworkAccount(item.filter).then(
         async ({ network: selectedNetwork, account: selectedAccount }) => {
-          if (key === 'revoke' || key === 'bulkSender') {
+          if (key === 'bulkSender' || key === 'pnl') {
             const { serviceNetwork, serviceAccount } = backgroundApiProxy;
             await serviceNetwork.changeActiveNetwork(selectedNetwork?.id);
             await serviceAccount.changeActiveAccountByAccountId(

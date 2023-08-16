@@ -6,8 +6,9 @@ import {
   archiveKeleTransaction,
   archiveTransaction,
 } from '../../../../store/reducers/staking';
+import { StakingTypes, getTransactionStakingType } from '../../utils';
 
-import type { Transaction } from '../../typing';
+import type { Transaction, TransactionType } from '../../typing';
 
 type SchedulerProps = {
   tx: Transaction;
@@ -94,10 +95,19 @@ export const PendingLidoTransaction: FC<PendingTransactionProps> = ({ tx }) => {
             txs: [tx.hash],
           }),
         );
-        backgroundApiProxy.serviceStaking.fetchLidoOverview({
-          accountId: tx.accountId,
-          networkId: tx.networkId,
-        });
+        const type = tx.type as TransactionType;
+        const stakeType = getTransactionStakingType(type);
+        if (stakeType === StakingTypes.eth) {
+          backgroundApiProxy.serviceStaking.fetchLidoOverview({
+            accountId: tx.accountId,
+            networkId: tx.networkId,
+          });
+        } else if (stakeType === StakingTypes.matic) {
+          backgroundApiProxy.serviceStaking.fetchLidoMaticOverview({
+            accountId: tx.accountId,
+            networkId: tx.networkId,
+          });
+        }
       },
     });
     scheduler.run();

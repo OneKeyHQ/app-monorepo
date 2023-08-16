@@ -2,27 +2,26 @@ import type { FC } from 'react';
 import { useCallback, useContext, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import { TouchableWithoutFeedback } from 'react-native';
 
-import type { ICON_NAMES } from '@onekeyhq/components';
 import {
   Box,
   HStack,
-  Icon,
-  IconButton,
   Pressable,
   Token,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
+import { isValidCoingeckoId } from '@onekeyhq/engine/src/managers/token';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import { isLightningNetworkByImpl } from '@onekeyhq/shared/src/engine/engineConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation, useNetwork, useWallet } from '../../../hooks';
+import { useAllNetworksSelectNetworkAccount } from '../../../hooks/useAllNetwoks';
 import {
   FiatPayModalRoutes,
   MainRoutes,
@@ -31,85 +30,19 @@ import {
   RootRoutes,
   TabRoutes,
 } from '../../../routes/routesEnum';
-import { useAllNetworksSelectNetworkAccount } from '../../ManageNetworks/hooks';
 import BaseMenu from '../../Overlay/BaseMenu';
 import { SendModalRoutes } from '../../Send/enums';
-import { EthereumTopYields } from '../../Staking/Widgets/EthereumTopYields';
-import { LidoStTokenYields } from '../../Staking/Widgets/LidoStTokenYields';
 import { TokenDetailContext } from '../context';
 
-import type { MessageDescriptor } from 'react-intl';
+import { ButtonItem } from './ButtonItem';
+import { FavoritedButton } from './Header';
+
+import type { IButtonItem } from './ButtonItem';
 
 type ISingleChainInfo = {
   network: Network;
   account: Account;
   token: TokenType;
-};
-
-type IButtonItem = {
-  id: MessageDescriptor['id'];
-  onPress: (params: ISingleChainInfo) => unknown;
-  icon: ICON_NAMES;
-  visible?: () => boolean;
-};
-
-const ButtonItem = ({
-  icon,
-  text,
-  onPress,
-  isDisabled,
-}: {
-  icon: ICON_NAMES;
-  text: string;
-  onPress?: () => unknown;
-  isDisabled?: boolean;
-}) => {
-  const isVertical = useIsVerticalLayout();
-  const content = useMemo(() => {
-    let ele = (
-      <Box mx={isVertical ? 0 : 3}>
-        {typeof onPress === 'function' ? (
-          <TouchableWithoutFeedback>
-            <IconButton
-              circle
-              size={isVertical ? 'lg' : 'sm'}
-              name={icon}
-              type="basic"
-              isDisabled={isDisabled}
-              onPress={onPress}
-            />
-          </TouchableWithoutFeedback>
-        ) : (
-          <Box
-            p={isVertical ? 2 : 1.5}
-            alignItems="center"
-            justifyContent="center"
-            borderWidth="1px"
-            borderRadius="999px"
-            borderColor="border-default"
-            bg="action-secondary-default"
-          >
-            <Icon name={icon} size={isVertical ? 24 : 20} />
-          </Box>
-        )}
-        <Typography.CaptionStrong
-          textAlign="center"
-          mt="8px"
-          color={isDisabled ? 'text-disabled' : 'text-default'}
-        >
-          {text}
-        </Typography.CaptionStrong>
-      </Box>
-    );
-
-    if (typeof onPress === 'function') {
-      ele = <Pressable onPress={onPress}>{ele}</Pressable>;
-    }
-
-    return ele;
-  }, [icon, isVertical, text, onPress, isDisabled]);
-
-  return content;
 };
 
 export const ButtonsSection: FC = () => {
@@ -123,29 +56,36 @@ export const ButtonsSection: FC = () => {
     accountId = '',
     networkId = '',
     sendAddress,
-    symbol,
-    logoURI,
+    coingeckoId,
   } = context?.routeParams ?? {};
 
-  const { items } = context?.positionInfo ?? {};
+  const { symbol, logoURI, fiatUrls } = context?.detailInfo ?? {};
 
-  const { tokens, loading, ethereumNativeToken } = context?.detailInfo ?? {};
+  const {
+    tokens,
+    loading: detailLoading,
+    defaultToken,
+  } = context?.detailInfo ?? {};
 
   const { wallet } = useWallet({
     walletId,
   });
 
+  const loading = useMemo(
+    () => isAllNetworks(networkId) && detailLoading,
+    [detailLoading, networkId],
+  );
+
   const { network: currentNetwork } = useNetwork({ networkId });
 
   const filter = useCallback(
     ({ network }: { network?: Network | null }) =>
-      !!network?.id && !!items?.some((t) => t.networkId === network?.id),
-    [items],
+      !!network?.id && !!tokens?.some((t) => t.networkId === network?.id),
+    [tokens],
   );
 
   const selectNetworkAccount = useAllNetworksSelectNetworkAccount({
     networkId,
-    walletId,
     accountId,
     filter,
   });
@@ -208,8 +148,14 @@ export const ButtonsSection: FC = () => {
   );
 
   const onSwap = useCallback(
-    ({ token }: ISingleChainInfo) => {
-      backgroundApiProxy.serviceSwap.buyToken(token);
+    async ({ token, account: a, network: n }: ISingleChainInfo) => {
+      if (!token) {
+        return;
+      }
+      await backgroundApiProxy.serviceSwap.buyToken(token);
+      if (a && n) {
+        backgroundApiProxy.serviceSwap.setRecipientToAccount(a, n);
+      }
       navigation.navigate(RootRoutes.Main, {
         screen: MainRoutes.Tab,
         params: {
@@ -251,7 +197,7 @@ export const ButtonsSection: FC = () => {
   const onSell = useCallback(
     async ({ account, network, token }: ISingleChainInfo) => {
       const signedUrl = await backgroundApiProxy.serviceFiatPay.getFiatPayUrl({
-        type: 'buy',
+        type: 'sell',
         address: account?.address,
         tokenAddress: token?.address,
         networkId: network?.id,
@@ -264,19 +210,19 @@ export const ButtonsSection: FC = () => {
   const handlePress = useCallback(
     (item: IButtonItem) => {
       selectNetworkAccount().then(({ network, account }) => {
-        const token = tokens?.find((t) => {
-          const networksMatch =
-            network?.id === `${t.impl ?? ''}--${t.chainId ?? ''}`;
-          if (!sendAddress) {
-            return networksMatch;
-          }
-          return networksMatch && sendAddress === t.sendAddress;
-        });
+        const token = tokens?.find(
+          (t) =>
+            network?.id ===
+            (t.networkId ?? `${t.impl ?? ''}--${t.chainId ?? ''}`),
+        );
         if (token) {
           item.onPress?.({
             network,
             account,
-            token,
+            token: {
+              ...token,
+              sendAddress,
+            },
           });
         }
       });
@@ -310,19 +256,25 @@ export const ButtonsSection: FC = () => {
         id: 'title__swap',
         onPress: onSwap,
         icon: 'ArrowsRightLeftSolid',
-        visible: () => isVerticalLayout && showSwapOption,
+        visible: () => showSwapOption,
       },
       {
         id: 'action__buy',
         onPress: onBuy,
         icon: 'PlusMini',
-        visible: () => showMoreOption,
+        visible: () =>
+          !platformEnv.isAppleStoreEnv &&
+          showMoreOption &&
+          !!fiatUrls?.[networkId]?.buy,
       },
       {
         id: 'action__sell',
         onPress: onSell,
         icon: 'BanknotesMini',
-        visible: () => showMoreOption,
+        visible: () =>
+          !platformEnv.isAppleStoreEnv &&
+          showMoreOption &&
+          !!fiatUrls?.[networkId]?.sell,
       },
     ]
       .map((t) => ({ ...t, isDisabled: loading }))
@@ -338,6 +290,8 @@ export const ButtonsSection: FC = () => {
       })),
     };
   }, [
+    networkId,
+    fiatUrls,
     loading,
     handlePress,
     isVerticalLayout,
@@ -354,15 +308,16 @@ export const ButtonsSection: FC = () => {
     <Box>
       <HStack justifyContent="space-between">
         {!isVerticalLayout && (
-          <Token
-            flex="1"
-            showInfo
-            size={8}
-            token={{
-              name: symbol,
-              logoURI,
-            }}
-          />
+          <HStack flex="1" alignItems="center">
+            <Token
+              showInfo={false}
+              size={8}
+              token={{
+                logoURI,
+              }}
+            />
+            <Typography.Heading ml="2">{symbol}</Typography.Heading>
+          </HStack>
         )}
         <HStack
           justifyContent="space-between"
@@ -381,9 +336,12 @@ export const ButtonsSection: FC = () => {
               isDisabled={loading}
             />
           ))}
-          {showMoreOption && (
+          {isValidCoingeckoId(coingeckoId) && !isVerticalLayout ? (
+            <FavoritedButton coingeckoId={coingeckoId} />
+          ) : null}
+          {showMoreOption && options?.length ? (
             <BaseMenu ml="26px" options={options}>
-              <Pressable>
+              <Pressable flex={isVerticalLayout ? 1 : undefined}>
                 <ButtonItem
                   icon="EllipsisVerticalOutline"
                   text={intl.formatMessage({
@@ -393,15 +351,9 @@ export const ButtonsSection: FC = () => {
                 />
               </Pressable>
             </BaseMenu>
-          )}
+          ) : null}
         </HStack>
       </HStack>
-      {ethereumNativeToken && !isAllNetworks(networkId) ? (
-        <Box>
-          <EthereumTopYields token={ethereumNativeToken} />
-          <LidoStTokenYields token={ethereumNativeToken} />
-        </Box>
-      ) : null}
     </Box>
   );
 };

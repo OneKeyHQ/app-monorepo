@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
@@ -17,14 +18,19 @@ import type { TabRoutes } from '../routes/routesEnum';
 export interface ILazyRenderWhenFocusProps {
   unmountWhenBlur?: boolean;
   freezeWhenBlur?: boolean;
-  children?: any | null;
+  children?: ReactNode | null | any;
   rootTabName?: TabRoutes;
 }
 
 export function LazyRenderWhenFocus({
   children,
   unmountWhenBlur,
-  freezeWhenBlur = true,
+  /* 
+  freeze = unmount platforms:
+    - web
+    - android?
+  */
+  freezeWhenBlur,
   rootTabName,
 }: ILazyRenderWhenFocusProps) {
   const isFocusedRef = useRef(false);
@@ -80,27 +86,30 @@ export function LazyRenderWhenFocus({
   if (shouldFreeze) {
     console.log('LazyRenderWhenFocus >>>>>>>>>> ', {
       shouldFreeze,
+      freezeWhenBlur,
       rootTabName,
     });
   }
 
-  const content = (
-    <DelayedFreeze freeze={shouldFreeze && freezeWhenBlur}>
-      {isFocusedRef.current || isFocused ? children : null}
-    </DelayedFreeze>
-  );
-  return content;
+  const renderChildren = isFocusedRef.current || isFocused ? children : null;
+  // return <>{renderChildren}</>;
+
+  if (shouldFreeze && freezeWhenBlur) {
+    return <DelayedFreeze freeze>{renderChildren}</DelayedFreeze>;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  return renderChildren;
 }
 
 export function toFocusedLazy(
   CmpClass: any,
   lazyProps?: ILazyRenderWhenFocusProps,
 ) {
-  if (platformEnv.isNative || platformEnv.isDesktop) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return CmpClass;
-  }
-
+  // if (platformEnv.isNative || platformEnv.isDesktop) {
+  //   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  //   return CmpClass;
+  // }
   // return CmpClass;
   const lazyCmp = (props: any) => (
     <LazyRenderWhenFocus {...lazyProps}>

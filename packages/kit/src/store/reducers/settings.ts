@@ -7,9 +7,9 @@ import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import type { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 import type { FirmwareType } from '@onekeyhq/kit/src/views/Hardware/UpdateFirmware/Updating';
-import { SHORT_ONEKEYSO_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { defaultHapticStatus } from '@onekeyhq/shared/src/haptics';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EOnekeyDomain } from '@onekeyhq/shared/types';
 
 import { ValidationFields } from '../../components/Protected/types';
 
@@ -120,8 +120,10 @@ export type SettingsState = {
   advancedSettings?: {
     useDustUtxo?: boolean;
   };
-  hardwareConnectSrc?: string;
+  hardwareConnectSrc?: EOnekeyDomain;
   gasPanelEIP1559Enabled?: boolean;
+  showTokenDetailPriceChart?: boolean;
+  hideAllNetworksSelectNetworkTips?: boolean;
 };
 
 export const defaultPushNotification = {
@@ -196,8 +198,9 @@ const initialState: SettingsState = {
   advancedSettings: {
     useDustUtxo: true,
   },
-  hardwareConnectSrc: SHORT_ONEKEYSO_URL,
+  hardwareConnectSrc: EOnekeyDomain.ONEKEY_SO,
   gasPanelEIP1559Enabled: true,
+  hideAllNetworksSelectNetworkTips: false,
 };
 
 export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
@@ -619,6 +622,12 @@ export const settingsSlice = createSlice({
     setGasPanelEIP1559Enabled(state, action: PayloadAction<boolean>) {
       state.gasPanelEIP1559Enabled = action.payload;
     },
+    setShowTokenDetailPriceChart(state, action: PayloadAction<boolean>) {
+      state.showTokenDetailPriceChart = action.payload;
+    },
+    setHideAllNetworksSelectNetworkTips(state, action: PayloadAction<boolean>) {
+      state.hideAllNetworksSelectNetworkTips = action.payload;
+    },
   },
 });
 
@@ -678,6 +687,8 @@ export const {
   setAdvancedSettings,
   setHardwareConnectSrc,
   setGasPanelEIP1559Enabled,
+  setShowTokenDetailPriceChart,
+  setHideAllNetworksSelectNetworkTips,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

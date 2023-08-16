@@ -3,15 +3,18 @@
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
 import BigNumber from 'bignumber.js';
+import { get } from 'lodash';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import {
-  InsufficientBalance,
+  ChannelInsufficientLiquidityError,
   InvalidLightningPaymentRequest,
   InvoiceAlreadPaid,
+  InvoiceExpiredError,
+  MaxSendAmountError,
   NoRouteFoundError,
 } from '../../../errors';
 import { TransactionStatus } from '../../../types/provider';
@@ -27,6 +30,7 @@ import { VaultBase } from '../../VaultBase';
 
 import ClientLightning from './helper/ClientLightningNetwork';
 import { getInvoiceTransactionStatus } from './helper/invoice';
+import { findLnurl } from './helper/lnurl';
 import { signature } from './helper/signature';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -54,7 +58,11 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type { IEncodedTxLightning } from './types';
-import type { IHistoryItem, InvoiceStatusEnum } from './types/invoice';
+import type {
+  IHistoryItem,
+  IInvoiceDecodedResponse,
+  InvoiceStatusEnum,
+} from './types/invoice';
 import type { AxiosError } from 'axios';
 
 export default class Vault extends VaultBase {
@@ -67,6 +75,22 @@ export default class Vault extends VaultBase {
   };
 
   settings = settings;
+
+  override async getOutputAccount(): Promise<Account> {
+    const dbAccount = await this.getDbAccount({ noCache: true });
+    return {
+      id: dbAccount.id,
+      name: dbAccount.name,
+      type: dbAccount.type,
+      path: dbAccount.path,
+      coinType: dbAccount.coinType,
+      tokens: [],
+      address: dbAccount.address,
+      template: dbAccount.template,
+      pubKey: get(dbAccount, 'pub', ''),
+      addresses: JSON.stringify(get(dbAccount, 'addresses', {})),
+    };
+  }
 
   async getClient() {
     const network = await this.getNetwork();
@@ -144,7 +168,29 @@ export default class Vault extends VaultBase {
     return account.addresses.hashAddress;
   }
 
+  override async validateSendAmount(amount: string): Promise<boolean> {
+    const ZeroInvoiceMaxSendAmount = 1000000;
+    if (new BigNumber(amount).isGreaterThan(ZeroInvoiceMaxSendAmount)) {
+      throw new MaxSendAmountError(
+        'msg__the_sending_amount_cannot_exceed_int_sats',
+        { 0: ZeroInvoiceMaxSendAmount },
+      );
+    }
+    return Promise.resolve(true);
+  }
+
   override async validateAddress(address: string): Promise<string> {
+    // maybe it's a lnurl
+    try {
+      const lnurl = findLnurl(address);
+      if (!lnurl) {
+        throw new Error('not a lnurl');
+      }
+      return lnurl;
+    } catch (e) {
+      // ignore parsed lnurl error
+    }
+
     try {
       await this._decodedInvoceCache(address);
       return address;
@@ -176,6 +222,7 @@ export default class Vault extends VaultBase {
       feeDecimals: network.feeDecimals,
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
+      waitingSeconds: [5],
       tx: null,
     };
   }
@@ -187,14 +234,19 @@ export default class Vault extends VaultBase {
     const balanceAddress = await this.getCurrentBalanceAddress();
 
     const invoice = await this._decodedInvoceCache(transferInfo.to);
+    const lnConfig = await client.getConfig(balanceAddress);
 
     const paymentHash = invoice.tags.find(
       (tag) => tag.tagName === 'payment_hash',
     );
 
-    const amount = invoice.millisatoshis
+    let amount = invoice.millisatoshis
       ? new BigNumber(invoice.millisatoshis).dividedBy(1000)
       : new BigNumber(invoice.satoshis ?? '0');
+    const isZeroAmountInvoice = this.isZeroAmountInvoice(invoice);
+    if (isZeroAmountInvoice && transferInfo.amount) {
+      amount = new BigNumber(transferInfo.amount);
+    }
     if (!invoice.paymentRequest) {
       throw new InvalidLightningPaymentRequest();
     }
@@ -202,6 +254,19 @@ export default class Vault extends VaultBase {
     const description = invoice.tags.find(
       (tag) => tag.tagName === 'description',
     );
+
+    let fee = 0;
+    try {
+      fee = await client.estimateFee({
+        address: balanceAddress,
+        dest: invoice.payeeNodeKey ?? '',
+        amt: amount.toFixed(),
+      });
+    } catch (e) {
+      console.error('Fetch Fee error: ', e);
+      // ignore error, will check invoice on final step
+    }
+
     return {
       invoice: invoice.paymentRequest,
       paymentHash: paymentHash?.data as string,
@@ -209,7 +274,12 @@ export default class Vault extends VaultBase {
       expired: `${invoice.timeExpireDate ?? ''}`,
       created: `${Math.floor(Date.now() / 1000)}`,
       description: description?.data as string,
-      fee: 0,
+      fee,
+      isExceedTransferLimit: new BigNumber(amount).isGreaterThan(
+        lnConfig.maxSendAmount,
+      ),
+      config: lnConfig,
+      successAction: transferInfo.lnurlPaymentInfo?.successAction,
     };
   }
 
@@ -241,7 +311,6 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxLightning,
     payload?: any,
   ): Promise<IDecodedTx> {
-    const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
     const hashAddress = await this.getHashAddress();
     const token = await this.engine.getNativeTokenInfo(this.networkId);
@@ -338,6 +407,7 @@ export default class Vault extends VaultBase {
           networkId: this.networkId,
           accountId: this.accountId,
           extraInfo: {
+            preimage: txInfo.payment_preimage,
             memo: txInfo.description,
           },
           totalFeeInNative: new BigNumber(fee).shiftedBy(-decimals).toFixed(),
@@ -415,7 +485,6 @@ export default class Vault extends VaultBase {
     debugLogger.engine.info('broadcastTransaction START:', {
       rawTx: signedTx.rawTx,
     });
-    console.log('===> options: ', options);
     let result;
     try {
       const client = await this.getClient();
@@ -485,6 +554,10 @@ export default class Vault extends VaultBase {
               reject(new InvoiceAlreadPaid());
             } else if (errorMessage === 'no_route') {
               reject(new NoRouteFoundError());
+            } else if (errorMessage === 'insufficient_balance') {
+              reject(new ChannelInsufficientLiquidityError());
+            } else if (errorMessage === 'invoice expired') {
+              reject(new InvoiceExpiredError());
             } else {
               reject(new Error(response.data?.message));
             }
@@ -493,14 +566,13 @@ export default class Vault extends VaultBase {
           clearInterval(intervalId);
           reject(e);
         }
-      }, 3000);
+      }, 1500);
     });
   }
 
   override async getTransactionStatuses(
     txids: string[],
   ): Promise<(TransactionStatus | undefined)[]> {
-    console.log('===>>>txids: ', txids);
     const address = await this.getCurrentBalanceAddress();
     return Promise.all(
       txids.map(async (txid) => {
@@ -554,26 +626,26 @@ export default class Vault extends VaultBase {
     key?: string | undefined;
     params?: Record<string, any> | undefined;
   }> {
-    const { invoice: payreq, amount } = encodedTx;
+    const { invoice: payreq, amount, fee } = encodedTx;
     const invoice = await this._decodedInvoceCache(payreq);
-    if (
-      (invoice.millisatoshis && +invoice.millisatoshis <= 0) ||
-      (invoice.satoshis && +invoice.satoshis <= 0) ||
-      (!invoice.millisatoshis && !invoice.satoshis)
-    ) {
-      return Promise.resolve({
-        success: false,
-        key: 'msg__the_invoice_amount_cannot_be_0',
-        params: {
-          0: 'stas',
-        },
-      });
+    let finalAmount = amount;
+    if (this.isZeroAmountInvoice(invoice)) {
+      if (new BigNumber(encodedTx.amount).isLessThan(1)) {
+        return Promise.resolve({
+          success: false,
+          key: 'msg__the_invoice_amount_cannot_be_0',
+          params: {
+            0: 'stas',
+          },
+        });
+      }
+      finalAmount = encodedTx.amount;
     }
 
     const balanceAddress = await this.getCurrentBalanceAddress();
     const balance = await this.getBalances([{ address: balanceAddress }]);
     const balanceBN = new BigNumber(balance[0] || '0');
-    if (balanceBN.isLessThan(new BigNumber(amount))) {
+    if (balanceBN.isLessThan(new BigNumber(finalAmount).plus(fee))) {
       return Promise.resolve({
         success: false,
         key: 'form__amount_invalid',
@@ -619,5 +691,19 @@ export default class Vault extends VaultBase {
     const client = await this.getClient();
     const invoice = await client.specialInvoice(balanceAddress, paymentHash);
     return invoice;
+  }
+
+  async checkAuth() {
+    const balanceAddress = await this.getCurrentBalanceAddress();
+    const client = await this.getClient();
+    return client.checkAuth(balanceAddress);
+  }
+
+  isZeroAmountInvoice(invoice: IInvoiceDecodedResponse) {
+    return (
+      (invoice.millisatoshis && +invoice.millisatoshis <= 0) ||
+      (invoice.satoshis && +invoice.satoshis <= 0) ||
+      (!invoice.millisatoshis && !invoice.satoshis)
+    );
   }
 }

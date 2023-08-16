@@ -2,7 +2,7 @@ import { withTabLayout } from '@onekeyhq/components/src/Layout/withTabLayout';
 
 import { toFocusedLazy } from '../../../../../components/LazyRenderWhenFocus';
 import SwapHistory from '../../../../../views/Swap/History';
-import { ScreenSwap } from '../../../../../views/Swap/ScreenSwap';
+import ScreenSwap from '../../../../../views/Swap/ScreenSwap';
 import { HomeRoutes, TabRoutes } from '../../../../routesEnum';
 
 import { tabRoutesConfigBaseMap } from './tabRoutes.base';

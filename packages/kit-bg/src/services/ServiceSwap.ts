@@ -11,7 +11,7 @@ import type { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   clearState,
   clearUserSelectedQuoter,
@@ -20,7 +20,6 @@ import {
   setInputToken,
   setMode,
   setOutputToken,
-  setProgressStatus,
   setQuote,
   setQuoteLimited,
   setRecipient,
@@ -49,7 +48,6 @@ import type { SendConfirmParams } from '@onekeyhq/kit/src/views/Send/types';
 import type {
   FetchQuoteParams,
   FieldType,
-  ProgressStatus,
   QuoteData,
   QuoteLimited,
   Recipient,
@@ -72,6 +70,7 @@ import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
 
@@ -681,10 +680,24 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async getReservedNetworkFee(networkId: string) {
-    const { appSelector } = this.backgroundApi;
-    const reservedNetworkFees = appSelector(
+    const { appSelector, dispatch } = this.backgroundApi;
+    const endpoint = await this.getServerEndPoint();
+    const url = `${endpoint}/swap/minimum_gas`;
+    let reservedNetworkFees = appSelector(
       (s) => s.swapTransactions.reservedNetworkFees,
     );
+
+    try {
+      const res = await this.client.get(url);
+      const data = res.data as Record<string, string> | undefined;
+      if (data) {
+        dispatch(setReservedNetworkFees(data));
+        reservedNetworkFees = data;
+      }
+    } catch {
+      debugLogger.swap.error('failed to fetch minimum network gas');
+    }
+
     return reservedNetworkFees?.[networkId] ?? ('0.01' as string);
   }
 
@@ -879,8 +892,16 @@ export default class ServiceSwap extends ServiceBase {
     encodedTx: IEncodedTx;
     payload?: SendConfirmParams['payloadInfo'];
     autoFallback?: boolean;
+    prepaidFee?: string;
   }) {
-    const { accountId, networkId, encodedTx, payload, autoFallback } = params;
+    const {
+      accountId,
+      networkId,
+      encodedTx,
+      payload,
+      autoFallback,
+      prepaidFee,
+    } = params;
     const { appSelector, serviceTransaction } = this.backgroundApi;
     const swapFeePresetIndex = appSelector(
       (s) => s.swapTransactions.swapFeePresetIndex,
@@ -892,6 +913,7 @@ export default class ServiceSwap extends ServiceBase {
       payload,
       feePresetIndex: swapFeePresetIndex,
       autoFallback,
+      prepaidFee,
     });
   }
 
@@ -984,7 +1006,7 @@ export default class ServiceSwap extends ServiceBase {
 
     const { serviceToken } = this.backgroundApi;
 
-    serviceToken.getAccountTokenBalance({
+    serviceToken.fetchAndSaveAccountTokenBalance({
       accountId,
       networkId,
       tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
@@ -1016,28 +1038,6 @@ export default class ServiceSwap extends ServiceBase {
       result,
       attachment,
     });
-  }
-
-  @backgroundMethod()
-  async setProgressStatus(data?: ProgressStatus) {
-    const { dispatch, appSelector } = this.backgroundApi;
-    const progressStatus = appSelector((s) => s.swap.progressStatus);
-    if (!progressStatus) {
-      return;
-    }
-    dispatch(setProgressStatus(data));
-  }
-
-  @backgroundMethod()
-  async openProgressStatus() {
-    const { dispatch } = this.backgroundApi;
-    dispatch(setProgressStatus({}));
-  }
-
-  @backgroundMethod()
-  async closeProgressStatus() {
-    const { dispatch } = this.backgroundApi;
-    dispatch(setProgressStatus(undefined));
   }
 
   @bindThis()

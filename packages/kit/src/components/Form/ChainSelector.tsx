@@ -3,9 +3,11 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Form, useIsVerticalLayout } from '@onekeyhq/components';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import { useManageNetworks } from '@onekeyhq/kit/src/hooks';
 import { useGeneral } from '@onekeyhq/kit/src/hooks/redux';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import type { ControllerProps, FieldValues } from 'react-hook-form';
 
@@ -13,20 +15,25 @@ type FormChainSelectorProps = {
   selectableNetworks?: Array<string>;
   hideHelpText?: boolean;
   networkId?: string | null;
+  disabledNetworkIds?: Array<string>;
 };
 
 function FormChainSelector<TFieldValues extends FieldValues = FieldValues>({
   selectableNetworks,
   networkId,
   hideHelpText = false,
+  disabledNetworkIds,
   ...props
 }: Omit<ControllerProps<TFieldValues>, 'render'> & FormChainSelectorProps) {
   const intl = useIntl();
-  const { enabledNetworks: networks } = useManageNetworks();
+  const { enabledNetworks: networks } = useManageNetworks(undefined);
   const { activeNetworkId: currentNetworkId } = useGeneral();
   const isSmallScreen = useIsVerticalLayout();
 
-  let defaultNetworkId = networkId ?? currentNetworkId;
+  let defaultNetworkId =
+    networkId ?? isAllNetworks(currentNetworkId)
+      ? OnekeyNetwork.eth
+      : currentNetworkId;
 
   // If selectableNetworks is specified and currenct selected network not in
   // it, set the first selectable network as the default.
@@ -42,11 +49,15 @@ function FormChainSelector<TFieldValues extends FieldValues = FieldValues>({
     if (!networks) return [];
 
     return networks
-      .filter(
-        (network) =>
+      .filter((network) => {
+        if (disabledNetworkIds?.includes(network?.id)) {
+          return false;
+        }
+        return (
           typeof selectableNetworks === 'undefined' ||
-          selectableNetworks.includes(network.id),
-      )
+          selectableNetworks.includes(network.id)
+        );
+      })
       .map((network) => ({
         label: network.shortName,
         value: network.id,
@@ -58,7 +69,7 @@ function FormChainSelector<TFieldValues extends FieldValues = FieldValues>({
         },
         badge: network.impl === 'evm' ? 'EVM' : undefined,
       }));
-  }, [networks, selectableNetworks]);
+  }, [networks, selectableNetworks, disabledNetworkIds]);
 
   const findActiveNetwork = useCallback<(id: string) => Network | null>(
     (id) => {

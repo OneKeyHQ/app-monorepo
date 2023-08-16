@@ -20,6 +20,7 @@ import type ServiceCloudBackup from './services/ServiceCloudBackup';
 import type ServiceContract from './services/ServiceContract';
 import type ServiceCronJob from './services/ServiceCronJob';
 import type ServiceDapp from './services/ServiceDapp';
+import type ServiceDappMetaData from './services/ServiceDappMetaData';
 import type ServiceDerivationPath from './services/ServiceDerivationPath';
 import type ServiceDiscover from './services/ServiceDiscover';
 import type ServiceExternalAccount from './services/ServiceExternalAccount';
@@ -49,7 +50,6 @@ import type ServiceStaking from './services/ServiceStaking';
 import type ServiceSwap from './services/ServiceSwap';
 import type ServiceToken from './services/ServiceToken';
 import type ServiceTransaction from './services/ServiceTransaction';
-import type ServiceTranslation from './services/ServiceTranslation';
 import type ServiceUtxos from './services/ServiceUtxos';
 import type ServiceWalletConnect from './services/ServiceWalletConnect';
 
@@ -160,10 +160,6 @@ class BackgroundApiProxy
     'serviceOverview',
   ) as ServiceOverview;
 
-  serviceTranslation = this._createProxyService(
-    'serviceTranslation',
-  ) as ServiceTranslation;
-
   serviceMigrate = this._createProxyService('serviceMigrate') as ServiceMigrate;
 
   serviceHTTP = this._createProxyService('serviceHTTP') as ServiceHTTP;
@@ -201,6 +197,10 @@ class BackgroundApiProxy
   serviceAllNetwork = this._createProxyService(
     'serviceAllNetwork',
   ) as ServiceAllNetwork;
+
+  serviceDappMetaData = this._createProxyService(
+    'serviceDappMetaData',
+  ) as ServiceDappMetaData;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {

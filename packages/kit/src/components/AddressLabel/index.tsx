@@ -11,6 +11,7 @@ import {
   type GoPlusAddressSecurity,
   GoPlusSupportApis,
 } from '@onekeyhq/engine/src/types/goplus';
+import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
@@ -28,11 +29,13 @@ type Props = {
   securityInfo?: (keyof GoPlusAddressSecurity)[];
   shouldCheckSecurity?: boolean;
   validAddressMessage?: MessageDescriptor['id'];
+  validAddressMessageProperty?: Record<string, any>;
   labelStyle?: ComponentProps<typeof Box>;
   labelProps?: ComponentProps<typeof Badge>;
   isLoading?: boolean;
   accountLabel?: string;
   addressBookLabel?: string;
+  walletId?: string;
 } & ComponentProps<typeof HStack>;
 
 type Label = {
@@ -66,12 +69,14 @@ function AddressLabel(props: Props) {
     isWatchAccount,
     accountLabel: accountLabelFromOut,
     addressBookLabel: addressBookLabelFromOut,
+    walletId: WalletIdFromOut,
     isAddressBook,
     isContractAddress,
     shouldCheckSecurity,
     isValidAddress,
     showValidAddressLabel = false,
     validAddressMessage,
+    validAddressMessageProperty,
     labelStyle,
     labelProps,
     isLoading,
@@ -84,6 +89,7 @@ function AddressLabel(props: Props) {
   const [accountLabel, setAccountLabel] = useState<string | undefined>(
     accountLabelFromOut,
   );
+  const [accountWallet, setAccountWallet] = useState<Wallet>();
   const [addressBookLabel, setAddressBookLabel] = useState<string | undefined>(
     addressBookLabelFromOut,
   );
@@ -106,6 +112,11 @@ function AddressLabel(props: Props) {
       if (!isNil(isWatchAccount)) {
         setIsWatchAccountLabel(isWatchAccount);
       }
+      if (WalletIdFromOut) {
+        backgroundApiProxy.engine
+          .getWallet(WalletIdFromOut)
+          .then((wallet) => setAccountWallet(wallet));
+      }
     } else {
       setIsLoadingAccountLabel(true);
       backgroundApiProxy.serviceAccount
@@ -117,6 +128,12 @@ function AddressLabel(props: Props) {
           setIsAccountLabel(!!resp.label);
           setAccountLabel(resp.label);
           setIsWatchAccountLabel(resp.accountId.startsWith('watching--'));
+
+          if (resp.walletId) {
+            backgroundApiProxy.engine
+              .getWallet(resp.walletId)
+              .then((wallet) => setAccountWallet(wallet));
+          }
         })
         .finally(() => setIsLoadingAccountLabel(false));
     }
@@ -147,6 +164,7 @@ function AddressLabel(props: Props) {
         .finally(() => setIsLoadingContractAddressLabel(false));
     }
   }, [
+    WalletIdFromOut,
     accountLabelFromOut,
     address,
     addressBookLabelFromOut,
@@ -203,11 +221,11 @@ function AddressLabel(props: Props) {
   const addressLabels = useMemo(() => {
     const labels = [
       isAccountLabel && {
-        title: isWatchAccountLabel
-          ? 'form__watched_address'
-          : 'form__my_account',
+        title:
+          accountWallet?.name ??
+          (isWatchAccountLabel ? 'form__watched_address' : 'form__my_account'),
         type: 'success',
-        icon: '👤',
+        icon: accountWallet?.avatar?.emoji ?? '👤',
         desc: accountLabel,
       },
       isAddressBookLabel && {
@@ -219,11 +237,14 @@ function AddressLabel(props: Props) {
       isContractAddressLabel && {
         title: 'content__contract_address',
         type: 'warning',
+        icon: '📝',
       },
     ];
     return labels.filter(Boolean) as Label[];
   }, [
     accountLabel,
+    accountWallet?.avatar?.emoji,
+    accountWallet?.name,
     addressBookLabel,
     isAccountLabel,
     isAddressBookLabel,
@@ -247,6 +268,7 @@ function AddressLabel(props: Props) {
           title: validAddressMessage || 'form__enter_recipient_address_valid',
           type: 'default',
           icon: '👌',
+          description: validAddressMessageProperty,
         },
     ];
     return labels.filter(Boolean) as Label[];
@@ -261,35 +283,53 @@ function AddressLabel(props: Props) {
     isValidAddressLabel,
     securityInfo?.length,
     validAddressMessage,
+    validAddressMessageProperty,
   ]);
 
   const getTitle = useCallback(
     (label: Label) => {
+      const values =
+        validAddressMessageProperty &&
+        typeof validAddressMessageProperty === 'object'
+          ? validAddressMessageProperty
+          : undefined;
+
       if (label.icon) {
         if (label.desc) {
-          return `${label.icon} ${intl.formatMessage({
-            id: label.title,
-          })}: ${label.desc}`;
+          return `${label.icon} ${intl.formatMessage(
+            {
+              id: label.title,
+            },
+            values,
+          )}: ${label.desc}`;
         }
 
-        return `${label.icon} ${intl.formatMessage({
-          id: label.title,
-        })}`;
+        return `${label.icon} ${intl.formatMessage(
+          {
+            id: label.title,
+          },
+          values,
+        )}`;
       }
 
       if (label.desc) {
-        return `${intl.formatMessage({
-          id: label.title,
-        })}: ${label.desc}`;
+        return `${intl.formatMessage(
+          {
+            id: label.title,
+          },
+          values,
+        )}: ${label.desc}`;
       }
 
-      return `${intl.formatMessage({
-        id: label.title,
-      })}`;
+      return `${intl.formatMessage(
+        {
+          id: label.title,
+        },
+        values,
+      )}`;
     },
-    [intl],
+    [intl, validAddressMessageProperty],
   );
-
   if (
     securityLabels.length === 0 &&
     addressLabels.length === 0 &&

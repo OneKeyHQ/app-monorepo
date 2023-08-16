@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
+  CustomSkeleton,
   HStack,
   Text,
   ToastManager,
@@ -17,13 +18,13 @@ import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClos
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { TaprootAddressError } from '@onekeyhq/engine/src/errors';
+import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
-import { useNetwork } from '../../../../../../hooks';
-import { useActiveWalletAccount } from '../../../../../../hooks/redux';
+import { useNetwork, useWallet } from '../../../../../../hooks';
 import useFormatDate from '../../../../../../hooks/useFormatDate';
 import {
   ModalRoutes,
@@ -41,9 +42,13 @@ type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 function BTCAssetDetailContent({
   asset: outerAsset,
   isOwner,
+  networkId,
+  accountId,
 }: {
   asset: NFTBTCAssetModel;
   isOwner: boolean;
+  networkId: string;
+  accountId?: string;
 }) {
   const intl = useIntl();
   const { format } = useFormatDate();
@@ -53,27 +58,26 @@ function BTCAssetDetailContent({
     networkId: outerAsset?.networkId ?? '',
   });
 
-  const { wallet } = useActiveWalletAccount();
+  const walletId = useMemo(() => {
+    if (accountId) {
+      return getWalletIdFromAccountId(accountId);
+    }
+    return null;
+  }, [accountId]);
+
+  const { wallet } = useWallet({ walletId });
+
   const navigation = useNavigation<NavigationProps['navigation']>();
   const modalClose = useModalClose();
 
   const [asset, updateAsset] = useState(outerAsset);
   const isDisabled =
-    wallet?.type === WALLET_TYPE_WATCHING &&
-    asset.owner !== outerAsset.accountAddress;
+    wallet?.type === WALLET_TYPE_WATCHING ||
+    asset.owner !== outerAsset.accountAddress ||
+    !accountId;
 
-  const sendAction = useCallback(async () => {
-    const { accountAddress, networkId } = outerAsset ?? {};
-    if (!networkId || !accountAddress) {
-      return;
-    }
-    const account = await backgroundApiProxy.serviceAccount.getAccountByAddress(
-      {
-        networkId,
-        address: accountAddress ?? '',
-      },
-    );
-    if (!account) {
+  const sendAction = useCallback(() => {
+    if (!networkId || !accountId) {
       return;
     }
     const validateAddress = async (address: string) => {
@@ -81,7 +85,7 @@ function BTCAssetDetailContent({
         await serviceInscribe.checkValidTaprootAddress({
           address,
           networkId,
-          accountId: account.id,
+          accountId,
         });
       } catch (error) {
         throw new TaprootAddressError();
@@ -92,7 +96,7 @@ function BTCAssetDetailContent({
       params: {
         screen: SendModalRoutes.PreSendAddress,
         params: {
-          accountId: account?.id,
+          accountId,
           networkId,
           isNFT: true,
           from: '',
@@ -113,13 +117,14 @@ function BTCAssetDetailContent({
       },
     });
   }, [
+    accountId,
     asset.inscription_id,
     asset.location,
     asset.output,
     asset.owner,
     modalClose,
     navigation,
-    outerAsset,
+    networkId,
     serviceInscribe,
   ]);
 
@@ -139,15 +144,18 @@ function BTCAssetDetailContent({
 
   return (
     <VStack space="24px" mb="50px">
-      {asset?.inscription_number > 0 ? (
-        <Text
-          typography={{ sm: 'DisplayLarge', md: 'DisplayLarge' }}
-          fontWeight="700"
-        >
-          {`Inscription  #${asset?.inscription_number}`}
-        </Text>
-      ) : null}
-
+      <Text
+        typography={{ sm: 'DisplayLarge', md: 'DisplayLarge' }}
+        fontWeight="700"
+        alignItems="center"
+      >
+        Inscription #{' '}
+        {asset?.inscription_number === 0 ? (
+          <Text>{asset?.inscription_number}</Text>
+        ) : (
+          <CustomSkeleton borderRadius="10px" width={120} height="20px" />
+        )}
+      </Text>
       {isOwner && (
         <HStack space="16px">
           <Button
@@ -222,7 +230,7 @@ function BTCAssetDetailContent({
                 const isMainNet = network?.id === OnekeyNetwork.btc;
                 const host = isMainNet
                   ? 'https://ordinals.com'
-                  : 'http://ordinals-testnet.onekeytest.com';
+                  : 'https://tbtc-ordinals.onekey.so';
                 openUrl(`${host}/inscription/${asset.inscription_id}`);
               }}
               title={intl.formatMessage({

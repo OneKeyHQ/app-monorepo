@@ -277,6 +277,14 @@ export class InsufficientBalance extends OneKeyError {
   override key = 'form__amount_invalid';
 }
 
+export class InsufficientGasFee extends OneKeyError {
+  override key = 'msg__suggest_reserving_str_as_gas_fee';
+
+  constructor(token: string, amount: string) {
+    super('', { '0': `${amount} ${token}` });
+  }
+}
+
 export class WalletNameLengthError extends StringLengthRequirement {
   override key = 'msg__engine__wallet_name_length_error';
 }
@@ -375,8 +383,24 @@ export class NoRouteFoundError extends OneKeyError {
   override key = 'msg__no_route_found';
 }
 
+export class ChannelInsufficientLiquidityError extends OneKeyError {
+  override key = 'msg__insufficient_liquidity_of_lightning_node_channels';
+}
+
 export class BadAuthError extends OneKeyError {
   override key = 'msg__authentication_failed_verify_again';
+}
+
+export class InvoiceExpiredError extends OneKeyError {
+  override key = 'msg__the_invoice_has_expired';
+}
+
+export class MaxSendAmountError extends OneKeyError {
+  override key = 'msg__the_sending_amount_cannot_exceed_int_sats';
+
+  constructor(key: string, info?: IOneKeyErrorInfo, message?: string) {
+    super(message, info);
+  }
 }
 
 export class TaprootAddressError extends OneKeyError {
@@ -397,4 +421,25 @@ export class InscribeFileTooLargeError extends OneKeyError {
 
 export class UtxoNotFoundError extends OneKeyError {
   override key = 'msg__nft_does_not_exist';
+}
+
+export class MinimumTransferBalanceRequiredError extends OneKeyError {
+  override key =
+    'msg__the_minimum_value_for_transffering_to_a_new_account_is_str_str';
+
+  constructor(amount: string, symbol: string) {
+    super('', {
+      amount,
+      symbol,
+    });
+  }
+}
+
+// all networks ----------------------------------------------
+export class AllNetworksMinAccountsError extends OneKeyError {
+  override key = 'msg__you_need_str_accounts_on_any_network_to_create';
+}
+
+export class AllNetworksUpto3LimitsError extends OneKeyError {
+  override key = 'msg__currently_supports_up_to_str_all_networks_accounts';
 }

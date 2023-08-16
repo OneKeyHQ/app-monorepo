@@ -13,6 +13,7 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
 import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
@@ -49,8 +50,11 @@ function BatchSendConfirmModalBase(props: IBatchTxsConfirmViewProps) {
     tokenTransferInfo,
     isWaitingTxReady,
     isSingleTransformMode,
+    batchSendConfirmParams,
     ...others
   } = props;
+
+  const { bulkType } = batchSendConfirmParams;
 
   const encodedTx = encodedTxs[0];
   const decodedTx = decodedTxs[0];
@@ -71,8 +75,16 @@ function BatchSendConfirmModalBase(props: IBatchTxsConfirmViewProps) {
     fallback: '0',
   });
 
+  const isManyToN = useMemo(
+    () =>
+      bulkType === BulkTypeEnum.ManyToMany ||
+      bulkType === BulkTypeEnum.ManyToOne,
+    [bulkType],
+  );
+
   const balanceInsufficient = useMemo(() => {
     let nativeBalanceTransferBN = new BigNumber(0);
+    if (isManyToN) return false;
     for (const tx of decodedTxs) {
       for (const action of (tx as IDecodedTx).actions) {
         if (action.type === IDecodedTxActionType.NATIVE_TRANSFER) {
@@ -86,7 +98,7 @@ function BatchSendConfirmModalBase(props: IBatchTxsConfirmViewProps) {
     return new BigNumber(nativeBalance ?? '0').lt(
       nativeBalanceTransferBN.plus(totalFeeInNative),
     );
-  }, [totalFeeInNative, nativeBalance, decodedTxs]);
+  }, [isManyToN, nativeBalance, totalFeeInNative, decodedTxs]);
 
   const isWatching = useMemo(
     () => isWatchingAccount({ accountId }),
@@ -94,6 +106,8 @@ function BatchSendConfirmModalBase(props: IBatchTxsConfirmViewProps) {
   );
 
   const isAccountNotMatched = useMemo(() => {
+    if (isManyToN) return false;
+
     if (!encodedTx) {
       return false;
     }
@@ -108,7 +122,7 @@ function BatchSendConfirmModalBase(props: IBatchTxsConfirmViewProps) {
       }
     }
     return false;
-  }, [accountAddress, encodedTx, networkImpl]);
+  }, [accountAddress, encodedTx, isManyToN, networkImpl]);
 
   const confirmAction = useCallback(
     async ({ close, onClose }) => {
@@ -134,7 +148,7 @@ function BatchSendConfirmModalBase(props: IBatchTxsConfirmViewProps) {
           isAccountNotMatched={isAccountNotMatched}
         />
       )}
-      {network?.settings.nativeSupportBatchTransfer ? null : (
+      {network?.settings.nativeSupportBatchTransfer || isManyToN ? null : (
         <Box mb={3}>
           <Alert
             dismiss={false}

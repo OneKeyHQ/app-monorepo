@@ -2,9 +2,9 @@ import { trim } from 'lodash';
 
 import { openUrlExternal } from '../../utils/openUrl';
 
-import { BulkSenderTypeEnum, ReceiverExampleType } from './types';
+import { TraderExampleType } from './types';
 
-import type { TokenReceiver } from './types';
+import type { TokenTrader } from './types';
 
 const RECEIVER_EXAMPLE_URL_EXCEL =
   'https://onekey-devops.s3.ap-southeast-1.amazonaws.com/send_ERC20.xlsx';
@@ -13,58 +13,79 @@ const RECEIVER_EXAMPLE_URL_CSV =
 const RECEIVER_EXAMPLE_URL_TXT =
   'https://onekey-devops.s3.ap-southeast-1.amazonaws.com/send_ERC20.txt';
 
-export function encodeReceiver(receiver: TokenReceiver[]): string {
-  const count = receiver.length;
-  return receiver.reduce(
+export function encodeTrader({
+  trader,
+  withAmount,
+}: {
+  trader: TokenTrader[];
+  withAmount: boolean;
+}): string {
+  const count = trader.length;
+  if (withAmount) {
+    return trader.reduce(
+      (acc, cur, index) =>
+        `${acc}${[cur.Address, cur.Amount].join(',')}${
+          index === count - 1 ? '' : '\n'
+        }`,
+      '',
+    );
+  }
+
+  return trader.reduce(
     (acc, cur, index) =>
-      `${acc}${[cur.Address, cur.Amount].join(',')}${
-        index === count - 1 ? '' : '\n'
-      }`,
+      `${acc}${cur.Address}${index === count - 1 ? '' : '\n'}`,
     '',
   );
 }
 
-export function encodeReceiverWithLineNumber(receiverString: string): string {
-  const lines = receiverString.split('\n');
+export function encodeTraderWithLineNumber(traderString: string): string {
+  const lines = traderString.split('\n');
   const linesWithNumber = lines.map(
     (line, index) => `${index + 1}${new Array(line.length + 3).join(' ')}`,
   );
   return linesWithNumber.join('\n');
 }
 
-export function decodeReceiver<T>(
-  receiverString: string,
-  type: BulkSenderTypeEnum,
-): T[] {
-  const receiver: T[] = [];
+export function decodeTrader<T>({
+  traderString,
+  withAmount,
+}: {
+  traderString: string;
+  withAmount: boolean;
+}): T[] {
+  const trader: T[] = [];
 
-  if (receiverString === '') return [];
+  if (traderString === '') return [];
 
-  const lines = receiverString.split('\n');
+  const lines = traderString.split('\n');
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
-    const receiverData = line.split(',');
-    if (type === BulkSenderTypeEnum.Token || BulkSenderTypeEnum.NativeToken) {
-      receiver.push({
-        Address: trim(receiverData[0]),
-        Amount: trim(receiverData[1]),
+    if (withAmount) {
+      const traderData = line.split(',');
+      trader.push({
+        Address: trim(traderData[0]),
+        Amount: trim(traderData[1]),
+      } as T);
+    } else {
+      trader.push({
+        Address: trim(line),
       } as T);
     }
   }
 
-  return receiver;
+  return trader;
 }
 
-export function downloadReceiverExample(type: ReceiverExampleType) {
+export function downloadTraderExample(type: TraderExampleType) {
   let url = '';
   switch (type) {
-    case ReceiverExampleType.CSV:
+    case TraderExampleType.CSV:
       url = RECEIVER_EXAMPLE_URL_CSV;
       break;
-    case ReceiverExampleType.TXT:
+    case TraderExampleType.TXT:
       url = RECEIVER_EXAMPLE_URL_TXT;
       break;
-    case ReceiverExampleType.Excel:
+    case TraderExampleType.Excel:
       url = RECEIVER_EXAMPLE_URL_EXCEL;
       break;
     default:

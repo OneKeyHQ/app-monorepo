@@ -2,9 +2,11 @@ import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Box,
   Center,
   Icon,
@@ -29,10 +31,14 @@ import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Inscribe';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { FormatBalanceTokenOfAccount } from '../../../components/Format';
+import {
+  FormatBalance,
+  FormatBalanceTokenOfAccount,
+} from '../../../components/Format';
 import { useActiveSideAccount } from '../../../hooks';
 import { useSingleToken } from '../../../hooks/useTokens';
 import {
@@ -98,20 +104,22 @@ const CreateOrder: FC = () => {
   const refreshData = useCallback(
     async (padding?: number) => {
       setLoading(true);
-      const feeRates = await serviceInscribe.fetchFeeRates();
+      const feeRates = await serviceInscribe.fetchFeeRates(networkId);
       if (feeRates) {
         const data = await serviceInscribe.createInscribeOrder({
           toAddress: receiveAddress,
           contents,
           feeRate: feeRates.fastestFee,
           globalPaddingSats: padding,
+          networkId,
+          accountId,
         });
         updateOrder(data);
         setLoading(false);
         return data;
       }
     },
-    [contents, receiveAddress, serviceInscribe],
+    [accountId, contents, networkId, receiveAddress, serviceInscribe],
   );
 
   const previewText = useMemo(() => {
@@ -146,6 +154,8 @@ const CreateOrder: FC = () => {
         await serviceInscribe.buildInscribeCommitEncodedTx({
           to: data.fundingAddress,
           amount: data.fundingValueNative,
+          networkId,
+          accountId,
         });
 
       const submitOrder = async (commitSignedTx?: ISignedTxPro) => {
@@ -156,6 +166,7 @@ const CreateOrder: FC = () => {
           const result = await serviceInscribe.submitInscribeOrder({
             order,
             commitSignedTx,
+            networkId,
           });
           closeModal();
           if (result.errors.length > 0) {
@@ -223,6 +234,9 @@ const CreateOrder: FC = () => {
                   setsSubmitOrderLoading(false);
                 }
               },
+              onFail: () => {
+                setsSubmitOrderLoading(false);
+              },
             },
           },
         });
@@ -266,7 +280,7 @@ const CreateOrder: FC = () => {
 
   const AvailableBalance = useMemo(
     () => (
-      <Box position="absolute" bottom={isVerticalLayout ? 0 : -72} left={0}>
+      <Box>
         <Pressable
           onPress={
             balanceDetailsInfo.enabled
@@ -300,20 +314,14 @@ const CreateOrder: FC = () => {
         </Pressable>
       </Box>
     ),
-    [
-      accountId,
-      balanceDetailsInfo,
-      intl,
-      isVerticalLayout,
-      networkId,
-      tokenInfo,
-    ],
+    [accountId, balanceDetailsInfo, intl, networkId, tokenInfo],
   );
   return (
     <Modal
       header={intl.formatMessage({ id: 'title__inscribe' })}
       headerDescription={<HeaderDescription network={network} />}
       rightContent={<OrderButton />}
+      extraElement={!isVerticalLayout ? AvailableBalance : null}
       footer={submitOrderLoading ? null : undefined}
       height="640px"
       primaryActionTranslationId="action__next"
@@ -346,15 +354,41 @@ const CreateOrder: FC = () => {
             <Text
               mt="16px"
               mb="8px"
-              typography="Body1Strong"
+              typography="Body2Strong"
               color="text-subdued"
             >
               {intl.formatMessage({ id: 'form__inscription_file_preview' })}
             </Text>
             <CreateOrderFilePreview file={file} text={previewText} />
             <Box mt="16px" flexDirection="row" justifyContent="space-between">
+              <Text typography="Body2Strong" color="text-subdued">
+                {intl.formatMessage({ id: 'form__inscription_file_size' })}
+              </Text>
+              <Text typography="Body2">{formatBytes(size)}</Text>
+            </Box>
+            <Box mt="16px" flexDirection="row" justifyContent="space-between">
+              <Text typography="Body2Strong" color="text-subdued">
+                {intl.formatMessage({ id: 'form__inscription_inscribe_to' })}
+              </Text>
+              <Pressable
+                flexDirection="row"
+                alignItems="center"
+                onPress={() => {
+                  copyToClipboard(receiveAddress);
+                  ToastManager.show({
+                    title: intl.formatMessage({ id: 'msg__copied' }),
+                  });
+                }}
+              >
+                <Text typography="Body2" mr="8px">
+                  {shortenAddress(receiveAddress, 6)}
+                </Text>
+                <Icon name="Square2StackOutline" size={20} />
+              </Pressable>
+            </Box>
+            <Box mt="16px" flexDirection="row" justifyContent="space-between">
               <Box flexDirection="row" alignItems="center">
-                <Text typography="Body1Strong" color="text-subdued" mr="4px">
+                <Text typography="Body2Strong" color="text-subdued" mr="4px">
                   {intl.formatMessage({ id: 'form__inscription_value' })}
                 </Text>
                 <TipWithLabel
@@ -363,19 +397,33 @@ const CreateOrder: FC = () => {
                   })}
                 />
               </Box>
-              <Text typography="Body1">{`${sat} sats`}</Text>
+              <FormatBalance
+                balance={new BigNumber(sat).shiftedBy(-8).toFixed()}
+                suffix={tokenInfo?.symbol}
+                formatOptions={{
+                  fixed: tokenInfo?.decimals,
+                }}
+                render={(ele) => <Text typography="Body2">{ele}</Text>}
+              />
             </Box>
             <Slider
               py="4px"
+              style={platformEnv.isNative ? { paddingVertical: 4 } : undefined}
               width="100%"
               minValue={546}
               maxValue={10000}
+              nativeMode={platformEnv.isNative}
               accessibilityLabel="sat"
               step={1}
               value={sat}
-              onChange={(value) => {
+              onChangeBegin={() => {
                 setLoading(true);
-                setSat(value);
+              }}
+              onChange={(value) => {
+                if (!platformEnv.isNative) {
+                  // It is not necessary to constantly update the value on the app side.
+                  setSat(value);
+                }
               }}
               onChangeEnd={(value) => {
                 setSat(value);
@@ -400,42 +448,14 @@ const CreateOrder: FC = () => {
                 />
               </Slider.Thumb>
             </Slider>
-
-            <Box mt="16px" flexDirection="row" justifyContent="space-between">
-              <Text typography="Body1Strong" color="text-subdued">
-                {intl.formatMessage({ id: 'form__inscription_owner' })}
-              </Text>
-              <Pressable
-                flexDirection="row"
-                alignItems="center"
-                onPress={() => {
-                  copyToClipboard(receiveAddress);
-                  ToastManager.show({
-                    title: intl.formatMessage({ id: 'msg__copied' }),
-                  });
-                }}
-              >
-                <Text typography="Body1" mr="8px">
-                  {shortenAddress(receiveAddress, 6)}
-                </Text>
-                <Icon name="Square2StackOutline" size={20} />
-              </Pressable>
-            </Box>
-
-            <Box mt="16px" flexDirection="row" justifyContent="space-between">
-              <Text typography="Body1Strong" color="text-subdued">
-                {intl.formatMessage({ id: 'form__inscription_file_size' })}
-              </Text>
-              <Text typography="Body1">{formatBytes(size)}</Text>
-            </Box>
             <Box
-              my="16px"
+              mt="16px"
               flexDirection="row"
               justifyContent="space-between"
               alignItems="center"
             >
               <Box flexDirection="row" alignItems="center">
-                <Text typography="Body1Strong" color="text-subdued" mr="4px">
+                <Text typography="Body2Strong" color="text-subdued" mr="4px">
                   {intl.formatMessage({ id: 'form__inscribing_fee' })}
                 </Text>
                 <TipWithLabel
@@ -449,14 +469,39 @@ const CreateOrder: FC = () => {
               order.fundingValue === undefined ? (
                 <Skeleton shape="Subheading" />
               ) : (
-                <Text typography="Body1">{`${
-                  order.fundingValue - sat
-                } sats`}</Text>
+                <FormatBalance
+                  balance={new BigNumber(order.fundingValue - sat)
+                    .shiftedBy(-8)
+                    .toFixed()}
+                  suffix={tokenInfo?.symbol}
+                  formatOptions={{
+                    fixed: tokenInfo?.decimals,
+                  }}
+                  render={(ele) => <Text typography="Body2">{ele}</Text>}
+                />
               )}
             </Box>
+            <Box mt="16px" flexDirection="row" justifyContent="space-between">
+              <Box flexDirection="row" alignItems="center">
+                <Text typography="Body2Strong" color="text-subdued" mr="4px">
+                  {intl.formatMessage({ id: 'form__service_fee' })}
+                </Text>
+                <Badge
+                  type="info"
+                  size="sm"
+                  color="text-success"
+                  title={intl.formatMessage({ id: 'form__free__uppercase' })}
+                />
+              </Box>
+              <Text typography="Body2">0 BTC</Text>
+            </Box>
+            <Text color="text-success" typography="Caption" mt="8px">
+              {intl.formatMessage({
+                id: 'content__onekey_does_not_charge_any_service_fees',
+              })}
+            </Text>
           </ScrollView>
-          {AvailableBalance}
-          {/* {isVerticalLayout ? AvailableBalance : null} */}
+          {isVerticalLayout ? AvailableBalance : null}
         </VStack>
       )}
     </Modal>

@@ -6,55 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import type { MatchDAppItemType } from '../Explorer/explorerUtils';
-import type { DAppItemType, WebSiteHistory } from '../type';
-
-export function useAllDapps(): DAppItemType[] {
-  return useAppSelector((s) => s.discover.dappItems || []);
-}
-
-const getShortHost = (host: string) => host.split('.').slice(-2).join('.');
-
-export function useAllDappMap(): {
-  idsMap: Record<string, DAppItemType>;
-  hostMap: Record<string, DAppItemType>;
-} {
-  const allDapps = useAllDapps();
-  const idsMap: Record<string, DAppItemType> = {};
-  const hostMap: Record<string, DAppItemType> = {};
-  for (let i = 0; i < allDapps.length; i += 1) {
-    const item = allDapps[i];
-    idsMap[item._id] = item;
-    if (item.url) {
-      const { host } = new URL(item.url);
-      if (host) {
-        hostMap[host] = item;
-      } else {
-        const shortHost = getShortHost(host);
-        if (shortHost) {
-          hostMap[shortHost] = item;
-        }
-      }
-    }
-  }
-  return { idsMap, hostMap };
-}
-
-export function useHistoryHostMap(): Record<string, WebSiteHistory> {
-  const history = useAppSelector((s) => s.discover.history);
-  return useMemo(() => {
-    const hostMap: Record<string, WebSiteHistory> = {};
-    Object.values(history).forEach(({ webSite }) => {
-      if (webSite) {
-        const { url } = webSite;
-        if (url) {
-          const { host } = new URL(url);
-          hostMap[host] = webSite;
-        }
-      }
-    });
-    return hostMap;
-  }, [history]);
-}
+import type { DAppItemType } from '../type';
 
 export function useUserBrowserHistories(): MatchDAppItemType[] {
   const userBrowserHistories = useAppSelector(
@@ -71,34 +23,9 @@ export function useUserBrowserHistories(): MatchDAppItemType[] {
         title: item.title,
         favicon: item.logoUrl,
       },
+      timestamp: item.timestamp,
     }));
   }, [userBrowserHistories]);
-}
-
-export function useDiscoverHistory(): MatchDAppItemType[] {
-  const [items, setItems] = useState<MatchDAppItemType[]>([]);
-  const dappHistory = useAppSelector((s) => s.discover.dappHistory);
-
-  const dappsIds = useMemo(() => {
-    if (!dappHistory) {
-      return [];
-    }
-    return Object.entries(dappHistory)
-      .sort((a, b) => b[1].timestamp - a[1].timestamp)
-      .map((o) => o[0])
-      .filter((item) => !Number.isNaN(item));
-  }, [dappHistory]);
-
-  useEffect(() => {
-    if (dappsIds) {
-      backgroundApiProxy.serviceDiscover
-        .getDappsByIds(dappsIds)
-        .then((itemDapps) => {
-          setItems(itemDapps.map((o) => ({ id: o._id, dapp: o })));
-        });
-    }
-  }, [dappsIds]);
-  return items;
 }
 
 export function useDiscoverFavorites(): MatchDAppItemType[] {
@@ -116,16 +43,6 @@ export function useDiscoverFavorites(): MatchDAppItemType[] {
       },
     }));
   }, [bookmarks]);
-}
-
-export function useTaggedDapps() {
-  const home = useAppSelector((s) => s.discover.home);
-  return useMemo(() => {
-    if (!home) {
-      return [];
-    }
-    return home.tagDapps.filter((item) => item.items.length > 0);
-  }, [home]);
 }
 
 export function useCategoryDapps(categoryId?: string): DAppItemType[] {
@@ -148,31 +65,4 @@ export function useTagDapps(tagId: string) {
     }
   }, [tagId]);
   return tagDapps;
-}
-
-export function useCategories() {
-  const home = useAppSelector((s) => s.discover.home);
-  return useMemo(() => {
-    if (!home) {
-      return [];
-    }
-    return home.categories;
-  }, [home]);
-}
-
-export function useShowBookmark() {
-  const isApple = platformEnv.isNativeIOS || platformEnv.isMas;
-  const showBookmark = useAppSelector((s) => s.discover.showBookmark);
-  const hideDiscoverContent = useAppSelector(
-    (s) => s.settings.devMode?.hideDiscoverContent,
-  );
-  return useMemo(() => {
-    if (hideDiscoverContent) {
-      return false;
-    }
-    if (!isApple) {
-      return true;
-    }
-    return showBookmark;
-  }, [showBookmark, isApple, hideDiscoverContent]);
 }

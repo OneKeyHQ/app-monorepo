@@ -11,6 +11,7 @@ export type UserBrowserHistory = {
   title?: string;
   logoUrl?: string;
   dappId?: string;
+  timestamp?: number;
 };
 
 export type DiscoverHistory = {
@@ -30,11 +31,8 @@ export type DAppItemType = {
   url: string;
   logoURL: string;
   subtitle: string;
-  description: string;
   networkIds: string[];
   _subtitle?: string;
-  // tags: { name: string; _id: string }[];
-  // categories: { name: string; _id: string }[];
 };
 
 export type UrlInfo = {
@@ -42,22 +40,19 @@ export type UrlInfo = {
   icon?: string;
 };
 
-export type CatagoryType = {
+export type CategoryType = {
   name: string;
-  _id: string;
-  _name?: string;
+  id: string;
 };
 
 export type TagType = {
   name: string;
-  _id: string;
-  _name?: string;
+  id: string;
 };
 
-export type TagDappsType = {
+export type GroupDappsType = {
   label: string;
-  _label: string;
-  id: string;
+  id?: string;
   items: DAppItemType[];
 };
 
@@ -66,10 +61,9 @@ export type ItemsType = {
   items: DAppItemType[];
 };
 export interface SectionDataType {
+  id?: string;
   title: string;
-  _title?: string;
   data: DAppItemType[];
-  tagId: string;
   onItemSelect?: (item: DAppItemType) => void;
 }
 
@@ -89,8 +83,11 @@ export enum DiscoverModalRoutes {
   SearchHistoryModal = 'SearchHistoryModal',
   ShareModal = 'ShareModal',
   DAppListModal = 'DAppListModal',
-  MyDAppListModal = 'MyDAppListModal',
+
   EditBookmark = 'EditBookmark',
+  History = 'History',
+  Favorites = 'Favorites',
+  ChainSelector = 'ChainSelector',
 }
 
 export type DiscoverRoutesParams = {
@@ -105,15 +102,16 @@ export type DiscoverRoutesParams = {
   };
   [DiscoverModalRoutes.DAppListModal]: {
     title: string;
-    _title?: string;
     tagId: string;
     onItemSelect?: (item: DAppItemType) => void;
   };
-  [DiscoverModalRoutes.MyDAppListModal]: {
-    defaultIndex?: number;
-    onItemSelect?: (item: MatchDAppItemType) => void;
-  };
   [DiscoverModalRoutes.EditBookmark]: {
     bookmark: BookmarkItem;
+  };
+  [DiscoverModalRoutes.Favorites]: undefined;
+  [DiscoverModalRoutes.History]: undefined;
+  [DiscoverModalRoutes.ChainSelector]: {
+    networkIds?: string[];
+    onSelect?: (networkId: string) => void;
   };
 };

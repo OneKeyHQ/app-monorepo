@@ -7,7 +7,6 @@ import {
   useTheme,
   useUserDevice,
 } from '@onekeyhq/components';
-import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -15,7 +14,7 @@ import { getBTCListComponent } from '../../../NFTList/NFTBTCContent/getBTCListCo
 
 function BTCAssetImageContent(params: {
   asset: NFTBTCAssetModel;
-  network: Network;
+  networkId: string;
   isOwner: boolean;
 }) {
   const { asset } = params;
@@ -26,7 +25,7 @@ function BTCAssetImageContent(params: {
   const hasBlurViewBG = asset?.content_type?.includes('image');
   const { Component: CollectibleContent } = getBTCListComponent({
     data: asset,
-    isList: false,
+    sizeType: 'detail',
   });
 
   // eslint-disable-next-line no-nested-ternary

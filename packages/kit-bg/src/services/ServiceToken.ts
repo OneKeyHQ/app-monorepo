@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { debounce, isEmpty, uniq, xor } from 'lodash';
+import { debounce, isEmpty, random, uniq, xor } from 'lodash';
 
 import { getBalancesFromApi } from '@onekeyhq/engine/src/apiProxyUtils';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
@@ -25,6 +25,10 @@ import {
   setTools,
 } from '@onekeyhq/kit/src/store/reducers/data';
 import { setOverviewPortfolioUpdatedAt } from '@onekeyhq/kit/src/store/reducers/overview';
+import {
+  setOverviewHomeTokensLoading,
+  updateRefreshHomeOverviewTs,
+} from '@onekeyhq/kit/src/store/reducers/refresher';
 import type { TokenBalanceValue } from '@onekeyhq/kit/src/store/reducers/tokens';
 import {
   setAccountTokens,
@@ -54,11 +58,15 @@ export type IFetchAccountTokensParams = {
   networkId: string;
   forceReloadTokens?: boolean;
   includeTop50TokensQuery?: boolean;
+  refreshHomeOverviewTs?: boolean;
+  simpleRefreshBalanceOnly?: boolean;
 };
 
 @backgroundClass()
 export default class ServiceToken extends ServiceBase {
   private interval: any;
+
+  private intervalPaused = true;
 
   @bindThis()
   registerEvents() {
@@ -82,23 +90,34 @@ export default class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  refreshAccountTokens(options: Partial<IFetchAccountTokensParams> = {}) {
-    const { appSelector } = this.backgroundApi;
+  async refreshAccountTokens(options: Partial<IFetchAccountTokensParams> = {}) {
+    const { appSelector, dispatch } = this.backgroundApi;
     const { activeNetworkId, activeAccountId } = appSelector((s) => s.general);
     if (!activeNetworkId || !activeAccountId) {
       return;
     }
-    this.fetchAccountTokens({
-      ...options,
-      accountId: activeAccountId,
-      networkId: activeNetworkId,
-    });
+    try {
+      dispatch(setOverviewHomeTokensLoading(true));
+      return await this.fetchAccountTokens({
+        ...options,
+        accountId: activeAccountId,
+        networkId: activeNetworkId,
+        refreshHomeOverviewTs: true,
+      });
+    } finally {
+      dispatch(setOverviewHomeTokensLoading(false));
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
   @bindThis()
   @backgroundMethod()
-  async startRefreshAccountTokens() {
+  async startRefreshAccountTokens({
+    runAtStart = true,
+  }: { runAtStart?: boolean } = {}) {
+    debugLogger.common.info(`startRefreshAccountTokens`);
+
+    this.intervalPaused = false;
     if (this.interval) {
       return;
     }
@@ -110,12 +129,34 @@ export default class ServiceToken extends ServiceBase {
         : getTimeDurationMs({
             seconds: 15,
           });
-    this.interval = setInterval(() => {
+    const run = () => {
+      if (this.intervalPaused) {
+        return;
+      }
       this.refreshAccountTokens({ includeTop50TokensQuery: false });
-    }, duration);
-
-    debugLogger.common.info(`startRefreshAccountTokens`);
+    };
+    if (runAtStart) {
+      run();
+    }
+    this.interval = setInterval(run, duration);
   }
+
+  @backgroundMethod()
+  async startRefreshAccountTokensDebounced({
+    runAtStart = true,
+  }: { runAtStart?: boolean } = {}) {
+    return this._startRefreshAccountTokensDebounced({ runAtStart });
+  }
+
+  _startRefreshAccountTokensDebounced = debounce(
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    this.startRefreshAccountTokens,
+    1000,
+    {
+      leading: true,
+      trailing: false,
+    },
+  );
 
   // eslint-disable-next-line @typescript-eslint/require-await
   @bindThis()
@@ -123,7 +164,15 @@ export default class ServiceToken extends ServiceBase {
   async stopRefreshAccountTokens() {
     clearInterval(this.interval);
     this.interval = null;
+    this.intervalPaused = true;
     debugLogger.common.info(`stopRefreshAccountTokens`);
+  }
+
+  @backgroundMethod()
+  async pauseRefreshAccountTokens() {
+    this.intervalPaused = true;
+    debugLogger.common.info(`pauseRefreshAccountTokens`);
+    return Promise.resolve();
   }
 
   private _refreshTokenBalanceWithMemo = memoizee(
@@ -132,6 +181,8 @@ export default class ServiceToken extends ServiceBase {
       networkId,
       forceReloadTokens = false,
       includeTop50TokensQuery = false,
+      refreshHomeOverviewTs = true,
+      simpleRefreshBalanceOnly = false,
     }: IFetchAccountTokensParams) => {
       const { engine, dispatch, servicePrice, appSelector } =
         this.backgroundApi;
@@ -162,15 +213,15 @@ export default class ServiceToken extends ServiceBase {
         accountTokens.push(...accountTokensInRedux);
       }
 
-      const { selectedFiatMoneySymbol } = appSelector((s) => s.settings);
       try {
-        const [, autodetectedTokens = []] = await this.getAccountTokenBalance({
-          accountId,
-          networkId,
-          tokenIds: accountTokens.map((token) => token.tokenIdOnNetwork),
-          withMain: true,
-          includeTop50TokensQuery,
-        });
+        const [, autodetectedTokens = []] =
+          await this.fetchAndSaveAccountTokenBalance({
+            accountId,
+            networkId,
+            tokenIds: accountTokens.map((token) => token.tokenIdOnNetwork),
+            withMain: true,
+            includeTop50TokensQuery,
+          });
         if (autodetectedTokens.length) {
           accountTokens.push(...autodetectedTokens);
         }
@@ -178,12 +229,16 @@ export default class ServiceToken extends ServiceBase {
         debugLogger.common.error('fetchAccountTokens error', e);
         return accountTokens;
       }
+
+      if (simpleRefreshBalanceOnly) {
+        return accountTokens;
+      }
+
       // check token prices
       servicePrice.fetchSimpleTokenPrice({
         networkId,
         accountId,
         tokenIds: accountTokens.map((t) => t.tokenIdOnNetwork),
-        vsCurrency: selectedFiatMoneySymbol,
       });
 
       const vault = await engine.getVault({
@@ -213,13 +268,19 @@ export default class ServiceToken extends ServiceBase {
         networkId,
       );
 
-      dispatch(
+      accountTokens = accountTokens.filter(
+        (t) => !removedTokens.includes(t.address ?? ''),
+      );
+      const actions: any[] = [
         setAccountTokens({
           accountId,
           networkId,
-          tokens: accountTokens.filter(
-            (t) => !removedTokens.includes(t.address ?? ''),
-          ),
+          tokens: [
+            ...(accountTokensInRedux?.filter((t) =>
+              accountTokens.find((token) => token.address !== t.address),
+            ) ?? []),
+            ...accountTokens,
+          ],
         }),
         setOverviewPortfolioUpdatedAt({
           key: `${networkId}___${accountId}`,
@@ -227,7 +288,12 @@ export default class ServiceToken extends ServiceBase {
             updatedAt: Date.now(),
           },
         }),
-      );
+      ];
+      if (refreshHomeOverviewTs) {
+        actions.push(updateRefreshHomeOverviewTs());
+      }
+
+      dispatch(...actions);
       return accountTokens;
     },
     {
@@ -256,14 +322,16 @@ export default class ServiceToken extends ServiceBase {
     return this._refreshTokenBalanceWithMemo(options);
   }
 
-  async _batchFetchAccountBalances({
+  async _batchFetchAccountTokenBalances({
     walletId,
     networkId,
     accountIds,
+    tokenAddress,
   }: {
     walletId: string;
     networkId: string;
     accountIds: string[];
+    tokenAddress?: string;
   }) {
     const { dispatch, engine, servicePassword } = this.backgroundApi;
 
@@ -271,6 +339,13 @@ export default class ServiceToken extends ServiceBase {
     const vaultSettings = await engine.getVaultSettings(networkId);
     const dbNetwork = await engine.dbApi.getNetwork(networkId);
     const dbAccounts = await engine.dbApi.getAccounts(accountIds);
+    let token: Token | undefined;
+    if (tokenAddress) {
+      token = await engine.findToken({
+        networkId,
+        tokenIdOnNetwork: tokenAddress,
+      });
+    }
 
     let balances: Array<BigNumber | undefined>;
     let password;
@@ -298,8 +373,10 @@ export default class ServiceToken extends ServiceBase {
 
       const requests = balancesAddress.map((acc) => ({
         address: acc.address,
+        tokenAddress,
         accountId: acc.accountId,
       }));
+
       balances = await vault.getBalances(
         requests,
         password,
@@ -312,7 +389,9 @@ export default class ServiceToken extends ServiceBase {
     const data = dbAccounts.reduce((result, item, index) => {
       const balance = balances[index];
       result[item.id] = balance
-        ? balance.div(new BigNumber(10).pow(dbNetwork.decimals)).toFixed()
+        ? balance
+            .div(new BigNumber(10).pow(token?.decimals ?? dbNetwork.decimals))
+            .toFixed()
         : undefined;
       return result;
     }, {} as Record<string, string | undefined>);
@@ -324,11 +403,17 @@ export default class ServiceToken extends ServiceBase {
           setAccountTokensBalances({
             accountId: key,
             networkId,
-            tokensBalance: {
-              'main': {
-                balance: value,
-              },
-            },
+            tokensBalance: tokenAddress
+              ? {
+                  [tokenAddress]: {
+                    balance: value ?? '0',
+                  },
+                }
+              : {
+                  'main': {
+                    balance: value ?? '0',
+                  },
+                },
           }),
         );
       }
@@ -336,11 +421,13 @@ export default class ServiceToken extends ServiceBase {
     if (actions.length > 0) {
       dispatch(...actions);
     }
+
+    return Promise.resolve(data);
   }
 
   batchFetchAccountBalancesDebounce = debounce(
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    this._batchFetchAccountBalances,
+    this._batchFetchAccountTokenBalances,
     600,
     {
       leading: false,
@@ -349,15 +436,46 @@ export default class ServiceToken extends ServiceBase {
   );
 
   @backgroundMethod()
-  batchFetchAccountBalances({
+  async batchFetchAccountTokenBalances({
     walletId,
     networkId,
     accountIds,
+    tokenAddress,
   }: {
     walletId: string;
     networkId: string;
     accountIds: string[];
+    tokenAddress: string | undefined;
+    withMain?: boolean;
   }) {
+    return this._batchFetchAccountTokenBalances({
+      walletId,
+      networkId,
+      accountIds,
+      tokenAddress,
+    });
+  }
+
+  @backgroundMethod()
+  async batchFetchAccountBalances({
+    walletId,
+    networkId,
+    accountIds,
+    disableDebounce,
+  }: {
+    walletId: string;
+    networkId: string;
+    accountIds: string[];
+    disableDebounce?: boolean;
+  }) {
+    if (disableDebounce) {
+      return this._batchFetchAccountTokenBalances({
+        walletId,
+        networkId,
+        accountIds,
+      });
+    }
+
     return this.batchFetchAccountBalancesDebounce({
       walletId,
       networkId,
@@ -640,7 +758,7 @@ export default class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAccountTokenBalance(params: {
+  async fetchAndSaveAccountTokenBalance(params: {
     accountId: string;
     networkId: string;
     tokenIds?: string[];
@@ -747,6 +865,71 @@ export default class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
+  testUpdateTokensBalances() {
+    const tokensBalance = {
+      'main': {
+        'balance': random(0.01, 0.001).toString(),
+        'blockHeight': '17890143',
+      },
+      '0x1f068a896560632a4d2e05044bd7f03834f1a465': {
+        'balance': '350',
+        'blockHeight': '17890143',
+      },
+      '0x4d224452801aced8b2f0aebe155379bb5d594381': {
+        'balance': '0.263075550601590144',
+        'blockHeight': '17890143',
+      },
+      '0x62b9c7356a2dc64a1969e19c23e4f579f9810aa7': {
+        'balance': random(1.0001, 11.01).toString(),
+        'blockHeight': '17890143',
+      },
+      '0x630fe3adb53f3d2e0c594bc180309fdfdd0a854d': {
+        'balance': '956.9117814',
+        'blockHeight': '17890143',
+      },
+      '0x7d1afa7b718fb893db30a3abc0cfc608aacfebb0': {
+        'balance': '1.146709805513342312',
+        'blockHeight': '17890143',
+      },
+      '0x7f08c7cc37fe1718017e7900fe63fe7604daf253': {
+        'balance': '628.5',
+        'blockHeight': '17890143',
+      },
+      '0x9d6b29308ff0dd2f0e3115fb08baa0819313834c': {
+        'balance': '0.005',
+        'blockHeight': '17890143',
+      },
+      '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': {
+        'balance': '1',
+        'blockHeight': '17890143',
+      },
+      '0xae7ab96520de3a18e5e111b5eaab095312d7fe84': {
+        'balance': '0.000000000000000001',
+        'blockHeight': '17890143',
+      },
+      '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': {
+        'balance': '0.00250057981515956',
+        'blockHeight': '17890143',
+      },
+      '0xd533a949740bb3306d119cc777fa900ba034cd52': {
+        'balance': '0.250836027942953024',
+        'blockHeight': '17890143',
+      },
+      '0xdac17f958d2ee523a2206206994597c13d831ec7': {
+        'balance': '1.395202',
+        'blockHeight': '17890143',
+      },
+    };
+    this.backgroundApi.dispatch(
+      setAccountTokensBalances({
+        'accountId': "hd-1--m/44'/60'/0'/0/0",
+        'networkId': 'evm--1',
+        tokensBalance,
+      }),
+    );
+  }
+
+  @backgroundMethod()
   async getMinDepositAmount({
     accountId,
     networkId,
@@ -802,13 +985,39 @@ export default class ServiceToken extends ServiceBase {
     coingeckoId?: string;
     networkId?: string;
     tokenAddress?: string;
+    accountId?: string;
   }): Promise<ITokenDetailInfo> {
+    const { appSelector, engine } = this.backgroundApi;
+    const testMode =
+      appSelector((s) => s?.settings?.devMode?.onRamperTestMode) ?? false;
+    const mode = testMode ? 'test' : 'live';
+    const { accountId, networkId, ...rest } = params;
+
+    if (!isAllNetworks(networkId)) {
+      delete rest.coingeckoId;
+      if (networkId && accountId) {
+        const account = await engine.getAccount(accountId, networkId);
+        if (account) {
+          Object.assign(rest, {
+            accountAddress: account?.address,
+          });
+        }
+      }
+    }
     const data = await fetchData<
       | (Omit<ITokenDetailInfo, 'tokens'> & {
           tokens: ServerToken[];
         })
       | undefined
-    >('/token/detailInfo', params, undefined);
+    >(
+      '/token/detailInfo',
+      {
+        ...rest,
+        mode,
+        networkId,
+      },
+      undefined,
+    );
     return {
       ...data,
       tokens: data?.tokens.map((t) => formatServerToken(t)) ?? [],

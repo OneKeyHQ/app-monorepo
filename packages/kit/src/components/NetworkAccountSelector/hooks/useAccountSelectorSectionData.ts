@@ -5,7 +5,9 @@ import { debounce } from 'lodash';
 
 import { generateFakeAllnetworksAccount } from '@onekeyhq/engine/src/managers/account';
 import type { IAccount, IWallet } from '@onekeyhq/engine/src/types';
+import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { AccountNameInfo } from '@onekeyhq/engine/src/types/network';
+import { AllNetworksMaxAccounts } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -31,19 +33,22 @@ export const useAllNetworksAccountsData = ({
     (s) => s.overview.allNetworksAccountsMap,
   );
 
-  const data = useMemo(
-    () =>
-      Object.keys(allNetworksAccountsMap ?? {})
-        .map((accountId) =>
-          generateFakeAllnetworksAccount({
-            accountId,
-          }),
-        )
-        .filter((n) => walletId && n.id.startsWith(walletId))
-        .slice(0, 3)
-        .sort((a, b) => a.id.localeCompare(b.id)),
-    [allNetworksAccountsMap, walletId],
-  );
+  const data = useMemo(() => {
+    if (!walletId) {
+      return [];
+    }
+    const results: Account[] = [];
+    for (let i = 0; i < AllNetworksMaxAccounts; i += 1) {
+      const fakeAccountId = `${walletId}--${i}`;
+      if (Object.hasOwn(allNetworksAccountsMap ?? {}, fakeAccountId)) {
+        const account = generateFakeAllnetworksAccount({
+          accountId: fakeAccountId,
+        });
+        results.push(account);
+      }
+    }
+    return results;
+  }, [walletId, allNetworksAccountsMap]);
 
   return {
     data,

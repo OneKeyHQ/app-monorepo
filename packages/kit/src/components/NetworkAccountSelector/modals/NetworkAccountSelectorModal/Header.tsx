@@ -17,11 +17,11 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
+import type { WalletType } from '@onekeyhq/engine/src/types/wallet';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useNavigation } from '../../../../hooks';
-import { useStatus } from '../../../../hooks/redux';
+import { useAppSelector, useNavigation } from '../../../../hooks';
 import reducerAccountSelector from '../../../../store/reducers/reducerAccountSelector';
 import { setFistTimeShowCheckRPCNodeTooltip } from '../../../../store/reducers/status';
 import { wait } from '../../../../utils/helper';
@@ -45,12 +45,22 @@ type NavigationProps = NativeStackNavigationProp<
 function Header({
   accountSelectorInfo,
   showCustomLegacyHeader,
+  hideCreateAccount,
+  multiSelect,
+  selectedAccounts,
+  walletsToHide,
 }: {
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
   showCustomLegacyHeader?: boolean;
+  hideCreateAccount?: boolean;
+  selectedAccounts?: string[];
+  multiSelect?: boolean;
+  walletsToHide?: WalletType[];
 }) {
   const intl = useIntl();
-  const { firstTimeShowCheckRPCNodeTooltip } = useStatus();
+  const firstTimeShowCheckRPCNodeTooltip = useAppSelector(
+    (s) => s.status.firstTimeShowCheckRPCNodeTooltip,
+  );
   const [isOpen, setIsOpen] = useState(false);
   const { selectedNetwork, isLoading } = accountSelectorInfo;
   const { loading, status } = useRpcMeasureStatus(
@@ -186,7 +196,13 @@ function Header({
         ) : null}
       </Box>
       <Box flexDirection="row" alignItems="center">
-        <WalletSelectDropdown accountSelectorInfo={accountSelectorInfo} />
+        <WalletSelectDropdown
+          accountSelectorInfo={accountSelectorInfo}
+          hideCreateAccount={hideCreateAccount}
+          multiSelect={multiSelect}
+          selectedAccounts={selectedAccounts}
+          walletsToHide={walletsToHide}
+        />
       </Box>
     </Box>
   );

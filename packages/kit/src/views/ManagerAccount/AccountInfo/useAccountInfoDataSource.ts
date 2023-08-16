@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
-import { useNetwork } from '../../../hooks';
+import { useAccount, useNetwork } from '../../../hooks';
 
 import {
   ManageAccountKeys,
@@ -17,12 +17,15 @@ import type { IAccountInfoListSectionData } from '.';
 export function useAccountInfoDataSource({
   wallet,
   networkId,
+  accountId,
 }: {
   wallet?: Wallet;
   networkId: string;
+  accountId: string;
 }) {
   const intl = useIntl();
   const { network } = useNetwork({ networkId });
+  const { account } = useAccount({ networkId, accountId });
   const manageAccountOptions = useMemo(
     () => getManageAccountOptions(intl),
     [intl],
@@ -42,7 +45,7 @@ export function useAccountInfoDataSource({
         privateKeyExportEnabled,
         publicKeyExportEnabled,
       } = network.settings;
-      if (publicKeyExportEnabled) {
+      if (publicKeyExportEnabled && account?.xpub) {
         keys.push(ManageAccountKeys.ExportPublicKey);
       }
       if (
@@ -68,15 +71,16 @@ export function useAccountInfoDataSource({
         keys.push(ManageAccountKeys.HardwareCanNotExportPrivateKey);
       }
       keys.push(ManageAccountKeys.RemoveAccount);
-      setDataSource((prev) => [
-        ...prev,
-        {
-          title: intl.formatMessage({ id: 'form__security_uppercase' }),
-          data: keys.map((key) => manageAccountOptions[key]),
-        },
-      ]);
+      const title = intl.formatMessage({ id: 'form__security_uppercase' });
+      const data = Array.from(
+        new Set(keys.map((key) => manageAccountOptions[key])),
+      );
+      setDataSource((prev) => {
+        const result = prev.filter((item) => item.title !== title);
+        return [...result, { title, data }];
+      });
     }
-  }, [network, wallet, intl, manageAccountOptions]);
+  }, [network, wallet, intl, manageAccountOptions, account?.xpub]);
 
   return { dataSource };
 }

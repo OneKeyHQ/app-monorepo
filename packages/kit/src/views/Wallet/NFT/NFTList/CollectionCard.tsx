@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo } from 'react';
 import type { FC } from 'react';
 
 import { Row } from 'native-base';
@@ -8,19 +8,17 @@ import {
   Center,
   HStack,
   Text,
-  Token,
   useIsVerticalLayout,
   useTheme,
   useUserDevice,
 } from '@onekeyhq/components';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
-import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import { useActiveWalletAccount, useNetwork } from '../../../../hooks';
 import { useTokenPrice } from '../../../../hooks/useTokens';
 
+import { NFTNetworkIcon } from './NetworkIcon';
 import NFTListImage from './NFTListImage';
 
 import type { ListDataType, ListItemComponentType, ListItemType } from './type';
@@ -108,17 +106,6 @@ function CollectionCard({
 }: ListItemComponentType<Collection>) {
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
-  const { networkId: activeNetworkId } = useActiveWalletAccount();
-  const { network } = useNetwork({
-    networkId: collectible.networkId,
-  });
-
-  const networkIcon = useMemo(() => {
-    if (!isAllNetworks(activeNetworkId)) {
-      return undefined;
-    }
-    return network?.logoURI;
-  }, [network, activeNetworkId]);
 
   const MARGIN = isSmallScreen ? 16 : 20;
   const padding = isSmallScreen ? 8 : 12;
@@ -151,19 +138,14 @@ function CollectionCard({
           }
         }}
       >
-        <SubItemList collectible={collectible} width={contentSize} />
+        <Box position="relative">
+          <SubItemList collectible={collectible} width={contentSize} />
+          <NFTNetworkIcon networkId={collectible.networkId} />
+        </Box>
         <HStack mt={`${padding}px`} justifyContent="space-between">
           <Text typography="Body2" height="20px" numberOfLines={1} flex={1}>
             {collectible.contractName}
           </Text>
-          {networkIcon ? (
-            <Token
-              size={4}
-              token={{
-                logoURI: networkIcon,
-              }}
-            />
-          ) : null}
         </HStack>
         <Text typography="Body2" height="20px" color="text-subdued">
           <FormatCurrencyNumber

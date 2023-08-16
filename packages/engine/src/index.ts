@@ -30,6 +30,7 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import {
+  COINTYPE_NEXA,
   IMPL_EVM,
   getSupportedImpls,
   isLightningNetwork,
@@ -723,7 +724,7 @@ class Engine {
     const addresses = await Promise.all(
       accounts.map(async (a) => {
         if (a.type === AccountType.UTXO) {
-          return (a as DBUTXOAccount).address;
+          return vault.getDisplayAddress(a.address);
         }
         if (a.type === AccountType.VARIANT) {
           return vault.addressFromBase(a);
@@ -826,6 +827,7 @@ class Engine {
       '354': OnekeyNetwork.dot,
       '128': OnekeyNetwork.xmr,
       '111111': OnekeyNetwork.kaspa,
+      '29223': OnekeyNetwork.nexa,
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');
@@ -904,6 +906,9 @@ class Engine {
     const addresses = await Promise.all(
       accounts.map(async (a) => {
         if (a.type === AccountType.UTXO) {
+          if (a.coinType === COINTYPE_NEXA) {
+            return vault.getDisplayAddress(a.address);
+          }
           // TODO: utxo should use xpub instead of its first address
           return (a as DBUTXOAccount).address;
         }
@@ -1568,6 +1573,9 @@ class Engine {
     async (networkId: string, forceReloadTokens = false): Promise<void> => {
       const fetched = updateTokenCache[networkId];
       if (!forceReloadTokens && fetched) {
+        return;
+      }
+      if (isAllNetworks(networkId)) {
         return;
       }
       const { impl, chainId } = parseNetworkId(networkId);
@@ -2725,7 +2733,6 @@ class Engine {
       importedAccounts: {},
       watchingAccounts: {},
       wallets: {},
-      simpleDb: {},
     };
 
     const wallets = await this.dbApi.getWallets({
@@ -2771,18 +2778,6 @@ class Engine {
         }
       }
     }
-
-    // prepare simpledb data
-    const utxoAccountsRawData = await simpleDb.utxoAccounts.getRawData();
-    if (!backupObject.simpleDb?.utxoAccounts) {
-      if (!backupObject.simpleDb) {
-        backupObject.simpleDb = {};
-      }
-      backupObject.simpleDb.utxoAccounts = {
-        utxos: [],
-      };
-    }
-    backupObject.simpleDb.utxoAccounts.utxos = utxoAccountsRawData?.utxos ?? [];
     return backupObject;
   }
 

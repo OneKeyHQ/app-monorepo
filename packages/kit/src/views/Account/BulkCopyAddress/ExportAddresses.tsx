@@ -14,6 +14,7 @@ import {
   ToastManager,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -36,11 +37,6 @@ const getShareModule = async () => {
   return (
     await import('@onekeyhq/shared/src/modules3rdParty/react-native-share')
   ).default;
-};
-
-const getRNFSModule = async () => {
-  if (!platformEnv.isNative) return null;
-  return (await import('react-native-fs')) as typeof import('react-native-fs');
 };
 
 const ExportAddresses: FC = () => {
@@ -125,7 +121,6 @@ const ExportAddresses: FC = () => {
   const nativeWriteFile = useCallback(
     async (fileType: FileType) => {
       const fileName = await getFileName(fileType);
-      const RNFS = await getRNFSModule();
       if (!RNFS) return;
       const path = `${RNFS.CachesDirectoryPath}/${fileName}`;
       const content = fileType === 'txt' ? addressText : addressCsvString;

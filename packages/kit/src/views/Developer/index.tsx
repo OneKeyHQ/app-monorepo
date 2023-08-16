@@ -5,7 +5,6 @@ import { useNavigation } from '@react-navigation/core';
 import fetch from 'cross-fetch';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
-import uuidLib from 'react-native-uuid';
 import useCookie from 'react-use-cookie';
 
 import {
@@ -25,11 +24,7 @@ import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batch
 import { INSCRIPTION_PADDING_SATS_VALUES } from '@onekeyhq/engine/src/vaults/impl/btc/inscribe/consts';
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  getActiveWalletAccount,
-  useActiveWalletAccount,
-  useAppSelector,
-} from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import {
   HomeRoutes,
   ModalRoutes,
@@ -40,10 +35,11 @@ import type {
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import walletConnectUtils from '../../components/WalletConnect/utils/walletConnectUtils';
 import { WalletConnectDappSideTest } from '../../components/WalletConnect/WalletConnectDappSideTest';
-import { useNavigationActions } from '../../hooks';
+import { useActiveWalletAccount, useNavigationActions } from '../../hooks';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import {
   GalleryRoutes,
@@ -66,6 +62,20 @@ type NavigationProps = CompositeNavigationProp<
 
 const DEFAULT_TEST_EVM_ADDRESS_1 = '0x76f3f64cb3cd19debee51436df630a342b736c24';
 const DEFAULT_TEST_EVM_ADDRESS_2 = '0xA9b4d559A98ff47C83B74522b7986146538cD4dF';
+
+// read settings from native mmkv or web cookie
+const useStorage = platformEnv.isNative
+  ? (key: string, initialValue?: boolean) => {
+      const [data, setData] = useState(
+        initialValue || appStorage.getSettingBoolean(key),
+      );
+      const setNewData = (value: boolean) => {
+        appStorage.setSetting(key, value);
+        setData(value);
+      };
+      return [data, setNewData];
+    }
+  : useCookie;
 export const Debug = () => {
   const intl = useIntl();
   const [uri, setUri] = useState('');
@@ -215,7 +225,7 @@ export const Debug = () => {
     ],
   );
 
-  const [rrtStatus, changeRRTStatus] = useCookie('rrt', '0');
+  const [rrtStatus, changeRRTStatus] = useStorage('rrt');
 
   return (
     <ScrollView px={4} py={{ base: 6, md: 8 }} bg="background-default">
@@ -361,6 +371,17 @@ export const Debug = () => {
                   wallet,
                   network,
                 });
+                console.log(
+                  JSON.stringify(
+                    {
+                      accountId: account?.id,
+                      networkId: network?.id,
+                      walletId: wallet?.id,
+                    },
+                    null,
+                    2,
+                  ),
+                );
                 const {
                   href,
                   protocol,
@@ -628,7 +649,7 @@ export const Debug = () => {
                     // texts: ['iuuu'],
                   });
                 console.log('Inscribe contents >>>>> : ', contents);
-                const feeRates = await serviceInscribe.fetchFeeRates();
+                const feeRates = await serviceInscribe.fetchFeeRates(networkId);
                 console.log(
                   'createInscribeOrder: ',
                   new Date().toLocaleString(),
@@ -639,6 +660,8 @@ export const Debug = () => {
                   contents,
                   feeRate: feeRates.halfHourFee,
                   globalPaddingSats: INSCRIPTION_PADDING_SATS_VALUES.default,
+                  networkId,
+                  accountId,
                 });
                 console.log(
                   'createInscribeOrder: done',
@@ -653,12 +676,15 @@ export const Debug = () => {
                   await serviceInscribe.buildInscribeCommitEncodedTx({
                     to: order.fundingAddress,
                     amount: order.fundingValueNative,
+                    networkId,
+                    accountId,
                   });
 
                 const submitOrder = async (commitSignedTx?: ISignedTxPro) => {
                   const result = await serviceInscribe.submitInscribeOrder({
                     order,
                     commitSignedTx,
+                    networkId,
                   });
 
                   console.log('inscribe done, check txid or errors: ', result);
@@ -820,20 +846,35 @@ export const Debug = () => {
                 });
               }}
             >
-              <Typography.Body1>Open Gas Panel</Typography.Body1>
+              <Typography.Body1>Open Gas Panel000</Typography.Body1>
             </Pressable>
             <Pressable
               {...pressableProps}
               onPress={() => {
-                changeRRTStatus(rrtStatus === '1' ? '0' : '1');
-                window.location.reload();
+                if (platformEnv.isNative) {
+                  (changeRRTStatus as (value: boolean) => void)(!rrtStatus);
+                  alert('Please manually restart the app.');
+                } else {
+                  (changeRRTStatus as (value: string) => void)(
+                    rrtStatus === '1' ? '0' : '1',
+                  );
+                  window.location.reload();
+                }
               }}
             >
-              <Typography.Body1>
-                {rrtStatus === '1'
-                  ? 'Disabled react-render-tracker'
-                  : 'Enabled react-render-tracker'}
-              </Typography.Body1>
+              {platformEnv.isNative ? (
+                <Typography.Body1>
+                  {rrtStatus
+                    ? 'Disabled react-render-tracker'
+                    : 'Enabled react-render-tracker'}
+                </Typography.Body1>
+              ) : (
+                <Typography.Body1>
+                  {rrtStatus === '1'
+                    ? 'Disabled react-render-tracker'
+                    : 'Enabled react-render-tracker'}
+                </Typography.Body1>
+              )}
             </Pressable>
           </VStack>
         </Box>

@@ -12,16 +12,16 @@ import type {
 } from 'react-native';
 
 type Props = {
-  receiverString: string;
-  setReceiverString: React.Dispatch<React.SetStateAction<string>>;
+  traderString: string;
+  setTraderString: React.Dispatch<React.SetStateAction<string>>;
 };
 
 function TextareaWithLineNumber(props: Props) {
   const textAreaRef = useRef<TextInput>();
   const textAreaLineNumberScrollViewRef = useRef<ScrollView>();
-  const { receiverString, setReceiverString } = props;
+  const { traderString, setTraderString } = props;
 
-  const lines = receiverString.split('\n');
+  const lines = traderString.split('\n');
 
   const handleTextareaOnScroll = useCallback(
     (e: NativeSyntheticEvent<TextInputScrollEventData>) => {
@@ -40,7 +40,7 @@ function TextareaWithLineNumber(props: Props) {
         onScroll={handleTextareaOnScroll}
         bgColor="transparent"
         bg="transparent"
-        value={receiverString}
+        value={traderString}
         pl="46px"
         py={platformEnv.isNativeIOS ? 1 : 2}
         h="240px"
@@ -48,7 +48,7 @@ function TextareaWithLineNumber(props: Props) {
         fontWeight={500}
         fontFamily={platformEnv.isNativeIOS ? 'Menlo' : 'monospace'}
         shadow="none"
-        onChangeText={(text) => setReceiverString(text)}
+        onChangeText={(text) => setTraderString(text)}
       />
       <View
         style={{

@@ -1,5 +1,5 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import type { FC } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -21,16 +21,14 @@ import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/ac
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
 import type { NFTAssetMeta } from '@onekeyhq/engine/src/types/nft';
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-} from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useAccountPortfolios } from '../../../../hooks';
+import { useAccountPortfolios, useNFTIsLoading } from '../../../../hooks';
+import { useHomeTabName } from '../../../../hooks/useHomeTabName';
 import { EOverviewScanTaskType } from '../../../Overview/types';
 import { WalletHomeTabEnum } from '../../type';
 import { navigateToNFTCollection, navigateToNFTDetail } from '../utils';
@@ -94,6 +92,7 @@ const NFTList: FC<NFTListProps> = ({
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const [page, setPage] = useState(1);
+  const { accountId, networkId } = useActiveWalletAccount();
 
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
@@ -103,7 +102,7 @@ const NFTList: FC<NFTListProps> = ({
     : Math.min(MAX_PAGE_CONTAINER_WIDTH, screenWidth - 224);
   const numColumns = isSmallScreen ? 2 : Math.floor(pageWidth / (177 + MARGIN));
 
-  const pageSize = 50;
+  const pageSize = 20;
 
   const listItems = useMemo(() => {
     let array: ListItemType<ListDataType>[] = [];
@@ -159,12 +158,19 @@ const NFTList: FC<NFTListProps> = ({
     setPage((prev) => prev + 1);
   }, []);
 
+  useEffect(() => {
+    setPage(1);
+  }, [accountId, networkId]);
+
   const flatListKey =
     platformEnv.isNative && !platformEnv.isNativeIOSPad
       ? undefined
       : `NFTList${numColumns}`;
 
   const loadMore = useMemo(() => {
+    if (!collections?.length) {
+      return null;
+    }
     const button = hasMore ? (
       <HStack justifyContent="center">
         <IconButton
@@ -182,7 +188,7 @@ const NFTList: FC<NFTListProps> = ({
         <Box h="24px" w="full" />
       </VStack>
     );
-  }, [intl, isVertical, handleLoadMore, hasMore]);
+  }, [intl, isVertical, handleLoadMore, hasMore, collections?.length]);
 
   return (
     <Tabs.FlatList
@@ -215,14 +221,19 @@ const NFTList: FC<NFTListProps> = ({
 };
 
 function NFTListContainer() {
-  const { account, network, accountId, networkId } = useActiveWalletAccount();
+  const { accountId, networkId } = useActiveWalletAccount();
 
   const isNFTSupport = isCollectibleSupportedChainId(networkId);
   const { serviceNFT } = backgroundApiProxy;
-  const homeTabName = useAppSelector((s) => s.status.homeTabName);
+  const homeTabName = useHomeTabName();
   const isFocused = useIsFocused();
 
   const [listData, updateListData] = useState<NFTAssetMeta[]>([]);
+
+  const nftIsLoading = useNFTIsLoading({
+    accountId,
+    networkId,
+  });
 
   const { updatedAt } = useAccountPortfolios({
     networkId,
@@ -283,32 +294,32 @@ function NFTListContainer() {
     if (shouldDoRefresh) {
       mutate();
     }
-  }, [mutate, shouldDoRefresh, account, networkId]);
+  }, [mutate, shouldDoRefresh, accountId, networkId]);
 
   const handleSelect = useCallback(
     (data: ListDataType, type: NFTCardType) => {
-      if (!account || !network) return;
+      if (!accountId || !networkId) return;
       switch (type) {
         case NFTCardType.EVMCollection:
         case NFTCardType.SOLCollection:
           navigateToNFTCollection({
-            account,
-            network,
+            networkId,
+            accountId,
             collection: data as any,
           });
           break;
         case NFTCardType.EVMAsset:
         case NFTCardType.SOLAsset:
-          navigateToNFTDetail({ account, network, asset: data as any });
+          navigateToNFTDetail({ networkId, accountId, asset: data as any });
           break;
         case NFTCardType.BTCAsset:
-          navigateToNFTDetail({ account, network, asset: data as any });
+          navigateToNFTDetail({ networkId, accountId, asset: data as any });
           break;
         default:
           break;
       }
     },
-    [account, network],
+    [accountId, networkId],
   );
 
   return (
@@ -318,7 +329,7 @@ function NFTListContainer() {
         onSelect={handleSelect}
         fetchData={mutate}
         isNFTSupport={isNFTSupport}
-        isLoading={isLoading}
+        isLoading={isLoading || nftIsLoading}
       />
     </NFTListContentProvider>
   );

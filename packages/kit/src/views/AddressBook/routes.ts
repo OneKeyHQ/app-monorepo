@@ -1,3 +1,5 @@
+import type { WalletType } from '@onekeyhq/engine/src/types/wallet';
+
 export type ContactValues = {
   networkId?: string;
   name: string;
@@ -23,7 +25,9 @@ export type AddressBookRoutesParams = {
     | {
         networkId?: string;
         contactExcludeWalletAccount?: boolean;
+        addressFilter?: (address: string) => Promise<boolean>;
         onSelected?: (data: { address: string; name?: string }) => void;
+        walletsToHide?: WalletType[];
       }
     | undefined;
   [AddressBookRoutes.EnterAddressRoute]:

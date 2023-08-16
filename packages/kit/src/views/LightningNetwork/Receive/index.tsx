@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Box,
   Button,
   Empty,
+  IconButton,
   Image,
   Modal,
   QRCode,
@@ -14,12 +16,14 @@ import {
   ToastManager,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccount, useNetwork } from '../../../hooks';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { getTimeDurationMs } from '../../../utils/helper';
 
 import type {
@@ -37,6 +41,7 @@ const ReceiveInvoice = () => {
   const intl = useIntl();
 
   const route = useRoute<NavigationProps>();
+  const navigation = useAppNavigation();
 
   const { accountId, networkId, paymentRequest, paymentHash } =
     route.params ?? {};
@@ -47,6 +52,13 @@ const ReceiveInvoice = () => {
     accountId: accountId ?? null,
     networkId: networkId ?? '',
   });
+
+  const shortenInvoice = useMemo(
+    () => shortenAddress(paymentRequest, 57),
+    [paymentRequest],
+  );
+
+  const [showFullInvoice, setShowFullInvoice] = useState(false);
 
   const copyInvoiceToClipboard = useCallback(() => {
     copyToClipboard(paymentRequest);
@@ -73,6 +85,10 @@ const ReceiveInvoice = () => {
               title: intl.formatMessage({ id: 'msg__payment_received' }),
             });
             clearInterval(timerRef.current);
+            setTimeout(() => {
+              navigation?.goBack();
+              navigation?.goBack();
+            }, 500);
           }
         })
         .catch((e) => {
@@ -86,7 +102,7 @@ const ReceiveInvoice = () => {
         clearInterval(timerRef.current);
       }
     };
-  }, [paymentHash, networkId, accountId, intl]);
+  }, [paymentHash, networkId, accountId, intl, navigation]);
 
   return (
     <Modal
@@ -109,7 +125,6 @@ const ReceiveInvoice = () => {
       height="auto"
       scrollViewProps={{
         contentContainerStyle: {
-          flex: 1,
           justifyContent: 'center',
           paddingVertical: isVerticalLayout ? 16 : 24,
         },
@@ -145,8 +160,21 @@ const ReceiveInvoice = () => {
               >
                 {account?.name}
               </Text>
+              <Text typography="Body2" color="text-subdued" numberOfLines={50}>
+                {showFullInvoice ? paymentRequest : shortenInvoice}
+              </Text>
+              <IconButton
+                mt={1}
+                name={showFullInvoice ? 'EyeOutline' : 'EyeSlashOutline'}
+                type="plain"
+                hitSlop={8}
+                onPress={() => setShowFullInvoice(!showFullInvoice)}
+                borderWidth={StyleSheet.hairlineWidth}
+                borderColor="border-default"
+              />
               <Button
                 mt="24px"
+                mb={10}
                 size={isVerticalLayout ? 'lg' : 'base'}
                 leftIconName="Square2StackMini"
                 onPress={() => {

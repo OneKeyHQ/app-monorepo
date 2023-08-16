@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect } from 'react';
 import { NativeModules } from 'react-native';
 
 import type { NotificationExtra } from '@onekeyhq/engine/src/managers/notification';
-import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import { requestPermissionsAsync } from '@onekeyhq/shared/src/modules3rdParty/expo-notifications';
 import {
   checkPushNotificationPermission,
@@ -21,7 +21,7 @@ import { showDialog } from '../utils/overlayUtils';
 const NotificationProvider: FC<{
   launchNotification?: NotificationExtra;
 }> = ({ launchNotification }) => {
-  const { pushNotification } = useSettings();
+  const pushNotification = useAppSelector((s) => s.settings.pushNotification);
 
   const { dispatch, serviceNotification } = backgroundApiProxy;
 

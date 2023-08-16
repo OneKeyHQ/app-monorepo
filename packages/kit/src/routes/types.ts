@@ -6,13 +6,14 @@ import type { ComponentType, FC } from 'react';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { HeaderTitleProps } from '@onekeyhq/components/src/NavHeader/HeaderTitle';
 import type { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
+import type { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
-import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
 import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
 
 // define enum here to avoid cycle import
 
+import type { ITokenPriceValue } from '../store/reducers/tokens';
 import type { IOnboardingRoutesParams } from '../views/Onboarding/routes/types';
 import type { GalleryParams } from './Root/Gallery';
 import type * as SubModalRoutesParams from './Root/Modal/types';
@@ -109,7 +110,8 @@ export type MainRoutesParams = {
 };
 export type HomeRoutesParams = {
   [HomeRoutes.ScreenTokenDetail]: {
-    price?: number;
+    price?: ITokenPriceValue;
+    price24h?: ITokenPriceValue;
     logoURI?: string;
     symbol?: string;
     name?: string;
@@ -131,13 +133,8 @@ export type HomeRoutesParams = {
   };
   [HomeRoutes.DAppListScreen]: {
     title: string;
-    _title?: string;
     tagId: string;
     onItemSelect?: (item: DAppItemType) => void;
-  };
-  [HomeRoutes.MyDAppListScreen]: {
-    defaultIndex?: number;
-    onItemSelect?: (item: MatchDAppItemType) => void;
   };
   [HomeRoutes.Protected]: undefined;
   [HomeRoutes.SwapHistory]: undefined;
@@ -148,9 +145,7 @@ export type HomeRoutesParams = {
     backupUUID: string;
     backupTime: number;
     numOfHDWallets: number;
-    numOfImportedAccounts: number;
-    numOfWatchingAccounts: number;
-    numOfContacts: number;
+    numOfAccounts: number;
   };
   [HomeRoutes.PushNotification]: undefined;
   [HomeRoutes.PushNotificationManagePriceAlert]: {
@@ -177,7 +172,11 @@ export type HomeRoutesParams = {
     accountId: string;
   };
   [HomeRoutes.WalletSwitch]: undefined;
-  [HomeRoutes.BulkSender]: undefined;
+  [HomeRoutes.BulkSender]:
+    | {
+        mode: BulkTypeEnum;
+      }
+    | undefined;
   [HomeRoutes.ClearCache]: undefined;
   [HomeRoutes.AdvancedSettings]: undefined;
   [HomeRoutes.HardwareBridgeSettings]: undefined;

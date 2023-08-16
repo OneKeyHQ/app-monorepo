@@ -10,10 +10,10 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { TabRoutes } from '../../routes/routesEnum';
-import { PortalEntry, PortalExit } from '../Overlay/RootPortal';
+import { PortalContainer, PortalRender } from '../Overlay/RootPortal';
 import Swap from '../Swap';
 
-import MarketHeader from './Components/MarketList/MarketTopHeader';
+// import MarketHeader from './Components/MarketList/MarketTopHeader';
 import MarketList from './MarketList';
 import SharedMobileTab from './SharedMobileTab';
 import { sharedMobileTabRef } from './sharedMobileTabRef';
@@ -32,9 +32,9 @@ export function ScreenMarketOrSwap({
     useCallback(() => {
       if (isNativeSmall) {
         sharedMobileTabRef.update(
-          <PortalEntry target={`${routeName}-portal`}>
+          <PortalRender container={`${routeName}-portal`}>
             <SharedMobileTab routeName={routeName} />
-          </PortalEntry>,
+          </PortalRender>,
         );
       }
     }, [routeName, isNativeSmall]),
@@ -43,10 +43,13 @@ export function ScreenMarketOrSwap({
   return (
     <Box flex={1} mt={`${top}px`}>
       {isNativeSmall ? (
-        <PortalExit key={`${routeName}-portal`} name={`${routeName}-portal`} />
+        <PortalContainer
+          key={`${routeName}-portal`}
+          name={`${routeName}-portal`}
+        />
       ) : (
         <>
-          <MarketHeader marketTopTabName={routeName} />
+          {/* <MarketHeader marketTopTabName={routeName} /> */}
           {routeName === TabRoutes.Swap ? (
             <Swap hideBottomTabBar />
           ) : (

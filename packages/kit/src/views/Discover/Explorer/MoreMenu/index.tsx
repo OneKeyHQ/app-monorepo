@@ -89,11 +89,7 @@ const MoreMenu: FC<{ onClose: () => void }> = ({ onClose }) => {
     getAppNavigation().navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Discover,
       params: {
-        screen: DiscoverModalRoutes.MyDAppListModal,
-        params: {
-          onItemSelect: () => {},
-          defaultIndex: 0,
-        },
+        screen: DiscoverModalRoutes.Favorites,
       },
     });
   }, [onClose]);
@@ -103,11 +99,7 @@ const MoreMenu: FC<{ onClose: () => void }> = ({ onClose }) => {
     getAppNavigation().navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Discover,
       params: {
-        screen: DiscoverModalRoutes.MyDAppListModal,
-        params: {
-          onItemSelect: () => {},
-          defaultIndex: 1,
-        },
+        screen: DiscoverModalRoutes.History,
       },
     });
   }, [onClose]);

@@ -5,7 +5,7 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import * as ethUtils from 'ethereumjs-util';
 import stringify from 'fast-json-stable-stringify';
-import { get } from 'lodash';
+import { get, isNil } from 'lodash';
 import uuid from 'react-native-uuid';
 
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
@@ -20,7 +20,7 @@ import type {
   IEncodedTxEvm,
   IUnsignedMessageEvm,
 } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   backgroundClass,
   permissionRequired,
@@ -60,6 +60,22 @@ function convertToEthereumChainResult(result: Network | undefined | null) {
     chainId: result?.extraInfo?.chainId,
     networkVersion: result?.extraInfo?.networkVersion,
   };
+}
+
+function prefixTxValueToHex(value: string) {
+  if (value?.startsWith?.('0X') && value?.slice) {
+    // eslint-disable-next-line no-param-reassign
+    value = value.slice(2);
+  }
+  if (
+    value &&
+    value.startsWith &&
+    !value.startsWith('0x') &&
+    !value.startsWith('0X')
+  ) {
+    return `0x${value}`;
+  }
+  return value;
 }
 
 @backgroundClass()
@@ -176,6 +192,9 @@ class ProviderApiEthereum extends ProviderApiBase {
     // const { from, to, value, gasLimit, gasPrice, data, nonce, type } =
     //   transaction;
 
+    if (!isNil(transaction.value)) {
+      transaction.value = prefixTxValueToHex(transaction.value);
+    }
     const result = await this.backgroundApi.serviceDapp?.openSignAndSendModal(
       request,
       {
@@ -435,9 +454,10 @@ class ProviderApiEthereum extends ProviderApiBase {
   @providerApiMethod()
   async personal_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
     let message = messages[0] as string;
+    let from = messages[1] as string;
 
     const accounts = await this.eth_accounts(req);
-    // FIX:  dydx use second param as message
+    // FIX:  dydx, kava evm use second param as message
     if (accounts && accounts.length) {
       const a = fixAddressCase({
         impl: IMPL_EVM,
@@ -449,6 +469,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       });
       if (a && a === b && messages[1]) {
         message = messages[1] as string;
+        from = messages[0] as string;
       }
     }
 
@@ -457,7 +478,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     return this._showSignMessageModal(req, {
       type: ETHMessageTypes.PERSONAL_SIGN,
       message,
-      payload: messages,
+      payload: [message, from],
     });
   }
 

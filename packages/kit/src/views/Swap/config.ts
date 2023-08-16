@@ -103,7 +103,7 @@ export const WETH9: Record<string, Token> = {
   [OnekeyNetwork.polygon]: formatServerToken(WMATIC),
 };
 
-export function wToken(token: Token) {
+export function wrapToken(token: Token) {
   if (!token.tokenIdOnNetwork && WETH9[token.networkId]) {
     return WETH9[token.networkId];
   }

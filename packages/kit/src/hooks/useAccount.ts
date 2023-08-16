@@ -41,9 +41,13 @@ export function useAccount({
     })();
   }, [accountId, accountInRedux, networkId]);
 
-  return {
-    account: accountInRedux ?? accountInDb ?? accountFallback,
-  };
+  const finalAccount = accountInRedux ?? accountInDb ?? accountFallback;
+  return useMemo(
+    () => ({
+      account: finalAccount,
+    }),
+    [finalAccount],
+  );
 }
 
 export const useWalletIdFromAccountIdWithFallback = (

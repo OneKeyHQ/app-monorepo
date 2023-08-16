@@ -24,7 +24,7 @@ import {
   hexlify,
   stripHexPrefix,
 } from '@onekeyhq/engine/src/vaults/utils/hexUtils';
-import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   backgroundClass,
   permissionRequired,

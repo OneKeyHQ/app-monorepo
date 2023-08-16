@@ -7,6 +7,7 @@ import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import type { IVaultSettings } from '@onekeyhq/engine/src/vaults/types';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -125,17 +126,23 @@ export function useCreateAccountInWallet({
       isAddressDerivationSupported,
       showCreateAccountMenu,
     };
-  }, [networkId, walletId]);
+  }, [engine, networkId, walletId]);
 
   const selectedTemplateRef = useRef<IDerivationOption | null>();
-  const quickCreateAllNetworksFakeAccount = useCallback(() => {
+  const quickCreateAllNetworksFakeAccount = useCallback(async () => {
     const { serviceAllNetwork } = backgroundApiProxy;
     if (!walletId) {
       return;
     }
-    return serviceAllNetwork.createAllNetworksFakeAccount({
-      walletId,
-    });
+    try {
+      return await serviceAllNetwork.createAllNetworksFakeAccount({
+        walletId,
+      });
+    } catch (e) {
+      console.error(e);
+      debugLogger.common.error(`createAllNetworksFakeAccount error: `, e);
+      deviceUtils.showErrorToast(e);
+    }
   }, [walletId]);
   const quickCreateAccount = useCallback(
     async (password: string) => {

@@ -1,6 +1,8 @@
+/* eslint-disable react/prop-types */
 import type { FC } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
+import stringify from 'fast-json-stable-stringify';
 import { useIntl } from 'react-intl';
 
 import {
@@ -16,10 +18,11 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
+import { NetworkDarkIcon } from '@onekeyhq/components/src/Network/DarkIcon';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { FormatCurrencyNumber } from '@onekeyhq/kit/src/components/Format';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   ManageNetworkModalRoutes,
   ModalRoutes,
@@ -27,34 +30,80 @@ import {
 } from '@onekeyhq/kit/src/routes/routesEnum';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useAccountValues, useOverviewPendingTasks } from '../../../hooks';
+import {
+  useAccountIsUpdating,
+  useAccountValues,
+  useOverviewPendingTasks,
+} from '../../../hooks';
 import { useAllNetworksWalletAccounts } from '../../../hooks/useAllNetwoks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
+import { getTimeDurationMs } from '../../../utils/helper';
 import { calculateGains } from '../../../utils/priceUtils';
 import { showAccountValueSettings } from '../../Overlay/AccountValueSettings';
 
-import { AccountOption } from './AccountOption';
+import AccountOption from './AccountOption';
+
+import type BigNumber from 'bignumber.js';
 
 export const FIXED_VERTICAL_HEADER_HEIGHT = 238;
 export const FIXED_HORIZONTAL_HEDER_HEIGHT = 152;
 
-const SectionCopyAddress: FC = () => {
+const SectionNetworkIconGroup: FC<{
+  networkIds: string[];
+}> = memo(({ networkIds }) => {
+  const data = useMemo(() => {
+    if (!networkIds?.length) {
+      return [];
+    }
+    const ns = networkIds.slice(0, 4);
+    if (networkIds.length > 4) {
+      ns.push('more');
+    }
+    return ns;
+  }, [networkIds]);
+
+  return (
+    <>
+      {data.map((n, idx) => (
+        <Box key={n} ml={idx === 0 ? 0 : -1}>
+          <NetworkDarkIcon networkId={n} />
+        </Box>
+      ))}
+    </>
+  );
+});
+
+SectionNetworkIconGroup.displayName = 'SectionNetworkIconGroup';
+
+const SectionNetworks: FC = memo(() => {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { account, networkId, network, wallet, walletId, accountId } =
-    useActiveWalletAccount();
-  const { copyAddress } = useCopyAddress({ wallet });
+  const { networkId, walletId, accountId } = useActiveWalletAccount();
 
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
     accountId,
   });
-
-  const displayAddress = useMemo(
-    () => !network?.settings.hiddenAddress,
-    [network?.settings.hiddenAddress],
+  const enabledNetworks = useMemo(
+    () => Object.keys(networkAccountsMap ?? {}),
+    [networkAccountsMap],
   );
+
+  useEffect(() => {
+    if (isAllNetworks(networkId) && networkAccountsMap === null) {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.ManageNetwork,
+        params: {
+          screen: ManageNetworkModalRoutes.AllNetworksAccountsDetail,
+          params: {
+            walletId,
+            accountId,
+          },
+        },
+      });
+    }
+  }, [networkId, networkAccountsMap, walletId, navigation, accountId]);
 
   const toAllNetworksAccountsDetail = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -68,30 +117,45 @@ const SectionCopyAddress: FC = () => {
       },
     });
   }, [walletId, accountId, navigation]);
+  return (
+    <Pressable
+      flexDirection="row"
+      alignItems="center"
+      py="4px"
+      px="8px"
+      rounded="12px"
+      _hover={{ bg: 'surface-hovered' }}
+      _pressed={{ bg: 'surface-pressed' }}
+      onPress={toAllNetworksAccountsDetail}
+    >
+      <Text typography="Body2Strong" mr={2} color="text-subdued">
+        {intl.formatMessage(
+          { id: 'form__str_networks' },
+          {
+            0: enabledNetworks.length,
+          },
+        )}
+      </Text>
+      <SectionNetworkIconGroup networkIds={enabledNetworks} />
+      <Icon name="ChevronDownMini" size={20} color="icon-subdued" />
+    </Pressable>
+  );
+});
+
+SectionNetworks.displayName = 'SectionNetworks';
+
+const SectionCopyAddress: FC = memo(() => {
+  const intl = useIntl();
+  const { account, networkId, network, wallet } = useActiveWalletAccount();
+  const { copyAddress } = useCopyAddress({ wallet });
+
+  const displayAddress = useMemo(
+    () => !network?.settings.hiddenAddress,
+    [network?.settings.hiddenAddress],
+  );
 
   if (isAllNetworks(networkId)) {
-    return (
-      <Pressable
-        flexDirection="row"
-        alignItems="center"
-        py="4px"
-        px="8px"
-        rounded="12px"
-        _hover={{ bg: 'surface-hovered' }}
-        _pressed={{ bg: 'surface-pressed' }}
-        onPress={toAllNetworksAccountsDetail}
-      >
-        <Text typography="Body2Strong" mr={2} color="text-subdued">
-          {intl.formatMessage(
-            { id: 'form__all_networks_str' },
-            {
-              0: Object.keys(networkAccountsMap).length,
-            },
-          )}
-        </Text>
-        <Icon name="ChevronDownMini" color="icon-subdued" size={16} />
-      </Pressable>
-    );
+    return <SectionNetworks />;
   }
   if (!displayAddress) {
     return null;
@@ -122,15 +186,19 @@ const SectionCopyAddress: FC = () => {
           mr={2}
           color="text-subdued"
         >
-          {shortenAddress(account?.displayAddress ?? account?.address ?? '')}
+          {shortenAddress(
+            account?.displayAddress ?? account?.address ?? '',
+            network?.settings.displayChars,
+          )}
         </Text>
         <Icon name="Square2StackOutline" color="icon-subdued" size={16} />
       </Pressable>
     </Tooltip>
   );
-};
+});
+SectionCopyAddress.displayName = 'SectionCopyAddress';
 
-const SectionOpenBlockBrowser = () => {
+const SectionOpenBlockBrowser = memo(() => {
   const intl = useIntl();
   const { account, network } = useActiveWalletAccount();
   const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
@@ -154,28 +222,119 @@ const SectionOpenBlockBrowser = () => {
       </Pressable>
     </Tooltip>
   );
+});
+SectionOpenBlockBrowser.displayName = 'SectionOpenBlockBrowser';
+
+type AccountUpdateTipsProps = {
+  networkId: string;
+  accountId: string;
 };
 
-const AccountAmountInfo: FC = () => {
+const AccountUpdateTips: FC<AccountUpdateTipsProps> = ({
+  networkId,
+  accountId,
+}) => {
   const intl = useIntl();
-  const [refreshing, setRefreshing] = useState(false);
-  const { networkId, accountId } = useActiveWalletAccount();
+  const [ellipsis, setEllipsis] = useState('');
 
-  const accountAllValues = useAccountValues({
+  const refreshing = useAccountIsUpdating({
     networkId,
     accountId,
   });
 
-  const { updateTips, tasks } = useOverviewPendingTasks({
+  const { tasks, updatedAt } = useOverviewPendingTasks({
     networkId,
     accountId,
   });
 
-  const [showPercentage, setShowPercentage] = useState(false);
+  useEffect(() => {
+    if (!tasks.length) {
+      return;
+    }
+    const timer = setInterval(() => {
+      setEllipsis((t) => (t.length < 3 ? `${t}.` : ''));
+    }, 800);
 
-  const summedValueComp = useMemo(
-    () =>
-      accountAllValues.value.isNaN() ? (
+    return () => clearInterval(timer);
+  }, [tasks?.length]);
+
+  const updateTips = useMemo(() => {
+    if (tasks?.length || refreshing) {
+      return (
+        intl.formatMessage({
+          id: 'content__updating_assets',
+        }) + ellipsis
+      );
+    }
+    const duration = Date.now() - updatedAt;
+    if (
+      duration <
+      getTimeDurationMs({
+        minute: 2,
+      })
+    ) {
+      return intl.formatMessage({
+        id: 'form__updated_just_now',
+      });
+    }
+    if (
+      duration <
+      getTimeDurationMs({
+        hour: 1,
+      })
+    ) {
+      return intl.formatMessage(
+        {
+          id: 'form__str_mins_ago',
+        },
+        {
+          0: Math.floor(duration / 1000 / 60),
+        },
+      );
+    }
+    if (
+      duration <
+      getTimeDurationMs({
+        hour: 24,
+      })
+    ) {
+      return intl.formatMessage(
+        {
+          id: 'form__str_hours_ago',
+        },
+        {
+          0: Math.floor(duration / 1000 / 60 / 60),
+        },
+      );
+    }
+    if (
+      duration >
+      getTimeDurationMs({
+        hour: 24,
+      })
+    ) {
+      return intl.formatMessage(
+        {
+          id: 'form__str_days_ago',
+        },
+        {
+          0: Math.floor(duration / 1000 / 60 / 60 / 24),
+        },
+      );
+    }
+  }, [updatedAt, intl, tasks?.length, ellipsis, refreshing]);
+
+  if (!updateTips) {
+    return null;
+  }
+
+  return <Typography.Body2 color="text-subdued">{updateTips}</Typography.Body2>;
+};
+
+const SummedValueComp = memo(
+  ({ amount }: { amount: BigNumber }) => (
+    <Box flexDirection="row" alignItems="center" mt={1} w="full">
+      {amount.isNaN() ? (
         <Skeleton shape="DisplayXLarge" />
       ) : (
         <HStack flex="1" alignItems="center">
@@ -183,7 +342,7 @@ const AccountAmountInfo: FC = () => {
             <FormatCurrencyNumber
               decimals={2}
               value={0}
-              convertValue={accountAllValues.value}
+              convertValue={amount}
             />
           </Typography.Display2XLarge>
           <IconButton
@@ -194,76 +353,104 @@ const AccountAmountInfo: FC = () => {
             ml={1}
           />
         </HStack>
-      ),
-    [accountAllValues],
-  );
+      )}
+    </Box>
+  ),
+  (prev: { amount: BigNumber }, next: { amount: BigNumber }) =>
+    prev.amount.isEqualTo(next.amount),
+);
+SummedValueComp.displayName = 'SummedValueComp';
+
+type ChangedValueCompProps = AccountUpdateTipsProps & {
+  amount24h: BigNumber;
+  amount: BigNumber;
+  onPressUpdate: () => void;
+};
+
+const ChangedValueComp = memo(
+  ({
+    networkId,
+    accountId,
+    amount24h,
+    amount,
+    onPressUpdate,
+  }: ChangedValueCompProps) => {
+    const intl = useIntl();
+    const [showPercentage, setShowPercentage] = useState(false);
+
+    const { gainNumber, percentageGain, gainTextColor } = calculateGains({
+      basePrice: amount24h.toNumber(),
+      price: amount.toNumber(),
+    });
+
+    return (
+      <Box flexDirection="row" mt={1}>
+        {amount.isNaN() ? (
+          <Skeleton shape="Body1" />
+        ) : (
+          <HStack alignItems="center">
+            <Pressable
+              onPress={() => {
+                setShowPercentage(!showPercentage);
+              }}
+            >
+              <Typography.Body2Strong color={gainTextColor} mr="4px">
+                {showPercentage ? (
+                  percentageGain
+                ) : (
+                  <>
+                    {gainNumber >= 0 ? '+' : '-'}
+                    <FormatCurrencyNumber
+                      value={Math.abs(gainNumber)}
+                      decimals={2}
+                    />
+                  </>
+                )}
+              </Typography.Body2Strong>
+            </Pressable>
+            <Typography.Body2Strong color="text-subdued" ml="1">
+              {intl.formatMessage({ id: 'content__today' })}
+            </Typography.Body2Strong>
+            <>
+              <Box size="1" bg="icon-subdued" borderRadius="999px" mx="2" />
+              <Pressable onPress={onPressUpdate}>
+                <AccountUpdateTips
+                  networkId={networkId}
+                  accountId={accountId}
+                />
+              </Pressable>
+            </>
+          </HStack>
+        )}
+      </Box>
+    );
+  },
+  (prev: ChangedValueCompProps, next: ChangedValueCompProps) =>
+    stringify(prev) === stringify(next),
+);
+ChangedValueComp.displayName = 'ChangedValueComp';
+
+const AccountAmountInfo: FC = () => {
+  const { networkId, accountId } = useActiveWalletAccount();
+
+  const accountAllValues = useAccountValues({
+    networkId,
+    accountId,
+  });
+
+  const { tasks } = useOverviewPendingTasks({
+    networkId,
+    accountId,
+  });
 
   const onPressUpdate = useCallback(() => {
     if (tasks.length > 0) {
       return;
     }
-    setRefreshing(true);
-    backgroundApiProxy.serviceOverview.refreshCurrentAccount().finally(() => {
-      setTimeout(() => setRefreshing(false), 1000);
+    backgroundApiProxy.serviceOverview.refreshCurrentAccount({
+      debounceEnabled: false,
     });
   }, [tasks]);
-
-  const changedValueComp = useMemo(() => {
-    const { gainNumber, percentageGain, gainTextColor } = calculateGains({
-      basePrice: accountAllValues.value24h.toNumber(),
-      price: accountAllValues.value.toNumber(),
-    });
-
-    return accountAllValues.value.isNaN() ? (
-      <Skeleton shape="Body1" />
-    ) : (
-      <HStack alignItems="center">
-        <Pressable
-          onPress={() => {
-            setShowPercentage(!showPercentage);
-          }}
-        >
-          <Typography.Body2Strong color={gainTextColor} mr="4px">
-            {showPercentage ? (
-              percentageGain
-            ) : (
-              <>
-                {gainNumber > 0 ? '+' : '-'}
-                <FormatCurrencyNumber
-                  value={Math.abs(gainNumber)}
-                  decimals={2}
-                />
-              </>
-            )}
-          </Typography.Body2Strong>
-        </Pressable>
-        <Typography.Body2Strong color="text-subdued" ml="1">
-          {intl.formatMessage({ id: 'content__today' })}
-        </Typography.Body2Strong>
-        {updateTips || refreshing ? (
-          <>
-            <Box size="1" bg="icon-subdued" borderRadius="999px" mx="2" />
-            {refreshing ? (
-              <Skeleton shape="Body2" />
-            ) : (
-              <Pressable onPress={onPressUpdate}>
-                <Typography.Body2 color="text-subdued">
-                  {updateTips}
-                </Typography.Body2>
-              </Pressable>
-            )}
-          </>
-        ) : null}
-      </HStack>
-    );
-  }, [
-    intl,
-    accountAllValues,
-    updateTips,
-    onPressUpdate,
-    showPercentage,
-    refreshing,
-  ]);
 
   return (
     <Box alignItems="flex-start" flex="1">
@@ -271,16 +458,17 @@ const AccountAmountInfo: FC = () => {
         <SectionCopyAddress />
         <SectionOpenBlockBrowser />
       </Box>
-      <Box flexDirection="row" alignItems="center" mt={1} w="full">
-        {summedValueComp}
-      </Box>
-      <Box flexDirection="row" mt={1}>
-        {changedValueComp}
-      </Box>
+      <SummedValueComp amount={accountAllValues.value} />
+      <ChangedValueComp
+        amount={accountAllValues.value}
+        amount24h={accountAllValues.value24h}
+        networkId={networkId}
+        accountId={accountId}
+        onPressUpdate={onPressUpdate}
+      />
     </Box>
   );
 };
-
 const AccountInfo = () => {
   const isSmallView = useIsVerticalLayout();
   if (isSmallView) {
@@ -320,4 +508,4 @@ const AccountInfo = () => {
   );
 };
 
-export default AccountInfo;
+export default memo(AccountInfo);

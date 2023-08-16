@@ -12,7 +12,7 @@ import {
   useThemeValue,
 } from '@onekeyhq/components';
 import CustomToast from '@onekeyhq/components/src/Toast/Custom';
-import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import { RootStackNavigator } from '@onekeyhq/kit/src/routes';
 import type { RootRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import { analyticLogEvent } from '@onekeyhq/shared/src/analytics';
@@ -25,7 +25,7 @@ import '../routes/deepLink';
 import buildLinking from '../routes/linking';
 import { createLazyComponent } from '../utils/createLazyComponent';
 import { FULLWINDOW_OVERLAY_PORTAL } from '../utils/overlayUtils';
-import { PortalExit } from '../views/Overlay/RootPortal';
+import { PortalContainer } from '../views/Overlay/RootPortal';
 
 import RedirectProvider from './RedirectProvider';
 
@@ -96,7 +96,7 @@ const NavigationApp = () => {
     [bgColor, textColor, dividerColor, showFixedBg],
   );
 
-  const { instanceId } = useSettings();
+  const instanceId = useAppSelector((s) => s.settings.instanceId);
 
   useEffect(() => {
     analyticLogEvent('initialized', {
@@ -133,7 +133,7 @@ const NavigationApp = () => {
       <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
         <ChainWebEmbed />
         <CustomToast bottomOffset={60} />
-        <PortalExit name={FULLWINDOW_OVERLAY_PORTAL} />
+        <PortalContainer name={FULLWINDOW_OVERLAY_PORTAL} />
       </View>
     ),
     [],

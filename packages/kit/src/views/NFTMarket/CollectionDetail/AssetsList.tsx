@@ -20,7 +20,6 @@ import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useNetworks } from '../../../hooks/redux';
 import { useIsMounted } from '../../../hooks/useIsMounted';
 import { CollectiblesModalRoutes } from '../../../routes/routesEnum';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
@@ -289,26 +288,22 @@ const AssetsList = ({
     setContext,
   ]);
 
-  const networks = useNetworks();
-
-  const network = networks.find((item) => item.id === networkId);
-
   const handleSelectAsset = useCallback(
     (asset: NFTAsset) => {
-      if (!network) return;
+      if (!networkId) return;
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Collectibles,
         params: {
           screen: CollectiblesModalRoutes.NFTDetailModal,
           params: {
             asset,
-            network,
+            networkId,
             isOwner: false,
           },
         },
       });
     },
-    [navigation, network],
+    [navigation, networkId],
   );
 
   const renderItem: ListRenderItem<NFTAsset> = useCallback(

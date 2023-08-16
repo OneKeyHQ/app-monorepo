@@ -130,7 +130,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
   );
 };
 
-function TokenSelector() {
+function TokenSelectorModal() {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const {
@@ -193,4 +193,4 @@ function TokenSelector() {
   );
 }
 
-export { TokenSelector };
+export { TokenSelectorModal };

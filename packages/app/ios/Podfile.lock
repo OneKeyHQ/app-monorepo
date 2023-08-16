@@ -15,11 +15,11 @@ PODS:
     - ExpoModulesCore
     - ZXingObjC/OneD
     - ZXingObjC/PDF417
-  - EXConstants (14.3.0):
+  - EXConstants (14.4.2):
     - ExpoModulesCore
-  - EXFileSystem (15.3.0):
+  - EXFileSystem (15.4.2):
     - ExpoModulesCore
-  - EXFont (11.1.1):
+  - EXFont (11.4.0):
     - ExpoModulesCore
   - EXImageLoader (4.2.0):
     - ExpoModulesCore
@@ -29,15 +29,15 @@ PODS:
   - EXMediaLibrary (15.3.0):
     - ExpoModulesCore
     - React-Core
-  - EXNotifications (0.18.1):
+  - EXNotifications (0.20.1):
     - ExpoModulesCore
-  - Expo (48.0.19):
+  - Expo (49.0.6):
     - ExpoModulesCore
   - ExpoBlur (12.3.1):
     - ExpoModulesCore
   - ExpoClipboard (4.2.0):
     - ExpoModulesCore
-  - ExpoDevice (5.3.0):
+  - ExpoDevice (5.4.0):
     - ExpoModulesCore
   - ExpoHaptics (12.3.0):
     - ExpoModulesCore
@@ -54,7 +54,8 @@ PODS:
     - ExpoModulesCore
   - ExpoLocalization (14.2.0):
     - ExpoModulesCore
-  - ExpoModulesCore (1.2.7):
+  - ExpoModulesCore (1.5.9):
+    - RCT-Folly (= 2021.07.22.00)
     - React-Core
     - React-RCTAppDelegate
     - ReactCommon/turbomodule/core
@@ -987,7 +988,9 @@ PODS:
     - React-RCTText
   - RealmJS (11.9.0):
     - React
-  - RNCAsyncStorage (1.18.1):
+  - RNCAsyncStorage (1.18.2):
+    - React-Core
+  - RNExitApp (2.0.0):
     - React-Core
   - RNFastImage (8.6.3):
     - React-Core
@@ -1193,6 +1196,7 @@ DEPENDENCIES:
   - ReactNativeKeyboardManager (from `../../../node_modules/react-native-keyboard-manager`)
   - RealmJS (from `../../../node_modules/realm`)
   - "RNCAsyncStorage (from `../../../node_modules/@react-native-async-storage/async-storage`)"
+  - RNExitApp (from `../../../node_modules/react-native-exit-app`)
   - RNFastImage (from `../../../node_modules/react-native-fast-image`)
   - "RNFBAnalytics (from `../../../node_modules/@react-native-firebase/analytics`)"
   - "RNFBApp (from `../../../node_modules/@react-native-firebase/app`)"
@@ -1431,6 +1435,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/realm"
   RNCAsyncStorage:
     :path: "../../../node_modules/@react-native-async-storage/async-storage"
+  RNExitApp:
+    :path: "../../../node_modules/react-native-exit-app"
   RNFastImage:
     :path: "../../../node_modules/react-native-fast-image"
   RNFBAnalytics:
@@ -1468,17 +1474,17 @@ SPEC CHECKSUMS:
   EXApplication: d8f53a7eee90a870a75656280e8d4b85726ea903
   EXAV: c661e742e2ee1986f5a6a030b48d9d3a3507d2f0
   EXBarCodeScanner: 28ad66f3f57c8ae00f988956835ab472688643ca
-  EXConstants: 29269f841ed8786d483b753021953264ac04818f
-  EXFileSystem: 0b4a2c08c2dc92146849772145d61c1773144283
-  EXFont: 6ea3800df746be7233208d80fe379b8ed74f4272
+  EXConstants: ce5bbea779da8031ac818c36bea41b10e14d04e1
+  EXFileSystem: d7f59869885cfeab3ac771e2a8d0f5ed98cd3fdb
+  EXFont: 738c44c390953ebcbab075a4848bfbef025fd9ee
   EXImageLoader: 9d209a8231962d4aafa60ca40380b02a398f07b9
   EXLocation: 0d7331f0385de210c677313a6a1512099b455347
   EXMediaLibrary: 2e91d1eb14df5c6af1ddfe183a8c8ee7eaf557d8
-  EXNotifications: dd628737af60fc8cc62dccebacd326b0fbbc0dcb
-  Expo: 8448e3a2aa1b295f029c81551e1ab6d986517fdb
+  EXNotifications: 09394cbd7165f9a4a00a53328aa09bf874bae717
+  Expo: 5601f86edc81c7e7e1772b9af9ae58fa3b45ad53
   ExpoBlur: 83186055c9c5c7ea564d04c6ed766ef7896889ed
   ExpoClipboard: 872ae8ea230649404705b7cc09a155531e74b7bb
-  ExpoDevice: 516146e17529c3eae3f5c2c09e826efc9ffc6938
+  ExpoDevice: 1c1b0c9cad96c292c1de73948649cfd654b2b3c0
   ExpoHaptics: fb64dfe302cba07591bf1679ecb9531dadfc13cf
   ExpoImageManipulator: b8d510b4d15689d8f276dff3482df5707836035b
   ExpoImagePicker: 432af66697986cc210bc814dee782a07b2037a61
@@ -1486,7 +1492,7 @@ SPEC CHECKSUMS:
   ExpoLinearGradient: 8eaab76b7f55c612ed8348c8be8c2a18a9b4529f
   ExpoLocalAuthentication: de5f50fae4fa643a3fc6b404d61a2ab36b5acf20
   ExpoLocalization: c1201ba5cfcfb187972138e58c07cc708c5399db
-  ExpoModulesCore: 653958063a301098b541ae4dfed1ac0b98db607b
+  ExpoModulesCore: af228cd4b0469c9833496d4d8574f599a46a5e1c
   ExpoSecureStore: 69a8b8e66e53afbd1c88b97a95a22af7fde9f99b
   EXSplashScreen: 0e0a9ba0cf7553094e93213099bd7b42e6e237e9
   FBLazyVector: f637f31eacba90d4fdeff3fa41608b8f361c173b
@@ -1585,7 +1591,8 @@ SPEC CHECKSUMS:
   ReactNativeCameraKit: 32e04877e57e0eeab26e45817e3fd532e7d302fb
   ReactNativeKeyboardManager: 30ef68551383d86d3ae044afc3d29f12629ec60b
   RealmJS: 64ae0907c1f21ce8e74bd480a8503032b19804fd
-  RNCAsyncStorage: b90b71f45b8b97be43bc4284e71a6af48ac9f547
+  RNCAsyncStorage: ddc4ee162bfd41b0d2c68bf2d95acd81dd7f1f93
+  RNExitApp: 00036cabe7bacbb413d276d5520bf74ba39afa6a
   RNFastImage: 5c9c9fed9c076e521b3f509fe79e790418a544e8
   RNFBAnalytics: c5740a00a436398796639189f82b58b1ebe4c705
   RNFBApp: e4439717c23252458da2b41b81b4b475c86f90c4

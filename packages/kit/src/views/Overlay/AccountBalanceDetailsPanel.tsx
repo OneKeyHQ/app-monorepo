@@ -177,7 +177,10 @@ export function showAccountBalanceDetailsOverlay({
   info: ReturnType<typeof useAccountBalanceDetailsInfo>;
 }) {
   showOverlay((closeOverlay) => (
-    <BottomSheetSettings closeOverlay={closeOverlay}>
+    <BottomSheetSettings
+      closeOverlay={closeOverlay}
+      titleI18nKey="content__account_balance"
+    >
       <AccountBalanceDetailsPanel info={info} />
     </BottomSheetSettings>
   ));

@@ -23,11 +23,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import NameServiceResolver, {
   useNameServiceStatus,
 } from '@onekeyhq/kit/src/components/NameServiceResolver';
-import {
-  useActiveWalletAccount,
-  useGeneral,
-  useRuntime,
-} from '@onekeyhq/kit/src/hooks/redux';
+import { useGeneral, useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import type {
   CreateWalletRoutesParams,
   IAddExistingWalletModalParams,
@@ -50,7 +46,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import showDerivationPathBottomSheetModal from '../../components/NetworkAccountSelector/modals/NetworkAccountSelectorModal/DerivationPathBottomSheetModal';
 import { BaseSelectorTrigger } from '../../components/NetworkAccountSelector/triggers/BaseSelectorTrigger';
 import { ImportAccountNetworkSelectorTrigger } from '../../components/NetworkAccountSelector/triggers/ImportAccountNetworkSelectorTrigger';
-import { useManageNetworks } from '../../hooks';
+import { useActiveWalletAccount, useManageNetworks } from '../../hooks';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { useOnboardingDone } from '../../hooks/useOnboardingRequired';
 import { useWalletName } from '../../hooks/useWalletName';
@@ -241,11 +237,13 @@ function useAddExistingWallet({
           );
           onAddWatchingDone();
           onboardingDone({ showOnBoardingLoading: true });
-        } catch (e) {
+        } catch (e: any) {
           const errorKey = (e as { key: LocaleIds }).key;
           ToastManager.show(
             {
-              title: intl.formatMessage({ id: errorKey }),
+              title: errorKey
+                ? intl.formatMessage({ id: errorKey })
+                : (e as Error)?.message,
             },
             { type: 'error' },
           );
@@ -435,7 +433,7 @@ function AddExistingWalletView(
     getValues,
   } = props;
 
-  const { enabledNetworks } = useManageNetworks();
+  const { enabledNetworks } = useManageNetworks(undefined);
   const { network: activeNetwork } = useActiveWalletAccount();
   const closeModal = useModalClose();
   const [selectedDerivation, setSelectedDerivation] =
@@ -520,7 +518,6 @@ function AddExistingWalletView(
           disable={mode === 'imported' || mode === 'mnemonic'}
           onChange={onNameServiceChange || onNameServiceStatusChange}
           networkId={selectedNetwork.id}
-          disableBTC
         />
         <AccountTypeSelectorTrigger
           value={value}
@@ -545,11 +542,6 @@ function AddExistingWalletView(
   const placeholder = useMemo(() => {
     const getImportWatchingAccountPlaceholder = () => {
       if (mode === 'watching' || mode === 'all') {
-        if (mode === 'watching' && selectedNetwork.id === OnekeyNetwork.btc) {
-          return intl.formatMessage({
-            id: 'content__public_key',
-          });
-        }
         return intl.formatMessage({
           id: 'form__import_watch_only_account_placeholder',
         });
@@ -572,7 +564,7 @@ function AddExistingWalletView(
       `${getImportWatchingAccountPlaceholder()}`,
     ];
     return words.filter(Boolean).join(', ');
-  }, [intl, mode, selectedNetwork.id]);
+  }, [intl, mode]);
 
   useEffect(() => {
     const text = getValues('text');
@@ -628,21 +620,6 @@ function AddExistingWalletView(
                   return true;
                 }
 
-                // Special treatment for BTC address.
-                if (selectedNetwork.id === OnekeyNetwork.btc) {
-                  try {
-                    await backgroundApiProxy.validator.validateAddress(
-                      OnekeyNetwork.btc,
-                      text,
-                    );
-                    return intl.formatMessage({
-                      id: 'form__address_btc_as_wachted_account',
-                    });
-                  } catch {
-                    // pass
-                  }
-                }
-
                 if (inputCategory === UserInputCategory.IMPORTED) {
                   return intl.formatMessage({
                     id: 'msg__invalid_private_key',
@@ -667,7 +644,8 @@ function AddExistingWalletView(
             }}
             helpText={helpText}
           >
-            {mode === 'imported' ? (
+            {mode === 'imported' &&
+            !selectedNetwork.settings.mnemonicAsPrivatekey ? (
               <Form.Input
                 inputAccessoryViewID="1"
                 autoFocusDelay={600}

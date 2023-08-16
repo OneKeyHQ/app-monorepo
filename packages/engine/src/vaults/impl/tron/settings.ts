@@ -3,6 +3,8 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
+import { BulkTypeEnum } from '../../../types/batchTransfer';
+
 import type { IVaultSettings } from '../../types';
 
 const settings: IVaultSettings = Object.freeze({
@@ -19,12 +21,14 @@ const settings: IVaultSettings = Object.freeze({
   isUTXOModel: false,
 
   cannotSendToSelf: true,
-  supportBatchTransfer: true,
+  supportBatchTransfer: [BulkTypeEnum.OneToMany],
   batchTransferApprovalRequired: true,
   maxActionsInTx: 8,
   hardwareMaxActionsEnabled: true,
 
   allowZeroFee: true,
+
+  hideInAllNetworksMode: true,
 
   accountNameInfo: {
     default: {
