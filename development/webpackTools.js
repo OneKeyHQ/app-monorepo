@@ -87,25 +87,20 @@ function normalizeConfig({
   enableAnalyzerHtmlReport,
   buildTargetBrowser, // firefox or chrome, for extension build
 }) {
+  const isDev = process.env.NODE_ENV !== 'production';
   let resolveExtensions = createDefaultResolveExtensions();
   if (platform) {
     if (PUBLIC_URL) config.output.publicPath = PUBLIC_URL;
-    const isDev = process.env.NODE_ENV !== 'production';
-
-    // add devServer proxy
-    if (config.devServer) {
-      config.devServer.proxy = config.devServer.proxy || {};
-      config.devServer.proxy['/nexa_ws'] = {
-        target: 'wss://testnet-explorer.nexa.org:30004',
-        changeOrigin: true,
-        ws: true,
-      };
-    }
+    config.output.filename = '[name].bundle.js';
 
     config.plugins = [
       ...config.plugins,
+      new webpack.ProgressPlugin(),
       platform !== 'ext' ? new DuplicatePackageCheckerPlugin() : null,
       isDev ? new BuildDoneNotifyPlugin() : null,
+      new webpack.ProvidePlugin({
+        Buffer: ['buffer', 'Buffer'],
+      }),
       new webpack.DefinePlugin({
         // TODO use babelTools `transform-inline-environment-variables` instead
         'process.env.ONEKEY_BUILD_TYPE': JSON.stringify(platform),
@@ -117,14 +112,20 @@ function normalizeConfig({
       isDev ? new ReactRefreshWebpackPlugin({ overlay: false }) : null,
     ].filter(Boolean);
 
+    // Compile entrypoints and dynamic imports only when they are in use.
+    if (isDev) {
+      config.experiments = config.experiments || {};
+      config.experiments.lazyCompilation = {
+        imports: true,
+        entries: false,
+        test: /engine/,
+      };
+    }
+
     // add devServer proxy
     if (config.devServer) {
-      config.devServer.proxy = config.devServer.proxy || {};
-    }
-    if (config.devServer) {
-      const originalBefore = config.devServer.before;
-      config.devServer.before = (app, server, compiler) => {
-        app.get(
+      config.devServer.onBeforeSetupMiddleware = (devServer) => {
+        devServer.app.get(
           '/react-render-tracker@0.7.3/dist/react-render-tracker.js',
           (req, res) => {
             const sendResponse = (text) => {
@@ -143,7 +144,7 @@ function normalizeConfig({
               req.headers.cookie &&
               req.headers.cookie.includes('rrt=1')
             ) {
-              // 读取 node_modules/react-render-tracker/dist/react-render-tracker.js 文件内容并返回
+              // read node_modules/react-render-tracker/dist/react-render-tracker.js content
               const filePath = path.join(
                 __dirname,
                 '../node_modules/react-render-tracker/dist/react-render-tracker.js',
@@ -162,10 +163,6 @@ function normalizeConfig({
             }
           },
         );
-
-        if (originalBefore) {
-          originalBefore(app, server, compiler);
-        }
       };
     }
 
@@ -252,6 +249,12 @@ function normalizeConfig({
     type: 'javascript/auto',
   });
 
+  // support ejs
+  config.module.rules.push({
+    test: /\.ejs$/i,
+    use: ['html-loader', 'template-ejs-loader'],
+  });
+
   const normalizeModuleRule = (rule) => {
     if (!rule) {
       return;
@@ -299,13 +302,32 @@ function normalizeConfig({
     });
   config.resolve.alias = {
     ...config.resolve.alias,
-    '@solana/buffer-layout-utils':
-      '@solana/buffer-layout-utils/lib/cjs/index.js',
-    '@solana/spl-token': '@solana/spl-token/lib/cjs/index.js',
-    'aptos': 'aptos/dist/index.js',
-    'framer-motion': 'framer-motion/dist/framer-motion',
-    '@mysten/sui.js': '@mysten/sui.js/dist/index.js',
-    '@ipld/dag-cbor': '@ipld/dag-cbor/dist/index.min.js',
+    // '@solana/buffer-layout-utils':
+    // '@solana/buffer-layout-utils/lib/cjs/index.js',
+    // '@solana/spl-token': '@solana/spl-token/lib/cjs/index.js',
+    // 'aptos': 'aptos/dist/index.js',
+    // 'framer-motion': 'framer-motion/dist/framer-motion',
+    // '@mysten/sui.js': '@mysten/sui.js/dist/index.js',
+    // '@ipld/dag-cbor': '@ipld/dag-cbor/dist/index.min.js',
+    // 'ws': 'ws/browser.js',
+  };
+
+  config.resolve.fallback = {
+    ...config.resolve.fallback,
+    'crypto': require.resolve('crypto-browserify'),
+    'stream': require.resolve('stream-browserify'),
+    'path': false,
+    'https': false,
+    'http': false,
+    'net': false,
+    'zlib': false,
+    'tls': false,
+    'child_process': false,
+    'process': false,
+    'fs': false,
+    'util': false,
+    'os': false,
+    'buffer': require.resolve('buffer/'),
   };
 
   // Why? do not change original config directly
@@ -321,11 +343,9 @@ function normalizeConfig({
     maxSize: 4 * 1024 * 1024,
     hidePathInfo: true,
     automaticNameDelimiter: '.',
-    automaticNameMaxLength: 15,
     name: false, // reduce module duplication across chunks
-    maxInitialRequests: 50000, // reduce module duplication across chunks
+    maxInitialRequests: 20, // reduce module duplication across chunks
     maxAsyncRequests: 50000, // reduce module duplication across chunks
-    ...config.optimization.splitChunks,
     cacheGroups: {
       // kit_assets: {
       //   test: /\/kit\/assets/,
@@ -343,6 +363,7 @@ function normalizeConfig({
       //   chunks: 'all',
       // },
     },
+    ...config.optimization.splitChunks,
   };
 
   return config;
