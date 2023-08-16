@@ -18,12 +18,12 @@ import {
   FormatBalance,
   FormatCurrencyNumber,
 } from '../../../components/Format';
-import { useActiveSideAccount } from '../../../hooks';
 import {
+  useActiveSideAccount,
   useReduxSingleTokenBalanceSimple,
   useReduxSingleTokenFiatValuesSimple,
   useReduxSingleTokenPriceSimple,
-} from '../../../hooks/crossHooks';
+} from '../../../hooks';
 import {
   CValueLoading,
   CValueNull,

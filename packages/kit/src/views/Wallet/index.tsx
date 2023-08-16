@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -60,7 +60,6 @@ const WalletTabs: FC = () => {
   const homeTabName = useHomeTabName();
   const { wallet, network, accountId, networkId, walletId } =
     useActiveWalletAccount();
-  const [refreshing, setRefreshing] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
 
   // LazyRenderCurrentHomeTab
@@ -177,9 +176,9 @@ const WalletTabs: FC = () => {
   }, [network?.settings, networkId, tokensTab, nftTab, historyTab, toolsTab]);
 
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
+    ref?.current?.setRefreshing(true);
     backgroundApiProxy.serviceOverview.refreshCurrentAccount().finally(() => {
-      setTimeout(() => setRefreshing(false), 50);
+      setTimeout(() => ref?.current?.setRefreshing(false), 50);
     });
   }, []);
 
@@ -198,23 +197,18 @@ const WalletTabs: FC = () => {
       currentIndexRef.current = index;
       if (timer.current) clearTimeout(timer.current);
 
-      let intervalTime = 0;
-      if (platformEnv.isNativeAndroid) {
-        intervalTime = 500;
-      }
-
       // Android animation redux causes ui stuttering
       timer.current = setTimeout(() => {
         debugLogger.common.info('setHomeTabIndex', index);
         backgroundApiProxy.dispatch(
           setHomeTabName(getHomeTabNameByIndex(index)),
         );
-      }, intervalTime);
+      });
     },
     [getHomeTabNameByIndex],
   );
 
-  const onStartChange = useCallback(() => {
+  const onPageStartScroll = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
   }, []);
 
@@ -239,10 +233,9 @@ const WalletTabs: FC = () => {
       key={platformEnv.isNativeAndroid ? `${tabContents.length}` : undefined}
       canOpenDrawer
       initialTabName={homeTabName}
-      refreshing={refreshing}
       onRefresh={onRefresh}
       onIndexChange={onIndexChange}
-      onStartChange={onStartChange}
+      onPageStartScroll={onPageStartScroll}
       headerView={<AccountHeaderMemo />}
       ref={ref}
       containerStyle={containerStyle}
