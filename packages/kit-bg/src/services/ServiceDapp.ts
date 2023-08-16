@@ -181,7 +181,7 @@ class ServiceDapp extends ServiceBase {
     account,
   }: {
     accountAddress: string;
-    account: Account | null;
+    account: Account | null | undefined;
   }) {
     if (!account) return '';
     if (isLightningNetwork(account.coinType)) {
