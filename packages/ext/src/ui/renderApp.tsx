@@ -3,12 +3,14 @@
 import 'setimmediate';
 
 // eslint-disable-next-line import/order
-import ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
 
 import App from '../App';
 
 function renderApp() {
-  ReactDOM.render(<App />, window.document.querySelector('#root'));
+  const root = window.document.querySelector('#root');
+  if (!root) throw new Error('No root element found!');
+  createRoot(root).render(<App />);
 }
 
 export default renderApp;
