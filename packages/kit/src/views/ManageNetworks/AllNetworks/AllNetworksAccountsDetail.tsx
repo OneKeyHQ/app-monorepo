@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import {
   Alert,
   Box,
+  Center,
   CheckBox,
   HStack,
   IconButton,
@@ -14,18 +15,31 @@ import {
   Searchbar,
   SectionList,
   Spinner,
+  ToastManager,
   Token,
   Typography,
 } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import type { Account } from '@onekeyhq/engine/src/types/account';
+import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount, useAppSelector } from '../../../hooks';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+  useNavigation,
+} from '../../../hooks';
+import {
+  ModalRoutes,
+  ReceiveTokenModalRoutes,
+  RootRoutes,
+} from '../../../routes/routesEnum';
 import { setHideAllNetworksSelectNetworkTips } from '../../../store/reducers/settings';
 import { showAllNetworksHelp } from '../../Overlay/AllNetworksHelp';
+import { allNetworksSelectAccount } from '../hooks';
 import { NetworkListEmpty, strIncludes } from '../Listing/NetworkListEmpty';
 
 import type { NetworkWithAccounts } from '../types';
@@ -51,6 +65,8 @@ const NetworkItem: FC<{
   }) => void;
 }> = ({ accounts, name, logoURI, isChecked, onChange, networkId }) => {
   const intl = useIntl();
+  const navigation = useNavigation();
+  const { wallet } = useActiveWalletAccount();
 
   const desc = useMemo(() => {
     if (accounts?.length === 1)
@@ -74,6 +90,49 @@ const NetworkItem: FC<{
     [accounts, onChange, networkId],
   );
 
+  const copyAddress = useCallback(
+    ({ account, network }: { account: Account; network: Network }) => {
+      if (!account) {
+        return;
+      }
+      const { address, displayAddress, template } = account;
+      if (wallet?.type === 'hw') {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Receive,
+          params: {
+            screen: ReceiveTokenModalRoutes.ReceiveToken,
+            params: {
+              address,
+              displayAddress,
+              wallet,
+              network,
+              account,
+              template,
+            },
+          },
+        });
+      } else {
+        if (!displayAddress && !address) return;
+        copyToClipboard(displayAddress ?? address ?? '');
+        ToastManager.show({
+          title: intl.formatMessage({ id: 'msg__address_copied' }),
+        });
+      }
+    },
+    [intl, wallet, navigation],
+  );
+
+  const onCopyAddress = useCallback(() => {
+    allNetworksSelectAccount({
+      networkId,
+      accounts,
+    }).then((res) => {
+      if (res) {
+        copyAddress(res);
+      }
+    });
+  }, [copyAddress, networkId, accounts]);
+
   return (
     <HStack>
       <Token
@@ -85,7 +144,17 @@ const NetworkItem: FC<{
         }}
         showInfo
       />
-      <CheckBox isChecked={isChecked} onChange={handleChangeMap} />
+      <Center mr="3">
+        <IconButton
+          name="Square2StackOutline"
+          iconSize={20}
+          type="plain"
+          onPress={onCopyAddress}
+        />
+      </Center>
+      <Center>
+        <CheckBox isChecked={isChecked} onChange={handleChangeMap} />
+      </Center>
     </HStack>
   );
 };

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { createSelector } from '@reduxjs/toolkit';
 
@@ -21,10 +21,9 @@ import {
   RootRoutes,
 } from '../routes/routesEnum';
 
-import { useActiveWalletAccount } from './redux';
+import { useManageNetworks } from './crossHooks';
 import { useAccount, useWalletIdFromAccountIdWithFallback } from './useAccount';
 import { useAppSelector } from './useAppSelector';
-import { useManageNetworks } from './useManageNetworks';
 import useNavigation from './useNavigation';
 import { useNetwork } from './useNetwork';
 
@@ -35,7 +34,7 @@ export const useAllNetworksIncludedNetworks = (enabledOnly = true) => {
   const [presetNetworks, setPresetNetworks] = useState<
     Record<string, PresetNetwork>
   >({});
-  const { allNetworks } = useManageNetworks();
+  const { allNetworks } = useManageNetworks(undefined);
 
   useEffect(() => {
     backgroundApiProxy.serviceNetwork
@@ -87,11 +86,11 @@ export const useAllNetworksWalletAccounts = ({
 }: {
   accountId?: string | null;
 }) => {
-  const getAllNetworksAccounts = useMemo(
+  const getAllNetworksAccountsSelector = useMemo(
     () => makeGetAllNetworksAccountsSelector(accountId),
     [accountId],
   );
-  const data = useAppSelector(getAllNetworksAccounts);
+  const data = useAppSelector(getAllNetworksAccountsSelector);
 
   return {
     data,
@@ -213,7 +212,7 @@ export const useActionForAllNetworks = ({
     networkId,
     accountId,
   });
-  const { enabledNetworks } = useManageNetworks();
+  const { enabledNetworks } = useManageNetworks(undefined);
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
     accountId,
   });
@@ -271,37 +270,4 @@ export const useActionForAllNetworks = ({
     visible,
     process,
   };
-};
-
-export const useAllNetworksAccountSelectModalShow = () => {
-  const { networkId, accountId, walletId } = useActiveWalletAccount();
-  const hasShown = useRef(false);
-
-  const navigation = useNavigation();
-
-  const { data } = useAllNetworksWalletAccounts({
-    accountId,
-  });
-
-  useEffect(() => {
-    if (
-      !hasShown.current &&
-      isAllNetworks(networkId) &&
-      typeof data === 'undefined'
-    ) {
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.ManageNetwork,
-        params: {
-          screen: ManageNetworkModalRoutes.AllNetworksAccountsDetail,
-          params: {
-            walletId,
-            accountId,
-          },
-        },
-      });
-      hasShown.current = true;
-    }
-  }, [networkId, data, walletId, navigation, accountId]);
-
-  return null;
 };

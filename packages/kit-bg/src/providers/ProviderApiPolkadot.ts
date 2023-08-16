@@ -14,7 +14,7 @@ import type {
 import type { IEncodedTxDot } from '@onekeyhq/engine/src/vaults/impl/dot/types';
 import type VaultDot from '@onekeyhq/engine/src/vaults/impl/dot/Vault';
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
-import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   backgroundClass,
   permissionRequired,

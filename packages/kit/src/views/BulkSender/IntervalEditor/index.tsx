@@ -27,6 +27,9 @@ type RouteProps = RouteProp<
   BulkSenderRoutes.IntervalEditor
 >;
 
+// seconds
+const MAX_INTERVAL = 300;
+
 function IntervalEditor() {
   const route = useRoute<RouteProps>();
 
@@ -81,6 +84,12 @@ function IntervalEditor() {
 
   const validateInterval = useCallback(
     (value, type?: 'min' | 'max') => {
+      if (new BigNumber(value).gt(MAX_INTERVAL)) {
+        return `${intl.formatMessage({
+          id: 'form__maximum_interval',
+        })}: ${MAX_INTERVAL}s`;
+      }
+
       if (type === 'min') {
         const minValueBN = new BigNumber(value);
         const maxValue = getValues('maxInterval');

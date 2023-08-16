@@ -58,6 +58,7 @@ function LazyDisplayContentView(props: LazyDisplayContentViewProps) {
     setSelectedAccounts,
     onAccountsSelected,
     tokenShowBalance,
+    walletsToHide,
   } = props;
   const [search, setSearch] = useState('');
 
@@ -76,6 +77,7 @@ function LazyDisplayContentView(props: LazyDisplayContentViewProps) {
           hideCreateAccount={hideCreateAccount}
           multiSelect={multiSelect}
           selectedAccounts={selectedAccounts}
+          walletsToHide={walletsToHide}
         />
         {!hideSearchBar ? (
           <Box px={{ base: 4, md: 6 }} mb="16px">

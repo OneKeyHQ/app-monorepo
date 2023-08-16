@@ -4,18 +4,14 @@ import type { StyleProp, ViewStyle } from 'react-native';
 
 export interface CollapsibleContainerProps {
   disableRefresh?: boolean;
-  refreshing?: boolean;
-  headerHeight: number;
   initialTabName?: string;
-  renderHeader?: () => ReactNode;
-  onIndexChange?: (index: number) => void;
+  headerView?: ReactNode;
+  headerHeight: number;
   onRefresh?: () => void;
+  onIndexChange?: (index: number) => void;
+  onPageStartScroll?: () => void;
   containerStyle?: StyleProp<ViewStyle>;
   scrollEnabled?: boolean;
-  headerContainerStyle?: StyleProp<ViewStyle>;
   canOpenDrawer?: boolean;
   children?: JSX.Element | JSX.Element[];
-
-  // Android only
-  onStartChange?: () => void;
 }

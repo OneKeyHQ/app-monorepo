@@ -2733,7 +2733,6 @@ class Engine {
       importedAccounts: {},
       watchingAccounts: {},
       wallets: {},
-      simpleDb: {},
     };
 
     const wallets = await this.dbApi.getWallets({
@@ -2779,18 +2778,6 @@ class Engine {
         }
       }
     }
-
-    // prepare simpledb data
-    const utxoAccountsRawData = await simpleDb.utxoAccounts.getRawData();
-    if (!backupObject.simpleDb?.utxoAccounts) {
-      if (!backupObject.simpleDb) {
-        backupObject.simpleDb = {};
-      }
-      backupObject.simpleDb.utxoAccounts = {
-        utxos: [],
-      };
-    }
-    backupObject.simpleDb.utxoAccounts.utxos = utxoAccountsRawData?.utxos ?? [];
     return backupObject;
   }
 

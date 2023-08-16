@@ -9,7 +9,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { useActiveWalletAccount } from '../../../hooks';
 import { useAllNetworksSelectNetworkAccount } from '../../../hooks/useAllNetwoks';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
-import { ButtonItem } from '../../TokenDetail/TokenDetailHeader/ButtonsSections';
+import { ButtonItem } from '../../TokenDetail/TokenDetailHeader/ButtonItem';
 import { StakingRoutes } from '../typing';
 import {
   StakingTypes,

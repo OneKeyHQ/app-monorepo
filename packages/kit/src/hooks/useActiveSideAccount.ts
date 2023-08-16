@@ -39,14 +39,26 @@ export function useActiveSideAccount({
     () => account?.address || '',
     [account?.address],
   );
-  return {
-    accountId,
-    networkId,
-    walletId,
-    network,
-    account,
-    wallet,
-    networkImpl,
-    accountAddress,
-  };
+  return useMemo(
+    () => ({
+      accountId,
+      networkId,
+      walletId,
+      network,
+      account,
+      wallet,
+      networkImpl,
+      accountAddress,
+    }),
+    [
+      account,
+      accountAddress,
+      accountId,
+      network,
+      networkId,
+      networkImpl,
+      wallet,
+      walletId,
+    ],
+  );
 }

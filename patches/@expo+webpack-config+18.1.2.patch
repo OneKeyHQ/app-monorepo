@@ -1,0 +1,84 @@
+diff --git a/node_modules/@expo/webpack-config/webpack/plugins/ExpectedErrors/parseNotFoundError.js b/node_modules/@expo/webpack-config/webpack/plugins/ExpectedErrors/parseNotFoundError.js
+index 8c29536..0dc7879 100644
+--- a/node_modules/@expo/webpack-config/webpack/plugins/ExpectedErrors/parseNotFoundError.js
++++ b/node_modules/@expo/webpack-config/webpack/plugins/ExpectedErrors/parseNotFoundError.js
+@@ -155,7 +155,7 @@ async function createStackTrace(projectRoot, { loc, originalSource }) {
+         };
+     }
+     catch (err) {
+-        console.log('Failed to parse source map:', err);
++        // console.log('Failed to parse source map:', err);
+         // Don't fail on failure to resolve sourcemaps
+         return null;
+     }
+diff --git a/node_modules/@expo/webpack-config/webpack/plugins/ExpoHtmlWebpackPlugin.js b/node_modules/@expo/webpack-config/webpack/plugins/ExpoHtmlWebpackPlugin.js
+index 6b8ae60..7c7e758 100644
+--- a/node_modules/@expo/webpack-config/webpack/plugins/ExpoHtmlWebpackPlugin.js
++++ b/node_modules/@expo/webpack-config/webpack/plugins/ExpoHtmlWebpackPlugin.js
+@@ -68,7 +68,12 @@ class HtmlWebpackPlugin extends html_webpack_plugin_1.default {
+             // https://github.com/kangax/html-minifier#options-quick-reference
+             minify,
+             // The `webpack` require path to the template.
+-            template: locations.template.indexHtml,
++            // add EJS loader for html building
++            // template: locations.template.indexHtml,
++            // add EJS loader for html building
++            template: '!!ejs-loader?esModule=false!' + locations.template.indexHtml,
++             // EJS template parameters
++             templateParameters: locations.template.indexHtmlTemplateParameters || {},
+             meta,
+         });
+     }
+diff --git a/node_modules/@expo/webpack-config/webpack/webpack.config.js b/node_modules/@expo/webpack-config/webpack/webpack.config.js
+index 4556fe1..73a0c4a 100644
+--- a/node_modules/@expo/webpack-config/webpack/webpack.config.js
++++ b/node_modules/@expo/webpack-config/webpack/webpack.config.js
+@@ -323,24 +323,31 @@ async function default_1(env, argv = {}) {
+             // @ts-ignore
+             rules: [
+                 // Handle node_modules packages that contain sourcemaps
+-                defaults_1.shouldUseSourceMap && {
+-                    enforce: 'pre',
+-                    exclude: /@babel(?:\/|\\{1,2})runtime/,
++                // defaults_1.shouldUseSourceMap && {
++                //     enforce: 'pre',
++                //     exclude: [/@babel(?:\/|\\{1,2})runtime/],
++                //     test: /\.(js|mjs|jsx|ts|tsx|css)$/,
++                //     use: [
++                //         {
++                //             loader: require.resolve('source-map-loader'),
++                //             options: {
++                //                 filterSourceMappingUrl(url, resourcePath) {
++                //                     // https://github.com/alewin/useWorker/issues/138
++                //                     if (resourcePath.match(/@koale\/useworker/)) {
++                //                         return 'remove';
++                //                     }
++                //                     return true;
++                //                 },
++                //             },
++                //         },
++                //     ],
++                //     resolve: {
++                //         fullySpecified: false,
++                //     },
++                // },
++                {
++                    exclude: [/@babel(?:\/|\\{1,2})runtime/],
+                     test: /\.(js|mjs|jsx|ts|tsx|css)$/,
+-                    use: [
+-                        {
+-                            loader: require.resolve('source-map-loader'),
+-                            options: {
+-                                filterSourceMappingUrl(url, resourcePath) {
+-                                    // https://github.com/alewin/useWorker/issues/138
+-                                    if (resourcePath.match(/@koale\/useworker/)) {
+-                                        return 'remove';
+-                                    }
+-                                    return true;
+-                                },
+-                            },
+-                        },
+-                    ],
+                     resolve: {
+                         fullySpecified: false,
+                     },

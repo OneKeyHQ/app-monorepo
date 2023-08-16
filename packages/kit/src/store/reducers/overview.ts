@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { omit, omitBy } from 'lodash';
+import { isEmpty, omit, omitBy } from 'lodash';
 
 import type { Account } from '@onekeyhq/engine/src/types/account';
 
@@ -10,24 +10,47 @@ export interface IPortfolioUpdatedAt {
   updatedAt: number;
 }
 
+export interface IOverviewStatsInfo {
+  totalCounts?: number;
+  totalValue: string | undefined;
+  totalValue24h: string | undefined;
+}
+export interface IOverviewStatsSummary {
+  totalValue: string | undefined;
+  totalValue24h: string | undefined;
+  shareTokens: number;
+  shareDefis: number;
+  shareNfts: number;
+}
+export interface IOverviewStats {
+  summary?: IOverviewStatsSummary;
+  tokens?: IOverviewStatsInfo;
+  defis?: IOverviewStatsInfo;
+  nfts?: IOverviewStatsInfo;
+}
+export interface IOverviewStatsPayload {
+  [networkId: string]: {
+    [accountId: string]: IOverviewStats;
+  };
+}
+
 export interface IOverviewPortfolio {
   // allNetworks fake accountId = `${walletId}--${accountIndex}`
   // Recrod<accountId, Record<networkId, accounts>>
-  allNetworksAccountsMap?: Record<
-    string,
-    Record<string, Account[]> | undefined
-  >;
+  allNetworksAccountsMap?: Record<string, Record<string, Account[]> | null>;
   tasks: Record<string, IOverviewQueryTaskItem>;
   updatedTimeMap: Record<string, IPortfolioUpdatedAt>;
   // Recrod<accountId, boolean>
-  accountIsUpdating?: Record<string, boolean>;
+  // accountIsUpdating?: Record<string, boolean>; // TODO remove this from previous DB
+
+  overviewStats?: IOverviewStatsPayload;
 }
 
 const initialState: IOverviewPortfolio = {
   tasks: {},
   updatedTimeMap: {},
   allNetworksAccountsMap: {},
-  accountIsUpdating: {},
+  overviewStats: {},
 };
 
 export const overviewSlice = createSlice({
@@ -63,6 +86,9 @@ export const overviewSlice = createSlice({
       };
     },
     clearOverviewPendingTasks(state) {
+      if (isEmpty(state.tasks)) {
+        return;
+      }
       state.tasks = {};
     },
     removeOverviewPendingTasks(
@@ -77,24 +103,11 @@ export const overviewSlice = createSlice({
       }
       state.tasks = omit(state.tasks, ...ids);
     },
-    setAccountIsUpdating(
-      state,
-      action: PayloadAction<{
-        accountId: string;
-        data: boolean;
-      }>,
-    ) {
-      const { accountId, data } = action.payload;
-      if (!state.accountIsUpdating) {
-        state.accountIsUpdating = {};
-      }
-      state.accountIsUpdating[accountId] = data;
-    },
     setAllNetworksAccountsMap(
       state,
       action: PayloadAction<{
         accountId: string;
-        data: Record<string, Account[]> | undefined;
+        data: Record<string, Account[]> | null;
       }>,
     ) {
       const { accountId, data } = action.payload;
@@ -144,9 +157,10 @@ export const overviewSlice = createSlice({
       const { walletIds } = action.payload;
       const map = state.allNetworksAccountsMap ?? {};
 
-      state.accountIsUpdating = omitBy(state.accountIsUpdating, (_v, k) =>
-        walletIds.find((id) => k.startsWith(id)),
-      );
+      // TODO updating is moved to refresher.overviewAccountIsUpdating
+      // state.accountIsUpdating = omitBy(state.accountIsUpdating, (_v, k) =>
+      //   walletIds.find((id) => k.startsWith(id)),
+      // );
 
       state.updatedTimeMap = omitBy(state.updatedTimeMap, (_v, k) =>
         walletIds.find((id) => k?.split?.('___')?.[1]?.startsWith?.(id)),
@@ -156,14 +170,36 @@ export const overviewSlice = createSlice({
         walletIds.find((id) => k.startsWith(id)),
       );
     },
+    updateOverviewStats(
+      state,
+      action: PayloadAction<{
+        accountId: string;
+        networkId: string;
+        stats: IOverviewStats;
+      }>,
+    ) {
+      const { accountId, networkId, stats } = action.payload;
+      if (!state.overviewStats) {
+        state.overviewStats = {};
+      }
+      if (!state.overviewStats[networkId]) {
+        state.overviewStats[networkId] = {};
+      }
+      if (!state.overviewStats[networkId][accountId]) {
+        state.overviewStats[networkId][accountId] = {};
+      }
+      state.overviewStats[networkId][accountId] = {
+        ...stats,
+      };
+    },
   },
 });
 
 export const {
+  updateOverviewStats,
   addOverviewPendingTasks,
   removeOverviewPendingTasks,
   setOverviewPortfolioUpdatedAt,
-  setAccountIsUpdating,
   setAllNetworksAccountsMap,
   clearOverviewPendingTasks,
   removeAllNetworksAccountsMapByAccountId,

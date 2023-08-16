@@ -14,8 +14,8 @@ import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
 import type { Token as IToken } from '@onekeyhq/engine/src/types/token';
 import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 import { useNetwork } from '@onekeyhq/kit/src/hooks';
+import { getManageNetworks } from '@onekeyhq/kit/src/hooks/crossHooks';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { getManageNetworks } from '@onekeyhq/kit/src/hooks/useManageNetworks';
 import {
   ManageTokenModalRoutes,
   ModalRoutes,
@@ -122,7 +122,7 @@ export const TokenVerifiedIcon: FC<{
 
   const toVerifiedTokenPage = useCallback(() => {
     if (token?.isNative) {
-      const networks = getManageNetworks().allNetworks;
+      const networks = getManageNetworks(undefined).allNetworks;
       const networkName = networks.find(
         (n) => n.id === `${token.impl ?? ''}--${token.chainId ?? ''}`,
       )?.name;

@@ -22,6 +22,7 @@ import {
 import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { appSelector } from '../../../store';
 import { AmountEditorTrigger } from '../AmountEditor/AmountEditorTrigger';
 import { amountDefaultTypeMap } from '../constants';
 import { useValidateTrader } from '../hooks';
@@ -30,7 +31,12 @@ import { TraderExample } from '../TraderExample';
 import { TraderInput } from '../TraderInput';
 import { TxSettingPanel } from '../TxSetting/TxSettingPanel';
 import { TxSettingTrigger } from '../TxSetting/TxSettingTrigger';
-import { AmountTypeEnum, BulkSenderRoutes, IntervalTypeEnum } from '../types';
+import {
+  AmountTypeEnum,
+  BulkSenderRoutes,
+  IntervalTypeEnum,
+  TraderTypeEnum,
+} from '../types';
 
 import {
   getTransferAmount,
@@ -75,6 +81,7 @@ function ManyToN(props: Props) {
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation();
   const { network } = useNetwork({ networkId });
+  const { wallets } = appSelector((s) => s.runtime);
 
   const accountTokens = useAccountTokensOnChain(networkId, accountId, true);
   const tokens = accountTokens.filter((token) =>
@@ -213,6 +220,7 @@ function ManyToN(props: Props) {
         nativeToken,
         feePresetIndex: DEFAULT_FEE_PRESET_INDEX,
         intl,
+        wallets,
       });
 
     if (!isVerified) {
@@ -303,6 +311,7 @@ function ManyToN(props: Props) {
     sender,
     txInterval,
     walletId,
+    wallets,
   ]);
 
   useFocusEffect(
@@ -374,6 +383,7 @@ function ManyToN(props: Props) {
           amountType={amountType}
           trader={sender}
           setTrader={setSender}
+          traderType={TraderTypeEnum.Sender}
           traderFromOut={senderFromOut}
           setTraderFromOut={setSenderFromOut}
           traderErrors={
@@ -394,6 +404,7 @@ function ManyToN(props: Props) {
           amountType={amountType}
           trader={receiver}
           setTrader={setReceiver}
+          traderType={TraderTypeEnum.Receiver}
           traderFromOut={receiverFromOut}
           setTraderFromOut={setReceiverFromOut}
           traderErrors={receiverErrors}

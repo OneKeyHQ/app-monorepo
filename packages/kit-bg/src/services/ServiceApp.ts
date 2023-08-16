@@ -49,6 +49,7 @@ import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { exitApp } from '@onekeyhq/shared/src/exitApp';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -160,6 +161,13 @@ class ServiceApp extends ServiceBase {
     }
     if (platformEnv.isRuntimeBrowser) {
       return window?.location?.reload?.();
+    }
+  }
+
+  @backgroundMethod()
+  exitApp() {
+    if (platformEnv.isNative) {
+      exitApp();
     }
   }
 

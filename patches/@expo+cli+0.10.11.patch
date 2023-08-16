@@ -1,0 +1,76 @@
+diff --git a/node_modules/@expo/cli/build/src/start/resolveOptions.js b/node_modules/@expo/cli/build/src/start/resolveOptions.js
+index 0b59f34..43dc959 100644
+--- a/node_modules/@expo/cli/build/src/start/resolveOptions.js
++++ b/node_modules/@expo/cli/build/src/start/resolveOptions.js
+@@ -113,27 +113,28 @@ function resolveHostType(options) {
+ }
+ async function resolvePortsAsync(projectRoot, options, settings) {
+     const multiBundlerSettings = {};
+-    if (settings.webOnly) {
+-        const webpackPort = await (0, _port).resolvePortAsync(projectRoot, {
+-            defaultPort: options.port,
+-            // Default web port
+-            fallbackPort: 19006
+-        });
+-        if (!webpackPort) {
+-            throw new _errors.AbortCommandError();
+-        }
+-        multiBundlerSettings.webpackPort = webpackPort;
+-    } else {
+-        const fallbackPort = process.env.RCT_METRO_PORT ? parseInt(process.env.RCT_METRO_PORT, 10) : 8081;
+-        const metroPort = await (0, _port).resolvePortAsync(projectRoot, {
+-            defaultPort: options.port,
+-            fallbackPort
+-        });
+-        if (!metroPort) {
+-            throw new _errors.AbortCommandError();
+-        }
+-        multiBundlerSettings.metroPort = metroPort;
++    const webDefaultPort = process.env.WEB_PORT ? parseInt(process.env.WEB_PORT, 10) : undefined;
++    const webpackPort = await (0, _port).resolvePortAsync(projectRoot, {
++        defaultPort: webDefaultPort ? webDefaultPort : options.port,
++        // Default web port
++        fallbackPort: 19006
++    });
++    if (!webpackPort) {
++        throw new _errors.AbortCommandError();
+     }
++    multiBundlerSettings.webpackPort = webpackPort;
++
++    const metroDefaultPort = process.env.METRO_PORT ? parseInt(process.env.METRO_PORT, 10) : undefined;
++    const devClientFallbackPort = process.env.RCT_METRO_PORT ? parseInt(process.env.RCT_METRO_PORT, 10) : 8081;
++    const metroPort = await (0, _port).resolvePortAsync(projectRoot, {
++        defaultPort: metroDefaultPort ? metroDefaultPort : options.port,
++        fallbackPort: options.devClient ? devClientFallbackPort : 19000
++    });
++    if (!metroPort) {
++        throw new _errors.AbortCommandError();
++    }
++    multiBundlerSettings.metroPort = metroPort;
++
+     return multiBundlerSettings;
+ }
+ 
+diff --git a/node_modules/@expo/cli/build/src/utils/port.js b/node_modules/@expo/cli/build/src/utils/port.js
+index e4edb28..7d4dd8a 100644
+--- a/node_modules/@expo/cli/build/src/utils/port.js
++++ b/node_modules/@expo/cli/build/src/utils/port.js
+@@ -112,7 +112,8 @@ async function resolvePortAsync(projectRoot, { /** Should opt to reuse a port th
+     } else if (typeof defaultPort === "number") {
+         port = defaultPort;
+     } else {
+-        port = _env.env.RCT_METRO_PORT || fallbackPort || 8081;
++        // port = _env.env.RCT_METRO_PORT || fallbackPort || 8081;
++        port = fallbackPort || 8081;
+     }
+     // Only check the port when the bundler is running.
+     const resolvedPort = await choosePortAsync(projectRoot, {
+@@ -124,7 +125,7 @@ async function resolvePortAsync(projectRoot, { /** Should opt to reuse a port th
+     // Skip bundling if the port is null
+     } else {
+         // Use the new or resolved port
+-        process.env.RCT_METRO_PORT = String(resolvedPort);
++        // process.env.RCT_METRO_PORT = String(resolvedPort);
+     }
+     return resolvedPort;
+ }

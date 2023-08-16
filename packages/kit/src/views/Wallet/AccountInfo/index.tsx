@@ -22,7 +22,7 @@ import { NetworkDarkIcon } from '@onekeyhq/components/src/Network/DarkIcon';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { FormatCurrencyNumber } from '@onekeyhq/kit/src/components/Format';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   ManageNetworkModalRoutes,
   ModalRoutes,
@@ -77,26 +77,33 @@ const SectionNetworkIconGroup: FC<{
 
 SectionNetworkIconGroup.displayName = 'SectionNetworkIconGroup';
 
-const SectionCopyAddress: FC = memo(() => {
+const SectionNetworks: FC = memo(() => {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { account, networkId, network, wallet, walletId, accountId } =
-    useActiveWalletAccount();
-  const { copyAddress } = useCopyAddress({ wallet });
+  const { networkId, walletId, accountId } = useActiveWalletAccount();
 
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
     accountId,
   });
-
   const enabledNetworks = useMemo(
     () => Object.keys(networkAccountsMap ?? {}),
     [networkAccountsMap],
   );
 
-  const displayAddress = useMemo(
-    () => !network?.settings.hiddenAddress,
-    [network?.settings.hiddenAddress],
-  );
+  useEffect(() => {
+    if (isAllNetworks(networkId) && networkAccountsMap === null) {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.ManageNetwork,
+        params: {
+          screen: ManageNetworkModalRoutes.AllNetworksAccountsDetail,
+          params: {
+            walletId,
+            accountId,
+          },
+        },
+      });
+    }
+  }, [networkId, networkAccountsMap, walletId, navigation, accountId]);
 
   const toAllNetworksAccountsDetail = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -110,31 +117,45 @@ const SectionCopyAddress: FC = memo(() => {
       },
     });
   }, [walletId, accountId, navigation]);
+  return (
+    <Pressable
+      flexDirection="row"
+      alignItems="center"
+      py="4px"
+      px="8px"
+      rounded="12px"
+      _hover={{ bg: 'surface-hovered' }}
+      _pressed={{ bg: 'surface-pressed' }}
+      onPress={toAllNetworksAccountsDetail}
+    >
+      <Text typography="Body2Strong" mr={2} color="text-subdued">
+        {intl.formatMessage(
+          { id: 'form__str_networks' },
+          {
+            0: enabledNetworks.length,
+          },
+        )}
+      </Text>
+      <SectionNetworkIconGroup networkIds={enabledNetworks} />
+      <Icon name="ChevronDownMini" size={20} color="icon-subdued" />
+    </Pressable>
+  );
+});
+
+SectionNetworks.displayName = 'SectionNetworks';
+
+const SectionCopyAddress: FC = memo(() => {
+  const intl = useIntl();
+  const { account, networkId, network, wallet } = useActiveWalletAccount();
+  const { copyAddress } = useCopyAddress({ wallet });
+
+  const displayAddress = useMemo(
+    () => !network?.settings.hiddenAddress,
+    [network?.settings.hiddenAddress],
+  );
 
   if (isAllNetworks(networkId)) {
-    return (
-      <Pressable
-        flexDirection="row"
-        alignItems="center"
-        py="4px"
-        px="8px"
-        rounded="12px"
-        _hover={{ bg: 'surface-hovered' }}
-        _pressed={{ bg: 'surface-pressed' }}
-        onPress={toAllNetworksAccountsDetail}
-      >
-        <Text typography="Body2Strong" mr={2} color="text-subdued">
-          {intl.formatMessage(
-            { id: 'form__str_networks' },
-            {
-              0: enabledNetworks.length,
-            },
-          )}
-        </Text>
-        <SectionNetworkIconGroup networkIds={enabledNetworks} />
-        <Icon name="ChevronDownMini" size={20} color="icon-subdued" />
-      </Pressable>
-    );
+    return <SectionNetworks />;
   }
   if (!displayAddress) {
     return null;
@@ -426,7 +447,9 @@ const AccountAmountInfo: FC = () => {
     if (tasks.length > 0) {
       return;
     }
-    backgroundApiProxy.serviceOverview.refreshCurrentAccount();
+    backgroundApiProxy.serviceOverview.refreshCurrentAccount({
+      debounceEnabled: false,
+    });
   }, [tasks]);
 
   return (
@@ -485,4 +508,4 @@ const AccountInfo = () => {
   );
 };
 
-export default AccountInfo;
+export default memo(AccountInfo);

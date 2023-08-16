@@ -13,14 +13,18 @@ export function OneKeyPerfTraceLog({
       name,
     });
   }, [name]);
-  if (name) {
-    if (once && !onceLogCache[name]) {
-      doLog();
-      onceLogCache[name] = true;
-    }
-    if (!once) {
-      doLog();
+
+  if (process.env.NODE_ENV !== 'production') {
+    if (name) {
+      if (once && !onceLogCache[name]) {
+        doLog();
+        onceLogCache[name] = true;
+      }
+      if (!once) {
+        doLog();
+      }
     }
   }
+
   return null;
 }

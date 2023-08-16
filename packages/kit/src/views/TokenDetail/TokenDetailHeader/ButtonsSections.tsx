@@ -2,20 +2,17 @@ import type { FC } from 'react';
 import { useCallback, useContext, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import { TouchableWithoutFeedback } from 'react-native';
 
-import type { ICON_NAMES } from '@onekeyhq/components';
 import {
   Box,
   HStack,
-  Icon,
-  IconButton,
   Pressable,
   Token,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
+import { isValidCoingeckoId } from '@onekeyhq/engine/src/managers/token';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
@@ -35,87 +32,17 @@ import {
 } from '../../../routes/routesEnum';
 import BaseMenu from '../../Overlay/BaseMenu';
 import { SendModalRoutes } from '../../Send/enums';
-import { EthereumTopYields } from '../../Staking/Widgets/EthereumTopYields';
-import { LidoMaticYields } from '../../Staking/Widgets/LidoMaticYields';
-import { LidoStTokenYields } from '../../Staking/Widgets/LidoStTokenYields';
 import { TokenDetailContext } from '../context';
 
-import type { MessageDescriptor } from 'react-intl';
+import { ButtonItem } from './ButtonItem';
+import { FavoritedButton } from './Header';
+
+import type { IButtonItem } from './ButtonItem';
 
 type ISingleChainInfo = {
   network: Network;
   account: Account;
   token: TokenType;
-};
-
-type IButtonItem = {
-  id: MessageDescriptor['id'];
-  onPress: (params: ISingleChainInfo) => unknown;
-  icon: ICON_NAMES;
-  visible?: () => boolean;
-};
-
-export const ButtonItem = ({
-  icon,
-  text,
-  onPress,
-  isDisabled,
-}: {
-  icon: ICON_NAMES;
-  text: string;
-  onPress?: () => unknown;
-  isDisabled?: boolean;
-}) => {
-  const isVertical = useIsVerticalLayout();
-  const content = useMemo(() => {
-    let ele = (
-      <Box mx={isVertical ? 0 : 3} alignItems="center">
-        {typeof onPress === 'function' ? (
-          <TouchableWithoutFeedback>
-            <IconButton
-              circle
-              size={isVertical ? 'lg' : 'sm'}
-              name={icon}
-              type="basic"
-              isDisabled={isDisabled}
-              onPress={onPress}
-              w={isVertical ? '42px' : '34px'}
-              h={isVertical ? '42px' : '34px'}
-            />
-          </TouchableWithoutFeedback>
-        ) : (
-          <Box
-            p={isVertical ? 2 : 1.5}
-            alignItems="center"
-            justifyContent="center"
-            borderWidth="1px"
-            borderRadius="999px"
-            borderColor="border-default"
-            bg="action-secondary-default"
-            w={isVertical ? '42px' : '34px'}
-            h={isVertical ? '42px' : '34px'}
-          >
-            <Icon name={icon} size={isVertical ? 24 : 20} />
-          </Box>
-        )}
-        <Typography.CaptionStrong
-          textAlign="center"
-          mt="8px"
-          color={isDisabled ? 'text-disabled' : 'text-default'}
-        >
-          {text}
-        </Typography.CaptionStrong>
-      </Box>
-    );
-
-    if (typeof onPress === 'function') {
-      ele = <Pressable onPress={onPress}>{ele}</Pressable>;
-    }
-
-    return ele;
-  }, [icon, isVertical, text, onPress, isDisabled]);
-
-  return content;
 };
 
 export const ButtonsSection: FC = () => {
@@ -129,6 +56,7 @@ export const ButtonsSection: FC = () => {
     accountId = '',
     networkId = '',
     sendAddress,
+    coingeckoId,
   } = context?.routeParams ?? {};
 
   const { symbol, logoURI, fiatUrls } = context?.detailInfo ?? {};
@@ -380,15 +308,16 @@ export const ButtonsSection: FC = () => {
     <Box>
       <HStack justifyContent="space-between">
         {!isVerticalLayout && (
-          <Token
-            flex="1"
-            showInfo
-            size={8}
-            token={{
-              name: symbol,
-              logoURI,
-            }}
-          />
+          <HStack flex="1" alignItems="center">
+            <Token
+              showInfo={false}
+              size={8}
+              token={{
+                logoURI,
+              }}
+            />
+            <Typography.Heading ml="2">{symbol}</Typography.Heading>
+          </HStack>
         )}
         <HStack
           justifyContent="space-between"
@@ -407,9 +336,12 @@ export const ButtonsSection: FC = () => {
               isDisabled={loading}
             />
           ))}
+          {isValidCoingeckoId(coingeckoId) && !isVerticalLayout ? (
+            <FavoritedButton coingeckoId={coingeckoId} />
+          ) : null}
           {showMoreOption && options?.length ? (
             <BaseMenu ml="26px" options={options}>
-              <Pressable>
+              <Pressable flex={isVerticalLayout ? 1 : undefined}>
                 <ButtonItem
                   icon="EllipsisVerticalOutline"
                   text={intl.formatMessage({
@@ -422,11 +354,6 @@ export const ButtonsSection: FC = () => {
           ) : null}
         </HStack>
       </HStack>
-      <Box>
-        <EthereumTopYields token={defaultToken} />
-        <LidoStTokenYields token={defaultToken} />
-        <LidoMaticYields token={defaultToken} />
-      </Box>
     </Box>
   );
 };

@@ -1,36 +1,26 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useDebouncedCallback } from 'use-debounce';
 
 import type { ForwardRefHandle } from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
-import {
-  Box,
-  Center,
-  useIsVerticalLayout,
-  useUserDevice,
-} from '@onekeyhq/components';
+import { Box, useIsVerticalLayout, useUserDevice } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-} from '@onekeyhq/kit/src/hooks/redux';
-import RefreshLightningNetworkToken from '@onekeyhq/kit/src/views/LightningNetwork/RefreshLightningNetworkToken';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
-import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
+import { LazyRenderCurrentHomeTab } from '../../components/LazyRenderCurrentHomeTab';
 import { OneKeyPerfTraceLog } from '../../components/OneKeyPerfTraceLog';
-import Protected, { ValidationFields } from '../../components/Protected';
-import { useAllNetworksAccountSelectModalShow } from '../../hooks/useAllNetwoks';
+import { useHomeTabName } from '../../hooks/useHomeTabName';
 import { useHtmlPreloadSplashLogoRemove } from '../../hooks/useHtmlPreloadSplashLogoRemove';
 import { useOnboardingRequired } from '../../hooks/useOnboardingRequired';
 import { setHomeTabName } from '../../store/reducers/status';
+import { OverviewDefiList } from '../Overview/OverviewDefiList';
 import { GuideToPushFirstTimeCheck } from '../PushNotification/GuideToPushFirstTime';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
@@ -38,13 +28,27 @@ import AccountInfo, {
   FIXED_HORIZONTAL_HEDER_HEIGHT,
   FIXED_VERTICAL_HEADER_HEIGHT,
 } from './AccountInfo';
-import AssetsList from './AssetsList';
+import { HomeTokenAssetsList } from './AssetsList';
 import { BottomView } from './BottomView';
+import { HomeTabIndexSync } from './HomeTabIndexSync';
 import NFTList from './NFT/NFTList';
 import ToolsPage from './Tools';
 import { WalletHomeTabEnum } from './type';
+import { WalletTabsWithAuth } from './WalletTabsWithAuth';
 
-const AccountHeader = () => <AccountInfo />;
+function AccountHeader() {
+  const isVerticalLayout = useIsVerticalLayout();
+  const headerHeight =
+    (isVerticalLayout
+      ? FIXED_VERTICAL_HEADER_HEIGHT
+      : FIXED_HORIZONTAL_HEDER_HEIGHT) || 'auto';
+  return (
+    <Box h={headerHeight}>
+      <AccountInfo />
+    </Box>
+  );
+}
+const AccountHeaderMemo = memo(AccountHeader);
 
 // HomeTabs
 const WalletTabs: FC = () => {
@@ -53,13 +57,12 @@ const WalletTabs: FC = () => {
   const currentIndexRef = useRef<number>(0);
   const { screenWidth } = useUserDevice();
   const isVerticalLayout = useIsVerticalLayout();
-  const homeTabName = useAppSelector((s) => s.status.homeTabName);
+  const homeTabName = useHomeTabName();
   const { wallet, network, accountId, networkId, walletId } =
     useActiveWalletAccount();
-  const [refreshing, setRefreshing] = useState(false);
-
   const timer = useRef<ReturnType<typeof setTimeout>>();
 
+  // LazyRenderCurrentHomeTab
   const tokensTab = useMemo(
     () => (
       <Tabs.Tab
@@ -67,18 +70,24 @@ const WalletTabs: FC = () => {
         label={intl.formatMessage({ id: 'asset__tokens' })}
         key={WalletHomeTabEnum.Tokens}
       >
-        <>
-          <AssetsList
+        <LazyRenderCurrentHomeTab homeTabName={WalletHomeTabEnum.Tokens}>
+          {/* root Tab Component should be FlatList in Native */}
+          <HomeTokenAssetsList
             walletId={walletId}
             accountId={accountId}
             networkId={networkId}
-            ListFooterComponent={<Box h={6} />}
             limitSize={10}
-            renderDefiList
-          />
-          <OneKeyPerfTraceLog name="App RootTabHome AssetsList render" />
-          <GuideToPushFirstTimeCheck />
-        </>
+          >
+            <Box h={6} />
+            <OverviewDefiList
+              accountId={accountId}
+              networkId={networkId}
+              limitSize={10}
+            />
+            <OneKeyPerfTraceLog name="App RootTabHome AssetsList render" />
+            <GuideToPushFirstTimeCheck />
+          </HomeTokenAssetsList>
+        </LazyRenderCurrentHomeTab>
       </Tabs.Tab>
     ),
     [accountId, intl, networkId, walletId],
@@ -91,7 +100,9 @@ const WalletTabs: FC = () => {
         label={intl.formatMessage({ id: 'asset__collectibles' })}
         key={WalletHomeTabEnum.Collectibles}
       >
-        <NFTList />
+        <LazyRenderCurrentHomeTab homeTabName={WalletHomeTabEnum.Collectibles}>
+          <NFTList />
+        </LazyRenderCurrentHomeTab>
       </Tabs.Tab>
     ),
     [intl],
@@ -104,11 +115,13 @@ const WalletTabs: FC = () => {
         label={intl.formatMessage({ id: 'transaction__history' })}
         key={WalletHomeTabEnum.History}
       >
-        <TxHistoryListView
-          accountId={accountId}
-          networkId={networkId}
-          isHomeTab
-        />
+        <LazyRenderCurrentHomeTab homeTabName={WalletHomeTabEnum.History}>
+          <TxHistoryListView
+            accountId={accountId}
+            networkId={networkId}
+            isHomeTab
+          />
+        </LazyRenderCurrentHomeTab>
       </Tabs.Tab>
     ),
     [accountId, networkId, intl],
@@ -121,7 +134,9 @@ const WalletTabs: FC = () => {
         label={intl.formatMessage({ id: 'form__tools' })}
         key={WalletHomeTabEnum.Tools}
       >
-        <ToolsPage />
+        <LazyRenderCurrentHomeTab homeTabName={WalletHomeTabEnum.Tools}>
+          <ToolsPage />
+        </LazyRenderCurrentHomeTab>
       </Tabs.Tab>
     ),
     [intl],
@@ -160,62 +175,10 @@ const WalletTabs: FC = () => {
     });
   }, [network?.settings, networkId, tokensTab, nftTab, historyTab, toolsTab]);
 
-  const getHomeTabNameByIndex = useCallback(
-    (index: number) => usedTabs[index]?.name,
-    [usedTabs],
-  );
-
-  const getHomeTabIndex = useCallback(
-    (tabName: string | undefined) => {
-      const index = usedTabs.findIndex((tab) => tab.name === tabName);
-      return index === -1 ? 0 : index;
-    },
-    [usedTabs],
-  );
-
-  const onIndexChange = useCallback(
-    (index: number) => {
-      currentIndexRef.current = index;
-      if (timer.current) clearTimeout(timer.current);
-
-      let intervalTime = 0;
-      if (platformEnv.isNativeAndroid) {
-        intervalTime = 500;
-      }
-
-      // Android animation redux causes ui stuttering
-      timer.current = setTimeout(() => {
-        debugLogger.common.info('setHomeTabIndex', index);
-        backgroundApiProxy.dispatch(
-          setHomeTabName(getHomeTabNameByIndex(index)),
-        );
-      }, intervalTime);
-    },
-    [getHomeTabNameByIndex],
-  );
-
-  const setIndex = useDebouncedCallback(
-    (index: number) => {
-      ref.current?.setPageIndex?.(index);
-    },
-    1000,
-    {
-      leading: false,
-      trailing: true,
-      maxWait: 1000,
-    },
-  );
-
-  useEffect(() => {
-    const idx = getHomeTabIndex(homeTabName);
-    if (idx === currentIndexRef.current) return;
-    setIndex(idx);
-  }, [homeTabName, getHomeTabIndex, setIndex]);
-
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
+    ref?.current?.setRefreshing(true);
     backgroundApiProxy.serviceOverview.refreshCurrentAccount().finally(() => {
-      setTimeout(() => setRefreshing(false), 50);
+      setTimeout(() => ref?.current?.setRefreshing(false), 50);
     });
   }, []);
 
@@ -224,10 +187,44 @@ const WalletTabs: FC = () => {
     [usedTabs],
   );
 
-  const isLightningNetwork = useMemo(
-    () => isLightningNetworkByNetworkId(networkId),
-    [networkId],
+  const getHomeTabNameByIndex = useCallback(
+    (index: number) => usedTabs[index]?.name,
+    [usedTabs],
   );
+
+  const onIndexChange = useCallback(
+    (index: number) => {
+      currentIndexRef.current = index;
+      if (timer.current) clearTimeout(timer.current);
+
+      // Android animation redux causes ui stuttering
+      timer.current = setTimeout(() => {
+        debugLogger.common.info('setHomeTabIndex', index);
+        backgroundApiProxy.dispatch(
+          setHomeTabName(getHomeTabNameByIndex(index)),
+        );
+      });
+    },
+    [getHomeTabNameByIndex],
+  );
+
+  const onPageStartScroll = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+
+  const containerStyle = useMemo(
+    () => ({
+      maxWidth: MAX_PAGE_CONTAINER_WIDTH,
+      // reduce the width on iPad, sidebar's width is 244
+      width: isVerticalLayout ? screenWidth : screenWidth - 224,
+      marginHorizontal: 'auto', // Center align vertically
+      alignSelf: 'center' as any,
+      flex: 1,
+    }),
+    [isVerticalLayout, screenWidth],
+  );
+
+  if (!wallet) return null;
 
   const walletTabsContainer = (
     <Tabs.Container
@@ -236,91 +233,68 @@ const WalletTabs: FC = () => {
       key={platformEnv.isNativeAndroid ? `${tabContents.length}` : undefined}
       canOpenDrawer
       initialTabName={homeTabName}
-      refreshing={refreshing}
       onRefresh={onRefresh}
       onIndexChange={onIndexChange}
-      onStartChange={() => {
-        if (timer.current) clearTimeout(timer.current);
-      }}
-      renderHeader={AccountHeader}
+      onPageStartScroll={onPageStartScroll}
+      headerView={<AccountHeaderMemo />}
+      ref={ref}
+      containerStyle={containerStyle}
       headerHeight={
         isVerticalLayout
           ? FIXED_VERTICAL_HEADER_HEIGHT
           : FIXED_HORIZONTAL_HEDER_HEIGHT
       }
-      ref={ref}
-      containerStyle={{
-        maxWidth: MAX_PAGE_CONTAINER_WIDTH,
-        // reduce the width on iPad, sidebar's width is 244
-        width: isVerticalLayout ? screenWidth : screenWidth - 224,
-        marginHorizontal: 'auto', // Center align vertically
-        alignSelf: 'center',
-        flex: 1,
-      }}
     >
       {tabContents}
     </Tabs.Container>
   );
 
-  if (!wallet) return null;
+  const contentView = (
+    <>
+      {walletTabsContainer}
+      <HomeTabIndexSync
+        tabsContainerRef={ref}
+        currentIndexRef={currentIndexRef}
+        homeTabName={homeTabName}
+        usedTabs={usedTabs}
+      />
+    </>
+  );
 
   if (network?.settings.validationRequired) {
     return (
-      <Center w="full" h="full">
-        <Protected
-          walletId={wallet.id}
-          networkId={network.id}
-          field={ValidationFields.Account}
-          placeCenter={!platformEnv.isNative}
-          subTitle={intl.formatMessage(
-            {
-              id: 'title__password_verification_is_required_to_view_account_details_on_str',
-            },
-            { '0': network.name },
-          )}
-          checkIsNeedPassword={
-            isLightningNetwork
-              ? () =>
-                  backgroundApiProxy.serviceLightningNetwork.checkAuth({
-                    networkId,
-                    accountId,
-                  })
-              : undefined
-          }
-        >
-          {(password) => (
-            <>
-              <RefreshLightningNetworkToken
-                accountId={accountId}
-                password={password}
-                networkId={network.id}
-              />
-              {walletTabsContainer}
-            </>
-          )}
-        </Protected>
-      </Center>
+      <WalletTabsWithAuth
+        wallet={wallet}
+        network={network}
+        networkId={networkId}
+        accountId={accountId}
+      >
+        {contentView}
+      </WalletTabsWithAuth>
     );
   }
-  return walletTabsContainer;
+  return contentView;
 };
+const WalletTabsMemo = memo(WalletTabs);
 
-const Wallet = () => {
+function WalletPreCheck() {
   useOnboardingRequired(true);
   useHtmlPreloadSplashLogoRemove();
-  useAllNetworksAccountSelectModalShow();
+  return null;
+}
+const WalletPreCheckMemo = memo(WalletPreCheck);
 
-  return (
-    <>
-      <Box flex={1}>
-        <IdentityAssertion>
-          <WalletTabs />
-        </IdentityAssertion>
-      </Box>
-      <BottomView />
-    </>
-  );
-};
+const Wallet = () => (
+  <>
+    <WalletPreCheckMemo />
+    <Box flex={1}>
+      <IdentityAssertion>
+        <WalletTabsMemo />
+      </IdentityAssertion>
+    </Box>
+    <BottomView />
+  </>
+);
 Wallet.displayName = 'HomeTabWallet';
 
 export default Wallet;

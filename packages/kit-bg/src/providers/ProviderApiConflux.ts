@@ -7,7 +7,7 @@ import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import type { EvmExtraInfo } from '@onekeyhq/engine/src/types/network';
 import type { IEncodedTxCfx } from '@onekeyhq/engine/src/vaults/impl/cfx/Vault';
 import type VaultConflux from '@onekeyhq/engine/src/vaults/impl/cfx/Vault';
-import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   backgroundClass,
   permissionRequired,

@@ -8,7 +8,10 @@ import { useIntl } from 'react-intl';
 
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
-import type { Token } from '@onekeyhq/engine/src/types/token';
+import type {
+  IAccountTokenData,
+  Token,
+} from '@onekeyhq/engine/src/types/token';
 import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 import KeleLogoPNG from '@onekeyhq/kit/assets/staking/kele_pool.png';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -36,16 +39,11 @@ import type {
   OverviewAllNetworksPortfolioRes,
 } from '../views/Overview/types';
 
-type IAccountTokenOnChain = Token & {
-  price: number;
-  price24h: number;
-  balance: string;
-  value: string;
-  usdValue: string;
-  value24h: string;
-};
-
+type IAccountTokenOnChain = IAccountTokenData;
 type ICombinedAccountToken = IAccountToken | IAccountTokenOnChain;
+
+const emptyArray = Object.freeze([]);
+const emptyObject = Object.freeze({});
 
 const filterAccountTokens = <T>({
   tokens,
@@ -62,12 +60,45 @@ const filterAccountTokens = <T>({
   hideRiskTokens?: boolean;
   putMainTokenOnTop?: boolean;
 }): T => {
+  try {
+    throw new Error();
+  } catch (error) {
+    // @ts-ignore
+    if (error) error.$$autoPrintErrorIgnore = true;
+
+    const formatStack = (stack: string) => {
+      const arr: string[] = [];
+      let stop = false;
+      stack
+        .split('\n')
+        .filter(Boolean)
+        .forEach((line) => {
+          line
+            .split(' ')
+            .filter(Boolean)
+            .forEach((word, index) => {
+              if (index === 1 && !stop) {
+                arr.push(word);
+                if (word === 'renderWithHooks') {
+                  stop = true;
+                }
+              }
+            });
+        });
+
+      return arr;
+    };
+    console.log(
+      'filterAccountTokens ================',
+      formatStack((error as Error | undefined)?.stack || ''),
+    );
+  }
   const valueTokens = tokens.sort(
     (a, b) =>
       // By value
-      new B(b.value).comparedTo(a.value) ||
+      new B(b.value ?? 0).comparedTo(a.value ?? 0) ||
       // By price
-      new B(b.price).comparedTo(a.price) ||
+      new B(b.price ?? 0).comparedTo(a.price ?? 0) ||
       // By native token
       (b.isNative ? 1 : 0) ||
       (a.isNative ? -1 : 0) ||
@@ -81,7 +112,7 @@ const filterAccountTokens = <T>({
 
   const filteredTokens = valueTokens.filter((t) => {
     const isNative = (t.isNative || !t.address) && !isAllNetworks(networkId);
-    if (hideSmallBalance && new B(t.usdValue).isLessThan(1)) {
+    if (hideSmallBalance && new B(t.usdValue ?? 0).isLessThan(1)) {
       if (!isNative) {
         return false;
       }
@@ -248,7 +279,8 @@ const tokensSelector = ({
   accountId: string;
 }) =>
   createSelector(
-    (s: IAppState) => s.tokens.accountTokens?.[networkId]?.[accountId] ?? [],
+    (s: IAppState) =>
+      s.tokens.accountTokens?.[networkId]?.[accountId] ?? emptyArray,
     (accountTokens) => accountTokens,
   );
 
@@ -272,9 +304,9 @@ export function useAccountTokensOnChain(
         () => balancesSelector({ networkId, accountId }),
         [accountId, networkId],
       ),
-    ) ?? [];
+    ) ?? emptyArray;
 
-  const prices = useAppSelector((s) => s.tokens.tokenPriceMap) ?? {};
+  const prices = useAppSelector((s) => s.tokens.tokenPriceMap) ?? emptyObject;
 
   const valueTokens = tokens.map((t) => {
     const priceInfo =
@@ -301,14 +333,25 @@ export function useAccountTokensOnChain(
     };
   });
 
-  return filterAccountTokens<IAccountTokenOnChain[]>({
-    networkId,
-    tokens: valueTokens,
-    useFilter,
-    hideSmallBalance,
-    hideRiskTokens,
-    putMainTokenOnTop,
-  });
+  return useMemo(
+    () =>
+      filterAccountTokens<IAccountTokenOnChain[]>({
+        networkId,
+        tokens: valueTokens,
+        useFilter,
+        hideSmallBalance,
+        hideRiskTokens,
+        putMainTokenOnTop,
+      }),
+    [
+      networkId,
+      valueTokens,
+      useFilter,
+      hideSmallBalance,
+      hideRiskTokens,
+      putMainTokenOnTop,
+    ],
+  );
 }
 
 export const useOverviewPendingTasks = ({
@@ -332,10 +375,13 @@ export const useOverviewPendingTasks = ({
     ),
   );
 
-  return {
-    tasks,
-    updatedAt,
-  };
+  return useMemo(
+    () => ({
+      tasks,
+      updatedAt,
+    }),
+    [tasks, updatedAt],
+  );
 };
 
 export const useAccountIsUpdating = ({
@@ -349,7 +395,7 @@ export const useAccountIsUpdating = ({
     useMemo(
       () =>
         createSelector(
-          (s: IAppState) => s.overview.accountIsUpdating,
+          (s: IAppState) => s.refresher.overviewAccountIsUpdating,
           (map) => map?.[accountId] ?? false,
         ),
       [accountId],
@@ -402,6 +448,29 @@ export function useNFTIsLoading({
   );
 }
 
+export function useOverviewLoading({
+  networkId = '',
+  accountId = '',
+}: {
+  networkId?: string;
+  accountId?: string;
+}) {
+  const tokensLoading =
+    useAppSelector((s) => s.refresher.overviewHomeTokensLoading) ?? false;
+  const { loading: allNetworksTokensLoading } = useAccountPortfolios({
+    networkId,
+    accountId,
+    type: EOverviewScanTaskType.token,
+  });
+  const accountTokensLoading = useAccountTokenLoading(networkId, accountId);
+
+  const loading = useMemo(
+    () => accountTokensLoading || allNetworksTokensLoading || tokensLoading,
+    [accountTokensLoading, allNetworksTokensLoading, tokensLoading],
+  );
+  return loading;
+}
+
 export function useAccountTokens({
   networkId = '',
   accountId = '',
@@ -417,12 +486,14 @@ export function useAccountTokens({
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
   const putMainTokenOnTop = useAppSelector((s) => s.settings.putMainTokenOnTop);
 
-  const { data: allNetworksTokens = [], loading: allNetworksTokensLoading } =
-    useAccountPortfolios({
-      networkId,
-      accountId,
-      type: EOverviewScanTaskType.token,
-    });
+  const {
+    data: allNetworksTokens = emptyArray,
+    loading: allNetworksTokensLoading,
+  } = useAccountPortfolios({
+    networkId,
+    accountId,
+    type: EOverviewScanTaskType.token,
+  });
 
   const accountTokensOnChain = useAccountTokensOnChain(
     networkId,
@@ -439,7 +510,10 @@ export function useAccountTokens({
 
   const valueTokens: IAccountToken[] = useMemo(() => {
     const accountTokens = isAllNetworks(networkId)
-      ? allNetworksTokens.slice(0, limitSize).map((t) => ({
+      ? // all chain tokens
+        allNetworksTokens.slice(0, limitSize).map((t) => ({
+          networkId,
+          accountId,
           name: t.name,
           symbol: t.symbol,
           address: undefined,
@@ -458,8 +532,11 @@ export function useAccountTokens({
           autoDetected: false,
           tokens: t.tokens ?? [],
         }))
-      : accountTokensOnChain.slice(0, limitSize).map((t) => {
+      : // single chain tokens
+        accountTokensOnChain.slice(0, limitSize).map((t) => {
           const info = {
+            networkId,
+            accountId,
             name: t.name,
             symbol: t.symbol,
             address: t.address,
@@ -491,19 +568,41 @@ export function useAccountTokens({
         });
 
     return accountTokens;
-  }, [networkId, allNetworksTokens, limitSize, accountTokensOnChain]);
+  }, [
+    accountId,
+    accountTokensOnChain,
+    allNetworksTokens,
+    limitSize,
+    networkId,
+  ]);
 
-  return {
-    loading,
-    data: filterAccountTokens<IAccountToken[]>({
+  const data = useMemo(
+    () =>
+      filterAccountTokens<IAccountToken[]>({
+        networkId,
+        tokens: valueTokens,
+        useFilter,
+        hideRiskTokens,
+        hideSmallBalance,
+        putMainTokenOnTop,
+      }),
+    [
       networkId,
-      tokens: valueTokens,
+      valueTokens,
       useFilter,
       hideRiskTokens,
       hideSmallBalance,
       putMainTokenOnTop,
+    ],
+  );
+
+  return useMemo(
+    () => ({
+      loading,
+      data,
     }),
-  };
+    [loading, data],
+  );
 }
 
 export function useAccountTokenValues(
@@ -521,7 +620,7 @@ export function useAccountTokenValues(
     let value = new B(0);
     let value24h = new B(0);
     for (const t of accountTokens) {
-      value = value.plus(t.value);
+      value = value.plus(t.value ?? 0);
       value24h = value24h.plus(t.value24h ?? 0);
     }
     return {
@@ -575,6 +674,7 @@ export const useNFTValues = ({
     accountId,
     networkId,
   ]);
+
   return value;
 };
 
@@ -629,16 +729,20 @@ export const useAccountValues = (props: {
     };
   }, [nftValue, includeNFTsInTotal]);
 
-  return [defiValues, tokenValues, nftValues].reduce(
-    (sum, next) => ({
-      ...sum,
-      value: sum.value.plus(next.value),
-      value24h: sum.value24h.plus(next.value24h),
-    }),
-    {
-      value: new B(0),
-      value24h: new B(0),
-    },
+  return useMemo(
+    () =>
+      [defiValues, tokenValues, nftValues].reduce(
+        (sum, next) => ({
+          ...sum,
+          value: sum.value.plus(next.value),
+          value24h: sum.value24h.plus(next.value24h),
+        }),
+        {
+          value: new B(0),
+          value24h: new B(0),
+        },
+      ),
+    [defiValues, tokenValues, nftValues],
   );
 };
 
@@ -848,20 +952,20 @@ export const useTokenPositionInfo = ({
             item.networkId,
             item.accountAddress ?? '',
           );
-          if (new B(item.balance).isGreaterThan(0)) {
+          if (new B(item.balance ?? 0).isGreaterThan(0)) {
             items.push({
               name: t.name,
               address: t.address,
               symbol: t.symbol,
               logoURI: t.logoURI ?? '',
               type: 'Token',
-              balance: item.balance,
+              balance: item.balance ?? '0',
               networkId: item.networkId,
               accountName: account?.name ?? '',
             });
           }
         });
-        balance = balance.plus(t.balance);
+        balance = balance.plus(t.balance ?? 0);
       }
     });
 

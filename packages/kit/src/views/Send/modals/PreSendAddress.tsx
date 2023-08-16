@@ -109,6 +109,7 @@ function PreSendAddress() {
     onChange: onNameServiceChange,
     disableSubmitBtn,
     isValid: isValidNameServiceName,
+    isSearching: isNameServiceSearching,
     address: resolvedAddress,
   } = useNameServiceStatus();
 
@@ -649,7 +650,9 @@ function PreSendAddress() {
               )}
               <Form.Item
                 control={control}
-                errorMessage={validateMessage.errorMessage}
+                errorMessage={
+                  isNameServiceSearching ? '' : validateMessage.errorMessage
+                }
                 name="to"
                 formControlProps={{ width: 'full' }}
                 helpText={helpTextOfNameServiceResolver}

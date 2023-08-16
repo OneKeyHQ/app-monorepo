@@ -17,7 +17,7 @@ interface Props {
 }
 
 export const RevokeChainSelector: FC<Props> = ({ value, onChange }) => {
-  const { enabledNetworks } = useManageNetworks();
+  const { enabledNetworks } = useManageNetworks(undefined);
   const isVerticalLayout = useIsVerticalLayout();
 
   const options = useMemo(() => {

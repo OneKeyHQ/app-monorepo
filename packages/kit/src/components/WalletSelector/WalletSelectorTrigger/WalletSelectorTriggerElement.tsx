@@ -15,7 +15,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 
-import { useActiveWalletAccount, useAppSelector } from '../../../hooks/redux';
+import { useActiveWalletAccount, useAppSelector } from '../../../hooks';
 import { useWalletName } from '../../../hooks/useWalletName';
 import { RootRoutes } from '../../../routes/routesEnum';
 import { useDeviceStatusOfHardwareWallet } from '../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';

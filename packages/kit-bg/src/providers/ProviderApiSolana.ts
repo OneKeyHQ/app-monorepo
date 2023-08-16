@@ -6,7 +6,7 @@ import isArray from 'lodash/isArray';
 import isString from 'lodash/isString';
 
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
-import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   backgroundClass,
   providerApiMethod,

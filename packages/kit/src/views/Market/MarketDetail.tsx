@@ -26,7 +26,7 @@ import {
 import { coingeckoId2StakingTypes } from '../Staking/utils';
 import { MarketStakeButton } from '../Staking/Widgets/MarketStakingButton';
 import { SwapPlugins } from '../Swap/Plugins/Swap';
-import { ButtonItem } from '../TokenDetail/TokenDetailHeader/ButtonsSections';
+import { ButtonItem } from '../TokenDetail/TokenDetailHeader/ButtonItem';
 
 import MarketDetailContent from './Components/MarketDetail/MarketDetailContent';
 import { useMarketDetail } from './hooks/useMarketDetail';
@@ -49,7 +49,11 @@ type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.MarketDetail>;
 type NavigationProps = NativeStackNavigationProp<TabRoutesParams> &
   ModalScreenProps<FiatPayModalRoutesParams>;
 
-const FavoritButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
+export const FavoritButton = ({
+  tokenItem,
+}: {
+  tokenItem?: MarketTokenItem;
+}) => {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const onPress = useCallback(() => {
@@ -99,6 +103,7 @@ const FavoritButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
           ? intl.formatMessage({ id: 'action__unlike' })
           : intl.formatMessage({ id: 'action__like' })
       }
+      color={tokenItem?.favorited ? 'icon-warning' : 'icon-default'}
       onPress={onPress}
     />
   );

@@ -8,6 +8,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { EOnekeyDomain } from '../../types';
+
 import { importHardwareSDK, importHardwareSDKLowLevel } from './sdk-loader';
 
 import type {
@@ -25,7 +26,6 @@ export const generateConnectSrc = (hardwareConnectSrc?: EOnekeyDomain) => {
   if (hardwareConnectSrc === EOnekeyDomain.ONEKEY_CN) {
     connectSrc = `${HARDWARE_SDK_IFRAME_SRC_ONEKEYCN}/${HARDWARE_SDK_VERSION}/`;
   }
-  // connectSrc = 'https://localhost:8087/';
   return connectSrc;
 };
 

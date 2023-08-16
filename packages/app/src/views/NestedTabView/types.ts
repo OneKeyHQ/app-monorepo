@@ -1,7 +1,7 @@
 import type { ForwardedRef, ReactNode } from 'react';
 
 import { Dimensions } from 'react-native';
-import { makeMutable, withSpring } from 'react-native-reanimated';
+import { makeMutable } from 'react-native-reanimated';
 
 import type { FontProps } from '@onekeyhq/components/src/Typography';
 
@@ -19,17 +19,17 @@ export const nestedTabStartX = makeMutable(0);
 // to control drawer translation
 export const nestedTabTransX = makeMutable(-getDrawerWidth());
 
-export const resetNestedTabTransX = () => {
-  nestedTabTransX.value = withSpring(-getDrawerWidth(), {
-    velocity: 50,
-    stiffness: 1000,
-    damping: 500,
-    mass: 3,
-    overshootClamping: true,
-    restDisplacementThreshold: 0.01,
-    restSpeedThreshold: 0.01,
-  });
-};
+export type OnPageChangeEventData = Readonly<{
+  tabName: string;
+  index: number;
+}>;
+export type OnPageChangeEvent = NativeSyntheticEvent<OnPageChangeEventData>;
+
+export type OnRefreshCallBackEventData = Readonly<{
+  refresh: boolean;
+}>;
+export type OnRefreshCallBackEvent =
+  NativeSyntheticEvent<OnRefreshCallBackEventData>;
 
 type TabViewStyle = {
   height: number;
@@ -55,7 +55,6 @@ export type TabProps = {
 };
 
 export interface NativeNestedTabViewProps {
-  defaultIndex?: number;
   values: TabProps[];
   headerHeight?: number;
   scrollEnabled?: boolean;
@@ -65,17 +64,16 @@ export interface NativeNestedTabViewProps {
   refresh?: boolean;
   disableRefresh?: boolean;
   spinnerColor?: string;
-  onRefreshCallBack?: (e: NativeSyntheticEvent<{ refresh: boolean }>) => void;
-  onChange?: (
-    e: NativeSyntheticEvent<{ tabName: string; index: number }>,
-  ) => void;
+  onRefreshCallBack?: (e: OnRefreshCallBackEvent) => void;
+  onPageChange?: (e: OnPageChangeEvent) => void;
+  onPageStartScroll?: () => void;
 
   // Android only
   slideDisable?: boolean;
 }
 
 export interface NestedTabViewProps extends NativeNestedTabViewProps {
-  renderHeader?: () => ReactNode;
+  headerView?: ReactNode;
   gestureRef?: ForwardedRef<any>;
   canOpenDrawer?: boolean;
 }
