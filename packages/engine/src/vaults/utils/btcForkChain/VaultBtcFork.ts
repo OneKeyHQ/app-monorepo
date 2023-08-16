@@ -482,7 +482,7 @@ export default class VaultBtcFork extends VaultBase {
         contentUrl,
       } = nftInfo.asset as NFTBTCAssetModel;
 
-      const { isBRC20Content, brc20Content } = await parseBRC20Content({
+      const { brc20Content } = await parseBRC20Content({
         content,
         contentType,
         contentUrl,
@@ -495,30 +495,39 @@ export default class VaultBtcFork extends VaultBase {
         networkId: this.networkId,
         tokenIdOnNetwork: tokenId,
       });
-      // only support batch transfer BRC20 token
-      if (isBRC20Content && tokenInfo) {
-        actions = nftInfos.map((info) =>
-          this.buildBRC20TokenAction({
-            nftInfo: info,
-            dbAccount,
-            token: tokenInfo,
-            brc20Content,
-          }),
-        );
-      } else {
-        actions = [
-          {
-            type: IDecodedTxActionType.NFT_TRANSFER_BTC,
-            direction: IDecodedTxDirection.OUT,
 
-            inscriptionInfo: {
-              send: nftInfo.from,
-              receive: nftInfo?.to,
-              asset: nftInfo?.asset as NFTBTCAssetModel,
-              extraInfo: null,
-            },
-          },
-        ];
+      if (tokenInfo) {
+        for (let i = 0, len = nftInfos.length; i < len; i += 1) {
+          const asset = nftInfos[i].asset as NFTBTCAssetModel;
+          const parseResult = await parseBRC20Content({
+            content: asset.content,
+            contentType: asset.content_type,
+            contentUrl: asset.contentUrl,
+          });
+
+          if (parseResult.isBRC20Content) {
+            actions.push(
+              this.buildBRC20TokenAction({
+                nftInfo: nftInfos[i],
+                dbAccount,
+                token: tokenInfo,
+                brc20Content: parseResult.brc20Content,
+              }),
+            );
+          } else {
+            actions.push({
+              type: IDecodedTxActionType.NFT_TRANSFER_BTC,
+              direction: IDecodedTxDirection.OUT,
+
+              inscriptionInfo: {
+                send: nftInfo.from,
+                receive: nftInfo?.to,
+                asset: nftInfo?.asset as NFTBTCAssetModel,
+                extraInfo: null,
+              },
+            });
+          }
+        }
       }
     } else {
       const utxoFrom = inputs.map((input) => ({
@@ -1486,7 +1495,6 @@ export default class VaultBtcFork extends VaultBase {
     );
 
     let outputsForCoinSelect: IEncodedTxBtc['outputsForCoinSelect'] = [];
-
     if (isBatchTransfer) {
       if (isNftTransfer && !isBRC20Transfer) {
         throw new Error('NFT Inscription transfer can only be single transfer');
@@ -1563,6 +1571,7 @@ export default class VaultBtcFork extends VaultBase {
           inputsForCoinSelect,
           outputsForCoinSelect,
           feeRate,
+          isBRC20Transfer,
         })
       : coinSelect({
           inputsForCoinSelect,
@@ -1570,6 +1579,7 @@ export default class VaultBtcFork extends VaultBase {
           feeRate,
           algorithm,
         });
+
     return {
       inputs,
       outputs,

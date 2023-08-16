@@ -252,7 +252,7 @@ function PreSendAddress() {
           transferInfos[i].from = account.address;
           transferInfos[i].to = toVal;
           const asset = await serviceNFT.getAsset({
-            accountId: account?.address ?? '',
+            accountId,
             networkId,
             contractAddress: transferInfos[i].token,
             tokenId: transferInfos[i].nftTokenId ?? '',
