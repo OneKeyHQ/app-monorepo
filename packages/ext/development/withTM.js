@@ -233,7 +233,13 @@ const withTmInitializer = (modules = [], options = {}) => {
     );
 
     // Resolve modules to their real paths
-    const modulesPaths = modules.map(getPackageRootDirectory);
+    const modulesPaths = modules
+      .map((name) =>
+        name.endsWith('/dist/main.cjs')
+          ? name.split('/dist/main.cjs')[0]
+          : name,
+      )
+      .map(getPackageRootDirectory);
 
     logger(
       `the following paths will get transpiled:\n${modulesPaths
@@ -257,6 +263,10 @@ const withTmInitializer = (modules = [], options = {}) => {
           webpackConfig.resolve.symlinks = resolveSymlinks;
         }
 
+        webpackConfig.resolve.alias = {
+          ...webpackConfig.resolve.alias,
+          'react-native$': 'react-native-web',
+        };
         const hasInclude = (context, request) => {
           let absolutePath;
           // If we the code requires/import an absolute path
@@ -321,6 +331,18 @@ const withTmInitializer = (modules = [], options = {}) => {
             test: /\.+(js|jsx|mjs|ts|tsx)$/,
             use: nextOptions.defaultLoaders.babel,
             include: matcher,
+            exclude: [/node_modules/],
+            type: 'javascript/auto',
+          });
+
+          webpackConfig.module.rules.push({
+            __ruleName__: 'rn-js-rule@withTM',
+            test: /(@?react-(navigation|native)).*\.(ts|js)x?$/,
+            use: nextOptions.defaultLoaders.babel,
+            exclude: [
+              /react-native-logs/,
+              /react-native-modalize/
+            ],
             type: 'javascript/auto',
           });
 
@@ -340,6 +362,13 @@ const withTmInitializer = (modules = [], options = {}) => {
             // exclude: /node_modules/,
           });
 
+          webpackConfig.module.rules.push({
+            exclude: [/@babel(?:\/|\\{1,2})runtime/],
+            test: /\.(js|mjs|jsx|ts|tsx|css)$/,
+            resolve: {
+              fullySpecified: false,
+            },
+          });
           if (resolveSymlinks === false) {
             // IMPROVE ME: we are losing all the cache on node_modules, which is terrible
             // The problem is managedPaths does not allow to isolate specific specific folders

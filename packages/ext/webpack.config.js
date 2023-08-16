@@ -123,30 +123,12 @@ function createConfig({ config }) {
     projectRoot: __dirname,
   });
 
-  if (IS_DEV) {
-    // FIX: Uncaught EvalError: Refused to evaluate a string as JavaScript because 'unsafe-eval' is not an allowed source of script in the following Content Security Policy directive: "script-src 'self'".
-    webpackConfig.devtool = 'cheap-module-source-map';
-
-    //
-    // Reset sourcemap here, withExpo will change this value
-    //    only inline-source-map supported in extension
-    // TODO use external file sourcemap
-    // webpackConfig.devtool = 'inline-source-map';
-    //
-
-    webpackConfig.devtool = false;
-    if (sourcemapBuilder.isSourcemapEnabled) {
-      webpackConfig.plugins.push(sourcemapBuilder.createSourcemapBuildPlugin());
-    }
-  } else {
-    webpackConfig.optimization = {
-      ...webpackConfig.optimization,
-      ...minimizeOptions.buildMinimizeOptions(),
-    };
-  }
+  webpackConfig.experiments = config.experiments || {};
+  webpackConfig.experiments.asyncWebAssembly = true;
 
   devUtils.cleanWebpackDebugFields(webpackConfig);
 
+  webpackConfig.target = 'web';
   webpackConfig = webpackTools.normalizeConfig({
     platform: webpackTools.developmentConsts.platforms.ext,
     isManifestV3,
@@ -156,6 +138,33 @@ function createConfig({ config }) {
     buildTargetBrowser,
   });
 
+  if (IS_DEV) {
+    // FIX: Uncaught EvalError: Refused to evaluate a string as JavaScript because 'unsafe-eval' is not an allowed source of script in the following Content Security Policy directive: "script-src 'self'".
+    webpackConfig.devtool = 'source-map';
+
+    //
+    // Reset sourcemap here, withExpo will change this value
+    //    only inline-source-map supported in extension
+    // TODO use external file sourcemap
+    // webpackConfig.devtool = 'inline-source-map';
+    //
+
+    // webpackConfig.devtool = false;
+    if (sourcemapBuilder.isSourcemapEnabled) {
+      webpackConfig.plugins.push(sourcemapBuilder.createSourcemapBuildPlugin());
+    }
+    webpackConfig.experiments.lazyCompilation = false;
+  } else {
+    webpackConfig.performance = {
+      ...config.performance,
+      maxEntrypointSize: 3 * 1024 * 1024,
+      maxAssetSize: 3 * 1024 * 1024,
+    };
+    webpackConfig.optimization = {
+      ...webpackConfig.optimization,
+      ...minimizeOptions.buildMinimizeOptions(),
+    };
+  }
   return webpackConfig;
 }
 

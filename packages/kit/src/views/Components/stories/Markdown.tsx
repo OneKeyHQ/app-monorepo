@@ -15,8 +15,6 @@ const MarkdownGallery = () => {
   \`\`\`
   # Install all JS dependencies and submodule dependencies
   yarn
-  # Install the expo command line tool globally
-  npm install -g expo-cli
   \`\`\`
   
   ## 🛠 Develop
@@ -66,8 +64,6 @@ const MarkdownGallery = () => {
   \`\`\`
   # 安装所有 JS 依赖及子模块依赖
   yarn
-  # 全局安装 expo 命令行工具
-  npm install -g expo-cli
   \`\`\`
   
   ## 🛠 开发

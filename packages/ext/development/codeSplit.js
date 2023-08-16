@@ -30,7 +30,7 @@ function enableCodeSplitChunks({ config }) {
 
     hidePathInfo: true, // ._m => d0ae3f07    .. => 493df0b3
     automaticNameDelimiter: `.`, // ~ => .
-    automaticNameMaxLength: 15, // limit max length of auto-gen chunk file name
+    // automaticNameMaxLength: 15, // limit max length of auto-gen chunk file name
     // maxAsyncRequests: 5, // for each additional load no more than 5 files at a time
     // maxInitialRequests: 3, // each entrypoint should not request more then 3 js files
     // cacheGroups: {
@@ -56,6 +56,7 @@ function disableCodeSplitChunks({ config }) {
   const { name } = config;
   config.optimization = config.optimization || {};
   delete config.optimization.splitChunks;
+  config.output.asyncChunks = false;
 }
 
 function disabledDynamicImportChunks(config) {
@@ -69,7 +70,7 @@ function disabledDynamicImportChunks(config) {
       isPrepend: true,
       plugins: [
         // 'babel-plugin-dynamic-import-webpack' ,// TODO not working
-        'babel-plugin-transform-dynamic-imports-to-static-imports',
+        // 'babel-plugin-transform-dynamic-imports-to-static-imports',
       ],
     });
   }
