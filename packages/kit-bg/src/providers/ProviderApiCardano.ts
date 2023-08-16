@@ -4,7 +4,7 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { NetworkId } from '@onekeyhq/engine/src/vaults/impl/ada/types';
 import type AdaVault from '@onekeyhq/engine/src/vaults/impl/ada/Vault';
-import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   backgroundClass,
   providerApiMethod,

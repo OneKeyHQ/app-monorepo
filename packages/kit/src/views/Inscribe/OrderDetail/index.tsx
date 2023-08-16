@@ -12,7 +12,7 @@ import {
 } from '@onekeyhq/components';
 import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Inscribe';
 
-import { useActiveWalletAccount } from '../../../hooks/redux';
+import { useActiveWalletAccount } from '../../../hooks';
 import { buildTransactionDetailsUrl } from '../../../hooks/useOpenBlockBrowser';
 import { openUrlExternal } from '../../../utils/openUrl';
 

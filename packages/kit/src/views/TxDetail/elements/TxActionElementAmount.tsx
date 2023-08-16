@@ -36,8 +36,17 @@ export function TxActionAmountMetaDataWithDirection(
 }
 
 export function TxActionElementAmount(props: ITxActionAmountProps) {
-  const { direction, amount, symbol, onPress, decimals, subText, ...others } =
-    props;
+  const {
+    direction,
+    amount,
+    symbol,
+    onPress,
+    decimals,
+    subText,
+    isSendConfirm,
+    ...others
+  } = props;
+
   const directionMeta = useMemo(
     () => TxActionAmountMetaDataWithDirection(direction),
     [direction],
@@ -72,7 +81,7 @@ export function TxActionElementAmount(props: ITxActionAmountProps) {
         color={directionMeta.color}
         {...others}
       >
-        {directionMeta.sign}
+        {isSendConfirm ? null : directionMeta.sign}
         {amountText} {symbol}
       </Text>
       {subText}

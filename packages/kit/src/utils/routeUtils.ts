@@ -1,4 +1,4 @@
-import { useAppSelector } from '../hooks';
+import { useHomeTabName } from '../hooks/useHomeTabName';
 import { ModalRoutes, RootRoutes } from '../routes/routesEnum';
 
 import type { TabRoutes } from '../routes/routesEnum';
@@ -93,7 +93,7 @@ export function isAtAppRootTab(appRootTabName: TabRoutes) {
 }
 
 export function useIsAtHomeTab(homeTabName: WalletHomeTabEnum) {
-  const currentHomeTabName = useAppSelector((s) => s.status.homeTabName);
+  const currentHomeTabName = useHomeTabName();
   return currentHomeTabName === homeTabName;
 }
 

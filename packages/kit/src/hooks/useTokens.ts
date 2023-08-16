@@ -4,7 +4,7 @@ import { pick } from 'lodash';
 import { useAsync } from 'react-async-hook';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';

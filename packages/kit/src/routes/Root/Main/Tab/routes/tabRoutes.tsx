@@ -4,7 +4,7 @@ import AppRootTabDiscover from './AppRootTabDiscover';
 import AppRootTabHome from './AppRootTabHome';
 import AppRootTabMarket from './AppRootTabMarket';
 import AppRootTabMe from './AppRootTabMe';
-import AppRootTabNFT from './AppRootTabNFT';
+// import AppRootTabNFT from './AppRootTabNFT';
 import AppRootTabSwap from './AppRootTabSwap';
 import { tabRoutesOrders } from './tabRoutes.base';
 
@@ -14,7 +14,7 @@ const allRoutes: TabRouteConfig[] = [
   AppRootTabHome,
   AppRootTabMarket,
   AppRootTabSwap,
-  AppRootTabNFT,
+  // AppRootTabNFT,
   AppRootTabDiscover,
   AppRootTabMe,
 ];

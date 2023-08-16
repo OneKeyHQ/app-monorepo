@@ -13,10 +13,16 @@ const jsRules = {
   'react/function-component-definition': 'off',
   'react/jsx-props-no-spreading': 'off',
   'react/no-unused-prop-types': 'off',
-  'global-require': 'off',
-  'import/no-unresolved': 'off', // tsc can check this
   'react/no-unstable-nested-components': 'warn',
   'react/jsx-no-useless-fragment': ['error', { allowExpressions: true }],
+  'react-hooks/exhaustive-deps': [
+    'warn',
+    {
+      'additionalHooks': '(usePromiseResult|useAsyncCall)',
+    },
+  ],
+  'global-require': 'off',
+  'import/no-unresolved': 'off', // tsc can check this
   'no-promise-executor-return': 'off',
   'default-param-last': 'off',
   'import/no-cycle': 'error',

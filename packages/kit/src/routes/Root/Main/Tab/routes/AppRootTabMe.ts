@@ -27,7 +27,7 @@ const config: TabRouteConfig = {
   component: withTabLayout(
     toFocusedLazy(MeScreen, {
       rootTabName: name,
-      freezeWhenBlur: true,
+      // freezeWhenBlur: true, // cause HomeTab white screen when switch from this tab
     }),
     name,
   ),
