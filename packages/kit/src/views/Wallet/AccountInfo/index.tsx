@@ -22,7 +22,7 @@ import { NetworkDarkIcon } from '@onekeyhq/components/src/Network/DarkIcon';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { FormatCurrencyNumber } from '@onekeyhq/kit/src/components/Format';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   ManageNetworkModalRoutes,
   ModalRoutes,
@@ -447,7 +447,9 @@ const AccountAmountInfo: FC = () => {
     if (tasks.length > 0) {
       return;
     }
-    backgroundApiProxy.serviceOverview.refreshCurrentAccount();
+    backgroundApiProxy.serviceOverview.refreshCurrentAccount({
+      debounceEnabled: false,
+    });
   }, [tasks]);
 
   return (
@@ -506,4 +508,4 @@ const AccountInfo = () => {
   );
 };
 
-export default AccountInfo;
+export default memo(AccountInfo);

@@ -67,7 +67,7 @@ export class Scheduler {
           const fromTokenIds = from.token.tokenIdOnNetwork
             ? [from.token.tokenIdOnNetwork]
             : [];
-          backgroundApiProxy.serviceToken.getAccountTokenBalance({
+          backgroundApiProxy.serviceToken.fetchAndSaveAccountTokenBalance({
             accountId: tx.accountId,
             networkId: from.networkId,
             tokenIds: fromTokenIds,
@@ -82,7 +82,7 @@ export class Scheduler {
               const toTokenIds = to.token.tokenIdOnNetwork
                 ? [to.token.tokenIdOnNetwork]
                 : [];
-              backgroundApiProxy.serviceToken.getAccountTokenBalance({
+              backgroundApiProxy.serviceToken.fetchAndSaveAccountTokenBalance({
                 accountId: receivingAccount.id,
                 networkId: to.networkId,
                 tokenIds: toTokenIds,

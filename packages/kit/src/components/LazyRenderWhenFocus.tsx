@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
@@ -17,7 +18,7 @@ import type { TabRoutes } from '../routes/routesEnum';
 export interface ILazyRenderWhenFocusProps {
   unmountWhenBlur?: boolean;
   freezeWhenBlur?: boolean;
-  children?: any | null;
+  children?: ReactNode | null | any;
   rootTabName?: TabRoutes;
 }
 
@@ -85,6 +86,7 @@ export function LazyRenderWhenFocus({
   if (shouldFreeze) {
     console.log('LazyRenderWhenFocus >>>>>>>>>> ', {
       shouldFreeze,
+      freezeWhenBlur,
       rootTabName,
     });
   }
@@ -92,12 +94,12 @@ export function LazyRenderWhenFocus({
   const renderChildren = isFocusedRef.current || isFocused ? children : null;
   // return <>{renderChildren}</>;
 
-  const content = (
-    <DelayedFreeze freeze={Boolean(shouldFreeze && freezeWhenBlur)}>
-      {renderChildren}
-    </DelayedFreeze>
-  );
-  return content;
+  if (shouldFreeze && freezeWhenBlur) {
+    return <DelayedFreeze freeze>{renderChildren}</DelayedFreeze>;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  return renderChildren;
 }
 
 export function toFocusedLazy(

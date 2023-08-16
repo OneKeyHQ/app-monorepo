@@ -2,6 +2,7 @@
 import type { ForwardRefRenderFunction } from 'react';
 import {
   forwardRef,
+  memo,
   useCallback,
   useImperativeHandle,
   useMemo,
@@ -13,7 +14,7 @@ import { UIManager, findNodeHandle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSharedValue, withTiming } from 'react-native-reanimated';
 
-import { useIsVerticalLayout } from '@onekeyhq/components';
+import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import { enableOnPressAnim } from '@onekeyhq/components/src/utils/useBeforeOnPress';
 // import { useNavigationActions } from '@onekeyhq/kit/src/hooks';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -50,7 +51,7 @@ const NestedTabView: ForwardRefRenderFunction<
   NestedTabViewProps
 > = (
   {
-    renderHeader,
+    headerView,
     children,
     onChange,
     defaultIndex,
@@ -271,7 +272,8 @@ const NestedTabView: ForwardRefRenderFunction<
       ref={tabRef}
       {...rest}
     >
-      {renderHeader?.()}
+      {/* native code get first child as header */}
+      <Box>{headerView}</Box>
       {children}
     </NativeNestedTabView>
   );
@@ -296,4 +298,4 @@ const NestedTabView: ForwardRefRenderFunction<
   );
 };
 
-export default forwardRef(NestedTabView);
+export default memo(forwardRef(NestedTabView));

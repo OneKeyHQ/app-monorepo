@@ -5,7 +5,7 @@ import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/ac
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { getActiveWalletAccount } from '../../../hooks/redux';
+import { getActiveWalletAccount } from '../../../hooks';
 import { appSelector } from '../../../store';
 import { SwapObserver } from '../Main/Observers/swap';
 import { SwapMain } from '../Main/Swap';

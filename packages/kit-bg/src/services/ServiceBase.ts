@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   backgroundClass,
   backgroundMethod,

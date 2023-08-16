@@ -36,7 +36,7 @@ const RecoverSelectChainModal: FC = () => {
 
   const route = useRoute<RouteProps>();
   const { wallets } = useRuntime();
-  const { enabledNetworks: networks } = useManageNetworks();
+  const { enabledNetworks: networks } = useManageNetworks(undefined);
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const { walletId: selectedWalletId } = route.params;

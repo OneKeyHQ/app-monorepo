@@ -75,7 +75,7 @@ export interface NativeNestedTabViewProps {
 }
 
 export interface NestedTabViewProps extends NativeNestedTabViewProps {
-  renderHeader?: () => ReactNode;
+  headerView?: ReactNode;
   gestureRef?: ForwardedRef<any>;
   canOpenDrawer?: boolean;
 }

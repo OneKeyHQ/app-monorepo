@@ -1,3 +1,5 @@
+// fix missing setimmediate in registerRootComponent
+import 'setimmediate';
 import { registerRootComponent } from 'expo';
 
 import App from './App';

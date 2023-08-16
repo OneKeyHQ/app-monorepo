@@ -6,7 +6,7 @@ import { Box, HStack, Typography, useTheme } from '@onekeyhq/components';
 import {
   useActiveWalletAccount,
   useAppSelector,
-} from '@onekeyhq/kit/src/hooks/redux';
+} from '@onekeyhq/kit/src/hooks';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
 import { useNFTValues } from '../../../../hooks';

@@ -13,6 +13,7 @@ import { useTools } from '../../../hooks/redux';
 import { MainRoutes, RootRoutes, TabRoutes } from '../../../routes/routesEnum';
 import { setHomeTabName } from '../../../store/reducers/status';
 import { openUrl } from '../../../utils/openUrl';
+import { WalletHomeTabEnum } from '../../Wallet/type';
 import { EditableNonceStatusEnum } from '../types';
 
 export function SendConfirmErrorsAlert({
@@ -199,7 +200,9 @@ export function SendConfirmErrorsAlert({
         )}
         action={intl.formatMessage({ id: 'action__view' })}
         onAction={() => {
-          backgroundApiProxy.dispatch(setHomeTabName('History'));
+          backgroundApiProxy.dispatch(
+            setHomeTabName(WalletHomeTabEnum.History),
+          );
           navigation?.navigate(RootRoutes.Main, {
             screen: MainRoutes.Tab,
             params: {
