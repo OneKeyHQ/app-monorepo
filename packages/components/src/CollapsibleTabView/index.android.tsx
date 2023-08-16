@@ -17,7 +17,7 @@ function wrapNestedScrollView(Cmp: any) {
   // eslint-disable-next-line react/display-name
   return ({ contentContainerStyle, ...props }: any) => (
     <Cmp
-      contentContainerStyle={[contentContainerStyle, { minHeight: '100%' }]}
+      contentContainerStyle={[contentContainerStyle]}
       {...props}
       renderScrollComponent={renderScrollComponent}
     />
