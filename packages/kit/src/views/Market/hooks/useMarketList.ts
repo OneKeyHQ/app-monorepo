@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useIsFocused } from '@react-navigation/core';
 import { TabActions } from '@react-navigation/native';
 
-import { useIsVerticalLayout } from '@onekeyhq/components';
+import { useIsVerticalLayout, useUserDevice } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
@@ -110,4 +110,19 @@ export const marketSwapTabRoutes: { key: MarketTopTabName }[] = [
 export const setMarketSwapTabName = (tabName: MarketTopTabName) => {
   backgroundApiProxy.serviceMarket.switchMarketTopTab(tabName);
   getAppNavigation().dispatch(TabActions.jumpTo(tabName));
+};
+
+export const useMarketWidthLayout = () => {
+  const { screenWidth, size } = useUserDevice();
+  const isVerticalLayout = size === 'SMALL';
+  const leftSidebarCollapsed = useAppSelector(
+    (s) => s.settings.leftSidebarCollapsed,
+  );
+  const marketFillWidth = useMemo(() => {
+    if (isVerticalLayout) {
+      return screenWidth;
+    }
+    return leftSidebarCollapsed ? screenWidth - 72 : screenWidth - 224; // caculate leftside width
+  }, [isVerticalLayout, leftSidebarCollapsed, screenWidth]);
+  return { marketFillWidth, isVerticalLayout };
 };

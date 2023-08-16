@@ -166,9 +166,7 @@ function HomeTabActionHeaderCmp({
       alignItems="center"
       pb={3}
     >
-      <Typography.Heading>
-        {title}-8883736-{currentHomeTabName || ''}
-      </Typography.Heading>
+      <Typography.Heading>{title}</Typography.Heading>
       <HStack alignItems="center" justifyContent="flex-end">
         {onClickRefresh ? (
           <Box alignItems="center" justifyContent="center" w="8" h="8" mr="3">

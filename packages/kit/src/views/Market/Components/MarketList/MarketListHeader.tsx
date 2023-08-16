@@ -11,12 +11,11 @@ import {
   Pressable,
   Typography,
   useIsVerticalLayout,
-  useUserDevice,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
-import { EMarketCellData } from '../../config';
-import { useListSort } from '../../hooks/useMarketList';
+import { EMarketCellData, MARKET_LIST_COLUMN_SHOW_WIDTH_1 } from '../../config';
+import { useListSort, useMarketWidthLayout } from '../../hooks/useMarketList';
 
 import type { ListHeadTagType } from '../../types';
 
@@ -28,37 +27,21 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
   const listSort = useListSort();
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
-  const { size } = useUserDevice();
-  const isNormalDevice = useMemo(() => ['NORMAL'].includes(size), [size]);
+  const { marketFillWidth } = useMarketWidthLayout();
   const ContainComponent = useMemo(
     () => (isVertical ? Box : ListItem),
     [isVertical],
   );
   const useDislocation = useMemo(
-    () => isVertical || isNormalDevice,
-    [isNormalDevice, isVertical],
+    () => isVertical || marketFillWidth <= MARKET_LIST_COLUMN_SHOW_WIDTH_1,
+    [marketFillWidth, isVertical],
   );
   return (
     <Box mt="2" w="full">
       <ContainComponent flexDirection="row" px={2} py={1.5} my={0.5}>
         {headTags.map((tag) => {
-          if (tag.id === EMarketCellData.CollectionStar) {
-            return (
-              <ListItem.Column
-                key={tag.id}
-                text={{
-                  label: '#',
-                  labelProps: {
-                    typography: 'Subheading',
-                    textAlign: tag.textAlign,
-                    color: 'text-subdued',
-                  },
-                }}
-                w={tag.minW}
-              />
-            );
-          }
           if (
+            tag.id === EMarketCellData.CollectionStarOrSerialNumber ||
             tag.id === EMarketCellData.TokenInfo ||
             tag.id === EMarketCellData.TokenPrice ||
             tag.id === EMarketCellData.Token24hChange ||
@@ -67,8 +50,15 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
             tag.id === EMarketCellData.TokenSparklineChart
           ) {
             const pressProps =
-              tag.id === EMarketCellData.Token24hChange
-                ? { w: tag.minW }
+              tag.id === EMarketCellData.Token24hChange ||
+              tag.id === EMarketCellData.CollectionStarOrSerialNumber ||
+              tag.id === EMarketCellData.TokenInfo
+                ? {
+                    w:
+                      isVertical && tag.id === EMarketCellData.Token24hChange
+                        ? '100px'
+                        : tag.minW,
+                  }
                 : { flex: 1 };
             const dislocationId = useDislocation
               ? tag.dislocation?.id ?? tag.id
@@ -96,7 +86,8 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
                   flexDirection="row"
                   alignItems="center"
                   justifyContent={
-                    tag.id === EMarketCellData.TokenInfo
+                    tag.id === EMarketCellData.TokenInfo ||
+                    tag.id === EMarketCellData.CollectionStarOrSerialNumber
                       ? 'flex-start'
                       : 'flex-end'
                   }
@@ -104,11 +95,13 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
                 >
                   <Typography.Subheading
                     color="text-subdued"
-                    textAlign={tag.textAlign}
+                    textAlign={tag?.textAlign}
                   >
-                    {intl.formatMessage({
-                      id: dislocationTitle,
-                    })}
+                    {dislocationTitle
+                      ? intl.formatMessage({
+                          id: dislocationTitle,
+                        })
+                      : '#'}
                   </Typography.Subheading>
                   <Icon
                     name={
@@ -129,7 +122,10 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
               </ListItem.Column>
             );
           }
-          if (tag.id === EMarketCellData.TokenSwapStatus) {
+          if (
+            tag.id === EMarketCellData.TokenSwapStatus ||
+            tag.id === EMarketCellData.TokenCollectionStarAndMore
+          ) {
             return (
               <ListItem.Column key={`${tag.title ?? ''}--${tag.id}`}>
                 <Box flex={1} />

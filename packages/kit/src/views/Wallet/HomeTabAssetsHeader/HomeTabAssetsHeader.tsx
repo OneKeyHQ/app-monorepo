@@ -88,9 +88,7 @@ function HomeTabAssetsHeaderCmp({
         >
           <Icon size={iconInnerWidth} color="icon-on-primary" name={icon} />
         </Box>
-        <Text typography={{ sm: 'Body1Strong', md: 'Heading' }}>
-          {title} -88883
-        </Text>
+        <Text typography={{ sm: 'Body1Strong', md: 'Heading' }}>{title}</Text>
         {!isVerticalLayout && (
           <Box flexDirection="row" alignItems="center">
             <Box

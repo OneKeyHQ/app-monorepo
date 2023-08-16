@@ -20,7 +20,6 @@ import type {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
-  useAccountValues,
   useActiveWalletAccount,
   useAppSelector,
   useNavigation,
@@ -30,11 +29,6 @@ import { ManageTokenModalRoutes } from '../../../routes/routesEnum';
 import { showHomeBalanceSettings } from '../../Overlay/HomeBalanceSettings';
 import { HomeTabActionHeader } from '../HomeTabActionHeader';
 import { HomeTabAssetsHeader } from '../HomeTabAssetsHeader';
-
-import {
-  atomHomeOverviewAccountTokens,
-  useAtomAssetsList,
-} from './contextAssetsList';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 

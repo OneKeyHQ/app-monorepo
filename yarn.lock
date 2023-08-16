@@ -6739,6 +6739,7 @@ __metadata:
     firebase: ^9.8.2
     webpack: 5.88.2
     webpack-cli: 5.1.4
+    webpack-subresource-integrity: ^5.2.0-rc.1
   languageName: unknown
   linkType: soft
 
@@ -34942,6 +34943,19 @@ __metadata:
   version: 3.2.3
   resolution: "webpack-sources@npm:3.2.3"
   checksum: 989e401b9fe3536529e2a99dac8c1bdc50e3a0a2c8669cbafad31271eadd994bc9405f88a3039cd2e29db5e6d9d0926ceb7a1a4e7409ece021fe79c37d9c4607
+  languageName: node
+  linkType: hard
+
+"webpack-subresource-integrity@npm:^5.2.0-rc.1":
+  version: 5.2.0-rc.1
+  resolution: "webpack-subresource-integrity@npm:5.2.0-rc.1"
+  peerDependencies:
+    html-webpack-plugin: ">= 5.0.0-beta.1 < 6"
+    webpack: ^5.12.0
+  peerDependenciesMeta:
+    html-webpack-plugin:
+      optional: true
+  checksum: c61d3223b6ccb2bab58def36c964b3c8c38f54d8673a3de93af5963ca466e36c68dcdccaff978a227c62296236f231eef3d85e6b1b364724b35ffc252f6835d7
   languageName: node
   linkType: hard
 

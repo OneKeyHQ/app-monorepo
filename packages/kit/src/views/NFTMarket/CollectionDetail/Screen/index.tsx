@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
+import type { ForwardRefHandle } from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
 import { Box, useIsVerticalLayout, useUserDevice } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -36,6 +37,8 @@ const Screen = () => {
     headerHeight = screenWidth < screenHeight ? 264 : 216;
   }
 
+  const ref = useRef<ForwardRefHandle>(null);
+
   const tabsHeader = useMemo(
     () => (
       <Box h={headerHeight}>
@@ -48,10 +51,17 @@ const Screen = () => {
     ),
     [headerHeight],
   );
+
+  useEffect(() => {
+    if (context?.refreshing) {
+      ref?.current?.setRefreshing(context.refreshing);
+    }
+  }, [context?.refreshing]);
+
   return (
     <Tabs.Container
+      ref={ref}
       headerHeight={headerHeight}
-      refreshing={context?.refreshing}
       onRefresh={() => {
         if (setContext) {
           setContext((ctx) => ({ ...ctx, refreshing: true }));

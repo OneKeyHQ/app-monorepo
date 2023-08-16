@@ -2,8 +2,8 @@
 <androidx.swiperefreshlayout.widget.SwipeRefreshLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/layout_refresh"
-    android:layout_height="match_parent"
-    android:layout_width="match_parent">
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
 
     <androidx.coordinatorlayout.widget.CoordinatorLayout
         android:id="@+id/coordinator"
@@ -25,32 +25,32 @@
 
             </com.google.android.material.appbar.CollapsingToolbarLayout>
 
+            <androidx.appcompat.widget.LinearLayoutCompat
+                android:id="@+id/content"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                app:layout_scrollFlags="scroll|enterAlways">
+
+                <so.onekey.app.wallet.widget.SlidingTabLayout2
+                    android:id="@+id/layout_tab"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    app:tl_indicator_style="NORMAL"
+                    app:tl_textBold="BOTH" />
+
+                <View
+                    android:id="@+id/view_tab_divider"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp" />
+
+            </androidx.appcompat.widget.LinearLayoutCompat>
         </com.google.android.material.appbar.AppBarLayout>
 
-        <androidx.appcompat.widget.LinearLayoutCompat
-            android:id="@+id/content"
+        <androidx.viewpager2.widget.ViewPager2
+            android:id="@+id/viewpager"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical"
-            app:layout_behavior="@string/appbar_scrolling_view_behavior">
-
-            <so.onekey.app.wallet.widget.SlidingTabLayout2
-                android:id="@+id/layout_tab"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                app:tl_indicator_style="NORMAL"
-                app:tl_textBold="BOTH" />
-
-            <View
-                android:id="@+id/view_tab_divider"
-                android:layout_width="match_parent"
-                android:layout_height="1dp" />
-
-            <androidx.viewpager2.widget.ViewPager2
-                android:id="@+id/viewpager"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent" />
-
-        </androidx.appcompat.widget.LinearLayoutCompat>
+            app:layout_behavior="@string/appbar_scrolling_view_behavior" />
     </androidx.coordinatorlayout.widget.CoordinatorLayout>
 </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
