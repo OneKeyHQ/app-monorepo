@@ -56,7 +56,10 @@ const LNURLPayRequest = () => {
     transferInfo: dAppTransferInfo,
   } = useDappParams();
 
-  const dappApprove = useDappApproveAction({ id: sourceInfo?.id ?? '' });
+  const dappApprove = useDappApproveAction({
+    id: sourceInfo?.id ?? '',
+    closeWindowAfterResolved: true,
+  });
 
   const lnurlDetails = useMemo(() => {
     if (isSendFlow) {
@@ -283,8 +286,12 @@ const LNURLPayRequest = () => {
       onPrimaryActionPress={() => doSubmit()}
       secondaryActionTranslationId="action__cancel"
       onSecondaryActionPress={() => {
-        if (navigation?.canGoBack?.()) {
-          navigation.goBack();
+        if (isSendFlow) {
+          if (navigation?.canGoBack?.()) {
+            navigation.goBack();
+          }
+        } else {
+          dappApprove.reject();
         }
       }}
       height="auto"

@@ -19,10 +19,7 @@ import LNSignMessageForm from '../components/LNSignMessageForm';
 
 import type { ISignMessageFormValues } from '../components/LNSignMessageForm';
 import type { WeblnModalRoutes, WeblnRoutesParams } from './types';
-import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type RouteProps = RouteProp<WeblnRoutesParams, WeblnModalRoutes.VerifyMessage>;
 
 type NavigationProps = NativeStackNavigationProp<
   WeblnRoutesParams,
@@ -33,13 +30,13 @@ const WeblnSignMessage = () => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
-  const route = useRoute<RouteProps>();
 
   const { sourceInfo, networkId, accountId } = useDappParams();
   const { message, signature } = sourceInfo?.data.params as VerifyMessageArgs;
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
+    closeWindowAfterResolved: true,
   });
 
   const useFormReturn = useForm<ISignMessageFormValues>();

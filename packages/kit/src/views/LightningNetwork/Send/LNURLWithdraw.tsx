@@ -52,7 +52,10 @@ const LNURLWithdraw = () => {
     ? routeLnurlDetails
     : (dAppLnurlDetails as LNURLWithdrawServiceResponse);
 
-  const dappApprove = useDappApproveAction({ id: sourceInfo?.id ?? '' });
+  const dappApprove = useDappApproveAction({
+    id: sourceInfo?.id ?? '',
+    closeWindowAfterResolved: true,
+  });
 
   const { network } = useNetwork({ networkId });
   const useFormReturn = useForm<IMakeInvoiceFormValues>();

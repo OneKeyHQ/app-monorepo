@@ -13,7 +13,7 @@ import type {
   SignMessageResponse,
   VerifyMessageArgs,
 } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/webln';
-import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   ModalRoutes,
   SendModalRoutes,

@@ -62,7 +62,10 @@ const LNURLAuth = () => {
     ? routeLnurlDetails
     : (dAppLnurlDetails as LNURLAuthServiceResponse);
 
-  const dappApprove = useDappApproveAction({ id: sourceInfo?.id ?? '' });
+  const dappApprove = useDappApproveAction({
+    id: sourceInfo?.id ?? '',
+    closeWindowAfterResolved: true,
+  });
 
   const { account } = useAccount({
     accountId: accountId ?? '',
@@ -279,8 +282,12 @@ const LNURLAuth = () => {
       onPrimaryActionPress={() => onConfirmWithAuth()}
       secondaryActionTranslationId="action__cancel"
       onSecondaryActionPress={() => {
-        if (navigation?.canGoBack?.()) {
-          navigation.goBack();
+        if (isSendFlow) {
+          if (navigation?.canGoBack?.()) {
+            navigation.goBack();
+          }
+        } else {
+          dappApprove.reject();
         }
       }}
       height="auto"

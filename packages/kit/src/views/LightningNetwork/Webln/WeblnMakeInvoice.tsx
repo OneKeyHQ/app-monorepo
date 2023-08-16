@@ -38,6 +38,7 @@ const WeblnMakeInvoice = () => {
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
+    closeWindowAfterResolved: true,
   });
 
   const useFormReturn = useForm<IMakeInvoiceFormValues>({
