@@ -58,6 +58,9 @@
 -(void)dealloc {
   NSLog(@"pagingview dealloc");
   [self stopObservingViewPosition];
+  if (_pagingView.listContainerView.scrollView) {
+    [_pagingView.listContainerView.scrollView removeObserver:self forKeyPath:@"contentOffset"];
+  }
 }
 
 - (void)startObservingViewPosition {
@@ -230,9 +233,21 @@
       _pagingView.mainTableView.refreshControl = self.refreshControl;
       [_pagingView.mainTableView addSubview:self.refreshControl];
     }
+    [_pagingView.listContainerView.scrollView addObserver:self forKeyPath:@"contentOffset" options:NSKeyValueObservingOptionNew context:nil];
     [self addSubview:_pagingView];
   }
   return _pagingView;
+}
+
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
+  if (object == _pagingView.listContainerView.scrollView && [keyPath isEqualToString:@"contentOffset"]) {
+    if(!_isScrolling) {
+      _isScrolling = YES;
+      if (_onPageStartScroll) {
+        _onPageStartScroll(@{});
+      }
+    }
+  }
 }
 
 - (void)categoryView:(JXCategoryBaseView *)categoryView didSelectedItemAtIndex:(NSInteger)index {
@@ -240,16 +255,6 @@
   if (_onPageChange) {
     NSDictionary *value = _values[index];
     _onPageChange(@{@"tabName":value[@"name"],@"index":@(index)});
-  }
-}
-
-// To resolve the refresh issue, delete the code
-- (void)categoryView:(JXCategoryBaseView *)categoryView scrollingFromLeftIndex:(NSInteger)leftIndex toRightIndex:(NSInteger)rightIndex ratio:(CGFloat)ratio {
-  if(!_isScrolling){
-    _isScrolling = YES;
-    if (_onPageStartScroll) {
-      _onPageStartScroll(@{});
-    }
   }
 }
 
