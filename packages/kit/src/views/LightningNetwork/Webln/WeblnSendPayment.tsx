@@ -185,7 +185,7 @@ const WeblnSendPayment = () => {
 
   return (
     <Modal
-      header="Invoice Pay"
+      header={intl.formatMessage({ id: 'title__invoice_pay' })}
       headerDescription={<LNModalDescription networkId={networkId} />}
       primaryActionTranslationId="action__next"
       primaryActionProps={{
@@ -222,6 +222,7 @@ const WeblnSendPayment = () => {
             memo={description}
             nativeToken={nativeToken}
             amountReadOnly={amount.toNumber() !== 0}
+            descriptionLabelId="title__invoice_description"
           />
         ),
       }}

@@ -110,7 +110,9 @@ const WeblnMakeInvoice = () => {
 
   return (
     <Modal
-      header="Create Invoice"
+      header={intl.formatMessage({
+        id: 'title__create_invoice',
+      })}
       headerDescription={<LNModalDescription networkId={networkId} />}
       primaryActionTranslationId="action__create"
       primaryActionProps={{

@@ -55,16 +55,26 @@ const WeblnSignMessage = () => {
             message,
             signature,
           });
-        if (!result) {
-          dappApprove.reject();
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          close?.();
-          return;
-        }
-        await dappApprove.resolve({
-          close,
-          result,
+
+        ToastManager.show({
+          title: intl.formatMessage({
+            id: !result
+              ? 'msg__verification_error_invalid_signature'
+              : 'msg__message_verification_successful',
+          }),
         });
+        setTimeout(() => {
+          if (!result) {
+            dappApprove.reject();
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+            close?.();
+            return;
+          }
+          dappApprove.resolve({
+            close,
+            result,
+          });
+        }, 300);
       } catch (e: any) {
         const { key, info } = e;
         if (key && key !== 'onekey_error') {
@@ -96,9 +106,9 @@ const WeblnSignMessage = () => {
 
   return (
     <Modal
-      header="Invoice Pay"
+      header={intl.formatMessage({ id: 'title__verify_message' })}
       headerDescription={<LNModalDescription networkId={networkId} />}
-      primaryActionTranslationId="action__confirm"
+      primaryActionTranslationId="action__verify__webln"
       primaryActionProps={{
         isDisabled: isLoading,
         isLoading,

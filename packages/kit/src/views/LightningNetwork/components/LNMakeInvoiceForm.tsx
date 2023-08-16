@@ -197,7 +197,7 @@ const LNMakeInvoiceForm = (props: IMakeInvoiceFormProps) => {
       {!isWebln ? (
         <Form.Item
           label={intl.formatMessage({
-            id: descriptionLabelId ?? 'form__description__optional',
+            id: descriptionLabelId ?? 'form__description',
           })}
           control={control}
           name="description"
@@ -299,7 +299,7 @@ const LNMakeInvoiceForm = (props: IMakeInvoiceFormProps) => {
       />
       {isWebln ? (
         <Form.Item
-          label={intl.formatMessage({ id: 'form__description__optional' })}
+          label={intl.formatMessage({ id: 'form__description' })}
           control={control}
           name="description"
           formControlProps={{ width: 'full' }}

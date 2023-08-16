@@ -231,7 +231,7 @@ const CreateInvoice = () => {
               )}
             />
             <Form.Item
-              label={intl.formatMessage({ id: 'form__description__optional' })}
+              label={intl.formatMessage({ id: 'form__description' })}
               control={control}
               name="description"
               formControlProps={{ width: 'full' }}
