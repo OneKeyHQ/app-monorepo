@@ -60,34 +60,6 @@ function createDevServerProxy() {
       changeOrigin: true,
       ws: true,
     },
-    '/react-render-tracker@0.7.3/dist/react-render-tracker.js': {
-      // https://unpkg.com/react-render-tracker@0.7.3/dist/react-render-tracker.js
-      target: 'https://unpkg.com',
-      changeOrigin: true,
-      logLevel: 'debug',
-      onProxyRes: async (proxyRes, req, res) => {
-        if (
-          req.headers &&
-          req.headers.cookie &&
-          req.headers.cookie.includes('rrt=1')
-        ) {
-          proxyRes.headers['Cache-Control'] =
-            'no-store, no-cache, must-revalidate, proxy-revalidate';
-          proxyRes.headers.Expires = '0';
-          proxyRes.headers.Age = '0';
-        } else {
-          res.setHeader(
-            'Cache-Control',
-            'no-store, no-cache, must-revalidate, proxy-revalidate',
-          );
-          res.setHeader('Content-Type', 'text/javascript');
-          res.setHeader('Age', '0');
-          res.setHeader('Expires', '0');
-          res.write(`console.log('react-render-tracker is disabled')`);
-          res.end();
-        }
-      },
-    },
   };
 }
 
