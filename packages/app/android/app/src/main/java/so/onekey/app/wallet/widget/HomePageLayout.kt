@@ -1,10 +1,10 @@
 package so.onekey.app.wallet.widget
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.util.AttributeSet
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -16,14 +16,17 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.viewpager2.widget.CompositePageTransformer
 import androidx.viewpager2.widget.ViewPager2
 import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
-import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReactContext
-import com.facebook.react.uimanager.events.RCTEventEmitter
+import com.facebook.react.uimanager.UIManagerHelper
+import com.facebook.react.uimanager.UIManagerModule
 import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.appbar.CollapsingToolbarLayout
 import so.onekey.app.wallet.R
 import so.onekey.app.wallet.utils.Utils
 import so.onekey.app.wallet.viewManager.homePage.TabProps
+import so.onekey.app.wallet.viewManager.homePage.event.PageSelectedEvent
+import so.onekey.app.wallet.viewManager.homePage.event.PageStartScrollEvent
+import so.onekey.app.wallet.viewManager.homePage.event.SwipeRefreshEvent
 
 
 data class TabViewStyle(
@@ -51,15 +54,17 @@ open class HomePageLayout @JvmOverloads constructor(
     private var mAppBarExtended = true
     private var mHeaderHeight = 56
 
+    val eventDispatcher =
+        (context as ReactContext).getNativeModule(UIManagerModule::class.java)?.eventDispatcher
+
     private val mPageChangeCallback = object : OnPageChangeCallback() {
-        var currentPosition = 0
         var currentState = ViewPager2.SCROLL_STATE_IDLE
 
         override fun onPageSelected(position: Int) {
             super.onPageSelected(position)
 
             if (mTabProps.isNotEmpty() && position >= 0 && position < mTabProps.size) {
-                currentPosition = position
+                sendChangeTabsNativeEvent(position, mTabProps[position])
             }
         }
 
@@ -68,14 +73,18 @@ open class HomePageLayout @JvmOverloads constructor(
                 it.isEnabled =
                     if (state == ViewPager2.SCROLL_STATE_IDLE) mRefreshEnabled && mAppBarExtended else false
             }
-            if ((state == ViewPager2.SCROLL_STATE_IDLE || state == ViewPager2.SCROLL_STATE_SETTLING) && currentPosition >= 0 && currentPosition < mTabProps.size) {
-                sendChangeTabsNativeEvent(currentPosition, mTabProps[currentPosition])
-            }
 
             if (currentState == ViewPager2.SCROLL_STATE_IDLE && state == ViewPager2.SCROLL_STATE_DRAGGING) {
                 sendStartChangeTabsNativeEvent()
             }
             currentState = state
+//            eventDispatcher?.dispatchEvent(
+//                PageScrollStateChangedEvent(
+//                    UIManagerHelper.getSurfaceId(context),
+//                    id,
+//                    PageScrollStateChangedEvent.stateToPageScrollState(state)
+//                )
+//            )
         }
     }
 
@@ -85,20 +94,15 @@ open class HomePageLayout @JvmOverloads constructor(
         }
 
     fun sendChangeTabsNativeEvent(index: Int, tabProps: TabProps) {
-        val event = Arguments.createMap()
-        event.putString("tabName", tabProps.name)
-        event.putInt("index", index)
-        val reactContext = context as ReactContext
-        reactContext
-            .getJSModule(RCTEventEmitter::class.java)
-            .receiveEvent(id, "tabPageChange", event)
+        eventDispatcher?.dispatchEvent(
+            PageSelectedEvent(UIManagerHelper.getSurfaceId(context), id, index, tabProps.name)
+        )
     }
 
     fun sendStartChangeTabsNativeEvent() {
-        val reactContext = context as ReactContext
-        reactContext
-            .getJSModule(RCTEventEmitter::class.java)
-            .receiveEvent(id, "startTabPageChange", null)
+        eventDispatcher?.dispatchEvent(
+            PageStartScrollEvent(UIManagerHelper.getSurfaceId(context), id)
+        )
     }
 
     fun setHeaderHeight(height: Int) {
@@ -147,23 +151,18 @@ open class HomePageLayout @JvmOverloads constructor(
     fun initRefreshListener() {
         content.findViewById<SwipeRefreshLayout>(R.id.layout_refresh)?.let {
             it.setOnRefreshListener {
-                val event = Arguments.createMap()
-                event.putBoolean("refresh", true)
+                it.isRefreshing = true
+
                 val reactContext = context as ReactContext
-                reactContext
-                    .getJSModule(RCTEventEmitter::class.java)
-                    .receiveEvent(id, "swipeRefreshChange", event)
+                UIManagerHelper.getEventDispatcherForReactTag(reactContext, id)?.dispatchEvent(
+                    SwipeRefreshEvent(UIManagerHelper.getSurfaceId(reactContext), id, true)
+                )
             }
 
             content.findViewById<AppBarLayout>(R.id.appbar)
                 ?.addOnOffsetChangedListener(object : AppBarLayout.OnOffsetChangedListener {
                     override fun onOffsetChanged(appBarLayout: AppBarLayout?, verticalOffset: Int) {
-                        if (verticalOffset >= 0) {
-                            mAppBarExtended = true
-                        } else {
-                            mAppBarExtended = false
-                        }
-
+                        mAppBarExtended = verticalOffset >= 0
                         it.isEnabled = mRefreshEnabled && mAppBarExtended
                     }
                 })
@@ -218,7 +217,7 @@ open class HomePageLayout @JvmOverloads constructor(
             val contentView = content.findViewById<CollapsingToolbarLayout>(R.id.toolbar)
             return contentView?.getChildAt(0)
         }
-        return getAdapter()?.getFragment(index - 1)?.childView
+        return getAdapter()?.getPageView(index - 1)
     }
 
     fun addChildView(child: View?, index: Int) {
@@ -227,7 +226,7 @@ open class HomePageLayout @JvmOverloads constructor(
             setHeaderView(child, this.mHeaderHeight)
         } else if (index <= mTabProps.size) {
             child.let {
-                getAdapter()?.addFragment(ViewFragment(it), position = index - 1)
+                getAdapter()?.addPageView(it, position = index - 1)
             }
         }
         requestLayout()
@@ -237,7 +236,7 @@ open class HomePageLayout @JvmOverloads constructor(
         if (index == 0) {
             removeHeaderView()
         } else if (index <= mTabProps.size) {
-            getAdapter()?.removeFragmentAt(index - 1)
+            getAdapter()?.removePageViewAt(index - 1)
         }
     }
 
@@ -245,18 +244,19 @@ open class HomePageLayout @JvmOverloads constructor(
         if (getHeaderView() == view) {
             removeHeaderView()
         } else {
-            getAdapter()?.removeFragment(view)
+            getAdapter()?.removePageView(view)
         }
     }
 
-    fun getAdapter(): InnerPagerAdapter? {
-        return content.findViewById<ViewPager2>(R.id.viewpager)?.adapter as InnerPagerAdapter?
+    fun getAdapter(): SimplePagerAdapter? {
+        return content.findViewById<ViewPager2>(R.id.viewpager)?.adapter as SimplePagerAdapter?
     }
 
     fun setViewPager(fragmentActivity: FragmentActivity) {
         setViewPager(fragmentActivity, mTabTitles)
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private fun setViewPager(
         fragmentActivity: FragmentActivity,
         titles: List<String>
@@ -264,7 +264,7 @@ open class HomePageLayout @JvmOverloads constructor(
         val tabLayout = content.findViewById<SlidingTabLayout2>(R.id.layout_tab)
         val viewpager = content.findViewById<ViewPager2>(R.id.viewpager)
 
-        val adapter = InnerPagerAdapter(fragmentActivity, fragmentActivity.lifecycle)
+        val adapter = SimplePagerAdapter()
         viewpager.adapter = adapter
         // remove recyclerView add view animation
         viewpager.setPageTransformer(CompositePageTransformer())
@@ -352,6 +352,4 @@ open class HomePageLayout @JvmOverloads constructor(
             tabDividerView.visibility = View.GONE
         }
     }
-
-
 }
