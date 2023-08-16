@@ -191,7 +191,7 @@ const LNURLAuth = () => {
     return connectTip(
       'CheckSolid',
       intl.formatMessage({
-        id: 'content__allow_dapp_to_register_with_onekey',
+        id: 'content__request_lnurl_linkingkey',
       }),
     );
   }, [connectTip, lnurlDetails, intl]);
