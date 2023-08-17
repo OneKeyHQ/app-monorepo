@@ -2,6 +2,10 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { cloneDeep, debounce } from 'lodash';
 
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
+import type {
+  Account,
+  DBVariantAccount,
+} from '@onekeyhq/engine/src/types/account';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import { buildModalRouteParams } from '@onekeyhq/kit/src/hooks/useAutoNavigateOnMount';
 import type {
@@ -43,6 +47,7 @@ import {
   IMPL_COSMOS,
   IMPL_SOL,
   SEPERATOR,
+  isLightningNetwork,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import urlUtils from '@onekeyhq/shared/src/utils/urlUtils';
@@ -105,7 +110,15 @@ class ServiceDapp extends ServiceBase {
     impl: string;
   }): DappSiteConnection[] {
     const { appSelector } = this.backgroundApi;
-    const { accountAddress, accountId } = getActiveWalletAccount();
+    const {
+      accountAddress: activeAccountAddress,
+      accountId,
+      account,
+    } = getActiveWalletAccount();
+    const accountAddress = this.getAccountAddress({
+      accountAddress: activeAccountAddress,
+      account,
+    });
     const connections: DappSiteConnection[] = appSelector(
       (s) => s.dapp.connections,
     );
@@ -161,6 +174,24 @@ class ServiceDapp extends ServiceBase {
       return list;
     }
     return accounts;
+  }
+
+  getAccountAddress({
+    accountAddress,
+    account,
+  }: {
+    accountAddress: string;
+    account: Account | null | undefined;
+  }) {
+    if (!account) return '';
+    if (isLightningNetwork(account.coinType)) {
+      const addresses: DBVariantAccount['addresses'] =
+        account.addresses && !!account.addresses.length
+          ? JSON.parse(account.addresses)
+          : {};
+      return addresses?.hashAddress || '';
+    }
+    return accountAddress;
   }
 
   @backgroundMethod()

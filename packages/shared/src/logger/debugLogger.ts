@@ -129,7 +129,7 @@ const consoleFunc = (msg: string, props: IConsoleFuncProps) => {
   }
 
   if (repeatContentCount > 0) {
-    const message = `---[${repeatContentCount}]`
+    const message = `---[${repeatContentCount}]`;
     repeatContentCount = 0;
     consoleFunc(message, {
       ...props,
