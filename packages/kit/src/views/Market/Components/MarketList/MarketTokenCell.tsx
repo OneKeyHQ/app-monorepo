@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { memo, useCallback, useMemo, useRef } from 'react';
+import { memo, useCallback, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -18,7 +18,6 @@ import {
   Token,
   Typography,
   useIsVerticalLayout,
-  useUserDevice,
 } from '@onekeyhq/components';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -29,8 +28,11 @@ import type { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
 import { MARKET_FAVORITES_CATEGORYID } from '@onekeyhq/kit/src/store/reducers/market';
 
 import { useCurrencyUnit } from '../../../Me/GenaralSection/CurrencySelect/hooks';
-import { EMarketCellData } from '../../config';
+import { coingeckoId2StakingTypes } from '../../../Staking/utils';
+import { MarketStakeButton } from '../../../Staking/Widgets/MarketStakingButton';
+import { EMarketCellData, MARKET_LIST_COLUMN_SHOW_WIDTH_1 } from '../../config';
 import { useMarketSelectedCategoryId } from '../../hooks/useMarketCategory';
+import { useMarketWidthLayout } from '../../hooks/useMarketList';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 import {
   formatDecimalZero,
@@ -77,6 +79,53 @@ const MarketTokenSwapEnable = ({ tokens }: { tokens?: TokenType[] }) => {
   return <Skeleton shape="Caption" />;
 };
 
+const MarketCollectStartButton = ({
+  marketTokenItem,
+}: {
+  marketTokenItem: MarketTokenItem;
+}) => {
+  const intl = useIntl();
+  return (
+    <Pressable
+      flexDirection="row"
+      alignItems="center"
+      rounded="full"
+      _hover={{ bgColor: 'surface-hovered' }}
+      _pressed={{ bgColor: 'surface-pressed' }}
+      onPress={() => {
+        if (marketTokenItem.favorited) {
+          backgroundApiProxy.serviceMarket.cancelMarketFavoriteToken(
+            marketTokenItem.coingeckoId,
+          );
+          ToastManager.show({
+            title: intl.formatMessage({
+              id: 'msg__removed',
+            }),
+          });
+        } else {
+          backgroundApiProxy.serviceMarket.saveMarketFavoriteTokens([
+            {
+              coingeckoId: marketTokenItem.coingeckoId,
+              symbol: marketTokenItem.symbol,
+            },
+          ]);
+          ToastManager.show({
+            title: intl.formatMessage({
+              id: 'msg__added_to_favorites',
+            }),
+          });
+        }
+      }}
+    >
+      <Icon
+        name={marketTokenItem.favorited ? 'StarSolid' : 'StarOutline'}
+        size={20}
+        color={marketTokenItem.favorited ? 'icon-warning' : 'icon-subdued'}
+      />
+    </Pressable>
+  );
+};
+
 const MarketTokenCell: FC<MarketTokenCellProps> = ({
   onPress,
   marketTokenId,
@@ -86,11 +135,9 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
   const isVerticalLayout = useIsVerticalLayout();
   const { selectedFiatMoneySymbol } = useSettings();
   const unit = useCurrencyUnit(selectedFiatMoneySymbol);
-  const { size } = useUserDevice();
-  const isNormalDevice = useMemo(() => ['NORMAL'].includes(size), [size]);
+  const { marketFillWidth } = useMarketWidthLayout();
   const selectedCategoryId = useMarketSelectedCategoryId();
-
-  const intl = useIntl();
+  const stakingType = coingeckoId2StakingTypes[marketTokenId];
   const marketTokenItem: MarketTokenItem | undefined = useMarketTokenItem({
     coingeckoId: marketTokenId,
     isList: true,
@@ -123,70 +170,33 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
     >
       {headTags.map((tag) => {
         switch (tag.id) {
-          case EMarketCellData.CollectionStar: {
+          case EMarketCellData.CollectionStarOrSerialNumber: {
             return (
               <ListItem.Column key={tag.id}>
                 <HStack
                   alignItems="center"
-                  justifyContent="center"
+                  justifyContent={
+                    tag.isSearch ? 'center' : tag?.textAlign ?? 'center'
+                  }
                   w={!tag.isSearch ? tag.minW : undefined}
                 >
                   {!marketTokenItem ? (
                     <Skeleton shape="Avatar" size={20} />
                   ) : (
-                    <Pressable
-                      p={tag.isSearch ? 0 : 1}
-                      flexDirection="row"
-                      alignItems="center"
-                      rounded="full"
-                      _hover={{ bgColor: 'surface-hovered' }}
-                      _pressed={{ bgColor: 'surface-pressed' }}
-                      onPress={() => {
-                        if (marketTokenItem.favorited) {
-                          backgroundApiProxy.serviceMarket.cancelMarketFavoriteToken(
-                            marketTokenItem.coingeckoId,
-                          );
-                          ToastManager.show({
-                            title: intl.formatMessage({
-                              id: 'msg__removed',
-                            }),
-                          });
-                        } else {
-                          backgroundApiProxy.serviceMarket.saveMarketFavoriteTokens(
-                            [
-                              {
-                                coingeckoId: marketTokenItem.coingeckoId,
-                                symbol: marketTokenItem.symbol,
-                              },
-                            ],
-                          );
-                          ToastManager.show({
-                            title: intl.formatMessage({
-                              id: 'msg__added_to_favorites',
-                            }),
-                          });
-                        }
-                      }}
-                    >
-                      <Icon
-                        name={
-                          marketTokenItem.favorited
-                            ? 'StarSolid'
-                            : 'StarOutline'
-                        }
-                        size={20}
-                        color={
-                          marketTokenItem.favorited
-                            ? 'icon-warning'
-                            : 'icon-subdued'
-                        }
-                      />
-                      {!tag.isSearch && (
-                        <Typography.Body2Strong ml={0.5}>
+                    <>
+                      {tag.isSearch ? (
+                        <MarketCollectStartButton
+                          marketTokenItem={marketTokenItem}
+                        />
+                      ) : (
+                        <Typography.Body2Strong
+                          ml={0.5}
+                          textAlign={tag?.textAlign ?? 'center'}
+                        >
                           {marketTokenItem.serialNumber ?? '-'}
                         </Typography.Body2Strong>
                       )}
-                    </Pressable>
+                    </>
                   )}
                 </HStack>
               </ListItem.Column>
@@ -195,7 +205,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
           case EMarketCellData.TokenInfo: {
             return (
               <ListItem.Column key={tag.id}>
-                <HStack alignItems="center" flex={1} space={3}>
+                <HStack alignItems="center" w={tag?.minW ?? '100px'} space={3}>
                   {marketTokenItem && marketTokenItem.logoURI !== undefined ? (
                     <Token
                       size={8}
@@ -216,6 +226,9 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                         typography={
                           tag.isSearch ? 'Body2Strong' : 'Body1Strong'
                         }
+                        ellipsizeMode="tail"
+                        numberOfLines={1}
+                        w="80px"
                       >
                         {marketTokenItem.symbol}
                       </Text>
@@ -224,8 +237,14 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                     )}
                     {marketTokenItem &&
                     marketTokenItem.marketCap !== undefined ? (
-                      <Typography.Body2 numberOfLines={1} color="text-subdued">
-                        {isVerticalLayout || isNormalDevice
+                      <Typography.Body2
+                        numberOfLines={1}
+                        color="text-subdued"
+                        ellipsizeMode="tail"
+                        w="80px"
+                      >
+                        {isVerticalLayout ||
+                        marketFillWidth <= MARKET_LIST_COLUMN_SHOW_WIDTH_1
                           ? formatMarketUnitPosition(
                               unit,
                               formatMarketValueForInfo(
@@ -444,12 +463,40 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
               <ListItem.Column key={tag.id}>
                 <Box
                   flexDirection="row"
-                  justifyContent="center"
+                  justifyContent="left"
                   flex={1}
                   ref={moreButtonRef}
                 >
                   {marketTokenItem ? (
                     <MarketTokenSwapEnable tokens={marketTokenItem.tokens} />
+                  ) : (
+                    <Skeleton shape="Caption" />
+                  )}
+                  {stakingType && (
+                    <Box ml="2">
+                      <MarketStakeButton
+                        stakingType={stakingType}
+                        buttonType="text"
+                      />
+                    </Box>
+                  )}
+                </Box>
+              </ListItem.Column>
+            );
+          }
+          case EMarketCellData.TokenCollectionStarAndMore: {
+            return (
+              <ListItem.Column key={tag.id}>
+                <Box
+                  flexDirection="row"
+                  justifyContent="center"
+                  flex={1}
+                  ref={moreButtonRef}
+                >
+                  {marketTokenItem ? (
+                    <MarketCollectStartButton
+                      marketTokenItem={marketTokenItem}
+                    />
                   ) : (
                     <Skeleton shape="Caption" />
                   )}

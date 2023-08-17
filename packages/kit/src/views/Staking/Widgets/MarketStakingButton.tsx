@@ -3,6 +3,7 @@ import { type FC, useCallback, useState } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
+import { Button } from '@onekeyhq/components';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -21,6 +22,7 @@ import { WidgetContainer } from './WidgetContainer';
 
 type MarketStakeButtonContentProps = {
   stakingType: string;
+  buttonType?: 'icon' | 'text';
 };
 
 const getStakingRoute = (stakingType: string) => {
@@ -35,6 +37,7 @@ const getStakingRoute = (stakingType: string) => {
 
 export const MarketStakeButtonContent: FC<MarketStakeButtonContentProps> = ({
   stakingType,
+  buttonType = 'icon',
 }) => {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
@@ -68,20 +71,30 @@ export const MarketStakeButtonContent: FC<MarketStakeButtonContentProps> = ({
     }
   }, [selectNetworkAccount, navigation, stakingType]);
   return stakingType && !loading ? (
-    <ButtonItem
-      icon="InboxArrowDownMini"
-      text={intl.formatMessage({ id: 'action__stake' })}
-      onPress={onPress}
-    />
+    <>
+      {buttonType === 'icon' ? (
+        <ButtonItem
+          icon="InboxArrowDownMini"
+          text={intl.formatMessage({ id: 'action__stake' })}
+          onPress={onPress}
+        />
+      ) : (
+        <Button borderRadius={12} type="basic" size="xs" onPress={onPress}>
+          {intl.formatMessage({ id: 'action__stake' })}
+        </Button>
+      )}
+    </>
   ) : null;
 };
 
 type MarketStakeButtonProps = {
   stakingType: string;
+  buttonType?: 'icon' | 'text';
 };
 
 export const MarketStakeButton: FC<MarketStakeButtonProps> = ({
   stakingType,
+  buttonType,
 }) => {
   const { accountId, networkId } = useActiveWalletAccount();
   if (
@@ -90,7 +103,10 @@ export const MarketStakeButton: FC<MarketStakeButtonProps> = ({
   ) {
     return (
       <WidgetContainer stakingType={stakingType}>
-        <MarketStakeButtonContent stakingType={stakingType} />
+        <MarketStakeButtonContent
+          stakingType={stakingType}
+          buttonType={buttonType}
+        />
       </WidgetContainer>
     );
   }

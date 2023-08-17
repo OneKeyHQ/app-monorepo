@@ -9,6 +9,7 @@ const fs = require('fs');
 
 const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
 const DuplicatePackageCheckerPlugin = require('duplicate-package-checker-webpack-plugin');
+const { SubresourceIntegrityPlugin } = require('webpack-subresource-integrity');
 const devUtils = require('@onekeyhq/ext/development/devUtils');
 const developmentConsts = require('./developmentConsts');
 const indexHtmlParameter = require('./indexHtmlParameter');
@@ -101,6 +102,8 @@ function normalizeConfig({
   let resolveExtensions = createDefaultResolveExtensions();
   if (platform) {
     if (PUBLIC_URL) config.output.publicPath = PUBLIC_URL;
+    if (platform === 'web' && !isDev)
+      config.output.crossOriginLoading = 'anonymous'; // Required for subresource integrity to work
     config.output.filename = '[name].bundle.js';
 
     config.plugins = [
@@ -120,6 +123,7 @@ function normalizeConfig({
         'process.env.PUBLIC_URL': PUBLIC_URL,
       }),
       isDev ? new ReactRefreshWebpackPlugin({ overlay: false }) : null,
+      platform === 'web' && !isDev ? new SubresourceIntegrityPlugin() : null,
     ].filter(Boolean);
 
     // Compile entrypoints and dynamic imports only when they are in use.
