@@ -94,12 +94,12 @@ export function checkOneKeyCardGoogleOauthUrl({
   url: string;
 }): boolean {
   const origin = getOriginFromUrl({ url });
-  return (
-    origin === 'https://card.onekey.so' ||
-    origin === 'https://card.onekeytest.com' ||
-    origin ===
-      'https://precard-762def0c-eacd-49b3-ad89-0bf807b37f57.onekeycn.com'
-  );
+  return [
+    'https://card.onekey.so',
+    'https://card.onekeytest.com',
+    'https://precard-762def0c-eacd-49b3-ad89-0bf807b37f57.onekeycn.com',
+    'https://accounts.google.com',
+  ].includes(origin);
 }
 
 export const getUrlDomain = (url: string) => {
