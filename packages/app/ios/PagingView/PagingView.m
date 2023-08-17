@@ -13,11 +13,13 @@
 #import "UIColor+Hex.h"
 #import <React/RCTUtils.h>
 #import "JXCategoryView.h"
+#import "UICollectionView+swizzled.h"
 
 @interface PagingView ()<JXPagerViewDelegate,JXCategoryViewDelegate>
 @property (nonatomic, strong) JXPagerView *pagingView;
 @property (nonatomic, copy) RCTBubblingEventBlock onPageChange;
 @property (nonatomic, copy) RCTBubblingEventBlock onPageStartScroll;
+@property (nonatomic, copy) RCTBubblingEventBlock onPageVerticalScroll;
 @property (nonatomic, copy) RCTBubblingEventBlock onRefreshCallBack;
 
 @property (nonatomic, assign) CGFloat headerHeight;
@@ -289,6 +291,15 @@
 - (id<JXPagerViewListViewDelegate>)pagerView:(JXPagerView *)pagerView initListAtIndex:(NSInteger)index {
   PagingViewContainer *view = [[PagingViewContainer alloc] initWithReactView:self.reactSubviews[index + 1]];
   return view;
+}
+
+- (void)pagerView:(JXPagerView *)pagerView mainTableViewWillBeginDragging:(UIScrollView *)scrollView {
+  if(_isScrolling) {
+    _isScrolling = NO;
+    if (_onPageVerticalScroll) {
+      _onPageVerticalScroll(@{});
+    }
+  }
 }
 
 @end
