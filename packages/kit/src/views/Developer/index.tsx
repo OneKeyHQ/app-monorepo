@@ -887,16 +887,6 @@ export const Debug = () => {
                 </Typography.Body1>
               )}
             </Pressable>
-            <Pressable
-              {...pressableProps}
-              onPress={() => {
-                navigation.navigate(RootRoutes.Gallery, {
-                  screen: GalleryRoutes.ComponentMonitor,
-                });
-              }}
-            >
-              <Typography.Body1>Metric Monitor</Typography.Body1>
-            </Pressable>
           </VStack>
         </Box>
       </Box>

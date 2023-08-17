@@ -45,24 +45,15 @@ import timelinePerfTrace from '@onekeyhq/shared/src/perf/timelinePerfTrace';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NetworkAccountSelectorTrigger } from '../../../components/NetworkAccountSelector';
-import { GalleryRoutes, RootRoutes } from '../../../routes/routesEnum';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { EAccountSelectorMode } from '../../../store/reducers/reducerAccountSelector';
+import { MonitorRoutes } from '../../Monitor/types';
 
 import {
   requestsInterceptTest,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   requestsInterceptTest2,
 } from './requestsInterceptTest';
-
-import type { GalleryParams } from '../../../routes/Root/Gallery';
-import type { RootRoutesParams } from '../../../routes/types';
-import type { CompositeNavigationProp } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type NavigationProps = CompositeNavigationProp<
-  NativeStackNavigationProp<RootRoutesParams, RootRoutes.Main>,
-  NativeStackNavigationProp<GalleryParams, GalleryRoutes.Components>
->;
 
 interface IOneKeyPerfCheckPayload {
   testID?: string;
@@ -98,6 +89,7 @@ function usePerfCheck({ enablePerfCheck }: { enablePerfCheck?: boolean }) {
   }, [enablePerfCheck]);
 }
 const emptyObj: any = Object.freeze({});
+
 export const DevSettingSection = () => {
   const { themeVariant } = useTheme();
   const { devMode, pushNotification, instanceId } = useSettings();
@@ -122,7 +114,7 @@ export const DevSettingSection = () => {
   const intl = useIntl();
   usePerfCheck({ enablePerfCheck });
 
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation();
 
   const pushId = useMemo(() => {
     if (platformEnv.isNative) {
@@ -433,8 +425,11 @@ export const DevSettingSection = () => {
           <Button
             size="xs"
             onPress={() => {
-              navigation.navigate(RootRoutes.Gallery, {
-                screen: GalleryRoutes.ComponentMonitor,
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.Monitor,
+                params: {
+                  screen: MonitorRoutes.monitorSetting,
+                },
               });
             }}
           >

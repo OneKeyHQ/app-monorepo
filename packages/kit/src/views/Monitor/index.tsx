@@ -6,7 +6,7 @@ import { Box, ScrollView, Text } from '@onekeyhq/components';
 
 import type { metrixUpdateInfo } from 'react-native-metrix/src/NativeMetrix';
 
-const MonitorGallery = () => {
+export const MonitorSettings = () => {
   const [info, setInfo] = useState<metrixUpdateInfo>();
   useEffect(() => {
     start();
@@ -24,4 +24,3 @@ const MonitorGallery = () => {
     </ScrollView>
   );
 };
-export default MonitorGallery;

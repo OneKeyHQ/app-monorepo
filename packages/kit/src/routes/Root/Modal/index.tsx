@@ -95,6 +95,8 @@ const InscribeModal = createLazyComponent(() => import('./Inscribe'));
 
 const WeblnModal = createLazyComponent(() => import('./Webln'));
 
+const MonitorModal = createLazyComponent(() => import('./Monitor'));
+
 const modalStackScreenList = [
   {
     name: ModalRoutes.CreateAccount,
@@ -107,6 +109,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.Receive,
     component: ReceiveToken,
+  },
+  {
+    name: ModalRoutes.Monitor,
+    component: MonitorModal,
   },
   {
     name: ModalRoutes.Send,
