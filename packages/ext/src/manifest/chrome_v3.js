@@ -2,6 +2,7 @@ const isDev = process.env.NODE_ENV !== 'production';
 
 const devUtils = require('../../development/devUtils');
 const excludeMatches = require('../content-script/excludeMatches');
+const common = require('./common');
 
 module.exports = {
   'manifest_version': 3,
@@ -51,13 +52,7 @@ module.exports = {
     // "extension_pages": "script-src 'self'; object-src 'self'",
     // "sandbox_pages": "script-src 'self'; object-src 'self'",
     // "web_accessible_resources": "script-src 'self'; object-src 'self'",
-    'extension_pages': `
-script-src 'self' 'wasm-unsafe-eval';
-object-src 'self';
-`
-      .split('\n')
-      .filter(Boolean)
-      .join(''),
+    'extension_pages': common.content_security_policy,
   },
   'web_accessible_resources': [
     {
