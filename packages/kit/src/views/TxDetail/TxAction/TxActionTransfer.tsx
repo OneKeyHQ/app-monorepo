@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { isLightningAddress } from '@onekeyhq/engine/src/vaults/impl/lightning-network/helper/lnurl';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
@@ -26,6 +27,13 @@ import type {
   ITxActionMetaTitle,
 } from '../types';
 
+function shouldDisplayAddress(address: string, impl?: string) {
+  if (!isLightningNetworkByImpl(impl)) {
+    return true;
+  }
+  return isLightningAddress(address ?? '');
+}
+
 export function getTxActionTransferInfo(props: ITxActionCardProps) {
   const { action, meta, network } = props;
 
@@ -34,12 +42,27 @@ export function getTxActionTransferInfo(props: ITxActionCardProps) {
   let from = '';
   let to = '';
   let displayDecimals: number | undefined;
+  let displayFromLabel = true;
+  let displayFromAddress = true;
+  let displayToLabel = true;
+  let displayToAddress = true;
   if (action.type === IDecodedTxActionType.NATIVE_TRANSFER) {
     amount = meta?.transferAmount ?? action.nativeTransfer?.amount ?? '0';
     symbol = action.nativeTransfer?.tokenInfo.symbol ?? '';
     from = action.nativeTransfer?.from ?? '';
     to = action.nativeTransfer?.to ?? '';
     displayDecimals = network?.nativeDisplayDecimals;
+    displayFromLabel = Boolean(
+      !(
+        network?.settings.hideFromToFieldIfValueEmpty &&
+        (!from || !from.length)
+      ),
+    );
+    displayToLabel = Boolean(
+      !(network?.settings.hideFromToFieldIfValueEmpty && (!to || !to.length)),
+    );
+    displayFromAddress = shouldDisplayAddress(from, network?.impl);
+    displayToAddress = shouldDisplayAddress(to, network?.impl);
   }
   if (action.type === IDecodedTxActionType.TOKEN_TRANSFER) {
     amount = action.tokenTransfer?.amount ?? '0';
@@ -78,6 +101,10 @@ export function getTxActionTransferInfo(props: ITxActionCardProps) {
     from,
     to,
     isOut,
+    displayFromLabel,
+    displayFromAddress,
+    displayToLabel,
+    displayToAddress,
   };
 }
 
@@ -85,26 +112,20 @@ export function TxActionTransfer(props: ITxActionCardProps) {
   const intl = useIntl();
   const { action, meta, decodedTx, network, isShortenAddress = false } = props;
 
-  const { amount, symbol, from, to, isOut } = getTxActionTransferInfo(props);
-
-  const displayFromLabel = useMemo(() => {
-    if (
-      network?.settings.hideFromToFieldIfValueEmpty &&
-      (!from || !from.length)
-    ) {
-      return false;
-    }
-    return true;
-  }, [from, network?.settings.hideFromToFieldIfValueEmpty]);
-  const displayToLabel = useMemo(() => {
-    if (network?.settings.hideFromToFieldIfValueEmpty && (!to || !to.length)) {
-      return false;
-    }
-    return true;
-  }, [to, network?.settings.hideFromToFieldIfValueEmpty]);
+  const {
+    amount,
+    symbol,
+    from,
+    to,
+    isOut,
+    displayFromLabel,
+    displayFromAddress,
+    displayToLabel,
+    displayToAddress,
+  } = getTxActionTransferInfo(props);
 
   const enableCopyAddress = useMemo(
-    () => !isLightningNetworkByImpl(network?.impl ?? ''),
+    () => !isLightningNetworkByImpl(network?.impl),
     [network],
   );
 
@@ -122,6 +143,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
             amount,
             isCopy: from !== 'unknown' && enableCopyAddress,
             isShorten: isShortenAddress,
+            displayAddress: displayFromAddress,
           }),
         }
       : null,
@@ -138,6 +160,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
             amount,
             isCopy: to !== 'unknown' && enableCopyAddress,
             isShorten: isShortenAddress,
+            displayAddress: displayToAddress,
           }),
         }
       : null,
