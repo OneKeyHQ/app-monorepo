@@ -13,7 +13,7 @@
 #import "UIColor+Hex.h"
 #import <React/RCTUtils.h>
 #import "JXCategoryView.h"
-#import "UICollectionView+swizzled.h"
+
 
 @interface PagingView ()<JXPagerViewDelegate,JXCategoryViewDelegate>
 @property (nonatomic, strong) JXPagerView *pagingView;
