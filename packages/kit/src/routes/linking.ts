@@ -23,6 +23,7 @@ import {
   SendModalRoutes,
   SubmitRequestModalRoutes,
   TabRoutes,
+  WeblnModalRoutes,
 } from './routesEnum';
 import { buildAppRootTabName } from './routesUtils';
 
@@ -163,6 +164,27 @@ export const normalRouteWhiteList: WhiteListItemList = [
     screen: `${RootRoutes.Main}/${MainRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.BulkSender}`,
     path: linkingPathMap.bulkSender,
     exact: true,
+  },
+  /**
+   * WebLN
+   */
+  {
+    screen: `${RootRoutes.Modal}/${ModalRoutes.Webln}/${WeblnModalRoutes.MakeInvoice}`,
+  },
+  {
+    screen: `${RootRoutes.Modal}/${ModalRoutes.Send}/${SendModalRoutes.WeblnSendPayment}`,
+  },
+  {
+    screen: `${RootRoutes.Modal}/${ModalRoutes.Webln}/${WeblnModalRoutes.VerifyMessage}`,
+  },
+  {
+    screen: `${RootRoutes.Modal}/${ModalRoutes.Send}/${SendModalRoutes.LNURLAuth}`,
+  },
+  {
+    screen: `${RootRoutes.Modal}/${ModalRoutes.Send}/${SendModalRoutes.LNURLPayRequest}`,
+  },
+  {
+    screen: `${RootRoutes.Modal}/${ModalRoutes.Send}/${SendModalRoutes.LNURLWithdraw}`,
   },
   /**
    * refresh page will flash the last item of normalRouteWhiteList

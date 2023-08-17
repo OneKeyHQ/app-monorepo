@@ -70,6 +70,7 @@ async function lightningNetworkSendConfirm({
               networkId,
               accountId,
               lnurlDetails,
+              isSendFlow: true,
             },
           },
         });
@@ -86,6 +87,7 @@ async function lightningNetworkSendConfirm({
               accountId,
               to: toVal,
               lnurlDetails,
+              isSendFlow: true,
             },
           },
         });
@@ -100,6 +102,7 @@ async function lightningNetworkSendConfirm({
               networkId,
               accountId,
               lnurlDetails,
+              isSendFlow: true,
             },
           },
         });

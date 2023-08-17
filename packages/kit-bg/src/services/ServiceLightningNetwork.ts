@@ -1,11 +1,13 @@
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import axios from 'axios';
+import BigNumber from 'bignumber.js';
 import { mnemonicToSeedSync } from 'bip39';
 
 import type { ExportedSeedCredential } from '@onekeyhq/engine/src/dbs/base';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { mnemonicFromEntropy } from '@onekeyhq/engine/src/secret';
+import connectors from '@onekeyhq/engine/src/vaults/impl/lightning-network/connectors';
 import {
   getLnurlDetails,
   getPathSuffix,
@@ -18,6 +20,7 @@ import type {
   LNURLError,
   LNURLPaymentInfo,
 } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/lnurl';
+import type { BalanceResponse } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/webln';
 import type VaultLightning from '@onekeyhq/engine/src/vaults/impl/lightning-network/Vault';
 import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 import { getBitcoinBip32 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
@@ -404,5 +407,47 @@ export default class ServiceLightningNetwork extends ServiceBase {
       }
       throw e;
     }
+  }
+
+  @backgroundMethod()
+  async weblnVerifyMessage({
+    accountId,
+    networkId,
+    message,
+    signature,
+  }: {
+    accountId: string;
+    networkId: string;
+    message: string;
+    signature: string;
+  }) {
+    const connector = new connectors.LndHub();
+    return connector.verifyMessage({
+      engine: this.backgroundApi.engine,
+      accountId,
+      networkId,
+      message,
+      signature,
+    });
+  }
+
+  @backgroundMethod()
+  async weblnGetBalance({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }): Promise<BalanceResponse> {
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    })) as VaultLightning;
+    const address = await vault.getCurrentBalanceAddress();
+    const balance = await vault.getBalances([{ address }]);
+    return {
+      balance: new BigNumber(balance?.[0] ?? 0).toNumber(),
+      currency: 'sats',
+    };
   }
 }

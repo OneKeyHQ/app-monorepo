@@ -9,6 +9,7 @@ process.env.TRANSFORM_REGENERATOR_DISABLED = 'true';
 const WebpackDevServer = require('webpack-dev-server');
 const webpack = require('webpack');
 const path = require('path');
+const webpackTools = require('../../../development/webpackTools');
 const configs = require('../webpack.config');
 const devUtils = require('./devUtils');
 const serverPort = require('./serverPort');
@@ -47,7 +48,6 @@ devUtils.writePreviewWebpackConfigJson(
 devUtils.cleanWebpackDebugFields(configs, { boilerplate: true });
 
 const compiler = webpack(configs);
-
 const server = new WebpackDevServer(
   {
     https: false,
@@ -66,6 +66,9 @@ const server = new WebpackDevServer(
       'Access-Control-Allow-Origin': '*',
     },
     allowedHosts: 'all',
+    proxy: {
+      ...webpackTools.createDevServerProxy(),
+    },
   },
   compiler,
 );

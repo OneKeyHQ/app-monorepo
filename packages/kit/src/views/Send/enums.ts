@@ -18,6 +18,7 @@ export enum SendModalRoutes {
   LNURLWithdraw = 'LNURLWithdraw',
   LNURLAuth = 'LNURLAuth',
   LNURLAuthentication = 'LNURLAuthentication',
+  WeblnSendPayment = 'WeblnSendPayment',
 }
 
 export enum ESendEditFeeTypes {

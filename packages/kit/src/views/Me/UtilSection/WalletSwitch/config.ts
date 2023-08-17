@@ -60,7 +60,7 @@ export const CWalletSwitchDefaultConfig: Record<string, WalletSwitchItem> = {
     propertyKeys: ['tronLink', 'tronWeb', 'sunWeb'],
     enable: true,
   },
-  'CARDAND-Nami': {
+  'CARDANO-Nami': {
     logo: CardanoNamiLogo,
     title: 'Nami',
     propertyKeys: ['cardano'],

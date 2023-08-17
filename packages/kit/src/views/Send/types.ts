@@ -71,12 +71,14 @@ export type PreSendParams = {
 
 export type LnUrlPayParams = PreSendParams & {
   lnurlDetails: LNURLPayServiceResponse;
+  isSendFlow: boolean;
 };
 
 export type LnUrlWithdrawParams = {
   networkId: string;
   accountId: string;
   lnurlDetails: LNURLWithdrawServiceResponse;
+  isSendFlow: boolean;
 };
 
 export type LnUrlAuthParams = {
@@ -84,11 +86,16 @@ export type LnUrlAuthParams = {
   networkId: string;
   accountId: string;
   lnurlDetails: LNURLAuthServiceResponse;
+  isSendFlow: boolean;
 };
 
 export type LnUrlAuthenticationParams = {
   onDone: (password: string) => void;
   walletId: string;
+};
+
+export type WeblnSendPaymentParams = {
+  paymentRequest: string;
 };
 
 export type TransferSendParamsPayload = SendConfirmPayloadBase & {
@@ -249,6 +256,7 @@ export type SendRoutesParams = {
   [SendModalRoutes.LNURLWithdraw]: LnUrlWithdrawParams;
   [SendModalRoutes.LNURLAuth]: LnUrlAuthParams;
   [SendModalRoutes.LNURLAuthentication]: LnUrlAuthenticationParams;
+  [SendModalRoutes.WeblnSendPayment]: WeblnSendPaymentParams;
 };
 
 export type ITxConfirmViewPropsHandleConfirm = ({
