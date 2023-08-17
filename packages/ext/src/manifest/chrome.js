@@ -1,4 +1,6 @@
 const isDev = process.env.NODE_ENV !== 'production';
+const common = require('./common');
+
 module.exports = {
   'manifest_version': 2,
 
@@ -17,12 +19,7 @@ module.exports = {
   'author': 'https://www.onekey.so',
   // 'default_locale': 'en', // enable this after locale file exists
 
-  'content_security_policy': `
-script-src 'self' 'wasm-unsafe-eval';
-object-src 'self';
-`
-    .split('\n')
-    .join(''),
+  'content_security_policy': common.content_security_policy,
 
   //----------------------------------------------
 

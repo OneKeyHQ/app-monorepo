@@ -39,3 +39,4 @@ export type { MarketRoutesParams } from './Market';
 export type { ClearCacheModalRoutesParams } from './ClearCache';
 export type { GasPanelRoutesParams } from './GasPanel';
 export type { InscribeModalRoutesParams } from './Inscribe';
+export type { WeblnRoutesParams } from './Webln';

@@ -732,6 +732,22 @@ class Provider {
     );
     return signature;
   }
+
+  verifyMessage({
+    message,
+    address,
+    signature,
+  }: {
+    message: string;
+    address: string;
+    signature: string;
+  }) {
+    return bitcoinMessage.verify(
+      message,
+      address,
+      Buffer.from(signature, 'hex'),
+    );
+  }
 }
 
 export { Provider };

@@ -1,5 +1,7 @@
 import elliptic from 'elliptic';
 
+import type { BNInput, SignatureInput } from 'elliptic';
+
 // eslint-disable-next-line new-cap
 const ec = new elliptic.ec('secp256k1');
 
@@ -31,7 +33,7 @@ class HashKeySigner {
     return this.sk.sign(message, { canonical: true });
   }
 
-  verify(message: string, signature: string) {
+  verify(message: BNInput, signature: SignatureInput) {
     try {
       return this.sk.verify(message, signature);
     } catch (e) {

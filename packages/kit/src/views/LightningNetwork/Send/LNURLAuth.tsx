@@ -18,9 +18,12 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
+import type { LNURLAuthServiceResponse } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/lnurl';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccount, useNavigation } from '../../../hooks';
+import useDappApproveAction from '../../../hooks/useDappApproveAction';
+import useDappParams from '../../../hooks/useDappParams';
 import { SendModalRoutes } from '../../../routes/routesEnum';
 import { LNModalDescription } from '../components/LNModalDescription';
 
@@ -38,8 +41,36 @@ const LNURLAuth = () => {
   const route = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const { walletId, networkId, accountId, lnurlDetails } = route.params ?? {};
-  const { account } = useAccount({ accountId, networkId });
+  const {
+    walletId: routeWalletId,
+    networkId: routeNetworkId,
+    accountId: routeAccountId,
+    lnurlDetails: routeLnurlDetails,
+    isSendFlow,
+  } = route.params ?? {};
+  const {
+    sourceInfo,
+    walletId: dAppWalletId,
+    networkId: dAppNetworkId,
+    accountId: dAppAccountId,
+    lnurlDetails: dAppLnurlDetails,
+  } = useDappParams();
+  const walletId = isSendFlow ? routeWalletId : dAppWalletId;
+  const networkId = isSendFlow ? routeNetworkId : dAppNetworkId;
+  const accountId = isSendFlow ? routeAccountId : dAppAccountId;
+  const lnurlDetails = isSendFlow
+    ? routeLnurlDetails
+    : (dAppLnurlDetails as LNURLAuthServiceResponse);
+
+  const dappApprove = useDappApproveAction({
+    id: sourceInfo?.id ?? '',
+    closeWindowAfterResolved: true,
+  });
+
+  const { account } = useAccount({
+    accountId: accountId ?? '',
+    networkId: networkId ?? '',
+  });
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -160,7 +191,7 @@ const LNURLAuth = () => {
     return connectTip(
       'CheckSolid',
       intl.formatMessage({
-        id: 'content__allow_dapp_to_register_with_onekey',
+        id: 'content__request_lnurl_linkingkey',
       }),
     );
   }, [connectTip, lnurlDetails, intl]);
@@ -168,6 +199,9 @@ const LNURLAuth = () => {
   const onDone = useCallback(
     async (password: string) => {
       try {
+        if (!walletId) {
+          throw new Error('walletId is required');
+        }
         setIsLoading(true);
         await backgroundApiProxy.serviceLightningNetwork.lnurlAuth({
           password,
@@ -178,9 +212,15 @@ const LNURLAuth = () => {
           title: messages.successText,
         });
         setTimeout(() => {
-          // quit from password modal
-          closeModal();
-          closeModal();
+          if (isSendFlow) {
+            // quit from password modal
+            closeModal();
+            closeModal();
+          } else {
+            dappApprove.resolve({
+              close: closeModal,
+            });
+          }
         }, 300);
       } catch (e: any) {
         const { key, info } = e;
@@ -202,13 +242,23 @@ const LNURLAuth = () => {
             { type: 'error' },
           );
         }
-        // quit from password modal
         closeModal();
+        if (!isSendFlow) {
+          dappApprove.reject();
+        }
       } finally {
         setIsLoading(false);
       }
     },
-    [lnurlDetails, walletId, closeModal, messages.successText, intl],
+    [
+      lnurlDetails,
+      walletId,
+      closeModal,
+      messages.successText,
+      intl,
+      dappApprove,
+      isSendFlow,
+    ],
   );
 
   const onConfirmWithAuth = useCallback(
@@ -232,8 +282,12 @@ const LNURLAuth = () => {
       onPrimaryActionPress={() => onConfirmWithAuth()}
       secondaryActionTranslationId="action__cancel"
       onSecondaryActionPress={() => {
-        if (navigation?.canGoBack?.()) {
-          navigation.goBack();
+        if (isSendFlow) {
+          if (navigation?.canGoBack?.()) {
+            navigation.goBack();
+          }
+        } else {
+          dappApprove.reject();
         }
       }}
       height="auto"

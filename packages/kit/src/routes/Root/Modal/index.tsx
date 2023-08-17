@@ -93,6 +93,8 @@ const GasPanelModal = createLazyComponent(() => import('./GasPanel'));
 
 const InscribeModal = createLazyComponent(() => import('./Inscribe'));
 
+const WeblnModal = createLazyComponent(() => import('./Webln'));
+
 const modalStackScreenList = [
   {
     name: ModalRoutes.CreateAccount,
@@ -244,6 +246,7 @@ const modalStackScreenList = [
   { name: ModalRoutes.CoinControl, component: CoinControlModal },
   { name: ModalRoutes.GasPanel, component: GasPanelModal },
   { name: ModalRoutes.Inscribe, component: InscribeModal },
+  { name: ModalRoutes.Webln, component: WeblnModal },
 ];
 
 const ModalStack = createStackNavigator<ModalRoutesParams>();

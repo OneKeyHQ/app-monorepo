@@ -49,6 +49,7 @@ const getSignTypeString = (
     [ETHMessageTypes.TYPED_DATA_V4]: 'signTypedData_v4',
     [AptosMessageTypes.SIGN_MESSAGE]: 'signMessage',
     [CommonMessageTypes.SIGN_MESSAGE]: 'signMessage',
+    [CommonMessageTypes.SIMPLE_SIGN]: 'signMessage',
   } as const;
   return signTypeMap[signType];
 };
@@ -122,7 +123,10 @@ const renderMessageCard = (unsignedMessage: IUnsignedMessageEvm) => {
     return renderCard(personalSignMsg);
   }
 
-  if (type === CommonMessageTypes.SIGN_MESSAGE) {
+  if (
+    type === CommonMessageTypes.SIGN_MESSAGE ||
+    type === CommonMessageTypes.SIMPLE_SIGN
+  ) {
     let personalSignMsg = message;
     try {
       const buffer = ethUtils.toBuffer(message);
@@ -336,7 +340,7 @@ const SignDetail: FC<{
     );
   };
 
-  return type === ETHMessageTypes.ETH_SIGN ? (
+  return type === ETHMessageTypes.ETH_SIGN || CommonMessageTypes.SIMPLE_SIGN ? (
     <VStack>
       {header}
       {warning}
