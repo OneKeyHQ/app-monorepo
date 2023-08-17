@@ -1,17 +1,17 @@
-import type { ComponentType, FC, ReactElement } from 'react';
+import { type ComponentType, type FC, type ReactElement, useRef } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const css1 = 'debug-render-tracker-animated-bg';
 const css2 = 'debug-render-tracker-animated-bg0';
-let lastClassName = css1;
 
 function DebugRenderTracker(props: { children: ReactElement }): ReactElement {
   const { children } = props;
+  const cls = useRef<typeof css1 | typeof css2>(css1);
   if (process.env.NODE_ENV !== 'production') {
     if (platformEnv.isRuntimeBrowser) {
-      lastClassName = lastClassName === css1 ? css2 : css1;
-      return <div className={lastClassName}>{children}</div>;
+      cls.current = cls.current === css1 ? css2 : css1;
+      return <div className={cls.current}>{children}</div>;
     }
   }
 

@@ -2,6 +2,7 @@
 
 import { useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
+import natsort from 'natsort';
 
 import {
   Box,
@@ -40,7 +41,7 @@ const Index = () => {
 
   const componentsRoute = Object.values(GalleryRoutes)
     .filter((item) => item.startsWith('component'))
-    .sort();
+    .sort((a, b) => natsort({ insensitive: true })(a, b));
 
   return (
     <FlatList
