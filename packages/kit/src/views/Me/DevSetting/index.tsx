@@ -162,6 +162,7 @@ export const DevSettingSection = () => {
         borderColor="border-critical-default"
         borderRadius="12"
         bg="surface-default"
+        mb="24"
       >
         <Container.Item
           title={intl.formatMessage({ id: 'form__dev_mode' })}
