@@ -20,6 +20,7 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { isLightningAddress } from '@onekeyhq/engine/src/vaults/impl/lightning-network/helper/lnurl';
 import type { IEncodedTxLightning } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types';
 import type { LNURLPaymentInfo } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/lnurl';
 
@@ -237,6 +238,9 @@ const LNURLPayRequest = () => {
             ...transferInfo,
             to: paymentRequest,
             lnurlPaymentInfo: response,
+            lightningAddress: isLightningAddress(transferInfo.to)
+              ? transferInfo.to
+              : undefined,
           },
         });
         navigation.replace(SendModalRoutes.SendConfirm, {

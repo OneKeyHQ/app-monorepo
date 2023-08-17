@@ -244,8 +244,8 @@ export const UNIQUE_TOKEN_SYMBOLS: Record<string, Array<string>> = {
 
 export const isLightningNetwork = (coinType: string) =>
   coinType === COINTYPE_LIGHTNING || coinType === COINTYPE_LIGHTNING_TESTNET;
-export const isLightningNetworkByImpl = (impl: string) =>
+export const isLightningNetworkByImpl = (impl?: string) =>
   impl === IMPL_LIGHTNING || impl === IMPL_LIGHTNING_TESTNET;
-export const isLightningNetworkByNetworkId = (networkId: string) =>
+export const isLightningNetworkByNetworkId = (networkId?: string) =>
   networkId === OnekeyNetwork.lightning ||
   networkId === OnekeyNetwork.tlightning;

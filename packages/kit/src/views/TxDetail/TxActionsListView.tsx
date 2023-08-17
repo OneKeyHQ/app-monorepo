@@ -75,6 +75,7 @@ export function TxActionsListView(props: ITxActionListViewProps) {
         decodedTx: finalDecodedTx,
         intl,
         historyTx,
+        network,
       });
       metaInfo.meta.transferAmount = transferAmount;
 

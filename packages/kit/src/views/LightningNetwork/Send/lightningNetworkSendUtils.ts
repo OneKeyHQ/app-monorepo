@@ -3,7 +3,10 @@ import type { Dispatch, SetStateAction } from 'react';
 import { ToastManager } from '@onekeyhq/components';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Token } from '@onekeyhq/engine/src/types/token';
-import { findLnurl } from '@onekeyhq/engine/src/vaults/impl/lightning-network/helper/lnurl';
+import {
+  findLnurl,
+  isLightningAddress,
+} from '@onekeyhq/engine/src/vaults/impl/lightning-network/helper/lnurl';
 import type { IEncodedTxLightning } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types';
 import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
 
@@ -50,7 +53,10 @@ async function lightningNetworkSendConfirm({
   setIsLoadingAssets(true);
 
   try {
-    const lnurl = findLnurl(toVal);
+    let lnurl = findLnurl(toVal);
+    if (!lnurl && isLightningAddress(toVal)) {
+      lnurl = toVal;
+    }
     if (lnurl) {
       const lnurlDetails = await serviceLightningNetwork.getLnurlDetails(lnurl);
 

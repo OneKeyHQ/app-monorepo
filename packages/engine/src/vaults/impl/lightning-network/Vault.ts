@@ -30,7 +30,7 @@ import { VaultBase } from '../../VaultBase';
 
 import ClientLightning from './helper/ClientLightningNetwork';
 import { getInvoiceTransactionStatus } from './helper/invoice';
-import { findLnurl } from './helper/lnurl';
+import { findLnurl, isLightningAddress } from './helper/lnurl';
 import { signature } from './helper/signature';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -184,6 +184,9 @@ export default class Vault extends VaultBase {
     try {
       const lnurl = findLnurl(address);
       if (!lnurl) {
+        if (isLightningAddress(address)) {
+          return address;
+        }
         throw new Error('not a lnurl');
       }
       return lnurl;
@@ -271,6 +274,7 @@ export default class Vault extends VaultBase {
       invoice: invoice.paymentRequest,
       paymentHash: paymentHash?.data as string,
       amount: amount.toFixed(),
+      lightningAddress: transferInfo.lightningAddress,
       expired: `${invoice.timeExpireDate ?? ''}`,
       created: `${Math.floor(Date.now() / 1000)}`,
       description: description?.data as string,
@@ -331,7 +335,7 @@ export default class Vault extends VaultBase {
           nativeTransfer: {
             tokenInfo: token,
             from: hashAddress,
-            to: '',
+            to: encodedTx.lightningAddress ?? '',
             amount: new BigNumber(encodedTx.amount).toFixed(),
             amountValue: encodedTx.amount,
             extraInfo: null,
@@ -376,13 +380,21 @@ export default class Vault extends VaultBase {
           return null;
         }
 
+        // for lightning address
+        let historyTo: string | undefined = '';
+        if (historyTxToMerge) {
+          historyTo =
+            historyTxToMerge.decodedTx?.actions?.[0].nativeTransfer?.to;
+        }
+
         const amount = new BigNumber(txInfo.amount)
           .shiftedBy(-decimals)
           .toFixed();
         const amountValue = `${txInfo.amount}`;
         const { direction, type } = actions[0];
         const from = direction === IDecodedTxDirection.IN ? '' : hashAddress;
-        const to = direction === IDecodedTxDirection.IN ? hashAddress : '';
+        const to =
+          direction === IDecodedTxDirection.IN ? hashAddress : historyTo ?? '';
 
         const decodedTx: IDecodedTx = {
           txid,
