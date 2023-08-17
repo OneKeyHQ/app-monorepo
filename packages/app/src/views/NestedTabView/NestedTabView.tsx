@@ -32,6 +32,7 @@ const NestedTabView: ForwardRefRenderFunction<
     children,
     onPageChange,
     onPageStartScroll,
+    onPageVerticalScroll,
     scrollEnabled = true,
     ...rest
   },
@@ -82,6 +83,11 @@ const NestedTabView: ForwardRefRenderFunction<
     onPageStartScroll?.();
   }, [onPageStartScroll]);
 
+  const onVerticalCall = useCallback(() => {
+    isScrolling.current = false;
+    onPageVerticalScroll?.();
+  }, [onPageVerticalScroll]);
+
   const onMoveShouldSetResponderCapture = useCallback(
     () => isScrolling.current,
     [],
@@ -91,6 +97,7 @@ const NestedTabView: ForwardRefRenderFunction<
     <NativeNestedTabView
       onPageChange={onTabChange}
       onPageStartScroll={onStartChangeCall}
+      onPageVerticalScroll={onVerticalCall}
       scrollEnabled={scrollEnabled}
       onMoveShouldSetResponderCapture={onMoveShouldSetResponderCapture}
       disableTabSlide={false}
