@@ -54,6 +54,16 @@ function createDefaultResolveExtensions() {
   ];
 }
 
+function createDevServerProxy() {
+  return {
+    '/nexa_ws': {
+      target: 'wss://testnet-explorer.nexa.org:30004',
+      changeOrigin: true,
+      ws: true,
+    },
+  };
+}
+
 async function modifyExpoEnv({ env, platform }) {
   const locations = await getPathsAsync(env.projectRoot);
 
@@ -127,6 +137,13 @@ function normalizeConfig({
     }
 
     // add devServer proxy
+    if (config.devServer) {
+      config.devServer.proxy = {
+        ...config.devServer.proxy,
+        ...createDevServerProxy(),
+      };
+    }
+
     if (config.devServer) {
       config.devServer.onBeforeSetupMiddleware = (devServer) => {
         devServer.app.get(
@@ -377,4 +394,5 @@ module.exports = {
   developmentConsts,
   normalizeConfig,
   modifyExpoEnv,
+  createDevServerProxy,
 };
