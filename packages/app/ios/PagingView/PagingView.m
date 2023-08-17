@@ -16,13 +16,15 @@
 
 @interface PagingView ()<JXPagerViewDelegate,JXCategoryViewDelegate>
 @property (nonatomic, strong) JXPagerView *pagingView;
-@property (nonatomic, copy) RCTBubblingEventBlock onChange;
+@property (nonatomic, copy) RCTBubblingEventBlock onPageChange;
+@property (nonatomic, copy) RCTBubblingEventBlock onPageStartScroll;
 @property (nonatomic, copy) RCTBubblingEventBlock onRefreshCallBack;
 
 @property (nonatomic, assign) CGFloat headerHeight;
 @property (nonatomic, assign) NSInteger defaultIndex;
 @property (nonatomic, assign) NSInteger pageIndex;
 @property (nonatomic, assign) BOOL scrollEnabled;
+@property (nonatomic, assign) BOOL isScrolling;
 
 @property (nonatomic, strong) UIView *headerView;
 @property (nonatomic, strong) RNTabView *tabView;
@@ -48,6 +50,7 @@
   if (self){
     NSLog(@"PagingView init");
     [self startObservingViewPosition];
+    _isScrolling = NO;
   }
   return self;
 }
@@ -55,6 +58,9 @@
 -(void)dealloc {
   NSLog(@"pagingview dealloc");
   [self stopObservingViewPosition];
+  if (_pagingView.listContainerView.scrollView) {
+    [_pagingView.listContainerView.scrollView removeObserver:self forKeyPath:@"contentOffset"];
+  }
 }
 
 - (void)startObservingViewPosition {
@@ -227,15 +233,28 @@
       _pagingView.mainTableView.refreshControl = self.refreshControl;
       [_pagingView.mainTableView addSubview:self.refreshControl];
     }
+    [_pagingView.listContainerView.scrollView addObserver:self forKeyPath:@"contentOffset" options:NSKeyValueObservingOptionNew context:nil];
     [self addSubview:_pagingView];
   }
   return _pagingView;
 }
 
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
+  if (object == _pagingView.listContainerView.scrollView && [keyPath isEqualToString:@"contentOffset"]) {
+    if(!_isScrolling) {
+      _isScrolling = YES;
+      if (_onPageStartScroll) {
+        _onPageStartScroll(@{});
+      }
+    }
+  }
+}
+
 - (void)categoryView:(JXCategoryBaseView *)categoryView didSelectedItemAtIndex:(NSInteger)index {
-  if (_onChange) {
+  _isScrolling = NO;
+  if (_onPageChange) {
     NSDictionary *value = _values[index];
-    _onChange(@{@"tabName":value[@"name"],@"index":@(index)});
+    _onPageChange(@{@"tabName":value[@"name"],@"index":@(index)});
   }
 }
 

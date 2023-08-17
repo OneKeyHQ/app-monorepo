@@ -126,12 +126,14 @@ export function HandleRefreshAssetsListData({
 
   return null;
 }
+
 export type IAssetsListDataFromReduxOptions = {
   networkId: string;
   accountId: string;
   limitSize?: number;
   debounced?: number;
 };
+
 export function useAssetsListDataFromRedux({
   networkId,
   accountId,
@@ -299,6 +301,7 @@ function HomeTokenAssetsListCmp({
     />
   );
 }
+
 export const HomeTokenAssetsList = memo(
   withProviderAssetsList(HomeTokenAssetsListCmp),
 );
@@ -329,6 +332,7 @@ function FullTokenAssetsListCmp(
     </>
   );
 }
+
 export const FullTokenAssetsList = memo(
   withProviderAssetsList(FullTokenAssetsListCmp),
 );

@@ -40,7 +40,9 @@ export type ListHeadTagType = {
   minW: string;
   textAlign?: 'center' | 'left' | 'right';
   showVerticalLayout?: boolean;
-  showNorMalDevice?: boolean;
+  hide924Width?: boolean;
+  hide824Width?: boolean;
+  hide1024Width?: boolean;
   isSearch?: boolean;
   dislocation?: { id: EMarketCellData; title: MessageDescriptor['id'] };
 };

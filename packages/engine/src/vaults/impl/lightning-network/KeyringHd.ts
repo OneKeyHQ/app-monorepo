@@ -11,6 +11,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
+import connectors from './connectors';
 import { generateNativeSegwitAccounts } from './helper/account';
 import { signature } from './helper/signature';
 
@@ -149,5 +150,32 @@ export class KeyringHd extends KeyringHdBase {
       nonce: signTemplate.nonce,
       randomSeed: signTemplate.randomSeed,
     };
+  }
+
+  override async signMessage(
+    messages: any[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]> {
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+    const { password = '' } = options;
+    const { entropy } = (await this.engine.dbApi.getCredential(
+      this.walletId,
+      password,
+    )) as ExportedSeedCredential;
+    const network = await this.getNetwork();
+    const connector = new connectors.LndHub();
+    const result = await Promise.all(
+      messages.map(({ message }) =>
+        connector.signMessage({
+          password,
+          engine: this.engine,
+          entropy,
+          message,
+          path: dbAccount.addresses.realPath,
+          isTestnet: network.isTestnet,
+        }),
+      ),
+    );
+    return result.map((ret) => JSON.stringify(ret));
   }
 }

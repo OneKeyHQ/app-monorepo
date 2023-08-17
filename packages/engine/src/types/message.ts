@@ -13,6 +13,7 @@ enum AptosMessageTypes {
 
 enum CommonMessageTypes {
   SIGN_MESSAGE = 'commonSignMessage',
+  SIMPLE_SIGN = 'commonSimpleSign',
 }
 
 export function getEthProviderMethodFromMessageType(
@@ -33,6 +34,8 @@ export function getEthProviderMethodFromMessageType(
     case AptosMessageTypes.SIGN_MESSAGE:
       return 'signMessage';
     case CommonMessageTypes.SIGN_MESSAGE:
+      return 'signMessage';
+    case CommonMessageTypes.SIMPLE_SIGN:
       return 'signMessage';
     default:
       // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations

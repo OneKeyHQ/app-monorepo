@@ -148,6 +148,7 @@ export enum GalleryRoutes {
   ComponentMnemonicCardGallery = 'component/MnemonicCard',
   ComponentSlider = 'component/Slider',
   ComponentInAppNotification = 'component/InAppNotification',
+  ComponentDeepFresh = 'component/deepRefresh',
 }
 
 // ModalRoutes ----------------------------------------------
@@ -198,6 +199,7 @@ export enum ModalRoutes {
   CoinControl = 'CoinControl',
   GasPanel = 'GasPanel',
   Inscribe = 'Inscribe',
+  Webln = 'Webln',
 }
 
 export { SendModalRoutes } from '../views/Send/enums';
@@ -388,4 +390,10 @@ export enum InscribeModalRoutes {
   CreateOrder = 'CreateOrder',
   OrderList = 'OrderList',
   OrderDetail = 'OrderDetail',
+}
+
+export enum WeblnModalRoutes {
+  MakeInvoice = 'MakeInvoice',
+  VerifyMessage = 'VerifyMessage',
+  WeblnAuthentication = 'WeblnAuthentication',
 }

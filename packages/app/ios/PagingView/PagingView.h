@@ -16,6 +16,8 @@ typedef NSString* _Nonnull (^RenderItemBlock)(NSDictionary *body);
 
 - (void)setPageIndex:(NSInteger)index;
 
+- (void)setRefresh:(BOOL)refresh;
+
 @end
 
 NS_ASSUME_NONNULL_END

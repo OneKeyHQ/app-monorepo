@@ -14,6 +14,7 @@ import ButtonsGallery from '../../../views/Components/stories/Buttons';
 import CheckBoxGallery from '../../../views/Components/stories/CheckBox';
 import CollapseGallery from '../../../views/Components/stories/Collapse';
 import ContainerGallery from '../../../views/Components/stories/Container';
+import DemoDeepFresh from '../../../views/Components/stories/DemoDeepFresh';
 import DialogGallery from '../../../views/Components/stories/Dialog';
 import DotMapGallery from '../../../views/Components/stories/DotMap';
 import EmojiGallery from '../../../views/Components/stories/Emoji';
@@ -129,6 +130,7 @@ export type GalleryParams = {
   [GalleryRoutes.ComponentMnemonicCardGallery]: undefined;
   [GalleryRoutes.ComponentSlider]: undefined;
   [GalleryRoutes.ComponentInAppNotification]: undefined;
+  [GalleryRoutes.ComponentDeepFresh]: undefined;
 };
 
 export const stackScreenList = [
@@ -256,6 +258,10 @@ export const stackScreenList = [
   {
     name: GalleryRoutes.ComponentInAppNotification,
     component: InAppNotificationGallery,
+  },
+  {
+    name: GalleryRoutes.ComponentDeepFresh,
+    component: DemoDeepFresh,
   },
 ];
 
