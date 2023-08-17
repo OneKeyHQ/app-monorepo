@@ -229,6 +229,7 @@
   "action__passphrase": "Passphrase",
   "action__paste": "معجون",
   "action__pause": "يوقف",
+  "action__pay": "يدفع",
   "action__permanently_delete": "حذف بشكل دائم",
   "action__photo": "صورة",
   "action__pick_an_emoji": "اختر رمزًا تعبيريًا",
@@ -348,6 +349,7 @@
   "action__utxo_balance": "توازن",
   "action__utxo_label": "ملصق",
   "action__verify": "تَحَقّق",
+  "action__verify__webln": "يؤكد",
   "action__verify_cert_invalid": "شهادة المفتاح العام غير صالحة ، يرجى المحاولة مرة أخرى",
   "action__verify_failed": "فشل التحقق",
   "action__verify_loading": "التحقق",
@@ -958,6 +960,7 @@
   "content__zero_is_not_the_end_it_s_a_brand_new_start": "الصفر ليس النهاية.\n إنها بداية جديدة تمامًا.",
   "content_a_comment_to_the_recipient": "تعليق للمتلقي",
   "content_click_account_details": "انقر فوق القائمة الموجودة في الزاوية اليمنى العليا ، ثم انقر فوق \"تفاصيل الحساب\"",
+  "country__india": "الهند",
   "dialog__backup_wallet_desc": "نسخة احتياطية من عبارة الاسترداد الخاصة بك قبل الحذف.",
   "dialog__backup_wallet_title": "المحفظة الاحتياطية",
   "dialog__chain_already_existed": "\"{chain}\" موجودة بالفعل",
@@ -1060,6 +1063,7 @@
   "form__Watchlist": "قائمة المراقبة",
   "form___7d_volume": "حجم 7D",
   "form__a_message_to_the_payer": "رسالة إلى الدافع",
+  "form__a_message_to_the_payer_optional": "رسالة إلى الدافع (اختياري)",
   "form__about_uppercase": "حول",
   "form__above_str": "فوق {0}",
   "form__accelerated_transaction": "🚀 المعاملات المعجلة",
@@ -1249,6 +1253,7 @@
   "form__default_currency": "العملة الافتراضية",
   "form__default_str": "الافتراضي: {0}",
   "form__delay_str": "تأخير {duration}",
+  "form__description": "وصف",
   "form__description__optional": "وصف (اختياري)",
   "form__description__uppercase": "وصف",
   "form__designated_recipient": "المستلم المعين",
@@ -1513,6 +1518,7 @@
   "form__no_trading_cooldown_function_desc": "تداول عقود الرمز المميز ليس له تباطؤ. إذا كانت هناك آلية تباطؤ للتداول ، فلن يتمكن المستخدم من بيع الرمز المميز لفترة من الوقت بعد الشراء.",
   "form__no_whitelist": "لا توجد قائمة بيضاء",
   "form__no_whitelist_desc": "القائمة البيضاء مفقودة. قد لا يتم تداول بعض العناوين بانتظام إذا كانت هناك قائمة بيضاء (مخاطر مصيدة).",
+  "form__node_id": "معرف العقدة",
   "form__nonce": "نونس",
   "form__normal": "طبيعي",
   "form__not__selected_str_uppercase": "غير محدد ( {0} )",
@@ -2250,8 +2256,10 @@
   "msg__invalid_link_or_network_error": "ارتباط غير صالح أو خطأ في الشبكة",
   "msg__invalid_private_key": "مفتاح خاص غير صالح",
   "msg__invalid_rbf_tx_pay_a_higher_fee_and_retry": "معاملة استبدال برسوم غير صالحة ، ادفع رسومًا أعلى وأعد المحاولة",
+  "msg__invalid_signature": "توقيع غير صالح",
   "msg__invalid_tx_that_nonce_is_higher_than_default": "معاملة غير صالحة ، nonce أعلى من القيمة الافتراضية",
   "msg__invalid_word": "كلمة غير صحيحة",
+  "msg__invoice_created": "تم إنشاء الفاتورة",
   "msg__invoice_is_already_paid": "تم دفع الفاتورة بالفعل",
   "msg__keep_device_charged_during_update_or_may_cause_malfunction": "احتفظ بجهازك مشحونًا أثناء التحديث ، وإلا فقد يتسبب ذلك في حدوث خلل لا رجعة فيه",
   "msg__label_name_can_be_up_to_15_characters": "يمكن أن يصل اسم التصنيف إلى 15 حرفًا",
@@ -2264,6 +2272,7 @@
   "msg__lnurl_register_successful": "تسجيل lnurl ناجح",
   "msg__low_battery_charge_to_25_before_updating_firmware_or_boot": "البطارية ضعيفة! اشحن حتى 25٪ قبل التحديث",
   "msg__maximum_amount_must_be_greater_than_minimum_amount": "يجب أن يكون الحد الأقصى للمبلغ أكبر من الحد الأدنى للمبلغ.",
+  "msg__message_verification_successful": "تم التحقق من الرسالة بنجاح",
   "msg__mine": "الخاص بي",
   "msg__minted": "💎 سكت {assets}",
   "msg__mismatched_account": "حساب غير متطابق.",
@@ -2339,6 +2348,7 @@
   "msg__sent_a_nft": "💸 أرسل NFT",
   "msg__sent_desc": "إلى {address}",
   "msg__signature_done": "استكمال التوقيع",
+  "msg__signature_verified": "تم التحقق من التوقيع",
   "msg__signing_this_message_can_be_dangerous_Only_sign_this_message_if_you_fully_trust_this_site_and_understand_the_potential_risks": "قد يكون توقيع هذه الرسالة خطيرًا. قم بالتوقيع على هذه الرسالة فقط إذا كنت تثق تمامًا بهذا الموقع وتفهم المخاطر المحتملة.",
   "msg__str_btc_missing_from_tx_input": "{0} مفقود من إدخال المعاملة",
   "msg__str_data_reset": "{0} إعادة تعيين البيانات",
@@ -2429,6 +2439,7 @@
   "msg__valid_node_id": "معرف العقدة صالح",
   "msg__valid_payment_request": "طلب دفع صالح",
   "msg__valid_str_payment_request": "طلب دفع صالح {0}",
+  "msg__verification_error_invalid_signature": "خطأ في التحقق: توقيع غير صالح",
   "msg__verification_failure": "فشل التحقق",
   "msg__wallet_already_exist": "المحفظة موجودة بالفعل.",
   "msg__wallet_already_exist_activated_automatically": "المحفظة {0} موجودة بالفعل وتم تبديلها تلقائيًا.",
@@ -2546,6 +2557,7 @@
   "title__continuing_to_oneKey": "جارٍ المتابعة إلى OneKey ...",
   "title__contract_approvals": "موافقات العقد",
   "title__convert_recovery_phrase_to_dotmap_for_keytag": "تحويل عبارة الاسترداد إلى Dotmap لـ KeyTag",
+  "title__create_invoice": "إنشاء فاتورة",
   "title__cryptos": "التشفير",
   "title__current_gas_fee": "رسوم الغاز الحالية",
   "title__current_gas_fee_desc": "كل معاملة تحتاج إلى القليل من {0} لتعمل",
@@ -2594,7 +2606,10 @@
   "title__inscribe_desc": "قم بإدراج صورة أو نص مباشرة على السلسلة",
   "title__inscribe_orders": "طلبات",
   "title__invest": "استثمار",
+  "title__invoice_description": "وصف الفاتورة",
+  "title__invoice_pay": "دفع الفاتورة",
   "title__jump_to_page": "انتقل إلى الصفحة",
+  "title__keysend_payment": "دفع Keysend",
   "title__launch_onekey": "قم بتشغيل OneKey",
   "title__leaderboard": "ليدربورد",
   "title__lets_play_the_dot_punching_game": "هيا نلعب\n لعبة نقطة اللكم",
@@ -2754,6 +2769,7 @@
   "title__verified_site": "موقع تم التحقق منه",
   "title__verified_token": "رمز تم التحقق منه",
   "title__verified_token_desc": "استنادًا إلى بيانات متعددة الأطراف ، من المحتمل أن يكون هذا الرمز مميزًا ذا مصداقية.",
+  "title__verify_message": "تحقق من الرسالة",
   "title__verify_new_pin": "تحقق من رقم التعريف الشخصي الجديد",
   "title__verify_new_pin_desc": "تحقق من رقم التعريف الشخصي الجديد لـ OneKey Lite",
   "title__wallets": "محافظ",
