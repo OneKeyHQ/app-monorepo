@@ -6,7 +6,7 @@ import NestedScrollView from 'react-native-nested-scroll-view';
 
 import FlatList from '../FlatList';
 import { FlatListPlain } from '../FlatListPlain';
-import ScrollView from '../ScrollView';
+// import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
 
 import { TabContainerNative } from './TabContainerNative';
@@ -30,6 +30,7 @@ export const Tabs = {
   Tab: __DEV__ ? ({ children }) => <>{children}</> : Fragment,
   FlatList: wrapNestedScrollView(FlatList),
   FlatListPlain: wrapNestedScrollView(FlatListPlain),
-  ScrollView,
+  // ScrollView,
+  ScrollView: NestedScrollView,
   SectionList: wrapNestedScrollView(SectionList),
 };
