@@ -223,13 +223,15 @@ class ServiceCloudBackup extends ServiceBase {
       deviceInfo: this.deviceInfo,
       ...(await this.getDataForBackup(password)),
     });
+    const actions: any[] = [];
     try {
       await this.saveDataToCloud(cloudData);
     } catch (e) {
       debugLogger.cloudBackup.error((e as Error).message);
-      dispatch(incrBackupRequests());
+      actions.push(incrBackupRequests());
     }
-    dispatch(setNotInProgress());
+    actions.push(setNotInProgress());
+    dispatch(...actions);
   }
 
   private onBackupRequired = debounce(async () => this.backupNow(), 30000, {
@@ -623,8 +625,7 @@ class ServiceCloudBackup extends ServiceBase {
   @backgroundMethod()
   enableService() {
     const { dispatch } = this.backgroundApi;
-    dispatch(setEnabled());
-    dispatch(incrBackupRequests());
+    dispatch(setEnabled(), incrBackupRequests());
     this.backupNow();
   }
 
