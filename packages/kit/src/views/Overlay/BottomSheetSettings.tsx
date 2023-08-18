@@ -10,6 +10,7 @@ import {
   useIsVerticalLayout,
   useThemeValue,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const BottomSheetSettings: FC<{
   closeOverlay: () => void;
@@ -39,9 +40,22 @@ export const BottomSheetSettings: FC<{
         overflow: 'hidden',
       }}
       handleStyle={{ backgroundColor: handleBg }}
+      overlayStyle={
+        platformEnv.isRuntimeBrowser
+          ? {
+              // TODO move to react-native-modalize
+              height: '100vh',
+            }
+          : undefined
+      }
       tapGestureEnabled={false}
     >
-      <Box px="16px" py="24px" bg="surface-subdued">
+      <Box
+        testID="BottomSheetSettings-Modalize-Box-815421"
+        px="16px"
+        py="24px"
+        bg="surface-subdued"
+      >
         {children}
       </Box>
     </Modalize>
