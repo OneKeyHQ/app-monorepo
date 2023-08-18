@@ -23,10 +23,13 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { ValidationFields } from '../../../../components/Protected';
 import { useNavigation } from '../../../../hooks';
 import { useAppSelector } from '../../../../hooks/redux';
 import useFormatDate from '../../../../hooks/useFormatDate';
+import useLocalAuthenticationModal from '../../../../hooks/useLocalAuthenticationModal';
 import { HomeRoutes } from '../../../../routes/routesEnum';
+import { incrBackupRequests } from '../../../../store/reducers/cloudBackup';
 import { showOverlay } from '../../../../utils/overlayUtils';
 
 import BackupIcon from './BackupIcon';
@@ -48,28 +51,6 @@ type NavigationProps = CompositeNavigationProp<
   >
 >;
 
-const InProgressContent = () => {
-  const intl = useIntl();
-
-  return (
-    <Box flexDirection="row" alignItems="center" py="4">
-      <Center rounded="full" size="12" bgColor="surface-neutral-subdued">
-        <Spinner />
-      </Center>
-      <Box pl="1">
-        <Text typography="Body1Strong">
-          {intl.formatMessage({ id: 'content__uploading_encrypted_backup' })}
-        </Text>
-        <Text typography="Body2" color="text-subdued">
-          {intl.formatMessage({
-            id: 'content__uploading_encrypted_backup_desc',
-          })}
-        </Text>
-      </Box>
-    </Box>
-  );
-};
-
 const EnabledContent = ({
   lastBackup,
   inProgress,
@@ -79,7 +60,8 @@ const EnabledContent = ({
 }) => {
   const intl = useIntl();
   const formatDate = useFormatDate();
-  const { serviceCloudBackup } = backgroundApiProxy;
+  const { serviceCloudBackup, dispatch } = backgroundApiProxy;
+  const { showVerify } = useLocalAuthenticationModal();
 
   const openDisableBackupDialog = useCallback(() => {
     showOverlay((onClose) => (
@@ -122,28 +104,82 @@ const EnabledContent = ({
     ));
   }, [intl, serviceCloudBackup]);
 
-  return inProgress ? (
-    <InProgressContent />
-  ) : (
-    <Box flexDirection="row" alignItems="center">
-      <BackupIcon enabled />
-      <Box px="16px" flex="1" justifyContent="center">
-        <Text typography="Body1Strong">
-          {intl.formatMessage({ id: 'content__backup_enabled' })}
-        </Text>
-        {lastBackup > 0 ? (
-          <Text mt={1} typography="Body2" color="text-subdued">
-            {formatDate.format(new Date(lastBackup), 'MMM d, yyyy, HH:mm:ss')}
-          </Text>
-        ) : undefined}
+  const backUpAction = useCallback(() => {
+    backgroundApiProxy.servicePassword.getPassword().then((password) => {
+      if (!password) {
+        showVerify(
+          () => {
+            dispatch(incrBackupRequests());
+            serviceCloudBackup.backupNow();
+          },
+          () => {},
+          null,
+          ValidationFields.Secret,
+        );
+        return;
+      }
+      dispatch(incrBackupRequests());
+      serviceCloudBackup.backupNow();
+    });
+  }, [dispatch, serviceCloudBackup, showVerify]);
+
+  return (
+    <Box flexDirection="column">
+      <Box flexDirection="row" alignItems="center">
+        {inProgress ? (
+          <Center rounded="full" size="12" bgColor="surface-neutral-subdued">
+            <Spinner />
+          </Center>
+        ) : (
+          <BackupIcon enabled />
+        )}
+        <Box px="16px" flex="1" justifyContent="center">
+          {inProgress ? (
+            <>
+              <Text typography="Body1Strong">
+                {intl.formatMessage({
+                  id: 'content__uploading_encrypted_backup',
+                })}
+              </Text>
+              <Text typography="Body2" color="text-subdued">
+                {intl.formatMessage({
+                  id: 'content__uploading_encrypted_backup_desc',
+                })}
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text typography="Body1Strong">
+                {intl.formatMessage({ id: 'content__backup_enabled' })}
+              </Text>
+              {lastBackup > 0 ? (
+                <Text mt={1} typography="Body2" color="text-subdued">
+                  {formatDate.format(
+                    new Date(lastBackup),
+                    'MMM d, yyyy, HH:mm:ss',
+                  )}
+                </Text>
+              ) : undefined}
+            </>
+          )}
+        </Box>
+        <IconButton
+          type="plain"
+          size="lg"
+          name="EllipsisVerticalOutline"
+          circle
+          onPress={openDisableBackupDialog}
+        />
       </Box>
-      <IconButton
-        type="plain"
-        size="lg"
-        name="EllipsisVerticalOutline"
-        circle
-        onPress={openDisableBackupDialog}
-      />
+      <Button
+        size="xl"
+        type="primary"
+        mt="24px"
+        isDisabled={inProgress}
+        onPress={backUpAction}
+      >
+        {intl.formatMessage({ id: 'action__back_up_now' })}
+      </Button>
     </Box>
   );
 };

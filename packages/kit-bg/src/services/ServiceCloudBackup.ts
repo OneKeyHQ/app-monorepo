@@ -196,44 +196,48 @@ class ServiceCloudBackup extends ServiceBase {
     };
   }
 
-  private onBackupRequired = debounce(
-    async () => {
-      const { appSelector, dispatch, servicePassword } = this.backgroundApi;
+  @backgroundMethod()
+  async backupNow() {
+    const { appSelector, dispatch, servicePassword } = this.backgroundApi;
 
-      const { enabled, backupRequests, isAvailable } = appSelector(
-        (s) => s.cloudBackup,
-      );
-      const availableStatus = await CloudFs.isAvailable();
-      if (availableStatus !== isAvailable) {
-        dispatch(setIsAvailable(availableStatus));
-      }
-      if (!enabled || backupRequests === 0 || !availableStatus) {
-        return;
-      }
+    const { enabled, backupRequests, isAvailable } = appSelector(
+      (s) => s.cloudBackup,
+    );
+    const availableStatus = await CloudFs.isAvailable();
+    if (availableStatus !== isAvailable) {
+      dispatch(setIsAvailable(availableStatus));
+    }
+    if (!enabled || backupRequests === 0 || !availableStatus) {
+      return;
+    }
 
-      const password = await servicePassword.getPassword();
-      if (!password) {
-        return;
-      }
+    const password = await servicePassword.getPassword();
+    console.log('password = ', password);
 
-      const cloudData = JSON.stringify({
-        uuid: await this.ensureUUID(),
-        backupTime: Date.now(),
-        deviceInfo: this.deviceInfo,
-        ...(await this.getDataForBackup(password)),
-      });
-      dispatch(setInProgress());
-      try {
-        await this.saveDataToCloud(cloudData);
-      } catch (e) {
-        debugLogger.cloudBackup.error((e as Error).message);
-        dispatch(incrBackupRequests());
-      }
-      dispatch(setNotInProgress());
-    },
-    5000,
-    { leading: false, trailing: true },
-  );
+    if (!password) {
+      return;
+    }
+    dispatch(setInProgress());
+
+    const cloudData = JSON.stringify({
+      uuid: await this.ensureUUID(),
+      backupTime: Date.now(),
+      deviceInfo: this.deviceInfo,
+      ...(await this.getDataForBackup(password)),
+    });
+    try {
+      await this.saveDataToCloud(cloudData);
+    } catch (e) {
+      debugLogger.cloudBackup.error((e as Error).message);
+      dispatch(incrBackupRequests());
+    }
+    dispatch(setNotInProgress());
+  }
+
+  private onBackupRequired = debounce(async () => this.backupNow(), 30000, {
+    leading: false,
+    trailing: true,
+  });
 
   @backgroundMethod()
   initCloudBackup() {
@@ -622,7 +626,8 @@ class ServiceCloudBackup extends ServiceBase {
   enableService() {
     const { dispatch } = this.backgroundApi;
     dispatch(setEnabled());
-    this.requestBackup();
+    dispatch(incrBackupRequests());
+    this.backupNow();
   }
 
   @backgroundMethod()

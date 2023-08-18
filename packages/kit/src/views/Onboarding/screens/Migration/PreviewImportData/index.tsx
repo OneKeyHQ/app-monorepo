@@ -232,7 +232,7 @@ const PreviewImportData = () => {
             showsVerticalScrollIndicator
           >
             {hasRemoteData ? (
-              <Box mx="-48px" my="-16px">
+              <Box mx="-48px">
                 <GroupedBackupDetails
                   publicBackupData={backupData.notOnDevice}
                 />
