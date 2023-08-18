@@ -18,11 +18,10 @@ import defiLogoShadow from '@onekeyhq/kit/assets/defiLogoShadow.png';
 import { ErrorBoundary } from '../../../../components/ErrorBoundary';
 import { FormatCurrencyNumber } from '../../../../components/Format';
 import {
-  useAccountValues,
   useActiveWalletAccount,
+  useAppSelector,
   useNavigation,
 } from '../../../../hooks';
-import { useCurrentFiatValue } from '../../../../hooks/useTokens';
 import { openDapp } from '../../../../utils/openUrl';
 import { showDialog } from '../../../../utils/overlayUtils';
 
@@ -167,24 +166,21 @@ export const OverviewDefiProtocol: FC<
   const intl = useIntl();
 
   const isVertical = useIsVerticalLayout();
-  const fiat = useCurrentFiatValue();
 
   const { networkId, accountId } = useActiveWalletAccount();
 
-  const accountAllValues = useAccountValues({
-    networkId,
-    accountId,
-  });
+  const stats = useAppSelector(
+    (s) => s.overview.overviewStats?.[networkId]?.[accountId],
+  );
 
   const open = useOpenProtocolUrl(props);
 
   const rate = useMemo(
     () =>
       new B(protocolValue)
-        .multipliedBy(fiat)
-        .div(accountAllValues.value)
+        .div(stats?.summary?.totalValue ?? 0)
         .multipliedBy(100),
-    [protocolValue, accountAllValues, fiat],
+    [protocolValue, stats?.summary?.totalValue],
   );
 
   const content = useMemo(() => {

@@ -179,7 +179,7 @@ function AssetsListViewCmp({
     }
     // render FlatListPlain for better performance when there are less than 15 tokens
     if (
-      !platformEnv.isNative && // native FlatListPlain can not scroll
+      // !platformEnv.isNative && // native FlatListPlain can not scroll
       itemsCountForAutoFallbackToPlainList &&
       (!accountTokensLength ||
         accountTokensLength <= itemsCountForAutoFallbackToPlainList)

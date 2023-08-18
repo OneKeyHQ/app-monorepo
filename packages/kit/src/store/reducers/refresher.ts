@@ -1,5 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 
+import { EOverviewScanTaskType } from '../../views/Overview/types';
+
 import type { PayloadAction } from '@reduxjs/toolkit';
 
 const NAME = 'refresher';
@@ -10,7 +12,9 @@ export type IBackgroundShowToastOptions = {
 };
 
 type InitialState = {
-  refreshHomeOverviewTs?: number; // TODO rename refreshHomeTokensTs
+  refreshAccountTokenTs?: number;
+  refreshAccountDefiTs?: number;
+  refreshAccountNFTTs?: number;
   refreshHistoryTs: number;
   refreshAccountSelectorTs: number;
   refreshConnectedSitesTs: number;
@@ -21,9 +25,11 @@ type InitialState = {
   overviewHomeTokensLoading?: boolean;
 };
 const initialState: InitialState = {
+  refreshAccountTokenTs: 0,
+  refreshAccountDefiTs: 0,
+  refreshAccountNFTTs: 0,
   overviewAccountIsUpdating: {},
   overviewHomeTokensLoading: false,
-  refreshHomeOverviewTs: 0,
   refreshHistoryTs: 0,
   refreshAccountSelectorTs: 0,
   refreshConnectedSitesTs: 0,
@@ -59,8 +65,25 @@ export const slicer = createSlice({
       }
       state.overviewAccountIsUpdating[accountId] = data;
     },
-    updateRefreshHomeOverviewTs(state) {
-      state.refreshHomeOverviewTs = Date.now();
+    updateRefreshHomeOverviewTs(
+      state,
+      action: PayloadAction<EOverviewScanTaskType[]>,
+    ) {
+      for (const type of action.payload) {
+        switch (type) {
+          case EOverviewScanTaskType.defi:
+            state.refreshAccountDefiTs = Date.now();
+            break;
+          case EOverviewScanTaskType.token:
+            state.refreshAccountTokenTs = Date.now();
+            break;
+          case EOverviewScanTaskType.nfts:
+            state.refreshAccountNFTTs = Date.now();
+            break;
+          default:
+            break;
+        }
+      }
     },
     refreshHistory(state) {
       state.refreshHistoryTs = Date.now();

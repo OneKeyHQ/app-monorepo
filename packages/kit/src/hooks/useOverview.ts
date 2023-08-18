@@ -88,10 +88,10 @@ const filterAccountTokens = <T>({
 
       return arr;
     };
-    console.log(
-      'filterAccountTokens ================',
-      formatStack((error as Error | undefined)?.stack || ''),
-    );
+    // console.log(
+    //   'filterAccountTokens ================',
+    //   formatStack((error as Error | undefined)?.stack || ''),
+    // );
   }
   const valueTokens = tokens.sort(
     (a, b) =>

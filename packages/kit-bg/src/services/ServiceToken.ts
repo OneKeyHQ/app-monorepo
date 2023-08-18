@@ -52,6 +52,7 @@ import { isExtensionBackground } from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import ServiceBase from './ServiceBase';
+import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
 
 export type IFetchAccountTokensParams = {
   accountId: string;
@@ -290,7 +291,9 @@ export default class ServiceToken extends ServiceBase {
         }),
       ];
       if (refreshHomeOverviewTs) {
-        actions.push(updateRefreshHomeOverviewTs());
+        actions.push(
+          updateRefreshHomeOverviewTs([EOverviewScanTaskType.token]),
+        );
       }
 
       dispatch(...actions);

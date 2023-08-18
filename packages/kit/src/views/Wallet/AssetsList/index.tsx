@@ -145,7 +145,7 @@ export function useAssetsListDataFromRedux({
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
   const putMainTokenOnTop = useAppSelector((s) => s.settings.putMainTokenOnTop);
 
-  const refresherTs = useAppSelector((s) => s.refresher.refreshHomeOverviewTs);
+  const refresherTs = useAppSelector((s) => s.refresher.refreshAccountTokenTs);
   const tokensList = useReduxAccountTokensList({
     accountId,
     networkId,
@@ -212,12 +212,6 @@ export function HandleRebuildAssetsListData(
     atomHomeOverviewAccountTokens,
   );
   const [, setIsLoading] = useAtomAssetsList(atomTokenAssetsListLoading);
-  // const { data: accountTokens } = useAccountTokens({
-  //   networkId,
-  //   accountId,
-  //   useFilter: true,
-  //   limitSize,
-  // });
 
   useEffect(() => {
     (() => {
@@ -242,17 +236,6 @@ export function HandleRebuildAssetsListData(
   }, [result.isLoading, setIsLoading]);
 
   return null;
-
-  // *** endless loop render
-  // return useDebounceStates(
-  //   3000,
-  //   useMemo(
-  //     () => ({
-  //       accountTokens,
-  //     }),
-  //     [accountTokens],
-  //   ),
-  // );
 }
 
 function HomeTokenAssetsListCmp({

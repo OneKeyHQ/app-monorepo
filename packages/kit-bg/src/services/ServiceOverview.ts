@@ -51,6 +51,7 @@ import type {
   IOverviewScanTaskItem,
   IReduxHooksQueryToken,
   OverviewAllNetworksPortfolioRes,
+  OverviewDefiRes,
 } from '@onekeyhq/kit/src/views/Overview/types';
 import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
 import {
@@ -476,7 +477,11 @@ class ServiceOverview extends ServiceBase {
       });
     } finally {
       dispatch(
-        updateRefreshHomeOverviewTs(),
+        updateRefreshHomeOverviewTs([
+          EOverviewScanTaskType.token,
+          EOverviewScanTaskType.defi,
+          EOverviewScanTaskType.nfts,
+        ]),
         setOverviewHomeTokensLoading(false),
         setOverviewAccountIsUpdating({
           accountId,
@@ -654,15 +659,6 @@ class ServiceOverview extends ServiceBase {
     return true;
   }
 
-  // useAccountTokensOnChain -> filterAccountTokens
-  buildSingleChainAccountTokens<Key extends IOverviewTokenSchema>(
-    options: IAccountOverviewOptions,
-    tokenSchema: Key,
-  ): IOverviewAccountTokensResult & {
-    tokens: IOverviewTokenSchemaMap[Key][];
-  };
-
-  // eslint-disable-next-line no-dupe-class-members
   @backgroundMethod()
   buildSingleChainAccountTokens(
     options: IAccountOverviewOptions,
@@ -894,22 +890,77 @@ class ServiceOverview extends ServiceBase {
     return stats;
   }
 
+  @backgroundMethod()
+  async buildAccountDefiList(options: {
+    networkId: string;
+    accountId: string;
+    limitSize?: number;
+  }): Promise<IOverviewAccountdefisResult> {
+    const data = await simpleDb.accountPortfolios.getPortfolio(options);
+
+    let list = data[EOverviewScanTaskType.defi] ?? [];
+
+    let defiTotalValue = new B(0);
+    let defiTotalValue24h = new B(0);
+    const defiKeys: string[] = [];
+
+    list.forEach((d) => {
+      if (d.protocolValue) {
+        defiTotalValue = defiTotalValue.plus(d.protocolValue);
+      }
+      if (d.protocolValue24h) {
+        defiTotalValue24h = defiTotalValue24h.plus(d.protocolValue24h);
+      }
+      defiKeys.push(
+        `${d._id.networkId}_${d._id.protocolId}-${d.protocolValue}-${d.protocolValue24h}}`,
+      );
+    });
+
+    if (typeof options.limitSize === 'number') {
+      list = list.slice(0, options.limitSize);
+    }
+
+    this.refreshOverviewStats({
+      networkId: options.networkId,
+      accountId: options.accountId,
+      defis: {
+        totalCounts: list.length,
+        totalValue: defiTotalValue?.toFixed(),
+        totalValue24h: defiTotalValue24h.toFixed(),
+      },
+    });
+
+    return {
+      defiKeys,
+      defis: list,
+      defiTotalValue: defiTotalValue.toFixed(),
+      defiTotalValue24h: defiTotalValue24h.toFixed(),
+    };
+  }
+
+  @backgroundMethod()
+  async buildAccountNFTList(options: { networkId: string; accountId: string }) {
+    const data = await simpleDb.accountPortfolios.getPortfolio(options);
+
+    return data;
+  }
+
   // this method only build data from DB, not fetch data from server
   // fetch data logic here: refreshCurrentAccount()
   @backgroundMethod()
-  async buildAccountOverview(
+  buildAccountOverview(
     options: IAccountOverviewOptions,
   ): Promise<IOverviewAccountTokensResult> {
     const { networkId, accountId } = options;
     // build tokens
-    const result = this.buildSingleChainAccountTokens(options, 'overview');
+    const tokenRes = this.buildSingleChainAccountTokens(options, 'overview');
     const stats = this.refreshOverviewStats({
       networkId,
       accountId,
       tokens: {
-        totalCounts: result.tokensTotal,
-        totalValue: result.tokensTotalValue,
-        totalValue24h: result.tokensTotalValue24h,
+        totalCounts: tokenRes.tokensTotal,
+        totalValue: tokenRes.tokensTotalValue,
+        totalValue24h: tokenRes.tokensTotalValue24h,
       },
     });
     console.log('buildAccountOverview --------------------', stats);
@@ -919,8 +970,8 @@ class ServiceOverview extends ServiceBase {
     if (isAllNetworks(options.networkId)) {
       throw new Error('getAccountOverview ERROR: all-network not support yet');
     }
-    // TODO loading use hooks
-    return Promise.resolve(result);
+
+    return Promise.resolve(tokenRes);
   }
 }
 
@@ -941,6 +992,13 @@ export type IOverviewAccountTokensResult = {
   tokensTotalValue24h: string | undefined;
 };
 
+export type IOverviewAccountdefisResult = {
+  defiKeys?: string[];
+  defis: OverviewDefiRes[];
+  defiTotalValue: string | undefined;
+  defiTotalValue24h: string | undefined;
+};
+
 export type IAccountTokensSort = 'asc' | 'desc' | boolean;
 export type IAccountTokensFilter = {
   hideSmallBalance?: boolean | string;
@@ -950,6 +1008,9 @@ export type IAccountTokensFilter = {
 export type IAccountOverviewOptions = {
   networkId: string;
   accountId: string;
+  buildTokenList?: boolean;
+  buildDefiLists?: boolean;
+  buildNFTList?: boolean;
   tokensLimit?: number;
   tokensSort?: {
     // TODO move name and native sort to set method
