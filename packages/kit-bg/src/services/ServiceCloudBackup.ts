@@ -212,8 +212,6 @@ class ServiceCloudBackup extends ServiceBase {
     }
 
     const password = await servicePassword.getPassword();
-    console.log('password = ', password);
-
     if (!password) {
       return;
     }
