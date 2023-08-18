@@ -89,6 +89,7 @@ const MarketCollectStartButton = ({
     <Pressable
       flexDirection="row"
       alignItems="center"
+      p="1"
       rounded="full"
       _hover={{ bgColor: 'surface-hovered' }}
       _pressed={{ bgColor: 'surface-pressed' }}
