@@ -232,6 +232,7 @@ const WalletTabs: FC = () => {
       // otherwise android app will crash when tabs are changed
       key={platformEnv.isNativeAndroid ? `${tabContents.length}` : undefined}
       canOpenDrawer
+      stickyTabBar
       initialTabName={homeTabName}
       onRefresh={onRefresh}
       onIndexChange={onIndexChange}
