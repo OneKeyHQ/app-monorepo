@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 
 export interface CollapsibleContainerProps {
+  stickyTabBar?: boolean;
   disableRefresh?: boolean;
   initialTabName?: string;
   headerView?: ReactNode;
