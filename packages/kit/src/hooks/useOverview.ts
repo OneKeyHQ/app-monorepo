@@ -37,6 +37,7 @@ import type {
   IAccountToken,
   IOverviewTokenDetailListItem,
   OverviewAllNetworksPortfolioRes,
+  OverviewDefiRes,
 } from '../views/Overview/types';
 
 type IAccountTokenOnChain = IAccountTokenData;
@@ -950,7 +951,13 @@ export const useTokenPositionInfo = ({
   }, [getStakingAmountInfo, intl, accountId, networkId]);
 
   const onPresDefiProtocol = useCallback(
-    ({ protocolId, poolCode }: { protocolId: string; poolCode: string }) => {
+    ({
+      protocol,
+      poolCode,
+    }: {
+      protocol: OverviewDefiRes;
+      poolCode: string;
+    }) => {
       if (!networkId || !accountId) {
         return;
       }
@@ -959,7 +966,7 @@ export const useTokenPositionInfo = ({
         params: {
           screen: OverviewModalRoutes.OverviewProtocolDetail,
           params: {
-            protocolId,
+            protocol,
             networkId,
             accountId,
             poolCode,
@@ -1039,7 +1046,7 @@ export const useTokenPositionInfo = ({
                 networkId: d._id.networkId,
                 onPress: () =>
                   onPresDefiProtocol({
-                    protocolId: d._id.protocolId,
+                    protocol: d,
                     poolCode: item.poolCode,
                   }),
               });

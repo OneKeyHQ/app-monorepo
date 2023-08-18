@@ -3,8 +3,10 @@ import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import B from 'bignumber.js';
 import { isEqual } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import {
+  Box,
   Pressable,
   Token,
   Typography,
@@ -108,6 +110,25 @@ export function HandleRebuildDefiListData(
   return null;
 }
 
+const OverviewDefiListColumns = memo(() => {
+  const intl = useIntl();
+  return (
+    <Box flexDirection="row" w="full">
+      <Typography.Subheading color="text-subdued" flex={1}>
+        {intl.formatMessage({ id: 'form__protocol_uppercase' })}
+      </Typography.Subheading>
+      <Typography.Subheading color="text-subdued" flex={1} textAlign="right">
+        {intl.formatMessage({ id: 'form__claimable_uppercase' })}
+      </Typography.Subheading>
+      <Typography.Subheading color="text-subdued" flex={1} textAlign="right">
+        {intl.formatMessage({ id: 'form__value_uppercase' })}
+      </Typography.Subheading>
+    </Box>
+  );
+});
+
+OverviewDefiListColumns.displayName = 'OverviewDefiListColumns';
+
 const AccountDefiListHeader: FC<{
   networkId: string;
   accountId: string;
@@ -133,6 +154,7 @@ const AccountDefiListHeader: FC<{
       extraLabel={extraLabel}
       onPress={onPress}
       borderColor="transparent"
+      columns={<OverviewDefiListColumns />}
     />
   );
 };
@@ -198,7 +220,7 @@ const OverviewDefiListWithoutMemo: FC<OverviewDefiListProps> = (props) => {
               params: {
                 screen: OverviewModalRoutes.OverviewProtocolDetail,
                 params: {
-                  protocolId: item._id.protocolId,
+                  protocol: item,
                   networkId,
                   accountId,
                 },

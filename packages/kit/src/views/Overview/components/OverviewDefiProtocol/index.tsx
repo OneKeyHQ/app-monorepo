@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import B from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -144,7 +144,7 @@ const PoolName: FC<{
   );
 };
 
-export const OverviewDefiProtocol: FC<
+export const OverviewDefiProtocolWithoutMemo: FC<
   OverviewDefiRes & {
     showHeader?: boolean;
     bgColor?: string;
@@ -287,3 +287,5 @@ export const OverviewDefiProtocol: FC<
     </ErrorBoundary>
   );
 };
+
+export const OverviewDefiProtocol = memo(OverviewDefiProtocolWithoutMemo);

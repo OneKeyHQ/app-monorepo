@@ -192,7 +192,6 @@ function TokenCellBalance({
   );
 }
 
-// $backgroundApiProxy.backgroundApi.serviceToken.testUpdateTokensBalances()
 function TokenCellBalanceDeepFresh({
   token,
   showTokenBalanceDetail,
@@ -202,16 +201,6 @@ function TokenCellBalanceDeepFresh({
 }) {
   const { balance, availableBalance, transferBalance } =
     useReduxSingleTokenBalanceSimple({ token });
-
-  // const { result } = usePromiseResult(
-  //   () =>
-  //     backgroundApiProxy.serviceOverview.getBalanceOfTokenAsync({
-  //       token,
-  //       balances,
-  //     }),
-  //   [balances, token],
-  // );
-  // const balance= result?.balance;
 
   return (
     <TokenCellBalance
@@ -273,23 +262,6 @@ function TokenCellFiatValueDeepFresh({ token }: { token: IAccountToken }) {
   const result = useReduxSingleTokenFiatValuesSimple({
     token,
   });
-
-  // const { result } = usePromiseResult(
-  //   () =>
-  //     backgroundApiProxy.serviceOverview.getValuesInfoOfTokenAsync({
-  //       token,
-  //       prices,
-  //       balances,
-  //     }),
-  //   [balances, prices, token],
-  //   {
-  //     initResult: {
-  //       value: undefined,
-  //       price: undefined,
-  //       price24h: undefined,
-  //     },
-  //   },
-  // );
 
   return <TokenCellFiatValue valuesInfo={result} />;
 }
