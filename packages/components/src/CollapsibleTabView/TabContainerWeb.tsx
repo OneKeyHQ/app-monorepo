@@ -13,6 +13,7 @@ import { TabBar, TabView } from 'react-native-tab-view';
 import type { ForwardRefHandle } from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
 import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../Box';
 import ScrollView from '../ScrollView';
@@ -36,6 +37,7 @@ const TabContainerWebView: ForwardRefRenderFunction<
     onIndexChange,
     initialTabName,
     scrollEnabled = true,
+    stickyTabBar,
   },
   ref,
 ) => {
@@ -99,6 +101,11 @@ const TabContainerWebView: ForwardRefRenderFunction<
     setRefreshing: (_: boolean) => {},
   }));
 
+  const shouldStickyTabbarWeb = useMemo(
+    () => platformEnv.isRuntimeBrowser && isVerticalLayout && stickyTabBar,
+    [isVerticalLayout, stickyTabBar],
+  );
+
   const renderTabBar = useCallback(
     (props: any) => {
       const tabContainerWidth = isVerticalLayout
@@ -137,7 +144,21 @@ const TabContainerWebView: ForwardRefRenderFunction<
         },
       };
       return (
-        <Box maxW={MAX_PAGE_CONTAINER_WIDTH} px={{ sm: 8, lg: 4 }}>
+        <Box
+          testID="TabContainerWeb-TabBar-Box"
+          maxW={MAX_PAGE_CONTAINER_WIDTH}
+          px={{ sm: 8, lg: 4 }}
+          style={
+            shouldStickyTabbarWeb
+              ? ({
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 1,
+                  backgroundColor: bgColor,
+                } as any)
+              : undefined
+          }
+        >
           <TabBar
             {...props}
             lazy
@@ -158,6 +179,7 @@ const TabContainerWebView: ForwardRefRenderFunction<
     },
     [
       activeLabelColor,
+      bgColor,
       borderDefault,
       indicatorColor,
       indicatorContainerColor,
@@ -166,6 +188,7 @@ const TabContainerWebView: ForwardRefRenderFunction<
       layout.width,
       routes.length,
       scrollEnabled,
+      shouldStickyTabbarWeb,
     ],
   );
 
@@ -180,9 +203,25 @@ const TabContainerWebView: ForwardRefRenderFunction<
         initialLayout={layout}
         renderTabBar={renderTabBar}
         swipeEnabled={false}
+        style={
+          shouldStickyTabbarWeb
+            ? {
+                flex: 1,
+                overflow: 'visible',
+              }
+            : undefined
+        }
       />
     ),
-    [handleChange, index, layout, renderScene, renderTabBar, routes],
+    [
+      handleChange,
+      index,
+      layout,
+      renderScene,
+      renderTabBar,
+      routes,
+      shouldStickyTabbarWeb,
+    ],
   );
 
   return (
