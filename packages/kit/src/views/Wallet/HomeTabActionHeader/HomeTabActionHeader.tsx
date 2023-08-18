@@ -169,7 +169,14 @@ function HomeTabActionHeaderCmp({
       <Typography.Heading>{title}</Typography.Heading>
       <HStack alignItems="center" justifyContent="flex-end">
         {onClickRefresh ? (
-          <Box alignItems="center" justifyContent="center" w="8" h="8" mr="3">
+          <Box
+            key={`${currentHomeTabName || ''}-${title}-refresh-box`}
+            alignItems="center"
+            justifyContent="center"
+            w="8"
+            h="8"
+            mr="3"
+          >
             {loading ? (
               <Spinner key={`${currentHomeTabName || ''}-spinner`} size="sm" />
             ) : (

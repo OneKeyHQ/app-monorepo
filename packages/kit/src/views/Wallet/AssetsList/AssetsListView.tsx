@@ -157,6 +157,7 @@ function AssetsListViewCmp({
   const contentStyle = useMemo(
     () => [
       {
+        // number value allowed on iOS
         paddingHorizontal: flatStyle ? 0 : containerPaddingX.num,
         marginTop: 24,
       },
