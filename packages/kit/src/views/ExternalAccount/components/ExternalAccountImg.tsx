@@ -44,6 +44,9 @@ function ExternalAccountImg({
   const { serviceExternalAccount } = backgroundApiProxy;
   const { result: accountImg } = usePromiseResult(
     async () => {
+      if (account && walletName) {
+        //
+      }
       // eslint-disable-next-line no-param-reassign
       const $accountId = accountId || account?.id || '';
       if (isExternalAccount({ accountId: $accountId })) {
@@ -61,7 +64,7 @@ function ExternalAccountImg({
       }
       return '';
     },
-    [account?.id, accountId, serviceExternalAccount],
+    [account, accountId, serviceExternalAccount, walletName],
     { checkIsMounted: true },
   );
 

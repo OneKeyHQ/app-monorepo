@@ -67,7 +67,7 @@ export interface NativeNestedTabViewProps {
   onRefreshCallBack?: (e: OnRefreshCallBackEvent) => void;
   onPageChange?: (e: OnPageChangeEvent) => void;
   onPageStartScroll?: () => void;
-
+  onPageVerticalScroll?: () => void;
   // Android only
   slideDisable?: boolean;
 }
