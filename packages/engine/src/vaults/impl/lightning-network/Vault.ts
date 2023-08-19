@@ -380,21 +380,20 @@ export default class Vault extends VaultBase {
           return null;
         }
 
-        // for lightning address
-        let historyTo: string | undefined = '';
-        if (historyTxToMerge) {
-          historyTo =
-            historyTxToMerge.decodedTx?.actions?.[0].nativeTransfer?.to;
-        }
-
         const amount = new BigNumber(txInfo.amount)
           .shiftedBy(-decimals)
           .toFixed();
         const amountValue = `${txInfo.amount}`;
         const { direction, type } = actions[0];
         const from = direction === IDecodedTxDirection.IN ? '' : hashAddress;
-        const to =
-          direction === IDecodedTxDirection.IN ? hashAddress : historyTo ?? '';
+        let to = '';
+        if (direction === IDecodedTxDirection.IN) {
+          to = hashAddress;
+        } else if (historyTxToMerge && direction === IDecodedTxDirection.OUT) {
+          // for lightning address
+          to =
+            historyTxToMerge.decodedTx?.actions?.[0].nativeTransfer?.to ?? '';
+        }
 
         const decodedTx: IDecodedTx = {
           txid,
