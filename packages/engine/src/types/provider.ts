@@ -1,4 +1,5 @@
 import type BigNumber from 'bignumber.js';
+import type { Psbt } from 'bitcoinjs-lib';
 
 export type ClientInfo = {
   bestBlockNumber: number;
@@ -97,6 +98,7 @@ export type UnsignedTx = {
 export type SignedTx = {
   txid: string;
   rawTx: string;
+  psbtHex?: string;
 };
 
 export type TypedMessage = {

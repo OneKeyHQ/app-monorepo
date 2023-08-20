@@ -21,6 +21,7 @@ import {
 import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
 import {
   AptosMessageTypes,
+  BtcMessageTypes,
   CommonMessageTypes,
   ETHMessageTypes,
 } from '@onekeyhq/engine/src/types/message';
@@ -107,6 +108,13 @@ const renderMessage = (json: any, padding = 0) => {
 
 const renderMessageCard = (unsignedMessage: IUnsignedMessageEvm) => {
   const { message, type } = unsignedMessage;
+
+  if (
+    type === BtcMessageTypes.ECDSA ||
+    type === BtcMessageTypes.bip322 - simple
+  ) {
+    return renderCard(message);
+  }
 
   if (type === ETHMessageTypes.PERSONAL_SIGN) {
     // if (message.startsWith('0x')) {

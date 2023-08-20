@@ -187,6 +187,7 @@ export default class VaultBtcFork extends VaultBase {
       coinType: dbAccount.coinType,
       tokens: [],
       address: dbAccount.address,
+      pubKey: (dbAccount as DBUTXOAccount).pubKey,
       xpub: this.getAccountXpub(dbAccount as DBUTXOAccount),
       template: dbAccount.template,
       customAddresses: JSON.stringify(
@@ -455,11 +456,105 @@ export default class VaultBtcFork extends VaultBase {
     return Promise.resolve({} as IDecodedTxLegacy);
   }
 
+  async decodePsbt(encodedTx: IEncodedTxBtc, payload?: SendConfirmPayloadInfo) {
+    const { inputs, outputs, totalFee } = encodedTx;
+
+    const isListOrderTx = new BigNumber(totalFee).isNegative();
+
+    const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const network = await this.getNetwork();
+    const actions = [] as IDecodedTxAction[];
+    let amountBN = new BigNumber('0');
+
+    for (let i = 0, len = inputs.length; i < len; i += 1) {
+      const input = inputs[i];
+
+      if (input.address === dbAccount.address) {
+        if (input.inscriptions?.[0]) {
+          actions.push(
+            await this.buildInscriptionAction({
+              from: dbAccount.address,
+              to: 'unknown',
+              amount: '0',
+              asset: input.inscriptions[0],
+            }),
+          );
+        } else {
+          amountBN = amountBN.minus(input.value);
+        }
+      }
+    }
+
+    for (let i = 0, len = outputs.length; i < len; i += 1) {
+      const output = outputs[i];
+
+      if (output.address === dbAccount.address) {
+        if (isListOrderTx) {
+          actions.push({
+            type: IDecodedTxActionType.NATIVE_TRANSFER,
+            direction: IDecodedTxDirection.IN,
+            nativeTransfer: {
+              tokenInfo: nativeToken,
+              from: 'unknown',
+              to: dbAccount.address,
+              amount: new BigNumber(output.value)
+                .shiftedBy(-network.decimals)
+                .toFixed(),
+              amountValue: output.value,
+              extraInfo: null,
+            },
+          });
+        } else if (output.inscriptions?.[0]) {
+          actions.push(
+            await this.buildInscriptionAction({
+              from: 'unknown',
+              to: dbAccount.address,
+              amount: '0',
+              asset: output.inscriptions[0],
+            }),
+          );
+        } else {
+          amountBN = amountBN.plus(output.value);
+        }
+      }
+    }
+
+    if (!amountBN.isZero()) {
+      const isIN = amountBN.isGreaterThan(0);
+      actions.push({
+        type: IDecodedTxActionType.NATIVE_TRANSFER,
+        direction: isIN ? IDecodedTxDirection.IN : IDecodedTxDirection.OUT,
+        nativeTransfer: {
+          tokenInfo: nativeToken,
+          from: isIN ? 'unknown' : dbAccount.address,
+          to: isIN ? dbAccount.address : 'unknown',
+          amount: amountBN.abs().shiftedBy(-network.decimals).toFixed(),
+          amountValue: amountBN.abs().toFixed(),
+          extraInfo: null,
+        },
+      });
+    }
+
+    return {
+      txid: '',
+      owner: dbAccount.address,
+      signer: dbAccount.address,
+      nonce: 0,
+      actions,
+      status: IDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      extraInfo: null,
+      totalFeeInNative: encodedTx.totalFeeInNative,
+    };
+  }
+
   async decodeTx(
     encodedTx: IEncodedTxBtc,
     payload?: SendConfirmPayloadInfo,
   ): Promise<IDecodedTx> {
-    const { inputs, outputs } = encodedTx;
+    const { inputs, outputs, psbtHex, inputsToSign } = encodedTx;
     const transferInfo = encodedTx.transferInfo ?? encodedTx.transferInfos?.[0];
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
@@ -473,61 +568,14 @@ export default class VaultBtcFork extends VaultBase {
 
     let actions = [] as IDecodedTxAction[];
 
+    if (psbtHex && inputsToSign) {
+      return this.decodePsbt(encodedTx, payload);
+    }
+
     if (ordinalsUTXOs && ordinalsUTXOs.length > 0 && nftInfos.length > 0) {
-      const nftInfo = nftInfos[0];
-
-      const {
-        content,
-        content_type: contentType,
-        contentUrl,
-      } = nftInfo.asset as NFTBTCAssetModel;
-
-      const { brc20Content } = await parseBRC20Content({
-        content,
-        contentType,
-        contentUrl,
-      });
-
-      const tokenId =
-        transferInfo.token ?? `brc-20--${brc20Content?.tick ?? ''}`;
-
-      const tokenInfo = await this.engine.findToken({
-        networkId: this.networkId,
-        tokenIdOnNetwork: tokenId,
-      });
-
-      if (tokenInfo) {
-        for (let i = 0, len = nftInfos.length; i < len; i += 1) {
-          const asset = nftInfos[i].asset as NFTBTCAssetModel;
-          const parseResult = await parseBRC20Content({
-            content: asset.content,
-            contentType: asset.content_type,
-            contentUrl: asset.contentUrl,
-          });
-
-          if (parseResult.isBRC20Content) {
-            actions.push(
-              this.buildBRC20TokenAction({
-                nftInfo: nftInfos[i],
-                dbAccount,
-                token: tokenInfo,
-                brc20Content: parseResult.brc20Content,
-              }),
-            );
-          } else {
-            actions.push({
-              type: IDecodedTxActionType.NFT_TRANSFER_BTC,
-              direction: IDecodedTxDirection.OUT,
-
-              inscriptionInfo: {
-                send: nftInfo.from,
-                receive: nftInfo?.to,
-                asset: nftInfo?.asset as NFTBTCAssetModel,
-                extraInfo: null,
-              },
-            });
-          }
-        }
+      for (let i = 0, len = nftInfos.length; i < len; i += 1) {
+        const nftInfo = nftInfos[i];
+        actions.push(await this.buildInscriptionAction(nftInfo));
       }
     } else {
       const utxoFrom = inputs.map((input) => ({
@@ -655,6 +703,71 @@ export default class VaultBtcFork extends VaultBase {
     return action;
   }
 
+  buildNFTAction({
+    nftInfo,
+    dbAccount,
+  }: {
+    nftInfo: INFTInfo;
+    dbAccount: DBUTXOAccount;
+  }) {
+    const { from, to } = nftInfo;
+
+    let direction = IDecodedTxDirection.OTHER;
+
+    if (from === to && from === dbAccount.address) {
+      direction = IDecodedTxDirection.SELF;
+    } else if (from === dbAccount.address) {
+      direction = IDecodedTxDirection.OUT;
+    } else if (to === dbAccount.address) {
+      direction = IDecodedTxDirection.IN;
+    }
+
+    const action: IDecodedTxAction = {
+      type: IDecodedTxActionType.NFT_TRANSFER_BTC,
+      direction,
+      inscriptionInfo: {
+        send: nftInfo.from,
+        receive: nftInfo?.to,
+        asset: nftInfo?.asset as NFTBTCAssetModel,
+        extraInfo: null,
+      },
+    };
+
+    return action;
+  }
+
+  async buildInscriptionAction(nftInfo: INFTInfo) {
+    const {
+      content,
+      content_type: contentType,
+      contentUrl,
+    } = nftInfo.asset as NFTBTCAssetModel;
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+
+    const { isBRC20Content, brc20Content } = await parseBRC20Content({
+      content,
+      contentType,
+      contentUrl,
+    });
+
+    const tokenId = `brc-20--${brc20Content?.tick ?? ''}`;
+
+    const tokenInfo = await this.engine.findToken({
+      networkId: this.networkId,
+      tokenIdOnNetwork: tokenId,
+    });
+
+    if (isBRC20Content && tokenInfo) {
+      return this.buildBRC20TokenAction({
+        nftInfo,
+        dbAccount,
+        token: tokenInfo,
+        brc20Content,
+      });
+    }
+    return this.buildNFTAction({ nftInfo, dbAccount });
+  }
+
   async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
     specifiedFeeRate?: string,
@@ -778,7 +891,7 @@ export default class VaultBtcFork extends VaultBase {
   buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxBtc,
   ): Promise<IUnsignedTxPro> {
-    const { inputs, outputs } = encodedTx;
+    const { inputs, outputs, psbtHex, inputsToSign } = encodedTx;
 
     const inputsInUnsignedTx: TxInput[] = [];
     for (const input of inputs) {
@@ -798,6 +911,8 @@ export default class VaultBtcFork extends VaultBase {
     const ret = {
       inputs: inputsInUnsignedTx,
       outputs: outputsInUnsignedTx,
+      psbtHex,
+      inputsToSign,
       payload: {},
       encodedTx,
     };

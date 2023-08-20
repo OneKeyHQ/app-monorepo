@@ -94,6 +94,7 @@ import type {
 } from '../../../types/history';
 import type {
   AptosMessage,
+  BtcMessageTypes,
   CommonMessage,
   ETHMessage,
 } from '../../../types/message';

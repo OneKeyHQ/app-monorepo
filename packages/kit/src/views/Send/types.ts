@@ -6,6 +6,7 @@ import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
+import type { IUnsignedMessageBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
 import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   LNURLAuthServiceResponse,
@@ -185,7 +186,7 @@ export type SendConfirmParams = SendConfirmSharedParams & {
 };
 export type SignMessageConfirmParams = SendConfirmSharedParams & {
   sourceInfo?: IDappSourceInfo;
-  unsignedMessage: IUnsignedMessageEvm;
+  unsignedMessage: IUnsignedMessageEvm | IUnsignedMessageBtc;
   onSuccess?: (result: any) => void;
   hideToast?: boolean;
   closeImmediately?: boolean;
@@ -293,7 +294,7 @@ export type ITxConfirmViewProps = ModalProps & {
   feeInfoPayload: IFeeInfoPayload | null;
   feeInfoLoading: boolean;
   feeInfoEditable?: boolean;
-  feeInput?: JSX.Element;
+  feeInput?: JSX.Element | null;
 
   prepaidFee?: string;
 

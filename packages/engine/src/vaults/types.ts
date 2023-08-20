@@ -3,6 +3,7 @@ import type { CurveName } from '@onekeyhq/engine/src/secret';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import type { SendConfirmActionType } from '@onekeyhq/kit/src/views/Send/types';
 import type { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
+import type { InputToSign } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.types';
 
 import type { Engine } from '../index';
 import type { AccountCredential } from '../types/account';
@@ -50,6 +51,7 @@ import type { IEncodedTxTron } from './impl/tron/types';
 import type { IDecodedTxExtraXmr, IEncodedTxXmr } from './impl/xmr/types';
 import type { IEncodedTxXrp } from './impl/xrp/types';
 import type { ICoinSelectAlgorithm } from './utils/btcForkChain/utils';
+import type { Psbt } from 'bitcoinjs-lib';
 
 // Options ----------------------------------------------
 export type IVaultSubNetworkSettings = {
@@ -275,6 +277,8 @@ export type INativeTx =
 export type IRawTx = string;
 export type IUnsignedTxPro = UnsignedTx & {
   encodedTx: IEncodedTx;
+  psbtHex?: string;
+  inputsToSign?: InputToSign[];
   // signerAccount: ISignerAccountEvm | ISignerAccountNear | ISignerAccountAptos
 };
 export type ISignedTxPro = {

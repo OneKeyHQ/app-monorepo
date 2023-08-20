@@ -54,4 +54,5 @@ export type AddEthereumChainParameter = {
 
 export type SwitchEthereumChainParameter = {
   chainId: string;
+  networkId?: string;
 };

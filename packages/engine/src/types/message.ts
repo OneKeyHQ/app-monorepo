@@ -16,8 +16,17 @@ enum CommonMessageTypes {
   SIMPLE_SIGN = 'commonSimpleSign',
 }
 
+enum BtcMessageTypes {
+  ECDSA = 'ecdsa',
+  BIP322_SIMPLE = 'bip322-simple',
+}
+
 export function getEthProviderMethodFromMessageType(
-  type: ETHMessageTypes | AptosMessageTypes | CommonMessageTypes,
+  type:
+    | ETHMessageTypes
+    | AptosMessageTypes
+    | CommonMessageTypes
+    | BtcMessageTypes,
 ) {
   // https://docs.metamask.io/guide/signing-data.html#a-brief-history
   switch (type) {
@@ -36,6 +45,8 @@ export function getEthProviderMethodFromMessageType(
     case CommonMessageTypes.SIGN_MESSAGE:
       return 'signMessage';
     case CommonMessageTypes.SIMPLE_SIGN:
+      return 'signMessage';
+    case BtcMessageTypes.ECDSA:
       return 'signMessage';
     default:
       // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
@@ -59,7 +70,17 @@ type CommonMessage = {
   secure?: boolean;
 };
 
-type Message = string | ETHMessage | AptosMessage | CommonMessage;
+type BtcMessage = {
+  type: BtcMessageTypes;
+  message: string;
+};
 
-export { ETHMessageTypes, AptosMessageTypes, CommonMessageTypes };
-export type { ETHMessage, AptosMessage, CommonMessage, Message };
+type Message = string | ETHMessage | AptosMessage | CommonMessage | BtcMessage;
+
+export {
+  ETHMessageTypes,
+  AptosMessageTypes,
+  CommonMessageTypes,
+  BtcMessageTypes,
+};
+export type { BtcMessage, ETHMessage, AptosMessage, CommonMessage, Message };
