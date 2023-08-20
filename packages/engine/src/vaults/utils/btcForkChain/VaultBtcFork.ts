@@ -1125,15 +1125,67 @@ export default class VaultBtcFork extends VaultBase {
       this.networkId,
     );
     const token = await this.engine.getNativeTokenInfo(this.networkId);
-    let txs: Array<IBlockBookTransaction> = [];
 
     if (tokenIdOnNetwork && isBRC20Token(tokenIdOnNetwork)) {
-      const history = await getBRC20TransactionHistory(
+      const history = (await getBRC20TransactionHistory(
         dbAccount.address,
         tokenIdOnNetwork,
-      );
-      // TODO brc20 token history
+      )) as Record<string, BTCTransactionsModel[]>;
+
+      const txs = Object.values(history).flat();
+
+      const promises = txs.map(async (tx) => {
+        try {
+          const historyTxToMerge = localHistory.find(
+            (item) => item.decodedTx.txid === tx.tx_hash,
+          );
+          if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
+            // No need to update.
+            return null;
+          }
+
+          const { send, receive, asset, fee, timestamp } = tx;
+
+          const action = await this.buildInscriptionAction({
+            from: send,
+            to: receive,
+            amount: '0',
+            asset: asset as NFTBTCAssetModel,
+          });
+
+          const decodedTx: IDecodedTx = {
+            txid: tx.tx_hash,
+            owner: dbAccount.address,
+            signer: dbAccount.address,
+            nonce: 0,
+            actions: [action],
+            status: IDecodedTxStatus.Confirmed,
+            networkId: this.networkId,
+            accountId: this.accountId,
+            extraInfo: null,
+            totalFeeInNative: String(fee),
+          };
+          decodedTx.updatedAt =
+            typeof timestamp !== 'undefined'
+              ? new BigNumber(timestamp).times(1000).toNumber()
+              : Date.now();
+          decodedTx.createdAt =
+            historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
+          decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
+          return await this.buildHistoryTx({
+            decodedTx,
+            historyTxToMerge,
+          });
+        } catch (e) {
+          console.error(e);
+          return Promise.resolve(null);
+        }
+      });
+
+      return (await Promise.all(promises)).filter(Boolean);
     }
+
+    let txs: Array<IBlockBookTransaction> = [];
 
     try {
       txs =
