@@ -12,9 +12,9 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import { FlatListPlain } from '@onekeyhq/components/src/FlatListPlain';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { HomeRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import AssetsListHeader from './AssetsListHeader';
 import { AccountAssetsEmptyList } from './EmptyList';
@@ -110,7 +110,7 @@ function AssetsListViewCmp({
           <TokenCell
             {...sharedProps}
             {...omit(row?.item, 'source')}
-            deepRefreshMode
+            deepRefreshMode={!isAllNetworks(networkId)}
           />
         );
       },

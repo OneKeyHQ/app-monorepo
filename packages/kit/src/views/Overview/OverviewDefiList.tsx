@@ -27,6 +27,7 @@ import { HomeTabAssetsHeader } from '../Wallet/HomeTabAssetsHeader';
 
 import {
   atomHomeOverviewDefiList,
+  atomHomeOverviewDefiValuesMap,
   useAtomDefiList,
   withProviderDefiList,
 } from './contextOverviewDefiList';
@@ -92,11 +93,15 @@ export function HandleRebuildDefiListData(
 ) {
   const result = useAccountDefiListDataFromSimpleDB(options);
   const [defisList, setDefiList] = useAtomDefiList(atomHomeOverviewDefiList);
+  const [, setDefiValuesMap] = useAtomDefiList(atomHomeOverviewDefiValuesMap);
 
   useEffect(() => {
     const data = result.result;
     if (!data) {
       return;
+    }
+    if (data.defiValuesMap) {
+      setDefiValuesMap(data.defiValuesMap);
     }
     if (data.defiKeys) {
       if (!isEqual(defisList.defiKeys, data.defiKeys)) {
@@ -105,7 +110,7 @@ export function HandleRebuildDefiListData(
     } else {
       setDefiList(data);
     }
-  }, [defisList.defiKeys, result.result, setDefiList]);
+  }, [defisList.defiKeys, result.result, setDefiList, setDefiValuesMap]);
 
   return null;
 }
@@ -162,14 +167,51 @@ const AccountDefiListHeader: FC<{
 AccountDefiListHeader.displayName = 'AccountDefiListHeader';
 const AccountDefiListHeaderMemo = memo(AccountDefiListHeader);
 
+const DefiValuesComp: FC<{ claimable: string; value: string }> = ({
+  claimable,
+  value,
+}) => {
+  const isVertical = useIsVerticalLayout();
+  return (
+    <>
+      {isVertical ? null : (
+        <Typography.Body2Strong
+          flex="1"
+          numberOfLines={2}
+          isTruncated
+          textAlign="right"
+        >
+          <FormatCurrencyNumber value={0} convertValue={+claimable} />
+        </Typography.Body2Strong>
+      )}
+      <Typography.Body2Strong
+        flex="1"
+        textAlign="right"
+        numberOfLines={2}
+        isTruncated
+      >
+        <FormatCurrencyNumber value={0} convertValue={+value} />
+      </Typography.Body2Strong>
+    </>
+  );
+};
+const DefiValuesCompMemo = memo(DefiValuesComp);
+
+const DefiValueColumnWrapper: FC<{ valueKey: string }> = ({ valueKey }) => {
+  const [map] = useAtomDefiList(atomHomeOverviewDefiValuesMap);
+  return <DefiValuesCompMemo {...map[valueKey]} />;
+};
+
+const DefiValueColumnMemo = memo(DefiValueColumnWrapper);
+DefiValueColumnMemo.displayName = 'DefiValueColumnMemo';
+
 const OverviewDefiListWithoutMemo: FC<OverviewDefiListProps> = (props) => {
-  const { networkId, limitSize, accountId } = props;
+  const { networkId, accountId } = props;
 
   const [data] = useAtomDefiList(atomHomeOverviewDefiList);
 
   const { defis = freezedEmptyArray as IOverviewAccountdefisResult['defis'] } =
     data;
-  const isVertical = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
   const { containerPaddingX } = useAssetsListLayout();
 
@@ -211,7 +253,7 @@ const OverviewDefiListWithoutMemo: FC<OverviewDefiListProps> = (props) => {
         accountId={accountId}
       />
 
-      {defis.slice(0, limitSize).map((item, idx) => (
+      {defis.map((item, idx) => (
         <Pressable.Item
           key={item._id.protocolId}
           onPress={() => {
@@ -247,30 +289,9 @@ const OverviewDefiListWithoutMemo: FC<OverviewDefiListProps> = (props) => {
             }}
             showNetworkIcon
           />
-          {isVertical ? null : (
-            <Typography.Body2Strong
-              flex="1"
-              numberOfLines={2}
-              isTruncated
-              textAlign="right"
-            >
-              <FormatCurrencyNumber
-                value={0}
-                convertValue={+item.claimableValue}
-              />
-            </Typography.Body2Strong>
-          )}
-          <Typography.Body2Strong
-            flex="1"
-            textAlign="right"
-            numberOfLines={2}
-            isTruncated
-          >
-            <FormatCurrencyNumber
-              value={0}
-              convertValue={+item.protocolValue}
-            />
-          </Typography.Body2Strong>
+          <DefiValueColumnMemo
+            valueKey={`${item._id.networkId}_${item._id.address}_${item._id.protocolId}`}
+          />
         </Pressable.Item>
       ))}
     </VStack>

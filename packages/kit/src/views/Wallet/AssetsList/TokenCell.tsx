@@ -31,7 +31,6 @@ import {
 import { useOnUIEventBus } from '../../../hooks/useOnUIEventBus';
 import {
   CValueLoading,
-  CValueNull,
   type ITokenPriceValue,
 } from '../../../store/reducers/tokens';
 import { calculateGains } from '../../../utils/priceUtils';
@@ -68,11 +67,10 @@ export type ITokenCellByKeyProps = ITokenCellSharedProps & {
 type TokenCellProps = IAccountToken & ITokenCellSharedProps;
 
 function TokenCellPrice({ price }: { price: ITokenPriceValue }) {
-  return price === CValueLoading || price === CValueNull ? (
+  return price === CValueLoading ? (
     <Skeleton shape="Body2" />
   ) : (
     <Typography.Body2Strong>
-      {/* * price */}
       <FormatCurrencyNumber value={0} convertValue={+(price || 0)} />
     </Typography.Body2Strong>
   );
@@ -82,17 +80,6 @@ const TokenCellPriceMemo = memo(TokenCellPrice);
 // $backgroundApiProxy.backgroundApi.servicePrice.testUpdateTokenPriceMap()
 function TokenCellPriceDeepFresh({ token }: { token: IAccountToken }) {
   const { price } = useReduxSingleTokenPriceSimple({ token });
-
-  // const { result: data } = usePromiseResult(
-  //   () =>
-  //     backgroundApiProxy.serviceOverview.getPriceOfTokenAsync({
-  //       prices,
-  //       token,
-  //       // hello: 11,
-  //     }),
-  //   [prices, token],
-  // );
-  // const price = data?.price;
 
   return <TokenCellPriceMemo price={price} />;
 }

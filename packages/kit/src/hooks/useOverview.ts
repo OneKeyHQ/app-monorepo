@@ -214,7 +214,7 @@ export const useAccountPortfolios = <
     ),
   );
 
-  const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
+  const networkAccountsMap = useAllNetworksWalletAccounts({
     accountId,
   });
 
@@ -651,7 +651,7 @@ export const useNFTValues = ({
   accountId?: string;
   networkId?: string;
 }) => {
-  const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
+  const networkAccountsMap = useAllNetworksWalletAccounts({
     accountId,
   });
 
@@ -881,7 +881,7 @@ export const useTokenPositionInfo = ({
     useFilter: false,
   });
 
-  const { data: allNetworksAccountsMap } = useAllNetworksWalletAccounts({
+  const allNetworksAccountsMap = useAllNetworksWalletAccounts({
     accountId,
   });
 

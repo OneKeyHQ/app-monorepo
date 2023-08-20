@@ -2,11 +2,16 @@ import type { IOverviewAccountdefisResult } from '@onekeyhq/kit-bg/src/services/
 
 import { atom, createJotaiContext } from '../../store/jotai/createJotaiContext';
 
-export const atomHomeOverviewDefiList = atom<IOverviewAccountdefisResult>({
+export const atomHomeOverviewDefiList = atom<
+  Pick<IOverviewAccountdefisResult, 'defis' | 'defiKeys'>
+>({
   defis: [],
-  defiTotalValue: undefined,
-  defiTotalValue24h: undefined,
+  defiKeys: [],
 });
+
+export const atomHomeOverviewDefiValuesMap = atom<
+  IOverviewAccountdefisResult['defiValuesMap']
+>({});
 
 const { withProvider: withProviderDefiList, useContextAtom: useAtomDefiList } =
   createJotaiContext();

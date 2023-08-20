@@ -92,9 +92,7 @@ export const useAllNetworksWalletAccounts = ({
   );
   const data = useAppSelector(getAllNetworksAccountsSelector);
 
-  return {
-    data,
-  };
+  return data;
 };
 
 export const useAllNetworksSelectNetworkAccount = ({
@@ -113,7 +111,7 @@ export const useAllNetworksSelectNetworkAccount = ({
     networkId,
     accountId,
   });
-  const { data: networkAccounts } = useAllNetworksWalletAccounts({
+  const networkAccounts = useAllNetworksWalletAccounts({
     accountId,
   });
   const navigation = useNavigation();
@@ -213,7 +211,7 @@ export const useActionForAllNetworks = ({
     accountId,
   });
   const { enabledNetworks } = useManageNetworks(undefined);
-  const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
+  const networkAccountsMap = useAllNetworksWalletAccounts({
     accountId,
   });
 

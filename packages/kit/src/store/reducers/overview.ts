@@ -18,9 +18,9 @@ export interface IOverviewStatsInfo {
 export interface IOverviewStatsSummary {
   totalValue: string | undefined;
   totalValue24h: string | undefined;
-  shareTokens: number;
-  shareDefis: number;
-  shareNfts: number;
+  shareTokens: string;
+  shareDefis: string;
+  shareNfts: string;
 }
 export interface IOverviewStats {
   summary?: IOverviewStatsSummary;

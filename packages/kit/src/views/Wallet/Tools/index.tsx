@@ -160,7 +160,7 @@ const ToolsPage: FC = () => {
   const appNavigation = useAppNavigation();
   const tools = useTools(network?.id);
 
-  const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
+  const networkAccountsMap = useAllNetworksWalletAccounts({
     accountId,
   });
 

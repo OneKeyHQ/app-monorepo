@@ -293,12 +293,6 @@ function FullTokenAssetsListCmp(
   props: Omit<IAssetsListProps, 'accountTokens'>,
 ) {
   const { accountId, networkId, limitSize } = props;
-  // const result = useAssetsListDataFromRedux({
-  //   networkId,
-  //   accountId,
-  //   limitSize,
-  // });
-  // const accountTokens = result.result?.tokens || freezedEmptyArray
 
   const [accountTokensInfo] = useAtomAssetsList(atomHomeOverviewAccountTokens);
   const { tokens: accountTokens = freezedEmptyArray } = accountTokensInfo;

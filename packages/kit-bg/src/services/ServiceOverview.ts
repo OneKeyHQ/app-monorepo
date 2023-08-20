@@ -586,7 +586,6 @@ class ServiceOverview extends ServiceBase {
   async getPriceOfTokenAsync(
     options: Parameters<typeof this.getPriceOfToken>[0],
   ) {
-    console.log('getPriceOfTokenAsync >>>> ');
     return Promise.resolve(this.getPriceOfToken(options));
   }
 
@@ -660,12 +659,63 @@ class ServiceOverview extends ServiceBase {
   }
 
   @backgroundMethod()
-  buildSingleChainAccountTokens(
+  filterTokens(
+    tokens: IAccountToken[],
     options: IAccountOverviewOptions,
-    tokenSchema: IOverviewTokenSchema,
-  ): IOverviewAccountTokensResult & {
-    tokens: unknown;
-  } {
+  ): Promise<Pick<IOverviewAccountTokensResult, 'tokensKeys' | 'tokens'>> {
+    const { tokensSort, tokensLimit, buildTokensMapKey } = options;
+    let tokensReturn = tokens;
+    let tokensKeys: string[] | undefined;
+    if (tokensSort) {
+      const { name, native, value, price } = tokensSort;
+      tokensReturn = tokensReturn.sort((a, b) => {
+        let condition = 0;
+        // putMainTokenOnTop
+        if (native) {
+          condition =
+            condition || (b.isNative ? 1 : 0) || (a.isNative ? -1 : 0);
+        }
+        // TODO asc support
+        if (value === 'desc') {
+          condition = condition || new B(b.value ?? 0).comparedTo(a.value ?? 0);
+        }
+        if (price === 'desc') {
+          condition = condition || new B(b.price ?? 0).comparedTo(a.price ?? 0);
+        }
+        if (name === 'asc') {
+          condition =
+            condition || natsort({ insensitive: true })(a.name, b.name);
+        }
+        return condition;
+      });
+    }
+
+    // * limit
+    if (!isNil(tokensLimit)) {
+      tokensReturn = tokensReturn.slice(0, tokensLimit);
+    }
+
+    // * build map key
+    if (buildTokensMapKey) {
+      tokensKeys = tokensReturn.map((token) => {
+        const key = token?.key;
+        if (!key) {
+          throw new Error('buildTokensMapKey ERROR: key is undefined');
+        }
+        return key;
+      });
+    }
+
+    return Promise.resolve({
+      tokensKeys,
+      tokens: tokensReturn,
+    });
+  }
+
+  @backgroundMethod()
+  async buildSingleChainAccountTokens(
+    options: IAccountOverviewOptions,
+  ): Promise<IOverviewAccountTokensResult> {
     const {
       accountId,
       networkId,
@@ -673,7 +723,6 @@ class ServiceOverview extends ServiceBase {
       tokensSort,
       tokensLimit,
       calculateTokensTotalValue,
-      buildTokensMapKey,
     } = options;
     // IAccountTokenOnChain, IAccountTokenData
     const tokens: IAccountTokenData[] = getReduxAccountTokensList({
@@ -695,7 +744,7 @@ class ServiceOverview extends ServiceBase {
     let accValue24h = new B(0);
 
     // * convert to custom token schema
-    let tokensReturn: Array<IAccountToken | IAccountTokenData> = [];
+    const tokensReturn: Array<IAccountToken> = [];
     tokens.forEach((token) => {
       let valuesInfo: ITokenFiatValuesInfo = {};
       if (!isNil(prices) && !isNil(balances)) {
@@ -728,103 +777,148 @@ class ServiceOverview extends ServiceBase {
         accValue24h = accValue24h.plus(t.value24h ?? 0);
       }
 
-      if (tokenSchema === 'overview') {
-        const tokenOverview: IAccountToken = {
+      const tokenOverview: IAccountToken = {
+        networkId,
+        accountId,
+        name: t.name,
+        symbol: t.symbol,
+        address: t.address,
+        logoURI: t.logoURI,
+        balance: t.balance,
+        availableBalance: t.availableBalance,
+        transferBalance: t.transferBalance,
+        usdValue: t.usdValue,
+        value: t.usdValue,
+        value24h: undefined,
+        price: t.price,
+        price24h: t.price24h,
+        isNative: t.isNative,
+        riskLevel: t.riskLevel,
+        key: this.buildTokenKey({
           networkId,
           accountId,
-          name: t.name,
-          symbol: t.symbol,
-          address: t.address,
-          logoURI: t.logoURI,
-          balance: t.balance,
-          availableBalance: t.availableBalance,
-          transferBalance: t.transferBalance,
-          usdValue: t.usdValue,
-          value: t.usdValue,
-          value24h: undefined,
-          price: t.price,
-          price24h: t.price24h,
-          isNative: t.isNative,
-          riskLevel: t.riskLevel,
-          key: this.buildTokenKey({
-            networkId,
-            accountId,
-            token: t,
-          }),
-          coingeckoId: t.coingeckoId,
-          sendAddress: t.sendAddress,
-          autoDetected: t.autoDetected,
-          tokens: [
-            {
-              networkId: t.networkId,
-              address: t.address ?? '',
-              balance: t.balance,
-              decimals: t.decimals,
-              riskLevel: t.riskLevel ?? TokenRiskLevel.UNKNOWN,
-              value: t.value,
-            },
-          ],
-        };
-        tokensReturn.push(tokenOverview);
-      } else {
-        tokensReturn.push(t);
-      }
+          token: t,
+        }),
+        coingeckoId: t.coingeckoId,
+        sendAddress: t.sendAddress,
+        autoDetected: t.autoDetected,
+        tokens: [
+          {
+            networkId: t.networkId,
+            address: t.address ?? '',
+            balance: t.balance,
+            decimals: t.decimals,
+            riskLevel: t.riskLevel ?? TokenRiskLevel.UNKNOWN,
+            value: t.value,
+          },
+        ],
+      };
+      tokensReturn.push(tokenOverview);
     });
-
-    // * sort
-    if (tokensSort) {
-      const { name, native, value, price } = tokensSort;
-      tokensReturn = tokensReturn.sort((a, b) => {
-        let condition = 0;
-        // putMainTokenOnTop
-        if (native) {
-          condition =
-            condition || (b.isNative ? 1 : 0) || (a.isNative ? -1 : 0);
-        }
-        // TODO asc support
-        if (value === 'desc') {
-          condition = condition || new B(b.value ?? 0).comparedTo(a.value ?? 0);
-        }
-        if (price === 'desc') {
-          condition = condition || new B(b.price ?? 0).comparedTo(a.price ?? 0);
-        }
-        if (name === 'asc') {
-          condition =
-            condition || natsort({ insensitive: true })(a.name, b.name);
-        }
-        return condition;
-      });
-    }
 
     // * calculate total value (in USD)
     if (calculateTokensTotalValue) {
-      totalValue = accValue.toFixed();
-      totalValue24h = accValue24h.toFixed();
+      totalValue = accValue.toFixed(3);
+      totalValue24h = accValue24h.toFixed(3);
     }
 
     // * calculate total before limit
     const tokensTotal = tokensReturn.length;
 
-    // * limit
-    if (!isNil(tokensLimit)) {
-      tokensReturn = tokensReturn.slice(0, tokensLimit);
-    }
-
-    // * build map key
-    let tokensKeys: string[] | undefined;
-    if (buildTokensMapKey && tokenSchema === 'overview') {
-      tokensKeys = tokensReturn.map((token) => {
-        const key = (token as IAccountToken)?.key;
-        if (!key) {
-          throw new Error('buildTokensMapKey ERROR: key is undefined');
-        }
-        return key;
-      });
-    }
+    const { tokens: filteredTokens, tokensKeys } = await this.filterTokens(
+      tokensReturn,
+      options,
+    );
 
     return {
       tokensKeys,
-      tokens: tokensReturn as any,
+      tokens: !isNil(tokensLimit)
+        ? filteredTokens.slice(0, tokensLimit)
+        : filteredTokens,
+      tokensTotal,
+      tokensTotalValue: totalValue,
+      tokensTotalValue24h: totalValue24h,
+    };
+  }
+
+  async buildAllNetworksAccountTokens(
+    options: IAccountOverviewOptions,
+  ): Promise<
+    IOverviewAccountTokensResult & {
+      tokens: unknown;
+    }
+  > {
+    const {
+      networkId,
+      accountId,
+      tokensFilter,
+      tokensLimit,
+      calculateTokensTotalValue,
+    } = options;
+    const data = await this.getAccountPortfolio({
+      networkId,
+      accountId,
+    });
+
+    let totalValue: string | undefined;
+    let totalValue24h: string | undefined;
+
+    const accValue = new B(0);
+    const accValue24h = new B(0);
+
+    const tokensReturn: Array<IAccountToken> = [];
+
+    (data[EOverviewScanTaskType.token] ?? []).forEach((t) => {
+      const value = new B(t.value ?? '0');
+
+      if (tokensFilter?.hideSmallBalance && value.isLessThan(1)) {
+        return;
+      }
+
+      const tokenOverview: IAccountToken = {
+        networkId,
+        accountId,
+        name: t.name,
+        symbol: t.symbol,
+        address: undefined,
+        logoURI: t.logoURI,
+        balance: t.balance,
+        usdValue: t.value ?? '0',
+        value: value.toString(),
+        value24h: new B(t.value24h ?? '0').toString(),
+        price: new B(t.price ?? 0).toNumber(),
+        price24h: t.price24h,
+        isNative: false,
+        riskLevel: TokenRiskLevel.UNKNOWN,
+        key: t.coingeckoId,
+        coingeckoId: t.coingeckoId,
+        sendAddress: undefined,
+        autoDetected: false,
+        tokens: t.tokens ?? [],
+      };
+
+      tokensReturn.push(tokenOverview);
+    });
+
+    // * calculate total value (in USD)
+    if (calculateTokensTotalValue) {
+      totalValue = accValue.toFixed(3);
+      totalValue24h = accValue24h.toFixed(3);
+    }
+
+    // * calculate total before limit
+    const tokensTotal = tokensReturn.length;
+
+    const { tokens: filteredTokens, tokensKeys } = await this.filterTokens(
+      tokensReturn,
+      options,
+    );
+
+    return {
+      tokensKeys,
+      tokens: !isNil(tokensLimit)
+        ? filteredTokens.slice(0, tokensLimit)
+        : filteredTokens,
       tokensTotal,
       tokensTotalValue: totalValue,
       tokensTotalValue24h: totalValue24h,
@@ -863,17 +957,21 @@ class ServiceOverview extends ServiceBase {
       .plus(stats.tokens?.totalValue ?? 0)
       .plus(stats.defis?.totalValue ?? 0)
       .plus(stats.nfts?.totalValue ?? 0)
-      .toFixed();
-    const totalValue24h = undefined;
+      .toFixed(3);
+    const totalValue24h = new B(0)
+      .plus(stats.tokens?.totalValue24h ?? 0)
+      .plus(stats.defis?.totalValue24h ?? 0)
+      .plus(stats.nfts?.totalValue24h ?? 0)
+      .toFixed(3);
     const shareTokens = new B(stats.tokens?.totalValue ?? 0)
       .div(totalValue)
-      .toNumber();
+      .toFixed(3);
     const shareDefis = new B(stats.defis?.totalValue ?? 0)
       .div(totalValue)
-      .toNumber();
+      .toFixed(3);
     const shareNfts = new B(stats.nfts?.totalValue ?? 0)
       .div(totalValue)
-      .toNumber();
+      .toFixed(3);
 
     stats.summary = {
       totalValue,
@@ -896,13 +994,13 @@ class ServiceOverview extends ServiceBase {
     accountId: string;
     limitSize?: number;
   }): Promise<IOverviewAccountdefisResult> {
-    const data = await simpleDb.accountPortfolios.getPortfolio(options);
+    const data = await this.getAccountPortfolio(options);
 
     let list = data[EOverviewScanTaskType.defi] ?? [];
 
     let defiTotalValue = new B(0);
     let defiTotalValue24h = new B(0);
-    const defiKeys: string[] = [];
+    const defiValuesMap: IOverviewAccountdefisResult['defiValuesMap'] = {};
 
     list.forEach((d) => {
       if (d.protocolValue) {
@@ -911,30 +1009,34 @@ class ServiceOverview extends ServiceBase {
       if (d.protocolValue24h) {
         defiTotalValue24h = defiTotalValue24h.plus(d.protocolValue24h);
       }
-      defiKeys.push(
-        `${d._id.networkId}_${d._id.protocolId}-${d.protocolValue}-${d.protocolValue24h}}`,
-      );
+      const key = `${d._id.networkId}_${d._id.address}_${d._id.protocolId}`;
+      defiValuesMap[key] = {
+        value: d.protocolValue,
+        claimable: d.claimableValue,
+      };
     });
 
     if (typeof options.limitSize === 'number') {
       list = list.slice(0, options.limitSize);
     }
 
+    const totalValue = defiTotalValue.toFixed(3);
+    const totalValue24h = defiTotalValue24h.toFixed(3);
+
     this.refreshOverviewStats({
       networkId: options.networkId,
       accountId: options.accountId,
       defis: {
         totalCounts: list.length,
-        totalValue: defiTotalValue?.toFixed(),
-        totalValue24h: defiTotalValue24h.toFixed(),
+        totalValue,
+        totalValue24h,
       },
     });
 
     return {
-      defiKeys,
+      defiKeys: Object.keys(defiValuesMap),
+      defiValuesMap,
       defis: list,
-      defiTotalValue: defiTotalValue.toFixed(),
-      defiTotalValue24h: defiTotalValue24h.toFixed(),
     };
   }
 
@@ -948,13 +1050,15 @@ class ServiceOverview extends ServiceBase {
   // this method only build data from DB, not fetch data from server
   // fetch data logic here: refreshCurrentAccount()
   @backgroundMethod()
-  buildAccountOverview(
+  async buildAccountOverview(
     options: IAccountOverviewOptions,
   ): Promise<IOverviewAccountTokensResult> {
     const { networkId, accountId } = options;
     // build tokens
-    const tokenRes = this.buildSingleChainAccountTokens(options, 'overview');
-    const stats = this.refreshOverviewStats({
+    const tokenRes = isAllNetworks(networkId)
+      ? await this.buildAllNetworksAccountTokens(options)
+      : await this.buildSingleChainAccountTokens(options);
+    this.refreshOverviewStats({
       networkId,
       accountId,
       tokens: {
@@ -963,24 +1067,11 @@ class ServiceOverview extends ServiceBase {
         totalValue24h: tokenRes.tokensTotalValue24h,
       },
     });
-    console.log('buildAccountOverview --------------------', stats);
-
-    // build defis
-    // build nfts
-    if (isAllNetworks(options.networkId)) {
-      throw new Error('getAccountOverview ERROR: all-network not support yet');
-    }
 
     return Promise.resolve(tokenRes);
   }
 }
 
-interface IOverviewTokenSchemaMap {
-  'raw': IAccountTokenData;
-  'overview': IAccountToken;
-  // [key: string]: unknown;
-}
-type IOverviewTokenSchema = keyof IOverviewTokenSchemaMap;
 export type IOverviewAccountTokensResult = {
   tokens: IAccountToken[];
   tokensMap?: {
@@ -994,9 +1085,14 @@ export type IOverviewAccountTokensResult = {
 
 export type IOverviewAccountdefisResult = {
   defiKeys?: string[];
+  defiValuesMap: Record<
+    string,
+    {
+      claimable: string;
+      value: string;
+    }
+  >;
   defis: OverviewDefiRes[];
-  defiTotalValue: string | undefined;
-  defiTotalValue24h: string | undefined;
 };
 
 export type IAccountTokensSort = 'asc' | 'desc' | boolean;
