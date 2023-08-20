@@ -58,10 +58,15 @@ const LNURLWithdraw = () => {
   });
 
   const { network } = useNetwork({ networkId });
-  const useFormReturn = useForm<IMakeInvoiceFormValues>();
-  const { handleSubmit } = useFormReturn;
   const amountMin = Math.floor(+lnurlDetails.minWithdrawable / 1000);
   const amountMax = Math.floor(+lnurlDetails.maxWithdrawable / 1000);
+
+  const useFormReturn = useForm<IMakeInvoiceFormValues>({
+    defaultValues: {
+      amount: amountMin > 0 && amountMin === amountMax ? `${amountMin}` : '',
+    },
+  });
+  const { handleSubmit } = useFormReturn;
 
   const nativeToken = useNativeToken(networkId);
 
