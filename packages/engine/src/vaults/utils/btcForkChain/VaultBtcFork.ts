@@ -117,6 +117,7 @@ import type {
 } from '../../types';
 import type { IKeyringMapKey } from '../../VaultBase';
 import type { ICoinSelectAlgorithm } from './utils';
+import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
 
 export default class VaultBtcFork extends VaultBase {
   keyringMap = {} as Record<IKeyringMapKey, typeof KeyringBaseMock>;
@@ -1384,10 +1385,20 @@ export default class VaultBtcFork extends VaultBase {
     return new BlockBook(url) as unknown as BaseClient;
   }
 
-  fetchTokenInfos(
+  async fetchTokenInfos(
     tokenAddresses: string[],
   ): Promise<Array<PartialTokenInfo | undefined>> {
-    throw new NotImplemented();
+    const tokenInfos = (await fetchData(
+      '/token/meta/batch',
+      {
+        networkId: this.networkId,
+        addresses: tokenAddresses,
+      },
+      {},
+      'POST',
+    )) as Record<string, { name: string; symbol: string; decimals: number }>;
+
+    return Object.values(tokenInfos);
   }
 
   override async getPrivateKeyByCredential(credential: string) {
