@@ -23,6 +23,7 @@ import type {
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import { appSelector } from '@onekeyhq/kit/src/store';
 import type { SendConfirmPayloadInfo } from '@onekeyhq/kit/src/views/Send/types';
+import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
   COINTYPE_BTC,
   IMPL_BTC,
@@ -117,7 +118,6 @@ import type {
 } from '../../types';
 import type { IKeyringMapKey } from '../../VaultBase';
 import type { ICoinSelectAlgorithm } from './utils';
-import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
 
 export default class VaultBtcFork extends VaultBase {
   keyringMap = {} as Record<IKeyringMapKey, typeof KeyringBaseMock>;

@@ -25,6 +25,7 @@ import {
   CommonMessageTypes,
   ETHMessageTypes,
 } from '@onekeyhq/engine/src/types/message';
+import type { IUnsignedMessageBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
 import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import X from '@onekeyhq/kit/assets/red_x.png';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
@@ -40,7 +41,11 @@ type TypedDataV1 = {
 };
 
 const getSignTypeString = (
-  signType: ETHMessageTypes | AptosMessageTypes | CommonMessageTypes,
+  signType:
+    | ETHMessageTypes
+    | AptosMessageTypes
+    | CommonMessageTypes
+    | BtcMessageTypes,
 ) => {
   const signTypeMap = {
     [ETHMessageTypes.ETH_SIGN]: 'eth_sign',
@@ -51,6 +56,8 @@ const getSignTypeString = (
     [AptosMessageTypes.SIGN_MESSAGE]: 'signMessage',
     [CommonMessageTypes.SIGN_MESSAGE]: 'signMessage',
     [CommonMessageTypes.SIMPLE_SIGN]: 'signMessage',
+    [BtcMessageTypes.ECDSA]: 'signMessage',
+    [BtcMessageTypes.BIP322_SIMPLE]: 'signMessage',
   } as const;
   return signTypeMap[signType];
 };
@@ -106,12 +113,14 @@ const renderMessage = (json: any, padding = 0) => {
   );
 };
 
-const renderMessageCard = (unsignedMessage: IUnsignedMessageEvm) => {
+const renderMessageCard = (
+  unsignedMessage: IUnsignedMessageEvm | IUnsignedMessageBtc,
+) => {
   const { message, type } = unsignedMessage;
 
   if (
     type === BtcMessageTypes.ECDSA ||
-    type === BtcMessageTypes.bip322 - simple
+    type === BtcMessageTypes.BIP322_SIMPLE
   ) {
     return renderCard(message);
   }
@@ -167,7 +176,9 @@ const renderMessageCard = (unsignedMessage: IUnsignedMessageEvm) => {
   );
 };
 
-const renderDataCard = (unsignedMessage: IUnsignedMessageEvm) => {
+const renderDataCard = (
+  unsignedMessage: IUnsignedMessageEvm | IUnsignedMessageBtc,
+) => {
   const { message, type } = unsignedMessage;
 
   if (type === ETHMessageTypes.PERSONAL_SIGN) {
@@ -264,7 +275,7 @@ const ConfirmHeader: FC<ConfirmHeaderProps> = (props) => {
 };
 
 const SignDetail: FC<{
-  unsignedMessage: IUnsignedMessageEvm;
+  unsignedMessage: IUnsignedMessageEvm | IUnsignedMessageBtc;
   sourceInfo?: IDappSourceInfo;
   networkId: string;
   accountId: string;

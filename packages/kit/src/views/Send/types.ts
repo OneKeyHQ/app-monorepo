@@ -208,7 +208,7 @@ export type SendAuthenticationParams = Omit<
   accountId: string;
   walletId: string;
   networkId: string;
-  unsignedMessage?: IUnsignedMessageEvm;
+  unsignedMessage?: IUnsignedMessageEvm | IUnsignedMessageBtc;
   encodedTx?: IEncodedTx;
 };
 
@@ -315,7 +315,7 @@ export type ISignMessageConfirmViewPropsHandleConfirm = ({
 }: {
   onClose?: () => void;
   close: () => void;
-  unsignedMessage: IUnsignedMessageEvm;
+  unsignedMessage: IUnsignedMessageEvm | IUnsignedMessageBtc;
 }) => void;
 
 export type ISignMessageConfirmViewProps = ModalProps & {
@@ -323,7 +323,7 @@ export type ISignMessageConfirmViewProps = ModalProps & {
   accountId: string;
   // TODO rename sourceInfo
   sourceInfo?: IDappSourceInfo;
-  unsignedMessage: IUnsignedMessageEvm;
+  unsignedMessage: IUnsignedMessageEvm | IUnsignedMessageBtc;
   confirmDisabled?: boolean;
   handleConfirm: ISignMessageConfirmViewPropsHandleConfirm;
   children?: ReactElement;

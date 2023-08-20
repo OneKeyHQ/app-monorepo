@@ -143,6 +143,7 @@ import type {
 } from './types/network';
 import type { Token } from './types/token';
 import type { Wallet } from './types/wallet';
+import type { IUnsignedMessageBtc } from './vaults/impl/btc/types';
 import type {
   IEncodedTxEvm,
   IUnsignedMessageEvm,
@@ -1773,7 +1774,7 @@ class Engine {
     networkId,
     accountId,
   }: {
-    unsignedMessage?: IUnsignedMessageEvm;
+    unsignedMessage?: IUnsignedMessageEvm | IUnsignedMessageBtc;
     password: string;
     networkId: string;
     accountId: string;

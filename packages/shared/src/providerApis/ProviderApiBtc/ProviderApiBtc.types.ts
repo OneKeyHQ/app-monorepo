@@ -1,9 +1,10 @@
+import type { BtcMessageTypes } from '@onekeyhq/engine/src/types/message';
+
 export enum NetworkTypeEnum {
   MAINNET,
   TESTNET,
 }
 
-export type MessageType = 'ecdsa' | 'bip322-simple';
 export type NetworkType = 'livenet' | 'testnet';
 
 export const NETWORK_TYPES = [
@@ -35,7 +36,7 @@ export type SendInscriptionParams = {
 };
 export type SignMessageParams = {
   message: string;
-  type: MessageType;
+  type: BtcMessageTypes;
 };
 export type PushTxParams = {
   rawTx: string;

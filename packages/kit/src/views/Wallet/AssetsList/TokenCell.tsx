@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -31,6 +31,7 @@ import {
   useReduxSingleTokenFiatValuesSimple,
   useReduxSingleTokenPriceSimple,
 } from '../../../hooks';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   CValueLoading,
   CValueNull,
@@ -115,9 +116,20 @@ function TokenCellBalance({
   const intl = useIntl();
   const { networkId, accountId, symbol } = token;
   const { network, account } = useActiveSideAccount({ accountId, networkId });
-  const [recycleBalance, setRecycleBalance] = useState('0');
   const tokenId = token?.address || 'main';
   const isBRC20 = useMemo(() => isBRC20Token(tokenId), [tokenId]);
+
+  const { result: recycleBalance = '0', run } = usePromiseResult(() => {
+    if (networkId && account && token && isBRC20) {
+      return backgroundApiProxy.serviceBRC20.getBRC20RecycleBalance({
+        networkId,
+        address: account.address,
+        xpub: account.xpub ?? '',
+        tokenAddress: token.address ?? '',
+      });
+    }
+    return Promise.resolve('0');
+  }, [account, isBRC20, networkId, token]);
 
   const displayDecimal = useMemo(
     () =>
@@ -132,34 +144,10 @@ function TokenCellBalance({
     [],
   );
 
-  const fetchRecycleBalance = useCallback(async () => {
-    if (networkId && account && token && isBRC20) {
-      const resp = await backgroundApiProxy.serviceBRC20.getBRC20RecycleBalance(
-        {
-          networkId,
-          address: account.address,
-          xpub: account.xpub ?? '',
-          tokenAddress: token.address ?? '',
-        },
-      );
-      setRecycleBalance(resp);
-    }
-  }, [account, isBRC20, networkId, token]);
-
   useEffect(() => {
-    fetchRecycleBalance();
-  }, [fetchRecycleBalance]);
-
-  useEffect(() => {
-    appUIEventBus.on(
-      AppUIEventBusNames.InscriptionRecycleChanged,
-      fetchRecycleBalance,
-    );
+    appUIEventBus.on(AppUIEventBusNames.InscriptionRecycleChanged, run);
     return () => {
-      appUIEventBus.off(
-        AppUIEventBusNames.InscriptionRecycleChanged,
-        fetchRecycleBalance,
-      );
+      appUIEventBus.off(AppUIEventBusNames.InscriptionRecycleChanged, run);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

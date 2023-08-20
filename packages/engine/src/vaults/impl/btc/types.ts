@@ -1,8 +1,8 @@
 import type { InputToSign } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.types';
 
+import type { BtcMessageTypes } from '../../../types/message';
 import type { NFTBTCAssetModel } from '../../../types/nft';
 import type { ITransferInfo } from '../../types';
-import type { Psbt } from 'bitcoinjs-lib';
 import type { SignatureOptions } from 'bitcoinjs-message';
 
 export type IBtcUTXO = {
@@ -56,7 +56,8 @@ export type IBlockBookTransaction = {
 };
 
 export type IUnsignedMessageBtc = {
-  type: 'ecdsa' | 'bip322-simple';
+  type: BtcMessageTypes;
   message: string;
   sigOptions?: SignatureOptions | null;
+  payload?: any;
 };

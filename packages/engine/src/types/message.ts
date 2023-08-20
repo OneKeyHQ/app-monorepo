@@ -50,7 +50,7 @@ export function getEthProviderMethodFromMessageType(
       return 'signMessage';
     default:
       // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
-      const checkType: never = type;
+      const checkType = type;
   }
 }
 
