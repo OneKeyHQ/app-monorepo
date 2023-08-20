@@ -7,6 +7,7 @@ export type IEncodedTxLightning = {
   amount: string;
   expired: string;
   created: string;
+  lightningAddress?: string;
   description?: string;
   fee: number;
   isExceedTransferLimit: boolean;

@@ -14,6 +14,7 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { isLightningAddress } from '@onekeyhq/engine/src/vaults/impl/lightning-network/helper/lnurl';
 import type { IEncodedTxLightning } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types';
 import type {
   LNURLPayServiceResponse,
@@ -196,6 +197,9 @@ const LNURLPayRequest = () => {
             ...transferInfo,
             to: paymentRequest,
             lnurlPaymentInfo: response,
+            lightningAddress: isLightningAddress(transferInfo.to)
+              ? transferInfo.to
+              : undefined,
           },
         });
         const params: SendConfirmParams = {
