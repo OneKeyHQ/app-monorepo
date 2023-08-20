@@ -108,28 +108,35 @@ const LNURLWithdraw = () => {
         }
       } catch (e: any) {
         const { key, info } = e;
+        let message = '';
         if (key && key !== 'onekey_error') {
+          message = intl.formatMessage(
+            {
+              id: key,
+            },
+            info ?? {},
+          );
           ToastManager.show(
             {
-              title: intl.formatMessage(
-                {
-                  id: key,
-                },
-                info ?? {},
-              ),
+              title: message,
             },
             { type: 'error' },
           );
-          return false;
+        } else {
+          message = (e as Error)?.message;
+          ToastManager.show({ title: message || e }, { type: 'error' });
         }
-        ToastManager.show(
-          { title: (e as Error)?.message || e },
-          { type: 'error' },
-        );
         if (!isSendFlow) {
-          dappApprove.reject();
+          // show error message for 1.5s
+          setTimeout(() => {
+            dappApprove.resolve({
+              result: {
+                status: 'ERROR',
+                reason: message,
+              },
+            });
+          }, 1500);
         }
-        return false;
       } finally {
         setIsLoading(false);
       }
