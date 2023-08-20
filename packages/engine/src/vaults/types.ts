@@ -189,6 +189,7 @@ export type ITransferInfo = {
   coinControlDisabled?: boolean;
   coinSelectAlgorithm?: ICoinSelectAlgorithm;
   lnurlPaymentInfo?: LNURLPaymentInfo;
+  lightningAddress?: string;
   txInterval?: string;
 };
 export type IApproveInfo = {

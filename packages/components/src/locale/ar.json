@@ -1063,6 +1063,7 @@
   "form__Watchlist": "قائمة المراقبة",
   "form___7d_volume": "حجم 7D",
   "form__a_message_to_the_payer": "رسالة إلى الدافع",
+  "form__a_message_to_the_payer_optional": "رسالة إلى الدافع (اختياري)",
   "form__about_uppercase": "حول",
   "form__above_str": "فوق {0}",
   "form__accelerated_transaction": "🚀 المعاملات المعجلة",
