@@ -8,7 +8,6 @@ import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClos
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IVaultSettings } from '@onekeyhq/engine/src/vaults/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   useAccountTokensBalance,

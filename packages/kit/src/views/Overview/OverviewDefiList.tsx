@@ -4,7 +4,6 @@ import { memo, useCallback, useEffect, useMemo } from 'react';
 import B from 'bignumber.js';
 
 import {
-  Box,
   Pressable,
   Token,
   Typography,

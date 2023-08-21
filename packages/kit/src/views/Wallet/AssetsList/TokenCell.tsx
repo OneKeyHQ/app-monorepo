@@ -306,8 +306,6 @@ function TokenCell(props: TokenCellProps) {
     borderBottomWidth,
     borderTopWidth,
     onPress,
-    borderColor = 'border-subdued',
-    bg = 'surface-default',
     deepRefreshMode,
     ...token
   } = props;
