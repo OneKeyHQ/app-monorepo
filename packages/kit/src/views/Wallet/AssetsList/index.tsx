@@ -305,6 +305,7 @@ function HomeTokenAssetsListCmp({
 export const HomeTokenAssetsList = memo(
   withProviderAssetsList(HomeTokenAssetsListCmp),
 );
+HomeTokenAssetsList.displayName = 'HomeTokenAssetsList';
 
 function FullTokenAssetsListCmp(
   props: Omit<IAssetsListProps, 'accountTokens'>,
