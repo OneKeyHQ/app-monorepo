@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useIsFocused } from '@react-navigation/core';
 import { TabActions } from '@react-navigation/native';
 
-import { useIsVerticalLayout, useUserDevice } from '@onekeyhq/components';
+import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
@@ -41,21 +41,10 @@ export const useMarketList = ({
   const isVerticalLayout = useIsVerticalLayout();
   const isMidLayout = useMarketMidLayout();
   const listSort = useListSort();
-
-  // if favorites is empty don't fetch
-  const checkFavoritesFetch = useMemo(() => {
-    if (
-      selectedCategory?.categoryId === MARKET_FAVORITES_CATEGORYID &&
-      !selectedCategory.coingeckoIds?.length
-    ) {
-      return false;
-    }
-    return true;
-  }, [selectedCategory]);
   const coingeckoIds = useMarketCategoryCoingeckoIds();
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | undefined;
-    if (isFocused && selectedCategory?.categoryId && checkFavoritesFetch) {
+    if (isFocused && selectedCategory?.categoryId) {
       if (!listSort) {
         backgroundApiProxy.serviceMarket.fetchMarketListDebounced({
           categoryId: selectedCategory.categoryId,
@@ -82,7 +71,6 @@ export const useMarketList = ({
     isVerticalLayout,
     pollingInterval,
     listSort,
-    checkFavoritesFetch,
     isMidLayout,
     coingeckoIds,
   ]);
@@ -110,19 +98,4 @@ export const marketSwapTabRoutes: { key: MarketTopTabName }[] = [
 export const setMarketSwapTabName = (tabName: MarketTopTabName) => {
   backgroundApiProxy.serviceMarket.switchMarketTopTab(tabName);
   getAppNavigation().dispatch(TabActions.jumpTo(tabName));
-};
-
-export const useMarketWidthLayout = () => {
-  const { screenWidth, size } = useUserDevice();
-  const isVerticalLayout = size === 'SMALL';
-  const leftSidebarCollapsed = useAppSelector(
-    (s) => s.settings.leftSidebarCollapsed,
-  );
-  const marketFillWidth = useMemo(() => {
-    if (isVerticalLayout) {
-      return screenWidth;
-    }
-    return leftSidebarCollapsed ? screenWidth - 72 : screenWidth - 224; // caculate leftside width
-  }, [isVerticalLayout, leftSidebarCollapsed, screenWidth]);
-  return { marketFillWidth, isVerticalLayout };
 };

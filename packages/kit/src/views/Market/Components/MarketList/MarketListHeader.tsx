@@ -15,7 +15,8 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { EMarketCellData, MARKET_LIST_COLUMN_SHOW_WIDTH_1 } from '../../config';
-import { useListSort, useMarketWidthLayout } from '../../hooks/useMarketList';
+import { useMarketWidthLayout } from '../../hooks/useMarketLayout';
+import { useListSort } from '../../hooks/useMarketList';
 
 import type { ListHeadTagType } from '../../types';
 
