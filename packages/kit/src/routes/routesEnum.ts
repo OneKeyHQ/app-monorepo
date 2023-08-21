@@ -126,7 +126,6 @@ export enum GalleryRoutes {
   ComponentSegmentedControl = 'component/segmented-control',
   ComponentReduxMessage = 'component/redux-message',
   ComponentLogger = 'component/logger',
-  ComponentMonitor = 'component/Monitor',
   ComponentFirebase = 'component/firebase',
   ComponentWebview = 'component/webview',
   ComponentPinCode = 'component/pincode',

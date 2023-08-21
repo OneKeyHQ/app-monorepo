@@ -6,14 +6,12 @@ import {
   Input,
   ScrollView,
   Switch,
-  Text,
   Typography,
 } from '@onekeyhq/components';
 import type { metrixUpdateInfo } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
 import {
   getMeasureTime,
   getUsedBatterySinceStartup,
-  startRecordingMetrics,
   stopRecordingMetrics,
   subscribeToMetrics,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
