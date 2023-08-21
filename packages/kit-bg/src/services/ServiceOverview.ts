@@ -1118,15 +1118,18 @@ class ServiceOverview extends ServiceBase {
     const tokenRes = isAllNetworks(networkId)
       ? await this.buildAllNetworksAccountTokens(options)
       : await this.buildSingleChainAccountTokens(options);
-    this.refreshOverviewStats({
-      networkId,
-      accountId,
-      tokens: {
-        totalCounts: tokenRes.tokensTotal,
-        totalValue: tokenRes.tokensTotalValue,
-        totalValue24h: tokenRes.tokensTotalValue24h,
-      },
-    });
+
+    if (options.calculateTokensTotalValue) {
+      this.refreshOverviewStats({
+        networkId,
+        accountId,
+        tokens: {
+          totalCounts: tokenRes.tokensTotal,
+          totalValue: tokenRes.tokensTotalValue,
+          totalValue24h: tokenRes.tokensTotalValue24h,
+        },
+      });
+    }
 
     return Promise.resolve(tokenRes);
   }

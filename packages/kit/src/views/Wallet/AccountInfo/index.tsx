@@ -265,7 +265,7 @@ const AccountUpdateTips: FC<AccountUpdateTipsProps> = ({
   }, [tasks]);
 
   const updateTips = useMemo(() => {
-    if (tasks?.length || refreshing) {
+    if (tasks?.length || refreshing || !updatedAt) {
       return (
         intl.formatMessage({
           id: 'content__updating_assets',
