@@ -60,6 +60,7 @@ export type IAssetsListProps = Omit<
   itemsCountForAutoFallbackToPlainList?: number;
   hidePriceInfo?: boolean;
   showRoundTop?: boolean;
+  showTokenBalanceDetail?: boolean;
   limitSize?: number;
   flatStyle?: boolean;
   accountId: string;

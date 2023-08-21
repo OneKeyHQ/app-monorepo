@@ -187,13 +187,19 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     );
   }
 
-  async getFrozenBalance(
-    password?: string,
-  ): Promise<number | Record<string, number>> {
+  async getFrozenBalance({
+    password,
+    useRecycleBalance,
+  }: { password?: string; useRecycleBalance?: boolean } = {}): Promise<
+    number | Record<string, number>
+  > {
     return 0;
   }
 
-  async fetchBalanceDetails({ password }: { password?: string } = {}): Promise<
+  async fetchBalanceDetails({
+    password,
+    useRecycleBalance,
+  }: { password?: string; useRecycleBalance?: boolean } = {}): Promise<
     IBalanceDetails | undefined
   > {
     return Promise.resolve(undefined);

@@ -90,7 +90,7 @@ function PreSendAddress() {
     transferInfos && transferInfos.length > 0
       ? transferInfos[0]
       : (reset as ITransferInfo);
-  const { isNFT } = transferInfo;
+  const { isNFT, isBRC20 } = transferInfo;
   const { account, network, walletId } = useActiveSideAccount(routeParams);
   const isLightningNetwork = isLightningNetworkByImpl(network?.impl);
   const useFormReturn = useForm<FormValues>({
@@ -247,6 +247,37 @@ function PreSendAddress() {
 
       if (transferInfos && transferInfos.length > 1) {
         setIsLoadingAssets(true);
+
+        for (let i = 0; i < transferInfos.length; i += 1) {
+          transferInfos[i].from = account.address;
+          transferInfos[i].to = toVal;
+          const asset = await serviceNFT.getAsset({
+            accountId,
+            networkId,
+            contractAddress: transferInfos[i].token,
+            tokenId: transferInfos[i].nftTokenId ?? '',
+            local: true,
+          });
+
+          if (asset) {
+            nftInfos.push({
+              asset: (asset || {}) as NFTAsset,
+              amount: transferInfo.amount,
+              from: account.address,
+              to: toVal,
+            });
+          } else {
+            ToastManager.show(
+              {
+                title: intl.formatMessage({
+                  id: 'msg__nft_does_not_exist',
+                }),
+              },
+              { type: 'error' },
+            );
+            return;
+          }
+        }
         const encodedApproveTxs =
           await serviceBatchTransfer.buildEncodedTxsFromBatchApprove({
             networkId,
@@ -270,22 +301,6 @@ function PreSendAddress() {
           transferInfos,
           prevNonce,
         });
-
-        for (let i = 0; i < transferInfos.length; i += 1) {
-          const asset = await serviceNFT.getAsset({
-            accountId: account?.address ?? '',
-            networkId,
-            contractAddress: transferInfos[i].token,
-            tokenId: transferInfos[i].nftTokenId ?? '',
-            local: true,
-          });
-          nftInfos.push({
-            asset: (asset || {}) as NFTAsset,
-            amount: transferInfo.amount,
-            from: account.address,
-            to: toVal,
-          });
-        }
         setIsLoadingAssets(false);
 
         navigation.navigate(RootRoutes.Modal, {
@@ -403,7 +418,7 @@ function PreSendAddress() {
       if (isLoading || !toVal) {
         return;
       }
-      if (isNFT) {
+      if (isNFT || isBRC20) {
         nftSendConfirm(toVal);
       } else if (isLightningNetwork) {
         lightningNetworkSendConfirm({
@@ -599,7 +614,7 @@ function PreSendAddress() {
     ],
   );
 
-  // Refersh pending tx status before entering the send confirm modal
+  // Refresh pending tx status before entering the send confirm modal
   // To avoid pending tx alert on send confirm modal (actually there isn't)
   useEffect(() => {
     const refreshPendingTx = async () => {
@@ -638,7 +653,7 @@ function PreSendAddress() {
         children: (
           <Box>
             <Form>
-              {isNFT ? (
+              {isNFT && !isBRC20 ? (
                 <NFTView asset={nftInfo} total={transferInfos?.length || 1} />
               ) : (
                 <Box flexDirection="row" alignItems="center">

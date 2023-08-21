@@ -198,17 +198,7 @@ describe('coinSelect tests', () => {
       },
     ];
 
-    const forceSelectUtxoTxid = inputsForCoinSelect.find(
-      (item) => !!item.forceSelect,
-    )?.txId;
-    let result = coinSelectForOrdinal({
-      inputsForCoinSelect,
-      outputsForCoinSelect,
-      feeRate: '1',
-    });
-    expect(result.inputs?.[0].txId).toEqual(forceSelectUtxoTxid);
-
-    result = coinSelect({
+    let result = coinSelect({
       algorithm: 'accumulative',
       inputsForCoinSelect,
       outputsForCoinSelect,
@@ -224,6 +214,61 @@ describe('coinSelect tests', () => {
     });
 
     expect(result.inputs?.[0].txId).toEqual(inputsForCoinSelect[0].txId);
+  });
+
+  it('should ordinal utxo always be sorted first', () => {
+    const inputsForCoinSelect: ICoinSelectUTXO[] = [
+      {
+        'txId':
+          '27f75e15c9495ffd22771d71fdb8642581597bd46cea9fe07e1e7e90b0a7e999',
+        'vout': 0,
+        'value': 580,
+        'address': '2N1n8YcwYgf3ng171pLsUyzR7AGqrBSN9Kj',
+        'path': "m/49'/1'/0'/0/0",
+      },
+      {
+        'txId':
+          '27f75e15c9495ffd22771d71fdb8642581597bd46cea9fe07e1e7e90b0a7e881',
+        'vout': 1,
+        'value': 560,
+        'address': '2N1n8YcwYgf3ng171pLsUyzR7AGqrBSN9Kj',
+        'path': "m/49'/1'/0'/0/0",
+        // forceSelect: true, // ordinal utxo flag
+      },
+      {
+        'txId':
+          '3a33c8b58b8990e6db981001b1685b66bd88fb161fb339f67548330f024e4782',
+        'vout': 2,
+        'value': 10000,
+        'address': '2N1n8YcwYgf3ng171pLsUyzR7AGqrBSN9Kj',
+        'path': "m/49'/1'/0'/0/0",
+        forceSelect: true,
+      },
+      {
+        'txId':
+          '746809f97e10b0d07c551fd3cd43fdecdf6fd616efd4f0be39bfd7bbee2a230a',
+        'vout': 3,
+        'value': 1750,
+        'address': '2N1n8YcwYgf3ng171pLsUyzR7AGqrBSN9Kj',
+        'path': "m/49'/1'/0'/0/0",
+      },
+    ];
+    const outputsForCoinSelect = [
+      {
+        'address': '2MyATx6Pmmo5FuqB9EAGBrEZBVafus1KgVe',
+        'value': 10000,
+      },
+    ];
+
+    const forceSelectUtxoTxid = inputsForCoinSelect.find(
+      (item) => !!item.forceSelect,
+    )?.txId;
+    const result = coinSelectForOrdinal({
+      inputsForCoinSelect,
+      outputsForCoinSelect,
+      feeRate: '1',
+    });
+    expect(result.inputs?.[0].txId).toEqual(forceSelectUtxoTxid);
   });
 
   it('blackjack pro full tests', () => {

@@ -21,6 +21,8 @@ import type {
   UTXO,
   UnsignedTx,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
+import type { InputToSign } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.types';
+import { isBRC20Token } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import {
   getBitcoinBip32,
@@ -34,8 +36,10 @@ import { getBlockBook } from './blockbook';
 import { getNetwork } from './networks';
 import { PLACEHOLDER_VSIZE, estimateTxSize, loadOPReturn } from './vsize';
 
+import type { IUnsignedTxPro } from '../../../types';
 import type { Network } from './networks';
 import type { PsbtInput } from 'bip174/src/lib/interfaces';
+import type { SignatureOptions } from 'bitcoinjs-message';
 
 type GetAccountParams =
   | {
@@ -405,6 +409,13 @@ class Provider {
     let encoding: string | undefined;
     const address = this.decodeAddress(addr);
 
+    if (isBRC20Token(address))
+      return {
+        isValid: true,
+        normalizedAddress: address,
+        displayAddress: address,
+      };
+
     try {
       const decoded = BitcoinJS.address.fromBase58Check(address);
       if (
@@ -527,7 +538,7 @@ class Provider {
   }
 
   async signTransaction(
-    unsignedTx: UnsignedTx,
+    unsignedTx: IUnsignedTxPro,
     signers: { [p: string]: Signer },
   ): Promise<SignedTx> {
     const psbt = await this.packTransaction(unsignedTx, signers);
@@ -551,8 +562,33 @@ class Provider {
     };
   }
 
+  async signPsbt({
+    psbt,
+    signers,
+    inputsToSign,
+  }: {
+    psbt: BitcoinJS.Psbt;
+    signers: { [p: string]: Signer };
+    inputsToSign: InputToSign[];
+  }) {
+    for (let i = 0, len = inputsToSign.length; i < len; i += 1) {
+      const input = inputsToSign[i];
+      const signer = signers[input.address];
+      const bitcoinSigner = await this.getBitcoinSigner(
+        signer,
+        psbt.data.inputs[input.index],
+      );
+      psbt.signInput(input.index, bitcoinSigner, input.sighashTypes);
+    }
+    return {
+      txid: '',
+      rawTx: '',
+      psbtHex: psbt.toHex(),
+    };
+  }
+
   private async packTransaction(
-    unsignedTx: UnsignedTx,
+    unsignedTx: IUnsignedTxPro,
     signers: { [p: string]: Signer },
   ) {
     const {
@@ -655,7 +691,7 @@ class Provider {
   }
 
   private async collectInfoForSoftwareSign(
-    unsignedTx: UnsignedTx,
+    unsignedTx: IUnsignedTxPro,
   ): Promise<[string[], Record<string, string>]> {
     const { inputs } = unsignedTx;
 
@@ -711,12 +747,19 @@ class Provider {
     );
   }
 
-  signMessage(
-    password: string,
-    entropy: Buffer,
-    path: string,
-    message: string,
-  ) {
+  signMessage({
+    password,
+    entropy,
+    path,
+    message,
+    sigOptions = { segwitType: 'p2wpkh' },
+  }: {
+    password: string;
+    entropy: Buffer;
+    path: string;
+    message: string;
+    sigOptions?: SignatureOptions | null;
+  }) {
     initBitcoinEcc();
     const mnemonic = mnemonicFromEntropy(entropy, password);
     const seed = mnemonicToSeedSync(mnemonic);
@@ -728,7 +771,7 @@ class Provider {
       // @ts-expect-error
       keyPair.privateKey,
       keyPair.compressed,
-      { segwitType: 'p2wpkh' },
+      sigOptions,
     );
     return signature;
   }

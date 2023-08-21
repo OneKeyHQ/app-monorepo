@@ -741,6 +741,8 @@ class ServiceOverview extends ServiceBase {
           address: t.address,
           logoURI: t.logoURI,
           balance: t.balance,
+          availableBalance: t.availableBalance,
+          transferBalance: t.transferBalance,
           usdValue: t.usdValue,
           value: t.usdValue,
           value24h: undefined,

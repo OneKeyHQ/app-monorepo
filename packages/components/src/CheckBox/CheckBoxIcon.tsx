@@ -5,10 +5,15 @@ import SvgCheckBoxIconCheckedDisable from '../Icon/react/mini/CheckBoxIconChecke
 import SvgCheckBoxIconDefault from '../Icon/react/mini/CheckBoxIconDefault';
 import SvgCheckBoxIconDefaultDisable from '../Icon/react/mini/CheckBoxIconDefaultDisable';
 
-export const getCheckBoxIcon = (
-  disable: boolean,
-  defaultIsChecked: boolean,
-) => {
+export const getCheckBoxIcon = ({
+  disable,
+  defaultIsChecked,
+  indeterminate,
+}: {
+  disable: boolean;
+  defaultIsChecked: boolean;
+  indeterminate: boolean;
+}) => {
   if (disable) {
     if (defaultIsChecked) {
       return (
@@ -23,5 +28,12 @@ export const getCheckBoxIcon = (
   if (defaultIsChecked) {
     return <Icon as={SvgCheckBoxIconDefault} color="interactive-default" />;
   }
+
+  if (indeterminate) {
+    return (
+      <Icon as={SvgCheckBoxIconDefaultDisable} color="interactive-default" />
+    );
+  }
+
   return <Icon as={SvgCheckBoxIconChecked} color="interactive-default" />;
 };

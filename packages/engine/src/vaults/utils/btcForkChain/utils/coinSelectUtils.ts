@@ -28,6 +28,7 @@ export type ICoinSelectOptions = {
   outputsForCoinSelect: IEncodedTxBtc['outputsForCoinSelect'];
   feeRate: string;
   algorithm?: ICoinSelectAlgorithm;
+  isBRC20Transfer?: boolean;
 };
 
 function utxoScore(x: ICoinSelectInput, feeRate: number) {
@@ -242,7 +243,12 @@ export const coinSelect = ({
 export function coinSelectForOrdinal(
   options: Omit<ICoinSelectOptions, 'algorithm'>,
 ): ICoinSelectResult {
-  const { inputsForCoinSelect, outputsForCoinSelect, feeRate } = options;
+  const {
+    inputsForCoinSelect,
+    outputsForCoinSelect,
+    feeRate,
+    isBRC20Transfer,
+  } = options;
   // TODO sort inputs utxo by value desc, then move ord utxo to first
   const result = coinSelectAutoPro(
     inputsForCoinSelect,
@@ -255,39 +261,56 @@ export function coinSelectForOrdinal(
   if (result.inputs?.length === 0 || !result.inputs) {
     throw new InsufficientBalance('Failed to select UTXOs for inscription');
   }
-  const ordUtxo = inputsForCoinSelect.find((item) => Boolean(item.forceSelect));
-  const matchedOrdUtxo = result.inputs?.find(
-    (item) =>
-      item.txId === ordUtxo?.txId &&
-      item.vout === ordUtxo?.vout &&
-      new BigNumber(item.value).eq(ordUtxo?.value),
+  const ordUtxos = inputsForCoinSelect.filter((item) =>
+    Boolean(item.forceSelect),
   );
-  if (!ordUtxo) {
-    throw new Error('coinSelectForOrdinal ERROR: No ordUtxo inputs found');
+  const matchedOrdUtxos = result.inputs?.filter((item) =>
+    ordUtxos.find(
+      (ordUtxo) =>
+        item.txId === ordUtxo?.txId &&
+        item.vout === ordUtxo?.vout &&
+        new BigNumber(item.value).eq(ordUtxo?.value),
+    ),
+  );
+  if (!ordUtxos || ordUtxos.length === 0) {
+    throw new Error('coinSelectForOrdinal ERROR: No ordUtxos inputs found');
   }
-  if (!matchedOrdUtxo) {
+  if (!matchedOrdUtxos || matchedOrdUtxos.length !== ordUtxos.length) {
     throw new Error(
       'coinSelectForOrdinal ERROR: No matchedOrdUtxo inputs found',
     );
   }
   let ordUtxoCount = 0;
-  result.inputs?.forEach((item, index) => {
+  let isPrevUtxoOrd = true;
+
+  result.inputs?.forEach((item, index, array) => {
     const isOrd = Boolean(item.forceSelect);
     if (isOrd) {
+      if (!isPrevUtxoOrd) {
+        throw new Error(
+          'coinSelectForOrdinal ERROR: Ordinal utxo should be sorted first',
+        );
+      }
+
+      if (item.value !== result.outputs?.[index].value) {
+        throw new Error(
+          'coinSelectForOrdinal ERROR: Ordinal utxo output value not match input value',
+        );
+      }
+
       ordUtxoCount += 1;
-    }
-    if (!isOrd && index === 0) {
-      throw new Error(
-        'coinSelectForOrdinal ERROR: Ordinal utxo should be first',
-      );
-    }
-    if (isOrd && index > 0) {
-      throw new Error(
-        'coinSelectForOrdinal ERROR: multiple ordinal utxo not allowed',
-      );
+      isPrevUtxoOrd = true;
+    } else {
+      if (index !== array.length - 1) {
+        throw new Error(
+          'coinSelectForOrdinal ERROR: Change utxo should be last',
+        );
+      }
+
+      isPrevUtxoOrd = false;
     }
   });
-  if (ordUtxoCount > 1) {
+  if (ordUtxoCount > 1 && !isBRC20Transfer) {
     throw new Error(
       'coinSelectForOrdinal ERROR: multiple ordinal utxo not allowed....',
     );

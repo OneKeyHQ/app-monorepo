@@ -9,10 +9,12 @@ import {
   Button,
   CustomSkeleton,
   HStack,
+  IconButton,
   Text,
   ToastManager,
   Typography,
   VStack,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
@@ -22,6 +24,10 @@ import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account'
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
 import { useNetwork, useWallet } from '../../../../../../hooks';
@@ -32,6 +38,9 @@ import {
   SendModalRoutes,
 } from '../../../../../../routes/routesEnum';
 import { openUrl } from '../../../../../../utils/openUrl';
+import { showDialog } from '../../../../../../utils/overlayUtils';
+import { RecycleDialog } from '../../../../../InscriptionControl/RecycleDialog';
+import BaseMenu from '../../../../../Overlay/BaseMenu';
 import { DetailItem } from '../DetailItem';
 
 import type { CollectiblesRoutesParams } from '../../../../../../routes/Root/Modal/Collectibles';
@@ -51,6 +60,7 @@ function BTCAssetDetailContent({
   accountId?: string;
 }) {
   const intl = useIntl();
+  const isVertical = useIsVerticalLayout();
   const { format } = useFormatDate();
   const { serviceNFT, serviceInscribe } = backgroundApiProxy;
 
@@ -142,20 +152,93 @@ function BTCAssetDetailContent({
     })();
   }, [network?.id, outerAsset.inscription_id, serviceNFT]);
 
+  const detailMoreMenu = useMemo(
+    () => (
+      <BaseMenu
+        menuWidth="full"
+        options={[
+          {
+            id: 'action__destroy',
+            onPress: () =>
+              showDialog(
+                <RecycleDialog
+                  onConfirm={async () => {
+                    const [txid, vout] = asset.output.split(':');
+                    const voutNum = parseInt(vout, 10);
+                    await backgroundApiProxy.serviceUtxos.updateRecycle({
+                      networkId: networkId ?? '',
+                      accountId: accountId ?? '',
+                      utxo: {
+                        txid,
+                        vout: voutNum,
+                        address: asset.owner,
+                        value: String(asset.output_value_sat),
+                        path: '',
+                        height: NaN,
+                      },
+                      recycle: true,
+                    });
+
+                    ToastManager.show(
+                      {
+                        title: intl.formatMessage({
+                          id: 'msg__inscription_destroyed',
+                        }),
+                      },
+                      {
+                        type: 'default',
+                      },
+                    );
+                    appUIEventBus.emit(
+                      AppUIEventBusNames.InscriptionRecycleChanged,
+                    );
+                  }}
+                />,
+              ),
+            icon: 'FireSolid',
+            variant: 'desctructive',
+          },
+        ]}
+      >
+        <IconButton
+          iconColor="icon-subdued"
+          mr={isVertical ? 0 : 10}
+          type="basic"
+          size={isVertical ? 'sm' : 'xs'}
+          circle
+          name="EllipsisVerticalMini"
+        />
+      </BaseMenu>
+    ),
+    [
+      accountId,
+      asset.output,
+      asset.output_value_sat,
+      asset.owner,
+      intl,
+      isVertical,
+      networkId,
+    ],
+  );
+
   return (
     <VStack space="24px" mb="50px">
-      <Text
-        typography={{ sm: 'DisplayLarge', md: 'DisplayLarge' }}
-        fontWeight="700"
-        alignItems="center"
-      >
-        Inscription #{' '}
-        {asset?.inscription_number === 0 ? (
-          <Text>{asset?.inscription_number}</Text>
-        ) : (
-          <CustomSkeleton borderRadius="10px" width={120} height="20px" />
-        )}
-      </Text>
+      <HStack alignItems="center" justifyContent="space-between">
+        <Text
+          typography={{ sm: 'DisplayLarge', md: 'DisplayLarge' }}
+          fontWeight="700"
+          alignItems="center"
+        >
+          Inscription #{' '}
+          {asset?.inscription_number === 0 ? (
+            <Text>{asset?.inscription_number}</Text>
+          ) : (
+            <CustomSkeleton borderRadius="10px" width={120} height="20px" />
+          )}
+        </Text>
+        {detailMoreMenu}
+      </HStack>
+
       {isOwner && (
         <HStack space="16px">
           <Button

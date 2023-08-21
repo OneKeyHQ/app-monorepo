@@ -44,8 +44,10 @@ import {
   waitForDataLoaded,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
+  IMPL_BTC,
   IMPL_COSMOS,
   IMPL_SOL,
+  IMPL_TBTC,
   SEPERATOR,
   isLightningNetwork,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -407,7 +409,7 @@ class ServiceDapp extends ServiceBase {
     const isNotAuthorized = !this.isDappAuthorized(request);
     let isNotMatchedNetwork = !isDappScopeMatchNetwork(
       request.scope,
-      network?.impl,
+      network?.impl === IMPL_TBTC ? IMPL_BTC : network?.impl,
     );
     let shouldShowNotMatchedNetworkModal = true;
     const requestMethod = (request.data as IJsonRpcRequest)?.method || '';

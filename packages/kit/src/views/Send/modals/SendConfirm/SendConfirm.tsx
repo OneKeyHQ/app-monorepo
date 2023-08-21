@@ -1,8 +1,10 @@
 import { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { ToastManager } from '@onekeyhq/components';
+import type { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
 import type {
   IFeeInfoUnit,
   ISignedTxPro,
@@ -110,6 +112,14 @@ function SendConfirm({
     sourceInfo,
   });
 
+  const isListOrderPsbtTx = useMemo(
+    () =>
+      new BigNumber(
+        (encodedTx as IEncodedTxBtc)?.totalFee ?? '0',
+      ).isNegative() && (encodedTx as IEncodedTxBtc)?.psbtHex,
+    [encodedTx],
+  );
+
   const isInternalNativeTransferType = useMemo(() => {
     // TODO also check payloadInfo.type===NativeTransfer
     if (isFromDapp || !payload) {
@@ -133,6 +143,7 @@ function SendConfirm({
     signOnly: routeParams.signOnly,
     payload: payloadInfo || payload,
     ignoreFetchFeeCalling,
+    isBtcForkChain: network?.settings.isBtcForkChain,
   });
 
   useWalletConnectPrepareConnection({
@@ -339,7 +350,7 @@ function SendConfirm({
     ],
   );
 
-  const feeInput = (
+  const feeInput = isListOrderPsbtTx ? null : (
     <FeeInfoInputForConfirmLite
       accountId={accountId}
       networkId={networkId}

@@ -1,7 +1,8 @@
+import { Psbt } from 'bitcoinjs-lib';
 import bs58check from 'bs58check';
 
 import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
-import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
+import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 import {
   COINTYPE_BCH,
   COINTYPE_DOGE,
@@ -20,34 +21,49 @@ import { getAccountDefaultByPurpose, initBitcoinEcc } from './utils';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { DBUTXOAccount } from '../../../types/account';
-import type { IUnsignedMessageEvm } from '../../impl/evm/Vault';
+import type { IUnsignedMessageBtc } from '../../impl/btc/types';
 import type {
   IPrepareAccountByAddressIndexParams,
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
+  IUnsignedTxPro,
 } from '../../types';
 import type { AddressEncodings } from './types';
 import type BTCForkVault from './VaultBtcFork';
 
 export class KeyringHd extends KeyringHdBase {
   override async signTransaction(
-    unsignedTx: UnsignedTx,
+    unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
   ): Promise<SignedTx> {
     initBitcoinEcc();
     const { password } = options;
+    const { psbtHex, inputsToSign } = unsignedTx;
     if (typeof password === 'undefined') {
       throw new OneKeyInternalError('Software signing requires a password.');
     }
+
     const signers = await this.getSigners(
       password,
-      unsignedTx.inputs.map((input) => input.address),
+      (inputsToSign || unsignedTx.inputs).map((input) => input.address),
     );
     debugLogger.engine.info('signTransaction', this.networkId, unsignedTx);
 
     const provider = await (
       this.vault as unknown as BTCForkVault
     ).getProvider();
+
+    if (psbtHex && inputsToSign) {
+      const { network } = provider;
+      const psbt = Psbt.fromHex(psbtHex, { network });
+
+      return provider.signPsbt({
+        psbt,
+        signers,
+        inputsToSign,
+      });
+    }
+
     return provider.signTransaction(unsignedTx, signers);
   }
 
@@ -290,7 +306,7 @@ export class KeyringHd extends KeyringHdBase {
   }
 
   override async signMessage(
-    messages: IUnsignedMessageEvm[],
+    messages: IUnsignedMessageBtc[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     debugLogger.common.info('BTCFork signMessage', messages);
@@ -305,8 +321,14 @@ export class KeyringHd extends KeyringHdBase {
     const provider = await (
       this.vault as unknown as BTCForkVault
     ).getProvider();
-    const result = messages.map((payload: IUnsignedMessageEvm) =>
-      provider.signMessage(password, entropy, path, payload.message),
+    const result = messages.map((payload: IUnsignedMessageBtc) =>
+      provider.signMessage({
+        password,
+        entropy,
+        path,
+        message: payload.message,
+        sigOptions: payload.sigOptions,
+      }),
     );
     return result.map((i) => i.toString('hex'));
   }

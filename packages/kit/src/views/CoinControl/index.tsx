@@ -19,6 +19,10 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { ICoinControlListItem } from '@onekeyhq/engine/src/types/utxoAccounts';
 import type { CoinControlRoutesParams } from '@onekeyhq/kit/src/routes';
 import type { CoinControlModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNetwork } from '../../hooks';
@@ -54,6 +58,15 @@ const CoinControl = () => {
   >([]);
   const [utxosDust, setUtxosDust] = useState<ICoinControlListItem[]>([]);
   const [frozenUtxos, setFrozenUtxos] = useState<ICoinControlListItem[]>([]);
+  const [frozenUtxosWithoutRecycle, setFrozenUtxosWithoutRecycle] = useState<
+    ICoinControlListItem[]
+  >([]);
+  const [frozenRecycleUtxos, setFrozenRecycleUtxos] = useState<
+    ICoinControlListItem[]
+  >([]);
+  const [recycleUtxosWithoutFrozen, setRecycleUtxosWithoutFrozen] = useState<
+    ICoinControlListItem[]
+  >([]);
   const [selectedUtxos, setSelectedUtxos] = useState<string[]>(
     isSelectMode && encodedTx
       ? encodedTx.inputs.map((input) => getUtxoUniqueKey(input))
@@ -79,15 +92,24 @@ const CoinControl = () => {
     [encodedTx?.transferInfo.amount],
   );
 
-  const refreshUtxosData = useCallback(() => {
+  const refreshUtxosData = useCallback(async () => {
     setIsLoading(true);
+
     return backgroundApiProxy.serviceUtxos
-      .getUtxos(networkId, accountId, sortMethod)
+      .getUtxos({
+        networkId,
+        accountId,
+        sortBy: sortMethod,
+        useRecycleUtxos: true,
+      })
       .then((response) => {
         setAllUtxos(response.utxos);
         setUtxosWithoutDust(response.utxosWithoutDust);
         setUtxosDust(response.utxosDust);
         setFrozenUtxos(response.frozenUtxos);
+        setFrozenUtxosWithoutRecycle(response.frozenUtxosWithoutRecycle);
+        setFrozenRecycleUtxos(response.frozenRecycleUtxos);
+        setRecycleUtxosWithoutFrozen(response.recycleUtxosWithoutFrozen);
         return response.utxos;
       })
       .finally(() => {
@@ -105,33 +127,102 @@ const CoinControl = () => {
 
   const availabelListDataSource = useMemo(() => {
     if (useDustUtxo) {
-      const data = utxosWithoutDust.map((item, index) => ({
+      let data = utxosWithoutDust.map((item, index) => ({
         ...item,
         dustSeparator:
           index === utxosWithoutDust.length - 1 && utxosDust.length > 0,
+        recycleSeparator:
+          index === utxosWithoutDust.length - 1 &&
+          utxosDust.length === 0 &&
+          recycleUtxosWithoutFrozen.length > 0,
       })) as ICoinControlListItem[];
-      return data.concat(utxosDust);
+      data = data.concat(
+        utxosDust.map((item, index) => ({
+          ...item,
+          recycleSeparator:
+            index === utxosDust.length - 1 &&
+            recycleUtxosWithoutFrozen.length > 0,
+        })),
+      );
+
+      return data.concat(recycleUtxosWithoutFrozen);
     }
-    return utxosWithoutDust;
-  }, [utxosWithoutDust, utxosDust, useDustUtxo]);
+
+    const data = utxosWithoutDust.map((item, index) => ({
+      ...item,
+      dustSeparator:
+        index === utxosWithoutDust.length - 1 &&
+        recycleUtxosWithoutFrozen.length > 0,
+    })) as ICoinControlListItem[];
+
+    return data.concat(recycleUtxosWithoutFrozen);
+  }, [useDustUtxo, utxosWithoutDust, recycleUtxosWithoutFrozen, utxosDust]);
 
   const frozenListDataSource = useMemo(() => {
     if (!useDustUtxo) {
-      const data = frozenUtxos.map((item, index) => ({
+      let data = frozenUtxosWithoutRecycle.map((item, index) => ({
         ...item,
-        dustSeparator: index === frozenUtxos.length - 1 && utxosDust.length > 0,
+        dustSeparator:
+          index === frozenUtxosWithoutRecycle.length - 1 &&
+          utxosDust.length > 0,
+        recycleSeparator:
+          index === frozenUtxosWithoutRecycle.length - 1 &&
+          utxosDust.length === 0 &&
+          frozenRecycleUtxos.length > 0,
       })) as ICoinControlListItem[];
-      const dustsData = utxosDust.map((item) => ({
-        ...item,
-        hideFrozenOption: true,
-      }));
-      return data.concat(dustsData);
+
+      data = data.concat(
+        utxosDust.map((item, index) => ({
+          ...item,
+          hideFrozenOption: true,
+          recycleSeparator:
+            index === frozenUtxosWithoutRecycle.length - 1 &&
+            utxosDust.length === 0,
+        })),
+      );
+      return data.concat(frozenRecycleUtxos);
     }
-    return frozenUtxos;
-  }, [frozenUtxos, utxosDust, useDustUtxo]);
+
+    const data = frozenUtxosWithoutRecycle.map((item, index) => ({
+      ...item,
+      recycleSeparator:
+        index === frozenUtxosWithoutRecycle.length - 1 &&
+        frozenRecycleUtxos.length > 0,
+    })) as ICoinControlListItem[];
+
+    return data.concat(frozenRecycleUtxos);
+  }, [useDustUtxo, frozenUtxosWithoutRecycle, utxosDust, frozenRecycleUtxos]);
   const showDustListHeader = useMemo(
-    () => utxosDust.length > 0 && !useDustUtxo && frozenUtxos.length <= 0,
-    [frozenUtxos, useDustUtxo, utxosDust],
+    () =>
+      utxosDust.length > 0 &&
+      !useDustUtxo &&
+      frozenUtxosWithoutRecycle.length <= 0,
+    [frozenUtxosWithoutRecycle, useDustUtxo, utxosDust],
+  );
+
+  const showAvailableListRecycleHeader = useMemo(
+    () =>
+      recycleUtxosWithoutFrozen.length > 0 &&
+      utxosWithoutDust.length <= 0 &&
+      (useDustUtxo ? utxosDust.length <= 0 : true),
+    [
+      recycleUtxosWithoutFrozen.length,
+      useDustUtxo,
+      utxosDust.length,
+      utxosWithoutDust.length,
+    ],
+  );
+  const showFrozenListRecycleHeader = useMemo(
+    () =>
+      frozenRecycleUtxos.length > 0 &&
+      frozenUtxosWithoutRecycle.length <= 0 &&
+      (useDustUtxo ? true : utxosDust.length <= 0),
+    [
+      frozenRecycleUtxos.length,
+      frozenUtxosWithoutRecycle.length,
+      useDustUtxo,
+      utxosDust.length,
+    ],
   );
 
   useEffect(() => {
@@ -245,6 +336,34 @@ const CoinControl = () => {
     [networkId, accountId, refreshUtxosData, intl],
   );
 
+  const onRecycleUTXO = useCallback(
+    (item: ICoinControlListItem) => {
+      backgroundApiProxy.serviceUtxos
+        .updateRecycle({
+          networkId,
+          accountId,
+          utxo: item,
+          recycle: false,
+          frozen: false,
+        })
+        .then(() => {
+          ToastManager.show(
+            {
+              title: intl.formatMessage({
+                id: 'msg__inscription_restored',
+              }),
+            },
+            {
+              type: 'default',
+            },
+          );
+          refreshUtxosData();
+          appUIEventBus.emit(AppUIEventBusNames.InscriptionRecycleChanged);
+        });
+    },
+    [networkId, accountId, refreshUtxosData, intl],
+  );
+
   const renderEmpty = useMemo(
     () => (
       <Center flex={1}>
@@ -263,11 +382,19 @@ const CoinControl = () => {
   );
 
   const showAvailableList = useMemo(
-    () => utxosWithoutDust.length > 0 || utxosDust.length > 0,
-    [utxosWithoutDust, utxosDust],
+    () =>
+      utxosWithoutDust.length > 0 ||
+      utxosDust.length > 0 ||
+      recycleUtxosWithoutFrozen.length > 0,
+    [
+      utxosWithoutDust.length,
+      utxosDust.length,
+      recycleUtxosWithoutFrozen.length,
+    ],
   );
   const showAvailableListCheckbox = useMemo(() => isSelectMode, [isSelectMode]);
   // const showAvailableListCheckbox = useMemo(() => true, []);
+
   const showFrozenList = useMemo(
     () => frozenUtxos.length > 0 || (!useDustUtxo && utxosDust.length > 0),
     [frozenUtxos, useDustUtxo, utxosDust],
@@ -344,6 +471,7 @@ const CoinControl = () => {
             token={token}
             dataSource={availabelListDataSource}
             showDustListHeader={false}
+            showRecycleListHeader={showAvailableListRecycleHeader}
             showCheckbox={showAvailableListCheckbox}
             selectedUtxos={selectedUtxos}
             isAllSelected={isAllSelected}
@@ -353,6 +481,7 @@ const CoinControl = () => {
             onChange={onCheckBoxChange}
             onConfirmEditLabel={onConfirmEditLabel}
             onFrozenUTXO={onFrozenUTXO}
+            onRecycleUTXO={onRecycleUTXO}
           />
         ) : (
           renderEmpty
@@ -370,6 +499,7 @@ const CoinControl = () => {
             token={token}
             dataSource={frozenListDataSource}
             showDustListHeader={showDustListHeader}
+            showRecycleListHeader={showFrozenListRecycleHeader}
             showCheckbox={showFrozenListCheckbox}
             selectedUtxos={selectedUtxos}
             isAllSelected={isAllSelected}
@@ -379,6 +509,7 @@ const CoinControl = () => {
             onChange={onCheckBoxChange}
             onConfirmEditLabel={onConfirmEditLabel}
             onFrozenUTXO={onFrozenUTXO}
+            onRecycleUTXO={onRecycleUTXO}
           />
         ) : (
           renderEmpty

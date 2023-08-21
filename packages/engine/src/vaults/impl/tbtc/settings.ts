@@ -26,6 +26,8 @@ const settings: IVaultSettings = Object.freeze({
   supportBatchTransfer: [BulkTypeEnum.OneToMany],
   nativeSupportBatchTransfer: true,
 
+  signOnlyReturnFullTx: true,
+
   accountNameInfo: {
     default: {
       prefix: 'TBTC Nested SegWit',

@@ -15,6 +15,7 @@ import type {
   IFeeInfoSelected,
   IFeeInfoUnit,
 } from '@onekeyhq/engine/src/vaults/types';
+import type { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
@@ -44,6 +45,7 @@ export function useFeeInfoPayload({
   payload,
   ignoreFetchFeeCalling,
   shouldStopPolling,
+  isBtcForkChain,
 }: {
   encodedTx: IEncodedTx | null;
   useFeeInTx?: boolean;
@@ -56,6 +58,7 @@ export function useFeeInfoPayload({
   payload?: any;
   ignoreFetchFeeCalling?: boolean;
   shouldStopPolling?: boolean;
+  isBtcForkChain?: boolean;
 }) {
   const isFocused = useIsFocused();
   const { network } = useActiveSideAccount({ accountId, networkId });
@@ -109,12 +112,14 @@ export function useFeeInfoPayload({
         prices: [],
         defaultPresetIndex: defaultFeePresetIndex ?? DEFAULT_PRESET_INDEX,
       };
+
       let shouldFetch =
         !ignoreFetchFeeCalling &&
         (!feeInfoSelected || feeInfoSelected?.type === 'preset');
       if (fetchAnyway && !ignoreFetchFeeCalling) {
         shouldFetch = true;
       }
+
       // TODO rename to FeeInfoMeta
       if (shouldFetch) {
         try {
@@ -143,40 +148,53 @@ export function useFeeInfoPayload({
       }
 
       if (useFeeInTx) {
-        const { maxFeePerGas, maxPriorityFeePerGas, gas, gasLimit, gasPrice } =
-          encodedTx as IEncodedTxEvm;
-        const limit = gasLimit || gas;
-
-        if (maxFeePerGas && maxPriorityFeePerGas) {
-          const price1559 = {
-            baseFee: new BigNumber(gasPrice ?? 0)
-              .shiftedBy(-(feeDecimals ?? 0))
-              .toFixed(),
-            maxFeePerGas: new BigNumber(maxFeePerGas)
-              .shiftedBy(-(feeDecimals ?? 0))
-              .toFixed(),
-            maxPriorityFeePerGas: new BigNumber(maxPriorityFeePerGas)
-              .shiftedBy(-(feeDecimals ?? 0))
-              .toFixed(),
-          };
-          info.eip1559 = true;
-          info.limit = limit;
-          info.prices = [price1559];
+        if (isBtcForkChain) {
+          const { totalFee } = encodedTx as IEncodedTxBtc;
           info.tx = {
-            eip1559: true,
-            limit,
-            price1559,
+            isBtcForkChain: true,
+            btcFee: new BigNumber(totalFee).toNumber(),
           };
         } else {
-          const price = new BigNumber(gasPrice ?? 0)
-            .shiftedBy(-(feeDecimals ?? 0))
-            .toFixed();
-          info.limit = limit;
-          info.prices = [price];
-          info.tx = {
-            limit,
-            price,
-          };
+          const {
+            maxFeePerGas,
+            maxPriorityFeePerGas,
+            gas,
+            gasLimit,
+            gasPrice,
+          } = encodedTx as IEncodedTxEvm;
+          const limit = gasLimit || gas;
+
+          if (maxFeePerGas && maxPriorityFeePerGas) {
+            const price1559 = {
+              baseFee: new BigNumber(gasPrice ?? 0)
+                .shiftedBy(-(feeDecimals ?? 0))
+                .toFixed(),
+              maxFeePerGas: new BigNumber(maxFeePerGas)
+                .shiftedBy(-(feeDecimals ?? 0))
+                .toFixed(),
+              maxPriorityFeePerGas: new BigNumber(maxPriorityFeePerGas)
+                .shiftedBy(-(feeDecimals ?? 0))
+                .toFixed(),
+            };
+            info.eip1559 = true;
+            info.limit = limit;
+            info.prices = [price1559];
+            info.tx = {
+              eip1559: true,
+              limit,
+              price1559,
+            };
+          } else {
+            const price = new BigNumber(gasPrice ?? 0)
+              .shiftedBy(-(feeDecimals ?? 0))
+              .toFixed();
+            info.limit = limit;
+            info.prices = [price];
+            info.tx = {
+              limit,
+              price,
+            };
+          }
         }
       }
 
@@ -282,6 +300,7 @@ export function useFeeInfoPayload({
       accountId,
       networkId,
       signOnly,
+      isBtcForkChain,
     ]);
 
   useEffect(() => {

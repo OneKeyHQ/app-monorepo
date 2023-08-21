@@ -16,6 +16,7 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
+import { isBRC20Token } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { useAppSelector, useTokenDetailInfo } from '../../hooks';
 import { isSTETH, isSupportStakingType } from '../Staking/utils';
@@ -23,6 +24,7 @@ import { SwapPlugins } from '../Swap/Plugins/Swap';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
 import AssetsInfo from './AssetsInfo';
+import { BRC20TokenDetail } from './BRC20TokenDetail';
 import { TokenDetailContext } from './context';
 import MarketInfo from './MarketInfo';
 import TokenDetailHeader from './TokenDetailHeader';
@@ -80,6 +82,8 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     () => isLightningNetworkByNetworkId(networkId),
     [networkId],
   );
+
+  const isBRC20 = useMemo(() => isBRC20Token(tokenAddress), [tokenAddress]);
 
   const headerHeight = useMemo(() => {
     let height = isVerticalLayout ? 210 : 194;
@@ -161,6 +165,12 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
       </Center>
     );
   }
+  if (isBRC20)
+    return (
+      <TokenDetailContext.Provider value={contextValue}>
+        <BRC20TokenDetail />
+      </TokenDetailContext.Provider>
+    );
 
   return (
     <TokenDetailContext.Provider value={contextValue}>
