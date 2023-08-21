@@ -8,7 +8,7 @@ required_ruby_minimum_version '2.3.0'
 
 
 # firebase-ios-sdk v9+ (react-native-firebase v15+) must use use_frameworks!
-# which has compatibility issues with Flipper, Hermes & Fabric. 
+# which has compatibility issues with Flipper, Hermes & Fabric.$
 # See https://rnfirebase.io/#altering-cocoapods-to-use-frameworks
 
 # Override Firebase SDK Version
@@ -21,6 +21,7 @@ require File.join(File.dirname(`node --print "require.resolve('@react-native-com
 
 platform :ios, '14.0'
 prepare_react_native_project!
+
 # If you are using a `react-native-flipper` your iOS build will fail when `NO_FLIPPER=1` is set.
 # because `react-native-flipper` depends on (FlipperKit,...) that will be excluded
 #
@@ -30,7 +31,8 @@ prepare_react_native_project!
 #   dependencies: {
 #     ...(process.env.NO_FLIPPER ? { 'react-native-flipper': { platforms: { ios: null } } } : {}),
 # ```
-flipper_config = ENV['CI'] == "1" ? FlipperConfiguration.disabled : FlipperConfiguration.enabled(["Debug"], { 'Flipper' => '0.162.0' })
+flipper_config = ENV['CI'] == "1" ? FlipperConfiguration.disabled : FlipperConfiguration.enabled
+
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil
   Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
@@ -69,7 +71,7 @@ target 'OneKeyWallet' do
   use_react_native!(
     :path => config[:reactNativePath],
     # to enable hermes on iOS, change `false` to `true` and then install pods
-    :hermes_enabled => false,
+    :hermes_enabled => true,
     :fabric_enabled => flags[:fabric_enabled],
     # Note that if you have use_frameworks! enabled, Flipper will not work and
     # you should disable the next line.
@@ -84,11 +86,10 @@ target 'OneKeyWallet' do
   pod "GCDWebServer", "~> 3.5.3"
 
   post_install do |installer|
+    # https://github.com/facebook/react-native/blob/main/packages/react-native/scripts/react_native_pods.rb#L197-L202
     react_native_post_install(
       installer,
       config[:reactNativePath],
-      # Set `mac_catalyst_enabled` to `true` in order to apply patches
-      # necessary for Mac Catalyst builds
       :mac_catalyst_enabled => false
     )
 

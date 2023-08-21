@@ -8,7 +8,7 @@ applyNativeModulesSettingsGradle(settings)
 
 include ':app'
 include ':lib-keys-secret'
-includeBuild('../../../node_modules/react-native-gradle-plugin')
+includeBuild('../../../node_modules/@react-native/gradle-plugin')
 
 include ':lib-tabview'
 

@@ -21,14 +21,14 @@ buildscript {
         // We use NDK 23 which has both M1 support and is the side-by-side NDK version from AGP.
         ndkVersion = "23.1.7779620"
         kotlinVersion = '1.8.10'
-        kotlin_version = kotlinVersion 
+        kotlin_version = kotlinVersion
     }
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        classpath('com.android.tools.build:gradle:7.4.2')
+        classpath('com.android.tools.build:gradle')
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
         classpath 'com.google.gms:google-services:4.3.15'
         classpath 'com.google.firebase:perf-plugin:1.4.2'
@@ -40,8 +40,8 @@ buildscript {
 }
 
 allprojects {
-    
-    repositories { 
+
+    repositories {
 
         maven { url 'https://www.jitpack.io' }
     }
