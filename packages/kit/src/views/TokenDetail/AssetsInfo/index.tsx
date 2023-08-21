@@ -22,20 +22,18 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { FAKE_ALL_NETWORK } from '@onekeyhq/shared/src/config/fakeAllNetwork';
+import { freezedEmptyObject } from '@onekeyhq/shared/src/consts/sharedConsts';
 
 import dappColourPNG from '../../../../assets/dapp_colour.png';
 import {
   FormatBalance,
   FormatCurrencyNumber,
 } from '../../../components/Format';
-import {
-  useAccount,
-  useManageNetworks,
-  useTokenPositionInfo,
-} from '../../../hooks';
+import { useAccount, useManageNetworks } from '../../../hooks';
 import { TokenDetailContext } from '../context';
 
 import type { IOverviewTokenDetailListItem } from '../../Overview/types';
+import type { ITokenDetailContext } from '../context';
 import type { ListRenderItem } from 'react-native';
 
 const Header: FC<{
@@ -103,15 +101,7 @@ const AssetsInfo: FC = () => {
   const [selectedNetworkId, setSelectedNetworkId] = useState<string>(
     FAKE_ALL_NETWORK.id,
   );
-  const {
-    walletId,
-    accountId,
-    networkId,
-    tokenAddress,
-    coingeckoId,
-    price,
-    sendAddress,
-  } = context?.routeParams ?? {};
+  const { accountId, networkId, price } = context?.routeParams ?? {};
   const { account } = useAccount({
     networkId: networkId ?? '',
     accountId: accountId ?? '',
@@ -119,14 +109,8 @@ const AssetsInfo: FC = () => {
   const { symbol } = context?.detailInfo ?? {};
   const isVerticalLayout = useIsVerticalLayout();
 
-  const { items, balance } = useTokenPositionInfo({
-    coingeckoId,
-    networkId,
-    tokenAddress,
-    accountId,
-    sendAddress,
-    walletId,
-  });
+  const { items, balance } =
+    context || (freezedEmptyObject as ITokenDetailContext);
 
   const sections = useMemo(
     () =>

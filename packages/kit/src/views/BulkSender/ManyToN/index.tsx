@@ -83,7 +83,7 @@ function ManyToN(props: Props) {
   const { network } = useNetwork({ networkId });
   const { wallets } = appSelector((s) => s.runtime);
 
-  const accountTokens = useAccountTokensOnChain(networkId, accountId, true);
+  const accountTokens = useAccountTokensOnChain(networkId, accountId);
   const tokens = accountTokens.filter((token) =>
     network?.impl === IMPL_TRON
       ? !new BigNumber(token.tokenIdOnNetwork).isInteger()

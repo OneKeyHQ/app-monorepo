@@ -24,7 +24,6 @@ import {
   setIsPasswordLoadedInVault,
   setTools,
 } from '@onekeyhq/kit/src/store/reducers/data';
-import { setOverviewPortfolioUpdatedAt } from '@onekeyhq/kit/src/store/reducers/overview';
 import {
   setOverviewHomeTokensLoading,
   updateRefreshHomeOverviewTs,
@@ -282,12 +281,6 @@ export default class ServiceToken extends ServiceBase {
             ) ?? []),
             ...accountTokens,
           ],
-        }),
-        setOverviewPortfolioUpdatedAt({
-          key: `${networkId}___${accountId}`,
-          data: {
-            updatedAt: Date.now(),
-          },
         }),
       ];
       if (refreshHomeOverviewTs) {

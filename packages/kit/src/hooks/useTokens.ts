@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { pick } from 'lodash';
-import { useAsync } from 'react-async-hook';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';

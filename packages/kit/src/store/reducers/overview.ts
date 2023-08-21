@@ -6,10 +6,6 @@ import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { IOverviewQueryTaskItem } from '../../views/Overview/types';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
-export interface IPortfolioUpdatedAt {
-  updatedAt: number;
-}
-
 export interface IOverviewStatsInfo {
   totalCounts?: number;
   totalValue: string | undefined;
@@ -39,16 +35,11 @@ export interface IOverviewPortfolio {
   // Recrod<accountId, Record<networkId, accounts>>
   allNetworksAccountsMap?: Record<string, Record<string, Account[]> | null>;
   tasks: Record<string, IOverviewQueryTaskItem>;
-  updatedTimeMap: Record<string, IPortfolioUpdatedAt>;
-  // Recrod<accountId, boolean>
-  // accountIsUpdating?: Record<string, boolean>; // TODO remove this from previous DB
-
   overviewStats?: IOverviewStatsPayload;
 }
 
 const initialState: IOverviewPortfolio = {
   tasks: {},
-  updatedTimeMap: {},
   allNetworksAccountsMap: {},
   overviewStats: {},
 };
@@ -57,19 +48,6 @@ export const overviewSlice = createSlice({
   name: 'overview',
   initialState,
   reducers: {
-    setOverviewPortfolioUpdatedAt(
-      state,
-      action: PayloadAction<{
-        key: string;
-        data: IPortfolioUpdatedAt;
-      }>,
-    ) {
-      const { data, key } = action.payload;
-      if (!state.updatedTimeMap) {
-        state.updatedTimeMap = {};
-      }
-      state.updatedTimeMap[key] = data;
-    },
     addOverviewPendingTasks(
       state,
       action: PayloadAction<{
@@ -157,15 +135,6 @@ export const overviewSlice = createSlice({
       const { walletIds } = action.payload;
       const map = state.allNetworksAccountsMap ?? {};
 
-      // TODO updating is moved to refresher.overviewAccountIsUpdating
-      // state.accountIsUpdating = omitBy(state.accountIsUpdating, (_v, k) =>
-      //   walletIds.find((id) => k.startsWith(id)),
-      // );
-
-      state.updatedTimeMap = omitBy(state.updatedTimeMap, (_v, k) =>
-        walletIds.find((id) => k?.split?.('___')?.[1]?.startsWith?.(id)),
-      );
-
       state.allNetworksAccountsMap = omitBy(map, (_v, k) =>
         walletIds.find((id) => k.startsWith(id)),
       );
@@ -199,7 +168,6 @@ export const {
   updateOverviewStats,
   addOverviewPendingTasks,
   removeOverviewPendingTasks,
-  setOverviewPortfolioUpdatedAt,
   setAllNetworksAccountsMap,
   clearOverviewPendingTasks,
   removeAllNetworksAccountsMapByAccountId,

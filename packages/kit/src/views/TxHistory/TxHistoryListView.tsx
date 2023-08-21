@@ -18,16 +18,17 @@ import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/ac
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
 import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
+import { freezedEmptyArray } from '@onekeyhq/shared/src/consts/sharedConsts';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAccountPortfolios, useAppSelector } from '../../hooks';
+import { useAppSelector } from '../../hooks';
 import useFormatDate from '../../hooks/useFormatDate';
 import { useIsFocusedAllInOne } from '../../hooks/useIsFocusedAllInOne';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { wait } from '../../utils/helper';
 import { useIsAtHomeTab } from '../../utils/routeUtils';
-import { EOverviewScanTaskType } from '../Overview/types';
 import { TxListItemView } from '../TxDetail/TxListItemView';
 import { WalletHomeTabEnum } from '../Wallet/type';
 
@@ -38,6 +39,7 @@ import {
 import { TxHistoryListViewEmpty } from './TxHistoryListViewEmpty';
 import { TxHistoryListViewHeader } from './TxHistoryListViewHeader';
 
+import type { IAccountToken } from '../Overview/types';
 import type { SectionListProps } from 'react-native';
 
 export type IHistoryListSectionGroup = {
@@ -253,11 +255,19 @@ function TxHistoryListViewComponent({
 
   const { isFocused } = useIsFocusedAllInOne();
 
-  const { data: allNetworksTokens } = useAccountPortfolios({
-    networkId,
-    accountId,
-    type: EOverviewScanTaskType.token,
-  });
+  const { result: accountTokens } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceOverview.buildAccountOverview({
+        networkId: networkId ?? '',
+        accountId: accountId ?? '',
+      }),
+    [networkId, accountId],
+  );
+
+  const allNetworksTokens = useMemo(
+    () => accountTokens?.tokens ?? (freezedEmptyArray as IAccountToken[]),
+    [accountTokens],
+  );
 
   const fetchOnChainHistory = useCallback(
     async ({

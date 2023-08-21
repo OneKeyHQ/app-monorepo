@@ -19,8 +19,8 @@ import {
   useNavigation,
   useNavigationActions,
   useNetwork,
-  useOverviewAccountUpdateInfo,
   useOverviewLoading,
+  useOverviewPendingTasks,
 } from '../../../hooks';
 import { useActionForAllNetworks } from '../../../hooks/useAllNetwoks';
 import {
@@ -175,7 +175,7 @@ function AccountAssetsEmptyListView({
     accountId,
   });
   const [isLoading] = useAtomAssetsList(atomTokenAssetsListLoading);
-  const updateInfo = useOverviewAccountUpdateInfo({
+  const updateInfo = useOverviewPendingTasks({
     networkId: networkId ?? '',
     accountId: accountId ?? '',
   });

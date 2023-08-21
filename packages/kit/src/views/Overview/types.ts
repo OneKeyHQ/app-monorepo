@@ -345,4 +345,6 @@ export type IOverviewTokenDetailListItem = {
   accountName?: string;
   protocolId?: string;
   onPress?: () => void;
+  poolCode?: string;
+  protocol?: OverviewDefiRes;
 };

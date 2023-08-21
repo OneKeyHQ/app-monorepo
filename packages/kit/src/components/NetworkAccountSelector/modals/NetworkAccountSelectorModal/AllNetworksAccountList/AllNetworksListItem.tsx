@@ -4,7 +4,7 @@ import * as React from 'react';
 
 import { Box, Pressable, Text } from '@onekeyhq/components';
 
-import { useAccountValues, useAppSelector } from '../../../../../hooks';
+import { useAppSelector } from '../../../../../hooks';
 import { FormatCurrencyNumber } from '../../../../Format';
 import { useAccountSelectorChangeAccountOnPress } from '../../../hooks/useAccountSelectorChangeAccountOnPress';
 
@@ -33,10 +33,10 @@ const AllNetworksListItem: FC<ListItemProps> = ({
 
   const { onPressChangeAccount } = useAccountSelectorChangeAccountOnPress();
 
-  const accountAllValues = useAccountValues({
-    networkId,
-    accountId,
-  });
+  const accountAllValues = useAppSelector(
+    (s) =>
+      s.overview.overviewStats?.[networkId]?.[accountId]?.summary?.totalValue,
+  );
 
   return (
     <Pressable
@@ -72,12 +72,12 @@ const AllNetworksListItem: FC<ListItemProps> = ({
             </Text>
             <Box flexDirection="row">
               <Text typography="Body2" color="text-subdued">
-                {accountAllValues?.value?.isNaN() ? (
+                {typeof accountAllValues === 'undefined' ? (
                   'N/A'
                 ) : (
                   <FormatCurrencyNumber
                     value={0}
-                    convertValue={accountAllValues?.value?.toNumber()}
+                    convertValue={accountAllValues}
                   />
                 )}
               </Text>

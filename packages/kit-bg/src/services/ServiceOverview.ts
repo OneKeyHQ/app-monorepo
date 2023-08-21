@@ -1,5 +1,5 @@
 import B from 'bignumber.js';
-import { cloneDeep, debounce, isNil, isString, uniq } from 'lodash';
+import { cloneDeep, debounce, isNil, isString, pick, uniq } from 'lodash';
 import natsort from 'natsort';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
@@ -7,11 +7,17 @@ import {
   isAllNetworks,
   parseNetworkId,
 } from '@onekeyhq/engine/src/managers/network';
-import { caseSensitiveImpls } from '@onekeyhq/engine/src/managers/token';
+import {
+  caseSensitiveImpls,
+  getBalanceKey,
+} from '@onekeyhq/engine/src/managers/token';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Collection, NFTAssetMeta } from '@onekeyhq/engine/src/types/nft';
 import { NFTAssetType } from '@onekeyhq/engine/src/types/nft';
-import type { ITokenFiatValuesInfo } from '@onekeyhq/engine/src/types/token';
+import type {
+  ITokenFiatValuesInfo,
+  Token,
+} from '@onekeyhq/engine/src/types/token';
 import {
   type IAccountTokenData,
   TokenRiskLevel,
@@ -45,10 +51,12 @@ import type {
   ITokensPricesMap,
 } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import type { ITokenDetailInfo } from '@onekeyhq/kit/src/views/ManageTokens/types';
 import type {
   IAccountToken,
   IOverviewQueryTaskItem,
   IOverviewScanTaskItem,
+  IOverviewTokenDetailListItem,
   IReduxHooksQueryToken,
   OverviewAllNetworksPortfolioRes,
   OverviewDefiRes,
@@ -60,6 +68,7 @@ import {
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
@@ -705,7 +714,6 @@ class ServiceOverview extends ServiceBase {
       accountId,
       networkId,
       tokensFilter,
-      tokensSort,
       tokensLimit,
       calculateTokensTotalValue,
     } = options;
@@ -715,12 +723,8 @@ class ServiceOverview extends ServiceBase {
       accountId,
     });
 
-    let balances: IAccountTokensBalanceMap | undefined;
-    let prices: ITokensPricesMap | undefined;
-    if (tokensSort) {
-      ({ balances } = this.getAccountTokensBalances(options));
-      ({ prices } = this.getTokensPrices());
-    }
+    const { balances } = this.getAccountTokensBalances(options);
+    const { prices } = this.getTokensPrices();
 
     let totalValue: string | undefined;
     let totalValue24h: string | undefined;
@@ -845,19 +849,22 @@ class ServiceOverview extends ServiceBase {
       accountId,
     });
 
-    let totalValue: string | undefined;
-    let totalValue24h: string | undefined;
-
-    const accValue = new B(0);
-    const accValue24h = new B(0);
+    let totalValue = new B(0);
+    let totalValue24h = new B(0);
 
     const tokensReturn: Array<IAccountToken> = [];
 
     (data[EOverviewScanTaskType.token] ?? []).forEach((t) => {
       const value = new B(t.value ?? '0');
+      const value24h = new B(t.value24h ?? '0');
 
       if (tokensFilter?.hideSmallBalance && value.isLessThan(1)) {
         return;
+      }
+
+      if (calculateTokensTotalValue) {
+        totalValue = totalValue.plus(value);
+        totalValue24h = totalValue24h.plus(value24h);
       }
 
       const tokenOverview: IAccountToken = {
@@ -869,8 +876,8 @@ class ServiceOverview extends ServiceBase {
         logoURI: t.logoURI,
         balance: t.balance,
         usdValue: t.value ?? '0',
-        value: value.toString(),
-        value24h: new B(t.value24h ?? '0').toString(),
+        value: value.toFixed(3),
+        value24h: value24h.toFixed(3),
         price: new B(t.price ?? 0).toNumber(),
         price24h: t.price24h,
         isNative: false,
@@ -884,12 +891,6 @@ class ServiceOverview extends ServiceBase {
 
       tokensReturn.push(tokenOverview);
     });
-
-    // * calculate total value (in USD)
-    if (calculateTokensTotalValue) {
-      totalValue = accValue.toFixed(3);
-      totalValue24h = accValue24h.toFixed(3);
-    }
 
     // * calculate total before limit
     const tokensTotal = tokensReturn.length;
@@ -905,8 +906,8 @@ class ServiceOverview extends ServiceBase {
         ? filteredTokens.slice(0, tokensLimit)
         : filteredTokens,
       tokensTotal,
-      tokensTotalValue: totalValue,
-      tokensTotalValue24h: totalValue24h,
+      tokensTotalValue: totalValue.toFixed(3),
+      tokensTotalValue24h: totalValue24h.toFixed(3),
     };
   }
 
@@ -965,8 +966,6 @@ class ServiceOverview extends ServiceBase {
       shareNfts,
       shareTokens,
     };
-
-    console.log(stats);
 
     this.backgroundApi.dispatch(
       updateOverviewStats({ networkId, accountId, stats }),
@@ -1131,6 +1130,180 @@ class ServiceOverview extends ServiceBase {
 
     return Promise.resolve(tokenRes);
   }
+
+  @backgroundMethod()
+  async getKeleStakingBalance({
+    networkId,
+    accountId,
+    coingeckoId,
+    tokenAddress,
+  }: IBuildTokenPositionInfoOptions) {
+    const { serviceStaking } = this.backgroundApi;
+    const zero = new B(0);
+    if (
+      isAllNetworks(networkId) ||
+      coingeckoId !== 'ethereum' ||
+      tokenAddress
+    ) {
+      return zero;
+    }
+    const minerOverview = await serviceStaking.fetchMinerOverview({
+      networkId,
+      accountId,
+    });
+
+    if (!minerOverview) {
+      return zero;
+    }
+
+    return new B(minerOverview?.amount?.total_amount ?? 0).plus(
+      minerOverview?.amount.withdrawable ?? 0,
+    );
+  }
+
+  @backgroundMethod()
+  async buildTokenDetailInfo(
+    options: IBuildTokenPositionInfoOptions,
+  ): Promise<ITokenDetailInfo> {
+    const { engine, serviceToken } = this.backgroundApi;
+    const { networkId, accountId, tokenAddress, coingeckoId } = options;
+    let chainToken: Token | undefined;
+    if (!isAllNetworks(networkId)) {
+      chainToken = await engine.findToken({
+        networkId,
+        tokenIdOnNetwork: tokenAddress ?? '',
+      });
+    }
+
+    const detailInfo = await serviceToken.fetchTokenDetailInfo({
+      coingeckoId,
+      networkId,
+      tokenAddress,
+      accountId,
+    });
+
+    const { defaultChain } = detailInfo ?? {};
+
+    const tokens = detailInfo?.tokens ?? [];
+
+    if (!tokens?.length && chainToken) {
+      tokens.push(chainToken);
+    }
+
+    const defaultToken =
+      tokens?.find(
+        (t) =>
+          t.impl === defaultChain?.impl && t.chainId === defaultChain?.chainId,
+      ) ?? tokens?.[0];
+
+    const ethereumNativeToken = tokens?.find(
+      (n) =>
+        n.impl === IMPL_EVM &&
+        (n.chainId === '1' || n.chainId === '5') &&
+        (n.isNative || !n.address),
+    );
+
+    return {
+      ...pick(chainToken, 'name', 'symbol', 'logoURI'),
+      ...detailInfo,
+      tokens,
+      defaultToken,
+      ethereumNativeToken,
+    };
+  }
+
+  @backgroundMethod()
+  async buildTokenDetailPositionInfo(options: IBuildTokenPositionInfoOptions) {
+    const { appSelector } = this.backgroundApi;
+
+    const { accountId, networkId, coingeckoId, sendAddress, tokenAddress } =
+      options;
+    const { defis } = await this.buildAccountDefiList({
+      accountId,
+      networkId,
+    });
+    const { tokens } = await this.buildAccountOverview({
+      accountId,
+      networkId,
+    });
+    const accounts = appSelector(
+      (s) => s.overview.allNetworksAccountsMap?.[accountId]?.[networkId],
+    );
+
+    const balances = appSelector(
+      (s) => s.tokens.accountTokensBalance?.[networkId]?.[accountId],
+    );
+
+    const keleStakingBalance = await this.getKeleStakingBalance(options);
+
+    const detailInfo = await this.buildTokenDetailInfo(options);
+
+    const items: IOverviewTokenDetailListItem[] = [];
+
+    let totalBalance = keleStakingBalance;
+
+    tokens.forEach((t) => {
+      if (
+        isAllNetworks(networkId)
+          ? coingeckoId === t.coingeckoId
+          : t.address === tokenAddress && t.sendAddress === sendAddress
+      ) {
+        t.tokens?.forEach((item) => {
+          const account = accounts?.find(
+            (a) => a.address === item.accountAddress,
+          );
+          if (new B(item.balance ?? 0).isGreaterThan(0)) {
+            items.push({
+              name: t.name,
+              address: t.address,
+              symbol: t.symbol,
+              logoURI: t.logoURI ?? '',
+              type: 'Token',
+              balance:
+                item.balance ?? balances[getBalanceKey(t)]?.balance ?? '0',
+              networkId: item.networkId,
+              accountName: account?.name ?? '',
+            });
+          }
+        });
+        totalBalance = totalBalance.plus(t.balance ?? 0);
+      }
+    });
+
+    defis.forEach((d) => {
+      d.pools.forEach((p) => {
+        p[1].forEach((item) => {
+          [...item.supplyTokens, ...item.rewardTokens].forEach((t) => {
+            if (
+              isAllNetworks(networkId)
+                ? coingeckoId === t.coingeckoId
+                : t.tokenAddress === tokenAddress
+            ) {
+              items.push({
+                name: d.protocolName,
+                symbol: t.symbol ?? '',
+                address: t.tokenAddress,
+                logoURI: d.protocolIcon,
+                type: p[0],
+                balance: t.balanceParsed ?? '0',
+                networkId: d._id.networkId,
+                poolCode: item.poolCode,
+                protocol: d,
+              });
+              totalBalance = totalBalance.plus(t.balanceParsed ?? 0);
+            }
+          });
+        });
+      });
+    });
+
+    return {
+      items,
+      detailInfo,
+      totalBalance: totalBalance.toFixed(),
+      keleStakingBalance: keleStakingBalance.toFixed(),
+    };
+  }
 }
 
 export type IOverviewAccountTokensResult = {
@@ -1170,9 +1343,6 @@ export type IAccountTokensFilter = {
 export type IAccountOverviewOptions = {
   networkId: string;
   accountId: string;
-  buildTokenList?: boolean;
-  buildDefiLists?: boolean;
-  buildNFTList?: boolean;
   tokensLimit?: number;
   tokensSort?: {
     // TODO move name and native sort to set method
@@ -1184,6 +1354,13 @@ export type IAccountOverviewOptions = {
   tokensFilter?: IAccountTokensFilter;
   calculateTokensTotalValue?: boolean;
   buildTokensMapKey?: boolean;
+};
+export type IBuildTokenPositionInfoOptions = {
+  accountId: string;
+  networkId: string;
+  tokenAddress?: string;
+  sendAddress?: string;
+  coingeckoId?: string;
 };
 
 export default ServiceOverview;
