@@ -16,7 +16,6 @@ import {
 import { useAllNetworksSelectNetworkAccount } from '../../../hooks/useAllNetwoks';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { formatAmount } from '../../../utils/priceUtils';
-import { Options } from '../components/EthereumUtilsComponent';
 import { StakingRoutes } from '../typing';
 import {
   StakingTypes,
