@@ -1063,6 +1063,7 @@
   "form__Watchlist": "Список наблюдения",
   "form___7d_volume": "7D объем",
   "form__a_message_to_the_payer": "Сообщение плательщику",
+  "form__a_message_to_the_payer_optional": "Сообщение плательщику (необязательно)",
   "form__about_uppercase": "О САЙТЕ",
   "form__above_str": "Выше {0}",
   "form__accelerated_transaction": "🚀 Ускоренная сделка",
