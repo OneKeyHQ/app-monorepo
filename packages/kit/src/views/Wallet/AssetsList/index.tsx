@@ -210,9 +210,7 @@ export function HandleRebuildAssetsListData(
   const [accountTokens, setAccountTokens] = useAtomAssetsList(
     atomHomeOverviewAccountTokens,
   );
-  const [isLoading, setIsLoading] = useAtomAssetsList(
-    atomTokenAssetsListLoading,
-  );
+  const [, setIsLoading] = useAtomAssetsList(atomTokenAssetsListLoading);
   // const { data: accountTokens } = useAccountTokens({
   //   networkId,
   //   accountId,

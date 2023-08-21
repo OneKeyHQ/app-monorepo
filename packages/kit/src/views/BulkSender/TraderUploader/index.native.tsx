@@ -70,17 +70,22 @@ function TraderUploader(props: Props) {
       });
       const wb = read(b64, { raw: true, type: 'base64' });
 
-      const data = utils.sheet_to_json<TokenTrader>(
+      const data = utils.sheet_to_json<{ Address: string; Amount: string }>(
         wb.Sheets[wb.SheetNames[0]],
         { header: [TokenTraderEnum.Address, TokenTraderEnum.Amount] },
       );
       if (data && data[0] && data[0].Address && data[0].Amount) {
         setTraderFromOut(
-          data.filter(
-            (item) =>
-              item.Address !== TokenTraderEnum.Address &&
-              item.Amount !== TokenTraderEnum.Amount,
-          ),
+          data
+            .filter(
+              (item) =>
+                item.Address !== TokenTraderEnum.Address &&
+                item.Amount !== TokenTraderEnum.Amount,
+            )
+            .map((item) => ({
+              address: item.Address,
+              amount: item.Amount,
+            })),
         );
         setShowFileError(false);
         setIsUploadMode(false);

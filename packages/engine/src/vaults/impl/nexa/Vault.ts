@@ -12,14 +12,12 @@ import {
   type DBAccount,
 } from '../../../types/account';
 import {
-  type IApproveInfo,
   type IClientEndpointStatus,
   type IDecodedTx,
   IDecodedTxActionType,
   IDecodedTxDirection,
   IDecodedTxStatus,
   type IEncodedTx,
-  type IEncodedTxUpdateOptions,
   type IFeeInfo,
   type IFeeInfoUnit,
   type ITransferInfo,
@@ -232,14 +230,11 @@ export default class Vault extends VaultBase {
     return decodedTx;
   }
 
-  override getNextNonce(
-    networkId: string,
-    dbAccount: DBAccount,
-  ): Promise<number> {
+  override getNextNonce(): Promise<number> {
     return Promise.resolve(0);
   }
 
-  override decodedTxToLegacy(decodedTx: IDecodedTx): Promise<EVMDecodedItem> {
+  override decodedTxToLegacy(): Promise<EVMDecodedItem> {
     return Promise.resolve({} as IDecodedTxLegacy);
   }
 
@@ -274,24 +269,15 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override buildEncodedTxFromApprove(
-    approveInfo: IApproveInfo,
-  ): Promise<IEncodedTx> {
+  override buildEncodedTxFromApprove(): Promise<IEncodedTx> {
     throw new Error('Method not implemented.');
   }
 
-  override updateEncodedTxTokenApprove(
-    encodedTx: IEncodedTx,
-    amount: string,
-  ): Promise<IEncodedTx> {
+  override updateEncodedTxTokenApprove(): Promise<IEncodedTx> {
     throw new Error('Method not implemented.');
   }
 
-  override updateEncodedTx(
-    encodedTx: IEncodedTxNexa,
-    payload: any,
-    options: IEncodedTxUpdateOptions,
-  ): Promise<IEncodedTxNexa> {
+  override updateEncodedTx(encodedTx: IEncodedTxNexa): Promise<IEncodedTxNexa> {
     return Promise.resolve(encodedTx);
   }
 
@@ -317,7 +303,6 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxNexa,
     signOnly?: boolean,
     specifiedFeeRate?: string,
-    transferCount?: number,
   ): Promise<IFeeInfo> {
     const network = await this.getNetwork();
     const client = await this.getSDKClient();
@@ -354,15 +339,12 @@ export default class Vault extends VaultBase {
     );
   }
 
-  override fetchTokenInfos(
-    tokenAddresses: string[],
-  ): Promise<(PartialTokenInfo | undefined)[]> {
+  override fetchTokenInfos(): Promise<(PartialTokenInfo | undefined)[]> {
     throw new Error('Method not implemented.');
   }
 
   override async broadcastTransaction(
     signedTx: ISignedTxPro,
-    options?: any,
   ): Promise<ISignedTxPro> {
     const client = await this.getSDKClient();
     await client.broadcastTransaction(signedTx.rawTx);
