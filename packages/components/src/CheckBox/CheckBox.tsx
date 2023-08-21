@@ -42,6 +42,10 @@ export type CheckBoxProps = {
    * 点击监听
    */
   onChange?: (isSelected: boolean) => void;
+  /**
+   * 多选时未选中全部
+   */
+  isIndeterminate?: boolean;
   containerStyle?: ComponentProps<typeof Box>;
   checkBoxProps?: Partial<ComponentProps<typeof BaseCheckBox>>;
 } & ComponentProps<typeof Box>;
@@ -66,6 +70,7 @@ const CheckBox: FC<CheckBoxProps> = ({
   children,
   containerStyle,
   checkBoxProps,
+  isIndeterminate,
   ...props
 }) => {
   let titleColor = 'text-default';
@@ -100,7 +105,11 @@ const CheckBox: FC<CheckBoxProps> = ({
           value={value}
           name={name}
           onChange={onChangeCallback}
-          icon={getCheckBoxIcon(isDisabled ?? false, defaultIsChecked ?? false)}
+          icon={getCheckBoxIcon({
+            disable: Boolean(isDisabled),
+            defaultIsChecked: Boolean(defaultIsChecked),
+            indeterminate: Boolean(isIndeterminate),
+          })}
           defaultIsChecked={defaultIsChecked}
           isChecked={isChecked}
           focusable={focusable}

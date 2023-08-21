@@ -168,6 +168,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     ).getProvider();
 
     let response;
+    let responseWithRealPath;
     try {
       const { connectId, deviceId } = await this.getHardwareInfo();
       const passphraseState = await this.getWalletPassphraseState();
@@ -183,12 +184,30 @@ export class KeyringHardware extends KeyringHardwareBase {
         })),
         ...passphraseState,
       });
+
+      responseWithRealPath = await HardwareSDK.btcGetPublicKey(
+        connectId,
+        deviceId,
+        {
+          bundle: usedIndexes.map((index) => ({
+            path: `${pathPrefix}/${index}'/0/0`,
+            coin: coinName.toLowerCase(),
+            showOnOneKey: false,
+          })),
+          ...passphraseState,
+        },
+      );
     } catch (error: any) {
       console.error(error);
       throw new OneKeyHardwareError(error);
     }
 
-    if (!response.success || !response.payload) {
+    if (
+      !response.success ||
+      !response.payload ||
+      !responseWithRealPath.success ||
+      !responseWithRealPath.payload
+    ) {
       console.error(response.payload);
       throw convertDeviceError(response.payload);
     }
@@ -199,7 +218,9 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const ret = [];
     let index = 0;
-    for (const { path, xpub, xpubSegwit } of response.payload) {
+    for (let i = 0, len = response.payload.length; i < len; i += 1) {
+      const { path, xpub, xpubSegwit } = response.payload[i];
+      const { node } = responseWithRealPath.payload[i];
       const addressRelPath = `${isChange ? '1' : '0'}/${addressIndex}`;
       const { [addressRelPath]: address } = provider.xpubToAddresses(
         xpub,
@@ -221,6 +242,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           type: AccountType.UTXO,
           path,
           coinType: COIN_TYPE,
+          pubKey: node.public_key,
           xpub,
           xpubSegwit: xpubSegwit || xpub,
           address,

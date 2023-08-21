@@ -97,6 +97,7 @@ export type UnsignedTx = {
 export type SignedTx = {
   txid: string;
   rawTx: string;
+  psbtHex?: string;
 };
 
 export type TypedMessage = {

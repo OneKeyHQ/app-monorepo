@@ -11,6 +11,7 @@ import { BatchSendProgress } from '../../../views/Send/modals/BatchSendProgress'
 import { HardwareSwapContinue } from '../../../views/Send/modals/HardwareSwapContinue';
 import { PreSendAddress } from '../../../views/Send/modals/PreSendAddress';
 import { PreSendAmount } from '../../../views/Send/modals/PreSendAmount';
+import { PreSendBRC20TokenAmount } from '../../../views/Send/modals/PreSendBRC20TokenAmount';
 import { PreSendToken } from '../../../views/Send/modals/PreSendToken';
 import { SendAuthentication } from '../../../views/Send/modals/SendAuthentication';
 import { SendConfirm } from '../../../views/Send/modals/SendConfirm';
@@ -44,6 +45,10 @@ const modalRoutes = [
   {
     name: SendModalRoutes.PreSendAmount,
     component: BaseSendRouteScreen.wrap(PreSendAmount),
+  },
+  {
+    name: SendModalRoutes.PreSendBRC20TokenAmount,
+    component: BaseSendRouteScreen.wrap(PreSendBRC20TokenAmount),
   },
   {
     name: SendModalRoutes.SignMessageConfirm,

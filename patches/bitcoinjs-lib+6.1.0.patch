@@ -1,0 +1,13 @@
+diff --git a/node_modules/bitcoinjs-lib/src/payments/p2tr.js b/node_modules/bitcoinjs-lib/src/payments/p2tr.js
+index d2cbc02..09f7e39 100644
+--- a/node_modules/bitcoinjs-lib/src/payments/p2tr.js
++++ b/node_modules/bitcoinjs-lib/src/payments/p2tr.js
+@@ -31,7 +31,7 @@ function p2tr(a, opts) {
+       internalPubkey: types_1.typeforce.maybe(types_1.typeforce.BufferN(32)),
+       hash: types_1.typeforce.maybe(types_1.typeforce.BufferN(32)),
+       pubkey: types_1.typeforce.maybe(types_1.typeforce.BufferN(32)),
+-      signature: types_1.typeforce.maybe(types_1.typeforce.BufferN(64)),
++      signature: types_1.typeforce.maybe(types_1.typeforce.Buffer),
+       witness: types_1.typeforce.maybe(
+         types_1.typeforce.arrayOf(types_1.typeforce.Buffer),
+       ),

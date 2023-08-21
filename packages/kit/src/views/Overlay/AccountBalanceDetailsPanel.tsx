@@ -47,9 +47,11 @@ function AccountBalanceDetailsRow({
 export function useAccountBalanceDetailsInfo({
   accountId,
   networkId,
+  useRecycleBalance,
 }: {
   accountId: string;
   networkId: string;
+  useRecycleBalance?: boolean;
 }) {
   const intl = useIntl();
   const [balanceDetails, setBalanceDetails] = useState<
@@ -66,6 +68,7 @@ export function useAccountBalanceDetailsInfo({
           await backgroundApiProxy.serviceToken.fetchBalanceDetails({
             accountId,
             networkId,
+            useRecycleBalance,
           });
         setBalanceDetails(result);
         setIsLoading(false);
@@ -87,7 +90,7 @@ export function useAccountBalanceDetailsInfo({
         // noop
       }
     })();
-  }, [accountId, intl, networkId]);
+  }, [accountId, intl, networkId, useRecycleBalance]);
 
   let enabled = true;
   if (!balanceDetails && !isLoading) {

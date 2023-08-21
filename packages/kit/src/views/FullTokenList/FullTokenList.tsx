@@ -26,6 +26,7 @@ const FullTokenList: FC<FullTokenListProps> = () => {
       accountId={accountId}
       networkId={networkId}
       flatStyle
+      showTokenBalanceDetail
       ListFooterComponent={<Box h={`${48 + bottom}px`} />}
     />
   );

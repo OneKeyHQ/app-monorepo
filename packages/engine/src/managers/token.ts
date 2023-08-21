@@ -11,6 +11,7 @@ import {
   SEPERATOR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { isBRC20Token } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { getFiatEndpoint } from '../endpoint';
 import { OneKeyInternalError } from '../errors';
@@ -179,6 +180,11 @@ export const getBalanceKey = (token?: Partial<Token> | null) => {
   if (!tokenAddress) {
     return 'main';
   }
+
+  if (isBRC20Token(tokenAddress)) {
+    return tokenAddress;
+  }
+
   if (sendAddress) {
     return `${tokenAddress}--${sendAddress}`;
   }

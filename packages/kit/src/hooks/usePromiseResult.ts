@@ -75,7 +75,11 @@ export function usePromiseResult<T>(
   method: (...args: any[]) => Promise<T>,
   deps: any[],
   options?: IPromiseResultOptions<T>,
-): { result: T | undefined; isLoading: boolean | undefined };
+): {
+  result: T | undefined;
+  isLoading: boolean | undefined;
+  run: (config?: IRunnerConfig) => Promise<void>;
+};
 
 export function usePromiseResult<T>(
   method: (...args: any[]) => Promise<T>,
@@ -84,6 +88,7 @@ export function usePromiseResult<T>(
 ): {
   result: T | undefined;
   isLoading: boolean | undefined;
+  run: (config?: IRunnerConfig) => Promise<void>;
 } {
   const [result, setResult] = useState<T | undefined>(
     options.initResult as any,
@@ -189,7 +194,7 @@ export function usePromiseResult<T>(
   }, [isFocused, run]);
 
   // TODO rename result to data
-  return { result, isLoading };
+  return { result, isLoading, run };
 }
 
 export const useAsyncCall = usePromiseResult;

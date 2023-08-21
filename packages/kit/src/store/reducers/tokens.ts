@@ -10,12 +10,16 @@ export type IAmountValue = string | IValueLoading | IValueNull;
 export type TokenBalanceValue =
   | {
       balance: string;
+      availableBalance?: string;
+      transferBalance?: string;
       blockHeight?: string;
     }
   | IValueLoading
   | IValueNull;
 export type ITokenBalanceInfo = {
   balance: IAmountValue;
+  availableBalance?: string;
+  transferBalance?: string;
   blockHeight?: string;
 };
 export type TokenChartData = [number, number][];
