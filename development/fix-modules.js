@@ -1,6 +1,8 @@
 const fs = require('fs');
 
-const fixWindowError = () => {
+// the type check in p2tr causes psbt tx parsing to fail
+// most wallets currently use this method to temporarily solve this problem
+const fixPsbtSignatureError = () => {
   const file = './node_modules/bitcoinjs-lib/src/payments/p2tr.js';
   let fileData = fs.readFileSync(file).toString();
   fileData = fileData.replace(
@@ -13,7 +15,7 @@ const fixWindowError = () => {
 const run = async () => {
   let success = true;
   try {
-    fixWindowError();
+    fixPsbtSignatureError();
   } catch (e) {
     console.error('error:', e.message);
     success = false;
