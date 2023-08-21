@@ -13,10 +13,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  deviceUtils,
-  getDeviceTypeByDeviceId,
-} from '@onekeyhq/kit/src/utils/hardware';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';

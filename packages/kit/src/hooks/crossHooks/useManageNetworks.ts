@@ -4,7 +4,7 @@ import { freezedEmptyArray } from '@onekeyhq/shared/src/consts/sharedConsts';
 import { CHAINS_DISPLAYED_IN_DEV } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { buildCrossHooks, buildCrossHooksWithOptions } from './buildCrossHooks';
+import { buildCrossHooksWithOptions } from './buildCrossHooks';
 
 export type IManageNetworks = {
   allNetworks: INetwork[];

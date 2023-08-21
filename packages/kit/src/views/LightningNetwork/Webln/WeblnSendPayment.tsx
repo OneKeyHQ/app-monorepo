@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -24,10 +24,7 @@ import LNSendPaymentForm from '../components/LNSendPaymentForm';
 
 import type { SendRoutesParams } from '../../../routes';
 import type { ISendPaymentFormValues } from '../components/LNSendPaymentForm';
-import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type RouteProps = RouteProp<SendRoutesParams, SendModalRoutes.LNURLPayRequest>;
 
 type NavigationProps = NativeStackNavigationProp<
   SendRoutesParams,
@@ -38,7 +35,6 @@ const WeblnSendPayment = () => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
-  const route = useRoute<RouteProps>();
 
   const { sourceInfo, networkId, accountId } = useDappParams();
   const transferInfo = useMemo(

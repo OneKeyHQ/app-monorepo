@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { debounce } from 'lodash';
-import useSWR from 'swr';
+// import useSWR from 'swr';
 
 import { wait } from '../utils/helper';
 
 import { useIsMounted } from './useIsMounted';
 
-import type { SWRConfiguration, SWRResponse } from 'swr';
+// import type { SWRConfiguration, SWRResponse } from 'swr';
 
 // const [cache, mutate] = initCache({
 //   get(key: string) {
@@ -20,30 +20,30 @@ import type { SWRConfiguration, SWRResponse } from 'swr';
 // });
 // const mockCache2 = initCache(new Map());
 
-type SWROptionsType = typeof useSWR extends (
-  key: infer Key,
-  fn?: infer Fn,
-  options?: infer Options,
-) => SWRResponse<infer Data, infer Error>
-  ? Options
-  : SWRConfiguration;
+// type SWROptionsType = typeof useSWR extends (
+//   key: infer Key,
+//   fn?: infer Fn,
+//   options?: infer Options,
+// ) => SWRResponse<infer Data, infer Error>
+//   ? Options
+//   : SWRConfiguration;
 
-function useSWRPro<T extends (...args: any) => unknown>(
-  params: Parameters<T>[0],
-  fn: T,
-  options?: SWROptionsType,
-) {
-  const { data, error, isLoading } = useSWR(params, fn, options);
-  console.log('useSWRFetch >>>>> ', isLoading, data, error);
-  type UnwrapPromise<T1> = T1 extends Promise<infer U> ? U : T1;
-  type DataType = UnwrapPromise<ReturnType<T>>;
+// function useSWRPro<T extends (...args: any) => unknown>(
+//   params: Parameters<T>[0],
+//   fn: T,
+//   options?: SWROptionsType,
+// ) {
+//   const { data, error, isLoading } = useSWR(params, fn, options);
+//   console.log('useSWRFetch >>>>> ', isLoading, data, error);
+//   type UnwrapPromise<T1> = T1 extends Promise<infer U> ? U : T1;
+//   type DataType = UnwrapPromise<ReturnType<T>>;
 
-  return {
-    data: data as DataType,
-    error,
-    isLoading,
-  };
-}
+//   return {
+//     data: data as DataType,
+//     error,
+//     isLoading,
+//   };
+// }
 
 type IRunnerConfig = { triggerByDeps?: boolean };
 
@@ -75,7 +75,11 @@ export function usePromiseResult<T>(
   method: (...args: any[]) => Promise<T>,
   deps: any[],
   options?: IPromiseResultOptions<T>,
-): { result: T | undefined; isLoading: boolean | undefined };
+): {
+  result: T | undefined;
+  isLoading: boolean | undefined;
+  run: (config?: IRunnerConfig) => Promise<void>;
+};
 
 export function usePromiseResult<T>(
   method: (...args: any[]) => Promise<T>,
@@ -84,6 +88,7 @@ export function usePromiseResult<T>(
 ): {
   result: T | undefined;
   isLoading: boolean | undefined;
+  run: (config?: IRunnerConfig) => Promise<void>;
 } {
   const [result, setResult] = useState<T | undefined>(
     options.initResult as any,
@@ -189,7 +194,7 @@ export function usePromiseResult<T>(
   }, [isFocused, run]);
 
   // TODO rename result to data
-  return { result, isLoading };
+  return { result, isLoading, run };
 }
 
 export const useAsyncCall = usePromiseResult;

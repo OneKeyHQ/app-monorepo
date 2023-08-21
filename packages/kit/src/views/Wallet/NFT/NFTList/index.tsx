@@ -17,18 +17,33 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { DebugRenderTracker } from '@onekeyhq/components/src/DebugRenderTracker';
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
-import type { NFTAssetMeta } from '@onekeyhq/engine/src/types/nft';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
+import type {
+  NFTAssetMeta,
+  NFTBTCAssetModel,
+} from '@onekeyhq/engine/src/types/nft';
+import { NFTAssetType } from '@onekeyhq/engine/src/types/nft';
+import type { CoinControlItem } from '@onekeyhq/engine/src/types/utxoAccounts';
+import {
+  getTaprootXpub,
+  isTaprootXpubSegwit,
+} from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
+import { AppUIEventBusNames } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useAccountPortfolios, useNFTIsLoading } from '../../../../hooks';
+import {
+  useAccountPortfolios,
+  useActiveWalletAccount,
+  useNFTIsLoading,
+} from '../../../../hooks';
 import { useHomeTabName } from '../../../../hooks/useHomeTabName';
+import { useOnUIEventBus } from '../../../../hooks/useOnUIEventBus';
 import { EOverviewScanTaskType } from '../../../Overview/types';
 import { WalletHomeTabEnum } from '../../type';
 import { navigateToNFTCollection, navigateToNFTDetail } from '../utils';
@@ -92,8 +107,8 @@ const NFTList: FC<NFTListProps> = ({
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const [page, setPage] = useState(1);
-  const { accountId, networkId } = useActiveWalletAccount();
-
+  const { accountId, networkId, account } = useActiveWalletAccount();
+  const [recycleUtxos, setRecycleUtxos] = useState<CoinControlItem[]>([]);
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
   const MARGIN = isSmallScreen ? 16 : 20;
@@ -112,11 +127,27 @@ const NFTList: FC<NFTListProps> = ({
           data: item,
           type,
         });
-        array = array.concat(items as any[]);
+
+        if (type === NFTAssetType.BTC) {
+          const asset = items[0].data as NFTBTCAssetModel;
+
+          if (
+            !recycleUtxos.find((utxo) => {
+              const [txId, vout] = utxo.key.split('_');
+              return (
+                asset.tx_hash === txId && asset.output.split(':')[1] === vout
+              );
+            })
+          ) {
+            array = array.concat(items as any[]);
+          }
+        } else {
+          array = array.concat(items as any[]);
+        }
       });
     });
     return array;
-  }, [listData]);
+  }, [listData, recycleUtxos]);
 
   const { data: collections, hasMore } = useMemo(() => {
     const list = listItems.slice(0, page * pageSize);
@@ -161,6 +192,27 @@ const NFTList: FC<NFTListProps> = ({
   useEffect(() => {
     setPage(1);
   }, [accountId, networkId]);
+
+  const fetchCoinControlList = useCallback(async () => {
+    if (account?.xpub && networkId) {
+      const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
+        networkId,
+        isTaprootXpubSegwit(account.xpub ?? '')
+          ? getTaprootXpub(account.xpub ?? '')
+          : account.xpub ?? '',
+      );
+      setRecycleUtxos(archivedUtxos.filter((utxo) => utxo.recycle));
+    }
+  }, [account?.xpub, networkId]);
+
+  useOnUIEventBus(
+    AppUIEventBusNames.InscriptionRecycleChanged,
+    fetchCoinControlList,
+  );
+
+  useEffect(() => {
+    fetchCoinControlList();
+  }, [fetchCoinControlList]);
 
   const flatListKey =
     platformEnv.isNative && !platformEnv.isNativeIOSPad

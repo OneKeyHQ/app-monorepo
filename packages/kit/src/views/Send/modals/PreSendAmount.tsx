@@ -195,6 +195,7 @@ function PreSendAmount() {
       ...tokenInfo,
       sendAddress: transferInfo.tokenSendAddress,
     },
+    useRecycleBalance: tokenInfo?.isNative,
     fallback: '0',
   });
 
@@ -202,6 +203,7 @@ function PreSendAmount() {
     networkId,
     accountId,
     tokenId: tokenInfo?.tokenIdOnNetwork || 'main',
+    useRecycleBalance: tokenInfo?.isNative,
   });
 
   const originalTokenBalance = useTokenBalance({
@@ -351,6 +353,7 @@ function PreSendAmount() {
   const balanceDetailsInfo = useAccountBalanceDetailsInfo({
     networkId,
     accountId,
+    useRecycleBalance: tokenInfo?.isNative,
   });
 
   return (

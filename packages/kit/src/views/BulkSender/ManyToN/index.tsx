@@ -231,11 +231,11 @@ function ManyToN(props: Props) {
 
     for (let i = 0; i < sender.length; i += 1) {
       transferInfos.push({
-        from: sender[i].Address,
+        from: sender[i].address,
         to:
           bulkType === BulkTypeEnum.ManyToOne
-            ? receiver[0].Address
-            : receiver[i].Address,
+            ? receiver[0].address
+            : receiver[i].address,
         amount: await getTransferAmount({
           networkId,
           amount,

@@ -52,12 +52,12 @@ export const signature = async ({
   isTestnet: boolean;
 }) => {
   const provider = await getBtcProvider(engine, isTestnet);
-  const result = provider.signMessage(
+  const result = provider.signMessage({
     password,
     entropy,
-    `${path}/0/0`,
-    stringify(msgPayload),
-  );
+    path: `${path}/0/0`,
+    message: stringify(msgPayload),
+  });
   debugLogger.common.debug(
     `Lightning Signature, msgPayload: ${stringify(
       msgPayload,

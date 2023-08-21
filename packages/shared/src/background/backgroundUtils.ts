@@ -22,6 +22,7 @@ import {
   IMPL_ADA,
   IMPL_ALGO,
   IMPL_APTOS,
+  IMPL_BTC,
   IMPL_CFX,
   IMPL_COSMOS,
   IMPL_DOT,
@@ -301,6 +302,7 @@ export const MAX_LOG_LENGTH = 1000;
 
 const scopeNetwork: Record<IInjectedProviderNamesStrings, string | undefined> =
   {
+    'btc': IMPL_BTC,
     'ethereum': IMPL_EVM,
     'near': IMPL_NEAR,
     'conflux': IMPL_CFX,
@@ -321,6 +323,7 @@ const scopeNetwork: Record<IInjectedProviderNamesStrings, string | undefined> =
   };
 
 export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
+  IInjectedProviderNames.btc,
   IInjectedProviderNames.ethereum,
   IInjectedProviderNames.starcoin,
   IInjectedProviderNames.near,

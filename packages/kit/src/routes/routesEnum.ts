@@ -200,6 +200,7 @@ export enum ModalRoutes {
   GasPanel = 'GasPanel',
   Inscribe = 'Inscribe',
   Webln = 'Webln',
+  InscriptionControl = 'InscriptionControl',
 }
 
 export { SendModalRoutes } from '../views/Send/enums';
@@ -385,6 +386,7 @@ export enum CoinControlModalRoutes {
 }
 
 export enum InscribeModalRoutes {
+  BRC20Amount = 'BRC20Amount',
   InscribeModal = 'InscribeModal',
   ReceiveAddress = 'ReceiveAddress',
   CreateOrder = 'CreateOrder',
@@ -396,4 +398,7 @@ export enum WeblnModalRoutes {
   MakeInvoice = 'MakeInvoice',
   VerifyMessage = 'VerifyMessage',
   WeblnAuthentication = 'WeblnAuthentication',
+}
+export enum InscriptionControlModalRoutes {
+  InscriptionControlModal = 'InscriptionControlModal',
 }

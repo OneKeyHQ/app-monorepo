@@ -7,6 +7,7 @@ import { validate } from 'jsonschema';
 
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
+import type { IUnsignedMessageBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
 import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 
 function isValidHexAddress(
@@ -240,7 +241,9 @@ export function sanitizeMessage(
   return sanitizedStruct;
 }
 
-export function getValidUnsignedMessage(unsignedMessage: IUnsignedMessageEvm) {
+export function getValidUnsignedMessage(
+  unsignedMessage: IUnsignedMessageEvm | IUnsignedMessageBtc,
+) {
   try {
     const { type, message } = unsignedMessage;
 

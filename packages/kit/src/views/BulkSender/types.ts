@@ -72,16 +72,16 @@ export type BulkSenderRoutesParams = {
 };
 
 export type TokenTrader = {
-  Address: string;
-  Amount?: string;
-  LinerNumber?: number;
+  address: string;
+  amount?: string;
+  lineNumber?: number;
 };
 
 export type NFTTrader = {
-  Address: string;
-  Amount: string;
-  TokenId: string;
-  LinerNumber?: number;
+  address: string;
+  amount: string;
+  tokenId: string;
+  lineNumber?: number;
 };
 
 export type TraderError = {

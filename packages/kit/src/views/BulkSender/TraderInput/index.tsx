@@ -75,7 +75,7 @@ function TraderInput(props: TraderInputParams) {
             if (isSingleMode) {
               setTraderFromOut([
                 {
-                  Address: addresses[0],
+                  address: addresses[0],
                 },
               ]);
             } else {
@@ -84,11 +84,11 @@ function TraderInput(props: TraderInputParams) {
                 ...addresses.map((address) =>
                   amountType === AmountTypeEnum.Custom && withAmount
                     ? {
-                        Address: address,
-                        Amount: amount[0],
+                        address,
+                        amount: amount[0],
                       }
                     : {
-                        Address: address,
+                        address,
                       },
                 ),
               ]);
@@ -124,7 +124,7 @@ function TraderInput(props: TraderInputParams) {
             if (isSingleMode) {
               setTraderFromOut([
                 {
-                  Address: address,
+                  address,
                 },
               ]);
             } else {
@@ -132,11 +132,11 @@ function TraderInput(props: TraderInputParams) {
                 ...trader,
                 amountType === AmountTypeEnum.Custom && withAmount
                   ? {
-                      Address: address,
-                      Amount: amount[0],
+                      address,
+                      amount: amount[0],
                     }
                   : {
-                      Address: address,
+                      address,
                     },
               ]);
             }

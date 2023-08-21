@@ -60,6 +60,7 @@ export type IAssetsListProps = Omit<
   itemsCountForAutoFallbackToPlainList?: number;
   hidePriceInfo?: boolean;
   showRoundTop?: boolean;
+  showTokenBalanceDetail?: boolean;
   limitSize?: number;
   flatStyle?: boolean;
   accountId: string;
@@ -210,9 +211,7 @@ export function HandleRebuildAssetsListData(
   const [accountTokens, setAccountTokens] = useAtomAssetsList(
     atomHomeOverviewAccountTokens,
   );
-  const [isLoading, setIsLoading] = useAtomAssetsList(
-    atomTokenAssetsListLoading,
-  );
+  const [, setIsLoading] = useAtomAssetsList(atomTokenAssetsListLoading);
   // const { data: accountTokens } = useAccountTokens({
   //   networkId,
   //   accountId,

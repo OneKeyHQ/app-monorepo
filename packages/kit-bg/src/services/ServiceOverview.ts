@@ -1,5 +1,3 @@
-import { stat } from 'fs';
-
 import B from 'bignumber.js';
 import { cloneDeep, debounce, isNil, isString, uniq } from 'lodash';
 import natsort from 'natsort';
@@ -9,16 +7,12 @@ import {
   isAllNetworks,
   parseNetworkId,
 } from '@onekeyhq/engine/src/managers/network';
-import {
-  caseSensitiveImpls,
-  getBalanceKey,
-} from '@onekeyhq/engine/src/managers/token';
+import { caseSensitiveImpls } from '@onekeyhq/engine/src/managers/token';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
 import type { ITokenFiatValuesInfo } from '@onekeyhq/engine/src/types/token';
 import {
   type IAccountTokenData,
-  type IToken,
   TokenRiskLevel,
 } from '@onekeyhq/engine/src/types/token';
 import {
@@ -48,11 +42,9 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/refresher';
 import type {
   IAccountTokensBalanceMap,
-  IAmountValue,
   ITokensPricesMap,
 } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
-import { getPreBaseValue } from '@onekeyhq/kit/src/utils/priceUtils';
 import type {
   IAccountToken,
   IOverviewQueryTaskItem,
@@ -749,6 +741,8 @@ class ServiceOverview extends ServiceBase {
           address: t.address,
           logoURI: t.logoURI,
           balance: t.balance,
+          availableBalance: t.availableBalance,
+          transferBalance: t.transferBalance,
           usdValue: t.usdValue,
           value: t.usdValue,
           value24h: undefined,
