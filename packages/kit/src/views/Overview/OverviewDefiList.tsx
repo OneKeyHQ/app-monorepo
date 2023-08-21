@@ -186,3 +186,4 @@ const OverviewDefiListWithoutMemo: FC<OverviewDefiListProps> = (props) => {
 };
 
 export const OverviewDefiList = memo(OverviewDefiListWithoutMemo);
+OverviewDefiList.displayName = 'OverviewDefiList';
