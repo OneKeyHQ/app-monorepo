@@ -16,6 +16,9 @@ export const useMarketSelectedCategoryId = () =>
 
 const useMarketCategories = () => useAppSelector((s) => s.market.categorys);
 
+export const useSimplyMarketSearchCategoryList = () =>
+  useAppSelector((s) => s.market.searchSimplyCategories);
+
 export const useMarketSelectedCategory = () => {
   const selectedCategoryId = useMarketSelectedCategoryId();
   const categorys = useMarketCategories();
