@@ -61,11 +61,7 @@ export const ButtonsSection: FC = () => {
 
   const { symbol, logoURI, fiatUrls } = context?.detailInfo ?? {};
 
-  const {
-    tokens,
-    loading: detailLoading,
-    defaultToken,
-  } = context?.detailInfo ?? {};
+  const { tokens, loading: detailLoading } = context?.detailInfo ?? {};
 
   const { wallet } = useWallet({
     walletId,

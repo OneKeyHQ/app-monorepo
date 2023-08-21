@@ -3,11 +3,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { HStack, IconButton, Text, VStack } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AddressLabel } from '../../../components/AddressLabel';
-import { useNavigation, useNetwork, useWallet } from '../../../hooks';
+import { useNavigation, useNetwork } from '../../../hooks';
 import { useClipboard } from '../../../hooks/useClipboard';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 import { navigationShortcuts } from '../../../routes/navigationShortcuts';

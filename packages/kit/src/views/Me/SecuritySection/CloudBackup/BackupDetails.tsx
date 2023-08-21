@@ -44,7 +44,6 @@ import {
 import { showOverlay } from '../../../../utils/overlayUtils';
 
 import BackupIcon from './BackupIcon';
-import BackupSummary from './BackupSummary';
 import { showUpgrateDialog } from './UpgrateDialog';
 import Wrapper from './Wrapper';
 

@@ -209,8 +209,8 @@ function OneToMany(props: Props) {
       for (let i = 0; i < receiver.length; i += 1) {
         transferInfos.push({
           from: accountAddress,
-          to: receiver[i].Address,
-          amount: receiver[i].Amount ?? amount[0],
+          to: receiver[i].address,
+          amount: receiver[i].amount ?? amount[0],
           token: token?.tokenIdOnNetwork,
           tokenSendAddress: token?.sendAddress,
         });
