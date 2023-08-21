@@ -5,7 +5,12 @@ import { useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
 import { Center } from 'native-base';
 
-import { Modal, OverlayContainer, Spinner } from '@onekeyhq/components';
+import {
+  Modal,
+  OverlayContainer,
+  Spinner,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import Protected from '@onekeyhq/kit/src/components/Protected';
 import type { ManagerWalletRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/ManagerWallet';
 
@@ -19,6 +24,7 @@ type RouteProps = RouteProp<
 
 const ManagerWalletLocalValidationView: FC = () => {
   const navigation = useNavigation();
+  const { top } = useSafeAreaInsets();
   const { requestId, onSuccess, onCancel, field } =
     useRoute<RouteProps>().params;
   const [inputPwd, setInputPwd] = useState('');
@@ -50,6 +56,7 @@ const ManagerWalletLocalValidationView: FC = () => {
       style={{
         // higher than every known layer
         zIndex: 10000,
+        top,
       }}
     >
       <Modal
