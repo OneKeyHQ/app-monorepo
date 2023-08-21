@@ -42,9 +42,12 @@ export type CheckBoxProps = {
    * 点击监听
    */
   onChange?: (isSelected: boolean) => void;
+  /**
+   * 多选时未选中全部
+   */
+  isIndeterminate?: boolean;
   containerStyle?: ComponentProps<typeof Box>;
   checkBoxProps?: Partial<ComponentProps<typeof BaseCheckBox>>;
-  isIndeterminate?: boolean;
 } & ComponentProps<typeof Box>;
 
 const defaultProps = {

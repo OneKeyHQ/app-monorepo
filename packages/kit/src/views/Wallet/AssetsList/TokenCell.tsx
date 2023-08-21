@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -14,10 +14,7 @@ import {
 } from '@onekeyhq/components';
 import { withDebugRenderTracker } from '@onekeyhq/components/src/DebugRenderTracker';
 import type { ITokenFiatValuesInfo } from '@onekeyhq/engine/src/types/token';
-import {
-  AppUIEventBusNames,
-  appUIEventBus,
-} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
+import { AppUIEventBusNames } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import { isBRC20Token } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -31,6 +28,7 @@ import {
   useReduxSingleTokenFiatValuesSimple,
   useReduxSingleTokenPriceSimple,
 } from '../../../hooks';
+import { useOnUIEventBus } from '../../../hooks/useOnUIEventbus';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   CValueLoading,
@@ -116,20 +114,9 @@ function TokenCellBalance({
   const intl = useIntl();
   const { networkId, accountId, symbol } = token;
   const { network, account } = useActiveSideAccount({ accountId, networkId });
+  const [recycleBalance, setRecycleBalance] = useState('0');
   const tokenId = token?.address || 'main';
   const isBRC20 = useMemo(() => isBRC20Token(tokenId), [tokenId]);
-
-  const { result: recycleBalance = '0', run } = usePromiseResult(() => {
-    if (networkId && account && token && isBRC20) {
-      return backgroundApiProxy.serviceBRC20.getBRC20RecycleBalance({
-        networkId,
-        address: account.address,
-        xpub: account.xpub ?? '',
-        tokenAddress: token.address ?? '',
-      });
-    }
-    return Promise.resolve('0');
-  }, [account, isBRC20, networkId, token]);
 
   const displayDecimal = useMemo(
     () =>
@@ -144,13 +131,28 @@ function TokenCellBalance({
     [],
   );
 
+  const fetchBRC20RecycleBalance = useCallback(async () => {
+    if (networkId && account && token && isBRC20) {
+      const resp = await backgroundApiProxy.serviceBRC20.getBRC20RecycleBalance(
+        {
+          networkId,
+          address: account.address,
+          xpub: account.xpub ?? '',
+          tokenAddress: token.address ?? '',
+        },
+      );
+      setRecycleBalance(resp);
+    }
+  }, [account, isBRC20, networkId, setRecycleBalance, token]);
+
   useEffect(() => {
-    appUIEventBus.on(AppUIEventBusNames.InscriptionRecycleChanged, run);
-    return () => {
-      appUIEventBus.off(AppUIEventBusNames.InscriptionRecycleChanged, run);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    fetchBRC20RecycleBalance();
+  }, [fetchBRC20RecycleBalance]);
+
+  useOnUIEventBus(
+    AppUIEventBusNames.InscriptionRecycleChanged,
+    fetchBRC20RecycleBalance,
+  );
 
   if (typeof balance === 'undefined') {
     return <Skeleton shape="Body2" />;

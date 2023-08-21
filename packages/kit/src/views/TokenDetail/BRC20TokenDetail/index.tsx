@@ -11,15 +11,13 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
-import {
-  AppUIEventBusNames,
-  appUIEventBus,
-} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
+import { AppUIEventBusNames } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../../components/Format';
 import { useActiveSideAccount } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useOnUIEventBus } from '../../../hooks/useOnUIEventbus';
 import {
   InscribeModalRoutes,
   InscriptionControlModalRoutes,
@@ -195,6 +193,11 @@ function BRC20TokenDetail() {
     }
   }, [account, networkId, token]);
 
+  useOnUIEventBus(
+    AppUIEventBusNames.InscriptionRecycleChanged,
+    fetchRecycleBalance,
+  );
+
   useEffect(() => {
     if (pollingTimer) {
       clearInterval(pollingTimer);
@@ -214,20 +217,6 @@ function BRC20TokenDetail() {
       }
     };
   }, [fetchAvailableInscriptions, fetchRecycleBalance, isFocused]);
-
-  useEffect(() => {
-    appUIEventBus.on(
-      AppUIEventBusNames.InscriptionRecycleChanged,
-      fetchRecycleBalance,
-    );
-    return () => {
-      appUIEventBus.off(
-        AppUIEventBusNames.InscriptionRecycleChanged,
-        fetchRecycleBalance,
-      );
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   return (
     <Box paddingY={8} paddingX={isVertical ? 4 : 8}>

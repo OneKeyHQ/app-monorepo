@@ -32,10 +32,7 @@ import {
   isTaprootXpubSegwit,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
-import {
-  AppUIEventBusNames,
-  appUIEventBus,
-} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
+import { AppUIEventBusNames } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -46,6 +43,7 @@ import {
   useNFTIsLoading,
 } from '../../../../hooks';
 import { useHomeTabName } from '../../../../hooks/useHomeTabName';
+import { useOnUIEventBus } from '../../../../hooks/useOnUIEventbus';
 import { EOverviewScanTaskType } from '../../../Overview/types';
 import { WalletHomeTabEnum } from '../../type';
 import { navigateToNFTCollection, navigateToNFTDetail } from '../utils';
@@ -207,18 +205,10 @@ const NFTList: FC<NFTListProps> = ({
     }
   }, [account?.xpub, networkId]);
 
-  useEffect(() => {
-    appUIEventBus.on(
-      AppUIEventBusNames.InscriptionRecycleChanged,
-      fetchCoinControlList,
-    );
-    return () => {
-      appUIEventBus.off(
-        AppUIEventBusNames.InscriptionRecycleChanged,
-        fetchCoinControlList,
-      );
-    };
-  }, [fetchCoinControlList]);
+  useOnUIEventBus(
+    AppUIEventBusNames.InscriptionRecycleChanged,
+    fetchCoinControlList,
+  );
 
   useEffect(() => {
     fetchCoinControlList();
