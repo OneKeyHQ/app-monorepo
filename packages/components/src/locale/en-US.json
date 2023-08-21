@@ -1063,6 +1063,7 @@
   "form__Watchlist": "Watchlist",
   "form___7d_volume": "7D Volume",
   "form__a_message_to_the_payer": "A message to the payer",
+  "form__a_message_to_the_payer_optional": "A message to the payer (optional)",
   "form__about_uppercase": "ABOUT",
   "form__above_str": "Above {0}",
   "form__accelerated_transaction": "🚀 Accelerated transaction",

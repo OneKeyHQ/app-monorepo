@@ -1063,6 +1063,7 @@
   "form__Watchlist": "Liste de surveillance",
   "form___7d_volume": "Volume 7D",
   "form__a_message_to_the_payer": "Un message au payeur",
+  "form__a_message_to_the_payer_optional": "Un message au payeur (facultatif)",
   "form__about_uppercase": "À PROPOS DE",
   "form__above_str": "Au-dessus de {0}",
   "form__accelerated_transaction": "🚀 Transaction accélérée",

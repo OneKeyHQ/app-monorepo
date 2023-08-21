@@ -1063,6 +1063,7 @@
   "form__Watchlist": "觀察列表",
   "form___7d_volume": "7日交易額",
   "form__a_message_to_the_payer": "給付款人的消息",
+  "form__a_message_to_the_payer_optional": "給付款人的消息（可選）",
   "form__about_uppercase": "關於",
   "form__above_str": "高於{0}",
   "form__accelerated_transaction": "🚀 加速交易",

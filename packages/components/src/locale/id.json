@@ -1063,6 +1063,7 @@
   "form__Watchlist": "Daftar pantauan",
   "form___7d_volume": "Volume 7D",
   "form__a_message_to_the_payer": "Pesan untuk pembayar",
+  "form__a_message_to_the_payer_optional": "Pesan untuk pembayar (opsional)",
   "form__about_uppercase": "TENTANG",
   "form__above_str": "Di atas {0}",
   "form__accelerated_transaction": "🚀 Transaksi dipercepat",

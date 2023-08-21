@@ -318,7 +318,7 @@ const LNMakeInvoiceForm = (props: IMakeInvoiceFormProps) => {
             size={isVerticalLayout ? 'xl' : 'default'}
             totalLines={isVerticalLayout ? 3 : 5}
             placeholder={intl.formatMessage({
-              id: 'form__a_message_to_the_payer',
+              id: 'form__a_message_to_the_payer_optional',
             })}
           />
         </Form.Item>
