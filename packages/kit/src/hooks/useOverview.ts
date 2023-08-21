@@ -6,8 +6,12 @@ import { useIntl } from 'react-intl';
 
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
-import type { Token } from '@onekeyhq/engine/src/types/token';
+import type {
+  IAccountTokenData,
+  Token,
+} from '@onekeyhq/engine/src/types/token';
 import KeleLogoPNG from '@onekeyhq/kit/assets/staking/kele_pool.png';
+import { freezedEmptyArray } from '@onekeyhq/shared/src/consts/sharedConsts';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { ModalRoutes, RootRoutes } from '../routes/routesEnum';
@@ -17,7 +21,6 @@ import {
 } from '../views/Overview/types';
 import { StakingRoutes } from '../views/Staking/typing';
 
-import { useReduxAccountTokensList } from './crossHooks';
 import { useAppSelector } from './useAppSelector';
 import useNavigation from './useNavigation';
 import { usePromiseResult } from './usePromiseResult';
@@ -38,11 +41,47 @@ const tasksSelector = ({
     return data.filter((t) => t.key === `${networkId}___${accountId}`);
   });
 
-export function useAccountTokensOnChain(networkId = '', accountId = '') {
-  return useReduxAccountTokensList({
-    networkId,
-    accountId,
-  });
+export function useAccountTokensOnChain(
+  networkId = '',
+  accountId = '',
+  useFilter = false,
+) {
+  const hideRiskTokens = useAppSelector((s) => s.settings.hideRiskTokens);
+  const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
+  const putMainTokenOnTop = useAppSelector((s) => s.settings.putMainTokenOnTop);
+
+  const { result } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceOverview.buildSingleChainAccountTokens<IAccountTokenData>(
+        {
+          networkId,
+          accountId,
+          tokensSort: {
+            native: putMainTokenOnTop,
+            name: 'asc',
+            value: 'desc',
+            price: 'desc',
+          },
+          tokensFilter: {
+            hideRiskTokens: useFilter && hideRiskTokens,
+            hideSmallBalance: useFilter && hideSmallBalance,
+          },
+          calculateTokensTotalValue: true,
+          buildTokensMapKey: true,
+        },
+        'raw',
+      ),
+    [
+      networkId,
+      accountId,
+      useFilter,
+      hideSmallBalance,
+      hideRiskTokens,
+      putMainTokenOnTop,
+    ],
+  );
+
+  return result?.tokens ?? (freezedEmptyArray as IAccountTokenData[]);
 }
 
 export const useOverviewPendingTasks = ({

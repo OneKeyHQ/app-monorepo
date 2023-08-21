@@ -310,8 +310,8 @@ export interface IAccountToken {
   address?: string;
   logoURI?: string;
   balance: IAmountValue;
-  availableBalance: IAmountValue;
-  transferBalance: IAmountValue;
+  availableBalance?: IAmountValue;
+  transferBalance?: IAmountValue;
   usdValue: IAmountValue;
   value: IAmountValue;
   value24h?: IAmountValue;

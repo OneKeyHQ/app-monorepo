@@ -163,7 +163,7 @@ export const {
 >((_, { options }) => {
   const { priceInfo, balanceInfo } = options;
   const { price, price24h, priceRawInfo } = priceInfo;
-  const { balance } = balanceInfo;
+  const { balance, transferBalance, availableBalance } = balanceInfo;
 
   let value: IAmountValue;
   let usdValue: IAmountValue;
@@ -184,6 +184,8 @@ export const {
     price,
     price24h,
     balance,
+    transferBalance,
+    availableBalance,
     value,
     usdValue,
     value24h,

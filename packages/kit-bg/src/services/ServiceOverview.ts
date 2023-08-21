@@ -653,10 +653,14 @@ class ServiceOverview extends ServiceBase {
   }
 
   @backgroundMethod()
-  filterTokens(
-    tokens: IAccountToken[],
+  filterTokens<T>(
+    tokens: (IAccountToken | IAccountTokenData)[],
     options: IAccountOverviewOptions,
-  ): Promise<Pick<IOverviewAccountTokensResult, 'tokensKeys' | 'tokens'>> {
+  ): Promise<
+    Pick<IOverviewAccountTokensResult, 'tokensKeys'> & {
+      tokens: T[];
+    }
+  > {
     const { tokensSort, tokensLimit, buildTokensMapKey } = options;
     let tokensReturn = tokens;
     let tokensKeys: string[] | undefined;
@@ -692,7 +696,7 @@ class ServiceOverview extends ServiceBase {
     // * build map key
     if (buildTokensMapKey) {
       tokensKeys = tokensReturn.map((token) => {
-        const key = token?.key;
+        const key = (token as IAccountToken)?.key;
         if (!key) {
           throw new Error('buildTokensMapKey ERROR: key is undefined');
         }
@@ -702,14 +706,15 @@ class ServiceOverview extends ServiceBase {
 
     return Promise.resolve({
       tokensKeys,
-      tokens: tokensReturn,
+      tokens: tokensReturn as T[],
     });
   }
 
   @backgroundMethod()
-  async buildSingleChainAccountTokens(
+  async buildSingleChainAccountTokens<T = IAccountToken>(
     options: IAccountOverviewOptions,
-  ): Promise<IOverviewAccountTokensResult> {
+    tokenSchema: IOverviewTokenSchema,
+  ): Promise<IOverviewAccountTokensResult<T>> {
     const {
       accountId,
       networkId,
@@ -733,7 +738,7 @@ class ServiceOverview extends ServiceBase {
     let accValue24h = new B(0);
 
     // * convert to custom token schema
-    const tokensReturn: Array<IAccountToken> = [];
+    const tokensReturn: Array<IAccountToken | IAccountTokenData> = [];
     tokens.forEach((token) => {
       let valuesInfo: ITokenFiatValuesInfo = {};
       if (!isNil(prices) && !isNil(balances)) {
@@ -766,43 +771,47 @@ class ServiceOverview extends ServiceBase {
         accValue24h = accValue24h.plus(t.value24h ?? 0);
       }
 
-      const tokenOverview: IAccountToken = {
-        networkId,
-        accountId,
-        name: t.name,
-        symbol: t.symbol,
-        address: t.address,
-        logoURI: t.logoURI,
-        balance: t.balance,
-        availableBalance: t.availableBalance,
-        transferBalance: t.transferBalance,
-        usdValue: t.usdValue,
-        value: t.usdValue,
-        value24h: undefined,
-        price: t.price,
-        price24h: t.price24h,
-        isNative: t.isNative,
-        riskLevel: t.riskLevel,
-        key: this.buildTokenKey({
+      if (tokenSchema === 'overview') {
+        const tokenOverview: IAccountToken = {
           networkId,
           accountId,
-          token: t,
-        }),
-        coingeckoId: t.coingeckoId,
-        sendAddress: t.sendAddress,
-        autoDetected: t.autoDetected,
-        tokens: [
-          {
-            networkId: t.networkId,
-            address: t.address ?? '',
-            balance: t.balance,
-            decimals: t.decimals,
-            riskLevel: t.riskLevel ?? TokenRiskLevel.UNKNOWN,
-            value: t.value,
-          },
-        ],
-      };
-      tokensReturn.push(tokenOverview);
+          name: t.name,
+          symbol: t.symbol,
+          address: t.address,
+          logoURI: t.logoURI,
+          balance: t.balance,
+          availableBalance: t.availableBalance,
+          transferBalance: t.transferBalance,
+          usdValue: t.usdValue,
+          value: t.usdValue,
+          value24h: undefined,
+          price: t.price,
+          price24h: t.price24h,
+          isNative: t.isNative,
+          riskLevel: t.riskLevel,
+          key: this.buildTokenKey({
+            networkId,
+            accountId,
+            token: t,
+          }),
+          coingeckoId: t.coingeckoId,
+          sendAddress: t.sendAddress,
+          autoDetected: t.autoDetected,
+          tokens: [
+            {
+              networkId: t.networkId,
+              address: t.address ?? '',
+              balance: t.balance,
+              decimals: t.decimals,
+              riskLevel: t.riskLevel ?? TokenRiskLevel.UNKNOWN,
+              value: t.value,
+            },
+          ],
+        };
+        tokensReturn.push(tokenOverview);
+      } else {
+        tokensReturn.push(t);
+      }
     });
 
     // * calculate total value (in USD)
@@ -814,7 +823,7 @@ class ServiceOverview extends ServiceBase {
     // * calculate total before limit
     const tokensTotal = tokensReturn.length;
 
-    const { tokens: filteredTokens, tokensKeys } = await this.filterTokens(
+    const { tokens: filteredTokens, tokensKeys } = await this.filterTokens<T>(
       tokensReturn,
       options,
     );
@@ -895,10 +904,8 @@ class ServiceOverview extends ServiceBase {
     // * calculate total before limit
     const tokensTotal = tokensReturn.length;
 
-    const { tokens: filteredTokens, tokensKeys } = await this.filterTokens(
-      tokensReturn,
-      options,
-    );
+    const { tokens: filteredTokens, tokensKeys } =
+      await this.filterTokens<IAccountToken>(tokensReturn, options);
 
     return {
       tokensKeys,
@@ -1117,7 +1124,7 @@ class ServiceOverview extends ServiceBase {
     // build tokens
     const tokenRes = isAllNetworks(networkId)
       ? await this.buildAllNetworksAccountTokens(options)
-      : await this.buildSingleChainAccountTokens(options);
+      : await this.buildSingleChainAccountTokens(options, 'overview');
 
     if (options.calculateTokensTotalValue) {
       this.refreshOverviewStats({
@@ -1309,10 +1316,16 @@ class ServiceOverview extends ServiceBase {
   }
 }
 
-export type IOverviewAccountTokensResult = {
-  tokens: IAccountToken[];
+interface IOverviewTokenSchemaMap {
+  'raw': IAccountToken[];
+  'overview': IAccountToken;
+}
+
+type IOverviewTokenSchema = keyof IOverviewTokenSchemaMap;
+export type IOverviewAccountTokensResult<T = IAccountToken> = {
+  tokens: T[];
   tokensMap?: {
-    [key: string]: IAccountToken;
+    [key: string]: T;
   };
   tokensKeys?: string[];
   tokensTotal: number;
