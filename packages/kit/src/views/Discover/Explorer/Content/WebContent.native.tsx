@@ -130,7 +130,9 @@ const WebContent: FC<WebTab & WebViewProps> = ({
             if (!webviewRefs[id]) {
               webTabsActions.setWebTabData({ id, refReady: true });
             }
-            webviewRefs[id] = ref;
+            if (id !== homeTab.id) {
+              webviewRefs[id] = ref;
+            }
           }
         }}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}

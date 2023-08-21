@@ -405,12 +405,6 @@ export type ISlippageAuto =
 export type ISlippage = { mode?: ISlippageMode; value: string };
 export interface Quoter {
   type: QuoterType;
-  prepare?: () => void;
-  isSupported(networkA: Network, networkB: Network): boolean;
-  fetchQuote(params: FetchQuoteParams): Promise<FetchQuoteResponse | undefined>;
-  buildTransaction(
-    params: BuildTransactionParams,
-  ): Promise<BuildTransactionResponse | undefined>;
   queryTransactionProgress(
     tx: TransactionDetails,
   ): Promise<TransactionProgress>;

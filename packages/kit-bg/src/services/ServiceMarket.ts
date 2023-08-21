@@ -117,6 +117,9 @@ export default class ServiceMarket extends ServiceBase {
     const { dispatch, appSelector } = this.backgroundApi;
     const path = '/market/tokens';
     const coingeckoIds = ids && ids.length > 0 ? ids : undefined;
+    if (categoryId === MARKET_FAVORITES_CATEGORYID && !coingeckoIds) {
+      return;
+    }
     const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
     const data = await fetchData<MarketTokenItem[]>(
       path,
@@ -130,6 +133,15 @@ export default class ServiceMarket extends ServiceBase {
       [],
     );
     if (data.length === 0) {
+      return;
+    }
+    const categorys = appSelector((s) => s.market.categorys);
+    const fetchCategory = categorys[categoryId ?? ''];
+    if (
+      categoryId === MARKET_FAVORITES_CATEGORYID &&
+      fetchCategory &&
+      fetchCategory.coingeckoIds?.length !== data.length
+    ) {
       return;
     }
     dispatch(updateMarketTokens({ categoryId, marketTokens: data }));

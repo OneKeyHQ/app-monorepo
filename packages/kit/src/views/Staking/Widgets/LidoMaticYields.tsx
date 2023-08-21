@@ -9,7 +9,6 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 import { useActiveWalletAccount, useNavigation } from '../../../hooks';
 import { useAllNetworksSelectNetworkAccount } from '../../../hooks/useAllNetwoks';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
-import { Options } from '../components/EthereumUtilsComponent';
 import { StakingRoutes } from '../typing';
 import {
   StakingTypes,

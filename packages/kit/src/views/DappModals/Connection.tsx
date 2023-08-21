@@ -218,7 +218,10 @@ function ConnectionContent({
           </Typography.Body2Strong>
           <HStack alignItems="center">
             <Typography.Body2Strong ml="12px">
-              {account?.name}({account?.address?.slice(-4) ?? ''})
+              {account?.name}
+              {account?.address && account?.address.length
+                ? `(${account.address.slice(-4)})`
+                : ''}
             </Typography.Body2Strong>
           </HStack>
         </HStack>

@@ -28,7 +28,6 @@ import {
 
 import { SimpleQuoter } from './0x';
 import { JupiterQuoter } from './jupiter';
-import { MdexQuoter } from './mdex';
 import { SocketQuoter } from './socket';
 import { SwftcQuoter } from './swftc';
 
@@ -145,10 +144,7 @@ export class SwapQuoter {
 
   private socket = new SocketQuoter();
 
-  private mdex = new MdexQuoter();
-
   private quoters: Quoter[] = [
-    this.mdex,
     this.simple,
     this.socket,
     this.jupiter,
@@ -164,12 +160,6 @@ export class SwapQuoter {
     string,
     Record<string, SOLSerializableTransactionReceipt>
   > = {};
-
-  prepare() {
-    this.quoters.forEach((quoter) => {
-      quoter.prepare?.();
-    });
-  }
 
   async convertOrderToTransaction(
     params: BuildTransactionParams,
@@ -466,38 +456,6 @@ export class SwapQuoter {
       };
     }
     return undefined;
-  }
-
-  async fetchQuoteLegacy(
-    params: FetchQuoteParams,
-  ): Promise<FetchQuoteResponse | undefined> {
-    for (let i = 0; i < this.quoters.length; i += 1) {
-      const quoter = this.quoters[i];
-      if (quoter.isSupported(params.networkOut, params.networkIn)) {
-        const result = await quoter.fetchQuote(params);
-        if (result?.data) {
-          return result;
-        }
-      }
-    }
-  }
-
-  async buildTransactionLegacy(
-    quoterType: QuoterType,
-    params: BuildTransactionParams,
-  ): Promise<BuildTransactionResponse | undefined> {
-    for (let i = 0; i < this.quoters.length; i += 1) {
-      const quoter = this.quoters[i];
-      if (
-        quoter.type === quoterType &&
-        quoter.isSupported(params.networkOut, params.networkIn)
-      ) {
-        const result = await quoter.buildTransaction(params);
-        if (result) {
-          return result;
-        }
-      }
-    }
   }
 
   async queryTransactionProgress(

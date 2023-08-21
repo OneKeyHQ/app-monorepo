@@ -290,7 +290,11 @@ export const MarketSlicer = createSlice({
       if (favoriteCategory) {
         const index = favoriteCategory.coingeckoIds?.indexOf(payload);
         if (index !== undefined && index !== -1) {
-          favoriteCategory.coingeckoIds?.splice(index, 1);
+          if (favoriteCategory.coingeckoIds?.length === 1 && index === 0) {
+            favoriteCategory.coingeckoIds = [];
+          } else {
+            favoriteCategory.coingeckoIds?.splice(index, 1);
+          }
         }
       }
       state.marketTokens[payload].favorited = false;
@@ -302,8 +306,13 @@ export const MarketSlicer = createSlice({
       if (favoriteCategory) {
         const favoriteCoingeckoIds = favoriteCategory.coingeckoIds || [];
         const index = favoriteCoingeckoIds?.indexOf(payload);
-        if (index !== undefined && index !== -1) {
+        if (
+          favoriteCoingeckoIds?.length > 1 &&
+          index !== undefined &&
+          index !== -1
+        ) {
           favoriteCoingeckoIds?.splice(index, 1);
+
           favoriteCategory.coingeckoIds = [payload, ...favoriteCoingeckoIds];
         }
       }
