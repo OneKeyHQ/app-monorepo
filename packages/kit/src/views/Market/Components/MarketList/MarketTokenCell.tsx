@@ -32,7 +32,7 @@ import { coingeckoId2StakingTypes } from '../../../Staking/utils';
 import { MarketStakeButton } from '../../../Staking/Widgets/MarketStakingButton';
 import { EMarketCellData, MARKET_LIST_COLUMN_SHOW_WIDTH_1 } from '../../config';
 import { useMarketSelectedCategoryId } from '../../hooks/useMarketCategory';
-import { useMarketWidthLayout } from '../../hooks/useMarketList';
+import { useMarketWidthLayout } from '../../hooks/useMarketLayout';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 import {
   formatDecimalZero,

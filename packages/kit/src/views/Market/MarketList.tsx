@@ -33,7 +33,8 @@ import {
   useMarketFavoriteCategoryTokenIds,
   useMarketFavoriteRecommentedList,
 } from './hooks/useMarketCategory';
-import { useMarketList, useMarketWidthLayout } from './hooks/useMarketList';
+import { useMarketWidthLayout } from './hooks/useMarketLayout';
+import { useMarketList } from './hooks/useMarketList';
 
 import type { HomeRoutesParams } from '../../routes/types';
 import type { MarketCategory } from '../../store/reducers/market';
