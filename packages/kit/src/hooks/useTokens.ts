@@ -5,6 +5,7 @@ import { useAsync } from 'react-async-hook';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
+import { freezedEmptyArray } from '@onekeyhq/shared/src/consts/sharedConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -12,6 +13,7 @@ import { appSelector } from '../store';
 import { createDeepEqualSelector } from '../utils/reselectUtils';
 
 import { useAppSelector } from './useAppSelector';
+import { usePromiseResult } from './usePromiseResult';
 
 import type { IAppState } from '../store';
 
@@ -112,13 +114,13 @@ export const useNativeTokenBalance = (
 };
 
 export function useNetworkTokens(networkId?: string) {
-  const { result: tokens } = useAsync(
+  const { result: tokens } = usePromiseResult(
     async () =>
       backgroundApiProxy.engine.getTopTokensOnNetwork(networkId ?? ''),
     [networkId],
   );
 
-  return tokens ?? [];
+  return tokens ?? (freezedEmptyArray as Token[]);
 }
 
 export const useFrozenBalance = ({

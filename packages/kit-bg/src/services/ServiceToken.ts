@@ -36,6 +36,7 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import type { ITokenDetailInfo } from '@onekeyhq/kit/src/views/ManageTokens/types';
+import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -52,7 +53,6 @@ import { isExtensionBackground } from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import ServiceBase from './ServiceBase';
-import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
 
 export type IFetchAccountTokensParams = {
   accountId: string;

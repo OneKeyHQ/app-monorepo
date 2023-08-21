@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -22,17 +22,16 @@ import {
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
+import { freezedEmptyArray } from '@onekeyhq/shared/src/consts/sharedConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../components/Format';
 import {
-  useAccountTokensOnChain,
   useActiveWalletAccount,
   useAppSelector,
   useDebounce,
   useNetworkTokens,
-  useTokenBalance,
 } from '../../hooks';
 import { useSingleToken } from '../../hooks/useTokens';
 import { ManageTokenModalRoutes } from '../../routes/routesEnum';
@@ -41,10 +40,17 @@ import { showOverlay } from '../../utils/overlayUtils';
 import { getTokenValue } from '../../utils/priceUtils';
 import { showHomeBalanceSettings } from '../Overlay/HomeBalanceSettings';
 import { showManageTokenListingTip } from '../Overlay/MangeTokenListing';
+import { HandleRebuildAssetsListData } from '../Wallet/AssetsList';
+import {
+  atomHomeOverviewAccountTokens,
+  useAtomAssetsList,
+  withProviderAssetsList,
+} from '../Wallet/AssetsList/contextAssetsList';
 
 import { notifyIfRiskToken } from './helpers/TokenSecurityModalWrapper';
 import { useSearchTokens } from './hooks';
 
+import type { IAccountToken } from '../Overview/types';
 import type { ManageTokenRoutesParams } from './types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ListRenderItem } from 'react-native';
@@ -56,19 +62,12 @@ type NavigationProps = NativeStackNavigationProp<
 
 const isValidateAddr = (addr: string) => addr.length === 42;
 
-const HeaderTokenItem: FC<Token & Pick<HeaderTokensProps, 'onDelete'>> = (
-  item,
-) => {
-  const { address, onDelete } = item;
-  const { networkId, accountId } = useActiveWalletAccount();
+const HeaderTokenItem: FC<
+  IAccountToken & Pick<HeaderTokensProps, 'onDelete'>
+> = (item) => {
+  const { address, onDelete, balance } = item;
+  const { networkId } = useActiveWalletAccount();
   const { token } = useSingleToken(networkId, address ?? '');
-
-  const balance = useTokenBalance({
-    accountId,
-    networkId,
-    token,
-    fallback: '0',
-  });
 
   const navigation = useNavigation<NavigationProps>();
 
@@ -107,7 +106,7 @@ const HeaderTokenItem: FC<Token & Pick<HeaderTokensProps, 'onDelete'>> = (
         showExtra={false}
         description={
           <FormatBalance
-            balance={balance}
+            balance={balance || 0}
             suffix={token.symbol}
             formatOptions={{ fixed: 6 }}
           />
@@ -124,7 +123,7 @@ const HeaderTokenItem: FC<Token & Pick<HeaderTokensProps, 'onDelete'>> = (
 };
 
 type HeaderTokensProps = {
-  tokens: Token[];
+  tokens: IAccountToken[];
   showTopsLabel?: boolean;
   onDelete?: (token: Token) => void;
 };
@@ -170,7 +169,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
 
 type HeaderProps = {
   showTopsLabel: boolean;
-  tokens: Token[];
+  tokens: IAccountToken[];
   keyword: string;
   onChange: (keyword: string) => void;
   onDelete?: (token: Token) => void;
@@ -255,23 +254,19 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
 
 type ListRenderTokenProps = {
   item: Token;
+  isOwned: boolean;
   borderTopRadius?: string;
   borderBottomRadius?: string;
 };
 
-const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
+const ListRenderToken: FC<ListRenderTokenProps> = ({ item, isOwned }) => {
   const intl = useIntl();
 
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation<NavigationProps>();
   const { walletId, accountId, networkId } = useActiveWalletAccount();
-  const accountTokens = useAccountTokensOnChain(networkId, accountId);
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
   const hideRiskTokens = useAppSelector((s) => s.settings.hideRiskTokens);
-
-  const isOwned = accountTokens.some(
-    (t) => item.tokenIdOnNetwork === t.address && !t.autoDetected,
-  );
 
   const checkIfShouldActiveToken = useCallback(async () => {
     const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
@@ -465,13 +460,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
   );
 };
 
-type ListingModalProps = {
-  onRemoveAccountToken: (token: Token) => void;
-};
-
-export const ListingModal: FC<ListingModalProps> = ({
-  onRemoveAccountToken,
-}) => {
+export const ListingModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const {
@@ -479,12 +468,25 @@ export const ListingModal: FC<ListingModalProps> = ({
     accountId,
     networkId,
   } = useActiveWalletAccount();
-  const accountTokens = useAccountTokensOnChain(networkId, accountId);
+  const [accountTokensInfo] = useAtomAssetsList(atomHomeOverviewAccountTokens);
+  const { tokens: accountTokens = freezedEmptyArray as IAccountToken[] } =
+    accountTokensInfo;
+
   const networkTokens = useNetworkTokens(networkId);
+
   const headerTokens = useMemo(
     () => accountTokens.filter((i) => i.address && !i.autoDetected),
     [accountTokens],
   );
+
+  const tokenKeysSet = useMemo(
+    () =>
+      new Set(
+        accountTokens.filter((t) => !t.autoDetected).map((t) => t.address),
+      ),
+    [accountTokens],
+  );
+
   const [keyword, setKeyword] = useState<string>('');
   const terms = useDebounce(keyword, 500);
 
@@ -501,54 +503,14 @@ export const ListingModal: FC<ListingModalProps> = ({
   );
 
   const renderItem: ListRenderItem<Token> = useCallback(
-    ({ item }) => <ListRenderToken item={item} />,
-    [],
+    ({ item }) => (
+      <ListRenderToken
+        item={item}
+        isOwned={tokenKeysSet.has(item.address ?? '')}
+      />
+    ),
+    [tokenKeysSet],
   );
-
-  return (
-    <Modal
-      header={intl.formatMessage({
-        id: 'title__manage_tokens',
-        defaultMessage: 'Manage Tokens',
-      })}
-      height="560px"
-      headerDescription={activeNetwork?.shortName}
-      hidePrimaryAction
-      onSecondaryActionPress={() => {
-        navigation.navigate(ManageTokenModalRoutes.CustomToken);
-      }}
-      secondaryActionProps={{ type: 'basic', leftIconName: 'PlusOutline' }}
-      secondaryActionTranslationId="action__add_custom_tokens"
-      flatListProps={{
-        data: listItems,
-        // @ts-ignore
-        renderItem,
-        keyExtractor: (item) => {
-          const token = item as Token;
-          return `${getBalanceKey(token)}`;
-        },
-        showsVerticalScrollIndicator: false,
-        ListEmptyComponent: (
-          <ListEmptyComponent isLoading={loading} terms={terms} />
-        ),
-        ListHeaderComponent: (
-          <Header
-            showTopsLabel={networkTokens.length > 0}
-            tokens={headerTokens}
-            keyword={keyword}
-            onChange={setKeyword}
-            onDelete={onRemoveAccountToken}
-          />
-        ),
-        mx: '-8px',
-      }}
-    />
-  );
-};
-
-export const Listing: FC = () => {
-  const intl = useIntl();
-  const { accountId, networkId } = useActiveWalletAccount();
 
   const openDeleteDialog = useCallback(
     (token?: Token) => {
@@ -600,7 +562,52 @@ export const Listing: FC = () => {
     [accountId, intl, networkId],
   );
 
-  return <ListingModal onRemoveAccountToken={openDeleteDialog} />;
+  return (
+    <>
+      <HandleRebuildAssetsListData
+        networkId={networkId}
+        accountId={accountId}
+        debounced={0}
+      />
+      <Modal
+        header={intl.formatMessage({
+          id: 'title__manage_tokens',
+          defaultMessage: 'Manage Tokens',
+        })}
+        height="560px"
+        headerDescription={activeNetwork?.shortName}
+        hidePrimaryAction
+        onSecondaryActionPress={() => {
+          navigation.navigate(ManageTokenModalRoutes.CustomToken);
+        }}
+        secondaryActionProps={{ type: 'basic', leftIconName: 'PlusOutline' }}
+        secondaryActionTranslationId="action__add_custom_tokens"
+        flatListProps={{
+          data: listItems,
+          // @ts-ignore
+          renderItem,
+          keyExtractor: (item) => {
+            const token = item as Token;
+            return `${getBalanceKey(token)}`;
+          },
+          showsVerticalScrollIndicator: false,
+          ListEmptyComponent: (
+            <ListEmptyComponent isLoading={loading} terms={terms} />
+          ),
+          ListHeaderComponent: (
+            <Header
+              showTopsLabel={networkTokens.length > 0}
+              tokens={headerTokens}
+              keyword={keyword}
+              onChange={setKeyword}
+              onDelete={openDeleteDialog}
+            />
+          ),
+          mx: '-8px',
+        }}
+      />
+    </>
+  );
 };
 
-export default Listing;
+export default memo(withProviderAssetsList(ListingModal));

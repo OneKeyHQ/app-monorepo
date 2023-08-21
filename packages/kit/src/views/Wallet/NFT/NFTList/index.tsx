@@ -168,7 +168,7 @@ function useAccountNFTListDataFromSimpleDB({
   networkId,
   accountId,
 }: IAccountNFTListDataFromSimpleDBOptions) {
-  const refresherTs = useAppSelector((s) => s.refresher.refreshAccountDefiTs);
+  const refresherTs = useAppSelector((s) => s.refresher.refreshAccountNFTTs);
 
   const result = usePromiseResult(
     () => {

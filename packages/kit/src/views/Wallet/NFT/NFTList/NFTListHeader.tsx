@@ -10,19 +10,18 @@ import {
 } from '@onekeyhq/kit/src/hooks';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import { useNFTValues } from '../../../../hooks';
 // import { showSelectNFTPriceType } from '../../../Overlay/SelectNFTPriceType';
 
 const NFTListHeader = () => {
   const intl = useIntl();
   const { themeVariant } = useTheme();
-  const { account, network } = useActiveWalletAccount();
-  const isNFTSupport = isCollectibleSupportedChainId(network?.id ?? '');
+  const { networkId, accountId } = useActiveWalletAccount();
+  const isNFTSupport = isCollectibleSupportedChainId(networkId ?? '');
 
-  const totalPrice = useNFTValues({
-    accountId: account?.id,
-    networkId: network?.id,
-  });
+  const totalPrice = useAppSelector(
+    (s) =>
+      s.overview.overviewStats?.[networkId]?.[accountId]?.nfts?.totalValue ?? 0,
+  );
   const disPlayPriceType = useAppSelector((s) => s.nft.disPlayPriceType);
   const subDesc =
     disPlayPriceType === 'lastSalePrice'
@@ -47,7 +46,7 @@ const NFTListHeader = () => {
               <FormatCurrencyNumber
                 value={0}
                 decimals={2}
-                convertValue={totalPrice > 0 ? totalPrice : ''}
+                convertValue={Number(totalPrice) > 0 ? totalPrice : ''}
               />
             </Typography.DisplayLarge>
             <Typography.Body2 color="text-subdued">

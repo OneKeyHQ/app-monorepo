@@ -33,7 +33,6 @@ import type {
 import {
   addOverviewPendingTasks,
   removeOverviewPendingTasks,
-  setOverviewPortfolioUpdatedAt,
   updateOverviewStats,
 } from '@onekeyhq/kit/src/store/reducers/overview';
 import {
@@ -171,8 +170,10 @@ class ServiceOverview extends ServiceBase {
         await simpleDb.accountPortfolios.setAllNetworksPortfolio({
           key: dispatchKey,
           data,
-          scanTypes: Array.from([scanType]),
+          scanTypes: [scanType],
         });
+
+        dispatchActions.push(updateRefreshHomeOverviewTs([scanType]));
       }
     }
 
@@ -190,23 +191,6 @@ class ServiceOverview extends ServiceBase {
       }
     }
 
-    const updateInfo = appSelector(
-      (s) => s.overview.updatedTimeMap?.[dispatchKey],
-    );
-
-    if (typeof updateInfo?.updatedAt !== 'undefined' || !pending.length) {
-      // not fist loading
-      dispatchActions.push(
-        setOverviewPortfolioUpdatedAt({
-          key: dispatchKey,
-          data: {
-            updatedAt: Date.now(),
-          },
-        }),
-      );
-    }
-
-    // TODO refresherTs
     dispatch(...dispatchActions);
   }
 
@@ -982,6 +966,8 @@ class ServiceOverview extends ServiceBase {
       shareTokens,
     };
 
+    console.log(stats);
+
     this.backgroundApi.dispatch(
       updateOverviewStats({ networkId, accountId, stats }),
     );
@@ -1089,9 +1075,7 @@ class ServiceOverview extends ServiceBase {
           case NFTAssetType.EVM:
           case NFTAssetType.SOL:
             return n.data.map((d) => {
-              const key = `${d.networkId ?? ''}_${d.accountAddress ?? ''}_${
-                d.floorPrice ?? ''
-              }_${d.totalPrice ?? ''}`;
+              const key = `${d.networkId ?? ''}_${d.accountAddress ?? ''}`;
               const assetsKey = d.assets
                 .map(
                   (a) =>
