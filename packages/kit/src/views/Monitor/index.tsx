@@ -60,8 +60,9 @@ export const MonitorSettings = () => {
       <Typography.Heading>
         Upload metrics to regression Testing server
       </Typography.Heading>
-      <Box flexDirection="row" flex={1} w="100%" alignItems="center">
+      <Box flex={1} w="100%">
         <Input testID="UnitTestingNameInput" placeholder="Unit testing name" />
+        <Box py={1} />
         <Button
           testID="UnitTestingUploadButton"
           type="primary"
