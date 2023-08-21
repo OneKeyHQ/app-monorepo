@@ -1,5 +1,6 @@
 export enum SendModalRoutes {
   PreSendToken = 'PreSendToken',
+  PreSendBRC20TokenAmount = 'PreSendBRC20TokenAmount',
   PreSendAddress = 'PreSendAddress',
   PreSendAmount = 'PreSendAmount',
   SendConfirm = 'SendConfirm',

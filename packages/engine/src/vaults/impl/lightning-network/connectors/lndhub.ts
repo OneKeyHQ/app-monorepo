@@ -22,12 +22,12 @@ export default class LndHub {
     isTestnet: boolean;
   }): Promise<SignMessageResponse> {
     const provider = await getBtcProvider(engine, isTestnet);
-    const result = provider.signMessage(
+    const result = provider.signMessage({
       password,
       entropy,
-      `${path}/0/0`,
+      path: `${path}/0/0`,
       message,
-    );
+    });
     return {
       message,
       signature: result.toString('hex'),

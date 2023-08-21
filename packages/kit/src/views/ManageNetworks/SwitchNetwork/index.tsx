@@ -106,7 +106,9 @@ function SwitchNetworkModal() {
     routeProps.params.query,
   );
   const { chainId } = switchParameter;
-  const networkId = `evm--${parseInt(chainId)}`;
+  const networkId = switchParameter.networkId
+    ? switchParameter.networkId
+    : `evm--${parseInt(chainId)}`;
   const queryInfo = useDappParams();
   const dappApprove = useDappApproveAction({
     id: queryInfo.sourceInfo?.id ?? '',

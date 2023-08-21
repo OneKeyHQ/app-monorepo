@@ -37,6 +37,7 @@ class SimpleDbEntityUtxoAccounts extends SimpleDbEntityBase<ISimpleDbEntityUtxoD
         xpub,
         label: option.label,
         frozen: !!option.frozen,
+        recycle: !!option.recycle,
         key: getUtxoUniqueKey(utxo),
       },
     ];
@@ -68,6 +69,7 @@ class SimpleDbEntityUtxoAccounts extends SimpleDbEntityBase<ISimpleDbEntityUtxoD
           ...item,
           label: option.label ?? item.label,
           frozen: option.frozen ?? item.frozen,
+          recycle: option.recycle ?? item.recycle,
         };
       }
       return item;

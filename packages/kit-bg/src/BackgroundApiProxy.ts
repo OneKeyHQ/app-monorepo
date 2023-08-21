@@ -16,6 +16,7 @@ import type ServiceAllNetwork from './services/ServiceAllNetwork';
 import type ServiceApp from './services/ServiceApp';
 import type ServiceBatchTransfer from './services/ServiceBatchTransfer';
 import type ServiceBootstrap from './services/ServiceBootstrap';
+import type ServiceBRC20 from './services/ServiceBRC20';
 import type ServiceCloudBackup from './services/ServiceCloudBackup';
 import type ServiceContract from './services/ServiceContract';
 import type ServiceCronJob from './services/ServiceCronJob';
@@ -201,6 +202,8 @@ class BackgroundApiProxy
   serviceDappMetaData = this._createProxyService(
     'serviceDappMetaData',
   ) as ServiceDappMetaData;
+
+  serviceBRC20 = this._createProxyService('serviceBRC20') as ServiceBRC20;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {

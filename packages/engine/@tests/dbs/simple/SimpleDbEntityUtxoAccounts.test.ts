@@ -24,6 +24,7 @@ describe('SimpleDbEntityUtxoAccounts', () => {
     await simpleDb.utxoAccounts.addCoinControlItem(networkId, utxo, xpub1, {
       label: 'MockLabel',
       frozen: false,
+      recycle: false,
     });
     const items = await simpleDb.utxoAccounts.getCoinControlList(
       networkId,
@@ -36,6 +37,7 @@ describe('SimpleDbEntityUtxoAccounts', () => {
       xpub: xpub1,
       label: 'MockLabel',
       frozen: false,
+      recycle: false,
       key: `${utxo.txid}_${utxo.vout}`,
     });
   });
@@ -44,6 +46,7 @@ describe('SimpleDbEntityUtxoAccounts', () => {
     await simpleDb.utxoAccounts.addCoinControlItem(networkId, utxo, xpub1, {
       label: 'Label1',
       frozen: true,
+      recycle: false,
     });
     await simpleDb.utxoAccounts.addCoinControlItem(
       networkId,
@@ -52,6 +55,7 @@ describe('SimpleDbEntityUtxoAccounts', () => {
       {
         label: 'label2',
         frozen: true,
+        recycle: false,
       },
     );
     const items = await simpleDb.utxoAccounts.getCoinControlList(
@@ -66,11 +70,13 @@ describe('SimpleDbEntityUtxoAccounts', () => {
     await simpleDb.utxoAccounts.addCoinControlItem(networkId, utxo, xpub1, {
       label: 'label1',
       frozen: true,
+      recycle: false,
     });
     const id = `${networkId}_${utxo.txid}_${utxo.vout}`;
     await simpleDb.utxoAccounts.updateCoinControlItem(id, {
       label: 'new label',
       frozen: false,
+      recycle: false,
     });
     const items = await simpleDb.utxoAccounts.getCoinControlById(id);
     expect(items?.label).toEqual('new label');
@@ -80,6 +86,7 @@ describe('SimpleDbEntityUtxoAccounts', () => {
     await simpleDb.utxoAccounts.addCoinControlItem(networkId, utxo, xpub1, {
       label: 'label1',
       frozen: true,
+      recycle: false,
     });
     await simpleDb.utxoAccounts.addCoinControlItem(
       networkId,
@@ -88,6 +95,7 @@ describe('SimpleDbEntityUtxoAccounts', () => {
       {
         label: 'label2',
         frozen: false,
+        recycle: false,
       },
     );
     await simpleDb.utxoAccounts.deleteCoinControlItem([

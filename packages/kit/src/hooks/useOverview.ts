@@ -262,7 +262,11 @@ const balancesSelector = ({
         return Object.fromEntries(
           Object.entries(accountBalance).map(([tokenId, data]) => [
             tokenId,
-            { balance: data?.balance ?? '0' },
+            {
+              balance: data?.balance ?? '0',
+              availableBalance: data?.availableBalance ?? '0',
+              transferBalance: data?.transferBalance ?? '0',
+            },
           ]),
         );
       }
@@ -313,7 +317,10 @@ export function useAccountTokensOnChain(
       prices[`${networkId}${t.address ? '-' : ''}${t.address ?? ''}`];
     const price = priceInfo?.usd ?? 0;
     const price24h = priceInfo?.usd_24h_change ?? 0;
-    const balance = balances[getBalanceKey(t)]?.balance ?? '0';
+    const tokenBalance = balances[getBalanceKey(t)];
+    const balance = tokenBalance?.balance ?? '0';
+    const availableBalance = tokenBalance?.availableBalance ?? '0';
+    const transferBalance = tokenBalance?.transferBalance ?? '0';
     const value = new B(price).multipliedBy(balance);
     const usdValue = value;
     const value24h = new B(balance).multipliedBy(
@@ -327,6 +334,8 @@ export function useAccountTokensOnChain(
       price,
       price24h,
       balance,
+      availableBalance,
+      transferBalance,
       value: value.toString(),
       usdValue: usdValue.toString(),
       value24h: value24h.toString(),
@@ -519,6 +528,8 @@ export function useAccountTokens({
           address: undefined,
           logoURI: t.logoURI,
           balance: t.balance,
+          transferBalance: t.transferBalance,
+          availableBalance: t.availableBalance,
           usdValue: t.value ?? '0',
           value: new B(t.value ?? '0').toString(),
           value24h: new B(t.value24h ?? '0').toString(),
@@ -542,6 +553,8 @@ export function useAccountTokens({
             address: t.address,
             logoURI: t.logoURI,
             balance: t.balance,
+            transferBalance: t.transferBalance,
+            availableBalance: t.availableBalance,
             usdValue: t.usdValue,
             value: t.usdValue,
             value24h: undefined,
@@ -746,6 +759,34 @@ export const useAccountValues = (props: {
   );
 };
 
+export const useBRC20TokenBalance = ({
+  networkId,
+  accountId,
+  token,
+  fallback = {
+    balance: '0',
+    availableBalance: '0',
+    transferBalance: '0',
+  },
+}: {
+  networkId: string;
+  accountId: string;
+  token?: Partial<Token> | null;
+  fallback?: {
+    balance: string;
+    availableBalance: string;
+    transferBalance: string;
+  };
+}) => {
+  const balances = useAppSelector((s) => s.tokens.accountTokensBalance);
+
+  return useMemo(
+    () =>
+      balances?.[networkId]?.[accountId]?.[getBalanceKey(token)] ?? fallback,
+    [networkId, token, accountId, balances, fallback],
+  );
+};
+
 export const useTokenBalance = ({
   networkId,
   accountId,
@@ -756,6 +797,7 @@ export const useTokenBalance = ({
   accountId: string;
   token?: Partial<Token> | null;
   fallback?: string;
+  isBRC20?: boolean;
 }) => {
   const { data: tokens } = useAccountPortfolios({
     accountId,
@@ -784,17 +826,20 @@ export const useTokenBalanceWithoutFrozen = ({
   accountId,
   token,
   fallback = '0',
+  useRecycleBalance,
 }: {
   networkId: string;
   accountId: string;
   token?: Partial<Token> | null;
   fallback?: string;
+  useRecycleBalance?: boolean;
 }) => {
   const balance = useTokenBalance({ networkId, accountId, token, fallback });
   const frozenBalance = useFrozenBalance({
     networkId,
     accountId,
     tokenId: token?.tokenIdOnNetwork || 'main',
+    useRecycleBalance,
   });
 
   return useMemo(() => {
@@ -940,6 +985,8 @@ export const useTokenPositionInfo = ({
 
   return useMemo(() => {
     let balance = new B(0);
+    let transferBalance = new B(0);
+    let availableBalance = new B(0);
     const items: IOverviewTokenDetailListItem[] = [];
     accountTokens.forEach((t) => {
       if (
@@ -960,12 +1007,16 @@ export const useTokenPositionInfo = ({
               logoURI: t.logoURI ?? '',
               type: 'Token',
               balance: item.balance ?? '0',
+              availableBalance: t.availableBalance ?? '0',
+              transferBalance: t.transferBalance ?? '0',
               networkId: item.networkId,
               accountName: account?.name ?? '',
             });
           }
         });
         balance = balance.plus(t.balance ?? 0);
+        transferBalance = transferBalance.plus(t.transferBalance ?? '0');
+        availableBalance = availableBalance.plus(t.availableBalance ?? '0');
       }
     });
 
@@ -1018,6 +1069,8 @@ export const useTokenPositionInfo = ({
 
     return {
       balance,
+      transferBalance,
+      availableBalance,
       items,
     };
   }, [
