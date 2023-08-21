@@ -1063,6 +1063,7 @@
   "form__Watchlist": "관심 목록",
   "form___7d_volume": "7D 볼륨",
   "form__a_message_to_the_payer": "결제자에게 보내는 메시지",
+  "form__a_message_to_the_payer_optional": "결제자에게 보내는 메시지(선택사항)",
   "form__about_uppercase": "에 대한",
   "form__above_str": "{0} 위",
   "form__accelerated_transaction": "🚀 빠른 거래",

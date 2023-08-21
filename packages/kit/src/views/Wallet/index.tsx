@@ -71,22 +71,22 @@ const WalletTabs: FC = () => {
         key={WalletHomeTabEnum.Tokens}
       >
         <LazyRenderCurrentHomeTab homeTabName={WalletHomeTabEnum.Tokens}>
-          {/* root Tab Component should be FlatList in Native */}
-          <HomeTokenAssetsList
-            walletId={walletId}
-            accountId={accountId}
-            networkId={networkId}
-            limitSize={10}
-          >
+          <Tabs.ScrollView>
+            <OneKeyPerfTraceLog name="App RootTabHome AssetsList render" />
+            <GuideToPushFirstTimeCheck />
+            <HomeTokenAssetsList
+              walletId={walletId}
+              accountId={accountId}
+              networkId={networkId}
+              limitSize={10}
+            />
             <Box h={6} />
             <OverviewDefiList
               accountId={accountId}
               networkId={networkId}
               limitSize={10}
             />
-            <OneKeyPerfTraceLog name="App RootTabHome AssetsList render" />
-            <GuideToPushFirstTimeCheck />
-          </HomeTokenAssetsList>
+          </Tabs.ScrollView>
         </LazyRenderCurrentHomeTab>
       </Tabs.Tab>
     ),
@@ -232,6 +232,7 @@ const WalletTabs: FC = () => {
       // otherwise android app will crash when tabs are changed
       key={platformEnv.isNativeAndroid ? `${tabContents.length}` : undefined}
       canOpenDrawer
+      stickyTabBar
       initialTabName={homeTabName}
       onRefresh={onRefresh}
       onIndexChange={onIndexChange}

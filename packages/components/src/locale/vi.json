@@ -1063,6 +1063,7 @@
   "form__Watchlist": "danh sách theo dõi",
   "form___7d_volume": "Âm lượng 7D",
   "form__a_message_to_the_payer": "Một tin nhắn cho người trả tiền",
+  "form__a_message_to_the_payer_optional": "Một tin nhắn cho người trả tiền (không bắt buộc)",
   "form__about_uppercase": "VỀ",
   "form__above_str": "Trên {0}",
   "form__accelerated_transaction": "🚀 Giao dịch nhanh chóng",

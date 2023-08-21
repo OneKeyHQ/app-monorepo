@@ -175,6 +175,7 @@ export function TxActionElementAddress(
     checkSecurity?: boolean;
     networkId?: string;
     amount?: string;
+    displayAddress?: boolean;
   } & ComponentProps<typeof Text>,
 ) {
   const {
@@ -185,6 +186,7 @@ export function TxActionElementAddress(
     networkId,
     flex,
     amount,
+    displayAddress = true,
     ...others
   } = props;
   const shouldCheckSecurity = !!(checkSecurity && networkId);
@@ -199,14 +201,14 @@ export function TxActionElementAddress(
     walletId: accountWalletId,
   } = useAddressLabel({ address, networkId });
   const contact = useAddressBookItem({ address });
-  const showAddress = !isLightningNetworkByNetworkId(networkId ?? '');
+  // const showAddress = !isLightningNetworkByNetworkId(networkId ?? '');
   const text = isShorten ? shortenAddress(address) : address;
 
   return (
     <VStack flex={flex}>
       <HStack alignItems="flex-start" space={1}>
         <VStack space={1} flex={1}>
-          {showAddress && (
+          {displayAddress && (
             <Text
               ml={securityInfo?.length ? 1 : 0}
               isTruncated
@@ -267,6 +269,7 @@ export function getTxActionElementAddressWithSecurityInfo({
   amount,
   isCopy,
   isShorten,
+  displayAddress,
 }: {
   address: string;
   withSecurityInfo: boolean;
@@ -275,6 +278,7 @@ export function getTxActionElementAddressWithSecurityInfo({
   typography?: ComponentProps<typeof Text>['typography'];
   isCopy?: boolean;
   isShorten?: boolean;
+  displayAddress?: boolean;
 }) {
   if (withSecurityInfo && networkId) {
     return (
@@ -286,6 +290,7 @@ export function getTxActionElementAddressWithSecurityInfo({
         amount={amount}
         isCopy={isCopy}
         isShorten={isShorten}
+        displayAddress={displayAddress}
       />
     );
   }
@@ -297,6 +302,7 @@ export function getTxActionElementAddressWithSecurityInfo({
       amount={amount}
       isCopy={isCopy}
       isShorten={isShorten}
+      displayAddress={displayAddress}
     />
   );
 }

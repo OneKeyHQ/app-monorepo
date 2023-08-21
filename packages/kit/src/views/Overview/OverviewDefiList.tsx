@@ -106,7 +106,7 @@ const OverviewDefiListWithoutMemo: FC<OverviewDefiListProps> = (props) => {
       borderWidth="1px"
       borderRadius={12}
       mb="24"
-      // mx={containerPaddingX.px}
+      mx={containerPaddingX.px}
     >
       <HomeTabAssetsHeader
         icon="DatabaseOutline"
@@ -186,3 +186,4 @@ const OverviewDefiListWithoutMemo: FC<OverviewDefiListProps> = (props) => {
 };
 
 export const OverviewDefiList = memo(OverviewDefiListWithoutMemo);
+OverviewDefiList.displayName = 'OverviewDefiList';

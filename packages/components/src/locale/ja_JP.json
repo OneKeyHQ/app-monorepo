@@ -1063,6 +1063,7 @@
   "form__Watchlist": "ウォッチリスト",
   "form___7d_volume": "７日間の取引額",
   "form__a_message_to_the_payer": "支払者へのメッセージ",
+  "form__a_message_to_the_payer_optional": "支払者へのメッセージ (オプション)",
   "form__about_uppercase": "情報",
   "form__above_str": "{0}を上回る",
   "form__accelerated_transaction": "🚀加速されたトランザクションに利用される",

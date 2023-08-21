@@ -47,8 +47,10 @@ const parseLnurl = (lnurl: string) => {
   return new URL(`https://${lnurl.replace(/^lnurl[pwc]/i, '')}`);
 };
 
-export const isLightningAddress = (address: string) =>
-  Boolean(parseLightingAddress(address));
+export const isLightningAddress = (address?: string) => {
+  if (!address) return false;
+  return Boolean(parseLightingAddress(address));
+};
 
 export const findLnurl = memoizee(
   (text: string) => {
