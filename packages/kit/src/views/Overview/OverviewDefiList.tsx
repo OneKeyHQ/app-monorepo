@@ -140,20 +140,26 @@ const AccountDefiListHeader: FC<{
   onPress?: () => void;
   extraLabel: string;
 }> = ({ networkId, accountId, onPress, extraLabel }) => {
-  const stats = useAppSelector(
-    (s) => s.overview.overviewStats?.[networkId]?.[accountId],
+  const totalValue = useAppSelector(
+    (s) =>
+      s.overview.overviewStats?.[networkId]?.[accountId]?.defis?.totalValue,
+  );
+
+  const shareDefis = useAppSelector(
+    (s) =>
+      s.overview.overviewStats?.[networkId]?.[accountId]?.summary?.shareDefis,
   );
 
   const shareRate = useMemo(
-    () => new B(stats?.summary?.shareDefis ?? 0).times(100),
-    [stats?.summary?.shareDefis],
+    () => new B(shareDefis ?? 0).times(100),
+    [shareDefis],
   );
 
   return (
     <HomeTabAssetsHeader
       icon="DatabaseOutline"
       title="DeFi"
-      usdFiatValue={stats?.defis?.totalValue}
+      usdFiatValue={totalValue}
       shareRate={shareRate}
       extraIcon="ChevronRightMini"
       extraLabel={extraLabel}
