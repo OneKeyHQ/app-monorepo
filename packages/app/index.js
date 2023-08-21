@@ -14,6 +14,8 @@ if (process.env.NODE_ENV !== 'production') {
     global.REMPL_TITLE = `${manufacturer}${Platform.OS}_${Platform.Version}${fingerprint}`;
     require('react-render-tracker');
   }
+
+  require('@onekeyhq/shared/src/modules3rdParty/react-native-metrix').markJsBundleLoadedTime();
 }
 
 import { registerRootComponent } from 'expo';

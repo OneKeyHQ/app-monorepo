@@ -503,7 +503,7 @@ PODS:
     - React-Core
   - react-native-in-app-review (4.3.3):
     - React-Core
-  - react-native-metrix (0.4.0):
+  - react-native-metrix (0.5.1):
     - RCT-Folly (= 2021.07.22.00)
     - React-Core
   - react-native-mmkv (2.8.0):
@@ -1178,7 +1178,7 @@ SPEC CHECKSUMS:
   react-native-flipper-performance-plugin: 42ec5017abd26e7c5a1f527f2db92c14a90cabdb
   react-native-get-random-values: dee677497c6a740b71e5612e8dbd83e7539ed5bb
   react-native-in-app-review: db8bb167a5f238e7ceca5c242d6b36ce8c4404a4
-  react-native-metrix: 8a94dc22987d68037d415bdd4c1d74cf524a4b1a
+  react-native-metrix: 3f6144c5dd82f4c5ef9feae2e42bf554ef63def1
   react-native-mmkv: 7da5e18e55c04a9af9a7e0ab9792a1e8d33765a1
   react-native-netinfo: ccbe1085dffd16592791d550189772e13bf479e2
   react-native-pager-view: b58cb9e9f42f64e50cab3040815772c1d119a2e2

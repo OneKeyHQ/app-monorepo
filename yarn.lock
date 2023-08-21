@@ -6412,6 +6412,7 @@ __metadata:
     asyncstorage-down: ^4.2.0
     buffer: ^6.0.3
     expo: 49.0.6
+    expo-battery: ~7.3.0
     expo-clipboard: ^4.1.2
     expo-device: ~5.4.0
     expo-haptics: ^12.2.1
@@ -6451,7 +6452,7 @@ __metadata:
     react-native-in-app-review: ^4.3.3
     react-native-keyboard-manager: ^6.5.11-1
     react-native-level-fs: ^3.0.1
-    react-native-metrix: ^0.4.0
+    react-native-metrix: ^0.5.1
     react-native-mmkv: ^2.8.0
     react-native-nested-scroll-view: "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git#feat/support-rn71"
     react-native-pager-view: 6.1.4
@@ -18852,6 +18853,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"expo-battery@npm:~7.3.0":
+  version: 7.3.0
+  resolution: "expo-battery@npm:7.3.0"
+  peerDependencies:
+    expo: "*"
+  checksum: 1738f9e35fe6bc18ab8b873a82130762462d66973bfce224d19d5d2ffc2625d4594a227a7ede5404af0da9a35d891bf06c4d4c9e44c2126550251d7b7c05ab0c
+  languageName: node
+  linkType: hard
+
 "expo-blur@npm:~12.3.0":
   version: 12.3.1
   resolution: "expo-blur@npm:12.3.1"
@@ -29365,13 +29375,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-metrix@npm:^0.4.0":
-  version: 0.4.0
-  resolution: "react-native-metrix@npm:0.4.0"
+"react-native-metrix@npm:^0.5.1":
+  version: 0.5.1
+  resolution: "react-native-metrix@npm:0.5.1"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 9dfded2ec66681d3de2b8baedf22d3283c2223a912f835d7a1bf597666a6f9850354b44be36716c83c8dc433056526d9470e1eac0e2cff854bd068dc01b25f6a
+  checksum: 39dcbb7b508ed2b48b9e57a368e8ba20007a8e77c1eb21baaba210ced845898155aba77842a5dab90480579fc1de7fb63f9d44580c92b893c09cf6da5cdbf397
   languageName: node
   linkType: hard
 
