@@ -32,7 +32,7 @@ import { coingeckoId2StakingTypes } from '../../../Staking/utils';
 import { MarketStakeButton } from '../../../Staking/Widgets/MarketStakingButton';
 import { EMarketCellData, MARKET_LIST_COLUMN_SHOW_WIDTH_1 } from '../../config';
 import { useMarketSelectedCategoryId } from '../../hooks/useMarketCategory';
-import { useMarketWidthLayout } from '../../hooks/useMarketList';
+import { useMarketWidthLayout } from '../../hooks/useMarketLayout';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 import {
   formatDecimalZero,
@@ -89,6 +89,7 @@ const MarketCollectStartButton = ({
     <Pressable
       flexDirection="row"
       alignItems="center"
+      p="1"
       rounded="full"
       _hover={{ bgColor: 'surface-hovered' }}
       _pressed={{ bgColor: 'surface-pressed' }}
@@ -452,7 +453,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                       }
                     />
                   ) : (
-                    <Skeleton shape="Caption" />
+                    <Skeleton shape="DisplayMedium" />
                   )}
                 </Box>
               </ListItem.Column>
@@ -468,17 +469,19 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                   ref={moreButtonRef}
                 >
                   {marketTokenItem ? (
-                    <MarketTokenSwapEnable tokens={marketTokenItem.tokens} />
+                    <>
+                      <MarketTokenSwapEnable tokens={marketTokenItem.tokens} />
+                      {stakingType && (
+                        <Box ml="2">
+                          <MarketStakeButton
+                            stakingType={stakingType}
+                            buttonType="text"
+                          />
+                        </Box>
+                      )}
+                    </>
                   ) : (
-                    <Skeleton shape="Caption" />
-                  )}
-                  {stakingType && (
-                    <Box ml="2">
-                      <MarketStakeButton
-                        stakingType={stakingType}
-                        buttonType="text"
-                      />
-                    </Box>
+                    <Skeleton shape="DisplaySmall" />
                   )}
                 </Box>
               </ListItem.Column>

@@ -10,6 +10,9 @@ import {
 import { Box, useIsVerticalLayout, useUserDevice } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useAppSelector } from '../../../hooks';
+import { MARKET_LIST_COLUMN_SHOW_WIDTH_3 } from '../config';
+
 import type { LayoutChangeEvent } from 'react-native';
 
 export type IGridLayoutContext = {
@@ -86,9 +89,27 @@ export const useGridBoxStyle = ({
   return { ml, my, width };
 };
 
+export const useMarketWidthLayout = () => {
+  const { screenWidth, size } = useUserDevice();
+  const isVerticalLayout = size === 'SMALL';
+  const leftSidebarCollapsed = useAppSelector(
+    (s) => s.settings.leftSidebarCollapsed,
+  );
+  const marketFillWidth = useMemo(() => {
+    if (isVerticalLayout) {
+      return screenWidth;
+    }
+    return leftSidebarCollapsed ? screenWidth - 72 : screenWidth - 224; // caculate leftside width
+  }, [isVerticalLayout, leftSidebarCollapsed, screenWidth]);
+  return { marketFillWidth, isVerticalLayout };
+};
+
 export const useMarketMidLayout = () => {
-  const { size } = useUserDevice();
-  return useMemo(() => size === 'NORMAL', [size]);
+  const { marketFillWidth } = useMarketWidthLayout();
+  return useMemo(
+    () => marketFillWidth < MARKET_LIST_COLUMN_SHOW_WIDTH_3,
+    [marketFillWidth],
+  );
 };
 
 export const useDevicePixelRatio = () =>

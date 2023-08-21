@@ -17,6 +17,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { useAppSelector } from '../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
@@ -54,11 +55,15 @@ const AddressList = ({ networkId, onNew, onSelected }: ListProps) => {
   const data = useMemo(() => {
     let values = Object.values(contacts);
     values = values.sort((a, b) => (a.createAt > b.createAt ? -1 : -1));
+    debugLogger.common.info('contacts length is ', Object.keys(values).length);
     if (networkId) {
+      debugLogger.common.info('address list filter by networkId', networkId);
       const badge = networkId.split('--')[0];
-      values = values.filter(
-        (item) => item.badge.toUpperCase() === badge.toUpperCase(),
-      );
+      if (badge) {
+        values = values.filter(
+          (item) => item.badge.toUpperCase() === badge.toUpperCase(),
+        );
+      }
     }
     return values;
   }, [contacts, networkId]);

@@ -149,6 +149,7 @@ export enum GalleryRoutes {
   ComponentMnemonicCardGallery = 'component/MnemonicCard',
   ComponentSlider = 'component/Slider',
   ComponentInAppNotification = 'component/InAppNotification',
+  ComponentDeepFresh = 'component/deepRefresh',
 }
 
 // ModalRoutes ----------------------------------------------

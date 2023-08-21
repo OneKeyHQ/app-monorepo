@@ -51,7 +51,7 @@ const MarketRecomment: FC<MarketRecommentProps> = ({ tokens }) => {
   }, []);
   return (
     <Box flex={1} alignItems="center" justifyContent="center">
-      <Box mt={isVertical ? '40px' : '56px'} maxW={GRID_MAX_WIDTH}>
+      <Box mt={isVertical ? '18px' : '56px'} maxW={GRID_MAX_WIDTH}>
         <Box mb="32px" justifyContent="center" alignItems="center">
           <Typography.DisplayLarge>
             {intl.formatMessage({ id: 'empty__your_watchlist_is_empty' })}

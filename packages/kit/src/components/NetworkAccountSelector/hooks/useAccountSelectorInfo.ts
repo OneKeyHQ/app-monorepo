@@ -76,21 +76,34 @@ export function useAccountSelectorInfo() {
     // noop
   }, []);
 
-  const { result: selectedWallet } = usePromiseResult(
-    (): Promise<IWallet | null | undefined> =>
-      walletId ? engine.getWalletSafe(walletId) : Promise.resolve(null),
-    [engine, walletId],
-  );
-  const { result: selectedNetwork } = usePromiseResult(
-    (): Promise<INetwork | null | undefined> =>
-      networkId ? engine.getNetworkSafe(networkId) : Promise.resolve(null),
-    [networkId, engine],
-  );
-  const { result: selectedNetworkSettings } = usePromiseResult(
-    (): Promise<IVaultSettings | null | undefined> =>
-      networkId ? engine.getVaultSettings(networkId) : Promise.resolve(null),
-    [networkId, engine],
-  );
+  const { result: selectedWallet } = usePromiseResult((): Promise<
+    IWallet | null | undefined
+  > => {
+    if (wallets) {
+      //
+    }
+    return walletId ? engine.getWalletSafe(walletId) : Promise.resolve(null);
+  }, [engine, walletId, wallets]);
+
+  const { result: selectedNetwork } = usePromiseResult((): Promise<
+    INetwork | null | undefined
+  > => {
+    if (enabledNetworks) {
+      //
+    }
+    return networkId ? engine.getNetworkSafe(networkId) : Promise.resolve(null);
+  }, [networkId, engine, enabledNetworks]);
+
+  const { result: selectedNetworkSettings } = usePromiseResult((): Promise<
+    IVaultSettings | null | undefined
+  > => {
+    if (enabledNetworks) {
+      //
+    }
+    return networkId
+      ? engine.getVaultSettings(networkId)
+      : Promise.resolve(null);
+  }, [networkId, engine, enabledNetworks]);
 
   const isAccountsGroupEmpty = useMemo(() => {
     if (!accountsGroup?.length) {

@@ -14,6 +14,7 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { isLightningAddress } from '@onekeyhq/engine/src/vaults/impl/lightning-network/helper/lnurl';
 import type { IEncodedTxLightning } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types';
 import type {
   LNURLPayServiceResponse,
@@ -196,6 +197,9 @@ const LNURLPayRequest = () => {
             ...transferInfo,
             to: paymentRequest,
             lnurlPaymentInfo: response,
+            lightningAddress: isLightningAddress(transferInfo.to)
+              ? transferInfo.to
+              : undefined,
           },
         });
         const params: SendConfirmParams = {
@@ -233,26 +237,36 @@ const LNURLPayRequest = () => {
       } catch (e: any) {
         console.error(e);
         setIsLoading(false);
+        let message = '';
         const { key, info } = e;
         if (key && key !== 'onekey_error') {
+          message = intl.formatMessage(
+            {
+              id: key,
+            },
+            info ?? {},
+          );
           ToastManager.show(
             {
-              title: intl.formatMessage(
-                {
-                  id: key,
-                },
-                info ?? {},
-              ),
+              title: message,
             },
             { type: 'error' },
           );
-          return false;
+        } else {
+          message = (e as Error)?.message;
+          ToastManager.show({ title: message || e }, { type: 'error' });
         }
-        ToastManager.show(
-          { title: (e as Error)?.message || e },
-          { type: 'error' },
-        );
-        dappApprove.reject();
+        if (!isSendFlow) {
+          // display error message for 1.5s
+          setTimeout(() => {
+            dappApprove.resolve({
+              result: {
+                status: 'ERROR',
+                reason: message,
+              },
+            });
+          }, 1500);
+        }
       }
     },
     [
@@ -286,11 +300,12 @@ const LNURLPayRequest = () => {
       onPrimaryActionPress={() => doSubmit()}
       secondaryActionTranslationId="action__cancel"
       onSecondaryActionPress={() => {
-        if (isSendFlow) {
-          if (navigation?.canGoBack?.()) {
-            navigation.goBack();
-          }
-        } else {
+        if (navigation?.canGoBack?.()) {
+          navigation.goBack();
+        }
+      }}
+      onModalClose={() => {
+        if (!isSendFlow) {
           dappApprove.reject();
         }
       }}

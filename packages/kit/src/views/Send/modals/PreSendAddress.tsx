@@ -92,7 +92,7 @@ function PreSendAddress() {
       : (reset as ITransferInfo);
   const { isNFT } = transferInfo;
   const { account, network, walletId } = useActiveSideAccount(routeParams);
-  const isLightningNetwork = isLightningNetworkByImpl(network?.impl ?? '');
+  const isLightningNetwork = isLightningNetworkByImpl(network?.impl);
   const useFormReturn = useForm<FormValues>({
     mode: 'onBlur',
     reValidateMode: 'onBlur',

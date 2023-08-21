@@ -58,8 +58,11 @@ const NavigationApp = () => {
 
   const linking = useMemo(() => buildLinking(), []);
 
-  const { backgroundShowToastOptions, backgroundShowToastTs } = useAppSelector(
-    (s) => s.refresher,
+  const backgroundShowToastOptions = useAppSelector(
+    (s) => s.refresher.backgroundShowToastOptions,
+  );
+  const backgroundShowToastTs = useAppSelector(
+    (s) => s.refresher.backgroundShowToastTs,
   );
 
   useEffect(() => {
