@@ -12,11 +12,11 @@ export default class VaultHelper extends VaultHelperBase {
     return Promise.resolve(rawTxOrEncodedTx);
   }
 
-  nativeTxToJson(nativeTx: any): Promise<string> {
+  nativeTxToJson(): Promise<string> {
     throw new NotImplemented();
   }
 
-  jsonToNativeTx(json: string): Promise<any> {
+  jsonToNativeTx(): Promise<any> {
     throw new NotImplemented();
   }
 }

@@ -77,7 +77,7 @@ export default class ServicePrice extends ServiceBase {
 
   @backgroundMethod()
   testUpdateTokenPriceMap() {
-    const { appSelector, dispatch, engine } = this.backgroundApi;
+    const { dispatch } = this.backgroundApi;
     dispatch(
       setTokenPriceMap({
         prices: {
