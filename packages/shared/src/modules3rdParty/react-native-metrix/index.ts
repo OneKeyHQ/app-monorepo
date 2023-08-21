@@ -6,6 +6,8 @@ import {
   stop,
 } from 'react-native-metrix';
 
+import { metrixLogger, resetLogFile } from './logger';
+
 import type { metrixUpdateInfo } from 'react-native-metrix';
 
 const PLACEHOLDER = -1;
@@ -21,14 +23,6 @@ export const markJsBundleLoadedTime = () => {
 
 export const markFPTime = () => {
   measureTime.fpTime = getTimeSinceStartup();
-};
-
-export const startRecordingMetrics = () => {
-  start();
-};
-
-export const stopRecordingMetrics = () => {
-  stop();
 };
 
 export const subscribeToMetrics = (
@@ -50,17 +44,34 @@ export const getUsedBatterySinceStartup = async () => {
   return initialBatteryLevel - batteryLevel;
 };
 
-const isLogging = false;
-export const startLogging = () => {
-  if (isLogging) {
-    // return;
+let isLogging = false;
+let cancelSubscription: () => void;
+export const startLogging = async () => {
+  if (!isLogging) {
+    isLogging = true;
+    await resetLogFile();
+    cancelSubscription = onUpdate((info) => {
+      metrixLogger.info(info);
+    });
   }
 };
 
 export const stopLogging = () => {
-  if (!isLogging) {
-    // return;
+  if (isLogging && cancelSubscription) {
+    isLogging = true;
+    cancelSubscription();
+    metrixLogger.info(measureTime);
   }
 };
 
 export const getLogFile = () => {};
+
+export const startRecordingMetrics = () => {
+  start();
+  startLogging();
+};
+
+export const stopRecordingMetrics = () => {
+  stop();
+  stopLogging();
+};
