@@ -43,7 +43,7 @@ import {
   useNFTIsLoading,
 } from '../../../../hooks';
 import { useHomeTabName } from '../../../../hooks/useHomeTabName';
-import { useOnUIEventBus } from '../../../../hooks/useOnUIEventbus';
+import { useOnUIEventBus } from '../../../../hooks/useOnUIEventBus';
 import { EOverviewScanTaskType } from '../../../Overview/types';
 import { WalletHomeTabEnum } from '../../type';
 import { navigateToNFTCollection, navigateToNFTDetail } from '../utils';

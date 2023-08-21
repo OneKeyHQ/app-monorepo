@@ -1,5 +1,4 @@
 import type BigNumber from 'bignumber.js';
-import type { Psbt } from 'bitcoinjs-lib';
 
 export type ClientInfo = {
   bestBlockNumber: number;

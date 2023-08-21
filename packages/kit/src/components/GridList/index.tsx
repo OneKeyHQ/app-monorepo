@@ -1,4 +1,4 @@
-import { ComponentProps, useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { FlatList } from '@onekeyhq/components';
 

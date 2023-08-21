@@ -17,7 +17,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { FormatBalance } from '../../../components/Format';
 import { useActiveSideAccount } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useOnUIEventBus } from '../../../hooks/useOnUIEventbus';
+import { useOnUIEventBus } from '../../../hooks/useOnUIEventBus';
 import {
   InscribeModalRoutes,
   InscriptionControlModalRoutes,

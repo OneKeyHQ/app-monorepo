@@ -51,7 +51,6 @@ import type { IEncodedTxTron } from './impl/tron/types';
 import type { IDecodedTxExtraXmr, IEncodedTxXmr } from './impl/xmr/types';
 import type { IEncodedTxXrp } from './impl/xrp/types';
 import type { ICoinSelectAlgorithm } from './utils/btcForkChain/utils';
-import type { Psbt } from 'bitcoinjs-lib';
 
 // Options ----------------------------------------------
 export type IVaultSubNetworkSettings = {

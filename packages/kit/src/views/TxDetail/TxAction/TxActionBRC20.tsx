@@ -54,7 +54,7 @@ function getTitleInfo({
 }
 
 export function getTxActionsBRC20Info(props: ITxActionCardProps) {
-  const { action, decodedTx } = props;
+  const { action } = props;
   const { brc20Info, direction, type } = action;
 
   const sender = brc20Info?.sender ?? '';

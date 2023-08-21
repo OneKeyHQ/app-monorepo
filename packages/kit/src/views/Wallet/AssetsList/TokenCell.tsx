@@ -28,8 +28,7 @@ import {
   useReduxSingleTokenFiatValuesSimple,
   useReduxSingleTokenPriceSimple,
 } from '../../../hooks';
-import { useOnUIEventBus } from '../../../hooks/useOnUIEventbus';
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useOnUIEventBus } from '../../../hooks/useOnUIEventBus';
 import {
   CValueLoading,
   CValueNull,
