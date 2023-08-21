@@ -1063,6 +1063,7 @@
   "form__Watchlist": "ध्यानसूची",
   "form___7d_volume": "7डी वॉल्यूम",
   "form__a_message_to_the_payer": "भुगतानकर्ता को एक संदेश",
+  "form__a_message_to_the_payer_optional": "भुगतानकर्ता को एक संदेश (वैकल्पिक)",
   "form__about_uppercase": "के बारे में",
   "form__above_str": "ऊपर {0}",
   "form__accelerated_transaction": "त्वरित लेनदेन",

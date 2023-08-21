@@ -1063,6 +1063,7 @@
   "form__Watchlist": "Список спостереження",
   "form___7d_volume": "Обсяг 7D",
   "form__a_message_to_the_payer": "Повідомлення платнику",
+  "form__a_message_to_the_payer_optional": "Повідомлення платнику (за бажанням)",
   "form__about_uppercase": "ПРО",
   "form__above_str": "Вище {0}",
   "form__accelerated_transaction": "🚀 Прискорена транзакція",
