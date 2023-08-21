@@ -67,7 +67,7 @@ function BRC20TokenDetail() {
     NFTBTCAssetModel[]
   >([]);
 
-  const token = detailInfo?.tokens[0];
+  const token = detailInfo?.tokens?.[0];
 
   const { wallet, account, network } = useActiveSideAccount({
     accountId: accountId ?? '',
