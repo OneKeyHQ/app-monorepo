@@ -9,7 +9,8 @@ import {
 } from '@onekeyhq/engine/src/managers/network';
 import { caseSensitiveImpls } from '@onekeyhq/engine/src/managers/token';
 import type { Account } from '@onekeyhq/engine/src/types/account';
-import type { Collection } from '@onekeyhq/engine/src/types/nft';
+import type { Collection, NFTAssetMeta } from '@onekeyhq/engine/src/types/nft';
+import { NFTAssetType } from '@onekeyhq/engine/src/types/nft';
 import type { ITokenFiatValuesInfo } from '@onekeyhq/engine/src/types/token';
 import {
   type IAccountTokenData,
@@ -1042,9 +1043,85 @@ class ServiceOverview extends ServiceBase {
 
   @backgroundMethod()
   async buildAccountNFTList(options: { networkId: string; accountId: string }) {
-    const data = await simpleDb.accountPortfolios.getPortfolio(options);
+    const { networkId, accountId } = options;
+    const { serviceNFT, appSelector } = this.backgroundApi;
 
-    return data;
+    const nfts = await serviceNFT.getNftListWithAssetType(options);
+
+    const { prices } = this.getTokensPrices();
+
+    const networkAccountsMap =
+      appSelector((s) => s.overview.allNetworksAccountsMap)?.[
+        options.accountId
+      ] || {};
+
+    const nftPrices = appSelector((s) => s.nft.nftPrice);
+
+    const disPlayPriceType = appSelector((s) => s.nft.disPlayPriceType);
+
+    let totalValue = 0;
+
+    if (!isAllNetworks(networkId)) {
+      const v =
+        nftPrices[accountId ?? '']?.[networkId ?? '']?.[disPlayPriceType] ?? 0;
+      const p = prices?.[networkId ?? '']?.usd ?? 0;
+      totalValue = p * v;
+    } else {
+      for (const [nid, accounts] of Object.entries(networkAccountsMap ?? {})) {
+        const p = prices?.[nid]?.usd ?? 0;
+        for (const a of accounts) {
+          const nftPrice = nftPrices?.[a.id]?.[nid]?.[disPlayPriceType] ?? 0;
+          totalValue += nftPrice * p;
+        }
+      }
+    }
+
+    const nftKeys = nfts
+      .map((n) => {
+        switch (n.type) {
+          case NFTAssetType.BTC:
+            return n.data.map(
+              (d) =>
+                `${d.networkId ?? ''}_${d.accountAddress ?? ''}_${
+                  d.inscription_id
+                }`,
+            );
+          case NFTAssetType.EVM:
+          case NFTAssetType.SOL:
+            return n.data.map((d) => {
+              const key = `${d.networkId ?? ''}_${d.accountAddress ?? ''}_${
+                d.floorPrice ?? ''
+              }_${d.totalPrice ?? ''}`;
+              const assetsKey = d.assets
+                .map(
+                  (a) =>
+                    `${a.tokenAddress ?? ''}_${a.contractAddress ?? ''}_${
+                      a.tokenId ?? ''
+                    }_${a.latestTradePrice ?? ''}`,
+                )
+                .join(',');
+              return key + assetsKey;
+            });
+          default:
+            return '';
+        }
+      })
+      .flat();
+
+    this.refreshOverviewStats({
+      networkId,
+      accountId,
+      nfts: {
+        totalCounts: nfts.length,
+        totalValue: new B(totalValue).toFixed(3),
+        totalValue24h: undefined,
+      },
+    });
+
+    return {
+      nfts,
+      nftKeys,
+    };
   }
 
   // this method only build data from DB, not fetch data from server
@@ -1093,6 +1170,11 @@ export type IOverviewAccountdefisResult = {
     }
   >;
   defis: OverviewDefiRes[];
+};
+
+export type IOverviewAccountNFTResult = {
+  nftKeys?: string[];
+  nfts: NFTAssetMeta[];
 };
 
 export type IAccountTokensSort = 'asc' | 'desc' | boolean;

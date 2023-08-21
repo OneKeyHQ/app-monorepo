@@ -3,6 +3,7 @@ import { memo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Box, HStack, Typography, useTheme } from '@onekeyhq/components';
+import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
 import {
   useActiveWalletAccount,
   useAppSelector,
@@ -12,14 +13,11 @@ import { FormatCurrencyNumber } from '../../../../components/Format';
 import { useNFTValues } from '../../../../hooks';
 // import { showSelectNFTPriceType } from '../../../Overlay/SelectNFTPriceType';
 
-type NFTListHeaderProps = {
-  isNFTSupport?: boolean;
-};
-
-const NFTListHeader = ({ isNFTSupport }: NFTListHeaderProps) => {
+const NFTListHeader = () => {
   const intl = useIntl();
   const { themeVariant } = useTheme();
   const { account, network } = useActiveWalletAccount();
+  const isNFTSupport = isCollectibleSupportedChainId(network?.id ?? '');
 
   const totalPrice = useNFTValues({
     accountId: account?.id,

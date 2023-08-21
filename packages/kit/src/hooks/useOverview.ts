@@ -445,6 +445,7 @@ export function useNFTIsLoading({
   networkId: string;
   accountId: string;
 }) {
+  return false;
   const { tasks, updatedAt } = useOverviewPendingTasks({
     networkId,
     accountId,
