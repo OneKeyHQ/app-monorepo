@@ -75,6 +75,9 @@ function AssetsListViewCmp({
         symbol: item.symbol,
         name: item.name,
         logoURI: item.logoURI,
+        balance: item.balance,
+        availableBalance: item.availableBalance,
+        transferBalance: item.transferBalance,
       });
     },
     [networkId, navigation, onTokenPress, walletId, accountId],

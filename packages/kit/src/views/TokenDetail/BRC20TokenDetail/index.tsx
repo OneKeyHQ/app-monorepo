@@ -40,24 +40,32 @@ let pollingTimer: NodeJS.Timeout | null = null;
 function BRC20TokenDetail() {
   const intl = useIntl();
   const context = useContext(TokenDetailContext);
+
+  const {
+    symbol,
+    networkId,
+    tokenAddress,
+    accountId,
+    balance: balanceFromOut,
+    transferBalance: transferBalanceFromOut,
+    availableBalance: availableBalanceFromOut,
+  } = context?.routeParams ?? {};
+  const detailInfo = context?.detailInfo;
+
   const isVertical = useIsVerticalLayout();
   const appNavigation = useAppNavigation();
   const isFocused = useIsFocused();
 
   const [balanceInfo, setBalanceInfo] = useState({
-    balance: '0',
-    availableBalance: '0',
-    transferBalance: '0',
+    balance: balanceFromOut ?? '0',
+    availableBalance: availableBalanceFromOut ?? '0',
+    transferBalance: transferBalanceFromOut ?? '0',
   });
   const [recycleBalance, setRecycleBalance] = useState('0');
   const [isLoadingInscriptions, setIsLoadingInscriptions] = useState(false);
   const [availableInscriptions, setAvailableInscriptions] = useState<
     NFTBTCAssetModel[]
   >([]);
-
-  const { symbol, networkId, tokenAddress, accountId } =
-    context?.routeParams ?? {};
-  const detailInfo = context?.detailInfo;
 
   const token = detailInfo?.tokens[0];
 
