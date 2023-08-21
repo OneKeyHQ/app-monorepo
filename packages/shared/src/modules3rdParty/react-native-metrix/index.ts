@@ -1,3 +1,4 @@
+import { getBatteryLevelAsync } from 'expo-battery';
 import {
   getTimeSinceStartup,
   onUpdate,
@@ -11,6 +12,7 @@ const PLACEHOLDER = -1;
 const measureTime = {
   jsBundleLoadedTime: PLACEHOLDER,
   fpTime: PLACEHOLDER,
+  batteryUsed: 0,
 };
 
 export const markJsBundleLoadedTime = () => {
@@ -36,6 +38,17 @@ export const subscribeToMetrics = (
 export const getMeasureTime = () => measureTime;
 
 export type { metrixUpdateInfo };
+
+let initialBatteryLevel = PLACEHOLDER;
+export const markBatteryLevel = async () => {
+  const batteryLevel = await getBatteryLevelAsync();
+  initialBatteryLevel = batteryLevel;
+};
+
+export const getUsedBatterySinceStartup = async () => {
+  const batteryLevel = await getBatteryLevelAsync();
+  return initialBatteryLevel - batteryLevel;
+};
 
 const isLogging = false;
 export const startLogging = () => {

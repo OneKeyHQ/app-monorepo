@@ -1,8 +1,13 @@
 /* eslint-disable import/first */
+/* eslint-disable import/order */
+const {
+  appSetting,
+  AppSettingKey,
+} = require('@onekeyhq/shared/src/storage/appSetting');
+
 if (process.env.NODE_ENV !== 'production') {
   // react-render-tracker needs to be loaded before render initialization.
-  const { appSetting } = require('@onekeyhq/shared/src/storage/appSetting');
-  const rrt = appSetting.getBoolean('rrt');
+  const rrt = appSetting.getBoolean(AppSettingKey.rrt);
   if (rrt) {
     const { Platform } = require('react-native');
     const manufacturer = Platform.constants.Brand
@@ -14,8 +19,17 @@ if (process.env.NODE_ENV !== 'production') {
     global.REMPL_TITLE = `${manufacturer}${Platform.OS}_${Platform.Version}${fingerprint}`;
     require('react-render-tracker');
   }
+}
 
-  require('@onekeyhq/shared/src/modules3rdParty/react-native-metrix').markJsBundleLoadedTime();
+if (appSetting.getBoolean(AppSettingKey.perf_switch)) {
+  const {
+    markJsBundleLoadedTime,
+    markBatteryLevel,
+    startRecordingMetrics,
+  } = require('@onekeyhq/shared/src/modules3rdParty/react-native-metrix');
+  markJsBundleLoadedTime();
+  markBatteryLevel();
+  startRecordingMetrics();
 }
 
 import { registerRootComponent } from 'expo';

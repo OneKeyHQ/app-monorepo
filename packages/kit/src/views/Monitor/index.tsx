@@ -12,17 +12,26 @@ import {
 import type { metrixUpdateInfo } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
 import {
   getMeasureTime,
+  getUsedBatterySinceStartup,
   startRecordingMetrics,
   stopRecordingMetrics,
   subscribeToMetrics,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
+import { AppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 export const MonitorSettings = () => {
-  const [isRecording, changeIsRecording] = useState(false);
+  const [isRecording, changeRecordingStatus] = useState(
+    appStorage.getSettingBoolean(AppSettingKey.perf_switch),
+  );
+  const [usedBattery, setUsedBattery] = useState<number>();
   const [metricsLivingData, setMetricsLivingData] =
     useState<metrixUpdateInfo>();
   const measureTime = getMeasureTime();
   useEffect(() => {
+    getUsedBatterySinceStartup().then((batteryLevel) => {
+      setUsedBattery(batteryLevel);
+    });
     const unsubscribe = subscribeToMetrics(setMetricsLivingData);
     return () => {
       unsubscribe();
@@ -38,10 +47,10 @@ export const MonitorSettings = () => {
         labelType="false"
         isChecked={isRecording}
         onToggle={() => {
-          changeIsRecording(!isRecording);
-          if (!isRecording) {
-            startRecordingMetrics();
-          } else {
+          const nextValue = !isRecording;
+          changeRecordingStatus(nextValue);
+          appStorage.setSetting(AppSettingKey.perf_switch, nextValue);
+          if (!nextValue) {
             stopRecordingMetrics();
             setMetricsLivingData(undefined);
           }
@@ -81,6 +90,7 @@ export const MonitorSettings = () => {
         usedRam:{' '}
         {`${((metricsLivingData?.usedRam || 0) / 1024 / 1024).toFixed(2)} Mb`}
       </Typography.Body2>
+      <Typography.Body2>usedBattery: {usedBattery}</Typography.Body2>
     </ScrollView>
   );
 };

@@ -33,6 +33,8 @@ PODS:
     - ExpoModulesCore
   - Expo (49.0.6):
     - ExpoModulesCore
+  - ExpoBattery (7.3.0):
+    - ExpoModulesCore
   - ExpoBlur (12.3.1):
     - ExpoModulesCore
   - ExpoClipboard (4.2.0):
@@ -725,6 +727,7 @@ DEPENDENCIES:
   - EXMediaLibrary (from `../../../node_modules/expo-media-library/ios`)
   - EXNotifications (from `../../../node_modules/expo-notifications/ios`)
   - Expo (from `../../../node_modules/expo`)
+  - ExpoBattery (from `../../../node_modules/expo-battery/ios`)
   - ExpoBlur (from `../../../node_modules/expo-blur/ios`)
   - ExpoClipboard (from `../../../node_modules/expo-clipboard/ios`)
   - ExpoDevice (from `../../../node_modules/expo-device/ios`)
@@ -912,6 +915,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-notifications/ios"
   Expo:
     :path: "../../../node_modules/expo"
+  ExpoBattery:
+    :path: "../../../node_modules/expo-battery/ios"
   ExpoBlur:
     :path: "../../../node_modules/expo-blur/ios"
   ExpoClipboard:
@@ -1101,6 +1106,7 @@ SPEC CHECKSUMS:
   EXMediaLibrary: 2e91d1eb14df5c6af1ddfe183a8c8ee7eaf557d8
   EXNotifications: 09394cbd7165f9a4a00a53328aa09bf874bae717
   Expo: 5601f86edc81c7e7e1772b9af9ae58fa3b45ad53
+  ExpoBattery: e9d7a71960cbc40733d956a29f8ba240173feb08
   ExpoBlur: 83186055c9c5c7ea564d04c6ed766ef7896889ed
   ExpoClipboard: 872ae8ea230649404705b7cc09a155531e74b7bb
   ExpoDevice: 1c1b0c9cad96c292c1de73948649cfd654b2b3c0
