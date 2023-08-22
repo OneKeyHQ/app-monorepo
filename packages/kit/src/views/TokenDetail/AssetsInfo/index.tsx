@@ -310,6 +310,7 @@ const AssetsInfo: FC = () => {
         return s.network?.id === selectedNetworkId;
       })}
       renderItem={renderItem}
+      stickySectionHeadersEnabled={false}
       keyExtractor={(item) =>
         `${item.networkId}__${item.name}__${item.balance}__${
           item.address ?? ''
