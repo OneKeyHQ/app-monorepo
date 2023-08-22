@@ -6,7 +6,7 @@ import {
   stop,
 } from 'react-native-metrix';
 
-import { metrixLogger, resetLogFile } from './logger';
+import { metrixLogger, resetLogFile, uploadMetricsLogFile } from './logger';
 
 import type { metrixUpdateInfo } from 'react-native-metrix';
 
@@ -75,3 +75,6 @@ export const stopRecordingMetrics = () => {
   stop();
   stopLogging();
 };
+
+export const uploadMetricsInfo = (unitTestName: string, password: string) =>
+  uploadMetricsLogFile('', unitTestName, password);

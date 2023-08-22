@@ -23,3 +23,28 @@ export const metrixLogger = logger.createLogger({
     fileName,
   },
 });
+
+export const uploadMetricsLogFile = (
+  uploadUrl: string,
+  unitTestName: string,
+  password: string,
+) =>
+  RNFS?.uploadFiles({
+    toUrl: uploadUrl,
+    files: [
+      {
+        name: 'metrix',
+        filename: fileName,
+        filepath: metrixLogFilePath,
+        filetype: 'text/plain',
+      },
+    ],
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+    },
+    fields: {
+      unitTestName,
+      password,
+    },
+  }).promise;

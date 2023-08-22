@@ -14,6 +14,7 @@ import {
   getUsedBatterySinceStartup,
   stopRecordingMetrics,
   subscribeToMetrics,
+  uploadMetricsInfo,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
 import { AppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -23,6 +24,8 @@ export const MonitorSettings = () => {
     appStorage.getSettingBoolean(AppSettingKey.perf_switch),
   );
   const [usedBattery, setUsedBattery] = useState<number>();
+  const [unitTestName, setUnitTestName] = useState<string>();
+  const [uploadPassword, setUploadPassword] = useState<string>();
   const [metricsLivingData, setMetricsLivingData] =
     useState<metrixUpdateInfo>();
   const measureTime = getMeasureTime();
@@ -59,14 +62,33 @@ export const MonitorSettings = () => {
         Upload metrics to regression Testing server
       </Typography.Heading>
       <Box flex={1} w="100%">
-        <Input testID="UnitTestingNameInput" placeholder="Unit testing name" />
+        <Input
+          testID="UnitTestingNameInput"
+          placeholder="Unit testing name"
+          onChangeText={setUnitTestName}
+          value={unitTestName}
+        />
+        <Box py={1} />
+        <Input
+          testID="UnitTestingPasswordInput"
+          placeholder="Password for uploading log file"
+          value={uploadPassword}
+          onChangeText={setUploadPassword}
+        />
         <Box py={1} />
         <Button
           testID="UnitTestingUploadButton"
           type="primary"
           onPress={() => {
-            setTimeout(() => {
-              alert('file uploaded successfully');
+            setTimeout(async () => {
+              try {
+                if (unitTestName && uploadPassword) {
+                  await uploadMetricsInfo(unitTestName, uploadPassword);
+                  alert('file uploaded successfully');
+                }
+              } catch (error: unknown) {
+                alert(JSON.stringify(error));
+              }
             }, 1500);
           }}
         >
