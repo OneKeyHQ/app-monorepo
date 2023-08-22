@@ -83,8 +83,11 @@ export const MonitorSettings = () => {
             try {
               if (unitTestName && uploadPassword) {
                 stopRecordingMetrics();
-                await uploadMetricsInfo(unitTestName, uploadPassword);
-                alert('file uploaded successfully');
+                const result = await uploadMetricsInfo(
+                  unitTestName,
+                  uploadPassword,
+                );
+                alert(result?.body || result?.statusCode);
               }
             } catch (error: unknown) {
               alert(JSON.stringify(error));
