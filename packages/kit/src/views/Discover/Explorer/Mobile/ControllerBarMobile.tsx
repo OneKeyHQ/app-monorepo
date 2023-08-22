@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback } from 'react';
+// import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -12,39 +12,46 @@ import {
   Box,
   Button,
   Center,
-  Icon,
+  // Icon,
   IconButton,
   Typography,
   useSafeAreaInsets,
   useThemeValue,
 } from '@onekeyhq/components';
 import useFloatingBottomTabBarHeight from '@onekeyhq/components/src/Layout/BottomTabs/utils/useBottomTabBarHeight';
-import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
+// import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 
-import { TabRoutes } from '../../../../routes/routesEnum';
+import { useNavigation } from '../../../../hooks';
+import {
+  ModalRoutes,
+  RootRoutes,
+  TabRoutes,
+} from '../../../../routes/routesEnum';
 import {
   homeTab,
   isTabLimitReached,
   webTabsActions,
 } from '../../../../store/observable/webTabs';
-import { showOverlay } from '../../../../utils/overlayUtils';
-import { OverlayPanel } from '../../../Overlay/OverlayPanel';
+// import { showOverlay } from '../../../../utils/overlayUtils';
+// import { OverlayPanel } from '../../../Overlay/OverlayPanel';
 import { PortalRender } from '../../../Overlay/RootPortal';
+import { DiscoverModalRoutes } from '../../type';
 import { useWebController } from '../Controller/useWebController';
 import {
   MAX_OR_SHOW,
   MIN_OR_HIDE,
   expandAnim,
-  hideTabGrid,
-  showTabGrid,
+  // hideTabGrid,
+  // showTabGrid,
   showTabGridAnim,
 } from '../explorerAnimation';
 import { showWebMoreMenu } from '../MoreMenu';
 
 export const ControllerBarMobile: FC = () => {
+  const navigation = useNavigation();
   const { currentTab, goBack, goForward, tabs } = useWebController();
   const { bottom } = useSafeAreaInsets();
-  const intl = useIntl();
+  // const intl = useIntl();
   const tabBarHeight = useFloatingBottomTabBarHeight();
 
   const bgColor = useThemeValue('surface-subdued');
@@ -105,7 +112,14 @@ export const ControllerBarMobile: FC = () => {
         pl={0}
         pr={0}
         flex={1}
-        onPress={showTabGrid}
+        onPress={() => {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.Discover,
+            params: {
+              screen: DiscoverModalRoutes.MobileTabs,
+            },
+          });
+        }}
       >
         <Center
           w="20px"
@@ -129,74 +143,74 @@ export const ControllerBarMobile: FC = () => {
     </Animated.View>
   );
 
-  const closeAllTabs = useCallback(() => {
-    showOverlay((closeOverlay) => (
-      <OverlayPanel
-        closeOverlay={closeOverlay}
-        modalProps={{ headerShown: false }}
-      >
-        <PressableItem
-          flexDirection="row"
-          alignItems="center"
-          py={{ base: '12px', sm: '8px' }}
-          px={{ base: '16px', sm: '8px' }}
-          bg="transparent"
-          borderRadius="12px"
-          onPress={() => {
-            closeOverlay();
-            webTabsActions.closeAllWebTabs();
-          }}
-        >
-          <Icon color="text-critical" size={24} name="XMarkMini" />
-          <Typography.Body1Strong ml="12px" color="text-critical">
-            {intl.formatMessage({
-              id: 'action__close_all_tabs',
-            })}
-          </Typography.Body1Strong>
-        </PressableItem>
-      </OverlayPanel>
-    ));
-  }, [intl]);
+  // const closeAllTabs = useCallback(() => {
+  //   showOverlay((closeOverlay) => (
+  //     <OverlayPanel
+  //       closeOverlay={closeOverlay}
+  //       modalProps={{ headerShown: false }}
+  //     >
+  //       <PressableItem
+  //         flexDirection="row"
+  //         alignItems="center"
+  //         py={{ base: '12px', sm: '8px' }}
+  //         px={{ base: '16px', sm: '8px' }}
+  //         bg="transparent"
+  //         borderRadius="12px"
+  //         onPress={() => {
+  //           closeOverlay();
+  //           webTabsActions.closeAllWebTabs();
+  //         }}
+  //       >
+  //         <Icon color="text-critical" size={24} name="XMarkMini" />
+  //         <Typography.Body1Strong ml="12px" color="text-critical">
+  //           {intl.formatMessage({
+  //             id: 'action__close_all_tabs',
+  //           })}
+  //         </Typography.Body1Strong>
+  //       </PressableItem>
+  //     </OverlayPanel>
+  //   ));
+  // }, [intl]);
 
-  const tabController = (
-    <Animated.View
-      style={[
-        {
-          ...StyleSheet.absoluteFillObject,
-          flexDirection: 'row',
-        },
-        useAnimatedStyle(
-          () => ({
-            zIndex: showTabGridAnim.value === MIN_OR_HIDE ? -1 : 1,
-            display: showTabGridAnim.value === MIN_OR_HIDE ? 'none' : 'flex',
-            opacity: showTabGridAnim.value,
-          }),
-          [],
-        ),
-      ]}
-    >
-      <IconButton
-        flex={1}
-        type="plain"
-        onPress={() => hideTabGrid()}
-        name="ChevronLeftOutline"
-      />
-      <IconButton
-        flex={1}
-        type="plain"
-        disabled={reachedTabLimit}
-        onPress={webTabsActions.addBlankWebTab}
-        iconSize={26}
-        name="PlusCircleMini"
-      />
-      <IconButton
-        name="TrashOutline"
-        flex={1}
-        type="plain"
-        onPress={closeAllTabs}
-      />
-    </Animated.View>
-  );
+  // const tabController = (
+  //   <Animated.View
+  //     style={[
+  //       {
+  //         ...StyleSheet.absoluteFillObject,
+  //         flexDirection: 'row',
+  //       },
+  //       useAnimatedStyle(
+  //         () => ({
+  //           zIndex: showTabGridAnim.value === MIN_OR_HIDE ? -1 : 1,
+  //           display: showTabGridAnim.value === MIN_OR_HIDE ? 'none' : 'flex',
+  //           opacity: showTabGridAnim.value,
+  //         }),
+  //         [],
+  //       ),
+  //     ]}
+  //   >
+  //     <IconButton
+  //       flex={1}
+  //       type="plain"
+  //       onPress={() => hideTabGrid()}
+  //       name="ChevronLeftOutline"
+  //     />
+  //     <IconButton
+  //       flex={1}
+  //       type="plain"
+  //       disabled={reachedTabLimit}
+  //       onPress={webTabsActions.addBlankWebTab}
+  //       iconSize={26}
+  //       name="PlusCircleMini"
+  //     />
+  //     <IconButton
+  //       name="TrashOutline"
+  //       flex={1}
+  //       type="plain"
+  //       onPress={closeAllTabs}
+  //     />
+  //   </Animated.View>
+  // );
   return (
     <PortalRender container={`BottomTab-Overlay-${TabRoutes.Discover}`}>
       <Animated.View
@@ -220,7 +234,7 @@ export const ControllerBarMobile: FC = () => {
       >
         <Box flex={1} flexDirection="row" overflow="hidden" mb={`${bottom}px`}>
           {pageController}
-          {tabController}
+          {/* {tabController} */}
         </Box>
       </Animated.View>
     </PortalRender>

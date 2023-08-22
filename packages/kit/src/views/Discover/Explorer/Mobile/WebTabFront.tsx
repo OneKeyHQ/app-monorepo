@@ -1,8 +1,7 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { Freeze } from 'react-freeze';
 import { StyleSheet, View } from 'react-native';
-import ViewShot from 'react-native-view-shot';
 
 import { homeTab } from '../../../../store/observable/webTabs';
 import DiscoverHome from '../../Home';
@@ -10,7 +9,6 @@ import WebContent from '../Content/WebContent';
 import { onItemSelect, openMatchDApp } from '../Controller/gotoSite';
 import { useNotifyChanges } from '../Controller/useNotifyChanges';
 import { useWebTabs } from '../Controller/useWebTabs';
-import { setThumbnailRatio, tabViewShotRef } from '../explorerAnimation';
 
 const styles = StyleSheet.create({
   container: {
@@ -35,19 +33,9 @@ const WebTabFront = memo(() => {
       )),
     [tabs],
   );
-  const onLayout = useCallback(
-    ({
-      nativeEvent: {
-        layout: { width, height },
-      },
-    }) => {
-      setThumbnailRatio(height / width);
-    },
-    [],
-  );
 
   return (
-    <ViewShot style={styles.container} ref={tabViewShotRef} onLayout={onLayout}>
+    <View style={styles.container}>
       {content}
       <Freeze freeze={!showHome}>
         <View style={styles.blankPage}>
@@ -57,7 +45,7 @@ const WebTabFront = memo(() => {
           />
         </View>
       </Freeze>
-    </ViewShot>
+    </View>
   );
 });
 WebTabFront.displayName = 'WebTabFront';

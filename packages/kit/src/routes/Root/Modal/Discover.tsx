@@ -7,6 +7,7 @@ import { EditBookmark } from '../../../views/Discover/EditBookmark';
 import { SearchModalView } from '../../../views/Discover/Explorer/Search/SearchModalView';
 import { Favorites } from '../../../views/Discover/Favorites';
 import { History } from '../../../views/Discover/History';
+import { MobileTabs } from '../../../views/Discover/MobileTabs';
 import { ShareView } from '../../../views/Discover/Share';
 import { DiscoverModalRoutes } from '../../../views/Discover/type';
 
@@ -61,6 +62,10 @@ const modalRoutes = [
   {
     name: DiscoverModalRoutes.ChainSelector,
     component: ChainSelector,
+  },
+  {
+    name: DiscoverModalRoutes.MobileTabs,
+    component: MobileTabs,
   },
 ];
 
