@@ -136,49 +136,55 @@ const MarketList: FC = () => {
     [favoriteTokens.length, recommendedTokens.length, selectedCategory],
   );
 
+  const header = useMemo(
+    () => (
+      <Box pt={1} mt={-1} bgColor="background-default">
+        {showRecomended ? (
+          <MarketRecomment tokens={recommendedTokens} />
+        ) : (
+          <MarketListHeader headTags={listHeadTags} />
+        )}
+      </Box>
+    ),
+    [listHeadTags, recommendedTokens, showRecomended],
+  );
+
   return (
     <>
-      <FlatList
-        flex={1}
-        style={{
-          maxWidth: MAX_PAGE_CONTAINER_WIDTH,
-          width: '100%',
-          marginHorizontal: 'auto',
-          alignSelf: 'center',
-        }}
-        px={isVerticalLayout ? 2 : 3}
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-        ref={scrollRef}
-        bg="background-default"
-        onScroll={onScroll}
-        contentContainerStyle={{
-          paddingBottom: 24,
-        }}
-        keyExtractor={(item, index) => `${item}-${index}`}
-        stickyHeaderIndices={[0]}
-        scrollEventThrottle={200}
-        data={
-          // eslint-disable-next-line no-nested-ternary
-          showRecomended
-            ? null
-            : selectedCategory?.coingeckoIds?.length
-            ? selectedCategory.coingeckoIds
-            : MARKET_FAKE_SKELETON_LIST_ARRAY
-        }
-        renderItem={renderItem}
-        ItemSeparatorComponent={!isVerticalLayout ? Divider : null}
-        ListHeaderComponent={
-          <Box pt={1} mt={-1} bgColor="background-default">
-            <MarketCategoryToggles categorys={categorys} />
-            {showRecomended ? (
-              <MarketRecomment tokens={recommendedTokens} />
-            ) : (
-              <MarketListHeader headTags={listHeadTags} />
-            )}
-          </Box>
-        }
-      />
+      <Box flex={1} px={isVerticalLayout ? 2 : 3}>
+        <MarketCategoryToggles categorys={categorys} />
+        <FlatList
+          flex={1}
+          style={{
+            maxWidth: MAX_PAGE_CONTAINER_WIDTH,
+            width: '100%',
+            marginHorizontal: 'auto',
+            alignSelf: 'center',
+          }}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          ref={scrollRef}
+          bg="background-default"
+          onScroll={onScroll}
+          contentContainerStyle={{
+            paddingBottom: 24,
+          }}
+          keyExtractor={(item, index) => `${item}-${index}`}
+          stickyHeaderIndices={[0]}
+          scrollEventThrottle={200}
+          data={
+            // eslint-disable-next-line no-nested-ternary
+            showRecomended
+              ? null
+              : selectedCategory?.coingeckoIds?.length
+              ? selectedCategory.coingeckoIds
+              : MARKET_FAKE_SKELETON_LIST_ARRAY
+          }
+          renderItem={renderItem}
+          ItemSeparatorComponent={!isVerticalLayout ? Divider : null}
+          ListHeaderComponent={header}
+        />
+      </Box>
       {goToTopBtnShow && (
         <IconButton
           circle
