@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 import { Box, CustomSkeleton, ToggleButtonGroup } from '@onekeyhq/components';
 import type { ToggleButtonProps } from '@onekeyhq/components/src/ToggleButtonGroup/ToggleButtonGroup';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { MarketCategory } from '@onekeyhq/kit/src/store/reducers/market';
+import type { SimplyMarketCategory } from '@onekeyhq/kit/src/store/reducers/market';
 import { MARKET_FAVORITES_CATEGORYID } from '@onekeyhq/kit/src/store/reducers/market';
 
 import { MARKET_FAKE_SKELETON_CATEGORY_ARRAY } from '../../config';
@@ -14,29 +14,30 @@ import { useMarketSelectedCategoryId } from '../../hooks/useMarketCategory';
 
 import type { MarketCategoryHeadProps } from '../../types';
 
-export const switchCategory = (index: number, categorys: MarketCategory[]) => {
-  const selectedCategory = categorys[index];
+export const switchCategory = (
+  index: number,
+  categories: SimplyMarketCategory[],
+) => {
+  const selectedCategory = categories[index];
   if (selectedCategory) {
-    backgroundApiProxy.serviceMarket.toggleCategory({
-      categoryId: selectedCategory.categoryId,
-      coingeckoIds: selectedCategory.coingeckoIds,
-      type: selectedCategory.type,
-    });
+    backgroundApiProxy.serviceMarket.toggleCategory(
+      selectedCategory.categoryId,
+    );
   }
 };
-const MarketCategoryToggles: FC<MarketCategoryHeadProps> = ({ categorys }) => {
+const MarketCategoryToggles: FC<MarketCategoryHeadProps> = ({ categories }) => {
   const selectedCategoryId = useMarketSelectedCategoryId();
   const defaultSelectedIndex = useMemo(() => {
     if (selectedCategoryId) {
-      return categorys.findIndex((c) => c.categoryId === selectedCategoryId);
+      return categories.findIndex((c) => c.categoryId === selectedCategoryId);
     }
-    const findIndex = categorys.findIndex((c) => c.defaultSelected);
+    const findIndex = categories.findIndex((c) => c.defaultSelected);
     return findIndex !== -1 ? findIndex : 0;
-  }, [categorys, selectedCategoryId]);
+  }, [categories, selectedCategoryId]);
   const intl = useIntl();
   const buttons = useMemo(
     () =>
-      categorys.map((c) => {
+      categories.map((c) => {
         const buttonData: ToggleButtonProps = {
           text: c.name ?? '',
         };
@@ -47,19 +48,19 @@ const MarketCategoryToggles: FC<MarketCategoryHeadProps> = ({ categorys }) => {
         }
         return buttonData;
       }),
-    [categorys, intl],
+    [categories, intl],
   );
 
   const toggleCategory = useCallback(
     (index: number) => {
-      switchCategory(index, categorys);
+      switchCategory(index, categories);
     },
-    [categorys],
+    [categories],
   );
   return (
     <Box h="32px">
       <Box flex={1} width="full">
-        {categorys.length > 0 ? (
+        {categories.length > 0 ? (
           <ToggleButtonGroup
             leftIconSize={0}
             buttons={buttons}

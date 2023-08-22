@@ -32,12 +32,12 @@ import {
   useMarketCategoryList,
   useMarketFavoriteCategoryTokenIds,
   useMarketFavoriteRecommentedList,
+  useSimplyMarketTabCategoryList,
 } from './hooks/useMarketCategory';
 import { useMarketWidthLayout } from './hooks/useMarketLayout';
 import { useMarketList } from './hooks/useMarketList';
 
 import type { HomeRoutesParams } from '../../routes/types';
-import type { MarketCategory } from '../../store/reducers/market';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type {
   FlatList as FlatListType,
@@ -51,7 +51,8 @@ type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 const MarketList: FC = () => {
   const { screenWidth } = useUserDevice();
   const { marketFillWidth, isVerticalLayout } = useMarketWidthLayout();
-  const categorys: MarketCategory[] = useMarketCategoryList();
+  useMarketCategoryList();
+  const categories = useSimplyMarketTabCategoryList();
   const recommendedTokens = useMarketFavoriteRecommentedList();
   const favoriteTokens = useMarketFavoriteCategoryTokenIds();
   const { selectedCategory, onRefreshingMarketList } = useMarketList();
@@ -152,7 +153,7 @@ const MarketList: FC = () => {
   return (
     <>
       <Box flex={1} px={isVerticalLayout ? 2 : 3}>
-        <MarketCategoryToggles categorys={categorys} />
+        <MarketCategoryToggles categories={categories} />
         <FlatList
           flex={1}
           style={{

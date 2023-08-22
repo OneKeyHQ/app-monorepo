@@ -40,6 +40,7 @@ export type SimplyMarketCategory = {
   name?: string;
   categoryId: CategoryId;
   type: 'tab' | 'search';
+  defaultSelected?: boolean;
 };
 
 export type MarketTokenItem = {
@@ -172,6 +173,7 @@ export type MarketInitialState = {
   searchTabCategoryId?: CategoryId;
   categorys: Record<CategoryId, MarketCategory>;
   searchSimplyCategories: SimplyMarketCategory[];
+  tabSimplyCategories: SimplyMarketCategory[];
   marketTokens: Record<CoingeckoId, MarketTokenItem>;
   charts: Record<CoingeckoId, Record<string, TokenChartData>>;
   details: Record<CoingeckoId, MarketTokenDetail>;
@@ -185,6 +187,7 @@ export type MarketInitialState = {
 const initialState: MarketInitialState = {
   categorys: {},
   searchSimplyCategories: [],
+  tabSimplyCategories: [],
   marketTokens: {},
   listSort: null,
   charts: {},
@@ -227,7 +230,20 @@ export const MarketSlicer = createSlice({
       });
       state.searchSimplyCategories = payload
         .filter((c) => c.type === MarketCategoryType.MRKET_CATEGORY_TYPE_SEARCH)
-        .map((c) => ({ categoryId: c.categoryId, name: c.name, type: c.type }));
+        .map((c) => ({
+          categoryId: c.categoryId,
+          name: c.name,
+          type: c.type,
+          defaultSelected: c.defaultSelected,
+        }));
+      state.tabSimplyCategories = payload
+        .filter((c) => c.type === MarketCategoryType.MRKET_CATEGORY_TYPE_TAB)
+        .map((c) => ({
+          categoryId: c.categoryId,
+          name: c.name,
+          type: c.type,
+          defaultSelected: c.defaultSelected,
+        }));
     },
     updateMarketTokens(
       state,
