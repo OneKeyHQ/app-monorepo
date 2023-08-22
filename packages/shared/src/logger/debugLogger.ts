@@ -253,6 +253,7 @@ export enum LoggerNames {
   native = 'native',
   staking = 'staking',
   allNetworks = 'allNetworks',
+  dataCleanup = 'dataCleanup',
 }
 
 export type LoggerEntity = {
@@ -310,6 +311,7 @@ const debugLogger: Record<
   [LoggerNames.native]: Cache.createLogger(LoggerNames.native),
   [LoggerNames.staking]: Cache.createLogger(LoggerNames.staking),
   [LoggerNames.allNetworks]: Cache.createLogger(LoggerNames.allNetworks),
+  [LoggerNames.dataCleanup]: Cache.createLogger(LoggerNames.dataCleanup),
 };
 
 if (platformEnv.isDev) {

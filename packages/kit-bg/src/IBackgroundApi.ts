@@ -20,6 +20,7 @@ import type ServiceContract from './services/ServiceContract';
 import type ServiceCronJob from './services/ServiceCronJob';
 import type ServiceDapp from './services/ServiceDapp';
 import type ServiceDappMetaData from './services/ServiceDappMetaData';
+import type ServiceDataCleanup from './services/ServiceDataCleanup';
 import type ServiceDerivationPath from './services/ServiceDerivationPath';
 import type ServiceDiscover from './services/ServiceDiscover';
 import type ServiceExternalAccount from './services/ServiceExternalAccount';
@@ -134,4 +135,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceBRC20: ServiceBRC20;
   serviceNFT: ServiceNFT;
   serviceStaking: ServiceStaking;
+  serviceDataCleanup: ServiceDataCleanup;
 }

@@ -465,5 +465,15 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.defineProperty(this, 'serviceBRC20', { value });
     return value;
   }
+
+  get serviceDataCleanup() {
+    const ServiceDataCleanup =
+      require('./services/ServiceDataCleanup') as typeof import('./services/ServiceDataCleanup');
+    const value = new ServiceDataCleanup.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceDataCleanup', { value });
+    return value;
+  }
 }
 export default BackgroundApi;

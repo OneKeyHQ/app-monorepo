@@ -15,6 +15,9 @@ import { SimpleDbEntityUrlInfo } from './entity/SimpleDbEntityUrlInfo';
 import { SimpleDbEntityUtxoAccounts } from './entity/SimpleDbEntityUtxoAccounts';
 import { SimpleDbEntityWalletConnect } from './entity/SimpleDbEntityWalletConnect';
 
+/**
+ *  Must have keys that is the same as entityNames so ServiceDataCleanup can correctly locate the SimpleDbEntity instance
+ */
 class SimpleDb {
   history = new SimpleDbEntityHistory();
 
@@ -25,6 +28,8 @@ class SimpleDb {
   swap = new SimpleDbEntitySwap();
 
   token = new SimpleDbEntityTokens();
+
+  tokens = this.token;
 
   walletConnect = new SimpleDbEntityWalletConnect();
 
@@ -40,7 +45,11 @@ class SimpleDb {
 
   accountPortfolios = new SimpleDbEntityAccountPortfolios();
 
+  overviewPortfolios = this.accountPortfolios;
+
   inscribe = new SimpleDbEntityInscribe();
+
+  Inscribe = this.inscribe;
 
   urlInfo = new SimpleDbEntityUrlInfo();
 }

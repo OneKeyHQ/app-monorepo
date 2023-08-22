@@ -22,6 +22,7 @@ import type ServiceContract from './services/ServiceContract';
 import type ServiceCronJob from './services/ServiceCronJob';
 import type ServiceDapp from './services/ServiceDapp';
 import type ServiceDappMetaData from './services/ServiceDappMetaData';
+import type ServiceDataCleanup from './services/ServiceDataCleanup';
 import type ServiceDerivationPath from './services/ServiceDerivationPath';
 import type ServiceDiscover from './services/ServiceDiscover';
 import type ServiceExternalAccount from './services/ServiceExternalAccount';
@@ -204,6 +205,10 @@ class BackgroundApiProxy
   ) as ServiceDappMetaData;
 
   serviceBRC20 = this._createProxyService('serviceBRC20') as ServiceBRC20;
+
+  serviceDataCleanup = this._createProxyService(
+    'serviceDataCleanup',
+  ) as ServiceDataCleanup;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {
