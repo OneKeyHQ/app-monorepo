@@ -15,22 +15,19 @@ import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
+import { freezedEmptyArray } from '@onekeyhq/shared/src/consts/sharedConsts';
 import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import {
-  useAccountPortfolios,
-  useActiveSideAccount,
-  useAppSelector,
-} from '../../../../hooks';
+import { useActiveSideAccount, useAppSelector } from '../../../../hooks';
 import { useGridListLayout } from '../../../../hooks/useGridListLayout';
+import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import {
   ModalRoutes,
   RootRoutes,
   SendModalRoutes,
 } from '../../../../routes/routesEnum';
-import { EOverviewScanTaskType } from '../../../Overview/types';
 
 import SelectNFTCard from './SelectNFTCard';
 import { SendNFTContentProvider, useSendNFTContent } from './SendNFTContent';
@@ -170,7 +167,7 @@ function SendNFTList({
   networkId: string;
 }) {
   const intl = useIntl();
-  const { activeNetworkId, activeAccountId } = useAppSelector((s) => s.general);
+  const { activeNetworkId } = useAppSelector((s) => s.general);
   const { network, accountAddress } = useActiveSideAccount({
     networkId,
     accountId,
@@ -195,11 +192,21 @@ function SendNFTList({
     }
   }, [accountId, isNFTSupport, networkId, network]);
 
-  const data = useAccountPortfolios({
-    networkId: activeNetworkId,
-    accountId: activeAccountId,
-    type: EOverviewScanTaskType.nfts,
-  }).data as Collection[];
+  const { result } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceOverview.buildAccountNFTList({
+        networkId,
+        accountId,
+      }),
+    [accountId, networkId],
+  );
+
+  const data = useMemo(
+    () =>
+      (result?.nfts?.map((n) => n.data)?.flat() ??
+        freezedEmptyArray) as Collection[],
+    [result],
+  );
 
   const collectibles = useMemo(() => {
     if (isAllNetworks(activeNetworkId)) {

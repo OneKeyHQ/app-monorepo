@@ -45,6 +45,7 @@ import type ServicePromise from './services/ServicePromise';
 import type ServiceRevoke from './services/ServiceRevoke';
 import type ServiceSetting from './services/ServiceSetting';
 import type ServiceSocket from './services/ServiceSocket';
+import type ServiceStaking from './services/ServiceStaking';
 import type ServiceSwap from './services/ServiceSwap';
 import type ServiceToken from './services/ServiceToken';
 import type ServiceTransaction from './services/ServiceTransaction';
@@ -132,4 +133,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceDappMetaData: ServiceDappMetaData;
   serviceBRC20: ServiceBRC20;
   serviceNFT: ServiceNFT;
+  serviceStaking: ServiceStaking;
 }

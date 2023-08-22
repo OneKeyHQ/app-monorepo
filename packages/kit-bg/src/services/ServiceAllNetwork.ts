@@ -21,9 +21,11 @@ import {
   removeMapNetworks,
   removeWalletAccountsMap,
   setAllNetworksAccountsMap,
-  setOverviewPortfolioUpdatedAt,
 } from '@onekeyhq/kit/src/store/reducers/overview';
-import { setOverviewAccountIsUpdating } from '@onekeyhq/kit/src/store/reducers/refresher';
+import {
+  setOverviewAccountIsUpdating,
+  updateRefreshHomeOverviewTs,
+} from '@onekeyhq/kit/src/store/reducers/refresher';
 import type { NetworkWithAccounts } from '@onekeyhq/kit/src/views/ManageNetworks/types';
 import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
 import {
@@ -455,28 +457,23 @@ export default class ServiceAllNetwork extends ServiceBase {
 
     if (Object.keys(networkAccountsMap).length === 0) {
       const dispatchKey = `${FAKE_ALL_NETWORK.id}___${activeAccountId}`;
+      const scanTypes = [
+        EOverviewScanTaskType.token,
+        EOverviewScanTaskType.nfts,
+        EOverviewScanTaskType.defi,
+      ];
       // remove assets
       await simpleDb.accountPortfolios.setAllNetworksPortfolio({
         key: dispatchKey,
-        scanTypes: [
-          EOverviewScanTaskType.token,
-          EOverviewScanTaskType.nfts,
-          EOverviewScanTaskType.defi,
-        ],
+        scanTypes,
         data: {
           token: [],
           nfts: [],
           defi: [],
         },
       });
-      actions.push(
-        setOverviewPortfolioUpdatedAt({
-          key: dispatchKey,
-          data: {
-            updatedAt: Date.now(),
-          },
-        }),
-      );
+
+      actions.push(updateRefreshHomeOverviewTs(scanTypes));
     }
 
     dispatch(...actions);

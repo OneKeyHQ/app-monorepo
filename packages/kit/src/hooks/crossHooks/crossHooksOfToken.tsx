@@ -4,7 +4,6 @@ import { isNil } from 'lodash';
 
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type {
-  IAccountTokenData,
   IToken,
   ITokenFiatValuesInfo,
 } from '@onekeyhq/engine/src/types/token';
@@ -22,15 +21,9 @@ import type {
   IAmountValue,
   ITokenBalanceInfo,
   ITokenPriceInfo,
-  ITokenPriceValue,
   ITokensPricesMap,
-  SimpleTokenPrices,
-  TokenBalanceValue,
 } from '../../store/reducers/tokens';
-import type {
-  IAccountToken,
-  IReduxHooksQueryToken,
-} from '../../views/Overview/types';
+import type { IReduxHooksQueryToken } from '../../views/Overview/types';
 
 export const {
   use: useReduxAccountTokensList,
@@ -42,7 +35,7 @@ export const {
     accountId: string;
     networkId: string;
   }
->((selector, { useMemo, options }) => {
+>((selector, { options }) => {
   const accountId = options?.accountId || '';
   const networkId = options?.networkId || '';
 
@@ -62,7 +55,7 @@ export const {
     accountId?: string;
     networkId?: string;
   }
->((selector, { useMemo, options }) => {
+>((selector, { options }) => {
   const accountId = options.accountId || '';
   const networkId = options.networkId || '';
   const balances =
@@ -75,7 +68,7 @@ export const {
   use: useReduxTokenPricesMap,
   //
   get: getReduxTokenPricesMap,
-} = buildCrossHooks<ITokensPricesMap>((selector, { useMemo }) => {
+} = buildCrossHooks<ITokensPricesMap>((selector) => {
   const prices = selector((s) => s.tokens.tokenPriceMap) ?? freezedEmptyObject;
   return prices;
 });
@@ -90,7 +83,7 @@ export const {
     prices: ITokensPricesMap;
     token: IReduxHooksQueryToken;
   }
->((selector, { useMemo, options }) => {
+>((_, { options }) => {
   const tokenNetworkId = options?.token?.networkId;
   const tokenAddress = options?.token?.address;
   const priceKey = [tokenNetworkId, tokenAddress].filter(Boolean).join('-');
@@ -128,7 +121,7 @@ export const {
     balances: IAccountTokensBalanceMap;
     token: IReduxHooksQueryToken;
   }
->((selector, { useMemo, options }) => {
+>((_, { options }) => {
   const balancekey = getBalanceKey(options?.token);
   const balanceInfo = options?.balances[balancekey];
   const result: ITokenBalanceInfo = isNil(balanceInfo)
@@ -167,16 +160,16 @@ export const {
     priceInfo: ITokenPriceInfo;
     token: IReduxHooksQueryToken;
   }
->((selector, { useMemo, options }) => {
-  const { priceInfo, balanceInfo, token } = options;
+>((_, { options }) => {
+  const { priceInfo, balanceInfo } = options;
   const { price, price24h, priceRawInfo } = priceInfo;
-  const { balance, blockHeight } = balanceInfo;
+  const { balance, transferBalance, availableBalance } = balanceInfo;
 
   let value: IAmountValue;
   let usdValue: IAmountValue;
   let value24h: IAmountValue;
-  if (!isNil(price) && !isNil(balance)) {
-    value = new BigNumber(price).multipliedBy(balance).toFixed();
+  if (typeof price !== 'undefined' && !isNil(balance)) {
+    value = new BigNumber(price || 0).multipliedBy(balance).toFixed();
     usdValue = value;
   }
   const baseValue24h = getPreBaseValue({
@@ -191,6 +184,8 @@ export const {
     price,
     price24h,
     balance,
+    transferBalance,
+    availableBalance,
     value,
     usdValue,
     value24h,

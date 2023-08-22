@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import B from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -18,11 +18,10 @@ import defiLogoShadow from '@onekeyhq/kit/assets/defiLogoShadow.png';
 import { ErrorBoundary } from '../../../../components/ErrorBoundary';
 import { FormatCurrencyNumber } from '../../../../components/Format';
 import {
-  useAccountValues,
   useActiveWalletAccount,
+  useAppSelector,
   useNavigation,
 } from '../../../../hooks';
-import { useCurrentFiatValue } from '../../../../hooks/useTokens';
 import { openDapp } from '../../../../utils/openUrl';
 import { showDialog } from '../../../../utils/overlayUtils';
 
@@ -145,7 +144,7 @@ const PoolName: FC<{
   );
 };
 
-export const OverviewDefiProtocol: FC<
+export const OverviewDefiProtocolWithoutMemo: FC<
   OverviewDefiRes & {
     showHeader?: boolean;
     bgColor?: string;
@@ -167,24 +166,21 @@ export const OverviewDefiProtocol: FC<
   const intl = useIntl();
 
   const isVertical = useIsVerticalLayout();
-  const fiat = useCurrentFiatValue();
 
   const { networkId, accountId } = useActiveWalletAccount();
 
-  const accountAllValues = useAccountValues({
-    networkId,
-    accountId,
-  });
+  const stats = useAppSelector(
+    (s) => s.overview.overviewStats?.[networkId]?.[accountId],
+  );
 
   const open = useOpenProtocolUrl(props);
 
   const rate = useMemo(
     () =>
       new B(protocolValue)
-        .multipliedBy(fiat)
-        .div(accountAllValues.value)
+        .div(stats?.summary?.totalValue ?? 0)
         .multipliedBy(100),
-    [protocolValue, accountAllValues, fiat],
+    [protocolValue, stats?.summary?.totalValue],
   );
 
   const content = useMemo(() => {
@@ -291,3 +287,5 @@ export const OverviewDefiProtocol: FC<
     </ErrorBoundary>
   );
 };
+
+export const OverviewDefiProtocol = memo(OverviewDefiProtocolWithoutMemo);

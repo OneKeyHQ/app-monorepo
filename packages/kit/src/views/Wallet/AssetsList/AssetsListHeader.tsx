@@ -5,7 +5,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
-import { Divider } from '@onekeyhq/components';
+import { Box, Divider, Typography } from '@onekeyhq/components';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import {
@@ -37,6 +37,25 @@ type NavigationProps = NativeStackNavigationProp<
   RootRoutes.Main
 > &
   NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.FullTokenListScreen>;
+
+const OverviewTokenListColumns = memo(() => {
+  const intl = useIntl();
+  return (
+    <Box flexDirection="row" w="full">
+      <Typography.Subheading color="text-subdued" flex={1}>
+        {intl.formatMessage({ id: 'title__assets' })}
+      </Typography.Subheading>
+      <Typography.Subheading color="text-subdued" flex={1} textAlign="right">
+        {intl.formatMessage({ id: 'content__price_uppercase' })}
+      </Typography.Subheading>
+      <Typography.Subheading color="text-subdued" flex={1} textAlign="right">
+        {intl.formatMessage({ id: 'form__value' })}
+      </Typography.Subheading>
+    </Box>
+  );
+});
+
+OverviewTokenListColumns.displayName = 'OverviewTokenListColumns';
 
 const AssetsListHeaderInner: FC<{
   showTokenCount?: boolean;
@@ -118,6 +137,7 @@ const AssetsListHeaderInner: FC<{
       showRoundTop={showRoundTop}
       borderColor={borderColor}
       onPress={onPress}
+      columns={<OverviewTokenListColumns />}
     />
   );
 };
