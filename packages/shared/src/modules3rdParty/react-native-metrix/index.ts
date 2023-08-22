@@ -58,7 +58,7 @@ export const startLogging = async () => {
 
 export const stopLogging = () => {
   if (isLogging && cancelSubscription) {
-    isLogging = true;
+    isLogging = false;
     cancelSubscription();
   }
 };

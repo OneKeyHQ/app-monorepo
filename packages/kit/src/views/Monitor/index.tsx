@@ -79,17 +79,16 @@ export const MonitorSettings = () => {
         <Button
           testID="UnitTestingUploadButton"
           type="primary"
-          onPress={() => {
-            setTimeout(async () => {
-              try {
-                if (unitTestName && uploadPassword) {
-                  await uploadMetricsInfo(unitTestName, uploadPassword);
-                  alert('file uploaded successfully');
-                }
-              } catch (error: unknown) {
-                alert(JSON.stringify(error));
+          onPress={async () => {
+            try {
+              if (unitTestName && uploadPassword) {
+                stopRecordingMetrics();
+                await uploadMetricsInfo(unitTestName, uploadPassword);
+                alert('file uploaded successfully');
               }
-            }, 1500);
+            } catch (error: unknown) {
+              alert(JSON.stringify(error));
+            }
           }}
         >
           Upload
