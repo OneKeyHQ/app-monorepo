@@ -164,7 +164,7 @@ export function useAssetsListDataFromRedux({
       if (tokensList && balancesMap && pricesMap) {
         //
       }
-      const r = backgroundApiProxy.serviceOverview.buildAccountOverview({
+      const r = backgroundApiProxy.serviceOverview.buildAccountTokens({
         networkId,
         accountId,
         tokensLimit: limitSize,

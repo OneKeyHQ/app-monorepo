@@ -625,7 +625,7 @@ class ServiceOverview extends ServiceBase {
     token,
     tokensFilter,
   }: {
-    token: IAccountTokenData;
+    token: IAccountTokenData | IAccountToken;
     tokensFilter?: IAccountTokensFilter;
   }) {
     if (!tokensFilter) {
@@ -653,49 +653,58 @@ class ServiceOverview extends ServiceBase {
   }
 
   @backgroundMethod()
-  filterTokens<T>(
-    tokens: (IAccountToken | IAccountTokenData)[],
+  sortTokens<T extends IAccountToken | IAccountTokenData>(
+    tokens: T[],
     options: IAccountOverviewOptions,
-  ): Promise<
-    Pick<IOverviewAccountTokensResult, 'tokensKeys'> & {
-      tokens: T[];
+  ): T[] {
+    const { tokensSort } = options;
+    if (!tokensSort) {
+      return tokens;
     }
-  > {
-    const { tokensSort, tokensLimit, buildTokensMapKey } = options;
-    let tokensReturn = tokens;
-    let tokensKeys: string[] | undefined;
-    if (tokensSort) {
-      const { name, native, value, price } = tokensSort;
-      tokensReturn = tokensReturn.sort((a, b) => {
-        let condition = 0;
-        // putMainTokenOnTop
-        if (native) {
-          condition =
-            condition || (b.isNative ? 1 : 0) || (a.isNative ? -1 : 0);
-        }
-        // TODO asc support
-        if (value === 'desc') {
-          condition = condition || new B(b.value ?? 0).comparedTo(a.value ?? 0);
-        }
-        if (price === 'desc') {
-          condition = condition || new B(b.price ?? 0).comparedTo(a.price ?? 0);
-        }
-        if (name === 'asc') {
-          condition =
-            condition || natsort({ insensitive: true })(a.name, b.name);
-        }
-        return condition;
-      });
-    }
+    const { name, native, value, price } = tokensSort;
+    const tokensReturn = tokens.sort((a, b) => {
+      let condition = 0;
+      // putMainTokenOnTop
+      if (native) {
+        condition = condition || (b.isNative ? 1 : 0) || (a.isNative ? -1 : 0);
+      }
+      // TODO asc support
+      if (value === 'desc') {
+        condition = condition || new B(b.value ?? 0).comparedTo(a.value ?? 0);
+      }
+      if (price === 'desc') {
+        condition = condition || new B(b.price ?? 0).comparedTo(a.price ?? 0);
+      }
+      if (name === 'asc') {
+        condition = condition || natsort({ insensitive: true })(a.name, b.name);
+      }
+      return condition;
+    });
 
-    // * limit
+    return tokensReturn;
+  }
+
+  @backgroundMethod()
+  limitTokens<T extends IAccountToken | IAccountTokenData>(
+    tokens: T[],
+    options: IAccountOverviewOptions,
+  ): T[] {
+    const { tokensLimit } = options;
     if (!isNil(tokensLimit)) {
-      tokensReturn = tokensReturn.slice(0, tokensLimit);
+      return tokens.slice(0, tokensLimit);
     }
+    return tokens;
+  }
 
+  @backgroundMethod()
+  buildTokensMapKey<T extends IAccountToken | IAccountTokenData>(
+    tokens: T[],
+    options: IAccountOverviewOptions,
+  ): string[] | undefined {
+    const { buildTokensMapKey } = options;
     // * build map key
     if (buildTokensMapKey) {
-      tokensKeys = tokensReturn.map((token) => {
+      return tokens.map((token) => {
         const key = (token as IAccountToken)?.key;
         if (!key) {
           throw new Error('buildTokensMapKey ERROR: key is undefined');
@@ -703,11 +712,7 @@ class ServiceOverview extends ServiceBase {
         return key;
       });
     }
-
-    return Promise.resolve({
-      tokensKeys,
-      tokens: tokensReturn as T[],
-    });
+    return undefined;
   }
 
   @backgroundMethod()
@@ -719,7 +724,7 @@ class ServiceOverview extends ServiceBase {
       accountId,
       networkId,
       tokensFilter,
-      tokensLimit,
+      tokensSort,
       calculateTokensTotalValue,
     } = options;
     // IAccountTokenOnChain, IAccountTokenData
@@ -728,8 +733,13 @@ class ServiceOverview extends ServiceBase {
       accountId,
     });
 
-    const { balances } = this.getAccountTokensBalances(options);
-    const { prices } = this.getTokensPrices();
+    let balances: IAccountTokensBalanceMap | undefined;
+    let prices: ITokensPricesMap | undefined;
+
+    if (tokensSort || calculateTokensTotalValue) {
+      ({ prices } = this.getTokensPrices());
+      ({ balances } = this.getAccountTokensBalances(options));
+    }
 
     let totalValue: string | undefined;
     let totalValue24h: string | undefined;
@@ -738,7 +748,7 @@ class ServiceOverview extends ServiceBase {
     let accValue24h = new B(0);
 
     // * convert to custom token schema
-    const tokensReturn: Array<IAccountToken | IAccountTokenData> = [];
+    let tokensReturn: Array<IAccountToken | IAccountTokenData> = [];
     tokens.forEach((token) => {
       let valuesInfo: ITokenFiatValuesInfo = {};
       if (!isNil(prices) && !isNil(balances)) {
@@ -754,6 +764,12 @@ class ServiceOverview extends ServiceBase {
       const t: IAccountTokenData = {
         ...token,
         ...valuesInfo,
+        // @ts-ignore
+        key: this.buildTokenKey({
+          networkId,
+          accountId,
+          token,
+        }),
         isNative,
       };
       // * filter tokens
@@ -823,20 +839,19 @@ class ServiceOverview extends ServiceBase {
     // * calculate total before limit
     const tokensTotal = tokensReturn.length;
 
-    const { tokens: filteredTokens, tokensKeys } = await this.filterTokens<T>(
-      tokensReturn,
-      options,
-    );
+    tokensReturn = this.sortTokens(tokensReturn, options);
 
-    return {
+    tokensReturn = this.limitTokens(tokensReturn, options);
+
+    const tokensKeys = this.buildTokensMapKey(tokensReturn, options);
+
+    return Promise.resolve({
       tokensKeys,
-      tokens: !isNil(tokensLimit)
-        ? filteredTokens.slice(0, tokensLimit)
-        : filteredTokens,
+      tokens: tokensReturn as T[],
       tokensTotal,
       tokensTotalValue: totalValue,
       tokensTotalValue24h: totalValue24h,
-    };
+    });
   }
 
   async buildAllNetworksAccountTokens(
@@ -846,13 +861,8 @@ class ServiceOverview extends ServiceBase {
       tokens: unknown;
     }
   > {
-    const {
-      networkId,
-      accountId,
-      tokensFilter,
-      tokensLimit,
-      calculateTokensTotalValue,
-    } = options;
+    const { networkId, accountId, tokensFilter, calculateTokensTotalValue } =
+      options;
     const data = await this.getAccountPortfolio({
       networkId,
       accountId,
@@ -861,15 +871,11 @@ class ServiceOverview extends ServiceBase {
     let totalValue = new B(0);
     let totalValue24h = new B(0);
 
-    const tokensReturn: Array<IAccountToken> = [];
+    let tokensReturn: Array<IAccountToken> = [];
 
     (data[EOverviewScanTaskType.token] ?? []).forEach((t) => {
       const value = new B(t.value ?? '0');
       const value24h = new B(t.value24h ?? '0');
-
-      if (tokensFilter?.hideSmallBalance && value.isLessThan(1)) {
-        return;
-      }
 
       if (calculateTokensTotalValue) {
         totalValue = totalValue.plus(value);
@@ -898,20 +904,29 @@ class ServiceOverview extends ServiceBase {
         tokens: t.tokens ?? [],
       };
 
+      // * filter tokens
+      const isTokenRemains = this.filterAccountTokenPredicate({
+        token: tokenOverview,
+        tokensFilter,
+      });
+
+      if (!isTokenRemains) {
+        return;
+      }
+
       tokensReturn.push(tokenOverview);
     });
 
     // * calculate total before limit
     const tokensTotal = tokensReturn.length;
 
-    const { tokens: filteredTokens, tokensKeys } =
-      await this.filterTokens<IAccountToken>(tokensReturn, options);
+    tokensReturn = this.sortTokens(tokensReturn, options);
+    tokensReturn = this.limitTokens(tokensReturn, options);
+    const tokensKeys = this.buildTokensMapKey(tokensReturn, options);
 
     return {
       tokensKeys,
-      tokens: !isNil(tokensLimit)
-        ? filteredTokens.slice(0, tokensLimit)
-        : filteredTokens,
+      tokens: tokensReturn,
       tokensTotal,
       tokensTotalValue: totalValue.toFixed(3),
       tokensTotalValue24h: totalValue24h.toFixed(3),
@@ -994,6 +1009,7 @@ class ServiceOverview extends ServiceBase {
     let defiTotalValue = new B(0);
     let defiTotalValue24h = new B(0);
     const defiValuesMap: IOverviewAccountdefisResult['defiValuesMap'] = {};
+    const defiKeys: string[] = [];
 
     list.forEach((d) => {
       if (d.protocolValue) {
@@ -1003,6 +1019,7 @@ class ServiceOverview extends ServiceBase {
         defiTotalValue24h = defiTotalValue24h.plus(d.protocolValue24h);
       }
       const key = `${d._id.networkId}_${d._id.address}_${d._id.protocolId}`;
+      defiKeys.push(key);
       defiValuesMap[key] = {
         value: d.protocolValue,
         claimable: d.claimableValue,
@@ -1027,7 +1044,7 @@ class ServiceOverview extends ServiceBase {
     });
 
     return {
-      defiKeys: Object.keys(defiValuesMap),
+      defiKeys,
       defiValuesMap,
       defis: list,
     };
@@ -1051,19 +1068,19 @@ class ServiceOverview extends ServiceBase {
 
     const disPlayPriceType = appSelector((s) => s.nft.disPlayPriceType);
 
-    let totalValue = 0;
+    let totalValue = new B(0);
 
     if (!isAllNetworks(networkId)) {
+      const p = new B(prices?.[networkId ?? '']?.usd ?? 0);
       const v =
         nftPrices[accountId ?? '']?.[networkId ?? '']?.[disPlayPriceType] ?? 0;
-      const p = prices?.[networkId ?? '']?.usd ?? 0;
-      totalValue = p * v;
+      totalValue = p.multipliedBy(v);
     } else {
       for (const [nid, accounts] of Object.entries(networkAccountsMap ?? {})) {
-        const p = prices?.[nid]?.usd ?? 0;
+        const p = new B(prices?.[nid]?.usd ?? 0);
         for (const a of accounts) {
           const nftPrice = nftPrices?.[a.id]?.[nid]?.[disPlayPriceType] ?? 0;
-          totalValue += nftPrice * p;
+          totalValue = totalValue.plus(p.multipliedBy(nftPrice));
         }
       }
     }
@@ -1117,7 +1134,7 @@ class ServiceOverview extends ServiceBase {
   // this method only build data from DB, not fetch data from server
   // fetch data logic here: refreshCurrentAccount()
   @backgroundMethod()
-  async buildAccountOverview(
+  async buildAccountTokens(
     options: IAccountOverviewOptions,
   ): Promise<IOverviewAccountTokensResult> {
     const { networkId, accountId } = options;
@@ -1138,7 +1155,7 @@ class ServiceOverview extends ServiceBase {
       });
     }
 
-    return Promise.resolve(tokenRes);
+    return tokenRes;
   }
 
   @backgroundMethod()
@@ -1232,9 +1249,17 @@ class ServiceOverview extends ServiceBase {
       accountId,
       networkId,
     });
-    const { tokens } = await this.buildAccountOverview({
+    const { tokens } = await this.buildAccountTokens({
       accountId,
       networkId,
+      tokensFilter: {
+        hideRiskTokens: false,
+        hideSmallBalance: false,
+      },
+      tokensSort: {
+        native: true,
+      },
+      calculateTokensTotalValue: false,
     });
     const accounts = appSelector(
       (s) => s.overview.allNetworksAccountsMap?.[accountId]?.[networkId],

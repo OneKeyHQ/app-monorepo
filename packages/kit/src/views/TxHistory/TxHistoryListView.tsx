@@ -257,7 +257,7 @@ function TxHistoryListViewComponent({
 
   const { result: accountTokens } = usePromiseResult(
     () =>
-      backgroundApiProxy.serviceOverview.buildAccountOverview({
+      backgroundApiProxy.serviceOverview.buildAccountTokens({
         networkId: networkId ?? '',
         accountId: accountId ?? '',
       }),
