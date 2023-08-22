@@ -204,7 +204,6 @@ const HandleRebuildNFTListData = (
     }
     if (data.nftKeys) {
       if (!isEqual(nftList.nftKeys, data.nftKeys)) {
-        console.log(nftList.nftKeys, data.nftKeys);
         setNFTList(data);
       }
     } else {

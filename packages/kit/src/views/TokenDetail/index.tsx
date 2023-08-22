@@ -201,7 +201,6 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
         w="full"
         flex="1"
         justifyContent="center"
-        alignItems="flex-start"
       >
         <Tabs.Container
           headerHeight={headerHeight}
