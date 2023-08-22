@@ -60,7 +60,6 @@ export const stopLogging = () => {
   if (isLogging && cancelSubscription) {
     isLogging = true;
     cancelSubscription();
-    metrixLogger.info(measureTime);
   }
 };
 
@@ -77,4 +76,9 @@ export const stopRecordingMetrics = () => {
 };
 
 export const uploadMetricsInfo = (unitTestName: string, password: string) =>
-  uploadMetricsLogFile('', unitTestName, password);
+  uploadMetricsLogFile(
+    'http://127.0.0.1:7001/logs/upload',
+    unitTestName,
+    password,
+    JSON.stringify(measureTime),
+  );

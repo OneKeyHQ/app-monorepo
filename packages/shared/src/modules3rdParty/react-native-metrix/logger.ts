@@ -1,16 +1,24 @@
 import { fileAsyncTransport, logger } from 'react-native-logs';
 
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
+import { zip } from '@onekeyhq/shared/src/modules3rdParty/react-native-zip-archive';
 
 const fileName = `metrix.log`;
-const folderPath = RNFS?.TemporaryDirectoryPath || '';
-const metrixLogFilePath = `${folderPath}${fileName}`;
+const folderPath = `${RNFS?.TemporaryDirectoryPath || ''}metrix`;
+const metrixLogFilePath = `${folderPath}/${fileName}`;
+const zipName = 'metrix.zip';
+const zipFolderPath = `${RNFS?.TemporaryDirectoryPath || ''}metrix_zip`;
+const zipMetrixLogFilePath = `${zipFolderPath}/${zipName}`;
 
 export const resetLogFile = async () => {
-  if (await RNFS?.exists(metrixLogFilePath)) {
-    await RNFS?.unlink(metrixLogFilePath);
+  if (RNFS) {
+    if (await RNFS.exists(folderPath)) {
+      await RNFS.unlink(folderPath);
+    }
+    await RNFS.mkdir(folderPath);
+    await RNFS.mkdir(zipFolderPath);
+    await RNFS.writeFile(metrixLogFilePath, '');
   }
-  await RNFS?.writeFile(metrixLogFilePath, '');
 };
 
 export const metrixLogger = logger.createLogger({
@@ -24,19 +32,24 @@ export const metrixLogger = logger.createLogger({
   },
 });
 
-export const uploadMetricsLogFile = (
+export const uploadMetricsLogFile = async (
   uploadUrl: string,
   unitTestName: string,
   password: string,
-) =>
-  RNFS?.uploadFiles({
+  extra: string,
+) => {
+  await zip(folderPath, zipMetrixLogFilePath);
+  if (!(await RNFS?.exists(zipMetrixLogFilePath))) {
+    throw new Error('zip log path is not exist');
+  }
+  return RNFS?.uploadFiles({
     toUrl: uploadUrl,
     files: [
       {
         name: 'metrix',
-        filename: fileName,
-        filepath: metrixLogFilePath,
-        filetype: 'text/plain',
+        filename: zipName,
+        filepath: zipMetrixLogFilePath,
+        filetype: 'application/zip',
       },
     ],
     method: 'POST',
@@ -46,5 +59,7 @@ export const uploadMetricsLogFile = (
     fields: {
       unitTestName,
       password,
+      extra,
     },
   }).promise;
+};
