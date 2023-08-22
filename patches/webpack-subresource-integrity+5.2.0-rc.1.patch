@@ -1,0 +1,13 @@
+diff --git a/node_modules/webpack-subresource-integrity/dist/cjs/plugin.js b/node_modules/webpack-subresource-integrity/dist/cjs/plugin.js
+index a070762..e6ab36d 100644
+--- a/node_modules/webpack-subresource-integrity/dist/cjs/plugin.js
++++ b/node_modules/webpack-subresource-integrity/dist/cjs/plugin.js
+@@ -126,7 +126,7 @@ class Plugin {
+          */
+         this.hwpAssetPath = (src) => {
+             (0, util_1.assert)(this.hwpPublicPath !== null, "Missing HtmlWebpackPlugin publicPath");
+-            return (0, path_1.relative)(this.hwpPublicPath, src);
++            return (0, path_1.relative)(src.startsWith(this.hwpPublicPath) ? this.hwpPublicPath : '/', src);
+         };
+         /**
+          * @internal
