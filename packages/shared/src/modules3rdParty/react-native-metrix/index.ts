@@ -51,7 +51,7 @@ export const startLogging = async () => {
     isLogging = true;
     await resetLogFile();
     cancelSubscription = onUpdate((info) => {
-      metrixLogger.info(info);
+      metrixLogger.info(JSON.stringify(info));
     });
   }
 };
@@ -77,7 +77,7 @@ export const stopRecordingMetrics = () => {
 
 export const uploadMetricsInfo = (unitTestName: string, password: string) =>
   uploadMetricsLogFile(
-    'http://127.0.0.1:7001/logs/upload',
+    'http://127.0.0.1:7001/api/logs/upload',
     unitTestName,
     password,
     JSON.stringify(measureTime),
