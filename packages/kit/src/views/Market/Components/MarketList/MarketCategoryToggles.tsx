@@ -57,7 +57,7 @@ const MarketCategoryToggles: FC<MarketCategoryHeadProps> = ({ categorys }) => {
     [categorys],
   );
   return (
-    <Box>
+    <Box h="32px">
       <Box flex={1} width="full">
         {categorys.length > 0 ? (
           <ToggleButtonGroup
