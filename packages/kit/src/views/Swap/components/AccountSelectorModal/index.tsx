@@ -25,6 +25,7 @@ import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { LazyDisplayView } from '../../../../components/LazyDisplayView';
 import {
   NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY,
   useCreateAccountInWallet,
@@ -392,14 +393,14 @@ const EmptyAccountState: FC<EmptyAccountStateProps> = ({
   );
 };
 
-type PickAccountProps = ComponentProps<typeof Modal> & {
+type AccountSelectorModalProps = ComponentProps<typeof Modal> & {
   networkId?: string;
   accountId?: string;
   excluded?: { networkId?: string; accountId?: string };
   onSelect?: (acc: Account) => void;
 };
 
-const PickAccount: FC<PickAccountProps> = ({
+const AccountSelectorModal: FC<AccountSelectorModalProps> = ({
   networkId,
   accountId,
   onSelect,
@@ -454,36 +455,38 @@ const PickAccount: FC<PickAccountProps> = ({
       headerDescription={<HeaderDescription networkId={networkId} />}
       {...rest}
     >
-      <Box flex="1">
-        <Box>
-          <WalletSelectDropdown wallet={wallet} setWalletId={setWalletId} />
-          <Searchbar
-            w="full"
-            value={search}
-            placeholder={intl.formatMessage({ id: 'form__search' })}
-            onChangeText={setSearch}
-            onClear={() => setSearch('')}
-          />
-        </Box>
-        <Box flex="1" mt="2">
-          {accounts && accounts?.length > 0 ? (
-            <AccountsList
-              accounts={accounts}
-              networkId={networkId}
-              searchValue={search}
-              onSelect={onSelect}
-              activeAccountId={accountId}
+      <LazyDisplayView>
+        <Box flex="1">
+          <Box>
+            <WalletSelectDropdown wallet={wallet} setWalletId={setWalletId} />
+            <Searchbar
+              w="full"
+              value={search}
+              placeholder={intl.formatMessage({ id: 'form__search' })}
+              onChangeText={setSearch}
+              onClear={() => setSearch('')}
             />
-          ) : (
-            <EmptyAccountState
-              walletId={walletId}
-              networkId={networkId ?? ''}
-            />
-          )}
+          </Box>
+          <Box flex="1" mt="2">
+            {accounts && accounts?.length > 0 ? (
+              <AccountsList
+                accounts={accounts}
+                networkId={networkId}
+                searchValue={search}
+                onSelect={onSelect}
+                activeAccountId={accountId}
+              />
+            ) : (
+              <EmptyAccountState
+                walletId={walletId}
+                networkId={networkId ?? ''}
+              />
+            )}
+          </Box>
         </Box>
-      </Box>
+      </LazyDisplayView>
     </Modal>
   );
 };
 
-export default PickAccount;
+export default AccountSelectorModal;

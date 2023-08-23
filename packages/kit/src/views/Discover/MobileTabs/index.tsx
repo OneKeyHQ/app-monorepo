@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,6 +19,7 @@ import {
   getCurrentTabId,
   webTabsActions,
 } from '../../../store/observable/webTabs';
+import { wait } from '../../../utils/helper';
 import { showOverlay } from '../../../utils/overlayUtils';
 import { OverlayPanel } from '../../Overlay/OverlayPanel';
 import { FallbackIcon } from '../components/DAppIcon';
@@ -126,6 +127,7 @@ export const MobileTabs = () => {
   const ref = useRef<FlatList>();
   const navigation = useNavigation();
   const { tabs } = useWebTabs();
+  const [loading, setLoading] = useState(false);
   const data = useMemo(() => tabs.slice(1), [tabs]);
   const renderItem = useCallback(
     ({ item: tab }: { item: WebTab }) => <WebTabItem {...tab} />,
@@ -163,8 +165,15 @@ export const MobileTabs = () => {
     ));
   }, [intl, navigation]);
 
-  const onPress = useCallback(() => {
-    webTabsActions.addBlankWebTab();
+  const onPress = useCallback(async () => {
+    setLoading(true);
+    try {
+      await wait(100);
+      webTabsActions.addBlankWebTab();
+      await wait(100);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -191,11 +200,17 @@ export const MobileTabs = () => {
         keyExtractor,
         ref,
         showsVerticalScrollIndicator: false,
+        onScrollToIndexFailed: async (info) => {
+          await wait(500);
+          if (ref.current) {
+            ref.current.scrollToIndex({ index: info.index, animated: true });
+          }
+        },
       }}
       secondaryActionTranslationId="action__close_all"
       secondaryActionProps={{ onPress: closeAllTabs }}
       primaryActionTranslationId="action__add_new"
-      primaryActionProps={{ onPress }}
+      primaryActionProps={{ onPress, isLoading: loading }}
     />
   );
 };
