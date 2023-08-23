@@ -15,5 +15,10 @@ module.exports = {
         ios: null,
       },
     },
+    '@react-native-community/slider': {
+      platforms: {
+        ios: null,
+      },
+    },
   },
 };

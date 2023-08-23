@@ -11,7 +11,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 
-@interface RNTabViewModel : UIView
+@interface RNTabViewModel : NSObject
 
 @property(nonatomic,copy)NSString *activeColor;
 @property(nonatomic,copy)NSString *backgroundColor;

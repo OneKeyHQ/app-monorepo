@@ -3,27 +3,15 @@ import { useCallback, useState } from 'react';
 import NativeSlider from '@react-native-community/slider';
 import { Slider as WebSlider } from 'native-base';
 
-import type { ISliderProps } from 'native-base';
+import useThemeValue from '../Provider/hooks/useThemeValue';
 
-const Slider = ({
-  nativeMode,
-  children,
-  ...props
-}: ISliderProps & {
-  nativeMode?: boolean;
-  onChangeBegin?: () => void;
-  /**
-   * The color used for the track to the left of the button.
-   * Overrides the default blue gradient image.
-   */
-  minimumTrackTintColor?: string;
-  /**
-   * The color used for the track to the right of the button.
-   * Overrides the default blue gradient image.
-   */
-  maximumTrackTintColor?: string;
-}) => {
+import type { SliderProps } from './type';
+
+const Slider = ({ nativeMode, children, ...props }: SliderProps) => {
   const { onChangeBegin, onChange, onChangeEnd, maxValue, minValue } = props;
+  const minimumTrackTintColor = useThemeValue('interactive-default');
+  const maximumTrackTintColor = useThemeValue('surface-neutral-default');
+
   const [isSliding, changeSliding] = useState(false);
   const onWebValueChange = useCallback(
     (value: number) => {
@@ -50,7 +38,8 @@ const Slider = ({
 
   return nativeMode ? (
     <NativeSlider
-      minimumTrackTintColor="#33c641"
+      minimumTrackTintColor={minimumTrackTintColor}
+      maximumTrackTintColor={maximumTrackTintColor}
       {...props}
       onSlidingStart={onChangeBegin}
       onSlidingComplete={onChangeEnd}

@@ -2,6 +2,7 @@ import type { ComponentProps, FC } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
 import { Box, Center, HStack, Slider } from '@onekeyhq/components';
+import type { SliderProps } from '@onekeyhq/components/src/Slider/type';
 
 type PercentInputProps = Exclude<
   ComponentProps<typeof Slider>,
@@ -11,7 +12,7 @@ type PercentInputProps = Exclude<
   onChange: (value: number) => void;
 };
 
-const BaseExample = ({ nativeMode = false }: { nativeMode?: boolean }) => (
+const BaseExample = ({ nativeMode = false, ...rest }: SliderProps) => (
   <Slider
     nativeMode={nativeMode}
     w="3/4"
@@ -21,7 +22,8 @@ const BaseExample = ({ nativeMode = false }: { nativeMode?: boolean }) => (
     minValue={0}
     maxValue={100}
     accessibilityLabel="hello world"
-    step={10}
+    step={1}
+    {...rest}
   >
     <Slider.Track>
       <Slider.FilledTrack />
@@ -148,7 +150,16 @@ const SliderGallery = () => (
     <Box p="10" />
     <PercentInputExample />
     <Box p="10" />
-    <BaseExample nativeMode />
+    <BaseExample
+      nativeMode
+      presentStyle={{ space: 4, lineCount: 4 }}
+      thumbStyle={{
+        size: 16,
+        bgColor: '#303040',
+        borderColor: '#8C8CA1',
+        borderWidth: 3,
+      }}
+    />
   </Center>
 );
 

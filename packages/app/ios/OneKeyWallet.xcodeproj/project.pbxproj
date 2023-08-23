@@ -13,6 +13,9 @@
 		35F8423629752D6D0096FC7E /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 35F8423829752D6D0096FC7E /* InfoPlist.strings */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		96905EF65AED1B983A6B3ABC /* libPods-OneKeyWallet.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 58EEBF8E8E6FB1BC6CAF49B5 /* libPods-OneKeyWallet.a */; };
+		A21B5EC42A94980D007F0139 /* RNCSlider.m in Sources */ = {isa = PBXBuildFile; fileRef = A21B5EC02A94980D007F0139 /* RNCSlider.m */; };
+		A21B5EC52A94980D007F0139 /* RNCSliderManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A21B5EC12A94980D007F0139 /* RNCSliderManager.m */; };
+		A21B5ECB2A94A903007F0139 /* PresentView.m in Sources */ = {isa = PBXBuildFile; fileRef = A21B5ECA2A94A903007F0139 /* PresentView.m */; };
 		A23573BB2880172400A9CA58 /* RCTRootView+Orientation.m in Sources */ = {isa = PBXBuildFile; fileRef = A23573BA2880172400A9CA58 /* RCTRootView+Orientation.m */; };
 		A24B8A7427422EF300E321A9 /* OKNFCBridge.mm in Sources */ = {isa = PBXBuildFile; fileRef = A24B8A6127422EF200E321A9 /* OKNFCBridge.mm */; };
 		A24B8A7527422EF300E321A9 /* OKNFCUtility.m in Sources */ = {isa = PBXBuildFile; fileRef = A24B8A6727422EF200E321A9 /* OKNFCUtility.m */; };
@@ -104,6 +107,12 @@
 		58EEBF8E8E6FB1BC6CAF49B5 /* libPods-OneKeyWallet.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-OneKeyWallet.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		6C2E3173556A471DD304B334 /* Pods-OneKeyWallet.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OneKeyWallet.debug.xcconfig"; path = "Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet.debug.xcconfig"; sourceTree = "<group>"; };
 		7A4D352CD337FB3A3BF06240 /* Pods-OneKeyWallet.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OneKeyWallet.release.xcconfig"; path = "Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet.release.xcconfig"; sourceTree = "<group>"; };
+		A21B5EC02A94980D007F0139 /* RNCSlider.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RNCSlider.m; sourceTree = "<group>"; };
+		A21B5EC12A94980D007F0139 /* RNCSliderManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RNCSliderManager.m; sourceTree = "<group>"; };
+		A21B5EC22A94980D007F0139 /* RNCSlider.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RNCSlider.h; sourceTree = "<group>"; };
+		A21B5EC32A94980D007F0139 /* RNCSliderManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RNCSliderManager.h; sourceTree = "<group>"; };
+		A21B5EC92A94A903007F0139 /* PresentView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PresentView.h; sourceTree = "<group>"; };
+		A21B5ECA2A94A903007F0139 /* PresentView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PresentView.m; sourceTree = "<group>"; };
 		A23573B92880172400A9CA58 /* RCTRootView+Orientation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "RCTRootView+Orientation.h"; sourceTree = "<group>"; };
 		A23573BA2880172400A9CA58 /* RCTRootView+Orientation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "RCTRootView+Orientation.m"; sourceTree = "<group>"; };
 		A24B8A6027422EF200E321A9 /* OKNFCUtility.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OKNFCUtility.h; sourceTree = "<group>"; };
@@ -208,6 +217,7 @@
 				A3294A672844472100C18DD0 /* AppDelegate.mm */,
 				A2E53344288514A900063227 /* PagingView */,
 				A24B8A7127422EF300E321A9 /* RNBridge */,
+				A21B5EBF2A9497E8007F0139 /* RNCSlider */,
 				A24B8A6927422EF200E321A9 /* Category */,
 				A24B8A6E27422EF200E321A9 /* Frameworks */,
 				A284EFC127CE23580070F4EA /* Other */,
@@ -275,6 +285,19 @@
 				FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */,
 			);
 			name = OneKeyWallet;
+			sourceTree = "<group>";
+		};
+		A21B5EBF2A9497E8007F0139 /* RNCSlider */ = {
+			isa = PBXGroup;
+			children = (
+				A21B5EC22A94980D007F0139 /* RNCSlider.h */,
+				A21B5EC02A94980D007F0139 /* RNCSlider.m */,
+				A21B5EC32A94980D007F0139 /* RNCSliderManager.h */,
+				A21B5EC12A94980D007F0139 /* RNCSliderManager.m */,
+				A21B5EC92A94A903007F0139 /* PresentView.h */,
+				A21B5ECA2A94A903007F0139 /* PresentView.m */,
+			);
+			path = RNCSlider;
 			sourceTree = "<group>";
 		};
 		A24B8A5F27422EF200E321A9 /* NFC */ = {
@@ -695,7 +718,9 @@
 				A2732D8D29D5989000D2B412 /* CacheManager.m in Sources */,
 				A23573BB2880172400A9CA58 /* RCTRootView+Orientation.m in Sources */,
 				A24B8A7527422EF300E321A9 /* OKNFCUtility.m in Sources */,
+				A21B5EC52A94980D007F0139 /* RNCSliderManager.m in Sources */,
 				B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */,
+				A21B5EC42A94980D007F0139 /* RNCSlider.m in Sources */,
 				F46D18DA290A577F0018E04D /* Minimizer.m in Sources */,
 				A24B8A7827422EF300E321A9 /* NSData+StringToData.m in Sources */,
 				A3294A682844472100C18DD0 /* AppDelegate.mm in Sources */,
@@ -710,6 +735,7 @@
 				F483AEE0290A81C500423430 /* HTTPServerManager.m in Sources */,
 				A275EC072A4B03100053D7EC /* OKNFCLiteDefine.h in Sources */,
 				1625CE96A62F41B0B52FF2B4 /* noop-file.swift in Sources */,
+				A21B5ECB2A94A903007F0139 /* PresentView.m in Sources */,
 				A2E5334D288515EA00063227 /* PagingViewContainer.m in Sources */,
 				A284EFC427CE238D0070F4EA /* OKTools.m in Sources */,
 				A2E5334A2885157E00063227 /* PagingViewManager.m in Sources */,
