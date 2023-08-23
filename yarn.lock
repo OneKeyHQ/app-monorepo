@@ -6466,7 +6466,7 @@ __metadata:
     react-native-in-app-review: ^4.3.3
     react-native-keyboard-manager: ^6.5.11-1
     react-native-level-fs: ^3.0.1
-    react-native-metrix: ^0.6.2
+    react-native-metrix: ^0.6.3
     react-native-mmkv: ^2.8.0
     react-native-nested-scroll-view: "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git#feat/support-rn71"
     react-native-pager-view: 6.1.4
@@ -29398,13 +29398,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-metrix@npm:^0.6.2":
-  version: 0.6.2
-  resolution: "react-native-metrix@npm:0.6.2"
+"react-native-metrix@npm:^0.6.3":
+  version: 0.6.3
+  resolution: "react-native-metrix@npm:0.6.3"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 4faeb961a753ee9d96b5982fddf9f5c740b5507004118d3124d6c2df8222544d0daf9aa0e043ed0706b10511ee4865ad932f12ae851a02f37e9de422001b9a65
+  checksum: bbd4e9a7aaf3660c715095bd3f00f4afcc06facf8a478ea789eaf57f556f41f39da9cb5a359ff5cd570f40bbf6b3e06abf2795de099ac5c57feaf8f595d4521d
   languageName: node
   linkType: hard
 
