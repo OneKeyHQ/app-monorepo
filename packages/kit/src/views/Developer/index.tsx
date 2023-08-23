@@ -1,5 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import fetch from 'cross-fetch';
@@ -250,7 +256,19 @@ export const Debug = () => {
           >
             <HStack space="4">
               <Icon name="DesktopComputerMini" />
-              <Typography.Body1>Components</Typography.Body1>
+              <Typography.Body1>
+                {useMemo(() => {
+                  if (rrtStatus === '1') {
+                    return '';
+                  }
+                  if (rrtStatus === '0') {
+                    return '';
+                  }
+                  return '';
+                  // return `react-render-tracker${uri}`;
+                }, [rrtStatus])}
+                Components
+              </Typography.Body1>
             </HStack>
             <Icon name="ChevronRightMini" size={20} />
           </Pressable>
@@ -305,7 +323,7 @@ export const Debug = () => {
                 useWindowDimensions {width}x{height}
               </Typography.Body1>
             </Pressable>
-            <HStack>
+            <VStack>
               <Input
                 value={uri}
                 onChangeText={(t) => setUri(t)}
@@ -313,7 +331,8 @@ export const Debug = () => {
                 clearButtonMode="always"
                 clearTextOnFocus
               />
-            </HStack>
+              <Typography.Body1>{uri}</Typography.Body1>
+            </VStack>
             <Pressable
               {...pressableProps}
               onPress={async () => {
