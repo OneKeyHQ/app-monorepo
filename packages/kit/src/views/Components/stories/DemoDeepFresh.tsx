@@ -11,6 +11,12 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { DebugRenderTracker } from '@onekeyhq/components/src/DebugRenderTracker';
+import {
+  decrypt,
+  encodeSensitiveText,
+  encrypt,
+} from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import {
   atom,
@@ -222,11 +228,11 @@ function OwnedViewDeepFresh({ $key }: IDemoDeepFreshToken) {
     () => (
       <DebugRenderTracker>
         <Typography.Body1Strong>
-          {item.owned ? '   ✅' : '   '}
+          {item?.owned ? '   ✅' : '   '}
         </Typography.Body1Strong>
       </DebugRenderTracker>
     ),
-    [item.owned],
+    [item?.owned],
   );
   return content;
 }
@@ -305,6 +311,27 @@ function DemoDeepFreshOverview() {
   );
 }
 
+function generateRandomStrings(
+  numStrings: number,
+  stringLength: number,
+): string[] {
+  const randomStrings: string[] = [];
+  // eslint-disable-next-line no-plusplus
+  for (let i = 0; i < numStrings; i++) {
+    let randomString = '';
+    while (randomString.length < stringLength) {
+      // Generate a random string and remove the '0.' at the beginning
+      randomString += Math.random().toString(36).substring(2);
+    }
+    // Trim the string to the desired length
+    randomString = randomString.substring(0, stringLength);
+    randomStrings.push(randomString);
+  }
+  return randomStrings;
+}
+
+// Generate 100 random strings of length 256
+
 function ReloadButtons() {
   const [, refresh] = useAtomDemoDeepFresh(atomDemoDeepFreshReload);
   const [loading] = useAtomDemoDeepFresh(atomDemoDeepFreshTokensLoading);
@@ -322,6 +349,49 @@ function ReloadButtons() {
           isLoading={loading}
         >
           Shuffle
+        </Button>
+        <Button
+          size="lg"
+          mt={4}
+          onPress={() => {
+            const randomStrings = generateRandomStrings(20, 102400);
+            // @ts-ignore
+            global.$$$$randomStrings = randomStrings;
+            const pwd = '12345678901234567890123456789012';
+            const tester = (str: string) => {
+              const sstr = encrypt(
+                encodeSensitiveText({
+                  text: pwd,
+                }),
+                bufferUtils.toBuffer(str, 'utf-8'),
+              ).toString('hex');
+
+              const dstr = decrypt(
+                encodeSensitiveText({
+                  text: pwd,
+                }),
+                bufferUtils.toBuffer(sstr, 'hex'),
+              ).toString('utf-8');
+
+              if (str !== dstr) {
+                console.log('str not matched');
+                throw new Error('str not matched');
+              }
+              // console.log('str not matched2');
+              // throw new Error('str not matched2');
+            };
+
+            let now = Date.now();
+            randomStrings.forEach(tester);
+            console.log('Test encrypt by loop', (Date.now() - now) / 1000);
+
+            now = Date.now();
+            const bundleStr = randomStrings.join(',');
+            tester(bundleStr);
+            console.log('Test encrypt by bundle', (Date.now() - now) / 1000);
+          }}
+        >
+          Test encrypt
         </Button>
       </Box>
     </DebugRenderTracker>

@@ -57,6 +57,7 @@ import {
   checkPassword,
 } from '../base';
 
+import { REALM_DB_SCHEMA_VERSION } from './realm.version';
 import {
   AccountDerivationSchema,
   AccountSchema,
@@ -93,6 +94,7 @@ import type {
   CreateHWWalletParams,
   DBAPI,
   ExportedCredential,
+  IDbApiGetContextOptions,
   OneKeyContext,
   SetWalletNameAndAvatarParams,
   StoredPrivateKeyCredential,
@@ -101,7 +103,7 @@ import type {
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const DB_PATH = 'OneKey.realm';
-const SCHEMA_VERSION = 18;
+const SCHEMA_VERSION = REALM_DB_SCHEMA_VERSION;
 /**
  * Realm DB API
  * @implements { DBAPI }
@@ -210,13 +212,24 @@ class RealmDB implements DBAPI {
     }
   }
 
-  getContext(): Promise<OneKeyContext | null | undefined> {
+  getContext(
+    options?: IDbApiGetContextOptions,
+  ): Promise<OneKeyContext | null | undefined> {
     try {
       const context = this.realm!.objectForPrimaryKey<ContextSchema>(
         'Context',
         MAIN_CONTEXT,
       );
-      return Promise.resolve(context ? context.internalObj : context);
+      const ctx = context ? context.internalObj : context;
+      if (!ctx) {
+        return Promise.reject(new OneKeyInternalError('Context not found.'));
+      }
+      if (options?.verifyPassword) {
+        if (!checkPassword(ctx, options.verifyPassword)) {
+          return Promise.reject(new WrongPassword());
+        }
+      }
+      return Promise.resolve(ctx);
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -2321,6 +2334,14 @@ class RealmDB implements DBAPI {
       return Promise.reject(new OneKeyInternalError(error));
     }
     return Promise.resolve();
+  }
+
+  migrateCredentialsToMap({
+    password,
+  }: {
+    password: string;
+  }): Promise<boolean> {
+    this.dumpCredentials;
   }
 
   private static addSingletonWalletEntry({

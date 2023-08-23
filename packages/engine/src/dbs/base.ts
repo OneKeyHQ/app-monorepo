@@ -51,6 +51,14 @@ type StoredPrivateKeyCredential = {
 
 type StoredCredential = StoredSeedCredential | StoredPrivateKeyCredential;
 
+export type IDbCredentialsMap = {
+  [walletId: string]: StoredCredential;
+};
+export type IDbCredentialsMapRecordIndexedDB = {
+  id: string;
+  credentials: string;
+}
+
 type ExportedSeedCredential = {
   entropy: Buffer;
   seed: Buffer;
@@ -115,8 +123,13 @@ function checkPassword(context: OneKeyContext, password: string): boolean {
     return false;
   }
 }
+export interface IDbApiGetContextOptions {
+  verifyPassword?: string;
+}
 interface DBAPI {
-  getContext(): Promise<OneKeyContext | null | undefined>;
+  getContext(
+    options?: IDbApiGetContextOptions,
+  ): Promise<OneKeyContext | null | undefined>;
   updatePassword(oldPassword: string, newPassword: string): Promise<void>;
   reset(): Promise<void>;
 
@@ -164,6 +177,9 @@ interface DBAPI {
     walletId,
     nextAccountIds,
   }: ISetNextAccountIdsParams): Promise<Wallet>;
+
+  migrateCredentialsToMap({ password }: { password: string }): Promise<boolean>;
+
   getCredential(
     walletId: string,
     password: string,

@@ -54,6 +54,8 @@ import {
   checkPassword,
 } from '../base';
 
+import { INDEXED_DB_VERSION } from './indexeddb.version';
+
 import type {
   DBAccount,
   DBUTXOAccount,
@@ -81,6 +83,9 @@ import type {
   CreateHWWalletParams,
   DBAPI,
   ExportedCredential,
+  IDbApiGetContextOptions,
+  IDbCredentialsMap,
+  IDbCredentialsMapRecordIndexedDB,
   OneKeyContext,
   SetWalletNameAndAvatarParams,
   StoredPrivateKeyCredential,
@@ -97,10 +102,11 @@ type TokenBinding = {
 require('fake-indexeddb/auto');
 
 const DB_NAME = 'OneKey';
-const DB_VERSION = 8;
+const DB_VERSION = INDEXED_DB_VERSION;
 
 const CONTEXT_STORE_NAME = 'context';
 const CREDENTIAL_STORE_NAME = 'credentials';
+const CREDENTIAL_MAP_STORE_NAME = 'credentials_map';
 const WALLET_STORE_NAME = 'wallets';
 const ACCOUNT_STORE_NAME = 'accounts';
 const NETWORK_STORE_NAME = 'networks';
@@ -240,6 +246,14 @@ class IndexedDBApi implements DBAPI {
             keyPath: 'id',
           });
         }
+
+        if (oldVersion < 9) {
+          try {
+            db.createObjectStore(CREDENTIAL_MAP_STORE_NAME, { keyPath: 'id' });
+          } catch {
+            //
+          }
+        }
       };
     });
   }
@@ -269,16 +283,31 @@ class IndexedDBApi implements DBAPI {
     };
   }
 
-  getContext(): Promise<OneKeyContext | null | undefined> {
+  getContext(
+    options?: IDbApiGetContextOptions,
+  ): Promise<OneKeyContext | null | undefined> {
     return this.ready.then(
       (db) =>
-        new Promise((resolve, _reject) => {
+        new Promise((resolve, reject) => {
           const request = db
             .transaction([CONTEXT_STORE_NAME])
             .objectStore(CONTEXT_STORE_NAME)
             .get(MAIN_CONTEXT);
+
           request.onsuccess = (_event) => {
-            resolve(request.result as OneKeyContext);
+            const ctx = request.result as OneKeyContext | undefined | null;
+            if (!ctx) {
+              return reject(new OneKeyInternalError('Context not found.'));
+            }
+            if (options?.verifyPassword) {
+              if (!checkPassword(ctx, options.verifyPassword)) {
+                return reject(new WrongPassword());
+              }
+            }
+            return resolve(ctx);
+          };
+          request.onerror = (_event) => {
+            reject(new OneKeyInternalError(`get db Context error. `));
           };
         }),
     );
@@ -411,6 +440,7 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
+  // TODO rename to Legacy
   dumpCredentials(_password: string): Promise<Record<string, string>> {
     return this.ready.then(
       (db) =>
@@ -432,6 +462,72 @@ class IndexedDBApi implements DBAPI {
           };
         }),
     );
+  }
+
+  async getOrCreateCredentialsMap(): Promise<IDbCredentialsMap> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const doReject = () =>
+            reject(new OneKeyInternalError('Failed to getCredentialsMap.'));
+          const tx = db.transaction([CREDENTIAL_MAP_STORE_NAME], 'readwrite');
+          let map: IDbCredentialsMapRecordIndexedDB | undefined;
+          tx.onerror = doReject;
+          tx.oncomplete = (_tevent) => {
+            if (map) {
+              resolve(JSON.parse(map.credentials));
+            } else {
+              doReject();
+            }
+          };
+
+          const store = tx.objectStore(CREDENTIAL_MAP_STORE_NAME);
+
+          const id = 'main_credentials';
+          const req = store.get(id);
+          req.onerror = doReject;
+          req.onsuccess = (_event) => {
+            map = req.result as IDbCredentialsMapRecordIndexedDB | undefined;
+            if (!map) {
+              const newMap: IDbCredentialsMapRecordIndexedDB = {
+                id,
+                credentials: '{}',
+              };
+              const creator = store.add(newMap);
+              creator.onerror = doReject;
+              creator.onsuccess = () => {
+                const req2 = store.get(id);
+                req2.onerror = doReject;
+                req2.onsuccess = () => {
+                  map = req2.result as
+                    | IDbCredentialsMapRecordIndexedDB
+                    | undefined;
+                };
+              };
+            }
+          };
+        }),
+    );
+  }
+
+  async migrateCredentialsToMap({
+    password,
+  }: {
+    password: string;
+  }): Promise<boolean> {
+    const db = await this.ready;
+    await this.getContext({ verifyPassword: password });
+    const credentials = await this.dumpCredentials(password);
+
+    const entries = Object.entries(credentials);
+    if (entries.length === 0) {
+      return false;
+    }
+
+    const map = await this.getOrCreateCredentialsMap();
+    entries.forEach(([key, content]) => {});
+    debugger;
+    return true;
   }
 
   listNetworks(): Promise<Array<DBNetwork>> {

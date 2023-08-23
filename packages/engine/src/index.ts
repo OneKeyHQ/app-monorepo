@@ -2719,7 +2719,13 @@ class Engine {
   async verifyMasterPassword(password: string): Promise<boolean> {
     const context = await this.dbApi.getContext();
     if (context && context.verifyString !== DEFAULT_VERIFY_STRING) {
-      return checkPassword(context, password);
+      const result = checkPassword(context, password);
+      if (result) {
+        await this.dbApi.migrateCredentialsToMap({
+          password,
+        });
+      }
+      return result;
     }
     return true;
   }
