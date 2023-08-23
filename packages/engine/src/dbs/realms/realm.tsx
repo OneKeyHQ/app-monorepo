@@ -133,6 +133,7 @@ class RealmDB implements DBAPI {
         CustomFeeSchema,
       ],
       schemaVersion: SCHEMA_VERSION,
+      // db migration
       onMigration: (oldRealm: Realm, newRealm: Realm) => {
         if (oldRealm.schemaVersion < 13) {
           const networks = newRealm.objects<NetworkSchema>('Network');
@@ -2334,14 +2335,6 @@ class RealmDB implements DBAPI {
       return Promise.reject(new OneKeyInternalError(error));
     }
     return Promise.resolve();
-  }
-
-  migrateCredentialsToMap({
-    password,
-  }: {
-    password: string;
-  }): Promise<boolean> {
-    this.dumpCredentials;
   }
 
   private static addSingletonWalletEntry({

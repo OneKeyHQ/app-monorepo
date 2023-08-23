@@ -51,14 +51,6 @@ type StoredPrivateKeyCredential = {
 
 type StoredCredential = StoredSeedCredential | StoredPrivateKeyCredential;
 
-export type IDbCredentialsMap = {
-  [walletId: string]: StoredCredential;
-};
-export type IDbCredentialsMapRecordIndexedDB = {
-  id: string;
-  credentials: string;
-}
-
 type ExportedSeedCredential = {
   entropy: Buffer;
   seed: Buffer;
@@ -177,8 +169,6 @@ interface DBAPI {
     walletId,
     nextAccountIds,
   }: ISetNextAccountIdsParams): Promise<Wallet>;
-
-  migrateCredentialsToMap({ password }: { password: string }): Promise<boolean>;
 
   getCredential(
     walletId: string,
