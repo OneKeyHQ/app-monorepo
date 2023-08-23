@@ -266,37 +266,30 @@
   }
 }
 
-
 - (UIImage *)createImageWithSize:(CGFloat)size bgColor:(UIColor *)bgColor borderColor:(UIColor *)borderColor borderWidth:(CGFloat)borderWidth {
-  // 创建绘图上下文
-  UIGraphicsBeginImageContextWithOptions(CGSizeMake(size + borderWidth * 2, size + borderWidth * 2), NO, 0.0);
-
-  // 获取当前的绘图上下文
+  UIGraphicsBeginImageContextWithOptions(CGSizeMake(size, size), NO, 0.0);
   CGContextRef context = UIGraphicsGetCurrentContext();
 
-  // 绘制圆角矩形
+  // Draw a rounded rectangle
   CGFloat cornerRadius = size/2;
-  CGRect rect = CGRectMake(borderWidth, borderWidth, size, size);
+  CGRect rect = CGRectMake(borderWidth/2, borderWidth/2, size - borderWidth, size - borderWidth);
   UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:cornerRadius];
 
-//  // 设置边框颜色和宽度
+  // Set the border color and width
   CGContextSetStrokeColorWithColor(context, borderColor.CGColor);
   CGContextSetLineWidth(context, borderWidth);
 
-  // 填充矩形内部颜色
+  // Fill the rectangle with the background color
   CGContextSetFillColorWithColor(context, bgColor.CGColor);
 
-  // 绘制圆角矩形路径并填充
   CGContextAddPath(context, path.CGPath);
   CGContextDrawPath(context, kCGPathFillStroke);
 
-  // 从绘图上下文中获取生成的UIImage
   UIImage *generatedImage = UIGraphicsGetImageFromCurrentImageContext();
-
-  // 结束绘图上下文
   UIGraphicsEndImageContext();
 
   return generatedImage;
 }
+
 
 @end
