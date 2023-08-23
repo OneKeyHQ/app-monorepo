@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react';
 
 import {
+  getBrand,
+  getBuildNumber,
+  getDeviceId,
+  getModel,
+  getSystemName,
+  getSystemVersion,
+} from 'react-native-device-info';
+
+import {
   Box,
   Button,
   Input,
@@ -23,6 +32,15 @@ export const MonitorSettings = () => {
   const [isRecording, changeRecordingStatus] = useState(
     appStorage.getSettingBoolean(AppSettingKey.perf_switch),
   );
+  const [deviceInfo, setDeviceInfo] = useState<{
+    commitHash: string;
+    brand: string;
+    buildNumber: string;
+    deviceId: string;
+    model: string;
+    systemName: string;
+    systemVersion: string;
+  }>();
   const [usedBattery, setUsedBattery] = useState<number>();
   const [unitTestName, setUnitTestName] = useState<string>();
   const [uploadPassword, setUploadPassword] = useState<string>();
@@ -30,9 +48,18 @@ export const MonitorSettings = () => {
     useState<metrixUpdateInfo>();
   const measureTime = getMeasureTime();
   useEffect(() => {
-    getUsedBatterySinceStartup().then((batteryLevel) => {
-      setUsedBattery(batteryLevel);
-    });
+    (async () => {
+      setUsedBattery(await getUsedBatterySinceStartup());
+      setDeviceInfo({
+        commitHash: process.env.GITHUB_SHA || '',
+        brand: getBrand(),
+        buildNumber: getBuildNumber() || '',
+        deviceId: getDeviceId() || '',
+        model: getModel(),
+        systemName: getSystemName(),
+        systemVersion: getSystemVersion(),
+      });
+    })();
     const unsubscribe = subscribeToMetrics(setMetricsLivingData);
     return () => {
       unsubscribe();
@@ -114,6 +141,19 @@ export const MonitorSettings = () => {
         {`${((metricsLivingData?.usedRam || 0) / 1024 / 1024).toFixed(2)} Mb`}
       </Typography.Body2>
       <Typography.Body2>usedBattery: {usedBattery}</Typography.Body2>
+      <Box py={4} />
+      <Typography.Heading>Device Info</Typography.Heading>
+      <Typography.Body2>commitHash: {deviceInfo?.commitHash}</Typography.Body2>
+      <Typography.Body2>brand: {deviceInfo?.brand}</Typography.Body2>
+      <Typography.Body2>
+        buildNumber: {deviceInfo?.buildNumber}
+      </Typography.Body2>
+      <Typography.Body2>deviceId: {deviceInfo?.deviceId}</Typography.Body2>
+      <Typography.Body2>model: {deviceInfo?.model}</Typography.Body2>
+      <Typography.Body2>systemName: {deviceInfo?.systemName}</Typography.Body2>
+      <Typography.Body2>
+        systemVersion: {deviceInfo?.systemVersion}
+      </Typography.Body2>
     </ScrollView>
   );
 };

@@ -505,7 +505,7 @@ PODS:
     - React-Core
   - react-native-in-app-review (4.3.3):
     - React-Core
-  - react-native-metrix (0.5.1):
+  - react-native-metrix (0.6.2):
     - RCT-Folly (= 2021.07.22.00)
     - React-Core
   - react-native-mmkv (2.8.0):
@@ -626,6 +626,8 @@ PODS:
   - RealmJS (11.9.0):
     - React
   - RNCAsyncStorage (1.18.2):
+    - React-Core
+  - RNDeviceInfo (10.8.0):
     - React-Core
   - RNExitApp (2.0.0):
     - React-Core
@@ -826,6 +828,7 @@ DEPENDENCIES:
   - ReactNativeKeyboardManager (from `../../../node_modules/react-native-keyboard-manager`)
   - RealmJS (from `../../../node_modules/realm`)
   - "RNCAsyncStorage (from `../../../node_modules/@react-native-async-storage/async-storage`)"
+  - RNDeviceInfo (from `../../../node_modules/react-native-device-info`)
   - RNExitApp (from `../../../node_modules/react-native-exit-app`)
   - RNFastImage (from `../../../node_modules/react-native-fast-image`)
   - "RNFBAnalytics (from `../../../node_modules/@react-native-firebase/analytics`)"
@@ -1059,6 +1062,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/realm"
   RNCAsyncStorage:
     :path: "../../../node_modules/@react-native-async-storage/async-storage"
+  RNDeviceInfo:
+    :path: "../../../node_modules/react-native-device-info"
   RNExitApp:
     :path: "../../../node_modules/react-native-exit-app"
   RNFastImage:
@@ -1184,7 +1189,7 @@ SPEC CHECKSUMS:
   react-native-flipper-performance-plugin: 42ec5017abd26e7c5a1f527f2db92c14a90cabdb
   react-native-get-random-values: dee677497c6a740b71e5612e8dbd83e7539ed5bb
   react-native-in-app-review: db8bb167a5f238e7ceca5c242d6b36ce8c4404a4
-  react-native-metrix: 3f6144c5dd82f4c5ef9feae2e42bf554ef63def1
+  react-native-metrix: 74a959fe6141753577bb13b63dcc9d1dc6390ebf
   react-native-mmkv: 7da5e18e55c04a9af9a7e0ab9792a1e8d33765a1
   react-native-netinfo: ccbe1085dffd16592791d550189772e13bf479e2
   react-native-pager-view: b58cb9e9f42f64e50cab3040815772c1d119a2e2
@@ -1213,6 +1218,7 @@ SPEC CHECKSUMS:
   ReactNativeKeyboardManager: 30ef68551383d86d3ae044afc3d29f12629ec60b
   RealmJS: 64ae0907c1f21ce8e74bd480a8503032b19804fd
   RNCAsyncStorage: ddc4ee162bfd41b0d2c68bf2d95acd81dd7f1f93
+  RNDeviceInfo: 5795b418ed3451ebcaf39384e6cf51f60cb931c9
   RNExitApp: 00036cabe7bacbb413d276d5520bf74ba39afa6a
   RNFastImage: 5c9c9fed9c076e521b3f509fe79e790418a544e8
   RNFBAnalytics: c5740a00a436398796639189f82b58b1ebe4c705
