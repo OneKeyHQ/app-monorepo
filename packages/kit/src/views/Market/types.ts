@@ -1,7 +1,10 @@
 import type { ICON_NAMES } from '@onekeyhq/components';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 
-import type { MarketCategory } from '../../store/reducers/market';
+import type {
+  MarketCategory,
+  SimplyMarketCategory,
+} from '../../store/reducers/market';
 import type { EMarketCellData } from './config';
 import type { MessageDescriptor } from 'react-intl';
 
@@ -19,7 +22,7 @@ export type CommonPriceCardProps = {
 };
 
 export type MarketCategoryHeadProps = {
-  categorys: MarketCategory[];
+  categories: SimplyMarketCategory[];
 };
 
 export type MarketCategoryToggleItem = MarketCategory & {

@@ -88,6 +88,7 @@ export enum DiscoverModalRoutes {
   History = 'History',
   Favorites = 'Favorites',
   ChainSelector = 'ChainSelector',
+  MobileTabs = 'MobileTabs',
 }
 
 export type DiscoverRoutesParams = {
@@ -114,4 +115,5 @@ export type DiscoverRoutesParams = {
     networkIds?: string[];
     onSelect?: (networkId: string) => void;
   };
+  [DiscoverModalRoutes.MobileTabs]: undefined;
 };

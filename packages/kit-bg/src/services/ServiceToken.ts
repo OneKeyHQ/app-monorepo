@@ -24,7 +24,6 @@ import {
   setIsPasswordLoadedInVault,
   setTools,
 } from '@onekeyhq/kit/src/store/reducers/data';
-import { setOverviewPortfolioUpdatedAt } from '@onekeyhq/kit/src/store/reducers/overview';
 import {
   setOverviewHomeTokensLoading,
   updateRefreshHomeOverviewTs,
@@ -36,6 +35,7 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import type { ITokenDetailInfo } from '@onekeyhq/kit/src/views/ManageTokens/types';
+import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -282,15 +282,11 @@ export default class ServiceToken extends ServiceBase {
             ...accountTokens,
           ],
         }),
-        setOverviewPortfolioUpdatedAt({
-          key: `${networkId}___${accountId}`,
-          data: {
-            updatedAt: Date.now(),
-          },
-        }),
       ];
       if (refreshHomeOverviewTs) {
-        actions.push(updateRefreshHomeOverviewTs());
+        actions.push(
+          updateRefreshHomeOverviewTs([EOverviewScanTaskType.token]),
+        );
       }
 
       dispatch(...actions);

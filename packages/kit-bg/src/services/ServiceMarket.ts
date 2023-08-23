@@ -73,14 +73,14 @@ export default class ServiceMarket extends ServiceBase {
       (c) => c.defaultSelected,
     );
     if (!selectedCategoryId && defaultCategory) {
-      this.toggleCategory(defaultCategory);
+      this.toggleCategory(defaultCategory.categoryId);
     }
   }
 
   @backgroundMethod()
-  toggleCategory(category: MarketCategory) {
+  toggleCategory(categoryId: string) {
     this.updateMarketListSort(null);
-    this.backgroundApi.dispatch(updateSelectedCategory(category.categoryId));
+    this.backgroundApi.dispatch(updateSelectedCategory(categoryId));
   }
 
   // fix desktop quickly click the Cancel Like button to trigger the change of the like favorites ids, resulting in a pull action.

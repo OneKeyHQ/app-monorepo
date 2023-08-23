@@ -18,7 +18,7 @@ import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 import { isBRC20Token } from '@onekeyhq/shared/src/utils/tokenUtils';
 
-import { useAppSelector, useTokenDetailInfo } from '../../hooks';
+import { useAppSelector, useTokenPositionInfo } from '../../hooks';
 import { isSTETH, isSupportStakingType } from '../Staking/utils';
 import { SwapPlugins } from '../Swap/Plugins/Swap';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
@@ -59,16 +59,30 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
   const navigation = useNavigation();
 
   const {
-    walletId,
     coingeckoId,
     networkId,
     tokenAddress,
     accountId,
-    sendAddress,
-    ...defaultInfo
+
+    price,
+    price24h,
+    logoURI,
+    name,
+    symbol,
   } = route.params;
 
-  const detailInfo = useTokenDetailInfo({
+  const defaultInfo = useMemo(
+    () => ({
+      price: price || undefined,
+      price24h: price24h || undefined,
+      logoURI,
+      name,
+      symbol,
+    }),
+    [price, price24h, logoURI, name, symbol],
+  );
+
+  const result = useTokenPositionInfo({
     networkId,
     accountId,
     tokenAddress,
@@ -89,13 +103,10 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     let height = isVerticalLayout ? 210 : 194;
     if (
       (isSupportStakingType({
-        networkId: detailInfo?.defaultToken?.networkId,
-        tokenIdOnNetwork: detailInfo?.defaultToken?.tokenIdOnNetwork,
+        networkId,
+        tokenIdOnNetwork: tokenAddress,
       }) ||
-        isSTETH(
-          detailInfo?.defaultToken?.networkId,
-          detailInfo?.defaultToken?.tokenIdOnNetwork,
-        )) &&
+        isSTETH(networkId, tokenAddress)) &&
       !isAllNetworks(networkId)
     ) {
       height += 60;
@@ -104,7 +115,7 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
       height += 332;
     }
     return height;
-  }, [networkId, detailInfo, isVerticalLayout, showChart]);
+  }, [networkId, isVerticalLayout, showChart, tokenAddress]);
 
   const headerTitle = useCallback(() => {
     if (!isVerticalLayout) {
@@ -112,11 +123,19 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     }
     return (
       <HStack space="8px" alignItems="center">
-        <TokenIcon size="24px" showTokenVerifiedIcon token={detailInfo} />
-        <Typography.Heading>{detailInfo?.symbol}</Typography.Heading>
+        <TokenIcon
+          size="24px"
+          showTokenVerifiedIcon
+          token={{
+            name: defaultInfo.name,
+            symbol: defaultInfo.symbol,
+            logoURI: defaultInfo.logoURI,
+          }}
+        />
+        <Typography.Heading>{defaultInfo.symbol}</Typography.Heading>
       </HStack>
     );
-  }, [isVerticalLayout, detailInfo]);
+  }, [isVerticalLayout, defaultInfo]);
 
   const headerRight = useCallback(() => {
     if (!isVerticalLayout) {
@@ -145,9 +164,9 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
   const contextValue = useMemo(
     () => ({
       routeParams: route.params,
-      detailInfo,
+      ...result,
     }),
-    [route.params, detailInfo],
+    [route.params, result],
   );
   const tabsHeader = useMemo(
     () => (
@@ -158,7 +177,7 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     [headerHeight],
   );
 
-  if (detailInfo.loading) {
+  if (result.isLoading) {
     return (
       <Center>
         <Spinner mt={18} size="lg" />
@@ -182,7 +201,6 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
         w="full"
         flex="1"
         justifyContent="center"
-        alignItems="flex-start"
       >
         <Tabs.Container
           headerHeight={headerHeight}

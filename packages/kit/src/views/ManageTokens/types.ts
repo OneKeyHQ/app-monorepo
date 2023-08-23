@@ -20,6 +20,8 @@ export type ITokenDetailInfo = {
       sell?: string;
     }
   >;
+  defaultToken?: Token;
+  ethereumNativeToken?: Token;
 };
 
 export type ManageTokenRoutesParams = {

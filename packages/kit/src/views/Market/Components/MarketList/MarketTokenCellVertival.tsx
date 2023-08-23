@@ -166,12 +166,13 @@ const MarketTokenCellVertival: FC<IMarketTokenCellVertivalProps> = ({
             ) : (
               <Box
                 // flex={1}
-                w="90px"
+                w="100px"
                 flexDirection="row"
                 alignItems="center"
                 justifyContent="flex-end"
+                pl="28px"
               >
-                <Skeleton shape="Body2" />
+                <Skeleton shape="DisplaySmall" width="72px" height="32px" />
               </Box>
             )}
           </Box>

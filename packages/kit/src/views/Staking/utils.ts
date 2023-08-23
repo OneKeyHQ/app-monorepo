@@ -81,6 +81,9 @@ const stakingType2NetworkIds: Record<string, string[] | undefined> = {
   [StakingTypes.matic]: [OnekeyNetwork.eth, OnekeyNetwork.goerli],
 };
 
+export const getRecommendNetworkIdByStakingType = (stakingType: string) =>
+  stakingType2NetworkIds[stakingType]?.[0];
+
 export const getStakeSelectNetworkAccountFilter: (
   stakingType: string | string,
 ) =>

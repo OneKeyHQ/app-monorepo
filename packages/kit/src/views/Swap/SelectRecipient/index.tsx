@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 
@@ -15,7 +15,7 @@ import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<SwapRoutesParams, SwapRoutes.SelectRecipient>;
 
-const SelectSendingAccount = () => {
+const SelectRecipient = () => {
   const route = useRoute<RouteProps>();
   const navigation = useNavigation();
   const recipient = useSwapRecipient();
@@ -53,24 +53,34 @@ const SelectSendingAccount = () => {
     });
   }, [navigation, networkId, route.params]);
 
+  const excluded = useMemo(
+    () => ({
+      accountId: appSelector((s) => s.swap.sendingAccount?.id),
+      networkId: appSelector((s) => s.swap.inputToken?.networkId),
+    }),
+    [],
+  );
+
+  const primaryActionProps = useMemo(
+    () => ({
+      type: 'basic' as const,
+      leftIconName: 'PencilSolid' as const,
+    }),
+    [],
+  );
+
   return (
     <AccountSelectorModal
       accountId={recipient?.accountId}
       networkId={route.params?.networkId}
-      excluded={{
-        accountId: appSelector((s) => s.swap.sendingAccount?.id),
-        networkId: appSelector((s) => s.swap.inputToken?.networkId),
-      }}
+      excluded={excluded}
       onSelect={onSelected}
       hideSecondaryAction
       primaryActionTranslationId="form__enter_address"
-      primaryActionProps={{
-        onPress: onPrimaryActionPress,
-        type: 'basic',
-        leftIconName: 'PencilSolid',
-      }}
+      onPrimaryActionPress={onPrimaryActionPress}
+      primaryActionProps={primaryActionProps}
     />
   );
 };
 
-export default SelectSendingAccount;
+export default SelectRecipient;
