@@ -1,8 +1,11 @@
+/* eslint-disable react/destructuring-assignment */
 import type { FC } from 'react';
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { isEqual, isNil, pick } from 'lodash';
 import { useIntl } from 'react-intl';
+import { useDebounce } from 'use-debounce';
 
 import {
   Box,
@@ -30,9 +33,9 @@ import { FormatBalance } from '../../components/Format';
 import {
   useActiveWalletAccount,
   useAppSelector,
-  useDebounce,
-  useNetworkTokens,
+  useReduxAccountTokenBalancesMap,
 } from '../../hooks';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useSingleToken } from '../../hooks/useTokens';
 import { ManageTokenModalRoutes } from '../../routes/routesEnum';
 import { deviceUtils } from '../../utils/hardware';
@@ -40,15 +43,17 @@ import { showOverlay } from '../../utils/overlayUtils';
 import { getTokenValue } from '../../utils/priceUtils';
 import { showHomeBalanceSettings } from '../Overlay/HomeBalanceSettings';
 import { showManageTokenListingTip } from '../Overlay/MangeTokenListing';
-import { HandleRebuildAssetsListData } from '../Wallet/AssetsList';
-import {
-  atomHomeOverviewAccountTokens,
-  useAtomAssetsList,
-  withProviderAssetsList,
-} from '../Wallet/AssetsList/contextAssetsList';
 
+import {
+  atomMangeHeaderTokens,
+  atomMangeNetworksTokens,
+  atomMangeTokensKeywords,
+  atomMangeTokensLoading,
+  atomMangeTokensRefreshTS,
+  useAtomManageTokens,
+  withProviderManageTokens,
+} from './contextManageTokens';
 import { notifyIfRiskToken } from './helpers/TokenSecurityModalWrapper';
-import { useSearchTokens } from './hooks';
 
 import type { IAccountToken } from '../Overview/types';
 import type { ManageTokenRoutesParams } from './types';
@@ -62,12 +67,91 @@ type NavigationProps = NativeStackNavigationProp<
 
 const isValidateAddr = (addr: string) => addr.length === 42;
 
-const HeaderTokenItem: FC<
-  IAccountToken & Pick<HeaderTokensProps, 'onDelete'>
-> = (item) => {
-  const { address, onDelete, balance } = item;
-  const { networkId } = useActiveWalletAccount();
+function useMangeTokensDataFromRedux({ keywords }: { keywords: string }) {
+  const { networkId, accountId } = useActiveWalletAccount();
+  const balancesMap = useReduxAccountTokenBalancesMap({
+    accountId,
+    networkId,
+  });
+
+  const [updatedTS] = useAtomManageTokens(atomMangeTokensRefreshTS);
+
+  const result = usePromiseResult(
+    () => {
+      if (balancesMap || updatedTS) {
+        //
+      }
+      return backgroundApiProxy.serviceToken.buildManageTokensList({
+        networkId,
+        accountId,
+        search: keywords,
+      });
+    },
+    [accountId, networkId, balancesMap, keywords, updatedTS],
+    {
+      watchLoading: true,
+    },
+  );
+
+  return result;
+}
+
+function HandleRebuildMangeTokens(options: { keywords: string }) {
+  const result = useMangeTokensDataFromRedux(options);
+  const [headerTokens, setMangeHeaderTokens] = useAtomManageTokens(
+    atomMangeHeaderTokens,
+  );
+  const [networkTokens, setManageNetworksTokens] = useAtomManageTokens(
+    atomMangeNetworksTokens,
+  );
+  const [, setIsLoading] = useAtomManageTokens(atomMangeTokensLoading);
+  const [keywords] = useAtomManageTokens(atomMangeTokensKeywords);
+
+  useEffect(() => {
+    const data = result.result;
+    if (!data) {
+      return;
+    }
+    if (data.headerTokensKeys) {
+      if (!isEqual(headerTokens.headerTokensKeys, data.headerTokensKeys)) {
+        setMangeHeaderTokens(
+          pick(data, 'headerTokensKeys', 'headerTokens', 'headerTokenKeysMap'),
+        );
+      }
+    }
+    if (keywords) {
+      // search always update network tokens
+      setManageNetworksTokens(pick(data, 'networkTokensKeys', 'networkTokens'));
+    } else if (
+      data.networkTokensKeys?.length &&
+      !isEqual(networkTokens?.networkTokensKeys, data.networkTokensKeys)
+    ) {
+      setManageNetworksTokens(pick(data, 'networkTokensKeys', 'networkTokens'));
+    }
+  }, [
+    keywords,
+    result.result,
+    headerTokens.headerTokensKeys,
+    networkTokens.networkTokensKeys,
+    setMangeHeaderTokens,
+    setManageNetworksTokens,
+  ]);
+
+  useEffect(() => {
+    if (!isNil(result.isLoading)) {
+      setIsLoading(result.isLoading);
+    }
+  }, [result.isLoading, setIsLoading]);
+
+  return null;
+}
+
+function HeaderTokenItemWithoutMemo(item: IAccountToken) {
+  const intl = useIntl();
+  const { address, balance } = item;
+  const { networkId, accountId } = useActiveWalletAccount();
   const { token } = useSingleToken(networkId, address ?? '');
+  const [, updateTs] = useAtomManageTokens(atomMangeTokensRefreshTS);
 
   const navigation = useNavigation<NavigationProps>();
 
@@ -82,6 +166,51 @@ const HeaderTokenItem: FC<
     },
     [navigation],
   );
+
+  const onDelete = useCallback(() => {
+    showOverlay((closeOverlay) => (
+      <Dialog
+        visible
+        onClose={closeOverlay}
+        footerButtonProps={{
+          primaryActionTranslationId: 'action__delete',
+          primaryActionProps: {
+            type: 'destructive',
+            onPromise: async () => {
+              if (!accountId || !token) {
+                return;
+              }
+              return backgroundApiProxy.serviceToken
+                .deleteAccountToken({
+                  accountId,
+                  networkId,
+                  tokenId: token.id,
+                  address: token.address ?? '',
+                })
+                .finally(() => {
+                  closeOverlay();
+                  updateTs(Date.now());
+                });
+            },
+          },
+        }}
+        contentProps={{
+          iconType: 'danger',
+          title: intl.formatMessage({
+            id: 'modal__delete_this_token',
+            defaultMessage: 'Delete this token?',
+          }),
+          content: intl.formatMessage(
+            {
+              id: 'modal__delete_this_token_desc',
+              defaultMessage: '{token} will be removed from my tokens',
+            },
+            { token: token?.name },
+          ),
+        }}
+      />
+    ));
+  }, [accountId, intl, networkId, token, updateTs]);
 
   if (!token) {
     return null;
@@ -112,28 +241,19 @@ const HeaderTokenItem: FC<
           />
         }
       />
-      <IconButton
-        name="TrashMini"
-        type="plain"
-        circle
-        onPress={() => onDelete?.(token)}
-      />
+      <IconButton name="TrashMini" type="plain" circle onPress={onDelete} />
     </Pressable>
   );
-};
+}
+const HeaderTokenItem = memo(HeaderTokenItemWithoutMemo);
 
-type HeaderTokensProps = {
-  tokens: IAccountToken[];
-  showTopsLabel?: boolean;
-  onDelete?: (token: Token) => void;
-};
-
-const HeaderTokens: FC<HeaderTokensProps> = ({
-  tokens,
-  showTopsLabel,
-  onDelete,
-}) => {
+function HeaderTokensWithoutMemo() {
   const intl = useIntl();
+
+  const [{ headerTokens: tokens = freezedEmptyArray as IAccountToken[] }] =
+    useAtomManageTokens(atomMangeHeaderTokens);
+  const [{ networkTokens }] = useAtomManageTokens(atomMangeNetworksTokens);
+
   return (
     <Box>
       {tokens.length ? (
@@ -146,16 +266,12 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
           </Typography.Subheading>
           <Box mt="2" mb="6">
             {tokens.map((item) => (
-              <HeaderTokenItem
-                {...item}
-                onDelete={onDelete}
-                key={item.address ?? ''}
-              />
+              <HeaderTokenItem {...item} key={item.address ?? ''} />
             ))}
           </Box>
         </Box>
       ) : null}
-      {showTopsLabel ? (
+      {networkTokens?.length > 0 ? (
         <Typography.Subheading px="8px" color="text-subdued" mb="2">
           {intl.formatMessage({
             id: 'form__top_50_tokens',
@@ -165,26 +281,26 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
       ) : null}
     </Box>
   );
-};
+}
+const HeaderTokens = memo(HeaderTokensWithoutMemo);
 
-type HeaderProps = {
-  showTopsLabel: boolean;
-  tokens: IAccountToken[];
-  keyword: string;
-  onChange: (keyword: string) => void;
-  onDelete?: (token: Token) => void;
-};
-
-const Header: FC<HeaderProps> = ({
-  tokens,
-  showTopsLabel,
-  keyword,
-  onChange,
-  onDelete,
-}) => {
+function Header() {
   const intl = useIntl();
+  const [, updateKeywords] = useAtomManageTokens(atomMangeTokensKeywords);
+
+  const [keywords, setKeywords] = useState('');
+
+  const [terms] = useDebounce(keywords, 600);
+
+  useEffect(() => {
+    updateKeywords(terms);
+  }, [terms, updateKeywords]);
+
+  const onClear = useCallback(() => setKeywords(''), [setKeywords]);
+
   return (
     <Box>
+      <HandleRebuildMangeTokens keywords={keywords} />
       <Box px="8px" mb="6">
         <Searchbar
           w="full"
@@ -192,32 +308,20 @@ const Header: FC<HeaderProps> = ({
             id: 'form__search_tokens',
             defaultMessage: 'Search Tokens',
           })}
-          value={keyword}
-          onClear={() => onChange('')}
-          onChangeText={(text) => onChange(text)}
+          value={keywords}
+          onClear={onClear}
+          onChangeText={setKeywords}
         />
       </Box>
-      {keyword ? null : (
-        <HeaderTokens
-          tokens={tokens}
-          onDelete={onDelete}
-          showTopsLabel={showTopsLabel}
-        />
-      )}
+      {terms ? null : <HeaderTokens />}
     </Box>
   );
-};
+}
 
-type ListEmptyComponentProps = {
-  isLoading: boolean;
-  terms: string;
-};
-
-const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
-  isLoading,
-  terms,
-}) => {
+function ListEmptyComponentWithoutMemo() {
   const intl = useIntl();
+  const [isLoading] = useAtomManageTokens(atomMangeTokensLoading);
+  const [keywords] = useAtomManageTokens(atomMangeTokensKeywords);
   const navigation = useNavigation<NavigationProps>();
   if (isLoading) {
     return (
@@ -226,7 +330,7 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
       </Center>
     );
   }
-  return terms.length > 0 ? (
+  return keywords.length > 0 ? (
     <Empty
       emoji="🔍"
       title={intl.formatMessage({
@@ -243,23 +347,22 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
       })}
       handleAction={() => {
         const params: { address?: string } = {};
-        if (isValidateAddr(terms)) {
-          params.address = terms;
+        if (isValidateAddr(keywords)) {
+          params.address = keywords;
         }
         navigation.navigate(ManageTokenModalRoutes.CustomToken, params);
       }}
     />
   ) : null;
-};
+}
+const ListEmptyComponent = memo(ListEmptyComponentWithoutMemo);
 
-type ListRenderTokenProps = {
-  item: Token;
+function ListRenderTokenWithoutMemo({
+  isOwned,
+  ...item
+}: Token & {
   isOwned: boolean;
-  borderTopRadius?: string;
-  borderBottomRadius?: string;
-};
-
-const ListRenderToken: FC<ListRenderTokenProps> = ({ item, isOwned }) => {
+}) {
   const intl = useIntl();
 
   const [loading, setLoading] = useState(false);
@@ -267,6 +370,10 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item, isOwned }) => {
   const { walletId, accountId, networkId } = useActiveWalletAccount();
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
   const hideRiskTokens = useAppSelector((s) => s.settings.hideRiskTokens);
+
+  const { tokenIdOnNetwork, symbol, riskLevel } = item;
+
+  const [, updateTs] = useAtomManageTokens(atomMangeTokensRefreshTS);
 
   const checkIfShouldActiveToken = useCallback(async () => {
     const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
@@ -280,7 +387,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item, isOwned }) => {
         walletId,
         accountId,
         networkId,
-        tokenId: item.tokenIdOnNetwork,
+        tokenId: tokenIdOnNetwork,
         onSuccess: () => {
           resolve(true);
         },
@@ -289,21 +396,21 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item, isOwned }) => {
         },
       });
     });
-  }, [walletId, accountId, networkId, item.tokenIdOnNetwork, navigation]);
+  }, [walletId, accountId, networkId, tokenIdOnNetwork, navigation]);
 
   const checkTokenVisible = useCallback(async () => {
     const options = {
       title: intl.formatMessage(
         { id: 'msg__str_has_been_added_but_is_hidden' },
-        { 0: item.symbol },
+        { 0: symbol },
       ),
       content: '',
     };
     if (hideRiskTokens) {
-      if (item.riskLevel && item.riskLevel > TokenRiskLevel.WARN) {
+      if (riskLevel && riskLevel > TokenRiskLevel.WARN) {
         options.content = intl.formatMessage(
           { id: 'msg__str_has_been_added_but_is_hidden_desc' },
-          { 0: item.symbol },
+          { 0: symbol },
         );
       }
     }
@@ -312,15 +419,15 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item, isOwned }) => {
       const [balances] = await serviceToken.getAccountBalanceFromRpc(
         networkId,
         accountId,
-        [item.tokenIdOnNetwork],
+        [tokenIdOnNetwork],
         false,
         {
-          [item.tokenIdOnNetwork]: item,
+          [tokenIdOnNetwork]: item,
         },
       );
       const price = await servicePrice.getSimpleTokenPrice({
         networkId,
-        tokenId: item.tokenIdOnNetwork,
+        tokenId: tokenIdOnNetwork,
       });
       const value = getTokenValue({ token: item, price, balances });
       if (value && value.isLessThan(1)) {
@@ -340,7 +447,17 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item, isOwned }) => {
         showHomeBalanceSettings({ networkId });
       },
     });
-  }, [accountId, hideSmallBalance, hideRiskTokens, intl, item, networkId]);
+  }, [
+    item,
+    tokenIdOnNetwork,
+    accountId,
+    hideSmallBalance,
+    hideRiskTokens,
+    intl,
+    networkId,
+    symbol,
+    riskLevel,
+  ]);
 
   const onAddToken = useCallback(async () => {
     const { serviceToken } = backgroundApiProxy;
@@ -349,7 +466,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item, isOwned }) => {
       await serviceToken.addAccountToken(
         networkId,
         accountId,
-        item.tokenIdOnNetwork,
+        tokenIdOnNetwork,
       );
     } catch (e) {
       debugLogger.common.error('add token error', e);
@@ -361,11 +478,11 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item, isOwned }) => {
       title: intl.formatMessage({ id: 'msg__token_added' }),
     });
   }, [
+    tokenIdOnNetwork,
     accountId,
     networkId,
     intl,
     checkIfShouldActiveToken,
-    item,
     checkTokenVisible,
   ]);
 
@@ -376,10 +493,11 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item, isOwned }) => {
     setLoading(true);
     await onAddToken();
     notifyIfRiskToken(item);
+    updateTs(Date.now());
     setTimeout(() => {
       setLoading(false);
     }, 1000);
-  }, [item, accountId, networkId, onAddToken]);
+  }, [item, accountId, networkId, onAddToken, updateTs]);
 
   const onDetail = useCallback(() => {
     const routeName = isOwned
@@ -431,7 +549,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item, isOwned }) => {
       p={2}
       alignItems="center"
       overflow="hidden"
-      key={item.tokenIdOnNetwork}
+      key={tokenIdOnNetwork}
       onPress={onDetail}
       _hover={{ bgColor: 'surface-hovered' }}
       _pressed={{ bgColor: 'surface-pressed' }}
@@ -458,156 +576,64 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item, isOwned }) => {
       {actionButton}
     </Pressable>
   );
-};
+}
+const ListRenderToken = memo(ListRenderTokenWithoutMemo);
+
+function ListRenderTokenWrapper(item: Token) {
+  const [{ headerTokenKeysMap }] = useAtomManageTokens(atomMangeHeaderTokens);
+  const isOwned = useMemo(
+    () => headerTokenKeysMap[item.tokenIdOnNetwork],
+    [headerTokenKeysMap, item.tokenIdOnNetwork],
+  );
+  return <ListRenderToken {...item} isOwned={isOwned} />;
+}
 
 export const ListingModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  const {
-    network: activeNetwork,
-    accountId,
-    networkId,
-  } = useActiveWalletAccount();
-  const [accountTokensInfo] = useAtomAssetsList(atomHomeOverviewAccountTokens);
-  const { tokens: accountTokens = freezedEmptyArray as IAccountToken[] } =
-    accountTokensInfo;
+  const { network } = useActiveWalletAccount();
+  const [{ networkTokens = freezedEmptyArray as Token[] }] =
+    useAtomManageTokens(atomMangeNetworksTokens);
 
-  const networkTokens = useNetworkTokens(networkId);
+  const [isLoading] = useAtomManageTokens(atomMangeTokensLoading);
+  const [keywords] = useAtomManageTokens(atomMangeTokensKeywords);
 
-  const headerTokens = useMemo(
-    () => accountTokens.filter((i) => i.address && !i.autoDetected),
-    [accountTokens],
-  );
-
-  const tokenKeysSet = useMemo(
-    () =>
-      new Set(
-        accountTokens.filter((t) => !t.autoDetected).map((t) => t.address),
-      ),
-    [accountTokens],
-  );
-
-  const [keyword, setKeyword] = useState<string>('');
-  const terms = useDebounce(keyword, 500);
-
-  const { loading, searchedTokens } = useSearchTokens(
-    terms,
-    keyword,
-    networkId,
-    accountId,
-  );
-
-  const listItems = useMemo(
-    () => (keyword ? searchedTokens : networkTokens),
-    [keyword, searchedTokens, networkTokens],
-  );
+  const keyExtractor = useCallback((item) => {
+    const token = item as Token;
+    return `${getBalanceKey(token)}`;
+  }, []);
 
   const renderItem: ListRenderItem<Token> = useCallback(
-    ({ item }) => (
-      <ListRenderToken
-        item={item}
-        isOwned={tokenKeysSet.has(item.address ?? '')}
-      />
-    ),
-    [tokenKeysSet],
-  );
-
-  const openDeleteDialog = useCallback(
-    (token?: Token) => {
-      if (!token) {
-        return;
-      }
-      showOverlay((closeOverlay) => (
-        <Dialog
-          visible
-          onClose={closeOverlay}
-          footerButtonProps={{
-            primaryActionTranslationId: 'action__delete',
-            primaryActionProps: {
-              type: 'destructive',
-              onPromise: async () => {
-                if (!accountId || !token) {
-                  return;
-                }
-                return backgroundApiProxy.serviceToken
-                  .deleteAccountToken({
-                    accountId,
-                    networkId,
-                    tokenId: token.id,
-                    address: token.address ?? '',
-                  })
-                  .finally(() => {
-                    closeOverlay();
-                  });
-              },
-            },
-          }}
-          contentProps={{
-            iconType: 'danger',
-            title: intl.formatMessage({
-              id: 'modal__delete_this_token',
-              defaultMessage: 'Delete this token?',
-            }),
-            content: intl.formatMessage(
-              {
-                id: 'modal__delete_this_token_desc',
-                defaultMessage: '{token} will be removed from my tokens',
-              },
-              { token: token.name },
-            ),
-          }}
-        />
-      ));
-    },
-    [accountId, intl, networkId],
+    ({ item }) => <ListRenderTokenWrapper {...item} />,
+    [],
   );
 
   return (
-    <>
-      <HandleRebuildAssetsListData
-        networkId={networkId}
-        accountId={accountId}
-        debounced={0}
-      />
-      <Modal
-        header={intl.formatMessage({
-          id: 'title__manage_tokens',
-          defaultMessage: 'Manage Tokens',
-        })}
-        height="560px"
-        headerDescription={activeNetwork?.shortName}
-        hidePrimaryAction
-        onSecondaryActionPress={() => {
-          navigation.navigate(ManageTokenModalRoutes.CustomToken);
-        }}
-        secondaryActionProps={{ type: 'basic', leftIconName: 'PlusOutline' }}
-        secondaryActionTranslationId="action__add_custom_tokens"
-        flatListProps={{
-          data: listItems,
-          // @ts-ignore
-          renderItem,
-          keyExtractor: (item) => {
-            const token = item as Token;
-            return `${getBalanceKey(token)}`;
-          },
-          showsVerticalScrollIndicator: false,
-          ListEmptyComponent: (
-            <ListEmptyComponent isLoading={loading} terms={terms} />
-          ),
-          ListHeaderComponent: (
-            <Header
-              showTopsLabel={networkTokens.length > 0}
-              tokens={headerTokens}
-              keyword={keyword}
-              onChange={setKeyword}
-              onDelete={openDeleteDialog}
-            />
-          ),
-          mx: '-8px',
-        }}
-      />
-    </>
+    <Modal
+      header={intl.formatMessage({
+        id: 'title__manage_tokens',
+        defaultMessage: 'Manage Tokens',
+      })}
+      height="560px"
+      hidePrimaryAction
+      headerDescription={network?.shortName}
+      onSecondaryActionPress={() => {
+        navigation.navigate(ManageTokenModalRoutes.CustomToken);
+      }}
+      secondaryActionProps={{ type: 'basic', leftIconName: 'PlusOutline' }}
+      secondaryActionTranslationId="action__add_custom_tokens"
+      flatListProps={{
+        data: isLoading && keywords ? freezedEmptyArray : networkTokens,
+        // @ts-ignore
+        renderItem,
+        keyExtractor,
+        showsVerticalScrollIndicator: false,
+        ListEmptyComponent: <ListEmptyComponent />,
+        ListHeaderComponent: <Header />,
+        mx: '-8px',
+      }}
+    />
   );
 };
 
-export default memo(withProviderAssetsList(ListingModal));
+export default memo(withProviderManageTokens(ListingModal));

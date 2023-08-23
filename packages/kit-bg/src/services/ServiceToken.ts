@@ -35,6 +35,7 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import type { ITokenDetailInfo } from '@onekeyhq/kit/src/views/ManageTokens/types';
+import type { IAccountToken } from '@onekeyhq/kit/src/views/Overview/types';
 import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
 import {
   backgroundClass,
@@ -1044,4 +1045,66 @@ export default class ServiceToken extends ServiceBase {
     }
     return vault.fetchBalanceDetails({ password, useRecycleBalance });
   }
+
+  @backgroundMethod()
+  async buildManageTokensList({
+    networkId,
+    accountId,
+    search,
+  }: {
+    networkId: string;
+    accountId: string;
+    search: string;
+  }): Promise<IManageTokensListingResult> {
+    const { serviceOverview, engine } = this.backgroundApi;
+    const headerTokensKeys: string[] = [];
+    const headerTokenKeysMap: IManageTokensListingResult['headerTokenKeysMap'] =
+      {};
+
+    const res = await serviceOverview.buildSingleChainAccountTokens(
+      {
+        networkId,
+        accountId,
+        calculateTokensTotalValue: true,
+        buildTokensMapKey: false,
+      },
+      'overview',
+    );
+    const headerTokens = res.tokens.filter((i) => {
+      const key = i.address ?? '';
+      headerTokensKeys.push(key);
+      headerTokenKeysMap[key] = true;
+      return i.address && !i.autoDetected;
+    });
+
+    if (search) {
+      const searchedTokens = await engine.searchTokens(networkId, search);
+      return {
+        headerTokens,
+        headerTokensKeys,
+        headerTokenKeysMap,
+        networkTokens: searchedTokens,
+        networkTokensKeys: searchedTokens.map((t) => t.address ?? ''),
+      };
+    }
+
+    const networkTokens = await engine.getTopTokensOnNetwork(networkId);
+    const networkTokensKeys = networkTokens.map((t) => t.address ?? '');
+    return {
+      headerTokens,
+      headerTokensKeys,
+      headerTokenKeysMap,
+      networkTokens,
+      networkTokensKeys,
+    };
+  }
 }
+
+export type IManageTokensListingResult = {
+  headerTokens: IAccountToken[];
+  headerTokenKeysMap: Record<string, boolean>;
+  networkTokens: Token[];
+
+  headerTokensKeys: string[];
+  networkTokensKeys: string[];
+};
