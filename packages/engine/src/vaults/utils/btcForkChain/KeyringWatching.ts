@@ -17,7 +17,11 @@ export class KeyringWatching extends KeyringWatchingBase {
     ).getProvider();
     const COIN_TYPE = (this.vault as unknown as BTCForkVault).getCoinType();
 
-    if (!provider.isValidXpub(target)) {
+    try {
+      if (!provider.isValidXpub(target)) {
+        throw new InvalidAddress();
+      }
+    } catch (e) {
       throw new InvalidAddress();
     }
 

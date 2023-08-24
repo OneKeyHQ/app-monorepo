@@ -451,7 +451,11 @@ export default class Vault extends VaultBase {
       );
     } catch (e: any) {
       const utxoVauleTooSmall = 'UTXO_VALUE_TOO_SMALL';
-      if (e.code === utxoVauleTooSmall || e.message === utxoVauleTooSmall) {
+      const insufficientBalance = 'UTXO_BALANCE_INSUFFICIENT';
+      if (
+        [utxoVauleTooSmall, insufficientBalance].includes(e.code) ||
+        [utxoVauleTooSmall, insufficientBalance].includes(e.message)
+      ) {
         throw new InsufficientBalance();
       }
       throw e;
