@@ -67,7 +67,7 @@ export const uploadMetricsLogFile = async (
       extra,
     },
   }).promise;
-  let result = { success: false };
+  let result = { success: false, message: '' };
   try {
     result = JSON.parse(response?.body || '');
     if (result.success) {

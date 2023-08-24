@@ -111,7 +111,7 @@ export const MonitorSettings = () => {
                   deviceInfo,
                 );
                 console.log(result);
-                alert(result.success);
+                alert(`${String(result.success)}, ${result.message}`);
               } else {
                 alert('Please input all fields');
               }
