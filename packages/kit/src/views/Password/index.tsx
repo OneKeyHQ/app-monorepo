@@ -2,6 +2,7 @@ import type { FC } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -27,7 +28,13 @@ import { setEnableLocalAuthentication } from '../../store/reducers/settings';
 import { savePassword } from '../../utils/localAuthentication';
 
 import type { PasswordRoutes, PasswordRoutesParams } from './types';
+import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type RouteProps = RouteProp<
+  PasswordRoutesParams,
+  PasswordRoutes.PasswordRoutes
+>;
 
 type NavigationProps = NativeStackNavigationProp<
   PasswordRoutesParams,
@@ -143,6 +150,9 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
   );
   const { isOk } = useLocalAuthentication();
 
+  const route = useRoute<RouteProps>();
+  const { onSuccess } = route.params ?? {};
+
   const {
     control,
     handleSubmit,
@@ -206,15 +216,17 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
           }),
         });
       }
+      onSuccess?.();
       navigation.goBack();
     },
     [
-      navigation,
-      intl,
-      oldPassword,
-      dispatch,
       enableLocalAuthentication,
+      oldPassword,
+      onSuccess,
+      navigation,
       addAttention,
+      intl,
+      dispatch,
     ],
   );
 
