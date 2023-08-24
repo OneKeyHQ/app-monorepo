@@ -36,6 +36,13 @@ export type MarketCategory = {
   recommendedTokens?: RecomentToken[];
 };
 
+export type SimplyMarketCategory = {
+  name?: string;
+  categoryId: CategoryId;
+  type: 'tab' | 'search';
+  defaultSelected?: boolean;
+};
+
 export type MarketTokenItem = {
   name?: string;
   symbol?: string;
@@ -165,6 +172,8 @@ export type MarketInitialState = {
   selectedCategoryId?: CategoryId;
   searchTabCategoryId?: CategoryId;
   categorys: Record<CategoryId, MarketCategory>;
+  searchSimplyCategories: SimplyMarketCategory[];
+  tabSimplyCategories: SimplyMarketCategory[];
   marketTokens: Record<CoingeckoId, MarketTokenItem>;
   charts: Record<CoingeckoId, Record<string, TokenChartData>>;
   details: Record<CoingeckoId, MarketTokenDetail>;
@@ -177,6 +186,8 @@ export type MarketInitialState = {
 
 const initialState: MarketInitialState = {
   categorys: {},
+  searchSimplyCategories: [],
+  tabSimplyCategories: [],
   marketTokens: {},
   listSort: null,
   charts: {},
@@ -217,6 +228,22 @@ export const MarketSlicer = createSlice({
         }
         state.categorys[c.categoryId] = cacheCategory;
       });
+      state.searchSimplyCategories = payload
+        .filter((c) => c.type === MarketCategoryType.MRKET_CATEGORY_TYPE_SEARCH)
+        .map((c) => ({
+          categoryId: c.categoryId,
+          name: c.name,
+          type: c.type,
+          defaultSelected: c.defaultSelected,
+        }));
+      state.tabSimplyCategories = payload
+        .filter((c) => c.type === MarketCategoryType.MRKET_CATEGORY_TYPE_TAB)
+        .map((c) => ({
+          categoryId: c.categoryId,
+          name: c.name,
+          type: c.type,
+          defaultSelected: c.defaultSelected,
+        }));
     },
     updateMarketTokens(
       state,
@@ -290,7 +317,11 @@ export const MarketSlicer = createSlice({
       if (favoriteCategory) {
         const index = favoriteCategory.coingeckoIds?.indexOf(payload);
         if (index !== undefined && index !== -1) {
-          favoriteCategory.coingeckoIds?.splice(index, 1);
+          if (favoriteCategory.coingeckoIds?.length === 1 && index === 0) {
+            favoriteCategory.coingeckoIds = [];
+          } else {
+            favoriteCategory.coingeckoIds?.splice(index, 1);
+          }
         }
       }
       state.marketTokens[payload].favorited = false;
@@ -302,8 +333,13 @@ export const MarketSlicer = createSlice({
       if (favoriteCategory) {
         const favoriteCoingeckoIds = favoriteCategory.coingeckoIds || [];
         const index = favoriteCoingeckoIds?.indexOf(payload);
-        if (index !== undefined && index !== -1) {
+        if (
+          favoriteCoingeckoIds?.length > 1 &&
+          index !== undefined &&
+          index !== -1
+        ) {
           favoriteCoingeckoIds?.splice(index, 1);
+
           favoriteCategory.coingeckoIds = [payload, ...favoriteCoingeckoIds];
         }
       }

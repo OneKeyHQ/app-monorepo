@@ -18,6 +18,9 @@ export type TokenBalancesResponse = {
   // for sol
   sendAddress: string;
   bestBlockNumber?: string;
+  // for brc20
+  availableBalance?: string;
+  transferBalance?: string;
 }[];
 
 export const getBalancesFromApi = async ({

@@ -12,13 +12,7 @@ import { handleDeepLinkUrl } from '../../../../routes/deepLink';
 import { homeTab, webTabsActions } from '../../../../store/observable/webTabs';
 import { gotoSite } from '../Controller/gotoSite';
 import { onNavigation } from '../Controller/useWebController';
-import {
-  MAX_OR_SHOW,
-  expandAnim,
-  // getThumbnailRatio,
-  // tabViewShotRef,
-  // thumbnailWidth,
-} from '../explorerAnimation';
+import { MAX_OR_SHOW, expandAnim } from '../explorerAnimation';
 import { webviewRefs } from '../explorerUtils';
 
 import type { WebTab } from '../../../../store/observable/webTabs';
@@ -62,16 +56,6 @@ const WebContent: FC<WebTab & WebViewProps> = ({
           id,
         });
       } else {
-        // if (tabViewShotRef.current) {
-        //   captureRef(tabViewShotRef, {
-        //     format: 'jpg',
-        //     width: thumbnailWidth,
-        //     height: thumbnailWidth * getThumbnailRatio(),
-        //     // quality: 0.6,
-        //   }).then((uri) => {
-        //     webTabsActions.setWebTabData({ id, thumbnail: uri });
-        //   });
-        // }
         onNavigation({ title, canGoBack, canGoForward, loading, id });
       }
     },
@@ -130,7 +114,9 @@ const WebContent: FC<WebTab & WebViewProps> = ({
             if (!webviewRefs[id]) {
               webTabsActions.setWebTabData({ id, refReady: true });
             }
-            webviewRefs[id] = ref;
+            if (id !== homeTab.id) {
+              webviewRefs[id] = ref;
+            }
           }
         }}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}

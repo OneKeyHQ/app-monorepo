@@ -38,7 +38,10 @@ function TraderEditor(props: Props) {
   const intl = useIntl();
 
   const [traderString, setTraderString] = useState('');
-  const { isDragAccept, data, getRootProps } = useDropUpload<TokenTrader>({
+  const { isDragAccept, data, getRootProps } = useDropUpload<{
+    Address: string;
+    Amount: string;
+  }>({
     header:
       amountType === AmountTypeEnum.Custom
         ? [TokenTraderEnum.Address, TokenTraderEnum.Amount]
@@ -94,11 +97,16 @@ function TraderEditor(props: Props) {
     if (data && data[0] && data[0].Address && data[0].Amount) {
       setShowFileError(false);
       setTraderFromOut(
-        data.filter(
-          (item) =>
-            item.Address !== TokenTraderEnum.Address &&
-            item.Amount !== TokenTraderEnum.Amount,
-        ),
+        data
+          .filter(
+            (item) =>
+              item.Address !== TokenTraderEnum.Address &&
+              item.Amount !== TokenTraderEnum.Amount,
+          )
+          .map((item) => ({
+            address: item.Address,
+            amount: item.Amount,
+          })),
       );
     } else if (data && data[0]) {
       setShowFileError(true);

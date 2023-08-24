@@ -73,14 +73,14 @@ export default class ServiceMarket extends ServiceBase {
       (c) => c.defaultSelected,
     );
     if (!selectedCategoryId && defaultCategory) {
-      this.toggleCategory(defaultCategory);
+      this.toggleCategory(defaultCategory.categoryId);
     }
   }
 
   @backgroundMethod()
-  toggleCategory(category: MarketCategory) {
+  toggleCategory(categoryId: string) {
     this.updateMarketListSort(null);
-    this.backgroundApi.dispatch(updateSelectedCategory(category.categoryId));
+    this.backgroundApi.dispatch(updateSelectedCategory(categoryId));
   }
 
   // fix desktop quickly click the Cancel Like button to trigger the change of the like favorites ids, resulting in a pull action.
@@ -117,6 +117,9 @@ export default class ServiceMarket extends ServiceBase {
     const { dispatch, appSelector } = this.backgroundApi;
     const path = '/market/tokens';
     const coingeckoIds = ids && ids.length > 0 ? ids : undefined;
+    if (categoryId === MARKET_FAVORITES_CATEGORYID && !coingeckoIds) {
+      return;
+    }
     const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
     const data = await fetchData<MarketTokenItem[]>(
       path,
@@ -130,6 +133,15 @@ export default class ServiceMarket extends ServiceBase {
       [],
     );
     if (data.length === 0) {
+      return;
+    }
+    const categorys = appSelector((s) => s.market.categorys);
+    const fetchCategory = categorys[categoryId ?? ''];
+    if (
+      categoryId === MARKET_FAVORITES_CATEGORYID &&
+      fetchCategory &&
+      fetchCategory.coingeckoIds?.length !== data.length
+    ) {
       return;
     }
     dispatch(updateMarketTokens({ categoryId, marketTokens: data }));

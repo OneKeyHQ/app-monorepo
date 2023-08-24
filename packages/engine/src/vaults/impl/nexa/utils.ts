@@ -6,7 +6,6 @@ import { InvalidAddress } from '../../../errors';
 import { hash160, sha256 } from '../../../secret/hash';
 import {
   type IDecodedTx,
-  type IDecodedTxAction,
   IDecodedTxActionType,
   IDecodedTxDirection,
   IDecodedTxStatus,
@@ -36,7 +35,6 @@ import {
 import { type IEncodedTxNexa, NexaSignature } from './types';
 
 import type { Signer } from '../../../proxy';
-import type { DBAccount } from '../../../types/account';
 import type { Token } from '../../../types/token';
 import type {
   INexaInputSignature,

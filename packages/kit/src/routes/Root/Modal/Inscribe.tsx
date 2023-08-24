@@ -1,9 +1,11 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 import type {
   IInscriptionContent,
   IInscriptionHistory,
 } from '@onekeyhq/engine/src/vaults/impl/btc/inscribe/types';
 
+import { BRC20Amount } from '../../../views/Inscribe/BRC20Amount';
 import CreateContent from '../../../views/Inscribe/CreateContent';
 import CreateOrder from '../../../views/Inscribe/CreateOrder';
 import OrderDetail from '../../../views/Inscribe/OrderDetail';
@@ -19,6 +21,11 @@ export type InscribeModalRoutesParams = {
   [InscribeModalRoutes.InscribeModal]: {
     networkId: string;
     accountId: string;
+  };
+  [InscribeModalRoutes.BRC20Amount]: {
+    networkId: string;
+    accountId: string;
+    token?: Token;
   };
   [InscribeModalRoutes.OrderList]: undefined;
   [InscribeModalRoutes.OrderDetail]: {
@@ -50,6 +57,10 @@ const modalRoutes = [
   {
     name: InscribeModalRoutes.InscribeModal,
     component: CreateContent,
+  },
+  {
+    name: InscribeModalRoutes.BRC20Amount,
+    component: BRC20Amount,
   },
   {
     name: InscribeModalRoutes.OrderList,

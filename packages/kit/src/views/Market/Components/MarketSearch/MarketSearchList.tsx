@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,17 +14,21 @@ import type { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
 import { ListHeadTagsForSearch, SUBMIT_TOKEN_URL } from '../../config';
+import { useMarketSearchCategoryList } from '../../hooks/useMarketCategory';
 import MarketTokenCell from '../MarketList/MarketTokenCell';
 
 import MarketSearchDesktopCell from './MarketSearchDesktopCell';
 
 const MarketSearchList: FC<{
+  categoryId?: string;
   data?: string[];
   onPress: (marketTokenId: MarketTokenItem) => void;
-}> = ({ data, onPress }) => {
+}> = ({ categoryId, data, onPress }) => {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const isVertical = useIsVerticalLayout();
+  const categorys = useMarketSearchCategoryList();
+  const [newData, setNewData] = useState<string[]>(data ?? []);
   const renderItem = useCallback(
     ({ item }) =>
       isVertical ? (
@@ -38,9 +42,29 @@ const MarketSearchList: FC<{
       ),
     [isVertical, onPress],
   );
+
+  useEffect(() => {
+    if (data) {
+      setNewData(data);
+    }
+  }, [data]);
+
+  useEffect(() => {
+    if (categoryId) {
+      const category = categorys.find((c) => c.categoryId === categoryId);
+      if (
+        category &&
+        category?.coingeckoIds &&
+        category?.coingeckoIds?.length > 0
+      ) {
+        setNewData(category.coingeckoIds);
+      }
+    }
+  }, [categoryId, categorys]);
+
   return (
     <FlatList
-      data={data}
+      data={newData}
       contentContainerStyle={{ paddingTop: 12, paddingBottom: bottom }}
       showsVerticalScrollIndicator={false}
       renderItem={renderItem}

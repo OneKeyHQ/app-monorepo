@@ -262,9 +262,9 @@ export enum OverviewModalRoutes {
 export type OverviewModalRoutesParams = {
   [OverviewModalRoutes.OverviewProtocolDetail]: {
     networkId: string;
-    protocolId: string;
     accountId: string;
     poolCode?: string;
+    protocol: OverviewDefiRes;
   };
 };
 
@@ -279,6 +279,8 @@ export interface IOverviewAllNetworksToken {
   symbol: string;
   coingeckoId: string;
   balance: string;
+  availableBalance?: string;
+  transferBalance?: string;
   price?: number;
   price24h?: number;
   value?: string;
@@ -308,6 +310,8 @@ export interface IAccountToken {
   address?: string;
   logoURI?: string;
   balance: IAmountValue;
+  availableBalance?: IAmountValue;
+  transferBalance?: IAmountValue;
   usdValue: IAmountValue;
   value: IAmountValue;
   value24h?: IAmountValue;
@@ -335,8 +339,12 @@ export type IOverviewTokenDetailListItem = {
   logoURI: string;
   type: string;
   balance: string;
+  availableBalance?: string;
+  transferBalance?: string;
   networkId: string;
   accountName?: string;
   protocolId?: string;
   onPress?: () => void;
+  poolCode?: string;
+  protocol?: OverviewDefiRes;
 };

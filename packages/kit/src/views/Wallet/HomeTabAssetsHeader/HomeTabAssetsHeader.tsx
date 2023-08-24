@@ -1,7 +1,5 @@
 import { memo, useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import type { ICON_NAMES } from '@onekeyhq/components';
 import {
   Box,
@@ -9,7 +7,6 @@ import {
   IconButton,
   Pressable,
   Text,
-  Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 
@@ -29,6 +26,7 @@ export type IHomeTabAssetsHeaderProps = {
   onPress?: () => void;
   usdFiatValue: string | undefined;
   shareRate: BigNumber;
+  columns: JSX.Element;
 };
 function HomeTabAssetsHeaderCmp({
   icon,
@@ -41,8 +39,8 @@ function HomeTabAssetsHeaderCmp({
   onPress,
   usdFiatValue,
   shareRate,
+  columns,
 }: IHomeTabAssetsHeaderProps) {
-  const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
   const iconOuterWidth = isVerticalLayout ? '24px' : '32px';
   const iconInnerWidth = isVerticalLayout ? 12 : 16;
@@ -137,25 +135,7 @@ function HomeTabAssetsHeaderCmp({
             {accountTokensValueText}
           </Text>
         ) : (
-          <Box flexDirection="row" w="full">
-            <Typography.Subheading color="text-subdued" flex={1}>
-              {intl.formatMessage({ id: 'title__assets' })}
-            </Typography.Subheading>
-            <Typography.Subheading
-              color="text-subdued"
-              flex={1}
-              textAlign="right"
-            >
-              {intl.formatMessage({ id: 'content__price_uppercase' })}
-            </Typography.Subheading>
-            <Typography.Subheading
-              color="text-subdued"
-              flex={1}
-              textAlign="right"
-            >
-              {intl.formatMessage({ id: 'form__value' })}
-            </Typography.Subheading>
-          </Box>
+          columns
         )}
       </Box>
     </Container>

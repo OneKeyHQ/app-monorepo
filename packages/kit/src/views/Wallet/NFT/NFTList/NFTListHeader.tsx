@@ -3,28 +3,25 @@ import { memo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Box, HStack, Typography, useTheme } from '@onekeyhq/components';
+import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
 import {
   useActiveWalletAccount,
   useAppSelector,
 } from '@onekeyhq/kit/src/hooks';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import { useNFTValues } from '../../../../hooks';
 // import { showSelectNFTPriceType } from '../../../Overlay/SelectNFTPriceType';
 
-type NFTListHeaderProps = {
-  isNFTSupport?: boolean;
-};
-
-const NFTListHeader = ({ isNFTSupport }: NFTListHeaderProps) => {
+const NFTListHeader = () => {
   const intl = useIntl();
   const { themeVariant } = useTheme();
-  const { account, network } = useActiveWalletAccount();
+  const { networkId, accountId } = useActiveWalletAccount();
+  const isNFTSupport = isCollectibleSupportedChainId(networkId ?? '');
 
-  const totalPrice = useNFTValues({
-    accountId: account?.id,
-    networkId: network?.id,
-  });
+  const totalPrice = useAppSelector(
+    (s) =>
+      s.overview.overviewStats?.[networkId]?.[accountId]?.nfts?.totalValue ?? 0,
+  );
   const disPlayPriceType = useAppSelector((s) => s.nft.disPlayPriceType);
   const subDesc =
     disPlayPriceType === 'lastSalePrice'
@@ -49,7 +46,7 @@ const NFTListHeader = ({ isNFTSupport }: NFTListHeaderProps) => {
               <FormatCurrencyNumber
                 value={0}
                 decimals={2}
-                convertValue={totalPrice > 0 ? totalPrice : ''}
+                convertValue={Number(totalPrice) > 0 ? totalPrice : ''}
               />
             </Typography.DisplayLarge>
             <Typography.Body2 color="text-subdued">

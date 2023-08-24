@@ -66,7 +66,7 @@ export type IBaseMenuOptions = (
 export type IMenu = Omit<IMenuProps, 'trigger'>;
 interface IBaseMenu extends IMenu {
   options: IBaseMenuOptions;
-  menuWidth?: number;
+  menuWidth?: number | string;
 }
 
 const BaseMenu: FC<IBaseMenu> = ({

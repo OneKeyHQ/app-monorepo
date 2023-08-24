@@ -29,7 +29,7 @@ import MarketSearchList from './Components/MarketSearch/MarketSearchList';
 import MarketSearchTabView from './Components/MarketSearch/MarketSearchTabView';
 import TokenTag from './Components/MarketSearch/TokenTag';
 import { MARKET_FAKE_SKELETON_LIST_ARRAY } from './config';
-import { useMarketSearchCategoryList } from './hooks/useMarketCategory';
+import { useSimplyMarketSearchCategoryList } from './hooks/useMarketCategory';
 import {
   useMarketSearchHistory,
   useMarketSearchSelectedCategory,
@@ -48,7 +48,7 @@ const MarketSearch: FC<{
 }> = ({ closeOverlay }) => {
   const intl = useIntl();
   const searchHistory = useMarketSearchHistory();
-  const searchCategorys = useMarketSearchCategoryList();
+  const simplySearchCategories = useSimplyMarketSearchCategoryList();
   const searchSelectedCategory = useMarketSearchSelectedCategory();
   const { searchTokens, searchKeyword } = useMarketSearchTokens();
   const isVertical = useIsVerticalLayout();
@@ -70,28 +70,27 @@ const MarketSearch: FC<{
 
   const options = useMemo<SearchTabItem[]>(
     () =>
-      searchCategorys.map((c) => ({
+      simplySearchCategories.map((c) => ({
         tabId: c.categoryId,
         name: c.name ?? '',
         // eslint-disable-next-line react/no-unstable-nested-components
         view: () => (
           <MarketSearchList
             onPress={onTokenPress}
-            data={
-              !c.coingeckoIds?.length
-                ? MARKET_FAKE_SKELETON_LIST_ARRAY
-                : c.coingeckoIds
-            }
+            categoryId={c.categoryId}
+            data={MARKET_FAKE_SKELETON_LIST_ARRAY}
           />
         ),
       })),
-    [onTokenPress, searchCategorys],
+    [onTokenPress, simplySearchCategories],
   );
 
   const searchSelectedCategoryIndex = useMemo(
     () =>
-      searchCategorys.findIndex((c) => c.categoryId === searchSelectedCategory),
-    [searchCategorys, searchSelectedCategory],
+      simplySearchCategories.findIndex(
+        (c) => c.categoryId === searchSelectedCategory,
+      ),
+    [simplySearchCategories, searchSelectedCategory],
   );
 
   const searchContent = useMemo(() => {
@@ -111,7 +110,7 @@ const MarketSearch: FC<{
         </Box>
       );
     }
-    return searchCategorys?.length ? (
+    return simplySearchCategories?.length ? (
       <Box flex={1}>
         {searchHistory?.length ? (
           <>
@@ -157,7 +156,7 @@ const MarketSearch: FC<{
           <MarketSearchTabView
             onTabChange={(index) => {
               backgroundApiProxy.serviceMarket.setMarketSearchTab(
-                searchCategorys[index].categoryId,
+                simplySearchCategories[index].categoryId,
               );
             }}
             options={options}
@@ -178,7 +177,7 @@ const MarketSearch: FC<{
     );
   }, [
     searchKeyword?.length,
-    searchCategorys,
+    simplySearchCategories,
     searchHistory,
     intl,
     searchSelectedCategoryIndex,

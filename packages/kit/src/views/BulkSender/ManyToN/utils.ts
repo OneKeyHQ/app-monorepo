@@ -1,4 +1,5 @@
 import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 
 import { ToastManager } from '@onekeyhq/components';
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
@@ -57,7 +58,10 @@ export const getTransferAmount = async ({
   tokensBalance: Record<string, string | undefined> | undefined;
 }) => {
   if (amountType === AmountTypeEnum.Custom) {
-    return senderItem.Amount!;
+    if (isNil(senderItem.amount)) {
+      throw new OneKeyError('Can not get sender amount value');
+    }
+    return senderItem.amount;
   }
 
   if (amountType === AmountTypeEnum.Fixed) {
@@ -68,7 +72,7 @@ export const getTransferAmount = async ({
   // so here senderAccount must be not null
   const senderAccount =
     (await backgroundApiProxy.serviceAccount.getAccountByAddress({
-      address: senderItem.Address,
+      address: senderItem.address,
       networkId,
     })) as Account;
 
@@ -166,11 +170,11 @@ export const verifyBulkTransferBeforeConfirm = async ({
     const senderItem = sender[i];
     const senderAccount =
       await backgroundApiProxy.serviceAccount.getAccountByAddress({
-        address: senderItem.Address.toLowerCase(),
+        address: senderItem.address.toLowerCase(),
         networkId,
       });
 
-    if (senderSet.has(senderItem.Address)) {
+    if (senderSet.has(senderItem.address)) {
       errors.push({
         lineNumber: i + 1,
         message: intl.formatMessage({ id: 'msg__duplicated_address' }),
@@ -199,7 +203,7 @@ export const verifyBulkTransferBeforeConfirm = async ({
           accountId: senderAccount.id,
           walletId: wallet.id,
         });
-        senderSet.add(senderItem.Address);
+        senderSet.add(senderItem.address);
         if (feeInfo === null) {
           try {
             const encodedTxForEstimateFee =
@@ -207,8 +211,8 @@ export const verifyBulkTransferBeforeConfirm = async ({
                 networkId,
                 accountId: senderAccount.id,
                 transferInfo: {
-                  from: senderItem.Address,
-                  to: receiver[0].Address,
+                  from: senderItem.address,
+                  to: receiver[0].address,
                   amount: new BigNumber(1).shiftedBy(-token.decimals).toFixed(),
                   token: token.tokenIdOnNetwork,
                 },
@@ -296,7 +300,10 @@ export const verifyBulkTransferBeforeConfirm = async ({
     const senderAccountId = senderAccounts[i].accountId;
 
     if (amountType === AmountTypeEnum.Custom) {
-      senderAmount = senderItem.Amount!;
+      if (isNil(senderItem.amount)) {
+        throw new OneKeyError('Can not get sender amount value');
+      }
+      senderAmount = senderItem.amount;
     } else if (amountType === AmountTypeEnum.Fixed) {
       [senderAmount] = amount;
     } else if (amountType === AmountTypeEnum.Random) {

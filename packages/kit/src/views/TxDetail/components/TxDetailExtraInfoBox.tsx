@@ -104,15 +104,17 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
     );
   }
 
-  details.push({
-    title: intl.formatMessage({ id: 'content__fee' }),
-    content:
-      feeInput ||
-      getFeeInNativeText({
-        network,
-        decodedTx,
-      }),
-  });
+  if (feeInput !== null) {
+    details.push({
+      title: intl.formatMessage({ id: 'content__fee' }),
+      content:
+        feeInput ||
+        getFeeInNativeText({
+          network,
+          decodedTx,
+        }),
+    });
+  }
 
   if (
     checkIsValidHistoryTxId({

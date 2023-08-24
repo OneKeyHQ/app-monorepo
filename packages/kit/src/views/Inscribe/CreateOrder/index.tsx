@@ -40,6 +40,7 @@ import {
   FormatBalanceTokenOfAccount,
 } from '../../../components/Format';
 import { useActiveSideAccount } from '../../../hooks';
+import { useBRC20Content } from '../../../hooks/useBRC20Content';
 import { useSingleToken } from '../../../hooks/useTokens';
 import {
   ModalRoutes,
@@ -95,6 +96,11 @@ const CreateOrder: FC = () => {
   );
   const isVerticalLayout = useIsVerticalLayout();
   const isSendConfirm = useRef<boolean>(false);
+
+  const { isBRC20Content } = useBRC20Content({
+    content: bufferUtils.hexToText(contents[0].hex),
+    contentType: contents[0].mimetype,
+  });
 
   const [order, updateOrder] = useState<IInscriptionsOrder>();
   const { token: tokenInfo } = useSingleToken(networkId, '');
@@ -303,6 +309,7 @@ const CreateOrder: FC = () => {
                 name: tokenInfo?.name ?? '',
                 ...(tokenInfo || {}),
               }}
+              useRecycleBalance={false}
               render={(ele) => <Text typography="Body1Strong">{ele}</Text>}
             />
             {balanceDetailsInfo.enabled ? (
@@ -347,7 +354,10 @@ const CreateOrder: FC = () => {
             bounces={false}
             contentContainerStyle={{ paddingHorizontal: 16 }}
           >
-            <Steps numberOfSteps={3} currentStep={3} />
+            <Steps
+              numberOfSteps={isBRC20Content ? 2 : 3}
+              currentStep={isBRC20Content ? 2 : 3}
+            />
             <Text mt="16px" typography="Heading">
               {intl.formatMessage({ id: 'form__inscribe_preview' })}
             </Text>

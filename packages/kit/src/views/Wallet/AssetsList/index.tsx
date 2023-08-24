@@ -60,6 +60,7 @@ export type IAssetsListProps = Omit<
   itemsCountForAutoFallbackToPlainList?: number;
   hidePriceInfo?: boolean;
   showRoundTop?: boolean;
+  showTokenBalanceDetail?: boolean;
   limitSize?: number;
   flatStyle?: boolean;
   accountId: string;
@@ -144,7 +145,7 @@ export function useAssetsListDataFromRedux({
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
   const putMainTokenOnTop = useAppSelector((s) => s.settings.putMainTokenOnTop);
 
-  const refresherTs = useAppSelector((s) => s.refresher.refreshHomeOverviewTs);
+  const refresherTs = useAppSelector((s) => s.refresher.refreshAccountTokenTs);
   const tokensList = useReduxAccountTokensList({
     accountId,
     networkId,
@@ -163,7 +164,7 @@ export function useAssetsListDataFromRedux({
       if (tokensList && balancesMap && pricesMap) {
         //
       }
-      const r = backgroundApiProxy.serviceOverview.buildAccountOverview({
+      const r = backgroundApiProxy.serviceOverview.buildAccountTokens({
         networkId,
         accountId,
         tokensLimit: limitSize,
@@ -210,15 +211,7 @@ export function HandleRebuildAssetsListData(
   const [accountTokens, setAccountTokens] = useAtomAssetsList(
     atomHomeOverviewAccountTokens,
   );
-  const [isLoading, setIsLoading] = useAtomAssetsList(
-    atomTokenAssetsListLoading,
-  );
-  // const { data: accountTokens } = useAccountTokens({
-  //   networkId,
-  //   accountId,
-  //   useFilter: true,
-  //   limitSize,
-  // });
+  const [, setIsLoading] = useAtomAssetsList(atomTokenAssetsListLoading);
 
   useEffect(() => {
     (() => {
@@ -243,17 +236,6 @@ export function HandleRebuildAssetsListData(
   }, [result.isLoading, setIsLoading]);
 
   return null;
-
-  // *** endless loop render
-  // return useDebounceStates(
-  //   3000,
-  //   useMemo(
-  //     () => ({
-  //       accountTokens,
-  //     }),
-  //     [accountTokens],
-  //   ),
-  // );
 }
 
 function HomeTokenAssetsListCmp({
@@ -311,12 +293,6 @@ function FullTokenAssetsListCmp(
   props: Omit<IAssetsListProps, 'accountTokens'>,
 ) {
   const { accountId, networkId, limitSize } = props;
-  // const result = useAssetsListDataFromRedux({
-  //   networkId,
-  //   accountId,
-  //   limitSize,
-  // });
-  // const accountTokens = result.result?.tokens || freezedEmptyArray
 
   const [accountTokensInfo] = useAtomAssetsList(atomHomeOverviewAccountTokens);
   const { tokens: accountTokens = freezedEmptyArray } = accountTokensInfo;

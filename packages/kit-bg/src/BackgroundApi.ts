@@ -455,5 +455,15 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.defineProperty(this, 'serviceDappMetaData', { value });
     return value;
   }
+
+  get serviceBRC20() {
+    const ServiceBRC20 =
+      require('./services/ServiceBRC20') as typeof import('./services/ServiceBRC20');
+    const value = new ServiceBRC20.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceBRC20', { value });
+    return value;
+  }
 }
 export default BackgroundApi;

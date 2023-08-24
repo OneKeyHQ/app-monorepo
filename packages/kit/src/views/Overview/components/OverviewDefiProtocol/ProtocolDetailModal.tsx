@@ -11,16 +11,14 @@ import {
   Box,
   HStack,
   Modal,
-  Spinner,
   Token,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import { useAccountPortfolios, useAccountValues } from '../../../../hooks';
-import { useCurrentFiatValue } from '../../../../hooks/useTokens';
-import { EOverviewScanTaskType } from '../../types';
+import { LazyDisplayView } from '../../../../components/LazyDisplayView';
+import { useAppSelector } from '../../../../hooks';
 import { OverviewBadge } from '../OverviewBadge';
 
 import type {
@@ -39,35 +37,19 @@ const OverviewProtocolDetail: FC = () => {
   const isVertical = useIsVerticalLayout();
   const route = useRoute<RouteProps>();
 
-  const { networkId, protocolId, accountId, poolCode } = route.params;
+  const { networkId, accountId, protocol, poolCode } = route.params;
 
-  const currentFiatValue = useCurrentFiatValue();
-
-  const accountAllValue = useAccountValues({
-    networkId,
-    accountId,
-  }).value;
-
-  const { data: defis, loading } = useAccountPortfolios({
-    networkId,
-    accountId,
-    type: EOverviewScanTaskType.defi,
-  });
-
-  const protocol = useMemo(
-    () => defis?.find((item) => item._id.protocolId === protocolId),
-    [defis, protocolId],
+  const stats = useAppSelector(
+    (s) => s.overview.overviewStats?.[networkId]?.[accountId],
   );
 
   const rate = useMemo(
     () =>
-      new B(protocol?.protocolValue ?? 0)
-        .multipliedBy(currentFiatValue)
-        .div(accountAllValue)
+      new B(protocol.protocolValue)
+        .div(stats?.summary?.totalValue ?? 0)
         .multipliedBy(100),
-    [protocol?.protocolValue, accountAllValue, currentFiatValue],
+    [protocol, stats?.summary?.totalValue],
   );
-
   const headerDescription = useMemo(() => {
     if (isVertical) {
       return (
@@ -134,17 +116,16 @@ const OverviewProtocolDetail: FC = () => {
         ),
       }}
       scrollViewProps={{
-        children:
-          loading || !protocol ? (
-            <Spinner />
-          ) : (
+        children: (
+          <LazyDisplayView delay={0}>
             <OverviewDefiProtocol
               {...protocol}
               showHeader={false}
               bgColor="surface-default"
               poolCode={poolCode}
             />
-          ),
+          </LazyDisplayView>
+        ),
       }}
     />
   );

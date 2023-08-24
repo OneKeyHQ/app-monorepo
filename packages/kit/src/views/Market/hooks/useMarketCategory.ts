@@ -16,31 +16,28 @@ export const useMarketSelectedCategoryId = () =>
 
 const useMarketCategories = () => useAppSelector((s) => s.market.categorys);
 
+export const useSimplyMarketSearchCategoryList = () =>
+  useAppSelector((s) => s.market.searchSimplyCategories);
+
+export const useSimplyMarketTabCategoryList = () =>
+  useAppSelector((s) => s.market.tabSimplyCategories);
+
 export const useMarketSelectedCategory = () => {
   const selectedCategoryId = useMarketSelectedCategoryId();
-  const categorys = useMarketCategories();
+  const categories = useMarketCategories();
   return useMemo(
-    () => (selectedCategoryId ? categorys[selectedCategoryId] : null),
-    [categorys, selectedCategoryId],
+    () => (selectedCategoryId ? categories[selectedCategoryId] : null),
+    [categories, selectedCategoryId],
   );
 };
 
 export const useMarketCategoryList = () => {
   const isFocused = useIsFocused();
-  const categorys = useMarketCategories();
   useEffect(() => {
     if (isFocused) {
       backgroundApiProxy.serviceMarket.fetchMarketCategorys();
     }
   }, [isFocused]);
-  return useMemo(() => {
-    if (categorys && Object.values(categorys).length > 0) {
-      return Object.values(categorys).filter(
-        (c) => c.type === MarketCategoryType.MRKET_CATEGORY_TYPE_TAB,
-      );
-    }
-    return [];
-  }, [categorys]);
 };
 
 const RECOMMENDED_VIEW_COUNT_VERTIVAL = 8;
