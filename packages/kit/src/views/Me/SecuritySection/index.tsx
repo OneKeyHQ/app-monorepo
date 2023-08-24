@@ -199,7 +199,7 @@ export const SecuritySection = () => {
           onPress={() => {
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.Password,
-              params: { screen: PasswordRoutes.PasswordRoutes },
+              params: { screen: PasswordRoutes.PasswordRoutes, params: {} },
             });
           }}
         >
