@@ -95,8 +95,7 @@ export const uploadMetricsInfo = async (
   deviceInfo: MetrixDeviceInfo,
 ) =>
   uploadMetricsLogFile(
-    'http://127.0.0.1:7001/api/logs/upload',
-    // 'https://perf.onekeytest.com/api/logs/upload',
+    'https://perf.onekeytest.com/api/logs/upload',
     unitTestName,
     password,
     JSON.stringify({
