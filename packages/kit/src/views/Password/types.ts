@@ -3,5 +3,7 @@ export enum PasswordRoutes {
 }
 
 export type PasswordRoutesParams = {
-  [PasswordRoutes.PasswordRoutes]: undefined;
+  [PasswordRoutes.PasswordRoutes]: {
+    onSuccess?: () => void;
+  };
 };
