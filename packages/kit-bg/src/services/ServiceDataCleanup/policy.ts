@@ -3,7 +3,7 @@ import type { CleanupPolicy } from './types';
 // For example:
 // export const cleanupPolicies: CleanupPolicy[] = [
 //   {
-//     source: 'simpledb',
+//     source: 'simpleDb',
 //     simpleDbEntity: simpleDb.history,
 //     dataPath: ['items'],
 //     strategy: {
@@ -14,7 +14,7 @@ import type { CleanupPolicy } from './types';
 //   } as SimpleDbCleanupPolicy<typeof simpleDb.history>,
 //   {
 //     source: 'redux',
-//     statePath: ['discover.userBrowserHistories'],
+//     dataPath: ['discover.userBrowserHistories'],
 //     strategy: {
 //       type: 'array-slice',
 //       maxToKeep: 1,

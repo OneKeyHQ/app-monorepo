@@ -1,73 +1,40 @@
-import { get, set } from 'lodash';
-
-import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { cleanupPolicies } from './policy';
 
-import type { BaseCleanupPolicy, CleanupPolicy } from './types';
-
-export const cachedMatchingPolicies = new Map<string, CleanupPolicy[]>();
-
-export function findMatchingPolicies(lastWriteKey: string) {
-  if (cachedMatchingPolicies.has(lastWriteKey)) {
-    const policies = cachedMatchingPolicies.get(lastWriteKey);
-    if (policies) return policies;
-  }
+export const findMatchingPolicies = memoizee((lastWriteKey: string) => {
   const policies = cleanupPolicies.filter((policy) => {
     if (policy.source === 'redux') {
-      return policy.statePath.some(
-        (path) =>
-          lastWriteKey === `r:${path}` || lastWriteKey.startsWith(`r:${path}.`),
+      return policy.dataPaths.some(
+        (path) => lastWriteKey === path || lastWriteKey.startsWith(`${path}.`),
       );
     }
-    if (policy.source === 'simpledb') {
-      return policy.dataPath.some(
+    if (policy.source === 'simpleDb') {
+      return policy.dataPaths.some(
         (path) =>
-          lastWriteKey === `s:${policy.simpleDbEntity.entityName}:${path}` ||
+          lastWriteKey === `${policy.simpleDbEntity.entityName}:${path}` ||
           lastWriteKey.startsWith(
-            `s:${policy.simpleDbEntity.entityName}:${path}.`,
+            `${policy.simpleDbEntity.entityName}:${path}.`,
           ),
       );
     }
     return false;
   });
-  cachedMatchingPolicies.set(lastWriteKey, policies);
   return policies;
-}
+});
 
-export function updateLastWriteTime(lastWriteKey: string) {
+export function updateLastWriteTime(
+  source: 'redux' | 'simpleDb',
+  lastWriteKey: string,
+  now = Date.now(),
+) {
   if (findMatchingPolicies(lastWriteKey).length === 0) {
+    debugLogger.dataCleanup.warn(
+      `updateLastWriteTime: no matching policy found for key ${lastWriteKey}. Ignored.`,
+    );
     return;
   }
-  appStorage.setSetting(`lw:${lastWriteKey}`, Date.now());
-}
-
-export function applyCleanupStrategy(
-  strategy: BaseCleanupPolicy['strategy'],
-  dataToModify: any,
-  dataPath: string,
-  lastWriteTime: number,
-) {
-  const now = Date.now();
-  let modified = false;
-  if (
-    strategy.type === 'reset-on-expiry' &&
-    now - lastWriteTime > strategy.expiry * 1000
-  ) {
-    set(dataToModify, dataPath, strategy.resetToValue);
-    modified = true;
-  } else if (strategy.type === 'array-slice') {
-    const array = get(dataToModify, dataPath);
-    if (Array.isArray(array) && array.length > strategy.maxToKeep) {
-      const start =
-        strategy.keepItemsAt === 'head' ? 0 : array.length - strategy.maxToKeep;
-      set(
-        dataToModify,
-        dataPath,
-        array.slice(start, start + strategy.maxToKeep),
-      );
-      modified = true;
-    }
-  }
-  return modified;
+  simpleDb.lastWrite.set(source, lastWriteKey, now);
 }

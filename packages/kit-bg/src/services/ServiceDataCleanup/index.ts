@@ -1,22 +1,28 @@
+import { get, set } from 'lodash';
+
 import type { SimpleDbEntityBase } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityBase';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
+import type { IAppState } from '@onekeyhq/kit/src/store';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { REPLACE_WHOLE_STATE } from '@onekeyhq/shared/src/background/backgroundUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import ServiceBase from '../ServiceBase';
 
-import {
-  applyCleanupStrategy,
-  findMatchingPolicies,
-  updateLastWriteTime,
-} from './utils';
+import { cleanupPolicies } from './policy';
+import { updateLastWriteTime } from './utils';
 
-import type { CleanupPolicy, ReduxStatePath, SimpleDbDataPath } from './types';
+import type { ReduxStatePath, SimpleDbDataPath } from './types';
+
+const simpleDbInstanceLookup = Object.fromEntries(
+  Object.values(simpleDb).map((instance: SimpleDbEntityBase<unknown>) => [
+    instance.entityName,
+    instance,
+  ]),
+) as Record<string, SimpleDbEntityBase<unknown>>;
 
 @backgroundClass()
 export default class ServiceDataCleanup extends ServiceBase {
@@ -25,32 +31,150 @@ export default class ServiceDataCleanup extends ServiceBase {
    */
   @backgroundMethod()
   async cleanupStaleData() {
-    const lastWriteKeys = appStorage
-      .getAllKeysOfSetting()
-      .filter(
-        (key) =>
-          key.startsWith('lw:') || key.startsWith('onekey-app-setting\\lw:'),
-      );
+    const now = Date.now();
 
-    for (let settingKey of lastWriteKeys) {
-      settingKey = settingKey.replace('onekey-app-setting\\', '');
-      const lastWriteTime = appStorage.getSettingNumber(settingKey);
-      if (lastWriteTime === undefined) {
-        appStorage.deleteSetting(settingKey);
-        // eslint-disable-next-line no-continue
-        continue;
+    if (
+      now - (await simpleDb.lastWrite.getDataCleanupLastRun()) <
+      86400 * 1000
+    ) {
+      // Data cleanup is run at most once per day
+      return;
+    }
+
+    const lastWriteKeysToReset: { redux: string[]; simpleDb: string[] } = {
+      redux: [],
+      simpleDb: [],
+    };
+
+    let cachedReduxState: IAppState | undefined;
+    let reduxStateModified = false;
+    const getCachedReduxState = async () => {
+      if (!cachedReduxState) {
+        cachedReduxState = (await this.backgroundApi.getState()).state;
       }
-      const lastWriteKey = settingKey.slice(3); // remove 'lw:'
-      const matchingPolicies = findMatchingPolicies(lastWriteKey);
-      if (matchingPolicies.length === 0) {
-        appStorage.deleteSetting(settingKey);
-        debugLogger.dataCleanup.info(
-          `No matching policy found for an existing key ${settingKey}. Removed.`,
-        );
-      } else {
-        for (const policy of matchingPolicies) {
-          await this.applyCleanupPolicy(policy, lastWriteTime, lastWriteKey);
+      return cachedReduxState;
+    };
+
+    const cachedSimpleDbRawData: Record<string, unknown> = {};
+    const simpleDbModified: Record<string, boolean> = {};
+    const getCachedSimpleDbRawData = async (
+      simpleDbEntity: SimpleDbEntityBase<unknown>,
+    ) => {
+      let data = cachedSimpleDbRawData[simpleDbEntity.entityName];
+      if (!data) {
+        data = await simpleDbEntity.getRawData();
+        cachedSimpleDbRawData[simpleDbEntity.entityName] = data;
+      }
+      return data;
+    };
+
+    for (const policy of cleanupPolicies) {
+      const { strategy } = policy;
+      if (strategy.type === 'reset-on-expiry') {
+        const expiredPaths = (
+          await Promise.all(
+            policy.dataPaths.map((dataPath) =>
+              simpleDb.lastWrite.getExpiredKeys(
+                policy.source,
+                strategy.expiry,
+                policy.source === 'redux'
+                  ? dataPath
+                  : `${policy.simpleDbEntity.entityName}:${dataPath}`,
+                now,
+              ),
+            ),
+          )
+        ).flat();
+        if (expiredPaths.length === 0) {
+          debugLogger.dataCleanup.info(
+            `No expired paths found for policy.`,
+            policy,
+          );
+          // eslint-disable-next-line no-continue
+          continue;
         }
+        debugLogger.dataCleanup.info(
+          `Found expired paths ${expiredPaths.join(', ')}`,
+          policy,
+        );
+        if (policy.source === 'redux') {
+          for (const path of expiredPaths) {
+            set(await getCachedReduxState(), path, strategy.resetToValue);
+          }
+          reduxStateModified = true;
+          lastWriteKeysToReset.redux.push(...expiredPaths);
+        } else if (policy.source === 'simpleDb') {
+          const data = await getCachedSimpleDbRawData(policy.simpleDbEntity);
+          // eslint-disable-next-line no-continue
+          if (!data) continue;
+          for (const path of expiredPaths) {
+            const [, realPath] = path.split(':');
+            set(data, realPath, strategy.resetToValue);
+          }
+          simpleDbModified[policy.simpleDbEntity.entityName] = true;
+          lastWriteKeysToReset.simpleDb.push(...expiredPaths);
+        }
+      } else if (strategy.type === 'array-slice') {
+        let dataToModify: any;
+        if (policy.source === 'redux') {
+          dataToModify = await getCachedReduxState();
+        } else if (policy.source === 'simpleDb') {
+          dataToModify = getCachedSimpleDbRawData(policy.simpleDbEntity);
+          // eslint-disable-next-line no-continue
+          if (!dataToModify) continue;
+        }
+        for (const path of policy.dataPaths) {
+          const array = get(dataToModify, path);
+          if (Array.isArray(array) && array.length > strategy.maxToKeep) {
+            const start =
+              strategy.keepItemsAt === 'head'
+                ? 0
+                : array.length - strategy.maxToKeep;
+            const slicedArray = array.slice(start, start + strategy.maxToKeep);
+            set(dataToModify, path, slicedArray);
+            debugLogger.dataCleanup.info(
+              `Applied array-slice operation on ${path}. Before: ${array.length}, after: ${slicedArray.length}.`,
+              policy,
+            );
+            if (policy.source === 'redux') {
+              reduxStateModified = true;
+            } else if (policy.source === 'simpleDb') {
+              simpleDbModified[policy.simpleDbEntity.entityName] = true;
+            }
+          }
+        }
+      }
+    }
+
+    await simpleDb.lastWrite.multiSet('redux', lastWriteKeysToReset.redux, now);
+    await simpleDb.lastWrite.multiSet(
+      'simpleDb',
+      lastWriteKeysToReset.simpleDb,
+      now,
+    );
+    debugLogger.dataCleanup.info(
+      'Last write timestamp for expired paths has been reset.',
+      lastWriteKeysToReset,
+    );
+
+    if (reduxStateModified) {
+      // batch all updates to redux state into a single dispatch
+      this.backgroundApi.dispatch({
+        type: REPLACE_WHOLE_STATE,
+        payload: cachedReduxState,
+        $isDispatchFromBackground: true,
+      });
+      debugLogger.dataCleanup.info(
+        'Dispatched a REPLACE_WHOLE_STATE action to update redux state.',
+      );
+    }
+    for (const [entityName, data] of Object.entries(cachedSimpleDbRawData)) {
+      // batch all updates to simpleDb into a single setRawData call
+      if (simpleDbModified[entityName]) {
+        await simpleDbInstanceLookup[entityName].setRawData(data);
+        debugLogger.dataCleanup.info(
+          `Data saved on SimpleDb entity ${entityName}.`,
+        );
       }
     }
   }
@@ -62,7 +186,7 @@ export default class ServiceDataCleanup extends ServiceBase {
    */
   @backgroundMethod()
   notifyReduxWrite(statePath: ReduxStatePath) {
-    updateLastWriteTime(`r:${statePath}`);
+    updateLastWriteTime('redux', statePath);
   }
 
   /**
@@ -75,64 +199,6 @@ export default class ServiceDataCleanup extends ServiceBase {
     simpleDbEntity: TSimpleDbEntity,
     dataPath: SimpleDbDataPath<TSimpleDbEntity>,
   ) {
-    updateLastWriteTime(`s:${simpleDbEntity.entityName}:${dataPath}`);
-  }
-
-  async applyCleanupPolicy(
-    policy: CleanupPolicy,
-    lastWriteTime: number,
-    lastWriteKey: string,
-  ) {
-    if (policy.source === 'redux') {
-      const { state } = await this.backgroundApi.getState();
-      if (
-        applyCleanupStrategy(
-          policy.strategy,
-          state,
-          lastWriteKey.slice(2), // remove 'r:'
-          lastWriteTime,
-        )
-      ) {
-        this.backgroundApi.dispatch({
-          type: REPLACE_WHOLE_STATE,
-          payload: state,
-          $isDispatchFromBackground: true,
-        });
-        updateLastWriteTime(lastWriteKey);
-        debugLogger.dataCleanup.info(
-          `Data cleanup applied for ${lastWriteKey}.`,
-        );
-      } else {
-        debugLogger.dataCleanup.info(
-          `No stale data found for ${lastWriteKey}.`,
-        );
-      }
-    } else if (policy.source === 'simpledb') {
-      const [entityName, path] = lastWriteKey.slice(2).split(':'); // remove 's:'
-      const simpleDbEntity = simpleDb[
-        entityName as keyof typeof simpleDb
-      ] as SimpleDbEntityBase<unknown>;
-      if (!simpleDbEntity) {
-        debugLogger.dataCleanup.error(
-          `Cannot get a SimpleDbEntity instance for ${entityName}.`,
-        );
-        return;
-      }
-      const data = await simpleDbEntity.getRawData();
-      if (!data) return;
-      if (applyCleanupStrategy(policy.strategy, data, path, lastWriteTime)) {
-        await simpleDbEntity.setRawData(data);
-        updateLastWriteTime(lastWriteKey);
-        debugLogger.dataCleanup.info(
-          `Data cleanup applied for ${lastWriteKey}.`,
-        );
-      } else {
-        debugLogger.dataCleanup.info(
-          `No stale data found for ${lastWriteKey}.`,
-        );
-      }
-    } else {
-      throw new Error('Unknown source for the data cleanup policy.');
-    }
+    updateLastWriteTime('simpleDb', `${simpleDbEntity.entityName}:${dataPath}`);
   }
 }

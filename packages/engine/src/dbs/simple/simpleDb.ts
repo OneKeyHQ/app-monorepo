@@ -4,6 +4,7 @@ import { SimpleDbEntityAccountPortfolios } from './entity/SimpleDbEntityAccountP
 import { SimpleDbEntityHistory } from './entity/SimpleDbEntityHistory';
 import { SimpleDbEntityInscribe } from './entity/SimpleDbEntityInscribe';
 import { SimpleDbEntityLastActivity } from './entity/SimpleDbEntityLastActivity';
+import { SimpleDbEntityLastWrite } from './entity/SimpleDbEntityLastWrite';
 import { SimpleDbEntityMarket } from './entity/SimpleDbEntityMarket';
 import { SimpleDbEntityServerNetworks } from './entity/SimpleDbEntityNetworks';
 import { SimpleDbEntityNFT } from './entity/SimpleDbEntityNFT';
@@ -15,9 +16,6 @@ import { SimpleDbEntityUrlInfo } from './entity/SimpleDbEntityUrlInfo';
 import { SimpleDbEntityUtxoAccounts } from './entity/SimpleDbEntityUtxoAccounts';
 import { SimpleDbEntityWalletConnect } from './entity/SimpleDbEntityWalletConnect';
 
-/**
- *  Must have keys that is the same as entityNames so ServiceDataCleanup can correctly locate the SimpleDbEntity instance
- */
 class SimpleDb {
   history = new SimpleDbEntityHistory();
 
@@ -28,8 +26,6 @@ class SimpleDb {
   swap = new SimpleDbEntitySwap();
 
   token = new SimpleDbEntityTokens();
-
-  tokens = this.token;
 
   walletConnect = new SimpleDbEntityWalletConnect();
 
@@ -45,13 +41,11 @@ class SimpleDb {
 
   accountPortfolios = new SimpleDbEntityAccountPortfolios();
 
-  overviewPortfolios = this.accountPortfolios;
-
   inscribe = new SimpleDbEntityInscribe();
 
-  Inscribe = this.inscribe;
-
   urlInfo = new SimpleDbEntityUrlInfo();
+
+  lastWrite = new SimpleDbEntityLastWrite();
 }
 
 // eslint-disable-next-line import/no-mutable-exports

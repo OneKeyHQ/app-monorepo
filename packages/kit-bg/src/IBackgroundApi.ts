@@ -3,7 +3,12 @@
 import type { Engine } from '@onekeyhq/engine';
 import type { Validators } from '@onekeyhq/engine/src/validators';
 import type { VaultFactory } from '@onekeyhq/engine/src/vaults/VaultFactory';
-import type { IAppSelector, IPersistor, IStore } from '@onekeyhq/kit/src/store';
+import type {
+  IAppSelector,
+  IAppState,
+  IPersistor,
+  IStore,
+} from '@onekeyhq/kit/src/store';
 
 import type ProviderApiBase from './providers/ProviderApiBase';
 import type { ProviderApiWalletConnect } from './providers/ProviderApiWalletConnect';
@@ -77,7 +82,7 @@ export interface IBackgroundApiBridge {
   store: IStore;
   persistor: IPersistor;
   dispatch: (...actions: any[]) => void;
-  getState: () => Promise<{ state: any; bootstrapped: boolean }>;
+  getState: () => Promise<{ state: IAppState; bootstrapped: boolean }>;
   appSelector: IAppSelector;
 
   providers: Record<IInjectedProviderNames, ProviderApiBase>;

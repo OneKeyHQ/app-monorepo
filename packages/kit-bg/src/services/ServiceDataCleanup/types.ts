@@ -80,15 +80,15 @@ export interface BaseCleanupPolicy {
 
 export interface ReduxCleanupPolicy extends BaseCleanupPolicy {
   source: 'redux';
-  statePath: ReduxStatePath[];
+  dataPaths: ReduxStatePath[];
 }
 
 export interface SimpleDbCleanupPolicy<
   TSimpleDbEntity extends SimpleDbEntityBase<unknown>,
 > extends BaseCleanupPolicy {
-  source: 'simpledb';
+  source: 'simpleDb';
   simpleDbEntity: TSimpleDbEntity;
-  dataPath: SimpleDbDataPath<TSimpleDbEntity>[];
+  dataPaths: SimpleDbDataPath<TSimpleDbEntity>[];
 }
 
 export type CleanupPolicy =

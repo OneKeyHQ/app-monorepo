@@ -1,13 +1,7 @@
 import type { SimpleDbEntityHistory } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityHistory';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
-import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
-import {
-  applyCleanupStrategy,
-  cachedMatchingPolicies,
-  findMatchingPolicies,
-  updateLastWriteTime,
-} from './utils';
+import { findMatchingPolicies, updateLastWriteTime } from './utils';
 
 import type { CleanupPolicy, SimpleDbCleanupPolicy } from './types';
 
@@ -18,14 +12,15 @@ jest.mock('./policy', () => ({
   },
 }));
 
-jest.mock('@onekeyhq/shared/src/storage/appStorage');
-
-const mockedAppStorage = appStorage as jest.Mocked<typeof appStorage>;
+jest.mock('@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityLastWrite');
+const mockedSimpleDbLastWrite = simpleDb.lastWrite as jest.Mocked<
+  typeof simpleDb.lastWrite
+>;
 
 describe('utils', () => {
   const policy: CleanupPolicy = {
     source: 'redux',
-    statePath: ['accountSelector'],
+    dataPaths: ['accountSelector'],
     strategy: {
       type: 'reset-on-expiry',
       expiry: 3600,
@@ -33,44 +28,31 @@ describe('utils', () => {
     },
   };
   beforeEach(() => {
-    cachedMatchingPolicies.clear();
-    mockedAppStorage.setSetting.mockClear();
+    findMatchingPolicies.clear();
+    mockedSimpleDbLastWrite.set.mockClear();
     mockCleanupPolicies.mockReturnValue([policy]);
   });
   describe('findMatchingPolicy', () => {
-    it('should cache the matching policy', () => {
-      findMatchingPolicies('r:accountSelector');
-      expect(cachedMatchingPolicies.get('r:accountSelector')).toEqual([policy]);
-    });
-    it('should try reading the cached matching policy', () => {
-      jest.spyOn(cachedMatchingPolicies, 'get');
-      findMatchingPolicies('r:accountSelector');
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(cachedMatchingPolicies.get).not.toHaveBeenCalled();
-      findMatchingPolicies('r:accountSelector');
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(cachedMatchingPolicies.get).toHaveBeenCalledWith(
-        'r:accountSelector',
-      );
-    });
-
     describe('redux policy', () => {
-      it('matches with r:xxx key', () => {
-        expect(findMatchingPolicies('r:accountSelector')).toEqual([policy]);
+      it('supports exact match', () => {
+        expect(findMatchingPolicies('accountSelector')).toEqual([policy]);
       });
 
       it('supports prefix matching for nested keys', () => {
-        expect(findMatchingPolicies('r:accountSelector.isLoading')).toEqual([
+        expect(findMatchingPolicies('accountSelector.isLoading')).toEqual([
           policy,
         ]);
+        expect(findMatchingPolicies('accountSelectorDoNotMatchThis')).toEqual(
+          [],
+        );
       });
     });
 
-    describe('simpledb policy', () => {
+    describe('simpleDb policy', () => {
       const simpleDbPolicy: SimpleDbCleanupPolicy<SimpleDbEntityHistory> = {
-        source: 'simpledb',
+        source: 'simpleDb',
         simpleDbEntity: simpleDb.history,
-        dataPath: ['items'],
+        dataPaths: ['items'],
         strategy: {
           type: 'array-slice',
           maxToKeep: 1000,
@@ -81,100 +63,36 @@ describe('utils', () => {
         mockCleanupPolicies.mockReturnValue([simpleDbPolicy]);
       });
 
-      it('matches with s:xxx:xxx key', () => {
-        expect(findMatchingPolicies('s:history:items')).toEqual([
-          simpleDbPolicy,
-        ]);
+      it('supports exact match', () => {
+        expect(findMatchingPolicies('history:items')).toEqual([simpleDbPolicy]);
       });
 
       it('supports prefix matching for nested keys', () => {
-        expect(findMatchingPolicies('s:history:items.nestedField')).toEqual([
+        expect(findMatchingPolicies('history:items.nestedField')).toEqual([
           simpleDbPolicy,
         ]);
+        expect(findMatchingPolicies('history:itemsDoNotMatchThis')).toEqual([]);
       });
     });
   });
 
   describe('updateLastWriteTime', () => {
     it('calls appStorage.setSetting with the correct key', () => {
-      updateLastWriteTime('r:accountSelector');
-      expect(mockedAppStorage.setSetting).toHaveBeenCalledWith(
-        'lw:r:accountSelector',
-        expect.any(Number),
+      const now = Date.now();
+      updateLastWriteTime('redux', 'accountSelector', now);
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(mockedSimpleDbLastWrite.set).toHaveBeenCalledWith(
+        'redux',
+        'accountSelector',
+        now,
       );
     });
 
     it('skips if no matching policy', () => {
       mockCleanupPolicies.mockReturnValue([]);
-      updateLastWriteTime('r:accountSelector');
-      expect(mockedAppStorage.setSetting).not.toHaveBeenCalled();
-    });
-  });
-});
-
-describe('applyCleanupStrategy', () => {
-  describe('reset-on-expiry strategy', () => {
-    it('resets the value if the expiry is reached', () => {
-      const data = { accountSelector: true };
-      applyCleanupStrategy(
-        { type: 'reset-on-expiry', expiry: 3600, resetToValue: false },
-        data,
-        'accountSelector',
-        Date.now() - 3600 * 1000 - 1,
-      );
-      expect(data.accountSelector).toBe(false);
-    });
-
-    it('do nothing if the expiry is not reached', () => {
-      const data = { accountSelector: true };
-      expect(
-        applyCleanupStrategy(
-          { type: 'reset-on-expiry', expiry: 3600, resetToValue: false },
-          data,
-          'accountSelector',
-          Date.now() - 3600 * 1000 + 1,
-        ),
-      ).toBe(false);
-      expect(data.accountSelector).toBe(true);
-    });
-  });
-
-  describe('array-slice strategy', () => {
-    describe('if array.length > maxToKeep', () => {
-      it('slices the array from head', () => {
-        const data = { history: [0, 1, 2, 3, 4] };
-        applyCleanupStrategy(
-          { type: 'array-slice', maxToKeep: 3, keepItemsAt: 'head' },
-          data,
-          'history',
-          Date.now(),
-        );
-        expect(data.history).toEqual([0, 1, 2]);
-      });
-
-      it('slices the array from tail', () => {
-        const data = { history: [0, 1, 2, 3, 4] };
-        applyCleanupStrategy(
-          { type: 'array-slice', maxToKeep: 2, keepItemsAt: 'tail' },
-          data,
-          'history',
-          Date.now(),
-        );
-        expect(data.history).toEqual([3, 4]);
-      });
-    });
-
-    it('do nothing if array.length <= maxToKeep', () => {
-      const data = { history: [0, 1, 2, 3, 4] };
-      expect(
-        applyCleanupStrategy(
-          { type: 'array-slice', maxToKeep: 5, keepItemsAt: 'tail' },
-          data,
-          'history',
-          Date.now(),
-        ),
-      ).toBe(false);
-      expect(data.history).toEqual([0, 1, 2, 3, 4]);
+      updateLastWriteTime('redux', 'accountSelector');
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(mockedSimpleDbLastWrite.set).not.toHaveBeenCalled();
     });
   });
 });

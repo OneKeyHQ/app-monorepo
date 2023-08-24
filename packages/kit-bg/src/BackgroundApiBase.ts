@@ -171,7 +171,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   // getStoreState
   @bindThis()
   @backgroundMethod()
-  getState(): Promise<{ state: any; bootstrapped: boolean }> {
+  getState() {
     const state = cloneDeep(this.store.getState());
     const { bootstrapped } = this.persistor.getState();
     return Promise.resolve({ state, bootstrapped });
