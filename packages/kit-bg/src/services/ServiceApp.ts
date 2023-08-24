@@ -227,7 +227,7 @@ class ServiceApp extends ServiceBase {
 
     // clear dev settings for App
     if (platformEnv.isNative) {
-      this.restartApp();
+      appStorage.clearSetting();
     }
 
     appStorage.clearSetting();
