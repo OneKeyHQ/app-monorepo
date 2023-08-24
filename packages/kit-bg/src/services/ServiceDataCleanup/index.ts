@@ -15,7 +15,7 @@ import ServiceBase from '../ServiceBase';
 import { cleanupPolicies } from './policy';
 import { updateLastWriteTime } from './utils';
 
-import type { ReduxStatePath, SimpleDbDataPath } from './types';
+import type { CleanupPolicy, ReduxStatePath, SimpleDbDataPath } from './types';
 
 const simpleDbInstanceLookup = Object.fromEntries(
   Object.values(simpleDb).map((instance: SimpleDbEntityBase<unknown>) => [
@@ -47,7 +47,6 @@ export default class ServiceDataCleanup extends ServiceBase {
     };
 
     let cachedReduxState: IAppState | undefined;
-    let reduxStateModified = false;
     const getCachedReduxState = async () => {
       if (!cachedReduxState) {
         cachedReduxState = (await this.backgroundApi.getState()).state;
@@ -56,7 +55,6 @@ export default class ServiceDataCleanup extends ServiceBase {
     };
 
     const cachedSimpleDbRawData: Record<string, unknown> = {};
-    const simpleDbModified: Record<string, boolean> = {};
     const getCachedSimpleDbRawData = async (
       simpleDbEntity: SimpleDbEntityBase<unknown>,
     ) => {
@@ -66,6 +64,16 @@ export default class ServiceDataCleanup extends ServiceBase {
         cachedSimpleDbRawData[simpleDbEntity.entityName] = data;
       }
       return data;
+    };
+
+    let reduxStateModified = false;
+    const simpleDbModified: Record<string, boolean> = {};
+    const markCachedDataAsModified = (policy: CleanupPolicy) => {
+      if (policy.source === 'redux') {
+        reduxStateModified = true;
+      } else if (policy.source === 'simpleDb') {
+        simpleDbModified[policy.simpleDbEntity.entityName] = true;
+      }
     };
 
     for (const policy of cleanupPolicies) {
@@ -101,7 +109,6 @@ export default class ServiceDataCleanup extends ServiceBase {
           for (const path of expiredPaths) {
             set(await getCachedReduxState(), path, strategy.resetToValue);
           }
-          reduxStateModified = true;
           lastWriteKeysToReset.redux.push(...expiredPaths);
         } else if (policy.source === 'simpleDb') {
           const data = await getCachedSimpleDbRawData(policy.simpleDbEntity);
@@ -111,10 +118,10 @@ export default class ServiceDataCleanup extends ServiceBase {
             const [, realPath] = path.split(':');
             set(data, realPath, strategy.resetToValue);
           }
-          simpleDbModified[policy.simpleDbEntity.entityName] = true;
           lastWriteKeysToReset.simpleDb.push(...expiredPaths);
         }
-      } else if (strategy.type === 'array-slice') {
+        markCachedDataAsModified(policy);
+      } else {
         let dataToModify: any;
         if (policy.source === 'redux') {
           dataToModify = await getCachedReduxState();
@@ -124,23 +131,39 @@ export default class ServiceDataCleanup extends ServiceBase {
           if (!dataToModify) continue;
         }
         for (const path of policy.dataPaths) {
-          const array = get(dataToModify, path);
-          if (Array.isArray(array) && array.length > strategy.maxToKeep) {
-            const start =
-              strategy.keepItemsAt === 'head'
-                ? 0
-                : array.length - strategy.maxToKeep;
-            const slicedArray = array.slice(start, start + strategy.maxToKeep);
-            set(dataToModify, path, slicedArray);
+          const dataAtPath = get(dataToModify, path);
+          if (strategy.type === 'array-slice') {
+            if (
+              Array.isArray(dataAtPath) &&
+              dataAtPath.length > strategy.maxToKeep
+            ) {
+              const start =
+                strategy.keepItemsAt === 'head'
+                  ? 0
+                  : dataAtPath.length - strategy.maxToKeep;
+              const slicedArray = dataAtPath.slice(
+                start,
+                start + strategy.maxToKeep,
+              );
+              set(dataToModify, path, slicedArray);
+              debugLogger.dataCleanup.info(
+                `Applied array-slice strategy at path [${path}]. Before: ${dataAtPath.length}, after: ${slicedArray.length}.`,
+                policy,
+              );
+              markCachedDataAsModified(policy);
+            }
+          } else if (strategy.type === 'custom') {
+            const newData = await strategy.run(dataAtPath);
+            if (newData === dataAtPath) {
+              // eslint-disable-next-line no-continue
+              continue;
+            }
+            set(dataToModify, path, newData);
             debugLogger.dataCleanup.info(
-              `Applied array-slice operation on ${path}. Before: ${array.length}, after: ${slicedArray.length}.`,
+              `Applied custom custom at path [${path}].`,
               policy,
             );
-            if (policy.source === 'redux') {
-              reduxStateModified = true;
-            } else if (policy.source === 'simpleDb') {
-              simpleDbModified[policy.simpleDbEntity.entityName] = true;
-            }
+            markCachedDataAsModified(policy);
           }
         }
       }

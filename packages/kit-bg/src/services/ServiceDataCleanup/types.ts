@@ -74,8 +74,17 @@ interface ArraySliceStrategy {
   keepItemsAt: 'head' | 'tail';
 }
 
+interface CustomStrategy {
+  type: 'custom';
+  /**
+   * @param dataAtPath The data at the path
+   * @returns New data to be set at the path
+   */
+  run: (dataAtPath: any) => Promise<any>;
+}
+
 export interface BaseCleanupPolicy {
-  strategy: ExpiryStrategy | ArraySliceStrategy;
+  strategy: ExpiryStrategy | ArraySliceStrategy | CustomStrategy;
 }
 
 export interface ReduxCleanupPolicy extends BaseCleanupPolicy {
