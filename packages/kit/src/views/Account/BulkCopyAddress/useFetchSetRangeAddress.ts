@@ -24,11 +24,13 @@ export function useFetchSetRangeAddress({
   walletId,
   networkId,
   password,
+  onClose,
 }: {
   data: IFetchAddressByRange | IFetchAddressByWallet;
   walletId: string;
   networkId: string;
   password: string;
+  onClose: () => void;
 }) {
   const intl = useIntl();
   const isHwWallet = walletId.startsWith('hw');
@@ -106,18 +108,24 @@ export function useFetchSetRangeAddress({
       purpose?: number;
       template?: string;
     }) => {
-      const accounts = await backgroundApiProxy.engine.searchHDAccounts(
-        walletId,
-        networkId,
-        password,
-        start,
-        offset,
-        purpose,
-        template,
-      );
-      return accounts;
+      try {
+        const accounts = await backgroundApiProxy.engine.searchHDAccounts(
+          walletId,
+          networkId,
+          password,
+          start,
+          offset,
+          purpose,
+          template,
+        );
+        return accounts;
+      } catch (e) {
+        deviceUtils.showErrorToast(e);
+        setTimeout(() => onClose(), 200);
+        throw e;
+      }
     },
-    [networkId, password, walletId],
+    [networkId, password, walletId, onClose],
   );
 
   // HD Wallet, fetch address for set range mode
