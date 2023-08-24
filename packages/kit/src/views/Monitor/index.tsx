@@ -17,7 +17,10 @@ import {
   Switch,
   Typography,
 } from '@onekeyhq/components';
-import type { MetrixDeviceInfo, metrixUpdateInfo } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
+import type {
+  MetrixDeviceInfo,
+  metrixUpdateInfo,
+} from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
 import {
   getMeasureTime,
   getUsedBatterySinceStartup,
@@ -100,17 +103,22 @@ export const MonitorSettings = () => {
           type="primary"
           onPress={async () => {
             try {
-              if (unitTestName && uploadPassword) {
+              if (unitTestName && uploadPassword && deviceInfo) {
                 stopRecordingMetrics();
                 const result = await uploadMetricsInfo(
                   unitTestName,
                   uploadPassword,
                   deviceInfo,
                 );
-                alert(result?.body || result?.statusCode);
+                console.log(result);
+                alert(result.success);
+              } else {
+                alert('Please input all fields');
               }
             } catch (error: unknown) {
-              alert(JSON.stringify(error));
+              if (error instanceof Error) {
+                alert(error.message);
+              }
             }
           }}
         >

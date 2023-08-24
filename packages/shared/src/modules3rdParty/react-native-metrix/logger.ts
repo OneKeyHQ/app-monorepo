@@ -5,7 +5,6 @@ import { zip } from '@onekeyhq/shared/src/modules3rdParty/react-native-zip-archi
 
 const fileName = `metrix.log`;
 const folderPath = `${RNFS?.TemporaryDirectoryPath || ''}metrix`;
-const metrixLogFilePath = `${folderPath}/${fileName}`;
 const zipName = 'metrix.zip';
 const zipFolderPath = `${RNFS?.TemporaryDirectoryPath || ''}metrix_zip`;
 const zipMetrixLogFilePath = `${zipFolderPath}/${zipName}`;
@@ -14,15 +13,13 @@ export const initLogFolder = async () => {
   if (RNFS) {
     await RNFS.mkdir(folderPath);
     await RNFS.mkdir(zipFolderPath);
-    await RNFS.writeFile(metrixLogFilePath, '');
   }
 };
 
-export const resetLogFolder = async () => {
+const clearLogFolder = async () => {
   if (RNFS) {
-    if (await RNFS.exists(folderPath)) {
-      await RNFS.unlink(folderPath);
-    }
+    await RNFS.unlink(folderPath);
+    await RNFS.unlink(zipFolderPath);
   }
 };
 
@@ -43,11 +40,14 @@ export const uploadMetricsLogFile = async (
   password: string,
   extra: string,
 ) => {
+  if (!(await RNFS?.exists(folderPath))) {
+    throw new Error('metrics log is not exist');
+  }
   await zip(folderPath, zipMetrixLogFilePath);
   if (!(await RNFS?.exists(zipMetrixLogFilePath))) {
     throw new Error('zip log path is not exist');
   }
-  const result = await RNFS?.uploadFiles({
+  const response = await RNFS?.uploadFiles({
     toUrl: uploadUrl,
     files: [
       {
@@ -67,6 +67,14 @@ export const uploadMetricsLogFile = async (
       extra,
     },
   }).promise;
-  await resetLogFolder();
+  let result = { success: false };
+  try {
+    result = JSON.parse(response?.body || '');
+    if (result.success) {
+      await clearLogFolder();
+    }
+  } catch (e) {
+    console.log(e);
+  }
   return result;
 };
