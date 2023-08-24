@@ -47,7 +47,7 @@ export const uploadMetricsLogFile = async (
   if (!(await RNFS?.exists(zipMetrixLogFilePath))) {
     throw new Error('zip log path is not exist');
   }
-  return RNFS?.uploadFiles({
+  const result = await RNFS?.uploadFiles({
     toUrl: uploadUrl,
     files: [
       {
@@ -67,4 +67,6 @@ export const uploadMetricsLogFile = async (
       extra,
     },
   }).promise;
+  await resetLogFolder();
+  return result;
 };

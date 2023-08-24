@@ -6,7 +6,7 @@ import {
   stop,
 } from 'react-native-metrix';
 
-import { initLogFolder, metrixLogger, resetLogFolder, uploadMetricsLogFile } from './logger';
+import { initLogFolder, metrixLogger, uploadMetricsLogFile } from './logger';
 
 import type { metrixUpdateInfo } from 'react-native-metrix';
 
@@ -78,12 +78,10 @@ export const stopRecordingMetrics = () => {
 export const uploadMetricsInfo = async (
   unitTestName: string,
   password: string,
-) => {
-  await resetLogFolder();
-  return uploadMetricsLogFile(
+) =>
+  uploadMetricsLogFile(
     'http://127.0.0.1:7001/api/logs/upload',
     unitTestName,
     password,
     JSON.stringify(measureTime),
   );
-};
