@@ -13,16 +13,22 @@ import type { metrixUpdateInfo } from 'react-native-metrix';
 const PLACEHOLDER = -1;
 const measureTime = {
   jsBundleLoadedTime: PLACEHOLDER,
+  jsBundleLoadedTimeAt: '',
   fpTime: PLACEHOLDER,
+  fpTimeAt: '',
   batteryUsed: 0,
 };
 
+const getTimeAt = () => new Date().toISOString();
+
 export const markJsBundleLoadedTime = () => {
   measureTime.jsBundleLoadedTime = getTimeSinceStartup();
+  measureTime.jsBundleLoadedTimeAt = getTimeAt();
 };
 
 export const markFPTime = () => {
   measureTime.fpTime = getTimeSinceStartup();
+  measureTime.fpTimeAt = getTimeAt();
 };
 
 export const subscribeToMetrics = (
@@ -63,8 +69,6 @@ export const stopLogging = () => {
   }
 };
 
-export const getLogFile = () => {};
-
 export const startRecordingMetrics = () => {
   start();
   startLogging();
@@ -75,13 +79,27 @@ export const stopRecordingMetrics = () => {
   stopLogging();
 };
 
+export type MetrixDeviceInfo = {
+  commitHash: string;
+  brand: string;
+  buildNumber: string;
+  deviceId: string;
+  model: string;
+  systemName: string;
+  systemVersion: string;
+};
+
 export const uploadMetricsInfo = async (
   unitTestName: string,
   password: string,
+  deviceInfo: MetrixDeviceInfo,
 ) =>
   uploadMetricsLogFile(
-    'http://127.0.0.1:7001/api/logs/upload',
+    'https://perf.onekeytest.com/api/logs/upload',
     unitTestName,
     password,
-    JSON.stringify(measureTime),
+    JSON.stringify({
+      ...measureTime,
+      ...deviceInfo,
+    }),
   );

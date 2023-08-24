@@ -17,7 +17,7 @@ import {
   Switch,
   Typography,
 } from '@onekeyhq/components';
-import type { metrixUpdateInfo } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
+import type { MetrixDeviceInfo, metrixUpdateInfo } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
 import {
   getMeasureTime,
   getUsedBatterySinceStartup,
@@ -32,15 +32,7 @@ export const MonitorSettings = () => {
   const [isRecording, changeRecordingStatus] = useState(
     appStorage.getSettingBoolean(AppSettingKey.perf_switch),
   );
-  const [deviceInfo, setDeviceInfo] = useState<{
-    commitHash: string;
-    brand: string;
-    buildNumber: string;
-    deviceId: string;
-    model: string;
-    systemName: string;
-    systemVersion: string;
-  }>();
+  const [deviceInfo, setDeviceInfo] = useState<MetrixDeviceInfo>();
   const [usedBattery, setUsedBattery] = useState<number>();
   const [unitTestName, setUnitTestName] = useState<string>();
   const [uploadPassword, setUploadPassword] = useState<string>();
@@ -113,6 +105,7 @@ export const MonitorSettings = () => {
                 const result = await uploadMetricsInfo(
                   unitTestName,
                   uploadPassword,
+                  deviceInfo,
                 );
                 alert(result?.body || result?.statusCode);
               }
