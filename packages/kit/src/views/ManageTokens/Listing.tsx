@@ -3,9 +3,8 @@ import type { FC } from 'react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { isEqual, isNil, pick } from 'lodash';
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
-import { useDebounce } from 'use-debounce';
 
 import {
   Box,
@@ -22,21 +21,18 @@ import {
   Token as TokenImage,
   Typography,
 } from '@onekeyhq/components';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
-import { freezedEmptyArray } from '@onekeyhq/shared/src/consts/sharedConsts';
+import type { IManageNetworkTokenType } from '@onekeyhq/kit-bg/src/services/ServiceToken';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../components/Format';
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-  useReduxAccountTokenBalancesMap,
-} from '../../hooks';
+import { LazyDisplayView } from '../../components/LazyDisplayView';
+import { useActiveWalletAccount, useAppSelector } from '../../hooks';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import { useSingleToken } from '../../hooks/useTokens';
 import { ManageTokenModalRoutes } from '../../routes/routesEnum';
 import { deviceUtils } from '../../utils/hardware';
 import { showOverlay } from '../../utils/overlayUtils';
@@ -45,11 +41,10 @@ import { showHomeBalanceSettings } from '../Overlay/HomeBalanceSettings';
 import { showManageTokenListingTip } from '../Overlay/MangeTokenListing';
 
 import {
-  atomMangeHeaderTokens,
-  atomMangeNetworksTokens,
-  atomMangeTokensKeywords,
+  atomMangeTokensList,
   atomMangeTokensLoading,
-  atomMangeTokensRefreshTS,
+  atomMangeTokensSearch,
+  atomMangeTokensTS,
   useAtomManageTokens,
   withProviderManageTokens,
 } from './contextManageTokens';
@@ -58,7 +53,6 @@ import { notifyIfRiskToken } from './helpers/TokenSecurityModalWrapper';
 import type { IAccountToken } from '../Overview/types';
 import type { ManageTokenRoutesParams } from './types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { ListRenderItem } from 'react-native';
 
 type NavigationProps = NativeStackNavigationProp<
   ManageTokenRoutesParams,
@@ -67,28 +61,21 @@ type NavigationProps = NativeStackNavigationProp<
 
 const isValidateAddr = (addr: string) => addr.length === 42;
 
-function useMangeTokensDataFromRedux({ keywords }: { keywords: string }) {
+function useMangeTokensDataFromRedux() {
   const { networkId, accountId } = useActiveWalletAccount();
-  const balancesMap = useReduxAccountTokenBalancesMap({
-    accountId,
-    networkId,
-  });
-
-  const [updatedTS] = useAtomManageTokens(atomMangeTokensRefreshTS);
-
+  const [keywords] = useAtomManageTokens(atomMangeTokensSearch);
+  const [updatedTS] = useAtomManageTokens(atomMangeTokensTS);
   const result = usePromiseResult(
-    () => {
-      if (balancesMap || updatedTS) {
-        //
-      }
-      return backgroundApiProxy.serviceToken.buildManageTokensList({
+    () =>
+      backgroundApiProxy.serviceToken.buildManageTokensList({
         networkId,
         accountId,
         search: keywords,
-      });
-    },
-    [accountId, networkId, balancesMap, keywords, updatedTS],
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [accountId, networkId, keywords, updatedTS],
     {
+      debounced: 600,
       watchLoading: true,
     },
   );
@@ -96,46 +83,17 @@ function useMangeTokensDataFromRedux({ keywords }: { keywords: string }) {
   return result;
 }
 
-function HandleRebuildMangeTokens(options: { keywords: string }) {
-  const result = useMangeTokensDataFromRedux(options);
-  const [headerTokens, setMangeHeaderTokens] = useAtomManageTokens(
-    atomMangeHeaderTokens,
-  );
-  const [networkTokens, setManageNetworksTokens] = useAtomManageTokens(
-    atomMangeNetworksTokens,
-  );
+function HandleRebuildMangeTokens() {
+  const result = useMangeTokensDataFromRedux();
+  const [, setData] = useAtomManageTokens(atomMangeTokensList);
   const [, setIsLoading] = useAtomManageTokens(atomMangeTokensLoading);
-  const [keywords] = useAtomManageTokens(atomMangeTokensKeywords);
-
   useEffect(() => {
     const data = result.result;
     if (!data) {
       return;
     }
-    if (data.headerTokensKeys) {
-      if (!isEqual(headerTokens.headerTokensKeys, data.headerTokensKeys)) {
-        setMangeHeaderTokens(
-          pick(data, 'headerTokensKeys', 'headerTokens', 'headerTokenKeysMap'),
-        );
-      }
-    }
-    if (keywords) {
-      // search always update network tokens
-      setManageNetworksTokens(pick(data, 'networkTokensKeys', 'networkTokens'));
-    } else if (
-      data.networkTokensKeys?.length &&
-      !isEqual(networkTokens?.networkTokensKeys, data.networkTokensKeys)
-    ) {
-      setManageNetworksTokens(pick(data, 'networkTokensKeys', 'networkTokens'));
-    }
-  }, [
-    keywords,
-    result.result,
-    headerTokens.headerTokensKeys,
-    networkTokens.networkTokensKeys,
-    setMangeHeaderTokens,
-    setManageNetworksTokens,
-  ]);
+    setData(data);
+  }, [result.result, setData]);
 
   useEffect(() => {
     if (!isNil(result.isLoading)) {
@@ -146,26 +104,26 @@ function HandleRebuildMangeTokens(options: { keywords: string }) {
   return null;
 }
 
-function HeaderTokenItemWithoutMemo(item: IAccountToken) {
+function HeaderTokenItem(item: IAccountToken) {
   const intl = useIntl();
-  const { address, balance } = item;
+  const { balance } = item;
   const { networkId, accountId } = useActiveWalletAccount();
-  const { token } = useSingleToken(networkId, address ?? '');
-  const [, updateTs] = useAtomManageTokens(atomMangeTokensRefreshTS);
+
+  const [, updateTS] = useAtomManageTokens(atomMangeTokensTS);
 
   const navigation = useNavigation<NavigationProps>();
 
-  const onDetail = useCallback(
-    (t: Token) => {
-      navigation.navigate(ManageTokenModalRoutes.ViewToken, {
-        ...t,
-        decimal: t.decimals,
-        source: t.source ?? '',
-        address: t.address ?? '',
-      });
-    },
-    [navigation],
-  );
+  const onDetail = useCallback(() => {
+    navigation.navigate(ManageTokenModalRoutes.ViewToken, {
+      name: item.name,
+      symbol: item.symbol,
+      address: item.address ?? '',
+      decimal: item.tokens[0].decimals,
+      logoURI: item.logoURI ?? '',
+      sendAddress: item.sendAddress,
+      riskLevel: item.riskLevel,
+    });
+  }, [navigation, item]);
 
   const onDelete = useCallback(() => {
     showOverlay((closeOverlay) => (
@@ -177,19 +135,19 @@ function HeaderTokenItemWithoutMemo(item: IAccountToken) {
           primaryActionProps: {
             type: 'destructive',
             onPromise: async () => {
-              if (!accountId || !token) {
+              if (!accountId || !item) {
                 return;
               }
               return backgroundApiProxy.serviceToken
                 .deleteAccountToken({
                   accountId,
                   networkId,
-                  tokenId: token.id,
-                  address: token.address ?? '',
+                  tokenId: `${item.networkId}--${item.address ?? ''}`,
+                  address: item.address ?? '',
                 })
                 .finally(() => {
                   closeOverlay();
-                  updateTs(Date.now());
+                  updateTS(Date.now());
                 });
             },
           },
@@ -205,20 +163,20 @@ function HeaderTokenItemWithoutMemo(item: IAccountToken) {
               id: 'modal__delete_this_token_desc',
               defaultMessage: '{token} will be removed from my tokens',
             },
-            { token: token?.name },
+            { token: item?.name },
           ),
         }}
       />
     ));
-  }, [accountId, intl, networkId, token, updateTs]);
+  }, [accountId, intl, networkId, updateTS, item]);
 
-  if (!token) {
+  if (!item) {
     return null;
   }
 
   return (
     <Pressable
-      onPress={() => onDetail(token)}
+      onPress={onDetail}
       flexDirection="row"
       justifyContent="space-between"
       p="8px"
@@ -229,14 +187,14 @@ function HeaderTokenItemWithoutMemo(item: IAccountToken) {
     >
       <TokenImage
         size={8}
-        token={token}
+        token={item}
         showInfo
         flex={1}
         showExtra={false}
         description={
           <FormatBalance
             balance={balance || 0}
-            suffix={token.symbol}
+            suffix={item.symbol}
             formatOptions={{ fixed: 6 }}
           />
         }
@@ -245,83 +203,34 @@ function HeaderTokenItemWithoutMemo(item: IAccountToken) {
     </Pressable>
   );
 }
-const HeaderTokenItem = memo(HeaderTokenItemWithoutMemo);
-
-function HeaderTokensWithoutMemo() {
-  const intl = useIntl();
-
-  const [{ headerTokens: tokens = freezedEmptyArray as IAccountToken[] }] =
-    useAtomManageTokens(atomMangeHeaderTokens);
-  const [{ networkTokens }] = useAtomManageTokens(atomMangeNetworksTokens);
-
-  return (
-    <Box>
-      {tokens.length ? (
-        <Box>
-          <Typography.Subheading px="8px" color="text-subdued">
-            {intl.formatMessage({
-              id: 'form__my_tokens',
-              defaultMessage: 'MY TOKENS',
-            })}
-          </Typography.Subheading>
-          <Box mt="2" mb="6">
-            {tokens.map((item) => (
-              <HeaderTokenItem {...item} key={item.address ?? ''} />
-            ))}
-          </Box>
-        </Box>
-      ) : null}
-      {networkTokens?.length > 0 ? (
-        <Typography.Subheading px="8px" color="text-subdued" mb="2">
-          {intl.formatMessage({
-            id: 'form__top_50_tokens',
-            defaultMessage: 'TOP 50 TOKENS',
-          })}
-        </Typography.Subheading>
-      ) : null}
-    </Box>
-  );
-}
-const HeaderTokens = memo(HeaderTokensWithoutMemo);
+const HeaderTokenItemMemo = memo(HeaderTokenItem);
 
 function Header() {
   const intl = useIntl();
-  const [, updateKeywords] = useAtomManageTokens(atomMangeTokensKeywords);
-
-  const [keywords, setKeywords] = useState('');
-
-  const [terms] = useDebounce(keywords, 600);
-
-  useEffect(() => {
-    updateKeywords(terms);
-  }, [terms, updateKeywords]);
+  const [keywords, setKeywords] = useAtomManageTokens(atomMangeTokensSearch);
 
   const onClear = useCallback(() => setKeywords(''), [setKeywords]);
 
   return (
-    <Box>
-      <HandleRebuildMangeTokens keywords={keywords} />
-      <Box px="8px" mb="6">
-        <Searchbar
-          w="full"
-          placeholder={intl.formatMessage({
-            id: 'form__search_tokens',
-            defaultMessage: 'Search Tokens',
-          })}
-          value={keywords}
-          onClear={onClear}
-          onChangeText={setKeywords}
-        />
-      </Box>
-      {terms ? null : <HeaderTokens />}
+    <Box px="8px" mb="6">
+      <Searchbar
+        w="full"
+        placeholder={intl.formatMessage({
+          id: 'form__search_tokens',
+          defaultMessage: 'Search Tokens',
+        })}
+        value={keywords}
+        onClear={onClear}
+        onChangeText={setKeywords}
+      />
     </Box>
   );
 }
 
-function ListEmptyComponentWithoutMemo() {
+function ListEmptyComponent() {
   const intl = useIntl();
   const [isLoading] = useAtomManageTokens(atomMangeTokensLoading);
-  const [keywords] = useAtomManageTokens(atomMangeTokensKeywords);
+  const [keywords] = useAtomManageTokens(atomMangeTokensSearch);
   const navigation = useNavigation<NavigationProps>();
   if (isLoading) {
     return (
@@ -355,25 +264,65 @@ function ListEmptyComponentWithoutMemo() {
     />
   ) : null;
 }
-const ListEmptyComponent = memo(ListEmptyComponentWithoutMemo);
+const ListEmptyComponentMemo = memo(ListEmptyComponent);
 
-function ListRenderTokenWithoutMemo({
+function ActionButton({
   isOwned,
-  ...item
-}: Token & {
+  onPress,
+}: {
   isOwned: boolean;
+  onPress: () => Promise<any>;
 }) {
+  const [loading, setLoading] = useState(false);
+  const handlePress = useCallback(() => {
+    setLoading(true);
+    onPress().finally(() => {
+      setTimeout(() => {
+        setLoading(false);
+      }, 1000);
+    });
+    return Promise.resolve();
+  }, [onPress]);
+
+  if (loading) {
+    return (
+      <Box p="2">
+        <Spinner size="sm" />
+      </Box>
+    );
+  }
+
+  if (isOwned) {
+    return (
+      <Box p={2}>
+        <Icon name="CheckMini" color="interactive-disabled" />
+      </Box>
+    );
+  }
+
+  return (
+    <IconButton
+      name="PlusMini"
+      type="plain"
+      circle
+      p="4"
+      onPromise={handlePress}
+    />
+  );
+}
+
+const ActionButtonMemo = memo(ActionButton);
+
+function ListRenderToken({ isOwned, ...item }: IManageNetworkTokenType) {
   const intl = useIntl();
 
-  const [loading, setLoading] = useState(false);
   const navigation = useNavigation<NavigationProps>();
   const { walletId, accountId, networkId } = useActiveWalletAccount();
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
   const hideRiskTokens = useAppSelector((s) => s.settings.hideRiskTokens);
+  const [, updateTS] = useAtomManageTokens(atomMangeTokensTS);
 
   const { tokenIdOnNetwork, symbol, riskLevel } = item;
-
-  const [, updateTs] = useAtomManageTokens(atomMangeTokensRefreshTS);
 
   const checkIfShouldActiveToken = useCallback(async () => {
     const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
@@ -490,14 +439,10 @@ function ListRenderTokenWithoutMemo({
     if (!accountId || !networkId) {
       return;
     }
-    setLoading(true);
     await onAddToken();
     notifyIfRiskToken(item);
-    updateTs(Date.now());
-    setTimeout(() => {
-      setLoading(false);
-    }, 1000);
-  }, [item, accountId, networkId, onAddToken, updateTs]);
+    updateTS(Date.now());
+  }, [item, accountId, networkId, onAddToken, updateTS]);
 
   const onDetail = useCallback(() => {
     const routeName = isOwned
@@ -515,31 +460,6 @@ function ListRenderTokenWithoutMemo({
     });
   }, [navigation, item, isOwned]);
 
-  const actionButton = useMemo(() => {
-    if (isOwned) {
-      return (
-        <Box p={2}>
-          <Icon name="CheckMini" color="interactive-disabled" />
-        </Box>
-      );
-    }
-    if (loading) {
-      return (
-        <Box p="2">
-          <Spinner size="sm" />
-        </Box>
-      );
-    }
-    return (
-      <IconButton
-        name="PlusMini"
-        type="plain"
-        circle
-        p="4"
-        onPromise={onPress}
-      />
-    );
-  }, [loading, onPress, isOwned]);
   return (
     <Pressable
       borderTopRadius="12px"
@@ -573,40 +493,85 @@ function ListRenderTokenWithoutMemo({
           }}
         />
       </Box>
-      {actionButton}
+      <ActionButtonMemo isOwned={isOwned} onPress={onPress} />
     </Pressable>
   );
 }
-const ListRenderToken = memo(ListRenderTokenWithoutMemo);
+const ListRenderTokenMemo = memo(ListRenderToken);
 
-function ListRenderTokenWrapper(item: Token) {
-  const [{ headerTokenKeysMap }] = useAtomManageTokens(atomMangeHeaderTokens);
-  const isOwned = useMemo(
-    () => headerTokenKeysMap[item.tokenIdOnNetwork],
-    [headerTokenKeysMap, item.tokenIdOnNetwork],
-  );
-  return <ListRenderToken {...item} isOwned={isOwned} />;
+function isHeaderToken(
+  token: IManageNetworkTokenType | IAccountToken,
+): token is IAccountToken {
+  // @ts-ignore
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  return typeof token.isOwned === 'undefined';
 }
 
-export const ListingModal: FC = () => {
+function SectionHeader({ title, mt }: { title: LocaleIds; mt: number }) {
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps>();
-  const { network } = useActiveWalletAccount();
-  const [{ networkTokens = freezedEmptyArray as Token[] }] =
-    useAtomManageTokens(atomMangeNetworksTokens);
+  const [search] = useAtomManageTokens(atomMangeTokensSearch);
+  if (search) {
+    return null;
+  }
+  return (
+    <Typography.Subheading px="8px" color="text-subdued" mb="2" mt={mt}>
+      {intl.formatMessage({
+        id: title,
+      })}
+    </Typography.Subheading>
+  );
+}
 
+const SectionHeaderMemo = memo(SectionHeader);
+
+function ManageTokensListingView() {
+  const [sections] = useAtomManageTokens(atomMangeTokensList);
+
+  const [search] = useAtomManageTokens(atomMangeTokensSearch);
   const [isLoading] = useAtomManageTokens(atomMangeTokensLoading);
-  const [keywords] = useAtomManageTokens(atomMangeTokensKeywords);
 
   const keyExtractor = useCallback((item) => {
     const token = item as Token;
     return `${getBalanceKey(token)}`;
   }, []);
 
-  const renderItem: ListRenderItem<Token> = useCallback(
-    ({ item }) => <ListRenderTokenWrapper {...item} />,
+  const renderItem = useCallback(
+    ({ item }: { item: IManageNetworkTokenType | IAccountToken }) => {
+      if (isHeaderToken(item)) {
+        return <HeaderTokenItemMemo {...item} />;
+      }
+      return <ListRenderTokenMemo {...item} />;
+    },
     [],
   );
+
+  const isEmpty = useMemo(
+    () => !sections.find((s) => s.data.length > 0),
+    [sections],
+  );
+
+  if (isEmpty || (search && isLoading)) {
+    return <ListEmptyComponentMemo />;
+  }
+
+  return (
+    <>
+      {sections.map(({ title, data }, index) => (
+        <Box key={title}>
+          <SectionHeaderMemo title={title} mt={index === 0 ? 0 : 6} />
+          {data.map((d) => (
+            <Box key={keyExtractor(d)}>{renderItem({ item: d })}</Box>
+          ))}
+        </Box>
+      ))}
+    </>
+  );
+}
+
+export const ListingModal: FC = () => {
+  const intl = useIntl();
+  const navigation = useNavigation<NavigationProps>();
+  const { network } = useActiveWalletAccount();
 
   return (
     <Modal
@@ -622,15 +587,16 @@ export const ListingModal: FC = () => {
       }}
       secondaryActionProps={{ type: 'basic', leftIconName: 'PlusOutline' }}
       secondaryActionTranslationId="action__add_custom_tokens"
-      flatListProps={{
-        data: isLoading && keywords ? freezedEmptyArray : networkTokens,
-        // @ts-ignore
-        renderItem,
-        keyExtractor,
-        showsVerticalScrollIndicator: false,
-        ListEmptyComponent: <ListEmptyComponent />,
-        ListHeaderComponent: <Header />,
-        mx: '-8px',
+      scrollViewProps={{
+        children: (
+          <>
+            <HandleRebuildMangeTokens />
+            <Header />
+            <LazyDisplayView delay={100}>
+              <ManageTokensListingView />
+            </LazyDisplayView>
+          </>
+        ),
       }}
     />
   );

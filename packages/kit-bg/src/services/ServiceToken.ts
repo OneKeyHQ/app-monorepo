@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 import { debounce, isEmpty, random, uniq, xor } from 'lodash';
 
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { getBalancesFromApi } from '@onekeyhq/engine/src/apiProxyUtils';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
@@ -1056,10 +1057,13 @@ export default class ServiceToken extends ServiceBase {
     accountId: string;
     search: string;
   }): Promise<IManageTokensListingResult> {
+    debugLogger.allNetworks.info('buildManageTokensList >>> ', {
+      networkId,
+      accountId,
+      search,
+    });
     const { serviceOverview, engine } = this.backgroundApi;
-    const headerTokensKeys: string[] = [];
-    const headerTokenKeysMap: IManageTokensListingResult['headerTokenKeysMap'] =
-      {};
+    const headerTokenKeysMap: Record<string, boolean> = {};
 
     const res = await serviceOverview.buildSingleChainAccountTokens(
       {
@@ -1072,39 +1076,61 @@ export default class ServiceToken extends ServiceBase {
     );
     const headerTokens = res.tokens.filter((i) => {
       const key = i.address ?? '';
-      headerTokensKeys.push(key);
       headerTokenKeysMap[key] = true;
       return i.address && !i.autoDetected;
     });
 
     if (search) {
       const searchedTokens = await engine.searchTokens(networkId, search);
-      return {
-        headerTokens,
-        headerTokensKeys,
-        headerTokenKeysMap,
-        networkTokens: searchedTokens,
-        networkTokensKeys: searchedTokens.map((t) => t.address ?? ''),
-      };
+      return [
+        {
+          title: 'form__my_tokens',
+          data: [],
+        },
+        {
+          title: 'form__top_50_tokens',
+          data: searchedTokens.map((t) =>
+            Object.assign(t, {
+              isOwned: !!headerTokenKeysMap[t.address ?? ''],
+            }),
+          ),
+        },
+      ];
     }
 
     const networkTokens = await engine.getTopTokensOnNetwork(networkId);
-    const networkTokensKeys = networkTokens.map((t) => t.address ?? '');
-    return {
-      headerTokens,
-      headerTokensKeys,
-      headerTokenKeysMap,
-      networkTokens,
-      networkTokensKeys,
-    };
+    return [
+      {
+        title: 'form__my_tokens',
+        data: headerTokens,
+      },
+      {
+        title: 'form__top_50_tokens',
+        data: networkTokens.map((t) =>
+          Object.assign(t, {
+            isOwned: !!headerTokenKeysMap[t.address ?? ''],
+          }),
+        ),
+      },
+    ];
   }
 }
 
-export type IManageTokensListingResult = {
-  headerTokens: IAccountToken[];
-  headerTokenKeysMap: Record<string, boolean>;
-  networkTokens: Token[];
-
-  headerTokensKeys: string[];
-  networkTokensKeys: string[];
+export type IManageNetworkTokenType = Token & {
+  isOwned: boolean;
 };
+
+export type IManageHeaderTokens = {
+  title: LocaleIds;
+  data: IAccountToken[];
+};
+
+export type IManageNetworkTokens = {
+  title: LocaleIds;
+  data: IManageNetworkTokenType[];
+};
+
+export type IManageTokensListingResult = (
+  | IManageHeaderTokens
+  | IManageNetworkTokens
+)[];
