@@ -10,14 +10,19 @@ const zipName = 'metrix.zip';
 const zipFolderPath = `${RNFS?.TemporaryDirectoryPath || ''}metrix_zip`;
 const zipMetrixLogFilePath = `${zipFolderPath}/${zipName}`;
 
-export const resetLogFile = async () => {
+export const initLogFolder = async () => {
+  if (RNFS) {
+    await RNFS.mkdir(folderPath);
+    await RNFS.mkdir(zipFolderPath);
+    await RNFS.writeFile(metrixLogFilePath, '');
+  }
+};
+
+export const resetLogFolder = async () => {
   if (RNFS) {
     if (await RNFS.exists(folderPath)) {
       await RNFS.unlink(folderPath);
     }
-    await RNFS.mkdir(folderPath);
-    await RNFS.mkdir(zipFolderPath);
-    await RNFS.writeFile(metrixLogFilePath, '');
   }
 };
 

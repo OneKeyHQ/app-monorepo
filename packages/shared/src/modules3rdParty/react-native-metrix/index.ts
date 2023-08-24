@@ -6,7 +6,7 @@ import {
   stop,
 } from 'react-native-metrix';
 
-import { metrixLogger, resetLogFile, uploadMetricsLogFile } from './logger';
+import { initLogFolder, metrixLogger, resetLogFolder, uploadMetricsLogFile } from './logger';
 
 import type { metrixUpdateInfo } from 'react-native-metrix';
 
@@ -46,10 +46,10 @@ export const getUsedBatterySinceStartup = async () => {
 
 let isLogging = false;
 let cancelSubscription: () => void;
-export const startLogging = async () => {
+export const startLogging = () => {
   if (!isLogging) {
     isLogging = true;
-    await resetLogFile();
+    initLogFolder();
     cancelSubscription = onUpdate((info) => {
       metrixLogger.info(JSON.stringify(info));
     });
@@ -75,10 +75,15 @@ export const stopRecordingMetrics = () => {
   stopLogging();
 };
 
-export const uploadMetricsInfo = (unitTestName: string, password: string) =>
-  uploadMetricsLogFile(
+export const uploadMetricsInfo = async (
+  unitTestName: string,
+  password: string,
+) => {
+  await resetLogFolder();
+  return uploadMetricsLogFile(
     'http://127.0.0.1:7001/api/logs/upload',
     unitTestName,
     password,
     JSON.stringify(measureTime),
   );
+};
