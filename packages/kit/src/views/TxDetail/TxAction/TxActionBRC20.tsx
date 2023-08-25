@@ -42,6 +42,12 @@ function getTitleInfo({
     };
   }
 
+  if (type === IDecodedTxActionType.TOKEN_BRC20_INSCRIBE) {
+    return {
+      titleKey: 'title__inscribe',
+    };
+  }
+
   if (type === IDecodedTxActionType.TOKEN_BRC20_TRANSFER) {
     return {
       titleKey: isOut ? 'action__send' : 'action__receive',
@@ -92,7 +98,6 @@ export function getTxActionsBRC20Info(props: ITxActionCardProps) {
     isOut,
     action,
     amount: brc20Info?.amount ?? '0',
-    asset: brc20Info?.asset,
   };
 }
 
