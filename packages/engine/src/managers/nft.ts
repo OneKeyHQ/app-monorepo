@@ -2,6 +2,7 @@ import { defaultAbiCoder } from '@ethersproject/abi';
 import axios from 'axios';
 
 import type {
+  BRC20TxHistory,
   BTCTransactionsModel,
   Collection,
   IErcNftType,
@@ -149,16 +150,19 @@ export const getNFTTransactionHistory = async (
   return {} as TxMapType;
 };
 
-export const getBRC20TransactionHistory = async (
-  accountId: string,
-  tokenAddress: string,
-): Promise<TxMapType> => {
+export const getBRC20TransactionHistory = async ({
+  networkId,
+  address,
+  tokenAddress,
+}: {
+  networkId: string;
+  address: string;
+  tokenAddress: string;
+}): Promise<BRC20TxHistory['inscriptionsList']> => {
   const endpoint = getFiatEndpoint();
-  const apiUrl = `${endpoint}/NFT/transactions/brc20?address=${accountId}&tokenAddress=${tokenAddress}`;
-  const { data: txMap } = await axios
-    .get<NFTServiceResp<TxMapType>>(apiUrl)
-    .then((resp) => resp.data);
-  return txMap ?? {};
+  const apiUrl = `${endpoint}/NFT/transactions/brc20?networkId=${networkId}&address=${address}&tokenAddress=${tokenAddress}`;
+  const { data } = await axios.get<BRC20TxHistory>(apiUrl);
+  return data?.inscriptionsList ?? [];
 };
 
 export function buildEncodeDataWithABI(param: {
