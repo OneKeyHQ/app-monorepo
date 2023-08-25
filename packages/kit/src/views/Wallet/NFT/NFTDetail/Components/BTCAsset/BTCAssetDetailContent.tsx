@@ -230,7 +230,7 @@ function BTCAssetDetailContent({
           alignItems="center"
         >
           Inscription #{' '}
-          {asset?.inscription_number === 0 ? (
+          {asset?.inscription_number > 0 ? (
             <Text>{asset?.inscription_number}</Text>
           ) : (
             <CustomSkeleton borderRadius="10px" width={120} height="20px" />
