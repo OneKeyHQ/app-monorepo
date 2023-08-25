@@ -12,7 +12,11 @@ import {
   IDecodedTxDirection,
 } from '@onekeyhq/engine/src/vaults/types';
 
-import { SendModalRoutes } from '../../../routes/routesEnum';
+import {
+  ModalRoutes,
+  RootRoutes,
+  SendModalRoutes,
+} from '../../../routes/routesEnum';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import { TxDetailActionBox } from '../components/TxDetailActionBox';
 import { TxListActionBox } from '../components/TxListActionBox';
@@ -24,12 +28,14 @@ import {
 import { TxActionElementTitleHeading } from '../elements/TxActionElementTitle';
 
 import type { SendRoutesParams } from '../../../routes';
+import type { RootRoutesParams } from '../../../routes/types';
 import type {
   ITxActionCardProps,
   ITxActionElementDetail,
   ITxActionMetaIcon,
   ITxActionMetaTitle,
 } from '../types';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { StackNavigationProp } from '@react-navigation/stack';
 
 const NOBODY = '0x0000000000000000000000000000000000000000';
@@ -158,7 +164,8 @@ export function getTxActionNFTInfo(props: ITxActionCardProps) {
 type NavigationProps = StackNavigationProp<
   SendRoutesParams,
   SendModalRoutes.NFTDetailModal
->;
+> &
+  NativeStackNavigationProp<RootRoutesParams, RootRoutes.Main>;
 
 export function TxActionNFTTransfer(props: ITxActionCardProps) {
   const { decodedTx, meta, network, isShortenAddress = false } = props;
@@ -218,11 +225,17 @@ export function TxActionNFTTransfer(props: ITxActionCardProps) {
           py="12px"
           onPress={() => {
             if (network && asset) {
-              navigation.navigate(SendModalRoutes.NFTDetailModal, {
-                asset,
-                networkId,
-                accountId,
-                isOwner: false,
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.Send,
+                params: {
+                  screen: SendModalRoutes.NFTDetailModal,
+                  params: {
+                    asset,
+                    networkId,
+                    accountId,
+                    isOwner: false,
+                  },
+                },
               });
             }
           }}
