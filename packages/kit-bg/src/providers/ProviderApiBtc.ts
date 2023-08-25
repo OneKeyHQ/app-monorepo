@@ -3,6 +3,7 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import * as BitcoinJS from 'bitcoinjs-lib';
 import { Psbt, address as PsbtAddress } from 'bitcoinjs-lib';
+import { isNil } from 'lodash';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
@@ -255,7 +256,9 @@ class ProviderApiBtc extends ProviderApiBase {
         to: toAddress,
         amount: amountBN.shiftedBy(-network.decimals).toFixed(),
       },
-      feeRate,
+      isNil(feeRate)
+        ? undefined
+        : new BigNumber(feeRate).shiftedBy(-network.feeDecimals).toFixed(),
     );
 
     const result = await this.backgroundApi.serviceDapp?.openSignAndSendModal(
@@ -275,11 +278,18 @@ class ProviderApiBtc extends ProviderApiBase {
   ) {
     const { toAddress, inscriptionId, feeRate } = params;
 
-    const { accountId, networkId, accountAddress } = getActiveWalletAccount();
+    const { account, accountAddress, network } = getActiveWalletAccount();
+
+    if (!network || !account) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: `Can not get current account`,
+      });
+    }
 
     const asset = (await this.backgroundApi.serviceNFT.getAsset({
-      networkId,
-      accountId,
+      networkId: network.id,
+      accountId: account.id,
       tokenId: inscriptionId,
       local: true,
     })) as NFTBTCAssetModel;
@@ -292,8 +302,8 @@ class ProviderApiBtc extends ProviderApiBase {
     }
 
     const vault = (await this.backgroundApi.engine.getVault({
-      networkId,
-      accountId,
+      networkId: network.id,
+      accountId: account.id,
     })) as VaultBtcFork;
 
     const encodedTx = await vault.buildEncodedTxFromTransfer(
@@ -310,7 +320,11 @@ class ProviderApiBtc extends ProviderApiBase {
           location: asset.location,
         },
       },
-      feeRate,
+      isNil(feeRate)
+        ? undefined
+        : new BigNumber(feeRate)
+            .shiftedBy(-network.feeDecimals ?? '0')
+            .toFixed(),
     );
 
     const result = await this.backgroundApi.serviceDapp?.openSignAndSendModal(
