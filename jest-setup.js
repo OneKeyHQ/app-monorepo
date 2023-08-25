@@ -51,6 +51,7 @@ jest.mock('react-native-device-info', () => ({
   getSystemName: jest.fn(),
   getSystemVersion: jest.fn(),
   getTotalMemorySync: jest.fn(),
+  getUsedMemorySync: jest.fn(),
 }));
 
 // ** shim TextEncoder

@@ -10,6 +10,7 @@ import {
   getSystemName,
   getSystemVersion,
   getTotalMemorySync,
+  getUsedMemorySync,
 } from 'react-native-device-info';
 import { logger as RNLogger, consoleTransport } from 'react-native-logs';
 
@@ -377,7 +378,7 @@ function logDeviceInfo() {
     `System: ${getSystemName()} ${getSystemVersion()}`,
     `Version Hash: ${process.env.COMMITHASH || ''}`,
     `Build Number: ${getBuildNumber()} ${getIncrementalSync()}`,
-    `Memory: ${getTotalMemorySync()}`,
+    `Memory: ${getUsedMemorySync()}/${getTotalMemorySync()}`,
   );
 }
 
