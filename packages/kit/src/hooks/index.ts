@@ -18,6 +18,5 @@ export {
   useAccountTokensBalance,
   useNativeToken,
   useNativeTokenBalance,
-  useNetworkTokens,
 } from './useTokens';
 export * from './useWallet';
