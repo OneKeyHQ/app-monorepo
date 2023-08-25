@@ -29,6 +29,7 @@ import type { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import { INSCRIPTION_PADDING_SATS_VALUES } from '@onekeyhq/engine/src/vaults/impl/btc/inscribe/consts';
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
+import webembedApiProxy from '@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import {
@@ -867,6 +868,25 @@ export const Debug = () => {
               }}
             >
               <Typography.Body1>Open Gas Panel000</Typography.Body1>
+            </Pressable>
+            <Pressable
+              {...pressableProps}
+              onPress={() => {
+                webembedApiProxy.secret
+                  .show({ name: `zhangsan-${Date.now()}` })
+                  .then((r) => {
+                    console.log('secret.show result: ', r);
+                  })
+                  .catch((err) => {
+                    console.error(
+                      'secret.show error: ',
+                      (err as Error)?.message,
+                      typeof (err as Error)?.message,
+                    );
+                  });
+              }}
+            >
+              <Typography.Body1>test CoreWalletAgent</Typography.Body1>
             </Pressable>
             <Pressable
               {...pressableProps}

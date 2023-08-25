@@ -36,8 +36,12 @@ import { markFPTime } from '@onekeyhq/shared/src/modules3rdParty/react-native-me
 export type RootNavContainerRef = NavigationContainerRef<RootRoutesParams>;
 export const navigationRef = createRef<RootNavContainerRef>();
 
+// TODO remove
 const ChainWebEmbed = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/ChainWebEmbed'),
+);
+const CoreWalletWebEmbed = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/CoreWalletWebEmbed/CoreWalletWebEmbed'),
 );
 
 declare global {
@@ -138,6 +142,7 @@ const NavigationApp = () => {
     () => (
       <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
         <ChainWebEmbed />
+        <CoreWalletWebEmbed />
         <CustomToast bottomOffset={60} />
         <PortalContainer name={FULLWINDOW_OVERLAY_PORTAL} />
       </View>

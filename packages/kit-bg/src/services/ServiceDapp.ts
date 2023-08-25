@@ -57,6 +57,8 @@ import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import ServiceBase from './ServiceBase';
 
+import type { IBackgroundApiWebembedCallMessage } from '../IBackgroundApi';
+import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
@@ -527,6 +529,14 @@ class ServiceDapp extends ServiceBase {
         },
       });
     });
+  }
+
+  @backgroundMethod()
+  callCoreWalletAgentMethod(data: IBackgroundApiWebembedCallMessage) {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    return privateProvider?.callCoreWalletAgentMethod(data);
   }
 }
 

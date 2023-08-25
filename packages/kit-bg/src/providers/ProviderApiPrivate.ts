@@ -1,6 +1,8 @@
+/* eslint-disable max-classes-per-file */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable camelcase */
+import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import walletConnectUtils from '@onekeyhq/kit/src/components/WalletConnect/utils/walletConnectUtils';
@@ -16,11 +18,16 @@ import debugLogger, {
 } from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { IBackgroundApi } from '../IBackgroundApi';
+
 import ProviderApiBase from './ProviderApiBase';
 
+import type BackgroundApiBase from '../BackgroundApiBase';
+import type { IBackgroundApiWebembedCallMessage } from '../IBackgroundApi';
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type ProviderApiEthereum from './ProviderApiEthereum';
 import type {
+  IJsBridgeConfig,
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
@@ -283,6 +290,56 @@ class ProviderApiPrivate extends ProviderApiBase {
     this.backgroundApi.servicePromise.resolveCallback({
       id: payload?.data?.promiseId,
       data: { ...(payload?.data?.data ?? {}) },
+    });
+  }
+
+  @providerApiMethod()
+  async callCoreWalletAgentMethod(data: IBackgroundApiWebembedCallMessage) {
+    const bg = this.backgroundApi as unknown as BackgroundApiBase;
+    const payload: IJsBridgeMessagePayload = {
+      data,
+      internal: true,
+    };
+    const result = await bg?.webEmbedBridge?.request?.({
+      scope: '$private',
+      data,
+    });
+    console.log('callCoreWalletAgentMethod result', result);
+    return result;
+    // return this.coreWalletWebEmbedJsBridge.request({ data: payload });
+    // return new Promise((resolve, reject) => {
+    //   const id = this.backgroundApi.servicePromise.createCallback({
+    //     resolve,
+    //     reject,
+    //   });
+    //   const send: (data: any) => void =
+    //     this.backgroundApi.sendForProvider('$private');
+    //   send({
+    //     method: payload.method,
+    //     event: payload.event,
+    //     promiseId: id,
+    //     params: payload.params,
+    //   });
+    // });
+  }
+
+  @providerApiMethod()
+  resolveCoreWalletAgentCall(payload: any) {
+    this.backgroundApi.servicePromise.resolveCallback({
+      id: payload?.data?.promiseId,
+      data: { ...(payload?.data?.data ?? {}) },
+    });
+  }
+
+  @providerApiMethod()
+  rejectCoreWalletAgentCall(payload: any) {
+    debugLogger.providerApi.info(
+      'ProviderApiPrivate.rejectCoreWalletAgentCall',
+      payload,
+    );
+    this.backgroundApi.servicePromise.rejectCallback({
+      id: payload?.data?.promiseId,
+      error: new Error('CoreWalletAgentCallError'),
     });
   }
 }

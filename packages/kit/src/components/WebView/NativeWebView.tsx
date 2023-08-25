@@ -139,6 +139,8 @@ const NativeWebView = forwardRef(
         onMessage={webviewOnMessage}
         onLoadStart={webViewOnLoadStart}
         renderError={renderError}
+        // TODO tracking url changed: webviewRef.current?.$$currentUrl = url;
+        // https://stackoverflow.com/questions/64096771/how-to-access-next-url-from-browser-click-from-react-native-webview
         {...props}
       />
     );

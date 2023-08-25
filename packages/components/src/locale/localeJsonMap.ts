@@ -2,6 +2,7 @@ import enUS from './en-US.json';
 
 export const LOCALES = {
   'en-US': enUS,
+  // check ThemeProvider for i18n lazy loading
   'zh-CN': () => import('./zh-CN.json'),
   'zh-HK': () => import('./zh_HK.json'),
   'ja-JP': () => import('./ja_JP.json'),

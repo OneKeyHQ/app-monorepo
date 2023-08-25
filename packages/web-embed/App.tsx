@@ -31,6 +31,7 @@ import WebEmbedWebviewAgentCardano from './src/views/WebEmbedWebviewAgentCardano
 import WebEmbedWebviewAgentMonero from './src/views/WebEmbedWebviewAgentMonero';
 
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import { CoreWalletAgent } from './src/views/CoreWalletAgent';
 
 function useRouteQuery() {
   const { search } = useLocation();
@@ -170,6 +171,7 @@ const App: FC = function () {
           {/* TODO jian guo pro3 NOT support hash route init */}
           {/* <Route path="/" element={<Home />} /> */}
           <Route path="/" element={<OnboardingAutoTyping />} />
+          <Route path="/core_wallet" element={<CoreWalletAgent />} />
           <Route path="/abc" element={<HomeAbc />} />
           <Route
             path="/onboarding/auto_typing"
