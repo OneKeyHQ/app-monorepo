@@ -197,7 +197,8 @@ export function getTxActionMeta(
   if (
     action.type === IDecodedTxActionType.TOKEN_BRC20_DEPLOY ||
     action.type === IDecodedTxActionType.TOKEN_BRC20_MINT ||
-    action.type === IDecodedTxActionType.TOKEN_BRC20_TRANSFER
+    action.type === IDecodedTxActionType.TOKEN_BRC20_TRANSFER ||
+    action.type === IDecodedTxActionType.TOKEN_BRC20_INSCRIBE
   ) {
     const info = getTxActionsBRC20Info(props);
     titleInfo = info.titleInfo;

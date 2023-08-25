@@ -73,6 +73,7 @@ function BatchSendConfirmModalBase(props: IBatchTxsConfirmViewProps) {
     accountId,
     token: nativeToken,
     fallback: '0',
+    useRecycleBalance: true,
   });
 
   const isManyToN = useMemo(

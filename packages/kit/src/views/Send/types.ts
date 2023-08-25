@@ -124,7 +124,7 @@ export type TransferSendParamsPayload = SendConfirmPayloadBase & {
     symbol: string;
     balance?: string;
     sendAddress?: string;
-  };
+  } & Token;
 };
 
 export type SendConfirmFromDappParams = {
