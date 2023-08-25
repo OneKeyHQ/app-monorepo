@@ -3,6 +3,7 @@
 
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { TransactionStatus } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
@@ -164,10 +165,11 @@ class BlockBook {
       {
         params: {
           xpub,
-          ...options,
           forceSelectUtxos: JSON.stringify(options.forceSelectUtxos || []),
           // return utxo without inscriptions
-          checkInscription: true,
+          checkInscription: isNil(options.checkInscription)
+            ? true
+            : options.checkInscription,
         },
       },
     );

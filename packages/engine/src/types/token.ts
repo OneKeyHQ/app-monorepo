@@ -82,4 +82,5 @@ export enum BRC20TokenOperation {
   Mint = 'mint',
   Transfer = 'transfer',
   Deploy = 'deploy',
+  InscribeTransfer = 'inscribeTransfer',
 }

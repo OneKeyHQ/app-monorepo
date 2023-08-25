@@ -67,6 +67,7 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
     accountId,
     token: nativeToken,
     fallback: '0',
+    useRecycleBalance: true,
   });
 
   // TODO move to validator

@@ -89,7 +89,7 @@ function OneToMany(props: Props) {
   const tokens = accountTokens.filter((token) =>
     network?.impl === IMPL_TRON
       ? !new BigNumber(token.tokenIdOnNetwork).isInteger()
-      : true ||
+      : true &&
         (network?.impl === IMPL_BTC || network?.impl === IMPL_TBTC
           ? token.isNative
           : true),
