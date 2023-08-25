@@ -21,6 +21,7 @@ if (process.env.NODE_ENV !== 'production') {
   }
 }
 
+// Monitoring application performance in integration test and regression test.
 if (appSetting.getBoolean(AppSettingKey.perf_switch)) {
   const {
     markJsBundleLoadedTime,

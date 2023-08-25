@@ -22,6 +22,7 @@ import type {
   metrixUpdateInfo,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
 import {
+  clearLogFolder,
   getMeasureTime,
   getUsedBatterySinceStartup,
   stopRecordingMetrics,
@@ -102,6 +103,7 @@ export const MonitorSettings = () => {
           testID="UnitTestingUploadButton"
           type="primary"
           onPress={async () => {
+            // Only upload metrics log in integration test and regression test.
             try {
               if (unitTestName && uploadPassword && deviceInfo) {
                 stopRecordingMetrics();
@@ -110,8 +112,12 @@ export const MonitorSettings = () => {
                   uploadPassword,
                   deviceInfo,
                 );
-                console.log(result);
-                alert(`${String(result.success)}, ${result.message}`);
+                console.log('uploaded result', result);
+                if (result.success) {
+                  alert('file uploaded successfully');
+                } else {
+                  alert(`${String(result.success)}, ${result.message}`);
+                }
               } else {
                 alert('Please input all fields');
               }
@@ -123,6 +129,17 @@ export const MonitorSettings = () => {
           }}
         >
           Upload
+        </Button>
+        <Box py={1} />
+        <Button
+          testID="UnitTestingClearButton"
+          type="primary"
+          onPress={async () => {
+            await clearLogFolder();
+            alert('Clear successfully');
+          }}
+        >
+          Clear Log Now
         </Button>
       </Box>
 

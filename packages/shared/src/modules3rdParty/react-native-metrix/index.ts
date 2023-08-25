@@ -6,7 +6,12 @@ import {
   stop,
 } from 'react-native-metrix';
 
-import { initLogFolder, metrixLogger, uploadMetricsLogFile } from './logger';
+import {
+  clearLogFolder,
+  initLogFolder,
+  metrixLogger,
+  uploadMetricsLogFile,
+} from './logger';
 
 import type { metrixUpdateInfo } from 'react-native-metrix';
 
@@ -103,3 +108,5 @@ export const uploadMetricsInfo = async (
       ...deviceInfo,
     }),
   );
+
+export { clearLogFolder };

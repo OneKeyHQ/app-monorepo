@@ -16,7 +16,7 @@ export const initLogFolder = async () => {
   }
 };
 
-const clearLogFolder = async () => {
+export const clearLogFolder = async () => {
   if (RNFS) {
     await RNFS.unlink(folderPath);
     await RNFS.unlink(zipFolderPath);
