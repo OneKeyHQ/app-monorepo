@@ -24,7 +24,7 @@ const ChartViewAdapter: FC<ChartViewAdapterProps> = ({
   return (
     // @ts-ignore
     <ChartPathProvider data={throttledData}>
-      <Box>
+      <Box w="full">
         <ChartWrapper
           lineColor={lineColor}
           isFetching={isFetching}
