@@ -2,6 +2,15 @@ import { format as fnsFormat } from 'date-fns';
 import { stringify } from 'flatted';
 import { isArray, isNil } from 'lodash';
 import { InteractionManager } from 'react-native';
+import {
+  getBuildNumber,
+  getDeviceId,
+  getIncrementalSync,
+  getModel,
+  getSystemName,
+  getSystemVersion,
+  getTotalMemorySync,
+} from 'react-native-device-info';
 import { logger as RNLogger, consoleTransport } from 'react-native-logs';
 
 import {
@@ -172,31 +181,6 @@ const removeLogZipDir = async () => {
 const createLogZipDir = async () => {
   if (!RNFS) return;
   await RNFS.mkdir(NATIVE_LOG_ZIP_DIR_PATH);
-};
-
-export const getLogZipPath = async (fileName: string) => {
-  try {
-    if (!RNFS) return;
-    await removeLogZipDir();
-    await createLogZipDir();
-    const distLogPath = `${NATIVE_LOG_ZIP_DIR_PATH}/${fileName}`;
-    await zip(NATIVE_LOG_DIR_PATH, `${NATIVE_LOG_ZIP_DIR_PATH}/${fileName}`);
-    if (!(await RNFS.exists(distLogPath))) {
-      throw new Error('zip log path is not exist');
-    }
-    return platformEnv.isNativeAndroid ? `file://${distLogPath}` : distLogPath;
-  } catch (e) {
-    if (!RNFS) return;
-    const files = await RNFS.readDir(NATIVE_LOG_DIR_PATH);
-    const sortedFiles = files
-      .filter((f) => f.name.endsWith('.log'))
-      .map((f) => ({
-        ...f,
-        time: new Date(f.mtime || f.ctime || '').getTime(),
-      }))
-      .sort((a, b) => b.time - a.time);
-    return sortedFiles[0].path;
-  }
 };
 
 if (platformEnv.isNative) {
@@ -386,6 +370,42 @@ async function saveDebugLoggerSettings() {
 if (platformEnv.isDev && !platformEnv.isJest) {
   loadDebugLoggerSettings().then(() => saveDebugLoggerSettings());
 }
+
+function logDeviceInfo() {
+  debugLogger.common.info(
+    `Device: ${getModel()} ${getDeviceId()}`,
+    `System: ${getSystemName()} ${getSystemVersion()}`,
+    `Version Hash: ${process.env.COMMITHASH || ''}`,
+    `Build Number: ${getBuildNumber()} ${getIncrementalSync()}`,
+    `Memory: ${getTotalMemorySync()}`,
+  );
+}
+
+export const getLogZipPath = async (fileName: string) => {
+  try {
+    logDeviceInfo();
+    if (!RNFS) return;
+    await removeLogZipDir();
+    await createLogZipDir();
+    const distLogPath = `${NATIVE_LOG_ZIP_DIR_PATH}/${fileName}`;
+    await zip(NATIVE_LOG_DIR_PATH, `${NATIVE_LOG_ZIP_DIR_PATH}/${fileName}`);
+    if (!(await RNFS.exists(distLogPath))) {
+      throw new Error('zip log path is not exist');
+    }
+    return platformEnv.isNativeAndroid ? `file://${distLogPath}` : distLogPath;
+  } catch (e) {
+    if (!RNFS) return;
+    const files = await RNFS.readDir(NATIVE_LOG_DIR_PATH);
+    const sortedFiles = files
+      .filter((f) => f.name.endsWith('.log'))
+      .map((f) => ({
+        ...f,
+        time: new Date(f.mtime || f.ctime || '').getTime(),
+      }))
+      .sort((a, b) => b.time - a.time);
+    return sortedFiles[0].path;
+  }
+};
 
 // debugLogger.common.error(new Error('Log Sample Error in debugLogger'));
 
