@@ -9,13 +9,13 @@ import {
   Icon,
   Pressable,
   Select,
-  Token,
   Typography,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../hooks';
-import SwapChart from '../PriceChart/SwapChart';
+import ChartLabel from '../PriceChart/swap-chart/ChartLabel';
+import SwapChart from '../PriceChart/swap-chart/desktop';
 
 import { useSwapChartMode } from './hooks/useSwapUtils';
 import { Main } from './Main';
@@ -124,38 +124,10 @@ const DesktopChart = () => {
 
   return (
     <Box>
-      <SwapChart fromToken={inputToken} toToken={outputToken} />
-    </Box>
-  );
-};
-
-const DesktopChartLabel = () => {
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const outputToken = useAppSelector((s) => s.swap.outputToken);
-  return (
-    <Box flexDirection="row">
-      <Box flexDirection="row">
-        <Center
-          w="9"
-          bg="background-default"
-          borderRadius="full"
-          overflow="hidden"
-        >
-          <Token token={inputToken} size={8} />
-        </Center>
-        <Center
-          w="9"
-          ml="-4"
-          bg="background-default"
-          borderRadius="full"
-          overflow="hidden"
-        >
-          <Token token={outputToken} size={8} />
-        </Center>
+      <Box minH="52px">
+        <ChartLabel inputToken={inputToken} outputToken={outputToken} />
       </Box>
-      <Typography.Heading ml="2" color="text-default" fontSize={18}>
-        {inputToken?.symbol.toUpperCase()} / {outputToken?.symbol.toUpperCase()}
-      </Typography.Heading>
+      <SwapChart fromToken={inputToken} toToken={outputToken} />
     </Box>
   );
 };
@@ -180,9 +152,6 @@ export const Desktop = () => {
         >
           {mode === 'chart' ? (
             <Box flex="1">
-              <Box minH="52px">
-                <DesktopChartLabel />
-              </Box>
               <DesktopChart />
               <PendingLimitOrdersProfessionalContent />
             </Box>

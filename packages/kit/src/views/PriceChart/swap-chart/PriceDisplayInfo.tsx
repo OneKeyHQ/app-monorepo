@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Box, Icon, Typography } from '@onekeyhq/components';
 
-import { calculateGains } from '../../utils/priceUtils';
+import { calculateGains } from '../../../utils/priceUtils';
 
 type SwapPriceLabelProps = {
   price: number | null;
@@ -12,7 +12,11 @@ type SwapPriceLabelProps = {
   time: string;
 };
 
-const PriceLabel: FC<SwapPriceLabelProps> = ({ price, basePrice, time }) => {
+const PriceDisplayInfo: FC<SwapPriceLabelProps> = ({
+  price,
+  basePrice,
+  time,
+}) => {
   const intl = useIntl();
   let displayInfo;
   if (price !== null) {
@@ -51,4 +55,6 @@ const PriceLabel: FC<SwapPriceLabelProps> = ({ price, basePrice, time }) => {
     </Box>
   );
 };
-export default PriceLabel;
+
+PriceDisplayInfo.displayName = 'PriceDisplayInfo';
+export default PriceDisplayInfo;
