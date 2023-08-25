@@ -682,6 +682,14 @@ export default class VaultBtcFork extends VaultBase {
       }
     }
 
+    if (brc20Content?.op === BRC20TokenOperation.InscribeTransfer) {
+      actionType = IDecodedTxActionType.TOKEN_BRC20_INSCRIBE;
+      direction = IDecodedTxDirection.IN;
+      info = {
+        amount: brc20Content.amt,
+      };
+    }
+
     if (!brc20Content)
       return {
         type: actionType,
@@ -1127,47 +1135,92 @@ export default class VaultBtcFork extends VaultBase {
     const token = await this.engine.getNativeTokenInfo(this.networkId);
 
     if (tokenIdOnNetwork && isBRC20Token(tokenIdOnNetwork)) {
-      const history = (await getBRC20TransactionHistory(
-        dbAccount.address,
-        tokenIdOnNetwork,
-      )) as Record<string, BTCTransactionsModel[]>;
+      const history = await getBRC20TransactionHistory({
+        networkId: this.networkId,
+        address: dbAccount.address,
+        tokenAddress: tokenIdOnNetwork,
+      });
 
-      const txs = Object.values(history).flat();
-
-      const promises = txs.map(async (tx) => {
+      const promises = history.map(async (tx) => {
         try {
           const historyTxToMerge = localHistory.find(
-            (item) => item.decodedTx.txid === tx.tx_hash,
+            (item) => item.decodedTx.txid === tx.txId,
           );
           if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
             // No need to update.
             return null;
           }
 
-          const { send, receive, asset, fee, timestamp } = tx;
+          const {
+            fromAddress,
+            toAddress,
+            time,
+            token: tick,
+            actionType,
+            amount,
+          } = tx;
 
-          const action = await this.buildInscriptionAction({
-            from: send,
-            to: receive,
-            amount: '0',
-            asset: asset as NFTBTCAssetModel,
+          const tokenId = `brc-20--${tick}`;
+
+          const tokenInfo = await this.engine.findToken({
+            networkId: this.networkId,
+            tokenIdOnNetwork: tokenId,
           });
 
+          const actions: IDecodedTxAction[] = [];
+          const isInscribeTransfer = actionType === 'inscribeTransfer';
+
+          if (tokenInfo) {
+            const action = this.buildBRC20TokenAction({
+              nftInfo: {
+                from: isInscribeTransfer ? toAddress : fromAddress,
+                to: toAddress,
+                amount,
+                asset: {
+                  type: NFTAssetType.BTC,
+                  inscription_id: tx.inscriptionId,
+                  inscription_number: new BigNumber(
+                    tx.inscriptionNumber,
+                  ).toNumber(),
+                  tx_hash: tx.txId,
+                  content: '',
+                  content_length: 0,
+                  content_type: '',
+                  timestamp: tx.time,
+                  output: tx.index,
+                  owner: '',
+                  output_value_sat: 0,
+                  genesis_transaction_hash: '',
+                  location: tx.location,
+                  contentUrl: '',
+                },
+              },
+              dbAccount,
+              token: tokenInfo,
+              brc20Content: {
+                p: 'brc20',
+                op: actionType,
+                tick,
+                amt: amount,
+              },
+            });
+            actions.push(action);
+          }
+
           const decodedTx: IDecodedTx = {
-            txid: tx.tx_hash,
+            txid: tx.txId,
             owner: dbAccount.address,
             signer: dbAccount.address,
             nonce: 0,
-            actions: [action],
+            actions,
             status: IDecodedTxStatus.Confirmed,
             networkId: this.networkId,
             accountId: this.accountId,
             extraInfo: null,
-            totalFeeInNative: String(fee),
           };
           decodedTx.updatedAt =
-            typeof timestamp !== 'undefined'
-              ? new BigNumber(timestamp).times(1000).toNumber()
+            typeof time !== 'undefined'
+              ? new BigNumber(time).toNumber()
               : Date.now();
           decodedTx.createdAt =
             historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
