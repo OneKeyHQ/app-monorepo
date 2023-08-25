@@ -18,7 +18,7 @@ import { getAppNavigation } from '../../../../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { homeTab } from '../../../../store/observable/webTabs';
 import { GasPanelRoutes } from '../../../GasPanel/types';
-import { GasPriceMini } from '../../components/GasPrice';
+import { BrowserToolbar } from '../../../GasPanel/widgets/BrowserToolbar';
 import { gotoSite, openMatchDApp } from '../Controller/gotoSite';
 import { useWebController } from '../Controller/useWebController';
 import SearchView from '../Search/SearchView';
@@ -244,7 +244,7 @@ const ControllerBarDesktop: FC = () => {
             return (
               <Box flexDirection="row" h="full" alignItems="center">
                 <Box px={2} py={1} bg={getBgColor()} borderRadius="full">
-                  <GasPriceMini />
+                  <BrowserToolbar />
                 </Box>
               </Box>
             );

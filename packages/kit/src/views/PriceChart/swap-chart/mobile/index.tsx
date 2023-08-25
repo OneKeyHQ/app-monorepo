@@ -1,10 +1,23 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Box, Typography } from '@onekeyhq/components';
+import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
+
+import {
+  Box,
+  Icon,
+  Token as TokenImage,
+  Typography,
+  VStack,
+} from '@onekeyhq/components';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
-import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
+import type {
+  Token,
+  Token as TokenType,
+} from '@onekeyhq/engine/src/types/token';
 
+import { useReduxSingleTokenPriceSimple } from '../../../../hooks';
 import useFormatDate from '../../../../hooks/useFormatDate';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import { calculateGains } from '../../../../utils/priceUtils';
@@ -17,6 +30,8 @@ import ChartLayout from '../ChartLayout';
 import { useChartState } from '../hooks/useChartState';
 import PriceDisplayInfo from '../PriceDisplayInfo';
 import { type SwapChartProps } from '../types';
+
+import type { MarketApiData } from '../../chartService';
 
 type SwapChartHeaderProps = {
   currentPrice: number | null;
@@ -52,27 +67,98 @@ const SwapChartHeader: FC<SwapChartHeaderProps> = ({
   </Box>
 );
 
+type SwapChartFooterTokenInfoItemProps = {
+  token: Token;
+  data: MarketApiData[];
+};
+
+const SwapChartFooterTokenInfoItem: FC<SwapChartFooterTokenInfoItemProps> = ({
+  token,
+  data,
+}) => {
+  const basePrice = data?.length ? data[0][1] : 0;
+  const latestPrice = data?.length ? data[data.length - 1][1] : 0;
+
+  const priceInfo = useReduxSingleTokenPriceSimple({ token });
+
+  const { gainTextBg, percentageGain, gainTextColor } = useMemo(
+    () =>
+      calculateGains({
+        basePrice,
+        price: latestPrice,
+      }),
+    [basePrice, latestPrice],
+  );
+  return (
+    <Box flexDirection="row" justifyContent="space-between" w="full">
+      <Box flexDirection="row">
+        <TokenImage token={token} />
+        <Box ml="3">
+          <Typography.Body1Strong>{token.symbol}</Typography.Body1Strong>
+          <Typography.Body2 color="text-subdued">{token.name}</Typography.Body2>
+        </Box>
+      </Box>
+      <Box>
+        <Typography.Body1>
+          ${priceInfo.price ? formatDecimalZero(priceInfo.price) : ''}
+        </Typography.Body1>
+        <Box
+          mt="4px"
+          bg={gainTextBg}
+          px="6px"
+          py="2px"
+          borderRadius="6px"
+          justifyContent="center"
+          alignItems="center"
+        >
+          <Typography.CaptionStrong color={gainTextColor}>
+            {percentageGain}
+          </Typography.CaptionStrong>
+        </Box>
+      </Box>
+    </Box>
+  );
+};
+
 type SwapChartFooterProps = {
   enabled: boolean;
   selectedIndex: number;
   onTimeChange: (time: string) => void;
+  fromToken: Token;
+  toToken: Token;
+  fromData: MarketApiData[];
+  toData: MarketApiData[];
 };
 
 const SwapChartFooter: FC<SwapChartFooterProps> = ({
   enabled,
   selectedIndex,
   onTimeChange,
-}) => (
-  <Box>
-    <Box w="full">
-      <TimeControl
-        enabled={enabled}
-        selectedIndex={selectedIndex}
-        onTimeChange={onTimeChange}
-      />
+  fromToken,
+  toToken,
+  fromData,
+  toData,
+}) => {
+  const intl = useIntl();
+  return (
+    <Box>
+      <Box w="full">
+        <TimeControl
+          enabled={enabled}
+          selectedIndex={selectedIndex}
+          onTimeChange={onTimeChange}
+        />
+      </Box>
+      <Box>
+        <Typography.Heading my="4">Token Info</Typography.Heading>
+        <VStack space="2" w="full">
+          <SwapChartFooterTokenInfoItem token={fromToken} data={fromData} />
+          <SwapChartFooterTokenInfoItem token={toToken} data={toData} />
+        </VStack>
+      </Box>
     </Box>
-  </Box>
-);
+  );
+};
 
 const SwapChartBottomSheet: FC<SwapChartProps> = ({ fromToken, toToken }) => {
   const { data, refreshDataOnTimeChange, isFetching, selectedTimeIndex } =
@@ -80,9 +166,11 @@ const SwapChartBottomSheet: FC<SwapChartProps> = ({ fromToken, toToken }) => {
   const { formatDate } = useFormatDate();
   const [price, setPrice] = useState<string | number | undefined>();
   const [time, setTime] = useState(formatDate(new Date()));
-
-  const basePrice = data?.length ? data[0][1] : 0;
-  const latestPrice = data?.length ? data[data.length - 1][1] : 0;
+  const { finalData, fromData, toData } = data;
+  const basePrice = finalData?.length ? finalData[0][1] : 0;
+  const latestPrice = finalData?.length
+    ? finalData[finalData.length - 1][1]
+    : 0;
   let currentPrice;
   if (!data) {
     currentPrice = null;
@@ -127,9 +215,13 @@ const SwapChartBottomSheet: FC<SwapChartProps> = ({ fromToken, toToken }) => {
           selectedIndex={selectedTimeIndex}
           onTimeChange={refreshDataOnTimeChange}
           enabled={!isFetching && !!data}
+          fromToken={fromToken}
+          toToken={toToken}
+          fromData={fromData}
+          toData={toData}
         />
       }
-      data={data}
+      data={finalData}
       onHover={onHover}
       isFetching={isFetching}
       height={200}
@@ -218,6 +310,7 @@ const SwapChartSwapChartBottomSheetTrigger: FC<SwapChartProps> = ({
             <Typography.Body2Strong color={priceInfo.gainTextColor}>
               ({priceInfo.percentageGain})
             </Typography.Body2Strong>
+            <Icon name="ChevronUpMini" size={20} />
           </Box>
         )}
       </Box>
