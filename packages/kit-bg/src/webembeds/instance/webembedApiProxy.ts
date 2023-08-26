@@ -7,6 +7,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { RemoteApiProxyBase } from '../../RemoteApiProxyBase';
 
 import type { IBackgroundApiWebembedCallMessage } from '../../IBackgroundApi';
+import type WebEmbedApiChainAdaLegacy from '../WebEmbedApiChainAdaLegacy';
+import type WebEmbedApiChainXmrLegacy from '../WebEmbedApiChainXmrLegacy';
 import type WebEmbedApiSecret from '../WebEmbedApiSecret';
 import type { IWebembedApi, IWebembedApiKeys } from './IWebembedApi';
 
@@ -39,6 +41,12 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
 
   secret: WebEmbedApiSecret =
     this._createProxyModule<IWebembedApiKeys>('secret');
+
+  chainAdaLegacy: WebEmbedApiChainAdaLegacy =
+    this._createProxyModule<IWebembedApiKeys>('chainAdaLegacy');
+
+  chainXmrLegacy: WebEmbedApiChainXmrLegacy =
+    this._createProxyModule<IWebembedApiKeys>('chainXmrLegacy');
 }
 
 export default new WebembedApiProxy();

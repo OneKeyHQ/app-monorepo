@@ -11,6 +11,12 @@ const getOrCreateWebEmbedApiModule = memoizee(
     if (name === 'secret') {
       return new (await import('../WebEmbedApiSecret')).default();
     }
+    if (name === 'chainAdaLegacy') {
+      return new (await import('../WebEmbedApiChainAdaLegacy')).default();
+    }
+    if (name === 'chainXmrLegacy') {
+      return new (await import('../WebEmbedApiChainXmrLegacy')).default();
+    }
     throw new Error(`Unknown WebEmbed API module: ${name as string}`);
   },
   {

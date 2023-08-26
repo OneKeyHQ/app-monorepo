@@ -37,6 +37,8 @@ class WebEmbedApiSecret {
     // }, 2000);
 
     const buffer = encrypt(password, bufferToEncrypt, {
+      // can not use safe check in webview, as key is different,
+      // you should safe check before call this method
       skipSafeCheck: true,
     });
     return Promise.resolve(bufferUtils.bytesToHex(buffer));
@@ -50,6 +52,8 @@ class WebEmbedApiSecret {
     data: string;
   }): Promise<string> {
     const buffer = decrypt(password, bufferUtils.toBuffer(data, 'hex'), {
+      // can not use safe check in webview, as key is different,
+      // you should safe check before call this method
       skipSafeCheck: true,
     });
     return Promise.resolve(bufferUtils.bytesToHex(buffer));
