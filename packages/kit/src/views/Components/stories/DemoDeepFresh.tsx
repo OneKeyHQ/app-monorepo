@@ -13,8 +13,10 @@ import {
 import { DebugRenderTracker } from '@onekeyhq/components/src/DebugRenderTracker';
 import {
   decrypt,
+  decryptAsync,
   encodeSensitiveText,
   encrypt,
+  encryptAsync,
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -332,6 +334,8 @@ function generateRandomStrings(
 
 // Generate 100 random strings of length 256
 
+let shouldUseAsyncEncrypt = false;
+
 function ReloadButtons() {
   const [, refresh] = useAtomDemoDeepFresh(atomDemoDeepFreshReload);
   const [loading] = useAtomDemoDeepFresh(atomDemoDeepFreshTokensLoading);
@@ -353,42 +357,106 @@ function ReloadButtons() {
         <Button
           size="lg"
           mt={4}
-          onPress={() => {
-            const randomStrings = generateRandomStrings(20, 102400);
+          onPress={async () => {
+            shouldUseAsyncEncrypt = !shouldUseAsyncEncrypt;
+            const randomStrings = generateRandomStrings(30, 1024);
+            // const randomStrings = ['z85bpz1astcai9oh918j'];
             // @ts-ignore
             global.$$$$randomStrings = randomStrings;
-            const pwd = '12345678901234567890123456789012';
-            const tester = (str: string) => {
+            const pwd = encodeSensitiveText({
+              text: '1111_____3333',
+            });
+            const tester = async (str: string) => {
+              if (shouldUseAsyncEncrypt) {
+                const sstrAsync = (
+                  await encryptAsync({
+                    password: pwd,
+                    data: bufferUtils.toBuffer(str, 'utf-8'),
+                  })
+                ).toString('hex');
+                const dstrAsync1 = (
+                  await decryptAsync({
+                    password: pwd,
+                    data: bufferUtils.toBuffer(sstrAsync, 'hex'),
+                  })
+                ).toString('utf-8');
+                await wait(0);
+                return {
+                  sstrAsync,
+                  dstrAsync1,
+                };
+              }
               const sstr = encrypt(
-                encodeSensitiveText({
-                  text: pwd,
-                }),
+                pwd,
                 bufferUtils.toBuffer(str, 'utf-8'),
               ).toString('hex');
-
               const dstr = decrypt(
-                encodeSensitiveText({
-                  text: pwd,
-                }),
+                pwd,
                 bufferUtils.toBuffer(sstr, 'hex'),
               ).toString('utf-8');
+              await wait(0);
+              return {
+                sstr,
+                dstr,
+              };
 
-              if (str !== dstr) {
-                console.log('str not matched');
-                throw new Error('str not matched');
-              }
-              // console.log('str not matched2');
-              // throw new Error('str not matched2');
+              // const dstr1 = decrypt(
+              //   pwd,
+              //   bufferUtils.toBuffer(sstrAsync, 'hex'),
+              // ).toString('utf-8');
+
+              // const dstrAsync = (
+              //   await decryptAsync({
+              //     password: pwd,
+              //     data: bufferUtils.toBuffer(sstr, 'hex'),
+              //   })
+              // ).toString('utf-8');
+
+              // console.log('=====---->>>>>>', {
+              //   str,
+              //   dstr,
+              //   dstr1,
+              //   dstrAsync1,
+              //   dstrAsync,
+              // });
+
+              // if (
+              //   // sstr !== sstrAsync || // encrypt text is random text, so it's not equal
+              //   str !== dstr ||
+              //   str !== dstr1 ||
+              //   str !== dstrAsync ||
+              //   str !== dstrAsync1 ||
+              //   dstr !== dstrAsync ||
+              //   dstr !== dstrAsync1 ||
+              //   dstr1 !== dstrAsync ||
+              //   dstr1 !== dstrAsync1
+              // ) {
+              //   console.error('str not matched');
+              //   console.log({
+              //     str,
+              //     sstr,
+              //     sstrAsync,
+              //     dstr,
+              //     dstr1,
+              //     dstrAsync,
+              //     dstrAsync1,
+              //   });
+              //   throw new Error('str not matched');
+              // }
             };
 
             let now = Date.now();
-            randomStrings.forEach(tester);
-            console.log('Test encrypt by loop', (Date.now() - now) / 1000);
+            await Promise.all(randomStrings.map(tester));
+            console.log('Test encrypt by loop', (Date.now() - now) / 1000, {
+              shouldUseAsyncEncrypt,
+            });
 
             now = Date.now();
             const bundleStr = randomStrings.join(',');
-            tester(bundleStr);
-            console.log('Test encrypt by bundle', (Date.now() - now) / 1000);
+            await tester(bundleStr);
+            console.log('Test encrypt by bundle', (Date.now() - now) / 1000, {
+              shouldUseAsyncEncrypt,
+            });
           }}
         >
           Test encrypt

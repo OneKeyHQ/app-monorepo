@@ -11,6 +11,7 @@ import { StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { openUrlExternal } from '../../utils/openUrl';
 import { checkOneKeyCardGoogleOauthUrl } from '../../utils/uriUtils';
@@ -118,6 +119,7 @@ const NativeWebView = forwardRef(
 
     return (
       <WebView
+        webviewDebuggingEnabled={platformEnv.isDev}
         style={styles.container}
         originWhitelist={['*']}
         allowFileAccess

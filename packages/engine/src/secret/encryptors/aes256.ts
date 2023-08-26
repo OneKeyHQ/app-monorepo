@@ -2,9 +2,11 @@ import * as crypto from 'crypto';
 
 import { AES_CBC, Pbkdf2HmacSha256 } from 'asmcrypto.js';
 
+import webembedApiProxy from '@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy';
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import { IncorrectPassword } from '@onekeyhq/shared/src/errors/common-errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { sha256 } from '../hash';
 
@@ -76,6 +78,32 @@ function encrypt(
   ]);
 }
 
+async function encryptAsync({
+  password,
+  data,
+  skipSafeCheck,
+}: {
+  password: string;
+  data: Buffer;
+  skipSafeCheck?: boolean;
+}): Promise<Buffer> {
+  // DO NOT skip safe check if you passed a real user password to this function
+  if (!skipSafeCheck) {
+    // eslint-disable-next-line no-param-reassign
+    password = decodePassword({ password });
+  }
+
+  if (platformEnv.isNative) {
+    const str = await webembedApiProxy.secret.encrypt({
+      password,
+      data: bufferUtils.bytesToHex(data),
+    });
+    return bufferUtils.toBuffer(str, 'hex');
+  }
+
+  return Promise.resolve(encrypt(password, data, { skipSafeCheck }));
+}
+
 function decrypt(
   password: string,
   data: Buffer,
@@ -98,6 +126,32 @@ function decrypt(
   } catch {
     throw new IncorrectPassword();
   }
+}
+
+async function decryptAsync({
+  password,
+  data,
+  skipSafeCheck,
+}: {
+  password: string;
+  data: Buffer;
+  skipSafeCheck?: boolean;
+}): Promise<Buffer> {
+  // DO NOT skip safe check if you passed a real user password to this function
+  if (!skipSafeCheck) {
+    // eslint-disable-next-line no-param-reassign
+    password = decodePassword({ password });
+  }
+
+  if (platformEnv.isNative) {
+    const str = await webembedApiProxy.secret.decrypt({
+      password,
+      data: bufferUtils.bytesToHex(data),
+    });
+    return bufferUtils.toBuffer(str, 'hex');
+  }
+
+  return Promise.resolve(decrypt(password, data, { skipSafeCheck }));
 }
 
 function checkKeyPassedOnExtUi(key?: string) {
@@ -158,6 +212,8 @@ function getBgSensitiveTextEncodeKey() {
 export {
   encrypt,
   decrypt,
+  encryptAsync,
+  decryptAsync,
   decodePassword,
   encodeSensitiveText,
   decodeSensitiveText,

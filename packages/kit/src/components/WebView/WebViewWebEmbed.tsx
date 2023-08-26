@@ -27,6 +27,7 @@ export function WebViewWebEmbed({
 }) {
   const { themeVariant, localeVariant } = useThemeProviderVariant();
   const nativeWebviewSource = useMemo(() => {
+    // *** use remote url, start dev server first `yarn web-embed`
     if (src) {
       return undefined;
     }

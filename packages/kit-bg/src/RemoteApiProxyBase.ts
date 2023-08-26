@@ -3,10 +3,6 @@
 import { wait } from '@onekeyhq/kit/src/utils/helper';
 
 abstract class RemoteApiProxyBase {
-  constructor() {
-    this.checkEnvAvailable();
-  }
-
   abstract checkEnvAvailable(): void;
 
   abstract waitRemoteApiReady(): Promise<void>;
@@ -23,6 +19,8 @@ abstract class RemoteApiProxyBase {
 
   async callRemoteMethod(key: string, ...params: any[]) {
     this.checkEnvAvailable();
+    // eslint-disable-next-line @typescript-eslint/await-thenable
+    await this.checkEnvAvailable();
 
     // make this method to promise, so that background won't crash if error occurs
     await wait(0);
