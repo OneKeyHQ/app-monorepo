@@ -30,6 +30,8 @@ import type {
 } from '../../types';
 import type { AddressEncodings } from './types';
 import type BTCForkVault from './VaultBtcFork';
+import { BtcMessageTypes } from '../../../types/message';
+import { toPsbtNetwork } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.utils';
 
 export class KeyringHd extends KeyringHdBase {
   override async signTransaction(
@@ -316,20 +318,43 @@ export class KeyringHd extends KeyringHdBase {
       password,
     )) as ExportedSeedCredential;
 
-    const dbAccount = await this.getDbAccount();
-    const path = `${dbAccount.path}/0/0`;
+    const account = await this.engine.getAccount(
+      this.accountId,
+      this.networkId,
+    );
+
+    const network = await this.getNetwork();
+    const path = `${account.path}/0/0`;
     const provider = await (
       this.vault as unknown as BTCForkVault
     ).getProvider();
-    const result = messages.map((payload: IUnsignedMessageBtc) =>
-      provider.signMessage({
-        password,
-        entropy,
-        path,
-        message: payload.message,
-        sigOptions: payload.sigOptions,
-      }),
-    );
+
+    const result: Buffer[] = [];
+
+    for (let i = 0, len = messages.length; i < len; i += 1) {
+      const { message, type, sigOptions } = messages[i];
+
+      if (type === BtcMessageTypes.BIP322_SIMPLE) {
+        const signers = await this.getSigners(password, [account.address]);
+        const signature = await provider.signBip322MessageSimple({
+          account,
+          message,
+          signers,
+          psbtNetwork: toPsbtNetwork(network),
+        });
+        result.push(signature);
+      } else {
+        const signature = provider.signMessage({
+          password,
+          entropy,
+          path,
+          message,
+          sigOptions,
+        });
+        result.push(signature);
+      }
+    }
+
     return result.map((i) => i.toString('hex'));
   }
 }
