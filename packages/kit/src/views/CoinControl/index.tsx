@@ -192,7 +192,16 @@ const CoinControl = () => {
 
     return data.concat(frozenRecycleUtxos);
   }, [useDustUtxo, frozenUtxosWithoutRecycle, utxosDust, frozenRecycleUtxos]);
-  const showDustListHeader = useMemo(
+
+  const showAvailableListDustHeader = useMemo(
+    () =>
+      useDustUtxo
+        ? utxosDust.length > 0 && utxosWithoutDust.length <= 0
+        : false,
+    [useDustUtxo, utxosDust.length, utxosWithoutDust.length],
+  );
+
+  const showFrozenListDustHeader = useMemo(
     () =>
       utxosDust.length > 0 &&
       !useDustUtxo &&
@@ -452,13 +461,11 @@ const CoinControl = () => {
           onChange={setSelectedIndex}
         />
       </Box>
-
       {isLoading ? (
         <Center h="full" pb={6}>
           <Spinner size="lg" />
         </Center>
       ) : null}
-
       {!isLoading &&
         selectedIndex === 0 &&
         (showAvailableList ? (
@@ -470,7 +477,7 @@ const CoinControl = () => {
             network={network as unknown as Network}
             token={token}
             dataSource={availabelListDataSource}
-            showDustListHeader={false}
+            showDustListHeader={showAvailableListDustHeader}
             showRecycleListHeader={showAvailableListRecycleHeader}
             showCheckbox={showAvailableListCheckbox}
             selectedUtxos={selectedUtxos}
@@ -486,7 +493,6 @@ const CoinControl = () => {
         ) : (
           renderEmpty
         ))}
-
       {!isLoading &&
         selectedIndex === 1 &&
         (showFrozenList ? (
@@ -498,7 +504,7 @@ const CoinControl = () => {
             network={network as unknown as Network}
             token={token}
             dataSource={frozenListDataSource}
-            showDustListHeader={showDustListHeader}
+            showDustListHeader={showFrozenListDustHeader}
             showRecycleListHeader={showFrozenListRecycleHeader}
             showCheckbox={showFrozenListCheckbox}
             selectedUtxos={selectedUtxos}
