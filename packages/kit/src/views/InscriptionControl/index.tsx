@@ -145,17 +145,15 @@ function InscriptionControl() {
   const renderHeaderRight = useCallback(() => {
     if (isSelectMode) {
       return (
-        <IconButton
-          iconColor="icon-subdued"
-          circle
-          name="CheckMini"
-          type="basic"
-          size="xs"
+        <Button
+          size="sm"
           onPress={() => {
             setIsSelectMode(false);
             setSelectedInscriptions([]);
           }}
-        />
+        >
+          {intl.formatMessage({ id: 'action__done' })}
+        </Button>
       );
     }
 
@@ -180,7 +178,7 @@ function InscriptionControl() {
         />
       </BaseMenu>
     );
-  }, [isSelectMode]);
+  }, [intl, isSelectMode]);
 
   const renderContent = useCallback(() => {
     if (isLoadingInscriptions)
@@ -217,6 +215,7 @@ function InscriptionControl() {
     <Modal
       header={intl.formatMessage({ id: 'title__manage_inscriptions' })}
       height="584px"
+      closeable={!isSelectMode}
       headerDescription={
         <Text typography="Caption" color="text-subdued">{`${
           token?.name ?? ''
