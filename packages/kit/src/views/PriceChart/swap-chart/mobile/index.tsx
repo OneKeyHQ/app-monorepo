@@ -150,7 +150,9 @@ const SwapChartFooter: FC<SwapChartFooterProps> = ({
         />
       </Box>
       <Box>
-        <Typography.Heading my="4">Token Info</Typography.Heading>
+        <Typography.Heading my="4">
+          {intl.formatMessage({ id: 'title__token_info' })}
+        </Typography.Heading>
         <VStack space="2" w="full">
           <SwapChartFooterTokenInfoItem token={fromToken} data={fromData} />
           <SwapChartFooterTokenInfoItem token={toToken} data={toData} />
