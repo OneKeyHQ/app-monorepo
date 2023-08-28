@@ -235,7 +235,7 @@ function BTCAssetDetailContent({
             <CustomSkeleton borderRadius="10px" width={120} height="20px" />
           )}
         </Text>
-        {detailMoreMenu}
+        {isDisabled ? null : detailMoreMenu}
       </HStack>
 
       {isOwner && (

@@ -147,11 +147,11 @@ function TokenDetailViewWithoutMemo() {
   }, [isVerticalLayout, defaultInfo]);
 
   const headerRight = useCallback(() => {
-    if (!isVerticalLayout) {
+    if (!isVerticalLayout && !isBRC20) {
       return <HeaderOptions />;
     }
     return <FavoritedButton coingeckoId={coingeckoId} />;
-  }, [isVerticalLayout, coingeckoId]);
+  }, [isVerticalLayout, isBRC20, coingeckoId]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -183,7 +183,7 @@ function TokenDetailViewWithoutMemo() {
         <TokenDetailHeader />
       </Box>
     ),
-    [headerHeight],
+    [headerHeight, isBRC20],
   );
 
   if (result.isLoading) {

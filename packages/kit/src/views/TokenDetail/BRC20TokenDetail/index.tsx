@@ -11,6 +11,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
+import { isWatchingAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import { AppUIEventBusNames } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -73,6 +74,11 @@ function BRC20TokenDetail() {
     accountId: accountId ?? '',
     networkId: networkId ?? '',
   });
+
+  const isWatching = useMemo(
+    () => isWatchingAccount({ accountId: accountId ?? '' }),
+    [accountId],
+  );
 
   const balanceWithoutRecycle = useMemo(() => {
     const { balance, availableBalance, transferBalance } = balanceInfo;
@@ -234,6 +240,7 @@ function BRC20TokenDetail() {
           onPressReceive={handleReceiveOnPress}
           onPressTransfer={handleTransferOnPress}
           balanceWithoutRecycle={balanceWithoutRecycle}
+          isWatching={isWatching}
           style={{ mb: 8 }}
         />
       ) : null}
@@ -266,14 +273,17 @@ function BRC20TokenDetail() {
           onPressTransfer={handleTransferOnPress}
           balanceWithoutRecycle={balanceWithoutRecycle}
           style={{ mb: 6 }}
+          isWatching={isWatching}
         />
       ) : null}
-      <InscriptionEntry
-        inscriptions={availableInscriptions}
-        isLoadingInscriptions={isLoadingInscriptions}
-        onPress={handleInscriptionControlOnPress}
-        style={{ mb: 6 }}
-      />
+      {isWatching ? null : (
+        <InscriptionEntry
+          inscriptions={availableInscriptions}
+          isLoadingInscriptions={isLoadingInscriptions}
+          onPress={handleInscriptionControlOnPress}
+          style={{ mb: 6 }}
+        />
+      )}
       <TxHistoryListView
         accountId={accountId}
         networkId={networkId}
