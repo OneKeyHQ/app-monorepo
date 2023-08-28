@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -110,12 +111,17 @@ const EnabledContent = ({
   }, [intl, serviceCloudBackup]);
 
   const { isPasswordSet } = useData();
+  const isFocused = useIsFocused();
 
   const navigation = useAppNavigation();
-
-  const [isDisabled, setIsDisable] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  useEffect(() => {
+    if (isFocused) {
+      setIsLoading(false);
+    }
+  }, [isFocused]);
   const backUpAction = useCallback(async () => {
-    setIsDisable(true);
+    setIsLoading(true);
     if (!isPasswordSet) {
       return new Promise((resolve) => {
         navigation.navigate(RootRoutes.Modal, {
@@ -125,9 +131,10 @@ const EnabledContent = ({
             params: {
               onSuccess: () => {
                 dispatch(incrBackupRequests());
-                serviceCloudBackup.backupNow();
-                resolve('');
-                setIsDisable(false);
+                serviceCloudBackup.backupNow().then(() => {
+                  resolve('');
+                  setIsLoading(false);
+                });
               },
             },
           },
@@ -139,8 +146,9 @@ const EnabledContent = ({
       showVerify(
         () => {
           dispatch(incrBackupRequests());
-          serviceCloudBackup.backupNow();
-          setIsDisable(false);
+          serviceCloudBackup.backupNow().then(() => {
+            setIsLoading(false);
+          });
         },
         () => {},
         null,
@@ -148,8 +156,8 @@ const EnabledContent = ({
       );
     }
     dispatch(incrBackupRequests());
-    serviceCloudBackup.backupNow();
-    setIsDisable(false);
+    await serviceCloudBackup.backupNow();
+    setIsLoading(false);
   }, [
     dispatch,
     isPasswordSet,
@@ -162,7 +170,7 @@ const EnabledContent = ({
   return (
     <Box flexDirection="column">
       <Box flexDirection="row" alignItems="center">
-        {inProgress ? (
+        {inProgress || isLoading ? (
           <Center rounded="full" size="12" bgColor="surface-neutral-subdued">
             <Spinner />
           </Center>
@@ -170,7 +178,7 @@ const EnabledContent = ({
           <BackupIcon enabled />
         )}
         <Box px="16px" flex="1" justifyContent="center">
-          {inProgress ? (
+          {inProgress || isLoading ? (
             <>
               <Text typography="Body1Strong">
                 {intl.formatMessage({
@@ -211,7 +219,7 @@ const EnabledContent = ({
         size="xl"
         type="primary"
         mt="24px"
-        isDisabled={inProgress || isDisabled}
+        isLoading={isLoading || inProgress}
         onPress={backUpAction}
       >
         {intl.formatMessage({ id: 'action__back_up_now' })}
