@@ -285,9 +285,8 @@ const NFTListContainer: FC = () => {
           if (
             !recycleUtxos.find((utxo) => {
               const [txId, vout] = utxo.key.split('_');
-              return (
-                asset.tx_hash === txId && asset.output.split(':')[1] === vout
-              );
+              const [assetTxId, assetVout] = asset.output.split(':');
+              return assetTxId === txId && assetVout === vout;
             })
           ) {
             array = array.concat(items as any[]);

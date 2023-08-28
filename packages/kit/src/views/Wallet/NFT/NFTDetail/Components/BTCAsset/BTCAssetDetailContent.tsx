@@ -164,6 +164,7 @@ function BTCAssetDetailContent({
                   onConfirm={async () => {
                     const [txid, vout] = asset.output.split(':');
                     const voutNum = parseInt(vout, 10);
+
                     await backgroundApiProxy.serviceUtxos.updateRecycle({
                       networkId: networkId ?? '',
                       accountId: accountId ?? '',
@@ -191,6 +192,7 @@ function BTCAssetDetailContent({
                     appUIEventBus.emit(
                       AppUIEventBusNames.InscriptionRecycleChanged,
                     );
+                    navigation.goBack();
                   }}
                 />,
               ),
@@ -216,6 +218,7 @@ function BTCAssetDetailContent({
       asset.owner,
       intl,
       isVertical,
+      navigation,
       networkId,
     ],
   );
