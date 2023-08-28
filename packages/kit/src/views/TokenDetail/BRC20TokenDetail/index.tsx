@@ -5,6 +5,7 @@ import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Box,
   ScrollView,
   Typography,
   VStack,
@@ -299,12 +300,14 @@ function BRC20TokenDetail() {
           style={{ mb: 6 }}
         />
       )}
-      <TxHistoryListView
-        accountId={accountId}
-        networkId={networkId}
-        tokenId={tokenAddress}
-        tabComponent
-      />
+      <Box pb={10}>
+        <TxHistoryListView
+          accountId={accountId}
+          networkId={networkId}
+          tokenId={tokenAddress}
+          tabComponent
+        />
+      </Box>
     </ScrollView>
   );
 }
