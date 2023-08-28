@@ -240,23 +240,28 @@ export const ButtonsSection: FC = () => {
     [currentNetwork],
   );
 
+  const isWatchOnly = useMemo(() => wallet?.type === 'watching', [wallet]);
+
   const { buttons, options } = useMemo(() => {
     const list: IButtonItem[] = [
       {
         id: 'action__send',
         onPress: onSend,
         icon: 'PaperAirplaneOutline',
+        isDisabled: isWatchOnly,
       },
       {
         id: 'action__receive',
         onPress: onReceive,
         icon: 'QrCodeMini',
+        isDisabled: isWatchOnly,
       },
       {
         id: 'title__swap',
         onPress: onSwap,
         icon: 'ArrowsRightLeftSolid',
         visible: () => showSwapOption,
+        isDisabled: isWatchOnly,
       },
       {
         id: 'action__buy',
@@ -266,6 +271,7 @@ export const ButtonsSection: FC = () => {
           !platformEnv.isAppleStoreEnv &&
           showMoreOption &&
           !!fiatUrls?.[networkId]?.buy,
+        isDisabled: isWatchOnly,
       },
       {
         id: 'action__sell',
@@ -275,10 +281,9 @@ export const ButtonsSection: FC = () => {
           !platformEnv.isAppleStoreEnv &&
           showMoreOption &&
           !!fiatUrls?.[networkId]?.sell,
+        isDisabled: isWatchOnly,
       },
-    ]
-      .map((t) => ({ ...t, isDisabled: loading }))
-      .filter((item) => !item.visible || item?.visible?.()) as IButtonItem[];
+    ].filter((item) => !item.visible || item?.visible?.()) as IButtonItem[];
     const showSize = isVerticalLayout ? 4 : 3;
     return {
       buttons: list.slice(0, showSize),
@@ -292,7 +297,6 @@ export const ButtonsSection: FC = () => {
   }, [
     networkId,
     fiatUrls,
-    loading,
     handlePress,
     isVerticalLayout,
     onBuy,
@@ -302,6 +306,7 @@ export const ButtonsSection: FC = () => {
     onSend,
     showSwapOption,
     showMoreOption,
+    isWatchOnly,
   ]);
 
   return (
@@ -333,7 +338,7 @@ export const ButtonsSection: FC = () => {
               text={intl.formatMessage({
                 id: item.id,
               })}
-              isDisabled={loading}
+              isDisabled={item.isDisabled}
             />
           ))}
           {isValidCoingeckoId(coingeckoId) && !isVerticalLayout ? (
