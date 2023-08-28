@@ -30,6 +30,8 @@ function WebEmbedApiScreen() {
     // window.$onekey.$private.on('message_payload_raw', handler);
     return () => {
       // window.$onekey.$private.off('message_payload_raw', handler);
+
+      // Not working when window reload(), as bridge is destroyed first
       window.$onekey.$private.request({
         method: 'webEmbedApiNotReady',
       });
