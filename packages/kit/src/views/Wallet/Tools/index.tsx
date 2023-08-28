@@ -48,7 +48,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../../hooks';
+import { useActiveWalletAccount, useNetwork } from '../../../hooks';
 import {
   getManageNetworks,
   useManageNetworks,
@@ -194,8 +194,11 @@ const FlatListGasPriceItem = ({
 }: FlatListItemProps) => {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
-  const { networkId, network } = useActiveWalletAccount();
-  const price = useNetworkPrices(networkId);
+  const { networkId } = useActiveWalletAccount();
+  const { network } = useNetwork({
+    networkId: isAllNetworks(networkId) ? OnekeyNetwork.eth : networkId,
+  });
+  const price = useNetworkPrices(network?.id);
 
   const styles = useMemo(() => {
     if (isVertical) {
@@ -485,18 +488,20 @@ const ToolsPage: FC = () => {
           });
         }
       } else if (key === 'gasprice') {
-        const activeNetwokId = supportedNetworks.includes(networkId)
-          ? networkId
-          : OnekeyNetwork.eth;
-        appNavigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.GasPanel,
-          params: {
-            screen: GasPanelRoutes.GasPanelModal,
+        if (selectedNetwork?.id) {
+          const activeNetwokId = supportedNetworks.includes(selectedNetwork?.id)
+            ? selectedNetwork?.id
+            : OnekeyNetwork.eth;
+          appNavigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.GasPanel,
             params: {
-              networkId: activeNetwokId,
+              screen: GasPanelRoutes.GasPanelModal,
+              params: {
+                networkId: activeNetwokId,
+              },
             },
-          },
-        });
+          });
+        }
       } else {
         const item = tools?.find((t) => t.title === key);
         const params = {
