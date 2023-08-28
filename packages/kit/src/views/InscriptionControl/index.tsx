@@ -146,7 +146,7 @@ function InscriptionControl() {
     if (isSelectMode) {
       return (
         <Button
-          size="sm"
+          size="xs"
           onPress={() => {
             setIsSelectMode(false);
             setSelectedInscriptions([]);
@@ -159,7 +159,6 @@ function InscriptionControl() {
 
     return (
       <BaseMenu
-        menuWidth="full"
         options={[
           {
             id: 'action__bulk_destroy',

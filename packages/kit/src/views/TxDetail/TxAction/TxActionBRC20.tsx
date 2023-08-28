@@ -102,7 +102,6 @@ export function getTxActionsBRC20Info(props: ITxActionCardProps) {
 }
 
 export function TxActionBRC20T0(props: ITxActionCardProps) {
-  const intl = useIntl();
   const { action, meta, decodedTx, historyTx, network } = props;
   const { accountId, networkId } = decodedTx;
   const { amount, symbol, isOut, sender, receiver } =
@@ -112,10 +111,9 @@ export function TxActionBRC20T0(props: ITxActionCardProps) {
   );
 
   const subTitle = isOut ? receiver : sender;
+
   const subTitleFormated =
-    subTitle === 'unknown'
-      ? intl.formatMessage({ id: 'form__unknown' })
-      : shortenAddress(subTitle);
+    subTitle === 'unknown' ? subTitle : shortenAddress(subTitle);
 
   return (
     <TxListActionBox

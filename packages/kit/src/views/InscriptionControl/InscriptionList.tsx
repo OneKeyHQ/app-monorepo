@@ -4,7 +4,14 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { FlatList } from 'react-native';
 
-import { HStack, Icon, Pressable, Text, VStack } from '@onekeyhq/components';
+import {
+  Box,
+  HStack,
+  Icon,
+  Pressable,
+  Text,
+  VStack,
+} from '@onekeyhq/components';
 import Checkbox from '@onekeyhq/components/src/CheckBox';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 
@@ -76,32 +83,29 @@ function InscriptionList(props: Props) {
     ({ item }) => (
       <Pressable onPress={() => handleInscriptionOnPress(item)}>
         <HStack alignItems="center" mb={4} justifyContent="space-between">
-          <HStack alignItems="center">
-            {isSelectMode ? (
+          {isSelectMode ? (
+            <Box>
               <Checkbox
+                onChange={() => handleInscriptionOnPress(item)}
                 isChecked={selectedInscriptions.includes(item.inscription_id)}
               />
-            ) : null}
-            <VStack>
-              <HStack alignItems="center">
-                <OrdinalsSVG />
-                <Text typography="Body2Strong">#{item.inscription_number}</Text>
-                {isSelectMode ? null : (
-                  <Icon
-                    name="ChevronRightMini"
-                    size={20}
-                    color="icon-subdued"
-                  />
-                )}
-              </HStack>
-              <Text typography="Body2" color="text-subdued">
-                {formatDistanceToNow(
-                  new BigNumber(item.timestamp).times(1000).toNumber(),
-                )}
-              </Text>
-            </VStack>
-          </HStack>
-          <VStack>
+            </Box>
+          ) : null}
+          <VStack flex={1}>
+            <HStack alignItems="center">
+              <OrdinalsSVG />
+              <Text typography="Body2Strong">#{item.inscription_number}</Text>
+              {isSelectMode ? null : (
+                <Icon name="ChevronRightMini" size={20} color="icon-subdued" />
+              )}
+            </HStack>
+            <Text typography="Body2" color="text-subdued">
+              {formatDistanceToNow(
+                new BigNumber(item.timestamp).times(1000).toNumber(),
+              )}
+            </Text>
+          </VStack>
+          <VStack flex={1}>
             <Text textAlign="right" typography="Body2Strong">{`${new BigNumber(
               item.output_value_sat,
             )
@@ -163,11 +167,14 @@ function InscriptionList(props: Props) {
         <HStack justifyContent="space-between" alignItems="center" mb={4}>
           <HStack alignItems="center">
             {isSelectMode ? (
-              <Checkbox
-                isChecked={isSelectedAll || isIndeterminate}
-                isIndeterminate={isIndeterminate}
-                defaultIsChecked={false}
-              />
+              <Box>
+                <Checkbox
+                  onChange={handleToggleAllSelect}
+                  isChecked={isSelectedAll || isIndeterminate}
+                  isIndeterminate={isIndeterminate}
+                  defaultIsChecked={false}
+                />
+              </Box>
             ) : null}
             <Text
               typography="Subheading"

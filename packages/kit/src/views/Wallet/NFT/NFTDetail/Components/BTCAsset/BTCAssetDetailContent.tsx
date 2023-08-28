@@ -155,7 +155,6 @@ function BTCAssetDetailContent({
   const detailMoreMenu = useMemo(
     () => (
       <BaseMenu
-        menuWidth="full"
         options={[
           {
             id: 'action__destroy',

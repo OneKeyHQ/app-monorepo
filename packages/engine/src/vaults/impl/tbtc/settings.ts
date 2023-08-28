@@ -27,6 +27,7 @@ const settings: IVaultSettings = Object.freeze({
   nativeSupportBatchTransfer: true,
 
   signOnlyReturnFullTx: true,
+  hideFromToFieldIfValueEmpty: true,
 
   accountNameInfo: {
     default: {
