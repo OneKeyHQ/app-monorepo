@@ -27,6 +27,7 @@ import {
   RootRoutes,
   SendModalRoutes,
 } from '../../../routes/routesEnum';
+import { setAccountTokensBalances } from '../../../store/reducers/tokens';
 import { TxHistoryListView } from '../../TxHistory/TxHistoryListView';
 import { TokenDetailContext } from '../context';
 
@@ -190,8 +191,22 @@ function BRC20TokenDetail() {
         availableBalance: amountResp.availableBalance,
         transferBalance: amountResp.transferBalance,
       });
+
+      backgroundApiProxy.dispatch(
+        setAccountTokensBalances({
+          accountId,
+          networkId,
+          tokensBalance: {
+            [token.tokenIdOnNetwork ?? token.address]: {
+              balance: amountResp.balance,
+              availableBalance: amountResp.availableBalance,
+              transferBalance: amountResp.transferBalance,
+            },
+          },
+        }),
+      );
     }
-  }, [account, networkId, token]);
+  }, [account, accountId, networkId, token]);
 
   const fetchAvailableInscriptions = useCallback(async () => {
     if (networkId && account && token) {
