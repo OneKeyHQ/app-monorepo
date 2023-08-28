@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { Box, Switch, Typography } from '@onekeyhq/components';
 
@@ -19,6 +19,30 @@ export const WalletSwitchCell: FC<TWalletSwitchCellProps> = ({
 }) => {
   const config = useWalletSwitchConfig({ walletId });
   const [switchEnable, setSwitchEnable] = useState(!!config?.enable);
+
+  useEffect(() => {
+    setSwitchEnable((prevStatus) => {
+      if (prevStatus !== !!config?.enable) {
+        return !!config?.enable;
+      }
+      return prevStatus;
+    });
+  }, [config?.enable, walletId]);
+
+  const handleToggle = useCallback(() => {
+    setSwitchEnable((prevStatus) => {
+      const newEnableStatus = !prevStatus;
+      setTimeout(() => {
+        backgroundApiProxy.serviceSetting.toggleWalletSwitchConfig(
+          walletId,
+          newEnableStatus,
+        );
+        toggleWalletSwitch(walletId, newEnableStatus);
+      }, 100);
+      return newEnableStatus;
+    });
+  }, [toggleWalletSwitch, walletId]);
+
   return config ? (
     <Box
       flexDirection="row"
@@ -35,16 +59,7 @@ export const WalletSwitchCell: FC<TWalletSwitchCellProps> = ({
           mr={1}
           labelType="false"
           isChecked={switchEnable}
-          onToggle={() => {
-            setSwitchEnable(!switchEnable);
-            setTimeout(() => {
-              backgroundApiProxy.serviceSetting.toggleWalletSwitchConfig(
-                walletId,
-                !switchEnable,
-              );
-              toggleWalletSwitch(walletId, !switchEnable);
-            }, 100);
-          }}
+          onToggle={handleToggle}
         />
       </Box>
     </Box>

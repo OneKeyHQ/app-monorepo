@@ -38,8 +38,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const addresses = unsignedTx.inputs.map((input) => input.address);
     const { utxos } = await (
       this.vault as unknown as BTCForkVault
-    ).collectUTXOsInfo();
-
+    ).collectUTXOsInfo({ checkInscription: false });
     const signers: Record<string, string> = {};
     for (const utxo of utxos) {
       const { address, path } = utxo;
