@@ -295,16 +295,19 @@ class ProviderApiPrivate extends ProviderApiBase {
 
   @providerApiMethod()
   async callCoreWalletAgentMethod(data: IBackgroundApiWebembedCallMessage) {
+    if (!platformEnv.isNative) {
+      throw new Error('call webembed api only support native env');
+    }
     const bg = this.backgroundApi as unknown as BackgroundApiBase;
     const payload: IJsBridgeMessagePayload = {
       data,
       internal: true,
     };
+    // TODO check webEmbedBridge ready, send message from webview
     const result = await bg?.webEmbedBridge?.request?.({
       scope: '$private',
       data,
     });
-    console.log('callCoreWalletAgentMethod result', result);
     return result;
     // return this.coreWalletWebEmbedJsBridge.request({ data: payload });
     // return new Promise((resolve, reject) => {
