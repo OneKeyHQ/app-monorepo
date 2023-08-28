@@ -4,10 +4,7 @@ import type { privateSpendKeyToWords } from './moneroWords';
 
 type IHexString = string;
 
-export type IMoneroApi = {
-  privateSpendKeyToWords: typeof privateSpendKeyToWords;
-  pubKeysToAddress: typeof moneroAddress.pubKeysToAddress;
-
+export type IMoneroApiWebembed = {
   getKeyPairFromRawPrivatekey: (params: {
     rawPrivateKey: IHexString;
     index?: number;
@@ -47,4 +44,9 @@ export type IMoneroApi = {
     feePerByte: string;
   }) => Promise<string | undefined>;
   sendFunds: (args: any, scanUrl: string) => Promise<SignedTx>;
+};
+
+export type IMoneroApi = IMoneroApiWebembed & {
+  privateSpendKeyToWords: typeof privateSpendKeyToWords;
+  pubKeysToAddress: typeof moneroAddress.pubKeysToAddress;
 };
