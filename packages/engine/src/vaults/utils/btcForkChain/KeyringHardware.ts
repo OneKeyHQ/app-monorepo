@@ -1,6 +1,6 @@
 import * as BitcoinJS from 'bitcoinjs-lib';
 
-import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
+import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import {
   CoreSDKLoader,
@@ -12,7 +12,11 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { OneKeyHardwareError, OneKeyInternalError } from '../../../errors';
+import {
+  NotImplemented,
+  OneKeyHardwareError,
+  OneKeyInternalError,
+} from '../../../errors';
 import { slicePathTemplate } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { AccountType } from '../../../types/account';
@@ -26,6 +30,7 @@ import type {
   IGetAddressParams,
   IPrepareAccountByAddressIndexParams,
   IPrepareHardwareAccountsParams,
+  IUnsignedTxPro,
 } from '../../types';
 import type { AddressEncodings, TxInput, TxOutput, UTXO } from './types';
 import type BTCForkVault from './VaultBtcFork';
@@ -33,7 +38,17 @@ import type { RefTransaction } from '@onekeyfe/hd-core';
 import type { Messages } from '@onekeyfe/hd-transport';
 
 export class KeyringHardware extends KeyringHardwareBase {
-  override async signTransaction(unsignedTx: UnsignedTx): Promise<SignedTx> {
+  override async signTransaction(
+    unsignedTx: IUnsignedTxPro,
+  ): Promise<SignedTx> {
+    const { inputs, outputs, psbtHex, inputsToSign } = unsignedTx;
+
+    if (psbtHex && inputsToSign) {
+      throw new NotImplemented(
+        'Partially signed bitcoin transactions is not supported yet.',
+      );
+    }
+
     const coinName = (this.vault as unknown as BTCForkVault).getCoinName();
     const addresses = unsignedTx.inputs.map((input) => input.address);
     const { utxos } = await (
@@ -51,7 +66,6 @@ export class KeyringHardware extends KeyringHardwareBase {
       this.vault as unknown as BTCForkVault
     ).getProvider();
 
-    const { inputs, outputs } = unsignedTx;
     const prevTxids = Array.from(
       new Set(inputs.map((i) => (i.utxo as UTXO).txid)),
     );
