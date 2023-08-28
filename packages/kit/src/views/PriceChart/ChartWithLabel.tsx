@@ -36,19 +36,25 @@ const ChartWithLabel: FC<ChartWithLabelProps> = ({
   const isVerticalLayout = useIsVerticalLayout();
   const basePrice = data?.length ? data[0][1] : 0;
   const latestPrice = data?.length ? data[data.length - 1][1] : 0;
-  let currentPrice;
-  if (!data) {
-    currentPrice = null;
-  } else if (price === 'undefined' || price === undefined) {
-    currentPrice = latestPrice;
-  } else if (typeof price === 'string') {
-    currentPrice = +price;
-  } else {
-    currentPrice = price;
-  }
+  const currentPrice = useMemo(() => {
+    if (!data) {
+      return null;
+    }
+    if (price === 'undefined' || price === undefined) {
+      return latestPrice;
+    }
+    if (typeof price === 'string') {
+      return +price;
+    }
+    return price;
+  }, [data, latestPrice, price]);
 
   const onHover = useCallback<OnHoverFunction>(
     (hoverData) => {
+      // The first data of each hover is an empty string, which needs to be filtered
+      if (hoverData.price === '' && hoverData.time === '') {
+        return;
+      }
       let displayTime;
       if (hoverData.time instanceof Date) {
         displayTime = formatDate(hoverData.time);
