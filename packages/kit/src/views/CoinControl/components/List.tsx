@@ -561,27 +561,26 @@ const CoinControlList: FC<{
     ],
   );
 
-  const headerComponent = useCallback(() => {
-    const showDustSeparator = type === 'Frozen' && showDustListHeader;
-    return (
+  const headerComponent = useCallback(
+    () => (
       <>
         <ListTableHeader
           showCheckbox={showCheckbox}
           isAllSelected={isAllSelected}
           triggerAllSelected={triggerAllSelected}
         />
-        {showDustSeparator && <ItemSeparator isDustSeparator />}
+        {showDustListHeader && <ItemSeparator isDustSeparator />}
         {showRecycleListHeader && <ItemSeparator isRecycleSeparator />}
       </>
-    );
-  }, [
-    type,
-    showDustListHeader,
-    showCheckbox,
-    isAllSelected,
-    triggerAllSelected,
-    showRecycleListHeader,
-  ]);
+    ),
+    [
+      showDustListHeader,
+      showCheckbox,
+      isAllSelected,
+      triggerAllSelected,
+      showRecycleListHeader,
+    ],
+  );
   const footerComponent = useCallback(
     () => (
       <ListFooter
