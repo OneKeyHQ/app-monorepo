@@ -14,6 +14,7 @@ import { privateSpendKeyToWords } from './moneroWords';
 
 import type { SignedTx } from '../../../../types/provider';
 import type { MoneroKeys } from '../types';
+import type { IMoneroApi } from './types';
 
 const ProvideMethod = 'callChainWebEmbedMethod';
 
@@ -34,7 +35,7 @@ const ensureSDKReady = async () =>
   });
 
 const getKeyPairFromRawPrivatekey = async (params: {
-  rawPrivateKey: Buffer;
+  rawPrivateKey: string;
   index?: number;
   isPrivateSpendKey?: boolean;
 }) => {
@@ -44,7 +45,7 @@ const getKeyPairFromRawPrivatekey = async (params: {
     method: ProvideMethod,
     event: MoneroEvent.getKeyPairFromRawPrivatekey,
     params: {
-      rawPrivateKey: params.rawPrivateKey.toString('hex'),
+      rawPrivateKey: params.rawPrivateKey,
       index: params.index,
       isPrivateSpendKey: params.isPrivateSpendKey,
     },
@@ -62,14 +63,7 @@ const getKeyPairFromRawPrivatekey = async (params: {
     result.result,
   );
 
-  const keys: MoneroKeys = result.result;
-
-  return {
-    privateSpendKey: Buffer.from(keys.privateSpendKey, 'hex'),
-    privateViewKey: Buffer.from(keys.privateViewKey, 'hex'),
-    publicSpendKey: Buffer.from(keys.publicSpendKey || '', 'hex'),
-    publicViewKey: Buffer.from(keys.publicViewKey || '', 'hex'),
-  };
+  return result.result;
 };
 
 const generateKeyImage = async (params: {
@@ -198,8 +192,8 @@ const sendFunds = async (args: any, scanUrl: string): Promise<SignedTx> => {
   );
   return result.result;
 };
-const getMoneroApi = async () =>
-  Promise.resolve({
+async function getMoneroApi(): Promise<IMoneroApi> {
+  return Promise.resolve({
     getKeyPairFromRawPrivatekey,
     privateSpendKeyToWords,
     pubKeysToAddress: moneroAddress.pubKeysToAddress,
@@ -209,5 +203,5 @@ const getMoneroApi = async () =>
     sendFunds,
     seedAndkeysFromMnemonic,
   });
-
+}
 export { getMoneroApi, ensureSDKReady };
