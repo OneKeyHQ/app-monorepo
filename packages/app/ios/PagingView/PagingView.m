@@ -18,7 +18,7 @@
 @interface PagingView ()<JXPagerViewDelegate,JXCategoryViewDelegate>
 @property (nonatomic, strong) JXPagerView *pagingView;
 @property (nonatomic, copy) RCTBubblingEventBlock onPageChange;
-@property (nonatomic, copy) RCTBubblingEventBlock onPageStartScroll;
+@property (nonatomic, copy) RCTBubblingEventBlock onPageScrollStateChange;
 @property (nonatomic, copy) RCTBubblingEventBlock onPageVerticalScroll;
 @property (nonatomic, copy) RCTBubblingEventBlock onRefreshCallBack;
 
@@ -245,15 +245,18 @@
   if (object == _pagingView.listContainerView.scrollView && [keyPath isEqualToString:@"contentOffset"]) {
     if(!_isScrolling) {
       _isScrolling = YES;
-      if (_onPageStartScroll) {
-        _onPageStartScroll(@{});
+      if(_onPageScrollStateChange){
+        _onPageScrollStateChange(@{@"state":@"dragging"});
       }
     }
   }
 }
 
 - (void)categoryView:(JXCategoryBaseView *)categoryView didSelectedItemAtIndex:(NSInteger)index {
-  _isScrolling = NO;
+  _isScrolling = NO;  // 重置滚动状态
+  if (_onPageScrollStateChange) {
+    _onPageScrollStateChange(@{@"state":@"idle"});
+  }
   if (_onPageChange) {
     NSDictionary *value = _values[index];
     _onPageChange(@{@"tabName":value[@"name"],@"index":@(index)});
