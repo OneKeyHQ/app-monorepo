@@ -29,7 +29,11 @@ type UseChartStateParams = {
 };
 
 type UseChartStateResult = {
-  data: MarketApiData[];
+  data: {
+    finalData: MarketApiData[];
+    fromData: MarketApiData[];
+    toData: MarketApiData[];
+  };
   isFetching: boolean;
   selectedTimeIndex: number;
   refreshDataOnTimeChange: (newTimeValue: string) => void;
@@ -136,16 +140,20 @@ export const useChartState = ({
 
     if (fromData && toData) {
       const len = Math.min(fromData.length, toData.length);
-      const result = fromData.slice(0, len - 1).map((item, i) => {
+      const finalData = fromData.slice(0, len - 1).map((item, i) => {
         const timestamp = item[0];
         const fromValue = item[1];
         const toValue = toData[i][1];
         const value = fromValue / toValue;
         return [timestamp, value];
-      });
-      return result as MarketApiData[];
+      }) as MarketApiData[];
+      return {
+        finalData,
+        fromData: fromData.slice(0, len - 1),
+        toData: toData.slice(0, len - 1),
+      };
     }
-    return [];
+    return { finalData: [], fromData: [], toData: [] };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toToken, fromToken, selectedTimeIndex, pendingCount, hours]);
 

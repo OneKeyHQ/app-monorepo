@@ -23,7 +23,7 @@ import { homeTab, webTabsActions } from '../../../../store/observable/webTabs';
 import { openUrlExternal } from '../../../../utils/openUrl';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import { GasPanelRoutes } from '../../../GasPanel/types';
-import { GasPrice } from '../../components/GasPrice';
+import { PriceBox } from '../../../GasPanel/widgets/PriceBox';
 import { DiscoverModalRoutes } from '../../type';
 import { useWebController } from '../Controller/useWebController';
 
@@ -153,7 +153,7 @@ const MoreMenu: FC<{ onClose: () => void }> = ({ onClose }) => {
             </Typography.Caption>
           </Pressable>
           <Pressable alignItems="center" onPress={onGasPanel}>
-            <GasPrice />
+            <PriceBox />
             <Typography.Caption mt="2">🔥Gas</Typography.Caption>
           </Pressable>
         </HStack>
