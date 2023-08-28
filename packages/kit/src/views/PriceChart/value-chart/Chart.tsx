@@ -1,19 +1,20 @@
+import { useCallback, useState } from 'react';
+
 import {
   ChartDot,
   ChartPath,
   useChartData,
 } from '@onekeyfe/react-native-animated-charts';
 import { throttle } from 'lodash';
-import { Dimensions, View } from 'react-native';
+import { View } from 'react-native';
 import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 
+import { Box } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ExtremeLabels from './ExtremeLabels';
 
 import type { OnHoverFunction } from '../chartService';
-
-const { width: WIDTH } = Dimensions.get('window');
 
 export default function ChartWrapper({
   isFetching,
@@ -29,6 +30,8 @@ export default function ChartWrapper({
   const { isActive, originalX, originalY } = useChartData();
 
   const throttledOnHover = throttle(onHover, 25);
+
+  const [width, setWidth] = useState(0);
 
   useAnimatedReaction(
     () => [isActive.value, originalX.value, originalY.value],
@@ -46,9 +49,21 @@ export default function ChartWrapper({
       );
     },
   );
+
+  const onLayout = useCallback(
+    ({
+      nativeEvent: {
+        layout: { width: newWidth },
+      },
+    }) => {
+      setWidth(newWidth);
+    },
+    [setWidth],
+  );
+
   return (
-    <>
-      <ExtremeLabels color={lineColor} width={WIDTH} />
+    <Box position="relative" onLayout={onLayout}>
+      <ExtremeLabels color={lineColor} width={width} />
       <ChartPath
         fill="none"
         gestureEnabled={!isFetching}
@@ -63,7 +78,7 @@ export default function ChartWrapper({
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={2.5}
-        width={WIDTH}
+        width={width}
       />
       <ChartDot
         style={{
@@ -87,6 +102,6 @@ export default function ChartWrapper({
           }}
         />
       </ChartDot>
-    </>
+    </Box>
   );
 }

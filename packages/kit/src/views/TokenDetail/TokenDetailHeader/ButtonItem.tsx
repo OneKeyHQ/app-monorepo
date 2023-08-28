@@ -29,6 +29,7 @@ export type IButtonItem = {
   onPress: (params: ISingleChainInfo) => unknown;
   icon: ICON_NAMES;
   visible?: () => boolean;
+  isDisabled?: boolean;
 };
 
 export const ButtonItem = ({
@@ -63,7 +64,7 @@ export const ButtonItem = ({
               onPress={onPress}
               w={isVertical ? '42px' : '34px'}
               h={isVertical ? '42px' : '34px'}
-              iconColor={color}
+              iconColor={isDisabled ? 'icon-disabled' : color}
             />
           </TouchableWithoutFeedback>
         ) : (
@@ -73,12 +74,16 @@ export const ButtonItem = ({
             justifyContent="center"
             borderWidth="1px"
             borderRadius="999px"
-            borderColor="border-default"
+            borderColor={isDisabled ? 'border-disabled' : 'border-default'}
             bg="action-secondary-default"
             w={isVertical ? '42px' : '34px'}
             h={isVertical ? '42px' : '34px'}
           >
-            <Icon name={icon} size={isVertical ? 24 : 20} color={color} />
+            <Icon
+              name={icon}
+              size={isVertical ? 24 : 20}
+              color={isDisabled ? 'icon-disabled' : color}
+            />
           </Box>
         )}
         <Typography.CaptionStrong
@@ -92,7 +97,9 @@ export const ButtonItem = ({
     );
 
     if (typeof onPress === 'function') {
-      ele = (
+      ele = isDisabled ? (
+        <Box flex={isVertical ? 1 : undefined}>{ele}</Box>
+      ) : (
         <Pressable flex={isVertical ? 1 : undefined} onPress={onPress}>
           {ele}
         </Pressable>

@@ -22,6 +22,10 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/swapTransactions';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import {
+  MonopolizeNetwork,
+  getNetworkWithWalletId,
+} from '@onekeyhq/kit/src/views/Me/UtilSection/WalletSwitch/config';
+import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
@@ -160,7 +164,38 @@ export default class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   async toggleWalletSwitchConfig(walletId: string, enable: boolean) {
-    this.backgroundApi.dispatch(toggleWalletSwitch({ walletId, enable }));
+    const actions = [];
+
+    const networkId = getNetworkWithWalletId(walletId);
+    const walletSwitch =
+      this.backgroundApi.store.getState().settings.walletSwitchData || {};
+
+    // Monopolize the network's injection
+    if (MonopolizeNetwork.includes(networkId)) {
+      const relevantIds = Object.keys(walletSwitch).filter(
+        (id) => id !== walletId && id.startsWith(networkId),
+      );
+
+      let continueOneEnabled = false;
+
+      for (const relevantId of relevantIds) {
+        const currentEnabled = walletSwitch[relevantId].enable;
+        if (currentEnabled) {
+          if (!enable && !continueOneEnabled) {
+            // If the operation is closed, you need to leave one wallet open.
+            continueOneEnabled = true;
+          } else {
+            actions.push(
+              toggleWalletSwitch({ walletId: relevantId, enable: false }),
+            );
+          }
+        }
+      }
+    }
+
+    actions.push(toggleWalletSwitch({ walletId, enable }));
+
+    this.backgroundApi.dispatch(...actions);
     const privateProvider = this.backgroundApi.providers
       .$private as ProviderApiPrivate;
     privateProvider.notifyExtSwitchChanged({
