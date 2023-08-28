@@ -30,7 +30,7 @@ function TxDetailAdvanceInfoBox(props: ITxActionListViewProps) {
     });
   }
 
-  if ((decodedTx.encodedTx as IEncodedTxEvm)?.data) {
+  if ((decodedTx.encodedTx as IEncodedTxEvm)?.data && !decodedTx.isFinal) {
     details.push({
       title: intl.formatMessage({ id: 'form__hex_data' }),
       content: (

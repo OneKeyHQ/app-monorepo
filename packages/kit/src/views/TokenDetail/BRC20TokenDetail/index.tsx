@@ -5,7 +5,7 @@ import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  Box,
+  ScrollView,
   Typography,
   VStack,
   useIsVerticalLayout,
@@ -227,7 +227,7 @@ function BRC20TokenDetail() {
   }, [fetchAvailableInscriptions, fetchRecycleBalance, isFocused]);
 
   return (
-    <Box paddingY={8} paddingX={isVertical ? 4 : 8}>
+    <ScrollView paddingY={8} paddingX={isVertical ? 4 : 8}>
       {!isVertical ? (
         <TokenDetailHeader
           onPressSend={handleSendOnPress}
@@ -280,7 +280,7 @@ function BRC20TokenDetail() {
         tokenId={tokenAddress}
         tabComponent
       />
-    </Box>
+    </ScrollView>
   );
 }
 

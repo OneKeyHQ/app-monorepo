@@ -31,6 +31,8 @@ import RedirectProvider from './RedirectProvider';
 
 import type { NavigationContainerRef } from '@react-navigation/native';
 
+import { markFPTime } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
+
 export type RootNavContainerRef = NavigationContainerRef<RootRoutesParams>;
 export const navigationRef = createRef<RootNavContainerRef>();
 
@@ -107,6 +109,7 @@ const NavigationApp = () => {
       platform: platformEnv.symbol,
       distribution: platformEnv.distributionChannel,
     });
+    markFPTime();
     setAttributes({
       instanceId,
       platform: platformEnv.symbol ?? '',

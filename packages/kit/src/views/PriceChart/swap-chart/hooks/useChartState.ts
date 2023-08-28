@@ -1,29 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { FC } from 'react';
 
-import { Box } from '@onekeyhq/components';
+import { wait } from '@onekeyfe/hd-core';
+
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
-import { useInterval } from '../../hooks';
-
-import { fetchChartData } from './chartService';
-import SwapChartWithLabel from './SwapChartWithLabel';
-import TimeControl, { TIMEOPTIONS, TIMEOPTIONS_VALUE } from './TimeControl';
-
-import type { MarketApiData } from './chartService';
-import type { StyleProp, ViewStyle } from 'react-native';
-
-type SwapChartProps = {
-  style?: StyleProp<ViewStyle>;
-  fromToken: Token;
-  toToken: Token;
-};
-
-type IFetchDataParams = {
-  newTimeValue: string;
-  networkId: string;
-  contractAdress: string;
-};
+import { useInterval } from '../../../../hooks';
+import { type MarketApiData, fetchChartData } from '../../chartService';
+import { TIMEOPTIONS, TIMEOPTIONS_VALUE } from '../../TimeControl';
 
 const getHours = () => String(Math.ceil(Date.now() / (1000 * 60 * 60)));
 
@@ -34,8 +17,33 @@ function useHours() {
   return state;
 }
 
-const SwapChart: FC<SwapChartProps> = ({ fromToken, toToken, style }) => {
-  const [count, setCount] = useState(0);
+type IFetchDataParams = {
+  newTimeValue: string;
+  networkId: string;
+  contractAdress: string;
+};
+
+type UseChartStateParams = {
+  fromToken: Token;
+  toToken: Token;
+};
+
+type UseChartStateResult = {
+  data: {
+    finalData: MarketApiData[];
+    fromData: MarketApiData[];
+    toData: MarketApiData[];
+  };
+  isFetching: boolean;
+  selectedTimeIndex: number;
+  refreshDataOnTimeChange: (newTimeValue: string) => void;
+};
+
+export const useChartState = ({
+  fromToken,
+  toToken,
+}: UseChartStateParams): UseChartStateResult => {
+  const [pendingCount, setPendingCount] = useState(0);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
   const hours = useHours();
 
@@ -54,7 +62,7 @@ const SwapChart: FC<SwapChartProps> = ({ fromToken, toToken, style }) => {
       if (!cacheData) {
         let newData: MarketApiData[] = [];
         try {
-          setCount((v) => v + 1);
+          setPendingCount((v) => v + 1);
           newData = await fetchChartData({
             contract: contractAdress,
             networkId,
@@ -62,6 +70,7 @@ const SwapChart: FC<SwapChartProps> = ({ fromToken, toToken, style }) => {
             points,
             vs_currency: 'usd',
           });
+          await wait(50);
           if (newData?.length) {
             if (!dataMap.current?.[networkId]) {
               dataMap.current[networkId] = {};
@@ -77,7 +86,7 @@ const SwapChart: FC<SwapChartProps> = ({ fromToken, toToken, style }) => {
               newData;
           }
         } finally {
-          setCount((v) => v - 1);
+          setPendingCount((v) => v - 1);
         }
       }
     },
@@ -131,30 +140,30 @@ const SwapChart: FC<SwapChartProps> = ({ fromToken, toToken, style }) => {
 
     if (fromData && toData) {
       const len = Math.min(fromData.length, toData.length);
-      const result = fromData.slice(0, len - 1).map((item, i) => {
+      const finalData = fromData.slice(0, len - 1).map((item, i) => {
         const timestamp = item[0];
         const fromValue = item[1];
         const toValue = toData[i][1];
         const value = fromValue / toValue;
         return [timestamp, value];
-      });
-      return result as MarketApiData[];
+      }) as MarketApiData[];
+      return {
+        finalData,
+        fromData: fromData.slice(0, len - 1),
+        toData: toData.slice(0, len - 1),
+      };
     }
-    return [];
+    return { finalData: [], fromData: [], toData: [] };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toToken, fromToken, selectedTimeIndex, count, hours]);
+  }, [toToken, fromToken, selectedTimeIndex, pendingCount, hours]);
 
-  return (
-    <Box style={style}>
-      <SwapChartWithLabel isFetching={count !== 0} data={data}>
-        <TimeControl
-          enabled={count === 0 && !!data}
-          selectedIndex={selectedTimeIndex}
-          onTimeChange={refreshDataOnTimeChange}
-        />
-      </SwapChartWithLabel>
-    </Box>
+  return useMemo(
+    () => ({
+      data,
+      isFetching: pendingCount > 0,
+      selectedTimeIndex,
+      refreshDataOnTimeChange,
+    }),
+    [data, pendingCount, selectedTimeIndex, refreshDataOnTimeChange],
   );
 };
-SwapChart.displayName = 'SwapChart';
-export default SwapChart;
