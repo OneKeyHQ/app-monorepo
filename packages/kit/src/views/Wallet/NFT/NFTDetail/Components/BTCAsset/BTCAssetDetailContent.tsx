@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -157,10 +158,13 @@ function BTCAssetDetailContent({
       <BaseMenu
         options={[
           {
-            id: 'action__destroy',
+            id: 'action__deoccupy',
             onPress: () =>
               showDialog(
                 <RecycleDialog
+                  amount={`${new BigNumber(asset.output_value_sat)
+                    .shiftedBy(-(network?.decimals ?? 0))
+                    .toFixed()} ${network?.symbol ?? ''}`}
                   onConfirm={async () => {
                     const [txid, vout] = asset.output.split(':');
                     const voutNum = parseInt(vout, 10);
@@ -196,7 +200,7 @@ function BTCAssetDetailContent({
                   }}
                 />,
               ),
-            icon: 'FireSolid',
+            icon: 'RestoreMini',
             variant: 'desctructive',
           },
         ]}
@@ -219,6 +223,8 @@ function BTCAssetDetailContent({
       intl,
       isVertical,
       navigation,
+      network?.decimals,
+      network?.symbol,
       networkId,
     ],
   );
