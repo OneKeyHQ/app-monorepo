@@ -62,9 +62,11 @@ const SwapChart: FC<SwapChartProps> = ({ fromToken, toToken }) => {
   const { formatDate } = useFormatDate();
   const [price, setPrice] = useState<string | number | undefined>();
   const [time, setTime] = useState(formatDate(new Date()));
-
-  const basePrice = data?.length ? data[0][1] : 0;
-  const latestPrice = data?.length ? data[data.length - 1][1] : 0;
+  const { finalData } = data;
+  const basePrice = finalData?.length ? finalData[0][1] : 0;
+  const latestPrice = finalData?.length
+    ? finalData[finalData.length - 1][1]
+    : 0;
   let currentPrice;
   if (!data) {
     currentPrice = null;
@@ -107,7 +109,7 @@ const SwapChart: FC<SwapChartProps> = ({ fromToken, toToken }) => {
           enabled={!isFetching && !!data}
         />
       }
-      data={data}
+      data={finalData}
       onHover={onHover}
       isFetching={isFetching}
     />

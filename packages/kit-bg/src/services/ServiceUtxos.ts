@@ -197,6 +197,7 @@ export default class ServiceUtxos extends ServiceBase {
       const recycleUtxosWithoutFrozen = utxos.filter(
         (utxo) => utxo.recycle && !utxo.frozen,
       );
+
       const result = {
         utxos,
         utxosWithoutDust: dataSourceWithoutDust,
