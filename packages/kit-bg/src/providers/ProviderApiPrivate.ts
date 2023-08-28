@@ -2,23 +2,21 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable camelcase */
-import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import walletConnectUtils from '@onekeyhq/kit/src/components/WalletConnect/utils/walletConnectUtils';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
-import { timeout } from '@onekeyhq/kit/src/utils/helper';
+import { getTimeDurationMs, timeout } from '@onekeyhq/kit/src/utils/helper';
 import { scanFromURLAsync } from '@onekeyhq/kit/src/views/ScanQrcode/scanFromURLAsync';
 import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
 import debugLogger, {
   getDebugLoggerSettings,
 } from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { IBackgroundApi } from '../IBackgroundApi';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -27,7 +25,6 @@ import type { IBackgroundApiWebembedCallMessage } from '../IBackgroundApi';
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type ProviderApiEthereum from './ProviderApiEthereum';
 import type {
-  IJsBridgeConfig,
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
@@ -254,96 +251,43 @@ class ProviderApiPrivate extends ProviderApiBase {
     };
   }
 
-  @providerApiMethod()
-  callChainWebEmbedMethod(payload: any) {
-    const method: string = payload.data?.method;
-    debugLogger.providerApi.info(
-      'ProviderApiPrivate.callChainWebEmbedMethod',
-      payload,
-    );
-    const data = ({ origin }: { origin: string }) => {
-      const result = {
-        method,
-        params: {
-          event: payload.data?.event,
-          promiseId: payload.data?.promiseId,
-          params: { ...payload.data?.params },
-        },
-      };
-      debugLogger.providerApi.info(
-        'ProviderApiPrivate.callChainWebEmbedMethod',
-        method,
-        origin,
-        result,
-      );
-      return result;
-    };
-    payload.data?.send?.(data);
-  }
-
-  @providerApiMethod()
-  chainWebEmbedResponse(payload: any) {
-    debugLogger.providerApi.info(
-      'ProviderApiPrivate.chainWebEmbedResponse',
-      payload,
-    );
-    this.backgroundApi.servicePromise.resolveCallback({
-      id: payload?.data?.promiseId,
-      data: { ...(payload?.data?.data ?? {}) },
-    });
-  }
-
-  @providerApiMethod()
-  async callCoreWalletAgentMethod(data: IBackgroundApiWebembedCallMessage) {
+  async callWebEmbedApiProxy(data: IBackgroundApiWebembedCallMessage) {
     if (!platformEnv.isNative) {
       throw new Error('call webembed api only support native env');
     }
     const bg = this.backgroundApi as unknown as BackgroundApiBase;
-    const payload: IJsBridgeMessagePayload = {
-      data,
-      internal: true,
-    };
-    // TODO check webEmbedBridge ready, send message from webview
+
+    await waitForDataLoaded({
+      data: () => this.isWebEmbedApiReady && Boolean(bg?.webEmbedBridge),
+      logName: `ProviderApiPrivate.callWebEmbedApiProxy: ${
+        data?.module || ''
+      } - ${data?.method || ''}`,
+      wait: 1000,
+      timeout: getTimeDurationMs({ minute: 3 }),
+    });
+
+    if (!bg?.webEmbedBridge?.request) {
+      throw new Error('webembed webview bridge not ready.');
+    }
     const result = await bg?.webEmbedBridge?.request?.({
       scope: '$private',
       data,
     });
     return result;
-    // return this.coreWalletWebEmbedJsBridge.request({ data: payload });
-    // return new Promise((resolve, reject) => {
-    //   const id = this.backgroundApi.servicePromise.createCallback({
-    //     resolve,
-    //     reject,
-    //   });
-    //   const send: (data: any) => void =
-    //     this.backgroundApi.sendForProvider('$private');
-    //   send({
-    //     method: payload.method,
-    //     event: payload.event,
-    //     promiseId: id,
-    //     params: payload.params,
-    //   });
-    // });
+  }
+
+  isWebEmbedApiReady = false;
+
+  @providerApiMethod()
+  async webEmbedApiReady(): Promise<void> {
+    this.isWebEmbedApiReady = true;
+    return Promise.resolve();
   }
 
   @providerApiMethod()
-  resolveCoreWalletAgentCall(payload: any) {
-    this.backgroundApi.servicePromise.resolveCallback({
-      id: payload?.data?.promiseId,
-      data: { ...(payload?.data?.data ?? {}) },
-    });
-  }
-
-  @providerApiMethod()
-  rejectCoreWalletAgentCall(payload: any) {
-    debugLogger.providerApi.info(
-      'ProviderApiPrivate.rejectCoreWalletAgentCall',
-      payload,
-    );
-    this.backgroundApi.servicePromise.rejectCallback({
-      id: payload?.data?.promiseId,
-      error: new Error('CoreWalletAgentCallError'),
-    });
+  async webEmbedApiNotReady(): Promise<void> {
+    this.isWebEmbedApiReady = false;
+    return Promise.resolve();
   }
 }
 

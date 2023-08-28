@@ -5,8 +5,11 @@ import {
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 class WebEmbedApiSecret {
-  show({ name }: { name: string }) {
-    // throw new Error('WebEmbedApiSecret show error!');
+  show({ name, random }: { name: string; random: number }) {
+    if (random > 0.5) {
+      // throw error test
+      throw new Error('WebEmbedApiSecret show error!');
+    }
     return Promise.resolve(`${111}---${name}`);
   }
 

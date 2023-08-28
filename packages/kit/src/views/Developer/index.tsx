@@ -873,20 +873,23 @@ export const Debug = () => {
               {...pressableProps}
               onPress={() => {
                 webembedApiProxy.secret
-                  .show({ name: `zhangsan-${Date.now()}` })
+                  .show({
+                    name: `zhangsan-${Date.now()}`,
+                    random: Math.random(),
+                  })
                   .then((r) => {
-                    console.log('secret.show result: ', r);
+                    console.log('Developer TEST >>>> secret.show result: ', r);
                   })
                   .catch((err) => {
                     console.error(
-                      'secret.show error: ',
+                      'Developer TEST >>>> secret.show error: ',
                       (err as Error)?.message,
                       typeof (err as Error)?.message,
                     );
                   });
               }}
             >
-              <Typography.Body1>test CoreWalletAgent</Typography.Body1>
+              <Typography.Body1>test WebEmbedApi</Typography.Body1>
             </Pressable>
             <Pressable
               {...pressableProps}

@@ -20,18 +20,18 @@ import { useShowWebEmbedWebviewAgent } from '../../hooks/useSettingsDevMode';
 
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
-export type ICoreWalletWebEmbedWebviewProps = {
+export type IWebEmbedWebviewProps = {
   routePath: string;
   onContentLoaded?: (() => void) | null;
 };
-export type ICoreWalletWebEmbedWebviewForwardRef = {
+export type IWebEmbedWebviewForwardRef = {
   innerRef: IWebViewWrapperRef | null;
   checkWebViewReady: () => boolean;
 };
 
-const CoreWalletWebEmbedWebviewCmp: ForwardRefRenderFunction<
-  ICoreWalletWebEmbedWebviewForwardRef,
-  ICoreWalletWebEmbedWebviewProps
+const WebEmbedWebviewCmp: ForwardRefRenderFunction<
+  IWebEmbedWebviewForwardRef,
+  IWebEmbedWebviewProps
 > = ({ routePath, onContentLoaded }, ref) => {
   const [topPosition, setTopPosition] = useState('100px');
   const isWebviewVisible = useShowWebEmbedWebviewAgent();
@@ -49,7 +49,7 @@ const CoreWalletWebEmbedWebviewCmp: ForwardRefRenderFunction<
   }, []);
 
   useEffect(() => {
-    debugLogger.webview.debug(`CoreWalletWebEmbedWebview: ${routePath} Render`);
+    debugLogger.webview.debug(`WebEmbedWebview: ${routePath} Render`);
   }, [routePath]);
 
   useEffect(() => {
@@ -88,7 +88,7 @@ const CoreWalletWebEmbedWebviewCmp: ForwardRefRenderFunction<
   }, [isWebviewVisible, topPosition]);
 
   const onContentLoadedFinal = useCallback(() => {
-    debugLogger.webview.debug(`CoreWalletWebEmbedWebview: ${routePath} loaded`);
+    debugLogger.webview.debug(`WebEmbedWebview: ${routePath} loaded`);
     isWebviewReadyRef.current = true;
     onContentLoaded?.();
   }, [onContentLoaded, routePath]);
@@ -111,9 +111,7 @@ const CoreWalletWebEmbedWebviewCmp: ForwardRefRenderFunction<
   );
 };
 
-const CoreWalletWebEmbedWebview = memo(
-  forwardRef(CoreWalletWebEmbedWebviewCmp),
-);
-CoreWalletWebEmbedWebview.displayName = 'CoreWalletWebEmbedWebview';
+const WebEmbedWebview = memo(forwardRef(WebEmbedWebviewCmp));
+WebEmbedWebview.displayName = 'WebEmbedWebview';
 
-export { CoreWalletWebEmbedWebview };
+export { WebEmbedWebview };

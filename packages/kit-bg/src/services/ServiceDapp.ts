@@ -532,11 +532,11 @@ class ServiceDapp extends ServiceBase {
   }
 
   @backgroundMethod()
-  callCoreWalletAgentMethod(data: IBackgroundApiWebembedCallMessage) {
+  callWebEmbedApiProxy(data: IBackgroundApiWebembedCallMessage) {
     const privateProvider = this.backgroundApi.providers.$private as
       | ProviderApiPrivate
       | undefined;
-    return privateProvider?.callCoreWalletAgentMethod(data);
+    return privateProvider?.callWebEmbedApiProxy(data);
   }
 }
 
