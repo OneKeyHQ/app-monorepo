@@ -55,6 +55,11 @@ export type PushPsbtParams = {
   psbtHex: string;
 };
 
+export type InscribeTransferParams = {
+  ticker: string;
+  amount: string;
+};
+
 export type InputToSign = {
   index: number;
   publicKey: string;

@@ -1,6 +1,7 @@
 import * as BitcoinJS from 'bitcoinjs-lib';
 import uuid from 'react-native-uuid';
 
+import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 
@@ -8,7 +9,7 @@ import { IMPL_BTC, IMPL_TBTC } from '../../engine/engineConsts';
 
 import { NETWORK_TYPES, NetworkTypeEnum } from './ProviderApiBtc.types';
 
-import type { Inscription } from './ProviderApiBtc.types';
+import type { InputToSign, Inscription } from './ProviderApiBtc.types';
 
 export const OPENAPI_URL_MAINNET = 'https://unisat.io/wallet-api-v4';
 export const OPENAPI_URL_TESTNET = 'https://unisat.io/testnet/wallet-api-v4';
@@ -100,4 +101,51 @@ export function mapInscriptionToNFTBTCAssetModel(inscription: Inscription) {
     contentUrl: inscription.content,
   } as NFTBTCAssetModel;
   return asset;
+}
+
+export function getInputsToSignFromPsbt({
+  psbt,
+  psbtNetwork,
+  account,
+}: {
+  account: Account;
+  psbt: BitcoinJS.Psbt;
+  psbtNetwork: BitcoinJS.networks.Network;
+}) {
+  const inputsToSign: InputToSign[] = [];
+  psbt.data.inputs.forEach((v, index) => {
+    let script: any = null;
+    let value = 0;
+    if (v.witnessUtxo) {
+      script = v.witnessUtxo.script;
+      value = v.witnessUtxo.value;
+    } else if (v.nonWitnessUtxo) {
+      const tx = BitcoinJS.Transaction.fromBuffer(v.nonWitnessUtxo);
+      const output = tx.outs[psbt.txInputs[index].index];
+      script = output.script;
+      value = output.value;
+    }
+    const isSigned = v.finalScriptSig || v.finalScriptWitness;
+
+    if (script && !isSigned) {
+      const address = BitcoinJS.address.fromOutputScript(script, psbtNetwork);
+      if (account.address === address) {
+        inputsToSign.push({
+          index,
+          publicKey: account.pubKey as string,
+          address,
+          sighashTypes: v.sighashType ? [v.sighashType] : undefined,
+        });
+        if (
+          (account.template as string).startsWith(`m/86'/`) &&
+          !v.tapInternalKey
+        ) {
+          v.tapInternalKey = toXOnly(
+            Buffer.from(account.pubKey as string, 'hex'),
+          );
+        }
+      }
+    }
+  });
+  return inputsToSign;
 }
