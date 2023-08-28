@@ -6,6 +6,12 @@ export const supportedNetworks = [
   OnekeyNetwork.polygon,
 ];
 
+export const priceUnit = {
+  [OnekeyNetwork.btc]: 'sat/vB',
+  [OnekeyNetwork.eth]: 'Gwei',
+  [OnekeyNetwork.polygon]: 'Gwei',
+};
+
 export const supportedNetworksSettings = {
   [OnekeyNetwork.btc]: {
     supportOverview: false,

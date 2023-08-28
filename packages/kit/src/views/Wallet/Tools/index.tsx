@@ -10,12 +10,14 @@ import {
   Badge,
   Box,
   Center,
+  CustomSkeleton,
   HStack,
   Icon,
   Image,
   Pressable,
   Typography,
   VStack,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
@@ -37,6 +39,7 @@ import {
   RootRoutes,
   TabRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   IMPL_BTC,
   IMPL_EVM,
@@ -58,9 +61,12 @@ import {
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { buildAddressDetailsUrl } from '../../../hooks/useOpenBlockBrowser';
 import { openDapp, openUrl } from '../../../utils/openUrl';
+import { priceUnit, supportedNetworks } from '../../GasPanel/config';
+import { GasPanelRoutes } from '../../GasPanel/types';
+import { useNetworkPrices } from '../../GasPanel/widgets/hooks';
 import { useIsVerticalOrMiddleLayout } from '../../Revoke/hooks';
 
-import type { ImageSourcePropType } from 'react-native';
+import type { FlatListProps, ImageSourcePropType } from 'react-native';
 
 type DataItem = {
   key: string;
@@ -78,6 +84,18 @@ type DataItem = {
 };
 
 const data: DataItem[] = [
+  {
+    key: 'gasprice',
+    icon: {
+      name: 'ShieldCheckSolid',
+      color: 'decorative-icon-one',
+    },
+    iconBg: 'decorative-surface-one',
+    title: 'content__gas_price',
+    description: 'content__gas_price',
+    filter: ({ network }) =>
+      Boolean(network && supportedNetworks.includes(network?.id)),
+  },
   {
     key: 'revoke',
     icon: {
@@ -149,6 +167,196 @@ const data: DataItem[] = [
       ].includes(account?.template),
   },
 ];
+
+const FlatListItemIcon = ({ icon }: { icon?: DataItem['icon'] }) => {
+  if (!icon) {
+    return null;
+  }
+  if (typeof icon === 'number') {
+    return <Image borderRadius="14px" source={icon} w="full" h="full" />;
+  }
+  if (icon.name) {
+    return <Icon {...icon} size={24} />;
+  }
+  return <Image borderRadius="14px" source={icon} w="full" h="full" />;
+};
+
+type FlatListItemProps = {
+  item: DataItem;
+  index: number;
+  onItemPress: (key: string) => void;
+};
+
+const FlatListGasPriceItem = ({
+  item,
+  index,
+  onItemPress,
+}: FlatListItemProps) => {
+  const intl = useIntl();
+  const isVertical = useIsVerticalLayout();
+  const { networkId, network } = useActiveWalletAccount();
+  const price = useNetworkPrices(networkId);
+
+  const styles = useMemo(() => {
+    if (isVertical) {
+      return {
+        paddingLeft: 0,
+        paddingRight: 0,
+      };
+    }
+    return {
+      paddingLeft: index % 2 === 0 ? 0 : 6,
+      paddingRight: index % 2 === 1 ? 0 : 6,
+    };
+  }, [isVertical, index]);
+  return (
+    <Box
+      key={item.key}
+      p="6px"
+      width={isVertical ? '100%' : '50%'}
+      style={styles}
+    >
+      <Pressable
+        flexDirection="row"
+        p="16px"
+        bg="surface-default"
+        _hover={{ bg: 'surface-hovered' }}
+        _pressed={{ bg: 'surface-pressed' }}
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="border-default"
+        borderRadius="12px"
+        alignItems="center"
+        key={item.title}
+        onPress={() => {
+          onItemPress(item.key);
+        }}
+      >
+        <Center
+          w="48px"
+          h="48px"
+          borderColor="border-subdued"
+          bg="surface-subdued"
+          borderRadius="12px"
+          borderWidth={1}
+        >
+          {price ? (
+            <Typography.Body2Strong lineHeight={14} color="text-warning">
+              {Math.ceil(Number(price))}
+            </Typography.Body2Strong>
+          ) : (
+            <Box w="8" h="3" mb="1" overflow="hidden" borderRadius={12}>
+              <CustomSkeleton />
+            </Box>
+          )}
+          <Typography.CaptionStrong lineHeight={12} color="text-warning">
+            {(networkId && priceUnit[networkId]) || 'Gwei'}
+          </Typography.CaptionStrong>
+        </Center>
+        <VStack ml="4" flex="1">
+          <HStack alignItems="center" flex="1" pr="18px">
+            <Typography.Body1Strong numberOfLines={1} isTruncated maxW="200px">
+              🔥Gas
+            </Typography.Body1Strong>
+          </HStack>
+          <Typography.Body2
+            mt="4px"
+            numberOfLines={2}
+            isTruncated
+            color="text-subdued"
+          >
+            {intl.formatMessage(
+              { id: 'form__current_str_gas_fee' },
+              { '0': network?.name ?? '' },
+            )}
+          </Typography.Body2>
+        </VStack>
+      </Pressable>
+    </Box>
+  );
+};
+
+const FlatListNormalItem = ({
+  item,
+  index,
+  onItemPress,
+}: FlatListItemProps) => {
+  const isVertical = useIsVerticalLayout();
+  const intl = useIntl();
+  const styles = useMemo(() => {
+    if (isVertical) {
+      return {
+        paddingLeft: 0,
+        paddingRight: 0,
+      };
+    }
+    return {
+      paddingLeft: index % 2 === 0 ? 0 : 6,
+      paddingRight: index % 2 === 1 ? 0 : 6,
+    };
+  }, [isVertical, index]);
+  return (
+    <Box
+      key={item.key}
+      p="6px"
+      width={isVertical ? '100%' : '50%'}
+      style={styles}
+    >
+      <Pressable
+        flexDirection="row"
+        p="16px"
+        bg="surface-default"
+        _hover={{ bg: 'surface-hovered' }}
+        _pressed={{ bg: 'surface-pressed' }}
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="border-default"
+        borderRadius="12px"
+        alignItems="center"
+        key={item.title}
+        onPress={() => {
+          onItemPress(item.key);
+        }}
+      >
+        <Center w="48px" h="48px" bgColor={item.iconBg} borderRadius="12px">
+          <FlatListItemIcon icon={item.icon} />
+        </Center>
+        <VStack ml="4" flex="1">
+          <HStack alignItems="center" flex="1" pr="18px">
+            <Typography.Body1Strong numberOfLines={1} isTruncated maxW="200px">
+              {item.intlDisabled
+                ? item.title
+                : intl.formatMessage({ id: item.title })}
+            </Typography.Body1Strong>
+            {item.tag ? (
+              <Badge
+                ml="1"
+                size="sm"
+                type="success"
+                title={intl.formatMessage({ id: item.tag })}
+              />
+            ) : null}
+          </HStack>
+          <Typography.Body2
+            mt="4px"
+            numberOfLines={2}
+            isTruncated
+            color="text-subdued"
+          >
+            {item.intlDisabled
+              ? item.description
+              : intl.formatMessage({ id: item.description })}
+          </Typography.Body2>
+        </VStack>
+      </Pressable>
+    </Box>
+  );
+};
+
+const FlatListItem = ({ item, index, onItemPress }: FlatListItemProps) =>
+  item.key === 'gasprice' ? (
+    <FlatListGasPriceItem item={item} index={index} onItemPress={onItemPress} />
+  ) : (
+    <FlatListNormalItem item={item} index={index} onItemPress={onItemPress} />
+  );
 
 const ToolsPage: FC = () => {
   const intl = useIntl();
@@ -276,6 +484,19 @@ const ToolsPage: FC = () => {
             },
           });
         }
+      } else if (key === 'gasprice') {
+        const activeNetwokId = supportedNetworks.includes(networkId)
+          ? networkId
+          : OnekeyNetwork.eth;
+        appNavigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.GasPanel,
+          params: {
+            screen: GasPanelRoutes.GasPanelModal,
+            params: {
+              networkId: activeNetwokId,
+            },
+          },
+        });
       } else {
         const item = tools?.find((t) => t.title === key);
         const params = {
@@ -294,7 +515,7 @@ const ToolsPage: FC = () => {
         }
       }
     },
-    [network?.id, tools, navigation, intl, appNavigation],
+    [network?.id, tools, navigation, intl, appNavigation, networkId],
   );
 
   const onItemPress = useCallback(
@@ -330,34 +551,20 @@ const ToolsPage: FC = () => {
     [handlePress, network, account, items, selectNetworkAccount],
   );
 
-  const getItemPaddingx = useCallback(
-    (index: number) => {
-      if (isVertical) {
-        return {
-          paddingLeft: 0,
-          paddingRight: 0,
-        };
-      }
-      return {
-        paddingLeft: index % 2 === 0 ? 0 : 6,
-        paddingRight: index % 2 === 1 ? 0 : 6,
-      };
-    },
-    [isVertical],
+  const renderItem: FlatListProps<DataItem>['renderItem'] = useCallback(
+    ({ item, index }) => (
+      <FlatListItem item={item} index={index} onItemPress={onItemPress} />
+    ),
+    [onItemPress],
   );
 
-  const renderIcon = useCallback((icon: DataItem['icon']) => {
-    if (!icon) {
-      return null;
-    }
-    if (typeof icon === 'number') {
-      return <Image borderRadius="14px" source={icon} w="full" h="full" />;
-    }
-    if (icon.name) {
-      return <Icon {...icon} size={24} />;
-    }
-    return <Image borderRadius="14px" source={icon} w="full" h="full" />;
-  }, []);
+  const contentContainerStyle = useMemo(
+    () => ({
+      marginVertical: 24,
+      paddingHorizontal: isVertical ? 32 : 16,
+    }),
+    [isVertical],
+  );
 
   useEffect(() => {
     backgroundApiProxy.serviceToken.fetchTools();
@@ -369,69 +576,8 @@ const ToolsPage: FC = () => {
       data={items}
       keyExtractor={(_item) => _item.key}
       numColumns={isVertical ? undefined : 2}
-      contentContainerStyle={{
-        marginVertical: 24,
-        paddingHorizontal: isVertical ? 32 : 16,
-      }}
-      renderItem={({ item, index }) => (
-        <Box
-          key={item.key}
-          p="6px"
-          width={isVertical ? '100%' : '50%'}
-          style={getItemPaddingx(index)}
-        >
-          <Pressable
-            flexDirection="row"
-            p="16px"
-            bg="surface-default"
-            _hover={{ bg: 'surface-hovered' }}
-            _pressed={{ bg: 'surface-pressed' }}
-            borderWidth={StyleSheet.hairlineWidth}
-            borderColor="border-default"
-            borderRadius="12px"
-            alignItems="center"
-            key={item.title}
-            onPress={() => {
-              onItemPress(item.key);
-            }}
-          >
-            <Center w="48px" h="48px" bgColor={item.iconBg} borderRadius="12px">
-              {renderIcon(item.icon)}
-            </Center>
-            <VStack ml="4" flex="1">
-              <HStack alignItems="center" flex="1" pr="18px">
-                <Typography.Body1Strong
-                  numberOfLines={1}
-                  isTruncated
-                  maxW="200px"
-                >
-                  {item.intlDisabled
-                    ? item.title
-                    : intl.formatMessage({ id: item.title })}
-                </Typography.Body1Strong>
-                {item.tag ? (
-                  <Badge
-                    ml="1"
-                    size="sm"
-                    type="success"
-                    title={intl.formatMessage({ id: item.tag })}
-                  />
-                ) : null}
-              </HStack>
-              <Typography.Body2
-                mt="4px"
-                numberOfLines={2}
-                isTruncated
-                color="text-subdued"
-              >
-                {item.intlDisabled
-                  ? item.description
-                  : intl.formatMessage({ id: item.description })}
-              </Typography.Body2>
-            </VStack>
-          </Pressable>
-        </Box>
-      )}
+      contentContainerStyle={contentContainerStyle}
+      renderItem={renderItem}
     />
   );
 };

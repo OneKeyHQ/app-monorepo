@@ -7,7 +7,7 @@ import { Box, Center, Icon, Pressable, Typography } from '@onekeyhq/components';
 import { useNavigation } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { GasPanelRoutes } from '../../../GasPanel/types';
-import { GasPrice } from '../../components/GasPrice';
+import { PriceBox } from '../../../GasPanel/widgets/PriceBox';
 import { DiscoverModalRoutes } from '../../type';
 
 import { RecentHistory } from './RecentHistory';
@@ -109,7 +109,7 @@ export const BrowserHeaderLayout: FC<BrowserHeaderLayoutProps> = ({
         </Center>
         <Center w="72px" mb="4">
           <Pressable alignItems="center" onPress={onGas}>
-            <GasPrice />
+            <PriceBox />
             <Box mt="2">
               <Typography.Caption>🔥Gas</Typography.Caption>
             </Box>
