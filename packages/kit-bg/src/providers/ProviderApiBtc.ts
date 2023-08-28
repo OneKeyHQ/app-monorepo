@@ -363,7 +363,9 @@ class ProviderApiBtc extends ProviderApiBase {
         unsignedMessage: {
           type,
           message,
-          sigOptions: null,
+          sigOptions: {
+            noScriptType: true,
+          },
         },
         signOnly: true,
       },

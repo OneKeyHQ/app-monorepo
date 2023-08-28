@@ -25,7 +25,7 @@ import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import { getAccountDefaultByPurpose } from './utils';
 
 import type { DBUTXOAccount } from '../../../types/account';
-import type { IUnsignedMessageEvm } from '../../impl/evm/Vault';
+import type { IUnsignedMessageBtc } from '../../impl/btc/types';
 import type {
   IGetAddressParams,
   IPrepareAccountByAddressIndexParams,
@@ -433,7 +433,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     }));
   }
 
-  async signMessage(messages: IUnsignedMessageEvm[]): Promise<string[]> {
+  async signMessage(messages: IUnsignedMessageBtc[]): Promise<string[]> {
     debugLogger.common.info('BTCFork signMessage', messages);
     const coinName = (this.vault as unknown as BTCForkVault).getCoinName();
     const dbAccount = await this.getDbAccount();
@@ -441,12 +441,13 @@ export class KeyringHardware extends KeyringHardwareBase {
     const passphraseState = await this.getWalletPassphraseState();
     await this.getHardwareSDKInstance();
     const result = await Promise.all(
-      messages.map(async (payload: IUnsignedMessageEvm) => {
+      messages.map(async (payload: IUnsignedMessageBtc) => {
         const response = await HardwareSDK.btcSignMessage(connectId, deviceId, {
           ...passphraseState,
           path: `${dbAccount.path}/0/0`,
           coin: coinName,
           messageHex: Buffer.from(payload.message).toString('hex'),
+          noScriptType: payload.sigOptions?.noScriptType,
         });
         if (!response.success) {
           throw convertDeviceError(response.payload);
