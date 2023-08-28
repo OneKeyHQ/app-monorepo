@@ -210,6 +210,7 @@ function TokenDetailViewWithoutMemo() {
         w="full"
         flex="1"
         justifyContent="center"
+        pb={isVerticalLayout ? '60px' : 0}
       >
         <Tabs.Container
           headerHeight={headerHeight}
