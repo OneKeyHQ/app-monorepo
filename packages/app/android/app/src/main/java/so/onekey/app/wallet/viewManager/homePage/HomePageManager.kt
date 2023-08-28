@@ -13,8 +13,8 @@ import so.onekey.app.wallet.extensions.getBooleanOrNull
 import so.onekey.app.wallet.extensions.getIntOrNull
 import so.onekey.app.wallet.extensions.getStringOrNull
 import so.onekey.app.wallet.viewManager.homePage.event.PageSelectedEvent
-import so.onekey.app.wallet.viewManager.homePage.event.PageStartScrollEvent
 import so.onekey.app.wallet.viewManager.homePage.event.SwipeRefreshEvent
+import so.onekey.app.wallet.viewManager.homePage.event.PageScrollStateChangeEvent
 import javax.annotation.Nullable
 
 data class TabProps(
@@ -126,11 +126,12 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
             SwipeRefreshEvent.EVENT_NAME to mapOf(
                 "phasedRegistrationNames" to mapOf("bubbled" to "onRefreshCallBack")
             ),
-            PageStartScrollEvent.EVENT_NAME to mapOf(
-                "phasedRegistrationNames" to mapOf("bubbled" to "onPageStartScroll")
+            PageScrollStateChangeEvent.EVENT_NAME to mapOf(
+                "phasedRegistrationNames" to mapOf("bubbled" to "onPageScrollStateChange")
             )
         )
     }
+
 
     override fun receiveCommand(view: HomePageView, commandId: String?, args: ReadableArray?) {
         super.receiveCommand(view, commandId, args)

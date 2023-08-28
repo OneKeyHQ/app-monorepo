@@ -16,7 +16,11 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import NativeNestedTabView from './NativeNestedTabView';
 
 import type { PagerViewViewManagerType } from './NativeNestedTabView';
-import type { NestedTabViewProps, OnPageChangeEvent } from './types';
+import type {
+  NestedTabViewProps,
+  OnPageChangeEvent,
+  OnPageScrollStateChangeEvent,
+} from './types';
 
 export type ForwardRefHandle = {
   setPageIndex: (pageIndex: number) => void;
@@ -31,7 +35,7 @@ const NestedTabView: ForwardRefRenderFunction<
     headerView,
     children,
     onPageChange,
-    onPageStartScroll,
+    onPageScrollStateChange,
     onPageVerticalScroll,
     scrollEnabled = true,
     ...rest
@@ -73,15 +77,9 @@ const NestedTabView: ForwardRefRenderFunction<
   const onTabChange = useCallback(
     (e: OnPageChangeEvent) => {
       onPageChange?.(e);
-      isScrolling.current = false;
     },
     [onPageChange],
   );
-
-  const onStartChangeCall = useCallback(() => {
-    isScrolling.current = true;
-    onPageStartScroll?.();
-  }, [onPageStartScroll]);
 
   const onVerticalCall = useCallback(() => {
     isScrolling.current = false;
@@ -93,10 +91,23 @@ const NestedTabView: ForwardRefRenderFunction<
     [],
   );
 
+  const onPageScrollStateChangeCall = useCallback(
+    (e: OnPageScrollStateChangeEvent) => {
+      onPageScrollStateChange?.(e);
+      if (e.nativeEvent.state === 'idle') {
+        isScrolling.current = false;
+      }
+      if (e.nativeEvent.state === 'dragging') {
+        isScrolling.current = true;
+      }
+    },
+    [],
+  );
+
   return (
     <NativeNestedTabView
       onPageChange={onTabChange}
-      onPageStartScroll={onStartChangeCall}
+      onPageScrollStateChange={onPageScrollStateChangeCall}
       onPageVerticalScroll={onVerticalCall}
       scrollEnabled={scrollEnabled}
       onMoveShouldSetResponderCapture={onMoveShouldSetResponderCapture}
