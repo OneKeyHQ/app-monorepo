@@ -3,6 +3,7 @@ import { mnemonicToSeedSync } from 'bip39';
 import * as BitcoinJS from 'bitcoinjs-lib';
 import bitcoinMessage from 'bitcoinjs-message';
 import bs58check from 'bs58check';
+import { encode } from 'varuint-bitcoin';
 
 import {
   CKDPub,
@@ -22,6 +23,7 @@ import type {
   UnsignedTx,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import type { InputToSign } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.types';
+import { getInputsToSignFromPsbt } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.utils';
 import { isBRC20Token } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import {
@@ -36,6 +38,7 @@ import { getBlockBook } from './blockbook';
 import { getNetwork } from './networks';
 import { PLACEHOLDER_VSIZE, estimateTxSize, loadOPReturn } from './vsize';
 
+import type { Account } from '../../../../types/account';
 import type { IUnsignedTxPro } from '../../../types';
 import type { Network } from './networks';
 import type { PsbtInput } from 'bip174/src/lib/interfaces';
@@ -91,6 +94,19 @@ const checkIsDefined = <T>(something?: T, orError?: ErrorType): T => {
   );
   return something as T;
 };
+
+const bip0322Hash = (message: string) => {
+  const { sha256 } = BitcoinJS.crypto;
+  const tag = 'BIP0322-signed-message';
+  const tagHash = sha256(Buffer.from(tag));
+  const result = sha256(
+    Buffer.concat([tagHash, tagHash, Buffer.from(message)]),
+  );
+  return result.toString('hex');
+};
+
+const encodeVarString = (buffer: Buffer) =>
+  Buffer.concat([encode(buffer.byteLength), buffer]);
 
 const validator = (
   pubkey: Buffer,
@@ -773,6 +789,79 @@ class Provider {
       keyPair.compressed,
       sigOptions,
     );
+    return signature;
+  }
+
+  async signBip322MessageSimple({
+    account,
+    message,
+    signers,
+    psbtNetwork,
+  }: {
+    account: Account;
+    message: string;
+    signers: Record<string, Signer>;
+    psbtNetwork: BitcoinJS.networks.Network;
+  }) {
+    initBitcoinEcc();
+    const outputScript = BitcoinJS.address.toOutputScript(
+      account.address,
+      psbtNetwork,
+    );
+
+    const prevoutHash = Buffer.from(
+      '0000000000000000000000000000000000000000000000000000000000000000',
+      'hex',
+    );
+    const prevoutIndex = 0xffffffff;
+    const sequence = 0;
+    const scriptSig = Buffer.concat([
+      Buffer.from('0020', 'hex'),
+      Buffer.from(bip0322Hash(message), 'hex'),
+    ]);
+
+    const txToSpend = new BitcoinJS.Transaction();
+    txToSpend.version = 0;
+    txToSpend.addInput(prevoutHash, prevoutIndex, sequence, scriptSig);
+    txToSpend.addOutput(outputScript, 0);
+
+    const psbtToSign = new BitcoinJS.Psbt();
+    psbtToSign.setVersion(0);
+    psbtToSign.addInput({
+      hash: txToSpend.getHash(),
+      index: 0,
+      sequence: 0,
+      witnessUtxo: {
+        script: outputScript,
+        value: 0,
+      },
+    });
+    psbtToSign.addOutput({ script: Buffer.from('6a', 'hex'), value: 0 });
+
+    const inputsToSign = getInputsToSignFromPsbt({
+      psbt: psbtToSign,
+      psbtNetwork,
+      account,
+    });
+
+    await this.signPsbt({
+      psbt: psbtToSign,
+      signers,
+      inputsToSign,
+    });
+
+    inputsToSign.forEach((v) => {
+      psbtToSign.finalizeInput(v.index);
+    });
+
+    const txToSign = psbtToSign.extractTransaction();
+
+    const len = encode(txToSign.ins[0].witness.length);
+    const signature = Buffer.concat([
+      len,
+      ...txToSign.ins[0].witness.map((w) => encodeVarString(w)),
+    ]);
+
     return signature;
   }
 

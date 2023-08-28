@@ -87,7 +87,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
     networkId,
     token,
     fallback: '0',
-    useRecycleBalance: true,
+    useRecycleBalance: token?.isNative,
   });
   const intl = useIntl();
   const closeModal = useModalClose();

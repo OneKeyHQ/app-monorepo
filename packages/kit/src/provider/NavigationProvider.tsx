@@ -30,6 +30,7 @@ import { PortalContainer } from '../views/Overlay/RootPortal';
 import RedirectProvider from './RedirectProvider';
 
 import type { NavigationContainerRef } from '@react-navigation/native';
+
 import { markFPTime } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
 
 export type RootNavContainerRef = NavigationContainerRef<RootRoutesParams>;
