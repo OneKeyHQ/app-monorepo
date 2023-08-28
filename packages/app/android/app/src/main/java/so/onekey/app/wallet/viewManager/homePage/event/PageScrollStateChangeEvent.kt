@@ -12,11 +12,11 @@ enum class PageScrollState(val state: String) {
     SETTLING("settling")
 }
 
-class PageScrollStateChangedEvent(
+class PageScrollStateChangeEvent(
     surfaceId: Int,
     viewId: Int,
     private val mState: PageScrollState
-) : Event<PageScrollStateChangedEvent>(surfaceId, viewId) {
+) : Event<PageScrollStateChangeEvent>(surfaceId, viewId) {
     override fun getEventName(): String {
         return EVENT_NAME
     }
@@ -28,7 +28,7 @@ class PageScrollStateChangedEvent(
     }
 
     companion object {
-        const val EVENT_NAME = "onPageScrollStateChanged"
+        const val EVENT_NAME = "onPageScrollStateChange"
 
         fun stateToPageScrollState(state: Int): PageScrollState {
             return when (state) {
