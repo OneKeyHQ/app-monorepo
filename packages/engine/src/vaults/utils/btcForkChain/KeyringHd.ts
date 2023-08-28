@@ -9,12 +9,14 @@ import {
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { toPsbtNetwork } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.utils';
 
 import { OneKeyInternalError } from '../../../errors';
 import { slicePathTemplate } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
+import { BtcMessageTypes } from '../../../types/message';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
 import { getAccountDefaultByPurpose, initBitcoinEcc } from './utils';
@@ -30,8 +32,6 @@ import type {
 } from '../../types';
 import type { AddressEncodings } from './types';
 import type BTCForkVault from './VaultBtcFork';
-import { BtcMessageTypes } from '../../../types/message';
-import { toPsbtNetwork } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.utils';
 
 export class KeyringHd extends KeyringHdBase {
   override async signTransaction(
