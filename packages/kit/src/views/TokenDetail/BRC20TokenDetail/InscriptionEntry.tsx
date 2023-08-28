@@ -37,6 +37,8 @@ function InscriptionEntry(props: Props) {
         borderRadius="18px"
         isDisabled={isDisabled}
         onPress={onPress}
+        borderWidth={1}
+        borderColor="border-default"
       >
         <HStack space={2} alignItems="center">
           <Image source={OrdinalLogo} size="40px" />

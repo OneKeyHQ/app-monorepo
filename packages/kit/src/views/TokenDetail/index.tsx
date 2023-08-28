@@ -183,7 +183,7 @@ function TokenDetailViewWithoutMemo() {
         <TokenDetailHeader />
       </Box>
     ),
-    [headerHeight, isBRC20],
+    [headerHeight],
   );
 
   if (result.isLoading) {
