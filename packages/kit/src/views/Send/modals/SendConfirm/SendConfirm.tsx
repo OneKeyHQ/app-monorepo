@@ -112,11 +112,13 @@ function SendConfirm({
     sourceInfo,
   });
 
-  const isListOrderPsbtTx = useMemo(
+  const isListOrderPsbt = useMemo(
     () =>
-      new BigNumber(
-        (encodedTx as IEncodedTxBtc)?.totalFee ?? '0',
-      ).isNegative() && (encodedTx as IEncodedTxBtc)?.psbtHex,
+      !!(
+        new BigNumber(
+          (encodedTx as IEncodedTxBtc)?.totalFee ?? '0',
+        ).isNegative() && (encodedTx as IEncodedTxBtc)?.psbtHex
+      ),
     [encodedTx],
   );
 
@@ -350,7 +352,7 @@ function SendConfirm({
     ],
   );
 
-  const feeInput = isListOrderPsbtTx ? null : (
+  const feeInput = (
     <FeeInfoInputForConfirmLite
       accountId={accountId}
       networkId={networkId}
@@ -393,6 +395,7 @@ function SendConfirm({
     prepaidFee,
     advancedSettings,
     advancedSettingsForm,
+    isListOrderPsbt,
 
     handleConfirm,
     onSecondaryActionPress: ({ close }) => {

@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import { HStack, Icon, ListItem, Pressable, Text } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import { getLocalNFTs } from '@onekeyhq/engine/src/managers/nft';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import type { IDecodedTxAction } from '@onekeyhq/engine/src/vaults/types';
 import {
@@ -13,6 +12,7 @@ import {
   IDecodedTxDirection,
 } from '@onekeyhq/engine/src/vaults/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   ModalRoutes,
   RootRoutes,
@@ -125,11 +125,11 @@ export function TxActionNFTInscription(props: ITxActionCardProps) {
   useEffect(() => {
     const fetchInscriptionsInSameUtxo = async () => {
       if (!asset) return;
-      const localNFTs = (await getLocalNFTs({
-        networkId,
-        accountId,
-      })) as NFTBTCAssetModel[];
-
+      const localNFTs =
+        (await backgroundApiProxy.serviceNFT.getAllAssetsFromLocal({
+          networkId,
+          accountId,
+        })) as NFTBTCAssetModel[];
       const inscriptionsInSameUtxo = localNFTs.filter(
         (nft) =>
           nft.inscription_id !== asset.inscription_id &&

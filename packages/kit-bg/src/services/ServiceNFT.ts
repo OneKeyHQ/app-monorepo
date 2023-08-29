@@ -399,6 +399,14 @@ class ServiceNFT extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getAllAssetsFromLocal(params: {
+    accountId?: string;
+    networkId: string;
+  }) {
+    return nft.getAllAssetsFromLocal(params);
+  }
+
+  @backgroundMethod()
   async fetchSymbolPrice(networkId: string) {
     const price = await nft.getNFTSymbolPrice(networkId);
     if (price) {

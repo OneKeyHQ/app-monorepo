@@ -260,6 +260,13 @@ function FeeInfoInputForConfirmLite({
     const waitingSeconds = isPreset
       ? feeInfoPayload?.info?.waitingSeconds?.[Number(index)]
       : custom?.waitingSeconds;
+
+    if (
+      new BigNumber(totalFeeInNative).isNaN() ||
+      new BigNumber(totalFeeInNative).isNegative()
+    )
+      return;
+
     return (
       <HStack alignItems="center">
         {!network?.settings.hideFeeSpeedInfo ? (
@@ -299,15 +306,17 @@ function FeeInfoInputForConfirmLite({
     feeInfoPayload,
     isPreset,
     network?.settings.hideFeeSpeedInfo,
+    totalFeeInNative,
   ]);
 
   const subTitle = useMemo(() => {
     if (!encodedTx || !feeInfoPayload) {
       return null;
     }
-    const totalNative = removeTrailingZeros(
-      new BigNumber(totalFeeInNative || '0').toFixed(8),
-    );
+    const totalNative = BigNumber.max(
+      removeTrailingZeros(new BigNumber(totalFeeInNative || '0').toFixed(8)),
+      0,
+    ).toFixed();
 
     return (
       <HStack space={1} alignItems="center">
@@ -416,7 +425,7 @@ function FeeInfoInputForConfirmLite({
     // ({ isHovered })
     () => {
       let content = null;
-      if (title) {
+      if (title !== null) {
         content = (
           <Box flexDirection="column">
             {title}
