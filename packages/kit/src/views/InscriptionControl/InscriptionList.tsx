@@ -34,6 +34,7 @@ type Props = {
   isSelectMode: boolean;
   selectedInscriptions: string[];
   setSelectedInscriptions: React.Dispatch<React.SetStateAction<string[]>>;
+  onRecycleUtxo: () => void;
 };
 
 function InscriptionList(props: Props) {
@@ -44,6 +45,7 @@ function InscriptionList(props: Props) {
     isSelectMode,
     selectedInscriptions,
     setSelectedInscriptions,
+    onRecycleUtxo,
   } = props;
   const intl = useIntl();
   const { formatDistanceToNow } = useFormatDate();
@@ -69,12 +71,20 @@ function InscriptionList(props: Props) {
               networkId,
               accountId,
               isOwner: true,
+              onRecycleUtxo,
             },
           },
         });
       }
     },
-    [accountId, isSelectMode, navigation, networkId, setSelectedInscriptions],
+    [
+      accountId,
+      isSelectMode,
+      navigation,
+      networkId,
+      onRecycleUtxo,
+      setSelectedInscriptions,
+    ],
   );
 
   const renderItem = useCallback<

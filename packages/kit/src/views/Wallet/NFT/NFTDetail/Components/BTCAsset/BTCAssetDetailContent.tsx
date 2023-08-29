@@ -54,11 +54,13 @@ function BTCAssetDetailContent({
   isOwner,
   networkId,
   accountId,
+  onRecycleUtxo,
 }: {
   asset: NFTBTCAssetModel;
   isOwner: boolean;
   networkId: string;
   accountId?: string;
+  onRecycleUtxo?: () => void;
 }) {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
@@ -196,6 +198,7 @@ function BTCAssetDetailContent({
                     appUIEventBus.emit(
                       AppUIEventBusNames.InscriptionRecycleChanged,
                     );
+                    onRecycleUtxo?.();
                     navigation.goBack();
                   }}
                 />,
@@ -226,6 +229,7 @@ function BTCAssetDetailContent({
       network?.decimals,
       network?.symbol,
       networkId,
+      onRecycleUtxo,
     ],
   );
 
