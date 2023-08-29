@@ -6,14 +6,14 @@ import {
   Box,
   HStack,
   Icon,
-  Image,
   Pressable,
   Skeleton,
   Text,
   VStack,
 } from '@onekeyhq/components';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
-import OrdinalLogo from '@onekeyhq/kit/assets/Ordinal.png';
+
+import OrdinalsSVG from '../../../components/SVG/OrdinalsSVG';
 
 type Props = {
   inscriptions: NFTBTCAssetModel[] | undefined;
@@ -37,11 +37,15 @@ function InscriptionEntry(props: Props) {
         borderRadius="18px"
         isDisabled={isDisabled}
         onPress={onPress}
+        borderWidth={1}
+        borderColor="border-default"
       >
         <HStack space={2} alignItems="center">
-          <Image source={OrdinalLogo} size="40px" />
+          <OrdinalsSVG width={40} height={40} />
           <VStack flex={1}>
-            <Text typography="Body1Strong">Manage Inscriptions</Text>
+            <Text typography="Body1Strong">
+              {intl.formatMessage({ id: 'title__manage_inscriptions' })}
+            </Text>
             {isLoadingInscriptions ? (
               <Skeleton shape="Body2" />
             ) : (

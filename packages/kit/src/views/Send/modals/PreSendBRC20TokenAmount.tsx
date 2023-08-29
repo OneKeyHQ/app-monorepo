@@ -393,7 +393,12 @@ function PreSendBRC20TokenAmount() {
           cardWidth={cardWidth}
           data={item}
           token={token}
-          style={{ mr: 2, mb: 4 }}
+          style={{
+            mr: 2,
+            mb: 4,
+            borderWidth: 1,
+            borderColor: 'border-default',
+          }}
           isSelected={selectedAmounts.includes(item.inscriptionId)}
           onSelected={handleAmountSelected}
         />

@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -155,16 +156,19 @@ function BTCAssetDetailContent({
   const detailMoreMenu = useMemo(
     () => (
       <BaseMenu
-        menuWidth="full"
         options={[
           {
-            id: 'action__destroy',
+            id: 'action__deoccupy',
             onPress: () =>
               showDialog(
                 <RecycleDialog
+                  amount={`${new BigNumber(asset.output_value_sat)
+                    .shiftedBy(-(network?.decimals ?? 0))
+                    .toFixed()} ${network?.symbol ?? ''}`}
                   onConfirm={async () => {
                     const [txid, vout] = asset.output.split(':');
                     const voutNum = parseInt(vout, 10);
+
                     await backgroundApiProxy.serviceUtxos.updateRecycle({
                       networkId: networkId ?? '',
                       accountId: accountId ?? '',
@@ -192,10 +196,11 @@ function BTCAssetDetailContent({
                     appUIEventBus.emit(
                       AppUIEventBusNames.InscriptionRecycleChanged,
                     );
+                    navigation.goBack();
                   }}
                 />,
               ),
-            icon: 'FireSolid',
+            icon: 'RestoreMini',
             variant: 'desctructive',
           },
         ]}
@@ -217,6 +222,9 @@ function BTCAssetDetailContent({
       asset.owner,
       intl,
       isVertical,
+      navigation,
+      network?.decimals,
+      network?.symbol,
       networkId,
     ],
   );
@@ -236,7 +244,7 @@ function BTCAssetDetailContent({
             <CustomSkeleton borderRadius="10px" width={120} height="20px" />
           )}
         </Text>
-        {detailMoreMenu}
+        {isDisabled ? null : detailMoreMenu}
       </HStack>
 
       {isOwner && (

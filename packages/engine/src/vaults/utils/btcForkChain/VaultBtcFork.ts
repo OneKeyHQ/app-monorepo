@@ -1089,7 +1089,8 @@ export default class VaultBtcFork extends VaultBase {
     const inscriptionAction = {
       type,
       hidden: !(send === address || receive === address),
-      direction: IDecodedTxDirection.IN,
+      direction:
+        send === address ? IDecodedTxDirection.OUT : IDecodedTxDirection.IN,
       extraInfo: null,
       inscriptionInfo: defaultData,
     };
@@ -1118,6 +1119,25 @@ export default class VaultBtcFork extends VaultBase {
     )
       .flat()
       .filter(Boolean);
+
+    // fix btc unlist nft action direction
+    if (
+      nftActions?.length === 2 &&
+      nftActions[0].type === IDecodedTxActionType.NFT_TRANSFER_BTC &&
+      nftActions[1].type === IDecodedTxActionType.NFT_TRANSFER_BTC &&
+      nftActions[0].inscriptionInfo?.send === address &&
+      nftActions[0].inscriptionInfo?.receive === address &&
+      nftActions[1].inscriptionInfo?.send === address &&
+      nftActions[1].inscriptionInfo?.receive === address
+    ) {
+      return [
+        nftActions[0],
+        {
+          ...nftActions[1],
+          direction: IDecodedTxDirection.IN,
+        },
+      ];
+    }
 
     return nftActions?.length > 0 ? nftActions : nativeActions;
   }

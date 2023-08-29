@@ -58,6 +58,6 @@ export type IBlockBookTransaction = {
 export type IUnsignedMessageBtc = {
   type: BtcMessageTypes;
   message: string;
-  sigOptions?: SignatureOptions | null;
+  sigOptions?: (SignatureOptions & { noScriptType?: boolean }) | null;
   payload?: any;
 };

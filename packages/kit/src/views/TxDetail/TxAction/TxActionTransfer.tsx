@@ -134,10 +134,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
       ? {
           title: intl.formatMessage({ id: 'content__from' }),
           content: getTxActionElementAddressWithSecurityInfo({
-            address:
-              from === 'unknown'
-                ? intl.formatMessage({ id: 'form__unknown' })
-                : from,
+            address: from,
             networkId: network?.id,
             withSecurityInfo: !isOut,
             amount,
@@ -151,10 +148,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
       ? {
           title: intl.formatMessage({ id: 'content__to' }),
           content: getTxActionElementAddressWithSecurityInfo({
-            address:
-              to === 'unknown'
-                ? intl.formatMessage({ id: 'form__unknown' })
-                : to,
+            address: to,
             networkId: network?.id,
             withSecurityInfo: isOut,
             amount,

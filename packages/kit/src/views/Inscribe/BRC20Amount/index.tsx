@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import uuidLib from 'react-native-uuid';
 
@@ -35,6 +36,8 @@ type RouteProps = RouteProp<
 type BRC20AmountValues = {
   amount: string;
 };
+
+const BRC20_DEFAULT_DECIMALS = 1;
 
 function BRC20Amount() {
   const intl = useIntl();
@@ -156,7 +159,29 @@ function BRC20Amount() {
             control={control}
             rules={{
               required: true,
-              max: tokenBalance.availableBalance ?? '0',
+              validate: (value) => {
+                const amountBN = new BigNumber(value);
+                if (amountBN.gt(tokenBalance.availableBalance ?? '0')) {
+                  return intl.formatMessage({
+                    id: 'msg__insufficient_balance',
+                  });
+                }
+
+                if (amountBN.lte(0)) {
+                  return false;
+                }
+
+                if (!amountBN.shiftedBy(BRC20_DEFAULT_DECIMALS).isInteger()) {
+                  return intl.formatMessage(
+                    {
+                      id: 'msg__please_limit_the_amount_of_tokens_to_str_decimal_places_or_less',
+                    },
+                    {
+                      '0': BRC20_DEFAULT_DECIMALS,
+                    },
+                  );
+                }
+              },
             }}
             helpText={`${intl.formatMessage({ id: 'form__available_colon' })} ${
               tokenBalance?.availableBalance ?? '0'

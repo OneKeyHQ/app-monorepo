@@ -855,7 +855,6 @@ export default class ServiceToken extends ServiceBase {
         });
       }
     }
-
     dispatch(
       setAccountTokensBalances({
         accountId,
