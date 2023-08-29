@@ -298,6 +298,11 @@ const renderEle = (
   if (isValidElement(ele)) {
     return ele;
   }
+
+  if (isValidElement(content)) {
+      return content;
+  }
+
   return createElement(ele, props, content);
 };
 
