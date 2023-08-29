@@ -509,29 +509,6 @@ class ServiceDapp extends ServiceBase {
   }
 
   @backgroundMethod()
-  sendWebEmbedMessage(payload: {
-    method: string;
-    event: string;
-    params: Record<string, any>;
-  }) {
-    return new Promise((resolve, reject) => {
-      const id = this.backgroundApi.servicePromise.createCallback({
-        resolve,
-        reject,
-      });
-      this.backgroundApi.providers.$private.handleMethods({
-        data: {
-          method: payload.method,
-          event: payload.event,
-          send: this.backgroundApi.sendForProvider('$private'),
-          promiseId: id,
-          params: payload.params,
-        },
-      });
-    });
-  }
-
-  @backgroundMethod()
   callWebEmbedApiProxy(data: IBackgroundApiWebembedCallMessage) {
     const privateProvider = this.backgroundApi.providers.$private as
       | ProviderApiPrivate

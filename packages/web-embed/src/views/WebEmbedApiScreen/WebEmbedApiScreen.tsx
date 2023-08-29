@@ -10,9 +10,10 @@ import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-ty
 function WebEmbedApiScreen() {
   const [msg, setMsg] = useState<any>('');
   const handler = useCallback(async (payload: IJsBridgeMessagePayload) => {
-    if (process.env.NODE_ENV !== 'production') {
-      setMsg(payload.data);
-    }
+    // if (process.env.NODE_ENV !== 'production') {
+    // }
+    // TODO remove
+    setMsg(payload.data);
     return webembedApi.callWebEmbedApiMethod(
       payload.data as IBackgroundApiWebembedCallMessage,
     );
@@ -38,22 +39,23 @@ function WebEmbedApiScreen() {
     };
   }, [handler]);
 
-  if (process.env.NODE_ENV !== 'production') {
-    return (
-      <Center height="full">
-        <Typography.Body1
-          whiteSpace="normal"
-          wordBreak="break-all"
-          overflowWrap="anywhere"
-        >
-          {msg ? JSON.stringify(msg) : 'WebEmbedApiScreen'}
-        </Typography.Body1>
-        <Button onPress={() => window.location.reload()}>Reload</Button>
-      </Center>
-    );
-  }
+  // if (process.env.NODE_ENV !== 'production') {
+  // TODO remove
+  return (
+    <Center height="full">
+      <Typography.Body1
+        whiteSpace="normal"
+        wordBreak="break-all"
+        overflowWrap="anywhere"
+      >
+        {msg ? JSON.stringify(msg) : 'WebEmbedApiScreen'}
+      </Typography.Body1>
+      <Button onPress={() => window.location.reload()}>Reload</Button>
+    </Center>
+  );
+  // }
 
-  return null;
+  // return null;
 }
 
 export { WebEmbedApiScreen };

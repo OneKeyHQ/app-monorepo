@@ -353,30 +353,16 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
       // * bridgeExtBg.requestToAllCS supports function data: await data({ origin })
       this.bridgeExtBg?.requestToAllCS(scope, data);
-    } else {
-      if (this.bridge) {
-        if (isFunction(data)) {
-          // eslint-disable-next-line no-param-reassign
-          data = await data({ origin: this.bridge.remoteInfo.origin });
-        }
-        ensureSerializable(data);
-
-        // this.bridge.requestSync({ scope, data });
-        if (this.bridge.globalOnMessageEnabled) {
-          this.bridge.requestSync({ scope, data });
-        }
+    } else if (this.bridge) {
+      if (isFunction(data)) {
+        // eslint-disable-next-line no-param-reassign
+        data = await data({ origin: this.bridge.remoteInfo.origin });
       }
-      if (this.webEmbedBridge) {
-        if (isFunction(data)) {
-          // eslint-disable-next-line no-param-reassign
-          data = await data({ origin: this.webEmbedBridge.remoteInfo.origin });
-        }
-        ensureSerializable(data);
+      ensureSerializable(data);
 
-        // this.bridge.requestSync({ scope, data });
-        if (this.webEmbedBridge.globalOnMessageEnabled) {
-          this.webEmbedBridge.requestSync({ scope, data });
-        }
+      // this.bridge.requestSync({ scope, data });
+      if (this.bridge.globalOnMessageEnabled) {
+        this.bridge.requestSync({ scope, data });
       }
     }
   };

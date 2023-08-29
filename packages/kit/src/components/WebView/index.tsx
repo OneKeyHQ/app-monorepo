@@ -1,15 +1,22 @@
 import type { ComponentProps, FC } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
+
+import { wait } from '@onekeyfe/hd-core';
 
 import { Box, Button, Center } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import extUtils from '../../utils/extUtils';
+import { getOriginFromUrl, isOriginMatched } from '../../utils/uriUtils';
 
 import InpageProviderWebView from './InpageProviderWebView';
 
-import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
+import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
+import type {
+  IJsBridgeReceiveHandler,
+  IJsonRpcRequest,
+} from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type {
   WebViewNavigation,
@@ -45,9 +52,48 @@ const WebView: FC<WebViewProps> = ({
   containerProps,
   ...rest
 }) => {
+  const webviewRef = useRef<IWebViewWrapperRef | null>(null);
+
+  const onWebViewRefFinal = useCallback(
+    ($ref: IWebViewWrapperRef | null) => {
+      webviewRef.current = $ref;
+      onWebViewRef?.($ref);
+    },
+    [onWebViewRef],
+  );
+
   const receiveHandler = useCallback<IJsBridgeReceiveHandler>(
-    async (payload, hostBridge) => {
+    async (payload, hostBridge: JsBridgeBase) => {
       const result = await backgroundApiProxy.bridgeReceiveHandler(payload);
+
+      // TODO remove
+      await wait(5000);
+
+      const requestOrigin = getOriginFromUrl({
+        url: payload.origin || '',
+      });
+      const webviewOrigin = getOriginFromUrl({
+        // @ts-ignore
+        url: webviewRef.current?.innerRef?.$$currentWebviewUrl || '',
+      });
+      const hostRemoteOrigin = hostBridge?.remoteInfo.origin || '';
+
+      if (
+        (requestOrigin && webviewOrigin && requestOrigin !== webviewOrigin) ||
+        (requestOrigin &&
+          hostRemoteOrigin &&
+          requestOrigin !== hostRemoteOrigin)
+      ) {
+        let message = `Origin not matched! expected: ${requestOrigin}, actual: ${webviewOrigin} | ${hostRemoteOrigin}`;
+        if (process.env.NODE_ENV !== 'production') {
+          message += `  >> ${JSON.stringify({
+            scope: payload.scope,
+            method: (payload.data as IJsonRpcRequest)?.method,
+            hostRemoteOrigin,
+          })}  `;
+        }
+        throw new Error(message);
+      }
 
       // return customReceiveHandler() response not supported yet
       await customReceiveHandler?.(payload, hostBridge);
@@ -72,7 +118,7 @@ const WebView: FC<WebViewProps> = ({
   return (
     <Box flex={1} bg="background-default" {...containerProps}>
       <InpageProviderWebView
-        ref={onWebViewRef}
+        ref={onWebViewRefFinal}
         src={src}
         allowpopups={allowpopups}
         receiveHandler={receiveHandler}

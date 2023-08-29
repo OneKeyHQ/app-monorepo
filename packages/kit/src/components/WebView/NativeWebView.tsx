@@ -20,7 +20,11 @@ import ErrorView from './ErrorView';
 
 import type { InpageProviderWebViewProps } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
-import type { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
+import type {
+  WebViewMessageEvent,
+  WebViewNavigation,
+  WebViewProps,
+} from 'react-native-webview';
 
 export type NativeWebViewProps = WebViewProps & InpageProviderWebViewProps;
 
@@ -62,6 +66,7 @@ const NativeWebView = forwardRef(
           const uri = new URL(event.nativeEvent.url);
           const origin = uri?.origin || '';
           debugLogger.webview.info('onMessage', origin, data);
+          // TODO use url as origin when WebEmbedWebView
           // - receive
           jsBridge.receive(data, { origin });
           // eslint-disable-next-line no-empty
@@ -91,6 +96,11 @@ const NativeWebView = forwardRef(
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, no-unsafe-optional-chaining
       const { url } = syntheticEvent?.nativeEvent;
       try {
+        if (webviewRef && webviewRef.current) {
+          // @ts-ignore
+          webviewRef.current.$$currentWebviewUrl = url;
+        }
+
         if (checkOneKeyCardGoogleOauthUrl({ url })) {
           openUrlExternal(url);
           webviewRef.current?.stopLoading();
@@ -141,8 +151,6 @@ const NativeWebView = forwardRef(
         onMessage={webviewOnMessage}
         onLoadStart={webViewOnLoadStart}
         renderError={renderError}
-        // TODO tracking url changed: webviewRef.current?.$$currentUrl = url;
-        // https://stackoverflow.com/questions/64096771/how-to-access-next-url-from-browser-click-from-react-native-webview
         {...props}
       />
     );

@@ -269,6 +269,16 @@ class ProviderApiPrivate extends ProviderApiBase {
     if (!bg?.webEmbedBridge?.request) {
       throw new Error('webembed webview bridge not ready.');
     }
+
+    // TODO remove
+    console.log('callWebEmbedApiProxy >>>>>>>>>>> +++++++++++  _______ ', {
+      data: JSON.stringify(data),
+      remoteInfoOrigin: bg?.webEmbedBridge?.remoteInfo.origin || '',
+      remoteInfoRemoteId: bg?.webEmbedBridge?.remoteInfo.remoteId || '',
+    });
+
+    // @ts-ignore
+    data.$$bridgeRemoteInfo = bg?.webEmbedBridge?.remoteInfo;
     const result = await bg?.webEmbedBridge?.request?.({
       scope: '$private',
       data,
