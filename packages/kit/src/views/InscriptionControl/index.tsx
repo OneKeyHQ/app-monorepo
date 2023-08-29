@@ -112,7 +112,7 @@ function InscriptionControl() {
 
           ToastManager.show(
             {
-              title: intl.formatMessage({ id: 'msg__inscription_destroyed' }),
+              title: intl.formatMessage({ id: 'msg__inscription_deoccupied' }),
             },
             {
               type: 'default',

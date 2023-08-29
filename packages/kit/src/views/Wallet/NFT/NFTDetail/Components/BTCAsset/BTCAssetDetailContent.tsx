@@ -189,7 +189,7 @@ function BTCAssetDetailContent({
                     ToastManager.show(
                       {
                         title: intl.formatMessage({
-                          id: 'msg__inscription_destroyed',
+                          id: 'msg__inscription_deoccupied',
                         }),
                       },
                       {
