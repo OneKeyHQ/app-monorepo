@@ -60,7 +60,6 @@ const CoinControlListMenu: FC<
   const options = useMemo<IBaseMenuOptions>(
     () => [
       {
-        // @ts-expect-error
         type: 'radio',
         title: 'form__sort_by__uppercase',
         defaultValue: sortByIndex,
@@ -86,7 +85,6 @@ const CoinControlListMenu: FC<
         onChange: onSortByChange,
       },
       {
-        // @ts-expect-error
         type: 'radio',
         title: 'form__information__uppercase',
         defaultValue: infoIndex,
