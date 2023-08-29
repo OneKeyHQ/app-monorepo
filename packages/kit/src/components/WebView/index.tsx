@@ -14,6 +14,7 @@ import InpageProviderWebView from './InpageProviderWebView';
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
+  IElectronWebView,
   IJsBridgeReceiveHandler,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
@@ -69,12 +70,19 @@ const WebView: FC<WebViewProps> = ({
       // TODO remove
       await wait(5000);
 
+      // TODO move to IWebViewWrapperRef.getURL()
+      const webviewUrl = platformEnv.isNative
+        ? // @ts-ignore
+          webviewRef.current?.innerRef?.$$currentWebviewUrl || ''
+        : (
+            webviewRef.current?.innerRef as IElectronWebView | undefined
+          )?.getURL() || '';
+
       const requestOrigin = getOriginFromUrl({
         url: payload.origin || '',
       });
       const webviewOrigin = getOriginFromUrl({
-        // @ts-ignore
-        url: webviewRef.current?.innerRef?.$$currentWebviewUrl || '',
+        url: webviewUrl,
       });
       const hostRemoteOrigin = hostBridge?.remoteInfo.origin || '';
 
