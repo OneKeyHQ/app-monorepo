@@ -1,14 +1,14 @@
 import { useIntl } from 'react-intl';
 
-import { Box, Image, Typography } from '@onekeyhq/components';
+import { Box, Typography } from '@onekeyhq/components';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import {
   type INFTAsset,
   type NFTAsset,
   NFTAssetType,
 } from '@onekeyhq/engine/src/types/nft';
-import OrdinalLogo from '@onekeyhq/kit/assets/Ordinal.png';
 
+import OrdinalsSVG from '../../../components/SVG/OrdinalsSVG';
 // import NFTBTCContent from '../../Wallet/NFT/NFTList/NFTBTCContent';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 
@@ -16,7 +16,7 @@ function NFTBTCView({ asset }: { asset: NFTBTCAssetModel }) {
   if (asset) {
     return (
       <Box flexDirection="row" alignItems="center">
-        <Image source={OrdinalLogo} size="40px" />
+        <OrdinalsSVG width={40} height={40} />
         <Typography.Body1Strong ml={3} numberOfLines={2} flex={1}>
           {`Inscription #${asset.inscription_number}`}
         </Typography.Body1Strong>

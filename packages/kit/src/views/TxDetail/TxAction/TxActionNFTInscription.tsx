@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Text, HStack, Icon, ListItem, Pressable } from '@onekeyhq/components';
+import { HStack, Icon, ListItem, Pressable, Text } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { getLocalNFTs } from '@onekeyhq/engine/src/managers/nft';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
@@ -13,7 +13,11 @@ import {
   IDecodedTxDirection,
 } from '@onekeyhq/engine/src/vaults/types';
 
-import { SendModalRoutes } from '../../../routes/routesEnum';
+import {
+  ModalRoutes,
+  RootRoutes,
+  SendModalRoutes,
+} from '../../../routes/routesEnum';
 import { TxDetailActionBox } from '../components/TxDetailActionBox';
 import { TxListActionBox } from '../components/TxListActionBox';
 import { getTxActionElementAddressWithSecurityInfo } from '../elements/TxActionElementAddress';
@@ -24,12 +28,14 @@ import {
 import { TxActionElementTitleHeading } from '../elements/TxActionElementTitle';
 
 import type { SendRoutesParams } from '../../../routes';
+import type { RootRoutesParams } from '../../../routes/types';
 import type {
   ITxActionCardProps,
   ITxActionElementDetail,
   ITxActionMetaIcon,
   ITxActionMetaTitle,
 } from '../types';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { StackNavigationProp } from '@react-navigation/stack';
 
 const SHOW_ASSETS_DEFAULT = 3;
@@ -103,7 +109,8 @@ export function getTxActionInscriptionInfo(props: ITxActionCardProps) {
 type NavigationProps = StackNavigationProp<
   SendRoutesParams,
   SendModalRoutes.NFTDetailModal
->;
+> &
+  NativeStackNavigationProp<RootRoutesParams, RootRoutes.Main>;
 
 export function TxActionNFTInscription(props: ITxActionCardProps) {
   const { decodedTx, action, meta, network, isShortenAddress = false } = props;
@@ -174,11 +181,17 @@ export function TxActionNFTInscription(props: ITxActionCardProps) {
                 py="12px"
                 onPress={() => {
                   if (network && item) {
-                    navigation.navigate(SendModalRoutes.NFTDetailModal, {
-                      asset: item,
-                      networkId,
-                      accountId,
-                      isOwner: false,
+                    navigation.navigate(RootRoutes.Modal, {
+                      screen: ModalRoutes.Send,
+                      params: {
+                        screen: SendModalRoutes.NFTDetailModal,
+                        params: {
+                          asset: item,
+                          networkId,
+                          accountId,
+                          isOwner: false,
+                        },
+                      },
                     });
                   }
                 }}
@@ -192,7 +205,7 @@ export function TxActionNFTInscription(props: ITxActionCardProps) {
                 <Icon name="ChevronRightSolid" size={20} />
               </ListItem>
             ))}
-          {showAllAssets ? null : (
+          {showAllAssets || assets.length <= SHOW_ASSETS_DEFAULT ? null : (
             <Pressable
               p="8px"
               borderRadius="12px"
