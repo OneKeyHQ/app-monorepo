@@ -31,14 +31,10 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 
 export function getTitleInfo({
   type,
-  send,
-  receive,
-  account,
+  direction,
 }: {
   type: IDecodedTxActionType;
-  send: string;
-  receive: string;
-  account: string;
+  direction?: IDecodedTxDirection;
 }): ITxActionMetaTitle | undefined {
   if (type === IDecodedTxActionType.NFT_INSCRIPTION) {
     return {
@@ -46,16 +42,14 @@ export function getTitleInfo({
     };
   }
   if (type === IDecodedTxActionType.NFT_TRANSFER_BTC) {
-    if (send === account) {
+    if (direction === IDecodedTxDirection.OUT) {
       return {
         titleKey: 'form_send_nft',
       };
     }
-    if (receive === account) {
-      return {
-        titleKey: 'form_receive_nft',
-      };
-    }
+    return {
+      titleKey: 'form_receive_nft',
+    };
   }
 }
 
@@ -70,9 +64,8 @@ export function nftInfoFromAction(action: IDecodedTxAction) {
 }
 
 export function getTxActionInscriptionInfo(props: ITxActionCardProps) {
-  const { action, decodedTx } = props;
+  const { action } = props;
   const { inscriptionInfo, direction } = action;
-  const account = decodedTx.owner;
   const send = inscriptionInfo?.send ?? '';
   const receive = inscriptionInfo?.receive ?? '';
   const displayDecimals: number | undefined = 100;
@@ -85,9 +78,7 @@ export function getTxActionInscriptionInfo(props: ITxActionCardProps) {
     direction === IDecodedTxDirection.OTHER;
   const titleInfo = getTitleInfo({
     type: action.type,
-    send,
-    receive,
-    account,
+    direction,
   });
 
   let iconInfo: ITxActionMetaIcon | undefined;

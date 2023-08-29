@@ -17,6 +17,7 @@ type Props = {
     availableBalance: string;
     transferBalance: string;
   };
+  isWatching: boolean;
 };
 
 function TokenDetailHeader(props: Props) {
