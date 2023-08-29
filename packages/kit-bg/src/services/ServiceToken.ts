@@ -1089,11 +1089,10 @@ export default class ServiceToken extends ServiceBase {
         },
         {
           title: 'form__top_50_tokens',
-          data: searchedTokens.map((t) =>
-            Object.assign(t, {
-              isOwned: !!headerTokenKeysMap[t.address ?? ''],
-            }),
-          ),
+          data: searchedTokens.map((t) => ({
+            ...t,
+            isOwned: !!headerTokenKeysMap[t.address ?? ''],
+          })),
         },
       ];
     }
@@ -1106,11 +1105,10 @@ export default class ServiceToken extends ServiceBase {
       },
       {
         title: 'form__top_50_tokens',
-        data: networkTokens.map((t) =>
-          Object.assign(t, {
-            isOwned: !!headerTokenKeysMap[t.address ?? ''],
-          }),
-        ),
+        data: networkTokens.map((t) => ({
+          ...t,
+          isOwned: !!headerTokenKeysMap[t.address ?? ''],
+        })),
       },
     ];
   }
