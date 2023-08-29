@@ -1,7 +1,6 @@
 import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -17,6 +16,7 @@ import type {
   Token as TokenType,
 } from '@onekeyhq/engine/src/types/token';
 
+import { FormatCurrencyNumber } from '../../../../components/Format';
 import { useReduxSingleTokenPriceSimple } from '../../../../hooks';
 import useFormatDate from '../../../../hooks/useFormatDate';
 import { showOverlay } from '../../../../utils/overlayUtils';
@@ -98,22 +98,24 @@ const SwapChartFooterTokenInfoItem: FC<SwapChartFooterTokenInfoItemProps> = ({
           <Typography.Body2 color="text-subdued">{token.name}</Typography.Body2>
         </Box>
       </Box>
-      <Box>
+      <Box flexDirection="column" alignItems="flex-end">
         <Typography.Body1>
-          ${priceInfo.price ? formatDecimalZero(priceInfo.price) : ''}
+          <FormatCurrencyNumber value={0} convertValue={priceInfo.price} />
         </Typography.Body1>
-        <Box
-          mt="4px"
-          bg={gainTextBg}
-          px="6px"
-          py="2px"
-          borderRadius="6px"
-          justifyContent="center"
-          alignItems="center"
-        >
-          <Typography.CaptionStrong color={gainTextColor}>
-            {percentageGain}
-          </Typography.CaptionStrong>
+        <Box flexDirection="row">
+          <Box
+            mt="4px"
+            bg={gainTextBg}
+            px="6px"
+            py="2px"
+            borderRadius="6px"
+            justifyContent="center"
+            alignItems="center"
+          >
+            <Typography.CaptionStrong color={gainTextColor}>
+              {percentageGain}
+            </Typography.CaptionStrong>
+          </Box>
         </Box>
       </Box>
     </Box>
