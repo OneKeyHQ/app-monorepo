@@ -1,8 +1,11 @@
+import { useEffect, useState } from 'react';
+
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Icon, ListItem } from '@onekeyhq/components';
+import { Text, HStack, Icon, ListItem, Pressable } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { getLocalNFTs } from '@onekeyhq/engine/src/managers/nft';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import type { IDecodedTxAction } from '@onekeyhq/engine/src/vaults/types';
 import {
@@ -28,6 +31,8 @@ import type {
   ITxActionMetaTitle,
 } from '../types';
 import type { StackNavigationProp } from '@react-navigation/stack';
+
+const SHOW_ASSETS_DEFAULT = 3;
 
 export function getTitleInfo({
   type,
@@ -107,6 +112,30 @@ export function TxActionNFTInscription(props: ITxActionCardProps) {
   const { send, receive, isOut, asset } = getTxActionInscriptionInfo(props);
   const navigation = useNavigation<NavigationProps>();
 
+  const [assets, setAssets] = useState<NFTBTCAssetModel[]>([]);
+  const [showAllAssets, setShowAllAssets] = useState(false);
+
+  useEffect(() => {
+    const fetchInscriptionsInSameUtxo = async () => {
+      if (!asset) return;
+      const localNFTs = (await getLocalNFTs({
+        networkId,
+        accountId,
+      })) as NFTBTCAssetModel[];
+
+      const inscriptionsInSameUtxo = localNFTs.filter(
+        (nft) =>
+          nft.inscription_id !== asset.inscription_id &&
+          nft.owner === asset.owner &&
+          nft.output === asset.output &&
+          nft.output_value_sat === asset.output_value_sat,
+      );
+
+      setAssets([asset, ...inscriptionsInSameUtxo]);
+    };
+    fetchInscriptionsInSameUtxo();
+  }, [accountId, asset, networkId]);
+
   const details: ITxActionElementDetail[] = [
     {
       title: intl.formatMessage({ id: 'content__from' }),
@@ -135,28 +164,51 @@ export function TxActionNFTInscription(props: ITxActionCardProps) {
       icon={<TxActionElementInscription asset={asset as NFTBTCAssetModel} />}
       title={titleView}
       content={
-        <ListItem
-          px={0}
-          py="12px"
-          onPress={() => {
-            if (network && asset) {
-              navigation.navigate(SendModalRoutes.NFTDetailModal, {
-                asset,
-                networkId,
-                accountId,
-                isOwner: false,
-              });
-            }
-          }}
-        >
-          <TxActionElementInscriptionContent
-            typography="DisplayXLarge"
-            direction={action.direction}
-            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-            title={`Inscription #${asset?.inscription_number}`}
-          />
-          <Icon name="ChevronRightSolid" size={20} />
-        </ListItem>
+        <>
+          {assets
+            .slice(0, showAllAssets ? undefined : SHOW_ASSETS_DEFAULT)
+            .map((item) => (
+              <ListItem
+                key={item.inscription_id}
+                px={0}
+                py="12px"
+                onPress={() => {
+                  if (network && item) {
+                    navigation.navigate(SendModalRoutes.NFTDetailModal, {
+                      asset: item,
+                      networkId,
+                      accountId,
+                      isOwner: false,
+                    });
+                  }
+                }}
+              >
+                <TxActionElementInscriptionContent
+                  typography="DisplayXLarge"
+                  direction={action.direction}
+                  // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+                  title={`Inscription #${item?.inscription_number}`}
+                />
+                <Icon name="ChevronRightSolid" size={20} />
+              </ListItem>
+            ))}
+          {showAllAssets ? null : (
+            <Pressable
+              p="8px"
+              borderRadius="12px"
+              _hover={{ bgColor: 'surface-hovered' }}
+              _pressed={{ bgColor: 'surface-pressed' }}
+              onPress={() => setShowAllAssets(true)}
+            >
+              <HStack alignItems="center" justifyContent="center" space={2}>
+                <Text color="text-subdued">
+                  {intl.formatMessage({ id: 'form__show_all' })}
+                </Text>
+                <Icon name="ChevronDownMini" size={12} color="icon-subdued" />
+              </HStack>
+            </Pressable>
+          )}
+        </>
       }
       showTitleDivider
       details={details}
