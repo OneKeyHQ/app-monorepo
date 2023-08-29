@@ -7,7 +7,7 @@ import {
   formatDuration as fnsFormatDuration,
   parseISO,
 } from 'date-fns';
-import { enUS, ja, zhCN, zhHK, ko } from 'date-fns/locale';
+import { enUS, ja, ko, zhCN, zhHK } from 'date-fns/locale';
 
 import { useLocale } from '@onekeyhq/components';
 import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
