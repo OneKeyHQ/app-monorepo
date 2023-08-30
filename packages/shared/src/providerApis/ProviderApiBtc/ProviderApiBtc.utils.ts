@@ -155,16 +155,25 @@ export function getInputsToSignFromPsbt({
 function checkInscriptionInfo(action: IDecodedTxAction, address: string) {
   return (
     action.type === IDecodedTxActionType.NFT_TRANSFER_BTC &&
-    action.inscriptionInfo?.send === address &&
-    action.inscriptionInfo?.receive === address
+    (action.inscriptionInfo?.send && action.inscriptionInfo?.send !== 'unknown'
+      ? action.inscriptionInfo?.send === address
+      : true) &&
+    (action.inscriptionInfo?.receive &&
+    action.inscriptionInfo?.receive !== 'unknown'
+      ? action.inscriptionInfo?.receive === address
+      : true)
   );
 }
 
 function checkBRC20Info(action: IDecodedTxAction, address: string) {
   return (
     action.type === IDecodedTxActionType.TOKEN_BRC20_TRANSFER &&
-    action.brc20Info?.sender === address &&
-    action.brc20Info?.receiver === address
+    (action.brc20Info?.sender && action.brc20Info.sender !== 'unknown'
+      ? action.brc20Info?.sender === address
+      : true) &&
+    (action.brc20Info?.receiver && action.brc20Info?.receiver !== 'unknown'
+      ? action.brc20Info?.receiver === address
+      : true)
   );
 }
 
@@ -181,7 +190,7 @@ export function checkIsUnListOrderPsbt(
     );
   }
 
-  if (actions?.length === 2) {
+  if (actions?.length >= 2) {
     return (
       (checkBRC20Info(actions[0], address) &&
         checkBRC20Info(actions[1], address)) ||

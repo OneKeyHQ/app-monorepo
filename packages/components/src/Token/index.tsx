@@ -300,7 +300,7 @@ const renderEle = (
   }
 
   if (isValidElement(content)) {
-      return content;
+    return content;
   }
 
   return createElement(ele, props, content);
