@@ -25,12 +25,15 @@ import { FormatCurrencyNumber } from '@onekeyhq/kit/src/components/Format';
 import {
   useActiveWalletAccount,
   useAppSelector,
+  useNetwork,
 } from '@onekeyhq/kit/src/hooks';
 import {
   ManageNetworkModalRoutes,
   ModalRoutes,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
+import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import { isWatchingAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountIsUpdating, useOverviewPendingTasks } from '../../../hooks';
@@ -348,6 +351,9 @@ const SummedValueComp = memo(
         s.overview.overviewStats?.[networkId]?.[accountId]?.summary?.totalValue,
     );
 
+    const isWatching = isWatchingAccount({ accountId });
+    const { network } = useNetwork({ networkId });
+
     return (
       <Box flexDirection="row" alignItems="center" mt={1} w="full">
         {typeof totalValue === 'undefined' ? (
@@ -361,13 +367,17 @@ const SummedValueComp = memo(
                 convertValue={totalValue}
               />
             </Typography.Display2XLarge>
-            <IconButton
-              name="ChevronDownMini"
-              onPress={showAccountValueSettings}
-              type="plain"
-              circle
-              ml={1}
-            />
+            {isWatching &&
+            (network?.impl === IMPL_BTC ||
+              network?.impl === IMPL_TBTC) ? null : (
+              <IconButton
+                name="ChevronDownMini"
+                onPress={showAccountValueSettings}
+                type="plain"
+                circle
+                ml={1}
+              />
+            )}
           </HStack>
         )}
       </Box>
