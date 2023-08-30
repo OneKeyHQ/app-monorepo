@@ -30,10 +30,10 @@ function UnListBTCAssetUnexpectedDialog({ onConfirm, onClose }: Props) {
         iconName: 'PaperAirplaneSolid',
         iconType: 'danger',
         title: intl.formatMessage({
-          id: 'title__release_occupied_balance',
+          id: 'title__the_inscription_is_listed',
         }),
         content: intl.formatMessage({
-          id: 'content__release_occupied_balance',
+          id: 'content__this_will_unlist_previous_order_in_inscription_market_are_you_sure_to_send_the_listed_inscription',
         }),
       }}
     />
@@ -48,7 +48,7 @@ function UnListBTCAssetExplicitDialog({ onConfirm, onClose }: Props) {
     <Dialog
       visible
       footerButtonProps={{
-        primaryActionTranslationId: 'action__send',
+        primaryActionTranslationId: 'action__continue',
         primaryActionProps: {
           type: 'primary',
           isLoading,
@@ -63,10 +63,10 @@ function UnListBTCAssetExplicitDialog({ onConfirm, onClose }: Props) {
         iconName: 'MinusCircleSolid',
         iconType: 'success',
         title: intl.formatMessage({
-          id: 'title__release_occupied_balance',
+          id: 'title__unlist_the_order',
         }),
         content: intl.formatMessage({
-          id: 'content__release_occupied_balance',
+          id: 'content__broadcast_an_tx_to_send_the_listed_inscription_back_to_your_account_this_will_unlist_your_previous+order_in_inscription_market',
         }),
       }}
     />

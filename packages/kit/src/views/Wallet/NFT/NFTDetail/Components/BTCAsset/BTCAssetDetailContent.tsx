@@ -299,7 +299,7 @@ function BTCAssetDetailContent({
             variant: 'desctructive',
           },
           asset?.listed && {
-            id: 'action__quit',
+            id: 'action__unlist_on_sale_inscription',
             icon: 'MinusCircleMini',
             onPress: () => {
               showDialog(
@@ -357,7 +357,11 @@ function BTCAssetDetailContent({
         <HStack space={1}>
           {isBRC20 ? <Badge type="default" size="sm" title="brc20" /> : null}
           {asset.listed ? (
-            <Badge type="warning" size="sm" title="LISTED" />
+            <Badge
+              type="warning"
+              size="sm"
+              title={intl.formatMessage({ id: 'content__listed__uppercase' })}
+            />
           ) : null}
         </HStack>
       </VStack>

@@ -246,7 +246,7 @@ export function TxActionNFTInscriptionT0(props: ITxActionCardProps) {
       icon={<TxActionElementInscription asset={asset as NFTBTCAssetModel} />}
       titleInfo={
         status === IDecodedTxStatus.Offline
-          ? { title: 'Partially Signed' }
+          ? { titleKey: 'form__partially_sign' }
           : meta?.titleInfo
       }
       content={

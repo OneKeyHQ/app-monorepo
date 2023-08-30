@@ -126,7 +126,7 @@ export function TxActionBRC20T0(props: ITxActionCardProps) {
       iconInfo={meta?.iconInfo}
       titleInfo={
         status === IDecodedTxStatus.Offline
-          ? { title: 'Partially Signed' }
+          ? { titleKey: 'form__partially_sign' }
           : meta?.titleInfo
       }
       content={
