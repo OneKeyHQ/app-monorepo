@@ -19,6 +19,7 @@ export type CollectiblesRoutesParams = {
     isOwner: boolean;
     networkId: string;
     accountId?: string;
+    onRecycleUtxo?: () => void;
   };
 };
 

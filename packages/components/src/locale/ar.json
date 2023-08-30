@@ -268,6 +268,7 @@
   "action__restore": "يعيد",
   "action__restore_from_icloud": "استعادة من {cloudName}",
   "action__restore_from_onekey_lite": "الاستعادة من OneKey Lite",
+  "action__restore_inscriptions": "استعادة النقوش",
   "action__restore_to_inscription": "استعادة النقش",
   "action__restore_wallet": "استعادة المحفظة",
   "action__restore_with_onekey_lite": "استعادة مع OneKey Lite",
@@ -294,11 +295,13 @@
   "action__set_to_mkt": "اضبط على MKT",
   "action__set_to_mkt_desc": "إعادة تعيين أمر الحد إلى سعر السوق الحالي",
   "action__share": "شارك",
+  "action__show_all": "عرض الكل",
   "action__show_all_used_addresses": "إظهار العناوين المستخدمة",
   "action__show_chart": "إظهار الرسم البياني",
   "action__show_dotmap_for_keytag": "إظهار Dotmap لـ KeyTag",
   "action__show_full_address": "إظهار العنوان الكامل",
   "action__show_it": "اظهره",
+  "action__show_less": "عرض أقل",
   "action__show_more": "أظهر المزيد",
   "action__show_path": "عرض المسار",
   "action__show_qrcode": "إظهار رمز الاستجابة السريعة",
@@ -336,6 +339,7 @@
   "action__under_maintaince": "تحت Maintaince",
   "action__unfreeze": "تجمد",
   "action__unlike": "غير مفضل",
+  "action__unlist_on_sale_inscription": "إلغاء القائمة",
   "action__unlock": "الغاء القفل",
   "action__unstake": "نزع",
   "action__unsubscribe": "إلغاء الاشتراك",
@@ -483,7 +487,9 @@
   "content__bluetooth_firmware_version": "إصدار البرنامج الثابت للبلوتوث",
   "content__bluetooth_name": "اسم البلوتوث",
   "content__bootloader_lowercase": "محمل الإقلاع",
+  "content__broadcast_an_tx_to_send_the_listed_inscription_back_to_your_account_this_will_unlist_your_previous+order_in_inscription_market": "قم ببث معاملة على السلسلة لإرسال النقش المدرج مرة أخرى إلى حسابك الحالي، سيؤدي هذا إلى إلغاء إدراج طلبك السابق في أسواق النقش.",
   "content__btc_dominance": "هيمنة BTC",
+  "content__btc_utxo_manage_spendable_inscriptions_tooltips": "فيما يلي قائمة بـ UTXOs التي تم إصدارها من أصول النقش الخاصة بك. اضغط على زر المزيد من الأيقونة وحدد \"استعادة كنقش\"",
   "content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api": "بإرسال هذا الطلب ، فإنك تؤكد على مبادلة مدعومة بواسطة {0} api.",
   "content__calculate_fee": "لا توجد رسوم متاحة.",
   "content__categories": "فئات",
@@ -542,6 +548,7 @@
   "content__details": "تفاصيل",
   "content__did_you_get_away_with_most_of_the_rug_pulls_this_year": "هل أفلتت من معظم عمليات سحب البساط هذا العام؟",
   "content__disconnect_and_try_again": "الرجاء النقر فوق \"قطع الاتصال\" وإرسال طلب المعاملة مرة أخرى إذا لم يستجب {0} .",
+  "content__do_not_display_inscriptions_and_brc20_assets_this_config_only_applied_to_account_str": "لا تعرض النقوش وأصول brc-20، وينطبق هذا التكوين فقط على الحساب {0} .",
   "content__do_not_swap_directly_to_the_exchange": "لا تبدل مباشرة إلى البورصة.",
   "content__do_not_swap_directly_to_the_exchange_desc": "لا تقبل معظم البورصات التحويلات من العقود.",
   "content__do_not_transfer_to_any_exchange_accounts_to_avoid_loss_of_assets": "لا تنقل إلى أي حساب صرف لتجنب فقدان الأصول. معظم حسابات الصرف لا تقبل تحويلات العقود.",
@@ -877,6 +884,7 @@
   "content__these_information_may_be_found": "يمكن العثور على هذه المعلومات على صفحة حول الجهاز.",
   "content__third_party_validator": "المدقق",
   "content__this_will_be_applied_to_all_receiver_address_in_the_input": "سيتم تطبيق هذا على جميع عناوين الاستلام في القائمة.",
+  "content__this_will_unlist_previous_order_in_inscription_market_are_you_sure_to_send_the_listed_inscription": "سيؤدي هذا إلى إلغاء إدراج الطلب السابق في أسواق النقش، هل أنت متأكد من إرسال النقش المدرج",
   "content__time": "زمن",
   "content__time_limit": "المهلة",
   "content__to": "ل",
@@ -1266,6 +1274,7 @@
   "form__dev_platform_channel": "المنصات والقنوات",
   "form__dev_pre_update": "ترقية إصدار المعاينة",
   "form__direct_wrap": "التفاف مباشر",
+  "form__disable_ordinals": "تعطيل الترتيبية",
   "form__dominance": "هيمنة",
   "form__download_when_available": "قم بتنزيل التحديثات الجديدة عند توفرها",
   "form__drag_file_here": "إفلات الملف هنا",
@@ -1399,6 +1408,7 @@
   "form__incorrect_address_format": "تنسيق عنوان غير صحيح",
   "form__incorrect_dotmap": "Dotmap غير صحيح",
   "form__information__uppercase": "معلومة",
+  "form__inputs_int__uppercase": "المدخلات ( {0} )",
   "form__inscribe_nft": "تسجيل NFT",
   "form__inscribe_order_id": "رقم التعريف الخاص بالطلب",
   "form__inscribe_preview": "معاينة النقش",
@@ -1475,6 +1485,7 @@
   "form__modifiable_tax_desc": "إذا تم زيادة ضريبة المعاملات إلى أكثر من 49٪ ، فلن تكون التوكنات قادرة على التداول (مخاطرة موضع الجذب).",
   "form__modify_the_line_with_the_correct_format": "قم بتعديل الخط بالتنسيق الصحيح",
   "form__more_details": "المزيد من التفاصيل",
+  "form__multiple_routes": "طرق متعددة",
   "form__multiple_transactions": "معاملات متعددة",
   "form__my_account": "حسابي",
   "form__my_accounts": "حساباتي",
@@ -1526,6 +1537,7 @@
   "form__not__selected_str_uppercase": "غير محدد ( {0} )",
   "form__not_appear_to_be_a_honeypot": "ليس موضع جذب",
   "form__not_appear_to_be_a_honeypot_desc": "لا يوجد ترميز نعرفه يمنع مبيعات الرمز المميز.",
+  "form__not_broadcast": "لا البث",
   "form__not_enough_confirmations": "التأكيدات غير كافية.",
   "form__not_enough_str": "لا يكفي {0} ؟",
   "form__not_recommended": "لا ينصح",
@@ -1552,6 +1564,7 @@
   "form__ordinal_type": "يكتب",
   "form__ordinal_value": "قيمة",
   "form__outbox": "صندوق الصادر",
+  "form__outputs_int__uppercase": "المخرجات ( {0} )",
   "form__overwrite_metamask": "الكتابة فوق MetaMask",
   "form__owner_can_change_balance": "يمكن للمالك تغيير الرصيد",
   "form__owner_can_change_balance_desc": "يمكن لمالك العقد تغيير أرصدة الرمز المميز في عناوين أخرى.",
@@ -1563,6 +1576,7 @@
   "form__ownership_cannot_be_taken_back": "لا يمكن استعادة الملكية",
   "form__ownership_cannot_be_taken_back_desc": "في حالة وجود هذه الوظيفة ، يمكن لمالك المشروع استعادة الملكية حتى بعد التنازل عنها",
   "form__page_number_placeholder": "رقم الصفحة ، على سبيل المثال: 16",
+  "form__partially_sign": "التوقيع جزئيا",
   "form__passphrase_confirm_placeholder": "قم بتأكيد عبارة المرور",
   "form__passphrase_placeholder": "أدخل عبارة المرور",
   "form__password": "كلمه السر",
@@ -1705,6 +1719,7 @@
   "form__source_code_verified": "مصدر رمز التحقق",
   "form__source_code_verified_desc": "عقد رمزي مفتوح المصدر. توفر رموز العقود التفاصيل. قد تؤدي عقود الرمز المميز غير المصدر إلى خداع المستهلكين لممتلكاتهم.",
   "form__spend_dust_utxo": "قضاء الغبار UTXO",
+  "form__spendable_inscriptions__uppercase": "النقوش القابلة للإنفاق",
   "form__stake_balance": "رصيد الرهان",
   "form__stake_earn": "الرهان والكسب",
   "form__stake_earn_desc": "حتى {0} في المكافآت السنوية",
@@ -1858,9 +1873,11 @@
   "form__valued_str": "قيم ≥ {0}",
   "form__verified_tokens__uppercase": "الرموز التي تم التحقق منها",
   "form__version": "الإصدار",
+  "form__via_str": "عبر {0}",
   "form__vibrate": "تذبذب",
   "form__view_in_blockchain_browser": "عرض في متصفح Blockchain",
   "form__view_in_explore": "عرض في استكشاف",
+  "form__view_inputs_outputs": "عرض المدخلات / المخرجات",
   "form__view_recovery_phrase_private_key": "عرض عبارة الاسترداد / المفتاح الخاص",
   "form__visit_str": "زيارة {0}",
   "form__vol_str": "المجلد {0}",
@@ -2244,6 +2261,7 @@
   "msg__incomplete_file": "ملف غير مكتمل",
   "msg__inconsistency_between_the_number_of_sender_and_recipient_addresses": "عدم الاتساق بين عدد عناوين المرسل والمستلم.",
   "msg__incorrect_token_information": "معلومات رمز غير صحيحة",
+  "msg__inscription_deoccupied": "النقوش مشغولة",
   "msg__inscription_destroyed": "نقش دمر",
   "msg__inscription_restored": "استعادة النقوش",
   "msg__insufficient_balance": "رصيد غير كاف",
@@ -2329,6 +2347,7 @@
   "msg__price_alert_reached": "🔔 تنبيه السعر!",
   "msg__price_alert_reached_desc": "وصل {0} إلى القيمة المستهدفة {1}",
   "msg__processing_transactions": "معالجة المعاملات ...",
+  "msg__psbt_will_not_broadcast_to_blockchain_now_no_need_to_pay_tx_fee": "لن يتم بث معاملات البيتكوين الموقعة جزئيًا إلى blockchain على الفور، لذلك لا تحتاج إلى دفع رسوم المعاملات",
   "msg__received": "🤑 تم استلام {assets}",
   "msg__received_a_nft": "🤑 حصل على NFT",
   "msg__received_desc": "من {address}",
@@ -2605,6 +2624,7 @@
   "title__import_wallet": "استيراد المحفظة",
   "title__import_wallet_with_keytag": "استيراد Wallet باستخدام KeyTag",
   "title__import_wallet_with_keytag_desc": "املأ الفراغ وفقًا لنسخة KeyTag الاحتياطية.",
+  "title__inputs_and_outputs": "المخرجات المدخلات",
   "title__inscribe": "نقش",
   "title__inscribe_desc": "قم بإدراج صورة أو نص مباشرة على السلسلة",
   "title__inscribe_orders": "طلبات",
@@ -2702,7 +2722,7 @@
   "title__recovery_phrase_desc": "اقرأ ما يلي ، ثم احفظ العبارة بشكل آمن.",
   "title__refresh_website_to_take_effect": "قم بتحديث موقع الويب حتى يسري مفعوله",
   "title__refresh_website_to_take_effect_desc": "بعد تغيير الإعدادات ، يرجى تذكر تحديث موقع الويب ليصبح ساري المفعول.",
-  "title__release_occupied_balance": "الافراج عن الرصيد المحتلة",
+  "title__release_occupied_balance": "الافراج عن الرصيد المحتل",
   "title__reopen_app_required": "مطلوب إعادة فتح التطبيق",
   "title__reopen_app_required_desc": "الآن سيتم إنهاء التطبيق وبعد إعادة فتح التطبيق يمكنك رؤية أن الإعدادات ستصبح سارية المفعول.",
   "title__request_details": "طلب تفاصيل",
@@ -2751,6 +2771,7 @@
   "title__switch_to_str": "هل تريد التبديل إلى {0} ؟",
   "title__switch_to_str_desc": "اسمح لهذا الموقع بتبديل شبكتك إلى {0} .",
   "title__the_device_has_been_reset": "تم إعادة ضبط الجهاز!",
+  "title__the_inscription_is_listed": "النقش مدرج",
   "title__this_is_an_address_you_want_multiline": "هذا عنوان ،\n انت تريد...",
   "title__token_approvals": "الموافقات الرمزية",
   "title__token_approvals_desc": "حماية الأصول الخاصة بك عن طريق إدارة الموافقات على العقود.",
@@ -2767,6 +2788,7 @@
   "title__transferring_data_desc": "الجهاز متصل ، يرجى الاحتفاظ بالبطاقة في مكانها وعدم تحريكها.",
   "title__trending": "الشائع",
   "title__tron_staking_governance_desc": "يمكن لحاملي TRX المساهمة في حوكمة TRON والحصول على مكافآت.",
+  "title__unlist_the_order": "قم بإلغاء إدراج الأمر",
   "title__unscanned_site": "المواقع غير الممسوحة ضوئيًا",
   "title__unstake_eth": "افصل ETH",
   "title__unstake_str": "إلغاء الالتقاط {0}",

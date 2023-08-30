@@ -28,11 +28,13 @@ function ModalContent({
   asset,
   accountId,
   networkId,
+  onRecycleUtxo,
 }: {
   asset: INFTAsset;
   networkId: string;
   accountId?: string;
   isOwner: boolean;
+  onRecycleUtxo?: () => void;
 }) {
   const isVertical = useIsVerticalLayout();
   const { ImageContent, DetailContent } = getNFTDetailComponents({ asset });
@@ -47,6 +49,7 @@ function ModalContent({
             isOwner={isOwner}
             networkId={networkId}
             accountId={accountId}
+            onRecycleUtxo={onRecycleUtxo}
           />
         </Box>
       </ScrollView>
@@ -61,6 +64,7 @@ function ModalContent({
           isOwner={isOwner}
           networkId={networkId}
           accountId={accountId}
+          onRecycleUtxo={onRecycleUtxo}
         />
       </ScrollView>
     </Box>
@@ -85,6 +89,7 @@ const NFTDetailModal: FC = () => {
     isOwner,
     accountId: originAccountId,
     networkId,
+    onRecycleUtxo,
   } = route.params;
 
   useEffect(() => {
@@ -129,6 +134,7 @@ const NFTDetailModal: FC = () => {
         isOwner={isOwner}
         networkId={asset.networkId ?? networkId}
         accountId={accountId}
+        onRecycleUtxo={onRecycleUtxo}
       />
     </Modal>
   );

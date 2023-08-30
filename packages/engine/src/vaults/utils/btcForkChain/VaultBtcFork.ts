@@ -3,6 +3,7 @@
 import BigNumber from 'bignumber.js';
 import bs58check from 'bs58check';
 import { isFunction, isNil } from 'lodash';
+import uuidLib from 'react-native-uuid';
 
 import type { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
@@ -29,6 +30,7 @@ import {
   IMPL_BTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { checkIsUnListOrderPsbt } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.utils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
   isBRC20Token,
@@ -460,7 +462,8 @@ export default class VaultBtcFork extends VaultBase {
   async decodePsbt(encodedTx: IEncodedTxBtc, payload?: SendConfirmPayloadInfo) {
     const { inputs, outputs, totalFee } = encodedTx;
 
-    const isListOrderTx = new BigNumber(totalFee).isNegative();
+    const isListOrderPsbt =
+      new BigNumber(totalFee).isNegative() || new BigNumber(totalFee).isNaN();
 
     const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
@@ -478,7 +481,10 @@ export default class VaultBtcFork extends VaultBase {
               from: dbAccount.address,
               to: 'unknown',
               amount: '0',
-              asset: input.inscriptions[0],
+              asset: {
+                ...input.inscriptions[0],
+                type: NFTAssetType.BTC,
+              },
             }),
           );
         } else {
@@ -491,7 +497,7 @@ export default class VaultBtcFork extends VaultBase {
       const output = outputs[i];
 
       if (output.address === dbAccount.address) {
-        if (isListOrderTx) {
+        if (isListOrderPsbt) {
           actions.push({
             type: IDecodedTxActionType.NATIVE_TRANSFER,
             direction: IDecodedTxDirection.IN,
@@ -538,12 +544,14 @@ export default class VaultBtcFork extends VaultBase {
     }
 
     return {
-      txid: '',
+      txid: isListOrderPsbt ? uuidLib.v4().toString() : '',
       owner: dbAccount.address,
       signer: dbAccount.address,
       nonce: 0,
       actions,
-      status: IDecodedTxStatus.Pending,
+      status: isListOrderPsbt
+        ? IDecodedTxStatus.Offline
+        : IDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
       extraInfo: null,
@@ -1121,15 +1129,7 @@ export default class VaultBtcFork extends VaultBase {
       .filter(Boolean);
 
     // fix btc unlist nft action direction
-    if (
-      nftActions?.length === 2 &&
-      nftActions[0].type === IDecodedTxActionType.NFT_TRANSFER_BTC &&
-      nftActions[1].type === IDecodedTxActionType.NFT_TRANSFER_BTC &&
-      nftActions[0].inscriptionInfo?.send === address &&
-      nftActions[0].inscriptionInfo?.receive === address &&
-      nftActions[1].inscriptionInfo?.send === address &&
-      nftActions[1].inscriptionInfo?.receive === address
-    ) {
+    if (checkIsUnListOrderPsbt(nftActions, address)) {
       return [
         nftActions[0],
         {

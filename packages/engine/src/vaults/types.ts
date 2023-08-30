@@ -460,6 +460,8 @@ export enum IDecodedTxStatus {
   Failed = 'Failed',
   Dropped = 'Dropped',
   Removed = 'Removed',
+  // for btc list order psbt
+  Offline = 'Offline',
 }
 export type IDecodedTxInteractInfo = {
   // Dapp info

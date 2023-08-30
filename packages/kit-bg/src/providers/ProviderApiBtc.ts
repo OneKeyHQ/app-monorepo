@@ -34,7 +34,6 @@ import {
   httpPost,
   mapInscriptionToNFTBTCAssetModel,
   toPsbtNetwork,
-  toXOnly,
 } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.utils';
 import { RestfulRequest } from '@onekeyhq/shared/src/request/RestfulRequest';
 
