@@ -45,6 +45,7 @@ export function useBatchSendConfirmFeeInfoPayload({
   forBatchSend,
   transferCount,
   feeInfoReuseable,
+  isBtcForkChain,
 }: {
   encodedTxs: IEncodedTx[];
   decodedTxs: IDecodedTx[];
@@ -57,6 +58,7 @@ export function useBatchSendConfirmFeeInfoPayload({
   forBatchSend?: boolean;
   transferCount: number;
   feeInfoReuseable?: boolean;
+  isBtcForkChain?: boolean;
 }) {
   const isFocused = useIsFocused();
   const { network } = useActiveSideAccount({ accountId, networkId });
@@ -452,7 +454,7 @@ export function useBatchSendConfirmFeeInfoPayload({
       feeInfoPayloads.length !== 0
     ) {
       for (let i = 0; i < feeInfoPayloads.length; i += 1) {
-        if (decodedTxs[i].totalFeeInNative) {
+        if (decodedTxs[i].totalFeeInNative && !isBtcForkChain) {
           totalNative += new BigNumber(
             decodedTxs[i].totalFeeInNative ?? 0,
           ).toNumber();
@@ -470,10 +472,16 @@ export function useBatchSendConfirmFeeInfoPayload({
           ).toNumber();
         }
       }
+
       setTotalFeeInNative(totalNative);
       setMinTotalFeeInNative(minTotalNative);
     }
-  }, [decodedTxs, feeInfoPayloads]);
+  }, [
+    decodedTxs,
+    feeInfoPayloads,
+    feeInfoSelectedInRouteParams,
+    isBtcForkChain,
+  ]);
 
   return {
     feeInfoError,
