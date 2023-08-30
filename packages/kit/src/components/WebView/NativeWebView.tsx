@@ -61,11 +61,17 @@ const NativeWebView = forwardRef(
 
     const webviewOnMessage = useCallback(
       (event: WebViewMessageEvent) => {
-        const { data } = event.nativeEvent;
+        const { data, url } = event.nativeEvent;
         try {
-          const uri = new URL(event.nativeEvent.url);
+          const uri = new URL(url);
           const origin = uri?.origin || '';
-          debugLogger.webview.info('onMessage', origin, data);
+          // ios: origin==="null"
+          debugLogger.webview.info('onMessage', {
+            url,
+            uri,
+            origin,
+            data,
+          });
           // TODO use url as origin when WebEmbedWebView
           // - receive
           jsBridge.receive(data, { origin });

@@ -50,7 +50,14 @@ function WebEmbedApiScreen() {
       >
         {msg ? JSON.stringify(msg) : 'WebEmbedApiScreen'}
       </Typography.Body1>
-      <Button onPress={() => window.location.reload()}>Reload</Button>
+      <Button
+        onPress={() => {
+          alert(window.location.href);
+          window.location.reload();
+        }}
+      >
+        Reload
+      </Button>
     </Center>
   );
   // }
