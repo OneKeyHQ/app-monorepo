@@ -71,6 +71,7 @@ export enum NFTAssetType {
 
 export interface NFTAssetBase {
   type: NFTAssetType;
+  listed?: boolean;
 }
 
 export type ValueOf<T> = T[keyof T];

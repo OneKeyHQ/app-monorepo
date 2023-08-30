@@ -305,6 +305,7 @@ export type ITxConfirmViewProps = ModalProps & {
   confirmDisabled?: boolean;
   autoConfirm?: boolean;
   children?: JSX.Element | JSX.Element[] | Element | Element[] | any;
+  isListOrderPsbt?: boolean;
 
   sendConfirmParams: SendConfirmParams;
 };

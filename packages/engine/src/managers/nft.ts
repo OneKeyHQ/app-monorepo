@@ -307,6 +307,20 @@ export async function getAssetFromLocal({
   return collection?.assets.find((item) => item.tokenId === tokenId);
 }
 
+export async function getAllAssetsFromLocal({
+  accountId,
+  networkId,
+}: {
+  accountId?: string;
+  networkId: string;
+}) {
+  if (!accountId) {
+    return;
+  }
+  const nfts = await getLocalNFTs({ networkId, accountId });
+  return nfts;
+}
+
 export async function fetchAsset({
   chain,
   contractAddress,

@@ -14,6 +14,7 @@ import {
   IEncodedTxUpdateType,
 } from '@onekeyhq/engine/src/vaults/types';
 import { ENABLED_DAPP_SCOPE } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { checkIsUnListOrderPsbt } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.utils';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useWalletConnectPrepareConnection } from '../../../../components/WalletConnect/useWalletConnectPrepareConnection';
@@ -57,8 +58,13 @@ function SendConfirm({
 }) {
   const intl = useIntl();
   useOnboardingRequired();
-  const { engine, serviceHistory, serviceToken, serviceLightningNetwork } =
-    backgroundApiProxy;
+  const {
+    engine,
+    serviceHistory,
+    serviceToken,
+    serviceNFT,
+    serviceLightningNetwork,
+  } = backgroundApiProxy;
 
   const {
     navigation,
@@ -112,12 +118,20 @@ function SendConfirm({
     sourceInfo,
   });
 
-  const isListOrderPsbtTx = useMemo(
-    () =>
-      new BigNumber(
-        (encodedTx as IEncodedTxBtc)?.totalFee ?? '0',
-      ).isNegative() && (encodedTx as IEncodedTxBtc)?.psbtHex,
-    [encodedTx],
+  const isListOrderPsbt = useMemo(() => {
+    const totalFee = new BigNumber(
+      (encodedTx as IEncodedTxBtc)?.totalFee ?? '0',
+    );
+
+    return !!(
+      (encodedTx as IEncodedTxBtc)?.psbtHex &&
+      (totalFee.isNaN() || totalFee.isLessThanOrEqualTo(0))
+    );
+  }, [encodedTx]);
+
+  const isUnListOrderPsbt = useMemo(
+    () => checkIsUnListOrderPsbt(decodedTx?.actions, account?.address),
+    [decodedTx?.actions, account?.address],
   );
 
   const isInternalNativeTransferType = useMemo(() => {
@@ -211,6 +225,38 @@ function SendConfirm({
           } else {
             await dappApprove.resolve({ result: tx.rawTx });
           }
+
+          if (isListOrderPsbt || isUnListOrderPsbt) {
+            const inscription = decodedTx?.actions.find(
+              (action) =>
+                action.brc20Info?.asset ?? action.inscriptionInfo?.asset,
+            );
+            const asset =
+              inscription?.brc20Info?.asset ??
+              inscription?.inscriptionInfo?.asset;
+
+            if (!asset) return;
+
+            if (isListOrderPsbt) {
+              asset.listed = true;
+              // save btc list nft psbt to history
+              await serviceHistory.saveSendConfirmHistory({
+                networkId,
+                accountId,
+                data,
+                resendActionInfo,
+                feeInfo: feeInfoValue,
+              });
+            } else {
+              asset.listed = false;
+            }
+
+            serviceNFT.updateAsset({
+              accountId,
+              networkId,
+              asset,
+            });
+          }
         } else {
           await dappApprove.resolve({
             result: tx.txid,
@@ -276,6 +322,7 @@ function SendConfirm({
         //   // close()
         // }, 0);
       };
+
       const nextRouteParams: SendAuthenticationParams = {
         ...routeParams,
         encodedTx: encodedTxWithAdvancedSettings,
@@ -341,16 +388,20 @@ function SendConfirm({
       navigation,
       dappApprove,
       serviceToken,
-      serviceLightningNetwork,
       payloadInfo?.swapInfo,
       wallet?.type,
       serviceHistory,
+      isListOrderPsbt,
+      isUnListOrderPsbt,
+      decodedTx,
+      serviceNFT,
       resendActionInfo,
+      serviceLightningNetwork,
       intl,
     ],
   );
 
-  const feeInput = isListOrderPsbtTx ? null : (
+  const feeInput = (
     <FeeInfoInputForConfirmLite
       accountId={accountId}
       networkId={networkId}
@@ -393,6 +444,7 @@ function SendConfirm({
     prepaidFee,
     advancedSettings,
     advancedSettingsForm,
+    isListOrderPsbt,
 
     handleConfirm,
     onSecondaryActionPress: ({ close }) => {

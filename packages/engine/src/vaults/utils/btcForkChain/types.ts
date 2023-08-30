@@ -14,7 +14,6 @@ import type {
   TapInternalKey,
   WitnessUtxo,
 } from 'bip174/src/lib/interfaces';
-import type { Psbt } from 'bitcoinjs-lib';
 
 export enum AddressEncodings {
   P2PKH = 'P2PKH', // Legacy BIP-44
