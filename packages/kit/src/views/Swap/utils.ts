@@ -297,6 +297,9 @@ export function convertParams(params: FetchQuoteParams) {
   if (toTokenAmount) {
     urlParams.toTokenAmount = toTokenAmount;
   }
+  if (params.onChainSatsPerVbyte) {
+    urlParams.onChainSatsPerVbyte = params.onChainSatsPerVbyte;
+  }
   return urlParams;
 }
 

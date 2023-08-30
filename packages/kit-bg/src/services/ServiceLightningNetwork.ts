@@ -450,4 +450,21 @@ export default class ServiceLightningNetwork extends ServiceBase {
       currency: 'sats',
     };
   }
+
+  @backgroundMethod()
+  async batchGetLnUrl({
+    networkId,
+    addresses,
+  }: {
+    networkId: string;
+    addresses: string[];
+  }) {
+    if (!Array.isArray(addresses) || !addresses.length) {
+      return {};
+    }
+    const vault = (await this.backgroundApi.engine.getChainOnlyVault(
+      networkId,
+    )) as VaultLightning;
+    return vault.batchGetLnurl(addresses);
+  }
 }

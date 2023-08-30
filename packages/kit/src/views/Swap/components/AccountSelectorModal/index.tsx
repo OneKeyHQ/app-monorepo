@@ -23,6 +23,7 @@ import {
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { LazyDisplayView } from '../../../../components/LazyDisplayView';
@@ -442,6 +443,35 @@ const AccountSelectorModal: FC<AccountSelectorModalProps> = ({
           );
           data = data.filter((acc) => acc.address !== current.address);
         }
+      }
+      if (isLightningNetworkByNetworkId(networkId)) {
+        const getNormalizedAddress = (account: Account) => {
+          try {
+            const addresses = JSON.parse(account.addresses ?? '{}');
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
+            return (addresses.normalizedAddress as unknown as string) ?? '';
+          } catch (e) {
+            console.error('parse lightning address error: ', e);
+            // ignore
+            throw e;
+          }
+        };
+        const normalizedAddresses = data.map((acc) =>
+          getNormalizedAddress(acc),
+        );
+        const lnurls =
+          await backgroundApiProxy.serviceLightningNetwork.batchGetLnUrl({
+            networkId: networkId ?? '',
+            addresses: normalizedAddresses,
+          });
+        data = data.map((acc) => {
+          const normalizedAddress = getNormalizedAddress(acc);
+          const lnurl = lnurls[normalizedAddress];
+          return {
+            ...acc,
+            address: lnurl,
+          };
+        });
       }
       setAccounts(data);
     }

@@ -143,6 +143,7 @@ export type FetchQuoteParams = {
   independentField: FieldType;
   activeAccount: Account;
   receivingAddress?: string;
+  onChainSatsPerVbyte?: string;
 };
 
 export type QuoteLimited = {
@@ -191,6 +192,7 @@ export type QuoteData = {
   minAmountOut?: string;
   protocolFees?: ProtocolFees;
   estimatedPriceImpact?: string;
+  onChainSatsPerVbyte?: string;
 };
 
 type WrapperTransactionType = 'Withdraw' | 'Deposite';
