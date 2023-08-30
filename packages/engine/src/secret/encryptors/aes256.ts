@@ -2,7 +2,6 @@ import * as crypto from 'crypto';
 
 import { AES_CBC, Pbkdf2HmacSha256 } from 'asmcrypto.js';
 
-import webembedApiProxy from '@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy';
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import { IncorrectPassword } from '@onekeyhq/shared/src/errors/common-errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -48,7 +47,7 @@ function decodePassword({ password }: { password: string }) {
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     return decodeSensitiveText({ encodedText: password });
   }
-  if (process.env.NODE_ENV !== 'production') {
+  if (process.env.NODE_ENV !== 'production' && !platformEnv.isJest) {
     console.error(
       'Passing raw password is not allowed and not safe, please encode it at the beginning of debugger breakpoint call stack.',
     );
@@ -94,6 +93,9 @@ async function encryptAsync({
   }
 
   if (platformEnv.isNative) {
+    const webembedApiProxy = (
+      await import('@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy')
+    ).default;
     const str = await webembedApiProxy.secret.encrypt({
       password,
       data: bufferUtils.bytesToHex(data),
@@ -144,6 +146,9 @@ async function decryptAsync({
   }
 
   if (platformEnv.isNative) {
+    const webembedApiProxy = (
+      await import('@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy')
+    ).default;
     const str = await webembedApiProxy.secret.decrypt({
       password,
       data: bufferUtils.bytesToHex(data),

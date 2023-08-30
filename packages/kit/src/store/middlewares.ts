@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/no-unsafe-member-access */
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import type { Middleware } from 'redux';
 // import logger from 'redux-logger';
 
@@ -16,7 +18,7 @@ const middlewares: Middleware<unknown, unknown>[] = [
   // backgroundCheck,
 ];
 
-if (__DEV__) {
+if (__DEV__ && !platformEnv.isJest) {
   // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
   const createDebugger = require('redux-flipper').default;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
