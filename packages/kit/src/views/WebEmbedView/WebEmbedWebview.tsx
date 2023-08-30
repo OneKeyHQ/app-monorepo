@@ -71,13 +71,14 @@ const WebEmbedWebviewCmp: ForwardRefRenderFunction<
         width: '300px',
         zIndex: 9999,
         position: 'absolute',
+        opacity: 0.8,
         top: topPosition,
         left: '20px',
         borderColor: 'border-default',
         borderWidth: '5px',
         borderRightWidth: '50px',
         onPress: () => {
-          setTopPosition(topPosition === '100px' ? '400px' : '100px');
+          setTopPosition(topPosition === '100px' ? '700px' : '100px');
         },
       };
     }
