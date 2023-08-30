@@ -54,6 +54,7 @@ import {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   requestsInterceptTest2,
 } from './requestsInterceptTest';
+import webembedApiProxy from '@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy';
 
 interface IOneKeyPerfCheckPayload {
   testID?: string;
@@ -371,6 +372,32 @@ export const DevSettingSection = () => {
             }}
           />
         </Container.Item>
+
+        <Container.Item title="test WebEmbedApi" titleColor="text-critical">
+          <Button
+            size="xs"
+            onPress={() => {
+              webembedApiProxy.secret
+                .show({
+                  name: `zhangsan-${Date.now()}`,
+                  random: Math.random(),
+                })
+                .then((r) => {
+                  console.log('Developer TEST >>>> secret.show result: ', r);
+                })
+                .catch((err) => {
+                  console.error(
+                    'Developer TEST >>>> secret.show error: ',
+                    (err as Error)?.message,
+                    typeof (err as Error)?.message,
+                  );
+                });
+            }}
+          >
+            test
+          </Button>
+        </Container.Item>
+
         <Container.Item
           title="Show content-script reload BUTTON"
           titleColor="text-critical"
@@ -387,6 +414,7 @@ export const DevSettingSection = () => {
             }}
           />
         </Container.Item>
+
         <Container.Item
           title="Request intercept check"
           titleColor="text-critical"

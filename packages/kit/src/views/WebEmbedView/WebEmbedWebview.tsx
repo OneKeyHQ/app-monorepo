@@ -67,7 +67,7 @@ const WebEmbedWebviewCmp: ForwardRefRenderFunction<
   const boxProps: ComponentProps<typeof Pressable> = useMemo(() => {
     if (isWebviewVisible) {
       return {
-        height: '200px',
+        height: '500px',
         width: '300px',
         zIndex: 9999,
         position: 'absolute',
