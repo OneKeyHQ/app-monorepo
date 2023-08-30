@@ -4,6 +4,8 @@ import uuid from 'react-native-uuid';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
+import type { IDecodedTxAction } from '@onekeyhq/engine/src/vaults/types';
+import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
 
 import { IMPL_BTC, IMPL_TBTC } from '../../engine/engineConsts';
 
@@ -148,4 +150,45 @@ export function getInputsToSignFromPsbt({
     }
   });
   return inputsToSign;
+}
+
+function checkInscriptionInfo(action: IDecodedTxAction, address: string) {
+  return (
+    action.type === IDecodedTxActionType.NFT_TRANSFER_BTC &&
+    action.inscriptionInfo?.send === address &&
+    action.inscriptionInfo?.receive === address
+  );
+}
+
+function checkBRC20Info(action: IDecodedTxAction, address: string) {
+  return (
+    action.type === IDecodedTxActionType.TOKEN_BRC20_TRANSFER &&
+    action.brc20Info?.sender === address &&
+    action.brc20Info?.receiver === address
+  );
+}
+
+export function checkIsUnListOrderPsbt(
+  actions: IDecodedTxAction[] | undefined,
+  address: string | undefined,
+) {
+  if (!actions || !address) return false;
+
+  if (actions?.length === 1) {
+    return (
+      checkBRC20Info(actions[0], address) ||
+      checkInscriptionInfo(actions[0], address)
+    );
+  }
+
+  if (actions?.length === 2) {
+    return (
+      (checkBRC20Info(actions[0], address) &&
+        checkBRC20Info(actions[1], address)) ||
+      (checkInscriptionInfo(actions[0], address) &&
+        checkInscriptionInfo(actions[1], address))
+    );
+  }
+
+  return false;
 }

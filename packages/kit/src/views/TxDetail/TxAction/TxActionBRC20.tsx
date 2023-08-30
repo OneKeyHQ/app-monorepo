@@ -1,9 +1,11 @@
 import { useIntl } from 'react-intl';
 
+import { Text } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
+  IDecodedTxStatus,
 } from '@onekeyhq/engine/src/vaults/types';
 
 import { FormatCurrencyTokenOfAccount } from '../../../components/Format';
@@ -103,12 +105,13 @@ export function getTxActionsBRC20Info(props: ITxActionCardProps) {
 
 export function TxActionBRC20T0(props: ITxActionCardProps) {
   const { action, meta, decodedTx, historyTx, network } = props;
-  const { accountId, networkId } = decodedTx;
+  const { accountId, networkId, status } = decodedTx;
   const { amount, symbol, isOut, sender, receiver } =
     getTxActionsBRC20Info(props);
   const statusBar = (
     <TxStatusBarInList decodedTx={decodedTx} historyTx={historyTx} />
   );
+  const intl = useIntl();
 
   const subTitle = isOut ? receiver : sender;
 
@@ -121,7 +124,11 @@ export function TxActionBRC20T0(props: ITxActionCardProps) {
       footer={statusBar}
       symbol={symbol}
       iconInfo={meta?.iconInfo}
-      titleInfo={meta?.titleInfo}
+      titleInfo={
+        status === IDecodedTxStatus.Offline
+          ? { title: 'Partially Signed' }
+          : meta?.titleInfo
+      }
       content={
         <TxActionElementAmountNormal
           textAlign="right"
@@ -131,17 +138,29 @@ export function TxActionBRC20T0(props: ITxActionCardProps) {
           direction={action.direction}
         />
       }
-      subTitle={subTitleFormated}
+      subTitle={
+        status === IDecodedTxStatus.Offline ? (
+          <Text typography="Body2" color="text-warning">
+            {intl.formatMessage({ id: 'form__not_broadcast' })}
+          </Text>
+        ) : (
+          subTitleFormated
+        )
+      }
       extra={
-        <FormatCurrencyTokenOfAccount
-          accountId={accountId}
-          networkId={networkId}
-          token={action.brc20Info?.token}
-          value={amount}
-          render={(ele) => (
-            <TxListActionBoxExtraText>{ele}</TxListActionBoxExtraText>
-          )}
-        />
+        status === IDecodedTxStatus.Offline ? (
+          ''
+        ) : (
+          <FormatCurrencyTokenOfAccount
+            accountId={accountId}
+            networkId={networkId}
+            token={action.brc20Info?.token}
+            value={amount}
+            render={(ele) => (
+              <TxListActionBoxExtraText>{ele}</TxListActionBoxExtraText>
+            )}
+          />
+        )
       }
     />
   );

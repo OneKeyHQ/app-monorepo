@@ -10,6 +10,7 @@ import type { IDecodedTxAction } from '@onekeyhq/engine/src/vaults/types';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
+  IDecodedTxStatus,
 } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -230,14 +231,24 @@ export function TxActionNFTInscription(props: ITxActionCardProps) {
 }
 
 export function TxActionNFTInscriptionT0(props: ITxActionCardProps) {
-  const { action, meta } = props;
+  const intl = useIntl();
+  const { action, meta, decodedTx } = props;
+  const { status } = decodedTx;
   const { send, receive, isOut, asset } = getTxActionInscriptionInfo(props);
+
+  const subTitleFormated = isOut
+    ? shortenAddress(receive)
+    : shortenAddress(send);
 
   return (
     <TxListActionBox
       symbol="symbol"
       icon={<TxActionElementInscription asset={asset as NFTBTCAssetModel} />}
-      titleInfo={meta?.titleInfo}
+      titleInfo={
+        status === IDecodedTxStatus.Offline
+          ? { title: 'Partially Signed' }
+          : meta?.titleInfo
+      }
       content={
         <TxActionElementInscriptionContent
           direction={action.direction}
@@ -248,7 +259,15 @@ export function TxActionNFTInscriptionT0(props: ITxActionCardProps) {
           justifyContent="flex-end"
         />
       }
-      subTitle={isOut ? shortenAddress(receive) : shortenAddress(send)}
+      subTitle={
+        status === IDecodedTxStatus.Offline ? (
+          <Text typography="Body2" color="text-warning">
+            {intl.formatMessage({ id: 'form__not_broadcast' })}
+          </Text>
+        ) : (
+          subTitleFormated
+        )
+      }
     />
   );
 }

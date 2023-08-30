@@ -17,6 +17,7 @@ import {
   Tooltip,
 } from '@onekeyhq/components';
 import type { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
+import type { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 
 import { FormatCurrencyNativeOfAccount } from '../../../components/Format';
 import { useNetwork } from '../../../hooks';
@@ -261,9 +262,11 @@ function FeeInfoInputForConfirmLite({
       ? feeInfoPayload?.info?.waitingSeconds?.[Number(index)]
       : custom?.waitingSeconds;
 
+    // btc list nft psbt
     if (
-      new BigNumber(totalFeeInNative).isNaN() ||
-      new BigNumber(totalFeeInNative).isNegative()
+      (encodedTx as IEncodedTxBtc)?.psbtHex &&
+      (new BigNumber(totalFeeInNative).isNaN() ||
+        new BigNumber(totalFeeInNative).isLessThanOrEqualTo(0))
     )
       return;
 

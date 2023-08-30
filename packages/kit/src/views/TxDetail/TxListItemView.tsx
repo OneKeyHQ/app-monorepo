@@ -52,11 +52,12 @@ function TxListItemViewCmp(props: {
       prefix="Hash: "
     />
   );
-  const txStatusTextView = status !== IDecodedTxStatus.Confirmed && (
-    <Text typography="Body2" color={statusInfo.textColor}>
-      {intl.formatMessage({ id: statusInfo.text })}
-    </Text>
-  );
+  const txStatusTextView = status !== IDecodedTxStatus.Confirmed &&
+    status !== IDecodedTxStatus.Offline && (
+      <Text typography="Body2" color={statusInfo.textColor}>
+        {intl.formatMessage({ id: statusInfo.text })}
+      </Text>
+    );
   let replacedTextView = null;
   if (historyTx.replacedType === 'cancel') {
     replacedTextView = (

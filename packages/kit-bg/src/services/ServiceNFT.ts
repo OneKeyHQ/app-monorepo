@@ -4,7 +4,7 @@ import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import * as nft from '@onekeyhq/engine/src/managers/nft';
-import { getNFTListKey } from '@onekeyhq/engine/src/managers/nft';
+import { NFTDataType, getNFTListKey } from '@onekeyhq/engine/src/managers/nft';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type {
   Collection,
@@ -13,6 +13,7 @@ import type {
   MarketPlace,
   NFTAsset,
   NFTAssetMeta,
+  NFTBTCAssetModel,
   NFTListItems,
   NFTMarketCapCollection,
   NFTMarketRanking,
@@ -455,6 +456,46 @@ class ServiceNFT extends ServiceBase {
     );
 
     return results.filter(Boolean);
+  }
+
+  @backgroundMethod()
+  async updateAsset({
+    accountId,
+    networkId,
+    asset,
+  }: {
+    accountId?: string;
+    networkId: string;
+    asset: NFTBTCAssetModel;
+  }) {
+    if (!accountId) return;
+    const res = await simpleDb.accountPortfolios.getData();
+    const key = `${networkId}___${accountId}`;
+
+    const portfolios = res.portfolios[key];
+
+    const nfts = portfolios?.[EOverviewScanTaskType.nfts] || [];
+
+    const type = NFTDataType(networkId);
+
+    if (type === 'btc') {
+      const index = (nfts as NFTBTCAssetModel[]).findIndex(
+        (item) => item.inscription_id === asset.inscription_id,
+      );
+      if (index !== -1) {
+        nfts[index] = asset;
+        simpleDb.accountPortfolios.setRawData({
+          ...res,
+          portfolios: {
+            ...(res.portfolios ?? {}),
+            [key]: {
+              ...res.portfolios?.[key],
+              [EOverviewScanTaskType.nfts]: nfts,
+            },
+          },
+        });
+      }
+    }
   }
 }
 
