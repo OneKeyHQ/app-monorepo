@@ -18,6 +18,8 @@ import debugLogger, {
 } from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { isWebEmbedAllowedOrigin } from '../BackgroundApiBase';
+
 import ProviderApiBase from './ProviderApiBase';
 
 import type BackgroundApiBase from '../BackgroundApiBase';
@@ -270,15 +272,15 @@ class ProviderApiPrivate extends ProviderApiBase {
       throw new Error('webembed webview bridge not ready.');
     }
 
-    // TODO remove
-    console.log('callWebEmbedApiProxy >>>>>>>>>>> +++++++++++  _______ ', {
-      data: JSON.stringify(data),
-      remoteInfoOrigin: bg?.webEmbedBridge?.remoteInfo.origin || '',
-      remoteInfoRemoteId: bg?.webEmbedBridge?.remoteInfo.remoteId || '',
-    });
+    const webviewOrigin = `${bg?.webEmbedBridge?.remoteInfo?.origin || ''}`;
+    if (!isWebEmbedAllowedOrigin(webviewOrigin)) {
+      throw new Error(
+        `callWebEmbedApiProxy not allowed origin: ${
+          webviewOrigin || 'undefined'
+        }`,
+      );
+    }
 
-    // @ts-ignore
-    data.$$bridgeRemoteInfo = bg?.webEmbedBridge?.remoteInfo;
     const result = await bg?.webEmbedBridge?.request?.({
       scope: '$private',
       data,

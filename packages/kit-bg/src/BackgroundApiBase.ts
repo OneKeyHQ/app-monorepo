@@ -37,14 +37,21 @@ import type {
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 
-const PRIVATE_WHITE_LIST_ORIGIN = [
-  'https://onekey.so',
-  'http://localhost:3008', // iOS simulator DEV localhost for web-embed
-  'http://localhost:8081', // iOS simulator DEV localhost for web-embed
-  'null', // Android DEV localhost for web-embed. url like file://
+export const WEB_EMBED_WHITE_LIST_ORIGIN = [
+  // iOS/Android origin in PRD for web-embed (local storage file).
+  //    url like file:///.../index.html
+  // - native:   new URL().origin return    "null"
+  // - web:      new URL().origin return    "file://"
+  'null',
+  'file://',
+
   ...(platformEnv.isDev
     ? [
-        // origin allowed in DEV
+        // iOS simulator DEV localhost for web-embed (localhost)
+        'http://localhost:3008',
+        'http://localhost:8081',
+
+        // real iOS Device web-embed origin allowed in DEV (LAN ip)
         'http://192.168.31.215:3008',
         'http://192.168.31.204:3008',
         'http://192.168.31.205:3008',
@@ -55,12 +62,22 @@ const PRIVATE_WHITE_LIST_ORIGIN = [
       ]
     : []),
 ].filter(Boolean);
+
+const PRIVATE_WHITE_LIST_ORIGIN = [
+  'https://onekey.so',
+  ...WEB_EMBED_WHITE_LIST_ORIGIN,
+].filter(Boolean);
+
 function isPrivateAllowedOrigin(origin?: string) {
   return (
     origin &&
     (origin?.endsWith('.onekey.so') ||
       PRIVATE_WHITE_LIST_ORIGIN.includes(origin))
   );
+}
+
+export function isWebEmbedAllowedOrigin(origin?: string) {
+  return origin && WEB_EMBED_WHITE_LIST_ORIGIN.includes(origin);
 }
 
 function isPrivateAllowedMethod(method?: string) {

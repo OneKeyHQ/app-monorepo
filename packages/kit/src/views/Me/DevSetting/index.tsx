@@ -23,6 +23,7 @@ import {
   getFiatEndpoint,
   getSocketEndpoint,
 } from '@onekeyhq/engine/src/endpoint';
+import webembedApiProxy from '@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import type { ISettingsDevModeInfo } from '@onekeyhq/kit/src/store/reducers/settings';
@@ -54,7 +55,6 @@ import {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   requestsInterceptTest2,
 } from './requestsInterceptTest';
-import webembedApiProxy from '@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy';
 
 interface IOneKeyPerfCheckPayload {
   testID?: string;
@@ -377,6 +377,15 @@ export const DevSettingSection = () => {
           <Button
             size="xs"
             onPress={() => {
+              console.log(
+                'show file origin test: <>>>><',
+                JSON.stringify(
+                  new URL(
+                    'file:///private/var/containers/Bundle/Application/883AGGGGGG/OneKeyWallet.app/web-embed/index.html',
+                  ).origin,
+                ),
+              );
+
               webembedApiProxy.secret
                 .show({
                   name: `zhangsan-${Date.now()}`,
@@ -384,14 +393,14 @@ export const DevSettingSection = () => {
                 })
                 .then((r) => {
                   console.log('Developer TEST >>>> secret.show result: ', r);
-                })
-                .catch((err) => {
-                  console.error(
-                    'Developer TEST >>>> secret.show error: ',
-                    (err as Error)?.message,
-                    typeof (err as Error)?.message,
-                  );
                 });
+              // .catch((err) => {
+              //   console.error(
+              //     'Developer TEST >>>> secret.show error: ',
+              //     (err as Error)?.message,
+              //     typeof (err as Error)?.message,
+              //   );
+              // });
             }}
           >
             test

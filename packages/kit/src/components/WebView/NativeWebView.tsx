@@ -65,13 +65,25 @@ const NativeWebView = forwardRef(
         try {
           const uri = new URL(url);
           const origin = uri?.origin || '';
-          // ios: origin==="null"
-          debugLogger.webview.info('onMessage', {
-            url,
-            uri,
-            origin,
-            data,
-          });
+
+          // only log on DEV, as data may be sensitive
+          if (process.env.NODE_ENV !== 'production') {
+            debugLogger.webview.info('NativeWebView -> webviewOnMessage', {
+              // android:
+              //    file:///android_asset/web-embed/index.html#/webembed_api
+              // ios: (missing #/webembed_api)
+              //    file:///private/var/containers/Bundle/Application/130846AC-618F-4DEF-8BCD-925CAB7E578F/OneKeyWallet.app/web-embed/index.html
+              url,
+              uri,
+              // ios/android:
+              //    origin==="null"
+              // web:
+              //    origin==="file://"
+              origin,
+              data,
+            });
+          }
+
           // TODO use url as origin when WebEmbedWebView
           // - receive
           jsBridge.receive(data, { origin });
