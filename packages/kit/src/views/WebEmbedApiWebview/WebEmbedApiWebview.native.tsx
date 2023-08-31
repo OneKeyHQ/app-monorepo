@@ -33,7 +33,7 @@ const WebEmbedApiWebviewCmp: ForwardRefRenderFunction<
   IWebEmbedWebviewProps
 > = ({ onContentLoaded }, ref) => {
   const routePath = '/webembed_api';
-  const [topPosition, setTopPosition] = useState('100px');
+  const [topPosition, setTopPosition] = useState('50px');
   const isWebviewVisible = useShowWebEmbedWebviewAgent();
 
   const webviewRef = useRef<IWebViewWrapperRef | null>(null);
@@ -73,12 +73,12 @@ const WebEmbedApiWebviewCmp: ForwardRefRenderFunction<
         position: 'absolute',
         opacity: 0.8,
         top: topPosition,
-        left: '20px',
+        left: '1px',
         borderColor: 'border-default',
         borderWidth: '5px',
-        borderRightWidth: '50px',
+        borderRightWidth: '20px',
         onPress: () => {
-          setTopPosition(topPosition === '100px' ? '700px' : '100px');
+          setTopPosition(topPosition === '50px' ? '700px' : '50px');
         },
       };
     }
