@@ -115,8 +115,13 @@ function checkPassword(context: OneKeyContext, password: string): boolean {
     return false;
   }
 }
+export interface IDbApiGetContextOptions {
+  verifyPassword?: string;
+}
 interface DBAPI {
-  getContext(): Promise<OneKeyContext | null | undefined>;
+  getContext(
+    options?: IDbApiGetContextOptions,
+  ): Promise<OneKeyContext | null | undefined>;
   updatePassword(oldPassword: string, newPassword: string): Promise<void>;
   reset(): Promise<void>;
 
@@ -164,6 +169,7 @@ interface DBAPI {
     walletId,
     nextAccountIds,
   }: ISetNextAccountIdsParams): Promise<Wallet>;
+
   getCredential(
     walletId: string,
     password: string,

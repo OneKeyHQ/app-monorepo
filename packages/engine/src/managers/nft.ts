@@ -14,7 +14,6 @@ import type {
   NFTTransaction,
 } from '@onekeyhq/engine/src/types/nft';
 import { NFTChainMap } from '@onekeyhq/engine/src/types/nft';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
@@ -124,6 +123,9 @@ export const syncImage = async (params: {
 };
 
 export const getNFTSymbolPrice = async (networkId: string) => {
+  const backgroundApiProxy = (
+    await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy')
+  ).default;
   const price = await backgroundApiProxy.servicePrice.getSimpleTokenPrice({
     networkId,
   });

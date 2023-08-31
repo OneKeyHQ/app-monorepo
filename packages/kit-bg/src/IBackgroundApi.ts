@@ -5,6 +5,8 @@ import type { Validators } from '@onekeyhq/engine/src/validators';
 import type { VaultFactory } from '@onekeyhq/engine/src/vaults/VaultFactory';
 import type { IAppSelector, IPersistor, IStore } from '@onekeyhq/kit/src/store';
 
+import type { IOffscreenApi } from './offscreens/instance/IOffscreenApi';
+import type { OFFSCREEN_API_MESSAGE_TYPE } from './offscreens/types';
 import type ProviderApiBase from './providers/ProviderApiBase';
 import type { ProviderApiWalletConnect } from './providers/ProviderApiWalletConnect';
 import type ServiceAccount from './services/ServiceAccount';
@@ -51,6 +53,7 @@ import type ServiceToken from './services/ServiceToken';
 import type ServiceTransaction from './services/ServiceTransaction';
 import type ServiceUtxos from './services/ServiceUtxos';
 import type ServiceWalletConnect from './services/ServiceWalletConnect';
+import type { IWebembedApiKeys } from './webembeds/instance/IWebembedApi';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
   IInjectedProviderNames,
@@ -64,6 +67,13 @@ import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 
 export type IBackgroundApiInternalCallMessage = IJsonRpcRequest & {
   service: string;
+};
+export type IBackgroundApiWebembedCallMessage = IJsonRpcRequest & {
+  module: IWebembedApiKeys;
+};
+export type IOffscreenApiMessagePayload = IJsonRpcRequest & {
+  type: typeof OFFSCREEN_API_MESSAGE_TYPE;
+  module: keyof IOffscreenApi;
 };
 
 export interface IBackgroundApiBridge {

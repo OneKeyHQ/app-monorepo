@@ -17,8 +17,6 @@ enum AppUIEventBusNames {
   StoreInitedFromPersistor = 'StoreInitedFromPersistor',
   AccountChanged = 'AccountChanged',
   SwapRefresh = 'SwapRefresh',
-  EnsureChainWebEmbed = 'EnsureChainWebEmbed',
-  ChainWebEmbedDisabled = 'ChainWebEmbedDisabled',
   Migrate = 'Migrate',
   RevokeRefresh = 'RevokeRefresh',
   HardwareCancel = 'HardwareCancel',

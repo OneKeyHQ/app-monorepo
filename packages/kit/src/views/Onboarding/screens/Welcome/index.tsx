@@ -14,10 +14,6 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import ContentHardwareImage from '@onekeyhq/kit/assets/onboarding/welcome_hardware.png';
-import {
-  AppUIEventBusNames,
-  appUIEventBus,
-} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -92,7 +88,7 @@ const Welcome = () => {
   useEffect(() => {
     // Fix cardano webembed crash when onboarding page is closed on Android platform.
     if (platformEnv.isNative) {
-      appUIEventBus.emit(AppUIEventBusNames.ChainWebEmbedDisabled);
+      //
     }
   }, []);
 

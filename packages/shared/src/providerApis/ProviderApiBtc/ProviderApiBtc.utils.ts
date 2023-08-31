@@ -125,6 +125,7 @@ export function getInputsToSignFromPsbt({
       const tx = BitcoinJS.Transaction.fromBuffer(v.nonWitnessUtxo);
       const output = tx.outs[psbt.txInputs[index].index];
       script = output.script;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       value = output.value;
     }
     const isSigned = v.finalScriptSig || v.finalScriptWitness;

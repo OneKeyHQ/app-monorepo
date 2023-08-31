@@ -41,7 +41,7 @@ if (platformEnv.isNative || platformEnv.isDesktop) {
   connectionRedirectUrl = chrome.runtime.getURL(EXT_HTML_FILES.uiExpandTab);
 } else {
   connectionRedirectUrl =
-    typeof window === 'undefined' ? '' : window.location.origin;
+    typeof window === 'undefined' ? '' : window?.location?.origin;
 }
 
 // some needs url fixing cases:

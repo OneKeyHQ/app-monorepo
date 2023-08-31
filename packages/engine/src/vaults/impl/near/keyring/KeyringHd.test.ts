@@ -28,7 +28,7 @@ describe('Near KeyringHd Tests', () => {
     } catch (error: any) {
       // TODO: 临时规避 JSONRPC 调用超过限量的问题，需要用 mock 替代。
       console.error(error.response);
-      expect(error.response.error.message).toBe('Exceeded the quota usage');
+      expect(error.response?.error?.message).toBe('Exceeded the quota usage');
     }
   });
 

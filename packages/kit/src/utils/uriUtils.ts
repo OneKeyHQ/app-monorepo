@@ -77,15 +77,29 @@ export function getSvgContent(data: string) {
   return data;
 }
 
-function getOriginFromUrl({ url }: { url: string }): string {
-  try {
-    const urlInfo = new URL(url);
-    const { origin } = urlInfo;
-    return origin || '';
-  } catch (error) {
-    console.error(error);
+export function getOriginFromUrl({ url }: { url: string }): string {
+  if (url) {
+    try {
+      const urlInfo = new URL(url);
+      const { origin } = urlInfo;
+      return origin || '';
+    } catch (error) {
+      console.error(error);
+    }
   }
   return '';
+}
+
+export function isOriginMatched({
+  url1,
+  url2,
+}: {
+  url1: string;
+  url2: string;
+}) {
+  const origin1 = getOriginFromUrl({ url: url1 });
+  const origin2 = getOriginFromUrl({ url: url2 });
+  return origin1 && origin2 && origin1 === origin2;
 }
 
 export function checkOneKeyCardGoogleOauthUrl({
