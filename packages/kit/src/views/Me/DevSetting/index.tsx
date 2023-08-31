@@ -387,7 +387,7 @@ export const DevSettingSection = () => {
               );
 
               webembedApiProxy.secret
-                .show({
+                .testShow({
                   name: `zhangsan-${Date.now()}`,
                   random: Math.random(),
                 })

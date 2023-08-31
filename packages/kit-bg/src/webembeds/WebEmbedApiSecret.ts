@@ -5,7 +5,7 @@ import {
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 class WebEmbedApiSecret {
-  show({ name, random }: { name: string; random: number }) {
+  testShow({ name, random }: { name: string; random: number }) {
     if (random > 0.5) {
       // throw error test
       throw new Error('WebEmbedApiSecret show error!');
@@ -13,12 +13,8 @@ class WebEmbedApiSecret {
     return Promise.resolve(`${111}---${name}`);
   }
 
-  hi() {
-    return Promise.resolve(2);
-  }
-
   async encrypt({
-    password,
+    password, // password should be decoded first by decodePassword
     data,
   }: {
     password: string;
@@ -48,7 +44,7 @@ class WebEmbedApiSecret {
   }
 
   async decrypt({
-    password,
+    password, // password should be decoded first by decodePassword
     data,
   }: {
     password: string;

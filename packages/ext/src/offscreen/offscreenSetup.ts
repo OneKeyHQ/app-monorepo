@@ -16,7 +16,6 @@ export function offscreenSetup() {
           module,
         );
         if (moduleInstance && moduleInstance[method]) {
-          // TODO error handling
           const result = await moduleInstance[method](...(params as any[]));
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return result;
@@ -39,7 +38,6 @@ export function offscreenSetup() {
   //         const { module, method, params } = msg;
   //         const sdk: any = await getModuleByName(module);
   //         if (sdk && sdk[method]) {
-  //           // TODO error handling
   //           const result = await sdk[method](...params);
   //           sendResponse(result);
   //         } else {

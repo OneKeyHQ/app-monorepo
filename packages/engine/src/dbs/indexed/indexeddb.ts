@@ -430,7 +430,6 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  // TODO rename to Legacy
   dumpCredentials(_password: string): Promise<Record<string, string>> {
     return this.ready.then(
       (db) =>

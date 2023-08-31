@@ -293,6 +293,7 @@ class ProviderApiPrivate extends ProviderApiBase {
   @providerApiMethod()
   async webEmbedApiReady(): Promise<void> {
     this.isWebEmbedApiReady = true;
+    // TODO return encodeSensitiveText key
     return Promise.resolve();
   }
 

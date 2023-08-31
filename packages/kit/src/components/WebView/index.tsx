@@ -1,8 +1,6 @@
 import type { ComponentProps, FC } from 'react';
 import { useCallback, useRef } from 'react';
 
-import { wait } from '@onekeyfe/hd-core';
-
 import { Box, Button, Center } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -66,9 +64,6 @@ const WebView: FC<WebViewProps> = ({
   const receiveHandler = useCallback<IJsBridgeReceiveHandler>(
     async (payload, hostBridge: JsBridgeBase) => {
       const result = await backgroundApiProxy.bridgeReceiveHandler(payload);
-
-      // TODO remove
-      await wait(5000);
 
       // TODO move to IWebViewWrapperRef.getURL()
       const webviewUrl = platformEnv.isNative

@@ -873,7 +873,7 @@ export const Debug = () => {
               {...pressableProps}
               onPress={() => {
                 webembedApiProxy.secret
-                  .show({
+                  .testShow({
                     name: `zhangsan-${Date.now()}`,
                     random: Math.random(),
                   })

@@ -30,7 +30,6 @@ async function callWebEmbedApiMethod(
   const { module, method, params } = message;
   const moduleInstance: any = await getOrCreateWebEmbedApiModule(module);
   if (moduleInstance && moduleInstance[method]) {
-    // TODO error handling
     const result = await moduleInstance[method](...(params as any[]));
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return result;
