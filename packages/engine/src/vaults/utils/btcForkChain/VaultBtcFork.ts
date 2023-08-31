@@ -190,7 +190,7 @@ export default class VaultBtcFork extends VaultBase {
       coinType: dbAccount.coinType,
       tokens: [],
       address: dbAccount.address,
-      pubKey: (dbAccount as DBUTXOAccount).pubKey,
+      pubKey: (dbAccount as DBUTXOAccount).pub,
       xpub: this.getAccountXpub(dbAccount as DBUTXOAccount),
       template: dbAccount.template,
       customAddresses: JSON.stringify(
