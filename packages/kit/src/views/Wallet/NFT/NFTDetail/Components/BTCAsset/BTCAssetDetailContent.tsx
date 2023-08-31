@@ -95,10 +95,7 @@ function BTCAssetDetailContent({
 
   const [asset, updateAsset] = useState(outerAsset);
   const isDisabled =
-    wallet?.type === WALLET_TYPE_WATCHING ||
-    asset.owner !== outerAsset.accountAddress ||
-    !accountId ||
-    !isOwner;
+    wallet?.type === WALLET_TYPE_WATCHING || !accountId || !isOwner;
 
   const sendAction = useCallback(() => {
     if (!networkId || !accountId) {
