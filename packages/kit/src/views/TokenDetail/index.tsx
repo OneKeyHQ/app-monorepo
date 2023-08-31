@@ -186,13 +186,6 @@ function TokenDetailViewWithoutMemo() {
     [headerHeight],
   );
 
-  // if (result.isLoading) {
-  //   return (
-  //     <Center>
-  //       <Spinner mt={18} size="lg" />
-  //     </Center>
-  //   );
-  // }
   if (isBRC20)
     return (
       <TokenDetailContext.Provider value={contextValue}>
