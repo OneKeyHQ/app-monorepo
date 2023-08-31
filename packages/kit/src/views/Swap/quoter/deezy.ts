@@ -47,6 +47,11 @@ export class DeezyQuoter implements Quoter {
     if (response.data && response.data.progress) {
       return {
         ...response.data.progress,
+        status:
+          // @ts-expect-error
+          response.data?.progress?.status === 'success'
+            ? 'sucesss'
+            : response.data?.progress?.status,
       };
     }
     return {
