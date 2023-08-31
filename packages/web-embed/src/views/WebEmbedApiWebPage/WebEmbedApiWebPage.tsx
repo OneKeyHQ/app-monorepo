@@ -1,19 +1,18 @@
+/* eslint-disable react/button-has-type */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 import { useCallback, useEffect, useState } from 'react';
 
-import { Button, Center, Typography } from '@onekeyhq/components';
 import type { IBackgroundApiWebembedCallMessage } from '@onekeyhq/kit-bg/src/IBackgroundApi';
 import webembedApi from '@onekeyhq/kit-bg/src/webembeds/instance/webembedApi';
 
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
-function WebEmbedApiScreen() {
+function WebEmbedApiWebPage() {
   const [msg, setMsg] = useState<any>('');
   const handler = useCallback(async (payload: IJsBridgeMessagePayload) => {
-    // if (process.env.NODE_ENV !== 'production') {
-    // }
-    // TODO remove
-    setMsg(payload.data);
+    if (process.env.NODE_ENV !== 'production') {
+      setMsg(payload.data);
+    }
     return webembedApi.callWebEmbedApiMethod(
       payload.data as IBackgroundApiWebembedCallMessage,
     );
@@ -39,31 +38,37 @@ function WebEmbedApiScreen() {
     };
   }, [handler]);
 
-  // if (process.env.NODE_ENV !== 'production') {
-  // TODO remove
-  return (
-    <Center height="full">
-      <Typography.Body1
-        whiteSpace="normal"
-        wordBreak="break-all"
-        overflowWrap="anywhere"
-      >
-        {msg ? JSON.stringify(msg) : 'WebEmbedApiScreen'}
-      </Typography.Body1>
-      <Button
-        onPress={() => {
-          alert(window.location.href);
-          window.location.reload();
-        }}
-      >
-        Reload
-      </Button>
-    </Center>
-  );
-  // }
+  if (process.env.NODE_ENV !== 'production') {
+    return (
+      <div style={{ fontSize: 12, padding: 4 }}>
+        <button
+          onClick={() => {
+            alert(window.location.href);
+            window.location.reload();
+          }}
+        >
+          Reload
+        </button>
+        <div
+          style={{
+            wordBreak: 'break-all',
+            overflow: 'auto',
+            whiteSpace: 'normal',
+          }}
+        >
+          {msg ? JSON.stringify(msg) : 'WebEmbedApiWebPage'}
+        </div>
+      </div>
+    );
+  }
 
-  // return null;
+  return (
+    <div
+      style={{ wordBreak: 'break-all', overflow: 'auto', whiteSpace: 'normal' }}
+    >
+      WebEmbedApiWebPage
+    </div>
+  );
 }
 
-// TODO rename WebEmbedApiWebHandler
-export { WebEmbedApiScreen };
+export { WebEmbedApiWebPage };

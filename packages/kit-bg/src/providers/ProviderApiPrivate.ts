@@ -212,6 +212,10 @@ class ProviderApiPrivate extends ProviderApiBase {
   }
 
   // $onekey.$private.request({method:'wallet_getConnectWalletInfo'})
+  // *************************************
+  // ATTENTION:
+  // this is public method, DO NOT return some sensitive data
+  // *************************************
   @providerApiMethod()
   async wallet_getConnectWalletInfo(
     req: IJsBridgeMessagePayload,

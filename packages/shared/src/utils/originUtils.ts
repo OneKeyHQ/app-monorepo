@@ -26,20 +26,23 @@ export const WEB_EMBED_API_WHITE_LIST_ORIGIN = [
     : []),
 ].filter(Boolean);
 
-export const PROVIDER_APIP_RIVATE_WHITE_LIST_ORIGIN = [
+export const PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN = [
   'https://onekey.so',
   ...WEB_EMBED_API_WHITE_LIST_ORIGIN,
 ].filter(Boolean);
 
+export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
+  'wallet_connectToWalletConnect',
+  'wallet_getConnectWalletInfo',
+  'wallet_sendSiteMetadata',
+  'wallet_scanQrcode',
+];
+
+// white list method which can be called from any origin
+//      so these method should NOT return sensitive data
 export function isProviderApiPrivateAllowedMethod(method?: string) {
   return (
-    method &&
-    [
-      'wallet_connectToWalletConnect',
-      'wallet_getConnectWalletInfo',
-      'wallet_sendSiteMetadata',
-      'wallet_scanQrcode',
-    ].includes(method || '')
+    method && PROVIDER_API_PRIVATE_WHITE_LIST_METHOD.includes(method || '')
   );
 }
 
@@ -47,7 +50,7 @@ export function isProviderApiPrivateAllowedOrigin(origin?: string) {
   return (
     origin &&
     (origin?.endsWith('.onekey.so') ||
-      PROVIDER_APIP_RIVATE_WHITE_LIST_ORIGIN.includes(origin))
+      PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN.includes(origin))
   );
 }
 

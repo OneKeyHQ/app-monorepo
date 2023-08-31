@@ -4,31 +4,19 @@ import '@onekeyhq/shared/src/polyfills';
 
 import { lazy, useEffect, useState } from 'react';
 
-import { HashRouter, Link, Route, Routes } from 'react-router-dom';
+import { HashRouter, Route, Routes } from 'react-router-dom';
 
-import { Provider } from '@onekeyhq/components';
-import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
+import Provider from '@onekeyhq/components/src/Provider';
 import LOCALES from '@onekeyhq/components/src/locale';
 // css should be imported at last
 import '@onekeyhq/shared/src/web/index.css';
 
-const LazyOnboardingAutoTyping = lazy(
-  () => import('./src/views/OnboardingAutoTyping'),
-);
-const LazyWebEmbedApiScreen = lazy(
-  () => import('./src/views/WebEmbedApiScreen'),
-);
+import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
 
-function HomeAbcTest() {
-  return (
-    <div>
-      ABC
-      <div>
-        <Link to="/">Back home</Link>
-      </div>
-    </div>
-  );
-}
+const LazyOnboardingAutoTyping = lazy(
+  () => import('./views/OnboardingAutoTyping'),
+);
+const LazyWebEmbedApiWebPage = lazy(() => import('./views/WebEmbedApiWebPage'));
 
 // @ts-ignore
 const appSettings = window.WEB_EMBED_ONEKEY_APP_SETTINGS || {
@@ -62,13 +50,13 @@ function App() {
         <Routes>
           {/* TODO jian guo pro3 NOT support hash route init */}
           <Route path="/" element={<LazyOnboardingAutoTyping />} />
-          <Route path="/abc" element={<HomeAbcTest />} />
           <Route
             path="/onboarding/auto_typing"
             element={<LazyOnboardingAutoTyping />}
           />
+          {/* http://localhost:3008/#/webembed_api */}
           {/* TODO also move to OnboardingAutoTyping */}
-          <Route path="/webembed_api" element={<LazyWebEmbedApiScreen />} />
+          <Route path="/webembed_api" element={<LazyWebEmbedApiWebPage />} />
         </Routes>
       </HashRouter>
     </Provider>
