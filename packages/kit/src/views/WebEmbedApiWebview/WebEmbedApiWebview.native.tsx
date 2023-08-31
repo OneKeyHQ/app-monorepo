@@ -97,6 +97,7 @@ const WebEmbedApiWebviewCmp: ForwardRefRenderFunction<
   return (
     <Pressable {...boxProps}>
       <WebViewWebEmbed
+        // do NOT set custom key, as jsBridge will break
         onWebViewRef={onWebViewRef}
         onContentLoaded={onContentLoadedFinal}
         // *** use web-embed local html file

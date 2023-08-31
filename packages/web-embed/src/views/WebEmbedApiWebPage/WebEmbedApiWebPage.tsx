@@ -35,6 +35,7 @@ function WebEmbedApiWebPage() {
       window.$onekey.$private.request({
         method: 'webEmbedApiNotReady',
       });
+      window.$onekey.$private.webembedReceiveHandler = undefined;
     };
   }, [handler]);
 

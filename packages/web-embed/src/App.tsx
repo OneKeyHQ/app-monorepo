@@ -27,6 +27,15 @@ const appSettings = window.WEB_EMBED_ONEKEY_APP_SETTINGS || {
 const localeVariant = appSettings.localeVariant as LocaleSymbol;
 const cachedLocale = LOCALES[localeVariant];
 
+function HomePage() {
+  return (
+    <>
+      <LazyOnboardingAutoTyping />
+      <LazyWebEmbedApiWebPage />
+    </>
+  );
+}
+
 function App() {
   const [localeReady, setLocaleReady] = useState(
     typeof cachedLocale !== 'function',
@@ -48,14 +57,13 @@ function App() {
     >
       <HashRouter>
         <Routes>
-          {/* TODO jian guo pro3 NOT support hash route init */}
-          <Route path="/" element={<LazyOnboardingAutoTyping />} />
+          {/* jian guo pro3 NOT support hash route init */}
+          <Route path="/" element={<HomePage />} />
           <Route
             path="/onboarding/auto_typing"
             element={<LazyOnboardingAutoTyping />}
           />
           {/* http://localhost:3008/#/webembed_api */}
-          {/* TODO also move to OnboardingAutoTyping */}
           <Route path="/webembed_api" element={<LazyWebEmbedApiWebPage />} />
         </Routes>
       </HashRouter>
