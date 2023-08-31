@@ -58,7 +58,8 @@ const SignMessageConfirm = () => {
 
   const onModalClose = useCallback(() => {
     dappApprove?.reject();
-  }, [dappApprove]);
+    route.params.onFail?.();
+  }, [dappApprove, route.params]);
 
   useEffect(() => {
     // clear previous close timeout if request batch sign message
@@ -97,6 +98,7 @@ const SignMessageConfirm = () => {
         }
       } catch (e: any) {
         dappApprove?.reject({ error: e });
+        route.params.onFail?.(e);
       }
 
       const nextRouteParams: SendAuthenticationParams = {
@@ -129,6 +131,9 @@ const SignMessageConfirm = () => {
             }, 600);
           }
         },
+        onFail: (e) => {
+          route.params.onFail?.(e);
+        },
         onModalClose,
       };
 
@@ -160,6 +165,7 @@ const SignMessageConfirm = () => {
     handleConfirm,
     onSecondaryActionPress: ({ close }) => {
       dappApprove.reject();
+      route.params.onFail?.();
       close();
     },
     onModalClose,
