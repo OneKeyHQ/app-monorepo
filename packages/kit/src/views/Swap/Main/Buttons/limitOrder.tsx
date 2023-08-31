@@ -152,6 +152,7 @@ const LimitOrderButton = () => {
         },
         onFail: () => {
           appUIEventBus.emit(AppUIEventBusNames.LimitOrderError);
+          progressStatusCtx.closeProgressStatus?.();
         },
       });
     };
