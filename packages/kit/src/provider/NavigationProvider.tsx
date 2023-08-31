@@ -18,6 +18,7 @@ import type { RootRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import { analyticLogEvent } from '@onekeyhq/shared/src/analytics';
 import { setAttributes } from '@onekeyhq/shared/src/crashlytics';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { markFPTime } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useShortcuts } from '../hooks/useShortcuts';
@@ -31,11 +32,8 @@ import RedirectProvider from './RedirectProvider';
 
 import type { NavigationContainerRef } from '@react-navigation/native';
 
-import { markFPTime } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
-
 export type RootNavContainerRef = NavigationContainerRef<RootRoutesParams>;
 export const navigationRef = createRef<RootNavContainerRef>();
-
 
 const WebEmbedView = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/WebEmbedView/WebEmbedView'),

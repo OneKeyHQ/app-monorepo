@@ -20,11 +20,7 @@ import ErrorView from './ErrorView';
 
 import type { InpageProviderWebViewProps } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
-import type {
-  WebViewMessageEvent,
-  WebViewNavigation,
-  WebViewProps,
-} from 'react-native-webview';
+import type { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
 
 export type NativeWebViewProps = WebViewProps & InpageProviderWebViewProps;
 

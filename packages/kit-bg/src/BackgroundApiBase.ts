@@ -19,6 +19,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  isProviderApiPrivateAllowedMethod,
+  isProviderApiPrivateAllowedOrigin,
+} from '@onekeyhq/shared/src/utils/originUtils';
 
 import { createBackgroundProviders } from './providers/backgroundProviders';
 
@@ -36,61 +40,6 @@ import type {
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
-
-export const WEB_EMBED_WHITE_LIST_ORIGIN = [
-  // iOS/Android origin in PRD for web-embed (local storage file).
-  //    url like file:///.../index.html
-  // - native:   new URL().origin return    "null"
-  // - web:      new URL().origin return    "file://"
-  'null',
-  'file://',
-
-  ...(platformEnv.isDev
-    ? [
-        // iOS simulator DEV localhost for web-embed (localhost)
-        'http://localhost:3008',
-        'http://localhost:8081',
-
-        // real iOS Device web-embed origin allowed in DEV (LAN ip)
-        'http://192.168.31.215:3008',
-        'http://192.168.31.204:3008',
-        'http://192.168.31.205:3008',
-        'http://192.168.31.96:3008',
-        'http://192.168.50.36:3008',
-        'http://192.168.124.2:3008',
-        'http://192.168.0.104:3008',
-      ]
-    : []),
-].filter(Boolean);
-
-const PRIVATE_WHITE_LIST_ORIGIN = [
-  'https://onekey.so',
-  ...WEB_EMBED_WHITE_LIST_ORIGIN,
-].filter(Boolean);
-
-function isPrivateAllowedOrigin(origin?: string) {
-  return (
-    origin &&
-    (origin?.endsWith('.onekey.so') ||
-      PRIVATE_WHITE_LIST_ORIGIN.includes(origin))
-  );
-}
-
-export function isWebEmbedAllowedOrigin(origin?: string) {
-  return origin && WEB_EMBED_WHITE_LIST_ORIGIN.includes(origin);
-}
-
-function isPrivateAllowedMethod(method?: string) {
-  return (
-    method &&
-    [
-      'wallet_connectToWalletConnect',
-      'wallet_getConnectWalletInfo',
-      'wallet_sendSiteMetadata',
-      'wallet_scanQrcode',
-    ].includes(method || '')
-  );
-}
 
 function isExtensionInternalCall(payload: IJsBridgeMessagePayload) {
   const { internal, origin } = payload;
@@ -231,8 +180,8 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     }
     if (
       scope === IInjectedProviderNames.$private &&
-      !isPrivateAllowedOrigin(origin) &&
-      !isPrivateAllowedMethod(payloadData?.method)
+      !isProviderApiPrivateAllowedOrigin(origin) &&
+      !isProviderApiPrivateAllowedMethod(payloadData?.method)
     ) {
       const error = new Error(
         `[${origin as string}] is not allowed to call $private methods: ${
@@ -296,7 +245,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       return this.handleInternalMethods(payload);
     }
 
-    if (isPrivateAllowedOrigin(origin)) {
+    if (isProviderApiPrivateAllowedOrigin(origin)) {
       return this.handleSelfOriginMethods(payload);
     }
 

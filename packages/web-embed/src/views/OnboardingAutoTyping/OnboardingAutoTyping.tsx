@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access */
 /* eslint-disable import/order */
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { lazy } from 'react';
 
 import BigNumber from 'bignumber.js';
 

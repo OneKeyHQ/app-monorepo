@@ -4,7 +4,7 @@
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import type { IBackgroundApiWebembedCallMessage } from '../../IBackgroundApi';
-import type { IWebembedApi, IWebembedApiKeys } from './IWebembedApi';
+import type { IWebembedApiKeys } from './IWebembedApi';
 
 const getOrCreateWebEmbedApiModule = memoizee(
   async (name: IWebembedApiKeys) => {

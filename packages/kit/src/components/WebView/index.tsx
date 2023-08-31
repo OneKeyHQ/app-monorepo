@@ -6,7 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import extUtils from '../../utils/extUtils';
-import { getOriginFromUrl, isOriginMatched } from '../../utils/uriUtils';
+import { getOriginFromUrl } from '../../utils/uriUtils';
 
 import InpageProviderWebView from './InpageProviderWebView';
 

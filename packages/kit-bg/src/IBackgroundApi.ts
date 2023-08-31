@@ -53,10 +53,7 @@ import type ServiceToken from './services/ServiceToken';
 import type ServiceTransaction from './services/ServiceTransaction';
 import type ServiceUtxos from './services/ServiceUtxos';
 import type ServiceWalletConnect from './services/ServiceWalletConnect';
-import type {
-  IWebembedApi,
-  IWebembedApiKeys,
-} from './webembeds/instance/IWebembedApi';
+import type { IWebembedApiKeys } from './webembeds/instance/IWebembedApi';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
   IInjectedProviderNames,

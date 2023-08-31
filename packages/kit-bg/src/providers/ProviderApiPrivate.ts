@@ -13,12 +13,9 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
-import debugLogger, {
-  getDebugLoggerSettings,
-} from '@onekeyhq/shared/src/logger/debugLogger';
+import { getDebugLoggerSettings } from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { isWebEmbedAllowedOrigin } from '../BackgroundApiBase';
+import { isWebEmbedApiAllowedOrigin } from '@onekeyhq/shared/src/utils/originUtils';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -273,7 +270,7 @@ class ProviderApiPrivate extends ProviderApiBase {
     }
 
     const webviewOrigin = `${bg?.webEmbedBridge?.remoteInfo?.origin || ''}`;
-    if (!isWebEmbedAllowedOrigin(webviewOrigin)) {
+    if (!isWebEmbedApiAllowedOrigin(webviewOrigin)) {
       throw new Error(
         `callWebEmbedApiProxy not allowed origin: ${
           webviewOrigin || 'undefined'

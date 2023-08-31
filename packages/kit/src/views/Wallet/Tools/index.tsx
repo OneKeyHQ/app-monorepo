@@ -520,7 +520,7 @@ const ToolsPage: FC = () => {
         }
       }
     },
-    [network?.id, tools, navigation, intl, appNavigation, networkId],
+    [network?.id, tools, navigation, intl, appNavigation],
   );
 
   const onItemPress = useCallback(

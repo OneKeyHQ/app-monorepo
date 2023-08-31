@@ -396,7 +396,6 @@ export function useBatchSendConfirmFeeInfoPayload({
               fetchFeeInfo(encodedTx, firstTxFeeInfo),
             ),
           );
-          // await delay(600);
           if (infos) {
             const mergedInfos = [firstTxFeeInfo, ...infos];
 
