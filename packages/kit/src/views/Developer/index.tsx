@@ -35,6 +35,7 @@ import type {
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { AppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import walletConnectUtils from '../../components/WalletConnect/utils/walletConnectUtils';
@@ -65,7 +66,7 @@ const DEFAULT_TEST_EVM_ADDRESS_2 = '0xA9b4d559A98ff47C83B74522b7986146538cD4dF';
 
 // read settings from native mmkv or web cookie
 const useStorage = platformEnv.isNative
-  ? (key: string, initialValue?: boolean) => {
+  ? (key: AppSettingKey, initialValue?: boolean) => {
       const [data, setData] = useState(
         initialValue || appStorage.getSettingBoolean(key),
       );
@@ -225,7 +226,7 @@ export const Debug = () => {
     ],
   );
 
-  const [rrtStatus, changeRRTStatus] = useStorage('rrt');
+  const [rrtStatus, changeRRTStatus] = useStorage(AppSettingKey.rrt);
 
   return (
     <ScrollView px={4} py={{ base: 6, md: 8 }} bg="background-default">

@@ -31,6 +31,13 @@ export type OnRefreshCallBackEventData = Readonly<{
 export type OnRefreshCallBackEvent =
   NativeSyntheticEvent<OnRefreshCallBackEventData>;
 
+export type PageScrollState = 'idle' | 'dragging' | 'settling';
+export type OnPageScrollStateChangeEventData = Readonly<{
+  state: PageScrollState;
+}>;
+export type OnPageScrollStateChangeEvent =
+  NativeSyntheticEvent<OnPageScrollStateChangeEventData>;
+
 type TabViewStyle = {
   height: number;
   paddingX?: number;
@@ -66,8 +73,11 @@ export interface NativeNestedTabViewProps {
   spinnerColor?: string;
   onRefreshCallBack?: (e: OnRefreshCallBackEvent) => void;
   onPageChange?: (e: OnPageChangeEvent) => void;
-  onPageStartScroll?: () => void;
+  onPageScrollStateChange?: (e: OnPageScrollStateChangeEvent) => void;
+
+  // iOS only
   onPageVerticalScroll?: () => void;
+
   // Android only
   slideDisable?: boolean;
 }

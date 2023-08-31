@@ -43,6 +43,17 @@ jest.mock('react-native-file-logger', () => ({
   },
 }));
 
+jest.mock('react-native-device-info', () => ({
+  getBuildNumber: jest.fn(),
+  getDeviceId: jest.fn(),
+  getIncrementalSync: jest.fn(),
+  getModel: jest.fn(),
+  getSystemName: jest.fn(),
+  getSystemVersion: jest.fn(),
+  getTotalMemorySync: jest.fn(),
+  getUsedMemorySync: jest.fn(),
+}));
+
 // ** shim TextEncoder
 // const { TextEncoder, TextDecoder } = require('util');
 // global.TextEncoder = TextEncoder;

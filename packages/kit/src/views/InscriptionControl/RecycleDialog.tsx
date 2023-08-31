@@ -3,18 +3,19 @@ import { useIntl } from 'react-intl';
 import { Dialog } from '@onekeyhq/components';
 
 type Props = {
+  amount: string;
   onConfirm: () => void;
   onClose?: () => void;
 };
 
-function RecycleDialog({ onConfirm, onClose }: Props) {
+function RecycleDialog({ onConfirm, onClose, amount }: Props) {
   const intl = useIntl();
 
   return (
     <Dialog
       visible
       footerButtonProps={{
-        primaryActionTranslationId: 'action__destroy',
+        primaryActionTranslationId: 'action__deoccupy',
         primaryActionProps: {
           type: 'destructive',
         },
@@ -25,14 +26,19 @@ function RecycleDialog({ onConfirm, onClose }: Props) {
         onSecondaryActionPress: onClose,
       }}
       contentProps={{
-        iconName: 'FireSolid',
+        iconName: 'RestoreMini',
         iconType: 'danger',
         title: intl.formatMessage({
-          id: 'title__destroy_selected_inscription',
+          id: 'title__release_occupied_balance',
         }),
-        content: intl.formatMessage({
-          id: 'dialog__destroy_selected_inscription',
-        }),
+        content: intl.formatMessage(
+          {
+            id: 'content__release_occupied_balance',
+          },
+          {
+            0: amount,
+          },
+        ),
       }}
     />
   );

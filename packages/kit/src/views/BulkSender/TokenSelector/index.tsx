@@ -19,7 +19,7 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 import {
   useDebounce,
   useNetwork,
-  useTokenBalance,
+  useTokenBalanceWithoutFrozen,
 } from '@onekeyhq/kit/src/hooks';
 
 import type { BulkSenderRoutes, BulkSenderRoutesParams } from '../types';
@@ -82,11 +82,12 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
   token,
   onSelect,
 }) => {
-  const balance = useTokenBalance({
+  const balance = useTokenBalanceWithoutFrozen({
     accountId,
     networkId,
     token,
     fallback: '0',
+    useRecycleBalance: token?.isNative,
   });
   const intl = useIntl();
   const closeModal = useModalClose();

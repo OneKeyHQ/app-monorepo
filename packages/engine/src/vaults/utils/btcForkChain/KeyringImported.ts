@@ -60,7 +60,7 @@ export class KeyringImported extends KeyringImportedBase {
     const relPathToAddress: Record<string, string> = {};
     const { utxos } = await (
       this.vault as unknown as BTCForkVault
-    ).collectUTXOsInfo();
+    ).collectUTXOsInfo({ checkInscription: false });
     for (const utxo of utxos) {
       const { address, path } = utxo;
       if (addresses.includes(address)) {

@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
   Box,
   Button,
   Center,
+  Empty,
   IconButton,
   Modal,
   Spinner,
@@ -20,7 +22,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAccount } from '../../hooks';
+import { useAccount, useNetwork } from '../../hooks';
 import { showDialog } from '../../utils/overlayUtils';
 import BaseMenu from '../Overlay/BaseMenu';
 
@@ -53,6 +55,7 @@ function InscriptionControl() {
   >([]);
 
   const { account } = useAccount({ accountId, networkId });
+  const { network } = useNetwork({ networkId });
 
   const fetchAvailableInscriptions = useCallback(async () => {
     if (networkId && account && token) {
@@ -69,8 +72,18 @@ function InscriptionControl() {
   }, [account, networkId, token]);
 
   const handleRecycleOnPress = useCallback(() => {
+    const selectedAmount = availableInscriptions
+      .filter((item) => selectedInscriptions.includes(item.inscription_id))
+      .reduce(
+        (acc, item) => new BigNumber(acc).plus(item.output_value_sat).toFixed(),
+        '0',
+      );
+
     showDialog(
       <RecycleDialog
+        amount={`${new BigNumber(selectedAmount)
+          .shiftedBy(-(network?.decimals ?? 0))
+          .toFixed()} ${network?.symbol ?? ''}`}
         onConfirm={async () => {
           setIsSelectMode(false);
 
@@ -99,7 +112,7 @@ function InscriptionControl() {
 
           ToastManager.show(
             {
-              title: intl.formatMessage({ id: 'msg__inscription_destroyed' }),
+              title: intl.formatMessage({ id: 'msg__inscription_deoccupied' }),
             },
             {
               type: 'default',
@@ -116,6 +129,8 @@ function InscriptionControl() {
     availableInscriptions,
     fetchAvailableInscriptions,
     intl,
+    network?.decimals,
+    network?.symbol,
     networkId,
     selectedInscriptions,
   ]);
@@ -127,7 +142,7 @@ function InscriptionControl() {
       <Box paddingX={4} paddingBottom={4}>
         <Text typography="Caption" color="text-subdued">
           {intl.formatMessage({
-            id: 'content__destroying_the_inscriptions_will_reclaim_theattached_utxos_value_toe_the_account_balance_once_these_utxos_are_spent_you_will_permanently_lose_the_inscription_assets',
+            id: 'content__deoccupy_the_inscriptions_will_reclaim_theattached_utxos_value_toe_the_account_balance_once_these_utxos_are_spent_you_will_permanently_lose_the_inscription_assets',
           })}
         </Text>
         <Button
@@ -137,7 +152,7 @@ function InscriptionControl() {
           onPress={handleRecycleOnPress}
           mt={4}
         >
-          {intl.formatMessage({ id: 'action__destroy' })}
+          {intl.formatMessage({ id: 'action__deoccupy' })}
         </Button>
       </Box>
     );
@@ -145,28 +160,25 @@ function InscriptionControl() {
   const renderHeaderRight = useCallback(() => {
     if (isSelectMode) {
       return (
-        <IconButton
-          iconColor="icon-subdued"
-          circle
-          name="CheckMini"
-          type="basic"
+        <Button
           size="xs"
           onPress={() => {
             setIsSelectMode(false);
             setSelectedInscriptions([]);
           }}
-        />
+        >
+          {intl.formatMessage({ id: 'action__done' })}
+        </Button>
       );
     }
 
     return (
       <BaseMenu
-        menuWidth="full"
         options={[
           {
-            id: 'action__bulk_destroy',
+            id: 'action__deoccupy',
             onPress: () => setIsSelectMode(true),
-            icon: 'FireSolid',
+            icon: 'RestoreMini',
             variant: 'desctructive',
           },
         ]}
@@ -180,7 +192,7 @@ function InscriptionControl() {
         />
       </BaseMenu>
     );
-  }, [isSelectMode]);
+  }, [intl, isSelectMode]);
 
   const renderContent = useCallback(() => {
     if (isLoadingInscriptions)
@@ -190,12 +202,26 @@ function InscriptionControl() {
         </Center>
       );
 
+    if (!availableInscriptions || availableInscriptions.length === 0) {
+      return (
+        <Center width="full" height="full">
+          <Empty
+            emoji="🕳️"
+            title={intl.formatMessage({
+              id: 'empty__no_data',
+            })}
+          />
+        </Center>
+      );
+    }
+
     return (
       <InscriptionList
         accountId={accountId}
         networkId={networkId}
         inscriptions={availableInscriptions ?? []}
         isSelectMode={isSelectMode}
+        onRecycleUtxo={fetchAvailableInscriptions}
         selectedInscriptions={selectedInscriptions}
         setSelectedInscriptions={setSelectedInscriptions}
       />
@@ -203,6 +229,8 @@ function InscriptionControl() {
   }, [
     accountId,
     availableInscriptions,
+    fetchAvailableInscriptions,
+    intl,
     isLoadingInscriptions,
     isSelectMode,
     networkId,
@@ -217,6 +245,7 @@ function InscriptionControl() {
     <Modal
       header={intl.formatMessage({ id: 'title__manage_inscriptions' })}
       height="584px"
+      closeable={!isSelectMode}
       headerDescription={
         <Text typography="Caption" color="text-subdued">{`${
           token?.name ?? ''

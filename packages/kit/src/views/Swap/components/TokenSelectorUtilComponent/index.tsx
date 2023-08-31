@@ -22,7 +22,7 @@ import { FormatCurrency } from '../../../../components/Format';
 import {
   useNavigation,
   useNetworkSimple,
-  useTokenBalance,
+  useTokenBalanceWithoutFrozen,
 } from '../../../../hooks';
 import useOpenBlockBrowser from '../../../../hooks/useOpenBlockBrowser';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
@@ -105,7 +105,7 @@ const TokenBalanceAndValue: FC<TokenBalanceAndValueProps> = ({
   accountId,
   token,
 }) => {
-  const balance = useTokenBalance({
+  const balance = useTokenBalanceWithoutFrozen({
     networkId: token?.networkId ?? '',
     accountId: accountId ?? '',
     token,

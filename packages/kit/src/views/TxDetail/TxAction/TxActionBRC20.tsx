@@ -1,9 +1,11 @@
 import { useIntl } from 'react-intl';
 
+import { Text } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
+  IDecodedTxStatus,
 } from '@onekeyhq/engine/src/vaults/types';
 
 import { FormatCurrencyTokenOfAccount } from '../../../components/Format';
@@ -39,6 +41,12 @@ function getTitleInfo({
   if (type === IDecodedTxActionType.TOKEN_BRC20_MINT) {
     return {
       titleKey: 'content__mint',
+    };
+  }
+
+  if (type === IDecodedTxActionType.TOKEN_BRC20_INSCRIBE) {
+    return {
+      titleKey: 'title__inscribe',
     };
   }
 
@@ -92,25 +100,23 @@ export function getTxActionsBRC20Info(props: ITxActionCardProps) {
     isOut,
     action,
     amount: brc20Info?.amount ?? '0',
-    asset: brc20Info?.asset,
   };
 }
 
 export function TxActionBRC20T0(props: ITxActionCardProps) {
-  const intl = useIntl();
   const { action, meta, decodedTx, historyTx, network } = props;
-  const { accountId, networkId } = decodedTx;
+  const { accountId, networkId, status } = decodedTx;
   const { amount, symbol, isOut, sender, receiver } =
     getTxActionsBRC20Info(props);
   const statusBar = (
     <TxStatusBarInList decodedTx={decodedTx} historyTx={historyTx} />
   );
+  const intl = useIntl();
 
   const subTitle = isOut ? receiver : sender;
+
   const subTitleFormated =
-    subTitle === 'unknown'
-      ? intl.formatMessage({ id: 'form__unknown' })
-      : shortenAddress(subTitle);
+    subTitle === 'unknown' ? subTitle : shortenAddress(subTitle);
 
   return (
     <TxListActionBox
@@ -118,7 +124,11 @@ export function TxActionBRC20T0(props: ITxActionCardProps) {
       footer={statusBar}
       symbol={symbol}
       iconInfo={meta?.iconInfo}
-      titleInfo={meta?.titleInfo}
+      titleInfo={
+        status === IDecodedTxStatus.Offline
+          ? { titleKey: 'form__partially_sign' }
+          : meta?.titleInfo
+      }
       content={
         <TxActionElementAmountNormal
           textAlign="right"
@@ -128,17 +138,29 @@ export function TxActionBRC20T0(props: ITxActionCardProps) {
           direction={action.direction}
         />
       }
-      subTitle={subTitleFormated}
+      subTitle={
+        status === IDecodedTxStatus.Offline ? (
+          <Text typography="Body2" color="text-warning">
+            {intl.formatMessage({ id: 'form__not_broadcast' })}
+          </Text>
+        ) : (
+          subTitleFormated
+        )
+      }
       extra={
-        <FormatCurrencyTokenOfAccount
-          accountId={accountId}
-          networkId={networkId}
-          token={action.brc20Info?.token}
-          value={amount}
-          render={(ele) => (
-            <TxListActionBoxExtraText>{ele}</TxListActionBoxExtraText>
-          )}
-        />
+        status === IDecodedTxStatus.Offline ? (
+          ''
+        ) : (
+          <FormatCurrencyTokenOfAccount
+            accountId={accountId}
+            networkId={networkId}
+            token={action.brc20Info?.token}
+            value={amount}
+            render={(ele) => (
+              <TxListActionBoxExtraText>{ele}</TxListActionBoxExtraText>
+            )}
+          />
+        )
       }
     />
   );

@@ -460,6 +460,8 @@ export enum IDecodedTxStatus {
   Failed = 'Failed',
   Dropped = 'Dropped',
   Removed = 'Removed',
+  // for btc list order psbt
+  Offline = 'Offline',
 }
 export type IDecodedTxInteractInfo = {
   // Dapp info
@@ -498,6 +500,7 @@ export enum IDecodedTxActionType {
   TOKEN_BRC20_TRANSFER = 'TOKEN_BRC20_TRANSFER',
   TOKEN_BRC20_DEPLOY = 'TOKEN_BRC20_DEPLOY',
   TOKEN_BRC20_MINT = 'TOKEN_BRC20_MINT',
+  TOKEN_BRC20_INSCRIBE = 'TOKEN_BRC20_INSCRIBE',
 
   // Swap
   INTERNAL_SWAP = 'INTERNAL_SWAP',

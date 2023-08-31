@@ -25,6 +25,7 @@ type Props = {
     availableBalance: string;
     transferBalance: string;
   };
+  isWatching: boolean;
 };
 
 function TokenActions(props: Props) {
@@ -34,6 +35,7 @@ function TokenActions(props: Props) {
     onPressTransfer,
     style,
     balanceWithoutRecycle,
+    isWatching,
   } = props;
 
   const intl = useIntl();
@@ -61,23 +63,25 @@ function TokenActions(props: Props) {
         id: 'action__send',
         onPress: onPressSend,
         icon: 'PaperAirplaneOutline',
-        isDisabled: isInsufficientTransferBalance,
+        isDisabled: isInsufficientTransferBalance || isWatching,
       },
       {
         id: 'action__receive',
         onPress: onPressReceive,
         icon: 'QrCodeMini',
+        isDisabled: isWatching,
       },
       {
         id: 'action__transfer_brc20',
         onPress: onPressTransfer,
         icon: 'ArrowUturnDownMini',
-        isDisabled: isInsufficientAvailableBalance,
+        isDisabled: isInsufficientAvailableBalance || isWatching,
       },
     ],
     [
       isInsufficientAvailableBalance,
       isInsufficientTransferBalance,
+      isWatching,
       onPressReceive,
       onPressSend,
       onPressTransfer,
@@ -91,11 +95,16 @@ function TokenActions(props: Props) {
           size="lg"
           onPress={onPressSend}
           flex={1}
-          isDisabled={isInsufficientTransferBalance}
+          isDisabled={isInsufficientTransferBalance || isWatching}
         >
           {intl.formatMessage({ id: 'action__send' })}
         </Button>
-        <Button size="lg" onPress={onPressReceive} flex={1}>
+        <Button
+          size="lg"
+          onPress={onPressReceive}
+          flex={1}
+          isDisabled={isWatching}
+        >
           {intl.formatMessage({ id: 'action__receive' })}
         </Button>
         <BaseMenu
@@ -104,7 +113,7 @@ function TokenActions(props: Props) {
               id: 'action__transfer_brc20',
               onPress: onPressTransfer,
               icon: 'ArrowUturnDownMini',
-              isDisabled: isInsufficientAvailableBalance,
+              isDisabled: isInsufficientAvailableBalance || isWatching,
             },
           ]}
         >

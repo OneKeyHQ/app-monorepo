@@ -7,7 +7,7 @@ import {
   formatDuration as fnsFormatDuration,
   parseISO,
 } from 'date-fns';
-import { enUS, zhCN } from 'date-fns/locale';
+import { enUS, ja, ko, zhCN, zhHK } from 'date-fns/locale';
 
 import { useLocale } from '@onekeyhq/components';
 import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
@@ -20,6 +20,12 @@ const parseLocal = (localeSymbol: LocaleSymbol) => {
       return zhCN;
     case 'en-US':
       return enUS;
+    case 'zh-HK':
+      return zhHK;
+    case 'ja-JP':
+      return ja;
+    case 'ko-KR':
+      return ko;
     default:
       return enUS;
   }

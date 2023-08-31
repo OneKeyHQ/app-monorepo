@@ -20,7 +20,7 @@ import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
 import {
   useAccountTokensOnChain,
   useNetwork,
-  useTokenBalance,
+  useTokenBalanceWithoutFrozen,
 } from '@onekeyhq/kit/src/hooks';
 import {
   HomeRoutes,
@@ -89,7 +89,7 @@ function OneToMany(props: Props) {
   const tokens = accountTokens.filter((token) =>
     network?.impl === IMPL_TRON
       ? !new BigNumber(token.tokenIdOnNetwork).isInteger()
-      : true ||
+      : true &&
         (network?.impl === IMPL_BTC || network?.impl === IMPL_TBTC
           ? token.isNative
           : true),
@@ -102,11 +102,12 @@ function OneToMany(props: Props) {
   const currentToken = selectedToken || initialToken;
   const isNative = currentToken?.isNative;
 
-  const tokenBalnace = useTokenBalance({
+  const tokenBalnace = useTokenBalanceWithoutFrozen({
     accountId,
     networkId,
     token: currentToken,
     fallback: '0',
+    useRecycleBalance: currentToken?.isNative,
   });
 
   const { isValid, isValidating, errors } = useValidateTrader({

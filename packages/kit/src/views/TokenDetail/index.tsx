@@ -1,5 +1,4 @@
-import type { FC } from 'react';
-import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useLayoutEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -18,6 +17,7 @@ import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 import { isBRC20Token } from '@onekeyhq/shared/src/utils/tokenUtils';
 
+import { LazyDisplayView } from '../../components/LazyDisplayView';
 import { useAppSelector, useTokenPositionInfo } from '../../hooks';
 import { isSTETH, isSupportStakingType } from '../Staking/utils';
 import { SwapPlugins } from '../Swap/Plugins/Swap';
@@ -51,7 +51,16 @@ export enum TabEnum {
   Info = 'Info',
 }
 
-const TokenDetail: FC<TokenDetailViewProps> = () => {
+function TokenDetailLoadingWithoutMemo() {
+  return (
+    <Center>
+      <Spinner mt={18} size="lg" />
+    </Center>
+  );
+}
+const TokenDetailLoading = memo(TokenDetailLoadingWithoutMemo);
+
+function TokenDetailViewWithoutMemo() {
   const intl = useIntl();
   const [showSwapPanel, setShowSwapPanel] = useState(false);
   const isVerticalLayout = useIsVerticalLayout();
@@ -138,11 +147,11 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
   }, [isVerticalLayout, defaultInfo]);
 
   const headerRight = useCallback(() => {
-    if (!isVerticalLayout) {
+    if (!isVerticalLayout && !isBRC20) {
       return <HeaderOptions />;
     }
     return <FavoritedButton coingeckoId={coingeckoId} />;
-  }, [isVerticalLayout, coingeckoId]);
+  }, [isVerticalLayout, isBRC20, coingeckoId]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -201,6 +210,7 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
         w="full"
         flex="1"
         justifyContent="center"
+        pb={isVerticalLayout ? '60px' : 0}
       >
         <Tabs.Container
           headerHeight={headerHeight}
@@ -252,5 +262,16 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
       </HStack>
     </TokenDetailContext.Provider>
   );
-};
-export default TokenDetail;
+}
+
+const TokenDetailView = memo(TokenDetailViewWithoutMemo);
+
+function TokenDetail() {
+  return (
+    <LazyDisplayView delay={100} defaultView={<TokenDetailLoading />}>
+      <TokenDetailView />
+    </LazyDisplayView>
+  );
+}
+
+export default memo(TokenDetail);

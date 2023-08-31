@@ -1,5 +1,7 @@
+import OnekeyLogo from '@onekeyhq/kit/assets/logo_round.png';
 import AptosMartianLogo from '@onekeyhq/kit/assets/walletLogo/aptos_martian.png';
 import AptosPetraLogo from '@onekeyhq/kit/assets/walletLogo/aptos_petra.png';
+import UniSatLogo from '@onekeyhq/kit/assets/walletLogo/btc_unisat.png';
 import CardanoNamiLogo from '@onekeyhq/kit/assets/walletLogo/cardano_nami.png';
 import ConflusFluentLogo from '@onekeyhq/kit/assets/walletLogo/conflux_fluent_wallet.png';
 import CosmosKeplrLogo from '@onekeyhq/kit/assets/walletLogo/cosmos_keplr.png';
@@ -12,7 +14,22 @@ import TronLinkLogo from '@onekeyhq/kit/assets/walletLogo/tron_tronlink.png';
 
 import type { WalletSwitchItem } from '../../../../store/reducers/settings';
 
+export function getNetworkWithWalletId(walletId: string) {
+  return walletId.split('-')[0];
+}
+
+/**
+ * MonopolizeNetwork indicates that the network only supports injection of one wallet.
+ */
+export const MonopolizeNetwork = ['POLKADOT'];
+
 export const CWalletSwitchDefaultConfig: Record<string, WalletSwitchItem> = {
+  'BTC-UniSat': {
+    logo: UniSatLogo,
+    title: 'UniSat ',
+    propertyKeys: ['unisat'],
+    enable: true,
+  },
   'EVM-Metamask': {
     logo: MetamaskLogo,
     title: 'Metamask',
@@ -41,6 +58,12 @@ export const CWalletSwitchDefaultConfig: Record<string, WalletSwitchItem> = {
     title: 'Martian',
     propertyKeys: ['martian'],
     enable: false,
+  },
+  'SUI-onekey': {
+    logo: OnekeyLogo,
+    title: 'OneKey(Sui)',
+    propertyKeys: ['onekey-sui'],
+    enable: true,
   },
   'SUI-Sui Wallet': {
     logo: SuiWalletLogo,
@@ -76,6 +99,12 @@ export const CWalletSwitchDefaultConfig: Record<string, WalletSwitchItem> = {
     logo: ConflusFluentLogo,
     title: 'Fluent',
     propertyKeys: ['conflux'],
+    enable: true,
+  },
+  'POLKADOT-onekey': {
+    logo: OnekeyLogo,
+    title: 'OneKey(Polkadot)',
+    propertyKeys: ['onekey-polkadot'],
     enable: true,
   },
   'POLKADOT-polkadot-js': {

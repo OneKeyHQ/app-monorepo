@@ -1,6 +1,8 @@
 import type { ComponentProps } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { HStack, IconButton, Text, VStack } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 
@@ -188,6 +190,7 @@ export function TxActionElementAddress(
     displayAddress = true,
     ...others
   } = props;
+  const intl = useIntl();
   const shouldCheckSecurity = !!(checkSecurity && networkId);
   const { data: securityInfo } = useAddressSecurityInfo(
     networkId ?? '',
@@ -201,7 +204,9 @@ export function TxActionElementAddress(
   } = useAddressLabel({ address, networkId });
   const contact = useAddressBookItem({ address });
   // const showAddress = !isLightningNetworkByNetworkId(networkId ?? '');
-  const text = isShorten ? shortenAddress(address) : address;
+  let text = isShorten ? shortenAddress(address) : address;
+  text =
+    text === 'unknown' ? intl.formatMessage({ id: 'form__unknown' }) : text;
 
   return (
     <VStack flex={flex}>
@@ -233,22 +238,24 @@ export function TxActionElementAddress(
             labelStyle={{ mt: 1 }}
           />
         </VStack>
-        <TxActionElementAddressMoreMenu
-          networkId={networkId}
-          address={address}
-          amount={amount}
-          isCopy={isCopy}
-          isAccount={!!label}
-          contact={contact}
-        >
-          <IconButton
-            circle
-            mt="-6px"
-            type="plain"
-            iconSize={18}
-            name="EllipsisVerticalOutline"
-          />
-        </TxActionElementAddressMoreMenu>
+        {address && address !== 'unknown' ? (
+          <TxActionElementAddressMoreMenu
+            networkId={networkId}
+            address={address}
+            amount={amount}
+            isCopy={isCopy}
+            isAccount={!!label}
+            contact={contact}
+          >
+            <IconButton
+              circle
+              mt="-6px"
+              type="plain"
+              iconSize={18}
+              name="EllipsisVerticalOutline"
+            />
+          </TxActionElementAddressMoreMenu>
+        ) : null}
       </HStack>
     </VStack>
   );

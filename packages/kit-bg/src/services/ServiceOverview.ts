@@ -7,12 +7,17 @@ import {
   isAllNetworks,
   parseNetworkId,
 } from '@onekeyhq/engine/src/managers/network';
+import { NFTDataType } from '@onekeyhq/engine/src/managers/nft';
 import {
   caseSensitiveImpls,
   getBalanceKey,
 } from '@onekeyhq/engine/src/managers/token';
 import type { Account } from '@onekeyhq/engine/src/types/account';
-import type { Collection, NFTAssetMeta } from '@onekeyhq/engine/src/types/nft';
+import type {
+  Collection,
+  NFTAssetMeta,
+  NFTBTCAssetModel,
+} from '@onekeyhq/engine/src/types/nft';
 import { NFTAssetType } from '@onekeyhq/engine/src/types/nft';
 import type {
   ITokenFiatValuesInfo,
@@ -175,6 +180,33 @@ class ServiceOverview extends ServiceBase {
           accountId,
           results,
         });
+
+        const type = NFTDataType(networkId);
+
+        if (
+          type === 'btc' &&
+          scanType === EOverviewScanTaskType.nfts &&
+          data[EOverviewScanTaskType.nfts]
+        ) {
+          const nfts = data[EOverviewScanTaskType.nfts] as NFTBTCAssetModel[];
+
+          for (let i = 0, len = nfts.length; i < len; i += 1) {
+            const asset = await this.backgroundApi.serviceNFT.getAssetFromLocal(
+              {
+                accountId,
+                networkId,
+                tokenId: nfts[i].inscription_id,
+              },
+            );
+
+            if (asset) {
+              nfts[i].listed = asset.listed;
+            }
+          }
+
+          data[EOverviewScanTaskType.nfts] = nfts;
+        }
+
         dispatchActions.push(...actions.map((a) => setNFTPrice(a)));
         await simpleDb.accountPortfolios.setAllNetworksPortfolio({
           key: dispatchKey,
@@ -1002,6 +1034,7 @@ class ServiceOverview extends ServiceBase {
     accountId: string;
     limitSize?: number;
   }): Promise<IOverviewAccountdefisResult> {
+    debugLogger.allNetworks.info('buildAccountDefiList >>> ', options);
     const data = await this.getAccountPortfolio(options);
 
     let list = data[EOverviewScanTaskType.defi] ?? [];
@@ -1055,6 +1088,7 @@ class ServiceOverview extends ServiceBase {
     const { networkId, accountId } = options;
     const { serviceNFT, appSelector } = this.backgroundApi;
 
+    debugLogger.allNetworks.info('buildAccountNFTList >>> ', options);
     const nfts = await serviceNFT.getNftListWithAssetType(options);
 
     const { prices } = this.getTokensPrices();
@@ -1137,6 +1171,7 @@ class ServiceOverview extends ServiceBase {
   async buildAccountTokens(
     options: IAccountOverviewOptions,
   ): Promise<IOverviewAccountTokensResult> {
+    debugLogger.allNetworks.info('buildAccountTokens >>> ', options);
     const { networkId, accountId } = options;
     // build tokens
     const tokenRes = isAllNetworks(networkId)
@@ -1192,6 +1227,7 @@ class ServiceOverview extends ServiceBase {
   async buildTokenDetailInfo(
     options: IBuildTokenPositionInfoOptions,
   ): Promise<ITokenDetailInfo> {
+    debugLogger.allNetworks.info('buildTokenDetailInfo >>> ', options);
     const { engine, serviceToken } = this.backgroundApi;
     const { networkId, accountId, tokenAddress, coingeckoId } = options;
     let chainToken: Token | undefined;
@@ -1241,6 +1277,7 @@ class ServiceOverview extends ServiceBase {
 
   @backgroundMethod()
   async buildTokenDetailPositionInfo(options: IBuildTokenPositionInfoOptions) {
+    debugLogger.allNetworks.info('buildTokenDetailPositionInfo >>> ', options);
     const { appSelector } = this.backgroundApi;
 
     const { accountId, networkId, coingeckoId, sendAddress, tokenAddress } =

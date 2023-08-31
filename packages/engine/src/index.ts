@@ -1669,7 +1669,7 @@ class Engine {
         chainId,
         query: searchTerm,
       });
-      onlineTokens = result.map((t) => formatServerToken(t));
+      onlineTokens = result.slice(0, 50).map((t) => formatServerToken(t));
     } catch (error) {
       debugLogger.engine.error('search online tokens error', {
         error: error instanceof Error ? error.message : error,

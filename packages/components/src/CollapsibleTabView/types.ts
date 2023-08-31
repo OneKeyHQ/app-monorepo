@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+import type { OnPageScrollStateChangeEvent } from '@onekeyhq/app/src/views/NestedTabView/types';
+
 import type { StyleProp, ViewStyle } from 'react-native';
 
 export interface CollapsibleContainerProps {
@@ -10,7 +12,7 @@ export interface CollapsibleContainerProps {
   headerHeight: number;
   onRefresh?: () => void;
   onIndexChange?: (index: number) => void;
-  onPageStartScroll?: () => void;
+  onPageScrollStateChange?: (e: OnPageScrollStateChangeEvent) => void;
   containerStyle?: StyleProp<ViewStyle>;
   scrollEnabled?: boolean;
   canOpenDrawer?: boolean;

@@ -290,7 +290,7 @@ const ItemSeparator: FC<{
                     {intl.formatMessage({
                       id: isDustSeparator
                         ? 'form__dust__uppercase'
-                        : 'form__destroyed_inscriptions__uppercase',
+                        : 'form__spendable_inscriptions__uppercase',
                     })}
                   </Text>
                   <Icon
@@ -307,7 +307,7 @@ const ItemSeparator: FC<{
                   {intl.formatMessage({
                     id: isDustSeparator
                       ? 'content__dust_refer_to_very_tiny_amount_of_bitcoin'
-                      : 'content__here_is_a_list_of_inscriptions_destroyed_by_you_tap_more_button_and_restore_as_inscription',
+                      : 'content__btc_utxo_manage_spendable_inscriptions_tooltips',
                   })}
                 </Text>
               ),
@@ -561,27 +561,26 @@ const CoinControlList: FC<{
     ],
   );
 
-  const headerComponent = useCallback(() => {
-    const showDustSeparator = type === 'Frozen' && showDustListHeader;
-    return (
+  const headerComponent = useCallback(
+    () => (
       <>
         <ListTableHeader
           showCheckbox={showCheckbox}
           isAllSelected={isAllSelected}
           triggerAllSelected={triggerAllSelected}
         />
-        {showDustSeparator && <ItemSeparator isDustSeparator />}
+        {showDustListHeader && <ItemSeparator isDustSeparator />}
         {showRecycleListHeader && <ItemSeparator isRecycleSeparator />}
       </>
-    );
-  }, [
-    type,
-    showDustListHeader,
-    showCheckbox,
-    isAllSelected,
-    triggerAllSelected,
-    showRecycleListHeader,
-  ]);
+    ),
+    [
+      showDustListHeader,
+      showCheckbox,
+      isAllSelected,
+      triggerAllSelected,
+      showRecycleListHeader,
+    ],
+  );
   const footerComponent = useCallback(
     () => (
       <ListFooter

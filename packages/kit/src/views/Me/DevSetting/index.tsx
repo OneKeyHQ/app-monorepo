@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -44,7 +45,9 @@ import timelinePerfTrace from '@onekeyhq/shared/src/perf/timelinePerfTrace';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NetworkAccountSelectorTrigger } from '../../../components/NetworkAccountSelector';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { EAccountSelectorMode } from '../../../store/reducers/reducerAccountSelector';
+import { MonitorRoutes } from '../../Monitor/types';
 
 import {
   requestsInterceptTest,
@@ -86,6 +89,7 @@ function usePerfCheck({ enablePerfCheck }: { enablePerfCheck?: boolean }) {
   }, [enablePerfCheck]);
 }
 const emptyObj: any = Object.freeze({});
+
 export const DevSettingSection = () => {
   const { themeVariant } = useTheme();
   const { devMode, pushNotification, instanceId } = useSettings();
@@ -109,6 +113,8 @@ export const DevSettingSection = () => {
   const { dispatch } = backgroundApiProxy;
   const intl = useIntl();
   usePerfCheck({ enablePerfCheck });
+
+  const navigation = useNavigation();
 
   const pushId = useMemo(() => {
     if (platformEnv.isNative) {
@@ -148,6 +154,7 @@ export const DevSettingSection = () => {
         borderColor="border-critical-default"
         borderRadius="12"
         bg="surface-default"
+        mb="24"
       >
         <Container.Item
           title={intl.formatMessage({ id: 'form__dev_mode' })}
@@ -412,6 +419,21 @@ export const DevSettingSection = () => {
             }}
           >
             Intercept Test
+          </Button>
+        </Container.Item>
+        <Container.Item title="Monitor" titleColor="text-critical">
+          <Button
+            size="xs"
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.Monitor,
+                params: {
+                  screen: MonitorRoutes.monitorSetting,
+                },
+              });
+            }}
+          >
+            settings
           </Button>
         </Container.Item>
       </Container.Box>

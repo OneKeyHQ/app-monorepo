@@ -56,6 +56,8 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
     sourceInfo,
     advancedSettings,
     prepaidFee,
+    sendConfirmParams,
+    isListOrderPsbt,
     ...others
   } = props;
   const nativeToken = useNativeToken(network?.id);
@@ -67,6 +69,7 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
     accountId,
     token: nativeToken,
     fallback: '0',
+    useRecycleBalance: true,
   });
 
   // TODO move to validator
@@ -328,7 +331,9 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
   return (
     <BaseSendModal
       height="598px"
-      primaryActionTranslationId="action__confirm"
+      primaryActionTranslationId={
+        sendConfirmParams.signOnly ? 'action__sign' : 'action__confirm'
+      }
       primaryActionProps={{
         isDisabled:
           isWatching ||
@@ -370,6 +375,7 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
                 lightingNetworkTransferConfig={lightingNetworkTransferConfig}
                 prepaidFee={prepaidFee}
                 fee={feeInfoPayload?.current.totalNativeForDisplay ?? ''}
+                isListOrderPsbt={isListOrderPsbt}
               />
             )}
 

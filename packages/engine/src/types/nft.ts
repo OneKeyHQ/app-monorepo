@@ -71,6 +71,7 @@ export enum NFTAssetType {
 
 export interface NFTAssetBase {
   type: NFTAssetType;
+  listed?: boolean;
 }
 
 export type ValueOf<T> = T[keyof T];
@@ -315,3 +316,27 @@ interface NFTAssetInterface {
   SOL: NFTAsset;
   BTC: NFTBTCAssetModel;
 }
+
+export type BRC20TxHistory = {
+  page: string;
+  limit: string;
+  totalPage: string;
+  totalTransaction: string;
+  inscriptionsList: {
+    txId: string;
+    blockHeight: string;
+    state: string;
+    tokenType: string;
+    actionType: 'deploy' | 'mint' | 'inscribeTransfer' | 'transfer';
+    fromAddress: string;
+    toAddress: string;
+    amount: string;
+    token: string;
+    inscriptionId: string;
+    inscriptionNumber: string;
+    index: string;
+    location: string;
+    msg: string;
+    time: string;
+  }[];
+};

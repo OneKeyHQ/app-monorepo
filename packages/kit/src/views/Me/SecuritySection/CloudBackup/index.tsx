@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -25,17 +26,22 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { ValidationFields } from '../../../../components/Protected';
 import { useNavigation } from '../../../../hooks';
-import { useAppSelector } from '../../../../hooks/redux';
+import { useAppSelector, useData } from '../../../../hooks/redux';
+import useAppNavigation from '../../../../hooks/useAppNavigation';
 import useFormatDate from '../../../../hooks/useFormatDate';
 import useLocalAuthenticationModal from '../../../../hooks/useLocalAuthenticationModal';
-import { HomeRoutes } from '../../../../routes/routesEnum';
+import {
+  HomeRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '../../../../routes/routesEnum';
 import { incrBackupRequests } from '../../../../store/reducers/cloudBackup';
 import { showOverlay } from '../../../../utils/overlayUtils';
+import { PasswordRoutes } from '../../../Password/types';
 
 import BackupIcon from './BackupIcon';
 import Wrapper from './Wrapper';
 
-import type { RootRoutes } from '../../../../routes/routesEnum';
 import type {
   HomeRoutesParams,
   RootRoutesParams,
@@ -60,7 +66,7 @@ const EnabledContent = ({
 }) => {
   const intl = useIntl();
   const formatDate = useFormatDate();
-  const { serviceCloudBackup, dispatch } = backgroundApiProxy;
+  const { serviceCloudBackup, servicePassword, dispatch } = backgroundApiProxy;
   const { showVerify } = useLocalAuthenticationModal();
 
   const openDisableBackupDialog = useCallback(() => {
@@ -104,29 +110,67 @@ const EnabledContent = ({
     ));
   }, [intl, serviceCloudBackup]);
 
-  const backUpAction = useCallback(() => {
-    backgroundApiProxy.servicePassword.getPassword().then((password) => {
-      if (!password) {
-        showVerify(
-          () => {
-            dispatch(incrBackupRequests());
-            serviceCloudBackup.backupNow();
+  const { isPasswordSet } = useData();
+  const isFocused = useIsFocused();
+
+  const navigation = useAppNavigation();
+  const [isLoading, setIsLoading] = useState(false);
+  useEffect(() => {
+    if (isFocused) {
+      setIsLoading(false);
+    }
+  }, [isFocused]);
+  const backUpAction = useCallback(async () => {
+    setIsLoading(true);
+    if (!isPasswordSet) {
+      return new Promise((resolve) => {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Password,
+          params: {
+            screen: PasswordRoutes.PasswordRoutes,
+            params: {
+              onSuccess: () => {
+                dispatch(incrBackupRequests());
+                serviceCloudBackup.backupNow().then(() => {
+                  resolve('');
+                  setIsLoading(false);
+                });
+              },
+            },
           },
-          () => {},
-          null,
-          ValidationFields.Secret,
-        );
-        return;
-      }
-      dispatch(incrBackupRequests());
-      serviceCloudBackup.backupNow();
-    });
-  }, [dispatch, serviceCloudBackup, showVerify]);
+        });
+      });
+    }
+    const password = await servicePassword.getPassword();
+    if (!password) {
+      showVerify(
+        () => {
+          dispatch(incrBackupRequests());
+          serviceCloudBackup.backupNow().then(() => {
+            setIsLoading(false);
+          });
+        },
+        () => {},
+        null,
+        ValidationFields.Secret,
+      );
+    }
+    dispatch(incrBackupRequests());
+    await serviceCloudBackup.backupNow();
+    setIsLoading(false);
+  }, [
+    dispatch,
+    isPasswordSet,
+    navigation,
+    serviceCloudBackup,
+    servicePassword,
+    showVerify,
+  ]);
 
   return (
     <Box flexDirection="column">
       <Box flexDirection="row" alignItems="center">
-        {inProgress ? (
+        {inProgress || isLoading ? (
           <Center rounded="full" size="12" bgColor="surface-neutral-subdued">
             <Spinner />
           </Center>
@@ -134,7 +178,7 @@ const EnabledContent = ({
           <BackupIcon enabled />
         )}
         <Box px="16px" flex="1" justifyContent="center">
-          {inProgress ? (
+          {inProgress || isLoading ? (
             <>
               <Text typography="Body1Strong">
                 {intl.formatMessage({
@@ -175,7 +219,7 @@ const EnabledContent = ({
         size="xl"
         type="primary"
         mt="24px"
-        isDisabled={inProgress}
+        isLoading={isLoading || inProgress}
         onPress={backUpAction}
       >
         {intl.formatMessage({ id: 'action__back_up_now' })}

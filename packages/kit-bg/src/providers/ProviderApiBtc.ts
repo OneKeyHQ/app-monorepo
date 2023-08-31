@@ -1,8 +1,8 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
-import * as BitcoinJS from 'bitcoinjs-lib';
-import { Psbt, address as PsbtAddress } from 'bitcoinjs-lib';
+import { Psbt } from 'bitcoinjs-lib';
+import { isNil } from 'lodash';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
@@ -17,7 +17,7 @@ import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import type {
   DecodedPsbt,
-  InputToSign,
+  InscribeTransferParams,
   PushPsbtParams,
   PushTxParams,
   SendBitcoinParams,
@@ -29,11 +29,11 @@ import type {
 } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.types';
 import {
   formatPsbtHex,
+  getInputsToSignFromPsbt,
   getNetworkName,
   httpPost,
   mapInscriptionToNFTBTCAssetModel,
   toPsbtNetwork,
-  toXOnly,
 } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.utils';
 import { RestfulRequest } from '@onekeyhq/shared/src/request/RestfulRequest';
 
@@ -41,6 +41,7 @@ import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+import type * as BitcoinJS from 'bitcoinjs-lib';
 
 @backgroundClass()
 class ProviderApiBtc extends ProviderApiBase {
@@ -255,7 +256,9 @@ class ProviderApiBtc extends ProviderApiBase {
         to: toAddress,
         amount: amountBN.shiftedBy(-network.decimals).toFixed(),
       },
-      feeRate,
+      isNil(feeRate)
+        ? undefined
+        : new BigNumber(feeRate).shiftedBy(-network.feeDecimals).toFixed(),
     );
 
     const result = await this.backgroundApi.serviceDapp?.openSignAndSendModal(
@@ -275,11 +278,18 @@ class ProviderApiBtc extends ProviderApiBase {
   ) {
     const { toAddress, inscriptionId, feeRate } = params;
 
-    const { accountId, networkId, accountAddress } = getActiveWalletAccount();
+    const { account, accountAddress, network } = getActiveWalletAccount();
+
+    if (!network || !account) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: `Can not get current account`,
+      });
+    }
 
     const asset = (await this.backgroundApi.serviceNFT.getAsset({
-      networkId,
-      accountId,
+      networkId: network.id,
+      accountId: account.id,
       tokenId: inscriptionId,
       local: true,
     })) as NFTBTCAssetModel;
@@ -292,8 +302,8 @@ class ProviderApiBtc extends ProviderApiBase {
     }
 
     const vault = (await this.backgroundApi.engine.getVault({
-      networkId,
-      accountId,
+      networkId: network.id,
+      accountId: account.id,
     })) as VaultBtcFork;
 
     const encodedTx = await vault.buildEncodedTxFromTransfer(
@@ -310,7 +320,11 @@ class ProviderApiBtc extends ProviderApiBase {
           location: asset.location,
         },
       },
-      feeRate,
+      isNil(feeRate)
+        ? undefined
+        : new BigNumber(feeRate)
+            .shiftedBy(-network.feeDecimals ?? '0')
+            .toFixed(),
     );
 
     const result = await this.backgroundApi.serviceDapp?.openSignAndSendModal(
@@ -330,6 +344,22 @@ class ProviderApiBtc extends ProviderApiBase {
   ) {
     const { message, type } = params;
 
+    const { network, account, wallet } = getActiveWalletAccount();
+
+    if (wallet?.type === 'hw') {
+      throw web3Errors.provider.custom({
+        code: 4003,
+        message: 'Sign message is not supported on hardware.',
+      });
+    }
+
+    if (!network || !account) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: `Can not get current account`,
+      });
+    }
+
     if (type !== 'bip322-simple' && type !== 'ecdsa') {
       throw web3Errors.rpc.invalidParams('Invalid type');
     }
@@ -340,7 +370,12 @@ class ProviderApiBtc extends ProviderApiBase {
         unsignedMessage: {
           type,
           message,
-          sigOptions: null,
+          sigOptions: {
+            noScriptType: true,
+          },
+          payload: {
+            isFromDApp: true,
+          },
         },
         signOnly: true,
       },
@@ -374,7 +409,15 @@ class ProviderApiBtc extends ProviderApiBase {
 
     const formatedPsbtHex = formatPsbtHex(psbtHex);
 
-    const { network } = getActiveWalletAccount();
+    const { network, wallet } = getActiveWalletAccount();
+
+    if (wallet?.type === 'hw') {
+      throw web3Errors.provider.custom({
+        code: 4003,
+        message:
+          'Partially signed bitcoin transactions is not supported on hardware.',
+      });
+    }
     if (!network) return null;
     const psbtNetwork = toPsbtNetwork(network);
     const psbt = Psbt.fromHex(formatedPsbtHex, { network: psbtNetwork });
@@ -440,6 +483,14 @@ class ProviderApiBtc extends ProviderApiBase {
     return result.txid;
   }
 
+  @providerApiMethod()
+  public async inscribeTransfer(
+    request: IJsBridgeMessagePayload,
+    params: InscribeTransferParams,
+  ) {
+    return Promise.resolve(params);
+  }
+
   private async _signPsbt(
     request: IJsBridgeMessagePayload,
     params: {
@@ -467,40 +518,10 @@ class ProviderApiBtc extends ProviderApiBase {
       })
     ).result;
 
-    const inputsToSign: InputToSign[] = [];
-    psbt.data.inputs.forEach((v, index) => {
-      let script: any = null;
-      let value = 0;
-      if (v.witnessUtxo) {
-        script = v.witnessUtxo.script;
-        value = v.witnessUtxo.value;
-      } else if (v.nonWitnessUtxo) {
-        const tx = BitcoinJS.Transaction.fromBuffer(v.nonWitnessUtxo);
-        const output = tx.outs[psbt.txInputs[index].index];
-        script = output.script;
-        value = output.value;
-      }
-      const isSigned = v.finalScriptSig || v.finalScriptWitness;
-
-      if (script && !isSigned) {
-        const address = PsbtAddress.fromOutputScript(script, psbtNetwork);
-        if (account.address === address) {
-          inputsToSign.push({
-            index,
-            publicKey: account.pubKey as string,
-            address,
-            sighashTypes: v.sighashType ? [v.sighashType] : undefined,
-          });
-          if (
-            (account.template as string).startsWith(`m/86'/`) &&
-            !v.tapInternalKey
-          ) {
-            v.tapInternalKey = toXOnly(
-              Buffer.from(account.pubKey as string, 'hex'),
-            );
-          }
-        }
-      }
+    const inputsToSign = getInputsToSignFromPsbt({
+      psbt,
+      psbtNetwork,
+      account,
     });
 
     const resp = (await this.backgroundApi.serviceDapp.openSignAndSendModal(

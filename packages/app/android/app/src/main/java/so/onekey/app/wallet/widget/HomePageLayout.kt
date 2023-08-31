@@ -25,8 +25,8 @@ import so.onekey.app.wallet.R
 import so.onekey.app.wallet.utils.Utils
 import so.onekey.app.wallet.viewManager.homePage.TabProps
 import so.onekey.app.wallet.viewManager.homePage.event.PageSelectedEvent
-import so.onekey.app.wallet.viewManager.homePage.event.PageStartScrollEvent
 import so.onekey.app.wallet.viewManager.homePage.event.SwipeRefreshEvent
+import so.onekey.app.wallet.viewManager.homePage.event.PageScrollStateChangeEvent
 
 
 data class TabViewStyle(
@@ -58,8 +58,6 @@ open class HomePageLayout @JvmOverloads constructor(
         (context as ReactContext).getNativeModule(UIManagerModule::class.java)?.eventDispatcher
 
     private val mPageChangeCallback = object : OnPageChangeCallback() {
-        var currentState = ViewPager2.SCROLL_STATE_IDLE
-
         override fun onPageSelected(position: Int) {
             super.onPageSelected(position)
 
@@ -74,17 +72,13 @@ open class HomePageLayout @JvmOverloads constructor(
                     if (state == ViewPager2.SCROLL_STATE_IDLE) mRefreshEnabled && mAppBarExtended else false
             }
 
-            if (currentState == ViewPager2.SCROLL_STATE_IDLE && state == ViewPager2.SCROLL_STATE_DRAGGING) {
-                sendStartChangeTabsNativeEvent()
-            }
-            currentState = state
-//            eventDispatcher?.dispatchEvent(
-//                PageScrollStateChangedEvent(
-//                    UIManagerHelper.getSurfaceId(context),
-//                    id,
-//                    PageScrollStateChangedEvent.stateToPageScrollState(state)
-//                )
-//            )
+            eventDispatcher?.dispatchEvent(
+                PageScrollStateChangeEvent(
+                    UIManagerHelper.getSurfaceId(context),
+                    id,
+                    PageScrollStateChangeEvent.stateToPageScrollState(state)
+                )
+            )
         }
     }
 
@@ -96,12 +90,6 @@ open class HomePageLayout @JvmOverloads constructor(
     fun sendChangeTabsNativeEvent(index: Int, tabProps: TabProps) {
         eventDispatcher?.dispatchEvent(
             PageSelectedEvent(UIManagerHelper.getSurfaceId(context), id, index, tabProps.name)
-        )
-    }
-
-    fun sendStartChangeTabsNativeEvent() {
-        eventDispatcher?.dispatchEvent(
-            PageStartScrollEvent(UIManagerHelper.getSurfaceId(context), id)
         )
     }
 

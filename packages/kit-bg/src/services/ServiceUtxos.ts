@@ -5,6 +5,10 @@ import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import type { DBUTXOAccount } from '@onekeyhq/engine/src/types/account';
 import type { ICoinControlListItem } from '@onekeyhq/engine/src/types/utxoAccounts';
 import type { ICollectUTXOsOptions } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
+import {
+  getTaprootXpub,
+  isTaprootXpubSegwit,
+} from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
 import type VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
@@ -197,6 +201,7 @@ export default class ServiceUtxos extends ServiceBase {
       const recycleUtxosWithoutFrozen = utxos.filter(
         (utxo) => utxo.recycle && !utxo.frozen,
       );
+
       const result = {
         utxos,
         utxosWithoutDust: dataSourceWithoutDust,
@@ -214,6 +219,18 @@ export default class ServiceUtxos extends ServiceBase {
       maxAge: getTimeDurationMs({ seconds: 1 }),
     },
   );
+
+  @backgroundMethod()
+  async getArchivedUtxos(
+    networkId: string | undefined,
+    xpub: string | undefined,
+  ) {
+    const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
+      networkId ?? '',
+      isTaprootXpubSegwit(xpub ?? '') ? getTaprootXpub(xpub ?? '') : xpub ?? '',
+    );
+    return archivedUtxos;
+  }
 
   @backgroundMethod()
   async getUtxosBlockTime(

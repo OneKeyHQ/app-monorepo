@@ -110,6 +110,7 @@ function BatchTransactionFeeInfo(props: Props) {
   }
 
   const nativeSymbol = feeInfoPayload?.info?.nativeSymbol || '';
+  const isPreset = feeInfoPayload?.selected?.type === 'preset';
 
   const disabled =
     feeInfoLoading ||
@@ -250,6 +251,7 @@ function BatchTransactionFeeInfo(props: Props) {
                       prices={feeInfoPayload?.info?.prices}
                       index={feePresetIndex}
                       space={2}
+                      isCustom={!isPreset}
                       alignItems="center"
                     />
                     <Text typography="Body1Strong">

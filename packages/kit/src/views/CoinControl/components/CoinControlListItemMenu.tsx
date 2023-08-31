@@ -109,7 +109,7 @@ const CoinControlListItemMenu: FC<
     ],
   );
 
-  return <BaseMenu w="full" options={options} {...props} />;
+  return <BaseMenu options={options} {...props} />;
 };
 
 export { CoinControlListItemMenu };

@@ -6,11 +6,13 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  ScrollView,
   Typography,
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
+import { isWatchingAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import { AppUIEventBusNames } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -26,6 +28,7 @@ import {
   RootRoutes,
   SendModalRoutes,
 } from '../../../routes/routesEnum';
+import { setAccountTokensBalances } from '../../../store/reducers/tokens';
 import { TxHistoryListView } from '../../TxHistory/TxHistoryListView';
 import { TokenDetailContext } from '../context';
 
@@ -73,6 +76,11 @@ function BRC20TokenDetail() {
     accountId: accountId ?? '',
     networkId: networkId ?? '',
   });
+
+  const isWatching = useMemo(
+    () => isWatchingAccount({ accountId: accountId ?? '' }),
+    [accountId],
+  );
 
   const balanceWithoutRecycle = useMemo(() => {
     const { balance, availableBalance, transferBalance } = balanceInfo;
@@ -184,8 +192,22 @@ function BRC20TokenDetail() {
         availableBalance: amountResp.availableBalance,
         transferBalance: amountResp.transferBalance,
       });
+
+      backgroundApiProxy.dispatch(
+        setAccountTokensBalances({
+          accountId,
+          networkId,
+          tokensBalance: {
+            [token.tokenIdOnNetwork ?? token.address]: {
+              balance: amountResp.balance,
+              availableBalance: amountResp.availableBalance,
+              transferBalance: amountResp.transferBalance,
+            },
+          },
+        }),
+      );
     }
-  }, [account, networkId, token]);
+  }, [account, accountId, networkId, token]);
 
   const fetchAvailableInscriptions = useCallback(async () => {
     if (networkId && account && token) {
@@ -227,13 +249,14 @@ function BRC20TokenDetail() {
   }, [fetchAvailableInscriptions, fetchRecycleBalance, isFocused]);
 
   return (
-    <Box paddingY={8} paddingX={isVertical ? 4 : 8}>
+    <ScrollView paddingY={8} paddingX={isVertical ? 4 : 8}>
       {!isVertical ? (
         <TokenDetailHeader
           onPressSend={handleSendOnPress}
           onPressReceive={handleReceiveOnPress}
           onPressTransfer={handleTransferOnPress}
           balanceWithoutRecycle={balanceWithoutRecycle}
+          isWatching={isWatching}
           style={{ mb: 8 }}
         />
       ) : null}
@@ -266,21 +289,26 @@ function BRC20TokenDetail() {
           onPressTransfer={handleTransferOnPress}
           balanceWithoutRecycle={balanceWithoutRecycle}
           style={{ mb: 6 }}
+          isWatching={isWatching}
         />
       ) : null}
-      <InscriptionEntry
-        inscriptions={availableInscriptions}
-        isLoadingInscriptions={isLoadingInscriptions}
-        onPress={handleInscriptionControlOnPress}
-        style={{ mb: 6 }}
-      />
-      <TxHistoryListView
-        accountId={accountId}
-        networkId={networkId}
-        tokenId={tokenAddress}
-        tabComponent
-      />
-    </Box>
+      {isWatching ? null : (
+        <InscriptionEntry
+          inscriptions={availableInscriptions}
+          isLoadingInscriptions={isLoadingInscriptions}
+          onPress={handleInscriptionControlOnPress}
+          style={{ mb: 6 }}
+        />
+      )}
+      <Box pb={10}>
+        <TxHistoryListView
+          accountId={accountId}
+          networkId={networkId}
+          tokenId={tokenAddress}
+          tabComponent
+        />
+      </Box>
+    </ScrollView>
   );
 }
 

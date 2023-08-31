@@ -34,6 +34,7 @@ export function SendConfirmErrorsAlert({
   lightingNetworkTransferConfig,
   prepaidFee,
   fee,
+  isListOrderPsbt,
 }: {
   networkId?: string;
   accountAddress?: string;
@@ -52,6 +53,7 @@ export function SendConfirmErrorsAlert({
   lightingNetworkTransferConfig?: IInvoiceConfig | null;
   prepaidFee?: string;
   fee?: string;
+  isListOrderPsbt?: boolean;
 }) {
   const errors = [];
   const intl = useIntl();
@@ -220,6 +222,18 @@ export function SendConfirmErrorsAlert({
         isAlertStyle
         message={intl.formatMessage({
           id: 'msg__eth_tx_warning_network_busy_gas_is_high',
+        })}
+      />,
+    );
+  }
+
+  if (isListOrderPsbt) {
+    errors.push(
+      <FormErrorMessage
+        alertType="info"
+        isAlertStyle
+        message={intl.formatMessage({
+          id: 'msg__psbt_will_not_broadcast_to_blockchain_now_no_need_to_pay_tx_fee',
         })}
       />,
     );

@@ -8,62 +8,9 @@ import type {
 import { GoPlusSupportApis } from '@onekeyhq/engine/src/types/goplus';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { setAccountTokensBalances } from '../../store/reducers/tokens';
 
 import type { Token } from '../../store/typings';
 import type { FiatPayModeType } from '../FiatPay/types';
-
-export const useSearchTokens = (
-  terms: string,
-  keyword: string,
-  networkId?: string,
-  accountId?: string,
-) => {
-  const [loading, setLoading] = useState(false);
-  const [searchedTokens, setTokens] = useState<Token[]>([]);
-  useEffect(() => {
-    if (terms !== keyword) {
-      setTokens([]);
-      setLoading(true);
-    }
-  }, [terms, keyword]);
-  useEffect(() => {
-    async function main() {
-      if (terms.length === 0 || !networkId || !accountId) {
-        setLoading(false);
-        setTokens([]);
-        return;
-      }
-      setLoading(true);
-      setTokens([]);
-      let tokens = [];
-      try {
-        tokens = await backgroundApiProxy.engine.searchTokens(networkId, terms);
-        setTokens(tokens);
-      } finally {
-        setLoading(false);
-      }
-      const [balances] =
-        await backgroundApiProxy.serviceToken.fetchAndSaveAccountTokenBalance({
-          accountId,
-          networkId,
-          tokenIds: tokens.map((i) => i.tokenIdOnNetwork),
-        });
-      backgroundApiProxy.dispatch(
-        setAccountTokensBalances({
-          accountId,
-          networkId,
-          tokensBalance: balances,
-        }),
-      );
-    }
-    main();
-  }, [terms, networkId, accountId]);
-  return {
-    loading,
-    searchedTokens,
-  };
-};
 
 export const useTokenSourceList = () => {
   const [loading, setLoading] = useState(true);

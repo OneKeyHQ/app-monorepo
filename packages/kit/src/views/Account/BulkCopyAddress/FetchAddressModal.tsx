@@ -67,6 +67,9 @@ const FetchAddressModal: FC = () => {
     walletId,
     networkId,
     password,
+    onClose: () => {
+      navigation.goBack();
+    },
   });
 
   const {

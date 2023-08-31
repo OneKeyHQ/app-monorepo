@@ -5,7 +5,11 @@ import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useAccountTokensBalance, useThrottle } from '../../../hooks';
+import {
+  useAccountTokensBalance,
+  useThrottle,
+  useTokenBalanceWithoutFrozen,
+} from '../../../hooks';
 import { useSimpleTokenPriceValue } from '../../../hooks/useTokens';
 import { appSelector } from '../../../store';
 
@@ -120,7 +124,11 @@ export const useTokenBalanceSimple = (token?: Token, accountId?: string) => {
 };
 
 export const useTokenBalance = (token?: Token, accountId?: string) => {
-  const balances = useAccountTokensBalance(token?.networkId, accountId);
+  const balance = useTokenBalanceWithoutFrozen({
+    networkId: token?.networkId ?? '',
+    accountId: accountId ?? '',
+    token,
+  });
   useEffect(() => {
     if (token && accountId) {
       if (isAccountCompatibleWithNetwork(accountId, token.networkId)) {
@@ -136,8 +144,8 @@ export const useTokenBalance = (token?: Token, accountId?: string) => {
     if (!token) {
       return undefined;
     }
-    return balances[getBalanceKey(token)]?.balance;
-  }, [balances, token]);
+    return balance;
+  }, [balance, token]);
 };
 
 export const useTokenPrice = (token?: Token) => {

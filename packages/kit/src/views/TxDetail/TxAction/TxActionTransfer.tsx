@@ -7,6 +7,7 @@ import { isLightningAddress } from '@onekeyhq/engine/src/vaults/impl/lightning-n
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
+  IDecodedTxStatus,
 } from '@onekeyhq/engine/src/vaults/types';
 import { isLightningNetworkByImpl } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -134,10 +135,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
       ? {
           title: intl.formatMessage({ id: 'content__from' }),
           content: getTxActionElementAddressWithSecurityInfo({
-            address:
-              from === 'unknown'
-                ? intl.formatMessage({ id: 'form__unknown' })
-                : from,
+            address: from,
             networkId: network?.id,
             withSecurityInfo: !isOut,
             amount,
@@ -151,10 +149,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
       ? {
           title: intl.formatMessage({ id: 'content__to' }),
           content: getTxActionElementAddressWithSecurityInfo({
-            address:
-              to === 'unknown'
-                ? intl.formatMessage({ id: 'form__unknown' })
-                : to,
+            address: to,
             networkId: network?.id,
             withSecurityInfo: isOut,
             amount,
@@ -184,7 +179,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
 export function TxActionTransferT0(props: ITxActionCardProps) {
   const intl = useIntl();
   const { action, meta, decodedTx, historyTx, network } = props;
-  const { accountId, networkId } = decodedTx;
+  const { accountId, networkId, status } = decodedTx;
   const { amount, symbol, from, to, isOut, displayDecimals } =
     getTxActionTransferInfo(props);
   const statusBar = (
@@ -196,6 +191,8 @@ export function TxActionTransferT0(props: ITxActionCardProps) {
     subTitle === 'unknown'
       ? intl.formatMessage({ id: 'form__unknown' })
       : shortenAddress(subTitle);
+
+  if (status === IDecodedTxStatus.Offline) return null;
 
   return (
     <TxListActionBox
