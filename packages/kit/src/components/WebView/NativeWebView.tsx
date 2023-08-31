@@ -80,7 +80,6 @@ const NativeWebView = forwardRef(
             });
           }
 
-          // TODO use url as origin when WebEmbedWebView
           // - receive
           jsBridge.receive(data, { origin });
           // eslint-disable-next-line no-empty

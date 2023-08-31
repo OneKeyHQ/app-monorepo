@@ -24,9 +24,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useShortcuts } from '../hooks/useShortcuts';
 import '../routes/deepLink';
 import buildLinking from '../routes/linking';
-import { createLazyComponent } from '../utils/createLazyComponent';
 import { FULLWINDOW_OVERLAY_PORTAL } from '../utils/overlayUtils';
 import { PortalContainer } from '../views/Overlay/RootPortal';
+import { WebEmbedApiWebview } from '../views/WebEmbedApiWebview';
 
 import RedirectProvider from './RedirectProvider';
 
@@ -34,10 +34,6 @@ import type { NavigationContainerRef } from '@react-navigation/native';
 
 export type RootNavContainerRef = NavigationContainerRef<RootRoutesParams>;
 export const navigationRef = createRef<RootNavContainerRef>();
-
-const WebEmbedView = createLazyComponent(
-  () => import('@onekeyhq/kit/src/views/WebEmbedView/WebEmbedView'),
-);
 
 declare global {
   // eslint-disable-next-line no-var, vars-on-top
@@ -136,7 +132,7 @@ const NavigationApp = () => {
   const globalPortalViews = useMemo(
     () => (
       <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-        <WebEmbedView />
+        <WebEmbedApiWebview />
         <CustomToast bottomOffset={60} />
         <PortalContainer name={FULLWINDOW_OVERLAY_PORTAL} />
       </View>

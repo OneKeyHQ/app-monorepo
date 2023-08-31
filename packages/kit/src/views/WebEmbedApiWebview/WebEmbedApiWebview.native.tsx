@@ -21,7 +21,6 @@ import { useShowWebEmbedWebviewAgent } from '../../hooks/useSettingsDevMode';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
 export type IWebEmbedWebviewProps = {
-  routePath: string;
   onContentLoaded?: (() => void) | null;
 };
 export type IWebEmbedWebviewForwardRef = {
@@ -29,10 +28,11 @@ export type IWebEmbedWebviewForwardRef = {
   checkWebViewReady: () => boolean;
 };
 
-const WebEmbedWebviewCmp: ForwardRefRenderFunction<
+const WebEmbedApiWebviewCmp: ForwardRefRenderFunction<
   IWebEmbedWebviewForwardRef,
   IWebEmbedWebviewProps
-> = ({ routePath, onContentLoaded }, ref) => {
+> = ({ onContentLoaded }, ref) => {
+  const routePath = '/webembed_api';
   const [topPosition, setTopPosition] = useState('100px');
   const isWebviewVisible = useShowWebEmbedWebviewAgent();
 
@@ -112,8 +112,7 @@ const WebEmbedWebviewCmp: ForwardRefRenderFunction<
   );
 };
 
-// TODO rename to WebEmbedApiWebview
-const WebEmbedWebview = memo(forwardRef(WebEmbedWebviewCmp));
-WebEmbedWebview.displayName = 'WebEmbedWebview';
+const WebEmbedApiWebview = memo(forwardRef(WebEmbedApiWebviewCmp));
+WebEmbedApiWebview.displayName = 'WebEmbedApiWebview';
 
-export { WebEmbedWebview };
+export { WebEmbedApiWebview };
