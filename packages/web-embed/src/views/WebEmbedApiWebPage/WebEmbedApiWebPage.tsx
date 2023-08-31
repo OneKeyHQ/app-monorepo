@@ -7,11 +7,14 @@ import webembedApi from '@onekeyhq/kit-bg/src/webembeds/instance/webembedApi';
 
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
+const storageKey = '$$Onekey_WebEmbedApi_showJsBridgeMessage';
+const showJsBridgeMessage = Boolean(localStorage.getItem(storageKey));
+
 function WebEmbedApiWebPage() {
   const [msg, setMsg] = useState<any>('');
   const handler = useCallback(async (payload: IJsBridgeMessagePayload) => {
-    if (process.env.NODE_ENV !== 'production') {
-      setMsg(payload.data);
+    if (showJsBridgeMessage) {
+      setMsg(payload);
     }
     return webembedApi.callWebEmbedApiMethod(
       payload.data as IBackgroundApiWebembedCallMessage,
@@ -39,35 +42,36 @@ function WebEmbedApiWebPage() {
     };
   }, [handler]);
 
-  if (process.env.NODE_ENV !== 'production') {
-    return (
-      <div style={{ fontSize: 12, padding: 4 }}>
-        <button
-          onClick={() => {
-            alert(window.location.href);
-            window.location.reload();
-          }}
-        >
-          Reload
-        </button>
-        <div
-          style={{
-            wordBreak: 'break-all',
-            overflow: 'auto',
-            whiteSpace: 'normal',
-          }}
-        >
-          {msg ? JSON.stringify(msg) : 'WebEmbedApiWebPage'}
-        </div>
-      </div>
-    );
-  }
+  const toggleShowJsBridgeMessageAndReload = useCallback(() => {
+    localStorage.setItem(storageKey, showJsBridgeMessage ? '' : '1');
+    window.location.reload();
+  }, []);
+
+  const reloadButton = (
+    <button
+      onClick={() => {
+        alert(window.location.href);
+        toggleShowJsBridgeMessageAndReload();
+      }}
+    >
+      Reload
+    </button>
+  );
 
   return (
-    <div
-      style={{ wordBreak: 'break-all', overflow: 'auto', whiteSpace: 'normal' }}
-    >
-      WebEmbedApiWebPage
+    <div style={{ fontSize: 12, padding: 4 }}>
+      {reloadButton}
+      <div
+        style={{
+          wordBreak: 'break-all',
+          overflow: 'auto',
+          whiteSpace: 'normal',
+        }}
+      >
+        {msg
+          ? JSON.stringify(msg)
+          : `WebEmbedApiWebPage(verbose=${showJsBridgeMessage.toString()})`}
+      </div>
     </div>
   );
 }
