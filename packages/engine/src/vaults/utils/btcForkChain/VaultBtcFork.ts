@@ -518,7 +518,10 @@ export default class VaultBtcFork extends VaultBase {
               from: 'unknown',
               to: dbAccount.address,
               amount: '0',
-              asset: output.inscriptions[0],
+              asset: {
+                ...output.inscriptions[0],
+                type: NFTAssetType.BTC,
+              },
             }),
           );
         } else {
