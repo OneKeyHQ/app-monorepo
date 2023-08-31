@@ -11,7 +11,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { TamaguiProvider } from 'tamagui'; // or '@tamagui/core'
+import { TamaguiProvider } from 'tamagui';
 
 import config from '@onekeyhq/app/tamagui.config';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -321,10 +321,9 @@ const Provider: FC<UIProviderProps> = ({
             }}
             theme={themeVar}
           >
-            {children}
-            {/* <View style={{ flex: 1 }}>
+            <View style={{ flex: 1 }}>
               <TamaguiProvider config={config}>{children}</TamaguiProvider>
-            </View> */}
+            </View>
           </NativeBaseProvider>
         </IntlProvider>
       </Context.Provider>

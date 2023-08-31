@@ -14,8 +14,7 @@ const ButtonCapture = forwardRef<any, IButtonProps>(
       <Button
         // @ts-ignore
         ref={ref}
-        // {...props}
-        onPressIn={props.onPressIn}
+        {...props}
         onPress={onPressOverride}
       />
     );

@@ -4,6 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import stringify from 'fast-json-stable-stringify';
 import { useIntl } from 'react-intl';
+import { Button } from 'tamagui';
 
 import {
   Box,
@@ -340,6 +341,9 @@ const AccountUpdateTips: FC<AccountUpdateTipsProps> = ({
   return (
     <Pressable onPress={onPressUpdate}>
       <Typography.Body2 color="text-subdued">{updateTips}</Typography.Body2>
+      <Button>
+        <Typography.Body2 color="text-subdued">{updateTips}</Typography.Body2>
+      </Button>
     </Pressable>
   );
 };
