@@ -27,6 +27,7 @@ import {
 } from '../utils';
 
 import { SimpleQuoter } from './0x';
+import { DeezyQuoter } from './deezy';
 import { JupiterQuoter } from './jupiter';
 import { SocketQuoter } from './socket';
 import { SwftcQuoter } from './swftc';
@@ -145,11 +146,14 @@ export class SwapQuoter {
 
   private socket = new SocketQuoter();
 
+  private deezy = new DeezyQuoter();
+
   private quoters: Quoter[] = [
     this.simple,
     this.socket,
     this.jupiter,
     this.swftc,
+    this.deezy,
   ];
 
   transactionReceipts: Record<

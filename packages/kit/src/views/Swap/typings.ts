@@ -119,6 +119,7 @@ export enum QuoterType {
   zeroX = '0x',
   jupiter = 'jupiter',
   onekey = 'onekey',
+  deezy = 'Deezy',
 }
 
 export type FieldType = 'INPUT' | 'OUTPUT';
