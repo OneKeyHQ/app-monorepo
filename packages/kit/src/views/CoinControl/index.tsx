@@ -223,12 +223,31 @@ const CoinControl = () => {
       return data.concat(frozenRecycleUtxosWithoutDust);
     }
 
-    const data = frozenUtxosWithoutRecycle.map((item, index) => ({
+    const frozenDustUtxo = frozenUtxosWithoutRecycle.filter((item) =>
+      new BigNumber(item.value).isLessThanOrEqualTo(dust),
+    );
+
+    const frozenUtxoWithoutDust = frozenUtxosWithoutRecycle.filter((item) =>
+      new BigNumber(item.value).isGreaterThan(dust),
+    );
+
+    let data = frozenUtxoWithoutDust.map((item, index) => ({
       ...item,
+      dustSeparator:
+        index === frozenUtxoWithoutDust.length - 1 && frozenDustUtxo.length > 0,
       recycleSeparator:
-        index === frozenUtxosWithoutRecycle.length - 1 &&
-        frozenRecycleUtxos.length > 0,
+        index === frozenUtxoWithoutDust.length - 1 &&
+        frozenRecycleUtxos.length > 0 &&
+        frozenDustUtxo.length === 0,
     })) as ICoinControlListItem[];
+
+    data = data.concat(
+      frozenDustUtxo.map((item, index) => ({
+        ...item,
+        recycleSeparator:
+          index === frozenDustUtxo.length - 1 && frozenRecycleUtxos.length > 0,
+      })),
+    );
 
     return data.concat(frozenRecycleUtxos);
   }, [
@@ -248,13 +267,21 @@ const CoinControl = () => {
     [useDustUtxo, utxosDust.length, utxosWithoutDust.length],
   );
 
-  const showFrozenListDustHeader = useMemo(
-    () =>
-      utxosDust.length > 0 &&
-      !useDustUtxo &&
-      frozenUtxosWithoutRecycle.length <= 0,
-    [frozenUtxosWithoutRecycle, useDustUtxo, utxosDust],
-  );
+  const showFrozenListDustHeader = useMemo(() => {
+    if (useDustUtxo) {
+      const frozenDustUtxo = frozenUtxosWithoutRecycle.filter((item) =>
+        new BigNumber(item.value).isLessThanOrEqualTo(dust),
+      );
+
+      const frozenUtxoWithoutDust = frozenUtxosWithoutRecycle.filter((item) =>
+        new BigNumber(item.value).isGreaterThan(dust),
+      );
+
+      return frozenUtxoWithoutDust.length <= 0 && frozenDustUtxo.length > 0;
+    }
+
+    return utxosDust.length > 0 && frozenUtxosWithoutRecycle.length <= 0;
+  }, [dust, frozenUtxosWithoutRecycle, useDustUtxo, utxosDust.length]);
 
   const showAvailableListRecycleHeader = useMemo(() => {
     if (useDustUtxo) {

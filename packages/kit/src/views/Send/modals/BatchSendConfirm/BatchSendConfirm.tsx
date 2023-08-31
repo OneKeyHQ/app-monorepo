@@ -84,10 +84,11 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
   });
   const { engine, serviceHistory, serviceToken } = backgroundApiProxy;
 
-  const { networkImpl, accountAddress, walletId } = useActiveSideAccount({
-    accountId,
-    networkId,
-  });
+  const { networkImpl, accountAddress, walletId, network } =
+    useActiveSideAccount({
+      accountId,
+      networkId,
+    });
 
   const { encodedTxs } = useBatchSendConfirmEncodedTxs({
     batchSendConfirmParams: routeParams,
@@ -124,6 +125,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     signOnly: routeParams.signOnly,
     forBatchSend: true,
     transferCount,
+    isBtcForkChain: network?.settings.isBtcForkChain,
   });
   useWalletConnectPrepareConnection({
     accountId,

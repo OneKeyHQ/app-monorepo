@@ -66,7 +66,7 @@ function UnListBTCAssetExplicitDialog({ onConfirm, onClose }: Props) {
           id: 'title__unlist_the_order',
         }),
         content: intl.formatMessage({
-          id: 'content__broadcast_an_tx_to_send_the_listed_inscription_back_to_your_account_this_will_unlist_your_previous+order_in_inscription_market',
+          id: 'content__send_the_listed_inscription_back_to_your_current_account_this_will_unlist_your_previous_order_in_market',
         }),
       }}
     />

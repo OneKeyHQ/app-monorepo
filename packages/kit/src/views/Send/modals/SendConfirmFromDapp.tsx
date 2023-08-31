@@ -75,6 +75,7 @@ export function SendConfirmFromDapp() {
       // replace router to SendConfirm
       action = StackActions.replace(SendModalRoutes.SendConfirm, params);
     }
+
     if (unsignedMessage) {
       const params: SignMessageConfirmParams = {
         networkId: dappNetworkId ?? networkId,

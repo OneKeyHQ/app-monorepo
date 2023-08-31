@@ -359,7 +359,8 @@ const SignDetail: FC<{
     );
   };
 
-  return type === ETHMessageTypes.ETH_SIGN || CommonMessageTypes.SIMPLE_SIGN ? (
+  return type === ETHMessageTypes.ETH_SIGN ||
+    type === CommonMessageTypes.SIMPLE_SIGN ? (
     <VStack>
       {header}
       {warning}

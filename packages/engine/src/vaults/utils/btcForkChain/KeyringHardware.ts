@@ -12,11 +12,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import {
-  NotImplemented,
-  OneKeyHardwareError,
-  OneKeyInternalError,
-} from '../../../errors';
+import { OneKeyHardwareError, OneKeyInternalError } from '../../../errors';
 import { slicePathTemplate } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { AccountType } from '../../../types/account';
@@ -41,13 +37,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async signTransaction(
     unsignedTx: IUnsignedTxPro,
   ): Promise<SignedTx> {
-    const { inputs, outputs, psbtHex, inputsToSign } = unsignedTx;
-
-    if (psbtHex && inputsToSign) {
-      throw new NotImplemented(
-        'Partially signed bitcoin transactions is not supported yet.',
-      );
-    }
+    const { inputs, outputs } = unsignedTx;
 
     const coinName = (this.vault as unknown as BTCForkVault).getCoinName();
     const addresses = unsignedTx.inputs.map((input) => input.address);
