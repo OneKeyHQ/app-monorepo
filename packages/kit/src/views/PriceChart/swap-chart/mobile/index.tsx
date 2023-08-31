@@ -9,6 +9,7 @@ import {
   Token as TokenImage,
   Typography,
   VStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import type {
@@ -142,8 +143,9 @@ const SwapChartFooter: FC<SwapChartFooterProps> = ({
   toData,
 }) => {
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
   return (
-    <Box>
+    <Box pb={`${bottom}px`}>
       <Box w="full">
         <TimeControl
           enabled={enabled}
@@ -290,10 +292,11 @@ const SwapChartSwapChartBottomSheetTrigger: FC<SwapChartProps> = ({
         py="2"
         px="3"
         borderTopRadius={12}
-        borderTopWidth={1}
-        borderLeftWidth={1}
-        borderRightWidth={1}
-        borderColor="border-subdued"
+        borderTopWidth={0.5}
+        borderLeftWidth={0.5}
+        borderRightWidth={0.5}
+        borderBottomWidth={0}
+        borderColor="divider"
         flexDirection="row"
         justifyContent="space-between"
       >
