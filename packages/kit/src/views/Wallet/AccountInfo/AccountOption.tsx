@@ -13,7 +13,10 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
-import { isLightningNetworkByImpl } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  isLightningNetworkByImpl,
+  isLightningNetworkByNetworkId,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
@@ -113,7 +116,25 @@ const AccountOption: FC<AccountOptionProps> = memo(
           }
         }
         if (token) {
-          backgroundApiProxy.serviceSwap.sellToken(token);
+          const isLightningNetwork = isLightningNetworkByNetworkId(n.id);
+          backgroundApiProxy.serviceSwap
+            .sellToken(token, !isLightningNetwork)
+            .then(async () => {
+              // Switch to LN to BTC swap if is lightning network
+              if (isLightningNetwork) {
+                const bitcoinNativeToken =
+                  await backgroundApiProxy.engine.getNativeTokenInfo(
+                    n.id === OnekeyNetwork.lightning
+                      ? OnekeyNetwork.btc
+                      : OnekeyNetwork.tbtc,
+                  );
+                if (bitcoinNativeToken) {
+                  backgroundApiProxy.serviceSwap.setOutputToken(
+                    bitcoinNativeToken,
+                  );
+                }
+              }
+            });
           if (a) {
             backgroundApiProxy.serviceSwap.setSendingAccountSimple(a);
             const paymentToken =
@@ -189,38 +210,36 @@ const AccountOption: FC<AccountOptionProps> = memo(
             {intl.formatMessage({ id: 'action__receive' })}
           </Typography.CaptionStrong>
         </Pressable>
-        {network?.settings.hiddenAccountInfoSwapOption ? null : (
-          <Pressable
-            flex={iconBoxFlex}
-            mx={3}
-            minW="56px"
-            alignItems="center"
-            isDisabled={wallet?.type === 'watching' || !account}
-            onPress={onSwap}
+        <Pressable
+          flex={iconBoxFlex}
+          mx={3}
+          minW="56px"
+          alignItems="center"
+          isDisabled={wallet?.type === 'watching' || !account}
+          onPress={onSwap}
+        >
+          <TouchableWithoutFeedback>
+            <IconButton
+              circle
+              size={isSmallView ? 'xl' : 'lg'}
+              name="ArrowsRightLeftOutline"
+              type="basic"
+              isDisabled={wallet?.type === 'watching' || !account}
+              onPress={onSwap}
+            />
+          </TouchableWithoutFeedback>
+          <Typography.CaptionStrong
+            textAlign="center"
+            mt="8px"
+            color={
+              wallet?.type === 'watching' || !account
+                ? 'text-disabled'
+                : 'text-default'
+            }
           >
-            <TouchableWithoutFeedback>
-              <IconButton
-                circle
-                size={isSmallView ? 'xl' : 'lg'}
-                name="ArrowsRightLeftOutline"
-                type="basic"
-                isDisabled={wallet?.type === 'watching' || !account}
-                onPress={onSwap}
-              />
-            </TouchableWithoutFeedback>
-            <Typography.CaptionStrong
-              textAlign="center"
-              mt="8px"
-              color={
-                wallet?.type === 'watching' || !account
-                  ? 'text-disabled'
-                  : 'text-default'
-              }
-            >
-              {intl.formatMessage({ id: 'title__swap' })}
-            </Typography.CaptionStrong>
-          </Pressable>
-        )}
+            {intl.formatMessage({ id: 'title__swap' })}
+          </Typography.CaptionStrong>
+        </Pressable>
 
         {network?.settings.hiddenAccountInfoMoreOption ? null : (
           <AccountMoreMenu

@@ -240,6 +240,7 @@ const AccountView: FC<AccountViewProps> = ({
   const activeExternalWalletName = useAppSelector(
     (s) => s.general.activeExternalWalletName,
   );
+  const hiddenAddress = isLightningNetworkByNetworkId(networkId);
   const onPress = useCallback(() => {
     onSelect?.(account);
   }, [account, onSelect]);
@@ -278,9 +279,19 @@ const AccountView: FC<AccountViewProps> = ({
               </Text>
               <Box flexDirection="row">
                 <Text typography="Body2" color="text-subdued">
-                  {shortenAddress(account.displayAddress || account.address)}
+                  {hiddenAddress
+                    ? null
+                    : shortenAddress(account.displayAddress || account.address)}
                 </Text>
-                <Box w={1} h={1} m={2} bgColor="icon-disabled" rounded="full" />
+                {!hiddenAddress && (
+                  <Box
+                    w={1}
+                    h={1}
+                    m={2}
+                    bgColor="icon-disabled"
+                    rounded="full"
+                  />
+                )}
                 {nativeBalance ? (
                   <>
                     <Text typography="Body2" color="text-subdued" isTruncated>
@@ -445,28 +456,15 @@ const AccountSelectorModal: FC<AccountSelectorModalProps> = ({
         }
       }
       if (isLightningNetworkByNetworkId(networkId)) {
-        const getNormalizedAddress = (account: Account) => {
-          try {
-            const addresses = JSON.parse(account.addresses ?? '{}');
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
-            return (addresses.normalizedAddress as unknown as string) ?? '';
-          } catch (e) {
-            console.error('parse lightning address error: ', e);
-            // ignore
-            throw e;
-          }
-        };
-        const normalizedAddresses = data.map((acc) =>
-          getNormalizedAddress(acc),
-        );
-        const lnurls =
-          await backgroundApiProxy.serviceLightningNetwork.batchGetLnUrl({
-            networkId: networkId ?? '',
-            addresses: normalizedAddresses,
-          });
+        const lnurlMap =
+          await backgroundApiProxy.serviceLightningNetwork.batchGetLnUrlByAccounts(
+            {
+              networkId: networkId ?? '',
+              accounts: data,
+            },
+          );
         data = data.map((acc) => {
-          const normalizedAddress = getNormalizedAddress(acc);
-          const lnurl = lnurls[normalizedAddress];
+          const lnurl = lnurlMap[acc.id];
           return {
             ...acc,
             address: lnurl,
