@@ -321,9 +321,10 @@ const Provider: FC<UIProviderProps> = ({
             }}
             theme={themeVar}
           >
-            <View style={{ flex: 1 }}>
+            {children}
+            {/* <View style={{ flex: 1 }}>
               <TamaguiProvider config={config}>{children}</TamaguiProvider>
-            </View>
+            </View> */}
           </NativeBaseProvider>
         </IntlProvider>
       </Context.Provider>
