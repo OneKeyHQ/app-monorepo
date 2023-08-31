@@ -2,7 +2,7 @@
 import type { FC } from 'react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { useIsFocused, useNavigation } from '@react-navigation/core';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -85,8 +85,10 @@ function useMangeTokensDataFromRedux() {
 
 function HandleRebuildMangeTokens() {
   const result = useMangeTokensDataFromRedux();
+  const isFocused = useIsFocused();
   const [, setData] = useAtomManageTokens(atomMangeTokensList);
   const [, setIsLoading] = useAtomManageTokens(atomMangeTokensLoading);
+  const [, updateTS] = useAtomManageTokens(atomMangeTokensTS);
   useEffect(() => {
     const data = result.result;
     if (!data) {
@@ -100,6 +102,12 @@ function HandleRebuildMangeTokens() {
       setIsLoading(result.isLoading);
     }
   }, [result.isLoading, setIsLoading]);
+
+  useEffect(() => {
+    if (isFocused) {
+      updateTS(Date.now());
+    }
+  }, [isFocused, updateTS]);
 
   return null;
 }
