@@ -145,7 +145,7 @@ export class SocketQuoter implements Quoter {
       data.refuel?.status === 'COMPLETED'
     ) {
       return {
-        status: 'sucesss',
+        status: 'success',
         destinationTransactionHash:
           data.destinationTransactionHash ||
           data.refuel?.destinationTransactionHash,
@@ -182,7 +182,7 @@ export class SocketQuoter implements Quoter {
           transactionHash: txid,
           bridgeName: attachment?.socketUsedBridgeNames?.[0],
         });
-        if (statusRes?.status === 'sucesss') {
+        if (statusRes?.status === 'success') {
           return {
             status: statusRes.status,
             destinationTransactionHash: statusRes.destinationTransactionHash,
@@ -224,7 +224,7 @@ export class SocketQuoter implements Quoter {
       params: [tx.hash],
     })) as SerializableTransactionReceipt | undefined;
     if (result) {
-      return { status: Number(result.status) === 1 ? 'sucesss' : 'failed' };
+      return { status: Number(result.status) === 1 ? 'success' : 'failed' };
     }
 
     if (Date.now() - tx.addedTime > 60 * 60 * 1000 * 24) {

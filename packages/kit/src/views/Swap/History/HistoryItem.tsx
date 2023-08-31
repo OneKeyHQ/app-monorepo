@@ -56,7 +56,7 @@ const HistoryItemStatus: FC<HistoryItemStatusProps> = ({ status }) => {
           title={intl.formatMessage({ id: 'transaction__failed' })}
         />
       ) : null}
-      {status === 'sucesss' ? (
+      {status === 'success' ? (
         <Badge
           type="success"
           size="sm"

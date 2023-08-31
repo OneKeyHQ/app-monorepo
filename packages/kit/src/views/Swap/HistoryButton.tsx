@@ -109,7 +109,7 @@ const HistoryDoneButton: FC<{ onPress?: () => void }> = ({ onPress }) => {
   const intl = useIntl();
   const transactions = useWalletsSwapTransactions();
   const completed = transactions.filter(
-    (tx) => tx.status === 'sucesss' && tx.viewed === false,
+    (tx) => tx.status === 'success' && tx.viewed === false,
   );
   const failed = transactions.filter(
     (tx) =>

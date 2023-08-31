@@ -61,7 +61,7 @@ type RouteProps = RouteProp<SwapRoutesParams, SwapRoutes.Transaction>;
 type NavigationProps = NavigationProp<SwapRoutesParams, SwapRoutes.Transaction>;
 
 const StatusIcon: FC<{ status: TransactionStatus }> = ({ status }) => {
-  if (status === 'sucesss') {
+  if (status === 'success') {
     return (
       <Center w="4" h="4" borderRadius="full" bg="action-primary-default">
         <Icon name="CheckMini" size={12} color="icon-on-primary" />
@@ -89,7 +89,7 @@ const StatusIcon: FC<{ status: TransactionStatus }> = ({ status }) => {
 
 const StatusTitle: FC<{ status: TransactionStatus }> = ({ status }) => {
   const intl = useIntl();
-  if (status === 'sucesss') {
+  if (status === 'success') {
     return (
       <Typography.Body1Strong>
         {intl.formatMessage({ id: 'form__swap_success' })}
@@ -168,7 +168,7 @@ const Header: FC<TransactionProps & { onPress?: () => void }> = ({
           )}
         </Box>
       </Box>
-      {tx.status === 'sucesss' ? (
+      {tx.status === 'success' ? (
         <Button size="xs" onPress={onPress}>
           {intl.formatMessage({ id: 'action__swap_again' })}
         </Button>

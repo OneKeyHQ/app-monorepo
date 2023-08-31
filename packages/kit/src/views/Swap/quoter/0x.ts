@@ -29,7 +29,7 @@ export class SimpleQuoter implements Quoter {
       params: [tx.hash],
     })) as SerializableTransactionReceipt | undefined;
     if (result) {
-      return { status: Number(result.status) === 1 ? 'sucesss' : 'failed' };
+      return { status: Number(result.status) === 1 ? 'success' : 'failed' };
     }
 
     if (Date.now() - tx.addedTime > 60 * 60 * 1000 * 24) {

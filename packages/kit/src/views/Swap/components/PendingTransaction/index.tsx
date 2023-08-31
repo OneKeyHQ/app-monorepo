@@ -105,7 +105,7 @@ export class Scheduler {
           }),
         );
       }
-      if (status === 'sucesss') {
+      if (status === 'success') {
         const txObj = { ...tx };
         txObj.destinationTransactionHash = destinationTransactionHash;
         const actualReceived = await SwapQuoter.client.getActualReceived(txObj);

@@ -68,7 +68,7 @@ export class SwftcQuoter implements Quoter {
       const receipt = res.data.data as SwftcTransactionReceipt;
       if (receipt.tradeState === 'complete') {
         return {
-          status: 'sucesss',
+          status: 'success',
           destinationTransactionHash: receipt.transactionId,
         };
       }

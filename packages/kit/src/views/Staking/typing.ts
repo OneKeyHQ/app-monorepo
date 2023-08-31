@@ -276,7 +276,7 @@ export type LidoOverview = {
   nfts?: LidoNFTStatus[];
 };
 
-export type TransactionStatus = 'pending' | 'failed' | 'canceled' | 'sucesss';
+export type TransactionStatus = 'pending' | 'failed' | 'canceled' | 'success';
 export type TransactionType =
   | 'lidoUnstake'
   | 'lidoStake'

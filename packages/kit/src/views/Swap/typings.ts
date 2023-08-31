@@ -319,7 +319,7 @@ export interface SerializableBlockReceipt {
   timestamp: string;
 }
 
-export type TransactionStatus = 'pending' | 'failed' | 'canceled' | 'sucesss';
+export type TransactionStatus = 'pending' | 'failed' | 'canceled' | 'success';
 export type TransactionType = 'approve' | 'swap';
 
 export type TransactionToken = {

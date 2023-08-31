@@ -462,7 +462,7 @@ class ServiceHistory extends ServiceBase {
     networkId: string;
     accountId: string;
     nonce: number;
-  }): Promise<'pending' | 'failed' | 'sucesss' | 'canceled'> {
+  }): Promise<'pending' | 'failed' | 'success' | 'canceled'> {
     await this.refreshPendingHistory({ networkId, accountId });
     const nonceTxs = await this.getTransactionsWithNonce({
       networkId,
@@ -479,7 +479,7 @@ class ServiceHistory extends ServiceBase {
       if (canceledTxs.length > 0) {
         return 'canceled';
       }
-      return 'sucesss';
+      return 'success';
     }
     if (statusList.includes(IDecodedTxStatus.Failed)) {
       return 'failed';
@@ -500,7 +500,7 @@ class ServiceHistory extends ServiceBase {
     networkId: string;
     accountId: string;
     txid: string;
-  }): Promise<'pending' | 'failed' | 'sucesss' | 'canceled'> {
+  }): Promise<'pending' | 'failed' | 'success' | 'canceled'> {
     await this.refreshPendingHistory({ networkId, accountId });
     const historyTxs = await this.getLocalHistory({ networkId, accountId });
     const tx = historyTxs.find((item) => item.decodedTx.txid === txid);
@@ -508,7 +508,7 @@ class ServiceHistory extends ServiceBase {
       return 'failed';
     }
     if (tx.decodedTx.status === IDecodedTxStatus.Confirmed) {
-      return 'sucesss';
+      return 'success';
     }
     if (tx.decodedTx.status === IDecodedTxStatus.Failed) {
       return 'failed';
