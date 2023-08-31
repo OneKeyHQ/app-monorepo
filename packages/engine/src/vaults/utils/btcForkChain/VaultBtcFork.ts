@@ -1164,6 +1164,10 @@ export default class VaultBtcFork extends VaultBase {
         tokenAddress: tokenIdOnNetwork,
       });
 
+      // several history items with same txid
+      // merge them into one
+      const txIdSet = new Set<string>();
+
       const promises = history.map(async (tx) => {
         try {
           const historyTxToMerge = localHistory.find(
@@ -1174,61 +1178,76 @@ export default class VaultBtcFork extends VaultBase {
             return null;
           }
 
-          const {
-            fromAddress,
-            toAddress,
-            time,
-            token: tick,
-            actionType,
-            amount,
-          } = tx;
+          if (txIdSet.has(tx.txId)) {
+            return null;
+          }
 
-          const tokenId = `brc-20--${tick}`;
+          txIdSet.add(tx.txId);
 
-          const tokenInfo = await this.engine.findToken({
-            networkId: this.networkId,
-            tokenIdOnNetwork: tokenId,
-          });
+          const txsWithSameTxId = history.filter(
+            (item) => item.txId === tx.txId,
+          );
 
           const actions: IDecodedTxAction[] = [];
-          const isInscribeTransfer = actionType === 'inscribeTransfer';
 
-          if (tokenInfo) {
-            const action = this.buildBRC20TokenAction({
-              nftInfo: {
-                from: isInscribeTransfer ? toAddress : fromAddress,
-                to: toAddress,
-                amount,
-                asset: {
-                  type: NFTAssetType.BTC,
-                  inscription_id: tx.inscriptionId,
-                  inscription_number: new BigNumber(
-                    tx.inscriptionNumber,
-                  ).toNumber(),
-                  tx_hash: tx.txId,
-                  content: '',
-                  content_length: 0,
-                  content_type: '',
-                  timestamp: tx.time,
-                  output: tx.index,
-                  owner: '',
-                  output_value_sat: 0,
-                  genesis_transaction_hash: '',
-                  location: tx.location,
-                  contentUrl: '',
-                },
-              },
-              dbAccount,
-              token: tokenInfo,
-              brc20Content: {
-                p: 'brc20',
-                op: actionType,
-                tick,
-                amt: amount,
-              },
+          for (let i = 0, len = txsWithSameTxId.length; i < len; i += 1) {
+            const {
+              fromAddress,
+              toAddress,
+              time,
+              token: tick,
+              actionType,
+              amount,
+            } = txsWithSameTxId[i];
+
+            const tokenId = `brc-20--${tick}`;
+
+            const tokenInfo = await this.engine.findToken({
+              networkId: this.networkId,
+              tokenIdOnNetwork: tokenId,
             });
-            actions.push(action);
+
+            const isInscribeTransfer = actionType === 'inscribeTransfer';
+
+            if (tokenInfo) {
+              const action = this.buildBRC20TokenAction({
+                nftInfo: {
+                  from: isInscribeTransfer ? toAddress : fromAddress,
+                  to: toAddress,
+                  amount,
+                  asset: {
+                    type: NFTAssetType.BTC,
+                    inscription_id: tx.inscriptionId,
+                    inscription_number: new BigNumber(
+                      tx.inscriptionNumber,
+                    ).toNumber(),
+                    tx_hash: tx.txId,
+                    content: '',
+                    content_length: 0,
+                    content_type: '',
+                    timestamp: tx.time,
+                    output: tx.index,
+                    owner: '',
+                    output_value_sat: 0,
+                    genesis_transaction_hash: '',
+                    location: tx.location,
+                    contentUrl: '',
+                  },
+                },
+                dbAccount,
+                token: tokenInfo,
+                brc20Content: {
+                  p: 'brc20',
+                  op: actionType,
+                  tick,
+                  amt: amount,
+                },
+              });
+              actions.push(action);
+            }
           }
+
+          const { time } = txsWithSameTxId[0];
 
           const decodedTx: IDecodedTx = {
             txid: tx.txId,
