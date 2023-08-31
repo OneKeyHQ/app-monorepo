@@ -84,10 +84,11 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
   });
   const { engine, serviceHistory, serviceToken } = backgroundApiProxy;
 
-  const { networkImpl, accountAddress, walletId, network } = useActiveSideAccount({
-    accountId,
-    networkId,
-  });
+  const { networkImpl, accountAddress, walletId, network } =
+    useActiveSideAccount({
+      accountId,
+      networkId,
+    });
 
   const { encodedTxs } = useBatchSendConfirmEncodedTxs({
     batchSendConfirmParams: routeParams,
