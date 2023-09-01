@@ -3,7 +3,7 @@ import { type FC, useCallback, useState } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Button } from '@onekeyhq/components';
+import { Button, ToastManager } from '@onekeyhq/components';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -14,8 +14,10 @@ import { ButtonItem } from '../../TokenDetail/TokenDetailHeader/ButtonItem';
 import { StakingRoutes } from '../typing';
 import {
   StakingTypes,
+  getRecommendNetworkIdByStakingType,
   getStakeSelectNetworkAccountFilter,
   isAccountCompatibleWithStakingTypes,
+  isSupportStakingType,
 } from '../utils';
 
 import { WidgetContainer } from './WidgetContainer';
@@ -51,9 +53,28 @@ export const MarketStakeButtonContent: FC<MarketStakeButtonContentProps> = ({
   const onPress = useCallback(async () => {
     try {
       setLoading(true);
-      const { account, network } = await selectNetworkAccount();
+      let nid: string | undefined;
+      let aid: string | undefined;
+      if (isAllNetworks(networkId)) {
+        const { account, network } = await selectNetworkAccount();
+        nid = network.id;
+        aid = account.id;
+      } else if (isAccountCompatibleWithStakingTypes(accountId, stakingType)) {
+        const stakingNetworkId =
+          getRecommendNetworkIdByStakingType(stakingType);
+        if (stakingNetworkId) {
+          nid = stakingNetworkId;
+          aid = accountId;
+        }
+      }
+      if (!nid || !aid) {
+        ToastManager.show({
+          title: intl.formatMessage({ id: 'msg__unknown_error' }),
+        });
+        return;
+      }
       debugLogger.staking.info(
-        `use networkId: ${network.id} and account id ${account.id} to stake asset`,
+        `use networkId: ${nid} and account id ${aid} to stake asset`,
       );
       const screen = getStakingRoute(stakingType);
       navigation.navigate(RootRoutes.Modal, {
@@ -61,15 +82,15 @@ export const MarketStakeButtonContent: FC<MarketStakeButtonContentProps> = ({
         params: {
           screen,
           params: {
-            networkId: network.id,
-            accountId: account.id,
+            networkId: nid,
+            accountId: aid,
           },
         },
       });
     } finally {
       setLoading(false);
     }
-  }, [selectNetworkAccount, navigation, stakingType]);
+  }, [selectNetworkAccount, navigation, stakingType, accountId, networkId]);
   return stakingType && !loading ? (
     <>
       {buttonType === 'icon' ? (

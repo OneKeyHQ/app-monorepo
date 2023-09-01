@@ -8,7 +8,6 @@ import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClos
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IVaultSettings } from '@onekeyhq/engine/src/vaults/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   useAccountTokensBalance,
@@ -202,17 +201,9 @@ const ListItem: FC<ListItemProps> = ({
             <Box>
               <CheckBox
                 isChecked={isChecked}
-                isDisabled
                 containerStyle={{ mr: 0 }}
                 checkBoxProps={{
                   size: 'sm',
-                  opacity: 1,
-                  _icon: {
-                    color: 'icon-on-primary',
-                  },
-                  _disabled: {
-                    opacity: 1,
-                  },
                   accessibilityLabel: account.address,
                 }}
               />

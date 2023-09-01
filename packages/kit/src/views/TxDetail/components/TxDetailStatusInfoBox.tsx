@@ -15,6 +15,7 @@ import {
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
 import txFailedIcon from '@onekeyhq/kit/assets/transaction/status/tx_failed.png';
+import txOfflineIcon from '@onekeyhq/kit/assets/transaction/status/tx_offline.png';
 import txPendingIcon from '@onekeyhq/kit/assets/transaction/status/tx_pending.png';
 import txSuccessedIcon from '@onekeyhq/kit/assets/transaction/status/tx_successed.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -53,6 +54,10 @@ function TxDetailStatusInfoBox(props: Props) {
 
     if (decodedTx.status === IDecodedTxStatus.Confirmed) {
       return txSuccessedIcon as ImageURISource;
+    }
+
+    if (decodedTx.status === IDecodedTxStatus.Offline) {
+      return txOfflineIcon as ImageURISource;
     }
 
     return txFailedIcon as ImageURISource;

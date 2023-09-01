@@ -6,6 +6,7 @@ import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
+import type { IUnsignedMessageBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
 import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   LNURLAuthServiceResponse,
@@ -80,6 +81,11 @@ export type LnUrlWithdrawParams = {
   lnurlDetails: LNURLWithdrawServiceResponse;
   isSendFlow: boolean;
 };
+export type PreSendBRC20TokenAmountParams = {
+  networkId: string;
+  accountId: string;
+  token: Token;
+};
 
 export type LnUrlAuthParams = {
   walletId: string;
@@ -118,7 +124,7 @@ export type TransferSendParamsPayload = SendConfirmPayloadBase & {
     symbol: string;
     balance?: string;
     sendAddress?: string;
-  };
+  } & Token;
 };
 
 export type SendConfirmFromDappParams = {
@@ -147,6 +153,7 @@ export type SendConfirmPayloadInfo = {
   swapInfo?: ISwapInfo;
   stakeInfo?: IStakeInfo;
   nftInfo?: INFTInfo;
+  nftInfos?: INFTInfo[];
 };
 export type SendConfirmSharedParams = {
   networkId: string;
@@ -179,8 +186,9 @@ export type SendConfirmParams = SendConfirmSharedParams & {
 };
 export type SignMessageConfirmParams = SendConfirmSharedParams & {
   sourceInfo?: IDappSourceInfo;
-  unsignedMessage: IUnsignedMessageEvm;
+  unsignedMessage: IUnsignedMessageEvm | IUnsignedMessageBtc;
   onSuccess?: (result: any) => void;
+  onFail?: (error?: Error) => void;
   hideToast?: boolean;
   closeImmediately?: boolean;
 };
@@ -201,7 +209,7 @@ export type SendAuthenticationParams = Omit<
   accountId: string;
   walletId: string;
   networkId: string;
-  unsignedMessage?: IUnsignedMessageEvm;
+  unsignedMessage?: IUnsignedMessageEvm | IUnsignedMessageBtc;
   encodedTx?: IEncodedTx;
 };
 
@@ -240,6 +248,7 @@ export type SendRoutesParams = {
   [SendModalRoutes.PreSendToken]: PreSendParams;
   [SendModalRoutes.PreSendAddress]: PreSendParams;
   [SendModalRoutes.PreSendAmount]: PreSendParams;
+  [SendModalRoutes.PreSendBRC20TokenAmount]: PreSendBRC20TokenAmountParams;
   [SendModalRoutes.SendEditFee]: EditFeeParams;
   [SendModalRoutes.TokenApproveAmountEdit]: TokenApproveAmountEditParams;
   [SendModalRoutes.SendConfirmFromDapp]: SendConfirmFromDappParams;
@@ -286,7 +295,7 @@ export type ITxConfirmViewProps = ModalProps & {
   feeInfoPayload: IFeeInfoPayload | null;
   feeInfoLoading: boolean;
   feeInfoEditable?: boolean;
-  feeInput?: JSX.Element;
+  feeInput?: JSX.Element | null;
 
   prepaidFee?: string;
 
@@ -297,6 +306,7 @@ export type ITxConfirmViewProps = ModalProps & {
   confirmDisabled?: boolean;
   autoConfirm?: boolean;
   children?: JSX.Element | JSX.Element[] | Element | Element[] | any;
+  isListOrderPsbt?: boolean;
 
   sendConfirmParams: SendConfirmParams;
 };
@@ -307,7 +317,7 @@ export type ISignMessageConfirmViewPropsHandleConfirm = ({
 }: {
   onClose?: () => void;
   close: () => void;
-  unsignedMessage: IUnsignedMessageEvm;
+  unsignedMessage: IUnsignedMessageEvm | IUnsignedMessageBtc;
 }) => void;
 
 export type ISignMessageConfirmViewProps = ModalProps & {
@@ -315,7 +325,7 @@ export type ISignMessageConfirmViewProps = ModalProps & {
   accountId: string;
   // TODO rename sourceInfo
   sourceInfo?: IDappSourceInfo;
-  unsignedMessage: IUnsignedMessageEvm;
+  unsignedMessage: IUnsignedMessageEvm | IUnsignedMessageBtc;
   confirmDisabled?: boolean;
   handleConfirm: ISignMessageConfirmViewPropsHandleConfirm;
   children?: ReactElement;
@@ -456,3 +466,16 @@ export enum EditableNonceStatusEnum {
   Less = 'Less',
   Greater = 'Greater',
 }
+
+export type BRC20TokenAmountItem = {
+  amount: string;
+  inscriptionId: string;
+  inscriptionNumber: string;
+};
+
+export type BRC20TokenAmountListResponse = {
+  balance: string;
+  availableBalance: string;
+  transferBalance: string;
+  transferBalanceList: BRC20TokenAmountItem[];
+};

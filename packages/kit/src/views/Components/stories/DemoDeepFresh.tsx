@@ -178,7 +178,7 @@ const atomDemoDeepFreshReload = atom(
 );
 
 const {
-  Provider: ProviderDemoDeepFresh,
+  // Provider: ProviderDemoDeepFresh,
   withProvider: withProviderDemoDeepFresh,
   useContextAtom: useAtomDemoDeepFresh,
 } = createJotaiContext();

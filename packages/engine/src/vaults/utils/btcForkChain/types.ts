@@ -1,3 +1,6 @@
+import type { InputToSign } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.types';
+
+import type { NFTBTCAssetModel } from '../../../types/nft';
 import type { Token } from '../../../types/token';
 import type {
   IDecodedTxDirection,
@@ -51,6 +54,7 @@ export type IBtcUTXO = {
   address: string;
   path: string;
   forceSelect?: boolean;
+  inscriptions?: NFTBTCAssetModel[];
 };
 
 export type IOrdinalQueryStatus =
@@ -103,6 +107,7 @@ export type IEncodedTxBtc = {
     address: string;
     value: string;
     payload?: { isCharge?: boolean; bip44Path?: string };
+    inscriptions?: NFTBTCAssetModel[];
   }[];
   feeRate: string;
   totalFee: string;
@@ -115,6 +120,8 @@ export type IEncodedTxBtc = {
   }[];
   transferInfo: ITransferInfo;
   transferInfos?: ITransferInfo[];
+  psbtHex?: string;
+  inputsToSign?: InputToSign[];
 };
 
 export type UTXO = {

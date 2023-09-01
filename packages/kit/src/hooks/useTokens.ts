@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { pick } from 'lodash';
-import { useAsync } from 'react-async-hook';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
@@ -111,24 +110,16 @@ export const useNativeTokenBalance = (
   return useMemo(() => balances?.main?.balance || '0', [balances]);
 };
 
-export function useNetworkTokens(networkId?: string) {
-  const { result: tokens } = useAsync(
-    async () =>
-      backgroundApiProxy.engine.getTopTokensOnNetwork(networkId ?? ''),
-    [networkId],
-  );
-
-  return tokens ?? [];
-}
-
 export const useFrozenBalance = ({
   networkId,
   accountId,
   tokenId,
+  useRecycleBalance,
 }: {
   networkId: string;
   accountId: string;
   tokenId: string;
+  useRecycleBalance?: boolean;
 }) => {
   const [frozenBalance, setFrozenBalance] = useState<
     number | Record<string, number>
@@ -150,13 +141,14 @@ export const useFrozenBalance = ({
           accountId,
           networkId,
           password,
+          useRecycleBalance,
         })
         .then(setFrozenBalance)
         .catch((e) => {
           debugLogger.common.error('getFrozenBalance error', e);
         });
     })();
-  }, [networkId, accountId]);
+  }, [networkId, accountId, useRecycleBalance]);
 
   return useMemo(
     () =>

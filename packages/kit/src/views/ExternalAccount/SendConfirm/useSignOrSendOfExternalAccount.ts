@@ -7,6 +7,7 @@ import {
   ETHMessageTypes,
   getEthProviderMethodFromMessageType,
 } from '@onekeyhq/engine/src/types/message';
+import type { IUnsignedMessageBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
 import type {
   IEncodedTxEvm,
   IUnsignedMessageEvm,
@@ -28,7 +29,7 @@ export function useSignOrSendOfExternalAccount({
   signOnly,
 }: {
   encodedTx: IEncodedTx | undefined;
-  unsignedMessage?: IUnsignedMessageEvm | undefined;
+  unsignedMessage?: IUnsignedMessageEvm | IUnsignedMessageBtc | undefined;
   sourceInfo?: IDappSourceInfo | undefined;
   networkId: string;
   accountId: string;

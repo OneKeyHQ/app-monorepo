@@ -224,6 +224,13 @@ class ServiceApp extends ServiceBase {
       window.desktopApi?.clearAutoUpdateSettings?.();
     }
     await appStorage.clear();
+
+    // clear dev settings for App
+    if (platformEnv.isNative) {
+      appStorage.clearSetting();
+    }
+
+    appStorage.clearSetting();
     dispatch({ type: 'LOGOUT', payload: undefined });
     serviceNetwork.notifyChainChanged();
     serviceAccount.notifyAccountsChanged();

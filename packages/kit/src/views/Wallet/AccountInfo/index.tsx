@@ -22,19 +22,21 @@ import { NetworkDarkIcon } from '@onekeyhq/components/src/Network/DarkIcon';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { FormatCurrencyNumber } from '@onekeyhq/kit/src/components/Format';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+  useNetwork,
+} from '@onekeyhq/kit/src/hooks';
 import {
   ManageNetworkModalRoutes,
   ModalRoutes,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
+import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import { isWatchingAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
-  useAccountIsUpdating,
-  useAccountValues,
-  useOverviewPendingTasks,
-} from '../../../hooks';
+import { useAccountIsUpdating, useOverviewPendingTasks } from '../../../hooks';
 import { useAllNetworksWalletAccounts } from '../../../hooks/useAllNetwoks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
@@ -44,8 +46,6 @@ import { calculateGains } from '../../../utils/priceUtils';
 import { showAccountValueSettings } from '../../Overlay/AccountValueSettings';
 
 import AccountOption from './AccountOption';
-
-import type BigNumber from 'bignumber.js';
 
 export const FIXED_VERTICAL_HEADER_HEIGHT = 238;
 export const FIXED_HORIZONTAL_HEDER_HEIGHT = 152;
@@ -82,7 +82,7 @@ const SectionNetworks: FC = memo(() => {
   const navigation = useAppNavigation();
   const { networkId, walletId, accountId } = useActiveWalletAccount();
 
-  const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
+  const networkAccountsMap = useAllNetworksWalletAccounts({
     accountId,
   });
   const enabledNetworks = useMemo(
@@ -258,8 +258,17 @@ const AccountUpdateTips: FC<AccountUpdateTipsProps> = ({
     return () => clearInterval(timer);
   }, [tasks?.length]);
 
+  const onPressUpdate = useCallback(() => {
+    if (tasks.length > 0) {
+      return;
+    }
+    backgroundApiProxy.serviceOverview.refreshCurrentAccount({
+      debounceEnabled: false,
+    });
+  }, [tasks]);
+
   const updateTips = useMemo(() => {
-    if (tasks?.length || refreshing) {
+    if (tasks?.length || refreshing || !updatedAt) {
       return (
         intl.formatMessage({
           id: 'content__updating_assets',
@@ -328,100 +337,108 @@ const AccountUpdateTips: FC<AccountUpdateTipsProps> = ({
     return null;
   }
 
-  return <Typography.Body2 color="text-subdued">{updateTips}</Typography.Body2>;
+  return (
+    <Pressable onPress={onPressUpdate}>
+      <Typography.Body2 color="text-subdued">{updateTips}</Typography.Body2>
+    </Pressable>
+  );
 };
 
 const SummedValueComp = memo(
-  ({ amount }: { amount: BigNumber }) => (
-    <Box flexDirection="row" alignItems="center" mt={1} w="full">
-      {amount.isNaN() ? (
-        <Skeleton shape="DisplayXLarge" />
-      ) : (
-        <HStack flex="1" alignItems="center">
-          <Typography.Display2XLarge numberOfLines={2} isTruncated>
-            <FormatCurrencyNumber
-              decimals={2}
-              value={0}
-              convertValue={amount}
-            />
-          </Typography.Display2XLarge>
-          <IconButton
-            name="ChevronDownMini"
-            onPress={showAccountValueSettings}
-            type="plain"
-            circle
-            ml={1}
-          />
-        </HStack>
-      )}
-    </Box>
-  ),
-  (prev: { amount: BigNumber }, next: { amount: BigNumber }) =>
-    prev.amount.isEqualTo(next.amount),
+  ({ networkId, accountId }: { networkId: string; accountId: string }) => {
+    const totalValue = useAppSelector(
+      (s) =>
+        s.overview.overviewStats?.[networkId]?.[accountId]?.summary?.totalValue,
+    );
+
+    const isWatching = isWatchingAccount({ accountId });
+    const { network } = useNetwork({ networkId });
+
+    return (
+      <Box flexDirection="row" alignItems="center" mt={1} w="full">
+        {typeof totalValue === 'undefined' ? (
+          <Skeleton shape="DisplayXLarge" />
+        ) : (
+          <HStack flex="1" alignItems="center">
+            <Typography.Display2XLarge numberOfLines={2} isTruncated>
+              <FormatCurrencyNumber
+                decimals={2}
+                value={0}
+                convertValue={totalValue}
+              />
+            </Typography.Display2XLarge>
+            {isWatching &&
+            (network?.impl === IMPL_BTC ||
+              network?.impl === IMPL_TBTC) ? null : (
+              <IconButton
+                name="ChevronDownMini"
+                onPress={showAccountValueSettings}
+                type="plain"
+                circle
+                ml={1}
+              />
+            )}
+          </HStack>
+        )}
+      </Box>
+    );
+  },
 );
 SummedValueComp.displayName = 'SummedValueComp';
 
-type ChangedValueCompProps = AccountUpdateTipsProps & {
-  amount24h: BigNumber;
-  amount: BigNumber;
-  onPressUpdate: () => void;
-};
+type ChangedValueCompProps = AccountUpdateTipsProps;
 
 const ChangedValueComp = memo(
-  ({
-    networkId,
-    accountId,
-    amount24h,
-    amount,
-    onPressUpdate,
-  }: ChangedValueCompProps) => {
+  ({ networkId, accountId }: ChangedValueCompProps) => {
     const intl = useIntl();
     const [showPercentage, setShowPercentage] = useState(false);
 
+    const totalValue = useAppSelector(
+      (s) =>
+        s.overview.overviewStats?.[networkId]?.[accountId]?.summary?.totalValue,
+    );
+
+    const totalValue24h = useAppSelector(
+      (s) =>
+        s.overview.overviewStats?.[networkId]?.[accountId]?.summary
+          ?.totalValue24h,
+    );
+
     const { gainNumber, percentageGain, gainTextColor } = calculateGains({
-      basePrice: amount24h.toNumber(),
-      price: amount.toNumber(),
+      basePrice: Number(totalValue24h ?? 0),
+      price: Number(totalValue ?? 0),
     });
 
     return (
       <Box flexDirection="row" mt={1}>
-        {amount.isNaN() ? (
-          <Skeleton shape="Body1" />
-        ) : (
-          <HStack alignItems="center">
-            <Pressable
-              onPress={() => {
-                setShowPercentage(!showPercentage);
-              }}
-            >
-              <Typography.Body2Strong color={gainTextColor} mr="4px">
-                {showPercentage ? (
-                  percentageGain
-                ) : (
-                  <>
-                    {gainNumber >= 0 ? '+' : '-'}
-                    <FormatCurrencyNumber
-                      value={Math.abs(gainNumber)}
-                      decimals={2}
-                    />
-                  </>
-                )}
-              </Typography.Body2Strong>
-            </Pressable>
-            <Typography.Body2Strong color="text-subdued" ml="1">
-              {intl.formatMessage({ id: 'content__today' })}
+        <HStack alignItems="center">
+          <Pressable
+            onPress={() => {
+              setShowPercentage(!showPercentage);
+            }}
+          >
+            <Typography.Body2Strong color={gainTextColor} mr="4px">
+              {showPercentage ? (
+                percentageGain
+              ) : (
+                <>
+                  {gainNumber >= 0 ? '+' : '-'}
+                  <FormatCurrencyNumber
+                    value={Math.abs(gainNumber)}
+                    decimals={2}
+                  />
+                </>
+              )}
             </Typography.Body2Strong>
-            <>
-              <Box size="1" bg="icon-subdued" borderRadius="999px" mx="2" />
-              <Pressable onPress={onPressUpdate}>
-                <AccountUpdateTips
-                  networkId={networkId}
-                  accountId={accountId}
-                />
-              </Pressable>
-            </>
-          </HStack>
-        )}
+          </Pressable>
+          <Typography.Body2Strong color="text-subdued" ml="1">
+            {intl.formatMessage({ id: 'content__today' })}
+          </Typography.Body2Strong>
+          <>
+            <Box size="1" bg="icon-subdued" borderRadius="999px" mx="2" />
+            <AccountUpdateTips networkId={networkId} accountId={accountId} />
+          </>
+        </HStack>
       </Box>
     );
   },
@@ -433,39 +450,14 @@ ChangedValueComp.displayName = 'ChangedValueComp';
 const AccountAmountInfo: FC = () => {
   const { networkId, accountId } = useActiveWalletAccount();
 
-  const accountAllValues = useAccountValues({
-    networkId,
-    accountId,
-  });
-
-  const { tasks } = useOverviewPendingTasks({
-    networkId,
-    accountId,
-  });
-
-  const onPressUpdate = useCallback(() => {
-    if (tasks.length > 0) {
-      return;
-    }
-    backgroundApiProxy.serviceOverview.refreshCurrentAccount({
-      debounceEnabled: false,
-    });
-  }, [tasks]);
-
   return (
     <Box alignItems="flex-start" flex="1">
       <Box mx="-8px" my="-4px" flexDir="row" alignItems="center">
         <SectionCopyAddress />
         <SectionOpenBlockBrowser />
       </Box>
-      <SummedValueComp amount={accountAllValues.value} />
-      <ChangedValueComp
-        amount={accountAllValues.value}
-        amount24h={accountAllValues.value24h}
-        networkId={networkId}
-        accountId={accountId}
-        onPressUpdate={onPressUpdate}
-      />
+      <SummedValueComp networkId={networkId} accountId={accountId} />
+      <ChangedValueComp networkId={networkId} accountId={accountId} />
     </Box>
   );
 };

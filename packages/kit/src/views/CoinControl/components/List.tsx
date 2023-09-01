@@ -104,6 +104,7 @@ export type ICellProps = {
   onChange: (item: ICoinControlListItem, isSelected: boolean) => void;
   onConfirmEditLabel: (item: ICoinControlListItem, label: string) => void;
   onFrozenUTXO: (item: ICoinControlListItem, value: boolean) => void;
+  onRecycleUTXO: (item: ICoinControlListItem) => void;
 };
 
 const CoinControlCell: FC<ICellProps> = ({
@@ -119,6 +120,7 @@ const CoinControlCell: FC<ICellProps> = ({
   onChange,
   onConfirmEditLabel,
   onFrozenUTXO,
+  onRecycleUTXO,
 }) => {
   const { formatDate } = useFormatDate();
   const isSelected = selectedUtxos.find(
@@ -250,6 +252,7 @@ const CoinControlCell: FC<ICellProps> = ({
           network={network}
           onConfirmEditLabel={onConfirmEditLabel}
           onFrozenUTXO={onFrozenUTXO}
+          onRecycleUTXO={onRecycleUTXO}
           showFrozenOption={showFrozenOption}
         >
           <IconButton
@@ -268,11 +271,12 @@ const CoinControlCell: FC<ICellProps> = ({
   );
 };
 
-const ItemSeparator: FC<{ isDustSeparator: boolean }> = ({
-  isDustSeparator,
-}) => {
+const ItemSeparator: FC<{
+  isDustSeparator?: boolean;
+  isRecycleSeparator?: boolean;
+}> = ({ isDustSeparator, isRecycleSeparator }) => {
   const intl = useIntl();
-  if (isDustSeparator) {
+  if (isDustSeparator || isRecycleSeparator) {
     return (
       <>
         <Divider w="auto" mx={2} />
@@ -283,7 +287,11 @@ const ItemSeparator: FC<{ isDustSeparator: boolean }> = ({
               <Pressable {...props}>
                 <HStack alignItems="center" space={1} alignSelf="flex-start">
                   <Text typography="Subheading" color="text-subdued">
-                    {intl.formatMessage({ id: 'form__dust__uppercase' })}
+                    {intl.formatMessage({
+                      id: isDustSeparator
+                        ? 'form__dust__uppercase'
+                        : 'form__spendable_inscriptions__uppercase',
+                    })}
                   </Text>
                   <Icon
                     name="QuestionMarkCircleMini"
@@ -297,7 +305,9 @@ const ItemSeparator: FC<{ isDustSeparator: boolean }> = ({
               children: (
                 <Text>
                   {intl.formatMessage({
-                    id: 'content__dust_refer_to_very_tiny_amount_of_bitcoin',
+                    id: isDustSeparator
+                      ? 'content__dust_refer_to_very_tiny_amount_of_bitcoin'
+                      : 'content__btc_utxo_manage_spendable_inscriptions_tooltips',
                   })}
                 </Text>
               ),
@@ -452,12 +462,14 @@ const CoinControlList: FC<{
   selectedUtxos: string[];
   isAllSelected: boolean;
   showDustListHeader: boolean;
+  showRecycleListHeader: boolean;
   triggerAllSelected: (value: boolean) => void;
   blockTimeMap: Record<string, number>;
   showPath: boolean;
   onChange: (item: ICoinControlListItem, isSelected: boolean) => void;
   onConfirmEditLabel: (item: ICoinControlListItem, label: string) => void;
   onFrozenUTXO: (item: ICoinControlListItem, value: boolean) => void;
+  onRecycleUTXO: (item: ICoinControlListItem) => void;
 }> = ({
   type,
   config,
@@ -467,6 +479,7 @@ const CoinControlList: FC<{
   token,
   dataSource,
   showDustListHeader,
+  showRecycleListHeader,
   showCheckbox,
   selectedUtxos,
   isAllSelected,
@@ -476,6 +489,7 @@ const CoinControlList: FC<{
   onChange,
   onConfirmEditLabel,
   onFrozenUTXO,
+  onRecycleUTXO,
 }) => {
   const PAGE_SIZE = useMemo(() => (platformEnv.isNative ? 15 : 25), []);
   const pageKey = useMemo(
@@ -527,43 +541,46 @@ const CoinControlList: FC<{
           onChange={onChange}
           onConfirmEditLabel={onConfirmEditLabel}
           onFrozenUTXO={onFrozenUTXO}
+          onRecycleUTXO={onRecycleUTXO}
         />
       );
     },
     [
       type,
+      accountId,
+      network,
+      token,
       showCheckbox,
       selectedUtxos,
-      network,
       blockTimeMap,
-      token,
-      accountId,
       showPath,
       onChange,
       onConfirmEditLabel,
       onFrozenUTXO,
+      onRecycleUTXO,
     ],
   );
 
-  const headerComponent = useCallback(() => {
-    const showDustSeparator = type === 'Frozen' && showDustListHeader;
-    return (
+  const headerComponent = useCallback(
+    () => (
       <>
         <ListTableHeader
           showCheckbox={showCheckbox}
           isAllSelected={isAllSelected}
           triggerAllSelected={triggerAllSelected}
         />
-        {showDustSeparator && <ItemSeparator isDustSeparator />}
+        {showDustListHeader && <ItemSeparator isDustSeparator />}
+        {showRecycleListHeader && <ItemSeparator isRecycleSeparator />}
       </>
-    );
-  }, [
-    showCheckbox,
-    isAllSelected,
-    triggerAllSelected,
-    type,
-    showDustListHeader,
-  ]);
+    ),
+    [
+      showDustListHeader,
+      showCheckbox,
+      isAllSelected,
+      triggerAllSelected,
+      showRecycleListHeader,
+    ],
+  );
   const footerComponent = useCallback(
     () => (
       <ListFooter
@@ -609,7 +626,10 @@ const CoinControlList: FC<{
 
   const separator = useCallback(
     ({ leadingItem }: { leadingItem: ICoinControlListItem }) => (
-      <ItemSeparator isDustSeparator={!!leadingItem.dustSeparator} />
+      <ItemSeparator
+        isDustSeparator={!!leadingItem.dustSeparator}
+        isRecycleSeparator={!!leadingItem.recycleSeparator}
+      />
     ),
     [],
   );

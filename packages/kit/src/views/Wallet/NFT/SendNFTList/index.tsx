@@ -7,8 +7,8 @@ import {
   Box,
   Button,
   FlatList,
+  Spinner,
   Text,
-  useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
@@ -16,21 +16,23 @@ import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
+import { freezedEmptyArray } from '@onekeyhq/shared/src/consts/sharedConsts';
 import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import {
-  useAccountPortfolios,
   useActiveSideAccount,
   useAppSelector,
+  useNFTIsLoading,
 } from '../../../../hooks';
+import { useGridListLayout } from '../../../../hooks/useGridListLayout';
+import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import {
   ModalRoutes,
   RootRoutes,
   SendModalRoutes,
 } from '../../../../routes/routesEnum';
-import { EOverviewScanTaskType } from '../../../Overview/types';
 
 import SelectNFTCard from './SelectNFTCard';
 import { SendNFTContentProvider, useSendNFTContent } from './SendNFTContent';
@@ -41,38 +43,6 @@ import type { PreSendParams } from '../../../Send/types';
 import type { SelectAsset } from './SendNFTContent';
 
 type NavigationProps = ModalScreenProps<SendRoutesParams>;
-
-export function useGridListLayout({
-  maxCardWidth,
-  pageWidth,
-  numColumns,
-  margin,
-}: {
-  maxCardWidth: number;
-  pageWidth: number;
-  numColumns: number;
-  margin: number;
-}) {
-  const isSmallScreen = useIsVerticalLayout();
-
-  return useMemo(() => {
-    let cardWidth;
-    let col;
-    if (pageWidth === 0) {
-      return { cardWidth: maxCardWidth, numColumns };
-    }
-    if (isSmallScreen) {
-      col = numColumns;
-      cardWidth = Math.floor(
-        (pageWidth - margin * (numColumns - 1)) / numColumns,
-      );
-    } else {
-      col = Math.floor((pageWidth + margin) / (maxCardWidth + margin));
-      cardWidth = Math.floor((pageWidth - margin * (col - 1)) / col);
-    }
-    return { cardWidth, numColumns: col };
-  }, [isSmallScreen, margin, maxCardWidth, numColumns, pageWidth]);
-}
 
 function List({
   accountId,
@@ -202,7 +172,7 @@ function SendNFTList({
   networkId: string;
 }) {
   const intl = useIntl();
-  const { activeNetworkId, activeAccountId } = useAppSelector((s) => s.general);
+  const { activeNetworkId } = useAppSelector((s) => s.general);
   const { network, accountAddress } = useActiveSideAccount({
     networkId,
     accountId,
@@ -212,6 +182,13 @@ function SendNFTList({
       (batchTransferContractAddress[network.id] || network.impl === IMPL_SOL),
   );
   const isNFTSupport = isCollectibleSupportedChainId(networkId);
+
+  const refresherTs = useAppSelector((s) => s.refresher.refreshAccountNFTTs);
+
+  const nftIsLoading = useNFTIsLoading({
+    networkId,
+    accountId,
+  });
 
   const fetchData = useCallback(async () => {
     if (
@@ -227,11 +204,22 @@ function SendNFTList({
     }
   }, [accountId, isNFTSupport, networkId, network]);
 
-  const data = useAccountPortfolios({
-    networkId: activeNetworkId,
-    accountId: activeAccountId,
-    type: EOverviewScanTaskType.nfts,
-  }).data as Collection[];
+  const { result } = usePromiseResult(() => {
+    if (refresherTs) {
+      // pass
+    }
+    return backgroundApiProxy.serviceOverview.buildAccountNFTList({
+      networkId,
+      accountId,
+    });
+  }, [accountId, networkId, refresherTs]);
+
+  const data = useMemo(
+    () =>
+      (result?.nfts?.map((n) => n.data)?.flat() ??
+        freezedEmptyArray) as Collection[],
+    [result],
+  );
 
   const collectibles = useMemo(() => {
     if (isAllNetworks(activeNetworkId)) {
@@ -262,12 +250,18 @@ function SendNFTList({
     </SendNFTContentProvider>
   ) : (
     <Box flex={1} justifyContent="center" alignItems="center">
-      <Text typography="Display2XLarge" fontSize={48} lineHeight={60}>
-        🖼️
-      </Text>
-      <Text typography="DisplayMedium" mt="12px">
-        {intl.formatMessage({ id: 'empty__no_nfts' })}
-      </Text>
+      {nftIsLoading ? (
+        <Spinner size="lg" />
+      ) : (
+        <>
+          <Text typography="Display2XLarge" fontSize={48} lineHeight={60}>
+            🖼️
+          </Text>
+          <Text typography="DisplayMedium" mt="12px">
+            {intl.formatMessage({ id: 'empty__no_nfts' })}
+          </Text>
+        </>
+      )}
     </Box>
   );
 }

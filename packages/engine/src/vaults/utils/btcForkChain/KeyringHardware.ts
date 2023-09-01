@@ -1,6 +1,6 @@
 import * as BitcoinJS from 'bitcoinjs-lib';
 
-import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
+import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import {
   CoreSDKLoader,
@@ -21,11 +21,12 @@ import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import { getAccountDefaultByPurpose } from './utils';
 
 import type { DBUTXOAccount } from '../../../types/account';
-import type { IUnsignedMessageEvm } from '../../impl/evm/Vault';
+import type { IUnsignedMessageBtc } from '../../impl/btc/types';
 import type {
   IGetAddressParams,
   IPrepareAccountByAddressIndexParams,
   IPrepareHardwareAccountsParams,
+  IUnsignedTxPro,
 } from '../../types';
 import type { AddressEncodings, TxInput, TxOutput, UTXO } from './types';
 import type BTCForkVault from './VaultBtcFork';
@@ -33,13 +34,16 @@ import type { RefTransaction } from '@onekeyfe/hd-core';
 import type { Messages } from '@onekeyfe/hd-transport';
 
 export class KeyringHardware extends KeyringHardwareBase {
-  override async signTransaction(unsignedTx: UnsignedTx): Promise<SignedTx> {
+  override async signTransaction(
+    unsignedTx: IUnsignedTxPro,
+  ): Promise<SignedTx> {
+    const { inputs, outputs } = unsignedTx;
+
     const coinName = (this.vault as unknown as BTCForkVault).getCoinName();
     const addresses = unsignedTx.inputs.map((input) => input.address);
     const { utxos } = await (
       this.vault as unknown as BTCForkVault
-    ).collectUTXOsInfo();
-
+    ).collectUTXOsInfo({ checkInscription: false });
     const signers: Record<string, string> = {};
     for (const utxo of utxos) {
       const { address, path } = utxo;
@@ -52,7 +56,6 @@ export class KeyringHardware extends KeyringHardwareBase {
       this.vault as unknown as BTCForkVault
     ).getProvider();
 
-    const { inputs, outputs } = unsignedTx;
     const prevTxids = Array.from(
       new Set(inputs.map((i) => (i.utxo as UTXO).txid)),
     );
@@ -168,6 +171,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     ).getProvider();
 
     let response;
+    let responseWithRealPath;
     try {
       const { connectId, deviceId } = await this.getHardwareInfo();
       const passphraseState = await this.getWalletPassphraseState();
@@ -183,12 +187,30 @@ export class KeyringHardware extends KeyringHardwareBase {
         })),
         ...passphraseState,
       });
+
+      responseWithRealPath = await HardwareSDK.btcGetPublicKey(
+        connectId,
+        deviceId,
+        {
+          bundle: usedIndexes.map((index) => ({
+            path: `${pathPrefix}/${index}'/0/0`,
+            coin: coinName.toLowerCase(),
+            showOnOneKey: false,
+          })),
+          ...passphraseState,
+        },
+      );
     } catch (error: any) {
       console.error(error);
       throw new OneKeyHardwareError(error);
     }
 
-    if (!response.success || !response.payload) {
+    if (
+      !response.success ||
+      !response.payload ||
+      !responseWithRealPath.success ||
+      !responseWithRealPath.payload
+    ) {
       console.error(response.payload);
       throw convertDeviceError(response.payload);
     }
@@ -199,7 +221,9 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const ret = [];
     let index = 0;
-    for (const { path, xpub, xpubSegwit } of response.payload) {
+    for (let i = 0, len = response.payload.length; i < len; i += 1) {
+      const { path, xpub, xpubSegwit } = response.payload[i];
+      const { node } = responseWithRealPath.payload[i];
       const addressRelPath = `${isChange ? '1' : '0'}/${addressIndex}`;
       const { [addressRelPath]: address } = provider.xpubToAddresses(
         xpub,
@@ -221,6 +245,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           type: AccountType.UTXO,
           path,
           coinType: COIN_TYPE,
+          pubKey: node.public_key,
           xpub,
           xpubSegwit: xpubSegwit || xpub,
           address,
@@ -398,7 +423,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     }));
   }
 
-  async signMessage(messages: IUnsignedMessageEvm[]): Promise<string[]> {
+  async signMessage(messages: IUnsignedMessageBtc[]): Promise<string[]> {
     debugLogger.common.info('BTCFork signMessage', messages);
     const coinName = (this.vault as unknown as BTCForkVault).getCoinName();
     const dbAccount = await this.getDbAccount();
@@ -406,12 +431,13 @@ export class KeyringHardware extends KeyringHardwareBase {
     const passphraseState = await this.getWalletPassphraseState();
     await this.getHardwareSDKInstance();
     const result = await Promise.all(
-      messages.map(async (payload: IUnsignedMessageEvm) => {
+      messages.map(async (payload: IUnsignedMessageBtc) => {
         const response = await HardwareSDK.btcSignMessage(connectId, deviceId, {
           ...passphraseState,
           path: `${dbAccount.path}/0/0`,
           coin: coinName,
           messageHex: Buffer.from(payload.message).toString('hex'),
+          noScriptType: payload.sigOptions?.noScriptType,
         });
         if (!response.success) {
           throw convertDeviceError(response.payload);

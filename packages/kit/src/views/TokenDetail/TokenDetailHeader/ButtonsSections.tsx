@@ -16,6 +16,7 @@ import { isValidCoingeckoId } from '@onekeyhq/engine/src/managers/token';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
+import { freezedEmptyObject } from '@onekeyhq/shared/src/consts/sharedConsts';
 import { isLightningNetworkByImpl } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -37,6 +38,7 @@ import { TokenDetailContext } from '../context';
 import { ButtonItem } from './ButtonItem';
 import { FavoritedButton } from './Header';
 
+import type { ITokenDetailContext } from '../context';
 import type { IButtonItem } from './ButtonItem';
 
 type ISingleChainInfo = {
@@ -61,11 +63,8 @@ export const ButtonsSection: FC = () => {
 
   const { symbol, logoURI, fiatUrls } = context?.detailInfo ?? {};
 
-  const {
-    tokens,
-    loading: detailLoading,
-    defaultToken,
-  } = context?.detailInfo ?? {};
+  const { isLoading: detailLoading, detailInfo } =
+    context ?? (freezedEmptyObject as ITokenDetailContext);
 
   const { wallet } = useWallet({
     walletId,
@@ -80,8 +79,9 @@ export const ButtonsSection: FC = () => {
 
   const filter = useCallback(
     ({ network }: { network?: Network | null }) =>
-      !!network?.id && !!tokens?.some((t) => t.networkId === network?.id),
-    [tokens],
+      !!network?.id &&
+      !!detailInfo?.tokens?.some((t) => t.networkId === network?.id),
+    [detailInfo?.tokens],
   );
 
   const selectNetworkAccount = useAllNetworksSelectNetworkAccount({
@@ -210,7 +210,7 @@ export const ButtonsSection: FC = () => {
   const handlePress = useCallback(
     (item: IButtonItem) => {
       selectNetworkAccount().then(({ network, account }) => {
-        const token = tokens?.find(
+        const token = detailInfo?.tokens?.find(
           (t) =>
             network?.id ===
             (t.networkId ?? `${t.impl ?? ''}--${t.chainId ?? ''}`),
@@ -227,7 +227,7 @@ export const ButtonsSection: FC = () => {
         }
       });
     },
-    [selectNetworkAccount, tokens, sendAddress],
+    [selectNetworkAccount, detailInfo?.tokens, sendAddress],
   );
 
   const showSwapOption = useMemo(
@@ -240,23 +240,28 @@ export const ButtonsSection: FC = () => {
     [currentNetwork],
   );
 
+  const isWatchOnly = useMemo(() => wallet?.type === 'watching', [wallet]);
+
   const { buttons, options } = useMemo(() => {
     const list: IButtonItem[] = [
       {
         id: 'action__send',
         onPress: onSend,
         icon: 'PaperAirplaneOutline',
+        isDisabled: isWatchOnly,
       },
       {
         id: 'action__receive',
         onPress: onReceive,
         icon: 'QrCodeMini',
+        isDisabled: isWatchOnly,
       },
       {
         id: 'title__swap',
         onPress: onSwap,
         icon: 'ArrowsRightLeftSolid',
         visible: () => showSwapOption,
+        isDisabled: isWatchOnly,
       },
       {
         id: 'action__buy',
@@ -266,6 +271,7 @@ export const ButtonsSection: FC = () => {
           !platformEnv.isAppleStoreEnv &&
           showMoreOption &&
           !!fiatUrls?.[networkId]?.buy,
+        isDisabled: isWatchOnly,
       },
       {
         id: 'action__sell',
@@ -275,10 +281,9 @@ export const ButtonsSection: FC = () => {
           !platformEnv.isAppleStoreEnv &&
           showMoreOption &&
           !!fiatUrls?.[networkId]?.sell,
+        isDisabled: isWatchOnly,
       },
-    ]
-      .map((t) => ({ ...t, isDisabled: loading }))
-      .filter((item) => !item.visible || item?.visible?.()) as IButtonItem[];
+    ].filter((item) => !item.visible || item?.visible?.()) as IButtonItem[];
     const showSize = isVerticalLayout ? 4 : 3;
     return {
       buttons: list.slice(0, showSize),
@@ -292,7 +297,6 @@ export const ButtonsSection: FC = () => {
   }, [
     networkId,
     fiatUrls,
-    loading,
     handlePress,
     isVerticalLayout,
     onBuy,
@@ -302,6 +306,7 @@ export const ButtonsSection: FC = () => {
     onSend,
     showSwapOption,
     showMoreOption,
+    isWatchOnly,
   ]);
 
   return (
@@ -333,7 +338,7 @@ export const ButtonsSection: FC = () => {
               text={intl.formatMessage({
                 id: item.id,
               })}
-              isDisabled={loading}
+              isDisabled={item.isDisabled}
             />
           ))}
           {isValidCoingeckoId(coingeckoId) && !isVerticalLayout ? (

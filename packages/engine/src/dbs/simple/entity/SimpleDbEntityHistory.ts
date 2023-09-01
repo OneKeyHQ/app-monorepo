@@ -87,14 +87,20 @@ class SimpleDbEntityHistory extends SimpleDbEntityBase<ISimpleDbEntityHistoryDat
   }) {
     const { action, tokenIdOnNetwork, historyTx } = options;
 
-    const { tokenTransfer, tokenApprove, nativeTransfer, internalSwap } =
-      action;
+    const {
+      tokenTransfer,
+      tokenApprove,
+      nativeTransfer,
+      internalSwap,
+      brc20Info,
+    } = action;
     return (
       nativeTransfer?.tokenInfo.tokenIdOnNetwork === tokenIdOnNetwork ||
       tokenTransfer?.tokenInfo.tokenIdOnNetwork === tokenIdOnNetwork ||
       tokenApprove?.tokenInfo.tokenIdOnNetwork === tokenIdOnNetwork ||
       internalSwap?.send.tokenInfo.tokenIdOnNetwork === tokenIdOnNetwork ||
       internalSwap?.receive.tokenInfo.tokenIdOnNetwork === tokenIdOnNetwork ||
+      brc20Info?.token.tokenIdOnNetwork === tokenIdOnNetwork ||
       (historyTx.decodedTx?.tokenIdOnNetwork === tokenIdOnNetwork &&
         tokenIdOnNetwork)
     );

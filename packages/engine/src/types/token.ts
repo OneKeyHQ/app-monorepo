@@ -57,6 +57,8 @@ export type Token = HasName & {
 export type IToken = Token;
 export type ITokenFiatValuesInfo = {
   balance?: IAmountValue;
+  availableBalance?: IAmountValue;
+  transferBalance?: IAmountValue;
   price?: ITokenPriceValue;
   price24h?: ITokenPriceValue;
   value?: IAmountValue;
@@ -74,4 +76,11 @@ export type Tool = {
 
 export enum BRCTokenType {
   BRC20 = 'brc-20',
+}
+
+export enum BRC20TokenOperation {
+  Mint = 'mint',
+  Transfer = 'transfer',
+  Deploy = 'deploy',
+  InscribeTransfer = 'inscribeTransfer',
 }

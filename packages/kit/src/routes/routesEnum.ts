@@ -162,6 +162,7 @@ export enum ModalRoutes {
   ManagerAccount = 'ManagerAccount',
   WalletViewMnemonics = 'WalletViewMnemonics',
   ManageConnectedSites = 'ManageConnectedSites',
+  Monitor = 'Monitor',
   // Found screens with the same name nested inside one another. Check:
   //    modal > Send, modal > Send > Send
   Send = 'Send',
@@ -200,6 +201,7 @@ export enum ModalRoutes {
   GasPanel = 'GasPanel',
   Inscribe = 'Inscribe',
   Webln = 'Webln',
+  InscriptionControl = 'InscriptionControl',
 }
 
 export { SendModalRoutes } from '../views/Send/enums';
@@ -385,6 +387,7 @@ export enum CoinControlModalRoutes {
 }
 
 export enum InscribeModalRoutes {
+  BRC20Amount = 'BRC20Amount',
   InscribeModal = 'InscribeModal',
   ReceiveAddress = 'ReceiveAddress',
   CreateOrder = 'CreateOrder',
@@ -396,4 +399,7 @@ export enum WeblnModalRoutes {
   MakeInvoice = 'MakeInvoice',
   VerifyMessage = 'VerifyMessage',
   WeblnAuthentication = 'WeblnAuthentication',
+}
+export enum InscriptionControlModalRoutes {
+  InscriptionControlModal = 'InscriptionControlModal',
 }

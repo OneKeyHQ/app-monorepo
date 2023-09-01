@@ -4,7 +4,10 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Box, Divider, VStack } from '@onekeyhq/components';
-import type { IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
+import {
+  IDecodedTxStatus,
+  type IHistoryTx,
+} from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNetworkSimple } from '../../hooks';
@@ -69,6 +72,14 @@ export function TxActionsListView(props: ITxActionListViewProps) {
       i < len;
       i += 1
     ) {
+      // only show one action if tx is offline
+      if (
+        finalDecodedTx.status === IDecodedTxStatus.Offline &&
+        listItems.length >= 1
+      ) {
+        break;
+      }
+
       const action = displayedActions[i];
       const metaInfo = getTxActionMeta({
         action,

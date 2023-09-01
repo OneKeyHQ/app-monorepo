@@ -8,7 +8,8 @@ import { TxActionElementTime } from '../elements/TxActionElementTime';
 
 function getTxStatusTextView({ decodedTx }: { decodedTx: IDecodedTx }) {
   const txStatusTextView =
-    decodedTx.status !== IDecodedTxStatus.Confirmed ? (
+    decodedTx.status !== IDecodedTxStatus.Confirmed &&
+    decodedTx.status !== IDecodedTxStatus.Offline ? (
       <TxActionElementStatusText decodedTx={decodedTx} />
     ) : undefined;
   return txStatusTextView;

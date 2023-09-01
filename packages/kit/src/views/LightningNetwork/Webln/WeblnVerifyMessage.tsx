@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-import { useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {

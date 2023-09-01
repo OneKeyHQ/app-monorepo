@@ -75,7 +75,10 @@ export type ManageNetworkRoutesParams = {
         iconUrl?: string;
       }
     | { query: string };
-  [ManageNetworkModalRoutes.SwitchNetwork]: { query: string };
+  [ManageNetworkModalRoutes.SwitchNetwork]: {
+    query: string;
+    networkId?: string;
+  };
 
   [ManageNetworkModalRoutes.RPCNode]: { networkId: string };
 

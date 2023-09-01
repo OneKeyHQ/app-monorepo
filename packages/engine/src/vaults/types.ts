@@ -3,6 +3,7 @@ import type { CurveName } from '@onekeyhq/engine/src/secret';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import type { SendConfirmActionType } from '@onekeyhq/kit/src/views/Send/types';
 import type { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
+import type { InputToSign } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.types';
 
 import type { Engine } from '../index';
 import type { AccountCredential } from '../types/account';
@@ -180,6 +181,8 @@ export type ITransferInfo = {
   token?: string; // tokenIdOnNetwork
   tokenSendAddress?: string; // for sol
   isNFT?: boolean;
+  isBRC20?: boolean;
+  isInscribe?: boolean;
   nftTokenId?: string; // NFT token id, btc utxo txid & vout
   nftType?: IErcNftType; // NFT standard: erc721/erc1155
   nftInscription?: ITransferInfoNftInscription;
@@ -273,6 +276,8 @@ export type INativeTx =
 export type IRawTx = string;
 export type IUnsignedTxPro = UnsignedTx & {
   encodedTx: IEncodedTx;
+  psbtHex?: string;
+  inputsToSign?: InputToSign[];
   // signerAccount: ISignerAccountEvm | ISignerAccountNear | ISignerAccountAptos
 };
 export type ISignedTxPro = {
@@ -455,6 +460,8 @@ export enum IDecodedTxStatus {
   Failed = 'Failed',
   Dropped = 'Dropped',
   Removed = 'Removed',
+  // for btc list order psbt
+  Offline = 'Offline',
 }
 export type IDecodedTxInteractInfo = {
   // Dapp info
@@ -489,10 +496,11 @@ export enum IDecodedTxActionType {
   NFT_TRANSFER_BTC = 'NFT_TRANSFER_BTC',
   NFT_INSCRIPTION = 'NFT_INSCRIPTION',
 
-  // // BRC20
-  // TOKEN_BRC20_TRANSFER = 'TOKEN_BRC20_TRANSFER',
-  // TOKEN_BRC20_DEPLOY = 'TOKEN_BRC20_DEPLOY',
-  // TOKEN_BRC20_MINT = 'TOKEN_BRC20_MINT',
+  // BRC20
+  TOKEN_BRC20_TRANSFER = 'TOKEN_BRC20_TRANSFER',
+  TOKEN_BRC20_DEPLOY = 'TOKEN_BRC20_DEPLOY',
+  TOKEN_BRC20_MINT = 'TOKEN_BRC20_MINT',
+  TOKEN_BRC20_INSCRIBE = 'TOKEN_BRC20_INSCRIBE',
 
   // Swap
   INTERNAL_SWAP = 'INTERNAL_SWAP',
@@ -586,9 +594,12 @@ export type IDecodedTxActionInscription = IDecodedTxActionBase & {
 
 export type IDecodedTxActionBRC20 = IDecodedTxActionBase & {
   token: Token;
-  send: string;
-  receive: string;
-  amount: string;
+  sender: string;
+  receiver: string;
+  asset: NFTBTCAssetModel;
+  amount?: string;
+  max?: string;
+  limit?: string;
 };
 
 export type IDecodedTxActionInternalSwap = IDecodedTxActionBase & ISwapInfo;

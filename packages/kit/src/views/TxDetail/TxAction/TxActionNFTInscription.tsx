@@ -1,16 +1,24 @@
+import { useEffect, useState } from 'react';
+
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Icon, ListItem } from '@onekeyhq/components';
+import { HStack, Icon, ListItem, Pressable, Text } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import type { IDecodedTxAction } from '@onekeyhq/engine/src/vaults/types';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
+  IDecodedTxStatus,
 } from '@onekeyhq/engine/src/vaults/types';
 
-import { SendModalRoutes } from '../../../routes/routesEnum';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import {
+  ModalRoutes,
+  RootRoutes,
+  SendModalRoutes,
+} from '../../../routes/routesEnum';
 import { TxDetailActionBox } from '../components/TxDetailActionBox';
 import { TxListActionBox } from '../components/TxListActionBox';
 import { getTxActionElementAddressWithSecurityInfo } from '../elements/TxActionElementAddress';
@@ -21,24 +29,24 @@ import {
 import { TxActionElementTitleHeading } from '../elements/TxActionElementTitle';
 
 import type { SendRoutesParams } from '../../../routes';
+import type { RootRoutesParams } from '../../../routes/types';
 import type {
   ITxActionCardProps,
   ITxActionElementDetail,
   ITxActionMetaIcon,
   ITxActionMetaTitle,
 } from '../types';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { StackNavigationProp } from '@react-navigation/stack';
+
+const SHOW_ASSETS_DEFAULT = 3;
 
 export function getTitleInfo({
   type,
-  send,
-  receive,
-  account,
+  direction,
 }: {
   type: IDecodedTxActionType;
-  send: string;
-  receive: string;
-  account: string;
+  direction?: IDecodedTxDirection;
 }): ITxActionMetaTitle | undefined {
   if (type === IDecodedTxActionType.NFT_INSCRIPTION) {
     return {
@@ -46,16 +54,14 @@ export function getTitleInfo({
     };
   }
   if (type === IDecodedTxActionType.NFT_TRANSFER_BTC) {
-    if (send === account) {
+    if (direction === IDecodedTxDirection.OUT) {
       return {
         titleKey: 'form_send_nft',
       };
     }
-    if (receive === account) {
-      return {
-        titleKey: 'form_receive_nft',
-      };
-    }
+    return {
+      titleKey: 'form_receive_nft',
+    };
   }
 }
 
@@ -70,9 +76,8 @@ export function nftInfoFromAction(action: IDecodedTxAction) {
 }
 
 export function getTxActionInscriptionInfo(props: ITxActionCardProps) {
-  const { action, decodedTx } = props;
+  const { action } = props;
   const { inscriptionInfo, direction } = action;
-  const account = decodedTx.owner;
   const send = inscriptionInfo?.send ?? '';
   const receive = inscriptionInfo?.receive ?? '';
   const displayDecimals: number | undefined = 100;
@@ -85,9 +90,7 @@ export function getTxActionInscriptionInfo(props: ITxActionCardProps) {
     direction === IDecodedTxDirection.OTHER;
   const titleInfo = getTitleInfo({
     type: action.type,
-    send,
-    receive,
-    account,
+    direction,
   });
 
   let iconInfo: ITxActionMetaIcon | undefined;
@@ -107,7 +110,8 @@ export function getTxActionInscriptionInfo(props: ITxActionCardProps) {
 type NavigationProps = StackNavigationProp<
   SendRoutesParams,
   SendModalRoutes.NFTDetailModal
->;
+> &
+  NativeStackNavigationProp<RootRoutesParams, RootRoutes.Main>;
 
 export function TxActionNFTInscription(props: ITxActionCardProps) {
   const { decodedTx, action, meta, network, isShortenAddress = false } = props;
@@ -115,6 +119,30 @@ export function TxActionNFTInscription(props: ITxActionCardProps) {
   const intl = useIntl();
   const { send, receive, isOut, asset } = getTxActionInscriptionInfo(props);
   const navigation = useNavigation<NavigationProps>();
+
+  const [assets, setAssets] = useState<NFTBTCAssetModel[]>([]);
+  const [showAllAssets, setShowAllAssets] = useState(false);
+
+  useEffect(() => {
+    const fetchInscriptionsInSameUtxo = async () => {
+      if (!asset) return;
+      const localNFTs =
+        (await backgroundApiProxy.serviceNFT.getAllAssetsFromLocal({
+          networkId,
+          accountId,
+        })) as NFTBTCAssetModel[];
+      const inscriptionsInSameUtxo = localNFTs.filter(
+        (nft) =>
+          nft.inscription_id !== asset.inscription_id &&
+          nft.owner === asset.owner &&
+          nft.output === asset.output &&
+          nft.output_value_sat === asset.output_value_sat,
+      );
+
+      setAssets([asset, ...inscriptionsInSameUtxo]);
+    };
+    fetchInscriptionsInSameUtxo();
+  }, [accountId, asset, networkId]);
 
   const details: ITxActionElementDetail[] = [
     {
@@ -144,28 +172,57 @@ export function TxActionNFTInscription(props: ITxActionCardProps) {
       icon={<TxActionElementInscription asset={asset as NFTBTCAssetModel} />}
       title={titleView}
       content={
-        <ListItem
-          px={0}
-          py="12px"
-          onPress={() => {
-            if (network && asset) {
-              navigation.navigate(SendModalRoutes.NFTDetailModal, {
-                asset,
-                networkId,
-                accountId,
-                isOwner: false,
-              });
-            }
-          }}
-        >
-          <TxActionElementInscriptionContent
-            typography="DisplayXLarge"
-            direction={action.direction}
-            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-            title={`Inscription #${asset?.inscription_number}`}
-          />
-          <Icon name="ChevronRightSolid" size={20} />
-        </ListItem>
+        <>
+          {assets
+            .slice(0, showAllAssets ? undefined : SHOW_ASSETS_DEFAULT)
+            .map((item) => (
+              <ListItem
+                key={item.inscription_id}
+                px={0}
+                py="12px"
+                onPress={() => {
+                  if (network && item) {
+                    navigation.navigate(RootRoutes.Modal, {
+                      screen: ModalRoutes.Send,
+                      params: {
+                        screen: SendModalRoutes.NFTDetailModal,
+                        params: {
+                          asset: item,
+                          networkId,
+                          accountId,
+                          isOwner: false,
+                        },
+                      },
+                    });
+                  }
+                }}
+              >
+                <TxActionElementInscriptionContent
+                  typography="DisplayXLarge"
+                  direction={action.direction}
+                  // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+                  title={`Inscription #${item?.inscription_number}`}
+                />
+                <Icon name="ChevronRightSolid" size={20} />
+              </ListItem>
+            ))}
+          {showAllAssets || assets.length <= SHOW_ASSETS_DEFAULT ? null : (
+            <Pressable
+              p="8px"
+              borderRadius="12px"
+              _hover={{ bgColor: 'surface-hovered' }}
+              _pressed={{ bgColor: 'surface-pressed' }}
+              onPress={() => setShowAllAssets(true)}
+            >
+              <HStack alignItems="center" justifyContent="center" space={2}>
+                <Text color="text-subdued">
+                  {intl.formatMessage({ id: 'form__show_all' })}
+                </Text>
+                <Icon name="ChevronDownMini" size={12} color="icon-subdued" />
+              </HStack>
+            </Pressable>
+          )}
+        </>
       }
       showTitleDivider
       details={details}
@@ -174,14 +231,24 @@ export function TxActionNFTInscription(props: ITxActionCardProps) {
 }
 
 export function TxActionNFTInscriptionT0(props: ITxActionCardProps) {
-  const { action, meta } = props;
+  const intl = useIntl();
+  const { action, meta, decodedTx } = props;
+  const { status } = decodedTx;
   const { send, receive, isOut, asset } = getTxActionInscriptionInfo(props);
+
+  const subTitleFormated = isOut
+    ? shortenAddress(receive)
+    : shortenAddress(send);
 
   return (
     <TxListActionBox
       symbol="symbol"
       icon={<TxActionElementInscription asset={asset as NFTBTCAssetModel} />}
-      titleInfo={meta?.titleInfo}
+      titleInfo={
+        status === IDecodedTxStatus.Offline
+          ? { titleKey: 'form__partially_sign' }
+          : meta?.titleInfo
+      }
       content={
         <TxActionElementInscriptionContent
           direction={action.direction}
@@ -192,7 +259,15 @@ export function TxActionNFTInscriptionT0(props: ITxActionCardProps) {
           justifyContent="flex-end"
         />
       }
-      subTitle={isOut ? shortenAddress(receive) : shortenAddress(send)}
+      subTitle={
+        status === IDecodedTxStatus.Offline ? (
+          <Text typography="Body2" color="text-warning">
+            {intl.formatMessage({ id: 'form__not_broadcast' })}
+          </Text>
+        ) : (
+          subTitleFormated
+        )
+      }
     />
   );
 }

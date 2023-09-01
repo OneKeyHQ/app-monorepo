@@ -2,6 +2,7 @@ import { defaultAbiCoder } from '@ethersproject/abi';
 import axios from 'axios';
 
 import type {
+  BRC20TxHistory,
   BTCTransactionsModel,
   Collection,
   IErcNftType,
@@ -149,16 +150,19 @@ export const getNFTTransactionHistory = async (
   return {} as TxMapType;
 };
 
-export const getBRC20TransactionHistory = async (
-  accountId: string,
-  tokenAddress: string,
-): Promise<TxMapType> => {
+export const getBRC20TransactionHistory = async ({
+  networkId,
+  address,
+  tokenAddress,
+}: {
+  networkId: string;
+  address: string;
+  tokenAddress: string;
+}): Promise<BRC20TxHistory['inscriptionsList']> => {
   const endpoint = getFiatEndpoint();
-  const apiUrl = `${endpoint}/NFT/transactions/brc20?address=${accountId}&tokenAddress=${tokenAddress}`;
-  const { data: txMap } = await axios
-    .get<NFTServiceResp<TxMapType>>(apiUrl)
-    .then((resp) => resp.data);
-  return txMap ?? {};
+  const apiUrl = `${endpoint}/NFT/transactions/brc20?networkId=${networkId}&address=${address}&tokenAddress=${tokenAddress}`;
+  const { data } = await axios.get<BRC20TxHistory>(apiUrl);
+  return data?.inscriptionsList ?? [];
 };
 
 export function buildEncodeDataWithABI(param: {
@@ -301,6 +305,20 @@ export async function getAssetFromLocal({
     (item) => item.contractAddress === contractAddress,
   );
   return collection?.assets.find((item) => item.tokenId === tokenId);
+}
+
+export async function getAllAssetsFromLocal({
+  accountId,
+  networkId,
+}: {
+  accountId?: string;
+  networkId: string;
+}) {
+  if (!accountId) {
+    return;
+  }
+  const nfts = await getLocalNFTs({ networkId, accountId });
+  return nfts;
 }
 
 export async function fetchAsset({

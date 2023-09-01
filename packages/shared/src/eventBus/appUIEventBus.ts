@@ -22,6 +22,7 @@ enum AppUIEventBusNames {
   Migrate = 'Migrate',
   RevokeRefresh = 'RevokeRefresh',
   HardwareCancel = 'HardwareCancel',
+  InscriptionRecycleChanged = 'InscriptionRecycleChanged',
 }
 
 if (isExtensionBackground) {

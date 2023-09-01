@@ -1,14 +1,21 @@
 import type { FC } from 'react';
-import { memo, useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import { memo, useCallback, useLayoutEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 
 import { List, useIsVerticalLayout } from '@onekeyhq/components';
+import type { IOverviewAccountdefisResult } from '@onekeyhq/kit-bg/src/services/ServiceOverview';
+import { freezedEmptyArray } from '@onekeyhq/shared/src/consts/sharedConsts';
 
-import { useAccountPortfolios, useNavigation } from '../../hooks';
+import { useNavigation } from '../../hooks';
 
 import { OverviewDefiProtocol } from './components/OverviewDefiProtocol';
-import { EOverviewScanTaskType } from './types';
+import {
+  atomHomeOverviewDefiList,
+  useAtomDefiList,
+  withProviderDefiList,
+} from './contextOverviewDefiList';
+import { HandleRebuildDefiListData } from './OverviewDefiList';
 
 import type { HomeRoutes } from '../../routes/routesEnum';
 import type { HomeRoutesParams } from '../../routes/types';
@@ -24,23 +31,23 @@ type RouteProps = RouteProp<
   HomeRoutes.OverviewDefiListScreen
 >;
 
+const pageSize = 10;
+
 const OverviewDefiListComponent: FC = () => {
-  const pageSize = 10;
   const navigation = useNavigation();
   const isVertical = useIsVerticalLayout();
   const route = useRoute<RouteProps>();
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(1);
   const { networkId, accountId } = route.params;
 
   const loadMore = useCallback(() => {
     setPage((p) => p + 1);
   }, []);
 
-  const { data: defis } = useAccountPortfolios({
-    networkId,
-    accountId,
-    type: EOverviewScanTaskType.defi,
-  });
+  const [data] = useAtomDefiList(atomHomeOverviewDefiList);
+
+  const { defis = freezedEmptyArray as IOverviewAccountdefisResult['defis'] } =
+    data;
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -48,22 +55,27 @@ const OverviewDefiListComponent: FC = () => {
     });
   }, [navigation]);
 
-  useEffect(() => {
-    setTimeout(loadMore, 200);
-  }, [loadMore]);
-
   return (
-    <List
-      mb="6"
-      mt="4"
-      mx={isVertical ? 4 : '50px'}
-      data={defis.slice(0, page * pageSize)}
-      keyExtractor={(item) => item._id?.protocolId}
-      showDivider={false}
-      renderItem={({ item }) => <OverviewDefiProtocol {...item} />}
-      onEndReached={loadMore}
-    />
+    <>
+      <List
+        mb="6"
+        mt="4"
+        mx={isVertical ? 4 : '50px'}
+        data={defis.slice(0, page * pageSize)}
+        keyExtractor={(item) => item._id?.protocolId}
+        showDivider={false}
+        renderItem={({ item }) => <OverviewDefiProtocol {...item} />}
+        onEndReached={loadMore}
+      />
+
+      <HandleRebuildDefiListData
+        networkId={networkId}
+        accountId={accountId}
+        limitSize={pageSize * page}
+        debounced={0}
+      />
+    </>
   );
 };
 
-export default memo(OverviewDefiListComponent);
+export default memo(withProviderDefiList(OverviewDefiListComponent));

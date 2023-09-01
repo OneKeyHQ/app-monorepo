@@ -8,7 +8,7 @@ import {
   decrypt,
   encrypt,
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
+import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { OneKeyInternalError } from '../../../errors';
@@ -22,6 +22,7 @@ import type { DBUTXOAccount } from '../../../types/account';
 import type {
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
+  IUnsignedTxPro,
 } from '../../types';
 import type BTCForkVault from './VaultBtcFork';
 
@@ -32,7 +33,7 @@ const deriver = new BaseBip32KeyDeriver(
 
 export class KeyringImported extends KeyringImportedBase {
   override async signTransaction(
-    unsignedTx: UnsignedTx,
+    unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
   ): Promise<SignedTx> {
     initBitcoinEcc();
@@ -59,7 +60,7 @@ export class KeyringImported extends KeyringImportedBase {
     const relPathToAddress: Record<string, string> = {};
     const { utxos } = await (
       this.vault as unknown as BTCForkVault
-    ).collectUTXOsInfo();
+    ).collectUTXOsInfo({ checkInscription: false });
     for (const utxo of utxos) {
       const { address, path } = utxo;
       if (addresses.includes(address)) {

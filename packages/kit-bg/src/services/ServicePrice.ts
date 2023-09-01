@@ -1,9 +1,11 @@
 import { debounce, random, uniq, xor } from 'lodash';
 
 import { updateFiatMoneyMap } from '@onekeyhq/kit/src/store/reducers/fiatMoney';
+import { updateRefreshHomeOverviewTs } from '@onekeyhq/kit/src/store/reducers/refresher';
 import { setSelectedFiatMoneySymbol } from '@onekeyhq/kit/src/store/reducers/settings';
 import type { SimpleTokenPrices } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { setTokenPriceMap } from '@onekeyhq/kit/src/store/reducers/tokens';
+import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -70,14 +72,17 @@ export default class ServicePrice extends ServiceBase {
     };
     const datas = await this.getCgkTokenPrice(params);
     if (Object.keys(datas).length > 0) {
-      dispatch(setTokenPriceMap({ prices: datas, vsCurrency }));
+      dispatch(
+        setTokenPriceMap({ prices: datas, vsCurrency }),
+        updateRefreshHomeOverviewTs([EOverviewScanTaskType.token]),
+      );
     }
     return datas;
   }
 
   @backgroundMethod()
   testUpdateTokenPriceMap() {
-    const { appSelector, dispatch, engine } = this.backgroundApi;
+    const { dispatch } = this.backgroundApi;
     dispatch(
       setTokenPriceMap({
         prices: {

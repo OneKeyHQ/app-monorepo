@@ -1,5 +1,4 @@
-import type { FC } from 'react';
-import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useLayoutEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -16,13 +15,16 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
+import { isBRC20Token } from '@onekeyhq/shared/src/utils/tokenUtils';
 
-import { useAppSelector, useTokenDetailInfo } from '../../hooks';
+import { LazyDisplayView } from '../../components/LazyDisplayView';
+import { useAppSelector, useTokenPositionInfo } from '../../hooks';
 import { isSTETH, isSupportStakingType } from '../Staking/utils';
 import { SwapPlugins } from '../Swap/Plugins/Swap';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
 import AssetsInfo from './AssetsInfo';
+import { BRC20TokenDetail } from './BRC20TokenDetail';
 import { TokenDetailContext } from './context';
 import MarketInfo from './MarketInfo';
 import TokenDetailHeader from './TokenDetailHeader';
@@ -49,7 +51,16 @@ export enum TabEnum {
   Info = 'Info',
 }
 
-const TokenDetail: FC<TokenDetailViewProps> = () => {
+function TokenDetailLoadingWithoutMemo() {
+  return (
+    <Center>
+      <Spinner mt={18} size="lg" />
+    </Center>
+  );
+}
+const TokenDetailLoading = memo(TokenDetailLoadingWithoutMemo);
+
+function TokenDetailViewWithoutMemo() {
   const intl = useIntl();
   const [showSwapPanel, setShowSwapPanel] = useState(false);
   const isVerticalLayout = useIsVerticalLayout();
@@ -57,16 +68,30 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
   const navigation = useNavigation();
 
   const {
-    walletId,
     coingeckoId,
     networkId,
     tokenAddress,
     accountId,
-    sendAddress,
-    ...defaultInfo
+
+    price,
+    price24h,
+    logoURI,
+    name,
+    symbol,
   } = route.params;
 
-  const detailInfo = useTokenDetailInfo({
+  const defaultInfo = useMemo(
+    () => ({
+      price: price || undefined,
+      price24h: price24h || undefined,
+      logoURI,
+      name,
+      symbol,
+    }),
+    [price, price24h, logoURI, name, symbol],
+  );
+
+  const result = useTokenPositionInfo({
     networkId,
     accountId,
     tokenAddress,
@@ -81,17 +106,16 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     [networkId],
   );
 
+  const isBRC20 = useMemo(() => isBRC20Token(tokenAddress), [tokenAddress]);
+
   const headerHeight = useMemo(() => {
     let height = isVerticalLayout ? 210 : 194;
     if (
       (isSupportStakingType({
-        networkId: detailInfo?.defaultToken?.networkId,
-        tokenIdOnNetwork: detailInfo?.defaultToken?.tokenIdOnNetwork,
+        networkId,
+        tokenIdOnNetwork: tokenAddress,
       }) ||
-        isSTETH(
-          detailInfo?.defaultToken?.networkId,
-          detailInfo?.defaultToken?.tokenIdOnNetwork,
-        )) &&
+        isSTETH(networkId, tokenAddress)) &&
       !isAllNetworks(networkId)
     ) {
       height += 60;
@@ -100,7 +124,7 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
       height += 332;
     }
     return height;
-  }, [networkId, detailInfo, isVerticalLayout, showChart]);
+  }, [networkId, isVerticalLayout, showChart, tokenAddress]);
 
   const headerTitle = useCallback(() => {
     if (!isVerticalLayout) {
@@ -108,18 +132,26 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     }
     return (
       <HStack space="8px" alignItems="center">
-        <TokenIcon size="24px" showTokenVerifiedIcon token={detailInfo} />
-        <Typography.Heading>{detailInfo?.symbol}</Typography.Heading>
+        <TokenIcon
+          size="24px"
+          showTokenVerifiedIcon
+          token={{
+            name: defaultInfo.name,
+            symbol: defaultInfo.symbol,
+            logoURI: defaultInfo.logoURI,
+          }}
+        />
+        <Typography.Heading>{defaultInfo.symbol}</Typography.Heading>
       </HStack>
     );
-  }, [isVerticalLayout, detailInfo]);
+  }, [isVerticalLayout, defaultInfo]);
 
   const headerRight = useCallback(() => {
-    if (!isVerticalLayout) {
+    if (!isVerticalLayout && !isBRC20) {
       return <HeaderOptions />;
     }
     return <FavoritedButton coingeckoId={coingeckoId} />;
-  }, [isVerticalLayout, coingeckoId]);
+  }, [isVerticalLayout, isBRC20, coingeckoId]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -141,9 +173,9 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
   const contextValue = useMemo(
     () => ({
       routeParams: route.params,
-      detailInfo,
+      ...result,
     }),
-    [route.params, detailInfo],
+    [route.params, result],
   );
   const tabsHeader = useMemo(
     () => (
@@ -154,13 +186,19 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     [headerHeight],
   );
 
-  if (detailInfo.loading) {
+  if (result.isLoading) {
     return (
       <Center>
         <Spinner mt={18} size="lg" />
       </Center>
     );
   }
+  if (isBRC20)
+    return (
+      <TokenDetailContext.Provider value={contextValue}>
+        <BRC20TokenDetail />
+      </TokenDetailContext.Provider>
+    );
 
   return (
     <TokenDetailContext.Provider value={contextValue}>
@@ -172,7 +210,7 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
         w="full"
         flex="1"
         justifyContent="center"
-        alignItems="flex-start"
+        pb={isVerticalLayout ? '60px' : 0}
       >
         <Tabs.Container
           headerHeight={headerHeight}
@@ -224,5 +262,16 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
       </HStack>
     </TokenDetailContext.Provider>
   );
-};
-export default TokenDetail;
+}
+
+const TokenDetailView = memo(TokenDetailViewWithoutMemo);
+
+function TokenDetail() {
+  return (
+    <LazyDisplayView delay={100} defaultView={<TokenDetailLoading />}>
+      <TokenDetailView />
+    </LazyDisplayView>
+  );
+}
+
+export default memo(TokenDetail);

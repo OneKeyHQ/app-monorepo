@@ -4,6 +4,11 @@ import { getUtxoId } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntity
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import type { DBUTXOAccount } from '@onekeyhq/engine/src/types/account';
 import type { ICoinControlListItem } from '@onekeyhq/engine/src/types/utxoAccounts';
+import type { ICollectUTXOsOptions } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
+import {
+  getTaprootXpub,
+  isTaprootXpubSegwit,
+} from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
 import type VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
@@ -70,17 +75,35 @@ function compareByLabel(
 @backgroundClass()
 export default class ServiceUtxos extends ServiceBase {
   @backgroundMethod()
-  getUtxos(
-    networkId: string,
-    accountId: string,
-    sortBy: ISortType,
-  ): Promise<{
+  getUtxos({
+    networkId,
+    accountId,
+    sortBy = 'balance',
+    options = {},
+    useRecycleUtxos = false,
+  }: {
+    networkId: string;
+    accountId: string;
+    sortBy?: ISortType;
+    options?: ICollectUTXOsOptions;
+    useRecycleUtxos?: boolean;
+  }): Promise<{
     utxos: ICoinControlListItem[];
     utxosWithoutDust: ICoinControlListItem[];
     utxosDust: ICoinControlListItem[];
     frozenUtxos: ICoinControlListItem[];
+    frozenUtxosWithoutRecycle: ICoinControlListItem[];
+    frozenRecycleUtxos: ICoinControlListItem[];
+    recycleUtxos: ICoinControlListItem[];
+    recycleUtxosWithoutFrozen: ICoinControlListItem[];
   }> {
-    return this._getUtxos(networkId, accountId, sortBy);
+    return this._getUtxos(
+      networkId,
+      accountId,
+      sortBy,
+      useRecycleUtxos,
+      options,
+    );
   }
 
   _getUtxos = memoizee(
@@ -88,6 +111,8 @@ export default class ServiceUtxos extends ServiceBase {
       networkId: string,
       accountId: string,
       sortBy: ISortType = 'balance',
+      useRecycleUtxos: boolean,
+      options: ICollectUTXOsOptions = {},
     ) => {
       const vault = (await this.backgroundApi.engine.getVault({
         networkId,
@@ -101,11 +126,29 @@ export default class ServiceUtxos extends ServiceBase {
         (vault.settings.dust ?? vault.settings.minTransferAmount) || 0,
       ).shiftedBy(network.decimals);
 
-      const { utxos: btcUtxos } = await vault.collectUTXOsInfo();
-
       const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
         networkId,
         dbAccount.xpub,
+      );
+
+      const collectUTXOsInfoOptions = useRecycleUtxos
+        ? {
+            forceSelectUtxos: archivedUtxos
+              .filter((utxo) => utxo.recycle)
+              .map((utxo) => {
+                const [txId, vout] = utxo.key.split('_');
+                return {
+                  txId,
+                  vout: parseInt(vout, 10),
+                  address: dbAccount.address,
+                };
+              }),
+            ...options,
+          }
+        : options;
+
+      const { utxos: btcUtxos } = await vault.collectUTXOsInfo(
+        collectUTXOsInfoOptions,
       );
 
       let compareFunction: ICompareFn = compareByBalanceOrHeight('value');
@@ -129,24 +172,45 @@ export default class ServiceUtxos extends ServiceBase {
           if (archivedUtxo) {
             coinControlItem.label = archivedUtxo.label;
             coinControlItem.frozen = archivedUtxo.frozen;
+            coinControlItem.recycle = archivedUtxo.recycle;
           }
           return coinControlItem;
         })
         .sort(compareFunction);
 
       const dataSourceWithoutDust = utxos.filter(
-        (utxo) => new BigNumber(utxo.value).isGreaterThan(dust) && !utxo.frozen,
+        (utxo) =>
+          new BigNumber(utxo.value).isGreaterThan(dust) &&
+          !utxo.frozen &&
+          !utxo.recycle,
       );
       const dustData = utxos.filter(
         (utxo) =>
-          new BigNumber(utxo.value).isLessThanOrEqualTo(dust) && !utxo.frozen,
+          new BigNumber(utxo.value).isLessThanOrEqualTo(dust) &&
+          !utxo.frozen &&
+          !utxo.recycle,
       );
       const frozenUtxos = utxos.filter((utxo) => utxo.frozen);
+      const frozenUtxosWithoutRecycle = utxos.filter(
+        (utxo) => utxo.frozen && !utxo.recycle,
+      );
+      const frozenRecycleUtxos = frozenUtxos.filter(
+        (utxo) => utxo.recycle && utxo.frozen,
+      );
+      const recycleUtxos = utxos.filter((utxo) => utxo.recycle);
+      const recycleUtxosWithoutFrozen = utxos.filter(
+        (utxo) => utxo.recycle && !utxo.frozen,
+      );
+
       const result = {
         utxos,
         utxosWithoutDust: dataSourceWithoutDust,
         utxosDust: dustData,
         frozenUtxos,
+        frozenUtxosWithoutRecycle,
+        frozenRecycleUtxos,
+        recycleUtxos,
+        recycleUtxosWithoutFrozen,
       };
       return result;
     },
@@ -155,6 +219,18 @@ export default class ServiceUtxos extends ServiceBase {
       maxAge: getTimeDurationMs({ seconds: 1 }),
     },
   );
+
+  @backgroundMethod()
+  async getArchivedUtxos(
+    networkId: string | undefined,
+    xpub: string | undefined,
+  ) {
+    const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
+      networkId ?? '',
+      isTaprootXpubSegwit(xpub ?? '') ? getTaprootXpub(xpub ?? '') : xpub ?? '',
+    );
+    return archivedUtxos;
+  }
 
   @backgroundMethod()
   async getUtxosBlockTime(
@@ -217,13 +293,14 @@ export default class ServiceUtxos extends ServiceBase {
         networkId,
         utxo,
         dbAccount.xpub,
-        { label, frozen: false },
+        { label, frozen: false, recycle: false },
       );
     }
 
     return simpleDb.utxoAccounts.updateCoinControlItem(id, {
       label,
       frozen: existUtxo.frozen,
+      recycle: existUtxo.recycle,
     });
   }
 
@@ -244,13 +321,50 @@ export default class ServiceUtxos extends ServiceBase {
         networkId,
         utxo,
         dbAccount.xpub,
-        { label: '', frozen },
+        { label: '', frozen, recycle: false },
       );
     }
 
     return simpleDb.utxoAccounts.updateCoinControlItem(id, {
       label: existUtxo.label,
       frozen,
+      recycle: existUtxo.recycle,
+    });
+  }
+
+  @backgroundMethod()
+  async updateRecycle({
+    networkId,
+    accountId,
+    utxo,
+    recycle,
+    frozen,
+  }: {
+    networkId: string;
+    accountId: string;
+    utxo: ICoinControlListItem;
+    recycle: boolean;
+    frozen?: boolean;
+  }) {
+    const id = getUtxoId(networkId, utxo);
+    const dbAccount = (await this.backgroundApi.engine.dbApi.getAccount(
+      accountId,
+    )) as DBUTXOAccount;
+    const existUtxo = await simpleDb.utxoAccounts.getCoinControlById(id);
+
+    if (!existUtxo) {
+      return simpleDb.utxoAccounts.addCoinControlItem(
+        networkId,
+        utxo,
+        dbAccount.xpub,
+        { label: '', frozen: false, recycle },
+      );
+    }
+
+    return simpleDb.utxoAccounts.updateCoinControlItem(id, {
+      label: existUtxo.label,
+      frozen: frozen ?? existUtxo.frozen,
+      recycle,
     });
   }
 }

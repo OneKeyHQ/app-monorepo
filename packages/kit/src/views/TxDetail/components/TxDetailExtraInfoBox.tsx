@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Box, HStack, IconButton, Pressable, Text } from '@onekeyhq/components';
@@ -32,7 +33,7 @@ function getFeeInNativeText(options: {
   } = options;
 
   if (!!totalFeeInNative && !!network) {
-    return `${totalFeeInNative} ${network.symbol}`;
+    return `${BigNumber.max(totalFeeInNative, 0).toFixed()} ${network.symbol}`;
   }
   if (!feeInfo || !network) {
     return '--';
@@ -104,15 +105,17 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
     );
   }
 
-  details.push({
-    title: intl.formatMessage({ id: 'content__fee' }),
-    content:
-      feeInput ||
-      getFeeInNativeText({
-        network,
-        decodedTx,
-      }),
-  });
+  if (feeInput !== null) {
+    details.push({
+      title: intl.formatMessage({ id: 'content__fee' }),
+      content:
+        feeInput ||
+        getFeeInNativeText({
+          network,
+          decodedTx,
+        }),
+    });
+  }
 
   if (
     checkIsValidHistoryTxId({

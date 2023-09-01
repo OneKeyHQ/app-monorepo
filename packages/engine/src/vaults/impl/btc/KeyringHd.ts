@@ -1,8 +1,10 @@
+import { mnemonicToSeedSync } from 'bip39';
 import bs58check from 'bs58check';
 
 import {
   batchGetPublicKeys,
   generateRootFingerprint,
+  mnemonicFromEntropy,
 } from '@onekeyhq/engine/src/secret';
 import { KeyringHd as KeyringHdBtcFork } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/KeyringHd';
 import {
@@ -16,6 +18,8 @@ import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { AccountType } from '../../../types/account';
 import {
   getAccountDefaultByPurpose,
+  getBitcoinBip32,
+  getBitcoinECPair,
   initBitcoinEcc,
   isTaprootPath,
 } from '../../utils/btcForkChain/utils';
@@ -52,7 +56,7 @@ export class KeyringHd extends KeyringHdBtcFork {
       coinName,
     );
     const { prefix: namePrefix } = getAccountNameInfoByTemplate(impl, template);
-    const { seed } = (await this.engine.dbApi.getCredential(
+    const { seed, entropy } = (await this.engine.dbApi.getCredential(
       this.walletId,
       password,
     )) as ExportedSeedCredential;
@@ -77,7 +81,12 @@ export class KeyringHd extends KeyringHdBtcFork {
 
     const ret = [];
     let index = 0;
+    const mnemonic = mnemonicFromEntropy(entropy, password);
+    const root = getBitcoinBip32().fromSeed(mnemonicToSeedSync(mnemonic));
     for (const { path, parentFingerPrint, extendedKey } of pubkeyInfos) {
+      const node = root.derivePath(`${path}/0/0`);
+      const keyPair = getBitcoinECPair().fromWIF(node.toWIF());
+
       const xpub = bs58check.encode(
         Buffer.concat([
           Buffer.from(xpubVersionBytes.toString(16).padStart(8, '0'), 'hex'),
@@ -124,6 +133,7 @@ export class KeyringHd extends KeyringHdBtcFork {
           type: AccountType.UTXO,
           path,
           coinType: COIN_TYPE,
+          pubKey: keyPair.publicKey.toString('hex'),
           xpub,
           xpubSegwit,
           address,

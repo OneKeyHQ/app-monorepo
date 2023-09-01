@@ -3,6 +3,8 @@ import { useEffect, useRef } from 'react';
 import { StackActions, useNavigation } from '@react-navigation/native';
 import { AppState } from 'react-native';
 
+import type { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
+
 import { getActiveWalletAccount } from '../../../hooks';
 import useDappParams from '../../../hooks/useDappParams';
 import { useReduxReady } from '../../../hooks/useReduxReady';
@@ -53,16 +55,18 @@ export function SendConfirmFromDapp() {
     const { networkId, accountId } = getActiveWalletAccount();
 
     // alert(JSON.stringify({ networkId, accountId, isReady }));
-
     // TODO providerName
     if (encodedTx) {
+      const isPsbt = (encodedTx as IEncodedTxBtc).psbtHex;
+
       const params: SendConfirmParams = {
         networkId: dappNetworkId ?? networkId,
         accountId,
         sourceInfo,
         encodedTx,
-        feeInfoEditable: true,
-        feeInfoUseFeeInTx: false,
+        feeInfoEditable: !isPsbt,
+        feeInfoUseFeeInTx: !!isPsbt,
+        ignoreFetchFeeCalling: !!isPsbt,
         signOnly,
         // @ts-ignore
         _disabledAnimationOfNavigate: true,
@@ -71,6 +75,7 @@ export function SendConfirmFromDapp() {
       // replace router to SendConfirm
       action = StackActions.replace(SendModalRoutes.SendConfirm, params);
     }
+
     if (unsignedMessage) {
       const params: SignMessageConfirmParams = {
         networkId: dappNetworkId ?? networkId,

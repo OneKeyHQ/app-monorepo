@@ -13,7 +13,7 @@ import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
 
 // define enum here to avoid cycle import
 
-import type { ITokenPriceValue } from '../store/reducers/tokens';
+import type { IAmountValue, ITokenPriceValue } from '../store/reducers/tokens';
 import type { IOnboardingRoutesParams } from '../views/Onboarding/routes/types';
 import type { GalleryParams } from './Root/Gallery';
 import type * as SubModalRoutesParams from './Root/Modal/types';
@@ -88,6 +88,8 @@ export type ModalRoutesParams = {
   [ModalRoutes.GasPanel]: NavigatorScreenParams<SubModalRoutesParams.GasPanelRoutesParams>;
   [ModalRoutes.Inscribe]: NavigatorScreenParams<SubModalRoutesParams.InscribeModalRoutesParams>;
   [ModalRoutes.Webln]: NavigatorScreenParams<SubModalRoutesParams.WeblnRoutesParams>;
+  [ModalRoutes.Monitor]: NavigatorScreenParams<SubModalRoutesParams.MonitorRouteParams>;
+  [ModalRoutes.InscriptionControl]: NavigatorScreenParams<SubModalRoutesParams.InscriptionControlRoutesParams>;
 };
 /** Modal */
 
@@ -111,6 +113,9 @@ export type MainRoutesParams = {
 };
 export type HomeRoutesParams = {
   [HomeRoutes.ScreenTokenDetail]: {
+    balance?: IAmountValue;
+    availableBalance?: IAmountValue;
+    transferBalance?: IAmountValue;
     price?: ITokenPriceValue;
     price24h?: ITokenPriceValue;
     logoURI?: string;

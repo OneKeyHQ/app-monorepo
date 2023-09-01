@@ -24,7 +24,11 @@ const AccountValueSettings: FC = () => {
     useAppSelector((s) => s.settings.includeNFTsInTotal) ?? true;
 
   const { accountId, networkId } = useActiveWalletAccount();
-  const info = useAccountBalanceDetailsInfo({ networkId, accountId });
+  const info = useAccountBalanceDetailsInfo({
+    networkId,
+    accountId,
+    useRecycleBalance: true,
+  });
 
   return (
     <>

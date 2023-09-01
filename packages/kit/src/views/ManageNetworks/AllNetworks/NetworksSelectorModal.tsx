@@ -38,9 +38,10 @@ function AllNetworksNetworkSelectorModal() {
 
   const { filter, onConfirm, accountId } = route?.params ?? {};
 
-  const { data: networkAccounts = empty } = useAllNetworksWalletAccounts({
-    accountId,
-  });
+  const networkAccounts =
+    useAllNetworksWalletAccounts({
+      accountId,
+    }) ?? empty;
 
   const handlePress = useCallback(
     ({ network, accounts }: { network: Network; accounts: Account[] }) => {

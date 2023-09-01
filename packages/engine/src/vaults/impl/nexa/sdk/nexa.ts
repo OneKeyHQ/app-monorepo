@@ -23,7 +23,7 @@ export class Nexa extends SimpleClient {
     this.rpc = new WebSocketRequest(url);
   }
 
-  override getAddress(address: string): Promise<AddressInfo> {
+  override getAddress(): Promise<AddressInfo> {
     throw new Error('Method not implemented.');
   }
 
@@ -42,10 +42,7 @@ export class Nexa extends SimpleClient {
     throw new Error('Method not implemented.');
   }
 
-  override async broadcastTransaction(
-    rawTx: string,
-    options?: any,
-  ): Promise<string> {
+  override async broadcastTransaction(rawTx: string): Promise<string> {
     // Totally different from that the response string is not txid but txidm.
     return this.rpc.call<string>('blockchain.transaction.broadcast', [rawTx]);
   }

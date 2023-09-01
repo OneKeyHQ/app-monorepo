@@ -94,6 +94,7 @@ import type {
 } from '../../../types/history';
 import type {
   AptosMessage,
+  BtcMessageTypes,
   CommonMessage,
   ETHMessage,
 } from '../../../types/message';
@@ -459,8 +460,9 @@ export default class Vault extends VaultBase {
   }): Promise<IDecodedTx> {
     // batch transfer
     if (
+      encodedTx.to &&
       encodedTx.to.toLowerCase() ===
-      batchTransferContractAddress[this.networkId]?.toLowerCase()
+        batchTransferContractAddress[this.networkId]?.toLowerCase()
     ) {
       const decodeTx = await this.decodeBatchTransferTx(
         decodedTxLegacy,
@@ -1966,7 +1968,7 @@ export default class Vault extends VaultBase {
       const { encodedTx } = decodedTx;
 
       const from = (encodedTx as IEncodedTxEvm)?.from.toLowerCase();
-      const to = (encodedTx as IEncodedTxEvm)?.to.toLowerCase();
+      const to = (encodedTx as IEncodedTxEvm)?.to?.toLowerCase();
       const address = (await this.getAccountAddress()).toLocaleLowerCase();
       if (from === address || to === address) return false;
 

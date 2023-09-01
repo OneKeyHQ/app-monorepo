@@ -7,7 +7,6 @@ import {
 } from './utils';
 
 import type { Signer } from '../../../proxy';
-import type { DBAccount } from '../../../types/account';
 
 jest.setTimeout(3 * 60 * 1000);
 

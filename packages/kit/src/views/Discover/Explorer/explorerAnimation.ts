@@ -1,5 +1,3 @@
-import { createRef } from 'react';
-
 import { makeMutable, runOnJS, withTiming } from 'react-native-reanimated';
 
 import { getCurrentTabId } from '../../../store/observable/webTabs';
@@ -8,13 +6,11 @@ import { getWebTabs } from './Controller/useWebTabs';
 import { pauseDappInteraction, resumeDappInteraction } from './explorerUtils';
 
 import type { View } from 'react-native';
-import type ViewShot from 'react-native-view-shot';
 // for mobile tab animations
 export const MIN_OR_HIDE = 0;
 export const MAX_OR_SHOW = 1;
 export const expandAnim = makeMutable(MIN_OR_HIDE);
 export const showTabGridAnim = makeMutable(MIN_OR_HIDE);
-export const tabViewShotRef = createRef<ViewShot>();
 export const tabGridRefs: Record<string, View> = {};
 
 // can not use a whole object as animated value (it will be frozen)

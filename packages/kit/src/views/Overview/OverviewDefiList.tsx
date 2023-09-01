@@ -1,7 +1,8 @@
-import type { FC } from 'react';
 import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import B from 'bignumber.js';
+import { isEqual } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import {
   Box,
@@ -12,21 +13,27 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
+import type { IOverviewAccountdefisResult } from '@onekeyhq/kit-bg/src/services/ServiceOverview';
+import { freezedEmptyArray } from '@onekeyhq/shared/src/consts/sharedConsts';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { FormatCurrencyNumber } from '../../components/Format';
-import {
-  useAccountPortfolios,
-  useAccountValues,
-  useNavigation,
-} from '../../hooks';
+import { useAppSelector, useNavigation } from '../../hooks';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { HomeRoutes, ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { useAssetsListLayout } from '../Wallet/AssetsList/useAssetsListLayout';
 import { HomeTabAssetsHeader } from '../Wallet/HomeTabAssetsHeader';
 
+import {
+  atomHomeOverviewDefiList,
+  atomHomeOverviewDefiValuesMap,
+  useAtomDefiList,
+  withProviderDefiList,
+} from './contextOverviewDefiList';
 import { EOverviewScanTaskType, OverviewModalRoutes } from './types';
 
 import type { HomeRoutesParams, RootRoutesParams } from '../../routes/types';
+import type { OverviewDefiRes } from './types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -44,22 +51,257 @@ export type OverviewDefiListProps = {
   limitSize?: number;
 };
 
-export type IAssetHeaderProps = {
-  name: string;
-  value: B;
-  itemLength: number;
-  accountAllValue: B;
-  onPress: () => void;
+export type IAccountDefiListDataFromSimpleDBOptions = {
+  networkId: string;
+  accountId: string;
+  limitSize?: number;
+  debounced?: number;
 };
-const OverviewDefiListWithoutMemo: FC<OverviewDefiListProps> = (props) => {
-  const { networkId, limitSize, accountId } = props;
-  const { data: defis } = useAccountPortfolios({
-    networkId,
-    accountId,
-    type: EOverviewScanTaskType.defi,
-  });
-  const isVertical = useIsVerticalLayout();
+
+export function useAccountDefiListDataFromSimpleDB({
+  networkId,
+  accountId,
+  limitSize,
+  debounced = 0,
+}: IAccountDefiListDataFromSimpleDBOptions) {
+  const refresherTs = useAppSelector((s) => s.refresher.refreshAccountDefiTs);
+
+  const result = usePromiseResult(
+    () => {
+      if (refresherTs) {
+        //
+      }
+      const r = backgroundApiProxy.serviceOverview.buildAccountDefiList({
+        networkId,
+        accountId,
+        limitSize,
+      });
+      return r;
+    },
+    [accountId, limitSize, networkId, refresherTs],
+    {
+      debounced,
+      watchLoading: true,
+    },
+  );
+
+  return result;
+}
+
+export function HandleRebuildDefiListData(
+  options: IAccountDefiListDataFromSimpleDBOptions,
+) {
+  const result = useAccountDefiListDataFromSimpleDB(options);
+  const [defisList, setDefiList] = useAtomDefiList(atomHomeOverviewDefiList);
+  const [, setDefiValuesMap] = useAtomDefiList(atomHomeOverviewDefiValuesMap);
+
+  useEffect(() => {
+    const data = result.result;
+    if (!data) {
+      return;
+    }
+    if (data.defiValuesMap) {
+      setDefiValuesMap(data.defiValuesMap);
+    }
+    if (data.defiKeys) {
+      if (!isEqual(defisList.defiKeys, data.defiKeys)) {
+        setDefiList(data);
+      }
+    } else {
+      setDefiList(data);
+    }
+  }, [defisList.defiKeys, result.result, setDefiList, setDefiValuesMap]);
+
+  return null;
+}
+
+function OverviewDefiListColumns() {
+  const intl = useIntl();
+  return (
+    <Box flexDirection="row" w="full">
+      <Typography.Subheading color="text-subdued" flex={1}>
+        {intl.formatMessage({ id: 'form__protocol_uppercase' })}
+      </Typography.Subheading>
+      <Typography.Subheading color="text-subdued" flex={1} textAlign="right">
+        {intl.formatMessage({ id: 'form__claimable_uppercase' })}
+      </Typography.Subheading>
+      <Typography.Subheading color="text-subdued" flex={1} textAlign="right">
+        {intl.formatMessage({ id: 'form__value_uppercase' })}
+      </Typography.Subheading>
+    </Box>
+  );
+}
+
+const OverviewDefiListColumnsMemo = memo(OverviewDefiListColumns);
+
+function AccountDefiListHeader({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) {
   const navigation = useNavigation<NavigationProps>();
+
+  const totalValue = useAppSelector(
+    (s) =>
+      s.overview.overviewStats?.[networkId]?.[accountId]?.defis?.totalValue,
+  );
+
+  const shareDefis = useAppSelector(
+    (s) =>
+      s.overview.overviewStats?.[networkId]?.[accountId]?.summary?.shareDefis,
+  );
+
+  const defiLength = useAppSelector(
+    (s) =>
+      s.overview.overviewStats?.[networkId]?.[accountId]?.defis?.totalCounts,
+  );
+
+  const shareRate = useMemo(
+    () => new B(shareDefis ?? 0).times(100),
+    [shareDefis],
+  );
+
+  const handlePressHeader = useCallback(() => {
+    navigation.navigate(HomeRoutes.OverviewDefiListScreen, {
+      networkId,
+      accountId,
+    });
+  }, [navigation, networkId, accountId]);
+
+  return (
+    <HomeTabAssetsHeader
+      icon="DatabaseOutline"
+      title="DeFi"
+      usdFiatValue={totalValue}
+      shareRate={shareRate}
+      extraIcon="ChevronRightMini"
+      extraLabel={String(defiLength ?? 0)}
+      onPress={handlePressHeader}
+      borderColor="transparent"
+      columns={<OverviewDefiListColumnsMemo />}
+    />
+  );
+}
+
+const AccountDefiListHeaderMemo = memo(AccountDefiListHeader);
+
+function DefiValuesComp({
+  claimable,
+  value,
+}: {
+  claimable: string;
+  value: string;
+}) {
+  const isVertical = useIsVerticalLayout();
+  return (
+    <>
+      {isVertical ? null : (
+        <Typography.Body2Strong
+          flex="1"
+          numberOfLines={2}
+          isTruncated
+          textAlign="right"
+        >
+          <FormatCurrencyNumber value={0} convertValue={+claimable} />
+        </Typography.Body2Strong>
+      )}
+      <Typography.Body2Strong
+        flex="1"
+        textAlign="right"
+        numberOfLines={2}
+        isTruncated
+      >
+        <FormatCurrencyNumber value={0} convertValue={+value} />
+      </Typography.Body2Strong>
+    </>
+  );
+}
+const DefiValuesCompMemo = memo(DefiValuesComp);
+
+function DefiValueColumnWrapper({ valueKey }: { valueKey: string }) {
+  const [map] = useAtomDefiList(atomHomeOverviewDefiValuesMap);
+  return <DefiValuesCompMemo {...map[valueKey]} />;
+}
+
+const DefiValueColumnMemo = memo(DefiValueColumnWrapper);
+
+function DefiListCompWithoutMemo({
+  networkId,
+  accountId,
+}: OverviewDefiListProps) {
+  const navigation = useNavigation();
+  const [data] = useAtomDefiList(atomHomeOverviewDefiList);
+
+  const { defis = freezedEmptyArray as IOverviewAccountdefisResult['defis'] } =
+    data;
+
+  const onPress = useCallback(
+    (item: OverviewDefiRes) => {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Overview,
+        params: {
+          screen: OverviewModalRoutes.OverviewProtocolDetail,
+          params: {
+            protocol: item,
+            networkId,
+            accountId,
+          },
+        },
+      });
+    },
+    [navigation, networkId, accountId],
+  );
+
+  const keyExtractor = useCallback(
+    (item: OverviewDefiRes) =>
+      `${item._id.networkId}_${item._id.address}_${item._id.protocolId}`,
+    [],
+  );
+
+  const renderItem = useCallback(
+    ({ item, index: idx }: { item: OverviewDefiRes; index: number }) => (
+      <Pressable.Item
+        onPress={() => {
+          onPress(item);
+        }}
+        flex={1}
+        px="6"
+        py="4"
+        flexDirection="row"
+        alignItems="center"
+        borderTopWidth={idx === 0 ? 0 : '1px'}
+        borderTopColor="divider"
+        key={keyExtractor(item)}
+      >
+        <Token
+          flex="1"
+          size={8}
+          showInfo
+          infoBoxProps={{ flex: 1 }}
+          token={{
+            logoURI: item.protocolIcon,
+            networkId: item._id.networkId,
+            name: item.protocolName,
+          }}
+          showNetworkIcon
+        />
+        <DefiValueColumnMemo valueKey={keyExtractor(item)} />
+      </Pressable.Item>
+    ),
+    [onPress, keyExtractor],
+  );
+
+  return <>{defis.map((item, index) => renderItem({ item, index }))}</>;
+}
+
+const DefiListMemo = memo(DefiListCompWithoutMemo);
+
+function OverviewDefiListWithoutMemo({
+  networkId,
+  accountId,
+}: OverviewDefiListProps) {
   const { containerPaddingX } = useAssetsListLayout();
 
   // fetch defi on mount or network/account changed
@@ -73,29 +315,12 @@ const OverviewDefiListWithoutMemo: FC<OverviewDefiListProps> = (props) => {
     }
   }, [networkId, accountId]);
 
-  const allDefiValues = useMemo(
-    () => defis.reduce((sum, next) => sum.plus(next.protocolValue), new B(0)),
-    [defis],
+  const defiLength = useAppSelector(
+    (s) =>
+      s.overview.overviewStats?.[networkId]?.[accountId]?.defis?.totalCounts,
   );
 
-  const accountAllValue = useAccountValues({
-    networkId,
-    accountId,
-  }).value;
-
-  const handlePressHeader = useCallback(() => {
-    navigation.navigate(HomeRoutes.OverviewDefiListScreen, {
-      networkId,
-      accountId,
-    });
-  }, [navigation, networkId, accountId]);
-
-  const rate = useMemo(
-    () => allDefiValues.div(accountAllValue).multipliedBy(100),
-    [allDefiValues, accountAllValue],
-  );
-
-  if (!defis.length) {
+  if (!defiLength) {
     return null;
   }
 
@@ -108,82 +333,23 @@ const OverviewDefiListWithoutMemo: FC<OverviewDefiListProps> = (props) => {
       mb="24"
       mx={containerPaddingX.px}
     >
-      <HomeTabAssetsHeader
-        icon="DatabaseOutline"
-        title="DeFi"
-        usdFiatValue={allDefiValues.toFixed()}
-        shareRate={rate}
-        extraIcon="ChevronRightMini"
-        extraLabel={defis.length.toString()}
-        onPress={handlePressHeader}
-        borderColor="transparent"
-      />
-
-      {defis.slice(0, limitSize).map((item, idx) => (
-        <Pressable.Item
-          key={item._id.protocolId}
-          onPress={() => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.Overview,
-              params: {
-                screen: OverviewModalRoutes.OverviewProtocolDetail,
-                params: {
-                  protocolId: item._id.protocolId,
-                  networkId,
-                  accountId,
-                },
-              },
-            });
-          }}
-          flex={1}
-          px="6"
-          py="4"
-          flexDirection="row"
-          alignItems="center"
-          borderTopWidth={idx === 0 ? 0 : '1px'}
-          borderTopColor="divider"
-        >
-          <Token
-            flex="1"
-            size={8}
-            showInfo
-            infoBoxProps={{ flex: 1 }}
-            token={{
-              logoURI: item.protocolIcon,
-              networkId: item._id.networkId,
-              name: item.protocolName,
-            }}
-            showNetworkIcon
-          />
-          {isVertical ? null : (
-            <Typography.Body2Strong
-              flex="1"
-              numberOfLines={2}
-              isTruncated
-              textAlign="right"
-            >
-              <FormatCurrencyNumber
-                value={0}
-                convertValue={+item.claimableValue}
-              />
-            </Typography.Body2Strong>
-          )}
-          <Typography.Body2Strong
-            flex="1"
-            textAlign="right"
-            numberOfLines={2}
-            isTruncated
-          >
-            <FormatCurrencyNumber
-              value={0}
-              convertValue={+item.protocolValue}
-            />
-          </Typography.Body2Strong>
-        </Pressable.Item>
-      ))}
+      <AccountDefiListHeaderMemo networkId={networkId} accountId={accountId} />
+      <DefiListMemo networkId={networkId} accountId={accountId} />
     </VStack>
   );
-};
+}
 
-export const OverviewDefiList = memo(OverviewDefiListWithoutMemo);
-OverviewDefiList.displayName = 'OverviewDefiList';
+const OverviewDefiListMemo = memo(OverviewDefiListWithoutMemo);
+
+function OverviewDefiListView(props: OverviewDefiListProps) {
+  return (
+    <>
+      <OverviewDefiListMemo {...props} />
+      <HandleRebuildDefiListData {...props} debounced={600} />
+    </>
+  );
+}
+
+export const OverviewDefiList = memo(
+  withProviderDefiList(OverviewDefiListView),
+);

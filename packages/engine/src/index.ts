@@ -143,6 +143,7 @@ import type {
 } from './types/network';
 import type { Token } from './types/token';
 import type { Wallet } from './types/wallet';
+import type { IUnsignedMessageBtc } from './vaults/impl/btc/types';
 import type {
   IEncodedTxEvm,
   IUnsignedMessageEvm,
@@ -1668,7 +1669,7 @@ class Engine {
         chainId,
         query: searchTerm,
       });
-      onlineTokens = result.map((t) => formatServerToken(t));
+      onlineTokens = result.slice(0, 50).map((t) => formatServerToken(t));
     } catch (error) {
       debugLogger.engine.error('search online tokens error', {
         error: error instanceof Error ? error.message : error,
@@ -1773,7 +1774,7 @@ class Engine {
     networkId,
     accountId,
   }: {
-    unsignedMessage?: IUnsignedMessageEvm;
+    unsignedMessage?: IUnsignedMessageEvm | IUnsignedMessageBtc;
     password: string;
     networkId: string;
     accountId: string;
@@ -3001,17 +3002,22 @@ class Engine {
     accountId,
     networkId,
     password,
+    useRecycleBalance,
   }: {
     accountId: string;
     networkId: string;
     password?: string;
+    useRecycleBalance?: boolean;
   }) {
     if (!networkId || !accountId) return 0;
     const vault = await this.getVault({
       accountId,
       networkId,
     });
-    return vault.getFrozenBalance(password);
+    return vault.getFrozenBalance({
+      password,
+      useRecycleBalance,
+    });
   }
 
   @backgroundMethod()

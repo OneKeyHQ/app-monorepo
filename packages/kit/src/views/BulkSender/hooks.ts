@@ -74,10 +74,10 @@ export function useValidateTrader({
       const validateErrors: TraderError[] = [];
       setIsValidating(true);
       for (let i = 0; i < trader.length; i += 1) {
-        const { Address, Amount } = trader[i];
+        const { address, amount } = trader[i];
         let hasError = false;
         if (shouldValidateAmount) {
-          const amountBN = new BigNumber(Amount ?? 0);
+          const amountBN = new BigNumber(amount ?? 0);
           if (!hasError) {
             if (amountBN.isNaN() || amountBN.isNegative()) {
               validateErrors.push({
@@ -130,7 +130,7 @@ export function useValidateTrader({
           try {
             await backgroundApiProxy.validator.validateAddress(
               networkId,
-              Address.trim(),
+              address.trim(),
             );
           } catch {
             validateErrors.push({

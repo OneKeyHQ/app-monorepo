@@ -20,7 +20,7 @@ import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
 import {
   useAccountTokensOnChain,
   useNetwork,
-  useTokenBalance,
+  useTokenBalanceWithoutFrozen,
 } from '@onekeyhq/kit/src/hooks';
 import {
   HomeRoutes,
@@ -85,11 +85,11 @@ function OneToMany(props: Props) {
   const navigation = useNavigation<NavigationProps>();
   const { network } = useNetwork({ networkId });
 
-  const accountTokens = useAccountTokensOnChain(networkId, accountId, true);
+  const accountTokens = useAccountTokensOnChain(networkId, accountId);
   const tokens = accountTokens.filter((token) =>
     network?.impl === IMPL_TRON
       ? !new BigNumber(token.tokenIdOnNetwork).isInteger()
-      : true ||
+      : true &&
         (network?.impl === IMPL_BTC || network?.impl === IMPL_TBTC
           ? token.isNative
           : true),
@@ -102,11 +102,12 @@ function OneToMany(props: Props) {
   const currentToken = selectedToken || initialToken;
   const isNative = currentToken?.isNative;
 
-  const tokenBalnace = useTokenBalance({
+  const tokenBalnace = useTokenBalanceWithoutFrozen({
     accountId,
     networkId,
     token: currentToken,
     fallback: '0',
+    useRecycleBalance: currentToken?.isNative,
   });
 
   const { isValid, isValidating, errors } = useValidateTrader({
@@ -209,8 +210,8 @@ function OneToMany(props: Props) {
       for (let i = 0; i < receiver.length; i += 1) {
         transferInfos.push({
           from: accountAddress,
-          to: receiver[i].Address,
-          amount: receiver[i].Amount ?? amount[0],
+          to: receiver[i].address,
+          amount: receiver[i].amount ?? amount[0],
           token: token?.tokenIdOnNetwork,
           tokenSendAddress: token?.sendAddress,
         });

@@ -95,6 +95,12 @@ const InscribeModal = createLazyComponent(() => import('./Inscribe'));
 
 const WeblnModal = createLazyComponent(() => import('./Webln'));
 
+const MonitorModal = createLazyComponent(() => import('./Monitor'));
+
+const InscriptionControlModal = createLazyComponent(
+  () => import('./InscriptionControl'),
+);
+
 const modalStackScreenList = [
   {
     name: ModalRoutes.CreateAccount,
@@ -107,6 +113,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.Receive,
     component: ReceiveToken,
+  },
+  {
+    name: ModalRoutes.Monitor,
+    component: MonitorModal,
   },
   {
     name: ModalRoutes.Send,
@@ -247,6 +257,7 @@ const modalStackScreenList = [
   { name: ModalRoutes.GasPanel, component: GasPanelModal },
   { name: ModalRoutes.Inscribe, component: InscribeModal },
   { name: ModalRoutes.Webln, component: WeblnModal },
+  { name: ModalRoutes.InscriptionControl, component: InscriptionControlModal },
 ];
 
 const ModalStack = createStackNavigator<ModalRoutesParams>();

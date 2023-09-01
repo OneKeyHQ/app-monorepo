@@ -34,6 +34,7 @@ import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
 import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
 import { ManageTokenModalRoutes } from '../../routes/routesEnum';
+import { deviceUtils } from '../../utils/hardware';
 import { wait } from '../../utils/helper';
 import { SiteSection } from '../ManageNetworks/components/SiteSection';
 import { defaultMenuOffset } from '../Overlay/BaseMenu';
@@ -396,6 +397,9 @@ function AddTokenModal() {
           tokenId: address,
           onSuccess() {
             addAccountToken();
+          },
+          onFailure: (e) => {
+            deviceUtils.showErrorToast(e, 'msg__failed_to_add_token');
           },
         });
       } else {

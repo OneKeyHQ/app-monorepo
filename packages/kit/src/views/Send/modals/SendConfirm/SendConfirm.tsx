@@ -1,8 +1,10 @@
 import { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { ToastManager } from '@onekeyhq/components';
+import type { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
 import type {
   IFeeInfoUnit,
   ISignedTxPro,
@@ -12,6 +14,7 @@ import {
   IEncodedTxUpdateType,
 } from '@onekeyhq/engine/src/vaults/types';
 import { ENABLED_DAPP_SCOPE } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { checkIsUnListOrderPsbt } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.utils';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useWalletConnectPrepareConnection } from '../../../../components/WalletConnect/useWalletConnectPrepareConnection';
@@ -55,8 +58,13 @@ function SendConfirm({
 }) {
   const intl = useIntl();
   useOnboardingRequired();
-  const { engine, serviceHistory, serviceToken, serviceLightningNetwork } =
-    backgroundApiProxy;
+  const {
+    engine,
+    serviceHistory,
+    serviceToken,
+    serviceNFT,
+    serviceLightningNetwork,
+  } = backgroundApiProxy;
 
   const {
     navigation,
@@ -110,6 +118,22 @@ function SendConfirm({
     sourceInfo,
   });
 
+  const isListOrderPsbt = useMemo(() => {
+    const totalFee = new BigNumber(
+      (encodedTx as IEncodedTxBtc)?.totalFee ?? '0',
+    );
+
+    return !!(
+      (encodedTx as IEncodedTxBtc)?.psbtHex &&
+      (totalFee.isNaN() || totalFee.isLessThanOrEqualTo(0))
+    );
+  }, [encodedTx]);
+
+  const isUnListOrderPsbt = useMemo(
+    () => checkIsUnListOrderPsbt(decodedTx?.actions, account?.address),
+    [decodedTx?.actions, account?.address],
+  );
+
   const isInternalNativeTransferType = useMemo(() => {
     // TODO also check payloadInfo.type===NativeTransfer
     if (isFromDapp || !payload) {
@@ -133,6 +157,7 @@ function SendConfirm({
     signOnly: routeParams.signOnly,
     payload: payloadInfo || payload,
     ignoreFetchFeeCalling,
+    isBtcForkChain: network?.settings.isBtcForkChain,
   });
 
   useWalletConnectPrepareConnection({
@@ -200,6 +225,38 @@ function SendConfirm({
           } else {
             await dappApprove.resolve({ result: tx.rawTx });
           }
+
+          if (isListOrderPsbt || isUnListOrderPsbt) {
+            const inscription = decodedTx?.actions.find(
+              (action) =>
+                action.brc20Info?.asset ?? action.inscriptionInfo?.asset,
+            );
+            const asset =
+              inscription?.brc20Info?.asset ??
+              inscription?.inscriptionInfo?.asset;
+
+            if (!asset) return;
+
+            if (isListOrderPsbt) {
+              asset.listed = true;
+              // save btc list nft psbt to history
+              await serviceHistory.saveSendConfirmHistory({
+                networkId,
+                accountId,
+                data,
+                resendActionInfo,
+                feeInfo: feeInfoValue,
+              });
+            } else {
+              asset.listed = false;
+            }
+
+            serviceNFT.updateAsset({
+              accountId,
+              networkId,
+              asset,
+            });
+          }
         } else {
           await dappApprove.resolve({
             result: tx.txid,
@@ -265,6 +322,7 @@ function SendConfirm({
         //   // close()
         // }, 0);
       };
+
       const nextRouteParams: SendAuthenticationParams = {
         ...routeParams,
         encodedTx: encodedTxWithAdvancedSettings,
@@ -330,11 +388,15 @@ function SendConfirm({
       navigation,
       dappApprove,
       serviceToken,
-      serviceLightningNetwork,
       payloadInfo?.swapInfo,
       wallet?.type,
       serviceHistory,
+      isListOrderPsbt,
+      isUnListOrderPsbt,
+      decodedTx,
+      serviceNFT,
       resendActionInfo,
+      serviceLightningNetwork,
       intl,
     ],
   );
@@ -382,6 +444,7 @@ function SendConfirm({
     prepaidFee,
     advancedSettings,
     advancedSettingsForm,
+    isListOrderPsbt,
 
     handleConfirm,
     onSecondaryActionPress: ({ close }) => {

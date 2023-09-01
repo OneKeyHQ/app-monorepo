@@ -1,6 +1,11 @@
 import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
 
 import {
+  TxActionBRC20,
+  TxActionBRC20T0,
+  getTxActionsBRC20Info,
+} from '../TxAction/TxActionBRC20';
+import {
   TxActionFunctionCall,
   TxActionFunctionCallT0,
   getTxActionFunctionCallInfo,
@@ -188,6 +193,23 @@ export function getTxActionMeta(
       T2: TxActionNFTInscription,
     };
   }
+
+  if (
+    action.type === IDecodedTxActionType.TOKEN_BRC20_DEPLOY ||
+    action.type === IDecodedTxActionType.TOKEN_BRC20_MINT ||
+    action.type === IDecodedTxActionType.TOKEN_BRC20_TRANSFER ||
+    action.type === IDecodedTxActionType.TOKEN_BRC20_INSCRIBE
+  ) {
+    const info = getTxActionsBRC20Info(props);
+    titleInfo = info.titleInfo;
+    iconInfo = info.iconInfo;
+    components = {
+      T0: TxActionBRC20T0,
+      T1: TxActionBRC20,
+      T2: TxActionBRC20,
+    };
+  }
+
   return {
     meta: { titleInfo, iconInfo },
     props,

@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 import { debounce, isEmpty, random, uniq, xor } from 'lodash';
 
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { getBalancesFromApi } from '@onekeyhq/engine/src/apiProxyUtils';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
@@ -24,7 +25,6 @@ import {
   setIsPasswordLoadedInVault,
   setTools,
 } from '@onekeyhq/kit/src/store/reducers/data';
-import { setOverviewPortfolioUpdatedAt } from '@onekeyhq/kit/src/store/reducers/overview';
 import {
   setOverviewHomeTokensLoading,
   updateRefreshHomeOverviewTs,
@@ -36,6 +36,8 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import type { ITokenDetailInfo } from '@onekeyhq/kit/src/views/ManageTokens/types';
+import type { IAccountToken } from '@onekeyhq/kit/src/views/Overview/types';
+import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -282,15 +284,11 @@ export default class ServiceToken extends ServiceBase {
             ...accountTokens,
           ],
         }),
-        setOverviewPortfolioUpdatedAt({
-          key: `${networkId}___${accountId}`,
-          data: {
-            updatedAt: Date.now(),
-          },
-        }),
       ];
       if (refreshHomeOverviewTs) {
-        actions.push(updateRefreshHomeOverviewTs());
+        actions.push(
+          updateRefreshHomeOverviewTs([EOverviewScanTaskType.token]),
+        );
       }
 
       dispatch(...actions);
@@ -593,6 +591,8 @@ export default class ServiceToken extends ServiceBase {
     for (const {
       address,
       balance,
+      availableBalance,
+      transferBalance,
       sendAddress,
       bestBlockNumber: blockHeight,
     } of balancesFromApi) {
@@ -606,6 +606,8 @@ export default class ServiceToken extends ServiceBase {
             sendAddress,
           })]: {
             balance,
+            availableBalance,
+            transferBalance,
             blockHeight,
           },
         });
@@ -853,7 +855,6 @@ export default class ServiceToken extends ServiceBase {
         });
       }
     }
-
     dispatch(
       setAccountTokensBalances({
         accountId,
@@ -1028,9 +1029,11 @@ export default class ServiceToken extends ServiceBase {
   async fetchBalanceDetails({
     networkId,
     accountId,
+    useRecycleBalance,
   }: {
     networkId: string;
     accountId: string;
+    useRecycleBalance?: boolean;
   }) {
     const vault = await this.backgroundApi.engine.getVault({
       networkId,
@@ -1040,6 +1043,91 @@ export default class ServiceToken extends ServiceBase {
     if (vault.settings.validationRequired) {
       password = await this.backgroundApi.servicePassword.getPassword();
     }
-    return vault.fetchBalanceDetails({ password });
+    return vault.fetchBalanceDetails({ password, useRecycleBalance });
+  }
+
+  @backgroundMethod()
+  async buildManageTokensList({
+    networkId,
+    accountId,
+    search,
+  }: {
+    networkId: string;
+    accountId: string;
+    search: string;
+  }): Promise<IManageTokensListingResult> {
+    debugLogger.allNetworks.info('buildManageTokensList >>> ', {
+      networkId,
+      accountId,
+      search,
+    });
+    const { serviceOverview, engine } = this.backgroundApi;
+    const headerTokenKeysMap: Record<string, boolean> = {};
+
+    const res = await serviceOverview.buildSingleChainAccountTokens(
+      {
+        networkId,
+        accountId,
+        calculateTokensTotalValue: true,
+        buildTokensMapKey: false,
+      },
+      'overview',
+    );
+    const headerTokens = res.tokens.filter((i) => {
+      const key = i.address ?? '';
+      headerTokenKeysMap[key] = true;
+      return i.address && !i.autoDetected;
+    });
+
+    if (search) {
+      const searchedTokens = await engine.searchTokens(networkId, search);
+      return [
+        {
+          title: 'form__my_tokens',
+          data: [],
+        },
+        {
+          title: 'form__top_50_tokens',
+          data: searchedTokens.map((t) => ({
+            ...t,
+            isOwned: !!headerTokenKeysMap[t.address ?? ''],
+          })),
+        },
+      ];
+    }
+
+    const networkTokens = await engine.getTopTokensOnNetwork(networkId);
+    return [
+      {
+        title: 'form__my_tokens',
+        data: headerTokens,
+      },
+      {
+        title: 'form__top_50_tokens',
+        data: networkTokens.map((t) => ({
+          ...t,
+          isOwned: !!headerTokenKeysMap[t.address ?? ''],
+        })),
+      },
+    ];
   }
 }
+
+export type IManageNetworkTokenType = Token & {
+  isOwned: boolean;
+};
+
+export type IManageHeaderTokens = {
+  title: LocaleIds;
+  data: IAccountToken[];
+};
+
+export type IManageNetworkTokens = {
+  title: LocaleIds;
+  data: IManageNetworkTokenType[];
+};
+
+export type IManageTokensListingResult = (
+  | IManageHeaderTokens
+  | IManageNetworkTokens
+)[];

@@ -1,5 +1,5 @@
+import { useCallback, useMemo, useState } from 'react';
 import type { FC, ReactNode } from 'react';
-import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -36,19 +36,25 @@ const ChartWithLabel: FC<ChartWithLabelProps> = ({
   const isVerticalLayout = useIsVerticalLayout();
   const basePrice = data?.length ? data[0][1] : 0;
   const latestPrice = data?.length ? data[data.length - 1][1] : 0;
-  let currentPrice;
-  if (!data) {
-    currentPrice = null;
-  } else if (price === 'undefined' || price === undefined) {
-    currentPrice = latestPrice;
-  } else if (typeof price === 'string') {
-    currentPrice = +price;
-  } else {
-    currentPrice = price;
-  }
+  const currentPrice = useMemo(() => {
+    if (!data) {
+      return null;
+    }
+    if (price === 'undefined' || price === undefined) {
+      return latestPrice;
+    }
+    if (typeof price === 'string') {
+      return +price;
+    }
+    return price;
+  }, [data, latestPrice, price]);
 
   const onHover = useCallback<OnHoverFunction>(
     (hoverData) => {
+      // The first data of each hover is an empty string, which needs to be filtered
+      if (hoverData.price === '' && hoverData.time === '') {
+        return;
+      }
       let displayTime;
       if (hoverData.time instanceof Date) {
         displayTime = formatDate(hoverData.time);
@@ -74,15 +80,11 @@ const ChartWithLabel: FC<ChartWithLabelProps> = ({
     />
   );
 
-  const chartView =
-    data && data.length > 0 ? (
-      <ChartView
-        isFetching={isFetching}
-        height={isVerticalLayout ? 190 : 240}
-        data={data}
-        onHover={onHover}
-      />
-    ) : (
+  const emptyView = useMemo(() => {
+    if (isFetching) {
+      return <Spinner />;
+    }
+    return (
       <Empty
         emoji="📊"
         title={intl.formatMessage({
@@ -92,6 +94,19 @@ const ChartWithLabel: FC<ChartWithLabelProps> = ({
           id: 'content__data_for_this_token_is_not_included_yet',
         })}
       />
+    );
+  }, [intl, isFetching]);
+
+  const chartView =
+    data && data.length > 0 ? (
+      <ChartView
+        isFetching={isFetching}
+        height={isVerticalLayout ? 190 : 240}
+        data={data}
+        onHover={onHover}
+      />
+    ) : (
+      emptyView
     );
 
   const chartViewWithSpinner = isFetching ? <Spinner /> : chartView;

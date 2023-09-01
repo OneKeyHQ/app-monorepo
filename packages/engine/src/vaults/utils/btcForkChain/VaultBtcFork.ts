@@ -3,6 +3,7 @@
 import BigNumber from 'bignumber.js';
 import bs58check from 'bs58check';
 import { isFunction, isNil } from 'lodash';
+import uuidLib from 'react-native-uuid';
 
 import type { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
@@ -23,12 +24,18 @@ import type {
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import { appSelector } from '@onekeyhq/kit/src/store';
 import type { SendConfirmPayloadInfo } from '@onekeyhq/kit/src/views/Send/types';
+import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
   COINTYPE_BTC,
   IMPL_BTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { checkIsUnListOrderPsbt } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.utils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  isBRC20Token,
+  parseBRC20Content,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import {
   getUtxoId,
@@ -37,6 +44,7 @@ import {
 import {
   InsufficientBalance,
   InvalidAddress,
+  InvalidTokenAddress,
   NotImplemented,
   OneKeyInternalError,
   PreviousAccountIsEmpty,
@@ -47,13 +55,17 @@ import {
   getLastAccountId,
 } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
-import { getNFTTransactionHistory } from '../../../managers/nft';
+import {
+  getBRC20TransactionHistory,
+  getNFTTransactionHistory,
+} from '../../../managers/nft';
 import {
   type BTCTransactionsModel,
   NFTAssetType,
   type NFTBTCAssetModel,
   type NFTListItems,
 } from '../../../types/nft';
+import { BRC20TokenOperation } from '../../../types/token';
 import { INSCRIPTION_PADDING_SATS_VALUES } from '../../impl/btc/inscribe/consts';
 import { EVMDecodedTxType } from '../../impl/evm/decoder/types';
 import {
@@ -75,13 +87,14 @@ import {
 } from './utils';
 
 import type { ExportedPrivateKeyCredential } from '../../../dbs/base';
-import type { TxMapType } from '../../../managers/nft';
+import type { BRC20TextProps, TxMapType } from '../../../managers/nft';
 import type {
   Account,
   BtcForkChainUsedAccount,
   DBUTXOAccount,
 } from '../../../types/account';
 import type { NFTAssetMeta } from '../../../types/nft';
+import type { Token } from '../../../types/token';
 import type {
   CoinControlItem,
   ICoinControlListItem,
@@ -177,6 +190,7 @@ export default class VaultBtcFork extends VaultBase {
       coinType: dbAccount.coinType,
       tokens: [],
       address: dbAccount.address,
+      pubKey: (dbAccount as DBUTXOAccount).pubKey,
       xpub: this.getAccountXpub(dbAccount as DBUTXOAccount),
       template: dbAccount.template,
       customAddresses: JSON.stringify(
@@ -196,6 +210,14 @@ export default class VaultBtcFork extends VaultBase {
       throw new InvalidAddress();
     }
     return Promise.resolve(normalizedAddress);
+  }
+
+  override async validateTokenAddress(address: string): Promise<string> {
+    if (isBRC20Token(address)) {
+      return Promise.resolve(address);
+    }
+
+    return Promise.reject(new InvalidTokenAddress());
   }
 
   override async validateImportedCredential(input: string): Promise<boolean> {
@@ -437,58 +459,157 @@ export default class VaultBtcFork extends VaultBase {
     return Promise.resolve({} as IDecodedTxLegacy);
   }
 
+  async decodePsbt(encodedTx: IEncodedTxBtc, payload?: SendConfirmPayloadInfo) {
+    const { inputs, outputs, totalFee } = encodedTx;
+
+    const isListOrderPsbt =
+      new BigNumber(totalFee).isNegative() || new BigNumber(totalFee).isNaN();
+
+    const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const network = await this.getNetwork();
+    const actions = [] as IDecodedTxAction[];
+    let amountBN = new BigNumber('0');
+
+    for (let i = 0, len = inputs.length; i < len; i += 1) {
+      const input = inputs[i];
+
+      if (input.address === dbAccount.address) {
+        if (input.inscriptions?.[0]) {
+          actions.push(
+            await this.buildInscriptionAction({
+              from: dbAccount.address,
+              to: 'unknown',
+              amount: '0',
+              asset: {
+                ...input.inscriptions[0],
+                type: NFTAssetType.BTC,
+              },
+            }),
+          );
+        } else {
+          amountBN = amountBN.minus(input.value);
+        }
+      }
+    }
+
+    for (let i = 0, len = outputs.length; i < len; i += 1) {
+      const output = outputs[i];
+
+      if (output.address === dbAccount.address) {
+        if (isListOrderPsbt) {
+          actions.push({
+            type: IDecodedTxActionType.NATIVE_TRANSFER,
+            direction: IDecodedTxDirection.IN,
+            nativeTransfer: {
+              tokenInfo: nativeToken,
+              from: 'unknown',
+              to: dbAccount.address,
+              amount: new BigNumber(output.value)
+                .shiftedBy(-network.decimals)
+                .toFixed(),
+              amountValue: output.value,
+              extraInfo: null,
+            },
+          });
+        } else if (output.inscriptions?.[0]) {
+          actions.push(
+            await this.buildInscriptionAction({
+              from: 'unknown',
+              to: dbAccount.address,
+              amount: '0',
+              asset: {
+                ...output.inscriptions[0],
+                type: NFTAssetType.BTC,
+              },
+            }),
+          );
+        } else {
+          amountBN = amountBN.plus(output.value);
+        }
+      }
+    }
+
+    if (!amountBN.isZero()) {
+      const isIN = amountBN.isGreaterThan(0);
+      actions.push({
+        type: IDecodedTxActionType.NATIVE_TRANSFER,
+        direction: isIN ? IDecodedTxDirection.IN : IDecodedTxDirection.OUT,
+        nativeTransfer: {
+          tokenInfo: nativeToken,
+          from: isIN ? 'unknown' : dbAccount.address,
+          to: isIN ? dbAccount.address : 'unknown',
+          amount: amountBN.abs().shiftedBy(-network.decimals).toFixed(),
+          amountValue: amountBN.abs().toFixed(),
+          extraInfo: null,
+        },
+      });
+    }
+
+    return {
+      txid: isListOrderPsbt ? uuidLib.v4().toString() : '',
+      owner: dbAccount.address,
+      signer: dbAccount.address,
+      nonce: 0,
+      actions,
+      status: isListOrderPsbt
+        ? IDecodedTxStatus.Offline
+        : IDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      extraInfo: null,
+      totalFeeInNative: encodedTx.totalFeeInNative,
+    };
+  }
+
   async decodeTx(
     encodedTx: IEncodedTxBtc,
     payload?: SendConfirmPayloadInfo,
   ): Promise<IDecodedTx> {
-    const { inputs, outputs, transferInfo } = encodedTx;
+    const { inputs, outputs, psbtHex, inputsToSign } = encodedTx;
+    const transferInfo = encodedTx.transferInfo ?? encodedTx.transferInfos?.[0];
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-    const token = await this.engine.getNativeTokenInfo(this.networkId);
-    let nftInfo: INFTInfo | null = null;
-    if (payload?.nftInfo) {
-      nftInfo = payload?.nftInfo;
-    }
-    const ordUtxo = transferInfo.isNFT
-      ? inputs.find((item) => Boolean(item.forceSelect))
-      : undefined;
+    const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
 
-    const utxoFrom = inputs.map((input) => ({
-      address: input.address,
-      balance: new BigNumber(input.value)
-        .shiftedBy(-network.decimals)
-        .toFixed(),
-      balanceValue: input.value,
-      symbol: network.symbol,
-      isMine: true,
-    }));
-    const utxoTo = outputs
-      .filter((output) => !output.payload?.isCharge)
-      .map((output) => ({
-        address: output.address,
-        balance: new BigNumber(output.value)
+    const nftInfos = (payload?.nftInfos ?? [payload?.nftInfo]).filter(Boolean);
+
+    const ordinalsUTXOs = transferInfo.isNFT
+      ? inputs.filter((item) => item.forceSelect)
+      : null;
+
+    let actions = [] as IDecodedTxAction[];
+
+    if (psbtHex && inputsToSign) {
+      return this.decodePsbt(encodedTx, payload);
+    }
+
+    if (ordinalsUTXOs && ordinalsUTXOs.length > 0 && nftInfos.length > 0) {
+      for (let i = 0, len = nftInfos.length; i < len; i += 1) {
+        const nftInfo = nftInfos[i];
+        actions.push(await this.buildInscriptionAction(nftInfo));
+      }
+    } else {
+      const utxoFrom = inputs.map((input) => ({
+        address: input.address,
+        balance: new BigNumber(input.value)
           .shiftedBy(-network.decimals)
           .toFixed(),
-        balanceValue: output.value,
+        balanceValue: input.value,
         symbol: network.symbol,
-        isMine: output.address === dbAccount.address,
+        isMine: true,
       }));
-
-    let actions: IDecodedTxAction[] = [];
-    if (ordUtxo && nftInfo) {
-      actions = [
-        {
-          type: IDecodedTxActionType.NFT_TRANSFER_BTC,
-          direction: IDecodedTxDirection.OUT,
-          inscriptionInfo: {
-            send: nftInfo.from,
-            receive: nftInfo?.to,
-            asset: nftInfo?.asset as NFTBTCAssetModel,
-            extraInfo: null,
-          },
-        },
-      ];
-    } else {
+      const utxoTo = outputs
+        .filter((output) => !output.payload?.isCharge)
+        .map((output) => ({
+          address: output.address,
+          balance: new BigNumber(output.value)
+            .shiftedBy(-network.decimals)
+            .toFixed(),
+          balanceValue: output.value,
+          symbol: network.symbol,
+          isMine: output.address === dbAccount.address,
+        }));
       actions = utxoTo.map((utxo) => ({
         type: IDecodedTxActionType.NATIVE_TRANSFER,
         direction:
@@ -498,7 +619,7 @@ export default class VaultBtcFork extends VaultBase {
         utxoFrom,
         utxoTo,
         nativeTransfer: {
-          tokenInfo: token,
+          tokenInfo: nativeToken,
           from: dbAccount.address,
           to: utxo.address,
           amount: utxo.balance,
@@ -520,6 +641,151 @@ export default class VaultBtcFork extends VaultBase {
       extraInfo: null,
       totalFeeInNative: encodedTx.totalFeeInNative,
     };
+  }
+
+  buildBRC20TokenAction({
+    nftInfo,
+    token,
+    dbAccount,
+    brc20Content,
+  }: {
+    nftInfo: INFTInfo;
+    token: Token;
+    dbAccount: DBUTXOAccount;
+    brc20Content?: BRC20TextProps | null;
+  }) {
+    const { from, to } = nftInfo;
+
+    let actionType = IDecodedTxActionType.UNKNOWN;
+    let direction = IDecodedTxDirection.OTHER;
+    let info = {};
+
+    if (brc20Content?.op === BRC20TokenOperation.Deploy) {
+      actionType = IDecodedTxActionType.TOKEN_BRC20_DEPLOY;
+      direction = IDecodedTxDirection.OUT;
+      info = {
+        limit: brc20Content.lim,
+        max: brc20Content.max,
+      };
+    }
+
+    if (brc20Content?.op === BRC20TokenOperation.Mint) {
+      actionType = IDecodedTxActionType.TOKEN_BRC20_MINT;
+      direction = IDecodedTxDirection.IN;
+      info = {
+        amount: brc20Content.amt,
+      };
+    }
+
+    if (brc20Content?.op === BRC20TokenOperation.Transfer) {
+      actionType = IDecodedTxActionType.TOKEN_BRC20_TRANSFER;
+
+      info = {
+        amount: brc20Content.amt,
+      };
+
+      if (from === to && from === dbAccount.address) {
+        direction = IDecodedTxDirection.SELF;
+      } else if (from === dbAccount.address) {
+        direction = IDecodedTxDirection.OUT;
+      } else if (to === dbAccount.address) {
+        direction = IDecodedTxDirection.IN;
+      }
+    }
+
+    if (brc20Content?.op === BRC20TokenOperation.InscribeTransfer) {
+      actionType = IDecodedTxActionType.TOKEN_BRC20_INSCRIBE;
+      direction = IDecodedTxDirection.IN;
+      info = {
+        amount: brc20Content.amt,
+      };
+    }
+
+    if (!brc20Content)
+      return {
+        type: actionType,
+        direction,
+      };
+
+    const action: IDecodedTxAction = {
+      type: actionType,
+      direction,
+      brc20Info: {
+        token,
+        asset: nftInfo.asset as NFTBTCAssetModel,
+        sender: nftInfo.from,
+        receiver: nftInfo.to,
+        extraInfo: null,
+        ...info,
+      },
+    };
+
+    return action;
+  }
+
+  buildNFTAction({
+    nftInfo,
+    dbAccount,
+  }: {
+    nftInfo: INFTInfo;
+    dbAccount: DBUTXOAccount;
+  }) {
+    const { from, to } = nftInfo;
+
+    let direction = IDecodedTxDirection.OTHER;
+
+    if (from === to && from === dbAccount.address) {
+      direction = IDecodedTxDirection.SELF;
+    } else if (from === dbAccount.address) {
+      direction = IDecodedTxDirection.OUT;
+    } else if (to === dbAccount.address) {
+      direction = IDecodedTxDirection.IN;
+    }
+
+    const action: IDecodedTxAction = {
+      type: IDecodedTxActionType.NFT_TRANSFER_BTC,
+      direction,
+      inscriptionInfo: {
+        send: nftInfo.from,
+        receive: nftInfo?.to,
+        asset: nftInfo?.asset as NFTBTCAssetModel,
+        extraInfo: null,
+      },
+    };
+
+    return action;
+  }
+
+  async buildInscriptionAction(nftInfo: INFTInfo) {
+    const {
+      content,
+      content_type: contentType,
+      contentUrl,
+    } = nftInfo.asset as NFTBTCAssetModel;
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+
+    const { isBRC20Content, brc20Content } = await parseBRC20Content({
+      content,
+      contentType,
+      contentUrl,
+    });
+
+    const tokenId = `brc-20--${brc20Content?.tick ?? ''}`;
+
+    const tokenInfo = await this.engine.findToken({
+      networkId: this.networkId,
+      tokenIdOnNetwork: tokenId,
+    });
+
+    if (isBRC20Content && tokenInfo) {
+      return this.buildBRC20TokenAction({
+        nftInfo,
+        dbAccount,
+        token: tokenInfo,
+        brc20Content,
+      });
+    }
+    return this.buildNFTAction({ nftInfo, dbAccount });
   }
 
   async buildEncodedTxFromTransfer(
@@ -545,7 +811,6 @@ export default class VaultBtcFork extends VaultBase {
     const transferInfo = transferInfos[0];
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-
     const {
       inputs,
       outputs,
@@ -646,7 +911,7 @@ export default class VaultBtcFork extends VaultBase {
   buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxBtc,
   ): Promise<IUnsignedTxPro> {
-    const { inputs, outputs } = encodedTx;
+    const { inputs, outputs, psbtHex, inputsToSign } = encodedTx;
 
     const inputsInUnsignedTx: TxInput[] = [];
     for (const input of inputs) {
@@ -666,6 +931,8 @@ export default class VaultBtcFork extends VaultBase {
     const ret = {
       inputs: inputsInUnsignedTx,
       outputs: outputsInUnsignedTx,
+      psbtHex,
+      inputsToSign,
       payload: {},
       encodedTx,
     };
@@ -750,6 +1017,17 @@ export default class VaultBtcFork extends VaultBase {
       txid,
       rawTx: signedTx.rawTx,
     });
+
+    const { inputs } = (signedTx.encodedTx as IEncodedTxBtc) ?? { inputs: [] };
+
+    const utoxIds = inputs.map((input) => getUtxoId(this.networkId, input));
+
+    try {
+      await simpleDb.utxoAccounts.deleteCoinControlItem(utoxIds);
+    } catch {
+      // pass
+    }
+
     return {
       ...signedTx,
       txid,
@@ -762,18 +1040,52 @@ export default class VaultBtcFork extends VaultBase {
     return (await this.getProvider()).getTransactionStatuses(txids);
   }
 
-  buildActionsFromBTCTransaction({
+  async buildActionsFromBTCTransaction({
     transaction,
     address,
   }: {
     transaction: BTCTransactionsModel;
     address: string;
-  }): IDecodedTxAction[] {
+  }): Promise<IDecodedTxAction[]> {
     let type: IDecodedTxActionType = IDecodedTxActionType.UNKNOWN;
     const { send, receive, event_type: eventType, asset } = transaction;
+
     if (!asset) {
       return [];
     }
+
+    const { content_type: contentType, content, contentUrl } = asset;
+
+    const { isBRC20Content, brc20Content } = await parseBRC20Content({
+      content,
+      contentType,
+      contentUrl,
+    });
+
+    if (isBRC20Content) {
+      const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+      const token = await this.engine.findToken({
+        networkId: this.networkId,
+        tokenIdOnNetwork: `brc-20--${brc20Content?.tick ?? ''}`,
+      });
+
+      if (token) {
+        return [
+          this.buildBRC20TokenAction({
+            nftInfo: {
+              asset,
+              amount: '0',
+              from: send,
+              to: receive,
+            },
+            token,
+            dbAccount,
+            brc20Content,
+          }),
+        ];
+      }
+    }
+
     const defaultData = {
       send,
       receive,
@@ -788,7 +1100,8 @@ export default class VaultBtcFork extends VaultBase {
     const inscriptionAction = {
       type,
       hidden: !(send === address || receive === address),
-      direction: IDecodedTxDirection.IN,
+      direction:
+        send === address ? IDecodedTxDirection.OUT : IDecodedTxDirection.IN,
       extraInfo: null,
       inscriptionInfo: defaultData,
     };
@@ -796,7 +1109,7 @@ export default class VaultBtcFork extends VaultBase {
     return [inscriptionAction];
   }
 
-  mergeNFTTransaction({
+  async mergeNFTTransaction({
     nftTxs,
     nativeActions,
     address,
@@ -804,16 +1117,31 @@ export default class VaultBtcFork extends VaultBase {
     address: string;
     nftTxs: BTCTransactionsModel[];
     nativeActions: IDecodedTxAction[];
-  }): IDecodedTxAction[] {
-    const nftActions = nftTxs
-      ?.map((transaction) =>
-        this.buildActionsFromBTCTransaction({
-          transaction,
-          address,
-        }),
+  }): Promise<IDecodedTxAction[]> {
+    const nftActions = (
+      await Promise.all(
+        nftTxs?.map((transaction) =>
+          this.buildActionsFromBTCTransaction({
+            transaction,
+            address,
+          }),
+        ) ?? '',
       )
+    )
       .flat()
       .filter(Boolean);
+
+    // fix btc unlist nft action direction
+    if (checkIsUnListOrderPsbt(nftActions, address)) {
+      return [
+        nftActions[0],
+        {
+          ...nftActions[1],
+          direction: IDecodedTxDirection.IN,
+        },
+      ];
+    }
+
     return nftActions?.length > 0 ? nftActions : nativeActions;
   }
 
@@ -822,14 +1150,138 @@ export default class VaultBtcFork extends VaultBase {
     localHistory?: IHistoryTx[];
   }): Promise<IHistoryTx[]> {
     const { localHistory = [], tokenIdOnNetwork } = options;
-
     const provider = await this.getProvider();
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const { decimals, symbol, impl } = await this.engine.getNetwork(
       this.networkId,
     );
     const token = await this.engine.getNativeTokenInfo(this.networkId);
+
+    if (tokenIdOnNetwork && isBRC20Token(tokenIdOnNetwork)) {
+      const history = await getBRC20TransactionHistory({
+        networkId: this.networkId,
+        address: dbAccount.address,
+        tokenAddress: tokenIdOnNetwork,
+      });
+
+      // several history items with same txid
+      // merge them into one
+      const txIdSet = new Set<string>();
+
+      const promises = history.map(async (tx) => {
+        try {
+          const historyTxToMerge = localHistory.find(
+            (item) => item.decodedTx.txid === tx.txId,
+          );
+          if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
+            // No need to update.
+            return null;
+          }
+
+          if (txIdSet.has(tx.txId)) {
+            return null;
+          }
+
+          txIdSet.add(tx.txId);
+
+          const txsWithSameTxId = history.filter(
+            (item) => item.txId === tx.txId,
+          );
+
+          const actions: IDecodedTxAction[] = [];
+
+          for (let i = 0, len = txsWithSameTxId.length; i < len; i += 1) {
+            const {
+              fromAddress,
+              toAddress,
+              time,
+              token: tick,
+              actionType,
+              amount,
+            } = txsWithSameTxId[i];
+
+            const tokenId = `brc-20--${tick}`;
+
+            const tokenInfo = await this.engine.findToken({
+              networkId: this.networkId,
+              tokenIdOnNetwork: tokenId,
+            });
+
+            const isInscribeTransfer = actionType === 'inscribeTransfer';
+
+            if (tokenInfo) {
+              const action = this.buildBRC20TokenAction({
+                nftInfo: {
+                  from: isInscribeTransfer ? toAddress : fromAddress,
+                  to: toAddress,
+                  amount,
+                  asset: {
+                    type: NFTAssetType.BTC,
+                    inscription_id: tx.inscriptionId,
+                    inscription_number: new BigNumber(
+                      tx.inscriptionNumber,
+                    ).toNumber(),
+                    tx_hash: tx.txId,
+                    content: '',
+                    content_length: 0,
+                    content_type: '',
+                    timestamp: tx.time,
+                    output: tx.index,
+                    owner: '',
+                    output_value_sat: 0,
+                    genesis_transaction_hash: '',
+                    location: tx.location,
+                    contentUrl: '',
+                  },
+                },
+                dbAccount,
+                token: tokenInfo,
+                brc20Content: {
+                  p: 'brc20',
+                  op: actionType,
+                  tick,
+                  amt: amount,
+                },
+              });
+              actions.push(action);
+            }
+          }
+
+          const { time } = txsWithSameTxId[0];
+
+          const decodedTx: IDecodedTx = {
+            txid: tx.txId,
+            owner: dbAccount.address,
+            signer: dbAccount.address,
+            nonce: 0,
+            actions,
+            status: IDecodedTxStatus.Confirmed,
+            networkId: this.networkId,
+            accountId: this.accountId,
+            extraInfo: null,
+          };
+          decodedTx.updatedAt =
+            typeof time !== 'undefined'
+              ? new BigNumber(time).toNumber()
+              : Date.now();
+          decodedTx.createdAt =
+            historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
+          decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
+          return await this.buildHistoryTx({
+            decodedTx,
+            historyTxToMerge,
+          });
+        } catch (e) {
+          console.error(e);
+          return Promise.resolve(null);
+        }
+      });
+
+      return (await Promise.all(promises)).filter(Boolean);
+    }
+
     let txs: Array<IBlockBookTransaction> = [];
+
     try {
       txs =
         (
@@ -849,6 +1301,7 @@ export default class VaultBtcFork extends VaultBase {
     }
 
     let nftMap: TxMapType = {};
+
     try {
       nftMap = await getNFTTransactionHistory(
         dbAccount.address,
@@ -858,15 +1311,15 @@ export default class VaultBtcFork extends VaultBase {
       console.error(e);
     }
 
-    const promises = txs.map((tx) => {
+    const promises = txs.map(async (tx) => {
       try {
         const historyTxToMerge = localHistory.find(
           (item) => item.decodedTx.txid === tx.txid,
         );
-        if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
-          // No need to update.
-          return null;
-        }
+        // if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
+        //   // No need to update.
+        //   return null;
+        // }
 
         const { direction, utxoFrom, utxoTo, from, to, amount, amountValue } =
           tx;
@@ -910,7 +1363,8 @@ export default class VaultBtcFork extends VaultBase {
               ];
 
         const nftTxs = nftMap[tx.txid] as BTCTransactionsModel[];
-        const mergeNFTActions = this.mergeNFTTransaction({
+
+        const mergeNFTActions = await this.mergeNFTTransaction({
           nftTxs,
           nativeActions: actions,
           address: dbAccount.address,
@@ -940,7 +1394,7 @@ export default class VaultBtcFork extends VaultBase {
         decodedTx.createdAt =
           historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
         decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
-        return this.buildHistoryTx({
+        return await this.buildHistoryTx({
           decodedTx,
           historyTxToMerge,
         });
@@ -1078,10 +1532,20 @@ export default class VaultBtcFork extends VaultBase {
     return new BlockBook(url) as unknown as BaseClient;
   }
 
-  fetchTokenInfos(
+  async fetchTokenInfos(
     tokenAddresses: string[],
   ): Promise<Array<PartialTokenInfo | undefined>> {
-    throw new NotImplemented();
+    const tokenInfos = (await fetchData(
+      '/token/meta/batch',
+      {
+        networkId: this.networkId,
+        addresses: tokenAddresses,
+      },
+      {},
+      'POST',
+    )) as Record<string, { name: string; symbol: string; decimals: number }>;
+
+    return Object.values(tokenInfos);
   }
 
   override async getPrivateKeyByCredential(credential: string) {
@@ -1173,6 +1637,18 @@ export default class VaultBtcFork extends VaultBase {
     return frozenUtxos.concat(dustUtxos);
   }
 
+  private async getRecycleInscriptionUtxos(xpub: string) {
+    const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
+      this.networkId,
+      xpub,
+    );
+    const recycleInscriptionUtxos = archivedUtxos.filter(
+      (utxo) => utxo.recycle,
+    );
+
+    return recycleInscriptionUtxos;
+  }
+
   private async buildTransferParamsWithCoinSelector({
     transferInfos,
     specifiedFeeRate,
@@ -1189,32 +1665,57 @@ export default class VaultBtcFork extends VaultBase {
     const isNftTransfer = Boolean(
       transferInfos.find((item) => item.isNFT || item.nftInscription),
     );
-    const forceSelectUtxos: ICoinSelectUTXOLite[] = [];
-    if (isNftTransfer) {
-      if (isBatchTransfer) {
-        throw new Error('BTC nft transfer is not supported in batch transfer');
-      }
-      const { nftInscription } = transferInfos[0];
-      if (!nftInscription) {
-        throw new Error('nftInscription is required for nft transfer');
-      }
-      const { output, address } = nftInscription;
-      const [txId, vout] = output.split(':');
-      if (!txId || !vout || !address) {
-        throw new Error('invalid nftInscription output');
-      }
-      const voutNum = parseInt(vout, 10);
-      if (Number.isNaN(voutNum)) {
-        throw new Error('invalid nftInscription output: vout');
-      }
-      forceSelectUtxos.push({
-        txId,
-        vout: voutNum,
-        address,
-      });
-    }
+
+    const isBRC20Transfer = Boolean(transferInfos.find((item) => item.isBRC20));
+
+    const isInscribeTransfer = Boolean(
+      transferInfos.find((item) => item.isInscribe),
+    );
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const forceSelectUtxos: ICoinSelectUTXOLite[] = [];
+    if (isNftTransfer) {
+      // only support BRC20 batch transfer
+      if (isBatchTransfer && !isBRC20Transfer) {
+        throw new Error('BTC nft transfer is not supported in batch transfer');
+      }
+
+      transferInfos.forEach((transferInfo) => {
+        const { nftInscription } = transferInfo;
+        if (!nftInscription) {
+          throw new Error('nftInscription is required for nft transfer');
+        }
+        const { output, address } = nftInscription;
+        const [txId, vout] = output.split(':');
+        if (!txId || !vout || !address) {
+          throw new Error('invalid nftInscription output');
+        }
+        const voutNum = parseInt(vout, 10);
+        if (Number.isNaN(voutNum)) {
+          throw new Error('invalid nftInscription output: vout');
+        }
+        forceSelectUtxos.push({
+          txId,
+          vout: voutNum,
+          address,
+        });
+      });
+    } else if (!isInscribeTransfer) {
+      // only native btc transfer can select inscription utxos marked as recycle utxos
+      const recycleUtxos = await this.getRecycleInscriptionUtxos(
+        dbAccount.xpub,
+      );
+
+      recycleUtxos.forEach((utxo) => {
+        const [txId, vout] = utxo.key.split('_');
+        forceSelectUtxos.push({
+          txId,
+          vout: parseInt(vout, 10),
+          address: dbAccount.address,
+        });
+      });
+    }
+
     let { utxos } = await this.collectUTXOsInfo(
       forceSelectUtxos.length
         ? {
@@ -1265,22 +1766,31 @@ export default class VaultBtcFork extends VaultBase {
         path,
       }),
     );
-    let outputsForCoinSelect: IEncodedTxBtc['outputsForCoinSelect'] = [];
 
+    let outputsForCoinSelect: IEncodedTxBtc['outputsForCoinSelect'] = [];
     if (isBatchTransfer) {
-      outputsForCoinSelect = transferInfos.map(({ to, amount }) => {
-        if (isNftTransfer) {
-          throw new Error(
-            'NFT Inscription transfer can only be single transfer',
-          );
-        }
-        return {
+      if (isNftTransfer && !isBRC20Transfer) {
+        throw new Error('NFT Inscription transfer can only be single transfer');
+      }
+
+      if (isBRC20Transfer) {
+        const { values } = this.validateInscriptionInputsForCoinSelect({
+          inputsForCoinSelect,
+          forceSelectUtxos,
+        });
+
+        outputsForCoinSelect = transferInfos.map(({ to }, index) => ({
+          address: to,
+          value: values[index],
+        }));
+      } else {
+        outputsForCoinSelect = transferInfos.map(({ to, amount }) => ({
           address: to,
           value: parseInt(
             new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
           ),
-        };
-      });
+        }));
+      }
     } else {
       const transferInfo = transferInfos[0];
       const { to, amount } = transferInfo;
@@ -1306,29 +1816,11 @@ export default class VaultBtcFork extends VaultBase {
         max = false;
         // value should be 546
         value = INSCRIPTION_PADDING_SATS_VALUES.default;
-        let founded: ICoinSelectUTXO | undefined;
-        for (const u of inputsForCoinSelect) {
-          const matchedUtxo = forceSelectUtxos.find(
-            (item) =>
-              item.address === u.address &&
-              item.txId === u.txId &&
-              item.vout === u.vout,
-          );
-          if (matchedUtxo) {
-            u.forceSelect = true;
-            founded = u;
-            break;
-          }
-        }
-        if (!founded) {
-          throw new UtxoNotFoundError();
-        }
-        // TODO inscription offset testing
-        // keep the original value of inscription
-        value = founded.value;
-        if (value < 0 || isNil(value)) {
-          throw new Error('Sending inscription utxo value is not valid.');
-        }
+        const { values } = this.validateInscriptionInputsForCoinSelect({
+          inputsForCoinSelect,
+          forceSelectUtxos,
+        });
+        [value] = values;
       }
 
       outputsForCoinSelect = [
@@ -1352,6 +1844,7 @@ export default class VaultBtcFork extends VaultBase {
           inputsForCoinSelect,
           outputsForCoinSelect,
           feeRate,
+          isBRC20Transfer,
         })
       : coinSelect({
           inputsForCoinSelect,
@@ -1359,6 +1852,7 @@ export default class VaultBtcFork extends VaultBase {
           feeRate,
           algorithm,
         });
+
     return {
       inputs,
       outputs,
@@ -1369,24 +1863,84 @@ export default class VaultBtcFork extends VaultBase {
     };
   }
 
-  override async getFrozenBalance(): Promise<number> {
-    const result = await this.fetchBalanceDetails();
+  private validateInscriptionInputsForCoinSelect({
+    inputsForCoinSelect,
+    forceSelectUtxos,
+  }: {
+    inputsForCoinSelect: ICoinSelectUTXO[];
+    forceSelectUtxos: ICoinSelectUTXOLite[];
+  }) {
+    const foundedUtxos: ICoinSelectUTXO[] = [];
+    const values = [];
+    for (const u of inputsForCoinSelect) {
+      const matchedUtxo = forceSelectUtxos.find(
+        (item) =>
+          item.address === u.address &&
+          item.txId === u.txId &&
+          item.vout === u.vout,
+      );
+      if (matchedUtxo) {
+        // TODO inscription offset testing
+        // keep the original value of inscription
+        if (u.value < 0 || isNil(u.value)) {
+          throw new Error('Sending inscription utxo value is not valid.');
+        }
+        u.forceSelect = true;
+        values.push(u.value);
+        foundedUtxos.push(u);
+        if (forceSelectUtxos.length === 1) {
+          break;
+        }
+      }
+    }
+    if (foundedUtxos.length === 0) {
+      throw new UtxoNotFoundError();
+    }
+
+    return {
+      foundedUtxos,
+      values,
+    };
+  }
+
+  override async getFrozenBalance({
+    useRecycleBalance,
+  }: { useRecycleBalance?: boolean } = {}): Promise<number> {
+    const result = await this.fetchBalanceDetails({ useRecycleBalance });
     if (result && !isNil(result?.unavailable)) {
       return new BigNumber(result.unavailable).toNumber();
     }
     throw new Error('getFrozenBalance ERROR');
   }
 
-  override async fetchBalanceDetails(): Promise<IBalanceDetails | undefined> {
-    const { utxos, valueDetails, ordQueryStatus } =
-      await this.collectUTXOsInfo();
-    if (ordQueryStatus === 'ERROR') {
-      this.collectUTXOsInfo.clear();
-    }
+  override async fetchBalanceDetails({
+    useRecycleBalance,
+  }: {
+    useRecycleBalance?: boolean;
+  } = {}): Promise<IBalanceDetails | undefined> {
     const [dbAccount, network] = await Promise.all([
       this.getDbAccount() as Promise<DBUTXOAccount>,
       this.getNetwork(),
     ]);
+    const recycleUtxos = await this.getRecycleInscriptionUtxos(dbAccount.xpub);
+    const { utxos, valueDetails, ordQueryStatus } = await this.collectUTXOsInfo(
+      useRecycleBalance
+        ? {
+            forceSelectUtxos: recycleUtxos.map((utxo) => {
+              const [txId, vout] = utxo.key.split('_');
+              return {
+                txId,
+                vout: parseInt(vout, 10),
+                address: dbAccount.address,
+              };
+            }),
+          }
+        : undefined,
+    );
+    if (ordQueryStatus === 'ERROR') {
+      this.collectUTXOsInfo.clear();
+    }
+
     // find frozen utxo
     const frozenUtxos = await this.getFrozenUtxos(dbAccount.xpub, utxos);
     const allFrozenUtxo = utxos.filter((utxo) =>
