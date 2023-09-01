@@ -1,0 +1,28 @@
+diff --git a/node_modules/react-native/Libraries/Components/View/ViewAccessibility.d.ts b/node_modules/react-native/Libraries/Components/View/ViewAccessibility.d.ts
+index acb833e..67a0285 100644
+--- a/node_modules/react-native/Libraries/Components/View/ViewAccessibility.d.ts
++++ b/node_modules/react-native/Libraries/Components/View/ViewAccessibility.d.ts
+@@ -97,7 +97,7 @@ export interface AccessibilityProps
+    * A value indicating whether the accessibility elements contained within
+    * this accessibility element are hidden.
+    */
+-  'aria-hidden'?: boolean | undefined;
++  'aria-hidden'?: boolean | undefined | string;
+ 
+   'aria-live'?: ('polite' | 'assertive' | 'off') | undefined;
+   'aria-modal'?: boolean | undefined;
+diff --git a/node_modules/react-native/Libraries/Renderer/implementations/ReactNativeRenderer-dev.js b/node_modules/react-native/Libraries/Renderer/implementations/ReactNativeRenderer-dev.js
+index 6c7116e..4f7fdbb 100644
+--- a/node_modules/react-native/Libraries/Renderer/implementations/ReactNativeRenderer-dev.js
++++ b/node_modules/react-native/Libraries/Renderer/implementations/ReactNativeRenderer-dev.js
+@@ -4333,7 +4333,9 @@ function injectInternals(internals) {
+     }
+ 
+     rendererID = hook.inject(internals); // We have successfully injected, so now it is safe to set up hooks.
+-
++    // For support react-render-tracker on iOS
++    globalThis.__REACT_DEVTOOLS_GLOBAL_INTERNALS__ = internals;
++    globalThis.__REACT_DEVTOOLS_GLOBAL_INTERNALS_RENDERER_ID__  = rendererID;
+     injectedHook = hook;
+   } catch (err) {
+     // Catch all errors because it is unsafe to throw during initialization.
