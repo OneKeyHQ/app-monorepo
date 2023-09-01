@@ -8,7 +8,7 @@ required_ruby_minimum_version '2.3.0'
 
 
 # firebase-ios-sdk v9+ (react-native-firebase v15+) must use use_frameworks!
-# which has compatibility issues with Flipper, Hermes & Fabric. 
+# which has compatibility issues with Flipper, Hermes & Fabric.
 # See https://rnfirebase.io/#altering-cocoapods-to-use-frameworks
 
 # Override Firebase SDK Version
