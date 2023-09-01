@@ -77,10 +77,23 @@ function TxDetailStatusInfoBox(props: Props) {
           );
         }
       }
-      backgroundApiProxy.serviceSwap.sellToken(checkToken);
+      const isLightningNetwork = isLightningNetworkByNetworkId(
+        decodedTx.networkId,
+      );
+      backgroundApiProxy.serviceSwap
+        .sellToken(checkToken, !isLightningNetwork)
+        .then(() => {
+          if (isLightningNetwork) {
+            backgroundApiProxy.serviceSwap.switchToNativeOutputToken(
+              decodedTx.networkId === OnekeyNetwork.lightning
+                ? OnekeyNetwork.btc
+                : OnekeyNetwork.tbtc,
+            );
+          }
+        });
       navigation.navigate(TabRoutes.Swap);
     },
-    [intl, navigation],
+    [intl, navigation, decodedTx.networkId],
   );
 
   const swapOptions = useMemo(() => {
@@ -90,8 +103,6 @@ function TxDetailStatusInfoBox(props: Props) {
     }));
     return baseOptions;
   }, [handleToSwapOnPress, tokensInTx]);
-
-  const isLightningNetwork = isLightningNetworkByNetworkId(decodedTx.networkId);
 
   if (isSendConfirm) return null;
 
@@ -113,7 +124,7 @@ function TxDetailStatusInfoBox(props: Props) {
             )}
           </Box>
         </HStack>
-        {tokensInTx.length === 1 && !isLightningNetwork && (
+        {tokensInTx.length === 1 && (
           <Button
             size="sm"
             type="basic"

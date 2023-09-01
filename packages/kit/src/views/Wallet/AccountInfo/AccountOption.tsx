@@ -119,20 +119,14 @@ const AccountOption: FC<AccountOptionProps> = memo(
           const isLightningNetwork = isLightningNetworkByNetworkId(n.id);
           backgroundApiProxy.serviceSwap
             .sellToken(token, !isLightningNetwork)
-            .then(async () => {
+            .then(() => {
               // Switch to LN to BTC swap if is lightning network
               if (isLightningNetwork) {
-                const bitcoinNativeToken =
-                  await backgroundApiProxy.engine.getNativeTokenInfo(
-                    n.id === OnekeyNetwork.lightning
-                      ? OnekeyNetwork.btc
-                      : OnekeyNetwork.tbtc,
-                  );
-                if (bitcoinNativeToken) {
-                  backgroundApiProxy.serviceSwap.setOutputToken(
-                    bitcoinNativeToken,
-                  );
-                }
+                backgroundApiProxy.serviceSwap.switchToNativeOutputToken(
+                  n.id === OnekeyNetwork.lightning
+                    ? OnekeyNetwork.btc
+                    : OnekeyNetwork.tbtc,
+                );
               }
             });
           if (a) {

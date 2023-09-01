@@ -1075,4 +1075,19 @@ export default class ServiceSwap extends ServiceBase {
       });
     }
   }
+
+  /**
+   * switch the output token to the native token of a specific network.
+   * e.g.: switch to LN to BTC swap if input token is lightning network
+   * @string networkId
+   */
+  @backgroundMethod()
+  async switchToNativeOutputToken(networkId: string) {
+    const nativeToken = await this.backgroundApi.engine.getNativeTokenInfo(
+      networkId,
+    );
+    if (nativeToken) {
+      this.setOutputToken(nativeToken);
+    }
+  }
 }
