@@ -300,6 +300,7 @@ export function convertParams(params: FetchQuoteParams) {
   if (params.onChainSatsPerVbyte) {
     urlParams.onChainSatsPerVbyte = params.onChainSatsPerVbyte;
   }
+  urlParams.includes = '0x,1inch,jupiter,openocean,swftc,socket,mdex,Deezy';
   return urlParams;
 }
 
