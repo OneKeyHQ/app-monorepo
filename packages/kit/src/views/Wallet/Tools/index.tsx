@@ -187,11 +187,7 @@ type FlatListItemProps = {
   onItemPress: (key: string) => void;
 };
 
-const FlatListGasPriceItem = ({
-  item,
-  index,
-  onItemPress,
-}: FlatListItemProps) => {
+const FlatListGasPriceItem = ({ item, index }: FlatListItemProps) => {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const { networkId } = useActiveWalletAccount();
@@ -199,6 +195,7 @@ const FlatListGasPriceItem = ({
     networkId: isAllNetworks(networkId) ? OnekeyNetwork.eth : networkId,
   });
   const price = useNetworkPrices(network?.id);
+  const appNavigation = useAppNavigation();
 
   const styles = useMemo(() => {
     if (isVertical) {
@@ -212,6 +209,18 @@ const FlatListGasPriceItem = ({
       paddingRight: index % 2 === 1 ? 0 : 6,
     };
   }, [isVertical, index]);
+
+  const onPress = useCallback(() => {
+    appNavigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.GasPanel,
+      params: {
+        screen: GasPanelRoutes.GasPanelModal,
+        params: {
+          networkId: network?.id ?? '',
+        },
+      },
+    });
+  }, [appNavigation, network?.id]);
   return (
     <Box
       key={item.key}
@@ -230,9 +239,7 @@ const FlatListGasPriceItem = ({
         borderRadius="12px"
         alignItems="center"
         key={item.title}
-        onPress={() => {
-          onItemPress(item.key);
-        }}
+        onPress={onPress}
       >
         <Center
           w="48px"
@@ -520,7 +527,7 @@ const ToolsPage: FC = () => {
         }
       }
     },
-    [network?.id, tools, navigation, intl, appNavigation, networkId],
+    [network?.id, tools, navigation, intl, appNavigation],
   );
 
   const onItemPress = useCallback(

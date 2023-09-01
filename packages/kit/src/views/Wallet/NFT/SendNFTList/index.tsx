@@ -7,6 +7,7 @@ import {
   Box,
   Button,
   FlatList,
+  Spinner,
   Text,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -20,7 +21,11 @@ import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useActiveSideAccount, useAppSelector } from '../../../../hooks';
+import {
+  useActiveSideAccount,
+  useAppSelector,
+  useNFTIsLoading,
+} from '../../../../hooks';
 import { useGridListLayout } from '../../../../hooks/useGridListLayout';
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import {
@@ -178,6 +183,13 @@ function SendNFTList({
   );
   const isNFTSupport = isCollectibleSupportedChainId(networkId);
 
+  const refresherTs = useAppSelector((s) => s.refresher.refreshAccountNFTTs);
+
+  const nftIsLoading = useNFTIsLoading({
+    networkId,
+    accountId,
+  });
+
   const fetchData = useCallback(async () => {
     if (
       accountId &&
@@ -192,14 +204,15 @@ function SendNFTList({
     }
   }, [accountId, isNFTSupport, networkId, network]);
 
-  const { result } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceOverview.buildAccountNFTList({
-        networkId,
-        accountId,
-      }),
-    [accountId, networkId],
-  );
+  const { result } = usePromiseResult(() => {
+    if (refresherTs) {
+      // pass
+    }
+    return backgroundApiProxy.serviceOverview.buildAccountNFTList({
+      networkId,
+      accountId,
+    });
+  }, [accountId, networkId, refresherTs]);
 
   const data = useMemo(
     () =>
@@ -237,12 +250,18 @@ function SendNFTList({
     </SendNFTContentProvider>
   ) : (
     <Box flex={1} justifyContent="center" alignItems="center">
-      <Text typography="Display2XLarge" fontSize={48} lineHeight={60}>
-        🖼️
-      </Text>
-      <Text typography="DisplayMedium" mt="12px">
-        {intl.formatMessage({ id: 'empty__no_nfts' })}
-      </Text>
+      {nftIsLoading ? (
+        <Spinner size="lg" />
+      ) : (
+        <>
+          <Text typography="Display2XLarge" fontSize={48} lineHeight={60}>
+            🖼️
+          </Text>
+          <Text typography="DisplayMedium" mt="12px">
+            {intl.formatMessage({ id: 'empty__no_nfts' })}
+          </Text>
+        </>
+      )}
     </Box>
   );
 }

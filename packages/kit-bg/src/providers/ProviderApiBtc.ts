@@ -34,7 +34,6 @@ import {
   httpPost,
   mapInscriptionToNFTBTCAssetModel,
   toPsbtNetwork,
-  toXOnly,
 } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.utils';
 import { RestfulRequest } from '@onekeyhq/shared/src/request/RestfulRequest';
 
@@ -345,7 +344,15 @@ class ProviderApiBtc extends ProviderApiBase {
   ) {
     const { message, type } = params;
 
-    const { network, account } = getActiveWalletAccount();
+    const { network, account, wallet } = getActiveWalletAccount();
+
+    if (wallet?.type === 'hw') {
+      throw web3Errors.provider.custom({
+        code: 4003,
+        message: 'Sign message is not supported on hardware.',
+      });
+    }
+
     if (!network || !account) {
       throw web3Errors.provider.custom({
         code: 4002,
@@ -365,6 +372,9 @@ class ProviderApiBtc extends ProviderApiBase {
           message,
           sigOptions: {
             noScriptType: true,
+          },
+          payload: {
+            isFromDApp: true,
           },
         },
         signOnly: true,
@@ -399,7 +409,15 @@ class ProviderApiBtc extends ProviderApiBase {
 
     const formatedPsbtHex = formatPsbtHex(psbtHex);
 
-    const { network } = getActiveWalletAccount();
+    const { network, wallet } = getActiveWalletAccount();
+
+    if (wallet?.type === 'hw') {
+      throw web3Errors.provider.custom({
+        code: 4003,
+        message:
+          'Partially signed bitcoin transactions is not supported on hardware.',
+      });
+    }
     if (!network) return null;
     const psbtNetwork = toPsbtNetwork(network);
     const psbt = Psbt.fromHex(formatedPsbtHex, { network: psbtNetwork });

@@ -1,7 +1,6 @@
 import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -10,6 +9,7 @@ import {
   Token as TokenImage,
   Typography,
   VStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import type {
@@ -17,6 +17,7 @@ import type {
   Token as TokenType,
 } from '@onekeyhq/engine/src/types/token';
 
+import { FormatCurrencyNumber } from '../../../../components/Format';
 import { useReduxSingleTokenPriceSimple } from '../../../../hooks';
 import useFormatDate from '../../../../hooks/useFormatDate';
 import { showOverlay } from '../../../../utils/overlayUtils';
@@ -98,22 +99,24 @@ const SwapChartFooterTokenInfoItem: FC<SwapChartFooterTokenInfoItemProps> = ({
           <Typography.Body2 color="text-subdued">{token.name}</Typography.Body2>
         </Box>
       </Box>
-      <Box>
+      <Box flexDirection="column" alignItems="flex-end">
         <Typography.Body1>
-          ${priceInfo.price ? formatDecimalZero(priceInfo.price) : ''}
+          <FormatCurrencyNumber value={0} convertValue={priceInfo.price} />
         </Typography.Body1>
-        <Box
-          mt="4px"
-          bg={gainTextBg}
-          px="6px"
-          py="2px"
-          borderRadius="6px"
-          justifyContent="center"
-          alignItems="center"
-        >
-          <Typography.CaptionStrong color={gainTextColor}>
-            {percentageGain}
-          </Typography.CaptionStrong>
+        <Box flexDirection="row">
+          <Box
+            mt="4px"
+            bg={gainTextBg}
+            px="6px"
+            py="2px"
+            borderRadius="6px"
+            justifyContent="center"
+            alignItems="center"
+          >
+            <Typography.CaptionStrong color={gainTextColor}>
+              {percentageGain}
+            </Typography.CaptionStrong>
+          </Box>
         </Box>
       </Box>
     </Box>
@@ -140,8 +143,9 @@ const SwapChartFooter: FC<SwapChartFooterProps> = ({
   toData,
 }) => {
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
   return (
-    <Box>
+    <Box pb={`${bottom}px`}>
       <Box w="full">
         <TimeControl
           enabled={enabled}
@@ -288,10 +292,11 @@ const SwapChartSwapChartBottomSheetTrigger: FC<SwapChartProps> = ({
         py="2"
         px="3"
         borderTopRadius={12}
-        borderTopWidth={1}
-        borderLeftWidth={1}
-        borderRightWidth={1}
-        borderColor="border-subdued"
+        borderTopWidth={0.5}
+        borderLeftWidth={0.5}
+        borderRightWidth={0.5}
+        borderBottomWidth={0}
+        borderColor="divider"
         flexDirection="row"
         justifyContent="space-between"
       >

@@ -9,6 +9,7 @@ import {
   Skeleton,
   Token,
   Typography,
+  VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { withDebugRenderTracker } from '@onekeyhq/components/src/DebugRenderTracker';
@@ -145,7 +146,7 @@ function TokenCellBalance({
 
   if (isBRC20 && showTokenBalanceDetail) {
     return (
-      <Box>
+      <VStack>
         <Typography.Body2 color="text-subdued">
           {`${intl.formatMessage({ id: 'form__available_colon' })} ${
             availableBalance ?? '0'
@@ -159,7 +160,7 @@ function TokenCellBalance({
             '0',
           ).toFixed()}`}
         </Typography.Body2>
-      </Box>
+      </VStack>
     );
   }
 

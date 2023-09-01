@@ -59,5 +59,7 @@ export type IUnsignedMessageBtc = {
   type: BtcMessageTypes;
   message: string;
   sigOptions?: (SignatureOptions & { noScriptType?: boolean }) | null;
-  payload?: any;
+  payload?: {
+    isFromDApp?: boolean;
+  };
 };
