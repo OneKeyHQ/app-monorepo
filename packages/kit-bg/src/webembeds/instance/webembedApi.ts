@@ -27,9 +27,11 @@ const getOrCreateWebEmbedApiModule = memoizee(
 async function callWebEmbedApiMethod(
   message: IBackgroundApiWebembedCallMessage,
 ) {
-  const { module, method, params } = message;
+  const { module, method, params = [] } = message;
   const moduleInstance: any = await getOrCreateWebEmbedApiModule(module);
   if (moduleInstance && moduleInstance[method]) {
+    // TODO await offscreenApi.createOffscreenApiModule
+    // TODO check params is object or array
     const result = await moduleInstance[method](...(params as any[]));
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return result;

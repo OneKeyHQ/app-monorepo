@@ -8,9 +8,9 @@ class WebEmbedApiSecret {
   testShow({ name, random }: { name: string; random: number }) {
     if (random > 0.5) {
       // throw error test
-      throw new Error('WebEmbedApiSecret show error!');
+      throw new Error(`WebEmbedApiSecret show error! ${random}`);
     }
-    return Promise.resolve(`${111}---${name}`);
+    return Promise.resolve(`testShow${111}---${name}---${random}`);
   }
 
   async encrypt({

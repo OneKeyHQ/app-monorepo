@@ -10,6 +10,9 @@ import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-ty
 const storageKey = '$$Onekey_WebEmbedApi_showJsBridgeMessage';
 const showJsBridgeMessage = Boolean(localStorage.getItem(storageKey));
 
+// @ts-ignore
+global.$$webembedApi = webembedApi;
+
 function WebEmbedApiWebPage() {
   const [msg, setMsg] = useState<any>('');
   const handler = useCallback(async (payload: IJsBridgeMessagePayload) => {
@@ -72,6 +75,22 @@ function WebEmbedApiWebPage() {
           ? JSON.stringify(msg)
           : `WebEmbedApiWebPage(verbose=${showJsBridgeMessage.toString()})`}
       </div>
+
+      {process.env.NODE_ENV !== 'production' && (
+        <button
+          onClick={async () => {
+            console.log(
+              await webembedApi.callWebEmbedApiMethod({
+                module: 'secret',
+                method: 'testShow',
+                params: [{ name: `Hi-${Date.now()}`, random: Math.random() }],
+              }),
+            );
+          }}
+        >
+          test methods
+        </button>
+      )}
     </div>
   );
 }
