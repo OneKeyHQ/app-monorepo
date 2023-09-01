@@ -90,8 +90,7 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async getServerEndPoint() {
-    // return getFiatEndpoint();
-    return 'http://127.0.0.1:9000/api';
+    return getFiatEndpoint();
   }
 
   @backgroundMethod()
