@@ -6403,7 +6403,6 @@ __metadata:
     asyncstorage-down: ^4.2.0
     buffer: ^6.0.3
     expo: 49.0.6
-    expo-battery: ~7.3.0
     expo-clipboard: ^4.3.1
     expo-device: ~5.4.0
     expo-haptics: ^12.4.0
@@ -18891,15 +18890,6 @@ __metadata:
   peerDependencies:
     expo: "*"
   checksum: 61883171bf913090da8254bdba53e581da545590b36e2c43040486434ca0d02048e1da82f06b12ac7a7d01718adf455d676747792a10a516fb1973658112cfe6
-  languageName: node
-  linkType: hard
-
-"expo-battery@npm:~7.3.0":
-  version: 7.3.0
-  resolution: "expo-battery@npm:7.3.0"
-  peerDependencies:
-    expo: "*"
-  checksum: 1738f9e35fe6bc18ab8b873a82130762462d66973bfce224d19d5d2ffc2625d4594a227a7ede5404af0da9a35d891bf06c4d4c9e44c2126550251d7b7c05ab0c
   languageName: node
   linkType: hard
 

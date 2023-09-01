@@ -1,4 +1,3 @@
-import { getBatteryLevelAsync } from 'expo-battery';
 import {
   getTimeSinceStartup,
   onUpdate,
@@ -43,17 +42,6 @@ export const subscribeToMetrics = (
 export const getMeasureTime = () => measureTime;
 
 export type { metrixUpdateInfo };
-
-let initialBatteryLevel = PLACEHOLDER;
-export const markBatteryLevel = async () => {
-  const batteryLevel = await getBatteryLevelAsync();
-  initialBatteryLevel = batteryLevel;
-};
-
-export const getUsedBatterySinceStartup = async () => {
-  const batteryLevel = await getBatteryLevelAsync();
-  return initialBatteryLevel - batteryLevel;
-};
 
 let isLogging = false;
 let cancelSubscription: () => void;

@@ -54,7 +54,6 @@
     "asyncstorage-down": "^4.2.0",
     "buffer": "^6.0.3",
     "expo": "49.0.6",
-    "expo-battery": "~7.3.0",
     "expo-clipboard": "^4.3.1",
     "expo-device": "~5.4.0",
     "expo-haptics": "^12.4.0",

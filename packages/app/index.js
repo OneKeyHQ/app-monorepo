@@ -25,11 +25,9 @@ if (process.env.NODE_ENV !== 'production') {
 if (appSetting.getBoolean(AppSettingKey.perf_switch)) {
   const {
     markJsBundleLoadedTime,
-    markBatteryLevel,
     startRecordingMetrics,
   } = require('@onekeyhq/shared/src/modules3rdParty/react-native-metrix');
   markJsBundleLoadedTime();
-  markBatteryLevel();
   startRecordingMetrics();
 }
 

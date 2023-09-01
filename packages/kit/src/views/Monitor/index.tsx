@@ -24,7 +24,6 @@ import type {
 import {
   clearLogFolder,
   getMeasureTime,
-  getUsedBatterySinceStartup,
   stopRecordingMetrics,
   subscribeToMetrics,
   uploadMetricsInfo,
@@ -37,7 +36,6 @@ export const MonitorSettings = () => {
     appStorage.getSettingBoolean(AppSettingKey.perf_switch),
   );
   const [deviceInfo, setDeviceInfo] = useState<MetrixDeviceInfo>();
-  const [usedBattery, setUsedBattery] = useState<number>();
   const [unitTestName, setUnitTestName] = useState<string>();
   const [uploadPassword, setUploadPassword] = useState<string>();
   const [metricsLivingData, setMetricsLivingData] =
@@ -45,7 +43,6 @@ export const MonitorSettings = () => {
   const measureTime = getMeasureTime();
   useEffect(() => {
     (async () => {
-      setUsedBattery(await getUsedBatterySinceStartup());
       setDeviceInfo({
         commitHash: process.env.GITHUB_SHA || '',
         brand: getBrand(),
@@ -158,7 +155,6 @@ export const MonitorSettings = () => {
         usedRam:{' '}
         {`${((metricsLivingData?.usedRam || 0) / 1024 / 1024).toFixed(2)} Mb`}
       </Typography.Body2>
-      <Typography.Body2>usedBattery: {usedBattery}</Typography.Body2>
       <Box py={4} />
       <Typography.Heading>Device Info</Typography.Heading>
       <Typography.Body2>commitHash: {deviceInfo?.commitHash}</Typography.Body2>
