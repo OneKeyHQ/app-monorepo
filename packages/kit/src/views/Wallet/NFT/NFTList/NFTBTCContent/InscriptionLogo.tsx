@@ -1,5 +1,6 @@
-import { Box, Image } from '@onekeyhq/components';
-import OrdinalLogo from '@onekeyhq/kit/assets/Ordinal.png';
+import { Box } from '@onekeyhq/components';
+
+import OrdinalsSVG from '../../../../../components/SVG/OrdinalsSVG';
 
 import type { InscriptionContentProps } from '../type';
 
@@ -14,7 +15,7 @@ function InscriptionLogo({ size, asset, ...props }: InscriptionContentProps) {
       size={innerSize}
       {...props}
     >
-      <Image source={OrdinalLogo} size="40px" />
+      <OrdinalsSVG width={40} height={40} />
     </Box>
   );
 }

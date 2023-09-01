@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import Checkbox from '@onekeyhq/components/src/CheckBox';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FormatCurrencyNativeOfAccount } from '../../components/Format';
 import OrdinalsSVG from '../../components/SVG/OrdinalsSVG';
@@ -34,6 +35,7 @@ type Props = {
   isSelectMode: boolean;
   selectedInscriptions: string[];
   setSelectedInscriptions: React.Dispatch<React.SetStateAction<string[]>>;
+  onRecycleUtxo: () => void;
 };
 
 function InscriptionList(props: Props) {
@@ -44,6 +46,7 @@ function InscriptionList(props: Props) {
     isSelectMode,
     selectedInscriptions,
     setSelectedInscriptions,
+    onRecycleUtxo,
   } = props;
   const intl = useIntl();
   const { formatDistanceToNow } = useFormatDate();
@@ -69,12 +72,20 @@ function InscriptionList(props: Props) {
               networkId,
               accountId,
               isOwner: true,
+              onRecycleUtxo,
             },
           },
         });
       }
     },
-    [accountId, isSelectMode, navigation, networkId, setSelectedInscriptions],
+    [
+      accountId,
+      isSelectMode,
+      navigation,
+      networkId,
+      onRecycleUtxo,
+      setSelectedInscriptions,
+    ],
   );
 
   const renderItem = useCallback<
@@ -83,14 +94,19 @@ function InscriptionList(props: Props) {
     ({ item }) => (
       <Pressable onPress={() => handleInscriptionOnPress(item)}>
         <HStack alignItems="center" mb={4} justifyContent="space-between">
-          {isSelectMode ? (
-            <Box>
+          {isSelectMode &&
+            (platformEnv.isNative ? (
+              <Box>
+                <Checkbox
+                  onChange={() => handleInscriptionOnPress(item)}
+                  isChecked={selectedInscriptions.includes(item.inscription_id)}
+                />
+              </Box>
+            ) : (
               <Checkbox
-                onChange={() => handleInscriptionOnPress(item)}
                 isChecked={selectedInscriptions.includes(item.inscription_id)}
               />
-            </Box>
-          ) : null}
+            ))}
           <VStack flex={1}>
             <HStack alignItems="center">
               <OrdinalsSVG />
@@ -166,16 +182,23 @@ function InscriptionList(props: Props) {
       <Pressable isDisabled={!isSelectMode} onPress={handleToggleAllSelect}>
         <HStack justifyContent="space-between" alignItems="center" mb={4}>
           <HStack alignItems="center">
-            {isSelectMode ? (
-              <Box>
+            {isSelectMode &&
+              (platformEnv.isNative ? (
+                <Box>
+                  <Checkbox
+                    onChange={handleToggleAllSelect}
+                    isChecked={isSelectedAll || isIndeterminate}
+                    isIndeterminate={isIndeterminate}
+                    defaultIsChecked={false}
+                  />
+                </Box>
+              ) : (
                 <Checkbox
-                  onChange={handleToggleAllSelect}
                   isChecked={isSelectedAll || isIndeterminate}
                   isIndeterminate={isIndeterminate}
                   defaultIsChecked={false}
                 />
-              </Box>
-            ) : null}
+              ))}
             <Text
               typography="Subheading"
               textTransform="uppercase"

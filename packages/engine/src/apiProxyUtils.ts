@@ -9,6 +9,7 @@ export type TokenBalancesQuery = {
   // eslint-disable-next-line camelcase
   contract_addresses?: string[];
   xpub?: string;
+  withBRC20Tokens?: boolean;
 };
 
 export type TokenBalancesResponse = {
@@ -38,6 +39,7 @@ export const getBalancesFromApi = async ({
   const query: TokenBalancesQuery = {
     network: networkId,
     address,
+    withBRC20Tokens: true,
   };
   if (xpub) {
     Object.assign(query, { xpub });

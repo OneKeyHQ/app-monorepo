@@ -8,6 +8,7 @@ import {
   Box,
   Button,
   Center,
+  Empty,
   IconButton,
   Modal,
   Spinner,
@@ -111,7 +112,7 @@ function InscriptionControl() {
 
           ToastManager.show(
             {
-              title: intl.formatMessage({ id: 'msg__inscription_destroyed' }),
+              title: intl.formatMessage({ id: 'msg__inscription_deoccupied' }),
             },
             {
               type: 'default',
@@ -201,12 +202,26 @@ function InscriptionControl() {
         </Center>
       );
 
+    if (!availableInscriptions || availableInscriptions.length === 0) {
+      return (
+        <Center width="full" height="full">
+          <Empty
+            emoji="🕳️"
+            title={intl.formatMessage({
+              id: 'empty__no_data',
+            })}
+          />
+        </Center>
+      );
+    }
+
     return (
       <InscriptionList
         accountId={accountId}
         networkId={networkId}
         inscriptions={availableInscriptions ?? []}
         isSelectMode={isSelectMode}
+        onRecycleUtxo={fetchAvailableInscriptions}
         selectedInscriptions={selectedInscriptions}
         setSelectedInscriptions={setSelectedInscriptions}
       />
@@ -214,6 +229,8 @@ function InscriptionControl() {
   }, [
     accountId,
     availableInscriptions,
+    fetchAvailableInscriptions,
+    intl,
     isLoadingInscriptions,
     isSelectMode,
     networkId,

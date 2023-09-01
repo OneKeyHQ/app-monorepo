@@ -42,7 +42,7 @@ type SwapSignMessageParams = {
   networkId: string;
   unsignedMessage: IUnsignedMessageEvm;
   onSuccess?: SendMessageSuccessCallback;
-  onFail?: (e: Error) => void;
+  onFail?: () => void;
 };
 
 export function useSwapSend() {
@@ -165,7 +165,7 @@ export function useSwapSignMessage() {
         } catch (e: any) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           deviceUtils.showErrorToast(e, e?.data?.message || e.message);
-          onFail?.(e as Error);
+          onFail?.();
         }
       } else {
         navigation.navigate(RootRoutes.Modal, {
@@ -177,6 +177,7 @@ export function useSwapSignMessage() {
               networkId,
               unsignedMessage,
               onSuccess,
+              onFail,
             },
           },
         });

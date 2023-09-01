@@ -1,6 +1,7 @@
 import OnekeyLogo from '@onekeyhq/kit/assets/logo_round.png';
 import AptosMartianLogo from '@onekeyhq/kit/assets/walletLogo/aptos_martian.png';
 import AptosPetraLogo from '@onekeyhq/kit/assets/walletLogo/aptos_petra.png';
+import UniSatLogo from '@onekeyhq/kit/assets/walletLogo/btc_unisat.png';
 import CardanoNamiLogo from '@onekeyhq/kit/assets/walletLogo/cardano_nami.png';
 import ConflusFluentLogo from '@onekeyhq/kit/assets/walletLogo/conflux_fluent_wallet.png';
 import CosmosKeplrLogo from '@onekeyhq/kit/assets/walletLogo/cosmos_keplr.png';
@@ -23,6 +24,12 @@ export function getNetworkWithWalletId(walletId: string) {
 export const MonopolizeNetwork = ['POLKADOT'];
 
 export const CWalletSwitchDefaultConfig: Record<string, WalletSwitchItem> = {
+  'BTC-UniSat': {
+    logo: UniSatLogo,
+    title: 'UniSat ',
+    propertyKeys: ['unisat'],
+    enable: true,
+  },
   'EVM-Metamask': {
     logo: MetamaskLogo,
     title: 'Metamask',

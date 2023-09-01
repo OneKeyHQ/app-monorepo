@@ -6,6 +6,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Box,
   Button,
   CustomSkeleton,
@@ -29,9 +30,10 @@ import {
   AppUIEventBusNames,
   appUIEventBus,
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
+import { parseBRC20Content } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
-import { useNetwork, useWallet } from '../../../../../../hooks';
+import { useAccount, useNetwork, useWallet } from '../../../../../../hooks';
 import useFormatDate from '../../../../../../hooks/useFormatDate';
 import {
   ModalRoutes,
@@ -44,6 +46,11 @@ import { RecycleDialog } from '../../../../../InscriptionControl/RecycleDialog';
 import BaseMenu from '../../../../../Overlay/BaseMenu';
 import { DetailItem } from '../DetailItem';
 
+import {
+  UnListBTCAssetExplicitDialog,
+  UnListBTCAssetUnexpectedDialog,
+} from './UnListBTCAssetDialog';
+
 import type { CollectiblesRoutesParams } from '../../../../../../routes/Root/Modal/Collectibles';
 import type { ModalScreenProps } from '../../../../../../routes/types';
 
@@ -54,13 +61,16 @@ function BTCAssetDetailContent({
   isOwner,
   networkId,
   accountId,
+  onRecycleUtxo,
 }: {
   asset: NFTBTCAssetModel;
   isOwner: boolean;
   networkId: string;
   accountId?: string;
+  onRecycleUtxo?: () => void;
 }) {
   const intl = useIntl();
+  const [isBRC20, setIsBRC20] = useState(false);
   const isVertical = useIsVerticalLayout();
   const { format } = useFormatDate();
   const { serviceNFT, serviceInscribe } = backgroundApiProxy;
@@ -76,6 +86,8 @@ function BTCAssetDetailContent({
     return null;
   }, [accountId]);
 
+  const { account } = useAccount({ accountId: accountId ?? '', networkId });
+
   const { wallet } = useWallet({ walletId });
 
   const navigation = useNavigation<NavigationProps['navigation']>();
@@ -83,9 +95,7 @@ function BTCAssetDetailContent({
 
   const [asset, updateAsset] = useState(outerAsset);
   const isDisabled =
-    wallet?.type === WALLET_TYPE_WATCHING ||
-    asset.owner !== outerAsset.accountAddress ||
-    !accountId;
+    wallet?.type === WALLET_TYPE_WATCHING || !accountId || !isOwner;
 
   const sendAction = useCallback(() => {
     if (!networkId || !accountId) {
@@ -139,6 +149,19 @@ function BTCAssetDetailContent({
     serviceInscribe,
   ]);
 
+  const handleSendOnPress = useCallback(() => {
+    if (!networkId || !accountId) {
+      return;
+    }
+    if (asset.listed) {
+      showDialog(
+        <UnListBTCAssetUnexpectedDialog onConfirm={() => sendAction()} />,
+      );
+    } else {
+      sendAction();
+    }
+  }, [accountId, asset.listed, networkId, sendAction]);
+
   useEffect(() => {
     (async () => {
       if (network?.id) {
@@ -147,11 +170,79 @@ function BTCAssetDetailContent({
           tokenId: outerAsset.inscription_id,
         })) as NFTBTCAssetModel;
         if (data) {
-          updateAsset(data);
+          updateAsset({
+            ...data,
+            listed: outerAsset.listed,
+          });
+          const { isBRC20Content } = await parseBRC20Content({
+            content: data.content,
+            contentType: data.content_type,
+            contentUrl: data.contentUrl,
+          });
+          setIsBRC20(isBRC20Content);
         }
       }
     })();
-  }, [network?.id, outerAsset.inscription_id, serviceNFT]);
+  }, [
+    network?.id,
+    outerAsset,
+    outerAsset.inscription_id,
+    outerAsset.listed,
+    serviceNFT,
+  ]);
+
+  const handleUnListNFT = useCallback(
+    async (onClose?: () => void) => {
+      if (!networkId || !account) return;
+
+      const transferInfo = {
+        from: account.address,
+        to: account.address,
+        amount: '0',
+        isNFT: true,
+        nftTokenId: asset.inscription_id,
+        nftInscription: {
+          address: asset.owner,
+          inscriptionId: asset.inscription_id,
+          output: asset.output,
+          location: asset.location,
+        },
+      };
+
+      const encodedTx =
+        await backgroundApiProxy.engine.buildEncodedTxFromTransfer({
+          networkId,
+          accountId: account.id,
+          transferInfo,
+        });
+      onClose?.();
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Send,
+        params: {
+          screen: SendModalRoutes.SendConfirm,
+          params: {
+            ...transferInfo,
+            networkId,
+            accountId: account.id,
+            encodedTx,
+            feeInfoUseFeeInTx: false,
+            feeInfoEditable: true,
+            payloadInfo: {
+              type: 'Transfer',
+              nftInfo: {
+                asset,
+                amount: transferInfo.amount,
+                from: account.address,
+                to: account.address,
+              },
+            },
+            onModalClose: modalClose,
+          },
+        },
+      });
+    },
+    [account, asset, modalClose, navigation, networkId],
+  );
 
   const detailMoreMenu = useMemo(
     () => (
@@ -186,7 +277,7 @@ function BTCAssetDetailContent({
                     ToastManager.show(
                       {
                         title: intl.formatMessage({
-                          id: 'msg__inscription_destroyed',
+                          id: 'msg__inscription_deoccupied',
                         }),
                       },
                       {
@@ -196,12 +287,22 @@ function BTCAssetDetailContent({
                     appUIEventBus.emit(
                       AppUIEventBusNames.InscriptionRecycleChanged,
                     );
+                    onRecycleUtxo?.();
                     navigation.goBack();
                   }}
                 />,
               ),
             icon: 'RestoreMini',
             variant: 'desctructive',
+          },
+          asset?.listed && {
+            id: 'action__unlist_on_sale_inscription',
+            icon: 'MinusCircleMini',
+            onPress: () => {
+              showDialog(
+                <UnListBTCAssetExplicitDialog onConfirm={handleUnListNFT} />,
+              );
+            },
           },
         ]}
       >
@@ -217,35 +318,50 @@ function BTCAssetDetailContent({
     ),
     [
       accountId,
+      asset?.listed,
       asset.output,
       asset.output_value_sat,
       asset.owner,
+      handleUnListNFT,
       intl,
       isVertical,
       navigation,
       network?.decimals,
       network?.symbol,
       networkId,
+      onRecycleUtxo,
     ],
   );
 
   return (
     <VStack space="24px" mb="50px">
-      <HStack alignItems="center" justifyContent="space-between">
-        <Text
-          typography={{ sm: 'DisplayLarge', md: 'DisplayLarge' }}
-          fontWeight="700"
-          alignItems="center"
-        >
-          Inscription #{' '}
-          {asset?.inscription_number > 0 ? (
-            <Text>{asset?.inscription_number}</Text>
-          ) : (
-            <CustomSkeleton borderRadius="10px" width={120} height="20px" />
-          )}
-        </Text>
-        {isDisabled ? null : detailMoreMenu}
-      </HStack>
+      <VStack>
+        <HStack alignItems="center" justifyContent="space-between">
+          <Text
+            typography={{ sm: 'DisplayLarge', md: 'DisplayLarge' }}
+            fontWeight="700"
+            alignItems="center"
+          >
+            Inscription #{' '}
+            {asset?.inscription_number > 0 ? (
+              <Text>{asset?.inscription_number}</Text>
+            ) : (
+              <CustomSkeleton borderRadius="10px" width={120} height="20px" />
+            )}
+          </Text>
+          {isDisabled ? null : detailMoreMenu}
+        </HStack>
+        <HStack space={1}>
+          {isBRC20 ? <Badge type="default" size="sm" title="brc20" /> : null}
+          {asset.listed ? (
+            <Badge
+              type="warning"
+              size="sm"
+              title={intl.formatMessage({ id: 'content__listed__uppercase' })}
+            />
+          ) : null}
+        </HStack>
+      </VStack>
 
       {isOwner && (
         <HStack space="16px">
@@ -255,7 +371,7 @@ function BTCAssetDetailContent({
             width="full"
             size="lg"
             leftIconName="ArrowUpMini"
-            onPress={sendAction}
+            onPress={handleSendOnPress}
           >
             {intl.formatMessage({
               id: 'action__send',

@@ -17,17 +17,12 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { DebugRenderTracker } from '@onekeyhq/components/src/DebugRenderTracker';
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import { NFTAssetType } from '@onekeyhq/engine/src/types/nft';
 import type { CoinControlItem } from '@onekeyhq/engine/src/types/utxoAccounts';
-import {
-  getTaprootXpub,
-  isTaprootXpubSegwit,
-} from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
 import {
   useActiveWalletAccount,
   useAppSelector,
@@ -306,12 +301,11 @@ const NFTListContainer: FC = () => {
 
   const fetchCoinControlList = useCallback(async () => {
     if (account?.xpub && networkId) {
-      const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
-        networkId,
-        isTaprootXpubSegwit(account.xpub ?? '')
-          ? getTaprootXpub(account.xpub ?? '')
-          : account.xpub ?? '',
-      );
+      const archivedUtxos =
+        await backgroundApiProxy.serviceUtxos.getArchivedUtxos(
+          networkId,
+          account.xpub,
+        );
       setRecycleUtxos(archivedUtxos.filter((utxo) => utxo.recycle));
     }
   }, [account?.xpub, networkId]);

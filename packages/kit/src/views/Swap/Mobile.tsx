@@ -62,7 +62,7 @@ export const Mobile = () => {
         </Center>
       </ScrollView>
       {mode === 'swap' ? (
-        <Box position="absolute" bottom={0} left={0} right={0} h="10">
+        <Box position="absolute" bottom={0} left={0} right={0} h="9">
           <MobileChart />
         </Box>
       ) : null}

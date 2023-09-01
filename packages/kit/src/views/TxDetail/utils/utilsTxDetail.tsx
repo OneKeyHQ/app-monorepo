@@ -25,6 +25,7 @@ export function getTxStatusInfo({ decodedTx }: { decodedTx: IDecodedTx }) {
     | 'transaction__failed'
     | 'transaction__pending'
     | 'transaction__dropped'
+    | 'form__not_broadcast'
     | 'transaction__success' = 'transaction__failed';
   let textColor = 'text-critical';
 
@@ -52,6 +53,10 @@ export function getTxStatusInfo({ decodedTx }: { decodedTx: IDecodedTx }) {
       break;
     case IDecodedTxStatus.Dropped:
       text = 'transaction__dropped';
+      break;
+    case IDecodedTxStatus.Offline:
+      text = 'form__not_broadcast';
+      textColor = 'text-warning';
       break;
     default:
       break;

@@ -188,6 +188,7 @@ export type SignMessageConfirmParams = SendConfirmSharedParams & {
   sourceInfo?: IDappSourceInfo;
   unsignedMessage: IUnsignedMessageEvm | IUnsignedMessageBtc;
   onSuccess?: (result: any) => void;
+  onFail?: (error?: Error) => void;
   hideToast?: boolean;
   closeImmediately?: boolean;
 };
@@ -305,6 +306,7 @@ export type ITxConfirmViewProps = ModalProps & {
   confirmDisabled?: boolean;
   autoConfirm?: boolean;
   children?: JSX.Element | JSX.Element[] | Element | Element[] | any;
+  isListOrderPsbt?: boolean;
 
   sendConfirmParams: SendConfirmParams;
 };
