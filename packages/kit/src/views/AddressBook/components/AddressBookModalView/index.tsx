@@ -19,8 +19,8 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import AddressInput from '../../../../components/AddressInput';
 import ChainSelector from '../../../../components/Form/ChainSelector';
-import { useAppSelector, useDebounce } from '../../../../hooks';
-// import { setHideAddressBookAttention } from '../../../../store/reducers/status';
+import { useDebounce } from '../../../../hooks';
+import { useContacts } from '../../hooks';
 
 import type { ContactValues } from '../../routes';
 
@@ -43,13 +43,10 @@ const ModalView: FC<ModalViewProps> = ({
 }) => {
   const intl = useIntl();
   const validateAddressError = useRef<boolean>();
-  const contacts = useAppSelector((s) => s.contacts.contacts);
-  // const hideAddressBookAttention = useAppSelector(
-  //   (s) => s.status.hideAddressBookAttention,
-  // );
+  const contacts = useContacts();
+
   const contactsMaps = useMemo(
-    () =>
-      new Map(Object.values(contacts).map((v) => [v.address.toLowerCase(), v])),
+    () => new Map(contacts.map((v) => [v.address.toLowerCase(), v])),
     [contacts],
   );
 
@@ -217,17 +214,6 @@ const ModalView: FC<ModalViewProps> = ({
                 <AddressInput />
               </Form.Item>
             </Form>
-            {/* {!hideAddressBookAttention ? (
-              <Box mt="6">
-                <Alert
-                  alertType="info"
-                  title={intl.formatMessage({
-                    id: 'content__all_addresses_are_stored_locally',
-                  })}
-                  onDismiss={onDismiss}
-                />
-              </Box>
-            ) : null} */}
           </Box>
         ),
       }}

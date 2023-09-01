@@ -20,7 +20,7 @@ import { showAddressPoisoningScamAlert } from '../../Overlay/AddressPoisoningSca
 import BaseMenu from '../../Overlay/BaseMenu';
 import { WalletHomeTabEnum } from '../../Wallet/type';
 
-import type { Contact } from '../../../store/reducers/contacts';
+import type { Contact } from '../../AddressBook/types';
 import type { IBaseMenuOptions, IMenu } from '../../Overlay/BaseMenu';
 
 interface AddressMoreMenuProps extends IMenu {

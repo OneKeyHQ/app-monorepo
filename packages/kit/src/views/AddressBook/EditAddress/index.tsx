@@ -7,7 +7,7 @@ import { ToastManager } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNetworks } from '../../../hooks/redux';
-import { update } from '../../../store/reducers/contacts';
+import { refreshContacts } from '../../../store/reducers/refresher';
 import AddressBookModalView from '../components/AddressBookModalView';
 
 import type {
@@ -30,20 +30,16 @@ const EditAddress = () => {
   const networks = useNetworks();
   const { defaultValues, uuid } = route.params;
   const onSubmit = useCallback(
-    (values: ContactValues) => {
+    async (values: ContactValues) => {
       const net = networks.find((network) => network.id === values.networkId);
       if (net) {
-        backgroundApiProxy.dispatch(
-          update({
-            uuid,
-            contact: {
-              name: values.name,
-              address: values.address,
-              badge: net.impl,
-              networkId: net.id,
-            },
-          }),
-        );
+        await backgroundApiProxy.serviceAddressbook.updateItem(uuid, {
+          name: values.name,
+          address: values.address,
+          badge: net.impl,
+          networkId: net.id,
+        });
+        backgroundApiProxy.dispatch(refreshContacts());
         backgroundApiProxy.serviceCloudBackup.requestBackup();
         ToastManager.show({
           title: intl.formatMessage({ id: 'msg__address_changed' }),

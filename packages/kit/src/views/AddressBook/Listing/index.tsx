@@ -19,14 +19,14 @@ import {
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { useAppSelector } from '../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
+import { useContacts } from '../hooks';
 import { AddressBookRoutes } from '../routes';
 
 import AddressBookMenu from './menu';
 
-import type { Contact } from '../../../store/reducers/contacts';
 import type { AddressBookRoutesParams } from '../routes';
+import type { Contact } from '../types';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ListRenderItem } from 'react-native';
@@ -49,13 +49,12 @@ type ListProps = {
 
 const AddressList = ({ networkId, onNew, onSelected }: ListProps) => {
   const intl = useIntl();
-  const contacts = useAppSelector((s) => s.contacts.contacts);
   const { bottom } = useSafeAreaInsets();
+  const contacts = useContacts();
 
   const data = useMemo(() => {
-    let values = Object.values(contacts);
-    values = values.sort((a, b) => (a.createAt > b.createAt ? -1 : -1));
-    debugLogger.common.info('contacts length is ', Object.keys(values).length);
+    let values = contacts;
+    debugLogger.common.info('contacts length is ', values.length);
     if (networkId) {
       debugLogger.common.info('address list filter by networkId', networkId);
       const badge = networkId.split('--')[0];

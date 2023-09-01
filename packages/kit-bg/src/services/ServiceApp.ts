@@ -318,6 +318,7 @@ class ServiceApp extends ServiceBase {
       serviceSwap,
       serviceDiscover,
       serviceCloudBackup,
+      serviceAddressbook,
     } = this.backgroundApi;
 
     const enableTestFiatEndpoint =
@@ -336,12 +337,14 @@ class ServiceApp extends ServiceBase {
     await this.initPassword();
     await this.initLocalAuthentication();
     await this.checkLockStatus();
+
     serviceDiscover.init();
 
     await serviceBootstrap.preBootstrap();
 
     const activeIds = await this.initActiveIds();
 
+    serviceAddressbook.migrate();
     serviceSwap.initSwap();
     serviceCloudBackup.loginIfNeeded(false);
 

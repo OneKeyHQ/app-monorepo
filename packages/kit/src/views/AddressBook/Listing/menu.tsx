@@ -10,12 +10,12 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
-import { remove } from '../../../store/reducers/contacts';
+import { refreshContacts } from '../../../store/reducers/refresher';
 import BaseMenu from '../../Overlay/BaseMenu';
 import { AddressBookRoutes } from '../routes';
 
-import type { Contact } from '../../../store/reducers/contacts';
 import type { IMenu } from '../../Overlay/BaseMenu';
+import type { Contact } from '../types';
 import type { MessageDescriptor } from 'react-intl';
 
 type Props = IMenu & { contact: Contact };
@@ -45,8 +45,9 @@ const AddressBookMenu: FC<Props> = ({ contact, ...props }) => {
     }, 200);
   }, [intl, address]);
 
-  const onDel = useCallback(() => {
-    backgroundApiProxy.dispatch(remove({ uuid: id }));
+  const onDel = useCallback(async () => {
+    await backgroundApiProxy.serviceAddressbook.removeItem(id);
+    backgroundApiProxy.dispatch(refreshContacts());
     ToastManager.show({
       title: intl.formatMessage({ id: 'msg__address_deleted' }),
     });

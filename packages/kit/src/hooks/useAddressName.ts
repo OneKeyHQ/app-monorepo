@@ -1,10 +1,12 @@
 import { useMemo } from 'react';
 
-import { useAppSelector, useRuntime } from './redux';
+import { useContacts } from '../views/AddressBook/hooks';
+
+import { useAppSelector } from './redux';
 
 function useAddressName({ address }: { address?: string }): string | undefined {
-  const contactsRecords = useAppSelector((s) => s.contacts.contacts);
-  const { accounts } = useRuntime();
+  const contactsRecords = useContacts();
+  const accounts = useAppSelector((s) => s.runtime.accounts);
   return useMemo(() => {
     if (!address) {
       return;
@@ -15,9 +17,8 @@ function useAddressName({ address }: { address?: string }): string | undefined {
         return account.name;
       }
     }
-    const contacts = Object.values(contactsRecords);
-    for (let i = 0; i < contacts.length; i += 1) {
-      const contact = contacts[i];
+    for (let i = 0; i < contactsRecords.length; i += 1) {
+      const contact = contactsRecords[i];
       if (contact.address === address) {
         return contact.name;
       }

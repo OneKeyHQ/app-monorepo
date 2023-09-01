@@ -1,6 +1,7 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SimpleDbEntityAccountPortfolios } from './entity/SimpleDbEntityAccountPortfolios';
+import { SimpleDbEntityAddressBook } from './entity/SimpleDbEntityAddressBook';
 import { SimpleDbEntityHistory } from './entity/SimpleDbEntityHistory';
 import { SimpleDbEntityInscribe } from './entity/SimpleDbEntityInscribe';
 import { SimpleDbEntityLastActivity } from './entity/SimpleDbEntityLastActivity';
@@ -43,6 +44,8 @@ class SimpleDb {
   inscribe = new SimpleDbEntityInscribe();
 
   urlInfo = new SimpleDbEntityUrlInfo();
+
+  addressbook = new SimpleDbEntityAddressBook();
 }
 
 // eslint-disable-next-line import/no-mutable-exports

@@ -25,12 +25,12 @@ import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import WalletAvatar from '../../../components/WalletSelector/WalletAvatar';
-import { useAppSelector } from '../../../hooks';
-import { useRuntime } from '../../../hooks/redux';
+import { useAppSelector } from '../../../hooks/redux';
+import { useContacts } from '../hooks';
 import { AddressBookRoutes } from '../routes';
 
-import type { Contact } from '../../../store/reducers/contacts';
 import type { AddressBookRoutesParams } from '../routes';
+import type { Contact } from '../types';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ListRenderItem, SectionListRenderItem } from 'react-native';
@@ -60,7 +60,7 @@ const AddressBook = ({
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const { networkId, onSelected } = route.params ?? {};
-  const contacts = useAppSelector((s) => s.contacts.contacts);
+  const contacts = useContacts();
 
   const [listData, updateListData] = useState<Contact[]>([]);
   const filterContacts = useCallback(
@@ -82,8 +82,7 @@ const AddressBook = ({
 
   useEffect(() => {
     async function main() {
-      let values = Object.values(contacts);
-      values = values.sort((a, b) => (a.createAt > b.createAt ? -1 : -1));
+      let values = contacts;
       if (networkId) {
         const badge = networkId.split('--')[0];
         values = values.filter(
@@ -186,7 +185,7 @@ const MyWallet = ({
   walletsToHide?: WalletType[];
 }) => {
   const intl = useIntl();
-  const { wallets } = useRuntime();
+  const wallets = useAppSelector((s) => s.runtime.wallets);
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const { networkId, onSelected } = route.params ?? {};

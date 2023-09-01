@@ -16,8 +16,6 @@ import {
   setIsAvailable,
   setNotInProgress,
 } from '@onekeyhq/kit/src/store/reducers/cloudBackup';
-import { create } from '@onekeyhq/kit/src/store/reducers/contacts';
-import type { Contact } from '@onekeyhq/kit/src/store/reducers/contacts';
 import { release } from '@onekeyhq/kit/src/store/reducers/data';
 import { addBookmark } from '@onekeyhq/kit/src/store/reducers/discover';
 import { setEnableLocalAuthentication } from '@onekeyhq/kit/src/store/reducers/settings';
@@ -111,8 +109,7 @@ class ServiceCloudBackup extends ServiceBase {
     const backupedContacts: BackupedContacts = {};
     const { version } = this.backgroundApi.appSelector((s) => s.settings);
 
-    const { contacts }: { contacts: Record<string, Contact> } =
-      this.backgroundApi.appSelector((s) => s.contacts);
+    const contacts = await this.backgroundApi.serviceAddressbook.getItems();
     Object.values(contacts).forEach((contact) => {
       const contactUUID = getContactUUID(contact);
       publicBackupData.contacts[contactUUID] = {
@@ -508,6 +505,7 @@ class ServiceCloudBackup extends ServiceBase {
       serviceAccount,
       serviceApp,
       servicePassword,
+      serviceAddressbook,
     } = this.backgroundApi;
     const { isPasswordSet } = appSelector((s) => s.data);
     const activeAccountId = appSelector((s) => s.general.activeAccountId);
@@ -556,14 +554,12 @@ class ServiceCloudBackup extends ServiceBase {
       for (const contactUUID of Object.keys(notOnDevice.contacts)) {
         const { name, address, networkId } = backupedContacts[contactUUID];
         if (name && address && networkId) {
-          dispatch(
-            create({
-              name,
-              address,
-              networkId,
-              badge: networkId.split('--')[0],
-            }),
-          );
+          await serviceAddressbook.addItem({
+            name,
+            address,
+            networkId,
+            badge: networkId.split('--')[0],
+          });
         } else {
           debugLogger.cloudBackup.error(
             `Contact ${contactUUID} not found in backup data.`,

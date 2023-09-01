@@ -18,6 +18,7 @@ type InitialState = {
   refreshHistoryTs: number;
   refreshAccountSelectorTs: number;
   refreshConnectedSitesTs: number;
+  refreshContactsTs?: number;
   closeDappConnectionPreloadingTs: number;
   backgroundShowToastTs: number;
   backgroundShowToastOptions: IBackgroundShowToastOptions;
@@ -32,6 +33,7 @@ const initialState: InitialState = {
   overviewHomeTokensLoading: false,
   refreshHistoryTs: 0,
   refreshAccountSelectorTs: 0,
+  refreshContactsTs: 0,
   refreshConnectedSitesTs: 0,
   closeDappConnectionPreloadingTs: 0,
   backgroundShowToastTs: 0,
@@ -94,6 +96,9 @@ export const slicer = createSlice({
     refreshConnectedSites(state) {
       state.refreshConnectedSitesTs = Date.now();
     },
+    refreshContacts(state) {
+      state.refreshContactsTs = Date.now();
+    },
     closeDappConnectionPreloading(state) {
       state.closeDappConnectionPreloadingTs = Date.now();
     },
@@ -117,6 +122,7 @@ export const {
   refreshHistory,
   refreshAccountSelector,
   refreshConnectedSites,
+  refreshContacts,
   closeDappConnectionPreloading,
   resetDappConnectionPreloading,
   backgroundShowToast,

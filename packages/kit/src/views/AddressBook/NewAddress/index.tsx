@@ -7,7 +7,7 @@ import { ToastManager } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNetworks } from '../../../hooks/redux';
-import { create } from '../../../store/reducers/contacts';
+import { refreshContacts } from '../../../store/reducers/refresher';
 import AddressBookModalView from '../components/AddressBookModalView';
 
 import type {
@@ -45,14 +45,13 @@ const NewAddress = () => {
         }
       }
       if (net) {
-        backgroundApiProxy.dispatch(
-          create({
-            name: values.name,
-            address: values.address,
-            badge: net.impl,
-            networkId: net.id,
-          }),
-        );
+        await backgroundApiProxy.serviceAddressbook.addItem({
+          name: values.name,
+          address: values.address,
+          badge: net.impl,
+          networkId: net.id,
+        });
+        backgroundApiProxy.dispatch(refreshContacts());
         backgroundApiProxy.serviceCloudBackup.requestBackup();
         ToastManager.show(
           {
