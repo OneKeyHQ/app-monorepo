@@ -140,24 +140,13 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-ios-base, build-ios-head]
     permissions:
-      id-token: write
-      actions: write
-      checks: write
-      contents: write
-      deployments: write
-      discussions: write
-      issues: write
-      packages: write
-      pages: write
       pull-requests: write
-      repository-projects: write
-      security-events: write
-      statuses: write
-
     steps:
       - uses: actions/download-artifact@v3
 
       - uses: github/webpack-bundlesize-compare-action@v1.7.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           title: 'ios bundle diff'
           github-token: ${{ secrets.GITHUB_TOKEN }}
