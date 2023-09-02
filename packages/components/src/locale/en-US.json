@@ -542,6 +542,7 @@
   "content__deflationary_desc": "Please ignore this if your token isn't deflationary.Most tokens are not, so leave it as is. If your token has deflationary functions, such as token dividends, burning, taxes, etc., please enable this.\r\n\r\nIf you are the token owner and there is an automatic LP function and you have not added a liquidity pool, please turn off the automatic LP first.",
   "content__deflationary_token_transfers_are_not_supported_at_this_moment": "Bulk transfers for deflationary tokens are not supported at this moment.",
   "content__deoccupy_the_inscriptions_will_reclaim_theattached_utxos_value_toe_the_account_balance_once_these_utxos_are_spent_you_will_permanently_lose_the_inscription_assets": "Deoccupy the inscriptions will reclaim the attached UTXO value to the account balance. Once these UTXOs are spent, you will permanently lose the inscription assets.",
+  "content__deploy": "Deploy",
   "content__deposit_tokens_to_your_wallet": "Deposit tokens to your wallet",
   "content__description": "Description",
   "content__details": "Details",

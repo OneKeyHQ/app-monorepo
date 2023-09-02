@@ -673,7 +673,7 @@ export default class VaultBtcFork extends VaultBase {
       actionType = IDecodedTxActionType.TOKEN_BRC20_MINT;
       direction = IDecodedTxDirection.IN;
       info = {
-        amount: brc20Content.amt,
+        amount: brc20Content.amt || '0',
       };
     }
 
@@ -681,7 +681,7 @@ export default class VaultBtcFork extends VaultBase {
       actionType = IDecodedTxActionType.TOKEN_BRC20_TRANSFER;
 
       info = {
-        amount: brc20Content.amt,
+        amount: brc20Content.amt || '0',
       };
 
       if (from === to && from === dbAccount.address) {
@@ -697,7 +697,7 @@ export default class VaultBtcFork extends VaultBase {
       actionType = IDecodedTxActionType.TOKEN_BRC20_INSCRIBE;
       direction = IDecodedTxDirection.IN;
       info = {
-        amount: brc20Content.amt,
+        amount: brc20Content.amt || '0',
       };
     }
 
@@ -1194,7 +1194,6 @@ export default class VaultBtcFork extends VaultBase {
             const {
               fromAddress,
               toAddress,
-              time,
               token: tick,
               actionType,
               amount,
@@ -1247,7 +1246,7 @@ export default class VaultBtcFork extends VaultBase {
             }
           }
 
-          const { time } = txsWithSameTxId[0];
+          const { time, state } = txsWithSameTxId[0];
 
           const decodedTx: IDecodedTx = {
             txid: tx.txId,
@@ -1255,7 +1254,10 @@ export default class VaultBtcFork extends VaultBase {
             signer: dbAccount.address,
             nonce: 0,
             actions,
-            status: IDecodedTxStatus.Confirmed,
+            status:
+              state === 'fail'
+                ? IDecodedTxStatus.Failed
+                : IDecodedTxStatus.Confirmed,
             networkId: this.networkId,
             accountId: this.accountId,
             extraInfo: null,
