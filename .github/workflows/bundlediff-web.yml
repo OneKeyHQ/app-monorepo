@@ -135,7 +135,19 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-web-base, build-web-head]
     permissions:
+      id-token: write
+      actions: write
+      checks: write
+      contents: write
+      deployments: write
+      discussions: write
+      issues: write
+      packages: write
+      pages: write
       pull-requests: write
+      repository-projects: write
+      security-events: write
+      statuses: write
     steps:
       - uses: actions/download-artifact@v3
 
