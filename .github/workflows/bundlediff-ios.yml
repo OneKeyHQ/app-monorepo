@@ -118,6 +118,8 @@ jobs:
   compare:
     name: 'Compare base & head bundle sizes'
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: 'write'
     needs: [build-ios-base, build-ios-head]
     steps:
       - uses: actions/download-artifact@v3
