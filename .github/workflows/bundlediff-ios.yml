@@ -120,6 +120,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-ios-base, build-ios-head]
     permissions:
+      id-token: write
       actions: write
       checks: write
       contents: write
