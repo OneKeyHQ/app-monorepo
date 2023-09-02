@@ -1,28 +1,8 @@
 name: bundlediff-ios
 
 on:
-  pull_request:
-    branches: [onekey]
   pull_request_target:
-    types:
-      - opened
-      - synchronize
-      - reopened
-
-# Set the access for individual scopes, or use permissions: write-all
-permissions:
-  actions: write
-  checks: write
-  contents: write
-  deployments: write
-  discussions: write
-  issues: write
-  packages: write
-  pages: write
-  pull-requests: write
-  repository-projects: write
-  security-events: write
-  statuses: write
+    branches: [onekey]
 
 # Cancel a currently running workflow from the same PR/branch/tag
 # when a new workflow is triggered
@@ -145,8 +125,6 @@ jobs:
       - uses: actions/download-artifact@v3
 
       - uses: github/webpack-bundlesize-compare-action@v1.7.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           title: 'ios bundle diff'
           github-token: ${{ secrets.GITHUB_TOKEN }}
