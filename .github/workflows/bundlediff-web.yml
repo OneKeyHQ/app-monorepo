@@ -2,6 +2,7 @@ name: bundlediff-web
 
 on:
   pull_request_target:
+    types: [opened, synchronize, reopened]
     branches: [onekey]
 
 # Cancel a currently running workflow from the same PR/branch/tag
