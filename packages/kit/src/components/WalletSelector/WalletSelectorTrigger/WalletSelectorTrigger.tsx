@@ -88,7 +88,6 @@ const WalletSelectorTrigger: FC<
       handleToggleVisible();
     }
   }, [handleToggleVisible, visible]);
-
   return (
     <Box
       ref={triggerRef}
