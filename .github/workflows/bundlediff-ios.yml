@@ -3,7 +3,12 @@ name: bundlediff-ios
 on:
   pull_request:
     branches: [onekey]
-    
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
 # Set the access for individual scopes, or use permissions: write-all
 permissions:
   actions: write
