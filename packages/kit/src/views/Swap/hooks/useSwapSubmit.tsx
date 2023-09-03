@@ -447,6 +447,7 @@ export const useSwapSubmit = () => {
       additionalParams: quote.additionalParams,
       sellAmount: quote.sellAmount,
       buyAmount: quote.buyAmount,
+      onChainSatsPerVbyte: quote.onChainSatsPerVbyte,
       disableValidate: true,
     };
     try {

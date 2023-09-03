@@ -66,6 +66,7 @@ import {
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   AppEventBusNames,
   appEventBus,
@@ -358,8 +359,19 @@ export default class ServiceSwap extends ServiceBase {
         ? accounts.find((acc) => acc.id === activeAccountId)
         : accounts[0];
     if (account) {
+      let { address } = account;
+      if (isLightningNetworkByNetworkId(network.id)) {
+        const lnurlMap =
+          await this.backgroundApi.serviceLightningNetwork.batchGetLnUrlByAccounts(
+            {
+              networkId: network.id,
+              accounts: [account],
+            },
+          );
+        address = lnurlMap[account.id] ?? account.address;
+      }
       const data = {
-        address: account.address,
+        address,
         name: account.name,
         accountId: account.id,
         networkId: network.id,
@@ -783,7 +795,7 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async sellToken(token: Token) {
+  async sellToken(token: Token, shouldSetPaymentToken = true) {
     const { engine, appSelector, dispatch } = this.backgroundApi;
     const mode = appSelector((s) => s.swap.mode);
     if (mode !== 'swap') {
@@ -792,7 +804,7 @@ export default class ServiceSwap extends ServiceBase {
     const paymentToken = await this.getPaymentToken(token);
     this.clearState();
     await this.setInputToken(token);
-    if (paymentToken) {
+    if (paymentToken && shouldSetPaymentToken) {
       if (tokenEqual(token, paymentToken)) {
         const nativeToken = await engine.getNativeTokenInfo(token.networkId);
         this.setOutputToken(nativeToken);
@@ -1060,6 +1072,21 @@ export default class ServiceSwap extends ServiceBase {
         networkId: outputNetworkId,
         tokenId: outputToken?.tokenIdOnNetwork ?? '',
       });
+    }
+  }
+
+  /**
+   * switch the output token to the native token of a specific network.
+   * e.g.: switch to LN to BTC swap if input token is lightning network
+   * @string networkId
+   */
+  @backgroundMethod()
+  async switchToNativeOutputToken(networkId: string) {
+    const nativeToken = await this.backgroundApi.engine.getNativeTokenInfo(
+      networkId,
+    );
+    if (nativeToken) {
+      this.setOutputToken(nativeToken);
     }
   }
 }

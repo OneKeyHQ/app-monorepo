@@ -717,4 +717,9 @@ export default class Vault extends VaultBase {
       (!invoice.millisatoshis && !invoice.satoshis)
     );
   }
+
+  async batchGetLnurl(addresses: string[]) {
+    const client = await this.getClient();
+    return client.batchGetLnurl(addresses);
+  }
 }
