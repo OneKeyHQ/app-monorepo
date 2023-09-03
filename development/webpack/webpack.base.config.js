@@ -1,8 +1,5 @@
-// /* eslint-disable global-require */
 const webpack = require('webpack');
 const fs = require('fs');
-// const { createWebpackConfigAsync } = require('expo-yarn-workspaces/webpack');
-// const devUtils = require('@onekeyhq/ext/development/devUtils');
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpackManifestPlugin = require('webpack-manifest-plugin');
