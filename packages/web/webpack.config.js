@@ -9,6 +9,7 @@ const webpackManifestPlugin = require('webpack-manifest-plugin');
 const DuplicatePackageCheckerPlugin = require('duplicate-package-checker-webpack-plugin');
 const WebpackBar = require('webpackbar');
 const { EsbuildPlugin } = require('esbuild-loader');
+const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
 const webpackTools = require('../../development/webpackTools');
 
 // const { webModuleTranspile } = require('../../development/webpackTranspiles');
@@ -57,6 +58,7 @@ module.exports = async function (env, argv) {
   const platform = webpackTools.developmentConsts.platforms.web;
   // eslint-disable-next-line no-param-reassign
   env = await webpackTools.modifyExpoEnv({ env, platform });
+  const configName = 'web';
   return {
     mode: 'development',
     entry: path.join(__dirname, 'index.js'),
@@ -109,6 +111,34 @@ module.exports = async function (env, argv) {
     },
     plugins: [
       new WebpackBar(),
+      ENABLE_ANALYZER &&
+        new BundleAnalyzerPlugin(
+          ENABLE_ANALYZER_HTML_REPORT
+            ? {
+                analyzerMode: 'static',
+                reportFilename: `report${
+                  configName ? `-${configName}` : ''
+                }.html`,
+                openAnalyzer: false,
+              }
+            : {
+                analyzerMode: 'disabled',
+                generateStatsFile: true,
+                statsOptions: {
+                  reasons: false,
+                  warnings: false,
+                  errors: false,
+                  optimizationBailout: false,
+                  usedExports: false,
+                  providedExports: false,
+                  source: false,
+                  ids: false,
+                  children: false,
+                  chunks: false,
+                  modules: !!process.env.ANALYSE_MODULE,
+                },
+              },
+        ),
       new HtmlWebpackPlugin({
         title: 'Web',
         minify: false,
@@ -262,7 +292,7 @@ module.exports = async function (env, argv) {
                 !isDev && {
                   loader: 'esbuild-loader',
                   options: {
-                      minify: true,
+                    minify: true,
                   },
                 },
               ].filter(Boolean),
