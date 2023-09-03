@@ -7037,7 +7037,6 @@ __metadata:
   dependencies:
     "@onekeyhq/components": "*"
     "@onekeyhq/kit": "*"
-    esbuild-loader: ^4.0.2
     expo: 49.0.6
     firebase: ^9.8.2
     webpack: 5.88.2
@@ -19455,20 +19454,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"esbuild-loader@npm:^4.0.2":
-  version: 4.0.2
-  resolution: "esbuild-loader@npm:4.0.2"
-  dependencies:
-    esbuild: ^0.19.0
-    get-tsconfig: ^4.7.0
-    loader-utils: ^2.0.4
-    webpack-sources: ^1.4.3
-  peerDependencies:
-    webpack: ^4.40.0 || ^5.0.0
-  checksum: beecdeb9fd1d88aceaedc3914bf35c239d7771f767b6afca68dbf4c58adde71ab0506704ed6c713329aa5cf0241c1ff6d4834562571b88bb243a8245710933ae
-  languageName: node
-  linkType: hard
-
 "esbuild-netbsd-64@npm:0.15.11":
   version: 0.15.11
   resolution: "esbuild-netbsd-64@npm:0.15.11"
@@ -22084,15 +22069,6 @@ __metadata:
   dependencies:
     resolve-pkg-maps: ^1.0.0
   checksum: e791e671a9b55e91efea3ca819ecd7a25beae679e31c83234bf3dd62ddd93df070c1b95ae7e29d206358ebb6408f6f79ac6d83a32a3bbd6a6d217babe23de077
-  languageName: node
-  linkType: hard
-
-"get-tsconfig@npm:^4.7.0":
-  version: 4.7.0
-  resolution: "get-tsconfig@npm:4.7.0"
-  dependencies:
-    resolve-pkg-maps: ^1.0.0
-  checksum: 44536925720acc2f133d26301d5626405d8fe33066625484ff309bb6fb7f3310dc0bb202f862805f21a791e38a9870c6dddb013d1443dd5d745d91ad1946254a
   languageName: node
   linkType: hard
 

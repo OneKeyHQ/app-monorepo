@@ -184,12 +184,6 @@ module.exports = ({ platform, basePath }) => ({
                   'modules': { 'mode': 'global' },
                 },
               },
-              !isDev && {
-                loader: 'esbuild-loader',
-                options: {
-                  minify: true,
-                },
-              },
             ].filter(Boolean),
             'sideEffects': true,
           },
