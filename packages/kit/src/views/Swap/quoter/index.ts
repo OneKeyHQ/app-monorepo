@@ -27,6 +27,7 @@ import {
 } from '../utils';
 
 import { SimpleQuoter } from './0x';
+import { DeezyQuoter } from './deezy';
 import { JupiterQuoter } from './jupiter';
 import { SocketQuoter } from './socket';
 import { SwftcQuoter } from './swftc';
@@ -119,6 +120,7 @@ type FetchQuoteHttpResult = {
   minAmountOut?: string;
   protocolFees?: ProtocolFees;
   estimatedPriceImpact?: string;
+  onChainSatsPerVbyte?: string;
 };
 
 type FetchQuoteHttpLimit = {
@@ -144,11 +146,14 @@ export class SwapQuoter {
 
   private socket = new SocketQuoter();
 
+  private deezy = new DeezyQuoter();
+
   private quoters: Quoter[] = [
     this.simple,
     this.socket,
     this.jupiter,
     this.swftc,
+    this.deezy,
   ];
 
   transactionReceipts: Record<
@@ -286,6 +291,7 @@ export class SwapQuoter {
         minAmountOut: fetchQuote.minAmountOut,
         protocolFees: fetchQuote.protocolFees,
         estimatedPriceImpact: fetchQuote.estimatedPriceImpact,
+        onChainSatsPerVbyte: fetchQuote.onChainSatsPerVbyte,
       };
 
       if (data.allowanceTarget && spendersAllowance) {

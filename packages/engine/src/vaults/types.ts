@@ -140,7 +140,6 @@ export type IVaultSettings = {
   hiddenNFTTab?: boolean;
   hiddenToolTab?: boolean;
   hiddenAddress?: boolean;
-  hiddenAccountInfoSwapOption?: boolean;
   hiddenAccountInfoMoreOption?: boolean;
   displayMemo?: boolean;
   hideFromToFieldIfValueEmpty?: boolean;
