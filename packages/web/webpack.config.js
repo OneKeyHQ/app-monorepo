@@ -7,6 +7,7 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpackManifestPlugin = require('webpack-manifest-plugin');
 const DuplicatePackageCheckerPlugin = require('duplicate-package-checker-webpack-plugin');
+const openBrowser = require('react-dev-utils/openBrowser');
 const webpackTools = require('../../development/webpackTools');
 // const { webModuleTranspile } = require('../../development/webpackTranspiles');
 
@@ -70,7 +71,7 @@ module.exports = async function (env, argv) {
       store: 'pack',
       cacheDirectory: path.join(__dirname, 'node_modules/.cache/web'),
     },
-    // 'infrastructureLogging': { 'debug': false, 'level': 'none' },
+    'infrastructureLogging': { 'debug': false, 'level': 'none' },
     output: {
       'publicPath': '/',
       'path': path.join(__dirname, 'web-build'),
@@ -118,6 +119,7 @@ module.exports = async function (env, argv) {
         },
       }),
       new webpack.DefinePlugin({
+        __DEV__: true,
         process: {
           env: {
             NODE_ENV: '"development"',
@@ -178,31 +180,31 @@ module.exports = async function (env, argv) {
       strictExportPresence: false,
       rules: [
         {
-          'exclude': ['/@babel(?:\\/|\\\\{1,2})runtime/'],
-          'test': '/\\.(js|mjs|jsx|ts|tsx|css)$/',
-          'resolve': { 'fullySpecified': false },
+          exclude: [/@babel(?:\/|\\{1,2})runtime/],
+          test: /\.(js|mjs|jsx|ts|tsx|css)$/,
+          resolve: {
+            fullySpecified: false,
+          },
         },
         {
           'oneOf': [
             {
-              'test': ['/\\.avif$/'],
-              'type': 'asset',
-              'mimetype': 'image/avif',
-              'parser': { 'dataUrlCondition': { 'maxSize': 1000 } },
+              test: [/\.avif$/],
+              type: 'asset',
+              mimetype: 'image/avif',
+              parser: {
+                dataUrlCondition: {
+                  maxSize: 1000,
+                },
+              },
             },
             {
-              'test': [
-                '/\\.bmp$/',
-                '/\\.gif$/',
-                '/\\.jpe?g$/',
-                '/\\.png$/',
-                '/\\.svg$/',
-              ],
-              'type': 'asset',
-              'parser': { 'dataUrlCondition': { 'maxSize': 1000 } },
+              test: [/\.bmp$/, /\.gif$/, /\.jpe?g$/, /\.png$/, /\.svg$/],
+              type: 'asset',
+              parser: { dataUrlCondition: { maxSize: 1000 } },
             },
             {
-              'test': '/\\.(js|mjs|jsx|ts|tsx)$/',
+              test: /\.(js|mjs|jsx|ts|tsx)$/,
               'use': {
                 'loader': 'babel-loader',
                 'options': {
@@ -216,35 +218,30 @@ module.exports = async function (env, argv) {
                   'cacheCompression': false,
                   'cacheDirectory': path.resolve(
                     __dirname,
-                    '.expo/web/cache/development/babel-loader',
+                    'node_modules/.cache/babel-loader',
                   ),
                 },
               },
               'resolve': { 'fullySpecified': false },
             },
             {
-              'test': '/\\.(css)$/',
-              'use': [
+              test: /\.(css)$/,
+              use: [
                 'style-loader',
                 {
-                  'loader': 'css-loader',
+                  loader: 'css-loader',
                   'options': {
                     'importLoaders': 1,
                     'sourceMap': true,
-                    'modules': { 'mode': 'icss' },
+                    'modules': { 'mode': 'global' },
                   },
                 },
               ],
               'sideEffects': true,
             },
             {
-              'exclude': [
-                '/^$/',
-                '/\\.(js|mjs|jsx|ts|tsx)$/',
-                '/\\.html$/',
-                '/\\.json$/',
-              ],
-              'type': 'asset/resource',
+              exclude: [/^$/, /\.(js|mjs|jsx|ts|tsx)$/, /\.html$/, /\.json$/],
+              type: 'asset/resource',
             },
           ],
         },
@@ -254,11 +251,14 @@ module.exports = async function (env, argv) {
           loader: require.resolve('@open-wc/webpack-import-meta-loader'),
         },
         {
-          'test': '/\\.mjs$/',
-          'include': '/node_modules/',
-          'type': 'javascript/auto',
+          test: /\.mjs$/,
+          include: /node_modules/,
+          type: 'javascript/auto',
         },
-        { 'test': '/\\.ejs$/i', 'use': ['html-loader', 'template-ejs-loader'] },
+        {
+          test: /\.ejs$/i,
+          use: ['html-loader', 'template-ejs-loader'],
+        },
       ],
     },
     resolve: {
@@ -317,10 +317,11 @@ module.exports = async function (env, argv) {
       port: 3000,
       // 'allowedHosts': ['all'],
       // 'compress': true,
-      // 'client': {
-      //   'webSocketURL': { 'pathname': '/_expo/ws' },
-      //   'overlay': false,
-      // },
+      'client': {
+        // 'webSocketURL': { 'pathname': '/_expo/ws' },
+        'overlay': false,
+      },
+
       // 'webSocketServer': { 'type': 'ws', 'options': { 'path': '/_expo/ws' } },
       // 'devMiddleware': { 'index': true, 'publicPath': '' },
       // 'https': false,
@@ -371,7 +372,6 @@ module.exports = async function (env, argv) {
     experiments: {
       lazyCompilation: {
         imports: true,
-        entries: false,
       },
     },
     optimization: {
