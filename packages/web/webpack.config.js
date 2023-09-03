@@ -8,7 +8,9 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpackManifestPlugin = require('webpack-manifest-plugin');
 const DuplicatePackageCheckerPlugin = require('duplicate-package-checker-webpack-plugin');
 const WebpackBar = require('webpackbar');
+const { EsbuildPlugin } = require('esbuild-loader');
 const webpackTools = require('../../development/webpackTools');
+
 // const { webModuleTranspile } = require('../../development/webpackTranspiles');
 
 // console.log('============ webpack.version ', webpack.version);
@@ -42,6 +44,14 @@ const webpackTools = require('../../development/webpackTools');
 //   devUtils.writePreviewWebpackConfigJson(config, 'webpack.config.preview.json');
 //   return config;
 // };
+
+const {
+  WEB_PORT = 3000,
+  ENABLE_ANALYZER = false,
+  ENABLE_ANALYZER_HTML_REPORT = false,
+} = process.env;
+
+const isDev = process.env.NODE_ENV !== 'production';
 
 module.exports = async function (env, argv) {
   const platform = webpackTools.developmentConsts.platforms.web;
@@ -249,7 +259,13 @@ module.exports = async function (env, argv) {
                     'modules': { 'mode': 'global' },
                   },
                 },
-              ],
+                !isDev && {
+                  loader: 'esbuild-loader',
+                  options: {
+                      minify: true,
+                  },
+                },
+              ].filter(Boolean),
               'sideEffects': true,
             },
             {
@@ -327,7 +343,7 @@ module.exports = async function (env, argv) {
     performance: { 'maxAssetSize': 600000, 'maxEntrypointSize': 600000 },
     devServer: {
       open: true,
-      port: 3000,
+      port: WEB_PORT,
       // 'allowedHosts': ['all'],
       // 'compress': true,
       'client': {
@@ -382,11 +398,13 @@ module.exports = async function (env, argv) {
         );
       },
     },
-    experiments: {
-      lazyCompilation: {
-        imports: true,
-      },
-    },
+    experiments: isDev
+      ? {
+          lazyCompilation: {
+            imports: true,
+          },
+        }
+      : {},
     optimization: {
       'splitChunks': {
         'chunks': 'all',
@@ -399,6 +417,15 @@ module.exports = async function (env, argv) {
         'maxAsyncRequests': 50000,
         'cacheGroups': {},
       },
+      minimizer: isDev
+        ? undefined
+        : [
+            new EsbuildPlugin({
+              legalComments: 'none',
+              minifyWhitespace: true,
+              target: 'es2020',
+            }),
+          ],
     },
   };
 };
