@@ -2,6 +2,7 @@ const { EsbuildPlugin } = require('esbuild-loader');
 
 module.exports = {
   mode: 'production',
+  devtool: false,
   output: {
     clean: true,
   },

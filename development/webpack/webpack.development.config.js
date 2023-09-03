@@ -3,6 +3,7 @@ const path = require('path');
 const { WEB_PORT = 3000 } = process.env;
 module.exports = ({ platform, basePath }) => ({
   mode: 'development',
+  devtool: 'cheap-module-source-map',
   devServer: {
     open: true,
     port: WEB_PORT,

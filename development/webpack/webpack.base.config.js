@@ -14,7 +14,6 @@ module.exports = ({ platform, basePath }) => ({
   context: path.resolve(basePath),
   bail: false,
   target: ['web'],
-  devtool: 'cheap-module-source-map',
   watchOptions: {
     'aggregateTimeout': 5,
     'ignored': [
@@ -36,10 +35,6 @@ module.exports = ({ platform, basePath }) => ({
     'pathinfo': true,
     'filename': '[name].bundle.js',
     'chunkFilename': 'static/js/[name].chunk.js',
-    // Point sourcemap entries to original disk location (format as URL on Windows)
-    // 'devtoolModuleFilenameTemplate': path
-    //   .relative(locations.root, info.absoluteResourcePath)
-    //   .replace(/\\/g, '/'),
   },
   plugins: [
     new WebpackBar(),
