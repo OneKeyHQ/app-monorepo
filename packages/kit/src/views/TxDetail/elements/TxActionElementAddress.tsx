@@ -203,7 +203,6 @@ export function TxActionElementAddress(
     walletId: accountWalletId,
   } = useAddressLabel({ address, networkId });
   const contact = useAddressBookItem({ address });
-  // const showAddress = !isLightningNetworkByNetworkId(networkId ?? '');
   let text = isShorten ? shortenAddress(address) : address;
   text =
     text === 'unknown' ? intl.formatMessage({ id: 'form__unknown' }) : text;

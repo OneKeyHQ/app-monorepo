@@ -230,11 +230,6 @@ export const ButtonsSection: FC = () => {
     [selectNetworkAccount, detailInfo?.tokens, sendAddress],
   );
 
-  const showSwapOption = useMemo(
-    () => !currentNetwork?.settings.hiddenAccountInfoSwapOption,
-    [currentNetwork],
-  );
-
   const showMoreOption = useMemo(
     () => !currentNetwork?.settings.hiddenAccountInfoMoreOption,
     [currentNetwork],
@@ -260,7 +255,6 @@ export const ButtonsSection: FC = () => {
         id: 'title__swap',
         onPress: onSwap,
         icon: 'ArrowsRightLeftSolid',
-        visible: () => showSwapOption,
         isDisabled: isWatchOnly,
       },
       {
@@ -304,7 +298,6 @@ export const ButtonsSection: FC = () => {
     onSwap,
     onReceive,
     onSend,
-    showSwapOption,
     showMoreOption,
     isWatchOnly,
   ]);
