@@ -52,7 +52,7 @@ module.exports = ({ platform, basePath }) => ({
         filename: '',
         browser: '',
         platform,
-        isDev: process.env.NODE_ENV === 'development',
+        isDev,
         htmlHeadPreloadCode: fs.readFileSync(
           path.resolve(basePath, '../ext/src/assets/preload-html-head.js'),
           {
@@ -71,7 +71,7 @@ module.exports = ({ platform, basePath }) => ({
       __DEV__: true,
       process: {
         env: {
-          NODE_ENV: JSON.stringify(process.env.NODE_ENV),
+          NODE_ENV: JSON.stringify(process.env.NODE_ENV || 'development'),
           PUBLIC_URL: '""',
           APP_MANIFEST:
             '{"name":"web","slug":"web","version":"0.0.1","web":{},"description":"Multi-chain support for BTC/ETH/BNB/NEAR/Polygon/Solana/Avalanche/Fantom and others","sdkVersion":"49.0.0","platforms":["ios","android","web"]}',
