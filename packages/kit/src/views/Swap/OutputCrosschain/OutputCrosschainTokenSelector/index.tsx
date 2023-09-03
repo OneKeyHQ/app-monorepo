@@ -31,8 +31,7 @@ import { useTokenSearch } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
 
 import { OutputCrosschainTokenSelectorContext } from './context';
-import { useContextAccountTokens } from './hooks';
-import { Observer } from './Observer';
+import { Observer, useContextAccountTokens } from './utils';
 
 import type { ListRenderItem } from 'react-native';
 
