@@ -7,6 +7,7 @@ import type { ExportedSeedCredential } from '@onekeyhq/engine/src/dbs/base';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { mnemonicFromEntropy } from '@onekeyhq/engine/src/secret';
+import type { Account } from '@onekeyhq/engine/src/types/account';
 import connectors from '@onekeyhq/engine/src/vaults/impl/lightning-network/connectors';
 import {
   getLnurlDetails,
@@ -449,5 +450,50 @@ export default class ServiceLightningNetwork extends ServiceBase {
       balance: new BigNumber(balance?.[0] ?? 0).toNumber(),
       currency: 'sats',
     };
+  }
+
+  @backgroundMethod()
+  async batchGetLnUrl({
+    networkId,
+    addresses,
+  }: {
+    networkId: string;
+    addresses: string[];
+  }): Promise<Record<string, string>> {
+    if (!Array.isArray(addresses) || !addresses.length) {
+      return {};
+    }
+    const vault = (await this.backgroundApi.engine.getChainOnlyVault(
+      networkId,
+    )) as VaultLightning;
+    return vault.batchGetLnurl(addresses);
+  }
+
+  @backgroundMethod()
+  async batchGetLnUrlByAccounts({
+    networkId,
+    accounts,
+  }: {
+    networkId: string;
+    accounts: Account[];
+  }): Promise<Record<string, string>> {
+    const getNormalizedAddress = (acc: Account) => {
+      try {
+        const addresses = JSON.parse(acc.addresses ?? '{}');
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
+        return (addresses.normalizedAddress as unknown as string) ?? '';
+      } catch (e: any) {
+        throw new Error('can not get normalized address: ', e);
+      }
+    };
+    const addresses = accounts.map((a) => getNormalizedAddress(a));
+    const lnurls = await this.batchGetLnUrl({ networkId, addresses });
+    const ret: Record<string, string> = {};
+    accounts.forEach((acc) => {
+      const address = getNormalizedAddress(acc);
+      const lnurl = lnurls[address];
+      ret[acc.id] = lnurl;
+    });
+    return ret;
   }
 }

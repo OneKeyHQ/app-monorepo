@@ -297,6 +297,10 @@ export function convertParams(params: FetchQuoteParams) {
   if (toTokenAmount) {
     urlParams.toTokenAmount = toTokenAmount;
   }
+  if (params.onChainSatsPerVbyte) {
+    urlParams.onChainSatsPerVbyte = params.onChainSatsPerVbyte;
+  }
+  urlParams.includes = '0x,1inch,jupiter,openocean,swftc,socket,mdex,Deezy';
   return urlParams;
 }
 

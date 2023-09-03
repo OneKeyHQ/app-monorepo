@@ -298,6 +298,21 @@ class ClientLightning {
       maxAge: getTimeDurationMs({ seconds: 60 }),
     },
   );
+
+  batchGetLnurl = memoizee(
+    async (addresses: string[]) =>
+      this.request
+        .post<Record<string, string>>('/lnurl/batchNewUrl', {
+          addresses,
+          tag: 'payRequest',
+          testnet: this.testnet,
+        })
+        .then((i) => i.data),
+    {
+      promise: true,
+      maxAge: getTimeDurationMs({ seconds: 60 }),
+    },
+  );
 }
 
 export default ClientLightning;
