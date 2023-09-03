@@ -7,7 +7,7 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpackManifestPlugin = require('webpack-manifest-plugin');
 const DuplicatePackageCheckerPlugin = require('duplicate-package-checker-webpack-plugin');
-const openBrowser = require('react-dev-utils/openBrowser');
+const WebpackBar = require('webpackbar');
 const webpackTools = require('../../development/webpackTools');
 // const { webModuleTranspile } = require('../../development/webpackTranspiles');
 
@@ -68,7 +68,19 @@ module.exports = async function (env, argv) {
     stats: 'errors-warnings',
     cache: {
       type: 'filesystem',
+      allowCollectingMemory: true,
       store: 'pack',
+      buildDependencies: {
+        defaultWebpack: [
+          path.join(__dirname, 'package.json'),
+          path.join(__dirname, '../../package.json'),
+        ],
+        config: [__filename],
+        tsconfig: [
+          path.join(__dirname, 'tsconfig.json'),
+          path.join(__dirname, '../../tsconfig.json'),
+        ],
+      },
       cacheDirectory: path.join(__dirname, 'node_modules/.cache/web'),
     },
     'infrastructureLogging': { 'debug': false, 'level': 'none' },
@@ -86,6 +98,7 @@ module.exports = async function (env, argv) {
       //   .replace(/\\/g, '/'),
     },
     plugins: [
+      new WebpackBar(),
       new HtmlWebpackPlugin({
         title: 'Web',
         minify: false,
