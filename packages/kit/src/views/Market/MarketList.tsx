@@ -152,15 +152,17 @@ const MarketList: FC = () => {
 
   return (
     <>
-       <Box flex={1} px={isVerticalLayout ? 2 : 3}
-          style={{
-            maxWidth: MAX_PAGE_CONTAINER_WIDTH,
-            width: '100%',
-            marginHorizontal: 'auto',
-              alignSelf: 'center',
-            paddingTop: 32,
-              }}
-          >
+      <Box
+        flex={1}
+        px={isVerticalLayout ? 2 : 3}
+        style={{
+          maxWidth: MAX_PAGE_CONTAINER_WIDTH,
+          width: '100%',
+          marginHorizontal: 'auto',
+          alignSelf: 'center',
+          paddingTop: 32,
+        }}
+      >
         <MarketCategoryToggles categories={categories} />
         <FlatList
           flex={1}
