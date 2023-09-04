@@ -312,7 +312,6 @@ export function useFeeInfoPayload({
       setLoading(true);
       try {
         const info = await fetchFeeInfo();
-        // await delay(600);
         setFeeInfoPayload(info);
       } catch (error: any) {
         // TODO: only an example implementation about showing rpc error

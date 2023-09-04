@@ -38,6 +38,7 @@ export function useThemeProviderVariant() {
 
   useEffect(() => {
     if (!localeReady) {
+      // i18n lazy loading
       if (typeof cachedLocale === 'function') {
         cachedLocale().then((module) => {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access

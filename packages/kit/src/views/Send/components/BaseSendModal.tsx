@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react';
 
-import { Box, Image, Modal, Text } from '@onekeyhq/components';
+import { Box, Image, Modal, Text, Token } from '@onekeyhq/components';
 
 import { LazyLoadingDisplayView } from '../../../components/LazyDisplayView';
 import { useNetwork } from '../../../hooks';
@@ -17,12 +17,13 @@ function BaseSendModal(props: IBaseSendModal) {
     <Modal
       headerDescription={
         <Box flexDirection="row" alignItems="center" mt={0.5}>
-          <Image
-            alt="logoURI"
-            source={{ uri: network?.logoURI }}
+          <Token
             size={4}
-            borderRadius="full"
             mr={2}
+            token={{
+              logoURI: network?.logoURI,
+              name: network?.shortName,
+            }}
           />
           <Text textAlign="center" typography="Caption" color="text-subdued">
             {network?.name || network?.shortName || undefined}

@@ -57,6 +57,8 @@ import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import ServiceBase from './ServiceBase';
 
+import type { IBackgroundApiWebembedCallMessage } from '../IBackgroundApi';
+import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
@@ -507,26 +509,11 @@ class ServiceDapp extends ServiceBase {
   }
 
   @backgroundMethod()
-  sendWebEmbedMessage(payload: {
-    method: string;
-    event: string;
-    params: Record<string, any>;
-  }) {
-    return new Promise((resolve, reject) => {
-      const id = this.backgroundApi.servicePromise.createCallback({
-        resolve,
-        reject,
-      });
-      this.backgroundApi.providers.$private.handleMethods({
-        data: {
-          method: payload.method,
-          event: payload.event,
-          send: this.backgroundApi.sendForProvider('$private'),
-          promiseId: id,
-          params: payload.params,
-        },
-      });
-    });
+  callWebEmbedApiProxy(data: IBackgroundApiWebembedCallMessage) {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    return privateProvider?.callWebEmbedApiProxy(data);
   }
 }
 

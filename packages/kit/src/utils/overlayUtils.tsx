@@ -20,7 +20,11 @@ export const showOverlay = throttle(
     };
     setTimeout(() => {
       const content = (
-        <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+        <View
+          testID="showOverlay-View-871042"
+          pointerEvents="box-none"
+          style={StyleSheet.absoluteFill}
+        >
           {renderOverlay(closeOverlay)}
         </View>
       );

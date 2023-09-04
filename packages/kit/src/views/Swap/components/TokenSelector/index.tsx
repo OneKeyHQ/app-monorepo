@@ -32,8 +32,7 @@ import { formatAmount, gt } from '../../utils';
 import { EmptySkeleton, LoadingSkeleton } from '../TokenSkeleton';
 
 import { TokenSelectorContext } from './context';
-import { useContextAccountTokens } from './hooks';
-import { Observer } from './Observer';
+import { Observer, useContextAccountTokens } from './utils';
 
 import type { ListRenderItem } from 'react-native';
 

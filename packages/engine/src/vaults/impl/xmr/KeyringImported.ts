@@ -1,5 +1,6 @@
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { COINTYPE_XMR as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { OneKeyInternalError } from '../../../errors';
 import { AccountType } from '../../../types/account';
@@ -29,7 +30,7 @@ export class KeyringImported extends KeyringImportedBase {
 
     const { publicSpendKey, publicViewKey } =
       await moneroApi.getKeyPairFromRawPrivatekey({
-        rawPrivateKey: privateKey,
+        rawPrivateKey: bufferUtils.bytesToHex(privateKey),
         isPrivateSpendKey: true,
       });
 
@@ -40,8 +41,8 @@ export class KeyringImported extends KeyringImportedBase {
     const address = moneroApi.pubKeysToAddress(
       network.isTestnet ? MoneroNetTypeEnum.TestNet : MoneroNetTypeEnum.MainNet,
       false,
-      publicSpendKey,
-      publicViewKey,
+      bufferUtils.toBuffer(publicSpendKey),
+      bufferUtils.toBuffer(publicViewKey),
     );
 
     return Promise.resolve([
@@ -76,7 +77,7 @@ export class KeyringImported extends KeyringImportedBase {
 
     const { publicSpendKey, privateViewKey, privateSpendKey } =
       await moneroApi.getKeyPairFromRawPrivatekey({
-        rawPrivateKey,
+        rawPrivateKey: bufferUtils.bytesToHex(rawPrivateKey),
         isPrivateSpendKey: true,
       });
 

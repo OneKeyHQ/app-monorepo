@@ -1,4 +1,4 @@
-import type { FC } from 'react';
+import { type FC, useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { AnimatePresence, MotiView } from 'moti';
@@ -11,6 +11,7 @@ import {
   Icon,
   Pressable,
   Skeleton,
+  Tooltip,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -42,15 +43,55 @@ export const WalletSelectorTriggerElement: FC<
   const walletName = useWalletName({ wallet });
   const { devicesStatus } = useDeviceStatusOfHardwareWallet();
 
+  const toOnboarding = useCallback(() => {
+    navigation.navigate(RootRoutes.Onboarding);
+  }, [navigation]);
+
   if (!wallet) {
     return (
-      <Button
-        onPress={() => {
-          navigation.navigate(RootRoutes.Onboarding);
-        }}
-      >
-        {intl.formatMessage({ id: 'action__create_wallet' })}
-      </Button>
+      <AnimatePresence initial={false}>
+        <MotiView
+          from={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{
+            opacity: 0,
+          }}
+          transition={{
+            type: 'timing',
+            duration: 150,
+          }}
+          style={{
+            flex: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+          }}
+        >
+          {!showWalletName && (
+            <Tooltip
+              label={intl.formatMessage({ id: 'action__create_wallet' })}
+              placement="right"
+            >
+              <Pressable
+                onPress={toOnboarding}
+                flexDirection="row"
+                alignItems="center"
+                p="8px"
+                borderRadius="xl"
+                _hover={{ bg: 'surface-hovered' }}
+              >
+                <Box>
+                  <Icon name="PlusMini" size={24} />
+                </Box>
+              </Pressable>
+            </Tooltip>
+          )}
+          {showWalletName && (
+            <Button onPress={toOnboarding}>
+              {intl.formatMessage({ id: 'action__create_wallet' })}
+            </Button>
+          )}
+        </MotiView>
+      </AnimatePresence>
     );
   }
 

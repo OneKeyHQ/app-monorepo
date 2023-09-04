@@ -9,15 +9,16 @@ import { getMoneroUtilInstance } from './moneroUtil/instance';
 import { privateSpendKeyToWords } from './moneroWords';
 
 import type { SignedTx } from '../../../../types/provider';
+import type { IMoneroApi } from './types';
 
-const getMoneroApi = async () => {
+async function getMoneroApi(): Promise<IMoneroApi> {
   const moneroCoreInstance = await getMoneroCoreInstance();
   const moneroUtilInstance = await getMoneroUtilInstance();
 
   const helper = new Helper(moneroUtilInstance, moneroCoreInstance);
 
   const getKeyPairFromRawPrivatekey = async (params: {
-    rawPrivateKey: Buffer | string;
+    rawPrivateKey: string;
     index?: number;
     isPrivateSpendKey?: boolean;
   }) => {
@@ -78,7 +79,7 @@ const getMoneroApi = async () => {
     sendFunds,
     seedAndkeysFromMnemonic,
   };
-};
+}
 
 /**
  * Web SDK is always successful

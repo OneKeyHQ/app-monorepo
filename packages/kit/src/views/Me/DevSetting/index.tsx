@@ -23,6 +23,7 @@ import {
   getFiatEndpoint,
   getSocketEndpoint,
 } from '@onekeyhq/engine/src/endpoint';
+import webembedApiProxy from '@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import type { ISettingsDevModeInfo } from '@onekeyhq/kit/src/store/reducers/settings';
@@ -371,6 +372,41 @@ export const DevSettingSection = () => {
             }}
           />
         </Container.Item>
+
+        <Container.Item title="test WebEmbedApi" titleColor="text-critical">
+          <Button
+            size="xs"
+            onPress={() => {
+              console.log(
+                'show file origin test: <>>>><',
+                JSON.stringify(
+                  new URL(
+                    'file:///private/var/containers/Bundle/Application/883AGGGGGG/OneKeyWallet.app/web-embed/index.html',
+                  ).origin,
+                ),
+              );
+
+              webembedApiProxy.secret
+                .testShow({
+                  name: `zhangsan-${Date.now()}`,
+                  random: Math.random(),
+                })
+                .then((r) => {
+                  console.log('Developer TEST >>>> secret.show result: ', r);
+                });
+              // .catch((err) => {
+              //   console.error(
+              //     'Developer TEST >>>> secret.show error: ',
+              //     (err as Error)?.message,
+              //     typeof (err as Error)?.message,
+              //   );
+              // });
+            }}
+          >
+            test
+          </Button>
+        </Container.Item>
+
         <Container.Item
           title="Show content-script reload BUTTON"
           titleColor="text-critical"
@@ -387,6 +423,7 @@ export const DevSettingSection = () => {
             }}
           />
         </Container.Item>
+
         <Container.Item
           title="Request intercept check"
           titleColor="text-critical"

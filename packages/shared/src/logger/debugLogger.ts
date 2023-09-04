@@ -1,5 +1,5 @@
 import { format as fnsFormat } from 'date-fns';
-import { stringify } from 'flatted';
+import safeStringify from 'json-stringify-safe';
 import { isArray, isNil } from 'lodash';
 import { InteractionManager } from 'react-native';
 import {
@@ -33,7 +33,7 @@ type IConsoleFuncProps = {
   options?: any;
 };
 
-const LOG_STRING_LIMIT = 500;
+const LOG_STRING_LIMIT = 3000;
 
 function countObjectDepth(source: unknown, maxDepth = 5, depth = 0): number {
   const currentDepth = depth + 1;
@@ -96,11 +96,10 @@ function stringifyLog(...args: any[]) {
       );
     }
   }
-  const stringifiedLog =
-    // @ts-ignore
-    stringify(...argsNew);
-  return platformEnv.isDev && stringifiedLog.length > LOG_STRING_LIMIT
-    ? `${stringifiedLog.slice(0, LOG_STRING_LIMIT)}...`
+  const stringifiedLog = safeStringify(argsNew);
+
+  return stringifiedLog.length > LOG_STRING_LIMIT
+    ? `${stringifiedLog.slice(0, LOG_STRING_LIMIT)}...(truncated)`
     : stringifiedLog;
 }
 
@@ -139,7 +138,7 @@ const consoleFunc = (msg: string, props: IConsoleFuncProps) => {
   }
 
   if (repeatContentCount > 0) {
-    const message = `---[${repeatContentCount}]`;
+    const message = `------ [${repeatContentCount}]`;
     repeatContentCount = 0;
     consoleFunc(message, {
       ...props,
@@ -199,7 +198,7 @@ export const logger = RNLogger.createLogger({
   async: true,
   // eslint-disable-next-line @typescript-eslint/unbound-method
   asyncFunc: InteractionManager.runAfterInteractions,
-  stringifyFunc: stringifyLog,
+  // stringifyFunc: stringifyLog, // not working, use convertMethod instead.
   dateFormat: 'iso',
   transport: [consoleTransport],
   transportOptions: {
@@ -247,9 +246,34 @@ export type LoggerEntity = {
   error: (...args: any[]) => void;
 };
 
+export type LoggerEntityFull = {
+  debug: (...args: any[]) => void;
+  _debug: (...args: any[]) => void;
+  info: (...args: any[]) => void;
+  _info: (...args: any[]) => void;
+  warn: (...args: any[]) => void;
+  _warn: (...args: any[]) => void;
+  error: (...args: any[]) => void;
+  _error: (...args: any[]) => void;
+};
+
 const Cache = {
   createLogger(name: LoggerNames): LoggerEntity {
-    return logger.extend(name) as LoggerEntity;
+    const instance = logger.extend(name) as LoggerEntityFull;
+
+    // stringifyFunc: stringifyLog, not working for iOS
+    const convertMethod = (methodName: keyof LoggerEntity) => {
+      instance[`_${methodName}`] = instance[methodName];
+      instance[methodName] = (...args: any[]) =>
+        instance[`_${methodName}`](stringifyLog(...args));
+    };
+
+    convertMethod('debug');
+    convertMethod('info');
+    convertMethod('warn');
+    convertMethod('error');
+
+    return instance;
   },
 };
 

@@ -23,6 +23,7 @@ import {
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { LazyDisplayView } from '../../../../components/LazyDisplayView';
@@ -239,6 +240,7 @@ const AccountView: FC<AccountViewProps> = ({
   const activeExternalWalletName = useAppSelector(
     (s) => s.general.activeExternalWalletName,
   );
+  const hiddenAddress = isLightningNetworkByNetworkId(networkId);
   const onPress = useCallback(() => {
     onSelect?.(account);
   }, [account, onSelect]);
@@ -277,9 +279,19 @@ const AccountView: FC<AccountViewProps> = ({
               </Text>
               <Box flexDirection="row">
                 <Text typography="Body2" color="text-subdued">
-                  {shortenAddress(account.displayAddress || account.address)}
+                  {hiddenAddress
+                    ? null
+                    : shortenAddress(account.displayAddress || account.address)}
                 </Text>
-                <Box w={1} h={1} m={2} bgColor="icon-disabled" rounded="full" />
+                {!hiddenAddress && (
+                  <Box
+                    w={1}
+                    h={1}
+                    m={2}
+                    bgColor="icon-disabled"
+                    rounded="full"
+                  />
+                )}
                 {nativeBalance ? (
                   <>
                     <Text typography="Body2" color="text-subdued" isTruncated>
@@ -442,6 +454,22 @@ const AccountSelectorModal: FC<AccountSelectorModalProps> = ({
           );
           data = data.filter((acc) => acc.address !== current.address);
         }
+      }
+      if (isLightningNetworkByNetworkId(networkId)) {
+        const lnurlMap =
+          await backgroundApiProxy.serviceLightningNetwork.batchGetLnUrlByAccounts(
+            {
+              networkId: networkId ?? '',
+              accounts: data,
+            },
+          );
+        data = data.map((acc) => {
+          const lnurl = lnurlMap[acc.id];
+          return {
+            ...acc,
+            address: lnurl,
+          };
+        });
       }
       setAccounts(data);
     }

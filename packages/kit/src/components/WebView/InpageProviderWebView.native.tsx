@@ -6,7 +6,7 @@ import { Box, Progress } from 'native-base';
 
 import { Center, Spinner } from '@onekeyhq/components';
 
-// injected hot-reload cache update: 21334400088746
+// injected hot-reload cache update: 213344000887463332
 // eslint-disable-next-line import/order
 // @ts-ignore
 import injectedNativeCode from './injectedNative.text-js';
@@ -15,6 +15,10 @@ import { NativeWebView } from './NativeWebView';
 import type { InpageProviderWebViewProps } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewProps } from 'react-native-webview';
+
+if (process.env.NODE_ENV !== 'production') {
+  console.log(`injected hot-reload cache update: 0038743333`);
+}
 
 const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
   (
