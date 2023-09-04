@@ -11,18 +11,9 @@ export function offscreenSetup() {
     async receiveHandler(payload, bridge) {
       const msg = payload.data as IOffscreenApiMessagePayload | undefined;
       if (msg && msg.type === OFFSCREEN_API_MESSAGE_TYPE) {
-        const { module, method, params } = msg;
-        const moduleInstance: any = await offscreenApi.createOffscreenApiModule(
-          module,
-        );
-        if (moduleInstance && moduleInstance[method]) {
-          const result = await moduleInstance[method](...(params as any[]));
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-          return result;
-        }
-        throw new Error(
-          `offscreen module method not found: ${module}.${method}()`,
-        );
+        const result = await offscreenApi.callOffscreenApiMethod(msg);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        return result;
       }
     },
   });

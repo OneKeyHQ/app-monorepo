@@ -2,6 +2,35 @@
 
 import { wait } from '@onekeyhq/kit/src/utils/helper';
 
+import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+
+export function buildCallRemoteApiMethod<T extends IJsonRpcRequest>(
+  moduleGetter: (module: any) => Promise<any>,
+) {
+  return async function callRemoteApiMethod(message: T) {
+    const { method, params = [] } = message;
+    // @ts-ignore
+    const module = message?.module as any;
+    if (!module) {
+      throw new Error('callRemoteApiMethod ERROR: module is required');
+    }
+    const moduleInstance: any = await moduleGetter(module);
+    if (moduleInstance && moduleInstance[method]) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      const result = await moduleInstance[method](
+        // @ts-ignore
+        ...[].concat(params as any[]),
+      );
+      return result;
+    }
+    throw new Error(
+      `callRemoteApiMethod module method not found: ${
+        module as string
+      }.${method}()`,
+    );
+  };
+}
+
 abstract class RemoteApiProxyBase {
   abstract checkEnvAvailable(): void;
 
