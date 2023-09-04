@@ -8,7 +8,7 @@ const productionConfig = require('./webpack.prod.config');
 
 const { NODE_ENV = 'development' } = process.env;
 
-module.exports = ({ basePath, platform = 'web' }) => {
+module.exports = ({ basePath, platform = 'desktop' }) => {
   switch (NODE_ENV) {
     case 'production':
       return merge(baseConfig({ platform, basePath }), productionConfig, {
