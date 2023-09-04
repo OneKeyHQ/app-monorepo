@@ -1,4 +1,4 @@
-import { useCallback, type FC } from 'react';
+import { type FC, useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { AnimatePresence, MotiView } from 'moti';
@@ -80,7 +80,7 @@ export const WalletSelectorTriggerElement: FC<
                 _hover={{ bg: 'surface-hovered' }}
               >
                 <Box>
-                  <Icon name={'PlusMini'} size={24} />
+                  <Icon name="PlusMini" size={24} />
                 </Box>
               </Pressable>
             </Tooltip>
