@@ -24,6 +24,9 @@ module.exports = ({ basePath, platform = 'web' }) => {
         productionConfig,
         ...configs,
         {
+          output: {
+            crossOriginLoading: 'anonymous',
+          },
           plugins: [new SubresourceIntegrityPlugin()],
         },
       );
