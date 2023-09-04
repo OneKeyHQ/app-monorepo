@@ -6,6 +6,7 @@ const baseConfig = require('./webpack.base.config');
 const analyzerConfig = require('./webpack.analyzer.config');
 const developmentConfig = require('./webpack.development.config');
 const productionConfig = require('./webpack.prod.config');
+const babelTools = require('./babelTools');
 
 const { ENABLE_ANALYZER = false, NODE_ENV = 'development' } = process.env;
 
@@ -13,9 +14,12 @@ const webConfig = {
   plugins: [new DuplicatePackageCheckerPlugin()],
 };
 
-module.exports = ({ basePath, platform = 'web' }) => {
+module.exports = ({
+  basePath,
+  platform = babelTools.developmentConsts.platforms.web,
+}) => {
   const configs = ENABLE_ANALYZER
-    ? [webConfig, analyzerConfig({ configName: 'web' })]
+    ? [webConfig, analyzerConfig({ configName: platform })]
     : [webConfig];
   switch (NODE_ENV) {
     case 'production':
