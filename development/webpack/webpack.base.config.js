@@ -256,7 +256,7 @@ module.exports = ({ platform, basePath }) => ({
       'fs': false,
       'util': false,
       'os': false,
-      'buffer': require.resolve('buffer'),
+      'buffer': require.resolve('buffer/'),
     },
   },
   experiments: {
