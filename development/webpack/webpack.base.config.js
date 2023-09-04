@@ -285,6 +285,7 @@ module.exports = ({ platform, basePath }) => ({
   },
   experiments: {
     asyncWebAssembly: true,
+    syncWebAssembly: true,
   },
   performance: { 'maxAssetSize': 600000, 'maxEntrypointSize': 600000 },
   optimization: {
