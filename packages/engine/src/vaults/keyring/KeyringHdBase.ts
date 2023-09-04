@@ -1,6 +1,5 @@
 import { batchGetPrivateKeys } from '@onekeyhq/engine/src/secret';
-
-import { OneKeyInternalError } from '../../errors';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
 import { KeyringSoftwareBase } from './KeyringSoftwareBase';
 

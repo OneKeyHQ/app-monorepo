@@ -12,10 +12,6 @@ import {
   Text,
   ToastManager,
 } from '@onekeyhq/components';
-import {
-  OneKeyError,
-  OneKeyErrorClassNames,
-} from '@onekeyhq/engine/src/errors';
 import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
@@ -25,6 +21,8 @@ import type {
 } from '@onekeyhq/engine/src/vaults/types';
 import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import { isExternalAccount } from '@onekeyhq/shared/src/engine/engineUtils';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { OneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -352,7 +350,7 @@ function SendProgress({
         });
       }
     } catch (e) {
-      const error = e as OneKeyError;
+      const error = e as OneKeyError<any, { message?: string }>;
       debugLogger.common.error(error);
       if (backRouteName) {
         // navigation.navigate(backRouteName);

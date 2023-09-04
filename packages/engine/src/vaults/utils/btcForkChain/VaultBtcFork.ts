@@ -29,6 +29,15 @@ import {
   COINTYPE_BTC,
   IMPL_BTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  InsufficientBalance,
+  InvalidAddress,
+  InvalidTokenAddress,
+  NotImplemented,
+  OneKeyInternalError,
+  PreviousAccountIsEmpty,
+  UtxoNotFoundError,
+} from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { checkIsUnListOrderPsbt } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.utils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -41,15 +50,6 @@ import {
   getUtxoId,
   getUtxoUniqueKey,
 } from '../../../dbs/simple/entity/SimpleDbEntityUtxoAccounts';
-import {
-  InsufficientBalance,
-  InvalidAddress,
-  InvalidTokenAddress,
-  NotImplemented,
-  OneKeyInternalError,
-  PreviousAccountIsEmpty,
-  UtxoNotFoundError,
-} from '../../../errors';
 import {
   getDefaultPurpose,
   getLastAccountId,
@@ -286,7 +286,11 @@ export default class VaultBtcFork extends VaultBase {
       );
       if (!accountExisted) {
         const { label } = getAccountNameInfoByTemplate(network.impl, template);
-        throw new PreviousAccountIsEmpty(label as string);
+        throw new PreviousAccountIsEmpty({
+          info: {
+            '0': label as string,
+          },
+        });
       }
     }
 
@@ -824,7 +828,9 @@ export default class VaultBtcFork extends VaultBase {
     });
 
     if (!inputs || !outputs || isNil(fee)) {
-      throw new InsufficientBalance('Failed to select UTXOs');
+      throw new InsufficientBalance({
+        message: 'Failed to select UTXOs',
+      });
     }
     const totalFee = fee.toString();
     const totalFeeInNative = new BigNumber(totalFee)

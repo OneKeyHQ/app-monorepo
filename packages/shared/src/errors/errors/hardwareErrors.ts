@@ -1,14 +1,101 @@
 /* eslint-disable max-classes-per-file */
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { get } from 'lodash';
 
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
-import type { OneKeyHardwareErrorPayload } from '@onekeyhq/engine/src/errors';
-import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
+
+import {
+  OneKeyErrorClassNames,
+  type OneKeyHardwareErrorData,
+  type OneKeyHardwareErrorPayload,
+} from '../types/errorTypes';
+
+import { OneKeyError } from './baseErrors';
+
+import type { IOneKeyErrorInfo } from '../types/errorTypes';
 
 export enum CustomOneKeyHardwareError {
   NeedOneKeyBridge = 3030,
   // TODO: remove this error code
   NeedFirmwareUpgrade = 4030,
+}
+
+export class OneKeyHardwareError<
+  T extends OneKeyHardwareErrorData = OneKeyHardwareErrorData,
+> extends OneKeyError<any, T> {
+  override className = OneKeyErrorClassNames.OneKeyHardwareError;
+
+  codeHardware?: string;
+
+  override key: LocaleIds = 'msg__hardware_default_error';
+
+  static handleErrorParams(
+    params?: any,
+    errorParams?: Record<string | number, string>,
+  ): IOneKeyErrorInfo {
+    const info: IOneKeyErrorInfo = {};
+    Object.keys(errorParams || {}).forEach((key) => {
+      const valueKey = errorParams?.[key];
+      if (valueKey) {
+        const value = get(params, valueKey, '');
+        info[key] = value;
+      }
+    });
+
+    return info;
+  }
+
+  /**
+   * create OneKeyHardwareError from OneKeyHardware error payload
+   * @param errorPayload Hardware error payload
+   * @param errorParams Hardware Error params, key is i18n placeholder, value is error payload key
+   */
+  constructor(
+    errorPayload?: OneKeyHardwareErrorPayload,
+    errorParams?: Record<string | number, string>,
+    data?: T,
+  ) {
+    super({
+      message:
+        errorPayload?.error ??
+        errorPayload?.message ??
+        'Unknown hardware error',
+      info:
+        OneKeyHardwareError.handleErrorParams(
+          errorPayload?.params,
+          errorParams,
+        ) || {},
+    });
+    const { code, deviceId, connectId } = errorPayload || {};
+    this.codeHardware = code?.toString();
+    this.data = {
+      deviceId,
+      connectId,
+      reconnect: this.data?.reconnect,
+      ...data,
+    } as T;
+  }
+}
+
+export class OneKeyHardwareAbortError extends OneKeyError {
+  override className = OneKeyErrorClassNames.OneKeyAbortError;
+
+  override key: LocaleIds = 'msg__engine__internal_error';
+}
+
+export class OneKeyAlreadyExistWalletError extends OneKeyHardwareError<
+  {
+    walletId: string;
+    walletName: string | undefined;
+  } & OneKeyHardwareErrorData
+> {
+  override className = OneKeyErrorClassNames.OneKeyAlreadyExistWalletError;
+
+  override key: LocaleIds = 'msg__wallet_already_exist';
+
+  constructor(walletId: string, walletName: string | undefined) {
+    super(undefined, undefined, { walletId, walletName });
+  }
 }
 
 export class InvalidPIN extends OneKeyHardwareError {
@@ -279,4 +366,8 @@ export class NotInSigningModeError extends OneKeyHardwareError {
 // 未知错误
 export class UnknownHardwareError extends OneKeyHardwareError {
   override data = { reconnect: true };
+}
+
+export class TestHardwareError2 extends Error {
+  override message = 'TestError222333111';
 }

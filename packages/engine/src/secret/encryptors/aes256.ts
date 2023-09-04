@@ -3,7 +3,7 @@ import * as crypto from 'crypto';
 import { AES_CBC, Pbkdf2HmacSha256 } from 'asmcrypto.js';
 
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
-import { IncorrectPassword } from '@onekeyhq/shared/src/errors/common-errors';
+import { IncorrectPassword } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 

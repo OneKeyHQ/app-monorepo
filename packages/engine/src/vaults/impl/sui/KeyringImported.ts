@@ -14,8 +14,8 @@ import { hexToBytes } from '@noble/hashes/utils';
 import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
 import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_SUI as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
-import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';

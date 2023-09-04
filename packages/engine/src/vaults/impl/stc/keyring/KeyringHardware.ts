@@ -5,11 +5,11 @@
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 import { arrayify } from '@ethersproject/bytes';
 
-import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { COINTYPE_STC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { OneKeyHardwareError } from '../../../../errors';
 import { AccountType } from '../../../../types/account';
 import { KeyringHardwareBase } from '../../../keyring/KeyringHardwareBase';
 import { StarcoinTypes, utils } from '../sdk';

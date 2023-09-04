@@ -21,9 +21,9 @@ import {
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import { zip } from '@onekeyhq/shared/src/modules3rdParty/react-native-zip-archive';
 
+import { toPlainErrorObject } from '../errors/utils/errorUtils';
 import platformEnv from '../platformEnv';
 import appStorage from '../storage/appStorage';
-import { toPlainErrorObject } from '../utils/errorUtils';
 
 type IConsoleFuncProps = {
   msg: any;
@@ -72,7 +72,9 @@ function stringifyLog(...args: any[]) {
     if (arg instanceof Error) {
       const error = toPlainErrorObject(arg as any);
       if (process.env.NODE_ENV === 'production') {
-        delete error.stack;
+        if (error && error.stack) {
+          delete error.stack;
+        }
       }
       return error;
     }

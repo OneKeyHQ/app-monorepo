@@ -1,9 +1,5 @@
 import BigNumber from 'bignumber.js';
 
-import {
-  FailedToEstimatedGasError,
-  InsufficientGasFee,
-} from '@onekeyhq/engine/src/errors';
 import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
 import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
@@ -21,6 +17,10 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  FailedToEstimatedGasError,
+  InsufficientGasFee,
+} from '@onekeyhq/shared/src/errors';
 
 import ServiceBase from './ServiceBase';
 
@@ -101,7 +101,12 @@ export default class ServiceTransaction extends ServiceBase {
     const totalGas = baseFee.plus(params.prepaidFee ?? '0');
     if (new BigNumber(balanceStr).lt(totalGas)) {
       const token = await engine.getNativeTokenInfo(params.networkId);
-      throw new InsufficientGasFee(token.symbol, baseFee.toFixed());
+      throw new InsufficientGasFee({
+        info: {
+          token: token.symbol,
+          amount: baseFee.toFixed(),
+        },
+      });
     }
   }
 

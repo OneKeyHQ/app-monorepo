@@ -1,9 +1,9 @@
+import type { InvalidAddress } from '@onekeyhq/shared/src/errors';
+
 import nexaMockData from '../@tests/nexaMockData';
 import { testPrepareAccounts } from '../@tests/nexaPresetCase';
 
 import { KeyringWatching } from './KeyringWatching';
-
-import type { InvalidAddress } from '../../../../errors';
 
 jest.setTimeout(3 * 60 * 1000);
 

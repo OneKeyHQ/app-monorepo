@@ -1,6 +1,6 @@
 import { KeyringWatching as KeyringWatchingBtcFork } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/KeyringWatching';
+import { InvalidAddress } from '@onekeyhq/shared/src/errors';
 
-import { InvalidAddress } from '../../../errors';
 import { AccountType } from '../../../types/account';
 import { AddressEncodings } from '../../utils/btcForkChain/types';
 

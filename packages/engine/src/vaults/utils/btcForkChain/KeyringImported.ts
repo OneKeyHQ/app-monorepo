@@ -9,9 +9,9 @@ import {
   encrypt,
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';

@@ -1,7 +1,7 @@
 import BigNumber from 'bignumber.js';
 
-import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 
 import { SUI_NATIVE_COIN } from '../utils';
 

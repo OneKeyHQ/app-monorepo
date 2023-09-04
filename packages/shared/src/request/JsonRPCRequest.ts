@@ -6,7 +6,7 @@ import type { IJsonRpcResponsePro } from '@onekeyhq/engine/src/types';
 import {
   JsonPRCResponseError,
   ResponseError,
-} from '@onekeyhq/shared/src/errors/request-errors';
+} from '@onekeyhq/shared/src/errors';
 
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 

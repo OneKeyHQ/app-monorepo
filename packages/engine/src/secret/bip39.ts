@@ -2,7 +2,7 @@ import * as crypto from 'crypto';
 
 import * as bip39 from 'bip39';
 
-import { InvalidMnemonic } from '@onekeyhq/shared/src/errors/common-errors';
+import { InvalidMnemonic } from '@onekeyhq/shared/src/errors';
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 
 export type RevealableSeed = {

@@ -6,19 +6,19 @@ import semver from 'semver';
 import { ToastManager } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
-import type { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
-import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
+import type { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
+import * as Error from '@onekeyhq/shared/src/errors';
+import { OneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { toPlainErrorObject } from '@onekeyhq/shared/src/utils/errorUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import showHardwarePopup from '../../views/Hardware/PopupHandle/showHardwarePopup';
 import { CUSTOM_UI_RESPONSE } from '../../views/Hardware/PopupHandle/showHardwarePopup.consts';
 
-import * as Error from './errors';
 import { getDeviceFirmwareVersion } from './OneKeyHardware';
 
 import type { HardwarePopup } from '../../views/Hardware/PopupHandle/showHardwarePopup.consts';
