@@ -5,7 +5,6 @@ import { mnemonicToSeedSync } from 'bip39';
 
 import type { ExportedSeedCredential } from '@onekeyhq/engine/src/dbs/base';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
-import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { mnemonicFromEntropy } from '@onekeyhq/engine/src/secret';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import connectors from '@onekeyhq/engine/src/vaults/impl/lightning-network/connectors';
@@ -30,6 +29,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 
 import ServiceBase from './ServiceBase';
 
@@ -240,11 +240,15 @@ export default class ServiceLightningNetwork extends ServiceBase {
         },
       );
       if (response.status >= 500) {
-        throw new OneKeyError('Recipient server error');
+        throw new OneKeyError({
+          message: 'Recipient server error',
+        });
       }
 
       if (!Object.prototype.hasOwnProperty.call(response.data, 'pr')) {
-        throw new OneKeyError((response.data as LNURLError).reason);
+        throw new OneKeyError({
+          message: (response.data as LNURLError).reason,
+        });
       }
       return response.data as LNURLPaymentInfo;
     } catch (e) {
@@ -319,7 +323,9 @@ export default class ServiceLightningNetwork extends ServiceBase {
       if (response.data.status.toUpperCase() === 'OK') {
         return response.data;
       }
-      throw new OneKeyError(response.data.reason);
+      throw new OneKeyError({
+        message: response.data.reason,
+      });
     } catch (e) {
       console.error(e);
       const error = e as AxiosError<LNURLError>;

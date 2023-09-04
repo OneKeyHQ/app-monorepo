@@ -21,10 +21,10 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
-import { TaprootAddressError } from '@onekeyhq/engine/src/errors';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
+import { TaprootAddressError } from '@onekeyhq/shared/src/errors';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {

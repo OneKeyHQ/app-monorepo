@@ -2,7 +2,6 @@ import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
 import { ToastManager } from '@onekeyhq/components';
-import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { Token } from '@onekeyhq/engine/src/types/token';
@@ -12,6 +11,7 @@ import {
   calculateTotalFeeRange,
   getSelectedFeeInfoUnit,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { removeTrailingZeros } from '../../../utils/helper';
@@ -301,7 +301,9 @@ export const verifyBulkTransferBeforeConfirm = async ({
 
     if (amountType === AmountTypeEnum.Custom) {
       if (isNil(senderItem.amount)) {
-        throw new OneKeyError('Can not get sender amount value');
+        throw new OneKeyError({
+          message: 'Can not get sender amount value',
+        });
       }
       senderAmount = senderItem.amount;
     } else if (amountType === AmountTypeEnum.Fixed) {
