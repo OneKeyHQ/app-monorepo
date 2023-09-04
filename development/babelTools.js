@@ -102,7 +102,6 @@ function normalizeConfig({ platform, config }) {
           ...envExposedToClient.buildEnvExposedToClientDangerously({
             platform,
           }),
-          'TAMAGUI_TARGET',
         ],
       },
     ],
