@@ -2,7 +2,12 @@
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
-import type { IBackgroundApiInternalCallMessage } from '../../IBackgroundApi';
+import { buildCallRemoteApiMethod } from '../../RemoteApiProxyBase';
+
+import type {
+  IBackgroundApiInternalCallMessage,
+  IOffscreenApiMessagePayload,
+} from '../../IBackgroundApi';
 import type { IOffscreenApi } from './IOffscreenApi';
 import type { LowLevelCoreApi } from '@onekeyfe/hd-core';
 
@@ -43,6 +48,11 @@ const createOffscreenApiModule = memoizee(
   },
 );
 
+const callOffscreenApiMethod =
+  buildCallRemoteApiMethod<IOffscreenApiMessagePayload>(
+    createOffscreenApiModule,
+  );
+
 export default {
-  createOffscreenApiModule,
+  callOffscreenApiMethod,
 };

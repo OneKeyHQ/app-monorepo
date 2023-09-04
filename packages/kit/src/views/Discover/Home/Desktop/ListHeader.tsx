@@ -1,10 +1,10 @@
 import { type FC, useCallback, useEffect, useRef, useState } from 'react';
 
-import { wait } from '@onekeyfe/hd-core';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Input, Typography } from '@onekeyhq/components';
 
+import { wait } from '../../../../utils/helper';
 import { gotoSite, openMatchDApp } from '../../Explorer/Controller/gotoSite';
 import SearchView from '../../Explorer/Search/SearchView';
 import { BrowserShortcuts } from '../BrowserShortcuts';
@@ -121,7 +121,7 @@ export const ListHeader: FC = () => {
                 setTimeout(() => {
                   onSearchSubmitEditing(item);
                   // eslint-disable-next-line
-                (ref.current as any)?.blur?.();
+                  (ref.current as any)?.blur?.();
                 }, 100);
               }}
             />

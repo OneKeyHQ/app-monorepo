@@ -1,6 +1,6 @@
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { DbApi } from '../../src/dbs/index';
+import { DbApi } from '../../src/dbs/indexed';
 import { getAccountNameInfoByImpl } from '../../src/managers/impl';
 
 import type { DBAPI } from '../../src/dbs/base';

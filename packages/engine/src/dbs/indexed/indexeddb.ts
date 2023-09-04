@@ -54,6 +54,8 @@ import {
   checkPassword,
 } from '../base';
 
+import { INDEXED_DB_VERSION } from './indexeddb.version';
+
 import type {
   DBAccount,
   DBUTXOAccount,
@@ -81,6 +83,7 @@ import type {
   CreateHWWalletParams,
   DBAPI,
   ExportedCredential,
+  IDbApiGetContextOptions,
   OneKeyContext,
   SetWalletNameAndAvatarParams,
   StoredPrivateKeyCredential,
@@ -97,7 +100,7 @@ type TokenBinding = {
 require('fake-indexeddb/auto');
 
 const DB_NAME = 'OneKey';
-const DB_VERSION = 8;
+const DB_VERSION = INDEXED_DB_VERSION;
 
 const CONTEXT_STORE_NAME = 'context';
 const CREDENTIAL_STORE_NAME = 'credentials';
@@ -200,6 +203,7 @@ class IndexedDBApi implements DBAPI {
         reject(new OneKeyInternalError('Failed to open DB.'));
       };
 
+      // db migration
       request.onupgradeneeded = (versionChangedEvent) => {
         const db: IDBDatabase = request.result;
         const oldVersion = versionChangedEvent.oldVersion || 0;
@@ -269,16 +273,31 @@ class IndexedDBApi implements DBAPI {
     };
   }
 
-  getContext(): Promise<OneKeyContext | null | undefined> {
+  getContext(
+    options?: IDbApiGetContextOptions,
+  ): Promise<OneKeyContext | null | undefined> {
     return this.ready.then(
       (db) =>
-        new Promise((resolve, _reject) => {
+        new Promise((resolve, reject) => {
           const request = db
             .transaction([CONTEXT_STORE_NAME])
             .objectStore(CONTEXT_STORE_NAME)
             .get(MAIN_CONTEXT);
+
           request.onsuccess = (_event) => {
-            resolve(request.result as OneKeyContext);
+            const ctx = request.result as OneKeyContext | undefined | null;
+            if (!ctx) {
+              return reject(new OneKeyInternalError('Context not found.'));
+            }
+            if (options?.verifyPassword) {
+              if (!checkPassword(ctx, options.verifyPassword)) {
+                return reject(new WrongPassword());
+              }
+            }
+            return resolve(ctx);
+          };
+          request.onerror = (_event) => {
+            reject(new OneKeyInternalError(`get db Context error. `));
           };
         }),
     );

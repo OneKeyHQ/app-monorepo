@@ -19,6 +19,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  isProviderApiPrivateAllowedMethod,
+  isProviderApiPrivateAllowedOrigin,
+} from '@onekeyhq/shared/src/utils/originUtils';
 
 import { createBackgroundProviders } from './providers/backgroundProviders';
 
@@ -36,43 +40,6 @@ import type {
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
-
-const PRIVATE_WHITE_LIST_ORIGIN = [
-  'https://onekey.so',
-  'http://localhost:3008', // iOS simulator DEV localhost for web-embed
-  'http://localhost:8081', // iOS simulator DEV localhost for web-embed
-  'null', // Android DEV localhost for web-embed. url like file://
-  ...(platformEnv.isDev
-    ? [
-        // origin allowed in DEV
-        'http://192.168.31.215:3008',
-        'http://192.168.31.204:3008',
-        'http://192.168.31.96:3008',
-        'http://192.168.50.36:3008',
-        'http://192.168.124.2:3008',
-        'http://192.168.0.104:3008',
-      ]
-    : []),
-].filter(Boolean);
-function isPrivateAllowedOrigin(origin?: string) {
-  return (
-    origin &&
-    (origin?.endsWith('.onekey.so') ||
-      PRIVATE_WHITE_LIST_ORIGIN.includes(origin))
-  );
-}
-
-function isPrivateAllowedMethod(method?: string) {
-  return (
-    method &&
-    [
-      'wallet_connectToWalletConnect',
-      'wallet_getConnectWalletInfo',
-      'wallet_sendSiteMetadata',
-      'wallet_scanQrcode',
-    ].includes(method || '')
-  );
-}
 
 function isExtensionInternalCall(payload: IJsBridgeMessagePayload) {
   const { internal, origin } = payload;
@@ -213,8 +180,8 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     }
     if (
       scope === IInjectedProviderNames.$private &&
-      !isPrivateAllowedOrigin(origin) &&
-      !isPrivateAllowedMethod(payloadData?.method)
+      !isProviderApiPrivateAllowedOrigin(origin) &&
+      !isProviderApiPrivateAllowedMethod(payloadData?.method)
     ) {
       const error = new Error(
         `[${origin as string}] is not allowed to call $private methods: ${
@@ -278,7 +245,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       return this.handleInternalMethods(payload);
     }
 
-    if (isPrivateAllowedOrigin(origin)) {
+    if (isProviderApiPrivateAllowedOrigin(origin)) {
       return this.handleSelfOriginMethods(payload);
     }
 
@@ -352,30 +319,16 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
       // * bridgeExtBg.requestToAllCS supports function data: await data({ origin })
       this.bridgeExtBg?.requestToAllCS(scope, data);
-    } else {
-      if (this.bridge) {
-        if (isFunction(data)) {
-          // eslint-disable-next-line no-param-reassign
-          data = await data({ origin: this.bridge.remoteInfo.origin });
-        }
-        ensureSerializable(data);
-
-        // this.bridge.requestSync({ scope, data });
-        if (this.bridge.globalOnMessageEnabled) {
-          this.bridge.requestSync({ scope, data });
-        }
+    } else if (this.bridge) {
+      if (isFunction(data)) {
+        // eslint-disable-next-line no-param-reassign
+        data = await data({ origin: this.bridge.remoteInfo.origin });
       }
-      if (this.webEmbedBridge) {
-        if (isFunction(data)) {
-          // eslint-disable-next-line no-param-reassign
-          data = await data({ origin: this.webEmbedBridge.remoteInfo.origin });
-        }
-        ensureSerializable(data);
+      ensureSerializable(data);
 
-        // this.bridge.requestSync({ scope, data });
-        if (this.webEmbedBridge.globalOnMessageEnabled) {
-          this.webEmbedBridge.requestSync({ scope, data });
-        }
+      // this.bridge.requestSync({ scope, data });
+      if (this.bridge.globalOnMessageEnabled) {
+        this.bridge.requestSync({ scope, data });
       }
     }
   };

@@ -73,7 +73,6 @@
     "xrpl": "^2.5.0"
   },
   "react-native": {
-    "./src/dbs/indexed": "./src/dbs/realms",
     "realm": "realm"
   },
   "browser": {

@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { wait } from '@onekeyfe/hd-core';
-
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import { useInterval } from '../../../../hooks';
+import { wait } from '../../../../utils/helper';
 import { type MarketApiData, fetchChartData } from '../../chartService';
 import { TIMEOPTIONS, TIMEOPTIONS_VALUE } from '../../TimeControl';
 

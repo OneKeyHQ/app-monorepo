@@ -11,6 +11,14 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { DebugRenderTracker } from '@onekeyhq/components/src/DebugRenderTracker';
+import {
+  decrypt,
+  decryptAsync,
+  encodeSensitiveText,
+  encrypt,
+  encryptAsync,
+} from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import {
   atom,
@@ -222,11 +230,11 @@ function OwnedViewDeepFresh({ $key }: IDemoDeepFreshToken) {
     () => (
       <DebugRenderTracker>
         <Typography.Body1Strong>
-          {item.owned ? '   ✅' : '   '}
+          {item?.owned ? '   ✅' : '   '}
         </Typography.Body1Strong>
       </DebugRenderTracker>
     ),
-    [item.owned],
+    [item?.owned],
   );
   return content;
 }
@@ -305,6 +313,29 @@ function DemoDeepFreshOverview() {
   );
 }
 
+function generateRandomStrings(
+  numStrings: number,
+  stringLength: number,
+): string[] {
+  const randomStrings: string[] = [];
+  // eslint-disable-next-line no-plusplus
+  for (let i = 0; i < numStrings; i++) {
+    let randomString = '';
+    while (randomString.length < stringLength) {
+      // Generate a random string and remove the '0.' at the beginning
+      randomString += Math.random().toString(36).substring(2);
+    }
+    // Trim the string to the desired length
+    randomString = randomString.substring(0, stringLength);
+    randomStrings.push(randomString);
+  }
+  return randomStrings;
+}
+
+// Generate 100 random strings of length 256
+
+let shouldUseAsyncEncrypt = false;
+
 function ReloadButtons() {
   const [, refresh] = useAtomDemoDeepFresh(atomDemoDeepFreshReload);
   const [loading] = useAtomDemoDeepFresh(atomDemoDeepFreshTokensLoading);
@@ -322,6 +353,113 @@ function ReloadButtons() {
           isLoading={loading}
         >
           Shuffle
+        </Button>
+        <Button
+          size="lg"
+          mt={4}
+          onPress={async () => {
+            shouldUseAsyncEncrypt = !shouldUseAsyncEncrypt;
+            const randomStrings = generateRandomStrings(30, 1024);
+            // const randomStrings = ['z85bpz1astcai9oh918j'];
+            // @ts-ignore
+            global.$$$$randomStrings = randomStrings;
+            const pwd = encodeSensitiveText({
+              text: '1111_____3333',
+            });
+            const tester = async (str: string) => {
+              if (shouldUseAsyncEncrypt) {
+                const sstrAsync = (
+                  await encryptAsync({
+                    password: pwd,
+                    data: bufferUtils.toBuffer(str, 'utf-8'),
+                  })
+                ).toString('hex');
+                const dstrAsync1 = (
+                  await decryptAsync({
+                    password: pwd,
+                    data: bufferUtils.toBuffer(sstrAsync, 'hex'),
+                  })
+                ).toString('utf-8');
+                await wait(0);
+                return {
+                  sstrAsync,
+                  dstrAsync1,
+                };
+              }
+              const sstr = encrypt(
+                pwd,
+                bufferUtils.toBuffer(str, 'utf-8'),
+              ).toString('hex');
+              const dstr = decrypt(
+                pwd,
+                bufferUtils.toBuffer(sstr, 'hex'),
+              ).toString('utf-8');
+              await wait(0);
+              return {
+                sstr,
+                dstr,
+              };
+
+              // const dstr1 = decrypt(
+              //   pwd,
+              //   bufferUtils.toBuffer(sstrAsync, 'hex'),
+              // ).toString('utf-8');
+
+              // const dstrAsync = (
+              //   await decryptAsync({
+              //     password: pwd,
+              //     data: bufferUtils.toBuffer(sstr, 'hex'),
+              //   })
+              // ).toString('utf-8');
+
+              // console.log('=====---->>>>>>', {
+              //   str,
+              //   dstr,
+              //   dstr1,
+              //   dstrAsync1,
+              //   dstrAsync,
+              // });
+
+              // if (
+              //   // sstr !== sstrAsync || // encrypt text is random text, so it's not equal
+              //   str !== dstr ||
+              //   str !== dstr1 ||
+              //   str !== dstrAsync ||
+              //   str !== dstrAsync1 ||
+              //   dstr !== dstrAsync ||
+              //   dstr !== dstrAsync1 ||
+              //   dstr1 !== dstrAsync ||
+              //   dstr1 !== dstrAsync1
+              // ) {
+              //   console.error('str not matched');
+              //   console.log({
+              //     str,
+              //     sstr,
+              //     sstrAsync,
+              //     dstr,
+              //     dstr1,
+              //     dstrAsync,
+              //     dstrAsync1,
+              //   });
+              //   throw new Error('str not matched');
+              // }
+            };
+
+            let now = Date.now();
+            await Promise.all(randomStrings.map(tester));
+            console.log('Test encrypt by loop', (Date.now() - now) / 1000, {
+              shouldUseAsyncEncrypt,
+            });
+
+            now = Date.now();
+            const bundleStr = randomStrings.join(',');
+            await tester(bundleStr);
+            console.log('Test encrypt by bundle', (Date.now() - now) / 1000, {
+              shouldUseAsyncEncrypt,
+            });
+          }}
+        >
+          Test encrypt
         </Button>
       </Box>
     </DebugRenderTracker>

@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import simpleDb from '../../../dbs/simple/simpleDb';
@@ -372,9 +373,13 @@ export default class Vault extends VaultBase {
         case AccountCredentialType.PrivateViewKey:
           return Buffer.from(privateViewKey).toString('hex');
         case AccountCredentialType.Mnemonic:
-          return moneroApi.privateSpendKeyToWords(privateSpendKey);
+          return moneroApi.privateSpendKeyToWords(
+            bufferUtils.toBuffer(privateSpendKey),
+          );
         default:
-          return moneroApi.privateSpendKeyToWords(privateSpendKey);
+          return moneroApi.privateSpendKeyToWords(
+            bufferUtils.toBuffer(privateSpendKey),
+          );
       }
     }
 
@@ -395,7 +400,6 @@ export default class Vault extends VaultBase {
         netType: network.isTestnet ? 'TESTNET' : 'MAINNET',
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       if (result.err_msg) {
         isValid = false;
       } else {

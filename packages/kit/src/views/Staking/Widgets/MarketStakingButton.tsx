@@ -90,12 +90,12 @@ export const MarketStakeButtonContent: FC<MarketStakeButtonContentProps> = ({
       setLoading(false);
     }
   }, [
-    selectNetworkAccount,
-    navigation,
-    stakingType,
     accountId,
-    networkId,
     intl,
+    navigation,
+    networkId,
+    selectNetworkAccount,
+    stakingType,
   ]);
   return stakingType && !loading ? (
     <>
