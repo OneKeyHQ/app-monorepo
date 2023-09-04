@@ -32,8 +32,7 @@ import { TokenMoreMenu } from '../TokenSelectorUtilComponent';
 import { EmptySkeleton, LoadingSkeleton } from '../TokenSkeleton';
 
 import { TokenSelectorControlContext } from './context';
-import { useContextAccountTokens } from './hooks';
-import { Observer } from './Observer';
+import { Observer, useContextAccountTokens } from './utils';
 
 import type { ListRenderItem } from 'react-native';
 

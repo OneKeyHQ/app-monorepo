@@ -31,8 +31,7 @@ import { useTokenSearch } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
 
 import { OutputCrosschainTokenSelectorContext } from './context';
-import { useContextAccountTokens } from './hooks';
-import { Observer } from './Observer';
+import { Observer, useContextAccountTokens } from './utils';
 
 import type { ListRenderItem } from 'react-native';
 
@@ -46,7 +45,7 @@ const NetworkSelector: FC = () => {
   }
 
   return (
-    <Box mb="4">
+    <Box mb="4" w="full" overflow="hidden">
       <HStack space="2">
         {networkOptions.map((o) => (
           <Pressable
