@@ -3,7 +3,7 @@ const { merge } = require('webpack-merge');
 const baseConfig = require('./webpack.base.config');
 const developmentConfig = require('./webpack.development.config');
 const productionConfig = require('./webpack.prod.config');
-const babelTools = require('./babelTools');
+const babelTools = require('../babelTools');
 
 const { NODE_ENV = 'development' } = process.env;
 

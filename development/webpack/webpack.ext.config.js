@@ -16,7 +16,7 @@ const webConfig = {
 
 module.exports = ({
   basePath,
-  platform = babelTools.developmentConsts.platforms.web,
+  platform = babelTools.developmentConsts.platforms.ext,
 }) => {
   const configs = ENABLE_ANALYZER
     ? [webConfig, analyzerConfig({ configName: platform })]
