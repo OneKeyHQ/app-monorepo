@@ -13,7 +13,7 @@ const showJsBridgeMessage = Boolean(localStorage.getItem(storageKey));
 // @ts-ignore
 global.$$webembedApi = webembedApi;
 
-function WebEmbedApiWebPage() {
+function WebEmbedApiWebPage({ showContent = true }: { showContent?: boolean }) {
   const [msg, setMsg] = useState<any>('');
   const handler = useCallback(async (payload: IJsBridgeMessagePayload) => {
     if (showJsBridgeMessage) {
@@ -60,6 +60,10 @@ function WebEmbedApiWebPage() {
       Reload
     </button>
   );
+
+  if (!showContent) {
+    return null;
+  }
 
   return (
     <div style={{ fontSize: 12, padding: 4 }}>

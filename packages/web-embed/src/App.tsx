@@ -31,7 +31,7 @@ function HomePage() {
   return (
     <>
       <LazyOnboardingAutoTyping />
-      <LazyWebEmbedApiWebPage />
+      <LazyWebEmbedApiWebPage showContent={false} />
     </>
   );
 }

@@ -2720,11 +2720,11 @@ class Engine {
     const context = await this.dbApi.getContext();
     if (context && context.verifyString !== DEFAULT_VERIFY_STRING) {
       const result = checkPassword(context, password);
-      if (result) {
-        // await this.dbApi.migrateCredentialsToMap({
-        //   password,
-        // });
-      }
+      // if (result) {
+      // await this.dbApi.migrateCredentialsToMap({
+      //   password,
+      // });
+      // }
       return result;
     }
     return true;
