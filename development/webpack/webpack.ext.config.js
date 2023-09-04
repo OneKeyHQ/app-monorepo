@@ -1,6 +1,9 @@
 const { merge } = require('webpack-merge');
 
 const path = require('path');
+const webpack = require('webpack');
+const WebpackBar = require('webpackbar');
+
 const baseConfig = require('./webpack.base.config');
 const analyzerConfig = require('./webpack.analyzer.config');
 const developmentConfig = require('./webpack.development.config');
@@ -63,32 +66,31 @@ module.exports = ({
         'cacheGroups': {},
       },
     },
-
-  plugins: [
-    new WebpackBar(),
-    new webpack.DefinePlugin({
-      __DEV__: true,
-      process: {
-        env: {
-          NODE_ENV: JSON.stringify(process.env.NODE_ENV || 'development'),
-          PUBLIC_URL: '""',
-          APP_MANIFEST:
-            '{"name":"web","slug":"web","version":"0.0.1","web":{},"description":"Multi-chain support for BTC/ETH/BNB/NEAR/Polygon/Solana/Avalanche/Fantom and others","sdkVersion":"49.0.0","platforms":["ios","android","web"]}',
-          EXPO_DEBUG: false,
-          PLATFORM: JSON.stringify(platform),
-          WDS_SOCKET_PATH: '"/_expo/ws"',
-          TAMAGUI_TARGET: JSON.stringify('web'),
-          ONEKEY_BUILD_TYPE: JSON.stringify(platform),
-          EXT_INJECT_RELOAD_BUTTON: '""',
+    plugins: [
+      new WebpackBar(),
+      new webpack.DefinePlugin({
+        __DEV__: true,
+        process: {
+          env: {
+            NODE_ENV: JSON.stringify(process.env.NODE_ENV || 'development'),
+            PUBLIC_URL: '""',
+            APP_MANIFEST:
+              '{"name":"web","slug":"web","version":"0.0.1","web":{},"description":"Multi-chain support for BTC/ETH/BNB/NEAR/Polygon/Solana/Avalanche/Fantom and others","sdkVersion":"49.0.0","platforms":["ios","android","web"]}',
+            EXPO_DEBUG: false,
+            PLATFORM: JSON.stringify(platform),
+            WDS_SOCKET_PATH: '"/_expo/ws"',
+            TAMAGUI_TARGET: JSON.stringify('web'),
+            ONEKEY_BUILD_TYPE: JSON.stringify(platform),
+            EXT_INJECT_RELOAD_BUTTON: '""',
+          },
         },
-      },
-    }),
-    new webpack.ProvidePlugin({
-      Buffer: ['buffer', 'Buffer'],
-    }),
-  ],
+      }),
+      new webpack.ProvidePlugin({
+        Buffer: ['buffer', 'Buffer'],
+      }),
+    ],
     output: {
-      clear: true,
+      clean: true,
       path: path.resolve(basePath, 'build', getOutputFolder()),
       // do not include [hash] here, as `content-script.bundle.js` filename should be stable
       filename: '[name].bundle.js',
@@ -141,9 +143,10 @@ module.exports = ({
       ],
     },
   });
-  const extConfigs = ({ name }) => ENABLE_ANALYZER
-    ? [extConfig({ name }), analyzerConfig({ configName: platform })]
-    : [extConfig({ name })];
+  const extConfigs = ({ name }) =>
+    ENABLE_ANALYZER
+      ? [extConfig({ name }), analyzerConfig({ configName: platform })]
+      : [extConfig({ name })];
 
   const multipleEntryConfigs = [
     // **** ui build (always code-split)
@@ -275,16 +278,16 @@ module.exports = ({
     },
   ].filter(Boolean);
 
-  const entryConfigs = devUtils.createMultipleEntryConfigs(
-    ({ config }) =>
-      merge(
-        baseConfig({ platform, basePath }),
-        IS_DEV ? developmentConfig({ platform, basePath }) : productionConfig,
-        ...extConfigs({ name: config.name }),
-        config,
-      ),
-    multipleEntryConfigs,
-  );
+  const entryConfigs = devUtils.createMultipleEntryConfigs(({ config }) => {
+    const BaseConfig = baseConfig({ platform, basePath });
+    BaseConfig.plugins = [];
+    return merge(
+      BaseConfig,
+      IS_DEV ? developmentConfig({ platform, basePath }) : productionConfig,
+      ...extConfigs({ name: config.name }),
+      config,
+    );
+  }, multipleEntryConfigs);
   const result = [
     entryConfigs[0],
     ...entryConfigs.slice(1, entryConfigs.length).map((c) => {
