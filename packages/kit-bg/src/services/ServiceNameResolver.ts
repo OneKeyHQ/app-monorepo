@@ -1,5 +1,6 @@
 import SID, { getSidAddress } from '@siddomains/sidjs';
 import { Resolution } from '@unstoppabledomains/resolution';
+import axios from 'axios';
 import { createInstance } from 'dotbit';
 import { filter, groupBy, map } from 'lodash';
 
@@ -117,6 +118,18 @@ export default class ServiceNameResolver extends ServiceBase {
         resolver: this.resolveFilEvm.bind(this),
         networkRequired: true,
       },
+      {
+        pattern: /(\.zk|\.base|\.linea)$/,
+        shownSymbol: 'STAR',
+        supportImplsMap: {
+          'evm--*': ['eth'],
+          // [OnekeyNetwork.apt]: ['APT'],
+          // [OnekeyNetwork.sui]: ['SUI'],
+          // [OnekeyNetwork.btc]: ['BTC'],
+          // [OnekeyNetwork.doge]: ['DOGE'],
+        },
+        resolver: this.resolveStarDomains.bind(this),
+      },
     ];
     return NAME_RESOLVER;
   }
@@ -151,6 +164,13 @@ export default class ServiceNameResolver extends ServiceBase {
     'crypto.ATOM.address',
     'crypto.FET.version.FETCHAI.address',
   ];
+
+  // Star Name Service map
+  private StarNameServiceMap = {
+    '.zk': 'https://omniapi.zkns.app/domain-resolver/getRecord/',
+    '.base': 'https://mainnet-api.sns.so/domain/getRecord/',
+    '.linea': 'https://mainnet-api.sns.so/domain/getRecord/',
+  };
 
   @backgroundMethod()
   async checkIsValidName(name: string, networId?: string) {
@@ -430,5 +450,43 @@ export default class ServiceNameResolver extends ServiceBase {
         key: 'fileEvmAddress',
       },
     ];
+  }
+
+  async resolveStarDomains(name: string) {
+    const nameSuffix = name.slice(name.lastIndexOf('.')) as
+      | '.zk'
+      | '.base'
+      | '.linea';
+    const fetchApi = this.StarNameServiceMap[nameSuffix];
+    try {
+      const { data } = await axios.get<string & { data: string; code: number }>(
+        `${fetchApi}${name}`,
+      );
+      if (data) {
+        if (nameSuffix === '.zk') {
+          return [
+            {
+              subtype: 'eth',
+              value: data,
+              type: 'address',
+              key: 'address.eth',
+            },
+          ];
+        }
+        if (data.code === 200) {
+          return [
+            {
+              subtype: 'eth',
+              value: data.data,
+              type: 'address',
+              key: 'address.eth',
+            },
+          ];
+        }
+      }
+      return [];
+    } catch (e) {
+      return 'msg__network_request_failed';
+    }
   }
 }
