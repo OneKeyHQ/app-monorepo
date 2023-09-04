@@ -259,6 +259,9 @@ module.exports = ({ platform, basePath }) => ({
       'buffer': require.resolve('buffer'),
     },
   },
+  experiments: {
+    asyncWebAssembly: true,
+  },
   performance: { 'maxAssetSize': 600000, 'maxEntrypointSize': 600000 },
   optimization: {
     'splitChunks': {
