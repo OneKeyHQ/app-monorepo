@@ -98,9 +98,6 @@ module.exports = ({
       publicPath: '/',
       globalObject: 'this', // FIX: window is not defined in service-worker background
     },
-    experiments: {
-      lazyCompilation: false,
-    },
     devServer: {
       open: false,
       devMiddleware: {
