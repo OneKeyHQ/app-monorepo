@@ -7,6 +7,7 @@ const developmentConsts = require('../../../development/developmentConsts');
 const devUtils = require('./devUtils');
 
 const platform = developmentConsts.platforms.ext;
+const basePath = process.env.PWD
 
 // https://github.com/facebook/create-react-app/blob/main/packages/react-dev-utils/InterpolateHtmlPlugin.js
 function createHtmlPlugin({ name }) {
@@ -20,8 +21,8 @@ function createHtmlPlugin({ name }) {
   const htmlWebpackPlugin = new HtmlWebpackPlugin({
     // MUST BE .shtml different with withExpo() builtin .html loader
     template: `${htmlLoader}${path.join(
-      __dirname,
-      `../../shared/src/web/index.html.ejs`,
+      basePath,
+      `../shared/src/web/index.html.ejs`,
     )}`,
     templateParameters: indexHtmlParameter.createEjsParams(createParamsOptions),
     // output filename

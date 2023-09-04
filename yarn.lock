@@ -6922,6 +6922,8 @@ __metadata:
     next-transpile-modules: ^8.0.0
     react: 18.2.0
     react-dom: 18.2.0
+    webpack: 5.88.2
+    webpack-cli: 5.1.4
   languageName: unknown
   linkType: soft
 
