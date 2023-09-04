@@ -1,7 +1,6 @@
 import { bytesToHex } from '@noble/hashes/utils';
 
 import type { ExportedSeedCredential } from '@onekeyhq/engine/src/dbs/base';
-import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import { getAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
 import { Signer } from '@onekeyhq/engine/src/proxy';
 import { mnemonicFromEntropy } from '@onekeyhq/engine/src/secret';
@@ -21,6 +20,7 @@ import {
   IMPL_DOT as COIN_IMPL,
   COINTYPE_DOT as COIN_TYPE,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { TYPE_PREFIX } from './consts';

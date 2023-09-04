@@ -8,8 +8,8 @@ import blake from 'blakejs';
 
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
-import { OneKeyInternalError } from '../../../errors';
 import { IDecodedTxStatus } from '../../types';
 
 import { ProtocolIndicator } from './types';

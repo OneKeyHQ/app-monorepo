@@ -1,8 +1,7 @@
 import axios from 'axios';
 
 import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
-
-import { OneKeyInternalError } from '../errors';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
 import type {
   MetaMaskGasAPIResponse,

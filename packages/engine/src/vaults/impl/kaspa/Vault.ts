@@ -3,10 +3,6 @@ import { hexToBytes } from '@noble/hashes/utils';
 import BigNumber from 'bignumber.js';
 import { groupBy } from 'lodash';
 
-import {
-  InvalidAddress,
-  OneKeyInternalError,
-} from '@onekeyhq/engine/src/errors';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
@@ -34,6 +30,10 @@ import type { TxInput } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/typ
 import { convertFeeValueToGwei } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 import { VaultBase } from '@onekeyhq/engine/src/vaults/VaultBase';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import {
+  InvalidAddress,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { KeyringHardware } from './KeyringHardware';

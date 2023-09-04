@@ -1,4 +1,5 @@
-import { NotImplemented } from '../../../errors';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
+
 import { VaultHelperBase } from '../../VaultHelperBase';
 
 import type { IEncodedTx } from '../../types';

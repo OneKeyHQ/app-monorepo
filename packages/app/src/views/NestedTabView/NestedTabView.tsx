@@ -101,7 +101,7 @@ const NestedTabView: ForwardRefRenderFunction<
         isScrolling.current = true;
       }
     },
-    [],
+    [onPageScrollStateChange],
   );
 
   return (

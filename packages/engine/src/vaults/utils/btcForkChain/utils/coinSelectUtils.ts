@@ -7,7 +7,7 @@ import coinSelectSplit from 'coinselect/split';
 import coinSelectUtils from 'coinselect/utils';
 import { isNil } from 'lodash';
 
-import { InsufficientBalance } from '../../../../errors';
+import { InsufficientBalance } from '@onekeyhq/shared/src/errors';
 
 import type { IEncodedTxBtc, IUTXOInput, IUTXOOutput } from '../types';
 import type {
@@ -259,7 +259,9 @@ export function coinSelectForOrdinal(
     false,
   );
   if (result.inputs?.length === 0 || !result.inputs) {
-    throw new InsufficientBalance('Failed to select UTXOs for inscription');
+    throw new InsufficientBalance({
+      message: 'Failed to select UTXOs for inscription',
+    });
   }
   const ordUtxos = inputsForCoinSelect.filter((item) =>
     Boolean(item.forceSelect),

@@ -23,7 +23,7 @@ import type {
   ModalScreenProps,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
-import { CustomOneKeyHardwareError } from '@onekeyhq/kit/src/utils/hardware/errors';
+import { CustomOneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';

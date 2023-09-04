@@ -1,9 +1,5 @@
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
-  AllNetworksMinAccountsError,
-  AllNetworksUpto3LimitsError,
-} from '@onekeyhq/engine/src/errors';
-import {
   allNetworksAccountRegex,
   generateFakeAllnetworksAccount,
   getWalletIdFromAccountId,
@@ -40,6 +36,10 @@ import {
   IMPL_SOL,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  AllNetworksMinAccountsError,
+  AllNetworksUpto3LimitsError,
+} from '@onekeyhq/shared/src/errors';
 import {
   AppEventBusNames,
   appEventBus,
@@ -263,8 +263,10 @@ export default class ServiceAllNetwork extends ServiceBase {
     });
 
     if (maxIndex === -1) {
-      throw new AllNetworksMinAccountsError('', {
-        0: 1,
+      throw new AllNetworksMinAccountsError({
+        info: {
+          0: 1,
+        },
       });
     }
 
@@ -277,8 +279,10 @@ export default class ServiceAllNetwork extends ServiceBase {
     );
 
     if (accountIds.length >= AllNetworksMaxAccounts) {
-      throw new AllNetworksUpto3LimitsError('', {
-        0: AllNetworksMaxAccounts,
+      throw new AllNetworksUpto3LimitsError({
+        info: {
+          0: AllNetworksMaxAccounts,
+        },
       });
     }
 
@@ -296,8 +300,10 @@ export default class ServiceAllNetwork extends ServiceBase {
     const fakeNewAccountId = `${walletId}--${accountMaxIndex}`;
 
     if (allNetworksAccountsMap?.[fakeNewAccountId]) {
-      throw new AllNetworksMinAccountsError('', {
-        0: accountMaxIndex + 2,
+      throw new AllNetworksMinAccountsError({
+        info: {
+          0: accountMaxIndex + 2,
+        },
       });
     }
 

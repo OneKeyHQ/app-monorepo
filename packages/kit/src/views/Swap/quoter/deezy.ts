@@ -7,7 +7,6 @@ import { QuoterType } from '../typings';
 
 import type {
   Quoter,
-  SwftcTransactionReceipt,
   TransactionDetails,
   TransactionProgress,
 } from '../typings';

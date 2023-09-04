@@ -2,7 +2,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 
-import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { getAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
@@ -14,11 +13,12 @@ import type {
   ISignCredentialOptions,
 } from '@onekeyhq/engine/src/vaults/types';
 import { addHexPrefix } from '@onekeyhq/engine/src/vaults/utils/hexUtils';
-import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import {
   IMPL_DOT as COIN_IMPL,
   COINTYPE_DOT as COIN_TYPE,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { TYPE_PREFIX } from './consts';

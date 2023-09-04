@@ -1,7 +1,8 @@
 import { Transaction, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
-import { NotImplemented } from '../../../errors';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
+
 import { VaultHelperBase } from '../../VaultHelperBase';
 
 import type { IEncodedTx, IRawTx } from '../../types';

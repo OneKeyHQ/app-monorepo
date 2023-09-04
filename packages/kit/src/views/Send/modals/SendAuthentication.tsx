@@ -5,13 +5,13 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Spinner, ToastManager } from '@onekeyhq/components';
-import type { OneKeyError } from '@onekeyhq/engine/src/errors';
-import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import type {
   IEncodedTx,
   ISignedTxPro,
 } from '@onekeyhq/engine/src/vaults/types';
 import { isExternalAccount } from '@onekeyhq/shared/src/engine/engineUtils';
+import type { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { OneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -214,7 +214,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
         }
       }
     } catch (e) {
-      const error = e as OneKeyError;
+      const error = e as OneKeyError<any, { message?: string }>;
       debugLogger.common.error(error);
       if (backRouteName) {
         // navigation.navigate(backRouteName);
@@ -242,8 +242,8 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
       // TODO: better error displaying
       if (error?.code === -32603 && typeof error?.data?.message === 'string') {
         if (
-          error?.data?.message.includes('nonce') &&
-          error?.data?.message.includes('high')
+          error?.data?.message?.includes('nonce') &&
+          error?.data?.message?.includes('high')
         ) {
           error.data.message = intl.formatMessage({
             id: 'msg__invalid_tx_that_nonce_is_higher_than_default',

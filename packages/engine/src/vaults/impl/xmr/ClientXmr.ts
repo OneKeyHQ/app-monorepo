@@ -5,9 +5,8 @@ import BigNumber from 'bignumber.js';
 
 import { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
 import type { CoinInfo } from '@onekeyhq/engine/src/types/chain';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
-
-import { NotImplemented } from '../../../errors';
 
 import { getMoneroApi } from './sdk';
 

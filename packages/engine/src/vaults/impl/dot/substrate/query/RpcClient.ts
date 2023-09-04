@@ -1,8 +1,8 @@
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
 
-import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { addHexPrefix } from '@onekeyhq/engine/src/vaults/utils/hexUtils';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 
 import { RPCBody } from './RPCBody';
 

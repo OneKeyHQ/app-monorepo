@@ -10,7 +10,7 @@ import type {
   ClientInfo,
   FeePricePerUnit,
 } from '@onekeyhq/engine/src/types/provider';
-import { JsonPRCResponseError } from '@onekeyhq/shared/src/errors/request-errors';
+import { JsonPRCResponseError } from '@onekeyhq/shared/src/errors';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 
 import type { GasCostConfig, NearAccessKey } from '../types';

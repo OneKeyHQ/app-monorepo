@@ -1,10 +1,10 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
-import type { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
-import * as Error from '@onekeyhq/kit/src/utils/hardware/errors';
+import type { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
+import * as Error from '@onekeyhq/shared/src/errors';
 
-import debugLogger from '../logger/debugLogger';
-import platformEnv from '../platformEnv';
+import debugLogger from '../../logger/debugLogger';
+import platformEnv from '../../platformEnv';
 
 function caputureSpecialError(code: number, message: string) {
   if (typeof message !== 'string') return null;

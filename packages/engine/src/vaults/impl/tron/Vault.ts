@@ -12,16 +12,16 @@ import type { FeePricePerUnit } from '@onekeyhq/engine/src/types/provider';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import { toBigIntHex } from '@onekeyhq/shared/src/engine/engineUtils';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-import { fromBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
-
 import {
   InsufficientBalance,
   InvalidAddress,
   NotImplemented,
   OneKeyInternalError,
-} from '../../../errors';
+} from '@onekeyhq/shared/src/errors';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { fromBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+
 import { batchTransferContractAddress } from '../../../presets/batchTransferContractAddress';
 import { extractResponseError } from '../../../proxy';
 import {

@@ -13,9 +13,6 @@ import {
   filterPassphraseWallet,
   handleDisplayPassphraseWallet,
 } from '@onekeyhq/shared/src/engine/engineUtils';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-// import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import {
   AccountAlreadyExists,
   NotImplemented,
@@ -28,7 +25,10 @@ import {
   TooManyImportedAccounts,
   TooManyWatchingAccounts,
   WrongPassword,
-} from '../../errors';
+} from '@onekeyhq/shared/src/errors';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+// import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import {
   DERIVED_ACCOUNT_MAX_NUM,
   EXTERNAL_ACCOUNT_MAX_NUM,
@@ -867,11 +867,13 @@ class RealmDB implements DBAPI {
               wallet.accounts!.filtered('id beginsWith $0', accountIdPrefix)
                 ?.length > DERIVED_ACCOUNT_MAX_NUM
             ) {
-              throw new TooManyDerivedAccounts(
-                DERIVED_ACCOUNT_MAX_NUM,
-                parseInt(coinType),
-                parseInt(purpose),
-              );
+              throw new TooManyDerivedAccounts({
+                info: {
+                  limit: DERIVED_ACCOUNT_MAX_NUM.toString(),
+                  coinType,
+                  purpose,
+                },
+              });
             }
 
             if (!account.template) {
