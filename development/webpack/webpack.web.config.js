@@ -1,6 +1,7 @@
 const { merge } = require('webpack-merge');
 const DuplicatePackageCheckerPlugin = require('duplicate-package-checker-webpack-plugin');
 
+const { SubresourceIntegrityPlugin } = require('webpack-subresource-integrity');
 const baseConfig = require('./webpack.base.config');
 const analyzerConfig = require('./webpack.analyzer.config');
 const developmentConfig = require('./webpack.development.config');
@@ -22,6 +23,9 @@ module.exports = ({ basePath, platform = 'web' }) => {
         baseConfig({ platform, basePath }),
         productionConfig,
         ...configs,
+        {
+          plugins: [new SubresourceIntegrityPlugin()],
+        },
       );
     case 'development':
     default:
