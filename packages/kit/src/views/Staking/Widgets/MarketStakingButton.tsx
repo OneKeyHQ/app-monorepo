@@ -17,7 +17,6 @@ import {
   getRecommendNetworkIdByStakingType,
   getStakeSelectNetworkAccountFilter,
   isAccountCompatibleWithStakingTypes,
-  isSupportStakingType,
 } from '../utils';
 
 import { WidgetContainer } from './WidgetContainer';
@@ -90,7 +89,14 @@ export const MarketStakeButtonContent: FC<MarketStakeButtonContentProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [selectNetworkAccount, navigation, stakingType, accountId, networkId]);
+  }, [
+    selectNetworkAccount,
+    navigation,
+    stakingType,
+    accountId,
+    networkId,
+    intl,
+  ]);
   return stakingType && !loading ? (
     <>
       {buttonType === 'icon' ? (
