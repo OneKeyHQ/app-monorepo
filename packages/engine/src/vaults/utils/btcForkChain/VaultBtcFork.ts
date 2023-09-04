@@ -1372,12 +1372,34 @@ export default class VaultBtcFork extends VaultBase {
           address: dbAccount.address,
         });
 
+        let finalActions = mergeNFTActions;
+
+        const actionsInHistoryTxToMerge = historyTxToMerge?.decodedTx.actions;
+
+        /**
+         * If there are inscription actions in one local transaction
+         * and the results of parsing the same on-chain transaction and nft transaction are all native token transfer actions.
+         * Then it means that the on-chain nft history has not been updated.
+         * so we will not update the local action at this time.
+         */
+        if (
+          actionsInHistoryTxToMerge &&
+          actionsInHistoryTxToMerge.some(
+            (item) => item.type !== IDecodedTxActionType.NATIVE_TRANSFER,
+          ) &&
+          mergeNFTActions.every(
+            (item) => item.type === IDecodedTxActionType.NATIVE_TRANSFER,
+          )
+        ) {
+          finalActions = actionsInHistoryTxToMerge;
+        }
+
         const decodedTx: IDecodedTx = {
           txid: tx.txid,
           owner: dbAccount.address,
           signer: dbAccount.address,
           nonce: 0,
-          actions: mergeNFTActions,
+          actions: finalActions,
           status:
             (tx.confirmations ?? 0) > 0
               ? IDecodedTxStatus.Confirmed
