@@ -36,8 +36,8 @@ module.exports = ({ platform, basePath }) => ({
   plugins: [
     new WebpackBar(),
     new HtmlWebpackPlugin({
-      title: 'Web',
-      minify: false,
+      title: platform,
+      minify: !isDev,
       inject: true,
       filename: path.join(basePath, 'web-build/index.html'),
       template: `!!ejs-loader?esModule=false!${path.join(
@@ -151,18 +151,20 @@ module.exports = ({ platform, basePath }) => ({
             type: 'asset',
             parser: { dataUrlCondition: { maxSize: 1000 } },
           },
+
           {
             test: /\.(js|mjs|jsx|ts|tsx)$/,
-            'use': {
-              'loader': 'babel-loader',
-              'options': {
+            exclude: [/node_modules/],
+            use: {
+              loader: 'babel-loader',
+              options: {
                 'babelrc': false,
                 'configFile': true,
                 'sourceType': 'unambiguous',
                 'root': basePath,
-                'compact': false,
-                'sourceMaps': true,
-                'inputSourceMap': true,
+                'compact': !isDev,
+                'sourceMaps': isDev,
+                'inputSourceMap': isDev,
                 'cacheCompression': false,
                 'cacheDirectory': path.resolve(
                   basePath,
@@ -170,7 +172,29 @@ module.exports = ({ platform, basePath }) => ({
                 ),
               },
             },
-            'resolve': { 'fullySpecified': false },
+            resolve: { fullySpecified: false },
+          },
+          {
+            test: /(@?react-(navigation|native)).*\.(ts|js)x?$/,
+            exclude: [/react-native-logs/, /react-native-modalize/],
+            use: {
+              loader: 'babel-loader',
+              options: {
+                'babelrc': false,
+                'configFile': true,
+                'sourceType': 'unambiguous',
+                'root': basePath,
+                'compact': !isDev,
+                'sourceMaps': isDev,
+                'inputSourceMap': isDev,
+                'cacheCompression': false,
+                'cacheDirectory': path.resolve(
+                  basePath,
+                  'node_modules/.cache/babel-loader',
+                ),
+              },
+            },
+            resolve: { fullySpecified: false },
           },
           {
             test: /\.(css)$/,
