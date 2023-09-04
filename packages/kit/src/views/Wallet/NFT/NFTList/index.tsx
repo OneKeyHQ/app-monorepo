@@ -225,7 +225,7 @@ const NFTListContainer: FC = () => {
     : Math.min(MAX_PAGE_CONTAINER_WIDTH, screenWidth - 224);
   const numColumns = isSmallScreen ? 2 : Math.floor(pageWidth / (177 + MARGIN));
 
-  const { accountId, networkId, account, walletId } = useActiveWalletAccount();
+  const { accountId, networkId, account } = useActiveWalletAccount();
 
   const [recycleUtxos, setRecycleUtxos] = useState<CoinControlItem[]>([]);
 
