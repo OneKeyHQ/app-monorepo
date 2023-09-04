@@ -45,7 +45,7 @@ const NetworkSelector: FC = () => {
   }
 
   return (
-    <Box mb="4">
+    <Box mb="4" w="full" overflow="hidden">
       <HStack space="2">
         {networkOptions.map((o) => (
           <Pressable
