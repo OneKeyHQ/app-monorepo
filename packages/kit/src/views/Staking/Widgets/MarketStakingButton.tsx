@@ -97,6 +97,7 @@ export const MarketStakeButtonContent: FC<MarketStakeButtonContentProps> = ({
     selectNetworkAccount,
     stakingType,
   ]);
+
   return stakingType && !loading ? (
     <>
       {buttonType === 'icon' ? (
