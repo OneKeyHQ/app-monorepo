@@ -5,12 +5,6 @@ import type {
   AccountDynamicItem,
   PriceAlertItem,
 } from '@onekeyhq/engine/src/managers/notification';
-import {
-  ADDRESS_ZERO,
-  DUMMY_ADDRESS,
-  DUMMY_ADDRESS_2,
-  DUMMY_ADDRESS_3,
-} from '@onekeyhq/engine/src/managers/revoke';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
@@ -22,6 +16,11 @@ import { useRuntime } from '../../hooks/redux';
 export type WalletData = Omit<Wallet, 'accounts'> & {
   accounts: Account[];
 };
+
+export const ADDRESS_ZERO = '0x0000000000000000000000000000000000000000';
+export const DUMMY_ADDRESS = '0x0000000000000000000000000000000000000001';
+export const DUMMY_ADDRESS_2 = '0x0000000000000000000000000000000000000002';
+export const DUMMY_ADDRESS_3 = '0x000000000000000000000000000000000000dead';
 
 const isBurnAddress = (address: string) =>
   [ADDRESS_ZERO, DUMMY_ADDRESS, DUMMY_ADDRESS_2, DUMMY_ADDRESS_3].includes(

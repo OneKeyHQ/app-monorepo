@@ -11,7 +11,7 @@ import {
 import { getExtensionIndexHtml } from '../utils/extUtils.getHtml';
 import { EOnboardingRoutes } from '../views/Onboarding/routes/enums';
 
-import { legacyLinkingPathMap, linkingPathMap } from './linking.path';
+import { linkingPathMap } from './linking.path';
 import {
   DappConnectionModalRoutes,
   HomeRoutes,
@@ -126,23 +126,8 @@ export const normalRouteWhiteList: WhiteListItemList = [
     screen: `${RootRoutes.Modal}/${ModalRoutes.Send}/${SendModalRoutes.SendConfirmFromDapp}`,
   },
   {
-    screen: `${RootRoutes.Main}/${MainRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.RevokeRedirect}`,
-    path: legacyLinkingPathMap.revokeMobile,
-    exact: true,
-  },
-  {
-    screen: `${RootRoutes.Main}/${MainRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.RevokeRedirect2}`,
-    path: legacyLinkingPathMap.revokeDesktop,
-    exact: true,
-  },
-  {
     screen: `${RootRoutes.Main}/${MainRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.ScreenTokenDetail}`,
     path: linkingPathMap.tokenDetail,
-    exact: true,
-  },
-  {
-    screen: `${RootRoutes.Main}/${MainRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.Revoke}`,
-    path: linkingPathMap.revoke,
     exact: true,
   },
   {

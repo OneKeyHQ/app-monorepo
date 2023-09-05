@@ -44,9 +44,6 @@ export enum HomeRoutes {
   //  **** Home Tab
   ScreenTokenDetail = 'TokenDetailScreen',
   FullTokenListScreen = 'FullTokenListScreen',
-  Revoke = 'Revoke',
-  RevokeRedirect = 'RevokeRedirect',
-  RevokeRedirect2 = 'RevokeRedirect2',
   OverviewDefiListScreen = 'OverviewDefiListScreen',
   BulkSender = 'BulkSender',
 
@@ -190,7 +187,6 @@ export enum ModalRoutes {
   Staking = 'Staking',
   PushNotification = 'PushNotification',
   Webview = 'Webview',
-  Revoke = 'Revoke',
   NFTMarket = 'NFTMarket',
   Overview = 'Overview',
   CurrencySelect = 'CurrencySelect',
