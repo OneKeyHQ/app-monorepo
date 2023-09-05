@@ -90,7 +90,7 @@ module.exports = ({
       }),
     ],
     output: {
-      clean: true,
+      clean: false,
       path: path.resolve(basePath, 'build', getOutputFolder()),
       // do not include [hash] here, as `content-script.bundle.js` filename should be stable
       filename: '[name].bundle.js',
@@ -219,7 +219,7 @@ module.exports = ({
           new webpack.ProvidePlugin({
             process: 'process/browser',
           }),
-          new htmlLazyScript.HtmlLazyScriptPlugin(config),
+          // new htmlLazyScript.HtmlLazyScriptPlugin(config),
         ].filter(Boolean);
         return config;
       },
