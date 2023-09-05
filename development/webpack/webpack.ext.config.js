@@ -13,6 +13,7 @@ const devUtils = require('../../packages/ext/development/devUtils');
 const codeSplit = require('../../packages/ext/development/codeSplit');
 const pluginsHtml = require('../../packages/ext/development/pluginsHtml');
 const pluginsCopy = require('../../packages/ext/development/pluginsCopy');
+const htmlLazyScript = require('../../packages/ext/development/htmlLazyScript');
 
 const {
   ENABLE_ANALYZER = false,
@@ -215,6 +216,10 @@ module.exports = ({
         config.plugins = [
           ...config.plugins,
           ...pluginsHtml.backgroundHtml,
+          new webpack.ProvidePlugin({
+            process: 'process/browser',
+          }),
+          new htmlLazyScript.HtmlLazyScriptPlugin(config),
         ].filter(Boolean);
         return config;
       },
