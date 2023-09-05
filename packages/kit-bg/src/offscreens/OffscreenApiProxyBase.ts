@@ -6,7 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { OFFSCREEN_API_MESSAGE_TYPE } from './types';
 
-import type { IOffscreenApiMessagePayload } from './types';
+import type { IOffscreenApiMessagePayload } from '../IBackgroundApi';
 
 export class OffscreenApiProxyBase {
   constructor() {

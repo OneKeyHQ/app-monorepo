@@ -6,7 +6,6 @@ import { useIsFocused } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 
 import { ToastManager } from '@onekeyhq/components';
-import { FailedToEstimatedGasError } from '@onekeyhq/engine/src/errors';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IEncodedTx,
@@ -21,6 +20,7 @@ import {
   calculateTotalFeeRange,
   getSelectedFeeInfoUnit,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
+import { FailedToEstimatedGasError } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -312,7 +312,6 @@ export function useFeeInfoPayload({
       setLoading(true);
       try {
         const info = await fetchFeeInfo();
-        // await delay(600);
         setFeeInfoPayload(info);
       } catch (error: any) {
         // TODO: only an example implementation about showing rpc error

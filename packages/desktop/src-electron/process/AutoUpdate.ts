@@ -148,7 +148,7 @@ const init = ({ mainWindow, store }: Dependencies) => {
           'auto-updater',
           `Unknown Error: ${
             // eslint-disable-next-line @typescript-eslint/restrict-template-expressions, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-            error == null ? 'unknown' : (error.stack || error).toString()
+            error == null ? 'unknown' : (error?.stack || error)?.toString()
           }`,
         );
         mainWindow.webContents.send('update/error', {

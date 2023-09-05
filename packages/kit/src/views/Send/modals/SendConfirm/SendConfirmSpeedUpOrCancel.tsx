@@ -4,7 +4,7 @@ import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Alert, Center, Spinner } from '@onekeyhq/components';
-import { OneKeyError } from '@onekeyhq/engine/src/errors';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 
 import { BaseSendConfirmModal } from '../../components/BaseSendConfirmModal';
 import { FeeInfoInputForSpeedUpOrCancel } from '../../components/FeeInfoInput';
@@ -45,9 +45,8 @@ function SendConfirmSpeedUpOrCancel(props: ITxConfirmViewProps) {
 
     let message: string | null = null;
     if (feeInfoError instanceof OneKeyError) {
-      if (feeInfoError.key !== 'onekey_error') {
+      if (feeInfoError.key !== ('onekey_error' as any)) {
         message = intl.formatMessage({
-          // @ts-expect-error
           id: feeInfoError.key,
         });
       } else {

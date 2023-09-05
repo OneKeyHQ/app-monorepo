@@ -42,6 +42,7 @@ export function CloseBackDrop({ onClose, backgroundColor }: CloseButtonProps) {
   return (
     <TouchableWithoutFeedback onPress={onClose}>
       <View
+        testID="CloseBackDrop-View-873113"
         style={{
           width,
           height,

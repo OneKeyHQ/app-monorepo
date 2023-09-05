@@ -6,16 +6,14 @@ import RNUUID from 'react-native-uuid';
 import Realm from 'realm';
 
 import {
-  decrypt,
+  decryptAsync,
   encrypt,
+  encryptAsync,
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import {
   filterPassphraseWallet,
   handleDisplayPassphraseWallet,
 } from '@onekeyhq/shared/src/engine/engineUtils';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-// import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import {
   AccountAlreadyExists,
   NotImplemented,
@@ -28,7 +26,10 @@ import {
   TooManyImportedAccounts,
   TooManyWatchingAccounts,
   WrongPassword,
-} from '../../errors';
+} from '@onekeyhq/shared/src/errors';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+// import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import {
   DERIVED_ACCOUNT_MAX_NUM,
   EXTERNAL_ACCOUNT_MAX_NUM,
@@ -57,6 +58,7 @@ import {
   checkPassword,
 } from '../base';
 
+import { REALM_DB_SCHEMA_VERSION } from './realm.version';
 import {
   AccountDerivationSchema,
   AccountSchema,
@@ -93,6 +95,7 @@ import type {
   CreateHWWalletParams,
   DBAPI,
   ExportedCredential,
+  IDbApiGetContextOptions,
   OneKeyContext,
   SetWalletNameAndAvatarParams,
   StoredPrivateKeyCredential,
@@ -101,7 +104,7 @@ import type {
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const DB_PATH = 'OneKey.realm';
-const SCHEMA_VERSION = 18;
+const SCHEMA_VERSION = REALM_DB_SCHEMA_VERSION;
 /**
  * Realm DB API
  * @implements { DBAPI }
@@ -131,6 +134,7 @@ class RealmDB implements DBAPI {
         CustomFeeSchema,
       ],
       schemaVersion: SCHEMA_VERSION,
+      // db migration
       onMigration: (oldRealm: Realm, newRealm: Realm) => {
         if (oldRealm.schemaVersion < 13) {
           const networks = newRealm.objects<NetworkSchema>('Network');
@@ -210,20 +214,34 @@ class RealmDB implements DBAPI {
     }
   }
 
-  getContext(): Promise<OneKeyContext | null | undefined> {
+  getContext(
+    options?: IDbApiGetContextOptions,
+  ): Promise<OneKeyContext | null | undefined> {
     try {
       const context = this.realm!.objectForPrimaryKey<ContextSchema>(
         'Context',
         MAIN_CONTEXT,
       );
-      return Promise.resolve(context ? context.internalObj : context);
+      const ctx = context ? context.internalObj : context;
+      if (!ctx) {
+        return Promise.reject(new OneKeyInternalError('Context not found.'));
+      }
+      if (options?.verifyPassword) {
+        if (!checkPassword(ctx, options.verifyPassword)) {
+          return Promise.reject(new WrongPassword());
+        }
+      }
+      return Promise.resolve(ctx);
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
     }
   }
 
-  updatePassword(oldPassword: string, newPassword: string): Promise<void> {
+  async updatePassword(
+    oldPassword: string,
+    newPassword: string,
+  ): Promise<void> {
     let context: ContextSchema | null | undefined;
     try {
       context = this.realm!.objectForPrimaryKey<ContextSchema>(
@@ -231,56 +249,95 @@ class RealmDB implements DBAPI {
         MAIN_CONTEXT,
       );
       if (!context) {
-        return Promise.reject(new OneKeyInternalError('Context not found.'));
+        return await Promise.reject(
+          new OneKeyInternalError('Context not found.'),
+        );
       }
       if (!checkPassword(context.internalObj, oldPassword)) {
-        return Promise.reject(new WrongPassword());
+        return await Promise.reject(new WrongPassword());
       }
 
       if (oldPassword === newPassword) {
-        return Promise.resolve();
+        return await Promise.resolve();
       }
 
-      this.realm!.write(() => {
-        context!.verifyString = encrypt(
-          newPassword,
-          Buffer.from(DEFAULT_VERIFY_STRING),
+      if (!newPassword) {
+        return await Promise.reject(
+          new OneKeyInternalError('new password not provide.'),
+        );
+      }
+
+      const credentials = this.realm!.objects<CredentialSchema>('Credential');
+      let verifyStringToUpdate: string | undefined;
+      const credentialsToUpdate: {
+        [id: string]: string;
+      } = {};
+
+      const prepareUpdateData = async () => {
+        verifyStringToUpdate = (
+          await encryptAsync({
+            password: newPassword,
+            data: Buffer.from(DEFAULT_VERIFY_STRING),
+          })
         ).toString('hex');
-        const credentials = this.realm!.objects<CredentialSchema>('Credential');
-        credentials.forEach((credentialItem) => {
+        for (const credentialItem of credentials) {
           if (credentialItem.id.startsWith('imported')) {
             const privateKeyCredentialJSON: StoredPrivateKeyCredential =
               JSON.parse(credentialItem.credential);
-            credentialItem.credential = JSON.stringify({
-              privateKey: encrypt(
-                newPassword,
-                decrypt(
-                  oldPassword,
-                  Buffer.from(privateKeyCredentialJSON.privateKey, 'hex'),
-                ),
+            const credential = JSON.stringify({
+              privateKey: (
+                await encryptAsync({
+                  password: newPassword,
+                  data: await decryptAsync({
+                    password: oldPassword,
+                    data: Buffer.from(
+                      privateKeyCredentialJSON.privateKey,
+                      'hex',
+                    ),
+                  }),
+                })
               ).toString('hex'),
             });
+            credentialsToUpdate[credentialItem.id] = credential;
           } else {
             const credentialJSON: StoredSeedCredential = JSON.parse(
               credentialItem.credential,
             );
-            credentialItem.credential = JSON.stringify({
-              entropy: encrypt(
-                newPassword,
-                decrypt(
-                  oldPassword,
-                  Buffer.from(credentialJSON.entropy, 'hex'),
-                ),
+            const credential = JSON.stringify({
+              entropy: (
+                await encryptAsync({
+                  password: newPassword,
+                  data: await decryptAsync({
+                    password: oldPassword,
+                    data: Buffer.from(credentialJSON.entropy, 'hex'),
+                  }),
+                })
               ).toString('hex'),
-              seed: encrypt(
-                newPassword,
-                decrypt(oldPassword, Buffer.from(credentialJSON.seed, 'hex')),
+              seed: (
+                await encryptAsync({
+                  password: newPassword,
+                  data: await decryptAsync({
+                    password: oldPassword,
+                    data: Buffer.from(credentialJSON.seed, 'hex'),
+                  }),
+                })
               ).toString('hex'),
             });
+            credentialsToUpdate[credentialItem.id] = credential;
           }
-        });
+        }
+      };
+      await prepareUpdateData();
+
+      this.realm!.write(() => {
+        context!.verifyString = verifyStringToUpdate ?? context!.verifyString;
+        for (const credentialItem of credentials) {
+          credentialItem.credential =
+            credentialsToUpdate[credentialItem.id] ?? credentialItem.credential;
+        }
       });
-      return Promise.resolve();
+
+      return await Promise.resolve();
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -867,11 +924,13 @@ class RealmDB implements DBAPI {
               wallet.accounts!.filtered('id beginsWith $0', accountIdPrefix)
                 ?.length > DERIVED_ACCOUNT_MAX_NUM
             ) {
-              throw new TooManyDerivedAccounts(
-                DERIVED_ACCOUNT_MAX_NUM,
-                parseInt(coinType),
-                parseInt(purpose),
-              );
+              throw new TooManyDerivedAccounts({
+                info: {
+                  limit: DERIVED_ACCOUNT_MAX_NUM.toString(),
+                  coinType,
+                  purpose,
+                },
+              });
             }
 
             if (!account.template) {

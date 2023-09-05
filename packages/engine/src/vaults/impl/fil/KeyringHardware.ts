@@ -1,15 +1,15 @@
 import { AddressSecp256k1, Transaction } from '@zondax/izari-filecoin';
 import base32Decode from 'base32-decode';
 
-import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { COINTYPE_FIL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
 import {
   NotImplemented,
   OneKeyHardwareError,
   OneKeyInternalError,
-} from '../../../errors';
+} from '@onekeyhq/shared/src/errors';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 

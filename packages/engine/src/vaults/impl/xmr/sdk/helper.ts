@@ -6,7 +6,8 @@ import {
 } from '@mymonero/mymonero-keyimage-cache';
 import axios from 'axios';
 
-import { OneKeyInternalError } from '../../../../errors';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { cnFastHash } from './moneroAddress';
 
@@ -153,15 +154,16 @@ class Helper {
     isPrivateSpendKey,
     index = 0,
   }: {
-    rawPrivateKey: Buffer | string;
+    rawPrivateKey: string;
     isPrivateSpendKey?: boolean;
     index?: number;
-  }) {
-    let raw = rawPrivateKey;
-
-    if (typeof raw === 'string') {
-      raw = Buffer.from(raw, 'hex');
-    }
+  }): {
+    privateSpendKey: string;
+    privateViewKey: string;
+    publicSpendKey: string | null;
+    publicViewKey: string | null;
+  } {
+    const raw = Buffer.from(rawPrivateKey, 'hex');
 
     let privateSpendKey;
 
@@ -189,10 +191,14 @@ class Helper {
     }
 
     return {
-      privateSpendKey,
-      privateViewKey,
-      publicSpendKey,
-      publicViewKey,
+      privateSpendKey: bufferUtils.bytesToHex(privateSpendKey),
+      privateViewKey: bufferUtils.bytesToHex(privateViewKey),
+      publicSpendKey: publicSpendKey
+        ? bufferUtils.bytesToHex(publicSpendKey)
+        : null,
+      publicViewKey: publicViewKey
+        ? bufferUtils.bytesToHex(publicViewKey)
+        : null,
     };
   }
 

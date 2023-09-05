@@ -70,7 +70,7 @@ describe('Near KeyringImported Tests', () => {
         },
       );
     } catch (error: any) {
-      expect(error.message).toBe('InvalidAddress.');
+      expect(error.message).toBe('InvalidAddress');
     }
   });
 });

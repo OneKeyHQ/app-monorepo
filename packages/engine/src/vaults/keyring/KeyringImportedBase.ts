@@ -1,4 +1,7 @@
-import { NotImplemented, OneKeyInternalError } from '../../errors';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 
 import { KeyringSoftwareBase } from './KeyringSoftwareBase';
 

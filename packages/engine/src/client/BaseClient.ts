@@ -14,10 +14,7 @@ import type {
   UnsignedTx,
 } from '@onekeyhq/engine/src/types/provider';
 import type { Signer, Verifier } from '@onekeyhq/engine/src/types/secret';
-import {
-  HardwareError,
-  NotImplementedError,
-} from '@onekeyhq/shared/src/errors/common-errors';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 import type BigNumber from 'bignumber.js';
 
@@ -49,11 +46,11 @@ abstract class BaseClient {
   getTokenInfos(
     tokenAddresses: Array<string>,
   ): Promise<Array<PartialTokenInfo | undefined>> {
-    return Promise.reject(NotImplementedError);
+    return Promise.reject(NotImplemented);
   }
 
   getUTXOs(addresses: Array<string>): Promise<{ [address: string]: UTXO[] }> {
-    return Promise.reject(NotImplementedError);
+    return Promise.reject(NotImplemented);
   }
 }
 
@@ -121,7 +118,7 @@ abstract class SimpleClient extends BaseClient {
   }
 
   getTokenInfo(tokenAddress: string): Promise<PartialTokenInfo | undefined> {
-    return Promise.reject(NotImplementedError);
+    return Promise.reject(NotImplemented);
   }
 
   override async getUTXOs(
@@ -138,7 +135,7 @@ abstract class SimpleClient extends BaseClient {
   }
 
   getUTXO(address: string): Promise<UTXO[]> {
-    return Promise.reject(NotImplementedError);
+    return Promise.reject(NotImplemented);
   }
 }
 
@@ -182,7 +179,7 @@ abstract class BaseProvider {
     signer: Signer,
     address?: string,
   ): Promise<string> {
-    return Promise.reject(NotImplementedError);
+    return Promise.reject(NotImplemented);
   }
 
   verifyMessage(
@@ -190,7 +187,7 @@ abstract class BaseProvider {
     message: TypedMessage,
     signature: string,
   ): Promise<boolean> {
-    return Promise.reject(NotImplementedError);
+    return Promise.reject(NotImplemented);
   }
 }
 

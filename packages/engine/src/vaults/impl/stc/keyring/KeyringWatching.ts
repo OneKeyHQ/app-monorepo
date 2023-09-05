@@ -1,6 +1,6 @@
 import { COINTYPE_STC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import { InvalidAddress } from '@onekeyhq/shared/src/errors';
 
-import { InvalidAddress } from '../../../../errors';
 import { AccountType } from '../../../../types/account';
 import { KeyringWatchingBase } from '../../../keyring/KeyringWatchingBase';
 import { verifyAddress } from '../utils';

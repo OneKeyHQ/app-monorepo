@@ -26,8 +26,8 @@ import {
   IMPL_XMR,
   IMPL_XRP,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
-import { OneKeyInternalError } from '../errors';
 import { getNetworkImpl } from '../managers/network.utils';
 import {
   WALLET_TYPE_EXTERNAL,

@@ -1541,7 +1541,7 @@ var MyMoneroLibAppCpp = (() => {
 
     function jsStackTrace() {
       var error = new Error();
-      if (!error.stack) {
+      if (!error?.stack) {
         // IE10+ special cases: It does have callstack info, but it is only
         // populated if an Error object is thrown, so try that as a special-case.
         try {
@@ -1549,11 +1549,11 @@ var MyMoneroLibAppCpp = (() => {
         } catch (e) {
           error = e;
         }
-        if (!error.stack) {
+        if (!error?.stack) {
           return '(no stack trace available)';
         }
       }
-      return error.stack.toString();
+      return error?.stack?.toString();
     }
 
     function demangleAll(text) {

@@ -16,11 +16,11 @@ import {
   Tooltip,
   VStack,
 } from '@onekeyhq/components';
-import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import type {
   IEncodedTx,
   IFeeInfoPayload,
 } from '@onekeyhq/engine/src/vaults/types';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatCurrencyNativeOfAccount } from '../../../components/Format';
@@ -126,9 +126,8 @@ function BatchTransactionFeeInfo(props: Props) {
 
     let message: string | null = null;
     if (feeInfoError instanceof OneKeyError) {
-      if (feeInfoError.key !== 'onekey_error') {
+      if (feeInfoError.key !== ('onekey_error' as any)) {
         message = intl.formatMessage({
-          // @ts-expect-error
           id: feeInfoError.key,
         });
       } else {

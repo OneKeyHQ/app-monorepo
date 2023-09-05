@@ -1,9 +1,9 @@
+import type { InvalidAddress } from '@onekeyhq/shared/src/errors';
+
 import nexaMockData from '../@tests/nexaMockData';
 import { testPrepareAccounts } from '../@tests/nexaPresetCase';
 
 import { KeyringWatching } from './KeyringWatching';
-
-import type { InvalidAddress } from '../../../../errors';
 
 jest.setTimeout(3 * 60 * 1000);
 
@@ -43,7 +43,7 @@ describe('Nexa KeyringWatching Tests', () => {
       // this is where the code hits the fan, indicating an error.
       expect(false).toBeTruthy();
     } catch (e: unknown) {
-      expect((e as InvalidAddress).message).toBe('InvalidAddress.');
+      expect((e as InvalidAddress).message).toBe('InvalidAddress');
     }
   });
 
@@ -83,7 +83,7 @@ describe('Nexa KeyringWatching Tests', () => {
       // this is where the code hits the fan, indicating an error.
       expect(false).toBeTruthy();
     } catch (e: unknown) {
-      expect((e as InvalidAddress).message).toBe('InvalidAddress.');
+      expect((e as InvalidAddress).message).toBe('InvalidAddress');
     }
   });
 });

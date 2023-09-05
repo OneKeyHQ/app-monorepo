@@ -15,8 +15,8 @@ import Protected, {
 import type { CreateAccountRoutesParams } from '@onekeyhq/kit/src/routes';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import { toPlainErrorObject } from '@onekeyhq/shared/src/utils/errorUtils';
 
 import { wait } from '../../../utils/helper';
 

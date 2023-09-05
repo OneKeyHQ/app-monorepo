@@ -324,7 +324,6 @@ export function useWalletConnectQrcodeModal() {
       walletServiceSelectedInModalRef.current = undefined;
 
       // TODO wait existing session connecting done
-      // await delay(3000);
 
       if (process.env.NODE_ENV !== 'production') {
         // @ts-ignore

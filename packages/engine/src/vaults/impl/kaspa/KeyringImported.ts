@@ -1,6 +1,5 @@
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 
-import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import { Signer } from '@onekeyhq/engine/src/proxy';
 import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
@@ -13,6 +12,7 @@ import type {
   SignedTxResult,
 } from '@onekeyhq/engine/src/vaults/types';
 import { COINTYPE_KASPA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {

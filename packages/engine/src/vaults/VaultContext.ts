@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await, max-classes-per-file */
 import { IMPL_DOT, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { NotImplemented } from '../errors';
 import {
   getWalletIdFromAccountId,
   isAccountCompatibleWithNetwork,

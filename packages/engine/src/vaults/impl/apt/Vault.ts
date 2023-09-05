@@ -17,16 +17,16 @@ import {
   isHexString,
 } from '@onekeyhq/kit/src/utils/helper';
 import { openDapp } from '@onekeyhq/kit/src/utils/openUrl';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-
 import {
   InvalidAddress,
   InvalidTokenAddress,
   NotImplemented,
   OneKeyError,
   OneKeyInternalError,
-} from '../../../errors';
+} from '@onekeyhq/shared/src/errors';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,

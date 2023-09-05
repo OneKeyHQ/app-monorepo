@@ -1,6 +1,6 @@
 import { BigNumber } from 'bignumber.js';
 
-import { InsufficientBalance } from '../../../../errors';
+import { InsufficientBalance } from '@onekeyhq/shared/src/errors';
 
 import { CONFIRMATION_COUNT } from './constant';
 import { UnspentOutput } from './types';
@@ -85,9 +85,9 @@ export function selectUTXOs(
   }
 
   if (totalVal < txAmount)
-    throw new InsufficientBalance(
-      `Insufficient balance - need: ${txAmount} KAS, available: ${txAmount} KAS`,
-    );
+    throw new InsufficientBalance({
+      message: `Insufficient balance - need: ${txAmount} KAS, available: ${txAmount} KAS`,
+    });
 
   return {
     utxoIds,

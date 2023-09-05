@@ -10,12 +10,6 @@ import BigNumber from 'bignumber.js';
 import { groupBy, isEmpty, isNil } from 'lodash';
 
 import type { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
-import {
-  InvalidAddress,
-  InvalidTransferValue,
-  NotImplemented,
-  OneKeyInternalError,
-} from '@onekeyhq/engine/src/errors';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type {
   DBAccount,
@@ -54,6 +48,12 @@ import {
 import { VaultBase } from '@onekeyhq/engine/src/vaults/VaultBase';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { formatBalanceDisplay } from '@onekeyhq/kit/src/components/Format';
+import {
+  InvalidAddress,
+  InvalidTransferValue,
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
@@ -956,19 +956,19 @@ export default class Vault extends VaultBase {
         message.indexOf('Invalid Transaction: Inability to pay some fees') !==
         -1
       ) {
-        throw new OneKeyInternalError(
+        throw new OneKeyInternalError({
           message,
-          'msg__broadcast_dot_tx_Insufficient_fee',
-        );
+          key: 'msg__broadcast_dot_tx_Insufficient_fee',
+        });
       }
 
       if (
         message.indexOf('Invalid Transaction: Transaction is outdated') !== -1
       ) {
-        throw new OneKeyInternalError(
+        throw new OneKeyInternalError({
           message,
-          'msg__broadcast_dot_tx_outdated',
-        );
+          key: 'msg__broadcast_dot_tx_outdated',
+        });
       }
 
       throw new OneKeyInternalError(message);
@@ -1170,9 +1170,12 @@ export default class Vault extends VaultBase {
       if (!depositAmountDisplay.amount) return false;
 
       if (accountBalance?.plus(sendAmount).lt(depositAmount)) {
-        throw new InvalidTransferValue('form__amount_recipient_activate', {
-          amount: depositAmountDisplay.amount,
-          unit: network.symbol,
+        throw new InvalidTransferValue({
+          key: 'form__amount_recipient_activate',
+          info: {
+            amount: depositAmountDisplay.amount,
+            unit: network.symbol,
+          },
         });
       }
       return true;

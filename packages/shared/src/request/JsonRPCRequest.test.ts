@@ -1,6 +1,6 @@
 import { Response } from 'cross-fetch';
 
-import { JsonPRCResponseError, ResponseError } from '../errors/request-errors';
+import { JsonPRCResponseError, ResponseError } from '../errors';
 
 import { JsonRPCRequest } from './JsonRPCRequest';
 

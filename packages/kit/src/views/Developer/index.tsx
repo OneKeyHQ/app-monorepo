@@ -1,5 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import fetch from 'cross-fetch';
@@ -19,10 +25,10 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import type { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import { INSCRIPTION_PADDING_SATS_VALUES } from '@onekeyhq/engine/src/vaults/impl/btc/inscribe/consts';
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
+import webembedApiProxy from '@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import {
@@ -34,6 +40,10 @@ import type {
   HomeRoutesParams,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
+import {
+  type OneKeyError,
+  TooManyHWPassphraseWallets,
+} from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { AppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -250,7 +260,19 @@ export const Debug = () => {
           >
             <HStack space="4">
               <Icon name="DesktopComputerMini" />
-              <Typography.Body1>Components</Typography.Body1>
+              <Typography.Body1>
+                {useMemo(() => {
+                  if (rrtStatus === '1') {
+                    return '';
+                  }
+                  if (rrtStatus === '0') {
+                    return '';
+                  }
+                  return '';
+                  // return `react-render-tracker${uri}`;
+                }, [rrtStatus])}
+                Components
+              </Typography.Body1>
             </HStack>
             <Icon name="ChevronRightMini" size={20} />
           </Pressable>
@@ -305,7 +327,7 @@ export const Debug = () => {
                 useWindowDimensions {width}x{height}
               </Typography.Body1>
             </Pressable>
-            <HStack>
+            <VStack>
               <Input
                 value={uri}
                 onChangeText={(t) => setUri(t)}
@@ -313,7 +335,8 @@ export const Debug = () => {
                 clearButtonMode="always"
                 clearTextOnFocus
               />
-            </HStack>
+              <Typography.Body1>{uri}</Typography.Body1>
+            </VStack>
             <Pressable
               {...pressableProps}
               onPress={async () => {
@@ -845,9 +868,45 @@ export const Debug = () => {
                     },
                   },
                 });
+
+                try {
+                  const e1111 = new TooManyHWPassphraseWallets(12);
+                  console.error('TooManyHWPassphraseWallets &&&&&&& ', e1111);
+                  throw new TooManyHWPassphraseWallets(12111);
+                } catch (error) {
+                  console.error(
+                    'test TooManyHWPassphraseWallets ERROR ######',
+                    error,
+                  );
+                }
+
+                const e = new TooManyHWPassphraseWallets(999999);
+                console.error('TooManyHWPassphraseWallets $$$$$ ', e);
               }}
             >
               <Typography.Body1>Open Gas Panel000</Typography.Body1>
+            </Pressable>
+            <Pressable
+              {...pressableProps}
+              onPress={() => {
+                webembedApiProxy.secret
+                  .testShow({
+                    name: `zhangsan-${Date.now()}`,
+                    random: Math.random(),
+                  })
+                  .then((r) => {
+                    console.log('Developer TEST >>>> secret.show result: ', r);
+                  })
+                  .catch((err) => {
+                    console.error(
+                      'Developer TEST >>>> secret.show error: ',
+                      (err as Error)?.message,
+                      typeof (err as Error)?.message,
+                    );
+                  });
+              }}
+            >
+              <Typography.Body1>test WebEmbedApi</Typography.Body1>
             </Pressable>
             <Pressable
               {...pressableProps}

@@ -1,8 +1,8 @@
 import axios from 'axios';
 import stringify from 'fast-json-stable-stringify';
 
-import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { getChainIdFromNetworkId } from '@onekeyhq/engine/src/managers/network';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { BaseDotClient } from '../BaseDotClient';

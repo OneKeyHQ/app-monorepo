@@ -1,6 +1,5 @@
 import { bytesToHex } from '@noble/hashes/utils';
 
-import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import { Signer } from '@onekeyhq/engine/src/proxy';
 import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
@@ -14,6 +13,7 @@ import type {
 } from '@onekeyhq/engine/src/vaults/types';
 import { addHexPrefix } from '@onekeyhq/engine/src/vaults/utils/hexUtils';
 import { COINTYPE_DOT as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { TYPE_PREFIX } from './consts';

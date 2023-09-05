@@ -8,10 +8,6 @@ import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-
-import { getAlgoSignerEndpoint } from '../../../endpoint';
 import {
   InvalidAddress,
   InvalidTokenAddress,
@@ -19,7 +15,11 @@ import {
   NotImplemented,
   OneKeyInternalError,
   RecipientHasNotActived,
-} from '../../../errors';
+} from '@onekeyhq/shared/src/errors';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+
+import { getAlgoSignerEndpoint } from '../../../endpoint';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
@@ -582,7 +582,11 @@ export default class Vault extends VaultBase {
           assetId.toString(),
         );
         return Promise.reject(
-          new RecipientHasNotActived(token?.name || assetId),
+          new RecipientHasNotActived({
+            info: {
+              '0': token?.name || assetId,
+            },
+          }),
         );
       }
       if (MINIMUM_BALANCE_REQUIRED_REG_EXP.test(message)) {
@@ -593,10 +597,14 @@ export default class Vault extends VaultBase {
           MINIMUM_BALANCE_REQUIRED_REG_EXP,
         )![1];
         return Promise.reject(
-          new MimimumBalanceRequired(
-            name,
-            new BigNumber(minimumBalance).shiftedBy(-decimals).toFixed(),
-          ),
+          new MimimumBalanceRequired({
+            info: {
+              token: name,
+              amount: new BigNumber(minimumBalance)
+                .shiftedBy(-decimals)
+                .toFixed(),
+            },
+          }),
         );
       }
 

@@ -15,7 +15,7 @@
     "@onekeyhq/kit": "*",
     "expo": "49.0.6",
     "firebase": "^9.8.2",
-    "react-router-dom": "^6.3.0"
+    "react-router-dom": "^6.15.0"
   },
   "devDependencies": {
     "webpack": "5.88.2",

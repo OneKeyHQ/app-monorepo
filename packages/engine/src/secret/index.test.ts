@@ -19,7 +19,7 @@ import elliptic from 'elliptic';
 import {
   IncorrectPassword,
   InvalidMnemonic,
-} from '@onekeyhq/shared/src/errors/common-errors';
+} from '@onekeyhq/shared/src/errors';
 
 import { decrypt, encrypt } from './encryptors/aes256';
 

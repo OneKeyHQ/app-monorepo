@@ -1,7 +1,7 @@
 import fetch, { Response } from 'cross-fetch';
 import { mocked } from 'ts-jest/utils';
 
-import { ResponseError } from '../errors/request-errors';
+import { ResponseError } from '../errors';
 
 import { RestfulRequest } from './RestfulRequest';
 

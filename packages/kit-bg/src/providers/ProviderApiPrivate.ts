@@ -1,3 +1,4 @@
+/* eslint-disable max-classes-per-file */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable camelcase */
@@ -5,19 +6,21 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import walletConnectUtils from '@onekeyhq/kit/src/components/WalletConnect/utils/walletConnectUtils';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
-import { timeout } from '@onekeyhq/kit/src/utils/helper';
+import { getTimeDurationMs, timeout } from '@onekeyhq/kit/src/utils/helper';
 import { scanFromURLAsync } from '@onekeyhq/kit/src/views/ScanQrcode/scanFromURLAsync';
 import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import debugLogger, {
-  getDebugLoggerSettings,
-} from '@onekeyhq/shared/src/logger/debugLogger';
+import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { getDebugLoggerSettings } from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isWebEmbedApiAllowedOrigin } from '@onekeyhq/shared/src/utils/originUtils';
 
 import ProviderApiBase from './ProviderApiBase';
 
+import type BackgroundApiBase from '../BackgroundApiBase';
+import type { IBackgroundApiWebembedCallMessage } from '../IBackgroundApi';
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type ProviderApiEthereum from './ProviderApiEthereum';
 import type {
@@ -209,6 +212,10 @@ class ProviderApiPrivate extends ProviderApiBase {
   }
 
   // $onekey.$private.request({method:'wallet_getConnectWalletInfo'})
+  // *************************************
+  // ATTENTION:
+  // this is public method, DO NOT return some sensitive data
+  // *************************************
   @providerApiMethod()
   async wallet_getConnectWalletInfo(
     req: IJsBridgeMessagePayload,
@@ -247,43 +254,54 @@ class ProviderApiPrivate extends ProviderApiBase {
     };
   }
 
-  @providerApiMethod()
-  callChainWebEmbedMethod(payload: any) {
-    const method: string = payload.data?.method;
-    debugLogger.providerApi.info(
-      'ProviderApiPrivate.callChainWebEmbedMethod',
-      payload,
-    );
-    const data = ({ origin }: { origin: string }) => {
-      const result = {
-        method,
-        params: {
-          event: payload.data?.event,
-          promiseId: payload.data?.promiseId,
-          params: { ...payload.data?.params },
-        },
-      };
-      debugLogger.providerApi.info(
-        'ProviderApiPrivate.callChainWebEmbedMethod',
-        method,
-        origin,
-        result,
+  async callWebEmbedApiProxy(data: IBackgroundApiWebembedCallMessage) {
+    if (!platformEnv.isNative) {
+      throw new Error('call webembed api only support native env');
+    }
+    const bg = this.backgroundApi as unknown as BackgroundApiBase;
+
+    await waitForDataLoaded({
+      data: () => this.isWebEmbedApiReady && Boolean(bg?.webEmbedBridge),
+      logName: `ProviderApiPrivate.callWebEmbedApiProxy: ${
+        data?.module || ''
+      } - ${data?.method || ''}`,
+      wait: 1000,
+      timeout: getTimeDurationMs({ minute: 3 }),
+    });
+
+    if (!bg?.webEmbedBridge?.request) {
+      throw new Error('webembed webview bridge not ready.');
+    }
+
+    const webviewOrigin = `${bg?.webEmbedBridge?.remoteInfo?.origin || ''}`;
+    if (!isWebEmbedApiAllowedOrigin(webviewOrigin)) {
+      throw new Error(
+        `callWebEmbedApiProxy not allowed origin: ${
+          webviewOrigin || 'undefined'
+        }`,
       );
-      return result;
-    };
-    payload.data?.send?.(data);
+    }
+
+    const result = await bg?.webEmbedBridge?.request?.({
+      scope: '$private',
+      data,
+    });
+    return result;
+  }
+
+  isWebEmbedApiReady = false;
+
+  @providerApiMethod()
+  async webEmbedApiReady(): Promise<void> {
+    this.isWebEmbedApiReady = true;
+    // TODO return encodeSensitiveText key
+    return Promise.resolve();
   }
 
   @providerApiMethod()
-  chainWebEmbedResponse(payload: any) {
-    debugLogger.providerApi.info(
-      'ProviderApiPrivate.chainWebEmbedResponse',
-      payload,
-    );
-    this.backgroundApi.servicePromise.resolveCallback({
-      id: payload?.data?.promiseId,
-      data: { ...(payload?.data?.data ?? {}) },
-    });
+  async webEmbedApiNotReady(): Promise<void> {
+    this.isWebEmbedApiReady = false;
+    return Promise.resolve();
   }
 }
 
