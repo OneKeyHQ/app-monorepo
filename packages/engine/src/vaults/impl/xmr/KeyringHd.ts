@@ -1,8 +1,8 @@
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { COINTYPE_XMR as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
-import { OneKeyInternalError } from '../../../errors';
 import { slicePathTemplate } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { batchGetPrivateKeys } from '../../../secret';

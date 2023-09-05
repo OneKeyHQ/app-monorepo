@@ -3,8 +3,8 @@ import { PublicKey } from '@solana/web3.js';
 import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_SOL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
-import { OneKeyInternalError } from '../../../../errors';
 import { slicePathTemplate } from '../../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../../managers/impl';
 import { Signer } from '../../../../proxy';

@@ -38,11 +38,14 @@ import {
   IMPL_EVM,
   UNIQUE_TOKEN_SYMBOLS,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import * as covalentApi from '../../../managers/covalent';
 import { getAccountNameInfoByImpl } from '../../../managers/impl';
 import {

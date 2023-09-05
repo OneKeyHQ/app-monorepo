@@ -11,8 +11,8 @@ import {
   COINTYPE_BCH,
   COINTYPE_DOGE,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
-import { OneKeyInternalError } from '../../../errors';
 import { slicePathTemplate } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { AccountType } from '../../../types/account';

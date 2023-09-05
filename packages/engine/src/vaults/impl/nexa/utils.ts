@@ -2,7 +2,8 @@
 import BigNumber from 'bignumber.js';
 import BN from 'bn.js';
 
-import { InvalidAddress } from '../../../errors';
+import { InvalidAddress } from '@onekeyhq/shared/src/errors';
+
 import { hash160, sha256 } from '../../../secret/hash';
 import {
   type IDecodedTx,

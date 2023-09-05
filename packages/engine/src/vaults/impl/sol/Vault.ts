@@ -30,10 +30,6 @@ import type {
 } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-
-import simpleDb from '../../../dbs/simple/simpleDb';
 import {
   InvalidAddress,
   MinimumTransferBalanceRequiredError,
@@ -41,7 +37,11 @@ import {
   OneKeyError,
   OneKeyInternalError,
   PendingQueueTooLong,
-} from '../../../errors';
+} from '@onekeyhq/shared/src/errors';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+
+import simpleDb from '../../../dbs/simple/simpleDb';
 import { getAccountNameInfoByImpl } from '../../../managers/impl';
 import {
   createOutputActionFromNFTTransaction,
@@ -777,10 +777,12 @@ export default class Vault extends VaultBase {
             rpcErrorData.message.endsWith('without insufficient funds for rent')
           ) {
             isNodeBehind = false;
-            throw new MinimumTransferBalanceRequiredError(
-              '0.00089088',
-              network.symbol,
-            );
+            throw new MinimumTransferBalanceRequiredError({
+              info: {
+                amount: '0.00089088',
+                symbol: network.symbol,
+              },
+            });
           }
 
           // https://marinade.finance/app/defi/

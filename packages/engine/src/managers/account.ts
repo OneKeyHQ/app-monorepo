@@ -6,8 +6,8 @@ import {
   SEPERATOR,
   isLightningNetwork,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
-import { OneKeyInternalError } from '../errors';
 import { AccountType } from '../types/account';
 import {
   WALLET_TYPE_EXTERNAL,

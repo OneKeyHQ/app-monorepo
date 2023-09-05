@@ -7,14 +7,14 @@ import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-
 import {
   InvalidAddress,
   OneKeyInternalError,
   WatchedAccountTradeError,
-} from '../../../errors';
+} from '@onekeyhq/shared/src/errors';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+
 import { extractResponseError } from '../../../proxy';
 import {
   IDecodedTxActionType,

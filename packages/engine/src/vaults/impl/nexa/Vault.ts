@@ -2,10 +2,13 @@ import BigNumber from 'bignumber.js';
 
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import {
+  InvalidAddress,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
-import { InvalidAddress, OneKeyInternalError } from '../../../errors';
 import {
   type Account,
   AccountType,

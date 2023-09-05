@@ -1,6 +1,5 @@
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
-import { OneKeyInternalError } from '../../errors';
 
 import { KeyringBase } from './KeyringBase';
 

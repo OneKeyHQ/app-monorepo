@@ -1,6 +1,7 @@
 import Realm from 'realm';
 
-import { NotImplemented } from '../../../errors';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
+
 import { HistoryEntryType } from '../../../types/history';
 
 import type { HistoryEntry, HistoryEntryStatus } from '../../../types/history';

@@ -4,11 +4,14 @@ import { HardwareError } from '@onekeyfe/hd-shared';
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
-import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { COINTYPE_COSMOS as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  OneKeyHardwareError,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { OneKeyHardwareError, OneKeyInternalError } from '../../../errors';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import { stripHexPrefix } from '../../utils/hexUtils';
 

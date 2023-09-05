@@ -1,7 +1,6 @@
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 
 import type { ExportedSeedCredential } from '@onekeyhq/engine/src/dbs/base';
-import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import { slicePathTemplate } from '@onekeyhq/engine/src/managers/derivation';
 import { getAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
 import { Signer } from '@onekeyhq/engine/src/proxy';
@@ -19,6 +18,7 @@ import {
   IMPL_KASPA as COIN_IMPL,
   COINTYPE_KASPA as COIN_TYPE,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {

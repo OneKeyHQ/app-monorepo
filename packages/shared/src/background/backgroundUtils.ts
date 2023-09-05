@@ -34,7 +34,7 @@ import {
   IMPL_SUI,
   IMPL_TRON,
 } from '../engine/engineConsts';
-import { NotAutoPrintError } from '../errors/common-errors';
+import { NotAutoPrintError } from '../errors';
 import debugLogger from '../logger/debugLogger';
 import platformEnv from '../platformEnv';
 

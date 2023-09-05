@@ -1,7 +1,6 @@
 import BigNumber from 'bignumber.js';
 import { groupBy, keys } from 'lodash';
 
-import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import { HistoryEntryStatus } from '@onekeyhq/engine/src/types/history';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
@@ -19,6 +18,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import { IMPL_SOL, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 
 import ServiceBase from './ServiceBase';
 

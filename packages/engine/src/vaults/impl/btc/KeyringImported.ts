@@ -3,8 +3,8 @@ import { omit } from 'lodash';
 
 import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
 import { KeyringImported as KeyringImportedBtcFork } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/KeyringImported';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
-import { OneKeyInternalError } from '../../../errors';
 import { AccountType } from '../../../types/account';
 import { AddressEncodings } from '../../utils/btcForkChain/types';
 import { initBitcoinEcc } from '../../utils/btcForkChain/utils';

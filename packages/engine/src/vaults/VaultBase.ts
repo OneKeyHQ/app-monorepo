@@ -16,16 +16,16 @@ import type {
   UnsignedTx,
 } from '@onekeyhq/engine/src/types/provider';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import simpleDb from '../dbs/simple/simpleDb';
 import {
   InvalidAddress,
   InvalidTokenAddress,
   NotImplemented,
   PendingQueueTooLong,
-} from '../errors';
+} from '@onekeyhq/shared/src/errors';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import simpleDb from '../dbs/simple/simpleDb';
 import { getAccountNameInfoByImpl } from '../managers/impl';
 import { IMPL_MAPPINGS } from '../proxyUtils';
 
