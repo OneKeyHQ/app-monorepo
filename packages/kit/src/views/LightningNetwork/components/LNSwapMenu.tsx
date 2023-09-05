@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,7 +14,12 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useNavigation } from '../../../hooks';
+import {
+  useAccount,
+  useAppSelector,
+  useNavigation,
+  useNetwork,
+} from '../../../hooks';
 import { TabRoutes } from '../../../routes/routesEnum';
 
 import type { MessageDescriptor } from 'react-intl';
@@ -22,12 +27,17 @@ import type { MessageDescriptor } from 'react-intl';
 function LNSwapMenu({
   isSmallView,
   networkId,
+  accountId,
 }: {
   isSmallView: boolean;
   networkId: string;
+  accountId: string;
 }) {
   const intl = useIntl();
   const navigation = useNavigation();
+  const { account } = useAccount({ accountId, networkId });
+  const { network } = useNetwork({ networkId });
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
 
   const onSwap = useCallback(
     async ({ isWithdraw }: { isWithdraw: boolean }) => {
@@ -69,17 +79,31 @@ function LNSwapMenu({
         }
         if (token) {
           backgroundApiProxy.serviceSwap.sellToken(token, false).then(() => {
-            setTimeout(() => {
-              backgroundApiProxy.serviceSwap.switchToNativeOutputToken(
-                outputNetworkId,
-              );
-            }, 20);
+            setTimeout(
+              () => {
+                backgroundApiProxy.serviceSwap.switchToNativeOutputToken(
+                  outputNetworkId,
+                );
+              },
+              // wait for set default output token
+              !outputToken ? 50 : 0,
+            );
           });
+        }
+        if (account) {
+          if (isWithdraw) {
+            backgroundApiProxy.serviceSwap.setSendingAccountSimple(account);
+          } else {
+            backgroundApiProxy.serviceSwap.setRecipientToAccount(
+              account,
+              network,
+            );
+          }
         }
       }
       navigation.getParent()?.navigate(TabRoutes.Swap);
     },
-    [intl, networkId, navigation],
+    [intl, networkId, navigation, account, network, outputToken],
   );
 
   const options: {

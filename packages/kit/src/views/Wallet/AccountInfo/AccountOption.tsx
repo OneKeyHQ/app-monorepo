@@ -205,8 +205,12 @@ const AccountOption: FC<AccountOptionProps> = memo(
             {intl.formatMessage({ id: 'action__receive' })}
           </Typography.CaptionStrong>
         </Pressable>
-        {!network?.settings.customAccountInfoSwapOption ? (
-          <LNSwapMenu isSmallView={isSmallView} networkId={networkId} />
+        {network?.settings.customAccountInfoSwapOption ? (
+          <LNSwapMenu
+            isSmallView={isSmallView}
+            networkId={networkId}
+            accountId={accountId}
+          />
         ) : (
           <Pressable
             flex={iconBoxFlex}
