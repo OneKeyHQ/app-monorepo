@@ -22,8 +22,6 @@ import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClos
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
-import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
-import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
@@ -261,23 +259,10 @@ function BTCAssetDetailContent({
                   onConfirm={async () => {
                     const [txid, vout] = asset.output.split(':');
                     const voutNum = parseInt(vout, 10);
-                    let assetAccountId = accountId;
-
-                    if (isAllNetworks(networkId) && asset.accountAddress) {
-                      const assetAccount =
-                        (await backgroundApiProxy.serviceAccount.getAccountByAddress(
-                          {
-                            address: asset.accountAddress,
-                            networkId,
-                          },
-                        )) as Account;
-
-                      assetAccountId = assetAccount?.id;
-                    }
 
                     await backgroundApiProxy.serviceUtxos.updateRecycle({
-                      networkId: asset.networkId ?? networkId ?? '',
-                      accountId: assetAccountId ?? '',
+                      networkId: networkId ?? '',
+                      accountId: accountId ?? '',
                       utxo: {
                         txid,
                         vout: voutNum,
@@ -333,9 +318,7 @@ function BTCAssetDetailContent({
     ),
     [
       accountId,
-      asset.accountAddress,
       asset?.listed,
-      asset.networkId,
       asset.output,
       asset.output_value_sat,
       asset.owner,

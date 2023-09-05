@@ -34,7 +34,7 @@ function getTitleInfo({
 }): ITxActionMetaTitle {
   if (type === IDecodedTxActionType.TOKEN_BRC20_DEPLOY) {
     return {
-      titleKey: 'content__deploy',
+      titleKey: 'content__mint',
     };
   }
 
@@ -71,7 +71,10 @@ export function getTxActionsBRC20Info(props: ITxActionCardProps) {
 
   action.direction = direction;
 
-  const isOut = direction === IDecodedTxDirection.OUT;
+  const isOut =
+    direction === IDecodedTxDirection.OUT ||
+    direction === IDecodedTxDirection.SELF ||
+    direction === IDecodedTxDirection.OTHER;
   const titleInfo = getTitleInfo({
     type,
     isOut,
@@ -108,19 +111,9 @@ export function TxActionBRC20T0(props: ITxActionCardProps) {
   const statusBar = (
     <TxStatusBarInList decodedTx={decodedTx} historyTx={historyTx} />
   );
-
   const intl = useIntl();
 
-  let subTitle = '';
-
-  const isDeploy = action.type === IDecodedTxActionType.TOKEN_BRC20_DEPLOY;
-  const isMint = action.type === IDecodedTxActionType.TOKEN_BRC20_MINT;
-
-  if (isDeploy || isMint) {
-    subTitle = receiver;
-  } else {
-    subTitle = isOut ? receiver : sender;
-  }
+  const subTitle = isOut ? receiver : sender;
 
   const subTitleFormated =
     subTitle === 'unknown' ? subTitle : shortenAddress(subTitle);
@@ -140,9 +133,9 @@ export function TxActionBRC20T0(props: ITxActionCardProps) {
         <TxActionElementAmountNormal
           textAlign="right"
           justifyContent="flex-end"
-          amount={isDeploy ? undefined : amount}
+          amount={amount}
           symbol={symbol}
-          direction={isDeploy ? undefined : action.direction}
+          direction={action.direction}
         />
       }
       subTitle={
@@ -155,7 +148,7 @@ export function TxActionBRC20T0(props: ITxActionCardProps) {
         )
       }
       extra={
-        status === IDecodedTxStatus.Offline || isDeploy ? (
+        status === IDecodedTxStatus.Offline ? (
           ''
         ) : (
           <FormatCurrencyTokenOfAccount
@@ -180,15 +173,12 @@ export function TxActionBRC20(props: ITxActionCardProps) {
   const { amount, sender, receiver, isOut, symbol } =
     getTxActionsBRC20Info(props);
 
-  const isDeploy = action.type === IDecodedTxActionType.TOKEN_BRC20_DEPLOY;
-  const isTransfer = action.type === IDecodedTxActionType.TOKEN_BRC20_TRANSFER;
-
   const details: (ITxActionElementDetail | null)[] = [
-    isDeploy || isTransfer
+    action.type === IDecodedTxActionType.TOKEN_BRC20_TRANSFER
       ? {
           title: intl.formatMessage({ id: 'content__from' }),
           content: getTxActionElementAddressWithSecurityInfo({
-            address: isDeploy ? receiver : sender,
+            address: sender,
             networkId: network?.id,
             withSecurityInfo: !isOut,
             amount,
@@ -197,19 +187,17 @@ export function TxActionBRC20(props: ITxActionCardProps) {
           }),
         }
       : null,
-    isDeploy
-      ? null
-      : {
-          title: intl.formatMessage({ id: 'content__to' }),
-          content: getTxActionElementAddressWithSecurityInfo({
-            address: receiver,
-            networkId: network?.id,
-            withSecurityInfo: isOut,
-            amount,
-            isCopy: true,
-            isShorten: isShortenAddress,
-          }),
-        },
+    {
+      title: intl.formatMessage({ id: 'content__to' }),
+      content: getTxActionElementAddressWithSecurityInfo({
+        address: receiver,
+        networkId: network?.id,
+        withSecurityInfo: isOut,
+        amount,
+        isCopy: true,
+        isShorten: isShortenAddress,
+      }),
+    },
   ];
 
   return (
@@ -218,8 +206,8 @@ export function TxActionBRC20(props: ITxActionCardProps) {
       iconInfo={meta?.iconInfo}
       titleInfo={meta?.titleInfo}
       amountInfo={{
-        direction: isDeploy ? undefined : action.direction,
-        amount: isDeploy ? '' : amount,
+        direction: action.direction,
+        amount,
         symbol: symbol ?? '',
       }}
       details={details}
