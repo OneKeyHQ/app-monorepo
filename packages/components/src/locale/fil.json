@@ -542,6 +542,7 @@
   "content__deflationary_desc": "Mangyaring huwag pansinin ito kung ang iyong token ay hindi deflationary. Karamihan sa mga token ay hindi, kaya iwanan ito bilang ay. Kung ang iyong token ay may deflationary function, tulad ng token dividends, burning, taxes, atbp., mangyaring paganahin ito. \n\nKung ikaw ang may-ari ng token at may awtomatikong LP function at hindi ka nagdagdag ng liquidity pool, paki-off muna ang automatic LP.",
   "content__deflationary_token_transfers_are_not_supported_at_this_moment": "Ang mga maramihang paglilipat para sa mga deflationary token ay hindi sinusuportahan sa ngayon.",
   "content__deoccupy_the_inscriptions_will_reclaim_theattached_utxos_value_toe_the_account_balance_once_these_utxos_are_spent_you_will_permanently_lose_the_inscription_assets": "Ang pag-deoccupy sa mga inskripsiyon ay muling kukunin ang nakalakip na halaga ng UTXO sa balanse ng account. Kapag nagastos na ang mga UTXO na ito, permanenteng mawawala sa iyo ang mga inscription asset.",
+  "content__deploy": "I-deploy",
   "content__deposit_tokens_to_your_wallet": "Magdeposito ng mga token sa iyong wallet",
   "content__description": "Paglalarawan",
   "content__details": "Mga Detalye",

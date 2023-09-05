@@ -133,7 +133,7 @@ export class KeyringHd extends KeyringHdBtcFork {
           type: AccountType.UTXO,
           path,
           coinType: COIN_TYPE,
-          pubKey: keyPair.publicKey.toString('hex'),
+          pub: keyPair.publicKey.toString('hex'),
           xpub,
           xpubSegwit,
           address,

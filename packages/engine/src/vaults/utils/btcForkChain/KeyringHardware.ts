@@ -248,7 +248,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           type: AccountType.UTXO,
           path,
           coinType: COIN_TYPE,
-          pubKey: node.public_key,
+          pub: node.public_key,
           xpub,
           xpubSegwit: xpubSegwit || xpub,
           address,
