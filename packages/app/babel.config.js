@@ -1,4 +1,7 @@
+const path = require('path');
 const babelTools = require('../../development/babelTools');
+
+process.env.TAMAGUI_TARGET = 'native';
 
 module.exports = function (api) {
   api.cache(true);
@@ -11,6 +14,16 @@ module.exports = function (api) {
           'react-native-reanimated/plugin',
           {
             globals: ['__scanCodes'],
+          },
+        ],
+        [
+          '@tamagui/babel-plugin',
+          {
+            components: ['tamagui'],
+            config: path.join(__dirname, '../components/tamagui.config.ts'),
+            importsWhitelist: ['constants.js', 'colors.js'],
+            logTimings: true,
+            disableExtraction: process.env.NODE_ENV === 'development',
           },
         ],
       ],

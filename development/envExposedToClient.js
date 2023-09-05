@@ -15,6 +15,7 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'COVALENT_KEY',
     'HARDWARE_SDK_CONNECT_SRC',
     'GITHUB_SHA',
+    'TAMAGUI_TARGET',
   ];
 
   if (platform === developmentConsts.platforms.app) {
