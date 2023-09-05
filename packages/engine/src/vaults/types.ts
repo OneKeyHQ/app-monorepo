@@ -64,6 +64,7 @@ export type TxExtraInfo = {
   title: LocaleIds;
   canCopy?: boolean;
   isShorten?: boolean;
+  numberOfLines?: number;
 };
 
 export type IVaultSettings = {

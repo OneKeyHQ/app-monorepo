@@ -55,6 +55,7 @@ const settings: IVaultSettings = Object.freeze({
       title: 'content__description' as LocaleIds,
       canCopy: false,
       isShorten: false,
+      numberOfLines: 10,
     },
   ],
 });
