@@ -40,6 +40,8 @@
     "@react-navigation/native": "6.0.6",
     "@react-navigation/native-stack": "^6.2.5",
     "@react-navigation/stack": "^6.0.11",
+    "@tamagui/babel-plugin": "^1.58.3",
+    "@tamagui/config": "^1.58.3",
     "@walletconnect-v2/core": "npm:@walletconnect/core@2.7.3",
     "@walletconnect-v2/types": "npm:@walletconnect/types@2.7.3",
     "@walletconnect-v2/utils": "npm:@walletconnect/utils@2.7.3",
@@ -117,6 +119,7 @@
     "realm-flipper-plugin-device": "^1.1.0",
     "redux-flipper": "^2.0.2",
     "stream-http": "^3.2.0",
+    "tamagui": "^1.58.3",
     "text-encoding": "^0.7.0",
     "v8-android-jit": "11.1000.3"
   },

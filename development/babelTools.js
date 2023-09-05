@@ -98,9 +98,11 @@ function normalizeConfig({ platform, config }) {
       {
         // *** ATTENTION: DO NOT expose any sensitive variable here ***
         // ***        like password, secretKey, etc.                ***
-        'include': envExposedToClient.buildEnvExposedToClientDangerously({
-          platform,
-        }),
+        'include': [
+          ...envExposedToClient.buildEnvExposedToClientDangerously({
+            platform,
+          }),
+        ],
       },
     ],
     [
