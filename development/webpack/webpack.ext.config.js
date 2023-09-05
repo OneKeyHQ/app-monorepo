@@ -1,5 +1,4 @@
-const { merge } = require('webpack-merge');
-
+const { mergeWithRules, CustomizeRule } = require('webpack-merge');
 const path = require('path');
 const webpack = require('webpack');
 const WebpackBar = require('webpackbar');
@@ -23,7 +22,6 @@ const {
 
 const isManifestV3 = !!EXT_MANIFEST_V3;
 const isManifestV2 = !isManifestV3;
-
 function getBuildTargetBrowser() {
   let buildTargetBrowser = process.env.EXT_CHANNEL || 'chrome';
   const argv = process.argv[process.argv.length - 1];
@@ -52,6 +50,7 @@ module.exports = ({
   basePath,
   platform = babelTools.developmentConsts.platforms.ext,
 }) => {
+  const buildTargetBrowser = getBuildTargetBrowser();
   const extConfig = ({ name }) => ({
     optimization: {
       'splitChunks': {
@@ -106,36 +105,41 @@ module.exports = ({
       },
     },
     resolve: {
-      'extensions': [
-        '.chrome-ext.ts',
-        '.chrome-ext.tsx',
-        '.chrome-ext.js',
-        '.chrome-ext.jsx',
-        '.ext-ui-v3.ts',
-        '.ext-ui-v3.tsx',
-        '.ext-ui-v3.js',
-        '.ext-ui-v3.jsx',
-        '.ext-ui.ts',
-        '.ext-ui.tsx',
-        '.ext-ui.js',
-        '.ext-ui.jsx',
-        '.ext.ts',
-        '.ext.tsx',
-        '.ext.js',
-        '.ext.jsx',
-        '.web.js',
-        '.web.jsx',
+      extensions: [
+        ...(buildTargetBrowser
+          ? ['.ts', '.tsx', '.js', '.jsx'].map(
+              (ext) => `.${buildTargetBrowser}-${platform}${ext}`,
+            )
+          : []),
+        // .ext-bg-v3.ts
+        ...(name &&
+        platform === 'ext' &&
+        babelTools.developmentConsts.isManifestV3
+          ? ['.ts', '.tsx', '.js', '.jsx'].map(
+              (ext) => `.${platform}-${name}-v3${ext}`,
+            )
+          : []),
+        // .ext-ui.ts, .ext-bg.ts
+        ...(name
+          ? ['.ts', '.tsx', '.js', '.jsx'].map(
+              (ext) => `.${platform}-${name}${ext}`,
+            )
+          : []),
+        // .ext.ts, .web.ts, .android.ts, .ios.ts, .native.ts
+        ...['.ts', '.tsx', '.js', '.jsx'].map((ext) => `.${platform}${ext}`),
         '.web.ts',
         '.web.tsx',
         '.web.mjs',
+        '.web.js',
+        '.web.jsx',
         '.ts',
         '.tsx',
         '.mjs',
-        '.cjs',
         '.js',
         '.jsx',
         '.json',
         '.wasm',
+        '.cjs',
         '.d.ts',
       ],
     },
@@ -278,7 +282,12 @@ module.exports = ({
   const entryConfigs = devUtils.createMultipleEntryConfigs(({ config }) => {
     const BaseConfig = baseConfig({ platform, basePath });
     BaseConfig.plugins = [];
-    return merge(
+    return mergeWithRules({
+      resolve: {
+        extensions: CustomizeRule.Replace,
+        plugins: CustomizeRule.Replace,
+      },
+    })(
       BaseConfig,
       IS_DEV ? developmentConfig({ platform, basePath }) : productionConfig,
       ...extConfigs({ name: config.name }),
