@@ -84,7 +84,6 @@ class AccountSchema extends Realm.Object {
       (ret as DBVariantAccount).pub = this.pub || '';
       (ret as DBVariantAccount).addresses = this.addresses || {};
     } else if (this.type === AccountType.UTXO) {
-      (ret as DBUTXOAccount).pub = this.pub || '';
       (ret as DBUTXOAccount).xpub = this.xpub || '';
       (ret as DBUTXOAccount).xpubSegwit = this.xpubSegwit || '';
       (ret as DBUTXOAccount).addresses = this.addresses || {};
