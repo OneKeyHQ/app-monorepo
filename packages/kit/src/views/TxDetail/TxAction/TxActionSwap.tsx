@@ -121,15 +121,17 @@ export function TxActionSwap(props: ITxActionCardProps) {
     },
   ];
   if (receivingAddress && accountAddress !== receivingAddress) {
-    details.push({
-      title: intl.formatMessage({ id: 'content__from' }),
-      content: (
-        <TxActionElementAddressNormal
-          address={accountAddress}
-          isShorten={isShortenAddress}
-        />
-      ),
-    });
+    if (accountAddress) {
+      details.push({
+        title: intl.formatMessage({ id: 'content__from' }),
+        content: (
+          <TxActionElementAddressNormal
+            address={accountAddress}
+            isShorten={isShortenAddress}
+          />
+        ),
+      });
+    }
     details.push({
       title: intl.formatMessage({ id: 'content__to' }),
       content: getTxActionElementAddressWithSecurityInfo({
