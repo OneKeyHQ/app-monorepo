@@ -325,7 +325,7 @@ export type BRC20TxHistory = {
   inscriptionsList: {
     txId: string;
     blockHeight: string;
-    state: string;
+    state: 'success' | 'fail';
     tokenType: string;
     actionType: 'deploy' | 'mint' | 'inscribeTransfer' | 'transfer';
     fromAddress: string;
