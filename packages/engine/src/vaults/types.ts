@@ -142,6 +142,7 @@ export type IVaultSettings = {
   hiddenToolTab?: boolean;
   hiddenAddress?: boolean;
   hiddenAccountInfoMoreOption?: boolean;
+  customAccountInfoSwapOption?: boolean;
   displayMemo?: boolean;
   hideFromToFieldIfValueEmpty?: boolean;
   hideFeeSpeedInfo?: boolean;
