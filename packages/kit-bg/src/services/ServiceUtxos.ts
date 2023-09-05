@@ -223,13 +223,22 @@ export default class ServiceUtxos extends ServiceBase {
   @backgroundMethod()
   async getArchivedUtxos(
     networkId: string | undefined,
-    xpub: string | undefined,
+    xpubs: string[] | undefined,
   ) {
-    const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
-      networkId ?? '',
-      isTaprootXpubSegwit(xpub ?? '') ? getTaprootXpub(xpub ?? '') : xpub ?? '',
-    );
-    return archivedUtxos;
+    if (xpubs && xpubs.length) {
+      const archivedUtxos = await Promise.all(
+        xpubs.map((xpub) =>
+          simpleDb.utxoAccounts.getCoinControlList(
+            networkId ?? '',
+            isTaprootXpubSegwit(xpub ?? '')
+              ? getTaprootXpub(xpub ?? '')
+              : xpub ?? '',
+          ),
+        ),
+      );
+      return archivedUtxos.flat();
+    }
+    return [];
   }
 
   @backgroundMethod()

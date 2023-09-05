@@ -542,6 +542,7 @@
   "content__deflationary_desc": "토큰이 디플레이션이 아닌 경우 이를 무시하십시오. 대부분의 토큰은 디플레이션이 아니므로 그대로 두십시오. 토큰에 토큰 배당, 소각, 세금 등과 같은 디플레이션 기능이 있는 경우 이를 활성화하십시오. \n\n토큰 소유자이고 자동 LP 기능이 있으며 유동성 풀을 추가하지 않은 경우 먼저 자동 LP를 해제하십시오.",
   "content__deflationary_token_transfers_are_not_supported_at_this_moment": "디플레이션 토큰에 대한 대량 전송은 현재 지원되지 않습니다.",
   "content__deoccupy_the_inscriptions_will_reclaim_theattached_utxos_value_toe_the_account_balance_once_these_utxos_are_spent_you_will_permanently_lose_the_inscription_assets": "비문을 점유 해제하면 첨부된 UTXO 값이 계정 잔액에 회수됩니다. 이러한 UTXO가 사용되면 비문 자산을 영구적으로 잃게 됩니다.",
+  "content__deploy": "배포",
   "content__deposit_tokens_to_your_wallet": "지갑에 토큰 입금",
   "content__description": "설명",
   "content__details": "세부",
