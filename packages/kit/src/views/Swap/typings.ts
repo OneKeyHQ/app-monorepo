@@ -16,7 +16,6 @@ export enum SwapRoutes {
   Webview = 'Webview',
   Share = 'Share',
   SwftcHelp = 'SwftcHelp',
-  PickRecipient = 'PickRecipient',
   PickAccount = 'PickAccount',
   SelectSendingAccount = 'SelectSendingAccount',
   SelectRecipient = 'SelectRecipient',
@@ -54,16 +53,6 @@ export type SwapRoutesParams = {
         accountId?: string;
         networkId?: string;
         onSelected?: (acc: Account) => void;
-      }
-    | undefined;
-  [SwapRoutes.PickRecipient]:
-    | {
-        networkId?: string;
-        onSelected?: (data: {
-          address: string;
-          name?: string;
-          accountId?: string;
-        }) => void;
       }
     | undefined;
   [SwapRoutes.SelectRecipient]:
