@@ -18,6 +18,7 @@
   },
   "private": true,
   "devDependencies": {
+    "tamagui-loader": "^1.59.0",
     "webpack": "5.88.2",
     "webpack-cli": "5.1.4",
     "webpack-subresource-integrity": "^5.2.0-rc.1",

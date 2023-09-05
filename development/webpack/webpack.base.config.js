@@ -155,23 +155,35 @@ module.exports = ({ platform, basePath }) => ({
           {
             test: /\.(js|mjs|jsx|ts|tsx)$/,
             exclude: [/node_modules/],
-            use: {
-              loader: 'babel-loader',
-              options: {
-                'babelrc': false,
-                'configFile': true,
-                'sourceType': 'unambiguous',
-                'root': basePath,
-                'compact': !isDev,
-                'sourceMaps': isDev,
-                'inputSourceMap': isDev,
-                'cacheCompression': false,
-                'cacheDirectory': path.resolve(
-                  basePath,
-                  'node_modules/.cache/babel-loader',
-                ),
+            use: [
+              {
+                loader: 'babel-loader',
+                options: {
+                  'babelrc': false,
+                  'configFile': true,
+                  'sourceType': 'unambiguous',
+                  'root': basePath,
+                  'compact': !isDev,
+                  'sourceMaps': isDev,
+                  'inputSourceMap': isDev,
+                  'cacheCompression': false,
+                  'cacheDirectory': path.resolve(
+                    basePath,
+                    'node_modules/.cache/babel-loader',
+                  ),
+                },
               },
-            },
+              {
+                loader: 'tamagui-loader',
+                options: {
+                  config: path.join(basePath, 'tamagui.config.js'),
+                  components: ['tamagui'],
+                  importsWhitelist: ['constants.js', 'colors.js'],
+                  logTimings: true,
+                  disableExtraction: isDev,
+                },
+              },
+            ],
             resolve: { fullySpecified: false },
           },
           {
