@@ -312,9 +312,12 @@ export const verifyBulkTransferBeforeConfirm = async ({
       senderAmount = '0';
     }
 
-    const senderNativeTokenBalance =
-      nativeTokensBalance?.[senderAccountId] ?? '0';
-    const senderTokenBalance = tokensBalance?.[senderAccountId] ?? '0';
+    const senderNativeTokenBalance = nativeTokensBalance?.[senderAccountId];
+    const senderTokenBalance = tokensBalance?.[senderAccountId];
+
+    if (isNil(senderNativeTokenBalance) || isNil(senderTokenBalance)) {
+      throw new OneKeyError('Can not get sender balance value.');
+    }
 
     if (token.isNative) {
       if (new BigNumber(senderAmount).gt(senderNativeTokenBalance)) {
