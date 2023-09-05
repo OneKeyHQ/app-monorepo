@@ -177,6 +177,7 @@ export function TxActionElementAddress(
     networkId?: string;
     amount?: string;
     displayAddress?: boolean;
+    numberOfLines?: number;
   } & ComponentProps<typeof Text>,
 ) {
   const {
@@ -188,6 +189,7 @@ export function TxActionElementAddress(
     flex,
     amount,
     displayAddress = true,
+    numberOfLines = 2,
     ...others
   } = props;
   const intl = useIntl();
@@ -215,7 +217,7 @@ export function TxActionElementAddress(
             <Text
               ml={securityInfo?.length ? 1 : 0}
               isTruncated
-              numberOfLines={2}
+              numberOfLines={numberOfLines}
               {...others}
               color={securityInfo?.length ? 'text-critical' : 'text-default'}
             >

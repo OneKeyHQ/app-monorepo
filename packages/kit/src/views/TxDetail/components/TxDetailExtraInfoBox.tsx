@@ -172,6 +172,7 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
               address={extraInfo}
               isCopy={item.canCopy}
               isShorten={item.isShorten}
+              numberOfLines={item.numberOfLines ?? 2}
             />
           ),
         });

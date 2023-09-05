@@ -21,6 +21,7 @@ import {
 import Logo from '@onekeyhq/components/src/Icon/react/illus/Logo';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useAddressName, useNetworkSimple } from '../../../../hooks';
@@ -346,6 +347,7 @@ type Option = {
   logoURI: string;
   value: string;
   url: string;
+  networkId: string;
 };
 type ViewInBrowserSelectorProps = { tx: TransactionDetails };
 const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
@@ -356,6 +358,7 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
   const options = useMemo(() => {
     let base: Option[] = [
       {
+        networkId: fromNetwork?.id ?? '',
         header: intl.formatMessage({ id: 'form__from_uppercase' }),
         label: fromNetwork?.shortName ?? '',
         logoURI: fromNetwork?.logoURI ?? '',
@@ -363,6 +366,7 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
         url: buildTransactionDetailsUrl(fromNetwork, tx.hash),
       },
       {
+        networkId: toNetwork?.id ?? '',
         header: intl.formatMessage({ id: 'form__to_uppercase' }),
         label: toNetwork?.shortName ?? '',
         logoURI: toNetwork?.logoURI ?? '',
@@ -376,6 +380,7 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
     if (tx.quoterType === 'socket') {
       const socketOption: Option[] = [
         {
+          networkId: '',
           header: intl.formatMessage({ id: 'form__provider_uppercase' }),
           label: 'Socketscan',
           logoURI: 'https://common.onekey-asset.com/logo/SocketBridge.png',
@@ -385,7 +390,7 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
       ];
       base = socketOption.concat(base);
     }
-    return base;
+    return base.filter((i) => !isLightningNetworkByNetworkId(i.networkId));
   }, [tx, fromNetwork, toNetwork, intl]);
   const onPress = useCallback((_: any, item: any) => {
     // eslint-disable-next-line

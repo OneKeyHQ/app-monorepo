@@ -52,7 +52,7 @@ export const AccountMoreMenus: FC<IMenu & AccountMoreMenusProps> = ({
         onPress: () => onOpenAccount(),
         icon: 'UserOutline',
       },
-      {
+      Boolean(account?.address && account?.address.length > 0) && {
         id: 'action__copy_address',
         onPress: () => copyText(account?.address ?? ''),
         icon: 'Square2StackOutline',
