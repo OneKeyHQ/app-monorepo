@@ -3,7 +3,7 @@ import { Buffer } from 'buffer';
 import fetch from 'cross-fetch';
 import timeoutSignal from 'timeout-signal';
 
-import { ResponseError } from '@onekeyhq/shared/src/errors/request-errors';
+import { ResponseError } from '@onekeyhq/shared/src/errors';
 
 import type { Response } from 'cross-fetch';
 

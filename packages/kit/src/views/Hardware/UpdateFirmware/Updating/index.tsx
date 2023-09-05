@@ -7,13 +7,13 @@ import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
 
 import { Modal, ToastManager } from '@onekeyhq/components';
-import type { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/HardwareUpdate';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { setDeviceDoneUpdate } from '@onekeyhq/kit/src/store/reducers/settings';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import type { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import {

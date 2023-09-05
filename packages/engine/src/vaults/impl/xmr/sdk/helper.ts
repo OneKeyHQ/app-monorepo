@@ -6,9 +6,8 @@ import {
 } from '@mymonero/mymonero-keyimage-cache';
 import axios from 'axios';
 
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-
-import { OneKeyInternalError } from '../../../../errors';
 
 import { cnFastHash } from './moneroAddress';
 

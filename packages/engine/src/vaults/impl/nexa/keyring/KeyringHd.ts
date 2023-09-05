@@ -1,6 +1,6 @@
 import { COINTYPE_NEXA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
-import { OneKeyInternalError } from '../../../../errors';
 import { slicePathTemplate } from '../../../../managers/derivation';
 import { Signer } from '../../../../proxy';
 import { batchGetPublicKeys } from '../../../../secret';

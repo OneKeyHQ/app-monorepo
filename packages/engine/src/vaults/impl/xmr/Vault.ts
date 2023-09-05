@@ -3,16 +3,16 @@ import BigNumber from 'bignumber.js';
 
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import {
+  InvalidAddress,
+  OneKeyInternalError,
+  WrongPassword,
+} from '@onekeyhq/shared/src/errors';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import simpleDb from '../../../dbs/simple/simpleDb';
-import {
-  InvalidAddress,
-  OneKeyInternalError,
-  WrongPassword,
-} from '../../../errors';
 import { isAccountCompatibleWithNetwork } from '../../../managers/account';
 import { slicePathTemplate } from '../../../managers/derivation';
 import { batchGetPrivateKeys } from '../../../secret';

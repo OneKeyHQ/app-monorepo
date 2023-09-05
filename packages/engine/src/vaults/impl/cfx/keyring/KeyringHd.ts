@@ -1,8 +1,8 @@
 import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
 import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_CFX as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
-import { OneKeyInternalError } from '../../../../errors';
 import { Signer, Verifier } from '../../../../proxy';
 import { AccountType } from '../../../../types/account';
 import { KeyringHdBase } from '../../../keyring/KeyringHdBase';

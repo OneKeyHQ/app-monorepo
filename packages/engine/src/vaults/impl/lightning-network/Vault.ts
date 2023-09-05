@@ -6,9 +6,6 @@ import BigNumber from 'bignumber.js';
 import { get } from 'lodash';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-
 import {
   ChannelInsufficientLiquidityError,
   InvalidLightningPaymentRequest,
@@ -16,7 +13,10 @@ import {
   InvoiceExpiredError,
   MaxSendAmountError,
   NoRouteFoundError,
-} from '../../../errors';
+} from '@onekeyhq/shared/src/errors';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+
 import { TransactionStatus } from '../../../types/provider';
 import {
   type IDecodedTx,
@@ -171,10 +171,10 @@ export default class Vault extends VaultBase {
   override async validateSendAmount(amount: string): Promise<boolean> {
     const ZeroInvoiceMaxSendAmount = 1000000;
     if (new BigNumber(amount).isGreaterThan(ZeroInvoiceMaxSendAmount)) {
-      throw new MaxSendAmountError(
-        'msg__the_sending_amount_cannot_exceed_int_sats',
-        { 0: ZeroInvoiceMaxSendAmount },
-      );
+      throw new MaxSendAmountError({
+        key: 'msg__the_sending_amount_cannot_exceed_int_sats',
+        info: { 0: ZeroInvoiceMaxSendAmount },
+      });
     }
     return Promise.resolve(true);
   }

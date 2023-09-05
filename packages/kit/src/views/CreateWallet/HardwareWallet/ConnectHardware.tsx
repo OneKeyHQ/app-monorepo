@@ -23,8 +23,6 @@ import {
 import ClassicDeviceIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import TouchDeviceIcon from '@onekeyhq/components/img/deviceicon_touch.png';
-import type { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
-import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import type { Device } from '@onekeyhq/engine/src/types/device';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import KeepDeviceAroundSource from '@onekeyhq/kit/assets/wallet/keep_device_close.png';
@@ -43,18 +41,20 @@ import type {
 } from '@onekeyhq/kit/src/routes/types';
 import type { SearchDevice } from '@onekeyhq/kit/src/utils/hardware';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
-import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
-
+import type { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import {
   BleLocationServiceError,
   InitIframeLoadFail,
   InitIframeTimeout,
   NeedBluetoothPermissions,
   NeedBluetoothTurnedOn,
-} from '../../../utils/hardware/errors';
+} from '@onekeyhq/shared/src/errors';
+import { OneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
+import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
+
 import { showDialog } from '../../../utils/overlayUtils';
 
 import type { RouteProp } from '@react-navigation/native';

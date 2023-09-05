@@ -1,4 +1,3 @@
-import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { slicePathTemplate } from '@onekeyhq/engine/src/managers/derivation';
 import { getAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
@@ -10,11 +9,12 @@ import type {
   IPrepareHardwareAccountsParams,
   ISignedTxPro,
 } from '@onekeyhq/engine/src/vaults/types';
-import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import {
   IMPL_NEXA as COIN_IMPL,
   COINTYPE_NEXA as COIN_TYPE,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { type IEncodedTxNexa } from '../types';

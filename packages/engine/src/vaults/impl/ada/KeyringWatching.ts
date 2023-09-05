@@ -1,6 +1,6 @@
 import { COINTYPE_ADA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import { InvalidAccount, InvalidAddress } from '@onekeyhq/shared/src/errors';
 
-import { InvalidAccount, InvalidAddress } from '../../../errors';
 import { AccountType } from '../../../types/account';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
 

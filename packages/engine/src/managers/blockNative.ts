@@ -3,8 +3,10 @@ import BigNumber from 'bignumber.js';
 
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
-
-import { NotImplemented, OneKeyInternalError } from '../errors';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 
 import type {
   BlockNativeGasAPIResponse,

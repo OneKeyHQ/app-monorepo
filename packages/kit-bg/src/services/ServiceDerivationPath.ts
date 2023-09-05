@@ -1,10 +1,5 @@
 import BigNumber from 'bignumber.js';
 
-import {
-  OneKeyErrorClassNames,
-  OneKeyHardwareError,
-  OneKeyInternalError,
-} from '@onekeyhq/engine/src/errors';
 import { getNextAccountId } from '@onekeyhq/engine/src/managers/derivation';
 import type { IAccount } from '@onekeyhq/engine/src/types';
 import type {
@@ -18,6 +13,11 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { INDEX_PLACEHOLDER } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  OneKeyHardwareError,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
+import { OneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';

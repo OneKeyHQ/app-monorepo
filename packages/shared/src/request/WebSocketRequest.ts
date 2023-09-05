@@ -2,7 +2,7 @@ import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import {
   JsonPRCResponseError,
   ResponseError,
-} from '@onekeyhq/shared/src/errors/request-errors';
+} from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

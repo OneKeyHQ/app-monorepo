@@ -9,7 +9,6 @@ import {
   getGetblockEndpoint,
   getMempoolEndpoint,
 } from '@onekeyhq/engine/src/endpoint';
-import { InscribeFileTooLargeError } from '@onekeyhq/engine/src/errors';
 import { getNetworkImpl } from '@onekeyhq/engine/src/managers/network.utils';
 import {
   INSCRIBE_ACCOUNT_STORAGE_KEY,
@@ -57,6 +56,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { InscribeFileTooLargeError } from '@onekeyhq/shared/src/errors';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';

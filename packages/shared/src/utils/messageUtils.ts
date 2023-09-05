@@ -5,10 +5,11 @@ import { TYPED_MESSAGE_SCHEMA, typedSignatureHash } from 'eth-sig-util';
 import { addHexPrefix, isHexString, isValidAddress } from 'ethereumjs-util';
 import { validate } from 'jsonschema';
 
-import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import type { IUnsignedMessageBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
 import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+
+import { OneKeyError } from '../errors';
 
 function isValidHexAddress(
   possibleAddress: string,

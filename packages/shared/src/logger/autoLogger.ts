@@ -1,16 +1,22 @@
-import { NotAutoPrintError } from '../errors/common-errors';
-import { toPlainErrorObject } from '../utils/errorUtils';
+import { isFunction } from 'lodash';
 
-const isJest =
-  process.env.JEST_WORKER_ID !== undefined || process.env.NODE_ENV === 'test';
+import { NotAutoPrintError } from '../errors';
+import { toPlainErrorObject } from '../errors/utils/errorUtils';
 
 let prevErrorStack: string | undefined;
+const isJest =
+  process.env.JEST_WORKER_ID !== undefined || process.env.NODE_ENV === 'test';
 
 // used by `babel-plugin-catch-logger`
 const autoLogger = {
   error: (error: Error, ...messages: unknown[]) => {
-    if (process.env.NODE_ENV !== 'production' && !isJest) {
+    if (isJest) {
+      return;
+    }
+    if (process.env.NODE_ENV !== 'production') {
       if (
+        error &&
+        error.stack &&
         error.stack !== prevErrorStack &&
         !(error instanceof NotAutoPrintError)
       ) {
@@ -19,8 +25,19 @@ const autoLogger = {
           if (error && error.$$autoPrintErrorIgnore) {
             return;
           }
-          const plainError = toPlainErrorObject(error);
-          console.error('AUTO-LOGS:', error, plainError, ...messages);
+          const plainErrorExtraInfo = toPlainErrorObject(error);
+          // @ts-ignore
+          const logMethod = console.logErrorOriginal || console.error;
+          if (isFunction(logMethod)) {
+            // @ts-ignore
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+            logMethod(
+              '**** AUTO-LOGS: (ERROR EXTRA INFO)',
+              plainErrorExtraInfo,
+              error,
+              ...messages,
+            );
+          }
         }, 600);
         prevErrorStack = error.stack;
       }

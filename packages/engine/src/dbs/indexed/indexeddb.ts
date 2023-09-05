@@ -14,7 +14,6 @@ import {
   filterPassphraseWallet,
   handleDisplayPassphraseWallet,
 } from '@onekeyhq/shared/src/engine/engineUtils';
-
 import {
   AccountAlreadyExists,
   NotImplemented,
@@ -25,7 +24,8 @@ import {
   TooManyImportedAccounts,
   TooManyWatchingAccounts,
   WrongPassword,
-} from '../../errors';
+} from '@onekeyhq/shared/src/errors';
+
 import {
   DERIVED_ACCOUNT_MAX_NUM,
   EXTERNAL_ACCOUNT_MAX_NUM,
@@ -1688,11 +1688,13 @@ class IndexedDBApi implements DBAPI {
                     .length > DERIVED_ACCOUNT_MAX_NUM
                 ) {
                   reject(
-                    new TooManyDerivedAccounts(
-                      DERIVED_ACCOUNT_MAX_NUM,
-                      parseInt(coinType),
-                      parseInt(purpose),
-                    ),
+                    new TooManyDerivedAccounts({
+                      info: {
+                        limit: DERIVED_ACCOUNT_MAX_NUM.toString(),
+                        coinType,
+                        purpose,
+                      },
+                    }),
                   );
                   return;
                 }

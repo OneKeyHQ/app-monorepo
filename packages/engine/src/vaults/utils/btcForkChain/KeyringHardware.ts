@@ -1,7 +1,6 @@
 import * as BitcoinJS from 'bitcoinjs-lib';
 
 import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
-import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import {
   CoreSDKLoader,
   HardwareSDK,
@@ -10,9 +9,13 @@ import {
   COINTYPE_BCH,
   COINTYPE_DOGE,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  OneKeyHardwareError,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { OneKeyHardwareError, OneKeyInternalError } from '../../../errors';
 import { slicePathTemplate } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { AccountType } from '../../../types/account';

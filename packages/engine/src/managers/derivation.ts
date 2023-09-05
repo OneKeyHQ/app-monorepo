@@ -47,8 +47,7 @@ import {
   INDEX_PLACEHOLDER,
   SEPERATOR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-
-import { OneKeyInternalError } from '../errors';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
 import {
   getAccountNameInfoByTemplate,

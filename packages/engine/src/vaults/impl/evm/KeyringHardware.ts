@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
-import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import * as engineUtils from '@onekeyhq/shared/src/engine/engineUtils';
+import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { OneKeyHardwareError } from '../../../errors';
 import * as OneKeyHardware from '../../../hardware';
 import { slicePathTemplate } from '../../../managers/derivation';
 import {

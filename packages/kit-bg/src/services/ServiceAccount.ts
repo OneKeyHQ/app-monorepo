@@ -1,11 +1,6 @@
 import { flatten, isNil, pick } from 'lodash';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
-import {
-  OneKeyAlreadyExistWalletError,
-  OneKeyErrorClassNames,
-  TooManyHWPassphraseWallets,
-} from '@onekeyhq/engine/src/errors';
 import { HW_PASSPHRASE_WALLET_MAX_NUM } from '@onekeyhq/engine/src/limits';
 import {
   getWalletTypeFromAccountId,
@@ -53,7 +48,6 @@ import {
   setBoardingNotCompleted,
   unlock,
 } from '@onekeyhq/kit/src/store/reducers/status';
-import { DeviceNotOpenedPassphrase } from '@onekeyhq/kit/src/utils/hardware/errors';
 import { wait } from '@onekeyhq/kit/src/utils/helper';
 import { getNetworkIdImpl } from '@onekeyhq/kit/src/views/Swap/utils';
 import {
@@ -77,6 +71,12 @@ import {
   isHardwareWallet,
   isPassphraseWallet,
 } from '@onekeyhq/shared/src/engine/engineUtils';
+import {
+  DeviceNotOpenedPassphrase,
+  OneKeyAlreadyExistWalletError,
+  TooManyHWPassphraseWallets,
+} from '@onekeyhq/shared/src/errors';
+import { OneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   AppEventBusNames,
   appEventBus,

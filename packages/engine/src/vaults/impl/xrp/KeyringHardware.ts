@@ -1,12 +1,15 @@
 import { hashes } from 'xrpl';
 
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
-import { UnknownHardwareError } from '@onekeyhq/kit/src/utils/hardware/errors';
-import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { COINTYPE_XRP as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  NotImplemented,
+  OneKeyHardwareError,
+  UnknownHardwareError,
+} from '@onekeyhq/shared/src/errors';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { NotImplemented, OneKeyHardwareError } from '../../../errors';
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 

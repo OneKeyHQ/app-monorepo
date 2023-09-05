@@ -11,16 +11,16 @@ import { TypedDataUtils } from 'eth-sig-util';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import type { IPrepareHardwareAccountsParams } from '@onekeyhq/engine/src/vaults/types';
 import { isHexString } from '@onekeyhq/kit/src/utils/helper';
-import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import * as engineUtils from '@onekeyhq/shared/src/engine/engineUtils';
-import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
-
 import {
   NotImplemented,
   OneKeyHardwareError,
   OneKeyInternalError,
-} from './errors';
+} from '@onekeyhq/shared/src/errors';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+
 import { ETHMessageTypes } from './types/message';
 
 import type { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';

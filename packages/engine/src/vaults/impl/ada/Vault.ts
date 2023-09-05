@@ -11,17 +11,17 @@ import {
   COINTYPE_ADA,
   IMPL_ADA,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-
 import {
   InsufficientBalance,
   InvalidAddress,
   NotImplemented,
   OneKeyInternalError,
   PreviousAccountIsEmpty,
-} from '../../../errors';
+} from '@onekeyhq/shared/src/errors';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+
 import {
   getDefaultPurpose,
   getLastAccountId,
@@ -170,7 +170,11 @@ export default class Vault extends VaultBase {
       );
       if (!accountExisted) {
         const { label } = getAccountNameInfoByTemplate(network.impl, template);
-        throw new PreviousAccountIsEmpty(label as string);
+        throw new PreviousAccountIsEmpty({
+          info: {
+            '0': label as string,
+          },
+        });
       }
     }
 
