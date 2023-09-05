@@ -190,7 +190,7 @@ export default class VaultBtcFork extends VaultBase {
       coinType: dbAccount.coinType,
       tokens: [],
       address: dbAccount.address,
-      pubKey: (dbAccount as DBUTXOAccount).pubKey,
+      pubKey: (dbAccount as DBUTXOAccount).pub,
       xpub: this.getAccountXpub(dbAccount as DBUTXOAccount),
       template: dbAccount.template,
       customAddresses: JSON.stringify(
@@ -673,7 +673,7 @@ export default class VaultBtcFork extends VaultBase {
       actionType = IDecodedTxActionType.TOKEN_BRC20_MINT;
       direction = IDecodedTxDirection.IN;
       info = {
-        amount: brc20Content.amt,
+        amount: brc20Content.amt || '0',
       };
     }
 
@@ -681,7 +681,7 @@ export default class VaultBtcFork extends VaultBase {
       actionType = IDecodedTxActionType.TOKEN_BRC20_TRANSFER;
 
       info = {
-        amount: brc20Content.amt,
+        amount: brc20Content.amt || '0',
       };
 
       if (from === to && from === dbAccount.address) {
@@ -697,7 +697,7 @@ export default class VaultBtcFork extends VaultBase {
       actionType = IDecodedTxActionType.TOKEN_BRC20_INSCRIBE;
       direction = IDecodedTxDirection.IN;
       info = {
-        amount: brc20Content.amt,
+        amount: brc20Content.amt || '0',
       };
     }
 
@@ -1194,7 +1194,6 @@ export default class VaultBtcFork extends VaultBase {
             const {
               fromAddress,
               toAddress,
-              time,
               token: tick,
               actionType,
               amount,
@@ -1247,7 +1246,7 @@ export default class VaultBtcFork extends VaultBase {
             }
           }
 
-          const { time } = txsWithSameTxId[0];
+          const { time, state } = txsWithSameTxId[0];
 
           const decodedTx: IDecodedTx = {
             txid: tx.txId,
@@ -1255,7 +1254,10 @@ export default class VaultBtcFork extends VaultBase {
             signer: dbAccount.address,
             nonce: 0,
             actions,
-            status: IDecodedTxStatus.Confirmed,
+            status:
+              state === 'fail'
+                ? IDecodedTxStatus.Failed
+                : IDecodedTxStatus.Confirmed,
             networkId: this.networkId,
             accountId: this.accountId,
             extraInfo: null,
@@ -1370,12 +1372,34 @@ export default class VaultBtcFork extends VaultBase {
           address: dbAccount.address,
         });
 
+        let finalActions = mergeNFTActions;
+
+        const actionsInHistoryTxToMerge = historyTxToMerge?.decodedTx.actions;
+
+        /**
+         * If there are inscription actions in one local transaction
+         * and the results of parsing the same on-chain transaction and nft transaction are all native token transfer actions.
+         * Then it means that the on-chain nft history has not been updated.
+         * so we will not update the local action at this time.
+         */
+        if (
+          actionsInHistoryTxToMerge &&
+          actionsInHistoryTxToMerge.some(
+            (item) => item.type !== IDecodedTxActionType.NATIVE_TRANSFER,
+          ) &&
+          mergeNFTActions.every(
+            (item) => item.type === IDecodedTxActionType.NATIVE_TRANSFER,
+          )
+        ) {
+          finalActions = actionsInHistoryTxToMerge;
+        }
+
         const decodedTx: IDecodedTx = {
           txid: tx.txid,
           owner: dbAccount.address,
           signer: dbAccount.address,
           nonce: 0,
-          actions: mergeNFTActions,
+          actions: finalActions,
           status:
             (tx.confirmations ?? 0) > 0
               ? IDecodedTxStatus.Confirmed
