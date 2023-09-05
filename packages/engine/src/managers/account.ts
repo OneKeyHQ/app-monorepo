@@ -66,22 +66,18 @@ function getWalletTypeFromAccountId(accountId: string): string {
 }
 
 function isAccountCompatibleWithNetwork(accountId: string, networkId: string) {
-  try {
-    if (!networkId || !accountId) {
-      return false;
-    }
-    if (isAllNetworks(networkId) && allNetworksAccountRegex.test(accountId)) {
-      return true;
-    }
-    const coinType = getCoinTypeFromAccountId(accountId);
-    const { impl } = parseNetworkId(networkId);
-    if (!impl) {
-      return false;
-    }
-    return isCoinTypeCompatibleWithImpl(coinType, impl);
-  } catch {
+  if (!networkId || !accountId) {
     return false;
   }
+  if (isAllNetworks(networkId) && allNetworksAccountRegex.test(accountId)) {
+    return true;
+  }
+  const coinType = getCoinTypeFromAccountId(accountId);
+  const { impl } = parseNetworkId(networkId);
+  if (!impl) {
+    return false;
+  }
+  return isCoinTypeCompatibleWithImpl(coinType, impl);
 }
 
 function isAccountWithAddress(account: Account) {

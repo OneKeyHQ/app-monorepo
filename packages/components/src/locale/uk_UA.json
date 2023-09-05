@@ -542,7 +542,6 @@
   "content__deflationary_desc": "Будь ласка, ігноруйте це, якщо ваш маркер не є дефляційним. Більшість жетонів такими не є, тому залиште все як є. Якщо ваш токен має дефляційні функції, такі як дивіденди, спалювання, податки тощо, увімкніть це. \n\nЯкщо ви є власником токена і є автоматична функція LP, і ви не додали пул ліквідності, спочатку вимкніть автоматичний LP.",
   "content__deflationary_token_transfers_are_not_supported_at_this_moment": "Масові перекази для дефляційних токенів наразі не підтримуються.",
   "content__deoccupy_the_inscriptions_will_reclaim_theattached_utxos_value_toe_the_account_balance_once_these_utxos_are_spent_you_will_permanently_lose_the_inscription_assets": "Деоккупація написів поверне прикріплене значення UTXO до балансу рахунку. Коли ці UTXO буде витрачено, ви назавжди втратите активи напису.",
-  "content__deploy": "Розгорнути",
   "content__deposit_tokens_to_your_wallet": "Внесіть токени на свій гаманець",
   "content__description": "Опис",
   "content__details": "Деталі",

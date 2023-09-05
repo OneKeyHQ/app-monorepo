@@ -542,7 +542,6 @@
   "content__deflationary_desc": "โปรดเพิกเฉยต่อสิ่งนี้หากโทเค็นของคุณไม่ใช่ภาวะเงินฝืด โทเค็นส่วนใหญ่ไม่ใช่ ดังนั้นปล่อยไว้ตามที่เป็นอยู่ หากโทเค็นของคุณมีฟังก์ชันเงินฝืด เช่น เงินปันผลของโทเค็น การเผาไหม้ ภาษี ฯลฯ โปรดเปิดใช้งาน \n\nหากคุณเป็นเจ้าของโทเค็นและมีฟังก์ชัน LP อัตโนมัติ และคุณยังไม่ได้เพิ่มกลุ่มสภาพคล่อง โปรดปิด LP อัตโนมัติก่อน",
   "content__deflationary_token_transfers_are_not_supported_at_this_moment": "ขณะนี้ยังไม่รองรับการโอนจำนวนมากสำหรับโทเค็นเงินฝืด",
   "content__deoccupy_the_inscriptions_will_reclaim_theattached_utxos_value_toe_the_account_balance_once_these_utxos_are_spent_you_will_permanently_lose_the_inscription_assets": "การถอดคำจารึกจะเรียกคืนค่า UTXO ที่แนบมากับยอดคงเหลือในบัญชี เมื่อใช้ UTXO เหล่านี้แล้ว คุณจะสูญเสียเนื้อหาคำจารึกอย่างถาวร",
-  "content__deploy": "ปรับใช้",
   "content__deposit_tokens_to_your_wallet": "ฝากโทเค็นเข้ากระเป๋าสตางค์ของคุณ",
   "content__description": "คำอธิบาย",
   "content__details": "รายละเอียด",

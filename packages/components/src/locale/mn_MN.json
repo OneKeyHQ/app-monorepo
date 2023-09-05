@@ -542,7 +542,6 @@
   "content__deflationary_desc": "Хэрэв таны жетон дефляци үүсгэдэггүй бол үүнийг үл тоомсорно уу. Ихэнх токенууд тийм биш тул байгаагаар нь үлдээгээрэй. Хэрэв таны жетон ногдол ашиг, шатаах, татвар гэх мэт дефляцийн функцтэй бол үүнийг идэвхжүүлнэ үү. \n\nХэрэв та токен эзэмшигч бөгөөд автомат LP функц байгаа бөгөөд та хөрвөх чадварын сан нэмээгүй бол эхлээд автомат LP-г унтраана уу.",
   "content__deflationary_token_transfers_are_not_supported_at_this_moment": "Дефляцийн жетоныг бөөнөөр нь шилжүүлэхийг одоогоор дэмжихгүй байна.",
   "content__deoccupy_the_inscriptions_will_reclaim_theattached_utxos_value_toe_the_account_balance_once_these_utxos_are_spent_you_will_permanently_lose_the_inscription_assets": "Бичээсүүдийг буулгаснаар дансны үлдэгдэлд хавсаргасан UTXO утгыг эргүүлэн авах болно. Эдгээр UTXO-г зарцуулсны дараа та бичээсийн хөрөнгийг бүрмөсөн алдах болно.",
-  "content__deploy": "Байрлуулах",
   "content__deposit_tokens_to_your_wallet": "Токенуудыг хэтэвчиндээ хадгалаарай",
   "content__description": "Тодорхойлолт",
   "content__details": "Дэлгэрэнгүй мэдээлэл",

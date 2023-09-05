@@ -542,7 +542,6 @@
   "content__deflationary_desc": "يرجى تجاهل هذا إذا لم يكن التوكن الخاص بك انكماشياً ، فمعظم التوكنات ليست كذلك ، لذا اتركها كما هي. إذا كان الرمز المميز الخاص بك يحتوي على وظائف انكماشية ، مثل أرباح الأسهم ، والحرق ، والضرائب ، وما إلى ذلك ، فيرجى تمكين هذا. \n\n إذا كنت مالك الرمز المميز وهناك وظيفة LP تلقائية ولم تقم بإضافة تجمع سيولة ، يرجى إيقاف تشغيل LP التلقائي أولاً.",
   "content__deflationary_token_transfers_are_not_supported_at_this_moment": "التحويلات المجمعة للرموز الانكماشية غير مدعومة في الوقت الحالي.",
   "content__deoccupy_the_inscriptions_will_reclaim_theattached_utxos_value_toe_the_account_balance_once_these_utxos_are_spent_you_will_permanently_lose_the_inscription_assets": "سيؤدي إلغاء احتلال النقوش إلى استعادة قيمة UTXO المرفقة إلى رصيد الحساب. بمجرد إنفاق UTXOs، ستفقد أصول النقش بشكل دائم.",
-  "content__deploy": "نشر",
   "content__deposit_tokens_to_your_wallet": "إيداع الرموز في محفظتك",
   "content__description": "وصف",
   "content__details": "تفاصيل",

@@ -542,7 +542,6 @@
   "content__deflationary_desc": "यदि आपका टोकन अपस्फीतिकारक नहीं है तो कृपया इसे अनदेखा करें। अधिकांश टोकन नहीं हैं, इसलिए इसे ऐसे ही रहने दें। यदि आपके टोकन में अपस्फीतिकारी कार्य हैं, जैसे टोकन लाभांश, जलन, कर आदि, तो कृपया इसे सक्षम करें। \n\nयदि आप टोकन के मालिक हैं और एक स्वचालित एलपी फ़ंक्शन है और आपने तरलता पूल नहीं जोड़ा है, तो कृपया पहले स्वचालित एलपी को बंद कर दें।",
   "content__deflationary_token_transfers_are_not_supported_at_this_moment": "डिफ्लेशनरी टोकन के लिए बल्क ट्रांसफर इस समय समर्थित नहीं हैं।",
   "content__deoccupy_the_inscriptions_will_reclaim_theattached_utxos_value_toe_the_account_balance_once_these_utxos_are_spent_you_will_permanently_lose_the_inscription_assets": "शिलालेखों को मुक्त करने से खाते की शेष राशि में संलग्न UTXO मान पुनः प्राप्त हो जाएगा। एक बार जब ये UTXO खर्च हो जाते हैं, तो आप स्थायी रूप से शिलालेख संपत्ति खो देंगे।",
-  "content__deploy": "तैनात करना",
   "content__deposit_tokens_to_your_wallet": "अपने वॉलेट में टोकन जमा करें",
   "content__description": "विवरण",
   "content__details": "विवरण",

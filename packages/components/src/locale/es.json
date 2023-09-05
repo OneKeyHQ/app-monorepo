@@ -542,7 +542,6 @@
   "content__deflationary_desc": "Ignora esto si tu token no es deflacionario. La mayoría de los tokens no lo son, así que déjalo como está. Si tu token tiene funciones deflacionarias, como dividendos de token, quema, impuestos, etc., habilita esto. \n\nSi eres el propietario del token y hay una función de LP automático y no has agregado un grupo de liquidez, desactiva primero el LP automático.",
   "content__deflationary_token_transfers_are_not_supported_at_this_moment": "Las transferencias masivas de tokens deflacionarios no se admiten en este momento.",
   "content__deoccupy_the_inscriptions_will_reclaim_theattached_utxos_value_toe_the_account_balance_once_these_utxos_are_spent_you_will_permanently_lose_the_inscription_assets": "Deocupar las inscripciones recuperará el valor UTXO adjunto al saldo de la cuenta. Una vez que se gasten estos UTXO, perderá permanentemente los activos de inscripción.",
-  "content__deploy": "Desplegar",
   "content__deposit_tokens_to_your_wallet": "Deposita tokens en tu billetera",
   "content__description": "Descripción",
   "content__details": "Detalles",

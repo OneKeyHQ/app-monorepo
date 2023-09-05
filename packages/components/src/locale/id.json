@@ -542,7 +542,6 @@
   "content__deflationary_desc": "Harap abaikan ini jika token Anda tidak deflasi. Sebagian besar token tidak deflasi, jadi biarkan apa adanya. Jika token Anda memiliki fungsi deflasi, seperti dividen token, pembakaran, pajak, dll., aktifkan ini. \n\nJika Anda adalah pemilik token dan ada fungsi LP otomatis dan Anda belum menambahkan kolam likuiditas, harap matikan LP otomatis terlebih dahulu.",
   "content__deflationary_token_transfers_are_not_supported_at_this_moment": "Transfer massal untuk token deflasi tidak didukung saat ini.",
   "content__deoccupy_the_inscriptions_will_reclaim_theattached_utxos_value_toe_the_account_balance_once_these_utxos_are_spent_you_will_permanently_lose_the_inscription_assets": "Menghapus prasasti akan mendapatkan kembali nilai UTXO yang terlampir ke saldo akun. Setelah UTXO ini dibelanjakan, Anda akan kehilangan aset prasasti secara permanen.",
-  "content__deploy": "Menyebarkan",
   "content__deposit_tokens_to_your_wallet": "Setor token ke dompet Anda",
   "content__description": "Keterangan",
   "content__details": "Detail",

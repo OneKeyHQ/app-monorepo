@@ -542,7 +542,6 @@
   "content__deflationary_desc": "如果您的代币不是通货紧缩的，请忽略。由于大多数代币都不是通货紧缩属性，所以保持关闭即可。如果您的代币具有通缩功能，例如代币分红、销毁、税收等，请开启此功能。 \n\n如果您是代币合约所有者并且有自动LP功能，并且您还没有添加流动性池，请先关闭自动LP。",
   "content__deflationary_token_transfers_are_not_supported_at_this_moment": "目前暂不支持通缩代币批量转账。",
   "content__deoccupy_the_inscriptions_will_reclaim_theattached_utxos_value_toe_the_account_balance_once_these_utxos_are_spent_you_will_permanently_lose_the_inscription_assets": "取消铭文占用会回收其所附着的 UTXO 到账户余额中。当这些 UTXO 被花费后您将永久失去该铭文资产。",
-  "content__deploy": "部署",
   "content__deposit_tokens_to_your_wallet": "存储代币到您的钱包",
   "content__description": "描述",
   "content__details": "详情",

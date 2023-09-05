@@ -542,7 +542,6 @@
   "content__deflationary_desc": "Vui lòng bỏ qua điều này nếu mã thông báo của bạn không giảm phát. Hầu hết các mã thông báo đều không giảm phát, vì vậy hãy để nguyên như vậy. Nếu mã thông báo của bạn có các chức năng giảm phát, chẳng hạn như cổ tức mã thông báo, đốt, thuế, v.v., vui lòng bật tính năng này. \n\nNếu bạn là chủ sở hữu mã thông báo và có chức năng LP tự động và bạn chưa thêm nhóm thanh khoản, trước tiên hãy tắt LP tự động.",
   "content__deflationary_token_transfers_are_not_supported_at_this_moment": "Chuyển khoản số lượng lớn cho mã thông báo giảm phát không được hỗ trợ tại thời điểm này.",
   "content__deoccupy_the_inscriptions_will_reclaim_theattached_utxos_value_toe_the_account_balance_once_these_utxos_are_spent_you_will_permanently_lose_the_inscription_assets": "Việc giải mã các dòng chữ sẽ lấy lại giá trị UTXO đính kèm vào số dư tài khoản. Sau khi sử dụng hết các UTXO này, bạn sẽ mất vĩnh viễn nội dung ghi chú.",
-  "content__deploy": "Triển khai",
   "content__deposit_tokens_to_your_wallet": "Gửi mã thông báo vào ví của bạn",
   "content__description": "Sự miêu tả",
   "content__details": "Thông tin chi tiết",

@@ -25,7 +25,7 @@ export class KeyringImported extends KeyringImportedBtcFork {
     const COIN_TYPE = (this.vault as unknown as BTCForkVault).getCoinType();
 
     let xpub = '';
-    let pub = '';
+    let pubKey = '';
 
     const { network } = provider;
     const xprvVersionBytesNum = parseInt(
@@ -47,7 +47,7 @@ export class KeyringImported extends KeyringImportedBtcFork {
           xpub = bs58check.encode(
             privateKey.fill(pubVersionBytes, 0, 4).fill(publicKey, 45, 78),
           );
-          pub = publicKey.toString('hex');
+          pubKey = publicKey.toString('hex');
         } catch (e) {
           console.error(e);
         }
@@ -86,7 +86,7 @@ export class KeyringImported extends KeyringImportedBtcFork {
         type: AccountType.UTXO,
         path: '',
         coinType: COIN_TYPE,
-        pub,
+        pubKey,
         xpub,
         xpubSegwit,
         address,
