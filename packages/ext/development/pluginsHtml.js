@@ -7,10 +7,10 @@ const developmentConsts = require('../../../development/developmentConsts');
 const devUtils = require('./devUtils');
 
 const platform = developmentConsts.platforms.ext;
-const basePath = process.env.PWD
+const basePath = process.env.PWD;
 
 // https://github.com/facebook/create-react-app/blob/main/packages/react-dev-utils/InterpolateHtmlPlugin.js
-function createHtmlPlugin({ name }) {
+function createHtmlPlugin({ name, chunks }) {
   const filename = `${name}.html`;
   const htmlLoader = `!!ejs-loader?esModule=false!`;
   const createParamsOptions = {
@@ -27,7 +27,8 @@ function createHtmlPlugin({ name }) {
     templateParameters: indexHtmlParameter.createEjsParams(createParamsOptions),
     // output filename
     filename,
-    chunks: [name],
+    // chunks: [name],
+    chunks: chunks || [name],
     cache: false,
     hash: true,
   });
@@ -47,7 +48,7 @@ let uiHtml = [
   // 'ui-newtab',
   // 'ui-devtools',
   // 'ui-devtools-panel',
-].map((name) => createHtmlPlugin({ name }));
+].map((name) => createHtmlPlugin({ name, chunks: ['ui-popup'] }));
 uiHtml = lodash.flatten(uiHtml);
 
 let backgroundHtml = [devUtils.consts.entry.background].map((name) =>
