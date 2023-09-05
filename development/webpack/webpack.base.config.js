@@ -176,7 +176,7 @@ module.exports = ({ platform, basePath }) => ({
               {
                 loader: 'tamagui-loader',
                 options: {
-                  config: path.join(basePath, 'tamagui.config.js'),
+                  config: path.join(basePath, '../../tamagui.config.ts'),
                   components: ['tamagui'],
                   importsWhitelist: ['constants.js', 'colors.js'],
                   logTimings: true,

@@ -1,3 +1,4 @@
+const path = require('path');
 const babelTools = require('../../development/babelTools');
 
 process.env.TAMAGUI_TARGET = 'native';
@@ -19,7 +20,7 @@ module.exports = function (api) {
           '@tamagui/babel-plugin',
           {
             components: ['tamagui'],
-            config: './tamagui.config.ts',
+            config: path.join(__dirname, '../../tamagui.config.ts'),
             importsWhitelist: ['constants.js', 'colors.js'],
             logTimings: true,
             disableExtraction: process.env.NODE_ENV === 'development',

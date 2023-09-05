@@ -1,6 +1,7 @@
 import type { FC, ReactNode } from 'react';
 import { createRef, useMemo } from 'react';
 
+import { config } from '@tamagui/config';
 import { setupReactNative } from '@tamagui/core';
 import { NativeBaseProvider, StatusBar, extendTheme } from 'native-base';
 import { IntlProvider } from 'react-intl';
@@ -13,7 +14,6 @@ import {
 } from 'react-native';
 import { TamaguiProvider } from 'tamagui';
 
-import config from '@onekeyhq/app/tamagui.config';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
