@@ -12,8 +12,8 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
+import { NetworkIconGroup } from '../../../components/NetworkIconGroup';
 import { useDebounce } from '../../../hooks';
-import { Chains } from '../Chains';
 import DAppIcon from '../components/DAppIcon';
 import FavContainer from '../Explorer/FavContainer';
 import { useTagDapps } from '../hooks';
@@ -173,7 +173,7 @@ export const Desktop: FC<DAppListProps> = ({ ...rest }) => {
                 <Typography.Body2Strong numberOfLines={1} mb="1" flex="1">
                   {item.name}
                 </Typography.Body2Strong>
-                <Chains networkIds={item.networkIds} />
+                <NetworkIconGroup networkIds={item.networkIds} />
               </Box>
             </Box>
             <Typography.Caption

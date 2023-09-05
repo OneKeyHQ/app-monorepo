@@ -45,14 +45,18 @@ export type CategoryType = {
   id: string;
 };
 
-export type TagType = {
-  name: string;
-  id: string;
+export type BannerType = {
+  _id: string;
+  title: string;
+  description: string;
+  networkIds: string[];
+  url: string;
+  logoURL: string;
 };
 
 export type GroupDappsType = {
+  id: string;
   label: string;
-  id?: string;
   items: DAppItemType[];
 };
 

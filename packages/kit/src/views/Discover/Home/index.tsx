@@ -6,9 +6,15 @@ import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DiscoverContext, type IDiscoverContext } from './context';
-import { Observer } from './observer';
+import { CategoryDappsObserver, TabObserver } from './observer';
+import { TabName } from './type';
 
-import type { CategoryType, GroupDappsType } from '../type';
+import type {
+  BannerType,
+  CategoryType,
+  DAppItemType,
+  GroupDappsType,
+} from '../type';
 import type { DiscoverProps } from './type';
 
 let Mobile: any;
@@ -24,7 +30,10 @@ const DiscoverPage: FC<DiscoverProps> = ({
   onItemSelect,
   onItemSelectHistory,
 }) => {
-  const [dapps, setRawDapps] = useState<Record<string, GroupDappsType[]>>({});
+  const [tabName, setTabName] = useState<TabName>(TabName.Featured);
+  const [banners, setBanners] = useState<BannerType[]>([]);
+  const [groupDapps, setGroupDapps] = useState<GroupDappsType[]>([]);
+  const [dapps, setRawDapps] = useState<Record<string, DAppItemType[]>>({});
   const [categoryId, setCategoryId] = useState('');
   const [categories, setCategories] = useState<CategoryType[]>([]);
   const isSmall = useIsVerticalLayout();
@@ -36,8 +45,14 @@ const DiscoverPage: FC<DiscoverProps> = ({
 
   const contextValue = useMemo<IDiscoverContext>(
     () => ({
+      tabName,
+      setTabName,
+      banners,
+      setBanners,
+      groupDapps,
+      setGroupDapps,
       dapps,
-      setDapps: (key, items: GroupDappsType[]) => {
+      setDapps: (key, items: DAppItemType[]) => {
         const data = { ...dapps, [key]: items };
         setRawDapps(data);
       },
@@ -48,13 +63,23 @@ const DiscoverPage: FC<DiscoverProps> = ({
       onItemSelect,
       onItemSelectHistory,
     }),
-    [categoryId, categories, dapps, onItemSelect, onItemSelectHistory],
+    [
+      categoryId,
+      categories,
+      dapps,
+      banners,
+      groupDapps,
+      tabName,
+      onItemSelect,
+      onItemSelectHistory,
+    ],
   );
   return (
     <DiscoverContext.Provider value={contextValue}>
       <Box flex="1">
         {isSmall ? <Mobile /> : <Desktop />}
-        <Observer />
+        <CategoryDappsObserver />
+        <TabObserver />
       </Box>
     </DiscoverContext.Provider>
   );
