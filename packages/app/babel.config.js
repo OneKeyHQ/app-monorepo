@@ -20,7 +20,7 @@ module.exports = function (api) {
           '@tamagui/babel-plugin',
           {
             components: ['tamagui'],
-            config: path.join(__dirname, '../../tamagui.config.ts'),
+            config: path.join(__dirname, '../components/tamagui.config.ts'),
             importsWhitelist: ['constants.js', 'colors.js'],
             logTimings: true,
             disableExtraction: process.env.NODE_ENV === 'development',

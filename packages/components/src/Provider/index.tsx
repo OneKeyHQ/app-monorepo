@@ -1,7 +1,6 @@
 import type { FC, ReactNode } from 'react';
 import { createRef, useMemo } from 'react';
 
-import { config } from '@tamagui/config';
 import { setupReactNative } from '@tamagui/core';
 import { NativeBaseProvider, StatusBar, extendTheme } from 'native-base';
 import { IntlProvider } from 'react-intl';
@@ -17,6 +16,7 @@ import { TamaguiProvider } from 'tamagui';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import config from '../../tamagui.config';
 import LOCALES from '../locale';
 import { Body1Props, Body2Props, SubheadingProps } from '../Typography';
 
@@ -60,6 +60,7 @@ function FontProvider({ children, waitFontLoaded = true }: IFontProviderProps) {
   // but Native will throw error: Unrecognized font family "PlusJakartaSans-Bold"
   return <>{children}</>;
 }
+console.log('tamagui config', config);
 export const intlRef = createRef<IntlShape>();
 
 setupReactNative({
