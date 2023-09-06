@@ -132,7 +132,7 @@ function LNSwapMenu({
 
   return (
     <Box flex={1} mx={3} minW="56px" alignItems="center">
-      <BaseMenu w={220} options={options} onOpen={() => {}}>
+      <BaseMenu options={options} menuWidth={280}>
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
