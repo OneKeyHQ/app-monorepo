@@ -1,5 +1,5 @@
 const isDev = process.env.NODE_ENV !== 'production';
-
+const isManifestV3 = !!process.env.EXT_MANIFEST_V3;
 // for react-render-tracker.js
 const devCSP = [
   "'unsafe-eval'",
@@ -10,7 +10,9 @@ const devCSP = [
 
 module.exports = {
   'content_security_policy': `
-    script-src 'self' 'wasm-unsafe-eval' ${isDev ? devCSP : ''}  ;
+    script-src 'self' 'wasm-unsafe-eval' ${
+      isDev && !isManifestV3 ? devCSP : ''
+    }  ;
     object-src 'self';
     `
     .split('\n')
