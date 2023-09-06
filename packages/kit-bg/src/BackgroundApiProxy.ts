@@ -44,7 +44,6 @@ import type ServiceOverview from './services/ServiceOverview';
 import type ServicePassword from './services/ServicePassword';
 import type ServicePrice from './services/ServicePrice';
 import type ServicePromise from './services/ServicePromise';
-import type ServiceRevoke from './services/ServiceRevoke';
 import type ServiceSetting from './services/ServiceSetting';
 import type ServiceSocket from './services/ServiceSocket';
 import type ServiceStaking from './services/ServiceStaking';
@@ -142,8 +141,6 @@ class BackgroundApiProxy
   ) as ServiceDiscover;
 
   serviceMarket = this._createProxyService('serviceMarket') as ServiceMarket;
-
-  serviceRevoke = this._createProxyService('serviceRevoke') as ServiceRevoke;
 
   serviceSetting = this._createProxyService('serviceSetting') as ServiceSetting;
 

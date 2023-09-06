@@ -1,11 +1,6 @@
 import { WalletConnectUniversalLinkPathSchema } from './deepLink';
 import { AccountRootLandingPathSchema } from './Root/AccountRootLanding';
 
-export const legacyLinkingPathMap = {
-  revokeDesktop: `/root/initial/tab/home/Revoke`,
-  revokeMobile: `/root/Revoke`,
-};
-
 export const linkingPathMap = {
   // ** root urls
   walletConnectUniversalLink: WalletConnectUniversalLinkPathSchema,
@@ -22,7 +17,6 @@ export const linkingPathMap = {
   tabDeveloper: `/developer`,
 
   // ** home urls
-  revoke: `/revoke`,
   tokenDetail: `/tokenDetail`,
   marketDetail: `/marketDetail`,
   pnlAtHome: `/pnl`,
@@ -37,9 +31,6 @@ export const unlockWhiteListUrls = [
   '/wc/connect',
   '/wc/connect/wc',
   linkingPathMap.onLanding,
-  linkingPathMap.revoke,
-  legacyLinkingPathMap.revokeMobile,
-  legacyLinkingPathMap.revokeDesktop,
   linkingPathMap.pnlAtHome,
   linkingPathMap.pnlAtNFT,
 ];
