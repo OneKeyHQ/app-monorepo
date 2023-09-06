@@ -213,7 +213,7 @@ export const verifyBulkTransferBeforeConfirm = async ({
                 transferInfo: {
                   from: senderItem.address,
                   to: receiver[0].address,
-                  amount: new BigNumber(1).shiftedBy(-token.decimals).toFixed(),
+                  amount: '0',
                   token: token.tokenIdOnNetwork,
                 },
               });
@@ -320,7 +320,10 @@ export const verifyBulkTransferBeforeConfirm = async ({
     }
 
     if (token.isNative) {
-      if (new BigNumber(senderAmount).gt(senderNativeTokenBalance)) {
+      if (
+        new BigNumber(senderAmount).gt(senderNativeTokenBalance) ||
+        new BigNumber(senderNativeTokenBalance).lte(0)
+      ) {
         errors.push({
           lineNumber: i + 1,
           message: intl.formatMessage(
@@ -352,7 +355,10 @@ export const verifyBulkTransferBeforeConfirm = async ({
         });
       }
     } else {
-      if (new BigNumber(senderAmount).gt(senderTokenBalance)) {
+      if (
+        new BigNumber(senderAmount).gt(senderTokenBalance) ||
+        new BigNumber(senderTokenBalance).lte(0)
+      ) {
         errors.push({
           lineNumber: i + 1,
           message: intl.formatMessage(
