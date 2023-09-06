@@ -59,51 +59,23 @@ function LNSwapMenu({
           ? OnekeyNetwork.tlightning
           : OnekeyNetwork.lightning;
       }
-      let token = await backgroundApiProxy.engine.getNativeTokenInfo(
+      await backgroundApiProxy.serviceSwap.setNativInputAndOutputToken(
         inputNetworkId,
+        outputNetworkId,
       );
-      if (token) {
-        const supported = await backgroundApiProxy.serviceSwap.tokenIsSupported(
-          token,
-        );
-        if (!supported) {
-          ToastManager.show(
-            {
-              title: intl.formatMessage({ id: 'msg__wrong_network_desc' }),
-            },
-            { type: 'default' },
+      if (account) {
+        if (isWithdraw) {
+          backgroundApiProxy.serviceSwap.setSendingAccountSimple(account);
+        } else {
+          backgroundApiProxy.serviceSwap.setRecipientToAccount(
+            account,
+            network,
           );
-          token = await backgroundApiProxy.engine.getNativeTokenInfo(
-            OnekeyNetwork.eth,
-          );
-        }
-        if (token) {
-          backgroundApiProxy.serviceSwap.sellToken(token, false).then(() => {
-            setTimeout(
-              () => {
-                backgroundApiProxy.serviceSwap.switchToNativeOutputToken(
-                  outputNetworkId,
-                );
-              },
-              // wait for set default output token
-              !outputToken ? 50 : 0,
-            );
-          });
-        }
-        if (account) {
-          if (isWithdraw) {
-            backgroundApiProxy.serviceSwap.setSendingAccountSimple(account);
-          } else {
-            backgroundApiProxy.serviceSwap.setRecipientToAccount(
-              account,
-              network,
-            );
-          }
         }
       }
       navigation.getParent()?.navigate(TabRoutes.Swap);
     },
-    [intl, networkId, navigation, account, network, outputToken],
+    [networkId, navigation, account, network],
   );
 
   const options: {

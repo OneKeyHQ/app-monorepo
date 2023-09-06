@@ -1089,4 +1089,20 @@ export default class ServiceSwap extends ServiceBase {
       this.setOutputToken(nativeToken);
     }
   }
+
+  @backgroundMethod()
+  async setNativInputAndOutputToken(
+    inputNetworkId: string,
+    outputNetworkId: string,
+  ) {
+    const { engine, appSelector, dispatch } = this.backgroundApi;
+    const mode = appSelector((s) => s.swap.mode);
+    const inputToken = await engine.getNativeTokenInfo(inputNetworkId);
+    const outputToken = await engine.getNativeTokenInfo(outputNetworkId);
+    await this.setInputToken(inputToken);
+    await this.setOutputToken(outputToken);
+    if (mode !== 'swap') {
+      dispatch(setMode('swap'));
+    }
+  }
 }
