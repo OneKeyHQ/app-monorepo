@@ -77,7 +77,6 @@ export type ModalRoutesParams = {
     title?: string;
     modalMode?: boolean;
   };
-  [ModalRoutes.Revoke]: NavigatorScreenParams<SubModalRoutesParams.RevokeRoutesParams>;
   [ModalRoutes.NFTMarket]: NavigatorScreenParams<SubModalRoutesParams.NFTMarketRoutesParams>;
   [ModalRoutes.Market]: NavigatorScreenParams<SubModalRoutesParams.MarketRoutesParams>;
   [ModalRoutes.Overview]: NavigatorScreenParams<SubModalRoutesParams.OverviewModalRoutesParams>;
@@ -161,7 +160,6 @@ export type HomeRoutesParams = {
   [HomeRoutes.MarketDetail]: {
     marketTokenId: string;
   };
-  [HomeRoutes.Revoke]: undefined;
   [HomeRoutes.NFTMarketStatsList]: { network: Network; selectedIndex?: number };
   [HomeRoutes.NFTMarketLiveMintingList]: { network: Network };
   [HomeRoutes.NFTMarketCollectionScreen]: {
@@ -170,8 +168,6 @@ export type HomeRoutesParams = {
     collection?: Collection;
     title?: string;
   };
-  [HomeRoutes.RevokeRedirect]: undefined;
-  [HomeRoutes.RevokeRedirect2]: undefined;
   [HomeRoutes.NFTPNLScreen]: undefined;
   [HomeRoutes.OverviewDefiListScreen]: {
     networkId: string;

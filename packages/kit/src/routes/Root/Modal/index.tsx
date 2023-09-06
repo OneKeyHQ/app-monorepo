@@ -62,7 +62,6 @@ const PushNotification = createLazyComponent(
   () => import('./PushNotification'),
 );
 const ReceiveToken = createLazyComponent(() => import('./ReceiveToken'));
-const Revoke = createLazyComponent(() => import('./Revoke'));
 const BulkSender = createLazyComponent(() => import('./BulkSender'));
 const ScanQrcode = createLazyComponent(() => import('./ScanQrcode'));
 const Send = createLazyComponent(() => import('./Send'));
@@ -233,10 +232,6 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.Webview,
     component: WebviewModal,
-  },
-  {
-    name: ModalRoutes.Revoke,
-    component: Revoke,
   },
   {
     name: ModalRoutes.NFTMarket,

@@ -11,7 +11,6 @@ import LimitOrderOutput from '../../../views/Swap/LimitOrderOutput';
 import Output from '../../../views/Swap/Output';
 import OutputCrosschain from '../../../views/Swap/OutputCrosschain';
 import PickAccount from '../../../views/Swap/PickAccount';
-import PickRecipient from '../../../views/Swap/PickRecipient';
 import SelectRecipient from '../../../views/Swap/SelectRecipient';
 import SelectRoutes from '../../../views/Swap/SelectRoutes';
 import SelectSendingAccount from '../../../views/Swap/SelectSendingAccount';
@@ -64,10 +63,6 @@ const modalRoutes = [
   {
     name: SwapRoutes.Share,
     component: Share,
-  },
-  {
-    name: SwapRoutes.PickRecipient,
-    component: PickRecipient,
   },
   {
     name: SwapRoutes.PickAccount,
