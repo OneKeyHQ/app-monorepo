@@ -9,12 +9,16 @@ type NativeBaseCompatibilityProps = {
   bgColor?: string;
   p?: string;
   pr?: string;
+  h?: number;
+  w?: number;
   size?: string | number;
 };
 
 function CompatibilityBox({
   rounded,
   bgColor,
+  h,
+  w,
   p,
   pr,
   size,
@@ -32,6 +36,8 @@ function CompatibilityBox({
       backgroundColor={bgColor}
       padding={p}
       paddingRight={pr}
+      height={h}
+      width={w}
       {...boxSize}
       {...props}
     >
