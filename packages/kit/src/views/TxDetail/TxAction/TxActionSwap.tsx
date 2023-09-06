@@ -60,7 +60,7 @@ export function getTxActionSwapInfo(props: ITxActionCardProps) {
 }
 
 export function TxActionSwap(props: ITxActionCardProps) {
-  const { meta, decodedTx, network, isShortenAddress = false } = props;
+  const { meta, decodedTx, isShortenAddress = false } = props;
   const intl = useIntl();
   const { swapInfo } = getTxActionSwapInfo(props);
   const { send, receive, accountAddress, receivingAddress } = swapInfo;
@@ -136,7 +136,7 @@ export function TxActionSwap(props: ITxActionCardProps) {
       title: intl.formatMessage({ id: 'content__to' }),
       content: getTxActionElementAddressWithSecurityInfo({
         address: receivingAddress || '',
-        networkId: network?.id,
+        networkId: receivingNetwork?.id ?? '',
         withSecurityInfo: true,
         isShorten: isShortenAddress,
       }),

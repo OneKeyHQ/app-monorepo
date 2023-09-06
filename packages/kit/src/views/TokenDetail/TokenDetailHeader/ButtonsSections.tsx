@@ -16,8 +16,12 @@ import { isValidCoingeckoId } from '@onekeyhq/engine/src/managers/token';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { freezedEmptyObject } from '@onekeyhq/shared/src/consts/sharedConsts';
-import { isLightningNetworkByImpl } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  isLightningNetworkByImpl,
+  isLightningNetworkByNetworkId,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -152,7 +156,25 @@ export const ButtonsSection: FC = () => {
       if (!token) {
         return;
       }
-      await backgroundApiProxy.serviceSwap.buyToken(token);
+      const isLightningNetwork = isLightningNetworkByNetworkId(n.id);
+      if (isLightningNetwork) {
+        backgroundApiProxy.serviceSwap
+          .sellToken(token, !isLightningNetwork)
+          .then(() => {
+            // Switch to LN to BTC swap if is lightning network
+            if (isLightningNetwork) {
+              setTimeout(() => {
+                backgroundApiProxy.serviceSwap.switchToNativeOutputToken(
+                  n.id === OnekeyNetwork.lightning
+                    ? OnekeyNetwork.btc
+                    : OnekeyNetwork.tbtc,
+                );
+              }, 50);
+            }
+          });
+      } else {
+        await backgroundApiProxy.serviceSwap.buyToken(token);
+      }
       if (a && n) {
         backgroundApiProxy.serviceSwap.setRecipientToAccount(a, n);
       }

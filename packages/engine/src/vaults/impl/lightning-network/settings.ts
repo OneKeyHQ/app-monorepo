@@ -33,6 +33,7 @@ const settings: IVaultSettings = Object.freeze({
   hiddenToolTab: true,
   hiddenAddress: true,
   hiddenAccountInfoMoreOption: true,
+  customAccountInfoSwapOption: true,
   displayMemo: true,
   hideFromToFieldIfValueEmpty: true,
   hideFeeSpeedInfo: true,
