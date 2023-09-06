@@ -3,23 +3,13 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
-import {
-  Box,
-  IconButton,
-  ToastManager,
-  Typography,
-} from '@onekeyhq/components';
+import { Box, IconButton, Typography } from '@onekeyhq/components';
 import BaseMenu from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
-  useAccount,
-  useAppSelector,
-  useNavigation,
-  useNetwork,
-} from '../../../hooks';
+import { useAccount, useNavigation, useNetwork } from '../../../hooks';
 import { TabRoutes } from '../../../routes/routesEnum';
 
 import type { MessageDescriptor } from 'react-intl';
@@ -37,7 +27,6 @@ function LNSwapMenu({
   const navigation = useNavigation();
   const { account } = useAccount({ accountId, networkId });
   const { network } = useNetwork({ networkId });
-  const outputToken = useAppSelector((s) => s.swap.outputToken);
 
   const onSwap = useCallback(
     async ({ isWithdraw }: { isWithdraw: boolean }) => {
