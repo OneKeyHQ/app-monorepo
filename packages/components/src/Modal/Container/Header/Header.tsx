@@ -5,11 +5,11 @@ import { StyleSheet } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import Box from '../../../Box';
 import Center from '../../../Center';
 import HStack from '../../../HStack';
 import IconButton from '../../../IconButton';
 import Typography from '../../../Typography';
+import { Box } from '../../../v2/Box';
 
 import NavigationButton from './NavigationButton';
 

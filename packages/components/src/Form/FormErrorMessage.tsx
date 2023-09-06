@@ -1,7 +1,7 @@
 import Alert from '../Alert';
-import Box from '../Box';
 import Icon from '../Icon';
 import Typography from '../Typography';
+import { Box } from '../v2/Box';
 
 type Props = {
   isAlertStyle?: boolean;

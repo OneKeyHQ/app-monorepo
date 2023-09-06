@@ -9,11 +9,11 @@ import { StyleSheet } from 'react-native';
 import { useCloseOnEsc } from '@onekeyhq/kit/src/hooks/useOnKeydown';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import Box from '../../Box';
 import Button from '../../Button';
 import HStack from '../../HStack';
 import MotiBox from '../../MotiBox';
 import Pressable from '../../Pressable';
+import { Box } from '../../v2/Box';
 
 import Header from './Header/Header';
 import useModalClose from './useModalClose';
