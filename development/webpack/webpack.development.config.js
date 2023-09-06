@@ -6,6 +6,7 @@ module.exports = ({ platform, basePath }) => ({
   devtool: 'cheap-module-source-map',
   devServer: {
     open: true,
+    historyApiFallback: true,
     port: WEB_PORT,
     'allowedHosts': ['all'],
     'compress': true,
