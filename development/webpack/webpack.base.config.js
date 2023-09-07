@@ -34,8 +34,8 @@ module.exports = ({ platform, basePath }) => ({
   bail: false,
   target: ['web'],
   watchOptions: {
-    'aggregateTimeout': 5,
-    'ignored': [
+    aggregateTimeout: 5,
+    ignored: [
       '**/.git/**',
       '**/node_modules/**',
       '**/.expo/**',
@@ -45,15 +45,15 @@ module.exports = ({ platform, basePath }) => ({
     ],
   },
   stats: 'errors-warnings',
-  'infrastructureLogging': { 'debug': false, 'level': 'none' },
+  infrastructureLogging: { 'debug': false, 'level': 'none' },
   output: {
-    'publicPath': '/',
-    'path': path.join(basePath, 'web-build'),
-    'assetModuleFilename': 'static/media/[name].[hash][ext]',
-    'uniqueName': 'web',
-    'pathinfo': true,
-    'filename': '[name].bundle.js',
-    'chunkFilename': 'static/js/[name].chunk.js',
+    publicPath: PUBLIC_URL || '/',
+    path: path.join(basePath, 'web-build'),
+    assetModuleFilename: 'static/media/[name].[hash][ext]',
+    uniqueName: 'web',
+    pathinfo: true,
+    filename: '[name].bundle.js',
+    chunkFilename: 'static/js/[name].chunk.js',
   },
   plugins: [
     new HtmlWebpackPlugin({
@@ -307,7 +307,7 @@ module.exports = ({ platform, basePath }) => ({
   experiments: {
     asyncWebAssembly: true,
   },
-  performance: { 'maxAssetSize': 600000, 'maxEntrypointSize': 600000 },
+  performance: { maxAssetSize: 600000, maxEntrypointSize: 600000 },
 });
 
 module.exports.basePlugins = basePlugins;
