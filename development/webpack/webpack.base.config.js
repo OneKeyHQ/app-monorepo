@@ -51,7 +51,6 @@ module.exports = ({ platform, basePath }) => ({
     path: path.join(basePath, 'web-build'),
     assetModuleFilename: 'static/media/[name].[hash][ext]',
     uniqueName: 'web',
-    pathinfo: true,
     filename: '[name].bundle.js',
     chunkFilename: 'static/js/[name].chunk.js',
   },

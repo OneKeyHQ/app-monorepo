@@ -1,11 +1,18 @@
 const path = require('path');
+const webpack = require('webpack');
+const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
 
 const { WEB_PORT = 3000 } = process.env;
 module.exports = ({ platform, basePath }) => ({
   mode: 'development',
   devtool: 'cheap-module-source-map',
+  plugins: [
+    new webpack.HotModuleReplacementPlugin(),
+    new ReactRefreshWebpackPlugin({ overlay: false }),
+  ],
   devServer: {
     open: true,
+    hot: true,
     historyApiFallback: true,
     port: WEB_PORT,
     allowedHosts: ['all'],
