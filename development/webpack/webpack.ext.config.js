@@ -128,20 +128,6 @@ module.exports = ({
           : []),
         // .ext.ts, .web.ts, .android.ts, .ios.ts, .native.ts
         ...['.ts', '.tsx', '.js', '.jsx'].map((ext) => `.${platform}${ext}`),
-        '.web.ts',
-        '.web.tsx',
-        '.web.mjs',
-        '.web.js',
-        '.web.jsx',
-        '.ts',
-        '.tsx',
-        '.mjs',
-        '.js',
-        '.jsx',
-        '.json',
-        '.wasm',
-        '.cjs',
-        '.d.ts',
       ],
     },
   });
@@ -284,28 +270,25 @@ module.exports = ({
     },
   ].filter(Boolean);
 
-  const entryConfigs = devUtils.createMultipleEntryConfigs(({ config }) => {
-    const BaseConfig = baseConfig({ platform, basePath });
-    BaseConfig.plugins = [];
-    return mergeWithRules({
-      resolve: {
-        extensions: CustomizeRule.Replace,
+  const entryConfigs = devUtils.createMultipleEntryConfigs(
+    ({ config }) =>
+      mergeWithRules({
         plugins: CustomizeRule.Replace,
-      },
-    })(
-      BaseConfig,
-      IS_DEV ? developmentConfig({ platform, basePath }) : productionConfig,
-      ...extConfigs({ name: config.name }),
-      config,
-    );
-  }, multipleEntryConfigs);
-  const result = [
-    entryConfigs[0],
-    ...entryConfigs.slice(1, entryConfigs.length).map((c) => {
-      delete c.devServer;
-      return c;
-    }),
-  ];
-  // configs.forEach(codeSplit.disabledDynamicImportChunks);
-  return result;
+        resolve: {
+          extensions: CustomizeRule.Prepend,
+        },
+      })(
+        baseConfig({ platform, basePath }),
+        IS_DEV ? developmentConfig({ platform, basePath }) : productionConfig,
+        ...extConfigs({ name: config.name }),
+        config,
+      ),
+    multipleEntryConfigs,
+  );
+
+  // remove devServer from all but the first entry
+  for (let index = 1; index < entryConfigs.length; index += 1) {
+    delete entryConfigs[index].devServer;
+  }
+  return entryConfigs;
 };

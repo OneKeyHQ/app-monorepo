@@ -8,13 +8,15 @@ const productionConfig = require('./webpack.prod.config');
 const { NODE_ENV = 'development' } = process.env;
 
 const desktopConfig = {
-  extensions: [
-    '.desktop.ts',
-    '.desktop.tsx',
-    '.desktop.mjs',
-    '.desktop.js',
-    '.desktop.jsx',
-  ],
+  resolve: {
+    extensions: [
+      '.desktop.ts',
+      '.desktop.tsx',
+      '.desktop.mjs',
+      '.desktop.js',
+      '.desktop.jsx',
+    ],
+  },
 };
 
 module.exports = ({ basePath, platform = 'desktop' }) => {
