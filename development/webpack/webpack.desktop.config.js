@@ -1,5 +1,4 @@
-const { merge } = require('webpack-merge');
-const DuplicatePackageCheckerPlugin = require('duplicate-package-checker-webpack-plugin');
+const { merge, mergeWithRules, CustomizeRule } = require('webpack-merge');
 
 const { SubresourceIntegrityPlugin } = require('webpack-subresource-integrity');
 const baseConfig = require('./webpack.base.config');
@@ -8,18 +7,38 @@ const productionConfig = require('./webpack.prod.config');
 
 const { NODE_ENV = 'development' } = process.env;
 
+const desktopConfig = {
+  extensions: [
+    '.desktop.ts',
+    '.desktop.tsx',
+    '.desktop.mjs',
+    '.desktop.js',
+    '.desktop.jsx',
+  ],
+};
+
 module.exports = ({ basePath, platform = 'desktop' }) => {
   switch (NODE_ENV) {
-    case 'production':
-      return merge(baseConfig({ platform, basePath }), productionConfig, {
-        output: {
-          crossOriginLoading: 'anonymous',
+    case 'production': {
+      const mergedConfig = merge(
+        baseConfig({ platform, basePath }),
+        productionConfig,
+        {
+          output: {
+            crossOriginLoading: 'anonymous',
+          },
+          plugins: [new SubresourceIntegrityPlugin()],
         },
-        plugins: [new SubresourceIntegrityPlugin()],
-      });
+      );
+      return mergeWithRules({
+        resolve: {
+          extensions: CustomizeRule.Prepend,
+        },
+      })(mergedConfig, desktopConfig);
+    }
     case 'development':
-    default:
-      return merge(
+    default: {
+      const mergedConfig = merge(
         baseConfig({ platform, basePath }),
         developmentConfig({ platform, basePath }),
         {
@@ -28,5 +47,11 @@ module.exports = ({ basePath, platform = 'desktop' }) => {
           },
         },
       );
+      return mergeWithRules({
+        resolve: {
+          extensions: CustomizeRule.Prepend,
+        },
+      })(mergedConfig, desktopConfig);
+    }
   }
 };
