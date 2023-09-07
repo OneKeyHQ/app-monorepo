@@ -8,13 +8,13 @@ import useSWR from 'swr';
 import {
   Box,
   Empty,
+  FlatList,
   HStack,
   IconButton,
   VStack,
   useIsVerticalLayout,
   useUserDevice,
 } from '@onekeyhq/components';
-import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { DebugRenderTracker } from '@onekeyhq/components/src/DebugRenderTracker';
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
@@ -415,7 +415,7 @@ const NFTListContainer: FC = () => {
         networkId={networkId}
         fetchData={fetchData}
       />
-      <Tabs.FlatList
+      <FlatList
         contentContainerStyle={style}
         key={
           platformEnv.isNative && !platformEnv.isNativeIOSPad

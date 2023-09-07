@@ -12,7 +12,6 @@ import {
   Typography,
   useUserDevice,
 } from '@onekeyhq/components';
-import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
@@ -240,7 +239,6 @@ function TxHistoryListViewComponent({
   tokenId,
   headerView,
   isHomeTab,
-  tabComponent,
 }: ITxHistoryListViewProps) {
   const [historyListData, setHistoryListData] = useState<IHistoryTx[]>([]);
   const txDetailContext = useTxHistoryContext();
@@ -486,8 +484,8 @@ function TxHistoryListViewComponent({
   if (!accountId || !networkId) {
     return null;
   }
-  const SectionListComponent =
-    isHomeTab || tabComponent ? Tabs.SectionList : SectionList;
+  const SectionListComponent = SectionList;
+  // isHomeTab || tabComponent ? Tabs.SectionList : SectionList;
 
   return (
     <TxHistoryListSectionsMemo
