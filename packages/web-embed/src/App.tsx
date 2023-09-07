@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access */
 /* eslint-disable import/order */
-import '@onekeyhq/shared/src/polyfills';
 
 import { lazy, useEffect, useState } from 'react';
 

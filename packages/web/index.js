@@ -1,5 +1,4 @@
-// fix missing setimmediate in registerRootComponent
-import 'setimmediate';
+import '@onekeyhq/shared/src/polyfills';
 import { registerRootComponent } from 'expo';
 
 import App from './App';

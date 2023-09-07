@@ -1,5 +1,6 @@
 /* eslint-disable import/order */
 import 'core-js/es7/global';
+import 'setimmediate';
 import 'globalthis';
 import browser from 'webextension-polyfill'; // or extensionizer
 import './xhrShim';
