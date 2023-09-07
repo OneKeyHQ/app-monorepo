@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/require-await */
+import { getAddress } from 'ethers/lib/utils';
 import { debounce } from 'lodash';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
@@ -36,6 +37,7 @@ import {
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
   IMPL_EVM,
   getSupportedImpls,
@@ -211,18 +213,16 @@ class ServiceNetwork extends ServiceBase {
 
   @backgroundMethod()
   async updateNetwork(
-    networkid: string,
+    networkId: string,
     params: UpdateNetworkParams,
     isUserSwitched = true,
   ) {
     const { engine, appSelector, dispatch } = this.backgroundApi;
-    const network = await engine.updateNetwork(networkid, params);
+    const network = await engine.updateNetwork(networkId, params);
     if (params.rpcURL) {
       const { userSwitchedNetworkRpcFlag } = appSelector((s) => s.status);
-      if (isUserSwitched && !userSwitchedNetworkRpcFlag?.[networkid]) {
-        dispatch(
-          updateUserSwitchNetworkFlag({ networkId: networkid, flag: true }),
-        );
+      if (isUserSwitched && !userSwitchedNetworkRpcFlag?.[networkId]) {
+        dispatch(updateUserSwitchNetworkFlag({ networkId, flag: true }));
         await wait(600);
       }
     }
@@ -571,6 +571,34 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async networkIsPreset(networkId: string) {
     return networkIsPreset(networkId);
+  }
+
+  @backgroundMethod()
+  async getAddress(inputAddressOrName: string, networkId?: string) {
+    // If the input is an address, validate it and return it
+    try {
+      return getAddress(inputAddressOrName.toLowerCase());
+    } catch {
+      // pass
+    }
+    const { success, names } =
+      await this.backgroundApi.serviceNameResolver.resolveName(
+        inputAddressOrName,
+        {
+          disableBTC: true,
+          networkId,
+        },
+      );
+    if (!success) {
+      return;
+    }
+    const defaultValue = names?.[0]?.options?.[0]?.value ?? '';
+    return defaultValue.split('-')[1];
+  }
+
+  @backgroundMethod()
+  async lookupEnsName(address: string) {
+    return fetchData('/network/lookup_ens_name', { address }, '');
   }
 }
 

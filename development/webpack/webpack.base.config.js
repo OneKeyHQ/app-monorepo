@@ -137,6 +137,10 @@ module.exports = ({ platform, basePath }) => ({
       {
         'oneOf': [
           {
+            test: /\.wasm$/,
+            type: 'webassembly/async',
+          },
+          {
             test: [/\.avif$/],
             type: 'asset',
             mimetype: 'image/avif',
@@ -300,7 +304,6 @@ module.exports = ({ platform, basePath }) => ({
   },
   experiments: {
     asyncWebAssembly: true,
-    syncWebAssembly: true,
   },
   performance: { 'maxAssetSize': 600000, 'maxEntrypointSize': 600000 },
 });

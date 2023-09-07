@@ -24,7 +24,7 @@ export function useSearchAddress({
   const [name, setName] = useState('');
   const [account, setAccount] = useState('');
   const lookupEnsName = useCallback(async (address: string) => {
-    const result = backgroundApiProxy.serviceRevoke.lookupEnsName(address);
+    const result = backgroundApiProxy.serviceNetwork.lookupEnsName(address);
     return result;
   }, []);
 
@@ -41,7 +41,7 @@ export function useSearchAddress({
   }, []);
 
   const getAddress = useCallback(async (address: string) => {
-    const result = await backgroundApiProxy.serviceRevoke.getAddress(
+    const result = await backgroundApiProxy.serviceNetwork.getAddress(
       address,
       OnekeyNetwork.eth,
     );

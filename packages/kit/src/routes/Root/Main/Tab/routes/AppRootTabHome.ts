@@ -6,8 +6,6 @@ import FullTokenList from '../../../../../views/FullTokenList/FullTokenList';
 import NFTMarketCollectionScreen from '../../../../../views/NFTMarket/CollectionDetail';
 import PNLDetailScreen from '../../../../../views/NFTMarket/PNL/PNLDetail';
 import OverviewDefiListScreen from '../../../../../views/Overview';
-import RevokePage from '../../../../../views/Revoke';
-import RevokeRedirectPage from '../../../../../views/Revoke/Redirect';
 import TokenDetail from '../../../../../views/TokenDetail';
 import HomeScreen from '../../../../../views/Wallet';
 import { HomeRoutes, TabRoutes } from '../../../../routesEnum';
@@ -35,19 +33,6 @@ const config: TabRouteConfig = {
       name: HomeRoutes.FullTokenListScreen,
       component: FullTokenList,
       i18nTitle: 'asset__tokens',
-    },
-    {
-      name: HomeRoutes.Revoke,
-      component: RevokePage,
-      alwaysShowBackButton: true,
-    },
-    {
-      name: HomeRoutes.RevokeRedirect,
-      component: RevokeRedirectPage,
-    },
-    {
-      name: HomeRoutes.RevokeRedirect2,
-      component: RevokeRedirectPage,
     },
     {
       name: HomeRoutes.NFTMarketCollectionScreen,
