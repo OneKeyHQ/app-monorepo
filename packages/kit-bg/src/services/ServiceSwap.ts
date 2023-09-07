@@ -768,10 +768,17 @@ export default class ServiceSwap extends ServiceBase {
   async tokenIsSupported(token: Token) {
     const { appSelector } = this.backgroundApi;
     const tokenList = appSelector((s) => s.swapTransactions.tokenList);
-    const networkIds = (tokenList ?? [])
+    const data = tokenList ?? [];
+    let networkIds = data
       ?.map((o) => o.networkId)
       .filter((networkId) => networkId !== 'All');
-    return networkIds.includes(token.networkId);
+
+    const optionAll = data.find((o) => o.networkId === 'All');
+    if (optionAll?.tokens) {
+      networkIds = networkIds.concat(optionAll.tokens.map((o) => o.networkId));
+    }
+
+    return new Set(networkIds).has(token.networkId);
   }
 
   @backgroundMethod()
