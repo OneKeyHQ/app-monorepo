@@ -66,29 +66,7 @@ module.exports = ({
         'cacheGroups': {},
       },
     },
-    plugins: [
-      new WebpackBar(),
-      new webpack.DefinePlugin({
-        __DEV__: true,
-        process: {
-          env: {
-            NODE_ENV: JSON.stringify(process.env.NODE_ENV || 'development'),
-            PUBLIC_URL: '""',
-            APP_MANIFEST:
-              '{"name":"web","slug":"web","version":"0.0.1","web":{},"description":"Multi-chain support for BTC/ETH/BNB/NEAR/Polygon/Solana/Avalanche/Fantom and others","sdkVersion":"49.0.0","platforms":["ios","android","web"]}',
-            EXPO_DEBUG: false,
-            PLATFORM: JSON.stringify(platform),
-            WDS_SOCKET_PATH: '"/_expo/ws"',
-            TAMAGUI_TARGET: JSON.stringify('web'),
-            ONEKEY_BUILD_TYPE: JSON.stringify(platform),
-            EXT_INJECT_RELOAD_BUTTON: '""',
-          },
-        },
-      }),
-      new webpack.ProvidePlugin({
-        Buffer: ['buffer', 'Buffer'],
-      }),
-    ],
+    plugins: baseConfig.basePlugins({ platform }),
     output: {
       clean: false,
       path: path.resolve(basePath, 'build', getOutputFolder()),
@@ -168,7 +146,6 @@ module.exports = ({
           ...pluginsHtml.uiHtml,
           // ...(isManifestV3 ? [] : pluginsHtml.backgroundHtml),
         ].filter(Boolean);
-
         return config;
       },
     },
@@ -263,7 +240,6 @@ module.exports = ({
         codeSplit.disableCodeSplitChunks({
           config,
         });
-
         config.plugins = [...config.plugins, ...pluginsCopy].filter(Boolean);
         return config;
       },

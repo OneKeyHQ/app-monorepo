@@ -6,6 +6,31 @@ const webpackManifestPlugin = require('webpack-manifest-plugin');
 const WebpackBar = require('webpackbar');
 
 const isDev = process.env.NODE_ENV !== 'production';
+
+const basePlugins = ({ platform }) => [
+  new WebpackBar(),
+  new webpack.DefinePlugin({
+    __DEV__: isDev,
+    process: {
+      env: {
+        NODE_ENV: JSON.stringify(process.env.NODE_ENV || 'development'),
+        PUBLIC_URL: '""',
+        APP_MANIFEST:
+          '{"name":"web","slug":"web","version":"0.0.1","web":{},"description":"Multi-chain support for BTC/ETH/BNB/NEAR/Polygon/Solana/Avalanche/Fantom and others","sdkVersion":"49.0.0","platforms":["ios","android","web"]}',
+        EXPO_DEBUG: false,
+        PLATFORM: JSON.stringify(platform),
+        WDS_SOCKET_PATH: '"/_expo/ws"',
+        TAMAGUI_TARGET: JSON.stringify('web'),
+        ONEKEY_BUILD_TYPE: JSON.stringify(platform),
+        EXT_INJECT_RELOAD_BUTTON: '""',
+      },
+    },
+  }),
+  new webpack.ProvidePlugin({
+    Buffer: ['buffer', 'Buffer'],
+  }),
+];
+
 module.exports = ({ platform, basePath }) => ({
   entry: path.join(basePath, 'index.js'),
   context: path.resolve(basePath),
@@ -34,7 +59,6 @@ module.exports = ({ platform, basePath }) => ({
     'chunkFilename': 'static/js/[name].chunk.js',
   },
   plugins: [
-    new WebpackBar(),
     new HtmlWebpackPlugin({
       title: platform,
       minify: !isDev,
@@ -65,23 +89,6 @@ module.exports = ({ platform, basePath }) => ({
         'NO_SCRIPT':
           '<form action="" style="background-color:#fff;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;"><div style="font-size:18px;font-family:Helvetica,sans-serif;line-height:24px;margin:10%;width:80%;"> <p>Oh no! It looks like JavaScript is not enabled in your browser.</p> <p style="margin:20px 0;"> <button type="submit" style="background-color: #4630EB; border-radius: 100px; border: none; box-shadow: none; color: #fff; cursor: pointer; font-weight: bold; line-height: 20px; padding: 6px 16px;">Reload</button> </p> </div> </form>',
         'ROOT_ID': 'root',
-      },
-    }),
-    new webpack.DefinePlugin({
-      __DEV__: true,
-      process: {
-        env: {
-          NODE_ENV: JSON.stringify(process.env.NODE_ENV || 'development'),
-          PUBLIC_URL: '""',
-          APP_MANIFEST:
-            '{"name":"web","slug":"web","version":"0.0.1","web":{},"description":"Multi-chain support for BTC/ETH/BNB/NEAR/Polygon/Solana/Avalanche/Fantom and others","sdkVersion":"49.0.0","platforms":["ios","android","web"]}',
-          EXPO_DEBUG: false,
-          PLATFORM: JSON.stringify(platform),
-          WDS_SOCKET_PATH: '"/_expo/ws"',
-          TAMAGUI_TARGET: JSON.stringify('web'),
-          ONEKEY_BUILD_TYPE: JSON.stringify(platform),
-          EXT_INJECT_RELOAD_BUTTON: '""',
-        },
       },
     }),
     // Generate an asset manifest file with the following content:
@@ -120,9 +127,7 @@ module.exports = ({ platform, basePath }) => ({
         };
       },
     }),
-    new webpack.ProvidePlugin({
-      Buffer: ['buffer', 'Buffer'],
-    }),
+    ...basePlugins({ platform }),
   ],
   module: {
     strictExportPresence: false,
@@ -307,3 +312,5 @@ module.exports = ({ platform, basePath }) => ({
   },
   performance: { 'maxAssetSize': 600000, 'maxEntrypointSize': 600000 },
 });
+
+module.exports.basePlugins = basePlugins;
