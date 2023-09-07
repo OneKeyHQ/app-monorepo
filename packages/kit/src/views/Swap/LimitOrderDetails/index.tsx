@@ -16,7 +16,6 @@ import {
   Typography,
   VStack,
 } from '@onekeyhq/components';
-import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
 import { useAccount, useNetwork } from '../../../hooks';
@@ -93,7 +92,6 @@ const InputOuput: FC<InputOuputProps> = ({ limitOrder }: InputOuputProps) => {
           <TokenIcon size="8" token={limitOrder.tokenOut} />
           <Box ml="3">
             <Box flexDirection="row" alignItems="center">
-              <Typography.Caption mr="1">~</Typography.Caption>
               <Typography.Body1>
                 {tokenOutValueString}
                 {limitOrder.tokenOut.symbol.toUpperCase()}
@@ -211,16 +209,10 @@ const LimitOrderDetailsModal = () => {
           <TransactionField
             label={intl.formatMessage({ id: 'form__order_hash' })}
           >
-            <Pressable
-              flexDirection="row"
-              alignItems="center"
-              mr="1"
-              onPress={onCopy}
-            >
+            <Pressable textAlign="right" onPress={onCopy} maxW={56}>
               <Typography.Body2Strong mr="1">
-                {shortenAddress(limitOrder.orderHash)}
+                {limitOrder.orderHash}
               </Typography.Body2Strong>
-              <Icon size={16} name="Square2StackOutline" />
             </Pressable>
           </TransactionField>
           <TransactionField
