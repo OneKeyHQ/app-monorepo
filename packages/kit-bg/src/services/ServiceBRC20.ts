@@ -156,7 +156,7 @@ export default class ServiceBRC20 extends ServiceBase {
       primitive: true,
       promise: true,
       max: 100,
-      maxAge: getTimeDurationMs({ seconds: 5 }),
+      maxAge: getTimeDurationMs({ minute: 1 }),
     },
   );
 

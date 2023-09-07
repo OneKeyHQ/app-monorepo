@@ -213,7 +213,7 @@ export const verifyBulkTransferBeforeConfirm = async ({
                 transferInfo: {
                   from: senderItem.address,
                   to: receiver[0].address,
-                  amount: new BigNumber(1).shiftedBy(-token.decimals).toFixed(),
+                  amount: '0',
                   token: token.tokenIdOnNetwork,
                 },
               });
@@ -312,12 +312,18 @@ export const verifyBulkTransferBeforeConfirm = async ({
       senderAmount = '0';
     }
 
-    const senderNativeTokenBalance =
-      nativeTokensBalance?.[senderAccountId] ?? '0';
-    const senderTokenBalance = tokensBalance?.[senderAccountId] ?? '0';
+    const senderNativeTokenBalance = nativeTokensBalance?.[senderAccountId];
+    const senderTokenBalance = tokensBalance?.[senderAccountId];
+
+    if (isNil(senderNativeTokenBalance) || isNil(senderTokenBalance)) {
+      throw new OneKeyError('Can not get sender balance value.');
+    }
 
     if (token.isNative) {
-      if (new BigNumber(senderAmount).gt(senderNativeTokenBalance)) {
+      if (
+        new BigNumber(senderAmount).gt(senderNativeTokenBalance) ||
+        new BigNumber(senderNativeTokenBalance).lte(0)
+      ) {
         errors.push({
           lineNumber: i + 1,
           message: intl.formatMessage(
@@ -349,7 +355,10 @@ export const verifyBulkTransferBeforeConfirm = async ({
         });
       }
     } else {
-      if (new BigNumber(senderAmount).gt(senderTokenBalance)) {
+      if (
+        new BigNumber(senderAmount).gt(senderTokenBalance) ||
+        new BigNumber(senderTokenBalance).lte(0)
+      ) {
         errors.push({
           lineNumber: i + 1,
           message: intl.formatMessage(
