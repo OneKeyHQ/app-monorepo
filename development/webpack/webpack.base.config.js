@@ -5,7 +5,8 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpackManifestPlugin = require('webpack-manifest-plugin');
 const WebpackBar = require('webpackbar');
 
-const isDev = process.env.NODE_ENV !== 'production';
+const { PUBLIC_URL, NODE_ENV, EXT_INJECT_RELOAD_BUTTON } = process.env;
+const isDev = NODE_ENV !== 'production';
 
 const basePlugins = ({ platform }) => [
   new WebpackBar(),
@@ -14,15 +15,11 @@ const basePlugins = ({ platform }) => [
     process: {
       env: {
         NODE_ENV: JSON.stringify(process.env.NODE_ENV || 'development'),
-        PUBLIC_URL: '""',
-        APP_MANIFEST:
-          '{"name":"web","slug":"web","version":"0.0.1","web":{},"description":"Multi-chain support for BTC/ETH/BNB/NEAR/Polygon/Solana/Avalanche/Fantom and others","sdkVersion":"49.0.0","platforms":["ios","android","web"]}',
-        EXPO_DEBUG: false,
         PLATFORM: JSON.stringify(platform),
-        WDS_SOCKET_PATH: '"/_expo/ws"',
         TAMAGUI_TARGET: JSON.stringify('web'),
         ONEKEY_BUILD_TYPE: JSON.stringify(platform),
-        EXT_INJECT_RELOAD_BUTTON: '""',
+        PUBLIC_URL: JSON.stringify(PUBLIC_URL || ''),
+        EXT_INJECT_RELOAD_BUTTON: JSON.stringify(EXT_INJECT_RELOAD_BUTTON),
       },
     },
   }),
@@ -83,12 +80,12 @@ module.exports = ({ platform, basePath }) => ({
             encoding: 'utf-8',
           },
         ),
-        'WEB_PUBLIC_URL': '/',
-        'WEB_TITLE': 'web',
-        'LANG_ISO_CODE': 'en',
-        'NO_SCRIPT':
+        WEB_PUBLIC_URL: PUBLIC_URL || '/',
+        WEB_TITLE: platform,
+        LANG_ISO_CODE: 'en',
+        NO_SCRIPT:
           '<form action="" style="background-color:#fff;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;"><div style="font-size:18px;font-family:Helvetica,sans-serif;line-height:24px;margin:10%;width:80%;"> <p>Oh no! It looks like JavaScript is not enabled in your browser.</p> <p style="margin:20px 0;"> <button type="submit" style="background-color: #4630EB; border-radius: 100px; border: none; box-shadow: none; color: #fff; cursor: pointer; font-weight: bold; line-height: 20px; padding: 6px 16px;">Reload</button> </p> </div> </form>',
-        'ROOT_ID': 'root',
+        ROOT_ID: 'root',
       },
     }),
     // Generate an asset manifest file with the following content:
@@ -168,15 +165,15 @@ module.exports = ({ platform, basePath }) => ({
               {
                 loader: 'babel-loader',
                 options: {
-                  'babelrc': false,
-                  'configFile': true,
-                  'sourceType': 'unambiguous',
-                  'root': basePath,
-                  'compact': !isDev,
-                  'sourceMaps': isDev,
-                  'inputSourceMap': isDev,
-                  'cacheCompression': false,
-                  'cacheDirectory': path.resolve(
+                  babelrc: false,
+                  configFile: true,
+                  sourceType: 'unambiguous',
+                  root: basePath,
+                  compact: !isDev,
+                  sourceMaps: isDev,
+                  inputSourceMap: isDev,
+                  cacheCompression: false,
+                  cacheDirectory: path.resolve(
                     basePath,
                     'node_modules/.cache/babel-loader',
                   ),
@@ -204,15 +201,15 @@ module.exports = ({ platform, basePath }) => ({
             use: {
               loader: 'babel-loader',
               options: {
-                'babelrc': false,
-                'configFile': true,
-                'sourceType': 'unambiguous',
-                'root': basePath,
-                'compact': !isDev,
-                'sourceMaps': isDev,
-                'inputSourceMap': isDev,
-                'cacheCompression': false,
-                'cacheDirectory': path.resolve(
+                babelrc: false,
+                configFile: true,
+                sourceType: 'unambiguous',
+                root: basePath,
+                compact: !isDev,
+                sourceMaps: isDev,
+                inputSourceMap: isDev,
+                cacheCompression: false,
+                cacheDirectory: path.resolve(
                   basePath,
                   'node_modules/.cache/babel-loader',
                 ),
@@ -226,10 +223,10 @@ module.exports = ({ platform, basePath }) => ({
               'style-loader',
               {
                 loader: 'css-loader',
-                'options': {
-                  'importLoaders': 1,
-                  'sourceMap': true,
-                  'modules': { 'mode': 'global' },
+                options: {
+                  importLoaders: 1,
+                  sourceMap: true,
+                  modules: { mode: 'global' },
                 },
               },
             ].filter(Boolean),
@@ -258,9 +255,9 @@ module.exports = ({ platform, basePath }) => ({
     ],
   },
   resolve: {
-    'mainFields': ['browser', 'module', 'main'],
-    'aliasFields': ['browser', 'module', 'main'],
-    'extensions': [
+    mainFields: ['browser', 'module', 'main'],
+    aliasFields: ['browser', 'module', 'main'],
+    extensions: [
       '.web.ts',
       '.web.tsx',
       '.web.mjs',
@@ -276,8 +273,8 @@ module.exports = ({ platform, basePath }) => ({
       '.cjs',
       '.d.ts',
     ],
-    'symlinks': true,
-    'alias': {
+    symlinks: true,
+    alias: {
       'react-native$': 'react-native-web',
       'react-native/Libraries/Components/View/ViewStylePropTypes$':
         'react-native-web/dist/exports/View/ViewStylePropTypes',
@@ -290,21 +287,21 @@ module.exports = ({ platform, basePath }) => ({
       'react-native/Libraries/EventEmitter/NativeEventEmitter$':
         'react-native-web/dist/vendor/react-native/NativeEventEmitter',
     },
-    'fallback': {
-      'crypto': require.resolve('crypto-browserify'),
-      'stream': require.resolve('stream-browserify'),
-      'path': false,
-      'https': false,
-      'http': false,
-      'net': false,
-      'zlib': false,
-      'tls': false,
-      'child_process': false,
-      'process': false,
-      'fs': false,
-      'util': false,
-      'os': false,
-      'buffer': require.resolve('buffer/'),
+    fallback: {
+      crypto: require.resolve('crypto-browserify'),
+      stream: require.resolve('stream-browserify'),
+      path: false,
+      https: false,
+      http: false,
+      net: false,
+      zlib: false,
+      tls: false,
+      child_process: false,
+      process: false,
+      fs: false,
+      util: false,
+      os: false,
+      buffer: require.resolve('buffer/'),
     },
   },
   experiments: {

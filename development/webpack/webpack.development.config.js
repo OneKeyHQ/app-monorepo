@@ -8,10 +8,10 @@ module.exports = ({ platform, basePath }) => ({
     open: true,
     historyApiFallback: true,
     port: WEB_PORT,
-    'allowedHosts': ['all'],
-    'compress': true,
-    'client': {
-      'overlay': false,
+    allowedHosts: ['all'],
+    compress: true,
+    client: {
+      overlay: false,
     },
     onBeforeSetupMiddleware: (devServer) => {
       devServer.app.get(
