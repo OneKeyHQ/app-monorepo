@@ -82,10 +82,27 @@ open class HomePageLayout @JvmOverloads constructor(
         }
     }
 
-    private val content =
+    private val content by lazy {
         LayoutInflater.from(context).inflate(R.layout.view_home_page, this, false).apply {
             addView(this)
         }
+    }
+
+    private val child: View? get() = if (childCount > 0) getChildAt(0) else null
+
+    private val viewpager by lazy {
+        content.findViewById<ViewPager2>(R.id.viewpager)
+    }
+
+    private val toolbar by lazy {
+        content.findViewById<CollapsingToolbarLayout>(R.id.toolbar)
+    }
+
+    private val layoutRefresh by lazy {
+        content.findViewById<SwipeRefreshLayout>(R.id.layout_refresh)
+    }
+
+    private val tabLayout by lazy { content.findViewById<SlidingTabLayout2>(R.id.layout_tab) }
 
     fun sendChangeTabsNativeEvent(index: Int, tabProps: TabProps) {
         eventDispatcher?.dispatchEvent(
@@ -95,22 +112,20 @@ open class HomePageLayout @JvmOverloads constructor(
 
     fun setHeaderHeight(height: Int) {
         mHeaderHeight = height
-        val contentView = content.findViewById<CollapsingToolbarLayout>(R.id.toolbar)
-        contentView.layoutParams.height = Utils.dp2px(context, height.toFloat())
-        contentView.requestLayout()
+        toolbar.layoutParams.height = Utils.dp2px(context, height.toFloat())
+        toolbar.requestLayout()
     }
 
     fun getHeaderView(): View? {
-        return content.findViewById<ViewGroup>(R.id.toolbar)?.getChildAt(0)
+        return toolbar?.getChildAt(0)
     }
 
     fun removeHeaderView() {
-        content.findViewById<ViewGroup>(R.id.toolbar)?.removeAllViews()
+        toolbar?.removeAllViews()
     }
 
     fun setHeaderView(view: View, height: Int) {
-        val contentView = content.findViewById<CollapsingToolbarLayout>(R.id.toolbar)
-        contentView.removeAllViews()
+        toolbar.removeAllViews()
 
         val params = CollapsingToolbarLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -120,24 +135,24 @@ open class HomePageLayout @JvmOverloads constructor(
             )
         )
         params.collapseMode = CollapsingToolbarLayout.LayoutParams.COLLAPSE_MODE_PIN
-        contentView.addView(view, params)
+        toolbar.addView(view, params)
     }
 
     fun setEnableRefresh(enabled: Boolean) {
         mRefreshEnabled = enabled
-        content.findViewById<SwipeRefreshLayout>(R.id.layout_refresh)?.let {
+        layoutRefresh?.let {
             it.isEnabled = mRefreshEnabled && mAppBarExtended
         }
     }
 
     fun setRefresh(refresh: Boolean) {
-        content.findViewById<SwipeRefreshLayout>(R.id.layout_refresh)?.let {
+        layoutRefresh?.let {
             it.isRefreshing = refresh
         }
     }
 
     fun initRefreshListener() {
-        content.findViewById<SwipeRefreshLayout>(R.id.layout_refresh)?.let {
+        layoutRefresh?.let {
             it.setOnRefreshListener {
                 it.isRefreshing = true
 
@@ -180,7 +195,6 @@ open class HomePageLayout @JvmOverloads constructor(
         post {
             index?.let {
                 if (it >= mTabProps.size) return@post
-                val viewpager = content.findViewById<ViewPager2>(R.id.viewpager)
                 if (viewpager?.currentItem != it) {
                     viewpager?.currentItem = it
                 }
@@ -190,20 +204,17 @@ open class HomePageLayout @JvmOverloads constructor(
 
     fun setSlideDisable(disable: Boolean?) {
         post {
-            val viewpager = content.findViewById<ViewPager2>(R.id.viewpager)
             viewpager?.isUserInputEnabled = if (disable == null) true else !disable
         }
     }
 
     fun getChildViewCount(): Int {
-        val contentView = content.findViewById<CollapsingToolbarLayout>(R.id.toolbar)
-        return (contentView?.childCount ?: 0) + (getAdapter()?.itemCount ?: 0)
+        return (toolbar?.childCount ?: 0) + (getAdapter()?.itemCount ?: 0)
     }
 
     fun getChildViewAt(index: Int): View? {
         if (index == 0) {
-            val contentView = content.findViewById<CollapsingToolbarLayout>(R.id.toolbar)
-            return contentView?.getChildAt(0)
+            return toolbar?.getChildAt(0)
         }
         return getAdapter()?.getPageView(index - 1)
     }
@@ -237,7 +248,7 @@ open class HomePageLayout @JvmOverloads constructor(
     }
 
     fun getAdapter(): SimplePagerAdapter? {
-        return content.findViewById<ViewPager2>(R.id.viewpager)?.adapter as SimplePagerAdapter?
+        return viewpager?.adapter as SimplePagerAdapter?
     }
 
     fun setViewPager(fragmentActivity: FragmentActivity) {
@@ -249,9 +260,6 @@ open class HomePageLayout @JvmOverloads constructor(
         fragmentActivity: FragmentActivity,
         titles: List<String>
     ): RecyclerView.Adapter<*> {
-        val tabLayout = content.findViewById<SlidingTabLayout2>(R.id.layout_tab)
-        val viewpager = content.findViewById<ViewPager2>(R.id.viewpager)
-
         val adapter = SimplePagerAdapter()
         viewpager.adapter = adapter
         // remove recyclerView add view animation
@@ -264,11 +272,11 @@ open class HomePageLayout @JvmOverloads constructor(
     }
 
     fun setScrollEnabled(enabled: Boolean) {
-        content.findViewById<ViewPager2>(R.id.viewpager).isUserInputEnabled = enabled
+        viewpager.isUserInputEnabled = enabled
     }
 
     fun updateTabsTitle() {
-        content.findViewById<SlidingTabLayout2>(R.id.layout_tab)?.let { tabView ->
+        tabLayout?.let { tabView ->
             mTabViewStyle?.let { tabViewStyle ->
                 tabView.isTabSpaceEqual = tabViewStyle.tabSpaceEqual
                 tabView.indicatorColor = Color.parseColor(tabViewStyle.indicatorColor)
