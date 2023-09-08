@@ -175,7 +175,7 @@ function normalizeConfig({ platform, config }) {
     ['@babel/plugin-proposal-export-namespace-from'],
     ['@babel/plugin-proposal-nullish-coalescing-operator'],
     ['@babel/plugin-proposal-class-static-block'],
-    isDev && ['react-refresh/babel'],
+    isDev && !isJest && !isNative && ['react-refresh/babel'],
     isDev && [
       'babel-plugin-catch-logger',
       {
