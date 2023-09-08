@@ -6,12 +6,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const shimsLog = (str) => console.log(`Shims Injected: ${str}`);
 
-const BN = require('bn.js');
-
-BN.prototype.toBuffer = function toBuffer(endian, length) {
-  return this.toArrayLike(Buffer, endian, length);
-};
-
 if (typeof __dirname === 'undefined') global.__dirname = '/';
 if (typeof __filename === 'undefined') global.__filename = '';
 if (typeof process === 'undefined') {
