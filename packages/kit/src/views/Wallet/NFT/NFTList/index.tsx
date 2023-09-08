@@ -29,6 +29,7 @@ import {
   useNFTIsLoading,
 } from '@onekeyhq/kit/src/hooks';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { AppUIEventBusNames } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -37,6 +38,7 @@ import { useIsFocusedAllInOne } from '../../../../hooks/useIsFocusedAllInOne';
 import { useOnUIEventBus } from '../../../../hooks/useOnUIEventBus';
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import { TabRoutes } from '../../../../routes/routesEnum';
+import { appSelector } from '../../../../store';
 import { WalletHomeTabEnum } from '../../type';
 import { navigateToNFTCollection, navigateToNFTDetail } from '../utils';
 
@@ -268,6 +270,7 @@ const NFTListContainer: FC = () => {
 
   const collections = useMemo(() => {
     let array: ListItemType<ListDataType>[] = [];
+
     nfts.nfts.forEach(({ type, data }) => {
       data.forEach((item) => {
         const items = getNFTListMeta({
@@ -300,15 +303,38 @@ const NFTListContainer: FC = () => {
   );
 
   const fetchCoinControlList = useCallback(async () => {
-    if (account?.xpub && networkId) {
-      const archivedUtxos =
-        await backgroundApiProxy.serviceUtxos.getArchivedUtxos(
+    let archivedUtxos: CoinControlItem[] = [];
+    if (networkId) {
+      if (isAllNetworks(networkId)) {
+        const networkAccountsMap =
+          appSelector((s) => s.overview.allNetworksAccountsMap)?.[accountId] ||
+          {};
+
+        for (const [nid, accounts] of Object.entries(
+          networkAccountsMap ?? {},
+        )) {
+          const xpubs: string[] = [];
+
+          if (nid === OnekeyNetwork.btc || nid === OnekeyNetwork.tbtc) {
+            xpubs.push(...accounts.map((item) => item.xpub).filter(Boolean));
+
+            archivedUtxos = archivedUtxos.concat(
+              await backgroundApiProxy.serviceUtxos.getArchivedUtxos(
+                nid,
+                xpubs,
+              ),
+            );
+          }
+        }
+      } else if (account?.xpub) {
+        archivedUtxos = await backgroundApiProxy.serviceUtxos.getArchivedUtxos(
           networkId,
-          account.xpub,
+          [account.xpub],
         );
+      }
       setRecycleUtxos(archivedUtxos.filter((utxo) => utxo.recycle));
     }
-  }, [account?.xpub, networkId]);
+  }, [account?.xpub, accountId, networkId]);
 
   useOnUIEventBus(
     AppUIEventBusNames.InscriptionRecycleChanged,

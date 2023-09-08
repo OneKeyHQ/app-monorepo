@@ -232,7 +232,10 @@ export default class ServiceLightningNetwork extends ServiceBase {
     };
   }) {
     try {
-      const response = await axios.get<LNURLPaymentInfo | LNURLError>(
+      const axiosInstance = axios.create({
+        withCredentials: true,
+      });
+      const response = await axiosInstance.get<LNURLPaymentInfo | LNURLError>(
         callback,
         {
           params,
@@ -247,7 +250,7 @@ export default class ServiceLightningNetwork extends ServiceBase {
         throw new OneKeyError((response.data as LNURLError).reason);
       }
       return response.data as LNURLPaymentInfo;
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
       throw e;
     }

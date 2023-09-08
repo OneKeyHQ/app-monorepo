@@ -375,10 +375,10 @@ export default class Vault extends VaultBase {
         const historyTxToMerge = options.localHistory?.find(
           (item) => item.decodedTx.txid === txid,
         );
-        if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
-          // No need to update.
-          return null;
-        }
+        // if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
+        //   // No need to update.
+        //   return null;
+        // }
 
         const amount = new BigNumber(txInfo.amount)
           .shiftedBy(-decimals)

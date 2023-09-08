@@ -56,6 +56,10 @@ const FetchAddressModal: FC = () => {
   const { walletId, networkId, data, password } = route.params;
   const navigation = useNavigation<NavigationProps['navigation']>();
 
+  const onClose = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
+
   const {
     progress: setRangeProgress,
     progressText: setRangeProgressText,
@@ -67,9 +71,7 @@ const FetchAddressModal: FC = () => {
     walletId,
     networkId,
     password,
-    onClose: () => {
-      navigation.goBack();
-    },
+    onClose,
   });
 
   const {

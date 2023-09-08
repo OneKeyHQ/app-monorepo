@@ -12,6 +12,7 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import LNSwapMenu from '@onekeyhq/kit/src/views/LightningNetwork/components/LNSwapMenu';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   isLightningNetworkByImpl,
@@ -204,36 +205,44 @@ const AccountOption: FC<AccountOptionProps> = memo(
             {intl.formatMessage({ id: 'action__receive' })}
           </Typography.CaptionStrong>
         </Pressable>
-        <Pressable
-          flex={iconBoxFlex}
-          mx={3}
-          minW="56px"
-          alignItems="center"
-          isDisabled={wallet?.type === 'watching' || !account}
-          onPress={onSwap}
-        >
-          <TouchableWithoutFeedback>
-            <IconButton
-              circle
-              size={isSmallView ? 'xl' : 'lg'}
-              name="ArrowsRightLeftOutline"
-              type="basic"
-              isDisabled={wallet?.type === 'watching' || !account}
-              onPress={onSwap}
-            />
-          </TouchableWithoutFeedback>
-          <Typography.CaptionStrong
-            textAlign="center"
-            mt="8px"
-            color={
-              wallet?.type === 'watching' || !account
-                ? 'text-disabled'
-                : 'text-default'
-            }
+        {network?.settings.customAccountInfoSwapOption ? (
+          <LNSwapMenu
+            isSmallView={isSmallView}
+            networkId={networkId}
+            accountId={accountId}
+          />
+        ) : (
+          <Pressable
+            flex={iconBoxFlex}
+            mx={3}
+            minW="56px"
+            alignItems="center"
+            isDisabled={wallet?.type === 'watching' || !account}
+            onPress={onSwap}
           >
-            {intl.formatMessage({ id: 'title__swap' })}
-          </Typography.CaptionStrong>
-        </Pressable>
+            <TouchableWithoutFeedback>
+              <IconButton
+                circle
+                size={isSmallView ? 'xl' : 'lg'}
+                name="ArrowsRightLeftOutline"
+                type="basic"
+                isDisabled={wallet?.type === 'watching' || !account}
+                onPress={onSwap}
+              />
+            </TouchableWithoutFeedback>
+            <Typography.CaptionStrong
+              textAlign="center"
+              mt="8px"
+              color={
+                wallet?.type === 'watching' || !account
+                  ? 'text-disabled'
+                  : 'text-default'
+              }
+            >
+              {intl.formatMessage({ id: 'title__swap' })}
+            </Typography.CaptionStrong>
+          </Pressable>
+        )}
 
         {network?.settings.hiddenAccountInfoMoreOption ? null : (
           <AccountMoreMenu

@@ -67,6 +67,7 @@ import type {
   OverviewDefiRes,
 } from '@onekeyhq/kit/src/views/Overview/types';
 import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
+import type { KeleMinerOverview } from '@onekeyhq/kit/src/views/Staking/typing';
 import {
   backgroundClass,
   backgroundMethod,
@@ -162,6 +163,7 @@ class ServiceOverview extends ServiceBase {
       '/overview/query/all',
       {
         tasks: pendingTasksForCurrentNetwork,
+        withBRC20Tokens: true,
       },
       null,
       'POST',
@@ -1209,10 +1211,17 @@ class ServiceOverview extends ServiceBase {
     ) {
       return zero;
     }
-    const minerOverview = await serviceStaking.fetchMinerOverview({
-      networkId,
-      accountId,
-    });
+
+    let minerOverview: KeleMinerOverview | undefined;
+
+    try {
+      minerOverview = await serviceStaking.fetchMinerOverview({
+        networkId,
+        accountId,
+      });
+    } catch (error) {
+      debugLogger.allNetworks.warn(`fetchMinerOverview error`, error);
+    }
 
     if (!minerOverview) {
       return zero;

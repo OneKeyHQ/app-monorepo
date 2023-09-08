@@ -71,6 +71,7 @@ function TokenDetailViewWithoutMemo() {
     coingeckoId,
     networkId,
     tokenAddress,
+    sendAddress,
     accountId,
 
     price,
@@ -95,6 +96,7 @@ function TokenDetailViewWithoutMemo() {
     networkId,
     accountId,
     tokenAddress,
+    sendAddress,
     coingeckoId,
     defaultInfo,
   });
@@ -260,6 +262,14 @@ function TokenDetailViewWithoutMemo() {
 const TokenDetailView = memo(TokenDetailViewWithoutMemo);
 
 function TokenDetail() {
+  const route = useRoute<RouteProps>();
+
+  const { tokenAddress } = route.params;
+
+  const isBRC20 = useMemo(() => isBRC20Token(tokenAddress), [tokenAddress]);
+
+  if (isBRC20) return <TokenDetailView />;
+
   return (
     <LazyDisplayView delay={100} defaultView={<TokenDetailLoading />}>
       <TokenDetailView />

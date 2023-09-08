@@ -110,8 +110,8 @@ export function useBatchSendConfirmFeeInfoPayload({
 
       if (feeInfoStandard && feeInfoReuseable) {
         info = feeInfoStandard.info;
+        shouldFetch = false;
       }
-
       if (fetchAnyway) {
         shouldFetch = true;
       }

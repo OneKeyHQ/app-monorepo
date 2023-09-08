@@ -22,7 +22,7 @@ import { addHexPrefix, hexlify } from '../../utils/hexUtils';
 import { handleSignData, toTransaction } from './utils';
 
 import type { DBSimpleAccount } from '../../../types/account';
-import type { AptosMessage } from '../../../types/message';
+import type { CommonMessage } from '../../../types/message';
 import type {
   IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
@@ -208,11 +208,32 @@ export class KeyringHardware extends KeyringHardwareBase {
     throw convertDeviceError(response.payload);
   }
 
-  override async signMessage(
-    messages: AptosMessage[],
-    options: ISignCredentialOptions,
-  ): Promise<string[]> {
+  override async signMessage(messages: CommonMessage[]): Promise<string[]> {
     debugLogger.common.info('signMessage', messages);
-    return Promise.reject(new Error('Not implemented'));
+
+    const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
+    const HardwareSDK = await this.getHardwareSDKInstance();
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+
+    return Promise.all(
+      messages.map(async (message) => {
+        const res = await HardwareSDK.suiSignMessage(connectId, deviceId, {
+          path: dbAccount.path,
+          messageHex: hexlify(hexToBytes(message.message)),
+          ...passphraseState,
+        });
+
+        if (!res.success) {
+          throw convertDeviceError(res.payload);
+        }
+
+        return toSerializedSignature({
+          signatureScheme: 'ED25519',
+          signature: hexToBytes(res.payload.signature),
+          pubKey: new Ed25519PublicKey(hexToBytes(dbAccount.pub)),
+        });
+      }),
+    );
   }
 }

@@ -64,6 +64,7 @@ export type TxExtraInfo = {
   title: LocaleIds;
   canCopy?: boolean;
   isShorten?: boolean;
+  numberOfLines?: number;
 };
 
 export type IVaultSettings = {
@@ -141,6 +142,7 @@ export type IVaultSettings = {
   hiddenToolTab?: boolean;
   hiddenAddress?: boolean;
   hiddenAccountInfoMoreOption?: boolean;
+  customAccountInfoSwapOption?: boolean;
   displayMemo?: boolean;
   hideFromToFieldIfValueEmpty?: boolean;
   hideFeeSpeedInfo?: boolean;

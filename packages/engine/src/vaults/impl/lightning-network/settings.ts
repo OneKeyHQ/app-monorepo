@@ -33,6 +33,7 @@ const settings: IVaultSettings = Object.freeze({
   hiddenToolTab: true,
   hiddenAddress: true,
   hiddenAccountInfoMoreOption: true,
+  customAccountInfoSwapOption: true,
   displayMemo: true,
   hideFromToFieldIfValueEmpty: true,
   hideFeeSpeedInfo: true,
@@ -55,6 +56,7 @@ const settings: IVaultSettings = Object.freeze({
       title: 'content__description' as LocaleIds,
       canCopy: false,
       isShorten: false,
+      numberOfLines: 10,
     },
   ],
 });
