@@ -41,20 +41,3 @@ function getBuildTargetBrowser() {
 }
 
 exports.TARGET_BROWSER = getBuildTargetBrowser();
-
-exports.DEFAULT_RESOLVE_EXTENSIONS = [
-  '.web.ts',
-  '.web.tsx',
-  '.web.mjs',
-  '.web.js',
-  '.web.jsx',
-  '.ts',
-  '.tsx',
-  '.mjs',
-  '.cjs',
-  '.js',
-  '.jsx',
-  '.json',
-  '.wasm',
-  '.d.ts',
-];
