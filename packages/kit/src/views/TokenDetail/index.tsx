@@ -71,6 +71,7 @@ function TokenDetailViewWithoutMemo() {
     coingeckoId,
     networkId,
     tokenAddress,
+    sendAddress,
     accountId,
 
     price,
@@ -95,6 +96,7 @@ function TokenDetailViewWithoutMemo() {
     networkId,
     accountId,
     tokenAddress,
+    sendAddress,
     coingeckoId,
     defaultInfo,
   });
