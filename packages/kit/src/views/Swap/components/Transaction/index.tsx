@@ -400,14 +400,6 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
     }
   }, []);
 
-  useEffect(() => {
-    if (tx.status !== 'pending' && !tx.destinationTransactionHash) {
-      const s = new Scheduler(tx);
-      s.runTask();
-    }
-    // eslint-disable-next-line
-  }, []);
-
   return (
     <Select
       footer={null}
