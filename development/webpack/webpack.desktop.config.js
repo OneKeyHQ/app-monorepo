@@ -4,43 +4,25 @@ const { SubresourceIntegrityPlugin } = require('webpack-subresource-integrity');
 const baseConfig = require('./webpack.base.config');
 const developmentConfig = require('./webpack.development.config');
 const productionConfig = require('./webpack.prod.config');
+const { NODE_ENV } = require('./constant');
+const babelTools = require('../babelTools');
 
-const { NODE_ENV = 'development' } = process.env;
-
-const desktopConfig = {
-  resolve: {
-    extensions: [
-      '.desktop.ts',
-      '.desktop.tsx',
-      '.desktop.mjs',
-      '.desktop.js',
-      '.desktop.jsx',
-    ],
-  },
-};
-
-module.exports = ({ basePath, platform = 'desktop' }) => {
+module.exports = ({
+  basePath,
+  platform = babelTools.developmentConsts.platforms.desktop,
+}) => {
   switch (NODE_ENV) {
     case 'production': {
-      const mergedConfig = merge(
-        baseConfig({ platform, basePath }),
-        productionConfig,
-        {
-          output: {
-            crossOriginLoading: 'anonymous',
-          },
-          plugins: [new SubresourceIntegrityPlugin()],
+      return merge(baseConfig({ platform, basePath }), productionConfig, {
+        output: {
+          crossOriginLoading: 'anonymous',
         },
-      );
-      return mergeWithRules({
-        resolve: {
-          extensions: CustomizeRule.Prepend,
-        },
-      })(mergedConfig, desktopConfig);
+        plugins: [new SubresourceIntegrityPlugin()],
+      });
     }
     case 'development':
     default: {
-      const mergedConfig = merge(
+      return merge(
         baseConfig({ platform, basePath }),
         developmentConfig({ platform, basePath }),
         {
@@ -49,11 +31,6 @@ module.exports = ({ basePath, platform = 'desktop' }) => {
           },
         },
       );
-      return mergeWithRules({
-        resolve: {
-          extensions: CustomizeRule.Prepend,
-        },
-      })(mergedConfig, desktopConfig);
     }
   }
 };

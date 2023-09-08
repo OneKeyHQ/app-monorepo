@@ -4,9 +4,13 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpackManifestPlugin = require('webpack-manifest-plugin');
 const WebpackBar = require('webpackbar');
-
-const { PUBLIC_URL, NODE_ENV, EXT_INJECT_RELOAD_BUTTON } = process.env;
-const isDev = NODE_ENV !== 'production';
+const { createtResolveExtensions } = require('./utils');
+const {
+  isDev,
+  PUBLIC_URL,
+  EXT_INJECT_RELOAD_BUTTON,
+  NODE_ENV,
+} = require('./constant');
 
 const basePlugins = ({ platform }) => [
   new WebpackBar(),
@@ -14,7 +18,7 @@ const basePlugins = ({ platform }) => [
     __DEV__: isDev,
     process: {
       env: {
-        NODE_ENV: JSON.stringify(process.env.NODE_ENV || 'development'),
+        NODE_ENV: JSON.stringify(NODE_ENV),
         PLATFORM: JSON.stringify(platform),
         TAMAGUI_TARGET: JSON.stringify('web'),
         ONEKEY_BUILD_TYPE: JSON.stringify(platform),
@@ -256,22 +260,7 @@ module.exports = ({ platform, basePath }) => ({
   resolve: {
     mainFields: ['browser', 'module', 'main'],
     aliasFields: ['browser', 'module', 'main'],
-    extensions: [
-      '.web.ts',
-      '.web.tsx',
-      '.web.mjs',
-      '.web.js',
-      '.web.jsx',
-      '.ts',
-      '.tsx',
-      '.mjs',
-      '.js',
-      '.jsx',
-      '.json',
-      '.wasm',
-      '.cjs',
-      '.d.ts',
-    ],
+    extensions: createtResolveExtensions({ platform }),
     symlinks: true,
     alias: {
       'react-native$': 'react-native-web',

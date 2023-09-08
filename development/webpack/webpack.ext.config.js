@@ -8,42 +8,26 @@ const analyzerConfig = require('./webpack.analyzer.config');
 const developmentConfig = require('./webpack.development.config');
 const productionConfig = require('./webpack.prod.config');
 const babelTools = require('../babelTools');
-const { WEB_PORT } = require('./constant');
+const {
+  WEB_PORT,
+  isManifestV3,
+  isDev,
+  isManifestV2,
+  ENABLE_ANALYZER,
+  TARGET_BROWSER,
+} = require('./constant');
 const devUtils = require('../../packages/ext/development/devUtils');
 const codeSplit = require('../../packages/ext/development/codeSplit');
 const pluginsHtml = require('../../packages/ext/development/pluginsHtml');
 const pluginsCopy = require('../../packages/ext/development/pluginsCopy');
 const htmlLazyScript = require('../../packages/ext/development/htmlLazyScript');
+const { createtResolveExtensions } = require('./utils');
 
-const {
-  ENABLE_ANALYZER = false,
-  NODE_ENV = 'development',
-  EXT_MANIFEST_V3 = false,
-} = process.env;
-
-const isManifestV3 = !!EXT_MANIFEST_V3;
-const isManifestV2 = !isManifestV3;
-function getBuildTargetBrowser() {
-  let buildTargetBrowser = process.env.EXT_CHANNEL || 'chrome';
-  const argv = process.argv[process.argv.length - 1];
-  if (argv === '--firefox') {
-    buildTargetBrowser = 'firefox';
-  }
-  if (argv === '--chrome') {
-    buildTargetBrowser = 'chrome';
-  }
-  if (argv === '--edge') {
-    buildTargetBrowser = 'edge';
-  }
-  process.env.EXT_CHANNEL = buildTargetBrowser;
-  return buildTargetBrowser;
-}
-
-const IS_DEV = NODE_ENV !== 'production';
+const IS_DEV = isDev;
 
 function getOutputFolder() {
   // isManifestV3 ? `${buildTargetBrowser}_v3` : buildTargetBrowser,
-  const buildTargetBrowser = getBuildTargetBrowser();
+  const buildTargetBrowser = TARGET_BROWSER;
   return isManifestV3 ? `${buildTargetBrowser}_v3` : buildTargetBrowser;
 }
 
@@ -51,7 +35,6 @@ module.exports = ({
   basePath,
   platform = babelTools.developmentConsts.platforms.ext,
 }) => {
-  const buildTargetBrowser = getBuildTargetBrowser();
   const extConfig = ({ name }) => ({
     optimization: {
       splitChunks: {
@@ -84,29 +67,7 @@ module.exports = ({
       },
     },
     resolve: {
-      extensions: [
-        ...(buildTargetBrowser
-          ? ['.ts', '.tsx', '.js', '.jsx'].map(
-              (ext) => `.${buildTargetBrowser}-${platform}${ext}`,
-            )
-          : []),
-        // .ext-bg-v3.ts
-        ...(name &&
-        platform === 'ext' &&
-        babelTools.developmentConsts.isManifestV3
-          ? ['.ts', '.tsx', '.js', '.jsx'].map(
-              (ext) => `.${platform}-${name}-v3${ext}`,
-            )
-          : []),
-        // .ext-ui.ts, .ext-bg.ts
-        ...(name
-          ? ['.ts', '.tsx', '.js', '.jsx'].map(
-              (ext) => `.${platform}-${name}${ext}`,
-            )
-          : []),
-        // .ext.ts, .web.ts, .android.ts, .ios.ts, .native.ts
-        ...['.ts', '.tsx', '.js', '.jsx'].map((ext) => `.${platform}${ext}`),
-      ],
+      extensions: createtResolveExtensions({ platform, configName: name }),
     },
   });
   const extConfigs = ({ name }) =>

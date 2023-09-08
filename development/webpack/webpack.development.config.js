@@ -1,9 +1,9 @@
 const path = require('path');
 const webpack = require('webpack');
 const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
+const { WEB_PORT } = require('./constant');
 
-const { WEB_PORT = 3000 } = process.env;
-module.exports = ({ platform, basePath }) => ({
+module.exports = ({ basePath }) => ({
   mode: 'development',
   devtool: 'cheap-module-source-map',
   plugins: [
