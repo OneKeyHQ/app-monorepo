@@ -1,4 +1,4 @@
-const { mergeWithRules, CustomizeRule } = require('webpack-merge');
+const { merge, mergeWithRules, CustomizeRule } = require('webpack-merge');
 const path = require('path');
 const webpack = require('webpack');
 const WebpackBar = require('webpackbar');
@@ -207,9 +207,11 @@ module.exports = ({
         plugins: CustomizeRule.Replace,
       })(
         baseConfig({ platform, basePath, configName: config.name }),
-        IS_DEV ? developmentConfig({ platform, basePath }) : productionConfig,
-        ...extConfigs({ name: config.name }),
-        config,
+        merge(
+          IS_DEV ? developmentConfig({ platform, basePath }) : productionConfig,
+          ...extConfigs({ name: config.name }),
+          config,
+        ),
       ),
     multipleEntryConfigs,
   );
