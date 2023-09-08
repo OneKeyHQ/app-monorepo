@@ -21,7 +21,6 @@ const codeSplit = require('../../packages/ext/development/codeSplit');
 const pluginsHtml = require('../../packages/ext/development/pluginsHtml');
 const pluginsCopy = require('../../packages/ext/development/pluginsCopy');
 const htmlLazyScript = require('../../packages/ext/development/htmlLazyScript');
-const { createtResolveExtensions } = require('./utils');
 
 const IS_DEV = isDev;
 
@@ -65,9 +64,6 @@ module.exports = ({
         publicPath: `http://localhost:${WEB_PORT}/`,
         writeToDisk: true,
       },
-    },
-    resolve: {
-      extensions: createtResolveExtensions({ platform, configName: name }),
     },
   });
   const extConfigs = ({ name }) =>
@@ -115,9 +111,7 @@ module.exports = ({
     (isManifestV3 || isManifestV2) && {
       config: {
         name: devUtils.consts.configName.bg,
-        dependencies: IS_DEV
-          ? [devUtils.consts.configName.ui]
-          : [devUtils.consts.configName.ui],
+        dependencies: [devUtils.consts.configName.ui],
         entry: {
           [devUtils.consts.entry.background]: path.join(
             basePath,
@@ -211,11 +205,8 @@ module.exports = ({
     ({ config }) =>
       mergeWithRules({
         plugins: CustomizeRule.Replace,
-        resolve: {
-          extensions: CustomizeRule.Prepend,
-        },
       })(
-        baseConfig({ platform, basePath }),
+        baseConfig({ platform, basePath, configName: config.name }),
         IS_DEV ? developmentConfig({ platform, basePath }) : productionConfig,
         ...extConfigs({ name: config.name }),
         config,

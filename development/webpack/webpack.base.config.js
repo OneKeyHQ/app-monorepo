@@ -32,7 +32,7 @@ const basePlugins = ({ platform }) => [
   }),
 ];
 
-module.exports = ({ platform, basePath }) => ({
+module.exports = ({ platform, basePath, configName }) => ({
   entry: path.join(basePath, 'index.js'),
   context: path.resolve(basePath),
   bail: false,
@@ -260,7 +260,7 @@ module.exports = ({ platform, basePath }) => ({
   resolve: {
     mainFields: ['browser', 'module', 'main'],
     aliasFields: ['browser', 'module', 'main'],
-    extensions: createtResolveExtensions({ platform }),
+    extensions: createtResolveExtensions({ platform, configName }),
     symlinks: true,
     alias: {
       'react-native$': 'react-native-web',
