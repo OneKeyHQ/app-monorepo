@@ -1,24 +1,69 @@
+import { isBoolean } from 'lodash';
+
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
   decrypt,
   encrypt,
   getBgSensitiveTextEncodeKey,
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/engine/src/types/wallet';
+import type { ValidationFields } from '@onekeyhq/kit/src/components/Protected';
+import { setBackgroudPasswordPrompt } from '@onekeyhq/kit/src/store/reducers/data';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import ServiceBase from './ServiceBase';
+
+interface IPasswordOptions {
+  isLocalAuthentication?: boolean;
+  withEnableAuthentication?: boolean;
+}
+
+interface IPasswordResData {
+  password: string;
+  options?: IPasswordOptions;
+}
+
+interface IPasswordResError {
+  errorDetail?: string;
+  errorDetailFormatMessageId?: string;
+  errorDetailFormatMessageValues?: Record<string, any>;
+}
+
+export enum EPasswordResStatus {
+  CLOSE_STATUS = 'close',
+  ERROR_STATUS = 'error',
+  PASS_STATUS = 'pass',
+}
+export interface IPasswordRes {
+  status: EPasswordResStatus;
+  data?: IPasswordResData;
+  error?: IPasswordResError;
+}
 
 @backgroundClass()
 export default class ServicePassword extends ServiceBase {
   private data?: string;
+
+  private passwordPromise: Promise<IPasswordRes> | undefined;
+
+  private promiseMap: Record<
+    string,
+    {
+      resolve: (res: IPasswordRes) => void;
+    }
+  > = {};
 
   getRandomString() {
     return generateUUID();
@@ -26,6 +71,15 @@ export default class ServicePassword extends ServiceBase {
 
   clearData() {
     this.data = undefined;
+  }
+
+  setPromiseMap(
+    promiseId: string,
+    promise: {
+      resolve: (res: IPasswordRes) => void;
+    },
+  ) {
+    this.promiseMap[promiseId] = promise;
   }
 
   async setData(password: string): Promise<string> {
@@ -135,5 +189,145 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async getBgSensitiveTextEncodeKey(): Promise<string> {
     return Promise.resolve(getBgSensitiveTextEncodeKey());
+  }
+
+  async checkWalletIsNeedInputPassWord(walletId: string | null) {
+    const { appSelector, engine, serviceHardware } = this.backgroundApi;
+    const walletDetail =
+      appSelector((s) => s.runtime.wallets?.find?.((w) => w.id === walletId)) ??
+      null;
+    /**
+     * Hardware Wallet dont need input password at here, hardware need to input password at device
+     *
+     * also if it is hardware device, need to connect bluetooth and check connection status
+     */
+    const isHardware = walletDetail?.type === 'hw';
+    const isExternalWallet = walletDetail?.type === WALLET_TYPE_EXTERNAL;
+    if (isExternalWallet) {
+      return Promise.resolve({ status: EPasswordResStatus.CLOSE_STATUS });
+    }
+    if (isHardware) {
+      const currentWalletDevice = await engine.getHWDeviceByWalletId(
+        walletDetail.id,
+      );
+      if (!currentWalletDevice || !walletDetail?.id) {
+        return Promise.resolve({
+          status: EPasswordResStatus.ERROR_STATUS,
+          error: {
+            errorDetailMessageId: 'action__connection_timeout',
+          },
+        });
+      }
+      let features: IOneKeyDeviceFeatures | null = null;
+      try {
+        const featuresCache = await serviceHardware.getFeatursByWalletId(
+          walletDetail.id,
+        );
+        if (featuresCache) {
+          features = featuresCache;
+          debugLogger.hardwareSDK.debug('use features cache: ', featuresCache);
+        } else {
+          features = await serviceHardware.getFeatures(currentWalletDevice.mac);
+        }
+      } catch (e: any) {
+        deviceUtils.showErrorToast(e);
+        return Promise.resolve({ status: EPasswordResStatus.CLOSE_STATUS });
+      }
+      if (!features) {
+        return Promise.resolve({
+          status: EPasswordResStatus.ERROR_STATUS,
+          error: {
+            errorDetailMessageId: 'modal__device_status_check',
+          },
+        });
+      }
+      return Promise.resolve({
+        status: EPasswordResStatus.PASS_STATUS,
+        data: { password: '', option: { deviceFeatures: features } },
+      });
+    }
+    return Promise.resolve();
+  }
+
+  @backgroundMethod()
+  async backgroundPromptPasswordDialog({
+    walletId,
+    field,
+    networkId,
+  }: {
+    walletId: string | null;
+    field?: ValidationFields;
+    networkId?: string;
+  }): Promise<IPasswordRes> {
+    // check multiple call
+    if (
+      this.passwordPromise &&
+      Promise.resolve(this.passwordPromise) === this.passwordPromise
+    ) {
+      return this.passwordPromise;
+    }
+    // check hw external wallet
+    const walletCheckRes = await this.checkWalletIsNeedInputPassWord(walletId);
+    if (walletCheckRes) {
+      return Promise.resolve(walletCheckRes);
+    }
+
+    const { serviceLightningNetwork, appSelector, engine } = this.backgroundApi;
+    // lightningNetwork check
+    const accountId = appSelector((s) => s.general.activeAccountId) ?? '';
+    if (networkId && isLightningNetworkByNetworkId(networkId)) {
+      const lightningNetworkNeedPassword =
+        await serviceLightningNetwork.checkAuth({
+          networkId,
+          accountId,
+        });
+      if (
+        isBoolean(lightningNetworkNeedPassword) &&
+        !lightningNetworkNeedPassword
+      ) {
+        return Promise.resolve({ status: EPasswordResStatus.PASS_STATUS });
+      }
+    }
+
+    // check xmr
+    if (networkId) {
+      const isPasswordLoadedInVault = appSelector(
+        (s) => s.data.isPasswordLoadedInVault,
+      );
+      let network = appSelector((s) =>
+        s.runtime.networks?.find((n) => n.id === networkId),
+      );
+      if (!network) {
+        network = await engine.getNetwork(networkId);
+      }
+      if (network?.settings.validationRequired && !isPasswordLoadedInVault) {
+        //  todo
+        console.log('todo');
+      }
+    }
+
+    const cachePassword = await this.getPassword();
+    if (cachePassword) {
+      return Promise.resolve(cachePassword);
+    }
+
+    this.passwordPromise = new Promise<IPasswordRes>((resolve) => {
+      const promiseId = this.getRandomString();
+      this.setPromiseMap(promiseId, { resolve });
+      this.backgroundApi.dispatch(
+        setBackgroudPasswordPrompt({ promiseId, other: {} }),
+      );
+    });
+
+    return this.passwordPromise;
+  }
+
+  @backgroundMethod()
+  backgroundPromptPasswordDialogRes(promiseId: string, res: IPasswordRes) {
+    const promise = this.promiseMap[promiseId];
+    if (promise) {
+      promise.resolve(res);
+    }
+    this.passwordPromise = undefined;
   }
 }

@@ -43,7 +43,9 @@ const Session: FC<SessionProps> = ({
   }, [validationSetting, field]);
   useEffect(() => {
     async function loadCachePassword() {
+      console.log('8');
       const data = await backgroundApiProxy.servicePassword.getPassword();
+      console.log('data-', data);
       if (data) {
         setVerifiedPwd(true);
         if (platformEnv.isNative) {

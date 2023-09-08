@@ -186,6 +186,7 @@ const Protected: FC<ProtectedProps> = ({
   }, [checkIsNeedPassword]);
 
   if (isExternalWallet) {
+    console.log('1');
     return (
       <Box flex={1}>
         {children(password, {
@@ -197,6 +198,7 @@ const Protected: FC<ProtectedProps> = ({
   }
 
   if (password || (isBoolean(isNeedInputPassword) && !isNeedInputPassword)) {
+    console.log('2');
     return (
       <Box w="full" h="full">
         {children(password, {
@@ -209,6 +211,7 @@ const Protected: FC<ProtectedProps> = ({
 
   if (isHardware) {
     if (deviceFeatures) {
+      console.log('3');
       return (
         <Box w="full" h="full">
           {children(password, {
@@ -230,16 +233,19 @@ const Protected: FC<ProtectedProps> = ({
     );
   }
 
+  console.log('4');
   if (checkIsNeedPassword && typeof isNeedInputPassword === 'undefined') {
+    console.log('spinner');
     return (
       <Box h="100%" justifyContent="center" alignItems="center">
         <Spinner size="lg" />
       </Box>
     );
   }
-
+  console.log('5');
   // input password
   if (hasPassword) {
+    console.log('6');
     return (
       <Session
         onOk={onValidationOk}
@@ -251,6 +257,7 @@ const Protected: FC<ProtectedProps> = ({
       />
     );
   }
+  console.log('7');
   // create new password
   return (
     <Setup
