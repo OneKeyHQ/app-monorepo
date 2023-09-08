@@ -123,10 +123,10 @@ export default class ServiceNameResolver extends ServiceBase {
         shownSymbol: 'STAR',
         supportImplsMap: {
           'evm--*': ['eth'],
-          // [OnekeyNetwork.apt]: ['APT'],
-          // [OnekeyNetwork.sui]: ['SUI'],
-          // [OnekeyNetwork.btc]: ['BTC'],
-          // [OnekeyNetwork.doge]: ['DOGE'],
+          [OnekeyNetwork.apt]: ['APT'],
+          [OnekeyNetwork.sui]: ['SUI'],
+          [OnekeyNetwork.btc]: ['BTC'],
+          [OnekeyNetwork.doge]: ['DOGE'],
         },
         resolver: this.resolveStarDomains.bind(this),
       },
@@ -166,11 +166,8 @@ export default class ServiceNameResolver extends ServiceBase {
   ];
 
   // Star Name Service map
-  private StarNameServiceMap = {
-    '.zk': 'https://omniapi.zkns.app/domain-resolver/getRecord/',
-    '.base': 'https://mainnet-api.sns.so/domain/getRecord/',
-    '.linea': 'https://mainnet-api.sns.so/domain/getRecord/',
-  };
+  private starNameServiceFetchApi =
+    'https://mainnet-api.sns.so/domain/getAllRecords/';
 
   @backgroundMethod()
   async checkIsValidName(name: string, networId?: string) {
@@ -453,36 +450,19 @@ export default class ServiceNameResolver extends ServiceBase {
   }
 
   async resolveStarDomains(name: string) {
-    const nameSuffix = name.slice(name.lastIndexOf('.')) as
-      | '.zk'
-      | '.base'
-      | '.linea';
-    const fetchApi = this.StarNameServiceMap[nameSuffix];
     try {
-      const { data } = await axios.get<string & { data: string; code: number }>(
-        `${fetchApi}${name}`,
-      );
-      if (data) {
-        if (nameSuffix === '.zk') {
-          return [
-            {
-              subtype: 'eth',
-              value: data,
-              type: 'address',
-              key: 'address.eth',
-            },
-          ];
-        }
-        if (data.code === 200) {
-          return [
-            {
-              subtype: 'eth',
-              value: data.data,
-              type: 'address',
-              key: 'address.eth',
-            },
-          ];
-        }
+      const { data } = await axios.get<
+        string & { data: Record<string, string>; code: number }
+      >(`${this.starNameServiceFetchApi}${name}`);
+      if (data && data.code === 200) {
+        return Object.keys(data.data)
+          ?.filter((k) => data.data?.[k])
+          ?.map((key) => ({
+            subtype: key,
+            value: data.data[key],
+            type: 'address',
+            key: `address.${key}`,
+          }));
       }
       return [];
     } catch (e) {
