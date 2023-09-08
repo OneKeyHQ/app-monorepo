@@ -283,6 +283,10 @@ function ManyToN(props: Props) {
           feeInfoEditable: true,
           feeInfoReuseable: true,
           encodedTxs,
+          feeInfoSelected: {
+            type: 'preset',
+            preset: DEFAULT_FEE_PRESET_INDEX,
+          },
           transferCount: transferInfos.length,
           payloadInfo: {
             type: 'Transfer',
