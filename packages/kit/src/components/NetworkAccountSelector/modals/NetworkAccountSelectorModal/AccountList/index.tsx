@@ -206,7 +206,7 @@ function AccountList({
   singleSelect?: boolean;
   hideAccountActions?: boolean;
   selectedAccounts?: string[];
-  setSelectedAccounts?: (selectedAccounts: string[]) => void;
+  setSelectedAccounts?: React.Dispatch<React.SetStateAction<string[]>>;
   onAccountsSelected?: (selectedAccounts: string[]) => void;
 }) {
   const terms = useDebounce(searchValue, 500);

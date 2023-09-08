@@ -35,7 +35,7 @@ type ListItemProps = {
   multiSelect?: boolean;
   hideAccountActions?: boolean;
   selectedAccounts?: string[];
-  setSelectedAccounts?: (selectedAccounts: string[]) => void;
+  setSelectedAccounts?: React.Dispatch<React.SetStateAction<string[]>>;
   onAccountsSelected?: (selectedAccounts: string[]) => void;
 };
 
@@ -116,15 +116,11 @@ const ListItem: FC<ListItemProps> = ({
       onPress={() => {
         if (multiSelect) {
           if (isChecked) {
-            setSelectedAccounts?.(
-              selectedAccounts?.filter((item) => item !== account.address) ??
-                [],
+            setSelectedAccounts?.((prev) =>
+              prev.filter((item) => item !== account.address),
             );
           } else {
-            setSelectedAccounts?.([
-              ...(selectedAccounts || []),
-              account.address,
-            ]);
+            setSelectedAccounts?.((prev) => [...prev, account.address]);
           }
         } else if (singleSelect) {
           closeModal();
@@ -202,6 +198,15 @@ const ListItem: FC<ListItemProps> = ({
               <CheckBox
                 isChecked={isChecked}
                 containerStyle={{ mr: 0 }}
+                onChange={() => {
+                  if (isChecked) {
+                    setSelectedAccounts?.((prev) =>
+                      prev.filter((item) => item !== account.address),
+                    );
+                  } else {
+                    setSelectedAccounts?.((prev) => [...prev, account.address]);
+                  }
+                }}
                 checkBoxProps={{
                   size: 'sm',
                   accessibilityLabel: account.address,

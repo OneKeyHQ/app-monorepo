@@ -163,6 +163,7 @@ class ServiceOverview extends ServiceBase {
       '/overview/query/all',
       {
         tasks: pendingTasksForCurrentNetwork,
+        withBRC20Tokens: true,
       },
       null,
       'POST',

@@ -40,7 +40,7 @@ type LazyDisplayContentViewProps = {
   showCustomLegacyHeader: boolean;
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
   selectedAccounts: string[];
-  setSelectedAccounts: (selectedAccounts: string[]) => void;
+  setSelectedAccounts: React.Dispatch<React.SetStateAction<string[]>>;
 } & ManageNetworkRoutesParams['NetworkAccountSelector'];
 
 function LazyDisplayContentView(props: LazyDisplayContentViewProps) {
