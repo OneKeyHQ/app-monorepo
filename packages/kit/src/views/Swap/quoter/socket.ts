@@ -238,9 +238,12 @@ export class SocketQuoter implements Quoter {
   ): Promise<TransactionProgress> {
     const { tokens } = tx;
     if (tokens) {
-      const { from, to } = tokens;
-      if (from.networkId === to.networkId) {
-        return this.querySimpleTransactionProgress(tx);
+      const simpleResult = await this.querySimpleTransactionProgress(tx);
+      if (
+        simpleResult?.status === 'failed' ||
+        simpleResult?.status === 'canceled'
+      ) {
+        return simpleResult;
       }
       return this.queryCrosschainTransactionProgress(tx);
     }

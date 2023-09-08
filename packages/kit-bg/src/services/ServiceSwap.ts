@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/require-await, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 
+import BigNumber from 'bignumber.js';
+
 import type { ISwftcCoin } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntitySwap';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
@@ -56,6 +58,7 @@ import type {
 } from '@onekeyhq/kit/src/views/Swap/typings';
 import {
   convertBuildParams,
+  formatAmount,
   recipientMustBeSendingAccount,
   stringifyTokens,
   tokenEqual,
@@ -675,8 +678,7 @@ export default class ServiceSwap extends ServiceBase {
     }
   }
 
-  @backgroundMethod()
-  async getReservedNetworkFee(networkId: string) {
+  private async getReservedNetworkFee(networkId: string) {
     const { appSelector, dispatch } = this.backgroundApi;
     const endpoint = await this.getServerEndPoint();
     const url = `${endpoint}/swap/minimum_gas`;
@@ -696,6 +698,26 @@ export default class ServiceSwap extends ServiceBase {
     }
 
     return reservedNetworkFees?.[networkId] ?? ('0.01' as string);
+  }
+
+  @backgroundMethod()
+  async getBasicGasFeeWithTimeout(networkId: string) {
+    const { appSelector, engine } = this.backgroundApi;
+    const value = await new Promise<string>((resolve) => {
+      this.getReservedNetworkFee(networkId).then(resolve);
+      setTimeout(() => {
+        const reservedNetworkFees = appSelector(
+          (s) => s.swapTransactions.reservedNetworkFees,
+        );
+        const finalValue = reservedNetworkFees?.[networkId];
+        if (finalValue) {
+          resolve(finalValue);
+        }
+      }, 500);
+    });
+    const network = await engine.getNetwork(networkId);
+    const result = formatAmount(value, network.decimals, BigNumber.ROUND_CEIL);
+    return result;
   }
 
   @backgroundMethod()

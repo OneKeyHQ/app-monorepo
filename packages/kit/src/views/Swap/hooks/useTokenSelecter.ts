@@ -6,6 +6,7 @@ import { isEmpty } from 'lodash';
 
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import { type Token, TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountTokensOnChain, useAppSelector } from '../../../hooks';
@@ -67,7 +68,10 @@ export function createTokenSelectorUtils(
     );
 
     return useMemo(() => {
-      const tokens = [...presetTokens, ...accountTokens];
+      let tokens = [...presetTokens, ...accountTokens];
+      if (networkId === OnekeyNetwork.btc || networkId === OnekeyNetwork.tbtc) {
+        tokens = tokens.filter((i) => i.isNative);
+      }
       const set = new Set();
       const getKey = (token: Token) =>
         `${token.networkId}${token.tokenIdOnNetwork}`;
@@ -120,7 +124,7 @@ export function createTokenSelectorUtils(
       const b = items.filter((o) => !tokenHasBalance(o));
 
       return a.concat(b);
-    }, [presetTokens, accountTokens, balances, getPrice]);
+    }, [presetTokens, accountTokens, balances, getPrice, networkId]);
   }
 
   function Observer() {
