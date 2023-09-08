@@ -124,6 +124,7 @@ export default class ServiceNameResolver extends ServiceBase {
         supportImplsMap: {
           'evm--*': ['eth'],
           [OnekeyNetwork.apt]: ['APT'],
+          [OnekeyNetwork.ltc]: ['LTC'],
           [OnekeyNetwork.sui]: ['SUI'],
           [OnekeyNetwork.btc]: ['BTC'],
           [OnekeyNetwork.doge]: ['DOGE'],
