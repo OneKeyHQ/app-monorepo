@@ -13,7 +13,6 @@ const { SubresourceIntegrityPlugin } = require('webpack-subresource-integrity');
 const devUtils = require('@onekeyhq/ext/development/devUtils');
 const developmentConsts = require('./developmentConsts');
 const indexHtmlParameter = require('./indexHtmlParameter');
-const { isJest, isNative } = require('../packages/shared/src/buildTimeEnv');
 
 const { PUBLIC_URL } = process.env;
 
@@ -123,9 +122,7 @@ function normalizeConfig({
         ),
         'process.env.PUBLIC_URL': PUBLIC_URL,
       }),
-      isDev && !isJest && !isNative
-        ? new ReactRefreshWebpackPlugin({ overlay: false })
-        : null,
+      isDev ? new ReactRefreshWebpackPlugin({ overlay: false }) : null,
       platform === 'web' && !isDev ? new SubresourceIntegrityPlugin() : null,
     ].filter(Boolean);
 
