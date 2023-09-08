@@ -8,6 +8,8 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'VERSION',
     'BUILD_NUMBER',
     'ONEKEY_PLATFORM',
+    'PUBLIC_URL',
+    'EXT_INJECT_RELOAD_BUTTON',
     'EXT_INJECT_MODE',
     'EXT_CHANNEL',
     'ANDROID_CHANNEL',
@@ -15,7 +17,6 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'COVALENT_KEY',
     'HARDWARE_SDK_CONNECT_SRC',
     'GITHUB_SHA',
-    'TAMAGUI_TARGET',
   ];
 
   if (platform === developmentConsts.platforms.app) {

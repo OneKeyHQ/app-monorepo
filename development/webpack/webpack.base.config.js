@@ -12,21 +12,8 @@ const {
   NODE_ENV,
 } = require('./constant');
 
-const basePlugins = ({ platform }) => [
+const basePlugins = [
   new WebpackBar(),
-  new webpack.DefinePlugin({
-    __DEV__: isDev,
-    process: {
-      env: {
-        NODE_ENV: JSON.stringify(NODE_ENV),
-        PLATFORM: JSON.stringify(platform),
-        TAMAGUI_TARGET: JSON.stringify('web'),
-        ONEKEY_BUILD_TYPE: JSON.stringify(platform),
-        PUBLIC_URL: JSON.stringify(PUBLIC_URL || ''),
-        EXT_INJECT_RELOAD_BUTTON: JSON.stringify(EXT_INJECT_RELOAD_BUTTON),
-      },
-    },
-  }),
   new webpack.ProvidePlugin({
     Buffer: ['buffer', 'Buffer'],
   }),
@@ -127,7 +114,7 @@ module.exports = ({ platform, basePath, configName }) => ({
         };
       },
     }),
-    ...basePlugins({ platform }),
+    ...basePlugins,
   ],
   module: {
     strictExportPresence: false,
