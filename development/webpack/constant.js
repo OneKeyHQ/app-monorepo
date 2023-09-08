@@ -2,7 +2,6 @@ const {
   WEB_PORT,
   PUBLIC_URL,
   NODE_ENV,
-  EXT_INJECT_RELOAD_BUTTON,
   EXT_MANIFEST_V3,
   ENABLE_ANALYZER,
   ENABLE_ANALYZER_HTML_REPORT,
@@ -14,7 +13,6 @@ exports.WEB_PORT = WEB_PORT || 3000;
 exports.NODE_ENV = NODE_ENV || 'development';
 exports.isDev = exports.NODE_ENV !== 'production';
 exports.PUBLIC_URL = PUBLIC_URL;
-exports.EXT_INJECT_RELOAD_BUTTON = EXT_INJECT_RELOAD_BUTTON;
 
 exports.isManifestV3 = !!EXT_MANIFEST_V3;
 exports.isManifestV2 = !exports.isManifestV3;

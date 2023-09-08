@@ -48,7 +48,7 @@ module.exports = ({
         cacheGroups: {},
       },
     },
-    plugins: baseConfig.basePlugins,
+    plugins: baseConfig.basePlugins({ platform }),
     output: {
       clean: false,
       path: path.resolve(basePath, 'build', getOutputFolder()),

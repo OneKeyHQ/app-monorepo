@@ -12,6 +12,8 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'EXT_INJECT_RELOAD_BUTTON',
     'EXT_INJECT_MODE',
     'EXT_CHANNEL',
+    'ONEKEY_BUILD_TYPE',
+    'TAMAGUI_TARGET',
     'ANDROID_CHANNEL',
     'DESK_CHANNEL',
     'COVALENT_KEY',

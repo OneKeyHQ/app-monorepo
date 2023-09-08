@@ -1,6 +1,8 @@
 const path = require('path');
 const babelTools = require('../../development/babelTools');
 
+process.env.TAMAGUI_TARGET = 'native';
+
 module.exports = function (api) {
   api.cache(true);
   return babelTools.normalizeConfig({

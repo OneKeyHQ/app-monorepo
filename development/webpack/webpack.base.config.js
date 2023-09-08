@@ -5,15 +5,19 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpackManifestPlugin = require('webpack-manifest-plugin');
 const WebpackBar = require('webpackbar');
 const { createtResolveExtensions } = require('./utils');
-const {
-  isDev,
-  PUBLIC_URL,
-  EXT_INJECT_RELOAD_BUTTON,
-  NODE_ENV,
-} = require('./constant');
+const { isDev, PUBLIC_URL, NODE_ENV } = require('./constant');
 
-const basePlugins = [
+const basePlugins = ({ platform }) => [
   new WebpackBar(),
+  new webpack.DefinePlugin({
+    __DEV__: isDev,
+    process: {
+      env: {
+        NODE_ENV: JSON.stringify(NODE_ENV),
+        TAMAGUI_TARGET: JSON.stringify('web'),
+      },
+    },
+  }),
   new webpack.ProvidePlugin({
     Buffer: ['buffer', 'Buffer'],
   }),
@@ -114,7 +118,7 @@ module.exports = ({ platform, basePath, configName }) => ({
         };
       },
     }),
-    ...basePlugins,
+    ...basePlugins({ platform }),
   ],
   module: {
     strictExportPresence: false,

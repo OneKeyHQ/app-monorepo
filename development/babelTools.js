@@ -108,10 +108,6 @@ function normalizeConfig({ platform, config }) {
     [
       'transform-define',
       {
-        '__DEV__': isDev,
-        'process.env.platform': platform,
-        'process.env.TAMAGUI_TARGET': isNative ? 'native' : 'web',
-        'process.env.ONEKEY_BUILD_TYPE': platform,
         // override runtime env with buildtime env
         // so it can do more tree shaking
         'platformEnv.isJest': isJest,
