@@ -31,13 +31,13 @@ const TabContainerWebView: ForwardRefRenderFunction<
   CollapsibleContainerProps
 > = (
   {
-    children,
     containerStyle,
     headerView,
     onIndexChange,
     initialTabName,
     scrollEnabled = true,
     stickyTabBar,
+    children,
   },
   ref,
 ) => {
@@ -50,8 +50,7 @@ const TabContainerWebView: ForwardRefRenderFunction<
     let initialIndex = 0;
     Children.forEach(children, (element, index) => {
       // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/no-shadow, @typescript-eslint/no-unsafe-member-access
-      const { name, children, label } = element.props as TabProps;
+      const { name, children: child, label } = element.props as TabProps;
       if (initialTabName === name) {
         initialIndex = index;
       }
@@ -59,7 +58,7 @@ const TabContainerWebView: ForwardRefRenderFunction<
         key: name,
         title: label,
       });
-      scene[name] = children;
+      scene[name] = child;
     });
     return {
       routes: routesArray,

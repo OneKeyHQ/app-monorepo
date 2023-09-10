@@ -6753,7 +6753,6 @@ __metadata:
     react-native-level-fs: ^3.0.1
     react-native-metrix: ^0.6.3
     react-native-mmkv: ^2.8.0
-    react-native-nested-scroll-view: "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git#feat/support-rn71"
     react-native-pager-view: 6.1.4
     react-native-randombytes: ^3.6.1
     react-native-reanimated: 3.3.0
@@ -31444,13 +31443,6 @@ __metadata:
     react-native: "> 0.50.0"
     react-native-gesture-handler: "> 1.0.0"
   checksum: c383c79d9397d72e285b67eb8c50e0743037bb72f0d12dc5a743ae45d092a4aa87e6fba0cd8cb8bef4ce675ffe784adb24bc996c137b4a30d9b8a882e7610c30
-  languageName: node
-  linkType: hard
-
-"react-native-nested-scroll-view@https://github.com/OneKeyHQ/react-native-nested-scroll-view.git#feat/support-rn71":
-  version: 9.0.1
-  resolution: "react-native-nested-scroll-view@https://github.com/OneKeyHQ/react-native-nested-scroll-view.git#commit=934c32e47caecad93fc4abc5f28cc8bb29ecdaf6"
-  checksum: f5cb807014343f8df37f3ab124dd519ccb3d76f3d81567fdae494c349d9e0daf4febf08d7a9a7a1cda9b44c152839104dacc424c180d36405394c9bb479afc83
   languageName: node
   linkType: hard
 

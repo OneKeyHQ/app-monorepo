@@ -3,7 +3,6 @@ import { memo, useEffect, useMemo, useRef } from 'react';
 import { isEqual, isNil } from 'lodash';
 
 import type { FlatList } from '@onekeyhq/components';
-import type { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import type { FlatListPlain } from '@onekeyhq/components/src/FlatListPlain';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
@@ -51,12 +50,7 @@ export type IAssetsListProps = Omit<
   'data' | 'renderItem'
 > & {
   onTokenPress?: null | ((event: { token: IAccountToken }) => void) | undefined;
-  isRenderByCollapsibleTab?: boolean;
-  FlatListComponent?:
-    | typeof Tabs.FlatListPlain
-    | typeof FlatListPlain
-    | typeof Tabs.FlatList
-    | typeof FlatList;
+  FlatListComponent?: typeof FlatListPlain | typeof FlatList;
   itemsCountForAutoFallbackToPlainList?: number;
   hidePriceInfo?: boolean;
   showRoundTop?: boolean;
@@ -276,7 +270,6 @@ function HomeTokenAssetsListCmp({
       accountId={accountId}
       networkId={networkId}
       limitSize={limitSize}
-      isRenderByCollapsibleTab
       accountTokens={accountTokens}
       itemsCountForAutoFallbackToPlainList={15}
       ListFooterComponent={footer}

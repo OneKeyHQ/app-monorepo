@@ -7,8 +7,7 @@ const analyzerConfig = require('./webpack.analyzer.config');
 const developmentConfig = require('./webpack.development.config');
 const productionConfig = require('./webpack.prod.config');
 const babelTools = require('../babelTools');
-
-const { ENABLE_ANALYZER = false, NODE_ENV = 'development' } = process.env;
+const { ENABLE_ANALYZER, NODE_ENV } = require('./constant');
 
 const webConfig = {
   plugins: [new DuplicatePackageCheckerPlugin()],

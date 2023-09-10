@@ -6,10 +6,10 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Empty,
+  FlatList,
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { isValidCoingeckoId } from '@onekeyhq/engine/src/managers/token';
 
 import { MarketDetailComponent } from '../../Market/Components/MarketDetail/MarketDetailComponent';
@@ -69,7 +69,7 @@ const MarketInfo: FC<Props> = ({ coingeckoId }) => {
   );
 
   return (
-    <Tabs.FlatList
+    <FlatList
       contentContainerStyle={{
         width: '100%',
         alignSelf: 'center',

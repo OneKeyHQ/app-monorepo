@@ -4,7 +4,12 @@ import { memo, useCallback, useMemo, useRef } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ForwardRefHandle } from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
-import { Box, useIsVerticalLayout, useUserDevice } from '@onekeyhq/components';
+import {
+  Box,
+  ScrollView,
+  useIsVerticalLayout,
+  useUserDevice,
+} from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
@@ -48,6 +53,7 @@ function AccountHeader() {
     </Box>
   );
 }
+
 const AccountHeaderMemo = memo(AccountHeader);
 
 // HomeTabs
@@ -71,7 +77,7 @@ const WalletTabs: FC = () => {
         key={WalletHomeTabEnum.Tokens}
       >
         <LazyRenderCurrentHomeTab homeTabName={WalletHomeTabEnum.Tokens}>
-          <Tabs.ScrollView>
+          <ScrollView>
             <OneKeyPerfTraceLog name="App RootTabHome AssetsList render" />
             <GuideToPushFirstTimeCheck />
             <HomeTokenAssetsList
@@ -86,7 +92,7 @@ const WalletTabs: FC = () => {
               networkId={networkId}
               limitSize={10}
             />
-          </Tabs.ScrollView>
+          </ScrollView>
         </LazyRenderCurrentHomeTab>
       </Tabs.Tab>
     ),
@@ -283,6 +289,7 @@ function WalletPreCheck() {
   useHtmlPreloadSplashLogoRemove();
   return null;
 }
+
 const WalletPreCheckMemo = memo(WalletPreCheck);
 
 const Wallet = () => (

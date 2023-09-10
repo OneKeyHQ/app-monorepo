@@ -13,13 +13,13 @@ import {
   Icon,
   Image,
   ListItem,
+  SectionList,
   ToggleButtonGroup,
   Tooltip,
   Typography,
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { FAKE_ALL_NETWORK } from '@onekeyhq/shared/src/config/fakeAllNetwork';
 import { freezedEmptyObject } from '@onekeyhq/shared/src/consts/sharedConsts';
@@ -296,7 +296,7 @@ const AssetsInfo: FC = () => {
   );
 
   return (
-    <Tabs.SectionList
+    <SectionList
       contentContainerStyle={{
         width: '100%',
         alignSelf: 'center',

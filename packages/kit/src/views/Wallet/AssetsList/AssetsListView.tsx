@@ -9,7 +9,6 @@ import {
   // FlatListPlain,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import { FlatListPlain } from '@onekeyhq/components/src/FlatListPlain';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
@@ -37,7 +36,6 @@ function AssetsListViewCmp({
   accountId,
   networkId,
   walletId,
-  isRenderByCollapsibleTab,
   FlatListComponent,
   itemsCountForAutoFallbackToPlainList = 0, // TODO scroll issue
   accountTokens,
@@ -184,13 +182,12 @@ function AssetsListViewCmp({
       (!accountTokensLength ||
         accountTokensLength <= itemsCountForAutoFallbackToPlainList)
     ) {
-      return isRenderByCollapsibleTab ? Tabs.FlatListPlain : FlatListPlain;
+      return FlatListPlain;
     }
-    return isRenderByCollapsibleTab ? Tabs.FlatList : FlatList;
+    return FlatList;
   }, [
     FlatListComponent,
     accountTokensLength,
-    isRenderByCollapsibleTab,
     itemsCountForAutoFallbackToPlainList,
   ]);
 
@@ -224,4 +221,5 @@ function AssetsListViewCmp({
     />
   );
 }
+
 export const AssetsListView = memo(AssetsListViewCmp);

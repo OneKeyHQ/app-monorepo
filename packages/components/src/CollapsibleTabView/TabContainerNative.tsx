@@ -3,10 +3,7 @@ import { Children, useCallback, useMemo } from 'react';
 
 import type { ForwardRefHandle } from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
 import NestedTabView from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
-import type {
-  OnPageChangeEvent,
-  TabProps,
-} from '@onekeyhq/app/src/views/NestedTabView/types';
+import type { OnPageChangeEvent } from '@onekeyhq/app/src/views/NestedTabView/types';
 import { useThemeValue } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -36,7 +33,7 @@ const TabContainerNativeView: ForwardRefRenderFunction<
       // @ts-ignore
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
       ({ name: child.props.name, label: child.props.label }),
-    ) as TabProps[];
+    );
 
     return {
       tabs,
@@ -118,6 +115,3 @@ const TabContainerNativeView: ForwardRefRenderFunction<
 
 export const TabContainerNative: typeof TabContainerNativeView =
   TabContainerNativeView;
-// export const TabContainerNative: typeof TabContainerNativeView = memo(
-//   TabContainerNativeView,
-// );

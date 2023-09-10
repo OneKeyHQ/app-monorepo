@@ -4,16 +4,33 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpackManifestPlugin = require('webpack-manifest-plugin');
 const WebpackBar = require('webpackbar');
+const { createtResolveExtensions } = require('./utils');
+const { isDev, PUBLIC_URL, NODE_ENV } = require('./constant');
 
-const isDev = process.env.NODE_ENV !== 'production';
-module.exports = ({ platform, basePath }) => ({
+const basePlugins = ({ platform }) => [
+  new WebpackBar(),
+  new webpack.DefinePlugin({
+    __DEV__: isDev,
+    process: {
+      env: {
+        NODE_ENV: JSON.stringify(NODE_ENV),
+        TAMAGUI_TARGET: JSON.stringify('web'),
+      },
+    },
+  }),
+  new webpack.ProvidePlugin({
+    Buffer: ['buffer', 'Buffer'],
+  }),
+];
+
+module.exports = ({ platform, basePath, configName }) => ({
   entry: path.join(basePath, 'index.js'),
   context: path.resolve(basePath),
   bail: false,
   target: ['web'],
   watchOptions: {
-    'aggregateTimeout': 5,
-    'ignored': [
+    aggregateTimeout: 5,
+    ignored: [
       '**/.git/**',
       '**/node_modules/**',
       '**/.expo/**',
@@ -23,18 +40,16 @@ module.exports = ({ platform, basePath }) => ({
     ],
   },
   stats: 'errors-warnings',
-  'infrastructureLogging': { 'debug': false, 'level': 'none' },
+  infrastructureLogging: { 'debug': false, 'level': 'none' },
   output: {
-    'publicPath': '/',
-    'path': path.join(basePath, 'web-build'),
-    'assetModuleFilename': 'static/media/[name].[hash][ext]',
-    'uniqueName': 'web',
-    'pathinfo': true,
-    'filename': '[name].bundle.js',
-    'chunkFilename': 'static/js/[name].chunk.js',
+    publicPath: PUBLIC_URL || '/',
+    path: path.join(basePath, 'web-build'),
+    assetModuleFilename: 'static/media/[name].[hash][ext]',
+    uniqueName: 'web',
+    filename: '[name].bundle.js',
+    chunkFilename: 'static/js/[name].chunk.js',
   },
   plugins: [
-    new WebpackBar(),
     new HtmlWebpackPlugin({
       title: platform,
       minify: !isDev,
@@ -59,29 +74,12 @@ module.exports = ({ platform, basePath }) => ({
             encoding: 'utf-8',
           },
         ),
-        'WEB_PUBLIC_URL': '/',
-        'WEB_TITLE': 'web',
-        'LANG_ISO_CODE': 'en',
-        'NO_SCRIPT':
+        WEB_PUBLIC_URL: PUBLIC_URL || '/',
+        WEB_TITLE: platform,
+        LANG_ISO_CODE: 'en',
+        NO_SCRIPT:
           '<form action="" style="background-color:#fff;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;"><div style="font-size:18px;font-family:Helvetica,sans-serif;line-height:24px;margin:10%;width:80%;"> <p>Oh no! It looks like JavaScript is not enabled in your browser.</p> <p style="margin:20px 0;"> <button type="submit" style="background-color: #4630EB; border-radius: 100px; border: none; box-shadow: none; color: #fff; cursor: pointer; font-weight: bold; line-height: 20px; padding: 6px 16px;">Reload</button> </p> </div> </form>',
-        'ROOT_ID': 'root',
-      },
-    }),
-    new webpack.DefinePlugin({
-      __DEV__: true,
-      process: {
-        env: {
-          NODE_ENV: JSON.stringify(process.env.NODE_ENV || 'development'),
-          PUBLIC_URL: '""',
-          APP_MANIFEST:
-            '{"name":"web","slug":"web","version":"0.0.1","web":{},"description":"Multi-chain support for BTC/ETH/BNB/NEAR/Polygon/Solana/Avalanche/Fantom and others","sdkVersion":"49.0.0","platforms":["ios","android","web"]}',
-          EXPO_DEBUG: false,
-          PLATFORM: JSON.stringify(platform),
-          WDS_SOCKET_PATH: '"/_expo/ws"',
-          TAMAGUI_TARGET: JSON.stringify('web'),
-          ONEKEY_BUILD_TYPE: JSON.stringify(platform),
-          EXT_INJECT_RELOAD_BUTTON: '""',
-        },
+        ROOT_ID: 'root',
       },
     }),
     // Generate an asset manifest file with the following content:
@@ -120,9 +118,7 @@ module.exports = ({ platform, basePath }) => ({
         };
       },
     }),
-    new webpack.ProvidePlugin({
-      Buffer: ['buffer', 'Buffer'],
-    }),
+    ...basePlugins({ platform }),
   ],
   module: {
     strictExportPresence: false,
@@ -163,15 +159,15 @@ module.exports = ({ platform, basePath }) => ({
               {
                 loader: 'babel-loader',
                 options: {
-                  'babelrc': false,
-                  'configFile': true,
-                  'sourceType': 'unambiguous',
-                  'root': basePath,
-                  'compact': !isDev,
-                  'sourceMaps': isDev,
-                  'inputSourceMap': isDev,
-                  'cacheCompression': false,
-                  'cacheDirectory': path.resolve(
+                  babelrc: false,
+                  configFile: true,
+                  sourceType: 'unambiguous',
+                  root: basePath,
+                  compact: !isDev,
+                  sourceMaps: isDev,
+                  inputSourceMap: isDev,
+                  cacheCompression: false,
+                  cacheDirectory: path.resolve(
                     basePath,
                     'node_modules/.cache/babel-loader',
                   ),
@@ -199,15 +195,15 @@ module.exports = ({ platform, basePath }) => ({
             use: {
               loader: 'babel-loader',
               options: {
-                'babelrc': false,
-                'configFile': true,
-                'sourceType': 'unambiguous',
-                'root': basePath,
-                'compact': !isDev,
-                'sourceMaps': isDev,
-                'inputSourceMap': isDev,
-                'cacheCompression': false,
-                'cacheDirectory': path.resolve(
+                babelrc: false,
+                configFile: true,
+                sourceType: 'unambiguous',
+                root: basePath,
+                compact: !isDev,
+                sourceMaps: isDev,
+                inputSourceMap: isDev,
+                cacheCompression: false,
+                cacheDirectory: path.resolve(
                   basePath,
                   'node_modules/.cache/babel-loader',
                 ),
@@ -221,10 +217,10 @@ module.exports = ({ platform, basePath }) => ({
               'style-loader',
               {
                 loader: 'css-loader',
-                'options': {
-                  'importLoaders': 1,
-                  'sourceMap': true,
-                  'modules': { 'mode': 'global' },
+                options: {
+                  importLoaders: 1,
+                  sourceMap: true,
+                  modules: { mode: 'global' },
                 },
               },
             ].filter(Boolean),
@@ -253,26 +249,11 @@ module.exports = ({ platform, basePath }) => ({
     ],
   },
   resolve: {
-    'mainFields': ['browser', 'module', 'main'],
-    'aliasFields': ['browser', 'module', 'main'],
-    'extensions': [
-      '.web.ts',
-      '.web.tsx',
-      '.web.mjs',
-      '.web.js',
-      '.web.jsx',
-      '.ts',
-      '.tsx',
-      '.mjs',
-      '.js',
-      '.jsx',
-      '.json',
-      '.wasm',
-      '.cjs',
-      '.d.ts',
-    ],
-    'symlinks': true,
-    'alias': {
+    mainFields: ['browser', 'module', 'main'],
+    aliasFields: ['browser', 'module', 'main'],
+    extensions: createtResolveExtensions({ platform, configName }),
+    symlinks: true,
+    alias: {
       'react-native$': 'react-native-web',
       'react-native/Libraries/Components/View/ViewStylePropTypes$':
         'react-native-web/dist/exports/View/ViewStylePropTypes',
@@ -285,25 +266,27 @@ module.exports = ({ platform, basePath }) => ({
       'react-native/Libraries/EventEmitter/NativeEventEmitter$':
         'react-native-web/dist/vendor/react-native/NativeEventEmitter',
     },
-    'fallback': {
-      'crypto': require.resolve('crypto-browserify'),
-      'stream': require.resolve('stream-browserify'),
-      'path': false,
-      'https': false,
-      'http': false,
-      'net': false,
-      'zlib': false,
-      'tls': false,
-      'child_process': false,
-      'process': false,
-      'fs': false,
-      'util': false,
-      'os': false,
-      'buffer': require.resolve('buffer/'),
+    fallback: {
+      crypto: require.resolve('crypto-browserify'),
+      stream: require.resolve('stream-browserify'),
+      path: false,
+      https: false,
+      http: false,
+      net: false,
+      zlib: false,
+      tls: false,
+      child_process: false,
+      process: false,
+      fs: false,
+      util: false,
+      os: false,
+      buffer: require.resolve('buffer/'),
     },
   },
   experiments: {
     asyncWebAssembly: true,
   },
-  performance: { 'maxAssetSize': 600000, 'maxEntrypointSize': 600000 },
+  performance: { maxAssetSize: 600000, maxEntrypointSize: 600000 },
 });
+
+module.exports.basePlugins = basePlugins;

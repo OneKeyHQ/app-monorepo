@@ -11,6 +11,7 @@ import {
   Box,
   Center,
   CustomSkeleton,
+  FlatList,
   HStack,
   Icon,
   Image,
@@ -19,7 +20,6 @@ import {
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { useIsVerticalOrMiddleLayout } from '@onekeyhq/components/src/Provider/hooks/useIsVerticalLayout';
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
@@ -584,7 +584,7 @@ const ToolsPage: FC = () => {
   }, []);
 
   return (
-    <Tabs.FlatList
+    <FlatList
       key={String(isVertical)}
       data={items}
       keyExtractor={(_item) => _item.key}
