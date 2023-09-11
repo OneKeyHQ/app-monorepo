@@ -124,6 +124,7 @@ export type SettingsState = {
   gasPanelEIP1559Enabled?: boolean;
   showTokenDetailPriceChart?: boolean;
   hideAllNetworksSelectNetworkTips?: boolean;
+  hideInscriptions: Record<string, boolean>; // accountId -> hide
 };
 
 export const defaultPushNotification = {
@@ -201,6 +202,7 @@ const initialState: SettingsState = {
   hardwareConnectSrc: EOnekeyDomain.ONEKEY_SO,
   gasPanelEIP1559Enabled: true,
   hideAllNetworksSelectNetworkTips: false,
+  hideInscriptions: {},
 };
 
 export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
@@ -628,6 +630,12 @@ export const settingsSlice = createSlice({
     setHideAllNetworksSelectNetworkTips(state, action: PayloadAction<boolean>) {
       state.hideAllNetworksSelectNetworkTips = action.payload;
     },
+    setHideInscriptions(state, action: PayloadAction<Record<string, boolean>>) {
+      state.hideInscriptions = {
+        ...state.hideInscriptions,
+        ...action.payload,
+      };
+    },
   },
 });
 
@@ -689,6 +697,7 @@ export const {
   setGasPanelEIP1559Enabled,
   setShowTokenDetailPriceChart,
   setHideAllNetworksSelectNetworkTips,
+  setHideInscriptions,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

@@ -1,21 +1,29 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, HStack, Typography, useTheme } from '@onekeyhq/components';
+import {
+  Box,
+  HStack,
+  IconButton,
+  Typography,
+  useTheme,
+} from '@onekeyhq/components';
 import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
+import { isTaprootPath } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
 import {
   useActiveWalletAccount,
   useAppSelector,
 } from '@onekeyhq/kit/src/hooks';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
+import { showHomeNFTSettings } from '../../../Overlay/HomeNFTSettings';
 // import { showSelectNFTPriceType } from '../../../Overlay/SelectNFTPriceType';
 
 const NFTListHeader = () => {
   const intl = useIntl();
   const { themeVariant } = useTheme();
-  const { networkId, accountId } = useActiveWalletAccount();
+  const { networkId, accountId, account } = useActiveWalletAccount();
   const isNFTSupport = isCollectibleSupportedChainId(networkId ?? '');
 
   const totalPrice = useAppSelector(
@@ -27,6 +35,9 @@ const NFTListHeader = () => {
     disPlayPriceType === 'lastSalePrice'
       ? intl.formatMessage({ id: 'form__last_price' })
       : intl.formatMessage({ id: 'form__floor_price' });
+
+  const isBtcTaprootAccount = isTaprootPath(account?.path ?? '');
+
   return (
     <Box flexDirection="column" paddingRight="16px">
       {isNFTSupport && (
@@ -77,6 +88,14 @@ const NFTListHeader = () => {
         <Typography.Heading>
           {intl.formatMessage({ id: 'title__assets' })}
         </Typography.Heading>
+        {isBtcTaprootAccount ? (
+          <IconButton
+            name="Cog8ToothMini"
+            size="sm"
+            type="plain"
+            onPress={() => showHomeNFTSettings({ accountId, networkId })}
+          />
+        ) : null}
         {/* {expandEnable ? ( */}
         {/*   <IconButton */}
         {/*     name={expand ? 'ArrowsPointingInMini' : 'ArrowsPointingOutMini'} */}
