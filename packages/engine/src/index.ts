@@ -42,6 +42,7 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import timelinePerfTrace, {
   ETimelinePerfNames,
 } from '@onekeyhq/shared/src/perf/timelinePerfTrace';
@@ -332,7 +333,7 @@ class Engine {
     try {
       return await this.getWallet(walletId);
     } catch (error) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
       return undefined;
     }
   }
@@ -1221,7 +1222,7 @@ class Engine {
         ...(await this._findTokenWithMemo(params)),
       };
     } catch (error) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
       return Promise.resolve(undefined);
     }
   }
@@ -1274,7 +1275,7 @@ class Engine {
             });
           }
         } catch (e) {
-          debugLogger.common.error(`fetchTokenInfos error`, {
+          flowLogger.error.log(`fetchTokenInfos error`, {
             params: [tokenIdOnNetwork],
             message: e instanceof Error ? e.message : e,
           });
@@ -2504,7 +2505,7 @@ class Engine {
     try {
       return await this.getNetwork(networkId);
     } catch (error) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
       return undefined;
     }
   }

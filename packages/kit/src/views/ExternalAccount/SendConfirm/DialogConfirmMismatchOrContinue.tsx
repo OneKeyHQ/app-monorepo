@@ -20,7 +20,7 @@ import { generateNetworkIdByChainId } from '@onekeyhq/engine/src/managers/networ
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import LogoOneKey from '../../../../assets/onboarding/logo_onekey.png';
@@ -84,7 +84,7 @@ export function DialogConfirmMismatchOrContinue(
       });
       return await engine.getNetwork(networkId);
     } catch (error) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
       return undefined;
     }
   }, [engine, peerChainId]);

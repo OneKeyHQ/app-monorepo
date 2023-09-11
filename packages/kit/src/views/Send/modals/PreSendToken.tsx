@@ -5,6 +5,8 @@ import { merge } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Box, Empty, useIsVerticalLayout } from '@onekeyhq/components';
+import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import { LazyDisplayView } from '../../../components/LazyDisplayView';
 import { useActiveSideAccount } from '../../../hooks';
@@ -56,24 +58,30 @@ function SendTokenTabViewComponent({
   );
   const onTokenPress = useCallback(
     ({ token }: { token: IAccountToken }) => {
-      navigation.navigate(
-        SendModalRoutes.PreSendAddress,
-        merge(
-          {
-            from: '',
-            to: '',
-            amount: '',
-          },
-          transferInfo,
-          {
-            token: token.address,
-            sendAddress: token.sendAddress,
-            to: undefined,
-            accountId,
-            networkId,
-          },
-        ),
+      const params: typeof transferInfo = merge(
+        {
+          from: '',
+          to: '',
+          amount: '',
+        },
+        transferInfo,
+        {
+          token: token.address,
+          sendAddress: token.sendAddress,
+          to: undefined,
+          accountId,
+          networkId,
+        },
       );
+      navigation.navigate(SendModalRoutes.PreSendAddress, params);
+      flowLogger.send.common.selectToken({
+        from: params?.from,
+        token: params?.token,
+        tokenSendAddress: token?.sendAddress,
+        tokenSymbol: token?.symbol,
+        accountId,
+        networkId,
+      });
       notifyIfRiskToken(token);
     },
     [accountId, navigation, networkId, transferInfo],

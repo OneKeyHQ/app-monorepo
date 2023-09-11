@@ -105,7 +105,6 @@ class ProviderApiSolana extends ProviderApiBase {
         .getActiveConnectedAccounts({ origin, impl: IMPL_SOL })
         .map(({ address }) => address),
     });
-    debugLogger.providerApi.info('solana disconnect', origin);
   }
 
   @providerApiMethod()

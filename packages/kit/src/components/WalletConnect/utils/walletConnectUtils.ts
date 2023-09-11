@@ -10,9 +10,9 @@ import {
 import { uniq } from 'lodash';
 import { Linking, Platform } from 'react-native';
 
-import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 import { getAppNavigation } from '../../../hooks/useAppNavigation';
 import {

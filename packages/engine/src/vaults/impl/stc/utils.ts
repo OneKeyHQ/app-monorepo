@@ -4,7 +4,7 @@ import axios from 'axios';
 import BigNumber from 'bignumber.js';
 
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { Verifier } from '../../../proxy';
@@ -62,7 +62,7 @@ export async function getAddressHistoryFromExplorer(
     }>(requestURL);
     return response.data.contents;
   } catch (e) {
-    debugLogger.common.error(e);
+    flowLogger.error.log(e);
     return Promise.resolve([]);
   }
 }
@@ -114,7 +114,7 @@ function decodeDataAsTransfer(data: string) {
       [ret.to] = functionArgs;
     }
   } catch (e) {
-    debugLogger.common.error(e);
+    flowLogger.error.log(e);
   }
 
   return ret;
@@ -139,7 +139,7 @@ export function extractTransactionInfo(tx: ISTCExplorerTransaction) {
         .toFixed(),
     };
   } catch (e) {
-    debugLogger.common.error(e);
+    flowLogger.error.log(e);
     return null;
   }
 }
@@ -160,7 +160,7 @@ export function decodeTransactionPayload(data: string): IDecodedPayload {
     [name] = Object.keys(txnPayload);
     params = txnPayload[name];
   } catch (error) {
-    debugLogger.common.error('Failed to decode transaction data.', error, data);
+    flowLogger.error.log('Failed to decode transaction data.', error, data);
   }
   return { type: 'other', payload: { name, params } };
 }

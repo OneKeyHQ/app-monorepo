@@ -21,7 +21,7 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import type { WatchAssetParameters } from '@onekeyhq/shared/src/providerApis/ProviderApiEthereum/ProviderApiEthereum.types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -367,7 +367,7 @@ function AddTokenModal() {
           navigation.goBack();
         }
       } catch (error) {
-        debugLogger.common.error('add token faild', error, address);
+        flowLogger.error.log('add token faild', error, address);
       }
       setLoading(false);
     },

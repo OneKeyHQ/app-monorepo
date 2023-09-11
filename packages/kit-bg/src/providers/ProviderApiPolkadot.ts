@@ -150,7 +150,6 @@ class ProviderApiPolkadot extends ProviderApiBase {
         .getActiveConnectedAccounts({ origin, impl: IMPL_DOT })
         .map(({ address }) => address),
     });
-    debugLogger.providerApi.info('Polkadot disconnect', origin);
   }
 
   private async account(
@@ -163,7 +162,6 @@ class ProviderApiPolkadot extends ProviderApiBase {
       }
     | undefined
   > {
-    debugLogger.providerApi.info('Polkadot account');
     const { networkId, networkImpl, accountId } = getActiveWalletAccount();
     if (networkImpl !== IMPL_DOT) {
       return undefined;

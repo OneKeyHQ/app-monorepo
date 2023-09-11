@@ -14,6 +14,7 @@ import {
 } from 'react-native-device-info';
 import { logger as RNLogger, consoleTransport } from 'react-native-logs';
 
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   FileLogger,
   LogLevel,
@@ -24,6 +25,8 @@ import { zip } from '@onekeyhq/shared/src/modules3rdParty/react-native-zip-archi
 import { toPlainErrorObject } from '../errors/utils/errorUtils';
 import platformEnv from '../platformEnv';
 import appStorage from '../storage/appStorage';
+import devModeUtils from '../utils/devModeUtils';
+import { waitForDataLoaded } from '../utils/promiseUtils';
 
 type IConsoleFuncProps = {
   msg: any;
@@ -34,6 +37,19 @@ type IConsoleFuncProps = {
 };
 
 const LOG_STRING_LIMIT = 3000;
+
+const IS_DEV = process.env.NODE_ENV !== 'production';
+// const IS_DEV = false;
+const IS_PRD = !IS_DEV;
+
+let debugLoggerInitedDone = false;
+const debugLoggerSettingsCache: {
+  [name: string]: boolean;
+} = {};
+
+function isFlowLogger(name: string) {
+  return name.startsWith('flow');
+}
 
 function countObjectDepth(source: unknown, maxDepth = 5, depth = 0): number {
   const currentDepth = depth + 1;
@@ -67,20 +83,28 @@ function countObjectDepth(source: unknown, maxDepth = 5, depth = 0): number {
   );
 }
 
-function stringifyLog(...args: any[]) {
-  const argsNew = args.map((arg) => {
+function convertErrorObject(...args: any[]): any[] {
+  return args.map((arg) => {
     if (arg instanceof Error) {
       const error = toPlainErrorObject(arg as any);
-      if (process.env.NODE_ENV === 'production') {
+      if (IS_PRD) {
         if (error && error.stack) {
           delete error.stack;
         }
       }
       return error;
     }
+    if (isArray(arg)) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return convertErrorObject(...arg);
+    }
     return arg as unknown;
   });
-  if (process.env.NODE_ENV !== 'production') {
+}
+
+function stringifyLog(...args: any[]) {
+  const argsNew = convertErrorObject(...args);
+  if (IS_DEV) {
     const maxDepth = 3;
     try {
       argsNew.forEach((arg) => {
@@ -109,9 +133,9 @@ function logToConsole(props: IConsoleFuncProps) {
   if (platformEnv.isJest) {
     return;
   }
-  if (platformEnv.isDev) {
+  if (IS_DEV) {
     const prefix = `${[
-      fnsFormat(new Date(), 'HH:mm:ss.SSS'),
+      fnsFormat(new Date(), 'HH:mm:ss'), // 'HH:mm:ss.SSS'
       props?.extension || '',
       props?.level?.text || '',
     ]
@@ -129,9 +153,24 @@ function logToConsole(props: IConsoleFuncProps) {
   }
 }
 
+function logToFile(msg: string, props: IConsoleFuncProps) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { level, rawMsg, extension } = props;
+
+  // write logger to file
+  if (platformEnv.isNative) {
+    FileLogger.write(level?.severity || LogLevel.Info, `${msg}`);
+  } else {
+    global.$backgroundApiProxy?.serviceApp?.addLogger?.(`${msg}\r\n`);
+  }
+}
+
 let prevLogContent: string | undefined;
 let repeatContentCount = 0;
 const consoleFunc = (msg: string, props: IConsoleFuncProps) => {
+  if (IS_DEV) {
+    logToConsole(props);
+  }
   const logContent =
     props?.rawMsg && isArray(props.rawMsg) ? props.rawMsg.join('') : '';
   if (logContent === prevLogContent) {
@@ -140,7 +179,9 @@ const consoleFunc = (msg: string, props: IConsoleFuncProps) => {
   }
 
   if (repeatContentCount > 0) {
-    const message = `------ [${repeatContentCount}]`;
+    const message = `------> (${repeatContentCount + 1}) ${
+      prevLogContent || ''
+    }`;
     repeatContentCount = 0;
     consoleFunc(message, {
       ...props,
@@ -150,21 +191,7 @@ const consoleFunc = (msg: string, props: IConsoleFuncProps) => {
   }
 
   prevLogContent = logContent;
-  const { level, rawMsg, extension } = props;
-  if (platformEnv.isNative) {
-    if (process.env.NODE_ENV !== 'production') {
-      logToConsole(props);
-    }
-    FileLogger.write(
-      level?.severity || LogLevel.Info,
-      `${extension || ''} | ${
-        isArray(rawMsg) ? rawMsg.join(' | ') : (rawMsg as string)
-      }`,
-    );
-  } else {
-    logToConsole(props);
-    global.$backgroundApiProxy?.serviceApp?.addLogger?.(`${msg}\r\n`);
-  }
+  logToFile(msg, props);
 };
 
 const NATIVE_LOG_DIR_PATH = `${RNFS?.CachesDirectoryPath || 'OneKey'}/logs`;
@@ -201,7 +228,7 @@ export const logger = RNLogger.createLogger({
   // eslint-disable-next-line @typescript-eslint/unbound-method
   asyncFunc: InteractionManager.runAfterInteractions,
   // stringifyFunc: stringifyLog, // not working, use convertMethod instead.
-  dateFormat: 'iso',
+  dateFormat: 'time', // `time`, `local`, `utc`, `iso` or `(date: Date) => string`
   transport: [consoleTransport],
   transportOptions: {
     consoleFunc,
@@ -239,6 +266,11 @@ export enum LoggerNames {
   native = 'native',
   staking = 'staking',
   allNetworks = 'allNetworks',
+
+  flowApp = 'flowApp',
+  flowError = 'flowError',
+  flowChain = 'flowChain',
+  flowSend = 'flowSend',
 }
 
 export type LoggerEntity = {
@@ -259,21 +291,68 @@ export type LoggerEntityFull = {
   _error: (...args: any[]) => void;
 };
 
+const dangerouslyFlowLogMethodName = 'dangerouslyFlowLog' as any;
+
+// eslint-disable-next-line @typescript-eslint/require-await
+export async function dangerouslyLogInfo(
+  loggerInstance: LoggerEntity,
+  ...args: any[]
+) {
+  // @ts-ignore
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+  return loggerInstance[dangerouslyFlowLogMethodName](...args);
+}
+
 const Cache = {
   createLogger(name: LoggerNames): LoggerEntity {
     const instance = logger.extend(name) as LoggerEntityFull;
 
     // stringifyFunc: stringifyLog, not working for iOS
-    const convertMethod = (methodName: keyof LoggerEntity) => {
-      instance[`_${methodName}`] = instance[methodName];
-      instance[methodName] = (...args: any[]) =>
-        instance[`_${methodName}`](stringifyLog(...args));
+    const buildCustomLogMethod = (methodName: keyof LoggerEntity) => {
+      const defaultMethod = name === LoggerNames.flowError ? '_error' : '_info';
+      instance[`_${methodName}`] =
+        instance[
+          methodName === dangerouslyFlowLogMethodName
+            ? defaultMethod
+            : methodName
+        ];
+      instance[methodName] = async (...args: any[]) => {
+        if (isFlowLogger(name) && methodName !== dangerouslyFlowLogMethodName) {
+          console.error(
+            `calling debugLogger.${name}.${methodName}() directly is NOT allowed, please use flowLogger instead.`,
+          );
+          return;
+        }
+
+        // if settings init done and current logger is disabled, return ASAP.
+        if (debugLoggerInitedDone && !debugLoggerSettingsCache[name]) {
+          return;
+        }
+
+        // generate content first, so that the content won't change after await if Object modified.
+        const content = stringifyLog(...args);
+
+        if (!debugLoggerInitedDone) {
+          await waitForDataLoaded({
+            data: () => debugLoggerInitedDone,
+            wait: 1000,
+            logName: `debugLogger custom log method: ${name} ${content}`,
+            timeout: getTimeDurationMs({ minute: 1 }),
+          });
+        }
+
+        if (!debugLoggerSettingsCache[name]) {
+          return;
+        }
+        return instance[`_${methodName}`](content);
+      };
     };
 
-    convertMethod('debug');
-    convertMethod('info');
-    convertMethod('warn');
-    convertMethod('error');
+    buildCustomLogMethod('debug');
+    buildCustomLogMethod('info');
+    buildCustomLogMethod('warn');
+    buildCustomLogMethod('error');
+    buildCustomLogMethod(dangerouslyFlowLogMethodName);
 
     return instance;
   },
@@ -321,9 +400,14 @@ const debugLogger: Record<
   [LoggerNames.native]: Cache.createLogger(LoggerNames.native),
   [LoggerNames.staking]: Cache.createLogger(LoggerNames.staking),
   [LoggerNames.allNetworks]: Cache.createLogger(LoggerNames.allNetworks),
+
+  [LoggerNames.flowApp]: Cache.createLogger(LoggerNames.flowApp),
+  [LoggerNames.flowError]: Cache.createLogger(LoggerNames.flowError),
+  [LoggerNames.flowChain]: Cache.createLogger(LoggerNames.flowChain),
+  [LoggerNames.flowSend]: Cache.createLogger(LoggerNames.flowSend),
 };
 
-if (platformEnv.isDev) {
+if (IS_DEV) {
   // internal console
   global.$$debugLogger = debugLogger;
 }
@@ -350,6 +434,19 @@ const shouldUseLocalStorage =
   platformEnv.isJest ||
   platformEnv.isExtensionOffscreen; // offscreen can't access chrome extension storage
 
+/* TODO cross-inpage-provider 支持关闭所有日志
+  if (namespaces) {
+      await exportsBrowser.storage.setItem(storageKey, namespaces);
+    } else {
+      // setItem if namespaces === '' otherwise removeItem
+      await exportsBrowser.storage.removeItem(storageKey);
+    }
+
+    // UI 层不判断origin错误
+    let origin = utils.getOriginFromPort(port0) || '';
+                // in ext ui, port.sender?.origin is always empty,
+                //    so we trust remote (background) origin
+  */
 async function getDebugLoggerSettings(): Promise<string | undefined | null> {
   if (shouldUseLocalStorage) {
     return window.localStorage.getItem(DEBUG_LOGGER_STORAGE_KEY);
@@ -357,32 +454,65 @@ async function getDebugLoggerSettings(): Promise<string | undefined | null> {
   return appStorage.getItem(DEBUG_LOGGER_STORAGE_KEY);
 }
 
+export function toggleLoggerExtensionEnable({
+  name,
+  enable,
+}: {
+  name: string;
+  enable: boolean;
+}) {
+  if (enable) {
+    logger.enable(name);
+  } else {
+    // should enabled() first to create _enabledExtensions array,
+    //    otherwise logger.enable() logger.disable() won't working.
+    logger.enable(name);
+    logger.disable(name);
+  }
+
+  debugLoggerSettingsCache[name] = enable;
+}
+
 async function loadDebugLoggerSettings() {
   if (platformEnv.isJest) {
     return;
   }
-  const enabledKeysStr = await getDebugLoggerSettings();
   let enabledKeys: string[] = [];
-  if (isNil(enabledKeysStr)) {
-    enabledKeys = [LoggerNames.common];
-  } else {
-    enabledKeys = enabledKeysStr.split(',').filter(Boolean);
+  if (IS_DEV) {
+    const enabledKeysStr = await getDebugLoggerSettings();
+    if (isNil(enabledKeysStr)) {
+      enabledKeys = [LoggerNames.common, LoggerNames.flowError];
+    } else {
+      enabledKeys = enabledKeysStr.split(',').filter(Boolean);
+    }
   }
 
+  const devModeInfo = await devModeUtils.getDevModeInfo();
+
   Object.keys(LoggerNames).forEach((key) => {
-    if (platformEnv.isDev && !enabledKeys.includes(key)) {
-      // should enabled() first to create _enabledExtensions array,
-      //    otherwise logger.enable() logger.disable() won't working.
-      logger.enable(key);
-      logger.disable(key);
-    } else {
-      logger.enable(key);
+    let shouldEnable = false;
+
+    if (IS_DEV) {
+      shouldEnable = enabledKeys.includes(key);
     }
+
+    if (IS_PRD) {
+      // only log flowLogger on production
+      shouldEnable = !!devModeInfo?.enable || isFlowLogger(key);
+    }
+
+    toggleLoggerExtensionEnable({
+      name: key,
+      enable: shouldEnable,
+    });
   });
 }
 
 async function saveDebugLoggerSettings() {
   if (platformEnv.isJest) {
+    return;
+  }
+  if (IS_PRD) {
     return;
   }
   const enabledKeys: string[] = (logger._enabledExtensions as any) || [];
@@ -392,25 +522,30 @@ async function saveDebugLoggerSettings() {
   } else {
     await appStorage.setItem(DEBUG_LOGGER_STORAGE_KEY, enabledKeysStr);
   }
+  console.log('saveDebugLoggerSettings >>>>> ', enabledKeysStr);
 }
 
-if (platformEnv.isDev && !platformEnv.isJest) {
-  loadDebugLoggerSettings().then(() => saveDebugLoggerSettings());
+export async function initDebugLoggerSettings() {
+  await loadDebugLoggerSettings();
+  await saveDebugLoggerSettings();
+  debugLoggerInitedDone = true;
 }
 
-function logDeviceInfo() {
-  debugLogger.common.info(
+initDebugLoggerSettings();
+
+export async function logDeviceInfo() {
+  const info = [
     `Device: ${getModel()} ${getDeviceId()}`,
     `System: ${getSystemName()} ${getSystemVersion()}`,
     `Version Hash: ${process.env.COMMITHASH || ''}`,
     `Build Number: ${getBuildNumber()} ${getIncrementalSync()}`,
     `Memory: ${getUsedMemorySync()}/${getTotalMemorySync()}`,
-  );
+  ];
+  await dangerouslyLogInfo(debugLogger.flowApp, '🅳🅴🆅🅸🅲🅴 🅸🅽🅵🅾:', info);
 }
 
 export const getLogZipPath = async (fileName: string) => {
   try {
-    logDeviceInfo();
     if (!RNFS) return;
     await removeLogZipDir();
     await createLogZipDir();
@@ -436,9 +571,5 @@ export const getLogZipPath = async (fileName: string) => {
 
 // debugLogger.common.error(new Error('Log Sample Error in debugLogger'));
 
-export {
-  saveDebugLoggerSettings,
-  loadDebugLoggerSettings,
-  getDebugLoggerSettings,
-};
+export { getDebugLoggerSettings, saveDebugLoggerSettings };
 export default debugLogger;

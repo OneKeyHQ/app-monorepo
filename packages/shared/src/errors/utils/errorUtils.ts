@@ -12,11 +12,14 @@ import type { IOneKeyError } from '../types/errorTypes';
  * @param {Object} error - The error object to convert. It may have properties such as name, message, stack (js native Error), code, data (Web3RpcError), className, info, key (OneKeyError).
  * @returns {Object} A plain object with properties: name, message, code, data, className, info, key, stack. If the platform is Android hermes engine, the stack property will be a specific error message.
  */
-export function toPlainErrorObject(error: IOneKeyError) {
+export function toPlainErrorObject(
+  error: IOneKeyError,
+  { removeStack }: { removeStack?: boolean } = {},
+) {
   if (!error) {
     return error;
   }
-  return {
+  const result = {
     name: error.name,
     constructorName: error.constructorName,
     className: error.className,
@@ -30,6 +33,10 @@ export function toPlainErrorObject(error: IOneKeyError) {
       ? 'Access error.stack failed in Android hermes engine: unable to serialize, circular reference is too complex to analyze'
       : error.stack,
   };
+  if (removeStack) {
+    delete result.stack;
+  }
+  return result;
 }
 
 // 生成 jsdoc 文档, 包含一个 example
@@ -52,13 +59,7 @@ export function interceptConsoleErrorWithExtraInfo() {
   console.error = function (...errors: IOneKeyError[]) {
     const extraInfoErrors = errors
       .filter((e) => e?.constructorName)
-      .map((error) => ({
-        name: error?.name,
-        code: error?.code,
-        className: error?.className,
-        constructorName: error?.constructorName,
-        key: error?.key,
-      }));
+      .map((error) => toPlainErrorObject(error, { removeStack: true }));
     if (extraInfoErrors?.length) {
       oldConsoleError(
         '********* ERROR EXTRA INFO *********',

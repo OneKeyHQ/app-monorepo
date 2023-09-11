@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import type { IAccount } from '@onekeyhq/engine/src/types';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
@@ -61,7 +61,7 @@ export const useWalletIdFromAccountIdWithFallback = (
     try {
       return getWalletIdFromAccountId(accountId);
     } catch (error) {
-      debugLogger.common.error('useWalletIdFromAccountId', error);
+      flowLogger.error.log('useWalletIdFromAccountId', error);
       return fallback;
     }
   }, [accountId, fallback]);

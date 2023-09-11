@@ -6,7 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Center, Modal, Spinner, ToastManager } from '@onekeyhq/components';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import Protected from '../../components/Protected';
 import { useAppSelector } from '../../hooks/redux';
@@ -37,7 +37,7 @@ const EnableWebAuthnDone: FC<EnableWebAuthnProps> = () => {
           title: intl.formatMessage({ id: 'msg__success' }),
         });
       } catch (e: any) {
-        debugLogger.common.error(e.message);
+        flowLogger.error.log(e.message);
         if (
           !e.message.includes(
             'The operation either timed out or was not allowed',

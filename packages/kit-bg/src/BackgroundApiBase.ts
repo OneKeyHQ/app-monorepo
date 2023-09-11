@@ -18,6 +18,7 @@ import {
   throwMethodNotFound,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   isProviderApiPrivateAllowedMethod,
@@ -188,7 +189,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
           payloadData?.method
         }`,
       );
-      debugLogger.providerApi.error(error);
+      flowLogger.error.log(error);
       throw error;
     }
     // throw web3Errors.provider.custom({
@@ -231,7 +232,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     }
 
     if (scope) {
-      debugLogger.backgroundApi.info('_bridgeReceiveHandler', {
+      flowLogger.app.apiCalls.callProviderApi({
         scope,
         origin,
         method,

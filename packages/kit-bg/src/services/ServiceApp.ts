@@ -37,10 +37,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  MAX_LOG_LENGTH,
-  waitForDataLoaded,
-} from '@onekeyhq/shared/src/background/backgroundUtils';
+import { MAX_LOG_LENGTH } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
   isAvailable,
   logoutFromGoogleDrive,
@@ -51,8 +48,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { exitApp } from '@onekeyhq/shared/src/exitApp';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import ServiceBase from './ServiceBase';
@@ -275,7 +274,7 @@ class ServiceApp extends ServiceBase {
     }
     chrome.runtime.onInstalled.addListener((details) => {
       if (details.reason === 'install') {
-        debugLogger.common.info('Extension event: first installed');
+        flowLogger.app.init.extInstalled();
         // setTimeout to avoid RESET trigger install
         setTimeout(() => {
           extUtils.openExpandTab({
@@ -285,11 +284,10 @@ class ServiceApp extends ServiceBase {
         }, 1000);
       } else if (details.reason === 'update') {
         const thisVersion = chrome.runtime.getManifest()?.version;
-        debugLogger.common.info(
-          `Extension event: Updated from ${
-            details?.previousVersion || ''
-          } to ${thisVersion}!`,
-        );
+        flowLogger.app.init.extUpdated({
+          fromVersion: details?.previousVersion || '',
+          toVersion: thisVersion,
+        });
       }
     });
   }

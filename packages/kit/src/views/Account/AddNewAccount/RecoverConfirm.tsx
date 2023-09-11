@@ -17,6 +17,7 @@ import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import { wait } from '../../../utils/helper';
 
@@ -168,7 +169,7 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
         }
       }
     } catch (e: any) {
-      debugLogger.common.error('recover error:', toPlainErrorObject(e));
+      flowLogger.error.log('recover error:', toPlainErrorObject(e));
       deviceUtils.showErrorToast(e, 'action__connection_timeout');
     } finally {
       await serviceAccountSelector.preloadingCreateAccountDone({

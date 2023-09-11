@@ -10,6 +10,7 @@ import type { SearchDevice } from '@onekeyhq/kit/src/utils/hardware';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { OneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import timelinePerfTrace, {
   ETimelinePerfNames,
 } from '@onekeyhq/shared/src/perf/timelinePerfTrace';
@@ -114,7 +115,7 @@ function BehindTheSceneCreatingWallet({
 
       return true;
     } catch (e: any) {
-      debugLogger.common.error(e);
+      flowLogger.error.log(e);
       if (navigation.canGoBack?.() && entry === 'walletSelector') {
         debugLogger.common.info('go back when entry is wallet selector');
         setTimeout(() => navigation.goBack(), 300);
@@ -209,7 +210,7 @@ function BehindTheSceneCreatingWallet({
       );
       return true;
     } catch (e) {
-      debugLogger.common.error(e);
+      flowLogger.error.log(e);
       const errorKey = (e as { key: LocaleIds }).key;
       ToastManager.show(
         { title: intl.formatMessage({ id: errorKey }) },

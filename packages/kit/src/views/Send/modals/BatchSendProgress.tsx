@@ -25,6 +25,7 @@ import { isExternalAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { OneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import Protected, { ValidationFields } from '../../../components/Protected';
@@ -352,7 +353,7 @@ function SendProgress({
       }
     } catch (e) {
       const error = e as OneKeyError<any, { message?: string }>;
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
       if (backRouteName) {
         // navigation.navigate(backRouteName);
         navigation.navigate({

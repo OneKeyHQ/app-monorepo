@@ -1,4 +1,4 @@
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -20,6 +20,6 @@ export async function terminateWcConnection({
     }
     client?.disconnect(); // seems not working
   } catch (error) {
-    debugLogger.common.error('terminateWcConnection ERROR: ', error);
+    flowLogger.error.log('terminateWcConnection ERROR: ', error);
   }
 }

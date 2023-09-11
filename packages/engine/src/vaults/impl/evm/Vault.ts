@@ -43,6 +43,7 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
@@ -1252,7 +1253,7 @@ export default class Vault extends VaultBase {
           encodedTxWithFakePriceAndNonce,
         );
       } catch (error) {
-        debugLogger.common.error(error);
+        flowLogger.error.log(error);
         throw error;
       }
     }

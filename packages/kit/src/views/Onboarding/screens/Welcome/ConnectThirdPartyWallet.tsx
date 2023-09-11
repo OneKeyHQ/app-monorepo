@@ -16,7 +16,7 @@ import LogoMetaMask from '@onekeyhq/kit/assets/onboarding/logo_metamask.png';
 import LogoRainbow from '@onekeyhq/kit/assets/onboarding/logo_rainbow.png';
 import LogoTrustWallet from '@onekeyhq/kit/assets/onboarding/logo_trustwallet.png';
 import LogoWalletconnect from '@onekeyhq/kit/assets/onboarding/logo_walletconnect.png';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAppStateChange } from '../../../../hooks/useAppStateChange';
@@ -52,7 +52,7 @@ export function ConnectThirdPartyWallet({ onPress }: { onPress: () => void }) {
     try {
       await connectExternalWallet({});
     } catch (error) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
     }
   }, [connectExternalWallet]);
 

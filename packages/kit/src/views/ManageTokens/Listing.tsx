@@ -26,7 +26,7 @@ import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 import type { IManageNetworkTokenType } from '@onekeyhq/kit-bg/src/services/ServiceToken';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../components/Format';
@@ -426,7 +426,7 @@ function ListRenderToken({ isOwned, ...item }: IManageNetworkTokenType) {
         tokenIdOnNetwork,
       );
     } catch (e) {
-      debugLogger.common.error('add token error', e);
+      flowLogger.error.log('add token error', e);
       deviceUtils.showErrorToast(e, 'msg__failed_to_add_token');
       return;
     }

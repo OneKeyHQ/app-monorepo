@@ -1,6 +1,6 @@
 import { KEYUTIL, KJUR } from 'jsrsasign';
 
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import type { RSAKey } from 'jsrsasign';
 
@@ -20,7 +20,7 @@ function rsaEncrypt(publicKey: string, data: string) {
     const pubKeyObj = KEYUTIL.getKey(publicKey);
     return KJUR.crypto.Cipher.encrypt(data, pubKeyObj as RSAKey, 'RSA');
   } catch (error) {
-    debugLogger.common.error('rsa encrypt fail = ', error);
+    flowLogger.error.log('rsa encrypt fail = ', error);
     return false;
   }
 }
@@ -30,7 +30,7 @@ function rsaDecrypt(privateKey: string, encryptData: string) {
     const prvKeyObj = KEYUTIL.getKey(privateKey) as RSAKey;
     return KJUR.crypto.Cipher.decrypt(encryptData, prvKeyObj, 'RSA');
   } catch (error) {
-    debugLogger.common.error('rsa decrypt fail = ', error);
+    flowLogger.error.log('rsa decrypt fail = ', error);
     return false;
   }
 }

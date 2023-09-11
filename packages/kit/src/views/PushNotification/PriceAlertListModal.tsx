@@ -8,7 +8,7 @@ import { useIntl } from 'react-intl';
 import { Box, Modal, useTheme } from '@onekeyhq/components';
 import type { ModalProps } from '@onekeyhq/components/src/Modal';
 import type { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useSettings } from '../../hooks/redux';
@@ -60,7 +60,7 @@ export const PriceAlertListModal: FC = () => {
         );
         setData(res);
       } catch (error) {
-        debugLogger.common.error(
+        flowLogger.error.log(
           `queryPriceAlertList failed`,
           error instanceof Error ? error?.message : error,
         );

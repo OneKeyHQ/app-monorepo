@@ -17,7 +17,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { PriceAlertOperator } from '@onekeyhq/engine/src/managers/notification';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -140,7 +140,7 @@ export const PriceAlertAddModal: FC = () => {
         coingeckoId: token.coingeckoId ?? '',
       });
     } catch (error) {
-      debugLogger.common.error(
+      flowLogger.error.log(
         'changePriceAlertConfig',
         error instanceof Error ? error?.message : error,
       );

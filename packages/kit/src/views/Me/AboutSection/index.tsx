@@ -16,6 +16,9 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { setDevMode } from '@onekeyhq/kit/src/store/reducers/settings';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import { openUrlByWebview, openUrlExternal } from '../../../utils/openUrl';
 
@@ -80,6 +83,20 @@ export const AboutSection = () => {
           borderBottomWidth="1"
           borderBottomColor="divider"
           onPress={() => {
+            // TODO remove
+            flowLogger.app.init.loadHtml({
+              name: `test WebEmbedApi: ${Date.now()}`,
+            });
+            const testError = new OneKeyError({
+              message: 'hello error',
+              key: 'Confirm_password',
+              info: {
+                name: '133',
+              },
+            });
+            flowLogger.error.log(testError);
+            console.error(testError);
+
             openDebugMode();
             handleCopyVersion(
               `${settings.version}${
@@ -123,14 +140,16 @@ export const AboutSection = () => {
           px={{ base: 4, md: 6 }}
           borderBottomWidth="1"
           borderBottomColor="divider"
-          onPress={() =>
+          onPress={() => {
             openUrlByWebview(
               userAgreementUrl,
               intl.formatMessage({
                 id: 'form__user_agreement',
               }),
-            )
-          }
+            );
+            // TODO remove
+            debugLogger.flowApp.info('userAgreementUrl');
+          }}
         >
           <Icon name="UserCircleOutline" />
           <Text

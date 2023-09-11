@@ -35,6 +35,10 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
         src={src}
         frameBorder="0"
         style={{ height: '100%', width: '100%' }}
+        // https://developer.mozilla.org/en-US/docs/Web/HTML/Element/iframe#attr-sandbox
+        // sandbox="allow-downloads allow-downloads-without-user-activation allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-presentation allow-same-origin allow-scripts allow-storage-access-by-user-activation "
+        // sandbox="allow-scripts"
+        // not working
       />
     );
   },

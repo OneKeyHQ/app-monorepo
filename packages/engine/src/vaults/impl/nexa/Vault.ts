@@ -6,7 +6,7 @@ import {
   InvalidAddress,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import {
@@ -361,7 +361,7 @@ export default class Vault extends VaultBase {
       tx = await client.getTransaction(txHash);
     } catch (error) {
       // The result from Nexa Transaction API may be incomplete JSON, resulting in parsing failure.
-      debugLogger.common.error(`Failed to fetch Nexa transaction. `, txHash);
+      flowLogger.error.log(`Failed to fetch Nexa transaction. `, txHash);
       return false;
     }
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;

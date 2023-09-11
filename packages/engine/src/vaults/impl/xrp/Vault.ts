@@ -13,6 +13,7 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import {
@@ -97,7 +98,7 @@ export default class Vault extends VaultBase {
         await clientInstance.disconnect();
         clientInstance = null;
       } catch (error) {
-        debugLogger.common.error(error);
+        flowLogger.error.log(error);
       }
     }
   };

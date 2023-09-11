@@ -31,7 +31,7 @@ import type { IInscriptionsOrder } from '@onekeyhq/engine/src/vaults/impl/btc/in
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Inscribe';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -200,7 +200,7 @@ const CreateOrder: FC = () => {
             });
           }
         } catch (error: any) {
-          debugLogger.common.error('submitOrder error = ', error);
+          flowLogger.error.log('submitOrder error = ', error);
           setsSubmitOrderLoading(false);
           isSendConfirm.current = false;
           const { message } = error;

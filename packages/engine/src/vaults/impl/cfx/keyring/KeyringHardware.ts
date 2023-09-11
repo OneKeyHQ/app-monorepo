@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { AccountType } from '../../../../types/account';
@@ -127,12 +128,12 @@ export class KeyringHardware extends KeyringHardwareBase {
         },
       );
     } catch (error: any) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
       throw new OneKeyHardwareError(error);
     }
 
     if (!addressesResponse.success) {
-      debugLogger.common.error(addressesResponse.payload);
+      flowLogger.error.log(addressesResponse.payload);
       throw convertDeviceError(addressesResponse.payload);
     }
 

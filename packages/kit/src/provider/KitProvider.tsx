@@ -9,6 +9,8 @@ import type { NotificationExtra } from '@onekeyhq/engine/src/managers/notificati
 import { ErrorBoundary } from '@onekeyhq/kit/src/components/ErrorBoundary';
 import store from '@onekeyhq/kit/src/store';
 import { freezedEmptyObject } from '@onekeyhq/shared/src/consts/sharedConsts';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import AppLoading from './AppLoading';
@@ -72,5 +74,9 @@ const KitProvider: FC<LaunchProps> = (propsRaw) => {
     </SWRConfig>
   );
 };
+
+// TODO remove
+console.log(flowLogger);
+debugLogger.providerApi.info('KitProvider imported done!');
 
 export default KitProvider;

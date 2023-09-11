@@ -139,7 +139,6 @@ class ProviderApiEthereum extends ProviderApiBase {
       };
       return result;
     };
-    // debugLogger.providerApi.info('notifyDappAccountsChanged', data);
     info.send(data);
   }
 

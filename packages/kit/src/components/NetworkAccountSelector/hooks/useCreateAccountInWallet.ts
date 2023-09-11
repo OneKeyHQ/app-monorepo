@@ -7,7 +7,7 @@ import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import type { IVaultSettings } from '@onekeyhq/engine/src/vaults/types';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -140,7 +140,7 @@ export function useCreateAccountInWallet({
       });
     } catch (e) {
       console.error(e);
-      debugLogger.common.error(`createAllNetworksFakeAccount error: `, e);
+      flowLogger.error.log(`createAllNetworksFakeAccount error: `, e);
       deviceUtils.showErrorToast(e);
     }
   }, [walletId]);

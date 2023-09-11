@@ -1,6 +1,6 @@
 import { parse } from 'url';
 
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 function parseBitcoinUri(uriScheme: string): {
   address: string;
@@ -51,7 +51,7 @@ export function parseUriScheme(uriScheme: string) {
     }
     return false;
   } catch (error) {
-    debugLogger.common.error(error);
+    flowLogger.error.log(error);
     return false;
   }
 }

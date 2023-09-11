@@ -3,7 +3,7 @@ import {
   decodeSensitiveText,
   encodeSensitiveText,
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import { getDefaultLocale } from './locale';
 
@@ -51,7 +51,7 @@ export const savePassword = (password: string) => {
     try {
       text = decodeSensitiveText({ encodedText: text });
     } catch (e: any) {
-      debugLogger.common.error(
+      flowLogger.error.log(
         'method localAuthentication.savePassword() failed to decodeSensitiveText',
       );
     }

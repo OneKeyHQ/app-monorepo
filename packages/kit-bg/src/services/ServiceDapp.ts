@@ -41,7 +41,6 @@ import {
   ensureSerializable,
   getNetworkImplFromDappScope,
   isDappScopeMatchNetwork,
-  waitForDataLoaded,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
   IMPL_BTC,
@@ -52,6 +51,7 @@ import {
   isLightningNetwork,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import urlUtils from '@onekeyhq/shared/src/utils/urlUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
@@ -492,7 +492,6 @@ class ServiceDapp extends ServiceBase {
         } else {
           let error = new Error(notMatchedErrorMessage);
           if (isAuthorizedRequired && isNotAuthorized) {
-            // debugLogger.dappApprove.error(web3Errors.provider.unauthorized());
             error = web3Errors.provider.unauthorized();
           }
           // do not add delay here, it will cause _openModalByRouteParamsDebounced not working

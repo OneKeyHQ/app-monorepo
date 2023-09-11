@@ -7,6 +7,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
@@ -82,7 +83,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         bundle,
       });
     } catch (error: any) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
       throw new OneKeyHardwareError(error);
     }
 

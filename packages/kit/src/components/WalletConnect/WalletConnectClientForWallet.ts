@@ -46,8 +46,7 @@ import type {
 } from '@walletconnect/keyvaluestorage';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { IClientMeta, ISessionStatus } from '@walletconnect/types';
-
-import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 const sessionStorage = new WalletConnectSessionStorage({
   storageId: WalletConnectSessionStorage.STORAGE_IDS.WALLET_SIDE,

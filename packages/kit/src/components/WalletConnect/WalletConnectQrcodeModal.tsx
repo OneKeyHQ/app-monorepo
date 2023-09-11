@@ -15,7 +15,7 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import LogoAmber from '@onekeyhq/kit/assets/onboarding/logo_amber.png';
 import LogoCoboWallet from '@onekeyhq/kit/assets/onboarding/logo_cobo_wallet.png';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import LogoWalletConnect from '../../../assets/onboarding/logo_walletconnect.png';
@@ -160,7 +160,7 @@ export function ConnectWalletListView({
           walletService,
         });
       } catch (error) {
-        debugLogger.common.error(error);
+        flowLogger.error.log(error);
       } finally {
         await wait(600);
         setLoadingId('');

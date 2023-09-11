@@ -14,8 +14,8 @@ import { consts } from '@onekeyfe/cross-inpage-provider-core';
 import { JsBridgeDesktopHost } from '@onekeyfe/onekey-cross-webview';
 import { Freeze } from 'react-freeze';
 
-import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { checkOneKeyCardGoogleOauthUrl } from '../../utils/uriUtils';

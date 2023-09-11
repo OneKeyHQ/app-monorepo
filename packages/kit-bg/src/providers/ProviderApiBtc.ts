@@ -124,8 +124,6 @@ class ProviderApiBtc extends ProviderApiBase {
 
   @providerApiMethod()
   public async getNetwork() {
-    debugLogger.providerApi.info('ProviderApiBtc.getNetwork');
-
     const { network } = getActiveWalletAccount();
 
     return network ? getNetworkName(network) : '';
@@ -136,8 +134,6 @@ class ProviderApiBtc extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: SwitchNetworkParams,
   ) {
-    debugLogger.providerApi.info('ProviderApiBtc.switchNetwork');
-
     const { network: networkName } = params;
     let networkId;
     if (networkName === 'livenet') {
@@ -164,7 +160,6 @@ class ProviderApiBtc extends ProviderApiBase {
 
   @providerApiMethod()
   public async getPublicKey() {
-    debugLogger.providerApi.info('ProviderApiBtc.getPublicKey');
     const { accountPubKey } = getActiveWalletAccount();
 
     return Promise.resolve(accountPubKey);
@@ -172,7 +167,6 @@ class ProviderApiBtc extends ProviderApiBase {
 
   @providerApiMethod()
   public async getBalance() {
-    debugLogger.providerApi.info('ProviderApiBtc.getBalance');
     const { accountId, network } = getActiveWalletAccount();
     if (!accountId || !network) return null;
     const balanceDetail =
@@ -201,7 +195,6 @@ class ProviderApiBtc extends ProviderApiBase {
 
   @providerApiMethod()
   public async getInscriptions() {
-    debugLogger.providerApi.info('ProviderApiBtc.getBalance');
     const { networkId, accountAddress } = getActiveWalletAccount();
 
     const req = new RestfulRequest(getFiatEndpoint(), {}, 60 * 1000);

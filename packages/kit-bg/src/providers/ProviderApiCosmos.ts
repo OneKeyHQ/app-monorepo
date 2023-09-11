@@ -138,7 +138,6 @@ class ProviderApiCosmos extends ProviderApiBase {
         .getActiveConnectedAccounts({ origin, impl: IMPL_COSMOS })
         .map(({ address }) => address),
     });
-    debugLogger.providerApi.info('cosmos disconnect', origin);
   }
 
   private convertCosmosChainId(networkId: string | undefined | null) {

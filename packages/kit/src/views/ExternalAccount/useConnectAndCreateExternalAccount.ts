@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import type { IAccount } from '@onekeyhq/engine/src/types';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -50,7 +50,7 @@ export function useConnectAndCreateExternalAccount({
       addedAccount = addedResult.account;
       preloadingNetworkId = addedResult.networkId;
     } catch (error) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
     } finally {
       await wait(2000);
 

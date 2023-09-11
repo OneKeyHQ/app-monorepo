@@ -40,7 +40,7 @@ class ProviderApiCardano extends ProviderApiBase {
 
   public notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo) {
     // TODO
-    debugLogger.providerApi.info(info);
+    debugLogger.providerApi.info('notifyDappChainChanged', info);
   }
 
   public async rpcCall(request: IJsonRpcRequest): Promise<any> {
@@ -103,7 +103,6 @@ class ProviderApiCardano extends ProviderApiBase {
         .getActiveConnectedAccounts({ origin, impl: IMPL_ADA })
         .map(({ address }) => address),
     });
-    debugLogger.providerApi.info('cardano disconnect', origin);
   }
 
   @providerApiMethod()

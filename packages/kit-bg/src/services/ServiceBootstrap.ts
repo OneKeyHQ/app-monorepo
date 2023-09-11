@@ -27,6 +27,7 @@ import {
   enabledAccountDynamicNetworkIds,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import ServiceBase from './ServiceBase';
@@ -253,7 +254,6 @@ export default class ServiceBootstrap extends ServiceBase {
 
   @backgroundMethod()
   async migrateAccountDerivationTable() {
-    debugLogger.common.info('start migrate account derivation process ===>');
     try {
       const { appSelector } = this.backgroundApi;
       const dbMigrationVersion = appSelector(
@@ -265,11 +265,9 @@ export default class ServiceBootstrap extends ServiceBase {
         semver.valid(dbMigrationVersion) &&
         semver.gte(dbMigrationVersion, ACCOUNT_DERIVATION_DB_MIGRATION_VERSION)
       ) {
-        debugLogger.common.info('Skip AccountDerivation DB migration');
         return;
       }
 
-      debugLogger.common.info('will migrate ===>');
       const { dbApi } = this.backgroundApi.engine;
       const wallets = await dbApi.getWallets();
       const hdOrHwWallets = wallets.filter(
@@ -277,7 +275,6 @@ export default class ServiceBootstrap extends ServiceBase {
       );
 
       for (const wallet of hdOrHwWallets) {
-        debugLogger.common.info(`migrate wallet: ${JSON.stringify(wallet)}`);
         // update accounts
         const accounts = await dbApi.getAccounts(wallet.accounts);
         for (const account of accounts) {
@@ -290,19 +287,10 @@ export default class ServiceBootstrap extends ServiceBase {
               impl,
               template,
             });
-            debugLogger.common.info(
-              `added account derivation: accountId: ${account.id}, template: ${template}`,
-            );
+
             await dbApi.setAccountTemplate({ accountId: account.id, template });
-            debugLogger.common.info(
-              `insert account: ${account.id} to AccountDerivation table, template: ${template}`,
-            );
           }
         }
-
-        debugLogger.common.info(
-          `migrate accounts finish, will update nextAccountId, walletId:  ${wallet.id}`,
-        );
 
         // update nextAccountIds field
         const newNextAccountIds = migrateNextAccountIds(wallet.nextAccountIds);
@@ -311,24 +299,18 @@ export default class ServiceBootstrap extends ServiceBase {
           walletId: wallet.id,
           nextAccountIds: newNextAccountIds,
         });
-        debugLogger.common.info(
-          `update wallet nextAccountIds, wallet: ${
-            wallet.id
-          }, nextAccountIds: ${JSON.stringify(newNextAccountIds)}`,
-        );
       }
       this.backgroundApi.dispatch(
         setAccountDerivationDbMigrationVersion(appVersion),
       );
     } catch (e) {
-      debugLogger.common.error('migrate error: ', e);
+      flowLogger.error.log('migrateAccountDerivationTable error: ', e);
       throw e;
     }
   }
 
   @backgroundMethod()
   async migrateCosmosTemplateInDB() {
-    debugLogger.common.info('start migrate cosmos template process');
     try {
       const { appSelector } = this.backgroundApi;
       const dbMigrationVersion = appSelector(
@@ -340,7 +322,6 @@ export default class ServiceBootstrap extends ServiceBase {
         semver.valid(dbMigrationVersion) &&
         semver.gte(dbMigrationVersion, FIX_COSMOS_TEMPLATE_DB_MIGRATION_VERSION)
       ) {
-        debugLogger.common.info('Skip Cosmos Template migration');
         return;
       }
 
@@ -351,7 +332,6 @@ export default class ServiceBootstrap extends ServiceBase {
       );
       const incorrectTemplate = `m/44'/${COINTYPE_COSMOS}'/${INDEX_PLACEHOLDER}'/0/0`;
       for (const wallet of hdOrHwWallets) {
-        debugLogger.common.info(`migrate wallet: ${JSON.stringify(wallet)}`);
         // filter cosmos account which template is m/44'/118'/0'/0/$$INDEX$$
         const cosmosAccounts = wallet.accounts.filter(
           (id) => id.indexOf(`m/44'/${COINTYPE_COSMOS}'/0'/0`) > -1,
@@ -371,13 +351,8 @@ export default class ServiceBootstrap extends ServiceBase {
               impl,
               template,
             });
-            debugLogger.common.info(
-              `added account derivation: accountId: ${account.id}, template: ${template}`,
-            );
+
             await dbApi.setAccountTemplate({ accountId: account.id, template });
-            debugLogger.common.info(
-              `insert account: ${account.id} to AccountDerivation table, template: ${template}`,
-            );
           }
         }
         await dbApi.removeAccountDerivation({
@@ -397,11 +372,6 @@ export default class ServiceBootstrap extends ServiceBase {
             walletId: wallet.id,
             nextAccountIds: newNextAccountIds,
           });
-          debugLogger.common.info(
-            `update wallet nextAccountIds, wallet: ${
-              wallet.id
-            }, nextAccountIds: ${JSON.stringify(newNextAccountIds)}`,
-          );
         }
       }
 
@@ -409,7 +379,7 @@ export default class ServiceBootstrap extends ServiceBase {
         setAccountDerivationDbMigrationVersion(appVersion),
       );
     } catch (e) {
-      debugLogger.common.error('cosmos template migrate error: ', e);
+      flowLogger.error.log('migrateCosmosTemplateInDB error: ', e);
       throw e;
     }
   }

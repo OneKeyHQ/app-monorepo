@@ -26,7 +26,7 @@ import {
   IMPL_COSMOS,
   isLightningNetworkByImpl,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
@@ -330,7 +330,7 @@ const Connection = () => {
           dispatch(refreshConnectedSites());
         })
         .catch((error) => {
-          debugLogger.common.error(error);
+          flowLogger.error.log(error);
           setWalletConnectError(
             // TODO general connection failed error
             // timeout or qrcode expired

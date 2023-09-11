@@ -4,7 +4,7 @@ import { pick } from 'lodash';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { appSelector } from '../store';
@@ -145,7 +145,7 @@ export const useFrozenBalance = ({
         })
         .then(setFrozenBalance)
         .catch((e) => {
-          debugLogger.common.error('getFrozenBalance error', e);
+          flowLogger.error.log('getFrozenBalance error', e);
         });
     })();
   }, [networkId, accountId, useRecycleBalance]);

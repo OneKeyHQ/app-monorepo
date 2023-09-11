@@ -193,13 +193,11 @@ class ProviderApiSui extends ProviderApiBase {
         .getActiveConnectedAccounts({ origin, impl: IMPL_SUI })
         .map(({ address }) => address),
     });
-    debugLogger.providerApi.info('SUI disconnect', origin);
   }
 
   private async account(
     request: IJsBridgeMessagePayload,
   ): Promise<AccountInfo | undefined> {
-    debugLogger.providerApi.info('SUI account');
     const { networkId, networkImpl, accountId } = getActiveWalletAccount();
     if (networkImpl !== IMPL_SUI) {
       return undefined;

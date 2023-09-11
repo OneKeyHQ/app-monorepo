@@ -7,8 +7,8 @@ import type {
 } from '@onekeyhq/engine/src/managers/notification';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
-import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { createTimeoutPromise } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useRuntime } from '../../hooks/redux';
@@ -147,7 +147,7 @@ export const checkAccountCanSubscribe = async (
   if (!isCoinTypeCompatibleWithImpl(coinType, IMPL_EVM)) {
     return false;
   }
-  const isContract = await makeTimeoutPromise({
+  const isContract = await createTimeoutPromise({
     asyncFunc: async () =>
       backgroundApiProxy.validator.isContractAddress(networkId, address),
     timeout: 6000,

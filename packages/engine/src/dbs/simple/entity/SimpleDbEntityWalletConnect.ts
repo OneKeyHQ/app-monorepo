@@ -2,6 +2,7 @@ import { cloneDeep } from 'lodash';
 
 import type { WalletService } from '@onekeyhq/kit/src/components/WalletConnect/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
@@ -124,7 +125,7 @@ export class SimpleDbEntityWalletConnect extends SimpleDbEntityBase<ISimpleDbEnt
           return true;
         }
       } catch (err) {
-        debugLogger.common.error(err);
+        flowLogger.error.log(err);
       }
       return false;
     });

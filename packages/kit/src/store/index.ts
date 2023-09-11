@@ -21,10 +21,12 @@ import {
   appUIEventBus,
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage, {
   mockStorage,
 } from '@onekeyhq/shared/src/storage/appStorage';
+import devModeUtils from '@onekeyhq/shared/src/utils/devModeUtils';
 
 import middlewares from './middlewares';
 import { persistWhiteList } from './persistWhiteList';
@@ -130,7 +132,9 @@ export function makeStore() {
       }).concat(middlewares),
   });
   const persistor = persistStore(store, null, () => {
-    debugLogger.common.info(`receive: store persisted`);
+    debugLogger.common.info(`persistStore success: store persisted`);
+    console.log(`receive: store persisted`, store);
+    devModeUtils.updateDevModeInfo(store.getState().settings.devMode);
     if (platformEnv.isExtensionUi) {
       // extension ui Persistor done does NOT mean redux is ready, UI needs to sync data from background
       //      UI use and check useReduxReady() for details
@@ -177,7 +181,7 @@ export async function appDispatch(
       // @ts-ignore
       delete global.$backgroundApiProxy;
     } catch (error) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
     }
   }
 
@@ -223,5 +227,6 @@ if (platformEnv.isDev) {
 }
 
 export type IStore = typeof store;
+export type IStoreState = ReturnType<typeof store.getState>;
 export type IPersistor = typeof persistorStore;
 export default store;

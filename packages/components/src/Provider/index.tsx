@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { TamaguiProvider } from 'tamagui';
 
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import config from '../../tamagui.config';
@@ -309,7 +309,7 @@ const Provider: FC<UIProviderProps> = ({
               // @ts-expect-error
               intlRef.current = e?.state?.intl;
             } catch (error) {
-              debugLogger.common.error('IntlProvider get ref error:', error);
+              flowLogger.error.log('IntlProvider get ref error:', error);
             }
           }}
           locale={locale}

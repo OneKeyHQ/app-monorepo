@@ -11,7 +11,7 @@ import {
 import { UIManager, findNodeHandle } from 'react-native';
 
 import { Box } from '@onekeyhq/components';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import NativeNestedTabView from './NativeNestedTabView';
 
@@ -55,7 +55,7 @@ const NestedTabView: ForwardRefRenderFunction<
         [pageIndex],
       );
     } catch (error) {
-      debugLogger.common.error(`switch account tab error`, error);
+      flowLogger.error.log(`switch account tab error`, error);
     }
   }, []);
 
@@ -67,7 +67,7 @@ const NestedTabView: ForwardRefRenderFunction<
         [refreshing],
       );
     } catch (error) {
-      debugLogger.common.error(`set refreshing error`, error);
+      flowLogger.error.log(`set refreshing error`, error);
     }
   }, []);
 

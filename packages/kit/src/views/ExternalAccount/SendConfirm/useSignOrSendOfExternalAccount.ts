@@ -14,6 +14,7 @@ import type {
 } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -126,7 +127,7 @@ export function useSignOrSendOfExternalAccount({
               // do NOT need to JSON object
               // typedDataMessage[1] = JSON.parse(secondInfo);
             } catch (error) {
-              debugLogger.common.error(error);
+              flowLogger.error.log(error);
             }
           }
         }

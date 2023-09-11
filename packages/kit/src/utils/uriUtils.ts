@@ -2,7 +2,7 @@ import querystring from 'querystring';
 
 import parse from 'url-parse';
 
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 export const SUPPORTED_IMAGE_EXTENSIONS = [
   '.png',
@@ -122,7 +122,7 @@ export const getUrlDomain = (url: string) => {
     const u = new URL(url);
     result = u.hostname;
   } catch {
-    debugLogger.common.error(`failed to parse url ${url}`);
+    flowLogger.error.log(`failed to parse url ${url}`);
   }
   return result;
 };

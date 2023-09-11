@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import {
-  REPLACE_WHOLE_STATE,
-  waitForDataLoaded,
-} from '@onekeyhq/shared/src/background/backgroundUtils';
+import { REPLACE_WHOLE_STATE } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import devModeUtils from '@onekeyhq/shared/src/utils/devModeUtils';
+import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
@@ -51,6 +50,8 @@ export function useReduxReady() {
               $isDispatchFromBackground: true,
             });
           }
+          const devModeInfo = result?.state?.settings?.devMode;
+          devModeUtils.updateDevModeInfo(devModeInfo);
           setTimeout(setIsReadyTrue, 0);
           return true;
         }

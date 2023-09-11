@@ -51,11 +51,7 @@ import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { EAccountSelectorMode } from '../../../store/reducers/reducerAccountSelector';
 import { MonitorRoutes } from '../../Monitor/types';
 
-import {
-  requestsInterceptTest,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  requestsInterceptTest2,
-} from './requestsInterceptTest';
+import { requestsInterceptTest } from './requestsInterceptTest';
 
 interface IOneKeyPerfCheckPayload {
   testID?: string;

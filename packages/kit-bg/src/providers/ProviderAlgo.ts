@@ -51,8 +51,6 @@ class ProviderApiAlgo extends ProviderApiBase {
 
   @providerApiMethod()
   public async getChainId() {
-    debugLogger.providerApi.info('algo getChainId');
-
     const { networkId, networkImpl, accountId } = getActiveWalletAccount();
     if (networkImpl !== IMPL_ALGO) {
       return;

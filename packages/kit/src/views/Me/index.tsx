@@ -1,9 +1,10 @@
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
 
 import { Box, ScrollView, useSafeAreaInsets } from '@onekeyhq/components';
-import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import { initDebugLoggerSettings } from '@onekeyhq/shared/src/logger/debugLogger';
+import devModeUtils from '@onekeyhq/shared/src/utils/devModeUtils';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import HelpSelector from '../Help/HelpSelector';
 
 import { AboutSection } from './AboutSection';
@@ -18,8 +19,15 @@ import { SecuritySection } from './SecuritySection';
 import { UtilSection } from './UtilSection';
 
 export const Me = (options: any) => {
+  const devModeInfo = useAppSelector((s) => s.settings.devMode);
+  const devModeEnable = devModeInfo?.enable;
+
+  useEffect(() => {
+    devModeUtils.updateDevModeInfo(devModeInfo);
+    initDebugLoggerSettings();
+  }, [devModeInfo]);
+
   // useHideTabNavigatorHeader();
-  const { enable: devModeEnable } = useSettings().devMode || {};
 
   console.log('Me screen options >>>>', options);
   const inset = useSafeAreaInsets();

@@ -3,13 +3,10 @@
 import './utils/walletConnectV2SdkShims';
 
 import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
-import { getSdkError } from '@walletconnect-v2/utils';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
-import { refreshConnectedSites } from '../../store/reducers/refresher';
+import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 import { OneKeyWalletConnector } from './OneKeyWalletConnector';
 import {
@@ -20,7 +17,7 @@ import {
 import type { IWalletConnectRequestOptions, WalletService } from './types';
 import type { WalletConnectSessionStorage } from './WalletConnectSessionStorage';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
-import type { ICore, SessionTypes } from '@walletconnect-v2/types';
+import type { ICore } from '@walletconnect-v2/types';
 import type { IWeb3Wallet } from '@walletconnect-v2/web3wallet';
 import type {
   IClientMeta,

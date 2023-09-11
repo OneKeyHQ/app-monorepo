@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
@@ -69,7 +69,7 @@ export default function useMobileRegistry() {
         });
       } catch (err) {
         const error = err as Error;
-        debugLogger.common.error(error);
+        flowLogger.error.log(error);
         setState({ ...defaultState, error, loading: false });
       }
     })();

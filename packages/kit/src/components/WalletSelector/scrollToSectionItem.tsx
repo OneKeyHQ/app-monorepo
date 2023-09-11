@@ -1,4 +1,4 @@
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 export function scrollToSectionItem<T>({
   sectionListRef,
@@ -66,7 +66,7 @@ export function scrollToSectionItem<T>({
       });
       onScrolled();
     } catch (error) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
     }
   }, delay);
 }

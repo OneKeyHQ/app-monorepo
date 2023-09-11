@@ -30,6 +30,7 @@ import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -410,7 +411,10 @@ function PreSendAmount() {
               isMax: false,
             },
           });
+
+          flowLogger.send.common.inputSendAmount({ amount: amountToSend });
         } catch (e: any) {
+          flowLogger.error.log(e);
           console.error(e);
           const { key: errorKey = '' } = e;
           if (errorKey === 'form__amount_invalid') {

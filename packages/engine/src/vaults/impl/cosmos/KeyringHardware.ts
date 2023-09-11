@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import { stripHexPrefix } from '../../utils/hexUtils';
@@ -49,12 +50,12 @@ export class KeyringHardware extends KeyringHardwareBase {
         ...passphraseState,
       });
     } catch (error: any) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
       throw new OneKeyHardwareError(error);
     }
 
     if (!response.success) {
-      debugLogger.common.error(response.payload);
+      flowLogger.error.log(response.payload);
       throw convertDeviceError(response.payload);
     }
 
@@ -93,11 +94,11 @@ export class KeyringHardware extends KeyringHardwareBase {
         },
       );
     } catch (error: any) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
       throw new OneKeyHardwareError(error);
     }
     if (!publicKeyResponse.success) {
-      debugLogger.common.error(publicKeyResponse.payload);
+      flowLogger.error.log(publicKeyResponse.payload);
       throw convertDeviceError(publicKeyResponse.payload);
     }
 

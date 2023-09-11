@@ -55,6 +55,7 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { KeyringHardware } from './KeyringHardware';
@@ -1105,7 +1106,7 @@ export default class Vault extends VaultBase {
           historyTxToMerge,
         });
       } catch (e) {
-        debugLogger.common.error(e);
+        flowLogger.error.log(e);
       }
 
       return Promise.resolve(null);

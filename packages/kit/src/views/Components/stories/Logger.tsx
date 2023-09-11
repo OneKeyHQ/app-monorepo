@@ -12,6 +12,7 @@ import {
   LoggerNames,
   logger,
   saveDebugLoggerSettings,
+  toggleLoggerExtensionEnable,
 } from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { useNavigationBack } from '../../../hooks/useAppNavigation';
@@ -40,11 +41,16 @@ function DebugLoggerSettings() {
             // isChecked={checkedStatus[key]}
             onChange={(status) => {
               console.log('logger update >>> ', status, key);
+
               setTimeout(() => {
                 setCheckedStatus((map) => ({ ...map, [key]: status }));
                 saveDebugLoggerSettings();
               }, 0);
-              return status ? logger.enable(key) : logger.disable(key);
+
+              return toggleLoggerExtensionEnable({
+                name: key,
+                enable: Boolean(status),
+              });
             }}
           >
             <Box minW={300} pl={2}>
@@ -61,7 +67,9 @@ const LoggerGallery = () => {
   const goBack = useNavigationBack();
   return (
     <ScrollView p={4} flex="1" bg="background-hovered">
-      <Typography.DisplayXLarge>DebugLogger</Typography.DisplayXLarge>
+      <Typography.DisplayXLarge testID="DebugLoggerSettings-83283651">
+        DebugLogger
+      </Typography.DisplayXLarge>
       <Button onPress={goBack}>Back to HOME</Button>
       <Button
         onPress={() => {

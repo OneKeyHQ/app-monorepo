@@ -6,7 +6,7 @@ import { FormattedNumber } from 'react-intl';
 
 import { Box, IconButton, Spinner, Text, Token } from '@onekeyhq/components';
 import type { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { formatDecimalZero } from '../Market/utils';
@@ -77,7 +77,7 @@ const PriceItem: FC<{
         pick(alert, 'price', 'currency', 'coingeckoId'),
       );
     } catch (error) {
-      debugLogger.common.error(
+      flowLogger.error.log(
         `remove PriceAlert`,
         error instanceof Error ? error?.message : error,
       );

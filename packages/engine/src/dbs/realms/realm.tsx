@@ -27,8 +27,7 @@ import {
   TooManyWatchingAccounts,
   WrongPassword,
 } from '@onekeyhq/shared/src/errors';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-// import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import {
   DERIVED_ACCOUNT_MAX_NUM,
@@ -1089,7 +1088,7 @@ class RealmDB implements DBAPI {
       }
       return Promise.resolve(entries[0].internalObj);
     } catch (error: any) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
       return Promise.reject(
         new OneKeyInternalError(`Account ${address} not found.`),
       );

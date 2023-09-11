@@ -2,7 +2,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 import {
   Connection,
-  JsonRpcProvider,
   TransactionBlock,
   builder,
   getExecutionStatus,
@@ -14,19 +13,17 @@ import {
   isValidSuiAddress,
 } from '@mysten/sui.js';
 import BigNumber from 'bignumber.js';
-import { get, groupBy, isArray, isEmpty } from 'lodash';
+import { get, groupBy, isEmpty } from 'lodash';
 
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { Token } from '@onekeyhq/kit/src/store/typings';
 import {
   getTimeDurationMs,
   getTimeStamp,
 } from '@onekeyhq/kit/src/utils/helper';
-import { log } from '@onekeyhq/shared/src/crashlytics/index.web';
 import {
-  InsufficientBalance,
   InvalidAddress,
   InvalidTokenAddress,
   NotImplemented,
@@ -34,13 +31,13 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
   IDecodedTxStatus,
-  IEncodedTxUpdateType,
 } from '../../types';
 import { convertFeeValueToGwei } from '../../utils/feeInfoUtils';
 import { addHexPrefix, stripHexPrefix } from '../../utils/hexUtils';
@@ -1040,7 +1037,7 @@ export default class Vault extends VaultBase {
           historyTxToMerge,
         });
       } catch (e) {
-        debugLogger.common.error(e);
+        flowLogger.error.log(e);
       }
 
       return Promise.resolve(null);

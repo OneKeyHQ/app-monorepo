@@ -1,6 +1,6 @@
 import { isWalletConnectSession } from '@walletconnect/utils';
 
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import {
@@ -40,7 +40,7 @@ export class WalletConnectSessionStorage implements ISessionStorage {
           session = json;
         }
       } catch (error) {
-        debugLogger.common.error(
+        flowLogger.error.log(
           'WalletConnectSessionStorage.getSession ERROR:',
           error,
         );

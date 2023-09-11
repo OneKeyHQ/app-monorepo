@@ -19,7 +19,7 @@ import type { IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
 import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
 import { freezedEmptyArray } from '@onekeyhq/shared/src/consts/sharedConsts';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
@@ -291,7 +291,7 @@ function TxHistoryListViewComponent({
             tokenIdOnNetwork: tokenAddress,
           });
         } catch (err) {
-          debugLogger.common.error(err);
+          flowLogger.error.log(err);
         }
         await wait(1000);
       }

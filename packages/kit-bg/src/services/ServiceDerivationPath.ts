@@ -18,7 +18,7 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { OneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import ServiceBase from './ServiceBase';
 
@@ -328,7 +328,7 @@ export default class ServiceDerivationPath extends ServiceBase {
         });
       }
     } catch (e) {
-      debugLogger.common.error('createAccountByCustomAddressIndex error: ', e);
+      flowLogger.error.log('createAccountByCustomAddressIndex error: ', e);
       throw e;
     }
   }

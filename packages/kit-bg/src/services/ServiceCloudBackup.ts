@@ -37,6 +37,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.enums';
@@ -227,7 +228,7 @@ class ServiceCloudBackup extends ServiceBase {
     try {
       await this.saveDataToCloud(cloudData);
     } catch (e) {
-      debugLogger.cloudBackup.error((e as Error).message);
+      flowLogger.error.log('backupNow saveDataToCloud error', e);
       actions.push(incrBackupRequests());
     }
     actions.push(setNotInProgress());
@@ -317,7 +318,7 @@ class ServiceCloudBackup extends ServiceBase {
           numOfAccounts,
         });
       } catch (e) {
-        debugLogger.cloudBackup.error((e as Error).message);
+        flowLogger.error.log('getPreviousBackups error', e);
       }
     }
     return Object.values(backupSummaries)
@@ -471,7 +472,7 @@ class ServiceCloudBackup extends ServiceBase {
         }
       });
     } catch (e) {
-      debugLogger.cloudBackup.error((e as Error).message);
+      flowLogger.error.log('getBackupDetailsWithRemoteData error', e);
     }
 
     return { alreadyOnDevice, notOnDevice };
@@ -565,20 +566,24 @@ class ServiceCloudBackup extends ServiceBase {
             }),
           );
         } else {
-          debugLogger.cloudBackup.error(
+          flowLogger.error.log(
+            `restoreFromPrivateBackup restoreDataFromBackup error`,
             `Contact ${contactUUID} not found in backup data.`,
           );
         }
       }
     } catch (e) {
-      debugLogger.cloudBackup.error((e as Error).message);
+      flowLogger.error.log(
+        'restoreFromPrivateBackup restoreDataFromBackup error',
+        e,
+      );
       return RestoreResult.UNKNOWN_ERROR;
     }
     if (!activeAccountId) {
       try {
         await serviceAccount.autoChangeWallet();
       } catch {
-        debugLogger.cloudBackup.error('autoChangeWallet error');
+        flowLogger.error.log('restoreFromPrivateBackup autoChangeWallet error');
       }
     } else {
       await serviceAccount.initWallets();
@@ -654,7 +659,7 @@ class ServiceCloudBackup extends ServiceBase {
         this.listBackups.clear();
       }
     } catch (e) {
-      debugLogger.cloudBackup.error((e as Error).message);
+      flowLogger.error.log('removeBackup error', e);
     }
   }
 

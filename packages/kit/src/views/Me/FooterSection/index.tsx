@@ -14,10 +14,14 @@ import {
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { getLogZipPath } from '@onekeyhq/shared/src/logger/debugLogger';
+import {
+  getLogZipPath,
+  logDeviceInfo,
+} from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { HomeRoutes } from '../../../routes/routesEnum';
+import { wait } from '../../../utils/helper';
 
 import type { RootRoutes } from '../../../routes/routesEnum';
 import type { HomeRoutesParams, RootRoutesParams } from '../../../routes/types';
@@ -77,7 +81,9 @@ export const FooterAction = () => {
     });
   }, [getLogName]);
 
-  const handleExportStateLog = useCallback(() => {
+  const handleExportStateLog = useCallback(async () => {
+    await logDeviceInfo();
+    await wait(600);
     if (platformEnv.isNative) {
       shareLogFile();
     } else {

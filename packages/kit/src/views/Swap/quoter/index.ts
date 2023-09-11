@@ -7,7 +7,7 @@ import type { IEncodedTxAptos } from '@onekeyhq/engine/src/vaults/impl/apt/types
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
 import { IMPL_APTOS, IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
@@ -387,7 +387,7 @@ export class SwapQuoter {
       }
       return requestId;
     } catch (e: any) {
-      debugLogger.common.error(
+      flowLogger.error.log(
         'Failed to get request id with reason',
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
         e.message,
