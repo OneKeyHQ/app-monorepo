@@ -16,6 +16,8 @@ import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { HomeRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
+import { useShouldHideInscriptions } from '../../../hooks/useShouldHideInscriptions';
+
 import AssetsListHeader from './AssetsListHeader';
 import { AccountAssetsEmptyList } from './EmptyList';
 import TokenCell, { TokenCellByKey } from './TokenCell';
@@ -46,8 +48,18 @@ function AssetsListViewCmp({
 }: IAssetsListProps) {
   const navigation = useNavigation<NavigationProps>();
   const isVerticalLayout = useIsVerticalLayout();
+  const shouldHideInscriptions = useShouldHideInscriptions({
+    accountId,
+    networkId,
+  });
 
-  const accountTokensLength = accountTokens?.length;
+  let tokens = accountTokens;
+
+  if (shouldHideInscriptions) {
+    tokens = accountTokens?.filter((token) => token.isNative);
+  }
+
+  const accountTokensLength = tokens?.length;
 
   const { containerPaddingX } = useAssetsListLayout();
 
@@ -198,7 +210,7 @@ function AssetsListViewCmp({
     <AutoFlatList
       style={containerStyle}
       contentContainerStyle={contentStyle}
-      data={accountTokens}
+      data={tokens}
       // data={tokensKeys}
       renderItem={renderListItem as any}
       ListHeaderComponent={header}

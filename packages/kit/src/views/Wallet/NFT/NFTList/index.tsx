@@ -37,8 +37,10 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { useIsFocusedAllInOne } from '../../../../hooks/useIsFocusedAllInOne';
 import { useOnUIEventBus } from '../../../../hooks/useOnUIEventBus';
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
+import { useShouldHideInscriptions } from '../../../../hooks/useShouldHideInscriptions';
 import { TabRoutes } from '../../../../routes/routesEnum';
 import { appSelector } from '../../../../store';
+import { setHideInscriptions } from '../../../../store/reducers/settings';
 import { WalletHomeTabEnum } from '../../type';
 import { navigateToNFTCollection, navigateToNFTDetail } from '../utils';
 
@@ -67,6 +69,10 @@ const EmptyView: FC<IEmptyProps> = ({ networkId, accountId, fetchData }) => {
   const intl = useIntl();
   const isNFTSupport = isCollectibleSupportedChainId(networkId);
   const nftIsLoading = useNFTIsLoading({ networkId, accountId });
+  const shouldHideInscriptions = useShouldHideInscriptions({
+    accountId,
+    networkId,
+  });
 
   const [isLoading] = useAtomNFTList(atomHomeOverviewNFTListLoading);
 
@@ -77,6 +83,34 @@ const EmptyView: FC<IEmptyProps> = ({ networkId, accountId, fetchData }) => {
         emoji="🖼️"
         title={intl.formatMessage({ id: 'empty__not_supported' })}
         subTitle={intl.formatMessage({ id: 'empty__not_supported_desc' })}
+      />
+    );
+  }
+
+  if (shouldHideInscriptions) {
+    return (
+      <Empty
+        pr="16px"
+        emoji="🖼️"
+        title={intl.formatMessage({
+          id: 'asset__collectibles_empty_title',
+        })}
+        subTitle={intl.formatMessage({
+          id: 'asset__collectibles_empty_desc',
+        })}
+        actionTitle={intl.formatMessage({
+          id: 'action__restore_inscriptions',
+        })}
+        actionProps={{
+          type: 'basic',
+        }}
+        handleAction={() =>
+          backgroundApiProxy.dispatch(
+            setHideInscriptions({
+              [accountId]: false,
+            }),
+          )
+        }
       />
     );
   }
@@ -106,6 +140,10 @@ export function HandleRefreshNFTData({
 }: IEmptyProps) {
   const isUnlock = useAppSelector((s) => s.status.isUnlock);
   const isNFTSupport = isCollectibleSupportedChainId(networkId);
+  const shouldHideInscriptions = useShouldHideInscriptions({
+    accountId,
+    networkId,
+  });
   const [, setNFTIsLoading] = useAtomNFTList(atomHomeOverviewNFTListLoading);
   const { isFocused, homeTabFocused, rootTabFocused } = useIsFocusedAllInOne({
     focusDelay: 1000,
@@ -126,15 +164,19 @@ export function HandleRefreshNFTData({
     if (!isFocused || !rootTabFocused || !homeTabFocused) {
       return false;
     }
+    if (shouldHideInscriptions) {
+      return false;
+    }
     return true;
   }, [
     isUnlock,
     accountId,
-    isFocused,
-    isNFTSupport,
     networkId,
-    homeTabFocused,
+    isNFTSupport,
+    isFocused,
     rootTabFocused,
+    homeTabFocused,
+    shouldHideInscriptions,
   ]);
 
   const swrKey = 'fetchNFTList';
@@ -231,6 +273,11 @@ const NFTListContainer: FC = () => {
 
   const [nfts] = useAtomNFTList(atomHomeOverviewNFTList);
 
+  const shouldHideInscriptions = useShouldHideInscriptions({
+    accountId,
+    networkId,
+  });
+
   const onSelect = useCallback(
     (data: ListDataType, type: NFTCardType) => {
       if (!accountId || !networkId) return;
@@ -271,6 +318,8 @@ const NFTListContainer: FC = () => {
   const collections = useMemo(() => {
     let array: ListItemType<ListDataType>[] = [];
 
+    if (shouldHideInscriptions) return array;
+
     nfts.nfts.forEach(({ type, data }) => {
       data.forEach((item) => {
         const items = getNFTListMeta({
@@ -295,7 +344,7 @@ const NFTListContainer: FC = () => {
       });
     });
     return array;
-  }, [nfts.nfts, recycleUtxos]);
+  }, [nfts.nfts, recycleUtxos, shouldHideInscriptions]);
 
   const hasMore = useMemo(
     () => page * pageSize < collections.length,
@@ -342,8 +391,9 @@ const NFTListContainer: FC = () => {
   );
 
   useEffect(() => {
+    if (shouldHideInscriptions) return;
     fetchCoinControlList();
-  }, [fetchCoinControlList]);
+  }, [fetchCoinControlList, shouldHideInscriptions]);
 
   const renderItem = useCallback<
     NonNullable<FlatListProps<ListItemType<ListDataType>>['renderItem']>

@@ -10,11 +10,11 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
-import { isTaprootPath } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
 import {
   useActiveWalletAccount,
   useAppSelector,
 } from '@onekeyhq/kit/src/hooks';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
 import { showHomeNFTSettings } from '../../../Overlay/HomeNFTSettings';
@@ -23,7 +23,7 @@ import { showHomeNFTSettings } from '../../../Overlay/HomeNFTSettings';
 const NFTListHeader = () => {
   const intl = useIntl();
   const { themeVariant } = useTheme();
-  const { networkId, accountId, account } = useActiveWalletAccount();
+  const { networkId, accountId } = useActiveWalletAccount();
   const isNFTSupport = isCollectibleSupportedChainId(networkId ?? '');
 
   const totalPrice = useAppSelector(
@@ -36,7 +36,10 @@ const NFTListHeader = () => {
       ? intl.formatMessage({ id: 'form__last_price' })
       : intl.formatMessage({ id: 'form__floor_price' });
 
-  const isBtcTaprootAccount = isTaprootPath(account?.path ?? '');
+  const isBtcNetwork = useMemo(
+    () => networkId === OnekeyNetwork.btc || networkId === OnekeyNetwork.tbtc,
+    [networkId],
+  );
 
   return (
     <Box flexDirection="column" paddingRight="16px">
@@ -88,7 +91,7 @@ const NFTListHeader = () => {
         <Typography.Heading>
           {intl.formatMessage({ id: 'title__assets' })}
         </Typography.Heading>
-        {isBtcTaprootAccount ? (
+        {isBtcNetwork ? (
           <IconButton
             name="Cog8ToothMini"
             size="sm"
