@@ -87,7 +87,7 @@ index 6c7116e..4f7fdbb 100644
    } catch (err) {
      // Catch all errors because it is unsafe to throw during initialization.
 diff --git a/node_modules/react-native/ReactCommon/jsc/JSCRuntime.cpp b/node_modules/react-native/ReactCommon/jsc/JSCRuntime.cpp
-index bbc6065..dfe32f0 100644
+index bbc6065..533ddd3 100644
 --- a/node_modules/react-native/ReactCommon/jsc/JSCRuntime.cpp
 +++ b/node_modules/react-native/ReactCommon/jsc/JSCRuntime.cpp
 @@ -396,8 +396,16 @@ JSCRuntime::JSCRuntime(JSGlobalContextRef ctx)
@@ -107,3 +107,24 @@ index bbc6065..dfe32f0 100644
  JSCRuntime::~JSCRuntime() {
    // On shutting down and cleaning up: when JSC is actually torn down,
    // it calls JSC::Heap::lastChanceToFinalize internally which
+@@ -407,12 +415,14 @@ JSCRuntime::~JSCRuntime() {
+   // has started.
+   ctxInvalid_ = true;
+   JSGlobalContextRelease(ctx_);
+-#ifndef NDEBUG
+-  assert(
+-      objectCounter_ == 0 && "JSCRuntime destroyed with a dangling API object");
+-  assert(
+-      stringCounter_ == 0 && "JSCRuntime destroyed with a dangling API string");
+-#endif
++  // fix issue that app crashes on reload in development mode with JSC engine. 
++  // details: https://github.com/software-mansion/react-native-reanimated/issues/4783
++// #ifndef NDEBUG
++//   assert(
++//       objectCounter_ == 0 && "JSCRuntime destroyed with a dangling API object");
++//   assert(
++//       stringCounter_ == 0 && "JSCRuntime destroyed with a dangling API string");
++// #endif
+ }
+ 
+ std::shared_ptr<const jsi::PreparedJavaScript> JSCRuntime::prepareJavaScript(
