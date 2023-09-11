@@ -1,6 +1,5 @@
 const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
-
-const { ENABLE_ANALYZER_HTML_REPORT = false } = process.env;
+const { ENABLE_ANALYZER_HTML_REPORT, ANALYSE_MODULE } = require('./constant');
 
 module.exports = ({ configName }) => ({
   plugins: [
@@ -25,7 +24,7 @@ module.exports = ({ configName }) => ({
               ids: false,
               children: false,
               chunks: false,
-              modules: !!process.env.ANALYSE_MODULE,
+              modules: ANALYSE_MODULE,
             },
           },
     ),

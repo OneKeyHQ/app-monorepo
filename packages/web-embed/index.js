@@ -1,3 +1,6 @@
+/* eslint-disable import/order */
+import '@onekeyhq/shared/src/polyfills';
+
 import { registerRootComponent } from 'expo';
 
 import App from './src/App';
