@@ -3039,7 +3039,7 @@ class Engine {
     confirmOnDevice?: boolean;
   }) {
     if (!walletId || !networkId) return [];
-    if (walletId.startsWith('watching')) {
+    if (walletId.startsWith('watching') || walletId.startsWith('imported')) {
       return this.dbApi.getAccount(accountId);
     }
     const vault = await this.getWalletOnlyVault(networkId, walletId);
