@@ -185,12 +185,22 @@ function InscriptionList(props: Props) {
             {isSelectMode &&
               (platformEnv.isNative ? (
                 <Box>
-                  <Checkbox
-                    onChange={handleToggleAllSelect}
-                    isChecked={isSelectedAll || isIndeterminate}
-                    isIndeterminate={isIndeterminate}
-                    defaultIsChecked={false}
-                  />
+                  {isIndeterminate ? (
+                    <Box>
+                      <Checkbox
+                        onChange={handleToggleAllSelect}
+                        isChecked
+                        isIndeterminate
+                        defaultIsChecked={false}
+                      />
+                    </Box>
+                  ) : (
+                    <Checkbox
+                      onChange={handleToggleAllSelect}
+                      isChecked={isSelectedAll}
+                      defaultIsChecked={false}
+                    />
+                  )}
                 </Box>
               ) : (
                 <Checkbox
