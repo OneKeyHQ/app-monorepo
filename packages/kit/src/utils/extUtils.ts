@@ -2,6 +2,7 @@ import { isNil } from 'lodash';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { normalRouteWhiteList } from '../routes/linking';
 
 export { getExtensionIndexHtml } from './extUtils.getHtml';
@@ -102,7 +103,12 @@ async function openStandaloneWindow(routeInfo: OpenUrlRouteInfo) {
     /* eslint-disable */
     const lastFocused = await browser.windows.getLastFocused();
     // Position window in top right corner of lastFocused window.
-    if (lastFocused && lastFocused.top && lastFocused.left && lastFocused.width) {
+    if (
+      lastFocused &&
+      lastFocused.top &&
+      lastFocused.left &&
+      lastFocused.width
+    ) {
       top = lastFocused.top;
       left = lastFocused.left + (lastFocused.width - UI_HTML_DEFAULT_MIN_WIDTH);
     }
@@ -137,10 +143,27 @@ function updatBrowserActionIcon(enable: boolean) {
   }
 }
 
+function checkExtUIOpen() {
+  const currentExtOrigin = chrome.runtime.getURL('');
+  const { ports } = backgroundApiProxy.bridgeExtBg;
+  const onkeyUIPort = Object.values(ports).filter(
+    (port) => port.name === 'onekey@EXT_PORT_UI_TO_BG',
+  );
+  if (
+    onkeyUIPort.length > 0 &&
+    onkeyUIPort[0].sender?.origin &&
+    currentExtOrigin.includes(onkeyUIPort[0].sender?.origin)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export default {
   openUrl,
   openUrlInTab,
   openExpandTab,
   openStandaloneWindow,
   updatBrowserActionIcon,
+  checkExtUIOpen,
 };

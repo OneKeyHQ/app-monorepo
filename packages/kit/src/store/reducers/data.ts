@@ -17,7 +17,17 @@ export type DataInitialState = {
   tools: Tool[];
   translations?: Record<string, Record<string, string>>;
   isPasswordLoadedInVault?: boolean;
-  backgroudPasswordPrompt?: { promiseId: string; other: any };
+  backgroudPasswordPrompt?: {
+    promiseId: string;
+    props?: {
+      skipSavePassword?: boolean;
+      hideTitle?: boolean;
+      isAutoHeight?: boolean;
+      placeCenter?: boolean;
+      title?: string;
+      subTitle?: string;
+    };
+  };
 };
 
 const initialState: DataInitialState = {
@@ -83,7 +93,17 @@ export const dataSlice = createSlice({
     },
     setBackgroudPasswordPrompt(
       state,
-      action: PayloadAction<{ promiseId: string; other: any }>,
+      action: PayloadAction<{
+        promiseId: string;
+        props?: {
+          skipSavePassword?: boolean;
+          hideTitle?: boolean;
+          isAutoHeight?: boolean;
+          placeCenter?: boolean;
+          title?: string;
+          subTitle?: string;
+        };
+      }>,
     ) {
       state.backgroudPasswordPrompt = action.payload;
     },

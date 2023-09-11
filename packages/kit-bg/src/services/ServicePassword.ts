@@ -7,8 +7,9 @@ import {
   getBgSensitiveTextEncodeKey,
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/engine/src/types/wallet';
-import type { ValidationFields } from '@onekeyhq/kit/src/components/Protected';
+import { ValidationFields } from '@onekeyhq/kit/src/components/Protected';
 import { setBackgroudPasswordPrompt } from '@onekeyhq/kit/src/store/reducers/data';
+import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import {
@@ -21,6 +22,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import ServiceBase from './ServiceBase';
@@ -254,9 +256,21 @@ export default class ServicePassword extends ServiceBase {
     walletId,
     field,
     networkId,
+    skipSavePassword,
+    hideTitle,
+    isAutoHeight,
+    title,
+    subTitle,
+    placeCenter,
   }: {
     walletId: string | null;
     field?: ValidationFields;
+    skipSavePassword?: boolean;
+    hideTitle?: boolean;
+    isAutoHeight?: boolean;
+    placeCenter?: boolean;
+    title?: string;
+    subTitle?: string;
     networkId?: string;
   }): Promise<IPasswordRes> {
     // check multiple call
@@ -265,6 +279,11 @@ export default class ServicePassword extends ServiceBase {
       Promise.resolve(this.passwordPromise) === this.passwordPromise
     ) {
       return this.passwordPromise;
+    }
+
+    // check ext ui open
+    if (platformEnv.isExtension && !extUtils.checkExtUIOpen()) {
+      return Promise.resolve({ status: EPasswordResStatus.ERROR_STATUS });
     }
     // check hw external wallet
     const walletCheckRes = await this.checkWalletIsNeedInputPassWord(walletId);
@@ -285,11 +304,14 @@ export default class ServicePassword extends ServiceBase {
         isBoolean(lightningNetworkNeedPassword) &&
         !lightningNetworkNeedPassword
       ) {
-        return Promise.resolve({ status: EPasswordResStatus.PASS_STATUS });
+        return Promise.resolve({
+          status: EPasswordResStatus.PASS_STATUS,
+          data: { password: '' },
+        });
       }
     }
 
-    // check xmr
+    // check network validationRequired
     if (networkId) {
       const isPasswordLoadedInVault = appSelector(
         (s) => s.data.isPasswordLoadedInVault,
@@ -300,22 +322,44 @@ export default class ServicePassword extends ServiceBase {
       if (!network) {
         network = await engine.getNetwork(networkId);
       }
-      if (network?.settings.validationRequired && !isPasswordLoadedInVault) {
-        //  todo
-        console.log('todo');
+      if (!network?.settings.validationRequired || isPasswordLoadedInVault) {
+        return Promise.resolve({
+          status: EPasswordResStatus.PASS_STATUS,
+          data: { password: '' },
+        });
       }
     }
 
-    const cachePassword = await this.getPassword();
-    if (cachePassword) {
-      return Promise.resolve(cachePassword);
+    // check field & cachePassword
+    const validationSetting = appSelector((s) => s.settings.validationSetting);
+    const fieldValidationSetting = field ? !!validationSetting?.[field] : false;
+    const fieldTypeValidation = field && field === ValidationFields.Secret;
+    if (!fieldTypeValidation && !fieldValidationSetting) {
+      // can use cachePassword
+      const cachePassword = await this.getPassword();
+      if (cachePassword) {
+        return Promise.resolve({
+          status: EPasswordResStatus.PASS_STATUS,
+          data: { password: cachePassword },
+        });
+      }
     }
 
     this.passwordPromise = new Promise<IPasswordRes>((resolve) => {
       const promiseId = this.getRandomString();
       this.setPromiseMap(promiseId, { resolve });
       this.backgroundApi.dispatch(
-        setBackgroudPasswordPrompt({ promiseId, other: {} }),
+        setBackgroudPasswordPrompt({
+          promiseId,
+          props: {
+            skipSavePassword,
+            hideTitle,
+            isAutoHeight,
+            title,
+            subTitle,
+            placeCenter,
+          },
+        }),
       );
     });
 
