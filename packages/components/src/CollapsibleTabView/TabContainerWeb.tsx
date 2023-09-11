@@ -18,6 +18,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import Box from '../Box';
 import ScrollView from '../ScrollView';
 
+import { ActiveTabContext } from './ActiveTabContext';
+
 import type { CollapsibleContainerProps } from './types';
 
 type TabProps = {
@@ -223,11 +225,18 @@ const TabContainerWebView: ForwardRefRenderFunction<
     ],
   );
 
+  const contextValue = useMemo(
+    () => ({ activeTabName: routes[index]?.key ?? initialTabName }),
+    [routes, index, initialTabName],
+  );
+
   return (
-    <ScrollView style={[{ backgroundColor: bgColor }, containerStyle]}>
-      {headerView}
-      {tabViewContent}
-    </ScrollView>
+    <ActiveTabContext.Provider value={contextValue}>
+      <ScrollView style={[{ backgroundColor: bgColor }, containerStyle]}>
+        {headerView}
+        {tabViewContent}
+      </ScrollView>
+    </ActiveTabContext.Provider>
   );
 };
 
