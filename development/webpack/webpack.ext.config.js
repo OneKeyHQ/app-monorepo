@@ -1,7 +1,6 @@
 const { merge, mergeWithRules, CustomizeRule } = require('webpack-merge');
 const path = require('path');
 const webpack = require('webpack');
-const WebpackBar = require('webpackbar');
 
 const baseConfig = require('./webpack.base.config');
 const analyzerConfig = require('./webpack.analyzer.config');
@@ -48,7 +47,7 @@ module.exports = ({
         cacheGroups: {},
       },
     },
-    plugins: baseConfig.basePlugins({ platform }),
+    plugins: baseConfig.basePlugins,
     output: {
       clean: false,
       path: path.resolve(basePath, 'build', getOutputFolder()),

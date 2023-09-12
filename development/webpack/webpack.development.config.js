@@ -78,9 +78,4 @@ module.exports = ({ basePath }) => ({
     },
     cacheDirectory: path.join(basePath, 'node_modules/.cache/web'),
   },
-  experiments: {
-    lazyCompilation: {
-      imports: true,
-    },
-  },
 });
