@@ -96,7 +96,7 @@ function BRC20Amount() {
       };
 
     const amount = getValues('amount');
-    const brc20Text = createBRC20TransferText(amount, token?.name ?? '');
+    const brc20Text = createBRC20TransferText(amount, token?.symbol ?? '');
     if (brc20Text.length > 0) {
       try {
         contents = await serviceInscribe.createInscriptionContents({
@@ -126,7 +126,7 @@ function BRC20Amount() {
     navigation,
     networkId,
     serviceInscribe,
-    token?.name,
+    token?.symbol,
   ]);
   return (
     <Modal

@@ -451,7 +451,7 @@ function BTCAssetDetailContent({
           {!!asset.timestamp && (
             <DetailItem
               onPress={() => {
-                const isMainNet = network?.id === OnekeyNetwork.btc;
+                const isMainNet = networkId === OnekeyNetwork.btc;
                 const host = isMainNet
                   ? 'https://ordinals.com'
                   : 'https://tbtc-ordinals.onekey.so';
