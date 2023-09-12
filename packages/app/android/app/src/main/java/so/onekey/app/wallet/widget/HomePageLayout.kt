@@ -10,6 +10,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.appcompat.widget.LinearLayoutCompat
+import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.fragment.app.FragmentActivity
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -52,7 +53,7 @@ open class HomePageLayout @JvmOverloads constructor(
 
     private var mRefreshEnabled = true
     private var mAppBarExtended = true
-    private var mHeaderHeight = 56
+    private var mHeaderHeight = 0
 
     val eventDispatcher =
         (context as ReactContext).getNativeModule(UIManagerModule::class.java)?.eventDispatcher
@@ -94,8 +95,16 @@ open class HomePageLayout @JvmOverloads constructor(
         content.findViewById<ViewPager2>(R.id.viewpager)
     }
 
+    private val coordinatorLayout by lazy {
+        content.findViewById<CoordinatorLayout>(R.id.coordinator)
+    }
+
     private val toolbar by lazy {
         content.findViewById<CollapsingToolbarLayout>(R.id.toolbar)
+    }
+
+    private val slidingTabBar by lazy {
+        content.findViewById<LinearLayoutCompat>(R.id.content)
     }
 
     private val layoutRefresh by lazy {
@@ -111,9 +120,11 @@ open class HomePageLayout @JvmOverloads constructor(
     }
 
     fun setHeaderHeight(height: Int) {
+        if (height == mHeaderHeight) return
         mHeaderHeight = height
         toolbar.layoutParams.height = Utils.dp2px(context, height.toFloat())
         toolbar.requestLayout()
+        viewpager.requestLayout()
     }
 
     fun getHeaderView(): View? {
@@ -124,15 +135,12 @@ open class HomePageLayout @JvmOverloads constructor(
         toolbar?.removeAllViews()
     }
 
-    fun setHeaderView(view: View, height: Int) {
+    fun setHeaderView(view: View) {
         toolbar.removeAllViews()
 
         val params = CollapsingToolbarLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            MeasureSpec.makeMeasureSpec(
-                Utils.dp2px(view.context, height.toFloat()),
-                MeasureSpec.EXACTLY
-            )
+            ViewGroup.LayoutParams.WRAP_CONTENT
         )
         params.collapseMode = CollapsingToolbarLayout.LayoutParams.COLLAPSE_MODE_PIN
         toolbar.addView(view, params)
@@ -163,12 +171,10 @@ open class HomePageLayout @JvmOverloads constructor(
             }
 
             content.findViewById<AppBarLayout>(R.id.appbar)
-                ?.addOnOffsetChangedListener(object : AppBarLayout.OnOffsetChangedListener {
-                    override fun onOffsetChanged(appBarLayout: AppBarLayout?, verticalOffset: Int) {
-                        mAppBarExtended = verticalOffset >= 0
-                        it.isEnabled = mRefreshEnabled && mAppBarExtended
-                    }
-                })
+                ?.addOnOffsetChangedListener { _, verticalOffset ->
+                    mAppBarExtended = verticalOffset >= 0
+                    it.isEnabled = mRefreshEnabled && mAppBarExtended
+                }
         }
     }
 
@@ -222,7 +228,17 @@ open class HomePageLayout @JvmOverloads constructor(
     fun addChildView(child: View?, index: Int) {
         if (child == null) return
         if (index == 0) {
-            setHeaderView(child, this.mHeaderHeight)
+            val newView = PageHeaderView(context).also {
+                child.layoutParams =
+                    LayoutParams(LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                it.layoutParams = LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                )
+                it.addView(child, 0)
+            }
+
+            setHeaderView(newView)
         } else if (index <= mTabProps.size) {
             child.let {
                 getAdapter()?.addPageView(it, position = index - 1)

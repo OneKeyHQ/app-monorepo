@@ -2,6 +2,7 @@ package so.onekey.app.wallet.widget
 
 import android.content.Context
 import android.util.AttributeSet
+import android.util.Log
 import androidx.core.widget.NestedScrollView
 
 class PageNestedScrollView @JvmOverloads constructor(
@@ -24,14 +25,14 @@ class PageNestedScrollView @JvmOverloads constructor(
         val width: Int = when (widthMode) {
             MeasureSpec.EXACTLY -> widthSize
             MeasureSpec.AT_MOST -> widthSize
-            MeasureSpec.UNSPECIFIED -> context.resources.displayMetrics.widthPixels
+            MeasureSpec.UNSPECIFIED -> widthSize
             else -> widthSize
         }
 
         val height: Int = when (heightMode) {
             MeasureSpec.EXACTLY -> heightSize
             MeasureSpec.AT_MOST -> heightSize
-            MeasureSpec.UNSPECIFIED -> context.resources.displayMetrics.heightPixels
+            MeasureSpec.UNSPECIFIED -> widthSize
             else -> heightSize
         }
 

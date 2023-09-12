@@ -238,11 +238,6 @@ const WalletTabs: FC = () => {
         headerView={accountHeaderMemo}
         ref={ref}
         containerStyle={containerStyle}
-        headerHeight={
-          isVerticalLayout
-            ? FIXED_VERTICAL_HEADER_HEIGHT
-            : FIXED_HORIZONTAL_HEDER_HEIGHT
-        }
       >
         {tabContents}
       </Tabs.Container>

@@ -100,6 +100,7 @@ const TabContainerWebView: ForwardRefRenderFunction<
       setIndex(pageIndex);
     },
     setRefreshing: () => {},
+    setHeaderHeight: () => {},
   }));
 
   const shouldStickyTabbarWeb = useMemo(
