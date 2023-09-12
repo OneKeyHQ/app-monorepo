@@ -3,12 +3,12 @@ const fs = require('fs');
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpackManifestPlugin = require('webpack-manifest-plugin');
-const WebpackBar = require('webpackbar');
+const ProgressBarPlugin = require('progress-bar-webpack-plugin');
 const { createtResolveExtensions } = require('./utils');
 const { isDev, PUBLIC_URL, NODE_ENV } = require('./constant');
 
-const basePlugins = ({ platform }) => [
-  new WebpackBar(),
+const basePlugins = [
+  new ProgressBarPlugin(),
   new webpack.DefinePlugin({
     __DEV__: isDev,
     process: {
@@ -118,7 +118,7 @@ module.exports = ({ platform, basePath, configName }) => ({
         };
       },
     }),
-    ...basePlugins({ platform }),
+    ...basePlugins,
   ],
   module: {
     strictExportPresence: false,
