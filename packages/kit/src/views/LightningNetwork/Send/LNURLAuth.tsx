@@ -18,6 +18,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { LNURLAuthServiceResponse } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/lnurl';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -234,12 +235,12 @@ const LNURLAuth = () => {
                 info ?? {},
               ),
             },
-            { type: 'error' },
+            { type: ToastManagerType.error },
           );
         } else {
           ToastManager.show(
             { title: (e as Error)?.message || e },
-            { type: 'error' },
+            { type: ToastManagerType.error },
           );
         }
         closeModal();

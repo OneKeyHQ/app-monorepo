@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -197,7 +198,7 @@ function useAddExistingWallet({
           {
             title: intl.formatMessage({ id: 'msg__unknown_error' }),
           },
-          { type: 'error' },
+          { type: ToastManagerType.error },
         );
         return;
       }
@@ -245,7 +246,7 @@ function useAddExistingWallet({
                 ? intl.formatMessage({ id: errorKey })
                 : (e as Error)?.message,
             },
-            { type: 'error' },
+            { type: ToastManagerType.error },
           );
         }
       } else {

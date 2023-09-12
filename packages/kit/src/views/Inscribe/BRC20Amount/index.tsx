@@ -13,6 +13,7 @@ import {
   ToastManager,
   useForm,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { IInscriptionContent } from '@onekeyhq/engine/src/vaults/impl/btc/inscribe/types';
 import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Inscribe';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
@@ -79,7 +80,7 @@ function BRC20Amount() {
             id: 'msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address',
           }),
         },
-        { type: 'error' },
+        { type: ToastManagerType.error },
       );
       return;
     }
@@ -110,7 +111,7 @@ function BRC20Amount() {
             {
               title: intl.formatMessage({ id: errorKey }, info),
             },
-            { type: 'error' },
+            { type: ToastManagerType.error },
           );
         }
       }

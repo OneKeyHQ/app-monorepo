@@ -12,6 +12,7 @@ import {
   Textarea,
   ToastManager,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { IInscriptionContent } from '@onekeyhq/engine/src/vaults/impl/btc/inscribe/types';
 import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Inscribe';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
@@ -92,7 +93,7 @@ const CreateContent: FC = () => {
               {
                 title: intl.formatMessage({ id: errorKey }, info),
               },
-              { type: 'error' },
+              { type: ToastManagerType.error },
             );
           }
         }

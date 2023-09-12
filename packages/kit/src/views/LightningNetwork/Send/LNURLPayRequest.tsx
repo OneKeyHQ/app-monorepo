@@ -14,6 +14,7 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { isLightningAddress } from '@onekeyhq/engine/src/vaults/impl/lightning-network/helper/lnurl';
 import type { IEncodedTxLightning } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types';
 import type {
@@ -161,13 +162,13 @@ const LNURLPayRequest = () => {
                 info ?? {},
               ),
             },
-            { type: 'error' },
+            { type: ToastManagerType.error },
           );
           return false;
         }
         ToastManager.show(
           { title: (e as Error)?.message || e },
-          { type: 'error' },
+          { type: ToastManagerType.error },
         );
         dappApprove.reject();
         return;
@@ -250,11 +251,14 @@ const LNURLPayRequest = () => {
             {
               title: message,
             },
-            { type: 'error' },
+            { type: ToastManagerType.error },
           );
         } else {
           message = (e as Error)?.message;
-          ToastManager.show({ title: message || e }, { type: 'error' });
+          ToastManager.show(
+            { title: message || e },
+            { type: ToastManagerType.error },
+          );
         }
         if (!isSendFlow) {
           // display error message for 1.5s

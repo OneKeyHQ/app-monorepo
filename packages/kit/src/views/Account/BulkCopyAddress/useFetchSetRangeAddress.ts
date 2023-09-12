@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ToastManager } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { ImportableHDAccount } from '@onekeyhq/engine/src/types/account';
 import { INDEX_PLACEHOLDER } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -240,7 +241,7 @@ export function useFetchSetRangeAddress({
               {
                 id: 'msg__cancelled_during_the_process',
               },
-              { type: 'error' },
+              { type: ToastManagerType.error },
             ),
           });
         }

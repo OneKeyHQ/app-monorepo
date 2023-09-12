@@ -7,6 +7,7 @@ import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
 
 import { Modal, ToastManager } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/HardwareUpdate';
@@ -374,7 +375,7 @@ const UpdatingModal: FC = () => {
           {
             title: intl.formatMessage({ id: key }),
           },
-          { type: 'error' },
+          { type: ToastManagerType.error },
         );
         break;
     }

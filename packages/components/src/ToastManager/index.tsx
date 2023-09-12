@@ -14,9 +14,20 @@ import type { ToastShowParams } from 'react-native-toast-message';
         },
  )
  */
+
+export enum ToastManagerType {
+  default = 'default',
+  success = 'success',
+  error = 'error',
+}
+
+interface ToastManagerShowParams extends ToastShowParams {
+  type?: ToastManagerType;
+}
+
 const toastShow = (
   props: Record<string | 'title', any>,
-  toastShowParams?: ToastShowParams,
+  toastShowParams?: ToastManagerShowParams,
 ) => {
   /**
    * Show Toast at next process, avoid toast in modal dismiss issue.

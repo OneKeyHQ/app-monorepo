@@ -12,6 +12,7 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   isLightningNetworkByImpl,
@@ -108,7 +109,7 @@ const AccountOption: FC<AccountOptionProps> = memo(
               {
                 title: intl.formatMessage({ id: 'msg__wrong_network_desc' }),
               },
-              { type: 'default' },
+              { type: ToastManagerType.default },
             );
             token = await backgroundApiProxy.engine.getNativeTokenInfo(
               OnekeyNetwork.eth,

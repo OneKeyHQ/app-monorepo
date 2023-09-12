@@ -16,6 +16,7 @@ import {
   ToastManager,
   Typography,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -181,7 +182,10 @@ export default function UnstakeAmount() {
                   signHash,
                 });
                 if (res.code !== 0 && res.message) {
-                  ToastManager.show({ title: res.message }, { type: 'error' });
+                  ToastManager.show(
+                    { title: res.message },
+                    { type: ToastManagerType.error },
+                  );
                 } else {
                   setAmount('');
                   backgroundApiProxy.serviceStaking.fetchMinerOverview({

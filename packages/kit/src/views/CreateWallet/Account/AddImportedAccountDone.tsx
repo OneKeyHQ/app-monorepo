@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import { Center, Modal, Spinner, ToastManager } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected, {
@@ -74,7 +75,7 @@ const Done: FC<DoneProps> = ({
           {
             title: intl.formatMessage({ id: errorKey }),
           },
-          { type: 'error' },
+          { type: ToastManagerType.error },
         );
         onFailure?.();
       }

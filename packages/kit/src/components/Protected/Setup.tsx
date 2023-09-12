@@ -12,6 +12,7 @@ import {
   Typography,
   useForm,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { encodeSensitiveText } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -69,7 +70,7 @@ const Setup: FC<SetupProps> = ({
               id: 'msg__password_needs_to_be_the_same',
             }),
           },
-          { type: 'error' },
+          { type: ToastManagerType.error },
         );
         return;
       }
