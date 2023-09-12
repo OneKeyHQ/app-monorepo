@@ -5,7 +5,6 @@ import type { UserInputCheckResult } from '@onekeyhq/engine/src/types/credential
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
 import { WalletConnectQrcodeModal } from '../../../components/WalletConnect/WalletConnectQrcodeModal';
-import AddImportedAccountDone from '../../../views/CreateWallet/Account/AddImportedAccountDone';
 import AddImportedOrWatchingAccount from '../../../views/CreateWallet/Account/AddImportedOrWatchingAccount';
 import AddExistingWallet from '../../../views/CreateWallet/AddExistingWallet';
 import AttentionsView from '../../../views/CreateWallet/AppWallet/AttentionsView';
@@ -103,7 +102,6 @@ export type CreateWalletRoutesParams = {
   [CreateWalletModalRoutes.CreateWatchedAccount]: undefined;
   [CreateWalletModalRoutes.AddExistingWalletModal]: IAddExistingWalletModalParams;
   [CreateWalletModalRoutes.AddImportedOrWatchingAccountModal]: IAddImportedOrWatchingAccountModalParams;
-  [CreateWalletModalRoutes.AddImportedAccountDoneModal]: IAddImportedAccountDoneModalParams;
 
   // Onekey Lite Backup & Restore
   [CreateWalletModalRoutes.OnekeyLiteRestorePinCodeVerifyModal]: OnekeyLiteRoutesParams[OnekeyLiteModalRoutes.OnekeyLiteRestorePinCodeVerifyModal];
@@ -190,10 +188,6 @@ const modalRoutes = [
   {
     name: CreateWalletModalRoutes.AddImportedOrWatchingAccountModal,
     component: AddImportedOrWatchingAccount,
-  },
-  {
-    name: CreateWalletModalRoutes.AddImportedAccountDoneModal,
-    component: AddImportedAccountDone,
   },
   {
     name: CreateWalletModalRoutes.AttentionsModal,

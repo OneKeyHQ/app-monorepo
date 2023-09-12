@@ -11,8 +11,4 @@ export type WeblnRoutesParams = {
   [WeblnModalRoutes.VerifyMessage]: {
     sourceInfo: IDappSourceInfo;
   };
-  [WeblnModalRoutes.WeblnAuthentication]: {
-    onDone: (password: string) => void;
-    walletId: string;
-  };
 };

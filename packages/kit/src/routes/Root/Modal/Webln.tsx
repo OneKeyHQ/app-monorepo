@@ -1,6 +1,5 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
-import WeblnAuthenticationModal from '../../../views/Account/AddNewAccount/Authentication';
 import { WeblnModalRoutes } from '../../../views/LightningNetwork/Webln/types';
 import MakeInvoice from '../../../views/LightningNetwork/Webln/WeblnMakeInvoice';
 import VerifyMessage from '../../../views/LightningNetwork/Webln/WeblnVerifyMessage';
@@ -19,10 +18,6 @@ const modalRoutes = [
   {
     name: WeblnModalRoutes.VerifyMessage,
     component: VerifyMessage,
-  },
-  {
-    name: WeblnModalRoutes.WeblnAuthentication,
-    component: WeblnAuthenticationModal,
   },
 ];
 

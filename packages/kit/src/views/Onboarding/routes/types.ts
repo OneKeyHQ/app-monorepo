@@ -52,7 +52,6 @@ export type IOnboardingRoutesParams = {
     presetText?: string;
   };
 
-  [EOnboardingRoutes.SetPassword]: IOnboardingSetPasswordParams | undefined;
   [EOnboardingRoutes.RecoveryPhrase]: IOnboardingRecoveryPhraseParams;
   [EOnboardingRoutes.ShowRecoveryPhrase]: IOnboardingRecoveryPhraseParams;
   [EOnboardingRoutes.BehindTheScene]: IOnboardingBehindTheSceneParams;

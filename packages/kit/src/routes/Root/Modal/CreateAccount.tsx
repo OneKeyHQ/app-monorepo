@@ -5,7 +5,6 @@ import type {
 } from '@onekeyhq/engine/src/types/account';
 
 import AddNewAccountModal from '../../../views/Account/AddNewAccount';
-import CreateAccountAuthenticationModal from '../../../views/Account/AddNewAccount/Authentication';
 import BitcoinUsedAddress from '../../../views/Account/AddNewAccount/BitcoinUsedAddress';
 import RecoverAccounts from '../../../views/Account/AddNewAccount/RecoverAccounts';
 import RecoverAccountsAdvanced from '../../../views/Account/AddNewAccount/RecoverAccountsAdvanced';
@@ -36,10 +35,6 @@ export type CreateAccountRoutesParams = {
     walletId: string;
     selectedNetworkId?: string;
   };
-  [CreateAccountModalRoutes.CreateAccountAuthentication]: {
-    onDone: (password: string) => void;
-    walletId: string;
-  };
   [CreateAccountModalRoutes.RecoverySelectChainList]: {
     walletId: string;
   };
@@ -64,10 +59,6 @@ export type CreateAccountRoutesParams = {
     template: string;
     existingAccounts: Account[];
     config: RecoverAccountsAdvancedParams;
-  };
-  [CreateAccountModalRoutes.RecoverAccountsConfirmAuthentication]: {
-    walletId: string;
-    onDone: (password: string) => void;
   };
   [CreateAccountModalRoutes.BulkCopyAddresses]: {
     networkId: string;
@@ -104,10 +95,6 @@ const modalRoutes = [
     component: AddNewAccountModal,
   },
   {
-    name: CreateAccountModalRoutes.CreateAccountAuthentication,
-    component: CreateAccountAuthenticationModal,
-  },
-  {
     name: CreateAccountModalRoutes.RecoverAccountsList,
     component: RecoverAccounts,
   },
@@ -118,10 +105,6 @@ const modalRoutes = [
   {
     name: CreateAccountModalRoutes.RecoverAccountsConfirm,
     component: RecoverConfirm,
-  },
-  {
-    name: CreateAccountModalRoutes.RecoverAccountsConfirmAuthentication,
-    component: CreateAccountAuthenticationModal,
   },
   {
     name: CreateAccountModalRoutes.RecoverySelectChainList,

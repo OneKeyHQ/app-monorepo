@@ -4,6 +4,7 @@ import type { Tool } from '@onekeyhq/engine/src/types/token';
 import { stopTrace } from '@onekeyhq/shared/src/perf/perfTrace';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import type { ProtectedBaseProps } from '../../components/Protected';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
 export type DataInitialState = {
@@ -19,14 +20,7 @@ export type DataInitialState = {
   isPasswordLoadedInVault?: boolean;
   backgroudPasswordPrompt?: {
     promiseId: string;
-    props?: {
-      skipSavePassword?: boolean;
-      hideTitle?: boolean;
-      isAutoHeight?: boolean;
-      placeCenter?: boolean;
-      title?: string;
-      subTitle?: string;
-    };
+    props?: ProtectedBaseProps;
   };
 };
 
@@ -91,18 +85,11 @@ export const dataSlice = createSlice({
     clearTranslations(state) {
       state.translations = undefined;
     },
-    setBackgroudPasswordPrompt(
+    setBackgroundPasswordPrompt(
       state,
       action: PayloadAction<{
         promiseId: string;
-        props?: {
-          skipSavePassword?: boolean;
-          hideTitle?: boolean;
-          isAutoHeight?: boolean;
-          placeCenter?: boolean;
-          title?: string;
-          subTitle?: string;
-        };
+        props?: ProtectedBaseProps;
       }>,
     ) {
       state.backgroudPasswordPrompt = action.payload;
@@ -122,7 +109,7 @@ export const {
   setTools,
   clearTranslations,
   setIsPasswordLoadedInVault,
-  setBackgroudPasswordPrompt,
+  setBackgroundPasswordPrompt,
 } = dataSlice.actions;
 
 export default dataSlice.reducer;

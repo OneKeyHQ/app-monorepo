@@ -27,6 +27,7 @@ import { CreateAccountModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
+import { useAuthentication } from '../../../hooks/useProtectedVerify';
 import { deviceUtils } from '../../../utils/hardware';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -248,12 +249,13 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [getValues, selectedWalletId, purpose, dispatch, intl, networks, template],
   );
-
+  const authentication = useAuthentication();
   const onSubmit = handleSubmit(() => {
-    navigation.navigate(CreateAccountModalRoutes.CreateAccountAuthentication, {
-      walletId: selectedWalletId,
-      onDone: authenticationDone,
-    });
+    authentication(selectedNetworkId ?? '', authenticationDone);
+    // navigation.navigate(CreateAccountModalRoutes.CreateAccountAuthentication, {
+    //   walletId: selectedWalletId,
+    //   onDone: authenticationDone,
+    // });
   });
 
   return (
@@ -332,25 +334,38 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
               </Text>
               <Pressable
                 onPress={() => {
-                  navigation.navigate(
-                    CreateAccountModalRoutes.CreateAccountAuthentication,
-                    {
-                      walletId: selectedWalletId,
-                      onDone: (password) => {
-                        const network = getValues('network');
-                        navigation.replace(
-                          CreateAccountModalRoutes.RecoverAccountsList,
-                          {
-                            walletId: selectedWalletId,
-                            network,
-                            password,
-                            purpose,
-                            template,
-                          },
-                        );
+                  authentication(selectedWalletId, (password) => {
+                    const network = getValues('network');
+                    navigation.navigate(
+                      CreateAccountModalRoutes.RecoverAccountsList,
+                      {
+                        walletId: selectedWalletId,
+                        network,
+                        password,
+                        purpose,
+                        template,
                       },
-                    },
-                  );
+                    );
+                  });
+                  // navigation.navigate(
+                  //   CreateAccountModalRoutes.CreateAccountAuthentication,
+                  //   {
+                  //     walletId: selectedWalletId,
+                  //     onDone: (password) => {
+                  //       const network = getValues('network');
+                  //       navigation.replace(
+                  //         CreateAccountModalRoutes.RecoverAccountsList,
+                  //         {
+                  //           walletId: selectedWalletId,
+                  //           network,
+                  //           password,
+                  //           purpose,
+                  //           template,
+                  //         },
+                  //       );
+                  //     },
+                  //   },
+                  // );
                 }}
               >
                 <Text

@@ -8,7 +8,7 @@ import {
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/engine/src/types/wallet';
 import { ValidationFields } from '@onekeyhq/kit/src/components/Protected';
-import { setBackgroudPasswordPrompt } from '@onekeyhq/kit/src/store/reducers/data';
+import { setBackgroundPasswordPrompt } from '@onekeyhq/kit/src/store/reducers/data';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
@@ -17,6 +17,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import {
   AppEventBusNames,
   appEventBus,
@@ -36,22 +37,13 @@ interface IPasswordResData {
   password: string;
   options?: IPasswordOptions;
 }
-
-interface IPasswordResError {
-  errorDetail?: string;
-  errorDetailFormatMessageId?: string;
-  errorDetailFormatMessageValues?: Record<string, any>;
-}
-
 export enum EPasswordResStatus {
   CLOSE_STATUS = 'close',
-  ERROR_STATUS = 'error',
   PASS_STATUS = 'pass',
 }
 export interface IPasswordRes {
   status: EPasswordResStatus;
-  data?: IPasswordResData;
-  error?: IPasswordResError;
+  data: IPasswordResData;
 }
 
 @backgroundClass()
@@ -206,19 +198,19 @@ export default class ServicePassword extends ServiceBase {
     const isHardware = walletDetail?.type === 'hw';
     const isExternalWallet = walletDetail?.type === WALLET_TYPE_EXTERNAL;
     if (isExternalWallet) {
-      return Promise.resolve({ status: EPasswordResStatus.CLOSE_STATUS });
+      return Promise.resolve({
+        status: EPasswordResStatus.CLOSE_STATUS,
+        data: { password: '' },
+      });
     }
     if (isHardware) {
       const currentWalletDevice = await engine.getHWDeviceByWalletId(
         walletDetail.id,
       );
       if (!currentWalletDevice || !walletDetail?.id) {
-        return Promise.resolve({
-          status: EPasswordResStatus.ERROR_STATUS,
-          error: {
-            errorDetailMessageId: 'action__connection_timeout',
-          },
-        });
+        return Promise.reject(
+          new OneKeyInternalError({ key: 'action__connection_timeout' }),
+        );
       }
       let features: IOneKeyDeviceFeatures | null = null;
       try {
@@ -233,15 +225,15 @@ export default class ServicePassword extends ServiceBase {
         }
       } catch (e: any) {
         deviceUtils.showErrorToast(e);
-        return Promise.resolve({ status: EPasswordResStatus.CLOSE_STATUS });
+        return Promise.resolve({
+          status: EPasswordResStatus.CLOSE_STATUS,
+          data: { password: '' },
+        });
       }
       if (!features) {
-        return Promise.resolve({
-          status: EPasswordResStatus.ERROR_STATUS,
-          error: {
-            errorDetailMessageId: 'modal__device_status_check',
-          },
-        });
+        return Promise.reject(
+          new OneKeyInternalError({ key: 'modal__device_status_check' }),
+        );
       }
       return Promise.resolve({
         status: EPasswordResStatus.PASS_STATUS,
@@ -280,18 +272,31 @@ export default class ServicePassword extends ServiceBase {
     ) {
       return this.passwordPromise;
     }
+    const { serviceLightningNetwork, appSelector, serviceApp, engine } =
+      this.backgroundApi;
+
+    setTimeout(() => {
+      serviceApp.checkUpdateStatus();
+    }, 1000);
 
     // check ext ui open
     if (platformEnv.isExtension && !extUtils.checkExtUIOpen()) {
-      return Promise.resolve({ status: EPasswordResStatus.ERROR_STATUS });
+      return Promise.reject(
+        new OneKeyInternalError({ key: 'msg__engine__internal_error' }),
+      );
     }
     // check hw external wallet
-    const walletCheckRes = await this.checkWalletIsNeedInputPassWord(walletId);
-    if (walletCheckRes) {
-      return Promise.resolve(walletCheckRes);
+    try {
+      const walletCheckRes = await this.checkWalletIsNeedInputPassWord(
+        walletId,
+      );
+      if (walletCheckRes) {
+        return await Promise.resolve(walletCheckRes);
+      }
+    } catch (e) {
+      return Promise.reject(e);
     }
 
-    const { serviceLightningNetwork, appSelector, engine } = this.backgroundApi;
     // lightningNetwork check
     const accountId = appSelector((s) => s.general.activeAccountId) ?? '';
     if (networkId && isLightningNetworkByNetworkId(networkId)) {
@@ -349,7 +354,7 @@ export default class ServicePassword extends ServiceBase {
       const promiseId = this.getRandomString();
       this.setPromiseMap(promiseId, { resolve });
       this.backgroundApi.dispatch(
-        setBackgroudPasswordPrompt({
+        setBackgroundPasswordPrompt({
           promiseId,
           props: {
             skipSavePassword,

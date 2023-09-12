@@ -214,12 +214,10 @@ export enum ReceiveTokenModalRoutes {
 
 export enum CreateAccountModalRoutes {
   CreateAccountForm = 'CreateAccountForm',
-  CreateAccountAuthentication = 'CreateAccountAuthentication',
   RecoverySelectChainList = 'RecoverySelectChainList',
   RecoverAccountsList = 'RecoverAccountList',
   RecoverAccountsAdvanced = 'RecoverAccountsAdvanced',
   RecoverAccountsConfirm = 'RecoverAccountsConfirm',
-  RecoverAccountsConfirmAuthentication = 'RecoverAccountsConfirmAuthentication',
   BulkCopyAddresses = 'BulkCopyAddresses',
   FetchAddressModal = 'FetchAddressModal',
   ExportAddresses = 'ExportAddresses',
@@ -273,7 +271,6 @@ export enum CreateWalletModalRoutes {
 
   AddExistingWalletModal = 'AddExistingWalletModal',
   AddImportedOrWatchingAccountModal = 'AddImportedOrWatchingAccountModal',
-  AddImportedAccountDoneModal = 'AddImportedAccountDoneModal',
   AttentionsModal = 'AttentionsModal',
   MnemonicModal = 'MnemonicModal',
   NewWalletModal = 'NewWalletModal',
@@ -398,7 +395,6 @@ export enum InscribeModalRoutes {
 export enum WeblnModalRoutes {
   MakeInvoice = 'MakeInvoice',
   VerifyMessage = 'VerifyMessage',
-  WeblnAuthentication = 'WeblnAuthentication',
 }
 export enum InscriptionControlModalRoutes {
   InscriptionControlModal = 'InscriptionControlModal',

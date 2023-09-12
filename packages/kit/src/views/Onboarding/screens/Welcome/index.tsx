@@ -18,6 +18,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useNavigationActions } from '../../../../hooks';
+import { useSetPassword } from '../../../../hooks/useProtectedVerify';
 import {
   CreateWalletModalRoutes,
   ModalRoutes,
@@ -94,14 +95,16 @@ const Welcome = () => {
 
   const intl = useIntl();
   const isSmallHeight = useUserDevice().screenHeight <= 667;
+  const setPassword = useSetPassword();
   // const goBack = useNavigationBack();
   // const insets = useSafeAreaInsets();
 
-  const onPressCreateWallet = useCallback(() => {
+  const onPressCreateWallet = useCallback(async () => {
     resetLayoutAnimation();
     backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
-    navigation.navigate(EOnboardingRoutes.SetPassword);
-  }, [navigation, resetLayoutAnimation]);
+    await setPassword();
+    // navigation.navigate(EOnboardingRoutes.SetPassword);
+  }, [resetLayoutAnimation, setPassword]);
   const onPressImportWallet = useCallback(() => {
     resetLayoutAnimation();
     backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));

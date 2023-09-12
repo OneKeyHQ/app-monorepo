@@ -19,6 +19,8 @@ import type { CreateAccountRoutesParams } from '@onekeyhq/kit/src/routes';
 import { CreateAccountModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
+import { useAuthentication } from '../../../hooks/useProtectedVerify';
+
 import type { RouteProp } from '@react-navigation/native';
 import type { ListRenderItem } from 'react-native';
 
@@ -73,28 +75,39 @@ const RecoverSelectChainModal: FC = () => {
     const { template } = network.accountNameInfo.default;
     return template;
   }
-
+  const authentication = useAuthentication();
   const onSelectChain = useCallback(
     (network: Network) => {
-      navigation.navigate(
-        CreateAccountModalRoutes.CreateAccountAuthentication,
-        {
+      authentication(selectedWalletId, (password) => {
+        const purpose = getPurpose(network);
+        const template = getTemplate(network);
+        navigation.navigate(CreateAccountModalRoutes.RecoverAccountsList, {
+          purpose,
           walletId: selectedWalletId,
-          onDone: (password) => {
-            const purpose = getPurpose(network);
-            const template = getTemplate(network);
-            navigation.replace(CreateAccountModalRoutes.RecoverAccountsList, {
-              purpose,
-              walletId: selectedWalletId,
-              network: network.id,
-              password,
-              template,
-            });
-          },
-        },
-      );
+          network: network.id,
+          password,
+          template,
+        });
+      });
+      // navigation.navigate(
+      //   CreateAccountModalRoutes.CreateAccountAuthentication,
+      //   {
+      //     walletId: selectedWalletId,
+      //     onDone: (password) => {
+      //       const purpose = getPurpose(network);
+      //       const template = getTemplate(network);
+      //       navigation.replace(CreateAccountModalRoutes.RecoverAccountsList, {
+      //         purpose,
+      //         walletId: selectedWalletId,
+      //         network: network.id,
+      //         password,
+      //         template,
+      //       });
+      //     },
+      //   },
+      // );
     },
-    [navigation, selectedWalletId],
+    [authentication, navigation, selectedWalletId],
   );
 
   const renderItem: ListRenderItem<Network> = useCallback(

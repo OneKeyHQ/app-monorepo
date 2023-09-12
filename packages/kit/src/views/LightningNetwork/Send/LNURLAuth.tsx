@@ -24,12 +24,12 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useAccount, useNavigation } from '../../../hooks';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappParams from '../../../hooks/useDappParams';
-import { SendModalRoutes } from '../../../routes/routesEnum';
+import { useAuthentication } from '../../../hooks/useProtectedVerify';
 import { LNModalDescription } from '../components/LNModalDescription';
 
 import type { SendRoutesParams } from '../../../routes';
+import type { SendModalRoutes } from '../../../routes/routesEnum';
 import type { ModalScreenProps } from '../../../routes/types';
-import type { LnUrlAuthenticationParams } from '../../Send/types';
 import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<SendRoutesParams>;
@@ -260,14 +260,14 @@ const LNURLAuth = () => {
       isSendFlow,
     ],
   );
-
+  const authentication = useAuthentication();
   const onConfirmWithAuth = useCallback(
-    () =>
-      navigation.navigate(SendModalRoutes.LNURLAuthentication, {
-        walletId,
-        onDone,
-      } as LnUrlAuthenticationParams),
-    [walletId, navigation, onDone],
+    () => authentication(walletId ?? '', onDone),
+    // navigation.navigate(SendModalRoutes.LNURLAuthentication, {
+    //   walletId,
+    //   onDone,
+    // } as LnUrlAuthenticationParams),
+    [authentication, walletId, onDone],
   );
 
   return (

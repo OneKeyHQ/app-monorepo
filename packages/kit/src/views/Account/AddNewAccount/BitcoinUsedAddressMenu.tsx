@@ -12,11 +12,7 @@ import type {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import { useNavigation } from '../../../hooks';
-import {
-  CreateAccountModalRoutes,
-  ModalRoutes,
-  RootRoutes,
-} from '../../../routes/routesEnum';
+import { useAuthentication } from '../../../hooks/useProtectedVerify';
 
 import showFindAddressByPathBottomSheetModal from './FindAddressByPathBottomSheetModal';
 import { useCreateBtcCustomAccount } from './useCreateBtcCustomAccount';
@@ -50,40 +46,51 @@ const BitcoinUsedAddressMenu: FC<
     walletId,
     networkId,
   });
-
+  const authentication = useAuthentication();
   const onPressFindAddressByPath = useCallback(() => {
     showFindAddressByPathBottomSheetModal({
       walletId,
       networkId,
       accountId,
       onConfirm: ({ data }) => {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.CreateAccount,
-          params: {
-            screen: CreateAccountModalRoutes.CreateAccountAuthentication,
-            params: {
-              walletId,
-              onDone: (password) =>
-                onCreateAccountByAddressIndex({
-                  password,
-                  ...data,
-                  onAddedCustomAddressCallback: () => {
-                    onAddedCustomAddressCallback();
-                    navigation.goBack();
-                  },
-                }),
+        authentication(walletId, (password) =>
+          onCreateAccountByAddressIndex({
+            password,
+            ...data,
+            onAddedCustomAddressCallback: () => {
+              onAddedCustomAddressCallback();
+              navigation.goBack();
             },
-          },
-        });
+          }),
+        );
+        // navigation.navigate(RootRoutes.Modal, {
+        //   screen: ModalRoutes.CreateAccount,
+        //   params: {
+        //     screen: CreateAccountModalRoutes.CreateAccountAuthentication,
+        //     params: {
+        //       walletId,
+        //       onDone: (password) =>
+        //         onCreateAccountByAddressIndex({
+        //           password,
+        //           ...data,
+        //           onAddedCustomAddressCallback: () => {
+        //             onAddedCustomAddressCallback();
+        //             navigation.goBack();
+        //           },
+        //         }),
+        //     },
+        //   },
+        // });
       },
     });
   }, [
     walletId,
     networkId,
     accountId,
-    navigation,
-    onAddedCustomAddressCallback,
+    authentication,
     onCreateAccountByAddressIndex,
+    onAddedCustomAddressCallback,
+    navigation,
   ]);
 
   const showPathCheckBox = useMemo(

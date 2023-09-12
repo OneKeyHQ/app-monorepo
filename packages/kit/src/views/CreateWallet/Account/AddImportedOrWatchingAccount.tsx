@@ -10,8 +10,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
 import { useGeneral, useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/CreateWallet';
-import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import type { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+
+import { useImportedAccountDone } from '../../../hooks/useProtectedVerify';
 
 import type { RouteProp } from '@react-navigation/native';
 
@@ -39,6 +41,7 @@ const AddImportedOrWatchingAccount = () => {
 
   const navigation = useNavigation<NavigationProps['navigation']>();
 
+  const importedAccountAuth = useImportedAccountDone();
   const { control, handleSubmit, getValues, watch } =
     useForm<AddImportedOrWatchingAccountValues>();
   const {
@@ -146,17 +149,24 @@ const AddImportedOrWatchingAccount = () => {
       const template = values.template || defaultDerivationValue || undefined;
 
       if (importType === UserInputCategory.IMPORTED) {
-        navigation.navigate(
-          CreateWalletModalRoutes.AddImportedAccountDoneModal,
-          {
-            privatekey: text,
-            networkId: values.networkId,
-            name,
-            template,
-            onSuccess,
-            onFailure,
-          },
-        );
+        // navigation.navigate(
+        //   CreateWalletModalRoutes.AddImportedAccountDoneModal,
+        //   {
+        //     privatekey: text,
+        //     networkId: values.networkId,
+        //     name,
+        //     template,
+        //     onSuccess,
+        //     onFailure,
+        //   },
+        // );
+        await importedAccountAuth({
+          privatekey: text,
+          networkId: values.networkId,
+          name,
+          template,
+          onSuccess,
+        });
       } else if (importType === UserInputCategory.WATCHING) {
         try {
           const accountAdded =
@@ -179,15 +189,15 @@ const AddImportedOrWatchingAccount = () => {
       }
     },
     [
-      defaultName,
       possibleAddTypes,
+      defaultName,
       defaultAccountNames,
-      navigation,
+      defaultDerivationValue,
+      importedAccountAuth,
       text,
       onSuccess,
-      onFailure,
-      defaultDerivationValue,
       intl,
+      onFailure,
     ],
   );
   return (

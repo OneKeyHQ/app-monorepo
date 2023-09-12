@@ -17,8 +17,10 @@ import type {
   SelectItem,
 } from '@onekeyhq/components/src/Select';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/engine/src/types/wallet';
+import { EPasswordResStatus } from '@onekeyhq/kit-bg/src/services/ServicePassword';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigationActions } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
@@ -28,6 +30,7 @@ import {
 } from '../../../routes/routesEnum';
 import { EOnboardingRoutes } from '../../../views/Onboarding/routes/enums';
 import { useCreateAccountInWallet } from '../../NetworkAccountSelector/hooks/useCreateAccountInWallet';
+import { ValidationFields } from '../../Protected';
 
 import type { EWalletDataSectionType } from '../hooks/useWalletSelectorSectionData';
 
@@ -119,7 +122,7 @@ export function WalletCreateSelectDropdown({
 
   return (
     <Select
-      onChange={(v) => {
+      onChange={async (v) => {
         if (isVerticalLayout && platformEnv.isNative) {
           closeWalletSelector();
         } else {
@@ -128,12 +131,34 @@ export function WalletCreateSelectDropdown({
           }, 300);
         }
         if (v === 'create') {
-          navigation.navigate(RootRoutes.Onboarding, {
-            screen: EOnboardingRoutes.SetPassword,
-            params: {
-              disableAnimation: true,
-            },
-          });
+          // navigation.navigate(RootRoutes.Onboarding, {
+          //   screen: EOnboardingRoutes.SetPassword,
+          //   params: {
+          //     disableAnimation: true,
+          //   },
+          // });
+          const { status, data } =
+            await backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
+              {
+                walletId: null,
+                field: ValidationFields.Wallet,
+                skipSavePassword: true,
+                hideTitle: true,
+                isAutoHeight: true,
+              },
+            );
+          if (status === EPasswordResStatus.PASS_STATUS) {
+            const mnemonic = await backgroundApiProxy.engine.generateMnemonic();
+            navigation.navigate(RootRoutes.Onboarding, {
+              screen: EOnboardingRoutes.RecoveryPhrase,
+              params: {
+                password: data.password,
+                mnemonic,
+                withEnableAuthentication:
+                  data.options?.withEnableAuthentication,
+              },
+            });
+          }
         }
         if (v === 'import') {
           navigation.navigate(RootRoutes.Onboarding, {

@@ -2,23 +2,9 @@
 import type { FC, ReactNode } from 'react';
 import { memo, useCallback, useEffect, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
-import { isBoolean } from 'lodash';
-import { useIntl } from 'react-intl';
-
-import { Box, Spinner, ToastManager, Typography } from '@onekeyhq/components';
-import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/engine/src/types/wallet';
+import { Box } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  useAppSelector,
-  useData,
-  useGetWalletDetail,
-} from '@onekeyhq/kit/src/hooks/redux';
-import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
-
-import { useNetwork } from '../../hooks';
+import { useData } from '@onekeyhq/kit/src/hooks/redux';
 
 import Session from './Session';
 import Setup from './Setup';
@@ -27,57 +13,39 @@ import { ValidationFields } from './types';
 type ProtectedOptions = {
   isLocalAuthentication?: boolean;
   withEnableAuthentication?: boolean;
-  deviceFeatures?: IOneKeyDeviceFeatures;
 };
 
-type ProtectedProps = {
-  skipSavePassword?: boolean;
-  /** walletId for current flow, null means createWallet flow */
-  walletId: string | null;
-  field?: ValidationFields;
-  children: (password: string, options: ProtectedOptions) => ReactNode;
+export interface ProtectedBaseProps {
   hideTitle?: boolean;
   isAutoHeight?: boolean;
   placeCenter?: boolean;
   title?: string;
   subTitle?: string;
-  networkId?: string;
-  checkIsNeedPassword?: () => Promise<boolean>;
-};
+  skipSavePassword?: boolean;
+}
+
+export interface ProtectedProps extends ProtectedBaseProps {
+  children: (password: string, options: ProtectedOptions) => ReactNode;
+}
 
 // Protected
 const Protected: FC<ProtectedProps> = ({
   children,
   skipSavePassword,
-  field,
-  walletId,
   hideTitle,
   isAutoHeight,
   placeCenter,
   title,
   subTitle,
-  networkId,
-  checkIsNeedPassword,
 }) => {
-  // const navigation = useNavigation();
-  // const walletDetail = useGetWalletDetail(walletId);
-  // const intl = useIntl();
-  // const { network } = useNetwork({ networkId });
   const { serviceApp } = backgroundApiProxy;
-  // const [deviceFeatures, setDeviceFeatures] = useState<IOneKeyDeviceFeatures>();
+
   const [password, setPassword] = useState('');
   const [withEnableAuthentication, setWithEnableAuthentication] =
     useState<boolean>();
   const [isLocalAuthentication, setLocalAuthentication] = useState<boolean>();
   const { isPasswordSet } = useData();
   const [hasPassword] = useState(isPasswordSet);
-  // const isPasswordLoadedInVault = useAppSelector(
-  //   (s) => s.data.isPasswordLoadedInVault,
-  // );
-
-  // const [isNeedInputPassword, setIsNeedInputPassword] = useState<
-  //   boolean | undefined
-  // >(undefined);
 
   const onValidationOk = useCallback((text: string, value?: boolean) => {
     setLocalAuthentication(value);
@@ -89,20 +57,6 @@ const Protected: FC<ProtectedProps> = ({
     setPassword(text);
   }, []);
 
-  // const safeGoBack = useCallback(() => {
-  //   if (navigation?.canGoBack?.()) {
-  //     navigation.goBack();
-  //   }
-  // }, [navigation]);
-
-  /**
-   * Hardware Wallet dont need input password at here, hardware need to input password at device
-   *
-   * also if it is hardware device, need to connect bluetooth and check connection status
-   */
-  // const isHardware = walletDetail?.type === 'hw';
-  // const isExternalWallet = walletDetail?.type === WALLET_TYPE_EXTERNAL;
-
   useEffect(() => {
     const timer = setTimeout(() => {
       serviceApp.checkUpdateStatus();
@@ -113,63 +67,6 @@ const Protected: FC<ProtectedProps> = ({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // useEffect(() => {
-  //   if (!isHardware) return;
-
-  //   function throwDeviceCheckError() {
-  //     ToastManager.show({
-  //       title: intl.formatMessage({ id: 'action__connection_timeout' }),
-  //     });
-  //     safeGoBack();
-  //   }
-
-  //   async function loadDevices() {
-  //     if (!walletDetail?.id) {
-  //       throwDeviceCheckError();
-  //       return;
-  //     }
-
-  //     const currentWalletDevice = await engine.getHWDeviceByWalletId(
-  //       walletDetail.id,
-  //     );
-
-  //     if (!currentWalletDevice) {
-  //       throwDeviceCheckError();
-  //       return;
-  //     }
-
-  //     let features: IOneKeyDeviceFeatures | null = null;
-  //     try {
-  //       const featuresCache = await serviceHardware.getFeatursByWalletId(
-  //         walletDetail.id,
-  //       );
-  //       if (featuresCache) {
-  //         features = featuresCache;
-  //         debugLogger.hardwareSDK.debug('use features cache: ', featuresCache);
-  //       } else {
-  //         features = await serviceHardware.getFeatures(currentWalletDevice.mac);
-  //       }
-  //     } catch (e: any) {
-  //       safeGoBack();
-  //       deviceUtils.showErrorToast(e);
-  //       return;
-  //     }
-
-  //     if (!features) {
-  //       ToastManager.show({
-  //         title: intl.formatMessage({ id: 'action__connection_timeout' }),
-  //       });
-  //       safeGoBack();
-  //       return;
-  //     }
-
-  //     // device connect success
-  //     setDeviceFeatures(features);
-  //   }
-
-  //   loadDevices();
-  // }, [isHardware, engine, walletDetail?.id, intl, safeGoBack, serviceHardware]);
 
   // useEffect(() => {
   //   if (network?.settings.validationRequired && !isPasswordLoadedInVault) {
@@ -208,40 +105,6 @@ const Protected: FC<ProtectedProps> = ({
     );
   }
 
-  // if (isHardware) {
-  //   if (deviceFeatures) {
-  //     console.log('3');
-  //     return (
-  //       <Box w="full" h="full">
-  //         {children(password, {
-  //           withEnableAuthentication,
-  //           isLocalAuthentication,
-  //           deviceFeatures,
-  //         })}
-  //       </Box>
-  //     );
-  //   }
-
-  //   return (
-  //     <Box h="100%" justifyContent="center" alignItems="center">
-  //       <Spinner size="lg" />
-  //       <Typography.DisplayMedium mt={6}>
-  //         {intl.formatMessage({ id: 'modal__device_status_check' })}
-  //       </Typography.DisplayMedium>
-  //     </Box>
-  //   );
-  // }
-
-  // console.log('4');
-  // if (checkIsNeedPassword && typeof isNeedInputPassword === 'undefined') {
-  //   console.log('spinner');
-  //   return (
-  //     <Box h="100%" justifyContent="center" alignItems="center">
-  //       <Spinner size="lg" />
-  //     </Box>
-  //   );
-  // }
-  console.log('5');
   // input password
   if (hasPassword) {
     console.log('6');

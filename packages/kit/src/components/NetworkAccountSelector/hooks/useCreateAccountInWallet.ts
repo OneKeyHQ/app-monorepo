@@ -12,11 +12,8 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import {
-  CreateAccountModalRoutes,
-  ModalRoutes,
-  RootRoutes,
-} from '../../../routes/routesEnum';
+import { useAuthentication } from '../../../hooks/useProtectedVerify';
+import { RootRoutes } from '../../../routes/routesEnum';
 import { deviceUtils } from '../../../utils/hardware';
 import { useConnectAndCreateExternalAccount } from '../../../views/ExternalAccount/useConnectAndCreateExternalAccount';
 import { EOnboardingRoutes } from '../../../views/Onboarding/routes/enums';
@@ -144,6 +141,7 @@ export function useCreateAccountInWallet({
       deviceUtils.showErrorToast(e);
     }
   }, [walletId]);
+  const authentication = useAuthentication();
   const quickCreateAccount = useCallback(
     async (password: string) => {
       const { selectedNetworkId } = walletAndNetworkInfo ?? {};
@@ -167,14 +165,14 @@ export function useCreateAccountInWallet({
         console.error(e);
         deviceUtils.showErrorToast(e);
       } finally {
-        if (navigation.getParent()) {
-          navigation.getParent()?.goBack?.();
-        } else {
-          navigation.goBack?.();
-        }
+        // if (navigation.getParent()) {
+        //   navigation.getParent()?.goBack?.();
+        // } else {
+        //   navigation.goBack?.();
+        // }
       }
     },
-    [walletAndNetworkInfo, walletId, navigation],
+    [walletAndNetworkInfo, walletId],
   );
 
   const createAccount = useCallback(async () => {
@@ -253,45 +251,49 @@ export function useCreateAccountInWallet({
       if (isAllNetworks(selectedNetworkId)) {
         return quickCreateAllNetworksFakeAccount();
       }
-      return navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.CreateAccount,
-        params: {
-          screen: CreateAccountModalRoutes.CreateAccountAuthentication,
-          params: {
-            walletId: activeWallet?.id || '',
-            onDone: quickCreateAccount,
-          },
-        },
-      });
+      await authentication(activeWallet?.id || '', quickCreateAccount);
+      return;
+      // return navigation.navigate(RootRoutes.Modal, {
+      //   screen: ModalRoutes.CreateAccount,
+      //   params: {
+      //     screen: CreateAccountModalRoutes.CreateAccountAuthentication,
+      //     params: {
+      //       walletId: activeWallet?.id || '',
+      //       onDone: quickCreateAccount,
+      //     },
+      //   },
+      // });
     }
 
     showDerivationPathBottomSheetModal({
       type: 'create',
       walletId,
       networkId: selectedNetworkId,
-      onSelect: (options) => {
+      onSelect: async (options) => {
         selectedTemplateRef.current = options;
-        return navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.CreateAccount,
-          params: {
-            screen: CreateAccountModalRoutes.CreateAccountAuthentication,
-            params: {
-              walletId: activeWallet?.id || '',
-              onDone: quickCreateAccount,
-            },
-          },
-        });
+        await authentication(activeWallet?.id || '', quickCreateAccount);
+        // return navigation.navigate(RootRoutes.Modal, {
+        //   screen: ModalRoutes.CreateAccount,
+        //   params: {
+        //     screen: CreateAccountModalRoutes.CreateAccountAuthentication,
+        //     params: {
+        //       walletId: activeWallet?.id || '',
+        //       onDone: quickCreateAccount,
+        //     },
+        //   },
+        // });
       },
     });
   }, [
-    quickCreateAllNetworksFakeAccount,
-    connectAndCreateExternalAccount,
-    intl,
-    isFromAccountSelector,
-    navigation,
-    walletAndNetworkInfo,
     walletId,
+    walletAndNetworkInfo,
+    isFromAccountSelector,
+    intl,
+    connectAndCreateExternalAccount,
+    navigation,
+    authentication,
     quickCreateAccount,
+    quickCreateAllNetworksFakeAccount,
   ]);
   return {
     createAccount,

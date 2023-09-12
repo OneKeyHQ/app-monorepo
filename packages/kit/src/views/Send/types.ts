@@ -264,7 +264,6 @@ export type SendRoutesParams = {
   [SendModalRoutes.LNURLPayRequest]: LnUrlPayParams;
   [SendModalRoutes.LNURLWithdraw]: LnUrlWithdrawParams;
   [SendModalRoutes.LNURLAuth]: LnUrlAuthParams;
-  [SendModalRoutes.LNURLAuthentication]: LnUrlAuthenticationParams;
   [SendModalRoutes.WeblnSendPayment]: WeblnSendPaymentParams;
 };
 

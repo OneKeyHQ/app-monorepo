@@ -17,12 +17,13 @@ import NavHeader from '@onekeyhq/components/src/NavHeader/NavHeader';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useSetPassword } from '../../../hooks/useProtectedVerify';
 import LayoutContainer from '../../Onboarding/Layout';
-import { EOnboardingRoutes } from '../../Onboarding/routes/enums';
 import { KeyTagImportMatrix } from '../Component/KeyTagMatrix/keyTagImportMatrix';
 import { KeyTagMnemonicStatus } from '../types';
 import { generalKeyTagMnemonic, keyTagWordDataToMnemonic } from '../utils';
 
+import type { EOnboardingRoutes } from '../../Onboarding/routes/enums';
 import type { IOnboardingRoutesParams } from '../../Onboarding/routes/types';
 import type { StackNavigationProp } from '@react-navigation/stack';
 
@@ -39,7 +40,7 @@ const ImportKeyTag: FC = () => {
   const [mnemonicWordDatas, setMnemonicWordDatas] = useState(() =>
     generalKeyTagMnemonic(12),
   );
-
+  const setPassword = useSetPassword();
   const onKeyTagChenge = useCallback(
     (wordIndex: number, index: number, value: boolean) => {
       const newMnemonicWordDatas = [...mnemonicWordDatas];
@@ -83,7 +84,8 @@ const ImportKeyTag: FC = () => {
         .join(' ');
       try {
         await backgroundApiProxy.validator.validateMnemonic(mnemonic);
-        navigation.navigate(EOnboardingRoutes.SetPassword, { mnemonic });
+        // navigation.navigate(EOnboardingRoutes.SetPassword, { mnemonic });
+        await setPassword(mnemonic);
       } catch (e) {
         ToastManager.show(
           {
@@ -100,7 +102,7 @@ const ImportKeyTag: FC = () => {
       );
     }
     setImportCheck(false);
-  }, [navigation, mnemonicWordDatas, intl]);
+  }, [mnemonicWordDatas, setPassword, intl]);
 
   const [showResult, setShowResult] = useState(true);
 

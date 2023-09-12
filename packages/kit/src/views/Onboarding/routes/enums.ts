@@ -10,7 +10,6 @@ export enum EOnboardingRoutes {
   RecoveryWallet = 'RecoveryWallet',
 
   // CreateWallet
-  SetPassword = 'SetPassword',
   RecoveryPhrase = 'RecoveryPhrase', // RecoveryPhrase tips
   ShowRecoveryPhrase = 'ShowRecoveryPhrase', // RecoveryPhrase 12/24 words
   BehindTheScene = 'BehindTheScene', // Auto-typing

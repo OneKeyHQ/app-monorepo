@@ -18,7 +18,6 @@ export enum SendModalRoutes {
   LNURLPayRequest = 'LNURLPayRequest',
   LNURLWithdraw = 'LNURLWithdraw',
   LNURLAuth = 'LNURLAuth',
-  LNURLAuthentication = 'LNURLAuthentication',
   WeblnSendPayment = 'WeblnSendPayment',
 }
 

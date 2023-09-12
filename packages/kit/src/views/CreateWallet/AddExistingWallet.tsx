@@ -49,10 +49,13 @@ import { ImportAccountNetworkSelectorTrigger } from '../../components/NetworkAcc
 import { useActiveWalletAccount, useManageNetworks } from '../../hooks';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { useOnboardingDone } from '../../hooks/useOnboardingRequired';
+import {
+  useImportedAccountDone,
+  useSetPassword,
+} from '../../hooks/useProtectedVerify';
 import { useWalletName } from '../../hooks/useWalletName';
 import { wait } from '../../utils/helper';
 import { useOnboardingContext } from '../Onboarding/OnboardingContext';
-import { EOnboardingRoutes } from '../Onboarding/routes/enums';
 import { NineHouseLatticeInputForm } from '../Onboarding/screens/ImportWallet/Component/NineHouseLatticeInputForm';
 
 import type { IDerivationOption } from '../../components/NetworkAccountSelector/hooks/useDerivationPath';
@@ -713,7 +716,8 @@ function OnboardingAddExistingWallet({
 
   const context = useOnboardingContext();
   const forceVisibleUnfocused = context?.forceVisibleUnfocused;
-
+  const importedAccountAuth = useImportedAccountDone();
+  const setPassword = useSetPassword();
   const onMultipleResults = useCallback(
     (p: IAddImportedOrWatchingAccountModalParams) => {
       debugLogger.onBoarding.info(
@@ -739,23 +743,24 @@ function OnboardingAddExistingWallet({
   }, []);
 
   const onAddMnemonicAuth = useCallback(
-    (p: IAppWalletDoneModalParams) => {
+    async (p: IAppWalletDoneModalParams) => {
       debugLogger.onBoarding.info(
         'OnboardingAddExistingWallet > onAddMnemonicAuth',
       );
-      // forceVisibleUnfocused?.();
-      navigation.navigate(RootRoutes.Onboarding, {
-        screen: EOnboardingRoutes.SetPassword,
-        params: {
-          mnemonic: p.mnemonic,
-        },
-      });
+      forceVisibleUnfocused?.();
+      // navigation.navigate(RootRoutes.Onboarding, {
+      //   screen: EOnboardingRoutes.SetPassword,
+      //   params: {
+      //     mnemonic: p.mnemonic,
+      //   },
+      // });
+      await setPassword(p.mnemonic);
     },
-    [navigation],
+    [forceVisibleUnfocused, setPassword],
   );
 
   const onAddImportedAuth = useCallback(
-    (p: IAddImportedAccountDoneModalParams) => {
+    async (p: IAddImportedAccountDoneModalParams) => {
       debugLogger.onBoarding.info(
         'OnboardingAddExistingWallet > onAddImportedAuth',
         {
@@ -764,15 +769,16 @@ function OnboardingAddExistingWallet({
         },
       );
       forceVisibleUnfocused?.();
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.CreateWallet,
-        params: {
-          screen: CreateWalletModalRoutes.AddImportedAccountDoneModal,
-          params: p,
-        },
-      });
+      await importedAccountAuth(p);
+      // navigation.navigate(RootRoutes.Modal, {
+      //   screen: ModalRoutes.CreateWallet,
+      //   params: {
+      //     screen: CreateWalletModalRoutes.AddImportedAccountDoneModal,
+      //     params: p,
+      //   },
+      // });
     },
-    [forceVisibleUnfocused, navigation],
+    [forceVisibleUnfocused, importedAccountAuth],
   );
 
   const viewProps = useAddExistingWallet({
@@ -817,7 +823,7 @@ const AddExistingWallet = () => {
   const route = useRoute();
   // @ts-expect-error
   const walletName = useWalletName({ wallet: route?.params?.wallet });
-
+  const importedAccountAuth = useImportedAccountDone();
   const onMultipleResults = useCallback(
     (p: IAddImportedOrWatchingAccountModalParams) => {
       // Multiple choices.
@@ -840,13 +846,14 @@ const AddExistingWallet = () => {
   }, []);
 
   const onAddImportedAuth = useCallback(
-    (p: IAddImportedAccountDoneModalParams) => {
-      navigation.navigate(
-        CreateWalletModalRoutes.AddImportedAccountDoneModal,
-        p,
-      );
+    async (p: IAddImportedAccountDoneModalParams) => {
+      // navigation.navigate(
+      //   CreateWalletModalRoutes.AddImportedAccountDoneModal,
+      //   p,
+      // );
+      await importedAccountAuth(p);
     },
-    [navigation],
+    [importedAccountAuth],
   );
 
   const viewProps = useAddExistingWallet({

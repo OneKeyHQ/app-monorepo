@@ -9,11 +9,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useCreateAccountInWallet } from '../../../components/NetworkAccountSelector/hooks/useCreateAccountInWallet';
 import { useNavigation, useNetwork } from '../../../hooks';
-import {
-  CreateAccountModalRoutes,
-  ModalRoutes,
-  RootRoutes,
-} from '../../../routes/routesEnum';
+import { useAuthentication } from '../../../hooks/useProtectedVerify';
+import { CreateAccountModalRoutes } from '../../../routes/routesEnum';
 import BaseMenu from '../BaseMenu';
 
 import type { IBaseMenuOptions, IMenu } from '../BaseMenu';
@@ -37,61 +34,88 @@ const AccountSelectorWalletMenu: FC<
     if (!walletId) return;
     await createAccount();
   }, [walletId, createAccount]);
-
+  const authentication = useAuthentication();
   const onPressManageAccount = useCallback(() => {
     setTimeout(() => {
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.CreateAccount,
-        params: {
-          screen: CreateAccountModalRoutes.CreateAccountAuthentication,
-          params: {
-            walletId,
-            onDone: (password) => {
-              setTimeout(() => {
-                navigation.replace(
-                  CreateAccountModalRoutes.RecoverAccountsList as any,
-                  {
-                    walletId,
-                    network: networkId,
-                    password,
-                    purpose: '',
-                    template: '',
-                  },
-                );
-              }, 20);
+      authentication(walletId, (password) => {
+        setTimeout(() => {
+          navigation.navigate(
+            CreateAccountModalRoutes.RecoverAccountsList as any,
+            {
+              walletId,
+              network: networkId,
+              password,
+              purpose: '',
+              template: '',
             },
-          },
-        },
+          );
+        }, 20);
       });
+      // navigation.navigate(RootRoutes.Modal, {
+      //   screen: ModalRoutes.CreateAccount,
+      //   params: {
+      //     screen: CreateAccountModalRoutes.CreateAccountAuthentication,
+      //     params: {
+      //       walletId,
+      //       onDone: (password) => {
+      //         setTimeout(() => {
+      //           navigation.replace(
+      //             CreateAccountModalRoutes.RecoverAccountsList as any,
+      //             {
+      //               walletId,
+      //               network: networkId,
+      //               password,
+      //               purpose: '',
+      //               template: '',
+      //             },
+      //           );
+      //         }, 20);
+      //       },
+      //     },
+      //   },
+      // });
     });
-  }, [navigation, walletId, networkId]);
+  }, [authentication, walletId, navigation, networkId]);
 
   const onPressBulkCopyAddresses = useCallback(() => {
     setTimeout(() => {
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.CreateAccount,
-        params: {
-          screen: CreateAccountModalRoutes.CreateAccountAuthentication,
-          params: {
-            walletId,
-            onDone: (password) => {
-              setTimeout(() => {
-                navigation.replace(
-                  CreateAccountModalRoutes.BulkCopyAddresses as any,
-                  {
-                    walletId,
-                    networkId,
-                    password,
-                    entry: 'accountSelector',
-                  },
-                );
-              }, 20);
+      authentication(walletId, (password) => {
+        setTimeout(() => {
+          navigation.navigate(
+            CreateAccountModalRoutes.BulkCopyAddresses as any,
+            {
+              walletId,
+              networkId,
+              password,
+              entry: 'accountSelector',
             },
-          },
-        },
+          );
+        }, 20);
       });
+      // navigation.navigate(RootRoutes.Modal, {
+      //   screen: ModalRoutes.CreateAccount,
+      //   params: {
+      //     screen: CreateAccountModalRoutes.CreateAccountAuthentication,
+      //     params: {
+      //       walletId,
+      //       onDone: (password) => {
+      //         setTimeout(() => {
+      //           navigation.replace(
+      //             CreateAccountModalRoutes.BulkCopyAddresses as any,
+      //             {
+      //               walletId,
+      //               networkId,
+      //               password,
+      //               entry: 'accountSelector',
+      //             },
+      //           );
+      //         }, 20);
+      //       },
+      //     },
+      //   },
+      // });
     });
-  }, [navigation, walletId, networkId]);
+  }, [authentication, walletId, navigation, networkId]);
 
   const options = useMemo<IBaseMenuOptions>(
     () => [

@@ -21,6 +21,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { markFPTime } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useProtectedVerify } from '../hooks/useProtectedVerify';
 import { useShortcuts } from '../hooks/useShortcuts';
 import '../routes/deepLink';
 import buildLinking from '../routes/linking';
@@ -60,6 +61,8 @@ const NavigationApp = () => {
   const backgroundShowToastTs = useAppSelector(
     (s) => s.refresher.backgroundShowToastTs,
   );
+
+  useProtectedVerify();
 
   useEffect(() => {
     if (!backgroundShowToastOptions.title) {
