@@ -332,7 +332,9 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
     <BaseSendModal
       height="598px"
       primaryActionTranslationId={
-        sendConfirmParams.signOnly ? 'action__sign' : 'action__confirm'
+        sendConfirmParams.sourceInfo && sendConfirmParams.signOnly
+          ? 'action__sign'
+          : 'action__confirm'
       }
       primaryActionProps={{
         isDisabled:
