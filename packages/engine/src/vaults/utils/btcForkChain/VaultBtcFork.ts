@@ -1698,6 +1698,7 @@ export default class VaultBtcFork extends VaultBase {
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const forceSelectUtxos: ICoinSelectUTXOLite[] = [];
+    let checkInscription = true;
     if (isNftTransfer) {
       // only support BRC20 batch transfer
       if (isBatchTransfer && !isBRC20Transfer) {
@@ -1725,28 +1726,29 @@ export default class VaultBtcFork extends VaultBase {
         });
       });
     } else if (!isInscribeTransfer) {
-      // only native btc transfer can select inscription utxos marked as recycle utxos
-      const recycleUtxos = await this.getRecycleInscriptionUtxos(
-        dbAccount.xpub,
-      );
+      if (transferInfos[0].ignoreInscriptions) {
+        checkInscription = false;
+      } else {
+        // only native btc transfer can select inscription utxos marked as recycle utxos
+        const recycleUtxos = await this.getRecycleInscriptionUtxos(
+          dbAccount.xpub,
+        );
 
-      recycleUtxos.forEach((utxo) => {
-        const [txId, vout] = utxo.key.split('_');
-        forceSelectUtxos.push({
-          txId,
-          vout: parseInt(vout, 10),
-          address: dbAccount.address,
+        recycleUtxos.forEach((utxo) => {
+          const [txId, vout] = utxo.key.split('_');
+          forceSelectUtxos.push({
+            txId,
+            vout: parseInt(vout, 10),
+            address: dbAccount.address,
+          });
         });
-      });
+      }
     }
 
-    let { utxos } = await this.collectUTXOsInfo(
-      forceSelectUtxos.length
-        ? {
-            forceSelectUtxos,
-          }
-        : undefined,
-    );
+    let { utxos } = await this.collectUTXOsInfo({
+      forceSelectUtxos,
+      checkInscription,
+    });
 
     // Select the slowest fee rate as default, otherwise the UTXO selection
     // would be failed.
@@ -1929,8 +1931,15 @@ export default class VaultBtcFork extends VaultBase {
 
   override async getFrozenBalance({
     useRecycleBalance,
-  }: { useRecycleBalance?: boolean } = {}): Promise<number> {
-    const result = await this.fetchBalanceDetails({ useRecycleBalance });
+    ignoreInscriptions,
+  }: {
+    useRecycleBalance?: boolean;
+    ignoreInscriptions?: boolean;
+  } = {}): Promise<number> {
+    const result = await this.fetchBalanceDetails({
+      useRecycleBalance,
+      ignoreInscriptions,
+    });
     if (result && !isNil(result?.unavailable)) {
       return new BigNumber(result.unavailable).toNumber();
     }
@@ -1939,27 +1948,39 @@ export default class VaultBtcFork extends VaultBase {
 
   override async fetchBalanceDetails({
     useRecycleBalance,
+    ignoreInscriptions,
   }: {
     useRecycleBalance?: boolean;
+    ignoreInscriptions?: boolean;
   } = {}): Promise<IBalanceDetails | undefined> {
     const [dbAccount, network] = await Promise.all([
       this.getDbAccount() as Promise<DBUTXOAccount>,
       this.getNetwork(),
     ]);
+
+    let collectUTXOsInfoParams: ICollectUTXOsOptions | undefined;
+
+    if (ignoreInscriptions) {
+      collectUTXOsInfoParams = { checkInscription: false };
+    } else if (useRecycleBalance) {
+      const recycleUtxos = await this.getRecycleInscriptionUtxos(
+        dbAccount.xpub,
+      );
+      collectUTXOsInfoParams = {
+        forceSelectUtxos: recycleUtxos.map((utxo) => {
+          const [txId, vout] = utxo.key.split('_');
+          return {
+            txId,
+            vout: parseInt(vout, 10),
+            address: dbAccount.address,
+          };
+        }),
+      };
+    }
+
     const recycleUtxos = await this.getRecycleInscriptionUtxos(dbAccount.xpub);
     const { utxos, valueDetails, ordQueryStatus } = await this.collectUTXOsInfo(
-      useRecycleBalance
-        ? {
-            forceSelectUtxos: recycleUtxos.map((utxo) => {
-              const [txId, vout] = utxo.key.split('_');
-              return {
-                txId,
-                vout: parseInt(vout, 10),
-                address: dbAccount.address,
-              };
-            }),
-          }
-        : undefined,
+      collectUTXOsInfoParams,
     );
     if (ordQueryStatus === 'ERROR') {
       this.collectUTXOsInfo.clear();

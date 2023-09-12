@@ -34,10 +34,10 @@ import { AppUIEventBusNames } from '@onekeyhq/shared/src/eventBus/appUIEventBus'
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { useShouldHideInscriptions } from '../../../../hooks/crossHooks/useShouldHideInscriptions';
 import { useIsFocusedAllInOne } from '../../../../hooks/useIsFocusedAllInOne';
 import { useOnUIEventBus } from '../../../../hooks/useOnUIEventBus';
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
-import { useShouldHideInscriptions } from '../../../../hooks/useShouldHideInscriptions';
 import { TabRoutes } from '../../../../routes/routesEnum';
 import { appSelector } from '../../../../store';
 import { setHideInscriptions } from '../../../../store/reducers/settings';

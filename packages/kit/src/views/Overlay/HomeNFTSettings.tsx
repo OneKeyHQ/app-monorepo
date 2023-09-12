@@ -4,7 +4,7 @@ import { Switch, Typography } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccount } from '../../hooks';
-import { useShouldHideInscriptions } from '../../hooks/useShouldHideInscriptions';
+import { useShouldHideInscriptions } from '../../hooks/crossHooks/useShouldHideInscriptions';
 import { setHideInscriptions } from '../../store/reducers/settings';
 import { showOverlay } from '../../utils/overlayUtils';
 

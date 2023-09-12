@@ -282,6 +282,7 @@ const CreateOrder: FC = () => {
   const balanceDetailsInfo = useAccountBalanceDetailsInfo({
     networkId,
     accountId,
+    isInscribe: true,
   });
 
   const AvailableBalance = useMemo(

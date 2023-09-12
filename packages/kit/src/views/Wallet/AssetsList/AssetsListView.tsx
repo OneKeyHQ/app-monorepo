@@ -16,7 +16,7 @@ import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { HomeRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
-import { useShouldHideInscriptions } from '../../../hooks/useShouldHideInscriptions';
+import { useShouldHideInscriptions } from '../../../hooks/crossHooks/useShouldHideInscriptions';
 
 import AssetsListHeader from './AssetsListHeader';
 import { AccountAssetsEmptyList } from './EmptyList';
