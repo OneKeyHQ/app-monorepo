@@ -10,7 +10,7 @@ import type { ToastShowParams } from 'react-native-toast-message';
           title: intl.formatMessage({ id: 'msg__verification_failure' }),
         },
         {
-          type: 'error', // success, error, info
+          type: ToastManagerType.error, // success, error, info
         },
  )
  */
