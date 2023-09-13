@@ -44,6 +44,7 @@ import type {
   IWeb3Wallet,
   Web3WalletTypes,
 } from '@walletconnect-v2/web3wallet';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 
 @backgroundClass()
 class ProviderApiWalletConnect extends WalletConnectClientForWallet {
