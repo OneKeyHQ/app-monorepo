@@ -1,5 +1,5 @@
 const webpack = require('webpack');
-const WebpackBar = require('webpackbar');
+const ProgressBarPlugin = require('progress-bar-webpack-plugin');
 const fs = require('fs');
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
@@ -27,7 +27,7 @@ class BuildDoneNotifyPlugin {
 }
 
 const basePlugins = [
-  new WebpackBar(),
+  new ProgressBarPlugin(),
   new webpack.DefinePlugin({
     __DEV__: isDev,
     process: {
