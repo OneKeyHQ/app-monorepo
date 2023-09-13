@@ -11,8 +11,9 @@ const ToastGallery = () => {
     <Layout
       description="对操作结果的反馈，无需用户操作即可自行消失"
       suggestions={[
-        'Toast 显示的文本应少于 20 字',
         '使用 Toast 显示简约明确的信息反馈',
+        '用户点击或触摸 Toast 内容时，浮层将会停留在页面上',
+        'Toast 显示的文本应少于 20 字',
         '不建议使用 Toast 显示过长的报错信息',
       ]}
       boundaryConditions={[
