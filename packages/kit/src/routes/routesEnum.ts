@@ -251,7 +251,6 @@ export enum ManageNetworkModalRoutes {
 
 export enum CreateWalletModalRoutes {
   ConnectHardwareModal = 'ConnectHardwareModal',
-  AppWalletDoneModal = 'AppWalletDoneModal',
   SetupSuccessModal = 'SetupSuccessModal',
   SetupHardwareModal = 'SetupHardwareModal',
   SetupNewDeviceModal = 'SetupNewDeviceModal',
@@ -273,7 +272,6 @@ export enum CreateWalletModalRoutes {
   AddImportedOrWatchingAccountModal = 'AddImportedOrWatchingAccountModal',
   AttentionsModal = 'AttentionsModal',
   MnemonicModal = 'MnemonicModal',
-  NewWalletModal = 'NewWalletModal',
 
   WalletConnectQrcodeModal = 'WalletConnectQrcodeModal',
 }
@@ -298,8 +296,6 @@ export enum FiatPayModalRoutes {
 
 export enum BackupWalletModalRoutes {
   BackupWalletOptionsModal = 'BackupWalletOptionsModal',
-  BackupWalletManualModal = 'BackupWalletManualModal',
-  BackupWalletLiteModal = 'BackupWalletLiteModal',
   BackupWalletAttentionsModal = 'BackupWalletAttentionsModal',
   BackupWalletMnemonicModal = 'BackupWalletMnemonicModal',
 }

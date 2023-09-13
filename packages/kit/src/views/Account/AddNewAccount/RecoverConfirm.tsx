@@ -9,9 +9,6 @@ import { Center, Modal, Spinner, Typography } from '@onekeyhq/components';
 import type { IAccount } from '@onekeyhq/engine/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { SkipAppLock } from '@onekeyhq/kit/src/components/AppLock';
-import Protected, {
-  ValidationFields,
-} from '@onekeyhq/kit/src/components/Protected';
 import type { CreateAccountRoutesParams } from '@onekeyhq/kit/src/routes';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
@@ -224,52 +221,35 @@ type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 
 const RecoverConfirm: FC = () => {
   const route = useRoute<RouteProps>();
-  const { accounts, walletId, network, purpose, config, template } =
+  const { accounts, password, walletId, network, purpose, config, template } =
     route.params;
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const [stopFlag, setStopFlag] = useState(false);
-  const [recovering, setRecovering] = useState(false);
-
   return (
     <Modal
       height="340px"
       headerShown={false}
       hidePrimaryAction
       onSecondaryActionPress={() => {
-        if (recovering) {
-          setStopFlag(true);
-        } else {
-          navigation.goBack();
-        }
+        setStopFlag(true);
       }}
     >
-      <Protected
+      <RecoverConfirmDone
+        password={password}
+        accounts={accounts}
         walletId={walletId}
-        skipSavePassword
-        field={ValidationFields.Account}
-      >
-        {(password) => {
-          setRecovering(true);
-          return (
-            <RecoverConfirmDone
-              password={password}
-              accounts={accounts}
-              walletId={walletId}
-              network={network}
-              purpose={purpose}
-              template={template}
-              config={config as AdvancedValues}
-              stopFlag={stopFlag}
-              onDone={() => {
-                if (navigation?.canGoBack?.()) {
-                  navigation?.getParent?.()?.goBack?.();
-                }
-              }}
-            />
-          );
+        network={network}
+        purpose={purpose}
+        template={template}
+        config={config as AdvancedValues}
+        stopFlag={stopFlag}
+        onDone={() => {
+          if (navigation?.canGoBack?.()) {
+            navigation?.getParent?.()?.goBack?.();
+          }
         }}
-      </Protected>
+      />
     </Modal>
   );
 };

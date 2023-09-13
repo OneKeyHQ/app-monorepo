@@ -35,11 +35,8 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import showDerivationPathBottomSheetModal from '@onekeyhq/kit/src/components/NetworkAccountSelector/modals/NetworkAccountSelectorModal/DerivationPathBottomSheetModal';
 import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import type { CreateAccountRoutesParams } from '@onekeyhq/kit/src/routes';
-import {
-  CreateAccountModalRoutes,
-  ModalRoutes,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/routesEnum';
+import type { CreateAccountModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -47,6 +44,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { FormatBalance } from '../../../components/Format';
 import { useDerivationPath } from '../../../components/NetworkAccountSelector/hooks/useDerivationPath';
 import { usePrevious } from '../../../hooks';
+import { useRecoverConfirm } from '../../../hooks/useProtectedVerify';
 import { RecoverAccountModalRoutes } from '../../../routes/routesEnum';
 import { deviceUtils } from '../../../utils/hardware';
 
@@ -827,7 +825,7 @@ const RecoverAccounts: FC = () => {
     ),
     [selectedNetWork],
   );
-
+  const recoverConfirmAuthentication = useRecoverConfirm();
   return (
     <Modal
       height="640px"
@@ -866,11 +864,10 @@ const RecoverAccounts: FC = () => {
             selected: state?.selected ?? false,
           });
         });
-
-        navigation.navigate(CreateAccountModalRoutes.RecoverAccountsConfirm, {
-          accounts: recoverAccounts.filter((i) => i.template === template),
+        recoverConfirmAuthentication({
           walletId,
           network,
+          accounts: recoverAccounts.filter((i) => i.template === template),
           purpose,
           template,
           existingAccounts: activeAccounts.current,
@@ -882,6 +879,22 @@ const RecoverAccounts: FC = () => {
             ),
           },
         });
+        // navigation.navigate(CreateAccountModalRoutes.RecoverAccountsConfirm, {
+        //   password,
+        //   accounts: recoverAccounts.filter((i) => i.template === template),
+        //   walletId,
+        //   network,
+        //   purpose,
+        //   template,
+        //   existingAccounts: activeAccounts.current,
+        //   config: {
+        //     ...config,
+        //     generateCount: Math.min(
+        //       realGenerateCount,
+        //       config.generateCount ?? 0,
+        //     ),
+        //   },
+        // });
       }}
       primaryActionProps={{
         isDisabled,

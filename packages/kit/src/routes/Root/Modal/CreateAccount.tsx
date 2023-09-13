@@ -24,7 +24,7 @@ import type {
 } from '../../../views/Account/BulkCopyAddress';
 import type { IExportAddressData } from '../../../views/Account/BulkCopyAddress/FetchAddressModal';
 
-type RecoverAccountsAdvancedParams = {
+export type RecoverAccountsAdvancedParams = {
   fromIndex: number;
   generateCount?: number;
   networkId?: string;
@@ -42,7 +42,7 @@ export type CreateAccountRoutesParams = {
     walletId: string;
     network: string;
     password: string;
-    purpose: number;
+    purpose?: number;
     template: string;
   };
   [CreateAccountModalRoutes.RecoverAccountsAdvanced]: RecoverAccountsAdvancedParams & {
@@ -53,6 +53,7 @@ export type CreateAccountRoutesParams = {
       selected: boolean;
       isDisabled: boolean;
     })[];
+    password: string;
     walletId: string;
     network: string;
     purpose: number;

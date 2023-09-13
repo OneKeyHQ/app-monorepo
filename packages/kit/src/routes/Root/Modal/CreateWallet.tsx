@@ -8,9 +8,7 @@ import { WalletConnectQrcodeModal } from '../../../components/WalletConnect/Wall
 import AddImportedOrWatchingAccount from '../../../views/CreateWallet/Account/AddImportedOrWatchingAccount';
 import AddExistingWallet from '../../../views/CreateWallet/AddExistingWallet';
 import AttentionsView from '../../../views/CreateWallet/AppWallet/AttentionsView';
-import AppWalletDone from '../../../views/CreateWallet/AppWallet/Done';
 import { MnemonicContainer } from '../../../views/CreateWallet/AppWallet/Mnemonic';
-import NewWallet from '../../../views/CreateWallet/AppWallet/NewWallet';
 import ConnectHardware from '../../../views/CreateWallet/HardwareWallet/ConnectHardware';
 import DeviceStatusCheck from '../../../views/CreateWallet/HardwareWallet/DeviceStatusCheck';
 import RestoreHardwareWallet from '../../../views/CreateWallet/HardwareWallet/RestoreHardwareWallet';
@@ -77,8 +75,6 @@ export type CreateWalletRoutesParams = {
     withEnableAuthentication?: boolean;
     mnemonic: string;
   };
-  [CreateWalletModalRoutes.NewWalletModal]: undefined;
-  [CreateWalletModalRoutes.AppWalletDoneModal]: IAppWalletDoneModalParams;
   [CreateWalletModalRoutes.SetupSuccessModal]: {
     device: SearchDevice;
     onPressOnboardingFinished?: () => Promise<void>;
@@ -151,10 +147,6 @@ const modalRoutes = [
     name: CreateWalletModalRoutes.RestoreHardwareWalletDescriptionModal,
     component: RestoreHardwareWalletDescription,
   },
-  {
-    name: CreateWalletModalRoutes.AppWalletDoneModal,
-    component: AppWalletDone,
-  },
 
   // Onekey Lite backup
   {
@@ -196,10 +188,6 @@ const modalRoutes = [
   {
     name: CreateWalletModalRoutes.MnemonicModal,
     component: MnemonicContainer,
-  },
-  {
-    name: CreateWalletModalRoutes.NewWalletModal,
-    component: NewWallet,
   },
 ];
 

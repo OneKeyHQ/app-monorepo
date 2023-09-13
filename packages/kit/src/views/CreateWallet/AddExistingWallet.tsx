@@ -50,6 +50,7 @@ import { useActiveWalletAccount, useManageNetworks } from '../../hooks';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { useOnboardingDone } from '../../hooks/useOnboardingRequired';
 import {
+  useAppWalletDone,
   useImportedAccountDone,
   useSetPassword,
 } from '../../hooks/useProtectedVerify';
@@ -824,6 +825,7 @@ const AddExistingWallet = () => {
   // @ts-expect-error
   const walletName = useWalletName({ wallet: route?.params?.wallet });
   const importedAccountAuth = useImportedAccountDone();
+  const appWalletDoneAuth = useAppWalletDone();
   const onMultipleResults = useCallback(
     (p: IAddImportedOrWatchingAccountModalParams) => {
       // Multiple choices.
@@ -836,9 +838,10 @@ const AddExistingWallet = () => {
   );
   const onAddMnemonicAuth = useCallback(
     (p: IAppWalletDoneModalParams) => {
-      navigation.navigate(CreateWalletModalRoutes.AppWalletDoneModal, p);
+      appWalletDoneAuth(p.mnemonic, p.onSuccess);
+      // navigation.navigate(CreateWalletModalRoutes.AppWalletDoneModal, p);
     },
-    [navigation],
+    [appWalletDoneAuth],
   );
 
   const onAddWatchingDone = useCallback(() => {

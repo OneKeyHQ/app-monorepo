@@ -2,8 +2,6 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 import type { IWallet } from '@onekeyhq/engine/src/types';
 
 import BackupAttentions from '../../../views/BackupWallet/BackupAttentions';
-import BackupLite from '../../../views/BackupWallet/BackupLite';
-import BackupManual from '../../../views/BackupWallet/BackupManual';
 import BackupMnemonic from '../../../views/BackupWallet/BackupMnemonic';
 import BackupOptions from '../../../views/BackupWallet/BackupOptions';
 import { KeyTagRoutes } from '../../../views/KeyTag/Routes/enums';
@@ -21,13 +19,7 @@ import type {
 } from '../../../views/KeyTag/Routes/types';
 
 export type BackupWalletRoutesParams = {
-  [BackupWalletModalRoutes.BackupWalletManualModal]: {
-    walletId: string;
-  };
   [BackupWalletModalRoutes.BackupWalletOptionsModal]: {
-    walletId: string;
-  };
-  [BackupWalletModalRoutes.BackupWalletLiteModal]: {
     walletId: string;
   };
   [BackupWalletModalRoutes.BackupWalletAttentionsModal]: {
@@ -56,10 +48,6 @@ const BackupWalletNavigator = createStackNavigator<
 
 const modalRoutes = [
   {
-    name: BackupWalletModalRoutes.BackupWalletManualModal,
-    component: BackupManual,
-  },
-  {
     name: BackupWalletModalRoutes.BackupWalletAttentionsModal,
     component: BackupAttentions,
   },
@@ -70,10 +58,6 @@ const modalRoutes = [
   {
     name: BackupWalletModalRoutes.BackupWalletOptionsModal,
     component: BackupOptions,
-  },
-  {
-    name: BackupWalletModalRoutes.BackupWalletLiteModal,
-    component: BackupLite,
   },
   { name: KeyTagRoutes.KeyTagVerifyPassword, component: VerifyPassword },
   {

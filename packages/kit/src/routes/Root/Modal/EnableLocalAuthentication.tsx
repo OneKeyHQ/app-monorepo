@@ -1,6 +1,5 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
-import EnableLocalAuthentication from '../../../views/EnableLocalAuthentication';
 import { EnableLocalAuthenticationRoutes } from '../../../views/EnableLocalAuthentication/types';
 import EnableWebAuthn from '../../../views/EnableWebAuthn';
 
@@ -12,10 +11,6 @@ const EnableLocalAuthenticationNavigator =
   createStackNavigator<EnableLocalAuthenticationRoutesParams>();
 
 const modalRoutes = [
-  {
-    name: EnableLocalAuthenticationRoutes.EnableLocalAuthenticationModal,
-    component: EnableLocalAuthentication,
-  },
   {
     name: EnableLocalAuthenticationRoutes.EnableWebAuthn,
     component: EnableWebAuthn,

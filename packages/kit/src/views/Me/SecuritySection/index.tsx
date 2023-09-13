@@ -23,6 +23,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useLocalAuthentication } from '../../../hooks/useLocalAuthentication';
+import { useEnableLocalAuthentication } from '../../../hooks/useProtectedVerify';
 import {
   HomeRoutes,
   ModalRoutes,
@@ -115,6 +116,8 @@ export const SecuritySection = () => {
 
   const backupEnable =
     platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay;
+
+  const EnableLocalAuthentication = useEnableLocalAuthentication();
   return (
     <Box w="full" mb="6">
       <Box pb="2">
@@ -294,13 +297,15 @@ export const SecuritySection = () => {
                 labelType="false"
                 isChecked={enableLocalAuthentication}
                 onToggle={() => {
-                  navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.EnableLocalAuthentication,
-                    params: {
-                      screen:
-                        EnableLocalAuthenticationRoutes.EnableLocalAuthenticationModal,
-                    },
-                  });
+                  console.log('toggle-');
+                  EnableLocalAuthentication();
+                  // navigation.navigate(RootRoutes.Modal, {
+                  //   screen: ModalRoutes.EnableLocalAuthentication,
+                  //   params: {
+                  //     screen:
+                  //       EnableLocalAuthenticationRoutes.EnableLocalAuthenticationModal,
+                  //   },
+                  // });
                 }}
               />
             </Box>

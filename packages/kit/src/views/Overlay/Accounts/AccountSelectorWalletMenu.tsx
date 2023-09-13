@@ -10,7 +10,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useCreateAccountInWallet } from '../../../components/NetworkAccountSelector/hooks/useCreateAccountInWallet';
 import { useNavigation, useNetwork } from '../../../hooks';
 import { useAuthentication } from '../../../hooks/useProtectedVerify';
-import { CreateAccountModalRoutes } from '../../../routes/routesEnum';
+import {
+  CreateAccountModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '../../../routes/routesEnum';
 import BaseMenu from '../BaseMenu';
 
 import type { IBaseMenuOptions, IMenu } from '../BaseMenu';
@@ -39,16 +43,18 @@ const AccountSelectorWalletMenu: FC<
     setTimeout(() => {
       authentication(walletId, (password) => {
         setTimeout(() => {
-          navigation.navigate(
-            CreateAccountModalRoutes.RecoverAccountsList as any,
-            {
-              walletId,
-              network: networkId,
-              password,
-              purpose: '',
-              template: '',
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.CreateAccount,
+            params: {
+              screen: CreateAccountModalRoutes.RecoverAccountsList as any,
+              params: {
+                walletId,
+                network: networkId ?? '',
+                password,
+                template: '',
+              },
             },
-          );
+          });
         }, 20);
       });
       // navigation.navigate(RootRoutes.Modal, {
