@@ -190,18 +190,24 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   async getFrozenBalance({
     password,
     useRecycleBalance,
-  }: { password?: string; useRecycleBalance?: boolean } = {}): Promise<
-    number | Record<string, number>
-  > {
+    ignoreInscriptions,
+  }: {
+    password?: string;
+    useRecycleBalance?: boolean;
+    ignoreInscriptions?: boolean;
+  } = {}): Promise<number | Record<string, number>> {
     return 0;
   }
 
   async fetchBalanceDetails({
     password,
     useRecycleBalance,
-  }: { password?: string; useRecycleBalance?: boolean } = {}): Promise<
-    IBalanceDetails | undefined
-  > {
+    ignoreInscriptions,
+  }: {
+    password?: string;
+    useRecycleBalance?: boolean;
+    ignoreInscriptions?: boolean;
+  } = {}): Promise<IBalanceDetails | undefined> {
     return Promise.resolve(undefined);
   }
 

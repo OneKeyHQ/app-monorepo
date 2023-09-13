@@ -21,6 +21,7 @@ import {
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
+import { getShouldHideInscriptions } from '@onekeyhq/kit/src/hooks/crossHooks/useShouldHideInscriptions';
 import {
   setIsPasswordLoadedInVault,
   setTools,
@@ -1030,10 +1031,12 @@ export default class ServiceToken extends ServiceBase {
     networkId,
     accountId,
     useRecycleBalance,
+    isInscribe,
   }: {
     networkId: string;
     accountId: string;
     useRecycleBalance?: boolean;
+    isInscribe?: boolean;
   }) {
     const vault = await this.backgroundApi.engine.getVault({
       networkId,
@@ -1043,7 +1046,19 @@ export default class ServiceToken extends ServiceBase {
     if (vault.settings.validationRequired) {
       password = await this.backgroundApi.servicePassword.getPassword();
     }
-    return vault.fetchBalanceDetails({ password, useRecycleBalance });
+
+    const shouldHideInscriptions = isInscribe
+      ? false
+      : getShouldHideInscriptions({
+          accountId,
+          networkId,
+        });
+
+    return vault.fetchBalanceDetails({
+      password,
+      useRecycleBalance,
+      ignoreInscriptions: shouldHideInscriptions,
+    });
   }
 
   @backgroundMethod()

@@ -614,8 +614,8 @@
   "content__from": "من عند",
   "content__frozen": "مجمدة",
   "content__ftx_collapse": "طي FTX",
-  "content__gas_fee": "رسوم الغاز",
-  "content__gas_fee_will_automatically_update_after_str": "سيتم تحديث رسوم الغاز تلقائيًا بعد <a> {0} </a>",
+  "content__gas_fee": "رسوم الشبكة",
+  "content__gas_fee_will_automatically_update_after_str": "سيتم تحديث رسوم الشبكة تلقائيًا بعد <a> {0} </a>",
   "content__gas_limit": "حد الغاز",
   "content__gas_option_aggressive_desc": "استخدم \"عالية\" للتعامل مع الزيادات المفاجئة في حركة مرور الشبكة بسبب حالات الطوارئ مثل NFT Mint الشهير.",
   "content__gas_option_custom_desc": "استخدم \"Custom\" لتخصيص سعر الغاز. قد يكون هذا محيرًا إذا لم تكن مألوفًا. تفاعل على مسؤوليتك الخاصة.",
@@ -660,6 +660,7 @@
   "content__in_the_rare_event_staked_eth_will_be_lost_desc": "ينطوي التراص والتحقق من صحة شبكات إثبات الحصة مثل Ethereum على خفض المخاطر. OneKey / Kele Pool غير مسؤول عن عقوبات تخفيض المدقق.",
   "content__info": "معلومات",
   "content__inscribe_address": "أدخل العنوان",
+  "content__inscriptions_and_brc20_assets_will_be_displayed_in_dashboard_this_config_only_applied_to_account_str": "سيتم عرض النقوش وأصول brc-20 في لوحة المعلومات، وينطبق هذا التكوين فقط على الحساب {0} .",
   "content__inscriptions_occupy": "النقوش تحتل",
   "content__installing_str": "تثبيت {0}",
   "content__institutional_wallets": "محافظ مؤسسية",
@@ -892,7 +893,7 @@
   "content__time": "زمن",
   "content__time_limit": "المهلة",
   "content__to": "ل",
-  "content__to_ensure_that_the_transaction_will_be_successfully_sent": "لضمان إرسال المعاملة بنجاح ، سيتم استخدام الحد الأقصى المسموح به للغاز في الكتلة الحالية لتقدير الحد الأقصى لرسوم الغاز. يرجى التأكد من أن حسابك به رصيد كاف.",
+  "content__to_ensure_that_the_transaction_will_be_successfully_sent": "لضمان إرسال المعاملة بنجاح، سيتم استخدام الحد الأقصى المسموح به من الغاز في الكتلة الحالية لتقدير الحد الأقصى لرسوم الشبكة. تأكد من أن حسابك يحتوي على رصيد كافٍ.",
   "content__today": "اليوم",
   "content__token_approve_owner": "صاحب",
   "content__token_approve_spender": "Approved Spender",
@@ -1257,7 +1258,7 @@
   "form__current": "حاضِر",
   "form__current_price": "السعر الحالي",
   "form__current_str": "الحالي: {0}",
-  "form__current_str_gas_fee": "رسوم الغاز الحالية {0}",
+  "form__current_str_gas_fee": "رسوم الشبكة الحالية {0}",
   "form__custom": "يعدل أو يكيف",
   "form__dark": "داكن",
   "form__data": "البيانات",
@@ -1305,7 +1306,7 @@
   "form__est_receipt": "EST. إيصال",
   "form__est_str": "تقديرات {0}",
   "form__estimate_str": "تقدير {0}",
-  "form__estimate_total_gas_fee": "تقدير إجمالي رسوم الغاز",
+  "form__estimate_total_gas_fee": "تقدير إجمالي رسوم الشبكة",
   "form__estomated_gas": "الغاز المقدر",
   "form__exact_amount": "المبلغ المحدد",
   "form__exact_amount_allowance": "بدل المبلغ الدقيق",
@@ -1352,8 +1353,8 @@
   "form__front": "الجانب الامامي",
   "form__frozen_balance": "الرصيد المجمد",
   "form__fully_diluted_value": "القيمة المخففة بالكامل",
-  "form__gas_fee_prediction": "توقع رسوم الغاز",
-  "form__gas_fee_settings": "إعدادات رسوم الغاز",
+  "form__gas_fee_prediction": "التنبؤ برسوم الشبكة",
+  "form__gas_fee_settings": "إعدادات رسوم الشبكة",
   "form__gas_limit": "حد الغاز",
   "form__gas_limit_invalid_min": "يجب ألا يقل حد الغاز عن {0}",
   "form__gas_limit_invalid_too_much": "حد الغاز أعلى من اللازم.",
@@ -2215,7 +2216,7 @@
   "msg__file_size_should_less_than_str": "يجب أن يكون حجم الملف أقل من {0}",
   "msg__firmware_is_being_upgraded": "جاري ترقية البرنامج الثابت. يرجى اتباع تعليمات الجهاز.",
   "msg__for_the_security_of_your_assets_the_hardware_wallet_firmware_restricts_the_private_key_from_being_exported": "من أجل أمان أصولك ، تعمل البرامج الثابتة الخاصة بمحفظة الأجهزة على تقييد تصدير المفتاح الخاص.",
-  "msg__gas_fee_is_not_enough_please_keep_at_least_str": "رسوم الغاز ليست كافية ، يرجى الاحتفاظ بـ {0} على الأقل",
+  "msg__gas_fee_is_not_enough_please_keep_at_least_str": "رسوم الشبكة ليست كافية، يرجى الاحتفاظ بـ {0} على الأقل",
   "msg__hardware_bluetooth_need_turned_on_error": "يجب تشغيل Bluetooth.",
   "msg__hardware_bluetooth_not_paired_error": "لا يتم إقران جهاز Bluetooth.",
   "msg__hardware_bluetooth_pairing_failed": "فشل اقتران البلوتوث.",
@@ -2243,7 +2244,7 @@
   "msg__hardware_not_support": "هذه الطريقة بها مخاطر أمنية ، الأجهزة غير مدعومة حاليًا.",
   "msg__hardware_open_blind_sign_error": "تنسيق توقيع غير معروف، انتقل إلى الأمان > التوقيع الأعمى وقم بتمكين التوقيع SOL-Sign المتقدم",
   "msg__hardware_opened_passphrase": "يرجى إيقاف تشغيل عبارة المرور على جهازك لاستخدام المحفظة القياسية",
-  "msg__hardware_polling_connect_timeout_error": "انتهت مهلة الاتصال ، يرجى التحقق من حالة OneKey Bridge وإعادة توصيل الأجهزة",
+  "msg__hardware_polling_connect_timeout_error": "انتهى وقت محاولة الاتصال. يرجى التحقق من حالة OneKey Bridge وإعادة تشغيل الجهاز.",
   "msg__hardware_software_cannot_be_upgrade": "لا يمكن للعميل تحديث الجهاز. تحتاج إلى التحديث إلى https://firmware.onekey.so.",
   "msg__hardware_status_connected": "متصل",
   "msg__hardware_status_update_available": "التحديث متاح",
@@ -2382,7 +2383,7 @@
   "msg__str_has_been_added_but_is_hidden_desc": "قد يكون {0} رمزًا محفوفًا بالمخاطر وتحتاج إلى إيقاف تشغيل \"إخفاء الرموز المميزة المحفوفة بالمخاطر\" لعرضه.",
   "msg__str_has_been_hidden": "تم إخفاء {0}",
   "msg__str_in_progress": "{0} قيد التقدم",
-  "msg__str_insufficient_balance_to_pay_for_gas_fee": "{0} رصيد غير كاف لدفع رسوم الغاز.",
+  "msg__str_insufficient_balance_to_pay_for_gas_fee": "{0} الرصيد غير كافٍ لدفع رسوم الشبكة.",
   "msg__str_is_a_risky_token_be_careful": "❗ {0} هو رمز محفوف بالمخاطر ، انتبه!",
   "msg__str_is_an_attention_token_be_careful": "⚠️ {0} هو رمز يجب توخي الحذر منه!",
   "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "{0} مطلوب لرسوم الشبكة.\n يكلف {0} كرسوم شبكة في {1} . اشحن {0} إلى حسابك لإجراء المعاملات.",
@@ -2399,7 +2400,7 @@
   "msg__success": "النجاح",
   "msg__successful_trade": "💫 تداول {assets1} مقابل {الأصول 2 {assets2}",
   "msg__successful_trade_desc": "{0} لـ {1}",
-  "msg__suggest_reserving_str_as_gas_fee": "اقتراح حجز {0} كرسوم غاز.",
+  "msg__suggest_reserving_str_as_gas_fee": "أقترح حجز {0} كرسوم للشبكة.",
   "msg__swap_failed": "😵️ فشل المبادلة",
   "msg__swap_successful": "⚖️ المبادلة ناجحة",
   "msg__switch_to_str": "تحول إلى {0}",
@@ -2483,14 +2484,14 @@
   "msg__you_need_str_accounts_on_any_network_to_create": "أنت بحاجة إلى حسابات {0} على أي شبكة لإنشاءها",
   "msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss": "سوف تستبدل الرموز بنسبة {0}٪ أقل من سعر coingecko ، مما قد يؤدي إلى خسارة.",
   "msg__your_str_balance_is_insufficient": "رصيدك في {0} غير كاف",
-  "msg__your_str_balance_is_insufficient_desc": "بعد دفع رسوم الغاز البالغة {0} ، لن يكون رصيدك كافيًا لإتمام المعاملة.",
+  "msg__your_str_balance_is_insufficient_desc": "بعد دفع رسوم الشبكة البالغة {0} ، فإن رصيدك لا يكفي لإتمام المعاملة.",
   "msg__your_trade_may_be_front_run_due_to_the_larger_slippage": "قد تكون تجارتك في المقدمة بسبب الانزلاق الأكبر.",
   "msg__your_trade_may_fail_due_to_small_slippage": "قد تفشل تجارتك بسبب انزلاق بسيط.",
   "msg__your_transaction_may_be_frontrun": "قد تكون معاملتك في المقدمة",
   "msg__your_transaction_may_fail": "قد تفشل معاملتك",
   "msg_connection_failed_it_may_be_an_invalid_lnurl_lightning_address_check_your_network_and_try_again": "فشل الاتصال ، قد يكون عنوان lnurl / lightning غير صالح. تحقق من شبكتك وحاول مرة أخرى",
   "msg_description_can_be_up_to_int_characters": "يمكن أن يصل الوصف إلى {0} من الأحرف",
-  "msg_insufficient_gas_fee": "رسوم الغاز غير كافية",
+  "msg_insufficient_gas_fee": "رسوم الشبكة غير كافية",
   "msg_receipt_amount_should_be_less_than_int_sats": "يجب أن يكون مبلغ الإيصال أقل من {0} ساتس",
   "network__network": "شبكة",
   "network__networks": "الشبكات",
@@ -2585,7 +2586,7 @@
   "title__convert_recovery_phrase_to_dotmap_for_keytag": "تحويل عبارة الاسترداد إلى Dotmap لـ KeyTag",
   "title__create_invoice": "إنشاء فاتورة",
   "title__cryptos": "التشفير",
-  "title__current_gas_fee": "رسوم الغاز الحالية",
+  "title__current_gas_fee": "رسوم الشبكة الحالية",
   "title__current_gas_fee_desc": "كل معاملة تحتاج إلى القليل من {0} لتعمل",
   "title__custom": "مخصص",
   "title__dapp_connection": "اتصال dApp",
