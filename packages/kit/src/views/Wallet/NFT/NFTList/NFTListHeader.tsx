@@ -1,15 +1,23 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, HStack, Typography, useTheme } from '@onekeyhq/components';
+import {
+  Box,
+  HStack,
+  IconButton,
+  Typography,
+  useTheme,
+} from '@onekeyhq/components';
 import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
 import {
   useActiveWalletAccount,
   useAppSelector,
 } from '@onekeyhq/kit/src/hooks';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
+import { showHomeNFTSettings } from '../../../Overlay/HomeNFTSettings';
 // import { showSelectNFTPriceType } from '../../../Overlay/SelectNFTPriceType';
 
 const NFTListHeader = () => {
@@ -27,6 +35,12 @@ const NFTListHeader = () => {
     disPlayPriceType === 'lastSalePrice'
       ? intl.formatMessage({ id: 'form__last_price' })
       : intl.formatMessage({ id: 'form__floor_price' });
+
+  const isBtcNetwork = useMemo(
+    () => networkId === OnekeyNetwork.btc || networkId === OnekeyNetwork.tbtc,
+    [networkId],
+  );
+
   return (
     <Box flexDirection="column" paddingRight="16px">
       {isNFTSupport && (
@@ -77,6 +91,14 @@ const NFTListHeader = () => {
         <Typography.Heading>
           {intl.formatMessage({ id: 'title__assets' })}
         </Typography.Heading>
+        {isBtcNetwork ? (
+          <IconButton
+            name="Cog8ToothMini"
+            size="sm"
+            type="plain"
+            onPress={() => showHomeNFTSettings({ accountId, networkId })}
+          />
+        ) : null}
         {/* {expandEnable ? ( */}
         {/*   <IconButton */}
         {/*     name={expand ? 'ArrowsPointingInMini' : 'ArrowsPointingOutMini'} */}
