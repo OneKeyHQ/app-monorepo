@@ -1,6 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 
-import type { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 
 import { EOverviewScanTaskType } from '../../views/Overview/types';
 
@@ -39,7 +39,7 @@ const initialState: InitialState = {
   backgroundShowToastTs: 0,
   backgroundShowToastOptions: {
     title: '',
-    type: 'info',
+    type: ToastManagerType.default,
   },
 };
 
