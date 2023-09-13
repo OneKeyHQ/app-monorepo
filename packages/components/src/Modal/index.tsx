@@ -311,7 +311,6 @@ const Modal = ({
     modalHeight,
     isVerticalLayout,
     disableTopRadius,
-    rest.containerStyle,
   ]);
 
   const triggerNode = useMemo(() => {

@@ -1,5 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 
+import type { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
+
 import { EOverviewScanTaskType } from '../../views/Overview/types';
 
 import type { PayloadAction } from '@reduxjs/toolkit';
@@ -8,7 +10,7 @@ const NAME = 'refresher';
 
 export type IBackgroundShowToastOptions = {
   title: string;
-  type: 'success' | 'error' | 'info';
+  type: ToastManagerType;
 };
 
 type InitialState = {
