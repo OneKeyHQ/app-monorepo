@@ -10,6 +10,7 @@ import {
   isTaprootXpubSegwit,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
 import type VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
+import { getShouldHideInscriptions } from '@onekeyhq/kit/src/hooks/crossHooks/useShouldHideInscriptions';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
@@ -97,13 +98,10 @@ export default class ServiceUtxos extends ServiceBase {
     recycleUtxos: ICoinControlListItem[];
     recycleUtxosWithoutFrozen: ICoinControlListItem[];
   }> {
-    return this._getUtxos(
-      networkId,
-      accountId,
-      sortBy,
-      useRecycleUtxos,
-      options,
-    );
+    return this._getUtxos(networkId, accountId, sortBy, useRecycleUtxos, {
+      checkInscription: !getShouldHideInscriptions({ accountId, networkId }),
+      ...options,
+    });
   }
 
   _getUtxos = memoizee(
