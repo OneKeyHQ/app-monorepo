@@ -16,8 +16,6 @@ import {
 // TODO move to bootstrap
 import './observable.config';
 
-import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
-
 export interface WebTab {
   id: string;
   url: string;
