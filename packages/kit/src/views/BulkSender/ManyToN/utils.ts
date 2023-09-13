@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
 import { ToastManager } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { Token } from '@onekeyhq/engine/src/types/token';
@@ -258,9 +259,7 @@ export const verifyBulkTransferBeforeConfirm = async ({
                   id: 'msg__failed_to_get_network_fees_please_try_again',
                 }),
               },
-              {
-                type: 'error',
-              },
+              { type: ToastManagerType.error },
             );
             return {
               isVerified: false,

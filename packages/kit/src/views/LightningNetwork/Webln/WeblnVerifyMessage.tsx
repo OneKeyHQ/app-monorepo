@@ -9,6 +9,7 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { VerifyMessageArgs } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/webln';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -87,14 +88,14 @@ const WeblnSignMessage = () => {
                 info ?? {},
               ),
             },
-            { type: 'error' },
+            { type: ToastManagerType.error },
           );
           dappApprove.reject();
           return false;
         }
         ToastManager.show(
           { title: (e as Error)?.message || e },
-          { type: 'error' },
+          { type: ToastManagerType.error },
         );
         return false;
       } finally {

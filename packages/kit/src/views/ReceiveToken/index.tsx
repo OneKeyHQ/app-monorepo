@@ -17,6 +17,7 @@ import {
   Token,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import BlurQRCode from '@onekeyhq/kit/assets/blur-qrcode.png';
@@ -116,7 +117,7 @@ const ReceiveToken = () => {
               id: 'msg__address_is_inconsistent_please_check_manually',
             }),
           },
-          { type: 'default' },
+          { type: ToastManagerType.default },
         );
       }
       setOnHardwareConfirmed(isSameAddress);

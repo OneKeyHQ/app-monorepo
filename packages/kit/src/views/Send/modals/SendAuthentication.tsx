@@ -5,6 +5,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Spinner, ToastManager } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -256,7 +257,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
               intl.formatMessage({ id: 'transaction__failed' }),
             description: error.data.message, // TODO toast description not working
           },
-          { type: 'error' },
+          { type: ToastManagerType.error },
         );
       } else {
         const msg = error?.key
@@ -272,7 +273,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
                 title: msg || intl.formatMessage({ id: 'transaction__failed' }),
                 description: msg,
               },
-              { type: 'error' },
+              { type: ToastManagerType.error },
             );
           }
         }

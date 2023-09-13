@@ -10,6 +10,7 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { IEncodedTxLightning } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types';
 import type { IInvoiceDecodedResponse } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/invoice';
 
@@ -149,13 +150,13 @@ const WeblnSendPayment = () => {
                 info ?? {},
               ),
             },
-            { type: 'error' },
+            { type: ToastManagerType.error },
           );
           return false;
         }
         ToastManager.show(
           { title: (e as Error)?.message || e },
-          { type: 'error' },
+          { type: ToastManagerType.error },
         );
       } finally {
         setIsLoading(false);

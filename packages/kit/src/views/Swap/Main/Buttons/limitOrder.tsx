@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Button, ToastManager } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import { ethers } from '@onekeyhq/engine/src/vaults/impl/evm/sdk/ethers';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
@@ -56,7 +57,7 @@ const LimitOrderButton = () => {
         {
           title: intl.formatMessage({ id: 'msg__unknown_error' }),
         },
-        { type: 'error' },
+        { type: ToastManagerType.error },
       );
       return;
     }
@@ -79,7 +80,7 @@ const LimitOrderButton = () => {
         {
           title: intl.formatMessage({ id: 'msg__unknown_error' }),
         },
-        { type: 'error' },
+        { type: ToastManagerType.error },
       );
       return;
     }

@@ -5,6 +5,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { IconButton, ToastManager } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useLocalAuthentication } from '../../hooks';
@@ -56,9 +57,7 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
             {
               title: intl.formatMessage({ id: 'msg__verification_failure' }),
             },
-            {
-              type: 'error',
-            },
+            { type: ToastManagerType.error },
           );
         }
         onNg?.();

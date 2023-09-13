@@ -24,6 +24,7 @@ import {
   Typography,
   VStack,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import { INSCRIPTION_PADDING_SATS_VALUES } from '@onekeyhq/engine/src/vaults/impl/btc/inscribe/consts';
@@ -804,9 +805,7 @@ export const Debug = () => {
                       {
                         title: 'please input password first',
                       },
-                      {
-                        type: 'error',
-                      },
+                      { type: ToastManagerType.error },
                     );
                     return;
                   }
@@ -847,9 +846,7 @@ export const Debug = () => {
                     {
                       title: msg,
                     },
-                    {
-                      type: 'error',
-                    },
+                    { type: ToastManagerType.error },
                   );
                 }
               }}

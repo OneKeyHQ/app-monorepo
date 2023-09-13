@@ -14,6 +14,7 @@ import {
   Typography,
   useTheme,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import {
   setAppLockDuration,
@@ -161,9 +162,7 @@ export const SecuritySection = () => {
                               id: 'title__no_connection_desc',
                             }),
                           },
-                          {
-                            type: 'error',
-                          },
+                          { type: ToastManagerType.error },
                         );
                       }
                     });

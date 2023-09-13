@@ -20,6 +20,7 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SkipAppLock } from '../../../components/AppLock';
@@ -160,9 +161,7 @@ export const ReplyTicket: FC = () => {
               {
                 title: intl.formatMessage({ id: 'msg__upload_failed' }),
               },
-              {
-                type: 'error',
-              },
+              { type: ToastManagerType.error },
             );
           }
         },

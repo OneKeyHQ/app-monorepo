@@ -20,6 +20,7 @@ import {
   Typography,
   VStack,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
@@ -212,7 +213,7 @@ export default function UnstakeAmount() {
     if (!message) {
       ToastManager.show(
         { title: intl.formatMessage({ id: 'form__failed' }) },
-        { type: 'error' },
+        { type: ToastManagerType.error },
       );
       return;
     }

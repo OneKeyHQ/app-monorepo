@@ -6,6 +6,7 @@ import semver from 'semver';
 import { ToastManager } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import type { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import * as Error from '@onekeyhq/shared/src/errors';
@@ -325,7 +326,10 @@ class DeviceUtils {
         }
 
         if (errorMessage) {
-          ToastManager.show({ title: errorMessage }, { type: 'error' });
+          ToastManager.show(
+            { title: errorMessage },
+            { type: ToastManagerType.error },
+          );
           return true;
         }
       } else {
@@ -345,7 +349,10 @@ class DeviceUtils {
         }
 
         if (errorMessage) {
-          ToastManager.show({ title: errorMessage }, { type: 'error' });
+          ToastManager.show(
+            { title: errorMessage },
+            { type: ToastManagerType.error },
+          );
           return true;
         }
       }

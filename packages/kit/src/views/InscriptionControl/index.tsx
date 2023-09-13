@@ -15,6 +15,7 @@ import {
   Text,
   ToastManager,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import {
   AppUIEventBusNames,
@@ -115,7 +116,7 @@ function InscriptionControl() {
               title: intl.formatMessage({ id: 'msg__inscription_deoccupied' }),
             },
             {
-              type: 'default',
+              type: ToastManagerType.default,
             },
           );
           fetchAvailableInscriptions();

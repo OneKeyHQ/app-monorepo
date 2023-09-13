@@ -4,6 +4,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Form, Modal, ToastManager, useForm } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import NameServiceResolver, {
   useNameServiceStatus,
 } from '@onekeyhq/kit/src/components/NameServiceResolver';
@@ -86,7 +87,7 @@ const EnterAddress = () => {
             {
               title: intl.formatMessage({ id: 'form__address_invalid' }),
             },
-            { type: 'error' },
+            { type: ToastManagerType.error },
           );
           return;
         }

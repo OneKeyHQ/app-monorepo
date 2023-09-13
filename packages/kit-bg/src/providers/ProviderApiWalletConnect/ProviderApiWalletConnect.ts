@@ -43,6 +43,7 @@ import type {
   IWeb3Wallet,
   Web3WalletTypes,
 } from '@walletconnect-v2/web3wallet';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 
 @backgroundClass()
 class ProviderApiWalletConnect extends WalletConnectClientForWallet {
@@ -493,7 +494,7 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
           this.backgroundApi.dispatch(
             backgroundShowToast({
               title: error?.message,
-              type: 'error',
+              type: ToastManagerType.error,
             }),
           );
         },

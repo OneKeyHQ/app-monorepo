@@ -11,6 +11,7 @@ import {
   ToastManager,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { TokenIcon } from '@onekeyhq/components/src/Token';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
@@ -188,7 +189,7 @@ function OneToMany(props: Props) {
               { '0': token?.symbol },
             ),
           },
-          { type: 'error' },
+          { type: ToastManagerType.error },
         );
         return false;
       }
@@ -307,7 +308,7 @@ function OneToMany(props: Props) {
         {
           title: typeof error === 'string' ? error : (error as Error).message,
         },
-        { type: 'error' },
+        { type: ToastManagerType.error },
       );
     }
   }, [

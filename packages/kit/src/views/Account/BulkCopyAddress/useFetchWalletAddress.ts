@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ToastManager } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { getDefaultAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import {
@@ -234,7 +235,7 @@ export function useFetchWalletAddress({
                     id: 'msg__cancelled_during_the_process',
                   }),
                 },
-                { type: 'error' },
+                { type: ToastManagerType.error },
               );
             }
             updateWalletsAccountProgress(result, true);
@@ -334,7 +335,7 @@ export function useFetchWalletAddress({
                   id: 'msg__cancelled_during_the_process',
                 }),
               },
-              { type: 'error' },
+              { type: ToastManagerType.error },
             );
           }
           updateWalletsAccountProgress(result, true);

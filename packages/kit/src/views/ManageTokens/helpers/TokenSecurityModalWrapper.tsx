@@ -1,5 +1,6 @@
 import { ToastManager } from '@onekeyhq/components';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { generateNetworkIdByChainId } from '@onekeyhq/engine/src/managers/network';
 import { GoPlusSupportApis } from '@onekeyhq/engine/src/types/goplus';
 import type { Token } from '@onekeyhq/engine/src/types/token';
@@ -40,7 +41,7 @@ export const notifyIfRiskToken = (token: Partial<Token>) => {
           ),
         },
         {
-          type: 'default',
+          type: ToastManagerType.default,
         },
       );
     })

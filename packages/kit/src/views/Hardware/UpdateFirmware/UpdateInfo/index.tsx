@@ -22,6 +22,7 @@ import {
   useIsVerticalLayout,
   useLocale,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { Device } from '@onekeyhq/engine/src/types/device';
 import TouchConnectDesktop from '@onekeyhq/kit/assets/illus_touch_connect_desktop.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -145,7 +146,7 @@ const UpdateInfoModal: FC = () => {
               id: 'msg__low_battery_charge_to_25_before_updating_firmware_or_boot',
             }),
           },
-          { type: 'error' },
+          { type: ToastManagerType.error },
         );
         return false;
       }
@@ -199,7 +200,7 @@ const UpdateInfoModal: FC = () => {
                 id: 'msg__hardware_software_cannot_be_upgrade',
               }),
             },
-            { type: 'default' },
+            { type: ToastManagerType.default },
           );
         }, 500);
 
@@ -297,9 +298,7 @@ const UpdateInfoModal: FC = () => {
           {
             title: intl.formatMessage({ id: 'msg__unknown_error' }),
           },
-          {
-            type: 'error',
-          },
+          { type: ToastManagerType.error },
         );
         navigation.goBack();
       }

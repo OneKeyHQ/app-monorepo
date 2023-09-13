@@ -21,6 +21,7 @@ import {
   Text,
   ToastManager,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { MigrateErrorCode } from '@onekeyhq/engine/src/types/migrate';
 import type { DeviceInfo } from '@onekeyhq/engine/src/types/migrate';
 import PermissionDialog from '@onekeyhq/kit/src/components/PermissionDialog/PermissionDialog';
@@ -149,7 +150,7 @@ const Content: FC<Props> = ({ serverAddress, serverInfo, closeOverlay }) => {
               id: 'form__failed',
             }),
           },
-          { type: 'error' },
+          { type: ToastManagerType.error },
         );
       }
       return success;
@@ -161,7 +162,7 @@ const Content: FC<Props> = ({ serverAddress, serverInfo, closeOverlay }) => {
             id: 'msg__no_data_available',
           }),
         },
-        { type: 'default' },
+        { type: ToastManagerType.default },
       );
     }
     return false;
@@ -185,7 +186,7 @@ const Content: FC<Props> = ({ serverAddress, serverInfo, closeOverlay }) => {
               id: 'msg__no_data_available',
             }),
           },
-          { type: 'default' },
+          { type: ToastManagerType.default },
         );
         return false;
       }

@@ -16,6 +16,7 @@ import {
   Typography,
   useTheme,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import {
@@ -444,9 +445,7 @@ export const DevSettingSection = () => {
                   {
                     title: 'failed, please check console log',
                   },
-                  {
-                    type: 'error',
-                  },
+                  { type: ToastManagerType.error },
                 );
               } else {
                 ToastManager.show({
