@@ -10,23 +10,19 @@ const { isDev, PUBLIC_URL, NODE_ENV } = require('./constant');
 
 class BuildDoneNotifyPlugin {
   apply(compiler) {
-    compiler.hooks.done.tap(
-      'BuildDoneNotifyPlugin',
-      (compilation, callback) => {
-        console.log(compilation.stats);
-        const msg = `OneKey Build at ${new Date().toLocaleTimeString()}, completed in ${
-          (compilation.endTime - compilation.startTime) / 1000
-        }s`;
-        setTimeout(() => {
-          console.log('\u001b[33m'); // yellow color
-          console.log('===================================');
-          console.log(msg);
-          console.log('===================================');
-          console.log('\u001b[0m'); // reset color
-        }, 300);
-        notifier.notify(msg);
-      },
-    );
+    compiler.hooks.done.tap('BuildDoneNotifyPlugin', (compilation) => {
+      const msg = `OneKey Build at ${new Date().toLocaleTimeString()}, completed in ${
+        (compilation.endTime - compilation.startTime) / 1000
+      }s`;
+      setTimeout(() => {
+        console.log('\u001b[33m'); // yellow color
+        console.log('===================================');
+        console.log(msg);
+        console.log('===================================');
+        console.log('\u001b[0m'); // reset color
+      }, 300);
+      notifier.notify(msg);
+    });
   }
 }
 
