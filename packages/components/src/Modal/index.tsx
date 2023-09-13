@@ -25,7 +25,7 @@ import type { FlatListProps } from '../FlatList';
 import type { LocaleIds } from '../locale';
 import type { SectionListProps } from '../SectionList';
 import type { HeaderProps } from './Container/Header/type';
-import type { LayoutChangeEvent } from 'react-native';
+import type { LayoutChangeEvent, StyleProp, ViewStyle } from 'react-native';
 
 export type ModalProps = {
   headerShown?: boolean;
@@ -66,6 +66,10 @@ export type ModalProps = {
     maxHeight work for Desktop Modal
   */
   maxHeight?: number | string;
+  /*
+    containerStyle work for Desktop Modal
+  */
+  containerStyle?: StyleProp<ViewStyle> | undefined;
   modalHeight?: string | number | 'full';
 
   children?: ReactNode;
@@ -236,7 +240,13 @@ const Modal = ({
         fullMobile
       ) {
         return (
-          <Box flex={1} alignItems="flex-end" w="100%" flexDirection="row">
+          <Box
+            flex={1}
+            alignItems="flex-end"
+            w="100%"
+            flexDirection="row"
+            style={rest.containerStyle}
+          >
             <Box
               ref={modalRef}
               onLayout={onLayout}
@@ -301,6 +311,7 @@ const Modal = ({
     modalHeight,
     isVerticalLayout,
     disableTopRadius,
+    rest.containerStyle,
   ]);
 
   const triggerNode = useMemo(() => {
