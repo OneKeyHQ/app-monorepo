@@ -6843,6 +6843,8 @@ __metadata:
     keytar: ^7.9.0
     node-fetch: ^2.6.7
     rimraf: ^3
+    webpack: 5.88.2
+    webpack-cli: 5.1.4
   languageName: unknown
   linkType: soft
 
