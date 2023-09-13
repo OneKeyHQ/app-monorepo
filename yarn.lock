@@ -6572,7 +6572,6 @@ __metadata:
     "@types/memoizee": ^0.4.8
     "@types/mime-types": ^2.1.1
     "@types/node": ^16.7.13
-    "@types/progress-bar-webpack-plugin": ^2
     "@types/react": ^17
     "@types/react-dom": ^18.0.9
     "@types/react-native": ^0.71.6
@@ -6644,7 +6643,6 @@ __metadata:
     patch-package: ^7.0.0
     path-browserify: ^1.0.1
     prettier: ^2.8.1
-    progress-bar-webpack-plugin: ^2.1.0
     react-dev-utils: ^12.0.1
     react-dom: 18.2.0
     react-native: 0.71.8
@@ -6663,6 +6661,7 @@ __metadata:
     typescript: ^5.0.4
     ultra-runner: ^3.10.5
     webpack-bundle-analyzer: ^4.7.0
+    webpackbar: ^5.0.2
   languageName: unknown
   linkType: soft
 
@@ -11913,25 +11912,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/progress-bar-webpack-plugin@npm:^2":
-  version: 2.1.2
-  resolution: "@types/progress-bar-webpack-plugin@npm:2.1.2"
-  dependencies:
-    "@types/progress": "*"
-    "@types/webpack": ^4
-  checksum: 4985383a91214a9c22dce79d505062cd21e4a042145b4715a21bc982e27d750acde1f8a67f4d7a096144736d2090cc961e69d0ca50aeb8f716712ccd9fda5a24
-  languageName: node
-  linkType: hard
-
-"@types/progress@npm:*":
-  version: 2.0.5
-  resolution: "@types/progress@npm:2.0.5"
-  dependencies:
-    "@types/node": "*"
-  checksum: 633427b875f782176456ceaf78bcdf47abf27bcf52385fa1acb545d0e6450f5638aa313ca600f25fb12bf094a003257b19b000d1072981d7be8a375c87e37a92
-  languageName: node
-  linkType: hard
-
 "@types/prop-types@npm:*":
   version: 15.7.4
   resolution: "@types/prop-types@npm:15.7.4"
@@ -12112,13 +12092,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/source-list-map@npm:*":
-  version: 0.1.2
-  resolution: "@types/source-list-map@npm:0.1.2"
-  checksum: fda8f37537aca9d3ed860d559289ab1dddb6897e642e6f53e909bbd18a7ac3129a8faa2a7d093847c91346cf09c86ef36e350c715406fba1f2271759b449adf6
-  languageName: node
-  linkType: hard
-
 "@types/stack-utils@npm:^2.0.0":
   version: 2.0.1
   resolution: "@types/stack-utils@npm:2.0.1"
@@ -12136,26 +12109,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/tapable@npm:^1":
-  version: 1.0.8
-  resolution: "@types/tapable@npm:1.0.8"
-  checksum: b4b754dd0822c407b8f29ef6b766490721c276880f9e976d92ee2b3ef915f11a05a2442ae36c8978bcd872ad6bc833b0a2c4d267f2d611590668a366bad50652
-  languageName: node
-  linkType: hard
-
 "@types/tough-cookie@npm:*":
   version: 4.0.2
   resolution: "@types/tough-cookie@npm:4.0.2"
   checksum: e055556ffdaa39ad85ede0af192c93f93f986f4bd9e9426efdc2948e3e2632db3a4a584d4937dbf6d7620527419bc99e6182d3daf2b08685e710f2eda5291905
-  languageName: node
-  linkType: hard
-
-"@types/uglify-js@npm:*":
-  version: 3.17.2
-  resolution: "@types/uglify-js@npm:3.17.2"
-  dependencies:
-    source-map: ^0.6.1
-  checksum: 6cd3ae5befd2bf147c6a37e94b1454dc85d9102ec1a6ab242268f37fe84ba8373904db2ed56fa418233fd93366bde8e0bb4f49c137b92f165b45c957296ac28a
   languageName: node
   linkType: hard
 
@@ -12191,31 +12148,6 @@ __metadata:
   version: 0.8.2
   resolution: "@types/webextension-polyfill@npm:0.8.2"
   checksum: 59d12c51f2d92515346d1e99682ff44a0d9b5791575f9ece9d46a98ac3f04ee79ed1a820ada884f31cd687edc1110913c80a12b537aa4a7d474a61b008e03e27
-  languageName: node
-  linkType: hard
-
-"@types/webpack-sources@npm:*":
-  version: 3.2.0
-  resolution: "@types/webpack-sources@npm:3.2.0"
-  dependencies:
-    "@types/node": "*"
-    "@types/source-list-map": "*"
-    source-map: ^0.7.3
-  checksum: fa23dcfb99f79cc0ba8e6ca41cb8dedb406f8d7772e8e3d3d9b443bfb36557a1a78f4de2b97905554db98beee1a2ef6f930e188977adde6452392a64dd4b7c2a
-  languageName: node
-  linkType: hard
-
-"@types/webpack@npm:^4":
-  version: 4.41.33
-  resolution: "@types/webpack@npm:4.41.33"
-  dependencies:
-    "@types/node": "*"
-    "@types/tapable": ^1
-    "@types/uglify-js": "*"
-    "@types/webpack-sources": "*"
-    anymatch: ^3.0.0
-    source-map: ^0.6.0
-  checksum: 5f64818128c94026be0e43e77d687e2d90f0da526a3a7c308c6a0bb12e93a35c9243be427bbf6865f64fd71dc5b32715af9b9da0cd6ae8335081b6db995bad2b
   languageName: node
   linkType: hard
 
@@ -13773,16 +13705,6 @@ __metadata:
     micromatch: ^3.1.4
     normalize-path: ^2.1.1
   checksum: f7bb1929842b4585cdc28edbb385767d499ce7d673f96a8f11348d2b2904592ffffc594fe9229b9a1e9e4dccb9329b7692f9f45e6a11dcefbb76ecdc9ab740f6
-  languageName: node
-  linkType: hard
-
-"anymatch@npm:^3.0.0":
-  version: 3.1.3
-  resolution: "anymatch@npm:3.1.3"
-  dependencies:
-    normalize-path: ^3.0.0
-    picomatch: ^2.0.4
-  checksum: 3e044fd6d1d26545f235a9fe4d7a534e2029d8e59fa7fd9f2a6eb21230f6b5380ea1eaf55136e60cbf8e613544b3b766e7a6fa2102e2a3a117505466e3025dc2
   languageName: node
   linkType: hard
 
@@ -17140,6 +17062,13 @@ __metadata:
     parseurl: ~1.3.3
     utils-merge: 1.0.1
   checksum: 96e1c4effcf219b065c7823e57351c94366d2e2a6952fa95e8212bffb35c86f1d5a3f9f6c5796d4cd3a5fdda628368b1c3cc44bf19c66cfd68fe9f9cab9177e2
+  languageName: node
+  linkType: hard
+
+"consola@npm:^2.15.3":
+  version: 2.15.3
+  resolution: "consola@npm:2.15.3"
+  checksum: 8ef7a09b703ec67ac5c389a372a33b6dc97eda6c9876443a60d76a3076eea0259e7f67a4e54fd5a52f97df73690822d090cf8b7e102b5761348afef7c6d03e28
   languageName: node
   linkType: hard
 
@@ -30503,6 +30432,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"pretty-time@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "pretty-time@npm:1.1.0"
+  checksum: a319e7009aadbc6cfedbd8b66861327d3a0c68bd3e8794bf5b86f62b40b01b9479c5a70c76bb368ad454acce52a1216daee460cc825766e2442c04f3a84a02c9
+  languageName: node
+  linkType: hard
+
 "process-nextick-args@npm:~2.0.0":
   version: 2.0.1
   resolution: "process-nextick-args@npm:2.0.1"
@@ -30521,18 +30457,6 @@ __metadata:
   version: 0.11.10
   resolution: "process@npm:0.11.10"
   checksum: bfcce49814f7d172a6e6a14d5fa3ac92cc3d0c3b9feb1279774708a719e19acd673995226351a082a9ae99978254e320ccda4240ddc474ba31a76c79491ca7c3
-  languageName: node
-  linkType: hard
-
-"progress-bar-webpack-plugin@npm:^2.1.0":
-  version: 2.1.0
-  resolution: "progress-bar-webpack-plugin@npm:2.1.0"
-  dependencies:
-    chalk: ^3.0.0
-    progress: ^2.0.3
-  peerDependencies:
-    webpack: ^1.3.0 || ^2 || ^3 || ^4 || ^5
-  checksum: 90d765f363bd2b5c220c75cdd66037453690500e20206838d7dc67e49813dc742079a69d663663a4d4405c70b43738add347abe31d1c4abd4ab52f473019321a
   languageName: node
   linkType: hard
 
@@ -34441,6 +34365,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"std-env@npm:^3.0.1":
+  version: 3.4.3
+  resolution: "std-env@npm:3.4.3"
+  checksum: bef186fb2baddda31911234b1e58fa18f181eb6930616aaec3b54f6d5db65f2da5daaa5f3b326b98445a7d50ca81d6fe8809ab4ebab85ecbe4a802f1b40921bf
+  languageName: node
+  linkType: hard
+
 "stop-iteration-iterator@npm:^1.0.0":
   version: 1.0.0
   resolution: "stop-iteration-iterator@npm:1.0.0"
@@ -37413,6 +37344,20 @@ __metadata:
   bin:
     webpack: bin/webpack.js
   checksum: 79476a782da31a21f6dd38fbbd06b68da93baf6a62f0d08ca99222367f3b8668f5a1f2086b7bb78e23172e31fa6df6fa7ab09b25e827866c4fc4dc2b30443ce2
+  languageName: node
+  linkType: hard
+
+"webpackbar@npm:^5.0.2":
+  version: 5.0.2
+  resolution: "webpackbar@npm:5.0.2"
+  dependencies:
+    chalk: ^4.1.0
+    consola: ^2.15.3
+    pretty-time: ^1.1.0
+    std-env: ^3.0.1
+  peerDependencies:
+    webpack: 3 || 4 || 5
+  checksum: 214a734b1d4d391eb8271ed1b11085f0efe6831e93f641229b292abfd6fea871422dce121612511c17ae8047522be6d65c1a2666cabb396c79549816a3612338
   languageName: node
   linkType: hard
 
