@@ -7,7 +7,11 @@ import { KeyringImported as KeyringImportedBtcFork } from '@onekeyhq/engine/src/
 import { OneKeyInternalError } from '../../../errors';
 import { AccountType } from '../../../types/account';
 import { AddressEncodings } from '../../utils/btcForkChain/types';
-import { initBitcoinEcc } from '../../utils/btcForkChain/utils';
+import {
+  getBitcoinBip32,
+  getBitcoinECPair,
+  initBitcoinEcc,
+} from '../../utils/btcForkChain/utils';
 
 import type { DBUTXOAccount } from '../../../types/account';
 import type { IPrepareImportedAccountsParams } from '../../types';
@@ -26,6 +30,7 @@ export class KeyringImported extends KeyringImportedBtcFork {
 
     let xpub = '';
     let pub = '';
+    const privateKeyString = bs58check.encode(privateKey);
 
     const { network } = provider;
     const xprvVersionBytesNum = parseInt(
@@ -47,7 +52,6 @@ export class KeyringImported extends KeyringImportedBtcFork {
           xpub = bs58check.encode(
             privateKey.fill(pubVersionBytes, 0, 4).fill(publicKey, 45, 78),
           );
-          pub = publicKey.toString('hex');
         } catch (e) {
           console.error(e);
         }
@@ -76,6 +80,12 @@ export class KeyringImported extends KeyringImportedBtcFork {
       [firstAddressRelPath],
       addressEncoding,
     );
+
+    const node = getBitcoinBip32()
+      .fromBase58(privateKeyString)
+      .derivePath(firstAddressRelPath);
+    const keyPair = getBitcoinECPair().fromWIF(node.toWIF());
+    pub = keyPair.publicKey.toString('hex');
 
     return Promise.resolve([
       {
