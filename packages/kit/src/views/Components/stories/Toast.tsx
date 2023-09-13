@@ -1,4 +1,3 @@
-import { Row, Stack } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import { Button, ToastManager } from '@onekeyhq/components';
@@ -21,84 +20,114 @@ const ToastGallery = () => {
         'Toast 组件能显示的最长文本内容为三排，超出三排将会缩略',
         '界面中只会存在一个 Toast 示例，后触发的 Toast 信息会覆盖前一条 Toast 信息',
       ]}
-    >
-      <Stack space={6}>
-        <Row>
-          <Button
-            type="primary"
-            onPress={() => {
-              ToastManager.show({
-                title: 'Success',
-              });
-            }}
-          >
-            使用默认类型打开 Toast(默认类型为 ToastManagerType.success)
-          </Button>
-        </Row>
-        <Row>
-          <Button
-            type="destructive"
-            onPress={() => {
-              ToastManager.show(
-                {
-                  title: 'Failed',
-                },
-                { type: ToastManagerType.error },
-              );
-            }}
-          >
-            使用 error 类型打开 Toast
-          </Button>
-        </Row>
-        <Row>
-          <Button
-            type="basic"
-            onPress={() => {
-              ToastManager.show(
-                {
-                  title: 'Fetching...',
-                },
-                { type: ToastManagerType.default },
-              );
-            }}
-          >
-            使用 default 类型打开 Toast
-          </Button>
-        </Row>
-        <Row>
-          <Button
-            type="basic"
-            onPress={() => {
-              ToastManager.show(
-                {
-                  title: `orem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.`,
-                },
-                { type: ToastManagerType.default },
-              );
-            }}
-          >
-            超长文本
-          </Button>
-        </Row>
-        <Row>
-          <Button
-            type="basic"
-            onPress={() => {
-              ToastManager.show(
-                {
+      elements={[
+        {
+          title: '使用 Toast',
+          description: 'Toast type 为空时，默认为 success',
+          element: (
+            <Button
+              type="primary"
+              onPress={() => {
+                ToastManager.show({
+                  title: 'Hello Toast.',
+                });
+              }}
+            >
+              use Toast
+            </Button>
+          ),
+        },
+        {
+          title: 'success type',
+          element: (
+            <Button
+              type="primary"
+              onPress={() => {
+                ToastManager.show(
+                  {
+                    title: 'Success',
+                  },
+                  { type: ToastManagerType.success },
+                );
+              }}
+            >
+              ToastManagerType.success
+            </Button>
+          ),
+        },
+        {
+          title: 'error type',
+          element: (
+            <Button
+              type="destructive"
+              onPress={() => {
+                ToastManager.show(
+                  {
+                    title: 'Failed',
+                  },
+                  { type: ToastManagerType.error },
+                );
+              }}
+            >
+              ToastManagerType.error
+            </Button>
+          ),
+        },
+        {
+          title: 'default Type',
+          element: (
+            <Button
+              type="basic"
+              onPress={() => {
+                ToastManager.show(
+                  {
+                    title: 'Fetching...',
+                  },
+                  { type: ToastManagerType.default },
+                );
+              }}
+            >
+              ToastManagerType.default
+            </Button>
+          ),
+        },
+        {
+          title: '超长文本',
+          element: (
+            <Button
+              type="basic"
+              onPress={() => {
+                ToastManager.show(
+                  {
+                    title: `orem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.`,
+                  },
+                  { type: ToastManagerType.default },
+                );
+              }}
+            >
+              Long Long Text
+            </Button>
+          ),
+        },
+        {
+          title: 'i18n',
+          element: (
+            <Button
+              type="basic"
+              onPress={() => {
+                ToastManager.show({
                   title: intl.formatMessage({
                     id: 'form__search',
                   }),
-                },
-                { type: ToastManagerType.default },
-              );
-            }}
-          >
-            i18n
-          </Button>
-        </Row>
-      </Stack>
-    </Layout>
+                });
+              }}
+            >
+              form__search
+            </Button>
+          ),
+        },
+      ]}
+    />
   );
 };
 

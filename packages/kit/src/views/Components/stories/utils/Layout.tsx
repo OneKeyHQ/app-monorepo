@@ -30,23 +30,29 @@ export function Layout({
   description = '',
   suggestions = [],
   boundaryConditions = [],
+  elements = [],
   children,
 }: React.PropsWithChildren<{
   description?: string;
   suggestions?: string[];
   boundaryConditions?: string[];
+  elements?: {
+    title: string;
+    description?: string;
+    element: React.ReactElement;
+  }[];
 }>) {
   return (
     <ScrollView
       flex={1}
-      padding={10}
-      contentContainerStyle={{ alignItems: 'center' }}
+      marginX={10}
+      contentContainerStyle={{ alignItems: 'center', paddingBottom: 280 }}
     >
       <Stack space={6}>
         {description && (
           <Stack space={2}>
             <Row>
-              <Text typography="Heading">使用说明</Text>
+              <Text typography="PageHeading">使用说明</Text>
             </Row>
             <Row>
               <FormattedText text={description} />
@@ -56,7 +62,7 @@ export function Layout({
         {suggestions && (
           <Stack space={2}>
             <Row>
-              <Text typography="Heading">使用建议</Text>
+              <Text typography="PageHeading">使用建议</Text>
             </Row>
             <FormattedText text={suggestions} />
           </Stack>
@@ -64,18 +70,31 @@ export function Layout({
         {boundaryConditions?.length > 0 && (
           <Stack space={2}>
             <Row>
-              <Text typography="Heading">注意事项</Text>
+              <Text typography="PageHeading">注意事项</Text>
             </Row>
             <FormattedText text={boundaryConditions} />
           </Stack>
         )}
         <Stack space={2}>
           <Row>
-            <Text typography="Heading">组件案例</Text>
+            <Text typography="PageHeading">组件案例</Text>
           </Row>
-          <Row>
-            <Stack space={3}>{children}</Stack>
-          </Row>
+          <Stack space={4}>
+            {elements?.map((item) => (
+              <Stack space={2}>
+                <Row flexDirection="column">
+                  <Text typography="Heading">{item.title}</Text>
+                  {item.description && (
+                    <Row paddingTop={1}>
+                      <Text>{item.description}。</Text>
+                    </Row>
+                  )}
+                </Row>
+                <Row>{item.element}</Row>
+              </Stack>
+            ))}
+          </Stack>
+          <Row>{children && <Stack space={3}>{children}</Stack>}</Row>
         </Stack>
       </Stack>
     </ScrollView>
