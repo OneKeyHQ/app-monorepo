@@ -149,7 +149,11 @@ function TokenDetailViewWithoutMemo() {
   }, [isVerticalLayout, defaultInfo]);
 
   const headerRight = useCallback(() => {
-    if (!isVerticalLayout && !isBRC20) {
+    if (isBRC20) {
+      return null;
+    }
+
+    if (!isVerticalLayout) {
       return <HeaderOptions />;
     }
     return <FavoritedButton coingeckoId={coingeckoId} />;
