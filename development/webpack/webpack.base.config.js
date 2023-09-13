@@ -1,9 +1,9 @@
 const webpack = require('webpack');
-const ProgressBarPlugin = require('progress-bar-webpack-plugin');
 const fs = require('fs');
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpackManifestPlugin = require('webpack-manifest-plugin');
+const ProgressBarPlugin = require('progress-bar-webpack-plugin');
 const notifier = require('node-notifier');
 const { createtResolveExtensions } = require('./utils');
 const { isDev, PUBLIC_URL, NODE_ENV } = require('./constant');
