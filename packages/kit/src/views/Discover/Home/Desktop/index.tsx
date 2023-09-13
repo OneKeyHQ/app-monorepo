@@ -1,25 +1,37 @@
-import type { FC } from 'react';
+import { useCallback } from 'react';
 
 import { Box } from '@onekeyhq/components';
+import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 
-import { useShowBookmark } from '../../hooks/useControl';
+import { useTabConfig } from '../config';
 
-import { Main } from './Main';
-import { Restricted } from './Restricted';
+import { Header } from './header';
 
-export const DesktopUnrestricted = () => (
-  <Box flex="1" bg="background-default">
-    <Main />
-  </Box>
-);
-
-export const DesktopRestricted = () => (
-  <Box flex="1" bg="background-default">
-    <Restricted />
-  </Box>
-);
-
-export const Desktop: FC = () => {
-  const showBookmark = useShowBookmark();
-  return !showBookmark ? <DesktopRestricted /> : <DesktopUnrestricted />;
+export const Desktop = () => {
+  const tabConfig = useTabConfig();
+  const onIndexChange = useCallback(() => {}, []);
+  return (
+    <Box
+      flex="1"
+      flexDirection="column"
+      bg="background-default"
+      alignItems="center"
+      py="8"
+    >
+      <Box flex="1" w="full" maxW="998px">
+        <Tabs.Container
+          headerHeight={114}
+          stickyTabBar
+          onIndexChange={onIndexChange}
+          headerView={<Header />}
+        >
+          {tabConfig.map((tab) => (
+            <Tabs.Tab key={tab.name} name={tab.name} label={tab.label}>
+              <Tabs.ScrollView>{tab.component}</Tabs.ScrollView>
+            </Tabs.Tab>
+          ))}
+        </Tabs.Container>
+      </Box>
+    </Box>
+  );
 };
