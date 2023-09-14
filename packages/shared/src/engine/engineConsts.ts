@@ -230,6 +230,7 @@ export const PRICE_EXPIRED_TIME = getTimeDurationMs({ minute: 15 });
 
 export const ACCOUNT_DERIVATION_DB_MIGRATION_VERSION = '4.0.0';
 export const FIX_COSMOS_TEMPLATE_DB_MIGRATION_VERSION = '4.2.0';
+export const FIX_BTC_PUB_DB_MIGRATION_VERSION = '4.14.0';
 
 export const CHAINS_DISPLAYED_IN_DEV: string[] = [];
 

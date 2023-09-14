@@ -9,7 +9,6 @@ import { AccountType } from '../../../types/account';
 import { AddressEncodings } from '../../utils/btcForkChain/types';
 import {
   getBitcoinBip32,
-  getBitcoinECPair,
   initBitcoinEcc,
 } from '../../utils/btcForkChain/utils';
 
@@ -84,8 +83,7 @@ export class KeyringImported extends KeyringImportedBtcFork {
     const node = getBitcoinBip32()
       .fromBase58(privateKeyString)
       .derivePath(firstAddressRelPath);
-    const keyPair = getBitcoinECPair().fromWIF(node.toWIF());
-    pub = keyPair.publicKey.toString('hex');
+    pub = node.publicKey.toString('hex');
 
     return Promise.resolve([
       {

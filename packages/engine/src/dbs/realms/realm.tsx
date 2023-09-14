@@ -1757,6 +1757,27 @@ class RealmDB implements DBAPI {
     }
   }
 
+  setAccountPub(accountId: string, pub: string): Promise<DBAccount> {
+    try {
+      const account = this.realm!.objectForPrimaryKey<AccountSchema>(
+        'Account',
+        accountId,
+      );
+      if (!account) {
+        return Promise.reject(
+          new OneKeyInternalError(`Account ${accountId} not found.`),
+        );
+      }
+      this.realm!.write(() => {
+        account.pub = pub;
+      });
+      return Promise.resolve(account.internalObj);
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
   /**
    * ????
    * @param accountId

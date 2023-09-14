@@ -8,6 +8,8 @@ import {
   migrateNextAccountIds,
 } from '@onekeyhq/engine/src/managers/impl';
 import { getPresetNetworks } from '@onekeyhq/engine/src/presets';
+import type { DBUTXOAccount } from '@onekeyhq/engine/src/types/account';
+import { getBitcoinBip32 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
 import { setAccountDerivationDbMigrationVersion } from '@onekeyhq/kit/src/store/reducers/settings';
 import { updateAutoSwitchDefaultRpcAtVersion } from '@onekeyhq/kit/src/store/reducers/status';
 import {
@@ -19,8 +21,10 @@ import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
   ACCOUNT_DERIVATION_DB_MIGRATION_VERSION,
   AUTO_SWITCH_DEFAULT_RPC_AT_VERSION,
+  COINTYPE_BTC,
   COINTYPE_COSMOS,
   COINTYPE_SUI,
+  FIX_BTC_PUB_DB_MIGRATION_VERSION,
   FIX_COSMOS_TEMPLATE_DB_MIGRATION_VERSION,
   IMPL_COSMOS,
   INDEX_PLACEHOLDER,
@@ -96,6 +100,7 @@ export default class ServiceBootstrap extends ServiceBase {
 
     this.migrateAccountDerivationTable();
     this.migrateCosmosTemplateInDB();
+    this.migrateBtcPubInDB();
     serviceToken.registerEvents();
     serviceNetwork.registerEvents();
     serviceSwap.registerEvents();
@@ -410,6 +415,67 @@ export default class ServiceBootstrap extends ServiceBase {
       );
     } catch (e) {
       debugLogger.common.error('cosmos template migrate error: ', e);
+      throw e;
+    }
+  }
+
+  @backgroundMethod()
+  async migrateBtcPubInDB() {
+    debugLogger.common.info('start migrate btc pub process');
+    try {
+      const { appSelector } = this.backgroundApi;
+      const dbMigrationVersion = appSelector(
+        (s) => s.settings.accountDerivationDbMigrationVersion,
+      );
+      const appVersion = appSelector((s) => s.settings.version);
+
+      if (
+        dbMigrationVersion &&
+        semver.valid(dbMigrationVersion) &&
+        semver.gte(dbMigrationVersion, FIX_BTC_PUB_DB_MIGRATION_VERSION)
+      ) {
+        debugLogger.common.info('skip btc pub migration');
+        return;
+      }
+
+      const { dbApi } = this.backgroundApi.engine;
+      const wallets = await dbApi.getWallets();
+      const targetWallets = wallets.filter(
+        (wallet) =>
+          wallet.id.startsWith('hd') ||
+          wallet.id.startsWith('hw') ||
+          wallet.id.startsWith('imported'),
+      );
+
+      for (const wallet of targetWallets) {
+        debugLogger.common.info(`migrate wallet: ${JSON.stringify(wallet)}`);
+        const btcAccounts = wallet.accounts.filter(
+          (id) =>
+            id.includes(`m/49'/${COINTYPE_BTC}'`) ||
+            id.includes(`m/86'/${COINTYPE_BTC}'`) ||
+            id.includes(`m/84'/${COINTYPE_BTC}'`) ||
+            id.includes(`m/44'/${COINTYPE_BTC}'`) ||
+            id.includes(`imported--${COINTYPE_BTC}--xpub`),
+        );
+        const accounts = (await dbApi.getAccounts(
+          btcAccounts,
+        )) as DBUTXOAccount[];
+        for (const account of accounts) {
+          const node = getBitcoinBip32()
+            .fromBase58(account.xpub)
+            .derivePath('0/0');
+          const pub = node.publicKey.toString('hex');
+          await dbApi.setAccountPub(account.id, pub);
+          debugLogger.common.info(
+            `insert account: ${account.id} to AccountDerivation table, pub: ${pub}`,
+          );
+        }
+      }
+      this.backgroundApi.dispatch(
+        setAccountDerivationDbMigrationVersion(appVersion),
+      );
+    } catch (e) {
+      debugLogger.common.error('btc pub migrate error: ', e);
       throw e;
     }
   }
