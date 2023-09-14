@@ -160,7 +160,7 @@ const MarketList: FC = () => {
           width: '100%',
           marginHorizontal: 'auto',
           alignSelf: 'center',
-          paddingTop: 32,
+          paddingTop: isVerticalLayout ? 0 : 32,
         }}
       >
         <MarketCategoryToggles categories={categories} />
