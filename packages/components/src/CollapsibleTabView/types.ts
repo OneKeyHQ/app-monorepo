@@ -12,7 +12,6 @@ export interface CollapsibleContainerProps {
   disableRefresh?: boolean;
   initialTabName?: string;
   headerView?: ReactNode;
-  headerHeight: number;
   onRefresh?: () => void;
   onIndexChange?: (index: number) => void;
   onPageScrollStateChange?: (e: OnPageScrollStateChangeEvent) => void;

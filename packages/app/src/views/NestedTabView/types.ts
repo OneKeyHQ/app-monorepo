@@ -63,7 +63,6 @@ export type TabProps = {
 
 export interface NativeNestedTabViewProps {
   values: TabProps[];
-  headerHeight?: number;
   scrollEnabled?: boolean;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;

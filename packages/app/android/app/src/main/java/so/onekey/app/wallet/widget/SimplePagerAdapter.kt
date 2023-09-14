@@ -1,5 +1,6 @@
 package so.onekey.app.wallet.widget
 
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -39,7 +40,7 @@ class SimplePagerAdapter(
         // If the view itself is a ScrollView
         if (view is ReactScrollView) {
             val nestedScrollView = PageNestedScrollView(view.context)
-            nestedScrollView.layoutParams = view.layoutParams ?: ViewGroup.LayoutParams(
+            nestedScrollView.layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
             )
 
@@ -60,7 +61,7 @@ class SimplePagerAdapter(
                 if (child is ReactScrollView) {
                     // Create a new NestedScrollView and configure it as needed
                     val nestedScrollView = NestedScrollView(view.context)
-                    nestedScrollView.layoutParams = child.layoutParams ?: ViewGroup.LayoutParams(
+                    nestedScrollView.layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
                     )
 

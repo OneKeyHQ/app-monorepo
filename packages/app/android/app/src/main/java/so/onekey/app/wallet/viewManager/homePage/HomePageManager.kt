@@ -26,6 +26,7 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
     companion object {
         const val COMMAND_SET_PAGE_INDEX = "setPageIndex"
         const val COMMAND_SET_REFRESHING = "setRefreshing"
+        const val COMMAND_SET_HEADER_HEIGHT = "setHeaderHeight"
     }
 
     private val REACT_CLASS = "NestedTabView"
@@ -41,11 +42,6 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
                 it.setViewPager(activity)
             }
         }
-    }
-
-    @ReactProp(name = "headerHeight")
-    fun setHeaderHeight(view: HomePageView, @Nullable height: Int?) {
-        height?.let { view.setHeaderHeight(height) }
     }
 
     @ReactProp(name = "disableRefresh")
@@ -145,6 +141,12 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
                 val refresh = args.getBoolean(0)
                 view.setRefresh(refresh)
             }
+
+            COMMAND_SET_HEADER_HEIGHT -> if (args != null) {
+                val height = args.getInt(0)
+                view.setHeaderHeight(height)
+                refreshViewChildrenLayout(view)
+            }
         }
     }
 
@@ -153,7 +155,7 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
     }
 
     override fun getChildAt(parent: HomePageView?, index: Int): View {
-        return parent?.getChildViewAt(index)!!
+        return parent?.getChildViewAt(index) ?: throw Exception("getChildAt: parent is null")
     }
 
     // props change
@@ -172,16 +174,19 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
         views?.forEachIndexed { index, view ->
             addView(parent, view, index)
         }
+        refreshViewChildrenLayout(parent)
     }
 
     override fun removeViewAt(parent: HomePageView?, index: Int) {
         if (parent == null) return
         parent.removeChildViewAt(index)
+        refreshViewChildrenLayout(parent)
     }
 
     override fun removeView(parent: HomePageView?, view: View?) {
         if (parent == null) return
         parent.removeChildView(view)
+        refreshViewChildrenLayout(parent)
     }
 
     override fun removeAllViews(parent: HomePageView?) {
@@ -193,5 +198,14 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
 
     override fun needsCustomLayoutForChildren(): Boolean {
         return true
+    }
+
+    private fun refreshViewChildrenLayout(view: View) {
+        view.post {
+            view.measure(
+                View.MeasureSpec.makeMeasureSpec(view.width, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(view.height, View.MeasureSpec.EXACTLY))
+            view.layout(view.left, view.top, view.right, view.bottom)
+        }
     }
 }

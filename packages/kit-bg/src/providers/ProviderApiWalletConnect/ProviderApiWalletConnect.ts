@@ -3,6 +3,7 @@
 import { getSdkError } from '@walletconnect-v2/utils';
 import { debounce, isNil } from 'lodash';
 
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import unlockUtils from '@onekeyhq/kit/src/components/AppLock/unlockUtils';
 import type { OneKeyWalletConnector } from '@onekeyhq/kit/src/components/WalletConnect/OneKeyWalletConnector';
 import type { IWalletConnectRequestOptions } from '@onekeyhq/kit/src/components/WalletConnect/types';
@@ -43,7 +44,6 @@ import type {
   IWeb3Wallet,
   Web3WalletTypes,
 } from '@walletconnect-v2/web3wallet';
-import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 
 @backgroundClass()
 class ProviderApiWalletConnect extends WalletConnectClientForWallet {
