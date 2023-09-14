@@ -21,6 +21,7 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
@@ -247,7 +248,7 @@ function PreSendBRC20TokenAmount() {
             id: 'msg__nft_does_not_exist',
           }),
         },
-        { type: 'error' },
+        { type: ToastManagerType.error },
       );
       setIsLoadingAmountDetail(false);
       return;

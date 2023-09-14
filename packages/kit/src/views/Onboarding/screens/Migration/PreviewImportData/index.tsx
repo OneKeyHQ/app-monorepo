@@ -19,6 +19,7 @@ import {
   ToastManager,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.enums';
 import type {
   ISimpleDBBackUp,
@@ -100,7 +101,7 @@ const PreviewImportData = () => {
           id: 'msg__import_icloud_backup_failed_version',
         }),
       },
-      { type: 'error' },
+      { type: ToastManagerType.error },
     );
     navigation.goBack();
   }, [intl, navigation]);

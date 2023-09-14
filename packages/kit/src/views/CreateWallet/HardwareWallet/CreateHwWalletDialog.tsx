@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Spinner, ToastManager } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { Device } from '@onekeyhq/engine/src/types/device';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { DeviceNotFind } from '@onekeyhq/shared/src/errors';
@@ -50,7 +51,7 @@ const CreateHwWalletDialog: FC<CreateHwWalletDialogProps> = ({
                   { 0: existsWalletName },
                 ),
               },
-              { type: 'default' },
+              { type: ToastManagerType.default },
             );
           }
           return;

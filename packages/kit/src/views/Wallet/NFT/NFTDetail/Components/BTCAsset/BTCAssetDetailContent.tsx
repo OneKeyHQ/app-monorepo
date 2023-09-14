@@ -19,6 +19,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
@@ -281,7 +282,7 @@ function BTCAssetDetailContent({
                         }),
                       },
                       {
-                        type: 'default',
+                        type: ToastManagerType.default,
                       },
                     );
                     appUIEventBus.emit(

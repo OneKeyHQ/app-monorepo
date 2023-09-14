@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { ToastManager } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import type { Account as BaseAccount } from '@onekeyhq/engine/src/types/account';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
@@ -281,7 +282,7 @@ export const useSwapSubmit = () => {
         {
           title: intl.formatMessage({ id: 'msg__unknown_error' }),
         },
-        { type: 'error' },
+        { type: ToastManagerType.error },
       );
       return;
     }
@@ -312,7 +313,7 @@ export const useSwapSubmit = () => {
             { '0': sendingAccount.name },
           ),
         },
-        { type: 'error' },
+        { type: ToastManagerType.error },
       );
       return;
     }
@@ -328,7 +329,7 @@ export const useSwapSubmit = () => {
         {
           title: intl.formatMessage({ id: 'msg__unknown_error' }),
         },
-        { type: 'error' },
+        { type: ToastManagerType.error },
       );
       return;
     }
@@ -371,7 +372,7 @@ export const useSwapSubmit = () => {
             { '0': nativeToken.symbol.toUpperCase() },
           ),
         },
-        { type: 'error' },
+        { type: ToastManagerType.error },
       );
       return;
     }
@@ -433,7 +434,7 @@ export const useSwapSubmit = () => {
         {
           title: errMsg,
         },
-        { type: 'error' },
+        { type: ToastManagerType.error },
       );
       return;
     }
@@ -462,14 +463,14 @@ export const useSwapSubmit = () => {
       tagLogger.end(LoggerTimerTags.buildTransaction);
     } catch (e: any) {
       const title = e?.response?.data?.message || e.message;
-      ToastManager.show({ title }, { type: 'error' });
+      ToastManager.show({ title }, { type: ToastManagerType.error });
       return;
     }
 
     if (res === undefined || !res?.data) {
       const title =
         res?.error?.msg ?? intl.formatMessage({ id: 'msg__unknown_error' });
-      ToastManager.show({ title }, { type: 'error' });
+      ToastManager.show({ title }, { type: ToastManagerType.error });
       return;
     }
 
@@ -489,7 +490,7 @@ export const useSwapSubmit = () => {
         {
           title: intl.formatMessage({ id: 'msg__unknown_error' }),
         },
-        { type: 'error' },
+        { type: ToastManagerType.error },
       );
       return;
     }
@@ -510,7 +511,7 @@ export const useSwapSubmit = () => {
         {
           title: intl.formatMessage({ id: 'msg__unknown_error' }),
         },
-        { type: 'error' },
+        { type: ToastManagerType.error },
       );
       return;
     }

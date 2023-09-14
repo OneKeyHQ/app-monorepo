@@ -209,14 +209,11 @@ function HardwareMenuOptions({
                   },
                 });
               } else {
-                ToastManager.show(
-                  {
-                    title: intl.formatMessage({
-                      id: 'msg__the_current_version_is_the_latest',
-                    }),
-                  },
-                  { type: 'success' },
-                );
+                ToastManager.show({
+                  title: intl.formatMessage({
+                    id: 'msg__the_current_version_is_the_latest',
+                  }),
+                });
               }
             })
             .catch((e) => {

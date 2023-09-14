@@ -13,6 +13,7 @@ import {
   Typography,
   useForm,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { GoPlusAddressSecurity } from '@onekeyhq/engine/src/types/goplus';
 import { GoPlusSupportApis } from '@onekeyhq/engine/src/types/goplus';
@@ -230,7 +231,7 @@ function PreSendAddress() {
               id: 'msg__nft_does_not_exist',
             }),
           },
-          { type: 'error' },
+          { type: ToastManagerType.error },
         );
         return;
       }
@@ -273,7 +274,7 @@ function PreSendAddress() {
                   id: 'msg__nft_does_not_exist',
                 }),
               },
-              { type: 'error' },
+              { type: ToastManagerType.error },
             );
             return;
           }
@@ -379,14 +380,14 @@ function PreSendAddress() {
               {
                 title: intl.formatMessage({ id: errorKey as any }, data),
               },
-              { type: 'error' },
+              { type: ToastManagerType.error },
             );
           } else {
             ToastManager.show(
               {
                 title: (error as Error)?.message || 'ERROR',
               },
-              { type: 'error' },
+              { type: ToastManagerType.error },
             );
           }
 

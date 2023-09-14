@@ -18,6 +18,7 @@ import {
   Text,
   ToastManager,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { showOverlay } from '../../../../utils/overlayUtils';
@@ -118,7 +119,7 @@ function InscribeUploader(props: Props) {
                 id: 'msg__text_file_cannot_be_blank',
               }),
             },
-            { type: 'error' },
+            { type: ToastManagerType.error },
           );
           setLoading(false);
           return;
@@ -198,7 +199,7 @@ function InscribeUploader(props: Props) {
                 id: 'msg__text_file_cannot_be_blank',
               }),
             },
-            { type: 'error' },
+            { type: ToastManagerType.error },
           );
           setLoading(false);
           return;

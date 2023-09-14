@@ -12,6 +12,7 @@ import {
   Text,
   ToastManager,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
@@ -377,7 +378,7 @@ function SendProgress({
               intl.formatMessage({ id: 'transaction__failed' }),
             description: error.data.message, // TODO toast description not working
           },
-          { type: 'error' },
+          { type: ToastManagerType.error },
         );
       } else {
         const msg = error?.key
@@ -393,7 +394,7 @@ function SendProgress({
                 title: msg || intl.formatMessage({ id: 'transaction__failed' }),
                 description: msg,
               },
-              { type: 'error' },
+              { type: ToastManagerType.error },
             );
           }
         }

@@ -14,6 +14,7 @@ import {
   ToastManager,
   Typography,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
@@ -250,7 +251,10 @@ export default function MaticStaking() {
         await combinedTasks(tasks);
         navigation.goBack();
       } catch (e) {
-        ToastManager.show({ title: (e as Error).message }, { type: 'error' });
+        ToastManager.show(
+          { title: (e as Error).message },
+          { type: ToastManagerType.error },
+        );
         return;
       } finally {
         setLoading(false);

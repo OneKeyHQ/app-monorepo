@@ -179,7 +179,7 @@ function useDropdownPosition({
   const win = useWindowDimensions();
   const [position, setPosition] =
     useState<ISelectorContentPosition>(defaultPosition);
-  const [isPositionNotReady, setIsPositionNotReady] = useState(false);
+  const [isPositionNotReady, setIsPositionNotReady] = useState(true);
   // TODO reset position to undefined after window resize
   const triggerWidth = useRef<number | null>(null);
 

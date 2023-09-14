@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import useSWR from 'swr';
 
 import { Box, ToastManager } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
 import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -158,9 +159,7 @@ const ImportWallet = () => {
                   id: 'title__no_connection_desc',
                 }),
               },
-              {
-                type: 'error',
-              },
+              { type: ToastManagerType.error },
             );
           }
         });

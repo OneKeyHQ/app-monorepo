@@ -21,6 +21,7 @@ import {
   ToastManager,
   Typography,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
@@ -319,7 +320,7 @@ export default function ETHStaking() {
       if (!stakingTx) {
         ToastManager.show(
           { title: 'Failed to build encodedTx data' },
-          { type: 'error' },
+          { type: ToastManagerType.error },
         );
         return;
       }
@@ -337,7 +338,7 @@ export default function ETHStaking() {
       if (!encodedTx) {
         ToastManager.show(
           { title: 'Failed to build encodedTx data' },
-          { type: 'error' },
+          { type: ToastManagerType.error },
         );
         return;
       }
@@ -494,7 +495,10 @@ export default function ETHStaking() {
             });
         }
       } catch (e) {
-        ToastManager.show({ title: (e as Error).message }, { type: 'error' });
+        ToastManager.show(
+          { title: (e as Error).message },
+          { type: ToastManagerType.error },
+        );
         return;
       } finally {
         setLoading(false);

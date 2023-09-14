@@ -11,6 +11,7 @@ import {
   ToastManager,
   Token,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import { useDebounce } from '../../../hooks';
@@ -115,7 +116,7 @@ const BulkCopyAddress: FC = () => {
           {
             title: intl.formatMessage({ id: 'empty__no_account_desc' }),
           },
-          { type: 'default' },
+          { type: ToastManagerType.default },
         );
         return;
       }

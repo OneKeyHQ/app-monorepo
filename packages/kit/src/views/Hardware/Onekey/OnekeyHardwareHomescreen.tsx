@@ -19,6 +19,7 @@ import {
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { OnekeyHardwareRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/HardwareOnekey';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
@@ -178,9 +179,7 @@ const OnekeyHardwareHomescreen: FC = () => {
             {
               title: '图片处理失败，请更换图片后重试',
             },
-            {
-              type: 'error',
-            },
+            { type: ToastManagerType.error },
           );
           return;
         }
@@ -211,7 +210,7 @@ const OnekeyHardwareHomescreen: FC = () => {
             id: error.key ?? 'msg__unknown_error',
           }),
         },
-        { type: 'error' },
+        { type: ToastManagerType.error },
       );
     } finally {
       setLoading(false);
