@@ -3,6 +3,7 @@ import { cloneDeep, isNil, isNumber } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Button, ToastManager } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -100,7 +101,7 @@ async function doSpeedUpOrCancelTx(props: {
     ) {
       ToastManager.show(
         { title: 'Speedup failed. History transaction data not matched' },
-        { type: 'error' },
+        { type: ToastManagerType.error },
       );
       debugLogger.sendTx.info(
         'Speedup failed. History transaction data not matched',

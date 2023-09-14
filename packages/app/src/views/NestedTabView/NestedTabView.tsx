@@ -21,8 +21,10 @@ import type {
   OnPageChangeEvent,
   OnPageScrollStateChangeEvent,
 } from './types';
+import type { LayoutChangeEvent } from 'react-native';
 
 export type ForwardRefHandle = {
+  setHeaderHeight: (headerHeight: number) => void;
   setPageIndex: (pageIndex: number) => void;
   setRefreshing: (refreshing: boolean) => void;
 };
@@ -69,9 +71,22 @@ const NestedTabView: ForwardRefRenderFunction<
     }
   }, []);
 
+  const setHeaderHeight = useCallback((headerHeight: number) => {
+    try {
+      UIManager.dispatchViewManagerCommand(
+        findNodeHandle(tabRef.current),
+        'setHeaderHeight',
+        [headerHeight],
+      );
+    } catch (error) {
+      debugLogger.common.error(`set headerHeight error`, error);
+    }
+  }, []);
+
   useImperativeHandle(ref, () => ({
     setPageIndex,
     setRefreshing,
+    setHeaderHeight,
   }));
 
   const onTabChange = useCallback(
@@ -104,6 +119,14 @@ const NestedTabView: ForwardRefRenderFunction<
     [onPageScrollStateChange],
   );
 
+  const onLayoutCallback = useCallback(
+    (event: LayoutChangeEvent) => {
+      const { height } = event.nativeEvent.layout;
+      setHeaderHeight(height);
+    },
+    [setHeaderHeight],
+  );
+
   return (
     <NativeNestedTabView
       onPageChange={onTabChange}
@@ -117,7 +140,7 @@ const NestedTabView: ForwardRefRenderFunction<
       {...rest}
     >
       {/* native code get first child as header */}
-      <Box>{headerView}</Box>
+      <Box onLayout={onLayoutCallback}>{headerView}</Box>
       {children}
     </NativeNestedTabView>
   );

@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/components';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { IAccount, INetwork } from '@onekeyhq/engine/src/types';
 import Logo from '@onekeyhq/kit/assets/logo_round.png';
 import {
@@ -446,7 +447,7 @@ const Connection = () => {
             console.error(error);
             ToastManager.show(
               { title: e?.message || 'Confirm Connection failed.' },
-              { type: 'error' },
+              { type: ToastManagerType.error },
             );
           }
         }}

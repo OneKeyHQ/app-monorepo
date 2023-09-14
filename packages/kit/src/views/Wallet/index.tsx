@@ -4,7 +4,12 @@ import { memo, useCallback, useMemo, useRef } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ForwardRefHandle } from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
-import { Box, useIsVerticalLayout, useUserDevice } from '@onekeyhq/components';
+import {
+  Box,
+  ScrollView,
+  useIsVerticalLayout,
+  useUserDevice,
+} from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
@@ -14,7 +19,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
-import { LazyRenderCurrentHomeTab } from '../../components/LazyRenderCurrentHomeTab';
 import { OneKeyPerfTraceLog } from '../../components/OneKeyPerfTraceLog';
 import { useHomeTabName } from '../../hooks/useHomeTabName';
 import { useHtmlPreloadSplashLogoRemove } from '../../hooks/useHtmlPreloadSplashLogoRemove';
@@ -48,7 +52,6 @@ function AccountHeader() {
     </Box>
   );
 }
-const AccountHeaderMemo = memo(AccountHeader);
 
 // HomeTabs
 const WalletTabs: FC = () => {
@@ -70,24 +73,22 @@ const WalletTabs: FC = () => {
         label={intl.formatMessage({ id: 'asset__tokens' })}
         key={WalletHomeTabEnum.Tokens}
       >
-        <LazyRenderCurrentHomeTab homeTabName={WalletHomeTabEnum.Tokens}>
-          <Tabs.ScrollView>
-            <OneKeyPerfTraceLog name="App RootTabHome AssetsList render" />
-            <GuideToPushFirstTimeCheck />
-            <HomeTokenAssetsList
-              walletId={walletId}
-              accountId={accountId}
-              networkId={networkId}
-              limitSize={10}
-            />
-            <Box h={6} />
-            <OverviewDefiList
-              accountId={accountId}
-              networkId={networkId}
-              limitSize={10}
-            />
-          </Tabs.ScrollView>
-        </LazyRenderCurrentHomeTab>
+        <ScrollView>
+          <OneKeyPerfTraceLog name="App RootTabHome AssetsList render" />
+          <GuideToPushFirstTimeCheck />
+          <HomeTokenAssetsList
+            walletId={walletId}
+            accountId={accountId}
+            networkId={networkId}
+            limitSize={10}
+          />
+          <Box h={6} />
+          <OverviewDefiList
+            accountId={accountId}
+            networkId={networkId}
+            limitSize={10}
+          />
+        </ScrollView>
       </Tabs.Tab>
     ),
     [accountId, intl, networkId, walletId],
@@ -100,9 +101,7 @@ const WalletTabs: FC = () => {
         label={intl.formatMessage({ id: 'asset__collectibles' })}
         key={WalletHomeTabEnum.Collectibles}
       >
-        <LazyRenderCurrentHomeTab homeTabName={WalletHomeTabEnum.Collectibles}>
-          <NFTList />
-        </LazyRenderCurrentHomeTab>
+        <NFTList />
       </Tabs.Tab>
     ),
     [intl],
@@ -115,13 +114,11 @@ const WalletTabs: FC = () => {
         label={intl.formatMessage({ id: 'transaction__history' })}
         key={WalletHomeTabEnum.History}
       >
-        <LazyRenderCurrentHomeTab homeTabName={WalletHomeTabEnum.History}>
-          <TxHistoryListView
-            accountId={accountId}
-            networkId={networkId}
-            isHomeTab
-          />
-        </LazyRenderCurrentHomeTab>
+        <TxHistoryListView
+          accountId={accountId}
+          networkId={networkId}
+          isHomeTab
+        />
       </Tabs.Tab>
     ),
     [accountId, networkId, intl],
@@ -134,9 +131,7 @@ const WalletTabs: FC = () => {
         label={intl.formatMessage({ id: 'form__tools' })}
         key={WalletHomeTabEnum.Tools}
       >
-        <LazyRenderCurrentHomeTab homeTabName={WalletHomeTabEnum.Tools}>
-          <ToolsPage />
-        </LazyRenderCurrentHomeTab>
+        <ToolsPage />
       </Tabs.Tab>
     ),
     [intl],
@@ -224,35 +219,28 @@ const WalletTabs: FC = () => {
     [isVerticalLayout, screenWidth],
   );
 
-  if (!wallet) return null;
+  const accountHeaderMemo = useMemo(() => <AccountHeader />, []);
 
-  const walletTabsContainer = (
-    <Tabs.Container
-      // IMPORTANT: key is used to force re-render when the tab is changed
-      // otherwise android app will crash when tabs are changed
-      key={platformEnv.isNativeAndroid ? `${tabContents.length}` : undefined}
-      canOpenDrawer
-      stickyTabBar
-      initialTabName={homeTabName}
-      onRefresh={onRefresh}
-      onIndexChange={onIndexChange}
-      onPageScrollStateChange={onPageScrollStateChangeCall}
-      headerView={<AccountHeaderMemo />}
-      ref={ref}
-      containerStyle={containerStyle}
-      headerHeight={
-        isVerticalLayout
-          ? FIXED_VERTICAL_HEADER_HEIGHT
-          : FIXED_HORIZONTAL_HEDER_HEIGHT
-      }
-    >
-      {tabContents}
-    </Tabs.Container>
-  );
+  if (!wallet) return null;
 
   const contentView = (
     <>
-      {walletTabsContainer}
+      <Tabs.Container
+        // IMPORTANT: key is used to force re-render when the tab is changed
+        // otherwise android app will crash when tabs are changed
+        key={platformEnv.isNativeAndroid ? `${tabContents.length}` : undefined}
+        canOpenDrawer
+        stickyTabBar
+        initialTabName={homeTabName}
+        onRefresh={onRefresh}
+        onIndexChange={onIndexChange}
+        onPageScrollStateChange={onPageScrollStateChangeCall}
+        headerView={accountHeaderMemo}
+        ref={ref}
+        containerStyle={containerStyle}
+      >
+        {tabContents}
+      </Tabs.Container>
       <HomeTabIndexSync
         tabsContainerRef={ref}
         currentIndexRef={currentIndexRef}
@@ -283,6 +271,7 @@ function WalletPreCheck() {
   useHtmlPreloadSplashLogoRemove();
   return null;
 }
+
 const WalletPreCheckMemo = memo(WalletPreCheck);
 
 const Wallet = () => (

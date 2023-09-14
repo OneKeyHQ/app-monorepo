@@ -1,7 +1,3 @@
-// fix missing setimmediate
-// eslint-disable-next-line import/order
-import 'setimmediate';
-
 // eslint-disable-next-line import/order
 import '@onekeyhq/shared/src/polyfills';
 

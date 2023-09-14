@@ -66,6 +66,7 @@ const DesktopModal = ({
   closeOnOverlayClick,
   hideBackButton,
   rightContent,
+  containerStyle,
 }: ModalProps) => {
   const intl = useIntl();
   const navigation = useNavigation();
@@ -102,6 +103,7 @@ const DesktopModal = ({
       bottom="0px"
       justifyContent="center"
       alignItems="center"
+      style={containerStyle}
     >
       {/* TODO render backdrop by Portal? */}
       <Pressable

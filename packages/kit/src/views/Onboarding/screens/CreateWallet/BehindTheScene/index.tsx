@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { Box, Center, ToastManager } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { SearchDevice } from '@onekeyhq/kit/src/utils/hardware';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { OneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -130,7 +131,7 @@ function BehindTheSceneCreatingWallet({
                   { 0: existsWalletName },
                 ),
               },
-              { type: 'default' },
+              { type: ToastManagerType.default },
             );
           }
           // await onboarding close and then go to home
@@ -145,7 +146,7 @@ function BehindTheSceneCreatingWallet({
             title: message,
           },
           {
-            type: 'default',
+            type: ToastManagerType.default,
           },
         );
       }
@@ -212,7 +213,7 @@ function BehindTheSceneCreatingWallet({
       const errorKey = (e as { key: LocaleIds }).key;
       ToastManager.show(
         { title: intl.formatMessage({ id: errorKey }) },
-        { type: 'error' },
+        { type: ToastManagerType.error },
       );
     }
     return false;

@@ -3,6 +3,7 @@
 import { getSdkError } from '@walletconnect-v2/utils';
 import { debounce, isNil } from 'lodash';
 
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import unlockUtils from '@onekeyhq/kit/src/components/AppLock/unlockUtils';
 import type { OneKeyWalletConnector } from '@onekeyhq/kit/src/components/WalletConnect/OneKeyWalletConnector';
 import type { IWalletConnectRequestOptions } from '@onekeyhq/kit/src/components/WalletConnect/types';
@@ -493,7 +494,7 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
           this.backgroundApi.dispatch(
             backgroundShowToast({
               title: error?.message,
-              type: 'error',
+              type: ToastManagerType.error,
             }),
           );
         },

@@ -26,6 +26,7 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -420,12 +421,12 @@ function PreSendAmount() {
                   { 0: tokenInfo?.symbol ?? '' },
                 ),
               },
-              { type: 'error' },
+              { type: ToastManagerType.error },
             );
           } else {
             ToastManager.show(
               { title: typeof e === 'string' ? e : (e as Error).message },
-              { type: 'error' },
+              { type: ToastManagerType.error },
             );
           }
         } finally {

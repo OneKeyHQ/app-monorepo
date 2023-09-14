@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Center, Modal, Spinner, ToastManager } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import Protected from '../../components/Protected';
@@ -39,9 +40,7 @@ const EnableLocalAuthenticationDone: FC<EnableLocalAuthenticationProps> = ({
               {
                 title: intl.formatMessage({ id: 'msg__verification_failure' }),
               },
-              {
-                type: 'error',
-              },
+              { type: ToastManagerType.error },
             );
           }
           setTimeout(() => {

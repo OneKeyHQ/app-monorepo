@@ -2,6 +2,7 @@
 
 import semver from 'semver';
 
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import {
@@ -69,7 +70,7 @@ export default class ServiceSetting extends ServiceBase {
     await simpleDb.setting.setSwapMaintain(data.swapMaintain);
     await simpleDb.setting.setRpcBatchFallbackWhitelistHosts(
       data.disabledRpcBatchHosts.map((u) => ({
-        type: 'default',
+        type: ToastManagerType.default,
         url: u,
       })),
     );

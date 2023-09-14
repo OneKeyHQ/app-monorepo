@@ -14,6 +14,7 @@ import {
   Spinner,
   ToastManager,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { getUtxoUniqueKey } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
@@ -438,7 +439,7 @@ const CoinControl = () => {
               }),
             },
             {
-              type: 'default',
+              type: ToastManagerType.default,
             },
           );
           refreshUtxosData();
@@ -465,7 +466,7 @@ const CoinControl = () => {
               }),
             },
             {
-              type: 'default',
+              type: ToastManagerType.default,
             },
           );
           refreshUtxosData();

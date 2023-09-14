@@ -12,6 +12,7 @@ import {
   ToastManager,
   Typography,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -170,7 +171,7 @@ const TokenInput: FC<TokenInputProps> = ({
               },
             ),
           },
-          { type: 'error' },
+          { type: ToastManagerType.error },
         );
       }
     }

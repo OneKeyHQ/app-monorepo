@@ -14,6 +14,8 @@ typedef NSString* _Nonnull (^RenderItemBlock)(NSDictionary *body);
 
 @interface PagingView : RCTView
 
+- (void)setHeaderHeight:(CGFloat)headerHeight;
+
 - (void)setPageIndex:(NSInteger)index;
 
 - (void)setRefresh:(BOOL)refresh;

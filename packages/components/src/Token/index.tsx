@@ -29,7 +29,7 @@ import Icon from '../Icon';
 import Image from '../Image';
 import Pressable from '../Pressable';
 import Text from '../Text';
-import ToastManager from '../ToastManager';
+import ToastManager, { ToastManagerType } from '../ToastManager';
 import { Body2 } from '../Typography';
 import { shortenAddress } from '../utils';
 
@@ -143,7 +143,7 @@ export const TokenVerifiedIcon: FC<{
           title,
         },
         {
-          type: 'default',
+          type: ToastManagerType.default,
         },
       );
       return;

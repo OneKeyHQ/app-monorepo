@@ -23,6 +23,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { INSCRIPTION_PADDING_SATS_VALUES } from '@onekeyhq/engine/src/vaults/impl/btc/inscribe/consts';
@@ -180,7 +181,7 @@ const CreateOrder: FC = () => {
               {
                 title: result.errors[0].message,
               },
-              { type: 'error' },
+              { type: ToastManagerType.error },
             );
           } else if (result.txids.length > 0) {
             const params: SendFeedbackReceiptParams = {
@@ -208,7 +209,7 @@ const CreateOrder: FC = () => {
               {
                 title: message,
               },
-              { type: 'error' },
+              { type: ToastManagerType.error },
             );
           }
         }
@@ -260,7 +261,7 @@ const CreateOrder: FC = () => {
               ? intl.formatMessage({ id: 'msg__insufficient_balance' })
               : message,
         },
-        { type: 'error' },
+        { type: ToastManagerType.error },
       );
     }
     //

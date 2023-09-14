@@ -6,6 +6,7 @@ import { Linking } from 'react-native';
 
 import { ToastManager } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import type { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -258,7 +259,7 @@ export function useWalletConnectQrcodeModal() {
                   title:
                     'WalletConnect compatible wallets App not found in your device.',
                 },
-                { type: 'error' },
+                { type: ToastManagerType.error },
               );
               // url 404 now
               await Linking.openURL(WALLET_CONNECT_WALLETS_LIST);

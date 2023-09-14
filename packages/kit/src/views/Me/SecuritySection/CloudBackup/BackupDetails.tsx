@@ -19,6 +19,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type { ICON_NAMES } from '@onekeyhq/components/src/Icon';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
 import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.enums';
 import type {
@@ -452,7 +453,7 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
           id: 'msg__import_icloud_backup_failed_version',
         }),
       },
-      { type: 'error' },
+      { type: ToastManagerType.error },
     );
     navigation.goBack();
   }, [intl, navigation]);

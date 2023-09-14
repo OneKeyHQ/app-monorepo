@@ -13,6 +13,7 @@ import BottomSheetModalGallery from '../../../views/Components/stories/BottomShe
 import ButtonsGallery from '../../../views/Components/stories/Buttons';
 import CheckBoxGallery from '../../../views/Components/stories/CheckBox';
 import CollapseGallery from '../../../views/Components/stories/Collapse';
+import CollapsibleTabView from '../../../views/Components/stories/CollapsibleTabView';
 import ContainerGallery from '../../../views/Components/stories/Container';
 import DemoDeepFresh from '../../../views/Components/stories/DemoDeepFresh';
 import DialogGallery from '../../../views/Components/stories/Dialog';
@@ -24,7 +25,6 @@ import HardwareHomescreen from '../../../views/Components/stories/HardwareHomesc
 import IconGallery from '../../../views/Components/stories/Icon';
 import IconButtons from '../../../views/Components/stories/IconButtons';
 import ImageViewerGallery from '../../../views/Components/stories/ImageViewer';
-import InAppNotificationGallery from '../../../views/Components/stories/InAppNotification';
 import InputGallery from '../../../views/Components/stories/Input';
 import KeyboardGallery from '../../../views/Components/stories/Keyboard';
 import ListGallery from '../../../views/Components/stories/List';
@@ -129,8 +129,8 @@ export type GalleryParams = {
   [GalleryRoutes.ComponentNavHeaderGallery]: undefined;
   [GalleryRoutes.ComponentMnemonicCardGallery]: undefined;
   [GalleryRoutes.ComponentSlider]: undefined;
-  [GalleryRoutes.ComponentInAppNotification]: undefined;
   [GalleryRoutes.ComponentDeepFresh]: undefined;
+  [GalleryRoutes.ComponentCollapsibleTabView]: undefined;
 };
 
 export const stackScreenList = [
@@ -256,12 +256,13 @@ export const stackScreenList = [
     component: SliderGallery,
   },
   {
-    name: GalleryRoutes.ComponentInAppNotification,
-    component: InAppNotificationGallery,
-  },
-  {
     name: GalleryRoutes.ComponentDeepFresh,
     component: DemoDeepFresh,
+  },
+  {
+    name: GalleryRoutes.ComponentCollapsibleTabView,
+    component: CollapsibleTabView,
+    option: { headerShown: false },
   },
 ];
 
@@ -291,6 +292,7 @@ const DevScreen = () => {
             key={stack.name}
             name={stack.name}
             component={stack.component}
+            options={stack.option}
           />
         ))}
       </DevStack.Group>

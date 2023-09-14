@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 
 import { ToastManager } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import {
@@ -120,7 +121,7 @@ async function lightningNetworkSendConfirm({
       {
         title: errorMessage,
       },
-      { type: 'error' },
+      { type: ToastManagerType.error },
     );
     setIsLoadingAssets(false);
     return;
@@ -190,19 +191,19 @@ async function lightningNetworkSendConfirm({
             { 0: tokenInfo?.symbol ?? '' },
           ),
         },
-        { type: 'error' },
+        { type: ToastManagerType.error },
       );
     } else if (errorKey) {
       ToastManager.show(
         {
           title: intl.formatMessage({ id: errorKey }),
         },
-        { type: 'error' },
+        { type: ToastManagerType.error },
       );
     } else {
       ToastManager.show(
         { title: typeof e === 'string' ? e : (e as Error).message },
-        { type: 'error' },
+        { type: ToastManagerType.error },
       );
     }
   } finally {

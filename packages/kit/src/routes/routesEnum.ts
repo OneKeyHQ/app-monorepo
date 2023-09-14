@@ -144,8 +144,8 @@ export enum GalleryRoutes {
   ComponentNavHeaderGallery = 'component/NavHeader',
   ComponentMnemonicCardGallery = 'component/MnemonicCard',
   ComponentSlider = 'component/Slider',
-  ComponentInAppNotification = 'component/InAppNotification',
   ComponentDeepFresh = 'component/deepRefresh',
+  ComponentCollapsibleTabView = 'component/CollapsibleTabView',
 }
 
 // ModalRoutes ----------------------------------------------

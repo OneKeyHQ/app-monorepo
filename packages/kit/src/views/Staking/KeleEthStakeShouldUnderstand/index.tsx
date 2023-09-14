@@ -12,6 +12,7 @@ import {
   ToastManager,
   Typography,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -72,7 +73,10 @@ export default function StakingETHNotes() {
           from: account.address,
         };
       } catch (e) {
-        ToastManager.show({ title: (e as Error).message }, { type: 'error' });
+        ToastManager.show(
+          { title: (e as Error).message },
+          { type: ToastManagerType.error },
+        );
         return;
       }
 

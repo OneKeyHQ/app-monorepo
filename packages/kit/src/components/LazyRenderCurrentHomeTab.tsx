@@ -1,8 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { useEffect, useMemo, useRef } from 'react';
 
-import { Box } from '@onekeyhq/components';
-import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import { Box, FlatList } from '@onekeyhq/components';
 
 import { useHomeTabName } from '../hooks/useHomeTabName';
 
@@ -33,11 +32,10 @@ export function LazyRenderCurrentHomeTab({
 
   const shouldFreeze = !isFocused;
 
-  const { FlatList } = Tabs;
   const empty = useMemo(
     // TODO render Skeleton
     () => <FlatList data={[]} renderItem={() => <Box />} />,
-    [FlatList],
+    [],
   );
 
   const renderChildren = useMemo(() => {

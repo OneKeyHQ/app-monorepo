@@ -1,6 +1,3 @@
-// eslint-disable-next-line import/order
-import '@onekeyhq/shared/src/polyfills';
-
 import type { FC } from 'react';
 
 import { DesktopDragZoneBox } from '@onekeyhq/components';
