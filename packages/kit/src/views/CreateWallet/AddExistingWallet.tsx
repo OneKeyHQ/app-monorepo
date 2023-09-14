@@ -370,7 +370,7 @@ function AccountTypeSelectorTrigger({
   }, [intl, selectedDerivation]);
 
   if (
-    network.id === OnekeyNetwork.btc &&
+    [OnekeyNetwork.btc, OnekeyNetwork.tbtc].includes(network.id) &&
     derivationOptions.length > 0 &&
     selectedDerivation
   ) {

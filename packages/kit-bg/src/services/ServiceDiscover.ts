@@ -21,6 +21,7 @@ import { getDefaultLocale } from '@onekeyhq/kit/src/utils/locale';
 import { getWebTabs } from '@onekeyhq/kit/src/views/Discover/Explorer/Controller/useWebTabs';
 import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
 import type {
+  BannerType,
   BookmarkItem,
   CategoryType,
   DAppItemType,
@@ -128,19 +129,6 @@ class ServicDiscover extends ServiceBase {
     if (actions.length > 0) {
       dispatch(...actions);
     }
-  }
-
-  @backgroundMethod()
-  async getHomePageData(categoryId?: string) {
-    const url = `${this.baseUrl}/home_page_data`;
-    const res = await this.client.get(url, {
-      params: { categoryId, language: this.getLanguage() },
-    });
-    const data = res.data as {
-      items: GroupDappsType[];
-      categories: CategoryType[];
-    };
-    return data;
   }
 
   @backgroundMethod()
@@ -360,6 +348,32 @@ class ServicDiscover extends ServiceBase {
   @backgroundMethod()
   async clearHistory() {
     this.backgroundApi.dispatch(clearHistory());
+  }
+
+  @backgroundMethod()
+  async getFeatured() {
+    const url = `${this.baseUrl}/get_featured`;
+    const res = await this.client.get(url, {
+      params: { language: this.getLanguage() },
+    });
+    const data = res.data as {
+      list: GroupDappsType[];
+      banners: BannerType[];
+    };
+    return data;
+  }
+
+  @backgroundMethod()
+  async getExplore(params: { categoryId?: string }) {
+    const url = `${this.baseUrl}/get_explore`;
+    const res = await this.client.get(url, {
+      params: { language: this.getLanguage(), categoryId: params.categoryId },
+    });
+    const data = res.data as {
+      categories: CategoryType[];
+      list: DAppItemType[];
+    };
+    return data;
   }
 }
 
