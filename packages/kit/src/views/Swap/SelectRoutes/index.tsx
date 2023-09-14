@@ -1,4 +1,4 @@
-import type { ComponentProps, FC } from 'react';
+import type { FC } from 'react';
 import {
   createContext,
   useCallback,
@@ -13,12 +13,12 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   CustomSkeleton,
+  Image,
   Modal,
   Pressable,
   ScrollView,
   Typography,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../../hooks';
@@ -26,11 +26,9 @@ import { ArrivalTime } from '../components/ArrivalTime';
 import { stringifyTokens } from '../utils';
 
 import { AmountLimit } from './AmountLimit';
-import { LiquiditySources } from './LiquiditySources';
-import { TokenInput } from './TokenInput';
 import { useTokenOutput } from './utils';
 
-import type { FetchQuoteResponse } from '../typings';
+import type { FetchQuoteResponse, Provider } from '../typings';
 
 type RoutesProps = {
   responses: FetchQuoteResponse[];
@@ -59,87 +57,107 @@ const ListEmptyComponent = () => (
   </Box>
 );
 
-type PlaceholderLineProps = ComponentProps<typeof Box>;
-const PlaceholderLine: FC<PlaceholderLineProps> = ({ ...rest }) => (
-  <Box flex="1" flexDirection="row" alignItems="center" {...rest}>
-    <Box
-      borderTopColor="border-default"
+const RouteLogo = ({ imageSrc }: { imageSrc?: string }) =>
+  imageSrc ? (
+    <Image
       w="full"
-      h="1"
-      borderStyle={platformEnv.isNative ? 'solid' : 'dashed'}
-      borderTopWidth={platformEnv.isNative ? 0.5 : 1}
+      h="full"
+      borderRadius="full"
+      overflow="hidden"
+      src={imageSrc}
     />
-  </Box>
-);
+  ) : (
+    <Image
+      w="full"
+      h="full"
+      borderRadius="full"
+      overflow="hidden"
+      source={require('@onekeyhq/kit/assets/logo.png')}
+    />
+  );
+
+const ProviderNames = ({ providers }: { providers?: Provider[] }) => {
+  if (!providers || providers.length === 1) {
+    return null;
+  }
+  return (
+    <Box mt="3">
+      <Typography.Caption color="text-subdued">
+        Via {providers.map((o) => o.name).join(', ')}
+      </Typography.Caption>
+    </Box>
+  );
+};
 
 const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
   const intl = useIntl();
-  const { inputToken, outputToken } = useAppSelector((s) => s.swap);
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
   const { selectedIndex, onSelect } = useContext(SelectRoutesContext);
   const { data, limited } = response;
-  const buyAmount = data?.estimatedBuyAmount ?? data?.buyAmount;
   const isDisabled = !!limited;
+
+  const feePrice = useTokenOutput({
+    token: outputToken,
+    amount: data?.estimatedBuyAmount ?? data?.buyAmount,
+  });
 
   const nofeePrice = useTokenOutput({
     token: outputToken,
     amount: data?.buyAmount,
   });
 
+  const imageSrc = response.data?.providers?.[0]?.logoUrl;
+  const name = response.data?.providers?.[0]?.name;
+
   return (
     <Pressable
-      borderColor={selectedIndex !== index ? 'border-default' : 'text-success'}
       _hover={{ bg: 'surface-hovered' }}
       _pressed={{ bg: 'surface-pressed' }}
-      borderWidth={1.5}
-      p="4"
+      bgColor={selectedIndex === index ? 'surface-selected' : undefined}
+      p="2"
       borderRadius={12}
       onPress={() => onSelect(index)}
       isDisabled={isDisabled}
       mb="3"
     >
-      <Box
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-        w="full"
-      >
-        <Box flex="1" flexDirection="row">
-          <TokenInput
-            token={inputToken}
-            amount={data?.sellAmount}
-            isDisabled={isDisabled}
-          />
-          <Box flex="1">
-            <PlaceholderLine minW={1} ml={2} />
+      <Box flexDirection="row" justifyContent="space-between">
+        <Box flexDirection="row">
+          <Box position="relative" w="10" h="10" mr="3">
+            <Box w="10" h="10">
+              <RouteLogo imageSrc={imageSrc} />
+            </Box>
+            <Box
+              position="absolute"
+              backgroundColor="surface-default"
+              w="5"
+              h="5"
+              right="0"
+              top="-1"
+              borderRadius="full"
+              borderWidth={1}
+              borderColor="border-default"
+              overflow="hidden"
+            >
+              <RouteLogo imageSrc={data?.quoterlogo} />
+            </Box>
+          </Box>
+          <Box>
+            <Typography.Body1Strong>
+              {name || 'OneKey Swap'}
+            </Typography.Body1Strong>
+            <ArrivalTime typography="Body2" value={data?.arrivalTime} />
           </Box>
         </Box>
-        <Box justifyContent="center" flexDirection="row" px="1">
-          <LiquiditySources
-            providers={data?.providers}
-            isDisabled={isDisabled}
-          />
-        </Box>
-        <Box flex="1" flexDirection="row">
-          <PlaceholderLine minW={1} mr={2} />
-          <TokenInput
-            token={outputToken}
-            amount={buyAmount}
-            rightAlign
-            isDisabled={isDisabled}
-          />
-        </Box>
-      </Box>
-      <Box mt="3" flexDirection="row" justifyContent="space-between">
-        <Box>
-          <ArrivalTime value={data?.arrivalTime} />
-        </Box>
-        <Box>
+        <Box alignItems="flex-end">
+          <Typography.Body1Strong>{feePrice}</Typography.Body1Strong>
           <Typography.Caption color="text-subdued">
             {intl.formatMessage({ id: 'form__no_fee_price' })}
             {nofeePrice}
           </Typography.Caption>
         </Box>
       </Box>
+      <ProviderNames providers={response.data?.providers} />
       <AmountLimit response={response} token={inputToken} />
     </Pressable>
   );
@@ -228,7 +246,6 @@ const SelectRoutes = () => {
   return (
     <SelectRoutesContext.Provider value={contextValue}>
       <Modal
-        size="lg"
         header={intl.formatMessage({ id: 'title__select_route' })}
         hideSecondaryAction
         primaryActionTranslationId="action__confirm"
