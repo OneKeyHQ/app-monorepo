@@ -1,11 +1,11 @@
 import { memo, useEffect } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import {
   AuthenticationType,
   supportedAuthenticationTypesAsync,
 } from 'expo-local-authentication';
 
+import { useNavigation } from '@onekeyhq/components/src/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AppLock } from '@onekeyhq/kit/src/components/AppLock';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';

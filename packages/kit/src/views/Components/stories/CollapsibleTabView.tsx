@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import type { ReactElement } from 'react';
 
 import { SafeAreaView } from 'react-native';
 
@@ -16,10 +17,9 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import { freezedEmptyArray } from '@onekeyhq/shared/src/consts/sharedConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAppSelector } from '../../../hooks';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { ReactElement } from 'react';
 
 function TokenList({ networks }: { networks: Network[] }) {
   console.log();

@@ -3,7 +3,7 @@ import {
   TabRouter,
   createNavigatorFactory,
   useNavigationBuilder,
-} from '@react-navigation/native';
+} from '@onekeyhq/components/src/Navigation';
 import warnOnce from 'warn-once';
 
 import BottomTabView from '../views/BottomTabView';

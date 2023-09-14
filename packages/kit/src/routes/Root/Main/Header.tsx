@@ -8,8 +8,7 @@ import {
 } from '@react-navigation/elements';
 
 import { useSafeAreaInsets } from '@onekeyhq/components';
-
-import type { NativeStackHeaderProps } from '@react-navigation/native-stack';
+import type { StackHeaderProps } from '@onekeyhq/components/src/Navigation';
 
 const Header: FC<ComponentProps<typeof NavigationHeader>> = (props) => {
   const { top } = useSafeAreaInsets();
@@ -20,7 +19,7 @@ const renderCustomSubStackHeader = ({
   options,
   navigation,
   route,
-}: NativeStackHeaderProps): ReactNode => {
+}: StackHeaderProps): ReactNode => {
   const canGoBack = navigation?.canGoBack?.();
   const {
     headerTintColor,

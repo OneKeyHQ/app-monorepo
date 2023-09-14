@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { memo, useCallback, useMemo } from 'react';
 
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createStackNavigator } from '@onekeyhq/components/src/Navigation';
 import { useIntl } from 'react-intl';
 
 import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
@@ -26,7 +26,7 @@ import type {
 
 const Tab = createBottomTabNavigator<TabRoutesParams>();
 
-const Stack = createNativeStackNavigator();
+const Stack = createStackNavigator();
 
 export const getStackTabScreen = (
   tabName: TabRoutes,

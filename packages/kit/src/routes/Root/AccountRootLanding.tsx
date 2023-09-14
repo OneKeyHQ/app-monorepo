@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import { useRoute } from '@onekeyhq/components/src/Navigation';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';

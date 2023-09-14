@@ -1,19 +1,20 @@
 import type { FC } from 'react';
 import { useEffect, useMemo } from 'react';
 
-import { TransitionPresets } from '@react-navigation/stack';
 import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 import KeyboardManager from 'react-native-keyboard-manager';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  createStackNavigator,
+  makeModalScreenOptions,
+  makeOnboardingScreenOptions,
+  makeRootScreenOptions,
+} from '@onekeyhq/components/src/Navigation';
 
 import { createLazyComponent } from '../../utils/createLazyComponent';
 import { RootRoutes } from '../routesEnum';
-
-import { buildModalOpenAnimationOptions } from './Modal/buildModalStackNavigatorOptions';
-import createStackNavigator from './Modal/createStackNavigator';
 
 const ModalStackNavigator = createLazyComponent(() => import('./Modal'));
 const OnLanding = createLazyComponent(
@@ -37,12 +38,7 @@ const RootNavigatorContainer: FC = ({ children }) => {
   //   : RootRoutes.Onboarding;
   const initialRouteName = RootRoutes.Main;
   const screenOptions = useMemo(
-    () => ({
-      headerShown: false,
-      ...(isVerticalLayout
-        ? TransitionPresets.ScaleFromCenterAndroid
-        : TransitionPresets.FadeFromBottomAndroid),
-    }),
+    () => makeRootScreenOptions(isVerticalLayout),
     [isVerticalLayout],
   );
 
@@ -76,13 +72,13 @@ export const RootApp = () => {
   }, [intl]);
 
   const modalScreenOptions = useMemo(
-    () => ({
-      presentation: platformEnv.isNative
-        ? ('modal' as const)
-        : ('transparentModal' as const),
-      ...buildModalOpenAnimationOptions({ isVerticalLayout }),
-    }),
+    () => makeModalScreenOptions(isVerticalLayout),
     [isVerticalLayout],
+  );
+
+  const onboardingScreenOptions = useMemo(
+    () => makeOnboardingScreenOptions(),
+    [],
   );
 
   return (
@@ -91,24 +87,15 @@ export const RootApp = () => {
       <RootStack.Screen
         name={RootRoutes.Modal}
         component={ModalStackNavigator}
+        // @ts-expect-error
         options={modalScreenOptions}
       />
 
       <RootStack.Screen
         name={RootRoutes.Onboarding}
         component={RouteOnboarding}
-        /*
-        presentation issues:
-        - containedModal: cannot close new opened Modal
-        - card: cannot prevent gesture back (iOS)
-        - fullScreenModal: cannot use OverlayContainer some cases
-         */
-        options={{
-          // node_modules/@react-navigation/native-stack/src/types.tsx
-          // @ts-expect-error
-          presentation: 'fullScreenModal', // containedModal card fullScreenModal
-          animation: 'fade',
-        }}
+        // @ts-expect-error
+        options={onboardingScreenOptions}
       />
       <RootStack.Screen
         name={RootRoutes.Account}

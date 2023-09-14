@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { useCallback } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { useNavigation } from '@onekeyhq/components/src/Navigation';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
