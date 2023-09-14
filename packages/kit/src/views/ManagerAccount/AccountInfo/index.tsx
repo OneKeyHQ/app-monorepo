@@ -14,10 +14,13 @@ import type {
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { ManagerAccountRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/ManagerAccount';
-import { ManagerAccountModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import type { ManagerAccountModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 
+import {
+  useExportPrivateAuth,
+  useExportPublicAuth,
+} from '../../../hooks/useProtectedVerify';
 import { useWalletName } from '../../../hooks/useWalletName';
-import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import AccountModifyNameDialog from '../ModifyAccount';
 import useRemoveAccountDialog from '../RemoveAccount';
 
@@ -114,7 +117,8 @@ const ManagerAccountModal: FC = () => {
   }, []);
 
   const name = useWalletName({ wallet });
-
+  const ExportPublicAuth = useExportPublicAuth();
+  const ExportPrivateAuth = useExportPrivateAuth();
   const onPress = useCallback(
     (item: IAccountInfoListItem) => {
       switch (item.key) {
@@ -128,33 +132,39 @@ const ManagerAccountModal: FC = () => {
         case ManageAccountKeys.ExportPrivateViewKey:
         case ManageAccountKeys.ExportSecretMnemonic: {
           if (item.credentialInfo) {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.ManagerAccount,
-              params: {
-                screen:
-                  ManagerAccountModalRoutes.ManagerAccountExportPrivateModal,
-                params: {
-                  accountId,
-                  networkId,
-                  accountCredential: item.credentialInfo,
-                },
-              },
+            ExportPrivateAuth({
+              accountId,
+              networkId,
+              accountCredential: item.credentialInfo,
             });
+            // navigation.navigate(RootRoutes.Modal, {
+            //   screen: ModalRoutes.ManagerAccount,
+            //   params: {
+            //     screen:
+            //       ManagerAccountModalRoutes.ManagerAccountExportPrivateModal,
+            //     params: {
+            //       accountId,
+            //       networkId,
+            //       accountCredential: item.credentialInfo,
+            //     },
+            //   },
+            // });
           }
           return;
         }
         case ManageAccountKeys.ExportPublicKey: {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.ManagerAccount,
-            params: {
-              screen: ManagerAccountModalRoutes.ManagerAccountExportPublicModal,
-              params: {
-                walletId,
-                accountId,
-                networkId,
-              },
-            },
-          });
+          ExportPublicAuth({ walletId, accountId, networkId });
+          // navigation.navigate(RootRoutes.Modal, {
+          //   screen: ModalRoutes.ManagerAccount,
+          //   params: {
+          //     screen: ManagerAccountModalRoutes.ManagerAccountExportPublicModal,
+          //     params: {
+          //       walletId,
+          //       accountId,
+          //       networkId,
+          //     },
+          //   },
+          // });
           return;
         }
 
@@ -177,13 +187,15 @@ const ManagerAccountModal: FC = () => {
     },
     [
       account,
+      ExportPrivateAuth,
       accountId,
+      networkId,
+      ExportPublicAuth,
       walletId,
       goToRemoveAccount,
-      navigation,
-      networkId,
-      refreshAccounts,
       wallet,
+      refreshAccounts,
+      navigation,
     ],
   );
 

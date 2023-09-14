@@ -31,6 +31,7 @@ import ServiceBase from './ServiceBase';
 interface IPasswordOptions {
   isLocalAuthentication?: boolean;
   withEnableAuthentication?: boolean;
+  deviceFeatures?: IOneKeyDeviceFeatures;
 }
 
 interface IPasswordResData {
@@ -265,7 +266,6 @@ export default class ServicePassword extends ServiceBase {
     subTitle?: string;
     networkId?: string;
   }): Promise<IPasswordRes> {
-    console.log('backgroundPromptPasswordDialog');
     // check multiple call
     if (
       this.passwordPromise &&
@@ -276,7 +276,6 @@ export default class ServicePassword extends ServiceBase {
     const { serviceLightningNetwork, appSelector, serviceApp, engine } =
       this.backgroundApi;
 
-    console.log('backgroundPromptPasswordDialog1');
     setTimeout(() => {
       serviceApp.checkUpdateStatus();
     }, 1000);
@@ -287,7 +286,7 @@ export default class ServicePassword extends ServiceBase {
         new OneKeyInternalError({ key: 'msg__engine__internal_error' }),
       );
     }
-    console.log('backgroundPromptPasswordDialog2');
+
     // check hw external wallet
     try {
       const walletCheckRes = await this.checkWalletIsNeedInputPassWord(
@@ -299,7 +298,7 @@ export default class ServicePassword extends ServiceBase {
     } catch (e) {
       return Promise.reject(e);
     }
-    console.log('backgroundPromptPasswordDialog3');
+
     // lightningNetwork check
     const accountId = appSelector((s) => s.general.activeAccountId) ?? '';
     if (networkId && isLightningNetworkByNetworkId(networkId)) {
@@ -318,7 +317,6 @@ export default class ServicePassword extends ServiceBase {
         });
       }
     }
-    console.log('backgroundPromptPasswordDialog4');
 
     // check network validationRequired
     if (networkId) {
@@ -338,7 +336,7 @@ export default class ServicePassword extends ServiceBase {
         });
       }
     }
-    console.log('backgroundPromptPasswordDialog5');
+
     // check field & cachePassword
     const validationSetting = appSelector((s) => s.settings.validationSetting);
     const fieldValidationSetting = field ? !!validationSetting?.[field] : false;
@@ -353,8 +351,8 @@ export default class ServicePassword extends ServiceBase {
         });
       }
     }
-    console.log('backgroundPromptPasswordDialog6');
 
+    // password input
     this.passwordPromise = new Promise<IPasswordRes>((resolve) => {
       const promiseId = this.getRandomString();
       this.setPromiseMap(promiseId, { resolve });

@@ -18,7 +18,6 @@ import deviceClassicIcon from '@onekeyhq/kit/assets/hardware/about/device-classi
 import deviceMiniIcon from '@onekeyhq/kit/assets/hardware/about/device-mini.png';
 import deviceTouchIcon from '@onekeyhq/kit/assets/hardware/about/device-touch.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import Protected from '@onekeyhq/kit/src/components/Protected';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks';
 import type { OnekeyHardwareRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/HardwareOnekey';
 import {
@@ -201,7 +200,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
 const OnekeyHardwareDetailsModal: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { walletId } = route?.params || {};
+  const { walletId, deviceFeatures } = route?.params || {};
 
   return (
     <Modal
@@ -216,14 +215,10 @@ const OnekeyHardwareDetailsModal: FC = () => {
           paddingBottom: 24,
         },
         children: (
-          <Protected walletId={walletId}>
-            {(_, { deviceFeatures }) => (
-              <OnekeyHardwareDetails
-                walletId={walletId}
-                deviceFeatures={deviceFeatures}
-              />
-            )}
-          </Protected>
+          <OnekeyHardwareDetails
+            walletId={walletId}
+            deviceFeatures={deviceFeatures}
+          />
         ),
       }}
     />

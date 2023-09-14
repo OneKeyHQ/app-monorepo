@@ -20,6 +20,7 @@ import { useWalletSelectorSectionData } from '../../../components/WalletSelector
 import { WalletAvatarPro } from '../../../components/WalletSelector/WalletAvatar';
 import { ListItemBase } from '../../../components/WalletSelector/WalletSelectorChildren/List/ListItem';
 import { useNavigation } from '../../../hooks';
+import { useKeyTagVerifyPassword } from '../../../hooks/useProtectedVerify';
 import LayoutContainer from '../../Onboarding/Layout';
 import { KeyTagRoutes } from '../Routes/enums';
 import { Bip39DotmapUrl } from '../utils';
@@ -50,16 +51,21 @@ const KeyTagBackUpWallet = () => {
 
     return res;
   }, [walletsSection]);
-
+  const KeyTagVerifyPassword = useKeyTagVerifyPassword();
   const onPress = useCallback(
     (wallet: IWallet) => {
-      navigation.navigate(KeyTagRoutes.KeyTagVerifyPassword, {
-        wallet,
+      KeyTagVerifyPassword({
         walletId: wallet.id,
+        wallet,
         navigateMode: isVertical && platformEnv.isNative,
       });
+      // navigation.navigate(KeyTagRoutes.KeyTagVerifyPassword, {
+      //   wallet,
+      //   walletId: wallet.id,
+      //   navigateMode: isVertical && platformEnv.isNative,
+      // });
     },
-    [isVertical, navigation],
+    [KeyTagVerifyPassword, isVertical],
   );
 
   const ListEmptyComponent = useMemo(

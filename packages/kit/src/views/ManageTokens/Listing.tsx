@@ -33,6 +33,7 @@ import { FormatBalance } from '../../components/Format';
 import { LazyDisplayView } from '../../components/LazyDisplayView';
 import { useActiveWalletAccount, useAppSelector } from '../../hooks';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { useActivateTokenAuth } from '../../hooks/useProtectedVerify';
 import { ManageTokenModalRoutes } from '../../routes/routesEnum';
 import { deviceUtils } from '../../utils/hardware';
 import { showOverlay } from '../../utils/overlayUtils';
@@ -331,7 +332,7 @@ function ListRenderToken({ isOwned, ...item }: IManageNetworkTokenType) {
   const [, updateTS] = useAtomManageTokens(atomMangeTokensTS);
 
   const { tokenIdOnNetwork, symbol, riskLevel } = item;
-
+  const ActivateTokenAuth = useActivateTokenAuth();
   const checkIfShouldActiveToken = useCallback(async () => {
     const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
       networkId,
@@ -340,7 +341,7 @@ function ListRenderToken({ isOwned, ...item }: IManageNetworkTokenType) {
       return;
     }
     return new Promise((resolve, reject) => {
-      navigation.navigate(ManageTokenModalRoutes.ActivateToken, {
+      ActivateTokenAuth({
         walletId,
         accountId,
         networkId,
@@ -352,8 +353,20 @@ function ListRenderToken({ isOwned, ...item }: IManageNetworkTokenType) {
           reject(e);
         },
       });
+      // navigation.navigate(ManageTokenModalRoutes.ActivateToken, {
+      //   walletId,
+      //   accountId,
+      //   networkId,
+      //   tokenId: tokenIdOnNetwork,
+      //   onSuccess: () => {
+      //     resolve(true);
+      //   },
+      //   onFailure: (e) => {
+      //     reject(e);
+      //   },
+      // });
     });
-  }, [walletId, accountId, networkId, tokenIdOnNetwork, navigation]);
+  }, [networkId, ActivateTokenAuth, walletId, accountId, tokenIdOnNetwork]);
 
   const checkTokenVisible = useCallback(async () => {
     const options = {

@@ -24,6 +24,7 @@ import { useWalletConnectPrepareConnection } from '../../../../components/Wallet
 import { useActiveSideAccount } from '../../../../hooks';
 import { useDisableNavigationAnimation } from '../../../../hooks/useDisableNavigationAnimation';
 import { useOnboardingRequired } from '../../../../hooks/useOnboardingRequired';
+import { useSendAuthentication } from '../../../../hooks/useProtectedVerify';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { AmountTypeEnum } from '../../../BulkSender/types';
 import { TxDetailView } from '../../../TxDetail/TxDetailView';
@@ -160,7 +161,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       }),
     [decodedTxs, feeInfoPayloads, isNativeMaxSend, transferInfos],
   );
-
+  const BatchSendProgressAuth = useSendAuthentication();
   const handleConfirm = useCallback<IBatchTxsConfirmViewPropsHandleConfirm>(
     // eslint-disable-next-line @typescript-eslint/no-shadow
     async ({ close, encodedTxs }) => {
@@ -257,27 +258,32 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
         }, 0);
       };
 
-      const nextRouteParams: BatchSendProgressParams = {
-        ...routeParams,
-        encodedTxs: encodedTxsWithFee,
-        feeInfoPayloads,
-        accountId,
-        networkId,
-        walletId,
-        onSuccess,
-        onFail,
-        onModalClose,
-      };
+      const password = await BatchSendProgressAuth(walletId);
+      if (password) {
+        const nextRouteParams: BatchSendProgressParams = {
+          ...routeParams,
+          encodedTxs: encodedTxsWithFee,
+          feeInfoPayloads,
+          accountId,
+          networkId,
+          walletId,
+          onSuccess,
+          onFail,
+          onModalClose,
+          password,
+        };
 
-      return navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.Send,
-        params: {
-          screen: SendModalRoutes.BatchSendProgress,
-          params: nextRouteParams,
-        },
-      });
+        return navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendModalRoutes.BatchSendProgress,
+            params: nextRouteParams,
+          },
+        });
+      }
     },
     [
+      BatchSendProgressAuth,
       accountId,
       dappApprove,
       engine,

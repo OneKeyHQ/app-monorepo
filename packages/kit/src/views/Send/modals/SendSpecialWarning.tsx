@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 import { Box, Center, Icon, Typography } from '@onekeyhq/components';
 
 import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';
+import { useSendAuthentication } from '../../../hooks/useProtectedVerify';
 import { BaseSendModal } from '../components/BaseSendModal';
 import { DecodeTxButtonTest } from '../components/DecodeTxButtonTest';
 import { SendModalRoutes } from '../types';
@@ -22,9 +23,9 @@ export const SendSpecialWarning = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const { params } = route;
-  const { onModalClose, networkId, accountId } = params;
+  const { onModalClose, networkId, accountId, walletId } = params;
   const sendConfirmParamsParsed = useSendConfirmRouteParamsParsed();
-
+  const sendAuthentication = useSendAuthentication();
   // TODO all Modal close should reject dapp call
   return (
     <BaseSendModal
@@ -37,11 +38,14 @@ export const SendSpecialWarning = () => {
         closeExtensionWindowIfOnboardingFinished();
       }}
       hideSecondaryAction
-      onPrimaryActionPress={() => {
-        sendConfirmParamsParsed.navigation.navigate(
-          SendModalRoutes.SendAuthentication,
-          params,
-        );
+      onPrimaryActionPress={async () => {
+        const password = await sendAuthentication(walletId);
+        if (password) {
+          sendConfirmParamsParsed.navigation.navigate(
+            SendModalRoutes.SendAuthentication,
+            { ...params, password },
+          );
+        }
       }}
     >
       <Center flex={1}>

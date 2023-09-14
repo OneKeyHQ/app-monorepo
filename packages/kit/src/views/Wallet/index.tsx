@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { memo, useCallback, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -23,6 +23,7 @@ import { OneKeyPerfTraceLog } from '../../components/OneKeyPerfTraceLog';
 import { useHomeTabName } from '../../hooks/useHomeTabName';
 import { useHtmlPreloadSplashLogoRemove } from '../../hooks/useHtmlPreloadSplashLogoRemove';
 import { useOnboardingRequired } from '../../hooks/useOnboardingRequired';
+import { useWalletTabsWithAuth } from '../../hooks/useProtectedVerify';
 import { setHomeTabName } from '../../store/reducers/status';
 import { OverviewDefiList } from '../Overview/OverviewDefiList';
 import { GuideToPushFirstTimeCheck } from '../PushNotification/GuideToPushFirstTime';
@@ -38,7 +39,6 @@ import { HomeTabIndexSync } from './HomeTabIndexSync';
 import NFTList from './NFT/NFTList';
 import ToolsPage from './Tools';
 import { WalletHomeTabEnum } from './type';
-import { WalletTabsWithAuth } from './WalletTabsWithAuth';
 
 function AccountHeader() {
   const isVerticalLayout = useIsVerticalLayout();
@@ -64,7 +64,17 @@ const WalletTabs: FC = () => {
   const { wallet, network, accountId, networkId, walletId } =
     useActiveWalletAccount();
   const timer = useRef<ReturnType<typeof setTimeout>>();
-
+  const walletTabsWithAuth = useWalletTabsWithAuth();
+  useEffect(() => {
+    if (network?.settings.validationRequired) {
+      walletTabsWithAuth({
+        walletId,
+        accountId,
+        networkId,
+        networkName: network.name,
+      });
+    }
+  }, [accountId, network, networkId, walletId, walletTabsWithAuth]);
   // LazyRenderCurrentHomeTab
   const tokensTab = useMemo(
     () => (
@@ -222,7 +232,6 @@ const WalletTabs: FC = () => {
   const accountHeaderMemo = useMemo(() => <AccountHeader />, []);
 
   if (!wallet) return null;
-
   const contentView = (
     <>
       <Tabs.Container
@@ -250,18 +259,6 @@ const WalletTabs: FC = () => {
     </>
   );
 
-  if (network?.settings.validationRequired) {
-    return (
-      <WalletTabsWithAuth
-        wallet={wallet}
-        network={network}
-        networkId={networkId}
-        accountId={accountId}
-      >
-        {contentView}
-      </WalletTabsWithAuth>
-    );
-  }
   return contentView;
 };
 const WalletTabsMemo = memo(WalletTabs);

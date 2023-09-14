@@ -25,9 +25,7 @@ const DappConnectionStack = createLazyComponent(
   () => import('./DappConnection'),
 );
 const DiscoverModal = createLazyComponent(() => import('./Discover'));
-const EnableLocalAuthenticationModal = createLazyComponent(
-  () => import('./EnableLocalAuthentication'),
-);
+
 const BuyModal = createLazyComponent(() => import('./FiatPay'));
 const OnekeyHardwareModal = createLazyComponent(
   () => import('./HardwareOnekey'),
@@ -176,10 +174,6 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.ManagerAccount,
     component: ManagerAccountModal,
-  },
-  {
-    name: ModalRoutes.EnableLocalAuthentication,
-    component: EnableLocalAuthenticationModal,
   },
   {
     name: ModalRoutes.ManageNetwork,

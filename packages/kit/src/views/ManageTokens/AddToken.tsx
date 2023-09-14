@@ -33,7 +33,7 @@ import {
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
 import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
-import { ManageTokenModalRoutes } from '../../routes/routesEnum';
+import { useActivateTokenAuth } from '../../hooks/useProtectedVerify';
 import { deviceUtils } from '../../utils/hardware';
 import { wait } from '../../utils/helper';
 import { SiteSection } from '../ManageNetworks/components/SiteSection';
@@ -41,6 +41,7 @@ import { defaultMenuOffset } from '../Overlay/BaseMenu';
 
 import { notifyIfRiskToken } from './helpers/TokenSecurityModalWrapper';
 
+import type { ManageTokenModalRoutes } from '../../routes/routesEnum';
 import type { ListItem } from '../ManageNetworks/SwitchRpc';
 import type { ManageTokenRoutesParams } from './types';
 import type { RouteProp } from '@react-navigation/core';
@@ -383,35 +384,47 @@ function AddTokenModal() {
       navigation,
     ],
   );
-
+  const ActivateTokenAuth = useActivateTokenAuth();
   const onPrimaryActionPress = useCallback(async () => {
     if (activeAccount && activeNetwork) {
       const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
         activeNetwork?.id,
       );
       if (vaultSettings?.activateTokenRequired) {
-        navigation.navigate(ManageTokenModalRoutes.ActivateToken, {
+        ActivateTokenAuth({
           walletId,
           accountId: activeAccount?.id,
-          networkId: activeNetwork?.id,
+          networkId: activeNetwork.id,
           tokenId: address,
-          onSuccess() {
+          onSuccess: () => {
             addAccountToken();
           },
           onFailure: (e) => {
             deviceUtils.showErrorToast(e, 'msg__failed_to_add_token');
           },
         });
+        // navigation.navigate(ManageTokenModalRoutes.ActivateToken, {
+        //   walletId,
+        //   accountId: activeAccount?.id,
+        //   networkId: activeNetwork?.id,
+        //   tokenId: address,
+        //   onSuccess() {
+        //     addAccountToken();
+        //   },
+        //   onFailure: (e) => {
+        //     deviceUtils.showErrorToast(e, 'msg__failed_to_add_token');
+        //   },
+        // });
       } else {
         addAccountToken();
       }
     }
   }, [
+    ActivateTokenAuth,
     activeAccount,
     activeNetwork,
     addAccountToken,
     address,
-    navigation,
     walletId,
   ]);
 

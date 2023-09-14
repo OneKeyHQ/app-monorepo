@@ -7,7 +7,6 @@ import BackupOptions from '../../../views/BackupWallet/BackupOptions';
 import { KeyTagRoutes } from '../../../views/KeyTag/Routes/enums';
 import KeyTagBackupWalletAttentions from '../../../views/KeyTag/Screen/KeyTagAttentions';
 import ShowDotMap from '../../../views/KeyTag/Screen/ShowDotMap';
-import VerifyPassword from '../../../views/KeyTag/Screen/VerifyPassword';
 import { BackupWalletModalRoutes } from '../../routesEnum';
 
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
@@ -29,10 +28,6 @@ export type BackupWalletRoutesParams = {
   [BackupWalletModalRoutes.BackupWalletMnemonicModal]: {
     mnemonic: string;
     walletId: string;
-  };
-  [KeyTagRoutes.KeyTagVerifyPassword]: {
-    walletId: string;
-    wallet?: IWallet;
   };
   [KeyTagRoutes.KeyTagAttention]: {
     walletId: string;
@@ -59,7 +54,6 @@ const modalRoutes = [
     name: BackupWalletModalRoutes.BackupWalletOptionsModal,
     component: BackupOptions,
   },
-  { name: KeyTagRoutes.KeyTagVerifyPassword, component: VerifyPassword },
   {
     name: KeyTagRoutes.KeyTagAttention,
     component: KeyTagBackupWalletAttentions,

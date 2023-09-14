@@ -18,7 +18,6 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import Protected from '@onekeyhq/kit/src/components/Protected';
 import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 import type { OnekeyHardwareRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/HardwareOnekey';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
@@ -186,7 +185,7 @@ const OnekeyHardwareDeviceName: FC<DeviceNameProps> = ({
 const OnekeyHardwareDeviceNameModal: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { walletId } = route?.params || {};
+  const { walletId, deviceFeatures } = route?.params || {};
 
   return (
     <Modal
@@ -200,14 +199,10 @@ const OnekeyHardwareDeviceNameModal: FC = () => {
           paddingBottom: 24,
         },
         children: (
-          <Protected walletId={walletId}>
-            {(_, { deviceFeatures }) => (
-              <OnekeyHardwareDeviceName
-                walletId={walletId}
-                deviceFeatures={deviceFeatures}
-              />
-            )}
-          </Protected>
+          <OnekeyHardwareDeviceName
+            walletId={walletId}
+            deviceFeatures={deviceFeatures}
+          />
         ),
       }}
     />

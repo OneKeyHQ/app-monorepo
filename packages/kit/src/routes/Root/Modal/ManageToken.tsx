@@ -7,7 +7,6 @@ import {
   VerifiedToken,
   ViewTokenModal,
 } from '../../../views/ManageTokens';
-import ActivateTokenAuthModal from '../../../views/ManageTokens/ActivateTokenAuthModal';
 import TokenRiskDetail from '../../../views/ManageTokens/RiskDetail';
 import { PriceAlertAddModal } from '../../../views/PushNotification/PriceAlertAddModal';
 import { PriceAlertListModal } from '../../../views/PushNotification/PriceAlertListModal';
@@ -28,10 +27,6 @@ const modalRoutes = [
   {
     name: ManageTokenModalRoutes.AddToken,
     component: AddToken,
-  },
-  {
-    name: ManageTokenModalRoutes.ActivateToken,
-    component: ActivateTokenAuthModal,
   },
   {
     name: ManageTokenModalRoutes.ViewToken,

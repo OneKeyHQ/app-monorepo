@@ -11,7 +11,11 @@ import type { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/routesEnu
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 
-import { useBackupLite, useBackupManual } from '../../hooks/useProtectedVerify';
+import {
+  useBackupLite,
+  useBackupManual,
+  useKeyTagVerifyPassword,
+} from '../../hooks/useProtectedVerify';
 import { useWallet } from '../../hooks/useWallet';
 import { KeyTagRoutes } from '../KeyTag/Routes/enums';
 import {
@@ -39,16 +43,17 @@ type NavigationProps = ModalScreenProps<
 const BackupWalletOptionsView: FC<BackupWalletViewProps> = () => {
   const intl = useIntl();
   const { walletId } = useRoute<RouteProps>().params;
-  const navigation = useNavigation<NavigationProps['navigation']>();
   const { wallet } = useWallet({ walletId });
   const backupManualAuthentication = useBackupManual();
+  const KeyTagVerifyPassword = useKeyTagVerifyPassword();
+  const backupLiteAuthentication = useBackupLite();
   const onManual = useCallback(() => {
     backupManualAuthentication(walletId);
     // navigation.navigate(BackupWalletModalRoutes.BackupWalletManualModal, {
     //   walletId,
     // });
   }, [backupManualAuthentication, walletId]);
-  const backupLiteAuthentication = useBackupLite();
+
   const onLite = useCallback(() => {
     // navigation.navigate(BackupWalletModalRoutes.BackupWalletLiteModal, {
     //   walletId,
@@ -57,11 +62,12 @@ const BackupWalletOptionsView: FC<BackupWalletViewProps> = () => {
   }, [backupLiteAuthentication, walletId]);
 
   const onKeyTag = useCallback(() => {
-    navigation.navigate(KeyTagRoutes.KeyTagVerifyPassword, {
-      walletId,
-      wallet,
-    });
-  }, [navigation, wallet, walletId]);
+    KeyTagVerifyPassword({ walletId, wallet });
+    // navigation.navigate(KeyTagRoutes.KeyTagVerifyPassword, {
+    //   walletId,
+    //   wallet,
+    // });
+  }, [KeyTagVerifyPassword, wallet, walletId]);
 
   return (
     <Modal

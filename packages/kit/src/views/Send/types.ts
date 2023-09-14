@@ -207,6 +207,7 @@ export type SendAuthenticationParams = Omit<
   'feeInfoEditable' | 'feeInfoUseFeeInTx'
 > & {
   accountId: string;
+  password?: string;
   walletId: string;
   networkId: string;
   unsignedMessage?: IUnsignedMessageEvm | IUnsignedMessageBtc;
@@ -437,6 +438,7 @@ export type BatchSendProgressParams = Omit<
   'feeInfoEditable' | 'feeInfoUseFeeInTx'
 > & {
   accountId: string;
+  password: string;
   walletId: string;
   networkId: string;
   unsignedMessages?: IUnsignedMessageEvm[];

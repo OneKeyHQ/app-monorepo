@@ -27,7 +27,6 @@ import { OneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTy
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import Protected, { ValidationFields } from '../../../components/Protected';
 import { useNetwork } from '../../../hooks';
 import { useInteractWithInfo } from '../../../hooks/useDecodedTx';
 import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';
@@ -520,14 +519,7 @@ const SendProgressMemo = memo(SendProgress);
 function BatchSendProgress() {
   const route = useRoute<RouteProps>();
   const { params } = route;
-  const {
-    walletId,
-    onModalClose,
-    networkId,
-    accountId,
-    payloadInfo,
-    encodedTxs,
-  } = params;
+  const { onModalClose, networkId, accountId, password, encodedTxs } = params;
   const [titleInfo, setTitleInfo] = useState<
     ISendAuthenticationModalTitleInfo | undefined
   >();
@@ -535,10 +527,6 @@ function BatchSendProgress() {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const onPause = currentState === BatchSendState.onPause;
-
-  const payload = payloadInfo as BatchSendConfirmPayloadInfo;
-
-  const { senderAccounts } = payload;
 
   const canPause = currentStep < encodedTxs.length - 1;
 
@@ -573,22 +561,15 @@ function BatchSendProgress() {
       }
     >
       <Box flex={1}>
-        <Protected
-          walletId={senderAccounts?.[currentStep]?.walletId ?? walletId}
-          field={ValidationFields.Payment}
-        >
-          {(password) => (
-            <SendProgressMemo
-              setIsAuthorized={setIsAuthorized}
-              setTitleInfo={setTitleInfo}
-              password={password}
-              currentState={currentState}
-              currentStep={currentStep}
-              setCurrentStep={setCurrentStep}
-              setCurrentState={setCurrentState}
-            />
-          )}
-        </Protected>
+        <SendProgressMemo
+          setIsAuthorized={setIsAuthorized}
+          setTitleInfo={setTitleInfo}
+          password={password}
+          currentState={currentState}
+          currentStep={currentStep}
+          setCurrentStep={setCurrentStep}
+          setCurrentState={setCurrentState}
+        />
       </Box>
     </BaseSendModal>
   );

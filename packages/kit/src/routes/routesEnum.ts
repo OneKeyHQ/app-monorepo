@@ -260,7 +260,7 @@ export enum CreateWalletModalRoutes {
   // Onekey Lite backup
   OnekeyLiteRestorePinCodeVerifyModal = 'OnekeyLiteRestorePinCodeVerifyModal',
   OnekeyLiteRestoreModal = 'OnekeyLiteRestoreModal',
-  OnekeyLiteRestoreDoneModal = 'OnekeyLiteRestoreDoneModal',
+
   OnekeyLiteBackupPinCodeVerifyModal = 'OnekeyLiteBackupPinCodeVerifyModal',
   OnekeyLiteBackupModal = 'OnekeyLiteBackupModal',
 
@@ -339,7 +339,6 @@ export enum ManagerAccountModalRoutes {
 
 export enum ManagerWalletModalRoutes {
   ManagerWalletModal = 'ManagerWalletModal',
-  ManagerWalletAuthorityVerifyModal = 'ManagerWalletAuthorityVerifyModal',
   ManagerWalletModifyNameModal = 'ManagerWalletModifyNameModal',
   ManagerWalletModifyEmojiModal = 'ManagerWalletModifyEmojiModal',
 }
@@ -352,7 +351,6 @@ export enum UpdateFeatureModalRoutes {
 export enum ManageTokenModalRoutes {
   Listing = 'ListTokensModal',
   AddToken = 'AddToken',
-  ActivateToken = 'ActivateToken',
   ViewToken = 'ViewToken',
   CustomToken = 'CustomToken',
   VerifiedToken = 'VerifiedToken',

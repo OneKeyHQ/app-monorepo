@@ -19,12 +19,14 @@ export type ManagerAccountRoutesParams = {
   [ManagerAccountModalRoutes.ManagerAccountExportPrivateModal]: {
     accountId: string;
     networkId: string;
+    password: string;
     accountCredential: AccountCredential;
   };
   [ManagerAccountModalRoutes.ManagerAccountExportPublicModal]: {
     walletId: string;
     accountId: string;
     networkId: string;
+    password: string;
   };
 };
 

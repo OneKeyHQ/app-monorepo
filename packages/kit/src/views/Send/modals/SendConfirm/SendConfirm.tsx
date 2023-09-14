@@ -23,6 +23,7 @@ import { useActiveSideAccount, useNetwork } from '../../../../hooks';
 import { useDecodedTx } from '../../../../hooks/useDecodedTx';
 import { useDisableNavigationAnimation } from '../../../../hooks/useDisableNavigationAnimation';
 import { useOnboardingRequired } from '../../../../hooks/useOnboardingRequired';
+import { useSendAuthentication } from '../../../../hooks/useProtectedVerify';
 import { wait } from '../../../../utils/helper';
 import { TxDetailView } from '../../../TxDetail/TxDetailView';
 import { BaseSendConfirmModal } from '../../components/BaseSendConfirmModal';
@@ -166,6 +167,7 @@ function SendConfirm({
     networkId,
   });
 
+  const SendAuthentication = useSendAuthentication();
   // onSubmit, onConfirm, onNext
   const handleConfirm = useCallback<ITxConfirmViewPropsHandleConfirm>(
     // eslint-disable-next-line @typescript-eslint/no-shadow
@@ -344,10 +346,13 @@ function SendConfirm({
       }
 
       if (result.success) {
-        return navigation[nextRouteAction](
-          SendModalRoutes.SendAuthentication,
-          nextRouteParams,
-        );
+        const password = await SendAuthentication(walletId);
+        if (password) {
+          return navigation[nextRouteAction](
+            SendModalRoutes.SendAuthentication,
+            nextRouteParams,
+          );
+        }
       }
 
       if (network?.settings.useSimpleTipForSpecialCheckEncodedTx) {
@@ -392,10 +397,11 @@ function SendConfirm({
       serviceHistory,
       isListOrderPsbt,
       isUnListOrderPsbt,
-      decodedTx,
+      decodedTx?.actions,
       serviceNFT,
       resendActionInfo,
       serviceLightningNetwork,
+      SendAuthentication,
       intl,
     ],
   );

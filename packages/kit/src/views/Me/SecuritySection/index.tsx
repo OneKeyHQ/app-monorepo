@@ -24,7 +24,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useLocalAuthentication } from '../../../hooks/useLocalAuthentication';
-import { useEnableLocalAuthentication } from '../../../hooks/useProtectedVerify';
+import {
+  useEnableLocalAuthentication,
+  useEnableWebAuth,
+} from '../../../hooks/useProtectedVerify';
 import {
   HomeRoutes,
   ModalRoutes,
@@ -36,7 +39,6 @@ import {
   isSupportedPlatform,
   isUserVerifyingPlatformAuthenticatorAvailable,
 } from '../../../utils/webauthn';
-import { EnableLocalAuthenticationRoutes } from '../../EnableLocalAuthentication/types';
 import { PasswordRoutes } from '../../Password/types';
 import { SelectTrigger } from '../SelectTrigger';
 
@@ -119,6 +121,7 @@ export const SecuritySection = () => {
     platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay;
 
   const EnableLocalAuthentication = useEnableLocalAuthentication();
+  const EnableWebAuth = useEnableWebAuth();
   return (
     <Box w="full" mb="6">
       <Box pb="2">
@@ -250,12 +253,13 @@ export const SecuritySection = () => {
                 labelType="false"
                 isChecked={enableWebAuthn}
                 onToggle={() => {
-                  navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.EnableLocalAuthentication,
-                    params: {
-                      screen: EnableLocalAuthenticationRoutes.EnableWebAuthn,
-                    },
-                  });
+                  EnableWebAuth();
+                  // navigation.navigate(RootRoutes.Modal, {
+                  //   screen: ModalRoutes.EnableLocalAuthentication,
+                  //   params: {
+                  //     screen: EnableLocalAuthenticationRoutes.EnableWebAuthn,
+                  //   },
+                  // });
                 }}
               />
             </Box>
@@ -296,7 +300,6 @@ export const SecuritySection = () => {
                 labelType="false"
                 isChecked={enableLocalAuthentication}
                 onToggle={() => {
-                  console.log('toggle-');
                   EnableLocalAuthentication();
                   // navigation.navigate(RootRoutes.Modal, {
                   //   screen: ModalRoutes.EnableLocalAuthentication,

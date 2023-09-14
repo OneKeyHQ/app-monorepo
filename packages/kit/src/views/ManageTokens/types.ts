@@ -38,14 +38,7 @@ export type ManageTokenRoutesParams = {
         riskLevel: TokenRiskLevel;
       }
     | { query: string };
-  [ManageTokenModalRoutes.ActivateToken]: {
-    walletId: string;
-    accountId: string;
-    networkId: string;
-    tokenId: string;
-    onSuccess?: () => void;
-    onFailure?: (error?: Error) => void;
-  };
+
   [ManageTokenModalRoutes.ViewToken]: {
     name: string;
     symbol: string;

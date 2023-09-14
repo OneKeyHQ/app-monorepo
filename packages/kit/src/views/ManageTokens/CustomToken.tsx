@@ -21,14 +21,11 @@ import {
   useDebounce,
   useNetworkSimple,
 } from '../../hooks';
-import {
-  ManageTokenModalRoutes,
-  ModalRoutes,
-  RootRoutes,
-} from '../../routes/routesEnum';
+import { useActivateTokenAuth } from '../../hooks/useProtectedVerify';
 
 import { notifyIfRiskToken } from './helpers/TokenSecurityModalWrapper';
 
+import type { ManageTokenModalRoutes } from '../../routes/routesEnum';
 import type { ManageTokenRoutesParams } from './types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -118,7 +115,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
     },
     [intl, navigation],
   );
-
+  const ActivateTokenAuth = useActivateTokenAuth();
   const onSubmit = useCallback(
     async (data: AddCustomTokenValues) => {
       if (!activeNetwork || !activeAccount) {
@@ -133,30 +130,41 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
         activeNetwork.id,
       );
       if (vaultSettings?.activateTokenRequired) {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.ManageToken,
-          params: {
-            screen: ManageTokenModalRoutes.ActivateToken,
-            params: {
-              walletId,
-              accountId: $accountId,
-              networkId: $networkId,
-              tokenId,
-              onSuccess() {
-                onAddToken($accountId, $networkId, tokenId).finally(() => {
-                  setLoading(false);
-                });
-              },
-            },
+        ActivateTokenAuth({
+          walletId,
+          accountId: $accountId,
+          networkId: $networkId,
+          tokenId,
+          onSuccess: () => {
+            onAddToken($accountId, $networkId, tokenId).finally(() => {
+              setLoading(false);
+            });
           },
         });
+        // navigation.navigate(RootRoutes.Modal, {
+        //   screen: ModalRoutes.ManageToken,
+        //   params: {
+        //     screen: ManageTokenModalRoutes.ActivateToken,
+        //     params: {
+        //       walletId,
+        //       accountId: $accountId,
+        //       networkId: $networkId,
+        //       tokenId,
+        //       onSuccess() {
+        //         onAddToken($accountId, $networkId, tokenId).finally(() => {
+        //           setLoading(false);
+        //         });
+        //       },
+        //     },
+        //   },
+        // });
       } else {
         onAddToken($accountId, $networkId, tokenId).finally(() => {
           setLoading(false);
         });
       }
     },
-    [activeNetwork, activeAccount, navigation, walletId, onAddToken],
+    [activeNetwork, activeAccount, ActivateTokenAuth, walletId, onAddToken],
   );
 
   const onSearch = useCallback(

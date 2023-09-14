@@ -20,7 +20,6 @@ import OnekeyLiteBackup from '../../../views/Hardware/OnekeyLite/Backup';
 import OnekeyLiteBackupPinCode from '../../../views/Hardware/OnekeyLite/PinCode/BackupPinCodeVerify';
 import OnekeyLiteRestorePinCode from '../../../views/Hardware/OnekeyLite/PinCode/RestorePinCodeVerify';
 import OnekeyLiteRestore from '../../../views/Hardware/OnekeyLite/Restore';
-import OnekeyLiteRestoreDoneView from '../../../views/Hardware/OnekeyLite/Restore/Done';
 import { CreateWalletModalRoutes } from '../../routesEnum';
 
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
@@ -102,7 +101,6 @@ export type CreateWalletRoutesParams = {
   // Onekey Lite Backup & Restore
   [CreateWalletModalRoutes.OnekeyLiteRestorePinCodeVerifyModal]: OnekeyLiteRoutesParams[OnekeyLiteModalRoutes.OnekeyLiteRestorePinCodeVerifyModal];
   [CreateWalletModalRoutes.OnekeyLiteRestoreModal]: OnekeyLiteRoutesParams[OnekeyLiteModalRoutes.OnekeyLiteRestoreModal];
-  [CreateWalletModalRoutes.OnekeyLiteRestoreDoneModal]: OnekeyLiteRoutesParams[OnekeyLiteModalRoutes.OnekeyLiteRestoreDoneModal];
   [CreateWalletModalRoutes.OnekeyLiteBackupPinCodeVerifyModal]: OnekeyLiteRoutesParams[OnekeyLiteModalRoutes.OnekeyLiteBackupPinCodeVerifyModal];
   [CreateWalletModalRoutes.OnekeyLiteBackupModal]: OnekeyLiteRoutesParams[OnekeyLiteModalRoutes.OnekeyLiteBackupModal];
   [CreateWalletModalRoutes.WalletConnectQrcodeModal]: {
@@ -156,10 +154,6 @@ const modalRoutes = [
   {
     name: CreateWalletModalRoutes.OnekeyLiteRestoreModal,
     component: OnekeyLiteRestore,
-  },
-  {
-    name: CreateWalletModalRoutes.OnekeyLiteRestoreDoneModal,
-    component: OnekeyLiteRestoreDoneView,
   },
   {
     name: CreateWalletModalRoutes.OnekeyLiteBackupPinCodeVerifyModal,

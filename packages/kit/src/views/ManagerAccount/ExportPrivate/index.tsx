@@ -9,9 +9,6 @@ import type {
   AccountCredentialType,
   Account as AccountEngineType,
 } from '@onekeyhq/engine/src/types/account';
-import Protected, {
-  ValidationFields,
-} from '@onekeyhq/kit/src/components/Protected';
 import type { ManagerAccountRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/ManagerAccount';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -75,7 +72,7 @@ type NavigationProps = RouteProp<
 const ExportPrivateViewModal = () => {
   const intl = useIntl();
   const route = useRoute<NavigationProps>();
-  const { accountId, networkId, accountCredential } = route.params;
+  const { accountId, password, networkId, accountCredential } = route.params;
   const [account, setAccount] = useState<AccountEngineType>();
 
   return (
@@ -85,21 +82,13 @@ const ExportPrivateViewModal = () => {
       headerDescription={account?.name}
       height="auto"
     >
-      <Protected
-        walletId={null}
-        skipSavePassword
-        field={ValidationFields.Secret}
-      >
-        {(pwd) => (
-          <ExportPrivateView
-            accountId={accountId}
-            networkId={networkId}
-            credentialType={accountCredential.type}
-            password={pwd}
-            onAccountChange={(acc) => setAccount(acc)}
-          />
-        )}
-      </Protected>
+      <ExportPrivateView
+        accountId={accountId}
+        networkId={networkId}
+        credentialType={accountCredential.type}
+        password={password}
+        onAccountChange={(acc) => setAccount(acc)}
+      />
     </Modal>
   );
 };

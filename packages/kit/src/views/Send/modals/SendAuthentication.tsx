@@ -16,7 +16,6 @@ import { OneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTy
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import Protected, { ValidationFields } from '../../../components/Protected';
 import { useDecodedTx, useInteractWithInfo } from '../../../hooks/useDecodedTx';
 import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';
 import { deviceUtils } from '../../../utils/hardware';
@@ -327,7 +326,7 @@ const SendAuthMemo = memo(SendAuth);
 export const SendAuthentication = () => {
   const route = useRoute<RouteProps>();
   const { params } = route;
-  const { walletId, onModalClose, networkId, accountId } = params;
+  const { onModalClose, networkId, accountId, password } = params;
   const [titleInfo, setTitleInfo] = useState<
     ISendAuthenticationModalTitleInfo | undefined
   >();
@@ -351,11 +350,7 @@ export const SendAuthentication = () => {
           networkId={networkId}
           encodedTx={params.encodedTx}
         />
-        <Protected walletId={walletId} field={ValidationFields.Payment}>
-          {(password) => (
-            <SendAuthMemo setTitleInfo={setTitleInfo} password={password} />
-          )}
-        </Protected>
+        <SendAuthMemo setTitleInfo={setTitleInfo} password={password ?? ''} />
       </Box>
     </BaseSendModal>
   );

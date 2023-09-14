@@ -44,6 +44,10 @@ import HardwareLoadingDialog from '@onekeyhq/kit/src/views/Hardware/Onekey/Oneke
 import ManagerWalletDeleteDialog from '@onekeyhq/kit/src/views/ManagerWallet/DeleteWallet';
 import type { DeleteWalletProp } from '@onekeyhq/kit/src/views/ManagerWallet/DeleteWallet';
 
+import {
+  useOnekeyHardwareDetailsAuth,
+  useOnekeyHardwareDeviceNameAuth,
+} from '../../../hooks/useProtectedVerify';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
 import { defaultMenuOffset } from '../../../views/Overlay/BaseMenu';
 import { useWalletSelectorStatus } from '../hooks/useWalletSelectorStatus';
@@ -188,7 +192,8 @@ function HardwareMenuOptions({
     },
     [serviceHardware, hwInfo.hwWalletType],
   );
-
+  const OnekeyHardwareDetaulsAuth = useOnekeyHardwareDetailsAuth();
+  const OnekeyHardwareDeviceNameAuth = useOnekeyHardwareDeviceNameAuth();
   const checkFirmwareUpdate = useCallback(() => {
     if (!deviceConnectId) return;
 
@@ -257,21 +262,21 @@ function HardwareMenuOptions({
       />
     );
   }
-
   return (
     <>
       <WalletMenuItem
         onPress={() => {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.OnekeyHardware,
-            params: {
-              screen: OnekeyHardwareModalRoutes.OnekeyHardwareDeviceNameModal,
-              params: {
-                walletId: wallet?.id ?? '',
-                deviceName: '',
-              },
-            },
-          });
+          OnekeyHardwareDeviceNameAuth(wallet?.id);
+          // navigation.navigate(RootRoutes.Modal, {
+          //   screen: ModalRoutes.OnekeyHardware,
+          //   params: {
+          //     screen: OnekeyHardwareModalRoutes.OnekeyHardwareDeviceNameModal,
+          //     params: {
+          //       walletId: wallet?.id ?? '',
+          //       deviceName: '',
+          //     },
+          //   },
+          // });
         }}
         icon="PencilMini"
       >
@@ -299,15 +304,16 @@ function HardwareMenuOptions({
       )}
       <WalletMenuItem
         onPress={() => {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.OnekeyHardware,
-            params: {
-              screen: OnekeyHardwareModalRoutes.OnekeyHardwareDetailsModal,
-              params: {
-                walletId: wallet?.id ?? '',
-              },
-            },
-          });
+          OnekeyHardwareDetaulsAuth(wallet?.id);
+          // navigation.navigate(RootRoutes.Modal, {
+          //   screen: ModalRoutes.OnekeyHardware,
+          //   params: {
+          //     screen: OnekeyHardwareModalRoutes.OnekeyHardwareDetailsModal,
+          //     params: {
+          //       walletId: wallet?.id ?? '',
+          //     },
+          //   },
+          // });
         }}
         icon="InformationCircleMini"
       >

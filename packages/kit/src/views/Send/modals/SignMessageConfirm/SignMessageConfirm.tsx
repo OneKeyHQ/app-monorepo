@@ -17,6 +17,7 @@ import {
 import { useActiveSideAccount } from '../../../../hooks';
 import useDappApproveAction from '../../../../hooks/useDappApproveAction';
 import { useOnboardingRequired } from '../../../../hooks/useOnboardingRequired';
+import { useSendAuthentication } from '../../../../hooks/useProtectedVerify';
 import SignDetail from '../../../TxDetail/SignDetail';
 import { BaseSignMessageConfirmModal } from '../../components/BaseSignMessageConfirmModal';
 import { SendModalRoutes } from '../../types';
@@ -70,7 +71,7 @@ const SignMessageConfirm = () => {
       route.params,
     );
   }, [unsignedMessage, route.params]);
-
+  const SendAuthentication = useSendAuthentication();
   const handleConfirm = useCallback<ISignMessageConfirmViewPropsHandleConfirm>(
     // eslint-disable-next-line @typescript-eslint/require-await
     async (options) => {
@@ -101,60 +102,65 @@ const SignMessageConfirm = () => {
         route.params.onFail?.(e);
       }
 
-      const nextRouteParams: SendAuthenticationParams = {
-        ...route.params,
-        unsignedMessage: msg,
-        accountId,
-        networkId,
-        walletId,
-        // TODO onComplete
-        onSuccess: async (result) => {
-          await dappApprove.resolve({
-            result,
-          });
-          if (!hideToast) {
-            const successMsg = intl.formatMessage({
-              id: 'transaction__success',
+      const password = await SendAuthentication(walletId);
+      if (password) {
+        const nextRouteParams: SendAuthenticationParams = {
+          ...route.params,
+          unsignedMessage: msg,
+          accountId,
+          networkId,
+          password,
+          walletId,
+          // TODO onComplete
+          onSuccess: async (result) => {
+            await dappApprove.resolve({
+              result,
             });
-            ToastManager.show({
-              title: successMsg,
-            });
-          }
-          route.params.onSuccess?.(result);
+            if (!hideToast) {
+              const successMsg = intl.formatMessage({
+                id: 'transaction__success',
+              });
+              ToastManager.show({
+                title: successMsg,
+              });
+            }
+            route.params.onSuccess?.(result);
 
-          if (route.params.closeImmediately) {
-            close();
-          } else {
-            // wait modal animation done
-            closeTimer = setTimeout(() => {
+            if (route.params.closeImmediately) {
               close();
-            }, 600);
-          }
-        },
-        onFail: (e) => {
-          route.params.onFail?.(e);
-        },
-        onModalClose,
-      };
+            } else {
+              // wait modal animation done
+              closeTimer = setTimeout(() => {
+                close();
+              }, 600);
+            }
+          },
+          onFail: (e) => {
+            route.params.onFail?.(e);
+          },
+          onModalClose,
+        };
 
-      // @ts-ignore
-      delete nextRouteParams._disabledAnimationOfNavigate;
+        // @ts-ignore
+        delete nextRouteParams._disabledAnimationOfNavigate;
 
-      return navigation.navigate(
-        SendModalRoutes.SendAuthentication,
-        nextRouteParams,
-      );
+        return navigation.navigate(
+          SendModalRoutes.SendAuthentication,
+          nextRouteParams,
+        );
+      }
     },
     [
-      route.params,
-      accountId,
+      SendAuthentication,
       walletId,
       networkId,
+      dappApprove,
+      route.params,
+      accountId,
       onModalClose,
       navigation,
-      dappApprove,
-      intl,
       hideToast,
+      intl,
     ],
   );
 

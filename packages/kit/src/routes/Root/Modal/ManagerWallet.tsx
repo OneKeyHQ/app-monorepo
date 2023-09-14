@@ -1,7 +1,6 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 
-import ManagerWalletLocalValidationView from '../../../views/ManagerWallet/LocalValidationModal';
 import ModifyWalletEmojiView from '../../../views/ManagerWallet/ModifyWallet/emoji';
 import ModifyWalletNameView from '../../../views/ManagerWallet/ModifyWallet/name';
 import { ManagerWalletModalRoutes } from '../../routesEnum';
@@ -9,20 +8,12 @@ import { ManagerWalletModalRoutes } from '../../routesEnum';
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
 
-import type { ValidationFields } from '../../../components/Protected/types';
-
 export type ManagerWalletRoutesParams = {
   [ManagerWalletModalRoutes.ManagerWalletModal]: {
     walletId: string;
   };
   [ManagerWalletModalRoutes.ManagerWalletModifyNameModal]: {
     walletId: string;
-  };
-  [ManagerWalletModalRoutes.ManagerWalletAuthorityVerifyModal]: {
-    requestId: string;
-    onSuccess: (requestId: string, password: string) => void;
-    onCancel: () => void;
-    field?: ValidationFields;
   };
   [ManagerWalletModalRoutes.ManagerWalletModifyEmojiModal]: {
     avatar: Avatar;
@@ -37,10 +28,6 @@ const modalRoutes = [
   {
     name: ManagerWalletModalRoutes.ManagerWalletModifyNameModal,
     component: ModifyWalletNameView,
-  },
-  {
-    name: ManagerWalletModalRoutes.ManagerWalletAuthorityVerifyModal,
-    component: ManagerWalletLocalValidationView,
   },
   {
     name: ManagerWalletModalRoutes.ManagerWalletModifyEmojiModal,

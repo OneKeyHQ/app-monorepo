@@ -9,9 +9,6 @@ import type {
   Account as AccountEngineType,
   DBUTXOAccount,
 } from '@onekeyhq/engine/src/types/account';
-import Protected, {
-  ValidationFields,
-} from '@onekeyhq/kit/src/components/Protected';
 import type { ManagerAccountRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/ManagerAccount';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -86,7 +83,7 @@ type NavigationProps = RouteProp<
 const ExportPrivateViewModal = () => {
   const intl = useIntl();
   const route = useRoute<NavigationProps>();
-  const { accountId, networkId, walletId } = route.params;
+  const { accountId, networkId, password, walletId } = route.params;
   const [account, setAccount] = useState<AccountEngineType>();
 
   return (
@@ -96,21 +93,13 @@ const ExportPrivateViewModal = () => {
       headerDescription={account?.name}
       height="auto"
     >
-      <Protected
+      <ExportPublicKeyView
+        accountId={accountId}
+        networkId={networkId}
         walletId={walletId}
-        skipSavePassword
-        field={ValidationFields.Secret}
-      >
-        {(pwd) => (
-          <ExportPublicKeyView
-            accountId={accountId}
-            networkId={networkId}
-            walletId={walletId}
-            password={pwd}
-            onAccountChange={(acc) => setAccount(acc)}
-          />
-        )}
-      </Protected>
+        password={password}
+        onAccountChange={(acc) => setAccount(acc)}
+      />
     </Modal>
   );
 };

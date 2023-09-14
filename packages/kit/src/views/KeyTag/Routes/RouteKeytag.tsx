@@ -9,7 +9,6 @@ import KeyTagBackupWalletAttentions from '../Screen/KeyTagAttentions';
 import KeyTagBackUpWallet from '../Screen/KeyTagBackUpWallet';
 import ShowDotMap from '../Screen/ShowDotMap';
 import StartedKeyTag from '../Screen/StartedKeyTag';
-import VerifyPassword from '../Screen/VerifyPassword';
 
 import { KeyTagRoutes } from './enums';
 
@@ -23,7 +22,6 @@ export const stackScreenList = [
   { name: KeyTagRoutes.IntroduceKeyTag, component: Introduce },
   { name: KeyTagRoutes.KeyTagBackUpWallet, component: KeyTagBackUpWallet },
   { name: KeyTagRoutes.EnterPhrase, component: EnterPhrase },
-  { name: KeyTagRoutes.KeyTagVerifyPassword, component: VerifyPassword },
   {
     name: KeyTagRoutes.KeyTagAttention,
     component: KeyTagBackupWalletAttentions,

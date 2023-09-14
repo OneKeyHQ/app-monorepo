@@ -1,5 +1,8 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
+import type {
+  IOneKeyDeviceFeatures,
+  IOneKeyDeviceType,
+} from '@onekeyhq/shared/types';
 
 import OnekeyDeviceWalletName from '../../../views/Hardware/Onekey/OnekeyDeviceWalletName';
 import OnekeyHardwareConfirm from '../../../views/Hardware/Onekey/OnekeyHardwareConfirm';
@@ -17,6 +20,7 @@ import createStackNavigator from './createStackNavigator';
 export type OnekeyHardwareRoutesParams = {
   [OnekeyHardwareModalRoutes.OnekeyHardwareDetailsModal]: {
     walletId: string;
+    deviceFeatures?: IOneKeyDeviceFeatures;
   };
   [OnekeyHardwareModalRoutes.OnekeyHardwareVerifyModal]: {
     walletId: string;
@@ -35,6 +39,7 @@ export type OnekeyHardwareRoutesParams = {
   [OnekeyHardwareModalRoutes.OnekeyHardwareDeviceNameModal]: {
     walletId: string;
     deviceName: string;
+    deviceFeatures?: IOneKeyDeviceFeatures;
   };
   [OnekeyHardwareModalRoutes.OnekeyDeviceWalletNameModal]: {
     walletId: string;

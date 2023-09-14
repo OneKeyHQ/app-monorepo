@@ -20,6 +20,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { SkipAppLock } from '../../../../components/AppLock';
 import { useNavigationActions } from '../../../../hooks';
+import { useOnekeyLiteRestoreDoneAuth } from '../../../../hooks/useProtectedVerify';
 import HardwareConnect from '../../BaseConnect';
 import ErrorDialog from '../ErrorDialog';
 
@@ -116,7 +117,7 @@ const Restore: FC = () => {
     );
     setOperateType('done');
   };
-
+  const OnekeyLiteRestoreDoneAuth = useOnekeyLiteRestoreDoneAuth();
   const startNfcScan = () => {
     stateNfcSearch();
     OnekeyLite.cancel();
@@ -127,15 +128,21 @@ const Restore: FC = () => {
           debugLogger.onekeyLite.debug('NFC read success, card state:', state);
           setRestoreData(data);
           stateNfcComplete();
-          navigation.navigate(
-            CreateWalletModalRoutes.OnekeyLiteRestoreDoneModal,
-            {
-              mnemonic: data,
-              onSuccess: () => {
-                stateNfcDone();
-              },
+          OnekeyLiteRestoreDoneAuth({
+            mnemonic: data,
+            onSuccess: () => {
+              stateNfcDone();
             },
-          );
+          });
+          // navigation.navigate(
+          //   CreateWalletModalRoutes.OnekeyLiteRestoreDoneModal,
+          //   {
+          //     mnemonic: data,
+          //     onSuccess: () => {
+          //       stateNfcDone();
+          //     },
+          //   },
+          // );
         } else if (error) {
           debugLogger.onekeyLite.debug('NFC read error', error);
           setPinRetryCount(state?.pinRetryCount?.toString() ?? '0');
@@ -169,15 +176,21 @@ const Restore: FC = () => {
 
       case 'complete':
         if (!restoreData) return;
-        navigation.navigate(
-          CreateWalletModalRoutes.OnekeyLiteRestoreDoneModal,
-          {
-            mnemonic: restoreData,
-            onSuccess: () => {
-              stateNfcDone();
-            },
+        OnekeyLiteRestoreDoneAuth({
+          mnemonic: restoreData,
+          onSuccess: () => {
+            stateNfcDone();
           },
-        );
+        });
+        // navigation.navigate(
+        //   CreateWalletModalRoutes.OnekeyLiteRestoreDoneModal,
+        //   {
+        //     mnemonic: restoreData,
+        //     onSuccess: () => {
+        //       stateNfcDone();
+        //     },
+        //   },
+        // );
         break;
 
       case 'done':
