@@ -12,10 +12,10 @@
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix",
     "dev": "yarn keytar && npx concurrently \"yarn build:main\" \"yarn dev:renderer\" \"cross-env LAUNCH_ELECTRON=true node scripts/dev.js\"",
     "dev:main": "electron --inspect=5858 dist/app.js",
-    "dev:renderer": "TRANSFORM_REGENERATOR_DISABLED=true BROWSER=none WEB_PORT=3001 expo start --web",
+    "dev:renderer": "TRANSFORM_REGENERATOR_DISABLED=true BROWSER=none WEB_PORT=3001 webpack serve",
     "clean": "rimraf ./build-electron && rimraf ./build && rimraf ./dist && rimraf node_modules && rimraf .expo && rimraf __generated__",
     "clean:build": "rimraf ./build-electron && rimraf ./build && rimraf ./dist && rimraf .expo",
-    "build:renderer": "rm -rf ./build && rm -rf ./web-build && expo export:web && mv ./web-build ./build && rsync -a public/static/ build/static",
+    "build:renderer": "rm -rf ./build && rm -rf ./web-build && NODE_ENV=production webpack build && mv ./web-build ./build && rsync -a public/static/ build/static",
     "build:main": "rm -rf ./dist && cross-env NODE_ENV=production node scripts/build.js",
     "build:electron": "electron-builder build -mwl --config electron-builder.config.js",
     "build:electron:winms": "electron-builder build -w --config electron-builder-ms.config.js",
@@ -53,6 +53,8 @@
     "electron-notarize": "^1.1.1",
     "esbuild": "^0.15.11",
     "glob": "^7.2.0",
-    "rimraf": "^3"
+    "rimraf": "^3",
+    "webpack": "5.88.2",
+    "webpack-cli": "5.1.4"
   }
 }

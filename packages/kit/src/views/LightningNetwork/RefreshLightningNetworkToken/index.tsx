@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ToastManager } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -44,9 +45,7 @@ export default function RefreshLightningNetworkToken({
               id: 'msg__authentication_failed_verify_again',
             }),
           },
-          {
-            type: 'error',
-          },
+          { type: ToastManagerType.error },
         );
         debugLogger.common.info('refresh lightning network token failed: ', e);
       });

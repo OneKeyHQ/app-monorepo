@@ -11,6 +11,7 @@ import {
   Box,
   Center,
   CustomSkeleton,
+  FlatList,
   HStack,
   Icon,
   Image,
@@ -19,14 +20,13 @@ import {
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import { useIsVerticalOrMiddleLayout } from '@onekeyhq/components/src/Provider/hooks/useIsVerticalLayout';
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
 import {
   isAllNetworks,
   parseNetworkId,
 } from '@onekeyhq/engine/src/managers/network';
-import { revokeUrl } from '@onekeyhq/engine/src/managers/revoke';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import btcSetting from '@onekeyhq/engine/src/vaults/impl/btc/settings';
@@ -64,7 +64,6 @@ import { openDapp, openUrl } from '../../../utils/openUrl';
 import { priceUnit, supportedNetworks } from '../../GasPanel/config';
 import { GasPanelRoutes } from '../../GasPanel/types';
 import { useNetworkPrices } from '../../GasPanel/widgets/hooks';
-import { useIsVerticalOrMiddleLayout } from '../../Revoke/hooks';
 
 import type { FlatListProps, ImageSourcePropType } from 'react-native';
 
@@ -180,6 +179,8 @@ const FlatListItemIcon = ({ icon }: { icon?: DataItem['icon'] }) => {
   }
   return <Image borderRadius="14px" source={icon} w="full" h="full" />;
 };
+
+const revokeUrl = 'https://revoke.cash/';
 
 type FlatListItemProps = {
   item: DataItem;
@@ -583,7 +584,7 @@ const ToolsPage: FC = () => {
   }, []);
 
   return (
-    <Tabs.FlatList
+    <FlatList
       key={String(isVertical)}
       data={items}
       keyExtractor={(_item) => _item.key}

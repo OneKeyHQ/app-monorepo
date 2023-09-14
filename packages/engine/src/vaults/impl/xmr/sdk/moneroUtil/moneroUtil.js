@@ -811,10 +811,5 @@ var instantiate = (function () {
     return instantiate.ready;
   };
 })();
-if (typeof exports === 'object' && typeof module === 'object')
-  module.exports = instantiate;
-else if (typeof define === 'function' && define['amd'])
-  define([], function () {
-    return instantiate;
-  });
-else if (typeof exports === 'object') exports['instantiate'] = instantiate;
+
+export default instantiate;

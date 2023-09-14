@@ -23,6 +23,7 @@ import {
 import ClassicDeviceIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import TouchDeviceIcon from '@onekeyhq/components/img/deviceicon_touch.png';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { Device } from '@onekeyhq/engine/src/types/device';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import KeepDeviceAroundSource from '@onekeyhq/kit/assets/wallet/keep_device_close.png';
@@ -184,7 +185,7 @@ const ConnectHardwareModal: FC = () => {
             }),
           },
           {
-            type: 'default',
+            type: ToastManagerType.default,
           },
         );
       } else {
@@ -208,7 +209,7 @@ const ConnectHardwareModal: FC = () => {
                     id: error.key,
                   }),
                 },
-                { type: 'error' },
+                { type: ToastManagerType.error },
               );
             } else {
               deviceUtils.stopScan();
@@ -223,7 +224,7 @@ const ConnectHardwareModal: FC = () => {
                   id: error.key,
                 }),
               },
-              { type: 'error' },
+              { type: ToastManagerType.error },
             );
             deviceUtils.stopScan();
           }
@@ -289,7 +290,7 @@ const ConnectHardwareModal: FC = () => {
                 id: 'modal__failed_to_connect',
               }),
             },
-            { type: 'error' },
+            { type: ToastManagerType.error },
           );
           return;
         }

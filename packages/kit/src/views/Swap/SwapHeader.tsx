@@ -9,6 +9,7 @@ import {
   ToastManager,
   Typography,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
@@ -34,7 +35,7 @@ export const SwapHeaderTab = () => {
             { '0': 'ETH, BSC, Polygon' },
           ),
         },
-        { type: 'default' },
+        { type: ToastManagerType.default },
       );
     }
     backgroundApiProxy.serviceLimitOrder.setDefaultTokens();

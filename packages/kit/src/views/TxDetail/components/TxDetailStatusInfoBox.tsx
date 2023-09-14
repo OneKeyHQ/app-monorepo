@@ -12,6 +12,7 @@ import {
   Text,
   ToastManager,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
 import txFailedIcon from '@onekeyhq/kit/assets/transaction/status/tx_failed.png';
@@ -75,7 +76,7 @@ function TxDetailStatusInfoBox(props: Props) {
             {
               title: intl.formatMessage({ id: 'msg__wrong_network_desc' }),
             },
-            { type: 'default' },
+            { type: ToastManagerType.default },
           );
           checkToken = await backgroundApiProxy.engine.getNativeTokenInfo(
             OnekeyNetwork.eth,

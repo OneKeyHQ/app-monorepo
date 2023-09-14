@@ -16,6 +16,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import { getContentWithAsset } from '@onekeyhq/engine/src/managers/nft';
@@ -133,7 +134,7 @@ function SOLAssetDetailContent({
           title: intl.formatMessage({ id: 'msg__image_download_failed' }),
         },
         {
-          type: 'error',
+          type: ToastManagerType.error,
         },
       );
       setMenuLoading(false);

@@ -8,12 +8,12 @@ import { TouchableOpacity } from 'react-native';
 import {
   Box,
   CustomSkeleton,
+  FlatList,
   Skeleton,
   Text,
   useIsVerticalLayout,
   useUserDevice,
 } from '@onekeyhq/components';
-import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import type { CollectiblesRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Collectibles';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
@@ -383,7 +383,7 @@ const AssetsList = ({
   }, [FooterView, context]);
 
   return (
-    <Tabs.FlatList
+    <FlatList
       key={numColumns}
       numColumns={numColumns}
       ListHeaderComponent={ListHeaderComponent}

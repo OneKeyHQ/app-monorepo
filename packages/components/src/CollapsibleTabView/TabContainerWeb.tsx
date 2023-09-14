@@ -18,6 +18,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import Box from '../Box';
 import ScrollView from '../ScrollView';
 
+import { ActiveTabContext } from './ActiveTabContext';
+
 import type { CollapsibleContainerProps } from './types';
 
 type TabProps = {
@@ -31,13 +33,13 @@ const TabContainerWebView: ForwardRefRenderFunction<
   CollapsibleContainerProps
 > = (
   {
-    children,
     containerStyle,
     headerView,
     onIndexChange,
     initialTabName,
     scrollEnabled = true,
     stickyTabBar,
+    children,
   },
   ref,
 ) => {
@@ -50,8 +52,7 @@ const TabContainerWebView: ForwardRefRenderFunction<
     let initialIndex = 0;
     Children.forEach(children, (element, index) => {
       // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/no-shadow, @typescript-eslint/no-unsafe-member-access
-      const { name, children, label } = element.props as TabProps;
+      const { name, children: child, label } = element.props as TabProps;
       if (initialTabName === name) {
         initialIndex = index;
       }
@@ -59,7 +60,7 @@ const TabContainerWebView: ForwardRefRenderFunction<
         key: name,
         title: label,
       });
-      scene[name] = children;
+      scene[name] = child;
     });
     return {
       routes: routesArray,
@@ -99,6 +100,7 @@ const TabContainerWebView: ForwardRefRenderFunction<
       setIndex(pageIndex);
     },
     setRefreshing: () => {},
+    setHeaderHeight: () => {},
   }));
 
   const shouldStickyTabbarWeb = useMemo(
@@ -224,11 +226,18 @@ const TabContainerWebView: ForwardRefRenderFunction<
     ],
   );
 
+  const contextValue = useMemo(
+    () => ({ activeTabName: routes[index]?.key ?? initialTabName }),
+    [routes, index, initialTabName],
+  );
+
   return (
-    <ScrollView style={[{ backgroundColor: bgColor }, containerStyle]}>
-      {headerView}
-      {tabViewContent}
-    </ScrollView>
+    <ActiveTabContext.Provider value={contextValue}>
+      <ScrollView style={[{ backgroundColor: bgColor }, containerStyle]}>
+        {headerView}
+        {tabViewContent}
+      </ScrollView>
+    </ActiveTabContext.Provider>
   );
 };
 

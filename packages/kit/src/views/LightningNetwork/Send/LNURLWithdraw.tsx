@@ -9,6 +9,7 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { LNURLWithdrawServiceResponse } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/lnurl';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -125,11 +126,14 @@ const LNURLWithdraw = () => {
             {
               title: message,
             },
-            { type: 'error' },
+            { type: ToastManagerType.error },
           );
         } else {
           message = (e as Error)?.message;
-          ToastManager.show({ title: message || e }, { type: 'error' });
+          ToastManager.show(
+            { title: message || e },
+            { type: ToastManagerType.error },
+          );
         }
         if (!isSendFlow) {
           // show error message for 1.5s

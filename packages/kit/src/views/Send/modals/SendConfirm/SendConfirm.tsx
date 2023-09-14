@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { ToastManager } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
 import type {
   IFeeInfoUnit,
@@ -361,9 +362,7 @@ function SendConfirm({
               },
             ),
           },
-          {
-            type: 'error',
-          },
+          { type: ToastManagerType.error },
         );
         return;
       }

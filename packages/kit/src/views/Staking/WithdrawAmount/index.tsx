@@ -17,6 +17,7 @@ import {
   Typography,
   VStack,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -163,7 +164,10 @@ export default function WithdrawAmount() {
                   amount,
                 });
                 if (res.code !== 0 && res.message) {
-                  ToastManager.show({ title: res.message }, { type: 'error' });
+                  ToastManager.show(
+                    { title: res.message },
+                    { type: ToastManagerType.error },
+                  );
                 } else {
                   setAmount('');
                   backgroundApiProxy.serviceStaking.fetchPendingWithdrawAmount({

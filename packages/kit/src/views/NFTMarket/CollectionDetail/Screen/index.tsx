@@ -61,7 +61,6 @@ const Screen = () => {
   return (
     <Tabs.Container
       ref={ref}
-      headerHeight={headerHeight}
       onRefresh={() => {
         if (setContext) {
           setContext((ctx) => ({ ...ctx, refreshing: true }));

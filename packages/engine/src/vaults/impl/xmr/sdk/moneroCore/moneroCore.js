@@ -8570,11 +8570,5 @@ var MyMoneroLibAppCpp = (() => {
     return MyMoneroLibAppCpp.ready;
   };
 })();
-if (typeof exports === 'object' && typeof module === 'object')
-  module.exports = MyMoneroLibAppCpp;
-else if (typeof define === 'function' && define['amd'])
-  define([], function () {
-    return MyMoneroLibAppCpp;
-  });
-else if (typeof exports === 'object')
-  exports['instantiate'] = MyMoneroLibAppCpp;
+
+export default MyMoneroLibAppCpp;

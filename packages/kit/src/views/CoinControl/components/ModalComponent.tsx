@@ -13,6 +13,7 @@ import {
   Token,
   VStack,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { getUtxoUniqueKey } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token as IToken } from '@onekeyhq/engine/src/types/token';
@@ -132,9 +133,7 @@ export const ModalFooter: FC<{
                   { 0: network?.symbol },
                 ),
               },
-              {
-                type: 'error',
-              },
+              { type: ToastManagerType.error },
             );
           });
       }

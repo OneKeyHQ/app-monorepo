@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid';
 
 import { ToastManager } from '@onekeyhq/components';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
@@ -81,9 +82,7 @@ export const webTabsActions = {
             },
           ),
         },
-        {
-          type: 'error',
-        },
+        { type: ToastManagerType.error },
       );
       return;
     }

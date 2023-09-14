@@ -1,4 +1,5 @@
 import { ToastManager } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import {
   allNetworksAccountRegex,
   generateFakeAllnetworksAccount,
@@ -136,9 +137,7 @@ export function useActiveWalletAccount() {
       {
         title: msg,
       },
-      {
-        type: 'error',
-      },
+      { type: ToastManagerType.error },
     );
     if (process.env.NODE_ENV !== 'production') {
       // console.error(msg);

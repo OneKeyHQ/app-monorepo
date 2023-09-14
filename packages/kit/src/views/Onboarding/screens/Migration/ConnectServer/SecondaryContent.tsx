@@ -21,6 +21,7 @@ import {
   Text,
   ToastManager,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import type {
   DeviceInfo,
@@ -156,7 +157,7 @@ const QRCodeView: FC<{
                           id: 'form__failed',
                         }),
                       },
-                      { type: 'error' },
+                      { type: ToastManagerType.error },
                     );
                     return false;
                   }
@@ -331,7 +332,7 @@ const EnterLinkView: FC = () => {
                     id: 'msg__invalid_link_or_network_error',
                   }),
                 },
-                { type: 'error' },
+                { type: ToastManagerType.error },
               );
             }
           }

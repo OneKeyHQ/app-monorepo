@@ -30,7 +30,6 @@ export type { ImportBackupPasswordRoutesParams } from './ImportBackupPassword';
 export type { StakingRoutesParams } from '../../../views/Staking/typing';
 export type { ManageConnectedSitesRoutesParams } from '../../../views/ManageConnectedSites/types';
 export type { PushNotificationRoutesParams } from '../../../views/PushNotification/types';
-export type { RevokeRoutesParams } from './Revoke';
 export type { BulkSenderRoutesParams } from './BulkSender';
 export type { NFTMarketRoutesParams } from './NFTMarket';
 export type { OverviewModalRoutesParams } from './Overview';

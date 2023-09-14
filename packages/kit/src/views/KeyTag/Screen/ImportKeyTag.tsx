@@ -14,6 +14,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import NavHeader from '@onekeyhq/components/src/NavHeader/NavHeader';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -91,14 +92,14 @@ const ImportKeyTag: FC = () => {
           {
             title: intl.formatMessage({ id: 'msg__engine__invalid_mnemonic' }),
           },
-          { type: 'error' },
+          { type: ToastManagerType.error },
         );
         console.error('validate mnemonic', e);
       }
     } else {
       ToastManager.show(
         { title: intl.formatMessage({ id: 'msg__engine__invalid_mnemonic' }) },
-        { type: 'error' },
+        { type: ToastManagerType.error },
       );
     }
     setImportCheck(false);

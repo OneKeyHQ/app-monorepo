@@ -14,6 +14,7 @@ import {
   Spinner,
   ToastManager,
 } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 
 import { TraderErrors } from '../TraderEditor/TraderErrors';
 import { TraderExample } from '../TraderExample';
@@ -60,7 +61,7 @@ function TraderUploader(props: Props) {
               { '0': `${MAX_FILE_SIZE / 1024}KB` },
             ),
           },
-          { type: 'error' },
+          { type: ToastManagerType.error },
         );
         return;
       }

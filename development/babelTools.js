@@ -98,9 +98,11 @@ function normalizeConfig({ platform, config }) {
       {
         // *** ATTENTION: DO NOT expose any sensitive variable here ***
         // ***        like password, secretKey, etc.                ***
-        'include': envExposedToClient.buildEnvExposedToClientDangerously({
-          platform,
-        }),
+        'include': [
+          ...envExposedToClient.buildEnvExposedToClientDangerously({
+            platform,
+          }),
+        ],
       },
     ],
     [
@@ -173,6 +175,7 @@ function normalizeConfig({ platform, config }) {
     ['@babel/plugin-proposal-export-namespace-from'],
     ['@babel/plugin-proposal-nullish-coalescing-operator'],
     ['@babel/plugin-proposal-class-static-block'],
+    isDev && !isJest && !isNative && ['react-refresh/babel'],
     isDev && [
       'babel-plugin-catch-logger',
       {

@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ToastManager } from '@onekeyhq/components';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -133,7 +134,7 @@ export const useCancelLimitOrderCallback = () => {
               { '0': activeAccount.name },
             ),
           },
-          { type: 'error' },
+          { type: ToastManagerType.error },
         );
         return;
       }

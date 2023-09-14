@@ -10,30 +10,27 @@ class HomePageView @JvmOverloads constructor(
 ) : HomePageLayout(context, attrs, defStyleAttr) {
 
     init {
-        val width = ViewGroup.LayoutParams.MATCH_PARENT
-        val height = ViewGroup.LayoutParams.MATCH_PARENT
-
-        val params = LayoutParams(width, height);
-        this.layoutParams = params;
+        val params =
+            LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        this.layoutParams = params
 
         initRefreshListener()
     }
 
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val widthSize = MeasureSpec.getSize(widthMeasureSpec)
+        val heightSize = MeasureSpec.getSize(heightMeasureSpec)
 
-    override fun requestLayout() {
-        super.requestLayout()
-        post(measureAndLayout)
-    }
+        val maxHeight = context.resources.displayMetrics.heightPixels
+        val maxWidth = context.resources.displayMetrics.widthPixels
 
-    private val measureAndLayout = Runnable {
-        try {
-            measure(
-                MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
-                MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY),
-            )
-            layout(left, top, right, bottom)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        val width: Int = Math.min(maxWidth, widthSize)
+        val height: Int = Math.min(maxHeight, heightSize)
+
+        setMeasuredDimension(width, height)
+        super.onMeasure(
+            MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY)
+        )
     }
 }
