@@ -12,6 +12,7 @@ import { MAX_ACTIONS_DISPLAY_IN_CONFIRM } from '../Send/constants';
 import { TxDetailAdvanceInfoBox } from './components/TxDetailAdvanceInfoBox';
 import { TxDetailExtraInfoBox } from './components/TxDetailExtraInfoBox';
 import { TxTopInfoBox } from './components/TxDetailTopInfoBox';
+import { TxDetailUtxoEntry } from './components/TXDetailUtxosEntry';
 import { TxInteractInfo } from './components/TxInteractInfo';
 import { getReplacedTxAlertTextKeys } from './elements/TxActionElementReplacedTxText';
 import { TxActionsListView } from './TxActionsListView';
@@ -179,6 +180,8 @@ export function TxDetailView(props: ITxActionListViewProps) {
               <TxActionsListView {...props} transformType="T1" space={6} />
             )}
           </Box>
+
+          <TxDetailUtxoEntry style={{ mt: 6 }} onPress={() => {}} />
         </>
       </TxDetailContextProvider>
     </>
