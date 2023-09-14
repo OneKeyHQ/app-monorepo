@@ -59,13 +59,21 @@ const ListEmptyComponent = () => (
 
 const RouteLogo = ({ imageSrc }: { imageSrc?: string }) =>
   imageSrc ? (
-    <Image
+    <Box
       w="full"
       h="full"
+      bgColor="surface-default"
       borderRadius="full"
       overflow="hidden"
-      src={imageSrc}
-    />
+    >
+      <Image
+        w="full"
+        h="full"
+        borderRadius="full"
+        overflow="hidden"
+        src={imageSrc}
+      />
+    </Box>
   ) : (
     <Image
       w="full"
@@ -77,13 +85,17 @@ const RouteLogo = ({ imageSrc }: { imageSrc?: string }) =>
   );
 
 const ProviderNames = ({ providers }: { providers?: Provider[] }) => {
+  const intl = useIntl();
   if (!providers || providers.length === 1) {
     return null;
   }
   return (
     <Box mt="3">
       <Typography.Caption color="text-subdued">
-        Via {providers.map((o) => o.name).join(', ')}
+        {intl.formatMessage(
+          { id: 'form__via_str' },
+          { '0': providers.map((o) => o.name).join(', ') },
+        )}
       </Typography.Caption>
     </Box>
   );
@@ -106,9 +118,12 @@ const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
     token: outputToken,
     amount: data?.buyAmount,
   });
-
-  const imageSrc = response.data?.providers?.[0]?.logoUrl;
-  const name = response.data?.providers?.[0]?.name;
+  const providers = response.data?.providers;
+  const imageSrc = providers?.[0]?.logoUrl;
+  let name = providers?.[0]?.name;
+  if (providers && providers.length > 2) {
+    name = intl.formatMessage({ id: 'form__multiple_routes' });
+  }
 
   return (
     <Pressable
