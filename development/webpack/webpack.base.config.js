@@ -4,8 +4,27 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpackManifestPlugin = require('webpack-manifest-plugin');
 const ProgressBarPlugin = require('progress-bar-webpack-plugin');
+const notifier = require('node-notifier');
 const { createtResolveExtensions } = require('./utils');
 const { isDev, PUBLIC_URL, NODE_ENV } = require('./constant');
+
+class BuildDoneNotifyPlugin {
+  apply(compiler) {
+    compiler.hooks.done.tap('BuildDoneNotifyPlugin', (compilation) => {
+      const msg = `OneKey Build at ${new Date().toLocaleTimeString()}, completed in ${
+        (compilation.endTime - compilation.startTime) / 1000
+      }s`;
+      setTimeout(() => {
+        console.log('\u001b[33m'); // yellow color
+        console.log('===================================');
+        console.log(msg);
+        console.log('===================================');
+        console.log('\u001b[0m'); // reset color
+      }, 300);
+      notifier.notify(msg);
+    });
+  }
+}
 
 const basePlugins = [
   new ProgressBarPlugin(),
@@ -21,6 +40,7 @@ const basePlugins = [
   new webpack.ProvidePlugin({
     Buffer: ['buffer', 'Buffer'],
   }),
+  new BuildDoneNotifyPlugin(),
 ];
 
 module.exports = ({ platform, basePath, configName }) => ({

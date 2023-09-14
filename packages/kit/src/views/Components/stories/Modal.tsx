@@ -1,13 +1,4 @@
-import { useState } from 'react';
-
-import {
-  Box,
-  Button,
-  Center,
-  Modal,
-  Stack,
-  Typography,
-} from '@onekeyhq/components';
+import { Box, Center, Modal, Stack, Typography } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
