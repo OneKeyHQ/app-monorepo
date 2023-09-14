@@ -10,7 +10,10 @@ import {
 import { getPresetNetworks } from '@onekeyhq/engine/src/presets';
 import type { DBUTXOAccount } from '@onekeyhq/engine/src/types/account';
 import { getBitcoinBip32 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
-import { setAccountDerivationDbMigrationVersion } from '@onekeyhq/kit/src/store/reducers/settings';
+import {
+  setAccountDerivationDbMigrationVersion,
+  setMigrationVersions,
+} from '@onekeyhq/kit/src/store/reducers/settings';
 import { updateAutoSwitchDefaultRpcAtVersion } from '@onekeyhq/kit/src/store/reducers/status';
 import {
   backgroundClass,
@@ -30,7 +33,9 @@ import {
   INDEX_PLACEHOLDER,
   enabledAccountDynamicNetworkIds,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { isWatchingAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { processMigration } from '@onekeyhq/shared/src/services/ServiceBootstrap/ServiceBootstrap.util';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import ServiceBase from './ServiceBase';
@@ -265,63 +270,74 @@ export default class ServiceBootstrap extends ServiceBase {
         (s) => s.settings.accountDerivationDbMigrationVersion,
       );
       const appVersion = appSelector((s) => s.settings.version);
-      if (
-        dbMigrationVersion &&
-        semver.valid(dbMigrationVersion) &&
-        semver.gte(dbMigrationVersion, ACCOUNT_DERIVATION_DB_MIGRATION_VERSION)
-      ) {
+
+      const { skip } = await processMigration({
+        dbMigrationVersion,
+        checkVersion: ACCOUNT_DERIVATION_DB_MIGRATION_VERSION,
+        doMigration: async () => {
+          debugLogger.common.info('will migrate ===>');
+          const { dbApi } = this.backgroundApi.engine;
+          const wallets = await dbApi.getWallets();
+          const hdOrHwWallets = wallets.filter(
+            (w) => w.id.startsWith('hd') || w.id.startsWith('hw'),
+          );
+
+          for (const wallet of hdOrHwWallets) {
+            debugLogger.common.info(
+              `migrate wallet: ${JSON.stringify(wallet)}`,
+            );
+            // update accounts
+            const accounts = await dbApi.getAccounts(wallet.accounts);
+            for (const account of accounts) {
+              if (!account.template) {
+                const template = getDBAccountTemplate(account);
+                const impl = getImplByCoinType(account.coinType);
+                await dbApi.addAccountDerivation({
+                  walletId: wallet.id,
+                  accountId: account.id,
+                  impl,
+                  template,
+                });
+                debugLogger.common.info(
+                  `added account derivation: accountId: ${account.id}, template: ${template}`,
+                );
+                await dbApi.setAccountTemplate({
+                  accountId: account.id,
+                  template,
+                });
+                debugLogger.common.info(
+                  `insert account: ${account.id} to AccountDerivation table, template: ${template}`,
+                );
+              }
+            }
+
+            debugLogger.common.info(
+              `migrate accounts finish, will update nextAccountId, walletId:  ${wallet.id}`,
+            );
+
+            // update nextAccountIds field
+            const newNextAccountIds = migrateNextAccountIds(
+              wallet.nextAccountIds,
+            );
+
+            await dbApi.updateWalletNextAccountIds({
+              walletId: wallet.id,
+              nextAccountIds: newNextAccountIds,
+            });
+            debugLogger.common.info(
+              `update wallet nextAccountIds, wallet: ${
+                wallet.id
+              }, nextAccountIds: ${JSON.stringify(newNextAccountIds)}`,
+            );
+          }
+        },
+      });
+
+      if (skip) {
         debugLogger.common.info('Skip AccountDerivation DB migration');
         return;
       }
 
-      debugLogger.common.info('will migrate ===>');
-      const { dbApi } = this.backgroundApi.engine;
-      const wallets = await dbApi.getWallets();
-      const hdOrHwWallets = wallets.filter(
-        (w) => w.id.startsWith('hd') || w.id.startsWith('hw'),
-      );
-
-      for (const wallet of hdOrHwWallets) {
-        debugLogger.common.info(`migrate wallet: ${JSON.stringify(wallet)}`);
-        // update accounts
-        const accounts = await dbApi.getAccounts(wallet.accounts);
-        for (const account of accounts) {
-          if (!account.template) {
-            const template = getDBAccountTemplate(account);
-            const impl = getImplByCoinType(account.coinType);
-            await dbApi.addAccountDerivation({
-              walletId: wallet.id,
-              accountId: account.id,
-              impl,
-              template,
-            });
-            debugLogger.common.info(
-              `added account derivation: accountId: ${account.id}, template: ${template}`,
-            );
-            await dbApi.setAccountTemplate({ accountId: account.id, template });
-            debugLogger.common.info(
-              `insert account: ${account.id} to AccountDerivation table, template: ${template}`,
-            );
-          }
-        }
-
-        debugLogger.common.info(
-          `migrate accounts finish, will update nextAccountId, walletId:  ${wallet.id}`,
-        );
-
-        // update nextAccountIds field
-        const newNextAccountIds = migrateNextAccountIds(wallet.nextAccountIds);
-
-        await dbApi.updateWalletNextAccountIds({
-          walletId: wallet.id,
-          nextAccountIds: newNextAccountIds,
-        });
-        debugLogger.common.info(
-          `update wallet nextAccountIds, wallet: ${
-            wallet.id
-          }, nextAccountIds: ${JSON.stringify(newNextAccountIds)}`,
-        );
-      }
       this.backgroundApi.dispatch(
         setAccountDerivationDbMigrationVersion(appVersion),
       );
@@ -340,74 +356,82 @@ export default class ServiceBootstrap extends ServiceBase {
         (s) => s.settings.accountDerivationDbMigrationVersion,
       );
       const appVersion = appSelector((s) => s.settings.version);
-      if (
-        dbMigrationVersion &&
-        semver.valid(dbMigrationVersion) &&
-        semver.gte(dbMigrationVersion, FIX_COSMOS_TEMPLATE_DB_MIGRATION_VERSION)
-      ) {
+
+      const { skip } = await processMigration({
+        dbMigrationVersion,
+        checkVersion: FIX_COSMOS_TEMPLATE_DB_MIGRATION_VERSION,
+        doMigration: async () => {
+          const { dbApi } = this.backgroundApi.engine;
+          const wallets = await dbApi.getWallets();
+          const hdOrHwWallets = wallets.filter(
+            (w) => w.id.startsWith('hd') || w.id.startsWith('hw'),
+          );
+          const incorrectTemplate = `m/44'/${COINTYPE_COSMOS}'/${INDEX_PLACEHOLDER}'/0/0`;
+          for (const wallet of hdOrHwWallets) {
+            debugLogger.common.info(
+              `migrate wallet: ${JSON.stringify(wallet)}`,
+            );
+            // filter cosmos account which template is m/44'/118'/0'/0/$$INDEX$$
+            const cosmosAccounts = wallet.accounts.filter(
+              (id) => id.indexOf(`m/44'/${COINTYPE_COSMOS}'/0'/0`) > -1,
+            );
+            const impl = getImplByCoinType(COINTYPE_COSMOS);
+            const { template } = getDefaultAccountNameInfoByImpl(impl);
+            const accounts = await dbApi.getAccounts(cosmosAccounts);
+            for (const account of accounts) {
+              if (
+                account.template &&
+                // find incorrect template
+                account.template === incorrectTemplate
+              ) {
+                await dbApi.addAccountDerivation({
+                  walletId: wallet.id,
+                  accountId: account.id,
+                  impl,
+                  template,
+                });
+                debugLogger.common.info(
+                  `added account derivation: accountId: ${account.id}, template: ${template}`,
+                );
+                await dbApi.setAccountTemplate({
+                  accountId: account.id,
+                  template,
+                });
+                debugLogger.common.info(
+                  `insert account: ${account.id} to AccountDerivation table, template: ${template}`,
+                );
+              }
+            }
+            await dbApi.removeAccountDerivation({
+              walletId: wallet.id,
+              impl: IMPL_COSMOS,
+              template: incorrectTemplate, // incorrect template
+            });
+
+            if (wallet.nextAccountIds?.[incorrectTemplate]) {
+              // migrate incorrect template next account id to correct template
+              const newNextAccountIds = {
+                ...wallet.nextAccountIds,
+                [template]: wallet.nextAccountIds[incorrectTemplate],
+              };
+
+              await dbApi.updateWalletNextAccountIds({
+                walletId: wallet.id,
+                nextAccountIds: newNextAccountIds,
+              });
+              debugLogger.common.info(
+                `update wallet nextAccountIds, wallet: ${
+                  wallet.id
+                }, nextAccountIds: ${JSON.stringify(newNextAccountIds)}`,
+              );
+            }
+          }
+        },
+      });
+
+      if (skip) {
         debugLogger.common.info('Skip Cosmos Template migration');
         return;
-      }
-
-      const { dbApi } = this.backgroundApi.engine;
-      const wallets = await dbApi.getWallets();
-      const hdOrHwWallets = wallets.filter(
-        (w) => w.id.startsWith('hd') || w.id.startsWith('hw'),
-      );
-      const incorrectTemplate = `m/44'/${COINTYPE_COSMOS}'/${INDEX_PLACEHOLDER}'/0/0`;
-      for (const wallet of hdOrHwWallets) {
-        debugLogger.common.info(`migrate wallet: ${JSON.stringify(wallet)}`);
-        // filter cosmos account which template is m/44'/118'/0'/0/$$INDEX$$
-        const cosmosAccounts = wallet.accounts.filter(
-          (id) => id.indexOf(`m/44'/${COINTYPE_COSMOS}'/0'/0`) > -1,
-        );
-        const impl = getImplByCoinType(COINTYPE_COSMOS);
-        const { template } = getDefaultAccountNameInfoByImpl(impl);
-        const accounts = await dbApi.getAccounts(cosmosAccounts);
-        for (const account of accounts) {
-          if (
-            account.template &&
-            // find incorrect template
-            account.template === incorrectTemplate
-          ) {
-            await dbApi.addAccountDerivation({
-              walletId: wallet.id,
-              accountId: account.id,
-              impl,
-              template,
-            });
-            debugLogger.common.info(
-              `added account derivation: accountId: ${account.id}, template: ${template}`,
-            );
-            await dbApi.setAccountTemplate({ accountId: account.id, template });
-            debugLogger.common.info(
-              `insert account: ${account.id} to AccountDerivation table, template: ${template}`,
-            );
-          }
-        }
-        await dbApi.removeAccountDerivation({
-          walletId: wallet.id,
-          impl: IMPL_COSMOS,
-          template: incorrectTemplate, // incorrect template
-        });
-
-        if (wallet.nextAccountIds?.[incorrectTemplate]) {
-          // migrate incorrect template next account id to correct template
-          const newNextAccountIds = {
-            ...wallet.nextAccountIds,
-            [template]: wallet.nextAccountIds[incorrectTemplate],
-          };
-
-          await dbApi.updateWalletNextAccountIds({
-            walletId: wallet.id,
-            nextAccountIds: newNextAccountIds,
-          });
-          debugLogger.common.info(
-            `update wallet nextAccountIds, wallet: ${
-              wallet.id
-            }, nextAccountIds: ${JSON.stringify(newNextAccountIds)}`,
-          );
-        }
       }
 
       this.backgroundApi.dispatch(
@@ -423,56 +447,55 @@ export default class ServiceBootstrap extends ServiceBase {
   async migrateBtcPubInDB() {
     debugLogger.common.info('start migrate btc pub process');
     try {
-      const { appSelector } = this.backgroundApi;
-      const dbMigrationVersion = appSelector(
-        (s) => s.settings.accountDerivationDbMigrationVersion,
+      const appVersion = this.backgroundApi.appSelector(
+        (s) => s.settings.version,
       );
-      const appVersion = appSelector((s) => s.settings.version);
+      const dbMigrationVersion = this.backgroundApi.appSelector(
+        (s) => s.settings.migrationVersions?.fixBtcPubKey,
+      );
 
-      if (
-        dbMigrationVersion &&
-        semver.valid(dbMigrationVersion) &&
-        semver.gte(dbMigrationVersion, FIX_BTC_PUB_DB_MIGRATION_VERSION)
-      ) {
+      const { skip } = await processMigration({
+        dbMigrationVersion,
+        checkVersion: FIX_BTC_PUB_DB_MIGRATION_VERSION,
+        doMigration: async () => {
+          const { dbApi } = this.backgroundApi.engine;
+
+          const allAccounts = await dbApi.getAllAccounts();
+          // check all hd/hw/imported btc accounts
+          const accounts = allAccounts.filter(
+            (account) =>
+              account.coinType === COINTYPE_BTC &&
+              !isWatchingAccount({ accountId: account.id }),
+          ) as DBUTXOAccount[];
+          for (const account of accounts) {
+            debugLogger.common.info(
+              `migrate account: ${JSON.stringify(account)}`,
+            );
+            const node = getBitcoinBip32()
+              .fromBase58(account.xpub)
+              .derivePath('0/0');
+            const pub = node.publicKey.toString('hex');
+
+            // @ts-ignore
+            if (account.pub !== pub || account.pubKey) {
+              await dbApi.setAccountPub(account.id, pub, true);
+              debugLogger.common.info(
+                `insert account: ${account.id} to Account table, pub: ${pub}`,
+              );
+            }
+          }
+        },
+      });
+
+      if (skip) {
         debugLogger.common.info('skip btc pub migration');
         return;
       }
 
-      const { dbApi } = this.backgroundApi.engine;
-      const wallets = await dbApi.getWallets();
-      const targetWallets = wallets.filter(
-        (wallet) =>
-          wallet.id.startsWith('hd') ||
-          wallet.id.startsWith('hw') ||
-          wallet.id.startsWith('imported'),
-      );
-
-      for (const wallet of targetWallets) {
-        debugLogger.common.info(`migrate wallet: ${JSON.stringify(wallet)}`);
-        const btcAccounts = wallet.accounts.filter(
-          (id) =>
-            id.includes(`m/49'/${COINTYPE_BTC}'`) ||
-            id.includes(`m/86'/${COINTYPE_BTC}'`) ||
-            id.includes(`m/84'/${COINTYPE_BTC}'`) ||
-            id.includes(`m/44'/${COINTYPE_BTC}'`) ||
-            id.includes(`imported--${COINTYPE_BTC}--xpub`),
-        );
-        const accounts = (await dbApi.getAccounts(
-          btcAccounts,
-        )) as DBUTXOAccount[];
-        for (const account of accounts) {
-          const node = getBitcoinBip32()
-            .fromBase58(account.xpub)
-            .derivePath('0/0');
-          const pub = node.publicKey.toString('hex');
-          await dbApi.setAccountPub(account.id, pub, true);
-          debugLogger.common.info(
-            `insert account: ${account.id} to AccountDerivation table, pub: ${pub}`,
-          );
-        }
-      }
       this.backgroundApi.dispatch(
-        setAccountDerivationDbMigrationVersion(appVersion),
+        setMigrationVersions({
+          fixBtcPubKey: appVersion,
+        }),
       );
     } catch (e) {
       debugLogger.common.error('btc pub migrate error: ', e);

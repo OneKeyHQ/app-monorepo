@@ -2091,6 +2091,8 @@ class IndexedDBApi implements DBAPI {
               );
               return;
             }
+            // there may be wrong and useless 'pubKey' in btc account
+            // need to be deleted
             // @ts-ignore
             if (deletePubKey && account.pubKey) {
               // @ts-ignore
