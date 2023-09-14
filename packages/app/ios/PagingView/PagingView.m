@@ -53,6 +53,7 @@
     NSLog(@"PagingView init");
     [self startObservingViewPosition];
     _isScrolling = NO;
+    [self addObserver:self forKeyPath:@"headerHeight" options:NSKeyValueObservingOptionNew context:nil];
   }
   return self;
 }
@@ -63,6 +64,7 @@
   if (_pagingView.listContainerView.scrollView) {
     [_pagingView.listContainerView.scrollView removeObserver:self forKeyPath:@"contentOffset"];
   }
+  [self removeObserver:self forKeyPath:@"headerHeight"];
 }
 
 - (void)startObservingViewPosition {
@@ -105,16 +107,10 @@
 }
 
 -(void)setHeaderHeight:(CGFloat)headerHeight {
-  BOOL needReload = _headerHeight != 0;
   if (_headerHeight == headerHeight) {
     return;
   }
   _headerHeight = headerHeight;
-  if (needReload) {
-    dispatch_async(dispatch_get_main_queue(), ^{
-      [self.pagingView resizeTableHeaderViewHeightWithAnimatable:NO duration:0 curve:0];
-    });
-  }
 }
 
 -(void)setTabViewStyle:(NSDictionary *)tabViewStyle {
@@ -237,6 +233,7 @@
     }
     [_pagingView.listContainerView.scrollView addObserver:self forKeyPath:@"contentOffset" options:NSKeyValueObservingOptionNew context:nil];
     [self addSubview:_pagingView];
+    
   }
   return _pagingView;
 }
@@ -249,6 +246,11 @@
         _onPageScrollStateChange(@{@"state":@"dragging"});
       }
     }
+  }
+  if ([keyPath isEqualToString:@"headerHeight"]) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+      [self.pagingView resizeTableHeaderViewHeightWithAnimatable:NO duration:0 curve:0];
+    });
   }
 }
 

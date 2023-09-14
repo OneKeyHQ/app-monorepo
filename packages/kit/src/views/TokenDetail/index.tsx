@@ -58,6 +58,7 @@ function TokenDetailLoadingWithoutMemo() {
     </Center>
   );
 }
+
 const TokenDetailLoading = memo(TokenDetailLoadingWithoutMemo);
 
 function TokenDetailViewWithoutMemo() {
@@ -99,32 +100,12 @@ function TokenDetailViewWithoutMemo() {
     defaultInfo,
   });
 
-  const showChart = useAppSelector((s) => s.settings.showTokenDetailPriceChart);
-
   const isLightningNetwork = useMemo(
     () => isLightningNetworkByNetworkId(networkId),
     [networkId],
   );
 
   const isBRC20 = useMemo(() => isBRC20Token(tokenAddress), [tokenAddress]);
-
-  const headerHeight = useMemo(() => {
-    let height = isVerticalLayout ? 210 : 194;
-    if (
-      (isSupportStakingType({
-        networkId,
-        tokenIdOnNetwork: tokenAddress,
-      }) ||
-        isSTETH(networkId, tokenAddress)) &&
-      !isAllNetworks(networkId)
-    ) {
-      height += 60;
-    }
-    if (showChart && !isVerticalLayout) {
-      height += 332;
-    }
-    return height;
-  }, [networkId, isVerticalLayout, showChart, tokenAddress]);
 
   const headerTitle = useCallback(() => {
     if (!isVerticalLayout) {
@@ -179,11 +160,11 @@ function TokenDetailViewWithoutMemo() {
   );
   const tabsHeader = useMemo(
     () => (
-      <Box h={headerHeight}>
+      <Box>
         <TokenDetailHeader />
       </Box>
     ),
-    [headerHeight],
+    [],
   );
 
   if (isBRC20)
@@ -206,8 +187,6 @@ function TokenDetailViewWithoutMemo() {
         pb={isVerticalLayout ? '60px' : 0}
       >
         <Tabs.Container
-          headerHeight={headerHeight}
-          key={String(headerHeight)}
           disableRefresh
           headerView={tabsHeader}
           containerStyle={{

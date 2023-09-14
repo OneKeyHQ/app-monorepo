@@ -145,6 +145,7 @@ export enum GalleryRoutes {
   ComponentMnemonicCardGallery = 'component/MnemonicCard',
   ComponentSlider = 'component/Slider',
   ComponentDeepFresh = 'component/deepRefresh',
+  ComponentCollapsibleTabView = 'component/CollapsibleTabView',
 }
 
 // ModalRoutes ----------------------------------------------

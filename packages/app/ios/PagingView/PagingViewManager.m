@@ -14,7 +14,6 @@ RCT_EXPORT_MODULE(NestedTabView)
 RCT_EXPORT_VIEW_PROPERTY(onPageChange, RCTBubblingEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onPageScrollStateChange, RCTBubblingEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onPageVerticalScroll, RCTBubblingEventBlock)
-RCT_EXPORT_VIEW_PROPERTY(headerHeight, CGFloat);
 RCT_EXPORT_VIEW_PROPERTY(defaultIndex, NSInteger);
 RCT_EXPORT_VIEW_PROPERTY(pageIndex, NSInteger);
 RCT_EXPORT_VIEW_PROPERTY(scrollEnabled, BOOL);
@@ -40,6 +39,15 @@ RCT_EXPORT_METHOD(setRefreshing:(nonnull NSNumber *)reactTag refreshing:(BOOL)re
         PagingView *view = (PagingView *)viewRegistry[reactTag];
         if (!!view && [view isKindOfClass:[PagingView class]]) {
             [view setRefresh:refreshing];
+        }
+    }];
+}
+
+RCT_EXPORT_METHOD(setHeaderHeight:(nonnull NSNumber *)reactTag headerHeight:(CGFloat)headerHeight) {
+    [self.bridge.uiManager addUIBlock:^(RCTUIManager *uiManager, NSDictionary<NSNumber *,UIView *> *viewRegistry) {
+        PagingView *view = (PagingView *)viewRegistry[reactTag];
+        if (!!view && [view isKindOfClass:[PagingView class]]) {
+            [view setHeaderHeight:headerHeight];
         }
     }];
 }
