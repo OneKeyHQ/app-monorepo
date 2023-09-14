@@ -1757,7 +1757,11 @@ class RealmDB implements DBAPI {
     }
   }
 
-  setAccountPub(accountId: string, pub: string): Promise<DBAccount> {
+  setAccountPub(
+    accountId: string,
+    pub: string,
+    deletePubKey?: boolean,
+  ): Promise<DBAccount> {
     try {
       const account = this.realm!.objectForPrimaryKey<AccountSchema>(
         'Account',
@@ -1770,6 +1774,11 @@ class RealmDB implements DBAPI {
       }
       this.realm!.write(() => {
         account.pub = pub;
+        // @ts-ignore
+        if (deletePubKey && account.pubKey) {
+          // @ts-ignore
+          delete account.pubKey;
+        }
       });
       return Promise.resolve(account.internalObj);
     } catch (error: any) {

@@ -2064,7 +2064,11 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  setAccountPub(accountId: string, pub: string): Promise<DBAccount> {
+  setAccountPub(
+    accountId: string,
+    pub: string,
+    deletePubKey?: boolean,
+  ): Promise<DBAccount> {
     let ret: DBAccount;
     return this.ready.then(
       (db) =>
@@ -2088,7 +2092,7 @@ class IndexedDBApi implements DBAPI {
               return;
             }
             // @ts-ignore
-            if (account.pubKey) {
+            if (deletePubKey && account.pubKey) {
               // @ts-ignore
               delete account.pubKey;
             }

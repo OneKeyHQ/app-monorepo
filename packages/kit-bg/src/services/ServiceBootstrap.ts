@@ -465,7 +465,7 @@ export default class ServiceBootstrap extends ServiceBase {
             .fromBase58(account.xpub)
             .derivePath('0/0');
           const pub = node.publicKey.toString('hex');
-          await dbApi.setAccountPub(account.id, pub);
+          await dbApi.setAccountPub(account.id, pub, true);
           debugLogger.common.info(
             `insert account: ${account.id} to AccountDerivation table, pub: ${pub}`,
           );
