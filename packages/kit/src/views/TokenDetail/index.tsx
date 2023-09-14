@@ -71,6 +71,7 @@ function TokenDetailViewWithoutMemo() {
     coingeckoId,
     networkId,
     tokenAddress,
+    sendAddress,
     accountId,
 
     price,
@@ -95,6 +96,7 @@ function TokenDetailViewWithoutMemo() {
     networkId,
     accountId,
     tokenAddress,
+    sendAddress,
     coingeckoId,
     defaultInfo,
   });
@@ -147,7 +149,11 @@ function TokenDetailViewWithoutMemo() {
   }, [isVerticalLayout, defaultInfo]);
 
   const headerRight = useCallback(() => {
-    if (!isVerticalLayout && !isBRC20) {
+    if (isBRC20) {
+      return null;
+    }
+
+    if (!isVerticalLayout) {
       return <HeaderOptions />;
     }
     return <FavoritedButton coingeckoId={coingeckoId} />;

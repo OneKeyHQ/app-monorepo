@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -24,6 +24,7 @@ import {
   useAppSelector,
   useNetworkSimple,
 } from '../../../../hooks';
+import { appSelector } from '../../../../store';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import { useInputLimitsError, useSwapRecipient } from '../../hooks/useSwap';
 import { usePriceImpact, useSwapSlippage } from '../../hooks/useSwapUtils';
@@ -31,13 +32,13 @@ import { SwapError } from '../../typings';
 
 const RecipientBox = () => {
   const intl = useIntl();
+  const ref = useRef<boolean>(false);
   const { wallet } = useActiveWalletAccount();
   const accounts = useAppSelector((s) => s.runtime.accounts);
   const outputToken = useAppSelector((s) => s.swap.outputToken);
-
   const network = useNetworkSimple(outputToken?.networkId);
   const { createAccount } = useCreateAccountInWallet({
-    networkId: network?.id,
+    networkId: outputToken?.networkId,
     walletId: wallet?.id,
   });
 
@@ -55,10 +56,22 @@ const RecipientBox = () => {
   }, [wallet, outputToken]);
 
   useEffect(() => {
-    if (network) {
-      backgroundApiProxy.serviceSwap.setRecipient(network);
+    async function main() {
+      if (ref.current) {
+        const item = appSelector((s) => s.swap.outputToken);
+        if (item) {
+          const data = await backgroundApiProxy.engine.getNetwork(
+            item.networkId,
+          );
+          backgroundApiProxy.serviceSwap.setRecipientByNetwork(data);
+        }
+        if (!ref.current) {
+          ref.current = true;
+        }
+      }
     }
-  }, [accounts, network]);
+    main();
+  }, [accounts]);
 
   return show ? (
     <Box mt="6">

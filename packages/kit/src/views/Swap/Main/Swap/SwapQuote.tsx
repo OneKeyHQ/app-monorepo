@@ -275,15 +275,37 @@ const SwapNetworkFeeInfo = () => {
 };
 
 const SwapMinimumReceived = () => {
+  const intl = useIntl();
   const value = useSwapMinimumReceivedAmount();
   const outputToken = useAppSelector((s) => s.swap.outputToken);
-
   if (outputToken && value) {
     const amount = getTokenAmountValue(outputToken, String(value));
     return (
-      <Typography.Body2 color="text-default">
-        {amount.toFixed(4)} {outputToken.symbol.toUpperCase()}
-      </Typography.Body2>
+      <Box
+        display="flex"
+        flexDirection="row"
+        justifyContent="space-between"
+        alignItems="center"
+        h="9"
+      >
+        <Box flexDirection="row" alignItems="center">
+          <Typography.Body2 color="text-subdued" mr="1">
+            {intl.formatMessage({ id: 'form__minimum_received' })}
+          </Typography.Body2>
+          <SwapTooltip
+            label={intl.formatMessage({
+              id: 'form__minimum_received_desc',
+            })}
+          />
+        </Box>
+        <Box flex="1" flexDirection="row" justifyContent="flex-end">
+          <SwapLoadingSkeleton h="5" width="24" borderRadius="4px">
+            <Typography.Body2 color="text-default">
+              {amount.toFixed(4)} {outputToken.symbol.toUpperCase()}
+            </Typography.Body2>
+          </SwapLoadingSkeleton>
+        </Box>
+      </Box>
     );
   }
   return null;
@@ -632,41 +654,16 @@ const SwapMoreQuote = () => {
   );
 };
 
-const SwapExchangeQuote = () => {
-  const intl = useIntl();
-  return (
-    <Box>
-      <SwapTransactionRate />
-      <SwapNetworkFeeInfo />
-      <SwapSmartRoute />
-      <Box
-        display="flex"
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-        h="9"
-      >
-        <Box flexDirection="row" alignItems="center">
-          <Typography.Body2 color="text-subdued" mr="1">
-            {intl.formatMessage({ id: 'form__minimum_received' })}
-          </Typography.Body2>
-          <SwapTooltip
-            label={intl.formatMessage({
-              id: 'form__minimum_received_desc',
-            })}
-          />
-        </Box>
-        <Box flex="1" flexDirection="row" justifyContent="flex-end">
-          <SwapLoadingSkeleton h="5" width="24" borderRadius="4px">
-            <SwapMinimumReceived />
-          </SwapLoadingSkeleton>
-        </Box>
-      </Box>
-      <SwapMoreQuote />
-      <SwapAPIIntro />
-    </Box>
-  );
-};
+const SwapExchangeQuote = () => (
+  <Box>
+    <SwapTransactionRate />
+    <SwapNetworkFeeInfo />
+    <SwapSmartRoute />
+    <SwapMinimumReceived />
+    <SwapMoreQuote />
+    <SwapAPIIntro />
+  </Box>
+);
 
 const SwapWrapperTxQuote = () => (
   <Box>

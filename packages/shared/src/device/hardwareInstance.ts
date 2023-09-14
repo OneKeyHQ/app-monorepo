@@ -43,6 +43,7 @@ export const getHardwareSDKInstance = memoizee(
 
       const settings: Partial<ConnectSettings> = {
         debug: platformEnv.isDev,
+        fetchConfig: true,
       };
 
       HardwareSDK = await importHardwareSDK();

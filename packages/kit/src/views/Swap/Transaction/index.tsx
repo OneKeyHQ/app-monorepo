@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -17,6 +17,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import swftLogoPNG from '../../../../assets/swft_logo.png';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { HistoryRequestRoutes } from '../../Help/Request/types';
+import { Scheduler } from '../components/PendingTransaction';
 import Transaction from '../components/Transaction';
 import { swftcCustomerSupportUrl } from '../config';
 import { useWalletsSwapTransactions } from '../hooks/useTransactions';
@@ -138,6 +139,18 @@ const TransactionModal = () => {
     copyToClipboard(text);
     ToastManager.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
   }, [tx, intl]);
+
+  useEffect(() => {
+    if (
+      tx.status === 'failed' &&
+      !tx.destinationTransactionHash &&
+      tx.tokens?.from.networkId === tx.tokens?.to.networkId
+    ) {
+      const s = new Scheduler(tx);
+      s.runTask();
+    }
+    // eslint-disable-next-line
+  }, []);
 
   return (
     <Modal

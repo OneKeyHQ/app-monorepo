@@ -5,7 +5,8 @@ import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
-import type { Token } from '@onekeyhq/engine/src/types/token';
+import { type Token, TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountTokensOnChain, useAppSelector } from '../../../hooks';
@@ -67,7 +68,10 @@ export function createTokenSelectorUtils(
     );
 
     return useMemo(() => {
-      const tokens = [...presetTokens, ...accountTokens];
+      let tokens = [...presetTokens, ...accountTokens];
+      if (networkId === OnekeyNetwork.btc || networkId === OnekeyNetwork.tbtc) {
+        tokens = tokens.filter((i) => i.isNative);
+      }
       const set = new Set();
       const getKey = (token: Token) =>
         `${token.networkId}${token.tokenIdOnNetwork}`;
@@ -87,6 +91,13 @@ export function createTokenSelectorUtils(
         );
       };
 
+      const getTokenScore = (token: Token): number => {
+        if (token.riskLevel === TokenRiskLevel.VERIFIED) {
+          return -1;
+        }
+        return token.riskLevel ?? TokenRiskLevel.UNKNOWN;
+      };
+
       if (isEmpty(balances)) {
         return items;
       }
@@ -103,13 +114,17 @@ export function createTokenSelectorUtils(
         const nextValue = new BigNumber(
           nextBalance?.balance ?? '0',
         ).multipliedBy(getPrice(next));
+
+        if (prevValue.isZero() && nextValue.isZero()) {
+          return getTokenScore(prev) - getTokenScore(next);
+        }
         return prevValue.isLessThan(nextValue) ? 1 : -1;
       });
 
       const b = items.filter((o) => !tokenHasBalance(o));
 
       return a.concat(b);
-    }, [presetTokens, accountTokens, balances, getPrice]);
+    }, [presetTokens, accountTokens, balances, getPrice, networkId]);
   }
 
   function Observer() {

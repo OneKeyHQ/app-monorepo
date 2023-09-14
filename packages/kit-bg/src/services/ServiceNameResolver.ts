@@ -1,5 +1,6 @@
 import SID, { getSidAddress } from '@siddomains/sidjs';
 import { Resolution } from '@unstoppabledomains/resolution';
+import axios from 'axios';
 import { createInstance } from 'dotbit';
 import { filter, groupBy, map } from 'lodash';
 
@@ -117,6 +118,19 @@ export default class ServiceNameResolver extends ServiceBase {
         resolver: this.resolveFilEvm.bind(this),
         networkRequired: true,
       },
+      {
+        pattern: /(\.zk|\.base|\.linea)$/,
+        shownSymbol: 'STAR',
+        supportImplsMap: {
+          'evm--*': ['eth'],
+          [OnekeyNetwork.apt]: ['APT'],
+          [OnekeyNetwork.ltc]: ['LTC'],
+          [OnekeyNetwork.sui]: ['SUI'],
+          [OnekeyNetwork.btc]: ['BTC'],
+          [OnekeyNetwork.doge]: ['DOGE'],
+        },
+        resolver: this.resolveStarDomains.bind(this),
+      },
     ];
     return NAME_RESOLVER;
   }
@@ -151,6 +165,10 @@ export default class ServiceNameResolver extends ServiceBase {
     'crypto.ATOM.address',
     'crypto.FET.version.FETCHAI.address',
   ];
+
+  // Star Name Service map
+  private starNameServiceFetchApi =
+    'https://mainnet-api.sns.so/domain/getAllRecords/';
 
   @backgroundMethod()
   async checkIsValidName(name: string, networId?: string) {
@@ -430,5 +448,26 @@ export default class ServiceNameResolver extends ServiceBase {
         key: 'fileEvmAddress',
       },
     ];
+  }
+
+  async resolveStarDomains(name: string) {
+    try {
+      const { data } = await axios.get<
+        string & { data: Record<string, string>; code: number }
+      >(`${this.starNameServiceFetchApi}${name}`);
+      if (data && data.code === 200) {
+        return Object.keys(data.data)
+          ?.filter((k) => data.data?.[k])
+          ?.map((key) => ({
+            subtype: key,
+            value: data.data[key],
+            type: 'address',
+            key: `address.${key}`,
+          }));
+      }
+      return [];
+    } catch (e) {
+      return 'msg__network_request_failed';
+    }
   }
 }

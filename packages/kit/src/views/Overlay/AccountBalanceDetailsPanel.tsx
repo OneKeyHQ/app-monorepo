@@ -48,10 +48,12 @@ export function useAccountBalanceDetailsInfo({
   accountId,
   networkId,
   useRecycleBalance,
+  isInscribe,
 }: {
   accountId: string;
   networkId: string;
   useRecycleBalance?: boolean;
+  isInscribe?: boolean;
 }) {
   const intl = useIntl();
   const [balanceDetails, setBalanceDetails] = useState<
@@ -69,6 +71,7 @@ export function useAccountBalanceDetailsInfo({
             accountId,
             networkId,
             useRecycleBalance,
+            isInscribe,
           });
         setBalanceDetails(result);
         setIsLoading(false);

@@ -396,7 +396,7 @@ export const useSwapSubmit = () => {
     }
 
     let safeReservedValueForGasFee =
-      await backgroundApiProxy.serviceSwap.getReservedNetworkFee(
+      await backgroundApiProxy.serviceSwap.getBasicGasFeeWithTimeout(
         fromNetwork.id,
       );
 

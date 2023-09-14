@@ -195,6 +195,7 @@ export type ITransferInfo = {
   lnurlPaymentInfo?: LNURLPaymentInfo;
   lightningAddress?: string;
   txInterval?: string;
+  ignoreInscriptions?: boolean;
 };
 export type IApproveInfo = {
   from: string; // token owner

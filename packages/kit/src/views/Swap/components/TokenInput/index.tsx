@@ -127,21 +127,6 @@ const TokenInput: FC<TokenInputProps> = ({
     if (token.tokenIdOnNetwork) {
       backgroundApiProxy.serviceSwap.userInput(type, value);
     } else {
-      const getReservedNetworkFee = (networkId: string) =>
-        new Promise<string>((resolve) => {
-          backgroundApiProxy.serviceSwap
-            .getReservedNetworkFee(token.networkId)
-            .then(resolve);
-          setTimeout(() => {
-            const reservedNetworkFees = appSelector(
-              (s) => s.swapTransactions.reservedNetworkFees,
-            );
-            const finalValue = reservedNetworkFees?.[networkId];
-            if (finalValue) {
-              resolve(finalValue);
-            }
-          }, 500);
-        });
       const getFrozenBalanceValue = (params: {
         accountId: string;
         networkId: string;
@@ -166,7 +151,10 @@ const TokenInput: FC<TokenInputProps> = ({
           setTimeout(() => resolve('0'), 500);
         });
 
-      const reserved = await getReservedNetworkFee(token.networkId);
+      const reserved =
+        await backgroundApiProxy.serviceSwap.getBasicGasFeeWithTimeout(
+          token.networkId,
+        );
 
       let frozenBalanceValue = '0';
       if (account) {

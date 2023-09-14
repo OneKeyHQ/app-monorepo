@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useContext } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -15,6 +15,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getAppNavigation } from '../../../../hooks/useAppNavigation';
 import { DiscoverModalRoutes } from '../../type';
+import { DiscoverContext } from '../context';
 
 import type { DAppItemType } from '../../type';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -27,16 +28,12 @@ type NavigationProps = NativeStackNavigationProp<
 type SectionTitleProps = {
   title: string;
   tagId?: string;
-  onItemSelect?: (item: DAppItemType) => void;
 };
 
-export const SeeAllButton: FC<SectionTitleProps> = ({
-  title,
-  tagId,
-  onItemSelect,
-}) => {
+export const SeeAllButton: FC<SectionTitleProps> = ({ title, tagId }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
+  const { onItemSelect } = useContext(DiscoverContext);
   const onSelected = useCallback(
     (item: DAppItemType) => {
       onItemSelect?.(item);
