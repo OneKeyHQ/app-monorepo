@@ -438,7 +438,7 @@ const SwapSmartRoute = () => {
   );
 };
 
-const SwapSlippage = () => {
+const SwapSlippageContent = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const { mode, value: swapSlippagePercent } = useSwapSlippage();
@@ -479,6 +479,14 @@ const SwapSlippage = () => {
       </Box>
     </Box>
   );
+};
+
+const SwapSlippage = () => {
+  const quote = useAppSelector((s) => s.swap.quote);
+  if (!quote || quote.notImpactBySlippage) {
+    return null;
+  }
+  return <SwapSlippageContent />;
 };
 
 const SwapOnekeyFee = () => {
