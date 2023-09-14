@@ -385,6 +385,7 @@ const SwapSmartRoute = () => {
   const navigation = useNavigation();
   const quote = useAppSelector((s) => s.swap.quote);
   const quoteLimited = useAppSelector((s) => s.swap.quoteLimited);
+  const responses = useAppSelector((s) => s.swap.responses);
   const onSelectRoute = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Swap,
@@ -428,7 +429,7 @@ const SwapSmartRoute = () => {
               typography="Body2"
               color="text-default"
             />
-            {quoteLimited ? null : (
+            {quoteLimited || (responses && responses?.length === 1) ? null : (
               <Icon size={16} name="ChevronRightOutline" />
             )}
           </Pressable>
