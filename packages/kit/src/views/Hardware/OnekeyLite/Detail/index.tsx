@@ -29,7 +29,6 @@ import type {
   OnekeyLiteResetRoutesParams,
 } from '@onekeyhq/kit/src/routes';
 import {
-  BackupWalletModalRoutes,
   CreateWalletModalRoutes,
   ModalRoutes,
   OnekeyLiteChangePinModalRoutes,
@@ -37,6 +36,8 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+
+import { useBackupLite } from '../../../../hooks/useProtectedVerify';
 
 type OptionType = 'restore' | 'change_pin' | 'reset' | 'backup';
 
@@ -232,7 +233,7 @@ const OnekeyLiteDetail: FC = () => {
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [controlledWallets.length, intl]);
-
+  const backupLiteAuthentication = useBackupLite();
   return (
     <>
       <Box flexDirection="column" flex={1}>
@@ -294,15 +295,16 @@ const OnekeyLiteDetail: FC = () => {
         visible={selectBackupWalletVisible}
         onVisibleChange={setSelectBackupWalletVisible}
         onChange={(walletItem) => {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.BackupWallet,
-            params: {
-              screen: BackupWalletModalRoutes.BackupWalletLiteModal,
-              params: {
-                walletId: walletItem.id,
-              },
-            },
-          });
+          backupLiteAuthentication(walletItem.id);
+          // navigation.navigate(RootRoutes.Modal, {
+          //   screen: ModalRoutes.BackupWallet,
+          //   params: {
+          //     screen: BackupWalletModalRoutes.BackupWalletLiteModal,
+          //     params: {
+          //       walletId: walletItem.id,
+          //     },
+          //   },
+          // });
         }}
         title={intl.formatMessage({ id: 'title_select_wallet' })}
         footer={null}
