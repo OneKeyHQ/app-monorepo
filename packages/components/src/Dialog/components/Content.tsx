@@ -101,34 +101,38 @@ const Content: FC<ContentProps> = ({
   content,
   contentElement,
   input,
-}) => (
-  <Box flexDirection="column" w="100%" alignItems="center">
-    {!!(icon || iconType || iconName) &&
-      (iconType ? getIcon(iconType, iconName) : <Box mb={5}>{icon}</Box>)}
-    {!!title && (
-      <Text
-        typography={{ sm: 'DisplayMedium', md: 'Heading' }}
-        color="text-default"
-        textAlign="center"
-      >
-        {title}
-      </Text>
-    )}
-
-    {contentElement}
-
-    {!!content && (
-      <Text
-        mt="2"
-        typography={{ sm: 'Body1', md: 'Body2' }}
-        color="text-subdued"
-        textAlign="center"
-      >
-        {content}
-      </Text>
-    )}
-    {input}
-  </Box>
-);
+}) => {
+  console.log('1231312')
+  debugger;
+  return (
+    <Box flexDirection="column" w="100%" alignItems="center">
+      {!!(icon || iconType || iconName) &&
+        (iconType ? getIcon(iconType, iconName) : <Box mb={5}>{icon}</Box>)}
+      {!!title && (
+        <Text
+          typography={{ sm: 'DisplayMedium', md: 'Heading' }}
+          color="text-default"
+          textAlign="center"
+        >
+          {title}
+        </Text>
+      )}
+  
+      {contentElement}
+  
+      {!!content && (
+        <Text
+          mt="2"
+          typography={{ sm: 'Body1', md: 'Body2' }}
+          color="text-subdued"
+          textAlign="center"
+        >
+          {content}
+        </Text>
+      )}
+      {input}
+    </Box>
+  );
+}
 
 export default Content;
