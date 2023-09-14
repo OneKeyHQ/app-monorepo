@@ -384,14 +384,14 @@ function AddTokenModal() {
       navigation,
     ],
   );
-  const ActivateTokenAuth = useActivateTokenAuth();
+  const activateTokenAuth = useActivateTokenAuth();
   const onPrimaryActionPress = useCallback(async () => {
     if (activeAccount && activeNetwork) {
       const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
         activeNetwork?.id,
       );
       if (vaultSettings?.activateTokenRequired) {
-        ActivateTokenAuth({
+        activateTokenAuth({
           walletId,
           accountId: activeAccount?.id,
           networkId: activeNetwork.id,
@@ -420,7 +420,7 @@ function AddTokenModal() {
       }
     }
   }, [
-    ActivateTokenAuth,
+    activateTokenAuth,
     activeAccount,
     activeNetwork,
     addAccountToken,

@@ -117,8 +117,8 @@ const ManagerAccountModal: FC = () => {
   }, []);
 
   const name = useWalletName({ wallet });
-  const ExportPublicAuth = useExportPublicAuth();
-  const ExportPrivateAuth = useExportPrivateAuth();
+  const exportPublicAuth = useExportPublicAuth();
+  const exportPrivateAuth = useExportPrivateAuth();
   const onPress = useCallback(
     (item: IAccountInfoListItem) => {
       switch (item.key) {
@@ -132,7 +132,7 @@ const ManagerAccountModal: FC = () => {
         case ManageAccountKeys.ExportPrivateViewKey:
         case ManageAccountKeys.ExportSecretMnemonic: {
           if (item.credentialInfo) {
-            ExportPrivateAuth({
+            exportPrivateAuth({
               accountId,
               networkId,
               accountCredential: item.credentialInfo,
@@ -153,7 +153,7 @@ const ManagerAccountModal: FC = () => {
           return;
         }
         case ManageAccountKeys.ExportPublicKey: {
-          ExportPublicAuth({ walletId, accountId, networkId });
+          exportPublicAuth({ walletId, accountId, networkId });
           // navigation.navigate(RootRoutes.Modal, {
           //   screen: ModalRoutes.ManagerAccount,
           //   params: {
@@ -187,10 +187,10 @@ const ManagerAccountModal: FC = () => {
     },
     [
       account,
-      ExportPrivateAuth,
+      exportPrivateAuth,
       accountId,
       networkId,
-      ExportPublicAuth,
+      exportPublicAuth,
       walletId,
       goToRemoveAccount,
       wallet,

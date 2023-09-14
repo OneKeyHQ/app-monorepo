@@ -167,7 +167,7 @@ function SendConfirm({
     networkId,
   });
 
-  const SendAuthentication = useSendAuthentication();
+  const sendAuthentication = useSendAuthentication();
   // onSubmit, onConfirm, onNext
   const handleConfirm = useCallback<ITxConfirmViewPropsHandleConfirm>(
     // eslint-disable-next-line @typescript-eslint/no-shadow
@@ -346,7 +346,7 @@ function SendConfirm({
       }
 
       if (result.success) {
-        const password = await SendAuthentication(walletId);
+        const password = await sendAuthentication(walletId);
         if (password) {
           return navigation[nextRouteAction](
             SendModalRoutes.SendAuthentication,
@@ -401,7 +401,7 @@ function SendConfirm({
       serviceNFT,
       resendActionInfo,
       serviceLightningNetwork,
-      SendAuthentication,
+      sendAuthentication,
       intl,
     ],
   );

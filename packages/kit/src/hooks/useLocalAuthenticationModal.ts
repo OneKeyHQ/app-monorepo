@@ -3,7 +3,7 @@ import { useManegerWalletLocalValidation } from './useProtectedVerify';
 import type { ValidationFields } from '../components/Protected';
 
 export default function useLocalAuthenticationModal() {
-  const ManagerWalletLocalValidation = useManegerWalletLocalValidation();
+  const managerWalletLocalValidation = useManegerWalletLocalValidation();
   const showVerify = (
     onSuccess: (password: string, requestId: string) => void,
     onCancel: () => void,
@@ -11,7 +11,7 @@ export default function useLocalAuthenticationModal() {
     field?: ValidationFields,
     // walletId?: string,
   ) => {
-    ManagerWalletLocalValidation({ requestId, field, onSuccess, onCancel });
+    managerWalletLocalValidation({ requestId, field, onSuccess, onCancel });
     // navigation.navigate(RootRoutes.Modal, {
     //   screen: ModalRoutes.ManagerWallet,
     //   params: {

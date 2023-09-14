@@ -1,14 +1,13 @@
 import type { FC } from 'react';
 import { useCallback } from 'react';
 
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import { Column } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import { Modal } from '@onekeyhq/components';
 import type { BackupWalletRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/BackupWallet';
 import type { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
-import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 
 import {
@@ -17,14 +16,12 @@ import {
   useKeyTagVerifyPassword,
 } from '../../hooks/useProtectedVerify';
 import { useWallet } from '../../hooks/useWallet';
-import { KeyTagRoutes } from '../KeyTag/Routes/enums';
 import {
   OptionKeyTag,
   OptionOneKeyLite,
   OptionRecoveryPhrase,
 } from '../Onboarding/screens/ImportWallet/ImportWalletOptions';
 
-import type { IKeytagRoutesParams } from '../KeyTag/Routes/types';
 import type { RouteProp } from '@react-navigation/core';
 
 export type BackupWalletViewProps = {
@@ -36,16 +33,12 @@ type RouteProps = RouteProp<
   BackupWalletModalRoutes.BackupWalletOptionsModal
 >;
 
-type NavigationProps = ModalScreenProps<
-  BackupWalletRoutesParams & IKeytagRoutesParams
->;
-
 const BackupWalletOptionsView: FC<BackupWalletViewProps> = () => {
   const intl = useIntl();
   const { walletId } = useRoute<RouteProps>().params;
   const { wallet } = useWallet({ walletId });
   const backupManualAuthentication = useBackupManual();
-  const KeyTagVerifyPassword = useKeyTagVerifyPassword();
+  const keyTagVerifyPassword = useKeyTagVerifyPassword();
   const backupLiteAuthentication = useBackupLite();
   const onManual = useCallback(() => {
     backupManualAuthentication(walletId);
@@ -62,12 +55,12 @@ const BackupWalletOptionsView: FC<BackupWalletViewProps> = () => {
   }, [backupLiteAuthentication, walletId]);
 
   const onKeyTag = useCallback(() => {
-    KeyTagVerifyPassword({ walletId, wallet });
+    keyTagVerifyPassword({ walletId, wallet });
     // navigation.navigate(KeyTagRoutes.KeyTagVerifyPassword, {
     //   walletId,
     //   wallet,
     // });
-  }, [KeyTagVerifyPassword, wallet, walletId]);
+  }, [keyTagVerifyPassword, wallet, walletId]);
 
   return (
     <Modal

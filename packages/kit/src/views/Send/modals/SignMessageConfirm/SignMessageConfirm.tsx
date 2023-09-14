@@ -71,7 +71,7 @@ const SignMessageConfirm = () => {
       route.params,
     );
   }, [unsignedMessage, route.params]);
-  const SendAuthentication = useSendAuthentication();
+  const sendAuthentication = useSendAuthentication();
   const handleConfirm = useCallback<ISignMessageConfirmViewPropsHandleConfirm>(
     // eslint-disable-next-line @typescript-eslint/require-await
     async (options) => {
@@ -102,7 +102,7 @@ const SignMessageConfirm = () => {
         route.params.onFail?.(e);
       }
 
-      const password = await SendAuthentication(walletId);
+      const password = await sendAuthentication(walletId);
       if (password) {
         const nextRouteParams: SendAuthenticationParams = {
           ...route.params,
@@ -151,7 +151,7 @@ const SignMessageConfirm = () => {
       }
     },
     [
-      SendAuthentication,
+      sendAuthentication,
       walletId,
       networkId,
       dappApprove,

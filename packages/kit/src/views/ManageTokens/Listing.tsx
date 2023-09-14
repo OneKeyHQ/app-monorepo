@@ -332,7 +332,7 @@ function ListRenderToken({ isOwned, ...item }: IManageNetworkTokenType) {
   const [, updateTS] = useAtomManageTokens(atomMangeTokensTS);
 
   const { tokenIdOnNetwork, symbol, riskLevel } = item;
-  const ActivateTokenAuth = useActivateTokenAuth();
+  const activateTokenAuth = useActivateTokenAuth();
   const checkIfShouldActiveToken = useCallback(async () => {
     const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
       networkId,
@@ -341,7 +341,7 @@ function ListRenderToken({ isOwned, ...item }: IManageNetworkTokenType) {
       return;
     }
     return new Promise((resolve, reject) => {
-      ActivateTokenAuth({
+      activateTokenAuth({
         walletId,
         accountId,
         networkId,
@@ -366,7 +366,7 @@ function ListRenderToken({ isOwned, ...item }: IManageNetworkTokenType) {
       //   },
       // });
     });
-  }, [networkId, ActivateTokenAuth, walletId, accountId, tokenIdOnNetwork]);
+  }, [networkId, activateTokenAuth, walletId, accountId, tokenIdOnNetwork]);
 
   const checkTokenVisible = useCallback(async () => {
     const options = {

@@ -120,8 +120,8 @@ export const SecuritySection = () => {
   const backupEnable =
     platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay;
 
-  const EnableLocalAuthentication = useEnableLocalAuthentication();
-  const EnableWebAuth = useEnableWebAuth();
+  const enableLocalAuth = useEnableLocalAuthentication();
+  const enableWebAuth = useEnableWebAuth();
   return (
     <Box w="full" mb="6">
       <Box pb="2">
@@ -253,7 +253,7 @@ export const SecuritySection = () => {
                 labelType="false"
                 isChecked={enableWebAuthn}
                 onToggle={() => {
-                  EnableWebAuth();
+                  enableWebAuth();
                   // navigation.navigate(RootRoutes.Modal, {
                   //   screen: ModalRoutes.EnableLocalAuthentication,
                   //   params: {
@@ -300,7 +300,7 @@ export const SecuritySection = () => {
                 labelType="false"
                 isChecked={enableLocalAuthentication}
                 onToggle={() => {
-                  EnableLocalAuthentication();
+                  enableLocalAuth();
                   // navigation.navigate(RootRoutes.Modal, {
                   //   screen: ModalRoutes.EnableLocalAuthentication,
                   //   params: {

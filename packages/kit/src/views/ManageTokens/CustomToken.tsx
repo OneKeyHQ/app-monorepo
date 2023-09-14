@@ -115,7 +115,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
     },
     [intl, navigation],
   );
-  const ActivateTokenAuth = useActivateTokenAuth();
+  const activateTokenAuth = useActivateTokenAuth();
   const onSubmit = useCallback(
     async (data: AddCustomTokenValues) => {
       if (!activeNetwork || !activeAccount) {
@@ -130,7 +130,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
         activeNetwork.id,
       );
       if (vaultSettings?.activateTokenRequired) {
-        ActivateTokenAuth({
+        activateTokenAuth({
           walletId,
           accountId: $accountId,
           networkId: $networkId,
@@ -164,7 +164,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
         });
       }
     },
-    [activeNetwork, activeAccount, ActivateTokenAuth, walletId, onAddToken],
+    [activeNetwork, activeAccount, activateTokenAuth, walletId, onAddToken],
   );
 
   const onSearch = useCallback(

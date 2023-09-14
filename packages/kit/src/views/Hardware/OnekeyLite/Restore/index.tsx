@@ -117,7 +117,7 @@ const Restore: FC = () => {
     );
     setOperateType('done');
   };
-  const OnekeyLiteRestoreDoneAuth = useOnekeyLiteRestoreDoneAuth();
+  const onekeyLiteRestoreDoneAuth = useOnekeyLiteRestoreDoneAuth();
   const startNfcScan = () => {
     stateNfcSearch();
     OnekeyLite.cancel();
@@ -128,7 +128,7 @@ const Restore: FC = () => {
           debugLogger.onekeyLite.debug('NFC read success, card state:', state);
           setRestoreData(data);
           stateNfcComplete();
-          OnekeyLiteRestoreDoneAuth({
+          onekeyLiteRestoreDoneAuth({
             mnemonic: data,
             onSuccess: () => {
               stateNfcDone();
@@ -176,7 +176,7 @@ const Restore: FC = () => {
 
       case 'complete':
         if (!restoreData) return;
-        OnekeyLiteRestoreDoneAuth({
+        onekeyLiteRestoreDoneAuth({
           mnemonic: restoreData,
           onSuccess: () => {
             stateNfcDone();

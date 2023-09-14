@@ -161,7 +161,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       }),
     [decodedTxs, feeInfoPayloads, isNativeMaxSend, transferInfos],
   );
-  const BatchSendProgressAuth = useSendAuthentication();
+  const batchSendProgressAuth = useSendAuthentication();
   const handleConfirm = useCallback<IBatchTxsConfirmViewPropsHandleConfirm>(
     // eslint-disable-next-line @typescript-eslint/no-shadow
     async ({ close, encodedTxs }) => {
@@ -258,7 +258,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
         }, 0);
       };
 
-      const password = await BatchSendProgressAuth(walletId);
+      const password = await batchSendProgressAuth(walletId);
       if (password) {
         const nextRouteParams: BatchSendProgressParams = {
           ...routeParams,
@@ -283,7 +283,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       }
     },
     [
-      BatchSendProgressAuth,
+      batchSendProgressAuth,
       accountId,
       dappApprove,
       engine,

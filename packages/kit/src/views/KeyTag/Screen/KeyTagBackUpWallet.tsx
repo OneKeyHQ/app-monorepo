@@ -51,10 +51,10 @@ const KeyTagBackUpWallet = () => {
 
     return res;
   }, [walletsSection]);
-  const KeyTagVerifyPassword = useKeyTagVerifyPassword();
+  const keyTagVerifyPassword = useKeyTagVerifyPassword();
   const onPress = useCallback(
     (wallet: IWallet) => {
-      KeyTagVerifyPassword({
+      keyTagVerifyPassword({
         walletId: wallet.id,
         wallet,
         navigateMode: isVertical && platformEnv.isNative,
@@ -65,7 +65,7 @@ const KeyTagBackUpWallet = () => {
       //   navigateMode: isVertical && platformEnv.isNative,
       // });
     },
-    [KeyTagVerifyPassword, isVertical],
+    [keyTagVerifyPassword, isVertical],
   );
 
   const ListEmptyComponent = useMemo(

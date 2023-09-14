@@ -192,8 +192,8 @@ function HardwareMenuOptions({
     },
     [serviceHardware, hwInfo.hwWalletType],
   );
-  const OnekeyHardwareDetaulsAuth = useOnekeyHardwareDetailsAuth();
-  const OnekeyHardwareDeviceNameAuth = useOnekeyHardwareDeviceNameAuth();
+  const onekeyHardwareDetaulsAuth = useOnekeyHardwareDetailsAuth();
+  const onekeyHardwareDeviceNameAuth = useOnekeyHardwareDeviceNameAuth();
   const checkFirmwareUpdate = useCallback(() => {
     if (!deviceConnectId) return;
 
@@ -266,7 +266,7 @@ function HardwareMenuOptions({
     <>
       <WalletMenuItem
         onPress={() => {
-          OnekeyHardwareDeviceNameAuth(wallet?.id);
+          onekeyHardwareDeviceNameAuth(wallet?.id);
           // navigation.navigate(RootRoutes.Modal, {
           //   screen: ModalRoutes.OnekeyHardware,
           //   params: {
@@ -304,7 +304,7 @@ function HardwareMenuOptions({
       )}
       <WalletMenuItem
         onPress={() => {
-          OnekeyHardwareDetaulsAuth(wallet?.id);
+          onekeyHardwareDetaulsAuth(wallet?.id);
           // navigation.navigate(RootRoutes.Modal, {
           //   screen: ModalRoutes.OnekeyHardware,
           //   params: {
