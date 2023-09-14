@@ -17,7 +17,6 @@ import {
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type { Token } from '@onekeyhq/engine/src/types/token';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import {
   useDebounce,
@@ -268,7 +267,7 @@ const TokenSelector: FC<TokenSelectorProps> = ({ onSelect, excluded }) => {
   const isLoading = loading || keyword !== searchQuery;
 
   const { dataSources, renderItem } = useMemo(() => {
-    let tokens = searchedTokens ?? contextAccountTokens;
+    const tokens = searchedTokens ?? contextAccountTokens;
     const renderFn: ListRenderItem<Token> = ({ item }) => (
       <ListRenderToken
         token={item}
@@ -277,17 +276,13 @@ const TokenSelector: FC<TokenSelectorProps> = ({ onSelect, excluded }) => {
       />
     );
 
-    if (networkId === OnekeyNetwork.btc || networkId === OnekeyNetwork.tbtc) {
-      tokens = tokens.filter((i) => i.isNative);
-    }
-
     return {
       dataSources: tokens.filter(
         (i) => !excluded?.includes(i.tokenIdOnNetwork),
       ),
       renderItem: renderFn,
     };
-  }, [searchedTokens, contextAccountTokens, networkId, onSelect, excluded]);
+  }, [searchedTokens, contextAccountTokens, onSelect, excluded]);
 
   if (!contextAccountTokens || contextAccountTokens.length === 0) {
     return (

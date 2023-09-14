@@ -152,7 +152,7 @@ const TokenInput: FC<TokenInputProps> = ({
       backgroundApiProxy.serviceLimitOrder.userInputValue(value);
     } else {
       const reserved =
-        await backgroundApiProxy.serviceSwap.getReservedNetworkFee(
+        await backgroundApiProxy.serviceSwap.getBasicGasFeeWithTimeout(
           token.networkId,
         );
       const v = BigNumber.max(0, new BigNumber(value).minus(reserved));

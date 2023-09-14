@@ -16,6 +16,7 @@ import {
   decrypt,
   encrypt,
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import { getShouldHideInscriptions } from '@onekeyhq/kit/src/hooks/crossHooks/useShouldHideInscriptions';
 import { appSelector } from '@onekeyhq/kit/src/store';
 import type { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
 import {
@@ -2110,6 +2111,13 @@ class Engine {
     if (!transferInfo.to) {
       throw new Error('Invalid transferInfo.to params');
     }
+
+    const shouldHideInscriptions = getShouldHideInscriptions({
+      accountId,
+      networkId,
+    });
+    transferInfoNew.ignoreInscriptions = shouldHideInscriptions;
+
     const vault = await this.getVault({ networkId, accountId });
     const result = await vault.buildEncodedTxFromTransfer(transferInfoNew);
     debugLogger.sendTx.info(
@@ -2139,15 +2147,25 @@ class Engine {
     prevNonce?: number;
     isDeflationary?: boolean;
   }) {
+    const shouldHideInscriptions = getShouldHideInscriptions({
+      accountId,
+      networkId,
+    });
+
+    const transferInfosNew = transferInfos.map((transferInfo) => ({
+      ...transferInfo,
+      ingoreInscriptions: shouldHideInscriptions,
+    }));
+
     const vault = await this.getVault({ networkId, accountId });
     const result = await vault.buildEncodedTxFromBatchTransfer({
-      transferInfos,
+      transferInfos: transferInfosNew,
       prevNonce,
       isDeflationary,
     });
     debugLogger.sendTx.info(
       'buildEncodedTxFromBatchTransfer: ',
-      transferInfos,
+      transferInfosNew,
       result,
       {
         networkId,
@@ -3014,9 +3032,16 @@ class Engine {
       accountId,
       networkId,
     });
+
+    const shouldHideInscriptions = getShouldHideInscriptions({
+      accountId,
+      networkId,
+    });
+
     return vault.getFrozenBalance({
       password,
       useRecycleBalance,
+      ignoreInscriptions: shouldHideInscriptions,
     });
   }
 
@@ -3039,7 +3064,7 @@ class Engine {
     confirmOnDevice?: boolean;
   }) {
     if (!walletId || !networkId) return [];
-    if (walletId.startsWith('watching')) {
+    if (walletId.startsWith('watching') || walletId.startsWith('imported')) {
       return this.dbApi.getAccount(accountId);
     }
     const vault = await this.getWalletOnlyVault(networkId, walletId);

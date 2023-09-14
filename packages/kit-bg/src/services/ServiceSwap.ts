@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/require-await, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 
+import BigNumber from 'bignumber.js';
+
 import type { ISwftcCoin } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntitySwap';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
@@ -56,6 +58,7 @@ import type {
 } from '@onekeyhq/kit/src/views/Swap/typings';
 import {
   convertBuildParams,
+  formatAmount,
   recipientMustBeSendingAccount,
   stringifyTokens,
   tokenEqual,
@@ -155,7 +158,7 @@ export default class ServiceSwap extends ServiceBase {
     }
     const network = await engine.getNetwork(token.networkId);
     this.selectToken('INPUT', network, token);
-    this.setSendingAccountByNetwork(network);
+    await this.setSendingAccountByNetwork(network);
   }
 
   @backgroundMethod()
@@ -174,7 +177,7 @@ export default class ServiceSwap extends ServiceBase {
     const tokenNetwork = await engine.getNetwork(token.networkId);
     this.selectToken('OUTPUT', tokenNetwork, token);
     if (tokenNetwork) {
-      this.setRecipient(tokenNetwork);
+      await this.setRecipientByNetwork(tokenNetwork);
     }
   }
 
@@ -186,11 +189,11 @@ export default class ServiceSwap extends ServiceBase {
     dispatch(setQuote(undefined), setResponses(undefined), switchTokens());
     if (outputToken) {
       const network = await engine.getNetwork(outputToken.networkId);
-      this.setSendingAccountByNetwork(network);
+      await this.setSendingAccountByNetwork(network);
     }
     if (inputToken) {
       const network = await engine.getNetwork(inputToken.networkId);
-      this.setRecipient(network);
+      await this.setRecipientByNetwork(network);
     }
   }
 
@@ -335,7 +338,9 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setRecipient(network: Network): Promise<Recipient | undefined> {
+  async setRecipientByNetwork(
+    network: Network,
+  ): Promise<Recipient | undefined> {
     const { dispatch, appSelector, engine } = this.backgroundApi;
     const recipient = appSelector((s) => s.swap.recipient);
     if (recipient?.address && recipient.networkImpl === network.impl) {
@@ -497,23 +502,6 @@ export default class ServiceSwap extends ServiceBase {
       dispatch(setSendingAccount(data));
       return data;
     }
-
-    // dont search inactive wallets
-    // const inactiveWallets = wallets.filter(
-    //   (wallet) => wallet.id !== activeWalletId,
-    // );
-    // if (inactiveWallets.length === 0) {
-    //   return;
-    // }
-
-    // for (let i = 0; i < inactiveWallets.length; i += 1) {
-    //   const wallet = inactiveWallets[i];
-    //   const items = await engine.getAccounts(wallet.accounts, network.id);
-    //   if (items.length > 0) {
-    //     dispatch(setSendingAccount(items[0]));
-    //     return;
-    //   }
-    // }
 
     dispatch(setSendingAccount(null));
   }
@@ -690,8 +678,7 @@ export default class ServiceSwap extends ServiceBase {
     }
   }
 
-  @backgroundMethod()
-  async getReservedNetworkFee(networkId: string) {
+  private async getReservedNetworkFee(networkId: string) {
     const { appSelector, dispatch } = this.backgroundApi;
     const endpoint = await this.getServerEndPoint();
     const url = `${endpoint}/swap/minimum_gas`;
@@ -711,6 +698,26 @@ export default class ServiceSwap extends ServiceBase {
     }
 
     return reservedNetworkFees?.[networkId] ?? ('0.01' as string);
+  }
+
+  @backgroundMethod()
+  async getBasicGasFeeWithTimeout(networkId: string) {
+    const { appSelector, engine } = this.backgroundApi;
+    const value = await new Promise<string>((resolve) => {
+      this.getReservedNetworkFee(networkId).then(resolve);
+      setTimeout(() => {
+        const reservedNetworkFees = appSelector(
+          (s) => s.swapTransactions.reservedNetworkFees,
+        );
+        const finalValue = reservedNetworkFees?.[networkId];
+        if (finalValue) {
+          resolve(finalValue);
+        }
+      }, 500);
+    });
+    const network = await engine.getNetwork(networkId);
+    const result = formatAmount(value, network.decimals, BigNumber.ROUND_CEIL);
+    return result;
   }
 
   @backgroundMethod()
@@ -768,10 +775,17 @@ export default class ServiceSwap extends ServiceBase {
   async tokenIsSupported(token: Token) {
     const { appSelector } = this.backgroundApi;
     const tokenList = appSelector((s) => s.swapTransactions.tokenList);
-    const networkIds = (tokenList ?? [])
+    const data = tokenList ?? [];
+    let networkIds = data
       ?.map((o) => o.networkId)
       .filter((networkId) => networkId !== 'All');
-    return networkIds.includes(token.networkId);
+
+    const optionAll = data.find((o) => o.networkId === 'All');
+    if (optionAll?.tokens) {
+      networkIds = networkIds.concat(optionAll.tokens.map((o) => o.networkId));
+    }
+
+    return new Set(networkIds).has(token.networkId);
   }
 
   @backgroundMethod()
