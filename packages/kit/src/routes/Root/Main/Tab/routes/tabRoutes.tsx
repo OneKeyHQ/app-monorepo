@@ -21,12 +21,13 @@ const allRoutes: TabRouteConfig[] = [
 export const tabRoutes: TabRouteConfig[] = tabRoutesOrders
   .map((name) => {
     let r = allRoutes.find((item) => item.name === name);
-    if (process.env.NODE_ENV !== 'production') {
-      if (!r && name === TabRoutes.Developer) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return
-        r = require('./AppRootTabDeveloper').default;
-      }
+    // FIXME: Production version should be uncommented
+    // if (process.env.NODE_ENV !== 'production') {
+    if (!r && name === TabRoutes.Developer) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return
+      r = require('./AppRootTabDeveloper').default;
     }
+    // }
     if (r) {
       if (r.hideOnProduction && process.env.NODE_ENV === 'production') {
         return undefined;
