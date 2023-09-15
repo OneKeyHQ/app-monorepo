@@ -315,18 +315,9 @@ const Provider: FC<UIProviderProps> = ({
           // @ts-ignore
           messages={LOCALES[locale]}
         >
-          <NativeBaseProvider
-            config={{
-              suppressColorAccessibilityWarning: true,
-            }}
-            theme={themeVar}
-          >
-            <View style={{ flex: 1 }}>
-              <TamaguiProvider config={config} defaultTheme={themeVariant}>
-                {children}
-              </TamaguiProvider>
-            </View>
-          </NativeBaseProvider>
+          <TamaguiProvider config={config} defaultTheme={themeVariant}>
+            {children}
+          </TamaguiProvider>
         </IntlProvider>
       </Context.Provider>
     </FontProvider>

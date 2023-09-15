@@ -6,10 +6,13 @@ import { hideAsync as hideSplashScreen } from 'expo-splash-screen';
 // TODO: add .d.ts for react-native-animated-splash-screen
 // @ts-expect-error no .d.ts
 import AnimatedSplash from 'react-native-animated-splash-screen';
+import { Stack } from 'tamagui';
 
-import { Box, useThemeValue } from '@onekeyhq/components';
+import { useThemeValue } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import type { VariableVal } from '@tamagui/core';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { serviceApp, serviceCronJob } = backgroundApiProxy;
@@ -66,9 +69,9 @@ const AnimatedSplashView = memo(
       [bgColor, children, initDataReady, logoImage],
     );
     return (
-      <Box flex={1} bg={bgColor}>
+      <Stack flex={1} backgroundColor={bgColor}>
         {content}
-      </Box>
+      </Stack>
     );
   },
 );
@@ -85,7 +88,7 @@ const AppLoading: FC = ({ children }) => {
   //   },
   // );
 
-  let bgColor: string | undefined = useThemeValue('background-default');
+  let bgColor: VariableVal | undefined = useThemeValue('background-default');
   if (platformEnv.isRuntimeBrowser) {
     bgColor = undefined;
   }
