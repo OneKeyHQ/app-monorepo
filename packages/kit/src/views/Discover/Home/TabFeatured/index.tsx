@@ -94,7 +94,7 @@ const HorizontalContent: FC<ContentProps> = ({ data }) => {
     return null;
   }
   return (
-    <Box>
+    <Box paddingBottom="32px">
       <Box pl="4">
         <ContentHeader title={data.label} id={data.id} />
       </Box>

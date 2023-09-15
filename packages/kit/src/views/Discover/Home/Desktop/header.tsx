@@ -103,7 +103,7 @@ const SearchInput: FC = () => {
           }}
         />
         <Box position="absolute" right="0" top="0">
-          <Box h="12" w="54px" p="2">
+          <Box h="12" w="72px" p="2">
             <Pressable
               w="full"
               h="full"
