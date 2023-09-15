@@ -31,7 +31,11 @@ type RouteProps = RouteProp<GalleryParams, StackRoutesType['Components']>;
 
 const ListHeaderComponent = () => {
   const goBack = useNavigationBack();
-  return <Button onPress={goBack}>Back to HOME</Button>;
+  return (
+    <Button onPress={goBack}>
+      <Text>Back to HOME</Text>
+    </Button>
+  );
 };
 
 const Index = () => {

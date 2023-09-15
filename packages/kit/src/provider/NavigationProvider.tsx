@@ -139,7 +139,6 @@ const NavigationApp = () => {
     ),
     [],
   );
-
   return (
     <NavigationContainer
       documentTitle={{
@@ -176,7 +175,7 @@ const NavigationApp = () => {
         <RedirectProvider>
           <RootStackNavigator />
         </RedirectProvider>
-        {platformEnv.isNativeIOS ? (
+        {/* {platformEnv.isNativeIOS ? (
           // FullWindowOverlay can render above native views
           // but can not work with modal
           // https://github.com/software-mansion/react-native-screens/issues/1149
@@ -184,7 +183,7 @@ const NavigationApp = () => {
           <FullWindowOverlay>{globalPortalViews}</FullWindowOverlay>
         ) : (
           globalPortalViews
-        )}
+        )} */}
       </RootSiblingParent>
     </NavigationContainer>
   );

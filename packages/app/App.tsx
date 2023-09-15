@@ -10,7 +10,8 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 startTrace('js_render');
 
-SplashScreen.preventAutoHideAsync();
+// 临时绕过锁屏检查
+// SplashScreen.preventAutoHideAsync();
 LogBox.ignoreAllLogs();
 
 DeviceEventEmitter.addListener('native_log_info', (event: string) => {

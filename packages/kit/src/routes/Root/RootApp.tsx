@@ -3,7 +3,7 @@ import { useEffect, useMemo } from 'react';
 
 import { TransitionPresets } from '@react-navigation/stack';
 import { useIntl } from 'react-intl';
-import { Platform } from 'react-native';
+import { Platform, Text } from 'react-native';
 import KeyboardManager from 'react-native-keyboard-manager';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
