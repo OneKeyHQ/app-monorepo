@@ -52,7 +52,7 @@ export const DappItemOutline: FC<DappRenderItemProps> = (props) => {
     <Pressable
       p="4"
       w="152px"
-      h="224"
+      h="202"
       flexDirection="column"
       alignItems="center"
       justifyContent="center"
@@ -73,14 +73,14 @@ export const DappItemOutline: FC<DappRenderItemProps> = (props) => {
         <NetworkIconGroup networkIds={networkIds ?? []} />
       </Box>
       <Box flex="1" w="full">
-        <Typography.Body2
+        <Typography.Caption
           w="full"
           numberOfLines={3}
           textAlign="center"
           color="text-subdued"
         >
           {description ?? ''}
-        </Typography.Body2>
+        </Typography.Caption>
       </Box>
     </Pressable>
   );
