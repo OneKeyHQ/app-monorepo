@@ -2,7 +2,7 @@ import type { FC, ReactNode } from 'react';
 import { createRef, useMemo } from 'react';
 
 import { setupReactNative } from '@tamagui/core';
-import { NativeBaseProvider, StatusBar, extendTheme } from 'native-base';
+import { StatusBar, extendTheme } from 'native-base';
 import { IntlProvider } from 'react-intl';
 import {
   Easing,
