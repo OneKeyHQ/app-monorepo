@@ -10,9 +10,10 @@ export const tabRoutesOrders = [
   TabRoutes.Discover,
   TabRoutes.Me,
 ];
-if (process.env.NODE_ENV !== 'production') {
-  tabRoutesOrders.push(TabRoutes.Developer);
-}
+// FIXME: Production version should be uncommented
+// if (process.env.NODE_ENV !== 'production') {
+tabRoutesOrders.push(TabRoutes.Developer);
+// }
 
 export const swapAndMarketRoutes = [TabRoutes.Swap, TabRoutes.Market];
 
@@ -66,7 +67,8 @@ export const tabRoutesConfigBaseMap: Record<TabRoutes, TabRouteConfigBase> = {
     name: TabRoutes.Developer,
     tabBarIcon: (focused) => (focused ? 'ChipOutline' : 'ChipOutline'),
     translationId: 'form__dev_mode',
-    hideOnProduction: true,
+    // FIXME: Production version should be true
+    hideOnProduction: false,
   },
 };
 
