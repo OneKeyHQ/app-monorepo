@@ -44,7 +44,7 @@ export const ModalHeader: FC<{
         nameProps={{
           typography: { sm: 'Caption', md: 'Caption' },
           color: 'text-subdued',
-          ml: '-6px',
+          ml: -6,
         }}
       />
     </Box>

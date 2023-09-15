@@ -1,7 +1,9 @@
-import { Box, VStack } from 'native-base';
+import { VStack } from 'native-base';
 import { Circle as RNCircle } from 'react-native-progress';
 
 import { useThemeValue } from '@onekeyhq/components';
+
+import { Box } from '../v2/Box';
 
 import type { CirclePropTypes } from 'react-native-progress';
 

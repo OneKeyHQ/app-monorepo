@@ -78,7 +78,6 @@ const Provider: FC<UIProviderProps> = ({
   setLeftSidebarCollapsed,
 }) => {
   const { width, height } = useWindowDimensions();
-
   const providerValue = useMemo(
     () => ({
       themeVariant,
@@ -323,7 +322,9 @@ const Provider: FC<UIProviderProps> = ({
             theme={themeVar}
           >
             <View style={{ flex: 1 }}>
-              <TamaguiProvider config={config}>{children}</TamaguiProvider>
+              <TamaguiProvider config={config} defaultTheme={themeVariant}>
+                {children}
+              </TamaguiProvider>
             </View>
           </NativeBaseProvider>
         </IntlProvider>

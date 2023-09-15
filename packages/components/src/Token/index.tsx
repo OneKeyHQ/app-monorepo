@@ -171,7 +171,7 @@ export const TokenVerifiedIcon: FC<{
   }
 
   return (
-    <Pressable p="6px" ml="-6px" onPress={toVerifiedTokenPage}>
+    <Pressable p="6px" ml={-6} onPress={toVerifiedTokenPage}>
       {icon}
     </Pressable>
   );

@@ -1,8 +1,8 @@
 import type { ComponentProps, FC } from 'react';
 
 import Address from '../Address';
-import Box from '../Box';
 import Typography from '../Typography';
+import { Box } from '../v2/Box';
 
 export type AvatarSizeVariant = 'sm' | 'md' | 'lg' | 'xl';
 

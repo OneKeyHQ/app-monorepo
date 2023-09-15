@@ -1,7 +1,7 @@
 import type { FC, ReactNode } from 'react';
 import { useState } from 'react';
 
-import { Box } from 'native-base';
+import { Box } from '../v2/Box';
 import { StyleSheet, useWindowDimensions } from 'react-native';
 import { TabView as RNTabView, TabBar } from 'react-native-tab-view';
 

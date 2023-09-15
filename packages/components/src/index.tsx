@@ -13,7 +13,7 @@ export { default as Address } from './Address';
 export { default as Alert } from './Alert';
 export { default as AlertDialog } from './AlertDialog';
 export { default as Badge } from './Badge';
-export { default as Box } from './Box';
+export { Box } from './v2';
 export { default as BottomSheetModal } from './BottomSheetModal';
 export { default as Button } from './Button';
 export { default as NftCard } from './NftCard';

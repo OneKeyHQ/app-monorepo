@@ -9,7 +9,7 @@ import {
 } from 'expo-media-library';
 import { PermissionStatus } from 'expo-modules-core';
 import { MotiView } from 'moti';
-import { Box, Center, Image } from 'native-base';
+import { Center, Image } from 'native-base';
 import { useIntl } from 'react-intl';
 import {
   Image as RNImage,
@@ -28,6 +28,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import NetImage from '../NetImage';
 import ToastManager from '../ToastManager';
+import { Box } from '../v2/Box';
 
 type ImageViewerProps = {
   visible: boolean;

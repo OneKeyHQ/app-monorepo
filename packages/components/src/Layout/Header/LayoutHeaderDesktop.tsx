@@ -2,11 +2,13 @@ import { useCallback, useEffect } from 'react';
 
 import LayoutHeader from './index';
 
-import { Box, HStack, IconButton } from '@onekeyhq/components';
+import { HStack, IconButton } from '@onekeyhq/components';
 import { NetworkAccountSelectorTriggerDesktop } from '@onekeyhq/kit/src/components/NetworkAccountSelector';
 import { useCheckUpdate } from '@onekeyhq/kit/src/hooks/useCheckUpdate';
 import HomeMoreMenu from '@onekeyhq/kit/src/views/Overlay/HomeMoreMenu';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
+import { Box } from '../../v2/Box';
 
 import type { MessageDescriptor } from 'react-intl';
 
