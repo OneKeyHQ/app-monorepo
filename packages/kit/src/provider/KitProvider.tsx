@@ -53,11 +53,11 @@ const KitProvider: FC<LaunchProps> = (propsRaw) => {
   const content = useMemo(
     () => (
       <AppLoading>
-        <ErrorBoundary>
+        {/* <ErrorBoundary> */}
           <NotificationProvider launchNotification={launchNotification} />
           <NavigationProvider />
           <WhenAppActive />
-        </ErrorBoundary>
+        {/* </ErrorBoundary> */}
       </AppLoading>
     ),
     [launchNotification],

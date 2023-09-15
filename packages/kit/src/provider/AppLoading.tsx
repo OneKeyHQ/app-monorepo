@@ -116,7 +116,10 @@ const AppLoading: FC = ({ children }) => {
   }, []);
 
   return (
-    <AnimatedSplashView initDataReady={initDataReady} bgColor={bgColor}>
+    <AnimatedSplashView
+      initDataReady={initDataReady}
+      bgColor={bgColor as string}
+    >
       {children}
     </AnimatedSplashView>
   );
