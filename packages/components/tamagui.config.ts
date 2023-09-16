@@ -1,13 +1,26 @@
 import { createAnimations } from '@tamagui/animations-moti';
-import { createInterFont } from '@tamagui/font-inter';
 import { createMedia } from '@tamagui/react-native-media-driver';
 import { shorthands } from '@tamagui/shorthands';
 import { themes } from '@tamagui/themes';
-import { createTamagui, createTokens } from 'tamagui';
+import { createFont, createTamagui, createTokens } from 'tamagui';
 
 import type { Variable } from '@tamagui/web/src/createVariable';
 
-const font = createInterFont();
+const font = createFont({
+  'lineHeight': {
+    'true': 24,
+  },
+  'weight': {
+    'true': '300',
+  },
+  'letterSpacing': {
+    'true': 0,
+  },
+  'size': {
+    'true': 14,
+  },
+});
+
 const animations = createAnimations({
   fast: {
     type: 'spring',
