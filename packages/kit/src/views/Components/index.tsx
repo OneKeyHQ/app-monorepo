@@ -3,16 +3,18 @@
 import { useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import natsort from 'natsort';
-import { FlatList, Text, TouchableOpacity } from 'react-native';
+import { FlatList, TouchableOpacity } from 'react-native';
 import { Button, Stack } from 'tamagui';
-// import {
-//   Box,
-//   Button,
-//   Center,
-//   FlatList,
-//   Pressable,
-//   Typography,
-// } from '@onekeyhq/components';
+
+import {
+  //   Box,
+  //   Button,
+  //   Center,
+  //   FlatList,
+  //   Pressable,
+  //   Typography,
+  Text,
+} from '@onekeyhq/components';
 
 import { useNavigationBack } from '../../hooks/useAppNavigation';
 import { GalleryRoutes } from '../../routes/routesEnum';

@@ -393,10 +393,12 @@ const config = createTamagui({
   themes: {
     light: {
       ...themes.light,
+      ...lightColors,
       'background-default': mergedTokens.color.bgLight,
     },
     dark: {
       ...themes.dark,
+      ...darkColors,
       'background-default': mergedTokens.color.bgDark,
     },
   },
