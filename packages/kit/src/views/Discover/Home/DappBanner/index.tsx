@@ -24,7 +24,7 @@ export const DappBanner: FC<DappBannerProps> = ({
     <Pressable
       onPress={onPress}
       width="320px"
-      h="225px"
+      h="215px"
       borderColor="border-subdued"
       borderWidth={1}
       borderRadius={12}
@@ -40,8 +40,9 @@ export const DappBanner: FC<DappBannerProps> = ({
         <Box w="full">
           <Typography.Body1Strong numberOfLines={1}>
             {title}
-          </Typography.Body1Strong>
-          <Typography.Body2 color="text-subdued" numberOfLines={2}>
+                  </Typography.Body1Strong>
+                  <Box h="4px" />
+          <Typography.Body2 color="text-subdued" numberOfLines={1}>
             {description}
           </Typography.Body2>
         </Box>
