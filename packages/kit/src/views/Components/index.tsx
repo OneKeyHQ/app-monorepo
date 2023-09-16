@@ -4,9 +4,10 @@ import { useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import natsort from 'natsort';
 import { FlatList, TouchableOpacity } from 'react-native';
-import { Button, Stack } from 'tamagui';
+import { Stack } from 'tamagui';
 
 import {
+  Button,
   //   Box,
   //   Button,
   //   Center,
@@ -33,11 +34,7 @@ type RouteProps = RouteProp<GalleryParams, StackRoutesType['Components']>;
 
 const ListHeaderComponent = () => {
   const goBack = useNavigationBack();
-  return (
-    <Button onPress={goBack}>
-      <Text>Back to HOME</Text>
-    </Button>
-  );
+  return <Button onPress={goBack}>Back to HOME</Button>;
 };
 
 const Index = () => {

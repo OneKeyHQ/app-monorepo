@@ -12,9 +12,9 @@ const FormattedText = ({ text }: { text: string | string[] }) => {
   }
   return (
     <Stack>
-      <Stack space={4}>
+      <Stack space="$1">
         {text.map((item, index) => (
-          <Stack>
+          <Stack key={index.toString()}>
             <Text>
               {index + 1}. {item}
               {index === text.length - 1 ? '。' : '；'}
@@ -45,12 +45,12 @@ export function Layout({
   return (
     <ScrollView
       flex={1}
-      marginHorizontal={10}
+      marginHorizontal="$4"
       contentContainerStyle={{ alignItems: 'center', paddingBottom: 280 }}
     >
-      <Stack space={24}>
+      <Stack space="$6">
         {description && (
-          <Stack space={8}>
+          <Stack space="$2">
             <Stack>
               <Typography.PageHeading>使用说明</Typography.PageHeading>
             </Stack>
@@ -60,7 +60,7 @@ export function Layout({
           </Stack>
         )}
         {suggestions && (
-          <Stack space={8}>
+          <Stack space="$2">
             <Stack>
               <Typography.PageHeading>使用建议</Typography.PageHeading>
             </Stack>
@@ -68,20 +68,20 @@ export function Layout({
           </Stack>
         )}
         {boundaryConditions?.length > 0 && (
-          <Stack space={8}>
+          <Stack space="$2">
             <Stack>
               <Typography.PageHeading>注意事项</Typography.PageHeading>
             </Stack>
             <FormattedText text={boundaryConditions} />
           </Stack>
         )}
-        <Stack space={8}>
+        <Stack space="$2">
           <Stack>
             <Typography.PageHeading>组件案例</Typography.PageHeading>
           </Stack>
-          <Stack space={16}>
+          <Stack space="$4">
             {elements?.map((item) => (
-              <Stack space={8}>
+              <Stack space="$2">
                 <Stack flexDirection="column">
                   <Typography.Heading>{item.title}</Typography.Heading>
                   {item.description && (
@@ -94,7 +94,7 @@ export function Layout({
               </Stack>
             ))}
           </Stack>
-          <Stack>{children && <Stack space={12}>{children}</Stack>}</Stack>
+          <Stack>{children && <Stack space="$3">{children}</Stack>}</Stack>
         </Stack>
       </Stack>
     </ScrollView>
