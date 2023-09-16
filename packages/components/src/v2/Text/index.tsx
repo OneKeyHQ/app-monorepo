@@ -23,6 +23,5 @@ export function Text({ typography, children, ...rest }: TextProps) {
   //     );
   //   }
   // }
-  console.log('---children---', children);
   return <TextComponent color="$color">{children}</TextComponent>;
 }
