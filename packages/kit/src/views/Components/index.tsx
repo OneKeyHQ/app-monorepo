@@ -62,12 +62,12 @@ const Index = () => {
           }}
         >
           <Stack
-            borderBottomWidth={index === componentsRoute.length - 1 ? '0' : '1'}
+            borderBottomWidth={index === componentsRoute.length - 1 ? 0 : 1}
             borderColor="text-subdued"
-            paddingLeft="4"
-            paddingRight="5"
-            paddingHorizontal="2"
-            marginVertical="12"
+            paddingLeft={4}
+            paddingRight={5}
+            paddingHorizontal={2}
+            marginVertical={12}
           >
             <Stack display="flex" flexDirection="row">
               <Text>{item.replace('component/', '')}</Text>
