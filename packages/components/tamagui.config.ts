@@ -7,17 +7,18 @@ import { createFont, createTamagui, createTokens } from 'tamagui';
 import type { Variable } from '@tamagui/web/src/createVariable';
 
 const font = createFont({
-  'lineHeight': {
-    'true': 24,
+  family: 'Roboto-Mono',
+  lineHeight: {
+    true: 24,
   },
-  'weight': {
-    'true': '300',
+  weight: {
+    true: '300',
   },
-  'letterSpacing': {
-    'true': 0,
+  letterSpacing: {
+    true: 0,
   },
-  'size': {
-    'true': 14,
+  size: {
+    true: 14,
   },
 });
 
