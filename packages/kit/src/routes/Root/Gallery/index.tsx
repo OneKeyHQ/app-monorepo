@@ -151,7 +151,7 @@ export const stackScreenList = [
   // { name: GalleryRoutes.ComponentMenu, component: MenuGallery },
   // { name: GalleryRoutes.ComponentList, component: ListGallery },
   // { name: GalleryRoutes.ComponentAlert, component: AlertGallery },
-  // { name: GalleryRoutes.ComponentButton, component: ButtonsGallery },
+  { name: GalleryRoutes.ComponentButton, component: ButtonsGallery },
   // { name: GalleryRoutes.ComponentIconButton, component: IconButtons },
   // { name: GalleryRoutes.ComponentSelect, component: SelectGallery },
   // { name: GalleryRoutes.ComponentEmpty, component: EmptyGallery },

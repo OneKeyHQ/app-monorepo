@@ -1,28 +1,26 @@
-import { Row } from 'native-base';
-
-import { ScrollView, Stack, Text } from '@onekeyhq/components';
+import { ScrollView, Stack, Text } from 'tamagui';
 
 const FormattedText = ({ text }: { text: string | string[] }) => {
   if (typeof text === 'string') {
     return (
-      <Row>
+      <Stack>
         <Text>{text}。 </Text>
-      </Row>
+      </Stack>
     );
   }
   return (
-    <Row>
+    <Stack>
       <Stack space={1}>
         {text.map((item, index) => (
-          <Row>
+          <Stack>
             <Text>
               {index + 1}. {item}
               {index === text.length - 1 ? '。' : '；'}
             </Text>
-          </Row>
+          </Stack>
         ))}
       </Stack>
-    </Row>
+    </Stack>
   );
 };
 
@@ -45,56 +43,56 @@ export function Layout({
   return (
     <ScrollView
       flex={1}
-      marginX={10}
+      marginHorizontal={10}
       contentContainerStyle={{ alignItems: 'center', paddingBottom: 280 }}
     >
       <Stack space={6}>
         {description && (
           <Stack space={2}>
-            <Row>
+            <Stack>
               <Text typography="PageHeading">使用说明</Text>
-            </Row>
-            <Row>
+            </Stack>
+            <Stack>
               <FormattedText text={description} />
-            </Row>
+            </Stack>
           </Stack>
         )}
         {suggestions && (
           <Stack space={2}>
-            <Row>
+            <Stack>
               <Text typography="PageHeading">使用建议</Text>
-            </Row>
+            </Stack>
             <FormattedText text={suggestions} />
           </Stack>
         )}
         {boundaryConditions?.length > 0 && (
           <Stack space={2}>
-            <Row>
+            <Stack>
               <Text typography="PageHeading">注意事项</Text>
-            </Row>
+            </Stack>
             <FormattedText text={boundaryConditions} />
           </Stack>
         )}
         <Stack space={2}>
-          <Row>
+          <Stack>
             <Text typography="PageHeading">组件案例</Text>
-          </Row>
+          </Stack>
           <Stack space={4}>
             {elements?.map((item) => (
               <Stack space={2}>
-                <Row flexDirection="column">
+                <Stack flexDirection="column">
                   <Text typography="Heading">{item.title}</Text>
                   {item.description && (
-                    <Row paddingTop={1}>
+                    <Stack paddingTop={1}>
                       <Text>{item.description}。</Text>
-                    </Row>
+                    </Stack>
                   )}
-                </Row>
-                <Row>{item.element}</Row>
+                </Stack>
+                <Stack>{item.element}</Stack>
               </Stack>
             ))}
           </Stack>
-          <Row>{children && <Stack space={3}>{children}</Stack>}</Row>
+          <Stack>{children && <Stack space={3}>{children}</Stack>}</Stack>
         </Stack>
       </Stack>
     </ScrollView>
