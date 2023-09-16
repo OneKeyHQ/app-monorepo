@@ -1,44 +1,32 @@
-import { createAnimations } from '@tamagui/animations-react-native';
+import { createAnimations } from '@tamagui/animations-moti';
 import { createInterFont } from '@tamagui/font-inter';
 import { createMedia } from '@tamagui/react-native-media-driver';
 import { shorthands } from '@tamagui/shorthands';
-import { themes, tokens } from '@tamagui/themes';
+import { themes } from '@tamagui/themes';
 import { createTamagui, createTokens } from 'tamagui';
 
 import type { Variable } from '@tamagui/web/src/createVariable';
 
+const font = createInterFont();
 const animations = createAnimations({
-  bouncy: {
+  fast: {
     type: 'spring',
-
-    damping: 10,
-
-    mass: 0.9,
-
-    stiffness: 100,
-  },
-
-  lazy: {
-    type: 'spring',
-
     damping: 20,
-
-    stiffness: 60,
-  },
-
-  quick: {
-    type: 'spring',
-
-    damping: 20,
-
     mass: 1.2,
-
     stiffness: 250,
   },
+  medium: {
+    type: 'spring',
+    damping: 10,
+    mass: 0.9,
+    stiffness: 100,
+  },
+  slow: {
+    type: 'spring',
+    damping: 20,
+    stiffness: 60,
+  },
 });
-const headingFont = createInterFont();
-
-const bodyFont = createInterFont();
 
 const lightColors = {
   bg: '#ffffff',
@@ -364,9 +352,82 @@ function postfixObjKeys<
     Object.entries(obj).map(([k, v]) => [`${k}${postfix}`, v]),
   ) as any;
 }
-
 const mergedTokens = createTokens({
-  ...tokens,
+  zIndex: {
+    0: 0,
+    1: 100,
+    2: 200,
+    3: 300,
+    4: 400,
+    5: 500,
+  },
+  size: {
+    $0: 0,
+    '$0.25': 2,
+    '$0.5': 4,
+    '$0.75': 8,
+    $1: 20,
+    '$1.5': 24,
+    $2: 28,
+    '$2.5': 32,
+    $3: 36,
+    '$3.5': 40,
+    $4: 44,
+    $true: 44,
+    '$4.5': 48,
+    $5: 52,
+    $6: 64,
+    $7: 74,
+    $8: 84,
+    $9: 94,
+    $10: 104,
+    $11: 124,
+    $12: 144,
+    $13: 164,
+    $14: 184,
+    $15: 204,
+    $16: 224,
+    $17: 224,
+    $18: 244,
+    $19: 264,
+    $20: 284,
+  },
+  radius: {
+    $0: 0,
+    $1: 4,
+    $2: 8,
+    $3: 12,
+    $4: 16,
+    $5: 20,
+    $6: 24,
+    Full: 9999,
+  },
+  space: {
+    $0: 0,
+    '$0.25': 1,
+    '$0.5': 2,
+    '$0.75': 3,
+    $1: 4,
+    '$1.5': 6,
+    $2: 8,
+    '$2.5': 10,
+    $3: 12,
+    '$3.5': 14,
+    $4: 16,
+    $true: 16,
+    '$4.5': 18,
+    $5: 20,
+    $6: 24,
+    $8: 32,
+    $9: 36,
+    $10: 40,
+    $12: 48,
+    $16: 64,
+    $20: 80,
+    $24: 96,
+    $28: 112,
+    $32: 128,
+  },
   color: {
     ...postfixObjKeys(lightColors, 'Light'),
     ...postfixObjKeys(darkColors, 'Dark'),
@@ -376,7 +437,7 @@ const mergedTokens = createTokens({
 const config = createTamagui({
   animations,
 
-  defaultTheme: 'dark',
+  defaultTheme: 'light',
 
   shouldAddPrefersColorThemes: false,
 
@@ -385,9 +446,8 @@ const config = createTamagui({
   shorthands,
 
   fonts: {
-    heading: headingFont,
-
-    body: bodyFont,
+    heading: font,
+    body: font,
   },
 
   themes: {

@@ -6848,6 +6848,7 @@ __metadata:
     "@react-navigation/native": 6.0.6
     "@react-navigation/native-stack": ^6.2.5
     "@react-navigation/stack": ^6.0.11
+    "@tamagui/animations-moti": ^1.66.0
     "@tamagui/babel-plugin": ^1.58.3
     "@tamagui/config": ^1.58.3
     "@types/levelup": ^5
@@ -6911,7 +6912,7 @@ __metadata:
     react-native-mmkv: ^2.8.0
     react-native-pager-view: 6.1.4
     react-native-randombytes: ^3.6.1
-    react-native-reanimated: 3.3.0
+    react-native-reanimated: ^3.5.2
     react-native-restart: 0.0.27
     react-native-safe-area-context: ^4.5.3
     react-native-screens: ^3.19.0
@@ -9958,6 +9959,17 @@ __metadata:
     "@tamagui/use-presence": 1.58.3
     "@tamagui/web": 1.58.3
   checksum: ae5b9e87beb5020fc2adc08d0db0e8da526d8bb7cb11eb3f4dad8bd8e5f72e4e9d6227157765c98e964076e49583de95ab59220b90752f9010a2ffa650cf0a35
+  languageName: node
+  linkType: hard
+
+"@tamagui/animations-moti@npm:^1.66.0":
+  version: 1.66.0
+  resolution: "@tamagui/animations-moti@npm:1.66.0"
+  dependencies:
+    "@tamagui/use-presence": 1.66.0
+    "@tamagui/web": 1.66.0
+    moti: ^0.25.3
+  checksum: 5c771f996baaff56b0edcaf7ac32a7b943b3b150e4587ce3afb74040b840933c0b7e7ecf99ea54dc5f79982a09a921320260ddf1fe664fd80216acaf342716e3
   languageName: node
   linkType: hard
 
