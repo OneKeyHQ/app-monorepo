@@ -1,6 +1,6 @@
-import { ScrollView, Stack, Text } from 'tamagui';
+import { ScrollView } from 'tamagui';
 
-import { Typography } from '@onekeyhq/components';
+import { Typography, Stack, Text } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const FormattedText = ({ text }: { text: string | string[] }) => {

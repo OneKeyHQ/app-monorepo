@@ -168,9 +168,9 @@ const CollectionModal: FC<CollectionModalProps> = () => {
             <Box flex={1}>
               <Typography.Body2
                 color="text-subdued"
-                onLayout={(e) => {
-                  setDescH(e.nativeEvent.layout.height);
-                }}
+                // onLayout={(e) => {
+                //   setDescH(e.nativeEvent.layout.height);
+                // }}
               >
                 {data}
               </Typography.Body2>

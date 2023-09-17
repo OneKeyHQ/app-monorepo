@@ -23,7 +23,7 @@ export const Icon: FC<IconProps> = platformEnv.isExtensionBackground
       const defaultColor = useThemeValue('icon-default');
       const primaryColor = useThemeValue(color ?? 'icon-default');
       let SVGComponent = ICON_CONFIG[name];
-      const [_, setRefreshKey] = useState(Math.random());
+      const [, setRefreshKey] = useState(Math.random());
       const isMounted = useIsMounted();
 
       useEffect(() => {
