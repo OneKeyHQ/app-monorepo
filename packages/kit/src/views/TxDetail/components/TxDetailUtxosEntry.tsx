@@ -9,13 +9,14 @@ type Props = {
   style?: ComponentProps<typeof Box>;
 };
 
-function TxDetailUtxoEntry(props: Props) {
+function TxDetailUtxosEntry(props: Props) {
   const { style, onPress } = props;
   const intl = useIntl();
   return (
     <Box {...style}>
       <Pressable.Item
-        borderRadius="18px"
+        borderRadius="12px"
+        px={4}
         onPress={onPress}
         borderWidth={1}
         borderColor="border-default"
@@ -31,4 +32,4 @@ function TxDetailUtxoEntry(props: Props) {
   );
 }
 
-export { TxDetailUtxoEntry };
+export { TxDetailUtxosEntry };

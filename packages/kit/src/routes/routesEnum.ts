@@ -283,6 +283,7 @@ export enum CreateWalletModalRoutes {
 
 export enum TransactionDetailModalRoutes {
   HistoryDetailModal = 'HistoryDetailModal',
+  UtxoDetailModal = 'UtxoDetailModal',
 }
 
 export enum SubmitRequestModalRoutes {

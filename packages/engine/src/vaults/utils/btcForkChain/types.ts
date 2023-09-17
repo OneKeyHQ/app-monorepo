@@ -202,3 +202,31 @@ export type PartialTokenInfo = {
 
 export type ArrayElement<ArrType> =
   ArrType extends readonly (infer ElementType)[] ? ElementType : never;
+
+export type BlockBookTxDetail = {
+  txid: string;
+  version: number;
+  vin: {
+    txid: string;
+    sequence: number;
+    n: number;
+    addresses: string[];
+    isAddress: boolean;
+    value: string;
+  }[];
+  vout: {
+    value: string;
+    n: number;
+    hex: string;
+    addresses: string;
+    isAddress: boolean;
+  }[];
+  blockHash: string;
+  blockHeight: number;
+  confirmations: number;
+  blockTime: number;
+  value: string;
+  valueIn: string;
+  fees: string;
+  hex: string;
+};

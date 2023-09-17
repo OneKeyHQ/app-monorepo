@@ -184,6 +184,14 @@ class BlockBook {
     return resp.hex;
   }
 
+  async getTransactionDetail(txId: string): Promise<any> {
+    const resp = await this.request
+      .get(`/api/v2/tx/${txId}`)
+      .then((i) => i.data);
+
+    return resp;
+  }
+
   async broadcastTransaction(rawTx: string): Promise<string> {
     try {
       let res: { result: string } | null = null;
