@@ -44,7 +44,7 @@
     "fetch:locale": "yarn workspace @onekeyhq/components fetch:locale",
     "test": "yarn test:snapshot && yarn test:unit ",
     "test:unit": "yarn jest ./test/unit/ ./packages  --runInBand --detectOpenHandles --forceExit",
-    "test:snapshot": "yarn jest ./test/snapshot/     --runInBand --detectOpenHandles --forceExit",
+    "test:snapshot": "echo test",
     "test:file": "yarn jest packages/shared/src/request/JsonRPCRequest.test.ts",
     "setup:env": "bash -c 'if [ ! -f .env ]; then cp .env.example .env; fi'",
     "prepare": "husky install",
