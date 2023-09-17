@@ -146,7 +146,7 @@ export const stackScreenList = [
   // },
   // { name: GalleryRoutes.ComponentNFTImage, component: NFTImageGallery },
   // { name: GalleryRoutes.ComponentTheme, component: ThemeGallery },
-  // { name: GalleryRoutes.ComponentIcon, component: IconGallery },
+  { name: GalleryRoutes.ComponentIcon, component: IconGallery },
   // { name: GalleryRoutes.ComponentBadge, component: BadgeGallery },
   // { name: GalleryRoutes.ComponentMenu, component: MenuGallery },
   // { name: GalleryRoutes.ComponentList, component: ListGallery },

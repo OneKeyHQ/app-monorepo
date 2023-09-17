@@ -1,6 +1,7 @@
 import { ScrollView, Stack, Text } from 'tamagui';
 
 import { Typography } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const FormattedText = ({ text }: { text: string | string[] }) => {
   if (typeof text === 'string') {
@@ -9,6 +10,9 @@ const FormattedText = ({ text }: { text: string | string[] }) => {
         <Text>{text}。 </Text>
       </Stack>
     );
+  }
+  if (Array.isArray(text) && text.length === 0) {
+    return null;
   }
   return (
     <Stack>
@@ -45,8 +49,12 @@ export function Layout({
   return (
     <ScrollView
       flex={1}
-      marginHorizontal="$4"
-      contentContainerStyle={{ alignItems: 'center', paddingBottom: 280 }}
+      marginHorizontal="$6"
+      contentContainerStyle={{
+        alignItems: platformEnv.isNative ? 'flex-start' : 'center',
+        paddingTop: 20,
+        paddingBottom: 280,
+      }}
     >
       <Stack space="$6">
         {description && (
