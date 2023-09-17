@@ -1,7 +1,7 @@
 /* eslint-disable */
 
-const icons = {
-  OutlinePlaceholder: () => import("./react/outline/placeholder"),
-};
-export type ICON_NAMES = keyof typeof icons;
-export default icons;
+  const icons = {
+    AkashIllus: () => import('./react/illus/Akash'),
+  }
+  export type ICON_NAMES = keyof typeof icons;
+  export default icons;
