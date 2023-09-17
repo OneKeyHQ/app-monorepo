@@ -1,5 +1,7 @@
 import Svg, { Path } from 'react-native-svg';
+
 import type { SvgProps } from 'react-native-svg';
+
 const SvgSpeaker = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path fill="currentColor" d="M12 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z" />

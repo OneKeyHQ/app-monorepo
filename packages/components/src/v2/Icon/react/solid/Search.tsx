@@ -1,5 +1,7 @@
 import Svg, { Path } from 'react-native-svg';
+
 import type { SvgProps } from 'react-native-svg';
+
 const SvgSearch = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path fill="currentColor" d="M11 15a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />

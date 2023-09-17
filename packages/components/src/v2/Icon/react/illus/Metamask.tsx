@@ -1,5 +1,7 @@
 import Svg, { Path } from 'react-native-svg';
+
 import type { SvgProps } from 'react-native-svg';
+
 const SvgMetamask = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 35 33" accessibilityRole="image" {...props}>
     <Path

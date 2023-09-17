@@ -1,5 +1,7 @@
-import Svg, { G, Path, Defs, ClipPath } from 'react-native-svg';
+import Svg, { ClipPath, Defs, G, Path } from 'react-native-svg';
+
 import type { SvgProps } from 'react-native-svg';
+
 const SvgBrandLogo = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 27 27" accessibilityRole="image" {...props}>
     <G clipPath="url(#a)">

@@ -1,5 +1,7 @@
-import Svg, { G, Path, Defs, ClipPath, Rect } from 'react-native-svg';
+import Svg, { ClipPath, Defs, G, Path, Rect } from 'react-native-svg';
+
 import type { SvgProps } from 'react-native-svg';
+
 const SvgMonero = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 16 16" accessibilityRole="image" {...props}>
     <G clipPath="url(#a)">

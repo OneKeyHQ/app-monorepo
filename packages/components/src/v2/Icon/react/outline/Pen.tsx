@@ -1,5 +1,7 @@
-import Svg, { G, Circle, Path, Defs, ClipPath } from 'react-native-svg';
+import Svg, { Circle, ClipPath, Defs, G, Path } from 'react-native-svg';
+
 import type { SvgProps } from 'react-native-svg';
+
 const SvgPen = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <G clipPath="url(#a)">

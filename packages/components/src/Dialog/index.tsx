@@ -94,7 +94,7 @@ const Dialog: FC<DialogProps> = ({
   }, []);
 
   const container = useMemo(() => {
-    console.log(contentProps, !!contentProps );
+    console.log(contentProps, !!contentProps);
     return (
       <Outer
         isVisible={!!visible}

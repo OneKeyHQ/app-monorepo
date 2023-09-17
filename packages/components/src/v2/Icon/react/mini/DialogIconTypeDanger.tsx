@@ -1,5 +1,7 @@
-import Svg, { Rect, Path } from 'react-native-svg';
+import Svg, { Path, Rect } from 'react-native-svg';
+
 import type { SvgProps } from 'react-native-svg';
+
 const SvgDialogIconTypeDanger = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 48 48" accessibilityRole="image" {...props}>
     <Rect width={48} height={48} x={0.5} fill="#6B1914" rx={24} />

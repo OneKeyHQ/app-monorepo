@@ -1,5 +1,7 @@
 import Svg, { Path } from 'react-native-svg';
+
 import type { SvgProps } from 'react-native-svg';
+
 const SvgSnowFlake = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 20 20" accessibilityRole="image" {...props}>
     <Path

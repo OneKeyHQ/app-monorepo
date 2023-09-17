@@ -26,7 +26,7 @@ const DialogGallery = () => (
                 },
                 content: (
                   <Text>
-           iod         orem Ipsum is simply dummy text of the printing and
+                    iod orem Ipsum is simply dummy text of the printing and
                     typesetting industry.
                   </Text>
                 ),

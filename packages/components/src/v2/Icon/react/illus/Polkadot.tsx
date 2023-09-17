@@ -1,5 +1,7 @@
-import Svg, { G, Path, Defs, ClipPath } from 'react-native-svg';
+import Svg, { ClipPath, Defs, G, Path } from 'react-native-svg';
+
 import type { SvgProps } from 'react-native-svg';
+
 const SvgPolkadot = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 16 16" accessibilityRole="image" {...props}>
     <G fill="#8C8CA1" clipPath="url(#a)">

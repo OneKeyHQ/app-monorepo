@@ -1,5 +1,7 @@
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
+
 import type { SvgProps } from 'react-native-svg';
+
 const SvgControllerRoundRight = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path

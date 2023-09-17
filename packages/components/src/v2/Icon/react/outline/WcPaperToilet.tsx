@@ -1,5 +1,7 @@
-import Svg, { Path, Ellipse } from 'react-native-svg';
+import Svg, { Ellipse, Path } from 'react-native-svg';
+
 import type { SvgProps } from 'react-native-svg';
+
 const SvgWcPaperToilet = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path

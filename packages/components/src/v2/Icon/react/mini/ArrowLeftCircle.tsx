@@ -1,5 +1,7 @@
-import Svg, { G, Path, Defs, ClipPath } from 'react-native-svg';
+import Svg, { ClipPath, Defs, G, Path } from 'react-native-svg';
+
 import type { SvgProps } from 'react-native-svg';
+
 const SvgArrowLeftCircle = (props: SvgProps) => (
   <Svg
     fill="currentColor"

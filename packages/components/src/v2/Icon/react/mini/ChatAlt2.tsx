@@ -1,5 +1,7 @@
 import Svg, { Path } from 'react-native-svg';
+
 import type { SvgProps } from 'react-native-svg';
+
 const SvgChatAlt2 = (props: SvgProps) => (
   <Svg
     fill="currentColor"

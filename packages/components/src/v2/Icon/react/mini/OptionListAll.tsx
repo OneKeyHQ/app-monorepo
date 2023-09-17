@@ -1,5 +1,7 @@
-import Svg, { Rect, Path } from 'react-native-svg';
+import Svg, { Path, Rect } from 'react-native-svg';
+
 import type { SvgProps } from 'react-native-svg';
+
 const SvgOptionListAll = (props: SvgProps) => (
   <Svg
     fill="currentColor"

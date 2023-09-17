@@ -1,3 +1,4 @@
+import { FlatList } from 'react-native';
 import { Stack } from 'tamagui';
 
 import { Icon, Typography } from '@onekeyhq/components';
@@ -11,10 +12,26 @@ const IconGallery = () => (
     description="图标是一种视觉符号，用于表示对象或概念"
     suggestions={['图标的设计应该简洁、易于理解、易于识别']}
     boundaryConditions={[]}
-    elements={Object.keys(Icons).map((iconName) => ({
-      title: iconName,
-      element: <Icon name={iconName as ICON_NAMES} />,
-    }))}
+    elements={[
+      {
+        title: 'icons',
+        element: (
+          <FlatList
+            style={{ flex: 1 }}
+            numColumns={4}
+            data={Object.keys(Icons) as ICON_NAMES[]}
+            renderItem={({ item }) => (
+              <Stack flex={1} width={200} key={item}>
+                <Stack space="$2" alignItems="center" justifyContent="center">
+                  <Typography.Body1>{item}</Typography.Body1>
+                  <Icon name={item} />
+                </Stack>
+              </Stack>
+            )}
+          />
+        ),
+      },
+    ]}
   />
   // <ScrollView bg="background-hovered">
   //   <Box flexDirection="row" flexWrap="wrap">

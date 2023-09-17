@@ -1,5 +1,7 @@
 import Svg, { Path } from 'react-native-svg';
+
 import type { SvgProps } from 'react-native-svg';
+
 const SvgFolderArrowDown = (props: SvgProps) => (
   <Svg
     fill="currentColor"

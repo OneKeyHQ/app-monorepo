@@ -1,11 +1,13 @@
 import Svg, {
   Circle,
-  Path,
   Defs,
   LinearGradient,
+  Path,
   Stop,
 } from 'react-native-svg';
+
 import type { SvgProps } from 'react-native-svg';
+
 const SvgStarBadge = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 20 20" accessibilityRole="image" {...props}>
     <Circle cx={10} cy={10} r={10} fill="url(#a)" />

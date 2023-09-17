@@ -1,5 +1,7 @@
-import Svg, { Path, Defs, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Defs, Path, RadialGradient, Stop } from 'react-native-svg';
+
 import type { SvgProps } from 'react-native-svg';
+
 const SvgHardwareAboutDeviceBg = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 330 330" accessibilityRole="image" {...props}>
     <Path fill="url(#a)" d="M0 0h330v330H0z" />

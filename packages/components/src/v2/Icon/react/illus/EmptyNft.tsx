@@ -1,5 +1,7 @@
-import Svg, { G, Rect, Defs, ClipPath } from 'react-native-svg';
+import Svg, { ClipPath, Defs, G, Rect } from 'react-native-svg';
+
 import type { SvgProps } from 'react-native-svg';
+
 const SvgEmptyNft = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 98 98" accessibilityRole="image" {...props}>
     <G clipPath="url(#a)">

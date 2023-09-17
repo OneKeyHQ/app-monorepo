@@ -54,9 +54,9 @@ const KitProvider: FC<LaunchProps> = (propsRaw) => {
     () => (
       <AppLoading>
         {/* <ErrorBoundary> */}
-          <NotificationProvider launchNotification={launchNotification} />
-          <NavigationProvider />
-          <WhenAppActive />
+        <NotificationProvider launchNotification={launchNotification} />
+        <NavigationProvider />
+        <WhenAppActive />
         {/* </ErrorBoundary> */}
       </AppLoading>
     ),

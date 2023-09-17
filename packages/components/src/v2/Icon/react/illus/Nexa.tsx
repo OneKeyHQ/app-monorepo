@@ -1,5 +1,7 @@
 import Svg, { Path } from 'react-native-svg';
+
 import type { SvgProps } from 'react-native-svg';
+
 const SvgNexa = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 16 16" accessibilityRole="image" {...props}>
     <Path fill="#8C8CA1" d="m7.979 10.776 6.02-6.497-6.02 9.905v-3.408Z" />
