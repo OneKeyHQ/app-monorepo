@@ -113,7 +113,7 @@ const SearchInput: FC = () => {
               alignItems="center"
               onPress={onSearch}
             >
-              <Typography.Button2>
+              <Typography.Button2 color="#fff">
                 {intl.formatMessage({ id: 'action__go' })}
               </Typography.Button2>
             </Pressable>
@@ -154,7 +154,7 @@ export const Header = () => {
       >
         <Image source={PNG} w="full" h="full" />
         <Center position="absolute" w="full" h="full">
-          <Typography.PageHeading fontSize={36} lineHeight={50}>
+          <Typography.PageHeading color="#fff" fontSize={36} lineHeight={50}>
             {intl.formatMessage({ id: 'title__discover_dapps' })}
           </Typography.PageHeading>
           <Box w="4/5" mt="6">

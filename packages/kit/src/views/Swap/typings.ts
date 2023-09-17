@@ -194,6 +194,7 @@ export type QuoteData = {
   protocolFees?: ProtocolFees;
   estimatedPriceImpact?: string;
   onChainSatsPerVbyte?: string;
+  notImpactBySlippage?: boolean;
 };
 
 type WrapperTransactionType = 'Withdraw' | 'Deposite';

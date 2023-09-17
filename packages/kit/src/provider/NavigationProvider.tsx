@@ -138,8 +138,8 @@ const NavigationApp = () => {
     () => (
       <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
         <ChainWebEmbed />
-        <CustomToast bottomOffset={60} />
         <PortalContainer name={FULLWINDOW_OVERLAY_PORTAL} />
+        <CustomToast bottomOffset={60} />
       </View>
     ),
     [],

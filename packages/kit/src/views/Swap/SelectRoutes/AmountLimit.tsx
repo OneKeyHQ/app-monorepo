@@ -2,7 +2,7 @@ import type { FC, ReactElement } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Divider, Typography } from '@onekeyhq/components';
+import { Box, Typography } from '@onekeyhq/components';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import { useTokenAmount } from '../hooks/useSwap';
@@ -51,12 +51,7 @@ export const AmountLimit: FC<AmountLimitProps> = ({ response, token }) => {
   }
 
   if (elem) {
-    return (
-      <Box>
-        <Divider my="3" />
-        {elem}
-      </Box>
-    );
+    return <Box mt="3">{elem}</Box>;
   }
 
   return null;
