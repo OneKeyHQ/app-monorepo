@@ -57,7 +57,7 @@ export const DappItemOutline: FC<DappRenderItemProps> = (props) => {
       alignItems="center"
       justifyContent="center"
       borderRadius={12}
-      borderWidth={1}
+      borderWidth={0.5}
       borderColor="border-subdued"
       _hover={{ bgColor: 'surface-hovered' }}
       _pressed={{ bgColor: 'surface-pressed' }}
@@ -112,10 +112,12 @@ export const DappItemPlain: FC<DappItemPlainProps> = (props) => {
             <DAppIcon url={logoURI} size={48} />
           </Box>
           <Box flex="1">
-            <Typography.Body1Strong>{title}</Typography.Body1Strong>
+                      <Typography.Body1Strong>{title}</Typography.Body1Strong>
+                      <Box h="4px" />
             <Typography.Body2 color="text-subdued" numberOfLines={2}>
               {description}
-            </Typography.Body2>
+                      </Typography.Body2>
+                      <Box h="4px" />
             <NetworkIconGroup networkIds={networkIds ?? []} />
           </Box>
         </Box>

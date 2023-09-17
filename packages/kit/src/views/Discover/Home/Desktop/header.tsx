@@ -112,6 +112,7 @@ const SearchInput: FC = () => {
               justifyContent="center"
               alignItems="center"
               onPress={onSearch}
+              _hover={{ bgColor: '#222'}}
             >
               <Typography.Button2 color="#fff">
                 {intl.formatMessage({ id: 'action__go' })}

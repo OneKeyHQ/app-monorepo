@@ -128,7 +128,7 @@ const DAppIcon: FC<DAppIconProps> = ({ url, size, networkIds, ...rest }) => {
       width={`${size}px`}
       height={`${size}px`}
       borderRadius={`${borderRadius}px`}
-      borderWidth="1px"
+      borderWidth="0.5px"
       borderColor="border-subdued"
       {...rest}
     >
