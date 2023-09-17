@@ -5,13 +5,20 @@ import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Alert, Box, Container, Text } from '@onekeyhq/components';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
-import { useNetworkSimple } from '../../hooks';
+import { useNavigation, useNetworkSimple } from '../../hooks';
+import {
+  ModalRoutes,
+  RootRoutes,
+  TransactionDetailModalRoutes,
+} from '../../routes/routesEnum';
 import { MAX_ACTIONS_DISPLAY_IN_CONFIRM } from '../Send/constants';
 
 import { TxDetailAdvanceInfoBox } from './components/TxDetailAdvanceInfoBox';
 import { TxDetailExtraInfoBox } from './components/TxDetailExtraInfoBox';
 import { TxTopInfoBox } from './components/TxDetailTopInfoBox';
+import { TxDetailUtxosEntry } from './components/TxDetailUtxosEntry';
 import { TxInteractInfo } from './components/TxInteractInfo';
 import { getReplacedTxAlertTextKeys } from './elements/TxActionElementReplacedTxText';
 import { TxActionsListView } from './TxActionsListView';
@@ -39,6 +46,7 @@ export function TxDetailView(props: ITxActionListViewProps) {
   const intl = useIntl();
 
   const displayedActions = getDisplayedActions({ decodedTx });
+  const navigation = useNavigation();
 
   const isMultipleActions = displayedActions.length > 1;
 
@@ -179,6 +187,25 @@ export function TxDetailView(props: ITxActionListViewProps) {
               <TxActionsListView {...props} transformType="T1" space={6} />
             )}
           </Box>
+
+          {[OnekeyNetwork.btc, OnekeyNetwork.tbtc].includes(
+            decodedTx.networkId,
+          ) ? (
+            <TxDetailUtxosEntry
+              style={{ mt: 6 }}
+              onPress={() => {
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.TransactionDetail,
+                  params: {
+                    screen: TransactionDetailModalRoutes.UtxoDetailModal,
+                    params: {
+                      decodedTx,
+                    },
+                  },
+                });
+              }}
+            />
+          ) : null}
         </>
       </TxDetailContextProvider>
     </>
