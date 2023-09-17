@@ -1,7 +1,5 @@
 import Svg, { Path } from 'react-native-svg';
-
 import type { SvgProps } from 'react-native-svg';
-
 const SvgAkash = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 16 16" accessibilityRole="image" {...props}>
     <Path
@@ -11,7 +9,7 @@ const SvgAkash = (props: SvgProps) => (
       clipRule="evenodd"
     />
     <Path
-      fill="#8C8fiCA1"
+      fill="#8C8CA1"
       fillRule="evenodd"
       d="M6.154 9.634 7.95 12.48h3.592L9.746 9.634H6.154Z"
       clipRule="evenodd"

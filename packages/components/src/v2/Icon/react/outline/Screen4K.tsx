@@ -1,6 +1,6 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
-const Svg4K = (props: SvgProps) => (
+const SvgScreen4K = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
       stroke="currentColor"
@@ -15,4 +15,4 @@ const Svg4K = (props: SvgProps) => (
     />
   </Svg>
 );
-export default Svg4K;
+export default SvgScreen4K;

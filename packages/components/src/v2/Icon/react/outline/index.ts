@@ -1,4 +1,3 @@
-export { default as Svg4K } from './4K';
 export { default as Newspaper } from './Newspaper';
 export { default as WcPaperToilet } from './WcPaperToilet';
 export { default as AccessibilityEye } from './AccessibilityEye';
@@ -635,6 +634,7 @@ export { default as Ruler } from './Ruler';
 export { default as Sandbox } from './Sandbox';
 export { default as Scan } from './Scan';
 export { default as School } from './School';
+export { default as Screen4K } from './Screen4K';
 export { default as SdCard1 } from './SdCard1';
 export { default as SdCard2 } from './SdCard2';
 export { default as SearchMenu } from './SearchMenu';
