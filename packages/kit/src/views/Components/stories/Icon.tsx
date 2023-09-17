@@ -1,4 +1,4 @@
-import { FlatList } from 'react-native';
+import { FlatList, View } from 'react-native';
 import { Stack } from 'tamagui';
 
 import { Icon, Typography } from '@onekeyhq/components';
@@ -17,15 +17,15 @@ const IconGallery = () => (
         title: 'icons',
         element: (
           <FlatList
-            style={{ flex: 1 }}
+            style={{ width: '100%' }}
             numColumns={4}
             data={Object.keys(Icons) as ICON_NAMES[]}
             renderItem={({ item }) => (
-              <Stack flex={1} width={200} key={item}>
-                <Stack space="$2" alignItems="center" justifyContent="center">
-                  <Typography.Body1>{item}</Typography.Body1>
+              <Stack width="25%" height={80} alignItems="center" key={item}>
+                <Typography.Caption>{item}</Typography.Caption>
+                <View style={{ position: 'absolute', bottom: 10 }}>
                   <Icon name={item} />
-                </Stack>
+                </View>
               </Stack>
             )}
           />
