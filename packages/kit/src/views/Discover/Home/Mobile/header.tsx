@@ -79,7 +79,7 @@ export const Header = () => {
   }, [navigation]);
 
   return (
-    <Box px="4" py="3">
+    <Box px="4" py="3" background="background-default">
       <Box
         flexDirection="row"
         bg="background-default"
