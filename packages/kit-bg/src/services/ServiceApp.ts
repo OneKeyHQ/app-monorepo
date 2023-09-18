@@ -212,7 +212,7 @@ class ServiceApp extends ServiceBase {
       (s) => s.settings?.pushNotification?.pushEnable,
     );
     if (pushEnable) {
-      await serviceNotification.syncPushNotificationConfig('reset');
+      serviceNotification.syncPushNotificationConfig('reset');
     }
     await persistor.purge();
     webTabsActions.closeAllWebTabs();

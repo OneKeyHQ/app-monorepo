@@ -103,7 +103,7 @@ const SearchInput: FC = () => {
           }}
         />
         <Box position="absolute" right="0" top="0">
-          <Box h="12" w="54px" p="2">
+          <Box h="12" w="72px" p="2">
             <Pressable
               w="full"
               h="full"
@@ -154,7 +154,7 @@ export const Header = () => {
       >
         <Image source={PNG} w="full" h="full" />
         <Center position="absolute" w="full" h="full">
-          <Typography.PageHeading color="#fff" fontSize={36} lineHeight={50}>
+          <Typography.PageHeading color="text-default" fontSize={36} lineHeight={50}>
             {intl.formatMessage({ id: 'title__discover_dapps' })}
           </Typography.PageHeading>
           <Box w="4/5" mt="6">
