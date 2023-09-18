@@ -51,30 +51,12 @@ export interface IPasswordRes {
 export default class ServicePassword extends ServiceBase {
   private data?: string;
 
-  private passwordPromise: Promise<IPasswordRes> | undefined;
-
-  private promiseMap: Record<
-    string,
-    {
-      resolve: (res: IPasswordRes) => void;
-    }
-  > = {};
-
   getRandomString() {
     return generateUUID();
   }
 
   clearData() {
     this.data = undefined;
-  }
-
-  setPromiseMap(
-    promiseId: string,
-    promise: {
-      resolve: (res: IPasswordRes) => void;
-    },
-  ) {
-    this.promiseMap[promiseId] = promise;
   }
 
   async setData(password: string): Promise<string> {
@@ -265,16 +247,14 @@ export default class ServicePassword extends ServiceBase {
     title?: string;
     subTitle?: string;
     networkId?: string;
-  }): Promise<IPasswordRes> {
-    // check multiple call
-    if (
-      this.passwordPromise &&
-      Promise.resolve(this.passwordPromise) === this.passwordPromise
-    ) {
-      return this.passwordPromise;
-    }
-    const { serviceLightningNetwork, appSelector, serviceApp, engine } =
-      this.backgroundApi;
+  }) {
+    const {
+      serviceLightningNetwork,
+      appSelector,
+      serviceApp,
+      engine,
+      servicePromise,
+    } = this.backgroundApi;
 
     setTimeout(() => {
       serviceApp.checkUpdateStatus();
@@ -353,9 +333,8 @@ export default class ServicePassword extends ServiceBase {
     }
 
     // password input
-    this.passwordPromise = new Promise<IPasswordRes>((resolve) => {
-      const promiseId = this.getRandomString();
-      this.setPromiseMap(promiseId, { resolve });
+    return new Promise((resolve, reject) => {
+      const promiseId = servicePromise.createCallback({ resolve, reject });
       this.backgroundApi.dispatch(
         setBackgroundPasswordPrompt({
           promiseId,
@@ -370,16 +349,5 @@ export default class ServicePassword extends ServiceBase {
         }),
       );
     });
-
-    return this.passwordPromise;
-  }
-
-  @backgroundMethod()
-  backgroundPromptPasswordDialogRes(promiseId: string, res: IPasswordRes) {
-    const promise = this.promiseMap[promiseId];
-    if (promise) {
-      promise.resolve(res);
-    }
-    this.passwordPromise = undefined;
   }
 }

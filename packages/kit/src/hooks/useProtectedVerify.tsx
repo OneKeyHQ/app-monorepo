@@ -19,6 +19,7 @@ import type {
   ImportableHDAccount,
 } from '@onekeyhq/engine/src/types/account';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import type { IPasswordRes } from '@onekeyhq/kit-bg/src/services/ServicePassword';
 import { EPasswordResStatus } from '@onekeyhq/kit-bg/src/services/ServicePassword';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -64,18 +65,18 @@ import type { IKeytagRoutesParams } from '../views/KeyTag/Routes/types';
 export const useProtectedVerify = () => {
   const intl = useIntl();
   const showProtected = useCallback(
-    (promiseId: string, props?: ProtectedBaseProps) =>
+    (promiseId: number, props?: ProtectedBaseProps) =>
       showOverlay((close) => (
         <BottomSheetModal
           title={props?.title || intl.formatMessage({ id: 'Verify_Password' })}
           closeOverlay={() => {
-            backgroundApiProxy.servicePassword.backgroundPromptPasswordDialogRes(
-              promiseId,
-              {
+            backgroundApiProxy.servicePromise.resolveCallback({
+              id: promiseId,
+              data: {
                 status: EPasswordResStatus.CLOSE_STATUS,
                 data: { password: '' },
               },
-            );
+            });
             close();
           }}
         >
@@ -84,9 +85,9 @@ export const useProtectedVerify = () => {
               password,
               { withEnableAuthentication, isLocalAuthentication },
             ) => {
-              backgroundApiProxy.servicePassword.backgroundPromptPasswordDialogRes(
-                promiseId,
-                {
+              backgroundApiProxy.servicePromise.resolveCallback({
+                id: promiseId,
+                data: {
                   status: EPasswordResStatus.PASS_STATUS,
                   data: {
                     password,
@@ -96,7 +97,7 @@ export const useProtectedVerify = () => {
                     },
                   },
                 },
-              );
+              });
               close();
             }}
           </Protected>
@@ -118,7 +119,7 @@ export const useSetPassword = () => {
   return useCallback(
     async (mnemonic?: string) => {
       const { status, data } =
-        await backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
+        await (backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
           {
             walletId: null,
             field: ValidationFields.Wallet,
@@ -126,7 +127,7 @@ export const useSetPassword = () => {
             hideTitle: true,
             isAutoHeight: true,
           },
-        );
+        ) as Promise<IPasswordRes>);
       if (status === EPasswordResStatus.PASS_STATUS) {
         if (mnemonic) {
           showDialog(
@@ -169,13 +170,13 @@ export const useImportedAccountDone = () => {
     async (p: IAddImportedAccountDoneModalParams) => {
       try {
         const { status, data } =
-          await backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
+          await (backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
             {
               walletId: null,
               skipSavePassword: true,
               field: ValidationFields.Account,
             },
-          );
+          ) as Promise<IPasswordRes>);
         if (status === EPasswordResStatus.PASS_STATUS) {
           const accountAdded =
             await backgroundApiProxy.serviceAccount.addImportedAccount(
@@ -213,10 +214,10 @@ export const useImportedAccountDone = () => {
 export const useAuthentication = () =>
   useCallback(async (walletId: string, onDone: (password: string) => void) => {
     const { status, data } =
-      await backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog({
+      await (backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog({
         field: ValidationFields.Wallet,
         walletId,
-      });
+      }) as Promise<IPasswordRes>);
     if (status === EPasswordResStatus.PASS_STATUS) {
       onDone(data.password);
     }
@@ -249,13 +250,13 @@ export const useRecoverConfirm = () => {
       config: RecoverAccountsAdvancedParams;
     }) => {
       const { status, data } =
-        await backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
+        await (backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
           {
             field: ValidationFields.Account,
             walletId,
             skipSavePassword: true,
           },
-        );
+        ) as Promise<IPasswordRes>);
       if (status === EPasswordResStatus.PASS_STATUS) {
         navigation.navigate(CreateAccountModalRoutes.RecoverAccountsConfirm, {
           password: data.password,
@@ -279,12 +280,12 @@ export const useBackupLite = () => {
   return useCallback(
     async (walletId: string) => {
       const { status, data } =
-        await backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
+        await (backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
           {
             field: ValidationFields.Secret,
             walletId,
           },
-        );
+        ) as Promise<IPasswordRes>);
       if (status === EPasswordResStatus.PASS_STATUS) {
         backgroundApiProxy.engine
           .revealHDWalletMnemonic(walletId, data.password)
@@ -315,12 +316,12 @@ export const useBackupManual = () => {
   return useCallback(
     async (walletId: string) => {
       const { status, data } =
-        await backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
+        await (backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
           {
             field: ValidationFields.Secret,
             walletId,
           },
-        );
+        ) as Promise<IPasswordRes>);
       if (status === EPasswordResStatus.PASS_STATUS) {
         navigation.navigate(
           BackupWalletModalRoutes.BackupWalletAttentionsModal,
@@ -345,13 +346,13 @@ export const useAppWalletDone = () => {
     ) => {
       try {
         const { status, data } =
-          await backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
+          await (backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
             {
               field: ValidationFields.Wallet,
               walletId: null,
               skipSavePassword: true,
             },
-          );
+          ) as Promise<IPasswordRes>);
         if (status === EPasswordResStatus.PASS_STATUS) {
           const walletAdded =
             await backgroundApiProxy.serviceAccount.createHDWallet({
@@ -388,9 +389,9 @@ export const useEnableLocalAuthentication = () => {
   const { enableLocalAuthentication } = useSettings();
   return useCallback(async () => {
     const { status, data } =
-      await backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog({
+      await (backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog({
         walletId: null,
-      });
+      }) as Promise<IPasswordRes>);
     if (status === EPasswordResStatus.PASS_STATUS) {
       if (!enableLocalAuthentication && !data.options?.isLocalAuthentication) {
         const result = await localAuthenticate();
@@ -421,11 +422,11 @@ export const useEnableWebAuth = () => {
   return useCallback(async () => {
     try {
       const { status } =
-        await backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
+        await (backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
           {
             walletId: null,
           },
-        );
+        ) as Promise<IPasswordRes>);
       if (status === EPasswordResStatus.PASS_STATUS) {
         if (enableWebAuthnState) {
           disableWebAuthn();
@@ -460,11 +461,11 @@ export const useOnekeyHardwareDetailsAuth = () => {
     async (walletId: string) => {
       try {
         const { status, data } =
-          await backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
+          await (backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
             {
               walletId,
             },
-          );
+          ) as Promise<IPasswordRes>);
         if (status === EPasswordResStatus.PASS_STATUS) {
           navigation.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.OnekeyHardware,
@@ -498,11 +499,11 @@ export const useOnekeyHardwareDeviceNameAuth = () => {
     async (walletId: string) => {
       try {
         const { status } =
-          await backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
+          await (backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
             {
               walletId,
             },
-          );
+          ) as Promise<IPasswordRes>);
         if (status === EPasswordResStatus.PASS_STATUS) {
           navigation.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.OnekeyHardware,
@@ -541,13 +542,13 @@ export const useOnekeyLiteRestoreDoneAuth = () => {
     }) => {
       try {
         const { status, data } =
-          await backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
+          await (backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
             {
               walletId: null,
               field: ValidationFields.Wallet,
               skipSavePassword: true,
             },
-          );
+          ) as Promise<IPasswordRes>);
         if (status === EPasswordResStatus.PASS_STATUS) {
           await backgroundApiProxy.serviceAccount.createHDWallet({
             password: data.password,
@@ -583,12 +584,12 @@ export const useKeyTagVerifyPassword = () => {
       navigateMode?: boolean;
     }) => {
       const { status, data } =
-        await backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
+        await (backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
           {
             walletId,
             field: ValidationFields.Secret,
           },
-        );
+        ) as Promise<IPasswordRes>);
       if (status === EPasswordResStatus.PASS_STATUS) {
         navigation.navigate(KeyTagRoutes.KeyTagAttention, {
           walletId,
@@ -615,13 +616,13 @@ export const useExportPublicAuth = () => {
       networkId: string;
     }) => {
       const { status, data } =
-        await backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
+        await (backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
           {
             walletId,
             skipSavePassword: true,
             field: ValidationFields.Secret,
           },
-        );
+        ) as Promise<IPasswordRes>);
       if (status === EPasswordResStatus.PASS_STATUS) {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.ManagerAccount,
@@ -654,13 +655,13 @@ export const useExportPrivateAuth = () => {
       accountCredential: AccountCredential;
     }) => {
       const { status, data } =
-        await backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
+        await (backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
           {
             walletId: null,
             skipSavePassword: true,
             field: ValidationFields.Secret,
           },
-        );
+        ) as Promise<IPasswordRes>);
       if (status === EPasswordResStatus.PASS_STATUS) {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.ManagerAccount,
@@ -695,12 +696,12 @@ export const useManegerWalletLocalValidation = () =>
     }) => {
       try {
         const { status, data } =
-          await backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
+          await (backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
             {
               walletId: null,
               field,
             },
-          );
+          ) as Promise<IPasswordRes>);
         if (status === EPasswordResStatus.PASS_STATUS) {
           onSuccess(requestId ?? '', data.password);
         } else {
@@ -732,13 +733,13 @@ export const useActivateTokenAuth = () =>
     }) => {
       try {
         const { status, data } =
-          await backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
+          await (backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
             {
               walletId,
               skipSavePassword: true,
               field: ValidationFields.Payment,
             },
-          );
+          ) as Promise<IPasswordRes>);
         if (status === EPasswordResStatus.PASS_STATUS) {
           const result = await backgroundApiProxy.engine.activateToken(
             data.password,
@@ -763,10 +764,10 @@ export const useActivateTokenAuth = () =>
 export const useSendAuthentication = () =>
   useCallback(async (walletId: string) => {
     const { status, data } =
-      await backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog({
+      await (backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog({
         walletId,
         field: ValidationFields.Payment,
-      });
+      }) as Promise<IPasswordRes>);
     if (status === EPasswordResStatus.PASS_STATUS) {
       return data.password;
     }
@@ -778,7 +779,7 @@ export const useWalletTabsWithAuth = () => {
   return useCallback(
     async ({ walletId, accountId, networkId, networkName }) => {
       const { status, data } =
-        await backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
+        await (backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
           {
             walletId,
             networkId,
@@ -790,7 +791,7 @@ export const useWalletTabsWithAuth = () => {
               { '0': networkName },
             ),
           },
-        );
+        ) as Promise<IPasswordRes>);
       if (status === EPasswordResStatus.PASS_STATUS && data.password) {
         if (
           !networkId ||

@@ -68,32 +68,6 @@ const Protected: FC<ProtectedProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // useEffect(() => {
-  //   if (network?.settings.validationRequired && !isPasswordLoadedInVault) {
-  //     setPassword('');
-  //   }
-  // }, [isPasswordLoadedInVault, network]);
-
-  // useEffect(() => {
-  //   if (checkIsNeedPassword) {
-  //     checkIsNeedPassword().then((value) => {
-  //       setIsNeedInputPassword(value);
-  //     });
-  //   }
-  // }, [checkIsNeedPassword]);
-
-  // if (isExternalWallet) {
-  //   console.log('1');
-  //   return (
-  //     <Box flex={1}>
-  //       {children(password, {
-  //         withEnableAuthentication,
-  //         isLocalAuthentication,
-  //       })}
-  //     </Box>
-  //   );
-  // }
-
   if (password) {
     return (
       <Box w="full" h="full">

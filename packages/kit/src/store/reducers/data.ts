@@ -19,7 +19,7 @@ export type DataInitialState = {
   translations?: Record<string, Record<string, string>>;
   isPasswordLoadedInVault?: boolean;
   backgroudPasswordPrompt?: {
-    promiseId: string;
+    promiseId: number;
     props?: ProtectedBaseProps;
   };
 };
@@ -88,7 +88,7 @@ export const dataSlice = createSlice({
     setBackgroundPasswordPrompt(
       state,
       action: PayloadAction<{
-        promiseId: string;
+        promiseId: number;
         props?: ProtectedBaseProps;
       }>,
     ) {
