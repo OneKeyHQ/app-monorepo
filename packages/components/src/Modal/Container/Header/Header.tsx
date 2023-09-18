@@ -5,11 +5,11 @@ import { StyleSheet } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import Box from '../../../Box';
 import Center from '../../../Center';
 import HStack from '../../../HStack';
 import IconButton from '../../../IconButton';
 import Typography from '../../../Typography';
+import { Box } from '../../../v2/Box';
 
 import NavigationButton from './NavigationButton';
 
@@ -32,7 +32,7 @@ const Header: FC<HeaderProps> = ({
           <Box rounded="full" bgColor="icon-disabled" w={10} h={1} />
         </Center>
         <HStack px={4} py={1}>
-          <Box flex={1} h="28px" justifyContent="center" ml="-6px">
+          <Box flex={1} h={28} justifyContent="center" ml={-6}>
             {!firstIndex && !hideBackButton ? (
               <IconButton
                 size="lg"
@@ -44,7 +44,7 @@ const Header: FC<HeaderProps> = ({
               />
             ) : null}
           </Box>
-          <Box w="224px">
+          <Box w={224}>
             <Typography.Heading textAlign="center">{header}</Typography.Heading>
             {headerDescription ? (
               <Box alignItems="center">

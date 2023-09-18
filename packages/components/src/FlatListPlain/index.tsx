@@ -2,8 +2,8 @@ import { Fragment, memo } from 'react';
 
 import { isArray } from 'lodash';
 
-import Box from '../Box';
 import { createFlatListDefaultProps } from '../FlatList';
+import { Box } from '../v2/Box';
 
 import type { FlatListProps } from '../FlatList';
 

@@ -1,7 +1,9 @@
 import type { FC } from 'react';
 import { Fragment, useEffect, useMemo } from 'react';
 
-import { Box, OverlayContainer } from '@onekeyhq/components';
+import { Stack } from 'tamagui';
+
+import { OverlayContainer } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -64,7 +66,7 @@ export const AppLockView: FC<AppLockProps> = ({
       : Fragment;
 
   return (
-    <Box w="full" h="full" testID="AppLockView">
+    <Stack width="100%" height="100%" testID="AppLockView">
       {showUnlockView && renderAsOverlay ? (
         <Parent>
           <OverlayContainer>
@@ -75,7 +77,7 @@ export const AppLockView: FC<AppLockProps> = ({
       {prerequisites && isUnlock ? <AppStateUpdater /> : null}
       {isUnlock ? <AppStateHeartbeat /> : null}
       {children}
-    </Box>
+    </Stack>
   );
 };
 

@@ -135,135 +135,135 @@ export type GalleryParams = {
 
 export const stackScreenList = [
   { name: GalleryRoutes.Components, component: ComponentsScreen },
-  { name: GalleryRoutes.ComponentTextarea, component: TextareaGallery },
-  { name: GalleryRoutes.ComponentSearchBar, component: SearchbarGallery },
-  { name: GalleryRoutes.ComponentAddress, component: AddressGallery },
-  { name: GalleryRoutes.ComponentInput, component: InputGallery },
-  { name: GalleryRoutes.ComponentCard, component: NftCardGallery },
-  {
-    name: GalleryRoutes.ComponentTypography,
-    component: TypographyGallery,
-  },
-  { name: GalleryRoutes.ComponentNFTImage, component: NFTImageGallery },
-  { name: GalleryRoutes.ComponentTheme, component: ThemeGallery },
+  // { name: GalleryRoutes.ComponentTextarea, component: TextareaGallery },
+  // { name: GalleryRoutes.ComponentSearchBar, component: SearchbarGallery },
+  // { name: GalleryRoutes.ComponentAddress, component: AddressGallery },
+  // { name: GalleryRoutes.ComponentInput, component: InputGallery },
+  // { name: GalleryRoutes.ComponentCard, component: NftCardGallery },
+  // {
+  //   name: GalleryRoutes.ComponentTypography,
+  //   component: TypographyGallery,
+  // },
+  // { name: GalleryRoutes.ComponentNFTImage, component: NFTImageGallery },
+  // { name: GalleryRoutes.ComponentTheme, component: ThemeGallery },
   { name: GalleryRoutes.ComponentIcon, component: IconGallery },
-  { name: GalleryRoutes.ComponentBadge, component: BadgeGallery },
-  { name: GalleryRoutes.ComponentMenu, component: MenuGallery },
-  { name: GalleryRoutes.ComponentList, component: ListGallery },
-  { name: GalleryRoutes.ComponentAlert, component: AlertGallery },
+  // { name: GalleryRoutes.ComponentBadge, component: BadgeGallery },
+  // { name: GalleryRoutes.ComponentMenu, component: MenuGallery },
+  // { name: GalleryRoutes.ComponentList, component: ListGallery },
+  // { name: GalleryRoutes.ComponentAlert, component: AlertGallery },
   { name: GalleryRoutes.ComponentButton, component: ButtonsGallery },
-  { name: GalleryRoutes.ComponentIconButton, component: IconButtons },
-  { name: GalleryRoutes.ComponentSelect, component: SelectGallery },
-  { name: GalleryRoutes.ComponentEmpty, component: EmptyGallery },
-  { name: GalleryRoutes.ComponentToast, component: ToastGallery },
-  { name: GalleryRoutes.ComponentAccount, component: AccountGallery },
-  {
-    name: GalleryRoutes.ComponentWalletSelector,
-    component: WalletSelectorGallery,
-  },
-  {
-    name: GalleryRoutes.ComponentAccountSelector,
-    component: AccountSelectorGallery,
-  },
-  { name: GalleryRoutes.ComponentCheckbox, component: CheckBoxGallery },
-  { name: GalleryRoutes.ComponentSpinner, component: SpinnerGallery },
-  { name: GalleryRoutes.ComponentModal, component: ModalGallery },
-  { name: GalleryRoutes.ComponentRadio, component: RadioGallery },
-  { name: GalleryRoutes.ComponentRadioBox, component: RadioBoxGallery },
-  { name: GalleryRoutes.ComponentSwitch, component: SwitchGallery },
-  { name: GalleryRoutes.ComponentForm, component: FormGallery },
-  { name: GalleryRoutes.ComponentQRCode, component: QRCodeGallery },
-  { name: GalleryRoutes.ComponentMarkdown, component: MarkdownGallery },
-  { name: GalleryRoutes.ComponentDialog, component: DialogGallery },
-  {
-    name: GalleryRoutes.ComponentPageActions,
-    component: PageActionsGallery,
-  },
-  {
-    name: GalleryRoutes.ComponentSortableList,
-    component: SortableListGallery,
-  },
-  { name: GalleryRoutes.ComponentTabs, component: TabsGallery },
-  {
-    name: GalleryRoutes.ComponentSegmentedControl,
-    component: SegmentedControl,
-  },
-  { name: GalleryRoutes.ComponentShadow, component: ShadowsGallery },
-  { name: GalleryRoutes.ComponentPinCode, component: PinCodeGallery },
-  { name: GalleryRoutes.ComponentAppUpdate, component: AppUpdateGallery },
-  { name: GalleryRoutes.ComponentSkeleton, component: SkeletonGallery },
-  {
-    name: GalleryRoutes.ComponentRestfulRequest,
-    component: RestfulRequest,
-  },
-  {
-    name: GalleryRoutes.ComponentLogger,
-    component: LoggerGallery,
-  },
-  {
-    name: GalleryRoutes.ComponentWebview,
-    component: WebViewGallery,
-  },
-  {
-    name: GalleryRoutes.ComponentImageViewer,
-    component: ImageViewerGallery,
-  },
-  {
-    name: GalleryRoutes.ComponentEmojiList,
-    component: EmojiGallery,
-  },
-  {
-    name: GalleryRoutes.ComponentContentBox,
-    component: ContainerGallery,
-  },
-  {
-    name: GalleryRoutes.ComponentKeyboard,
-    component: KeyboardGallery,
-  },
-  {
-    name: GalleryRoutes.ComponentPopover,
-    component: PopoverGallery,
-  },
-  { name: GalleryRoutes.ComponentPriceChart, component: PriceChart },
-  { name: GalleryRoutes.ComponentTypeWriter, component: TypeWriter },
-  {
-    name: GalleryRoutes.ComponentHomescreen,
-    component: HardwareHomescreen,
-  },
-  {
-    name: GalleryRoutes.ComponentToggleButtonGroup,
-    component: ToggleButtonGroupGallery,
-  },
-  {
-    name: GalleryRoutes.ComponentCollapse,
-    component: CollapseGallery,
-  },
-  { name: GalleryRoutes.ComponentDotMap, component: DotMapGallery },
-  {
-    name: GalleryRoutes.ComponentBottomSheetModal,
-    component: BottomSheetModalGallery,
-  },
-  {
-    name: GalleryRoutes.ComponentNavHeaderGallery,
-    component: NavHeaderGallery,
-  },
-  {
-    name: GalleryRoutes.ComponentMnemonicCardGallery,
-    component: MnemonicCardGallery,
-  },
-  {
-    name: GalleryRoutes.ComponentSlider,
-    component: SliderGallery,
-  },
-  {
-    name: GalleryRoutes.ComponentDeepFresh,
-    component: DemoDeepFresh,
-  },
-  {
-    name: GalleryRoutes.ComponentCollapsibleTabView,
-    component: CollapsibleTabView,
-    option: { headerShown: false },
-  },
+  // { name: GalleryRoutes.ComponentIconButton, component: IconButtons },
+  // { name: GalleryRoutes.ComponentSelect, component: SelectGallery },
+  // { name: GalleryRoutes.ComponentEmpty, component: EmptyGallery },
+  // { name: GalleryRoutes.ComponentToast, component: ToastGallery },
+  // { name: GalleryRoutes.ComponentAccount, component: AccountGallery },
+  // {
+  //   name: GalleryRoutes.ComponentWalletSelector,
+  //   component: WalletSelectorGallery,
+  // },
+  // {
+  //   name: GalleryRoutes.ComponentAccountSelector,
+  //   component: AccountSelectorGallery,
+  // },
+  // { name: GalleryRoutes.ComponentCheckbox, component: CheckBoxGallery },
+  // { name: GalleryRoutes.ComponentSpinner, component: SpinnerGallery },
+  // { name: GalleryRoutes.ComponentModal, component: ModalGallery },
+  // { name: GalleryRoutes.ComponentRadio, component: RadioGallery },
+  // { name: GalleryRoutes.ComponentRadioBox, component: RadioBoxGallery },
+  // { name: GalleryRoutes.ComponentSwitch, component: SwitchGallery },
+  // { name: GalleryRoutes.ComponentForm, component: FormGallery },
+  // { name: GalleryRoutes.ComponentQRCode, component: QRCodeGallery },
+  // { name: GalleryRoutes.ComponentMarkdown, component: MarkdownGallery },
+  // { name: GalleryRoutes.ComponentDialog, component: DialogGallery },
+  // {
+  //   name: GalleryRoutes.ComponentPageActions,
+  //   component: PageActionsGallery,
+  // },
+  // {
+  //   name: GalleryRoutes.ComponentSortableList,
+  //   component: SortableListGallery,
+  // },
+  // { name: GalleryRoutes.ComponentTabs, component: TabsGallery },
+  // {
+  //   name: GalleryRoutes.ComponentSegmentedControl,
+  //   component: SegmentedControl,
+  // },
+  // { name: GalleryRoutes.ComponentShadow, component: ShadowsGallery },
+  // { name: GalleryRoutes.ComponentPinCode, component: PinCodeGallery },
+  // { name: GalleryRoutes.ComponentAppUpdate, component: AppUpdateGallery },
+  // { name: GalleryRoutes.ComponentSkeleton, component: SkeletonGallery },
+  // {
+  //   name: GalleryRoutes.ComponentRestfulRequest,
+  //   component: RestfulRequest,
+  // },
+  // {
+  //   name: GalleryRoutes.ComponentLogger,
+  //   component: LoggerGallery,
+  // },
+  // {
+  //   name: GalleryRoutes.ComponentWebview,
+  //   component: WebViewGallery,
+  // },
+  // {
+  //   name: GalleryRoutes.ComponentImageViewer,
+  //   component: ImageViewerGallery,
+  // },
+  // {
+  //   name: GalleryRoutes.ComponentEmojiList,
+  //   component: EmojiGallery,
+  // },
+  // {
+  //   name: GalleryRoutes.ComponentContentBox,
+  //   component: ContainerGallery,
+  // },
+  // {
+  //   name: GalleryRoutes.ComponentKeyboard,
+  //   component: KeyboardGallery,
+  // },
+  // {
+  //   name: GalleryRoutes.ComponentPopover,
+  //   component: PopoverGallery,
+  // },
+  // { name: GalleryRoutes.ComponentPriceChart, component: PriceChart },
+  // { name: GalleryRoutes.ComponentTypeWriter, component: TypeWriter },
+  // {
+  //   name: GalleryRoutes.ComponentHomescreen,
+  //   component: HardwareHomescreen,
+  // },
+  // {
+  //   name: GalleryRoutes.ComponentToggleButtonGroup,
+  //   component: ToggleButtonGroupGallery,
+  // },
+  // {
+  //   name: GalleryRoutes.ComponentCollapse,
+  //   component: CollapseGallery,
+  // },
+  // { name: GalleryRoutes.ComponentDotMap, component: DotMapGallery },
+  // {
+  //   name: GalleryRoutes.ComponentBottomSheetModal,
+  //   component: BottomSheetModalGallery,
+  // },
+  // {
+  //   name: GalleryRoutes.ComponentNavHeaderGallery,
+  //   component: NavHeaderGallery,
+  // },
+  // {
+  //   name: GalleryRoutes.ComponentMnemonicCardGallery,
+  //   component: MnemonicCardGallery,
+  // },
+  // {
+  //   name: GalleryRoutes.ComponentSlider,
+  //   component: SliderGallery,
+  // },
+  // {
+  //   name: GalleryRoutes.ComponentDeepFresh,
+  //   component: DemoDeepFresh,
+  // },
+  // {
+  //   name: GalleryRoutes.ComponentCollapsibleTabView,
+  //   component: CollapsibleTabView,
+  //   option: { headerShown: false },
+  // },
 ];
 
 const DevStack = createNativeStackNavigator();
@@ -273,7 +273,6 @@ const DevScreen = () => {
     'surface-subdued',
     'text-default',
   ]);
-
   return (
     <DevStack.Navigator>
       <DevStack.Group
@@ -281,10 +280,10 @@ const DevScreen = () => {
           headerBackTitle: '',
           headerTitleAlign: 'center',
           headerStyle: {
-            backgroundColor: bgColor,
+            backgroundColor: bgColor as string,
           },
           header: renderCustomSubStackHeader,
-          headerTintColor: textColor,
+          headerTintColor: textColor as string,
         }}
       >
         {stackScreenList.map((stack) => (

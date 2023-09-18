@@ -3,7 +3,7 @@ import { useEffect, useMemo } from 'react';
 
 import { TransitionPresets } from '@react-navigation/stack';
 import { useIntl } from 'react-intl';
-import { Platform } from 'react-native';
+import { Platform, Text } from 'react-native';
 import KeyboardManager from 'react-native-keyboard-manager';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
@@ -87,45 +87,48 @@ export const RootApp = () => {
 
   return (
     <RootNavigatorContainer>
-      <RootStack.Screen name={RootRoutes.Main} component={Main} />
-      <RootStack.Screen
-        name={RootRoutes.Modal}
-        component={ModalStackNavigator}
-        options={modalScreenOptions}
-      />
-
-      <RootStack.Screen
-        name={RootRoutes.Onboarding}
-        component={RouteOnboarding}
-        /*
-        presentation issues:
-        - containedModal: cannot close new opened Modal
-        - card: cannot prevent gesture back (iOS)
-        - fullScreenModal: cannot use OverlayContainer some cases
-         */
-        options={{
-          // node_modules/@react-navigation/native-stack/src/types.tsx
-          // @ts-expect-error
-          presentation: 'fullScreenModal', // containedModal card fullScreenModal
-          animation: 'fade',
-        }}
-      />
-      <RootStack.Screen
-        name={RootRoutes.Account}
-        component={AccountRootLanding}
-      />
-      <RootStack.Screen name={RootRoutes.OnLanding} component={OnLanding} />
-      <RootStack.Screen
-        name={RootRoutes.OnLandingWalletConnect}
-        component={OnLanding}
-      />
-      {process.env.NODE_ENV !== 'production' && (
+      {
+        // <RootStack.Screen name={RootRoutes.Main} component={Main} />
+        // <RootStack.Screen
+        //   name={RootRoutes.Modal}
+        //   component={ModalStackNavigator}
+        //   options={modalScreenOptions}
+        // />
+        // <RootStack.Screen
+        //   name={RootRoutes.Onboarding}
+        //   component={RouteOnboarding}
+        //   /*
+        //   presentation issues:
+        //   - containedModal: cannot close new opened Modal
+        //   - card: cannot prevent gesture back (iOS)
+        //   - fullScreenModal: cannot use OverlayContainer some cases
+        //    */
+        //   options={{
+        //     // node_modules/@react-navigation/native-stack/src/types.tsx
+        //     // @ts-expect-error
+        //     presentation: 'fullScreenModal', // containedModal card fullScreenModal
+        //     animation: 'fade',
+        //   }}
+        // />
+        // <RootStack.Screen
+        //   name={RootRoutes.Account}
+        //   component={AccountRootLanding}
+        // />
+        // <RootStack.Screen name={RootRoutes.OnLanding} component={OnLanding} />
+        // <RootStack.Screen
+        //   name={RootRoutes.OnLandingWalletConnect}
+        //   component={OnLanding}
+        // />
+      }
+      {
+        // process.env.NODE_ENV !== 'production' && (
         <RootStack.Screen
           name={RootRoutes.Gallery}
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           component={require('./Gallery').default}
         />
-      )}
+        // )
+      }
     </RootNavigatorContainer>
   );
 };

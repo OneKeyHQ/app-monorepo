@@ -4,6 +4,8 @@ import { cloneElement, useCallback, useMemo, useState } from 'react';
 import { MotiView } from 'moti';
 import { KeyboardAvoidingView, StyleSheet, View } from 'react-native';
 
+import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
+
 import Box from '../Box';
 import KeyboardDismissView from '../KeyboardDismissView';
 import OverlayContainer from '../OverlayContainer';
@@ -91,8 +93,9 @@ const Dialog: FC<DialogProps> = ({
     setInnerVisible((v) => !v);
   }, []);
 
-  const container = useMemo(
-    () => (
+  const container = useMemo(() => {
+    console.log(contentProps, !!contentProps);
+    return (
       <Outer
         isVisible={!!visible}
         onClose={() => {
@@ -136,18 +139,17 @@ const Dialog: FC<DialogProps> = ({
           </KeyboardAvoidingView>
         </KeyboardDismissView>
       </Outer>
-    ),
-    [
-      visible,
-      props,
-      contentProps,
-      footerButtonProps,
-      canceledOnTouchOutside,
-      footerMoreView,
-      handleClose,
-      onClose,
-    ],
-  );
+    );
+  }, [
+    visible,
+    props,
+    contentProps,
+    footerButtonProps,
+    canceledOnTouchOutside,
+    footerMoreView,
+    handleClose,
+    onClose,
+  ]);
 
   const triggerNode = useMemo(() => {
     if (!trigger) return null;
@@ -160,6 +162,33 @@ const Dialog: FC<DialogProps> = ({
       {container}
     </>
   );
+};
+
+export const confirm = (
+  props: {
+    content?: React.ReactElement;
+  } & DialogProps,
+) => {
+  const { content, ...restProps } = props;
+  showOverlay((closeOverlay) => {
+    const onClose = () => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      restProps.onClose?.();
+      closeOverlay();
+    };
+    const element = (
+      <Dialog
+        {...restProps}
+        visible
+        onClose={onClose}
+        contentProps={{
+          ...restProps.contentProps,
+          contentElement: content,
+        }}
+      />
+    );
+    return cloneElement(element);
+  });
 };
 
 export default Dialog;

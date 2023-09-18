@@ -140,24 +140,24 @@ function normalizeConfig({ platform, config }) {
       },
       'lodash',
     ],
-    [
-      'babel-plugin-import',
-      {
-        'libraryName': '@onekeyhq/components',
-        'camel2DashComponentName': false, // default: true
-        'customName': customAliasForComponents,
-      },
-      '@onekeyhq_components',
-    ],
-    [
-      'babel-plugin-import',
-      {
-        'libraryName': '@onekeyhq/components/src',
-        'camel2DashComponentName': false, // default: true
-        'customName': customAliasForComponents,
-      },
-      '@onekeyhq_components_src',
-    ],
+    // [
+    //   'babel-plugin-import',
+    //   {
+    //     'libraryName': '@onekeyhq/components',
+    //     'camel2DashComponentName': false, // default: true
+    //     'customName': customAliasForComponents,
+    //   },
+    //   '@onekeyhq_components',
+    // ],
+    // [
+    //   'babel-plugin-import',
+    //   {
+    //     'libraryName': '@onekeyhq/components/src',
+    //     'camel2DashComponentName': false, // default: true
+    //     'customName': customAliasForComponents,
+    //   },
+    //   '@onekeyhq_components_src',
+    // ],
     [
       'babel-plugin-inline-import',
       {

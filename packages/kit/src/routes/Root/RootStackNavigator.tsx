@@ -90,11 +90,11 @@ export const RootStackNavigator = memo(() => {
   }, [dispatch]);
 
   useHtmlPreloadSplashLogoRemove({ isDelay: true });
-
-  return (
-    <AppLock>
-      <RootApp />
-    </AppLock>
-  );
+  return <RootApp />;
+  // return (
+  //   <AppLock>
+  //     <RootApp />
+  //   </AppLock>
+  // );
 });
 RootStackNavigator.displayName = 'RootStackNavigator';
