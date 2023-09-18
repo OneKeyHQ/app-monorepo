@@ -36,7 +36,7 @@ const ReceiveAddress: FC = () => {
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const { serviceInscribe } = backgroundApiProxy;
+  const { engine } = backgroundApiProxy;
   const {
     networkId,
     accountId,
@@ -50,16 +50,12 @@ const ReceiveAddress: FC = () => {
   const addressFilter = useCallback(
     async (address: string) => {
       try {
-        return await serviceInscribe.checkValidTaprootAddress({
-          address,
-          networkId,
-          accountId,
-        });
+        return !!(await engine.validator.validateAddress(networkId, address));
       } catch (error) {
         return Promise.resolve(false);
       }
     },
-    [accountId, networkId, serviceInscribe],
+    [engine.validator, networkId],
   );
   const {
     control,
@@ -89,13 +85,11 @@ const ReceiveAddress: FC = () => {
             errorMessage: '',
             successMessage: '',
           });
-          const isTaprootAddress =
-            await serviceInscribe.checkValidTaprootAddress({
-              address: value,
-              networkId,
-              accountId,
-            });
-          if (isTaprootAddress) {
+          const isValidAddress = await engine.validator.validateAddress(
+            networkId,
+            value,
+          );
+          if (isValidAddress) {
             setvalidateMessage({
               warningMessage: '',
               errorMessage: '',
@@ -107,17 +101,17 @@ const ReceiveAddress: FC = () => {
             setvalidateMessage({
               warningMessage: '',
               errorMessage: intl.formatMessage({
-                id: 'msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address',
+                id: 'form__address_invalid',
               }),
               successMessage: '',
             });
           }
-          return isTaprootAddress;
+          return isValidAddress;
         } catch (error) {
           setvalidateMessage({
             warningMessage: '',
             errorMessage: intl.formatMessage({
-              id: 'msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address',
+              id: 'form__address_invalid',
             }),
             successMessage: '',
           });
@@ -125,7 +119,7 @@ const ReceiveAddress: FC = () => {
         }
       }, 100);
     },
-    [accountId, intl, networkId, serviceInscribe],
+    [engine.validator, intl, networkId],
   );
 
   const submitDisabled =

@@ -21,7 +21,6 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
-import { TaprootAddressError } from '@onekeyhq/engine/src/errors';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
@@ -193,21 +192,6 @@ function PreSendBRC20TokenAmount() {
     [],
   );
 
-  const validateAddress = useCallback(
-    async (address: string) => {
-      try {
-        await backgroundApiProxy.serviceInscribe.checkValidTaprootAddress({
-          address,
-          networkId,
-          accountId,
-        });
-      } catch (error) {
-        throw new TaprootAddressError();
-      }
-    },
-    [accountId, networkId],
-  );
-
   const handleCreateAmount = useCallback(() => {
     if (accountId && networkId && token) {
       navigation.navigate(RootRoutes.Modal, {
@@ -284,9 +268,6 @@ function PreSendBRC20TokenAmount() {
           to: '',
           amount: '0',
           transferInfos,
-          validateAddress: async (_, address) => {
-            await validateAddress(address);
-          },
 
           closeModal: modalClose,
         },
@@ -301,7 +282,6 @@ function PreSendBRC20TokenAmount() {
     selectedAmounts,
     token?.address,
     token?.tokenIdOnNetwork,
-    validateAddress,
   ]);
 
   const TokenAmountFooter = useMemo(() => {

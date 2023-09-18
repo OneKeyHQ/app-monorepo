@@ -44,7 +44,7 @@ function BRC20Amount() {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
   const { networkId, accountId, token } = route?.params || {};
-  const { serviceInscribe } = backgroundApiProxy;
+  const { engine, serviceInscribe } = backgroundApiProxy;
   const { account } = useAccount({ networkId, accountId });
 
   const tokenBalance = useBRC20TokenBalance({
@@ -66,17 +66,16 @@ function BRC20Amount() {
   const onPromise = useCallback(async () => {
     const receiveAddress = account?.address;
 
-    const isTaprootAddress = await serviceInscribe.checkValidTaprootAddress({
-      address: receiveAddress ?? '',
+    const isValidAddress = await engine.validator.validateAddress(
       networkId,
-      accountId,
-    });
+      receiveAddress ?? '',
+    );
 
-    if (!receiveAddress || !isTaprootAddress) {
+    if (!receiveAddress || !isValidAddress) {
       ToastManager.show(
         {
           title: intl.formatMessage({
-            id: 'msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address',
+            id: 'form__address_invalid',
           }),
         },
         { type: 'error' },
@@ -121,6 +120,7 @@ function BRC20Amount() {
   }, [
     account?.address,
     accountId,
+    engine.validator,
     getValues,
     intl,
     navigation,
