@@ -146,7 +146,11 @@ const HorizontalContent: FC<ContentProps> = ({ data }) => {
 export const SectionFeatured = () => {
   const groupDapps = useGroupDapps();
   if (groupDapps.length === 0) {
-    return <EmptySkeleton />;
+    return (
+      <Box py="2">
+        <EmptySkeleton />
+      </Box>
+    );
   }
   return (
     <Box w="full" pb="2">

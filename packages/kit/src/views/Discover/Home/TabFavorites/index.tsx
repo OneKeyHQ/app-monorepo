@@ -45,6 +45,7 @@ export const SectionFavorites = () => {
           const o = convertMatchDAppItemType(item);
           return (
             <DappItemPlain
+              key={item.id}
               title={o.name}
               description={o.subtitle}
               networkIds={o.networkIds}
