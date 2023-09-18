@@ -115,11 +115,13 @@ export const useFrozenBalance = ({
   accountId,
   tokenId,
   useRecycleBalance,
+  useManuallyAddedAddressBalance,
 }: {
   networkId: string;
   accountId: string;
   tokenId: string;
   useRecycleBalance?: boolean;
+  useManuallyAddedAddressBalance?: boolean;
 }) => {
   const [frozenBalance, setFrozenBalance] = useState<
     number | Record<string, number>
@@ -142,13 +144,14 @@ export const useFrozenBalance = ({
           networkId,
           password,
           useRecycleBalance,
+          useManuallyAddedAddressBalance,
         })
         .then(setFrozenBalance)
         .catch((e) => {
           debugLogger.common.error('getFrozenBalance error', e);
         });
     })();
-  }, [networkId, accountId, useRecycleBalance]);
+  }, [networkId, accountId, useRecycleBalance, useManuallyAddedAddressBalance]);
 
   return useMemo(
     () =>

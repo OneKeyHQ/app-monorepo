@@ -191,10 +191,12 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     password,
     useRecycleBalance,
     ignoreInscriptions,
+    useManuallyAddedAddressBalance,
   }: {
     password?: string;
     useRecycleBalance?: boolean;
     ignoreInscriptions?: boolean;
+    useManuallyAddedAddressBalance?: boolean;
   } = {}): Promise<number | Record<string, number>> {
     return 0;
   }
@@ -203,10 +205,12 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     password,
     useRecycleBalance,
     ignoreInscriptions,
+    useManuallyAddedAddressBalance,
   }: {
     password?: string;
     useRecycleBalance?: boolean;
     ignoreInscriptions?: boolean;
+    useManuallyAddedAddressBalance?: boolean;
   } = {}): Promise<IBalanceDetails | undefined> {
     return Promise.resolve(undefined);
   }

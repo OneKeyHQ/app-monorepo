@@ -333,12 +333,14 @@ export function FormatBalanceTokenOfAccount({
   accountId,
   networkId,
   useRecycleBalance,
+  useManuallyAddedAddressBalance,
 }: {
   render?: (c: JSX.Element) => JSX.Element;
   token?: Partial<Token> | null;
   accountId: string;
   networkId: string;
   useRecycleBalance?: boolean;
+  useManuallyAddedAddressBalance?: boolean;
 }) {
   const tokenBalance = useTokenBalanceWithoutFrozen({
     networkId,
@@ -346,6 +348,7 @@ export function FormatBalanceTokenOfAccount({
     token,
     fallback: '0',
     useRecycleBalance: useRecycleBalance ?? token?.isNative,
+    useManuallyAddedAddressBalance,
   });
 
   const { network } = useActiveSideAccount({

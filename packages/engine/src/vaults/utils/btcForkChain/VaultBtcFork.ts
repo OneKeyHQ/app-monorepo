@@ -1938,13 +1938,16 @@ export default class VaultBtcFork extends VaultBase {
   override async getFrozenBalance({
     useRecycleBalance,
     ignoreInscriptions,
+    useManuallyAddedAddressBalance,
   }: {
     useRecycleBalance?: boolean;
     ignoreInscriptions?: boolean;
+    useManuallyAddedAddressBalance?: boolean;
   } = {}): Promise<number> {
     const result = await this.fetchBalanceDetails({
       useRecycleBalance,
       ignoreInscriptions,
+      useManuallyAddedAddressBalance,
     });
     if (result && !isNil(result?.unavailable)) {
       return new BigNumber(result.unavailable).toNumber();
@@ -1955,9 +1958,11 @@ export default class VaultBtcFork extends VaultBase {
   override async fetchBalanceDetails({
     useRecycleBalance,
     ignoreInscriptions,
+    useManuallyAddedAddressBalance,
   }: {
     useRecycleBalance?: boolean;
     ignoreInscriptions?: boolean;
+    useManuallyAddedAddressBalance?: boolean;
   } = {}): Promise<IBalanceDetails | undefined> {
     const [dbAccount, network] = await Promise.all([
       this.getDbAccount() as Promise<DBUTXOAccount>,
@@ -1982,9 +1987,14 @@ export default class VaultBtcFork extends VaultBase {
           };
         }),
       };
+    } else if (useManuallyAddedAddressBalance) {
+      collectUTXOsInfoParams = {
+        manuallyAddedAddresses: dbAccount.customAddresses
+          ? Object.values(dbAccount.customAddresses)
+          : [],
+      };
     }
 
-    const recycleUtxos = await this.getRecycleInscriptionUtxos(dbAccount.xpub);
     const { utxos, valueDetails, ordQueryStatus } = await this.collectUTXOsInfo(
       collectUTXOsInfoParams,
     );

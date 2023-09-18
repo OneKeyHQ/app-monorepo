@@ -197,6 +197,7 @@ function PreSendAmount() {
     },
     useRecycleBalance: tokenInfo?.isNative,
     fallback: '0',
+    useManuallyAddedAddressBalance: true,
   });
 
   const frozenBalance = useFrozenBalance({
@@ -204,6 +205,7 @@ function PreSendAmount() {
     accountId,
     tokenId: tokenInfo?.tokenIdOnNetwork || 'main',
     useRecycleBalance: tokenInfo?.isNative,
+    useManuallyAddedAddressBalance: true,
   });
 
   const originalTokenBalance = useTokenBalance({
@@ -354,6 +356,7 @@ function PreSendAmount() {
     networkId,
     accountId,
     useRecycleBalance: tokenInfo?.isNative,
+    useManuallyAddedAddressBalance: true,
   });
 
   return (
@@ -498,6 +501,7 @@ function PreSendAmount() {
                     ...(tokenInfo || {}),
                     sendAddress: transferInfo.tokenSendAddress,
                   }}
+                  useManuallyAddedAddressBalance
                   render={(ele) => (
                     <Typography.Body1Strong
                       color={

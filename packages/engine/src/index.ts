@@ -3021,11 +3021,13 @@ class Engine {
     networkId,
     password,
     useRecycleBalance,
+    useManuallyAddedAddressBalance,
   }: {
     accountId: string;
     networkId: string;
     password?: string;
     useRecycleBalance?: boolean;
+    useManuallyAddedAddressBalance?: boolean;
   }) {
     if (!networkId || !accountId) return 0;
     const vault = await this.getVault({
@@ -3042,6 +3044,7 @@ class Engine {
       password,
       useRecycleBalance,
       ignoreInscriptions: shouldHideInscriptions,
+      useManuallyAddedAddressBalance,
     });
   }
 
