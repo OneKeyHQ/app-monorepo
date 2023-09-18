@@ -34,8 +34,8 @@ import type {
   DBSimpleAccount,
 } from '../../types/account';
 import type {
-  IPrepareImportedAccountsParams,
   IPrepareHdAccountsParams,
+  IPrepareImportedAccountsParams,
 } from '../types';
 import type VaultBtcFork from '../utils/btcForkChain/VaultBtcFork';
 
