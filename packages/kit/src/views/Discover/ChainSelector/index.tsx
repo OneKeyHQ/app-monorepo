@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Icon,
   Image,
   Modal,
   Pressable,
@@ -109,6 +110,7 @@ export const ChainSelector = () => {
           if (isHovered) return 'surface-hovered';
           return 'transparent';
         };
+        const isActive = item.networkId === route.params.currentNetworkId;
         return (
           <Box
             p="2"
@@ -116,18 +118,30 @@ export const ChainSelector = () => {
             borderRadius={12}
             flexDirection="row"
             bg={boxBg()}
+            justifyContent="space-between"
           >
-            <Image
-              borderRadius="full"
-              overflow="hidden"
-              src={item.logoURI}
-              w="10"
-              h="10"
-              mr="2"
-            />
-            <Typography.Body1Strong>
-              {item.fullname ? item.fullname : item.name}
-            </Typography.Body1Strong>
+            <Box flexDirection="row" alignItems="center">
+              <Image
+                borderRadius="full"
+                overflow="hidden"
+                src={item.logoURI}
+                w="10"
+                h="10"
+                mr="2"
+              />
+              <Typography.Body1Strong>
+                {item.fullname ? item.fullname : item.name}
+              </Typography.Body1Strong>
+            </Box>
+            {isActive ? (
+              <Box>
+                <Icon
+                  name="CheckCircleSolid"
+                  size={20}
+                  color="interactive-default"
+                />
+              </Box>
+            ) : null}
           </Box>
         );
       }}
