@@ -438,8 +438,15 @@ function BTCAssetDetailContent({
           )}
           {!!asset.output_value_sat && (
             <DetailItem
-              title={intl.formatMessage({ id: 'form__ordinal_value' })}
+              title={intl.formatMessage({ id: 'form__utxo_value' })}
               value={`${asset.output_value_sat} sats`}
+            />
+          )}
+          {!!asset.location && (
+            <DetailItem
+              // TODO replace
+              title="Offset"
+              value={asset.output.split(':')[1]}
             />
           )}
           {!!asset.content_length && (

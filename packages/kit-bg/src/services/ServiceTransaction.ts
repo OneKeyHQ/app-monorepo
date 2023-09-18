@@ -280,4 +280,17 @@ export default class ServiceTransaction extends ServiceBase {
     const dbAccount = await vault.getDbAccount();
     return vault.getNextNonce(networkId, dbAccount);
   }
+
+  @backgroundMethod()
+  async getTransactionDetail({
+    txId,
+    networkId,
+  }: {
+    txId: string;
+    networkId: string;
+  }) {
+    const { engine } = this.backgroundApi;
+    const vault = await engine.getChainOnlyVault(networkId);
+    return vault.getTransactionDetail(txId);
+  }
 }
