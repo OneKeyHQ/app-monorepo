@@ -246,3 +246,5 @@ export const isLightningNetworkByImpl = (impl?: string) =>
 export const isLightningNetworkByNetworkId = (networkId?: string) =>
   networkId === OnekeyNetwork.lightning ||
   networkId === OnekeyNetwork.tlightning;
+export const isBitcoinNetwork = (networkId?: string) =>
+  networkId === OnekeyNetwork.btc || networkId === OnekeyNetwork.tbtc;

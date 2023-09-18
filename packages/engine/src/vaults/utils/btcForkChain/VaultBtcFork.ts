@@ -1987,7 +1987,8 @@ export default class VaultBtcFork extends VaultBase {
           };
         }),
       };
-    } else if (useManuallyAddedAddressBalance) {
+    }
+    if (useManuallyAddedAddressBalance) {
       collectUTXOsInfoParams = {
         manuallyAddedAddresses: dbAccount.customAddresses
           ? Object.values(dbAccount.customAddresses)
@@ -2001,7 +2002,6 @@ export default class VaultBtcFork extends VaultBase {
     if (ordQueryStatus === 'ERROR') {
       this.collectUTXOsInfo.clear();
     }
-
     // find frozen utxo
     const frozenUtxos = await this.getFrozenUtxos(dbAccount.xpub, utxos);
     const allFrozenUtxo = utxos.filter((utxo) =>

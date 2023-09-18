@@ -45,6 +45,7 @@ import {
   showAccountBalanceDetailsOverlay,
   useAccountBalanceDetailsInfo,
 } from '../../Overlay/AccountBalanceDetailsPanel';
+import BalanceTypeMenu from '../components/BalanceTypeMenu';
 import { BaseSendModal } from '../components/BaseSendModal';
 import { PreSendAmountAlert } from '../components/PreSendAmountAlert';
 import { SendModalRoutes } from '../enums';
@@ -176,7 +177,8 @@ function PreSendAmount() {
   const { account, accountId, networkId, network } =
     useActiveSideAccount(transferInfo);
   const { engine } = backgroundApiProxy;
-
+  const [useManuallyAddedAddressBalance, setUseManuallyAddedAddressBalance] =
+    useState(false);
   useReloadAccountBalance({
     networkId,
     accountId,
@@ -197,7 +199,7 @@ function PreSendAmount() {
     },
     useRecycleBalance: tokenInfo?.isNative,
     fallback: '0',
-    useManuallyAddedAddressBalance: true,
+    useManuallyAddedAddressBalance,
   });
 
   const frozenBalance = useFrozenBalance({
@@ -205,7 +207,7 @@ function PreSendAmount() {
     accountId,
     tokenId: tokenInfo?.tokenIdOnNetwork || 'main',
     useRecycleBalance: tokenInfo?.isNative,
-    useManuallyAddedAddressBalance: true,
+    useManuallyAddedAddressBalance,
   });
 
   const originalTokenBalance = useTokenBalance({
@@ -356,7 +358,7 @@ function PreSendAmount() {
     networkId,
     accountId,
     useRecycleBalance: tokenInfo?.isNative,
-    useManuallyAddedAddressBalance: true,
+    useManuallyAddedAddressBalance,
   });
 
   return (
@@ -477,9 +479,12 @@ function PreSendAmount() {
         <Box mt="auto">
           <Box flexDirection="row" alignItems="center">
             <Box flex={1}>
-              <Typography.Caption color="text-subdued">
-                {intl.formatMessage({ id: 'content__available_balance' })}
-              </Typography.Caption>
+              <BalanceTypeMenu
+                networkId={networkId}
+                callback={(value) =>
+                  setUseManuallyAddedAddressBalance(value === 'Manually')
+                }
+              />
               <Pressable
                 onPress={
                   balanceDetailsInfo.enabled
@@ -501,7 +506,9 @@ function PreSendAmount() {
                     ...(tokenInfo || {}),
                     sendAddress: transferInfo.tokenSendAddress,
                   }}
-                  useManuallyAddedAddressBalance
+                  useManuallyAddedAddressBalance={
+                    useManuallyAddedAddressBalance
+                  }
                   render={(ele) => (
                     <Typography.Body1Strong
                       color={
