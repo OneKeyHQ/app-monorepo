@@ -880,6 +880,10 @@ class Provider {
       Buffer.from(signature, 'hex'),
     );
   }
+
+  getTransactionDetail(txId: string) {
+    return this.blockbook.then((client) => client.getTransactionDetail(txId));
+  }
 }
 
 export { Provider };

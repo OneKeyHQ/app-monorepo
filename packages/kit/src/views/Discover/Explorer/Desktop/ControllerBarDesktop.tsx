@@ -23,6 +23,8 @@ import { gotoSite, openMatchDApp } from '../Controller/gotoSite';
 import { useWebController } from '../Controller/useWebController';
 import SearchView from '../Search/SearchView';
 
+import { ToolbarMoreMenu } from './ToolbarMoreMenu';
+
 import type {
   MatchDAppItemType,
   SearchViewKeyEventType,
@@ -250,6 +252,9 @@ const ControllerBarDesktop: FC = () => {
             );
           }}
         </Pressable>
+        <ToolbarMoreMenu>
+          <IconButton type="plain" name="EllipsisVerticalOutline" size="xs" />
+        </ToolbarMoreMenu>
       </HStack>
       <SearchView
         ref={searchView}

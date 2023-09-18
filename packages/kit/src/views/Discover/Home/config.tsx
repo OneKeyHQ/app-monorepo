@@ -16,6 +16,10 @@ type TabItemConfig = {
   hide?: boolean;
 };
 
+function toUpperCase(s: string) {
+  return s.toUpperCase();
+}
+
 export const useTabConfig = (): TabItemConfig[] => {
   const intl = useIntl();
   const showBookmark = useShowBookmark();
@@ -23,19 +27,21 @@ export const useTabConfig = (): TabItemConfig[] => {
     const options = [
       {
         name: TabName.Featured,
-        label: intl.formatMessage({ id: 'form__featured_uppercase' }),
+        label: toUpperCase(
+          intl.formatMessage({ id: 'form__featured_uppercase' }),
+        ),
         component: <SectionFeatured />,
         hide: !showBookmark,
       },
       {
         name: TabName.Explore,
-        label: intl.formatMessage({ id: 'form__explore' }),
+        label: toUpperCase(intl.formatMessage({ id: 'form__explore' })),
         component: <SectionExplore />,
         hide: !showBookmark,
       },
       {
         name: TabName.Favorites,
-        label: intl.formatMessage({ id: 'title__favorites' }),
+        label: toUpperCase(intl.formatMessage({ id: 'title__favorites' })),
         component: <SectionFavorites />,
       },
     ];

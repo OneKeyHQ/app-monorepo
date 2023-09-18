@@ -112,7 +112,9 @@ export const DappItemPlain: FC<DappItemPlainProps> = (props) => {
             <DAppIcon url={logoURI} size={48} />
           </Box>
           <Box flex="1">
-            <Typography.Body1Strong>{title}</Typography.Body1Strong>
+            <Typography.Body1Strong numberOfLines={1}>
+              {title}
+            </Typography.Body1Strong>
             <Typography.Body2 color="text-subdued" numberOfLines={2}>
               {description}
             </Typography.Body2>
