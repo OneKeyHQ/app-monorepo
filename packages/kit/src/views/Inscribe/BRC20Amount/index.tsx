@@ -66,11 +66,13 @@ function BRC20Amount() {
   const onPromise = useCallback(async () => {
     const receiveAddress = account?.address;
 
-    const isTaprootAddress = await serviceInscribe.checkValidTaprootAddress({
-      address: receiveAddress ?? '',
-      networkId,
-      accountId,
-    });
+    const { isTaprootAddress } = await serviceInscribe.checkValidTaprootAddress(
+      {
+        address: receiveAddress ?? '',
+        networkId,
+        accountId,
+      },
+    );
 
     if (!receiveAddress || !isTaprootAddress) {
       ToastManager.show(

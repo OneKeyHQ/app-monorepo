@@ -1553,6 +1553,7 @@
   "form__not_enough_str": "{0} 가 부족합니까?",
   "form__not_recommended": "권장하지 않음",
   "form__notification": "공고",
+  "form__offset": "오프셋",
   "form__on_chain_info_uppercase": "온체인 정보",
   "form__one_to_many": "일대다",
   "form__one_to_many_desc": "자금 분산",

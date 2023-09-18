@@ -1553,6 +1553,7 @@
   "form__not_enough_str": "पर्याप्त नहीं {0} ?",
   "form__not_recommended": "सिफारिश नहीं की गई",
   "form__notification": "अधिसूचना",
+  "form__offset": "ओफ़्सेट",
   "form__on_chain_info_uppercase": "ऑन-चेन जानकारी",
   "form__one_to_many": "कई लोगों के लिए एक",
   "form__one_to_many_desc": "धन फैलाना",

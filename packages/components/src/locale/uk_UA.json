@@ -1553,6 +1553,7 @@
   "form__not_enough_str": "Недостатньо {0} ?",
   "form__not_recommended": "Не рекомендовано",
   "form__notification": "Сповіщення",
+  "form__offset": "Зсув",
   "form__on_chain_info_uppercase": "ІНФОРМАЦІЯ ПРО ланцюг",
   "form__one_to_many": "Один до багатьох",
   "form__one_to_many_desc": "Розпорошити кошти",

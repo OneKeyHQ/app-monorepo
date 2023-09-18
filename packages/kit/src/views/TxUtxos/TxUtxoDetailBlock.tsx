@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
+import { unionBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -75,8 +76,8 @@ function getInscriptionsInUtxo(
   }
 
   return {
-    inscriptions,
-    restInscriptions,
+    inscriptions: unionBy(inscriptions, 'inscription_id'),
+    restInscriptions: unionBy(restInscriptions, 'inscription_id'),
   };
 }
 

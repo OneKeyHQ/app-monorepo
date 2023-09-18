@@ -1553,6 +1553,7 @@
   "form__not_enough_str": "Không đủ {0} ?",
   "form__not_recommended": "Không được khuyến khích",
   "form__notification": "Thông báo",
+  "form__offset": "Bù lại",
   "form__on_chain_info_uppercase": "THÔNG TIN TRÊN CHUỖI",
   "form__one_to_many": "một đến nhiều",
   "form__one_to_many_desc": "phân tán quỹ",

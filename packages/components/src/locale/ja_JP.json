@@ -1553,6 +1553,7 @@
   "form__not_enough_str": "{0}不足?",
   "form__not_recommended": "非推奨",
   "form__notification": "通知",
+  "form__offset": "オフセット",
   "form__on_chain_info_uppercase": "オンチェーン情報",
   "form__one_to_many": "一対多",
   "form__one_to_many_desc": "資金を分散する",

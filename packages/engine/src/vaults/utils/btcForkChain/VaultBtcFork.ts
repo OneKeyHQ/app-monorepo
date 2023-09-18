@@ -630,6 +630,7 @@ export default class VaultBtcFork extends VaultBase {
           amount: utxo.balance,
           amountValue: utxo.balanceValue,
           extraInfo: null,
+          isInscribeTransfer: encodedTx.isInscribeTransfer,
         },
       }));
     }
@@ -817,6 +818,9 @@ export default class VaultBtcFork extends VaultBase {
     const transferInfo = transferInfos[0];
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const isInscribeTransfer = Boolean(
+      transferInfos.find((item) => item.isInscribe),
+    );
     const {
       inputs,
       outputs,
@@ -827,6 +831,7 @@ export default class VaultBtcFork extends VaultBase {
     } = await this.buildTransferParamsWithCoinSelector({
       transferInfos,
       specifiedFeeRate,
+      isInscribeTransfer,
     });
 
     if (!inputs || !outputs || isNil(fee)) {
@@ -874,6 +879,7 @@ export default class VaultBtcFork extends VaultBase {
       transferInfo,
       transferInfos,
       feeRate,
+      isInscribeTransfer,
       inputsForCoinSelect,
       outputsForCoinSelect,
     };
@@ -1682,8 +1688,10 @@ export default class VaultBtcFork extends VaultBase {
   private async buildTransferParamsWithCoinSelector({
     transferInfos,
     specifiedFeeRate,
+    isInscribeTransfer,
   }: {
     transferInfos: ITransferInfo[];
+    isInscribeTransfer?: boolean;
     specifiedFeeRate?: string;
   }) {
     if (!transferInfos.length) {
@@ -1698,9 +1706,6 @@ export default class VaultBtcFork extends VaultBase {
 
     const isBRC20Transfer = Boolean(transferInfos.find((item) => item.isBRC20));
 
-    const isInscribeTransfer = Boolean(
-      transferInfos.find((item) => item.isInscribe),
-    );
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const forceSelectUtxos: ICoinSelectUTXOLite[] = [];
