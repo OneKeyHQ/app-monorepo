@@ -12,10 +12,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { createLazyComponent } from '../../utils/createLazyComponent';
 import { RootRoutes } from '../routesEnum';
 
+import ModalStackNavigator from './Modal';
 import { buildModalOpenAnimationOptions } from './Modal/buildModalStackNavigatorOptions';
 import createStackNavigator from './Modal/createStackNavigator';
 
-const ModalStackNavigator = createLazyComponent(() => import('./Modal'));
+// const ModalStackNavigator = createLazyComponent(() => import('./Modal'));
 const OnLanding = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/OnLanding'),
 );
