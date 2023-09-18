@@ -42,6 +42,7 @@ export function getTxActionTransferInfo(props: ITxActionCardProps) {
   let symbol = '';
   let from = '';
   let to = '';
+  let isInscribeTransfer = false;
   let displayDecimals: number | undefined;
   let displayFromLabel = true;
   let displayFromAddress = true;
@@ -52,6 +53,7 @@ export function getTxActionTransferInfo(props: ITxActionCardProps) {
     symbol = action.nativeTransfer?.tokenInfo.symbol ?? '';
     from = action.nativeTransfer?.from ?? '';
     to = action.nativeTransfer?.to ?? '';
+    isInscribeTransfer = !!action.nativeTransfer?.isInscribeTransfer;
     displayDecimals = network?.nativeDisplayDecimals;
     displayFromLabel = Boolean(
       !(
@@ -106,6 +108,7 @@ export function getTxActionTransferInfo(props: ITxActionCardProps) {
     displayFromAddress,
     displayToLabel,
     displayToAddress,
+    isInscribeTransfer,
   };
 }
 
@@ -123,6 +126,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
     displayFromAddress,
     displayToLabel,
     displayToAddress,
+    isInscribeTransfer,
   } = getTxActionTransferInfo(props);
 
   const enableCopyAddress = useMemo(
@@ -156,6 +160,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
             isCopy: to !== 'unknown' && enableCopyAddress,
             isShorten: isShortenAddress,
             displayAddress: displayToAddress,
+            isInscribeTransfer,
           }),
         }
       : null,
