@@ -179,6 +179,11 @@ export default class VaultBtcFork extends VaultBase {
     return this.provider;
   }
 
+  override async getTransactionDetail(txId: string) {
+    const provider = await this.getProvider();
+    return provider.getTransactionDetail(txId);
+  }
+
   override async getOutputAccount(): Promise<Account> {
     // The simplest case as default implementation.
     const dbAccount = await this.getDbAccount({ noCache: true });
@@ -639,6 +644,7 @@ export default class VaultBtcFork extends VaultBase {
       networkId: this.networkId,
       accountId: this.accountId,
       extraInfo: null,
+      encodedTx,
       totalFeeInNative: encodedTx.totalFeeInNative,
     };
   }
