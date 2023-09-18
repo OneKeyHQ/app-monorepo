@@ -369,6 +369,7 @@
   "action__view": "表示",
   "action__view_account": "アカウント閲覧",
   "action__view_all": "すべて見る",
+  "action__view_all_history": "すべての履歴を表示",
   "action__view_collection": "NFTコレクションを見る",
   "action__view_details": "詳細を見る",
   "action__view_device_details": "デバイス情報",

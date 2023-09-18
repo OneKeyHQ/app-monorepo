@@ -369,6 +369,7 @@
   "action__view": "Vista",
   "action__view_account": "Ver cuenta",
   "action__view_all": "Ver todo",
+  "action__view_all_history": "Ver todo el historial",
   "action__view_collection": "Ver colección NFT",
   "action__view_details": "Ver detalles",
   "action__view_device_details": "Detalles del dispositivo",

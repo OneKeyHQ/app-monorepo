@@ -369,6 +369,7 @@
   "action__view": "View",
   "action__view_account": "View Account",
   "action__view_all": "View All",
+  "action__view_all_history": "View All History",
   "action__view_collection": "View Collection",
   "action__view_details": "View Details",
   "action__view_device_details": "Device Details",

@@ -1,6 +1,6 @@
 import type { FC } from 'react';
 
-import { Box, Typography } from '@onekeyhq/components';
+import { Box, Typography, useIsVerticalLayout } from '@onekeyhq/components';
 import ScrollableButtonGroup from '@onekeyhq/components/src/ScrollableButtonGroup/ScrollableButtonGroup';
 
 import FavContainer from '../../Explorer/FavContainer';
@@ -15,11 +15,12 @@ import type { GroupDappsType } from '../../type';
 
 const BannerContent = () => {
   const banners = useBanners();
+  const isSmall = useIsVerticalLayout();
   if (!banners.length) {
     return null;
   }
   return (
-    <Box w="full" py="4">
+    <Box w="full" py="4" pl="4" pr={!isSmall ? '4' : undefined}>
       <ScrollableButtonGroup
         justifyContent="center"
         bg="transparent"
@@ -33,10 +34,9 @@ const BannerContent = () => {
           type: 'basic',
           mr: '16px',
         }}
-        pl="4"
       >
-        {banners.map((item) => (
-          <Box mr="4">
+        {banners.map((item, index) => (
+          <Box pr={isSmall || index !== banners.length - 1 ? '4' : undefined}>
             <DappBanner
               key={item._id}
               title={item.title}
@@ -65,7 +65,7 @@ type ContentProps = {
 
 const VerticalContent: FC<ContentProps> = ({ data }) => (
   <Box>
-    <Box pl="4">
+    <Box px="4">
       <ContentHeader title={data.label} id={data.id} />
     </Box>
     <Box px="4">
@@ -99,7 +99,7 @@ const HorizontalContent: FC<ContentProps> = ({ data }) => {
   }
   return (
     <Box>
-      <Box pl="4">
+      <Box px="4">
         <ContentHeader title={data.label} id={data.id} />
       </Box>
       <Box>
@@ -119,7 +119,7 @@ const HorizontalContent: FC<ContentProps> = ({ data }) => {
           pl="4"
         >
           {data.items.map((item) => (
-            <Box mr="4" key={item._id}>
+            <Box mr="3" key={item._id}>
               <FavContainer
                 url={item.url}
                 hoverButtonProps={{

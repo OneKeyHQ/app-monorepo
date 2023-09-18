@@ -369,6 +369,7 @@
   "action__view": "ดู",
   "action__view_account": "ดูบัญชี",
   "action__view_all": "ดูทั้งหมด",
+  "action__view_all_history": "ดูประวัติทั้งหมด",
   "action__view_collection": "ดูคอลเลกชัน NFT",
   "action__view_details": "ดูรายละเอียด",
   "action__view_device_details": "รายละเอียดอุปกรณ์",
