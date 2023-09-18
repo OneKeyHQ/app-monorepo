@@ -21,6 +21,7 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { InvalidAddress } from '@onekeyhq/engine/src/errors';
 import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Account } from '@onekeyhq/engine/src/types/account';
@@ -107,7 +108,30 @@ function BTCAssetDetailContent({
     if (!networkId || !accountId) {
       return;
     }
+    const validateAddress = async (address: string) => {
+      try {
+        const { isValidAddress, isTaprootAddress } =
+          await serviceInscribe.checkValidTaprootAddress({
+            address,
+            networkId,
+            accountId,
+          });
 
+        if (!isValidAddress) {
+          throw new InvalidAddress();
+        }
+
+        if (!isTaprootAddress) {
+          return {
+            warningMessage: intl.formatMessage({
+              id: 'content__some_ordinals_wallets_may_not_support_non_taproot_address_check_the_type_before_continue',
+            }),
+          };
+        }
+      } catch (error) {
+        throw new InvalidAddress();
+      }
+    };
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Send,
       params: {
@@ -120,6 +144,7 @@ function BTCAssetDetailContent({
           to: '',
           amount: '0',
           nftTokenId: asset.inscription_id,
+          validateAddress: async (_, address) => validateAddress(address),
           nftInscription: {
             address: asset.owner,
             inscriptionId: asset.inscription_id,
@@ -136,9 +161,11 @@ function BTCAssetDetailContent({
     asset.location,
     asset.output,
     asset.owner,
+    intl,
     modalClose,
     navigation,
     networkId,
+    serviceInscribe,
   ]);
 
   const handleSendOnPress = useCallback(() => {

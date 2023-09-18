@@ -36,7 +36,7 @@ const ReceiveAddress: FC = () => {
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const { engine } = backgroundApiProxy;
+  const { serviceInscribe } = backgroundApiProxy;
   const {
     networkId,
     accountId,
@@ -47,16 +47,6 @@ const ReceiveAddress: FC = () => {
   } = route?.params || {};
   const { network } = useActiveSideAccount({ accountId, networkId });
 
-  const addressFilter = useCallback(
-    async (address: string) => {
-      try {
-        return !!(await engine.validator.validateAddress(networkId, address));
-      } catch (error) {
-        return Promise.resolve(false);
-      }
-    },
-    [engine.validator, networkId],
-  );
   const {
     control,
     watch,
@@ -85,13 +75,19 @@ const ReceiveAddress: FC = () => {
             errorMessage: '',
             successMessage: '',
           });
-          const isValidAddress = await engine.validator.validateAddress(
-            networkId,
-            value,
-          );
+          const { isTaprootAddress, isValidAddress } =
+            await serviceInscribe.checkValidTaprootAddress({
+              address: value,
+              networkId,
+              accountId,
+            });
           if (isValidAddress) {
             setvalidateMessage({
-              warningMessage: '',
+              warningMessage: isTaprootAddress
+                ? ''
+                : intl.formatMessage({
+                    id: 'content__some_ordinals_wallets_may_not_support_non_taproot_address_check_the_type_before_continue',
+                  }),
               errorMessage: '',
               successMessage: intl.formatMessage({
                 id: 'form__enter_recipient_address_valid',
@@ -106,7 +102,7 @@ const ReceiveAddress: FC = () => {
               successMessage: '',
             });
           }
-          return isValidAddress;
+          return isTaprootAddress;
         } catch (error) {
           setvalidateMessage({
             warningMessage: '',
@@ -119,7 +115,7 @@ const ReceiveAddress: FC = () => {
         }
       }, 100);
     },
-    [engine.validator, intl, networkId],
+    [accountId, intl, networkId, serviceInscribe],
   );
 
   const submitDisabled =
@@ -164,6 +160,7 @@ const ReceiveAddress: FC = () => {
               id: 'form__address_to_receive_inscription',
             })}
             errorMessage={validateMessage.errorMessage}
+            warningMessage={validateMessage.warningMessage}
             rules={{
               required: {
                 value: true,
@@ -181,12 +178,8 @@ const ReceiveAddress: FC = () => {
               placeholder={intl.formatMessage({
                 id: 'form__address',
               })}
-              description={intl.formatMessage({
-                id: 'content__enter_the_taproot_address_to_receive_ordinal_inscriptions',
-              })}
               h={{ base: 120, md: 120 }}
               plugins={['contact', 'paste', 'scan']}
-              addressFilter={addressFilter}
             />
           </Form.Item>
           {address && (

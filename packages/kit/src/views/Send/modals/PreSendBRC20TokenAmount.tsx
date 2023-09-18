@@ -21,6 +21,7 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
+import { InvalidAddress } from '@onekeyhq/engine/src/errors';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
@@ -192,6 +193,34 @@ function PreSendBRC20TokenAmount() {
     [],
   );
 
+  const validateAddress = useCallback(
+    async (address: string) => {
+      try {
+        const { isValidAddress, isTaprootAddress } =
+          await backgroundApiProxy.serviceInscribe.checkValidTaprootAddress({
+            address,
+            networkId,
+            accountId,
+          });
+
+        if (!isValidAddress) {
+          throw new InvalidAddress();
+        }
+
+        if (!isTaprootAddress) {
+          return {
+            warningMessage: intl.formatMessage({
+              id: 'content__some_ordinals_wallets_may_not_support_non_taproot_address_check_the_type_before_continue',
+            }),
+          };
+        }
+      } catch (error) {
+        throw new InvalidAddress();
+      }
+    },
+    [accountId, intl, networkId],
+  );
+
   const handleCreateAmount = useCallback(() => {
     if (accountId && networkId && token) {
       navigation.navigate(RootRoutes.Modal, {
@@ -268,6 +297,7 @@ function PreSendBRC20TokenAmount() {
           to: '',
           amount: '0',
           transferInfos,
+          validateAddress: async (_, address) => validateAddress(address),
 
           closeModal: modalClose,
         },
@@ -282,6 +312,7 @@ function PreSendBRC20TokenAmount() {
     selectedAmounts,
     token?.address,
     token?.tokenIdOnNetwork,
+    validateAddress,
   ]);
 
   const TokenAmountFooter = useMemo(() => {

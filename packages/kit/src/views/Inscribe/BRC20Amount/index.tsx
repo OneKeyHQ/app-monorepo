@@ -44,7 +44,7 @@ function BRC20Amount() {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
   const { networkId, accountId, token } = route?.params || {};
-  const { engine, serviceInscribe } = backgroundApiProxy;
+  const { serviceInscribe } = backgroundApiProxy;
   const { account } = useAccount({ networkId, accountId });
 
   const tokenBalance = useBRC20TokenBalance({
@@ -66,10 +66,11 @@ function BRC20Amount() {
   const onPromise = useCallback(async () => {
     const receiveAddress = account?.address;
 
-    const isValidAddress = await engine.validator.validateAddress(
+    const { isValidAddress } = await serviceInscribe.checkValidTaprootAddress({
+      address: receiveAddress ?? '',
       networkId,
-      receiveAddress ?? '',
-    );
+      accountId,
+    });
 
     if (!receiveAddress || !isValidAddress) {
       ToastManager.show(
@@ -120,7 +121,6 @@ function BRC20Amount() {
   }, [
     account?.address,
     accountId,
-    engine.validator,
     getValues,
     intl,
     navigation,
