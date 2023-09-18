@@ -311,6 +311,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   }): Promise<NFTAssetMeta | undefined> {
     return Promise.resolve(undefined);
   }
+
+  async getTransactionDetail(txId: string): Promise<any> {
+    return Promise.resolve(undefined);
+  }
 }
 
 /*

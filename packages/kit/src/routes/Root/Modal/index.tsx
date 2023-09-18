@@ -8,6 +8,7 @@ import { ModalRoutes } from '../../routesEnum';
 
 import { buildModalOpenAnimationOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
+import ManagerWalletModal from './ManagerWallet';
 
 import type { ModalRoutesParams } from '../../types';
 
@@ -54,7 +55,7 @@ const ManageNetworkModal = createLazyComponent(() => import('./ManageNetwork'));
 const ManagerAccountModal = createLazyComponent(
   () => import('./ManagerAccount'),
 );
-const ManagerWalletModal = createLazyComponent(() => import('./ManagerWallet'));
+// const ManagerWalletModal = createLazyComponent(() => import('./ManagerWallet'));
 const ManageTokenModal = createLazyComponent(() => import('./ManageToken'));
 const NFTMarket = createLazyComponent(() => import('./NFTMarket'));
 const PasswordModal = createLazyComponent(() => import('./Password'));

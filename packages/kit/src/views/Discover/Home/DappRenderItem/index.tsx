@@ -114,6 +114,9 @@ export const DappItemPlain: FC<DappItemPlainProps> = (props) => {
           <Box flex="1">
                       <Typography.Body1Strong>{title}</Typography.Body1Strong>
                       <Box h="4px" />
+            <Typography.Body1Strong numberOfLines={1}>
+              {title}
+            </Typography.Body1Strong>
             <Typography.Body2 color="text-subdued" numberOfLines={2}>
               {description}
                       </Typography.Body2>

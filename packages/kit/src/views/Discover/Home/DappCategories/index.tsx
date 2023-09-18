@@ -1,4 +1,4 @@
-import { useCallback, useContext, useMemo, useState } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
 
 import { ToggleButtonGroup } from '@onekeyhq/components';
 
@@ -6,32 +6,26 @@ import { DiscoverContext } from '../context';
 
 export const DAppCategories = () => {
   const { categoryId, setCategoryId, categories } = useContext(DiscoverContext);
-  const data = useMemo(() => {
-    if (!categories) {
-      return [];
-    }
-    return categories;
-  }, [categories]);
 
-  const [selectedIndex, setSelectedIndex] = useState(() =>
-    data.findIndex((item) => item.id === categoryId),
-  );
+  const selectedIndex = useMemo(() => {
+    const result = categories.findIndex((item) => item.id === categoryId);
+    return Math.max(0, result);
+  }, [categories, categoryId]);
 
   const onButtonPress = useCallback(
     (index: number) => {
-      const { id } = data[index];
+      const { id } = categories[index];
       setCategoryId(id);
-      setSelectedIndex(index);
     },
-    [data, setCategoryId],
+    [categories, setCategoryId],
   );
 
   const buttons = useMemo(
-    () => data.map((item) => ({ text: item.name }), []),
-    [data],
+    () => categories.map((item) => ({ text: item.name }), []),
+    [categories],
   );
 
-  if (!data.length) {
+  if (!categories.length) {
     return null;
   }
   return (
