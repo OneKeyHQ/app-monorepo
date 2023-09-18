@@ -106,6 +106,7 @@ export const DappItemPlain: FC<DappItemPlainProps> = (props) => {
         borderRadius={12}
         onPress={onPress}
         justifyContent="space-between"
+        alignItems="center"
       >
         <Box flex="1" flexDirection="row">
           <Box mr="4">

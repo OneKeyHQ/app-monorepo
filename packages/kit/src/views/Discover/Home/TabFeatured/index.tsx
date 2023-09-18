@@ -64,28 +64,32 @@ type ContentProps = {
 };
 
 const VerticalContent: FC<ContentProps> = ({ data }) => (
-  <Box px="4">
-    <ContentHeader title={data.label} id={data.id} />
-    <DappItemPlainContainerLayout space={4}>
-      {data.items.map((item) => (
-        <FavContainer
-          key={item._id}
-          url={item.url}
-          hoverButtonProps={{
-            right: '8px',
-            top: '8px',
-          }}
-        >
-          <DappItemPlain
-            title={item.name}
-            logoURI={item.logoURL}
-            description={item.subtitle}
-            networkIds={item.networkIds}
+  <Box>
+    <Box pl="4">
+      <ContentHeader title={data.label} id={data.id} />
+    </Box>
+    <Box px="4">
+      <DappItemPlainContainerLayout space={4}>
+        {data.items.map((item) => (
+          <FavContainer
+            key={item._id}
             url={item.url}
-          />
-        </FavContainer>
-      ))}
-    </DappItemPlainContainerLayout>
+            hoverButtonProps={{
+              right: '8px',
+              top: '8px',
+            }}
+          >
+            <DappItemPlain
+              title={item.name}
+              logoURI={item.logoURL}
+              description={item.subtitle}
+              networkIds={item.networkIds}
+              url={item.url}
+            />
+          </FavContainer>
+        ))}
+      </DappItemPlainContainerLayout>
+    </Box>
   </Box>
 );
 

@@ -13,7 +13,7 @@ import { DappItemPlainContainerLayout } from '../DappRenderLayout';
 import type { MatchDAppItemType } from '../../Explorer/explorerUtils';
 
 const DappItemPlainFavMenu: FC<{ item: MatchDAppItemType }> = ({ item }) => (
-  <Box h="full" flexDirection="column" justifyContent="center">
+  <Box flexDirection="column" justifyContent="center">
     <FavListMenu isFav item={item}>
       <IconButton type="plain" name="EllipsisVerticalOutline" size="sm" />
     </FavListMenu>
