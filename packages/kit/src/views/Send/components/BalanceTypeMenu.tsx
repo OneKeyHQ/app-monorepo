@@ -1,10 +1,10 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Box, Icon, Pressable, Text } from '@onekeyhq/components';
 import BaseMenu from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
-import { isBitcoinNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
+import { isBTCNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import type { MessageDescriptor } from 'react-intl';
 
@@ -18,6 +18,9 @@ function BalanceTypeMenu({
   callback: (value: BalanceType) => void;
 }) {
   const intl = useIntl();
+  const [title, setTitle] = useState(
+    intl.formatMessage({ id: 'form__available_balance_auto' }),
+  );
 
   const onSelect = useCallback(
     (value: BalanceType) => {
@@ -32,22 +35,26 @@ function BalanceTypeMenu({
   }[] = useMemo(
     () => [
       {
-        id: 'action__top_up_btc',
+        id: 'form__available_balance_auto',
         onPress: () => {
           onSelect('Auto');
+          setTitle(intl.formatMessage({ id: 'form__available_balance_auto' }));
         },
       },
       {
-        id: 'action__withdraw_to_btc_account',
+        id: 'form__custom_addresses_balance',
         onPress: () => {
           onSelect('Manually');
+          setTitle(
+            intl.formatMessage({ id: 'form__custom_addresses_balance' }),
+          );
         },
       },
     ],
-    [onSelect],
+    [onSelect, intl],
   );
 
-  if (!isBitcoinNetwork(networkId)) {
+  if (!isBTCNetwork(networkId)) {
     return (
       <Text typography="CaptionStrong" color="text-default" mr={2}>
         {intl.formatMessage({ id: 'content__available_balance' })}
@@ -60,7 +67,7 @@ function BalanceTypeMenu({
       <BaseMenu options={options} menuWidth={280}>
         <Pressable flex={1} alignItems="center" flexDirection="row">
           <Text typography="CaptionStrong" color="text-default" mr={2}>
-            {intl.formatMessage({ id: 'content__available_balance' })}(Auto)
+            {title}
           </Text>
           <Icon name="ChevronDownMini" size={12} />
         </Pressable>
