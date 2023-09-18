@@ -6,6 +6,8 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Center,
+  Empty,
   Icon,
   Image,
   Modal,
@@ -56,6 +58,18 @@ const ListHeaderComponent: FC<ListHeaderComponentProps> = ({
         onChangeText={setSearchContext}
       />
     </Box>
+  );
+};
+
+const ListEmptyComponent = () => {
+  const intl = useIntl();
+  return (
+    <Center py="10">
+      <Empty
+        emoji="🔍"
+        title={intl.formatMessage({ id: 'content__no_results' })}
+      />
+    </Center>
   );
 };
 
@@ -163,6 +177,7 @@ export const ChainSelector = () => {
             setSearchContext={setSearchContext}
           />
         ),
+        ListEmptyComponent,
       }}
     />
   );

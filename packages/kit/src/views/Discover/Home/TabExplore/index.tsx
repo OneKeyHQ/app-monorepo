@@ -32,8 +32,9 @@ const DappsItemsRender = ({
     return (
       <Box w="full">
         <Empty
-          title={intl.formatMessage({ id: 'empty__no_data' })}
-          emoji="🕐"
+          title={intl.formatMessage({ id: 'empty__no_dapp' })}
+          subTitle={intl.formatMessage({ id: 'empty__no_dapp_desc' })}
+          emoji="🤷‍♂️"
         />
       </Box>
     );
