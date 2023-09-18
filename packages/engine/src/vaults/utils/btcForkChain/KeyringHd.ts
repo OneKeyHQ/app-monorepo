@@ -30,7 +30,7 @@ import type { DBUTXOAccount } from '../../../types/account';
 import type { IUnsignedMessageBtc } from '../../impl/btc/types';
 import type {
   IPrepareAccountByAddressIndexParams,
-  IPrepareSoftwareAccountsParams,
+  IPrepareHdAccountsParams,
   ISignCredentialOptions,
   ISignedTxPro,
   IUnsignedTxPro,
@@ -38,130 +38,7 @@ import type {
 import type { AddressEncodings } from './types';
 import type VaultBtcFork from './VaultBtcFork';
 
-export class KeyringHdBtcFork extends KeyringHdBase {
-  override async signTransaction(
-    unsignedTx: IUnsignedTxPro,
-    options: ISignCredentialOptions,
-  ): Promise<ISignedTxPro> {
-    initBitcoinEcc();
-    const { password } = options;
-    const { psbtHex, inputsToSign } = unsignedTx;
-    if (typeof password === 'undefined') {
-      throw new OneKeyInternalError('Software signing requires a password.');
-    }
-
-    const signers = await this.getSigners(
-      password,
-      (inputsToSign || unsignedTx.inputs).map((input) => input.address),
-    );
-    debugLogger.engine.info('signTransaction', this.networkId, unsignedTx);
-
-    const provider = await (
-      this.vault as unknown as VaultBtcFork
-    ).getProvider();
-
-    if (psbtHex && inputsToSign) {
-      const { network } = provider;
-      const psbt = Psbt.fromHex(psbtHex, { network });
-
-      return provider.signPsbt({
-        psbt,
-        signers,
-        inputsToSign,
-      });
-    }
-
-    return provider.signTransaction(unsignedTx, signers);
-  }
-
-  override async getSigners(
-    password: string,
-    addresses: Array<string>,
-  ): Promise<Record<string, ChainSigner>> {
-    const relPathToAddresses: Record<string, string> = {};
-    const { utxos } = await (
-      this.vault as unknown as VaultBtcFork
-    ).collectUTXOsInfo({ checkInscription: false });
-    for (const utxo of utxos) {
-      const { address, path } = utxo;
-      if (addresses.includes(address)) {
-        relPathToAddresses[path] = address;
-      }
-    }
-
-    const relPaths = Object.keys(relPathToAddresses).map((fullPath) =>
-      fullPath.split('/').slice(-2).join('/'),
-    );
-    if (relPaths.length === 0) {
-      throw new OneKeyInternalError('No signers would be chosen.');
-    }
-    const privateKeys = await this.getPrivateKeys({ password, relPaths });
-    const ret: Record<string, ChainSigner> = {};
-    for (const [path, privateKey] of Object.entries(privateKeys)) {
-      let address = relPathToAddresses[path];
-
-      // fix blockbook utxo path to match local account path
-      if ((await this.getNetworkImpl()) === IMPL_TBTC) {
-        if (!address) {
-          const fixedPath = path.replace(`m/86'/0'/`, `m/86'/1'/`);
-          address = relPathToAddresses[fixedPath];
-        }
-        if (!address) {
-          const fixedPath = path.replace(`m/86'/1'/`, `m/86'/0'/`);
-          address = relPathToAddresses[fixedPath];
-        }
-      }
-
-      const signer = new ChainSigner(privateKey, password, 'secp256k1');
-
-      // TODO generate address from privateKey, and check if matched with utxo address
-      const addressFromPrivateKey = address;
-      if (addressFromPrivateKey !== address) {
-        throw new Error('addressFromPrivateKey and utxoAddress not matched');
-      }
-      ret[address] = signer;
-    }
-    return ret;
-  }
-
-  override async prepareAccounts(
-    params: IPrepareSoftwareAccountsParams,
-  ): Promise<DBUTXOAccount[]> {
-    const {
-      password,
-      indexes,
-      purpose,
-      names,
-      template,
-      skipCheckAccountExist,
-    } = params;
-    initBitcoinEcc();
-    const provider = await (
-      this.vault as unknown as VaultBtcFork
-    ).getProvider();
-
-    const ret = await this.createAccount({
-      password,
-      indexes,
-      purpose,
-      names,
-      template,
-      addressIndex: 0,
-      isChange: false,
-      isCustomAddress: false,
-      validator: skipCheckAccountExist
-        ? undefined
-        : async ({ xpub, addressEncoding }) => {
-            const { txs } = (await provider.getAccount(
-              { type: 'simple', xpub },
-              addressEncoding,
-            )) as { txs: number };
-            return txs > 0;
-          },
-    });
-    return ret;
-  }
-
+export abstract class KeyringHdBtcFork extends KeyringHdBase {
   private async createAccount({
     password,
     indexes,
@@ -313,7 +190,7 @@ export class KeyringHdBtcFork extends KeyringHdBase {
   }
 
   async basePrepareAccountsHdBtc(
-    params: IPrepareSoftwareAccountsParams,
+    params: IPrepareHdAccountsParams,
   ): Promise<DBUTXOAccount[]> {
     const {
       password,

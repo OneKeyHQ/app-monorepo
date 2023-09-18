@@ -11,7 +11,7 @@ import type { CommonMessage } from '@onekeyhq/engine/src/types/message';
 import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { KeyringHdBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringHdBase';
 import type {
-  IPrepareSoftwareAccountsParams,
+  IPrepareHdAccountsParams,
   ISignCredentialOptions,
   ISignedTxPro,
 } from '@onekeyhq/engine/src/vaults/types';
@@ -98,7 +98,7 @@ export class KeyringHd extends KeyringHdBase {
   }
 
   override async prepareAccounts(
-    params: IPrepareSoftwareAccountsParams,
+    params: IPrepareHdAccountsParams,
   ): Promise<Array<DBVariantAccount>> {
     const { password, indexes, names } = params;
     const { entropy } = (await this.engine.dbApi.getCredential(

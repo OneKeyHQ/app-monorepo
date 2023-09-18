@@ -437,196 +437,6 @@ export default abstract class CoreChainSoftware extends CoreChainApiBase {
     return psbt;
   }
 
-  override async getAddressFromPrivate(
-    query: ICoreApiGetAddressQueryImportedBtc,
-  ): Promise<ICoreApiGetAddressItem> {
-    const { privateKeyRaw, networkChainCode, template } = query;
-    const privateKey = bufferUtils.toBuffer(privateKeyRaw);
-
-    let xpub = '';
-    let pubKey = '';
-    const network = getBtcForkNetwork(networkChainCode);
-
-    const xprvVersionBytesNum = parseInt(
-      privateKey.slice(0, 4).toString('hex'),
-      16,
-    );
-    const versionByteOptions = [
-      // ...Object.values(network.segwitVersionBytes || {}),
-      ...Object.values(omit(network.segwitVersionBytes, AddressEncodings.P2TR)),
-      network.bip32,
-    ];
-
-    for (const versionBytes of versionByteOptions) {
-      if (versionBytes.private === xprvVersionBytesNum) {
-        const privateKeySlice = privateKey.slice(46, 78);
-        const publicKey = secp256k1.publicFromPrivate(privateKeySlice);
-        const pubVersionBytes = Buffer.from(
-          versionBytes.public.toString(16).padStart(8, '0'),
-          'hex',
-        );
-        const keyPair = getBitcoinECPair().fromPrivateKey(privateKeySlice, {
-          network,
-        });
-        try {
-          xpub = bs58check.encode(
-            privateKey.fill(pubVersionBytes, 0, 4).fill(publicKey, 45, 78),
-          );
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const publicKeyStr1 = keyPair.publicKey.toString('hex');
-          const publicKeyStr2 = publicKey.toString('hex');
-          // TODO publicKey is different with HD account
-          //  - hd "03171d7528ce1cc199f2b8ce29ad7976de0535742169a8ba8b5a6dd55df7e589d1"
-          //  - imported "020da363502074fefdfbb07ec47abc974207951dcb1aa3c910f4a768e2c70f9c68"
-          pubKey = publicKeyStr2;
-        } catch (e) {
-          console.error(e);
-        }
-        break;
-      }
-    }
-    if (xpub === '') {
-      throw new OneKeyInternalError('Invalid private key.');
-    }
-
-    let addressEncoding;
-    let xpubSegwit = xpub;
-    if (template) {
-      if (template.startsWith(`m/44'/`)) {
-        addressEncoding = AddressEncodings.P2PKH;
-      } else if (template.startsWith(`m/86'/`)) {
-        addressEncoding = AddressEncodings.P2TR;
-        // TODO if (isTaprootPath(pathPrefix)) {
-        xpubSegwit = `tr(${xpub})`;
-      } else {
-        addressEncoding = undefined;
-      }
-    }
-
-    const firstAddressRelPath = '0/0';
-    const { [firstAddressRelPath]: address } = this.getAddressFromXpub({
-      network,
-      xpub,
-      relativePaths: [firstAddressRelPath],
-      addressEncoding,
-    });
-    return Promise.resolve({
-      publicKey: pubKey,
-      xpub,
-      xpubSegwit,
-      address,
-      addresses: { [firstAddressRelPath]: address },
-    });
-  }
-
-  override async getAddressesFromHd({
-    template,
-    hdCredential,
-    password,
-    indexes,
-    networkChainCode,
-    addressEncoding,
-  }: ICoreApiGetAddressesQueryHdBtc): Promise<ICoreApiGetAddressesResult> {
-    const { seed, entropy } = hdCredential;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { pathPrefix, pathSuffix } = slicePathTemplate(template);
-    const seedBuffer = bufferUtils.toBuffer(seed);
-
-    const relPaths: string[] = indexes.map(
-      (index) => `${index.toString()}'`, // btc
-      // (index) => pathSuffix.replace('{index}', index.toString()), // evm
-    );
-    const pubkeyInfos = batchGetPublicKeys(
-      'secp256k1',
-      seedBuffer,
-      password,
-      pathPrefix,
-      relPaths,
-    );
-
-    if (pubkeyInfos.length !== indexes.length) {
-      throw new OneKeyInternalError('Unable to get publick key.');
-    }
-
-    if (!networkChainCode) {
-      throw new Error('networkChainCode is required');
-    }
-
-    const network = getBtcForkNetwork(networkChainCode);
-
-    const { public: xpubVersionBytes } =
-      ((network.segwitVersionBytes || {})[
-        addressEncoding
-      ] as typeof network.bip32) || network.bip32;
-
-    const entropyBuffer = bufferUtils.toBuffer(entropy);
-    const mnemonic = mnemonicFromEntropy(entropyBuffer, password);
-    const root = getBitcoinBip32().fromSeed(mnemonicToSeedSync(mnemonic));
-    const xpubBuffers = [
-      Buffer.from(xpubVersionBytes.toString(16).padStart(8, '0'), 'hex'),
-      Buffer.from([3]),
-    ];
-
-    const addresses = await Promise.all(
-      pubkeyInfos.map((info, index) => {
-        const { path, parentFingerPrint, extendedKey } = info;
-
-        const node = root.derivePath(`${path}/0/0`);
-        const keyPair = getBitcoinECPair().fromWIF(node.toWIF());
-        const publicKey = keyPair.publicKey.toString('hex');
-
-        const xpub = bs58check.encode(
-          Buffer.concat([
-            ...xpubBuffers,
-            parentFingerPrint,
-            Buffer.from(
-              (indexes[index] + 2 ** 31).toString(16).padStart(8, '0'),
-              'hex',
-            ),
-            extendedKey.chainCode,
-            extendedKey.key,
-          ]),
-        );
-
-        const firstAddressRelPath = '0/0';
-        const relativePaths = [firstAddressRelPath];
-        const { [firstAddressRelPath]: address } = this.getAddressFromXpub({
-          network,
-          xpub,
-          relativePaths,
-          addressEncoding,
-        });
-
-        let xpubSegwit = xpub;
-        if (isTaprootPath(pathPrefix)) {
-          const rootFingerprint = generateRootFingerprint(
-            'secp256k1',
-            seedBuffer,
-            password,
-          );
-          const fingerprint = Number(
-            Buffer.from(rootFingerprint).readUInt32BE(0) || 0,
-          )
-            .toString(16)
-            .padStart(8, '0');
-          const descriptorPath = `${fingerprint}${path.substring(1)}`;
-          xpubSegwit = `tr([${descriptorPath}]${xpub}/<0;1>/*)`;
-        }
-
-        const addressItem: ICoreApiGetAddressItem = {
-          address,
-          publicKey,
-          path,
-          xpub,
-          xpubSegwit,
-          addresses: { [firstAddressRelPath]: address },
-        };
-        return addressItem;
-      }),
-    );
-    return { addresses };
-  }
-
   private appendImportedRelPathPrivateKeys({
     privateKeys,
     password,
@@ -676,26 +486,6 @@ export default abstract class CoreChainSoftware extends CoreChainApiBase {
         encrypt(password, cache[relPath].key),
       );
     });
-    return privateKeys;
-  }
-
-  override async getPrivateKeys(
-    payload: ICoreApiSignBasePayload,
-  ): Promise<ICoreApiPrivateKeysMap> {
-    const { password, account } = payload;
-    const isImported = !!payload.credentials.imported;
-    const privateKeys = await this.baseGetPrivateKeys({
-      payload,
-      curve: 'secp256k1',
-    });
-    if (isImported) {
-      const { relPaths } = account;
-      this.appendImportedRelPathPrivateKeys({
-        privateKeys,
-        password,
-        relPaths,
-      });
-    }
     return privateKeys;
   }
 
@@ -848,6 +638,219 @@ export default abstract class CoreChainSoftware extends CoreChainApiBase {
       rawTx: '',
       psbtHex: psbt.toHex(),
     };
+  }
+
+  override async getPrivateKeys(
+    payload: ICoreApiSignBasePayload,
+  ): Promise<ICoreApiPrivateKeysMap> {
+    const { password, account } = payload;
+    const isImported = !!payload.credentials.imported;
+    const privateKeys = await this.baseGetPrivateKeys({
+      payload,
+      curve: 'secp256k1',
+    });
+    if (isImported) {
+      const { relPaths } = account;
+      this.appendImportedRelPathPrivateKeys({
+        privateKeys,
+        password,
+        relPaths,
+      });
+    }
+    return privateKeys;
+  }
+
+  override async getAddressFromPrivate(
+    query: ICoreApiGetAddressQueryImportedBtc,
+  ): Promise<ICoreApiGetAddressItem> {
+    const { privateKeyRaw, networkChainCode, template } = query;
+    const privateKey = bufferUtils.toBuffer(privateKeyRaw);
+
+    let xpub = '';
+    let pubKey = '';
+    const network = getBtcForkNetwork(networkChainCode);
+
+    const xprvVersionBytesNum = parseInt(
+      privateKey.slice(0, 4).toString('hex'),
+      16,
+    );
+    const versionByteOptions = [
+      // ...Object.values(network.segwitVersionBytes || {}),
+      ...Object.values(omit(network.segwitVersionBytes, AddressEncodings.P2TR)),
+      network.bip32,
+    ];
+
+    for (const versionBytes of versionByteOptions) {
+      if (versionBytes.private === xprvVersionBytesNum) {
+        const privateKeySlice = privateKey.slice(46, 78);
+        const publicKey = secp256k1.publicFromPrivate(privateKeySlice);
+        const pubVersionBytes = Buffer.from(
+          versionBytes.public.toString(16).padStart(8, '0'),
+          'hex',
+        );
+        const keyPair = getBitcoinECPair().fromPrivateKey(privateKeySlice, {
+          network,
+        });
+        try {
+          xpub = bs58check.encode(
+            privateKey.fill(pubVersionBytes, 0, 4).fill(publicKey, 45, 78),
+          );
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const publicKeyStr1 = keyPair.publicKey.toString('hex');
+          const publicKeyStr2 = publicKey.toString('hex');
+          // TODO publicKey is different with HD account
+          //  - hd "03171d7528ce1cc199f2b8ce29ad7976de0535742169a8ba8b5a6dd55df7e589d1"
+          //  - imported "020da363502074fefdfbb07ec47abc974207951dcb1aa3c910f4a768e2c70f9c68"
+          pubKey = publicKeyStr2;
+        } catch (e) {
+          console.error(e);
+        }
+        break;
+      }
+    }
+    if (xpub === '') {
+      throw new OneKeyInternalError('Invalid private key.');
+    }
+
+    let addressEncoding;
+    let xpubSegwit = xpub;
+    if (template) {
+      if (template.startsWith(`m/44'/`)) {
+        addressEncoding = AddressEncodings.P2PKH;
+      } else if (template.startsWith(`m/86'/`)) {
+        addressEncoding = AddressEncodings.P2TR;
+        // TODO if (isTaprootPath(pathPrefix)) {
+        xpubSegwit = `tr(${xpub})`;
+      } else {
+        addressEncoding = undefined;
+      }
+    }
+
+    const firstAddressRelPath = '0/0';
+    const { [firstAddressRelPath]: address } = this.getAddressFromXpub({
+      network,
+      xpub,
+      relativePaths: [firstAddressRelPath],
+      addressEncoding,
+    });
+    return Promise.resolve({
+      publicKey: pubKey,
+      xpub,
+      xpubSegwit,
+      address,
+      addresses: { [firstAddressRelPath]: address },
+    });
+  }
+
+  override async getAddressesFromHd(
+    query: ICoreApiGetAddressesQueryHdBtc,
+  ): Promise<ICoreApiGetAddressesResult> {
+    const {
+      template,
+      hdCredential,
+      password,
+      indexes,
+      networkChainCode,
+      addressEncoding,
+    } = query;
+    const { seed, entropy } = hdCredential;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { pathPrefix, pathSuffix } = slicePathTemplate(template);
+    const seedBuffer = bufferUtils.toBuffer(seed);
+
+    const relPaths: string[] = indexes.map(
+      (index) => `${index.toString()}'`, // btc
+      // (index) => pathSuffix.replace('{index}', index.toString()), // evm
+    );
+    const pubkeyInfos = batchGetPublicKeys(
+      'secp256k1',
+      seedBuffer,
+      password,
+      pathPrefix,
+      relPaths,
+    );
+
+    if (pubkeyInfos.length !== indexes.length) {
+      throw new OneKeyInternalError('Unable to get publick key.');
+    }
+
+    if (!networkChainCode) {
+      throw new Error('networkChainCode is required');
+    }
+
+    const network = getBtcForkNetwork(networkChainCode);
+
+    const { public: xpubVersionBytes } =
+      ((network.segwitVersionBytes || {})[
+        addressEncoding
+      ] as typeof network.bip32) || network.bip32;
+
+    const entropyBuffer = bufferUtils.toBuffer(entropy);
+    const mnemonic = mnemonicFromEntropy(entropyBuffer, password);
+    const root = getBitcoinBip32().fromSeed(mnemonicToSeedSync(mnemonic));
+    const xpubBuffers = [
+      Buffer.from(xpubVersionBytes.toString(16).padStart(8, '0'), 'hex'),
+      Buffer.from([3]),
+    ];
+
+    const addresses = await Promise.all(
+      pubkeyInfos.map((info, index) => {
+        const { path, parentFingerPrint, extendedKey } = info;
+
+        const node = root.derivePath(`${path}/0/0`);
+        const keyPair = getBitcoinECPair().fromWIF(node.toWIF());
+        const publicKey = keyPair.publicKey.toString('hex');
+
+        const xpub = bs58check.encode(
+          Buffer.concat([
+            ...xpubBuffers,
+            parentFingerPrint,
+            Buffer.from(
+              (indexes[index] + 2 ** 31).toString(16).padStart(8, '0'),
+              'hex',
+            ),
+            extendedKey.chainCode,
+            extendedKey.key,
+          ]),
+        );
+
+        const firstAddressRelPath = '0/0';
+        const relativePaths = [firstAddressRelPath];
+        const { [firstAddressRelPath]: address } = this.getAddressFromXpub({
+          network,
+          xpub,
+          relativePaths,
+          addressEncoding,
+        });
+
+        let xpubSegwit = xpub;
+        if (isTaprootPath(pathPrefix)) {
+          const rootFingerprint = generateRootFingerprint(
+            'secp256k1',
+            seedBuffer,
+            password,
+          );
+          const fingerprint = Number(
+            Buffer.from(rootFingerprint).readUInt32BE(0) || 0,
+          )
+            .toString(16)
+            .padStart(8, '0');
+          const descriptorPath = `${fingerprint}${path.substring(1)}`;
+          xpubSegwit = `tr([${descriptorPath}]${xpub}/<0;1>/*)`;
+        }
+
+        const addressItem: ICoreApiGetAddressItem = {
+          address,
+          publicKey,
+          path,
+          xpub,
+          xpubSegwit,
+          addresses: { [firstAddressRelPath]: address },
+        };
+        return addressItem;
+      }),
+    );
+    return { addresses };
   }
 
   // call collectInfoForSoftwareSign outside

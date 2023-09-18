@@ -397,7 +397,7 @@ export type IPrepareImportedAccountsParams = {
   name: string;
   template?: string;
 };
-export type IPrepareSoftwareAccountsParams = {
+export type IPrepareHdAccountsParams = {
   password: string;
   indexes: Array<number>;
   purpose?: number;
@@ -419,7 +419,7 @@ export type IPrepareHardwareAccountsParams = {
 export type IPrepareAccountsParams =
   | IPrepareWatchingAccountsParams
   | IPrepareImportedAccountsParams
-  | IPrepareSoftwareAccountsParams
+  | IPrepareHdAccountsParams
   | IPrepareHardwareAccountsParams;
 
 // GetAddress ----------------------------------------------

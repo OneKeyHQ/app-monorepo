@@ -16,7 +16,7 @@ import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { DBVariantAccount } from '../../../types/account';
 import type { SignedTx } from '../../../types/provider';
 import type {
-  IPrepareSoftwareAccountsParams,
+  IPrepareHdAccountsParams,
   ISignCredentialOptions,
   IUnsignedTxPro,
 } from '../../types';
@@ -25,7 +25,7 @@ import type { IClientApi, IEncodedTxXmr, ISendFundsArgs } from './types';
 // @ts-ignore
 export class KeyringHd extends KeyringHdBase {
   async prepareAccounts(
-    params: IPrepareSoftwareAccountsParams,
+    params: IPrepareHdAccountsParams,
   ): Promise<Array<DBVariantAccount>> {
     const { password, names, template } = params;
 

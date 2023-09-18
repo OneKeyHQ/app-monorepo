@@ -11,7 +11,7 @@ import { baseEncode, signTransaction } from '../utils';
 import type { ExportedSeedCredential } from '../../../../dbs/base';
 import type { DBSimpleAccount } from '../../../../types/account';
 import type {
-  IPrepareSoftwareAccountsParams,
+  IPrepareHdAccountsParams,
   ISignCredentialOptions,
   ISignedTxPro,
   IUnsignedTxPro,
@@ -24,7 +24,7 @@ const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 export class KeyringHd extends KeyringHdBase {
   // TODO define a basePrepareAccounts() in base class
   override async prepareAccounts(
-    params: IPrepareSoftwareAccountsParams,
+    params: IPrepareHdAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
     // TODO move to abstract attribute
     const curve: CurveName = 'ed25519';

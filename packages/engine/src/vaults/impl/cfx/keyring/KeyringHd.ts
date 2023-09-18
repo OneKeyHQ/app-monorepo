@@ -13,7 +13,7 @@ import { CURVE_NAME } from './constant';
 import type { ExportedSeedCredential } from '../../../../dbs/base';
 import type { DBVariantAccount } from '../../../../types/account';
 import type {
-  IPrepareSoftwareAccountsParams,
+  IPrepareHdAccountsParams,
   ISignCredentialOptions,
   IUnsignedTxPro,
 } from '../../../types';
@@ -44,7 +44,7 @@ export class KeyringHd extends KeyringHdBase {
   }
 
   override async prepareAccounts(
-    params: IPrepareSoftwareAccountsParams,
+    params: IPrepareHdAccountsParams,
   ): Promise<Array<DBVariantAccount>> {
     const { password, indexes, names } = params;
     const { seed } = (await this.engine.dbApi.getCredential(

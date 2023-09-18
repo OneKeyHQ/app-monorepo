@@ -19,7 +19,7 @@ import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { ChainSigner } from '../../../proxy';
 import type { DBVariantAccount } from '../../../types/account';
 import type {
-  IPrepareSoftwareAccountsParams,
+  IPrepareHdAccountsParams,
   ISignCredentialOptions,
   ISignedTxPro,
   IUnsignedTxPro,
@@ -33,7 +33,7 @@ export class KeyringHd extends KeyringHdBase {
   }
 
   override async prepareAccounts(
-    params: IPrepareSoftwareAccountsParams,
+    params: IPrepareHdAccountsParams,
   ): Promise<DBVariantAccount[]> {
     const { password, indexes, names } = params;
     const { seed, entropy } = (await this.engine.dbApi.getCredential(

@@ -10,7 +10,7 @@ import type { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
 import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { KeyringHdBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringHdBase';
 import type {
-  IPrepareSoftwareAccountsParams,
+  IPrepareHdAccountsParams,
   ISignCredentialOptions,
   SignedTxResult,
 } from '@onekeyhq/engine/src/vaults/types';
@@ -54,7 +54,7 @@ export class KeyringHd extends KeyringHdBase {
   }
 
   override async prepareAccounts(
-    params: IPrepareSoftwareAccountsParams,
+    params: IPrepareHdAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
     const { password, indexes, names, template } = params;
 

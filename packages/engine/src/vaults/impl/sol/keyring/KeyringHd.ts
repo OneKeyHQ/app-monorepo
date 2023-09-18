@@ -15,7 +15,7 @@ import { signMessage, signTransaction } from '../utils';
 import type { ExportedSeedCredential } from '../../../../dbs/base';
 import type { DBSimpleAccount } from '../../../../types/account';
 import type {
-  IPrepareSoftwareAccountsParams,
+  IPrepareHdAccountsParams,
   ISignCredentialOptions,
 } from '../../../types';
 
@@ -42,7 +42,7 @@ export class KeyringHd extends KeyringHdBase {
   }
 
   override async prepareAccounts(
-    params: IPrepareSoftwareAccountsParams,
+    params: IPrepareHdAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
     const { password, indexes, names, template } = params;
     const { seed } = (await this.engine.dbApi.getCredential(

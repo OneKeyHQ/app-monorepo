@@ -16,7 +16,7 @@ import { pubkeyToBaseAddress } from './sdk/address';
 import { serializeSignedTx, serializeTxForSignature } from './sdk/txBuilder';
 
 import type {
-  IPrepareSoftwareAccountsParams,
+  IPrepareHdAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
 import type { IEncodedTxCosmos } from './type';
@@ -53,7 +53,7 @@ export class KeyringHd extends KeyringHdBase {
   }
 
   override async prepareAccounts(
-    params: IPrepareSoftwareAccountsParams,
+    params: IPrepareHdAccountsParams,
   ): Promise<Array<DBVariantAccount>> {
     const { password, indexes, names } = params;
     const { seed } = (await this.engine.dbApi.getCredential(

@@ -11,7 +11,7 @@ import { signEncodedTx } from '../utils';
 import type { ExportedSeedCredential } from '../../../../dbs/base';
 import type { DBUTXOAccount } from '../../../../types/account';
 import type {
-  IPrepareSoftwareAccountsParams,
+  IPrepareHdAccountsParams,
   ISignCredentialOptions,
   ISignedTxPro,
   IUnsignedTxPro,
@@ -66,7 +66,7 @@ export class KeyringHd extends KeyringHdBase {
   }
 
   override async prepareAccounts(
-    params: IPrepareSoftwareAccountsParams,
+    params: IPrepareHdAccountsParams,
   ): Promise<DBUTXOAccount[]> {
     const accountNamePrefix = 'NEXA';
 

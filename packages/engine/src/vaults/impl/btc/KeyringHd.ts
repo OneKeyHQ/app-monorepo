@@ -9,7 +9,7 @@ import btcForkSignUtils from '../../utils/btcForkChain/utils/btcForkSignUtils';
 import type { ChainSigner } from '../../../proxy';
 import type { DBUTXOAccount } from '../../../types/account';
 import type {
-  IPrepareSoftwareAccountsParams,
+  IPrepareHdAccountsParams,
   ISignCredentialOptions,
   ISignedTxPro,
   IUnsignedTxPro,
@@ -34,7 +34,7 @@ export class KeyringHd extends KeyringHdBtcFork {
   }
 
   override async prepareAccounts(
-    params: IPrepareSoftwareAccountsParams,
+    params: IPrepareHdAccountsParams,
   ): Promise<DBUTXOAccount[]> {
     return this.basePrepareAccountsHdBtc(params);
   }

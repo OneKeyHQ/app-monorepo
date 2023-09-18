@@ -16,7 +16,7 @@ import { signTransaction } from './utils';
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { DBVariantAccount } from '../../../types/account';
 import type {
-  IPrepareSoftwareAccountsParams,
+  IPrepareHdAccountsParams,
   ISignCredentialOptions,
   IUnsignedTxPro,
 } from '../../types';
@@ -66,7 +66,7 @@ export class KeyringHd extends KeyringHdBase {
   }
 
   async prepareAccounts(
-    params: IPrepareSoftwareAccountsParams,
+    params: IPrepareHdAccountsParams,
   ): Promise<Array<DBVariantAccount>> {
     const curve: CurveName = 'secp256k1';
     const accountNamePrefix = 'FIL';

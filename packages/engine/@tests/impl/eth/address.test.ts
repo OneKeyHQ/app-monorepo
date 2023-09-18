@@ -6,7 +6,7 @@ import { batchGetPublicKeys, uncompressPublicKey } from '../../../src/secret';
 import fixtures from '../fixtures/ethAddress';
 import { mnemonicToCredential } from '../fixtures/utils';
 
-import type { IPrepareSoftwareAccountsParams } from '../../../src/vaults/types';
+import type { IPrepareHdAccountsParams } from '../../../src/vaults/types';
 
 function pubkeyToAddress(pub: string) {
   const compressedPublicKey = Buffer.from(pub, 'hex');
@@ -18,7 +18,7 @@ function pubkeyToAddress(pub: string) {
 }
 
 async function prepareAccount(
-  params: IPrepareSoftwareAccountsParams,
+  params: IPrepareHdAccountsParams,
   mnemonic: string,
 ) {
   const { password, indexes, template } = params;

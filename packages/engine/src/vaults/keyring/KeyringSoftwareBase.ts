@@ -35,7 +35,7 @@ import type {
 } from '../../types/account';
 import type {
   IPrepareImportedAccountsParams,
-  IPrepareSoftwareAccountsParams,
+  IPrepareHdAccountsParams,
 } from '../types';
 import type VaultBtcFork from '../utils/btcForkChain/VaultBtcFork';
 
@@ -173,7 +173,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
   }
 
   async basePrepareAccountsHd(
-    params: IPrepareSoftwareAccountsParams,
+    params: IPrepareHdAccountsParams,
     options: {
       accountType: AccountType;
       usedIndexes: number[];

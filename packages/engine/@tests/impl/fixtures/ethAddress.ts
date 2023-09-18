@@ -6,7 +6,7 @@ import {
 
 import { getAccountNameInfoByImpl } from '../../../src/managers/impl';
 
-import type { IPrepareSoftwareAccountsParams } from '../../../src/vaults/types';
+import type { IPrepareHdAccountsParams } from '../../../src/vaults/types';
 
 const ethAccountNameInfo = getAccountNameInfoByImpl(IMPL_EVM);
 
@@ -16,7 +16,7 @@ const mnemonic =
 const fixtures: {
   description: string;
   params: {
-    prepareAccountParams: IPrepareSoftwareAccountsParams;
+    prepareAccountParams: IPrepareHdAccountsParams;
     mnemonic: string;
   };
   response: string[];
