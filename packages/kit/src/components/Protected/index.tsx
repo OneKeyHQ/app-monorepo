@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import type { FC, ReactNode } from 'react';
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 
 import { Box } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useData } from '@onekeyhq/kit/src/hooks/redux';
 
 import Session from './Session';
@@ -38,8 +37,6 @@ const Protected: FC<ProtectedProps> = ({
   title,
   subTitle,
 }) => {
-  const { serviceApp } = backgroundApiProxy;
-
   const [password, setPassword] = useState('');
   const [withEnableAuthentication, setWithEnableAuthentication] =
     useState<boolean>();
@@ -55,17 +52,6 @@ const Protected: FC<ProtectedProps> = ({
   const onSetupOk = useCallback((text: string, value?: boolean) => {
     setWithEnableAuthentication(value);
     setPassword(text);
-  }, []);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      serviceApp.checkUpdateStatus();
-    }, 1000);
-
-    return () => {
-      clearTimeout(timer);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (password) {
