@@ -1553,6 +1553,7 @@
   "form__not_enough_str": "{0} 不足？",
   "form__not_recommended": "不推荐",
   "form__notification": "通知",
+  "form__offset": "偏移量",
   "form__on_chain_info_uppercase": "链上信息",
   "form__one_to_many": "一对多",
   "form__one_to_many_desc": "分散资金",

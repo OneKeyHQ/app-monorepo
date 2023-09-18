@@ -1553,6 +1553,7 @@
   "form__not_enough_str": "Tidak cukup {0} ?",
   "form__not_recommended": "Tidak direkomendasikan",
   "form__notification": "Pemberitahuan",
+  "form__offset": "Mengimbangi",
   "form__on_chain_info_uppercase": "INFO RANTAI",
   "form__one_to_many": "Satu ke Banyak",
   "form__one_to_many_desc": "Membubarkan Dana",

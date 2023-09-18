@@ -1553,6 +1553,7 @@
   "form__not_enough_str": "যথেষ্ট নয় {0} ?",
   "form__not_recommended": "প্রস্তাবিত নয়",
   "form__notification": "বিজ্ঞপ্তি",
+  "form__offset": "অফসেট",
   "form__on_chain_info_uppercase": "অন-চেইন তথ্য",
   "form__one_to_many": "এক থেকে অনেক",
   "form__one_to_many_desc": "তহবিল ছড়িয়ে দিন",

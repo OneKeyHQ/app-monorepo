@@ -1553,6 +1553,7 @@
   "form__not_enough_str": "لا يكفي {0} ؟",
   "form__not_recommended": "لا ينصح",
   "form__notification": "تنبيه",
+  "form__offset": "عوض",
   "form__on_chain_info_uppercase": "معلومات على السلسلة",
   "form__one_to_many": "واحد لكثير",
   "form__one_to_many_desc": "تفريق الأموال",

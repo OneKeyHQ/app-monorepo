@@ -1553,6 +1553,7 @@
   "form__not_enough_str": "Nicht genug {0} ?",
   "form__not_recommended": "Nicht empfohlen",
   "form__notification": "Benachrichtigung",
+  "form__offset": "Versatz",
   "form__on_chain_info_uppercase": "ON-CHAIN-INFO",
   "form__one_to_many": "Eins zu vielen",
   "form__one_to_many_desc": "Mittel verteilen",

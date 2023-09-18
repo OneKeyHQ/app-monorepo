@@ -1553,6 +1553,7 @@
   "form__not_enough_str": "{0} хангалтгүй байна уу?",
   "form__not_recommended": "Санал болгогдоогүй",
   "form__notification": "Мэдэгдэл",
+  "form__offset": "Офсет",
   "form__on_chain_info_uppercase": "СҮЛЖЭЭНИЙ МЭДЭЭЛЭЛ",
   "form__one_to_many": "Нэгээс олон",
   "form__one_to_many_desc": "Санхүүжилтийг тараах",

@@ -99,6 +99,11 @@ function BTCAssetDetailContent({
   const isDisabled =
     wallet?.type === WALLET_TYPE_WATCHING || !accountId || !isOwner;
 
+  const inscriptionOffset = useMemo(() => {
+    const locationInfo = asset.location.split(':');
+    return locationInfo[2];
+  }, [asset.location]);
+
   const sendAction = useCallback(() => {
     if (!networkId || !accountId) {
       return;
@@ -442,11 +447,10 @@ function BTCAssetDetailContent({
               value={`${asset.output_value_sat} sats`}
             />
           )}
-          {!!asset.location && (
+          {!!inscriptionOffset && (
             <DetailItem
-              // TODO replace
-              title="Offset"
-              value={asset.output.split(':')[1]}
+              title={intl.formatMessage({ id: 'form__offset' })}
+              value={inscriptionOffset}
             />
           )}
           {!!asset.content_length && (
