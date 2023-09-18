@@ -72,7 +72,9 @@ const NotificationProvider: FC<{
     // init in background if platform is ext
     if (!platformEnv.isExtension) {
       serviceNotification.init(launchNotification);
-      return () => serviceNotification.clear();
+      return () => {
+        serviceNotification.clear();
+      };
     }
   }, [serviceNotification, launchNotification]);
 

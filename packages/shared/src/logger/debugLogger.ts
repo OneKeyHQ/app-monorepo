@@ -105,7 +105,7 @@ function convertErrorObject(...args: any[]): any[] {
 function stringifyLog(...args: any[]) {
   const argsNew = convertErrorObject(...args);
   if (IS_DEV) {
-    const maxDepth = 3;
+    const maxDepth = 6;
     try {
       argsNew.forEach((arg) => {
         if (countObjectDepth(arg, maxDepth) > maxDepth) {
@@ -487,7 +487,7 @@ async function loadDebugLoggerSettings() {
     }
   }
 
-  const devModeInfo = await devModeUtils.getDevModeInfo();
+  const devModeInfo = await devModeUtils.getDevModeInfoAsync();
 
   Object.keys(LoggerNames).forEach((key) => {
     let shouldEnable = false;

@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import type { ICoreUnsignedMessageEvm } from '@onekeyhq/core/src/types';
+import { ICoreUnsignedMessage } from '@onekeyhq/core/src/types';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import * as engineUtils from '@onekeyhq/shared/src/engine/engineUtils';
@@ -45,7 +47,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   async signMessage(
-    messages: IUnsignedMessageEvm[],
+    messages: ICoreUnsignedMessageEvm[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     const HardwareSDK = await this.getHardwareSDKInstance();

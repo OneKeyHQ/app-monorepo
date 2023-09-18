@@ -1,13 +1,16 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
+import type { ICoreUnsignedMessage } from '@onekeyhq/core/src/types';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
+import { EVaultKeyringTypes, type ISignCredentialOptions } from '../types';
+
 import { KeyringBase } from './KeyringBase';
 
-import type { ISignCredentialOptions } from '../types';
-
 export abstract class KeyringWatchingBase extends KeyringBase {
+  override keyringType: EVaultKeyringTypes = EVaultKeyringTypes.watching;
+
   async signTransaction(
     unsignedTx: UnsignedTx,
     options: ISignCredentialOptions,
@@ -18,7 +21,7 @@ export abstract class KeyringWatchingBase extends KeyringBase {
   }
 
   async signMessage(
-    messages: any[],
+    messages: ICoreUnsignedMessage[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     throw new OneKeyInternalError(

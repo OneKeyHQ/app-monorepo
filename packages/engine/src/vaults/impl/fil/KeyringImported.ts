@@ -4,7 +4,7 @@ import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
 import { COINTYPE_FIL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
-import { Signer } from '../../../proxy';
+import { ChainSigner } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
@@ -29,9 +29,11 @@ export class KeyringImported extends KeyringImportedBase {
       throw new OneKeyInternalError('Wrong address required for signing.');
     }
 
-    const [privateKey] = Object.values(await this.getPrivateKeys(password));
+    const [privateKey] = Object.values(await this.getPrivateKeys({ password }));
 
-    return { [selectedAddress]: new Signer(privateKey, password, 'secp256k1') };
+    return {
+      [selectedAddress]: new ChainSigner(privateKey, password, 'secp256k1'),
+    };
   }
 
   override async prepareAccounts(

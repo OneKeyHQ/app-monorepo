@@ -5,7 +5,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { Signer } from '../../../proxy';
+import { ChainSigner } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
@@ -25,10 +25,13 @@ import type {
 import type { IAdaUTXO, IEncodedTxADA } from './types';
 
 export class KeyringImported extends KeyringImportedBase {
-  override async getPrivateKeys(
-    password: string,
-    relPaths?: Array<string>,
-  ): Promise<Record<string, Buffer>> {
+  override async getPrivateKeys({
+    password,
+    relPaths,
+  }: {
+    password: string;
+    relPaths?: Array<string>;
+  }): Promise<Record<string, Buffer>> {
     if (typeof relPaths !== 'undefined') {
       throw new NotImplemented(
         'Getting private keys from extended private key',
@@ -50,7 +53,7 @@ export class KeyringImported extends KeyringImportedBase {
   override async getSigners(
     password: string,
     addresses: string[],
-  ): Promise<Record<string, Signer>> {
+  ): Promise<Record<string, ChainSigner>> {
     const dbAccount = await this.getDbAccount();
 
     if (addresses.length !== 1) {
@@ -59,15 +62,15 @@ export class KeyringImported extends KeyringImportedBase {
       throw new OneKeyInternalError('Wrong address required for signing.');
     }
 
-    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys(
+    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys({
       password,
-    );
+    });
     if (typeof privateKey === 'undefined') {
       throw new OneKeyInternalError('Unable to get signer.');
     }
 
     return {
-      [dbAccount.address]: new Signer(privateKey, password, 'ed25519'),
+      [dbAccount.address]: new ChainSigner(privateKey, password, 'ed25519'),
     };
   }
 

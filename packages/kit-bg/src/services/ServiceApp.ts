@@ -47,7 +47,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { exitApp } from '@onekeyhq/shared/src/exitApp';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -475,7 +474,7 @@ class ServiceApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  checkUpdateStatus() {
+  async checkUpdateStatus() {
     const { store } = this.backgroundApi;
     const { lastCheckTimestamp } = store.getState().autoUpdate;
 

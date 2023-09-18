@@ -1,6 +1,6 @@
 import { bytesToHex } from '@noble/hashes/utils';
 
-import { Signer } from '@onekeyhq/engine/src/proxy';
+import { ChainSigner } from '@onekeyhq/engine/src/proxy';
 import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
@@ -26,10 +26,6 @@ const { bufferToU8a, u8aConcat } = polkadotSdk;
 
 // @ts-ignore
 export class KeyringImported extends KeyringImportedBase {
-  private async getChainInfo() {
-    return this.engine.providerManager.getChainInfoByNetworkId(this.networkId);
-  }
-
   private async getChainInfoImplOptions(): Promise<DotImplOptions> {
     const chainInfo = await this.getChainInfo();
     return chainInfo.implOptions as DotImplOptions;
@@ -45,15 +41,15 @@ export class KeyringImported extends KeyringImportedBase {
       throw new OneKeyInternalError('Wrong address required for signing.');
     }
 
-    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys(
+    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys({
       password,
-    );
+    });
     if (typeof privateKey === 'undefined') {
       throw new OneKeyInternalError('Unable to get signer.');
     }
 
     return {
-      [selectedAddress]: new Signer(privateKey, password, 'ed25519'),
+      [selectedAddress]: new ChainSigner(privateKey, password, 'ed25519'),
     };
   }
 

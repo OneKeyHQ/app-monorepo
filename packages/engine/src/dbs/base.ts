@@ -52,11 +52,13 @@ type StoredPrivateKeyCredential = {
 type StoredCredential = StoredSeedCredential | StoredPrivateKeyCredential;
 
 type ExportedSeedCredential = {
+  type: 'hd';
   entropy: Buffer;
   seed: Buffer;
 };
 
 type ExportedPrivateKeyCredential = {
+  type: 'imported';
   privateKey: Buffer;
 };
 
@@ -171,7 +173,7 @@ interface DBAPI {
   }: ISetNextAccountIdsParams): Promise<Wallet>;
 
   getCredential(
-    walletId: string,
+    credentialId: string, // walletId || acountId
     password: string,
   ): Promise<ExportedCredential>;
   confirmHDWalletBackuped(walletId: string): Promise<Wallet>;

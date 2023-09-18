@@ -6,7 +6,7 @@ import { COINTYPE_STC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineCon
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 
-import { Signer } from '../../../../proxy';
+import { ChainSigner } from '../../../../proxy';
 import { AccountType } from '../../../../types/account';
 import { KeyringImportedBase } from '../../../keyring/KeyringImportedBase';
 import {
@@ -27,7 +27,7 @@ export class KeyringImported extends KeyringImportedBase {
   override async getSigners(
     password: string,
     addresses: Array<string>,
-  ): Promise<Record<string, Signer>> {
+  ): Promise<Record<string, ChainSigner>> {
     const dbAccount = await this.getDbAccount();
     if (addresses.length !== 1) {
       throw new OneKeyInternalError('Starcoin signers number should be 1.');
@@ -35,9 +35,9 @@ export class KeyringImported extends KeyringImportedBase {
       throw new OneKeyInternalError('Wrong address required for signing');
     }
 
-    const [privateKey] = Object.values(await this.getPrivateKeys(password));
+    const [privateKey] = Object.values(await this.getPrivateKeys({ password }));
     return {
-      [dbAccount.address]: new Signer(privateKey, password, 'ed25519'),
+      [dbAccount.address]: new ChainSigner(privateKey, password, 'ed25519'),
     };
   }
 

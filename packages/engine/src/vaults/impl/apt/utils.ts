@@ -18,7 +18,7 @@ import { hexlify, stripHexPrefix } from '../../utils/hexUtils';
 import { TypeTagParser } from './builder_utils';
 import { ArgumentABI } from './types';
 
-import type { Signer } from '../../../proxy';
+import type { ChainSigner } from '../../../proxy';
 import type {
   SignMessagePayload,
   SignMessageRequest,
@@ -145,7 +145,7 @@ export async function buildSignedTx(
 }
 
 export async function signRawTransaction(
-  signer: Signer,
+  signer: ChainSigner,
   senderPublicKey: string,
   rawTxn: TxnBuilderTypes.RawTransaction,
 ) {

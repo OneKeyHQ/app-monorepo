@@ -3,13 +3,13 @@ import bs58 from 'bs58';
 
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 
-import type { Signer } from '../../../proxy';
+import type { ChainSigner } from '../../../proxy';
 import type { INativeTxSol } from './types';
 import type { PublicKey } from '@solana/web3.js';
 
 export async function signTransaction(
   unsignedTx: UnsignedTx,
-  signer: Signer,
+  signer: ChainSigner,
 ): Promise<SignedTx> {
   const { nativeTx: transaction, feePayer } = unsignedTx.payload as {
     nativeTx: INativeTxSol;
@@ -35,7 +35,7 @@ export async function signTransaction(
 
 export async function signMessage(
   message: string,
-  signer: Signer,
+  signer: ChainSigner,
 ): Promise<string> {
   const [signature] = await signer.sign(Buffer.from(message));
   return bs58.encode(signature);

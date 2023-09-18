@@ -16,7 +16,7 @@ import { generateNativeSegwitAccounts } from './helper/account';
 import { signature } from './helper/signature';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
-import type { Signer } from '../../../proxy';
+import type { ChainSigner } from '../../../proxy';
 import type { DBVariantAccount } from '../../../types/account';
 import type {
   IPrepareSoftwareAccountsParams,
@@ -28,8 +28,8 @@ import type { IEncodedTxLightning } from './types';
 import type LightningVault from './Vault';
 
 export class KeyringHd extends KeyringHdBase {
-  override getSigners(): Promise<Record<string, Signer>> {
-    return Promise.resolve({} as Record<string, Signer>);
+  override getSigners(): Promise<Record<string, ChainSigner>> {
+    return Promise.resolve({} as Record<string, ChainSigner>);
   }
 
   override async prepareAccounts(

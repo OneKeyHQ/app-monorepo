@@ -38,7 +38,7 @@ import { getBlockBook } from './blockbook';
 import { getNetwork } from './networks';
 import { PLACEHOLDER_VSIZE, estimateTxSize, loadOPReturn } from './vsize';
 
-import type { Account } from '../../../../types/account';
+import type { Account, DBUTXOAccount } from '../../../../types/account';
 import type { IUnsignedTxPro } from '../../../types';
 import type { Network } from './networks';
 import type { PsbtInput } from 'bip174/src/lib/interfaces';
@@ -706,7 +706,7 @@ class Provider {
     return psbt;
   }
 
-  private async collectInfoForSoftwareSign(
+  async collectInfoForSoftwareSign(
     unsignedTx: IUnsignedTxPro,
   ): Promise<[string[], Record<string, string>]> {
     const { inputs } = unsignedTx;
@@ -763,6 +763,7 @@ class Provider {
     );
   }
 
+  // TODO remove
   signMessage({
     password,
     entropy,
@@ -798,7 +799,7 @@ class Provider {
     signers,
     psbtNetwork,
   }: {
-    account: Account;
+    account: DBUTXOAccount;
     message: string;
     signers: Record<string, Signer>;
     psbtNetwork: BitcoinJS.networks.Network;

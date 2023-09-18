@@ -618,7 +618,7 @@ export default class Vault extends VaultBase {
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
       const keyring = this.keyring as KeyringSoftwareBase;
       const [encryptedPrivateKey] = Object.values(
-        await keyring.getPrivateKeys(password),
+        await keyring.getPrivateKeys({ password }),
       );
       return sdk.mnemonicFromSeed(decrypt(password, encryptedPrivateKey));
     }

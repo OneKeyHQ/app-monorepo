@@ -2,7 +2,7 @@ import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 
 import sdk from './sdkAlgo';
 
-import type { Signer } from '../../../proxy';
+import type { ChainSigner } from '../../../proxy';
 import type {
   ISdkAlgoEncodedTransaction,
   ISdkAlgoTransaction,
@@ -11,7 +11,7 @@ import type { IEncodedTxAlgo } from './types';
 
 export async function signTransaction(
   unsignedTx: UnsignedTx,
-  signer: Signer,
+  signer: ChainSigner,
 ): Promise<SignedTx> {
   const { encodedTx } = unsignedTx.payload as { encodedTx: IEncodedTxAlgo };
   const transaction = sdk.Transaction.from_obj_for_encoding(

@@ -224,6 +224,7 @@ class BackgroundApiProxy
                   flowLogger.app.apiCalls.callBackgroundApi({
                     service: name,
                     method: prop,
+                    params: args,
                   });
                 }
                 return this.callBackground(key, ...args);

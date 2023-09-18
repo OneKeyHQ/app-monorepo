@@ -69,9 +69,7 @@ export class KeyringImported extends KeyringImportedBase {
     const moneroApi = await getMoneroApi();
     const clientApi = await this.getClientApi<IClientApi>();
 
-    const [privateKey] = Object.values(
-      await this.getPrivateKeys(password || ''),
-    );
+    const [privateKey] = Object.values(await this.getPrivateKeys({ password }));
 
     const rawPrivateKey = decrypt(password || '', privateKey);
 

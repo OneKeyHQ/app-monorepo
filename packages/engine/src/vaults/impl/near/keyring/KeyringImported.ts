@@ -2,7 +2,7 @@ import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
 import { COINTYPE_NEAR as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
-import { Signer } from '../../../../proxy';
+import { ChainSigner } from '../../../../proxy';
 import { AccountType } from '../../../../types/account';
 import { KeyringImportedBase } from '../../../keyring/KeyringImportedBase';
 import { baseEncode, signTransaction } from '../utils';
@@ -47,15 +47,15 @@ export class KeyringImported extends KeyringImportedBase {
       throw new OneKeyInternalError('Wrong address required for signing.');
     }
 
-    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys(
+    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys({
       password,
-    );
+    });
     if (typeof privateKey === 'undefined') {
       throw new OneKeyInternalError('Unable to get signer.');
     }
 
     return {
-      [dbAccount.address]: new Signer(privateKey, password, 'ed25519'),
+      [dbAccount.address]: new ChainSigner(privateKey, password, 'ed25519'),
     };
   }
 

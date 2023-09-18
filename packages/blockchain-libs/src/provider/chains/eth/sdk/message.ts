@@ -1,6 +1,7 @@
 import * as signUtil from '@metamask/eth-sig-util'; // TODO patch legacyToBuffer in app-monorepo
 import * as ethUtil from 'ethereumjs-util';
 
+// TODO use core MessageType
 enum MessageTypes {
   ETH_SIGN = 0,
   PERSONAL_SIGN = 1,

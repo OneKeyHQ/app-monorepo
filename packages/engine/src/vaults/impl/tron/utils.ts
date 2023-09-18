@@ -5,7 +5,7 @@ import TronWeb from 'tronweb';
 import { uncompressPublicKey } from '@onekeyhq/engine/src/secret';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 
-import type { Signer } from '../../../proxy';
+import type { ChainSigner } from '../../../proxy';
 
 export function publicKeyToAddress(publicKey: string): string {
   const uncompressed = uncompressPublicKey(
@@ -19,7 +19,7 @@ export function publicKeyToAddress(publicKey: string): string {
 
 export async function signTransaction(
   unsignedTx: UnsignedTx,
-  signer: Signer,
+  signer: ChainSigner,
 ): Promise<SignedTx> {
   const { encodedTx } = unsignedTx.payload;
   const [sig, recoveryParam] = await signer.sign(

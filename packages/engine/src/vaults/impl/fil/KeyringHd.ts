@@ -7,7 +7,7 @@ import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_FIL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
-import { Signer } from '../../../proxy';
+import { ChainSigner } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
@@ -53,14 +53,16 @@ export class KeyringHd extends KeyringHdBase {
       throw new OneKeyInternalError('Wrong address required for signing.');
     }
 
-    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys(
+    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys({
       password,
-    );
+    });
     if (typeof privateKey === 'undefined') {
       throw new OneKeyInternalError('Unable to get signer.');
     }
 
-    return { [selectedAddress]: new Signer(privateKey, password, 'secp256k1') };
+    return {
+      [selectedAddress]: new ChainSigner(privateKey, password, 'secp256k1'),
+    };
   }
 
   async prepareAccounts(

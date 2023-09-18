@@ -1,5 +1,6 @@
 /* eslint-disable max-classes-per-file */
 
+import { devOnlyData } from '../../../../utils/devModeUtils';
 import debugLogger from '../../../debugLogger';
 import { FlowLoggerScopeBase } from '../../base/FlowLoggerScopeBase';
 
@@ -8,22 +9,69 @@ import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provi
 
 class SceneApiCalls {
   // log all background api call
-  callBackgroundApi({ service, method }: { service: string; method: string }) {
-    return [service, method];
+  callBackgroundApi({
+    service,
+    method,
+    params,
+  }: {
+    service: string;
+    method: string;
+    params: any;
+  }) {
+    return [service, method, devOnlyData(params)] as unknown;
   }
 
-  // log all provider api call
+  // log all dapp provider api call
   callProviderApi({
+    origin,
     scope,
     method,
-    origin,
+    params,
   }: {
+    origin?: string;
     scope?: IInjectedProviderNamesStrings;
     method?: string;
-    origin?: string;
+    params: any;
   }) {
-    // TODO return { output: '', outputOnlyDev: ''}
-    return [scope, method, origin];
+    return [origin, scope, method, devOnlyData(params)] as unknown;
+  }
+
+  callVaultApi({
+    networkImpl,
+    method,
+    params,
+  }: {
+    networkImpl?: string;
+    method?: string;
+    params: any;
+  }) {
+    return [networkImpl, method, devOnlyData(params)] as unknown;
+  }
+
+  callKeyringApi({
+    keyring,
+    method,
+    params,
+  }: {
+    keyring?: string;
+    method?: string;
+    params: any;
+  }) {
+    return [keyring, method, devOnlyData(params)] as unknown;
+  }
+
+  callCoreApi({
+    scopeName,
+    apiName,
+    method,
+    params,
+  }: {
+    scopeName: string;
+    apiName: string;
+    method: string;
+    params: any;
+  }) {
+    return [scopeName, apiName, method, devOnlyData(params)] as unknown;
   }
 }
 
@@ -62,17 +110,4 @@ export default class extends FlowLoggerScopeBase {
   apiCalls: SceneApiCalls = this._createSceneProxy('apiCalls') as SceneApiCalls;
 
   private _apiCalls = () => SceneApiCalls;
-
-  // wallet
-  // network
-  // account(accountSelector, address)
-  // notification(socket)
-  // migration
-  // backup
-  // upgrade
-  // onboarding
-  // secret(password)
-  // navigation(routes,deeplink,linking,url)
-  // webview(webembed api)
-  // store(redux,storage,cache,db,jotai)
 }

@@ -1,3 +1,4 @@
+// TODO move to core
 // TODO set value type to string
 enum ETHMessageTypes {
   ETH_SIGN = 0,

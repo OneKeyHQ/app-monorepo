@@ -14,7 +14,7 @@ import { IDecodedTxStatus } from '../../types';
 
 import { ProtocolIndicator } from './types';
 
-import type { Signer } from '../../../proxy';
+import type { ChainSigner } from '../../../proxy';
 import type { IUnsignedTxPro } from '../../types';
 import type { IEncodedTxFil } from './types';
 
@@ -41,7 +41,7 @@ export const validateNetworkPrefix = (
 
 export async function signTransaction(
   unsignedTx: IUnsignedTxPro,
-  signer: Signer,
+  signer: ChainSigner,
 ): Promise<SignedTx> {
   const encodedTx = unsignedTx.encodedTx as IEncodedTxFil;
 

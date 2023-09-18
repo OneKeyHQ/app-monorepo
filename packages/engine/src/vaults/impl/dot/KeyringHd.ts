@@ -2,7 +2,7 @@ import { bytesToHex } from '@noble/hashes/utils';
 
 import type { ExportedSeedCredential } from '@onekeyhq/engine/src/dbs/base';
 import { getAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
-import { Signer } from '@onekeyhq/engine/src/proxy';
+import { ChainSigner } from '@onekeyhq/engine/src/proxy';
 import { mnemonicFromEntropy } from '@onekeyhq/engine/src/secret';
 import { encrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
@@ -36,19 +36,18 @@ const HARDEN_PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 
 // @ts-ignore
 export class KeyringHd extends KeyringHdBase {
-  private async getChainInfo() {
-    return this.engine.providerManager.getChainInfoByNetworkId(this.networkId);
-  }
-
   private async getChainInfoImplOptions(): Promise<DotImplOptions> {
     const chainInfo = await this.getChainInfo();
     return chainInfo.implOptions as DotImplOptions;
   }
 
-  override async getPrivateKeys(
-    password: string,
-    relPaths?: Array<string>,
-  ): Promise<Record<string, Buffer>> {
+  override async getPrivateKeys({
+    password,
+    relPaths,
+  }: {
+    password: string;
+    relPaths?: Array<string>;
+  }): Promise<Record<string, Buffer>> {
     const dbAccount = await this.getDbAccount();
     const pathComponents = dbAccount.path.split('/');
     const usedRelativePaths = relPaths || [pathComponents.pop() as string];
@@ -86,7 +85,7 @@ export class KeyringHd extends KeyringHdBase {
       throw new OneKeyInternalError('Wrong address required for signing.');
     }
 
-    const privateKeys = await this.getPrivateKeys(password);
+    const privateKeys = await this.getPrivateKeys({ password });
 
     const { [dbAccount.path]: privateKey } = privateKeys;
     if (typeof privateKey === 'undefined') {
@@ -94,7 +93,7 @@ export class KeyringHd extends KeyringHdBase {
     }
 
     return {
-      [selectedAddress]: new Signer(privateKey, password, 'ed25519'),
+      [selectedAddress]: new ChainSigner(privateKey, password, 'ed25519'),
     };
   }
 

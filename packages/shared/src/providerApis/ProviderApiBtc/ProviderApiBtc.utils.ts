@@ -1,7 +1,12 @@
 import * as BitcoinJS from 'bitcoinjs-lib';
 import uuid from 'react-native-uuid';
 
-import type { Account } from '@onekeyhq/engine/src/types/account';
+import type { ICoreApiSignAccount } from '@onekeyhq/core/src/types';
+import type {
+  Account,
+  DBAccount,
+  DBUTXOAccount,
+} from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import type { IDecodedTxAction } from '@onekeyhq/engine/src/vaults/types';
@@ -110,7 +115,7 @@ export function getInputsToSignFromPsbt({
   psbtNetwork,
   account,
 }: {
-  account: Account;
+  account: ICoreApiSignAccount;
   psbt: BitcoinJS.Psbt;
   psbtNetwork: BitcoinJS.networks.Network;
 }) {

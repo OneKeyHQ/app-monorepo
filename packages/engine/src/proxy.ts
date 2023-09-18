@@ -14,6 +14,7 @@ import type {
   BaseProvider,
   ClientFilter,
 } from '@onekeyhq/engine/src/client/BaseClient';
+import type { CurveName } from '@onekeyhq/engine/src/secret';
 import {
   N,
   sign,
@@ -50,8 +51,6 @@ import type { BlockNativeGasInfo } from './types/blockNative';
 import type { MetaMaskGasInfo } from './types/metaMask';
 import type { DBNetwork, EIP1559Fee } from './types/network';
 
-type Curve = 'secp256k1' | 'ed25519';
-
 function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
   const defaultClient = IMPL_MAPPINGS[dbNetwork.impl]?.defaultClient;
 
@@ -87,7 +86,7 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
     code,
     feeCode: dbNetwork.id,
     impl: dbNetwork.impl,
-    curve: (dbNetwork.curve || getCurveByImpl(dbNetwork.impl)) as Curve,
+    curve: (dbNetwork.curve || getCurveByImpl(dbNetwork.impl)) as CurveName,
     implOptions,
     clients: [
       {
@@ -111,14 +110,15 @@ export interface IVerifierPro extends IVerifier {
   }): Promise<boolean>;
 }
 
+// TODO move to core
 export class Verifier implements IVerifierPro {
   private uncompressedPublicKey: Buffer;
 
   private compressedPublicKey: Buffer;
 
-  curve: Curve;
+  curve: CurveName;
 
-  constructor(pub: string, curve: Curve) {
+  constructor(pub: string, curve: CurveName) {
     this.curve = curve;
     this.compressedPublicKey = Buffer.from(pub, 'hex');
     this.uncompressedPublicKey = uncompressPublicKey(
@@ -156,12 +156,13 @@ export class Verifier implements IVerifierPro {
   }
 }
 
+// TODO move to core
 // @ts-ignore
-export class Signer extends Verifier implements ISigner {
+export class ChainSigner extends Verifier implements ISigner {
   constructor(
     private encryptedPrivateKey: Buffer,
     private password: string,
-    private override curve: Curve,
+    private override curve: CurveName,
   ) {
     super(
       N(
@@ -242,7 +243,7 @@ class ProviderController extends BaseProviderController {
     }
 
     const { curve } = this.providers[networkId].chainInfo;
-    return new Verifier(pub, curve as Curve);
+    return new Verifier(pub, curve);
   }
   // TODO: set client api to support change.
 

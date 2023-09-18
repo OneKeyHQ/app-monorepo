@@ -70,6 +70,7 @@ const Done: FC<DoneProps> = ({
           });
         }
       } catch (e) {
+        console.error(e);
         const errorKey = (e as { key: LocaleIds }).key;
         ToastManager.show(
           {

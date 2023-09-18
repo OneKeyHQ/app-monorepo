@@ -2,7 +2,7 @@ import { COINTYPE_ADA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineCon
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { Signer } from '../../../proxy';
+import { ChainSigner } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
@@ -26,7 +26,7 @@ export class KeyringHd extends KeyringHdBase {
   override async getSigners(
     password: string,
     addresses: string[],
-  ): Promise<Record<string, Signer>> {
+  ): Promise<Record<string, ChainSigner>> {
     const dbAccount = await this.getDbAccount();
 
     if (addresses.length !== 1) {
@@ -35,15 +35,15 @@ export class KeyringHd extends KeyringHdBase {
       throw new OneKeyInternalError('Wrong address required for signing.');
     }
 
-    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys(
+    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys({
       password,
-    );
+    });
     if (typeof privateKey === 'undefined') {
       throw new OneKeyInternalError('Unable to get signer.');
     }
 
     return {
-      [dbAccount.address]: new Signer(privateKey, password, 'ed25519'),
+      [dbAccount.address]: new ChainSigner(privateKey, password, 'ed25519'),
     };
   }
 

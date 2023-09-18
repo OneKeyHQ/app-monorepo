@@ -162,7 +162,7 @@ export type IVaultOptions = IVaultFactoryOptions & {
   engine: Engine;
 };
 export type ISignCredentialOptions = {
-  password?: string;
+  password: string;
 };
 
 // Internal txInfo ----------------------------------------------
@@ -700,3 +700,9 @@ export type IBalanceDetails = {
   unavailableOfInscription?: string; // BTC Inscription value
   unavailableOfUnchecked?: string; // BTC not verified value by ordinals
 };
+export enum EVaultKeyringTypes {
+  hd = 'hd',
+  hardware = 'hardware',
+  imported = 'imported',
+  watching = 'watching',
+}

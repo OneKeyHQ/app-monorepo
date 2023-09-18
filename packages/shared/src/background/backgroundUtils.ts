@@ -1,16 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import axios from 'axios';
-import {
-  isArray,
-  isBoolean,
-  isFunction,
-  isNull,
-  isNumber,
-  isPlainObject,
-  isString,
-  isUndefined,
-} from 'lodash';
+import { isFunction } from 'lodash';
 import qs from 'qs';
 import { batch } from 'react-redux';
 
@@ -35,83 +26,24 @@ import {
 import { NotAutoPrintError } from '../errors';
 import debugLogger from '../logger/debugLogger';
 import platformEnv from '../platformEnv';
+import {
+  ensurePromiseObject,
+  ensureSerializable,
+  isSerializable,
+  throwCrossError,
+} from '../utils/assertUtils';
 
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { Method } from 'axios';
 import type { AnyAction } from 'redux';
 
-export function throwCrossError(msg: string, ...args: any) {
-  if (platformEnv.isNative) {
-    // `throw new Error()` won't print error object in iOS/Android,
-    //    so we print it manually by `console.error()`
-    console.error(msg, ...args);
-  }
-  throw new Error(msg);
-}
-
-export function isSerializable(obj: any) {
-  if (
-    isUndefined(obj) ||
-    isNull(obj) ||
-    isBoolean(obj) ||
-    isNumber(obj) ||
-    isString(obj) ||
-    obj instanceof Error
-  ) {
-    return true;
-  }
-
-  if (!isPlainObject(obj) && !isArray(obj)) {
-    // like regex, date
-    return false;
-  }
-
-  // eslint-disable-next-line no-restricted-syntax
-  for (const key in obj) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    if (!isSerializable(obj[key])) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-export function ensureSerializable(obj: any, stringify = false): any {
-  if (process.env.NODE_ENV !== 'production') {
-    if (!isSerializable(obj)) {
-      console.error('Object should be serializable >>>> ', obj);
-      if (stringify) {
-        return JSON.parse(JSON.stringify(obj));
-      }
-
-      throw new Error('Object should be serializable');
-    }
-  }
-  return obj;
-}
-
-export function ensurePromiseObject(
-  obj: any,
-  {
-    serviceName,
-    methodName,
-  }: {
-    serviceName: string;
-    methodName: string;
-  },
-) {
-  if (process.env.NODE_ENV !== 'production') {
-    if (obj !== undefined && !(obj instanceof Promise)) {
-      throwCrossError(
-        `${
-          serviceName ? `${serviceName}.` : ''
-        }${methodName}() should be async or Promise method.`,
-      );
-    }
-  }
-}
+export {
+  ensurePromiseObject,
+  ensureSerializable,
+  isSerializable,
+  throwCrossError,
+};
 
 export function throwMethodNotFound(...methods: string[]) {
   const msg = `DApp Provider or Background method not support (method=${methods.join(

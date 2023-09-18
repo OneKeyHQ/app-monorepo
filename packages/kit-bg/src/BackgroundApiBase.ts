@@ -111,9 +111,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
   @bindThis()
   @backgroundMethod()
-  dispatch(...actions: any[]) {
+  async dispatch(...actions: any[]) {
     if (!actions || !actions.length) {
-      return;
+      return Promise.resolve();
     }
     // eslint-disable-next-line no-param-reassign
     actions = actions.filter(Boolean);
@@ -202,7 +202,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       payload,
     );
     const result = await provider.handleMethods(payload);
-    ensureSerializable(result);
+    ensureSerializable(result, false, payload);
     // TODO non rpc result return in some chain provider
     const resultWrapped = this.rpcResult(result, payloadData);
     debugLogger.providerApi.info(
@@ -236,6 +236,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
         scope,
         origin,
         method,
+        params,
       });
       return this.handleProviderMethods(payload);
     }

@@ -78,7 +78,9 @@ export default class Vault extends VaultBase {
         const isImportedAccount = accountId.startsWith('imported');
         if (isImportedAccount) {
           const [privateKey] = Object.values(
-            await (this.keyring as KeyringImported).getPrivateKeys(psw),
+            await (this.keyring as KeyringImported).getPrivateKeys({
+              password: psw,
+            }),
           );
 
           rawPrivateKey = decrypt(psw, privateKey).toString('hex');

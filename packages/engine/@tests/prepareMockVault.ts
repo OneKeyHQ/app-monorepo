@@ -35,6 +35,7 @@ export function prepareMockVault({
   if (privateKey && password) {
     const encryptedPrivateKey = bufferUitls.toBuffer(privateKey);
     seedInfo = {
+      type: 'imported',
       privateKey: encryptedPrivateKey,
     };
   }

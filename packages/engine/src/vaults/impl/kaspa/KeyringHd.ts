@@ -3,7 +3,7 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import type { ExportedSeedCredential } from '@onekeyhq/engine/src/dbs/base';
 import { slicePathTemplate } from '@onekeyhq/engine/src/managers/derivation';
 import { getAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
-import { Signer } from '@onekeyhq/engine/src/proxy';
+import { ChainSigner } from '@onekeyhq/engine/src/proxy';
 import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
@@ -41,15 +41,15 @@ export class KeyringHd extends KeyringHdBase {
       throw new OneKeyInternalError('Wrong address required for signing.');
     }
 
-    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys(
+    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys({
       password,
-    );
+    });
     if (typeof privateKey === 'undefined') {
       throw new OneKeyInternalError('Unable to get signer.');
     }
 
     return {
-      [dbAccount.address]: new Signer(privateKey, password, 'secp256k1'),
+      [dbAccount.address]: new ChainSigner(privateKey, password, 'secp256k1'),
     };
   }
 

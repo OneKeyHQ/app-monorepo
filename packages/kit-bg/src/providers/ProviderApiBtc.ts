@@ -77,7 +77,11 @@ class ProviderApiBtc extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  public async getProviderState() {
+  public async getProviderState(): Promise<{
+    network: string | undefined;
+    isUnlocked: boolean;
+    accounts: string[];
+  }> {
     const isUnlocked = await this.backgroundApi.serviceApp.isUnlock();
     const accounts: string[] = [];
     const { accountAddress, network } = getActiveWalletAccount();
@@ -87,7 +91,7 @@ class ProviderApiBtc extends ProviderApiBase {
       }
     }
     return {
-      network: network ? getNetworkName(network) : '',
+      network: network ? await getNetworkName(network) : '',
       isUnlocked,
       accounts,
     };

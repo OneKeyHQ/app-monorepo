@@ -1,7 +1,7 @@
 import { sha256 } from '@noble/hashes/sha256';
 
 import type { ExportedSeedCredential } from '@onekeyhq/engine/src/dbs/base';
-import { Signer } from '@onekeyhq/engine/src/proxy';
+import { ChainSigner } from '@onekeyhq/engine/src/proxy';
 import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
@@ -26,10 +26,6 @@ const HARDEN_PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0'`;
 
 // @ts-ignore
 export class KeyringHd extends KeyringHdBase {
-  private async getChainInfo() {
-    return this.engine.providerManager.getChainInfoByNetworkId(this.networkId);
-  }
-
   override async getSigners(password: string, addresses: Array<string>) {
     const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
     const selectedAddress = dbAccount.address;
@@ -40,15 +36,15 @@ export class KeyringHd extends KeyringHdBase {
       throw new OneKeyInternalError('Wrong address required for signing.');
     }
 
-    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys(
+    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys({
       password,
-    );
+    });
     if (typeof privateKey === 'undefined') {
       throw new OneKeyInternalError('Unable to get signer.');
     }
     const chainInfo = await this.getChainInfo();
     return {
-      [selectedAddress]: new Signer(
+      [selectedAddress]: new ChainSigner(
         privateKey,
         password,
         chainInfo?.implOptions?.curve ?? 'secp256k1',

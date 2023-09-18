@@ -1,17 +1,29 @@
+import type { ICoreHdCredential } from '@onekeyhq/core/src/types';
 import { batchGetPrivateKeys } from '@onekeyhq/engine/src/secret';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+
+import {
+  EVaultKeyringTypes,
+  type IPrepareAccountByAddressIndexParams,
+} from '../types';
 
 import { KeyringSoftwareBase } from './KeyringSoftwareBase';
 
 import type { ExportedSeedCredential } from '../../dbs/base';
 import type { DBAccount } from '../../types/account';
-import type { IPrepareAccountByAddressIndexParams } from '../types';
+import type { ISignCredentialOptions } from '../types';
 
 export abstract class KeyringHdBase extends KeyringSoftwareBase {
-  override async getPrivateKeys(
-    password: string,
-    relPaths?: Array<string>,
-  ): Promise<Record<string, Buffer>> {
+  override keyringType: EVaultKeyringTypes = EVaultKeyringTypes.hd;
+
+  override async getPrivateKeys({
+    password,
+    relPaths,
+  }: {
+    password: string;
+    relPaths?: Array<string>;
+  }): Promise<Record<string, Buffer>> {
     const dbAccount = await this.getDbAccount();
     const pathComponents = dbAccount.path.split('/');
     const usedRelativePaths = relPaths || [pathComponents.pop() as string];

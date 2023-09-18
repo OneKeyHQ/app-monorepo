@@ -6,7 +6,7 @@ import {
   signEncodedTx,
 } from './utils';
 
-import type { Signer } from '../../../proxy';
+import type { ChainSigner } from '../../../proxy';
 
 jest.setTimeout(3 * 60 * 1000);
 
@@ -83,7 +83,7 @@ describe('Nexa Utils Tests', () => {
               'hex',
             ),
           ),
-      } as unknown as Signer,
+      } as unknown as ChainSigner,
       'nexatest:nqtsq5g5llmjhut9fuzst4993zmk62m89rw2gztuvl376dp0',
     );
     expect(signedTx.txid).toBe(
@@ -150,7 +150,7 @@ describe('Nexa Utils Tests', () => {
               'hex',
             ),
           ),
-      } as unknown as Signer,
+      } as unknown as ChainSigner,
       'nexatest:nqtsq5g5l7rgf6mrvuhrjke8vsm4ng60q86vdycptqn79epv',
     );
     expect(signedTx.txid).toBe(
@@ -241,7 +241,7 @@ describe('Nexa Utils Tests', () => {
               'hex',
             ),
           ),
-      } as unknown as Signer,
+      } as unknown as ChainSigner,
       'nexatest:nqtsq5g5skxwlgtmsl99hj6tt8hmsa52cxft09um2md36p07',
     );
     expect(signedTx.txid).toBe(

@@ -18,12 +18,11 @@ import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { AccountType } from '../../../../types/account';
-import { ETHMessageTypes } from '../../../../types/message';
+import { type ETHMessage, ETHMessageTypes } from '../../../../types/message';
 import { KeyringHardwareBase } from '../../../keyring/KeyringHardwareBase';
 import { conflux as sdkCfx } from '../sdk';
 
 import type { DBVariantAccount } from '../../../../types/account';
-import type { ETHMessage } from '../../../../types/message';
 import type {
   IGetAddressParams,
   IPrepareHardwareAccountsParams,

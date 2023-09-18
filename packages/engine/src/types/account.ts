@@ -43,7 +43,9 @@ type DBUTXOAccount = DBBaseAccount & {
 type DBVariantAccount = DBBaseAccount & {
   pub: string;
   address: string; // Base address
-  addresses: Record<string, string>; // Network -> address
+  // VARIANT: Network -> address
+  // UTXO: relPath -> address
+  addresses: Record<string, string>;
 };
 
 type DBAccount = DBSimpleAccount | DBUTXOAccount | DBVariantAccount;

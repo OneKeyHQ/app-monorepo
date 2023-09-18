@@ -127,6 +127,7 @@ import type {
   ImportableHDAccount,
 } from './types/account';
 import type { BackupObject, ImportableHDWallet } from './types/backup';
+import type { ChainInfo } from './types/chain';
 import type { DevicePayload } from './types/device';
 import type { GoPlusTokenSecurity } from './types/goplus';
 import type {
@@ -192,13 +193,14 @@ class Engine {
   constructor() {
     this.dbApi = new DbApi() as DBAPI;
     this.priceManager = new PriceController();
-    this.providerManager = new ProviderController((networkId) =>
-      this.dbApi
-        .getNetwork(networkId)
-        .then((dbNetwork) => fromDBNetworkToChainInfo(dbNetwork)),
-    );
+    this.providerManager = new ProviderController(this.getChainInfo);
     this.validator = new Validators(this);
   }
+
+  getChainInfo = (networkId: string): Promise<ChainInfo> =>
+    this.dbApi
+      .getNetwork(networkId)
+      .then((dbNetwork) => fromDBNetworkToChainInfo(dbNetwork));
 
   async cleanupDBOnStart() {
     await this.dbApi.cleanupPendingWallets();
@@ -897,7 +899,6 @@ class Engine {
       : getDefaultAccountNameInfoByImpl(impl);
     const vault = await this.getWalletOnlyVault(networkId, walletId);
     const accounts = await vault.keyring.prepareAccounts({
-      type: 'SEARCH_ACCOUNTS',
       password,
       indexes,
       purpose,
@@ -3046,7 +3047,7 @@ class Engine {
     confirmOnDevice?: boolean;
   }) {
     if (!walletId || !networkId) return [];
-    if (walletId.startsWith('watching')) {
+    if (walletId.startsWith('watching') || walletId.startsWith('imported')) {
       return this.dbApi.getAccount(accountId);
     }
     const vault = await this.getWalletOnlyVault(networkId, walletId);

@@ -15,6 +15,7 @@ import type {
 import type {
   IBlockBookTransaction,
   IBtcUTXO,
+  IBtcUTXOInfo,
   ICoinSelectUTXO,
   ICoinSelectUTXOLite,
   ICollectUTXOsOptions,
@@ -101,6 +102,7 @@ import type {
 } from '../../../types/utxoAccounts';
 import type { KeyringBaseMock } from '../../keyring/KeyringBase';
 import type { KeyringHdBase } from '../../keyring/KeyringHdBase';
+import type { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 import type {
   IApproveInfo,
   IBalanceDetails,
@@ -375,9 +377,8 @@ export default class VaultBtcFork extends VaultBase {
         (network.segwitVersionBytes || {})[addressEncoding] || network.bip32;
 
       const keyring = this.keyring as KeyringHdBase;
-      const [encryptedPrivateKey] = Object.values(
-        await keyring.getPrivateKeys(password),
-      );
+      const privateKeys = await keyring.getPrivateKeys({ password });
+      const encryptedPrivateKey = privateKeys[dbAccount.path];
       return bs58check.encode(
         bs58check
           .decode(dbAccount.xpub)
@@ -398,11 +399,16 @@ export default class VaultBtcFork extends VaultBase {
     }
 
     if (dbAccount.id.startsWith('imported-')) {
+      // const { privateKey } = (await this.engine.dbApi.getCredential(
+      //   this.accountId,
+      //   password,
+      // )) as ExportedPrivateKeyCredential;
+
       // Imported accounts, crendetial is already xprv
-      const { privateKey } = (await this.engine.dbApi.getCredential(
-        this.accountId,
-        password,
-      )) as ExportedPrivateKeyCredential;
+      const keyring = this.keyring as KeyringImportedBase;
+      const privateKeys = await keyring.getPrivateKeys({ password });
+      const privateKey = privateKeys[dbAccount.path];
+
       if (typeof privateKey === 'undefined') {
         throw new OneKeyInternalError('Unable to get credential.');
       }
@@ -1434,7 +1440,7 @@ export default class VaultBtcFork extends VaultBase {
   }
 
   collectUTXOsInfo = memoizee(
-    async (options: ICollectUTXOsOptions = {}) => {
+    async (options: ICollectUTXOsOptions = {}): Promise<IBtcUTXOInfo> => {
       const provider = await this.getProvider();
       const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
       try {

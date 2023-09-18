@@ -3,7 +3,7 @@ import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_TRON as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
-import { Signer } from '../../../proxy';
+import { ChainSigner } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
@@ -25,10 +25,10 @@ export class KeyringImported extends KeyringImportedBase {
       throw new OneKeyInternalError('Wrong address required for signing.');
     }
 
-    const [privateKey] = Object.values(await this.getPrivateKeys(password));
+    const [privateKey] = Object.values(await this.getPrivateKeys({ password }));
 
     return {
-      [dbAccount.address]: new Signer(privateKey, password, 'secp256k1'),
+      [dbAccount.address]: new ChainSigner(privateKey, password, 'secp256k1'),
     };
   }
 

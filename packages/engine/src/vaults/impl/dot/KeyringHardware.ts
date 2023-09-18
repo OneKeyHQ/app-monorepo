@@ -33,10 +33,6 @@ const { u8aConcat } = polkadotSdk;
 
 // @ts-ignore
 export class KeyringHardware extends KeyringHardwareBase {
-  private async getChainInfo() {
-    return this.engine.providerManager.getChainInfoByNetworkId(this.networkId);
-  }
-
   private async getChainInfoImplOptions(): Promise<DotImplOptions> {
     const chainInfo = await this.getChainInfo();
     return chainInfo.implOptions as DotImplOptions;

@@ -10,7 +10,7 @@ export interface IUnitTestMockAccount {
 }
 
 export interface IPrepareMockVaultOptions {
-  password?: string;
+  password: string;
   mnemonic?: string;
   privateKey?: string;
   dbAccount: DBAccount;

@@ -2,13 +2,15 @@
 import { HardwareSDK } from '@onekeyhq/shared/src/device/hardwareInstance';
 import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 
+import {
+  EVaultKeyringTypes,
+  type IHardwareGetAddressParams,
+  type IPrepareAccountByAddressIndexParams,
+} from '../types';
+
 import { KeyringBase } from './KeyringBase';
 
 import type { DBAccount } from '../../types/account';
-import type {
-  IHardwareGetAddressParams,
-  IPrepareAccountByAddressIndexParams,
-} from '../types';
 
 export type WalletPassphraseState = {
   passphraseState?: string;
@@ -16,6 +18,8 @@ export type WalletPassphraseState = {
 };
 
 export abstract class KeyringHardwareBase extends KeyringBase {
+  override keyringType: EVaultKeyringTypes = EVaultKeyringTypes.hardware;
+
   async getHardwareInfo() {
     const device = await this.engine.getHWDeviceByWalletId(this.vault.walletId);
     return {

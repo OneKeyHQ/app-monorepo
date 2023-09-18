@@ -174,6 +174,8 @@ export type IEncodedTxEvm = {
   gasPrice?: string;
   maxFeePerGas?: string;
   maxPriorityFeePerGas?: string;
+
+  chainId?: number;
 };
 
 export enum IDecodedTxEvmType {
@@ -1178,6 +1180,10 @@ export default class Vault extends VaultBase {
 
     encodedTx.nonce = nextNonce;
 
+    const chainIdStr = await this.getNetworkChainId();
+    const chainId = new BigNumber(chainIdStr).toNumber();
+    encodedTx.chainId = chainId;
+
     return { ...unsignedTx, encodedTx };
   }
 
@@ -1528,9 +1534,8 @@ export default class Vault extends VaultBase {
     const dbAccount = await this.getDbAccount();
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
       const keyring = this.keyring as KeyringSoftwareBase;
-      const [encryptedPrivateKey] = Object.values(
-        await keyring.getPrivateKeys(password),
-      );
+      const privateKeys = await keyring.getPrivateKeys({ password });
+      const [encryptedPrivateKey] = Object.values(privateKeys);
       return `0x${decrypt(password, encryptedPrivateKey).toString('hex')}`;
     }
     throw new OneKeyInternalError(

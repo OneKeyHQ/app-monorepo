@@ -1,6 +1,6 @@
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 
-import { Signer } from '@onekeyhq/engine/src/proxy';
+import { ChainSigner } from '@onekeyhq/engine/src/proxy';
 import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
@@ -35,15 +35,15 @@ export class KeyringImported extends KeyringImportedBase {
       throw new OneKeyInternalError('Wrong address required for signing.');
     }
 
-    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys(
+    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys({
       password,
-    );
+    });
     if (typeof privateKey === 'undefined') {
       throw new OneKeyInternalError('Unable to get signer.');
     }
 
     return {
-      [dbAccount.address]: new Signer(privateKey, password, 'secp256k1'),
+      [dbAccount.address]: new ChainSigner(privateKey, password, 'secp256k1'),
     };
   }
 

@@ -137,17 +137,8 @@ export default class Vault extends VaultBase {
     return this.getClientCache(rpcURL);
   }
 
-  private async getChainInfo() {
-    const chainInfo = await this.engine.providerManager.getChainInfoByNetworkId(
-      this.networkId,
-    );
-    return chainInfo;
-  }
-
   private async getChainImplInfo() {
-    const chainInfo = await this.engine.providerManager.getChainInfoByNetworkId(
-      this.networkId,
-    );
+    const chainInfo = await this.getChainInfo();
     return chainInfo.implOptions as CosmosImplOptions;
   }
 
@@ -912,7 +903,7 @@ export default class Vault extends VaultBase {
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
       const keyring = this.keyring as KeyringSoftwareBase;
       const [encryptedPrivateKey] = Object.values(
-        await keyring.getPrivateKeys(password),
+        await keyring.getPrivateKeys({ password }),
       );
       return `0x${decrypt(password, encryptedPrivateKey).toString('hex')}`;
     }

@@ -1411,6 +1411,7 @@ class IndexedDBApi implements DBAPI {
                   credential,
                 ) as StoredPrivateKeyCredential;
                 resolve({
+                  type: 'imported',
                   privateKey: Buffer.from(
                     privateKeyCredentialJSON.privateKey,
                     'hex',
@@ -1421,6 +1422,7 @@ class IndexedDBApi implements DBAPI {
                   credential,
                 ) as StoredSeedCredential;
                 resolve({
+                  type: 'hd',
                   entropy: Buffer.from(seedCredentialJSON.entropy, 'hex'),
                   seed: Buffer.from(seedCredentialJSON.seed, 'hex'),
                 });

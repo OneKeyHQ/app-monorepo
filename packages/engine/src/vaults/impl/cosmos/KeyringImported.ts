@@ -1,6 +1,6 @@
 import { sha256 } from '@noble/hashes/sha256';
 
-import { Signer } from '@onekeyhq/engine/src/proxy';
+import { ChainSigner } from '@onekeyhq/engine/src/proxy';
 import type { CurveName } from '@onekeyhq/engine/src/secret';
 import { ed25519, secp256k1 } from '@onekeyhq/engine/src/secret/curves';
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
@@ -23,10 +23,6 @@ import type { IEncodedTxCosmos } from './type';
 
 // @ts-ignore
 export class KeyringImported extends KeyringImportedBase {
-  private async getChainInfo() {
-    return this.engine.providerManager.getChainInfoByNetworkId(this.networkId);
-  }
-
   override async getSigners(password: string, addresses: Array<string>) {
     const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
     const selectedAddress = dbAccount.address;
@@ -37,15 +33,15 @@ export class KeyringImported extends KeyringImportedBase {
       throw new OneKeyInternalError('Wrong address required for signing.');
     }
 
-    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys(
+    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys({
       password,
-    );
+    });
     if (typeof privateKey === 'undefined') {
       throw new OneKeyInternalError('Unable to get signer.');
     }
     const chainInfo = await this.getChainInfo();
     return {
-      [selectedAddress]: new Signer(
+      [selectedAddress]: new ChainSigner(
         privateKey,
         password,
         chainInfo?.implOptions?.curve ?? 'secp256k1',

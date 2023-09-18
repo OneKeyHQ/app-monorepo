@@ -1,3 +1,17 @@
+import {
+  isArray,
+  isBoolean,
+  isNull,
+  isNumber,
+  isPlainObject,
+  isString,
+  isUndefined,
+} from 'lodash';
+
+import platformEnv from '../platformEnv';
+
+import { isPromiseObject } from './promiseUtils';
+
 type ErrorType = undefined | string | Error;
 
 const check = (statement: any, orError?: ErrorType) => {
@@ -24,5 +38,82 @@ const checkIsUndefined = (something: any, orError?: ErrorType) => {
     orError || `Expect undefined but actually ${something as string}`,
   );
 };
+
+export function throwCrossError(msg: string, ...args: any) {
+  if (platformEnv.isNative) {
+    // `throw new Error()` won't print error object in iOS/Android,
+    //    so we print it manually by `console.error()`
+    console.error(msg, ...args);
+  }
+  throw new Error(msg);
+}
+
+export function isSerializable(obj: any) {
+  if (
+    isUndefined(obj) ||
+    isNull(obj) ||
+    isBoolean(obj) ||
+    isNumber(obj) ||
+    isString(obj) ||
+    obj instanceof Error
+  ) {
+    return true;
+  }
+
+  if (!isPlainObject(obj) && !isArray(obj)) {
+    // like regex, date
+    return false;
+  }
+
+  // eslint-disable-next-line no-restricted-syntax
+  for (const key in obj) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    if (!isSerializable(obj[key])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+export function ensureSerializable(
+  obj: any,
+  stringify = false,
+  info?: any,
+): any {
+  if (process.env.NODE_ENV !== 'production') {
+    if (!isSerializable(obj)) {
+      console.error('Object should be serializable >>>> ', obj, info);
+      if (stringify) {
+        return JSON.parse(JSON.stringify(obj));
+      }
+
+      throw new Error('Object should be serializable');
+    }
+  }
+  return obj;
+}
+
+export function ensurePromiseObject(
+  obj: any,
+  {
+    serviceName,
+    methodName,
+  }: {
+    serviceName: string;
+    methodName: string;
+  },
+) {
+  if (process.env.NODE_ENV !== 'production') {
+    // if (obj !== undefined && !(obj instanceof Promise)) {
+    if (!isPromiseObject(obj)) {
+      throwCrossError(
+        `${
+          serviceName ? `${serviceName}.` : ''
+        }${methodName}() should be async or Promise method.`,
+      );
+    }
+  }
+}
 
 export { check, checkIsDefined, checkIsUndefined };

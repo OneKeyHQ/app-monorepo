@@ -1,8 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 // eslint-disable-next-line max-classes-per-file
+import type { CoreChainApiBase } from '@onekeyhq/core/src/chains/_base/CoreChainApiBase';
+import type { ICoreUnsignedMessage } from '@onekeyhq/core/src/types';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
-import { IVaultOptions } from '../types';
+import { EVaultKeyringTypes, IVaultOptions } from '../types';
 import { VaultContext } from '../VaultContext';
 
 import type { DBAccount } from '../../types/account';
@@ -23,21 +26,39 @@ export abstract class KeyringBase extends VaultContext {
     this.vault = vault;
   }
 
+  abstract keyringType: EVaultKeyringTypes;
+
+  isKeyringImported() {
+    return this.keyringType === EVaultKeyringTypes.imported;
+  }
+
+  isKeyringHd() {
+    return this.keyringType === EVaultKeyringTypes.hd;
+  }
+
+  isKeyringHardware() {
+    return this.keyringType === EVaultKeyringTypes.hardware;
+  }
+
+  isKeyringWatching() {
+    return this.keyringType === EVaultKeyringTypes.watching;
+  }
+
   vault: VaultBase;
 
-  // TODO: check history is added
-  abstract signTransaction(
-    unsignedTx: IUnsignedTxPro,
-    options: ISignCredentialOptions,
-  ): Promise<ISignedTxPro>;
+  coreApi: CoreChainApiBase | undefined;
+
+  override async addressFromBase(account: DBAccount) {
+    return this.vault.addressFromBase(account);
+  }
 
   abstract signTransaction(
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
   ): Promise<ISignedTxPro>;
 
-  // TODO: check history is added
   abstract signMessage(
+    // messages: ICoreUnsignedMessage[], // TODO use core types
     messages: any[],
     options: ISignCredentialOptions,
   ): Promise<string[]>;
@@ -46,16 +67,14 @@ export abstract class KeyringBase extends VaultContext {
     params: IPrepareAccountsParams,
   ): Promise<Array<DBAccount>>;
 
+  // TODO merge prepareAccounts, getAddress, batchGetAddress, getAddressesFromHd, getAddressFromPrivate
   abstract getAddress(params: IGetAddressParams): Promise<string>;
 
   abstract batchGetAddress(
     params: IGetAddressParams[],
   ): Promise<{ path: string; address: string }[]>;
 
-  override async addressFromBase(account: DBAccount) {
-    return this.vault.addressFromBase(account);
-  }
-
+  // TODO BTC fork only?
   abstract prepareAccountByAddressIndex(
     params: IPrepareAccountByAddressIndexParams,
   ): Promise<Array<DBAccount>>;

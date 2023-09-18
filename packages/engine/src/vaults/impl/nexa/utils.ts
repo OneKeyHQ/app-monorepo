@@ -35,7 +35,7 @@ import {
 } from './sdk';
 import { type IEncodedTxNexa, NexaSignature } from './types';
 
-import type { Signer } from '../../../proxy';
+import type { ChainSigner } from '../../../proxy';
 import type { Token } from '../../../types/token';
 import type {
   INexaInputSignature,
@@ -412,7 +412,7 @@ export function buildSignatureBuffer(
 // signed by 'schnorr'
 export async function signEncodedTx(
   unsignedTx: IUnsignedTxPro,
-  signer: Signer,
+  signer: ChainSigner,
   dbAccountAddress: string,
 ): Promise<ISignedTxPro> {
   const encodedTx = unsignedTx.encodedTx as IEncodedTxNexa;

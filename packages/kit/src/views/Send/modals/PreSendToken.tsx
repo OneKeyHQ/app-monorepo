@@ -5,7 +5,6 @@ import { merge } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Box, Empty, useIsVerticalLayout } from '@onekeyhq/components';
-import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
 import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import { LazyDisplayView } from '../../../components/LazyDisplayView';

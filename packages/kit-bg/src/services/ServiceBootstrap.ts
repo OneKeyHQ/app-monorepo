@@ -26,7 +26,6 @@ import {
   INDEX_PLACEHOLDER,
   enabledAccountDynamicNetworkIds,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 

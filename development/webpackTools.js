@@ -129,11 +129,12 @@ function normalizeConfig({
     // Compile entrypoints and dynamic imports only when they are in use.
     if (isDev) {
       config.experiments = config.experiments || {};
-      config.experiments.lazyCompilation = {
-        imports: true,
-        entries: false,
-        test: /engine/,
-      };
+      // TODO disable lazyCompilation
+      // config.experiments.lazyCompilation = {
+      //   imports: true,
+      //   entries: false,
+      //   test: /engine/,
+      // };
     }
 
     // add devServer proxy

@@ -119,10 +119,13 @@ export async function waitForDataLoaded({
 }
 
 export function isPromiseObject(obj: any) {
-  if (Object?.prototype?.toString?.call?.(obj) === '[object Promise]') {
+  // if (obj === undefined) {
+  //   return true;
+  // }
+  if (obj instanceof Promise) {
     return true;
   }
-  if (obj instanceof Promise) {
+  if (Object?.prototype?.toString?.call?.(obj) === '[object Promise]') {
     return true;
   }
   if (isFunction((obj as { then?: () => any } | undefined)?.then)) {

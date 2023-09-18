@@ -1477,7 +1477,7 @@ class RealmDB implements DBAPI {
    * @NOTE: this method is only used for hd wallet
    */
   getCredential(
-    credentialId: string,
+    credentialId: string, // walletId || acountId
     password: string,
   ): Promise<ExportedCredential> {
     try {
@@ -1507,6 +1507,7 @@ class RealmDB implements DBAPI {
           credential.credential,
         ) as StoredPrivateKeyCredential;
         exprotedCredential = {
+          type: 'imported',
           privateKey: Buffer.from(privateKeyCredentialJSON.privateKey, 'hex'),
         };
       } else {
@@ -1514,6 +1515,7 @@ class RealmDB implements DBAPI {
           credential.credential,
         );
         exprotedCredential = {
+          type: 'hd',
           entropy: Buffer.from(credentialJSON.entropy, 'hex'),
           seed: Buffer.from(credentialJSON.seed, 'hex'),
         };
