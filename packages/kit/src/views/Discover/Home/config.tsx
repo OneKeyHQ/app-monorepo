@@ -1,9 +1,10 @@
-import { type ReactElement, useMemo } from 'react';
+import { type ReactElement, useCallback, useContext, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { useShowBookmark } from '../hooks/useControl';
 
+import { DiscoverContext } from './context';
 import { SectionExplore } from './TabExplore';
 import { SectionFavorites } from './TabFavorites';
 import { SectionFeatured } from './TabFeatured';
@@ -47,4 +48,17 @@ export const useTabConfig = (): TabItemConfig[] => {
     ];
     return options.filter((o) => !o.hide);
   }, [showBookmark, intl]);
+};
+
+export const useOnTabChange = () => {
+  const { setTabName } = useContext(DiscoverContext);
+  const tabConfig = useTabConfig();
+  const onTabChange = useCallback(
+    (index: number) => {
+      const conf = tabConfig[index];
+      setTabName?.(conf.name);
+    },
+    [tabConfig, setTabName],
+  );
+  return onTabChange;
 };
