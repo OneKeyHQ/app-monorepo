@@ -49,13 +49,13 @@ export function useAccountBalanceDetailsInfo({
   networkId,
   useRecycleBalance,
   isInscribe,
-  useManuallyAddedAddressBalance,
+  useCustomAddressesBalance,
 }: {
   accountId: string;
   networkId: string;
   useRecycleBalance?: boolean;
   isInscribe?: boolean;
-  useManuallyAddedAddressBalance?: boolean;
+  useCustomAddressesBalance?: boolean;
 }) {
   const intl = useIntl();
   const [balanceDetails, setBalanceDetails] = useState<
@@ -74,7 +74,7 @@ export function useAccountBalanceDetailsInfo({
             networkId,
             useRecycleBalance,
             isInscribe,
-            useManuallyAddedAddressBalance,
+            useCustomAddressesBalance,
           });
         setBalanceDetails(result);
         setIsLoading(false);
@@ -102,7 +102,7 @@ export function useAccountBalanceDetailsInfo({
     networkId,
     useRecycleBalance,
     isInscribe,
-    useManuallyAddedAddressBalance,
+    useCustomAddressesBalance,
   ]);
 
   let enabled = true;

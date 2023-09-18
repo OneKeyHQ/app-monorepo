@@ -621,8 +621,6 @@ export default class VaultBtcFork extends VaultBase {
           outputs[0].address === dbAccount.address
             ? IDecodedTxDirection.OUT
             : IDecodedTxDirection.SELF,
-        utxoFrom,
-        utxoTo,
         nativeTransfer: {
           tokenInfo: nativeToken,
           from: dbAccount.address,
@@ -630,6 +628,8 @@ export default class VaultBtcFork extends VaultBase {
           amount: utxo.balance,
           amountValue: utxo.balanceValue,
           extraInfo: null,
+          utxoFrom,
+          utxoTo,
         },
       }));
     }
@@ -1751,9 +1751,18 @@ export default class VaultBtcFork extends VaultBase {
       }
     }
 
+    let customAddresses;
+    if (
+      transferInfos[0].useCustomAddressesBalance &&
+      dbAccount.customAddresses
+    ) {
+      customAddresses = Object.values(dbAccount.customAddresses);
+    }
+
     let { utxos } = await this.collectUTXOsInfo({
       forceSelectUtxos,
       checkInscription,
+      customAddresses,
     });
 
     // Select the slowest fee rate as default, otherwise the UTXO selection
@@ -1938,16 +1947,16 @@ export default class VaultBtcFork extends VaultBase {
   override async getFrozenBalance({
     useRecycleBalance,
     ignoreInscriptions,
-    useManuallyAddedAddressBalance,
+    useCustomAddressesBalance,
   }: {
     useRecycleBalance?: boolean;
     ignoreInscriptions?: boolean;
-    useManuallyAddedAddressBalance?: boolean;
+    useCustomAddressesBalance?: boolean;
   } = {}): Promise<number> {
     const result = await this.fetchBalanceDetails({
       useRecycleBalance,
       ignoreInscriptions,
-      useManuallyAddedAddressBalance,
+      useCustomAddressesBalance,
     });
     if (result && !isNil(result?.unavailable)) {
       return new BigNumber(result.unavailable).toNumber();
@@ -1958,11 +1967,11 @@ export default class VaultBtcFork extends VaultBase {
   override async fetchBalanceDetails({
     useRecycleBalance,
     ignoreInscriptions,
-    useManuallyAddedAddressBalance,
+    useCustomAddressesBalance,
   }: {
     useRecycleBalance?: boolean;
     ignoreInscriptions?: boolean;
-    useManuallyAddedAddressBalance?: boolean;
+    useCustomAddressesBalance?: boolean;
   } = {}): Promise<IBalanceDetails | undefined> {
     const [dbAccount, network] = await Promise.all([
       this.getDbAccount() as Promise<DBUTXOAccount>,
@@ -1988,9 +1997,9 @@ export default class VaultBtcFork extends VaultBase {
         }),
       };
     }
-    if (useManuallyAddedAddressBalance) {
+    if (useCustomAddressesBalance) {
       collectUTXOsInfoParams = {
-        manuallyAddedAddresses: dbAccount.customAddresses
+        customAddresses: dbAccount.customAddresses
           ? Object.values(dbAccount.customAddresses)
           : [],
       };

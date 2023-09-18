@@ -177,7 +177,7 @@ function PreSendAmount() {
   const { account, accountId, networkId, network } =
     useActiveSideAccount(transferInfo);
   const { engine } = backgroundApiProxy;
-  const [useManuallyAddedAddressBalance, setUseManuallyAddedAddressBalance] =
+  const [useCustomAddressesBalance, setuseCustomAddressesBalance] =
     useState(false);
   useReloadAccountBalance({
     networkId,
@@ -199,7 +199,7 @@ function PreSendAmount() {
     },
     useRecycleBalance: tokenInfo?.isNative,
     fallback: '0',
-    useManuallyAddedAddressBalance,
+    useCustomAddressesBalance,
   });
 
   const frozenBalance = useFrozenBalance({
@@ -207,7 +207,7 @@ function PreSendAmount() {
     accountId,
     tokenId: tokenInfo?.tokenIdOnNetwork || 'main',
     useRecycleBalance: tokenInfo?.isNative,
-    useManuallyAddedAddressBalance,
+    useCustomAddressesBalance,
   });
 
   const originalTokenBalance = useTokenBalance({
@@ -358,7 +358,7 @@ function PreSendAmount() {
     networkId,
     accountId,
     useRecycleBalance: tokenInfo?.isNative,
-    useManuallyAddedAddressBalance,
+    useCustomAddressesBalance,
   });
 
   return (
@@ -381,6 +381,9 @@ function PreSendAmount() {
         if (transferInfo) {
           transferInfo.amount = amountToSend;
           transferInfo.from = account.address;
+        }
+        if (useCustomAddressesBalance) {
+          transferInfo.useCustomAddressesBalance = true;
         }
 
         try {
@@ -482,7 +485,7 @@ function PreSendAmount() {
               <BalanceTypeMenu
                 networkId={networkId}
                 callback={(value) =>
-                  setUseManuallyAddedAddressBalance(value === 'Manually')
+                  setuseCustomAddressesBalance(value === 'Manually')
                 }
               />
               <Pressable
@@ -506,9 +509,7 @@ function PreSendAmount() {
                     ...(tokenInfo || {}),
                     sendAddress: transferInfo.tokenSendAddress,
                   }}
-                  useManuallyAddedAddressBalance={
-                    useManuallyAddedAddressBalance
-                  }
+                  useCustomAddressesBalance={useCustomAddressesBalance}
                   render={(ele) => (
                     <Typography.Body1Strong
                       color={

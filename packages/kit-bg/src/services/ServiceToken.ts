@@ -1032,13 +1032,13 @@ export default class ServiceToken extends ServiceBase {
     accountId,
     useRecycleBalance,
     isInscribe,
-    useManuallyAddedAddressBalance,
+    useCustomAddressesBalance,
   }: {
     networkId: string;
     accountId: string;
     useRecycleBalance?: boolean;
     isInscribe?: boolean;
-    useManuallyAddedAddressBalance?: boolean;
+    useCustomAddressesBalance?: boolean;
   }) {
     const vault = await this.backgroundApi.engine.getVault({
       networkId,
@@ -1060,7 +1060,7 @@ export default class ServiceToken extends ServiceBase {
       password,
       useRecycleBalance,
       ignoreInscriptions: shouldHideInscriptions,
-      useManuallyAddedAddressBalance,
+      useCustomAddressesBalance,
     });
   }
 
