@@ -79,7 +79,7 @@ const NestedTabView: ForwardRefRenderFunction<
         [headerHeight],
       );
     } catch (error) {
-      debugLogger.common.error(`set headerHeight error`, error);
+      flowLogger.error.log(`set headerHeight error`, error);
     }
   }, []);
 
