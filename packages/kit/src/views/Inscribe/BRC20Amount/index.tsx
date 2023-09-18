@@ -66,17 +66,19 @@ function BRC20Amount() {
   const onPromise = useCallback(async () => {
     const receiveAddress = account?.address;
 
-    const { isValidAddress } = await serviceInscribe.checkValidTaprootAddress({
-      address: receiveAddress ?? '',
-      networkId,
-      accountId,
-    });
+    const { isTaprootAddress } = await serviceInscribe.checkValidTaprootAddress(
+      {
+        address: receiveAddress ?? '',
+        networkId,
+        accountId,
+      },
+    );
 
-    if (!receiveAddress || !isValidAddress) {
+    if (!receiveAddress || !isTaprootAddress) {
       ToastManager.show(
         {
           title: intl.formatMessage({
-            id: 'form__address_invalid',
+            id: 'msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address',
           }),
         },
         { type: 'error' },

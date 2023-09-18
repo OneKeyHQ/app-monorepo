@@ -47,6 +47,22 @@ const ReceiveAddress: FC = () => {
   } = route?.params || {};
   const { network } = useActiveSideAccount({ accountId, networkId });
 
+  const addressFilter = useCallback(
+    async (address: string) => {
+      try {
+        return (
+          await serviceInscribe.checkValidTaprootAddress({
+            address,
+            networkId,
+            accountId,
+          })
+        ).isTaprootAddress;
+      } catch (error) {
+        return Promise.resolve(false);
+      }
+    },
+    [accountId, networkId, serviceInscribe],
+  );
   const {
     control,
     watch,
@@ -75,19 +91,15 @@ const ReceiveAddress: FC = () => {
             errorMessage: '',
             successMessage: '',
           });
-          const { isTaprootAddress, isValidAddress } =
+          const { isTaprootAddress } =
             await serviceInscribe.checkValidTaprootAddress({
               address: value,
               networkId,
               accountId,
             });
-          if (isValidAddress) {
+          if (isTaprootAddress) {
             setvalidateMessage({
-              warningMessage: isTaprootAddress
-                ? ''
-                : intl.formatMessage({
-                    id: 'content__some_ordinals_wallets_may_not_support_non_taproot_address_check_the_type_before_continue',
-                  }),
+              warningMessage: '',
               errorMessage: '',
               successMessage: intl.formatMessage({
                 id: 'form__enter_recipient_address_valid',
@@ -97,7 +109,7 @@ const ReceiveAddress: FC = () => {
             setvalidateMessage({
               warningMessage: '',
               errorMessage: intl.formatMessage({
-                id: 'form__address_invalid',
+                id: 'msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address',
               }),
               successMessage: '',
             });
@@ -107,7 +119,7 @@ const ReceiveAddress: FC = () => {
           setvalidateMessage({
             warningMessage: '',
             errorMessage: intl.formatMessage({
-              id: 'form__address_invalid',
+              id: 'msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address',
             }),
             successMessage: '',
           });
@@ -160,7 +172,6 @@ const ReceiveAddress: FC = () => {
               id: 'form__address_to_receive_inscription',
             })}
             errorMessage={validateMessage.errorMessage}
-            warningMessage={validateMessage.warningMessage}
             rules={{
               required: {
                 value: true,
@@ -178,8 +189,12 @@ const ReceiveAddress: FC = () => {
               placeholder={intl.formatMessage({
                 id: 'form__address',
               })}
+              description={intl.formatMessage({
+                id: 'content__enter_the_taproot_address_to_receive_ordinal_inscriptions',
+              })}
               h={{ base: 120, md: 120 }}
               plugins={['contact', 'paste', 'scan']}
+              addressFilter={addressFilter}
             />
           </Form.Item>
           {address && (
