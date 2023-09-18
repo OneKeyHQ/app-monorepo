@@ -17,12 +17,11 @@ import type {
   SelectItem,
 } from '@onekeyhq/components/src/Select';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/engine/src/types/wallet';
-import { EPasswordResStatus } from '@onekeyhq/kit-bg/src/services/ServicePassword';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigationActions } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useSetPassword } from '../../../hooks/useProtectedVerify';
 import {
   CreateWalletModalRoutes,
   ModalRoutes,
@@ -30,7 +29,6 @@ import {
 } from '../../../routes/routesEnum';
 import { EOnboardingRoutes } from '../../../views/Onboarding/routes/enums';
 import { useCreateAccountInWallet } from '../../NetworkAccountSelector/hooks/useCreateAccountInWallet';
-import { ValidationFields } from '../../Protected';
 
 import type { EWalletDataSectionType } from '../hooks/useWalletSelectorSectionData';
 
@@ -119,10 +117,10 @@ export function WalletCreateSelectDropdown({
     }
     return [];
   }, [walletType, intl]);
-
+  const setPassword = useSetPassword();
   return (
     <Select
-      onChange={async (v) => {
+      onChange={(v) => {
         if (isVerticalLayout && platformEnv.isNative) {
           closeWalletSelector();
         } else {
@@ -137,28 +135,7 @@ export function WalletCreateSelectDropdown({
           //     disableAnimation: true,
           //   },
           // });
-          const { status, data } =
-            await backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
-              {
-                walletId: null,
-                field: ValidationFields.Wallet,
-                skipSavePassword: true,
-                hideTitle: true,
-                isAutoHeight: true,
-              },
-            );
-          if (status === EPasswordResStatus.PASS_STATUS) {
-            const mnemonic = await backgroundApiProxy.engine.generateMnemonic();
-            navigation.navigate(RootRoutes.Onboarding, {
-              screen: EOnboardingRoutes.RecoveryPhrase,
-              params: {
-                password: data.password,
-                mnemonic,
-                withEnableAuthentication:
-                  data.options?.withEnableAuthentication,
-              },
-            });
-          }
+          setPassword();
         }
         if (v === 'import') {
           navigation.navigate(RootRoutes.Onboarding, {

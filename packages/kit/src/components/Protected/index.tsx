@@ -81,7 +81,6 @@ const Protected: FC<ProtectedProps> = ({
 
   // input password
   if (hasPassword) {
-    console.log('6');
     return (
       <Session
         onOk={onValidationOk}
@@ -92,7 +91,6 @@ const Protected: FC<ProtectedProps> = ({
       />
     );
   }
-  console.log('7');
   // create new password
   return (
     <Setup
