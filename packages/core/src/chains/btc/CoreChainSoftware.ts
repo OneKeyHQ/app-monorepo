@@ -29,9 +29,10 @@ import {
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { DBUTXOAccount } from '@onekeyhq/engine/src/types/account';
 import { DBAccount } from '@onekeyhq/engine/src/types/account';
+import type { IUnsignedMessageBtc } from '@onekeyhq/engine/src/types/message';
+import { EMessageTypesBtc } from '@onekeyhq/engine/src/types/message';
 import type { ISigner } from '@onekeyhq/engine/src/types/secret';
 import { tweakSigner } from '@onekeyhq/engine/src/vaults/impl/btc/provider';
-import type { IUnsignedMessageBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import type { IBtcForkNetwork } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/provider/networks';
 import { getBtcForkNetwork } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/provider/networks';
@@ -58,7 +59,6 @@ import { check, checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import {
-  ECoreUnsignedMessageTypeBtc,
   type ICoreApiGetAddressItem,
   type ICoreApiGetAddressQueryImportedBtc,
   type ICoreApiGetAddressesQueryHdBtc,
@@ -68,7 +68,6 @@ import {
   type ICoreApiSignBtcExtraInfo,
   type ICoreApiSignMsgPayload,
   type ICoreApiSignTxPayload,
-  type ICoreUnsignedMessageBtc,
 } from '../../types';
 import { CoreChainApiBase } from '../_base/CoreChainApiBase';
 
@@ -927,12 +926,12 @@ export default abstract class CoreChainSoftware extends CoreChainApiBase {
       throw new Error('BTC sign message need relPaths');
     }
 
-    const unsignedMsg = payload.unsignedMsg as ICoreUnsignedMessageBtc;
+    const unsignedMsg = payload.unsignedMsg as IUnsignedMessageBtc;
     const network = getBtcForkNetwork(networkChainCode);
 
     const signers = await this.getSignersMap({ payload });
 
-    if (unsignedMsg.type === ECoreUnsignedMessageTypeBtc.BIP322_SIMPLE) {
+    if (unsignedMsg.type === EMessageTypesBtc.BIP322_SIMPLE) {
       const buffer = await this.signBip322MessageSimple({
         account,
         message: unsignedMsg.message,

@@ -1,6 +1,5 @@
 import bs58check from 'bs58check';
 
-import type { ICoreUnsignedMessageBtc } from '@onekeyhq/core/src/types';
 import type { ExtendedKey } from '@onekeyhq/engine/src/secret';
 import { BaseBip32KeyDeriver } from '@onekeyhq/engine/src/secret/bip32';
 import type { Bip32KeyDeriver } from '@onekeyhq/engine/src/secret/bip32';

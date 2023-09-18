@@ -21,11 +21,11 @@ import {
 import { NetworkId } from './types';
 
 import type { DBUTXOAccount } from '../../../types/account';
+import type { IUnsignedMessage } from '../../../types/message';
 import type {
   IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
 } from '../../types';
-import type { IUnsignedMessageEvm } from '../evm/Vault';
 import type { IEncodedTxADA } from './types';
 import type AdaVault from './Vault';
 import type { CardanoGetAddressMethodParams } from '@onekeyfe/hd-core';
@@ -284,9 +284,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     };
   }
 
-  override async signMessage(
-    messages: IUnsignedMessageEvm[],
-  ): Promise<string[]> {
+  override async signMessage(messages: IUnsignedMessage[]): Promise<string[]> {
     debugLogger.common.info('signMessage', messages);
     const dbAccount = await this.getDbAccount();
     const { connectId, deviceId } = await this.getHardwareInfo();

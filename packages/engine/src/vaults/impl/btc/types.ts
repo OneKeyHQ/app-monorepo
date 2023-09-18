@@ -1,6 +1,6 @@
 import type { InputToSign } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.types';
 
-import type { BtcMessageTypes } from '../../../types/message';
+import type { EMessageTypesBtc } from '../../../types/message';
 import type { NFTBTCAssetModel } from '../../../types/nft';
 import type { ITransferInfo } from '../../types';
 import type { SignatureOptions } from 'bitcoinjs-message';
@@ -53,13 +53,4 @@ export type IBlockBookTransaction = {
   confirmations: number;
   fees: string;
   blockTime?: number;
-};
-
-export type IUnsignedMessageBtc = {
-  type: BtcMessageTypes;
-  message: string;
-  sigOptions?: (SignatureOptions & { noScriptType?: boolean }) | null;
-  payload?: {
-    isFromDApp?: boolean;
-  };
 };

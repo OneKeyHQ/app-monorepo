@@ -3,7 +3,7 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 
-import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
+import { EMessageTypesEth } from '@onekeyhq/engine/src/types/message';
 import type { EvmExtraInfo } from '@onekeyhq/engine/src/types/network';
 import type { IEncodedTxCfx } from '@onekeyhq/engine/src/vaults/impl/cfx/Vault';
 import type VaultConflux from '@onekeyhq/engine/src/vaults/impl/cfx/Vault';
@@ -266,7 +266,7 @@ class ProviderApiConflux extends ProviderApiBase {
     const message = messages[0];
 
     return this._showSignMessageModal(request, {
-      type: ETHMessageTypes.PERSONAL_SIGN,
+      type: EMessageTypesEth.PERSONAL_SIGN,
       message,
       payload: messages,
     });
@@ -275,7 +275,7 @@ class ProviderApiConflux extends ProviderApiBase {
   @providerApiMethod()
   cfx_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
     return this._showSignMessageModal(req, {
-      type: ETHMessageTypes.ETH_SIGN,
+      type: EMessageTypesEth.ETH_SIGN,
       message: messages[1],
       payload: messages,
     });

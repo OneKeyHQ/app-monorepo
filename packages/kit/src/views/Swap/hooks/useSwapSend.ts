@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
 import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
-import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type { IUnsignedMessage } from '@onekeyhq/engine/src/types/message';
 import type {
   IDecodedTx,
   IEncodedTx,
@@ -40,7 +40,7 @@ type SwapSendParams = {
 type SwapSignMessageParams = {
   accountId: string;
   networkId: string;
-  unsignedMessage: IUnsignedMessageEvm;
+  unsignedMessage: IUnsignedMessage;
   onSuccess?: SendMessageSuccessCallback;
   onFail?: () => void;
 };

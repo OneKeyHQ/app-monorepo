@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { ToastManager } from '@onekeyhq/components';
 import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
-import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
+import { EMessageTypesEth } from '@onekeyhq/engine/src/types/message';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import {
   getValidUnsignedMessage,
@@ -79,17 +79,17 @@ const SignMessageConfirm = () => {
 
       try {
         if (
-          msg.type === ETHMessageTypes.ETH_SIGN ||
-          msg.type === ETHMessageTypes.PERSONAL_SIGN
+          msg.type === EMessageTypesEth.ETH_SIGN ||
+          msg.type === EMessageTypesEth.PERSONAL_SIGN
         ) {
           validateSignMessageData(msg);
         }
-        if (msg.type === ETHMessageTypes.TYPED_DATA_V1) {
+        if (msg.type === EMessageTypesEth.TYPED_DATA_V1) {
           validateTypedSignMessageDataV1(msg);
         }
         if (
-          msg.type === ETHMessageTypes.TYPED_DATA_V3 ||
-          msg.type === ETHMessageTypes.TYPED_DATA_V4
+          msg.type === EMessageTypesEth.TYPED_DATA_V3 ||
+          msg.type === EMessageTypesEth.TYPED_DATA_V4
         ) {
           validateTypedSignMessageDataV3V4(
             msg,

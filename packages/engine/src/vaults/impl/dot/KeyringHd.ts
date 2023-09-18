@@ -7,7 +7,7 @@ import { mnemonicFromEntropy } from '@onekeyhq/engine/src/secret';
 import { encrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
-import type { CommonMessage } from '@onekeyhq/engine/src/types/message';
+import type { IUnsignedMessageCommon } from '@onekeyhq/engine/src/types/message';
 import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { KeyringHdBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringHdBase';
 import type {
@@ -184,7 +184,7 @@ export class KeyringHd extends KeyringHdBase {
   }
 
   override async signMessage(
-    messages: CommonMessage[],
+    messages: IUnsignedMessageCommon[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     const dbAccount = await this.getDbAccount();

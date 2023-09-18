@@ -4,10 +4,9 @@ import type { ModalProps } from '@onekeyhq/components/src/Modal';
 import type { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
+import type { IUnsignedMessage } from '@onekeyhq/engine/src/types/message';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
-import type { IUnsignedMessageBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
-import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   LNURLAuthServiceResponse,
   LNURLPayServiceResponse,
@@ -186,7 +185,7 @@ export type SendConfirmParams = SendConfirmSharedParams & {
 };
 export type SignMessageConfirmParams = SendConfirmSharedParams & {
   sourceInfo?: IDappSourceInfo;
-  unsignedMessage: IUnsignedMessageEvm | IUnsignedMessageBtc;
+  unsignedMessage: IUnsignedMessage;
   onSuccess?: (result: any) => void;
   onFail?: (error?: Error) => void;
   hideToast?: boolean;
@@ -209,7 +208,7 @@ export type SendAuthenticationParams = Omit<
   accountId: string;
   walletId: string;
   networkId: string;
-  unsignedMessage?: IUnsignedMessageEvm | IUnsignedMessageBtc;
+  unsignedMessage?: IUnsignedMessage;
   encodedTx?: IEncodedTx;
 };
 
@@ -317,7 +316,7 @@ export type ISignMessageConfirmViewPropsHandleConfirm = ({
 }: {
   onClose?: () => void;
   close: () => void;
-  unsignedMessage: IUnsignedMessageEvm | IUnsignedMessageBtc;
+  unsignedMessage: IUnsignedMessage;
 }) => void;
 
 export type ISignMessageConfirmViewProps = ModalProps & {
@@ -325,7 +324,7 @@ export type ISignMessageConfirmViewProps = ModalProps & {
   accountId: string;
   // TODO rename sourceInfo
   sourceInfo?: IDappSourceInfo;
-  unsignedMessage: IUnsignedMessageEvm | IUnsignedMessageBtc;
+  unsignedMessage: IUnsignedMessage;
   confirmDisabled?: boolean;
   handleConfirm: ISignMessageConfirmViewPropsHandleConfirm;
   children?: ReactElement;
@@ -440,7 +439,7 @@ export type BatchSendProgressParams = Omit<
   accountId: string;
   walletId: string;
   networkId: string;
-  unsignedMessages?: IUnsignedMessageEvm[];
+  unsignedMessages?: IUnsignedMessage[];
   feeInfoPayloads: IFeeInfoPayload[];
 };
 

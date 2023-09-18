@@ -6,7 +6,7 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { BCS, TxnBuilderTypes } from 'aptos';
 import { isArray } from 'lodash';
 
-import { AptosMessageTypes } from '@onekeyhq/engine/src/types/message';
+import { EMessageTypesAptos } from '@onekeyhq/engine/src/types/message';
 import type {
   IEncodedTxAptos,
   SignMessagePayload,
@@ -364,7 +364,7 @@ class ProviderApiAptos extends ProviderApiBase {
       request,
       {
         unsignedMessage: {
-          type: AptosMessageTypes.SIGN_MESSAGE,
+          type: EMessageTypesAptos.SIGN_MESSAGE,
           message: JSON.stringify(format),
         },
       },

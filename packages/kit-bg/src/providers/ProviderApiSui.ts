@@ -7,7 +7,7 @@ import { get } from 'lodash';
 
 import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
 import type { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
-import { CommonMessageTypes } from '@onekeyhq/engine/src/types/message';
+import { EMessageTypesCommon } from '@onekeyhq/engine/src/types/message';
 import type { IEncodedTxSUI } from '@onekeyhq/engine/src/vaults/impl/sui/types';
 import type VaultSUI from '@onekeyhq/engine/src/vaults/impl/sui/Vault';
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
@@ -354,7 +354,7 @@ class ProviderApiSui extends ProviderApiBase {
       request,
       {
         unsignedMessage: {
-          type: CommonMessageTypes.SIGN_MESSAGE,
+          type: EMessageTypesCommon.SIGN_MESSAGE,
           message: params.messageSerialize,
           secure: false,
         },

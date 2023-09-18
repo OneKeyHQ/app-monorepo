@@ -133,6 +133,9 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
     if (isExternal) {
       return signMsgForExternalAccount();
     }
+    if (!unsignedMessage) {
+      throw new Error('unsignedMessage is undefined');
+    }
     // TODO accountId check if equals to unsignedMessage
     const result = await backgroundApiProxy.engine.signMessage({
       password,

@@ -24,7 +24,7 @@ import { addHexPrefix } from '../../utils/hexUtils';
 import { handleSignData, toTransaction } from './utils';
 
 import type { DBSimpleAccount } from '../../../types/account';
-import type { CommonMessage } from '../../../types/message';
+import type { IUnsignedMessageCommon } from '../../../types/message';
 import type {
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
@@ -120,7 +120,7 @@ export class KeyringImported extends KeyringImportedBase {
   }
 
   override async signMessage(
-    messages: CommonMessage[],
+    messages: IUnsignedMessageCommon[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;

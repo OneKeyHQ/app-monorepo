@@ -18,7 +18,10 @@ import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { AccountType } from '../../../../types/account';
-import { type ETHMessage, ETHMessageTypes } from '../../../../types/message';
+import {
+  EMessageTypesEth,
+  type IUnsignedMessageEth,
+} from '../../../../types/message';
 import { KeyringHardwareBase } from '../../../keyring/KeyringHardwareBase';
 import { conflux as sdkCfx } from '../sdk';
 
@@ -35,7 +38,7 @@ const { Transaction, address: confluxAddress } = sdkCfx;
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 
-export type IUnsignedMessageCfx = ETHMessage & {
+export type IUnsignedMessageCfx = IUnsignedMessageEth & {
   payload?: any;
 };
 
@@ -201,15 +204,15 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
 
-    if (message.type === ETHMessageTypes.TYPED_DATA_V1) {
+    if (message.type === EMessageTypesEth.TYPED_DATA_V1) {
       throw web3Errors.provider.unsupportedMethod(
         `Sign message method=${message.type} not supported for this device`,
       );
     }
 
     if (
-      message.type === ETHMessageTypes.ETH_SIGN ||
-      message.type === ETHMessageTypes.PERSONAL_SIGN
+      message.type === EMessageTypesEth.ETH_SIGN ||
+      message.type === EMessageTypesEth.PERSONAL_SIGN
     ) {
       let messageBuffer: Buffer;
       try {
@@ -243,10 +246,10 @@ export class KeyringHardware extends KeyringHardwareBase {
     }
 
     if (
-      message.type === ETHMessageTypes.TYPED_DATA_V3 ||
-      message.type === ETHMessageTypes.TYPED_DATA_V4
+      message.type === EMessageTypesEth.TYPED_DATA_V3 ||
+      message.type === EMessageTypesEth.TYPED_DATA_V4
     ) {
-      const useV4 = message.type === ETHMessageTypes.TYPED_DATA_V4;
+      const useV4 = message.type === EMessageTypesEth.TYPED_DATA_V4;
       const data = JSON.parse(message.message);
       const typedData = TypedDataUtils.sanitizeData(data);
 

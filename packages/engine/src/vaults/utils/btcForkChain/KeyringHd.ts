@@ -1,8 +1,6 @@
 import { Psbt } from 'bitcoinjs-lib';
 import bs58check from 'bs58check';
 
-import type { ICoreUnsignedMessageBtc } from '@onekeyhq/core/src/types';
-import { ICoreUnsignedMessage } from '@onekeyhq/core/src/types';
 import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
 import { wait } from '@onekeyhq/kit/src/utils/helper';
 import {
@@ -19,7 +17,7 @@ import { slicePathTemplate } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { ChainSigner } from '../../../proxy';
 import { AccountType } from '../../../types/account';
-import { BtcMessageTypes } from '../../../types/message';
+import { EMessageTypesBtc } from '../../../types/message';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
 import { getAccountDefaultByPurpose, initBitcoinEcc } from './utils';
@@ -27,7 +25,6 @@ import btcForkSignUtils from './utils/btcForkSignUtils';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { DBUTXOAccount } from '../../../types/account';
-import type { IUnsignedMessageBtc } from '../../impl/btc/types';
 import type {
   IPrepareAccountByAddressIndexParams,
   IPrepareHdAccountsParams,

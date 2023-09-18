@@ -5,9 +5,8 @@ import { TYPED_MESSAGE_SCHEMA, typedSignatureHash } from 'eth-sig-util';
 import { addHexPrefix, isHexString, isValidAddress } from 'ethereumjs-util';
 import { validate } from 'jsonschema';
 
-import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
-import type { IUnsignedMessageBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
-import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type { IUnsignedMessage } from '@onekeyhq/engine/src/types/message';
+import { EMessageTypesEth } from '@onekeyhq/engine/src/types/message';
 
 import { OneKeyError } from '../errors';
 
@@ -35,14 +34,14 @@ function validateAddress(address: string | undefined, propertyName: string) {
   }
 }
 
-export function validateSignMessageData(unsignedMessage: IUnsignedMessageEvm) {
+export function validateSignMessageData(unsignedMessage: IUnsignedMessage) {
   const { payload = [] } = unsignedMessage;
   let message;
   let from;
 
-  if (unsignedMessage.type === ETHMessageTypes.PERSONAL_SIGN) {
+  if (unsignedMessage.type === EMessageTypesEth.PERSONAL_SIGN) {
     [message, from] = payload as [string, string];
-  } else if (unsignedMessage.type === ETHMessageTypes.ETH_SIGN) {
+  } else if (unsignedMessage.type === EMessageTypesEth.ETH_SIGN) {
     [from, message] = payload as [string, string];
   }
   validateAddress(from, 'from');
@@ -54,7 +53,7 @@ export function validateSignMessageData(unsignedMessage: IUnsignedMessageEvm) {
 }
 
 export function validateTypedSignMessageDataV1(
-  unsignedMessage: IUnsignedMessageEvm,
+  unsignedMessage: IUnsignedMessage,
 ) {
   const { payload = [] } = unsignedMessage;
   const [message, from] = payload as [
@@ -78,7 +77,7 @@ export function validateTypedSignMessageDataV1(
 }
 
 export function validateTypedSignMessageDataV3V4(
-  unsignedMessage: IUnsignedMessageEvm,
+  unsignedMessage: IUnsignedMessage,
   currentChainId: string | undefined,
 ) {
   const { payload = [] } = unsignedMessage;
@@ -242,15 +241,13 @@ export function sanitizeMessage(
   return sanitizedStruct;
 }
 
-export function getValidUnsignedMessage(
-  unsignedMessage: IUnsignedMessageEvm | IUnsignedMessageBtc,
-) {
+export function getValidUnsignedMessage(unsignedMessage: IUnsignedMessage) {
   try {
     const { type, message } = unsignedMessage;
 
     if (
-      type === ETHMessageTypes.TYPED_DATA_V3 ||
-      type === ETHMessageTypes.TYPED_DATA_V4
+      type === EMessageTypesEth.TYPED_DATA_V3 ||
+      type === EMessageTypesEth.TYPED_DATA_V4
     ) {
       let messageObject: {
         domain: { chainId: string };

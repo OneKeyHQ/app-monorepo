@@ -1,5 +1,4 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { ICoreUnsignedMessageEvm } from '@onekeyhq/core/src/types';
 import { COINTYPE_ETH } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
@@ -8,6 +7,7 @@ import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
 import type { ChainSigner } from '../../../proxy';
 import type { DBSimpleAccount } from '../../../types/account';
+import type { IUnsignedMessageEth } from '../../../types/message';
 import type {
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
@@ -49,7 +49,7 @@ export class KeyringImported extends KeyringImportedBase {
   }
 
   override async signMessage(
-    messages: ICoreUnsignedMessageEvm[],
+    messages: IUnsignedMessageEth[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     return this.baseSignMessage(messages, options);

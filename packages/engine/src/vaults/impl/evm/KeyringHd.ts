@@ -1,5 +1,4 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { ICoreUnsignedMessageEvm } from '@onekeyhq/core/src/types';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -13,6 +12,7 @@ import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { ChainSigner } from '../../../proxy';
 import type { DBSimpleAccount } from '../../../types/account';
+import type { IUnsignedMessageEth } from '../../../types/message';
 import type {
   IPrepareHdAccountsParams,
   ISignCredentialOptions,
@@ -51,7 +51,7 @@ export class KeyringHd extends KeyringHdBase {
   }
 
   override async signMessage(
-    messages: ICoreUnsignedMessageEvm[],
+    messages: IUnsignedMessageEth[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     return this.baseSignMessage(messages, options);

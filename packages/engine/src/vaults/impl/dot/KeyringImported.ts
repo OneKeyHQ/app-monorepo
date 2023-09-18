@@ -4,7 +4,7 @@ import { ChainSigner } from '@onekeyhq/engine/src/proxy';
 import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
-import type { CommonMessage } from '@onekeyhq/engine/src/types/message';
+import type { IUnsignedMessageCommon } from '@onekeyhq/engine/src/types/message';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { KeyringImportedBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringImportedBase';
 import type {
@@ -118,7 +118,7 @@ export class KeyringImported extends KeyringImportedBase {
   }
 
   override async signMessage(
-    messages: CommonMessage[],
+    messages: IUnsignedMessageCommon[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     const dbAccount = await this.getDbAccount();

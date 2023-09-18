@@ -26,7 +26,7 @@ import { addHexPrefix, hexlify } from '../../utils/hexUtils';
 import { handleSignData, toTransaction } from './utils';
 
 import type { DBSimpleAccount } from '../../../types/account';
-import type { AptosMessage } from '../../../types/message';
+import type { IUnsignedMessageAptos } from '../../../types/message';
 import type {
   IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
@@ -213,7 +213,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   override async signMessage(
-    messages: AptosMessage[],
+    messages: IUnsignedMessageAptos[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     debugLogger.common.info('signMessage', messages);

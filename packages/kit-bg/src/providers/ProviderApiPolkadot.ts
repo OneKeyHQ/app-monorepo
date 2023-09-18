@@ -3,8 +3,8 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
-import type { CommonMessage } from '@onekeyhq/engine/src/types/message';
-import { CommonMessageTypes } from '@onekeyhq/engine/src/types/message';
+import type { IUnsignedMessageCommon } from '@onekeyhq/engine/src/types/message';
+import { EMessageTypesCommon } from '@onekeyhq/engine/src/types/message';
 import polkadotSdk from '@onekeyhq/engine/src/vaults/impl/dot/sdk/polkadotSdk';
 import type {
   InjectedAccount,
@@ -309,8 +309,8 @@ class ProviderApiPolkadot extends ProviderApiBase {
       });
     }
 
-    const unsignedMessage: CommonMessage = {
-      type: CommonMessageTypes.SIGN_MESSAGE,
+    const unsignedMessage: IUnsignedMessageCommon = {
+      type: EMessageTypesCommon.SIGN_MESSAGE,
       message: params.data,
       secure: true,
     };

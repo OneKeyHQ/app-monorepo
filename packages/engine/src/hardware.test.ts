@@ -1,9 +1,9 @@
-import {
-  ECoreUnsignedMessageTypeEvm,
-  type ICoreUnsignedMessageEvm,
-} from '@onekeyhq/core/src/types';
-
 import { ethereumSignMessage } from './hardware';
+import {
+  EMessageTypesEth,
+  type IUnsignedMessage,
+  type IUnsignedMessageEth,
+} from './types/message';
 
 let messageHashResult = '';
 let messageHexResult = '';
@@ -32,7 +32,7 @@ const mockHardwareSDK = {
   },
 };
 
-const ethereumSignMessageWrapper = async (message: ICoreUnsignedMessageEvm) =>
+const ethereumSignMessageWrapper = async (message: IUnsignedMessageEth) =>
   ethereumSignMessage({
     HardwareSDK: mockHardwareSDK as any,
     connectId: 'connectId',
@@ -48,7 +48,7 @@ describe('ethereumSignMessage', () => {
       const message =
         '0x879a053d4800c6354e76c7985a865d2922c82fb5b3f4577b2fe08b998954f2e0';
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.ETH_SIGN,
+        type: EMessageTypesEth.ETH_SIGN,
         message,
       });
 
@@ -61,7 +61,7 @@ describe('ethereumSignMessage', () => {
       const message =
         '0x4578616d706c652060706572736f6e616c5f7369676e60206d657373616765';
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.PERSONAL_SIGN,
+        type: EMessageTypesEth.PERSONAL_SIGN,
         message,
       });
 
@@ -73,11 +73,11 @@ describe('ethereumSignMessage', () => {
     test('should throw not supported error', async () => {
       await expect(
         ethereumSignMessageWrapper({
-          type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V1,
+          type: EMessageTypesEth.TYPED_DATA_V1,
           message: '',
         }),
       ).rejects.toThrow(
-        `Sign message method=${ECoreUnsignedMessageTypeEvm.TYPED_DATA_V1} not supported for this device`,
+        `Sign message method=${EMessageTypesEth.TYPED_DATA_V1} not supported for this device`,
       );
     });
   });
@@ -109,7 +109,7 @@ describe('ethereumSignMessage', () => {
       };
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3,
+        type: EMessageTypesEth.TYPED_DATA_V3,
         message: JSON.stringify({
           types,
           primaryType,
@@ -157,7 +157,7 @@ describe('ethereumSignMessage', () => {
         },
       };
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3,
+        type: EMessageTypesEth.TYPED_DATA_V3,
         message: JSON.stringify({
           types,
           primaryType,
@@ -177,7 +177,7 @@ describe('ethereumSignMessage', () => {
 
       await expect(
         ethereumSignMessageWrapper({
-          type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3,
+          type: EMessageTypesEth.TYPED_DATA_V3,
           message: JSON.stringify({
             types,
             primaryType,
@@ -214,7 +214,7 @@ describe('ethereumSignMessage', () => {
       };
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3,
+        type: EMessageTypesEth.TYPED_DATA_V3,
         message: JSON.stringify({
           types,
           primaryType,
@@ -225,7 +225,7 @@ describe('ethereumSignMessage', () => {
       const originalSignature = messageHashResult;
       const messageWithExtraProperties = { ...message, foo: 'bar' };
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3,
+        type: EMessageTypesEth.TYPED_DATA_V3,
         message: JSON.stringify({
           types,
           primaryType,
@@ -267,7 +267,7 @@ describe('ethereumSignMessage', () => {
 
       await expect(
         ethereumSignMessageWrapper({
-          type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3,
+          type: EMessageTypesEth.TYPED_DATA_V3,
           message: JSON.stringify({
             types,
             primaryType,
@@ -305,7 +305,7 @@ describe('ethereumSignMessage', () => {
       };
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3,
+        type: EMessageTypesEth.TYPED_DATA_V3,
         message: JSON.stringify({
           types,
           primaryType,
@@ -342,7 +342,7 @@ describe('ethereumSignMessage', () => {
       };
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3,
+        type: EMessageTypesEth.TYPED_DATA_V3,
         message: JSON.stringify({
           types,
           primaryType,
@@ -378,7 +378,7 @@ describe('ethereumSignMessage', () => {
         contents: undefined,
       };
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3,
+        type: EMessageTypesEth.TYPED_DATA_V3,
         message: JSON.stringify({
           types,
           primaryType,
@@ -412,7 +412,7 @@ describe('ethereumSignMessage', () => {
       };
       await expect(
         ethereumSignMessageWrapper({
-          type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3,
+          type: EMessageTypesEth.TYPED_DATA_V3,
           message: JSON.stringify({
             types,
             primaryType,
@@ -445,7 +445,7 @@ describe('ethereumSignMessage', () => {
       };
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3,
+        type: EMessageTypesEth.TYPED_DATA_V3,
         message: JSON.stringify({
           types,
           primaryType,
@@ -465,7 +465,7 @@ describe('ethereumSignMessage', () => {
 
       await expect(
         ethereumSignMessageWrapper({
-          type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3,
+          type: EMessageTypesEth.TYPED_DATA_V3,
           message: JSON.stringify({
             types,
             primaryType,
@@ -482,7 +482,7 @@ describe('ethereumSignMessage', () => {
 
       await expect(
         ethereumSignMessageWrapper({
-          type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3,
+          type: EMessageTypesEth.TYPED_DATA_V3,
           message: JSON.stringify({
             types,
             primaryType,
@@ -501,7 +501,7 @@ describe('ethereumSignMessage', () => {
 
       await expect(
         ethereumSignMessageWrapper({
-          type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3,
+          type: EMessageTypesEth.TYPED_DATA_V3,
           message: JSON.stringify({
             types,
             primaryType,
@@ -520,7 +520,7 @@ describe('ethereumSignMessage', () => {
       const primaryType = 'Message';
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3,
+        type: EMessageTypesEth.TYPED_DATA_V3,
         message: JSON.stringify({
           types,
           primaryType,
@@ -558,7 +558,7 @@ describe('ethereumSignMessage', () => {
         contents: 'Hello, Bob!',
       };
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4,
+        type: EMessageTypesEth.TYPED_DATA_V4,
         message: JSON.stringify({
           types,
           primaryType,
@@ -607,7 +607,7 @@ describe('ethereumSignMessage', () => {
       };
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4,
+        type: EMessageTypesEth.TYPED_DATA_V4,
         message: JSON.stringify({
           types,
           primaryType,
@@ -649,7 +649,7 @@ describe('ethereumSignMessage', () => {
       };
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4,
+        type: EMessageTypesEth.TYPED_DATA_V4,
         message: JSON.stringify({
           types,
           primaryType,
@@ -686,7 +686,7 @@ describe('ethereumSignMessage', () => {
       };
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4,
+        type: EMessageTypesEth.TYPED_DATA_V4,
         message: JSON.stringify({
           types,
           primaryType,
@@ -697,7 +697,7 @@ describe('ethereumSignMessage', () => {
       const originalSignature = messageHashResult;
       const messageWithExtraProperties = { ...message, foo: 'bar' };
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4,
+        type: EMessageTypesEth.TYPED_DATA_V4,
         message: JSON.stringify({
           types,
           primaryType,
@@ -739,7 +739,7 @@ describe('ethereumSignMessage', () => {
 
       await expect(
         ethereumSignMessageWrapper({
-          type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4,
+          type: EMessageTypesEth.TYPED_DATA_V4,
           message: JSON.stringify({
             types,
             primaryType,
@@ -778,7 +778,7 @@ describe('ethereumSignMessage', () => {
 
       await expect(
         ethereumSignMessageWrapper({
-          type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4,
+          type: EMessageTypesEth.TYPED_DATA_V4,
           message: JSON.stringify({
             types,
             primaryType,
@@ -813,7 +813,7 @@ describe('ethereumSignMessage', () => {
         contents: null,
       };
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4,
+        type: EMessageTypesEth.TYPED_DATA_V4,
         message: JSON.stringify({
           types,
           primaryType,
@@ -851,7 +851,7 @@ describe('ethereumSignMessage', () => {
 
       await expect(
         ethereumSignMessageWrapper({
-          type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4,
+          type: EMessageTypesEth.TYPED_DATA_V4,
           message: JSON.stringify({
             types,
             primaryType,
@@ -884,7 +884,7 @@ describe('ethereumSignMessage', () => {
       };
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4,
+        type: EMessageTypesEth.TYPED_DATA_V4,
         message: JSON.stringify({
           types,
           primaryType,
@@ -918,7 +918,7 @@ describe('ethereumSignMessage', () => {
       };
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4,
+        type: EMessageTypesEth.TYPED_DATA_V4,
         message: JSON.stringify({
           types,
           primaryType,
@@ -938,7 +938,7 @@ describe('ethereumSignMessage', () => {
 
       await expect(
         ethereumSignMessageWrapper({
-          type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4,
+          type: EMessageTypesEth.TYPED_DATA_V4,
           message: JSON.stringify({
             types,
             primaryType,
@@ -955,7 +955,7 @@ describe('ethereumSignMessage', () => {
 
       await expect(
         ethereumSignMessageWrapper({
-          type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4,
+          type: EMessageTypesEth.TYPED_DATA_V4,
           message: JSON.stringify({
             types,
             primaryType,
@@ -974,7 +974,7 @@ describe('ethereumSignMessage', () => {
 
       await expect(
         ethereumSignMessageWrapper({
-          type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4,
+          type: EMessageTypesEth.TYPED_DATA_V4,
           message: JSON.stringify({
             types,
             primaryType,
@@ -993,7 +993,7 @@ describe('ethereumSignMessage', () => {
       const primaryType = 'Message';
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4,
+        type: EMessageTypesEth.TYPED_DATA_V4,
         message: JSON.stringify({
           types,
           primaryType,
@@ -1032,7 +1032,7 @@ describe('ethereumSignMessage', () => {
       };
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3,
+        type: EMessageTypesEth.TYPED_DATA_V3,
         message: JSON.stringify({
           types,
           primaryType,
@@ -1043,7 +1043,7 @@ describe('ethereumSignMessage', () => {
       const v3Signature = messageHashResult;
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4,
+        type: EMessageTypesEth.TYPED_DATA_V4,
         message: JSON.stringify({
           types,
           primaryType,
@@ -1081,7 +1081,7 @@ describe('ethereumSignMessage', () => {
       };
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3,
+        type: EMessageTypesEth.TYPED_DATA_V3,
         message: JSON.stringify({
           types,
           primaryType,
@@ -1092,7 +1092,7 @@ describe('ethereumSignMessage', () => {
       const originalV3Signature = messageHashResult;
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4,
+        type: EMessageTypesEth.TYPED_DATA_V4,
         message: JSON.stringify({
           types,
           primaryType,
@@ -1105,7 +1105,7 @@ describe('ethereumSignMessage', () => {
       const messageWithExtraProperties = { ...message, foo: 'bar' };
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3,
+        type: EMessageTypesEth.TYPED_DATA_V3,
         message: JSON.stringify({
           types,
           primaryType,
@@ -1116,7 +1116,7 @@ describe('ethereumSignMessage', () => {
       const v3signatureWithExtraProperties = messageHashResult;
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4,
+        type: EMessageTypesEth.TYPED_DATA_V4,
         message: JSON.stringify({
           types,
           primaryType,
@@ -1157,7 +1157,7 @@ describe('ethereumSignMessage', () => {
       };
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3,
+        type: EMessageTypesEth.TYPED_DATA_V3,
         message: JSON.stringify({
           types,
           primaryType,
@@ -1168,7 +1168,7 @@ describe('ethereumSignMessage', () => {
       const v3Signature = messageHashResult;
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4,
+        type: EMessageTypesEth.TYPED_DATA_V4,
         message: JSON.stringify({
           types,
           primaryType,
@@ -1189,7 +1189,7 @@ describe('ethereumSignMessage', () => {
       const primaryType = 'Message';
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3,
+        type: EMessageTypesEth.TYPED_DATA_V3,
         message: JSON.stringify({
           types,
           primaryType,
@@ -1200,7 +1200,7 @@ describe('ethereumSignMessage', () => {
       const v3Signature = messageHashResult;
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4,
+        type: EMessageTypesEth.TYPED_DATA_V4,
         message: JSON.stringify({
           types,
           primaryType,
@@ -1253,7 +1253,7 @@ describe('ethereumSignMessage', () => {
       };
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3,
+        type: EMessageTypesEth.TYPED_DATA_V3,
         message: JSON.stringify({
           types,
           primaryType,
@@ -1264,7 +1264,7 @@ describe('ethereumSignMessage', () => {
       const v3Signature = messageHashResult;
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4,
+        type: EMessageTypesEth.TYPED_DATA_V4,
         message: JSON.stringify({
           types,
           primaryType,
@@ -1298,7 +1298,7 @@ describe('ethereumSignMessage', () => {
       };
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3,
+        type: EMessageTypesEth.TYPED_DATA_V3,
         message: JSON.stringify({
           types,
           primaryType,
@@ -1309,7 +1309,7 @@ describe('ethereumSignMessage', () => {
       const v3Signature = messageHashResult;
 
       await ethereumSignMessageWrapper({
-        type: ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4,
+        type: EMessageTypesEth.TYPED_DATA_V4,
         message: JSON.stringify({
           types,
           primaryType,

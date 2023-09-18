@@ -1,46 +1,9 @@
 import type { CurveName } from '@onekeyhq/engine/src/secret';
+import type { IUnsignedMessage } from '@onekeyhq/engine/src/types/message';
 import type { IUnsignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import type { AddressEncodings } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 
 import type { SignatureOptions } from 'bitcoinjs-message';
-
-/*
-enum ETHMessageTypes {
-  ETH_SIGN = 0,
-  PERSONAL_SIGN = 1,
-  TYPED_DATA_V1 = 2,
-  TYPED_DATA_V3 = 3,
-  TYPED_DATA_V4 = 4,
-} 
-*/
-// TODO use packages/engine/src/types/message.ts
-export enum ECoreUnsignedMessageTypeEvm {
-  ETH_SIGN = 0,
-  PERSONAL_SIGN = 1,
-  TYPED_DATA_V1 = 2,
-  TYPED_DATA_V3 = 3,
-  TYPED_DATA_V4 = 4,
-}
-export enum ECoreUnsignedMessageTypeBtc {
-  ECDSA = 'ecdsa',
-  BIP322_SIMPLE = 'bip322-simple',
-}
-export type ICoreUnsignedMessageEvm = {
-  type: ECoreUnsignedMessageTypeEvm;
-  message: string;
-};
-export type ICoreUnsignedMessageBtc = {
-  type: ECoreUnsignedMessageTypeBtc;
-  message: string;
-  sigOptions?: (SignatureOptions & { noScriptType?: boolean }) | null;
-  payload?: {
-    isFromDApp?: boolean;
-  };
-};
-
-export type ICoreUnsignedMessage =
-  | ICoreUnsignedMessageEvm
-  | ICoreUnsignedMessageBtc;
 
 // ----------------------------------------------
 
@@ -121,7 +84,7 @@ export type ICoreApiSignTxPayload = ICoreApiSignBasePayload & {
   unsignedTx: IUnsignedTxPro;
 };
 export type ICoreApiSignMsgPayload = ICoreApiSignBasePayload & {
-  unsignedMsg: ICoreUnsignedMessage;
+  unsignedMsg: IUnsignedMessage;
 };
 export type ICoreApiGetPrivateKeysMapQuery = {
   account: {

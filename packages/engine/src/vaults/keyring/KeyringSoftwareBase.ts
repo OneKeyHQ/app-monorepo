@@ -2,7 +2,6 @@ import type {
   ICoreCredentialsInfo,
   ICoreHdCredential,
   ICoreImportedCredential,
-  ICoreUnsignedMessage,
 } from '@onekeyhq/core/src/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
@@ -33,6 +32,7 @@ import type {
   DBAccount,
   DBSimpleAccount,
 } from '../../types/account';
+import type { IUnsignedMessage } from '../../types/message';
 import type {
   IPrepareHdAccountsParams,
   IPrepareImportedAccountsParams,
@@ -97,7 +97,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
   }
 
   async baseSignMessage(
-    messages: ICoreUnsignedMessage[],
+    messages: IUnsignedMessage[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     if (!this.coreApi) {

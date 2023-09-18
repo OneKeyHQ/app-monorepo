@@ -1,7 +1,7 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
-import { CommonMessageTypes } from '@onekeyhq/engine/src/types/message';
+import { EMessageTypesCommon } from '@onekeyhq/engine/src/types/message';
 import {
   findLnurl,
   getLnurlDetails,
@@ -166,7 +166,7 @@ class ProviderApiWebln extends ProviderApiBase {
       const signature =
         await this.backgroundApi.serviceDapp?.openSignAndSendModal(request, {
           unsignedMessage: {
-            type: CommonMessageTypes.SIMPLE_SIGN,
+            type: EMessageTypesCommon.SIMPLE_SIGN,
             message,
           },
         });

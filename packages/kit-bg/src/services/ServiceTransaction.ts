@@ -1,7 +1,7 @@
 import BigNumber from 'bignumber.js';
 
+import type { IUnsignedMessage } from '@onekeyhq/engine/src/types/message';
 import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
-import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IEncodedTx,
   IFeeInfo,
@@ -41,7 +41,7 @@ export type ISendTransactionParams = {
 export type ISignMessageParams = {
   accountId: string;
   networkId: string;
-  unsignedMessage: IUnsignedMessageEvm;
+  unsignedMessage: IUnsignedMessage;
 };
 
 @backgroundClass()

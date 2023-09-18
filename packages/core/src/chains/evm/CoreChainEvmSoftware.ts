@@ -14,6 +14,7 @@ import {
   uncompressPublicKey,
 } from '@onekeyhq/engine/src/secret';
 import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
+import type { EMessageTypesEth } from '@onekeyhq/engine/src/types/message';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
@@ -26,7 +27,6 @@ import { CoreChainApiBase } from '../_base/CoreChainApiBase';
 import { hashMessage } from './message';
 
 import type {
-  ECoreUnsignedMessageTypeEvm,
   ICoreApiGetAddressesQueryHd,
   ICoreApiGetAddressesResult,
   ICoreApiGetPrivateKeysMapQuery,
@@ -169,7 +169,7 @@ export default abstract class CoreChainEvmSoftware extends CoreChainApiBase {
     }
 
     const messageHash = hashMessage({
-      messageType: unsignedMsg.type as ECoreUnsignedMessageTypeEvm,
+      messageType: unsignedMsg.type as EMessageTypesEth,
       message: finalMessage,
     });
 

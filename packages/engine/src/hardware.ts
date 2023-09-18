@@ -8,10 +8,6 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { BigNumber } from 'bignumber.js';
 import { TypedDataUtils } from 'eth-sig-util';
 
-import {
-  ECoreUnsignedMessageTypeEvm,
-  type ICoreUnsignedMessageEvm,
-} from '@onekeyhq/core/src/types';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import type { IPrepareHardwareAccountsParams } from '@onekeyhq/engine/src/vaults/types';
 import { isHexString } from '@onekeyhq/kit/src/utils/helper';
@@ -25,6 +21,9 @@ import {
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
+import { EMessageTypesEth } from './types/message';
+
+import type { IUnsignedMessageEth } from './types/message';
 import type { WalletPassphraseState } from './vaults/keyring/KeyringHardwareBase';
 import type { UnsignedTransaction } from '@ethersproject/transactions';
 import type {
@@ -139,19 +138,19 @@ export async function ethereumSignMessage({
   deviceId: string;
   passphraseState?: WalletPassphraseState;
   path: string;
-  message: ICoreUnsignedMessageEvm;
+  message: IUnsignedMessageEth;
   chainId: number;
 }): Promise<string> {
   // const features = await getFeatures();
-  if (message.type === ECoreUnsignedMessageTypeEvm.TYPED_DATA_V1) {
+  if (message.type === EMessageTypesEth.TYPED_DATA_V1) {
     throw web3Errors.provider.unsupportedMethod(
       `Sign message method=${message.type} not supported for this device`,
     );
   }
 
   if (
-    message.type === ECoreUnsignedMessageTypeEvm.ETH_SIGN ||
-    message.type === ECoreUnsignedMessageTypeEvm.PERSONAL_SIGN
+    message.type === EMessageTypesEth.ETH_SIGN ||
+    message.type === EMessageTypesEth.PERSONAL_SIGN
   ) {
     let messageBuffer: Buffer;
     try {
@@ -183,10 +182,10 @@ export async function ethereumSignMessage({
   }
 
   if (
-    message.type === ECoreUnsignedMessageTypeEvm.TYPED_DATA_V3 ||
-    message.type === ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4
+    message.type === EMessageTypesEth.TYPED_DATA_V3 ||
+    message.type === EMessageTypesEth.TYPED_DATA_V4
   ) {
-    const useV4 = message.type === ECoreUnsignedMessageTypeEvm.TYPED_DATA_V4;
+    const useV4 = message.type === EMessageTypesEth.TYPED_DATA_V4;
     const data = JSON.parse(message.message);
     const typedData = TypedDataUtils.sanitizeData(data);
     const domainHash = TypedDataUtils.hashStruct(

@@ -21,7 +21,7 @@ import {
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { DBSimpleAccount } from '../../../types/account';
-import type { AptosMessage } from '../../../types/message';
+import type { IUnsignedMessageAptos } from '../../../types/message';
 import type {
   IPrepareHdAccountsParams,
   ISignCredentialOptions,
@@ -126,7 +126,7 @@ export class KeyringHd extends KeyringHdBase {
   }
 
   override async signMessage(
-    messages: AptosMessage[],
+    messages: IUnsignedMessageAptos[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     const dbAccount = await this.getDbAccount();

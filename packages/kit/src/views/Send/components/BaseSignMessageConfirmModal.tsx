@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
+import { EMessageTypesEth } from '@onekeyhq/engine/src/types/message';
 
 import { useActiveSideAccount } from '../../../hooks';
 
@@ -25,7 +25,7 @@ function BaseSignMessageConfirmModal(props: ISignMessageConfirmViewProps) {
     [accountId],
   );
 
-  const isBlindSign = unsignedMessage.type === ETHMessageTypes.ETH_SIGN;
+  const isBlindSign = unsignedMessage.type === EMessageTypesEth.ETH_SIGN;
 
   return (
     <BaseSendModal

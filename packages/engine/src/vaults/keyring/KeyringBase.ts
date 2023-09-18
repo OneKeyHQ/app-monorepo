@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 // eslint-disable-next-line max-classes-per-file
 import type { CoreChainApiBase } from '@onekeyhq/core/src/chains/_base/CoreChainApiBase';
-import type { ICoreUnsignedMessage } from '@onekeyhq/core/src/types';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
@@ -10,6 +9,7 @@ import { VaultContext } from '../VaultContext';
 
 import type { DBAccount } from '../../types/account';
 import type { CredentialSelector } from '../../types/credential';
+import type { IUnsignedMessage } from '../../types/message';
 import type {
   IGetAddressParams,
   IPrepareAccountByAddressIndexParams,
@@ -58,8 +58,7 @@ export abstract class KeyringBase extends VaultContext {
   ): Promise<ISignedTxPro>;
 
   abstract signMessage(
-    // messages: ICoreUnsignedMessage[], // TODO use core types
-    messages: any[],
+    messages: IUnsignedMessage[],
     options: ISignCredentialOptions,
   ): Promise<string[]>;
 

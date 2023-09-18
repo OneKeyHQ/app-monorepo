@@ -136,6 +136,7 @@ import type {
   HistoryEntryTransaction,
   HistoryEntryType,
 } from './types/history';
+import type { IUnsignedMessage } from './types/message';
 import type {
   AddNetworkParams,
   DBNetwork,
@@ -145,11 +146,7 @@ import type {
 } from './types/network';
 import type { Token } from './types/token';
 import type { Wallet } from './types/wallet';
-import type { IUnsignedMessageBtc } from './vaults/impl/btc/types';
-import type {
-  IEncodedTxEvm,
-  IUnsignedMessageEvm,
-} from './vaults/impl/evm/Vault';
+import type { IEncodedTxEvm } from './vaults/impl/evm/Vault';
 import type VaultEvm from './vaults/impl/evm/Vault';
 import type VaultSol from './vaults/impl/sol/Vault';
 import type {
@@ -1776,7 +1773,7 @@ class Engine {
     networkId,
     accountId,
   }: {
-    unsignedMessage?: IUnsignedMessageEvm | IUnsignedMessageBtc;
+    unsignedMessage: IUnsignedMessage;
     password: string;
     networkId: string;
     accountId: string;

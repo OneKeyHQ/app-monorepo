@@ -1,7 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import type { ICoreUnsignedMessageEvm } from '@onekeyhq/core/src/types';
-import { ICoreUnsignedMessage } from '@onekeyhq/core/src/types';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import * as engineUtils from '@onekeyhq/shared/src/engine/engineUtils';
@@ -21,12 +19,12 @@ import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import { ethers } from './sdk/ethers';
 
 import type { DBSimpleAccount } from '../../../types/account';
+import type { IUnsignedMessageEth } from '../../../types/message';
 import type {
   IGetAddressParams,
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
-import type { IUnsignedMessageEvm } from './Vault';
 
 export class KeyringHardware extends KeyringHardwareBase {
   async signTransaction(unsignedTx: UnsignedTx): Promise<SignedTx> {
@@ -47,7 +45,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   async signMessage(
-    messages: ICoreUnsignedMessageEvm[],
+    messages: IUnsignedMessageEth[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     const HardwareSDK = await this.getHardwareSDKInstance();

@@ -1,7 +1,7 @@
-import type { ICoreUnsignedMessageBtc } from '@onekeyhq/core/src/types';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import type { DBAccount } from '../../../../types/account';
+import type { IUnsignedMessageBtc } from '../../../../types/message';
 import type { KeyringSoftwareBase } from '../../../keyring/KeyringSoftwareBase';
 import type {
   ISignCredentialOptions,
@@ -66,7 +66,7 @@ async function getBtcRelPathToAddress({
 
 async function signMessageBtc(
   keyring: KeyringSoftwareBase,
-  messages: ICoreUnsignedMessageBtc[],
+  messages: IUnsignedMessageBtc[],
   options: ISignCredentialOptions,
 ): Promise<string[]> {
   if (!keyring.coreApi) {

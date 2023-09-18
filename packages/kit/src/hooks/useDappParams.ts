@@ -1,14 +1,13 @@
 import { useRoute } from '@react-navigation/core';
 
-import type { IUnsignedMessageBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
-import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type { IUnsignedMessage } from '@onekeyhq/engine/src/types/message';
 import type { LNURLDetails } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/lnurl';
 import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 export type IDappSignAndSendParams = {
-  unsignedMessage?: IUnsignedMessageEvm | IUnsignedMessageBtc;
+  unsignedMessage?: IUnsignedMessage;
   encodedTx?: IEncodedTx;
   signOnly?: boolean;
   _$t?: number;

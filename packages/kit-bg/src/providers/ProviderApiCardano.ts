@@ -1,7 +1,7 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
-import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
+import { EMessageTypesEth } from '@onekeyhq/engine/src/types/message';
 import { NetworkId } from '@onekeyhq/engine/src/vaults/impl/ada/types';
 import type AdaVault from '@onekeyhq/engine/src/vaults/impl/ada/Vault';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
@@ -182,7 +182,7 @@ class ProviderApiCardano extends ProviderApiBase {
       await this.backgroundApi.serviceDapp?.openSignAndSendModal(request, {
         unsignedMessage: {
           // Use ETH_SIGN to sign plain message
-          type: ETHMessageTypes.ETH_SIGN,
+          type: EMessageTypesEth.ETH_SIGN,
           message: Buffer.from(params.payload, 'hex').toString('utf8'),
           payload: params,
         },

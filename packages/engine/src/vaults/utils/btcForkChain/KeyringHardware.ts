@@ -24,7 +24,7 @@ import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import { getAccountDefaultByPurpose } from './utils';
 
 import type { DBUTXOAccount } from '../../../types/account';
-import type { IUnsignedMessageBtc } from '../../impl/btc/types';
+import type { IUnsignedMessageBtc } from '../../../types/message';
 import type {
   IGetAddressParams,
   IPrepareAccountByAddressIndexParams,

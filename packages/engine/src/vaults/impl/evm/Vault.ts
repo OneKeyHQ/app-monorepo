@@ -59,7 +59,7 @@ import { batchTransferContractAddress } from '../../../presets/batchTransferCont
 import { extractResponseError, fillUnsignedTxObj } from '../../../proxy';
 import { BatchTransferSelectors } from '../../../types/batchTransfer';
 import { HistoryEntryStatus } from '../../../types/history';
-import { ETHMessageTypes } from '../../../types/message';
+import { EMessageTypesEth } from '../../../types/message';
 import { NFTAssetType } from '../../../types/nft';
 import { TokenRiskLevel } from '../../../types/token';
 import {
@@ -97,10 +97,10 @@ import type {
   HistoryEntryTransaction,
 } from '../../../types/history';
 import type {
-  AptosMessage,
-  BtcMessageTypes,
-  CommonMessage,
-  ETHMessage,
+  EMessageTypesBtc,
+  IUnsignedMessageAptos,
+  IUnsignedMessageCommon,
+  IUnsignedMessageEth,
 } from '../../../types/message';
 import type {
   AccountNameInfo,
@@ -151,14 +151,6 @@ const OPTIMISM_NETWORKS: string[] = [
 const ERC721 = ERC721MetadataArtifact.abi;
 const ERC1155 = ERC1155MetadataArtifact.abi;
 const ERC20 = ERC20MetadataArtifact.abi;
-
-export type IUnsignedMessageEvm = (
-  | AptosMessage
-  | ETHMessage
-  | CommonMessage
-) & {
-  payload?: any;
-};
 
 // TODO move to types.ts
 export type IEncodedTxEvm = {
@@ -1448,7 +1440,7 @@ export default class Vault extends VaultBase {
 
   async personalECRecover(message: string, signature: string): Promise<string> {
     return (this.engineProvider as EthProvider).ecRecover(
-      { type: ETHMessageTypes.PERSONAL_SIGN, message },
+      { type: EMessageTypesEth.PERSONAL_SIGN, message },
       signature,
     );
   }

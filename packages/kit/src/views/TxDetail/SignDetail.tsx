@@ -19,14 +19,13 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
+import type { IUnsignedMessage } from '@onekeyhq/engine/src/types/message';
 import {
-  AptosMessageTypes,
-  BtcMessageTypes,
-  CommonMessageTypes,
-  ETHMessageTypes,
+  EMessageTypesAptos,
+  EMessageTypesBtc,
+  EMessageTypesCommon,
+  EMessageTypesEth,
 } from '@onekeyhq/engine/src/types/message';
-import type { IUnsignedMessageBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
-import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import X from '@onekeyhq/kit/assets/red_x.png';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
@@ -42,22 +41,22 @@ type TypedDataV1 = {
 
 const getSignTypeString = (
   signType:
-    | ETHMessageTypes
-    | AptosMessageTypes
-    | CommonMessageTypes
-    | BtcMessageTypes,
+    | EMessageTypesEth
+    | EMessageTypesAptos
+    | EMessageTypesCommon
+    | EMessageTypesBtc,
 ) => {
   const signTypeMap = {
-    [ETHMessageTypes.ETH_SIGN]: 'eth_sign',
-    [ETHMessageTypes.PERSONAL_SIGN]: 'personal_sign',
-    [ETHMessageTypes.TYPED_DATA_V1]: 'signTypedData_v1',
-    [ETHMessageTypes.TYPED_DATA_V3]: 'signTypedData_v3',
-    [ETHMessageTypes.TYPED_DATA_V4]: 'signTypedData_v4',
-    [AptosMessageTypes.SIGN_MESSAGE]: 'signMessage',
-    [CommonMessageTypes.SIGN_MESSAGE]: 'signMessage',
-    [CommonMessageTypes.SIMPLE_SIGN]: 'signMessage',
-    [BtcMessageTypes.ECDSA]: 'signMessage',
-    [BtcMessageTypes.BIP322_SIMPLE]: 'signMessage',
+    [EMessageTypesEth.ETH_SIGN]: 'eth_sign',
+    [EMessageTypesEth.PERSONAL_SIGN]: 'personal_sign',
+    [EMessageTypesEth.TYPED_DATA_V1]: 'signTypedData_v1',
+    [EMessageTypesEth.TYPED_DATA_V3]: 'signTypedData_v3',
+    [EMessageTypesEth.TYPED_DATA_V4]: 'signTypedData_v4',
+    [EMessageTypesAptos.SIGN_MESSAGE]: 'signMessage',
+    [EMessageTypesCommon.SIGN_MESSAGE]: 'signMessage',
+    [EMessageTypesCommon.SIMPLE_SIGN]: 'signMessage',
+    [EMessageTypesBtc.ECDSA]: 'signMessage',
+    [EMessageTypesBtc.BIP322_SIMPLE]: 'signMessage',
   } as const;
   return signTypeMap[signType];
 };
@@ -113,19 +112,17 @@ const renderMessage = (json: any, padding = 0) => {
   );
 };
 
-const renderMessageCard = (
-  unsignedMessage: IUnsignedMessageEvm | IUnsignedMessageBtc,
-) => {
+const renderMessageCard = (unsignedMessage: IUnsignedMessage) => {
   const { message, type } = unsignedMessage;
 
   if (
-    type === BtcMessageTypes.ECDSA ||
-    type === BtcMessageTypes.BIP322_SIMPLE
+    type === EMessageTypesBtc.ECDSA ||
+    type === EMessageTypesBtc.BIP322_SIMPLE
   ) {
     return renderCard(message);
   }
 
-  if (type === ETHMessageTypes.PERSONAL_SIGN) {
+  if (type === EMessageTypesEth.PERSONAL_SIGN) {
     // if (message.startsWith('0x')) {
     //   const buffer = Buffer.from(message.substr(2), 'hex');
     //   message = buffer.toString('utf8');
@@ -141,8 +138,8 @@ const renderMessageCard = (
   }
 
   if (
-    type === CommonMessageTypes.SIGN_MESSAGE ||
-    type === CommonMessageTypes.SIMPLE_SIGN
+    type === EMessageTypesCommon.SIGN_MESSAGE ||
+    type === EMessageTypesCommon.SIMPLE_SIGN
   ) {
     let personalSignMsg = message;
     try {
@@ -157,7 +154,7 @@ const renderMessageCard = (
   let messageObject = JSON.parse(message) ?? {};
   messageObject = messageObject.message ?? messageObject;
 
-  if (type === ETHMessageTypes.TYPED_DATA_V1 && Array.isArray(messageObject)) {
+  if (type === EMessageTypesEth.TYPED_DATA_V1 && Array.isArray(messageObject)) {
     const v1Message: TypedDataV1[] = messageObject;
     messageObject = v1Message.reduce((acc, cur) => {
       acc[cur.name] = cur.value;
@@ -176,16 +173,14 @@ const renderMessageCard = (
   );
 };
 
-const renderDataCard = (
-  unsignedMessage: IUnsignedMessageEvm | IUnsignedMessageBtc,
-) => {
+const renderDataCard = (unsignedMessage: IUnsignedMessage) => {
   const { message, type } = unsignedMessage;
 
-  if (type === ETHMessageTypes.PERSONAL_SIGN) {
+  if (type === EMessageTypesEth.PERSONAL_SIGN) {
     return renderCard(message);
   }
 
-  if (type === AptosMessageTypes.SIGN_MESSAGE) {
+  if (type === EMessageTypesAptos.SIGN_MESSAGE) {
     let fullMessage = '';
     try {
       fullMessage = JSON.parse(message)?.fullMessage;
@@ -195,7 +190,7 @@ const renderDataCard = (
     return renderCard(fullMessage);
   }
 
-  if (type === CommonMessageTypes.SIGN_MESSAGE) {
+  if (type === EMessageTypesCommon.SIGN_MESSAGE) {
     return renderCard(message);
   }
 
@@ -275,7 +270,7 @@ const ConfirmHeader: FC<ConfirmHeaderProps> = (props) => {
 };
 
 const SignDetail: FC<{
-  unsignedMessage: IUnsignedMessageEvm | IUnsignedMessageBtc;
+  unsignedMessage: IUnsignedMessage;
   sourceInfo?: IDappSourceInfo;
   networkId: string;
   accountId: string;
@@ -359,8 +354,8 @@ const SignDetail: FC<{
     );
   };
 
-  return type === ETHMessageTypes.ETH_SIGN ||
-    type === CommonMessageTypes.SIMPLE_SIGN ? (
+  return type === EMessageTypesEth.ETH_SIGN ||
+    type === EMessageTypesCommon.SIMPLE_SIGN ? (
     <VStack>
       {header}
       {warning}
@@ -372,7 +367,7 @@ const SignDetail: FC<{
   ) : (
     <VStack>
       {header}
-      {type === CommonMessageTypes.SIGN_MESSAGE && !unsignedMessage.secure ? (
+      {type === EMessageTypesCommon.SIGN_MESSAGE && !unsignedMessage.secure ? (
         <>{warning}</>
       ) : null}
       {renderTabBar()}

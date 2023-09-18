@@ -1,11 +1,11 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { ICoreUnsignedMessageBtc } from '@onekeyhq/core/src/types';
 import { KeyringHdBtcFork } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/KeyringHd';
 
 import btcForkSignUtils from '../../utils/btcForkChain/utils/btcForkSignUtils';
 
 import type { ChainSigner } from '../../../proxy';
 import type { DBUTXOAccount } from '../../../types/account';
+import type { IUnsignedMessageBtc } from '../../../types/message';
 import type {
   IPrepareHdAccountsParams,
   ISignCredentialOptions,
@@ -44,7 +44,7 @@ export class KeyringHd extends KeyringHdBtcFork {
   }
 
   override async signMessage(
-    messages: ICoreUnsignedMessageBtc[],
+    messages: IUnsignedMessageBtc[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     return btcForkSignUtils.signMessageBtc(this, messages, options);

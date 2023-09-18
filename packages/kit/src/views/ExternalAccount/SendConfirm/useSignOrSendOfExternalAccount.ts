@@ -3,15 +3,14 @@ import { useCallback } from 'react';
 import { cloneDeep, isString } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import type { IUnsignedMessage } from '@onekeyhq/engine/src/types/message';
 import {
-  ETHMessageTypes,
-  getEthProviderMethodFromMessageType,
+  EMessageTypesAptos,
+  EMessageTypesBtc,
+  EMessageTypesCommon,
+  EMessageTypesEth,
 } from '@onekeyhq/engine/src/types/message';
-import type { IUnsignedMessageBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
-import type {
-  IEncodedTxEvm,
-  IUnsignedMessageEvm,
-} from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
@@ -20,6 +19,39 @@ import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import { useSendConfirmInfoOfExternalAccount } from './useSendConfirmInfoOfExternalAccount';
+
+function getEthProviderMethodFromMessageType(
+  type:
+    | EMessageTypesEth
+    | EMessageTypesAptos
+    | EMessageTypesCommon
+    | EMessageTypesBtc,
+) {
+  // https://docs.metamask.io/guide/signing-data.html#a-brief-history
+  switch (type) {
+    case EMessageTypesEth.ETH_SIGN:
+      return 'eth_sign';
+    case EMessageTypesEth.PERSONAL_SIGN:
+      return 'personal_sign';
+    case EMessageTypesEth.TYPED_DATA_V1:
+      return 'eth_signTypedData';
+    case EMessageTypesEth.TYPED_DATA_V3:
+      return 'eth_signTypedData_v3';
+    case EMessageTypesEth.TYPED_DATA_V4:
+      return 'eth_signTypedData_v4';
+    case EMessageTypesAptos.SIGN_MESSAGE:
+      return 'signMessage';
+    case EMessageTypesCommon.SIGN_MESSAGE:
+      return 'signMessage';
+    case EMessageTypesCommon.SIMPLE_SIGN:
+      return 'signMessage';
+    case EMessageTypesBtc.ECDSA:
+      return 'signMessage';
+    default:
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
+      const checkType = type;
+  }
+}
 
 export function useSignOrSendOfExternalAccount({
   encodedTx,
@@ -30,7 +62,7 @@ export function useSignOrSendOfExternalAccount({
   signOnly,
 }: {
   encodedTx: IEncodedTx | undefined;
-  unsignedMessage?: IUnsignedMessageEvm | IUnsignedMessageBtc | undefined;
+  unsignedMessage?: IUnsignedMessage | undefined;
   sourceInfo?: IDappSourceInfo | undefined;
   networkId: string;
   accountId: string;
@@ -111,15 +143,15 @@ export function useSignOrSendOfExternalAccount({
       if (!wcConnector) {
         return;
       }
-      if (signMethodType === ETHMessageTypes.PERSONAL_SIGN) {
+      if (signMethodType === EMessageTypesEth.PERSONAL_SIGN) {
         result = await wcConnector.signPersonalMessage(rawMesssage);
-      } else if (signMethodType === ETHMessageTypes.ETH_SIGN) {
+      } else if (signMethodType === EMessageTypesEth.ETH_SIGN) {
         result = await wcConnector.signMessage(rawMesssage);
       } else {
         const typedDataMessage = cloneDeep(rawMesssage) as any[];
         if (
-          signMethodType === ETHMessageTypes.TYPED_DATA_V3 ||
-          signMethodType === ETHMessageTypes.TYPED_DATA_V4
+          signMethodType === EMessageTypesEth.TYPED_DATA_V3 ||
+          signMethodType === EMessageTypesEth.TYPED_DATA_V4
         ) {
           const secondInfo = typedDataMessage?.[1];
           if (secondInfo && typeof secondInfo === 'string') {
