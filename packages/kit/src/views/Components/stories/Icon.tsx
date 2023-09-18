@@ -33,16 +33,6 @@ const IconGallery = () => (
       },
     ]}
   />
-  // <ScrollView bg="background-hovered">
-  //   <Box flexDirection="row" flexWrap="wrap">
-  //     {Object.keys(Icons).map((icon) => (
-  // <Stack key={icon} p="4">
-  //   <Icon name={icon as ICON_NAMES} />
-  //   <Typography.Body1>{icon}</Typography.Body1>
-  // </Stack>
-  //     ))}
-  //   </Box>
-  // </ScrollView>
 );
 
 export default IconGallery;
