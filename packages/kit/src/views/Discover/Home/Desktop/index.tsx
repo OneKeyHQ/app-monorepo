@@ -1,15 +1,13 @@
-import { useCallback } from 'react';
-
 import { Box } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 
-import { useTabConfig } from '../config';
+import { useOnTabChange, useTabConfig } from '../config';
 
 import { Header } from './header';
 
 export const Desktop = () => {
   const tabConfig = useTabConfig();
-  const onIndexChange = useCallback(() => {}, []);
+  const onIndexChange = useOnTabChange();
   return (
     <Box
       flex="1"
