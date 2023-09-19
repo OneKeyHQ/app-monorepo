@@ -7,7 +7,6 @@
     "iso-639-1": "^2.1.13",
     "lodash": "^4.17.21",
     "moti": "^0.25.3",
-    "native-base": "3.4.22",
     "qrcode": "^1.5.0",
     "react-content-loader": "^6.2.1",
     "react-dropzone": "^14.2.3",

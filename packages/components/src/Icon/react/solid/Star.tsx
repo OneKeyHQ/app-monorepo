@@ -1,15 +1,12 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+
+import type { SvgProps } from 'react-native-svg';
+
 const SvgStar = (props: SvgProps) => (
-  <Svg
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
-      fillRule="evenodd"
-      d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z"
-      clipRule="evenodd"
+      fill="currentColor"
+      d="M13.373 1.862c-.553-1.15-2.193-1.15-2.745 0L8.264 6.78l-5.44.713c-1.262.165-1.787 1.723-.848 2.609l3.976 3.749-.998 5.353c-.237 1.27 1.109 2.212 2.22 1.613l4.825-2.6 4.825 2.6c1.111.6 2.457-.343 2.22-1.613l-.998-5.353 3.976-3.749c.939-.886.414-2.444-.848-2.61l-5.44-.712-2.362-4.917Z"
     />
   </Svg>
 );

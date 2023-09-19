@@ -1,1 +1,1 @@
-export { Stack as default } from 'native-base';
+export { Stack } from 'tamagui';
