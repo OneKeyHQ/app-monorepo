@@ -32,7 +32,6 @@ import {
   CreateWalletModalRoutes,
   ManagerAccountModalRoutes,
   ModalRoutes,
-  OnekeyHardwareModalRoutes,
   RootRoutes,
 } from '../routes/routesEnum';
 import { appSelector } from '../store';
@@ -48,7 +47,6 @@ import { KeyTagRoutes } from '../views/KeyTag/Routes/enums';
 import { EOnboardingRoutes } from '../views/Onboarding/routes/enums';
 import { RecoveryPhraseDialog } from '../views/Onboarding/screens/CreateWallet/SetPassword';
 
-import useAppNavigation from './useAppNavigation';
 import { useAppSelector } from './useAppSelector';
 import { closeExtensionWindowIfOnboardingFinished } from './useOnboardingRequired';
 
@@ -452,82 +450,6 @@ export const useEnableWebAuth = () => {
       }
     }
   }, [enableWebAuthnState, intl]);
-};
-
-export const useOnekeyHardwareDetailsAuth = () => {
-  const navigation = useAppNavigation();
-  const intl = useIntl();
-  return useCallback(
-    async (walletId: string) => {
-      try {
-        const { status, data } =
-          await (backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
-            {
-              walletId,
-            },
-          ) as Promise<IPasswordRes>);
-        if (status === EPasswordResStatus.PASS_STATUS) {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.OnekeyHardware,
-            params: {
-              screen: OnekeyHardwareModalRoutes.OnekeyHardwareDetailsModal,
-              params: {
-                walletId,
-                deviceFeatures: data.options?.deviceFeatures,
-              },
-            },
-          });
-        }
-      } catch (e) {
-        const errorKey = (e as { key: LocaleIds }).key;
-        ToastManager.show(
-          {
-            title: intl.formatMessage({ id: errorKey }),
-          },
-          { type: ToastManagerType.error },
-        );
-      }
-    },
-    [intl, navigation],
-  );
-};
-
-export const useOnekeyHardwareDeviceNameAuth = () => {
-  const navigation = useAppNavigation();
-  const intl = useIntl();
-  return useCallback(
-    async (walletId: string) => {
-      try {
-        const { status } =
-          await (backgroundApiProxy.servicePassword.backgroundPromptPasswordDialog(
-            {
-              walletId,
-            },
-          ) as Promise<IPasswordRes>);
-        if (status === EPasswordResStatus.PASS_STATUS) {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.OnekeyHardware,
-            params: {
-              screen: OnekeyHardwareModalRoutes.OnekeyHardwareDeviceNameModal,
-              params: {
-                walletId,
-                deviceName: '',
-              },
-            },
-          });
-        }
-      } catch (e) {
-        const errorKey = (e as { key: LocaleIds }).key;
-        ToastManager.show(
-          {
-            title: intl.formatMessage({ id: errorKey }),
-          },
-          { type: ToastManagerType.error },
-        );
-      }
-    },
-    [intl, navigation],
-  );
 };
 
 export const useOnekeyLiteRestoreDoneAuth = () => {

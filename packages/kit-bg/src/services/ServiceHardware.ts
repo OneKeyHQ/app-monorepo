@@ -39,6 +39,7 @@ import {
   InitIframeLoadFail,
   InitIframeTimeout,
   OneKeyHardwareError,
+  OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -959,6 +960,47 @@ class ServiceHardware extends ServiceBase {
         e,
       );
     }
+  }
+
+  @backgroundMethod()
+  async checkDeviceSupportFeatures(walletId: string) {
+    const { appSelector, engine, serviceHardware } = this.backgroundApi;
+    const walletDetail =
+      appSelector((s) => s.runtime.wallets?.find?.((w) => w.id === walletId)) ??
+      null;
+    const isHardware = walletDetail?.type === 'hw';
+    if (isHardware) {
+      const currentWalletDevice = await engine.getHWDeviceByWalletId(
+        walletDetail.id,
+      );
+      if (!currentWalletDevice || !walletDetail?.id) {
+        return Promise.reject(
+          new OneKeyInternalError({ key: 'action__connection_timeout' }),
+        );
+      }
+      let features: IOneKeyDeviceFeatures | null = null;
+      try {
+        const featuresCache = await serviceHardware.getFeatursByWalletId(
+          walletDetail.id,
+        );
+        if (featuresCache) {
+          features = featuresCache;
+          debugLogger.hardwareSDK.debug('use features cache: ', featuresCache);
+        } else {
+          features = await serviceHardware.getFeatures(currentWalletDevice.mac);
+        }
+      } catch (e: any) {
+        deviceUtils.showErrorToast(e);
+        return Promise.resolve();
+      }
+      if (!features) {
+        return Promise.reject(
+          new OneKeyInternalError({ key: 'modal__device_status_check' }),
+        );
+      }
+      return Promise.resolve(features);
+    }
+    return Promise.resolve();
   }
 }
 

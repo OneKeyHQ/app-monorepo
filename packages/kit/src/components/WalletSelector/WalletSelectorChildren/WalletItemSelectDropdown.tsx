@@ -15,6 +15,8 @@ import {
   ToastManager,
 } from '@onekeyhq/components';
 import type { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import { ToastManagerType } from '@onekeyhq/components/src/ToastManager';
 import type { IWallet } from '@onekeyhq/engine/src/types';
 import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -44,10 +46,6 @@ import HardwareLoadingDialog from '@onekeyhq/kit/src/views/Hardware/Onekey/Oneke
 import ManagerWalletDeleteDialog from '@onekeyhq/kit/src/views/ManagerWallet/DeleteWallet';
 import type { DeleteWalletProp } from '@onekeyhq/kit/src/views/ManagerWallet/DeleteWallet';
 
-import {
-  useOnekeyHardwareDetailsAuth,
-  useOnekeyHardwareDeviceNameAuth,
-} from '../../../hooks/useProtectedVerify';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
 import { defaultMenuOffset } from '../../../views/Overlay/BaseMenu';
 import { useWalletSelectorStatus } from '../hooks/useWalletSelectorStatus';
@@ -192,8 +190,6 @@ function HardwareMenuOptions({
     },
     [serviceHardware, hwInfo.hwWalletType],
   );
-  const onekeyHardwareDetaulsAuth = useOnekeyHardwareDetailsAuth();
-  const onekeyHardwareDeviceNameAuth = useOnekeyHardwareDeviceNameAuth();
   const checkFirmwareUpdate = useCallback(() => {
     if (!deviceConnectId) return;
 
@@ -265,8 +261,35 @@ function HardwareMenuOptions({
   return (
     <>
       <WalletMenuItem
-        onPress={() => {
-          onekeyHardwareDeviceNameAuth(wallet?.id);
+        onPress={async () => {
+          try {
+            const deviceFeatures =
+              await backgroundApiProxy.serviceHardware.checkDeviceSupportFeatures(
+                wallet?.id,
+              );
+            if (deviceFeatures) {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.OnekeyHardware,
+                params: {
+                  screen:
+                    OnekeyHardwareModalRoutes.OnekeyHardwareDeviceNameModal,
+                  params: {
+                    walletId: wallet?.id ?? '',
+                    deviceName: '',
+                    deviceFeatures,
+                  },
+                },
+              });
+            }
+          } catch (e) {
+            const errorKey = (e as { key: LocaleIds }).key;
+            ToastManager.show(
+              {
+                title: intl.formatMessage({ id: errorKey }),
+              },
+              { type: ToastManagerType.error },
+            );
+          }
           // navigation.navigate(RootRoutes.Modal, {
           //   screen: ModalRoutes.OnekeyHardware,
           //   params: {
@@ -303,8 +326,33 @@ function HardwareMenuOptions({
         </WalletMenuItem>
       )}
       <WalletMenuItem
-        onPress={() => {
-          onekeyHardwareDetaulsAuth(wallet?.id);
+        onPress={async () => {
+          try {
+            const deviceFeatures =
+              await backgroundApiProxy.serviceHardware.checkDeviceSupportFeatures(
+                wallet?.id,
+              );
+            if (deviceFeatures) {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.OnekeyHardware,
+                params: {
+                  screen: OnekeyHardwareModalRoutes.OnekeyHardwareDetailsModal,
+                  params: {
+                    walletId: wallet?.id ?? '',
+                    deviceFeatures,
+                  },
+                },
+              });
+            }
+          } catch (e) {
+            const errorKey = (e as { key: LocaleIds }).key;
+            ToastManager.show(
+              {
+                title: intl.formatMessage({ id: errorKey }),
+              },
+              { type: ToastManagerType.error },
+            );
+          }
           // navigation.navigate(RootRoutes.Modal, {
           //   screen: ModalRoutes.OnekeyHardware,
           //   params: {

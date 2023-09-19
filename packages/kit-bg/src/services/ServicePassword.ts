@@ -10,7 +10,6 @@ import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/engine/src/types/wallet';
 import { ValidationFields } from '@onekeyhq/kit/src/components/Protected';
 import { setBackgroundPasswordPrompt } from '@onekeyhq/kit/src/store/reducers/data';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
-import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
@@ -22,7 +21,6 @@ import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
@@ -168,64 +166,6 @@ export default class ServicePassword extends ServiceBase {
     return Promise.resolve(getBgSensitiveTextEncodeKey());
   }
 
-  async checkWalletIsNeedInputPassWord(walletId: string | null) {
-    const { appSelector, engine, serviceHardware } = this.backgroundApi;
-    const walletDetail =
-      appSelector((s) => s.runtime.wallets?.find?.((w) => w.id === walletId)) ??
-      null;
-    /**
-     * Hardware Wallet dont need input password at here, hardware need to input password at device
-     *
-     * also if it is hardware device, need to connect bluetooth and check connection status
-     */
-    const isHardware = walletDetail?.type === 'hw';
-    const isExternalWallet = walletDetail?.type === WALLET_TYPE_EXTERNAL;
-    if (isExternalWallet) {
-      return Promise.resolve({
-        status: EPasswordResStatus.CLOSE_STATUS,
-        data: { password: '' },
-      });
-    }
-    if (isHardware) {
-      const currentWalletDevice = await engine.getHWDeviceByWalletId(
-        walletDetail.id,
-      );
-      if (!currentWalletDevice || !walletDetail?.id) {
-        return Promise.reject(
-          new OneKeyInternalError({ key: 'action__connection_timeout' }),
-        );
-      }
-      let features: IOneKeyDeviceFeatures | null = null;
-      try {
-        const featuresCache = await serviceHardware.getFeatursByWalletId(
-          walletDetail.id,
-        );
-        if (featuresCache) {
-          features = featuresCache;
-          debugLogger.hardwareSDK.debug('use features cache: ', featuresCache);
-        } else {
-          features = await serviceHardware.getFeatures(currentWalletDevice.mac);
-        }
-      } catch (e: any) {
-        deviceUtils.showErrorToast(e);
-        return Promise.resolve({
-          status: EPasswordResStatus.CLOSE_STATUS,
-          data: { password: '' },
-        });
-      }
-      if (!features) {
-        return Promise.reject(
-          new OneKeyInternalError({ key: 'modal__device_status_check' }),
-        );
-      }
-      return Promise.resolve({
-        status: EPasswordResStatus.PASS_STATUS,
-        data: { password: '', option: { deviceFeatures: features } },
-      });
-    }
-    return Promise.resolve();
-  }
-
   @backgroundMethod()
   async backgroundPromptPasswordDialog({
     walletId,
@@ -267,16 +207,16 @@ export default class ServicePassword extends ServiceBase {
       );
     }
 
-    // check hw external wallet
-    try {
-      const walletCheckRes = await this.checkWalletIsNeedInputPassWord(
-        walletId,
-      );
-      if (walletCheckRes) {
-        return await Promise.resolve(walletCheckRes);
-      }
-    } catch (e) {
-      return Promise.reject(e);
+    const walletDetail =
+      appSelector((s) => s.runtime.wallets?.find?.((w) => w.id === walletId)) ??
+      null;
+
+    const isExternalWallet = walletDetail?.type === WALLET_TYPE_EXTERNAL;
+    if (isExternalWallet) {
+      return Promise.resolve({
+        status: EPasswordResStatus.CLOSE_STATUS,
+        data: { password: '' },
+      });
     }
 
     // lightningNetwork check
