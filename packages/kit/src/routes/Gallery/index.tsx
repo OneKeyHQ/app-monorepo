@@ -7,6 +7,7 @@ import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 
 import DialogGallery from '../../views/Components/stories/Dialog';
+import DemoRootApp from '../../views/Components/stories/NavigatorRoute';
 
 export enum GalleryRoutes {
   Components = 'components',
@@ -15,6 +16,7 @@ export enum GalleryRoutes {
   ComponentButton = 'component/button',
   ComponentBadge = 'component/badge',
   ComponentDialog = 'component/dialog',
+  ComponentNavigation = 'component/navigation',
 }
 
 export const stackScreenList = [
@@ -27,6 +29,11 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentButton, component: ButtonsGallery },
   { name: GalleryRoutes.ComponentBadge, component: BadgeGallery },
   { name: GalleryRoutes.ComponentDialog, component: DialogGallery },
+  {
+    name: GalleryRoutes.ComponentNavigation,
+    component: DemoRootApp,
+    options: { headerShown: false },
+  },
 ];
 
 const DevStack = createNativeStackNavigator();
@@ -39,6 +46,7 @@ const DevScreen = () => (
           key={stack.name}
           name={stack.name}
           component={stack.component}
+          options={stack.options}
         />
       ))}
     </DevStack.Group>

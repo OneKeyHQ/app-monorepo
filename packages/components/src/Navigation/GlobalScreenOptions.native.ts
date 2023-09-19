@@ -2,6 +2,8 @@
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { makeHeaderScreenOptions } from './Header';
+
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
 
@@ -42,18 +44,20 @@ export function makeModalOpenAnimationOptions(_: {
 }
 
 export function makeModalStackNavigatorOptions({
-  isVerticalLayout,
   navInfo,
 }: {
-  isVerticalLayout?: boolean;
   navInfo?: {
     route: RouteProp<any>;
     navigation: any;
   };
 } = {}) {
   const options: NativeStackNavigationOptions = {
-    headerShown: false,
+    headerShown: true,
     animation: 'slide_from_right',
+    ...makeHeaderScreenOptions({
+      isModelScreen: true,
+      navigation: navInfo?.navigation,
+    }),
   };
 
   if (platformEnv.isNativeAndroid) {
@@ -68,10 +72,20 @@ export function makeModalStackNavigatorOptions({
   return options;
 }
 
-export function makeModalScreenOptions(isVerticalLayout: boolean) {
+export function makeModalScreenOptions({
+  isVerticalLayout,
+}: {
+  isVerticalLayout: boolean;
+}) {
   return {
     headerShown: false,
     presentation: 'modal',
     ...makeModalOpenAnimationOptions({ isVerticalLayout }),
+  };
+}
+
+export function makeRootModalStackOptions() {
+  return {
+    headerShown: false,
   };
 }

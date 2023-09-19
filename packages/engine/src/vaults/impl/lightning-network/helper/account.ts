@@ -42,7 +42,6 @@ export const generateNativeSegwitAccounts = async ({
   const IMPL = isTestnet ? IMPL_TBTC : IMPL_BTC;
   const CoinType = isTestnet ? COINTYPE_TBTC : COINTYPE_BTC;
   const { addressEncoding } = getAccountDefaultByPurpose(84, IMPL);
-  console.log('=====>>>>> : ', provider);
   const ignoreFirst = indexes[0] !== 0;
   const usedIndexes = [...(ignoreFirst ? [indexes[0] - 1] : []), ...indexes];
   const pubkeyInfos = batchGetPublicKeys(

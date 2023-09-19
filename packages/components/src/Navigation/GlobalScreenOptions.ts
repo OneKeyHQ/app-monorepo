@@ -4,6 +4,7 @@ import { isNil } from 'lodash';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { extAnimConfig } from './ExtAnimConfig';
+import { makeHeaderScreenOptions } from './Header';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { StackNavigationOptions } from '@react-navigation/stack';
@@ -70,11 +71,16 @@ export function makeModalStackNavigatorOptions({
     navigation: any;
   };
 } = {}) {
+  // @ts-expect-error
   const options: StackNavigationOptions = {
-    headerShown: false,
+    headerShown: true,
     ...(platformEnv.isExtension
       ? { ...extAnimConfig.transition, ...extAnimConfig.stackScreenAnim }
       : { ...TransitionPresets.SlideFromRightIOS }),
+    ...makeHeaderScreenOptions({
+      isModelScreen: true,
+      navigation: navInfo?.navigation,
+    }),
   };
 
   if (!isNil(isVerticalLayout)) {
@@ -89,10 +95,21 @@ export function makeModalStackNavigatorOptions({
   return options;
 }
 
-export function makeModalScreenOptions(isVerticalLayout: boolean) {
+export function makeModalScreenOptions({
+  isVerticalLayout,
+}: {
+  isVerticalLayout: boolean;
+}) {
   return {
     headerShown: false,
-    presentation: 'transparentModal',
+    presentation: 'containedModal',
+    cardOverlayEnabled: true,
     ...makeModalOpenAnimationOptions({ isVerticalLayout }),
+  };
+}
+
+export function makeRootModalStackOptions() {
+  return {
+    headerShown: false,
   };
 }
