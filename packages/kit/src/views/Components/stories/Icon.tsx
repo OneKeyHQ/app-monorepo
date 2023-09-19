@@ -1,5 +1,5 @@
-import { FlatList, View, Text } from 'react-native';
-import { Stack } from 'tamagui';
+import { FlatList, Text, View } from 'react-native';
+import { XStack, Stack} from 'tamagui';
 
 import { Icon } from '@onekeyhq/components';
 import type { ICON_NAMES } from '@onekeyhq/components/src/Icon/Icons';
@@ -13,6 +13,17 @@ const IconGallery = () => (
     suggestions={['图标的设计应该简洁、易于理解、易于识别']}
     boundaryConditions={[]}
     elements={[
+      {
+        title: 'colorful icon',
+        element: (
+          <XStack space={10}>
+              <Icon name="AirpodsSolid" color="$icon" />
+              <Icon name="AirpodsSolid" color="$iconHover" />
+              <Icon name="AirpodsSolid" color="$iconInverse" />
+              <Icon name="AirpodsSolid" color="$iconActive" />
+          </XStack>
+        ),
+      },
       {
         title: 'icons',
         element: (
