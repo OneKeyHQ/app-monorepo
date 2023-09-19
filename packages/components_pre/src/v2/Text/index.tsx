@@ -7,18 +7,18 @@ export type TextProps = GetProps<typeof TextComponent>;
 export const Text = styled(TextComponent, {
   variants: {
     variant: {
-      '...size': (size, { font }) => ({
+      '...fontSize': (fontSize, { font }) => ({
         fontFamily:
-          size === '$bodyMdMono' || size === '$bodyLgMono'
+          fontSize === '$bodyMdMono' || fontSize === '$bodyLgMono'
             ? 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
             : '$body',
-        fontSize: font?.size[size],
-        lineHeight: font?.lineHeight[size],
-        fontWeight: font?.weight[size],
-        textTransform: size === '$headingXs' ? 'uppercase' : 'none',
-        letterSpacing: size === '$headingXs' ? 0.8 : 0,
+        fontSize: font?.size[fontSize],
+        lineHeight: font?.lineHeight[fontSize],
+        fontWeight: font?.weight[fontSize],
+        textTransform: fontSize === '$headingXs' ? 'uppercase' : 'none',
+        letterSpacing: fontSize === '$headingXs' ? 0.8 : 0,
         textDecorationLine:
-          size === '$bodyLgUnderline' || size === '$bodyMdUnderline'
+          fontSize === '$bodyLgUnderline' || fontSize === '$bodyMdUnderline'
             ? 'underline'
             : 'none',
       }),
