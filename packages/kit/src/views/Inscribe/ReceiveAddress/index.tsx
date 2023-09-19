@@ -50,11 +50,13 @@ const ReceiveAddress: FC = () => {
   const addressFilter = useCallback(
     async (address: string) => {
       try {
-        return await serviceInscribe.checkValidTaprootAddress({
-          address,
-          networkId,
-          accountId,
-        });
+        return (
+          await serviceInscribe.checkValidTaprootAddress({
+            address,
+            networkId,
+            accountId,
+          })
+        ).isTaprootAddress;
       } catch (error) {
         return Promise.resolve(false);
       }
@@ -89,7 +91,7 @@ const ReceiveAddress: FC = () => {
             errorMessage: '',
             successMessage: '',
           });
-          const isTaprootAddress =
+          const { isTaprootAddress } =
             await serviceInscribe.checkValidTaprootAddress({
               address: value,
               networkId,

@@ -1,16 +1,16 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { Box } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useTabConfig } from '../config';
+import { useOnTabChange, useTabConfig } from '../config';
 
 import { Header } from './header';
 
 export const Mobile = () => {
   const tabConfig = useTabConfig();
-  const onIndexChange = useCallback(() => {}, []);
+  const onIndexChange = useOnTabChange();
   const containerStyle = useMemo(
     () => ({
       flex: 1,
