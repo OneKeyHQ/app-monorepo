@@ -1,20 +1,15 @@
 /* eslint-disable global-require */
-import type { FC, ReactNode } from 'react';
-import { memo, useEffect, useMemo, useState } from 'react';
-
-import { hideAsync as hideSplashScreen } from 'expo-splash-screen';
+import { FC, ReactNode, useEffect, useState } from 'react';
+import { memo, useMemo } from 'react';
+import { useHtmlPreloadSplashLogoRemove } from '@onekeyhq/kit/src/hooks/useHtmlPreloadSplashLogoRemove';
 // TODO: add .d.ts for react-native-animated-splash-screen
 // @ts-expect-error no .d.ts
 import AnimatedSplash from 'react-native-animated-splash-screen';
 
 import { Stack, useThemeValue } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { VariableVal } from '@tamagui/core';
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const { serviceApp, serviceCronJob } = backgroundApiProxy;
 
 const AnimatedSplashView = memo(
   ({
@@ -78,47 +73,20 @@ AnimatedSplashView.displayName = 'AnimatedSplashView';
 
 const AppLoading: FC = ({ children }) => {
   const [initDataReady, setInitDataReady] = useState(false);
-  // fiat-money trigger move to init app after endpoint change
-  // useSWR(
-  //   initDataReady ? 'fiat-money' : null,
-  //   () => serviceCronJob.getFiatMoney(),
-  //   {
-  //     refreshInterval: 5 * 60 * 1000,
-  //   },
-  // );
-
   let bgColor: VariableVal | undefined = useThemeValue('background-default');
   if (platformEnv.isRuntimeBrowser) {
     bgColor = undefined;
   }
+  useHtmlPreloadSplashLogoRemove();
 
   useEffect(() => {
-    async function main() {
-      // TODO initApp too slow, maybe do not need waiting for initApp in UI
-      // await Promise.all([
-      //   serviceApp.waitForAppInited({
-      //     logName: 'AppLoading',
-      //   }),
-      // ]);
-
-      // redux ready check move to ThemeApp
-
-      // serviceApp.initApp();
-      await serviceApp.checkLockStatus();
-      setInitDataReady(true);
-
-      // end splash screen to show AnimatedSplash after 50ms to avoid twinkling
-      setTimeout(hideSplashScreen, 50);
-    }
-
-    main();
+    setTimeout(() => {
+      setInitDataReady(true)
+    }, 50)
   }, []);
 
   return (
-    <AnimatedSplashView
-      initDataReady={initDataReady}
-      bgColor={bgColor as string}
-    >
+    <AnimatedSplashView initDataReady={initDataReady} bgColor={bgColor as string}>
       {children}
     </AnimatedSplashView>
   );

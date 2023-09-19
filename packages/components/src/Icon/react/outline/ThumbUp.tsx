@@ -1,17 +1,14 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+
+import type { SvgProps } from 'react-native-svg';
+
 const SvgThumbUp = (props: SvgProps) => (
-  <Svg
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
-      strokeLinecap="round"
+      stroke="currentColor"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="M14 10h4.764a2 2 0 0 1 1.789 2.894l-3.5 7A2 2 0 0 1 15.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 0 0-2-2h-.095c-.5 0-.905.405-.905.905a3.61 3.61 0 0 1-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h2.5"
+      d="M7 11H4a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h3m0-9v9m0-9 4-8h.616a2 2 0 0 1 1.976 2.308L13.016 9h5.047a3 3 0 0 1 2.973 3.405l-.682 5A3 3 0 0 1 17.38 20H7"
     />
   </Svg>
 );

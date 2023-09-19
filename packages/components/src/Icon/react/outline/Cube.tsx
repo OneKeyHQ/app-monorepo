@@ -1,17 +1,14 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+
+import type { SvgProps } from 'react-native-svg';
+
 const SvgCube = (props: SvgProps) => (
-  <Svg
-    fill="none"
-    viewBox="0 0 24 24"
-    strokeWidth={1.5}
-    stroke="currentColor"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
-      strokeLinecap="round"
+      stroke="currentColor"
       strokeLinejoin="round"
-      d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"
+      strokeWidth={2}
+      d="M12 12v9m0-9 8-4.5M12 12 4 7.5m7.02-3.948-6 3.375A2 2 0 0 0 4 8.67v6.66a2 2 0 0 0 1.02 1.743l6 3.375a2 2 0 0 0 1.96 0l6-3.375A2 2 0 0 0 20 15.33V8.67a2 2 0 0 0-1.02-1.743l-6-3.375a2 2 0 0 0-1.96 0Z"
     />
   </Svg>
 );
