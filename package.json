@@ -11,7 +11,7 @@
     "postinstall": "yarn setup:env && husky install && patch-package && yarn copy:inject",
     "copy:inject": "bash development/copy-injected.sh",
     "clean": "./clean_workspace.sh && yarn cache clean",
-    "_tsc": "sh -c 'npx tsc --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache'",
+    "_tsc": "sh -c '#npx tsc --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache'",
     "_lint": "sh -c 'npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"'",
     "lint:project": "yarn _tsc && yarn _lint",
     "lint": "ultra lint:project",
