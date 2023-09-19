@@ -2,13 +2,17 @@ import { createAnimations } from '@tamagui/animations-moti';
 import { createMedia } from '@tamagui/react-native-media-driver';
 import { shorthands } from '@tamagui/shorthands';
 import { themes } from '@tamagui/themes';
+import { Platform } from 'react-native';
 import { createFont, createTamagui, createTokens } from 'tamagui';
 
 import type { Variable } from '@tamagui/web/src/createVariable';
 
+const isTamaguiNative = process.env.TAMAGUI_TARGET === 'native';
+console.log(isTamaguiNative);
 const font = createFont({
-  family:
-    'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
+  family: isTamaguiNative
+    ? 'System'
+    : 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
   size: {
     heading5xl: 40,
     heading4xl: 32,
