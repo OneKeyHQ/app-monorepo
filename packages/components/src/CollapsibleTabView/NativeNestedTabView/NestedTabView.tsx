@@ -10,8 +10,7 @@ import {
 
 import { UIManager, findNodeHandle } from 'react-native';
 
-import { Box } from '@onekeyhq/components';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { Stack } from '../../Stack';
 
 import NativeNestedTabView from './NativeNestedTabView';
 
@@ -55,7 +54,7 @@ const NestedTabView: ForwardRefRenderFunction<
         [pageIndex],
       );
     } catch (error) {
-      debugLogger.common.error(`switch account tab error`, error);
+      console.log(`switch account tab error`, error);
     }
   }, []);
 
@@ -67,7 +66,7 @@ const NestedTabView: ForwardRefRenderFunction<
         [refreshing],
       );
     } catch (error) {
-      debugLogger.common.error(`set refreshing error`, error);
+      console.log(`set refreshing error`, error);
     }
   }, []);
 
@@ -79,7 +78,7 @@ const NestedTabView: ForwardRefRenderFunction<
         [headerHeight],
       );
     } catch (error) {
-      debugLogger.common.error(`set headerHeight error`, error);
+      console.log(`set headerHeight error`, error);
     }
   }, []);
 
@@ -140,7 +139,7 @@ const NestedTabView: ForwardRefRenderFunction<
       {...rest}
     >
       {/* native code get first child as header */}
-      <Box onLayout={onLayoutCallback}>{headerView}</Box>
+      <Stack onLayout={onLayoutCallback}>{headerView}</Stack>
       {children}
     </NativeNestedTabView>
   );

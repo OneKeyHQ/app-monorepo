@@ -2,9 +2,13 @@ import type { ForwardedRef, ReactNode } from 'react';
 
 import { Dimensions } from 'react-native';
 
-import type { FontProps } from '@onekeyhq/components/src/Typography';
-
-import type { NativeSyntheticEvent, StyleProp, ViewStyle } from 'react-native';
+import type { VariableVal } from '@tamagui/core';
+import type {
+  NativeSyntheticEvent,
+  StyleProp,
+  TextStyle,
+  ViewStyle,
+} from 'react-native';
 
 export const getDrawerWidth = () => {
   const { width } = Dimensions.get('window');
@@ -42,7 +46,7 @@ type TabViewStyle = {
   inactiveColor?: string;
   indicatorColor?: string;
   bottomLineColor?: string;
-  labelStyle?: FontProps;
+  labelStyle?: StyleProp<TextStyle>;
 
   // label
   tabSpaceEqual?: boolean;
@@ -63,7 +67,7 @@ export interface NativeNestedTabViewProps {
   tabViewStyle?: TabViewStyle;
   refresh?: boolean;
   disableRefresh?: boolean;
-  spinnerColor?: string;
+  spinnerColor?: VariableVal;
   onRefreshCallBack?: (e: OnRefreshCallBackEvent) => void;
   onPageChange?: (e: OnPageChangeEvent) => void;
   onPageScrollStateChange?: (e: OnPageScrollStateChangeEvent) => void;

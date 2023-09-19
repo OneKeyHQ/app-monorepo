@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { Header, getHeaderTitle } from '@react-navigation/elements';
+import { StyleSheet } from 'react-native';
 import { Input } from 'tamagui';
 
 import { Stack } from '../../index';
@@ -24,12 +25,9 @@ export default function HeaderView({
     headerRight,
     headerTitle,
     headerTitleAlign,
-    headerTitleStyle,
     headerStyle,
     headerTransparent,
     headerBackground,
-    headerBackTitle,
-    presentation,
     headerSearchBarOptions,
   } = options;
 
@@ -37,9 +35,9 @@ export default function HeaderView({
 
   const onBackCallback = useCallback(() => {
     if (canGoBack) {
-      navigation.goBack();
+      navigation?.goBack?.();
     } else {
-      navigation.getParent()?.goBack();
+      navigation?.getParent()?.goBack?.();
     }
   }, [canGoBack, navigation]);
 
@@ -67,10 +65,9 @@ export default function HeaderView({
         flexDirection: 'row',
       }}
       backgroundColor="$bg"
-      borderBottomWidth={0.3}
+      borderBottomWidth={StyleSheet.hairlineWidth}
       borderBottomColor="$borderSubdued"
-      shadowColor="$borderSubdued"
-      // justifyContent="space-between"
+      // shadowColor="$borderSubdued"
     >
       <Stack flex={1}>
         <Header
@@ -89,7 +86,11 @@ export default function HeaderView({
               : headerTitle
           }
           headerTitleAlign={headerTitleAlign}
-          headerTitleStyle={headerTitleStyle}
+          headerTitleStyle={{
+            fontSize: 18,
+            lineHeight: 28,
+            fontWeight: '600',
+          }}
           headerTransparent={headerTransparent}
           headerShadowVisible={false}
           headerBackground={headerBackground}
