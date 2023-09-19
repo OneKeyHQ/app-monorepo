@@ -138,9 +138,13 @@ export function getInputsToSignFromPsbt({
     if (script && !isSigned) {
       const address = BitcoinJS.address.fromOutputScript(script, psbtNetwork);
       if (account.address === address) {
+        const pubKeyStr = account.pubKey as string;
+        if (!pubKeyStr) {
+          throw new Error('pubKey is empty');
+        }
         inputsToSign.push({
           index,
-          publicKey: account.pubKey as string,
+          publicKey: pubKeyStr,
           address,
           sighashTypes: v.sighashType ? [v.sighashType] : undefined,
         });
@@ -148,9 +152,7 @@ export function getInputsToSignFromPsbt({
           (account.template as string).startsWith(`m/86'/`) &&
           !v.tapInternalKey
         ) {
-          v.tapInternalKey = toXOnly(
-            Buffer.from(account.pubKey as string, 'hex'),
-          );
+          v.tapInternalKey = toXOnly(Buffer.from(pubKeyStr, 'hex'));
         }
       }
     }
