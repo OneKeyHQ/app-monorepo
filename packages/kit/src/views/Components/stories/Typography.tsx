@@ -1,44 +1,77 @@
-import { Center, Text, Typography } from '@onekeyhq/components';
+import { YStack } from 'tamagui';
+
+import { Text } from '@onekeyhq/components';
+
+import { Layout } from './utils/Layout';
 
 const TypographyGallery = () => (
-  <Center flex="1" bg="background-hovered">
-    <Text
-      fontSize={{
-        base: 'md',
-        md: 'lg',
-        lg: 'xl',
-      }}
-    >
-      This is responsive text
-    </Text>
-    <Typography.DisplayXLarge my="4">DisplayXLarge</Typography.DisplayXLarge>
-    <Typography.DisplayLarge color="text-default">
-      DisplayLarge
-    </Typography.DisplayLarge>
-    <Typography.DisplayMedium color="text-subdued">
-      DisplayMedium (color=text-subdued)
-    </Typography.DisplayMedium>
-    <Typography.DisplaySmall color="text-critical">
-      DisplaySmall (color=text-critical)
-    </Typography.DisplaySmall>
-    <Typography.DisplaySmall color="text-warning">
-      DisplaySmall (color=text-warning)
-    </Typography.DisplaySmall>
-    <Typography.PageHeading>PageHeading</Typography.PageHeading>
-    <Typography.Heading>Heading</Typography.Heading>
-    <Typography.Subheading>SUBHEADING</Typography.Subheading>
-    <Typography.Button1>Button1</Typography.Button1>
-    <Typography.Button2>Button2</Typography.Button2>
-    <Typography.Body1>Body1</Typography.Body1>
-    <Typography.Body2>Body2</Typography.Body2>
-    <Typography.Caption>Caption</Typography.Caption>
-    <Typography.Body1Strong>Body1Strong</Typography.Body1Strong>
-    <Typography.Body1Underline>Body1Underline</Typography.Body1Underline>
-    <Typography.Body2Strong>Body2Strong</Typography.Body2Strong>
-    <Typography.Body2Underline>Body2Underline</Typography.Body2Underline>
-    <Typography.CaptionStrong>CaptionStrong</Typography.CaptionStrong>
-    <Typography.CaptionUnderline>CaptionUnderline</Typography.CaptionUnderline>
-  </Center>
+  <Layout
+    description="对操作结果的反馈，无需用户操作即可自行消失"
+    suggestions={[
+      '使用 Toast 显示简约明确的信息反馈',
+      '用户点击或触摸 Toast 内容时，浮层将会停留在页面上',
+      'Toast 显示的文本应少于 20 字',
+      '不建议使用 Toast 显示过长的报错信息',
+    ]}
+    boundaryConditions={[
+      'Toast 永远拥有最高层级的浮层',
+      'Toast 组件能显示的最长文本内容为三排，超出三排将会缩略',
+      '界面中只会存在一个 Toast 示例，后触发的 Toast 信息会覆盖前一条 Toast 信息',
+    ]}
+    elements={[
+      {
+        title: 'Variants',
+        element: (
+          <YStack space="$2">
+            <Text variant="$heading5xl">heading5xl</Text>
+            <Text variant="$heading4xl">heading4xl</Text>
+            <Text variant="$heading3xl">heading3xl</Text>
+            <Text variant="$heading2xl">heading2xl</Text>
+            <Text variant="$headingXl">headingXl</Text>
+            <Text variant="$headingLg">headingLg</Text>
+            <Text variant="$headingMd">headingMd</Text>
+            <Text variant="$headingSm">headingSm</Text>
+            <Text variant="$headingXs">headingXs</Text>
+            <Text variant="$bodyLg">bodyLg</Text>
+            <Text variant="$bodyMd">bodyMd</Text>
+            <Text variant="$bodySm">bodySm</Text>
+            <Text variant="$bodyLgMedium">bodyLgMedium</Text>
+            <Text variant="$bodyLgUnderline">bodyLgUnderline</Text>
+            <Text variant="$bodyLgMono">bodyLgMono</Text>
+            <Text variant="$bodyMdMedium">bodyMdMedium</Text>
+            <Text variant="$bodyMdUnderline">bodyMdUnderline</Text>
+            <Text variant="$bodyMdMono">bodyMdMono</Text>
+            <Text variant="$bodySmMedium">bodySmMedium</Text>
+          </YStack>
+        ),
+      },
+      {
+        title: 'Colors',
+        element: (
+          <YStack space="$2">
+            <Text>Default</Text>
+            <Text color="$textSubdued">$textSubdued</Text>
+            <Text color="$textDisabled">$textDisabled</Text>
+            <Text color="$textInverse" bg="$bgInverse">
+              $textInverse
+            </Text>
+            <Text color="$textInverseSubdued" bg="$bgInverse">
+              $textInverseSubdued
+            </Text>
+            <Text color="$textOnColor" bg="$bgCriticalStrong">
+              $textOnColor
+            </Text>
+            <Text color="$textSuccess">$textSuccess</Text>
+            <Text color="$textInfo">$textInfo</Text>
+            <Text color="$textCritical">$textCritical</Text>
+            <Text color="$textCaution">$textCaution</Text>
+            <Text color="$textInteractive">$textInteractive</Text>
+            <Text color="$textPlaceholder">$textPlaceholder</Text>
+          </YStack>
+        ),
+      },
+    ]}
+  />
 );
 
 export default TypographyGallery;
