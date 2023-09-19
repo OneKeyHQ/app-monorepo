@@ -1,5 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+
 import type { WalletHomeTabEnum } from '../../views/Wallet/type';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
@@ -61,9 +63,11 @@ export const slice = createSlice({
     },
     unlock: (state) => {
       state.isUnlock = true;
+      backgroundApiProxy.serviceApp.isMemoryUnLock = true;
     },
     lock: (state) => {
       state.isUnlock = false;
+      backgroundApiProxy.serviceApp.isMemoryUnLock = false;
     },
     refreshWebviewGlobalKey: (state) => {
       state.webviewGlobalKey = Date.now();

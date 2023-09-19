@@ -2,14 +2,12 @@ import { createSlice } from '@reduxjs/toolkit';
 
 import type { Tool } from '@onekeyhq/engine/src/types/token';
 import { stopTrace } from '@onekeyhq/shared/src/perf/perfTrace';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { ProtectedBaseProps } from '../../components/Protected';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
 export type DataInitialState = {
   isAppRenderReady: boolean;
-  isUnlock: boolean;
   isPasswordSet: boolean;
   homePageCheckBoarding: boolean;
   cursorMap: Record<string, string>;
@@ -25,7 +23,6 @@ export type DataInitialState = {
 };
 
 const initialState: DataInitialState = {
-  isUnlock: !!platformEnv.isDev, // isUnlock is in memory, so when app was killed/reload, it will be reset to false
   isPasswordSet: false,
   homePageCheckBoarding: false,
   isAppRenderReady: false,
@@ -45,12 +42,6 @@ export const dataSlice = createSlice({
     setAppRenderReady(state) {
       stopTrace('js_render');
       state.isAppRenderReady = true;
-    },
-    release(state) {
-      state.isUnlock = true;
-    },
-    lock(state) {
-      state.isUnlock = false;
     },
     passwordSet(state) {
       state.isPasswordSet = true;
@@ -98,12 +89,10 @@ export const dataSlice = createSlice({
 });
 
 export const {
-  release,
   passwordSet,
   setHomePageCheckBoarding,
   setAppRenderReady,
   cursorMapSet,
-  lock,
   setHandOperatedLock,
   setFeePresetIndex,
   setTools,

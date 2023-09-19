@@ -7,7 +7,6 @@ import { RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { webTabsActions } from '@onekeyhq/kit/src/store/observable/webTabs';
 import {
   passwordSet,
-  release,
   setHandOperatedLock,
 } from '@onekeyhq/kit/src/store/reducers/data';
 import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
@@ -25,7 +24,6 @@ import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import {
   getTimeDurationMs,
   getTimeStamp,
-  sleepUntil,
   wait,
 } from '@onekeyhq/kit/src/utils/helper';
 import {
@@ -66,6 +64,8 @@ class ServiceApp extends ServiceBase {
 
   private interval?: ReturnType<typeof setInterval>;
 
+  private _isMemoryUnLockStatus = !!platformEnv.isDev; // isUnlock is in memory, so when app was killed/reload, it will be reset to false
+
   constructor(props: IServiceBaseProps) {
     super(props);
     this.initAppAfterStoreReady();
@@ -78,6 +78,14 @@ class ServiceApp extends ServiceBase {
 
   get isAppInited() {
     return this._appInited;
+  }
+
+  get isMemoryUnLock() {
+    return this._isMemoryUnLockStatus;
+  }
+
+  set isMemoryUnLock(value) {
+    this._isMemoryUnLockStatus = value;
   }
 
   @backgroundMethod()
@@ -121,7 +129,7 @@ class ServiceApp extends ServiceBase {
     const idleDuration = Math.floor((Date.now() - lastActivity) / (1000 * 60));
     const isStale = idleDuration >= Math.min(240, appLockDuration + offset);
     if (isStale) {
-      await this.lock();
+      this.lock();
     }
   }
 
@@ -133,9 +141,8 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   isUnlock(): Promise<boolean> {
     const { appSelector } = this.backgroundApi;
-    const isUnlock = appSelector((s) => s.data.isUnlock);
     const isStatusUnlock = appSelector((s) => s.status.isUnlock);
-    return Promise.resolve(Boolean(isUnlock && isStatusUnlock));
+    return Promise.resolve(Boolean(isStatusUnlock && this.isMemoryUnLock));
   }
 
   @backgroundMethod()
@@ -433,7 +440,7 @@ class ServiceApp extends ServiceBase {
     if (!status.boardingCompleted) {
       actions.push(setBoardingCompleted());
     }
-    dispatch(...actions, unlock(), release());
+    dispatch(...actions, unlock());
     await servicePassword.savePassword(newPassword);
     serviceCloudBackup.requestBackup();
   }
@@ -447,14 +454,9 @@ class ServiceApp extends ServiceBase {
 
   @backgroundMethod()
   lock(handOperated = false) {
-    const { dispatch, servicePassword, appSelector } = this.backgroundApi;
+    const { dispatch, servicePassword } = this.backgroundApi;
     servicePassword.clearData();
     dispatch(setHandOperatedLock(handOperated), lock());
-
-    return sleepUntil({
-      conditionFn: () => appSelector((s) => s.data.isUnlock === false),
-      until: 1000,
-    });
   }
 
   @backgroundMethod()
@@ -463,7 +465,7 @@ class ServiceApp extends ServiceBase {
     const isOk = await servicePassword.verifyPassword(password);
     if (isOk) {
       await servicePassword.savePassword(password);
-      dispatch(setHandOperatedLock(false), unlock(), release());
+      dispatch(setHandOperatedLock(false), unlock());
       appEventBus.emit(AppEventBusNames.Unlocked);
     }
     return isOk;
@@ -472,7 +474,7 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   webPureUnlock() {
     const { dispatch } = this.backgroundApi;
-    dispatch(setHandOperatedLock(false), unlock(), release());
+    dispatch(setHandOperatedLock(false), unlock());
     appEventBus.emit(AppEventBusNames.Unlocked);
   }
 

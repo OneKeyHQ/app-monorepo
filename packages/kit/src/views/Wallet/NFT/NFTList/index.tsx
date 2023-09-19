@@ -33,6 +33,7 @@ import { AppUIEventBusNames } from '@onekeyhq/shared/src/eventBus/appUIEventBus'
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { useAppUnLockStatus } from '../../../../hooks/useAppStatus';
 import { useIsFocusedAllInOne } from '../../../../hooks/useIsFocusedAllInOne';
 import { useOnUIEventBus } from '../../../../hooks/useOnUIEventBus';
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
@@ -102,7 +103,7 @@ export function HandleRefreshNFTData({
   networkId,
   fetchData,
 }: IEmptyProps) {
-  const isUnlock = useAppSelector((s) => s.status.isUnlock);
+  const isUnlock = useAppUnLockStatus();
   const isNFTSupport = isCollectibleSupportedChainId(networkId);
   const [, setNFTIsLoading] = useAtomNFTList(atomHomeOverviewNFTListLoading);
   const { isFocused, homeTabFocused, rootTabFocused } = useIsFocusedAllInOne({

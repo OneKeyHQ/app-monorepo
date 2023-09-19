@@ -20,6 +20,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
 import { OneKeyPerfTraceLog } from '../../components/OneKeyPerfTraceLog';
+import { useAppUnLockStatus } from '../../hooks/useAppStatus';
 import { useHomeTabName } from '../../hooks/useHomeTabName';
 import { useHtmlPreloadSplashLogoRemove } from '../../hooks/useHtmlPreloadSplashLogoRemove';
 import { useOnboardingRequired } from '../../hooks/useOnboardingRequired';
@@ -60,13 +61,14 @@ const WalletTabs: FC = () => {
   const currentIndexRef = useRef<number>(0);
   const { screenWidth } = useUserDevice();
   const isVerticalLayout = useIsVerticalLayout();
+  const isUnlock = useAppUnLockStatus();
   const homeTabName = useHomeTabName();
   const { wallet, network, accountId, networkId, walletId } =
     useActiveWalletAccount();
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const walletTabsWithAuth = useWalletTabsWithAuth();
   useEffect(() => {
-    if (network?.settings.validationRequired) {
+    if (network?.settings.validationRequired && isUnlock) {
       walletTabsWithAuth({
         walletId,
         accountId,
@@ -74,7 +76,7 @@ const WalletTabs: FC = () => {
         networkName: network.name,
       });
     }
-  }, [accountId, network, networkId, walletId, walletTabsWithAuth]);
+  }, [accountId, isUnlock, network, networkId, walletId, walletTabsWithAuth]);
   // LazyRenderCurrentHomeTab
   const tokensTab = useMemo(
     () => (

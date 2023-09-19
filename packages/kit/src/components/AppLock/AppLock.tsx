@@ -6,6 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useDebounce } from '../../hooks';
+import { useAppUnLockStatus } from '../../hooks/useAppStatus';
 import { unlockWhiteListUrls } from '../../routes/linking.path';
 import { setAppRenderReady } from '../../store/reducers/data';
 import { FULLWINDOW_OVERLAY_PORTAL } from '../../utils/overlayUtils';
@@ -37,17 +38,16 @@ export const AppLockView: FC<AppLockProps> = ({
 }) => {
   const enableAppLock = useAppSelector((s) => s.settings.enableAppLock);
   const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
-  const isStatusUnlock = useAppSelector((s) => s.status.isUnlock);
-  const isDataUnlock = useAppSelector((s) => s.data.isUnlock);
+  const isUnlock = useAppUnLockStatus();
   const memo = useMemo(
-    () => ({ enableAppLock, isPasswordSet, isStatusUnlock, isDataUnlock }),
-    [enableAppLock, isPasswordSet, isStatusUnlock, isDataUnlock],
+    () => ({ enableAppLock, isPasswordSet, isUnlock }),
+    [enableAppLock, isPasswordSet, isUnlock],
   );
   const data = useDebounce(memo, 300);
   // const route = useRoute();
   // console.log('AppLockView route', route);
   const prerequisites = data.isPasswordSet;
-  const isUnlock = data.isDataUnlock && data.isStatusUnlock;
+
   const showUnlockView = prerequisites && !isUnlock && !isUnlockWhiteListUrl();
 
   // iOS should NOT render unlock screen by Overlay

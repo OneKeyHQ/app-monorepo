@@ -24,6 +24,7 @@ import {
   useReduxAccountTokensList,
   useReduxTokenPricesMap,
 } from '../../../hooks';
+import { useAppUnLockStatus } from '../../../hooks/useAppStatus';
 import { useIsFocusedAllInOne } from '../../../hooks/useIsFocusedAllInOne';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { WalletHomeTabEnum } from '../type';
@@ -71,7 +72,7 @@ export function HandleRefreshAssetsListData({
   accountId: string;
   networkId: string;
 }) {
-  const isUnlock = useAppSelector((s) => s.status.isUnlock);
+  const isUnlock = useAppUnLockStatus();
   const { isFocused, homeTabFocused, rootTabFocused } = useIsFocusedAllInOne({
     focusDelay: 1000,
     rootTabName: TabRoutes.Home,
