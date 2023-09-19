@@ -2,7 +2,7 @@ import { Button } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
-const ToastGallery = () => (
+const ButtonsGallery = () => (
   <Layout
     description="对操作结果的反馈，无需用户操作即可自行消失"
     suggestions={[
@@ -25,4 +25,4 @@ const ToastGallery = () => (
   />
 );
 
-export default ToastGallery;
+export default ButtonsGallery;

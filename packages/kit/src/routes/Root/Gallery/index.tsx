@@ -140,10 +140,10 @@ export const stackScreenList = [
   // { name: GalleryRoutes.ComponentAddress, component: AddressGallery },
   // { name: GalleryRoutes.ComponentInput, component: InputGallery },
   // { name: GalleryRoutes.ComponentCard, component: NftCardGallery },
-  // {
-  //   name: GalleryRoutes.ComponentTypography,
-  //   component: TypographyGallery,
-  // },
+  {
+    name: GalleryRoutes.ComponentTypography,
+    component: TypographyGallery,
+  },
   // { name: GalleryRoutes.ComponentNFTImage, component: NFTImageGallery },
   // { name: GalleryRoutes.ComponentTheme, component: ThemeGallery },
   { name: GalleryRoutes.ComponentIcon, component: IconGallery },
@@ -280,10 +280,10 @@ const DevScreen = () => {
           headerBackTitle: '',
           headerTitleAlign: 'center',
           headerStyle: {
-            backgroundColor: bgColor as string,
+            backgroundColor: bgColor,
           },
           header: renderCustomSubStackHeader,
-          headerTintColor: textColor as string,
+          headerTintColor: textColor,
         }}
       >
         {stackScreenList.map((stack) => (
