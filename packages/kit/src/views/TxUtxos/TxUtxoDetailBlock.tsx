@@ -138,7 +138,7 @@ function TxUtxoDetailBlock(props: Props) {
       const { inscriptions } = result;
       restInscriptions = result.restInscriptions;
       return (
-        <HStack key={utxo.txid ?? index} space={2} alignItems="start">
+        <HStack key={utxo.txid ?? index} space={2}>
           <Text typography="Body2Mono" color="text-subdued">
             #{index}
           </Text>
