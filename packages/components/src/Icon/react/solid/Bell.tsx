@@ -1,14 +1,13 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+
+import type { SvgProps } from 'react-native-svg';
+
 const SvgBell = (props: SvgProps) => (
-  <Svg
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
+      fill="currentColor"
       fillRule="evenodd"
-      d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0z"
+      d="M12 2a7.307 7.307 0 0 0-7.298 6.943l-.18 3.588a1 1 0 0 1-.104.397L3.19 15.382A1.809 1.809 0 0 0 4.809 18H7.1a5.002 5.002 0 0 0 9.8 0h2.291a1.809 1.809 0 0 0 1.618-2.618l-1.227-2.454a1 1 0 0 1-.104-.397l-.18-3.588A7.308 7.308 0 0 0 12 2Zm0 18a3.001 3.001 0 0 1-2.83-2h5.66A3.001 3.001 0 0 1 12 20Z"
       clipRule="evenodd"
     />
   </Svg>

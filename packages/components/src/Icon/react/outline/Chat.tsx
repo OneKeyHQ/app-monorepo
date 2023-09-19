@@ -1,17 +1,15 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+
+import type { SvgProps } from 'react-native-svg';
+
 const SvgChat = (props: SvgProps) => (
-  <Svg
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
-      strokeLinecap="round"
+      stroke="currentColor"
+      strokeLinecap="square"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 0 1-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+      d="M5.002 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-7l-5 3v-3h-2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"
     />
   </Svg>
 );

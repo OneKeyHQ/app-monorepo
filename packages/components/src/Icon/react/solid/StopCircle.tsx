@@ -1,14 +1,13 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+
+import type { SvgProps } from 'react-native-svg';
+
 const SvgStopCircle = (props: SvgProps) => (
-  <Svg
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
+      fill="currentColor"
       fillRule="evenodd"
-      d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm6-2.438c0-.724.588-1.312 1.313-1.312h4.874c.725 0 1.313.588 1.313 1.313v4.874c0 .725-.588 1.313-1.313 1.313H9.564a1.312 1.312 0 0 1-1.313-1.313V9.564z"
+      d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10ZM10.5 9.5a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1h-3Z"
       clipRule="evenodd"
     />
   </Svg>

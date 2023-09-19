@@ -1,12 +1,13 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+
+import type { SvgProps } from 'react-native-svg';
+
 const SvgForward = (props: SvgProps) => (
-  <Svg
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    accessibilityRole="image"
-    {...props}
-  >
-    <Path d="M5.055 7.06c-1.25-.714-2.805.189-2.805 1.628v8.123c0 1.44 1.555 2.342 2.805 1.628L12 14.471v2.34c0 1.44 1.555 2.342 2.805 1.628l7.108-4.061c1.26-.72 1.26-2.536 0-3.256L14.805 7.06C13.555 6.346 12 7.25 12 8.688v2.34L5.055 7.06z" />
+  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+    <Path
+      fill="currentColor"
+      d="M4 7.204C4 5.486 6.024 4.567 7.317 5.7L12 9.797V7.204c0-1.718 2.024-2.637 3.317-1.505l5.481 4.796a2 2 0 0 1 0 3.01l-5.481 4.797C14.024 19.433 12 18.515 12 16.797v-2.593l-4.683 4.098C6.024 19.433 4 18.515 4 16.797V7.204Z"
+    />
   </Svg>
 );
 export default SvgForward;

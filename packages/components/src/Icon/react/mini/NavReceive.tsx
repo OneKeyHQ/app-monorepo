@@ -1,8 +1,11 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+
+import type { SvgProps } from 'react-native-svg';
+
 const SvgNavReceive = (props: SvgProps) => (
   <Svg
-    viewBox="0 0 24 24"
     fill="currentColor"
+    viewBox="0 0 24 24"
     accessibilityRole="image"
     {...props}
   >

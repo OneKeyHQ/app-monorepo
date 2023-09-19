@@ -1,12 +1,15 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+
+import type { SvgProps } from 'react-native-svg';
+
 const SvgFolderOpen = (props: SvgProps) => (
-  <Svg
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    accessibilityRole="image"
-    {...props}
-  >
-    <Path d="M19.906 9c.382 0 .749.057 1.094.162V9a3 3 0 0 0-3-3h-3.879a.75.75 0 0 1-.53-.22L11.47 3.66A2.25 2.25 0 0 0 9.879 3H6a3 3 0 0 0-3 3v3.162A3.756 3.756 0 0 1 4.094 9h15.812zM4.094 10.5a2.25 2.25 0 0 0-2.227 2.568l.857 6A2.25 2.25 0 0 0 4.951 21H19.05a2.25 2.25 0 0 0 2.227-1.932l.857-6a2.25 2.25 0 0 0-2.227-2.568H4.094z" />
+  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+    <Path
+      fill="currentColor"
+      fillRule="evenodd"
+      d="M5 3a3 3 0 0 0-3 3v11.56A2.44 2.44 0 0 0 4.44 20h13.661a3 3 0 0 0 2.793-2.105l1.655-5.298A2 2 0 0 0 21 10.032V9a3 3 0 0 0-3-3h-5.465l-1.11-1.664A3 3 0 0 0 8.93 3H5Zm14 7V9a1 1 0 0 0-1-1h-5.465a2 2 0 0 1-1.664-.89l-1.11-1.665A1 1 0 0 0 8.93 5H5a1 1 0 0 0-1 1v11.56a.44.44 0 0 0 .861.13l1.746-5.585A3 3 0 0 1 9.47 10H19Z"
+      clipRule="evenodd"
+    />
   </Svg>
 );
 export default SvgFolderOpen;

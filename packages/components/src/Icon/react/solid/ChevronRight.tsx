@@ -1,14 +1,13 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+
+import type { SvgProps } from 'react-native-svg';
+
 const SvgChevronRight = (props: SvgProps) => (
-  <Svg
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
+      fill="currentColor"
       fillRule="evenodd"
-      d="M16.28 11.47a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 0 1 1.06-1.06l7.5 7.5z"
+      d="M8.293 3.293a1 1 0 0 1 1.414 0l6.586 6.586a3 3 0 0 1 0 4.242l-6.586 6.586a1 1 0 0 1-1.414-1.414l6.586-6.586a1 1 0 0 0 0-1.414L8.293 4.707a1 1 0 0 1 0-1.414Z"
       clipRule="evenodd"
     />
   </Svg>

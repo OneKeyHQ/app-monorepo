@@ -1,12 +1,10 @@
 import { createContext, useContext } from 'react';
 
-import type { LocaleSymbol } from '../../locale';
 import type { DeviceState } from '../device';
 import type { ThemeVariant } from '../theme';
 
 export type ContextValue = {
   themeVariant: ThemeVariant;
-  locale: LocaleSymbol;
   device: DeviceState;
   reduxReady?: boolean;
   leftSidebarCollapsed?: boolean;

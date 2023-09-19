@@ -1,8 +1,11 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+
+import type { SvgProps } from 'react-native-svg';
+
 const SvgExtensions = (props: SvgProps) => (
   <Svg
-    viewBox="0 0 16 16"
     fill="currentColor"
+    viewBox="0 0 16 16"
     accessibilityRole="image"
     {...props}
   >

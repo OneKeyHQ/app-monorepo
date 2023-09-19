@@ -1,9 +1,9 @@
-import { FlatList, View } from 'react-native';
+import { FlatList, View, Text } from 'react-native';
 import { Stack } from 'tamagui';
 
-import { Icon, Typography } from '@onekeyhq/components';
-import type { ICON_NAMES } from '@onekeyhq/components/src/v2/Icon/Icons';
-import Icons from '@onekeyhq/components/src/v2/Icon/Icons';
+import { Icon } from '@onekeyhq/components';
+import type { ICON_NAMES } from '@onekeyhq/components/src/Icon/Icons';
+import Icons from '@onekeyhq/components/src/Icon/Icons';
 
 import { Layout } from './utils/Layout';
 
@@ -22,7 +22,7 @@ const IconGallery = () => (
             data={Object.keys(Icons) as ICON_NAMES[]}
             renderItem={({ item }) => (
               <Stack width="25%" height={80} alignItems="center" key={item}>
-                <Typography.Caption>{item}</Typography.Caption>
+                <Text>{item}</Text>
                 <View style={{ position: 'absolute', bottom: 10 }}>
                   <Icon name={item} />
                 </View>

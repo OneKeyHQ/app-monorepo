@@ -1,17 +1,15 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+
+import type { SvgProps } from 'react-native-svg';
+
 const SvgCursorClick = (props: SvgProps) => (
-  <Svg
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
+      stroke="currentColor"
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="m15 15-2 5L9 9l11 4-5 2zm0 0 5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656-2.12 2.122"
+      d="M11 3v1.5m5.657.843-1.06 1.06m-9.193 9.193-1.06 1.06M4.5 11H3m3.404-4.596-1.06-1.06M14.136 20.8 10.4 11.047a.5.5 0 0 1 .646-.646l9.754 3.736a.5.5 0 0 1 .082.893l-3.53 2.157a.498.498 0 0 0-.166.166l-2.157 3.53a.5.5 0 0 1-.893-.082Z"
     />
   </Svg>
 );

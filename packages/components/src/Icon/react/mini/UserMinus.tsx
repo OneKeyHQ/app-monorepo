@@ -1,8 +1,11 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+
+import type { SvgProps } from 'react-native-svg';
+
 const SvgUserMinus = (props: SvgProps) => (
   <Svg
-    viewBox="0 0 20 20"
     fill="currentColor"
+    viewBox="0 0 20 20"
     accessibilityRole="image"
     {...props}
   >

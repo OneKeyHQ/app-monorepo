@@ -1,17 +1,18 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+
+import type { SvgProps } from 'react-native-svg';
+
 const SvgFaceSmile = (props: SvgProps) => (
-  <Svg
-    fill="none"
-    viewBox="0 0 24 24"
-    strokeWidth={1.5}
-    stroke="currentColor"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0zM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75zm-.375 0h.008v.015h-.008V9.75zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75zm-.375 0h.008v.015h-.008V9.75z"
+      fill="currentColor"
+      fillRule="evenodd"
+      d="M17.657 6.343A8 8 0 1 0 6.343 17.657 8 8 0 0 0 17.657 6.343ZM4.929 4.93c3.905-3.905 10.237-3.905 14.142 0 3.905 3.905 3.905 10.237 0 14.142-3.905 3.905-10.237 3.905-14.142 0-3.905-3.905-3.905-10.237 0-14.142Zm3.536 9.192a1 1 0 0 1 1.414 0 3 3 0 0 0 4.243 0 1 1 0 0 1 1.414 1.415 5 5 0 0 1-7.071 0 1 1 0 0 1 0-1.415Z"
+      clipRule="evenodd"
+    />
+    <Path
+      fill="currentColor"
+      d="M10.5 9.5c0 .828-.56 1.5-1.25 1.5S8 10.328 8 9.5 8.56 8 9.25 8s1.25.672 1.25 1.5Zm5.5 0c0 .828-.56 1.5-1.25 1.5s-1.25-.672-1.25-1.5.56-1.5 1.25-1.5S16 8.672 16 9.5Z"
     />
   </Svg>
 );
