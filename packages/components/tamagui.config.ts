@@ -7,7 +7,6 @@ import { createFont, createTamagui, createTokens } from 'tamagui';
 import type { Variable } from '@tamagui/web/src/createVariable';
 
 const isTamaguiNative = process.env.TAMAGUI_TARGET === 'native';
-console.log('process.env.TAMAGUI_TARGET', process.env.TAMAGUI_TARGET);
 const font = createFont({
   family: isTamaguiNative
     ? 'System'
