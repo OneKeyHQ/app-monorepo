@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 // eslint-disable-next-line max-classes-per-file
-import type { CoreChainApiBase } from '@onekeyhq/core/src/chains/_base/CoreChainApiBase';
+import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 

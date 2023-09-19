@@ -1,4 +1,4 @@
-import { CoreChainScopeBase } from '../_base/CoreChainScopeBase';
+import { CoreChainScopeBase } from '../../base/CoreChainScopeBase';
 
 import type CoreChainEvmHd from './CoreChainEvmHd';
 import type CoreChainEvmImported from './CoreChainEvmImported';

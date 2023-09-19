@@ -1,7 +1,7 @@
 import { isString } from 'lodash';
 
-import { CoreChainApiHub } from '../chains/_base/CoreChainApiHub';
-import { CoreChainScopeBase } from '../chains/_base/CoreChainScopeBase';
+import { CoreChainApiHub } from '../base/CoreChainApiHub';
+import { CoreChainScopeBase } from '../base/CoreChainScopeBase';
 
 const coreChainApi = new CoreChainApiHub();
 

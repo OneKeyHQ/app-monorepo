@@ -2,11 +2,12 @@
 
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 
-import { CoreChainApiBase } from '../_base/CoreChainApiBase';
+import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
+  ICoreApiGetAddressQueryPublicKey,
   ICoreApiGetAddressesQueryHd,
   ICoreApiGetAddressesResult,
   ICoreApiPrivateKeysMap,
@@ -16,29 +17,35 @@ import type {
 } from '../../types';
 
 export default class CoreChainSoftware extends CoreChainApiBase {
-  override getPrivateKeys(
+  override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {
     throw new Error('Method not implemented.');
   }
 
-  override signTransaction(
+  override async signTransaction(
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
     throw new Error('Method not implemented.');
   }
 
-  override signMessage(query: ICoreApiSignMsgPayload): Promise<string> {
+  override async signMessage(query: ICoreApiSignMsgPayload): Promise<string> {
     throw new Error('Method not implemented.');
   }
 
-  override getAddressFromPrivate(
+  override async getAddressFromPublic(
+    query: ICoreApiGetAddressQueryPublicKey,
+  ): Promise<ICoreApiGetAddressItem> {
+    throw new Error('Method not implemented.');
+  }
+
+  override async getAddressFromPrivate(
     query: ICoreApiGetAddressQueryImported,
   ): Promise<ICoreApiGetAddressItem> {
     throw new Error('Method not implemented.');
   }
 
-  override getAddressesFromHd(
+  override async getAddressesFromHd(
     query: ICoreApiGetAddressesQueryHd,
   ): Promise<ICoreApiGetAddressesResult> {
     throw new Error('Method not implemented.');

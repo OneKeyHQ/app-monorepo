@@ -1,7 +1,9 @@
+import { slicePathTemplate } from '@onekeyhq/engine/src/managers/derivation';
 import { ChainSigner } from '@onekeyhq/engine/src/proxy';
 import {
   type CurveName,
   batchGetPrivateKeys,
+  batchGetPublicKeys,
 } from '@onekeyhq/engine/src/secret';
 import type { Signer as ISigner } from '@onekeyhq/engine/src/types/secret';
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
@@ -11,6 +13,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
+  ICoreApiGetAddressQueryPublicKey,
   ICoreApiGetAddressesQueryHd,
   ICoreApiGetAddressesResult,
   ICoreApiGetPrivateKeysMapQuery as ICoreApiGetPrivateKeysMapHdQuery,
@@ -18,7 +21,7 @@ import type {
   ICoreApiSignBasePayload,
   ICoreApiSignMsgPayload,
   ICoreApiSignTxPayload,
-} from '../../types';
+} from '../types';
 
 export abstract class CoreChainApiBase {
   protected async baseGetChainSigner({
@@ -69,6 +72,25 @@ export abstract class CoreChainApiBase {
     return privateKeys;
   }
 
+  protected async baseGetSingleSigner({
+    payload,
+    curve,
+  }: {
+    payload: ICoreApiSignBasePayload;
+    curve: CurveName;
+  }) {
+    const privateKeys = await this.baseGetPrivateKeys({
+      payload,
+      curve,
+    });
+    const privateKey = privateKeys[payload.account.path];
+    return this.baseGetChainSigner({
+      curve,
+      privateKey,
+      password: payload.password,
+    });
+  }
+
   protected async baseGetPrivateKeysHd({
     curve,
     password,
@@ -107,6 +129,46 @@ export abstract class CoreChainApiBase {
     return map;
   }
 
+  protected async baseGetAddressesFromHd(
+    query: ICoreApiGetAddressesQueryHd,
+    options: {
+      curve: CurveName;
+    },
+  ): Promise<ICoreApiGetAddressesResult> {
+    const { curve } = options;
+    const { template, hdCredential, password, indexes } = query;
+    const { seed } = hdCredential;
+    const { pathPrefix, pathSuffix } = slicePathTemplate(template);
+    const seedBuffer = bufferUtils.toBuffer(seed);
+    const pubkeyInfos = batchGetPublicKeys(
+      curve,
+      seedBuffer,
+      password,
+      pathPrefix,
+      indexes.map((index) => pathSuffix.replace('{index}', index.toString())),
+    );
+
+    if (pubkeyInfos.length !== indexes.length) {
+      throw new OneKeyInternalError('Unable to get publick key.');
+    }
+    const addresses = await Promise.all(
+      pubkeyInfos.map(async (info) => {
+        const {
+          path,
+          extendedKey: { key: pubkey },
+        } = info;
+        const publicKey = pubkey.toString('hex');
+
+        const { address } = await this.getAddressFromPublic({ publicKey });
+
+        return { address, publicKey, path };
+      }),
+    );
+    return { addresses };
+  }
+
+  // ----------------------------------------------
+
   abstract signTransaction(
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro>;
@@ -120,6 +182,10 @@ export abstract class CoreChainApiBase {
   abstract getAddressesFromHd(
     query: ICoreApiGetAddressesQueryHd,
   ): Promise<ICoreApiGetAddressesResult>;
+
+  abstract getAddressFromPublic(
+    query: ICoreApiGetAddressQueryPublicKey,
+  ): Promise<ICoreApiGetAddressItem>;
 
   abstract getPrivateKeys(
     payload: ICoreApiSignBasePayload,

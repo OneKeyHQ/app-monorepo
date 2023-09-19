@@ -12,7 +12,7 @@ import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
-import sdk from './sdkAlgo';
+import sdk from '@onekeyhq/core/src/chains/algo/sdkAlgo';
 
 import type { DBSimpleAccount } from '../../../types/account';
 import type {
@@ -20,7 +20,7 @@ import type {
   IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
 } from '../../types';
-import type { ISdkAlgoEncodedTransaction } from './sdkAlgo';
+import type { ISdkAlgoEncodedTransaction } from '@onekeyhq/core/src/chains/algo/sdkAlgo';
 import type { IEncodedTxAlgo } from './types';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0'`;

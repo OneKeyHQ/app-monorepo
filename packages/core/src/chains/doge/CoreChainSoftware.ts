@@ -8,6 +8,7 @@ import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
   ICoreApiGetAddressQueryImportedBtc,
+  ICoreApiGetAddressQueryPublicKey,
   ICoreApiGetAddressesQueryHd,
   ICoreApiGetAddressesQueryHdBtc,
   ICoreApiGetAddressesResult,
@@ -38,6 +39,12 @@ export default class CoreChainSoftware extends CoreChainSoftwareBtc {
     query: ICoreApiGetAddressQueryImportedBtc,
   ): Promise<ICoreApiGetAddressItem> {
     return super.getAddressFromPrivate(query);
+  }
+
+  override getAddressFromPublic(
+    query: ICoreApiGetAddressQueryPublicKey,
+  ): Promise<ICoreApiGetAddressItem> {
+    return super.getAddressFromPublic(query);
   }
 
   override getAddressesFromHd(

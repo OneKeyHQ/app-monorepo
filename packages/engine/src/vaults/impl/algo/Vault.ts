@@ -33,7 +33,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import sdkAlgo from './sdkAlgo';
+import sdkAlgo from '@onekeyhq/core/src/chains/algo/sdkAlgo';
 import settings from './settings';
 import { encodeTransaction } from './utils';
 
@@ -53,7 +53,7 @@ import type {
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
-import type { ISdkAlgoEncodedTransaction } from './sdkAlgo';
+import type { ISdkAlgoEncodedTransaction } from '@onekeyhq/core/src/chains/algo/sdkAlgo';
 import type {
   IAccountInformation,
   IAccountTransactionsResp,

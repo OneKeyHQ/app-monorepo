@@ -128,9 +128,12 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     password: string;
     relPaths?: string[] | undefined;
   }): Promise<Record<string, Buffer>> {
+    if (!this.coreApi) {
+      throw new Error('coreApi is not defined');
+    }
     const dbAccount = await this.getDbAccount();
     const credentials = await this.baseGetCredentialsInfo({ password });
-    const privateKeys = await checkIsDefined(this.coreApi).getPrivateKeys({
+    const privateKeys = await this.coreApi.getPrivateKeys({
       password,
       account: { ...dbAccount, relPaths },
       credentials,
@@ -149,13 +152,14 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       accountType: AccountType;
     },
   ): Promise<Array<DBSimpleAccount>> {
+    if (!this.coreApi) {
+      throw new Error('coreApi is not defined');
+    }
     const { name, privateKey } = params;
     const { coinType, accountType } = options;
 
     const privateKeyRaw = bufferUtils.bytesToHex(privateKey);
-    const { address, publicKey } = await checkIsDefined(
-      this.coreApi,
-    ).getAddressFromPrivate({
+    const { address, publicKey } = await this.coreApi.getAddressFromPrivate({
       privateKeyRaw,
     });
 
@@ -179,14 +183,15 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       usedIndexes: number[];
     },
   ): Promise<Array<DBSimpleAccount>> {
+    if (!this.coreApi) {
+      throw new Error('coreApi is not defined');
+    }
     const { password, names, coinType, template } = params;
     const { accountType, usedIndexes } = options;
 
     const chainCode = (await this.getChainInfo()).code;
     const credentials = await this.baseGetCredentialsInfo({ password });
-    const { addresses: addressInfos } = await checkIsDefined(
-      this.coreApi,
-    ).getAddressesFromHd({
+    const { addresses: addressInfos } = await this.coreApi.getAddressesFromHd({
       networkChainCode: chainCode,
       template,
       hdCredential: checkIsDefined(credentials.hd),

@@ -1,12 +1,12 @@
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 
-import sdk from './sdkAlgo';
+import sdk from '@onekeyhq/core/src/chains/algo/sdkAlgo';
 
 import type { ChainSigner } from '../../../proxy';
 import type {
   ISdkAlgoEncodedTransaction,
   ISdkAlgoTransaction,
-} from './sdkAlgo';
+} from '@onekeyhq/core/src/chains/algo/sdkAlgo';
 import type { IEncodedTxAlgo } from './types';
 
 export async function signTransaction(

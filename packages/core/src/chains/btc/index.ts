@@ -1,4 +1,4 @@
-import { CoreChainScopeBase } from '../_base/CoreChainScopeBase';
+import { CoreChainScopeBase } from '../../base/CoreChainScopeBase';
 
 import type CoreChainHd from './CoreChainHd';
 import type CoreChainImported from './CoreChainImported';

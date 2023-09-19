@@ -22,11 +22,14 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { CoreChainApiBase } from '../_base/CoreChainApiBase';
+import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
 import { hashMessage } from './message';
 
 import type {
+  ICoreApiGetAddressItem,
+  ICoreApiGetAddressQueryImported,
+  ICoreApiGetAddressQueryPublicKey,
   ICoreApiGetAddressesQueryHd,
   ICoreApiGetAddressesResult,
   ICoreApiGetPrivateKeysMapQuery,
@@ -38,6 +41,8 @@ import type {
   ICoreImportedCredential,
 } from '../../types';
 import type { UnsignedTransaction } from '@ethersproject/transactions';
+
+const curveName: CurveName = 'secp256k1';
 
 export default abstract class CoreChainEvmSoftware extends CoreChainApiBase {
   private packTransaction(encodedTx: IEncodedTxEvm): UnsignedTransaction {
@@ -95,29 +100,27 @@ export default abstract class CoreChainEvmSoftware extends CoreChainApiBase {
   }: {
     privateKeyRaw: string;
   }): Promise<{ publicKey: string }> {
-    if (privateKeyRaw.length !== 64) {
-      throw new OneKeyInternalError('Invalid EVM private key.');
+    const privateKey = bufferUtils.toBuffer(privateKeyRaw);
+    if (privateKey.length !== 32) {
+      throw new OneKeyInternalError('Invalid private key.');
     }
-    const publicKey = secp256k1
-      .publicFromPrivate(bufferUtils.toBuffer(privateKeyRaw))
-      .toString('hex');
+    const publicKey = secp256k1.publicFromPrivate(privateKey).toString('hex');
     return Promise.resolve({ publicKey });
   }
 
-  private async getAddressFromPublic({
-    publicKey,
-  }: {
-    publicKey: string;
-  }): Promise<{ address: string }> {
+  override async getAddressFromPublic(
+    query: ICoreApiGetAddressQueryPublicKey,
+  ): Promise<ICoreApiGetAddressItem> {
+    const { publicKey } = query;
     const compressedPublicKey = bufferUtils.toBuffer(publicKey);
     const uncompressedPublicKey = uncompressPublicKey(
-      'secp256k1',
+      curveName,
       compressedPublicKey,
     );
     const address = `0x${keccak256(uncompressedPublicKey.slice(-64)).slice(
       -40,
     )}`;
-    return Promise.resolve({ address });
+    return Promise.resolve({ address, publicKey });
   }
 
   private getSignerEvm({
@@ -128,7 +131,7 @@ export default abstract class CoreChainEvmSoftware extends CoreChainApiBase {
     password: string;
   }) {
     return this.baseGetChainSigner({
-      curve: 'secp256k1',
+      curve: curveName,
       privateKey,
       password,
     });
@@ -138,7 +141,7 @@ export default abstract class CoreChainEvmSoftware extends CoreChainApiBase {
     const { unsignedMsg, account, password } = payload;
     const privateKeys = await this.baseGetPrivateKeys({
       payload,
-      curve: 'secp256k1',
+      curve: curveName,
     });
     const privateKey = privateKeys[account.path];
     const signer = await this.getSignerEvm({ password, privateKey });
@@ -185,17 +188,18 @@ export default abstract class CoreChainEvmSoftware extends CoreChainApiBase {
   ): Promise<ICoreApiPrivateKeysMap> {
     return this.baseGetPrivateKeys({
       payload,
-      curve: 'secp256k1',
+      curve: curveName,
     });
   }
 
   override async signTransaction(
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
-    const { unsignedTx, account, password } = payload;
-    const privateKeys = await this.getPrivateKeys(payload);
-    const privateKey = privateKeys[account.path];
-    const signer = await this.getSignerEvm({ password, privateKey });
+    const { unsignedTx } = payload;
+    const signer = await this.baseGetSingleSigner({
+      payload,
+      curve: curveName,
+    });
 
     const tx = this.packTransaction(unsignedTx.encodedTx as IEncodedTxEvm);
     const digest = keccak256(serialize(tx));
@@ -210,18 +214,14 @@ export default abstract class CoreChainEvmSoftware extends CoreChainApiBase {
     });
 
     const rawTx: string = serialize(tx, signature);
-    const txid = keccak256(rawTx);
+    const txid: string = keccak256(rawTx);
     return { txid, rawTx };
   }
 
-  override async getAddressFromPrivate({
-    privateKeyRaw,
-  }: {
-    privateKeyRaw: string;
-  }): Promise<{
-    publicKey: string;
-    address: string;
-  }> {
+  override async getAddressFromPrivate(
+    query: ICoreApiGetAddressQueryImported,
+  ): Promise<ICoreApiGetAddressItem> {
+    const { privateKeyRaw } = query;
     const { publicKey } = await this.getPublicFromPrivate({ privateKeyRaw });
     const { address } = await this.getAddressFromPublic({ publicKey });
     return {
@@ -230,39 +230,11 @@ export default abstract class CoreChainEvmSoftware extends CoreChainApiBase {
     };
   }
 
-  override async getAddressesFromHd({
-    template,
-    hdCredential,
-    password,
-    indexes,
-  }: ICoreApiGetAddressesQueryHd): Promise<ICoreApiGetAddressesResult> {
-    const { seed } = hdCredential;
-    const { pathPrefix, pathSuffix } = slicePathTemplate(template);
-    const seedBuffer = bufferUtils.toBuffer(seed);
-    const pubkeyInfos = batchGetPublicKeys(
-      'secp256k1',
-      seedBuffer,
-      password,
-      pathPrefix,
-      indexes.map((index) => pathSuffix.replace('{index}', index.toString())),
-    );
-
-    if (pubkeyInfos.length !== indexes.length) {
-      throw new OneKeyInternalError('Unable to get publick key.');
-    }
-    const addresses = await Promise.all(
-      pubkeyInfos.map(async (info) => {
-        const {
-          path,
-          extendedKey: { key: pubkey },
-        } = info;
-        const publicKey = pubkey.toString('hex');
-
-        const { address } = await this.getAddressFromPublic({ publicKey });
-
-        return { address, publicKey, path };
-      }),
-    );
-    return { addresses };
+  override async getAddressesFromHd(
+    query: ICoreApiGetAddressesQueryHd,
+  ): Promise<ICoreApiGetAddressesResult> {
+    return this.baseGetAddressesFromHd(query, {
+      curve: curveName,
+    });
   }
 }

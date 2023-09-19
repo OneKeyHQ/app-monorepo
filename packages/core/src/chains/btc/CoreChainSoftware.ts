@@ -19,7 +19,7 @@ import {
   mnemonicFromEntropy,
   verify,
 } from '@onekeyhq/engine/src/secret';
-import type { ExtendedKey } from '@onekeyhq/engine/src/secret';
+import type { CurveName, ExtendedKey } from '@onekeyhq/engine/src/secret';
 import { BaseBip32KeyDeriver } from '@onekeyhq/engine/src/secret/bip32';
 import type { Bip32KeyDeriver } from '@onekeyhq/engine/src/secret/bip32';
 import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
@@ -58,6 +58,7 @@ import {
 import { check, checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
+import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import {
   type ICoreApiGetAddressItem,
   type ICoreApiGetAddressQueryImportedBtc,
@@ -69,17 +70,21 @@ import {
   type ICoreApiSignMsgPayload,
   type ICoreApiSignTxPayload,
 } from '../../types';
-import { CoreChainApiBase } from '../_base/CoreChainApiBase';
 
-import type { ICoreApiSignAccount } from '../../types';
+import type {
+  ICoreApiGetAddressQueryPublicKey,
+  ICoreApiSignAccount,
+} from '../../types';
 import type { PsbtInput } from 'bip174/src/lib/interfaces';
 import type { Payment, Signer, networks } from 'bitcoinjs-lib';
+
+const curveName: CurveName = 'secp256k1';
 
 const validator = (
   pubkey: Buffer,
   msghash: Buffer,
   signature: Buffer,
-): boolean => verify('secp256k1', pubkey, msghash, signature);
+): boolean => verify(curveName, pubkey, msghash, signature);
 
 const bip0322Hash = (message: string) => {
   const { sha256 } = BitcoinJsCrypto;
@@ -94,7 +99,13 @@ const bip0322Hash = (message: string) => {
 const encodeVarString = (buffer: Buffer) =>
   Buffer.concat([VaruintBitCoinEncode(buffer.byteLength), buffer]);
 
-export default abstract class CoreChainSoftware extends CoreChainApiBase {
+export default class CoreChainSoftware extends CoreChainApiBase {
+  override getAddressFromPublic(
+    query: ICoreApiGetAddressQueryPublicKey,
+  ): Promise<ICoreApiGetAddressItem> {
+    throw new Error('Method not implemented.');
+  }
+
   // TODO memo and move to utils (file with getBtcForkNetwork)
   private getVersionBytesToEncodings({
     networkChainCode,
@@ -223,7 +234,7 @@ export default abstract class CoreChainSoftware extends CoreChainApiBase {
         const index = part.endsWith("'")
           ? parseInt(part.slice(0, -1)) + 2 ** 31
           : parseInt(part);
-        extendedKey = CKDPub('secp256k1', extendedKey, index);
+        extendedKey = CKDPub(curveName, extendedKey, index);
         cache.set(relPath, extendedKey);
       }
 
@@ -284,7 +295,7 @@ export default abstract class CoreChainSoftware extends CoreChainApiBase {
     password: string;
   }) {
     return this.baseGetChainSigner({
-      curve: 'secp256k1',
+      curve: curveName,
       privateKey,
       password,
     });
@@ -646,7 +657,7 @@ export default abstract class CoreChainSoftware extends CoreChainApiBase {
     const isImported = !!payload.credentials.imported;
     const privateKeys = await this.baseGetPrivateKeys({
       payload,
-      curve: 'secp256k1',
+      curve: curveName,
     });
     if (isImported) {
       const { relPaths } = account;
@@ -762,7 +773,7 @@ export default abstract class CoreChainSoftware extends CoreChainApiBase {
       // (index) => pathSuffix.replace('{index}', index.toString()), // evm
     );
     const pubkeyInfos = batchGetPublicKeys(
-      'secp256k1',
+      curveName,
       seedBuffer,
       password,
       pathPrefix,
@@ -825,7 +836,7 @@ export default abstract class CoreChainSoftware extends CoreChainApiBase {
         let xpubSegwit = xpub;
         if (isTaprootPath(pathPrefix)) {
           const rootFingerprint = generateRootFingerprint(
-            'secp256k1',
+            curveName,
             seedBuffer,
             password,
           );

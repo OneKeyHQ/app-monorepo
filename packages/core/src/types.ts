@@ -34,7 +34,9 @@ export type ICoreApiGetAddressQueryImportedBtc =
 export type ICoreApiGetAddressQueryImported =
   | ICoreApiGetAddressQueryImportedBase
   | ICoreApiGetAddressQueryImportedBtc;
-
+export type ICoreApiGetAddressQueryPublicKey = {
+  publicKey: string;
+};
 export type ICoreApiGetAddressItem = {
   address: string;
   publicKey: string;

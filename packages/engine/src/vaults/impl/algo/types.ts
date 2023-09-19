@@ -1,4 +1,4 @@
-import type { ISdkAlgoTransactionType } from './sdkAlgo';
+import type { ISdkAlgoTransactionType } from '@onekeyhq/core/src/chains/algo/sdkAlgo';
 
 export type IEncodedTxAlgo = string; // Base64 encoded string
 
