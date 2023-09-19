@@ -1,6 +1,7 @@
 import { isNil } from 'lodash';
 
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { buildCrossHooksWithOptions } from './buildCrossHooks';
 
@@ -21,10 +22,12 @@ export const {
 
   if (networkId === OnekeyNetwork.btc || networkId === OnekeyNetwork.tbtc) {
     const state = hideInscriptions?.[accountId];
-
     if (isNil(state)) {
       // taproot enable inscriptions by default
-      if (accountId?.includes(`m/86'/`)) {
+      if (
+        accountId?.includes(`86'/`) ||
+        accountId?.split(SEPERATOR)[2]?.startsWith('bc1p')
+      ) {
         shouldHideInscriptions = false;
       } else {
         shouldHideInscriptions = true;
