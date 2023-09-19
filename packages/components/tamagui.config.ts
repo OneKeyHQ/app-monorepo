@@ -2,7 +2,6 @@ import { createAnimations } from '@tamagui/animations-moti';
 import { createMedia } from '@tamagui/react-native-media-driver';
 import { shorthands } from '@tamagui/shorthands';
 import { themes } from '@tamagui/themes';
-import { Platform } from 'react-native';
 import { createFont, createTamagui, createTokens } from 'tamagui';
 
 import type { Variable } from '@tamagui/web/src/createVariable';
