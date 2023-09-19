@@ -1,7 +1,7 @@
 import { CoinType, newSecp256k1Address } from '@glif/filecoin-address';
 
 import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
-import type { CurveName } from '@onekeyhq/engine/src/secret';
+import type { ICurveName } from '@onekeyhq/engine/src/secret';
 import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
 import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_FIL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -68,7 +68,7 @@ export class KeyringHd extends KeyringHdBase {
   async prepareAccounts(
     params: IPrepareHdAccountsParams,
   ): Promise<Array<DBVariantAccount>> {
-    const curve: CurveName = 'secp256k1';
+    const curve: ICurveName = 'secp256k1';
     const accountNamePrefix = 'FIL';
     const { password, indexes, names } = params;
     const { seed } = (await this.engine.dbApi.getCredential(

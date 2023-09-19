@@ -1,4 +1,5 @@
 import CoreChainAlgo from '../chains/algo';
+import CoreChainApt from '../chains/apt';
 import CoreChainBch from '../chains/bch';
 import CoreChainBtc from '../chains/btc';
 import CoreChainDoge from '../chains/doge';
@@ -17,4 +18,6 @@ export class CoreChainApiHub {
   doge = new CoreChainDoge();
 
   algo = new CoreChainAlgo();
+
+  apt = new CoreChainApt();
 }

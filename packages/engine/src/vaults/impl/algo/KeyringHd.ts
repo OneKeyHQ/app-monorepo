@@ -4,7 +4,6 @@ import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
-import { signTransaction } from './utils';
 
 import type { ChainSigner } from '../../../proxy';
 import type { DBAccount } from '../../../types/account';

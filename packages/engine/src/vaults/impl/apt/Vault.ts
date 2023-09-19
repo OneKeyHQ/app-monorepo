@@ -37,7 +37,7 @@ import {
   convertFeeGweiToValue,
   convertFeeValueToGwei,
 } from '../../utils/feeInfoUtils';
-import { addHexPrefix, hexlify, stripHexPrefix } from '../../utils/hexUtils';
+import { addHexPrefix, hexlify, stripHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 import { VaultBase } from '../../VaultBase';
 
 import { KeyringHardware } from './KeyringHardware';

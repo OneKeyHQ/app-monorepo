@@ -1,10 +1,10 @@
-import type { CurveName } from '../secret';
+import type { ICurveName } from '../secret';
 
 export type ChainInfo = {
   code: string;
   feeCode: string;
   impl: string;
-  curve: CurveName;
+  curve: ICurveName;
   implOptions: { [key: string]: any };
   clients: Array<{ name: string; args: Array<any> }>;
 };

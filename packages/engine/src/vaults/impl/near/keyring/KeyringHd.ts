@@ -1,5 +1,5 @@
 import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
-import type { CurveName } from '@onekeyhq/engine/src/secret';
+import type { ICurveName } from '@onekeyhq/engine/src/secret';
 import { COINTYPE_NEAR as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
@@ -27,7 +27,7 @@ export class KeyringHd extends KeyringHdBase {
     params: IPrepareHdAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
     // TODO move to abstract attribute
-    const curve: CurveName = 'ed25519';
+    const curve: ICurveName = 'ed25519';
     const accountNamePrefix = 'NEAR';
     const hardened = true;
 

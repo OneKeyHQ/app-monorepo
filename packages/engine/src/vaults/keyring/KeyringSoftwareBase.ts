@@ -187,6 +187,9 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       throw new Error('coreApi is not defined');
     }
     const { password, names, coinType, template } = params;
+    if (!coinType) {
+      throw new Error('coinType is not defined');
+    }
     const { accountType, usedIndexes } = options;
 
     const chainCode = (await this.getChainInfo()).code;

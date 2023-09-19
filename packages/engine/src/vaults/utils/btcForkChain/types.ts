@@ -1,6 +1,6 @@
 import type { InputToSign } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.types';
 
-import type { CurveName } from '../../../secret';
+import type { ICurveName } from '../../../secret';
 import type { NFTBTCAssetModel } from '../../../types/nft';
 import type { Token } from '../../../types/token';
 import type {
@@ -36,7 +36,7 @@ export type ChainInfo = {
   code: string;
   feeCode: string;
   impl: string;
-  curve: CurveName;
+  curve: ICurveName;
   implOptions: { [key: string]: any };
   clients: Array<{ name: string; args: Array<any> }>;
 };

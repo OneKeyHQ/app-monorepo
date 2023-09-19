@@ -15,7 +15,7 @@ import type {
   ISignCredentialOptions,
   ISignedTxPro,
 } from '@onekeyhq/engine/src/vaults/types';
-import { addHexPrefix } from '@onekeyhq/engine/src/vaults/utils/hexUtils';
+import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 import {
   IMPL_DOT as COIN_IMPL,
   COINTYPE_DOT as COIN_TYPE,

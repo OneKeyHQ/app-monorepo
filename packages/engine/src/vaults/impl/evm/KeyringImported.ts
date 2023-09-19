@@ -1,6 +1,5 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import { COINTYPE_ETH } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
 import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
@@ -32,12 +31,9 @@ export class KeyringImported extends KeyringImportedBase {
   override async prepareAccounts(
     params: IPrepareImportedAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
-    if (params.privateKey.length !== 32) {
-      throw new OneKeyInternalError('Invalid private key.');
-    }
     return this.basePrepareAccountsImported(params, {
-      coinType: COINTYPE_ETH,
       accountType: AccountType.SIMPLE,
+      coinType: COINTYPE_ETH,
     });
   }
 

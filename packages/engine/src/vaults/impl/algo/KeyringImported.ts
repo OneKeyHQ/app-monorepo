@@ -11,7 +11,6 @@ import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
-import { signTransaction } from './utils';
 
 import type { ChainSigner } from '../../../proxy';
 import type { DBSimpleAccount } from '../../../types/account';

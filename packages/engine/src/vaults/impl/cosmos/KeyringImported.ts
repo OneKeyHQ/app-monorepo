@@ -1,7 +1,7 @@
 import { sha256 } from '@noble/hashes/sha256';
 
 import { ChainSigner } from '@onekeyhq/engine/src/proxy';
-import type { CurveName } from '@onekeyhq/engine/src/secret';
+import type { ICurveName } from '@onekeyhq/engine/src/secret';
 import { ed25519, secp256k1 } from '@onekeyhq/engine/src/secret/curves';
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
@@ -49,7 +49,7 @@ export class KeyringImported extends KeyringImportedBase {
     };
   }
 
-  getCurve(curveName: CurveName) {
+  getCurve(curveName: ICurveName) {
     switch (curveName) {
       case 'ed25519':
         return ed25519;

@@ -23,7 +23,7 @@ import {
 
 import { decrypt, encrypt } from './encryptors/aes256';
 
-import type { CurveName } from './index';
+import type { ICurveName } from './index';
 
 const halfNs: Record<string, BigNumber> = {
   // eslint-disable-next-line new-cap
@@ -32,7 +32,7 @@ const halfNs: Record<string, BigNumber> = {
   nistp256: new BigNumber(new elliptic.ec('p256').nh.toString()),
 };
 
-function isSignatureCanonical(curve: CurveName, signature: Buffer): boolean {
+function isSignatureCanonical(curve: ICurveName, signature: Buffer): boolean {
   const halfN = halfNs[curve];
   if (typeof halfN === 'undefined') {
     // Not ecdsa.
@@ -589,7 +589,7 @@ const xPubTest = {
   key: Buffer.alloc(33),
 };
 
-function publicKeyToString(curveName: CurveName, publicKey: Buffer): string {
+function publicKeyToString(curveName: ICurveName, publicKey: Buffer): string {
   if (curveName === 'ed25519') {
     return `00${publicKey.toString('hex')}`;
   }
@@ -598,7 +598,7 @@ function publicKeyToString(curveName: CurveName, publicKey: Buffer): string {
 
 test('Basic key derivation tests', () => {
   for (const testVectorBatch of bip32TestVectors) {
-    const curveName: CurveName = testVectorBatch.curveName as CurveName;
+    const curveName: ICurveName = testVectorBatch.curveName as ICurveName;
     const result = [];
     const parentPubs = [];
     for (const childIndex of testVectorBatch.path.split('/')) {
@@ -669,7 +669,7 @@ test('Basic signing & verifying tests', () => {
   );
   const msgHash = Buffer.from('Hello Onekey.');
   for (const c of ['secp256k1', 'nistp256', 'ed25519']) {
-    const curveName = c as CurveName;
+    const curveName = c as ICurveName;
     const encryptedExtPriv = generateMasterKeyFromSeed(
       curveName,
       seed,
@@ -690,7 +690,7 @@ test('Basic signing & verifying tests', () => {
 });
 
 test('Not supported curve tests', () => {
-  const curveName = '' as CurveName;
+  const curveName = '' as ICurveName;
   expect(() => {
     generateMasterKeyFromSeed(curveName, Buffer.from(''), password);
   }).toThrow(

@@ -40,7 +40,7 @@ import {
   IDecodedTxStatus,
 } from '../../types';
 import { convertFeeValueToGwei } from '../../utils/feeInfoUtils';
-import { addHexPrefix, stripHexPrefix } from '../../utils/hexUtils';
+import { addHexPrefix, stripHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 import { VaultBase } from '../../VaultBase';
 
 import { KeyringHardware } from './KeyringHardware';

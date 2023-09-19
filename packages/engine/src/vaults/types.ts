@@ -1,5 +1,5 @@
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
-import type { CurveName } from '@onekeyhq/engine/src/secret';
+import type { ICurveName } from '@onekeyhq/engine/src/secret';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import type { SendConfirmActionType } from '@onekeyhq/kit/src/views/Send/types';
 import type { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
@@ -275,6 +275,7 @@ export type INativeTx =
 export type IRawTx = string;
 export type IUnsignedTxPro = UnsignedTx & {
   encodedTx: IEncodedTx;
+  rawTxUnsigned?: string;
   psbtHex?: string;
   inputsToSign?: InputToSign[];
   // signerAccount: ISignerAccountEvm | ISignerAccountNear | ISignerAccountAptos
@@ -284,7 +285,7 @@ export type ISignedTxPro = {
 } & SignedTxResult;
 
 export type SignedTxResult = {
-  signatureScheme?: CurveName;
+  signatureScheme?: ICurveName;
   signature?: string; // hex string
   publicKey?: string; // hex string
   digest?: string; // hex string

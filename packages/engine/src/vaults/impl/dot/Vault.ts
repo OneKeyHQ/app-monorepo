@@ -44,7 +44,7 @@ import {
 import {
   addHexPrefix,
   stripHexPrefix,
-} from '@onekeyhq/engine/src/vaults/utils/hexUtils';
+} from '@onekeyhq/shared/src/utils/hexUtils';
 import { VaultBase } from '@onekeyhq/engine/src/vaults/VaultBase';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { formatBalanceDisplay } from '@onekeyhq/kit/src/components/Format';

@@ -1,7 +1,7 @@
 import { slicePathTemplate } from '@onekeyhq/engine/src/managers/derivation';
 import { ChainSigner } from '@onekeyhq/engine/src/proxy';
 import {
-  type CurveName,
+  type ICurveName,
   batchGetPrivateKeys,
   batchGetPublicKeys,
 } from '@onekeyhq/engine/src/secret';
@@ -29,7 +29,7 @@ export abstract class CoreChainApiBase {
     privateKey,
     password,
   }: {
-    curve: CurveName;
+    curve: ICurveName;
     privateKey: string; // encryptedPrivateKey by password
     password: string;
   }): Promise<ISigner> {
@@ -45,7 +45,7 @@ export abstract class CoreChainApiBase {
     curve,
   }: {
     payload: ICoreApiSignBasePayload;
-    curve: CurveName;
+    curve: ICurveName;
   }): Promise<ICoreApiPrivateKeysMap> {
     const { credentials, account, password } = payload;
     let privateKeys: ICoreApiPrivateKeysMap = {};
@@ -77,7 +77,7 @@ export abstract class CoreChainApiBase {
     curve,
   }: {
     payload: ICoreApiSignBasePayload;
-    curve: CurveName;
+    curve: ICurveName;
   }) {
     const privateKeys = await this.baseGetPrivateKeys({
       payload,
@@ -98,7 +98,7 @@ export abstract class CoreChainApiBase {
     relPaths,
     seed,
   }: ICoreApiGetPrivateKeysMapHdQuery & {
-    curve: CurveName;
+    curve: ICurveName;
   }): Promise<ICoreApiPrivateKeysMap> {
     const { path, address } = account;
     const seedBuffer = bufferUtils.toBuffer(seed);
@@ -132,7 +132,7 @@ export abstract class CoreChainApiBase {
   protected async baseGetAddressesFromHd(
     query: ICoreApiGetAddressesQueryHd,
     options: {
-      curve: CurveName;
+      curve: ICurveName;
     },
   ): Promise<ICoreApiGetAddressesResult> {
     const { curve } = options;

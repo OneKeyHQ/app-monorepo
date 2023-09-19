@@ -14,7 +14,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
-import { stripHexPrefix } from '../../utils/hexUtils';
+import { stripHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { pubkeyToBaseAddress } from './sdk/address';
 import { generateSignBytes, serializeSignedTx } from './sdk/txBuilder';

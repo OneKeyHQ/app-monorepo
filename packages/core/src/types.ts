@@ -1,4 +1,4 @@
-import type { CurveName } from '@onekeyhq/engine/src/secret';
+import type { ICurveName } from '@onekeyhq/engine/src/secret';
 import type { IUnsignedMessage } from '@onekeyhq/engine/src/types/message';
 import type { IUnsignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import type { AddressEncodings } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';

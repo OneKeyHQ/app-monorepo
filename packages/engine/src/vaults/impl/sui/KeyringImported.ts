@@ -19,7 +19,7 @@ import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { ChainSigner } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
-import { addHexPrefix } from '../../utils/hexUtils';
+import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { handleSignData, toTransaction } from './utils';
 

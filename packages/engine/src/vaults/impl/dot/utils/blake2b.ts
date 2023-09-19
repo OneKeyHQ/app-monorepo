@@ -1,7 +1,7 @@
 import { blake2b } from '@noble/hashes/blake2b';
 import { hexToBytes } from '@noble/hashes/utils';
 
-import { addHexPrefix } from '@onekeyhq/engine/src/vaults/utils/hexUtils';
+import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 export function blake2bAsBytes(
   data: Uint8Array,

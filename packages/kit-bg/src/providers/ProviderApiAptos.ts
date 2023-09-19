@@ -23,7 +23,7 @@ import type VaultAptos from '@onekeyhq/engine/src/vaults/impl/apt/Vault';
 import {
   hexlify,
   stripHexPrefix,
-} from '@onekeyhq/engine/src/vaults/utils/hexUtils';
+} from '@onekeyhq/shared/src/utils/hexUtils';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   backgroundClass,

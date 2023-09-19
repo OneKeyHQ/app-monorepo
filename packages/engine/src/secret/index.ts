@@ -8,14 +8,14 @@ import type { Bip32KeyDeriver, ExtendedKey } from './bip32';
 import type { RevealableSeed } from './bip39';
 import type { BaseCurve } from './curves';
 
-export type CurveName = 'secp256k1' | 'nistp256' | 'ed25519';
+export type ICurveName = 'secp256k1' | 'nistp256' | 'ed25519';
 
-const curves: Map<CurveName, BaseCurve> = new Map([
+const curves: Map<ICurveName, BaseCurve> = new Map([
   ['secp256k1', secp256k1],
   ['nistp256', nistp256],
   ['ed25519', ed25519],
 ]);
-const derivers: Map<CurveName, Bip32KeyDeriver> = new Map([
+const derivers: Map<ICurveName, Bip32KeyDeriver> = new Map([
   [
     'secp256k1',
     new BaseBip32KeyDeriver(
@@ -39,7 +39,7 @@ const derivers: Map<CurveName, Bip32KeyDeriver> = new Map([
   ],
 ]);
 
-function getCurveByName(curveName: CurveName): BaseCurve {
+function getCurveByName(curveName: ICurveName): BaseCurve {
   const curve: BaseCurve | undefined = curves.get(curveName);
   if (curve === undefined) {
     throw Error(`Curve ${curveName} is not supported.`);
@@ -47,7 +47,7 @@ function getCurveByName(curveName: CurveName): BaseCurve {
   return curve;
 }
 
-function getDeriverByCurveName(curveName: CurveName): Bip32KeyDeriver {
+function getDeriverByCurveName(curveName: ICurveName): Bip32KeyDeriver {
   const deriver: Bip32KeyDeriver | undefined = derivers.get(curveName);
   if (deriver === undefined) {
     throw Error(`Key derivation is not supported for curve ${curveName}.`);
@@ -56,7 +56,7 @@ function getDeriverByCurveName(curveName: CurveName): Bip32KeyDeriver {
 }
 
 function verify(
-  curveName: CurveName,
+  curveName: ICurveName,
   publicKey: Buffer,
   digest: Buffer,
   signature: Buffer,
@@ -65,7 +65,7 @@ function verify(
 }
 
 function sign(
-  curveName: CurveName,
+  curveName: ICurveName,
   encryptedPrivateKey: Buffer,
   digest: Buffer,
   password: string,
@@ -77,7 +77,7 @@ function sign(
 }
 
 function publicFromPrivate(
-  curveName: CurveName,
+  curveName: ICurveName,
   encryptedPrivateKey: Buffer,
   password: string,
 ): Buffer {
@@ -86,14 +86,14 @@ function publicFromPrivate(
   );
 }
 
-function uncompressPublicKey(curveName: CurveName, publicKey: Buffer): Buffer {
+function uncompressPublicKey(curveName: ICurveName, publicKey: Buffer): Buffer {
   if (publicKey.length === 65) {
     return publicKey;
   }
   return getCurveByName(curveName).transformPublicKey(publicKey);
 }
 
-function compressPublicKey(curveName: CurveName, publicKey: Buffer): Buffer {
+function compressPublicKey(curveName: ICurveName, publicKey: Buffer): Buffer {
   if (publicKey.length === 33) {
     return publicKey;
   }
@@ -101,7 +101,7 @@ function compressPublicKey(curveName: CurveName, publicKey: Buffer): Buffer {
 }
 
 function batchGetKeys(
-  curveName: CurveName,
+  curveName: ICurveName,
   encryptedSeed: Buffer,
   password: string,
   prefix: string,
@@ -192,7 +192,7 @@ function batchGetKeys(
 }
 
 function batchGetPrivateKeys(
-  curveName: CurveName,
+  curveName: ICurveName,
   encryptedSeed: Buffer,
   password: string,
   prefix: string,
@@ -213,7 +213,7 @@ function batchGetPrivateKeys(
 }
 
 function batchGetPublicKeys(
-  curveName: CurveName,
+  curveName: ICurveName,
   encryptedSeed: Buffer,
   password: string,
   prefix: string,
@@ -234,7 +234,7 @@ function batchGetPublicKeys(
 }
 
 function generateMasterKeyFromSeed(
-  curveName: CurveName,
+  curveName: ICurveName,
   encryptedSeed: Buffer,
   password: string,
 ): ExtendedKey {
@@ -248,7 +248,7 @@ function generateMasterKeyFromSeed(
 }
 
 function N(
-  curveName: CurveName,
+  curveName: ICurveName,
   encryptedExtPriv: ExtendedKey,
   password: string,
 ): ExtendedKey {
@@ -261,7 +261,7 @@ function N(
 }
 
 function CKDPriv(
-  curveName: CurveName,
+  curveName: ICurveName,
   encryptedParent: ExtendedKey,
   index: number,
   password: string,
@@ -279,7 +279,7 @@ function CKDPriv(
 }
 
 function CKDPub(
-  curveName: CurveName,
+  curveName: ICurveName,
   parent: ExtendedKey,
   index: number,
 ): ExtendedKey {
@@ -309,7 +309,7 @@ function mnemonicFromEntropy(
 }
 
 function generateRootFingerprint(
-  curveName: CurveName,
+  curveName: ICurveName,
   encryptedSeed: Buffer,
   password: string,
 ): Buffer {

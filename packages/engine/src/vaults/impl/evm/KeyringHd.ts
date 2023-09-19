@@ -1,15 +1,8 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
-import {
-  getAccountNameInfoByImpl,
-  getAccountNameInfoByTemplate,
-} from '../../../managers/impl';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
-import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { ChainSigner } from '../../../proxy';
 import type { DBSimpleAccount } from '../../../types/account';
 import type { IUnsignedMessageEth } from '../../../types/message';

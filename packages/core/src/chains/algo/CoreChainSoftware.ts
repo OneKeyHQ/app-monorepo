@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import type { ChainSigner } from '@onekeyhq/engine/src/proxy';
-import type { CurveName } from '@onekeyhq/engine/src/secret';
+import type { ICurveName } from '@onekeyhq/engine/src/secret';
 import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import type { IEncodedTxAlgo } from '@onekeyhq/engine/src/vaults/impl/algo/types';
@@ -29,34 +29,7 @@ import type {
   ISdkAlgoTransaction,
 } from './sdkAlgo';
 
-const curveName: CurveName = 'ed25519';
-
-async function signTransaction(
-  unsignedTx: UnsignedTx,
-  signer: ChainSigner,
-): Promise<SignedTx> {
-  const { encodedTx } = unsignedTx.payload as { encodedTx: IEncodedTxAlgo };
-  const transaction = sdk.Transaction.from_obj_for_encoding(
-    sdk.decodeObj(
-      Buffer.from(encodedTx, 'base64'),
-    ) as ISdkAlgoEncodedTransaction,
-  );
-  const [signature] = await signer.sign(transaction.bytesToSign());
-
-  return {
-    txid: transaction.txID(),
-    rawTx: Buffer.from(
-      sdk.encodeObj({
-        sig: signature,
-        txn: transaction.get_obj_for_encoding(),
-      }),
-    ).toString('base64'),
-  };
-}
-
-function encodeTransaction(tx: ISdkAlgoTransaction) {
-  return Buffer.from(tx.toByte()).toString('base64');
-}
+const curveName: ICurveName = 'ed25519';
 
 export default class CoreChainSoftware extends CoreChainApiBase {
   override async getPrivateKeys(

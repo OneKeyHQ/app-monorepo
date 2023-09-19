@@ -75,7 +75,7 @@ class ServiceDapp extends ServiceBase {
 
   // TODO remove after dapp request queue implemented.
   @backgroundMethod()
-  setSendConfirmModalVisible({ visible }: { visible: boolean }) {
+  async setSendConfirmModalVisible({ visible }: { visible: boolean }) {
     this.isSendConfirmModalVisible = visible;
   }
 

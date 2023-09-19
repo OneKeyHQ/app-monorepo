@@ -11,7 +11,7 @@ import {
 import { Any } from 'cosmjs-types/google/protobuf/any';
 import Long from 'long';
 
-import { stripHexPrefix } from '../../../utils/hexUtils';
+import { stripHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import {
   getAminoSignDoc,

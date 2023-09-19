@@ -11,7 +11,7 @@ import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
-import { addHexPrefix } from '../../utils/hexUtils';
+import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { buildSignedTx, generateUnsignedTransaction } from './utils';
 

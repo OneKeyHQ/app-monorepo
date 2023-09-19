@@ -14,7 +14,7 @@ import type {
   BaseProvider,
   ClientFilter,
 } from '@onekeyhq/engine/src/client/BaseClient';
-import type { CurveName } from '@onekeyhq/engine/src/secret';
+import type { ICurveName } from '@onekeyhq/engine/src/secret';
 import {
   N,
   sign,
@@ -86,7 +86,7 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
     code,
     feeCode: dbNetwork.id,
     impl: dbNetwork.impl,
-    curve: (dbNetwork.curve || getCurveByImpl(dbNetwork.impl)) as CurveName,
+    curve: (dbNetwork.curve || getCurveByImpl(dbNetwork.impl)) as ICurveName,
     implOptions,
     clients: [
       {
@@ -116,9 +116,9 @@ export class Verifier implements IVerifierPro {
 
   private compressedPublicKey: Buffer;
 
-  curve: CurveName;
+  curve: ICurveName;
 
-  constructor(pub: string, curve: CurveName) {
+  constructor(pub: string, curve: ICurveName) {
     this.curve = curve;
     this.compressedPublicKey = Buffer.from(pub, 'hex');
     this.uncompressedPublicKey = uncompressPublicKey(
@@ -162,7 +162,7 @@ export class ChainSigner extends Verifier implements ISigner {
   constructor(
     private encryptedPrivateKey: Buffer,
     private password: string,
-    private override curve: CurveName,
+    private override curve: ICurveName,
   ) {
     super(
       N(

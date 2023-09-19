@@ -7,14 +7,17 @@ import * as ethUtil from 'ethereumjs-util';
 import { isString } from 'lodash';
 
 import { slicePathTemplate } from '@onekeyhq/engine/src/managers/derivation';
-import type { CurveName } from '@onekeyhq/engine/src/secret';
+import type { ICurveName } from '@onekeyhq/engine/src/secret';
 import {
   batchGetPrivateKeys,
   batchGetPublicKeys,
   uncompressPublicKey,
 } from '@onekeyhq/engine/src/secret';
 import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
-import type { EMessageTypesEth } from '@onekeyhq/engine/src/types/message';
+import type {
+  EMessageTypesEth,
+  IUnsignedMessageEth,
+} from '@onekeyhq/engine/src/types/message';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
@@ -42,7 +45,7 @@ import type {
 } from '../../types';
 import type { UnsignedTransaction } from '@ethersproject/transactions';
 
-const curveName: CurveName = 'secp256k1';
+const curveName: ICurveName = 'secp256k1';
 
 export default abstract class CoreChainEvmSoftware extends CoreChainApiBase {
   private packTransaction(encodedTx: IEncodedTxEvm): UnsignedTransaction {
@@ -138,13 +141,11 @@ export default abstract class CoreChainEvmSoftware extends CoreChainApiBase {
   }
 
   override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
-    const { unsignedMsg, account, password } = payload;
-    const privateKeys = await this.baseGetPrivateKeys({
+    const unsignedMsg = payload.unsignedMsg as IUnsignedMessageEth;
+    const signer = await this.baseGetSingleSigner({
       payload,
       curve: curveName,
     });
-    const privateKey = privateKeys[account.path];
-    const signer = await this.getSignerEvm({ password, privateKey });
 
     let finalMessage: any = unsignedMsg.message;
 
@@ -172,7 +173,7 @@ export default abstract class CoreChainEvmSoftware extends CoreChainApiBase {
     }
 
     const messageHash = hashMessage({
-      messageType: unsignedMsg.type as EMessageTypesEth,
+      messageType: unsignedMsg.type,
       message: finalMessage,
     });
 

@@ -8,7 +8,7 @@ import ecc from '@onekeyhq/engine/src/vaults/utils/btcForkChain/provider/nobleSe
 import {
   hexlify,
   stripHexPrefix,
-} from '@onekeyhq/engine/src/vaults/utils/hexUtils';
+} from '@onekeyhq/shared/src/utils/hexUtils';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
 import { DEFAULT_SEQNUMBER } from './constant';

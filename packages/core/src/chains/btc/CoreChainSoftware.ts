@@ -19,7 +19,7 @@ import {
   mnemonicFromEntropy,
   verify,
 } from '@onekeyhq/engine/src/secret';
-import type { CurveName, ExtendedKey } from '@onekeyhq/engine/src/secret';
+import type { ICurveName, ExtendedKey } from '@onekeyhq/engine/src/secret';
 import { BaseBip32KeyDeriver } from '@onekeyhq/engine/src/secret/bip32';
 import type { Bip32KeyDeriver } from '@onekeyhq/engine/src/secret/bip32';
 import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
@@ -78,7 +78,7 @@ import type {
 import type { PsbtInput } from 'bip174/src/lib/interfaces';
 import type { Payment, Signer, networks } from 'bitcoinjs-lib';
 
-const curveName: CurveName = 'secp256k1';
+const curveName: ICurveName = 'secp256k1';
 
 const validator = (
   pubkey: Buffer,

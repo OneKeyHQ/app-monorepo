@@ -20,7 +20,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { ChainSigner } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
-import { addHexPrefix } from '../../utils/hexUtils';
+import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { handleSignData, toTransaction } from './utils';
 

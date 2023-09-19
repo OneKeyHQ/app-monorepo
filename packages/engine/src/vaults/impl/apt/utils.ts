@@ -1,7 +1,7 @@
 /* eslint-disable camelcase */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
-import { BCS, TransactionBuilder, TxnBuilderTypes } from 'aptos';
+import { AptosClient, BCS, TransactionBuilder, TxnBuilderTypes } from 'aptos';
 import { get } from 'lodash';
 
 import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
@@ -11,20 +11,23 @@ import {
   OneKeyHardwareError,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { hexlify, stripHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { IDecodedTxActionType } from '../../types';
-import { hexlify, stripHexPrefix } from '../../utils/hexUtils';
 
 import { TypeTagParser } from './builder_utils';
 import { ArgumentABI } from './types';
 
 import type { ChainSigner } from '../../../proxy';
+import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
+import type { ISignCredentialOptions, IUnsignedTxPro } from '../../types';
 import type {
   SignMessagePayload,
   SignMessageRequest,
   TxPayload,
 } from './types';
-import type { AptosClient, MaybeHexString, Types } from 'aptos';
+import type { MaybeHexString, Types } from 'aptos';
 
 export const APTOS_SIGN_MESSAGE_PREFIX = 'APTOS';
 
@@ -161,6 +164,23 @@ export async function signRawTransaction(
   return buildSignedTx(rawTxn, senderPublicKey, signatureHex);
 }
 
+export async function deserializeTransactionAptos(
+  rawTx: string,
+): Promise<TxnBuilderTypes.RawTransaction> {
+  const bytes = bufferUtils.toBuffer(rawTx);
+  const deserializer = new BCS.Deserializer(bytes);
+  const tx = TxnBuilderTypes.RawTransaction.deserialize(deserializer);
+  return Promise.resolve(tx);
+}
+
+export async function serializeTransactionAptos(
+  tx: TxnBuilderTypes.RawTransaction,
+): Promise<string> {
+  const serialize = new BCS.Serializer();
+  tx.serialize(serialize);
+  return Promise.resolve(bytesToHex(serialize.getBytes()));
+}
+
 export async function generateUnsignedTransaction(
   client: AptosClient,
   unsignedTx: UnsignedTx,
@@ -216,6 +236,24 @@ export async function generateUnsignedTransaction(
   }
   return rawTxn;
 }
+
+export async function buildSoftwareUnsignedTxAptos({
+  keyring,
+  unsignedTx,
+  options,
+}: {
+  keyring: KeyringSoftwareBase;
+  unsignedTx: IUnsignedTxPro;
+  options: ISignCredentialOptions;
+}): Promise<IUnsignedTxPro> {
+  const { rpcURL } = await keyring.engine.getNetwork(keyring.networkId);
+  const aptosClient = new AptosClient(rpcURL);
+  const tx = await generateUnsignedTransaction(aptosClient, unsignedTx);
+  const rawTxUnsigned = await serializeTransactionAptos(tx);
+  unsignedTx.rawTxUnsigned = rawTxUnsigned;
+  return unsignedTx;
+}
+
 export function convertRpcError(error: string): OneKeyError {
   if (error.indexOf('EACCOUNT_DOES_NOT_EXIST') !== -1) {
     return new OneKeyInternalError({
