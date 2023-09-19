@@ -43,7 +43,7 @@ export const DiscoverContext = createContext<IDiscoverContext>({
 
 export const useContextCategoryDapps = () => {
   const { dapps, categoryId } = useContext(DiscoverContext);
-  return dapps[categoryId] ?? [];
+  return { data: dapps[categoryId] ?? [], loading: !dapps[categoryId] };
 };
 
 export const useGroupDapps = () => {
