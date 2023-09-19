@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
@@ -19,6 +19,7 @@ import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import type { IBtcUTXO } from '@onekeyhq/engine/src/vaults/impl/btc/types';
 import type { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
+import type { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 
 import OrdinalsSVG from '../../components/SVG/OrdinalsSVG';
 import { useNetwork } from '../../hooks';
@@ -34,20 +35,32 @@ type Props = {
   title: string;
   utxos: Partial<IBtcUTXO>[];
   decodedTx: IDecodedTx;
+  type: 'inputs' | 'outputs';
   style?: ComponentProps<typeof Box>;
 };
 
 const MAX_UTXOS_DEFAULT = 5;
 
-function getInscriptionsInUtxo(
-  utxo: Partial<IBtcUTXO>,
-  inscriptionsInActions: NFTBTCAssetModel[],
-) {
-  let inscriptions = [];
+function getInscriptionsInUtxo({
+  utxo,
+  inscriptionsInActions,
+  type,
+  isListOrderPsbt,
+}: {
+  utxo: Partial<IBtcUTXO>;
+  inscriptionsInActions: NFTBTCAssetModel[];
+  type: 'inputs' | 'outputs';
+  isListOrderPsbt?: boolean;
+}) {
+  let inscriptions: NFTBTCAssetModel[] = [];
   let restInscriptions = inscriptionsInActions;
 
   if (utxo.inscriptions) {
-    inscriptions = utxo.inscriptions;
+    if (type === 'outputs' && isListOrderPsbt) {
+      inscriptions = [];
+    } else {
+      inscriptions = utxo.inscriptions;
+    }
   } else if (utxo.txid) {
     inscriptions = inscriptionsInActions.filter(
       (inscription) => inscription.tx_hash === utxo.txid,
@@ -82,14 +95,25 @@ function getInscriptionsInUtxo(
 }
 
 function TxUtxoDetailBlock(props: Props) {
-  const { title, utxos, style, decodedTx } = props;
+  const { title, utxos, style, decodedTx, type } = props;
   const [showAll, setShowAll] = useState(false);
   const navigation = useNavigation();
   const intl = useIntl();
-  const { networkId, accountId, actions } = decodedTx;
+  const { networkId, accountId, actions, encodedTx } = decodedTx;
   const { network } = useNetwork({ networkId });
 
   const utxosToShow = showAll ? utxos : utxos.slice(0, MAX_UTXOS_DEFAULT);
+
+  const isListOrderPsbt = useMemo(() => {
+    const totalFee = new BigNumber(
+      (encodedTx as IEncodedTxBtc)?.totalFee ?? '0',
+    );
+
+    return !!(
+      (encodedTx as IEncodedTxBtc)?.psbtHex &&
+      (totalFee.isNaN() || totalFee.isLessThanOrEqualTo(0))
+    );
+  }, [encodedTx]);
 
   const renderInscriptions = useCallback(
     (inscriptions: NFTBTCAssetModel[]) => (
@@ -134,7 +158,12 @@ function TxUtxoDetailBlock(props: Props) {
     let restInscriptions = inscriptionsInActions;
 
     return utxosToShow.map((utxo, index) => {
-      const result = getInscriptionsInUtxo(utxo, restInscriptions);
+      const result = getInscriptionsInUtxo({
+        utxo,
+        inscriptionsInActions: restInscriptions,
+        isListOrderPsbt,
+        type,
+      });
       const { inscriptions } = result;
       restInscriptions = result.restInscriptions;
       return (
@@ -157,9 +186,11 @@ function TxUtxoDetailBlock(props: Props) {
     });
   }, [
     actions,
+    isListOrderPsbt,
     network?.decimals,
     network?.symbol,
     renderInscriptions,
+    type,
     utxosToShow,
   ]);
 

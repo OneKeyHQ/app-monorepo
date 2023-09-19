@@ -564,6 +564,7 @@ export default class VaultBtcFork extends VaultBase {
       networkId: this.networkId,
       accountId: this.accountId,
       extraInfo: null,
+      encodedTx,
       totalFeeInNative: encodedTx.totalFeeInNative,
     };
   }
