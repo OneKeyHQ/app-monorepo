@@ -21,7 +21,7 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import { TaprootAddressError } from '@onekeyhq/engine/src/errors';
+import { InvalidAddress } from '@onekeyhq/engine/src/errors';
 import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Account } from '@onekeyhq/engine/src/types/account';
@@ -99,19 +99,37 @@ function BTCAssetDetailContent({
   const isDisabled =
     wallet?.type === WALLET_TYPE_WATCHING || !accountId || !isOwner;
 
+  const inscriptionOffset = useMemo(() => {
+    const locationInfo = asset.location.split(':');
+    return locationInfo[2];
+  }, [asset.location]);
+
   const sendAction = useCallback(() => {
     if (!networkId || !accountId) {
       return;
     }
     const validateAddress = async (address: string) => {
       try {
-        await serviceInscribe.checkValidTaprootAddress({
-          address,
-          networkId,
-          accountId,
-        });
+        const { isValidAddress, isTaprootAddress } =
+          await serviceInscribe.checkValidTaprootAddress({
+            address,
+            networkId,
+            accountId,
+          });
+
+        if (!isValidAddress) {
+          throw new InvalidAddress();
+        }
+
+        if (!isTaprootAddress) {
+          return {
+            warningMessage: intl.formatMessage({
+              id: 'content__some_ordinals_wallets_may_not_support_non_taproot_address_check_the_type_before_continue',
+            }),
+          };
+        }
       } catch (error) {
-        throw new TaprootAddressError();
+        throw new InvalidAddress();
       }
     };
     navigation.navigate(RootRoutes.Modal, {
@@ -126,9 +144,7 @@ function BTCAssetDetailContent({
           to: '',
           amount: '0',
           nftTokenId: asset.inscription_id,
-          validateAddress: async (_, address) => {
-            await validateAddress(address);
-          },
+          validateAddress: async (_, address) => validateAddress(address),
           nftInscription: {
             address: asset.owner,
             inscriptionId: asset.inscription_id,
@@ -145,6 +161,7 @@ function BTCAssetDetailContent({
     asset.location,
     asset.output,
     asset.owner,
+    intl,
     modalClose,
     navigation,
     networkId,
@@ -442,11 +459,10 @@ function BTCAssetDetailContent({
               value={`${asset.output_value_sat} sats`}
             />
           )}
-          {!!asset.location && (
+          {!!inscriptionOffset && (
             <DetailItem
-              // TODO replace
-              title="Offset"
-              value={asset.output.split(':')[1]}
+              title={intl.formatMessage({ id: 'form__offset' })}
+              value={inscriptionOffset}
             />
           )}
           {!!asset.content_length && (

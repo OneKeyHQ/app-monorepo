@@ -1553,6 +1553,7 @@
   "form__not_enough_str": "Недостаточно {0} ?",
   "form__not_recommended": "Не рекомендуется",
   "form__notification": "Уведомление",
+  "form__offset": "Компенсировать",
   "form__on_chain_info_uppercase": "ИНФОРМАЦИЯ О СЕТИ",
   "form__one_to_many": "Один ко многим",
   "form__one_to_many_desc": "Рассредоточение средств",

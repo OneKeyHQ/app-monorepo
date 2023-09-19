@@ -1553,6 +1553,7 @@
   "form__not_enough_str": "Not enough {0}?",
   "form__not_recommended": "Not Recommended",
   "form__notification": "Notification",
+  "form__offset": "Desvio",
   "form__on_chain_info_uppercase": "ON-CHAIN INFO",
   "form__one_to_many": "One to Many",
   "form__one_to_many_desc": "Disperse Funds",

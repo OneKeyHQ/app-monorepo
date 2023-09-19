@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { HStack, Icon, ListItem, Pressable, Text } from '@onekeyhq/components';
@@ -14,13 +15,17 @@ import {
 } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useNetwork } from '../../../hooks';
 import {
   ModalRoutes,
   RootRoutes,
   SendModalRoutes,
 } from '../../../routes/routesEnum';
 import { TxDetailActionBox } from '../components/TxDetailActionBox';
-import { TxListActionBox } from '../components/TxListActionBox';
+import {
+  TxListActionBox,
+  TxListActionBoxExtraText,
+} from '../components/TxListActionBox';
 import { getTxActionElementAddressWithSecurityInfo } from '../elements/TxActionElementAddress';
 import {
   TxActionElementInscription,
@@ -236,6 +241,8 @@ export function TxActionNFTInscriptionT0(props: ITxActionCardProps) {
   const { status } = decodedTx;
   const { send, receive, isOut, asset } = getTxActionInscriptionInfo(props);
 
+  const { network } = useNetwork({ networkId: decodedTx.networkId });
+
   const subTitleFormated = isOut
     ? shortenAddress(receive)
     : shortenAddress(send);
@@ -267,6 +274,13 @@ export function TxActionNFTInscriptionT0(props: ITxActionCardProps) {
         ) : (
           subTitleFormated
         )
+      }
+      extra={
+        network && asset ? (
+          <TxListActionBoxExtraText>{`${new BigNumber(asset.output_value_sat)
+            .shiftedBy(-network.decimals)
+            .toFixed()} ${network.symbol}`}</TxListActionBoxExtraText>
+        ) : undefined
       }
     />
   );

@@ -331,6 +331,13 @@ function PreSendAmount() {
     ],
   );
 
+  const shouldShowFrozenBalance = useMemo(() => {
+    if (!network?.settings.isBtcForkChain) {
+      return new BigNumber(frozenBalance ?? '0').isGreaterThan(0);
+    }
+    return false;
+  }, [frozenBalance, network?.settings.isBtcForkChain]);
+
   const {
     title,
     titleAction,
@@ -514,7 +521,7 @@ function PreSendAmount() {
                   </Box>
                 ) : null}
               </Pressable>
-              {new BigNumber(frozenBalance ?? '0').isGreaterThan(0) ? (
+              {shouldShowFrozenBalance ? (
                 <Typography.Caption color="text-subdued" mt={2}>
                   {`${intl.formatMessage({
                     id: 'form__frozen_balance',

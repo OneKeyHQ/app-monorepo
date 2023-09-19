@@ -1553,6 +1553,7 @@
   "form__not_enough_str": "¿No es suficiente {0}?",
   "form__not_recommended": "No recomendado",
   "form__notification": "Notificación",
+  "form__offset": "Compensar",
   "form__on_chain_info_uppercase": "INFORMACIÓN SOBRE LA CADENA",
   "form__one_to_many": "Uno a muchos",
   "form__one_to_many_desc": "Fondos dispersos",
