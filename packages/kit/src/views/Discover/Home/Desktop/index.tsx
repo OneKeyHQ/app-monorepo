@@ -1,11 +1,16 @@
+import { useRef } from 'react';
+
+import type { ForwardRefHandle } from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
 import { Box } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 
-import { useOnTabChange, useTabConfig } from '../config';
+import { useOnTabChange, usePressTagEffect, useTabConfig } from '../config';
 
 import { Header } from './header';
 
 export const Desktop = () => {
+  const ref = useRef<ForwardRefHandle>(null);
+  usePressTagEffect({ ref });
   const tabConfig = useTabConfig();
   const onIndexChange = useOnTabChange();
   return (
@@ -22,6 +27,7 @@ export const Desktop = () => {
           stickyTabBar
           onIndexChange={onIndexChange}
           headerView={<Header />}
+          ref={ref}
         >
           {tabConfig.map((tab) => (
             <Tabs.Tab key={tab.name} name={tab.name} label={tab.label}>
