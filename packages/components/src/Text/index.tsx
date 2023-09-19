@@ -12,7 +12,7 @@ export const Text = styled(TextComponent, {
           size === '$bodyMdMono' || size === '$bodyLgMono'
             ? 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
             : '$body',
-        fontSize: font?.size[size],
+        fontSize: font?.size[size as any],
         lineHeight: font?.lineHeight[size],
         fontWeight: font?.weight[size],
         textTransform: size === '$headingXs' ? 'uppercase' : 'none',

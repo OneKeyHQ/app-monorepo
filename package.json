@@ -78,6 +78,9 @@
     "@onekeyfe/hd-web-sdk": "0.3.27",
     "@onekeyfe/onekey-cross-webview": "1.1.38",
     "@starcoin/starcoin": "2.1.5",
+    "@tamagui/animations-moti": "^1.68.2",
+    "@tamagui/babel-plugin": "^1.68.2",
+    "@tamagui/config": "^1.68.2",
     "@tamagui/static": "^1.68.2",
     "@web3-react/core": "8.0.35-beta.0",
     "@web3-react/empty": "8.0.20-beta.0",
@@ -107,6 +110,8 @@
     "setimmediate": "^1.0.5",
     "stream-browserify": "^3.0.0",
     "superstruct": "^1",
+    "tamagui": "^1.68.2",
+    "tamagui-loader": "^1.68.2",
     "timeout-signal": "2.0.0"
   },
   "devDependencies": {

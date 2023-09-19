@@ -7,7 +7,7 @@ import { createFont, createTamagui, createTokens } from 'tamagui';
 import type { Variable } from '@tamagui/web/src/createVariable';
 
 const isTamaguiNative = process.env.TAMAGUI_TARGET === 'native';
-console.log(isTamaguiNative);
+console.log('process.env.TAMAGUI_TARGET', process.env.TAMAGUI_TARGET);
 const font = createFont({
   family: isTamaguiNative
     ? 'System'
@@ -551,5 +551,16 @@ const config = createTamagui({
     pointerCoarse: { pointer: 'coarse' },
   }),
 });
+
+export type AppConfig = typeof config;
+
+declare module 'tamagui' {
+  // or '@tamagui/core'
+  // overrides TamaguiCustomConfig so your custom types
+  // work everywhere you import `tamagui`
+
+  // eslint-disable-next-line @typescript-eslint/no-empty-interface
+  interface TamaguiCustomConfig extends AppConfig {}
+}
 
 export default config;
