@@ -12,7 +12,7 @@ export type CoinControlBase = {
 export type CoinControlOption = {
   label: string;
   frozen: boolean;
-  recycle: boolean;
+  recycle: boolean; // mark inscription as recycled status
 };
 
 export type ICoinControlListItem = IBtcUTXO & {

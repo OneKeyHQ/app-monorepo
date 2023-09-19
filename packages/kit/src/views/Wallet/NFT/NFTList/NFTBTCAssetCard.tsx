@@ -1,8 +1,9 @@
 import { memo, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import {
   Box,
-  HStack,
   Pressable,
   Text,
   useIsVerticalLayout,
@@ -11,6 +12,8 @@ import {
 } from '@onekeyhq/components';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
+
+import { useNetwork } from '../../../../hooks';
 
 import { NFTNetworkIcon } from './NetworkIcon';
 import NFTBTCContent from './NFTBTCContent';
@@ -29,6 +32,7 @@ function NFTBTCAssetCard({
 }: ListItemComponentType<NFTBTCAssetModel>) {
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
+  const { network } = useNetwork({ networkId: asset.networkId });
 
   const MARGIN = isSmallScreen ? 16 : 20;
   const padding = isSmallScreen ? 8 : 12;
@@ -47,6 +51,15 @@ function NFTBTCAssetCard({
     }
     return '';
   }, [asset.inscription_number]);
+
+  const desc = useMemo(() => {
+    if (asset.output_value_sat && network) {
+      return `${new BigNumber(asset.output_value_sat)
+        .shiftedBy(-network.decimals)
+        .toFixed()} ${network.symbol}`;
+    }
+    return '';
+  }, [asset.output_value_sat, network]);
 
   return (
     <Box mb="16px" {...rest}>
@@ -70,16 +83,25 @@ function NFTBTCAssetCard({
           <NFTBTCContent size={cardWidth - 2 * padding} asset={asset} />
           <NFTNetworkIcon networkId={asset.networkId} />
         </Box>
-        <HStack justifyContent="space-between">
+        <Box>
           <Text
             typography="Body2"
-            height="20px"
+            height="18px"
             mt={`${padding}px`}
             numberOfLines={1}
           >
             {title}
           </Text>
-        </HStack>
+
+          <Text
+            typography="Body2"
+            color="text-subdued"
+            height="18px"
+            numberOfLines={1}
+          >
+            {desc}
+          </Text>
+        </Box>
       </Pressable>
     </Box>
   );

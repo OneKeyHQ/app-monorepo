@@ -26,6 +26,7 @@ type Props = {
   isAddressBook?: boolean;
   isValidAddress?: boolean;
   isContractAddress?: boolean;
+  isInscribeAddress?: boolean;
   securityInfo?: (keyof GoPlusAddressSecurity)[];
   shouldCheckSecurity?: boolean;
   validAddressMessage?: MessageDescriptor['id'];
@@ -72,6 +73,7 @@ function AddressLabel(props: Props) {
     walletId: WalletIdFromOut,
     isAddressBook,
     isContractAddress,
+    isInscribeAddress,
     shouldCheckSecurity,
     isValidAddress,
     showValidAddressLabel = false,
@@ -239,6 +241,11 @@ function AddressLabel(props: Props) {
         type: 'warning',
         icon: '📝',
       },
+      isInscribeAddress && {
+        title: 'content__inscribe_address',
+        type: 'warning',
+        icon: '📝',
+      },
     ];
     return labels.filter(Boolean) as Label[];
   }, [
@@ -249,6 +256,7 @@ function AddressLabel(props: Props) {
     isAccountLabel,
     isAddressBookLabel,
     isContractAddressLabel,
+    isInscribeAddress,
     isWatchAccountLabel,
   ]);
 

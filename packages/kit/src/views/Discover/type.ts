@@ -117,6 +117,7 @@ export type DiscoverRoutesParams = {
   [DiscoverModalRoutes.History]: undefined;
   [DiscoverModalRoutes.ChainSelector]: {
     networkIds?: string[];
+    currentNetworkId?: string;
     onSelect?: (networkId: string) => void;
   };
   [DiscoverModalRoutes.MobileTabs]: undefined;

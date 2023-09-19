@@ -67,7 +67,12 @@ export type PreSendParams = {
   accountId: string;
   closeModal?: () => any;
   transferInfos?: ITransferInfo[];
-  validateAddress?: (networkId: string, address: string) => Promise<void>;
+  validateAddress?: (
+    networkId: string,
+    address: string,
+  ) => Promise<{
+    warningMessage?: string;
+  } | void>;
 } & ITransferInfo;
 
 export type LnUrlPayParams = PreSendParams & {

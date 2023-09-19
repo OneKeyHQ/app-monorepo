@@ -367,7 +367,7 @@ export default class ServiceUtxos extends ServiceBase {
     networkId: string;
     accountId: string;
     utxo: ICoinControlListItem;
-    recycle: boolean;
+    recycle: boolean; // mark inscription as recycled status
     frozen?: boolean;
   }) {
     const id = getUtxoId(networkId, utxo);

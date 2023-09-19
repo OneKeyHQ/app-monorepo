@@ -540,6 +540,7 @@ export type IDecodedTxActionNativeTransfer = IDecodedTxActionBase & {
   to: string;
   amount: string;
   amountValue: string;
+  isInscribeTransfer?: boolean;
 };
 export type IDecodedTxActionTokenTransfer = IDecodedTxActionBase & {
   tokenInfo: Token;

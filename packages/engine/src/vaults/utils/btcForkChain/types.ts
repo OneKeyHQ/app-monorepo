@@ -123,6 +123,7 @@ export type IEncodedTxBtc = {
   transferInfos?: ITransferInfo[];
   psbtHex?: string;
   inputsToSign?: InputToSign[];
+  isInscribeTransfer?: boolean;
 };
 
 export type UTXO = {

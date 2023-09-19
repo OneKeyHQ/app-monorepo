@@ -2,20 +2,21 @@ import type { FC } from 'react';
 import { useCallback } from 'react';
 
 import { Button, Image } from '@onekeyhq/components';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 
-import { useNetwork } from '../../../../hooks';
+import { useAppSelector, useNetwork } from '../../../../hooks';
 import { getAppNavigation } from '../../../../hooks/useAppNavigation';
 import { DiscoverModalRoutes } from '../../type';
 
 type SelectorButtonProps = {
-  networkIds: string[];
+  // networkIds: string[];
   networkId: string;
   onItemSelect?: (item: string) => void;
 };
 
 export const SelectorButton: FC<SelectorButtonProps> = ({
-  networkIds,
+  // networkIds,
   networkId,
   onItemSelect,
 }) => {
@@ -27,6 +28,8 @@ export const SelectorButton: FC<SelectorButtonProps> = ({
     [onItemSelect],
   );
 
+  const networks = useAppSelector((s) => s.runtime.networks);
+
   return (
     <Button
       onPress={() => {
@@ -35,7 +38,10 @@ export const SelectorButton: FC<SelectorButtonProps> = ({
           params: {
             screen: DiscoverModalRoutes.ChainSelector,
             params: {
-              networkIds,
+              currentNetworkId: networkId,
+              networkIds: networks
+                .filter((o) => !isAllNetworks(o.id))
+                .map((o) => o.id),
               onSelect,
             },
           },
