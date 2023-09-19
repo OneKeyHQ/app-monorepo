@@ -41,9 +41,8 @@ import {
 } from '@onekeyhq/kit/src/routes/routesEnum';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
-  IMPL_BTC,
   IMPL_EVM,
-  IMPL_TBTC,
+  isBTCNetwork,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -159,7 +158,7 @@ const data: DataItem[] = [
     title: 'title__inscribe',
     description: 'title__inscribe_desc',
     filter: ({ network, account }) =>
-      [IMPL_BTC, IMPL_TBTC].includes(network?.impl ?? '') &&
+      isBTCNetwork(network?.id) &&
       !!account?.template &&
       [
         tbtcSetting.accountNameInfo?.BIP86?.template,
