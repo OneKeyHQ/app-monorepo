@@ -8,6 +8,7 @@ import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, omitBy } from 'lodash';
 
+import { conflux as sdkCfx } from '@onekeyhq/core/src/chains/cfx/sdkCfx';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
@@ -46,7 +47,6 @@ import {
   KeyringImported,
   KeyringWatching,
 } from './keyring';
-import { conflux as sdkCfx } from '@onekeyhq/core/src/chains/cfx/sdkCfx';
 import settings from './settings';
 import { IOnChainTransferType } from './types';
 import {

@@ -2,11 +2,11 @@ import { encode as toCfxAddress } from '@conflux-dev/conflux-address-js';
 import { hexZeroPad } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
 
+import { conflux as sdkCfx } from '@onekeyhq/core/src/chains/cfx/sdkCfx';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { IDecodedTxActionType, IDecodedTxStatus } from '../../types';
 
-import { conflux as sdkCfx } from '@onekeyhq/core/src/chains/cfx/sdkCfx';
 import { IOnChainTransferType } from './types';
 
 import type { ChainSigner, Verifier } from '../../../proxy';

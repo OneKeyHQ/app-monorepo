@@ -20,10 +20,6 @@ import {
   transactionPayloadToTxPayload,
 } from '@onekeyhq/engine/src/vaults/impl/apt/utils';
 import type VaultAptos from '@onekeyhq/engine/src/vaults/impl/apt/Vault';
-import {
-  hexlify,
-  stripHexPrefix,
-} from '@onekeyhq/shared/src/utils/hexUtils';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   backgroundClass,
@@ -32,6 +28,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_APTOS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { hexlify, stripHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import ProviderApiBase from './ProviderApiBase';
 

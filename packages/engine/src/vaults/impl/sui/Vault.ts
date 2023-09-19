@@ -33,6 +33,10 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  addHexPrefix,
+  stripHexPrefix,
+} from '@onekeyhq/shared/src/utils/hexUtils';
 
 import {
   IDecodedTxActionType,
@@ -40,7 +44,6 @@ import {
   IDecodedTxStatus,
 } from '../../types';
 import { convertFeeValueToGwei } from '../../utils/feeInfoUtils';
-import { addHexPrefix, stripHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 import { VaultBase } from '../../VaultBase';
 
 import { KeyringHardware } from './KeyringHardware';

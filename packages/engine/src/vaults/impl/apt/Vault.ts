@@ -27,6 +27,11 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  addHexPrefix,
+  hexlify,
+  stripHexPrefix,
+} from '@onekeyhq/shared/src/utils/hexUtils';
 
 import {
   IDecodedTxActionType,
@@ -37,7 +42,6 @@ import {
   convertFeeGweiToValue,
   convertFeeValueToGwei,
 } from '../../utils/feeInfoUtils';
-import { addHexPrefix, hexlify, stripHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 import { VaultBase } from '../../VaultBase';
 
 import { KeyringHardware } from './KeyringHardware';

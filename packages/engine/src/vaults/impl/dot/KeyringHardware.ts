@@ -12,7 +12,6 @@ import type {
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
 } from '@onekeyhq/engine/src/vaults/types';
-import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 import {
   IMPL_DOT as COIN_IMPL,
   COINTYPE_DOT as COIN_TYPE,
@@ -21,6 +20,7 @@ import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
+import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { TYPE_PREFIX } from './consts';
 import polkadotSdk from './sdk/polkadotSdk';

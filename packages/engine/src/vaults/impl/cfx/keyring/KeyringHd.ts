@@ -47,20 +47,4 @@ export class KeyringHd extends KeyringHdBase {
   override signMessage(): any {
     throw new Error('Method not implemented.');
   }
-
-  async signTransactionOld(
-    unsignedTx: IUnsignedTxPro,
-    options: ISignCredentialOptions,
-  ): Promise<SignedTx> {
-    const dbAccount = await this.getDbAccount();
-    const selectedAddress = (dbAccount as DBVariantAccount).addresses[
-      this.networkId
-    ];
-
-    const signers = await this.getSigners(options.password || '', [
-      selectedAddress,
-    ]);
-    const signer = signers[selectedAddress];
-    return signTransactionWithSigner(unsignedTx, signer);
-  }
 }

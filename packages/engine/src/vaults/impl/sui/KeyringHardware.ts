@@ -18,10 +18,10 @@ import {
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
+import { addHexPrefix, hexlify } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
-import { addHexPrefix, hexlify } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { handleSignData, toTransaction } from './utils';
 

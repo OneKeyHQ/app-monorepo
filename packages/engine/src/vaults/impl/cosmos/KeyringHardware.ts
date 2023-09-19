@@ -12,9 +12,9 @@ import {
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
+import { stripHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
-import { stripHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { pubkeyToBaseAddress } from './sdk/address';
 import { generateSignBytes, serializeSignedTx } from './sdk/txBuilder';

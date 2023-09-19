@@ -15,11 +15,11 @@ import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
 import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_SUI as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { ChainSigner } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
-import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { handleSignData, toTransaction } from './utils';
 

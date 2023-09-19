@@ -8,10 +8,10 @@ import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
+import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
-import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { buildSignedTx, generateUnsignedTransaction } from './utils';
 

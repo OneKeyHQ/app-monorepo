@@ -16,11 +16,11 @@ import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_SUI as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { ChainSigner } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
-import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { handleSignData, toTransaction } from './utils';
 

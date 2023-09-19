@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { TypedDataUtils } from 'eth-sig-util';
 import { omitBy } from 'lodash';
 
+import { conflux as sdkCfx } from '@onekeyhq/core/src/chains/cfx/sdkCfx';
 import { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 import { isHexString } from '@onekeyhq/kit/src/utils/helper';
@@ -23,7 +24,6 @@ import {
   type IUnsignedMessageEth,
 } from '../../../../types/message';
 import { KeyringHardwareBase } from '../../../keyring/KeyringHardwareBase';
-import { conflux as sdkCfx } from '@onekeyhq/core/src/chains/cfx/sdkCfx';
 
 import type { DBVariantAccount } from '../../../../types/account';
 import type {

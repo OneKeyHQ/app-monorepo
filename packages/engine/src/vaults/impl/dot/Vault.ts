@@ -41,10 +41,6 @@ import {
   convertFeeGweiToValue,
   convertFeeValueToGwei,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
-import {
-  addHexPrefix,
-  stripHexPrefix,
-} from '@onekeyhq/shared/src/utils/hexUtils';
 import { VaultBase } from '@onekeyhq/engine/src/vaults/VaultBase';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { formatBalanceDisplay } from '@onekeyhq/kit/src/components/Format';
@@ -57,6 +53,10 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  addHexPrefix,
+  stripHexPrefix,
+} from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
