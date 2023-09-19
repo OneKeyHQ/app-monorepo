@@ -1,7 +1,6 @@
 import { FlatList, View } from 'react-native';
-import { Stack } from 'tamagui';
 
-import { Icon, Typography } from '@onekeyhq/components';
+import { Icon, Stack, Typography } from '@onekeyhq/components';
 import type { ICON_NAMES } from '@onekeyhq/components/src/v2/Icon/Icons';
 import Icons from '@onekeyhq/components/src/v2/Icon/Icons';
 

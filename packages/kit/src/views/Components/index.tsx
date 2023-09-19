@@ -4,7 +4,6 @@ import { useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import natsort from 'natsort';
 import { FlatList, TouchableOpacity } from 'react-native';
-import { Stack } from 'tamagui';
 
 import {
   Button,
@@ -14,6 +13,7 @@ import {
   //   FlatList,
   //   Pressable,
   //   Typography,
+  Stack,
   Text,
 } from '@onekeyhq/components';
 

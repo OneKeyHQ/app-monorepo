@@ -6,9 +6,8 @@ import { hideAsync as hideSplashScreen } from 'expo-splash-screen';
 // TODO: add .d.ts for react-native-animated-splash-screen
 // @ts-expect-error no .d.ts
 import AnimatedSplash from 'react-native-animated-splash-screen';
-import { Stack } from 'tamagui';
 
-import { useThemeValue } from '@onekeyhq/components';
+import { Stack, useThemeValue } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
