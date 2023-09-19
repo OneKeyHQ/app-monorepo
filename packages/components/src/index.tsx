@@ -10,6 +10,8 @@ export { Alert } from './Alert';
 export { Divider } from './Divider';
 export { Spinner } from './Spinner';
 export { Dialog } from './Dialog';
+export { Tabs } from './CollapsibleTabView';
+export * as DelayedFreeze from './DelayedFreeze';
 
 export { useThemeValue } from './Provider/hooks/useThemeValue';
 export { useIsMounted } from './Provider/hooks/useIsMounted';

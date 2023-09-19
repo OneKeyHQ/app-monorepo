@@ -3,12 +3,12 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
+import CollapsibleTabViewGallery from '@onekeyhq/kit/src/views/Components/stories/CollapsibleTabView';
+import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import IconButtonGallery from '@onekeyhq/kit/src/views/Components/stories/IconButton';
+import DemoRootApp from '@onekeyhq/kit/src/views/Components/stories/NavigatorRoute';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
-
-import DialogGallery from '../../views/Components/stories/Dialog';
-import DemoRootApp from '../../views/Components/stories/NavigatorRoute';
 import AlertGallery from '../../views/Components/stories/Alert';
 import DividerGallery from '../../views/Components/stories/Divider';
 
@@ -23,6 +23,7 @@ export enum GalleryRoutes {
   ComponentNavigation = 'component/navigation',
   ComponentAlert = 'component/alert',
   ComponentDivider = 'component/divider',
+  ComponentCollapsibleTabs = 'component/collapsibleTabs',
 }
 
 export const stackScreenList = [
@@ -43,6 +44,11 @@ export const stackScreenList = [
   },
   { name: GalleryRoutes.ComponentAlert, component: AlertGallery },
   { name: GalleryRoutes.ComponentDivider, component: DividerGallery },
+  {
+    name: GalleryRoutes.ComponentCollapsibleTabs,
+    component: CollapsibleTabViewGallery,
+    options: { headerShown: false },
+  },
 ];
 
 const DevStack = createNativeStackNavigator();

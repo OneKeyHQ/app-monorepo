@@ -4,10 +4,11 @@ import { useContext, useMemo } from 'react';
 import getDefaultHeaderHeight from '@react-navigation/elements/src/Header/getDefaultHeaderHeight';
 import { CommonActions } from '@react-navigation/native';
 import { AnimatePresence, MotiView } from 'moti';
+import { StyleSheet } from 'react-native';
 import { useSafeAreaFrame } from 'react-native-safe-area-context';
-import { ScrollView, Tooltip, YStack } from 'tamagui';
+import { ScrollView, Tooltip, getTokens } from 'tamagui';
 
-import { Icon, Stack, Text, useThemeValue } from '@onekeyhq/components';
+import { Icon, Stack, Text, YStack, useThemeValue } from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
 import { Context } from '@onekeyhq/components/src/Provider/hooks/useProviderValue';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
@@ -22,16 +23,18 @@ import type { NavigationState } from '@react-navigation/routers/src/types';
 
 function TabItemView({
   isActive,
-  isCollpase,
+  touchMode,
+  isCollapse,
   route,
   onPress,
   options,
 }: {
   isActive: boolean;
+  touchMode: boolean | undefined;
   route: NavigationState['routes'][0];
   onPress: () => void;
   options: BottomTabNavigationOptions;
-  isCollpase?: boolean;
+  isCollapse?: boolean;
 }) {
   const contentMemo = useMemo(
     () => (
@@ -39,8 +42,8 @@ function TabItemView({
         onPress={onPress}
         flexDirection="row"
         alignItems="center"
-        px="$2.5"
-        py="$3"
+        px={touchMode ? '$2.5' : '$1.5'}
+        py={touchMode ? '$3' : '$2'}
         borderRadius="$2"
         backgroundColor={isActive ? '$bgActive' : undefined}
         hoverStyle={!isActive ? { backgroundColor: '$bgHover' } : undefined}
@@ -51,11 +54,12 @@ function TabItemView({
             // @ts-expect-error
             name={options?.tabBarIcon?.(isActive) as ICON_NAMES}
             color={isActive ? '$icon' : '$iconSubdued'}
+            size={touchMode ? '$6' : '$5'}
           />
         </Stack>
 
         <AnimatePresence initial={false}>
-          {!isCollpase && (
+          {!isCollapse && (
             <MotiView
               from={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -73,7 +77,7 @@ function TabItemView({
               }}
             >
               <Text
-                variant="$bodyLg"
+                variant={touchMode ? '$bodyLg' : '$bodyMd'}
                 flex={1}
                 marginLeft="$1"
                 color={isActive ? '$text' : '$textSubdued'}
@@ -87,10 +91,10 @@ function TabItemView({
         </AnimatePresence>
       </Stack>
     ),
-    [isActive, isCollpase, onPress, options, route.name],
+    [isActive, isCollapse, onPress, options, route.name],
   );
 
-  if (!isCollpase) {
+  if (!isCollapse) {
     return contentMemo;
   }
 
@@ -122,13 +126,29 @@ function TabItemView({
 
 const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
   const { routes } = state;
-  const { leftSidebarCollapsed: isCollpase } = useContext(Context);
+  const { leftSidebarCollapsed: isCollapse } = useContext(Context);
   const { top } = useSafeAreaInsets(); // used for ipad
   const frame = useSafeAreaFrame();
 
+  const touchMode = platformEnv.isNativeIOSPad;
+
+  const tokens = getTokens().size;
+  const touchValues = {
+    slideBarWidth: tokens['60'].val,
+    slideBarCollapseWidth: 78,
+    slideBarPadding: tokens['4'].val,
+  };
+
+  const nonTouchValues = {
+    slideBarWidth: tokens['52'].val,
+    slideBarCollapseWidth: 58,
+    slideBarPadding: tokens['3'].val,
+  };
+
+  const { slideBarWidth, slideBarCollapseWidth, slideBarPadding } = touchMode
+    ? touchValues
+    : nonTouchValues;
   const dragZoneAbsoluteBarHeight = platformEnv.isDesktopMac ? 36 : 0; // used for desktop
-  const slideBarWidth = 240;
-  const slideBarPadding = 16;
 
   const defaultHeight = getDefaultHeaderHeight(frame, false, top);
   const disExtraPaddingTop = platformEnv.isWeb || platformEnv.isNativeIOSPad;
@@ -163,21 +183,22 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
 
         return (
           <TabItemView
+            touchMode={touchMode}
             key={route.key}
             route={route}
             onPress={onPress}
             isActive={focus}
             options={options}
-            isCollpase={isCollpase}
+            isCollapse={isCollapse}
           />
         );
       }),
-    [descriptors, isCollpase, navigation, routes, state.index, state.key],
+    [descriptors, isCollapse, navigation, routes, state.index, state.key],
   );
 
   return (
     <MotiView
-      animate={{ width: isCollpase ? 80 : slideBarWidth }}
+      animate={{ width: isCollapse ? slideBarCollapseWidth : slideBarWidth }}
       transition={{
         type: 'timing',
         duration: 150,
@@ -191,7 +212,7 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
         paddingTop: paddingTopValue,
         paddingBottom: slideBarPadding,
         borderRightColor: slideBorder,
-        borderRightWidth: 0.3,
+        borderRightWidth: StyleSheet.hairlineWidth,
       }}
       testID="Desktop-AppSideBar-Container"
     >

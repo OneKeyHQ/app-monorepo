@@ -32,7 +32,7 @@ function HeaderButtonIcon({
       onPressIn={onPressInCall}
       onPressOut={onRecoverColorCall}
     >
-      <Icon name={name} size={size} color={iconColor} />
+      <Icon name={name} color={iconColor} />
     </Stack>
   );
 }
