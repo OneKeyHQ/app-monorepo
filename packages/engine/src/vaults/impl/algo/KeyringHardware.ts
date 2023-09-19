@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
+import sdk from '@onekeyhq/core/src/chains/algo/sdkAlgo';
+import type { ISdkAlgoEncodedTransaction } from '@onekeyhq/core/src/chains/algo/sdkAlgo';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_ALGO as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
@@ -12,15 +14,12 @@ import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
-import sdk from '@onekeyhq/core/src/chains/algo/sdkAlgo';
-
 import type { DBSimpleAccount } from '../../../types/account';
 import type {
   IGetAddressParams,
   IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
 } from '../../types';
-import type { ISdkAlgoEncodedTransaction } from '@onekeyhq/core/src/chains/algo/sdkAlgo';
 import type { IEncodedTxAlgo } from './types';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0'`;

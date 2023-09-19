@@ -25,17 +25,24 @@ import type {
 export class KeyringImported extends KeyringImportedBase {
   override coreApi = coreChainApi.algo.imported;
 
+  override getSigners(): Promise<Record<string, ChainSigner>> {
+    throw new Error('getSigners moved to core.');
+  }
+
+  override async getPrivateKeys(query: {
+    password: string;
+    relPaths?: string[] | undefined;
+  }): Promise<Record<string, Buffer>> {
+    return this.baseGetPrivateKeys(query);
+  }
+
   override async prepareAccounts(
     params: IPrepareImportedAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
     return this.basePrepareAccountsImported(params, {
-      coinType: COINTYPE_ALGO,
       accountType: AccountType.SIMPLE,
+      coinType: COINTYPE_ALGO,
     });
-  }
-
-  override getSigners(): Promise<Record<string, ChainSigner>> {
-    throw new Error('getSigners moved to core.');
   }
 
   override async signTransaction(
@@ -45,7 +52,7 @@ export class KeyringImported extends KeyringImportedBase {
     return this.baseSignTransaction(unsignedTx, options);
   }
 
-  override signMessage(messages: any[], options: ISignCredentialOptions): any {
-    console.log(messages, options);
+  override signMessage(): any {
+    throw new Error('Method not implemented.');
   }
 }

@@ -120,8 +120,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem> {
     const { publicKey } = query;
-    const pubkey = bufferUtils.toBuffer(publicKey);
-    const address = sdk.encodeAddress(pubkey);
+    const address = sdk.encodeAddress(bufferUtils.toBuffer(publicKey));
     return Promise.resolve({
       address,
       publicKey,

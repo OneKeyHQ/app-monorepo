@@ -244,7 +244,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     relPaths?: Array<string>;
   }): Promise<Record<string, Buffer>>; // full path to private key
 
-  // TODO remove
+  // TODO remove, move to core api
   // Implemented by different implementations, use getPrivateKeys to build signers.
   abstract getSigners(
     password: string,

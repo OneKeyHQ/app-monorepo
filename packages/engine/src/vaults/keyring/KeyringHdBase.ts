@@ -17,6 +17,7 @@ import type { ISignCredentialOptions } from '../types';
 export abstract class KeyringHdBase extends KeyringSoftwareBase {
   override keyringType: EVaultKeyringTypes = EVaultKeyringTypes.hd;
 
+  // TODO remove
   override async getPrivateKeys({
     password,
     relPaths,

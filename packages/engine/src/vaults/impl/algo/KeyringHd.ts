@@ -18,6 +18,17 @@ import type {
 export class KeyringHd extends KeyringHdBase {
   override coreApi = coreChainApi.algo.hd;
 
+  override getSigners(): Promise<Record<string, ChainSigner>> {
+    throw new Error('getSigners moved to core.');
+  }
+
+  override async getPrivateKeys(query: {
+    password: string;
+    relPaths?: string[] | undefined;
+  }): Promise<Record<string, Buffer>> {
+    return this.baseGetPrivateKeys(query);
+  }
+
   override async prepareAccounts(
     params: IPrepareHdAccountsParams,
   ): Promise<DBAccount[]> {
@@ -27,10 +38,6 @@ export class KeyringHd extends KeyringHdBase {
     });
   }
 
-  override getSigners(): Promise<Record<string, ChainSigner>> {
-    throw new Error('getSigners moved to core.');
-  }
-
   override async signTransaction(
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
@@ -38,7 +45,7 @@ export class KeyringHd extends KeyringHdBase {
     return this.baseSignTransaction(unsignedTx, options);
   }
 
-  override signMessage(messages: any[], options: ISignCredentialOptions): any {
+  override signMessage(): any {
     throw new Error('Method not implemented.');
   }
 }

@@ -4,6 +4,8 @@
 
 import BigNumber from 'bignumber.js';
 
+import sdkAlgo from '@onekeyhq/core/src/chains/algo/sdkAlgo';
+import type { ISdkAlgoEncodedTransaction } from '@onekeyhq/core/src/chains/algo/sdkAlgo';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
@@ -33,7 +35,6 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import sdkAlgo from '@onekeyhq/core/src/chains/algo/sdkAlgo';
 import settings from './settings';
 import { encodeTransaction } from './utils';
 
@@ -53,7 +54,6 @@ import type {
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
-import type { ISdkAlgoEncodedTransaction } from '@onekeyhq/core/src/chains/algo/sdkAlgo';
 import type {
   IAccountInformation,
   IAccountTransactionsResp,

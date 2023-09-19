@@ -1,9 +1,8 @@
+import sdk from '@onekeyhq/core/src/chains/algo/sdkAlgo';
 import { COINTYPE_ALGO as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { AccountType } from '../../../types/account';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
-
-import sdk from '@onekeyhq/core/src/chains/algo/sdkAlgo';
 
 import type { DBSimpleAccount } from '../../../types/account';
 import type { IPrepareWatchingAccountsParams } from '../../types';
