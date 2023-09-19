@@ -18,10 +18,16 @@ export type ICoreApiGetAddressesQueryHdBtc = ICoreApiGetAddressesQueryHdBase & {
   networkChainCode: string;
   addressEncoding: AddressEncodings;
 };
+export type ICoreApiGetAddressesQueryHdCfx = ICoreApiGetAddressesQueryHdBase & {
+  // TODO move to ICoreApiGetAddressesQueryHdBase
+  chainId: string;
+  networkId: string;
+};
 export type ICoreApiGetAddressesQueryHd =
   | ICoreApiGetAddressesQueryHdBase
   | ICoreApiGetAddressesQueryHdEvm
-  | ICoreApiGetAddressesQueryHdBtc;
+  | ICoreApiGetAddressesQueryHdBtc
+  | ICoreApiGetAddressesQueryHdCfx;
 
 export type ICoreApiGetAddressQueryImportedBase = {
   privateKeyRaw: string;
@@ -36,6 +42,7 @@ export type ICoreApiGetAddressQueryImported =
   | ICoreApiGetAddressQueryImportedBtc;
 export type ICoreApiGetAddressQueryPublicKey = {
   publicKey: string;
+  query?: ICoreApiGetAddressesQueryHd;
 };
 export type ICoreApiGetAddressItem = {
   address: string;
@@ -43,7 +50,7 @@ export type ICoreApiGetAddressItem = {
   path?: string;
   xpub?: string;
   xpubSegwit?: string;
-  addresses?: { [relPath: string]: string };
+  addresses?: { [relPathOrNetworkId: string]: string };
 };
 export type ICoreApiGetAddressesResult = {
   addresses: ICoreApiGetAddressItem[];

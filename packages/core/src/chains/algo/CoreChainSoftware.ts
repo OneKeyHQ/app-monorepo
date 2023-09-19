@@ -11,7 +11,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
-import sdk from './sdkAlgo';
+import sdkAlgo from './sdkAlgo';
 
 import type {
   ICoreApiGetAddressItem,
@@ -29,7 +29,7 @@ import type {
   ISdkAlgoTransaction,
 } from './sdkAlgo';
 
-const curveName: ICurveName = 'ed25519';
+const curve: ICurveName = 'ed25519';
 
 export default class CoreChainSoftware extends CoreChainApiBase {
   override async getPrivateKeys(
@@ -37,7 +37,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   ): Promise<ICoreApiPrivateKeysMap> {
     return this.baseGetPrivateKeys({
       payload,
-      curve: curveName,
+      curve,
     });
   }
 
@@ -47,11 +47,11 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const { unsignedTx } = payload;
     const signer = await this.baseGetSingleSigner({
       payload,
-      curve: curveName,
+      curve,
     });
     const encodedTx = unsignedTx.encodedTx as IEncodedTxAlgo;
-    const transaction = sdk.Transaction.from_obj_for_encoding(
-      sdk.decodeObj(
+    const transaction = sdkAlgo.Transaction.from_obj_for_encoding(
+      sdkAlgo.decodeObj(
         Buffer.from(encodedTx, 'base64'),
       ) as ISdkAlgoEncodedTransaction,
     );
@@ -60,7 +60,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
     const txid: string = transaction.txID();
     const rawTx: string = Buffer.from(
-      sdk.encodeObj({
+      sdkAlgo.encodeObj({
         sig: signature,
         txn: transaction.get_obj_for_encoding(),
       }),
@@ -93,7 +93,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem> {
     const { publicKey } = query;
-    const address = sdk.encodeAddress(bufferUtils.toBuffer(publicKey));
+    const address = sdkAlgo.encodeAddress(bufferUtils.toBuffer(publicKey));
     return Promise.resolve({
       address,
       publicKey,
@@ -104,7 +104,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     query: ICoreApiGetAddressesQueryHd,
   ): Promise<ICoreApiGetAddressesResult> {
     return this.baseGetAddressesFromHd(query, {
-      curve: curveName,
+      curve,
     });
   }
 }

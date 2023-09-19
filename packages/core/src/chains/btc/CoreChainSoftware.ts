@@ -12,6 +12,7 @@ import { omit } from 'lodash';
 import { encode as VaruintBitCoinEncode } from 'varuint-bitcoin';
 
 import { slicePathTemplate } from '@onekeyhq/engine/src/managers/derivation';
+import type { ExtendedKey, ICurveName } from '@onekeyhq/engine/src/secret';
 import {
   CKDPub,
   batchGetPublicKeys,
@@ -19,16 +20,13 @@ import {
   mnemonicFromEntropy,
   verify,
 } from '@onekeyhq/engine/src/secret';
-import type { ICurveName, ExtendedKey } from '@onekeyhq/engine/src/secret';
-import { BaseBip32KeyDeriver } from '@onekeyhq/engine/src/secret/bip32';
 import type { Bip32KeyDeriver } from '@onekeyhq/engine/src/secret/bip32';
+import { BaseBip32KeyDeriver } from '@onekeyhq/engine/src/secret/bip32';
 import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
 import {
   decrypt,
   encrypt,
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import type { DBUTXOAccount } from '@onekeyhq/engine/src/types/account';
-import { DBAccount } from '@onekeyhq/engine/src/types/account';
 import type { IUnsignedMessageBtc } from '@onekeyhq/engine/src/types/message';
 import { EMessageTypesBtc } from '@onekeyhq/engine/src/types/message';
 import type { ISigner } from '@onekeyhq/engine/src/types/secret';
@@ -51,10 +49,7 @@ import {
 import { IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import type { InputToSign } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.types';
-import {
-  getInputsToSignFromPsbt,
-  toPsbtNetwork,
-} from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.utils';
+import { getInputsToSignFromPsbt } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.utils';
 import { check, checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -66,7 +61,6 @@ import {
   type ICoreApiGetAddressesResult,
   type ICoreApiPrivateKeysMap,
   type ICoreApiSignBasePayload,
-  type ICoreApiSignBtcExtraInfo,
   type ICoreApiSignMsgPayload,
   type ICoreApiSignTxPayload,
 } from '../../types';
@@ -103,7 +97,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override getAddressFromPublic(
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem> {
-    throw new Error('Method not implemented.');
+    throw new Error(
+      'Method not implemented. utxo account use getAddressFromXpub instead.',
+    );
   }
 
   // TODO memo and move to utils (file with getBtcForkNetwork)

@@ -31,6 +31,7 @@ import type {
   AccountType,
   DBAccount,
   DBSimpleAccount,
+  DBVariantAccount,
 } from '../../types/account';
 import type { IUnsignedMessage } from '../../types/message';
 import type {
@@ -182,7 +183,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       accountType: AccountType;
       usedIndexes: number[];
     },
-  ): Promise<Array<DBSimpleAccount>> {
+  ): Promise<Array<DBSimpleAccount | DBVariantAccount>> {
     if (!this.coreApi) {
       throw new Error('coreApi is not defined');
     }
@@ -193,9 +194,12 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     const { accountType, usedIndexes } = options;
 
     const chainCode = (await this.getChainInfo()).code;
+    const chainId = await this.vault.getNetworkChainId();
     const credentials = await this.baseGetCredentialsInfo({ password });
     const { addresses: addressInfos } = await this.coreApi.getAddressesFromHd({
       networkChainCode: chainCode,
+      networkId: this.networkId,
+      chainId,
       template,
       hdCredential: checkIsDefined(credentials.hd),
       password,
@@ -208,9 +212,9 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       impl === IMPL_EVM &&
       getAccountNameInfoByImpl(impl)?.ledgerLive?.template === template;
 
-    const ret: DBSimpleAccount[] = [];
+    const ret: Array<DBSimpleAccount | DBVariantAccount> = [];
     for (let index = 0; index < addressInfos.length; index += 1) {
-      const { path, publicKey, address } = addressInfos[index];
+      const { path, publicKey, address, addresses } = addressInfos[index];
       if (!path) {
         throw new Error('KeyringHD prepareAccounts ERROR: path not found');
       }
@@ -231,6 +235,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         coinType,
         pub: publicKey,
         address,
+        addresses,
         template,
       });
     }

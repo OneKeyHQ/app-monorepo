@@ -140,12 +140,15 @@ export abstract class CoreChainApiBase {
     const { seed } = hdCredential;
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
     const seedBuffer = bufferUtils.toBuffer(seed);
+    const indexexFormatted = indexes.map((index) =>
+      pathSuffix.replace('{index}', index.toString()),
+    );
     const pubkeyInfos = batchGetPublicKeys(
       curve,
       seedBuffer,
       password,
       pathPrefix,
-      indexes.map((index) => pathSuffix.replace('{index}', index.toString())),
+      indexexFormatted,
     );
 
     if (pubkeyInfos.length !== indexes.length) {
@@ -159,9 +162,12 @@ export abstract class CoreChainApiBase {
         } = info;
         const publicKey = pubkey.toString('hex');
 
-        const { address } = await this.getAddressFromPublic({ publicKey });
+        const result = await this.getAddressFromPublic({
+          publicKey,
+          query,
+        });
 
-        return { address, publicKey, path };
+        return { ...result, publicKey, path };
       }),
     );
     return { addresses };
@@ -169,11 +175,15 @@ export abstract class CoreChainApiBase {
 
   // ----------------------------------------------
 
+  abstract getPrivateKeys(
+    payload: ICoreApiSignBasePayload,
+  ): Promise<ICoreApiPrivateKeysMap>;
+
   abstract signTransaction(
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro>;
 
-  abstract signMessage(query: ICoreApiSignMsgPayload): Promise<string>;
+  abstract signMessage(payload: ICoreApiSignMsgPayload): Promise<string>;
 
   abstract getAddressFromPrivate(
     query: ICoreApiGetAddressQueryImported,
@@ -186,8 +196,4 @@ export abstract class CoreChainApiBase {
   abstract getAddressFromPublic(
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem>;
-
-  abstract getPrivateKeys(
-    payload: ICoreApiSignBasePayload,
-  ): Promise<ICoreApiPrivateKeysMap>;
 }

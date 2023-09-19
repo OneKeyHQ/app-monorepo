@@ -1,3 +1,4 @@
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
 import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_CFX as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -11,17 +12,51 @@ import { pubkeyToAddress, signTransactionWithSigner } from '../utils';
 import { CURVE_NAME } from './constant';
 
 import type { ExportedSeedCredential } from '../../../../dbs/base';
-import type { DBVariantAccount } from '../../../../types/account';
+import type { DBAccount, DBVariantAccount } from '../../../../types/account';
 import type {
   IPrepareHdAccountsParams,
   ISignCredentialOptions,
+  ISignedTxPro,
   IUnsignedTxPro,
 } from '../../../types';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 
 export class KeyringHd extends KeyringHdBase {
-  override async getSigners(password: string, addresses: Array<string>) {
+  override coreApi = coreChainApi.cfx.hd;
+
+  override getSigners(): Promise<Record<string, ChainSigner>> {
+    throw new Error('getSigners moved to core.');
+  }
+
+  override async getPrivateKeys(query: {
+    password: string;
+    relPaths?: string[] | undefined;
+  }): Promise<Record<string, Buffer>> {
+    return this.baseGetPrivateKeys(query);
+  }
+
+  override async prepareAccounts(
+    params: IPrepareHdAccountsParams,
+  ): Promise<DBAccount[]> {
+    return super.basePrepareAccountsHd(params, {
+      accountType: AccountType.VARIANT,
+      usedIndexes: params.indexes,
+    });
+  }
+
+  override async signTransaction(
+    unsignedTx: IUnsignedTxPro,
+    options: ISignCredentialOptions,
+  ): Promise<ISignedTxPro> {
+    return this.baseSignTransaction(unsignedTx, options);
+  }
+
+  override signMessage(): any {
+    throw new Error('Method not implemented.');
+  }
+
+  async getSignersOld(password: string, addresses: Array<string>) {
     const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
     const selectedAddress = dbAccount.addresses[this.networkId];
 
@@ -43,7 +78,7 @@ export class KeyringHd extends KeyringHdBase {
     };
   }
 
-  override async prepareAccounts(
+  async prepareAccountsOld(
     params: IPrepareHdAccountsParams,
   ): Promise<Array<DBVariantAccount>> {
     const { password, indexes, names } = params;
@@ -93,7 +128,7 @@ export class KeyringHd extends KeyringHdBase {
     return ret;
   }
 
-  override async signTransaction(
+  async signTransactionOld(
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
   ): Promise<SignedTx> {
@@ -109,7 +144,7 @@ export class KeyringHd extends KeyringHdBase {
     return signTransactionWithSigner(unsignedTx, signer);
   }
 
-  override async signMessage(
+  async signMessageOld(
     messages: any[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {

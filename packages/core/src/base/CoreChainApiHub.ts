@@ -2,6 +2,7 @@ import CoreChainAlgo from '../chains/algo';
 import CoreChainApt from '../chains/apt';
 import CoreChainBch from '../chains/bch';
 import CoreChainBtc from '../chains/btc';
+import CoreChainCfx from '../chains/cfx';
 import CoreChainDoge from '../chains/doge';
 import CoreChainEvm from '../chains/evm';
 import CoreChainLtc from '../chains/ltc';
@@ -20,4 +21,6 @@ export class CoreChainApiHub {
   algo = new CoreChainAlgo();
 
   apt = new CoreChainApt();
+
+  cfx = new CoreChainCfx();
 }
