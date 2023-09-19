@@ -1,12 +1,10 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 
 import { AccountType } from '../../../../types/account';
 import { KeyringHdBase } from '../../../keyring/KeyringHdBase';
-import { signTransactionWithSigner } from '../utils';
 
 import type { ChainSigner } from '../../../../proxy';
-import type { DBAccount, DBVariantAccount } from '../../../../types/account';
+import type { DBAccount } from '../../../../types/account';
 import type {
   IPrepareHdAccountsParams,
   ISignCredentialOptions,

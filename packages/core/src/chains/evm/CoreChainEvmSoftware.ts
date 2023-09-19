@@ -224,7 +224,10 @@ export default abstract class CoreChainEvmSoftware extends CoreChainApiBase {
   ): Promise<ICoreApiGetAddressItem> {
     const { privateKeyRaw } = query;
     const { publicKey } = await this.getPublicFromPrivate({ privateKeyRaw });
-    const { address } = await this.getAddressFromPublic({ publicKey });
+    const { address } = await this.getAddressFromPublic({
+      publicKey,
+      networkInfo: query.networkInfo,
+    });
     return {
       address,
       publicKey,

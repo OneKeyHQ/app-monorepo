@@ -506,7 +506,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
     const isImported = !!payload.credentials.imported;
 
-    const { pathToAddresses, networkImpl } = btcExtraInfo;
+    const { pathToAddresses } = btcExtraInfo;
+    const networkImpl = checkIsDefined(payload.networkInfo.networkImpl);
 
     const ret: ICoreApiPrivateKeysMap = {};
 
@@ -871,7 +872,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       password,
       unsignedTx,
       credentials,
-      networkChainCode,
+      networkInfo: { networkChainCode },
       btcExtraInfo,
       account,
     } = payload;
@@ -931,7 +932,12 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
-    const { account, password, btcExtraInfo, networkChainCode } = payload;
+    const {
+      account,
+      password,
+      btcExtraInfo,
+      networkInfo: { networkChainCode },
+    } = payload;
 
     if (!account.relPaths?.length) {
       throw new Error('BTC sign message need relPaths');

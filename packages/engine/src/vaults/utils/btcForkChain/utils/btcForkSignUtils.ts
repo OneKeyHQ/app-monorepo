@@ -74,8 +74,8 @@ async function signMessageBtc(
   }
   const { password } = options;
   const dbAccount = await keyring.getDbAccount();
-  const chainCode = (await keyring.getChainInfo()).code;
   const vault = keyring.vault as VaultBtcFork;
+  const networkInfo = await keyring.baseGetCoreApiNetworkInfo();
   const networkImpl = await keyring.getNetworkImpl();
   const addresses = [dbAccount.address];
 
@@ -98,10 +98,9 @@ async function signMessageBtc(
         password,
         account: { ...dbAccount, relPaths },
         credentials,
-        networkChainCode: chainCode,
+        networkInfo,
         btcExtraInfo: {
           pathToAddresses,
-          networkImpl,
         },
       }),
     ),
@@ -122,6 +121,7 @@ async function signTransactionBtc(
   const vault = keyring.vault as VaultBtcFork;
   const provider = await vault.getProvider();
   const networkImpl = await keyring.getNetworkImpl();
+  const networkInfo = await keyring.baseGetCoreApiNetworkInfo();
 
   const addresses = (unsignedTx.inputsToSign || unsignedTx.inputs).map(
     (input) => input.address,
@@ -147,12 +147,11 @@ async function signTransactionBtc(
     password,
     account: { ...dbAccount, relPaths },
     credentials,
-    networkChainCode: chainCode,
+    networkInfo,
     btcExtraInfo: {
+      pathToAddresses,
       inputAddressesEncodings,
       nonWitnessPrevTxs,
-      pathToAddresses,
-      networkImpl,
     },
   });
 

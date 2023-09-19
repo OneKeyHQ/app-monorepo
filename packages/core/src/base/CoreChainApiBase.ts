@@ -166,7 +166,7 @@ export abstract class CoreChainApiBase {
 
         const result = await this.getAddressFromPublic({
           publicKey,
-          networkInfo: query,
+          networkInfo: query.networkInfo,
         });
 
         return merge({ publicKey, path }, result);

@@ -7,13 +7,14 @@ import type { SignatureOptions } from 'bitcoinjs-message';
 
 // ----------------------------------------------
 
-export type ICoreGetAddressesQueryNetworkInfo = {
+export type ICoreApiNetworkInfo = {
   networkChainCode: string;
   chainId: string;
   networkId: string;
+  networkImpl: string;
 };
 export type ICoreApiGetAddressesQueryHdBase = {
-  networkInfo: ICoreGetAddressesQueryNetworkInfo;
+  networkInfo: ICoreApiNetworkInfo;
   template: string;
   hdCredential: ICoreHdCredential;
   password: string;
@@ -30,7 +31,7 @@ export type ICoreApiGetAddressesQueryHd =
   | ICoreApiGetAddressesQueryHdBtc;
 
 export type ICoreApiGetAddressQueryImportedBase = {
-  networkInfo: ICoreGetAddressesQueryNetworkInfo;
+  networkInfo: ICoreApiNetworkInfo;
   privateKeyRaw: string;
 };
 export type ICoreApiGetAddressQueryImportedBtc =
@@ -41,7 +42,7 @@ export type ICoreApiGetAddressQueryImported =
   | ICoreApiGetAddressQueryImportedBase
   | ICoreApiGetAddressQueryImportedBtc;
 export type ICoreApiGetAddressQueryPublicKey = {
-  networkInfo?: ICoreGetAddressesQueryNetworkInfo;
+  networkInfo: ICoreApiNetworkInfo;
   publicKey: string;
 };
 export type ICoreApiGetAddressItem = {
@@ -72,14 +73,13 @@ export type ICoreApiSignAccount = {
   relPaths?: string[]; // used for get privateKey of other address
 };
 export type ICoreApiSignBasePayload = {
-  networkChainCode?: string;
+  networkInfo: ICoreApiNetworkInfo;
   password: string;
   account: ICoreApiSignAccount;
   credentials: ICoreCredentialsInfo;
   btcExtraInfo?: ICoreApiSignBtcExtraInfo;
 };
 export type ICoreApiSignBtcExtraInfo = {
-  networkImpl: string;
   inputAddressesEncodings?: string[];
   nonWitnessPrevTxs?: { [txid: string]: string };
   pathToAddresses: {

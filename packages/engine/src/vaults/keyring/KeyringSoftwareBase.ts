@@ -1,4 +1,5 @@
 import type {
+  ICoreApiNetworkInfo,
   ICoreCredentialsInfo,
   ICoreHdCredential,
   ICoreImportedCredential,
@@ -88,7 +89,10 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
 
     const credentials = await this.baseGetCredentialsInfo(options);
 
+    const networkInfo = await this.baseGetCoreApiNetworkInfo();
+
     const result = await this.coreApi.signTransaction({
+      networkInfo,
       unsignedTx,
       account: dbAccount,
       password,
@@ -108,10 +112,12 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     const dbAccount = await this.getDbAccount();
 
     const credentials = await this.baseGetCredentialsInfo(options);
+    const networkInfo = await this.baseGetCoreApiNetworkInfo();
 
     const result = await Promise.all(
       messages.map((msg) =>
         checkIsDefined(this.coreApi).signMessage({
+          networkInfo,
           unsignedMsg: msg,
           account: dbAccount,
           password,
@@ -134,7 +140,10 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     }
     const dbAccount = await this.getDbAccount();
     const credentials = await this.baseGetCredentialsInfo({ password });
+    const networkInfo = await this.baseGetCoreApiNetworkInfo();
+
     const privateKeys = await this.coreApi.getPrivateKeys({
+      networkInfo,
       password,
       account: { ...dbAccount, relPaths },
       credentials,
@@ -180,14 +189,16 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     ]);
   }
 
-  async baseGetCoreApiNetworkInfo() {
+  async baseGetCoreApiNetworkInfo(): Promise<ICoreApiNetworkInfo> {
     const chainCode = (await this.getChainInfo()).code;
     const chainId = await this.vault.getNetworkChainId();
+    const networkImpl = await this.getNetworkImpl();
     const { networkId } = this;
     return {
       networkChainCode: chainCode,
       chainId,
       networkId,
+      networkImpl,
     };
   }
 

@@ -138,6 +138,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const pub = ed25519.publicFromPrivate(privateKey);
     return this.getAddressFromPublic({
       publicKey: bufferUtils.bytesToHex(pub),
+      networkInfo: query.networkInfo,
     });
   }
 
