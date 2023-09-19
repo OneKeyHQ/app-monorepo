@@ -82,12 +82,14 @@ export default class ServiceUtxos extends ServiceBase {
     sortBy = 'balance',
     options = {},
     useRecycleUtxos = false,
+    useCustomAddressesBalance = false,
   }: {
     networkId: string;
     accountId: string;
     sortBy?: ISortType;
     options?: ICollectUTXOsOptions;
     useRecycleUtxos?: boolean;
+    useCustomAddressesBalance?: boolean;
   }): Promise<{
     utxos: ICoinControlListItem[];
     utxosWithoutDust: ICoinControlListItem[];
@@ -98,10 +100,17 @@ export default class ServiceUtxos extends ServiceBase {
     recycleUtxos: ICoinControlListItem[];
     recycleUtxosWithoutFrozen: ICoinControlListItem[];
   }> {
-    return this._getUtxos(networkId, accountId, sortBy, useRecycleUtxos, {
-      checkInscription: !getShouldHideInscriptions({ accountId, networkId }),
-      ...options,
-    });
+    return this._getUtxos(
+      networkId,
+      accountId,
+      sortBy,
+      useRecycleUtxos,
+      useCustomAddressesBalance,
+      {
+        checkInscription: !getShouldHideInscriptions({ accountId, networkId }),
+        ...options,
+      },
+    );
   }
 
   _getUtxos = memoizee(
@@ -110,6 +119,7 @@ export default class ServiceUtxos extends ServiceBase {
       accountId: string,
       sortBy: ISortType = 'balance',
       useRecycleUtxos: boolean,
+      useCustomAddressesBalance: boolean,
       options: ICollectUTXOsOptions = {},
     ) => {
       const vault = (await this.backgroundApi.engine.getVault({
@@ -129,21 +139,28 @@ export default class ServiceUtxos extends ServiceBase {
         dbAccount.xpub,
       );
 
-      const collectUTXOsInfoOptions = useRecycleUtxos
-        ? {
-            forceSelectUtxos: archivedUtxos
-              .filter((utxo) => utxo.recycle)
-              .map((utxo) => {
-                const [txId, vout] = utxo.key.split('_');
-                return {
-                  txId,
-                  vout: parseInt(vout, 10),
-                  address: dbAccount.address,
-                };
-              }),
-            ...options,
-          }
-        : options;
+      let collectUTXOsInfoOptions = options;
+      if (useRecycleUtxos) {
+        collectUTXOsInfoOptions = {
+          ...options,
+          forceSelectUtxos: archivedUtxos
+            .filter((utxo) => utxo.recycle)
+            .map((utxo) => {
+              const [txId, vout] = utxo.key.split('_');
+              return {
+                txId,
+                vout: parseInt(vout, 10),
+                address: dbAccount.address,
+              };
+            }),
+        };
+      }
+      if (useCustomAddressesBalance) {
+        collectUTXOsInfoOptions = {
+          ...options,
+          customAddressMap: vault.getCustomAddressMap(dbAccount),
+        };
+      }
 
       const { utxos: btcUtxos } = await vault.collectUTXOsInfo(
         collectUTXOsInfoOptions,

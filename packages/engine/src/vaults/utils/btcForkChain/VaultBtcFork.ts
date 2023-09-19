@@ -1751,18 +1751,15 @@ export default class VaultBtcFork extends VaultBase {
       }
     }
 
-    let customAddresses;
-    if (
-      transferInfos[0].useCustomAddressesBalance &&
-      dbAccount.customAddresses
-    ) {
-      customAddresses = Object.values(dbAccount.customAddresses);
+    let customAddressMap;
+    if (transferInfos[0].useCustomAddressesBalance) {
+      customAddressMap = this.getCustomAddressMap(dbAccount);
     }
 
     let { utxos } = await this.collectUTXOsInfo({
       forceSelectUtxos,
       checkInscription,
-      customAddresses,
+      customAddressMap,
     });
 
     // Select the slowest fee rate as default, otherwise the UTXO selection
@@ -1904,6 +1901,19 @@ export default class VaultBtcFork extends VaultBase {
     };
   }
 
+  getCustomAddressMap(dbAccount: DBUTXOAccount) {
+    const customAddressMap: Record<string, string> = {}; // { path: address }
+    if (!dbAccount.customAddresses) return undefined;
+    const { path } = dbAccount;
+    Object.entries(dbAccount.customAddresses).forEach(
+      ([relativePath, address]) => {
+        const key = `${path}/${relativePath}`;
+        customAddressMap[key] = address;
+      },
+    );
+    return customAddressMap;
+  }
+
   private validateInscriptionInputsForCoinSelect({
     inputsForCoinSelect,
     forceSelectUtxos,
@@ -1999,9 +2009,7 @@ export default class VaultBtcFork extends VaultBase {
     }
     if (useCustomAddressesBalance) {
       collectUTXOsInfoParams = {
-        customAddresses: dbAccount.customAddresses
-          ? Object.values(dbAccount.customAddresses)
-          : [],
+        customAddressMap: this.getCustomAddressMap(dbAccount),
       };
     }
 

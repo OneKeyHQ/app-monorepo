@@ -169,7 +169,7 @@ class BlockBook {
         checkInscription: isNil(options.checkInscription)
           ? true
           : options.checkInscription,
-        addresses: options.manuallyAddedAddresses,
+        customAddressMap: options.customAddressMap,
       },
     );
     return res.data;
