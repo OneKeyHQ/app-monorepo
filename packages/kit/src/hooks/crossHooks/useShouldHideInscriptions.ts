@@ -23,8 +23,8 @@ export const {
     const state = hideInscriptions?.[accountId];
 
     if (isNil(state)) {
-      // taproot and native segwit enable inscriptions by default
-      if (accountId?.includes(`m/86'/`) || accountId?.includes(`m/84'/`)) {
+      // taproot enable inscriptions by default
+      if (accountId?.includes(`m/86'/`)) {
         shouldHideInscriptions = false;
       } else {
         shouldHideInscriptions = true;
