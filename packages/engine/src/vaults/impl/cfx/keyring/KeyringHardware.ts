@@ -23,7 +23,7 @@ import {
   type IUnsignedMessageEth,
 } from '../../../../types/message';
 import { KeyringHardwareBase } from '../../../keyring/KeyringHardwareBase';
-import { conflux as sdkCfx } from '../sdk';
+import { conflux as sdkCfx } from '@onekeyhq/core/src/chains/cfx/sdkCfx';
 
 import type { DBVariantAccount } from '../../../../types/account';
 import type {
@@ -38,7 +38,7 @@ const { Transaction, address: confluxAddress } = sdkCfx;
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 
-export type IUnsignedMessageCfx = IUnsignedMessageEth & {
+export type IUnsignedMessageCfxLegacy = IUnsignedMessageEth & {
   payload?: any;
 };
 
@@ -95,7 +95,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   async signMessage(
-    messages: IUnsignedMessageCfx[],
+    messages: IUnsignedMessageCfxLegacy[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     return Promise.all(
@@ -198,7 +198,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     }));
   }
 
-  async handleSignMessage(message: IUnsignedMessageCfx) {
+  async handleSignMessage(message: IUnsignedMessageCfxLegacy) {
     const HardwareSDK = await this.getHardwareSDKInstance();
     const path = await this.getAccountPath();
     const { connectId, deviceId } = await this.getHardwareInfo();

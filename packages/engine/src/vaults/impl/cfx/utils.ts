@@ -6,7 +6,7 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { IDecodedTxActionType, IDecodedTxStatus } from '../../types';
 
-import { conflux as sdkCfx } from './sdk';
+import { conflux as sdkCfx } from '@onekeyhq/core/src/chains/cfx/sdkCfx';
 import { IOnChainTransferType } from './types';
 
 import type { ChainSigner, Verifier } from '../../../proxy';

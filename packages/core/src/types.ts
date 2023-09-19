@@ -7,7 +7,13 @@ import type { SignatureOptions } from 'bitcoinjs-message';
 
 // ----------------------------------------------
 
+export type ICoreGetAddressesQueryNetworkInfo = {
+  networkChainCode: string;
+  chainId: string;
+  networkId: string;
+};
 export type ICoreApiGetAddressesQueryHdBase = {
+  networkInfo: ICoreGetAddressesQueryNetworkInfo;
   template: string;
   hdCredential: ICoreHdCredential;
   password: string;
@@ -15,34 +21,28 @@ export type ICoreApiGetAddressesQueryHdBase = {
 };
 export type ICoreApiGetAddressesQueryHdEvm = ICoreApiGetAddressesQueryHdBase;
 export type ICoreApiGetAddressesQueryHdBtc = ICoreApiGetAddressesQueryHdBase & {
-  networkChainCode: string;
   addressEncoding: AddressEncodings;
 };
-export type ICoreApiGetAddressesQueryHdCfx = ICoreApiGetAddressesQueryHdBase & {
-  // TODO move to ICoreApiGetAddressesQueryHdBase
-  chainId: string;
-  networkId: string;
-};
+
 export type ICoreApiGetAddressesQueryHd =
   | ICoreApiGetAddressesQueryHdBase
   | ICoreApiGetAddressesQueryHdEvm
-  | ICoreApiGetAddressesQueryHdBtc
-  | ICoreApiGetAddressesQueryHdCfx;
+  | ICoreApiGetAddressesQueryHdBtc;
 
 export type ICoreApiGetAddressQueryImportedBase = {
+  networkInfo: ICoreGetAddressesQueryNetworkInfo;
   privateKeyRaw: string;
 };
 export type ICoreApiGetAddressQueryImportedBtc =
   ICoreApiGetAddressQueryImportedBase & {
-    networkChainCode: string;
     template?: string; // TODO use addressEncoding?
   };
 export type ICoreApiGetAddressQueryImported =
   | ICoreApiGetAddressQueryImportedBase
   | ICoreApiGetAddressQueryImportedBtc;
 export type ICoreApiGetAddressQueryPublicKey = {
+  networkInfo?: ICoreGetAddressesQueryNetworkInfo;
   publicKey: string;
-  query?: ICoreApiGetAddressesQueryHd;
 };
 export type ICoreApiGetAddressItem = {
   address: string;

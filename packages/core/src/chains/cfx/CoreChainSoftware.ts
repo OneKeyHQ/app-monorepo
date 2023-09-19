@@ -4,30 +4,41 @@ import {
   encode as toCfxAddress,
   decode as toEthAddress,
 } from '@conflux-dev/conflux-address-js';
+import { hexZeroPad } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
 
+import type { ChainSigner } from '@onekeyhq/engine/src/proxy';
 import {
   type ICurveName,
   uncompressPublicKey,
 } from '@onekeyhq/engine/src/secret';
-import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
+import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
+import type { ISigner } from '@onekeyhq/engine/src/types/secret';
+import type { IEncodedTxCfx } from '@onekeyhq/engine/src/vaults/impl/cfx/types';
+import type {
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '@onekeyhq/engine/src/vaults/types';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
+
+import { conflux } from './sdkCfx';
 
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
   ICoreApiGetAddressQueryPublicKey,
   ICoreApiGetAddressesQueryHd,
-  ICoreApiGetAddressesQueryHdCfx,
   ICoreApiGetAddressesResult,
   ICoreApiPrivateKeysMap,
   ICoreApiSignBasePayload,
   ICoreApiSignMsgPayload,
   ICoreApiSignTxPayload,
 } from '../../types';
+
+const { Transaction } = conflux;
 
 const curve: ICurveName = 'secp256k1';
 
@@ -52,11 +63,38 @@ async function cfxAddressToEthAddress(address: string) {
   );
 }
 
+async function signTransactionWithSigner(
+  unsignedTx: IUnsignedTxPro,
+  signer: ISigner,
+): Promise<ISignedTxPro> {
+  const unsignedTransaction = new Transaction(
+    unsignedTx.encodedTx as IEncodedTxCfx,
+  );
+  const digest = keccak256(unsignedTransaction.encode(false));
+
+  const [sig, recoveryParam] = await signer.sign(
+    Buffer.from(digest.slice(2), 'hex'),
+  );
+  const [r, s]: [Buffer, Buffer] = [sig.slice(0, 32), sig.slice(32)];
+
+  const signedTransaction = new Transaction({
+    ...(unsignedTx.encodedTx as IEncodedTxCfx),
+    r: hexZeroPad(`0x${r.toString('hex')}`, 32),
+    s: hexZeroPad(`0x${s.toString('hex')}`, 32),
+    v: recoveryParam,
+  });
+
+  return {
+    digest,
+    txid: signedTransaction.hash,
+    rawTx: signedTransaction.serialize(),
+  };
+}
+
 export default class CoreChainSoftware extends CoreChainApiBase {
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {
-    // throw new Error('Method not implemented.');
     return this.baseGetPrivateKeys({
       payload,
       curve,
@@ -72,55 +110,35 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       payload,
       curve,
     });
-    // eslint-disable-next-line prefer-destructuring
-    const encodedTx = unsignedTx.encodedTx;
-    const txBytes = bufferUtils.toBuffer('');
-    const [signature] = await signer.sign(txBytes);
-    const txid = '';
-    const rawTx = '';
-    return {
-      txid,
-      rawTx,
-    };
+    return signTransactionWithSigner(unsignedTx, signer);
   }
 
   override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
-    // throw new Error('Method not implemented.');
-    // eslint-disable-next-line prefer-destructuring
-    const unsignedMsg = payload.unsignedMsg;
-    const signer = await this.baseGetSingleSigner({
-      payload,
-      curve,
-    });
-    const msgBytes = bufferUtils.toBuffer('');
-    const [signature] = await signer.sign(msgBytes);
-    return '';
+    throw new Error('Method not implemented.');
   }
 
   override async getAddressFromPrivate(
     query: ICoreApiGetAddressQueryImported,
   ): Promise<ICoreApiGetAddressItem> {
-    // throw new Error('Method not implemented.');
     const { privateKeyRaw } = query;
     const privateKey = bufferUtils.toBuffer(privateKeyRaw);
-    const pub = '';
+    const pub = secp256k1.publicFromPrivate(privateKey);
     return this.getAddressFromPublic({
       publicKey: bufferUtils.bytesToHex(pub),
+      networkInfo: query.networkInfo,
     });
   }
 
   override async getAddressFromPublic(
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem> {
-    // throw new Error('Method not implemented.');
     const { publicKey } = query;
     const compressedPublicKey = bufferUtils.toBuffer(publicKey);
     const uncompressedPublicKey = uncompressPublicKey(
       curve,
       compressedPublicKey,
     );
-    const q = query.query as ICoreApiGetAddressesQueryHdCfx;
-    const { chainId, networkId } = q;
+    const { chainId, networkId } = checkIsDefined(query.networkInfo);
     const cfxAddress = await pubkeyToCfxAddress(
       uncompressedPublicKey,
       checkIsDefined(chainId),
@@ -138,7 +156,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressesFromHd(
     query: ICoreApiGetAddressesQueryHd,
   ): Promise<ICoreApiGetAddressesResult> {
-    // throw new Error('Method not implemented.');
     return this.baseGetAddressesFromHd(query, {
       curve,
     });

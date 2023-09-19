@@ -1,3 +1,5 @@
+import { merge } from 'lodash';
+
 import { slicePathTemplate } from '@onekeyhq/engine/src/managers/derivation';
 import { ChainSigner } from '@onekeyhq/engine/src/proxy';
 import {
@@ -164,10 +166,10 @@ export abstract class CoreChainApiBase {
 
         const result = await this.getAddressFromPublic({
           publicKey,
-          query,
+          networkInfo: query,
         });
 
-        return { ...result, publicKey, path };
+        return merge({ publicKey, path }, result);
       }),
     );
     return { addresses };

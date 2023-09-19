@@ -46,7 +46,7 @@ import {
   KeyringImported,
   KeyringWatching,
 } from './keyring';
-import { conflux as sdkCfx } from './sdk';
+import { conflux as sdkCfx } from '@onekeyhq/core/src/chains/cfx/sdkCfx';
 import settings from './settings';
 import { IOnChainTransferType } from './types';
 import {

@@ -213,16 +213,15 @@ export abstract class KeyringHdBtcFork extends KeyringHdBase {
       coinName,
     );
 
-    const chainCode = (await this.getChainInfo()).code;
     const credentials = await this.baseGetCredentialsInfo({ password });
     const { addresses: addressesInfo } = await checkIsDefined(
       this.coreApi,
     ).getAddressesFromHd({
+      networkInfo: await this.baseGetCoreApiNetworkInfo(),
       template,
       hdCredential: checkIsDefined(credentials.hd),
       password,
       indexes: usedIndexes,
-      networkChainCode: chainCode,
       addressEncoding,
     });
 

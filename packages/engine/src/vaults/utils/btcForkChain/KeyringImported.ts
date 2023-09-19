@@ -41,6 +41,9 @@ export abstract class KeyringImportedBtcFork extends KeyringImportedBase {
   async basePrepareAccountsImportedBtc(
     params: IPrepareImportedAccountsParams,
   ): Promise<DBUTXOAccount[]> {
+    if (!this.coreApi) {
+      throw new Error('coreApi is empty');
+    }
     initBitcoinEcc();
     const { privateKey, name, template } = params;
 
@@ -60,9 +63,9 @@ export abstract class KeyringImportedBtcFork extends KeyringImportedBase {
 
     const privateKeyRaw = bufferUtils.bytesToHex(privateKey);
     const { xpub, xpubSegwit, publicKey, address, addresses } =
-      await checkIsDefined(this.coreApi).getAddressFromPrivate({
+      await this.coreApi.getAddressFromPrivate({
+        networkInfo: await this.baseGetCoreApiNetworkInfo(),
         template,
-        networkChainCode: chainCode,
         privateKeyRaw,
       });
 

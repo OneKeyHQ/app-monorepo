@@ -8,7 +8,7 @@ import secp256k1, {
   publicKeyConvert,
 } from 'secp256k1';
 
-import { conflux } from '../sdk';
+import { conflux } from '@onekeyhq/core/src/chains/cfx/sdkCfx';
 
 const { format, Transaction, sign } = conflux;
 const { keccak256 } = sign;

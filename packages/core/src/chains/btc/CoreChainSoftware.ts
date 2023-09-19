@@ -669,7 +669,11 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressFromPrivate(
     query: ICoreApiGetAddressQueryImportedBtc,
   ): Promise<ICoreApiGetAddressItem> {
-    const { privateKeyRaw, networkChainCode, template } = query;
+    const {
+      privateKeyRaw,
+      networkInfo: { networkChainCode },
+      template,
+    } = query;
     const privateKey = bufferUtils.toBuffer(privateKeyRaw);
 
     let xpub = '';
@@ -756,7 +760,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       hdCredential,
       password,
       indexes,
-      networkChainCode,
+      networkInfo: { networkChainCode },
       addressEncoding,
     } = query;
     const { seed, entropy } = hdCredential;

@@ -160,9 +160,11 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     const { coinType, accountType } = options;
 
     const privateKeyRaw = bufferUtils.bytesToHex(privateKey);
-    const { address, publicKey } = await this.coreApi.getAddressFromPrivate({
-      privateKeyRaw,
-    });
+    const { address, addresses, publicKey } =
+      await this.coreApi.getAddressFromPrivate({
+        networkInfo: await this.baseGetCoreApiNetworkInfo(),
+        privateKeyRaw,
+      });
 
     return Promise.resolve([
       {
@@ -173,8 +175,20 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         coinType,
         pub: publicKey,
         address,
+        addresses,
       },
     ]);
+  }
+
+  async baseGetCoreApiNetworkInfo() {
+    const chainCode = (await this.getChainInfo()).code;
+    const chainId = await this.vault.getNetworkChainId();
+    const { networkId } = this;
+    return {
+      networkChainCode: chainCode,
+      chainId,
+      networkId,
+    };
   }
 
   async basePrepareAccountsHd(
@@ -193,13 +207,9 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     }
     const { accountType, usedIndexes } = options;
 
-    const chainCode = (await this.getChainInfo()).code;
-    const chainId = await this.vault.getNetworkChainId();
     const credentials = await this.baseGetCredentialsInfo({ password });
     const { addresses: addressInfos } = await this.coreApi.getAddressesFromHd({
-      networkChainCode: chainCode,
-      networkId: this.networkId,
-      chainId,
+      networkInfo: await this.baseGetCoreApiNetworkInfo(),
       template,
       hdCredential: checkIsDefined(credentials.hd),
       password,
