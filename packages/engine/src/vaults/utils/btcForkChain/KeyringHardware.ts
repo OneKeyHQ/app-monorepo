@@ -28,7 +28,13 @@ import type {
   IPrepareHardwareAccountsParams,
   IUnsignedTxPro,
 } from '../../types';
-import type { AddressEncodings, TxInput, TxOutput, UTXO } from './types';
+import type {
+  AddressEncodings,
+  IEncodedTxBtc,
+  TxInput,
+  TxOutput,
+  UTXO,
+} from './types';
 import type BTCForkVault from './VaultBtcFork';
 import type { RefTransaction } from '@onekeyfe/hd-core';
 import type { Messages } from '@onekeyfe/hd-transport';
@@ -41,9 +47,17 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const coinName = (this.vault as unknown as BTCForkVault).getCoinName();
     const addresses = unsignedTx.inputs.map((input) => input.address);
+    const { transferInfo } = unsignedTx.encodedTx as IEncodedTxBtc;
+    let customAddressMap;
+    if (transferInfo.useCustomAddressesBalance) {
+      const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+      customAddressMap = (
+        this.vault as unknown as BTCForkVault
+      ).getCustomAddressMap(dbAccount);
+    }
     const { utxos } = await (
       this.vault as unknown as BTCForkVault
-    ).collectUTXOsInfo({ checkInscription: false });
+    ).collectUTXOsInfo({ checkInscription: false, customAddressMap });
     const signers: Record<string, string> = {};
     for (const utxo of utxos) {
       const { address, path } = utxo;

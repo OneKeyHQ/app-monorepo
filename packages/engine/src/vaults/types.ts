@@ -196,6 +196,7 @@ export type ITransferInfo = {
   lightningAddress?: string;
   txInterval?: string;
   ignoreInscriptions?: boolean;
+  useCustomAddressesBalance?: boolean;
 };
 export type IApproveInfo = {
   from: string; // token owner

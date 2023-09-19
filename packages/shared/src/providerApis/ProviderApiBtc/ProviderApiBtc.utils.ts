@@ -7,7 +7,7 @@ import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import type { IDecodedTxAction } from '@onekeyhq/engine/src/vaults/types';
 import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
 
-import { IMPL_BTC, IMPL_TBTC } from '../../engine/engineConsts';
+import { isBTCNetwork } from '../../engine/engineConsts';
 
 import { NETWORK_TYPES, NetworkTypeEnum } from './ProviderApiBtc.types';
 
@@ -28,7 +28,7 @@ export function toPsbtNetwork(network: Network) {
 }
 
 export function getNetworkName(network: Network) {
-  if (network && (network.impl === IMPL_BTC || network.impl === IMPL_TBTC)) {
+  if (network && isBTCNetwork(network.id)) {
     if (network.isTestnet) {
       return Promise.resolve(NETWORK_TYPES[NetworkTypeEnum.TESTNET].name);
     }
