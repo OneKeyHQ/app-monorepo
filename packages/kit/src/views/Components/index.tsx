@@ -67,7 +67,9 @@ const Index = () => {
             marginVertical={12}
           >
             <Stack display="flex" flexDirection="row">
-              <Text>{item.replace('component/', '')}</Text>
+              <Text variant="$bodyLgMedium">
+                {item.replace('component/', '')}
+              </Text>
             </Stack>
           </Stack>
         </TouchableOpacity>

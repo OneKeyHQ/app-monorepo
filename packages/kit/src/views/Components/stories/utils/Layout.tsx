@@ -1,6 +1,6 @@
 import { ScrollView } from 'tamagui';
 
-import { Stack, Text, Typography } from '@onekeyhq/components';
+import { Stack, Text } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const FormattedText = ({ text }: { text: string | string[] }) => {
@@ -60,7 +60,7 @@ export function Layout({
         {description && (
           <Stack space="$2">
             <Stack>
-              <Typography.PageHeading>使用说明</Typography.PageHeading>
+              <Text variant="$headingXl">使用说明</Text>
             </Stack>
             <Stack>
               <FormattedText text={description} />
@@ -70,7 +70,7 @@ export function Layout({
         {suggestions && (
           <Stack space="$2">
             <Stack>
-              <Typography.PageHeading>使用建议</Typography.PageHeading>
+              <Text variant="$headingXl">使用建议</Text>
             </Stack>
             <FormattedText text={suggestions} />
           </Stack>
@@ -78,20 +78,20 @@ export function Layout({
         {boundaryConditions?.length > 0 && (
           <Stack space="$2">
             <Stack>
-              <Typography.PageHeading>注意事项</Typography.PageHeading>
+              <Text variant="$headingXl">注意事项</Text>
             </Stack>
             <FormattedText text={boundaryConditions} />
           </Stack>
         )}
         <Stack space="$2">
           <Stack>
-            <Typography.PageHeading>组件案例</Typography.PageHeading>
+            <Text variant="$headingXl">组件案例</Text>
           </Stack>
           <Stack space="$4">
             {elements?.map((item) => (
               <Stack space="$2">
                 <Stack flexDirection="column">
-                  <Typography.Heading>{item.title}</Typography.Heading>
+                  <Text variant="$headingLg">{item.title}</Text>
                   {item.description && (
                     <Stack paddingTop={1}>
                       <Text>{item.description}。</Text>
