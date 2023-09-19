@@ -29,7 +29,7 @@ import {
   useNFTIsLoading,
 } from '@onekeyhq/kit/src/hooks';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { isBTCNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
 import { AppUIEventBusNames } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -364,7 +364,7 @@ const NFTListContainer: FC = () => {
         )) {
           const xpubs: string[] = [];
 
-          if (nid === OnekeyNetwork.btc || nid === OnekeyNetwork.tbtc) {
+          if (isBTCNetwork(nid)) {
             xpubs.push(...accounts.map((item) => item.xpub).filter(Boolean));
 
             archivedUtxos = archivedUtxos.concat(

@@ -6,7 +6,7 @@ import { isEmpty } from 'lodash';
 
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import { type Token, TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { isBTCNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountTokensOnChain, useAppSelector } from '../../../hooks';
@@ -69,7 +69,7 @@ export function createTokenSelectorUtils(
 
     return useMemo(() => {
       let tokens = [...presetTokens, ...accountTokens];
-      if (networkId === OnekeyNetwork.btc || networkId === OnekeyNetwork.tbtc) {
+      if (isBTCNetwork(networkId)) {
         tokens = tokens.filter((i) => i.isNative);
       }
       const set = new Set();

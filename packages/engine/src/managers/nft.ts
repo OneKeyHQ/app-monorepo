@@ -17,6 +17,7 @@ import { NFTChainMap } from '@onekeyhq/engine/src/types/nft';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { isBTCNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import simpleDb from '../dbs/simple/simpleDb';
 import { getFiatEndpoint } from '../endpoint';
@@ -253,7 +254,7 @@ export function createOutputActionFromNFTTransaction({
 }
 
 export function NFTDataType(networkId: string) {
-  if (networkId === OnekeyNetwork.btc || networkId === OnekeyNetwork.tbtc) {
+  if (isBTCNetwork(networkId)) {
     return 'btc';
   }
   if (networkId === OnekeyNetwork.sol) {

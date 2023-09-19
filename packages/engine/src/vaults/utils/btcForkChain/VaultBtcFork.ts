@@ -621,8 +621,6 @@ export default class VaultBtcFork extends VaultBase {
           outputs[0].address === dbAccount.address
             ? IDecodedTxDirection.OUT
             : IDecodedTxDirection.SELF,
-        utxoFrom,
-        utxoTo,
         nativeTransfer: {
           tokenInfo: nativeToken,
           from: dbAccount.address,
@@ -630,6 +628,8 @@ export default class VaultBtcFork extends VaultBase {
           amount: utxo.balance,
           amountValue: utxo.balanceValue,
           extraInfo: null,
+          utxoFrom,
+          utxoTo,
           isInscribeTransfer: encodedTx.isInscribeTransfer,
         },
       }));
@@ -1756,9 +1756,15 @@ export default class VaultBtcFork extends VaultBase {
       }
     }
 
+    let customAddressMap;
+    if (transferInfos[0].useCustomAddressesBalance) {
+      customAddressMap = this.getCustomAddressMap(dbAccount);
+    }
+
     let { utxos } = await this.collectUTXOsInfo({
       forceSelectUtxos,
       checkInscription,
+      customAddressMap,
     });
 
     // Select the slowest fee rate as default, otherwise the UTXO selection
@@ -1900,6 +1906,19 @@ export default class VaultBtcFork extends VaultBase {
     };
   }
 
+  getCustomAddressMap(dbAccount: DBUTXOAccount) {
+    const customAddressMap: Record<string, string> = {}; // { path: address }
+    if (!dbAccount.customAddresses) return undefined;
+    const { path } = dbAccount;
+    Object.entries(dbAccount.customAddresses).forEach(
+      ([relativePath, address]) => {
+        const key = `${path}/${relativePath}`;
+        customAddressMap[key] = address;
+      },
+    );
+    return customAddressMap;
+  }
+
   private validateInscriptionInputsForCoinSelect({
     inputsForCoinSelect,
     forceSelectUtxos,
@@ -1943,13 +1962,16 @@ export default class VaultBtcFork extends VaultBase {
   override async getFrozenBalance({
     useRecycleBalance,
     ignoreInscriptions,
+    useCustomAddressesBalance,
   }: {
     useRecycleBalance?: boolean;
     ignoreInscriptions?: boolean;
+    useCustomAddressesBalance?: boolean;
   } = {}): Promise<number> {
     const result = await this.fetchBalanceDetails({
       useRecycleBalance,
       ignoreInscriptions,
+      useCustomAddressesBalance,
     });
     if (result && !isNil(result?.unavailable)) {
       return new BigNumber(result.unavailable).toNumber();
@@ -1960,9 +1982,11 @@ export default class VaultBtcFork extends VaultBase {
   override async fetchBalanceDetails({
     useRecycleBalance,
     ignoreInscriptions,
+    useCustomAddressesBalance,
   }: {
     useRecycleBalance?: boolean;
     ignoreInscriptions?: boolean;
+    useCustomAddressesBalance?: boolean;
   } = {}): Promise<IBalanceDetails | undefined> {
     const [dbAccount, network] = await Promise.all([
       this.getDbAccount() as Promise<DBUTXOAccount>,
@@ -1988,15 +2012,18 @@ export default class VaultBtcFork extends VaultBase {
         }),
       };
     }
+    if (useCustomAddressesBalance) {
+      collectUTXOsInfoParams = {
+        customAddressMap: this.getCustomAddressMap(dbAccount),
+      };
+    }
 
-    const recycleUtxos = await this.getRecycleInscriptionUtxos(dbAccount.xpub);
     const { utxos, valueDetails, ordQueryStatus } = await this.collectUTXOsInfo(
       collectUTXOsInfoParams,
     );
     if (ordQueryStatus === 'ERROR') {
       this.collectUTXOsInfo.clear();
     }
-
     // find frozen utxo
     const frozenUtxos = await this.getFrozenUtxos(dbAccount.xpub, utxos);
     const allFrozenUtxo = utxos.filter((utxo) =>

@@ -80,6 +80,7 @@ export type IBtcUTXOInfo = {
 export type ICollectUTXOsOptions = {
   checkInscription?: boolean;
   forceSelectUtxos?: ICoinSelectUTXOLite[];
+  customAddressMap?: Record<string, string>;
 };
 
 export type ICoinSelectUTXOLite = {

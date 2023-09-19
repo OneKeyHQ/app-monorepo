@@ -5,7 +5,7 @@ import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Alert, Box, Container, Text } from '@onekeyhq/components';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { isBTCNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { useNavigation, useNetworkSimple } from '../../hooks';
 import {
@@ -188,9 +188,7 @@ export function TxDetailView(props: ITxActionListViewProps) {
             )}
           </Box>
 
-          {[OnekeyNetwork.btc, OnekeyNetwork.tbtc].includes(
-            decodedTx.networkId,
-          ) ? (
+          {isBTCNetwork(decodedTx.networkId) ? (
             <TxDetailUtxosEntry
               style={{ mt: 6 }}
               onPress={() => {
