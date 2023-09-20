@@ -1,6 +1,6 @@
 import { XStack, YStack } from 'tamagui';
 
-import { Button } from '@onekeyhq/components';
+import { Button, Spinner } from '@onekeyhq/components';
 import { Placeholder } from '@onekeyhq/components/src/v2/Icon/react/outline';
 
 import { Layout } from './utils/Layout';
@@ -145,11 +145,25 @@ const ButtonsGallery = () => (
         title: 'Disabled and loading',
         element: (
           <XStack space="$2" alignItems="center">
-            <Button size="medium" buttonVariant="primary" disabled>
+            <Button size="medium" buttonVariant="secondary" disabled>
+              <Button.Text>Disabled</Button.Text>
+            </Button>
+            <Button size="medium" buttonVariant="secondary" disabled>
+              <Button.Icon>
+                <Spinner />
+              </Button.Icon>
+            </Button>
+          </XStack>
+        ),
+      },
+      {
+        title: 'Icon Button',
+        element: (
+          <XStack space="$2" alignItems="center">
+            <Button size="medium" buttonVariant="destructive" iconOnly>
               <Button.Icon>
                 <Placeholder />
               </Button.Icon>
-              <Button.Text>Primary</Button.Text>
             </Button>
           </XStack>
         ),

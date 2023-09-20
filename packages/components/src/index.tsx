@@ -5,6 +5,7 @@ export { Text } from './Text';
 export { Button } from './Button';
 export { Icon } from './Icon';
 export { Stack } from './Stack';
+export { Spinner } from './Spinner';
 
 export { useThemeValue } from './hooks/useThemeValue';
 export { useIsMounted } from './hooks/useIsMounted';
