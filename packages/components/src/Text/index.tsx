@@ -1,8 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
-import { GetProps, styled } from '@tamagui/web';
-import { Text as TextComponent } from 'tamagui';
-
-export type TextProps = GetProps<typeof TextComponent>;
+import { styled, Text as TextComponent } from 'tamagui';
 
 export const Text = styled(TextComponent, {
   variants: {
@@ -12,7 +8,8 @@ export const Text = styled(TextComponent, {
           size === '$bodyMdMono' || size === '$bodyLgMono'
             ? 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
             : '$body',
-        fontSize: font?.size[size],
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        fontSize: font?.size[size as any],
         lineHeight: font?.lineHeight[size],
         fontWeight: font?.weight[size],
         textTransform: size === '$headingXs' ? 'uppercase' : 'none',

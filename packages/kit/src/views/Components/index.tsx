@@ -1,12 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
 import natsort from 'natsort';
 import { FlatList, TouchableOpacity } from 'react-native';
-import { Stack } from 'tamagui';
 
-import {
-  Text,
-} from '@onekeyhq/components';
-
+import { Stack, Text } from '@onekeyhq/components';
 import { GalleryRoutes } from '@onekeyhq/kit/src/routes/Gallery';
 
 const Index = () => {
