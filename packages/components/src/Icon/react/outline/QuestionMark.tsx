@@ -2,7 +2,7 @@ import Svg, { Path } from 'react-native-svg';
 
 import type { SvgProps } from 'react-native-svg';
 
-const SvgQuestionmark = (props: SvgProps) => (
+const SvgQuestionMark = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
       fill="currentColor"
@@ -19,4 +19,4 @@ const SvgQuestionmark = (props: SvgProps) => (
     <Path fill="currentColor" d="M13 16a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z" />
   </Svg>
 );
-export default SvgQuestionmark;
+export default SvgQuestionMark;
