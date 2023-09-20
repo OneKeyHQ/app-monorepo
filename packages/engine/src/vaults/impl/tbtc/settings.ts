@@ -75,7 +75,7 @@ const settings: IVaultSettings = Object.freeze({
       desc: { id: 'form__bitcoin__legacy_desc', placeholder: { 0: 'm' } },
       subDesc: 'BIP44, P2PKH, Base58.',
     },
-  } as Record<string, AccountNameInfo>,
+  },
 
   isBtcForkChain: true,
 });

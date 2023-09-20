@@ -53,10 +53,13 @@ import type { IEncodedTxXrp } from './impl/xrp/types';
 import type { ICoinSelectAlgorithm } from './utils/btcForkChain/utils';
 
 // Options ----------------------------------------------
+// TODO duplicate with presetNetworks.extensions.providerOptions
 export type IVaultSubNetworkSettings = {
   isIntegerGasPrice?: boolean;
   minGasPrice?: string;
   allowZeroFee?: boolean;
+  // addressPrefix: presetNetworks.extensions.providerOptions.addressPrefix
+  // curve: presetNetworks.extensions.providerOptions.curve
 };
 
 export type TxExtraInfo = {
@@ -67,7 +70,11 @@ export type TxExtraInfo = {
 };
 
 export type IVaultSettings = {
-  accountNameInfo: Record<string, AccountNameInfo>;
+  accountNameInfo: {
+    // default is required
+    default: AccountNameInfo;
+    [key: string]: AccountNameInfo;
+  };
   feeInfoEditable: boolean;
   privateKeyExportEnabled: boolean;
   publicKeyExportEnabled?: boolean;
@@ -387,6 +394,10 @@ export type IFeeInfoPayload = {
 };
 
 // PrepareAccounts ----------------------------------------------
+export type IGetPrivateKeysParams = {
+  password: string;
+  relPaths?: string[] | undefined;
+};
 export type IPrepareWatchingAccountsParams = {
   target: string;
   name: string;

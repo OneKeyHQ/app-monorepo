@@ -14,7 +14,7 @@ const settings: IVaultSettings = Object.freeze({
   isUTXOModel: false,
   activateTokenRequired: false,
 
-  accountNameInfo: {},
+  accountNameInfo: {} as any,
 
   txExtraInfo: [],
 });

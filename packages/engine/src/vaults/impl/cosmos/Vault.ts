@@ -1102,7 +1102,7 @@ export default class Vault extends VaultBase {
   override async addressFromBase(account: DBAccount) {
     const variantAccount = account as DBVariantAccount;
 
-    const existAddress = variantAccount.addresses[this.networkId]?.trim();
+    const existAddress = variantAccount.addresses?.[this.networkId]?.trim();
     if (isNil(existAddress) || isEmpty(existAddress)) {
       const chainInfo = await this.getChainInfo();
       return baseAddressToAddress(
@@ -1110,6 +1110,9 @@ export default class Vault extends VaultBase {
         variantAccount.address,
       );
     }
-    return variantAccount.addresses[this.networkId];
+    if (!existAddress) {
+      throw new Error('Invalid cosmos address');
+    }
+    return existAddress;
   }
 }

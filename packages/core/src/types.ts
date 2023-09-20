@@ -12,6 +12,8 @@ export type ICoreApiNetworkInfo = {
   chainId: string;
   networkId: string;
   networkImpl: string;
+  addressPrefix?: string;
+  curve?: ICurveName;
 };
 export type ICoreApiGetAddressesQueryHdBase = {
   networkInfo: ICoreApiNetworkInfo;

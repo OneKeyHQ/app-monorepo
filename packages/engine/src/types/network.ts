@@ -1,3 +1,4 @@
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type {
   ENetworkStatus,
   INetworkPriceConfig,
@@ -47,13 +48,24 @@ type EvmExtraInfo = {
 };
 
 type AccountNameInfo = {
-  prefix: string;
+  prefix: string; // accountPrefix
   category: string;
   template: string;
   coinType: string;
-  label?: { id: MessageDescriptor['id'] } | string;
+  label?:
+    | {
+        // LocaleIds
+        id: MessageDescriptor['id'];
+      }
+    | string;
   addressPrefix?: string;
-  desc?: { id: MessageDescriptor['id']; placeholder?: any } | string;
+  desc?:
+    | {
+        // LocaleIds
+        id: MessageDescriptor['id'];
+        placeholder?: any;
+      }
+    | string;
   subDesc?: string;
   recommended?: boolean;
   notRecommended?: boolean;

@@ -61,7 +61,7 @@ const settings: IVaultSettings = Object.freeze({
       subDesc: 'BIP44, P2PKH, Base58.',
       notRecommended: true,
     },
-  } as Record<string, AccountNameInfo>,
+  },
 
   isBtcForkChain: true,
 });

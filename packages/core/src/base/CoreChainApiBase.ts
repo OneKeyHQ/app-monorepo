@@ -7,6 +7,11 @@ import {
   batchGetPrivateKeys,
   batchGetPublicKeys,
 } from '@onekeyhq/engine/src/secret';
+import {
+  ed25519,
+  nistp256,
+  secp256k1,
+} from '@onekeyhq/engine/src/secret/curves';
 import type { Signer as ISigner } from '@onekeyhq/engine/src/types/secret';
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
@@ -26,6 +31,19 @@ import type {
 } from '../types';
 
 export abstract class CoreChainApiBase {
+  protected baseGetCurve(curveName: ICurveName) {
+    switch (curveName) {
+      case 'ed25519':
+        return ed25519;
+      case 'secp256k1':
+        return secp256k1;
+      case 'nistp256':
+        return nistp256;
+      default:
+        throw new OneKeyInternalError('Unsupported curve');
+    }
+  }
+
   protected async baseGetChainSigner({
     curve,
     privateKey,
@@ -142,7 +160,7 @@ export abstract class CoreChainApiBase {
     const { seed } = hdCredential;
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
     const seedBuffer = bufferUtils.toBuffer(seed);
-    const indexexFormatted = indexes.map((index) =>
+    const indexFormatted = indexes.map((index) =>
       pathSuffix.replace('{index}', index.toString()),
     );
     const pubkeyInfos = batchGetPublicKeys(
@@ -150,7 +168,7 @@ export abstract class CoreChainApiBase {
       seedBuffer,
       password,
       pathPrefix,
-      indexexFormatted,
+      indexFormatted,
     );
 
     if (pubkeyInfos.length !== indexes.length) {

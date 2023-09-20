@@ -67,7 +67,7 @@ const settings: IVaultSettings = Object.freeze({
       coinType: COINTYPE_ETH,
       label: 'Ledger Live',
     },
-  } as Record<string, AccountNameInfo>,
+  },
 });
 
 export default settings;

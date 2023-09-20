@@ -14,6 +14,7 @@ import {
   getAccountNameInfoByImpl,
   getAccountNameInfoByTemplate,
 } from '../../managers/impl';
+import { AccountType } from '../../types/account';
 import {
   type IPrepareAccountByAddressIndexParams,
   type ISignCredentialOptions,
@@ -28,14 +29,15 @@ import type {
   ExportedSeedCredential,
 } from '../../dbs/base';
 import type { ChainSigner } from '../../proxy';
+import type { ICurveName } from '../../secret';
 import type {
-  AccountType,
   DBAccount,
   DBSimpleAccount,
   DBVariantAccount,
 } from '../../types/account';
 import type { IUnsignedMessage } from '../../types/message';
 import type {
+  IGetPrivateKeysParams,
   IPrepareHdAccountsParams,
   IPrepareImportedAccountsParams,
 } from '../types';
@@ -128,13 +130,10 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     return result;
   }
 
-  async baseGetPrivateKeys({
-    password,
-    relPaths,
-  }: {
-    password: string;
-    relPaths?: string[] | undefined;
-  }): Promise<Record<string, Buffer>> {
+  async baseGetPrivateKeys(
+    params: IGetPrivateKeysParams,
+  ): Promise<Record<string, Buffer>> {
+    const { password, relPaths } = params;
     if (!this.coreApi) {
       throw new Error('coreApi is not defined');
     }
@@ -168,10 +167,12 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     const { name, privateKey } = params;
     const { coinType, accountType } = options;
 
+    const networkInfo = await this.baseGetCoreApiNetworkInfo();
+
     const privateKeyRaw = bufferUtils.bytesToHex(privateKey);
     const { address, addresses, publicKey } =
       await this.coreApi.getAddressFromPrivate({
-        networkInfo: await this.baseGetCoreApiNetworkInfo(),
+        networkInfo,
         privateKeyRaw,
       });
 
@@ -190,7 +191,12 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
   }
 
   async baseGetCoreApiNetworkInfo(): Promise<ICoreApiNetworkInfo> {
-    const chainCode = (await this.getChainInfo()).code;
+    const chainInfo = await this.getChainInfo();
+    const addressPrefix = chainInfo?.implOptions?.addressPrefix as
+      | string
+      | undefined;
+    const curve = chainInfo?.implOptions?.curve as ICurveName | undefined;
+    const chainCode = chainInfo.code;
     const chainId = await this.vault.getNetworkChainId();
     const networkImpl = await this.getNetworkImpl();
     const { networkId } = this;
@@ -199,6 +205,8 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       chainId,
       networkId,
       networkImpl,
+      addressPrefix,
+      curve,
     };
   }
 
@@ -218,9 +226,11 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     }
     const { accountType, usedIndexes } = options;
 
+    const networkInfo = await this.baseGetCoreApiNetworkInfo();
+
     const credentials = await this.baseGetCredentialsInfo({ password });
     const { addresses: addressInfos } = await this.coreApi.getAddressesFromHd({
-      networkInfo: await this.baseGetCoreApiNetworkInfo(),
+      networkInfo,
       template,
       hdCredential: checkIsDefined(credentials.hd),
       password,
@@ -238,6 +248,9 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       const { path, publicKey, address, addresses } = addressInfos[index];
       if (!path) {
         throw new Error('KeyringHD prepareAccounts ERROR: path not found');
+      }
+      if (accountType === AccountType.VARIANT && !addresses) {
+        throw new Error('addresses is required for variant account');
       }
 
       const name = names?.[index] || `${namePrefix} #${usedIndexes[index] + 1}`;

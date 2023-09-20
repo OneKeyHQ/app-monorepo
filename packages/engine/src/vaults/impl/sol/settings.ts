@@ -42,7 +42,7 @@ const settings: IVaultSettings = Object.freeze({
       label: 'Ledger Live',
       desc: 'Ledger Live, Solflare',
     },
-  } as Record<string, AccountNameInfo>,
+  },
 });
 
 export default settings;

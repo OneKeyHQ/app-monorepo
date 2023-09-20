@@ -5,7 +5,6 @@ import {
 
 import { BulkTypeEnum } from '../../../types/batchTransfer';
 
-import type { AccountNameInfo } from '../../../types/network';
 import type { IVaultSettings } from '../../types';
 
 const settings: IVaultSettings = Object.freeze({
@@ -72,11 +71,14 @@ const settings: IVaultSettings = Object.freeze({
       template: `m/44'/${COINTYPE_BTC}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_BTC,
       label: 'Legacy',
-      desc: { id: 'form__bitcoin__legacy_desc', placeholder: { 0: '1' } },
+      desc: {
+        id: 'form__bitcoin__legacy_desc',
+        placeholder: { 0: '1' },
+      },
       subDesc: 'BIP44, P2PKH, Base58.',
       notRecommended: true,
     },
-  } as Record<string, AccountNameInfo>,
+  },
 
   isBtcForkChain: true,
 });

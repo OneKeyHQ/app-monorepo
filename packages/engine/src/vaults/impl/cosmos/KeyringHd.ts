@@ -1,9 +1,13 @@
 import { sha256 } from '@noble/hashes/sha256';
 
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ExportedSeedCredential } from '@onekeyhq/engine/src/dbs/base';
 import { ChainSigner } from '@onekeyhq/engine/src/proxy';
 import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
-import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
+import type {
+  DBSimpleAccount,
+  DBVariantAccount,
+} from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_COSMOS as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -24,8 +28,9 @@ import type { IEncodedTxCosmos } from './type';
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 const HARDEN_PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0'`;
 
-// @ts-ignore
 export class KeyringHd extends KeyringHdBase {
+  override coreApi = coreChainApi.cosmos.hd;
+
   override async getSigners(password: string, addresses: Array<string>) {
     const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
     const selectedAddress = dbAccount.address;
@@ -52,7 +57,23 @@ export class KeyringHd extends KeyringHdBase {
     };
   }
 
+  override async getPrivateKeys(query: {
+    password: string;
+    relPaths?: string[] | undefined;
+  }): Promise<Record<string, Buffer>> {
+    return this.baseGetPrivateKeys(query);
+  }
+
   override async prepareAccounts(
+    params: IPrepareHdAccountsParams,
+  ): Promise<Array<DBSimpleAccount>> {
+    return this.basePrepareAccountsHd(params, {
+      accountType: AccountType.VARIANT,
+      usedIndexes: params.indexes,
+    });
+  }
+
+  async prepareAccountsOld(
     params: IPrepareHdAccountsParams,
   ): Promise<Array<DBVariantAccount>> {
     const { password, indexes, names } = params;
