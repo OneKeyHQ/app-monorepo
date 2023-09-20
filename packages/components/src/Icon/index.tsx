@@ -2,7 +2,7 @@ import { Component, useEffect, useState } from 'react';
 import type { FC } from 'react';
 
 import { useThemeValue } from '@onekeyhq/components/src/Provider/hooks/useThemeValue';
-import { useIsMounted } from '@onekeyhq/components/src/Providerhooks/useIsMounted';
+import { useIsMounted } from '@onekeyhq/components/src/Provider/hooks/useIsMounted';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ICON_CONFIG from './Icons';
