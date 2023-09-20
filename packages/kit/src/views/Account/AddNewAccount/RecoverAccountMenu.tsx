@@ -10,6 +10,7 @@ import type {
   IMenu,
 } from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { isHardwareWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 
 import { useNavigation } from '../../../hooks';
 import {
@@ -31,9 +32,18 @@ const RecoverAccountMenu: FC<
     walletId: string;
     networkId: string;
     template: string;
+    isLoadingState: boolean;
   }
 > = (props) => {
-  const { showPath, onChange, password, walletId, networkId, template } = props;
+  const {
+    showPath,
+    onChange,
+    password,
+    walletId,
+    networkId,
+    template,
+    isLoadingState,
+  } = props;
   const navigation = useNavigation<NavigationProps['navigation']>();
   const showFindAddressByPath = useMemo(
     () =>
@@ -126,6 +136,7 @@ const RecoverAccountMenu: FC<
         id: 'action__find_address_by_path',
         onPress: onPressFindAddressByPath,
         icon: 'MagnifyingGlassMini',
+        isDisabled: isHardwareWallet({ walletId }) && isLoadingState,
       },
       () => <Divider my={1} />,
       {
@@ -140,6 +151,8 @@ const RecoverAccountMenu: FC<
       onPressBulkCopyAddresses,
       onPressFindAddressByPath,
       showFindAddressByPath,
+      walletId,
+      isLoadingState,
     ],
   );
 
