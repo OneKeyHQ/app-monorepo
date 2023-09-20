@@ -125,8 +125,8 @@ export type SettingsState = {
   showTokenDetailPriceChart?: boolean;
   hideAllNetworksSelectNetworkTips?: boolean;
   hideInscriptions: Record<string, boolean>; // accountId -> hide
-  migrationVersions: {
-    fixBtcPubKey: string;
+  migrationVersions?: {
+    fixBtcPubKey?: string;
   };
 };
 
@@ -643,7 +643,7 @@ export const settingsSlice = createSlice({
 
     setMigrationVersions(
       state,
-      action: PayloadAction<Partial<SettingsState['migrationVersions']>>,
+      action: PayloadAction<SettingsState['migrationVersions']>,
     ) {
       state.migrationVersions = {
         ...state.migrationVersions,
