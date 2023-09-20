@@ -31,7 +31,6 @@ export function Dialog({
   confirmButtonProps,
   cancelButtonProps,
 }: ModalProps) {
-  console.log(open)
   return (
     <TMDialog open={open}>
       <TMDialog.Trigger onPress={onOpen} asChild>
@@ -45,7 +44,6 @@ export function Dialog({
           </Sheet.Frame>
           <Sheet.Overlay
             backgroundColor="$bgBackdrop"
-            animation="lazy"
             enterStyle={{ opacity: 0 }}
             exitStyle={{ opacity: 0 }}
           />

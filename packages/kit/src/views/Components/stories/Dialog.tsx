@@ -9,18 +9,16 @@ import { Layout } from './utils/Layout';
 const ControlledDialogByText = () => {
   const [isOpen, changeIsOpen] = useState(false);
   return (
-      <Dialog
-        open={isOpen}
-        onOpen={() => {
-          changeIsOpen(true);
-        }}
-        renderTrigger={(
-            <Text>Open Modal By Text</Text>
-        )}
-        onClose={() => {
-          changeIsOpen(false);
-        }}
-      />
+    <Dialog
+      open={isOpen}
+      onOpen={() => {
+        changeIsOpen(true);
+      }}
+      renderTrigger={<Text>Open Modal By Text</Text>}
+      onClose={() => {
+        changeIsOpen(false);
+      }}
+    />
   );
 };
 
