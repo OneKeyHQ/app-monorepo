@@ -1,10 +1,11 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
+import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
-import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
+import DialogGallery from '../../views/Components/stories/Dialog';
 
 export enum GalleryRoutes {
   Components = 'components',
@@ -12,6 +13,7 @@ export enum GalleryRoutes {
   ComponentIcon = 'component/icon',
   ComponentButton = 'component/button',
   ComponentBadge = 'component/badge',
+  ComponentDialog = 'component/dialog',
 }
 
 export const stackScreenList = [
@@ -23,6 +25,7 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentIcon, component: IconGallery },
   { name: GalleryRoutes.ComponentButton, component: ButtonsGallery },
   { name: GalleryRoutes.ComponentBadge, component: BadgeGallery },
+  { name: GalleryRoutes.ComponentDialog, component: DialogGallery },
 ];
 
 const DevStack = createNativeStackNavigator();

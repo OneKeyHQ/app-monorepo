@@ -96,6 +96,10 @@ module.exports = {
   ignorePatterns: [
     'packages/components/src/Icon/*',
     'packages/desktop/public/static/js-sdk/*',
+    'packages/components_pre/**/*.ts',
+    'packages/components_pre/**/*.tsx',
+    'packages/kit_pre/**/*.ts',
+    'packages/kit_pre/**/*.tsx',
   ],
   env: {
     browser: true,
