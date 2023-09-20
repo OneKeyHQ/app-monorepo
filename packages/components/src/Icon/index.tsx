@@ -72,7 +72,7 @@ const IconComponent = styled(({ name, style }: IconProps) => {
 export type IconComponentProps = GetProps<typeof IconComponent>
 
 export const Icon = platformEnv.isExtensionBackground
-  ? ((() => null) as unknown as Component<IconComponentProps>)
+  ? ((() => null) as unknown as typeof IconComponent)
   : IconComponent;
 
 export type { ICON_NAMES };
