@@ -99,6 +99,7 @@ module.exports = {
     // 临时忽略以下目录的检查，迭代后会逐步开启
     'packages/app',
     'packages/blockchain-libs',
+    'packages/kit/src/store',
     'packages/desktop',
     'packages/engine',
     'packages/ext',

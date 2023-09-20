@@ -82,6 +82,7 @@
     "@tamagui/babel-plugin": "^1.68.2",
     "@tamagui/config": "^1.68.2",
     "@tamagui/static": "^1.68.2",
+    "@types/lodash": "^4.14.198",
     "@web3-react/core": "8.0.35-beta.0",
     "@web3-react/empty": "8.0.20-beta.0",
     "@web3-react/metamask": "8.0.28-beta.0",

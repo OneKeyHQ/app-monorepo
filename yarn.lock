@@ -6673,6 +6673,7 @@ __metadata:
     "@types/jest": ^29.2.3
     "@types/json-stringify-safe": ^5
     "@types/jsrsasign": ^10
+    "@types/lodash": ^4.14.198
     "@types/memoizee": ^0.4.8
     "@types/mime-types": ^2.1.1
     "@types/node": ^16.7.13
@@ -10554,6 +10555,13 @@ __metadata:
     "@types/level-errors": "*"
     "@types/node": "*"
   checksum: 6740284488b6806ba398bc38842fa789edd5667a342830c544a6b3611ebeed957a08d03dc8bde1e32fe03ac9c439341647c044c1ff0f73a26bcded9ca302a009
+  languageName: node
+  linkType: hard
+
+"@types/lodash@npm:^4.14.198":
+  version: 4.14.198
+  resolution: "@types/lodash@npm:4.14.198"
+  checksum: b290e4480707151bcec738bca40527915defe52a0d8e26c83685c674163a265e1a88cb2ee56b0fb587a89819d0cd5df86ada836aec3e9c2e4bf516e7d348d524
   languageName: node
   linkType: hard
 
