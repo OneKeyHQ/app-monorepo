@@ -34,24 +34,24 @@ const IconGallery = () => (
           </XStack>
         ),
       },
-      // {
-      //   title: 'icons',
-      //   element: (
-      //     <FlatList
-      //       style={{ width: '100%' }}
-      //       numColumns={4}
-      //       data={Object.keys(Icons) as ICON_NAMES[]}
-      //       renderItem={({ item }) => (
-      //         <Stack width="25%" height={80} alignItems="center" key={item}>
-      //           <Text>{item}</Text>
-      //           <View style={{ position: 'absolute', bottom: 10 }}>
-      //             <Icon name={item} />
-      //           </View>
-      //         </Stack>
-      //       )}
-      //     />
-      //   ),
-      // },
+      {
+        title: 'icons',
+        element: (
+          <FlatList
+            style={{ width: '100%' }}
+            numColumns={4}
+            data={Object.keys(Icons) as ICON_NAMES[]}
+            renderItem={({ item }) => (
+              <Stack width="25%" height={80} alignItems="center" key={item}>
+                <Text>{item}</Text>
+                <View style={{ position: 'absolute', bottom: 10 }}>
+                  <Icon name={item} />
+                </View>
+              </Stack>
+            )}
+          />
+        ),
+      },
     ]}
   />
 );
