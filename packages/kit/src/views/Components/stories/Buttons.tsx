@@ -1,7 +1,7 @@
 import { XStack, YStack } from 'tamagui';
 
 import { Button, Spinner } from '@onekeyhq/components';
-import { Placeholder } from '@onekeyhq/components/src/v2/Icon/react/outline';
+import { Placeholder } from '@onekeyhq/components/src/Icon/react/outline';
 
 import { Layout } from './utils/Layout';
 
