@@ -6,14 +6,18 @@ import { Box, Icon, Pressable, Text } from '@onekeyhq/components';
 import BaseMenu from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
 import { isBTCNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
 
+import { useAccount } from '../../../hooks';
+
 import type { MessageDescriptor } from 'react-intl';
 
 type BalanceType = 'Auto' | 'Manually';
 
 function BalanceTypeMenu({
+  accountId,
   networkId,
   callback,
 }: {
+  accountId: string;
   networkId: string;
   callback: (value: BalanceType) => void;
 }) {
@@ -21,6 +25,24 @@ function BalanceTypeMenu({
   const [title, setTitle] = useState(
     intl.formatMessage({ id: 'form__available_balance_auto' }),
   );
+
+  const { account } = useAccount({ accountId, networkId });
+
+  const showMenu = useMemo(() => {
+    if (!isBTCNetwork(networkId)) {
+      return false;
+    }
+    if (!account?.customAddresses) {
+      return false;
+    }
+    try {
+      const customAddresses = JSON.parse(account.customAddresses);
+      return Object.values(customAddresses).length > 0;
+    } catch {
+      // ignore parse error
+      return false;
+    }
+  }, [account, networkId]);
 
   const onSelect = useCallback(
     (value: BalanceType) => {
@@ -54,7 +76,7 @@ function BalanceTypeMenu({
     [onSelect, intl],
   );
 
-  if (!isBTCNetwork(networkId)) {
+  if (!showMenu) {
     return (
       <Text typography="CaptionStrong" color="text-default" mr={2}>
         {intl.formatMessage({ id: 'content__available_balance' })}
@@ -63,7 +85,7 @@ function BalanceTypeMenu({
   }
 
   return (
-    <Box>
+    <Box height={4}>
       <BaseMenu options={options} menuWidth={280}>
         <Pressable flex={1} alignItems="center" flexDirection="row">
           <Text typography="CaptionStrong" color="text-default" mr={2}>

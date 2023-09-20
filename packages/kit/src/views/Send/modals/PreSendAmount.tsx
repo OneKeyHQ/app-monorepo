@@ -490,6 +490,7 @@ function PreSendAmount() {
           <Box flexDirection="row" alignItems="center">
             <Box flex={1}>
               <BalanceTypeMenu
+                accountId={accountId}
                 networkId={networkId}
                 callback={(value) =>
                   setuseCustomAddressesBalance(value === 'Manually')

@@ -840,6 +840,7 @@ const RecoverAccounts: FC = () => {
           walletId={walletId}
           networkId={selectedNetWork.id}
           template={template}
+          isLoadingState={isLoadingState}
           onChange={(isChecked) => {
             const newConfig = { ...config, showPathAndLink: isChecked };
             setConfig(newConfig);
