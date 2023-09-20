@@ -11,7 +11,7 @@ import { MessageType } from '../message';
 import { ProtoSignDoc } from '../proto/protoSignDoc';
 
 import type { TransactionWrapper } from '.';
-import type { StdFee } from '../../type';
+import type { StdFee } from '@onekeyhq/engine/src/vaults/impl/cosmos/type';
 import type { StdSignDoc } from '../amino/types';
 import type { UnpackedMessage } from '../proto/protoDecode';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';

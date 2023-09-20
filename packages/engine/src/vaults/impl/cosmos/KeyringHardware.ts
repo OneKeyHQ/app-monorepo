@@ -20,7 +20,7 @@ import {
   generateSignBytes,
   pubkeyToBaseAddress,
   serializeSignedTx,
-} from './sdk';
+} from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
 
 import type {
   IHardwareGetAddressParams,

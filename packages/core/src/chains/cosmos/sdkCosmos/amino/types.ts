@@ -1,4 +1,4 @@
-import type { Coin } from '../../type';
+import type { Coin } from '@onekeyhq/engine/src/vaults/impl/cosmos/type';
 
 export interface CosmosMsgOpts {
   readonly send: {

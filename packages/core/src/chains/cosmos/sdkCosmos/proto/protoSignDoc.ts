@@ -6,7 +6,7 @@ import { UnknownMessage } from '../message';
 
 import { defaultProtoDecodeRegistry } from './protoDecode';
 
-import type { SignDocHex } from '../../type';
+import type { SignDocHex } from '@onekeyhq/engine/src/vaults/impl/cosmos/type';
 import type { ProtoDecode, UnpackedMessage } from './protoDecode';
 
 export class ProtoSignDoc {

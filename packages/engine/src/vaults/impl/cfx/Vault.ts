@@ -905,5 +905,3 @@ export default class Vault extends VaultBase {
     };
   }
 }
-
-export type { IEncodedTxCfx };

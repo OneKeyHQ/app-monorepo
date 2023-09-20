@@ -80,14 +80,14 @@ import {
   serializeSignedTx,
   setFee,
   setSendAmount,
-} from './sdk';
+} from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
 import settings from './settings';
 import {
   getTransactionTypeByMessage,
   getTransactionTypeByProtoMessage,
 } from './utils';
 
-import type { TxBuilder } from './sdk';
+import type { TxBuilder } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
 import type { CosmosImplOptions, IEncodedTxCosmos, StdFee } from './type';
 import type { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';

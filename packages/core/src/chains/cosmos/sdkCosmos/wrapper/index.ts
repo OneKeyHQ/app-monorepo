@@ -1,7 +1,7 @@
 import { bytesToHex } from '@noble/hashes/utils';
 import { SignDoc } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 
-import type { SignDocHex } from '../../type';
+import type { SignDocHex } from '@onekeyhq/engine/src/vaults/impl/cosmos/type';
 import type { StdSignDoc } from '../amino/types';
 import type { ProtoMsgsOrWithAminoMsgs } from '../ITxMsgBuilder';
 import type { ProtoSignDoc } from '../proto/protoSignDoc';

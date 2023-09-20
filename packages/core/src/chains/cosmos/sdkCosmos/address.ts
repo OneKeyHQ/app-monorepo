@@ -3,7 +3,7 @@ import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { bech32 } from 'bech32';
 
-import type { ChainInfo } from '../../../utils/btcForkChain/types';
+import type { ChainInfo } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 
 const secp256k1PubkeyToRawAddress = (pubkey: Uint8Array): Uint8Array => {
   if (pubkey.length !== 33) {

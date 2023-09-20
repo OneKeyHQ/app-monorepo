@@ -1,4 +1,4 @@
-import type { Coin } from '../type';
+import type { Coin } from '@onekeyhq/engine/src/vaults/impl/cosmos/type';
 import type { Any } from 'cosmjs-types/google/protobuf/any';
 
 export enum MessageType {
