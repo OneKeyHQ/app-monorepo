@@ -9,7 +9,6 @@ import type { Account } from '@onekeyhq/engine/src/types/account';
 import type {
   Collection,
   CollectionAttribute,
-  INFTAsset,
   MarketPlace,
   NFTAsset,
   NFTAssetMeta,
@@ -278,30 +277,12 @@ class ServiceNFT extends ServiceBase {
   }
 
   @backgroundMethod()
-  async batchAsset({
-    ignoreError = true,
-    ...params
-  }: {
+  async batchAsset(params: {
     ignoreError?: boolean;
     chain: string;
     items: { contract_address?: string; token_id?: any }[];
   }) {
-    const apiUrl = `${this.baseUrl}/batchAsset`;
-    const { data, success } = await this.client
-      .post<NFTServiceResp<INFTAsset[]>>(apiUrl, params)
-      .then((resp) => resp.data)
-      .catch(() => ({
-        success: false,
-        data: [] as INFTAsset[],
-      }));
-
-    if (!success) {
-      if (ignoreError) {
-        return undefined;
-      }
-      throw new OneKeyInternalError('data load error');
-    }
-    return data;
+    return nft.batchAsset(params);
   }
 
   @backgroundMethod()

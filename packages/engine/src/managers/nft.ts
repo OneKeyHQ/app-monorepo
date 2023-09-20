@@ -21,6 +21,7 @@ import { isBTCNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import simpleDb from '../dbs/simple/simpleDb';
 import { getFiatEndpoint } from '../endpoint';
+import { OneKeyInternalError } from '../errors';
 import {
   Erc1155MethodSelectors,
   Erc721MethodSelectors,
@@ -375,6 +376,33 @@ export async function getAsset(params: {
   if (resp) {
     return resp;
   }
+}
+
+export async function batchAsset({
+  ignoreError = true,
+  ...params
+}: {
+  ignoreError?: boolean;
+  chain: string;
+  items: { contract_address?: string; token_id?: any }[];
+}) {
+  const endpoint = getFiatEndpoint();
+  const apiUrl = `${endpoint}/NFT/batchAsset`;
+  const { data, success } = await axios
+    .post<NFTServiceResp<INFTAsset[]>>(apiUrl, params)
+    .then((resp) => resp.data)
+    .catch(() => ({
+      success: false,
+      data: [] as INFTAsset[],
+    }));
+
+  if (!success) {
+    if (ignoreError) {
+      return undefined;
+    }
+    throw new OneKeyInternalError('data load error');
+  }
+  return data;
 }
 
 export type BRC20TextProps = {
