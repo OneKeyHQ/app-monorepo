@@ -4,12 +4,14 @@ import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
+import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 
 export enum GalleryRoutes {
   Components = 'components',
   ComponentTypography = 'component/typography',
   ComponentIcon = 'component/icon',
   ComponentButton = 'component/button',
+  ComponentBadge = 'component/badge',
 }
 
 export const stackScreenList = [
@@ -20,6 +22,7 @@ export const stackScreenList = [
   },
   { name: GalleryRoutes.ComponentIcon, component: IconGallery },
   { name: GalleryRoutes.ComponentButton, component: ButtonsGallery },
+  { name: GalleryRoutes.ComponentBadge, component: BadgeGallery },
 ];
 
 const DevStack = createNativeStackNavigator();
