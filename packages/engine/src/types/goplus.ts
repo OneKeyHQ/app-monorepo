@@ -115,7 +115,7 @@ interface Approvedlist {
 }
 
 interface Addressinfo {
-  contract_name?: string | string;
+  contract_name?: string;
   tag?: (null | string)[];
   creator_address?: string;
   is_contract: number;

@@ -39,7 +39,7 @@ const TypographyGallery = () => (
             <Text variant="$bodyLgUnderline">bodyLgUnderline</Text>
             <Text variant="$bodyLgMono">bodyLgMono</Text>
             <Text variant="$bodyMdMedium">bodyMdMedium</Text>
-            <Text variant="$bodyMdUnderline">bodyMdUnderline</Text>
+            <Text variant="$bodyMdunderline">bodyMdunderline</Text>
             <Text variant="$bodyMdMono">bodyMdMono</Text>
             <Text variant="$bodySmMedium">bodySmMedium</Text>
           </YStack>
@@ -52,13 +52,13 @@ const TypographyGallery = () => (
             <Text>Default</Text>
             <Text color="$textSubdued">$textSubdued</Text>
             <Text color="$textDisabled">$textDisabled</Text>
-            <Text color="$textInverse" bg="$bgInverse">
+            <Text color="$textInverse" backgroundColor="$bgInverse">
               $textInverse
             </Text>
-            <Text color="$textInverseSubdued" bg="$bgInverse">
+            <Text color="$textInverseSubdued" backgroundColor="$bgInverse">
               $textInverseSubdued
             </Text>
-            <Text color="$textOnColor" bg="$bgCriticalStrong">
+            <Text color="$textOnColor" backgroundColor="$bgCriticalStrong">
               $textOnColor
             </Text>
             <Text color="$textSuccess">$textSuccess</Text>
