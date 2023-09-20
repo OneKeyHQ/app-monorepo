@@ -41,11 +41,12 @@ function HomeNFTSettings({
         <Switch
           labelType="false"
           isChecked={shouldHideInscriptions}
-          onToggle={() =>
+          onToggle={() => {
             backgroundApiProxy.dispatch(
               setHideInscriptions({ [accountId]: !shouldHideInscriptions }),
-            )
-          }
+            );
+            backgroundApiProxy.serviceOverview.refreshCurrentAccount();
+          }}
         />
       </BottomSheetSettingRow>
       <Typography.Body2 color="text-subdued" flex={1} mt={3}>
