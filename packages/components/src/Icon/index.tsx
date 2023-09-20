@@ -3,7 +3,6 @@ import type { FC } from 'react';
 
 import { useThemeValue } from '@onekeyhq/components/src/Provider/hooks/useThemeValue';
 import { useIsMounted } from '@onekeyhq/components/src/Provider/hooks/useIsMounted';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ICON_CONFIG from './Icons';
 
@@ -15,7 +14,7 @@ export type IconProps = Omit<SvgProps, 'color'> & {
   name: ICON_NAMES;
 };
 
-const IconComponent = styled(({ name, style }: IconProps) => {
+export const Icon = styled(({ name, style }: IconProps) => {
   const width = style?.width || 24
   const height = style?.height || 24
   const defaultColor = useThemeValue('icon-default');
@@ -64,12 +63,6 @@ const IconComponent = styled(({ name, style }: IconProps) => {
       }),
     }
   } as const
-})
-
-export type IconComponentProps = GetProps<typeof IconComponent>
-
-export const Icon = platformEnv.isExtensionBackground
-  ? ((() => null) as unknown as typeof IconComponent)
-  : IconComponent;
+});
 
 export type { ICON_NAMES };
