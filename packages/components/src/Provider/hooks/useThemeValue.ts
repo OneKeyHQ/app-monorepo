@@ -3,8 +3,8 @@ import { useTheme } from '@tamagui/core';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { VariableVal } from '@tamagui/core';
-import type { ThemeKeys } from '@tamagui/web/src/types';
 
+type ThemeKeys = keyof ReturnType<typeof useTheme>;
 const getValue = (
   theme: ReturnType<typeof useTheme>,
   key: ThemeKeys,
