@@ -25,23 +25,33 @@ const IconGallery = () => (
         ),
       },
       {
-        title: 'icons',
+        title: 'sized icon',
         element: (
-          <FlatList
-            style={{ width: '100%' }}
-            numColumns={4}
-            data={Object.keys(Icons) as ICON_NAMES[]}
-            renderItem={({ item }) => (
-              <Stack width="25%" height={80} alignItems="center" key={item}>
-                <Text>{item}</Text>
-                <View style={{ position: 'absolute', bottom: 10 }}>
-                  <Icon name={item} />
-                </View>
-              </Stack>
-            )}
-          />
+          <XStack space={10}>
+            <Icon name="AirpodsSolid" color="$icon" size="$4" />
+            <Icon name="AirpodsSolid" color="$icon" size="$8" />
+            <Icon name="AirpodsSolid" color="$icon" size="$12" />
+          </XStack>
         ),
       },
+      // {
+      //   title: 'icons',
+      //   element: (
+      //     <FlatList
+      //       style={{ width: '100%' }}
+      //       numColumns={4}
+      //       data={Object.keys(Icons) as ICON_NAMES[]}
+      //       renderItem={({ item }) => (
+      //         <Stack width="25%" height={80} alignItems="center" key={item}>
+      //           <Text>{item}</Text>
+      //           <View style={{ position: 'absolute', bottom: 10 }}>
+      //             <Icon name={item} />
+      //           </View>
+      //         </Stack>
+      //       )}
+      //     />
+      //   ),
+      // },
     ]}
   />
 );
