@@ -398,6 +398,9 @@ export type IGetPrivateKeysParams = {
   password: string;
   relPaths?: string[] | undefined;
 };
+export type IGetPrivateKeysResult = {
+  [path: string]: Buffer;
+};
 export type IPrepareWatchingAccountsParams = {
   target: string;
   name: string;

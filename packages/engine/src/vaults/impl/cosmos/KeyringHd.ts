@@ -20,8 +20,12 @@ import { pubkeyToBaseAddress } from './sdk/address';
 import { serializeSignedTx, serializeTxForSignature } from './sdk/txBuilder';
 
 import type {
+  IGetPrivateKeysParams,
+  IGetPrivateKeysResult,
   IPrepareHdAccountsParams,
   ISignCredentialOptions,
+  ISignedTxPro,
+  IUnsignedTxPro,
 } from '../../types';
 import type { IEncodedTxCosmos } from './type';
 
@@ -31,7 +35,37 @@ const HARDEN_PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0'`;
 export class KeyringHd extends KeyringHdBase {
   override coreApi = coreChainApi.cosmos.hd;
 
-  override async getSigners(password: string, addresses: Array<string>) {
+  override getSigners(): Promise<Record<string, ChainSigner>> {
+    throw new Error('getSigners moved to core.');
+  }
+
+  override async getPrivateKeys(
+    params: IGetPrivateKeysParams,
+  ): Promise<IGetPrivateKeysResult> {
+    return this.baseGetPrivateKeys(params);
+  }
+
+  override async prepareAccounts(
+    params: IPrepareHdAccountsParams,
+  ): Promise<Array<DBSimpleAccount>> {
+    return this.basePrepareAccountsHd(params, {
+      accountType: AccountType.VARIANT,
+      usedIndexes: params.indexes,
+    });
+  }
+
+  override async signTransaction(
+    unsignedTx: IUnsignedTxPro,
+    options: ISignCredentialOptions,
+  ): Promise<ISignedTxPro> {
+    return this.baseSignTransaction(unsignedTx, options);
+  }
+
+  override async signMessage(): Promise<string[]> {
+    throw new Error('method not implemented');
+  }
+
+  async getSignersOld(password: string, addresses: Array<string>) {
     const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
     const selectedAddress = dbAccount.address;
 
@@ -55,22 +89,6 @@ export class KeyringHd extends KeyringHdBase {
         chainInfo?.implOptions?.curve ?? 'secp256k1',
       ),
     };
-  }
-
-  override async getPrivateKeys(query: {
-    password: string;
-    relPaths?: string[] | undefined;
-  }): Promise<Record<string, Buffer>> {
-    return this.baseGetPrivateKeys(query);
-  }
-
-  override async prepareAccounts(
-    params: IPrepareHdAccountsParams,
-  ): Promise<Array<DBSimpleAccount>> {
-    return this.basePrepareAccountsHd(params, {
-      accountType: AccountType.VARIANT,
-      usedIndexes: params.indexes,
-    });
   }
 
   async prepareAccountsOld(
@@ -126,7 +144,7 @@ export class KeyringHd extends KeyringHdBase {
     return ret;
   }
 
-  override async signTransaction(
+  async signTransactionOld(
     unsignedTx: UnsignedTx,
     options: ISignCredentialOptions,
   ): Promise<SignedTx> {

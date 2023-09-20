@@ -38,6 +38,7 @@ import type {
 import type { IUnsignedMessage } from '../../types/message';
 import type {
   IGetPrivateKeysParams,
+  IGetPrivateKeysResult,
   IPrepareHdAccountsParams,
   IPrepareImportedAccountsParams,
 } from '../types';
@@ -132,7 +133,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
 
   async baseGetPrivateKeys(
     params: IGetPrivateKeysParams,
-  ): Promise<Record<string, Buffer>> {
+  ): Promise<IGetPrivateKeysResult> {
     const { password, relPaths } = params;
     if (!this.coreApi) {
       throw new Error('coreApi is not defined');
@@ -147,7 +148,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       account: { ...dbAccount, relPaths },
       credentials,
     });
-    const result: Record<string, Buffer> = {};
+    const result: IGetPrivateKeysResult = {};
     Object.entries(privateKeys).forEach(([path, privateKey]) => {
       result[path] = bufferUtils.toBuffer(privateKey);
     }, {});

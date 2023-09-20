@@ -71,7 +71,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     // throw new Error('Method not implemented.');
     const { privateKeyRaw } = query;
     const privateKey = bufferUtils.toBuffer(privateKeyRaw);
-    const pub = '';
+    const pub = this.baseGetCurve(curve).publicFromPrivate(privateKey);
     return this.getAddressFromPublic({
       publicKey: bufferUtils.bytesToHex(pub),
       networkInfo: query.networkInfo,
