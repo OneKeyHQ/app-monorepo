@@ -1,6 +1,10 @@
-import { styled, Text as TextComponent } from 'tamagui';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { GetProps, styled } from '@tamagui/web';
+import { Text as OriginText } from 'tamagui';
 
-export const Text = styled(TextComponent, {
+export type TextProps = GetProps<typeof OriginText>;
+
+export const Text = styled(OriginText, {
   variants: {
     variant: {
       '...size': (size, { font }) => ({
