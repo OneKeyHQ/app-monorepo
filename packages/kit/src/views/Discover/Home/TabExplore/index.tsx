@@ -69,6 +69,12 @@ const SectionExploreContent = () => {
 
   const [networkId, setNetworkId] = useState('all--0');
 
+  const networkIds = useMemo(() => {
+    return dapps.reduce((result, item) => {
+      return  Array.from(new Set(result.concat(item.networkIds)))
+    }, [] as string[])
+  }, [dapps, networkId])
+
   const items = useMemo(() => {
     if (isAllNetworks(networkId)) {
       return dapps;
@@ -83,7 +89,7 @@ const SectionExploreContent = () => {
   return (
     <Box>
       <Box px="2" pb="2" flexDirection="row" justifyContent="space-between">
-        <SelectorButton networkId={networkId} onItemSelect={setNetworkId} />
+        <SelectorButton networkIds={networkIds} networkId={networkId} onItemSelect={setNetworkId} />
       </Box>
       <Box py="2" px="4">
         <DappsItemsRender

@@ -1,7 +1,7 @@
 import { type FC, useCallback } from 'react';
 
-import { Box, Image, Pressable, Typography } from '@onekeyhq/components';
-
+import { Box, Image, Typography } from '@onekeyhq/components';
+import { Pressable } from '../Pressable'
 import { openMatchDApp } from '../../Explorer/Controller/gotoSite';
 
 type DappBannerProps = {
