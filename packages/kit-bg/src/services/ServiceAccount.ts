@@ -24,7 +24,7 @@ import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Wallet, WalletType } from '@onekeyhq/engine/src/types/wallet';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import { getManageNetworks } from '@onekeyhq/kit/src/hooks/crossHooks';
-import { passwordSet, release } from '@onekeyhq/kit/src/store/reducers/data';
+import { passwordSet } from '@onekeyhq/kit/src/store/reducers/data';
 import {
   changeActiveAccount,
   changeActiveExternalWalletName,
@@ -467,7 +467,6 @@ class ServiceAccount extends ServiceBase {
       actions.push(setEnableAppLock(true));
     }
     actions.push(unlock());
-    actions.push(release());
 
     const wallets = await serviceAccount.initWallets({ noDispatch: true });
     actions.push(updateWallets(wallets));
@@ -873,7 +872,6 @@ class ServiceAccount extends ServiceBase {
 
     if (checkOnBoarding || checkPasswordSet) {
       actions.push(unlock());
-      actions.push(release());
     }
 
     const wallets = await serviceAccount.initWallets({ noDispatch: true });
@@ -1168,7 +1166,7 @@ class ServiceAccount extends ServiceBase {
       actions.push(setBoardingCompleted());
     }
 
-    dispatch(...actions, unlock(), release());
+    dispatch(...actions, unlock());
 
     await this.initWallets();
 

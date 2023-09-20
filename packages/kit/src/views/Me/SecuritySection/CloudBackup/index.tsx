@@ -66,7 +66,7 @@ const EnabledContent = ({
 }) => {
   const intl = useIntl();
   const formatDate = useFormatDate();
-  const { serviceCloudBackup, servicePassword, dispatch } = backgroundApiProxy;
+  const { serviceCloudBackup, dispatch } = backgroundApiProxy;
   const { showVerify } = useLocalAuthenticationModal();
 
   const openDisableBackupDialog = useCallback(() => {
@@ -141,31 +141,19 @@ const EnabledContent = ({
         });
       });
     }
-    const password = await servicePassword.getPassword();
-    if (!password) {
-      showVerify(
-        () => {
-          dispatch(incrBackupRequests());
-          serviceCloudBackup.backupNow().then(() => {
-            setIsLoading(false);
-          });
-        },
-        () => {},
-        null,
-        ValidationFields.Secret,
-      );
-    }
-    dispatch(incrBackupRequests());
-    await serviceCloudBackup.backupNow();
-    setIsLoading(false);
-  }, [
-    dispatch,
-    isPasswordSet,
-    navigation,
-    serviceCloudBackup,
-    servicePassword,
-    showVerify,
-  ]);
+
+    showVerify(
+      () => {
+        dispatch(incrBackupRequests());
+        serviceCloudBackup.backupNow().then(() => {
+          setIsLoading(false);
+        });
+      },
+      () => {},
+      null,
+      ValidationFields.Account,
+    );
+  }, [dispatch, isPasswordSet, navigation, serviceCloudBackup, showVerify]);
 
   return (
     <Box flexDirection="column">

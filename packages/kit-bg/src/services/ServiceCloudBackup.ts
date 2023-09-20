@@ -18,7 +18,6 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/cloudBackup';
 import { create } from '@onekeyhq/kit/src/store/reducers/contacts';
 import type { Contact } from '@onekeyhq/kit/src/store/reducers/contacts';
-import { release } from '@onekeyhq/kit/src/store/reducers/data';
 import { addBookmark } from '@onekeyhq/kit/src/store/reducers/discover';
 import { setEnableLocalAuthentication } from '@onekeyhq/kit/src/store/reducers/settings';
 import { unlock } from '@onekeyhq/kit/src/store/reducers/status';
@@ -586,7 +585,7 @@ class ServiceCloudBackup extends ServiceBase {
     if (!isPasswordSet) {
       await serviceApp.initPassword();
       // Unlock the app
-      dispatch(unlock(), release());
+      dispatch(unlock());
       // Save password to servicePassword by default
       await servicePassword.savePassword(localPassword);
       // Save password to use local authentication
