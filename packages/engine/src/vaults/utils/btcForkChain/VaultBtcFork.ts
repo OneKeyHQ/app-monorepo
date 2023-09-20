@@ -1374,11 +1374,13 @@ export default class VaultBtcFork extends VaultBase {
         const isInscribeTransfer = Boolean(
           txs.find(
             (item) =>
+              item.txid !== tx.txid &&
               item.blockTime === tx.blockTime &&
               item.from === tx.to &&
               item.to === tx.from,
           ),
         );
+
         const actions =
           utxoToWithoutMine && utxoToWithoutMine.length
             ? utxoToWithoutMine
