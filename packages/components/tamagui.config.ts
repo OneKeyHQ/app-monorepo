@@ -6,9 +6,11 @@ import { createFont, createTamagui, createTokens } from 'tamagui';
 
 import type { Variable } from '@tamagui/web/src/createVariable';
 
+const isTamaguiNative = process.env.TAMAGUI_TARGET === 'native';
 const font = createFont({
-  family:
-    'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
+  family: isTamaguiNative
+    ? 'System'
+    : 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
   size: {
     heading5xl: 40,
     heading4xl: 32,
@@ -548,5 +550,16 @@ const config = createTamagui({
     pointerCoarse: { pointer: 'coarse' },
   }),
 });
+
+export type AppConfig = typeof config;
+
+declare module 'tamagui' {
+  // or '@tamagui/core'
+  // overrides TamaguiCustomConfig so your custom types
+  // work everywhere you import `tamagui`
+
+  // eslint-disable-next-line @typescript-eslint/no-empty-interface
+  interface TamaguiCustomConfig extends AppConfig {}
+}
 
 export default config;

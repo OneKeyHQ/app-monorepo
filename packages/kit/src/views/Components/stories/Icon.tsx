@@ -1,8 +1,9 @@
-import { FlatList, View } from 'react-native';
+import { FlatList, Text, View } from 'react-native';
+import { XStack, Stack} from 'tamagui';
 
-import { Icon, Stack, Typography } from '@onekeyhq/components';
-import type { ICON_NAMES } from '@onekeyhq/components/src/v2/Icon/Icons';
-import Icons from '@onekeyhq/components/src/v2/Icon/Icons';
+import { Icon } from '@onekeyhq/components';
+import type { ICON_NAMES } from '@onekeyhq/components/src/Icon/Icons';
+import Icons from '@onekeyhq/components/src/Icon/Icons';
 
 import { Layout } from './utils/Layout';
 
@@ -13,6 +14,17 @@ const IconGallery = () => (
     boundaryConditions={[]}
     elements={[
       {
+        title: 'colorful icon',
+        element: (
+          <XStack space={10}>
+              <Icon name="AirpodsSolid" color="$icon" />
+              <Icon name="AirpodsSolid" color="$iconHover" />
+              <Icon name="AirpodsSolid" color="$iconInverse" />
+              <Icon name="AirpodsSolid" color="$iconActive" />
+          </XStack>
+        ),
+      },
+      {
         title: 'icons',
         element: (
           <FlatList
@@ -21,7 +33,7 @@ const IconGallery = () => (
             data={Object.keys(Icons) as ICON_NAMES[]}
             renderItem={({ item }) => (
               <Stack width="25%" height={80} alignItems="center" key={item}>
-                <Typography.Caption>{item}</Typography.Caption>
+                <Text>{item}</Text>
                 <View style={{ position: 'absolute', bottom: 10 }}>
                   <Icon name={item} />
                 </View>

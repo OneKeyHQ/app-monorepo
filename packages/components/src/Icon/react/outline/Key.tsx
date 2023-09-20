@@ -1,17 +1,16 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
+
+import type { SvgProps } from 'react-native-svg';
+
 const SvgKey = (props: SvgProps) => (
-  <Svg
-    fill="none"
-    viewBox="0 0 24 24"
-    strokeWidth={1.5}
-    stroke="currentColor"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+    <Circle cx={7} cy={12} r={1.5} fill="currentColor" />
     <Path
-      strokeLinecap="round"
+      stroke="currentColor"
+      strokeLinecap="square"
       strokeLinejoin="round"
-      d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25z"
+      strokeWidth={2}
+      d="M2 12a5 5 0 0 0 9.014 2.982c.213-.287.537-.482.894-.482H14l2-1 2 1h2.02a1 1 0 0 0 .78-.375l1.2-1.5a1 1 0 0 0 0-1.25l-1.2-1.5a1 1 0 0 0-.78-.375h-8.112c-.357 0-.68-.195-.894-.482A5 5 0 0 0 2 12Z"
     />
   </Svg>
 );

@@ -1,1 +1,1 @@
-export { Stack as default } from 'native-base';
+export { Stack, XStack, YStack, ZStack } from 'tamagui';

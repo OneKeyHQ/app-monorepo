@@ -1,8 +1,6 @@
 const path = require('path');
 const babelTools = require('../../development/babelTools');
 
-process.env.TAMAGUI_TARGET = 'native';
-
 module.exports = function (api) {
   api.cache(true);
   return babelTools.normalizeConfig({
@@ -17,11 +15,11 @@ module.exports = function (api) {
           },
         ],
         [
-          '@tamagui/babel-plugin',
+          require('@tamagui/babel-plugin/dist/cjs/index.native'),
           {
             components: ['tamagui'],
             config: path.join(__dirname, '../components/tamagui.config.ts'),
-            importsWhitelist: ['constants.js', 'colors.js'],
+            importsWhitelist: [],
             logTimings: true,
             disableExtraction: process.env.NODE_ENV === 'development',
           },
