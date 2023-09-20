@@ -9,7 +9,7 @@ import FavContainer from '../../Explorer/FavContainer';
 import { useContextCategoryDapps } from '../context';
 import { DAppCategories } from '../DappCategories';
 import { DappItemPlain } from '../DappRenderItem';
-import { DappItemPlainContainerLayout } from '../DappRenderLayout';
+import { DappItemPlainContainerLayout, PageLayout } from '../DappRenderLayout';
 import { EmptySkeleton } from '../EmptySkeleton';
 import { SelectorButton } from '../SelectorButton';
 
@@ -40,7 +40,7 @@ const DappsItemsRender = ({
     );
   }
   return (
-    <DappItemPlainContainerLayout space={2}>
+    <DappItemPlainContainerLayout space={2} offset={-32}>
       {data.map((item) => (
         <FavContainer
           key={item._id}
@@ -103,10 +103,12 @@ const SectionExploreContent = () => {
 };
 
 export const SectionExplore = () => (
-  <Box>
-    <Box py="4">
-      <DAppCategories />
+  <PageLayout>
+    <Box>
+      <Box py="4">
+        <DAppCategories />
+      </Box>
+      <SectionExploreContent />
     </Box>
-    <SectionExploreContent />
-  </Box>
+  </PageLayout>
 );

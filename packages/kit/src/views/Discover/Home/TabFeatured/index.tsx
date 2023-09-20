@@ -15,7 +15,7 @@ import FavContainer from '../../Explorer/FavContainer';
 import { DiscoverContext, useBanners, useGroupDapps } from '../context';
 import { DappBanner } from '../DappBanner';
 import { DappItemOutline, DappItemPlain } from '../DappRenderItem';
-import { DappItemPlainContainerLayout } from '../DappRenderLayout';
+import { DappItemPlainContainerLayout, PageLayout } from '../DappRenderLayout';
 import { EmptySkeleton } from '../EmptySkeleton';
 import { discoverUIEventBus } from '../eventBus';
 import { SeeAllButton } from '../SeeAllButton';
@@ -78,7 +78,7 @@ const VerticalContent: FC<ContentProps> = ({ data }) => (
       <ContentHeader title={data.label} id={data.id} />
     </Box>
     <Box px="4">
-      <DappItemPlainContainerLayout space={4}>
+      <DappItemPlainContainerLayout space={4} offset={-32}>
         {data.items.map((item) => (
           <FavContainer
             key={item._id}
@@ -207,18 +207,20 @@ export const SectionFeatured = () => {
     );
   }
   return (
-    <Box w="full" pb="2">
-      <BannerContent />
-      <Box>
-        {groupDapps.map((item, index) =>
-          index % 2 === 0 ? (
-            <VerticalContent key={item.label} data={item} />
-          ) : (
-            <HorizontalContent key={item.label} data={item} />
-          ),
-        )}
+    <PageLayout>
+      <Box w="full" pb="2">
+        <BannerContent />
+        <Box>
+          {groupDapps.map((item, index) =>
+            index % 2 === 0 ? (
+              <VerticalContent key={item.label} data={item} />
+            ) : (
+              <HorizontalContent key={item.label} data={item} />
+            ),
+          )}
+        </Box>
+        <TagContent />
       </Box>
-      <TagContent />
-    </Box>
+    </PageLayout>
   );
 };
