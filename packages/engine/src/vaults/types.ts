@@ -594,6 +594,7 @@ export type IDecodedTxActionInscription = IDecodedTxActionBase & {
   asset: NFTBTCAssetModel;
   send: string;
   receive: string;
+  isInscribeTransfer?: boolean;
 };
 
 export type IDecodedTxActionBRC20 = IDecodedTxActionBase & {
@@ -604,6 +605,7 @@ export type IDecodedTxActionBRC20 = IDecodedTxActionBase & {
   amount?: string;
   max?: string;
   limit?: string;
+  isInscribeTransfer?: boolean;
 };
 
 export type IDecodedTxActionInternalSwap = IDecodedTxActionBase & ISwapInfo;
