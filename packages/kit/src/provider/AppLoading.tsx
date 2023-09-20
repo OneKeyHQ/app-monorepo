@@ -7,7 +7,7 @@ import { memo, useEffect, useMemo, useState } from 'react';
 import AnimatedSplash from 'react-native-animated-splash-screen';
 
 import { Stack, useThemeValue } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+// import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHtmlPreloadSplashLogoRemove } from '@onekeyhq/kit/src/hooks/useHtmlPreloadSplashLogoRemove';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

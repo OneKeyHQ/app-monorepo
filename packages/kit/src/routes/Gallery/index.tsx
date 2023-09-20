@@ -5,6 +5,7 @@ import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
+
 import DialogGallery from '../../views/Components/stories/Dialog';
 
 export enum GalleryRoutes {

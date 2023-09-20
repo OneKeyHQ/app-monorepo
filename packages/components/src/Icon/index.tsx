@@ -1,13 +1,12 @@
 import { Component, useEffect, useState } from 'react';
 import type { FC } from 'react';
 
-import { useThemeValue } from '@onekeyhq/components/src/hooks/useThemeValue';
-import { useIsMounted } from '@onekeyhq/components/src/hooks/useIsMounted';
+import { useThemeValue } from '@onekeyhq/components/src/Provider/hooks/useThemeValue';
+import { useIsMounted } from '@onekeyhq/components/src/Providerhooks/useIsMounted';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ICON_CONFIG from './Icons';
 
-// import type { ThemeToken } from '../Provider/theme';
 import type { ICON_NAMES } from './Icons';
 import { GetProps, styled } from 'tamagui'
 import type { SvgProps } from 'react-native-svg';
@@ -17,10 +16,10 @@ export type IconProps = Omit<SvgProps, 'color'> & {
 };
 
 const IconComponent = styled(({ name, style }: IconProps) => {
-  const width = style.width || 24
-  const height = style.height || 24
+  const width = style?.width || 24
+  const height = style?.height || 24
   const defaultColor = useThemeValue('icon-default');
-  const primaryColor = style.color ?? defaultColor;
+  const primaryColor = style?.color || defaultColor;
   let SVGComponent = ICON_CONFIG[name];
   const [, setRefreshKey] = useState(Math.random());
   const isMounted = useIsMounted();
@@ -50,9 +49,7 @@ const IconComponent = styled(({ name, style }: IconProps) => {
   const svgColor = primaryColor || defaultColor;
 
   return (
-    // @ts-ignore
     <SVGComponent
-      // @ts-ignore
       width={width}
       height={height}
       color={svgColor}
