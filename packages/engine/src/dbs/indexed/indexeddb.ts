@@ -2064,6 +2064,48 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
+  setAccountPub(
+    accountId: string,
+    pub: string,
+    deletePubKey?: boolean,
+  ): Promise<DBAccount> {
+    let ret: DBAccount;
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction = db.transaction([ACCOUNT_STORE_NAME], 'readwrite');
+          transaction.onerror = (_tevent) => {
+            reject(new OneKeyInternalError('Failed to set account name.'));
+          };
+          transaction.oncomplete = (_tevent) => {
+            resolve(ret);
+          };
+
+          const accountStore = transaction.objectStore(ACCOUNT_STORE_NAME);
+          const getAccountRequest = accountStore.get(accountId);
+          getAccountRequest.onsuccess = (_aevent) => {
+            const account = getAccountRequest.result as DBAccount;
+            if (isNil(account)) {
+              reject(
+                new OneKeyInternalError(`Account ${accountId} not found.`),
+              );
+              return;
+            }
+            // there may be wrong and useless 'pubKey' in btc account
+            // need to be deleted
+            // @ts-ignore
+            if (deletePubKey && account.pubKey) {
+              // @ts-ignore
+              delete account.pubKey;
+            }
+            account.pub = pub;
+            ret = account;
+            accountStore.put(account);
+          };
+        }),
+    );
+  }
+
   updateAccountAddresses(
     accountId: string,
     networkId: string,

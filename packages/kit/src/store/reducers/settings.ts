@@ -125,6 +125,9 @@ export type SettingsState = {
   showTokenDetailPriceChart?: boolean;
   hideAllNetworksSelectNetworkTips?: boolean;
   hideInscriptions: Record<string, boolean>; // accountId -> hide
+  migrationVersions: {
+    fixBtcPubKey: string;
+  };
 };
 
 export const defaultPushNotification = {
@@ -203,6 +206,7 @@ const initialState: SettingsState = {
   gasPanelEIP1559Enabled: true,
   hideAllNetworksSelectNetworkTips: false,
   hideInscriptions: {},
+  migrationVersions: { fixBtcPubKey: '' },
 };
 
 export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
@@ -636,6 +640,16 @@ export const settingsSlice = createSlice({
         ...action.payload,
       };
     },
+
+    setMigrationVersions(
+      state,
+      action: PayloadAction<Partial<SettingsState['migrationVersions']>>,
+    ) {
+      state.migrationVersions = {
+        ...state.migrationVersions,
+        ...action.payload,
+      };
+    },
   },
 });
 
@@ -698,6 +712,7 @@ export const {
   setShowTokenDetailPriceChart,
   setHideAllNetworksSelectNetworkTips,
   setHideInscriptions,
+  setMigrationVersions,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;
