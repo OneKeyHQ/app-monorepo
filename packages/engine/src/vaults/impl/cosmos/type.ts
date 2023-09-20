@@ -1,4 +1,8 @@
-import type { Message, Publickey, TransactionWrapper } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
+import type {
+  Message,
+  Publickey,
+  TransactionWrapper,
+} from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
 
 export type IEncodedTxCosmos = TransactionWrapper;
 

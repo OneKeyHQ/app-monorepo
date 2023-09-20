@@ -2,11 +2,12 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { AuthInfo, SignDoc, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 import Long from 'long';
 
+import type { SignDocHex } from '@onekeyhq/engine/src/vaults/impl/cosmos/type';
+
 import { UnknownMessage } from '../message';
 
 import { defaultProtoDecodeRegistry } from './protoDecode';
 
-import type { SignDocHex } from '@onekeyhq/engine/src/vaults/impl/cosmos/type';
 import type { ProtoDecode, UnpackedMessage } from './protoDecode';
 
 export class ProtoSignDoc {

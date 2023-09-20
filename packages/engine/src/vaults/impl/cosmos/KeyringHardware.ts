@@ -1,6 +1,11 @@
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { HardwareError } from '@onekeyfe/hd-shared';
 
+import {
+  generateSignBytes,
+  pubkeyToBaseAddress,
+  serializeSignedTx,
+} from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
@@ -15,12 +20,6 @@ import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { stripHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
-
-import {
-  generateSignBytes,
-  pubkeyToBaseAddress,
-  serializeSignedTx,
-} from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
 
 import type {
   IHardwareGetAddressParams,

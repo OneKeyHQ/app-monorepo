@@ -1,8 +1,16 @@
+import {
+  MessageType,
+  defaultAminoMsgOpts,
+} from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
+import type {
+  Message,
+  SendMessage,
+  StdSignDoc,
+  UnpackedMessage,
+} from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
+
 import { IDecodedTxActionType } from '../../types';
 
-import { MessageType, defaultAminoMsgOpts } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
-
-import type { Message, SendMessage, StdSignDoc, UnpackedMessage } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 
 export const getTransactionTypeByMessage = (

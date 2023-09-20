@@ -5,7 +5,7 @@ import BigNumber from 'bignumber.js';
 
 import { EMessageTypesEth } from '@onekeyhq/engine/src/types/message';
 import type { EvmExtraInfo } from '@onekeyhq/engine/src/types/network';
-import type { IEncodedTxCfx } from '@onekeyhq/engine/src/vaults/impl/cfx/Vault';
+import type { IEncodedTxCfx } from '@onekeyhq/engine/src/vaults/impl/cfx/types';
 import type VaultConflux from '@onekeyhq/engine/src/vaults/impl/cfx/Vault';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {

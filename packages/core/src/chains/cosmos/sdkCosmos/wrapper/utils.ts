@@ -5,13 +5,14 @@ import { AuthInfo, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 import { get } from 'lodash';
 import Long from 'long';
 
+import type { StdFee } from '@onekeyhq/engine/src/vaults/impl/cosmos/type';
+
 import { defaultAminoDecodeRegistry } from '../amino/aminoDecode';
 import { defaultAminoMsgOpts } from '../amino/types';
 import { MessageType } from '../message';
 import { ProtoSignDoc } from '../proto/protoSignDoc';
 
 import type { TransactionWrapper } from '.';
-import type { StdFee } from '@onekeyhq/engine/src/vaults/impl/cosmos/type';
 import type { StdSignDoc } from '../amino/types';
 import type { UnpackedMessage } from '../proto/protoDecode';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
