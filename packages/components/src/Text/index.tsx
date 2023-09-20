@@ -1,4 +1,4 @@
-import { styled, Text as TextComponent } from 'tamagui';
+import { Text as TextComponent, styled } from 'tamagui';
 
 export const Text = styled(TextComponent, {
   variants: {

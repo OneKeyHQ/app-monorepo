@@ -1,15 +1,14 @@
 /* eslint-disable global-require */
-import { FC, ReactNode, useEffect, useState } from 'react';
-import { memo, useMemo } from 'react';
-import { useHtmlPreloadSplashLogoRemove } from '@onekeyhq/kit/src/hooks/useHtmlPreloadSplashLogoRemove';
+import type { FC, ReactNode } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
+
 // TODO: add .d.ts for react-native-animated-splash-screen
 // @ts-expect-error no .d.ts
 import AnimatedSplash from 'react-native-animated-splash-screen';
 
 import { Stack, useThemeValue } from '@onekeyhq/components';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-
+import { useHtmlPreloadSplashLogoRemove } from '@onekeyhq/kit/src/hooks/useHtmlPreloadSplashLogoRemove';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { VariableVal } from '@tamagui/core';
@@ -84,12 +83,15 @@ const AppLoading: FC = ({ children }) => {
 
   useEffect(() => {
     setTimeout(() => {
-      setInitDataReady(true)
-    }, 50)
+      setInitDataReady(true);
+    }, 50);
   }, []);
 
   return (
-    <AnimatedSplashView initDataReady={initDataReady} bgColor={bgColor as string}>
+    <AnimatedSplashView
+      initDataReady={initDataReady}
+      bgColor={bgColor as string}
+    >
       {children}
     </AnimatedSplashView>
   );

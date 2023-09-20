@@ -1,10 +1,10 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
+import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
-import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 
 export enum GalleryRoutes {
   Components = 'components',
