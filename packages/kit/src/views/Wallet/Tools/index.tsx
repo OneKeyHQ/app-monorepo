@@ -52,6 +52,7 @@ import {
   getManageNetworks,
   useManageNetworks,
 } from '../../../hooks/crossHooks';
+import { useShouldHideInscriptions } from '../../../hooks/crossHooks/useShouldHideInscriptions';
 import { useTools } from '../../../hooks/redux';
 import {
   useAllNetworksSelectNetworkAccount,
@@ -79,6 +80,7 @@ type DataItem = {
   filter?: (params: {
     network?: Network | null;
     account?: Account | null;
+    shouldHideInscriptions?: boolean;
   }) => boolean;
 };
 
@@ -157,8 +159,9 @@ const data: DataItem[] = [
     iconBg: 'decorative-surface-one',
     title: 'title__inscribe',
     description: 'title__inscribe_desc',
-    filter: ({ network, account }) =>
+    filter: ({ network, account, shouldHideInscriptions }) =>
       isBTCNetwork(network?.id) &&
+      !shouldHideInscriptions &&
       !!account?.template &&
       [
         tbtcSetting.accountNameInfo?.BIP86?.template,
@@ -373,6 +376,10 @@ const ToolsPage: FC = () => {
   const isVertical = useIsVerticalOrMiddleLayout();
   const navigation = useNavigation();
   const { enabledNetworks } = useManageNetworks(undefined);
+  const shouldHideInscriptions = useShouldHideInscriptions({
+    networkId,
+    accountId,
+  });
 
   const appNavigation = useAppNavigation();
   const tools = useTools(network?.id);
@@ -409,14 +416,19 @@ const ToolsPage: FC = () => {
         }),
     );
     if (!isAllNetworks(network?.id)) {
-      return allItems.filter((n) => n.filter?.({ network, account }) ?? true);
+      return allItems.filter(
+        (n) => n.filter?.({ network, account, shouldHideInscriptions }) ?? true,
+      );
     }
     return allItems.filter((item) => {
       for (const [nid, accounts] of Object.entries(networkAccountsMap ?? {})) {
         const n = enabledNetworks.find((i) => i.id === nid);
         if (n) {
           for (const a of accounts) {
-            if (!item.filter || item.filter({ network: n, account: a })) {
+            if (
+              !item.filter ||
+              item.filter({ network: n, account: a, shouldHideInscriptions })
+            ) {
               return true;
             }
           }
@@ -424,7 +436,14 @@ const ToolsPage: FC = () => {
       }
       return false;
     });
-  }, [account, network, tools, networkAccountsMap, enabledNetworks]);
+  }, [
+    tools,
+    network,
+    account,
+    networkAccountsMap,
+    enabledNetworks,
+    shouldHideInscriptions,
+  ]);
 
   const handlePress = useCallback(
     ({

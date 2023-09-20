@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/engine/src/vaults/types';
 
 import { FormatCurrencyTokenOfAccount } from '../../../components/Format';
+import { useAccount } from '../../../hooks';
 import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBoxAutoTransform';
 import {
   TxListActionBox,
@@ -67,6 +68,7 @@ export function getTxActionsBRC20Info(props: ITxActionCardProps) {
 
   const sender = brc20Info?.sender ?? '';
   const receiver = brc20Info?.receiver ?? '';
+  const isInscribeTransfer = !!brc20Info?.isInscribeTransfer;
   const displayDecimals: number | undefined = 100;
 
   action.direction = direction;
@@ -96,6 +98,7 @@ export function getTxActionsBRC20Info(props: ITxActionCardProps) {
     receiver,
     isOut,
     action,
+    isInscribeTransfer,
     amount: brc20Info?.amount ?? '0',
   };
 }
@@ -176,9 +179,11 @@ export function TxActionBRC20T0(props: ITxActionCardProps) {
 export function TxActionBRC20(props: ITxActionCardProps) {
   const intl = useIntl();
   const { action, meta, decodedTx, network, isShortenAddress = false } = props;
+  const { accountId, networkId } = decodedTx;
 
-  const { amount, sender, receiver, isOut, symbol } =
+  const { amount, sender, receiver, isOut, symbol, isInscribeTransfer } =
     getTxActionsBRC20Info(props);
+  const { account } = useAccount({ accountId, networkId });
 
   const isDeploy = action.type === IDecodedTxActionType.TOKEN_BRC20_DEPLOY;
   const isTransfer = action.type === IDecodedTxActionType.TOKEN_BRC20_TRANSFER;
@@ -194,6 +199,8 @@ export function TxActionBRC20(props: ITxActionCardProps) {
             amount,
             isCopy: true,
             isShorten: isShortenAddress,
+            isInscribeTransfer:
+              isInscribeTransfer && account?.address !== sender,
           }),
         }
       : null,
@@ -208,6 +215,8 @@ export function TxActionBRC20(props: ITxActionCardProps) {
             amount,
             isCopy: true,
             isShorten: isShortenAddress,
+            isInscribeTransfer:
+              isInscribeTransfer && account?.address !== receiver,
           }),
         },
   ];
