@@ -7,17 +7,13 @@ import {
   styled,
   useTheme,
   withStaticProperties,
-} from 'tamagui';
+} from '@tamagui/core';
 
 import { Text } from '../Text';
 
-export const ButtonContext = createStyledContext<{
-  size: 'small' | 'medium' | 'large';
-  buttonVariant: 'secondary' | 'tertiary' | 'primary' | 'destructive';
-  disabled: boolean;
-}>({
-  size: 'medium',
-  buttonVariant: 'secondary',
+export const ButtonContext = createStyledContext({
+  size: 'small' || 'medium' || 'large',
+  buttonVariant: 'secondary' || 'tertiary' || 'primary' || 'destructive',
   disabled: false,
 });
 

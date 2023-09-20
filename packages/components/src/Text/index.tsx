@@ -1,6 +1,6 @@
-import { Text as TextComponent, styled } from 'tamagui';
+import { styled, GetProps, Text as OriginText } from 'tamagui';
 
-export const Text = styled(TextComponent, {
+export const Text = styled(OriginText, {
   variants: {
     variant: {
       '...size': (size, { font }) => ({

@@ -1,4 +1,7 @@
-import { Button } from '@onekeyhq/components';
+import { XStack, YStack } from 'tamagui';
+
+import { Button, Spinner } from '@onekeyhq/components';
+import { Placeholder } from '@onekeyhq/components/src/Icon/react/outline';
 
 import { Layout } from './utils/Layout';
 
@@ -18,8 +21,140 @@ const ButtonsGallery = () => (
     ]}
     elements={[
       {
-        title: '默认状态',
-        element: <Button>Default Type</Button>,
+        title: 'Variants',
+        element: (
+          <YStack space="$2">
+            <Button
+              size="large"
+              buttonVariant="primary"
+              onPress={() => {
+                alert('clicked');
+              }}
+            >
+              <Button.Text>Primary</Button.Text>
+            </Button>
+            <Button size="large" buttonVariant="secondary">
+              <Button.Text>Secondary</Button.Text>
+            </Button>
+            <Button size="large" buttonVariant="tertiary">
+              <Button.Text>Tertiary</Button.Text>
+            </Button>
+            <Button size="large" buttonVariant="destructive">
+              <Button.Text>Destructive</Button.Text>
+            </Button>
+          </YStack>
+        ),
+      },
+      {
+        title: 'Size',
+        element: (
+          <YStack space="$2">
+            <XStack space="$2" alignItems="center">
+              <Button size="large" buttonVariant="primary">
+                <Button.Text>Large</Button.Text>
+              </Button>
+              <Button size="medium" buttonVariant="primary">
+                <Button.Text>Medium</Button.Text>
+              </Button>
+              <Button size="small" buttonVariant="primary">
+                <Button.Text>Small</Button.Text>
+              </Button>
+            </XStack>
+            <XStack space="$2" alignItems="center">
+              <Button size="large" buttonVariant="secondary">
+                <Button.Text>Large</Button.Text>
+              </Button>
+              <Button size="medium" buttonVariant="secondary">
+                <Button.Text>Medium</Button.Text>
+              </Button>
+              <Button size="small" buttonVariant="secondary">
+                <Button.Text>Small</Button.Text>
+              </Button>
+            </XStack>
+            <XStack space="$10" alignItems="center">
+              <Button size="large" buttonVariant="tertiary">
+                <Button.Text>Large</Button.Text>
+              </Button>
+              <Button size="medium" buttonVariant="tertiary">
+                <Button.Text>Medium</Button.Text>
+              </Button>
+              <Button size="small" buttonVariant="tertiary">
+                <Button.Text>Small</Button.Text>
+              </Button>
+            </XStack>
+          </YStack>
+        ),
+      },
+      {
+        title: 'Icon on different sizes',
+        element: (
+          <XStack space="$2" alignItems="flex-end">
+            <Button size="large" buttonVariant="secondary">
+              <Button.Icon>
+                <Placeholder />
+              </Button.Icon>
+              <Button.Text>Large</Button.Text>
+            </Button>
+            <Button size="medium" buttonVariant="secondary">
+              <Button.Icon>
+                <Placeholder />
+              </Button.Icon>
+              <Button.Text>Medium</Button.Text>
+            </Button>
+            <Button size="small" buttonVariant="secondary">
+              <Button.Icon>
+                <Placeholder />
+              </Button.Icon>
+              <Button.Text>Small</Button.Text>
+            </Button>
+          </XStack>
+        ),
+      },
+      {
+        title: 'Icon on different colors',
+        element: (
+          <XStack space="$2" alignItems="center">
+            <Button size="medium" buttonVariant="primary">
+              <Button.Icon>
+                <Placeholder />
+              </Button.Icon>
+              <Button.Text>Primary</Button.Text>
+            </Button>
+            <Button size="medium" buttonVariant="secondary">
+              <Button.Icon>
+                <Placeholder />
+              </Button.Icon>
+              <Button.Text>Secondary</Button.Text>
+            </Button>
+            <Button size="medium" buttonVariant="tertiary">
+              <Button.Icon>
+                <Placeholder />
+              </Button.Icon>
+              <Button.Text>Tertiary</Button.Text>
+            </Button>
+            <Button size="medium" buttonVariant="destructive">
+              <Button.Icon>
+                <Placeholder />
+              </Button.Icon>
+              <Button.Text>Destructive</Button.Text>
+            </Button>
+          </XStack>
+        ),
+      },
+      {
+        title: 'Disabled and loading',
+        element: (
+          <XStack space="$2" alignItems="center">
+            <Button size="medium" buttonVariant="secondary" disabled>
+              <Button.Text>Disabled</Button.Text>
+            </Button>
+            <Button size="medium" buttonVariant="secondary" disabled>
+              <Button.Icon>
+                <Spinner />
+              </Button.Icon>
+            </Button>
+          </XStack>
+        ),
       },
     ]}
   />
