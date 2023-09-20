@@ -1,15 +1,13 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+
+import type { SvgProps } from 'react-native-svg';
+
 const SvgEye = (props: SvgProps) => (
-  <Svg
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    accessibilityRole="image"
-    {...props}
-  >
-    <Path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
+      fill="currentColor"
       fillRule="evenodd"
-      d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 0 1 0-1.113zM17.25 12a5.25 5.25 0 1 1-10.5 0 5.25 5.25 0 0 1 10.5 0z"
+      d="M12 4c3.952 0 7.79 2.272 10.357 6.583a2.77 2.77 0 0 1 0 2.834C19.79 17.727 15.952 20 12 20c-3.952 0-7.79-2.272-10.357-6.583a2.771 2.771 0 0 1 0-2.834C4.21 6.273 8.048 4 12 4Zm-3.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0Z"
       clipRule="evenodd"
     />
   </Svg>

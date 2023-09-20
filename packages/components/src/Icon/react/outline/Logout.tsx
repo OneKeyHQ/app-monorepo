@@ -1,17 +1,15 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+
+import type { SvgProps } from 'react-native-svg';
+
 const SvgLogout = (props: SvgProps) => (
-  <Svg
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
+      stroke="currentColor"
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="m17 16 4-4m0 0-4-4m4 4H7m6 4v1a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1"
+      d="M11.25 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.25M20 12H8.75M20 12l-4.5 4.5M20 12l-4.5-4.5"
     />
   </Svg>
 );

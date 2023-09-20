@@ -1,43 +1,12 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
-import { useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import natsort from 'natsort';
+import { FlatList, TouchableOpacity } from 'react-native';
 
-import {
-  Box,
-  Button,
-  Center,
-  FlatList,
-  Pressable,
-  Typography,
-} from '@onekeyhq/components';
-
-import { useNavigationBack } from '../../hooks/useAppNavigation';
-import { GalleryRoutes } from '../../routes/routesEnum';
-
-import type { GalleryParams } from '../../routes/Root/Gallery';
-import type { NavigationProp, RouteProp } from '@react-navigation/core';
-
-type StackRoutesType = typeof GalleryRoutes;
-
-type NavigationProps = NavigationProp<
-  GalleryParams,
-  StackRoutesType[keyof StackRoutesType]
->;
-
-type RouteProps = RouteProp<GalleryParams, StackRoutesType['Components']>;
-
-const ListHeaderComponent = () => {
-  const goBack = useNavigationBack();
-  return <Button onPress={goBack}>Back to HOME</Button>;
-};
+import { Stack, Text } from '@onekeyhq/components';
+import { GalleryRoutes } from '@onekeyhq/kit/src/routes/Gallery';
 
 const Index = () => {
-  const navigation = useNavigation<NavigationProps>();
-  const route = useRoute<RouteProps>();
-
-  console.log('route: ', route.params.ts);
+  const navigation = useNavigation();
 
   const componentsRoute = Object.values(GalleryRoutes)
     .filter((item) => item.startsWith('component'))
@@ -46,29 +15,28 @@ const Index = () => {
   return (
     <FlatList
       data={componentsRoute}
-      bg="background-hovered"
-      ListHeaderComponent={ListHeaderComponent}
+      style={{ flex: 1, backgroundColor: 'background-hovered' }}
       renderItem={({ item, index }) => (
-        <Pressable
+        <TouchableOpacity
           onPress={() => {
             navigation.navigate(item);
           }}
         >
-          <Box
-            borderBottomWidth={index === componentsRoute.length - 1 ? '0' : '1'}
+          <Stack
+            borderBottomWidth={index === componentsRoute.length - 1 ? 0 : 1}
             borderColor="text-subdued"
-            pl="4"
-            pr="5"
-            py="2"
-            mx="12"
+            paddingLeft={4}
+            paddingRight={5}
+            paddingHorizontal={2}
+            marginVertical={12}
           >
-            <Center display="flex" flexDirection="row">
-              <Typography.DisplayLarge>
+            <Stack display="flex" flexDirection="row">
+              <Text variant="$bodyLgMedium">
                 {item.replace('component/', '')}
-              </Typography.DisplayLarge>
-            </Center>
-          </Box>
-        </Pressable>
+              </Text>
+            </Stack>
+          </Stack>
+        </TouchableOpacity>
       )}
       keyExtractor={(_, index) => index.toString()}
     />

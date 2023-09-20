@@ -1,0 +1,37 @@
+{
+  "name": "@onekeyhq/components_pre",
+  "version": "0.0.1",
+  "private": true,
+  "main": "src/index.tsx",
+  "dependencies": {
+    "iso-639-1": "^2.1.13",
+    "lodash": "^4.17.21",
+    "moti": "^0.25.3",
+    "native-base": "3.4.22",
+    "qrcode": "^1.5.0",
+    "react-content-loader": "^6.2.1",
+    "react-dropzone": "^14.2.3",
+    "react-hook-form": "^7.22.1",
+    "react-native-draggable-flatlist": "4.0.1",
+    "react-native-keyboard-aware-scroll-view": "^0.9.5",
+    "react-native-markdown-display": "^7.0.0-alpha.2",
+    "react-native-modalize": "^2.1.1",
+    "react-native-progress": "^5.0.0",
+    "react-native-root-siblings": "^4.1.1",
+    "react-native-svg": "^13.9.0",
+    "react-native-tab-view": "^3.5.1",
+    "react-native-typewriter": "^0.7.0",
+    "react-player": "^2.11.2",
+    "recyclerlistview": "^4.2.0"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.4.2",
+    "rimraf": "^3"
+  },
+  "scripts": {
+    "build:icons": "rm -rf src/Icon/react && npx @svgr/cli@6.3.1 --config-file .svgrrc.json -d src/Icon/react svg && node src/Icon/script.js",
+    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
+    "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix",
+    "fetch:locale": "rimraf ./src/locale/*.json && npx lokalise-client fetch"
+  }
+}

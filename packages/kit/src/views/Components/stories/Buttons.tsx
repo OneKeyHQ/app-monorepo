@@ -1,128 +1,163 @@
-import type { ComponentProps, FC } from 'react';
-import { useCallback } from 'react';
+import { XStack, YStack } from 'tamagui';
 
-import { Button, Center, ScrollView, Stack } from '@onekeyhq/components';
+import { Button, Spinner } from '@onekeyhq/components';
+import { Placeholder } from '@onekeyhq/components/src/Icon/react/outline';
 
-type SetProps = { size?: ComponentProps<typeof Button>['size'] };
+import { Layout } from './utils/Layout';
 
-const ButtonSet: FC<SetProps> = ({ size }) => (
-  <Stack
-    direction="row"
-    space="2"
-    mb="2"
-    py="2"
-    alignItems="center"
-    flexWrap="wrap"
-    justifyContent="center"
-  >
-    <Button
-      isLoading
-      type="primary"
-      size={size}
-      rightIconName="AcademicCapMini"
-      mb="2"
-    >
-      Button
-    </Button>
-    <Button
-      isDisabled
-      type="primary"
-      size={size}
-      rightIconName="AcademicCapMini"
-      mb="2"
-    >
-      Button
-    </Button>
-    <Button type="primary" size={size} leftIconName="AcademicCapMini" mb="2">
-      Button
-    </Button>
-    <Button type="basic" size={size} rightIconName="AcademicCapMini" mb="2">
-      Button
-    </Button>
-    <Button type="plain" size={size} rightIconName="AcademicCapMini" mb="2">
-      Button
-    </Button>
-    <Button
-      type="destructive"
-      rightIconName="AcademicCapMini"
-      size={size}
-      mb="2"
-    >
-      Button
-    </Button>
-  </Stack>
+const ButtonsGallery = () => (
+  <Layout
+    description="对操作结果的反馈，无需用户操作即可自行消失"
+    suggestions={[
+      '使用 Toast 显示简约明确的信息反馈',
+      '用户点击或触摸 Toast 内容时，浮层将会停留在页面上',
+      'Toast 显示的文本应少于 20 字',
+      '不建议使用 Toast 显示过长的报错信息',
+    ]}
+    boundaryConditions={[
+      'Toast 永远拥有最高层级的浮层',
+      'Toast 组件能显示的最长文本内容为三排，超出三排将会缩略',
+      '界面中只会存在一个 Toast 示例，后触发的 Toast 信息会覆盖前一条 Toast 信息',
+    ]}
+    elements={[
+      {
+        title: 'Variants',
+        element: (
+          <YStack space="$2">
+            <Button
+              size="large"
+              buttonVariant="primary"
+              onPress={() => {
+                alert('clicked');
+              }}
+            >
+              <Button.Text>Primary</Button.Text>
+            </Button>
+            <Button size="large" buttonVariant="secondary">
+              <Button.Text>Secondary</Button.Text>
+            </Button>
+            <Button size="large" buttonVariant="tertiary">
+              <Button.Text>Tertiary</Button.Text>
+            </Button>
+            <Button size="large" buttonVariant="destructive">
+              <Button.Text>Destructive</Button.Text>
+            </Button>
+          </YStack>
+        ),
+      },
+      {
+        title: 'Size',
+        element: (
+          <YStack space="$2">
+            <XStack space="$2" alignItems="center">
+              <Button size="large" buttonVariant="primary">
+                <Button.Text>Large</Button.Text>
+              </Button>
+              <Button size="medium" buttonVariant="primary">
+                <Button.Text>Medium</Button.Text>
+              </Button>
+              <Button size="small" buttonVariant="primary">
+                <Button.Text>Small</Button.Text>
+              </Button>
+            </XStack>
+            <XStack space="$2" alignItems="center">
+              <Button size="large" buttonVariant="secondary">
+                <Button.Text>Large</Button.Text>
+              </Button>
+              <Button size="medium" buttonVariant="secondary">
+                <Button.Text>Medium</Button.Text>
+              </Button>
+              <Button size="small" buttonVariant="secondary">
+                <Button.Text>Small</Button.Text>
+              </Button>
+            </XStack>
+            <XStack space="$10" alignItems="center">
+              <Button size="large" buttonVariant="tertiary">
+                <Button.Text>Large</Button.Text>
+              </Button>
+              <Button size="medium" buttonVariant="tertiary">
+                <Button.Text>Medium</Button.Text>
+              </Button>
+              <Button size="small" buttonVariant="tertiary">
+                <Button.Text>Small</Button.Text>
+              </Button>
+            </XStack>
+          </YStack>
+        ),
+      },
+      {
+        title: 'Icon on different sizes',
+        element: (
+          <XStack space="$2" alignItems="flex-end">
+            <Button size="large" buttonVariant="secondary">
+              <Button.Icon>
+                <Placeholder />
+              </Button.Icon>
+              <Button.Text>Large</Button.Text>
+            </Button>
+            <Button size="medium" buttonVariant="secondary">
+              <Button.Icon>
+                <Placeholder />
+              </Button.Icon>
+              <Button.Text>Medium</Button.Text>
+            </Button>
+            <Button size="small" buttonVariant="secondary">
+              <Button.Icon>
+                <Placeholder />
+              </Button.Icon>
+              <Button.Text>Small</Button.Text>
+            </Button>
+          </XStack>
+        ),
+      },
+      {
+        title: 'Icon on different colors',
+        element: (
+          <XStack space="$2" alignItems="center">
+            <Button size="medium" buttonVariant="primary">
+              <Button.Icon>
+                <Placeholder />
+              </Button.Icon>
+              <Button.Text>Primary</Button.Text>
+            </Button>
+            <Button size="medium" buttonVariant="secondary">
+              <Button.Icon>
+                <Placeholder />
+              </Button.Icon>
+              <Button.Text>Secondary</Button.Text>
+            </Button>
+            <Button size="medium" buttonVariant="tertiary">
+              <Button.Icon>
+                <Placeholder />
+              </Button.Icon>
+              <Button.Text>Tertiary</Button.Text>
+            </Button>
+            <Button size="medium" buttonVariant="destructive">
+              <Button.Icon>
+                <Placeholder />
+              </Button.Icon>
+              <Button.Text>Destructive</Button.Text>
+            </Button>
+          </XStack>
+        ),
+      },
+      {
+        title: 'Disabled and loading',
+        element: (
+          <XStack space="$2" alignItems="center">
+            <Button size="medium" buttonVariant="secondary" disabled>
+              <Button.Text>Disabled</Button.Text>
+            </Button>
+            <Button size="medium" buttonVariant="secondary" disabled>
+              <Button.Icon>
+                <Spinner />
+              </Button.Icon>
+            </Button>
+          </XStack>
+        ),
+      },
+    ]}
+  />
 );
 
-const ButtonUsePromise = () => {
-  const onPromise = useCallback(
-    () =>
-      new Promise((resolve, reject) => {
-        setTimeout(() => {
-          if (Math.random() < 0.5) {
-            resolve('OK');
-          } else {
-            reject();
-          }
-        }, 2000);
-      }),
-    [],
-  );
-  return (
-    <Stack
-      direction="row"
-      space="2"
-      mb="2"
-      py="2"
-      alignItems="center"
-      flexWrap="wrap"
-      justifyContent="center"
-    >
-      <Button
-        type="primary"
-        rightIconName="AcademicCapMini"
-        size="xl"
-        mb="2"
-        onPromise={onPromise}
-      >
-        use Promise
-      </Button>
-      <Button
-        type="primary"
-        rightIconName="AcademicCapMini"
-        size="xl"
-        mb="2"
-        isLoading={false}
-        onPromise={onPromise}
-      >
-        use Promise(disabled by isLoading)
-      </Button>
-      <Button
-        type="primary"
-        rightIconName="AcademicCapMini"
-        size="xl"
-        mb="2"
-        onPress={() => {}}
-        onPromise={onPromise}
-      >
-        use Promise(disabled by onPress)
-      </Button>
-    </Stack>
-  );
-};
-
-const Buttons = () => (
-  <Center flex="1" bg="background-hovered">
-    <ScrollView>
-      <Stack direction="column" space="2" mb="2" alignItems="center">
-        <ButtonSet size="xs" />
-        <ButtonSet size="sm" />
-        <ButtonSet size="base" />
-        <ButtonSet size="lg" />
-        <ButtonSet size="xl" />
-        <ButtonUsePromise />
-      </Stack>
-    </ScrollView>
-  </Center>
-);
-
-export default Buttons;
+export default ButtonsGallery;

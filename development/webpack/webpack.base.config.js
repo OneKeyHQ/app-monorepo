@@ -201,7 +201,7 @@ module.exports = ({ platform, basePath, configName }) => ({
                     '../../packages/components/tamagui.config.ts',
                   ),
                   components: ['tamagui'],
-                  importsWhitelist: ['constants.js', 'colors.js'],
+                  importsWhitelist: [],
                   logTimings: true,
                   disableExtraction: isDev,
                 },

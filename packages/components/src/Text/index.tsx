@@ -1,37 +1,28 @@
-import type { FC } from 'react';
+import { styled, GetProps, Text as OriginText } from 'tamagui';
 
-import { Text as NBText } from 'native-base';
+export const Text = styled(OriginText, {
+  variants: {
+    variant: {
+      '...size': (size, { font }) => ({
+        fontFamily:
+          size === '$bodyMdMono' || size === '$bodyLgMono'
+            ? 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
+            : '$body',
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        fontSize: font?.size[size as any],
+        lineHeight: font?.lineHeight[size],
+        fontWeight: font?.weight[size],
+        textTransform: size === '$headingXs' ? 'uppercase' : 'none',
+        letterSpacing: size === '$headingXs' ? 0.8 : 0,
+        textDecorationLine:
+          size === '$bodyLgUnderline' || size === '$bodyMdUnderline'
+            ? 'underline'
+            : 'none',
+      }),
+    },
+  } as const,
 
-import { useIsVerticalLayout } from '@onekeyhq/components';
-
-import { getTypographyStyleProps } from '../Typography';
-
-import type { FontProps, TypographyStyle } from '../Typography';
-
-type TextProps = {
-  typography?:
-    | TypographyStyle
-    | { 'sm': TypographyStyle; 'md': TypographyStyle };
-} & FontProps;
-
-const Text: FC<TextProps> = ({ typography, children, ...rest }) => {
-  const isSmallScreen = useIsVerticalLayout();
-  let props;
-  if (typography) {
-    if (typeof typography === 'string') {
-      props = getTypographyStyleProps(typography);
-    } else {
-      props = getTypographyStyleProps(
-        isSmallScreen ? typography.sm : typography.md,
-      );
-    }
-  }
-
-  return (
-    <NBText color="text-default" {...props} {...rest}>
-      {children}
-    </NBText>
-  );
-};
-
-export default Text;
+  defaultVariants: {
+    variant: '$bodyLg',
+  },
+});

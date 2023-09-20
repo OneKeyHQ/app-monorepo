@@ -1,17 +1,14 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+
+import type { SvgProps } from 'react-native-svg';
+
 const SvgThumbDown = (props: SvgProps) => (
-  <Svg
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
-      strokeLinecap="round"
+      stroke="currentColor"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="M10 14H5.236a2 2 0 0 1-1.789-2.894l3.5-7A2 2 0 0 1 8.736 3h4.018a2 2 0 0 1 .485.06l3.76.94m-7 10v5a2 2 0 0 0 2 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2.5"
+      d="M17 13h3a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1h-3m0 9V4m0 9-3.699 7.45a.99.99 0 0 1-.886.55 1.998 1.998 0 0 1-1.97-2.308L11.02 15H5.99a2.996 2.996 0 0 1-2.961-3.405l.68-5A2.993 2.993 0 0 1 6.668 4H17"
     />
   </Svg>
 );
