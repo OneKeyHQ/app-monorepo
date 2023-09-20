@@ -19,6 +19,7 @@ const CoinControlListItemMenu: FC<
     network: Network;
     item: ICoinControlListItem;
     showFrozenOption: boolean;
+    showRecycleOption: boolean;
     onConfirmEditLabel: (item: ICoinControlListItem, label: string) => void;
     onFrozenUTXO: (item: ICoinControlListItem, value: boolean) => void;
     onRecycleUTXO: (item: ICoinControlListItem) => void;
@@ -26,6 +27,7 @@ const CoinControlListItemMenu: FC<
 > = ({
   item,
   showFrozenOption = true,
+  showRecycleOption,
   network,
   onConfirmEditLabel,
   onFrozenUTXO,
@@ -83,12 +85,13 @@ const CoinControlListItemMenu: FC<
         onPress: onOpenBlockChainBrowser,
         icon: 'GlobeAltOutline',
       },
-      item.recycle && (() => <Divider my={1} />),
-      item.recycle && {
-        id: 'action__restore_to_inscription',
-        onPress: onPressRecycleUTXO,
-        icon: 'RestoreOutline',
-      },
+      item.recycle && showRecycleOption && (() => <Divider my={1} />),
+      item.recycle &&
+        showRecycleOption && {
+          id: 'action__restore_to_inscription',
+          onPress: onPressRecycleUTXO,
+          icon: 'RestoreOutline',
+        },
       showFrozenOption && (() => <Divider my={1} />),
       showFrozenOption && {
         id: isFrozen ? 'action__unfreeze' : 'action__freeze',
@@ -102,10 +105,11 @@ const CoinControlListItemMenu: FC<
       onPressDeleteLabel,
       onOpenBlockChainBrowser,
       item.recycle,
+      showRecycleOption,
+      onPressRecycleUTXO,
+      showFrozenOption,
       isFrozen,
       onPressFrozenUTXO,
-      showFrozenOption,
-      onPressRecycleUTXO,
     ],
   );
 

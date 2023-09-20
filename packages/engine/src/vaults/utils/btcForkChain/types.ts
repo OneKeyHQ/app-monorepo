@@ -55,6 +55,7 @@ export type IBtcUTXO = {
   path: string;
   forceSelect?: boolean;
   inscriptions?: NFTBTCAssetModel[];
+  confirmations?: number;
 };
 
 export type IOrdinalQueryStatus =

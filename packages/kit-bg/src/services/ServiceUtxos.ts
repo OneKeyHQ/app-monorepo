@@ -2,7 +2,9 @@ import BigNumber from 'bignumber.js';
 
 import { getUtxoId } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
+import { getLocalNFTs } from '@onekeyhq/engine/src/managers/nft';
 import type { DBUTXOAccount } from '@onekeyhq/engine/src/types/account';
+import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import type { ICoinControlListItem } from '@onekeyhq/engine/src/types/utxoAccounts';
 import type { ICollectUTXOsOptions } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import {
@@ -134,6 +136,11 @@ export default class ServiceUtxos extends ServiceBase {
         (vault.settings.dust ?? vault.settings.minTransferAmount) || 0,
       ).shiftedBy(network.decimals);
 
+      const shouldHideInscriptions = getShouldHideInscriptions({
+        accountId,
+        networkId,
+      });
+
       const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
         networkId,
         dbAccount.xpub,
@@ -176,6 +183,9 @@ export default class ServiceUtxos extends ServiceBase {
       }
 
       const utxos: ICoinControlListItem[] = btcUtxos
+        .filter((utxo) =>
+          new BigNumber(utxo?.confirmations ?? 0).isGreaterThan(0),
+        )
         .map((utxo) => {
           const archivedUtxo = archivedUtxos.find(
             (item) => item.id === getUtxoId(networkId, utxo),
@@ -197,24 +207,29 @@ export default class ServiceUtxos extends ServiceBase {
         (utxo) =>
           new BigNumber(utxo.value).isGreaterThan(dust) &&
           !utxo.frozen &&
-          !utxo.recycle,
+          (shouldHideInscriptions ? true : !utxo.recycle),
       );
       const dustData = utxos.filter(
         (utxo) =>
           new BigNumber(utxo.value).isLessThanOrEqualTo(dust) &&
           !utxo.frozen &&
-          !utxo.recycle,
+          (shouldHideInscriptions ? true : !utxo.recycle),
       );
       const frozenUtxos = utxos.filter((utxo) => utxo.frozen);
       const frozenUtxosWithoutRecycle = utxos.filter(
-        (utxo) => utxo.frozen && !utxo.recycle,
+        (utxo) =>
+          utxo.frozen && (shouldHideInscriptions ? true : !utxo.recycle),
       );
       const frozenRecycleUtxos = frozenUtxos.filter(
-        (utxo) => utxo.recycle && utxo.frozen,
+        (utxo) =>
+          (shouldHideInscriptions ? false : utxo.recycle) && utxo.frozen,
       );
-      const recycleUtxos = utxos.filter((utxo) => utxo.recycle);
+      const recycleUtxos = utxos.filter((utxo) =>
+        shouldHideInscriptions ? false : utxo.recycle,
+      );
       const recycleUtxosWithoutFrozen = utxos.filter(
-        (utxo) => utxo.recycle && !utxo.frozen,
+        (utxo) =>
+          (shouldHideInscriptions ? false : utxo.recycle) && !utxo.frozen,
       );
 
       const result = {
@@ -340,19 +355,42 @@ export default class ServiceUtxos extends ServiceBase {
       accountId,
     )) as DBUTXOAccount;
     const existUtxo = await simpleDb.utxoAccounts.getCoinControlById(id);
+
+    const shouldHideInscriptions = getShouldHideInscriptions({
+      accountId,
+      networkId,
+    });
+
+    let recycle = existUtxo ? existUtxo.recycle : false;
+
+    if (frozen && shouldHideInscriptions) {
+      const localNFTs = (await getLocalNFTs({
+        accountId,
+        networkId,
+      })) as NFTBTCAssetModel[];
+      if (
+        localNFTs.find((item) => {
+          const [txid, vout] = item.output.split(':');
+          return txid === utxo.txid && vout === String(utxo.vout);
+        })
+      ) {
+        recycle = true;
+      }
+    }
+
     if (!existUtxo) {
       return simpleDb.utxoAccounts.addCoinControlItem(
         networkId,
         utxo,
         dbAccount.xpub,
-        { label: '', frozen, recycle: false },
+        { label: '', frozen, recycle },
       );
     }
 
     return simpleDb.utxoAccounts.updateCoinControlItem(id, {
       label: existUtxo.label,
       frozen,
-      recycle: existUtxo.recycle,
+      recycle,
     });
   }
 
