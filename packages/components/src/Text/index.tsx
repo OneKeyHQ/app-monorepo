@@ -1,8 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
-import { GetProps, styled } from '@tamagui/web';
-import { Text as OriginText } from 'tamagui';
-
-export type TextProps = GetProps<typeof OriginText>;
+import { styled, GetProps, Text as OriginText } from 'tamagui';
 
 export const Text = styled(OriginText, {
   variants: {

@@ -156,18 +156,6 @@ const ButtonsGallery = () => (
           </XStack>
         ),
       },
-      {
-        title: 'Icon Button',
-        element: (
-          <XStack space="$2" alignItems="center">
-            <Button size="medium" buttonVariant="destructive" iconOnly>
-              <Button.Icon>
-                <Placeholder />
-              </Button.Icon>
-            </Button>
-          </XStack>
-        ),
-      },
     ]}
   />
 );
