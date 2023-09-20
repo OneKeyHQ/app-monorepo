@@ -49,8 +49,8 @@ const settings: IVaultSettings = Object.freeze({
       category: `44'/${COINTYPE_ETH}'`,
       template: `m/44'/${COINTYPE_ETH}'/0'/0/${INDEX_PLACEHOLDER}`,
       coinType: COINTYPE_ETH,
-      label: { id: 'form__bip44_standard' },
-      desc: { id: `form__bip44_standard_desc` },
+      label: { id: 'form__bip44_standard' as any },
+      desc: { id: `form__bip44_standard_desc` as any },
       recommended: true,
     },
     etcNative: {
@@ -58,7 +58,7 @@ const settings: IVaultSettings = Object.freeze({
       category: `44'/${COINTYPE_ETC}'`,
       template: `m/44'/${COINTYPE_ETC}'/0'/0/${INDEX_PLACEHOLDER}`,
       coinType: COINTYPE_ETC,
-      label: { id: 'form__bip44_standard_cointype_61' },
+      label: { id: 'form__bip44_standard_cointype_61' as any },
     },
     ledgerLive: {
       prefix: 'Ledger Live',

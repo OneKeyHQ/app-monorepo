@@ -30,7 +30,7 @@ const settings: IVaultSettings = Object.freeze({
       category: `44'/${COINTYPE_SOL}'`,
       template: `m/44'/${COINTYPE_SOL}'/${INDEX_PLACEHOLDER}'/0'`,
       coinType: COINTYPE_SOL,
-      label: { id: 'form__bip44_standard' },
+      label: { id: 'form__bip44_standard' as any },
       desc: 'OneKey, Phantom, Sollet',
       recommended: true,
     },
