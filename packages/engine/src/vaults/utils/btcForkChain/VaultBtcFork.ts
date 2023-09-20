@@ -56,6 +56,7 @@ import {
 } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import {
+  batchAsset,
   getBRC20TransactionHistory,
   getNFTTransactionHistory,
 } from '../../../managers/nft';
@@ -563,6 +564,7 @@ export default class VaultBtcFork extends VaultBase {
       networkId: this.networkId,
       accountId: this.accountId,
       extraInfo: null,
+      encodedTx,
       totalFeeInNative: encodedTx.totalFeeInNative,
     };
   }
@@ -1176,6 +1178,19 @@ export default class VaultBtcFork extends VaultBase {
         tokenAddress: tokenIdOnNetwork,
       });
 
+      let assets: NFTBTCAssetModel[] | undefined;
+
+      const inscriptionsInHistory = history.map((item) => ({
+        token_id: item.inscriptionId,
+      }));
+
+      if (inscriptionsInHistory.length) {
+        assets = (await batchAsset({
+          chain: this.networkId,
+          items: inscriptionsInHistory,
+        })) as NFTBTCAssetModel[];
+      }
+
       // several history items with same txid
       // merge them into one
       const txIdSet = new Set<string>();
@@ -1221,28 +1236,35 @@ export default class VaultBtcFork extends VaultBase {
             const isInscribeTransfer = actionType === 'inscribeTransfer';
 
             if (tokenInfo) {
+              const assetDefault = {
+                type: NFTAssetType.BTC,
+                inscription_id: tx.inscriptionId,
+                inscription_number: new BigNumber(
+                  tx.inscriptionNumber,
+                ).toNumber(),
+                tx_hash: tx.txId,
+                content: '',
+                content_length: 0,
+                content_type: '',
+                timestamp: tx.time,
+                output: tx.index,
+                owner: '',
+                output_value_sat: INSCRIPTION_PADDING_SATS_VALUES.default,
+                genesis_transaction_hash: '',
+                location: tx.location,
+                contentUrl: '',
+              };
+
               const action = this.buildBRC20TokenAction({
                 nftInfo: {
                   from: isInscribeTransfer ? toAddress : fromAddress,
                   to: toAddress,
                   amount,
                   asset: {
-                    type: NFTAssetType.BTC,
-                    inscription_id: tx.inscriptionId,
-                    inscription_number: new BigNumber(
-                      tx.inscriptionNumber,
-                    ).toNumber(),
-                    tx_hash: tx.txId,
-                    content: '',
-                    content_length: 0,
-                    content_type: '',
-                    timestamp: tx.time,
-                    output: tx.index,
-                    owner: '',
-                    output_value_sat: 0,
-                    genesis_transaction_hash: '',
-                    location: tx.location,
-                    contentUrl: '',
+                    ...assetDefault,
+                    ...assets?.find(
+                      (asset) => asset.inscription_id === tx.inscriptionId,
+                    ),
                   },
                 },
                 dbAccount,
