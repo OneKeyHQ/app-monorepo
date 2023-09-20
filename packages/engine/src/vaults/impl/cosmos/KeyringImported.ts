@@ -1,26 +1,10 @@
-import { sha256 } from '@noble/hashes/sha256';
-
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ChainSigner } from '@onekeyhq/engine/src/proxy';
-import type { ICurveName } from '@onekeyhq/engine/src/secret';
-import { ed25519, secp256k1 } from '@onekeyhq/engine/src/secret/curves';
-import type {
-  DBSimpleAccount,
-  DBVariantAccount,
-} from '@onekeyhq/engine/src/types/account';
+import type { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
-import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
-import {
-  COINTYPE_COSMOS,
-  COINTYPE_COSMOS as COIN_TYPE,
-} from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { COINTYPE_COSMOS } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
-
-import { pubkeyToBaseAddress } from './sdk/address';
-import { generateSignBytes, serializeSignedTx } from './sdk/txBuilder';
 
 import type {
   IGetPrivateKeysParams,
@@ -29,9 +13,7 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '../../types';
-import type { IEncodedTxCosmos } from './type';
 
-// @ts-ignore
 export class KeyringImported extends KeyringImportedBase {
   override coreApi = coreChainApi.cosmos.imported;
 

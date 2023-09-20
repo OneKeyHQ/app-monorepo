@@ -16,8 +16,11 @@ import { stripHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
-import { pubkeyToBaseAddress } from './sdk/address';
-import { generateSignBytes, serializeSignedTx } from './sdk/txBuilder';
+import {
+  generateSignBytes,
+  pubkeyToBaseAddress,
+  serializeSignedTx,
+} from './sdk';
 
 import type {
   IHardwareGetAddressParams,

@@ -64,32 +64,30 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { CosmosNodeClient } from './NodeClient';
 import {
+  MessageType,
+  MintScanQuery,
+  TxAminoBuilder,
+  TxMsgBuilder,
   baseAddressToAddress,
-  isValidAddress,
-  isValidContractAddress,
-} from './sdk/address';
-import { TxAminoBuilder } from './sdk/amino/TxAminoBuilder';
-import { defaultAminoMsgOpts } from './sdk/amino/types';
-import { MessageType } from './sdk/message';
-import { queryRegistry } from './sdk/query/IQuery';
-import { MintScanQuery } from './sdk/query/MintScanQuery';
-import { Type } from './sdk/query/mintScanTypes';
-import { serializeSignedTx } from './sdk/txBuilder';
-import { TxMsgBuilder } from './sdk/txMsgBuilder';
-import {
+  defaultAminoMsgOpts,
   getFee,
   getMsgs,
   getSequence,
+  isValidAddress,
+  isValidContractAddress,
+  mintScanTypes,
+  queryRegistry,
+  serializeSignedTx,
   setFee,
   setSendAmount,
-} from './sdk/wrapper/utils';
+} from './sdk';
 import settings from './settings';
 import {
   getTransactionTypeByMessage,
   getTransactionTypeByProtoMessage,
 } from './utils';
 
-import type { TxBuilder } from './sdk/txBuilder';
+import type { TxBuilder } from './sdk';
 import type { CosmosImplOptions, IEncodedTxCosmos, StdFee } from './type';
 import type { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
@@ -232,7 +230,7 @@ export default class Vault extends VaultBase {
 
       const token = results.find((item) => {
         if (
-          item.type === Type.Ibc &&
+          item.type === mintScanTypes.Type.Ibc &&
           this.normalIBCAddress(item.denom) === normalizationAddress
         ) {
           return true;
@@ -358,7 +356,7 @@ export default class Vault extends VaultBase {
           this.normalIBCAddress(item.denom) ?? item.denom;
 
         if (
-          item.type === Type.Ibc &&
+          item.type === mintScanTypes.Type.Ibc &&
           ibcTokenAddresses.has(normalizationAddress)
         ) {
           acc.push({
