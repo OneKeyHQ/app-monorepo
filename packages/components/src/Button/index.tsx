@@ -11,6 +11,8 @@ import {
 
 import { Text } from '../Text';
 
+import type { UseThemeResult } from '@tamagui/web/src/hooks/useTheme';
+
 export const ButtonContext = createStyledContext<{
   size: 'small' | 'medium' | 'large';
   buttonVariant: 'secondary' | 'tertiary' | 'primary' | 'destructive';
@@ -141,23 +143,27 @@ export const ButtonText = styled(Text, {
   } as const,
 });
 
-const ButtonIcon = (props: { children: any }) => {
+const colorMapping: Record<string, keyof UseThemeResult> = {
+  primary: '$iconInverse',
+  secondary: '$icon',
+  tertiary: '$iconSubdued',
+  destructive: '$iconOnColor',
+};
+const ButtonIcon = ({ children }: React.PropsWithChildren<unknown>) => {
   const { size, buttonVariant } = useContext(ButtonContext);
-  const tokens = getTokens();
+  const tokens = getTokens({ prefixed: false });
   const theme = useTheme();
   const iconSize =
-    size === 'small' ? tokens.size.$5.val * 0.9 : tokens.size.$5.val;
-  const colorMapping = {
-    primary: '$iconInverse',
-    secondary: '$icon',
-    tertiary: '$iconSubdued',
-    destructive: '$iconOnColor',
-  };
-  return cloneElement(props.children, {
-    width: iconSize,
-    height: iconSize,
-    color: theme[colorMapping[buttonVariant]].get(),
-  });
+    size === 'small' ? tokens.size['5'].val * 0.9 : tokens.size['5'].val;
+  type ThemeKey = keyof typeof theme;
+  const key: ThemeKey = colorMapping[buttonVariant] as ThemeKey;
+  return children
+    ? cloneElement(children as React.ReactElement, {
+        width: iconSize,
+        height: iconSize,
+        color: theme[key].get(),
+      })
+    : null;
 };
 
 export const Button = withStaticProperties(ButtonFrame, {

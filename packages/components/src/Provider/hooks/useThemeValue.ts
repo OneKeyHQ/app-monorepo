@@ -3,10 +3,11 @@ import { useTheme } from '@tamagui/core';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { VariableVal } from '@tamagui/core';
+import type { UseThemeResult } from '@tamagui/web/src/hooks/useTheme';
 
-type ThemeKeys = keyof ReturnType<typeof useTheme>;
+type ThemeKeys = keyof UseThemeResult;
 const getValue = (
-  theme: ReturnType<typeof useTheme>,
+  theme: UseThemeResult,
   key: ThemeKeys,
   fallback?: VariableVal,
 ): VariableVal => {
