@@ -14,7 +14,8 @@ const ControlledDialogByText = () => {
       onOpen={() => {
         changeIsOpen(true);
       }}
-      renderTrigger={<Text>Open Modal By Text</Text>}
+      renderTrigger={<Text>Open Modal by Text</Text>}
+      renderContent={<Text>Overlay Content by Text Trigger</Text>}
       onClose={() => {
         changeIsOpen(false);
       }}
@@ -34,6 +35,7 @@ const ControlledDialogByButton = () => {
         onClose={() => {
           changeIsOpen(false);
         }}
+        renderContent={<Text>Overlay Content by Button Trigger</Text>}
       />
     </>
   );
@@ -41,28 +43,22 @@ const ControlledDialogByButton = () => {
 
 const DialogGallery = () => (
   <Layout
-    description="对操作结果的反馈，无需用户操作即可自行消失"
+    description="需要用户处理事务，又不希望跳转路由以致打断工作流程时，可以使用 Dialog 组件"
     suggestions={[
-      '使用 Toast 显示简约明确的信息反馈',
-      '用户点击或触摸 Toast 内容时，浮层将会停留在页面上',
-      'Toast 显示的文本应少于 20 字',
-      '不建议使用 Toast 显示过长的报错信息',
+      'Dialog 的呈现层级高于页面，但低于 Toast',
+      '需要避免在 Dialog 显示需要滚动操作的内容',
     ]}
-    boundaryConditions={[
-      'Toast 永远拥有最高层级的浮层',
-      'Toast 组件能显示的最长文本内容为三排，超出三排将会缩略',
-      '界面中只会存在一个 Toast 示例，后触发的 Toast 信息会覆盖前一条 Toast 信息',
-    ]}
-    elements={[
-      {
-        title: 'open Modal by renderTrigger',
-        element: <ControlledDialogByText />,
-      },
-      {
-        title: 'open Modal by Button',
-        element: <ControlledDialogByButton />,
-      },
-    ]}
+    boundaryConditions={['禁止将 Dialog 作为路由页面使用']}
+      elements={[
+        {
+          title: 'open Modal by renderTrigger',
+          element: <ControlledDialogByText />,
+        },
+        {
+          title: 'open Modal by Button',
+          element: <ControlledDialogByButton />,
+        },
+      ]}
   />
 );
 

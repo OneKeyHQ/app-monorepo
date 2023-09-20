@@ -4,7 +4,7 @@ import { Adapt, Sheet, Dialog as TMDialog, Text } from 'tamagui';
 
 import { XStack } from '../Stack';
 
-import type { Button } from '../Button';
+import { Button } from '../Button';
 import type { ICON_NAMES } from '../Icon';
 
 export interface ModalProps {
@@ -36,7 +36,7 @@ export function Dialog({
       <TMDialog.Trigger onPress={onOpen} asChild>
         {renderTrigger}
       </TMDialog.Trigger>
-      <Adapt when="xl" platform="touch">
+      <Adapt platform="touch">
         <Sheet modal zIndex={20000}>
           <Sheet.Handle />
           <Sheet.Frame>
@@ -49,9 +49,9 @@ export function Dialog({
           />
         </Sheet>
       </Adapt>
-      {/* <TMDialog.Portal>
+      <TMDialog.Portal>
         <TMDialog.Overlay backgroundColor="$bgBackdrop" onPress={onClose} />
-        <TMDialog.Content>
+        <TMDialog.Content key="content">
           <TMDialog.Title>{title}</TMDialog.Title>
           <TMDialog.Description>{description}</TMDialog.Description>
           {renderContent}
@@ -60,9 +60,7 @@ export function Dialog({
           <Button {...confirmButtonProps} />
           <Button {...cancelButtonProps} />
         </XStack>
-      </TMDialog.Portal> */}
-
-      {/* optionally change to sheet when small screen */}
+      </TMDialog.Portal>
     </TMDialog>
   );
 }
