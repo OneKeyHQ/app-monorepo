@@ -10,15 +10,18 @@ import {
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { toPsbtNetwork } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.utils';
 
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
+import { BtcMessageTypes } from '../../../types/message';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
-import { initBitcoinEcc } from './utils';
+import { getBitcoinBip32, getBitcoinECPair, initBitcoinEcc } from './utils';
 
 import type { DBUTXOAccount } from '../../../types/account';
+import type { IUnsignedMessageBtc } from '../../impl/btc/types';
 import type {
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
@@ -169,5 +172,59 @@ export class KeyringImported extends KeyringImportedBase {
         addresses: { [firstAddressRelPath]: address },
       },
     ]);
+  }
+
+  override async signMessage(
+    messages: IUnsignedMessageBtc[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]> {
+    initBitcoinEcc();
+    debugLogger.common.info('BTCFork signMessage', messages);
+    const { password = '' } = options;
+
+    const account = await this.engine.getAccount(
+      this.accountId,
+      this.networkId,
+    );
+
+    const [encryptedXprv] = Object.values(await this.getPrivateKeys(password));
+    const xprv = bs58check.encode(decrypt(password, encryptedXprv));
+    const node = getBitcoinBip32().fromBase58(xprv).derivePath('0/0');
+    const keyPair = getBitcoinECPair().fromWIF(node.toWIF());
+
+    const network = await this.getNetwork();
+    const path = `${account.path}/0/0`;
+    const provider = await (
+      this.vault as unknown as BTCForkVault
+    ).getProvider();
+
+    const result: Buffer[] = [];
+
+    for (let i = 0, len = messages.length; i < len; i += 1) {
+      const { message, type, sigOptions } = messages[i];
+
+      if (type === BtcMessageTypes.BIP322_SIMPLE) {
+        const signers = await this.getSigners(password, [account.address]);
+        const signature = await provider.signBip322MessageSimple({
+          account,
+          message,
+          signers,
+          psbtNetwork: toPsbtNetwork(network),
+        });
+        result.push(signature);
+      } else {
+        const signature = provider.signMessage({
+          password,
+          entropy: Buffer.from([]),
+          path,
+          message,
+          sigOptions,
+          keyPair,
+        });
+        result.push(signature);
+      }
+    }
+
+    return result.map((i) => i.toString('hex'));
   }
 }

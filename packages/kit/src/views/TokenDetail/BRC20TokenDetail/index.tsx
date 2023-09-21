@@ -12,6 +12,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
+import { isTaprootAddress } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
 import { isWatchingAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import { AppUIEventBusNames } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
@@ -80,6 +81,11 @@ function BRC20TokenDetail() {
   const isWatching = useMemo(
     () => isWatchingAccount({ accountId: accountId ?? '' }),
     [accountId],
+  );
+
+  const isTaproot = useMemo(
+    () => isTaprootAddress(account?.address ?? ''),
+    [account?.address],
   );
 
   const balanceWithoutRecycle = useMemo(() => {
@@ -257,6 +263,7 @@ function BRC20TokenDetail() {
           onPressTransfer={handleTransferOnPress}
           balanceWithoutRecycle={balanceWithoutRecycle}
           isWatching={isWatching}
+          isTaproot={isTaproot}
           style={{ mb: 8 }}
         />
       ) : null}
@@ -290,6 +297,7 @@ function BRC20TokenDetail() {
           balanceWithoutRecycle={balanceWithoutRecycle}
           style={{ mb: 6 }}
           isWatching={isWatching}
+          isTaproot={isTaproot}
         />
       ) : null}
       {isWatching ? null : (

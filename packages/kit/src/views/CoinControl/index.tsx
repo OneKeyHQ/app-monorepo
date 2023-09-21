@@ -330,6 +330,7 @@ const CoinControl = () => {
 
     return (
       utxosDust.length <= 0 &&
+      frozenUtxosWithoutRecycle.length <= 0 &&
       [...recycleDustUtxosWithoutFrozen, ...frozenRecycleUtxosWithoutDust]
         .length > 0
     );

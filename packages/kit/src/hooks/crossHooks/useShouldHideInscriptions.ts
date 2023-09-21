@@ -26,7 +26,8 @@ export const {
       // taproot enable inscriptions by default
       if (
         accountId?.includes(`86'/`) ||
-        accountId?.split(SEPERATOR)[2]?.startsWith('bc1p')
+        accountId?.split(SEPERATOR)[2]?.startsWith('bc1p') ||
+        accountId?.split(SEPERATOR)[2]?.startsWith('tb1p')
       ) {
         shouldHideInscriptions = false;
       } else {

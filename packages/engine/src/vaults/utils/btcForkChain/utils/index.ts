@@ -66,6 +66,9 @@ export function getBIP44Path(account: DBUTXOAccount, address: string) {
 export const isTaprootPath = (pathPrefix: string) =>
   pathPrefix.startsWith(`m/86'/`);
 
+export const isTaprootAddress = (address: string) =>
+  address.startsWith('bc1p') || address.startsWith('tb1p');
+
 export function isWatchAccountTaprootSegwit(xpubSegwit: string) {
   const reg = /^tr\((.*)\)$/;
   const match = reg.exec(xpubSegwit);
