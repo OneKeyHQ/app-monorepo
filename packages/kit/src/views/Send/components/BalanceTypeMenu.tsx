@@ -1,11 +1,13 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Box, Icon, Pressable, Text } from '@onekeyhq/components';
+import type { IAccount } from '@onekeyhq/engine/src/types';
 import BaseMenu from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
 import { isBTCNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccount } from '../../../hooks';
 
 import type { MessageDescriptor } from 'react-intl';
@@ -25,8 +27,20 @@ function BalanceTypeMenu({
   const [title, setTitle] = useState(
     intl.formatMessage({ id: 'form__available_balance_auto' }),
   );
-
-  const { account } = useAccount({ accountId, networkId });
+  const [account, setAccount] = useState<IAccount | null>(null);
+  useEffect(() => {
+    (async () => {
+      if (!accountId || !networkId) {
+        return;
+      }
+      // Always get fresh account data from db
+      const result = await backgroundApiProxy.engine.getAccount(
+        accountId,
+        networkId,
+      );
+      setAccount(result);
+    })();
+  }, [accountId, networkId]);
 
   const showMenu = useMemo(() => {
     if (!isBTCNetwork(networkId)) {

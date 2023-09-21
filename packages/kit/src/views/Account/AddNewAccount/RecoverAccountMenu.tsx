@@ -1,4 +1,4 @@
-import type { FC } from 'react';
+import type { Dispatch, FC, SetStateAction } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { CheckBox, Divider } from '@onekeyhq/components';
@@ -33,6 +33,7 @@ const RecoverAccountMenu: FC<
     networkId: string;
     template: string;
     isLoadingState: boolean;
+    setLoading: Dispatch<SetStateAction<boolean>>;
   }
 > = (props) => {
   const {
@@ -43,6 +44,7 @@ const RecoverAccountMenu: FC<
     networkId,
     template,
     isLoadingState,
+    setLoading,
   } = props;
   const navigation = useNavigation<NavigationProps['navigation']>();
   const showFindAddressByPath = useMemo(
@@ -96,10 +98,12 @@ const RecoverAccountMenu: FC<
       networkId,
       template,
       onConfirm: ({ data }) => {
+        setLoading(true);
         onCreateAccountByAddressIndex({
           password: password ?? '',
           ...data,
           onAddedCustomAddressCallback: (accountId: string) => {
+            setLoading(false);
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.RecoverAccount,
               params: {
@@ -123,6 +127,7 @@ const RecoverAccountMenu: FC<
     password,
     onCreateAccountByAddressIndex,
     navigation,
+    setLoading,
   ]);
 
   const options = useMemo<IBaseMenuOptions>(
