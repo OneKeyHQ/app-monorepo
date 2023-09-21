@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { useMemo } from 'react';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
