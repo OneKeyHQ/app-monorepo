@@ -1,5 +1,4 @@
 import { Component, useEffect, useState } from 'react';
-import type { FC } from 'react';
 
 import { useThemeValue } from '@onekeyhq/components/src/Provider/hooks/useThemeValue';
 import { useIsMounted } from '@onekeyhq/components/src/Provider/hooks/useIsMounted';
@@ -7,32 +6,30 @@ import { useIsMounted } from '@onekeyhq/components/src/Provider/hooks/useIsMount
 import ICON_CONFIG from './Icons';
 
 import type { ICON_NAMES } from './Icons';
-import { GetProps, styled } from 'tamagui'
-import type { SvgProps } from 'react-native-svg';
+import { styled, GetProps, Stack, Tokens } from 'tamagui'
+import type { Svg, SvgProps } from 'react-native-svg';
+import { TextStyle } from 'react-native';
 
 export type IconProps = Omit<SvgProps, 'color'> & {
-  name: ICON_NAMES;
+  name?: ICON_NAMES;
+  style?: TextStyle;
 };
 
-export const Icon = styled(({ name, style }: IconProps) => {
-  const width = style?.width || 24
+const ComponentMaps: Record<string, typeof Svg> = {}
+
+const RawIcon = ({ name = 'AkashIllus', style }: IconProps) => {
+  const width = style?.width  || 24
   const height = style?.height || 24
-  const defaultColor = useThemeValue('icon-default');
-  const primaryColor = style?.color || defaultColor;
-  let SVGComponent = ICON_CONFIG[name];
+  const defaultColor = useThemeValue('icon-default') as string;
+  const primaryColor: string = style?.color as string || defaultColor;
+  const SVGComponent = ComponentMaps[name];
   const [, setRefreshKey] = useState(Math.random());
   const isMounted = useIsMounted();
 
   useEffect(() => {
-    // @ts-ignore
-    if (!SVGComponent?.__ready && SVGComponent) {
-      SVGComponent().then((module: any) => {
-        // @ts-ignore
-        SVGComponent = module.default;
-        // @ts-ignore
-        SVGComponent.__ready = true;
-        // @ts-ignore
-        ICON_CONFIG[name] = SVGComponent;
+    if (!SVGComponent && ICON_CONFIG[name]) {
+      ICON_CONFIG[name]().then((module: any) => {
+        ComponentMaps[name] = module.default as typeof Svg;
         if (isMounted) {
           setRefreshKey(Math.random());
         }
@@ -40,28 +37,47 @@ export const Icon = styled(({ name, style }: IconProps) => {
     }
   }, [name]);
 
-  if (!SVGComponent) return null;
-
-  // @ts-ignore
-  if (!SVGComponent?.__ready) return null;
-
-  const svgColor = primaryColor || defaultColor;
+  if (!SVGComponent) {
+    return null
+  }
 
   return (
     <SVGComponent
       width={width}
       height={height}
-      color={svgColor}
+      color={primaryColor || defaultColor}
     />
   );
-} , {
+}
+
+export const Icon = styled(RawIcon, {
   variants: {
-    size: {
-      '...size': (size, { tokens }) => ({
-        width: tokens.size[size] ?? size,
-        height: tokens.size[size] ?? size,
+    color: {
+      "...color": (color) => ({
+        height: undefined,
+        width: undefined,
+        color,
       }),
-    }
+    },
+    size: {
+      '...size': (rawSize, { tokens }) => {
+        // In fact, you can simply assign 'rawSize' to 'width' or 'height' here.
+        //
+        // return {
+        //   width: rawSize,
+        //   height: rawSize,
+        // }
+        //
+        // But the 'width' and 'height' attributes of SVG don't accept CSS variables, 
+        // so you have to manually retrieve the values."
+        type SizeType = keyof typeof tokens.size
+        const size = tokens.size[rawSize as SizeType].val
+        return {
+          width: size,
+          height: size,
+        }
+      },
+    },
   } as const
 });
 
