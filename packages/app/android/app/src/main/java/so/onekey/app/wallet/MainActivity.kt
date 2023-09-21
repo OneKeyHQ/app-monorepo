@@ -1,7 +1,10 @@
 package so.onekey.app.wallet
 
 
+import android.content.Context
+import android.content.pm.ActivityInfo
 import android.os.Bundle
+import android.util.DisplayMetrics
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
@@ -14,6 +17,14 @@ class MainActivity : ReactActivity() {
 
     companion object {
         private const val ANDROID_LIFECYCLE_EVENT = "android_lifecycle"
+
+        fun isTabletOrFoldable(context: Context): Boolean {
+            val metrics: DisplayMetrics = context.resources.displayMetrics
+            val yInches = metrics.heightPixels / metrics.ydpi
+            val xInches = metrics.widthPixels / metrics.xdpi
+            val diagonalInches = Math.sqrt((xInches * xInches + yInches * yInches).toDouble())
+            return diagonalInches >= 7.0
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,6 +33,12 @@ class MainActivity : ReactActivity() {
         // This is required for expo-splash-screen.
         setTheme(R.style.AppTheme)
         super.onCreate(null)
+
+        requestedOrientation = if (isTabletOrFoldable(this)) {
+            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
     }
 
     override fun onResume() {

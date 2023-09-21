@@ -19,6 +19,7 @@ const Index = () => {
       renderItem={({ item, index }) => (
         <TouchableOpacity
           onPress={() => {
+            // @ts-expect-error
             navigation.navigate(item);
           }}
         >

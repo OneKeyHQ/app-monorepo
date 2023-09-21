@@ -1,5 +1,7 @@
 import { type FC } from 'react';
 
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import AppLoading from './AppLoading';
@@ -12,11 +14,15 @@ if (platformEnv.isRuntimeBrowser) {
   window._frameTimestamp = null;
 }
 
+const flexStyle = { flex: 1 };
+
 // TODO: detect network change & APP in background mode
 const KitProvider: FC = () => (
   <Provider>
     <AppLoading>
-      <NavigationProvider />
+      <GestureHandlerRootView style={flexStyle}>
+        <NavigationProvider />
+      </GestureHandlerRootView>
     </AppLoading>
   </Provider>
 );
