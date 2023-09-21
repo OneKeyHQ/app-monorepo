@@ -1,4 +1,4 @@
-import { createRef, memo, useMemo } from 'react';
+import { createRef, memo } from 'react';
 
 import { NavigationContainer } from '@react-navigation/native';
 

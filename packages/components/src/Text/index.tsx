@@ -1,4 +1,4 @@
-import { styled, GetProps, Text as OriginText } from 'tamagui';
+import { Text as OriginText, styled } from 'tamagui';
 
 export const Text = styled(OriginText, {
   variants: {

@@ -1,7 +1,5 @@
 import { useState } from 'react';
 
-import { XStack, YStack } from 'tamagui';
-
 import { Button, Dialog, Text } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
@@ -49,16 +47,16 @@ const DialogGallery = () => (
       '需要避免在 Dialog 显示需要滚动操作的内容',
     ]}
     boundaryConditions={['禁止将 Dialog 作为路由页面使用']}
-      elements={[
-        {
-          title: 'open Modal by renderTrigger',
-          element: <ControlledDialogByText />,
-        },
-        {
-          title: 'open Modal by Button',
-          element: <ControlledDialogByButton />,
-        },
-      ]}
+    elements={[
+      {
+        title: 'open Modal by renderTrigger',
+        element: <ControlledDialogByText />,
+      },
+      {
+        title: 'open Modal by Button',
+        element: <ControlledDialogByButton />,
+      },
+    ]}
   />
 );
 

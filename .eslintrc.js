@@ -96,10 +96,17 @@ module.exports = {
   ignorePatterns: [
     'packages/components/src/Icon/*',
     'packages/desktop/public/static/js-sdk/*',
-    'packages/components_pre/**/*.ts',
-    'packages/components_pre/**/*.tsx',
-    'packages/kit_pre/**/*.ts',
-    'packages/kit_pre/**/*.tsx',
+    // 临时忽略以下目录的检查，迭代后会逐步开启
+    'packages/app',
+    'packages/blockchain-libs',
+    'packages/kit/src/store',
+    'packages/desktop',
+    'packages/engine',
+    'packages/ext',
+    'packages/kit-bg',
+    'packages/shared',
+    'packages/web',
+    'packages/web-embed',
   ],
   env: {
     browser: true,

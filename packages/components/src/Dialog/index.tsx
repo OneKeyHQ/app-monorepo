@@ -1,10 +1,10 @@
 import type { ComponentProps } from 'react';
 
-import { Adapt, Sheet, Dialog as TMDialog, Text } from 'tamagui';
-
-import { XStack } from '../Stack';
+import { Adapt, Sheet, Dialog as TMDialog } from 'tamagui';
 
 import { Button } from '../Button';
+import { XStack } from '../Stack';
+
 import type { ICON_NAMES } from '../Icon';
 
 export interface ModalProps {
