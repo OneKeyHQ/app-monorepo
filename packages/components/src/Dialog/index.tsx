@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'react';
+import { type ComponentProps, useCallback, useMemo } from 'react';
 
 import { Adapt, Sheet, Dialog as TMDialog } from 'tamagui';
 
@@ -33,6 +33,18 @@ export function Dialog({
   cancelButtonProps,
   backdrop = false,
 }: ModalProps) {
+  const backdropClose = useMemo(
+    () => (backdrop ? onClose : undefined),
+    [backdrop, onClose],
+  );
+  const handleOpenChange = useCallback(
+    (isOpen: boolean) => {
+      if (!isOpen) {
+        onClose?.();
+      }
+    },
+    [onClose],
+  );
   return (
     <TMDialog open={open}>
       <TMDialog.Trigger onPress={onOpen} asChild>
@@ -40,17 +52,9 @@ export function Dialog({
       </TMDialog.Trigger>
 
       <Adapt when="md">
-        <Sheet
-          modal
-          dismissOnSnapToBottom
-          onOpenChange={(isOpen) => {
-            if (!isOpen) {
-              onClose?.();
-            }
-          }}
-        >
+        <Sheet modal dismissOnSnapToBottom onOpenChange={handleOpenChange}>
           <Sheet.Overlay
-            onPress={backdrop ? onClose : undefined}
+            onPress={backdropClose}
             backgroundColor="$bgBackdrop"
           />
           <Sheet.Handle />
@@ -62,7 +66,7 @@ export function Dialog({
       <TMDialog.Portal>
         <TMDialog.Overlay
           backgroundColor="$bgBackdrop"
-          onPress={backdrop ? onClose : undefined}
+          onPress={backdropClose}
         />
         <TMDialog.Content>
           <TMDialog.Title>{title}</TMDialog.Title>
