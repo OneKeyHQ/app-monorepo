@@ -8,6 +8,7 @@ const ControlledDialogByText = () => {
   const [isOpen, changeIsOpen] = useState(false);
   return (
     <Dialog
+      backdrop
       open={isOpen}
       onOpen={() => {
         changeIsOpen(true);
@@ -29,6 +30,7 @@ const ControlledDialogByButton = () => {
         <Button.Text>Open Modal By Button</Button.Text>
       </Button>
       <Dialog
+        backdrop
         open={isOpen}
         onClose={() => {
           changeIsOpen(false);

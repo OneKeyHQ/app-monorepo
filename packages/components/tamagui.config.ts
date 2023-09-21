@@ -558,12 +558,12 @@ const config = createTamagui({
   tokens: mergedTokens,
 
   media: createMedia({
-    xs: { minWidth: 0 },
-    sm: { minWidth: 640 },
-    md: { minWidth: 768 },
-    lg: { minWidth: 1024 },
-    xl: { minWidth: 1280 },
-    '2xl': { minWidth: 1536 },
+    xs: { maxWidth: 640 },
+    sm: { maxWidth: 768 },
+    md: { maxWidth: 1024 },
+    lg: { maxWidth: 1280 },
+    xl: { maxWidth: 1536 },
+    '2xl': { minWidth: 1537 },
     short: { maxHeight: 820 },
     tall: { minHeight: 820 },
     hoverNone: { hover: 'none' },

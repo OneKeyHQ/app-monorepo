@@ -9,6 +9,7 @@ import type { ICON_NAMES } from '../Icon';
 
 export interface ModalProps {
   open?: boolean;
+  backdrop?: boolean;
   onOpen?: () => void;
   onClose?: () => void;
   renderTrigger?: React.ReactNode;
@@ -30,28 +31,32 @@ export function Dialog({
   renderContent,
   confirmButtonProps,
   cancelButtonProps,
+  backdrop = false,
 }: ModalProps) {
   return (
     <TMDialog open={open}>
       <TMDialog.Trigger onPress={onOpen} asChild>
         {renderTrigger}
       </TMDialog.Trigger>
-      <Adapt platform="touch">
-        <Sheet modal zIndex={20000}>
+
+      <Adapt when="md">
+        <Sheet modal>
+          <Sheet.Overlay
+            onPress={backdrop ? onClose : undefined}
+            backgroundColor="$bgBackdrop"
+          />
           <Sheet.Handle />
           <Sheet.Frame>
             <Adapt.Contents />
           </Sheet.Frame>
-          <Sheet.Overlay
-            backgroundColor="$bgBackdrop"
-            enterStyle={{ opacity: 0 }}
-            exitStyle={{ opacity: 0 }}
-          />
         </Sheet>
       </Adapt>
       <TMDialog.Portal>
-        <TMDialog.Overlay backgroundColor="$bgBackdrop" onPress={onClose} />
-        <TMDialog.Content key="content">
+        <TMDialog.Overlay
+          backgroundColor="$bgBackdrop"
+          onPress={backdrop ? onClose : undefined}
+        />
+        <TMDialog.Content>
           <TMDialog.Title>{title}</TMDialog.Title>
           <TMDialog.Description>{description}</TMDialog.Description>
           {renderContent}
