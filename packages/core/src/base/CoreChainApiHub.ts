@@ -7,6 +7,7 @@ import CoreChainCosmos from '../chains/cosmos';
 import CoreChainDoge from '../chains/doge';
 import CoreChainEvm from '../chains/evm';
 import CoreChainLtc from '../chains/ltc';
+import CoreChainTron from '../chains/tron';
 import CoreChainXrp from '../chains/xrp';
 
 export class CoreChainApiHub {
@@ -29,4 +30,6 @@ export class CoreChainApiHub {
   cosmos = new CoreChainCosmos();
 
   xrp = new CoreChainXrp();
+
+  tron = new CoreChainTron();
 }
