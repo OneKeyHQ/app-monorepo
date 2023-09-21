@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { Button, Dialog, Text } from '@onekeyhq/components';
+import { Button, Dialog, Text, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -61,6 +61,16 @@ const DialogGallery = () => (
       {
         title: 'open Modal by Button',
         element: <ControlledDialogByButton />,
+      },
+      {
+        title: '命令式 API',
+        element: (
+          <YStack>
+            <Button onPress={() => Dialog.confirm()}>
+              <Button.Text>Confirm</Button.Text>
+            </Button>
+          </YStack>
+        ),
       },
     ]}
   />

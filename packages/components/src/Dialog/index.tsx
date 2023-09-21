@@ -1,10 +1,19 @@
-import { useCallback, useMemo } from 'react';
+import type { PropsWithChildren } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Adapt, Sheet, Stack, Dialog as TMDialog, YStack } from 'tamagui';
+// import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  Adapt,
+  Sheet,
+  Stack,
+  Dialog as TMDialog,
+  YStack,
+  withStaticProperties,
+} from 'tamagui';
 
 import { Button } from '../Button';
 import { type ICON_NAMES, Icon } from '../Icon';
+import { removePortalComponent, setPortalComponent } from '../Portal';
 import { XStack } from '../Stack';
 import { Text } from '../Text';
 
@@ -26,7 +35,7 @@ export interface ModalProps {
   cancelButtonTextProps?: GetProps<typeof Button.Text>;
 }
 
-export function Dialog({
+function DialogFrame({
   open,
   onClose,
   renderTrigger,
@@ -54,8 +63,8 @@ export function Dialog({
     [onClose],
   );
 
-  const { bottom } = useSafeAreaInsets();
-
+  // const { bottom } = useSafeAreaInsets();
+  const bottom = 20;
   return (
     <TMDialog open={open}>
       <TMDialog.Trigger onPress={onOpen} asChild>
@@ -141,3 +150,33 @@ export function Dialog({
     </TMDialog>
   );
 }
+
+function DialogContainer({ name }: PropsWithChildren<{ name: string }>) {
+  console.log(name);
+  const [isOpen, changeIsOpen] = useState(true);
+  useEffect(() => () => {
+    removePortalComponent(name);
+  });
+  return (
+    <DialogFrame
+      key={name}
+      backdrop
+      open={isOpen}
+      title="Lorem ipsum"
+      description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec. Eu quam nulla lectus faucibus senectus interdum iaculis egestas."
+      onOpen={() => {
+        changeIsOpen(true);
+      }}
+      renderContent={<Text>Overlay Content by Text Trigger</Text>}
+      onClose={() => {
+        changeIsOpen(false);
+      }}
+    />
+  );
+}
+
+export const Dialog = withStaticProperties(DialogFrame, {
+  confirm: () => {
+    setPortalComponent(<DialogContainer name={Math.random().toString()} />);
+  },
+});

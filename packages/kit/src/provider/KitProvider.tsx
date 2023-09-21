@@ -2,6 +2,7 @@ import { type FC } from 'react';
 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { Portal } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import AppLoading from './AppLoading';
@@ -24,6 +25,7 @@ const KitProvider: FC = () => (
         <NavigationProvider />
       </GestureHandlerRootView>
     </AppLoading>
+    <Portal />
   </Provider>
 );
 
