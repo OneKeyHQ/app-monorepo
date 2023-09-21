@@ -31,6 +31,7 @@ export type IFontProviderProps = {
   children?: ReactNode;
   waitFontLoaded?: boolean;
 };
+
 function FontProvider({ children, waitFontLoaded = true }: IFontProviderProps) {
   const [loaded] = useLoadCustomFonts();
   if (loaded) return <>{children}</>;
