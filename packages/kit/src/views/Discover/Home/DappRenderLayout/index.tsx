@@ -15,33 +15,38 @@ import { Box, Stack, useIsVerticalLayout } from '@onekeyhq/components';
 import type { LayoutChangeEvent } from 'react-native';
 
 type IPageWidthLayoutContext = {
-  fullwidth?: number
-}
+  fullwidth?: number;
+};
 
-const PageWidthLayoutContext = createContext<IPageWidthLayoutContext>(
+export const PageWidthLayoutContext = createContext<IPageWidthLayoutContext>(
   {},
 );
 
 export const PageLayout: FC = ({ children }) => {
   const [state, setState] = useState<{ fullwidth?: number }>({});
 
-  const setNewState = useCallback(debounce(setState, 500, { trailing: true }), [])
+  const setNewState = useCallback(
+    debounce(setState, 500, { trailing: true }),
+    [],
+  );
 
   const onLayout = useCallback(
     (e: LayoutChangeEvent) => {
       const { width } = e.nativeEvent.layout;
-      setNewState({ fullwidth: width })
+      setNewState({ fullwidth: width });
     },
     [setNewState],
   );
 
-  return <Box>
-    <Box onLayout={onLayout} />
-    <PageWidthLayoutContext.Provider value={state}>
-      {children}
-    </PageWidthLayoutContext.Provider>
-  </Box>
-}
+  return (
+    <Box>
+      <Box onLayout={onLayout} />
+      <PageWidthLayoutContext.Provider value={state}>
+        {children}
+      </PageWidthLayoutContext.Provider>
+    </Box>
+  );
+};
 
 type IDappItemPlainLayoutContext = {
   width?: number;
@@ -75,7 +80,7 @@ export const DappItemPlainLayout: FC = ({ children }) => {
 
 type DappItemPlainContainerLayoutProps = {
   space: number;
-  offset?: number
+  offset?: number;
 };
 
 const DappItemPlainContainerStaticLayout: FC<
@@ -94,27 +99,27 @@ const DappItemPlainContainerStaticLayout: FC<
 const DappItemPlainContainerDynamicLayout: FC<
   DappItemPlainContainerLayoutProps
 > = ({ children, space, offset }) => {
-  const { fullwidth } = useContext(PageWidthLayoutContext)
-  
+  const { fullwidth } = useContext(PageWidthLayoutContext);
+
   const state = useMemo<{ width?: number; num?: number }>(() => {
-    let result = {}
+    let result = {};
     if (!fullwidth) {
-      return result
+      return result;
     }
     let num = 6;
     for (; num >= 2; num -= 1) {
       let total = fullwidth - space * 4 * (num - 1);
       if (offset !== undefined) {
-        total += offset
+        total += offset;
       }
       const current = Math.ceil(total / num);
       if ((current >= Min && current <= Max) || num === 2) {
         result = { width: current, num };
-        return result
+        return result;
       }
     }
-    return result
-  }, [fullwidth, offset])
+    return result;
+  }, [fullwidth, offset, space]);
 
   const memo = useMemo(() => {
     if (!state.num) {
@@ -134,7 +139,7 @@ const DappItemPlainContainerDynamicLayout: FC<
         ))}
       </Box>
     );
-  }, [state, space, offset, children]);
+  }, [state, space, children]);
   return (
     <DappItemPlainLayoutContext.Provider value={state}>
       {memo}

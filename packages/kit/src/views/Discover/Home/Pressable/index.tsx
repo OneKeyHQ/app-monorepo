@@ -1,1 +1,1 @@
-export { Pressable } from '@onekeyhq/components'
+export { Pressable } from '@onekeyhq/components';

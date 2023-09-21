@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useContext, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,7 +9,11 @@ import FavContainer from '../../Explorer/FavContainer';
 import { useContextCategoryDapps } from '../context';
 import { DAppCategories } from '../DappCategories';
 import { DappItemPlain } from '../DappRenderItem';
-import { DappItemPlainContainerLayout, PageLayout } from '../DappRenderLayout';
+import {
+  DappItemPlainContainerLayout,
+  PageLayout,
+  PageWidthLayoutContext,
+} from '../DappRenderLayout';
 import { EmptySkeleton } from '../EmptySkeleton';
 import { SelectorButton } from '../SelectorButton';
 
@@ -25,7 +29,8 @@ const DappsItemsRender = ({
   networkId: string;
 }) => {
   const intl = useIntl();
-  if (loading) {
+  const { fullwidth } = useContext(PageWidthLayoutContext);
+  if (loading || !fullwidth) {
     return <EmptySkeleton />;
   }
   if (data.length === 0 && !isAllNetworks(networkId)) {
@@ -69,11 +74,14 @@ const SectionExploreContent = () => {
 
   const [networkId, setNetworkId] = useState('all--0');
 
-  const networkIds = useMemo(() => {
-    return dapps.reduce((result, item) => {
-      return  Array.from(new Set(result.concat(item.networkIds)))
-    }, [] as string[])
-  }, [dapps, networkId])
+  const networkIds = useMemo(
+    () =>
+      dapps.reduce(
+        (result, item) => Array.from(new Set(result.concat(item.networkIds))),
+        [] as string[],
+      ),
+    [dapps],
+  );
 
   const items = useMemo(() => {
     if (isAllNetworks(networkId)) {
@@ -89,7 +97,11 @@ const SectionExploreContent = () => {
   return (
     <Box>
       <Box px="2" pb="2" flexDirection="row" justifyContent="space-between">
-        <SelectorButton networkIds={networkIds} networkId={networkId} onItemSelect={setNetworkId} />
+        <SelectorButton
+          networkIds={networkIds}
+          networkId={networkId}
+          onItemSelect={setNetworkId}
+        />
       </Box>
       <Box py="2" px="4">
         <DappsItemsRender

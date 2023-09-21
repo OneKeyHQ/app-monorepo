@@ -39,7 +39,7 @@ const HistoryItemBox: FC<HistoryItemBoxProps> = ({ item }) => {
   const navigation = useNavigation();
 
   const onPress = useCallback(() => {
-    openMatchDApp(item);
+    openMatchDApp({ ...item, isNewWindow: true });
     navigation.goBack();
   }, [navigation, item]);
   const logoURL = item.dapp?.logoURL ?? item.webSite?.favicon;

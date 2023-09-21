@@ -107,7 +107,8 @@ const ControllerBarDesktop: FC = () => {
   };
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  const url: string = currentTab?.url || '';
+  const url: string =
+    currentTab?.url && currentTab.url !== 'about:blank' ? currentTab.url : '';
   const [searchText, setSearchText] = useState(url);
   const httpSafeState = getHttpSafeState(url);
 

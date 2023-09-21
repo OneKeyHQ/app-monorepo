@@ -15,7 +15,11 @@ import FavContainer from '../../Explorer/FavContainer';
 import { DiscoverContext, useBanners, useGroupDapps } from '../context';
 import { DappBanner } from '../DappBanner';
 import { DappItemOutline, DappItemPlain } from '../DappRenderItem';
-import { DappItemPlainContainerLayout, PageLayout } from '../DappRenderLayout';
+import {
+  DappItemPlainContainerLayout,
+  PageLayout,
+  PageWidthLayoutContext,
+} from '../DappRenderLayout';
 import { EmptySkeleton } from '../EmptySkeleton';
 import { discoverUIEventBus } from '../eventBus';
 import { SeeAllButton } from '../SeeAllButton';
@@ -107,7 +111,7 @@ const HorizontalContent: FC<ContentProps> = ({ data }) => {
     return null;
   }
   return (
-    <Box pb='4'>
+    <Box pb="4">
       <Box px="4">
         <ContentHeader title={data.label} id={data.id} />
       </Box>
@@ -197,9 +201,10 @@ const TagContent = () => {
   );
 };
 
-export const SectionFeatured = () => {
+const SectionFeaturedContent = () => {
   const groupDapps = useGroupDapps();
-  if (groupDapps.length === 0) {
+  const { fullwidth } = useContext(PageWidthLayoutContext);
+  if (groupDapps.length === 0 || !fullwidth) {
     return (
       <Box py="2">
         <EmptySkeleton />
@@ -207,20 +212,24 @@ export const SectionFeatured = () => {
     );
   }
   return (
-    <PageLayout>
-      <Box w="full" pb="2">
-        <BannerContent />
-        <Box>
-          {groupDapps.map((item, index) =>
-            index % 2 === 0 ? (
-              <VerticalContent key={item.label} data={item} />
-            ) : (
-              <HorizontalContent key={item.label} data={item} />
-            ),
-          )}
-        </Box>
-        <TagContent />
+    <Box w="full" pb="2">
+      <BannerContent />
+      <Box>
+        {groupDapps.map((item, index) =>
+          index % 2 === 0 ? (
+            <VerticalContent key={item.label} data={item} />
+          ) : (
+            <HorizontalContent key={item.label} data={item} />
+          ),
+        )}
       </Box>
-    </PageLayout>
+      <TagContent />
+    </Box>
   );
 };
+
+export const SectionFeatured = () => (
+  <PageLayout>
+    <SectionFeaturedContent />
+  </PageLayout>
+);
