@@ -4,6 +4,7 @@ import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
+import IconButtonGallery from '@onekeyhq/kit/src/views/Components/stories/IconButton';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 
 import DialogGallery from '../../views/Components/stories/Dialog';
@@ -14,6 +15,7 @@ export enum GalleryRoutes {
   ComponentTypography = 'component/typography',
   ComponentIcon = 'component/icon',
   ComponentButton = 'component/button',
+  ComponentIconButton = 'component/iconbutton',
   ComponentBadge = 'component/badge',
   ComponentDialog = 'component/dialog',
   ComponentNavigation = 'component/navigation',
@@ -33,6 +35,8 @@ export const stackScreenList = [
     name: GalleryRoutes.ComponentNavigation,
     component: DemoRootApp,
     options: { headerShown: false },
+    name: GalleryRoutes.ComponentIconButton,
+    component: IconButtonGallery,
   },
 ];
 

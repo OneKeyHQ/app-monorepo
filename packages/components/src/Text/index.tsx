@@ -1,5 +1,9 @@
 import { Text as OriginText, styled } from 'tamagui';
 
+import type { GetProps } from 'tamagui';
+
+export type TextProps = GetProps<typeof OriginText>;
+
 export const Text = styled(OriginText, {
   variants: {
     variant: {
