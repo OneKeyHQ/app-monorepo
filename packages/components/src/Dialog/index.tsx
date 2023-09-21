@@ -40,7 +40,7 @@ export function Dialog({
       </TMDialog.Trigger>
 
       <Adapt when="md">
-        <Sheet modal>
+        <Sheet modal dismissOnSnapToBottom>
           <Sheet.Overlay
             onPress={backdrop ? onClose : undefined}
             backgroundColor="$bgBackdrop"
