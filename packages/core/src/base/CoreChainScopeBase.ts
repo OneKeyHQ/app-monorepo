@@ -68,6 +68,7 @@ export abstract class CoreChainScopeBase {
                 `coreApi method not defined: coreChainApi.${this.scopeName}.${apiName}.${method}`,
               );
             }
+            ensureSerializable(args);
             // @ts-ignore
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
             let result = apiInstance[method](...args);

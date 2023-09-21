@@ -70,6 +70,7 @@ export type ICoreApiPrivateKeysMap = {
 export type ICoreApiSignAccount = {
   address: string;
   path: string;
+  pub?: string;
   pubKey?: string; // TODO rename to pub?
   template?: string;
   relPaths?: string[]; // used for get privateKey of other address

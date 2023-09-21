@@ -34,7 +34,6 @@ import {
   InvalidAddress,
   MinimumTransferBalanceRequiredError,
   NotImplemented,
-  OneKeyError,
   OneKeyInternalError,
   PendingQueueTooLong,
 } from '@onekeyhq/shared/src/errors';
@@ -823,21 +822,12 @@ export default class Vault extends VaultBase {
   override async buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTx,
   ): Promise<IUnsignedTxPro> {
-    const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
-    const nativeTx = (await this.helper.parseToNativeTx(
-      encodedTx,
-    )) as Transaction;
-    const client = await this.getClient();
-
-    return {
+    return Promise.resolve({
       inputs: [],
       outputs: [],
-      payload: {
-        nativeTx,
-        feePayer: new PublicKey(dbAccount.pub),
-      },
+      payload: {},
       encodedTx,
-    };
+    });
   }
 
   override async getFeePricePerUnit(): Promise<FeePricePerUnit> {
