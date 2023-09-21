@@ -61,11 +61,11 @@ export const Icon = styled(RawIcon, {
     },
     size: {
       '...size': (rawSize, { tokens }) => {
-        // In fact, you can simply assign 'size' to 'width' or 'height' here.
+        // In fact, you can simply assign 'rawSize' to 'width' or 'height' here.
         //
         // return {
-        //   width: size,
-        //   height: size,
+        //   width: rawSize,
+        //   height: rawSize,
         // }
         //
         // But the 'width' and 'height' attributes of SVG don't accept CSS variables, 
