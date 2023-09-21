@@ -40,7 +40,15 @@ export function Dialog({
       </TMDialog.Trigger>
 
       <Adapt when="md">
-        <Sheet modal dismissOnSnapToBottom>
+        <Sheet
+          modal
+          dismissOnSnapToBottom
+          onOpenChange={(isOpen) => {
+            if (!isOpen) {
+              onClose?.();
+            }
+          }}
+        >
           <Sheet.Overlay
             onPress={backdrop ? onClose : undefined}
             backgroundColor="$bgBackdrop"
@@ -60,11 +68,11 @@ export function Dialog({
           <TMDialog.Title>{title}</TMDialog.Title>
           <TMDialog.Description>{description}</TMDialog.Description>
           {renderContent}
+          <XStack>
+            <Button {...confirmButtonProps} />
+            <Button {...cancelButtonProps} />
+          </XStack>
         </TMDialog.Content>
-        <XStack>
-          <Button {...confirmButtonProps} />
-          <Button {...cancelButtonProps} />
-        </XStack>
       </TMDialog.Portal>
     </TMDialog>
   );
