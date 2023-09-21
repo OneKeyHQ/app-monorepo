@@ -3,10 +3,11 @@ import { useTheme } from '@tamagui/core';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { VariableVal } from '@tamagui/core';
-import type { ThemeKeys } from '@tamagui/web/src/types';
+import type { UseThemeResult } from '@tamagui/web/src/hooks/useTheme';
 
+type ThemeKeys = keyof UseThemeResult;
 const getValue = (
-  theme: ReturnType<typeof useTheme>,
+  theme: UseThemeResult,
   key: ThemeKeys,
   fallback?: VariableVal,
 ): VariableVal => {
@@ -18,11 +19,11 @@ const getValue = (
   return value || fallback || '';
 };
 
-function useThemeValue<T extends ThemeKeys[] | ThemeKeys>(
+export function useThemeValue<T extends ThemeKeys[] | ThemeKeys>(
   colorSymbol: T,
   fallback?: VariableVal,
 ): T extends ThemeKeys ? VariableVal : VariableVal[];
-function useThemeValue(
+export function useThemeValue(
   colorSymbol: ThemeKeys | ThemeKeys[],
   fallback?: VariableVal,
 ): VariableVal | VariableVal[] {
@@ -32,5 +33,3 @@ function useThemeValue(
   }
   return getValue(theme, colorSymbol, fallback);
 }
-
-export default useThemeValue;

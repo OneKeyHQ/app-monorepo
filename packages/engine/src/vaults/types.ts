@@ -251,11 +251,9 @@ export type IEncodedTx =
   | IEncodedTxNear
   | IEncodedTxBtc
   | IEncodedTxSTC
-  | IEncodedTxSol
   | IEncodedTxTron
   | IEncodedTxAptos
   | IEncodedTxCfx
-  | IEncodedTxAlgo
   | IEncodedTxXrp
   | IEncodedTxCosmos
   | IEncodedTxADA

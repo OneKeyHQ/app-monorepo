@@ -1,5 +1,5 @@
 import { FlatList, Text, View } from 'react-native';
-import { XStack, Stack} from 'tamagui';
+import { Stack, XStack } from 'tamagui';
 
 import { Icon } from '@onekeyhq/components';
 import type { ICON_NAMES } from '@onekeyhq/components/src/Icon/Icons';
@@ -17,10 +17,20 @@ const IconGallery = () => (
         title: 'colorful icon',
         element: (
           <XStack space={10}>
-              <Icon name="AirpodsSolid" color="$icon" />
-              <Icon name="AirpodsSolid" color="$iconHover" />
-              <Icon name="AirpodsSolid" color="$iconInverse" />
-              <Icon name="AirpodsSolid" color="$iconActive" />
+            <Icon name="AirpodsSolid" color="$icon" />
+            <Icon name="AirpodsSolid" color="$iconHover" />
+            <Icon name="AirpodsSolid" color="$iconInverse" />
+            <Icon name="AirpodsSolid" color="$iconActive" />
+          </XStack>
+        ),
+      },
+      {
+        title: 'sized icon',
+        element: (
+          <XStack space={10}>
+            <Icon name="AirpodsSolid" color="$icon" size="$4" />
+            <Icon name="AirpodsSolid" color="$icon" size="$8" />
+            <Icon name="AirpodsSolid" color="$icon" size="$12" />
           </XStack>
         ),
       },

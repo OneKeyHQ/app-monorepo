@@ -1,5 +1,5 @@
-import { Badge, Box } from '@onekeyhq/components';
-import { XStack } from 'tamagui';
+import { Badge, Stack, XStack } from '@onekeyhq/components';
+
 import { Layout } from './utils/Layout';
 
 const ButtonsGallery = () => (
@@ -19,22 +19,44 @@ const ButtonsGallery = () => (
     elements={[
       {
         title: '默认状态',
-        element: <Box space='$1'>
-          <XStack space='$1'>
-          <Badge type='default' size='sm'>Badge</Badge>
-          <Badge type='success' size='sm'>Badge</Badge>
-          <Badge type='info' size='sm'>Badge</Badge>
-          <Badge type='warning' size='sm'>Badge</Badge>
-          <Badge type='critical' size='sm'>Badge</Badge>
-        </XStack>
-        <XStack space='$1'>
-          <Badge type='default' size='lg'>Badge</Badge>
-          <Badge type='success' size='lg'>Badge</Badge>
-          <Badge type='info' size='lg'>Badge</Badge>
-          <Badge type='warning' size='lg'>Badge</Badge>
-          <Badge type='critical' size='lg'>Badge</Badge>
-        </XStack>
-        </Box>,
+        element: (
+          <Stack space="$1">
+            <XStack space="$1">
+              <Badge type="default" size="sm">
+                Badge
+              </Badge>
+              <Badge type="success" size="sm">
+                Badge
+              </Badge>
+              <Badge type="info" size="sm">
+                Badge
+              </Badge>
+              <Badge type="warning" size="sm">
+                Badge
+              </Badge>
+              <Badge type="critical" size="sm">
+                Badge
+              </Badge>
+            </XStack>
+            <XStack space="$1">
+              <Badge type="default" size="lg">
+                Badge
+              </Badge>
+              <Badge type="success" size="lg">
+                Badge
+              </Badge>
+              <Badge type="info" size="lg">
+                Badge
+              </Badge>
+              <Badge type="warning" size="lg">
+                Badge
+              </Badge>
+              <Badge type="critical" size="lg">
+                Badge
+              </Badge>
+            </XStack>
+          </Stack>
+        ),
       },
     ]}
   />

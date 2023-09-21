@@ -1028,7 +1028,7 @@ export default class ServiceStaking extends ServiceBase {
         networkId,
       },
     });
-    const data = res.data as LidoMaticOverview | undefined;
+    const { data } = res;
     if (data?.stMaticAddress) {
       const tokenId = data.stMaticAddress.toLowerCase();
       await serviceToken.fetchAndSaveAccountTokenBalance({
