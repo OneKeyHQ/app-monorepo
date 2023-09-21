@@ -467,6 +467,7 @@ const mergedTokens = createTokens({
     72: 288,
     80: 320,
     96: 384,
+    100: 400,
   },
   radius: {
     0: 0,
@@ -559,10 +560,15 @@ const config = createTamagui({
 
   media: createMedia({
     xs: { maxWidth: 640 },
+    gtXs: { minWidth: 641 },
     sm: { maxWidth: 768 },
+    gtSm: { minWidth: 769 },
     md: { maxWidth: 1024 },
+    gtMd: { minWidth: 1025 },
     lg: { maxWidth: 1280 },
+    gtLg: { minWidth: 1281 },
     xl: { maxWidth: 1536 },
+    gtXl: { minWidth: 1537 },
     '2xl': { minWidth: 1537 },
     short: { maxHeight: 820 },
     tall: { minHeight: 820 },

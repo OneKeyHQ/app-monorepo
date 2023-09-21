@@ -1,11 +1,14 @@
-import { type ComponentProps, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { Adapt, Sheet, Dialog as TMDialog } from 'tamagui';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Adapt, Sheet, Stack, Dialog as TMDialog, YStack } from 'tamagui';
 
 import { Button } from '../Button';
+import { type ICON_NAMES, Icon } from '../Icon';
 import { XStack } from '../Stack';
+import { Text } from '../Text';
 
-import type { ICON_NAMES } from '../Icon';
+import type { GetProps } from 'tamagui';
 
 export interface ModalProps {
   open?: boolean;
@@ -17,8 +20,10 @@ export interface ModalProps {
   title?: string;
   description?: string;
   renderContent?: React.ReactNode;
-  confirmButtonProps?: ComponentProps<typeof Button>;
-  cancelButtonProps?: ComponentProps<typeof Button>;
+  confirmButtonProps?: GetProps<typeof Button>;
+  cancelButtonProps?: GetProps<typeof Button>;
+  confirmButtonTextProps?: GetProps<typeof Button.Text>;
+  cancelButtonTextProps?: GetProps<typeof Button.Text>;
 }
 
 export function Dialog({
@@ -27,10 +32,13 @@ export function Dialog({
   renderTrigger,
   onOpen,
   title,
+  iconName,
   description,
   renderContent,
   confirmButtonProps,
+  confirmButtonTextProps,
   cancelButtonProps,
+  cancelButtonTextProps,
   backdrop = false,
 }: ModalProps) {
   const backdropClose = useMemo(
@@ -45,6 +53,9 @@ export function Dialog({
     },
     [onClose],
   );
+
+  const { bottom } = useSafeAreaInsets();
+
   return (
     <TMDialog open={open}>
       <TMDialog.Trigger onPress={onOpen} asChild>
@@ -52,7 +63,12 @@ export function Dialog({
       </TMDialog.Trigger>
 
       <Adapt when="md">
-        <Sheet modal dismissOnSnapToBottom onOpenChange={handleOpenChange}>
+        <Sheet
+          modal
+          dismissOnSnapToBottom
+          onOpenChange={handleOpenChange}
+          snapPointsMode="fit"
+        >
           <Sheet.Overlay
             onPress={backdropClose}
             backgroundColor="$bgBackdrop"
@@ -69,13 +85,53 @@ export function Dialog({
           onPress={backdropClose}
         />
         <TMDialog.Content>
-          <TMDialog.Title>{title}</TMDialog.Title>
-          <TMDialog.Description>{description}</TMDialog.Description>
-          {renderContent}
-          <XStack>
-            <Button {...confirmButtonProps} />
-            <Button {...cancelButtonProps} />
-          </XStack>
+          <YStack
+            p="$5"
+            mb={bottom}
+            $gtMd={{
+              width: '$100',
+            }}
+          >
+            <Stack>
+              <Icon name={iconName} size="$8" padding="$0.5" />
+            </Stack>
+            {title && (
+              <Text variant="$headingMd" pt="$5">
+                {title}
+              </Text>
+            )}
+            {description && (
+              <Text variant="$bodyLgMono" pt="$5">
+                {description}
+              </Text>
+            )}
+            <YStack pt="$5">{renderContent}</YStack>
+            <XStack justifyContent="center" pt="$5">
+              <Button
+                paddingHorizontal="$3"
+                buttonVariant="destructive"
+                size="large"
+                onPress={onClose}
+                {...cancelButtonProps}
+              >
+                <Button.Text paddingHorizontal="$3" {...cancelButtonTextProps}>
+                  Cancel
+                </Button.Text>
+              </Button>
+              <Button
+                paddingHorizontal="$3"
+                buttonVariant="primary"
+                ml="$4"
+                size="large"
+                onPress={onClose}
+                {...confirmButtonProps}
+              >
+                <Button.Text paddingHorizontal="$3" {...confirmButtonTextProps}>
+                  Confirm
+                </Button.Text>
+              </Button>
+            </XStack>
+          </YStack>
         </TMDialog.Content>
       </TMDialog.Portal>
     </TMDialog>

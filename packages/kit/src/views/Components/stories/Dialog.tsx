@@ -10,6 +10,8 @@ const ControlledDialogByText = () => {
     <Dialog
       backdrop
       open={isOpen}
+      title="Lorem ipsum"
+      description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec. Eu quam nulla lectus faucibus senectus interdum iaculis egestas."
       onOpen={() => {
         changeIsOpen(true);
       }}
@@ -31,6 +33,8 @@ const ControlledDialogByButton = () => {
       </Button>
       <Dialog
         backdrop
+        title="Lorem ipsum"
+        description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec. Eu quam nulla lectus faucibus senectus interdum iaculis egestas."
         open={isOpen}
         onClose={() => {
           changeIsOpen(false);
