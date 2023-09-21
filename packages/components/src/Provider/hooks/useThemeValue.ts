@@ -1,4 +1,4 @@
-import { useTheme } from '@tamagui/core';
+import { getTokens as coreGetTokens, useTheme } from '@tamagui/core';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -19,10 +19,13 @@ const getValue = (
   return value || fallback || '';
 };
 
+export const getThemeTokens = coreGetTokens;
+
 export function useThemeValue<T extends ThemeKeys[] | ThemeKeys>(
   colorSymbol: T,
   fallback?: VariableVal,
 ): T extends ThemeKeys ? VariableVal : VariableVal[];
+
 export function useThemeValue(
   colorSymbol: ThemeKeys | ThemeKeys[],
   fallback?: VariableVal,

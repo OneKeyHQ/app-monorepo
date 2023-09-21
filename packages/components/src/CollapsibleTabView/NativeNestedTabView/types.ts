@@ -36,22 +36,24 @@ export type OnPageScrollStateChangeEventData = Readonly<{
 export type OnPageScrollStateChangeEvent =
   NativeSyntheticEvent<OnPageScrollStateChangeEventData>;
 
-type TabViewStyle = {
-  height: number;
+export type TabViewStyle = {
+  // Recommendation passing, iOS not support
+  height?: number;
   paddingX?: number;
   paddingY?: number;
 
-  backgroundColor?: string;
-  activeColor?: string;
-  inactiveColor?: string;
-  indicatorColor?: string;
-  bottomLineColor?: string;
-  labelStyle?: StyleProp<TextStyle>;
+  // background
+  backgroundColor?: VariableVal;
+  indicatorColor?: VariableVal;
+  bottomLineColor?: VariableVal;
 
   // label
   tabSpaceEqual?: boolean;
-  activeLabelColor?: string;
-  labelColor?: string;
+  activeLabelColor?: VariableVal;
+  labelColor?: VariableVal;
+  itemPaddingX?: number;
+  itemPaddingY?: number;
+  labelStyle?: TextStyle;
 };
 
 export type TabProps = {

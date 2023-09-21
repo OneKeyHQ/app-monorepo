@@ -9,6 +9,7 @@ import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import IconButtonGallery from '@onekeyhq/kit/src/views/Components/stories/IconButton';
 import DemoRootApp from '@onekeyhq/kit/src/views/Components/stories/NavigatorRoute';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
+
 import AlertGallery from '../../views/Components/stories/Alert';
 import DividerGallery from '../../views/Components/stories/Divider';
 
@@ -47,7 +48,7 @@ export const stackScreenList = [
   {
     name: GalleryRoutes.ComponentCollapsibleTabs,
     component: CollapsibleTabViewGallery,
-    options: { headerShown: false },
+    // options: { headerShown: false },
   },
 ];
 

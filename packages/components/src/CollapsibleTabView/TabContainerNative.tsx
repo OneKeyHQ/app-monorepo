@@ -1,16 +1,17 @@
 import type { ForwardRefRenderFunction } from 'react';
 import { Children, useCallback, useMemo, useState } from 'react';
 
-import { useThemeValue } from '@onekeyhq/components';
+import { getThemeTokens, useThemeValue } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { getTokens } from 'tamagui';
-import { StyleSheet } from 'react-native';
 
 import { ActiveTabContext } from './ActiveTabContext';
 import NestedTabView from './NativeNestedTabView/NestedTabView';
 
 import type { ForwardRefHandle } from './NativeNestedTabView/NestedTabView';
-import type { OnPageChangeEvent } from './NativeNestedTabView/types';
+import type {
+  OnPageChangeEvent,
+  TabViewStyle,
+} from './NativeNestedTabView/types';
 import type { CollapsibleContainerProps } from './types';
 
 const TabContainerNativeView: ForwardRefRenderFunction<
@@ -46,26 +47,20 @@ const TabContainerNativeView: ForwardRefRenderFunction<
   const [activeLabelColor, labelColor, indicatorColor, bgColor, spinnerColor] =
     useThemeValue(['text', 'textSubdued', 'bgPrimary', 'bgApp', 'iconActive']);
 
-  const tabViewStyle = useMemo(() => {
-    const sharedStyle = {
-      height: 54,
-      indicatorColor,
-      labelStyle: { fontWeight: '500', fontSize: 16, lineHeight: 24 },
-    };
-    // why? ios and android use different styles
-    if (platformEnv.isNativeIOS) {
-      return {
-        ...sharedStyle,
-        activeColor: activeLabelColor,
-        inactiveColor: labelColor,
-        paddingX: 0,
-      };
-    }
+  const tabViewStyle: TabViewStyle = useMemo(() => {
+    const itemPaddingY = getThemeTokens().size['3.5'].val;
+    const itemPaddingX = getThemeTokens().size['5'].val;
+
     return {
-      ...sharedStyle,
+      height: 54,
       activeLabelColor,
       labelColor,
+      indicatorColor,
+      itemPaddingX,
+      itemPaddingY,
       backgroundColor: bgColor,
+      tabSpaceEqual: false,
+      labelStyle: { fontWeight: '500', fontSize: 16, lineHeight: 24 },
     };
   }, [activeLabelColor, bgColor, indicatorColor, labelColor]);
 
@@ -98,7 +93,6 @@ const TabContainerNativeView: ForwardRefRenderFunction<
         style={containerStyle}
         disableRefresh={disableRefresh}
         spinnerColor={spinnerColorMemo}
-        // @ts-expect-error
         tabViewStyle={tabViewStyle}
         onRefreshCallBack={onRefreshCallBack}
         headerView={headerView}

@@ -88,8 +88,8 @@ export function Layout({
             <Text variant="$headingXl">组件案例</Text>
           </Stack>
           <Stack space="$4">
-            {elements?.map((item) => (
-              <Stack space="$2">
+            {elements?.map((item, index) => (
+              <Stack space="$2" key={`elements-${index}`}>
                 <Stack flexDirection="column">
                   <Text variant="$headingLg">{item.title}</Text>
                   {item.description && (

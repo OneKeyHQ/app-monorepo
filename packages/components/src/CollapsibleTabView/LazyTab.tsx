@@ -59,7 +59,7 @@ const LazyTabComponent = ({
 
   const empty = useMemo(
     // TODO render Skeleton
-    () => <FlatList data={[]} renderItem={() => <Stack />} />,
+    () => <FlatList data={[]} renderItem={() => <Stack flex={1} />} />,
     [],
   );
 

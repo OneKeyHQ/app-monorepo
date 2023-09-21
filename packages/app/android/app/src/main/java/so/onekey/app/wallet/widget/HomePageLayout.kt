@@ -2,7 +2,6 @@ package so.onekey.app.wallet.widget
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.util.AttributeSet
 import android.view.LayoutInflater
@@ -24,15 +23,19 @@ import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.appbar.CollapsingToolbarLayout
 import so.onekey.app.wallet.R
 import so.onekey.app.wallet.utils.Utils
+import so.onekey.app.wallet.utils.parseColor
 import so.onekey.app.wallet.viewManager.homePage.TabProps
+import so.onekey.app.wallet.viewManager.homePage.event.PageScrollStateChangeEvent
 import so.onekey.app.wallet.viewManager.homePage.event.PageSelectedEvent
 import so.onekey.app.wallet.viewManager.homePage.event.SwipeRefreshEvent
-import so.onekey.app.wallet.viewManager.homePage.event.PageScrollStateChangeEvent
 
 
 data class TabViewStyle(
     var paddingX: Int,
-    var tabHeight: Int,
+    var paddingY: Int,
+    var itemPaddingX: Int,
+    var itemPaddingY: Int,
+    var tabHeight: Int?,
     var tabSpaceEqual: Boolean,
     var activeLabelColor: String?,
     var labelColor: String?,
@@ -107,6 +110,10 @@ open class HomePageLayout @JvmOverloads constructor(
         content.findViewById<LinearLayoutCompat>(R.id.content)
     }
 
+    private val appBarLayout by lazy {
+        content.findViewById<AppBarLayout>(R.id.appbar)
+    }
+
     private val layoutRefresh by lazy {
         content.findViewById<SwipeRefreshLayout>(R.id.layout_refresh)
     }
@@ -139,8 +146,7 @@ open class HomePageLayout @JvmOverloads constructor(
         toolbar.removeAllViews()
 
         val params = CollapsingToolbarLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
         )
         params.collapseMode = CollapsingToolbarLayout.LayoutParams.COLLAPSE_MODE_PIN
         toolbar.addView(view, params)
@@ -170,7 +176,7 @@ open class HomePageLayout @JvmOverloads constructor(
                 )
             }
 
-            content.findViewById<AppBarLayout>(R.id.appbar)
+            appBarLayout
                 ?.addOnOffsetChangedListener { _, verticalOffset ->
                     mAppBarExtended = verticalOffset >= 0
                     it.isEnabled = mRefreshEnabled && mAppBarExtended
@@ -273,8 +279,7 @@ open class HomePageLayout @JvmOverloads constructor(
 
     @SuppressLint("ClickableViewAccessibility")
     private fun setViewPager(
-        fragmentActivity: FragmentActivity,
-        titles: List<String>
+        fragmentActivity: FragmentActivity, titles: List<String>
     ): RecyclerView.Adapter<*> {
         val adapter = SimplePagerAdapter()
         viewpager.adapter = adapter
@@ -294,28 +299,40 @@ open class HomePageLayout @JvmOverloads constructor(
     fun updateTabsTitle() {
         tabLayout?.let { tabView ->
             mTabViewStyle?.let { tabViewStyle ->
-                tabView.isTabSpaceEqual = tabViewStyle.tabSpaceEqual
-                tabView.indicatorColor = Color.parseColor(tabViewStyle.indicatorColor)
-                tabView.background =
-                    ColorDrawable(Color.parseColor(tabViewStyle.backgroundColor))
+                tabView.setIndicatorWidthEqualTitle(true)
 
-                tabView.textUnselectColor = Color.parseColor(tabViewStyle.labelColor)
-                tabView.textSelectColor = Color.parseColor(tabViewStyle.activeLabelColor)
+                tabView.isTabSpaceEqual = tabViewStyle.tabSpaceEqual
+                tabView.indicatorColor = parseColor(tabViewStyle.indicatorColor)
+                tabView.background = ColorDrawable(parseColor(tabViewStyle.backgroundColor))
+
+                tabView.textUnselectColor = parseColor(tabViewStyle.labelColor)
+                tabView.textSelectColor = parseColor(tabViewStyle.activeLabelColor)
 
                 tabViewStyle.fontSize?.toFloat()?.let {
                     tabView.textsize = it
                 }
 
-                tabView.layoutParams = LinearLayoutCompat.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    MeasureSpec.makeMeasureSpec(
-                        Utils.dp2px(context, tabViewStyle.tabHeight.toFloat()),
-                        MeasureSpec.EXACTLY
+                tabView.layoutParams = if (tabViewStyle.tabHeight != null) {
+                    LinearLayoutCompat.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, MeasureSpec.makeMeasureSpec(
+                            Utils.dp2px(context, tabViewStyle.tabHeight?.toFloat()),
+                            MeasureSpec.EXACTLY
+                        )
                     )
-                ).also {
-                    it.marginStart = Utils.dp2px(context, tabViewStyle.paddingX.toFloat())
-                    it.marginEnd = Utils.dp2px(context, tabViewStyle.paddingX.toFloat())
+                } else {
+                    LinearLayoutCompat.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                    )
+                }.also {
+                    it.setMargins(
+                        tabViewStyle.paddingX,
+                        tabViewStyle.paddingY,
+                        tabViewStyle.paddingX,
+                        tabViewStyle.paddingY,
+                    )
                 }
+                tabView.tabPadding = tabViewStyle.itemPaddingX.toFloat()
+                tabView.setTabVerticalPadding(tabViewStyle.itemPaddingY.toFloat())
             }
 
             if (mTabTitlesChange) {
@@ -333,7 +350,10 @@ open class HomePageLayout @JvmOverloads constructor(
 
     fun setTabViewStyle(
         paddingX: Int,
-        tabHeight: Int,
+        paddingY: Int,
+        itemPaddingX: Int,
+        itemPaddingY: Int,
+        tabHeight: Int?,
         tabSpaceEqual: Boolean,
         activeLabelColor: String?,
         labelColor: String?,
@@ -346,20 +366,23 @@ open class HomePageLayout @JvmOverloads constructor(
         lineHeight: Int?
     ) {
         mTabViewStyle = TabViewStyle(
-            paddingX,
-            tabHeight,
-            tabSpaceEqual,
-            activeLabelColor,
-            labelColor,
-            indicatorColor,
-            backgroundColor,
-            fontSize,
+            paddingX = paddingX,
+            paddingY = paddingY,
+            itemPaddingX = itemPaddingX,
+            itemPaddingY = itemPaddingY,
+            tabHeight = tabHeight,
+            tabSpaceEqual = tabSpaceEqual,
+            activeLabelColor = activeLabelColor,
+            labelColor = labelColor,
+            indicatorColor = indicatorColor,
+            backgroundColor = backgroundColor,
+            fontSize = fontSize,
         )
 
         val tabDividerView = content.findViewById<View>(R.id.view_tab_divider)
         if (bottomLineColor != null) {
             tabDividerView.visibility = View.VISIBLE
-            tabDividerView.setBackgroundColor(Color.parseColor(bottomLineColor))
+            tabDividerView.setBackgroundColor(parseColor(bottomLineColor))
         } else {
             tabDividerView.visibility = View.GONE
         }
