@@ -43,6 +43,7 @@ import type { IUnsignedTxPro } from '../../../types';
 import type { Network } from './networks';
 import type { PsbtInput } from 'bip174/src/lib/interfaces';
 import type { SignatureOptions } from 'bitcoinjs-message';
+import type { ECPairInterface } from 'ecpair';
 
 type GetAccountParams =
   | {
@@ -768,20 +769,29 @@ class Provider {
     entropy,
     path,
     message,
+    keyPair: keyPairFromOut,
     sigOptions = { segwitType: 'p2wpkh' },
   }: {
     password: string;
     entropy: Buffer;
     path: string;
     message: string;
+    keyPair?: ECPairInterface;
     sigOptions?: SignatureOptions | null;
   }) {
     initBitcoinEcc();
-    const mnemonic = mnemonicFromEntropy(entropy, password);
-    const seed = mnemonicToSeedSync(mnemonic);
-    const root = getBitcoinBip32().fromSeed(seed);
-    const node = root.derivePath(path);
-    const keyPair = getBitcoinECPair().fromWIF(node.toWIF());
+
+    let keyPair;
+    if (keyPairFromOut) {
+      keyPair = keyPairFromOut;
+    } else {
+      const mnemonic = mnemonicFromEntropy(entropy, password);
+      const seed = mnemonicToSeedSync(mnemonic);
+      const root = getBitcoinBip32().fromSeed(seed);
+      const node = root.derivePath(path);
+      keyPair = getBitcoinECPair().fromWIF(node.toWIF());
+    }
+
     const signature = bitcoinMessage.sign(
       message,
       // @ts-expect-error
