@@ -28,6 +28,7 @@ export const stackScreenList = [
     component: TypographyGallery,
   },
   { name: GalleryRoutes.ComponentIcon, component: IconGallery },
+  { name: GalleryRoutes.ComponentIconButton, component: IconButtonGallery },
   { name: GalleryRoutes.ComponentButton, component: ButtonsGallery },
   { name: GalleryRoutes.ComponentBadge, component: BadgeGallery },
   { name: GalleryRoutes.ComponentDialog, component: DialogGallery },
@@ -35,8 +36,6 @@ export const stackScreenList = [
     name: GalleryRoutes.ComponentNavigation,
     component: DemoRootApp,
     options: { headerShown: false },
-    name: GalleryRoutes.ComponentIconButton,
-    component: IconButtonGallery,
   },
 ];
 
