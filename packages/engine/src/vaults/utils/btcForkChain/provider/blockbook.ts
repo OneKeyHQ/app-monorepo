@@ -164,7 +164,7 @@ class BlockBook {
       `/${impl}/api/v2/utxo_info/`,
       {
         xpub,
-        forceSelectUtxos: JSON.stringify(options.forceSelectUtxos || []),
+        forceSelectUtxos: options.forceSelectUtxos,
         // return utxo without inscriptions
         checkInscription: isNil(options.checkInscription)
           ? true
