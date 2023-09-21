@@ -1,7 +1,6 @@
 import type { ForwardedRef, ReactNode } from 'react';
 
 import { Dimensions } from 'react-native';
-import { makeMutable } from 'react-native-reanimated';
 
 import type { FontProps } from '@onekeyhq/components/src/Typography';
 
@@ -13,11 +12,6 @@ export const getDrawerWidth = () => {
   const maxWidth = 400;
   return Math.min(maxWidth, expectedWidth);
 };
-
-export const nestedTabStartX = makeMutable(0);
-
-// to control drawer translation
-export const nestedTabTransX = makeMutable(-getDrawerWidth());
 
 export type OnPageChangeEventData = Readonly<{
   tabName: string;
