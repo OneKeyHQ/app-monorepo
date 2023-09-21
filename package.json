@@ -190,7 +190,7 @@
     "react-test-renderer": "18.1.0",
     "rimraf": "^3",
     "ts-jest": "^27.0.5",
-    "typescript": "^5.0.4",
+    "typescript": "^5.2.2",
     "ultra-runner": "^3.10.5",
     "webpack-bundle-analyzer": "^4.7.0"
   },
