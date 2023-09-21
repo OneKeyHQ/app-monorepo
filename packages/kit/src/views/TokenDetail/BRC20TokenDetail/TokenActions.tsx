@@ -26,6 +26,7 @@ type Props = {
     transferBalance: string;
   };
   isWatching: boolean;
+  isTaproot: boolean;
 };
 
 function TokenActions(props: Props) {
@@ -36,6 +37,7 @@ function TokenActions(props: Props) {
     style,
     balanceWithoutRecycle,
     isWatching,
+    isTaproot,
   } = props;
 
   const intl = useIntl();
@@ -75,12 +77,13 @@ function TokenActions(props: Props) {
         id: 'action__transfer_brc20',
         onPress: onPressTransfer,
         icon: 'ArrowUturnDownMini',
-        isDisabled: isInsufficientAvailableBalance || isWatching,
+        isDisabled: isInsufficientAvailableBalance || isWatching || !isTaproot,
       },
     ],
     [
       isInsufficientAvailableBalance,
       isInsufficientTransferBalance,
+      isTaproot,
       isWatching,
       onPressReceive,
       onPressSend,
