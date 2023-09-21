@@ -27,4 +27,11 @@ const KitProvider: FC = () => (
   </Provider>
 );
 
-export default KitProvider;
+// eslint-disable-next-line import/no-mutable-exports
+let AppEntryPoint = KitProvider;
+if (process.env.STORYBOOK_ENABLED) {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  AppEntryPoint = require('../../../components/.storybook-native').default;
+}
+
+export default AppEntryPoint;
