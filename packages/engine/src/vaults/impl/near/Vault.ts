@@ -400,9 +400,6 @@ export default class Vault extends VaultBase {
   }
 
   async buildUnsignedTxFromEncodedTx(encodedTx: any): Promise<IUnsignedTxPro> {
-    const nativeTx = (await this.helper.parseToNativeTx(
-      encodedTx,
-    )) as nearApiJs.transactions.Transaction;
     const cli = await this._getNearCli();
 
     // nonce is not correct if accounts contains multiple AccessKeys
@@ -410,14 +407,15 @@ export default class Vault extends VaultBase {
     const accessKey = await this.fetchAccountAccessKey();
     const { blockHash } = await cli.getBestBlock();
 
-    nativeTx.nonce = accessKey?.nonce ?? 0;
-    nativeTx.blockHash = baseDecode(blockHash);
+    const nonce = accessKey?.nonce ?? 0;
+    const blockHashBuffer = baseDecode(blockHash);
 
     const unsignedTx: IUnsignedTxPro = {
       inputs: [],
       outputs: [],
       payload: {
-        nativeTx,
+        nonce,
+        blockHash,
       },
       encodedTx,
     };
