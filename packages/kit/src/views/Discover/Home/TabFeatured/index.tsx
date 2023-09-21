@@ -1,17 +1,26 @@
-import type { FC } from 'react';
+import { type FC, useCallback, useContext } from 'react';
 
-import { Box, Typography, useIsVerticalLayout } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import {
+  Box,
+  Icon,
+  Pressable,
+  Typography,
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
 import ScrollableButtonGroup from '@onekeyhq/components/src/ScrollableButtonGroup/ScrollableButtonGroup';
 
 import FavContainer from '../../Explorer/FavContainer';
-import { useBanners, useGroupDapps } from '../context';
+import { DiscoverContext, useBanners, useGroupDapps } from '../context';
 import { DappBanner } from '../DappBanner';
 import { DappItemOutline, DappItemPlain } from '../DappRenderItem';
-import { DappItemPlainContainerLayout } from '../DappRenderLayout';
+import { DappItemPlainContainerLayout, PageLayout } from '../DappRenderLayout';
 import { EmptySkeleton } from '../EmptySkeleton';
+import { discoverUIEventBus } from '../eventBus';
 import { SeeAllButton } from '../SeeAllButton';
 
-import type { GroupDappsType } from '../../type';
+import type { CategoryType, GroupDappsType } from '../../type';
 
 const BannerContent = () => {
   const banners = useBanners();
@@ -69,7 +78,7 @@ const VerticalContent: FC<ContentProps> = ({ data }) => (
       <ContentHeader title={data.label} id={data.id} />
     </Box>
     <Box px="4">
-      <DappItemPlainContainerLayout space={4}>
+      <DappItemPlainContainerLayout space={4} offset={-32}>
         {data.items.map((item) => (
           <FavContainer
             key={item._id}
@@ -98,7 +107,7 @@ const HorizontalContent: FC<ContentProps> = ({ data }) => {
     return null;
   }
   return (
-    <Box>
+    <Box pb='4'>
       <Box px="4">
         <ContentHeader title={data.label} id={data.id} />
       </Box>
@@ -143,6 +152,51 @@ const HorizontalContent: FC<ContentProps> = ({ data }) => {
   );
 };
 
+const Tag = ({ item }: { item: CategoryType }) => {
+  const onPress = useCallback(() => {
+    discoverUIEventBus.emit('pressTag', item);
+  }, [item]);
+
+  return (
+    <Pressable
+      py="1"
+      px="2.5"
+      borderRadius="full"
+      bg="surface-neutral-subdued"
+      mr="2"
+      mb="2"
+      flexDirection="row"
+      _hover={{ bg: 'surface-neutral-hovered' }}
+      _pressed={{ bg: 'surface-neutral-pressed' }}
+      onPress={onPress}
+    >
+      <Box mr={0.5}>
+        <Icon name="HashtagMini" size={20} color="icon-success" />
+      </Box>
+      <Typography.Body2Strong>{item.name}</Typography.Body2Strong>
+    </Pressable>
+  );
+};
+
+const TagContent = () => {
+  const { categories } = useContext(DiscoverContext);
+  const intl = useIntl();
+  return (
+    <Box mt="4" px="4">
+      <Box>
+        <Typography.Heading>
+          {intl.formatMessage({ id: 'form__all_tags' })}
+        </Typography.Heading>
+      </Box>
+      <Box flexDirection="row" mt="4" w="full" flexWrap="wrap">
+        {categories.map((o) => (
+          <Tag key={o.id} item={o} />
+        ))}
+      </Box>
+    </Box>
+  );
+};
+
 export const SectionFeatured = () => {
   const groupDapps = useGroupDapps();
   if (groupDapps.length === 0) {
@@ -153,17 +207,20 @@ export const SectionFeatured = () => {
     );
   }
   return (
-    <Box w="full" pb="2">
-      <BannerContent />
-      <Box>
-        {groupDapps.map((item, index) =>
-          index % 2 === 0 ? (
-            <VerticalContent key={item.label} data={item} />
-          ) : (
-            <HorizontalContent key={item.label} data={item} />
-          ),
-        )}
+    <PageLayout>
+      <Box w="full" pb="2">
+        <BannerContent />
+        <Box>
+          {groupDapps.map((item, index) =>
+            index % 2 === 0 ? (
+              <VerticalContent key={item.label} data={item} />
+            ) : (
+              <HorizontalContent key={item.label} data={item} />
+            ),
+          )}
+        </Box>
+        <TagContent />
       </Box>
-    </Box>
+    </PageLayout>
   );
 };

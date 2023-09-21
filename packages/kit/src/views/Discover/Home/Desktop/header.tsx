@@ -16,8 +16,7 @@ import PNG from '@onekeyhq/kit/assets/discover/header_bg.png';
 
 import { gotoSite, openMatchDApp } from '../../Explorer/Controller/gotoSite';
 import SearchView from '../../Explorer/Search/SearchView';
-
-import { discoverUIEventBus } from './eventBus';
+import { discoverUIEventBus } from '../eventBus';
 
 import type {
   MatchDAppItemType,

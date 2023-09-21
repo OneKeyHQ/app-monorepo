@@ -10,13 +10,13 @@ import { getAppNavigation } from '../../../../hooks/useAppNavigation';
 import { DiscoverModalRoutes } from '../../type';
 
 type SelectorButtonProps = {
-  // networkIds: string[];
+  networkIds: string[];
   networkId: string;
   onItemSelect?: (item: string) => void;
 };
 
 export const SelectorButton: FC<SelectorButtonProps> = ({
-  // networkIds,
+  networkIds,
   networkId,
   onItemSelect,
 }) => {
@@ -28,8 +28,6 @@ export const SelectorButton: FC<SelectorButtonProps> = ({
     [onItemSelect],
   );
 
-  const networks = useAppSelector((s) => s.runtime.networks);
-
   return (
     <Button
       onPress={() => {
@@ -39,9 +37,7 @@ export const SelectorButton: FC<SelectorButtonProps> = ({
             screen: DiscoverModalRoutes.ChainSelector,
             params: {
               currentNetworkId: networkId,
-              networkIds: networks
-                .filter((o) => !isAllNetworks(o.id))
-                .map((o) => o.id),
+              networkIds,
               onSelect,
             },
           },

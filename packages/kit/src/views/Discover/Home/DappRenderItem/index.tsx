@@ -1,8 +1,8 @@
 import { type FC, type ReactElement, useCallback } from 'react';
 
-import { Box, Center, Pressable, Typography } from '@onekeyhq/components';
+import { Box, Center, Typography } from '@onekeyhq/components';
 import { NetworkIconGroup } from '@onekeyhq/kit/src/components/NetworkIconGroup';
-
+import { Pressable } from '../Pressable'
 import DAppIcon from '../../components/DAppIcon';
 import { openMatchDApp } from '../../Explorer/Controller/gotoSite';
 import { DappItemPlainLayout } from '../DappRenderLayout';

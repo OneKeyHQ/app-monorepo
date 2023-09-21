@@ -9,7 +9,7 @@ import FavContainer from '../../Explorer/FavContainer';
 import { useContextCategoryDapps } from '../context';
 import { DAppCategories } from '../DappCategories';
 import { DappItemPlain } from '../DappRenderItem';
-import { DappItemPlainContainerLayout } from '../DappRenderLayout';
+import { DappItemPlainContainerLayout, PageLayout } from '../DappRenderLayout';
 import { EmptySkeleton } from '../EmptySkeleton';
 import { SelectorButton } from '../SelectorButton';
 
@@ -40,7 +40,7 @@ const DappsItemsRender = ({
     );
   }
   return (
-    <DappItemPlainContainerLayout space={2}>
+    <DappItemPlainContainerLayout space={2} offset={-32}>
       {data.map((item) => (
         <FavContainer
           key={item._id}
@@ -69,6 +69,12 @@ const SectionExploreContent = () => {
 
   const [networkId, setNetworkId] = useState('all--0');
 
+  const networkIds = useMemo(() => {
+    return dapps.reduce((result, item) => {
+      return  Array.from(new Set(result.concat(item.networkIds)))
+    }, [] as string[])
+  }, [dapps, networkId])
+
   const items = useMemo(() => {
     if (isAllNetworks(networkId)) {
       return dapps;
@@ -83,7 +89,7 @@ const SectionExploreContent = () => {
   return (
     <Box>
       <Box px="2" pb="2" flexDirection="row" justifyContent="space-between">
-        <SelectorButton networkId={networkId} onItemSelect={setNetworkId} />
+        <SelectorButton networkIds={networkIds} networkId={networkId} onItemSelect={setNetworkId} />
       </Box>
       <Box py="2" px="4">
         <DappsItemsRender
@@ -97,10 +103,12 @@ const SectionExploreContent = () => {
 };
 
 export const SectionExplore = () => (
-  <Box>
-    <Box py="4">
-      <DAppCategories />
+  <PageLayout>
+    <Box>
+      <Box py="4">
+        <DAppCategories />
+      </Box>
+      <SectionExploreContent />
     </Box>
-    <SectionExploreContent />
-  </Box>
+  </PageLayout>
 );

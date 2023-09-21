@@ -8,7 +8,7 @@ import FavListMenu from '../../../Overlay/Discover/FavListMenu';
 import { useDiscoverFavorites } from '../../hooks';
 import { convertMatchDAppItemType } from '../../utils';
 import { DappItemPlain } from '../DappRenderItem';
-import { DappItemPlainContainerLayout } from '../DappRenderLayout';
+import { DappItemPlainContainerLayout, PageLayout } from '../DappRenderLayout';
 
 import type { MatchDAppItemType } from '../../Explorer/explorerUtils';
 
@@ -39,23 +39,25 @@ export const SectionFavorites = () => {
     return <ListEmptyComponent />;
   }
   return (
-    <Box py="4" px="4">
-      <DappItemPlainContainerLayout space={2}>
-        {items.map((item) => {
-          const o = convertMatchDAppItemType(item);
-          return (
-            <DappItemPlain
-              key={item.id}
-              title={o.name}
-              description={o.subtitle}
-              networkIds={o.networkIds}
-              logoURI={o.logoURL}
-              url={o.url}
-              rightElement={<DappItemPlainFavMenu item={item} />}
-            />
-          );
-        })}
-      </DappItemPlainContainerLayout>
-    </Box>
+    <PageLayout>
+      <Box py="4" px="4">
+        <DappItemPlainContainerLayout space={2}>
+          {items.map((item) => {
+            const o = convertMatchDAppItemType(item);
+            return (
+              <DappItemPlain
+                key={item.id}
+                title={o.name}
+                description={o.subtitle}
+                networkIds={o.networkIds}
+                logoURI={o.logoURL}
+                url={o.url}
+                rightElement={<DappItemPlainFavMenu item={item} />}
+              />
+            );
+          })}
+        </DappItemPlainContainerLayout>
+      </Box>
+    </PageLayout>
   );
 };
