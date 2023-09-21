@@ -1,10 +1,11 @@
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
 
 import type { ForwardRefHandle } from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
 import { Box } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 
 import { useOnTabChange, usePressTagEffect, useTabConfig } from '../config';
+import { discoverUIEventBus } from '../eventBus';
 
 import { Header } from './header';
 
@@ -13,6 +14,9 @@ export const Desktop = () => {
   usePressTagEffect({ ref });
   const tabConfig = useTabConfig();
   const onIndexChange = useOnTabChange();
+  const onScroll = useCallback(() => {
+    discoverUIEventBus.emit('scroll');
+  }, []);
   return (
     <Box
       flex="1"
@@ -28,6 +32,7 @@ export const Desktop = () => {
           onIndexChange={onIndexChange}
           headerView={<Header />}
           ref={ref}
+          onScroll={onScroll}
         >
           {tabConfig.map((tab) => (
             <Tabs.Tab key={tab.name} name={tab.name} label={tab.label}>

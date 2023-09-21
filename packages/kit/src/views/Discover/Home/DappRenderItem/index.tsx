@@ -2,10 +2,11 @@ import { type FC, type ReactElement, useCallback } from 'react';
 
 import { Box, Center, Typography } from '@onekeyhq/components';
 import { NetworkIconGroup } from '@onekeyhq/kit/src/components/NetworkIconGroup';
-import { Pressable } from '../Pressable'
+
 import DAppIcon from '../../components/DAppIcon';
 import { openMatchDApp } from '../../Explorer/Controller/gotoSite';
 import { DappItemPlainLayout } from '../DappRenderLayout';
+import { Pressable } from '../Pressable';
 
 type DappRenderItemProps = {
   title: string;
@@ -52,7 +53,7 @@ export const DappItemOutline: FC<DappRenderItemProps> = (props) => {
     <Pressable
       p="4"
       w="152px"
-      h="224"
+      h="204"
       flexDirection="column"
       alignItems="center"
       justifyContent="center"
@@ -73,14 +74,14 @@ export const DappItemOutline: FC<DappRenderItemProps> = (props) => {
         <NetworkIconGroup networkIds={networkIds ?? []} />
       </Box>
       <Box flex="1" w="full">
-        <Typography.Body2
+        <Typography.Caption
           w="full"
           numberOfLines={3}
           textAlign="center"
           color="text-subdued"
         >
           {description ?? ''}
-        </Typography.Body2>
+        </Typography.Caption>
       </Box>
     </Pressable>
   );

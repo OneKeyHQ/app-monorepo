@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Center,
-  Container,
   Empty,
   Icon,
   Searchbar,

@@ -2,10 +2,9 @@ import type { FC } from 'react';
 import { useCallback } from 'react';
 
 import { Button, Image } from '@onekeyhq/components';
-import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 
-import { useAppSelector, useNetwork } from '../../../../hooks';
+import { useNetwork } from '../../../../hooks';
 import { getAppNavigation } from '../../../../hooks/useAppNavigation';
 import { DiscoverModalRoutes } from '../../type';
 

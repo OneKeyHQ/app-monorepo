@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ComponentProps, FC } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -43,7 +43,6 @@ import {
   multiply,
   normalizeProviderName,
 } from '../../utils';
-import { Scheduler } from '../PendingTransaction';
 import SwappingVia from '../SwappingVia';
 import TransactionFee from '../TransactionFee';
 import TransactionRate from '../TransactionRate';
