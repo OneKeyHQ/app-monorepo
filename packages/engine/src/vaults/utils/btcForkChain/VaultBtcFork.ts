@@ -657,11 +657,13 @@ export default class VaultBtcFork extends VaultBase {
     token,
     dbAccount,
     brc20Content,
+    isInscribeTransfer,
   }: {
     nftInfo: INFTInfo;
     token: Token;
     dbAccount: DBUTXOAccount;
     brc20Content?: BRC20TextProps | null;
+    isInscribeTransfer?: boolean;
   }) {
     const { from, to } = nftInfo;
 
@@ -725,6 +727,7 @@ export default class VaultBtcFork extends VaultBase {
         sender: nftInfo.from,
         receiver: nftInfo.to,
         extraInfo: null,
+        isInscribeTransfer,
         ...info,
       },
     };
@@ -1057,9 +1060,11 @@ export default class VaultBtcFork extends VaultBase {
   async buildActionsFromBTCTransaction({
     transaction,
     address,
+    isInscribeTransfer,
   }: {
     transaction: BTCTransactionsModel;
     address: string;
+    isInscribeTransfer: boolean;
   }): Promise<IDecodedTxAction[]> {
     let type: IDecodedTxActionType = IDecodedTxActionType.UNKNOWN;
     const { send, receive, event_type: eventType, asset } = transaction;
@@ -1095,6 +1100,7 @@ export default class VaultBtcFork extends VaultBase {
             token,
             dbAccount,
             brc20Content,
+            isInscribeTransfer,
           }),
         ];
       }
@@ -1105,6 +1111,7 @@ export default class VaultBtcFork extends VaultBase {
       receive,
       asset,
       extraInfo: null,
+      isInscribeTransfer,
     };
     if (eventType === 'Transfer') {
       type = IDecodedTxActionType.NFT_TRANSFER_BTC;
@@ -1127,10 +1134,12 @@ export default class VaultBtcFork extends VaultBase {
     nftTxs,
     nativeActions,
     address,
+    isInscribeTransfer,
   }: {
     address: string;
     nftTxs: BTCTransactionsModel[];
     nativeActions: IDecodedTxAction[];
+    isInscribeTransfer: boolean;
   }): Promise<IDecodedTxAction[]> {
     const nftActions = (
       await Promise.all(
@@ -1138,6 +1147,7 @@ export default class VaultBtcFork extends VaultBase {
           this.buildActionsFromBTCTransaction({
             transaction,
             address,
+            isInscribeTransfer,
           }),
         ) ?? '',
       )
@@ -1361,6 +1371,16 @@ export default class VaultBtcFork extends VaultBase {
           tx;
 
         const utxoToWithoutMine = utxoTo?.filter((utxo) => !utxo.isMine);
+        const isInscribeTransfer = Boolean(
+          txs.find(
+            (item) =>
+              item.txid !== tx.txid &&
+              item.blockTime === tx.blockTime &&
+              item.from === tx.to &&
+              item.to === tx.from,
+          ),
+        );
+
         const actions =
           utxoToWithoutMine && utxoToWithoutMine.length
             ? utxoToWithoutMine
@@ -1377,6 +1397,7 @@ export default class VaultBtcFork extends VaultBase {
                     amount: utxo.balance,
                     amountValue: utxo.balanceValue,
                     extraInfo: null,
+                    isInscribeTransfer,
                   },
                 }))
             : [
@@ -1394,6 +1415,7 @@ export default class VaultBtcFork extends VaultBase {
                     amount,
                     amountValue,
                     extraInfo: null,
+                    isInscribeTransfer,
                   },
                 },
               ];
@@ -1404,6 +1426,7 @@ export default class VaultBtcFork extends VaultBase {
           nftTxs,
           nativeActions: actions,
           address: dbAccount.address,
+          isInscribeTransfer,
         });
 
         let finalActions = mergeNFTActions;
