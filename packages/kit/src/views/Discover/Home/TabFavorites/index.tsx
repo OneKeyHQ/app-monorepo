@@ -47,7 +47,7 @@ export const SectionFavorites = () => {
             return (
               <DappItemPlain
                 key={item.id}
-                title={o.name}
+                title={o.name || 'Unknown'}
                 description={o.subtitle}
                 networkIds={o.networkIds}
                 logoURI={o.logoURL}
