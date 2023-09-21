@@ -1,119 +1,51 @@
-import { bytesToHex } from '@noble/hashes/utils';
-
-import { ChainSigner } from '@onekeyhq/engine/src/proxy';
-import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
-import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import type { ChainSigner } from '@onekeyhq/engine/src/proxy';
+import type { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { IUnsignedMessageCommon } from '@onekeyhq/engine/src/types/message';
-import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { KeyringImportedBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringImportedBase';
 import type {
+  IGetPrivateKeysParams,
+  IGetPrivateKeysResult,
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
+  ISignedTxPro,
+  IUnsignedTxPro,
 } from '@onekeyhq/engine/src/vaults/types';
-import { COINTYPE_DOT as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
+import { COINTYPE_DOT } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { TYPE_PREFIX } from './consts';
-import polkadotSdk from './sdk/polkadotSdk';
+import { signTransactionDot } from './utils/dotSignUtils';
 
-import type { DotImplOptions } from './types';
-import type Vault from './Vault';
-
-const { bufferToU8a, u8aConcat } = polkadotSdk;
-
-// @ts-ignore
 export class KeyringImported extends KeyringImportedBase {
-  private async getChainInfoImplOptions(): Promise<DotImplOptions> {
-    const chainInfo = await this.getChainInfo();
-    return chainInfo.implOptions as DotImplOptions;
+  override coreApi = coreChainApi.dot.imported;
+
+  override getSigners(): Promise<Record<string, ChainSigner>> {
+    throw new Error('getSigners moved to core.');
   }
 
-  override async getSigners(password: string, addresses: Array<string>) {
-    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
-    const selectedAddress = dbAccount.address;
-
-    if (addresses.length !== 1) {
-      throw new OneKeyInternalError('Cosmos signers number should be 1.');
-    } else if (addresses[0] !== selectedAddress) {
-      throw new OneKeyInternalError('Wrong address required for signing.');
-    }
-
-    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys({
-      password,
-    });
-    if (typeof privateKey === 'undefined') {
-      throw new OneKeyInternalError('Unable to get signer.');
-    }
-
-    return {
-      [selectedAddress]: new ChainSigner(privateKey, password, 'ed25519'),
-    };
+  override async getPrivateKeys(
+    params: IGetPrivateKeysParams,
+  ): Promise<IGetPrivateKeysResult> {
+    return this.baseGetPrivateKeys(params);
   }
 
   override async prepareAccounts(
     params: IPrepareImportedAccountsParams,
-  ): Promise<Array<DBVariantAccount>> {
-    const { privateKey, name } = params;
-    if (privateKey.length !== 32) {
-      throw new OneKeyInternalError('Invalid private key.');
-    }
-
-    const pubkey = ed25519.publicFromPrivate(privateKey);
-    const pub = pubkey.toString('hex');
-
-    return Promise.resolve([
-      {
-        id: `imported--${COIN_TYPE}--${pub}`,
-        name: name || '',
-        type: AccountType.VARIANT,
-        path: '',
-        coinType: COIN_TYPE,
-        pub,
-        address: '',
-        addresses: {},
-      },
-    ]);
+  ): Promise<Array<DBSimpleAccount>> {
+    return this.basePrepareAccountsImported(params, {
+      accountType: AccountType.VARIANT,
+      coinType: COINTYPE_DOT,
+    });
   }
 
   override async signTransaction(
-    unsignedTx: UnsignedTx,
+    unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
-  ): Promise<SignedTx> {
-    debugLogger.common.info('signTransaction result', unsignedTx);
-    const dbAccount = await this.getDbAccount();
-
-    const vault = this.vault as Vault;
-
-    const { hash: message } = await vault.serializeUnsignedTransaction(
-      unsignedTx.payload.encodedTx,
-    );
-
-    const signers = await this.getSigners(options.password || '', [
-      dbAccount.address,
-    ]);
-    const signer = signers[dbAccount.address];
-
-    const senderPublicKey = unsignedTx.inputs?.[0]?.publicKey;
-    if (!senderPublicKey) {
-      throw new OneKeyInternalError('Unable to get sender public key.');
-    }
-
-    const [signature] = await signer.sign(Buffer.from(message));
-    const txSignature = u8aConcat(TYPE_PREFIX.ed25519, bufferToU8a(signature));
-
-    // Serialize a signed transaction.
-    const tx = await vault.serializeSignedTransaction(
-      unsignedTx.payload.encodedTx,
-      bytesToHex(txSignature),
-    );
-
-    return Promise.resolve({
-      txid: '',
-      rawTx: tx,
-      signature: addHexPrefix(bytesToHex(txSignature)),
+  ): Promise<ISignedTxPro> {
+    return signTransactionDot({
+      keyring: this,
+      unsignedTx,
+      options,
     });
   }
 
@@ -121,23 +53,7 @@ export class KeyringImported extends KeyringImportedBase {
     messages: IUnsignedMessageCommon[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
-    const dbAccount = await this.getDbAccount();
-    const signers = await this.getSigners(options.password || '', [
-      dbAccount.address,
-    ]);
-    const signer = signers[dbAccount.address];
-    const vault = this.vault as Vault;
-
-    return Promise.all(
-      messages.map(async (message) => {
-        const wrapMessage = await vault.serializeMessage(message.message);
-        const [signature] = await signer.sign(wrapMessage);
-        const txSignature = u8aConcat(
-          TYPE_PREFIX.ed25519,
-          bufferToU8a(signature),
-        );
-        return addHexPrefix(bytesToHex(txSignature));
-      }),
-    );
+    // throw new Error('Method not implemented.')
+    return this.baseSignMessage(messages, options);
   }
 }

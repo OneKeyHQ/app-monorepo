@@ -5,6 +5,7 @@ import CoreChainBtc from '../chains/btc';
 import CoreChainCfx from '../chains/cfx';
 import CoreChainCosmos from '../chains/cosmos';
 import CoreChainDoge from '../chains/doge';
+import CoreChainDot from '../chains/dot';
 import CoreChainEvm from '../chains/evm';
 import CoreChainKaspa from '../chains/kaspa';
 import CoreChainLtc from '../chains/ltc';
@@ -47,4 +48,6 @@ export class CoreChainApiHub {
   kaspa = new CoreChainKaspa();
 
   sui = new CoreChainSui();
+
+  dot = new CoreChainDot();
 }

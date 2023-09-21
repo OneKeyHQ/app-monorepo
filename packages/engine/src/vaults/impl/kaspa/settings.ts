@@ -1,11 +1,10 @@
 import BigNumber from 'bignumber.js';
 
+import { DUST_AMOUNT } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
 import {
   COINTYPE_KASPA,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-
-import { DUST_AMOUNT } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
 
 import type { IVaultSettings } from '../../types';
 

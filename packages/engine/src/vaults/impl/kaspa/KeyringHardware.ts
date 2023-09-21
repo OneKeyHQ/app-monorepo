@@ -1,6 +1,15 @@
 import { Transaction } from '@kaspa/core-lib';
 import { bytesToHex } from '@noble/hashes/utils';
 
+import {
+  SignType,
+  publicKeyFromX,
+} from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
+import {
+  SignatureType,
+  SigningMethodType,
+  toTransaction,
+} from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/transaction';
 import { slicePathTemplate } from '@onekeyhq/engine/src/managers/derivation';
 import { getAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
@@ -19,13 +28,6 @@ import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
-
-import { SignType, publicKeyFromX } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
-import {
-  SignatureType,
-  SigningMethodType,
-  toTransaction,
-} from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/transaction';
 
 import type { KaspaSignTransactionParams } from '@onekeyfe/hd-core';
 

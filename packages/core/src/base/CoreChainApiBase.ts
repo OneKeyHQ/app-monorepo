@@ -44,7 +44,7 @@ export abstract class CoreChainApiBase {
     }
   }
 
-  protected async baseGetChainSigner({
+  protected async baseCreateSigner({
     curve,
     privateKey,
     password,
@@ -58,6 +58,22 @@ export abstract class CoreChainApiBase {
     }
     const privateKeyBuffer = bufferUtils.toBuffer(privateKey);
     return Promise.resolve(new ChainSigner(privateKeyBuffer, password, curve));
+  }
+
+  protected async baseGetSingleSigner({
+    payload,
+    curve,
+  }: {
+    payload: ICoreApiSignBasePayload;
+    curve: ICurveName;
+  }) {
+    const privateKeys = await this.getPrivateKeys(payload);
+    const privateKey = privateKeys[payload.account.path];
+    return this.baseCreateSigner({
+      curve,
+      privateKey,
+      password: payload.password,
+    });
   }
 
   protected async baseGetPrivateKeys({
@@ -90,25 +106,6 @@ export abstract class CoreChainApiBase {
       throw new Error('No private keys found');
     }
     return privateKeys;
-  }
-
-  protected async baseGetSingleSigner({
-    payload,
-    curve,
-  }: {
-    payload: ICoreApiSignBasePayload;
-    curve: ICurveName;
-  }) {
-    const privateKeys = await this.baseGetPrivateKeys({
-      payload,
-      curve,
-    });
-    const privateKey = privateKeys[payload.account.path];
-    return this.baseGetChainSigner({
-      curve,
-      privateKey,
-      password: payload.password,
-    });
   }
 
   protected async baseGetPrivateKeysHd({

@@ -1,7 +1,9 @@
 import BigNumber from 'bignumber.js';
 
+import { encodePassword } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { IUnsignedMessage } from '@onekeyhq/engine/src/types/message';
 import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
+import type { IEncodedTxDot } from '@onekeyhq/engine/src/vaults/impl/dot/types';
 import type {
   IEncodedTx,
   IFeeInfo,
@@ -23,6 +25,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 
 import ServiceBase from './ServiceBase';
+import { testEncodedTxDot } from './test';
 
 export type IServiceBaseProps = {
   backgroundApi: any;
@@ -284,5 +287,24 @@ export default class ServiceTransaction extends ServiceBase {
     const vault = await engine.getVault({ accountId, networkId });
     const dbAccount = await vault.getDbAccount();
     return vault.getNextNonce(networkId, dbAccount);
+  }
+
+  // $backgroundApiProxy.serviceTransaction.testDotTx()
+  @backgroundMethod()
+  async testDotTx() {
+    const { engine } = this.backgroundApi;
+    const { networkId, accountId } = await this.getActiveVault();
+    const vault = await engine.getVault({ accountId, networkId });
+    const tx = testEncodedTxDot as IEncodedTxDot;
+    const txn = await vault.buildUnsignedTxFromEncodedTx(tx);
+    const result = await vault.signAndSendTransaction(
+      txn,
+      {
+        password: encodePassword({ password: '11111111' }),
+      },
+      true,
+    );
+    console.log('testDotTx>>>>>', result);
+    return result;
   }
 }

@@ -34,7 +34,7 @@ const encodeKey = `${encodeKeyPrefix}${generateUUID()}`;
 const ENCODE_TEXT_PREFIX =
   'SENSITIVE_ENCODE::AE7EADC1-CDA0-45FA-A340-E93BEDDEA21E::';
 
-function decodePassword({ password }: { password: string }) {
+function decodePassword({ password }: { password: string }): string {
   // do nothing if password is encodeKey, but not a real password
   if (password.startsWith(encodeKeyPrefix)) {
     return password;
@@ -54,6 +54,13 @@ function decodePassword({ password }: { password: string }) {
     debugger;
   }
   return password;
+}
+
+function encodePassword({ password }: { password: string }): string {
+  // eslint-disable-next-line @typescript-eslint/no-use-before-define
+  return encodeSensitiveText({
+    text: password,
+  });
 }
 
 function encrypt(
@@ -215,13 +222,14 @@ function getBgSensitiveTextEncodeKey() {
 }
 
 export {
-  encrypt,
-  decrypt,
-  encryptAsync,
-  decryptAsync,
   decodePassword,
-  encodeSensitiveText,
   decodeSensitiveText,
-  isEncodedSensitiveText,
+  decrypt,
+  decryptAsync,
+  encodePassword,
+  encodeSensitiveText,
+  encrypt,
+  encryptAsync,
   getBgSensitiveTextEncodeKey,
+  isEncodedSensitiveText,
 };

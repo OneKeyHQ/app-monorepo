@@ -133,7 +133,7 @@ export default abstract class CoreChainEvmSoftware extends CoreChainApiBase {
     privateKey: string; // encryptedPrivateKey by password
     password: string;
   }) {
-    return this.baseGetChainSigner({
+    return this.baseCreateSigner({
       curve: curveName,
       privateKey,
       password,

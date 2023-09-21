@@ -290,7 +290,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     privateKey: string; // encryptedPrivateKey by password
     password: string;
   }) {
-    return this.baseGetChainSigner({
+    return this.baseCreateSigner({
       curve: curveName,
       privateKey,
       password,

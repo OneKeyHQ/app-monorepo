@@ -3,6 +3,20 @@ import { hexToBytes } from '@noble/hashes/utils';
 import BigNumber from 'bignumber.js';
 import { groupBy } from 'lodash';
 
+import {
+  CONFIRMATION_COUNT,
+  DUST_AMOUNT,
+  MAX_BLOCK_SIZE,
+  MAX_SOMPI,
+  MINIMUM_RELAY_TRANSACTION_FEE,
+  RestAPIClient,
+  isValidAddress,
+  privateKeyFromBuffer,
+  privateKeyFromWIF,
+  queryConfirmUTXOs,
+  selectUTXOs,
+} from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
+import { toTransaction } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/transaction';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
@@ -40,20 +54,6 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import {
-  CONFIRMATION_COUNT,
-  DUST_AMOUNT,
-  MAX_BLOCK_SIZE,
-  MAX_SOMPI,
-  MINIMUM_RELAY_TRANSACTION_FEE,
-  RestAPIClient,
-  isValidAddress,
-  privateKeyFromBuffer,
-  privateKeyFromWIF,
-  queryConfirmUTXOs,
-  selectUTXOs,
-} from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
-import { toTransaction } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/transaction';
 import settings from './settings';
 
 import type { IEncodedTxKaspa } from './types';
