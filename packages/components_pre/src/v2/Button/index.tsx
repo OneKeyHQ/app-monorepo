@@ -1,23 +1,23 @@
-import { useContext } from 'react';
+import { cloneElement, useContext } from 'react';
 
-import { createStyledContext, styled, withStaticProperties } from 'tamagui';
+import {
+  Stack,
+  createStyledContext,
+  getTokens,
+  styled,
+  useTheme,
+  withStaticProperties,
+} from '@tamagui/core';
 
-import { Icon } from '../Icon';
-import { Spinner } from '../Spinner';
-import { Stack } from '../Stack';
 import { Text } from '../Text';
 
-import type { IconProps } from '../Icon';
-
-export const ButtonContext = createStyledContext<{
-  size: 'small' | 'medium' | 'large';
-  buttonVariant: 'secondary' | 'tertiary' | 'primary' | 'destructive';
-}>({
-  size: 'medium',
-  buttonVariant: 'secondary',
+export const ButtonContext = createStyledContext({
+  size: 'small' || 'medium' || 'large',
+  buttonVariant: 'secondary' || 'tertiary' || 'primary' || 'destructive',
+  disabled: false,
 });
 
-export const ButtonFrame = styled(Stack, {
+const ButtonFrame = styled(Stack, {
   name: 'Button',
   tag: 'button',
   role: 'button',
@@ -107,7 +107,7 @@ export const ButtonFrame = styled(Stack, {
   } as const,
 });
 
-const ButtonText = styled(Text, {
+export const ButtonText = styled(Text, {
   name: 'ButtonText',
   userSelect: 'none',
   context: ButtonContext,
@@ -137,57 +137,27 @@ const ButtonText = styled(Text, {
   } as const,
 });
 
-const iconColorMapping = {
-  primary: '$iconInverse',
-  secondary: '$icon',
-  tertiary: '$iconSubdued',
-  destructive: '$iconOnColor',
-};
-
-export const ButtonIcon = (props: IconProps) => {
+const ButtonIcon = (props: { children: any }) => {
   const { size, buttonVariant } = useContext(ButtonContext);
-
-  return (
-    <Icon
-      color={iconColorMapping[buttonVariant]}
-      size={size === 'small' ? '$4.5' : '$5'}
-      {...props}
-    />
-  );
-};
-
-// export const ButtonIcon = styled(Icon, {
-//   name: 'ButtonIcon',
-//   context: ButtonContext,
-
-//   variants: {
-//     size: {
-//       small: {
-//         size: 18,
-//       },
-//       medium: {
-//         size: '$5',
-//       },
-//       large: {
-//         size: '$5',
-//       },
-//     },
-//   },
-// });
-
-export const ButtonSpinner = () => {
-  const { size, buttonVariant } = useContext(ButtonContext);
-
-  return (
-    <Stack padding={size === 'large' ? '$0.5' : '$0'}>
-      <Spinner color={iconColorMapping[buttonVariant]} />
-    </Stack>
-  );
+  const tokens = getTokens();
+  const theme = useTheme();
+  const iconSize =
+    size === 'small' ? tokens.size.$5.val * 0.9 : tokens.size.$5.val;
+  const colorMapping = {
+    primary: '$iconInverse',
+    secondary: '$icon',
+    tertiary: '$iconSubdued',
+    destructive: '$iconOnColor',
+  };
+  return cloneElement(props.children, {
+    width: iconSize,
+    height: iconSize,
+    color: theme[colorMapping[buttonVariant]].get(),
+  });
 };
 
 export const Button = withStaticProperties(ButtonFrame, {
   Props: ButtonContext.Provider,
   Text: ButtonText,
   Icon: ButtonIcon,
-  Spinner: ButtonSpinner,
 });

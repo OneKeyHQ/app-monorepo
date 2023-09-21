@@ -6,7 +6,7 @@ import { useIsMounted } from '@onekeyhq/components/src/Provider/hooks/useIsMount
 import ICON_CONFIG from './Icons';
 
 import type { ICON_NAMES } from './Icons';
-import { styled, GetProps, Stack, Tokens } from 'tamagui'
+import { styled, GetProps, Stack, Tokens } from 'tamagui';
 import type { Svg, SvgProps } from 'react-native-svg';
 import { TextStyle } from 'react-native';
 
@@ -15,13 +15,13 @@ export type IconProps = Omit<SvgProps, 'color'> & {
   style?: TextStyle;
 };
 
-const ComponentMaps: Record<string, typeof Svg> = {}
+const ComponentMaps: Record<string, typeof Svg> = {};
 
 const RawIcon = ({ name = 'AkashIllus', style }: IconProps) => {
-  const width = style?.width  || 24
-  const height = style?.height || 24
+  const width = style?.width || 24;
+  const height = style?.height || 24;
   const defaultColor = useThemeValue('icon-default') as string;
-  const primaryColor: string = style?.color as string || defaultColor;
+  const primaryColor: string = (style?.color as string) || defaultColor;
   const SVGComponent = ComponentMaps[name];
   const [, setRefreshKey] = useState(Math.random());
   const isMounted = useIsMounted();
@@ -38,7 +38,7 @@ const RawIcon = ({ name = 'AkashIllus', style }: IconProps) => {
   }, [name]);
 
   if (!SVGComponent) {
-    return null
+    return null;
   }
 
   return (
@@ -48,12 +48,12 @@ const RawIcon = ({ name = 'AkashIllus', style }: IconProps) => {
       color={primaryColor || defaultColor}
     />
   );
-}
+};
 
 export const Icon = styled(RawIcon, {
   variants: {
     color: {
-      "...color": (color) => ({
+      '...color': (color) => ({
         height: undefined,
         width: undefined,
         color,
@@ -68,17 +68,17 @@ export const Icon = styled(RawIcon, {
         //   height: rawSize,
         // }
         //
-        // But the 'width' and 'height' attributes of SVG don't accept CSS variables, 
+        // But the 'width' and 'height' attributes of SVG don't accept CSS variables,
         // so you have to manually retrieve the values."
-        type SizeType = keyof typeof tokens.size
-        const size = tokens.size[rawSize as SizeType].val
+        type SizeType = keyof typeof tokens.size;
+        const size = tokens.size[rawSize as SizeType].val;
         return {
           width: size,
           height: size,
-        }
+        };
       },
     },
-  } as const
+  } as const,
 });
 
 export type { ICON_NAMES };
