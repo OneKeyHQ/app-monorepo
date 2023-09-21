@@ -9,6 +9,7 @@ import CoreChainEvm from '../chains/evm';
 import CoreChainLtc from '../chains/ltc';
 import CoreChainNear from '../chains/near';
 import CoreChainSol from '../chains/sol';
+import CoreChainStc from '../chains/stc';
 import CoreChainTron from '../chains/tron';
 import CoreChainXrp from '../chains/xrp';
 
@@ -38,4 +39,6 @@ export class CoreChainApiHub {
   sol = new CoreChainSol();
 
   near = new CoreChainNear();
+
+  stc = new CoreChainStc();
 }
