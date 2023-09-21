@@ -29,8 +29,9 @@ const IconGallery = () => (
         element: (
           <XStack space={10}>
             <Icon name="AirpodsSolid" color="$icon" size="$4" />
-            <Icon name="AirpodsSolid" color="$icon" size="$8" />
+            <Icon name="AirpodsSolid" color="$iconInverse" size="$8" />
             <Icon name="AirpodsSolid" color="$icon" size="$12" />
+            <Icon name="AirpodsSolid" color="$iconInverse" size="$16" />
           </XStack>
         ),
       },
