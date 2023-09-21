@@ -84,7 +84,11 @@ export function Dialog({
           backgroundColor="$bgBackdrop"
           onPress={backdropClose}
         />
-        <TMDialog.Content>
+        <TMDialog.Content
+          borderRadius="$4"
+          borderColor="$borderSubdued"
+          borderWidth="$px"
+        >
           <YStack
             p="$5"
             mb={bottom}
