@@ -1,175 +1,69 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import {
-  Connection,
-  Ed25519PublicKey,
-  IntentScope,
-  JsonRpcProvider,
-  messageWithIntent,
-  toB64,
-  toSerializedSignature,
-} from '@mysten/sui.js';
-import { blake2b } from '@noble/hashes/blake2b';
-import { hexToBytes } from '@noble/hashes/utils';
 
-import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
-import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import { COINTYPE_SUI as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
-import { ChainSigner } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
-import { handleSignData, toTransaction } from './utils';
+import { toUnsignedRawTx } from './utils';
 
-import type { ExportedSeedCredential } from '../../../dbs/base';
-import type { DBSimpleAccount } from '../../../types/account';
+import type { ChainSigner } from '../../../proxy';
+import type { DBSimpleAccount, DBVariantAccount } from '../../../types/account';
+import type { IUnsignedMessageCommon } from '../../../types/message';
 import type {
-  IUnsignedMessageAptos,
-  IUnsignedMessageCommon,
-} from '../../../types/message';
-import type {
+  IGetPrivateKeysParams,
+  IGetPrivateKeysResult,
   IPrepareHdAccountsParams,
   ISignCredentialOptions,
-  SignedTxResult,
+  ISignedTxPro,
+  IUnsignedTxPro,
 } from '../../types';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 
 export class KeyringHd extends KeyringHdBase {
-  override async getSigners(password: string, addresses: Array<string>) {
-    const dbAccount = await this.getDbAccount();
+  override coreApi = coreChainApi.sui.hd;
 
-    if (addresses.length !== 1) {
-      throw new OneKeyInternalError('Sui signers number should be 1.');
-    } else if (addresses[0] !== dbAccount.address) {
-      throw new OneKeyInternalError('Wrong address required for signing.');
-    }
+  override getSigners(): Promise<Record<string, ChainSigner>> {
+    throw new Error('getSigners moved to core.');
+  }
 
-    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys({
-      password,
-    });
-    if (typeof privateKey === 'undefined') {
-      throw new OneKeyInternalError('Unable to get signer.');
-    }
-
-    return {
-      [dbAccount.address]: new ChainSigner(privateKey, password, 'ed25519'),
-    };
+  override async getPrivateKeys(
+    params: IGetPrivateKeysParams,
+  ): Promise<IGetPrivateKeysResult> {
+    return this.baseGetPrivateKeys(params);
   }
 
   override async prepareAccounts(
     params: IPrepareHdAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
-    const { password, indexes, names } = params;
-    const { seed } = (await this.engine.dbApi.getCredential(
-      this.walletId,
-      password,
-    )) as ExportedSeedCredential;
-
-    const pubkeyInfos = batchGetPublicKeys(
-      'ed25519',
-      seed,
-      password,
-      PATH_PREFIX,
-      indexes.map((index) => `${index.toString()}'/0'/0'`),
-    );
-
-    if (pubkeyInfos.length !== indexes.length) {
-      throw new OneKeyInternalError('Unable to get publick key.');
-    }
-
-    const ret = [];
-    let index = 0;
-    for (const info of pubkeyInfos) {
-      const {
-        path,
-        extendedKey: { key: pubkey },
-      } = info;
-      const pub = pubkey.toString('hex');
-      const publicKey = new Ed25519PublicKey(pubkey);
-      const address = addHexPrefix(publicKey.toSuiAddress());
-
-      const name = (names || [])[index] || `SUI #${indexes[index] + 1}`;
-      ret.push({
-        id: `${this.walletId}--${path}`,
-        name,
-        type: AccountType.SIMPLE,
-        path,
-        coinType: COIN_TYPE,
-        pub,
-        address,
-      });
-      index += 1;
-    }
-    return ret;
+    return this.basePrepareAccountsHd(params, {
+      accountType: AccountType.SIMPLE,
+      usedIndexes: params.indexes,
+    });
   }
 
   override async signTransaction(
-    unsignedTx: UnsignedTx,
+    unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
-  ): Promise<SignedTxResult> {
-    debugLogger.common.info('signTransaction result', unsignedTx);
-    const dbAccount = await this.getDbAccount();
+  ): Promise<ISignedTxPro> {
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
     const { rpcURL } = await this.engine.getNetwork(this.networkId);
-    const client = new JsonRpcProvider(new Connection({ fullnode: rpcURL }));
-    const sender = dbAccount.address;
-    const signers = await this.getSigners(options.password || '', [sender]);
-
-    const signer = signers[sender];
-
-    const senderPublicKey = unsignedTx.inputs?.[0]?.publicKey;
-    if (!senderPublicKey) {
-      throw new OneKeyInternalError('Unable to get sender public key.');
-    }
-
-    const { encodedTx } = unsignedTx.payload;
-    const txnBytes = await toTransaction(client, sender, encodedTx);
-    const [signature] = await signer.sign(
-      Buffer.from(handleSignData(txnBytes)),
-    );
-
-    const serializeSignature = toSerializedSignature({
-      signatureScheme: 'ED25519',
-      signature,
-      pubKey: new Ed25519PublicKey(hexToBytes(senderPublicKey)),
+    // eslint-disable-next-line no-param-reassign
+    unsignedTx = await toUnsignedRawTx({
+      rpcURL,
+      dbAccount,
+      unsignedTx,
     });
-
-    return {
-      txid: '',
-      rawTx: toB64(txnBytes),
-      signatureScheme: 'ed25519',
-      signature: serializeSignature,
-      publicKey: addHexPrefix(senderPublicKey),
-    };
+    return this.baseSignTransaction(unsignedTx, options);
   }
 
   override async signMessage(
     messages: IUnsignedMessageCommon[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
-    const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
-    const signers = await this.getSigners(options.password || '', [
-      dbAccount.address,
-    ]);
-    const signer = signers[dbAccount.address];
-
-    return Promise.all(
-      messages.map(async (message) => {
-        const messageScope = messageWithIntent(
-          IntentScope.PersonalMessage,
-          hexToBytes(message.message),
-        );
-        const digest = blake2b(messageScope, { dkLen: 32 });
-        const [signature] = await signer.sign(Buffer.from(digest));
-        return toSerializedSignature({
-          signatureScheme: 'ED25519',
-          signature,
-          pubKey: new Ed25519PublicKey(hexToBytes(dbAccount.pub)),
-        });
-      }),
-    );
+    // throw new Error('Method not implemented.');
+    return this.baseSignMessage(messages, options);
   }
 }

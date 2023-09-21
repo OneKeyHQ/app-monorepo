@@ -11,6 +11,7 @@ import CoreChainLtc from '../chains/ltc';
 import CoreChainNear from '../chains/near';
 import CoreChainSol from '../chains/sol';
 import CoreChainStc from '../chains/stc';
+import CoreChainSui from '../chains/sui';
 import CoreChainTron from '../chains/tron';
 import CoreChainXrp from '../chains/xrp';
 
@@ -44,4 +45,6 @@ export class CoreChainApiHub {
   stc = new CoreChainStc();
 
   kaspa = new CoreChainKaspa();
+
+  sui = new CoreChainSui();
 }

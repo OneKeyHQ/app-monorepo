@@ -48,6 +48,7 @@ export class KeyringHd extends KeyringHdBase {
     messages: IUnsignedMessageEth[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
+    // throw new Error('Method not implemented.');
     return this.baseSignMessage(messages, options);
   }
 }
