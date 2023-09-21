@@ -6,9 +6,16 @@ import { CommonActions } from '@react-navigation/native';
 import { AnimatePresence, MotiView } from 'moti';
 import { StyleSheet } from 'react-native';
 import { useSafeAreaFrame } from 'react-native-safe-area-context';
-import { ScrollView, Tooltip, getTokens } from 'tamagui';
+import { ScrollView, Tooltip } from 'tamagui';
 
-import { Icon, Stack, Text, YStack, useThemeValue } from '@onekeyhq/components';
+import {
+  Icon,
+  Stack,
+  Text,
+  YStack,
+  getThemeTokens,
+  useThemeValue,
+} from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
 import { Context } from '@onekeyhq/components/src/Provider/hooks/useProviderValue';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
@@ -91,7 +98,7 @@ function TabItemView({
         </AnimatePresence>
       </Stack>
     ),
-    [isActive, isCollapse, onPress, options, route.name],
+    [isActive, isCollapse, onPress, options, route.name, touchMode],
   );
 
   if (!isCollapse) {
@@ -132,7 +139,7 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
 
   const touchMode = platformEnv.isNativeIOSPad;
 
-  const tokens = getTokens().size;
+  const tokens = getThemeTokens().size;
   const touchValues = {
     slideBarWidth: tokens['60'].val,
     slideBarCollapseWidth: 78,
@@ -193,7 +200,15 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
           />
         );
       }),
-    [descriptors, isCollapse, navigation, routes, state.index, state.key],
+    [
+      descriptors,
+      isCollapse,
+      navigation,
+      routes,
+      state.index,
+      state.key,
+      touchMode,
+    ],
   );
 
   return (

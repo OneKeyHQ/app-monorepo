@@ -75,7 +75,7 @@ export const stackScreenList = [
   {
     name: GalleryRoutes.ComponentCollapsibleTabs,
     component: CollapsibleTabViewGallery,
-    options: { headerShown: false },
+    // options: { headerShown: false },
   },
 ];
 

@@ -1,8 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useMemo } from 'react';
 
-import { RouteProp } from '@react-navigation/core/lib/typescript/src/types';
-
 import { createStackNavigator } from '@onekeyhq/components/src/Navigation';
 import { makeHeaderScreenOptions } from '@onekeyhq/components/src/Navigation/Header';
 import { createBottomTabNavigator } from '@onekeyhq/components/src/Navigation/Tab/BottomTabs';

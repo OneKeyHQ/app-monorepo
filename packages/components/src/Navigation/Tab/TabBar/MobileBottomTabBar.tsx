@@ -98,7 +98,6 @@ export default function MobileBottomTabBar({
 
   const { tabBarStyle } = focusedOptions;
 
-  const paddingBottom = getPaddingBottom(insets);
   const tabBarHeight = getTabBarHeight({
     insets,
     dimensions,
@@ -165,7 +164,7 @@ export default function MobileBottomTabBar({
                 // @ts-expect-error
                 name={options?.tabBarIcon?.(isActive) as ICON_NAMES}
                 color={isActive ? '$icon' : '$iconSubdued'}
-                size={28}
+                size="$8"
               />
               {useNativeDriver && options?.tabBarLabel?.length ? (
                 <Text
@@ -202,11 +201,9 @@ export default function MobileBottomTabBar({
       right="$0"
       bottom="$0"
       bg="$bg"
-      zIndex={99999}
       borderTopColor="$borderSubdued"
-      paddingBottom={`${paddingBottom}px`}
       height={isHide ? '$0' : tabBarHeight}
-      py={isHide ? '$0' : `${Math.max(insets.left ?? 0, insets.right ?? 0)}`}
+      py="$0"
     >
       <Stack
         testID="Mobile-AppTabBar-Content"

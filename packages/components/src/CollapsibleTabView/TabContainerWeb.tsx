@@ -92,8 +92,8 @@ const TabContainerWebView: ForwardRefRenderFunction<
   ] = useThemeValue([
     'text',
     'textSubdued',
-    'iconActive',
-    'divider',
+    'bgPrimary',
+    'bgApp',
     'borderSubdued',
     'bg',
   ]);
@@ -144,20 +144,15 @@ const TabContainerWebView: ForwardRefRenderFunction<
         },
         label: {
           fontWeight: '500',
-          fontSize: 14,
-          lineHeight: 20,
+          fontSize: 16,
+          lineHeight: 24,
         },
       };
       return (
         <Stack
           testID="TabContainerWeb-TabBar-Box"
           maxWidth={MAX_PAGE_CONTAINER_WIDTH}
-          $xs={{
-            paddingHorizontal: '$2',
-          }}
-          $lg={{
-            paddingHorizontal: '$1',
-          }}
+          paddingHorizontal="$5"
           style={
             shouldStickyTabbarWeb
               ? ({

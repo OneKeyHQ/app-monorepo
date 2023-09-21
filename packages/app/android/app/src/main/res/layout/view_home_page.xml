@@ -35,7 +35,7 @@
                 <so.onekey.app.wallet.widget.SlidingTabLayout2
                     android:id="@+id/layout_tab"
                     android:layout_width="match_parent"
-                    android:layout_height="56dp"
+                    android:layout_height="wrap_content"
                     app:tl_indicator_style="NORMAL"
                     app:tl_textBold="BOTH" />
 
