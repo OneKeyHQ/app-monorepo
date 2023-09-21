@@ -52,8 +52,8 @@ import {
   privateKeyFromWIF,
   queryConfirmUTXOs,
   selectUTXOs,
-} from './sdk';
-import { toTransaction } from './sdk/transaction';
+} from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
+import { toTransaction } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/transaction';
 import settings from './settings';
 
 import type { IEncodedTxKaspa } from './types';

@@ -1,5 +1,5 @@
 import type { IFeeInfoUnit } from '../../types';
-import type { UnspentOutputInfo } from './sdk';
+import type { UnspentOutputInfo } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
 import type { PrivateKey, PublicKey } from '@kaspa/core-lib';
 
 export type IEncodedTxKaspa = {

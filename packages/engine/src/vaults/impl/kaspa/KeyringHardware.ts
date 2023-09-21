@@ -20,12 +20,12 @@ import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErro
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
-import { SignType, publicKeyFromX } from './sdk';
+import { SignType, publicKeyFromX } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
 import {
   SignatureType,
   SigningMethodType,
   toTransaction,
-} from './sdk/transaction';
+} from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/transaction';
 
 import type { KaspaSignTransactionParams } from '@onekeyfe/hd-core';
 

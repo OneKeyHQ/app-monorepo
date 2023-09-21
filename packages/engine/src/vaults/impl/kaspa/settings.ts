@@ -5,7 +5,7 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { DUST_AMOUNT } from './sdk';
+import { DUST_AMOUNT } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
 
 import type { IVaultSettings } from '../../types';
 

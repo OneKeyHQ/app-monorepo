@@ -6,6 +6,7 @@ import CoreChainCfx from '../chains/cfx';
 import CoreChainCosmos from '../chains/cosmos';
 import CoreChainDoge from '../chains/doge';
 import CoreChainEvm from '../chains/evm';
+import CoreChainKaspa from '../chains/kaspa';
 import CoreChainLtc from '../chains/ltc';
 import CoreChainNear from '../chains/near';
 import CoreChainSol from '../chains/sol';
@@ -41,4 +42,6 @@ export class CoreChainApiHub {
   near = new CoreChainNear();
 
   stc = new CoreChainStc();
+
+  kaspa = new CoreChainKaspa();
 }
