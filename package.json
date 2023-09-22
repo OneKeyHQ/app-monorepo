@@ -202,7 +202,7 @@
     "@solana/web3.js": "^1.75.0",
     "buffer": "^6.0.3",
     "@types/react": "^17",
-    "react-native-webview": "https://github.com/OneKeyHQ/react-native-webview.git#5036d59cba4f5609c32b7eb5dec560e738ce7115",
+    "react-native-webview": "https://github.com/OneKeyHQ/react-native-webview.git#834d8096f8cfd78a961fb7a13f06f0cc64b2c9c3",
     "dmg-builder": "23.6.0",
     "keccak": "^3",
     "rimraf": "^3",
