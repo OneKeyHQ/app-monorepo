@@ -9,6 +9,8 @@ import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typogr
 
 import DialogGallery from '../../views/Components/stories/Dialog';
 import DemoRootApp from '../../views/Components/stories/NavigatorRoute';
+import AlertGallery from '../../views/Components/stories/Alert';
+import DividerGallery from '../../views/Components/stories/Divider';
 
 export enum GalleryRoutes {
   Components = 'components',
@@ -19,6 +21,8 @@ export enum GalleryRoutes {
   ComponentBadge = 'component/badge',
   ComponentDialog = 'component/dialog',
   ComponentNavigation = 'component/navigation',
+  ComponentAlert = 'component/alert',
+  ComponentDivider = 'component/divider',
 }
 
 export const stackScreenList = [
@@ -37,6 +41,8 @@ export const stackScreenList = [
     component: DemoRootApp,
     options: { headerShown: false },
   },
+  { name: GalleryRoutes.ComponentAlert, component: AlertGallery },
+  { name: GalleryRoutes.ComponentDivider, component: DividerGallery },
 ];
 
 const DevStack = createNativeStackNavigator();
