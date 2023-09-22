@@ -20,7 +20,7 @@ const TypographyGallery = () => (
     ]}
     elements={[
       {
-        title: 'Variants',
+        title: 'Sans',
         element: (
           <YStack space="$2">
             <Text variant="$heading5xl">heading5xl</Text>
@@ -36,12 +36,21 @@ const TypographyGallery = () => (
             <Text variant="$bodyMd">bodyMd</Text>
             <Text variant="$bodySm">bodySm</Text>
             <Text variant="$bodyLgMedium">bodyLgMedium</Text>
-            <Text variant="$bodyLgUnderline">bodyLgUnderline</Text>
-            <Text variant="$bodyLgMono">bodyLgMono</Text>
             <Text variant="$bodyMdMedium">bodyMdMedium</Text>
-            <Text variant="$bodyMdunderline">bodyMdunderline</Text>
-            <Text variant="$bodyMdMono">bodyMdMono</Text>
             <Text variant="$bodySmMedium">bodySmMedium</Text>
+          </YStack>
+        ),
+      },
+      {
+        title: 'Underline',
+        element: (
+          <YStack space="$2">
+            <Text variant="$bodyLg" textDecorationLine="underline">
+              `variant="$bodyLg" textDecorationLine="underline"`
+            </Text>
+            <Text variant="$bodyMd" textDecorationLine="underline">
+              `variant="$bodyMd" textDecorationLine="underline"`
+            </Text>
           </YStack>
         ),
       },
