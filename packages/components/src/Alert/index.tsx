@@ -1,20 +1,21 @@
 import type { ComponentProps } from 'react';
-import { type FC, useContext, cloneElement } from 'react';
+import { type FC, cloneElement, useContext } from 'react';
 
-
-import { Stack, XStack, YStack, createStyledContext, styled, ColorTokens } from 'tamagui';
+import { Stack, XStack, YStack, createStyledContext, styled } from 'tamagui';
 
 import { Button } from '../Button';
 import { Icon } from '../Icon';
 import { Text } from '../Text';
+
+import type { ColorTokens } from 'tamagui';
 
 type AlertType = 'info' | 'warning' | 'critical' | 'success' | 'default';
 
 type AlertActionProps = {
   title: string;
   description?: string;
-  onPress?: () => void
-}
+  onPress?: () => void;
+};
 
 const AlertContext = createStyledContext<{
   type: AlertType;
@@ -27,7 +28,7 @@ type AlertProps = {
   title: string;
   description: string;
   icon?: ComponentProps<typeof Icon>['name'];
-  action?: AlertActionProps
+  action?: AlertActionProps;
 };
 
 const AlertFrame = styled(XStack, {
@@ -79,32 +80,42 @@ const AlertIcon = (props: { children: any }) => {
   });
 };
 
-export const Alert: FC<AlertProps> = ({ icon, title, description, type, action }) => (
+export const Alert: FC<AlertProps> = ({
+  icon,
+  title,
+  description,
+  type,
+  action,
+}) => (
   <AlertFrame space="$2" type={type}>
-    {
-      icon ? <Stack>
+    {icon ? (
+      <Stack>
         <AlertIcon>
           <Icon name={icon} />
         </AlertIcon>
-      </Stack> : null
-    }
+      </Stack>
+    ) : null}
     <YStack space="$1">
       <Text variant="$bodyMdMedium">{title}</Text>
       <Text variant="$bodyMd" color="$textSubdued">
         {description}
       </Text>
-      {
-        action ? <XStack pt="$2" space="$4" alignItems="center">
-          <Button size="small" buttonVariant="secondary" onPress={action.onPress}>
+      {action ? (
+        <XStack pt="$2" space="$4" alignItems="center">
+          <Button
+            size="small"
+            buttonVariant="secondary"
+            onPress={action.onPress}
+          >
             <Button.Text>{action.title}</Button.Text>
           </Button>
-          {
-            action.description ? <Text variant="$bodyMdMedium" color="$textSubdued">
+          {action.description ? (
+            <Text variant="$bodyMdMedium" color="$textSubdued">
               {action.description}
-            </Text> : null
-          }
-        </XStack> : null
-      }
+            </Text>
+          ) : null}
+        </XStack>
+      ) : null}
     </YStack>
   </AlertFrame>
 );

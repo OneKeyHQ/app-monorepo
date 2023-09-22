@@ -8,6 +8,7 @@ import { Stack } from '../Stack';
 import { Text } from '../Text';
 
 import type { IconProps } from '../Icon';
+import type { ColorTokens } from 'tamagui';
 
 export const ButtonContext = createStyledContext<{
   size: 'small' | 'medium' | 'large';
@@ -137,7 +138,7 @@ const ButtonText = styled(Text, {
   } as const,
 });
 
-const iconColorMapping = {
+const iconColorMapping: Record<string, ColorTokens> = {
   primary: '$iconInverse',
   secondary: '$icon',
   tertiary: '$iconSubdued',

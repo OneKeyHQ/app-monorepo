@@ -7,10 +7,10 @@ import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import IconButtonGallery from '@onekeyhq/kit/src/views/Components/stories/IconButton';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 
-import DialogGallery from '../../views/Components/stories/Dialog';
-import DemoRootApp from '../../views/Components/stories/NavigatorRoute';
 import AlertGallery from '../../views/Components/stories/Alert';
+import DialogGallery from '../../views/Components/stories/Dialog';
 import DividerGallery from '../../views/Components/stories/Divider';
+import DemoRootApp from '../../views/Components/stories/NavigatorRoute';
 
 export enum GalleryRoutes {
   Components = 'components',
