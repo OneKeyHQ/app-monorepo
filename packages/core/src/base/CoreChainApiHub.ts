@@ -7,6 +7,7 @@ import CoreChainCosmos from '../chains/cosmos';
 import CoreChainDoge from '../chains/doge';
 import CoreChainDot from '../chains/dot';
 import CoreChainEvm from '../chains/evm';
+import CoreChainFil from '../chains/fil';
 import CoreChainKaspa from '../chains/kaspa';
 import CoreChainLtc from '../chains/ltc';
 import CoreChainNear from '../chains/near';
@@ -50,4 +51,6 @@ export class CoreChainApiHub {
   sui = new CoreChainSui();
 
   dot = new CoreChainDot();
+
+  fil = new CoreChainFil();
 }

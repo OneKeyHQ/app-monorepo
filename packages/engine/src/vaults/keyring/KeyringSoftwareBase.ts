@@ -192,6 +192,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
   }
 
   async baseGetCoreApiNetworkInfo(): Promise<ICoreApiNetworkInfo> {
+    const network = await this.getNetwork();
     const chainInfo = await this.getChainInfo();
     const addressPrefix = chainInfo?.implOptions?.addressPrefix as
       | string
@@ -200,8 +201,10 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     const chainCode = chainInfo.code;
     const chainId = await this.vault.getNetworkChainId();
     const networkImpl = await this.getNetworkImpl();
+    const { isTestnet } = network;
     const { networkId } = this;
     return {
+      isTestnet,
       networkChainCode: chainCode,
       chainId,
       networkId,

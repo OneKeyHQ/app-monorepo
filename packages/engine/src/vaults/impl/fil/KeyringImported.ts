@@ -1,86 +1,54 @@
-import { CoinType, newSecp256k1Address } from '@glif/filecoin-address';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import { COINTYPE_FIL } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
-import { COINTYPE_FIL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-
-import { ChainSigner } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
-import { signTransaction } from './utils';
-
-import type { DBVariantAccount } from '../../../types/account';
-import type { SignedTx } from '../../../types/provider';
+import type { ChainSigner } from '../../../proxy';
+import type { DBSimpleAccount } from '../../../types/account';
+import type { IUnsignedMessageCommon } from '../../../types/message';
 import type {
+  IGetPrivateKeysParams,
+  IGetPrivateKeysResult,
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
+  ISignedTxPro,
   IUnsignedTxPro,
 } from '../../types';
 
 export class KeyringImported extends KeyringImportedBase {
-  override async getSigners(password: string, addresses: Array<string>) {
-    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
-    const selectedAddress = dbAccount.addresses[this.networkId];
+  override coreApi = coreChainApi.fil.imported;
 
-    if (addresses.length !== 1) {
-      throw new OneKeyInternalError('FIL signers number should be 1.');
-    } else if (addresses[0] !== selectedAddress) {
-      throw new OneKeyInternalError('Wrong address required for signing.');
-    }
+  override getSigners(): Promise<Record<string, ChainSigner>> {
+    throw new Error('getSigners moved to core.');
+  }
 
-    const [privateKey] = Object.values(await this.getPrivateKeys({ password }));
-
-    return {
-      [selectedAddress]: new ChainSigner(privateKey, password, 'secp256k1'),
-    };
+  override async getPrivateKeys(
+    params: IGetPrivateKeysParams,
+  ): Promise<IGetPrivateKeysResult> {
+    return this.baseGetPrivateKeys(params);
   }
 
   override async prepareAccounts(
     params: IPrepareImportedAccountsParams,
-  ): Promise<Array<DBVariantAccount>> {
-    const { name, privateKey } = params;
-    const network = await this.getNetwork();
-    if (privateKey.length !== 32) {
-      throw new OneKeyInternalError('Invalid private key.');
-    }
-    const pub = secp256k1.publicFromPrivate(privateKey);
-    const pubUncompressed = secp256k1.transformPublicKey(pub);
-    const pubHex = pub.toString('hex');
-
-    const address = newSecp256k1Address(
-      pubUncompressed,
-      network.isTestnet ? CoinType.TEST : CoinType.MAIN,
-    ).toString();
-
-    return Promise.resolve([
-      {
-        id: `imported--${COIN_TYPE}--${pubHex}`,
-        name: name || '',
-        type: AccountType.VARIANT,
-        path: '',
-        coinType: COIN_TYPE,
-        pub: pubHex,
-        address,
-        addresses: { [this.networkId]: address },
-      },
-    ]);
+  ): Promise<Array<DBSimpleAccount>> {
+    return this.basePrepareAccountsImported(params, {
+      accountType: AccountType.VARIANT,
+      coinType: COINTYPE_FIL,
+    });
   }
 
   override async signTransaction(
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
-  ): Promise<SignedTx> {
-    const dbAccount = await this.getDbAccount();
-    const selectedAddress = (dbAccount as DBVariantAccount).addresses[
-      this.networkId
-    ];
+  ): Promise<ISignedTxPro> {
+    return this.baseSignTransaction(unsignedTx, options);
+  }
 
-    const signers = await this.getSigners(options.password || '', [
-      selectedAddress,
-    ]);
-    const signer = signers[selectedAddress];
-
-    return signTransaction(unsignedTx, signer);
+  override async signMessage(
+    messages: IUnsignedMessageCommon[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]> {
+    throw new Error('Method not implemented.');
   }
 }

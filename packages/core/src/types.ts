@@ -3,8 +3,6 @@ import type { IUnsignedMessage } from '@onekeyhq/engine/src/types/message';
 import type { IUnsignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import type { AddressEncodings } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 
-import type { SignatureOptions } from 'bitcoinjs-message';
-
 // ----------------------------------------------
 
 export type ICoreApiNetworkInfo = {
@@ -14,6 +12,7 @@ export type ICoreApiNetworkInfo = {
   networkImpl: string;
   addressPrefix?: string;
   curve?: ICurveName;
+  isTestnet?: boolean;
 };
 export type ICoreApiGetAddressesQueryHdBase = {
   networkInfo: ICoreApiNetworkInfo;
