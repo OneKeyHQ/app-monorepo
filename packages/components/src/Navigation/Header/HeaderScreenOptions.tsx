@@ -3,7 +3,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import HeaderButtonBack from './HeaderButtonBack';
 import HeaderView from './HeaderView';
 
-import type { StackHeaderProps } from '../StackNavigator.native';
+import type { StackHeaderProps } from '../StackNavigator';
 import type { HeaderBackButtonProps } from '@react-navigation/elements';
 import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
 
@@ -20,7 +20,7 @@ export function makeHeaderScreenOptions({
 }: OneKeyStackHeaderProps): NativeStackNavigationOptions {
   if (platformEnv.isNativeIOS) {
     console.log('makeHeaderScreenOptions', {
-      canGoBack: iOSNavigation?.canGoBack?.(),
+      canGoBack: iOSNavigation,
       isModelScreen,
       isRootScreen,
     });

@@ -8084,7 +8084,6 @@ __metadata:
     "@react-navigation/drawer": ^6.6.3
     "@react-navigation/native": 6.1.7
     "@react-navigation/native-stack": ^6.9.13
-    "@react-navigation/stack": ^6.3.17
     "@tamagui/animations-moti": ^1.66.0
     "@tamagui/babel-plugin": ^1.58.3
     "@tamagui/config": ^1.58.3
@@ -8184,11 +8183,10 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/components@workspace:packages/components"
   dependencies:
+    "@react-navigation/bottom-tabs": ^6.5.8
+    "@react-navigation/elements": ^1.3.18
     "@react-navigation/native-stack": ^6.9.13
-    "@react-navigation/stack": ^6.3.17
-    "@types/color": ^3.0.1
     "@types/qrcode": ^1.4.2
-    color: ^4.2.3
     iso-639-1: ^2.1.13
     lodash: ^4.17.21
     moti: ^0.25.3
@@ -9522,24 +9520,6 @@ __metadata:
   dependencies:
     nanoid: ^3.1.23
   checksum: 3a3392ce095d6a2bd2aad69856f513b35774f943a3dc73d8ffb75127de6773203e3264188d87058bdea4c0c9a7d43ed28d0cbf3a1f1cdc086df3ee255d8e1e27
-  languageName: node
-  linkType: hard
-
-"@react-navigation/stack@npm:^6.3.17":
-  version: 6.3.17
-  resolution: "@react-navigation/stack@npm:6.3.17"
-  dependencies:
-    "@react-navigation/elements": ^1.3.18
-    color: ^4.2.3
-    warn-once: ^0.1.0
-  peerDependencies:
-    "@react-navigation/native": ^6.0.0
-    react: "*"
-    react-native: "*"
-    react-native-gesture-handler: ">= 1.0.0"
-    react-native-safe-area-context: ">= 3.0.0"
-    react-native-screens: ">= 3.0.0"
-  checksum: b3888ccd02166566c1c103a1c9c3d66d4a4833e64648d2be446cad0ebe92f9305cdeb55716277d8256c8ab8c358086a134d26563c335978114184f5445fc0245
   languageName: node
   linkType: hard
 
@@ -13802,31 +13782,6 @@ __metadata:
     "@types/filesystem": "*"
     "@types/har-format": "*"
   checksum: cf22d0e5ea51d9632ae57b52f8e2ed9abfac5249df4badc83e0148e13011baff7e9b7bfca804a0566fa110e2fa28c3a1639f0a8c799d54191cc0c8f06384442f
-  languageName: node
-  linkType: hard
-
-"@types/color-convert@npm:*":
-  version: 2.0.1
-  resolution: "@types/color-convert@npm:2.0.1"
-  dependencies:
-    "@types/color-name": "*"
-  checksum: 52843d9206661d80957d15330d71f2eb8ebda4aaba72236d2d200e588ac806005a25e25f96393d81c9e61632a8316070d1136d2ff74f0a9350cf6d97291a2550
-  languageName: node
-  linkType: hard
-
-"@types/color-name@npm:*":
-  version: 1.1.1
-  resolution: "@types/color-name@npm:1.1.1"
-  checksum: b71fcad728cc68abcba1d405742134410c8f8eb3c2ef18113b047afca158ad23a4f2c229bcf71a38f4a818dead375c45b20db121d0e69259c2d81e97a740daa6
-  languageName: node
-  linkType: hard
-
-"@types/color@npm:^3.0.1":
-  version: 3.0.4
-  resolution: "@types/color@npm:3.0.4"
-  dependencies:
-    "@types/color-convert": "*"
-  checksum: 46935626ddeb8ae8877488b1f8f2f71b17a529c113673301a1dd7a64d917cb7a748545ac34ed30c188d66a2cd09c33abc24c87bd5b3a80d520cf1f35aaa2e476
   languageName: node
   linkType: hard
 

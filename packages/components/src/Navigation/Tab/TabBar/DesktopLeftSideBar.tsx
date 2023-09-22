@@ -25,7 +25,7 @@ import type { ICON_NAMES } from '../../../Icon';
 import type {
   BottomTabBarProps,
   BottomTabNavigationOptions,
-} from '../BottomTabs';
+} from '@react-navigation/bottom-tabs/src/types';
 import type { NavigationState } from '@react-navigation/routers/src/types';
 
 function TabItemView({
@@ -137,7 +137,8 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
   const { top } = useSafeAreaInsets(); // used for ipad
   const frame = useSafeAreaFrame();
 
-  const touchMode = platformEnv.isNativeIOSPad;
+  // iPad and Android tablet
+  const touchMode = platformEnv.isNativeIOSPad || platformEnv.isNativeAndroid;
 
   const tokens = getThemeTokens().size;
   const touchValues = {
@@ -158,7 +159,7 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
   const dragZoneAbsoluteBarHeight = platformEnv.isDesktopMac ? 36 : 0; // used for desktop
 
   const defaultHeight = getDefaultHeaderHeight(frame, false, top);
-  const disExtraPaddingTop = platformEnv.isWeb || platformEnv.isNativeIOSPad;
+  const disExtraPaddingTop = platformEnv.isWeb || touchMode;
   const paddingTopValue =
     slideBarPadding + top + (disExtraPaddingTop ? 0 : defaultHeight);
 

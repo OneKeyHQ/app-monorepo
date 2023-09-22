@@ -3,7 +3,6 @@ import type { FC } from 'react';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { HeaderTitleProps } from '@onekeyhq/components/src/NavHeader/HeaderTitle';
 
-import type { TabRouteConfigNavHeaderType } from '../../../../../routes/types';
 import type { DemoTabChildRoutes, DemoTabRoutes } from '../Modal/types';
 
 export interface DemoTabRouteConfigBase {
@@ -14,7 +13,6 @@ export interface DemoTabRouteConfigBase {
   hideOnProduction?: boolean;
   hideDesktopNavHeader?: boolean;
   hideMobileNavHeader?: boolean;
-  navHeaderType?: TabRouteConfigNavHeaderType;
 }
 
 export interface DemoTabRouteConfig extends DemoTabRouteConfigBase {

@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useMemo } from 'react';
 
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+
 import { createStackNavigator } from '@onekeyhq/components/src/Navigation';
 import { makeHeaderScreenOptions } from '@onekeyhq/components/src/Navigation/Header';
-import { createBottomTabNavigator } from '@onekeyhq/components/src/Navigation/Tab/BottomTabs';
 import NavigationBar from '@onekeyhq/components/src/Navigation/Tab/TabBar';
 import type { ScreensList } from '@onekeyhq/components/src/Navigation/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -25,6 +26,8 @@ const Tab = createBottomTabNavigator<DemoTabRoutesParams>();
 const Stack = createStackNavigator();
 
 export const getStackTabScreen = (tabName: DemoTabRoutes) => {
+  console.log('=====>>>>> getStackTabScreen', { tabName });
+
   const tab = tabRoutesConfig.find(
     (t) => t.name === tabName,
   ) as DemoTabRouteConfig;

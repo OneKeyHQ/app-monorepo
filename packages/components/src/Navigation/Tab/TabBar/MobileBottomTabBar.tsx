@@ -2,22 +2,21 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import { useMemo } from 'react';
 
+import useIsKeyboardShown from '@react-navigation/bottom-tabs/src/utils/useIsKeyboardShown';
 import { CommonActions } from '@react-navigation/native';
 import { Platform, StyleSheet } from 'react-native';
 import { useSafeAreaFrame } from 'react-native-safe-area-context';
 
-// import { PortalContainer } from '@onekeyhq/kit/src/views/Overlay/RootPortal';
 import PlatformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Icon } from '../../../Icon';
 import useUserDevice from '../../../Provider/hooks/useUserDevice';
 import { Stack } from '../../../Stack';
 import { Text } from '../../../Text';
-import useIsKeyboardShown from '../BottomTabs/utils/useIsKeyboardShown';
 
 import type { ICON_NAMES } from '../../../Icon';
 import type { DeviceState } from '../../../Provider/device';
-import type { BottomTabBarProps } from '../BottomTabs';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
 import type { Animated, StyleProp, ViewStyle } from 'react-native';
 import type { EdgeInsets } from 'react-native-safe-area-context';
 
@@ -213,10 +212,6 @@ export default function MobileBottomTabBar({
       >
         {tabs}
       </Stack>
-      {/* <PortalContainer */}
-      {/*  // testID="Mobile-AppTabBar-PortalContainer" */}
-      {/*  name={`BottomTab-Overlay-${state.key}`} */}
-      {/* /> */}
     </Stack>
   );
 }

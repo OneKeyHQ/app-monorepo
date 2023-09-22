@@ -1,59 +1,41 @@
-import { TransitionPresets } from '@react-navigation/stack';
-import { isNil } from 'lodash';
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { extAnimConfig } from './ExtAnimConfig';
 import { makeHeaderScreenOptions } from './Header';
 
-import type { RouteProp } from '@react-navigation/core';
-import type { StackNavigationOptions } from '@react-navigation/stack';
+import type { RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
 
-export function makeRootScreenOptions({
-  isVerticalLayout,
-}: {
-  isVerticalLayout?: boolean;
-}) {
+export function makeRootScreenOptions(_: { isVerticalLayout?: boolean }) {
   return {
     headerShown: false,
-    ...(isVerticalLayout
-      ? TransitionPresets.ScaleFromCenterAndroid
-      : TransitionPresets.FadeFromBottomAndroid),
+    animation: 'simple_push',
   };
 }
 
 export function makeOnboardingScreenOptions() {
   return {
-    presentation: 'modal', // containedModal card fullScreenModal
-    ...TransitionPresets.FadeFromBottomAndroid,
+    presentation: 'fullScreenModal', // containedModal card fullScreenModal
+    animation: 'fade',
   };
 }
 
-export function makeModalOpenAnimationOptions({
-  isVerticalLayout,
-}: {
+export function makeModalOpenAnimationOptions(_: {
   isVerticalLayout?: boolean;
-} = {}) {
-  if (platformEnv.isExtension) {
+}) {
+  if (platformEnv.isNativeIOS) {
     return {
       animationEnabled: true,
-      ...extAnimConfig.transition,
-      ...extAnimConfig.openModalAnim,
+      animation: 'slide_from_bottom',
     };
   }
 
-  if (isVerticalLayout) {
+  if (platformEnv.isNativeAndroid) {
+    // animation gets a little stuck
     return {
       animationEnabled: true,
-      ...TransitionPresets.ModalSlideFromBottomIOS,
-    };
-  }
-
-  // disable default Navigation animation, use custom <PresenceTransition /> for <DesktopModal />
-  //    packages/components/src/Modal/Container/Desktop.tsx
-  if (platformEnv.isRuntimeBrowser) {
-    return {
-      animationEnabled: false,
+      animation: 'fade',
     };
   }
 
@@ -62,35 +44,30 @@ export function makeModalOpenAnimationOptions({
 }
 
 export function makeModalStackNavigatorOptions({
-  isVerticalLayout,
   navInfo,
 }: {
-  isVerticalLayout?: boolean;
   navInfo?: {
     route: RouteProp<any>;
     navigation: any;
   };
 } = {}) {
-  // @ts-expect-error
-  const options: StackNavigationOptions = {
+  const options: NativeStackNavigationOptions = {
     headerShown: true,
-    ...(platformEnv.isExtension
-      ? { ...extAnimConfig.transition, ...extAnimConfig.stackScreenAnim }
-      : { ...TransitionPresets.SlideFromRightIOS }),
+    animation: 'slide_from_right',
     ...makeHeaderScreenOptions({
       isModelScreen: true,
       navigation: navInfo?.navigation,
     }),
   };
 
-  if (!isNil(isVerticalLayout)) {
-    // Landscape screen web animation is weird
-    options.animationEnabled = Boolean(isVerticalLayout);
+  if (platformEnv.isNativeAndroid) {
+    // Animation page stuck
+    options.animation = 'none';
   }
 
   // Disable modal first screen navigation.replace() animation
   if (navInfo?.route?.params?._disabledAnimationOfNavigate) {
-    options.animationEnabled = false;
+    options.animation = 'none';
   }
   return options;
 }
@@ -102,8 +79,7 @@ export function makeModalScreenOptions({
 }) {
   return {
     headerShown: false,
-    presentation: 'containedModal',
-    cardOverlayEnabled: true,
+    presentation: 'modal',
     ...makeModalOpenAnimationOptions({ isVerticalLayout }),
   };
 }
