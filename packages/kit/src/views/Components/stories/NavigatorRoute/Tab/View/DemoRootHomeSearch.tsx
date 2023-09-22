@@ -21,7 +21,7 @@ const DemoRootHomeSearch = () => {
         placeholder: '搜索',
         inputType: 'text',
         onChangeText: (event: NativeSyntheticEvent<TextInputChangeEventData>) =>
-          console.log('=====>>>> event', event.nativeEvent.text),
+          console.log('onChangeText', event.nativeEvent.text),
       },
     });
   }, [navigation]);
@@ -43,7 +43,7 @@ const DemoRootHomeSearch = () => {
                   placeholder: '搜索',
                   inputType: 'text',
                   onChangeText: (event: NativeSyntheticEvent<TextInputChangeEventData>) =>
-                    console.log('=====>>>> event', event.nativeEvent.text),
+                    console.log(event.nativeEvent.text),
                 },
               });
             }, []);

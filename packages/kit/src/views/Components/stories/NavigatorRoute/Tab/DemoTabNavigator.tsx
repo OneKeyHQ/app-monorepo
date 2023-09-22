@@ -26,8 +26,6 @@ const Tab = createBottomTabNavigator<DemoTabRoutesParams>();
 const Stack = createStackNavigator();
 
 export const getStackTabScreen = (tabName: DemoTabRoutes) => {
-  console.log('=====>>>>> getStackTabScreen', { tabName });
-
   const tab = tabRoutesConfig.find(
     (t) => t.name === tabName,
   ) as DemoTabRouteConfig;

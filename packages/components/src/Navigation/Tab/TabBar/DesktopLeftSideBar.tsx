@@ -27,6 +27,7 @@ import type {
   BottomTabNavigationOptions,
 } from '@react-navigation/bottom-tabs/src/types';
 import type { NavigationState } from '@react-navigation/routers/src/types';
+import useProviderSideBarValue from '../../../Provider/hooks/useProviderSideBarValue';
 
 function TabItemView({
   isActive,
@@ -133,7 +134,7 @@ function TabItemView({
 
 const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
   const { routes } = state;
-  const { leftSidebarCollapsed: isCollapse } = useContext(Context);
+  const { leftSidebarCollapsed: isCollapse } = useProviderSideBarValue();
   const { top } = useSafeAreaInsets(); // used for ipad
   const frame = useSafeAreaFrame();
 

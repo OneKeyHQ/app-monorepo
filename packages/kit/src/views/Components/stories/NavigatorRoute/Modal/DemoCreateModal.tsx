@@ -77,7 +77,7 @@ function DemoCreateSearchModal({
         placeholder: '搜索',
         inputType: 'text',
         onChangeText: (event: any) => {
-          console.log('=====>>>> event', event);
+          console.log('onChangeText', event);
         },
       },
     });
@@ -124,7 +124,7 @@ function DemoCreateOptionsModal({
         placeholder: '搜索',
         inputType: 'text',
         onChangeText: (event: any) => {
-          console.log('=====>>>> event', event);
+          console.log('onChangeText', event);
         },
       },
       headerRight: () => (

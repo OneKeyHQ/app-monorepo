@@ -1,5 +1,5 @@
 import type { FC, ReactNode } from 'react';
-import { useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 
 import { Toaster } from 'burnt/web';
 import { useWindowDimensions } from 'react-native';
@@ -13,6 +13,8 @@ import { ToastProvider } from '../Toast';
 
 import { getScreenSize } from './device';
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
+import { ContextScreenLayout } from './hooks/useProviderScreenLayoutValue';
+import { ContextSideBar } from './hooks/useProviderSideBarValue';
 import { Context } from './hooks/useProviderValue';
 
 import type { ThemeVariant } from './theme';
@@ -26,14 +28,13 @@ export type UIProviderProps = {
   reduxReady?: boolean;
 
   waitFontLoaded?: boolean;
-
-  leftSidebarCollapsed?: boolean;
-  setLeftSidebarCollapsed?: (value: boolean) => void;
 };
 export type IFontProviderProps = {
   children?: ReactNode;
   waitFontLoaded?: boolean;
 };
+
+const MemoizedTamaguiProvider = memo(TamaguiProvider);
 
 function FontProvider({ children, waitFontLoaded = true }: IFontProviderProps) {
   const [loaded] = useLoadCustomFonts();
@@ -51,48 +52,72 @@ const Provider: FC<UIProviderProps> = ({
   themeVariant,
   reduxReady,
   waitFontLoaded,
-  leftSidebarCollapsed,
-  setLeftSidebarCollapsed,
 }) => {
-  const { width, height } = useWindowDimensions();
   const media = useMedia();
+
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const { width } = useWindowDimensions();
+  const [deviceScreenSize, setDeviceScreenSize] = useState(
+    getScreenSize(width),
+  );
+  const currentScreenSize = getScreenSize(width);
+  if (currentScreenSize !== deviceScreenSize) {
+    setDeviceScreenSize(currentScreenSize);
+  }
+
   const providerValue = useMemo(
     () => ({
       themeVariant,
       reduxReady,
-      device: {
-        screenWidth: width,
-        screenHeight: height,
-        size: getScreenSize(width),
-      },
-      leftSidebarCollapsed,
-      setLeftSidebarCollapsed,
+      deviceScreenSize: currentScreenSize,
     }),
-    [
-      themeVariant,
-      reduxReady,
-      width,
-      height,
-      leftSidebarCollapsed,
-      setLeftSidebarCollapsed,
-    ],
+    [themeVariant, reduxReady, currentScreenSize],
+  );
+
+  const [isVerticalLayout, setIsVerticalLayout] = useState(
+    currentScreenSize === 'SMALL',
+  );
+  if ((currentScreenSize === 'SMALL') !== isVerticalLayout) {
+    setIsVerticalLayout(currentScreenSize === 'SMALL');
+  }
+
+  const providerScreenValue = useMemo(
+    () => ({
+      isVerticalLayout,
+    }),
+    [isVerticalLayout],
+  );
+
+  const providerSideBarValue = useMemo(
+    () => ({
+      leftSidebarCollapsed: isCollapsed,
+      setLeftSidebarCollapsed: setIsCollapsed,
+    }),
+    [isCollapsed],
   );
   return (
     <SafeAreaProvider>
       <FontProvider waitFontLoaded={waitFontLoaded}>
         <Context.Provider value={providerValue}>
-          <TamaguiProvider config={config} defaultTheme={themeVariant}>
-            <ToastProvider>{children}</ToastProvider>
-            <Toaster
-              {...(media.md
-                ? {
-                    position: 'top-center',
-                  }
-                : { position: 'bottom-right' })}
-              closeButton
-              theme={themeVariant}
-            />
-          </TamaguiProvider>
+          <ContextScreenLayout.Provider value={providerScreenValue}>
+            <ContextSideBar.Provider value={providerSideBarValue}>
+              <MemoizedTamaguiProvider
+                config={config}
+                defaultTheme={themeVariant}
+              >
+                <ToastProvider>{children}</ToastProvider>
+                <Toaster
+                  {...(media.md
+                    ? {
+                        position: 'top-center',
+                      }
+                    : { position: 'bottom-right' })}
+                  closeButton
+                  theme={themeVariant}
+                />
+              </MemoizedTamaguiProvider>
+            </ContextSideBar.Provider>
+          </ContextScreenLayout.Provider>
         </Context.Provider>
       </FontProvider>
     </SafeAreaProvider>

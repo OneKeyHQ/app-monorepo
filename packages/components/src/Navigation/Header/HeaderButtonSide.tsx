@@ -1,6 +1,6 @@
-import { useCallback, useContext } from 'react';
+import { useCallback } from 'react';
 
-import { Context } from '../../Provider/hooks/useProviderValue';
+import useProviderSideBarValue from '../../Provider/hooks/useProviderSideBarValue';
 
 import HeaderButtonIcon from './HeaderButtonIcon';
 
@@ -8,7 +8,7 @@ export default function HeaderButtonSide() {
   const {
     leftSidebarCollapsed: isCollpase,
     setLeftSidebarCollapsed: setIsCollapse,
-  } = useContext(Context);
+  } = useProviderSideBarValue();
 
   const onPressCall = useCallback(() => {
     setIsCollapse?.(!isCollpase);

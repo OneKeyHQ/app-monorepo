@@ -10,12 +10,12 @@ import { useSafeAreaFrame } from 'react-native-safe-area-context';
 import PlatformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Icon } from '../../../Icon';
-import useUserDevice from '../../../Provider/hooks/useUserDevice';
+import useDeviceScreenSize from '../../../Provider/hooks/useDeviceScreenSize';
 import { Stack } from '../../../Stack';
 import { Text } from '../../../Text';
 
 import type { ICON_NAMES } from '../../../Icon';
-import type { DeviceState } from '../../../Provider/device';
+import type { DeviceScreenSize } from '../../../Provider/device';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
 import type { Animated, StyleProp, ViewStyle } from 'react-native';
 import type { EdgeInsets } from 'react-native-safe-area-context';
@@ -25,7 +25,7 @@ const COMPACT_TABBAR_HEIGHT = 32;
 const useNativeDriver = !!PlatformEnv.isNative;
 
 type Options = {
-  deviceSize: DeviceState['size'];
+  deviceSize: DeviceScreenSize;
   dimensions?: { height: number; width: number };
 };
 
@@ -83,7 +83,7 @@ export default function MobileBottomTabBar({
   insets,
   style,
 }: MobileBottomTabBarProps) {
-  const { size } = useUserDevice();
+  const size = useDeviceScreenSize();
 
   const dimensions = useSafeAreaFrame();
   const isKeyboardShown = useIsKeyboardShown();
