@@ -54,7 +54,8 @@ export class KeyringHd extends KeyringHdBase {
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
   ): Promise<ISignedTxPro> {
-    return this.baseSignTransaction(unsignedTx, options);
+    return this.signTransactionOld(unsignedTx, options);
+    // return this.baseSignTransaction(unsignedTx, options);
   }
 
   override async signMessage(
@@ -195,9 +196,9 @@ export class KeyringHd extends KeyringHdBase {
       nettype: encodedTx.nettype,
       priority: encodedTx.priority,
 
-      pub_spendKey_string: Buffer.from(publicSpendKey || []).toString('hex'),
-      sec_spendKey_string: Buffer.from(privateSpendKey).toString('hex'),
-      sec_viewKey_string: Buffer.from(privateViewKey || []).toString('hex'),
+      pub_spendKey_string: publicSpendKey || '',
+      sec_spendKey_string: privateSpendKey,
+      sec_viewKey_string: privateViewKey,
 
       fromWallet_didFailToBoot: false,
       fromWallet_didFailToInitialize: false,

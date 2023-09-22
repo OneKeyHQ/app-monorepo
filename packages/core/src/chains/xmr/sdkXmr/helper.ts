@@ -6,13 +6,16 @@ import {
 } from '@mymonero/mymonero-keyimage-cache';
 import axios from 'axios';
 
+import type {
+  ISendFundsArgs,
+  ISendFundsCallback,
+} from '@onekeyhq/engine/src/vaults/impl/xmr/types';
+import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { cnFastHash } from './moneroAddress';
 
-import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
-import type { ISendFundsArgs, ISendFundsCallback } from '@onekeyhq/engine/src/vaults/impl/xmr/types';
 import type { MoneroCoreInstance } from './moneroCore/moneroCoreTypes';
 import type { MoneroUtilInstance } from './moneroUtil/moneroUtilTypes';
 
@@ -291,6 +294,7 @@ class Helper {
         },
         submit_raw_tx_fn: async (params, callback) => {
           try {
+            // TODO signOnly support, skip submit return {status: "OK"}
             const resp = await instance.post('/submit_raw_tx', params);
             callback(null, resp.data);
           } catch {

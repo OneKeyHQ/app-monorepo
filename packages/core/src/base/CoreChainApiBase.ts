@@ -155,10 +155,10 @@ export abstract class CoreChainApiBase {
     query: ICoreApiGetAddressesQueryHd,
     options: {
       curve: ICurveName;
-      generateSourceType?: 'publicKey' | 'privateKey';
+      generateFrom?: 'publicKey' | 'privateKey';
     },
   ): Promise<ICoreApiGetAddressesResult> {
-    const { curve, generateSourceType } = options;
+    const { curve, generateFrom } = options;
     const { template, hdCredential, password, indexes, networkInfo } = query;
     const { seed } = hdCredential;
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
@@ -166,7 +166,7 @@ export abstract class CoreChainApiBase {
     const indexFormatted = indexes.map((index) =>
       pathSuffix.replace('{index}', index.toString()),
     );
-    const isPrivateKeyMode = generateSourceType === 'privateKey';
+    const isPrivateKeyMode = generateFrom === 'privateKey';
     let pubkeyInfos: ISecretPublicKeyInfo[] = [];
     let pvtkeyInfos: ISecretPrivateKeyInfo[] = [];
 

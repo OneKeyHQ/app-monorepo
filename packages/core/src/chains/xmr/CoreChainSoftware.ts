@@ -117,7 +117,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     // throw new Error('Method not implemented.');
     return this.baseGetAddressesFromHd(query, {
       curve,
-      generateSourceType: 'privateKey',
+      generateFrom: 'privateKey',
     });
   }
 }
