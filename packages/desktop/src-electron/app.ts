@@ -428,7 +428,6 @@ function createMainWindow() {
       }
     },
   );
-  };
 
   if (!isDev) {
     const PROTOCOL = 'file';
