@@ -1,6 +1,6 @@
 import { useContext } from 'react';
 
-import { createStyledContext, styled, withStaticProperties } from 'tamagui';
+import { ColorTokens, createStyledContext, styled, withStaticProperties } from 'tamagui';
 
 import { Icon } from '../Icon';
 import { Spinner } from '../Spinner';
@@ -137,7 +137,7 @@ const ButtonText = styled(Text, {
   } as const,
 });
 
-const iconColorMapping = {
+const iconColorMapping: Record<string, ColorTokens> = {
   primary: '$iconInverse',
   secondary: '$icon',
   tertiary: '$iconSubdued',
