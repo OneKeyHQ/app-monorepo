@@ -8,6 +8,7 @@ import { Spinner } from '../Spinner';
 import { Stack } from '../Stack';
 
 import type { IconProps } from '../Icon';
+import type { ColorTokens } from 'tamagui';
 
 const IconButtonFrame = styled(ButtonFrame, {
   name: 'IconButton',
@@ -36,14 +37,10 @@ const IconButtonFrame = styled(ButtonFrame, {
         margin: '$-2',
       },
     },
-  },
-
-  defaultVariants: {
-    buttonVariant: 'secondary',
-  },
+  } as const,
 });
 
-const iconColorMapping = {
+const iconColorMapping: Record<string, ColorTokens> = {
   primary: '$iconInverse',
   secondary: '$icon',
   tertiary: '$iconSubdued',
