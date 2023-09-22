@@ -5,6 +5,7 @@ import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import IconButtonGallery from '@onekeyhq/kit/src/views/Components/stories/IconButton';
+import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 
 import AlertGallery from '../../views/Components/stories/Alert';
@@ -23,6 +24,7 @@ export enum GalleryRoutes {
   ComponentNavigation = 'component/navigation',
   ComponentAlert = 'component/alert',
   ComponentDivider = 'component/divider',
+  ComponentToast = 'component/toast',
 }
 
 export const stackScreenList = [
@@ -32,6 +34,7 @@ export const stackScreenList = [
     component: TypographyGallery,
   },
   { name: GalleryRoutes.ComponentIcon, component: IconGallery },
+  { name: GalleryRoutes.ComponentToast, component: ToastGallery },
   { name: GalleryRoutes.ComponentIconButton, component: IconButtonGallery },
   { name: GalleryRoutes.ComponentButton, component: ButtonsGallery },
   { name: GalleryRoutes.ComponentBadge, component: BadgeGallery },
