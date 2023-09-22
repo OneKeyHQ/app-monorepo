@@ -567,6 +567,7 @@ const config = createTamagui({
 
   fonts: {
     body: font,
+    heading: font,
   },
 
   themes: {
@@ -585,12 +586,16 @@ const config = createTamagui({
   tokens: mergedTokens,
 
   media: createMedia({
-    xs: { minWidth: 0 },
-    sm: { minWidth: 640 },
-    md: { minWidth: 768 },
-    lg: { minWidth: 1024 },
-    xl: { minWidth: 1280 },
-    '2xl': { minWidth: 1536 },
+    sm: { maxWidth: 639 },
+    gtSm: { minWidth: 640 },
+    md: { maxWidth: 767 },
+    gtMd: { minWidth: 768 },
+    lg: { maxWidth: 1023 },
+    gtLg: { minWidth: 1024 },
+    xl: { maxWidth: 1279 },
+    gtXl: { minWidth: 1280 },
+    '2xl': { maxWidth: 1535 },
+    'gt2xl': { minWidth: 1536 },
     short: { maxHeight: 820 },
     tall: { minHeight: 820 },
     hoverNone: { hover: 'none' },

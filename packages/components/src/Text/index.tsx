@@ -25,7 +25,7 @@ export const Text = styled(OriginText, {
   } as const,
 
   defaultVariants: {
-    variant: '$bodyLg',
+    variant: '$true',
   },
 });
 
