@@ -1,7 +1,7 @@
 import type { ComponentProps, FC } from 'react';
 import { memo, useState } from 'react';
 
-import { Provider, ToastProvider } from '@onekeyhq/components';
+import { Provider, ToastProvider, ToastViewport } from '@onekeyhq/components';
 
 const ThemeApp: FC = ({ children }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -11,7 +11,10 @@ const ThemeApp: FC = ({ children }) => {
       leftSidebarCollapsed={isCollapsed}
       setLeftSidebarCollapsed={setIsCollapsed}
     >
-      <ToastProvider native={false}>{children}</ToastProvider>
+      <ToastProvider native={false}>
+        {children}
+        <ToastViewport />
+      </ToastProvider>
     </Provider>
   );
 };

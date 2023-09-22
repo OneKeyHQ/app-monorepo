@@ -1,47 +1,43 @@
-import { useToastState } from '@tamagui/toast';
+import { useToastController, useToastState } from '@tamagui/toast';
+import { Button } from 'tamagui';
 
-import { Toast, YStack } from '@onekeyhq/components';
+import { Toast, XStack, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
-const CurrentToast = () => {
-  const currentToast = useToastState();
-
-  if (!currentToast || currentToast.isHandledNatively) return null;
+const ToastControl = () => {
+  const toast = useToastController();
   return (
-    <Toast
-      key={currentToast.id}
-      duration={currentToast.duration}
-      enterStyle={{ opacity: 0, scale: 0.5, y: -25 }}
-      exitStyle={{ opacity: 0, scale: 1, y: -20 }}
-      y={0}
-      opacity={1}
-      scale={1}
-      animation="100ms"
-      viewportName={currentToast.viewportName}
-    >
-      <YStack>
-        <Toast.Title>{currentToast.title}</Toast.Title>
-        {!!currentToast.message && (
-          <Toast.Description>{currentToast.message}</Toast.Description>
-        )}
-      </YStack>
-    </Toast>
+    <XStack space="$2" justifyContent="center">
+      <Button
+        onPress={() => {
+          toast.show('Successfully saved!', {
+            message: "Don't worry, we've got your data.",
+          });
+        }}
+      >
+        Show
+      </Button>
+      <Button
+        onPress={() => {
+          toast.hide();
+        }}
+      >
+        Hide
+      </Button>
+    </XStack>
   );
 };
 
 const ToastGallery = () => (
   <Layout
-    description="需要用户处理事务，又不希望跳转路由以致打断工作流程时，可以使用 Dialog 组件"
-    suggestions={[
-      'Dialog 的呈现层级高于页面，但低于 Toast',
-      '需要避免在 Dialog 显示需要滚动操作的内容',
-    ]}
-    boundaryConditions={['禁止将 Dialog 作为路由页面使用']}
+    description=""
+    suggestions={['']}
+    boundaryConditions={['']}
     elements={[
       {
         title: 'open Modal by renderTrigger',
-        element: <CurrentToast />,
+        element: <ToastControl />,
       },
     ]}
   />
