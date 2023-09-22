@@ -97,7 +97,12 @@ function DialogFrame({
           snapPointsMode="fit"
         >
           <Sheet.Overlay backgroundColor="$bgBackdrop" />
-          <Sheet.Handle />
+          <Sheet.Handle
+            marginHorizontal="auto"
+            width="$20"
+            height="$1"
+            backgroundColor="rgba(255, 255, 255, 0.5)"
+          />
           <Sheet.Frame>
             <Adapt.Contents />
           </Sheet.Frame>
