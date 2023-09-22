@@ -191,17 +191,18 @@ function batchGetKeys(
   return ret;
 }
 
+export type ISecretPrivateKeyInfo = {
+  path: string;
+  parentFingerPrint: Buffer;
+  extendedKey: ExtendedKey;
+};
 function batchGetPrivateKeys(
   curveName: ICurveName,
   encryptedSeed: Buffer,
   password: string,
   prefix: string,
   relPaths: Array<string>,
-): Array<{
-  path: string;
-  parentFingerPrint: Buffer;
-  extendedKey: ExtendedKey;
-}> {
+): ISecretPrivateKeyInfo[] {
   return batchGetKeys(
     curveName,
     encryptedSeed,
@@ -212,17 +213,18 @@ function batchGetPrivateKeys(
   );
 }
 
+export type ISecretPublicKeyInfo = {
+  path: string;
+  parentFingerPrint: Buffer;
+  extendedKey: ExtendedKey;
+};
 function batchGetPublicKeys(
   curveName: ICurveName,
   encryptedSeed: Buffer,
   password: string,
   prefix: string,
   relPaths: Array<string>,
-): Array<{
-  path: string;
-  parentFingerPrint: Buffer;
-  extendedKey: ExtendedKey;
-}> {
+): ISecretPublicKeyInfo[] {
   return batchGetKeys(
     curveName,
     encryptedSeed,
@@ -322,20 +324,20 @@ function generateRootFingerprint(
   return hash160(publicKey).slice(0, 4);
 }
 
-export type { ExtendedKey, RevealableSeed };
 export {
-  publicFromPrivate,
-  uncompressPublicKey,
-  compressPublicKey,
-  verify,
-  sign,
-  batchGetPrivateKeys,
-  batchGetPublicKeys,
-  generateMasterKeyFromSeed,
-  N,
   CKDPriv,
   CKDPub,
-  revealableSeedFromMnemonic,
-  mnemonicFromEntropy,
+  N,
+  batchGetPrivateKeys,
+  batchGetPublicKeys,
+  compressPublicKey,
+  generateMasterKeyFromSeed,
   generateRootFingerprint,
+  mnemonicFromEntropy,
+  publicFromPrivate,
+  revealableSeedFromMnemonic,
+  sign,
+  uncompressPublicKey,
+  verify,
 };
+export type { ExtendedKey, RevealableSeed };

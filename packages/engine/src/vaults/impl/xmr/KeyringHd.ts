@@ -1,3 +1,6 @@
+import { getMoneroApi } from '@onekeyhq/core/src/chains/xmr/sdkXmr';
+import { MoneroNetTypeEnum } from '@onekeyhq/core/src/chains/xmr/sdkXmr/moneroUtil/moneroUtilTypes';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { COINTYPE_XMR as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
@@ -9,22 +12,59 @@ import { batchGetPrivateKeys } from '../../../secret';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
-import { getMoneroApi } from './sdk';
-import { MoneroNetTypeEnum } from './sdk/moneroUtil/moneroUtilTypes';
-
 import type { ExportedSeedCredential } from '../../../dbs/base';
-import type { DBVariantAccount } from '../../../types/account';
+import type { ChainSigner } from '../../../proxy';
+import type { DBSimpleAccount, DBVariantAccount } from '../../../types/account';
+import type { IUnsignedMessageCommon } from '../../../types/message';
 import type { SignedTx } from '../../../types/provider';
 import type {
+  IGetPrivateKeysParams,
+  IGetPrivateKeysResult,
   IPrepareHdAccountsParams,
   ISignCredentialOptions,
+  ISignedTxPro,
   IUnsignedTxPro,
 } from '../../types';
 import type { IClientApi, IEncodedTxXmr, ISendFundsArgs } from './types';
 
 // @ts-ignore
 export class KeyringHd extends KeyringHdBase {
-  async prepareAccounts(
+  override coreApi = coreChainApi.xmr.hd;
+
+  override getSigners(): Promise<Record<string, ChainSigner>> {
+    throw new Error('getSigners moved to core.');
+  }
+
+  override async getPrivateKeys(
+    params: IGetPrivateKeysParams,
+  ): Promise<IGetPrivateKeysResult> {
+    return this.baseGetPrivateKeys(params);
+  }
+
+  override async prepareAccounts(
+    params: IPrepareHdAccountsParams,
+  ): Promise<Array<DBSimpleAccount>> {
+    return this.basePrepareAccountsHd(params, {
+      accountType: AccountType.VARIANT,
+      usedIndexes: params.indexes,
+    });
+  }
+
+  override async signTransaction(
+    unsignedTx: IUnsignedTxPro,
+    options: ISignCredentialOptions,
+  ): Promise<ISignedTxPro> {
+    return this.baseSignTransaction(unsignedTx, options);
+  }
+
+  override async signMessage(
+    messages: IUnsignedMessageCommon[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]> {
+    throw new Error('Method not implemented.');
+  }
+
+  async prepareAccountsOld(
     params: IPrepareHdAccountsParams,
   ): Promise<Array<DBVariantAccount>> {
     const { password, names, template } = params;
@@ -101,7 +141,7 @@ export class KeyringHd extends KeyringHdBase {
     return ret;
   }
 
-  override async signTransaction(
+  async signTransactionOld(
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
   ): Promise<SignedTx> {

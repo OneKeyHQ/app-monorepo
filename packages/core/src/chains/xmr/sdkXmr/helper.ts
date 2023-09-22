@@ -11,8 +11,8 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { cnFastHash } from './moneroAddress';
 
-import type { ISignedTxPro } from '../../../types';
-import type { ISendFundsArgs, ISendFundsCallback } from '../types';
+import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
+import type { ISendFundsArgs, ISendFundsCallback } from '@onekeyhq/engine/src/vaults/impl/xmr/types';
 import type { MoneroCoreInstance } from './moneroCore/moneroCoreTypes';
 import type { MoneroUtilInstance } from './moneroUtil/moneroUtilTypes';
 

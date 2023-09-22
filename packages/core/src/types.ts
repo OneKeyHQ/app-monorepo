@@ -48,7 +48,7 @@ export type ICoreApiGetAddressQueryPublicKey = {
 };
 export type ICoreApiGetAddressItem = {
   address: string;
-  publicKey: string;
+  publicKey: string; // TODO rename to pub
   path?: string;
   xpub?: string;
   xpubSegwit?: string;

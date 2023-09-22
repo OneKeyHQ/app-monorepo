@@ -15,6 +15,7 @@ import CoreChainSol from '../chains/sol';
 import CoreChainStc from '../chains/stc';
 import CoreChainSui from '../chains/sui';
 import CoreChainTron from '../chains/tron';
+import CoreChainXmr from '../chains/xmr';
 import CoreChainXrp from '../chains/xrp';
 
 export class CoreChainApiHub {
@@ -53,4 +54,6 @@ export class CoreChainApiHub {
   dot = new CoreChainDot();
 
   fil = new CoreChainFil();
+
+  xmr = new CoreChainXmr();
 }

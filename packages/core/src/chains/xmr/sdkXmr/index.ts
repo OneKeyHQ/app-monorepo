@@ -8,7 +8,7 @@ import { getMoneroCoreInstance } from './moneroCore/instance';
 import { getMoneroUtilInstance } from './moneroUtil/instance';
 import { privateSpendKeyToWords } from './moneroWords';
 
-import type { SignedTx } from '../../../../types/provider';
+import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 import type { IMoneroApi } from './types';
 
 async function getMoneroApi(): Promise<IMoneroApi> {

@@ -6,8 +6,8 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
-import { getMoneroApi } from './sdk';
-import { MoneroNetTypeEnum } from './sdk/moneroUtil/moneroUtilTypes';
+import { getMoneroApi } from '@onekeyhq/core/src/chains/xmr/sdkXmr';
+import { MoneroNetTypeEnum } from '@onekeyhq/core/src/chains/xmr/sdkXmr/moneroUtil/moneroUtilTypes';
 
 import type { DBVariantAccount } from '../../../types/account';
 import type { SignedTx } from '../../../types/provider';

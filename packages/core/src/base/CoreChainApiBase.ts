@@ -2,6 +2,10 @@ import { merge } from 'lodash';
 
 import { slicePathTemplate } from '@onekeyhq/engine/src/managers/derivation';
 import { ChainSigner } from '@onekeyhq/engine/src/proxy';
+import type {
+  ISecretPrivateKeyInfo,
+  ISecretPublicKeyInfo,
+} from '@onekeyhq/engine/src/secret';
 import {
   type ICurveName,
   batchGetPrivateKeys,
@@ -12,6 +16,7 @@ import {
   nistp256,
   secp256k1,
 } from '@onekeyhq/engine/src/secret/curves';
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { Signer as ISigner } from '@onekeyhq/engine/src/types/secret';
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
@@ -150,39 +155,64 @@ export abstract class CoreChainApiBase {
     query: ICoreApiGetAddressesQueryHd,
     options: {
       curve: ICurveName;
+      generateSourceType?: 'publicKey' | 'privateKey';
     },
   ): Promise<ICoreApiGetAddressesResult> {
-    const { curve } = options;
-    const { template, hdCredential, password, indexes } = query;
+    const { curve, generateSourceType } = options;
+    const { template, hdCredential, password, indexes, networkInfo } = query;
     const { seed } = hdCredential;
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
     const seedBuffer = bufferUtils.toBuffer(seed);
     const indexFormatted = indexes.map((index) =>
       pathSuffix.replace('{index}', index.toString()),
     );
-    const pubkeyInfos = batchGetPublicKeys(
-      curve,
-      seedBuffer,
-      password,
-      pathPrefix,
-      indexFormatted,
-    );
+    const isPrivateKeyMode = generateSourceType === 'privateKey';
+    let pubkeyInfos: ISecretPublicKeyInfo[] = [];
+    let pvtkeyInfos: ISecretPrivateKeyInfo[] = [];
 
-    if (pubkeyInfos.length !== indexes.length) {
+    if (isPrivateKeyMode) {
+      pvtkeyInfos = batchGetPrivateKeys(
+        curve,
+        seedBuffer,
+        password,
+        pathPrefix,
+        indexFormatted,
+      );
+    } else {
+      pubkeyInfos = batchGetPublicKeys(
+        curve,
+        seedBuffer,
+        password,
+        pathPrefix,
+        indexFormatted,
+      );
+    }
+    const infos = isPrivateKeyMode ? pvtkeyInfos : pubkeyInfos;
+    if (infos.length !== indexes.length) {
       throw new OneKeyInternalError('Unable to get publick key.');
     }
     const addresses = await Promise.all(
-      pubkeyInfos.map(async (info) => {
+      infos.map(async (info: ISecretPublicKeyInfo | ISecretPrivateKeyInfo) => {
         const {
           path,
-          extendedKey: { key: pubkey },
+          extendedKey: { key },
         } = info;
-        const publicKey = pubkey.toString('hex');
+        let publicKey: string | undefined;
+        let result: ICoreApiGetAddressItem | undefined;
 
-        const result = await this.getAddressFromPublic({
-          publicKey,
-          networkInfo: query.networkInfo,
-        });
+        if (isPrivateKeyMode) {
+          const privateKeyRaw = bufferUtils.bytesToHex(decrypt(password, key));
+          result = await this.getAddressFromPrivate({
+            privateKeyRaw,
+            networkInfo: query.networkInfo,
+          });
+        } else {
+          publicKey = key.toString('hex');
+          result = await this.getAddressFromPublic({
+            publicKey,
+            networkInfo: query.networkInfo,
+          });
+        }
 
         return merge({ publicKey, path }, result);
       }),

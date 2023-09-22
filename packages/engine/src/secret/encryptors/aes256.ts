@@ -47,7 +47,11 @@ function decodePassword({ password }: { password: string }): string {
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     return decodeSensitiveText({ encodedText: password });
   }
-  if (process.env.NODE_ENV !== 'production' && !platformEnv.isJest) {
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    password &&
+    !platformEnv.isJest
+  ) {
     console.error(
       'Passing raw password is not allowed and not safe, please encode it at the beginning of debugger breakpoint call stack.',
     );

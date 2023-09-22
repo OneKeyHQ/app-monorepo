@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import BigNumber from 'bignumber.js';
 
+import { getMoneroApi } from '@onekeyhq/core/src/chains/xmr/sdkXmr';
+import { MoneroNetTypeEnum } from '@onekeyhq/core/src/chains/xmr/sdkXmr/moneroUtil/moneroUtilTypes';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
@@ -30,8 +32,6 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import { getMoneroApi } from './sdk';
-import { MoneroNetTypeEnum } from './sdk/moneroUtil/moneroUtilTypes';
 import settings from './settings';
 import { MoneroTxPriorityEnum } from './types';
 import { getDecodedTxStatus } from './utils';
@@ -134,11 +134,12 @@ export default class Vault extends VaultBase {
             : index;
       }
 
-      return moneroApi.getKeyPairFromRawPrivatekey({
+      const result = await moneroApi.getKeyPairFromRawPrivatekey({
         rawPrivateKey,
         isPrivateSpendKey: isImportedAccount,
         index: accountIndex,
       });
+      return result;
     },
     {
       max: 1,
@@ -189,10 +190,10 @@ export default class Vault extends VaultBase {
       rpcUrl,
       clientApi.mymonero,
       address ?? accountAddress,
-      Buffer.from(publicSpendKey || '').toString('hex'),
-      Buffer.from(publicViewKey || '').toString('hex'),
-      Buffer.from(privateSpendKey).toString('hex'),
-      Buffer.from(privateViewKey).toString('hex'),
+      publicSpendKey || '',
+      publicViewKey || '',
+      privateSpendKey,
+      privateViewKey,
     );
   }
 
@@ -371,9 +372,9 @@ export default class Vault extends VaultBase {
       );
       switch (credentialType) {
         case AccountCredentialType.PrivateSpendKey:
-          return Buffer.from(privateSpendKey).toString('hex');
+          return privateSpendKey;
         case AccountCredentialType.PrivateViewKey:
-          return Buffer.from(privateViewKey).toString('hex');
+          return privateViewKey;
         case AccountCredentialType.Mnemonic:
           return moneroApi.privateSpendKeyToWords(
             bufferUtils.toBuffer(privateSpendKey),

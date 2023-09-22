@@ -3,12 +3,11 @@ import LWSClient from '@mymonero/mymonero-lws-client';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 
+import { getMoneroApi } from '@onekeyhq/core/src/chains/xmr/sdkXmr';
 import { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
 import type { CoinInfo } from '@onekeyhq/engine/src/types/chain';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
-
-import { getMoneroApi } from './sdk';
 
 import type {
   AddressInfo,

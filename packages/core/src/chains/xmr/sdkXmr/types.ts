@@ -1,4 +1,4 @@
-import type { SignedTx } from '../../../../types/provider';
+import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 import type * as moneroAddress from './moneroAddress';
 import type { privateSpendKeyToWords } from './moneroWords';
 
