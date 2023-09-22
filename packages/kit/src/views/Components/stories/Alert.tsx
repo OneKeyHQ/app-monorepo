@@ -22,13 +22,28 @@ const ButtonsGallery = () => (
         element: (
           <Stack space="$1">
             <YStack space="$1">
-              <Alert title="Title" description='Description here...' icon='ExclamationCircleMini'>
+              <Alert
+                title="Title"
+                description="Description here..."
+                icon="ExclamationCircleMini"
+              >
                 Badge
               </Alert>
-              <Alert type='success' title="Title" description='Description here...' icon='ExclamationCircleMini'>
+              <Alert
+                type="success"
+                title="Title"
+                description="Description here..."
+                icon="ExclamationCircleMini"
+              >
                 Badge
               </Alert>
-              <Alert type='critical' title="Title" description='Description here...' icon='ExclamationCircleMini' action={{ title: 'Action', description: 'Learn More' }}>
+              <Alert
+                type="critical"
+                title="Title"
+                description="Description here..."
+                icon="ExclamationCircleMini"
+                action={{ title: 'Action', description: 'Learn More' }}
+              >
                 Badge
               </Alert>
             </YStack>
