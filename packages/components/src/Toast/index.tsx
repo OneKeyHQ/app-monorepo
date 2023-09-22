@@ -12,7 +12,6 @@ import { YStack } from 'tamagui';
 import { removePortalComponent, setPortalComponent } from '../Portal';
 
 import type { CreateNativeToastOptions } from '@tamagui/toast/src/types';
-import { InteractionManager } from 'react-native';
 
 function ToastInstance() {
   const currentToast = useToastState();
