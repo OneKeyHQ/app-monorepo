@@ -29,6 +29,8 @@ export interface ModalProps {
   title?: string;
   description?: string;
   renderContent?: React.ReactNode;
+  onConfirm?: () => void | Promise<boolean>;
+  onCancel?: () => void;
   confirmButtonProps?: GetProps<typeof Button>;
   cancelButtonProps?: GetProps<typeof Button>;
   confirmButtonTextProps?: GetProps<typeof Button.Text>;
@@ -44,6 +46,8 @@ function DialogFrame({
   iconName,
   description,
   renderContent,
+  onConfirm,
+  onCancel,
   confirmButtonProps,
   confirmButtonTextProps,
   cancelButtonProps,
@@ -64,6 +68,19 @@ function DialogFrame({
   );
 
   // const { bottom } = useSafeAreaInsets();
+  const handleConfirmButtonPress = useCallback(async () => {
+    const result = await onConfirm?.();
+    console.log(result);
+    if (result || result === undefined) {
+      onClose?.();
+    }
+  }, [onConfirm, onClose]);
+
+  const handleCancelButtonPress = useCallback(() => {
+    onCancel?.();
+    onClose?.();
+  }, [onCancel, onClose]);
+
   const bottom = 20;
   return (
     <TMDialog open={open}>
@@ -124,8 +141,8 @@ function DialogFrame({
                 paddingHorizontal="$3"
                 buttonVariant="destructive"
                 size="large"
-                onPress={onClose}
                 {...cancelButtonProps}
+                onPress={handleCancelButtonPress}
               >
                 <Button.Text paddingHorizontal="$3" {...cancelButtonTextProps}>
                   Cancel
@@ -136,8 +153,8 @@ function DialogFrame({
                 buttonVariant="primary"
                 ml="$4"
                 size="large"
-                onPress={onClose}
                 {...confirmButtonProps}
+                onPress={handleConfirmButtonPress}
               >
                 <Button.Text paddingHorizontal="$3" {...confirmButtonTextProps}>
                   Confirm
@@ -151,32 +168,42 @@ function DialogFrame({
   );
 }
 
-function DialogContainer({ name }: PropsWithChildren<{ name: string }>) {
-  console.log(name);
+function DialogContainer({
+  name,
+  onOpen,
+  onClose,
+  ...props
+}: PropsWithChildren<{ name: string } & ModalProps>) {
   const [isOpen, changeIsOpen] = useState(true);
   useEffect(() => () => {
     removePortalComponent(name);
   });
+  const handleOpen = useCallback(() => {
+    changeIsOpen(true);
+    onOpen?.();
+  }, [onOpen]);
+
+  const handleClose = useCallback(() => {
+    changeIsOpen(false);
+    onClose?.();
+  }, [onClose]);
+
   return (
     <DialogFrame
       key={name}
-      backdrop
       open={isOpen}
-      title="Lorem ipsum"
-      description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec. Eu quam nulla lectus faucibus senectus interdum iaculis egestas."
-      onOpen={() => {
-        changeIsOpen(true);
-      }}
+      onOpen={handleOpen}
       renderContent={<Text>Overlay Content by Text Trigger</Text>}
-      onClose={() => {
-        changeIsOpen(false);
-      }}
+      onClose={handleClose}
+      {...props}
     />
   );
 }
 
 export const Dialog = withStaticProperties(DialogFrame, {
-  confirm: () => {
-    setPortalComponent(<DialogContainer name={Math.random().toString()} />);
+  confirm: (props: ModalProps) => {
+    setPortalComponent(
+      <DialogContainer {...props} name={Math.random().toString()} />,
+    );
   },
 });

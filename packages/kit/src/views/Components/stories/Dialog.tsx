@@ -66,8 +66,65 @@ const DialogGallery = () => (
         title: '命令式 API',
         element: (
           <YStack>
-            <Button onPress={() => Dialog.confirm()}>
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'Lorem ipsum',
+                  description:
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec. Eu quam nulla lectus faucibus senectus interdum iaculis egestas.',
+                  onConfirm() {
+                    alert('confirmed');
+                  },
+                })
+              }
+            >
               <Button.Text>Confirm</Button.Text>
+            </Button>
+          </YStack>
+        ),
+      },
+      {
+        title: '命令式 API, Confirm Button Loading',
+        element: (
+          <YStack>
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'Lorem ipsum',
+                  description:
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec. Eu quam nulla lectus faucibus senectus interdum iaculis egestas.',
+                  onConfirm() {
+                    return new Promise((resolve) => {
+                      setTimeout(() => {
+                        alert('loaded successful');
+                        resolve(true);
+                      }, 3000);
+                    });
+                  },
+                })
+              }
+            >
+              <Button.Text>load remote data successfully</Button.Text>
+            </Button>
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'Lorem ipsum',
+                  description:
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec. Eu quam nulla lectus faucibus senectus interdum iaculis egestas.',
+                  onConfirm() {
+                    return new Promise((resolve) => {
+                      setTimeout(() => {
+                        alert('loaded failed');
+                        resolve(false);
+                      }, 3000);
+                      return false;
+                    });
+                  },
+                })
+              }
+            >
+              <Button.Text>load remote data failed</Button.Text>
             </Button>
           </YStack>
         ),

@@ -1,6 +1,6 @@
 import { useContext } from 'react';
 
-import { ColorTokens, createStyledContext, styled, withStaticProperties } from 'tamagui';
+import { createStyledContext, styled, withStaticProperties } from 'tamagui';
 
 import { Icon } from '../Icon';
 import { Spinner } from '../Spinner';
@@ -8,6 +8,7 @@ import { Stack } from '../Stack';
 import { Text } from '../Text';
 
 import type { IconProps } from '../Icon';
+import type { ColorTokens } from 'tamagui';
 
 export const ButtonContext = createStyledContext<{
   size: 'small' | 'medium' | 'large';
