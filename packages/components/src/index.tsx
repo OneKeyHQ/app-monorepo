@@ -12,7 +12,7 @@ export { Spinner } from './Spinner';
 export { Dialog } from './Dialog';
 export { Portal, setPortalComponent, removePortalComponent } from './Portal';
 
-export { ToastProvider, Toast, ToastViewport } from './Toast';
+export { ToastProvider, ToastController } from './Toast';
 
 export { useThemeValue } from './Provider/hooks/useThemeValue';
 export { useIsMounted } from './Provider/hooks/useIsMounted';

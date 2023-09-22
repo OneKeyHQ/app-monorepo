@@ -1,33 +1,25 @@
-import { useToastController, useToastState } from '@tamagui/toast';
 import { Button } from 'tamagui';
 
-import { Toast, XStack, YStack } from '@onekeyhq/components';
+import { ToastController, XStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
-const ToastControl = () => {
-  const toast = useToastController();
-  return (
-    <XStack space="$2" justifyContent="center">
-      <Button
-        onPress={() => {
-          toast.show('Successfully saved!', {
+const ToastControl = () => (
+  <XStack space="$2" justifyContent="center">
+    <Button
+      onPress={() => {
+        ToastController.show('success', {
+          title: 'Successfully saved!',
+          options: {
             message: "Don't worry, we've got your data.",
-          });
-        }}
-      >
-        Show
-      </Button>
-      <Button
-        onPress={() => {
-          toast.hide();
-        }}
-      >
-        Hide
-      </Button>
-    </XStack>
-  );
-};
+          },
+        });
+      }}
+    >
+      Show
+    </Button>
+  </XStack>
+);
 
 const ToastGallery = () => (
   <Layout
@@ -36,7 +28,7 @@ const ToastGallery = () => (
     boundaryConditions={['']}
     elements={[
       {
-        title: 'open Modal by renderTrigger',
+        title: 'Toast Message',
         element: <ToastControl />,
       },
     ]}
