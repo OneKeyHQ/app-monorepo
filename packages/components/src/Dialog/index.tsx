@@ -92,13 +92,11 @@ function DialogFrame({
         <Sheet
           modal
           dismissOnSnapToBottom
+          dismissOnOverlayPress={backdrop}
           onOpenChange={handleOpenChange}
           snapPointsMode="fit"
         >
-          <Sheet.Overlay
-            onPress={backdropClose}
-            backgroundColor="$bgBackdrop"
-          />
+          <Sheet.Overlay backgroundColor="$bgBackdrop" />
           <Sheet.Handle />
           <Sheet.Frame>
             <Adapt.Contents />

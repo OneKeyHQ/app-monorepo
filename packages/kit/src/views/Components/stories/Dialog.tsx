@@ -107,6 +107,7 @@ const DialogGallery = () => (
               <Button.Text>load remote data successfully</Button.Text>
             </Button>
             <Button
+              mt="$4"
               onPress={() =>
                 Dialog.confirm({
                   title: 'Lorem ipsum',
