@@ -203,7 +203,7 @@ function createMainWindow() {
     webPreferences: {
       spellcheck: false,
       webviewTag: true,
-      webSecurity: !isDev,
+      webSecurity: true,
       nativeWindowOpen: true,
       allowRunningInsecureContent: isDev,
       // webview injected js needs isolation=false, because property can not be exposeInMainWorld() when isolation enabled.
@@ -413,6 +413,19 @@ function createMainWindow() {
       }
 
       callback({ cancel: false, requestHeaders: details.requestHeaders });
+    },
+  );
+
+  const webviewSession = session.fromPartition('webview');
+
+  webviewSession.setPermissionRequestHandler(
+    (webContents, permission, callback) => {
+      const permissionBlackList = ['media', 'geolocation'];
+      if (permissionBlackList.includes(permission)) {
+        callback(false);
+      } else {
+        callback(true);
+      }
     },
   );
 

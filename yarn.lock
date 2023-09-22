@@ -10042,7 +10042,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^16.11.26, @types/node@npm:^16.7.13":
+"@types/node@npm:^16.11.26":
+  version: 16.18.53
+  resolution: "@types/node@npm:16.18.53"
+  checksum: 26c05cde59664360c22e0dda70776ca6f1b35f0b94e4f84d2c21e2afa2e69ac3a2c99bbb57b43405f81df1b2598f6d707ccc7c4c31865f90e45c4625d8400518
+  languageName: node
+  linkType: hard
+
+"@types/node@npm:^16.7.13":
   version: 16.11.68
   resolution: "@types/node@npm:16.11.68"
   checksum: a35293b6b8867e10ab9e10b6cd5f0e4224a86256d5ef102581dcb9f79f35f255ad87443e8584ddf8dce1229ee28885c58187e41822cf8d1e82495e7897c47c3f
@@ -29681,16 +29688,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#5036d59cba4f5609c32b7eb5dec560e738ce7115":
+"react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#834d8096f8cfd78a961fb7a13f06f0cc64b2c9c3":
   version: 11.24.0
-  resolution: "react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#commit=5036d59cba4f5609c32b7eb5dec560e738ce7115"
+  resolution: "react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#commit=834d8096f8cfd78a961fb7a13f06f0cc64b2c9c3"
   dependencies:
     escape-string-regexp: 2.0.0
     invariant: 2.2.4
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: fc611002420df2c068517f08846095062bda531dc2651ce5a6b738bd9dbc33c090323105afec4e4b4516459d244bca47e04b50b2c3c6fab67d2593f891f87fab
+  checksum: 740bcc2f986a84398226de87015e0c0ea071f41d7bb9b0a513eefed3598f5d1165b06a8f8448d61343112f482b5e4ea303d9704816bf396ffa0dd67d5142968d
   languageName: node
   linkType: hard
 
