@@ -32,6 +32,9 @@ config.resolver.extraNodeModules = {
   tls: require.resolve('react-native-tcp-socket'),
 };
 
+// storybook
+config.resolver.resolverMainFields.unshift("sbmodern");
+
 // 1. Watch all files within the monorepo
 // config.watchFolders = [workspaceRoot];
 // 2. Let Metro know where to resolve packages and in what order

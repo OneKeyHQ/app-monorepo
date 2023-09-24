@@ -27,34 +27,16 @@
     "recyclerlistview": "^4.2.0"
   },
   "devDependencies": {
-    "@babel/preset-env": "^7.22.20",
-    "@babel/preset-react": "^7.22.15",
-    "@storybook/addon-essentials": "^7.4.3",
-    "@storybook/addon-interactions": "^7.4.3",
-    "@storybook/addon-links": "^7.4.3",
-    "@storybook/addon-onboarding": "^1.0.8",
-    "@storybook/blocks": "^7.4.3",
-    "@storybook/react": "^7.4.3",
-    "@storybook/react-webpack5": "^7.4.3",
-    "@storybook/testing-library": "^0.2.1",
-    "@types/babel__preset-env": "^7",
     "@types/color": "^3.0.1",
-    "@types/prop-types": "^15",
     "@types/qrcode": "^1.4.2",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
-    "prop-types": "^15.8.1",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "rimraf": "^3",
-    "storybook": "^7.4.3"
+    "rimraf": "^3"
   },
   "scripts": {
     "build:icons": "rm -rf src/Icon/react && npx @svgr/cli@6.3.1 --config-file .svgrrc.json -d src/Icon/react svg && node src/Icon/script.js",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix",
     "fetch:locale": "rimraf ./src/locale/*.json && npx lokalise-client fetch",
-    "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "storybook": "start-storybook -p 6006 -c .storybook",
+    "build-storybook": "build-storybook -c .storybook"
   }
 }

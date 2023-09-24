@@ -1,12 +1,5 @@
-import { withBackgrounds } from "@storybook/addon-ondevice-backgrounds";
-
-export const decorators = [withBackgrounds];
+import { View } from 'react-native';
 export const parameters = {
-  backgrounds: [
-    { name: "plain", value: "white", default: true },
-    { name: "warm", value: "hotpink" },
-    { name: "cool", value: "deepskyblue" },
-  ],
   controls: {
     matchers: {
       color: /(background|color)$/i,
@@ -14,3 +7,11 @@ export const parameters = {
     },
   },
 };
+
+export const decorators = [
+  (Story) => (
+    <View style={{ padding: 8 }}>
+      <Story />
+    </View>
+  ),
+];
