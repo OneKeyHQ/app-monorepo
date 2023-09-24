@@ -120,6 +120,7 @@ export function useSwapSend() {
               prepaidFee,
               hideSendFeedbackReceipt: !showSendFeedbackReceipt,
               onDetail,
+              onFail,
               onSuccess: (result, data) => {
                 onSuccess?.({
                   result,
