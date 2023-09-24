@@ -26,7 +26,6 @@ const DemoRootHomeOptions = () => {
         </HeaderButtonGroup>
       ),
       headerSearchBarOptions: {
-        headerTransparent: false,
         placeholder: '搜索',
         inputType: 'text',
         onChangeText: (event: NativeSyntheticEvent<TextInputChangeEventData>) =>

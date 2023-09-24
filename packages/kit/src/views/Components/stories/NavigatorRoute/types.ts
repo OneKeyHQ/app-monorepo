@@ -1,6 +1,6 @@
 import type { DemoCreateModalRoutesParams } from './Modal/DemoCreateModal';
 import type { DemoDoneModalRoutesParams } from './Modal/DemoDoneModal';
-import type { DemoModalRoutes, DemoTabRoutes } from './Modal/types';
+import type { DemoModalRoutes, DemoTabRoutes } from './Routes';
 import type { NavigatorScreenParams } from '@react-navigation/native';
 
 export type DemoModalRoutesParams = {

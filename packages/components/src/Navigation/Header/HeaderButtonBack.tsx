@@ -39,16 +39,6 @@ export default function HeaderButtonBack({
   const backButtonMemo = useMemo(() => {
     if (showBackButton === false) return null;
 
-    // if (platformEnv.isNativeIOS) {
-    //   return (
-    //     <HeaderBackButton
-    //       testID="Navigation-HeaderBackButton"
-    //       {...props}
-    //       backImage={backImageCallback}
-    //     />
-    //   );
-    // }
-
     return backImageCallback();
   }, [backImageCallback, showBackButton]);
 

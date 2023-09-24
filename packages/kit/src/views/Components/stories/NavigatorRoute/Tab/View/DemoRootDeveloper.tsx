@@ -3,7 +3,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Button } from '@onekeyhq/components';
 
 import { Layout } from '../../../utils/Layout';
-import { DemoModalRoutes, DemoRootRoutes } from '../../Modal/types';
+import { DemoModalRoutes, DemoRootRoutes } from '../../Routes';
 
 const DemoRootHome = () => {
   const navigation = useNavigation();

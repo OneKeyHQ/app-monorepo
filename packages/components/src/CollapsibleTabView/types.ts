@@ -1,10 +1,10 @@
 import type { ReactElement, ReactNode } from 'react';
 
-import type { StyleProp, ViewStyle } from 'react-native';
 import type {
   OnPageScrollStateChangeEvent,
   TabProps,
-} from 'src/CollapsibleTabView/NativeNestedTabView/types';
+} from './NativeNestedTabView/types';
+import type { StyleProp, ViewStyle } from 'react-native';
 
 export interface CollapsibleContainerProps {
   stickyTabBar?: boolean;

@@ -1,73 +1,81 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import { TransitionPresets } from '@react-navigation/stack';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { extAnimConfig } from './ExtAnimConfig';
 import { makeHeaderScreenOptions } from './Header';
 
+import type { StackNavigationOptions } from './StackNavigator';
 import type { RouteProp } from '@react-navigation/native';
-import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
 
-export function makeRootScreenOptions(_: { isVerticalLayout?: boolean }) {
+export function clearStackNavigatorOptions(options?: {
+  bgColor?: string;
+}): StackNavigationOptions {
   return {
     headerShown: false,
-    animation: 'simple_push',
+    cardStyle: { backgroundColor: 'transparent' },
+    animationEnabled: false,
   };
 }
 
-export function makeOnboardingScreenOptions() {
+export function makeRootScreenOptions(options: { isVerticalLayout?: boolean }) {
   return {
-    presentation: 'fullScreenModal', // containedModal card fullScreenModal
-    animation: 'fade',
+    headerShown: false,
+    ...(options.isVerticalLayout
+      ? TransitionPresets.ScaleFromCenterAndroid
+      : TransitionPresets.FadeFromBottomAndroid),
   };
 }
 
-export function makeModalOpenAnimationOptions(_: {
+export function makeModalOpenAnimationOptions(options: {
   isVerticalLayout?: boolean;
 }) {
-  if (platformEnv.isNativeIOS) {
+  if (platformEnv.isExtension) {
     return {
       animationEnabled: true,
-      animation: 'slide_from_bottom',
+      ...extAnimConfig.transition,
+      ...extAnimConfig.openModalAnim,
     };
   }
 
-  if (platformEnv.isNativeAndroid) {
-    // animation gets a little stuck
+  if (options.isVerticalLayout) {
     return {
       animationEnabled: true,
-      animation: 'fade',
+      ...TransitionPresets.ModalSlideFromBottomIOS,
     };
   }
 
   // fallback to platform defaults animation
-  return {};
+  return { animationEnabled: false };
 }
 
 export function makeModalStackNavigatorOptions({
   navInfo,
+  isVerticalLayout,
 }: {
+  isVerticalLayout?: boolean;
   navInfo?: {
     route: RouteProp<any>;
     navigation: any;
   };
 } = {}) {
-  const options: NativeStackNavigationOptions = {
-    headerShown: true,
-    animation: 'slide_from_right',
+  // @ts-expect-error
+  const options: StackNavigationOptions = {
+    headerShown: false,
+    ...(platformEnv.isExtension
+      ? { ...extAnimConfig.transition, ...extAnimConfig.stackScreenAnim }
+      : undefined),
     ...makeHeaderScreenOptions({
       isModelScreen: true,
       navigation: navInfo?.navigation,
     }),
   };
 
-  if (platformEnv.isNativeAndroid) {
-    // Animation page stuck
-    options.animation = 'none';
-  }
-
   // Disable modal first screen navigation.replace() animation
   if (navInfo?.route?.params?._disabledAnimationOfNavigate) {
-    options.animation = 'none';
+    options.animationEnabled = false;
   }
   return options;
 }
@@ -79,7 +87,8 @@ export function makeModalScreenOptions({
 }) {
   return {
     headerShown: false,
-    presentation: 'modal',
+    presentation: 'transparentModal',
+    cardStyle: { backgroundColor: 'transparent' },
     ...makeModalOpenAnimationOptions({ isVerticalLayout }),
   };
 }
@@ -87,5 +96,16 @@ export function makeModalScreenOptions({
 export function makeRootModalStackOptions() {
   return {
     headerShown: false,
+    presentation: 'transparentModal',
+    cardStyle: { backgroundColor: 'transparent' },
+  };
+}
+
+export function makeFullScreenOptions() {
+  return {
+    headerShown: false,
+    animationEnabled: true,
+    presentation: 'modal', // containedModal card fullScreenModal
+    ...TransitionPresets.FadeFromBottomAndroid,
   };
 }

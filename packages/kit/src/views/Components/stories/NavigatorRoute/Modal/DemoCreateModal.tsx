@@ -1,30 +1,20 @@
 /* eslint-disable react/no-unstable-nested-components */
 import { useLayoutEffect } from 'react';
 
+import type { StackScreenProps } from '@onekeyhq/components';
 import { Button } from '@onekeyhq/components';
-import {
-  createStackNavigator,
-  makeModalStackNavigatorOptions,
-} from '@onekeyhq/components/src/Navigation';
 import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
-import useIsVerticalLayout from '@onekeyhq/components/src/Provider/hooks/useIsVerticalLayout';
-import type { ModalRoutesType } from '@onekeyhq/kit/src/routes/Root/Modal/types';
+import { ModalFlowNavigator } from '@onekeyhq/components/src/Navigation/Navigator/ModalFlowNavigator';
 
 import { Layout } from '../../utils/Layout';
-
-import { DemoCreateModalRoutes } from './types';
-
-import type { StackScreenProps } from '@react-navigation/stack';
+import { DemoCreateModalRoutes } from '../Routes';
 
 export type DemoCreateModalRoutesParams = {
   [DemoCreateModalRoutes.DemoCreateModal]: undefined;
   [DemoCreateModalRoutes.DemoCreateSearchModal]: undefined;
   [DemoCreateModalRoutes.DemoCreateOptionsModal]: undefined;
 };
-
-const DemoCreateModalNavigator =
-  createStackNavigator<DemoCreateModalRoutesParams>();
 
 function DemoCreateViewModal({
   navigation,
@@ -71,9 +61,7 @@ function DemoCreateSearchModal({
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      // @ts-expect-error
       headerSearchBarOptions: {
-        headerTransparent: false,
         placeholder: '搜索',
         inputType: 'text',
         onChangeText: (event: any) => {
@@ -118,9 +106,7 @@ function DemoCreateOptionsModal({
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      // @ts-expect-error
       headerSearchBarOptions: {
-        headerTransparent: false,
         placeholder: '搜索',
         inputType: 'text',
         onChangeText: (event: any) => {
@@ -163,38 +149,25 @@ function DemoCreateOptionsModal({
   );
 }
 
-const modalRoutes: ModalRoutesType<DemoCreateModalRoutes> = [
+const modalRoutes = [
   {
     name: DemoCreateModalRoutes.DemoCreateModal,
     component: DemoCreateViewModal,
+    translationId: 'Modal Demo',
   },
   {
     name: DemoCreateModalRoutes.DemoCreateSearchModal,
     component: DemoCreateSearchModal,
+    translationId: 'Search Modal',
   },
   {
     name: DemoCreateModalRoutes.DemoCreateOptionsModal,
     component: DemoCreateOptionsModal,
+    translationId: 'Options Demo Modal',
   },
 ];
 
-const DemoCreateModalStack = () => {
-  const isVerticalLayout = useIsVerticalLayout();
-
-  return (
-    <DemoCreateModalNavigator.Navigator
-      screenOptions={(navInfo) => ({
-        ...makeModalStackNavigatorOptions({ isVerticalLayout, navInfo }),
-      })}
-    >
-      {modalRoutes.map((route) => (
-        <DemoCreateModalNavigator.Screen
-          key={route.name}
-          name={route.name}
-          component={route.component}
-        />
-      ))}
-    </DemoCreateModalNavigator.Navigator>
-  );
-};
+const DemoCreateModalStack = () => (
+  <ModalFlowNavigator<DemoCreateModalRoutesParams> config={modalRoutes} />
+);
 export default DemoCreateModalStack;

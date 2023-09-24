@@ -7,7 +7,7 @@ import { Stack } from '@onekeyhq/components';
 import { getDrawerWidth } from '@onekeyhq/components/src/CollapsibleTabView/NativeNestedTabView/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { DemoMainRoutes } from './Modal/types';
+import { DemoMainRoutes } from './Routes';
 import Tab from './Tab/DemoTabNavigator';
 
 import type { StyleProp, ViewStyle } from 'react-native';

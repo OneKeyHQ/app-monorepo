@@ -23,8 +23,8 @@ export enum DemoTabChildRoutes {
 }
 
 export enum DemoModalRoutes {
-  DemoCreateModal = 'DemoCreateModal',
-  DemoDoneModal = 'DemoDoneModal',
+  DemoCreateModal = 'DemoCreateModalStack',
+  DemoDoneModal = 'DemoDoneModalStack',
 }
 
 export enum DemoCreateModalRoutes {

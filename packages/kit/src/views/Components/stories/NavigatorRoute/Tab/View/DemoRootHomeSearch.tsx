@@ -5,7 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Button, Text } from '@onekeyhq/components';
 
 import { Layout } from '../../../utils/Layout';
-import { DemoTabChildRoutes } from '../../Modal/types';
+import { DemoTabChildRoutes } from '../../Routes';
 
 import type {
   NativeSyntheticEvent,
@@ -39,7 +39,6 @@ const DemoRootHomeSearch = () => {
             useLayoutEffect(() => {
               navigation.setOptions({
                 headerSearchBarOptions: {
-                  headerTransparent: false,
                   placeholder: '搜索',
                   inputType: 'text',
                   onChangeText: (event: NativeSyntheticEvent<TextInputChangeEventData>) =>

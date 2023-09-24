@@ -4,11 +4,11 @@ import {
   makeModalStackNavigatorOptions,
 } from '@onekeyhq/components/src/Navigation';
 import useIsVerticalLayout from '@onekeyhq/components/src/Provider/hooks/useIsVerticalLayout';
-import type { ModalRoutesType } from '@onekeyhq/kit/src/routes/Root/Modal/types';
 
-import { DemoCreateModalRoutes } from './types';
+import { DemoCreateModalRoutes } from '../Routes';
 
-import type { DemoDoneModalRoutes } from './types';
+import type { ModalRoutesType } from '../../../../../routes/Root/Modal/types';
+import type { DemoDoneModalRoutes } from '../Routes';
 
 export type DemoDoneModalRoutesParams = {
   [DemoDoneModalRoutes.DemoDoneModal]: undefined;
@@ -46,7 +46,7 @@ const DemoDoneModalStack = () => {
   return (
     <DemoDoneModalNavigator.Navigator
       screenOptions={(navInfo) => ({
-        ...makeModalStackNavigatorOptions({ isVerticalLayout, navInfo }),
+        ...makeModalStackNavigatorOptions({ navInfo }),
       })}
     >
       {modalRoutes.map((route) => (

@@ -1,27 +1,42 @@
-import { useCallback } from 'react';
+import { memo, useCallback } from 'react';
 
-import { Header, getHeaderTitle } from '@react-navigation/elements';
+import { Header } from '@react-navigation/elements';
 import { StyleSheet } from 'react-native';
 import { Input } from 'tamagui';
 
-import { Stack } from '../../index';
+import { Stack, useThemeValue } from '../../index';
 
 import HeaderButtonBack from './HeaderButtonBack';
 
 import type { StackHeaderProps } from '../StackNavigator.native';
 import type { OneKeyStackHeaderProps } from './HeaderScreenOptions';
-import type { HeaderBackButtonProps } from '@react-navigation/elements/src/types';
+import type {
+  HeaderBackButtonProps,
+  HeaderOptions,
+} from '@react-navigation/elements/src/types';
 
-export default function HeaderView({
+function getHeaderTitle(
+  options: { title?: string; headerTitle?: HeaderOptions['headerTitle'] },
+  fallback: string,
+): string {
+  // eslint-disable-next-line no-nested-ternary
+  return typeof options?.headerTitle === 'string'
+    ? options?.headerTitle
+    : options?.title !== undefined
+    ? options?.title
+    : fallback;
+}
+
+function HeaderView({
   back: headerBack,
   options,
   route,
   navigation,
   isModelScreen = false,
   isRootScreen = false,
+  isFlowModelScreen = false,
 }: StackHeaderProps & OneKeyStackHeaderProps) {
   const {
-    headerTintColor,
     headerRight,
     headerTitle,
     headerTitleAlign,
@@ -29,9 +44,19 @@ export default function HeaderView({
     headerTransparent,
     headerBackground,
     headerSearchBarOptions,
-  } = options;
+  } = options || {};
 
+  const headerTintColor = useThemeValue('text');
+
+  const state = navigation?.getState();
   const canGoBack = headerBack !== undefined;
+  const topStack = (state?.index ?? 0) === 0;
+
+  console.log('=====>>>>> HeaderView', {
+    state,
+    canGoBack,
+    topStack,
+  });
 
   const onBackCallback = useCallback(() => {
     if (canGoBack) {
@@ -45,33 +70,43 @@ export default function HeaderView({
     (props: HeaderBackButtonProps) => (
       <HeaderButtonBack
         {...props}
-        canGoBack={canGoBack}
+        canGoBack={!topStack}
         onPress={onBackCallback}
         isRootScreen={isRootScreen}
         isModelScreen={isModelScreen}
       />
     ),
-    [canGoBack, isModelScreen, isRootScreen, onBackCallback],
+    [isModelScreen, isRootScreen, onBackCallback, topStack],
   );
 
   return (
     <Stack
-      flex={1}
       px="$5"
-      $xs={{
+      $md={{
         flexDirection: 'column',
       }}
-      $lg={{
+      $gtMd={{
         flexDirection: 'row',
       }}
+      borderTopLeftRadius={isFlowModelScreen ? '$2' : 0}
+      borderTopRightRadius={isFlowModelScreen ? '$2' : 0}
       backgroundColor="$bg"
+      overflow="hidden"
       borderBottomWidth={StyleSheet.hairlineWidth}
       borderBottomColor="$borderSubdued"
       // shadowColor="$borderSubdued"
     >
-      <Stack flex={1}>
+      <Stack
+        $md={{
+          width: '100%',
+        }}
+        $gtMd={{
+          flex: 1,
+        }}
+      >
         <Header
           title={getHeaderTitle(options, route.name)}
+          // @ts-expect-error
           headerTintColor={headerTintColor}
           headerLeft={headerLeftView}
           headerRight={
@@ -100,11 +135,11 @@ export default function HeaderView({
       {!!headerSearchBarOptions && (
         <Stack
           flex={0}
-          $xs={{
+          $md={{
             pb: '$4',
             width: '100%',
           }}
-          $lg={{
+          $gtMd={{
             pl: '$5',
             py: '$3.5',
             width: '$60',
@@ -112,10 +147,10 @@ export default function HeaderView({
         >
           {/* demo */}
           <Input
-            $xs={{
+            $md={{
               height: '$9',
             }}
-            $lg={{
+            $gtMd={{
               height: '$8',
             }}
             borderWidth={1}
@@ -127,3 +162,5 @@ export default function HeaderView({
     </Stack>
   );
 }
+
+export default memo(HeaderView);

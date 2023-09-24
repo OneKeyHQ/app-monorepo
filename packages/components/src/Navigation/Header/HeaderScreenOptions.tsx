@@ -3,34 +3,35 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import HeaderButtonBack from './HeaderButtonBack';
 import HeaderView from './HeaderView';
 
-import type { StackHeaderProps } from '../StackNavigator';
+import type { StackHeaderProps } from '../StackNavigator.native';
 import type { HeaderBackButtonProps } from '@react-navigation/elements';
 import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
+import { hasNativeModal } from '../Navigator/CommonConfig.ts';
 
 export type OneKeyStackHeaderProps = {
+  navigation?: StackHeaderProps['navigation'];
   isModelScreen?: boolean;
   isRootScreen?: boolean;
-  navigation?: StackHeaderProps['navigation'];
+  isFlowModelScreen?: boolean;
 };
 
 export function makeHeaderScreenOptions({
-  navigation: iOSNavigation,
+  navigation: currentNavigation,
   isModelScreen = false,
   isRootScreen = false,
+  isFlowModelScreen = false,
 }: OneKeyStackHeaderProps): NativeStackNavigationOptions {
-  if (platformEnv.isNativeIOS) {
-    console.log('makeHeaderScreenOptions', {
-      canGoBack: iOSNavigation,
-      isModelScreen,
-      isRootScreen,
-    });
+  if (hasNativeModal) {
+    const state = currentNavigation?.getState();
+    const isCanGoBack = (state?.index ?? 0) > 0;
 
     return {
+      headerTransparent: false,
       headerLeft: (props: HeaderBackButtonProps) => (
         <HeaderButtonBack
           {...props}
-          onPress={iOSNavigation?.goBack}
-          canGoBack={iOSNavigation?.canGoBack?.()}
+          onPress={currentNavigation?.goBack}
+          canGoBack={isCanGoBack}
           isModelScreen={isModelScreen}
           isRootScreen={isRootScreen}
         />
@@ -40,6 +41,7 @@ export function makeHeaderScreenOptions({
 
   return {
     headerTitleAlign: 'left',
+    headerTransparent: false,
     header: ({
       back: headerBack,
       options,
@@ -53,6 +55,7 @@ export function makeHeaderScreenOptions({
         navigation={navigation}
         isModelScreen={isModelScreen}
         isRootScreen={isRootScreen}
+        isFlowModelScreen={isFlowModelScreen}
       />
     ),
   };

@@ -21,13 +21,14 @@ import { Context } from '@onekeyhq/components/src/Provider/hooks/useProviderValu
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import useProviderSideBarValue from '../../../Provider/hooks/useProviderSideBarValue';
+
 import type { ICON_NAMES } from '../../../Icon';
 import type {
   BottomTabBarProps,
   BottomTabNavigationOptions,
 } from '@react-navigation/bottom-tabs/src/types';
 import type { NavigationState } from '@react-navigation/routers/src/types';
-import useProviderSideBarValue from '../../../Provider/hooks/useProviderSideBarValue';
 
 function TabItemView({
   isActive,
