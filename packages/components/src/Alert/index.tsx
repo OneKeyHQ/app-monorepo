@@ -1,10 +1,18 @@
 import type { ComponentProps } from 'react';
-import { type FC, cloneElement, useContext } from 'react';
+import {
+  type FC,
+  cloneElement,
+  useCallback,
+  useContext,
+  useState,
+} from 'react';
 
+import { StyleSheet } from 'react-native';
 import { Stack, XStack, YStack, createStyledContext, styled } from 'tamagui';
 
 import { Button } from '../Button';
 import { Icon } from '../Icon';
+import { IconButton } from '../IconButton';
 import { Text } from '../Text';
 
 import type { ColorTokens } from 'tamagui';
@@ -12,9 +20,10 @@ import type { ColorTokens } from 'tamagui';
 type AlertType = 'info' | 'warning' | 'critical' | 'success' | 'default';
 
 type AlertActionProps = {
-  title: string;
-  description?: string;
-  onPress?: () => void;
+  primary: string;
+  onPrimaryPress?: () => void;
+  secondary?: string;
+  onSecondaryPress?: () => void;
 };
 
 const AlertContext = createStyledContext<{
@@ -27,6 +36,7 @@ type AlertProps = {
   type?: AlertType;
   title: string;
   description: string;
+  closable?: boolean;
   icon?: ComponentProps<typeof Icon>['name'];
   action?: AlertActionProps;
 };
@@ -39,7 +49,7 @@ const AlertFrame = styled(XStack, {
   backgroundColor: '$bgSubdued',
   borderColor: '$borderSubdued',
   borderRadius: '$radius.3',
-  borderWidth: '$px',
+  borderWidth: StyleSheet.hairlineWidth,
   variants: {
     type: {
       info: {
@@ -84,38 +94,57 @@ export const Alert: FC<AlertProps> = ({
   icon,
   title,
   description,
+  closable,
   type,
   action,
-}) => (
-  <AlertFrame space="$2" type={type}>
-    {icon ? (
-      <Stack>
-        <AlertIcon>
-          <Icon name={icon} />
-        </AlertIcon>
-      </Stack>
-    ) : null}
-    <YStack space="$1">
-      <Text variant="$bodyMdMedium">{title}</Text>
-      <Text variant="$bodyMd" color="$textSubdued">
-        {description}
-      </Text>
-      {action ? (
-        <XStack pt="$2" space="$4" alignItems="center">
-          <Button
-            size="small"
-            buttonVariant="secondary"
-            onPress={action.onPress}
-          >
-            <Button.Text>{action.title}</Button.Text>
-          </Button>
-          {action.description ? (
-            <Text variant="$bodyMdMedium" color="$textSubdued">
-              {action.description}
-            </Text>
-          ) : null}
-        </XStack>
+}) => {
+  const [show, setShow] = useState(true);
+  const onClose = useCallback(() => setShow(false), []);
+  if (!show) {
+    return null;
+  }
+  return (
+    <AlertFrame space="$2" type={type}>
+      {icon ? (
+        <Stack>
+          <AlertIcon>
+            <Icon name={icon} size="$5" />
+          </AlertIcon>
+        </Stack>
       ) : null}
-    </YStack>
-  </AlertFrame>
-);
+      <YStack flex={1} space="$1">
+        <Text variant="$bodyMdMedium">{title}</Text>
+        <Text variant="$bodyMd" color="$textSubdued">
+          {description}
+        </Text>
+        {action ? (
+          <XStack pt="$2" space="$4" alignItems="center">
+            <Button
+              size="small"
+              buttonVariant="secondary"
+              onPress={action.onPrimaryPress}
+            >
+              <Button.Text>{action.primary}</Button.Text>
+            </Button>
+            {action.secondary ? (
+              <Button
+                size="small"
+                buttonVariant="tertiary"
+                onPress={action.onSecondaryPress}
+              >
+                <Button.Text> {action.secondary}</Button.Text>
+              </Button>
+            ) : null}
+          </XStack>
+        ) : null}
+      </YStack>
+      {closable ? (
+        <YStack>
+          <IconButton buttonVariant="tertiary" size="small" onPress={onClose}>
+            <IconButton.Icon name="CrossedSmallSolid" />
+          </IconButton>
+        </YStack>
+      ) : null}
+    </AlertFrame>
+  );
+};

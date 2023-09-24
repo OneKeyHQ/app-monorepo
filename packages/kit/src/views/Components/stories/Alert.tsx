@@ -25,7 +25,7 @@ const ButtonsGallery = () => (
               <Alert
                 title="Title"
                 description="Description here..."
-                icon="ExclamationCircleMini"
+                icon="PlaceholderOutline"
               >
                 Badge
               </Alert>
@@ -33,7 +33,7 @@ const ButtonsGallery = () => (
                 type="success"
                 title="Title"
                 description="Description here..."
-                icon="ExclamationCircleMini"
+                icon="PlaceholderOutline"
               >
                 Badge
               </Alert>
@@ -41,8 +41,18 @@ const ButtonsGallery = () => (
                 type="critical"
                 title="Title"
                 description="Description here..."
-                icon="ExclamationCircleMini"
-                action={{ title: 'Action', description: 'Learn More' }}
+                icon="PlaceholderOutline"
+                action={{ primary: 'Action' }}
+              >
+                Badge
+              </Alert>
+              <Alert
+                type="success"
+                title="Title"
+                description="Description here..."
+                icon="PlaceholderOutline"
+                closable
+                action={{ primary: 'Action', secondary: 'Learn More' }}
               >
                 Badge
               </Alert>
