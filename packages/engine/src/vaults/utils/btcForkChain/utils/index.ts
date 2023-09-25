@@ -150,9 +150,6 @@ export function getBip32FromBase58({
   if (!impl) {
     throw new Error(`impl not found from coinType: ${coinType}`);
   }
-  const buffer = bs58check.decode(key);
-  const version = buffer.readUInt32BE(0);
-
   let network: Network | undefined;
   if (impl === IMPL_BTC) {
     network = allBtcForkNetworks.btc;
@@ -167,14 +164,17 @@ export function getBip32FromBase58({
   // const accountNameInfoMap = getAccountNameInfoByImpl(IMPL_BTC);
   // const accountNameInfo = Object.values(accountNameInfoMap);
 
+  const buffer = bs58check.decode(key);
+  const version = buffer.readUInt32BE(0);
+
   const versionByteOptions = [
     network.bip32,
     ...Object.values(network.segwitVersionBytes || {}),
   ];
-  let bip32Info = network.bip32;
+  let bip32Info = cloneDeep(network.bip32);
   for (const versionByte of versionByteOptions) {
     if (versionByte.private === version || versionByte.public === version) {
-      bip32Info = versionByte;
+      bip32Info = cloneDeep(versionByte);
       break;
     }
   }
