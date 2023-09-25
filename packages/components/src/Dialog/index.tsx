@@ -5,16 +5,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Adapt,
   Sheet,
-  Stack,
   Dialog as TMDialog,
-  YStack,
   withStaticProperties,
 } from 'tamagui';
 
 import { Button } from '../Button';
 import { type ICON_NAMES, Icon } from '../Icon';
 import { removePortalComponent, setPortalComponent } from '../Portal';
-import { XStack } from '../Stack';
+import { Stack, XStack, YStack } from '../Stack';
 import { Text } from '../Text';
 
 import type { GetProps } from 'tamagui';
