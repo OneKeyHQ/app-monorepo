@@ -2,13 +2,14 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable no-bitwise */
 
+import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
+
 import { Helper } from './helper';
 import * as moneroAddress from './moneroAddress';
 import { getMoneroCoreInstance } from './moneroCore/instance';
 import { getMoneroUtilInstance } from './moneroUtil/instance';
 import { privateSpendKeyToWords } from './moneroWords';
 
-import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 import type { IMoneroApi } from './types';
 
 async function getMoneroApi(): Promise<IMoneroApi> {

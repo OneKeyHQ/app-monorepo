@@ -1,7 +1,7 @@
-import { Helper } from '@onekeyhq/engine/src/vaults/impl/xmr/sdk/helper';
-import { getMoneroCoreInstance } from '@onekeyhq/engine/src/vaults/impl/xmr/sdk/moneroCore/instance';
-import { getMoneroUtilInstance } from '@onekeyhq/engine/src/vaults/impl/xmr/sdk/moneroUtil/instance';
-import type { IMoneroApiWebembed } from '@onekeyhq/engine/src/vaults/impl/xmr/sdk/types';
+import { Helper } from '@onekeyhq/core/src/chains/xmr/sdkXmr/helper';
+import { getMoneroCoreInstance } from '@onekeyhq/core/src/chains/xmr/sdkXmr/moneroCore/instance';
+import { getMoneroUtilInstance } from '@onekeyhq/core/src/chains/xmr/sdkXmr/moneroUtil/instance';
+import type { IMoneroApiWebembed } from '@onekeyhq/core/src/chains/xmr/sdkXmr/types';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 const getMoneroApi = memoizee(

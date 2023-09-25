@@ -256,11 +256,11 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return new Psbt({ network });
   }
 
-  private async getSignersMap({
+  private async buildSignersMap({
     payload,
   }: {
     payload: ICoreApiSignBasePayload;
-  }): Promise<{ [address: string]: ISigner }> {
+  }): Promise<Partial<{ [address: string]: ISigner }>> {
     const { password } = payload;
     const privateKeys = await this.getPrivateKeysInFullPath({
       payload,
@@ -275,7 +275,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
           'getSignersMap ERROR: address is required, is privateKeys including fullPath?',
         );
       }
-      signers[address] = await this.getSignerBtc({
+      signers[address] = await this.buildSignerBtc({
         privateKey,
         password,
       });
@@ -283,7 +283,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return signers;
   }
 
-  private getSignerBtc({
+  private buildSignerBtc({
     privateKey,
     password,
   }: {
@@ -335,7 +335,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     payload,
   }: {
     network: IBtcForkNetwork;
-    signers: { [address: string]: ISigner };
+    signers: Partial<{ [address: string]: ISigner }>;
     payload: ICoreApiSignTxPayload;
   }) {
     const { unsignedTx, btcExtraInfo } = payload;
@@ -361,6 +361,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       const encoding = inputAddressesEncodings[i];
       const mixin: TransactionMixin = {};
 
+      const signer = this.pickSigner(signers, input.address);
+
       switch (encoding) {
         case AddressEncodings.P2PKH:
           mixin.nonWitnessUtxo = Buffer.from(
@@ -372,7 +374,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
           mixin.witnessUtxo = {
             script: checkIsDefined(
               this.pubkeyToPayment({
-                pubkey: await signers[input.address].getPubkey(true),
+                pubkey: await signer.getPubkey(true),
                 encoding,
                 network,
               }),
@@ -384,7 +386,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
           {
             const payment = checkIsDefined(
               this.pubkeyToPayment({
-                pubkey: await signers[input.address].getPubkey(true),
+                pubkey: await signer.getPubkey(true),
                 encoding,
                 network,
               }),
@@ -400,7 +402,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
           {
             const payment = checkIsDefined(
               this.pubkeyToPayment({
-                pubkey: await signers[input.address].getPubkey(true),
+                pubkey: await signer.getPubkey(true),
                 encoding,
                 network,
               }),
@@ -553,7 +555,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }: {
     account: ICoreApiSignAccount;
     message: string;
-    signers: { [address: string]: ISigner };
+    signers: Partial<{ [address: string]: ISigner }>;
     psbtNetwork: networks.Network;
   }) {
     initBitcoinEcc();
@@ -627,12 +629,12 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }: {
     network: IBtcForkNetwork;
     psbt: Psbt;
-    signers: { [address: string]: ISigner };
+    signers: Partial<{ [address: string]: ISigner }>;
     inputsToSign: InputToSign[];
   }) {
     for (let i = 0, len = inputsToSign.length; i < len; i += 1) {
       const input = inputsToSign[i];
-      const signer = signers[input.address];
+      const signer = this.pickSigner(signers, input.address);
       const bitcoinSigner = await this.getBitcoinSignerPro({
         network,
         signer,
@@ -885,7 +887,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const network = getBtcForkNetwork(networkChainCode);
 
     // build signers
-    const signers = await this.getSignersMap({
+    const signers = await this.buildSignersMap({
       payload,
     });
 
@@ -910,7 +912,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     // eslint-disable-next-line no-plusplus
     for (let i = 0; i < unsignedTx.inputs.length; ++i) {
       const { address } = unsignedTx.inputs[i];
-      const signer = signers[address];
+      const signer = this.pickSigner(signers, address);
       const psbtInput = psbt.data.inputs[0];
       const bitcoinSigner = await this.getBitcoinSignerPro({
         signer,
@@ -931,6 +933,17 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     };
   }
 
+  pickSigner(
+    signers: Partial<{ [address: string]: ISigner }>,
+    address: string,
+  ) {
+    const signer = signers[address];
+    if (!signer) {
+      throw new Error(`BTC signer not found: ${address}`);
+    }
+    return signer;
+  }
+
   override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
     const {
       account,
@@ -946,7 +959,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const unsignedMsg = payload.unsignedMsg as IUnsignedMessageBtc;
     const network = getBtcForkNetwork(networkChainCode);
 
-    const signers = await this.getSignersMap({ payload });
+    const signers = await this.buildSignersMap({ payload });
 
     if (unsignedMsg.type === EMessageTypesBtc.BIP322_SIMPLE) {
       const buffer = await this.signBip322MessageSimple({
@@ -958,7 +971,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       return bufferUtils.bytesToHex(buffer);
     }
 
-    const signer = signers[account.address];
+    const signer = this.pickSigner(signers, account.address);
+
     const privateKey = await signer.getPrvkey();
     const keyPair = getBitcoinECPair().fromPrivateKey(privateKey, {
       network,

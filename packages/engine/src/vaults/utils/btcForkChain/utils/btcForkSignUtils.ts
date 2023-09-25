@@ -1,4 +1,4 @@
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import type { InputToSign } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.types';
 
 import type { DBAccount } from '../../../../types/account';
 import type { IUnsignedMessageBtc } from '../../../../types/message';
@@ -8,9 +8,10 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '../../../types';
+import type { TxInput } from '../types';
 import type VaultBtcFork from '../VaultBtcFork';
 
-async function getBtcRelPathToAddress({
+async function getRelPathToAddressByBlockbookApi({
   vault,
   addresses,
   options,
@@ -32,7 +33,7 @@ async function getBtcRelPathToAddress({
     };
   } = {};
 
-  // add all addresses from utxos
+  // add all matched addresses from utxos
   for (const utxo of utxos) {
     const { address, path } = utxo;
     if (addresses.includes(address)) {
@@ -44,7 +45,7 @@ async function getBtcRelPathToAddress({
     }
   }
 
-  // always add first account address
+  // always add first account (path=0/0) address
   const firstRelPath = '0/0';
   const firstFullPath = [account.path, firstRelPath].join('/');
   if (!pathToAddresses[firstFullPath]) {
@@ -76,14 +77,14 @@ async function signMessageBtc(
   const dbAccount = await keyring.getDbAccount();
   const vault = keyring.vault as VaultBtcFork;
   const networkInfo = await keyring.baseGetCoreApiNetworkInfo();
-  const networkImpl = await keyring.getNetworkImpl();
+
   const addresses = [dbAccount.address];
 
   const {
     // required for multiple address signing
     relPaths,
     pathToAddresses,
-  } = await getBtcRelPathToAddress({
+  } = await getRelPathToAddressByBlockbookApi({
     vault,
     addresses,
     options,
@@ -92,8 +93,11 @@ async function signMessageBtc(
 
   const credentials = await keyring.baseGetCredentialsInfo(options);
   const result = await Promise.all(
-    messages.map((msg) =>
-      checkIsDefined(keyring.coreApi).signMessage({
+    messages.map((msg) => {
+      if (!keyring.coreApi) {
+        throw new Error('coreApi is not defined');
+      }
+      return keyring.coreApi.signMessage({
         unsignedMsg: msg,
         password,
         account: { ...dbAccount, relPaths },
@@ -102,8 +106,8 @@ async function signMessageBtc(
         btcExtraInfo: {
           pathToAddresses,
         },
-      }),
-    ),
+      });
+    }),
   );
   return result;
 }
@@ -113,25 +117,29 @@ async function signTransactionBtc(
   unsignedTx: IUnsignedTxPro,
   options: ISignCredentialOptions,
 ): Promise<ISignedTxPro> {
-  // return this.baseSignTransactionByChainApiBtc(unsignedTx, options);
+  if (!keyring.coreApi) {
+    throw new Error('coreApi is not defined');
+  }
 
   const { password } = options;
   const dbAccount = await keyring.getDbAccount();
-  const chainCode = (await keyring.getChainInfo()).code;
   const vault = keyring.vault as VaultBtcFork;
   const provider = await vault.getProvider();
-  const networkImpl = await keyring.getNetworkImpl();
   const networkInfo = await keyring.baseGetCoreApiNetworkInfo();
 
-  const addresses = (unsignedTx.inputsToSign || unsignedTx.inputs).map(
-    (input) => input.address,
-  );
+  const emptyInputs: Array<TxInput | InputToSign | undefined> = [];
+
+  const addresses: string[] = emptyInputs
+    .concat(unsignedTx.inputsToSign, unsignedTx.inputs)
+    .filter(Boolean)
+    .map((input) => input.address)
+    .concat(dbAccount.address);
 
   const {
     // required for multiple address signing
     relPaths,
     pathToAddresses,
-  } = await getBtcRelPathToAddress({
+  } = await getRelPathToAddressByBlockbookApi({
     vault,
     addresses,
     options,
@@ -142,7 +150,7 @@ async function signTransactionBtc(
     await provider.collectInfoForSoftwareSign(unsignedTx);
 
   const credentials = await keyring.baseGetCredentialsInfo(options);
-  const tx = await checkIsDefined(keyring.coreApi).signTransaction({
+  const tx = await keyring.coreApi.signTransaction({
     unsignedTx,
     password,
     account: { ...dbAccount, relPaths },
