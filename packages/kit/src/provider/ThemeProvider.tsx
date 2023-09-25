@@ -8,7 +8,6 @@ import { useThemeProviderVariant } from '../hooks/useThemeVariant';
 const ThemeApp: FC = ({ children }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { themeVariant } = useThemeProviderVariant();
-  console.log(themeVariant);
   return (
     <Provider
       themeVariant={themeVariant}

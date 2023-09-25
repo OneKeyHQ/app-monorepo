@@ -10,7 +10,6 @@ global.$navigationRef = navigationRef as any;
 
 const NavigationApp = () => {
   const background = useThemeValue('bg') as string;
-  console.log(background);
   return (
     <NavigationContainer
       theme={{
