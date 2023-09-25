@@ -161,15 +161,15 @@ export function getBip32FromBase58({
     network = allBtcForkNetworks.tbtc;
   }
   if (!network) {
-    throw new Error('network not found');
+    throw new Error(`network not support: ${impl}`);
   }
 
   // const accountNameInfoMap = getAccountNameInfoByImpl(IMPL_BTC);
   // const accountNameInfo = Object.values(accountNameInfoMap);
 
   const versionByteOptions = [
-    ...Object.values(network.segwitVersionBytes || {}),
     network.bip32,
+    ...Object.values(network.segwitVersionBytes || {}),
   ];
   let bip32Info = network.bip32;
   for (const versionByte of versionByteOptions) {
