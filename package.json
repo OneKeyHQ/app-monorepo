@@ -55,10 +55,9 @@
     "debug:android:tracker": "adb reverse tcp:8081 tcp:8081 && adb reverse tcp:8177 tcp:8177 && npx react-native-rempl",
     "debug:tracker": "npx react-native-rempl",
     "storybook": "yarn workspace @onekeyhq/components storybook",
-    "storybook:ios": "yarn storybook-generate && cross-env STORYBOOK_ENABLED='true' yarn ios:device",
-    "storybook:android": "yarn storybook-generate && cross-env STORYBOOK_ENABLED='true' yarn android:device",
-    "storybook-generate": "sb-rn-get-stories --config-path ./packages/components/.storybook-native",
-    "storybook-watch": "sb-rn-watcher"
+    "storybook:ios": "yarn storybook-generate && cross-env STORYBOOK_ENABLED=true yarn ios:device",
+    "storybook:android": "yarn storybook-generate && cross-env STORYBOOK_ENABLED=true yarn android:device",
+    "storybook-generate": "sb-rn-get-stories --config-path ./packages/components/.storybook-native"
   },
   "ultra": {
     "concurrent": [
