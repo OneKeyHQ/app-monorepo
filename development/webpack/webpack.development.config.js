@@ -1,5 +1,6 @@
 const path = require('path');
 const webpack = require('webpack');
+const fs = require('fs');
 const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
 const { WEB_PORT } = require('./constant');
 
@@ -43,7 +44,7 @@ module.exports = ({ basePath }) => ({
             // read node_modules/react-render-tracker/dist/react-render-tracker.js content
             const filePath = path.join(
               __dirname,
-              '../node_modules/react-render-tracker/dist/react-render-tracker.js',
+              '../../node_modules/react-render-tracker/dist/react-render-tracker.js',
             );
             fs.readFile(filePath, 'utf8', (err, data) => {
               if (err) {

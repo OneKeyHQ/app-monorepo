@@ -10,6 +10,9 @@ export { Alert } from './Alert';
 export { Divider } from './Divider';
 export { Spinner } from './Spinner';
 export { Dialog } from './Dialog';
+export { Portal, setPortalComponent, removePortalComponent } from './Portal';
+
+export { ToastProvider, ToastController } from './Toast';
 
 export { useThemeValue } from './Provider/hooks/useThemeValue';
 export { useIsMounted } from './Provider/hooks/useIsMounted';
