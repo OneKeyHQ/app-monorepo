@@ -1,8 +1,8 @@
 import bs58check from 'bs58check';
 
 import type { ExtendedKey } from '@onekeyhq/engine/src/secret';
-import { BaseBip32KeyDeriver } from '@onekeyhq/engine/src/secret/bip32';
 import type { Bip32KeyDeriver } from '@onekeyhq/engine/src/secret/bip32';
+import { BaseBip32KeyDeriver } from '@onekeyhq/engine/src/secret/bip32';
 import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
 import {
   decrypt,
@@ -18,7 +18,7 @@ import { AccountType } from '../../../types/account';
 import { BtcMessageTypes } from '../../../types/message';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
-import { getBitcoinBip32, getBitcoinECPair, initBitcoinEcc } from './utils';
+import { getBip32FromBase58, getBitcoinECPair, initBitcoinEcc } from './utils';
 
 import type { DBUTXOAccount } from '../../../types/account';
 import type { IUnsignedMessageBtc } from '../../impl/btc/types';
@@ -180,6 +180,13 @@ export class KeyringImported extends KeyringImportedBase {
   ): Promise<string[]> {
     initBitcoinEcc();
     debugLogger.common.info('BTCFork signMessage', messages);
+
+    const provider = await (
+      this.vault as unknown as BTCForkVault
+    ).getProvider();
+
+    const COIN_TYPE = (this.vault as unknown as BTCForkVault).getCoinType();
+
     const { password = '' } = options;
 
     const account = await this.engine.getAccount(
@@ -189,14 +196,16 @@ export class KeyringImported extends KeyringImportedBase {
 
     const [encryptedXprv] = Object.values(await this.getPrivateKeys(password));
     const xprv = bs58check.encode(decrypt(password, encryptedXprv));
-    const node = getBitcoinBip32().fromBase58(xprv).derivePath('0/0');
+
+    const node = getBip32FromBase58({
+      coinType: COIN_TYPE,
+      key: xprv,
+    }).derivePath('0/0');
+
     const keyPair = getBitcoinECPair().fromWIF(node.toWIF());
 
     const network = await this.getNetwork();
     const path = `${account.path}/0/0`;
-    const provider = await (
-      this.vault as unknown as BTCForkVault
-    ).getProvider();
 
     const result: Buffer[] = [];
 

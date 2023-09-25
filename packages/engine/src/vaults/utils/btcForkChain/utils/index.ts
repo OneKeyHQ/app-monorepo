@@ -1,20 +1,27 @@
 import { BIP32Factory } from 'bip32';
 import * as BitcoinJS from 'bitcoinjs-lib';
+import bs58check from 'bs58check';
 import { ECPairFactory } from 'ecpair';
+import { cloneDeep } from 'lodash';
+
+import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { NotImplemented } from '../../../../errors';
+import { getImplByCoinType } from '../../../../managers/impl';
 import { Tx } from '../../../impl/btc/inscribe/sdk';
+import { allBtcForkNetworks } from '../provider/networks';
 import ecc from '../provider/nobleSecp256k1Wrapper';
 import { AddressEncodings } from '../types';
 
 import type { DBUTXOAccount } from '../../../../types/account';
+import type { Network } from '../provider/networks';
 import type { Networks } from '@cmdcode/tapscript';
 import type { BIP32API } from 'bip32/types/bip32';
 import type { TinySecp256k1Interface } from 'bitcoinjs-lib/src/types';
 import type { ECPairAPI } from 'ecpair/src/ecpair';
 
-export * from './tapRootAccountUtils';
 export * from './coinSelectUtils';
+export * from './tapRootAccountUtils';
 
 type IAccountDefault = {
   namePrefix: string;
@@ -130,4 +137,49 @@ export function getBitcoinECPair() {
     ECPair = ECPairFactory(ecc);
   }
   return ECPair;
+}
+
+export function getBip32FromBase58({
+  coinType,
+  key,
+}: {
+  coinType: string;
+  key: string;
+}) {
+  const impl = getImplByCoinType(coinType);
+  if (!impl) {
+    throw new Error(`impl not found from coinType: ${coinType}`);
+  }
+  const buffer = bs58check.decode(key);
+  const version = buffer.readUInt32BE(0);
+
+  let network: Network | undefined;
+  if (impl === IMPL_BTC) {
+    network = allBtcForkNetworks.btc;
+  }
+  if (impl === IMPL_TBTC) {
+    network = allBtcForkNetworks.tbtc;
+  }
+  if (!network) {
+    throw new Error('network not found');
+  }
+
+  // const accountNameInfoMap = getAccountNameInfoByImpl(IMPL_BTC);
+  // const accountNameInfo = Object.values(accountNameInfoMap);
+
+  const versionByteOptions = [
+    ...Object.values(network.segwitVersionBytes || {}),
+    network.bip32,
+  ];
+  let bip32Info = network.bip32;
+  for (const versionByte of versionByteOptions) {
+    if (versionByte.private === version || versionByte.public === version) {
+      bip32Info = versionByte;
+      break;
+    }
+  }
+  const newNetwork = cloneDeep(network);
+  newNetwork.bip32 = bip32Info;
+  const bip32Api = getBitcoinBip32().fromBase58(key, newNetwork);
+  return bip32Api;
 }
