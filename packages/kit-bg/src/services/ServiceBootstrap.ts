@@ -9,7 +9,7 @@ import {
 } from '@onekeyhq/engine/src/managers/impl';
 import { getPresetNetworks } from '@onekeyhq/engine/src/presets';
 import type { DBUTXOAccount } from '@onekeyhq/engine/src/types/account';
-import { getBitcoinBip32 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
+import { getBip32FromBase58 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
 import {
   setAccountDerivationDbMigrationVersion,
   setMigrationVersions,
@@ -27,6 +27,7 @@ import {
   COINTYPE_BTC,
   COINTYPE_COSMOS,
   COINTYPE_SUI,
+  COINTYPE_TBTC,
   FIX_BTC_PUB_DB_MIGRATION_VERSION,
   FIX_COSMOS_TEMPLATE_DB_MIGRATION_VERSION,
   IMPL_COSMOS,
@@ -464,16 +465,19 @@ export default class ServiceBootstrap extends ServiceBase {
           // check all hd/hw/imported btc accounts
           const accounts = allAccounts.filter(
             (account) =>
-              account.coinType === COINTYPE_BTC &&
+              [COINTYPE_BTC, COINTYPE_TBTC].includes(account.coinType) &&
               !isWatchingAccount({ accountId: account.id }),
           ) as DBUTXOAccount[];
           for (const account of accounts) {
             debugLogger.common.info(
               `migrate account: ${JSON.stringify(account)}`,
             );
-            const node = getBitcoinBip32()
-              .fromBase58(account.xpub)
-              .derivePath('0/0');
+
+            const node = getBip32FromBase58({
+              coinType: account.coinType,
+              key: account.xpub,
+            }).derivePath('0/0');
+
             const pub = node.publicKey.toString('hex');
 
             // @ts-ignore

@@ -8,7 +8,7 @@ import { OneKeyInternalError } from '../../../errors';
 import { AccountType } from '../../../types/account';
 import { AddressEncodings } from '../../utils/btcForkChain/types';
 import {
-  getBitcoinBip32,
+  getBip32FromBase58,
   initBitcoinEcc,
 } from '../../utils/btcForkChain/utils';
 
@@ -80,9 +80,11 @@ export class KeyringImported extends KeyringImportedBtcFork {
       addressEncoding,
     );
 
-    const node = getBitcoinBip32()
-      .fromBase58(privateKeyString)
-      .derivePath(firstAddressRelPath);
+    const node = getBip32FromBase58({
+      coinType: COIN_TYPE,
+      key: privateKeyString,
+    }).derivePath(firstAddressRelPath);
+
     pub = node.publicKey.toString('hex');
 
     return Promise.resolve([
