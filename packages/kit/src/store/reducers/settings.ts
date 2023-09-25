@@ -3,21 +3,21 @@ import { dequal as deepEqual } from 'dequal';
 import { debounce, uniq } from 'lodash';
 import uuid from 'react-native-uuid';
 
-import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
+// import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import type { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
-import type { FirmwareType } from '@onekeyhq/kit/src/views/Hardware/UpdateFirmware/Updating';
+// import type { FirmwareType } from '@onekeyhq/kit/src/views/Hardware/UpdateFirmware/Updating';
 import { defaultHapticStatus } from '@onekeyhq/shared/src/haptics';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnekeyDomain } from '@onekeyhq/shared/types';
 
-import { ValidationFields } from '../../components/Protected/types';
+// import { ValidationFields } from '../../components/Protected/types';
 
-import type {
-  BLEFirmwareInfo,
-  SYSFirmwareInfo,
-  VersionInfo,
-} from '../../utils/updates/type';
+// import type {
+//   BLEFirmwareInfo,
+//   SYSFirmwareInfo,
+//   VersionInfo,
+// } from '../../utils/updates/type';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { ImageSourcePropType } from 'react-native';
 
@@ -51,8 +51,8 @@ export type ISettingsDevModeInfo = {
 };
 export type SettingsState = {
   theme: ThemeVariant | 'system';
-  lastLocale: LocaleSymbol;
-  locale: LocaleSymbol;
+  // lastLocale: LocaleSymbol;
+  // locale: LocaleSymbol;
   version: string;
   buildNumber?: string;
   instanceId: string;
@@ -86,12 +86,12 @@ export type SettingsState = {
     priceAlertEnable: boolean;
     accountActivityPushEnable: boolean;
   };
-  validationSetting?: {
-    [ValidationFields.Account]?: boolean;
-    [ValidationFields.Payment]?: boolean;
-    [ValidationFields.Secret]?: boolean;
-    [ValidationFields.Wallet]?: boolean;
-  };
+  // validationSetting?: {
+  //   [ValidationFields.Account]?: boolean;
+  //   [ValidationFields.Payment]?: boolean;
+  //   [ValidationFields.Secret]?: boolean;
+  //   [ValidationFields.Wallet]?: boolean;
+  // };
   hideSmallBalance?: boolean;
   hideRiskTokens?: boolean;
   putMainTokenOnTop?: boolean;
@@ -112,9 +112,9 @@ export type SettingsState = {
     verification?: Record<string, boolean>; // connectId -> verified
     versions?: Record<string, string>; // connectId -> version
   };
-  softwareUpdate?: {
-    forceUpdateVersionInfo?: VersionInfo;
-  };
+  // softwareUpdate?: {
+  //   forceUpdateVersionInfo?: VersionInfo;
+  // };
   leftSidebarCollapsed?: boolean;
   enableETH2Unstake?: boolean;
   advancedSettings?: {
@@ -167,12 +167,12 @@ const initialState: SettingsState = {
     onRamperTestMode: false,
   },
   pushNotification: defaultPushNotification,
-  validationSetting: {
-    [ValidationFields.Account]: false,
-    [ValidationFields.Payment]: false,
-    [ValidationFields.Secret]: false,
-    [ValidationFields.Wallet]: false,
-  },
+  // validationSetting: {
+  //   [ValidationFields.Account]: false,
+  //   [ValidationFields.Payment]: false,
+  //   [ValidationFields.Secret]: false,
+  //   [ValidationFields.Wallet]: false,
+  // },
   hideSmallBalance: false,
   hideRiskTokens: true,
   putMainTokenOnTop: false,

@@ -73,7 +73,7 @@ const Provider: FC<UIProviderProps> = ({
       setLeftSidebarCollapsed,
     ],
   );
-
+  console.log('themeVariant', themeVariant);
   return (
     <FontProvider waitFontLoaded={waitFontLoaded}>
       <Context.Provider value={providerValue}>
