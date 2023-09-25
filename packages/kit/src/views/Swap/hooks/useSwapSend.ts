@@ -8,6 +8,7 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -106,30 +107,33 @@ export function useSwapSend() {
           onFail?.(e as Error);
         }
       } else {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.Send,
-          params: {
-            screen: SendModalRoutes.SendConfirm,
+        const delay = platformEnv.isNative ? 10 : 100;
+        setTimeout(() => {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.Send,
             params: {
-              accountId,
-              networkId,
-              payloadInfo,
-              feeInfoEditable: true,
-              feeInfoUseFeeInTx: false,
-              encodedTx,
-              prepaidFee,
-              hideSendFeedbackReceipt: !showSendFeedbackReceipt,
-              onDetail,
-              onFail,
-              onSuccess: (result, data) => {
-                onSuccess?.({
-                  result,
-                  decodedTx: data?.decodedTx ?? undefined,
-                });
+              screen: SendModalRoutes.SendConfirm,
+              params: {
+                accountId,
+                networkId,
+                payloadInfo,
+                feeInfoEditable: true,
+                feeInfoUseFeeInTx: false,
+                encodedTx,
+                prepaidFee,
+                hideSendFeedbackReceipt: !showSendFeedbackReceipt,
+                onDetail,
+                onFail,
+                onSuccess: (result, data) => {
+                  onSuccess?.({
+                    result,
+                    decodedTx: data?.decodedTx ?? undefined,
+                  });
+                },
               },
             },
-          },
-        });
+          });
+        }, delay);
       }
     },
     [validationSetting, navigation],
