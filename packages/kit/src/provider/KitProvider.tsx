@@ -1,13 +1,15 @@
 import { type FC } from 'react';
 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Provider as ReduxProvider } from 'react-redux';
 
 import { Portal } from '@onekeyhq/components';
+import store from '@onekeyhq/kit/src/store';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import AppLoading from './AppLoading';
 import NavigationProvider from './NavigationProvider';
-import Provider from './ThemeProvider';
+import ThemeProvider from './ThemeProvider';
 
 if (platformEnv.isRuntimeBrowser) {
   // FIXME need reanimated update, see https://github.com/software-mansion/react-native-reanimated/issues/3355
@@ -19,14 +21,16 @@ const flexStyle = { flex: 1 };
 
 // TODO: detect network change & APP in background mode
 const KitProvider: FC = () => (
-  <Provider>
-    <AppLoading>
-      <GestureHandlerRootView style={flexStyle}>
-        <NavigationProvider />
-      </GestureHandlerRootView>
-    </AppLoading>
-    <Portal />
-  </Provider>
+  <ReduxProvider store={store}>
+    <ThemeProvider>
+      <AppLoading>
+        <GestureHandlerRootView style={flexStyle}>
+          <NavigationProvider />
+        </GestureHandlerRootView>
+      </AppLoading>
+      <Portal />
+    </ThemeProvider>
+  </ReduxProvider>
 );
 
 export default KitProvider;

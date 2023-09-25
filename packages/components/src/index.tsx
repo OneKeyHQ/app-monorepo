@@ -12,6 +12,9 @@ export { Spinner } from './Spinner';
 export { Dialog } from './Dialog';
 export { Portal, setPortalComponent, removePortalComponent } from './Portal';
 
+export type { LocaleSymbol, LocaleIds } from './locale';
+export { LOCALES_OPTION } from './locale';
+
 export { ToastProvider, ToastController } from './Toast';
 
 export { useThemeValue } from './Provider/hooks/useThemeValue';

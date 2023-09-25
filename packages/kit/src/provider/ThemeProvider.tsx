@@ -1,24 +1,22 @@
 import type { ComponentProps, FC } from 'react';
 import { memo, useState } from 'react';
 
-import { Provider as ReduxProvider } from 'react-redux';
-
 import { Provider, ToastProvider } from '@onekeyhq/components';
-import store from '@onekeyhq/kit/src/store';
+
+import { useThemeProviderVariant } from '../hooks/useThemeVariant';
 
 const ThemeApp: FC = ({ children }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  console.log(store.getState());
+  const { themeVariant } = useThemeProviderVariant();
+  console.log(themeVariant);
   return (
-    <ReduxProvider store={store}>
-      <Provider
-        themeVariant="light"
-        leftSidebarCollapsed={isCollapsed}
-        setLeftSidebarCollapsed={setIsCollapsed}
-      >
-        <ToastProvider>{children}</ToastProvider>
-      </Provider>
-    </ReduxProvider>
+    <Provider
+      themeVariant={themeVariant}
+      leftSidebarCollapsed={isCollapsed}
+      setLeftSidebarCollapsed={setIsCollapsed}
+    >
+      <ToastProvider>{children}</ToastProvider>
+    </Provider>
   );
 };
 
