@@ -1,26 +1,41 @@
 import { useMemo } from 'react';
 
-import { Adapt, Sheet, Select as TMSelect } from 'tamagui';
+import { StyleSheet } from 'react-native';
+import { Adapt, Sheet, Select as TMSelect, useMedia } from 'tamagui';
 import { LinearGradient } from 'tamagui/linear-gradient';
 
 import { Icon } from '../Icon';
-import { YStack } from '../Stack';
+import { IconButton } from '../IconButton';
+import useSafeAreaInsets from '../Provider/hooks/useSafeAreaInsets';
+import { XStack, YStack } from '../Stack';
+import { Text } from '../Text';
 
-import type { SelectProps as TMSelectProps } from 'tamagui';
+import type { SheetProps, SelectProps as TMSelectProps } from 'tamagui';
 
 interface SelectProps extends TMSelectProps {
-  data: Array<{ other?: any; name: string | number }>;
+  data: Array<{ name: string | number }>;
+  snapPointsMode?: SheetProps['snapPointsMode'];
+  title: string;
 }
 
-function Select({ data, ...props }: SelectProps) {
+function Select({
+  data,
+  snapPointsMode,
+  title = 'Title',
+  ...props
+}: SelectProps) {
+  const { bottom } = useSafeAreaInsets();
+  const media = useMedia();
+
   return (
-    <TMSelect {...props}>
+    <TMSelect {...props} disablePreventBodyScroll>
       <TMSelect.Trigger
         unstyled
         borderRadius="$2"
         borderColor="$borderStrong"
         borderWidth="$px"
-        paddingHorizontal="$3"
+        paddingLeft="$3"
+        paddingRight="$2"
         paddingVertical="$1.5"
         backgroundColor="$transparent"
         width="$56"
@@ -29,31 +44,63 @@ function Select({ data, ...props }: SelectProps) {
         <TMSelect.Value
           placeholder="Something"
           unstyled
-          fontSize="$bodyLgMedium"
-          fontWeight="$bodyLgMedium"
+          fontSize="$bodyLg"
+          fontWeight="$bodyLg"
         />
-        <Icon color="$iconSubdued" name="ChevronDownSmallOutline" />
+        <XStack>
+          <Icon color="$iconSubdued" name="ChevronDownSmallOutline" size="$5" />
+        </XStack>
       </TMSelect.Trigger>
       <Adapt when="md">
         <Sheet
-          native={!!props.native}
           modal
           dismissOnSnapToBottom
-          animationConfig={{
-            type: 'spring',
-            damping: 20,
-            mass: 1.2,
-            stiffness: 250,
-          }}
+          animation="quick"
+          snapPointsMode={snapPointsMode}
         >
-          <Sheet.Frame>
-            <Sheet.ScrollView>
-              <Adapt.Contents />
-            </Sheet.ScrollView>
+          <Sheet.Frame unstyled>
+            <>
+              <XStack
+                borderTopLeftRadius="$6"
+                borderTopRightRadius="$6"
+                backgroundColor="$bg"
+                marginHorizontal="$5"
+                paddingHorizontal="$5"
+                paddingVertical="$4"
+                justifyContent="space-between"
+                borderBottomWidth={StyleSheet.hairlineWidth}
+                borderBottomColor="$borderSubdued"
+                alignItems="center"
+              >
+                <Text variant="$headingLg" color="$text">
+                  {title}
+                </Text>
+                <IconButton
+                  buttonVariant="secondary"
+                  size="small"
+                  hitSlop={8}
+                  aria-label="Close"
+                >
+                  <IconButton.Icon name="CrossedSmallOutline" />
+                </IconButton>
+              </XStack>
+              <Sheet.ScrollView
+                borderBottomLeftRadius="$6"
+                borderBottomRightRadius="$6"
+                backgroundColor="$bg"
+                showsVerticalScrollIndicator={false}
+                marginHorizontal="$5"
+                marginBottom={bottom || '$5'}
+              >
+                <YStack padding="$3">
+                  <Adapt.Contents />
+                </YStack>
+              </Sheet.ScrollView>
+            </>
           </Sheet.Frame>
 
           <Sheet.Overlay
-            animation="lazy"
+            animation="quick"
             enterStyle={{ opacity: 0 }}
             exitStyle={{ opacity: 0 }}
             backgroundColor="$bgBackdrop"
@@ -64,12 +111,14 @@ function Select({ data, ...props }: SelectProps) {
         <TMSelect.ScrollUpButton
           alignItems="center"
           justifyContent="center"
-          position="relative"
-          width="100%"
-          height="$3"
+          paddingVertical="$1"
         >
           <YStack zIndex={10}>
-            <Icon color="$iconSubdued" name="ChevronTopSmallOutline" />
+            <Icon
+              color="$iconSubdued"
+              name="ChevronTopSmallOutline"
+              size="$5"
+            />
           </YStack>
 
           <LinearGradient
@@ -81,24 +130,28 @@ function Select({ data, ...props }: SelectProps) {
           />
         </TMSelect.ScrollUpButton>
         <TMSelect.Viewport
-          // to do animations:
-          // animation="quick"
-          // animateOnly={['transform', 'opacity']}
-          // enterStyle={{ o: 0, y: -10 }}
-          // exitStyle={{ o: 0, y: 10 }}
           unstyled
           minWidth="$48"
           outlineWidth="$px"
-          outlineColor="$borderSubdued"
+          outlineColor="$neutral2"
           outlineStyle="solid"
           borderRadius="$3"
           overflow="hidden"
           elevate
           backgroundColor="$bg"
+          padding="$1"
         >
           <TMSelect.Group>
-            <TMSelect.Label fontSize="$headingMd" fontWeight="$headingMd">
-              Fruits
+            <TMSelect.Label asChild>
+              <Text
+                variant="$headingXs"
+                $md={{ variant: '$headingSm', paddingVertical: '$2.5' }}
+                paddingVertical="$1.5"
+                paddingHorizontal="$2"
+                color="$textSubdued"
+              >
+                Fruits
+              </Text>
             </TMSelect.Label>
 
             {/* for longer lists memoizing these is useful */}
@@ -110,11 +163,27 @@ function Select({ data, ...props }: SelectProps) {
                     index={i}
                     key={item.name}
                     value={item.name.toLowerCase()}
+                    minHeight="auto"
+                    backgroundColor="$transparent"
+                    borderRadius="$2"
+                    paddingVertical="$1.5"
+                    paddingHorizontal="$2"
+                    $md={{
+                      paddingVertical: '$2.5',
+                      paddingRight: 11,
+                    }}
+                    justifyContent="flex-start"
                   >
                     <TMSelect.ItemText
-                      unstyled
-                      fontSize="$bodyLg"
-                      fontWeight="$bodyLg"
+                      flex={1}
+                      $md={{
+                        fontSize: '$bodyLg',
+                        fontWeight: '$bodyLg',
+                        lineHeight: '$bodyLg',
+                      }}
+                      fontSize="$bodyMd"
+                      fontWeight="$bodyMd"
+                      lineHeight="$bodyMd"
                     >
                       {item.name}
                     </TMSelect.ItemText>
@@ -122,26 +191,32 @@ function Select({ data, ...props }: SelectProps) {
                     <TMSelect.ItemIndicator marginLeft="auto">
                       <Icon
                         name="CheckLargeOutline"
-                        $md={{ size: '$5' }}
-                        $gtMd={{ size: '$4' }}
+                        size="$4"
+                        color="$iconActive"
+                        {...(media.md && {
+                          name: 'CheckRadioSolid',
+                          size: '$6',
+                        })}
                       />
                     </TMSelect.ItemIndicator>
                   </TMSelect.Item>
                 )),
 
-              [data],
+              [data, media.md],
             )}
           </TMSelect.Group>
         </TMSelect.Viewport>
         <TMSelect.ScrollDownButton
           alignItems="center"
           justifyContent="center"
-          position="relative"
-          width="100%"
-          height="$3"
+          paddingVertical="$1"
         >
           <YStack zIndex={10}>
-            <Icon name="ChevronDownSmallOutline" color="$iconSubdued" />
+            <Icon
+              name="ChevronDownSmallOutline"
+              size="$5"
+              color="$iconSubdued"
+            />
           </YStack>
 
           <LinearGradient

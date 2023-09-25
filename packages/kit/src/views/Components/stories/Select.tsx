@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { Alert, Stack, YStack } from '@onekeyhq/components';
+import { Stack } from '@onekeyhq/components';
 import { Select } from '@onekeyhq/components/src/Select';
 
 import { Layout } from './utils/Layout';
@@ -22,33 +22,33 @@ const items = [
 
   { name: 'Starfruit' },
 
-  // { name: 'Blueberry' },
+  { name: 'Blueberry' },
 
-  // { name: 'Raspberry' },
+  { name: 'Raspberry' },
 
-  // { name: 'Strawberry' },
+  { name: 'Strawberry' },
 
-  // { name: 'Mango' },
+  { name: 'Mango' },
 
-  // { name: 'Pineapple' },
+  { name: 'Pineapple' },
 
-  // { name: 'Lime' },
+  { name: 'Lime' },
 
-  // { name: 'Lemon' },
+  { name: 'Lemon' },
 
-  // { name: 'Coconut' },
+  { name: 'Coconut' },
 
-  // { name: 'Guava' },
+  { name: 'Guava' },
 
-  // { name: 'Papaya' },
+  { name: 'Papaya' },
 
-  // { name: 'Orange' },
+  { name: 'Orange' },
 
-  // { name: 'Grape' },
+  { name: 'Grape' },
 
-  // { name: 'Jackfruit' },
+  { name: 'Jackfruit' },
 
-  // { name: 'Durian' },
+  { name: 'Durian' },
 ];
 
 const SelectDemoItem = () => {
@@ -60,6 +60,7 @@ const SelectDemoItem = () => {
       value={val}
       onValueChange={setVal}
       disablePreventBodyScroll
+      title="Demo Title"
     />
   );
 };
