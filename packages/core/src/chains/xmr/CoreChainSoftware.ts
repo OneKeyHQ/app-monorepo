@@ -1,8 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import type { ICurveName } from '@onekeyhq/engine/src/secret';
+import type {
+  IEncodedTxXmr,
+  ISendFundsArgs,
+} from '@onekeyhq/engine/src/vaults/impl/xmr/types';
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
@@ -38,35 +43,68 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async signTransaction(
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
+    const moneroApi = await getMoneroApi();
     // throw new Error('Method not implemented.');
-    const { unsignedTx } = payload;
+    const { unsignedTx, password } = payload;
     const signer = await this.baseGetSingleSigner({
       payload,
       curve,
     });
-    // eslint-disable-next-line prefer-destructuring
-    const encodedTx = unsignedTx.encodedTx;
-    const txBytes = bufferUtils.toBuffer('');
-    const [signature] = await signer.sign(txBytes);
-    const txid = '';
-    const rawTx = '';
-    return {
-      txid,
-      rawTx,
+    const rawPrivateKey = await signer.getPrvkey();
+
+    if (!rawPrivateKey) {
+      throw new OneKeyInternalError('Unable to get raw private key.');
+    }
+
+    const { publicSpendKey, privateViewKey, privateSpendKey } =
+      await moneroApi.getKeyPairFromRawPrivatekey({
+        rawPrivateKey: bufferUtils.bytesToHex(rawPrivateKey),
+      });
+
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxXmr;
+
+    let destinations = [...encodedTx.destinations];
+
+    if (encodedTx.shouldSweep) {
+      destinations = destinations.map((destination) => ({
+        to_address: destination.to_address,
+        send_amount: '0',
+      }));
+    }
+
+    const sendFundsArgs: ISendFundsArgs = {
+      destinations,
+      from_address_string: encodedTx.address,
+      is_sweeping: encodedTx.shouldSweep,
+      nettype: encodedTx.nettype,
+      priority: encodedTx.priority,
+
+      pub_spendKey_string: publicSpendKey || '',
+      sec_spendKey_string: privateSpendKey,
+      sec_viewKey_string: privateViewKey,
+
+      fromWallet_didFailToBoot: false,
+      fromWallet_didFailToInitialize: false,
+      fromWallet_needsImport: false,
+      hasPickedAContact: false,
+      manuallyEnteredPaymentID: '',
+      manuallyEnteredPaymentID_fieldIsVisible: false,
+      requireAuthentication: false,
+      resolvedAddress: '',
+      resolvedAddress_fieldIsVisible: false,
+      resolvedPaymentID: '',
+      resolvedPaymentID_fieldIsVisible: false,
     };
+    const scanUrl = unsignedTx?.payload?.scanUrl;
+    const signedTx = await moneroApi.sendFunds(
+      sendFundsArgs,
+      checkIsDefined(scanUrl),
+    );
+    return signedTx;
   }
 
   override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
-    // throw new Error('Method not implemented.');
-    // eslint-disable-next-line prefer-destructuring
-    const unsignedMsg = payload.unsignedMsg;
-    const signer = await this.baseGetSingleSigner({
-      payload,
-      curve,
-    });
-    const msgBytes = bufferUtils.toBuffer('');
-    const [signature] = await signer.sign(msgBytes);
-    return '';
+    throw new Error('Method not implemented.');
   }
 
   override async getAddressFromPrivate(
@@ -108,7 +146,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressFromPublic(
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem> {
-    throw new Error('Method not implemented.');
+    throw new Error(
+      'Method not implemented, use getAddressFromPrivate instead.',
+    );
   }
 
   override async getAddressesFromHd(

@@ -16,8 +16,6 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import simpleDb from '../../../dbs/simple/simpleDb';
 import { isAccountCompatibleWithNetwork } from '../../../managers/account';
-import { slicePathTemplate } from '../../../managers/derivation';
-import { batchGetPrivateKeys } from '../../../secret';
 import { AccountCredentialType } from '../../../types/account';
 import {
   IDecodedTxActionType,
@@ -36,7 +34,6 @@ import settings from './settings';
 import { MoneroTxPriorityEnum } from './types';
 import { getDecodedTxStatus } from './utils';
 
-import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { Account, DBVariantAccount } from '../../../types/account';
 import type { PartialTokenInfo } from '../../../types/provider';
 import type {
@@ -73,37 +70,18 @@ export default class Vault extends VaultBase {
       passwordLoadedCallback?: (isLoaded: boolean) => void,
     ) => {
       try {
-        let rawPrivateKey: string | Buffer;
         const psw = password || '';
-        const isImportedAccount = accountId.startsWith('imported');
-        if (isImportedAccount) {
-          const [privateKey] = Object.values(
-            await (this.keyring as KeyringImported).getPrivateKeys({
-              password: psw,
-            }),
-          );
+        const privateKeysMap = await (
+          this.keyring as KeyringImported
+        ).getPrivateKeys({
+          password: psw,
+        });
+        const [privateKey] = Object.values(privateKeysMap);
+        const rawPrivateKey: string | Buffer = decrypt(
+          psw,
+          privateKey,
+        ).toString('hex');
 
-          rawPrivateKey = decrypt(psw, privateKey).toString('hex');
-        } else {
-          const { template } = this.settings.accountNameInfo.default;
-          const { seed } = (await this.engine.dbApi.getCredential(
-            this.walletId,
-            psw,
-          )) as ExportedSeedCredential;
-          const { pathPrefix, pathSuffix } = slicePathTemplate(template);
-
-          const [privateKeyInfo] = batchGetPrivateKeys(
-            'ed25519',
-            seed,
-            psw,
-            pathPrefix,
-            [pathSuffix.replace('{index}', '0')],
-          );
-
-          rawPrivateKey = decrypt(psw, privateKeyInfo.extendedKey.key).toString(
-            'hex',
-          );
-        }
         passwordLoadedCallback?.(true);
         return rawPrivateKey;
       } catch (e) {
