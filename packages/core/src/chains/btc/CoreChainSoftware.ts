@@ -94,6 +94,18 @@ const encodeVarString = (buffer: Buffer) =>
   Buffer.concat([VaruintBitCoinEncode(buffer.byteLength), buffer]);
 
 export default class CoreChainSoftware extends CoreChainApiBase {
+  protected decodeAddress(address: string): string {
+    return address;
+  }
+
+  protected encodeAddress(address: string): string {
+    return address;
+  }
+
+  protected getPsbt({ network }: { network: IBtcForkNetwork }): Psbt {
+    return new Psbt({ network });
+  }
+
   override getAddressFromPublic(
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem> {
@@ -246,14 +258,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       }
     }
     return ret;
-  }
-
-  private encodeAddress(address: string) {
-    return address;
-  }
-
-  private getPsbt({ network }: { network: IBtcForkNetwork }) {
-    return new Psbt({ network });
   }
 
   private async buildSignersMap({

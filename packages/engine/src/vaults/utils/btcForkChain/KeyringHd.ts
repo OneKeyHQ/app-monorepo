@@ -1,13 +1,11 @@
 import bs58check from 'bs58check';
 
 import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
-import { wait } from '@onekeyhq/kit/src/utils/helper';
 import {
   COINTYPE_BCH,
   COINTYPE_DOGE,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { slicePathTemplate } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
@@ -211,109 +209,5 @@ export abstract class KeyringHdBtcFork extends KeyringHdBase {
       addressEncoding,
       checkIsAccountUsed,
     });
-  }
-
-  async basePrepareAccountsHdBtcOld(
-    params: IPrepareHdAccountsParams,
-  ): Promise<DBUTXOAccount[]> {
-    if (!this.coreApi) {
-      throw new Error('coreApi is undefined');
-    }
-    const {
-      password,
-      indexes,
-      purpose,
-      names,
-      template,
-      skipCheckAccountExist,
-    } = params;
-    initBitcoinEcc();
-    const impl = await this.getNetworkImpl();
-    const vault = this.vault as unknown as VaultBtcFork;
-    const defaultPurpose = vault.getDefaultPurpose();
-    const coinName = vault.getCoinName();
-    const COIN_TYPE = vault.getCoinType();
-
-    const ignoreFirst = indexes[0] !== 0;
-    // check first prev non-zero index account existing
-    const usedIndexes = [...(ignoreFirst ? [indexes[0] - 1] : []), ...indexes];
-    const usedPurpose = purpose || defaultPurpose;
-    const { addressEncoding } = getAccountDefaultByPurpose(
-      usedPurpose,
-      coinName,
-    );
-
-    const credentials = await this.baseGetCredentialsInfo({ password });
-    const { addresses: addressesInfo } = await this.coreApi.getAddressesFromHd({
-      networkInfo: await this.baseGetCoreApiNetworkInfo(),
-      template,
-      hdCredential: checkIsDefined(credentials.hd),
-      password,
-      indexes: usedIndexes,
-      addressEncoding,
-    });
-
-    const { prefix: namePrefix } = getAccountNameInfoByTemplate(impl, template);
-
-    const provider = await (
-      this.vault as unknown as VaultBtcFork
-    ).getProvider();
-
-    const ret: DBUTXOAccount[] = [];
-    let index = 0;
-    for (const {
-      path,
-      publicKey,
-      xpub,
-      xpubSegwit,
-      address,
-      addresses,
-    } of addressesInfo) {
-      if (!path || !xpub || !addresses) {
-        throw new Error('path or xpub or addresses is undefined');
-      }
-
-      const prefix0 = [COINTYPE_DOGE, COINTYPE_BCH].includes(COIN_TYPE)
-        ? coinName
-        : namePrefix;
-      const prefix = namePrefix;
-      const name = names?.[index] || `${prefix} #${usedIndexes[index] + 1}`;
-      const id = `${this.walletId}--${path}`;
-      if (!ignoreFirst || index > 0) {
-        ret.push({
-          id,
-          name,
-          type: AccountType.UTXO,
-          path,
-          coinType: COIN_TYPE,
-          pubKey: publicKey,
-          xpub,
-          xpubSegwit,
-          address,
-          addresses,
-          template,
-        });
-      }
-
-      const isLast = index === addressesInfo.length - 1;
-      if (!skipCheckAccountExist && !isLast) {
-        const xpubFinal = xpubSegwit || xpub;
-        const { txs } = (await provider.getAccount(
-          { type: 'simple', xpub: xpubFinal },
-          addressEncoding,
-        )) as { txs: number };
-        if (txs <= 0) {
-          // Software should prevent a creation of an account
-          // if a previous account does not have a transaction history (meaning none of its addresses have been used before).
-          // https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki
-          break;
-        }
-        // blockbook API rate limit.
-        await wait(200);
-      }
-
-      index += 1;
-    }
-    return ret;
   }
 }

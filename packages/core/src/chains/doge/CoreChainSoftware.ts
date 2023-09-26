@@ -1,15 +1,16 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import { Psbt } from 'bitcoinjs-lib';
+
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
+import type { IBtcForkNetwork } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/provider/networks';
 
 import CoreChainSoftwareBtc from '../btc/CoreChainSoftware';
 
 import type {
   ICoreApiGetAddressItem,
-  ICoreApiGetAddressQueryImported,
   ICoreApiGetAddressQueryImportedBtc,
   ICoreApiGetAddressQueryPublicKey,
-  ICoreApiGetAddressesQueryHd,
   ICoreApiGetAddressesQueryHdBtc,
   ICoreApiGetAddressesResult,
   ICoreApiPrivateKeysMap,
@@ -19,6 +20,13 @@ import type {
 } from '../../types';
 
 export default class CoreChainSoftware extends CoreChainSoftwareBtc {
+  override getPsbt({ network }: { network: IBtcForkNetwork }): Psbt {
+    return new Psbt({
+      network,
+      maximumFeeRate: 10000,
+    });
+  }
+
   override signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
     return super.signMessage(payload);
   }
