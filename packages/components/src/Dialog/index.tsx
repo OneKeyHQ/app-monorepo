@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-// import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Adapt,
   Sheet,
@@ -65,7 +65,7 @@ function DialogFrame({
     [onClose],
   );
 
-  // const { bottom } = useSafeAreaInsets();
+  const { bottom } = useSafeAreaInsets();
   const handleConfirmButtonPress = useCallback(async () => {
     const result = await onConfirm?.();
     console.log(result);
@@ -79,7 +79,6 @@ function DialogFrame({
     onClose?.();
   }, [onCancel, onClose]);
 
-  const bottom = 20;
   return (
     <TMDialog open={open}>
       <TMDialog.Trigger onPress={onOpen} asChild>

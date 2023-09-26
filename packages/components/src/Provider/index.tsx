@@ -2,11 +2,13 @@ import type { FC, ReactNode } from 'react';
 import { useMemo } from 'react';
 
 import { useWindowDimensions } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TamaguiProvider } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import config from '../../tamagui.config';
+import { ToastProvider } from '../Toast';
 
 import { getScreenSize } from './device';
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
@@ -74,13 +76,15 @@ const Provider: FC<UIProviderProps> = ({
     ],
   );
   return (
-    <FontProvider waitFontLoaded={waitFontLoaded}>
-      <Context.Provider value={providerValue}>
-        <TamaguiProvider config={config} defaultTheme={themeVariant}>
-          {children}
-        </TamaguiProvider>
-      </Context.Provider>
-    </FontProvider>
+    <SafeAreaProvider>
+      <FontProvider waitFontLoaded={waitFontLoaded}>
+        <Context.Provider value={providerValue}>
+          <TamaguiProvider config={config} defaultTheme={themeVariant}>
+            <ToastProvider>{children}</ToastProvider>
+          </TamaguiProvider>
+        </Context.Provider>
+      </FontProvider>
+    </SafeAreaProvider>
   );
 };
 
