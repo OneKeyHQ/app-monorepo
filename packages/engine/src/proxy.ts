@@ -421,7 +421,7 @@ class ProviderController extends BaseProviderController {
                 ...blockNativeGasInfo,
               });
             } else {
-              reject();
+              reject(new Error('failed to fetch gas info from API'));
             }
           }
         });
@@ -439,7 +439,7 @@ class ProviderController extends BaseProviderController {
                 ...blockNativeGasInfo,
               });
             } else {
-              reject();
+              reject(new Error('failed to fetch gas info from API'));
             }
           }
         });
