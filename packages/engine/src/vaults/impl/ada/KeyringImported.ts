@@ -1,3 +1,10 @@
+import {
+  batchGetShelleyAddressByRootKey,
+  encodePrivateKey,
+  getPathIndex,
+  getXprvString,
+  sdk,
+} from '@onekeyhq/core/src/chains/ada/sdkAda';
 import { COINTYPE_ADA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   NotImplemented,
@@ -9,9 +16,6 @@ import { ChainSigner } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
-import { encodePrivateKey, getPathIndex, getXprvString } from './helper/bip32';
-import sdk from './helper/sdk';
-import { batchGetShelleyAddressByRootKey } from './helper/shelley-address';
 import { NetworkId } from './types';
 
 import type { ExportedPrivateKeyCredential } from '../../../dbs/base';

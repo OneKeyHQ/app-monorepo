@@ -3,11 +3,7 @@ import BigNumber from 'bignumber.js';
 import { isUndefined } from 'lodash';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
-import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-
-import type { Token } from '../../../../types/token';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 import type {
   IAdaAccount,
   IAdaAddress,
@@ -17,7 +13,11 @@ import type {
   IAdaTransaction,
   IAdaUTXO,
   IAsset,
-} from '../types';
+} from '@onekeyhq/engine/src/vaults/impl/ada/types';
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+
 import type { AxiosInstance } from 'axios';
 
 function isInvalidTokenName(text: string) {

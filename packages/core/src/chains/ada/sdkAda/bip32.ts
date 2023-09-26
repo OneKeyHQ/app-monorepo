@@ -6,10 +6,9 @@
 import { bech32, mnemonicToRootKeypair, toPublic } from 'cardano-crypto.js';
 
 import { mnemonicFromEntropy } from '@onekeyhq/engine/src/secret';
+import type { BIP32Path } from '@onekeyhq/engine/src/vaults/impl/ada/types';
 
 import { DERIVATION_SCHEME, HARDENED_THRESHOLD } from './constants';
-
-import type { BIP32Path } from '../types';
 
 export function toBip32StringPath(derivationPath: BIP32Path) {
   return `m/${derivationPath
@@ -96,4 +95,23 @@ export function encodePrivateKey(privateKey: Buffer) {
     rootKey: privateKey.slice(0, 128),
     index: Buffer.from(privateKey.slice(128)).toString('utf8'),
   };
+}
+
+export function generateXprvFromPrivateKey(privateKey: Buffer) {
+  // const { rootKey, index } = encodePrivateKey(privateKey);
+  // const xprv = bech32.encode(
+  //   'xprv',
+  //   Buffer.concat([
+  //     rootKey.slice(0, 64),
+  //     rootKey.slice(96, 128),
+  //     Buffer.from(index, 'utf8'),
+  //   ]),
+  // ) as string;
+
+  const xprv = bech32.encode(
+    'xprv',
+    Buffer.concat([privateKey.slice(0, 64), privateKey.slice(96)]),
+  ) as string;
+
+  return xprv;
 }

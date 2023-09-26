@@ -1,3 +1,4 @@
+import CoreChainAda from '../chains/ada';
 import CoreChainAlgo from '../chains/algo';
 import CoreChainApt from '../chains/apt';
 import CoreChainBch from '../chains/bch';
@@ -56,4 +57,6 @@ export class CoreChainApiHub {
   fil = new CoreChainFil();
 
   xmr = new CoreChainXmr();
+
+  ada = new CoreChainAda();
 }

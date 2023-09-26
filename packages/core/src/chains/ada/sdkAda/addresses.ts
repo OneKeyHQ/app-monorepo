@@ -15,11 +15,13 @@ import {
   // @ts-expect-error
 } from 'cardano-crypto.js';
 
-import { NetworkId } from '../types';
+import { NetworkId } from '@onekeyhq/engine/src/vaults/impl/ada/types';
+import type {
+  Address,
+  BIP32Path,
+} from '@onekeyhq/engine/src/vaults/impl/ada/types';
 
 import { HARDENED_THRESHOLD } from './constants';
-
-import type { Address, BIP32Path } from '../types';
 
 export const encodeAddress = (address: Buffer): Address => {
   const addressType = getAddressType(address);

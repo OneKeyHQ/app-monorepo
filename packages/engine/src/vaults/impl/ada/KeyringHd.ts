@@ -1,3 +1,10 @@
+import {
+  batchGetShelleyAddresses,
+  getPathIndex,
+  getXprvString,
+  sdk,
+} from '@onekeyhq/core/src/chains/ada/sdkAda';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import { COINTYPE_ADA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -6,14 +13,14 @@ import { ChainSigner } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
-import { getPathIndex, getXprvString } from './helper/bip32';
-import sdk from './helper/sdk';
-import { batchGetShelleyAddresses } from './helper/shelley-address';
 import { NetworkId } from './types';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { DBUTXOAccount } from '../../../types/account';
+import type { IUnsignedMessageCommon } from '../../../types/message';
 import type {
+  IGetPrivateKeysParams,
+  IGetPrivateKeysResult,
   IPrepareHdAccountsParams,
   ISignCredentialOptions,
   ISignedTxPro,
@@ -23,7 +30,50 @@ import type { IAdaUTXO, IEncodedTxADA } from './types';
 import type Vault from './Vault';
 
 export class KeyringHd extends KeyringHdBase {
-  override async getSigners(
+  override coreApi = coreChainApi.ada.hd;
+
+  override getSigners(): Promise<Record<string, ChainSigner>> {
+    throw new Error('getSigners moved to core.');
+  }
+
+  override async getPrivateKeys(
+    params: IGetPrivateKeysParams,
+  ): Promise<IGetPrivateKeysResult> {
+    return super.getPrivateKeys(params);
+    // return this.baseGetPrivateKeys(params);
+  }
+
+  override async prepareAccounts(
+    params: IPrepareHdAccountsParams,
+  ): Promise<DBUTXOAccount[]> {
+    return this.basePrepareAccountsHdUtxo(params, {
+      addressEncoding: undefined,
+      checkIsAccountUsed: async ({ address }) => {
+        const client = await (this.vault as Vault).getClient();
+        const { tx_count: txCount } = await client.getAddressDetails(address);
+        return {
+          isUsed: txCount > 0,
+        };
+      },
+    });
+  }
+
+  override async signTransaction(
+    unsignedTx: IUnsignedTxPro,
+    options: ISignCredentialOptions,
+  ): Promise<ISignedTxPro> {
+    return this.baseSignTransaction(unsignedTx, options);
+  }
+
+  override async signMessage(
+    messages: IUnsignedMessageCommon[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]> {
+    // throw new Error('Method not implemented.');
+    return this.baseSignMessage(messages, options);
+  }
+
+  async getSignersOld(
     password: string,
     addresses: string[],
   ): Promise<Record<string, ChainSigner>> {
@@ -47,7 +97,7 @@ export class KeyringHd extends KeyringHdBase {
     };
   }
 
-  override async prepareAccounts(
+  async prepareAccountsOld(
     params: IPrepareHdAccountsParams,
   ): Promise<DBUTXOAccount[]> {
     const { password, indexes, names, skipCheckAccountExist } = params;
@@ -118,7 +168,7 @@ export class KeyringHd extends KeyringHdBase {
     return ret;
   }
 
-  override async signTransaction(
+  async signTransactionOld(
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
   ): Promise<ISignedTxPro> {
@@ -152,7 +202,7 @@ export class KeyringHd extends KeyringHdBase {
     };
   }
 
-  override async signMessage(
+  async signMessageOld(
     messages: any[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {

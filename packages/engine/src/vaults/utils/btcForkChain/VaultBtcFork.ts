@@ -87,7 +87,6 @@ import {
   getBIP44Path,
 } from './utils';
 
-import type { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import type { BRC20TextProps, TxMapType } from '../../../managers/nft';
 import type {
   Account,
@@ -96,13 +95,9 @@ import type {
 } from '../../../types/account';
 import type { NFTAssetMeta } from '../../../types/nft';
 import type { Token } from '../../../types/token';
-import type {
-  CoinControlItem,
-  ICoinControlListItem,
-} from '../../../types/utxoAccounts';
+import type { CoinControlItem } from '../../../types/utxoAccounts';
 import type { KeyringBaseMock } from '../../keyring/KeyringBase';
-import type { KeyringHdBase } from '../../keyring/KeyringHdBase';
-import type { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
+import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
   IApproveInfo,
   IBalanceDetails,
@@ -366,6 +361,11 @@ export default class VaultBtcFork extends VaultBase {
   async getExportedCredential(password: string): Promise<string> {
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
 
+    const keyring = this.keyring as KeyringSoftwareBase;
+    const privateKeys = await keyring.getPrivateKeys({ password });
+    const privateKeyEncrypt = privateKeys[dbAccount.path];
+    const privateKey = decrypt(password, privateKeyEncrypt);
+
     if (dbAccount.id.startsWith('hd-')) {
       const purpose = parseInt(dbAccount.path.split('/')[1]);
       const { addressEncoding } = getAccountDefaultByPurpose(
@@ -376,9 +376,6 @@ export default class VaultBtcFork extends VaultBase {
       const { private: xprvVersionBytes } =
         (network.segwitVersionBytes || {})[addressEncoding] || network.bip32;
 
-      const keyring = this.keyring as KeyringHdBase;
-      const privateKeys = await keyring.getPrivateKeys({ password });
-      const encryptedPrivateKey = privateKeys[dbAccount.path];
       return bs58check.encode(
         bs58check
           .decode(dbAccount.xpub)
@@ -387,14 +384,7 @@ export default class VaultBtcFork extends VaultBase {
             0,
             4,
           )
-          .fill(
-            Buffer.concat([
-              Buffer.from([0]),
-              decrypt(password, encryptedPrivateKey),
-            ]),
-            45,
-            78,
-          ),
+          .fill(Buffer.concat([Buffer.from([0]), privateKey]), 45, 78),
       );
     }
 
@@ -405,14 +395,11 @@ export default class VaultBtcFork extends VaultBase {
       // )) as ExportedPrivateKeyCredential;
 
       // Imported accounts, crendetial is already xprv
-      const keyring = this.keyring as KeyringImportedBase;
-      const privateKeys = await keyring.getPrivateKeys({ password });
-      const privateKey = privateKeys[dbAccount.path];
 
       if (typeof privateKey === 'undefined') {
         throw new OneKeyInternalError('Unable to get credential.');
       }
-      return bs58check.encode(decrypt(password, privateKey));
+      return bs58check.encode(privateKey);
     }
 
     throw new OneKeyInternalError(

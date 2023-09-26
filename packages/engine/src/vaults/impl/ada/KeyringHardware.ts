@@ -1,3 +1,9 @@
+import {
+  getChangeAddress,
+  sdk,
+  transformToOneKeyInputs,
+  transformToOneKeyOutputs,
+} from '@onekeyhq/core/src/chains/ada/sdkAda';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import { COINTYPE_ADA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -12,12 +18,6 @@ import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
-import { getChangeAddress } from './helper/cardanoUtils';
-import sdk from './helper/sdk';
-import {
-  transformToOneKeyInputs,
-  transformToOneKeyOutputs,
-} from './helper/transformations';
 import { NetworkId } from './types';
 
 import type { DBUTXOAccount } from '../../../types/account';
@@ -265,7 +265,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       inputs: transformToOneKeyInputs(inputs, utxos),
       derivationType,
       ...cardanoParams,
-    } as any);
+    });
     if (!res.success) {
       throw convertDeviceError(res.payload);
     }

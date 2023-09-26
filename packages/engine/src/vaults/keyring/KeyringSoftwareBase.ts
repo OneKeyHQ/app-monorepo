@@ -326,6 +326,10 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       addressEncoding,
     });
 
+    if (addressesInfo.length !== usedIndexes.length) {
+      throw new OneKeyInternalError('Unable to get address');
+    }
+
     const { prefix: namePrefix } = getAccountNameInfoByTemplate(impl, template);
 
     const ret: DBUTXOAccount[] = [];

@@ -4,11 +4,14 @@
 // @ts-expect-error
 import { derivePrivate, toPublic } from 'cardano-crypto.js';
 
+import type {
+  BIP32Path,
+  NetworkId,
+} from '@onekeyhq/engine/src/vaults/impl/ada/types';
+
 import { baseAddressFromXpub, stakingAddressFromXpub } from './addresses';
 import { getRootKey, toBip32StringPath } from './bip32';
 import { DERIVATION_SCHEME, HARDENED_THRESHOLD } from './constants';
-
-import type { BIP32Path, NetworkId } from '../types';
 
 const shelleyPath = (account: number): BIP32Path => [
   HARDENED_THRESHOLD + 1852,

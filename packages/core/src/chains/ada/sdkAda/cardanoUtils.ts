@@ -1,5 +1,5 @@
-import type { DBUTXOAccount } from '../../../../types/account';
-import type { IChangeAddress } from '../types';
+import type { DBUTXOAccount } from '@onekeyhq/engine/src/types/account';
+import type { IChangeAddress } from '@onekeyhq/engine/src/vaults/impl/ada/types';
 
 // PROTO.CardanoAddressType.BASE
 const CardanoAddressTypeBASE = 0;

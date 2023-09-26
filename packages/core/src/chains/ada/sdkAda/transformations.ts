@@ -1,4 +1,4 @@
-import type { IAdaUTXO } from '../types';
+import type { IAdaUTXO } from '@onekeyhq/engine/src/vaults/impl/ada/types';
 
 export enum CardanoAddressType {
   BASE = 0,

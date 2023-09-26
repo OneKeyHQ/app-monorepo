@@ -4,13 +4,18 @@
 import BigNumber from 'bignumber.js';
 import { isUndefined } from 'lodash';
 
-import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
-import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
-import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
-  COINTYPE_ADA,
-  IMPL_ADA,
-} from '@onekeyhq/shared/src/engine/engineConsts';
+  decodePrivateKeyByXprv,
+  generateXprvFromPrivateKey,
+  getChangeAddress,
+  sdk,
+  validBootstrapAddress,
+  validShelleyAddress,
+} from '@onekeyhq/core/src/chains/ada/sdkAda';
+import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import { COINTYPE_ADA } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   InsufficientBalance,
   InvalidAddress,
@@ -19,14 +24,11 @@ import {
   PreviousAccountIsEmpty,
 } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
-import {
-  getDefaultPurpose,
-  getLastAccountId,
-} from '../../../managers/derivation';
+import { getLastAccountId } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
+import { decrypt } from '../../../secret/encryptors/aes256';
 import { AccountType } from '../../../types/account';
 import {
   IDecodedTxActionType,
@@ -35,23 +37,16 @@ import {
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 
-import { validBootstrapAddress, validShelleyAddress } from './helper/addresses';
-import {
-  decodePrivateKeyByXprv,
-  generateExportedCredential,
-} from './helper/bip32';
-import { getChangeAddress } from './helper/cardanoUtils';
-import ClientAda from './helper/ClientAda';
-import sdk from './helper/sdk';
+import ClientAda from './ClientAda';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 
-import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { Account, DBUTXOAccount } from '../../../types/account';
 import type { Token } from '../../../types/token';
+import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
   IApproveInfo,
   IDecodedTx,
@@ -228,13 +223,21 @@ export default class Vault extends VaultBase {
   }
 
   override async getExportedCredential(password: string): Promise<string> {
-    const { entropy } = (await this.engine.dbApi.getCredential(
-      this.walletId,
-      password,
-    )) as ExportedSeedCredential;
-
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-    return generateExportedCredential(password, entropy, dbAccount.path);
+    // if (dbAccount.id.startsWith('hd-')) {
+    //   const { entropy } = (await this.engine.dbApi.getCredential(
+    //     this.walletId,
+    //     password,
+    //   )) as ExportedSeedCredential;
+
+    //   return generateExportedCredential(password, entropy, dbAccount.path);
+    // }
+    const keyring = this.keyring as KeyringSoftwareBase;
+    const privateKeys = await keyring.getPrivateKeys({ password });
+    const privateKeyEncrypt = privateKeys[dbAccount.path];
+    const privateKey = decrypt(password, privateKeyEncrypt);
+
+    return generateXprvFromPrivateKey(privateKey);
   }
 
   override attachFeeInfoToEncodedTx(params: {
