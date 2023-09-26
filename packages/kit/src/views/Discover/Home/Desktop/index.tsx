@@ -27,7 +27,7 @@ export const Desktop = () => {
     >
       <Box flex="1" w="full" maxW="998px">
         <Tabs.Container
-          headerHeight={114}
+          headerHeight={252}
           stickyTabBar
           onIndexChange={onIndexChange}
           headerView={<Header />}
