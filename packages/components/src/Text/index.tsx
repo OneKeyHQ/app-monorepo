@@ -1,6 +1,6 @@
 import { Text as OriginText, styled } from 'tamagui';
 
-import type { GetProps, SizeTokens } from 'tamagui';
+import type { GetProps } from 'tamagui';
 
 export const Text = styled(OriginText, {
   name: 'Text',
@@ -25,7 +25,7 @@ export const Text = styled(OriginText, {
   } as const,
 
   defaultVariants: {
-    variant: '$bodyLg',
+    variant: '$true',
   },
 });
 

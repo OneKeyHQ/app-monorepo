@@ -1,6 +1,6 @@
 import { XStack } from 'tamagui';
 
-import { Box, IconButton, Text } from '@onekeyhq/components';
+import { IconButton } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 

@@ -104,22 +104,30 @@ const font = createFont({
 });
 
 const animations = createAnimations({
-  fast: {
-    type: 'spring',
-    damping: 20,
-    mass: 1.2,
-    stiffness: 250,
+  '150ms': {
+    type: 'timing',
+    duration: 150,
   },
-  medium: {
+  '300ms': {
+    type: 'timing',
+    duration: 300,
+  },
+  bouncy: {
     type: 'spring',
     damping: 10,
     mass: 0.9,
     stiffness: 100,
   },
-  slow: {
+  lazy: {
     type: 'spring',
     damping: 20,
     stiffness: 60,
+  },
+  quick: {
+    type: 'spring',
+    damping: 20,
+    mass: 1.2,
+    stiffness: 250,
   },
 });
 
@@ -505,6 +513,8 @@ const mergedTokens = createTokens({
     4: 16,
     5: 20,
     6: 24,
+    7: 28,
+    8: 32,
     full: 9999,
   },
   space: {
@@ -568,6 +578,7 @@ const config = createTamagui({
 
   fonts: {
     body: font,
+    heading: font,
   },
 
   themes: {
@@ -575,28 +586,53 @@ const config = createTamagui({
       ...themes.light,
       ...lightColors,
       'background-default': mergedTokens.color.bgLight,
+
+      // override default theme
+      'background': mergedTokens.color.bgAppLight,
+      'backgroundHover': mergedTokens.color.bgHoverLight,
+      'backgroundPress': mergedTokens.color.bgActiveLight,
+      'backgroundFocus': mergedTokens.color.bgHoverLight,
+      'backgroundTransparent': mergedTokens.color.transparentLight,
+      'borderColor': mergedTokens.color.neutral4Light,
+      'borderColorHover': mergedTokens.color.neutral5Light,
+      'borderColorPress': mergedTokens.color.borderActiveLight,
+      'borderColorFocus': mergedTokens.color.borderActiveLight,
+      'color': mergedTokens.color.textLight,
+      'colorHover': mergedTokens.color.textLight,
     },
     dark: {
       ...themes.dark,
       ...darkColors,
       'background-default': mergedTokens.color.bgDark,
+
+      // override default theme
+      'background': mergedTokens.color.bgAppDark,
+      'backgroundHover': mergedTokens.color.bgHoverDark,
+      'backgroundPress': mergedTokens.color.bgActiveDark,
+      'backgroundFocus': mergedTokens.color.neutral5Dark,
+      'backgroundTransparent': mergedTokens.color.transparentDark,
+      'borderColor': mergedTokens.color.neutral4Dark,
+      'borderColorHover': mergedTokens.color.neutral5Dark,
+      'borderColorPress': mergedTokens.color.borderActiveDark,
+      'borderColorFocus': mergedTokens.color.borderActiveDark,
+      'color': mergedTokens.color.textDark,
+      'colorHover': mergedTokens.color.textDark,
     },
   },
 
   tokens: mergedTokens,
 
   media: createMedia({
-    xs: { maxWidth: 640 },
-    gtXs: { minWidth: 641 },
-    sm: { maxWidth: 768 },
-    gtSm: { minWidth: 769 },
-    md: { maxWidth: 1024 },
-    gtMd: { minWidth: 1025 },
-    lg: { maxWidth: 1280 },
-    gtLg: { minWidth: 1281 },
-    xl: { maxWidth: 1536 },
-    gtXl: { minWidth: 1537 },
-    '2xl': { minWidth: 1537 },
+    sm: { maxWidth: 639 },
+    gtSm: { minWidth: 640 },
+    md: { maxWidth: 767 },
+    gtMd: { minWidth: 768 },
+    lg: { maxWidth: 1023 },
+    gtLg: { minWidth: 1024 },
+    xl: { maxWidth: 1279 },
+    gtXl: { minWidth: 1280 },
+    '2xl': { maxWidth: 1535 },
+    'gt2xl': { minWidth: 1536 },
     short: { maxHeight: 820 },
     tall: { minHeight: 820 },
     hoverNone: { hover: 'none' },
