@@ -574,10 +574,10 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
     [intl],
   );
 
-  const onPress = useCallback(() => {
+  const onPress = useCallback(async () => {
     if (from && to && fromNetwork && toNetwork) {
-      backgroundApiProxy.serviceSwap.setInputToken(from.token);
-      backgroundApiProxy.serviceSwap.setOutputToken(to.token);
+      await backgroundApiProxy.serviceSwap.setInputToken(from.token);
+      await backgroundApiProxy.serviceSwap.setOutputToken(to.token);
 
       const parent = navigation.getParent() ?? navigation;
       parent.goBack();
