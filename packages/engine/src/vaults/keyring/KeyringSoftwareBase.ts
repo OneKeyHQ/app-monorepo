@@ -4,6 +4,7 @@ import type {
   ICoreHdCredential,
   ICoreImportedCredential,
 } from '@onekeyhq/core/src/types';
+import { wait } from '@onekeyhq/kit/src/utils/helper';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -33,6 +34,7 @@ import type { ICurveName } from '../../secret';
 import type {
   DBAccount,
   DBSimpleAccount,
+  DBUTXOAccount,
   DBVariantAccount,
 } from '../../types/account';
 import type { IUnsignedMessage } from '../../types/message';
@@ -42,7 +44,7 @@ import type {
   IPrepareHdAccountsParams,
   IPrepareImportedAccountsParams,
 } from '../types';
-import type VaultBtcFork from '../utils/btcForkChain/VaultBtcFork';
+import type { AddressEncodings } from '../utils/btcForkChain/types';
 
 export abstract class KeyringSoftwareBase extends KeyringBase {
   async baseGetCredentialsInfo({
@@ -278,6 +280,106 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       });
     }
 
+    return ret;
+  }
+
+  async basePrepareAccountsHdUtxo(
+    params: IPrepareHdAccountsParams,
+    options: {
+      addressEncoding?: AddressEncodings;
+      checkIsAccountUsed: (query: {
+        xpub: string;
+        xpubSegwit?: string;
+        address: string;
+      }) => Promise<{ isUsed: boolean }>;
+    },
+  ): Promise<DBUTXOAccount[]> {
+    if (!this.coreApi) {
+      throw new Error('coreApi is undefined');
+    }
+    const {
+      password,
+      indexes,
+      coinType,
+      purpose,
+      names,
+      template,
+      skipCheckAccountExist,
+    } = params;
+    if (!coinType) {
+      throw new Error('coinType is not defined');
+    }
+    const { addressEncoding, checkIsAccountUsed } = options;
+    const impl = await this.getNetworkImpl();
+
+    const ignoreFirst = indexes[0] !== 0;
+    // check first prev non-zero index account existing
+    const usedIndexes = [...(ignoreFirst ? [indexes[0] - 1] : []), ...indexes];
+
+    const credentials = await this.baseGetCredentialsInfo({ password });
+    const { addresses: addressesInfo } = await this.coreApi.getAddressesFromHd({
+      networkInfo: await this.baseGetCoreApiNetworkInfo(),
+      template,
+      hdCredential: checkIsDefined(credentials.hd),
+      password,
+      indexes: usedIndexes,
+      addressEncoding,
+    });
+
+    const { prefix: namePrefix } = getAccountNameInfoByTemplate(impl, template);
+
+    const ret: DBUTXOAccount[] = [];
+    let index = 0;
+    for (const {
+      path,
+      publicKey,
+      xpub,
+      xpubSegwit,
+      address,
+      addresses,
+    } of addressesInfo) {
+      if (!path || !xpub || !addresses) {
+        throw new Error('path or xpub or addresses is undefined');
+      }
+
+      const prefix = namePrefix;
+      const name = names?.[index] || `${prefix} #${usedIndexes[index] + 1}`;
+      const id = `${this.walletId}--${path}`;
+      if (!ignoreFirst || index > 0) {
+        ret.push({
+          id,
+          name,
+          type: AccountType.UTXO,
+          path,
+          coinType,
+          pubKey: publicKey,
+          xpub,
+          xpubSegwit,
+          address,
+          addresses,
+          template,
+        });
+      }
+
+      const isLast = index === addressesInfo.length - 1;
+      if (!skipCheckAccountExist && !isLast) {
+        const { isUsed } = await checkIsAccountUsed({
+          xpub,
+          xpubSegwit,
+          address,
+        });
+        if (!isUsed) {
+          // Software should prevent a creation of an account
+          // if a previous account does not have a transaction history (meaning none of its addresses have been used before).
+          // https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki
+          break;
+        }
+        // blockbook API rate limit.
+        await wait(200);
+      }
+
+      index += 1;
+    }
     return ret;
   }
 

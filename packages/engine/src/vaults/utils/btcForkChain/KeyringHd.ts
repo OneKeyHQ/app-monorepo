@@ -1,4 +1,3 @@
-import { Psbt } from 'bitcoinjs-lib';
 import bs58check from 'bs58check';
 
 import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
@@ -6,31 +5,22 @@ import { wait } from '@onekeyhq/kit/src/utils/helper';
 import {
   COINTYPE_BCH,
   COINTYPE_DOGE,
-  IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import { toPsbtNetwork } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.utils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { slicePathTemplate } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
-import { ChainSigner } from '../../../proxy';
 import { AccountType } from '../../../types/account';
-import { EMessageTypesBtc } from '../../../types/message';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
 import { getAccountDefaultByPurpose, initBitcoinEcc } from './utils';
-import btcForkSignUtils from './utils/btcForkSignUtils';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { DBUTXOAccount } from '../../../types/account';
 import type {
   IPrepareAccountByAddressIndexParams,
   IPrepareHdAccountsParams,
-  ISignCredentialOptions,
-  ISignedTxPro,
-  IUnsignedTxPro,
 } from '../../types';
 import type { AddressEncodings } from './types';
 import type VaultBtcFork from './VaultBtcFork';
@@ -189,6 +179,46 @@ export abstract class KeyringHdBtcFork extends KeyringHdBase {
   async basePrepareAccountsHdBtc(
     params: IPrepareHdAccountsParams,
   ): Promise<DBUTXOAccount[]> {
+    initBitcoinEcc();
+    const { purpose } = params;
+    const vault = this.vault as unknown as VaultBtcFork;
+    const defaultPurpose = vault.getDefaultPurpose();
+    const coinName = vault.getCoinName();
+    const COIN_TYPE = vault.getCoinType();
+    const usedPurpose = purpose || defaultPurpose;
+    const { addressEncoding } = getAccountDefaultByPurpose(
+      usedPurpose,
+      coinName,
+    );
+    const checkIsAccountUsed: (query: {
+      xpub: string;
+      xpubSegwit?: string;
+      address: string;
+    }) => Promise<{ isUsed: boolean }> = async (query) => {
+      const provider = await (
+        this.vault as unknown as VaultBtcFork
+      ).getProvider();
+      const { xpub, xpubSegwit } = query;
+      const xpubFinal = xpubSegwit || xpub;
+      const { txs } = (await provider.getAccount(
+        { type: 'simple', xpub: xpubFinal },
+        addressEncoding,
+      )) as { txs: number };
+      return { isUsed: txs > 0 };
+    };
+
+    return this.basePrepareAccountsHdUtxo(params, {
+      addressEncoding,
+      checkIsAccountUsed,
+    });
+  }
+
+  async basePrepareAccountsHdBtcOld(
+    params: IPrepareHdAccountsParams,
+  ): Promise<DBUTXOAccount[]> {
+    if (!this.coreApi) {
+      throw new Error('coreApi is undefined');
+    }
     const {
       password,
       indexes,
@@ -214,9 +244,7 @@ export abstract class KeyringHdBtcFork extends KeyringHdBase {
     );
 
     const credentials = await this.baseGetCredentialsInfo({ password });
-    const { addresses: addressesInfo } = await checkIsDefined(
-      this.coreApi,
-    ).getAddressesFromHd({
+    const { addresses: addressesInfo } = await this.coreApi.getAddressesFromHd({
       networkInfo: await this.baseGetCoreApiNetworkInfo(),
       template,
       hdCredential: checkIsDefined(credentials.hd),
@@ -245,9 +273,10 @@ export abstract class KeyringHdBtcFork extends KeyringHdBase {
         throw new Error('path or xpub or addresses is undefined');
       }
 
-      const prefix = [COINTYPE_DOGE, COINTYPE_BCH].includes(COIN_TYPE)
+      const prefix0 = [COINTYPE_DOGE, COINTYPE_BCH].includes(COIN_TYPE)
         ? coinName
         : namePrefix;
+      const prefix = namePrefix;
       const name = names?.[index] || `${prefix} #${usedIndexes[index] + 1}`;
       const id = `${this.walletId}--${path}`;
       if (!ignoreFirst || index > 0) {

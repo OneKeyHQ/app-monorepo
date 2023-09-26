@@ -323,7 +323,7 @@ export default class Vault extends VaultBase {
       prices: [new BigNumber(1).shiftedBy(-network.decimals).toFixed()],
       feeList: [feeInfo],
       defaultPresetIndex: '1',
-      isBtcForkChain: true,
+      isBtcForkChain: true, // btcFork like fee model
       tx: null,
     };
   }
