@@ -7,28 +7,34 @@ import type { IBtcUTXO } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/ty
 
 export function getInscriptionsInActions(actions: IDecodedTxAction[]) {
   const inscriptions: NFTBTCAssetModel[] = [];
+  let inscriptionsInSameUtxo: NFTBTCAssetModel[] = [];
   for (const action of actions) {
     if (action.inscriptionInfo) {
-      inscriptions.push(action.inscriptionInfo.asset);
+      inscriptions.push(action.inscriptionInfo?.asset);
+      inscriptionsInSameUtxo = action.inscriptionInfo?.assetsInSameUtxo ?? [];
     }
 
     if (action.brc20Info) {
       inscriptions.push(action.brc20Info.asset);
+      inscriptionsInSameUtxo = action.inscriptionInfo?.assetsInSameUtxo ?? [];
     }
   }
-  return inscriptions;
+  return {
+    inscriptions,
+    inscriptionsInSameUtxo,
+  };
 }
 
 export function getInscriptionsInUtxo({
   utxo,
   inscriptionsInActions,
-  localNFTs,
+  inscriptionsInSameUtxo,
   type,
   isListOrderPsbt,
 }: {
   utxo: Partial<IBtcUTXO>;
   inscriptionsInActions: NFTBTCAssetModel[];
-  localNFTs: NFTBTCAssetModel[];
+  inscriptionsInSameUtxo: NFTBTCAssetModel[];
   type: 'inputs' | 'outputs';
   isListOrderPsbt?: boolean;
 }) {
@@ -68,7 +74,7 @@ export function getInscriptionsInUtxo({
     }
   }
 
-  const inscriptionsInSameUtxo = localNFTs.filter((nft) =>
+  const siblingInscriptions = inscriptionsInSameUtxo.filter((nft) =>
     inscriptions.some(
       (inscription) =>
         nft.inscription_id !== inscription.inscription_id &&
@@ -81,7 +87,7 @@ export function getInscriptionsInUtxo({
   return {
     inscriptions: [
       ...unionBy(inscriptions, 'inscription_id'),
-      ...inscriptionsInSameUtxo,
+      ...siblingInscriptions,
     ],
     restInscriptions: unionBy(restInscriptions, 'inscription_id'),
   };

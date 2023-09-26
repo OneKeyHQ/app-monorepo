@@ -57,6 +57,7 @@ import {
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import {
   batchAsset,
+  getAllAssetsFromLocal,
   getBRC20TransactionHistory,
   getNFTTransactionHistory,
 } from '../../../managers/nft';
@@ -735,7 +736,7 @@ export default class VaultBtcFork extends VaultBase {
     return action;
   }
 
-  buildNFTAction({
+  async buildNFTAction({
     nftInfo,
     dbAccount,
   }: {
@@ -743,6 +744,7 @@ export default class VaultBtcFork extends VaultBase {
     dbAccount: DBUTXOAccount;
   }) {
     const { from, to } = nftInfo;
+    const asset = nftInfo.asset as NFTBTCAssetModel;
 
     let direction = IDecodedTxDirection.OTHER;
 
@@ -754,6 +756,18 @@ export default class VaultBtcFork extends VaultBase {
       direction = IDecodedTxDirection.IN;
     }
 
+    const localNFTs = (await getAllAssetsFromLocal({
+      networkId: this.networkId,
+      accountId: this.accountId,
+    })) as NFTBTCAssetModel[];
+    const inscriptionsInSameUtxo = localNFTs.filter(
+      (nft) =>
+        nft.inscription_id !== asset.inscription_id &&
+        nft.owner === asset.owner &&
+        nft.output === asset.output &&
+        nft.output_value_sat === asset.output_value_sat,
+    );
+
     const action: IDecodedTxAction = {
       type: IDecodedTxActionType.NFT_TRANSFER_BTC,
       direction,
@@ -761,6 +775,7 @@ export default class VaultBtcFork extends VaultBase {
         send: nftInfo.from,
         receive: nftInfo?.to,
         asset: nftInfo?.asset as NFTBTCAssetModel,
+        assetsInSameUtxo: inscriptionsInSameUtxo,
         extraInfo: null,
       },
     };
