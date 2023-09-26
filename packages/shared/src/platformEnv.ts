@@ -1,4 +1,16 @@
 import { Platform } from 'react-native';
+import {
+  isJest,
+  isDev,
+  isProduction,
+  isWeb,
+  isWebEmbed,
+  isDesktop,
+  isExtension,
+  isNative,
+  isExtChrome,
+  isExtFirefox,
+} from './buildTimeEnv';
 
 /*
 DO NOT Expose any sensitive data here, this file will be injected to Dapp!!!!
@@ -98,30 +110,6 @@ export type IPlatformEnv = {
 
   isAppleStoreEnv?: boolean;
 };
-
-const {
-  isJest,
-  isDev,
-  isProduction,
-  isWeb,
-  isWebEmbed,
-  isDesktop,
-  isExtension,
-  isNative,
-  isExtChrome,
-  isExtFirefox,
-}: {
-  isJest: boolean;
-  isDev: boolean;
-  isProduction: boolean;
-  isWeb: boolean;
-  isWebEmbed: boolean;
-  isDesktop: boolean;
-  isExtension: boolean;
-  isNative: boolean;
-  isExtChrome: boolean;
-  isExtFirefox: boolean;
-} = require('./buildTimeEnv.js');
 
 const isDesktopMac = isDesktop && window?.desktopApi?.platform === 'darwin';
 const isDesktopMacArm64 = isDesktopMac && window?.desktopApi?.arch === 'arm64';

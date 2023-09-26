@@ -11,22 +11,17 @@ import {
 global.STORIES = [
   {
     titlePrefix: "",
-    directory: "./packages/components/src",
-    files: "**/*.mdx",
+    directory: "../components",
+    files: "**/*.stories.?(ts|tsx|js|jsx)",
     importPathMatcher:
-      "^\\.[\\\\/](?:packages\\/components\\/src(?:\\/(?!\\.)(?:(?:(?!(?:^|\\/)\\.).)*?)\\/|\\/|$)(?!\\.)(?=.)[^/]*?\\.mdx)$",
-  },
-  {
-    titlePrefix: "",
-    directory: "./packages/components/src",
-    files: "**/*.stories.@(js|jsx|mjs|ts|tsx)",
-    importPathMatcher:
-      "^\\.[\\\\/](?:packages\\/components\\/src(?:\\/(?!\\.)(?:(?:(?!(?:^|\\/)\\.).)*?)\\/|\\/|$)(?!\\.)(?=.)[^/]*?\\.stories\\.(js|jsx|mjs|ts|tsx))$",
+      "^(?:\\.\\.\\/components(?:\\/(?!\\.)(?:(?:(?!(?:^|\\/)\\.).)*?)\\/|\\/|$)(?!\\.)(?=.)[^/]*?\\.stories\\.(?:ts|tsx|js|jsx)?)$",
   },
 ];
 
 import "@storybook/addon-ondevice-controls/register";
 import "@storybook/addon-ondevice-actions/register";
+import "@storybook/addon-ondevice-backgrounds/register";
+import "@storybook/addon-ondevice-notes/register";
 
 import { argsEnhancers } from "@storybook/addon-actions/dist/modern/preset/addArgs";
 
@@ -52,10 +47,12 @@ try {
   argsEnhancers.forEach((enhancer) => addArgsEnhancer(enhancer));
 } catch {}
 
-const getStories = () => {
-  return {
-    "./packages/components/src/stories/Button.stories.js": require("../src/stories/Button.stories.js"),
-  };
-};
+const stories = [
+  require.context(
+    ".../components",
+    true,
+    /^\.(?:(?:^|\/|(?:(?:(?!(?:^|\/)\.).)*?)\/)(?!\.)(?=.)[^/]*?\.stories\.(?:ts|tsx|js|jsx)?)$/
+  ),
+];
 
-configure(getStories, module, false);
+configure(stories, module, false);

@@ -1,9 +1,7 @@
 import { type FC } from 'react';
 
-import StorybookUI from '@onekeyhq/components/.storybook-native/index';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { Portal } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import AppLoading from './AppLoading';
@@ -26,13 +24,7 @@ const KitProvider: FC = () => (
         <NavigationProvider />
       </GestureHandlerRootView>
     </AppLoading>
-    <Portal />
   </Provider>
 );
 
-// eslint-disable-next-line import/no-mutable-exports
-let AppEntryPoint = KitProvider;
-if (process.env.STORYBOOK_ENABLED) {
-  AppEntryPoint = StorybookUI;
-}
-export default AppEntryPoint;
+export default KitProvider;
