@@ -347,7 +347,7 @@ export function FormatBalanceTokenOfAccount({
     accountId,
     token,
     fallback: '0',
-    useRecycleBalance: useRecycleBalance ?? token?.isNative,
+    useRecycleBalance: useRecycleBalance ?? token?.isNative ?? true,
     useCustomAddressesBalance,
   });
 

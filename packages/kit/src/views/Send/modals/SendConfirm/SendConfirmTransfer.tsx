@@ -45,7 +45,7 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
       tokenIdOnNetwork: transferPayload?.token?.idOnNetwork,
       sendAddress: transferPayload?.token?.sendAddress,
     },
-    useRecycleBalance: transferPayload?.token.isNative,
+    useRecycleBalance: transferPayload?.token.isNative ?? true,
   });
 
   const isNativeMaxSend = useMemo(() => {

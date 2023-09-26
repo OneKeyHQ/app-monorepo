@@ -252,12 +252,14 @@ export const useTokenBalance = ({
   accountId,
   token,
   fallback = '0',
+  useRecycleBalance,
   useCustomAddressesBalance,
 }: {
   networkId: string;
   accountId: string;
   token?: Partial<Token> | null;
   fallback?: string;
+  useRecycleBalance?: boolean;
   useCustomAddressesBalance?: boolean;
 }) => {
   const balances = useAppSelector((s) => s.tokens.accountTokensBalance);
@@ -274,11 +276,18 @@ export const useTokenBalance = ({
         networkId,
         accountId,
         useCustomAddressesBalance,
+        useRecycleBalance,
       })
       .then((value) => {
         setManuallyAddedAddressBalance(value?.available ?? fallback);
       });
-  }, [networkId, accountId, useCustomAddressesBalance, fallback]);
+  }, [
+    networkId,
+    accountId,
+    useCustomAddressesBalance,
+    fallback,
+    useRecycleBalance,
+  ]);
 
   if (isAllNetworks(networkId)) {
     throw new Error(`useTokenBalance: networkId is not valid: ${networkId}`);
@@ -323,8 +332,10 @@ export const useTokenBalanceWithoutFrozen = ({
     accountId,
     token,
     fallback,
+    useRecycleBalance,
     useCustomAddressesBalance,
   });
+
   const frozenBalance = useFrozenBalance({
     networkId,
     accountId,
