@@ -17,10 +17,18 @@ import { EmptySkeleton } from '../EmptySkeleton';
 
 import type { MatchDAppItemType } from '../../Explorer/explorerUtils';
 
-const DappItemPlainFavMenu: FC<{ item: MatchDAppItemType }> = ({ item }) => (
+const DappItemPlainFavMenu: FC<{
+  item: MatchDAppItemType;
+  isPressed?: boolean;
+}> = ({ item, isPressed }) => (
   <Box flexDirection="column" justifyContent="center">
     <FavListMenu isFav item={item}>
-      <IconButton type="plain" name="EllipsisVerticalOutline" size="sm" />
+      <IconButton
+        isDisabled={isPressed}
+        type="plain"
+        name="EllipsisVerticalOutline"
+        size="sm"
+      />
     </FavListMenu>
   </Box>
 );

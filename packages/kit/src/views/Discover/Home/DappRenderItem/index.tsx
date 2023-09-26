@@ -1,4 +1,4 @@
-import { type FC, type ReactElement, useCallback } from 'react';
+import { type FC, type ReactElement, cloneElement, useCallback } from 'react';
 
 import { Box, Center, Typography } from '@onekeyhq/components';
 import { NetworkIconGroup } from '@onekeyhq/kit/src/components/NetworkIconGroup';
@@ -109,21 +109,27 @@ export const DappItemPlain: FC<DappItemPlainProps> = (props) => {
         justifyContent="space-between"
         alignItems="center"
       >
-        <Box flex="1" flexDirection="row">
-          <Box mr="4">
-            <DAppIcon url={logoURI} size={48} />
-          </Box>
-          <Box flex="1">
-            <Typography.Body1Strong numberOfLines={1}>
-              {title}
-            </Typography.Body1Strong>
-            <Typography.Body2 color="text-subdued" numberOfLines={2}>
-              {description}
-            </Typography.Body2>
-            <NetworkIconGroup networkIds={networkIds ?? []} />
-          </Box>
-        </Box>
-        <Box>{rightElement}</Box>
+        {({ isPressed }) => (
+          <>
+            <Box flex="1" flexDirection="row">
+              <Box mr="4">
+                <DAppIcon url={logoURI} size={48} />
+              </Box>
+              <Box flex="1">
+                <Typography.Body1Strong numberOfLines={1}>
+                  {title}
+                </Typography.Body1Strong>
+                <Typography.Body2 color="text-subdued" numberOfLines={2}>
+                  {description}
+                </Typography.Body2>
+                <NetworkIconGroup networkIds={networkIds ?? []} />
+              </Box>
+            </Box>
+            <Box>
+              {rightElement ? cloneElement(rightElement, { isPressed }) : null}
+            </Box>
+          </>
+        )}
       </Pressable>
     </DappItemPlainLayout>
   );
