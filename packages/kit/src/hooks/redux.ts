@@ -12,57 +12,57 @@ export const useSettings = () => {
   return settings;
 };
 
-export const useDiscover = () => {
-  const discover = useAppSelector((s) => s.discover);
-  return discover;
-};
+// export const useDiscover = () => {
+//   const discover = useAppSelector((s) => s.discover);
+//   return discover;
+// };
 
-export const useData = () => {
-  const data = useAppSelector((s) => s.data);
-  return data;
-};
+// export const useData = () => {
+//   const data = useAppSelector((s) => s.data);
+//   return data;
+// };
 
-export const useGeneral = () => {
-  const general = useAppSelector((s) => s.general);
-  return general;
-};
+// export const useGeneral = () => {
+//   const general = useAppSelector((s) => s.general);
+//   return general;
+// };
 
-/**
- * @deprecated use useAppSelector instead
- */
-export const useRuntime = () => useAppSelector((s) => s.runtime);
+// /**
+//  * @deprecated use useAppSelector instead
+//  */
+// export const useRuntime = () => useAppSelector((s) => s.runtime);
 
-export const useNetworks = () => useAppSelector((s) => s.runtime.networks);
+// export const useNetworks = () => useAppSelector((s) => s.runtime.networks);
 
-// TODO rename like useManageNetworks
-export const useRuntimeWallets = () => {
-  const wallets = useAppSelector((s) => s.runtime.wallets);
-  const hardwareWallets = useMemo(
-    () => wallets.filter((w) => w.type === WALLET_TYPE_HW),
-    [wallets],
-  );
-  return {
-    wallets,
-    hardwareWallets,
-  };
-};
+// // TODO rename like useManageNetworks
+// export const useRuntimeWallets = () => {
+//   const wallets = useAppSelector((s) => s.runtime.wallets);
+//   const hardwareWallets = useMemo(
+//     () => wallets.filter((w) => w.type === WALLET_TYPE_HW),
+//     [wallets],
+//   );
+//   return {
+//     wallets,
+//     hardwareWallets,
+//   };
+// };
 
-export const useAutoUpdate = () => useAppSelector((s) => s.autoUpdate);
+// export const useAutoUpdate = () => useAppSelector((s) => s.autoUpdate);
 
-export const useGetWalletDetail = (walletId: string | null) => {
-  const wallet =
-    useAppSelector((s) =>
-      s.runtime.wallets?.find?.((w) => w.id === walletId),
-    ) ?? null;
-  return wallet;
-};
+// export const useGetWalletDetail = (walletId: string | null) => {
+//   const wallet =
+//     useAppSelector((s) =>
+//       s.runtime.wallets?.find?.((w) => w.id === walletId),
+//     ) ?? null;
+//   return wallet;
+// };
 
-export const useTools = (networkId?: string) => {
-  const tools = useAppSelector((s) => s.data.tools ?? []);
-  return useMemo(() => {
-    if (isAllNetworks(networkId)) {
-      return tools;
-    }
-    return tools.filter((item) => item.networkId === networkId);
-  }, [tools, networkId]);
-};
+// export const useTools = (networkId?: string) => {
+//   const tools = useAppSelector((s) => s.data.tools ?? []);
+//   return useMemo(() => {
+//     if (isAllNetworks(networkId)) {
+//       return tools;
+//     }
+//     return tools.filter((item) => item.networkId === networkId);
+//   }, [tools, networkId]);
+// };

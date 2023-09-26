@@ -3,7 +3,7 @@ import { dequal as deepEqual } from 'dequal';
 import { debounce, uniq } from 'lodash';
 import uuid from 'react-native-uuid';
 
-// import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
+import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import type { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 // import type { FirmwareType } from '@onekeyhq/kit/src/views/Hardware/UpdateFirmware/Updating';
@@ -51,8 +51,8 @@ export type ISettingsDevModeInfo = {
 };
 export type SettingsState = {
   theme: ThemeVariant | 'system';
-  // lastLocale: LocaleSymbol;
-  // locale: LocaleSymbol;
+  lastLocale: LocaleSymbol;
+  locale: LocaleSymbol;
   version: string;
   buildNumber?: string;
   instanceId: string;
