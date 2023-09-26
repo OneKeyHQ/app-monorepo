@@ -162,7 +162,11 @@ function Select({
                   <TMSelect.Item
                     index={i}
                     key={item.name}
-                    value={item.name.toLowerCase()}
+                    value={
+                      typeof item.name === 'string'
+                        ? item.name.toLowerCase()
+                        : String(item.name)
+                    }
                     minHeight="auto"
                     backgroundColor="$transparent"
                     borderRadius="$2"
