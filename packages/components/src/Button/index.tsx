@@ -145,7 +145,7 @@ const iconColorMapping: Record<string, ColorTokens> = {
   destructive: '$iconOnColor',
 };
 
-export const ButtonIcon = (props: IconProps) => {
+const ButtonIcon = (props: IconProps) => {
   const { size, buttonVariant } = useContext(ButtonContext);
 
   return (
@@ -176,7 +176,7 @@ export const ButtonIcon = (props: IconProps) => {
 //   },
 // });
 
-export const ButtonSpinner = () => {
+const ButtonSpinner = () => {
   const { size, buttonVariant } = useContext(ButtonContext);
 
   return (

@@ -5,6 +5,7 @@ import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import IconButtonGallery from '@onekeyhq/kit/src/views/Components/stories/IconButton';
+import SelectGallery from '@onekeyhq/kit/src/views/Components/stories/Select';
 import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 
@@ -19,6 +20,7 @@ export enum GalleryRoutes {
   ComponentTypography = 'component/typography',
   ComponentIcon = 'component/icon',
   ComponentButton = 'component/button',
+  ComponentSelect = 'component/select',
   ComponentIconButton = 'component/iconbutton',
   ComponentBadge = 'component/badge',
   ComponentDialog = 'component/dialog',
@@ -39,6 +41,7 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentToast, component: ToastGallery },
   { name: GalleryRoutes.ComponentIconButton, component: IconButtonGallery },
   { name: GalleryRoutes.ComponentButton, component: ButtonsGallery },
+  { name: GalleryRoutes.ComponentSelect, component: SelectGallery },
   { name: GalleryRoutes.ComponentBadge, component: BadgeGallery },
   { name: GalleryRoutes.ComponentDialog, component: DialogGallery },
   {
