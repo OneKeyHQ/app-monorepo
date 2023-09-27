@@ -193,6 +193,47 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     ]);
   }
 
+  async basePrepareAccountsImportedUtxo(
+    params: IPrepareImportedAccountsParams,
+    options: {
+      coinType: string;
+      accountType: AccountType;
+    },
+  ): Promise<Array<DBUTXOAccount>> {
+    if (!this.coreApi) {
+      throw new Error('coreApi is not defined');
+    }
+    const { name, privateKey } = params;
+    const { coinType, accountType } = options;
+
+    const networkInfo = await this.baseGetCoreApiNetworkInfo();
+
+    const privateKeyRaw = bufferUtils.bytesToHex(privateKey);
+    const { address, addresses, publicKey, xpub, xpubSegwit, path } =
+      await this.coreApi.getAddressFromPrivate({
+        networkInfo,
+        privateKeyRaw,
+      });
+
+    if (!path || !xpub || !addresses) {
+      throw new Error('path or xpub or addresses is undefined');
+    }
+
+    return Promise.resolve([
+      {
+        id: `imported--${coinType}--${xpub}`,
+        name: name || '',
+        type: accountType,
+        path,
+        coinType,
+        xpub,
+        pub: publicKey,
+        address,
+        addresses,
+      },
+    ]);
+  }
+
   async baseGetCoreApiNetworkInfo(): Promise<ICoreApiNetworkInfo> {
     const network = await this.getNetwork();
     const chainInfo = await this.getChainInfo();

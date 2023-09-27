@@ -5,7 +5,11 @@ import {
   getXprvString,
   sdk,
 } from '@onekeyhq/core/src/chains/ada/sdkAda';
-import { COINTYPE_ADA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import {
+  COINTYPE_ADA,
+  COINTYPE_ADA as COIN_TYPE,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   NotImplemented,
   OneKeyInternalError,
@@ -20,7 +24,10 @@ import { NetworkId } from './types';
 
 import type { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import type { DBUTXOAccount } from '../../../types/account';
+import type { IUnsignedMessageCommon } from '../../../types/message';
 import type {
+  IGetPrivateKeysParams,
+  IGetPrivateKeysResult,
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
   ISignedTxPro,
@@ -29,7 +36,43 @@ import type {
 import type { IAdaUTXO, IEncodedTxADA } from './types';
 
 export class KeyringImported extends KeyringImportedBase {
-  override async getPrivateKeys({
+  override coreApi = coreChainApi.ada.imported;
+
+  override getSigners(): Promise<Record<string, ChainSigner>> {
+    throw new Error('getSigners moved to core.');
+  }
+
+  override async getPrivateKeys(
+    params: IGetPrivateKeysParams,
+  ): Promise<IGetPrivateKeysResult> {
+    return this.baseGetPrivateKeys(params);
+  }
+
+  override async prepareAccounts(
+    params: IPrepareImportedAccountsParams,
+  ): Promise<DBUTXOAccount[]> {
+    return this.basePrepareAccountsImportedUtxo(params, {
+      coinType: COINTYPE_ADA,
+      accountType: AccountType.UTXO,
+    });
+  }
+
+  override async signTransaction(
+    unsignedTx: IUnsignedTxPro,
+    options: ISignCredentialOptions,
+  ): Promise<ISignedTxPro> {
+    return this.baseSignTransaction(unsignedTx, options);
+  }
+
+  override async signMessage(
+    messages: IUnsignedMessageCommon[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]> {
+    // throw new Error('Method not implemented.');
+    return this.baseSignMessage(messages, options);
+  }
+
+  async getPrivateKeysOld({
     password,
     relPaths,
   }: {
@@ -54,7 +97,7 @@ export class KeyringImported extends KeyringImportedBase {
     return { [dbAccount.path]: privateKey };
   }
 
-  override async getSigners(
+  async getSignersOld(
     password: string,
     addresses: string[],
   ): Promise<Record<string, ChainSigner>> {
@@ -78,7 +121,7 @@ export class KeyringImported extends KeyringImportedBase {
     };
   }
 
-  override prepareAccounts(
+  prepareAccountsOld(
     params: IPrepareImportedAccountsParams,
   ): Promise<DBUTXOAccount[]> {
     const { privateKey, name } = params;
@@ -114,7 +157,7 @@ export class KeyringImported extends KeyringImportedBase {
     ]);
   }
 
-  override async signTransaction(
+  async signTransactionOld(
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
   ): Promise<ISignedTxPro> {
@@ -150,7 +193,7 @@ export class KeyringImported extends KeyringImportedBase {
     };
   }
 
-  override async signMessage(
+  async signMessageOld(
     messages: any[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {

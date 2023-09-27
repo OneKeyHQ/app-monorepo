@@ -64,7 +64,7 @@ export type ICoreApiPrivateKeysMap = {
   //   simple: full path
   //     utxo: base path
   // imported: ""
-  [path: string]: string;
+  [path: string]: string; // encryptedPrivateKey by password
 };
 export type ICoreApiSignAccount = {
   address: string;
@@ -97,13 +97,13 @@ export type ICoreApiSignTxPayload = ICoreApiSignBasePayload & {
 export type ICoreApiSignMsgPayload = ICoreApiSignBasePayload & {
   unsignedMsg: IUnsignedMessage;
 };
-export type ICoreApiGetPrivateKeysMapQuery = {
+export type ICoreApiGetPrivateKeysMapHdQuery = {
   account: {
     path: string;
     address: string;
   };
   password: string;
-  seed: string;
+  hdCredential: ICoreHdCredential;
   relPaths?: string[];
 };
 export type ICoreImportedCredential = {

@@ -1,13 +1,27 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import type { ICurveName } from '@onekeyhq/engine/src/secret';
+import { encrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import type {
+  IAdaUTXO,
+  IEncodedTxADA,
+} from '@onekeyhq/engine/src/vaults/impl/ada/types';
 import { NetworkId } from '@onekeyhq/engine/src/vaults/impl/ada/types';
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
-import { batchGetShelleyAddresses } from './sdkAda';
+import {
+  batchGetShelleyAddressByRootKey,
+  batchGetShelleyAddresses,
+  decodePrivateKeyByXprv,
+  encodePrivateKey,
+  generateExportedCredential,
+  getPathIndex,
+  getXprvString,
+  sdk,
+} from './sdkAda';
 
 import type {
   ICoreApiGetAddressItem,
@@ -15,15 +29,41 @@ import type {
   ICoreApiGetAddressQueryPublicKey,
   ICoreApiGetAddressesQueryHd,
   ICoreApiGetAddressesResult,
+  ICoreApiGetPrivateKeysMapHdQuery,
   ICoreApiPrivateKeysMap,
   ICoreApiSignBasePayload,
   ICoreApiSignMsgPayload,
   ICoreApiSignTxPayload,
 } from '../../types';
+import type { IAdaBaseAddressInfo, IAdaStakingAddressInfo } from './sdkAda';
 
 const curve: ICurveName = 'ed25519';
 
 export default class CoreChainSoftware extends CoreChainApiBase {
+  override async baseGetPrivateKeysHd({
+    password,
+    account,
+    hdCredential,
+  }: ICoreApiGetPrivateKeysMapHdQuery & {
+    curve: ICurveName;
+  }): Promise<ICoreApiPrivateKeysMap> {
+    const { seed, entropy } = hdCredential;
+    const { path, address } = account;
+
+    const xprv = await generateExportedCredential(
+      password,
+      bufferUtils.toBuffer(entropy),
+      path,
+    );
+    const privateKey = decodePrivateKeyByXprv(xprv);
+    const privateKeyEncrypt = encrypt(password, privateKey);
+
+    const map: ICoreApiPrivateKeysMap = {
+      [path]: bufferUtils.bytesToHex(privateKeyEncrypt),
+    };
+    return map;
+  }
+
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {
@@ -38,20 +78,32 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
     // throw new Error('Method not implemented.');
-    const { unsignedTx } = payload;
+    const { unsignedTx, account } = payload;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxADA;
     const signer = await this.baseGetSingleSigner({
       payload,
       curve,
     });
-    // eslint-disable-next-line prefer-destructuring
-    const encodedTx = unsignedTx.encodedTx;
-    const txBytes = bufferUtils.toBuffer('');
-    const [signature] = await signer.sign(txBytes);
-    const txid = '';
-    const rawTx = '';
+    const privateKey = await signer.getPrvkey();
+    const encodeKey = encodePrivateKey(privateKey);
+    const xprv = await getXprvString(encodeKey.rootKey);
+    const accountIndex = getPathIndex(account.path);
+
+    const CardanoApi = await sdk.getCardanoApi();
+    const { signedTx, txid } = await CardanoApi.signTransaction(
+      encodedTx.tx.body,
+      account.address,
+      Number(accountIndex),
+      encodedTx.inputs as unknown as IAdaUTXO[],
+      xprv,
+      !!encodedTx.signOnly,
+      false,
+    );
+
     return {
+      rawTx: signedTx,
       txid,
-      rawTx,
+      encodedTx: unsignedTx.encodedTx,
     };
   }
 
@@ -68,29 +120,61 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return '';
   }
 
+  private buildAdaAddressItem({
+    baseAddress,
+    stakingAddress,
+  }: {
+    baseAddress: IAdaBaseAddressInfo;
+    stakingAddress: IAdaStakingAddressInfo;
+  }) {
+    const { address, path, xpub } = baseAddress;
+
+    const firstAddressRelPath = '0/0';
+    const stakingAddressPath = '2/0';
+
+    const result: ICoreApiGetAddressItem = {
+      address,
+      publicKey: '',
+      path,
+      xpub,
+      addresses: {
+        [firstAddressRelPath]: address,
+        [stakingAddressPath]: stakingAddress.address,
+      },
+    };
+    return result;
+  }
+
   override async getAddressFromPrivate(
     query: ICoreApiGetAddressQueryImported,
   ): Promise<ICoreApiGetAddressItem> {
     // throw new Error('Method not implemented.');
     const { privateKeyRaw } = query;
     const privateKey = bufferUtils.toBuffer(privateKeyRaw);
-    const pub = this.baseGetCurve(curve).publicFromPrivate(privateKey);
-    return this.getAddressFromPublic({
-      publicKey: bufferUtils.bytesToHex(pub),
-      networkInfo: query.networkInfo,
+
+    const encodeKey = encodePrivateKey(privateKey);
+
+    const index = parseInt(encodeKey.index);
+    const addressInfos = batchGetShelleyAddressByRootKey(
+      encodeKey.rootKey,
+      [index],
+      NetworkId.MAINNET,
+    );
+    const { baseAddress, stakingAddress } = addressInfos[0];
+
+    const result: ICoreApiGetAddressItem = this.buildAdaAddressItem({
+      baseAddress,
+      stakingAddress,
     });
+    return result;
   }
 
   override async getAddressFromPublic(
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem> {
-    // throw new Error('Method not implemented.');
-    const { publicKey } = query;
-    const address = '';
-    return Promise.resolve({
-      address,
-      publicKey,
-    });
+    throw new Error(
+      'Method not implemented. use getAddressFromPrivate instead.',
+    );
   }
 
   override async getAddressesFromHd(
@@ -111,23 +195,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       NetworkId.MAINNET,
     );
 
-    const firstAddressRelPath = '0/0';
-    const stakingAddressPath = '2/0';
-
     const addresses = addressInfos.map((info) => {
       const { baseAddress, stakingAddress } = info;
-      const { address, path, xpub } = baseAddress;
 
-      const result: ICoreApiGetAddressItem = {
-        address,
-        publicKey: '',
-        path,
-        xpub,
-        addresses: {
-          [firstAddressRelPath]: address as string,
-          [stakingAddressPath]: stakingAddress.address as string,
-        },
-      };
+      const result: ICoreApiGetAddressItem = this.buildAdaAddressItem({
+        baseAddress,
+        stakingAddress,
+      });
       return result;
     });
     return { addresses };

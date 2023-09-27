@@ -185,6 +185,10 @@ function getNextAccountIdsWithAccountDerivation(
     nextId += 1;
   }
 
+  if (nextId === index) {
+    throw new Error('get nextId failed, check if account path is correct');
+  }
+
   console.log('final nextId is : ', nextId);
   return nextId;
 }
@@ -251,13 +255,13 @@ function parsePath(impl: string, path: string, template?: string) {
 }
 
 export {
-  getPath,
-  parsePath,
-  getDefaultPurpose,
   derivationPathTemplates,
-  slicePathTemplate,
+  getAccountDerivationPrimaryKey,
+  getDefaultPurpose,
+  getLastAccountId,
   getNextAccountId,
   getNextAccountIdsWithAccountDerivation,
-  getLastAccountId,
-  getAccountDerivationPrimaryKey,
+  getPath,
+  parsePath,
+  slicePathTemplate,
 };

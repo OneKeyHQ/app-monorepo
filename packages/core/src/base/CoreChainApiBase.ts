@@ -28,7 +28,7 @@ import type {
   ICoreApiGetAddressQueryPublicKey,
   ICoreApiGetAddressesQueryHd,
   ICoreApiGetAddressesResult,
-  ICoreApiGetPrivateKeysMapQuery as ICoreApiGetPrivateKeysMapHdQuery,
+  ICoreApiGetPrivateKeysMapHdQuery,
   ICoreApiPrivateKeysMap,
   ICoreApiSignBasePayload,
   ICoreApiSignMsgPayload,
@@ -92,11 +92,10 @@ export abstract class CoreChainApiBase {
     let privateKeys: ICoreApiPrivateKeysMap = {};
     if (credentials.hd) {
       const { relPaths } = account;
-      const { seed } = credentials.hd;
       privateKeys = await this.baseGetPrivateKeysHd({
         curve,
         account,
-        seed,
+        hdCredential: credentials.hd,
         password,
         relPaths,
       });
@@ -118,10 +117,11 @@ export abstract class CoreChainApiBase {
     password,
     account,
     relPaths,
-    seed,
+    hdCredential,
   }: ICoreApiGetPrivateKeysMapHdQuery & {
     curve: ICurveName;
   }): Promise<ICoreApiPrivateKeysMap> {
+    const { seed } = hdCredential;
     const { path, address } = account;
     const seedBuffer = bufferUtils.toBuffer(seed);
     const pathComponents = path.split('/');

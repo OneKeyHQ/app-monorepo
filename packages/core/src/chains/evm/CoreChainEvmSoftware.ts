@@ -35,7 +35,7 @@ import type {
   ICoreApiGetAddressQueryPublicKey,
   ICoreApiGetAddressesQueryHd,
   ICoreApiGetAddressesResult,
-  ICoreApiGetPrivateKeysMapQuery,
+  ICoreApiGetPrivateKeysMapHdQuery,
   ICoreApiPrivateKeysMap,
   ICoreApiSignBasePayload,
   ICoreApiSignMsgPayload,

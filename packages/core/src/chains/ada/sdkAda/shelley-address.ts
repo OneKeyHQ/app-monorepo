@@ -60,11 +60,15 @@ export const deriveXpub = (paths: BIP32Path, rootKey: Buffer): Buffer => {
   return toPublic(deriveSecret.slice(0, 64));
 };
 
-export const ShelleyStakingAccountProvider = (
+export type IAdaStakingAddressInfo = {
+  path: BIP32Path;
+  address: string;
+};
+export function ShelleyStakingAccountProvider(
   accountIndex: number,
   rootKey: Buffer,
   networkId: NetworkId,
-) => {
+): IAdaStakingAddressInfo {
   const pathStake = shelleyStakeAccountPath(accountIndex);
   const stakeXpub = deriveXpub(pathStake, rootKey);
 
@@ -72,13 +76,18 @@ export const ShelleyStakingAccountProvider = (
     path: pathStake,
     address: stakingAddressFromXpub(stakeXpub, networkId),
   };
-};
+}
 
-export const ShelleyBaseAddressProvider = (
+export type IAdaBaseAddressInfo = {
+  path: string;
+  address: string;
+  xpub: string;
+};
+export function ShelleyBaseAddressProvider(
   accountIndex: number,
   rootKey: Buffer,
   networkId: NetworkId,
-) => {
+): IAdaBaseAddressInfo {
   const pathSpend = shelleyPath(accountIndex);
   const spendXpub = deriveXpub(pathSpend, rootKey);
 
@@ -92,7 +101,7 @@ export const ShelleyBaseAddressProvider = (
     address: baseAddressFromXpub(spendXpub, stakeXpub, networkId),
     xpub,
   };
-};
+}
 
 export const batchGetShelleyAddressByRootKey = (
   rootKey: Buffer,
