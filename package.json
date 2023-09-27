@@ -94,7 +94,6 @@
     "bitcoinjs-lib": "6.1.0",
     "bitcoinjs-message": "2.2.0",
     "buffer": "^6.0.3",
-    "burnt": "^0.11.7",
     "color": "^4.2.3",
     "crypto-browserify": "^3.12.0",
     "expo": "49.0.6",
