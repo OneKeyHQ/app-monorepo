@@ -32,10 +32,19 @@ export type IUnsignedMessageAptos = {
   message: string;
 };
 
+export type IUnsignedMessageAda = {
+  type: EMessageTypesCommon;
+  payload: {
+    addr: string;
+    payload: string;
+  };
+};
+
 export type IUnsignedMessageCommon = {
   type: EMessageTypesCommon;
   message: string;
   secure?: boolean;
+  payload?: any;
 };
 
 export type IUnsignedMessageBtc = {
@@ -47,11 +56,9 @@ export type IUnsignedMessageBtc = {
   };
 };
 
-export type IUnsignedMessage = (
+export type IUnsignedMessage =
   | IUnsignedMessageCommon
   | IUnsignedMessageEth
   | IUnsignedMessageBtc
   | IUnsignedMessageAptos
-) & {
-  payload?: any;
-};
+  | IUnsignedMessageAda;

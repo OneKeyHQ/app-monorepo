@@ -1,4 +1,4 @@
-import type { IAdaSdkApi } from '@onekeyhq/engine/src/vaults/impl/ada/helper/sdk/types';
+import type { IAdaSdkApi } from '@onekeyhq/core/src/chains/ada/sdkAda/sdk/types';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import type IAdaLib from '@onekeyfe/cardano-coin-selection-asmjs';

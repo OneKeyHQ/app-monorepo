@@ -3,6 +3,8 @@
 import { getUtxoAccountPrefixPath } from '@onekeyhq/engine/src/managers/derivation';
 import type { ICurveName } from '@onekeyhq/engine/src/secret';
 import { encrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import type { IUnsignedMessageAda } from '@onekeyhq/engine/src/types/message';
+import type { ISigner } from '@onekeyhq/engine/src/types/secret';
 import type {
   IAdaUTXO,
   IEncodedTxADA,
@@ -32,6 +34,7 @@ import type {
   ICoreApiGetAddressesResult,
   ICoreApiGetPrivateKeysMapHdQuery,
   ICoreApiPrivateKeysMap,
+  ICoreApiSignAccount,
   ICoreApiSignBasePayload,
   ICoreApiSignMsgPayload,
   ICoreApiSignTxPayload,
@@ -75,6 +78,23 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     });
   }
 
+  private async getAdaXprvInfo({
+    account,
+    signer,
+  }: {
+    signer: ISigner;
+    account: ICoreApiSignAccount;
+  }) {
+    const privateKey = await signer.getPrvkey();
+    const encodeKey = encodePrivateKey(privateKey);
+    const xprv = await getXprvString(encodeKey.rootKey);
+    const accountIndex = getPathIndex(account.path);
+    return {
+      xprv,
+      accountIndex,
+    };
+  }
+
   override async signTransaction(
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
@@ -85,10 +105,11 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       payload,
       curve,
     });
-    const privateKey = await signer.getPrvkey();
-    const encodeKey = encodePrivateKey(privateKey);
-    const xprv = await getXprvString(encodeKey.rootKey);
-    const accountIndex = getPathIndex(account.path);
+
+    const { xprv, accountIndex } = await this.getAdaXprvInfo({
+      signer,
+      account,
+    });
 
     const CardanoApi = await sdk.getCardanoApi();
     const { signedTx, txid } = await CardanoApi.signTransaction(
@@ -109,16 +130,27 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
-    // throw new Error('Method not implemented.');
-    // eslint-disable-next-line prefer-destructuring
-    const unsignedMsg = payload.unsignedMsg;
+    const { account } = payload;
+    const unsignedMsg = payload.unsignedMsg as IUnsignedMessageAda;
     const signer = await this.baseGetSingleSigner({
       payload,
       curve,
     });
-    const msgBytes = bufferUtils.toBuffer('');
-    const [signature] = await signer.sign(msgBytes);
-    return '';
+
+    const { xprv, accountIndex } = await this.getAdaXprvInfo({
+      signer,
+      account,
+    });
+    const CardanoApi = await sdk.getCardanoApi();
+
+    const { signature, key } = await CardanoApi.dAppSignData(
+      unsignedMsg.payload.addr,
+      unsignedMsg.payload.payload,
+      xprv,
+      Number(accountIndex),
+    );
+
+    return JSON.stringify({ signature, key });
   }
 
   private buildAdaAddressItem({

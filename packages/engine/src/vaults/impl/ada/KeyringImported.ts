@@ -165,7 +165,7 @@ export class KeyringImported extends KeyringImportedBase {
     const encodedTx = unsignedTx.payload.encodedTx as unknown as IEncodedTxADA;
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
 
-    const signers = await this.getSigners(options.password || '', [
+    const signers = await this.getSignersOld(options.password || '', [
       dbAccount.address,
     ]);
     const signer = signers[dbAccount.address];
@@ -199,7 +199,7 @@ export class KeyringImported extends KeyringImportedBase {
   ): Promise<string[]> {
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
 
-    const signers = await this.getSigners(options.password || '', [
+    const signers = await this.getSignersOld(options.password || '', [
       dbAccount.address,
     ]);
     const signer = signers[dbAccount.address];
