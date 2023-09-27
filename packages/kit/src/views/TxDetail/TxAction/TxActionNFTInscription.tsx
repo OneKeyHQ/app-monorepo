@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
@@ -14,7 +14,6 @@ import {
   IDecodedTxStatus,
 } from '@onekeyhq/engine/src/vaults/types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccount, useNetwork } from '../../../hooks';
 import {
   ModalRoutes,

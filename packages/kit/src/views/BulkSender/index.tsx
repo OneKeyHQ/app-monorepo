@@ -1,4 +1,10 @@
-import { useCallback, useLayoutEffect, useMemo } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
@@ -10,6 +16,7 @@ import {
   HStack,
   IconButton,
   ScrollView,
+  Spinner,
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -56,6 +63,7 @@ function BulkSender() {
   const navigation = useNavigation<NavigationProps>();
   const isVertical = useIsVerticalLayout();
   const route = useRoute<RouteProps>();
+  const [initialized, setInitialized] = useState(false);
 
   const routeParams = route.params;
   const mode = routeParams?.mode;
@@ -181,12 +189,27 @@ function BulkSender() {
     });
   }, [headerLeft, headerRight, intl, isVertical, navigation, title]);
 
+  useEffect(() => {
+    if (accountId && networkId) {
+      setTimeout(() => setInitialized(true), 800);
+    } else {
+      setInitialized(false);
+    }
+  }, [accountId, networkId]);
+
   if (!isSupported) return <NotSupported networkId={networkId} />;
 
-  if (selectedMode) {
+  if (!accountId || !networkId)
     return (
       <Center width="full" height="full">
-        <IdentityAssertion>
+        <IdentityAssertion />
+      </Center>
+    );
+
+  if (initialized) {
+    if (selectedMode)
+      return (
+        <Center width="full" height="full">
           <ScrollView
             style={{ width: '100%' }}
             contentContainerStyle={{
@@ -202,12 +225,17 @@ function BulkSender() {
               {renderBulkSenderPanel()}
             </Box>
           </ScrollView>
-        </IdentityAssertion>
-      </Center>
-    );
+        </Center>
+      );
+
+    return <ModelSelector networkId={networkId} />;
   }
 
-  return <ModelSelector networkId={networkId} />;
+  return (
+    <Center width="full" height="full">
+      <Spinner />
+    </Center>
+  );
   // const tabsHeader = useMemo(() => <BulkSenderHeader />, []);
   // return (
   //   <Tabs.Container
