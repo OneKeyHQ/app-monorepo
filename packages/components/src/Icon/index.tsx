@@ -6,7 +6,7 @@ import { useIsMounted } from '@onekeyhq/components/src/Provider/hooks/useIsMount
 import ICON_CONFIG from './Icons';
 
 import type { ICON_NAMES } from './Icons';
-import { styled, GetProps, Stack, Tokens } from 'tamagui';
+import { styled } from 'tamagui';
 import type { Svg, SvgProps } from 'react-native-svg';
 import { TextStyle } from 'react-native';
 

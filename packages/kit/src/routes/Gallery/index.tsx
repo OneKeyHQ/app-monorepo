@@ -13,6 +13,7 @@ import AlertGallery from '../../views/Components/stories/Alert';
 import DialogGallery from '../../views/Components/stories/Dialog';
 import DividerGallery from '../../views/Components/stories/Divider';
 import DemoRootApp from '../../views/Components/stories/NavigatorRoute';
+import ThemeGallery from '../../views/Components/stories/Theme';
 
 export enum GalleryRoutes {
   Components = 'components',
@@ -27,6 +28,7 @@ export enum GalleryRoutes {
   ComponentAlert = 'component/alert',
   ComponentDivider = 'component/divider',
   ComponentToast = 'component/toast',
+  ComponentTheme = 'component/theme',
 }
 
 export const stackScreenList = [
@@ -49,6 +51,7 @@ export const stackScreenList = [
   },
   { name: GalleryRoutes.ComponentAlert, component: AlertGallery },
   { name: GalleryRoutes.ComponentDivider, component: DividerGallery },
+  { name: GalleryRoutes.ComponentTheme, component: ThemeGallery },
 ];
 
 const DevStack = createNativeStackNavigator();

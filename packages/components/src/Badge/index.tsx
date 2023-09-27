@@ -1,7 +1,8 @@
 import { type FC } from 'react';
 
-import { Stack, styled } from '@tamagui/core';
+import { styled } from '@tamagui/core';
 
+import { Stack } from '../Stack';
 import { Text } from '../Text';
 
 const BadgeFrame = styled(Stack, {

@@ -1,6 +1,4 @@
-import { XStack, YStack } from 'tamagui';
-
-import { Button } from '@onekeyhq/components';
+import { Button, XStack, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
