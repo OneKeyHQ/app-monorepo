@@ -70,7 +70,7 @@ export function makeModalStackNavigatorOptions({
   // Android Pad
   if (platformEnv.isNativeAndroid && !isVerticalLayout) {
     options = {
-      headerShown: false,
+      headerShown: true,
       animation: 'none',
       presentation: 'transparentModal',
       contentStyle: { backgroundColor: 'transparent' },

@@ -6,12 +6,9 @@ export const hasNativeModal = platformEnv.isNativeIOS;
 
 export const TransparentModalTheme = {
   ...DefaultTheme,
-  colors: hasNativeModal
-    ? {
-        ...DefaultTheme.colors,
-      }
-    : {
-        background: 'transparent',
-        card: 'transparent',
-      },
+  colors: {
+    ...DefaultTheme.colors,
+    background: hasNativeModal ? DefaultTheme.colors.background : 'transparent',
+    card: hasNativeModal ? DefaultTheme.colors.card : 'transparent',
+  },
 };

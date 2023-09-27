@@ -61,16 +61,11 @@ export function makeModalStackNavigatorOptions({
     navigation: any;
   };
 } = {}) {
-  // @ts-expect-error
   const options: StackNavigationOptions = {
     headerShown: false,
     ...(platformEnv.isExtension
       ? { ...extAnimConfig.transition, ...extAnimConfig.stackScreenAnim }
       : undefined),
-    ...makeHeaderScreenOptions({
-      isModelScreen: true,
-      navigation: navInfo?.navigation,
-    }),
   };
 
   // Disable modal first screen navigation.replace() animation

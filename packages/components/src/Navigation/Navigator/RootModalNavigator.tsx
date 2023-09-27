@@ -1,13 +1,14 @@
 import { useMemo } from 'react';
 
-import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { ThemeProvider } from '@react-navigation/native';
 
 import { makeRootModalStackOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
+import { TransparentModalTheme } from './CommonConfig.ts';
+
 import type { CommonNavigatorConfig } from './types';
 import type { ParamListBase } from '@react-navigation/routers';
-import { TransparentModalTheme } from './CommonConfig.ts';
 
 interface ModalNavigatorConfig<P extends ParamListBase>
   extends CommonNavigatorConfig<P> {

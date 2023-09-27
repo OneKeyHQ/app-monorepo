@@ -21,6 +21,10 @@ type RootStackParamList = {
   };
 };
 
+function DemoModalStackScreen() {
+  return <RootModalNavigator config={DemoRootModalStackScreenList} />;
+}
+
 const rootConfig = [
   {
     name: DemoRootRoutes.Main,
@@ -29,9 +33,7 @@ const rootConfig = [
   },
   {
     name: DemoRootRoutes.Modal,
-    component: () => (
-      <RootModalNavigator config={DemoRootModalStackScreenList} />
-    ),
+    component: DemoModalStackScreen,
     type: 'modal',
   },
 ];
