@@ -6,6 +6,8 @@ module.exports = {
   addons: ['@storybook/addon-links', '@storybook/addon-essentials'],
   viteFinal: async (config, { configType }) => {
     const { tamaguiPlugin } = require('@tamagui/vite-plugin');
+    const commonjs = require('vite-plugin-commonjs').default;
+    config.plugins.unshift(commonjs());
     config.plugins.push(
       tamaguiPlugin({
         config: '../tamagui.config.ts',

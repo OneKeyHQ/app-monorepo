@@ -1,23 +1,34 @@
 if (!process.env.TAMAGUI_TARGET) {
   process.env.TAMAGUI_TARGET = 'native';
 }
+const path = require('path');
+const babelTools = require('../../development/babelTools');
 
 module.exports = function (api) {
   api.cache(true);
-  return {
-    presets: ['babel-preset-expo'],
-    plugins: [
-      process.env.STORYBOOK_ENABLED
-        ? ['babel-plugin-react-docgen-typescript', { exclude: 'node_modules' }]
-        : null,
-      [
-        'transform-inline-environment-variables',
-        // NOTE: include is optional, you can leave this part out
-        {
-          include: ['TAMAGUI_TARGET', 'EXPO_ROUTER_APP_ROOT'],
-        },
-      ],
-      'react-native-reanimated/plugin',
-    ].filter(Boolean),
-  };
+  return babelTools.normalizeConfig({
+    platform: babelTools.developmentConsts.platforms.app,
+    config: {
+      presets: ['babel-preset-expo'],
+      plugins: [
+        process.env.STORYBOOK_ENABLED
+          ? [
+              'babel-plugin-react-docgen-typescript',
+              { exclude: 'node_modules' },
+            ]
+          : null,
+        'react-native-reanimated/plugin',
+        [
+          require('@tamagui/babel-plugin/dist/cjs/index.native'),
+          {
+            components: ['tamagui'],
+            config: path.join(__dirname, '../components/tamagui.config.ts'),
+            importsWhitelist: [],
+            logTimings: true,
+            disableExtraction: process.env.NODE_ENV === 'development',
+          },
+        ],
+      ].filter(Boolean),
+    },
+  });
 };

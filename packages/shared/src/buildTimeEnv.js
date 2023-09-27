@@ -15,7 +15,7 @@ const isNative = process.env.ONEKEY_PLATFORM === 'app';
 const isExtChrome = process.env.EXT_CHANNEL === 'chrome';
 const isExtFirefox = process.env.EXT_CHANNEL === 'firefox';
 
-export {
+module.exports = {
   isJest,
   isDev,
   isProduction,

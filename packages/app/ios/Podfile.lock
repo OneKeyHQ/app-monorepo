@@ -805,9 +805,9 @@ DEPENDENCIES:
   - react-native-pager-view (from `../../../node_modules/react-native-pager-view`)
   - react-native-randombytes (from `../../../node_modules/react-native-randombytes`)
   - react-native-restart (from `../../../node_modules/react-native-restart`)
-  - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
+  - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
   - "react-native-segmented-control (from `../../../node_modules/@react-native-segmented-control/segmented-control`)"
-  - "react-native-slider (from `../node_modules/@react-native-community/slider`)"
+  - "react-native-slider (from `../../../node_modules/@react-native-community/slider`)"
   - react-native-tcp-socket (from `../../../node_modules/react-native-tcp-socket`)
   - react-native-view-shot (from `../../../node_modules/react-native-view-shot`)
   - react-native-webview (from `../../../node_modules/react-native-webview`)
@@ -827,7 +827,7 @@ DEPENDENCIES:
   - ReactNativeCameraKit (from `../../../node_modules/react-native-camera-kit`)
   - ReactNativeKeyboardManager (from `../../../node_modules/react-native-keyboard-manager`)
   - RealmJS (from `../../../node_modules/realm`)
-  - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
+  - "RNCAsyncStorage (from `../../../node_modules/@react-native-async-storage/async-storage`)"
   - RNDeviceInfo (from `../../../node_modules/react-native-device-info`)
   - RNExitApp (from `../../../node_modules/react-native-exit-app`)
   - RNFastImage (from `../../../node_modules/react-native-fast-image`)
@@ -1017,11 +1017,11 @@ EXTERNAL SOURCES:
   react-native-restart:
     :path: "../../../node_modules/react-native-restart"
   react-native-safe-area-context:
-    :path: "../node_modules/react-native-safe-area-context"
+    :path: "../../../node_modules/react-native-safe-area-context"
   react-native-segmented-control:
     :path: "../../../node_modules/@react-native-segmented-control/segmented-control"
   react-native-slider:
-    :path: "../node_modules/@react-native-community/slider"
+    :path: "../../../node_modules/@react-native-community/slider"
   react-native-tcp-socket:
     :path: "../../../node_modules/react-native-tcp-socket"
   react-native-view-shot:
@@ -1061,7 +1061,7 @@ EXTERNAL SOURCES:
   RealmJS:
     :path: "../../../node_modules/realm"
   RNCAsyncStorage:
-    :path: "../node_modules/@react-native-async-storage/async-storage"
+    :path: "../../../node_modules/@react-native-async-storage/async-storage"
   RNDeviceInfo:
     :path: "../../../node_modules/react-native-device-info"
   RNExitApp:
