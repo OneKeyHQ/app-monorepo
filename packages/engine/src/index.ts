@@ -203,6 +203,7 @@ class Engine {
     await this.dbApi.cleanupPendingWallets();
   }
 
+  // TODO move to serviceAccount
   @backgroundMethod()
   generateMnemonic(): Promise<string> {
     return Promise.resolve(bip39.generateMnemonic());

@@ -17,6 +17,10 @@ export enum EMessageTypesCommon {
   SIMPLE_SIGN = 'commonSimpleSign',
 }
 
+export enum EMessageTypesAda {
+  SIGN_MESSAGE = 'adaSignMessage',
+}
+
 export enum EMessageTypesBtc {
   ECDSA = 'ecdsa',
   BIP322_SIMPLE = 'bip322-simple',
@@ -25,15 +29,18 @@ export enum EMessageTypesBtc {
 export type IUnsignedMessageEth = {
   type: EMessageTypesEth;
   message: string;
+  payload?: any;
 };
 
 export type IUnsignedMessageAptos = {
   type: EMessageTypesAptos;
   message: string;
+  payload?: any;
 };
 
 export type IUnsignedMessageAda = {
-  type: EMessageTypesCommon;
+  type: EMessageTypesAda;
+  message: string;
   payload: {
     addr: string;
     payload: string;

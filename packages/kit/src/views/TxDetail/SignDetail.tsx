@@ -30,6 +30,7 @@ import X from '@onekeyhq/kit/assets/red_x.png';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import { useActiveSideAccount } from '../../hooks';
+import { getEthProviderMethodFromMessageType } from '../ExternalAccount/SendConfirm/useSignOrSendOfExternalAccount';
 
 type TabType = 'message' | 'data';
 
@@ -37,28 +38,6 @@ type TypedDataV1 = {
   type: string;
   name: string;
   value: string;
-};
-
-const getSignTypeString = (
-  signType:
-    | EMessageTypesEth
-    | EMessageTypesAptos
-    | EMessageTypesCommon
-    | EMessageTypesBtc,
-) => {
-  const signTypeMap = {
-    [EMessageTypesEth.ETH_SIGN]: 'eth_sign',
-    [EMessageTypesEth.PERSONAL_SIGN]: 'personal_sign',
-    [EMessageTypesEth.TYPED_DATA_V1]: 'signTypedData_v1',
-    [EMessageTypesEth.TYPED_DATA_V3]: 'signTypedData_v3',
-    [EMessageTypesEth.TYPED_DATA_V4]: 'signTypedData_v4',
-    [EMessageTypesAptos.SIGN_MESSAGE]: 'signMessage',
-    [EMessageTypesCommon.SIGN_MESSAGE]: 'signMessage',
-    [EMessageTypesCommon.SIMPLE_SIGN]: 'signMessage',
-    [EMessageTypesBtc.ECDSA]: 'signMessage',
-    [EMessageTypesBtc.BIP322_SIMPLE]: 'signMessage',
-  } as const;
-  return signTypeMap[signType];
 };
 
 const renderCard = (text: string) => (
@@ -367,7 +346,7 @@ const SignDetail: FC<{
   ) : (
     <VStack>
       {header}
-      {type === EMessageTypesCommon.SIGN_MESSAGE && !unsignedMessage.secure ? (
+      {type === EMessageTypesCommon.SIGN_MESSAGE && !unsignedMessage?.secure ? (
         <>{warning}</>
       ) : null}
       {renderTabBar()}
@@ -389,7 +368,7 @@ const SignDetail: FC<{
             {intl.formatMessage({ id: 'form__sign_method_type_uppercase' })}
           </Typography.Subheading>
           <Typography.Body2 mt="6px">
-            {getSignTypeString(type)}
+            {getEthProviderMethodFromMessageType(type)}
           </Typography.Body2>
         </VStack>
       )}

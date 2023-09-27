@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import type { IUnsignedMessage } from '@onekeyhq/engine/src/types/message';
 import {
+  EMessageTypesAda,
   EMessageTypesAptos,
   EMessageTypesBtc,
   EMessageTypesCommon,
@@ -20,13 +21,14 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 
 import { useSendConfirmInfoOfExternalAccount } from './useSendConfirmInfoOfExternalAccount';
 
-function getEthProviderMethodFromMessageType(
+export function getEthProviderMethodFromMessageType(
   type:
     | EMessageTypesEth
     | EMessageTypesAptos
     | EMessageTypesCommon
-    | EMessageTypesBtc,
-) {
+    | EMessageTypesBtc
+    | EMessageTypesAda,
+): string | undefined {
   // https://docs.metamask.io/guide/signing-data.html#a-brief-history
   switch (type) {
     case EMessageTypesEth.ETH_SIGN:
@@ -47,9 +49,14 @@ function getEthProviderMethodFromMessageType(
       return 'signMessage';
     case EMessageTypesBtc.ECDSA:
       return 'signMessage';
+    case EMessageTypesBtc.BIP322_SIMPLE:
+      return 'signMessage';
+    case EMessageTypesAda.SIGN_MESSAGE:
+      return 'signMessage';
     default:
       // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
-      const checkType = type;
+      const checkType: never = type;
+      return 'signMessage';
   }
 }
 
