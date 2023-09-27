@@ -771,20 +771,28 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       addressEncoding,
     } = query;
     const { seed, entropy } = hdCredential;
+
+    // template:  "m/49'/0'/$$INDEX$$'/0/0"
+    // { pathPrefix: "m/49'/0'", pathSuffix: "{index}'/0/0" }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
+
     const seedBuffer = bufferUtils.toBuffer(seed);
 
+    // relPaths:  ["0'", "1'"]
     const relPaths: string[] = indexes.map(
       (index) => `${index.toString()}'`, // btc
       // (index) => pathSuffix.replace('{index}', index.toString()), // evm
     );
+
+    // pubkeyInfos.map(i=>i.path)
+    //    ["m/49'/0'/0'", "m/49'/0'/1'"]
     const pubkeyInfos = batchGetPublicKeys(
       curveName,
       seedBuffer,
       password,
-      pathPrefix,
-      relPaths,
+      pathPrefix, // m/49'/0'
+      relPaths, // 0'   1'
     );
 
     if (pubkeyInfos.length !== indexes.length) {

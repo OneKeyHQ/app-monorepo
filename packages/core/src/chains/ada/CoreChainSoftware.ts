@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import { getUtxoAccountPrefixPath } from '@onekeyhq/engine/src/managers/derivation';
 import type { ICurveName } from '@onekeyhq/engine/src/secret';
 import { encrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type {
@@ -129,13 +130,19 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }) {
     const { address, path, xpub } = baseAddress;
 
+    // path:         "m/1852'/1815'/2'/0/0"
+    // accountPath:  "m/1852'/1815'/2'"
+    const accountPath = getUtxoAccountPrefixPath({
+      fullPath: path,
+    });
+
     const firstAddressRelPath = '0/0';
     const stakingAddressPath = '2/0';
 
     const result: ICoreApiGetAddressItem = {
       address,
       publicKey: '',
-      path,
+      path: accountPath,
       xpub,
       addresses: {
         [firstAddressRelPath]: address,

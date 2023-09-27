@@ -186,7 +186,9 @@ function getNextAccountIdsWithAccountDerivation(
   }
 
   if (nextId === index) {
-    throw new Error('get nextId failed, check if account path is correct');
+    throw new Error(
+      'Get account nextIndexId failed. Check if account.path or db.accountDerivation is correct. UTXO should use getUtxoAccountPrefixPath',
+    );
   }
 
   console.log('final nextId is : ', nextId);
@@ -254,6 +256,14 @@ function parsePath(impl: string, path: string, template?: string) {
   };
 }
 
+function getUtxoAccountPrefixPath({ fullPath }: { fullPath: string }) {
+  const pathComponent = fullPath.split('/');
+  pathComponent.pop();
+  pathComponent.pop();
+  const prefixPath = pathComponent.join('/');
+  return prefixPath;
+}
+
 export {
   derivationPathTemplates,
   getAccountDerivationPrimaryKey,
@@ -262,6 +272,7 @@ export {
   getNextAccountId,
   getNextAccountIdsWithAccountDerivation,
   getPath,
+  getUtxoAccountPrefixPath,
   parsePath,
   slicePathTemplate,
 };

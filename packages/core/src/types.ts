@@ -49,6 +49,8 @@ export type ICoreApiGetAddressQueryPublicKey = {
 export type ICoreApiGetAddressItem = {
   address: string;
   publicKey: string; // TODO rename to pub
+  // utxo use accountPrefixPath like    m/49'/0'/1'
+  //           but not fullPath like    m/49'/0'/1'/0/0
   path?: string;
   xpub?: string;
   xpubSegwit?: string;
