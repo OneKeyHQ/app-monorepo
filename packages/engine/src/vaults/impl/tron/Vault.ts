@@ -1370,7 +1370,7 @@ export default class Vault extends VaultBase {
       }
     });
 
-    const finanlTransferHistory = (
+    const finalTransferHistory = (
       await Promise.all(transferHistoryPromises)
     ).filter(Boolean);
     const finalTxHistory = (await Promise.all(txHistoryPromises)).filter(
@@ -1380,11 +1380,7 @@ export default class Vault extends VaultBase {
       await Promise.all(internalTxHistoryPromises)
     ).filter(Boolean);
 
-    return [
-      ...finanlTransferHistory,
-      ...finalTxHistory,
-      ...finalInterTxHistory,
-    ];
+    return [...finalTransferHistory, ...finalTxHistory, ...finalInterTxHistory];
   }
 
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
