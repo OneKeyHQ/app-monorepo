@@ -1,3 +1,4 @@
+/* eslint-disable import/order */
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
 import 'setimmediate';
 import './intlShim';
@@ -53,6 +54,9 @@ if (typeof crypto === 'undefined') {
 
 // https://docs.ethers.io/v5/cookbook/react-native/
 // Import the crypto getRandomValues shim (**BEFORE** the shims)
+if (global?.crypto?.getRandomValues) {
+  delete global.crypto.getRandomValues;
+}
 require('react-native-get-random-values');
 // Import the the ethers shims (**BEFORE** ethers)
 /*

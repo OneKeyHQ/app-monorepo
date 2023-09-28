@@ -1,3 +1,4 @@
+/* eslint-disable import/order */
 import './xhrShimV1';
 // import './xhrShimV2';
 
