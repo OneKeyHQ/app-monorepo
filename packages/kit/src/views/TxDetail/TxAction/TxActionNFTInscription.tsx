@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
@@ -14,7 +14,6 @@ import {
   IDecodedTxStatus,
 } from '@onekeyhq/engine/src/vaults/types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccount, useNetwork } from '../../../hooks';
 import {
   ModalRoutes,
@@ -111,6 +110,7 @@ export function getTxActionInscriptionInfo(props: ITxActionCardProps) {
     action,
     isInscribeTransfer,
     asset: inscriptionInfo?.asset,
+    assetsInSameUtxo: inscriptionInfo?.assetsInSameUtxo,
   };
 }
 
@@ -125,33 +125,12 @@ export function TxActionNFTInscription(props: ITxActionCardProps) {
   const { accountId, networkId } = decodedTx;
   const intl = useIntl();
   const { account } = useAccount({ accountId, networkId });
-  const { send, receive, isOut, asset, isInscribeTransfer } =
+  const { send, receive, isOut, asset, assetsInSameUtxo, isInscribeTransfer } =
     getTxActionInscriptionInfo(props);
   const navigation = useNavigation<NavigationProps>();
-
-  const [assets, setAssets] = useState<NFTBTCAssetModel[]>([]);
   const [showAllAssets, setShowAllAssets] = useState(false);
 
-  useEffect(() => {
-    const fetchInscriptionsInSameUtxo = async () => {
-      if (!asset) return;
-      const localNFTs =
-        (await backgroundApiProxy.serviceNFT.getAllAssetsFromLocal({
-          networkId,
-          accountId,
-        })) as NFTBTCAssetModel[];
-      const inscriptionsInSameUtxo = localNFTs.filter(
-        (nft) =>
-          nft.inscription_id !== asset.inscription_id &&
-          nft.owner === asset.owner &&
-          nft.output === asset.output &&
-          nft.output_value_sat === asset.output_value_sat,
-      );
-
-      setAssets([asset, ...inscriptionsInSameUtxo]);
-    };
-    fetchInscriptionsInSameUtxo();
-  }, [accountId, asset, networkId]);
+  const assets = [asset, assetsInSameUtxo].flat().filter(Boolean);
 
   const details: ITxActionElementDetail[] = [
     {

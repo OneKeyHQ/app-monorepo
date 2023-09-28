@@ -88,12 +88,14 @@ function BatchSendTokenInfo(props: Props) {
       sendAddress: transferInfo.tokenSendAddress,
     },
     fallback: '0',
+    useRecycleBalance: token?.isNative ?? true,
   });
   const nativeTokenBalance = useTokenBalance({
     accountId,
     networkId,
     token: nativeToken,
     fallback: '0',
+    useRecycleBalance: true,
   });
 
   if (!transferInfo || transferInfo.isNFT) return null;

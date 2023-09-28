@@ -79,6 +79,7 @@ const TokenListCell: FC<ListCellProps> = ({
     networkId,
     token,
     fallback: '0',
+    useRecycleBalance: token.isNative ?? true,
   });
   const tokenId = token?.tokenIdOnNetwork || 'main';
   const decimal =

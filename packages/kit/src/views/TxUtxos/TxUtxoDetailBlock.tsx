@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
@@ -20,7 +20,6 @@ import type { IBtcUTXO } from '@onekeyhq/engine/src/vaults/impl/btc/types';
 import type { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
 import type { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import OrdinalsSVG from '../../components/SVG/OrdinalsSVG';
 import { useNetwork } from '../../hooks';
 import {
@@ -44,7 +43,6 @@ const MAX_UTXOS_DEFAULT = 5;
 function TxUtxoDetailBlock(props: Props) {
   const { title, utxos, style, decodedTx, type } = props;
   const [showAll, setShowAll] = useState(false);
-  const [localNFTs, setLocalNFTs] = useState<NFTBTCAssetModel[]>([]);
   const navigation = useNavigation();
   const intl = useIntl();
   const { networkId, accountId, actions, encodedTx } = decodedTx;
@@ -103,16 +101,17 @@ function TxUtxoDetailBlock(props: Props) {
   );
 
   const renderUtxos = useCallback(() => {
-    const inscriptionsInActions = getInscriptionsInActions(actions);
+    const { inscriptions: inscriptionsInActions, inscriptionsInSameUtxo } =
+      getInscriptionsInActions(actions);
     let restInscriptions = inscriptionsInActions;
 
     return utxosToShow.map((utxo, index) => {
       const result = getInscriptionsInUtxo({
         utxo,
         inscriptionsInActions: restInscriptions,
+        inscriptionsInSameUtxo,
         isListOrderPsbt,
         type,
-        localNFTs,
       });
       const { inscriptions } = result;
       restInscriptions = result.restInscriptions;
@@ -137,24 +136,12 @@ function TxUtxoDetailBlock(props: Props) {
   }, [
     actions,
     isListOrderPsbt,
-    localNFTs,
     network?.decimals,
     network?.symbol,
     renderInscriptions,
     type,
     utxosToShow,
   ]);
-
-  useEffect(() => {
-    const fetchLocalNFTs = async () => {
-      const resp = (await backgroundApiProxy.serviceNFT.getAllAssetsFromLocal({
-        networkId,
-        accountId,
-      })) as NFTBTCAssetModel[];
-      setLocalNFTs(resp);
-    };
-    fetchLocalNFTs();
-  }, [accountId, networkId]);
 
   return (
     <Box {...style}>

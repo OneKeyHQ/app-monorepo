@@ -595,6 +595,7 @@ export type IDecodedTxActionInscription = IDecodedTxActionBase & {
   send: string;
   receive: string;
   isInscribeTransfer?: boolean;
+  assetsInSameUtxo?: NFTBTCAssetModel[];
 };
 
 export type IDecodedTxActionBRC20 = IDecodedTxActionBase & {
@@ -602,6 +603,7 @@ export type IDecodedTxActionBRC20 = IDecodedTxActionBase & {
   sender: string;
   receiver: string;
   asset: NFTBTCAssetModel;
+  assetsInSameUtxo?: NFTBTCAssetModel[];
   amount?: string;
   max?: string;
   limit?: string;
