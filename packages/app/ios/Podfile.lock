@@ -1,5 +1,9 @@
 PODS:
   - boost (1.76.0)
+  - Burnt (0.11.7):
+    - ExpoModulesCore
+    - SPAlert
+    - SPIndicator
   - CocoaAsyncSocket (7.6.5)
   - CocoaLumberjack (3.8.0):
     - CocoaLumberjack/Core (= 3.8.0)
@@ -705,6 +709,8 @@ PODS:
     - libwebp (~> 1.0)
     - SDWebImage/Core (~> 5.10)
   - SocketRocket (0.6.0)
+  - SPAlert (4.2.0)
+  - SPIndicator (1.6.4)
   - SSZipArchive (2.4.3)
   - Yoga (1.14.0)
   - YogaKit (1.18.1):
@@ -717,6 +723,7 @@ PODS:
 
 DEPENDENCIES:
   - boost (from `../../../node_modules/react-native/third-party-podspecs/boost.podspec`)
+  - Burnt (from `../../../node_modules/burnt/ios`)
   - DoubleConversion (from `../../../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)
   - EXApplication (from `../../../node_modules/expo-application/ios`)
   - EXAV (from `../../../node_modules/expo-av/ios`)
@@ -887,6 +894,8 @@ SPEC REPOS:
     - SDWebImage
     - SDWebImageWebPCoder
     - SocketRocket
+    - SPAlert
+    - SPIndicator
     - SSZipArchive
     - YogaKit
     - ZXingObjC
@@ -894,6 +903,8 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   boost:
     :podspec: "../../../node_modules/react-native/third-party-podspecs/boost.podspec"
+  Burnt:
+    :path: "../../../node_modules/burnt/ios"
   DoubleConversion:
     :podspec: "../../../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec"
   EXApplication:
@@ -1097,6 +1108,7 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   boost: 57d2868c099736d80fcd648bf211b4431e51a558
+  Burnt: ab447594da52c2485e3520c9e68b70ac30d4eaf0
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   CocoaLumberjack: 78abfb691154e2a9df8ded4350d504ee19d90732
   DoubleConversion: 5189b271737e1565bdce30deb4a08d647e3f5f54
@@ -1236,6 +1248,8 @@ SPEC CHECKSUMS:
   SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
   SDWebImageWebPCoder: 908b83b6adda48effe7667cd2b7f78c897e5111d
   SocketRocket: fccef3f9c5cedea1353a9ef6ada904fde10d6608
+  SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
+  SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
   SSZipArchive: fe6a26b2a54d5a0890f2567b5cc6de5caa600aef
   Yoga: 065f0b74dba4832d6e328238de46eb72c5de9556
   YogaKit: f782866e155069a2cca2517aafea43200b01fd5a

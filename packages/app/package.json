@@ -56,6 +56,7 @@
     "@walletconnect/utils": "^1.8.0",
     "asyncstorage-down": "^4.2.0",
     "buffer": "^6.0.3",
+    "burnt": "^0.11.7",
     "expo": "49.0.6",
     "expo-battery": "~7.3.0",
     "expo-clipboard": "^4.1.2",

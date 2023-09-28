@@ -83,7 +83,7 @@ input {
   min-width: 0;
 }
 
-[role="button"] {
+[role='button'] {
   outline: none;
 }
 
@@ -108,7 +108,7 @@ textarea {
 
 .debug-render-tracker-animated-bg:before {
   pointer-events: none;
-  content: "";
+  content: '';
   position: absolute;
   z-index: 999999;
   top: 0;
@@ -120,7 +120,7 @@ textarea {
 
 @keyframes debugRenderTrackerColorFade {
   from {
-    background-color: #E2C6C4;
+    background-color: #e2c6c4;
   }
   to {
     background-color: transparent;
@@ -133,7 +133,7 @@ textarea {
 
 .debug-render-tracker-animated-bg0:before {
   pointer-events: none;
-  content: "";
+  content: '';
   position: absolute;
   z-index: 999999;
   top: 0;
@@ -145,9 +145,14 @@ textarea {
 
 @keyframes debugRenderTrackerColorFade0 {
   from {
-    background-color: #AAB8AB;
+    background-color: #aab8ab;
   }
   to {
     background-color: transparent;
   }
+}
+
+/* custom sonner toast styles, should remove if the burnt library support such api to custom styles */
+[data-sonner-toast] {
+  max-width: calc(100vw - 32px);
 }

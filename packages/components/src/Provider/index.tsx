@@ -1,9 +1,10 @@
 import type { FC, ReactNode } from 'react';
 import { useMemo } from 'react';
 
+import { Toaster } from 'burnt/web';
 import { useWindowDimensions } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { TamaguiProvider } from 'tamagui';
+import { TamaguiProvider, useMedia } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -54,6 +55,7 @@ const Provider: FC<UIProviderProps> = ({
   setLeftSidebarCollapsed,
 }) => {
   const { width, height } = useWindowDimensions();
+  const media = useMedia();
   const providerValue = useMemo(
     () => ({
       themeVariant,
@@ -81,6 +83,15 @@ const Provider: FC<UIProviderProps> = ({
         <Context.Provider value={providerValue}>
           <TamaguiProvider config={config} defaultTheme={themeVariant}>
             <ToastProvider>{children}</ToastProvider>
+            <Toaster
+              {...(media.md
+                ? {
+                    position: 'top-center',
+                  }
+                : { position: 'bottom-right' })}
+              closeButton
+              theme={themeVariant}
+            />
           </TamaguiProvider>
         </Context.Provider>
       </FontProvider>
