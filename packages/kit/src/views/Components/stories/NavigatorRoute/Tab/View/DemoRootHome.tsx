@@ -1,13 +1,16 @@
-import { useNavigation } from '@react-navigation/native';
+import { NavigationProp, useNavigation } from '@react-navigation/native';
 
 import { Button, YStack } from '@onekeyhq/components';
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
 
 import { Layout } from '../../../utils/Layout';
-import { DemoTabChildRoutes } from '../../RootRoutes';
+import { DemoMainRoutes, DemoRootRoutes } from '../../Routes';
+import { GlobalRouteParams } from '../../RouteParamTypes';
+import { DemoHomeTabRoutes, DemoTabRoutes } from '../Routes';
+import { TabStackNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
 
 const DemoRootHome = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<GlobalRouteParams>>();
   return (
     <Layout
       description="这是一个路由 Header"
@@ -44,10 +47,19 @@ const DemoRootHome = () => {
             <Button
               buttonVariant="primary"
               onPress={() => {
-                // @ts-expect-error
-                navigation.navigate({
-                  name: DemoTabChildRoutes.DemoRootHomeSearch,
-                });
+                navigation.navigate(DemoHomeTabRoutes.DemoRootHomeSearch);
+                // navigation.navigate(DemoRootRoutes.Main, {
+                //   screen: DemoMainRoutes.Tab,
+                //   params: {
+                //     screen: DemoTabRoutes.Home,
+                //     params: {
+                //       screen: DemoHomeTabRoutes.DemoRootHomeSearch,
+                //       // params: {
+                //       //   screen: ,
+                //       // },
+                //     },
+                //   },
+                // });
               }}
             >
               <Button.Text>跳转搜索 Demo</Button.Text>

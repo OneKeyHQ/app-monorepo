@@ -9,7 +9,7 @@ import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigati
 
 import { Layout } from '../../utils/Layout';
 
-import { DemoCreateModalRoutes } from './RootModalRoutes';
+import { DemoCreateModalRoutes } from './Routes';
 
 export type DemoCreateModalParamList = {
   [DemoCreateModalRoutes.DemoCreateModal]: undefined;

@@ -3,21 +3,19 @@ import { RootModalNavigator } from '@onekeyhq/components/src/Navigation/Navigato
 
 import { CreateModalStack } from './DemoCreateModal';
 import { DoneModalStack } from './DemoDoneModal';
-import { DemoRootModalRoutes } from './RootModalRoutes';
+import { RootModalRoutes } from './Routes';
 
-const modalStackScreenList: ModalRootNavigatorConfig<DemoRootModalRoutes> = [
+const modalStackScreenList: ModalRootNavigatorConfig<RootModalRoutes> = [
   {
-    name: DemoRootModalRoutes.DemoCreateModal,
+    name: RootModalRoutes.DemoCreateModal,
     children: CreateModalStack,
   },
   {
-    name: DemoRootModalRoutes.DemoDoneModal,
+    name: RootModalRoutes.DemoDoneModal,
     children: DoneModalStack,
   },
 ];
 
 export default function DemoModalStackScreen() {
-  return (
-    <RootModalNavigator<DemoRootModalRoutes> config={modalStackScreenList} />
-  );
+  return <RootModalNavigator<RootModalRoutes> config={modalStackScreenList} />;
 }

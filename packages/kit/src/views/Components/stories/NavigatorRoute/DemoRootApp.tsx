@@ -8,21 +8,9 @@ import { RootStackNavigator } from '@onekeyhq/components/src/Navigation/Navigato
 
 import DemoMain from './DemoMain';
 import DemoModalStackScreen from './Modal';
-import { DemoRootRoutes } from './RootRoutes';
+import { DemoRootRoutes } from './Routes';
 
-export type RootStackParamList = {
-  [DemoRootRoutes.Main]: {
-    itemId: number;
-  };
-  [DemoRootRoutes.Modal]: {
-    query: string;
-  };
-};
-
-const rootConfig: RootStackNavigatorConfig<
-  DemoRootRoutes,
-  RootStackParamList
->[] = [
+const rootConfig: RootStackNavigatorConfig<DemoRootRoutes, any>[] = [
   {
     name: DemoRootRoutes.Main,
     component: DemoMain,
@@ -52,9 +40,5 @@ export const DemoRootApp = () => {
     }
   }, []);
 
-  return (
-    <RootStackNavigator<DemoRootRoutes, RootStackParamList>
-      config={rootConfig}
-    />
-  );
+  return <RootStackNavigator<DemoRootRoutes, any> config={rootConfig} />;
 };

@@ -1,19 +1,21 @@
 import { useLayoutEffect } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
+import { NavigationProp, useNavigation } from '@react-navigation/native';
 
 import { Button, Text } from '@onekeyhq/components';
 
 import { Layout } from '../../../utils/Layout';
-import { DemoTabChildRoutes } from '../../RootRoutes';
 
 import type {
   NativeSyntheticEvent,
   TextInputChangeEventData,
 } from 'react-native';
+import { DemoHomeTabRoutes } from '../Routes';
+import { GlobalRouteParams } from '../../RouteParamTypes';
+import { DemoRootRoutes } from '../../Routes';
 
 const DemoRootHomeSearch = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<GlobalRouteParams>>();
   useLayoutEffect(() => {
     navigation.setOptions({
       headerSearchBarOptions: {
@@ -55,9 +57,8 @@ const DemoRootHomeSearch = () => {
             <Button
               buttonVariant="primary"
               onPress={() => {
-                // @ts-expect-error
-                navigation.navigate({
-                  name: DemoTabChildRoutes.DemoRootHomeOptions,
+                navigation.navigate(DemoRootRoutes.Main, {
+                  screen: DemoHomeTabRoutes.DemoRootHomeOptions,
                 });
               }}
             >

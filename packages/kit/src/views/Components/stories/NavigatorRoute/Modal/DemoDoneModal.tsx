@@ -1,7 +1,7 @@
 import { Stack } from '@onekeyhq/components';
 import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
 
-import { DemoDoneModalRoutes } from './RootModalRoutes';
+import { DemoDoneModalRoutes } from './Routes';
 
 export type DemoDoneModalParamList = {
   [DemoDoneModalRoutes.DemoDoneModal]: undefined;

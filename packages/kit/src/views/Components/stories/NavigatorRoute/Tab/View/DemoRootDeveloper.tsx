@@ -3,11 +3,11 @@ import { useNavigation } from '@react-navigation/native';
 import { Button } from '@onekeyhq/components';
 
 import { Layout } from '../../../utils/Layout';
-import { DemoRootRoutes } from '../../RootRoutes';
+import { DemoCreateModalRoutes, RootModalRoutes } from '../../Modal/Routes';
+import { DemoRootRoutes } from '../../Routes';
 
+import type { GlobalRouteParams } from '../../RouteParamTypes';
 import type { NavigationProp } from '@react-navigation/native';
-import { DemoRootModalRoutes } from '../../Modal/RootModalRoutes';
-import type { GlobalRouteParams } from '../../types';
 
 const DemoRootHome = () => {
   const navigation = useNavigation<NavigationProp<GlobalRouteParams>>();
@@ -24,7 +24,7 @@ const DemoRootHome = () => {
               buttonVariant="primary"
               onPress={() => {
                 navigation.navigate(DemoRootRoutes.Modal, {
-                  screen: DemoRootModalRoutes.DemoCreateModal,
+                  screen: DemoCreateModalRoutes.DemoCreateModal,
                 });
               }}
             >

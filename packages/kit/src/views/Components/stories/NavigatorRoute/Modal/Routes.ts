@@ -1,4 +1,4 @@
-export enum DemoRootModalRoutes {
+export enum RootModalRoutes {
   DemoCreateModal = 'DemoCreateModalStack',
   DemoDoneModal = 'DemoDoneModalStack',
 }
