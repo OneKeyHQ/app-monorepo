@@ -6553,7 +6553,6 @@ __metadata:
     esbuild: ^0.15.11
     expo: 49.0.6
     glob: ^7.2.0
-    keytar: ^7.9.0
     node-fetch: ^2.6.7
     rimraf: ^3
   languageName: unknown
@@ -23915,17 +23914,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"keytar@npm:^7.9.0":
-  version: 7.9.0
-  resolution: "keytar@npm:7.9.0"
-  dependencies:
-    node-addon-api: ^4.3.0
-    node-gyp: latest
-    prebuild-install: ^7.0.1
-  checksum: 4dbdd21f69e21a53032cbc949847f57338e42df763c5eec04e1b5d7142a689f95d8c3d74fb3b7dc321b5d678271d8d8d1a0dcaa919673ebc50ef8ce76f354e21
-  languageName: node
-  linkType: hard
-
 "keyv@npm:^4.0.0":
   version: 4.0.4
   resolution: "keyv@npm:4.0.4"
@@ -26426,15 +26414,6 @@ __metadata:
   dependencies:
     node-gyp: latest
   checksum: 31fb22d674648204f8dd94167eb5aac896c841b84a9210d614bf5d97c74ef059cc6326389cf0c54d2086e35312938401d4cc82e5fcd679202503eb8ac84814f8
-  languageName: node
-  linkType: hard
-
-"node-addon-api@npm:^4.3.0":
-  version: 4.3.0
-  resolution: "node-addon-api@npm:4.3.0"
-  dependencies:
-    node-gyp: latest
-  checksum: 3de396e23cc209f539c704583e8e99c148850226f6e389a641b92e8967953713228109f919765abc1f4355e801e8f41842f96210b8d61c7dcc10a477002dcf00
   languageName: node
   linkType: hard
 
