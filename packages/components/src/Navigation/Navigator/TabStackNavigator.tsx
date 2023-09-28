@@ -1,10 +1,9 @@
-import type { ComponentType } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import useIsVerticalLayout from '../../Provider/hooks/useIsVerticalLayout';
-import { makeHeaderScreenOptions } from '../Header';
+import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 import NavigationBar from '../Tab/TabBar';
 
@@ -12,34 +11,38 @@ import type { CommonNavigatorConfig } from './types';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
 import type { ParamListBase } from '@react-navigation/routers';
 
-interface TabSubNavigatorConfig<P extends ParamListBase>
-  extends CommonNavigatorConfig<P> {
+export interface TabSubNavigatorConfig<
+  RouteName extends string,
+  P extends ParamListBase,
+> extends CommonNavigatorConfig<RouteName, P> {
   translationId: string;
 }
 
-export interface TabNavigatorConfig<P extends ParamListBase> {
-  name: string;
-  component: ComponentType<any>;
+export interface TabNavigatorConfig<
+  RouteName extends string,
+  P extends ParamListBase,
+> extends CommonNavigatorConfig<RouteName, P> {
   tabBarIcon: (props: { focused?: boolean }) => string;
   translationId: string;
   disable?: boolean;
-  children?: TabSubNavigatorConfig<P>[];
+  children?: TabSubNavigatorConfig<any, any>[];
 }
 
-export interface TabNavigatorProps<P extends ParamListBase> {
-  config: TabNavigatorConfig<P>[];
-}
-
-export function createTabNavigatorConfig<P extends ParamListBase>(
-  config: TabNavigatorConfig<P>[],
-): TabNavigatorConfig<P>[] {
-  return config;
+export interface TabNavigatorProps<
+  RouteName extends string,
+  P extends ParamListBase,
+> {
+  config: TabNavigatorConfig<RouteName, P>[];
 }
 
 const Stack = createStackNavigator();
 
-function makeTabStackScreen(screens: TabSubNavigatorConfig<any>[]) {
-  return () => (
+function TabSubStackNavigator({
+  screens,
+}: {
+  screens: TabSubNavigatorConfig<any, any>[];
+}) {
+  return (
     <Stack.Navigator>
       {screens.map(({ name, component, translationId }) => (
         <Stack.Screen
@@ -47,14 +50,9 @@ function makeTabStackScreen(screens: TabSubNavigatorConfig<any>[]) {
           name={name}
           component={component}
           options={({ navigation }: { navigation: any }) => ({
-            key: `${name as string}.Stack.Screen.component`,
             // TODO i18n
             title: translationId,
-            headerShown: true,
-            ...makeHeaderScreenOptions({
-              isRootScreen: true,
-              navigation,
-            }),
+            ...makeTabScreenOptions({ navigation }),
           })}
         />
       ))}
@@ -64,9 +62,10 @@ function makeTabStackScreen(screens: TabSubNavigatorConfig<any>[]) {
 
 const Tab = createBottomTabNavigator();
 
-export function TabStackNavigator<P extends ParamListBase>({
-  config,
-}: TabNavigatorProps<P>) {
+export function TabStackNavigator<
+  RouteName extends string,
+  P extends ParamListBase,
+>({ config }: TabNavigatorProps<RouteName, P>) {
   const isVerticalLayout = useIsVerticalLayout();
 
   const tabBarCallback = useCallback(
@@ -74,12 +73,12 @@ export function TabStackNavigator<P extends ParamListBase>({
     [],
   );
 
-  const tabList = useMemo(
+  const tabComponents = useMemo(
     () =>
       config
         .filter(({ disable }) => !disable)
         .map(({ name, translationId, tabBarIcon, children, component }) => {
-          const srceenList: TabSubNavigatorConfig<any> = [
+          const screenList: TabSubNavigatorConfig<any, any>[] = [
             {
               name,
               component,
@@ -87,21 +86,15 @@ export function TabStackNavigator<P extends ParamListBase>({
             },
             ...(children || []),
           ];
-          return (
-            <Tab.Screen
-              key={`Tab-Screen-${name}`}
-              name={`Tab-Screen-${name}`}
-              component={makeTabStackScreen(srceenList)}
-              options={{
-                tabBarIcon,
-                tabBarLabel: translationId,
-                // @ts-expect-error
-                tabBarPosition: isVerticalLayout ? 'bottom' : 'left',
-              }}
-            />
-          );
+          return {
+            name: `Tab-Screen-${name}`,
+            tabBarLabel: translationId,
+            tabBarIcon,
+            // eslint-disable-next-line react/no-unstable-nested-components
+            children: () => <TabSubStackNavigator screens={screenList} />,
+          };
         }),
-    [config, isVerticalLayout],
+    [config],
   );
 
   return (
@@ -110,10 +103,21 @@ export function TabStackNavigator<P extends ParamListBase>({
       screenOptions={{
         headerShown: false,
         // freezeOnBlur: false,
-        // lazy: !platformEnv.isNative,
       }}
     >
-      {tabList}
+      {tabComponents.map(({ name, children, ...options }) => (
+        <Tab.Screen
+          key={name}
+          name={name}
+          options={{
+            ...options,
+            // @ts-expect-error BottomTabBar V7
+            tabBarPosition: isVerticalLayout ? 'bottom' : 'left',
+          }}
+        >
+          {children}
+        </Tab.Screen>
+      ))}
     </Tab.Navigator>
   );
 }

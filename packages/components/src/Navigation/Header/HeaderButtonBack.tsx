@@ -1,6 +1,4 @@
-import { useCallback, useMemo } from 'react';
-
-// import { HeaderBackButton } from '@react-navigation/elements';
+import { memo, useCallback, useMemo } from 'react';
 
 import useIsVerticalLayout from '../../Provider/hooks/useIsVerticalLayout';
 
@@ -11,7 +9,7 @@ import HeaderButtonSide from './HeaderButtonSide';
 import type { OneKeyStackHeaderProps } from './HeaderScreenOptions';
 import type { HeaderBackButtonProps } from '@react-navigation/elements';
 
-export default function HeaderButtonBack({
+function HeaderButtonBack({
   isModelScreen,
   isRootScreen,
   canGoBack,
@@ -45,8 +43,8 @@ export default function HeaderButtonBack({
   const slideButtonMemo = useMemo(() => {
     if (!showSlideButton) return null;
 
-    return <HeaderButtonSide />;
-  }, [showSlideButton]);
+    return <HeaderButtonSide isRootScreen={isRootScreen} />;
+  }, [isRootScreen, showSlideButton]);
 
   return (
     <HeaderButtonGroup>
@@ -55,3 +53,5 @@ export default function HeaderButtonBack({
     </HeaderButtonGroup>
   );
 }
+
+export default memo(HeaderButtonBack);

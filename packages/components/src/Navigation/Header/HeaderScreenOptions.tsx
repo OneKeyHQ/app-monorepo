@@ -1,12 +1,15 @@
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { ReactNode } from 'react';
+
+import { hasNativeModal } from '../Navigator/CommonConfig.ts';
 
 import HeaderButtonBack from './HeaderButtonBack';
 import HeaderView from './HeaderView';
 
-import type { StackHeaderProps } from '../StackNavigator.native';
+import type {
+  StackHeaderProps,
+  StackNavigationOptions,
+} from '../StackNavigator.native';
 import type { HeaderBackButtonProps } from '@react-navigation/elements';
-import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
-import { hasNativeModal } from '../Navigator/CommonConfig.ts';
 
 export type OneKeyStackHeaderProps = {
   navigation?: StackHeaderProps['navigation'];
@@ -19,15 +22,14 @@ export function makeHeaderScreenOptions({
   navigation: currentNavigation,
   isModelScreen = false,
   isRootScreen = false,
-  isFlowModelScreen = false,
-}: OneKeyStackHeaderProps): NativeStackNavigationOptions {
+}: OneKeyStackHeaderProps): StackNavigationOptions {
   if (hasNativeModal) {
     const state = currentNavigation?.getState();
     const isCanGoBack = (state?.index ?? 0) > 0;
 
     return {
       headerTransparent: false,
-      headerLeft: (props: HeaderBackButtonProps) => (
+      headerLeft: (props: HeaderBackButtonProps): ReactNode => (
         <HeaderButtonBack
           {...props}
           onPress={currentNavigation?.goBack}
@@ -55,7 +57,6 @@ export function makeHeaderScreenOptions({
         navigation={navigation}
         isModelScreen={isModelScreen}
         isRootScreen={isRootScreen}
-        isFlowModelScreen={isFlowModelScreen}
       />
     ),
   };

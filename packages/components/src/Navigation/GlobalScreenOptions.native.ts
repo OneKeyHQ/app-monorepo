@@ -12,14 +12,13 @@ export function clearStackNavigatorOptions(options?: {
 }): StackNavigationOptions {
   return {
     headerShown: false,
-    contentStyle: {
-      backgroundColor: 'transparent',
-    },
     animation: 'none',
   };
 }
 
-export function makeRootScreenOptions(_: { isVerticalLayout?: boolean }) {
+export function makeRootScreenOptions(_: {
+  isVerticalLayout?: boolean;
+}): StackNavigationOptions {
   return {
     headerShown: false,
     animation: 'simple_push',
@@ -28,7 +27,7 @@ export function makeRootScreenOptions(_: { isVerticalLayout?: boolean }) {
 
 export function makeModalOpenAnimationOptions(_: {
   isVerticalLayout?: boolean;
-}) {
+}): StackNavigationOptions {
   if (platformEnv.isNativeIOS) {
     return {
       animation: 'slide_from_bottom',
@@ -55,7 +54,7 @@ export function makeModalStackNavigatorOptions({
     route: RouteProp<any>;
     navigation: any;
   };
-} = {}) {
+} = {}): StackNavigationOptions {
   let options: StackNavigationOptions = {};
 
   if (platformEnv.isNativeAndroid) {
@@ -99,7 +98,7 @@ export function makeModalScreenOptions({
   isVerticalLayout,
 }: {
   isVerticalLayout: boolean;
-}) {
+}): StackNavigationOptions {
   return {
     headerShown: false,
     presentation: platformEnv.isNativeIOS ? 'modal' : 'transparentModal',
@@ -107,13 +106,40 @@ export function makeModalScreenOptions({
   };
 }
 
-export function makeRootModalStackOptions() {
-  return {
+export function makeRootModalStackOptions(): StackNavigationOptions {
+  const options: StackNavigationOptions = {
     headerShown: false,
   };
+
+  if (platformEnv.isNativeAndroid) {
+    // animation gets a little stuck
+    options.animation = 'none';
+  }
+  return options;
 }
 
-export function makeFullScreenOptions() {
+export function makeTabScreenOptions({
+  navigation,
+}: {
+  navigation: any;
+}): StackNavigationOptions {
+  const options: StackNavigationOptions = {
+    headerShown: true,
+    ...makeHeaderScreenOptions({
+      isRootScreen: true,
+      navigation,
+    }),
+  };
+
+  if (platformEnv.isNativeAndroid) {
+    // animation gets a little stuck
+    options.animation = 'none';
+  }
+
+  return options;
+}
+
+export function makeFullScreenOptions(): StackNavigationOptions {
   return {
     headerShown: false,
     presentation: 'fullScreenModal', // containedModal card fullScreenModal

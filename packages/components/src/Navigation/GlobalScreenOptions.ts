@@ -15,12 +15,13 @@ export function clearStackNavigatorOptions(options?: {
 }): StackNavigationOptions {
   return {
     headerShown: false,
-    cardStyle: { backgroundColor: 'transparent' },
     animationEnabled: false,
   };
 }
 
-export function makeRootScreenOptions(options: { isVerticalLayout?: boolean }) {
+export function makeRootScreenOptions(options: {
+  isVerticalLayout?: boolean;
+}): StackNavigationOptions {
   return {
     headerShown: false,
     ...(options.isVerticalLayout
@@ -31,7 +32,7 @@ export function makeRootScreenOptions(options: { isVerticalLayout?: boolean }) {
 
 export function makeModalOpenAnimationOptions(options: {
   isVerticalLayout?: boolean;
-}) {
+}): StackNavigationOptions {
   if (platformEnv.isExtension) {
     return {
       animationEnabled: true,
@@ -53,14 +54,13 @@ export function makeModalOpenAnimationOptions(options: {
 
 export function makeModalStackNavigatorOptions({
   navInfo,
-  isVerticalLayout,
 }: {
   isVerticalLayout?: boolean;
   navInfo?: {
     route: RouteProp<any>;
     navigation: any;
   };
-} = {}) {
+} = {}): StackNavigationOptions {
   const options: StackNavigationOptions = {
     headerShown: false,
     ...(platformEnv.isExtension
@@ -79,7 +79,7 @@ export function makeModalScreenOptions({
   isVerticalLayout,
 }: {
   isVerticalLayout: boolean;
-}) {
+}): StackNavigationOptions {
   return {
     headerShown: false,
     presentation: 'transparentModal',
@@ -88,7 +88,7 @@ export function makeModalScreenOptions({
   };
 }
 
-export function makeRootModalStackOptions() {
+export function makeRootModalStackOptions(): StackNavigationOptions {
   return {
     headerShown: false,
     presentation: 'transparentModal',
@@ -96,7 +96,22 @@ export function makeRootModalStackOptions() {
   };
 }
 
-export function makeFullScreenOptions() {
+export function makeTabScreenOptions({
+  navigation,
+}: {
+  navigation: any;
+}): StackNavigationOptions {
+  // @ts-expect-error
+  return {
+    headerShown: true,
+    ...makeHeaderScreenOptions({
+      isRootScreen: true,
+      navigation,
+    }),
+  };
+}
+
+export function makeFullScreenOptions(): StackNavigationOptions {
   return {
     headerShown: false,
     animationEnabled: true,

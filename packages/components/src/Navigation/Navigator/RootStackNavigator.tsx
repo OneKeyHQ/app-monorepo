@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import useIsVerticalLayout from '../../Provider/hooks/useIsVerticalLayout';
 import { useThemeValue } from '../../Provider/hooks/useThemeValue';
@@ -14,29 +14,28 @@ import type { ParamListBase } from '@react-navigation/routers';
 
 type RootStackType = 'normal' | 'modal' | 'fullScreen';
 
-interface RootStackNavigatorConfig<P extends ParamListBase>
-  extends CommonNavigatorConfig<P> {
+export interface RootStackNavigatorConfig<
+  RouteName extends string,
+  P extends ParamListBase,
+> extends CommonNavigatorConfig<RouteName, P> {
   initialRoute?: boolean;
   type?: RootStackType;
 }
 
-interface RootStackNavigatorProps<P extends ParamListBase> {
-  config: RootStackNavigatorConfig<P>[];
+interface RootStackNavigatorProps<
+  RouteName extends string,
+  P extends ParamListBase,
+> {
+  config: RootStackNavigatorConfig<RouteName, P>[];
   screenOptions?: Record<any, any>;
-}
-
-export function createRootNavigatorConfig<P extends ParamListBase>(
-  config: RootStackNavigatorConfig<P>[],
-): RootStackNavigatorConfig<P>[] {
-  return config;
 }
 
 const RootStack = createStackNavigator<ParamListBase>();
 
-export function RootStackNavigator<P extends ParamListBase>({
-  config,
-  screenOptions,
-}: RootStackNavigatorProps<P>) {
+export function RootStackNavigator<
+  RouteName extends string,
+  P extends ParamListBase,
+>({ config, screenOptions = {} }: RootStackNavigatorProps<RouteName, P>) {
   const initialRouteName =
     config.find((route) => route.initialRoute)?.name ?? config[0].name;
 
@@ -46,7 +45,7 @@ export function RootStackNavigator<P extends ParamListBase>({
     bgColor: bgColor as string,
   });
 
-  const presetOptions = useCallback(
+  const getOptionsWithType = useCallback(
     (type?: RootStackType) => {
       switch (type) {
         case 'modal':
@@ -73,7 +72,7 @@ export function RootStackNavigator<P extends ParamListBase>({
           key={name}
           name={name}
           component={component}
-          options={{ ...options, ...presetOptions(type) }}
+          options={{ ...options, ...getOptionsWithType(type) }}
         />
       ))}
     </RootStack.Navigator>

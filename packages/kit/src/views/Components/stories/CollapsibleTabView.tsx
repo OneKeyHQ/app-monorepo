@@ -30,8 +30,6 @@ function getNetworks(begin = 0) {
 }
 
 function TokenList({ networks }: { networks: Network[] }) {
-  console.log();
-
   const renderItem = useCallback(
     ({ item }: { item: Network }) => (
       <XStack onPress={() => {}}>

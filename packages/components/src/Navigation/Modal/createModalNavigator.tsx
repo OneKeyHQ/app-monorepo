@@ -6,6 +6,8 @@ import {
   useNavigationBuilder,
 } from '@react-navigation/native';
 
+import ModalStack from './ModalStack';
+
 import type {
   ModalNavigationConfig,
   ModalNavigationEventMap,
@@ -18,9 +20,13 @@ import type {
   StackNavigationState,
   StackRouterOptions,
 } from '@react-navigation/native';
-import ModalStack from './ModalStack';
 
-type Props = DefaultNavigatorOptions<ModalNavigationOptions> &
+type Props = DefaultNavigatorOptions<
+  ParamListBase,
+  StackNavigationState<ParamListBase>,
+  ModalNavigationOptions,
+  ModalNavigationEventMap
+> &
   StackRouterOptions &
   ModalNavigationConfig;
 
@@ -46,6 +52,7 @@ function ModalNavigator({
     <ModalStack
       {...rest}
       state={state}
+      // @ts-expect-error
       descriptors={descriptors}
       navigation={navigation}
     />

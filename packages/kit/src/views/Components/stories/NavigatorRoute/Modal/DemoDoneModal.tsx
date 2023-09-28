@@ -1,22 +1,12 @@
 import { Stack } from '@onekeyhq/components';
-import {
-  createStackNavigator,
-  makeModalStackNavigatorOptions,
-} from '@onekeyhq/components/src/Navigation';
-import useIsVerticalLayout from '@onekeyhq/components/src/Provider/hooks/useIsVerticalLayout';
+import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
 
-import { DemoCreateModalRoutes } from '../Routes';
+import { DemoDoneModalRoutes } from './RootModalRoutes';
 
-import type { ModalRoutesType } from '../../../../../routes/Root/Modal/types';
-import type { DemoDoneModalRoutes } from '../Routes';
-
-export type DemoDoneModalRoutesParams = {
+export type DemoDoneModalParamList = {
   [DemoDoneModalRoutes.DemoDoneModal]: undefined;
   [DemoDoneModalRoutes.DemoDone1Modal]: undefined;
 };
-
-const DemoDoneModalNavigator =
-  createStackNavigator<DemoDoneModalRoutesParams>();
 
 const DemoDoneViewModal = () => {
   console.log('DemoCreateViewModal');
@@ -30,33 +20,18 @@ const DemoDone1ViewModal = () => {
   return <Stack />;
 };
 
-const modalRoutes: ModalRoutesType<DemoCreateModalRoutes> = [
+export const DoneModalStack: ModalFlowNavigatorConfig<
+  DemoDoneModalRoutes,
+  DemoDoneModalParamList
+>[] = [
   {
-    name: DemoCreateModalRoutes.DemoCreateModal,
+    name: DemoDoneModalRoutes.DemoDoneModal,
     component: DemoDoneViewModal,
+    translationId: 'Modal Done',
   },
   {
-    name: DemoCreateModalRoutes.DemoCreateSearchModal,
+    name: DemoDoneModalRoutes.DemoDone1Modal,
     component: DemoDone1ViewModal,
+    translationId: 'Modal Done 1',
   },
 ];
-
-const DemoDoneModalStack = () => {
-  const isVerticalLayout = useIsVerticalLayout();
-  return (
-    <DemoDoneModalNavigator.Navigator
-      screenOptions={(navInfo) => ({
-        ...makeModalStackNavigatorOptions({ navInfo }),
-      })}
-    >
-      {modalRoutes.map((route) => (
-        <DemoDoneModalNavigator.Screen
-          key={route.name}
-          name={route.name}
-          component={route.component}
-        />
-      ))}
-    </DemoDoneModalNavigator.Navigator>
-  );
-};
-export default DemoDoneModalStack;

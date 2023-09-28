@@ -1,12 +1,12 @@
 import type { FC } from 'react';
-import { useContext, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import getDefaultHeaderHeight from '@react-navigation/elements/src/Header/getDefaultHeaderHeight';
 import { CommonActions } from '@react-navigation/native';
-import { AnimatePresence, MotiView } from 'moti';
+import { MotiView } from 'moti';
 import { StyleSheet } from 'react-native';
 import { useSafeAreaFrame } from 'react-native-safe-area-context';
-import { ScrollView, Tooltip } from 'tamagui';
+import { ScrollView } from 'tamagui';
 
 import {
   Icon,
@@ -17,7 +17,6 @@ import {
   useThemeValue,
 } from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
-import { Context } from '@onekeyhq/components/src/Provider/hooks/useProviderValue';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -67,70 +66,23 @@ function TabItemView({
           />
         </Stack>
 
-        <AnimatePresence initial={false}>
-          {!isCollapse && (
-            <MotiView
-              from={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{
-                opacity: 0,
-              }}
-              transition={{
-                type: 'timing',
-                duration: 150,
-              }}
-              style={{
-                flex: 1,
-                flexDirection: 'row',
-                alignItems: 'center',
-              }}
-            >
-              <Text
-                variant={touchMode ? '$bodyLg' : '$bodyMd'}
-                flex={1}
-                marginLeft="$1"
-                color={isActive ? '$text' : '$textSubdued'}
-                numberOfLines={1}
-                // isTruncated
-              >
-                {options.tabBarLabel ?? route.name}
-              </Text>
-            </MotiView>
-          )}
-        </AnimatePresence>
+        {!isCollapse && (
+          <Text
+            variant={touchMode ? '$bodyLg' : '$bodyMd'}
+            flex={1}
+            marginLeft="$1"
+            color={isActive ? '$text' : '$textSubdued'}
+            numberOfLines={1}
+          >
+            {options.tabBarLabel ?? route.name}
+          </Text>
+        )}
       </Stack>
     ),
     [isActive, isCollapse, onPress, options, route.name, touchMode],
   );
 
-  if (!isCollapse) {
-    return contentMemo;
-  }
-
-  return (
-    <Tooltip key={route.key} placement="right">
-      <Tooltip.Trigger>{contentMemo}</Tooltip.Trigger>
-      <Tooltip.Content
-        enterStyle={{ x: 0, y: -5, opacity: 0, scale: 0.9 }}
-        exitStyle={{ x: 0, y: -5, opacity: 0, scale: 0.9 }}
-        scale={1}
-        x={0}
-        y={0}
-        opacity={1}
-        animation={[
-          'fast',
-          {
-            opacity: {
-              overshootClamping: true,
-            },
-          },
-        ]}
-      >
-        <Tooltip.Arrow />
-        <Text variant="$bodyMd">{options.tabBarLabel}</Text>
-      </Tooltip.Content>
-    </Tooltip>
-  );
+  return contentMemo;
 }
 
 const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
@@ -145,13 +97,13 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
   const tokens = getThemeTokens().size;
   const touchValues = {
     slideBarWidth: tokens['60'].val,
-    slideBarCollapseWidth: 78,
+    slideBarCollapseWidth: 0, // 78,
     slideBarPadding: tokens['4'].val,
   };
 
   const nonTouchValues = {
     slideBarWidth: tokens['52'].val,
-    slideBarCollapseWidth: 58,
+    slideBarCollapseWidth: 0, // 58,
     slideBarPadding: tokens['3'].val,
   };
 
@@ -226,10 +178,8 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
         height: '100%',
         width: slideBarWidth,
         backgroundColor: slideBg,
-        paddingHorizontal: slideBarPadding,
         paddingTop: paddingTopValue,
-        paddingBottom: slideBarPadding,
-        borderRightColor: slideBorder,
+        borderRightColor: isCollapse ? undefined : slideBorder,
         borderRightWidth: StyleSheet.hairlineWidth,
       }}
       testID="Desktop-AppSideBar-Container"
@@ -238,25 +188,17 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
         testID="Desktop-AppSideBar-DragZone"
         h={dragZoneAbsoluteBarHeight}
       />
-      {/* Scrollable area */}
-      {/* <Box zIndex={1} testID="Desktop-AppSideBar-WalletSelector-Container"> */}
-      {/*  /!* <AccountSelector /> *!/ */}
-      {/*  <WalletSelectorTrigger showWalletName={!isCollpase} /> */}
-      {/* </Box> */}
       <YStack
         testID="Desktop-AppSideBar-Content-Container"
         flex={1}
         marginTop="$1"
-        marginBottom="$0.5"
+        marginBottom={touchMode ? '$4' : '$3'}
+        marginHorizontal={touchMode ? '$4' : '$3'}
       >
         <ScrollView flex={1}>
           <YStack flex={1}>{tabs}</YStack>
         </ScrollView>
       </YStack>
-      {/* <Box testID="Legacy-Desktop-AppSideBar-NetworkAccountSelector-Container"> */}
-      {/*  /!* <ChainSelector /> *!/ */}
-      {/*  <NetworkAccountSelectorTrigger /> */}
-      {/* </Box> */}
     </MotiView>
   );
 };

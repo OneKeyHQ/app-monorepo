@@ -6,41 +6,43 @@ import { makeRootModalStackOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
 import { TransparentModalTheme } from './CommonConfig.ts';
+import { ModalFlowNavigator } from './ModalFlowNavigator';
 
-import type { CommonNavigatorConfig } from './types';
-import type { ParamListBase } from '@react-navigation/routers';
+import type { ModalFlowNavigatorConfig } from './ModalFlowNavigator';
 
-interface ModalNavigatorConfig<P extends ParamListBase>
-  extends CommonNavigatorConfig<P> {
-  disableClose?: boolean;
+export interface ModalRootNavigatorConfig<RouteName extends string> {
+  name: RouteName;
+  children: ModalFlowNavigatorConfig<any, any>[];
 }
 
-interface ModalNavigatorProps<P extends ParamListBase> {
-  config: ModalNavigatorConfig<P>[];
-}
-
-export function createModalNavigatorConfig<P extends ParamListBase>(
-  config: ModalNavigatorConfig<P>[],
-): ModalNavigatorConfig<P>[] {
-  return config;
+interface ModalNavigatorProps<RouteName extends string> {
+  config: ModalRootNavigatorConfig<RouteName>[];
 }
 
 const ModalStack = createStackNavigator();
 
-export function RootModalNavigator<P extends ParamListBase>({
+export function RootModalNavigator<RouteName extends string>({
   config,
-}: ModalNavigatorProps<P>) {
+}: ModalNavigatorProps<RouteName>) {
   const screenOptions = useMemo(() => makeRootModalStackOptions(), []);
+
+  const modalComponents = useMemo(
+    () =>
+      config.map(({ name, children }) => ({
+        name,
+        // eslint-disable-next-line react/no-unstable-nested-components
+        children: () => <ModalFlowNavigator config={children} />,
+      })),
+    [config],
+  );
+
   return (
     <ThemeProvider value={TransparentModalTheme}>
       <ModalStack.Navigator screenOptions={screenOptions}>
-        {config.map(({ name, component, options }) => (
-          <ModalStack.Screen
-            key={`ROOT-Modal-${name as string}`}
-            name={name}
-            component={component}
-            options={options}
-          />
+        {modalComponents.map(({ name, children }) => (
+          <ModalStack.Screen key={`ROOT-Modal-${name}`} name={name}>
+            {children}
+          </ModalStack.Screen>
         ))}
       </ModalStack.Navigator>
     </ThemeProvider>

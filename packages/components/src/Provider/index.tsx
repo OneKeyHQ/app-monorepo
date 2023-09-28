@@ -69,9 +69,9 @@ const Provider: FC<UIProviderProps> = ({
     () => ({
       themeVariant,
       reduxReady,
-      deviceScreenSize: currentScreenSize,
+      deviceScreenSize,
     }),
-    [themeVariant, reduxReady, currentScreenSize],
+    [themeVariant, reduxReady, deviceScreenSize],
   );
 
   const [isVerticalLayout, setIsVerticalLayout] = useState(

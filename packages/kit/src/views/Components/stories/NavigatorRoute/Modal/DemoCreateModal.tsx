@@ -5,12 +5,13 @@ import type { StackScreenProps } from '@onekeyhq/components';
 import { Button } from '@onekeyhq/components';
 import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
-import { ModalFlowNavigator } from '@onekeyhq/components/src/Navigation/Navigator/ModalFlowNavigator';
+import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator/ModalFlowNavigator';
 
 import { Layout } from '../../utils/Layout';
-import { DemoCreateModalRoutes } from '../Routes';
 
-export type DemoCreateModalRoutesParams = {
+import { DemoCreateModalRoutes } from './RootModalRoutes';
+
+export type DemoCreateModalParamList = {
   [DemoCreateModalRoutes.DemoCreateModal]: undefined;
   [DemoCreateModalRoutes.DemoCreateSearchModal]: undefined;
   [DemoCreateModalRoutes.DemoCreateOptionsModal]: undefined;
@@ -18,7 +19,7 @@ export type DemoCreateModalRoutesParams = {
 
 function DemoCreateViewModal({
   navigation,
-}: StackScreenProps<DemoCreateModalRoutesParams>) {
+}: StackScreenProps<DemoCreateModalParamList>) {
   console.log('DemoCreateViewModal');
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -56,7 +57,7 @@ function DemoCreateViewModal({
 
 function DemoCreateSearchModal({
   navigation,
-}: StackScreenProps<DemoCreateModalRoutesParams>) {
+}: StackScreenProps<DemoCreateModalParamList>) {
   console.log('DemoCreateSearchModal');
 
   useLayoutEffect(() => {
@@ -101,7 +102,7 @@ function DemoCreateSearchModal({
 
 function DemoCreateOptionsModal({
   navigation,
-}: StackScreenProps<DemoCreateModalRoutesParams>) {
+}: StackScreenProps<DemoCreateModalParamList>) {
   console.log('DemoCreateOptionsModal');
 
   useLayoutEffect(() => {
@@ -149,7 +150,10 @@ function DemoCreateOptionsModal({
   );
 }
 
-const modalRoutes = [
+export const CreateModalStack: ModalFlowNavigatorConfig<
+  DemoCreateModalRoutes,
+  DemoCreateModalParamList
+>[] = [
   {
     name: DemoCreateModalRoutes.DemoCreateModal,
     component: DemoCreateViewModal,
@@ -166,8 +170,3 @@ const modalRoutes = [
     translationId: 'Options Demo Modal',
   },
 ];
-
-const DemoCreateModalStack = () => (
-  <ModalFlowNavigator<DemoCreateModalRoutesParams> config={modalRoutes} />
-);
-export default DemoCreateModalStack;

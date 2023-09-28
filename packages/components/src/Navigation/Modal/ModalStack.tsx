@@ -28,6 +28,11 @@ type Props = ModalNavigationConfig & {
 export default function ModalStack({ state, navigation, descriptors }: Props) {
   const parentHeaderBack = useContext(HeaderBackContext);
 
+  const currentRoute = state.routes[state.index];
+  const previousRoute = state.index > 0 ? state.routes[state.index - 1] : null;
+  const previousKey = previousRoute?.key;
+  const previousDescriptor = previousKey ? descriptors[previousKey] : undefined;
+
   return (
     <NavigationHelpersContext.Provider value={navigation}>
       <View style={{ flex: 1 }}>
@@ -35,18 +40,11 @@ export default function ModalStack({ state, navigation, descriptors }: Props) {
         <Stack flex={1} backgroundColor="$bgBackdrop" />
         <CenteredModal visible={state.routes.length > 0} animationType="none" />
 
-        {state.routes.map((route, i) => {
+        {/* Modal Layer */}
+        {/* TODO: Do toggle animations can be used [previousRoute,currentRoute].filter */}
+        {[currentRoute].filter(Boolean).map((route) => {
           const descriptor = descriptors[route.key];
-          const focused = i === state.index;
-
-          const previousKey = state.routes[i - 1]?.key;
-          const previousDescriptor = previousKey
-            ? descriptors[previousKey]
-            : undefined;
-
-          // const nextKey = state.routes[i + 1]?.key;
-          // const nextDescriptor = nextKey ? descriptors[nextKey] : undefined;
-
+          const focused = route.key === currentRoute.key;
           const { animationType = 'fade', ...options } = descriptor.options;
 
           const headerBack = previousDescriptor

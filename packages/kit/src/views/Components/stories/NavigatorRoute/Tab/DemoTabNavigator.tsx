@@ -3,7 +3,7 @@
 import type { TabNavigatorProps } from '@onekeyhq/components/src/Navigation/Navigator';
 import { TabStackNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
 
-import { DemoTabChildRoutes, DemoTabRoutes } from '../Routes';
+import { DemoTabChildRoutes, DemoTabRoutes } from '../RootRoutes';
 
 import DemoRootDeveloper from './View/DemoRootDeveloper';
 import DemoRootHome from './View/DemoRootHome';

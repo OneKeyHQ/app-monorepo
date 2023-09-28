@@ -7,31 +7,32 @@ import { makeModalStackNavigatorOptions } from '../GlobalScreenOptions';
 import createModalNavigator from '../Modal/createModalNavigator';
 import { createStackNavigator } from '../StackNavigator';
 
+import type { StackNavigationOptions } from '../StackNavigator';
 import type { CommonNavigatorConfig } from './types';
 import type { ParamListBase } from '@react-navigation/routers';
 
-interface ModalFlowNavigatorConfig<P extends ParamListBase>
-  extends CommonNavigatorConfig<P> {
+export interface ModalFlowNavigatorConfig<
+  RouteName extends string,
+  P extends ParamListBase,
+> extends CommonNavigatorConfig<RouteName, P> {
   translationId: string;
   disableClose?: boolean;
 }
 
-interface ModalFlowNavigatorProps<P extends ParamListBase> {
-  config: ModalFlowNavigatorConfig<P>[];
-}
-
-export function createModalFlowNavigatorConfig<P extends ParamListBase>(
-  config: ModalFlowNavigatorConfig<P>[],
-): ModalFlowNavigatorConfig<P>[] {
-  return config;
+interface ModalFlowNavigatorProps<
+  RouteName extends string,
+  P extends ParamListBase,
+> {
+  config: ModalFlowNavigatorConfig<RouteName, P>[];
 }
 
 const ModalStack =
   Platform.OS === 'ios' ? createStackNavigator() : createModalNavigator();
 
-export function ModalFlowNavigator<P extends ParamListBase>({
-  config,
-}: ModalFlowNavigatorProps<P>) {
+export function ModalFlowNavigator<
+  RouteName extends string,
+  P extends ParamListBase,
+>({ config }: ModalFlowNavigatorProps<RouteName, P>) {
   const isVerticalLayout = useIsVerticalLayout();
 
   const makeScreenOptions = useCallback(
@@ -42,10 +43,11 @@ export function ModalFlowNavigator<P extends ParamListBase>({
   );
 
   return (
+    // @ts-expect-error
     <ModalStack.Navigator screenOptions={makeScreenOptions}>
       {config.map(
         ({ name, component, options, translationId, disableClose }) => {
-          const customOptions = {
+          const customOptions: StackNavigationOptions = {
             ...options,
             gestureEnabled: disableClose,
             title: translationId,
@@ -56,6 +58,7 @@ export function ModalFlowNavigator<P extends ParamListBase>({
               key={`Modal-Flow-${name as string}`}
               name={name}
               component={component}
+              // @ts-expect-error
               options={customOptions}
             />
           );

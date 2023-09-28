@@ -5,7 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Button, Text } from '@onekeyhq/components';
 
 import { Layout } from '../../../utils/Layout';
-import { DemoTabChildRoutes } from '../../Routes';
+import { DemoTabChildRoutes } from '../../RootRoutes';
 
 import type {
   NativeSyntheticEvent,

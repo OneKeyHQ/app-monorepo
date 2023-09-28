@@ -3,10 +3,14 @@ import { useNavigation } from '@react-navigation/native';
 import { Button } from '@onekeyhq/components';
 
 import { Layout } from '../../../utils/Layout';
-import { DemoModalRoutes, DemoRootRoutes } from '../../Routes';
+import { DemoRootRoutes } from '../../RootRoutes';
+
+import type { NavigationProp } from '@react-navigation/native';
+import { DemoRootModalRoutes } from '../../Modal/RootModalRoutes';
+import type { GlobalRouteParams } from '../../types';
 
 const DemoRootHome = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<GlobalRouteParams>>();
   return (
     <Layout
       description="这是一个路由 Modal Header 的演示"
@@ -19,9 +23,8 @@ const DemoRootHome = () => {
             <Button
               buttonVariant="primary"
               onPress={() => {
-                // @ts-expect-error
                 navigation.navigate(DemoRootRoutes.Modal, {
-                  name: DemoModalRoutes.DemoCreateModal,
+                  screen: DemoRootModalRoutes.DemoCreateModal,
                 });
               }}
             >

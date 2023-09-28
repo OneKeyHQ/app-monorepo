@@ -1,9 +1,10 @@
+import { memo } from 'react';
 import type { ReactElement } from 'react';
 
 import { Modal } from 'react-native';
 import { Stack } from 'tamagui';
 
-export default function CenteredModal({
+function CenteredModal({
   children,
   visible,
   animationType = 'fade',
@@ -54,3 +55,5 @@ export default function CenteredModal({
     </Modal>
   );
 }
+
+export default memo(CenteredModal);

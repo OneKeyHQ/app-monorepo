@@ -29,7 +29,7 @@ const NavigationApp = () => {
     >
       {/* <DevScreen /> */}
       <DemoRootApp />
-      {/*<DemoAndroidApp />*/}
+      {/* <DemoAndroidApp /> */}
     </NavigationContainer>
   );
 };

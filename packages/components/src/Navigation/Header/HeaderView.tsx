@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { memo, useCallback } from 'react';
 
 import { Header } from '@react-navigation/elements';
@@ -34,7 +35,6 @@ function HeaderView({
   navigation,
   isModelScreen = false,
   isRootScreen = false,
-  isFlowModelScreen = false,
 }: StackHeaderProps & OneKeyStackHeaderProps) {
   const {
     headerRight,
@@ -52,12 +52,6 @@ function HeaderView({
   const canGoBack = headerBack !== undefined;
   const topStack = (state?.index ?? 0) === 0;
 
-  console.log('=====>>>>> HeaderView', {
-    state,
-    canGoBack,
-    topStack,
-  });
-
   const onBackCallback = useCallback(() => {
     if (canGoBack) {
       navigation?.goBack?.();
@@ -67,7 +61,7 @@ function HeaderView({
   }, [canGoBack, navigation]);
 
   const headerLeftView = useCallback(
-    (props: HeaderBackButtonProps) => (
+    (props: HeaderBackButtonProps): ReactNode => (
       <HeaderButtonBack
         {...props}
         canGoBack={!topStack}
@@ -86,22 +80,22 @@ function HeaderView({
         flexDirection: 'column',
       }}
       $gtMd={{
-        flexDirection: 'row',
+        flexDirection: isModelScreen ? 'column' : 'row',
       }}
-      borderTopLeftRadius={isFlowModelScreen ? '$2' : 0}
-      borderTopRightRadius={isFlowModelScreen ? '$2' : 0}
+      borderTopLeftRadius={isModelScreen ? '$2' : 0}
+      borderTopRightRadius={isModelScreen ? '$2' : 0}
       backgroundColor="$bg"
       overflow="hidden"
       borderBottomWidth={StyleSheet.hairlineWidth}
       borderBottomColor="$borderSubdued"
-      // shadowColor="$borderSubdued"
     >
       <Stack
         $md={{
           width: '100%',
         }}
         $gtMd={{
-          flex: 1,
+          flex: isModelScreen ? 0 : 1,
+          width: isModelScreen ? '100%' : undefined,
         }}
       >
         <Header
@@ -140,12 +134,13 @@ function HeaderView({
             width: '100%',
           }}
           $gtMd={{
-            pl: '$5',
-            py: '$3.5',
-            width: '$60',
+            pl: isModelScreen ? '$0' : '$5',
+            py: isModelScreen ? '$0' : '$3.5',
+            pb: isModelScreen ? '$4' : '$0',
+            width: isModelScreen ? '100%' : '$60',
           }}
         >
-          {/* demo */}
+          {/* Demo SearchBar */}
           <Input
             $md={{
               height: '$9',

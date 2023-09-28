@@ -3,16 +3,14 @@ import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import KeyboardManager from 'react-native-keyboard-manager';
 
-import {
-  RootModalNavigator,
-  RootStackNavigator,
-} from '@onekeyhq/components/src/Navigation/Navigator';
+import type { RootStackNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
+import { RootStackNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
 
 import DemoMain from './DemoMain';
-import DemoRootModalStackScreenList from './DemoRootModalStackScreenList';
-import { DemoRootRoutes } from './Routes';
+import DemoModalStackScreen from './Modal';
+import { DemoRootRoutes } from './RootRoutes';
 
-type RootStackParamList = {
+export type RootStackParamList = {
   [DemoRootRoutes.Main]: {
     itemId: number;
   };
@@ -21,11 +19,10 @@ type RootStackParamList = {
   };
 };
 
-function DemoModalStackScreen() {
-  return <RootModalNavigator config={DemoRootModalStackScreenList} />;
-}
-
-const rootConfig = [
+const rootConfig: RootStackNavigatorConfig<
+  DemoRootRoutes,
+  RootStackParamList
+>[] = [
   {
     name: DemoRootRoutes.Main,
     component: DemoMain,
@@ -55,5 +52,9 @@ export const DemoRootApp = () => {
     }
   }, []);
 
-  return <RootStackNavigator<RootStackParamList> config={rootConfig} />;
+  return (
+    <RootStackNavigator<DemoRootRoutes, RootStackParamList>
+      config={rootConfig}
+    />
+  );
 };

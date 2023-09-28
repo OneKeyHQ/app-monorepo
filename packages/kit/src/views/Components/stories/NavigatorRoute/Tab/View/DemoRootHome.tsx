@@ -4,7 +4,7 @@ import { Button, YStack } from '@onekeyhq/components';
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
 
 import { Layout } from '../../../utils/Layout';
-import { DemoTabChildRoutes } from '../../Routes';
+import { DemoTabChildRoutes } from '../../RootRoutes';
 
 const DemoRootHome = () => {
   const navigation = useNavigation();
