@@ -15,6 +15,7 @@ import {
 
 import { webTabsActions } from '../../../../store/observable/webTabs';
 import { useWebTabs } from '../Controller/useWebTabs';
+import { dismissWebviewKeyboard } from '../explorerUtils';
 
 import type { WebTab } from '../../../../store/observable/webTabs';
 import type { LayoutChangeEvent } from 'react-native';
@@ -27,6 +28,10 @@ const Tab: FC<
   }
 > = ({ isCurrent, id, title, onLayout, favicon }) => {
   const setCurrentTab = useCallback(() => {
+    if (platformEnv.isNative) {
+      // hide the keyboard for active tab
+      dismissWebviewKeyboard();
+    }
     webTabsActions.setCurrentWebTab(id);
   }, [id]);
   const closeTab = useCallback(() => {
