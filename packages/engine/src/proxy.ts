@@ -341,6 +341,36 @@ class ProviderController extends BaseProviderController {
           prices: gasInfo.prices as EIP1559Fee[],
         };
       } catch {
+        const result = await this.getClient(networkId).then((client) =>
+          (client as Geth).rpc.batchCall<[string, { baseFeePerGas: string }]>([
+            ['eth_maxPriorityFeePerGas', []],
+            ['eth_getBlockByNumber', ['pending', true]],
+          ]),
+        );
+        // doc https://docs.alchemy.com/docs/maxpriorityfeepergas-vs-maxfeepergas#example-using-maxfeepergas-a-hreflets-see-them-in-action-idlets-see-them-in-actiona
+        if (result) {
+          const coefficients: string[] = ['1.13', '1.25', '1.3'];
+          const [maxPriorityFeePerGas, { baseFeePerGas }] = result;
+          const baseFee = new BigNumber(baseFeePerGas).shiftedBy(-9);
+          const maxPriorityFee = new BigNumber(maxPriorityFeePerGas).shiftedBy(
+            -9,
+          );
+
+          return {
+            prices: coefficients.map((coefficient) => {
+              const maxPriorityFeePerGasBN = maxPriorityFee.times(coefficient);
+              return {
+                baseFee: baseFee.toFixed(),
+                maxPriorityFeePerGas: maxPriorityFeePerGasBN.toFixed(),
+                maxFeePerGas: baseFee
+                  .plus(maxPriorityFeePerGasBN)
+                  // .minus(1)
+                  .toFixed(),
+              };
+            }),
+          };
+        }
+
         const {
           baseFeePerGas,
           reward,
