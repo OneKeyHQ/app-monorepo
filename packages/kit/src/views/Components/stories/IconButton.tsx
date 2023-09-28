@@ -1,6 +1,6 @@
 import { XStack } from 'tamagui';
 
-import { Box, IconButton, Text } from '@onekeyhq/components';
+import { IconButton } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -58,10 +58,10 @@ const IconButtonGallery = () => (
         title: 'Disabled & Loading',
         element: (
           <XStack space="$2" alignItems="center">
-            <IconButton buttonVariant="secondary">
+            <IconButton disabled>
               <IconButton.Icon name="PlaceholderOutline" />
             </IconButton>
-            <IconButton buttonVariant="secondary" disabled>
+            <IconButton disabled>
               <IconButton.Spinner />
             </IconButton>
           </XStack>

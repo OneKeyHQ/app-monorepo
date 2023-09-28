@@ -2,12 +2,12 @@ import { useNavigation } from '@react-navigation/native';
 import natsort from 'natsort';
 import { FlatList, TouchableOpacity } from 'react-native';
 
-import { Stack, Text } from '@onekeyhq/components';
+import { Stack, Text, useThemeValue } from '@onekeyhq/components';
 import { GalleryRoutes } from '@onekeyhq/kit/src/routes/Gallery';
 
 const Index = () => {
   const navigation = useNavigation();
-
+  const backgroundColor = useThemeValue('bg') as string;
   const componentsRoute = Object.values(GalleryRoutes)
     .filter((item) => item.startsWith('component'))
     .sort((a, b) => natsort({ insensitive: true })(a, b));
@@ -15,7 +15,7 @@ const Index = () => {
   return (
     <FlatList
       data={componentsRoute}
-      style={{ flex: 1, backgroundColor: 'background-hovered' }}
+      style={{ flex: 1, backgroundColor }}
       renderItem={({ item, index }) => (
         <TouchableOpacity
           onPress={() => {

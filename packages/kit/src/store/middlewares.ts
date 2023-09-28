@@ -24,24 +24,26 @@ if (__DEV__ && !platformEnv.isJest) {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   middlewares.push(createDebugger());
 
-  const backgroundCheck: Middleware<unknown, unknown> =
-    () => (next) => (action) => {
-      if (
-        action &&
-        !action.$isDispatchFromBackground &&
-        action.type &&
-        // ignore redux-persist action
-        !(action.type as string).startsWith('persist/')
-      ) {
-        const msg =
-          'dispatch(action) ERROR: action should be dispatched from background.';
-        console.error(msg, action);
-        throw new Error(msg);
-      }
-      const result = next(action);
-      return result as unknown;
-    };
-  middlewares.push(backgroundCheck);
+  // TODO:
+  // disabled on ui components.
+  // const backgroundCheck: Middleware<unknown, unknown> =
+  //   () => (next) => (action) => {
+  //     if (
+  //       action &&
+  //       !action.$isDispatchFromBackground &&
+  //       action.type &&
+  //       // ignore redux-persist action
+  //       !(action.type as string).startsWith('persist/')
+  //     ) {
+  //       const msg =
+  //         'dispatch(action) ERROR: action should be dispatched from background.';
+  //       console.error(msg, action);
+  //       throw new Error(msg);
+  //     }
+  //     const result = next(action);
+  //     return result as unknown;
+  //   };
+  // middlewares.push(backgroundCheck);
 }
 
 export default middlewares;

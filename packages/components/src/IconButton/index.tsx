@@ -18,16 +18,13 @@ const IconButtonFrame = styled(ButtonFrame, {
   variants: {
     size: {
       small: {
-        paddingVertical: '$1',
-        paddingHorizontal: '$1',
+        padding: '$1',
       },
       medium: {
-        paddingVertical: '$1.5',
-        paddingHorizontal: '$1.5',
+        padding: '$1.5',
       },
       large: {
-        paddingVertical: '$3',
-        paddingHorizontal: '$3',
+        padding: '$3',
       },
     },
 

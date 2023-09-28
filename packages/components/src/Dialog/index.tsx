@@ -1,20 +1,18 @@
 import type { PropsWithChildren } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-// import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Adapt,
   Sheet,
-  Stack,
   Dialog as TMDialog,
-  YStack,
   withStaticProperties,
 } from 'tamagui';
 
 import { Button } from '../Button';
 import { type ICON_NAMES, Icon } from '../Icon';
 import { removePortalComponent, setPortalComponent } from '../Portal';
-import { XStack } from '../Stack';
+import { Stack, XStack, YStack } from '../Stack';
 import { Text } from '../Text';
 
 import type { GetProps } from 'tamagui';
@@ -67,7 +65,7 @@ function DialogFrame({
     [onClose],
   );
 
-  // const { bottom } = useSafeAreaInsets();
+  const { bottom } = useSafeAreaInsets();
   const handleConfirmButtonPress = useCallback(async () => {
     const result = await onConfirm?.();
     console.log(result);
@@ -81,7 +79,6 @@ function DialogFrame({
     onClose?.();
   }, [onCancel, onClose]);
 
-  const bottom = 20;
   return (
     <TMDialog open={open}>
       <TMDialog.Trigger onPress={onOpen} asChild>
