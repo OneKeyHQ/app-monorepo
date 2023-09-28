@@ -80,7 +80,6 @@
     "@onekeyfe/hd-transport": "0.3.27",
     "@onekeyfe/hd-web-sdk": "0.3.27",
     "@onekeyfe/onekey-cross-webview": "1.1.38",
-    "@react-navigation/drawer": "^6.6.3",
     "@starcoin/starcoin": "2.1.5",
     "@tamagui/animations-moti": "^1.69.0",
     "@tamagui/babel-plugin": "^1.69.0",
@@ -124,15 +123,12 @@
   "devDependencies": {
     "@babel/core": "^7.20.0",
     "@babel/eslint-parser": "^7.19.1",
-    "@babel/plugin-proposal-export-namespace-from": "^7.18.9",
     "@babel/plugin-proposal-nullish-coalescing-operator": "^7.18.6",
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
     "@babel/preset-env": "^7.22.9",
     "@babel/preset-react": "^7.18.6",
     "@open-wc/webpack-import-meta-loader": "^0.4.7",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
-    "@react-native-async-storage/async-storage": "^1.19.3",
-    "@react-native-community/datetimepicker": "^7.6.0",
-    "@react-native-community/slider": "^4.4.3",
     "@types/chrome": "^0.0.161",
     "@types/jest": "^29.2.3",
     "@types/json-stringify-safe": "^5",
@@ -204,6 +200,8 @@
     "webpack-bundle-analyzer": "^4.7.0"
   },
   "resolutions": {
+    "react-docgen-typescript": "2.2.2",
+    "@storybook/react-docgen-typescript-plugin": "1.0.6--canary.9.cd77847.0",
     "@babel/core": "^7.20.0",
     "@expo/webpack-config": "18.1.2",
     "ms": "^2.1.3",

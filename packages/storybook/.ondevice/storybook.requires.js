@@ -12,9 +12,9 @@ global.STORIES = [
   {
     titlePrefix: "",
     directory: "./native-stories",
-    files: "*.stories.?(ts|tsx|js|jsx)",
+    files: "*.stories.@(ts|tsx|js|jsx)",
     importPathMatcher:
-      "^\\.[\\\\/](?:native-stories\\/(?!\\.)(?=.)[^/]*?\\.stories\\.(?:ts|tsx|js|jsx)?)$",
+      "^\\.[\\\\/](?:native-stories\\/(?!\\.)(?=.)[^/]*?\\.stories\\.(ts|tsx|js|jsx))$",
   },
 ];
 
@@ -47,10 +47,12 @@ try {
   argsEnhancers.forEach((enhancer) => addArgsEnhancer(enhancer));
 } catch {}
 
-const getStories = () => {
-  return {
-    "./native-stories/Divider.stories.tsx": require("../native-stories/Divider.stories.tsx"),
-  };
-};
+const stories = [
+  require.context(
+    "../native-stories",
+    false,
+    /^\.[\\/](?:(?!\.)(?=.)[^/]*?\.stories\.(ts|tsx|js|jsx))$/
+  ),
+];
 
-configure(getStories, module, false);
+configure(stories, module, false);

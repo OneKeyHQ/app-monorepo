@@ -1,8 +1,5 @@
 module.exports = {
-  stories: ['../native-stories/*.stories.?(ts|tsx|js|jsx)'],
-  features: {
-    storyStoreV7: false,
-  },
+  stories: ['../native-stories/*.stories.@(ts|tsx|js|jsx)'],
   addons: [
     '@storybook/addon-ondevice-controls',
     '@storybook/addon-ondevice-actions',

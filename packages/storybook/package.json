@@ -8,7 +8,7 @@
     "build-storybook": "build-storybook",
     "storybook-generate": "sb-rn-get-stories --config-path .ondevice",
     "storybook-watch": "sb-rn-watcher --config-path .ondevice",
-    "storybook:ios": "TAMAGUI_TARGET=native STORYBOOK_ENABLED='true' expo start --ios",
+    "storybook:ios": "yarn storybook-generate && TAMAGUI_TARGET=native STORYBOOK_ENABLED='true' expo start --ios",
     "storybook:android": "yarn storybook-generate && TAMAGUI_TARGET=native STORYBOOK_ENABLED='true' expo start --android"
   },
   "dependencies": {
@@ -65,6 +65,5 @@
       "react-docgen-typescript": "2.2.2",
       "@storybook/react-docgen-typescript-plugin": "1.0.6--canary.9.cd77847.0"
     }
-  },
-  "private": true
+  }
 }

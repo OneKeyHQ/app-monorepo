@@ -1237,7 +1237,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@babel/plugin-proposal-private-property-in-object@npm:^7.12.1":
+"@babel/plugin-proposal-private-property-in-object@npm:^7.12.1, @babel/plugin-proposal-private-property-in-object@npm:^7.21.11":
   version: 7.21.11
   resolution: "@babel/plugin-proposal-private-property-in-object@npm:7.21.11"
   dependencies:
@@ -7912,8 +7912,8 @@ __metadata:
   dependencies:
     "@babel/core": ^7.20.0
     "@babel/eslint-parser": ^7.19.1
-    "@babel/plugin-proposal-export-namespace-from": ^7.18.9
     "@babel/plugin-proposal-nullish-coalescing-operator": ^7.18.6
+    "@babel/plugin-proposal-private-property-in-object": ^7.21.11
     "@babel/preset-env": ^7.22.9
     "@babel/preset-react": ^7.18.6
     "@cmdcode/buff-utils": 1.7.4
@@ -7934,10 +7934,6 @@ __metadata:
     "@onekeyfe/onekey-cross-webview": 1.1.38
     "@open-wc/webpack-import-meta-loader": ^0.4.7
     "@pmmmwh/react-refresh-webpack-plugin": ^0.5.11
-    "@react-native-async-storage/async-storage": ^1.19.3
-    "@react-native-community/datetimepicker": ^7.6.0
-    "@react-native-community/slider": ^4.4.3
-    "@react-navigation/drawer": ^6.6.3
     "@starcoin/starcoin": 2.1.5
     "@tamagui/animations-moti": ^1.69.0
     "@tamagui/babel-plugin": ^1.69.0
@@ -9083,17 +9079,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-native-async-storage/async-storage@npm:^1.19.3":
-  version: 1.19.3
-  resolution: "@react-native-async-storage/async-storage@npm:1.19.3"
-  dependencies:
-    merge-options: ^3.0.4
-  peerDependencies:
-    react-native: ^0.0.0-0 || 0.60 - 0.72 || 1000.0.0
-  checksum: d849e5c8bb08d2130d95cc246749dae820cc1996b6b31defa063a1b67070524d72aed5a0e57ce2fafe3c3726712c09a5a3babaed1358182060ce7cfd8bd2c1a3
-  languageName: node
-  linkType: hard
-
 "@react-native-community/cli-clean@npm:^10.1.1":
   version: 10.1.1
   resolution: "@react-native-community/cli-clean@npm:10.1.1"
@@ -9291,15 +9276,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-native-community/datetimepicker@npm:^7.6.0":
-  version: 7.6.0
-  resolution: "@react-native-community/datetimepicker@npm:7.6.0"
-  dependencies:
-    invariant: ^2.2.4
-  checksum: 029b37eba026137f49cfcc257025f78fecdd2aa621df326acf1763087cc586db18b311feb0e54f2524927a9b91210af411c1c50912bee795776f0f62e80ed47e
-  languageName: node
-  linkType: hard
-
 "@react-native-community/netinfo@npm:^9.3.10":
   version: 9.3.10
   resolution: "@react-native-community/netinfo@npm:9.3.10"
@@ -9313,13 +9289,6 @@ __metadata:
   version: 4.4.2
   resolution: "@react-native-community/slider@npm:4.4.2"
   checksum: 1ae613f594a8ea9d7243b3125d26b36aab4e4c2dd9eba1bf66c4f31878e74fae055cd35a1babc46b262240885bb61fa321610417bb2a6d9f77a330136ff33293
-  languageName: node
-  linkType: hard
-
-"@react-native-community/slider@npm:^4.4.3":
-  version: 4.4.3
-  resolution: "@react-native-community/slider@npm:4.4.3"
-  checksum: e02416e763a05bee54967aae1e14ff9c7d76395416dc4ff7c0595a71c9866db35ac0bca8305fa1c7feca3568a327d563f6f14e14d342536257e91d3d4b6d5f3e
   languageName: node
   linkType: hard
 
@@ -11193,21 +11162,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@storybook/react-docgen-typescript-plugin@npm:1.0.2-canary.6.9d540b91e815f8fc2f8829189deb00553559ff63.0":
-  version: 1.0.2-canary.6.9d540b91e815f8fc2f8829189deb00553559ff63.0
-  resolution: "@storybook/react-docgen-typescript-plugin@npm:1.0.2-canary.6.9d540b91e815f8fc2f8829189deb00553559ff63.0"
+"@storybook/react-docgen-typescript-plugin@npm:1.0.6--canary.9.cd77847.0":
+  version: 1.0.6--canary.9.cd77847.0
+  resolution: "@storybook/react-docgen-typescript-plugin@npm:1.0.6--canary.9.cd77847.0"
   dependencies:
     debug: ^4.1.1
     endent: ^2.0.1
     find-cache-dir: ^3.3.1
     flat-cache: ^3.0.4
     micromatch: ^4.0.2
-    react-docgen-typescript: ^2.1.1
+    react-docgen-typescript: ^2.2.2
     tslib: ^2.0.0
   peerDependencies:
-    typescript: ">= 3.x"
+    typescript: ">= 4.x"
     webpack: ">= 4"
-  checksum: 91a3015d384e93d9ffb4def904cad51218eb1a9eaf504c758083f2988a97d8bf8748bc280aa629864eb26fd9f7fc05bd087df95383d719e0c914c722016804b9
+  checksum: 8f155cc34cb7d1f124c42b125b760fb58b4ba2ed2eaf109f363411f1c3b0cc6f3cb6dc15c1fa073bd6c0ec5e98b51ab24ff92def54505043f7a2a297a33a77af
   languageName: node
   linkType: hard
 
@@ -36600,16 +36569,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-docgen-typescript@npm:^1.20.4":
-  version: 1.22.0
-  resolution: "react-docgen-typescript@npm:1.22.0"
-  peerDependencies:
-    typescript: ">= 3.x"
-  checksum: f5e5519cf3f1136b8e66bb3c459e02edf4d6c0d3bc1ee0fa848c8446f93f5332fb67c794f36e3597fd7374dea7433243537a4fd2b9311aa5d0c5a844ab8cb980
-  languageName: node
-  linkType: hard
-
-"react-docgen-typescript@npm:^2.1.1, react-docgen-typescript@npm:^2.2.2":
+"react-docgen-typescript@npm:2.2.2":
   version: 2.2.2
   resolution: "react-docgen-typescript@npm:2.2.2"
   peerDependencies:
