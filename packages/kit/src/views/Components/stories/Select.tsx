@@ -1,64 +1,56 @@
 import { useState } from 'react';
 
-import { Stack } from '@onekeyhq/components';
+import { Icon, Stack, Text } from '@onekeyhq/components';
+import type { ISelectItem } from '@onekeyhq/components/src/Select';
 import { Select } from '@onekeyhq/components/src/Select';
 
 import { Layout } from './utils/Layout';
 
-const items = [
-  { name: 'Apple' },
+const items: ISelectItem[] = [
+  {
+    label: 'Apple',
+    value: 'Apple',
+    icon: <Text variant="$bodyMdMedium">😀</Text>,
+  },
 
-  { name: 'Pear' },
+  {
+    label: 'Pear',
+    value: 'Pear',
+    icon: <Text variant="$bodyMdMedium">🚅</Text>,
+  },
 
-  { name: 'Blackberry' },
+  {
+    label: 'Blackberry',
+    value: 'Blackberry',
+    icon: <Text variant="$bodyMdMedium">🚆</Text>,
+  },
 
-  { name: 'Peach' },
+  {
+    label: 'Peach',
+    value: 'Peach',
+    icon: <Icon name="AcademicCapMini" size="$5" />,
+  },
 
-  { name: 'Apricot' },
+  { label: 'Apricot', value: 'Apricot' },
 
-  { name: 'Melon' },
+  { label: 'Melon', value: 'Melon' },
 
-  { name: 'Honeydew' },
+  { label: 'Honeydew', value: 'Honeydew' },
 
-  { name: 'Starfruit' },
+  { label: 'Starfruit', value: 'Starfruit' },
 
-  { name: 'Blueberry' },
-
-  { name: 'Raspberry' },
-
-  { name: 'Strawberry' },
-
-  { name: 'Mango' },
-
-  { name: 'Pineapple' },
-
-  { name: 'Lime' },
-
-  { name: 'Lemon' },
-
-  { name: 'Coconut' },
-
-  { name: 'Guava' },
-
-  { name: 'Papaya' },
-
-  { name: 'Orange' },
-
-  { name: 'Grape' },
-
-  { name: 'Jackfruit' },
-
-  { name: 'Durian' },
+  { label: 'Blueberry', value: 'Blueberry' },
 ];
 
 const SelectDemoItem = () => {
-  const [val, setVal] = useState('apple');
+  const [val, setVal] = useState('Apple');
 
   return (
     <Select
       data={items}
       value={val}
       onValueChange={setVal}
+      triggerProps={{ width: '100%' }}
       disablePreventBodyScroll
       title="Demo Title"
     />
