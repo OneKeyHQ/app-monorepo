@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { pick } from 'lodash';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
@@ -219,4 +220,23 @@ export const useSimpleTokenPriceValue = ({
   });
 
   return price;
+};
+
+export const useSimpleTokenPriceConvertValue = ({
+  networkId,
+  contractAdress,
+}: {
+  networkId?: string;
+  contractAdress?: string;
+}) => {
+  const usdPrice = useTokenPrice({
+    networkId: networkId ?? '',
+    tokenIdOnNetwork: contractAdress ?? '',
+    vsCurrency: 'usd',
+  });
+  const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
+  const fiatMap = useAppSelector((s) => s.fiatMoney.map);
+  const fiat = fiatMap[vsCurrency]?.value || 0;
+  const numberConvert = new BigNumber(fiat).multipliedBy(usdPrice).toNumber();
+  return numberConvert;
 };

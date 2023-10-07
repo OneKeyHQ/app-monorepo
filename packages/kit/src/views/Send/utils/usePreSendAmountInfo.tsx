@@ -12,7 +12,7 @@ import {
   formatBalanceDisplay,
 } from '../../../components/Format';
 import { useSettings } from '../../../hooks';
-import { useSimpleTokenPriceValue } from '../../../hooks/useTokens';
+import { useSimpleTokenPriceConvertValue } from '../../../hooks/useTokens';
 
 export function usePreSendAmountInfo({
   tokenInfo,
@@ -48,7 +48,7 @@ export function usePreSendAmountInfo({
     return new RegExp(pattern);
   }, [amountInputDecimals]);
 
-  const tokenPrice = useSimpleTokenPriceValue({
+  const tokenPrice = useSimpleTokenPriceConvertValue({
     networkId,
     contractAdress: tokenInfo?.tokenIdOnNetwork,
   });

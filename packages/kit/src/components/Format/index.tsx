@@ -15,7 +15,7 @@ import {
   useSettings,
   useTokenBalanceWithoutFrozen,
 } from '../../hooks';
-import { useSimpleTokenPriceValue } from '../../hooks/useTokens';
+import { useSimpleTokenPriceConvertValue } from '../../hooks/useTokens';
 import { getSuggestedDecimals } from '../../utils/priceUtils';
 import { formatDecimalZero } from '../../views/Market/utils';
 
@@ -229,7 +229,7 @@ export function FormatCurrencyTokenOfAccount({
   accountId: string;
   networkId: string;
 }) {
-  const priceValue = useSimpleTokenPriceValue({
+  const priceValue = useSimpleTokenPriceConvertValue({
     networkId,
     contractAdress: token?.tokenIdOnNetwork,
   });
