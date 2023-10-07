@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import { XStack } from 'tamagui';
+
 import { Icon, Stack, Text } from '@onekeyhq/components';
 import type { ISelectItem } from '@onekeyhq/components/src/Select';
 import { Select } from '@onekeyhq/components/src/Select';
@@ -10,25 +12,25 @@ const items: ISelectItem[] = [
   {
     label: 'Apple',
     value: 'Apple',
-    icon: <Text variant="$bodyMdMedium">😀</Text>,
+    leading: <Text variant="$bodyMdMedium">😀</Text>,
   },
 
   {
     label: 'Pear',
     value: 'Pear',
-    icon: <Text variant="$bodyMdMedium">🚅</Text>,
+    leading: <Text variant="$bodyMdMedium">🚅</Text>,
   },
 
   {
     label: 'Blackberry',
     value: 'Blackberry',
-    icon: <Text variant="$bodyMdMedium">🚆</Text>,
+    leading: <Text variant="$bodyMdMedium">🚆</Text>,
   },
 
   {
     label: 'Peach',
     value: 'Peach',
-    icon: <Icon name="AcademicCapMini" size="$5" />,
+    leading: <Icon name="AcademicCapMini" size="$5" />,
   },
 
   { label: 'Apricot', value: 'Apricot' },
@@ -42,7 +44,7 @@ const items: ISelectItem[] = [
   { label: 'Blueberry', value: 'Blueberry' },
 ];
 
-const SelectDemoItem = () => {
+const SelectDefaultItem = () => {
   const [val, setVal] = useState('Apple');
 
   return (
@@ -53,6 +55,34 @@ const SelectDemoItem = () => {
       triggerProps={{ width: '100%' }}
       disablePreventBodyScroll
       title="Demo Title"
+    />
+  );
+};
+
+const SelectCustomTriggerItem = () => {
+  const [val, setVal] = useState('Apple');
+
+  return (
+    <Select
+      data={items}
+      value={val}
+      onValueChange={setVal}
+      triggerProps={{
+        width: '100%',
+        padded: false,
+        backgroundColor: '$bgActive',
+      }}
+      renderTrigger={(item) => (
+        <XStack w="100%" justifyContent="space-between">
+          <Text variant="$bodySm">Fruit</Text>
+          <XStack space>
+            {item?.leading}
+            <Text variant="$bodySm">{item?.label ?? 'Fruit'}</Text>
+          </XStack>
+        </XStack>
+      )}
+      disablePreventBodyScroll
+      title="Custom Trigger"
     />
   );
 };
@@ -76,7 +106,15 @@ const SelectGallery = () => (
         title: '默认状态',
         element: (
           <Stack space="$1">
-            <SelectDemoItem />
+            <SelectDefaultItem />
+          </Stack>
+        ),
+      },
+      {
+        title: '自定义renderTrigger',
+        element: (
+          <Stack space="$1">
+            <SelectCustomTriggerItem />
           </Stack>
         ),
       },

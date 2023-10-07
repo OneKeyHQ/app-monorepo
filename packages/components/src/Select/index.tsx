@@ -26,7 +26,7 @@ import type {
 interface ISelectItem {
   label: string;
   value: string;
-  icon?: ListItemProps['icon'];
+  leading?: ListItemProps['icon']; //
 }
 
 interface SelectProps extends TMSelectProps {
@@ -34,6 +34,7 @@ interface SelectProps extends TMSelectProps {
   snapPointsMode?: SheetProps['snapPointsMode'];
   title: string;
   triggerProps?: SelectTriggerProps;
+  renderTrigger?: (item?: ISelectItem) => JSX.Element;
 }
 
 function Select({
@@ -44,15 +45,31 @@ function Select({
   defaultOpen,
   onOpenChange,
   triggerProps,
+  value,
+  defaultValue,
+  onValueChange,
+  renderTrigger,
   ...props
 }: SelectProps) {
   const { bottom } = useSafeAreaInsets();
   const media = useMedia();
+
   const [isOpen, setOpen] = useControllableState({
     prop: open,
     defaultProp: !!defaultOpen,
     onChange: onOpenChange,
   });
+
+  const [innerValue, setInnerValue] = useControllableState({
+    prop: value,
+    defaultProp: defaultValue || '',
+    onChange: onValueChange,
+  });
+
+  const activeItem = useMemo(
+    () => data.find((item) => item.value === innerValue),
+    [data, innerValue],
+  );
 
   return (
     <TMSelect
@@ -60,30 +77,47 @@ function Select({
       disablePreventBodyScroll
       open={isOpen}
       onOpenChange={setOpen}
+      value={innerValue}
+      onValueChange={setInnerValue}
     >
-      <TMSelect.Trigger
-        unstyled
-        borderRadius="$2"
-        borderColor="$borderStrong"
-        borderWidth="$px"
-        paddingLeft="$3"
-        paddingRight="$2"
-        paddingVertical="$1.5"
-        backgroundColor="$transparent"
-        width="$56"
-        minHeight="auto"
-        iconAfter={
-          <Icon color="$iconSubdued" name="ChevronDownSmallOutline" size="$5" />
-        }
-        {...triggerProps}
-      >
-        <TMSelect.Value
-          placeholder="Something"
+      {renderTrigger ? (
+        <TMSelect.Trigger
           unstyled
-          fontSize="$bodyLg"
-          fontWeight="$bodyLg"
-        />
-      </TMSelect.Trigger>
+          backgroundColor="$transparent"
+          {...triggerProps}
+        >
+          {renderTrigger(activeItem)}
+        </TMSelect.Trigger>
+      ) : (
+        <TMSelect.Trigger
+          unstyled
+          borderRadius="$2"
+          borderColor="$borderStrong"
+          borderWidth="$px"
+          paddingLeft="$3"
+          paddingRight="$2"
+          paddingVertical="$1.5"
+          backgroundColor="$transparent"
+          width="$56"
+          minHeight="auto"
+          iconAfter={
+            <Icon
+              color="$iconSubdued"
+              name="ChevronDownSmallOutline"
+              size="$5"
+            />
+          }
+          {...triggerProps}
+        >
+          <TMSelect.Value
+            placeholder="Something"
+            unstyled
+            fontSize="$bodyLg"
+            fontWeight="$bodyLg"
+          />
+        </TMSelect.Trigger>
+      )}
+
       <Adapt when="md">
         <Sheet
           modal
@@ -191,7 +225,7 @@ function Select({
                     paddingVertical: '$2.5',
                     paddingRight: 11,
                   }}
-                  icon={item.icon}
+                  icon={item.leading}
                   justifyContent="flex-start"
                 >
                   <TMSelect.ItemText
