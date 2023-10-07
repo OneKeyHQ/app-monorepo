@@ -48,15 +48,15 @@ export function Layout({
 }>) {
   return (
     <ScrollView
+      maxWidth="100%"
       flex={1}
-      marginHorizontal="$6"
+      paddingHorizontal="$5"
       contentContainerStyle={{
-        alignItems: platformEnv.isNative ? 'flex-start' : 'center',
         paddingTop: 20,
         paddingBottom: 280,
       }}
     >
-      <Stack space="$6">
+      <Stack marginHorizontal="auto" maxWidth="100%" width={576} space="$6">
         {description && (
           <Stack space="$2">
             <Stack>
