@@ -335,7 +335,9 @@ function normalizeConfig({
 
   config.resolve.fallback = {
     ...config.resolve.fallback,
-    'crypto': require.resolve('crypto-browserify'),
+    'crypto': require.resolve(
+      '../packages/shared/src/modules3rdParty/cross-crypto',
+    ),
     'stream': require.resolve('stream-browserify'),
     'path': false,
     'https': false,
