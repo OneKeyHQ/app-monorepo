@@ -32,7 +32,7 @@ const ButtonsGallery = () => (
                 borderColor="$borderColor"
                 borderWidth="px"
               >
-                <Divider direction="horizontal" />
+                <Divider width="100%" />
               </Stack>
               <Stack
                 padding="$1"
@@ -44,7 +44,7 @@ const ButtonsGallery = () => (
                 borderColor="$borderColor"
                 borderWidth="px"
               >
-                <Divider direction="vertical" />
+                <Divider vertical />
               </Stack>
             </YStack>
           </Stack>
