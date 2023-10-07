@@ -1,26 +1,26 @@
 import assert from 'assert';
 import * as crypto from 'crypto';
 
-const nativeCrypto = global.crypto;
+const globalCrypto = global.crypto;
 
 // @ts-ignore
-assert.ok(nativeCrypto.$$isOneKeyShim, 'nativeCrypto is not polyfilled');
+assert.ok(globalCrypto?.$$isOneKeyShim, 'nativeCrypto is not polyfilled');
 // @ts-ignore
-assert.ok(crypto.$$isOneKeyShim, 'crypto is not polyfilled');
+assert.ok(crypto?.$$isOneKeyShim, 'crypto is not polyfilled');
 
 assert.equal(
   // eslint-disable-next-line @typescript-eslint/unbound-method
-  nativeCrypto.getRandomValues,
+  globalCrypto.getRandomValues,
   // @ts-ignore
   crypto.getRandomValues,
-  'getRandomValues is matched',
+  'getRandomValues is not matched',
 );
 
 assert.equal(
   // @ts-ignore
-  nativeCrypto.randomBytes,
+  globalCrypto.randomBytes,
   crypto.randomBytes,
-  'randomBytes is matched',
+  'randomBytes is not matched',
 );
 
 if (process.env.NODE_ENV !== 'production') {

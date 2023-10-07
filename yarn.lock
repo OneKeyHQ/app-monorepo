@@ -6597,7 +6597,7 @@ __metadata:
     bech32: ^2.0.0
     bignumber.js: ^9.0.1
     bip32: ^4.0.0
-    bip39: ^3.0.4
+    bip39: ^3.1.0
     bitcoinforkjs: "git+https://github.com/OneKeyHQ/bitcoinjs-lib.git#feat/remove-npm-lock"
     bitcoinjs-message: ^2.2.0
     bs58check: ^2.1.2
@@ -13285,6 +13285,15 @@ __metadata:
     pbkdf2: ^3.0.9
     randombytes: ^2.0.1
   checksum: 79ce1600a03d1ba5053bdd4e6323f9463ec340764c7e52918b6c6b9dca81221940f2d9a65656447f108f9bc2c8d9ae8df319cca83bbd1dad63f53ef2768d9bae
+  languageName: node
+  linkType: hard
+
+"bip39@npm:^3.1.0":
+  version: 3.1.0
+  resolution: "bip39@npm:3.1.0"
+  dependencies:
+    "@noble/hashes": ^1.2.0
+  checksum: 1224e763ffc6b097052ed8abd57f0e521ad6d31f1645be0d0a15f4417c13f8461f00e47e9cf7c8c784bd533f4fb1ee3ab020f258c7df45ee5dc722b4b0336cfc
   languageName: node
   linkType: hard
 
