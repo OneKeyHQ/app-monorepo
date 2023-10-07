@@ -58,10 +58,10 @@ const IconButtonGallery = () => (
         title: 'Disabled & Loading',
         element: (
           <XStack space="$2" alignItems="center">
-            <IconButton buttonVariant="secondary">
+            <IconButton disabled>
               <IconButton.Icon name="PlaceholderOutline" />
             </IconButton>
-            <IconButton buttonVariant="secondary" disabled>
+            <IconButton disabled>
               <IconButton.Spinner />
             </IconButton>
           </XStack>

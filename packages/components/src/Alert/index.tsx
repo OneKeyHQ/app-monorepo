@@ -47,9 +47,11 @@ const AlertFrame = styled(XStack, {
   context: AlertContext,
   paddingHorizontal: '$4',
   paddingVertical: '$3.5',
+  alignItems: 'flex-start',
+  space: '$2',
   backgroundColor: '$bgSubdued',
   borderColor: '$borderSubdued',
-  borderRadius: '$radius.3',
+  borderRadius: '$3',
   borderWidth: StyleSheet.hairlineWidth,
   variants: {
     type: {
@@ -105,7 +107,7 @@ export const Alert: FC<AlertProps> = ({
     return null;
   }
   return (
-    <AlertFrame space="$2" type={type}>
+    <AlertFrame type={type}>
       {icon ? (
         <Stack>
           <AlertIcon>
@@ -140,11 +142,9 @@ export const Alert: FC<AlertProps> = ({
         ) : null}
       </YStack>
       {closable ? (
-        <YStack>
-          <IconButton buttonVariant="tertiary" size="small" onPress={onClose}>
-            <IconButton.Icon name="CrossedSmallSolid" />
-          </IconButton>
-        </YStack>
+        <IconButton size="small" buttonVariant="tertiary" onPress={onClose}>
+          <IconButton.Icon name="CrossedSmallSolid" />
+        </IconButton>
       ) : null}
     </AlertFrame>
   );
