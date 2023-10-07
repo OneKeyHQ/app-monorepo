@@ -4,7 +4,7 @@ import * as crypto from 'crypto';
 const globalCrypto = global.crypto;
 
 // @ts-ignore
-assert.ok(globalCrypto?.$$isOneKeyShim, 'nativeCrypto is not polyfilled');
+assert.ok(globalCrypto?.$$isOneKeyShim, 'global crypto is not polyfilled');
 // @ts-ignore
 assert.ok(crypto?.$$isOneKeyShim, 'crypto is not polyfilled');
 
