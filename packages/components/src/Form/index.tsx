@@ -1,11 +1,13 @@
 import type { PropsWithChildren } from 'react';
-import { useState } from 'react';
+import { Children, cloneElement, isValidElement, useState } from 'react';
 
 import { useHeaderHeight as useHeaderHeightOG } from '@react-navigation/elements';
-import { FormProvider } from 'react-hook-form';
+import { noop } from 'lodash';
+import { Controller, FormProvider } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform } from 'react-native';
 import {
   Fieldset,
+  Label,
   ScrollView,
   Form as TMForm,
   YStack,
@@ -13,8 +15,7 @@ import {
   withStaticProperties,
 } from 'tamagui';
 
-import type { UseFormReturn } from 'react-hook-form';
-import type { JsxElement } from 'typescript';
+import type { Control, UseFormReturn } from 'react-hook-form';
 
 const useHeaderHeight = () => {
   try {
@@ -25,14 +26,12 @@ const useHeaderHeight = () => {
 };
 
 export interface FormProps {
-  onSubmit: () => void;
-  form: UseFormReturn;
-  header: JsxElement;
-  footer: JsxElement;
+  form: UseFormReturn<any>;
+  header?: React.ReactNode;
+  footer?: React.ReactNode;
 }
 
 export function FormWrapper({
-  onSubmit,
   form: formContext,
   header,
   children,
@@ -44,7 +43,7 @@ export function FormWrapper({
   const modalOffsetFromTop = height ? dimensions.height - height : headerHeight;
   return (
     <FormProvider {...formContext}>
-      <TMForm onSubmit={onSubmit}>
+      <TMForm onSubmit={noop}>
         <YStack
           onLayout={(event) => {
             setHeight(event.nativeEvent.layout.height);
@@ -80,8 +79,32 @@ export function FormWrapper({
   );
 }
 
+function Field({
+  name,
+  label,
+  control,
+  children,
+}: PropsWithChildren<{ name: string; label: string; control: Control<any> }>) {
+  return (
+    <Controller
+      name={name}
+      control={control}
+      render={({ field }) => (
+        <Fieldset>
+          <Label width={90} htmlFor={name}>
+            {label}
+          </Label>
+          {Children.map(children, (child) =>
+            isValidElement(child) ? cloneElement(child, field) : child,
+          )}
+        </Fieldset>
+      )}
+    />
+  );
+}
+
 export const Form = withStaticProperties(FormWrapper, {
-  Field: Fieldset,
+  Field,
 });
 
 export { useForm } from 'react-hook-form';
