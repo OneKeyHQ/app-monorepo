@@ -781,7 +781,7 @@ test('Basic mnemonic & seed tests', () => {
 });
 
 test('Mnemonic generation', () => {
-  const mnemonic = bip39.generateMnemonic();
+  const mnemonic = bip39.generateMnemonic(256);
   const rs = revealableSeedFromMnemonic(mnemonic, password);
   expect(
     mnemonicFromEntropy(rs.entropyWithLangPrefixed, password),

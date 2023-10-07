@@ -206,7 +206,7 @@ class Engine {
 
   @backgroundMethod()
   generateMnemonic(): Promise<string> {
-    return Promise.resolve(bip39.generateMnemonic());
+    return Promise.resolve(bip39.generateMnemonic(256));
   }
 
   @backgroundMethod()
@@ -372,7 +372,7 @@ class Engine {
     await this.validator.validatePasswordStrength(password);
 
     const [usedMnemonic] = await Promise.all([
-      this.validator.validateMnemonic(mnemonic || bip39.generateMnemonic()),
+      this.validator.validateMnemonic(mnemonic || bip39.generateMnemonic(256)),
       this.validator.validateHDWalletNumber(),
     ]);
 
