@@ -9,12 +9,6 @@ module.exports = function (api) {
       presets: ['babel-preset-expo'],
       plugins: [
         [
-          'react-native-reanimated/plugin',
-          {
-            globals: ['__scanCodes'],
-          },
-        ],
-        [
           require('@tamagui/babel-plugin/dist/cjs/index.native'),
           {
             components: ['tamagui'],
@@ -22,6 +16,12 @@ module.exports = function (api) {
             importsWhitelist: [],
             logTimings: true,
             disableExtraction: process.env.NODE_ENV === 'development',
+          },
+        ],
+        [
+          'react-native-reanimated/plugin',
+          {
+            globals: ['__scanCodes'],
           },
         ],
       ],
