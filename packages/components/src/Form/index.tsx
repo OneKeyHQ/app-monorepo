@@ -1,4 +1,4 @@
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, ReactElement } from 'react';
 import { Children, cloneElement, isValidElement, useState } from 'react';
 
 import { useHeaderHeight as useHeaderHeightOG } from '@react-navigation/elements';
@@ -7,6 +7,7 @@ import { Controller, FormProvider } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform } from 'react-native';
 import {
   Fieldset,
+  Input,
   Label,
   ScrollView,
   Form as TMForm,
@@ -15,7 +16,11 @@ import {
   withStaticProperties,
 } from 'tamagui';
 
-import type { Control, UseFormReturn } from 'react-hook-form';
+import type {
+  Control,
+  ControllerRenderProps,
+  UseFormReturn,
+} from 'react-hook-form';
 
 const useHeaderHeight = () => {
   try {
@@ -79,6 +84,21 @@ export function FormWrapper({
   );
 }
 
+const getChildProps = (
+  child: ReactElement,
+  field: ControllerRenderProps<any, string>,
+) => {
+  switch (child.type) {
+    case Input:
+      return {
+        ...field,
+        onChangeText: field.onChange,
+      };
+    default:
+      return field;
+  }
+};
+
 function Field({
   name,
   label,
@@ -95,7 +115,9 @@ function Field({
             {label}
           </Label>
           {Children.map(children, (child) =>
-            isValidElement(child) ? cloneElement(child, field) : child,
+            isValidElement(child)
+              ? cloneElement(child, getChildProps(child, field))
+              : child,
           )}
         </Fieldset>
       )}
