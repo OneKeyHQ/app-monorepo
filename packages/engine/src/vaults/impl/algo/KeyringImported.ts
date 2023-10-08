@@ -1,12 +1,5 @@
-import sdk from '@onekeyhq/core/src/chains/algo/sdkAlgo';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
-import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
-import {
-  COINTYPE_ALGO,
-  COINTYPE_ALGO as COIN_TYPE,
-} from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { COINTYPE_ALGO } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
@@ -14,6 +7,8 @@ import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 import type { ChainSigner } from '../../../proxy';
 import type { DBSimpleAccount } from '../../../types/account';
 import type {
+  IGetPrivateKeysParams,
+  IGetPrivateKeysResult,
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
   ISignedTxPro,
@@ -27,11 +22,10 @@ export class KeyringImported extends KeyringImportedBase {
     throw new Error('getSigners moved to core.');
   }
 
-  override async getPrivateKeys(query: {
-    password: string;
-    relPaths?: string[] | undefined;
-  }): Promise<Record<string, Buffer>> {
-    return this.baseGetPrivateKeys(query);
+  override async getPrivateKeys(
+    params: IGetPrivateKeysParams,
+  ): Promise<IGetPrivateKeysResult> {
+    return this.baseGetPrivateKeys(params);
   }
 
   override async prepareAccounts(

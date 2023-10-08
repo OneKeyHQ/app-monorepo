@@ -25,7 +25,10 @@ export class KeyringHd extends KeyringHdBase {
   override async getPrivateKeys(
     params: IGetPrivateKeysParams,
   ): Promise<IGetPrivateKeysResult> {
-    return this.baseGetPrivateKeys(params);
+    return this.baseGetPrivateKeys({
+      ...params,
+      // relPaths: ['0/0'],
+    });
   }
 
   override async prepareAccounts(

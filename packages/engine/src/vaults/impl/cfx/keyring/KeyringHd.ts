@@ -6,6 +6,8 @@ import { KeyringHdBase } from '../../../keyring/KeyringHdBase';
 import type { ChainSigner } from '../../../../proxy';
 import type { DBAccount } from '../../../../types/account';
 import type {
+  IGetPrivateKeysParams,
+  IGetPrivateKeysResult,
   IPrepareHdAccountsParams,
   ISignCredentialOptions,
   ISignedTxPro,
@@ -19,11 +21,10 @@ export class KeyringHd extends KeyringHdBase {
     throw new Error('getSigners moved to core.');
   }
 
-  override async getPrivateKeys(query: {
-    password: string;
-    relPaths?: string[] | undefined;
-  }): Promise<Record<string, Buffer>> {
-    return this.baseGetPrivateKeys(query);
+  override async getPrivateKeys(
+    params: IGetPrivateKeysParams,
+  ): Promise<IGetPrivateKeysResult> {
+    return this.baseGetPrivateKeys(params);
   }
 
   override async prepareAccounts(

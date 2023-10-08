@@ -4,6 +4,8 @@ import type { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import { KeyringImportedBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringImportedBase';
 import type {
+  IGetPrivateKeysParams,
+  IGetPrivateKeysResult,
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
   ISignedTxPro,
@@ -18,11 +20,10 @@ export class KeyringImported extends KeyringImportedBase {
     throw new Error('getSigners moved to core.');
   }
 
-  override async getPrivateKeys(query: {
-    password: string;
-    relPaths?: string[] | undefined;
-  }): Promise<Record<string, Buffer>> {
-    return this.baseGetPrivateKeys(query);
+  override async getPrivateKeys(
+    params: IGetPrivateKeysParams,
+  ): Promise<IGetPrivateKeysResult> {
+    return this.baseGetPrivateKeys(params);
   }
 
   override async prepareAccounts(
