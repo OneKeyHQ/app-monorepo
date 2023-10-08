@@ -1,3 +1,5 @@
+import assert from 'assert';
+
 type ErrorType = undefined | string | Error;
 
 const check = (statement: any, orError?: ErrorType) => {
@@ -25,4 +27,4 @@ const checkIsUndefined = (something: any, orError?: ErrorType) => {
   );
 };
 
-export { check, checkIsDefined, checkIsUndefined };
+export { assert, check, checkIsDefined, checkIsUndefined };
