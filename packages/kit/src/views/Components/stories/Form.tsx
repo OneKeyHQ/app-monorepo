@@ -8,6 +8,7 @@ const Form1 = () => {
   const form = useForm({
     defaultValues: {
       name: 'Nate Wienert',
+      length: '1234567',
     },
   });
   return (
@@ -16,8 +17,13 @@ const Form1 = () => {
       footer={
         <Button
           buttonVariant="primary"
-          onPress={() => {
-            alert(JSON.stringify(form.getValues()));
+          onPress={async () => {
+            const isValid = await form.trigger();
+            if (isValid) {
+              alert(JSON.stringify(form.getValues()));
+            } else {
+              alert('请检查输入项');
+            }
           }}
         >
           <Button.Text>Submit</Button.Text>
@@ -26,6 +32,20 @@ const Form1 = () => {
     >
       <Form.Field label="Name" name="name">
         <Input flex={1} />
+      </Form.Field>
+      <Form.Field
+        label="MaxLength"
+        name="length"
+        rules={{ maxLength: { value: 6, message: 'maxLength is 6' } }}
+      >
+        <Input placeholder="Max Length Limit" />
+      </Form.Field>
+      <Form.Field
+        label="Required"
+        name="required"
+        rules={{ required: { value: true, message: 'requied input text' } }}
+      >
+        <Input placeholder="Required" />
       </Form.Field>
       <Form.Field label="Notify" name="notify">
         <Switch id="notify">

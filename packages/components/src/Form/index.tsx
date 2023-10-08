@@ -1,6 +1,7 @@
-import type { PropsWithChildren, ReactElement } from 'react';
+import type { PropsWithChildren, ReactChildren, ReactElement } from 'react';
 import { Children, cloneElement, isValidElement, useState } from 'react';
 
+import { ErrorMessage } from '@hookform/error-message';
 import { useHeaderHeight as useHeaderHeightOG } from '@react-navigation/elements';
 import { noop } from 'lodash';
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
@@ -16,11 +17,14 @@ import {
   withStaticProperties,
 } from 'tamagui';
 
+import { Text } from '../Text';
+
 import type {
   Control,
   ControllerRenderProps,
   UseFormReturn,
 } from 'react-hook-form';
+import type { GetProps } from 'tamagui';
 
 const useHeaderHeight = () => {
   try {
@@ -99,26 +103,37 @@ const getChildProps = (
   }
 };
 
-function Field({
-  name,
-  label,
-  children,
-}: PropsWithChildren<{ name: string; label: string }>) {
-  const { control } = useFormContext();
+type FieldProps = Omit<GetProps<typeof Controller>, 'render'> &
+  PropsWithChildren<{
+    label: string;
+  }>;
+
+function Field({ name, label, rules, children }: FieldProps) {
+  const {
+    control,
+    formState: { errors },
+  } = useFormContext();
+  console.log(errors);
   return (
     <Controller
       name={name}
       control={control}
+      rules={rules}
       render={({ field }) => (
         <Fieldset>
           <Label width={90} htmlFor={name}>
             {label}
           </Label>
-          {Children.map(children, (child) =>
+          {Children.map(children as ReactChildren, (child) =>
             isValidElement(child)
               ? cloneElement(child, getChildProps(child, field))
               : child,
           )}
+          <ErrorMessage
+            errors={errors}
+            name={name}
+            render={({ message }) => <Text>{message}</Text>}
+          />
         </Fieldset>
       )}
     />
