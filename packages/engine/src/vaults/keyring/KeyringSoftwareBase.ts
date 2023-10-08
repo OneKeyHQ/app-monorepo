@@ -1,3 +1,5 @@
+import { isNil } from 'lodash';
+
 import type {
   ICoreApiNetworkInfo,
   ICoreCredentialsInfo,
@@ -383,7 +385,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       address,
       addresses,
     } of addressesInfo) {
-      if (!path || !xpub || !addresses) {
+      if (!path || isNil(xpub) || !addresses) {
         throw new Error('path or xpub or addresses is undefined');
       }
 

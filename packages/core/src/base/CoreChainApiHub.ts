@@ -12,6 +12,7 @@ import CoreChainFil from '../chains/fil';
 import CoreChainKaspa from '../chains/kaspa';
 import CoreChainLtc from '../chains/ltc';
 import CoreChainNear from '../chains/near';
+import CoreChainNexa from '../chains/nexa';
 import CoreChainSol from '../chains/sol';
 import CoreChainStc from '../chains/stc';
 import CoreChainSui from '../chains/sui';
@@ -59,4 +60,6 @@ export class CoreChainApiHub {
   xmr = new CoreChainXmr();
 
   ada = new CoreChainAda();
+
+  nexa = new CoreChainNexa();
 }
