@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 
-import useProviderValue from './useProviderValue';
+import useProviderDeviceScreenSize from './useProviderDeviceScreenSize';
 
 export default function useDeviceScreenSize() {
-  const context = useProviderValue();
+  const context = useProviderDeviceScreenSize();
   return useMemo(() => context.deviceScreenSize, [context.deviceScreenSize]);
 }

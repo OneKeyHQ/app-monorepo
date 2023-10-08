@@ -8147,8 +8147,8 @@ __metadata:
     react-native-randombytes: ^3.6.1
     react-native-reanimated: 3.5.4
     react-native-restart: 0.0.27
-    react-native-safe-area-context: ^4.5.3
-    react-native-screens: ^3.19.0
+    react-native-safe-area-context: ^4.7.2
+    react-native-screens: ^3.25.0
     react-native-share: ^8.2.2
     react-native-svg: ^13.9.0
     react-native-tcp-socket: ^6.0.6
@@ -37228,13 +37228,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-safe-area-context@npm:^4.5.3":
-  version: 4.5.3
-  resolution: "react-native-safe-area-context@npm:4.5.3"
+"react-native-safe-area-context@npm:^4.7.2":
+  version: 4.7.2
+  resolution: "react-native-safe-area-context@npm:4.7.2"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 0390e81db6926febaf1186dcad4fede95dfcb0eb3db84dcefc25b9016c8c831b65a9116f605b617440e7dcbc8bb02a17e86cdaf82be3ff26e5a68c5936064a68
+  checksum: a74a9c8b3d8642cab6e92ab12991279d3c0984c8ce09e64a4f5c6b08316001e796678bd3d5fa0e2601a334435c34ee914411a7cf7d8aa0460a49a177093b64ee
   languageName: node
   linkType: hard
 
@@ -37249,16 +37249,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-screens@npm:^3.19.0":
-  version: 3.19.0
-  resolution: "react-native-screens@npm:3.19.0"
+"react-native-screens@npm:^3.25.0":
+  version: 3.25.0
+  resolution: "react-native-screens@npm:3.25.0"
   dependencies:
     react-freeze: ^1.0.0
     warn-once: ^0.1.0
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 3a0116bf0628a735bdb87d7e4648f4bbac278152599a2bdd973e4dec92f87cb2c805dd7adb844d01236c7c92bab017ea8de59bea44d9f58397fddb6f9f3077c5
+  checksum: 959e107091944ab1a01e8328f3094020f495f05c23509920922df1bf285942e9ed77e3769b560e1f3c47a9925a18ab4f66a56ff5817ef5f220735e30efe09401
   languageName: node
   linkType: hard
 

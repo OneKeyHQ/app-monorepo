@@ -38,7 +38,7 @@ const DemoRootDeveloper = () => {
               buttonVariant="primary"
               onPress={() => {
                 navigation.pushModal(RootModalRoutes.DemoCreateModal, {
-                  screen: DemoCreateModalRoutes.DemoCreateSearchModal,
+                  screen: DemoCreateModalRoutes.DemoCreateModal,
                   params: {
                     question: '你好',
                   },

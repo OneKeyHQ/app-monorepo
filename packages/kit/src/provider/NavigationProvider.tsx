@@ -27,8 +27,8 @@ const NavigationApp = () => {
       }}
       ref={navigationRef}
     >
-      {/* <DevScreen /> */}
-      <DemoRootApp />
+      <DevScreen />
+      {/* <DemoRootApp /> */}
       {/* <DemoAndroidApp /> */}
     </NavigationContainer>
   );
