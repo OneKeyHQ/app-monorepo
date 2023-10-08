@@ -30,7 +30,7 @@ const ButtonsGallery = () => (
                 w="100%"
                 h="$10"
                 borderColor="$borderColor"
-                borderWidth="px"
+                borderWidth="$px"
               >
                 <Divider width="100%" />
               </Stack>
@@ -42,7 +42,7 @@ const ButtonsGallery = () => (
                 w="100%"
                 h="$10"
                 borderColor="$borderColor"
-                borderWidth="px"
+                borderWidth="$px"
               >
                 <Divider vertical />
               </Stack>

@@ -10,6 +10,7 @@ export { Alert } from './Alert';
 export { Divider } from './Divider';
 export { Spinner } from './Spinner';
 export { Dialog } from './Dialog';
+export { ActionSheet } from './ActionSheet';
 export * from './Form';
 export * from './Portal';
 

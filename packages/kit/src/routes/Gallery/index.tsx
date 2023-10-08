@@ -1,6 +1,7 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
+import ActionSheetGallery from '@onekeyhq/kit/src/views/Components/stories/ActionSheet';
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
@@ -30,6 +31,7 @@ export enum GalleryRoutes {
   ComponentAlert = 'component/alert',
   ComponentDivider = 'component/divider',
   ComponentToast = 'component/toast',
+  ComponentActionSheet = 'component/actionsheet',
   ComponentTheme = 'component/theme',
 }
 
@@ -46,6 +48,7 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentSelect, component: SelectGallery },
   { name: GalleryRoutes.ComponentBadge, component: BadgeGallery },
   { name: GalleryRoutes.ComponentDialog, component: DialogGallery },
+  { name: GalleryRoutes.ComponentActionSheet, component: ActionSheetGallery },
   {
     name: GalleryRoutes.ComponentNavigation,
     component: DemoRootApp,
