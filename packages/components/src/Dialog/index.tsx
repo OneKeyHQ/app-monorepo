@@ -52,6 +52,7 @@ function DialogFrame({
   cancelButtonTextProps,
   backdrop = false,
 }: ModalProps) {
+  const [position, setPosition] = useState(0);
   const backdropClose = useMemo(
     () => (backdrop ? onClose : undefined),
     [backdrop, onClose],
@@ -68,7 +69,6 @@ function DialogFrame({
   const { bottom } = useSafeAreaInsets();
   const handleConfirmButtonPress = useCallback(async () => {
     const result = await onConfirm?.();
-    console.log(result);
     if (result || result === undefined) {
       onClose?.();
     }
@@ -88,6 +88,8 @@ function DialogFrame({
       <Adapt when="md">
         <Sheet
           modal
+          position={position}
+          onPositionChange={setPosition}
           dismissOnSnapToBottom
           dismissOnOverlayPress={backdrop}
           onOpenChange={handleOpenChange}
