@@ -32,7 +32,7 @@ type DBSimpleAccount = DBBaseAccount & {
 };
 
 type DBUTXOAccount = DBBaseAccount & {
-  pubKey?: string;
+  pubKey?: string; // TODO rename to pub
   xpub: string;
   xpubSegwit?: string; // wrap regular xpub into bitcoind native descriptor
   address: string; // Display/selected address

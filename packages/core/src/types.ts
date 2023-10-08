@@ -1,4 +1,8 @@
-import type { ICurveName } from '@onekeyhq/engine/src/secret';
+import type {
+  ICurveName,
+  ISecretPrivateKeyInfo,
+  ISecretPublicKeyInfo,
+} from '@onekeyhq/engine/src/secret';
 import type { IUnsignedMessage } from '@onekeyhq/engine/src/types/message';
 import type { IUnsignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import type { AddressEncodings } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
@@ -34,6 +38,7 @@ export type ICoreApiGetAddressesQueryHd =
 export type ICoreApiGetAddressQueryImportedBase = {
   networkInfo: ICoreApiNetworkInfo;
   privateKeyRaw: string;
+  privateKeyInfo?: ISecretPrivateKeyInfo;
 };
 export type ICoreApiGetAddressQueryImportedBtc =
   ICoreApiGetAddressQueryImportedBase & {
@@ -45,6 +50,7 @@ export type ICoreApiGetAddressQueryImported =
 export type ICoreApiGetAddressQueryPublicKey = {
   networkInfo: ICoreApiNetworkInfo;
   publicKey: string;
+  publicKeyInfo?: ISecretPublicKeyInfo;
 };
 export type ICoreApiGetAddressItem = {
   address: string;

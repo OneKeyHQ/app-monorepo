@@ -41,7 +41,7 @@ export class KeyringHd extends KeyringHdBase {
     return this.basePrepareAccountsHdUtxo(params, {
       addressEncoding: undefined,
       checkIsAccountUsed: async ({ address }) => ({
-        isUsed: false,
+        isUsed: true,
       }),
     });
   }
@@ -82,21 +82,12 @@ export class KeyringHd extends KeyringHdBase {
     };
   }
 
-  async getSignerOld(
-    options: ISignCredentialOptions,
-    { address }: { address: string },
-  ) {
-    const signers = await this.getSigners(options?.password || '', [address]);
-    const signer = signers[address];
-    return signer;
-  }
-
   async signTransactionOld(
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
   ): Promise<ISignedTxPro> {
     const dbAccount = await this.getDbAccount();
-    const signer = await this.getSignerOld(options, {
+    const signer = await this.getSigner(options, {
       address: dbAccount.address,
     });
     const result = await signEncodedTx(

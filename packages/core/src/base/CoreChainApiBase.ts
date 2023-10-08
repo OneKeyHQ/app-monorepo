@@ -203,14 +203,16 @@ export abstract class CoreChainApiBase {
         if (isPrivateKeyMode) {
           const privateKeyRaw = bufferUtils.bytesToHex(decrypt(password, key));
           result = await this.getAddressFromPrivate({
-            privateKeyRaw,
             networkInfo: query.networkInfo,
+            privateKeyRaw,
+            privateKeyInfo: info,
           });
         } else {
           publicKey = key.toString('hex');
           result = await this.getAddressFromPublic({
-            publicKey,
             networkInfo: query.networkInfo,
+            publicKey,
+            publicKeyInfo: info,
           });
         }
 
