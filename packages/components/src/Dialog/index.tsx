@@ -93,7 +93,12 @@ function DialogFrame({
           onOpenChange={handleOpenChange}
           snapPointsMode="fit"
         >
-          <Sheet.Overlay backgroundColor="$bgBackdrop" />
+          <Sheet.Overlay
+            animation="lazy"
+            enterStyle={{ opacity: 0 }}
+            exitStyle={{ opacity: 0 }}
+            backgroundColor="$bgBackdrop"
+          />
           <Sheet.Handle
             marginHorizontal="auto"
             width="$20"
