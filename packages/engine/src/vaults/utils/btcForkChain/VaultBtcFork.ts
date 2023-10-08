@@ -56,6 +56,8 @@ import {
 } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import {
+  batchAsset,
+  getAllAssetsFromLocal,
   getBRC20TransactionHistory,
   getNFTTransactionHistory,
 } from '../../../managers/nft';
@@ -563,6 +565,7 @@ export default class VaultBtcFork extends VaultBase {
       networkId: this.networkId,
       accountId: this.accountId,
       extraInfo: null,
+      encodedTx,
       totalFeeInNative: encodedTx.totalFeeInNative,
     };
   }
@@ -621,8 +624,6 @@ export default class VaultBtcFork extends VaultBase {
           outputs[0].address === dbAccount.address
             ? IDecodedTxDirection.OUT
             : IDecodedTxDirection.SELF,
-        utxoFrom,
-        utxoTo,
         nativeTransfer: {
           tokenInfo: nativeToken,
           from: dbAccount.address,
@@ -630,6 +631,8 @@ export default class VaultBtcFork extends VaultBase {
           amount: utxo.balance,
           amountValue: utxo.balanceValue,
           extraInfo: null,
+          utxoFrom,
+          utxoTo,
           isInscribeTransfer: encodedTx.isInscribeTransfer,
         },
       }));
@@ -655,11 +658,13 @@ export default class VaultBtcFork extends VaultBase {
     token,
     dbAccount,
     brc20Content,
+    isInscribeTransfer,
   }: {
     nftInfo: INFTInfo;
     token: Token;
     dbAccount: DBUTXOAccount;
     brc20Content?: BRC20TextProps | null;
+    isInscribeTransfer?: boolean;
   }) {
     const { from, to } = nftInfo;
 
@@ -723,6 +728,7 @@ export default class VaultBtcFork extends VaultBase {
         sender: nftInfo.from,
         receiver: nftInfo.to,
         extraInfo: null,
+        isInscribeTransfer,
         ...info,
       },
     };
@@ -730,7 +736,7 @@ export default class VaultBtcFork extends VaultBase {
     return action;
   }
 
-  buildNFTAction({
+  async buildNFTAction({
     nftInfo,
     dbAccount,
   }: {
@@ -738,6 +744,7 @@ export default class VaultBtcFork extends VaultBase {
     dbAccount: DBUTXOAccount;
   }) {
     const { from, to } = nftInfo;
+    const asset = nftInfo.asset as NFTBTCAssetModel;
 
     let direction = IDecodedTxDirection.OTHER;
 
@@ -749,6 +756,18 @@ export default class VaultBtcFork extends VaultBase {
       direction = IDecodedTxDirection.IN;
     }
 
+    const localNFTs = (await getAllAssetsFromLocal({
+      networkId: this.networkId,
+      accountId: this.accountId,
+    })) as NFTBTCAssetModel[];
+    const inscriptionsInSameUtxo = localNFTs.filter(
+      (nft) =>
+        nft.inscription_id !== asset.inscription_id &&
+        nft.owner === asset.owner &&
+        nft.output === asset.output &&
+        nft.output_value_sat === asset.output_value_sat,
+    );
+
     const action: IDecodedTxAction = {
       type: IDecodedTxActionType.NFT_TRANSFER_BTC,
       direction,
@@ -756,6 +775,7 @@ export default class VaultBtcFork extends VaultBase {
         send: nftInfo.from,
         receive: nftInfo?.to,
         asset: nftInfo?.asset as NFTBTCAssetModel,
+        assetsInSameUtxo: inscriptionsInSameUtxo,
         extraInfo: null,
       },
     };
@@ -1055,9 +1075,11 @@ export default class VaultBtcFork extends VaultBase {
   async buildActionsFromBTCTransaction({
     transaction,
     address,
+    isInscribeTransfer,
   }: {
     transaction: BTCTransactionsModel;
     address: string;
+    isInscribeTransfer: boolean;
   }): Promise<IDecodedTxAction[]> {
     let type: IDecodedTxActionType = IDecodedTxActionType.UNKNOWN;
     const { send, receive, event_type: eventType, asset } = transaction;
@@ -1093,6 +1115,7 @@ export default class VaultBtcFork extends VaultBase {
             token,
             dbAccount,
             brc20Content,
+            isInscribeTransfer,
           }),
         ];
       }
@@ -1103,6 +1126,7 @@ export default class VaultBtcFork extends VaultBase {
       receive,
       asset,
       extraInfo: null,
+      isInscribeTransfer,
     };
     if (eventType === 'Transfer') {
       type = IDecodedTxActionType.NFT_TRANSFER_BTC;
@@ -1125,10 +1149,12 @@ export default class VaultBtcFork extends VaultBase {
     nftTxs,
     nativeActions,
     address,
+    isInscribeTransfer,
   }: {
     address: string;
     nftTxs: BTCTransactionsModel[];
     nativeActions: IDecodedTxAction[];
+    isInscribeTransfer: boolean;
   }): Promise<IDecodedTxAction[]> {
     const nftActions = (
       await Promise.all(
@@ -1136,6 +1162,7 @@ export default class VaultBtcFork extends VaultBase {
           this.buildActionsFromBTCTransaction({
             transaction,
             address,
+            isInscribeTransfer,
           }),
         ) ?? '',
       )
@@ -1175,6 +1202,19 @@ export default class VaultBtcFork extends VaultBase {
         address: dbAccount.address,
         tokenAddress: tokenIdOnNetwork,
       });
+
+      let assets: NFTBTCAssetModel[] | undefined;
+
+      const inscriptionsInHistory = history.map((item) => ({
+        token_id: item.inscriptionId,
+      }));
+
+      if (inscriptionsInHistory.length) {
+        assets = (await batchAsset({
+          chain: this.networkId,
+          items: inscriptionsInHistory,
+        })) as NFTBTCAssetModel[];
+      }
 
       // several history items with same txid
       // merge them into one
@@ -1221,28 +1261,35 @@ export default class VaultBtcFork extends VaultBase {
             const isInscribeTransfer = actionType === 'inscribeTransfer';
 
             if (tokenInfo) {
+              const assetDefault = {
+                type: NFTAssetType.BTC,
+                inscription_id: tx.inscriptionId,
+                inscription_number: new BigNumber(
+                  tx.inscriptionNumber,
+                ).toNumber(),
+                tx_hash: tx.txId,
+                content: '',
+                content_length: 0,
+                content_type: '',
+                timestamp: tx.time,
+                output: tx.index,
+                owner: '',
+                output_value_sat: INSCRIPTION_PADDING_SATS_VALUES.default,
+                genesis_transaction_hash: '',
+                location: tx.location,
+                contentUrl: '',
+              };
+
               const action = this.buildBRC20TokenAction({
                 nftInfo: {
                   from: isInscribeTransfer ? toAddress : fromAddress,
                   to: toAddress,
                   amount,
                   asset: {
-                    type: NFTAssetType.BTC,
-                    inscription_id: tx.inscriptionId,
-                    inscription_number: new BigNumber(
-                      tx.inscriptionNumber,
-                    ).toNumber(),
-                    tx_hash: tx.txId,
-                    content: '',
-                    content_length: 0,
-                    content_type: '',
-                    timestamp: tx.time,
-                    output: tx.index,
-                    owner: '',
-                    output_value_sat: 0,
-                    genesis_transaction_hash: '',
-                    location: tx.location,
-                    contentUrl: '',
+                    ...assetDefault,
+                    ...assets?.find(
+                      (asset) => asset.inscription_id === tx.inscriptionId,
+                    ),
                   },
                 },
                 dbAccount,
@@ -1339,6 +1386,16 @@ export default class VaultBtcFork extends VaultBase {
           tx;
 
         const utxoToWithoutMine = utxoTo?.filter((utxo) => !utxo.isMine);
+        const isInscribeTransfer = Boolean(
+          txs.find(
+            (item) =>
+              item.txid !== tx.txid &&
+              item.blockTime === tx.blockTime &&
+              item.from === tx.to &&
+              item.to === tx.from,
+          ),
+        );
+
         const actions =
           utxoToWithoutMine && utxoToWithoutMine.length
             ? utxoToWithoutMine
@@ -1355,6 +1412,7 @@ export default class VaultBtcFork extends VaultBase {
                     amount: utxo.balance,
                     amountValue: utxo.balanceValue,
                     extraInfo: null,
+                    isInscribeTransfer,
                   },
                 }))
             : [
@@ -1372,6 +1430,7 @@ export default class VaultBtcFork extends VaultBase {
                     amount,
                     amountValue,
                     extraInfo: null,
+                    isInscribeTransfer,
                   },
                 },
               ];
@@ -1382,6 +1441,7 @@ export default class VaultBtcFork extends VaultBase {
           nftTxs,
           nativeActions: actions,
           address: dbAccount.address,
+          isInscribeTransfer,
         });
 
         let finalActions = mergeNFTActions;
@@ -1756,9 +1816,15 @@ export default class VaultBtcFork extends VaultBase {
       }
     }
 
+    let customAddressMap;
+    if (transferInfos[0].useCustomAddressesBalance) {
+      customAddressMap = this.getCustomAddressMap(dbAccount);
+    }
+
     let { utxos } = await this.collectUTXOsInfo({
       forceSelectUtxos,
       checkInscription,
+      customAddressMap,
     });
 
     // Select the slowest fee rate as default, otherwise the UTXO selection
@@ -1900,6 +1966,19 @@ export default class VaultBtcFork extends VaultBase {
     };
   }
 
+  getCustomAddressMap(dbAccount: DBUTXOAccount) {
+    const customAddressMap: Record<string, string> = {}; // { path: address }
+    if (!dbAccount.customAddresses) return undefined;
+    const { path } = dbAccount;
+    Object.entries(dbAccount.customAddresses).forEach(
+      ([relativePath, address]) => {
+        const key = `${path}/${relativePath}`;
+        customAddressMap[key] = address;
+      },
+    );
+    return customAddressMap;
+  }
+
   private validateInscriptionInputsForCoinSelect({
     inputsForCoinSelect,
     forceSelectUtxos,
@@ -1943,13 +2022,16 @@ export default class VaultBtcFork extends VaultBase {
   override async getFrozenBalance({
     useRecycleBalance,
     ignoreInscriptions,
+    useCustomAddressesBalance,
   }: {
     useRecycleBalance?: boolean;
     ignoreInscriptions?: boolean;
+    useCustomAddressesBalance?: boolean;
   } = {}): Promise<number> {
     const result = await this.fetchBalanceDetails({
       useRecycleBalance,
       ignoreInscriptions,
+      useCustomAddressesBalance,
     });
     if (result && !isNil(result?.unavailable)) {
       return new BigNumber(result.unavailable).toNumber();
@@ -1960,9 +2042,11 @@ export default class VaultBtcFork extends VaultBase {
   override async fetchBalanceDetails({
     useRecycleBalance,
     ignoreInscriptions,
+    useCustomAddressesBalance,
   }: {
     useRecycleBalance?: boolean;
     ignoreInscriptions?: boolean;
+    useCustomAddressesBalance?: boolean;
   } = {}): Promise<IBalanceDetails | undefined> {
     const [dbAccount, network] = await Promise.all([
       this.getDbAccount() as Promise<DBUTXOAccount>,
@@ -1988,15 +2072,18 @@ export default class VaultBtcFork extends VaultBase {
         }),
       };
     }
+    if (useCustomAddressesBalance) {
+      collectUTXOsInfoParams = {
+        customAddressMap: this.getCustomAddressMap(dbAccount),
+      };
+    }
 
-    const recycleUtxos = await this.getRecycleInscriptionUtxos(dbAccount.xpub);
     const { utxos, valueDetails, ordQueryStatus } = await this.collectUTXOsInfo(
       collectUTXOsInfoParams,
     );
     if (ordQueryStatus === 'ERROR') {
       this.collectUTXOsInfo.clear();
     }
-
     // find frozen utxo
     const frozenUtxos = await this.getFrozenUtxos(dbAccount.xpub, utxos);
     const allFrozenUtxo = utxos.filter((utxo) =>

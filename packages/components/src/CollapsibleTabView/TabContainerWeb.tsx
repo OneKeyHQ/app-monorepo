@@ -38,6 +38,7 @@ const TabContainerWebView: ForwardRefRenderFunction<
     initialTabName,
     scrollEnabled = true,
     stickyTabBar,
+    onScroll,
   },
   ref,
 ) => {
@@ -225,7 +226,10 @@ const TabContainerWebView: ForwardRefRenderFunction<
   );
 
   return (
-    <ScrollView style={[{ backgroundColor: bgColor }, containerStyle]}>
+    <ScrollView
+      style={[{ backgroundColor: bgColor }, containerStyle]}
+      onScroll={onScroll}
+    >
       {headerView}
       {tabViewContent}
     </ScrollView>

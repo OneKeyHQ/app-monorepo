@@ -196,6 +196,11 @@ interface DBAPI {
     accountId,
     template,
   }: ISetAccountTemplateParams): Promise<DBAccount>;
+  setAccountPub(
+    accountId: string,
+    pub: string,
+    deletePubKey?: boolean,
+  ): Promise<DBAccount>;
   updateAccountAddresses(
     accountId: string,
     networkId: string,

@@ -35,6 +35,7 @@ import {
 import { showJumpPageDialog } from '@onekeyhq/kit/src/views/Account/AddNewAccount/JumpPage';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useShouldHideInscriptions } from '../../../hooks/crossHooks/useShouldHideInscriptions';
 import useFormatDate from '../../../hooks/useFormatDate';
 
 import { CoinControlListItemMenu } from './CoinControlListItemMenu';
@@ -105,6 +106,7 @@ export type ICellProps = {
   onConfirmEditLabel: (item: ICoinControlListItem, label: string) => void;
   onFrozenUTXO: (item: ICoinControlListItem, value: boolean) => void;
   onRecycleUTXO: (item: ICoinControlListItem) => void;
+  shouldHideInscriptions: boolean;
 };
 
 const CoinControlCell: FC<ICellProps> = ({
@@ -121,6 +123,7 @@ const CoinControlCell: FC<ICellProps> = ({
   onConfirmEditLabel,
   onFrozenUTXO,
   onRecycleUTXO,
+  shouldHideInscriptions,
 }) => {
   const { formatDate } = useFormatDate();
   const isSelected = selectedUtxos.find(
@@ -254,6 +257,7 @@ const CoinControlCell: FC<ICellProps> = ({
           onFrozenUTXO={onFrozenUTXO}
           onRecycleUTXO={onRecycleUTXO}
           showFrozenOption={showFrozenOption}
+          showRecycleOption={!shouldHideInscriptions}
         >
           <IconButton
             alignItems="flex-end"
@@ -491,6 +495,10 @@ const CoinControlList: FC<{
   onFrozenUTXO,
   onRecycleUTXO,
 }) => {
+  const shouldHideInscriptions = useShouldHideInscriptions({
+    accountId,
+    networkId: network.id,
+  });
   const PAGE_SIZE = useMemo(() => (platformEnv.isNative ? 15 : 25), []);
   const pageKey = useMemo(
     () =>
@@ -542,6 +550,7 @@ const CoinControlList: FC<{
           onConfirmEditLabel={onConfirmEditLabel}
           onFrozenUTXO={onFrozenUTXO}
           onRecycleUTXO={onRecycleUTXO}
+          shouldHideInscriptions={shouldHideInscriptions}
         />
       );
     },
@@ -558,6 +567,7 @@ const CoinControlList: FC<{
       onConfirmEditLabel,
       onFrozenUTXO,
       onRecycleUTXO,
+      shouldHideInscriptions,
     ],
   );
 

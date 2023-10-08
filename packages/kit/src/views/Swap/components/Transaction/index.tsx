@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ComponentProps, FC } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -43,7 +43,6 @@ import {
   multiply,
   normalizeProviderName,
 } from '../../utils';
-import { Scheduler } from '../PendingTransaction';
 import SwappingVia from '../SwappingVia';
 import TransactionFee from '../TransactionFee';
 import TransactionRate from '../TransactionRate';
@@ -575,10 +574,10 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
     [intl],
   );
 
-  const onPress = useCallback(() => {
+  const onPress = useCallback(async () => {
     if (from && to && fromNetwork && toNetwork) {
-      backgroundApiProxy.serviceSwap.setInputToken(from.token);
-      backgroundApiProxy.serviceSwap.setOutputToken(to.token);
+      await backgroundApiProxy.serviceSwap.setInputToken(from.token);
+      await backgroundApiProxy.serviceSwap.setOutputToken(to.token);
 
       const parent = navigation.getParent() ?? navigation;
       parent.goBack();

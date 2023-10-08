@@ -1,14 +1,26 @@
-import { type ReactElement, useCallback, useContext, useMemo } from 'react';
+import type { RefObject } from 'react';
+import {
+  type ReactElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+} from 'react';
 
 import { useIntl } from 'react-intl';
+
+import type { ForwardRefHandle } from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
 
 import { useShowBookmark } from '../hooks/useControl';
 
 import { DiscoverContext } from './context';
+import { discoverUIEventBus } from './eventBus';
 import { SectionExplore } from './TabExplore';
 import { SectionFavorites } from './TabFavorites';
 import { SectionFeatured } from './TabFeatured';
 import { TabName } from './type';
+
+import type { CategoryType } from '../type';
 
 type TabItemConfig = {
   name: TabName;
@@ -61,4 +73,25 @@ export const useOnTabChange = () => {
     [tabConfig, setTabName],
   );
   return onTabChange;
+};
+
+export const usePressTagEffect = ({
+  ref,
+}: {
+  ref: RefObject<ForwardRefHandle>;
+}) => {
+  const { setCategoryId } = useContext(DiscoverContext);
+  useEffect(() => {
+    const fn = (item: CategoryType) => {
+      if (ref.current) {
+        setCategoryId(item.id);
+        ref.current.setPageIndex(1);
+      }
+    };
+    discoverUIEventBus.on('pressTag', fn);
+    return () => {
+      discoverUIEventBus.off('pressTag', fn);
+    };
+    // eslint-disable-next-line
+  }, [ref]);
 };

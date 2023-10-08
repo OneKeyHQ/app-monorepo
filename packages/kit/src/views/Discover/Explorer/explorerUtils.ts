@@ -168,6 +168,42 @@ const injectToResumeWebsocket = `
 })()
 `;
 
+// for hide keyboard
+const injectToDismissWebviewKeyboard = `
+(function(){
+  document.activeElement && document.activeElement.blur()
+})()
+`;
+
+export function dismissWebviewKeyboard(id?: string) {
+  const ref = getWebviewWrapperRef(id);
+  if (ref) {
+    if (platformEnv.isNative) {
+      try {
+        (ref.innerRef as WebView)?.injectJavaScript(
+          injectToDismissWebviewKeyboard,
+        );
+      } catch (error) {
+        // ipad mini orientation changed cause injectJavaScript ERROR, which crash app
+        console.error(
+          'blurActiveElement webview.injectJavaScript() ERROR >>>>> ',
+          error,
+        );
+      }
+    }
+    if (platformEnv.isDesktop) {
+      const deskTopRef = ref.innerRef as IElectronWebView;
+      if (deskTopRef) {
+        try {
+          deskTopRef.executeJavaScript(injectToDismissWebviewKeyboard);
+        } catch (e) {
+          // if not dom ready, no need to pause websocket
+        }
+      }
+    }
+  }
+}
+
 export function pauseDappInteraction(id?: string) {
   const ref = getWebviewWrapperRef(id);
   if (ref) {

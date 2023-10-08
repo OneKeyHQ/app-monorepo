@@ -19,7 +19,7 @@ export const BalanceSection: FC = () => {
   const intl = useIntl();
 
   const context = useContext(TokenDetailContext);
-  const { balance, detailInfo } =
+  const { balance, detailInfo, routeParams } =
     context ?? (freezedEmptyObject as ITokenDetailContext);
 
   return (
@@ -41,7 +41,7 @@ export const BalanceSection: FC = () => {
       <Typography.Body2 mt="4px" color="text-subdued">
         <FormatCurrencyNumber
           value={0}
-          convertValue={new B(balance ?? 0).times(detailInfo.price ?? 0)}
+          convertValue={new B(balance ?? 0).times(routeParams.price ?? 0)}
         />
       </Typography.Body2>
     </Box>

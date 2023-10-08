@@ -2,7 +2,7 @@ import { BigNumber } from 'bignumber.js';
 
 import type { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
 import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 
 export const getTransferAmountToUpdate = ({
   decodedTx,
@@ -20,7 +20,7 @@ export const getTransferAmountToUpdate = ({
     type === IDecodedTxActionType.NATIVE_TRANSFER &&
     typeof nativeTransfer !== 'undefined' &&
     (typeof nativeTransfer.utxoFrom !== 'undefined' ||
-      nativeTransfer.tokenInfo.networkId === OnekeyNetwork.lightning)
+      isLightningNetworkByNetworkId(nativeTransfer.tokenInfo.networkId))
   ) {
     // For UTXO model, the decodedTx is updated with the new transfer amount.
     // Use this instead of depending the incorrect feeInfoPayload results.

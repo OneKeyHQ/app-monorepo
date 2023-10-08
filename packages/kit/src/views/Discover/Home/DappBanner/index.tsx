@@ -1,8 +1,9 @@
 import { type FC, useCallback } from 'react';
 
-import { Box, Image, Pressable, Typography } from '@onekeyhq/components';
+import { Box, Image, Typography } from '@onekeyhq/components';
 
 import { openMatchDApp } from '../../Explorer/Controller/gotoSite';
+import { Pressable } from '../Pressable';
 
 type DappBannerProps = {
   title: string;
@@ -24,7 +25,7 @@ export const DappBanner: FC<DappBannerProps> = ({
     <Pressable
       onPress={onPress}
       width="320px"
-      h="225px"
+      h="215px"
       borderColor="border-subdued"
       borderWidth={0.5}
       borderRadius={12}

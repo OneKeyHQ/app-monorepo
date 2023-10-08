@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { createSelector } from '@reduxjs/toolkit';
 import B from 'bignumber.js';
@@ -252,25 +252,64 @@ export const useTokenBalance = ({
   accountId,
   token,
   fallback = '0',
+  useRecycleBalance,
+  useCustomAddressesBalance,
 }: {
   networkId: string;
   accountId: string;
   token?: Partial<Token> | null;
   fallback?: string;
-  isBRC20?: boolean;
+  useRecycleBalance?: boolean;
+  useCustomAddressesBalance?: boolean;
 }) => {
   const balances = useAppSelector((s) => s.tokens.accountTokensBalance);
+  const [manuallyAddedAddressBalance, setManuallyAddedAddressBalance] =
+    useState(fallback);
+
+  useEffect(() => {
+    if (!useCustomAddressesBalance) {
+      return;
+    }
+
+    backgroundApiProxy.serviceToken
+      .fetchBalanceDetails({
+        networkId,
+        accountId,
+        useCustomAddressesBalance,
+        useRecycleBalance,
+      })
+      .then((value) => {
+        setManuallyAddedAddressBalance(value?.available ?? fallback);
+      });
+  }, [
+    networkId,
+    accountId,
+    useCustomAddressesBalance,
+    fallback,
+    useRecycleBalance,
+  ]);
 
   if (isAllNetworks(networkId)) {
     throw new Error(`useTokenBalance: networkId is not valid: ${networkId}`);
   }
 
-  return useMemo(
-    () =>
+  return useMemo(() => {
+    if (useCustomAddressesBalance) {
+      return manuallyAddedAddressBalance ?? fallback;
+    }
+    return (
       balances?.[networkId]?.[accountId]?.[getBalanceKey(token)]?.balance ??
-      fallback,
-    [networkId, token, accountId, balances, fallback],
-  );
+      fallback
+    );
+  }, [
+    networkId,
+    token,
+    accountId,
+    balances,
+    fallback,
+    manuallyAddedAddressBalance,
+    useCustomAddressesBalance,
+  ]);
 };
 
 export const useTokenBalanceWithoutFrozen = ({
@@ -279,19 +318,30 @@ export const useTokenBalanceWithoutFrozen = ({
   token,
   fallback = '0',
   useRecycleBalance,
+  useCustomAddressesBalance,
 }: {
   networkId: string;
   accountId: string;
   token?: Partial<Token> | null;
   fallback?: string;
   useRecycleBalance?: boolean;
+  useCustomAddressesBalance?: boolean;
 }) => {
-  const balance = useTokenBalance({ networkId, accountId, token, fallback });
+  const balance = useTokenBalance({
+    networkId,
+    accountId,
+    token,
+    fallback,
+    useRecycleBalance,
+    useCustomAddressesBalance,
+  });
+
   const frozenBalance = useFrozenBalance({
     networkId,
     accountId,
     tokenId: token?.tokenIdOnNetwork || 'main',
     useRecycleBalance,
+    useCustomAddressesBalance,
   });
 
   return useMemo(() => {

@@ -300,6 +300,7 @@ const DesktopWebView = forwardRef(
             ref={initWebviewByRef}
             preload={preloadJsUrl}
             src={src}
+            partition="webview"
             style={{
               'width': '100%',
               'height': '100%',

@@ -12,6 +12,7 @@ import {
 import { isLightningNetworkByImpl } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { FormatCurrencyTokenOfAccount } from '../../../components/Format';
+import { useAccount } from '../../../hooks';
 import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBoxAutoTransform';
 import {
   TxListActionBox,
@@ -128,6 +129,8 @@ export function TxActionTransfer(props: ITxActionCardProps) {
     displayToAddress,
     isInscribeTransfer,
   } = getTxActionTransferInfo(props);
+  const { accountId, networkId } = decodedTx;
+  const { account } = useAccount({ accountId, networkId });
 
   const enableCopyAddress = useMemo(
     () => !isLightningNetworkByImpl(network?.impl),
@@ -146,6 +149,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
             isCopy: from !== 'unknown' && enableCopyAddress,
             isShorten: isShortenAddress,
             displayAddress: displayFromAddress,
+            isInscribeTransfer: isInscribeTransfer && account?.address !== from,
           }),
         }
       : null,
@@ -160,7 +164,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
             isCopy: to !== 'unknown' && enableCopyAddress,
             isShorten: isShortenAddress,
             displayAddress: displayToAddress,
-            isInscribeTransfer,
+            isInscribeTransfer: isInscribeTransfer && account?.address !== to,
           }),
         }
       : null,

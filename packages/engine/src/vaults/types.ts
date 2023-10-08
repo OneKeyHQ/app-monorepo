@@ -196,6 +196,7 @@ export type ITransferInfo = {
   lightningAddress?: string;
   txInterval?: string;
   ignoreInscriptions?: boolean;
+  useCustomAddressesBalance?: boolean;
 };
 export type IApproveInfo = {
   from: string; // token owner
@@ -593,6 +594,8 @@ export type IDecodedTxActionInscription = IDecodedTxActionBase & {
   asset: NFTBTCAssetModel;
   send: string;
   receive: string;
+  isInscribeTransfer?: boolean;
+  assetsInSameUtxo?: NFTBTCAssetModel[];
 };
 
 export type IDecodedTxActionBRC20 = IDecodedTxActionBase & {
@@ -600,9 +603,11 @@ export type IDecodedTxActionBRC20 = IDecodedTxActionBase & {
   sender: string;
   receiver: string;
   asset: NFTBTCAssetModel;
+  assetsInSameUtxo?: NFTBTCAssetModel[];
   amount?: string;
   max?: string;
   limit?: string;
+  isInscribeTransfer?: boolean;
 };
 
 export type IDecodedTxActionInternalSwap = IDecodedTxActionBase & ISwapInfo;

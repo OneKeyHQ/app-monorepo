@@ -1,11 +1,12 @@
-import { type FC, type ReactElement, useCallback } from 'react';
+import { type FC, type ReactElement, cloneElement, useCallback } from 'react';
 
-import { Box, Center, Pressable, Typography } from '@onekeyhq/components';
+import { Box, Center, Typography } from '@onekeyhq/components';
 import { NetworkIconGroup } from '@onekeyhq/kit/src/components/NetworkIconGroup';
 
 import DAppIcon from '../../components/DAppIcon';
 import { openMatchDApp } from '../../Explorer/Controller/gotoSite';
 import { DappItemPlainLayout } from '../DappRenderLayout';
+import { Pressable } from '../Pressable';
 
 type DappRenderItemProps = {
   title: string;
@@ -52,7 +53,7 @@ export const DappItemOutline: FC<DappRenderItemProps> = (props) => {
     <Pressable
       p="4"
       w="152px"
-      h="224"
+      h="204"
       flexDirection="column"
       alignItems="center"
       justifyContent="center"
@@ -73,14 +74,14 @@ export const DappItemOutline: FC<DappRenderItemProps> = (props) => {
         <NetworkIconGroup networkIds={networkIds ?? []} />
       </Box>
       <Box flex="1" w="full">
-        <Typography.Body2
+        <Typography.Caption
           w="full"
           numberOfLines={3}
           textAlign="center"
           color="text-subdued"
         >
           {description ?? ''}
-        </Typography.Body2>
+        </Typography.Caption>
       </Box>
     </Pressable>
   );
@@ -108,21 +109,27 @@ export const DappItemPlain: FC<DappItemPlainProps> = (props) => {
         justifyContent="space-between"
         alignItems="center"
       >
-        <Box flex="1" flexDirection="row">
-          <Box mr="4">
-            <DAppIcon url={logoURI} size={48} />
-          </Box>
-          <Box flex="1">
-            <Typography.Body1Strong numberOfLines={1}>
-              {title}
-            </Typography.Body1Strong>
-            <Typography.Body2 color="text-subdued" numberOfLines={2}>
-              {description}
-            </Typography.Body2>
-            <NetworkIconGroup networkIds={networkIds ?? []} />
-          </Box>
-        </Box>
-        <Box>{rightElement}</Box>
+        {({ isPressed }) => (
+          <>
+            <Box flex="1" flexDirection="row">
+              <Box mr="4">
+                <DAppIcon url={logoURI} size={48} />
+              </Box>
+              <Box flex="1">
+                <Typography.Body1Strong numberOfLines={1}>
+                  {title}
+                </Typography.Body1Strong>
+                <Typography.Body2 color="text-subdued" numberOfLines={2}>
+                  {description}
+                </Typography.Body2>
+                <NetworkIconGroup networkIds={networkIds ?? []} />
+              </Box>
+            </Box>
+            <Box>
+              {rightElement ? cloneElement(rightElement, { isPressed }) : null}
+            </Box>
+          </>
+        )}
       </Pressable>
     </DappItemPlainLayout>
   );

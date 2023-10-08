@@ -45,7 +45,12 @@ export const useShortcuts = platformEnv.isDesktop
             ) {
               const { tabs } = getWebTabs();
               if (tabs.length > 1) {
-                webTabsActions.closeWebTab(tabs[tabs.length - 1].id);
+                const curTab = tabs.find((tab) => tab.isCurrent);
+                if (curTab && curTab.id) {
+                  webTabsActions.closeWebTab(curTab.id);
+                } else {
+                  webTabsActions.closeWebTab(tabs[tabs.length - 1].id);
+                }
               } else {
                 window.desktopApi.quitApp();
               }

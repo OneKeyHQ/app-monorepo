@@ -105,6 +105,11 @@ const CoinControl = () => {
     [encodedTx?.transferInfo.amount],
   );
 
+  const useCustomAddressesBalance = useMemo(
+    () => !!encodedTx?.transferInfo.useCustomAddressesBalance,
+    [encodedTx?.transferInfo.useCustomAddressesBalance],
+  );
+
   const refreshUtxosData = useCallback(async () => {
     setIsLoading(true);
 
@@ -114,6 +119,7 @@ const CoinControl = () => {
         accountId,
         sortBy: sortMethod,
         useRecycleUtxos: true,
+        useCustomAddressesBalance,
       })
       .then((response) => {
         setAllUtxos(response.utxos);
@@ -128,7 +134,7 @@ const CoinControl = () => {
       .finally(() => {
         setIsLoading(false);
       });
-  }, [networkId, accountId, sortMethod]);
+  }, [networkId, accountId, sortMethod, useCustomAddressesBalance]);
 
   const [config, setConfig] = useState<{
     availabelListCurrentPage: number;
@@ -324,6 +330,7 @@ const CoinControl = () => {
 
     return (
       utxosDust.length <= 0 &&
+      frozenUtxosWithoutRecycle.length <= 0 &&
       [...recycleDustUtxosWithoutFrozen, ...frozenRecycleUtxosWithoutDust]
         .length > 0
     );

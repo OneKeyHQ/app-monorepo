@@ -1,16 +1,19 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { pick } from 'lodash';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
+import { AppUIEventBusNames } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { appSelector } from '../store';
 import { createDeepEqualSelector } from '../utils/reselectUtils';
 
+import { useShouldHideInscriptions } from './crossHooks/useShouldHideInscriptions';
 import { useAppSelector } from './useAppSelector';
+import { useOnUIEventBus } from './useOnUIEventBus';
 
 import type { IAppState } from '../store';
 
@@ -115,40 +118,55 @@ export const useFrozenBalance = ({
   accountId,
   tokenId,
   useRecycleBalance,
+  useCustomAddressesBalance,
 }: {
   networkId: string;
   accountId: string;
   tokenId: string;
   useRecycleBalance?: boolean;
+  useCustomAddressesBalance?: boolean;
 }) => {
   const [frozenBalance, setFrozenBalance] = useState<
     number | Record<string, number>
   >(0);
 
-  useEffect(() => {
-    (async () => {
-      let password;
+  const shouldHideInscriptions = useShouldHideInscriptions({
+    accountId,
+    networkId,
+  });
 
-      const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
+  const fetchFrozenBalance = useCallback(async () => {
+    let password;
+
+    const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
+      networkId,
+    );
+    if (vaultSettings.validationRequired) {
+      password = await backgroundApiProxy.servicePassword.getPassword();
+    }
+
+    backgroundApiProxy.engine
+      .getFrozenBalance({
+        accountId,
         networkId,
-      );
-      if (vaultSettings.validationRequired) {
-        password = await backgroundApiProxy.servicePassword.getPassword();
-      }
+        password,
+        useRecycleBalance,
+        useCustomAddressesBalance,
+      })
+      .then(setFrozenBalance)
+      .catch((e) => {
+        debugLogger.common.error('getFrozenBalance error', e);
+      });
+  }, [accountId, networkId, useCustomAddressesBalance, useRecycleBalance]);
 
-      backgroundApiProxy.engine
-        .getFrozenBalance({
-          accountId,
-          networkId,
-          password,
-          useRecycleBalance,
-        })
-        .then(setFrozenBalance)
-        .catch((e) => {
-          debugLogger.common.error('getFrozenBalance error', e);
-        });
-    })();
-  }, [networkId, accountId, useRecycleBalance]);
+  useOnUIEventBus(
+    AppUIEventBusNames.InscriptionRecycleChanged,
+    fetchFrozenBalance,
+  );
+
+  useEffect(() => {
+    fetchFrozenBalance();
+  }, [fetchFrozenBalance, shouldHideInscriptions]);
 
   return useMemo(
     () =>

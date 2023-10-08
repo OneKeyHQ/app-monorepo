@@ -55,6 +55,7 @@ export type IBtcUTXO = {
   path: string;
   forceSelect?: boolean;
   inscriptions?: NFTBTCAssetModel[];
+  confirmations?: number;
 };
 
 export type IOrdinalQueryStatus =
@@ -80,6 +81,7 @@ export type IBtcUTXOInfo = {
 export type ICollectUTXOsOptions = {
   checkInscription?: boolean;
   forceSelectUtxos?: ICoinSelectUTXOLite[];
+  customAddressMap?: Record<string, string>;
 };
 
 export type ICoinSelectUTXOLite = {

@@ -151,6 +151,9 @@ function PreSendAddress() {
 
   const [validateMessage, setvalidateMessage] = useState({
     errorMessage: '',
+  });
+
+  const [validAddressMessageFromOut, setValidAddressMessageFromOut] = useState({
     warningMessage: '',
   });
 
@@ -512,8 +515,8 @@ function PreSendAddress() {
         setIsValidAddress(false);
         setvalidateMessage({
           errorMessage: '',
-          warningMessage: '',
         });
+        setValidAddressMessageFromOut({ warningMessage: '' });
         setIsAddressBook(false);
         setAddressBookLabel('');
         setIsContractAddress(false);
@@ -537,13 +540,11 @@ function PreSendAddress() {
           });
           const result = await validateAddress?.(networkId, toAddress);
           if (result && result.warningMessage) {
-            setvalidateMessage({
-              errorMessage: '',
+            setValidAddressMessageFromOut({
               warningMessage: result.warningMessage,
             });
           } else {
-            setvalidateMessage({
-              errorMessage: '',
+            setValidAddressMessageFromOut({
               warningMessage: '',
             });
           }
@@ -559,7 +560,6 @@ function PreSendAddress() {
           setIsContractAddress(false);
           if (key) {
             setvalidateMessage({
-              warningMessage: '',
               errorMessage: intl.formatMessage(
                 {
                   id: key,
@@ -570,17 +570,16 @@ function PreSendAddress() {
             return false;
           }
           setvalidateMessage({
-            warningMessage: '',
             errorMessage: intl.formatMessage({
               id: 'form__address_invalid',
             }),
           });
+          setValidAddressMessageFromOut({ warningMessage: '' });
           return false;
         }
         const isContractAddressResp = await isContractAddressCheck(toAddress);
         if (isContractAddressResp) {
           setvalidateMessage({
-            warningMessage: '',
             errorMessage: '',
           });
           setIsValidAddress(true);
@@ -596,7 +595,6 @@ function PreSendAddress() {
             setAddressBookLabel(addressbookItem.name);
             setvalidateMessage({
               errorMessage: '',
-              warningMessage: '',
             });
           } else {
             setIsValidAddress(true);
@@ -682,7 +680,7 @@ function PreSendAddress() {
                 errorMessage={
                   isNameServiceSearching ? '' : validateMessage.errorMessage
                 }
-                warningMessage={validateMessage.warningMessage}
+                warningMessage={validAddressMessageFromOut.warningMessage}
                 name="to"
                 formControlProps={{ width: 'full' }}
                 helpText={helpTextOfNameServiceResolver}

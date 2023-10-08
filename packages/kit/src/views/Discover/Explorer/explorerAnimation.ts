@@ -3,7 +3,11 @@ import { makeMutable, runOnJS, withTiming } from 'react-native-reanimated';
 import { getCurrentTabId } from '../../../store/observable/webTabs';
 
 import { getWebTabs } from './Controller/useWebTabs';
-import { pauseDappInteraction, resumeDappInteraction } from './explorerUtils';
+import {
+  dismissWebviewKeyboard,
+  pauseDappInteraction,
+  resumeDappInteraction,
+} from './explorerUtils';
 
 import type { View } from 'react-native';
 // for mobile tab animations
@@ -100,6 +104,7 @@ export const minimizeFloatingWindow = ({
   after = () => {},
 }: ExpandAnimationEvents) => {
   pauseDappInteraction();
+  dismissWebviewKeyboard();
   before?.();
   setTimeout(() => {
     expandAnim.value = withTiming(MIN_OR_HIDE, { duration: 300 }, () =>
