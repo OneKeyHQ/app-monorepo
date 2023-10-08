@@ -24,10 +24,10 @@ const Form1 = () => {
         </Button>
       }
     >
-      <Form.Field label="Name" name="name" control={form.control}>
+      <Form.Field label="Name" name="name">
         <Input flex={1} />
       </Form.Field>
-      <Form.Field label="Notify" name="notify" control={form.control}>
+      <Form.Field label="Notify" name="notify">
         <Switch id="notify">
           <Switch.Thumb animation="quick" />
         </Switch>

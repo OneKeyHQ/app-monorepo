@@ -3,7 +3,7 @@ import { Children, cloneElement, isValidElement, useState } from 'react';
 
 import { useHeaderHeight as useHeaderHeightOG } from '@react-navigation/elements';
 import { noop } from 'lodash';
-import { Controller, FormProvider } from 'react-hook-form';
+import { Controller, FormProvider, useFormContext } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform } from 'react-native';
 import {
   Fieldset,
@@ -102,9 +102,9 @@ const getChildProps = (
 function Field({
   name,
   label,
-  control,
   children,
-}: PropsWithChildren<{ name: string; label: string; control: Control<any> }>) {
+}: PropsWithChildren<{ name: string; label: string }>) {
+  const { control } = useFormContext();
   return (
     <Controller
       name={name}
