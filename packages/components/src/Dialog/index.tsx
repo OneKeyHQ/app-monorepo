@@ -33,6 +33,7 @@ export interface ModalProps {
   cancelButtonProps?: GetProps<typeof Button>;
   confirmButtonTextProps?: GetProps<typeof Button.Text>;
   cancelButtonTextProps?: GetProps<typeof Button.Text>;
+  dismissOnSnapToBottom?: boolean;
 }
 
 function DialogFrame({
@@ -51,6 +52,7 @@ function DialogFrame({
   cancelButtonProps,
   cancelButtonTextProps,
   backdrop = false,
+  dismissOnSnapToBottom = true,
 }: ModalProps) {
   const [position, setPosition] = useState(0);
   const backdropClose = useMemo(
@@ -90,7 +92,7 @@ function DialogFrame({
           modal
           position={position}
           onPositionChange={setPosition}
-          dismissOnSnapToBottom
+          dismissOnSnapToBottom={dismissOnSnapToBottom}
           dismissOnOverlayPress={backdrop}
           onOpenChange={handleOpenChange}
           snapPointsMode="fit"
