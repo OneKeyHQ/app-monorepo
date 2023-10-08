@@ -10,7 +10,8 @@ export { Alert } from './Alert';
 export { Divider } from './Divider';
 export { Spinner } from './Spinner';
 export { Dialog } from './Dialog';
-export { Portal, setPortalComponent, removePortalComponent } from './Portal';
+export * from './Form';
+export * from './Portal';
 
 export type { LocaleSymbol, LocaleIds } from './locale';
 export { LOCALES_OPTION } from './locale';

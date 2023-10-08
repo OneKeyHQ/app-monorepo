@@ -12,6 +12,7 @@ import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typogr
 import AlertGallery from '../../views/Components/stories/Alert';
 import DialogGallery from '../../views/Components/stories/Dialog';
 import DividerGallery from '../../views/Components/stories/Divider';
+import FormGallery from '../../views/Components/stories/Form';
 import DemoRootApp from '../../views/Components/stories/NavigatorRoute';
 import ThemeGallery from '../../views/Components/stories/Theme';
 
@@ -24,6 +25,7 @@ export enum GalleryRoutes {
   ComponentIconButton = 'component/iconbutton',
   ComponentBadge = 'component/badge',
   ComponentDialog = 'component/dialog',
+  ComponentForm = 'component/form',
   ComponentNavigation = 'component/navigation',
   ComponentAlert = 'component/alert',
   ComponentDivider = 'component/divider',
@@ -52,6 +54,10 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentAlert, component: AlertGallery },
   { name: GalleryRoutes.ComponentDivider, component: DividerGallery },
   { name: GalleryRoutes.ComponentTheme, component: ThemeGallery },
+  {
+    name: GalleryRoutes.ComponentForm,
+    component: FormGallery,
+  },
 ];
 
 const DevStack = createNativeStackNavigator();
