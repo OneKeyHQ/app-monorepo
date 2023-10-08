@@ -1,7 +1,13 @@
 import { useMemo } from 'react';
 
 import { StyleSheet } from 'react-native';
-import { Adapt, Sheet, Select as TMSelect, useMedia } from 'tamagui';
+import {
+  Adapt,
+  Sheet,
+  Select as TMSelect,
+  useControllableState,
+  useMedia,
+} from 'tamagui';
 import { LinearGradient } from 'tamagui/linear-gradient';
 
 import { Icon } from '../Icon';
@@ -10,47 +16,108 @@ import useSafeAreaInsets from '../Provider/hooks/useSafeAreaInsets';
 import { XStack, YStack } from '../Stack';
 import { Text } from '../Text';
 
-import type { SheetProps, SelectProps as TMSelectProps } from 'tamagui';
+import type {
+  ListItemProps,
+  SelectTriggerProps,
+  SheetProps,
+  SelectProps as TMSelectProps,
+} from 'tamagui';
+
+interface ISelectItem {
+  label: string;
+  value: string;
+  leading?: ListItemProps['icon']; //
+}
 
 interface SelectProps extends TMSelectProps {
-  data: Array<{ name: string | number }>;
+  data: ISelectItem[];
   snapPointsMode?: SheetProps['snapPointsMode'];
   title: string;
+  triggerProps?: SelectTriggerProps;
+  renderTrigger?: (item?: ISelectItem) => JSX.Element;
 }
 
 function Select({
   data,
   snapPointsMode,
   title = 'Title',
+  open,
+  defaultOpen,
+  onOpenChange,
+  triggerProps,
+  value,
+  defaultValue,
+  onValueChange,
+  renderTrigger,
   ...props
 }: SelectProps) {
   const { bottom } = useSafeAreaInsets();
   const media = useMedia();
 
+  const [isOpen, setOpen] = useControllableState({
+    prop: open,
+    defaultProp: !!defaultOpen,
+    onChange: onOpenChange,
+  });
+
+  const [innerValue, setInnerValue] = useControllableState({
+    prop: value,
+    defaultProp: defaultValue || '',
+    onChange: onValueChange,
+  });
+
+  const activeItem = useMemo(
+    () => data.find((item) => item.value === innerValue),
+    [data, innerValue],
+  );
+
   return (
-    <TMSelect {...props} disablePreventBodyScroll>
-      <TMSelect.Trigger
-        unstyled
-        borderRadius="$2"
-        borderColor="$borderStrong"
-        borderWidth="$px"
-        paddingLeft="$3"
-        paddingRight="$2"
-        paddingVertical="$1.5"
-        backgroundColor="$transparent"
-        width="$56"
-        minHeight="auto"
-      >
-        <TMSelect.Value
-          placeholder="Something"
+    <TMSelect
+      {...props}
+      disablePreventBodyScroll
+      open={isOpen}
+      onOpenChange={setOpen}
+      value={innerValue}
+      onValueChange={setInnerValue}
+    >
+      {renderTrigger ? (
+        <TMSelect.Trigger
           unstyled
-          fontSize="$bodyLg"
-          fontWeight="$bodyLg"
-        />
-        <XStack>
-          <Icon color="$iconSubdued" name="ChevronDownSmallOutline" size="$5" />
-        </XStack>
-      </TMSelect.Trigger>
+          backgroundColor="$transparent"
+          {...triggerProps}
+        >
+          {renderTrigger(activeItem)}
+        </TMSelect.Trigger>
+      ) : (
+        <TMSelect.Trigger
+          unstyled
+          borderRadius="$2"
+          borderColor="$borderStrong"
+          borderWidth="$px"
+          paddingLeft="$3"
+          paddingRight="$2"
+          paddingVertical="$1.5"
+          backgroundColor="$transparent"
+          width="$56"
+          minHeight="auto"
+          iconAfter={
+            <Icon
+              color="$iconSubdued"
+              name="ChevronDownSmallOutline"
+              size="$5"
+            />
+          }
+          {...triggerProps}
+        >
+          <TMSelect.Value
+            placeholder="Something"
+            unstyled
+            fontSize="$bodyLg"
+            fontWeight="$bodyLg"
+          />
+        </TMSelect.Trigger>
+      )}
+
       <Adapt when="md">
         <Sheet
           modal
@@ -76,10 +143,11 @@ function Select({
                   {title}
                 </Text>
                 <IconButton
-                  buttonVariant="secondary"
+                  buttonVariant="tertiary"
                   size="small"
                   hitSlop={8}
                   aria-label="Close"
+                  onPress={() => setOpen(false)}
                 >
                   <IconButton.Icon name="CrossedSmallOutline" />
                 </IconButton>
@@ -141,74 +209,55 @@ function Select({
           backgroundColor="$bg"
           padding="$1"
         >
-          <TMSelect.Group>
-            <TMSelect.Label asChild>
-              <Text
-                variant="$headingXs"
-                $md={{ variant: '$headingSm', paddingVertical: '$2.5' }}
-                paddingVertical="$1.5"
-                paddingHorizontal="$2"
-                color="$textSubdued"
-              >
-                Fruits
-              </Text>
-            </TMSelect.Label>
-
-            {/* for longer lists memoizing these is useful */}
-
-            {useMemo(
-              () =>
-                data.map((item, i) => (
-                  <TMSelect.Item
-                    index={i}
-                    key={item.name}
-                    value={
-                      typeof item.name === 'string'
-                        ? item.name.toLowerCase()
-                        : String(item.name)
-                    }
-                    minHeight="auto"
-                    backgroundColor="$transparent"
-                    borderRadius="$2"
-                    paddingVertical="$1.5"
-                    paddingHorizontal="$2"
+          {useMemo(
+            () =>
+              data.map((item, i) => (
+                <TMSelect.Item
+                  index={i}
+                  key={item.value}
+                  value={item.value}
+                  minHeight="auto"
+                  backgroundColor="$transparent"
+                  borderRadius="$2"
+                  paddingVertical="$1.5"
+                  paddingHorizontal="$2"
+                  $md={{
+                    paddingVertical: '$2.5',
+                    paddingRight: 11,
+                  }}
+                  icon={item.leading}
+                  justifyContent="flex-start"
+                >
+                  <TMSelect.ItemText
+                    flex={1}
                     $md={{
-                      paddingVertical: '$2.5',
-                      paddingRight: 11,
+                      fontSize: '$bodyLg',
+                      fontWeight: '$bodyLg',
+                      lineHeight: '$bodyLg',
                     }}
-                    justifyContent="flex-start"
+                    fontSize="$bodyMd"
+                    fontWeight="$bodyMd"
+                    lineHeight="$bodyMd"
                   >
-                    <TMSelect.ItemText
-                      flex={1}
-                      $md={{
-                        fontSize: '$bodyLg',
-                        fontWeight: '$bodyLg',
-                        lineHeight: '$bodyLg',
-                      }}
-                      fontSize="$bodyMd"
-                      fontWeight="$bodyMd"
-                      lineHeight="$bodyMd"
-                    >
-                      {item.name}
-                    </TMSelect.ItemText>
+                    {item.label}
+                  </TMSelect.ItemText>
 
-                    <TMSelect.ItemIndicator marginLeft="auto">
-                      <Icon
-                        name="CheckLargeOutline"
-                        size="$4"
-                        color="$iconActive"
-                        {...(media.md && {
-                          name: 'CheckRadioSolid',
-                          size: '$6',
-                        })}
-                      />
-                    </TMSelect.ItemIndicator>
-                  </TMSelect.Item>
-                )),
+                  <TMSelect.ItemIndicator marginLeft="auto">
+                    <Icon
+                      name="CheckLargeOutline"
+                      size="$4"
+                      color="$iconActive"
+                      {...(media.md && {
+                        name: 'CheckRadioSolid',
+                        size: '$6',
+                      })}
+                    />
+                  </TMSelect.ItemIndicator>
+                </TMSelect.Item>
+              )),
 
-              [data, media.md],
-            )}
-          </TMSelect.Group>
+            [data, media.md],
+          )}
         </TMSelect.Viewport>
         <TMSelect.ScrollDownButton
           alignItems="center"
@@ -238,4 +287,4 @@ function Select({
 
 Select.displayName = 'Select';
 export { Select };
-export type { SelectProps };
+export type { SelectProps, ISelectItem };

@@ -1,66 +1,88 @@
 import { useState } from 'react';
 
-import { Stack } from '@onekeyhq/components';
+import { XStack } from 'tamagui';
+
+import { Icon, Stack, Text } from '@onekeyhq/components';
+import type { ISelectItem } from '@onekeyhq/components/src/Select';
 import { Select } from '@onekeyhq/components/src/Select';
 
 import { Layout } from './utils/Layout';
 
-const items = [
-  { name: 'Apple' },
+const items: ISelectItem[] = [
+  {
+    label: 'Apple',
+    value: 'Apple',
+    leading: <Text variant="$bodyMdMedium">😀</Text>,
+  },
 
-  { name: 'Pear' },
+  {
+    label: 'Pear',
+    value: 'Pear',
+    leading: <Text variant="$bodyMdMedium">🚅</Text>,
+  },
 
-  { name: 'Blackberry' },
+  {
+    label: 'Blackberry',
+    value: 'Blackberry',
+    leading: <Text variant="$bodyMdMedium">🚆</Text>,
+  },
 
-  { name: 'Peach' },
+  {
+    label: 'Peach',
+    value: 'Peach',
+    leading: <Icon name="AcademicCapMini" size="$5" />,
+  },
 
-  { name: 'Apricot' },
+  { label: 'Apricot', value: 'Apricot' },
 
-  { name: 'Melon' },
+  { label: 'Melon', value: 'Melon' },
 
-  { name: 'Honeydew' },
+  { label: 'Honeydew', value: 'Honeydew' },
 
-  { name: 'Starfruit' },
+  { label: 'Starfruit', value: 'Starfruit' },
 
-  { name: 'Blueberry' },
-
-  { name: 'Raspberry' },
-
-  { name: 'Strawberry' },
-
-  { name: 'Mango' },
-
-  { name: 'Pineapple' },
-
-  { name: 'Lime' },
-
-  { name: 'Lemon' },
-
-  { name: 'Coconut' },
-
-  { name: 'Guava' },
-
-  { name: 'Papaya' },
-
-  { name: 'Orange' },
-
-  { name: 'Grape' },
-
-  { name: 'Jackfruit' },
-
-  { name: 'Durian' },
+  { label: 'Blueberry', value: 'Blueberry' },
 ];
 
-const SelectDemoItem = () => {
-  const [val, setVal] = useState('apple');
+const SelectDefaultItem = () => {
+  const [val, setVal] = useState('Apple');
 
   return (
     <Select
       data={items}
       value={val}
       onValueChange={setVal}
+      triggerProps={{ width: '100%' }}
       disablePreventBodyScroll
       title="Demo Title"
+    />
+  );
+};
+
+const SelectCustomTriggerItem = () => {
+  const [val, setVal] = useState('Apple');
+
+  return (
+    <Select
+      data={items}
+      value={val}
+      onValueChange={setVal}
+      triggerProps={{
+        width: '100%',
+        padded: false,
+        backgroundColor: '$bgActive',
+      }}
+      renderTrigger={(item) => (
+        <XStack w="100%" justifyContent="space-between">
+          <Text variant="$bodySm">Fruit</Text>
+          <XStack space>
+            {item?.leading}
+            <Text variant="$bodySm">{item?.label ?? 'Fruit'}</Text>
+          </XStack>
+        </XStack>
+      )}
+      disablePreventBodyScroll
+      title="Custom Trigger"
     />
   );
 };
@@ -84,7 +106,15 @@ const SelectGallery = () => (
         title: '默认状态',
         element: (
           <Stack space="$1">
-            <SelectDemoItem />
+            <SelectDefaultItem />
+          </Stack>
+        ),
+      },
+      {
+        title: '自定义renderTrigger',
+        element: (
+          <Stack space="$1">
+            <SelectCustomTriggerItem />
           </Stack>
         ),
       },
