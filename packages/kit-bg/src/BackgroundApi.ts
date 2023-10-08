@@ -1,5 +1,7 @@
 /* eslint-disable new-cap */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+
+// eslint-disable-next-line import/order
 import { Engine } from '@onekeyhq/engine';
 
 import BackgroundApiBase from './BackgroundApiBase';
