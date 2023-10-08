@@ -1,5 +1,11 @@
 import type { PropsWithChildren, ReactChildren, ReactElement } from 'react';
-import { Children, cloneElement, isValidElement, useState } from 'react';
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  useCallback,
+  useState,
+} from 'react';
 
 import { ErrorMessage } from '@hookform/error-message';
 import { useHeaderHeight as useHeaderHeightOG } from '@react-navigation/elements';
@@ -19,11 +25,7 @@ import {
 
 import { Text } from '../Text';
 
-import type {
-  Control,
-  ControllerRenderProps,
-  UseFormReturn,
-} from 'react-hook-form';
+import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';
 import type { GetProps } from 'tamagui';
 
 const useHeaderHeight = () => {
@@ -91,7 +93,16 @@ export function FormWrapper({
 const getChildProps = (
   child: ReactElement,
   field: ControllerRenderProps<any, string>,
+  validateField: () => void,
 ) => {
+  const { onBlur } = child.props as { onBlur?: () => void };
+  const handleBlur = () => {
+    if (onBlur) {
+      onBlur();
+    }
+    validateField();
+  };
+  field.onBlur = handleBlur;
   switch (child.type) {
     case Input:
       return {
@@ -111,9 +122,12 @@ type FieldProps = Omit<GetProps<typeof Controller>, 'render'> &
 function Field({ name, label, rules, children }: FieldProps) {
   const {
     control,
+    trigger,
     formState: { errors },
   } = useFormContext();
-  console.log(errors);
+  const validateField = useCallback(() => {
+    trigger(name);
+  }, [name, trigger]);
   return (
     <Controller
       name={name}
@@ -126,7 +140,7 @@ function Field({ name, label, rules, children }: FieldProps) {
           </Label>
           {Children.map(children as ReactChildren, (child) =>
             isValidElement(child)
-              ? cloneElement(child, getChildProps(child, field))
+              ? cloneElement(child, getChildProps(child, field, validateField))
               : child,
           )}
           <ErrorMessage
