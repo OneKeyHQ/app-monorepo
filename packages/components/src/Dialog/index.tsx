@@ -80,7 +80,7 @@ function DialogFrame({
   }, [onCancel, onClose]);
 
   return (
-    <TMDialog open={open}>
+    <TMDialog modal open={open}>
       <TMDialog.Trigger onPress={onOpen} asChild>
         {renderTrigger}
       </TMDialog.Trigger>
@@ -107,10 +107,28 @@ function DialogFrame({
       </Adapt>
       <TMDialog.Portal>
         <TMDialog.Overlay
+          key="overlay"
+          animation="quick"
+          opacity={0.5}
+          enterStyle={{ opacity: 0 }}
+          exitStyle={{ opacity: 0 }}
           backgroundColor="$bgBackdrop"
           onPress={backdropClose}
         />
         <TMDialog.Content
+          elevate
+          key="content"
+          animateOnly={['transform', 'opacity']}
+          animation={[
+            'quick',
+            {
+              opacity: {
+                overshootClamping: true,
+              },
+            },
+          ]}
+          enterStyle={{ x: 0, y: -20, opacity: 0, scale: 0.9 }}
+          exitStyle={{ x: 0, y: 10, opacity: 0, scale: 0.95 }}
           borderRadius="$4"
           borderColor="$borderSubdued"
           borderWidth="$px"
