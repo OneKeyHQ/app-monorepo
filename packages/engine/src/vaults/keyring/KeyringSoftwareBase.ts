@@ -217,13 +217,13 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         privateKeyRaw,
       });
 
-    if (!path || !xpub || !addresses) {
+    if (isNil(path) || isNil(xpub) || !addresses) {
       throw new Error('path or xpub or addresses is undefined');
     }
 
     return Promise.resolve([
       {
-        id: `imported--${coinType}--${xpub}`,
+        id: `imported--${coinType}--${xpub || address}`,
         name: name || '',
         type: accountType,
         path,

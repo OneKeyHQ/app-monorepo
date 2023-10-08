@@ -1,5 +1,15 @@
 import BigNumber from 'bignumber.js';
 
+import {
+  Nexa,
+  buildDecodeTxFromTx,
+  estimateFee,
+  estimateSize,
+  getNexaNetworkInfo,
+  publickeyToAddress,
+  verifyNexaAddress,
+  verifyNexaAddressPrefix,
+} from '@onekeyhq/core/src/chains/nexa/sdkNexa';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
@@ -34,17 +44,7 @@ import {
   KeyringImported,
   KeyringWatching,
 } from './keyring';
-import { Nexa } from './sdk';
 import settings from './settings';
-import {
-  buildDecodeTxFromTx,
-  estimateFee,
-  estimateSize,
-  getNexaNetworkInfo,
-  publickeyToAddress,
-  verifyNexaAddress,
-  verifyNexaAddressPrefix,
-} from './utils';
 
 import type { BaseClient } from '../../../client/BaseClient';
 import type { DBUTXOAccount } from '../../../types/account';

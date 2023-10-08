@@ -80,7 +80,7 @@ export type ICoreApiSignAccount = {
   pub?: string;
   pubKey?: string; // TODO rename to pub?
   template?: string;
-  relPaths?: string[]; // used for get privateKey of other address
+  relPaths?: string[]; // used for get privateKey of other utxo address
 };
 export type ICoreApiSignBasePayload = {
   networkInfo: ICoreApiNetworkInfo;

@@ -1,12 +1,12 @@
-import { sign, verify } from './sdk';
+import { sign, verify } from '@onekeyhq/core/src/chains/nexa/sdkNexa/sdk';
+import type { ChainSigner } from '@onekeyhq/engine/src/proxy';
+
 import {
   buildDecodeTxFromTx,
   decodeScriptBufferToNexaAddress,
   sha256sha256,
   signEncodedTx,
 } from './utils';
-
-import type { ChainSigner } from '../../../proxy';
 
 jest.setTimeout(3 * 60 * 1000);
 

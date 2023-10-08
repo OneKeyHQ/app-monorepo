@@ -2,18 +2,6 @@
 import BigNumber from 'bignumber.js';
 import BN from 'bn.js';
 
-import { InvalidAddress } from '@onekeyhq/shared/src/errors';
-
-import { hash160, sha256 } from '../../../secret/hash';
-import {
-  type IDecodedTx,
-  IDecodedTxActionType,
-  IDecodedTxDirection,
-  IDecodedTxStatus,
-  type ISignedTxPro,
-  type IUnsignedTxPro,
-} from '../../types';
-
 import {
   NexaAddressType,
   Opcode,
@@ -32,16 +20,28 @@ import {
   writeUInt32LE,
   writeUInt64LEBN,
   writeUInt8,
-} from './sdk';
-import { type IEncodedTxNexa, NexaSignature } from './types';
-
-import type { ChainSigner } from '../../../proxy';
-import type { Token } from '../../../types/token';
+} from '@onekeyhq/core/src/chains/nexa/sdkNexa/sdk';
+import type { ChainSigner } from '@onekeyhq/engine/src/proxy';
+import { hash160, sha256 } from '@onekeyhq/engine/src/secret/hash';
+import type { Token } from '@onekeyhq/engine/src/types/token';
+import {
+  type IEncodedTxNexa,
+  NexaSignature,
+} from '@onekeyhq/engine/src/vaults/impl/nexa/types';
 import type {
   INexaInputSignature,
   INexaOutputSignature,
   INexaTransaction,
-} from './types';
+} from '@onekeyhq/engine/src/vaults/impl/nexa/types';
+import {
+  type IDecodedTx,
+  IDecodedTxActionType,
+  IDecodedTxDirection,
+  IDecodedTxStatus,
+  type ISignedTxPro,
+  type IUnsignedTxPro,
+} from '@onekeyhq/engine/src/vaults/types';
+import { InvalidAddress } from '@onekeyhq/shared/src/errors';
 
 export function verifyNexaAddress(address: string) {
   try {

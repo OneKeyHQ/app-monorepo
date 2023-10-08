@@ -1,10 +1,12 @@
+import {
+  publickeyToAddress,
+  verify,
+} from '@onekeyhq/core/src/chains/nexa/sdkNexa';
 import { wait } from '@onekeyhq/kit/src/utils/helper';
 import { IMPL_NEXA, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { prepareMockVault } from '../../../../../@tests/prepareMockVault';
 import { getAccountNameInfoByImpl } from '../../../../managers/impl';
-import { verify } from '../sdk';
-import { publickeyToAddress } from '../utils';
 import Vault from '../Vault';
 import VaultHelper from '../VaultHelper';
 

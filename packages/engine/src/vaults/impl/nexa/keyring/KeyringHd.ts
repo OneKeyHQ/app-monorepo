@@ -1,3 +1,4 @@
+import { signEncodedTx } from '@onekeyhq/core/src/chains/nexa/sdkNexa';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import { COINTYPE_NEXA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
@@ -7,7 +8,6 @@ import { ChainSigner } from '../../../../proxy';
 import { batchGetPublicKeys } from '../../../../secret';
 import { AccountType } from '../../../../types/account';
 import { KeyringHdBase } from '../../../keyring/KeyringHdBase';
-import { signEncodedTx } from '../utils';
 
 import type { ExportedSeedCredential } from '../../../../dbs/base';
 import type { DBUTXOAccount } from '../../../../types/account';
@@ -90,9 +90,7 @@ export class KeyringHd extends KeyringHdBase {
     options: ISignCredentialOptions,
   ): Promise<ISignedTxPro> {
     const dbAccount = await this.getDbAccount();
-    const signer = await this.getSigner(options, {
-      address: dbAccount.address,
-    });
+    const signer = {} as ChainSigner;
     const result = await signEncodedTx(
       unsignedTx,
       signer,

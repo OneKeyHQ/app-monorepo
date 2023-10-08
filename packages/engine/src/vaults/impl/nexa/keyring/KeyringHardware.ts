@@ -1,7 +1,14 @@
+import {
+  buildInputScriptBuffer,
+  buildRawTx,
+  buildSignatureBuffer,
+  buildTxid,
+  getNexaPrefix,
+} from '@onekeyhq/core/src/chains/nexa/sdkNexa';
 import { slicePathTemplate } from '@onekeyhq/engine/src/managers/derivation';
 import { getAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
-import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { DBUTXOAccount } from '@onekeyhq/engine/src/types/account';
+import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { KeyringHardwareBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringHardwareBase';
 import type {
@@ -19,13 +26,6 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import { type IEncodedTxNexa } from '../types';
-import {
-  buildInputScriptBuffer,
-  buildRawTx,
-  buildSignatureBuffer,
-  buildTxid,
-  getNexaPrefix,
-} from '../utils';
 
 import type { INexaInputSignature } from '../types';
 import type { NexaAddress, Success, Unsuccessful } from '@onekeyfe/hd-core';

@@ -3,7 +3,6 @@
 import { getUtxoAccountPrefixPath } from '@onekeyhq/engine/src/managers/derivation';
 import type { ICurveName } from '@onekeyhq/engine/src/secret';
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
@@ -87,9 +86,11 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const { publicKey, networkInfo, publicKeyInfo } = query;
     const address = publicKey;
 
-    const path = getUtxoAccountPrefixPath({
-      fullPath: checkIsDefined(publicKeyInfo?.path || ''),
-    });
+    const path = publicKeyInfo?.path
+      ? getUtxoAccountPrefixPath({
+          fullPath: publicKeyInfo?.path,
+        })
+      : '';
 
     return Promise.resolve({
       address,

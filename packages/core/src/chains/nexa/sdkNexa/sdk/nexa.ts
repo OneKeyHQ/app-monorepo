@@ -1,16 +1,18 @@
 import BigNumber from 'bignumber.js';
 
-import { WebSocketRequest } from '@onekeyhq/shared/src/request/WebSocketRequest';
-
-import { SimpleClient } from '../../../../client/BaseClient';
-import { TransactionStatus } from '../../../../types/provider';
-
+import { SimpleClient } from '@onekeyhq/engine/src/client/BaseClient';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type {
   AddressInfo,
   ClientInfo,
   FeePricePerUnit,
-} from '../../../../types/provider';
-import type { IListUTXO, INexaHistoryItem, INexaTransaction } from '../types';
+} from '@onekeyhq/engine/src/types/provider';
+import type {
+  IListUTXO,
+  INexaHistoryItem,
+  INexaTransaction,
+} from '@onekeyhq/engine/src/vaults/impl/nexa/types';
+import { WebSocketRequest } from '@onekeyhq/shared/src/request/WebSocketRequest';
 
 export class Nexa extends SimpleClient {
   readonly rpc: WebSocketRequest;

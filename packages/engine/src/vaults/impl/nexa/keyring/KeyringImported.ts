@@ -1,14 +1,21 @@
+import { signEncodedTx } from '@onekeyhq/core/src/chains/nexa/sdkNexa';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
-import { COINTYPE_NEXA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  COINTYPE_NEXA,
+  COINTYPE_NEXA as COIN_TYPE,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
 import { ChainSigner } from '../../../../proxy';
 import { AccountType } from '../../../../types/account';
 import { KeyringImportedBase } from '../../../keyring/KeyringImportedBase';
-import { signEncodedTx } from '../utils';
 
 import type { DBUTXOAccount } from '../../../../types/account';
+import type { IUnsignedMessageCommon } from '../../../../types/message';
 import type {
+  IGetPrivateKeysParams,
+  IGetPrivateKeysResult,
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
   ISignedTxPro,
@@ -17,7 +24,43 @@ import type {
 
 const curve = 'secp256k1';
 export class KeyringImported extends KeyringImportedBase {
+  override coreApi = coreChainApi.nexa.imported;
+
+  override getSigners(): Promise<Record<string, ChainSigner>> {
+    throw new Error('getSigners moved to core.');
+  }
+
+  override async getPrivateKeys(
+    params: IGetPrivateKeysParams,
+  ): Promise<IGetPrivateKeysResult> {
+    return this.baseGetPrivateKeys(params);
+  }
+
   override async prepareAccounts(
+    params: IPrepareImportedAccountsParams,
+  ): Promise<DBUTXOAccount[]> {
+    return this.basePrepareAccountsImportedUtxo(params, {
+      coinType: COINTYPE_NEXA,
+      accountType: AccountType.UTXO,
+    });
+  }
+
+  override async signTransaction(
+    unsignedTx: IUnsignedTxPro,
+    options: ISignCredentialOptions,
+  ): Promise<ISignedTxPro> {
+    return this.baseSignTransaction(unsignedTx, options);
+  }
+
+  override async signMessage(
+    messages: IUnsignedMessageCommon[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]> {
+    // throw new Error('Method not implemented.');
+    return this.baseSignMessage(messages, options);
+  }
+
+  async prepareAccountsOld(
     params: IPrepareImportedAccountsParams,
   ): Promise<Array<DBUTXOAccount>> {
     const { name, privateKey } = params;
@@ -41,7 +84,7 @@ export class KeyringImported extends KeyringImportedBase {
     ]);
   }
 
-  override async getSigners(password: string, addresses: Array<string>) {
+  async getSignersOld(password: string, addresses: Array<string>) {
     const dbAccount = await this.getDbAccount();
 
     if (addresses.length !== 1) {
@@ -62,21 +105,21 @@ export class KeyringImported extends KeyringImportedBase {
     };
   }
 
-  async getSigner(
+  async getSignerOld(
     options: ISignCredentialOptions,
     { address }: { address: string },
   ) {
-    const signers = await this.getSigners(options.password || '', [address]);
+    const signers = await this.getSignersOld(options.password || '', [address]);
     const signer = signers[address];
     return signer;
   }
 
-  override async signTransaction(
+  async signTransactionOld(
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
   ): Promise<ISignedTxPro> {
     const dbAccount = await this.getDbAccount();
-    const signer = await this.getSigner(options, dbAccount);
+    const signer = await this.getSignerOld(options, dbAccount);
     const result = await signEncodedTx(
       unsignedTx,
       signer,
@@ -85,7 +128,7 @@ export class KeyringImported extends KeyringImportedBase {
     return result;
   }
 
-  override signMessage(messages: any[], options: ISignCredentialOptions): any {
+  signMessageOld(messages: any[], options: ISignCredentialOptions): any {
     console.log(messages, options);
   }
 }
