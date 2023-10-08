@@ -6,7 +6,7 @@ import { makeRootModalStackOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
 import { TransparentModalTheme } from './CommonConfig.ts';
-import { ModalFlowNavigator } from './ModalFlowNavigator';
+import ModalFlowNavigator from './ModalFlowNavigator';
 
 import type { ModalFlowNavigatorConfig } from './ModalFlowNavigator';
 

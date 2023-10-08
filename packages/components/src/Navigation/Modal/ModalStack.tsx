@@ -36,16 +36,17 @@ export default function ModalStack({ state, navigation, descriptors }: Props) {
   return (
     <NavigationHelpersContext.Provider value={navigation}>
       <View style={{ flex: 1 }}>
-        {/* Background Layer */}
-        <Stack flex={1} backgroundColor="$bgBackdrop" />
-        <CenteredModal visible={state.routes.length > 0} animationType="none" />
+        {/* Background Layer, Android blinks so you need a placeholder background */}
+        {/* <Stack flex={1} backgroundColor="$bgBackdrop" /> */}
+        {/* <CenteredModal visible={state.routes.length > 0} animationType="none" /> */}
 
         {/* Modal Layer */}
         {/* TODO: Do toggle animations can be used [previousRoute,currentRoute].filter */}
         {[currentRoute].filter(Boolean).map((route) => {
           const descriptor = descriptors[route.key];
           const focused = route.key === currentRoute.key;
-          const { animationType = 'fade', ...options } = descriptor.options;
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { animationType = 'none', ...options } = descriptor.options;
 
           const headerBack = previousDescriptor
             ? {
@@ -57,12 +58,7 @@ export default function ModalStack({ state, navigation, descriptors }: Props) {
             : parentHeaderBack;
 
           return (
-            <CenteredModal
-              key={route.key}
-              visible={focused}
-              // @ts-expect-error
-              animationType={animationType}
-            >
+            <CenteredModal key={route.key} visible={focused}>
               <HeaderView
                 back={headerBack}
                 options={options}
@@ -72,7 +68,7 @@ export default function ModalStack({ state, navigation, descriptors }: Props) {
                 isModelScreen
                 isFlowModelScreen
               />
-              <Stack flex={1} width="100%">
+              <Stack flex={1} width="100%" testID="APP-Modal-Screen-Content">
                 {descriptor.render()}
               </Stack>
             </CenteredModal>

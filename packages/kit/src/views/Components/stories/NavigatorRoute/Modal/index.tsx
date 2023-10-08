@@ -5,7 +5,7 @@ import { CreateModalStack } from './DemoCreateModal';
 import { DoneModalStack } from './DemoDoneModal';
 import { RootModalRoutes } from './Routes';
 
-const modalStackScreenList: ModalRootNavigatorConfig<RootModalRoutes> = [
+const modalStackScreenList: ModalRootNavigatorConfig<RootModalRoutes>[] = [
   {
     name: RootModalRoutes.DemoCreateModal,
     children: CreateModalStack,

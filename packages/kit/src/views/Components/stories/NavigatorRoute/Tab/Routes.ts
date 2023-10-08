@@ -1,14 +1,20 @@
 export enum DemoTabRoutes {
   Home = 'home',
+  Me = 'me',
   Developer = 'developer',
 }
 
 export enum DemoHomeTabRoutes {
+  DemoRootHome = 'DemoRootHome',
   DemoRootHomeSearch = 'DemoRootHomeSearch',
   DemoRootHomeOptions = 'DemoRootHomeOptions',
 }
 
 export enum DemoDeveloperTabRoutes {
-  DemoRootDeveloperSearch = 'DemoRootDeveloperSearch',
+  DemoRootDeveloper = 'DemoRootDeveloper',
   DemoRootDeveloperOptions = 'DemoRootDeveloperOptions',
+}
+
+export enum DemoMeTabRoutes {
+  DemoRootMe = 'DemoRootMe',
 }

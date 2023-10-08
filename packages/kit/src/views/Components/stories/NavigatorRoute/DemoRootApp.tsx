@@ -6,14 +6,14 @@ import KeyboardManager from 'react-native-keyboard-manager';
 import type { RootStackNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
 import { RootStackNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
 
-import DemoMain from './DemoMain';
 import DemoModalStackScreen from './Modal';
 import { DemoRootRoutes } from './Routes';
+import Tab from './Tab/DemoTabNavigator';
 
 const rootConfig: RootStackNavigatorConfig<DemoRootRoutes, any>[] = [
   {
     name: DemoRootRoutes.Main,
-    component: DemoMain,
+    component: Tab,
     initialRoute: true,
   },
   {

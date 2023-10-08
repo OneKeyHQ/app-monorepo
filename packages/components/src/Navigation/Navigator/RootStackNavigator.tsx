@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import useIsVerticalLayout from '../../Provider/hooks/useIsVerticalLayout';
 import { useThemeValue } from '../../Provider/hooks/useThemeValue';
@@ -36,8 +36,10 @@ export function RootStackNavigator<
   RouteName extends string,
   P extends ParamListBase,
 >({ config, screenOptions = {} }: RootStackNavigatorProps<RouteName, P>) {
-  const initialRouteName =
-    config.find((route) => route.initialRoute)?.name ?? config[0].name;
+  const initialRouteName = useMemo(
+    () => config.find((route) => route.initialRoute)?.name ?? config[0].name,
+    [config],
+  );
 
   const bgColor = useThemeValue('bg');
   const isVerticalLayout = useIsVerticalLayout();
@@ -59,6 +61,19 @@ export function RootStackNavigator<
     [isVerticalLayout],
   );
 
+  const renderedScreens = useMemo(
+    () =>
+      config.map(({ name, component, type, options }) => (
+        <RootStack.Screen
+          key={name}
+          name={name}
+          component={component}
+          options={{ ...options, ...getOptionsWithType(type) }}
+        />
+      )),
+    [config, getOptionsWithType],
+  );
+
   return (
     <RootStack.Navigator
       initialRouteName={initialRouteName}
@@ -67,14 +82,7 @@ export function RootStackNavigator<
         ...screenOptions,
       }}
     >
-      {config.map(({ name, component, type, options }) => (
-        <RootStack.Screen
-          key={name}
-          name={name}
-          component={component}
-          options={{ ...options, ...getOptionsWithType(type) }}
-        />
-      ))}
+      {renderedScreens}
     </RootStack.Navigator>
   );
 }

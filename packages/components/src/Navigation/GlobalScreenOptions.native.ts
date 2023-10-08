@@ -4,7 +4,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { makeHeaderScreenOptions } from './Header';
 
-import type { StackNavigationOptions } from './StackNavigator.native';
+import type { StackNavigationOptions } from './ScreenProps';
 import type { RouteProp } from '@react-navigation/native';
 
 export function clearStackNavigatorOptions(options?: {
@@ -63,18 +63,23 @@ export function makeModalStackNavigatorOptions({
       animation: 'none',
       presentation: 'modal',
       headerShadowVisible: false,
+      // Android Pad modal needs to be commented out
+      ...makeHeaderScreenOptions({
+        isModelScreen: true,
+        navigation: navInfo?.navigation,
+      }),
     };
   }
 
   // Android Pad
-  if (platformEnv.isNativeAndroid && !isVerticalLayout) {
-    options = {
-      headerShown: true,
-      animation: 'none',
-      presentation: 'transparentModal',
-      contentStyle: { backgroundColor: 'transparent' },
-    };
-  }
+  // if (platformEnv.isNativeAndroid && !isVerticalLayout) {
+  //   options = {
+  //     headerShown: true,
+  //     animation: 'none',
+  //     presentation: 'transparentModal',
+  //     contentStyle: { backgroundColor: 'transparent' },
+  //   };
+  // }
 
   if (platformEnv.isNativeIOS) {
     options = {
@@ -101,7 +106,8 @@ export function makeModalScreenOptions({
 }): StackNavigationOptions {
   return {
     headerShown: false,
-    presentation: platformEnv.isNativeIOS ? 'modal' : 'transparentModal',
+    // presentation: platformEnv.isNativeIOS ? 'modal' : 'transparentModal',
+    presentation: 'modal',
     ...makeModalOpenAnimationOptions({ isVerticalLayout }),
   };
 }

@@ -5,10 +5,7 @@ import { hasNativeModal } from '../Navigator/CommonConfig.ts';
 import HeaderButtonBack from './HeaderButtonBack';
 import HeaderView from './HeaderView';
 
-import type {
-  StackHeaderProps,
-  StackNavigationOptions,
-} from '../StackNavigator.native';
+import type { StackHeaderProps, StackNavigationOptions } from '../ScreenProps';
 import type { HeaderBackButtonProps } from '@react-navigation/elements';
 
 export type OneKeyStackHeaderProps = {
@@ -44,6 +41,7 @@ export function makeHeaderScreenOptions({
   return {
     headerTitleAlign: 'left',
     headerTransparent: false,
+    // @ts-expect-error
     header: ({
       back: headerBack,
       options,

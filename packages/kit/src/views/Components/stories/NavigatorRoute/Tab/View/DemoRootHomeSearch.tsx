@@ -1,25 +1,25 @@
 import { useLayoutEffect } from 'react';
 
-import { NavigationProp, useNavigation } from '@react-navigation/native';
-
 import { Button, Text } from '@onekeyhq/components';
+import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import { Layout } from '../../../utils/Layout';
+import useDemoAppNavigation from '../../useDemoAppNavigation';
+import { DemoHomeTabRoutes } from '../Routes';
 
+import type { DemoHomeTabParamList } from '../RouteParamTypes';
 import type {
   NativeSyntheticEvent,
   TextInputChangeEventData,
 } from 'react-native';
-import { DemoHomeTabRoutes } from '../Routes';
-import { GlobalRouteParams } from '../../RouteParamTypes';
-import { DemoRootRoutes } from '../../Routes';
 
 const DemoRootHomeSearch = () => {
-  const navigation = useNavigation<NavigationProp<GlobalRouteParams>>();
+  const navigation =
+    useDemoAppNavigation<PageNavigationProp<DemoHomeTabParamList>>();
+
   useLayoutEffect(() => {
     navigation.setOptions({
       headerSearchBarOptions: {
-        headerTransparent: false,
         placeholder: '搜索',
         inputType: 'text',
         onChangeText: (event: NativeSyntheticEvent<TextInputChangeEventData>) =>
@@ -57,9 +57,7 @@ const DemoRootHomeSearch = () => {
             <Button
               buttonVariant="primary"
               onPress={() => {
-                navigation.navigate(DemoRootRoutes.Main, {
-                  screen: DemoHomeTabRoutes.DemoRootHomeOptions,
-                });
+                navigation.push(DemoHomeTabRoutes.DemoRootHomeOptions);
               }}
             >
               <Button.Text>跳转自定义 headerRight Demo</Button.Text>

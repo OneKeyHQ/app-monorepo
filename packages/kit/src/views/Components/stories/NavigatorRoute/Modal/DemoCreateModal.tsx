@@ -1,26 +1,22 @@
 /* eslint-disable react/no-unstable-nested-components */
 import { useLayoutEffect } from 'react';
 
-import type { StackScreenProps } from '@onekeyhq/components';
 import { Button } from '@onekeyhq/components';
+import type { ModalScreenProps } from '@onekeyhq/components/src/Navigation';
 import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
 import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator/ModalFlowNavigator';
 
+import IconGallery from '../../Icon';
 import { Layout } from '../../utils/Layout';
 
 import { DemoCreateModalRoutes } from './Routes';
 
-export type DemoCreateModalParamList = {
-  [DemoCreateModalRoutes.DemoCreateModal]: undefined;
-  [DemoCreateModalRoutes.DemoCreateSearchModal]: undefined;
-  [DemoCreateModalRoutes.DemoCreateOptionsModal]: undefined;
-};
+import type { DemoCreateModalParamList } from './Routes';
 
 function DemoCreateViewModal({
   navigation,
-}: StackScreenProps<DemoCreateModalParamList>) {
-  console.log('DemoCreateViewModal');
+}: ModalScreenProps<DemoCreateModalParamList>) {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => <HeaderButtonIcon name="AnonymousHidden2Outline" />,
@@ -43,6 +39,9 @@ function DemoCreateViewModal({
               onPress={() => {
                 navigation.navigate(
                   DemoCreateModalRoutes.DemoCreateSearchModal,
+                  {
+                    question: '你好',
+                  },
                 );
               }}
             >
@@ -57,9 +56,7 @@ function DemoCreateViewModal({
 
 function DemoCreateSearchModal({
   navigation,
-}: StackScreenProps<DemoCreateModalParamList>) {
-  console.log('DemoCreateSearchModal');
-
+}: ModalScreenProps<DemoCreateModalParamList>) {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerSearchBarOptions: {
@@ -88,6 +85,9 @@ function DemoCreateSearchModal({
               onPress={() => {
                 navigation.navigate(
                   DemoCreateModalRoutes.DemoCreateOptionsModal,
+                  {
+                    question: '你好',
+                  },
                 );
               }}
             >
@@ -102,9 +102,7 @@ function DemoCreateSearchModal({
 
 function DemoCreateOptionsModal({
   navigation,
-}: StackScreenProps<DemoCreateModalParamList>) {
-  console.log('DemoCreateOptionsModal');
-
+}: ModalScreenProps<DemoCreateModalParamList>) {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerSearchBarOptions: {
@@ -168,5 +166,10 @@ export const CreateModalStack: ModalFlowNavigatorConfig<
     name: DemoCreateModalRoutes.DemoCreateOptionsModal,
     component: DemoCreateOptionsModal,
     translationId: 'Options Demo Modal',
+  },
+  {
+    name: DemoCreateModalRoutes.DemoBigListModal,
+    component: IconGallery,
+    translationId: 'Big List Demo Modal',
   },
 ];

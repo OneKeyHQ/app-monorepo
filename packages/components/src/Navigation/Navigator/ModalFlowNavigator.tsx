@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { memo, useCallback } from 'react';
 
 import { Platform } from 'react-native';
 
@@ -27,12 +27,13 @@ interface ModalFlowNavigatorProps<
 }
 
 const ModalStack =
-  Platform.OS === 'ios' ? createStackNavigator() : createModalNavigator();
+  Platform.OS === 'ios' || Platform.OS === 'android'
+    ? createStackNavigator()
+    : createModalNavigator();
 
-export function ModalFlowNavigator<
-  RouteName extends string,
-  P extends ParamListBase,
->({ config }: ModalFlowNavigatorProps<RouteName, P>) {
+function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
+  config,
+}: ModalFlowNavigatorProps<RouteName, P>) {
   const isVerticalLayout = useIsVerticalLayout();
 
   const makeScreenOptions = useCallback(
@@ -67,3 +68,5 @@ export function ModalFlowNavigator<
     </ModalStack.Navigator>
   );
 }
+
+export default memo(ModalFlowNavigator);

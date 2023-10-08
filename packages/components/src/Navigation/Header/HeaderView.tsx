@@ -9,7 +9,7 @@ import { Stack, useThemeValue } from '../../index';
 
 import HeaderButtonBack from './HeaderButtonBack';
 
-import type { StackHeaderProps } from '../StackNavigator.native';
+import type { StackHeaderProps } from '../ScreenProps';
 import type { OneKeyStackHeaderProps } from './HeaderScreenOptions';
 import type {
   HeaderBackButtonProps,

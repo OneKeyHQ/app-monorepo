@@ -7,8 +7,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { extAnimConfig } from './ExtAnimConfig';
 import { makeHeaderScreenOptions } from './Header';
 
-import type { StackNavigationOptions } from './StackNavigator';
 import type { RouteProp } from '@react-navigation/native';
+import type { StackNavigationOptions } from '@react-navigation/stack';
 
 export function clearStackNavigatorOptions(options?: {
   bgColor?: string;

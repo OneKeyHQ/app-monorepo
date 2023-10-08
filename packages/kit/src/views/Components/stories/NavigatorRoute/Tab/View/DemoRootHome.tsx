@@ -1,16 +1,16 @@
-import { NavigationProp, useNavigation } from '@react-navigation/native';
-
 import { Button, YStack } from '@onekeyhq/components';
+import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
 
 import { Layout } from '../../../utils/Layout';
-import { DemoMainRoutes, DemoRootRoutes } from '../../Routes';
-import { GlobalRouteParams } from '../../RouteParamTypes';
-import { DemoHomeTabRoutes, DemoTabRoutes } from '../Routes';
-import { TabStackNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
+import useDemoAppNavigation from '../../useDemoAppNavigation';
+import { DemoHomeTabRoutes } from '../Routes';
+
+import type { DemoHomeTabParamList } from '../RouteParamTypes';
 
 const DemoRootHome = () => {
-  const navigation = useNavigation<NavigationProp<GlobalRouteParams>>();
+  const navigation =
+    useDemoAppNavigation<PageNavigationProp<DemoHomeTabParamList>>();
   return (
     <Layout
       description="这是一个路由 Header"
@@ -47,19 +47,7 @@ const DemoRootHome = () => {
             <Button
               buttonVariant="primary"
               onPress={() => {
-                navigation.navigate(DemoHomeTabRoutes.DemoRootHomeSearch);
-                // navigation.navigate(DemoRootRoutes.Main, {
-                //   screen: DemoMainRoutes.Tab,
-                //   params: {
-                //     screen: DemoTabRoutes.Home,
-                //     params: {
-                //       screen: DemoHomeTabRoutes.DemoRootHomeSearch,
-                //       // params: {
-                //       //   screen: ,
-                //       // },
-                //     },
-                //   },
-                // });
+                navigation.push(DemoHomeTabRoutes.DemoRootHomeSearch);
               }}
             >
               <Button.Text>跳转搜索 Demo</Button.Text>
