@@ -11,6 +11,8 @@ export { Divider } from './Divider';
 export { Spinner } from './Spinner';
 export { Dialog } from './Dialog';
 export { ActionList } from './ActionList';
+export { Slider } from './Slider';
+export { Progress } from './Progress';
 export * from './Form';
 export * from './Portal';
 

@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 
-import { StyleSheet } from 'react-native';
 import {
   Adapt,
   Sheet,
@@ -10,6 +9,7 @@ import {
 } from 'tamagui';
 import { LinearGradient } from 'tamagui/linear-gradient';
 
+import { Divider } from '../Divider';
 import { Icon } from '../Icon';
 import { IconButton } from '../IconButton';
 import useSafeAreaInsets from '../Provider/hooks/useSafeAreaInsets';
@@ -83,7 +83,7 @@ function Select({
       {renderTrigger ? (
         <TMSelect.Trigger
           unstyled
-          backgroundColor="$transparent"
+          // backgroundColor="$transparent"
           {...triggerProps}
         >
           {renderTrigger(activeItem)}
@@ -127,6 +127,7 @@ function Select({
         >
           <Sheet.Frame unstyled>
             <>
+              {/* header */}
               <XStack
                 borderTopLeftRadius="$6"
                 borderTopRightRadius="$6"
@@ -135,15 +136,13 @@ function Select({
                 paddingHorizontal="$5"
                 paddingVertical="$4"
                 justifyContent="space-between"
-                borderBottomWidth={StyleSheet.hairlineWidth}
-                borderBottomColor="$borderSubdued"
                 alignItems="center"
               >
                 <Text variant="$headingLg" color="$text">
                   {title}
                 </Text>
                 <IconButton
-                  buttonVariant="tertiary"
+                  buttonVariant="secondary"
                   size="small"
                   hitSlop={8}
                   aria-label="Close"
@@ -152,6 +151,15 @@ function Select({
                   <IconButton.Icon name="CrossedSmallOutline" />
                 </IconButton>
               </XStack>
+              {/* divider */}
+              <YStack
+                backgroundColor="$bg"
+                marginHorizontal="$5"
+                paddingHorizontal="$5"
+              >
+                <Divider />
+              </YStack>
+              {/* content */}
               <Sheet.ScrollView
                 borderBottomLeftRadius="$6"
                 borderBottomRightRadius="$6"
@@ -201,7 +209,7 @@ function Select({
           unstyled
           minWidth="$48"
           outlineWidth="$px"
-          outlineColor="$neutral2"
+          outlineColor="$neutral3"
           outlineStyle="solid"
           borderRadius="$3"
           overflow="hidden"

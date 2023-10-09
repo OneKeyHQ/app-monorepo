@@ -11,7 +11,7 @@ const ControlledDialogByText = () => {
       backdrop
       open={isOpen}
       title="Lorem ipsum"
-      description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec. Eu quam nulla lectus faucibus senectus interdum iaculis egestas."
+      description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec."
       onOpen={() => {
         changeIsOpen(true);
       }}
@@ -34,7 +34,7 @@ const ControlledDialogByButton = () => {
       <Dialog
         backdrop
         title="Lorem ipsum"
-        description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec. Eu quam nulla lectus faucibus senectus interdum iaculis egestas."
+        description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec."
         open={isOpen}
         onClose={() => {
           changeIsOpen(false);
@@ -71,7 +71,7 @@ const DialogGallery = () => (
                 Dialog.confirm({
                   title: 'Lorem ipsum',
                   description:
-                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec. Eu quam nulla lectus faucibus senectus interdum iaculis egestas.',
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
                   onConfirm() {
                     alert('confirmed');
                   },
@@ -92,7 +92,7 @@ const DialogGallery = () => (
                 Dialog.confirm({
                   title: 'Lorem ipsum',
                   description:
-                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec. Eu quam nulla lectus faucibus senectus interdum iaculis egestas.',
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
                   onConfirm() {
                     return new Promise((resolve) => {
                       setTimeout(() => {
@@ -112,7 +112,7 @@ const DialogGallery = () => (
                 Dialog.confirm({
                   title: 'Lorem ipsum',
                   description:
-                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec. Eu quam nulla lectus faucibus senectus interdum iaculis egestas.',
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
                   onConfirm() {
                     return new Promise((resolve) => {
                       setTimeout(() => {
