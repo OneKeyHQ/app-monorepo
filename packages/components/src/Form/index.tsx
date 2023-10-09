@@ -1,9 +1,16 @@
-import type { PropsWithChildren, ReactElement } from 'react';
-import { Children, cloneElement, isValidElement, useState } from 'react';
+import type { PropsWithChildren, ReactChildren, ReactElement } from 'react';
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  useCallback,
+  useState,
+} from 'react';
 
+import { ErrorMessage } from '@hookform/error-message';
 import { useHeaderHeight as useHeaderHeightOG } from '@react-navigation/elements';
 import { noop } from 'lodash';
-import { Controller, FormProvider } from 'react-hook-form';
+import { Controller, FormProvider, useFormContext } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform } from 'react-native';
 import {
   Fieldset,
@@ -16,11 +23,10 @@ import {
   withStaticProperties,
 } from 'tamagui';
 
-import type {
-  Control,
-  ControllerRenderProps,
-  UseFormReturn,
-} from 'react-hook-form';
+import { Text } from '../Text';
+
+import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';
+import type { GetProps } from 'tamagui';
 
 const useHeaderHeight = () => {
   try {
@@ -87,7 +93,16 @@ export function FormWrapper({
 const getChildProps = (
   child: ReactElement,
   field: ControllerRenderProps<any, string>,
+  validateField: () => void,
 ) => {
+  const { onBlur } = child.props as { onBlur?: () => void };
+  const handleBlur = () => {
+    if (onBlur) {
+      onBlur();
+    }
+    validateField();
+  };
+  field.onBlur = handleBlur;
   switch (child.type) {
     case Input:
       return {
@@ -99,26 +114,40 @@ const getChildProps = (
   }
 };
 
-function Field({
-  name,
-  label,
-  control,
-  children,
-}: PropsWithChildren<{ name: string; label: string; control: Control<any> }>) {
+type FieldProps = Omit<GetProps<typeof Controller>, 'render'> &
+  PropsWithChildren<{
+    label: string;
+  }>;
+
+function Field({ name, label, rules, children }: FieldProps) {
+  const {
+    control,
+    trigger,
+    formState: { errors },
+  } = useFormContext();
+  const validateField = useCallback(() => {
+    trigger(name);
+  }, [name, trigger]);
   return (
     <Controller
       name={name}
       control={control}
+      rules={rules}
       render={({ field }) => (
         <Fieldset>
           <Label width={90} htmlFor={name}>
             {label}
           </Label>
-          {Children.map(children, (child) =>
+          {Children.map(children as ReactChildren, (child) =>
             isValidElement(child)
-              ? cloneElement(child, getChildProps(child, field))
+              ? cloneElement(child, getChildProps(child, field, validateField))
               : child,
           )}
+          <ErrorMessage
+            errors={errors}
+            name={name}
+            render={({ message }) => <Text>{message}</Text>}
+          />
         </Fieldset>
       )}
     />
