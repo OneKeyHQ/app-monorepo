@@ -7,7 +7,6 @@ import {
   useState,
 } from 'react';
 
-import { ErrorMessage } from '@hookform/error-message';
 import { useHeaderHeight as useHeaderHeightOG } from '@react-navigation/elements';
 import { noop } from 'lodash';
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
@@ -18,16 +17,18 @@ import {
   Label,
   ScrollView,
   Form as TMForm,
-  XStack,
   YStack,
   useWindowDimensions,
   withStaticProperties,
 } from 'tamagui';
 
-import { Icon } from '../Icon';
 import { Text } from '../Text';
 
-import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';
+import type {
+  ControllerRenderProps,
+  FieldErrors,
+  UseFormReturn,
+} from 'react-hook-form';
 import type { GetProps } from 'tamagui';
 
 const useHeaderHeight = () => {
@@ -96,6 +97,7 @@ const getChildProps = (
   child: ReactElement,
   field: ControllerRenderProps<any, string>,
   validateField: () => void,
+  error: Error,
 ) => {
   const { onBlur } = child.props as { onBlur?: () => void };
   const handleBlur = () => {
@@ -109,6 +111,7 @@ const getChildProps = (
     case Input:
       return {
         ...field,
+        borderColor: error ? '$textCritical' : undefined,
         onChangeText: field.onChange,
       };
     default:
@@ -130,6 +133,7 @@ function Field({ name, label, rules, children }: FieldProps) {
   const validateField = useCallback(() => {
     trigger(name);
   }, [name, trigger]);
+  const error = errors[name] as Error;
   return (
     <Controller
       name={name}
@@ -140,21 +144,17 @@ function Field({ name, label, rules, children }: FieldProps) {
           <Label htmlFor={name}>{label}</Label>
           {Children.map(children as ReactChildren, (child) =>
             isValidElement(child)
-              ? cloneElement(child, getChildProps(child, field, validateField))
+              ? cloneElement(
+                  child,
+                  getChildProps(child, field, validateField, error),
+                )
               : child,
           )}
-          <ErrorMessage
-            errors={errors}
-            name={name}
-            render={({ message }) => (
-              <XStack mt="$2">
-                <Icon name="ErrorOutline" color="$textCritical" />
-                <Text ml="$2" color="$textCritical" fontSize="$bodyMd">
-                  {message}
-                </Text>
-              </XStack>
-            )}
-          />
+          {error && error.message ? (
+            <Text ml="$2" color="$textCritical" fontSize="$bodyMd">
+              {error.message}
+            </Text>
+          ) : null}
         </Fieldset>
       )}
     />
