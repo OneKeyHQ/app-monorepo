@@ -7,7 +7,6 @@ import {
   useState,
 } from 'react';
 
-import { ErrorMessage } from '@hookform/error-message';
 import { useHeaderHeight as useHeaderHeightOG } from '@react-navigation/elements';
 import { noop } from 'lodash';
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
@@ -25,11 +24,7 @@ import {
 
 import { Text } from '../Text';
 
-import type {
-  ControllerRenderProps,
-  FieldErrors,
-  UseFormReturn,
-} from 'react-hook-form';
+import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';
 import type { GetProps } from 'tamagui';
 
 const useHeaderHeight = () => {

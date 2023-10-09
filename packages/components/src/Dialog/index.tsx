@@ -262,15 +262,6 @@ function DialogContainer({
     }),
     [context],
   );
-  useEffect(
-    () => () => {
-      // Remove the React node after the animation has finished.
-      setTimeout(() => {
-        removePortalComponent(name);
-      }, 300);
-    },
-    [name],
-  );
   const handleOpen = useCallback(() => {
     changeIsOpen(true);
     onOpen?.();
@@ -279,7 +270,8 @@ function DialogContainer({
   const handleClose = useCallback(() => {
     changeIsOpen(false);
     onClose?.();
-  }, [onClose]);
+    removePortalComponent(name);
+  }, [name, onClose]);
 
   const handleConfirm = useCallback(
     () => onConfirm?.(context),
