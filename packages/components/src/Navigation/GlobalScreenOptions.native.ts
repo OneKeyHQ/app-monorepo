@@ -108,6 +108,7 @@ export function makeModalScreenOptions({
     headerShown: false,
     // presentation: platformEnv.isNativeIOS ? 'modal' : 'transparentModal',
     presentation: 'modal',
+    // gestureEnabled: false,
     ...makeModalOpenAnimationOptions({ isVerticalLayout }),
   };
 }

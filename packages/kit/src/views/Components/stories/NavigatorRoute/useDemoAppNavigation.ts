@@ -1,6 +1,7 @@
 import { useNavigation } from '@react-navigation/core';
 
 import type {
+  ModalNavigationProp,
   PageNavigationProp,
   StackNavigationOptions,
 } from '@onekeyhq/components/src/Navigation';
@@ -12,7 +13,9 @@ import type { TabStackParamList } from './Tab/RouteParamTypes';
 import type { DemoTabRoutes } from './Tab/Routes';
 
 function useDemoAppNavigation<
-  P extends PageNavigationProp<any> = PageNavigationProp<any>,
+  P extends
+    | PageNavigationProp<any>
+    | ModalNavigationProp<any> = PageNavigationProp<any>,
 >() {
   const navigation = useNavigation<P>();
 

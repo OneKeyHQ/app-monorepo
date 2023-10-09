@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { hasNativeModal } from '../Navigator/CommonConfig.ts';
+import { hasNativeHeaderView } from '../Navigator/CommonConfig.ts';
 
 import HeaderButtonBack from './HeaderButtonBack';
 import HeaderView from './HeaderView';
@@ -13,6 +13,7 @@ export type OneKeyStackHeaderProps = {
   isModelScreen?: boolean;
   isRootScreen?: boolean;
   isFlowModelScreen?: boolean;
+  disableClose?: boolean;
 };
 
 export function makeHeaderScreenOptions({
@@ -20,7 +21,7 @@ export function makeHeaderScreenOptions({
   isModelScreen = false,
   isRootScreen = false,
 }: OneKeyStackHeaderProps): StackNavigationOptions {
-  if (hasNativeModal) {
+  if (hasNativeHeaderView) {
     const state = currentNavigation?.getState();
     const isCanGoBack = (state?.index ?? 0) > 0;
 

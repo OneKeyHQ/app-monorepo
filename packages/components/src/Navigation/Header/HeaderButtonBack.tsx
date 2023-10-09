@@ -13,6 +13,7 @@ function HeaderButtonBack({
   isModelScreen,
   isRootScreen,
   canGoBack,
+  disableClose,
   ...props
 }: OneKeyStackHeaderProps & HeaderBackButtonProps) {
   const isVerticalLayout = useIsVerticalLayout();
@@ -49,7 +50,7 @@ function HeaderButtonBack({
   return (
     <HeaderButtonGroup>
       {slideButtonMemo}
-      {backButtonMemo}
+      {!disableClose && backButtonMemo}
     </HeaderButtonGroup>
   );
 }

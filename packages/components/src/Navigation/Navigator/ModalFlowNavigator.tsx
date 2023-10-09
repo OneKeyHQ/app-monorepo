@@ -1,13 +1,13 @@
 import { memo, useCallback } from 'react';
 
-import { Platform } from 'react-native';
-
 import useIsVerticalLayout from '../../Provider/hooks/useIsVerticalLayout';
 import { makeModalStackNavigatorOptions } from '../GlobalScreenOptions';
 import createModalNavigator from '../Modal/createModalNavigator';
 import { createStackNavigator } from '../StackNavigator';
 
-import type { StackNavigationOptions } from '../StackNavigator';
+import { hasStackNavigatorModal } from './CommonConfig.ts';
+
+import type { ModalNavigationOptions } from '../ScreenProps';
 import type { CommonNavigatorConfig } from './types';
 import type { ParamListBase } from '@react-navigation/routers';
 
@@ -26,10 +26,9 @@ interface ModalFlowNavigatorProps<
   config: ModalFlowNavigatorConfig<RouteName, P>[];
 }
 
-const ModalStack =
-  Platform.OS === 'ios' || Platform.OS === 'android'
-    ? createStackNavigator()
-    : createModalNavigator();
+const ModalStack = hasStackNavigatorModal
+  ? createStackNavigator()
+  : createModalNavigator();
 
 function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   config,
@@ -48,9 +47,9 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
     <ModalStack.Navigator screenOptions={makeScreenOptions}>
       {config.map(
         ({ name, component, options, translationId, disableClose }) => {
-          const customOptions: StackNavigationOptions = {
+          const customOptions: ModalNavigationOptions = {
             ...options,
-            gestureEnabled: disableClose,
+            disableClose,
             title: translationId,
           };
 

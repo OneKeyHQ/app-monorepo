@@ -1,11 +1,11 @@
 export enum RootModalRoutes {
   DemoCreateModal = 'DemoCreateModalStack',
-  DemoDoneModal = 'DemoDoneModalStack',
+  DemoLockedModal = 'DemoLockedModalStack',
 }
 
 export type DemoRootModalParamList = {
   [RootModalRoutes.DemoCreateModal]: DemoCreateModalParamList;
-  [RootModalRoutes.DemoDoneModal]: DemoDoneModalParamList;
+  [RootModalRoutes.DemoLockedModal]: DemoLockedModalParamList;
 };
 
 export enum DemoCreateModalRoutes {
@@ -22,12 +22,14 @@ export type DemoCreateModalParamList = {
   [DemoCreateModalRoutes.DemoBigListModal]: undefined;
 };
 
-export enum DemoDoneModalRoutes {
-  DemoDoneModal = 'DemoDoneModal',
-  DemoDone1Modal = 'DemoDone1Modal',
+export enum DemoLockedModalRoutes {
+  DemoLockedModal = 'DemoLockedModal',
+  DemoConfigLockedModal = 'DemoConfigLockedModal',
+  DemoManualLockedViewModal = 'DemoManualLockedViewModal',
 }
 
-export type DemoDoneModalParamList = {
-  [DemoDoneModalRoutes.DemoDoneModal]: undefined;
-  [DemoDoneModalRoutes.DemoDone1Modal]: undefined;
+export type DemoLockedModalParamList = {
+  [DemoLockedModalRoutes.DemoLockedModal]: undefined;
+  [DemoLockedModalRoutes.DemoConfigLockedModal]: undefined;
+  [DemoLockedModalRoutes.DemoManualLockedViewModal]: undefined;
 };

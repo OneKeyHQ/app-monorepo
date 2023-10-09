@@ -1,16 +1,14 @@
-import type { ComponentProps } from 'react';
-
+import type {
+  PageNavigationProp,
+  StackNavigationOptions,
+} from '../ScreenProps';
 import type {
   Descriptor,
   NavigationHelpers,
-  NavigationProp,
   ParamListBase,
   Route,
   RouteProp,
-  StackActionHelpers,
-  StackNavigationState,
 } from '@react-navigation/native';
-import type { Modal } from 'react-native';
 
 export type Scene = {
   route: Route<string>;
@@ -20,13 +18,8 @@ export type Scene = {
 
 export type ModalNavigationConfig = NonNullable<unknown>;
 
-export type ModalNavigationOptions = Omit<
-  ComponentProps<typeof Modal>,
-  'visible' | 'onDismiss' | 'onOrientationChange' | 'onRequestClose' | 'onShow'
-> & {
-  key: string;
-  name: string;
-  path?: string;
+export type ModalNavigationOptions = StackNavigationOptions & {
+  disableClose?: boolean;
 };
 
 export type ModalNavigationEventMap = {
@@ -52,15 +45,12 @@ export type ModalNavigationProp<
   ParamList extends ParamListBase,
   RouteName extends keyof ParamList = string,
   NavigatorID extends string | undefined = undefined,
-> = NavigationProp<
+> = PageNavigationProp<
   ParamList,
   RouteName,
   NavigatorID,
-  StackNavigationState<ParamList>,
-  ModalNavigationOptions,
-  ModalNavigationEventMap
-> &
-  StackActionHelpers<ParamList>;
+  ModalNavigationOptions
+>;
 
 export type ModalScreenProps<
   ParamList extends ParamListBase,
@@ -74,7 +64,7 @@ export type ModalScreenProps<
 export type ModalDescriptor = Descriptor<
   ParamListBase,
   ModalNavigationProp<ParamListBase>,
-  ModalNavigationOptions
+  RouteProp<ParamListBase>
 >;
 
 export type ModalDescriptorMap = {

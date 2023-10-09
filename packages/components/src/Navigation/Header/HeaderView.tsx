@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { memo, useCallback } from 'react';
 
 import { Header } from '@react-navigation/elements';
+import { get } from 'lodash';
 import { StyleSheet } from 'react-native';
 import { Input } from 'tamagui';
 
@@ -51,6 +52,7 @@ function HeaderView({
   const state = navigation?.getState();
   const canGoBack = headerBack !== undefined;
   const topStack = (state?.index ?? 0) === 0;
+  const disableClose = get(options, 'disableClose', false);
 
   const onBackCallback = useCallback(() => {
     if (canGoBack) {
@@ -61,16 +63,20 @@ function HeaderView({
   }, [canGoBack, navigation]);
 
   const headerLeftView = useCallback(
-    (props: HeaderBackButtonProps): ReactNode => (
-      <HeaderButtonBack
-        {...props}
-        canGoBack={!topStack}
-        onPress={onBackCallback}
-        isRootScreen={isRootScreen}
-        isModelScreen={isModelScreen}
-      />
-    ),
-    [isModelScreen, isRootScreen, onBackCallback, topStack],
+    (props: HeaderBackButtonProps): ReactNode => {
+      if (disableClose) return null;
+
+      return (
+        <HeaderButtonBack
+          {...props}
+          canGoBack={!topStack}
+          onPress={onBackCallback}
+          isRootScreen={isRootScreen}
+          isModelScreen={isModelScreen}
+        />
+      );
+    },
+    [disableClose, isModelScreen, isRootScreen, onBackCallback, topStack],
   );
 
   return (

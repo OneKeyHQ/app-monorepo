@@ -2,7 +2,7 @@ import type { ModalRootNavigatorConfig } from '@onekeyhq/components/src/Navigati
 import { RootModalNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
 
 import { CreateModalStack } from './DemoCreateModal';
-import { DoneModalStack } from './DemoDoneModal';
+import { LockedModalStack } from './DemoLockedModal';
 import { RootModalRoutes } from './Routes';
 
 const modalStackScreenList: ModalRootNavigatorConfig<RootModalRoutes>[] = [
@@ -11,8 +11,8 @@ const modalStackScreenList: ModalRootNavigatorConfig<RootModalRoutes>[] = [
     children: CreateModalStack,
   },
   {
-    name: RootModalRoutes.DemoDoneModal,
-    children: DoneModalStack,
+    name: RootModalRoutes.DemoLockedModal,
+    children: LockedModalStack,
   },
 ];
 

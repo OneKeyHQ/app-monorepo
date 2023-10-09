@@ -26,9 +26,14 @@ function DemoCreateViewModal({
   return (
     <Layout
       description="这是一个路由 Header"
-      suggestions={['使用方式与 @react-navigation/native-stack 相同']}
+      suggestions={[
+        'Modal 可以通过点击空白处关闭或返回上一级',
+        'Modal 可以通过按 ESC 键关闭或返回上一级',
+        'Android 平台 Modal 可以通过点击返回键关闭或返回上一级',
+        'iOS 平台 Modal 可以通过向下滑动直接关闭整个 Modal Stack',
+      ]}
       boundaryConditions={[
-        'BackButton 已经处理好了相关内容，所以不支持自定义 headerLeft 组件',
+        '打开 Modal 推荐使用 useDemoAppNavigation() hook 的 pushModal 方法',
       ]}
       elements={[
         {

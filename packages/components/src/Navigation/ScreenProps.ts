@@ -19,6 +19,12 @@ import type {
   TextInputFocusEventData,
 } from 'react-native';
 
+export type {
+  ModalScreenProps,
+  ModalNavigationProp,
+  ModalNavigationOptions,
+} from './Modal/types';
+
 export interface SearchBarProps {
   /**
    * The auto-capitalization behavior
@@ -114,29 +120,13 @@ export type PageNavigationProp<
   ParamList extends ParamListBase,
   RouteName extends keyof ParamList = string,
   NavigatorID extends string | undefined = undefined,
+  Options extends StackNavigationOptions = StackNavigationOptions,
 > = NavigationProp<
   ParamList,
   RouteName,
   NavigatorID,
   StackNavigationState<ParamList>,
-  StackNavigationOptions,
+  Options,
   StackNavigationEventMap
 > &
   StackActionHelpers<ParamList>;
-
-export type ModalScreenProps<
-  ParamList extends ParamListBase,
-  RouteName extends keyof ParamList = keyof ParamList,
-  NavigatorID extends string | undefined = undefined,
-> = {
-  navigation: ModalNavigationProp<ParamList, RouteName, NavigatorID>;
-  route: RouteProp<ParamList, RouteName>;
-};
-
-export type ModalNavigationProp<
-  ParamList extends ParamListBase,
-  RouteName extends keyof ParamList = string,
-  NavigatorID extends string | undefined = undefined,
-> = PageNavigationProp<ParamList, RouteName, NavigatorID> & {
-  close: boolean;
-};

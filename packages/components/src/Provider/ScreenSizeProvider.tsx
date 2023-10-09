@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 
-import { useWindowDimensions } from 'tamagui';
+import { useWindowDimensions } from 'react-native';
 
 import { getScreenSize } from './device';
 import { ContextDeviceScreenSize } from './hooks/useProviderDeviceScreenSize';

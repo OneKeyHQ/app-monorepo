@@ -1,4 +1,4 @@
-import { useContext } from 'react';
+import { useCallback, useContext } from 'react';
 
 import { NavigationHelpersContext } from '@react-navigation/core';
 import { HeaderBackContext, getHeaderTitle } from '@react-navigation/elements';
@@ -33,6 +33,10 @@ export default function ModalStack({ state, navigation, descriptors }: Props) {
   const previousKey = previousRoute?.key;
   const previousDescriptor = previousKey ? descriptors[previousKey] : undefined;
 
+  const goBackCall = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
+
   return (
     <NavigationHelpersContext.Provider value={navigation}>
       <View style={{ flex: 1 }}>
@@ -45,8 +49,17 @@ export default function ModalStack({ state, navigation, descriptors }: Props) {
         {[currentRoute].filter(Boolean).map((route) => {
           const descriptor = descriptors[route.key];
           const focused = route.key === currentRoute.key;
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { animationType = 'none', ...options } = descriptor.options;
+
+          const {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            animationType = 'none',
+            ...options
+          }: {
+            animationType?: 'none' | 'fade' | 'slide';
+            disableClose?: boolean;
+          } = descriptor.options;
+
+          const disableClose = options.disableClose ?? false;
 
           const headerBack = previousDescriptor
             ? {
@@ -58,9 +71,15 @@ export default function ModalStack({ state, navigation, descriptors }: Props) {
             : parentHeaderBack;
 
           return (
-            <CenteredModal key={route.key} visible={focused}>
+            <CenteredModal
+              key={route.key}
+              visible={focused}
+              disableClose={disableClose}
+              onClose={goBackCall}
+            >
               <HeaderView
                 back={headerBack}
+                // @ts-expect-error
                 options={options}
                 route={route}
                 // @ts-expect-error

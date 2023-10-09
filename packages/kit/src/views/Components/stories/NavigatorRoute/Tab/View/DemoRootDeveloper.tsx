@@ -27,12 +27,12 @@ const DemoRootDeveloper = () => {
                 );
               }}
             >
-              <Button.Text>跳转 Demo</Button.Text>
+              <Button.Text>下一个页面</Button.Text>
             </Button>
           ),
         },
         {
-          title: '打开 Modal',
+          title: '这是一个 Modal 的演示',
           element: (
             <Button
               buttonVariant="primary"
@@ -45,20 +45,20 @@ const DemoRootDeveloper = () => {
                 });
               }}
             >
-              <Button.Text>跳转 Demo</Button.Text>
+              <Button.Text>打开 Modal</Button.Text>
             </Button>
           ),
         },
         {
-          title: '打开 Modal (useDemoAppNavigation)',
+          title: '这是一个可以锁定的 Modal 的演示',
           element: (
             <Button
               buttonVariant="primary"
               onPress={() => {
-                navigation.pushModal(RootModalRoutes.DemoDoneModal);
+                navigation.pushModal(RootModalRoutes.DemoLockedModal);
               }}
             >
-              <Button.Text>跳转 Demo</Button.Text>
+              <Button.Text>打开 Modal</Button.Text>
             </Button>
           ),
         },
@@ -73,7 +73,7 @@ const DemoRootDeveloper = () => {
                 });
               }}
             >
-              <Button.Text>跳转 Demo</Button.Text>
+              <Button.Text>打开 Modal</Button.Text>
             </Button>
           ),
         },
