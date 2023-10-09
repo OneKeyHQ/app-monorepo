@@ -146,7 +146,11 @@ function Field({ name, label, rules, children }: FieldProps) {
           <ErrorMessage
             errors={errors}
             name={name}
-            render={({ message }) => <Text>{message}</Text>}
+            render={({ message }) => (
+              <Text color="$textCritical" fontSize="$bodyMd">
+                {message}
+              </Text>
+            )}
           />
         </Fieldset>
       )}
