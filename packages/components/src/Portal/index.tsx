@@ -1,26 +1,29 @@
 import type { ReactElement } from 'react';
 import { useEffect, useState } from 'react';
 
-import { InteractionManager } from 'react-native';
-
-const PortalComponents: ReactElement<{ name: string }>[] = [];
+const PortalComponentsMap: Map<
+  string,
+  ReactElement<{ name: string }>
+> = new Map();
 
 let onUpdateComponentsCallback: () => void;
 
-export const setPortalComponent = (component: ReactElement) => {
-  PortalComponents.push(component);
+export const setPortalComponent = (
+  component: ReactElement<{ name: string }>,
+) => {
+  PortalComponentsMap.set(component.props.name, component);
   onUpdateComponentsCallback();
 };
 
 export const removePortalComponent = (name: string) => {
-  if (PortalComponents.length === 0) {
+  if (PortalComponentsMap.size === 0) {
     return;
   }
-  InteractionManager.runAfterInteractions(() => {
-    const index = PortalComponents.findIndex((c) => c.props.name === name);
-    PortalComponents.splice(index, 1);
+  PortalComponentsMap.delete(name);
+  // Remove the React node after the animation has finished.
+  setTimeout(() => {
     onUpdateComponentsCallback();
-  });
+  }, 300);
 };
 
 const onUpdateComponents = (callback: () => void) => {
@@ -34,5 +37,5 @@ export function Portal() {
       setNum((number) => number + 1);
     });
   }, []);
-  return <>{PortalComponents}</>;
+  return <>{[...PortalComponentsMap.values()]}</>;
 }
