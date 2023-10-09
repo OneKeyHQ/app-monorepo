@@ -3,7 +3,7 @@ import { memo, useCallback } from 'react';
 
 import { Header } from '@react-navigation/elements';
 import { get } from 'lodash';
-import { StyleSheet } from 'react-native';
+import { BackHandler, StyleSheet } from 'react-native';
 import { Input } from 'tamagui';
 
 import { Stack, useThemeValue } from '../../index';
@@ -16,6 +16,8 @@ import type {
   HeaderBackButtonProps,
   HeaderOptions,
 } from '@react-navigation/elements/src/types';
+import * as React from 'react';
+import useBackHandler from '../../Provider/hooks/useBackHandler';
 
 function getHeaderTitle(
   options: { title?: string; headerTitle?: HeaderOptions['headerTitle'] },
@@ -61,6 +63,16 @@ function HeaderView({
       navigation?.getParent()?.goBack?.();
     }
   }, [canGoBack, navigation]);
+
+  const handleBackPress = React.useCallback(() => {
+    if (disableClose) {
+      return true;
+    }
+    onBackCallback();
+    return true;
+  }, [disableClose, onBackCallback]);
+
+  useBackHandler(handleBackPress, isModelScreen);
 
   const headerLeftView = useCallback(
     (props: HeaderBackButtonProps): ReactNode => {

@@ -1,9 +1,7 @@
-import { memo, useCallback } from 'react';
+import { memo } from 'react';
 import type { ReactNode } from 'react';
 
 import { Stack } from 'tamagui';
-
-import useBackHandler from '../../Provider/hooks/useBackHandler';
 
 function CenteredModal({
   children,
@@ -17,16 +15,6 @@ function CenteredModal({
   disableClose?: boolean;
   onClose?: () => void;
 }) {
-  const handleBackPress = useCallback(() => {
-    if (!disableClose) {
-      onClose?.();
-      return true;
-    }
-    return false;
-  }, [onClose, disableClose]);
-
-  useBackHandler(handleBackPress);
-
   const handleBackdropClick = () => {
     if (!disableClose) {
       onClose?.();

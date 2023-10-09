@@ -13,16 +13,21 @@ const stopDefaultBackHandler = () => true;
  * default back press behavior should be stopped or not. If the function
  * returns true, the default behavior will be stopped; if it returns false,
  * the default behavior will be executed. Defaults to always returning true.
+ * @param enable - Whether the back press listener should be enabled or not.
  * @returns void
  */
-const useBackHandler = (callback: () => boolean = stopDefaultBackHandler) => {
+const useBackHandler = (
+  callback: () => boolean = stopDefaultBackHandler,
+  enable: boolean | undefined = true,
+) => {
   useEffect(() => {
+    if (!enable) return;
     const backHandler = BackHandler.addEventListener(
       'hardwareBackPress',
       callback,
     );
     return () => backHandler.remove();
-  }, [callback]);
+  }, [callback, enable]);
 };
 
 export default useBackHandler;

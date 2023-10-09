@@ -1,7 +1,6 @@
 diff --git a/node_modules/@react-navigation/native-stack/src/.DS_Store b/node_modules/@react-navigation/native-stack/src/.DS_Store
 new file mode 100644
-index 0000000..0a76604
-Binary files /dev/null and b/node_modules/@react-navigation/native-stack/src/.DS_Store differ
+index 0000000..e69de29
 diff --git a/node_modules/@react-navigation/native-stack/src/types.tsx b/node_modules/@react-navigation/native-stack/src/types.tsx
 index 206fb0b..cf40587 100644
 --- a/node_modules/@react-navigation/native-stack/src/types.tsx
@@ -53,7 +52,7 @@ index d144a4c..c424d7a 100644
    const headerRightElement = headerRight?.({
      tintColor,
 diff --git a/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx b/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
-index 5b9fb99..5b3836e 100644
+index 5b9fb99..52afdab 100644
 --- a/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
 +++ b/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
 @@ -17,7 +17,7 @@ import {
@@ -103,31 +102,7 @@ index 5b9fb99..5b3836e 100644
  
    // Modals are fullscreen in landscape only on iPhone
    const isIPhone = Platform.OS === 'ios' && !(Platform.isPad || Platform.isTV);
-@@ -240,6 +247,23 @@ const SceneView = ({
- 
-   const isRemovePrevented = preventedRoutes[route.key]?.preventRemove;
- 
-+  React.useEffect(() => {
-+    function handleBackPress() {
-+      if(disableClose){
-+        return true
-+      }
-+      onHeaderBackButtonClicked?.();
-+      return false;
-+    }
-+
-+    const backHandler = BackHandler.addEventListener(
-+      'hardwareBackPress',
-+      handleBackPress
-+    );
-+
-+    return () => backHandler.remove();
-+  }, [disableClose]);
-+
-   return (
-     <Screen
-       key={route.key}
-@@ -251,14 +275,14 @@ const SceneView = ({
+@@ -251,14 +258,14 @@ const SceneView = ({
          isAndroid
            ? // This prop enables handling of system back gestures on Android
              // Since we handle them in JS side, we disable this
@@ -145,7 +120,7 @@ index 5b9fb99..5b3836e 100644
        stackAnimation={animation}
        screenOrientation={orientation}
        statusBarAnimation={statusBarAnimation}
-@@ -301,7 +325,7 @@ const SceneView = ({
+@@ -301,7 +308,7 @@ const SceneView = ({
                  <MaybeNestedStack
                    options={options}
                    route={route}

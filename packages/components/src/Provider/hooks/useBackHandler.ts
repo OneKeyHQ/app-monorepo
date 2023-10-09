@@ -2,7 +2,10 @@ import { useCallback, useEffect } from 'react';
 
 const stopDefaultBackHandler = () => true;
 
-const useBackHandler = (callback: () => boolean = stopDefaultBackHandler) => {
+const useBackHandler = (
+  callback: () => boolean = stopDefaultBackHandler,
+  enable: boolean | undefined = true,
+) => {
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -13,11 +16,12 @@ const useBackHandler = (callback: () => boolean = stopDefaultBackHandler) => {
   );
 
   useEffect(() => {
+    if (!enable) return;
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [callback, handleKeyDown]);
+  }, [enable, handleKeyDown]);
 };
 
 export default useBackHandler;

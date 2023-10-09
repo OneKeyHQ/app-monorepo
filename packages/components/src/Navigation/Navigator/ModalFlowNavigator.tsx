@@ -1,6 +1,6 @@
 import { memo, useCallback } from 'react';
 
-import useIsVerticalLayout from '../../Provider/hooks/useIsVerticalLayout';
+import { useThemeValue } from '../../Provider/hooks/useThemeValue';
 import { makeModalStackNavigatorOptions } from '../GlobalScreenOptions';
 import createModalNavigator from '../Modal/createModalNavigator';
 import { createStackNavigator } from '../StackNavigator';
@@ -33,13 +33,16 @@ const ModalStack = hasStackNavigatorModal
 function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   config,
 }: ModalFlowNavigatorProps<RouteName, P>) {
-  const isVerticalLayout = useIsVerticalLayout();
+  const bgColor = useThemeValue('bg');
 
   const makeScreenOptions = useCallback(
     (navInfo) => ({
-      ...makeModalStackNavigatorOptions({ navInfo, isVerticalLayout }),
+      ...makeModalStackNavigatorOptions({
+        navInfo,
+        bgColor,
+      }),
     }),
-    [isVerticalLayout],
+    [bgColor],
   );
 
   return (
@@ -50,6 +53,8 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
           const customOptions: ModalNavigationOptions = {
             ...options,
             disableClose,
+            // Fixes: iOS config static configuration disableClose software can not unlock the problem
+            presentation: disableClose ? 'modal' : undefined,
             title: translationId,
           };
 

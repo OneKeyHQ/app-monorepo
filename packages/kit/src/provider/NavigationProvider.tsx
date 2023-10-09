@@ -6,7 +6,6 @@ import { useTheme } from 'tamagui';
 import { useThemeValue } from '@onekeyhq/components';
 import { DevScreen } from '@onekeyhq/kit/src/routes';
 
-import DemoAndroidApp from '../views/Components/stories/NavigatorRoute/DemoAndroidApp';
 import { DemoRootApp } from '../views/Components/stories/NavigatorRoute/DemoRootApp';
 
 export const navigationRef = createRef();
@@ -29,7 +28,6 @@ const NavigationApp = () => {
     >
       <DevScreen />
       {/* <DemoRootApp /> */}
-      {/* <DemoAndroidApp /> */}
     </NavigationContainer>
   );
 };

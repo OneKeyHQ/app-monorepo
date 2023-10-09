@@ -6,6 +6,7 @@ import { makeHeaderScreenOptions } from './Header';
 
 import type { StackNavigationOptions } from './ScreenProps';
 import type { RouteProp } from '@react-navigation/native';
+import { VariableVal } from '@tamagui/core';
 
 export function clearStackNavigatorOptions(options?: {
   bgColor?: string;
@@ -47,13 +48,14 @@ export function makeModalOpenAnimationOptions(_: {
 
 export function makeModalStackNavigatorOptions({
   navInfo,
-  isVerticalLayout,
+  bgColor,
 }: {
   isVerticalLayout?: boolean;
   navInfo?: {
     route: RouteProp<any>;
     navigation: any;
   };
+  bgColor?: VariableVal;
 } = {}): StackNavigationOptions {
   let options: StackNavigationOptions = {};
 
@@ -89,6 +91,8 @@ export function makeModalStackNavigatorOptions({
         isModelScreen: true,
         navigation: navInfo?.navigation,
       }),
+      // @ts-expect-error
+      contentStyle: { backgroundColor: bgColor ?? 'transparent' },
     };
   }
 
@@ -108,7 +112,6 @@ export function makeModalScreenOptions({
     headerShown: false,
     // presentation: platformEnv.isNativeIOS ? 'modal' : 'transparentModal',
     presentation: 'modal',
-    // gestureEnabled: false,
     ...makeModalOpenAnimationOptions({ isVerticalLayout }),
   };
 }

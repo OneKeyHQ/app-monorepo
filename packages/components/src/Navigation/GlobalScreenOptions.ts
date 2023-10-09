@@ -9,6 +9,7 @@ import { makeHeaderScreenOptions } from './Header';
 
 import type { RouteProp } from '@react-navigation/native';
 import type { StackNavigationOptions } from '@react-navigation/stack';
+import { VariableVal } from '@tamagui/core';
 
 export function clearStackNavigatorOptions(options?: {
   bgColor?: string;
@@ -60,6 +61,7 @@ export function makeModalStackNavigatorOptions({
     route: RouteProp<any>;
     navigation: any;
   };
+  bgColor?: VariableVal;
 } = {}): StackNavigationOptions {
   const options: StackNavigationOptions = {
     headerShown: false,
