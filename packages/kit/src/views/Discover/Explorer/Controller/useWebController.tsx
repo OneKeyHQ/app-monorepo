@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import urlUtils from '@onekeyhq/shared/src/utils/urlUtils';
 
 import {
   homeResettingFlags,
@@ -46,6 +47,12 @@ export const onNavigation: OnWebviewNavigation = ({
     ) {
       return;
     }
+
+    const { action } = urlUtils.parseDappRedirect(url);
+    if (action === urlUtils.DAppOpenActionEnum.DENY) {
+      return;
+    }
+
     gotoSite({ url, title, favicon, isNewWindow, isInPlace, id: curId });
   }
 

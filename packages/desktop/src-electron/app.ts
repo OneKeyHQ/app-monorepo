@@ -19,6 +19,8 @@ import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
 
+import urlUtils from '@onekeyhq/shared/src/utils/urlUtils';
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
@@ -400,8 +402,15 @@ function createMainWindow() {
   // Prevents clicking on links to open new Windows
   app.on('web-contents-created', (event, contents) => {
     if (contents.getType() === 'webview') {
-      contents.on('new-window', (newWindowEvent: Event) => {
-        newWindowEvent.preventDefault();
+      contents.on('new-window', (e: Event) => {
+        e.preventDefault();
+      });
+      contents.on('will-navigate', (e, url) => {
+        const { action } = urlUtils.parseDappRedirect(url);
+        if (action === urlUtils.DAppOpenActionEnum.DENY) {
+          e.preventDefault();
+          return false;
+        }
       });
     }
   });
