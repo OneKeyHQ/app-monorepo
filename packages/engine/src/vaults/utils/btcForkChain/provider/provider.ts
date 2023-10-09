@@ -595,7 +595,7 @@ class Provider {
         signer,
         psbt.data.inputs[input.index],
       );
-      psbt.signInput(input.index, bitcoinSigner, input.sighashTypes);
+      await psbt.signInputAsync(input.index, bitcoinSigner, input.sighashTypes);
     }
     return {
       txid: '',
