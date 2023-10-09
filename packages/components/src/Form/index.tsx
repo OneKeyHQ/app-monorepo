@@ -40,18 +40,18 @@ const useHeaderHeight = () => {
   }
 };
 
-export interface FormProps {
+export type FormProps = PropsWithChildren<{
   form: UseFormReturn<any>;
   header?: React.ReactNode;
   footer?: React.ReactNode;
-}
+}>;
 
 export function FormWrapper({
   form: formContext,
   header,
   children,
   footer,
-}: PropsWithChildren<FormProps>) {
+}: FormProps) {
   const [height, setHeight] = useState(0);
   const dimensions = useWindowDimensions();
   const headerHeight = useHeaderHeight();
@@ -134,7 +134,7 @@ function Field({ name, label, rules, children }: FieldProps) {
   const validateField = useCallback(() => {
     trigger(name);
   }, [name, trigger]);
-  const error = errors[name] as Error
+  const error = errors[name] as Error;
   return (
     <Controller
       name={name}

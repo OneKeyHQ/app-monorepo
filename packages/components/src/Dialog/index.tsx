@@ -1,9 +1,15 @@
-import type { PropsWithChildren } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { Dispatch, PropsWithChildren } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  Adapt,
   Sheet,
   Dialog as TMDialog,
   useMedia,
@@ -11,11 +17,15 @@ import {
 } from 'tamagui';
 
 import { Button } from '../Button';
+import { Form, useForm } from '../Form';
 import { type ICON_NAMES, Icon } from '../Icon';
 import { removePortalComponent, setPortalComponent } from '../Portal';
 import { Stack, XStack, YStack } from '../Stack';
 import { Text } from '../Text';
 
+import type { FormProps } from '../Form';
+import type { SetStateAction } from 'jotai';
+import type { UseFormReturn } from 'react-hook-form';
 import type { GetProps } from 'tamagui';
 
 export interface ModalProps {
@@ -202,20 +212,65 @@ function DialogFrame({
   );
 }
 
+type DialogFormProps = Omit<FormProps, 'form'> & {
+  useFormProps: Parameters<typeof useForm>;
+};
+export const DialogContext = createContext<{
+  context?: { form?: UseFormReturn<any> };
+  setContext?: Dispatch<
+    SetStateAction<{
+      form?: UseFormReturn<any> | undefined;
+    }>
+  >;
+}>({});
+
+function DialogForm({ useFormProps, children, ...props }: DialogFormProps) {
+  const formContext = useForm(useFormProps as any);
+  const { setContext } = useContext(DialogContext);
+  useEffect(() => {
+    setContext?.({ form: formContext });
+  }, [formContext, setContext]);
+  return (
+    <Form {...props} form={formContext}>
+      {children}
+    </Form>
+  );
+}
+
+type DialogContainerProps = PropsWithChildren<
+  { name: string } & Omit<ModalProps, 'onConfirm'> & {
+      onConfirm?: (context: {
+        form?: UseFormReturn<any> | undefined;
+      }) => void | Promise<boolean>;
+    }
+>;
+
 function DialogContainer({
   name,
   onOpen,
   onClose,
   renderContent,
+  onConfirm,
   ...props
-}: PropsWithChildren<{ name: string } & ModalProps>) {
+}: DialogContainerProps) {
   const [isOpen, changeIsOpen] = useState(true);
-  useEffect(() => () => {
-    // Remove the React node after the animation has finished.
-    setTimeout(() => {
-      removePortalComponent(name);
-    }, 300);
-  });
+  const [context, setContext] = useState<{ form?: UseFormReturn<any> }>({});
+  const contextValue = useMemo(
+    () => ({
+      context,
+      setContext,
+    }),
+    [context],
+  );
+  useEffect(
+    () => () => {
+      // Remove the React node after the animation has finished.
+      setTimeout(() => {
+        removePortalComponent(name);
+      }, 300);
+    },
+    [name],
+  );
   const handleOpen = useCallback(() => {
     changeIsOpen(true);
     onOpen?.();
@@ -226,19 +281,26 @@ function DialogContainer({
     onClose?.();
   }, [onClose]);
 
+  const handleConfirm = useCallback(
+    () => onConfirm?.(context),
+    [context, onConfirm],
+  );
+
   return (
-    <DialogFrame
-      key={name}
-      open={isOpen}
-      onOpen={handleOpen}
-      renderContent={renderContent}
-      onClose={handleClose}
-      {...props}
-    />
+    <DialogContext.Provider key={name} value={contextValue}>
+      <DialogFrame
+        open={isOpen}
+        onOpen={handleOpen}
+        renderContent={renderContent}
+        onClose={handleClose}
+        {...props}
+        onConfirm={handleConfirm}
+      />
+    </DialogContext.Provider>
   );
 }
 
-function DialogConfirm(props: ModalProps) {
+function DialogConfirm(props: Omit<DialogContainerProps, 'name'>) {
   setPortalComponent(
     <DialogContainer {...props} name={Math.random().toString()} />,
   );
@@ -246,4 +308,6 @@ function DialogConfirm(props: ModalProps) {
 
 export const Dialog = withStaticProperties(DialogFrame, {
   confirm: DialogConfirm,
+  Form: DialogForm,
+  FormField: Form.Field,
 });
