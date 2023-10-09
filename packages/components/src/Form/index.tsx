@@ -18,11 +18,13 @@ import {
   Label,
   ScrollView,
   Form as TMForm,
+  XStack,
   YStack,
   useWindowDimensions,
   withStaticProperties,
 } from 'tamagui';
 
+import { Icon } from '../Icon';
 import { Text } from '../Text';
 
 import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';
@@ -134,10 +136,8 @@ function Field({ name, label, rules, children }: FieldProps) {
       control={control}
       rules={rules}
       render={({ field }) => (
-        <Fieldset>
-          <Label width={90} htmlFor={name}>
-            {label}
-          </Label>
+        <Fieldset borderWidth={0}>
+          <Label htmlFor={name}>{label}</Label>
           {Children.map(children as ReactChildren, (child) =>
             isValidElement(child)
               ? cloneElement(child, getChildProps(child, field, validateField))
@@ -147,9 +147,12 @@ function Field({ name, label, rules, children }: FieldProps) {
             errors={errors}
             name={name}
             render={({ message }) => (
-              <Text color="$textCritical" fontSize="$bodyMd">
-                {message}
-              </Text>
+              <XStack mt="$2">
+                <Icon name="ErrorOutline" color="$textCritical" />
+                <Text ml="$2" color="$textCritical" fontSize="$bodyMd">
+                  {message}
+                </Text>
+              </XStack>
             )}
           />
         </Fieldset>
