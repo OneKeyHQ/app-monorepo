@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 
+import { ErrorMessage } from '@hookform/error-message';
 import { useHeaderHeight as useHeaderHeightOG } from '@react-navigation/elements';
 import { noop } from 'lodash';
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
@@ -133,7 +134,7 @@ function Field({ name, label, rules, children }: FieldProps) {
   const validateField = useCallback(() => {
     trigger(name);
   }, [name, trigger]);
-  const error = errors[name] as Error;
+  const error = errors[name] as Error
   return (
     <Controller
       name={name}
