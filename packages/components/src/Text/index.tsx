@@ -1,28 +1,32 @@
 import { Text as OriginText, styled } from 'tamagui';
 
+import type { GetProps } from 'tamagui';
+
 export const Text = styled(OriginText, {
+  name: 'Text',
+  fontFamily: '$body',
+
   variants: {
     variant: {
-      '...size': (size, { font }) => ({
-        fontFamily:
-          size === '$bodyMdMono' || size === '$bodyLgMono'
-            ? 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
-            : '$body',
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        fontSize: font?.size[size as any],
-        lineHeight: font?.lineHeight[size],
-        fontWeight: font?.weight[size],
-        textTransform: size === '$headingXs' ? 'uppercase' : 'none',
-        letterSpacing: size === '$headingXs' ? 0.8 : 0,
-        textDecorationLine:
-          size === '$bodyLgUnderline' || size === '$bodyMdUnderline'
-            ? 'underline'
-            : 'none',
-      }),
+      '...size': (variant, { font }) => {
+        const defaultFont = { size: {}, lineHeight: {}, weight: {} };
+        const resolvedFont = font || defaultFont;
+        type SizeType = keyof typeof resolvedFont.size;
+
+        return {
+          fontSize: resolvedFont?.size[variant as SizeType] || '$true',
+          lineHeight: font?.lineHeight[variant],
+          fontWeight: font?.weight[variant],
+          textTransform: font?.transform[variant],
+          letterSpacing: font?.letterSpacing[variant],
+        };
+      },
     },
   } as const,
 
   defaultVariants: {
-    variant: '$bodyLg',
+    variant: '$true',
   },
 });
+
+export type TextProps = GetProps<typeof Text>;

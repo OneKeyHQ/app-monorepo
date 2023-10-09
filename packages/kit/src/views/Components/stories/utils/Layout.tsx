@@ -1,7 +1,9 @@
+import { useDispatch } from 'react-redux';
 import { ScrollView } from 'tamagui';
 
-import { Stack, Text } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { Button, Stack, Text, XStack } from '@onekeyhq/components';
+
+import { setTheme } from '../../../../store/reducers/settings';
 
 const FormattedText = ({ text }: { text: string | string[] }) => {
   if (typeof text === 'string') {
@@ -46,17 +48,36 @@ export function Layout({
     element: React.ReactElement;
   }[];
 }>) {
+  const dispatch = useDispatch();
   return (
     <ScrollView
+      maxWidth="100%"
       flex={1}
-      marginHorizontal="$6"
+      paddingHorizontal="$5"
       contentContainerStyle={{
-        alignItems: platformEnv.isNative ? 'flex-start' : 'center',
         paddingTop: 20,
         paddingBottom: 280,
       }}
     >
-      <Stack space="$6">
+      <XStack padding="$4" display="flex" justifyContent="center">
+        <Button
+          onPress={() => {
+            dispatch(setTheme('light'));
+          }}
+        >
+          <Button.Text>Light Theme</Button.Text>
+        </Button>
+        <Button
+          ml="$4"
+          buttonVariant="primary"
+          onPress={() => {
+            dispatch(setTheme('dark'));
+          }}
+        >
+          <Button.Text>Night Theme</Button.Text>
+        </Button>
+      </XStack>
+      <Stack marginHorizontal="auto" maxWidth="100%" width={576} space="$6">
         {description && (
           <Stack space="$2">
             <Stack>

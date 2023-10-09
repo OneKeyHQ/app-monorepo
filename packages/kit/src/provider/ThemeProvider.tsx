@@ -3,11 +3,14 @@ import { memo, useState } from 'react';
 
 import { Provider } from '@onekeyhq/components';
 
+import { useThemeProviderVariant } from '../hooks/useThemeVariant';
+
 const ThemeApp: FC = ({ children }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const { themeVariant } = useThemeProviderVariant();
   return (
     <Provider
-      themeVariant="light"
+      themeVariant={themeVariant}
       leftSidebarCollapsed={isCollapsed}
       setLeftSidebarCollapsed={setIsCollapsed}
     >

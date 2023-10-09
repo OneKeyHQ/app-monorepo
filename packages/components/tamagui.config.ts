@@ -12,6 +12,7 @@ const font = createFont({
     ? 'System'
     : 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
   size: {
+    true: 16,
     heading5xl: 40,
     heading4xl: 32,
     heading3xl: 28,
@@ -23,16 +24,13 @@ const font = createFont({
     headingXs: 12,
     bodyLg: 16,
     bodyLgMedium: 16,
-    bodyLgUnderline: 16,
     bodyMd: 14,
     bodyMdMedium: 14,
-    bodyMdunderline: 14,
     bodySm: 12,
     bodySmMedium: 12,
-    bodyLgMono: 16,
-    bodyMdMono: 14,
   },
   lineHeight: {
+    true: 24,
     heading5xl: 48,
     heading4xl: 40,
     heading3xl: 36,
@@ -44,16 +42,13 @@ const font = createFont({
     headingXs: 16,
     bodyLg: 24,
     bodyLgMedium: 24,
-    bodyLgUnderline: 24,
     bodyMd: 20,
     bodyMdMedium: 20,
-    bodyMdunderline: 20,
     bodySm: 16,
     bodySmMedium: 16,
-    bodyLgMono: 24,
-    bodyMdMono: 20,
   },
   weight: {
+    true: '400',
     heading5xl: '700',
     heading4xl: '600',
     heading3xl: '600',
@@ -65,39 +60,78 @@ const font = createFont({
     headingXs: '600',
     bodyLg: '400',
     bodyLgMedium: '500',
-    bodyLgUnderline: '400',
     bodyMd: '400',
     bodyMdMedium: '500',
-    bodyMdunderline: '400',
     bodySm: '400',
     bodySmMedium: '500',
-    bodyLgMono: '400',
-    bodyMdMono: '400',
+  },
+  transform: {
+    true: 'none',
+    heading5xl: 'none',
+    heading4xl: 'none',
+    heading3xl: 'none',
+    heading2xl: 'none',
+    headingXl: 'none',
+    headingLg: 'none',
+    headingMd: 'none',
+    headingSm: 'none',
+    headingXs: 'uppercase',
+    bodyLg: 'none',
+    bodyLgMedium: 'none',
+    bodyMd: 'none',
+    bodyMdMedium: 'none',
+    bodySm: 'none',
+    bodySmMedium: 'none',
+  },
+  letterSpacing: {
+    true: 0,
+    heading5xl: 0,
+    heading4xl: 0,
+    heading3xl: 0,
+    heading2xl: 0,
+    headingXl: 0,
+    headingLg: 0,
+    headingMd: 0,
+    headingSm: 0,
+    headingXs: 0.8,
+    bodyLg: 0,
+    bodyLgMedium: 0,
+    bodyMd: 0,
+    bodyMdMedium: 0,
+    bodySm: 0,
+    bodySmMedium: 0,
   },
 });
 
+// https://docs.swmansion.com/react-native-reanimated/docs/2.x/api/animations/withSpring/
 const animations = createAnimations({
-  fast: {
-    type: 'spring',
-    damping: 20,
-    mass: 1.2,
-    stiffness: 250,
+  '150ms': {
+    type: 'timing',
+    duration: 150,
   },
-  medium: {
+  '300ms': {
+    type: 'timing',
+    duration: 300,
+  },
+  bouncy: {
     type: 'spring',
     damping: 10,
     mass: 0.9,
-    stiffness: 100,
   },
-  slow: {
+  lazy: {
     type: 'spring',
     damping: 20,
-    stiffness: 60,
+  },
+  quick: {
+    type: 'spring',
+    damping: 20,
+    mass: 0.1,
   },
 });
 
 const lightColors = {
   bg: '#ffffff',
+  background: '#ffffff',
   bgActive: '#0000001b',
   bgApp: '#ffffff',
   bgBackdrop: '#00000044',
@@ -252,6 +286,7 @@ const lightColors = {
 
 const darkColors: typeof lightColors = {
   bg: '#1b1b1b',
+  background: '#1b1b1b',
   bgActive: '#ffffff22',
   bgApp: '#0f0f0f',
   bgBackdrop: '#0000009b',
@@ -440,6 +475,7 @@ const mergedTokens = createTokens({
     3: 12,
     3.5: 14,
     4: 16,
+    4.5: 18,
     5: 20,
     6: 24,
     7: 28,
@@ -466,6 +502,7 @@ const mergedTokens = createTokens({
     72: 288,
     80: 320,
     96: 384,
+    100: 400,
   },
   radius: {
     0: 0,
@@ -476,6 +513,8 @@ const mergedTokens = createTokens({
     4: 16,
     5: 20,
     6: 24,
+    7: 28,
+    8: 32,
     full: 9999,
   },
   space: {
@@ -539,6 +578,7 @@ const config = createTamagui({
 
   fonts: {
     body: font,
+    heading: font,
   },
 
   themes: {
@@ -546,23 +586,53 @@ const config = createTamagui({
       ...themes.light,
       ...lightColors,
       'background-default': mergedTokens.color.bgLight,
+
+      // override default theme
+      'background': mergedTokens.color.bgAppLight,
+      'backgroundHover': mergedTokens.color.bgHoverLight,
+      'backgroundPress': mergedTokens.color.bgActiveLight,
+      'backgroundFocus': mergedTokens.color.bgHoverLight,
+      'backgroundTransparent': mergedTokens.color.transparentLight,
+      'borderColor': mergedTokens.color.neutral4Light,
+      'borderColorHover': mergedTokens.color.neutral5Light,
+      'borderColorPress': mergedTokens.color.borderActiveLight,
+      'borderColorFocus': mergedTokens.color.borderActiveLight,
+      'color': mergedTokens.color.textLight,
+      'colorHover': mergedTokens.color.textLight,
     },
     dark: {
       ...themes.dark,
       ...darkColors,
       'background-default': mergedTokens.color.bgDark,
+
+      // override default theme
+      'background': mergedTokens.color.bgAppDark,
+      'backgroundHover': mergedTokens.color.bgHoverDark,
+      'backgroundPress': mergedTokens.color.bgActiveDark,
+      'backgroundFocus': mergedTokens.color.neutral5Dark,
+      'backgroundTransparent': mergedTokens.color.transparentDark,
+      'borderColor': mergedTokens.color.neutral4Dark,
+      'borderColorHover': mergedTokens.color.neutral5Dark,
+      'borderColorPress': mergedTokens.color.borderActiveDark,
+      'borderColorFocus': mergedTokens.color.borderActiveDark,
+      'color': mergedTokens.color.textDark,
+      'colorHover': mergedTokens.color.textDark,
     },
   },
 
   tokens: mergedTokens,
 
   media: createMedia({
-    xs: { minWidth: 0 },
-    sm: { minWidth: 640 },
-    md: { minWidth: 768 },
-    lg: { minWidth: 1024 },
-    xl: { minWidth: 1280 },
-    '2xl': { minWidth: 1536 },
+    sm: { maxWidth: 639 },
+    gtSm: { minWidth: 640 },
+    md: { maxWidth: 767 },
+    gtMd: { minWidth: 768 },
+    lg: { maxWidth: 1023 },
+    gtLg: { minWidth: 1024 },
+    xl: { maxWidth: 1279 },
+    gtXl: { minWidth: 1280 },
+    '2xl': { maxWidth: 1535 },
+    'gt2xl': { minWidth: 1536 },
     short: { maxHeight: 820 },
     tall: { minHeight: 820 },
     hoverNone: { hover: 'none' },

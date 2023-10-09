@@ -1,12 +1,15 @@
 import type { FC, ReactNode } from 'react';
 import { useMemo } from 'react';
 
+import { Toaster } from 'burnt/web';
 import { useWindowDimensions } from 'react-native';
-import { TamaguiProvider } from 'tamagui';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { TamaguiProvider, useMedia } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import config from '../../tamagui.config';
+import { ToastProvider } from '../Toast';
 
 import { getScreenSize } from './device';
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
@@ -52,6 +55,7 @@ const Provider: FC<UIProviderProps> = ({
   setLeftSidebarCollapsed,
 }) => {
   const { width, height } = useWindowDimensions();
+  const media = useMedia();
   const providerValue = useMemo(
     () => ({
       themeVariant,
@@ -73,15 +77,25 @@ const Provider: FC<UIProviderProps> = ({
       setLeftSidebarCollapsed,
     ],
   );
-
   return (
-    <FontProvider waitFontLoaded={waitFontLoaded}>
-      <Context.Provider value={providerValue}>
-        <TamaguiProvider config={config} defaultTheme={themeVariant}>
-          {children}
-        </TamaguiProvider>
-      </Context.Provider>
-    </FontProvider>
+    <SafeAreaProvider>
+      <FontProvider waitFontLoaded={waitFontLoaded}>
+        <Context.Provider value={providerValue}>
+          <TamaguiProvider config={config} defaultTheme={themeVariant}>
+            <ToastProvider>{children}</ToastProvider>
+            <Toaster
+              {...(media.md
+                ? {
+                    position: 'top-center',
+                  }
+                : { position: 'bottom-right' })}
+              closeButton
+              theme={themeVariant}
+            />
+          </TamaguiProvider>
+        </Context.Provider>
+      </FontProvider>
+    </SafeAreaProvider>
   );
 };
 

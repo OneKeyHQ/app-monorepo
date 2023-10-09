@@ -1,7 +1,4 @@
-import { XStack, YStack } from 'tamagui';
-
-import { Button, Spinner } from '@onekeyhq/components';
-// import { Placeholder } from '@onekeyhq/components/src/Icon/react/outline';
+import { Button, XStack, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -90,15 +87,15 @@ const ButtonsGallery = () => (
         element: (
           <XStack space="$2" alignItems="flex-end">
             <Button size="large" buttonVariant="secondary">
-              <Button.Icon>{/* <Placeholder /> */}</Button.Icon>
+              <Button.Icon name="PlaceholderOutline" />
               <Button.Text>Large</Button.Text>
             </Button>
             <Button size="medium" buttonVariant="secondary">
-              <Button.Icon>{/* <Placeholder /> */}</Button.Icon>
+              <Button.Icon name="PlaceholderOutline" />
               <Button.Text>Medium</Button.Text>
             </Button>
             <Button size="small" buttonVariant="secondary">
-              <Button.Icon>{/* <Placeholder /> */}</Button.Icon>
+              <Button.Icon name="PlaceholderOutline" />
               <Button.Text>Small</Button.Text>
             </Button>
           </XStack>
@@ -109,19 +106,19 @@ const ButtonsGallery = () => (
         element: (
           <XStack space="$2" alignItems="center">
             <Button size="medium" buttonVariant="primary">
-              <Button.Icon>{/* <Placeholder /> */}</Button.Icon>
+              <Button.Icon name="PlaceholderOutline" />
               <Button.Text>Primary</Button.Text>
             </Button>
             <Button size="medium" buttonVariant="secondary">
-              <Button.Icon>{/* <Placeholder /> */}</Button.Icon>
+              <Button.Icon name="PlaceholderOutline" />
               <Button.Text>Secondary</Button.Text>
             </Button>
             <Button size="medium" buttonVariant="tertiary">
-              <Button.Icon>{/* <Placeholder /> */}</Button.Icon>
+              <Button.Icon name="PlaceholderOutline" />
               <Button.Text>Tertiary</Button.Text>
             </Button>
             <Button size="medium" buttonVariant="destructive">
-              <Button.Icon>{/* <Placeholder /> */}</Button.Icon>
+              <Button.Icon name="PlaceholderOutline" />
               <Button.Text>Destructive</Button.Text>
             </Button>
           </XStack>
@@ -134,10 +131,14 @@ const ButtonsGallery = () => (
             <Button size="medium" buttonVariant="secondary" disabled>
               <Button.Text>Disabled</Button.Text>
             </Button>
+            <Button size="medium" buttonVariant="destructive" disabled>
+              <Button.Spinner />
+            </Button>
             <Button size="medium" buttonVariant="secondary" disabled>
-              <Button.Icon>
-                <Spinner />
-              </Button.Icon>
+              <Button.Spinner />
+            </Button>
+            <Button size="large" buttonVariant="secondary" disabled>
+              <Button.Spinner />
             </Button>
           </XStack>
         ),
