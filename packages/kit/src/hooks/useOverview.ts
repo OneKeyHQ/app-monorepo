@@ -28,6 +28,7 @@ import { useFrozenBalance } from './useTokens';
 
 import type { IAppState } from '../store';
 import type { OverviewDefiRes } from '../views/Overview/types';
+import { isBTCNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
 
 const tasksSelector = ({
   networkId,
@@ -434,6 +435,13 @@ export const useTokenPositionInfo = ({
     },
   );
 
+  const frozenBalance = useFrozenBalance({
+    networkId,
+    accountId,
+    tokenId: tokenAddress || 'main',
+    useRecycleBalance: true,
+  });
+
   return useMemo(() => {
     if (!result) {
       return {
@@ -450,6 +458,15 @@ export const useTokenPositionInfo = ({
     }
     const { totalBalance, keleStakingBalance, items } = result;
 
+    let finalTotalBalance = new B(totalBalance);
+
+    if (isBTCNetwork(networkId) && !tokenAddress) {
+      finalTotalBalance = finalTotalBalance.minus(frozenBalance);
+      finalTotalBalance = finalTotalBalance.isGreaterThan(0)
+        ? finalTotalBalance
+        : new B(0);
+    }
+
     if (new B(keleStakingBalance)?.gt(0)) {
       items.push({
         name: 'Kelepool',
@@ -465,7 +482,7 @@ export const useTokenPositionInfo = ({
 
     return {
       isLoading,
-      balance: new B(totalBalance),
+      balance: new B(finalTotalBalance),
       detailInfo: result.detailInfo,
       items: items.map((item) => {
         if (item.poolCode && item.protocol) {
@@ -478,16 +495,30 @@ export const useTokenPositionInfo = ({
               }),
           };
         }
+
+        if (isBTCNetwork(item.networkId) && !item.address) {
+          let finalBalance = new B(item.balance).minus(frozenBalance);
+          finalBalance = finalBalance.isGreaterThan(0)
+            ? finalBalance
+            : new B(0);
+          return {
+            ...item,
+            balance: finalBalance.toFixed(),
+          };
+        }
+
         return item;
       }),
     };
   }, [
     result,
+    networkId,
+    tokenAddress,
+    isLoading,
+    defaultInfo,
+    frozenBalance,
     intl,
     onPressStaking,
     onPresDefiProtocol,
-    networkId,
-    defaultInfo,
-    isLoading,
   ]);
 };
