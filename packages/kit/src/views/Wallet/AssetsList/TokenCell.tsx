@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import { withDebugRenderTracker } from '@onekeyhq/components/src/DebugRenderTracker';
 import type { ITokenFiatValuesInfo } from '@onekeyhq/engine/src/types/token';
+import { isBTCNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
 import { AppUIEventBusNames } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import { isBRC20Token } from '@onekeyhq/shared/src/utils/tokenUtils';
 
@@ -29,6 +30,7 @@ import {
   useReduxSingleTokenPriceSimple,
 } from '../../../hooks';
 import { useOnUIEventBus } from '../../../hooks/useOnUIEventBus';
+import { useFrozenBalance } from '../../../hooks/useTokens';
 import {
   CValueLoading,
   type ITokenPriceValue,
@@ -98,11 +100,31 @@ function TokenCellBalance({
   showTokenBalanceDetail?: boolean;
 }) {
   const intl = useIntl();
-  const { networkId, accountId, symbol } = token;
+  const { networkId, accountId, symbol, isNative } = token;
   const { network, account } = useActiveSideAccount({ accountId, networkId });
   const [recycleBalance, setRecycleBalance] = useState('0');
   const tokenId = token?.address || 'main';
   const isBRC20 = useMemo(() => isBRC20Token(tokenId), [tokenId]);
+
+  const frozenBalance = useFrozenBalance({
+    networkId,
+    accountId,
+    tokenId: 'main',
+    useRecycleBalance: true,
+  });
+
+  const finalBalance = useMemo(() => {
+    if (isBTCNetwork(networkId) && isNative) {
+      const spendableBalanceBN = new BigNumber(balance ?? '0').minus(
+        frozenBalance,
+      );
+
+      return spendableBalanceBN.isGreaterThanOrEqualTo(0)
+        ? spendableBalanceBN.toFixed()
+        : '0';
+    }
+    return balance;
+  }, [networkId, isNative, balance, frozenBalance]);
 
   const displayDecimal = useMemo(
     () =>
@@ -167,7 +189,7 @@ function TokenCellBalance({
   return (
     <FormatBalance
       balance={BigNumber.max(
-        new BigNumber(balance ?? '0').minus(recycleBalance),
+        new BigNumber(finalBalance ?? '0').minus(recycleBalance),
         '0',
       ).toFixed()}
       suffix={symbol}
