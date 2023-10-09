@@ -127,6 +127,26 @@ const DialogGallery = () => (
             >
               <Button.Text>load remote data failed</Button.Text>
             </Button>
+            <Button
+              mt="$4"
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'Password',
+                  description: 'input password',
+                  onConfirm() {
+                    return new Promise((resolve) => {
+                      setTimeout(() => {
+                        alert('loaded failed');
+                        resolve(false);
+                      }, 3000);
+                      return false;
+                    });
+                  },
+                })
+              }
+            >
+              <Button.Text>load remote data failed</Button.Text>
+            </Button>
           </YStack>
         ),
       },

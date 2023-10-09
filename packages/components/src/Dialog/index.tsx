@@ -200,10 +200,12 @@ function DialogContainer({
   );
 }
 
+function DialogConfirm(props: ModalProps) {
+  setPortalComponent(
+    <DialogContainer {...props} name={Math.random().toString()} />,
+  );
+}
+
 export const Dialog = withStaticProperties(DialogFrame, {
-  confirm: (props: ModalProps) => {
-    setPortalComponent(
-      <DialogContainer {...props} name={Math.random().toString()} />,
-    );
-  },
+  confirm: DialogConfirm,
 });

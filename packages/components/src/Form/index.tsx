@@ -150,7 +150,7 @@ function Field({ name, label, rules, children }: FieldProps) {
                 )
               : child,
           )}
-          {error && error.message ? (
+          {error?.message ? (
             <Text ml="$2" color="$textCritical" fontSize="$bodyMd">
               {error.message}
             </Text>
