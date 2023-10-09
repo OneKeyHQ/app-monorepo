@@ -1,6 +1,6 @@
 import type { FC } from 'react';
 
-import { Adapt, Button, ListItem, Popover, XStack, YStack } from 'tamagui';
+import { ListItem, Popover, YStack } from 'tamagui';
 
 import { Icon } from '../Icon';
 
@@ -17,7 +17,7 @@ type ActionSheetProps = PopoverProps & {
   actions: Action[];
 };
 
-export const ActionSheet: FC<ActionSheetProps> = ({ actions, ...props }) => (
+export const ActionList: FC<ActionSheetProps> = ({ actions, ...props }) => (
   <Popover size="$5" allowFlip placement="top" {...props}>
     <Popover.Trigger>
       <ListItem hoverTheme title="action sheet trigger" bordered />

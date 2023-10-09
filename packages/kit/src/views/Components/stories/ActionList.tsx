@@ -1,10 +1,10 @@
 import { Stack } from '@onekeyhq/components';
-import { ActionSheet } from '@onekeyhq/components/src/ActionSheet';
+import { ActionList } from '@onekeyhq/components/src/ActionList';
 
 import { Layout } from './utils/Layout';
 
-const ActionSheetDemo = () => (
-  <ActionSheet
+const ActionListDemo = () => (
+  <ActionList
     actions={[
       {
         name: 'Action1',
@@ -20,7 +20,7 @@ const ActionSheetDemo = () => (
   />
 );
 
-const SelectGallery = () => (
+const ActionListGallery = () => (
   <Layout
     description="对操作结果的反馈，无需用户操作即可自行消失"
     suggestions={[
@@ -39,7 +39,7 @@ const SelectGallery = () => (
         title: '默认状态',
         element: (
           <Stack space="$1">
-            <ActionSheetDemo />
+            <ActionListDemo />
           </Stack>
         ),
       },
@@ -47,4 +47,4 @@ const SelectGallery = () => (
   />
 );
 
-export default SelectGallery;
+export default ActionListGallery;
