@@ -278,11 +278,6 @@ function DialogContainer({
     [context, onConfirm],
   );
 
-  const handleConfirm = useCallback(
-    () => onConfirm?.(context),
-    [context, onConfirm],
-  );
-
   return (
     <DialogContext.Provider key={name} value={contextValue}>
       <DialogFrame
