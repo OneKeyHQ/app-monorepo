@@ -24,7 +24,11 @@ import {
 
 import { Text } from '../Text';
 
-import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';
+import type {
+  ControllerRenderProps,
+  FieldErrors,
+  UseFormReturn,
+} from 'react-hook-form';
 import type { GetProps } from 'tamagui';
 
 const useHeaderHeight = () => {
