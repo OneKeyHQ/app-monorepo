@@ -27,7 +27,6 @@ export class KeyringHd extends KeyringHdBase {
   ): Promise<IGetPrivateKeysResult> {
     return this.baseGetPrivateKeys({
       ...params,
-      // relPaths: ['0/0'],
     });
   }
 

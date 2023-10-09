@@ -34,7 +34,6 @@ export class KeyringHd extends KeyringHdBase {
   ): Promise<IGetPrivateKeysResult> {
     return this.baseGetPrivateKeys({
       ...params,
-      relPaths: ['0/0'],
     });
   }
 
@@ -53,6 +52,11 @@ export class KeyringHd extends KeyringHdBase {
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
   ): Promise<ISignedTxPro> {
+    const dbAccount = await this.getDbAccount();
+    const address = await this.vault.getDisplayAddress(dbAccount.address);
+    unsignedTx.payload = {
+      address,
+    };
     return this.baseSignTransaction(unsignedTx, options);
   }
 

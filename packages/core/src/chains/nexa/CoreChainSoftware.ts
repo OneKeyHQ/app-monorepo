@@ -7,6 +7,8 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
+import { signEncodedTx } from './sdkNexa';
+
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
@@ -20,12 +22,19 @@ import type {
 } from '../../types';
 
 const curve: ICurveName = 'secp256k1';
+const firstAddressRelPath = '0/0';
 
 export default class CoreChainSoftware extends CoreChainApiBase {
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {
-    // throw new Error('Method not implemented.');
+    if (payload.credentials.hd) {
+      payload.account.relPaths = payload.account.relPaths || [
+        // NEXA use single address mode of utxo,
+        //    so we should set first address relPaths
+        firstAddressRelPath,
+      ];
+    }
     return this.baseGetPrivateKeys({
       payload,
       curve,
@@ -41,29 +50,16 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       payload,
       curve,
     });
-    // eslint-disable-next-line prefer-destructuring
-    const encodedTx = unsignedTx.encodedTx;
-    const txBytes = bufferUtils.toBuffer('');
-    const [signature] = await signer.sign(txBytes);
-    const txid = '';
-    const rawTx = '';
-    return {
-      txid,
-      rawTx,
-    };
+    const result = await signEncodedTx(
+      unsignedTx,
+      signer,
+      unsignedTx.payload.address,
+    );
+    return result;
   }
 
   override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
-    // throw new Error('Method not implemented.');
-    // eslint-disable-next-line prefer-destructuring
-    const unsignedMsg = payload.unsignedMsg;
-    const signer = await this.baseGetSingleSigner({
-      payload,
-      curve,
-    });
-    const msgBytes = bufferUtils.toBuffer('');
-    const [signature] = await signer.sign(msgBytes);
-    return '';
+    throw new Error('Method not implemented.');
   }
 
   override async getAddressFromPrivate(
@@ -86,11 +82,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const { publicKey, networkInfo, publicKeyInfo } = query;
     const address = publicKey;
 
-    const path = publicKeyInfo?.path
-      ? getUtxoAccountPrefixPath({
-          fullPath: publicKeyInfo?.path,
-        })
-      : '';
+    const fullPath = publicKeyInfo?.path || '';
+
+    const prefixPath = getUtxoAccountPrefixPath({
+      fullPath,
+    });
+
+    const path = fullPath ? prefixPath : '';
 
     return Promise.resolve({
       address,

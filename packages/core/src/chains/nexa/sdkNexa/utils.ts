@@ -21,17 +21,17 @@ import {
   writeUInt64LEBN,
   writeUInt8,
 } from '@onekeyhq/core/src/chains/nexa/sdkNexa/sdk';
-import type { ChainSigner } from '@onekeyhq/engine/src/proxy';
 import { hash160, sha256 } from '@onekeyhq/engine/src/secret/hash';
+import type { ISigner } from '@onekeyhq/engine/src/types/secret';
 import type { Token } from '@onekeyhq/engine/src/types/token';
-import {
-  type IEncodedTxNexa,
-  NexaSignature,
-} from '@onekeyhq/engine/src/vaults/impl/nexa/types';
 import type {
   INexaInputSignature,
   INexaOutputSignature,
   INexaTransaction,
+} from '@onekeyhq/engine/src/vaults/impl/nexa/types';
+import {
+  type IEncodedTxNexa,
+  NexaSignature,
 } from '@onekeyhq/engine/src/vaults/impl/nexa/types';
 import {
   type IDecodedTx,
@@ -412,7 +412,7 @@ export function buildSignatureBuffer(
 // signed by 'schnorr'
 export async function signEncodedTx(
   unsignedTx: IUnsignedTxPro,
-  signer: ChainSigner,
+  signer: ISigner,
   dbAccountAddress: string,
 ): Promise<ISignedTxPro> {
   const encodedTx = unsignedTx.encodedTx as IEncodedTxNexa;

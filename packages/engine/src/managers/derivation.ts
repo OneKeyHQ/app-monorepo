@@ -187,7 +187,7 @@ function getNextAccountIdsWithAccountDerivation(
 
   if (nextId === index) {
     throw new Error(
-      'Get account nextIndexId failed. Check if account.path or db.accountDerivation is correct. UTXO should use getUtxoAccountPrefixPath',
+      'Get account nextIndexId failed. Check if account.path or db.accountDerivation is correct. UTXO account should use getUtxoAccountPrefixPath() get prefixPath but not fullPath as account.path',
     );
   }
 

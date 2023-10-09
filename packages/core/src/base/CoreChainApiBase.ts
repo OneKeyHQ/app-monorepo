@@ -71,9 +71,22 @@ export abstract class CoreChainApiBase {
   }: {
     payload: ICoreApiSignBasePayload;
     curve: ICurveName;
-  }) {
+  }): Promise<ISigner> {
     const privateKeys = await this.getPrivateKeys(payload);
-    const privateKey = privateKeys[payload.account.path];
+    const accountPath = payload.account.path;
+    let privateKey = privateKeys[accountPath];
+
+    // account.path is prefixPath, but privateKeys return fullPath map
+    const firstRelPath = payload.account.relPaths?.[0];
+    if (!privateKey && firstRelPath) {
+      const fullPath = [accountPath, firstRelPath].join('/');
+      privateKey = privateKeys[fullPath];
+    }
+
+    if (!privateKey) {
+      throw new Error(`No private key found: ${accountPath}`);
+    }
+
     return this.baseCreateSigner({
       curve,
       privateKey,

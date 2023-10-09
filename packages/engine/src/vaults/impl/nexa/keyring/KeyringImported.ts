@@ -49,6 +49,11 @@ export class KeyringImported extends KeyringImportedBase {
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
   ): Promise<ISignedTxPro> {
+    const dbAccount = await this.getDbAccount();
+    const address = await this.vault.getDisplayAddress(dbAccount.address);
+    unsignedTx.payload = {
+      address,
+    };
     return this.baseSignTransaction(unsignedTx, options);
   }
 
