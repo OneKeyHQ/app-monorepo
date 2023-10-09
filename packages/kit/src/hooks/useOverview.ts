@@ -12,6 +12,7 @@ import type {
 } from '@onekeyhq/engine/src/types/token';
 import KeleLogoPNG from '@onekeyhq/kit/assets/staking/kele_pool.png';
 import { freezedEmptyArray } from '@onekeyhq/shared/src/consts/sharedConsts';
+import { isBTCNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { ModalRoutes, RootRoutes } from '../routes/routesEnum';
@@ -28,7 +29,6 @@ import { useFrozenBalance } from './useTokens';
 
 import type { IAppState } from '../store';
 import type { OverviewDefiRes } from '../views/Overview/types';
-import { isBTCNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
 
 const tasksSelector = ({
   networkId,
