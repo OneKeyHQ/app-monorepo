@@ -79,7 +79,6 @@ export default function ModalStack({ state, navigation, descriptors }: Props) {
             >
               <HeaderView
                 back={headerBack}
-                // @ts-expect-error
                 options={options}
                 route={route}
                 // @ts-expect-error

@@ -63,10 +63,10 @@ function CenteredModal({
           borderTopEndRadius: '$2',
         }}
         $gtMd={{
-          width: '$160',
-          height: '$160',
-          maxWidth: '90%',
-          maxHeight: '90%',
+          width: '90%',
+          height: '90%',
+          maxWidth: '$160',
+          maxHeight: '$160',
           borderRadius: '$2',
         }}
       >
