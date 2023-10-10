@@ -6,8 +6,8 @@ export interface SliderProps extends TMSliderProps {
   disabled?: boolean;
 }
 
-export const Slider = ({ disabled, ...rest }: SliderProps) => (
-  <TMSlider {...rest} h="$1" opacity={disabled ? 0.5 : 1}>
+export const Slider = ({ disabled, ...props }: SliderProps) => (
+  <TMSlider {...props} h="$1" opacity={disabled ? 0.5 : 1} disabled={disabled}>
     <TMSlider.Track bg="$neutral5">
       <TMSlider.TrackActive bg="$bgPrimary" />
     </TMSlider.Track>

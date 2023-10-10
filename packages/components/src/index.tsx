@@ -9,6 +9,7 @@ export { Badge } from './Badge';
 export { Alert } from './Alert';
 export { Divider } from './Divider';
 export { Spinner } from './Spinner';
+export { Popover } from './Popover';
 export { Dialog } from './Dialog';
 export { ActionList } from './ActionList';
 export { Slider } from './Slider';

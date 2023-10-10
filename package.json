@@ -67,6 +67,7 @@
     "@cmdcode/buff-utils": "1.7.4",
     "@cmdcode/crypto-utils": "1.9.5",
     "@cmdcode/tapscript": "1.2.9",
+    "@hookform/error-message": "^2.0.1",
     "@legendapp/state": "^1.2.9",
     "@nderscore/tamagui-typescript-plugin": "^0.5.4",
     "@onekeyfe/cross-inpage-provider-core": "1.1.38",

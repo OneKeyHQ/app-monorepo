@@ -13,11 +13,11 @@ type Action = {
   onPress?: () => void;
 };
 
-type ActionSheetProps = PopoverProps & {
+type ActionListProps = PopoverProps & {
   actions: Action[];
 };
 
-export const ActionList: FC<ActionSheetProps> = ({ actions, ...props }) => (
+export const ActionList: FC<ActionListProps> = ({ actions, ...props }) => (
   <Popover size="$5" allowFlip placement="top" {...props}>
     <Popover.Trigger>
       <ListItem hoverTheme title="action sheet trigger" bordered />

@@ -31,7 +31,7 @@ interface ISelectItem {
 
 interface SelectProps extends TMSelectProps {
   data: ISelectItem[];
-  snapPointsMode?: SheetProps['snapPointsMode'];
+  sheetProps?: SheetProps;
   title: string;
   triggerProps?: SelectTriggerProps;
   renderTrigger?: (item?: ISelectItem) => JSX.Element;
@@ -39,7 +39,7 @@ interface SelectProps extends TMSelectProps {
 
 function Select({
   data,
-  snapPointsMode,
+  sheetProps,
   title = 'Title',
   open,
   defaultOpen,
@@ -73,12 +73,12 @@ function Select({
 
   return (
     <TMSelect
-      {...props}
       disablePreventBodyScroll
       open={isOpen}
       onOpenChange={setOpen}
       value={innerValue}
       onValueChange={setInnerValue}
+      {...props}
     >
       {renderTrigger ? (
         <TMSelect.Trigger
@@ -119,12 +119,7 @@ function Select({
       )}
 
       <Adapt when="md">
-        <Sheet
-          modal
-          dismissOnSnapToBottom
-          animation="quick"
-          snapPointsMode={snapPointsMode}
-        >
+        <Sheet modal dismissOnSnapToBottom animation="quick" {...sheetProps}>
           <Sheet.Frame unstyled>
             <>
               {/* header */}
@@ -138,7 +133,7 @@ function Select({
                 justifyContent="space-between"
                 alignItems="center"
               >
-                <Text variant="$headingLg" color="$text">
+                <Text variant="$headingXl" color="$text">
                   {title}
                 </Text>
                 <IconButton
