@@ -1,4 +1,8 @@
-import { Stack } from '@onekeyhq/components';
+import { useState } from 'react';
+
+import { ListItem } from 'tamagui';
+
+import { Button, Stack, XStack } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components/src/ActionList';
 
 import { Layout } from './utils/Layout';
@@ -17,8 +21,56 @@ const ActionListDemo = () => (
         onPress: () => console.log('action2'),
       },
     ]}
+    renderTrigger={() => (
+      <XStack
+        w="100%"
+        justifyContent="space-between"
+        padding="$4"
+        borderColor="$borderColor"
+        borderWidth="$px"
+        borderRadius="$2"
+        space
+      >
+        <XStack w="$5" h="$5" backgroundColor="$red10" />
+        <XStack w="$5" h="$5" backgroundColor="$blue10" />
+        <XStack w="$5" h="$5" backgroundColor="$yellow10" />
+      </XStack>
+    )}
   />
 );
+
+const ActionListWithButton = () => {
+  const [open, onOpenChange] = useState(false);
+
+  return (
+    <ActionList
+      open={open}
+      onOpenChange={onOpenChange}
+      actions={[
+        {
+          name: 'Action1',
+          icon: 'PlaceholderOutline',
+          onPress: () => console.log('action1'),
+        },
+        {
+          name: 'Action2',
+          icon: 'PlaceholderOutline',
+          onPress: () => console.log('action2'),
+        },
+      ]}
+      renderTrigger={() => (
+        <Button
+          w="100%"
+          size="large"
+          buttonVariant="primary"
+          onPress={() => onOpenChange(true)}
+        >
+          <Button.Text>Button</Button.Text>
+        </Button>
+      )}
+    />
+  );
+};
 
 const ActionListGallery = () => (
   <Layout
@@ -36,10 +88,20 @@ const ActionListGallery = () => (
     ]}
     elements={[
       {
-        title: '默认状态',
+        title: 'ActionList默认',
         element: (
           <Stack space="$1">
-            <ActionListDemo />
+            <XStack w="50%">
+              <ActionListDemo />
+            </XStack>
+          </Stack>
+        ),
+      },
+      {
+        title: 'ActionList with Button',
+        element: (
+          <Stack space="$1">
+            <ActionListWithButton />
           </Stack>
         ),
       },

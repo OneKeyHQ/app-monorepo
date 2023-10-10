@@ -15,20 +15,24 @@ type Action = {
 
 type ActionSheetProps = PopoverProps & {
   actions: Action[];
+  renderTrigger: () => JSX.Element;
 };
 
-export const ActionList: FC<ActionSheetProps> = ({ actions, ...props }) => (
+export const ActionList: FC<ActionSheetProps> = ({
+  actions,
+  renderTrigger,
+  ...props
+}) => (
   <Popover size="$5" allowFlip placement="top" {...props}>
-    <Popover.Trigger>
-      <ListItem hoverTheme title="action sheet trigger" bordered />
-    </Popover.Trigger>
+    <Popover.Trigger>{renderTrigger()}</Popover.Trigger>
     <Popover.Content
       borderWidth={1}
-      backgroundColor="$red10"
+      backgroundColor="$background"
       borderColor="$borderColor"
-      enterStyle={{ y: -10, opacity: 0 }}
-      exitStyle={{ y: -10, opacity: 0 }}
+      enterStyle={{ opacity: 0 }}
+      exitStyle={{ opacity: 1 }}
       elevate
+      margin="$2"
       animation={[
         'quick',
         {
@@ -55,7 +59,7 @@ export const ActionList: FC<ActionSheetProps> = ({ actions, ...props }) => (
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
         />
-        <Popover.Sheet.Frame padding="$4" backgroundColor="$red10">
+        <Popover.Sheet.Frame padding="$4" backgroundColor="$bgActive">
           <Popover.Adapt.Contents />
         </Popover.Sheet.Frame>
       </Popover.Sheet>
