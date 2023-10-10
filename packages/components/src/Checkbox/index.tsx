@@ -8,7 +8,7 @@ import { Stack, XStack } from '../Stack';
 import type { CheckboxProps, CheckedState, SizeTokens } from 'tamagui';
 
 function CheckboxWithLabel({
-  size = '$4',
+  size = '$6',
   label = 'Accept terms and conditions',
   style,
   onChange,
@@ -36,8 +36,8 @@ function CheckboxWithLabel({
           ) : (
             <Stack
               bg="transparent"
-              h="$3"
-              w="$3"
+              h="$4"
+              w="$4"
               borderColor="$borderActive"
               bw={1}
             />
