@@ -20,6 +20,7 @@ export * from './Input';
 export * from './TextArea';
 export * from './Switch';
 export * from './Radio';
+export * from './SearchBar';
 export * from './Provider/hooks/useThemeValue';
 export * from './Provider/hooks/useIsMounted';
 

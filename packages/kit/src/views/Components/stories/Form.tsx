@@ -4,6 +4,7 @@ import {
   Form,
   Input,
   Radio,
+  SearchBar,
   Switch,
   TextArea,
   useForm,
@@ -20,6 +21,7 @@ const Form1 = () => {
       textArea: `textArea1\ntextArea2`,
       switch: true,
       radio: '4',
+      search: 'search',
     },
   });
   return (
@@ -91,6 +93,9 @@ const Form1 = () => {
             { label: 'Fourth value', value: '4' },
           ]}
         />
+      </Form.Field>
+      <Form.Field label="search" name="search">
+        <SearchBar />
       </Form.Field>
     </Form>
   );
