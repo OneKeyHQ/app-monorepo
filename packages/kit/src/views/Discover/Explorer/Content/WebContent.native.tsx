@@ -78,12 +78,7 @@ const WebContent: FC<WebTab & WebViewProps> = ({
           )
         ) {
           handleDeepLinkUrl({ url: navUrl });
-          return false;
         }
-        // canOpenURL may need additional config on android 11+
-        // https://github.com/facebook/react-native/issues/32311#issuecomment-933568611
-        // so just try open directly
-        LinkingOpenUrl(navUrl).catch();
         return false;
       }
       return true;

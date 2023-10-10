@@ -6,8 +6,6 @@ export const WALLET_CONNECT_DEEP_LINK = `${WALLET_CONNECT_DEEP_LINK_NAME}://`;
 export const PROTOCOLS_SUPPORTED_TO_OPEN = [
   'http:' as const,
   'https:' as const,
-  'ipfs:' as const,
-  'localfs:' as const,
   // 'file:' as const,
 
   // OneKey legacy
@@ -19,17 +17,4 @@ export const PROTOCOLS_SUPPORTED_TO_OPEN = [
 
   // lightning network
   'lightning:' as const,
-
-  // Supported thrid party wallets which was registered in info.plist
-  'fireblocks-wc:' as const,
-  'zerion:' as const,
-  'rainbow:' as const,
-  'trust:' as const,
-  'metamask:' as const,
-  'tpoutside:' as const,
-  'imtokenv2:' as const,
-  'bitkeep:' as const,
-  'oneinch:' as const,
-  'itms-appss:' as const,
-  'itms-apps:' as const,
 ];
