@@ -1,10 +1,9 @@
-import { Switch } from 'tamagui';
-
 import {
   Button,
   Checkbox,
   Form,
   Input,
+  Switch,
   TextArea,
   useForm,
 } from '@onekeyhq/components';
@@ -18,6 +17,7 @@ const Form1 = () => {
       length: '1234567',
       checkbox: true,
       textArea: `textArea1\ntextArea2`,
+      switch: true,
     },
   });
   return (
@@ -78,10 +78,8 @@ const Form1 = () => {
       <Form.Field label="Checkbox" name="checkbox">
         <Checkbox label="checkbox" />
       </Form.Field>
-      <Form.Field label="Notify" name="notify">
-        <Switch id="notify">
-          <Switch.Thumb animation="quick" />
-        </Switch>
+      <Form.Field label="Switch" name="switch">
+        <Switch />
       </Form.Field>
     </Form>
   );
