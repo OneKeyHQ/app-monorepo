@@ -3,6 +3,7 @@ import {
   Checkbox,
   Form,
   Input,
+  Radio,
   Switch,
   TextArea,
   useForm,
@@ -18,6 +19,7 @@ const Form1 = () => {
       checkbox: true,
       textArea: `textArea1\ntextArea2`,
       switch: true,
+      radio: '4',
     },
   });
   return (
@@ -80,6 +82,15 @@ const Form1 = () => {
       </Form.Field>
       <Form.Field label="Switch" name="switch">
         <Switch />
+      </Form.Field>
+      <Form.Field label="Radio" name="radio">
+        <Radio
+          options={[
+            { label: 'Second value', value: '2' },
+            { label: 'Third value', value: '3' },
+            { label: 'Fourth value', value: '4' },
+          ]}
+        />
       </Form.Field>
     </Form>
   );
