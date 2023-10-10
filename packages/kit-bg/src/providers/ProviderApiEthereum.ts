@@ -195,6 +195,15 @@ class ProviderApiEthereum extends ProviderApiBase {
     if (!isNil(transaction.value)) {
       transaction.value = prefixTxValueToHex(transaction.value);
     }
+
+    const nonceBN = new BigNumber(transaction.nonce ?? 0);
+
+    // https://app.chainspot.io/
+    // some dapp may send tx with incorrect nonce 0
+    if (nonceBN.isNaN() || nonceBN.isLessThanOrEqualTo(0)) {
+      delete transaction.nonce;
+    }
+
     const result = await this.backgroundApi.serviceDapp?.openSignAndSendModal(
       request,
       {
