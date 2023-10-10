@@ -7,7 +7,6 @@ import {
   useState,
 } from 'react';
 
-import { ErrorMessage } from '@hookform/error-message';
 import { useHeaderHeight as useHeaderHeightOG } from '@react-navigation/elements';
 import { noop } from 'lodash';
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
@@ -25,7 +24,11 @@ import {
 
 import { Text } from '../Text';
 
-import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';
+import type {
+  ControllerRenderProps,
+  FieldErrors,
+  UseFormReturn,
+} from 'react-hook-form';
 import type { GetProps } from 'tamagui';
 
 const useHeaderHeight = () => {
@@ -36,18 +39,18 @@ const useHeaderHeight = () => {
   }
 };
 
-export interface FormProps {
+export type FormProps = PropsWithChildren<{
   form: UseFormReturn<any>;
   header?: React.ReactNode;
   footer?: React.ReactNode;
-}
+}>;
 
 export function FormWrapper({
   form: formContext,
   header,
   children,
   footer,
-}: PropsWithChildren<FormProps>) {
+}: FormProps) {
   const [height, setHeight] = useState(0);
   const dimensions = useWindowDimensions();
   const headerHeight = useHeaderHeight();
@@ -94,6 +97,7 @@ const getChildProps = (
   child: ReactElement,
   field: ControllerRenderProps<any, string>,
   validateField: () => void,
+  error: Error,
 ) => {
   const { onBlur } = child.props as { onBlur?: () => void };
   const handleBlur = () => {
@@ -107,6 +111,7 @@ const getChildProps = (
     case Input:
       return {
         ...field,
+        borderColor: error ? '$textCritical' : undefined,
         onChangeText: field.onChange,
       };
     default:
@@ -128,26 +133,28 @@ function Field({ name, label, rules, children }: FieldProps) {
   const validateField = useCallback(() => {
     trigger(name);
   }, [name, trigger]);
+  const error = errors[name] as Error;
   return (
     <Controller
       name={name}
       control={control}
       rules={rules}
       render={({ field }) => (
-        <Fieldset>
-          <Label width={90} htmlFor={name}>
-            {label}
-          </Label>
+        <Fieldset borderWidth={0}>
+          <Label htmlFor={name}>{label}</Label>
           {Children.map(children as ReactChildren, (child) =>
             isValidElement(child)
-              ? cloneElement(child, getChildProps(child, field, validateField))
+              ? cloneElement(
+                  child,
+                  getChildProps(child, field, validateField, error),
+                )
               : child,
           )}
-          <ErrorMessage
-            errors={errors}
-            name={name}
-            render={({ message }) => <Text>{message}</Text>}
-          />
+          {error?.message ? (
+            <Text ml="$2" color="$textCritical" fontSize="$bodyMd">
+              {error.message}
+            </Text>
+          ) : null}
         </Fieldset>
       )}
     />

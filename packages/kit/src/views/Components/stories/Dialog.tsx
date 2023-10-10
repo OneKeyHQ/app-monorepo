@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import { Input } from 'tamagui';
+
 import { Button, Dialog, Text, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
@@ -126,6 +128,73 @@ const DialogGallery = () => (
               }
             >
               <Button.Text>load remote data failed</Button.Text>
+            </Button>
+          </YStack>
+        ),
+      },
+      {
+        title: 'Dialog Form',
+        element: (
+          <YStack>
+            <Button
+              mt="$4"
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'Password',
+                  description: 'input password',
+                  renderContent: (
+                    <Dialog.Form
+                      useFormProps={
+                        {
+                          defaultValues: {
+                            name: 'Nate Wienert',
+                            length: '1234567',
+                          },
+                        } as any
+                      }
+                    >
+                      <Dialog.FormField label="Name" name="name">
+                        <Input flex={1} />
+                      </Dialog.FormField>
+                      <Dialog.FormField
+                        label="MaxLength"
+                        name="length"
+                        rules={{
+                          maxLength: { value: 6, message: 'maxLength is 6' },
+                        }}
+                      >
+                        <Input placeholder="Max Length Limit" />
+                      </Dialog.FormField>
+                      <Dialog.FormField
+                        label="Required"
+                        name="required"
+                        rules={{
+                          required: {
+                            value: true,
+                            message: 'requied input text',
+                          },
+                        }}
+                      >
+                        <Input placeholder="Required" />
+                      </Dialog.FormField>
+                    </Dialog.Form>
+                  ),
+                  onConfirm: async ({ form }) => {
+                    if (form) {
+                      const isValid = await form.trigger();
+                      if (isValid) {
+                        alert(JSON.stringify(form.getValues()));
+                      } else {
+                        alert('请检查输入项');
+                      }
+                      return isValid;
+                    }
+                    return false;
+                  },
+                })
+              }
+            >
+              <Button.Text>Open Dialog Form</Button.Text>
             </Button>
           </YStack>
         ),
