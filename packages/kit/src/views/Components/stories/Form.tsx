@@ -1,6 +1,6 @@
 import { Input, Label, Switch } from 'tamagui';
 
-import { Button, Form, useForm } from '@onekeyhq/components';
+import { Button, Checkbox, Form, useForm } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -9,6 +9,7 @@ const Form1 = () => {
     defaultValues: {
       name: 'Nate Wienert',
       length: '1234567',
+      checkbox: true,
     },
   });
   return (
@@ -46,6 +47,9 @@ const Form1 = () => {
         rules={{ required: { value: true, message: 'requied input text' } }}
       >
         <Input placeholder="Required" />
+      </Form.Field>
+      <Form.Field label="Checkbox" name="checkbox">
+        <Checkbox label="checkbox" />
       </Form.Field>
       <Form.Field label="Notify" name="notify">
         <Switch id="notify">

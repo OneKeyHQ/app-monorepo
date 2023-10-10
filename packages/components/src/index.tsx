@@ -8,6 +8,7 @@ export * from './Stack';
 export * from './Badge';
 export * from './Alert';
 export * from './Divider';
+export * from './Checkbox';
 export * from './Spinner';
 export * from './Dialog';
 export * from './ActionList';
