@@ -1,4 +1,4 @@
-import { Input, Label, Switch } from 'tamagui';
+import { Input, Switch, TextArea } from 'tamagui';
 
 import { Button, Checkbox, Form, useForm } from '@onekeyhq/components';
 
@@ -10,6 +10,7 @@ const Form1 = () => {
       name: 'Nate Wienert',
       length: '1234567',
       checkbox: true,
+      textArea: `textArea1\ntextArea2`,
     },
   });
   return (
@@ -47,6 +48,25 @@ const Form1 = () => {
         rules={{ required: { value: true, message: 'requied input text' } }}
       >
         <Input placeholder="Required" />
+      </Form.Field>
+      <Form.Field
+        label="TextArea"
+        name="textArea"
+        rules={{
+          // async validate
+          validate: (value: string) =>
+            new Promise((resolve) => {
+              setTimeout(() => {
+                if (value.includes('textArea')) {
+                  resolve('`textArea` annot be included in this value');
+                } else {
+                  resolve(true);
+                }
+              }, 1500);
+            }),
+        }}
+      >
+        <TextArea multiline h="$16" placeholder="TextArea" />
       </Form.Field>
       <Form.Field label="Checkbox" name="checkbox">
         <Checkbox label="checkbox" />
