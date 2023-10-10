@@ -145,30 +145,33 @@ function DialogFrame({
   );
   if (media.md) {
     return (
-      <Sheet
-        modal
-        open={open}
-        position={position}
-        onPositionChange={setPosition}
-        dismissOnSnapToBottom={dismissOnSnapToBottom}
-        dismissOnOverlayPress={backdrop}
-        onOpenChange={handleOpenChange}
-        snapPointsMode="fit"
-      >
-        <Sheet.Overlay
-          animation="lazy"
-          enterStyle={{ opacity: 0 }}
-          exitStyle={{ opacity: 0 }}
-          backgroundColor="$bgBackdrop"
-        />
-        <Sheet.Handle
-          marginHorizontal="auto"
-          width="$20"
-          height="$1"
-          backgroundColor="rgba(255, 255, 255, 0.5)"
-        />
-        <Sheet.Frame>{content}</Sheet.Frame>
-      </Sheet>
+      <>
+        {renderTrigger && <Stack onPress={onOpen}>{renderTrigger}</Stack>}
+        <Sheet
+          modal
+          open={open}
+          position={position}
+          onPositionChange={setPosition}
+          dismissOnSnapToBottom={dismissOnSnapToBottom}
+          dismissOnOverlayPress={backdrop}
+          onOpenChange={handleOpenChange}
+          snapPointsMode="fit"
+        >
+          <Sheet.Overlay
+            animation="lazy"
+            enterStyle={{ opacity: 0 }}
+            exitStyle={{ opacity: 0 }}
+            backgroundColor="$bgBackdrop"
+          />
+          <Sheet.Handle
+            marginHorizontal="auto"
+            width="$20"
+            height="$1"
+            backgroundColor="rgba(255, 255, 255, 0.5)"
+          />
+          <Sheet.Frame>{content}</Sheet.Frame>
+        </Sheet>
+      </>
     );
   }
 
