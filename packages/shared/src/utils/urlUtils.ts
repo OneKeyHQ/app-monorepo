@@ -1,3 +1,5 @@
+import { PROTOCOLS_SUPPORTED_TO_OPEN } from '../consts/urlProtocolConsts';
+
 function getHostNameFromUrl({ url }: { url: string }): string {
   try {
     const urlInfo = new URL(url);
@@ -17,17 +19,9 @@ function safeParseURL(url: string): URL | null {
   }
 }
 
-const PROTOCOLS_SUPPORTED_TO_OPEN = [
-  'http:' as const,
-  'https:' as const,
-  'ipfs:' as const,
-  'localfs:' as const,
-  // 'file:' as const,
-];
-
 function isProtocolSupportedOpenInApp(dappUrl: string) {
   return PROTOCOLS_SUPPORTED_TO_OPEN.some((protocol) =>
-    dappUrl.startsWith(`${protocol}//`),
+    dappUrl.toLowerCase().startsWith(`${protocol.toLowerCase()}//`),
   );
 }
 
@@ -39,6 +33,7 @@ enum DAppOpenActionEnum {
 function parseDappRedirect(url: string): { action: DAppOpenActionEnum } {
   const parsedUrl = safeParseURL(url);
   if (!parsedUrl || !isProtocolSupportedOpenInApp(parsedUrl.toString())) {
+    console.log('====>>>>>>>reject deney: ', url);
     return { action: DAppOpenActionEnum.DENY };
   }
 

@@ -11,6 +11,7 @@ import { uniq } from 'lodash';
 import { Linking, Platform } from 'react-native';
 
 import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { ONEKEY_APP_DEEP_LINK } from '@onekeyhq/shared/src/consts/urlProtocolConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -23,7 +24,6 @@ import {
 import { EXT_HTML_FILES } from '../../../utils/extUtils.getHtml';
 import { getTimeDurationMs } from '../../../utils/helper';
 import unlockUtils from '../../AppLock/unlockUtils';
-import { ONEKEY_APP_DEEP_LINK } from '../walletConnectConsts';
 
 import type { WalletService } from '../types';
 import type { ISessionStatusPro } from '../WalletConnectClientForDapp';

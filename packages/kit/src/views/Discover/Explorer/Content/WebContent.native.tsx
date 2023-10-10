@@ -5,6 +5,7 @@ import { openURL as LinkingOpenUrl } from 'expo-linking';
 // import { captureRef } from 'react-native-view-shot';
 
 import WebView from '@onekeyhq/kit/src/components/WebView';
+import urlUtils from '@onekeyhq/shared/src/utils/urlUtils';
 
 import { WALLET_CONNECT_PROTOCOL_PREFIXES } from '../../../../components/WalletConnect/walletConnectConsts';
 import useBackHandler from '../../../../hooks/useBackHandler';
@@ -64,8 +65,13 @@ const WebContent: FC<WebTab & WebViewProps> = ({
   const onShouldStartLoadWithRequest = useCallback(
     (navigationStateChangeEvent: WebViewNavigation) => {
       const { url: navUrl } = navigationStateChangeEvent;
-      const isDeepLink = !navUrl.startsWith('http') && navUrl !== 'about:blank';
-      if (isDeepLink) {
+      const maybeDeepLink =
+        !navUrl.startsWith('http') && navUrl !== 'about:blank';
+      if (maybeDeepLink) {
+        const { action } = urlUtils.parseDappRedirect(navUrl);
+        if (action === urlUtils.DAppOpenActionEnum.DENY) {
+          return false;
+        }
         if (
           WALLET_CONNECT_PROTOCOL_PREFIXES.some((prefix) =>
             navUrl.startsWith(prefix),

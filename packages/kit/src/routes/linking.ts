@@ -2,12 +2,12 @@ import { getPathFromState as getPathFromStateDefault } from '@react-navigation/c
 import * as Linking from 'expo-linking';
 import { merge } from 'lodash';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import {
   ONEKEY_APP_DEEP_LINK,
   WALLET_CONNECT_DEEP_LINK,
-} from '../components/WalletConnect/walletConnectConsts';
+} from '@onekeyhq/shared/src/consts/urlProtocolConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { getExtensionIndexHtml } from '../utils/extUtils.getHtml';
 import { EOnboardingRoutes } from '../views/Onboarding/routes/enums';
 

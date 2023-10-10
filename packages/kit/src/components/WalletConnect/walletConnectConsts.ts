@@ -1,5 +1,9 @@
 import { Platform } from 'react-native';
 
+import {
+  ONEKEY_APP_DEEP_LINK_NAME,
+  WALLET_CONNECT_DEEP_LINK_NAME,
+} from '@onekeyhq/shared/src/consts/urlProtocolConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getTimeDurationMs } from '../../utils/helper';
@@ -34,11 +38,6 @@ export const WALLET_CONNECT_SEND_SHOW_DISCONNECT_BUTTON_DELAY =
 
 export const WALLET_CONNECT_IS_NATIVE_QRCODE_MODAL = platformEnv.isNative;
 // export const WALLET_CONNECT_IS_NATIVE_QRCODE_MODAL = true;
-
-export const ONEKEY_APP_DEEP_LINK_NAME = 'onekey-wallet';
-export const ONEKEY_APP_DEEP_LINK = `${ONEKEY_APP_DEEP_LINK_NAME}://`; // onekey:// will open onekey legacy
-export const WALLET_CONNECT_DEEP_LINK_NAME = 'wc';
-export const WALLET_CONNECT_DEEP_LINK = `${WALLET_CONNECT_DEEP_LINK_NAME}://`;
 
 export const WALLET_CONNECT_PROTOCOL_PREFIXES = [
   ONEKEY_APP_DEEP_LINK_NAME,

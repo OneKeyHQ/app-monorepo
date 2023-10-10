@@ -19,6 +19,10 @@ import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
 
+import {
+  ONEKEY_APP_DEEP_LINK_NAME,
+  WALLET_CONNECT_DEEP_LINK_NAME,
+} from '@onekeyhq/shared/src/consts/urlProtocolConsts';
 import urlUtils from '@onekeyhq/shared/src/utils/urlUtils';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -28,9 +32,6 @@ import * as store from './libs/store';
 import initProcess, { restartBridge } from './process/index';
 
 import type { PrefType } from './preload';
-
-const ONEKEY_APP_DEEP_LINK_NAME = 'onekey-wallet';
-const WALLET_CONNECT_DEEP_LINK_NAME = 'wc';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-call
 const config = new Config() as

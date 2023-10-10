@@ -24,7 +24,6 @@ export function buildAccountLandingLink({
 }) {
   const url = `/account/${address}/${networkId || ''}`;
   const webOrigin = 'https://app.onekey.so';
-  // return `${ONEKEY_APP_DEEP_LINK}${url}`;
   return `${webOrigin}${url}`;
 }
 

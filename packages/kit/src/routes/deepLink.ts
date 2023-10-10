@@ -3,17 +3,17 @@ import { isString } from 'lodash';
 
 import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/src-electron/app';
 import type { DesktopAPI } from '@onekeyhq/desktop/src-electron/preload';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-
-import walletConnectUtils from '../components/WalletConnect/utils/walletConnectUtils';
 import {
   ONEKEY_APP_DEEP_LINK,
   ONEKEY_APP_DEEP_LINK_NAME,
   WALLET_CONNECT_DEEP_LINK,
   WALLET_CONNECT_DEEP_LINK_NAME,
-} from '../components/WalletConnect/walletConnectConsts';
+} from '@onekeyhq/shared/src/consts/urlProtocolConsts';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+
+import walletConnectUtils from '../components/WalletConnect/utils/walletConnectUtils';
 
 type IDeepLinkUrlParsedResult = {
   type: 'walletConnect';
