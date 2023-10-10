@@ -13,22 +13,19 @@ import { Controller, FormProvider, useFormContext } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform } from 'react-native';
 import {
   Fieldset,
-  Input,
   Label,
   ScrollView,
   Form as TMForm,
-  YStack,
   useWindowDimensions,
   withStaticProperties,
 } from 'tamagui';
 
+import { Input } from '../Input';
+import { YStack } from '../Stack';
 import { Text } from '../Text';
+import { TextArea } from '../TextArea';
 
-import type {
-  ControllerRenderProps,
-  FieldErrors,
-  UseFormReturn,
-} from 'react-hook-form';
+import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';
 import type { GetProps } from 'tamagui';
 
 const useHeaderHeight = () => {
@@ -109,6 +106,7 @@ const getChildProps = (
   field.onBlur = handleBlur;
   switch (child.type) {
     case Input:
+    case TextArea:
       return {
         ...field,
         borderColor: error ? '$textCritical' : undefined,

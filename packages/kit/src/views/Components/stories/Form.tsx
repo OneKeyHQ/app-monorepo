@@ -1,6 +1,13 @@
-import { Input, Switch, TextArea } from 'tamagui';
+import { Switch } from 'tamagui';
 
-import { Button, Checkbox, Form, useForm } from '@onekeyhq/components';
+import {
+  Button,
+  Checkbox,
+  Form,
+  Input,
+  TextArea,
+  useForm,
+} from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
