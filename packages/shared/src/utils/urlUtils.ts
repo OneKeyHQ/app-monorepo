@@ -33,7 +33,7 @@ enum DAppOpenActionEnum {
 function parseDappRedirect(url: string): { action: DAppOpenActionEnum } {
   const parsedUrl = safeParseURL(url);
   if (!parsedUrl || !isProtocolSupportedOpenInApp(parsedUrl.toString())) {
-    console.log('====>>>>>>>reject deney: ', url);
+    console.log('====>>>>>>>reject navigate: ', url);
     return { action: DAppOpenActionEnum.DENY };
   }
 
