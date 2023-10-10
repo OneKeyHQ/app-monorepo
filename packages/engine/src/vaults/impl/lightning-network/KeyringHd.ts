@@ -50,6 +50,15 @@ export class KeyringHd extends KeyringHdBase {
       isTestnet: network.isTestnet,
     });
 
+    if (
+      nativeSegwitAccounts.length !== indexes.length ||
+      nativeSegwitAccounts.length > 1
+    ) {
+      throw new Error(
+        'Unable to generate accounts, we need support for bulk account creation',
+      );
+    }
+
     const client = await (this.vault as LightningVault).getClient();
 
     const ret = [];
