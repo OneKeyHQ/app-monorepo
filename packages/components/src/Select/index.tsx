@@ -29,16 +29,170 @@ interface ISelectItem {
   leading?: ListItemProps['icon']; //
 }
 
+interface ISelectSection {
+  items: ISelectItem[];
+  title?: string;
+}
+
 interface SelectProps extends TMSelectProps {
-  data: ISelectItem[];
+  items?: ISelectItem[];
+  sections?: ISelectSection[];
   snapPointsMode?: SheetProps['snapPointsMode'];
   title: string;
   triggerProps?: SelectTriggerProps;
   renderTrigger?: (item?: ISelectItem) => JSX.Element;
 }
 
+function SelectSectionsContent({
+  sections = [],
+}: {
+  sections?: ISelectSection[];
+}) {
+  const media = useMedia();
+  return (
+    <TMSelect.Viewport
+      unstyled
+      minWidth="$48"
+      outlineWidth="$px"
+      outlineColor="$neutral2"
+      outlineStyle="solid"
+      borderRadius="$3"
+      overflow="hidden"
+      elevate
+      backgroundColor="$bg"
+      padding="$1"
+    >
+      {sections?.map((section) => (
+        <TMSelect.Group>
+          {section.title ? (
+            <TMSelect.Label asChild>
+              <Text
+                variant="$headingXs"
+                $md={{ variant: '$headingSm', paddingVertical: '$2.5' }}
+                paddingVertical="$1.5"
+                paddingHorizontal="$2"
+                color="$textSubdued"
+              >
+                {section.title}
+              </Text>
+            </TMSelect.Label>
+          ) : null}
+          {section.items.map((item, i) => (
+            <TMSelect.Item
+              index={i}
+              key={item.label}
+              value={item.value}
+              minHeight="auto"
+              backgroundColor="$transparent"
+              borderRadius="$2"
+              paddingVertical="$1.5"
+              paddingHorizontal="$2"
+              $md={{
+                paddingVertical: '$2.5',
+                paddingRight: 11,
+              }}
+              icon={item.leading}
+              justifyContent="flex-start"
+            >
+              <TMSelect.ItemText
+                flex={1}
+                $md={{
+                  fontSize: '$bodyLg',
+                  fontWeight: '$bodyLg',
+                  lineHeight: '$bodyLg',
+                }}
+                fontSize="$bodyMd"
+                fontWeight="$bodyMd"
+                lineHeight="$bodyMd"
+              >
+                {item.label}
+              </TMSelect.ItemText>
+
+              <TMSelect.ItemIndicator marginLeft="auto">
+                <Icon
+                  name="CheckLargeOutline"
+                  size="$4"
+                  color="$iconActive"
+                  {...(media.md && {
+                    name: 'CheckRadioSolid',
+                    size: '$6',
+                  })}
+                />
+              </TMSelect.ItemIndicator>
+            </TMSelect.Item>
+          ))}
+        </TMSelect.Group>
+      ))}
+    </TMSelect.Viewport>
+  );
+}
+
+function SelectItemsContent({ items = [] }: { items?: ISelectItem[] }) {
+  const media = useMedia();
+  return (
+    <TMSelect.Viewport
+      unstyled
+      minWidth="$48"
+      outlineWidth="$px"
+      outlineColor="$neutral2"
+      outlineStyle="solid"
+      borderRadius="$3"
+      overflow="hidden"
+      elevate
+      backgroundColor="$bg"
+      padding="$1"
+    >
+      {items.map((item, i) => (
+        <TMSelect.Item
+          index={i}
+          key={item.value}
+          value={item.value}
+          minHeight="auto"
+          backgroundColor="$transparent"
+          borderRadius="$2"
+          paddingVertical="$1.5"
+          paddingHorizontal="$2"
+          $md={{
+            paddingVertical: '$2.5',
+            paddingRight: 11,
+          }}
+          icon={item.leading}
+          justifyContent="flex-start"
+        >
+          <TMSelect.ItemText
+            flex={1}
+            $md={{
+              fontSize: '$bodyLg',
+              fontWeight: '$bodyLg',
+              lineHeight: '$bodyLg',
+            }}
+            fontSize="$bodyMd"
+            fontWeight="$bodyMd"
+            lineHeight="$bodyMd"
+          >
+            {item.label}
+          </TMSelect.ItemText>
+
+          <TMSelect.ItemIndicator marginLeft="auto">
+            <Icon
+              name="CheckLargeOutline"
+              size="$4"
+              color="$iconActive"
+              {...(media.md && {
+                name: 'CheckRadioSolid',
+                size: '$6',
+              })}
+            />
+          </TMSelect.ItemIndicator>
+        </TMSelect.Item>
+      ))}
+    </TMSelect.Viewport>
+  );
+}
+
 function Select({
-  data,
+  items,
+  sections,
   snapPointsMode,
   title = 'Title',
   open,
@@ -52,8 +206,6 @@ function Select({
   ...props
 }: SelectProps) {
   const { bottom } = useSafeAreaInsets();
-  const media = useMedia();
-
   const [isOpen, setOpen] = useControllableState({
     prop: open,
     defaultProp: !!defaultOpen,
@@ -66,9 +218,20 @@ function Select({
     onChange: onValueChange,
   });
 
+  const allItems = useMemo(
+    () =>
+      sections && sections.length > 0
+        ? sections.reduce(
+            (result, item) => result.concat(item.items),
+            [] as ISelectItem[],
+          )
+        : items,
+    [sections, items],
+  );
+
   const activeItem = useMemo(
-    () => data.find((item) => item.value === innerValue),
-    [data, innerValue],
+    () => allItems?.find((item) => item.value === innerValue),
+    [allItems, innerValue],
   );
 
   return (
@@ -197,68 +360,11 @@ function Select({
             borderRadius="$3"
           />
         </TMSelect.ScrollUpButton>
-        <TMSelect.Viewport
-          unstyled
-          minWidth="$48"
-          outlineWidth="$px"
-          outlineColor="$neutral2"
-          outlineStyle="solid"
-          borderRadius="$3"
-          overflow="hidden"
-          elevate
-          backgroundColor="$bg"
-          padding="$1"
-        >
-          {useMemo(
-            () =>
-              data.map((item, i) => (
-                <TMSelect.Item
-                  index={i}
-                  key={item.value}
-                  value={item.value}
-                  minHeight="auto"
-                  backgroundColor="$transparent"
-                  borderRadius="$2"
-                  paddingVertical="$1.5"
-                  paddingHorizontal="$2"
-                  $md={{
-                    paddingVertical: '$2.5',
-                    paddingRight: 11,
-                  }}
-                  icon={item.leading}
-                  justifyContent="flex-start"
-                >
-                  <TMSelect.ItemText
-                    flex={1}
-                    $md={{
-                      fontSize: '$bodyLg',
-                      fontWeight: '$bodyLg',
-                      lineHeight: '$bodyLg',
-                    }}
-                    fontSize="$bodyMd"
-                    fontWeight="$bodyMd"
-                    lineHeight="$bodyMd"
-                  >
-                    {item.label}
-                  </TMSelect.ItemText>
-
-                  <TMSelect.ItemIndicator marginLeft="auto">
-                    <Icon
-                      name="CheckLargeOutline"
-                      size="$4"
-                      color="$iconActive"
-                      {...(media.md && {
-                        name: 'CheckRadioSolid',
-                        size: '$6',
-                      })}
-                    />
-                  </TMSelect.ItemIndicator>
-                </TMSelect.Item>
-              )),
-
-            [data, media.md],
-          )}
-        </TMSelect.Viewport>
+        {sections && sections.length > 0 ? (
+          <SelectSectionsContent sections={sections} />
+        ) : (
+          <SelectItemsContent items={items} />
+        )}
         <TMSelect.ScrollDownButton
           alignItems="center"
           justifyContent="center"
@@ -287,4 +393,4 @@ function Select({
 
 Select.displayName = 'Select';
 export { Select };
-export type { SelectProps, ISelectItem };
+export type { SelectProps, ISelectItem, ISelectSection };
