@@ -31,13 +31,13 @@ function ActionListItem({
         py: '$2.5',
         borderRadius: '$3',
       }}
-      space="$3"
       alignItems="center"
     >
       {icon && (
         <Icon
           name={icon}
           size="$5"
+          mr="$3"
           $md={{ size: '$6' }}
           color={destructive ? '$iconCritical' : '$icon'}
         />

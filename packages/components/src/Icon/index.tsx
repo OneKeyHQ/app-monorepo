@@ -17,9 +17,8 @@ export type IconProps = Omit<SvgProps, 'color'> & {
 
 const ComponentMaps: Record<string, typeof Svg> = {};
 
+const DEFAULT_SIZE = 24
 const RawIcon = ({ name = 'AkashIllus', style }: IconProps) => {
-  const width = style?.width || 24;
-  const height = style?.height || 24;
   const defaultColor = useThemeValue('icon-default') as string;
   const primaryColor: string = (style?.color as string) || defaultColor;
   const SVGComponent = ComponentMaps[name];
@@ -43,8 +42,9 @@ const RawIcon = ({ name = 'AkashIllus', style }: IconProps) => {
 
   return (
     <SVGComponent
-      width={width}
-      height={height}
+      width={style?.width || DEFAULT_SIZE}
+      height={style?.height || DEFAULT_SIZE}
+      style={style}
       color={primaryColor || defaultColor}
     />
   );
