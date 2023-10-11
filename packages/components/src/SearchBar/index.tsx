@@ -43,7 +43,7 @@ export function SearchBar({ value, onChange, onBlur }: SearchBarProps) {
             scale: 0.9,
           }}
         >
-          <Icon name="SearchOutline" animation="lazy" size="$6" />
+          <Icon name="SearchOutline" size="$6" />
         </Stack>
       </AnimatePresence>
       <Input
@@ -76,7 +76,7 @@ export function SearchBar({ value, onChange, onBlur }: SearchBarProps) {
             }}
             onPress={handleClearValue}
           >
-            <Icon name="XCircleOutline" animation="lazy" size="$6" />
+            <Icon name="XCircleOutline" size="$6" />
           </Stack>
         ) : null}
       </AnimatePresence>
