@@ -296,6 +296,14 @@ open class HomePageLayout @JvmOverloads constructor(
         viewpager.isUserInputEnabled = enabled
     }
 
+    fun setSpinnerColor(spinnerColor: String?) {
+        tabLayout?.let {
+            spinnerColor?.let { color ->
+                layoutRefresh.setColorSchemeColors(parseColor(color))
+            }
+        }
+    }
+
     fun updateTabsTitle() {
         tabLayout?.let { tabView ->
             mTabViewStyle?.let { tabViewStyle ->

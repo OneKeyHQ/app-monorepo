@@ -83,6 +83,7 @@ export interface SearchBarProps {
    * @default true
    */
   shouldShowHintSearchIcon?: boolean;
+  hideNavigationBar?: boolean;
 }
 
 export type StackHeaderProps = {

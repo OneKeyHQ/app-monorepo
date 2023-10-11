@@ -54,6 +54,11 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
         view.setScrollEnabled(enable ?: false)
     }
 
+    @ReactProp(name = "spinnerColor")
+    fun setSpinnerColor(view: HomePageView, @Nullable spinnerColor: String?) {
+        view.setSpinnerColor(spinnerColor)
+    }
+
     @ReactProp(name = "tabViewStyle")
     fun setTabViewStyle(view: HomePageView?, style: ReadableMap?) {
         style?.apply {

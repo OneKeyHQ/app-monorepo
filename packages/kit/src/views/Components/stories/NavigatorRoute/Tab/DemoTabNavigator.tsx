@@ -8,6 +8,7 @@ import {
   DemoHomeTabRoutes,
   DemoMeTabRoutes,
   DemoTabRoutes,
+  DemoTabsTabRoutes,
 } from './Routes';
 import DemoRootDeveloper from './View/DemoRootDeveloper';
 import DemoRootDeveloperOptions from './View/DemoRootDeveloperOptions';
@@ -15,6 +16,7 @@ import DemoRootHome from './View/DemoRootHome';
 import DemoRootHomeOptions from './View/DemoRootHomeOptions';
 import DemoRootHomeSearch from './View/DemoRootHomeSearch';
 import DemoRootMe from './View/DemoRootMe';
+import DemoRootTabs from './View/DemoRootTabs';
 
 const config: TabNavigatorConfig<DemoTabRoutes>[] = [
   {
@@ -50,6 +52,19 @@ const config: TabNavigatorConfig<DemoTabRoutes>[] = [
         name: DemoMeTabRoutes.DemoRootMe,
         component: DemoRootMe,
         translationId: 'Me',
+      },
+    ],
+  },
+  {
+    name: DemoTabRoutes.Tabs,
+    tabBarIcon: (focused?: boolean) =>
+      focused ? 'ChatGptSolid' : 'ChatGptOutline',
+    translationId: 'form__tabs',
+    children: [
+      {
+        name: DemoTabsTabRoutes.DemoRootTabs,
+        component: DemoRootTabs,
+        translationId: 'Tabs',
       },
     ],
   },

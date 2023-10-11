@@ -6,7 +6,7 @@ import { makeHeaderScreenOptions } from './Header';
 
 import type { StackNavigationOptions } from './ScreenProps';
 import type { RouteProp } from '@react-navigation/native';
-import { VariableVal } from '@tamagui/core';
+import type { VariableVal } from '@tamagui/core';
 
 export function clearStackNavigatorOptions(options?: {
   bgColor?: string;
@@ -49,14 +49,16 @@ export function makeModalOpenAnimationOptions(_: {
 export function makeModalStackNavigatorOptions({
   navInfo,
   bgColor,
+  titleColor,
 }: {
+  bgColor: VariableVal;
+  titleColor: VariableVal;
   isVerticalLayout?: boolean;
   navInfo?: {
     route: RouteProp<any>;
     navigation: any;
   };
-  bgColor?: VariableVal;
-} = {}): StackNavigationOptions {
+}): StackNavigationOptions {
   let options: StackNavigationOptions = {};
 
   if (platformEnv.isNativeAndroid) {
@@ -69,6 +71,8 @@ export function makeModalStackNavigatorOptions({
       ...makeHeaderScreenOptions({
         isModelScreen: true,
         navigation: navInfo?.navigation,
+        bgColor,
+        titleColor,
       }),
     };
   }
@@ -90,6 +94,8 @@ export function makeModalStackNavigatorOptions({
       ...makeHeaderScreenOptions({
         isModelScreen: true,
         navigation: navInfo?.navigation,
+        bgColor,
+        titleColor,
       }),
       // @ts-expect-error
       contentStyle: { backgroundColor: bgColor ?? 'transparent' },
@@ -130,14 +136,20 @@ export function makeRootModalStackOptions(): StackNavigationOptions {
 
 export function makeTabScreenOptions({
   navigation,
+  bgColor,
+  titleColor,
 }: {
   navigation: any;
+  bgColor: VariableVal;
+  titleColor: VariableVal;
 }): StackNavigationOptions {
   const options: StackNavigationOptions = {
     headerShown: true,
     ...makeHeaderScreenOptions({
       isRootScreen: true,
       navigation,
+      bgColor,
+      titleColor,
     }),
   };
 

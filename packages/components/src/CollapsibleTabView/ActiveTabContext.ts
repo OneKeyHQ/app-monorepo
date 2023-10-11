@@ -5,3 +5,9 @@ export const ActiveTabContext = createContext({
 });
 
 export const useActiveTab = () => useContext(ActiveTabContext);
+
+export const TabStatusContext = createContext({
+  isTabActive: false,
+});
+
+export const useTabStatus = () => useContext(TabStatusContext);

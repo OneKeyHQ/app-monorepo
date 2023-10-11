@@ -1,11 +1,13 @@
-import { memo, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import useIsVerticalLayout from '../../Provider/hooks/useIsVerticalLayout';
+import { useThemeValue } from '../../Provider/hooks/useThemeValue';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 import NavigationBar from '../Tab/TabBar';
+import { tabRouteWrapper } from '../Tab/tabRouteWrapper';
 
 import type { ICON_NAMES } from '../../Icon';
 import type { CommonNavigatorConfig } from './types';
@@ -38,25 +40,25 @@ function TabSubStackNavigator({
 }: {
   screens: TabSubNavigatorConfig<string, any>[];
 }) {
+  const [bgColor, titleColor] = useThemeValue(['bg', 'text']);
+
   return (
     <Stack.Navigator>
       {screens.map(({ name, component, translationId }) => (
         <Stack.Screen
           key={name}
           name={name}
-          component={component}
+          component={tabRouteWrapper(component)}
           options={({ navigation }: { navigation: any }) => ({
             // TODO i18n
             title: translationId,
-            ...makeTabScreenOptions({ navigation }),
+            ...makeTabScreenOptions({ navigation, bgColor, titleColor }),
           })}
         />
       ))}
     </Stack.Navigator>
   );
 }
-
-const MemoizedTabSubStackNavigator = memo(TabSubStackNavigator);
 
 const Tab = createBottomTabNavigator();
 
@@ -79,7 +81,7 @@ export function TabStackNavigator<RouteName extends string>({
           tabBarLabel: translationId,
           tabBarIcon,
           // eslint-disable-next-line react/no-unstable-nested-components
-          children: () => <MemoizedTabSubStackNavigator screens={children} />,
+          children: () => <TabSubStackNavigator screens={children} />,
         })),
     [config],
   );

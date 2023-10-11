@@ -1,5 +1,7 @@
 import { useNavigation } from '@react-navigation/core';
+import { Platform } from 'react-native';
 
+import { useThemeValue } from '@onekeyhq/components';
 import type {
   ModalNavigationProp,
   PageNavigationProp,
@@ -18,6 +20,7 @@ function useDemoAppNavigation<
     | ModalNavigationProp<any> = PageNavigationProp<any>,
 >() {
   const navigation = useNavigation<P>();
+  const [bgColor, titleColor] = useThemeValue(['bg', 'text']);
 
   const popStack = () => {
     navigation.getParent()?.goBack?.();
@@ -60,8 +63,35 @@ function useDemoAppNavigation<
     });
   };
 
+  const iosHeaderStyle = Platform.select<StackNavigationOptions>({
+    ios: {
+      headerStyle: {
+        backgroundColor: bgColor as string,
+      },
+      headerTintColor: titleColor as string,
+    },
+  });
+
   function setOptions(options: Partial<StackNavigationOptions>) {
-    navigation.setOptions(options);
+    const { headerSearchBarOptions, ...otherOptions } = options;
+
+    let newHeaderSearchBarOptions: StackNavigationOptions = {};
+    if (headerSearchBarOptions) {
+      newHeaderSearchBarOptions = {
+        headerSearchBarOptions: {
+          hideNavigationBar: false,
+          // @ts-expect-error
+          hideWhenScrolling: false,
+          ...headerSearchBarOptions,
+        },
+      };
+    }
+
+    navigation.setOptions({
+      ...iosHeaderStyle,
+      ...otherOptions,
+      ...newHeaderSearchBarOptions,
+    });
   }
 
   return {

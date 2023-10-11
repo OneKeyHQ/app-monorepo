@@ -3,10 +3,9 @@ import { createRef, memo } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { useTheme } from 'tamagui';
 
-import { useThemeValue } from '@onekeyhq/components';
 import { DevScreen } from '@onekeyhq/kit/src/routes';
 
-import { DemoRootApp } from '../views/Components/stories/NavigatorRoute/DemoRootApp';
+import DemoRootApp from '../views/Components/stories/NavigatorRoute';
 
 export const navigationRef = createRef();
 global.$navigationRef = navigationRef as any;

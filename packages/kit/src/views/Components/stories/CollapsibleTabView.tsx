@@ -1,12 +1,13 @@
-import { useCallback, useMemo, useState } from 'react';
-import type { ReactElement } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { FlatList, SafeAreaView } from 'react-native';
+import { FlatList } from 'react-native';
 import { ScrollView, XStack } from 'tamagui';
 
 import { Badge, Button, Icon, Stack, Tabs, Text } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import useIsActiveTab from '@onekeyhq/components/src/CollapsibleTabView/hooks/useIsActiveTab';
+import type { ForwardRefHandle } from '@onekeyhq/components/src/CollapsibleTabView/NativeNestedTabView/NestedTabView';
 
+import { FreezeProbe, useFreezeProbe } from './NavigatorRoute/RenderTools';
 import { Layout } from './utils/Layout';
 
 type Network = {
@@ -29,7 +30,15 @@ function getNetworks(begin = 0) {
   return networks;
 }
 
-function TokenList({ networks }: { networks: Network[] }) {
+function TokenList({ networks, name }: { networks: Network[]; name: string }) {
+  const isActiveTab = useIsActiveTab(name);
+
+  useFreezeProbe(name, { pause: !isActiveTab });
+
+  useEffect(() => {
+    console.log('=====>> TokenList', name, isActiveTab);
+  }, [isActiveTab, name]);
+
   const renderItem = useCallback(
     ({ item }: { item: Network }) => (
       <XStack onPress={() => {}}>
@@ -52,17 +61,11 @@ function TokenList({ networks }: { networks: Network[] }) {
   );
 }
 
-function ContainerView({ children }: { children: ReactElement }) {
-  if (platformEnv.isNative) {
-    return <SafeAreaView>{children}</SafeAreaView>;
-  }
-  return children;
-}
-
 function CollapsibleTabView() {
   const [showNetworks, setShowNetworks] = useState<Network[]>(getNetworks());
 
   const [headerHighMode, setHeaderHighMode] = useState(true);
+  const tabsViewRef = useRef<ForwardRefHandle>(null);
 
   const headerHeightCall = useCallback(() => {
     setHeaderHighMode((pre) => !pre);
@@ -70,6 +73,12 @@ function CollapsibleTabView() {
 
   const loadMoreDataCall = useCallback(() => {
     setShowNetworks((pre) => [...pre, ...getNetworks(pre.length)]);
+  }, []);
+
+  useEffect(() => {
+    setTimeout(() => {
+      tabsViewRef?.current?.setPageIndex(0);
+    });
   }, []);
 
   const headerView = useMemo(
@@ -97,84 +106,94 @@ function CollapsibleTabView() {
 
   return (
     <Stack flex={1} backgroundColor="$bgHovered">
-      <ContainerView>
-        <Tabs.Container headerView={headerView}>
-          <Tabs.Tab name="tab1" label="我是 Tab1">
-            <ScrollView>
-              <Layout
-                key="tab1"
-                description="可以吸顶左右滑动的 Tabs 组件"
-                suggestions={[
-                  'Tabs.Tab autoDestroy 属性可以控制 Tab 内容销毁时间',
-                  '支持 headerView 属性，可以自定义头部视图，可以是任意组件，',
-                  'headerView 会随着滑动自动吸顶，不需要手动处理',
-                ]}
-                boundaryConditions={[
-                  'headerView 的背景颜色不能使用 RGBA 格式的颜色',
-                  '目前只支持直接嵌套 ScrollView、FlatList、SectionList',
-                  '放置普通组件需要使用 ScrollView 包裹',
-                  'headerView 高度尽量固定，切换高度时低端设备可能会闪一下。',
-                ]}
-                elements={[
-                  {
-                    title: '默认状态',
-                    element: (
-                      <Stack space="$1">
-                        <Text variant="$bodyMd">我是一个内容</Text>
-                      </Stack>
-                    ),
-                  },
-                ]}
-              />
-            </ScrollView>
-          </Tabs.Tab>
+      <Tabs.Container
+        ref={tabsViewRef}
+        initialTabName="tab1"
+        headerView={headerView}
+      >
+        <Tabs.Tab name="tab1" label="我是 Tab1">
+          <ScrollView>
+            <FreezeProbe componentName="tab1" />
+            <Layout
+              key="tab1"
+              description="可以吸顶左右滑动的 Tabs 组件"
+              suggestions={[
+                'Tabs.Tab lazy 属性默认为 true，只有当首次滑动到当前页面才会加载',
+                'Tabs.Tab autoFreeze 属性默认为 false，离开这个页面的时候冻结页面',
+                'Tabs.Tab autoFreeze 也可以传 number。离开这个页面的之后延迟 number 毫秒冻结页面',
+                "Tabs.Tab freezeType 属性默认为 'freeze', 用来设置组件冻结的方式, 'freeze' 表示冻结，已经运行的 useEffect 还会继续运行，不会再执行新的 useEffect，解冻后会重新运行。'unmount' 会卸载页面，下次进入会重新加载",
+                '支持 headerView 属性，可以自定义头部视图，可以是任意组件，',
+                'headerView 会随着滑动自动吸顶，不需要手动处理',
+              ]}
+              boundaryConditions={[
+                'headerView 的背景颜色不能使用 RGBA 格式的颜色，要是用 RGB 色',
+                'headerView 会随着滑动自动吸顶，不需要手动处理',
+                '建议不常用的并且复杂的页面一定记得设定 autoFreeze 属性，不要影响整体性能',
+                '目前只支持直接嵌套 ScrollView、FlatList、SectionList',
+                '放置普通组件需要使用 ScrollView 包裹',
+                'headerView 高度尽量固定，切换高度时低端设备可能会闪一下。',
+              ]}
+              elements={[
+                {
+                  title: '默认状态',
+                  element: (
+                    <Stack space="$1">
+                      <Text variant="$bodyMd">我是一个内容</Text>
+                    </Stack>
+                  ),
+                },
+              ]}
+            />
+          </ScrollView>
+        </Tabs.Tab>
 
-          <Tabs.Tab name="tab2" label="我是 Tab2">
-            <TokenList networks={showNetworks} />
-          </Tabs.Tab>
+        <Tabs.Tab name="tab2" label="我是 Tab2">
+          <TokenList name="tab2" networks={showNetworks} />
+        </Tabs.Tab>
 
-          <Tabs.Tab name="tab3" label="我是 Tab3">
-            <ScrollView>
-              <Text variant="$bodyMd">Network 1</Text>
-              <TokenList networks={showNetworks} />
+        <Tabs.Tab name="tab3" label="我是 Tab3">
+          <ScrollView>
+            <Text variant="$bodyMd">Network 1</Text>
+            <TokenList name="tab3" networks={showNetworks} />
 
-              <Text variant="$bodyMd">Network 2</Text>
-              <TokenList networks={showNetworks} />
+            <Text variant="$bodyMd">Network 2</Text>
+            <TokenList name="tab3" networks={showNetworks} />
 
-              <Text variant="$bodyMd">End</Text>
-            </ScrollView>
-          </Tabs.Tab>
+            <Text variant="$bodyMd">End</Text>
+          </ScrollView>
+        </Tabs.Tab>
 
-          <Tabs.Tab name="tab4" label="我是 Tab4">
-            <ScrollView>
-              {showNetworks.flatMap((item, index) => (
-                <Text variant="$bodyMd" key={`tab4-network-${index}`}>
-                  {`${item.name}`}
-                </Text>
-              ))}
-            </ScrollView>
-          </Tabs.Tab>
+        <Tabs.Tab name="tab4" label="我是 Tab4" autoFreeze={15 * 1000}>
+          <ScrollView>
+            {showNetworks.flatMap((item, index) => (
+              <Text variant="$bodyMd" key={`tab4-network-${index}`}>
+                {`${item.name}`}
+              </Text>
+            ))}
+            <FreezeProbe componentName="tab4" />
+          </ScrollView>
+        </Tabs.Tab>
 
-          <Tabs.Tab name="tab5" label="我是 Tab5" autoDestroy={3 * 1000 * 60}>
-            <ScrollView>
-              <Text variant="$bodyMd">ScrollView Simple</Text>
-              {showNetworks.flatMap((item, index) => (
-                <XStack onPress={() => {}} key={`tab5-network-${index}`}>
-                  <Icon name="AcademicCapMini" />
-                  <Text>{item.name}</Text>
-                  <Text>{item.tokenDisplayDecimals}</Text>
-                  <Badge type="info" size="sm">
-                    {item.impl.toUpperCase()}
-                  </Badge>
-                </XStack>
-              ))}
-              <Text variant="$bodyMd">End</Text>
-            </ScrollView>
-          </Tabs.Tab>
-        </Tabs.Container>
-      </ContainerView>
+        <Tabs.Tab name="tab5" label="我是 Tab5" autoFreeze={10 * 1000}>
+          <ScrollView>
+            <FreezeProbe componentName="tab5" />
+            <Text variant="$bodyMd">ScrollView Simple</Text>
+            {showNetworks.flatMap((item, index) => (
+              <XStack onPress={() => {}} key={`tab5-network-${index}`}>
+                <Icon name="AcademicCapMini" />
+                <Text>{item.name}</Text>
+                <Text>{item.tokenDisplayDecimals}</Text>
+                <Badge type="info" size="sm">
+                  {item.impl.toUpperCase()}
+                </Badge>
+              </XStack>
+            ))}
+            <Text variant="$bodyMd">End</Text>
+          </ScrollView>
+        </Tabs.Tab>
+      </Tabs.Container>
     </Stack>
   );
 }
 
-export default CollapsibleTabView;
+export default memo(CollapsibleTabView);

@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-export const MAX_PAGE_CONTAINER_WIDTH = 1024;
 
 /**
  * Tokens will injected at build process. These are client token.

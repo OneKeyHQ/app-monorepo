@@ -9,7 +9,7 @@ import type { StyleProp, ViewStyle } from 'react-native';
 export interface CollapsibleContainerProps {
   stickyTabBar?: boolean;
   disableRefresh?: boolean;
-  initialTabName?: string;
+  initialTabName: string;
   headerView?: ReactNode;
   onRefresh?: () => void;
   onIndexChange?: (index: number) => void;

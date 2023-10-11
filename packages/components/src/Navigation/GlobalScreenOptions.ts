@@ -9,7 +9,7 @@ import { makeHeaderScreenOptions } from './Header';
 
 import type { RouteProp } from '@react-navigation/native';
 import type { StackNavigationOptions } from '@react-navigation/stack';
-import { VariableVal } from '@tamagui/core';
+import type { VariableVal } from '@tamagui/core';
 
 export function clearStackNavigatorOptions(options?: {
   bgColor?: string;
@@ -56,13 +56,14 @@ export function makeModalOpenAnimationOptions(options: {
 export function makeModalStackNavigatorOptions({
   navInfo,
 }: {
+  bgColor: VariableVal;
+  titleColor: VariableVal;
   isVerticalLayout?: boolean;
   navInfo?: {
     route: RouteProp<any>;
     navigation: any;
   };
-  bgColor?: VariableVal;
-} = {}): StackNavigationOptions {
+}): StackNavigationOptions {
   const options: StackNavigationOptions = {
     headerShown: false,
     ...(platformEnv.isExtension
@@ -100,8 +101,12 @@ export function makeRootModalStackOptions(): StackNavigationOptions {
 
 export function makeTabScreenOptions({
   navigation,
+  bgColor,
+  titleColor,
 }: {
   navigation: any;
+  bgColor: VariableVal;
+  titleColor: VariableVal;
 }): StackNavigationOptions {
   // @ts-expect-error
   return {
@@ -109,6 +114,8 @@ export function makeTabScreenOptions({
     ...makeHeaderScreenOptions({
       isRootScreen: true,
       navigation,
+      bgColor,
+      titleColor,
     }),
   };
 }

@@ -1,12 +1,12 @@
 import { forwardRef } from 'react';
 
-import { LazyTab } from './LazyTab';
+import { FreezeTab } from './FreezeTab';
 import { TabContainerWeb } from './TabContainerWeb';
 
 export const Tabs = {
   Container: forwardRef(TabContainerWeb),
   // @ts-ignore to stop the warning about Fragment under development
-  Tab: LazyTab,
+  Tab: FreezeTab,
 };
 
 export * from './types';

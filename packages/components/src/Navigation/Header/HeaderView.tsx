@@ -1,12 +1,14 @@
 import type { ReactNode } from 'react';
 import { memo, useCallback } from 'react';
+import * as React from 'react';
 
 import { Header } from '@react-navigation/elements';
 import { get } from 'lodash';
-import { BackHandler, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Input } from 'tamagui';
 
 import { Stack, useThemeValue } from '../../index';
+import useBackHandler from '../../Provider/hooks/useBackHandler';
 
 import HeaderButtonBack from './HeaderButtonBack';
 
@@ -16,8 +18,6 @@ import type {
   HeaderBackButtonProps,
   HeaderOptions,
 } from '@react-navigation/elements/src/types';
-import * as React from 'react';
-import useBackHandler from '../../Provider/hooks/useBackHandler';
 
 function getHeaderTitle(
   options: { title?: string; headerTitle?: HeaderOptions['headerTitle'] },

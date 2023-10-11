@@ -1,6 +1,7 @@
 export enum DemoTabRoutes {
   Home = 'home',
   Me = 'me',
+  Tabs = 'tabs',
   Developer = 'developer',
 }
 
@@ -17,4 +18,8 @@ export enum DemoDeveloperTabRoutes {
 
 export enum DemoMeTabRoutes {
   DemoRootMe = 'DemoRootMe',
+}
+
+export enum DemoTabsTabRoutes {
+  DemoRootTabs = 'DemoRootTabs',
 }

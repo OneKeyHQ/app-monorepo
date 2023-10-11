@@ -9,6 +9,7 @@ import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigati
 
 import IconGallery from '../../Icon';
 import { Layout } from '../../utils/Layout';
+import { useFreezeProbe } from '../RenderTools';
 
 import { DemoCreateModalRoutes } from './Routes';
 
@@ -22,6 +23,8 @@ function DemoCreateViewModal({
       headerRight: () => <HeaderButtonIcon name="AnonymousHidden2Outline" />,
     });
   }, [navigation]);
+
+  useFreezeProbe('DemoCreateViewModal');
 
   return (
     <Layout
@@ -73,6 +76,8 @@ function DemoCreateSearchModal({
       },
     });
   }, [navigation]);
+
+  useFreezeProbe('DemoCreateSearchModal');
 
   return (
     <Layout
@@ -126,6 +131,8 @@ function DemoCreateOptionsModal({
       ),
     });
   }, [navigation]);
+
+  useFreezeProbe('DemoCreateOptionsModal');
 
   return (
     <Layout

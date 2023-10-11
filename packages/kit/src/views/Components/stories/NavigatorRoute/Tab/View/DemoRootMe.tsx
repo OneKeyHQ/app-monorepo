@@ -1,11 +1,13 @@
 import { Button } from '@onekeyhq/components';
 
 import { Layout } from '../../../utils/Layout';
+import { useFreezeProbe } from '../../RenderTools';
 import useDemoAppNavigation from '../../useDemoAppNavigation';
 import { DemoDeveloperTabRoutes, DemoTabRoutes } from '../Routes';
 
 const DemoRootMe = () => {
   const navigation = useDemoAppNavigation();
+  useFreezeProbe('DemoRootMe');
   return (
     <Layout
       description="这是一个 Tab 切换演示"

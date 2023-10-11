@@ -1,5 +1,13 @@
-import type { ForwardRefRenderFunction } from 'react';
-import { Children, useCallback, useMemo, useState } from 'react';
+import type { ForwardRefRenderFunction, ReactNode } from 'react';
+import {
+  Children,
+  forwardRef,
+  memo,
+  useCallback,
+  useMemo,
+  useState,
+} from 'react';
+import * as React from 'react';
 
 import { getThemeTokens, useThemeValue } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -10,40 +18,38 @@ import NestedTabView from './NativeNestedTabView/NestedTabView';
 import type { ForwardRefHandle } from './NativeNestedTabView/NestedTabView';
 import type {
   OnPageChangeEvent,
+  OnPageScrollStateChangeEvent,
   TabViewStyle,
 } from './NativeNestedTabView/types';
 import type { CollapsibleContainerProps } from './types';
+import type { StyleProp, ViewStyle } from 'react-native';
 
-const TabContainerNativeView: ForwardRefRenderFunction<
-  ForwardRefHandle,
-  CollapsibleContainerProps
-> = (
+interface TabViewContentProps {
+  tabsInfo: { name: string; label: string }[];
+  children: ReactNode;
+  disableRefresh?: boolean;
+  headerView?: ReactNode;
+  containerStyle?: StyleProp<ViewStyle>;
+  scrollEnabled?: boolean;
+  onRefresh?: () => void;
+  onPageChange?: (e: OnPageChangeEvent) => void;
+  onPageScrollStateChange?: (e: OnPageScrollStateChangeEvent) => void;
+}
+
+function TabViewContent(
   {
-    disableRefresh,
-    headerView,
+    tabsInfo,
     children,
-    onIndexChange,
     onRefresh,
+    onPageChange,
+    onPageScrollStateChange,
+    headerView,
+    disableRefresh,
+    scrollEnabled,
     containerStyle,
-    scrollEnabled = true,
-    initialTabName,
-    ...props
-  },
-  ref,
-) => {
-  const [tabName, setTabName] = useState<string>(initialTabName ?? '');
-  const tabsInfo = useMemo(() => {
-    const tabs = Children.map(children, (child) =>
-      // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
-      ({ name: child.props.name, label: child.props.label }),
-    );
-
-    return {
-      tabs,
-    };
-  }, [children]);
-
+  }: TabViewContentProps,
+  ref: React.Ref<ForwardRefHandle>,
+) {
   const [activeLabelColor, labelColor, indicatorColor, bgColor, spinnerColor] =
     useThemeValue(['text', 'textSubdued', 'bgPrimary', 'bgApp', 'iconActive']);
 
@@ -64,66 +70,99 @@ const TabContainerNativeView: ForwardRefRenderFunction<
     };
   }, [activeLabelColor, bgColor, indicatorColor, labelColor]);
 
+  const newContainerStyle: StyleProp<ViewStyle> = useMemo(
+    () => ({
+      ...(containerStyle && typeof containerStyle === 'object'
+        ? containerStyle
+        : {}),
+      flex: 1,
+    }),
+    [containerStyle],
+  );
+
   const onRefreshCallBack = useCallback(() => {
     setTimeout(() => {
       onRefresh?.();
     });
   }, [onRefresh]);
 
+  return (
+    <NestedTabView
+      ref={ref}
+      values={tabsInfo}
+      style={newContainerStyle}
+      disableRefresh={disableRefresh}
+      spinnerColor={spinnerColor}
+      tabViewStyle={tabViewStyle}
+      onRefreshCallBack={onRefreshCallBack}
+      headerView={headerView}
+      onPageChange={onPageChange}
+      scrollEnabled={scrollEnabled}
+      onPageScrollStateChange={onPageScrollStateChange}
+    >
+      {children}
+    </NestedTabView>
+  );
+}
+
+const TabContentView = memo(
+  forwardRef<ForwardRefHandle, TabViewContentProps>(TabViewContent),
+);
+
+const TabContainerNativeView: ForwardRefRenderFunction<
+  ForwardRefHandle,
+  CollapsibleContainerProps
+> = (
+  {
+    disableRefresh,
+    headerView,
+    children,
+    onIndexChange,
+    onRefresh,
+    containerStyle,
+    scrollEnabled = true,
+    initialTabName,
+    onPageScrollStateChange,
+  },
+  ref,
+) => {
+  const [tabName, setTabName] = useState<string>(initialTabName ?? '');
+  const tabsInfo: { name: string; label: string }[] = useMemo(
+    () =>
+      Children.map(children, (child) =>
+        // @ts-expect-error
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        ({ name: child.props.name, label: child.props.label }),
+      ),
+    [children],
+  );
+
   const onPageChange = useCallback(
     (e: OnPageChangeEvent) => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       onIndexChange?.(e.nativeEvent?.index);
-      setTabName(tabsInfo.tabs[e.nativeEvent?.index]?.name);
+      setTabName(tabsInfo[e.nativeEvent?.index]?.name);
     },
-    [onIndexChange, tabsInfo.tabs],
-  );
-
-  // only ios?
-  const spinnerColorMemo = useMemo(
-    () => (platformEnv.isNativeIOS ? spinnerColor : undefined),
-    [spinnerColor],
-  );
-
-  const contentView = useMemo(
-    () => (
-      <NestedTabView
-        ref={ref}
-        values={tabsInfo.tabs}
-        style={containerStyle}
-        disableRefresh={disableRefresh}
-        spinnerColor={spinnerColorMemo}
-        tabViewStyle={tabViewStyle}
-        onRefreshCallBack={onRefreshCallBack}
-        headerView={headerView}
-        onPageChange={onPageChange}
-        scrollEnabled={scrollEnabled}
-        {...props}
-      >
-        {children}
-      </NestedTabView>
-    ),
-    [
-      children,
-      props,
-      scrollEnabled,
-      onPageChange,
-      headerView,
-      onRefreshCallBack,
-      tabViewStyle,
-      spinnerColorMemo,
-      disableRefresh,
-      containerStyle,
-      tabsInfo.tabs,
-      ref,
-    ],
+    [onIndexChange, tabsInfo],
   );
 
   const contextValue = useMemo(() => ({ activeTabName: tabName }), [tabName]);
 
   return (
     <ActiveTabContext.Provider value={contextValue}>
-      {contentView}
+      <TabContentView
+        tabsInfo={tabsInfo}
+        onRefresh={onRefresh}
+        onPageChange={onPageChange}
+        onPageScrollStateChange={onPageScrollStateChange}
+        disableRefresh={disableRefresh}
+        headerView={headerView}
+        scrollEnabled={scrollEnabled}
+        ref={ref}
+        containerStyle={containerStyle}
+      >
+        {children}
+      </TabContentView>
     </ActiveTabContext.Provider>
   );
 };

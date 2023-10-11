@@ -4,6 +4,7 @@ import { Button, Text } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import { Layout } from '../../../utils/Layout';
+import { useFreezeProbe } from '../../RenderTools';
 import useDemoAppNavigation from '../../useDemoAppNavigation';
 import { DemoHomeTabRoutes } from '../Routes';
 
@@ -16,6 +17,8 @@ import type {
 const DemoRootHomeSearch = () => {
   const navigation =
     useDemoAppNavigation<PageNavigationProp<DemoHomeTabParamList>>();
+
+  useFreezeProbe('DemoRootHomeSearch');
 
   useLayoutEffect(() => {
     navigation.setOptions({

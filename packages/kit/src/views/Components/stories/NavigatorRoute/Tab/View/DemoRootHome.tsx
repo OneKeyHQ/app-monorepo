@@ -1,16 +1,41 @@
+import { useState } from 'react';
+
+import useCookie from 'react-use-cookie';
+
 import { Button, YStack } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { AppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import { Layout } from '../../../utils/Layout';
+import { useFreezeProbe } from '../../RenderTools';
 import useDemoAppNavigation from '../../useDemoAppNavigation';
 import { DemoHomeTabRoutes } from '../Routes';
 
 import type { DemoHomeTabParamList } from '../RouteParamTypes';
 
+const useStorage = platformEnv.isNative
+  ? (key: AppSettingKey, initialValue?: boolean) => {
+      const [data, setData] = useState(
+        initialValue || appStorage.getSettingBoolean(key),
+      );
+      const setNewData = (value: boolean) => {
+        appStorage.setSetting(key, value);
+        setData(value);
+      };
+      return [data, setNewData];
+    }
+  : useCookie;
+
 const DemoRootHome = () => {
   const navigation =
     useDemoAppNavigation<PageNavigationProp<DemoHomeTabParamList>>();
+
+  const [rrtStatus, changeRRTStatus] = useStorage(AppSettingKey.rrt);
+
+  useFreezeProbe('DemoRootHome');
   return (
     <Layout
       description="这是一个路由 Header"
@@ -39,6 +64,38 @@ const DemoRootHome = () => {
                 }}
               />
             </YStack>
+          ),
+        },
+        {
+          title: '开启 ReactRenderTracker',
+          element: (
+            <Button
+              buttonVariant="primary"
+              onPress={() => {
+                if (platformEnv.isNative) {
+                  (changeRRTStatus as (value: boolean) => void)(!rrtStatus);
+                  alert('Please manually restart the app.');
+                } else {
+                  const status = rrtStatus === '1' ? '0' : '1';
+                  (changeRRTStatus as (value: string) => void)(status);
+                  if (platformEnv.isRuntimeBrowser) {
+                    if (status === '0') {
+                      localStorage.removeItem(
+                        '$$OnekeyReactRenderTrackerEnabled',
+                      );
+                    } else {
+                      localStorage.setItem(
+                        '$$OnekeyReactRenderTrackerEnabled',
+                        'true',
+                      );
+                    }
+                  }
+                  window.location.reload();
+                }
+              }}
+            >
+              <Button.Text>开关 ReactRenderTracker</Button.Text>
+            </Button>
           ),
         },
         {

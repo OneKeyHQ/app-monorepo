@@ -6,6 +6,7 @@ import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderB
 import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
 
 import { Layout } from '../../utils/Layout';
+import { useFreezeProbe } from '../RenderTools';
 import useDemoAppNavigation from '../useDemoAppNavigation';
 
 import { DemoLockedModalRoutes, RootModalRoutes } from './Routes';
@@ -14,6 +15,7 @@ import type { DemoLockedModalParamList } from './Routes';
 
 const DemoLockedViewModal = () => {
   const navigation = useDemoAppNavigation();
+  useFreezeProbe('DemoLockedViewModal');
 
   return (
     <Layout
@@ -53,6 +55,8 @@ const DemoLockedViewModal = () => {
 const DemoConfigLockedViewModal = () => {
   const navigation =
     useDemoAppNavigation<ModalNavigationProp<DemoLockedModalParamList>>();
+
+  useFreezeProbe('DemoConfigLockedViewModal');
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -111,6 +115,8 @@ const DemoConfigLockedViewModal = () => {
 const DemoManualLockedViewModal = () => {
   const navigation =
     useDemoAppNavigation<ModalNavigationProp<DemoLockedModalParamList>>();
+
+  useFreezeProbe('DemoManualLockedViewModal');
 
   useLayoutEffect(() => {
     navigation.setOptions({

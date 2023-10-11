@@ -3,6 +3,7 @@ import type {
   DemoHomeTabRoutes,
   DemoMeTabRoutes,
   DemoTabRoutes,
+  DemoTabsTabRoutes,
 } from './Routes';
 
 export type DemoHomeTabParamList = {
@@ -22,8 +23,13 @@ export type DemoMeTabParamList = {
   [DemoMeTabRoutes.DemoRootMe]: undefined;
 };
 
+export type DemoTabsTabParamList = {
+  [DemoTabsTabRoutes.DemoRootTabs]: undefined;
+};
+
 export type TabStackParamList = {
   [DemoTabRoutes.Home]: DemoHomeTabParamList;
   [DemoTabRoutes.Me]: DemoMeTabParamList;
+  [DemoTabRoutes.Tabs]: DemoTabsTabParamList;
   [DemoTabRoutes.Developer]: DemoDeveloperTabParamList;
 };

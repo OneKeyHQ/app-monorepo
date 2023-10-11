@@ -33,16 +33,17 @@ const ModalStack = hasStackNavigatorModal
 function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   config,
 }: ModalFlowNavigatorProps<RouteName, P>) {
-  const bgColor = useThemeValue('bg');
+  const [bgColor, titleColor] = useThemeValue(['bg', 'text']);
 
   const makeScreenOptions = useCallback(
     (navInfo) => ({
       ...makeModalStackNavigatorOptions({
         navInfo,
         bgColor,
+        titleColor,
       }),
     }),
-    [bgColor],
+    [bgColor, titleColor],
   );
 
   return (
