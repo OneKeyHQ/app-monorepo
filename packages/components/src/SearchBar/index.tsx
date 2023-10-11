@@ -50,7 +50,7 @@ export function SearchBar({ value, onChange, onBlur }: SearchBarProps) {
         value={value}
         onFocus={handleOnFocus}
         onBlur={handleOnBlur}
-        focusStyle={{ outlsineStyle: 'none' }}
+        focusStyle={{ outlineStyle: 'none' }}
         onChangeText={onChange}
         h="$7"
         returnKeyType="search"
