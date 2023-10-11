@@ -25,14 +25,18 @@ const IconButtonFrame = styled(ButtonFrame, {
       },
       large: {
         padding: '$3',
+        borderRadius: '$full',
       },
     },
 
     buttonVariant: {
+      secondary: {},
       tertiary: {
         padding: '$2',
         margin: '$-2',
       },
+      primary: {},
+      destructive: {},
     },
   } as const,
 });

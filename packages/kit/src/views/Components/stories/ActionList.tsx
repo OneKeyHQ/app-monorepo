@@ -1,24 +1,7 @@
-import { Stack } from '@onekeyhq/components';
+import { Button, Dialog, Stack } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components/src/ActionList';
 
 import { Layout } from './utils/Layout';
-
-const ActionListDemo = () => (
-  <ActionList
-    actions={[
-      {
-        name: 'Action1',
-        icon: 'PlaceholderOutline',
-        onPress: () => console.log('action1'),
-      },
-      {
-        name: 'Action2',
-        icon: 'PlaceholderOutline',
-        onPress: () => console.log('action2'),
-      },
-    ]}
-  />
-);
 
 const ActionListGallery = () => (
   <Layout
@@ -36,10 +19,138 @@ const ActionListGallery = () => (
     ]}
     elements={[
       {
-        title: '默认状态',
+        title: 'Simple',
         element: (
           <Stack space="$1">
-            <ActionListDemo />
+            <ActionList
+              title="Action List"
+              renderTrigger={
+                <Button>
+                  <Button.Text>Action List</Button.Text>
+                </Button>
+              }
+              items={[
+                {
+                  label: 'Action1',
+                  icon: 'PlaceholderOutline',
+                  onPress: () => console.log('action1'),
+                },
+                {
+                  label: 'Action2',
+                  icon: 'PlaceholderOutline',
+                  onPress: () => console.log('action2'),
+                },
+                {
+                  label: 'Action3',
+                  icon: 'PlaceholderOutline',
+                  onPress: () => console.log('action2'),
+                  disabled: true,
+                },
+              ]}
+            />
+          </Stack>
+        ),
+      },
+      {
+        title: 'Sections',
+        element: (
+          <Stack space="$1">
+            <ActionList
+              title="Action List"
+              renderTrigger={
+                <Button>
+                  <Button.Text>Action List</Button.Text>
+                </Button>
+              }
+              sections={[
+                {
+                  items: [
+                    {
+                      label: 'Action1',
+                      icon: 'PlaceholderOutline',
+                      onPress: () => console.log('action1'),
+                    },
+                    {
+                      label: 'Action2',
+                      icon: 'PlaceholderOutline',
+                      onPress: () => console.log('action2'),
+                    },
+                    {
+                      label: 'Action3',
+                      icon: 'PlaceholderOutline',
+                      onPress: () => console.log('action2'),
+                    },
+                  ],
+                },
+                {
+                  items: [
+                    {
+                      label: 'Action4',
+                      icon: 'PlaceholderOutline',
+                      destructive: true,
+                      onPress: () =>
+                        Dialog.confirm({
+                          title: 'Lorem ipsum',
+                          description:
+                            'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                          onConfirm() {
+                            alert('confirmed');
+                          },
+                        }),
+                    },
+                  ],
+                },
+              ]}
+            />
+            <ActionList
+              title="Action List"
+              renderTrigger={
+                <Button>
+                  <Button.Text>With Section Title</Button.Text>
+                </Button>
+              }
+              sections={[
+                {
+                  title: 'Title 1',
+                  items: [
+                    {
+                      label: 'Action1',
+                      icon: 'PlaceholderOutline',
+                      onPress: () => console.log('action1'),
+                    },
+                    {
+                      label: 'Action2',
+                      icon: 'PlaceholderOutline',
+                      onPress: () => console.log('action2'),
+                    },
+                    {
+                      label: 'Action3',
+                      icon: 'PlaceholderOutline',
+                      onPress: () => console.log('action2'),
+                    },
+                  ],
+                },
+                {
+                  title: 'Title 2',
+                  items: [
+                    {
+                      label: 'Action4',
+                      icon: 'PlaceholderOutline',
+                      destructive: true,
+                      onPress: () =>
+                        Dialog.confirm({
+                          title: 'Lorem ipsum',
+                          description:
+                            'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                          onConfirm() {
+                            alert('confirmed');
+                          },
+                        }),
+                    },
+                  ],
+                },
+              ]}
+            />
           </Stack>
         ),
       },

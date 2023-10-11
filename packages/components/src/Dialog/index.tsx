@@ -8,6 +8,7 @@ import {
   useState,
 } from 'react';
 
+import { StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Sheet,
@@ -19,6 +20,7 @@ import {
 import { Button } from '../Button';
 import { Form, useForm } from '../Form';
 import { type ICON_NAMES, Icon } from '../Icon';
+import { IconButton } from '../IconButton';
 import { removePortalComponent, setPortalComponent } from '../Portal';
 import { Stack, XStack, YStack } from '../Stack';
 import { Text } from '../Text';
@@ -34,9 +36,10 @@ export interface ModalProps {
   onOpen?: () => void;
   onClose?: () => void;
   renderTrigger?: React.ReactNode;
-  iconName?: ICON_NAMES;
+  leadingIcon?: ICON_NAMES;
   title?: string;
   description?: string;
+  variant?: 'default' | 'destructive';
   renderContent?: React.ReactNode;
   onConfirm?: () => void | Promise<boolean>;
   onCancel?: () => void;
@@ -53,11 +56,12 @@ function DialogFrame({
   renderTrigger,
   onOpen,
   title,
-  iconName,
+  leadingIcon,
   description,
   renderContent,
   onConfirm,
   onCancel,
+  variant,
   confirmButtonProps,
   confirmButtonTextProps,
   cancelButtonProps,
@@ -95,32 +99,46 @@ function DialogFrame({
   const media = useMedia();
 
   const content = (
-    <YStack
-      p="$5"
-      mb={bottom}
-      $gtMd={{
-        width: '$100',
-      }}
-    >
-      <Stack>
-        <Icon name={iconName} size="$8" padding="$0.5" />
-      </Stack>
-      {title && (
-        <Text variant="$headingMd" pt="$5">
-          {title}
-        </Text>
+    <Stack p="$5" pb={bottom || '$5'}>
+      {leadingIcon && (
+        <Stack
+          p="$3"
+          borderRadius="$full"
+          bg={variant === 'destructive' ? '$bgCritical' : '$bgStrong'}
+        >
+          <Icon
+            name={leadingIcon}
+            size="$8"
+            color={variant === 'destructive' ? '$iconCritical' : '$icon'}
+          />
+        </Stack>
       )}
-      {description && (
-        <Text variant="$bodyLgMono" pt="$5">
-          {description}
-        </Text>
-      )}
-      <YStack pt="$5">{renderContent}</YStack>
+      <XStack alignItems="flex-start">
+        <Stack flex={1} pr="$2.5">
+          {title && (
+            <Text variant="$headingXl" py="$px">
+              {title}
+            </Text>
+          )}
+          {description && (
+            <Text variant="$bodyLg" pt="$1.5">
+              {description}
+            </Text>
+          )}
+        </Stack>
+        <IconButton size="small" onPress={handleCancelButtonPress}>
+          <IconButton.Icon name="CrossedSmallOutline" />
+        </IconButton>
+      </XStack>
+      {renderContent && <YStack pt="$5">{renderContent}</YStack>}
       <XStack justifyContent="center" pt="$5">
         <Button
-          paddingHorizontal="$3"
-          buttonVariant="destructive"
-          size="large"
+          buttonVariant="secondary"
+          flex={1}
+          size="medium"
+          $md={{
+            size: 'large',
+          }}
           {...cancelButtonProps}
           onPress={handleCancelButtonPress}
         >
@@ -129,10 +147,13 @@ function DialogFrame({
           </Button.Text>
         </Button>
         <Button
-          paddingHorizontal="$3"
-          buttonVariant="primary"
-          ml="$4"
-          size="large"
+          buttonVariant={variant === 'destructive' ? 'destructive' : 'primary'}
+          flex={1}
+          ml="$2.5"
+          size="medium"
+          $md={{
+            size: 'large',
+          }}
           {...confirmButtonProps}
           onPress={handleConfirmButtonPress}
         >
@@ -141,7 +162,7 @@ function DialogFrame({
           </Button.Text>
         </Button>
       </XStack>
-    </YStack>
+    </Stack>
   );
   if (media.md) {
     return (
@@ -156,20 +177,37 @@ function DialogFrame({
           dismissOnOverlayPress={backdrop}
           onOpenChange={handleOpenChange}
           snapPointsMode="fit"
+          animation="quick"
         >
           <Sheet.Overlay
-            animation="lazy"
+            animation="quick"
             enterStyle={{ opacity: 0 }}
             exitStyle={{ opacity: 0 }}
             backgroundColor="$bgBackdrop"
           />
-          <Sheet.Handle
-            marginHorizontal="auto"
-            width="$20"
-            height="$1"
-            backgroundColor="rgba(255, 255, 255, 0.5)"
-          />
-          <Sheet.Frame>{content}</Sheet.Frame>
+          <Sheet.Frame
+            unstyled
+            borderTopLeftRadius="$6"
+            borderTopRightRadius="$6"
+            bg="$bg"
+          >
+            {/* grabber */}
+            <Stack
+              position="absolute"
+              top={0}
+              width="100%"
+              py="$1"
+              alignItems="center"
+            >
+              <Stack
+                width="$9"
+                height="$1"
+                bg="$neutral5"
+                borderRadius="$full"
+              />
+            </Stack>
+            {content}
+          </Sheet.Frame>
         </Sheet>
       </>
     );
@@ -202,11 +240,16 @@ function DialogFrame({
               },
             },
           ]}
-          enterStyle={{ x: 0, y: -20, opacity: 0, scale: 0.9 }}
-          exitStyle={{ x: 0, y: 10, opacity: 0, scale: 0.95 }}
+          enterStyle={{ opacity: 0, scale: 0.95 }}
+          exitStyle={{ opacity: 0, scale: 0.95 }}
           borderRadius="$4"
-          borderColor="$borderSubdued"
-          borderWidth="$px"
+          borderWidth="$0"
+          outlineColor="$borderSubdued"
+          outlineStyle="solid"
+          outlineWidth={StyleSheet.hairlineWidth}
+          bg="$bg"
+          width={400}
+          p="$0"
         >
           {content}
         </TMDialog.Content>

@@ -1,8 +1,8 @@
-import { Divider, Stack, YStack } from '@onekeyhq/components';
+import { Divider, Text, XStack, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
-const ButtonsGallery = () => (
+const DividerGallery = () => (
   <Layout
     description="对操作结果的反馈，无需用户操作即可自行消失"
     suggestions={[
@@ -20,38 +20,23 @@ const ButtonsGallery = () => (
       {
         title: '默认状态',
         element: (
-          <Stack space="$1">
-            <YStack space="$1">
-              <Stack
-                padding="$1"
-                flexDirection="column"
-                justifyContent="center"
-                alignItems="center"
-                w="100%"
-                h="$10"
-                borderColor="$borderColor"
-                borderWidth="$px"
-              >
-                <Divider width="100%" />
-              </Stack>
-              <Stack
-                padding="$1"
-                flexDirection="column"
-                justifyContent="center"
-                alignItems="center"
-                w="100%"
-                h="$10"
-                borderColor="$borderColor"
-                borderWidth="$px"
-              >
-                <Divider vertical />
-              </Stack>
+          <YStack space="$8">
+            <YStack space="$4">
+              <Text>Line 1</Text>
+              <Divider width="100%" />
+              <Text>Line 2</Text>
             </YStack>
-          </Stack>
+
+            <XStack space="$4">
+              <Text>Left</Text>
+              <Divider vertical />
+              <Text>Right</Text>
+            </XStack>
+          </YStack>
         ),
       },
     ]}
   />
 );
 
-export default ButtonsGallery;
+export default DividerGallery;
