@@ -145,11 +145,11 @@ import type {
 import type { Token } from './types/token';
 import type { Wallet } from './types/wallet';
 import type { IUnsignedMessageBtc } from './vaults/impl/btc/types';
+import type VaultEvm from './vaults/impl/evm/Vault';
 import type {
   IEncodedTxEvm,
   IUnsignedMessageEvm,
 } from './vaults/impl/evm/Vault';
-import type VaultEvm from './vaults/impl/evm/Vault';
 import type VaultSol from './vaults/impl/sol/Vault';
 import type {
   IClientEndpointStatus,
@@ -206,7 +206,11 @@ class Engine {
 
   @backgroundMethod()
   generateMnemonic(): Promise<string> {
-    return Promise.resolve(bip39.generateMnemonic(256));
+    // 24 words
+    // return Promise.resolve(bip39.generateMnemonic(256));
+
+    // 12 words
+    return Promise.resolve(bip39.generateMnemonic());
   }
 
   @backgroundMethod()
@@ -372,7 +376,9 @@ class Engine {
     await this.validator.validatePasswordStrength(password);
 
     const [usedMnemonic] = await Promise.all([
-      this.validator.validateMnemonic(mnemonic || bip39.generateMnemonic(256)),
+      this.validator.validateMnemonic(
+        mnemonic || (await this.generateMnemonic()),
+      ),
       this.validator.validateHDWalletNumber(),
     ]);
 
