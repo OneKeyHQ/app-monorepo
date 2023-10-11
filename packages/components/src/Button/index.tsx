@@ -59,6 +59,7 @@ export const ButtonFrame = styled(Stack, {
       large: {
         paddingVertical: '$3',
         paddingHorizontal: '$5',
+        borderRadius: '$3',
       },
     },
     buttonVariant: {
@@ -156,25 +157,6 @@ const ButtonIcon = (props: IconProps) => {
     />
   );
 };
-
-// export const ButtonIcon = styled(Icon, {
-//   name: 'ButtonIcon',
-//   context: ButtonContext,
-
-//   variants: {
-//     size: {
-//       small: {
-//         size: 18,
-//       },
-//       medium: {
-//         size: '$5',
-//       },
-//       large: {
-//         size: '$5',
-//       },
-//     },
-//   },
-// });
 
 const ButtonSpinner = () => {
   const { size, buttonVariant } = useContext(ButtonContext);

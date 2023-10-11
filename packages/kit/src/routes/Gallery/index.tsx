@@ -6,7 +6,10 @@ import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import IconButtonGallery from '@onekeyhq/kit/src/views/Components/stories/IconButton';
+import PopoverGallery from '@onekeyhq/kit/src/views/Components/stories/Popover';
+import ProgressGallery from '@onekeyhq/kit/src/views/Components/stories/Progress';
 import SelectGallery from '@onekeyhq/kit/src/views/Components/stories/Select';
+import SliderGallery from '@onekeyhq/kit/src/views/Components/stories/Slider';
 import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 
@@ -32,6 +35,9 @@ export enum GalleryRoutes {
   ComponentDivider = 'component/divider',
   ComponentToast = 'component/toast',
   ComponentActionList = 'component/actionlist',
+  ComponentProgress = 'component/progress',
+  ComponentSlider = 'component/slider',
+  ComponentPopover = 'component/popover',
   ComponentTheme = 'component/theme',
 }
 
@@ -49,6 +55,9 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentBadge, component: BadgeGallery },
   { name: GalleryRoutes.ComponentDialog, component: DialogGallery },
   { name: GalleryRoutes.ComponentActionList, component: ActionListGallery },
+  { name: GalleryRoutes.ComponentPopover, component: PopoverGallery },
+  { name: GalleryRoutes.ComponentProgress, component: ProgressGallery },
+  { name: GalleryRoutes.ComponentSlider, component: SliderGallery },
   {
     name: GalleryRoutes.ComponentNavigation,
     component: DemoRootApp,

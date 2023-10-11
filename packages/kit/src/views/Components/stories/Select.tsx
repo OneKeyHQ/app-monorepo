@@ -12,25 +12,21 @@ const items: ISelectItem[] = [
   {
     label: 'Apple',
     value: 'Apple',
-    leading: <Text variant="$bodyMdMedium">😀</Text>,
   },
 
   {
     label: 'Pear',
     value: 'Pear',
-    leading: <Text variant="$bodyMdMedium">🚅</Text>,
   },
 
   {
     label: 'Blackberry',
     value: 'Blackberry',
-    leading: <Text variant="$bodyMdMedium">🚆</Text>,
   },
 
   {
     label: 'Peach',
     value: 'Peach',
-    leading: <Icon name="AcademicCapMini" size="$5" />,
   },
 
   { label: 'Apricot', value: 'Apricot' },

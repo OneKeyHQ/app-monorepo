@@ -1,64 +1,120 @@
-import type { FC } from 'react';
-
-import { ListItem, Popover, YStack } from 'tamagui';
-
+import { Divider } from '../Divider';
 import { Icon } from '../Icon';
+import { Popover } from '../Popover';
+import { YStack } from '../Stack';
+import { Text } from '../Text';
 
 import type { ICON_NAMES } from '../Icon';
-import type { PopoverProps } from 'tamagui';
+import type { PopoverProps } from '../Popover';
 
-type Action = {
+interface ActionListItemProps {
   icon?: ICON_NAMES;
-  name: string;
+  label: string;
+  destructive?: boolean;
   onPress?: () => void;
-};
+  disabled?: boolean;
+}
 
-type ActionSheetProps = PopoverProps & {
-  actions: Action[];
-};
-
-export const ActionList: FC<ActionSheetProps> = ({ actions, ...props }) => (
-  <Popover size="$5" allowFlip placement="top" {...props}>
-    <Popover.Trigger>
-      <ListItem hoverTheme title="action sheet trigger" bordered />
-    </Popover.Trigger>
-    <Popover.Content
-      borderWidth={1}
-      backgroundColor="$red10"
-      borderColor="$borderColor"
-      enterStyle={{ y: -10, opacity: 0 }}
-      exitStyle={{ y: -10, opacity: 0 }}
-      elevate
-      animation={[
-        'quick',
-        {
-          opacity: {
-            overshootClamping: true,
-          },
-        },
-      ]}
+function ActionListItem({
+  icon,
+  label,
+  onPress,
+  destructive,
+  disabled,
+}: ActionListItemProps) {
+  return (
+    <Popover.Close
+      flexDirection="row"
+      alignItems="center"
+      px="$2"
+      py="$1.5"
+      borderRadius="$2"
+      $md={{
+        py: '$2.5',
+        borderRadius: '$3',
+      }}
+      opacity={disabled ? 0.5 : 1}
+      disabled={disabled}
+      {...(!disabled && {
+        hoverStyle: { bg: '$bgHover' },
+        pressStyle: { bg: '$bgActive' },
+      })}
+      onPress={onPress}
     >
-      <YStack space="$3">
-        {actions.map((item) => (
-          <Popover.Close onPress={item.onPress}>
-            <ListItem hoverTheme icon={<Icon name={item.icon} size="$5" />}>
-              {item.name}
-            </ListItem>
-          </Popover.Close>
-        ))}
-      </YStack>
-    </Popover.Content>
-    <Popover.Adapt when="md">
-      <Popover.Sheet modal>
-        <Popover.Sheet.Overlay
-          animation="lazy"
-          enterStyle={{ opacity: 0 }}
-          exitStyle={{ opacity: 0 }}
+      {icon && (
+        <Icon
+          name={icon}
+          size="$5"
+          mr="$3"
+          $md={{ size: '$6' }}
+          color={destructive ? '$iconCritical' : '$icon'}
         />
-        <Popover.Sheet.Frame padding="$4" backgroundColor="$red10">
-          <Popover.Adapt.Contents />
-        </Popover.Sheet.Frame>
-      </Popover.Sheet>
-    </Popover.Adapt>
-  </Popover>
-);
+      )}
+      <Text
+        variant="$bodyMd"
+        $md={{ variant: '$bodyLg' }}
+        userSelect="none"
+        color={destructive ? '$textCritical' : '$text'}
+      >
+        {label}
+      </Text>
+    </Popover.Close>
+  );
+}
+
+interface ActionListSection {
+  title?: string;
+  items: ActionListItemProps[];
+}
+
+export interface ActionListProps extends PopoverProps {
+  items?: ActionListItemProps[];
+  sections?: ActionListSection[];
+}
+
+export function ActionList({
+  items,
+  sections,
+  ...props
+}: Omit<ActionListProps, 'renderContent'>) {
+  const renderActionListItem = (item: ActionListItemProps) => (
+    <ActionListItem
+      onPress={item.onPress}
+      key={item.label}
+      disabled={item.disabled}
+      {...item}
+    />
+  );
+
+  return (
+    <Popover
+      renderContent={
+        <YStack p="$1" $md={{ p: '$3' }}>
+          {items?.map(renderActionListItem)}
+
+          {sections?.map((section, sectionIdx) => (
+            <YStack key={sectionIdx}>
+              {sectionIdx > 0 && <Divider mx="$2" my="$1" />}
+              {section.title && (
+                <Text
+                  variant="$headingXs"
+                  $md={{ variant: '$headingSm', paddingVertical: '$2.5' }}
+                  paddingVertical="$1.5"
+                  paddingHorizontal="$2"
+                  color="$textSubdued"
+                >
+                  {section.title}
+                </Text>
+              )}
+              {section.items.map(renderActionListItem)}
+            </YStack>
+          ))}
+        </YStack>
+      }
+      floatingPanelProps={{
+        width: '$56',
+      }}
+      {...props}
+    />
+  );
+}
