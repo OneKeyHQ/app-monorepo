@@ -1,6 +1,14 @@
-import { Input, Label, Switch } from 'tamagui';
-
-import { Button, Form, useForm } from '@onekeyhq/components';
+import {
+  Button,
+  Checkbox,
+  Form,
+  Input,
+  Radio,
+  SearchBar,
+  Switch,
+  TextArea,
+  useForm,
+} from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -9,6 +17,11 @@ const Form1 = () => {
     defaultValues: {
       name: 'Nate Wienert',
       length: '1234567',
+      checkbox: true,
+      textArea: `textArea1\ntextArea2`,
+      switch: true,
+      radio: '4',
+      search: 'search',
     },
   });
   return (
@@ -47,10 +60,42 @@ const Form1 = () => {
       >
         <Input placeholder="Required" />
       </Form.Field>
-      <Form.Field label="Notify" name="notify">
-        <Switch id="notify">
-          <Switch.Thumb animation="quick" />
-        </Switch>
+      <Form.Field
+        label="TextArea"
+        name="textArea"
+        rules={{
+          // async validate
+          validate: (value: string) =>
+            new Promise((resolve) => {
+              setTimeout(() => {
+                if (value.includes('textArea')) {
+                  resolve('`textArea` annot be included in this value');
+                } else {
+                  resolve(true);
+                }
+              }, 1500);
+            }),
+        }}
+      >
+        <TextArea multiline h="$16" placeholder="TextArea" />
+      </Form.Field>
+      <Form.Field label="Checkbox" name="checkbox">
+        <Checkbox label="checkbox" />
+      </Form.Field>
+      <Form.Field label="Switch" name="switch">
+        <Switch />
+      </Form.Field>
+      <Form.Field label="Radio" name="radio">
+        <Radio
+          options={[
+            { label: 'Second value', value: '2' },
+            { label: 'Third value', value: '3' },
+            { label: 'Fourth value', value: '4' },
+          ]}
+        />
+      </Form.Field>
+      <Form.Field label="search" name="search">
+        <SearchBar />
       </Form.Field>
     </Form>
   );
