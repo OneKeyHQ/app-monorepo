@@ -185,7 +185,12 @@ function DialogFrame({
             exitStyle={{ opacity: 0 }}
             backgroundColor="$bgBackdrop"
           />
-          <Sheet.Frame>
+          <Sheet.Frame
+            unstyled
+            borderTopLeftRadius="$6"
+            borderTopRightRadius="$6"
+            bg="$bg"
+          >
             {/* grabber */}
             <Stack
               position="absolute"

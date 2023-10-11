@@ -227,6 +227,7 @@ function Select({
                   $md={{
                     paddingVertical: '$2.5',
                     paddingRight: 11,
+                    borderRadius: '$3',
                   }}
                   icon={item.leading}
                   justifyContent="flex-start"

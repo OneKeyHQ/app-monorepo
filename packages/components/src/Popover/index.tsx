@@ -132,7 +132,11 @@ export function Popover({
                 {title}
               </Text>
               <TMPopover.Close asChild>
-                <IconButton buttonVariant="secondary" size="small" hitSlop={8}>
+                <IconButton
+                  buttonVariant="secondary"
+                  size="small"
+                  $platform-native={{ hitSlop: 8 }}
+                >
                   <IconButton.Icon name="CrossedSmallOutline" />
                 </IconButton>
               </TMPopover.Close>
