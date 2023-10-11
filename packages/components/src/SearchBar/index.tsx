@@ -7,9 +7,9 @@ import { Input } from '../Input';
 import { Stack, XStack } from '../Stack';
 
 interface SearchBarProps {
-  value: string;
-  onBlur: () => void;
-  onChange: (value: string) => void;
+  value?: string;
+  onBlur?: () => void;
+  onChange?: (value: string) => void;
 }
 
 export function SearchBar({ value, onChange, onBlur }: SearchBarProps) {
@@ -20,11 +20,11 @@ export function SearchBar({ value, onChange, onBlur }: SearchBarProps) {
 
   const handleOnBlur = useCallback(() => {
     setIsFocus(false);
-    onBlur();
+    onBlur?.();
   }, [onBlur]);
 
   const handleClearValue = useCallback(() => {
-    onChange('');
+    onChange?.('');
   }, [onChange]);
 
   return (
@@ -50,7 +50,7 @@ export function SearchBar({ value, onChange, onBlur }: SearchBarProps) {
         value={value}
         onFocus={handleOnFocus}
         onBlur={handleOnBlur}
-        focusStyle={{ outlineStyle: 'none' }}
+        focusStyle={{ outlsineStyle: 'none' }}
         onChangeText={onChange}
         h="$7"
         returnKeyType="search"
