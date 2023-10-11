@@ -1,7 +1,7 @@
 import { Divider } from '../Divider';
 import { Icon } from '../Icon';
 import { Popover } from '../Popover';
-import { XStack, YStack } from '../Stack';
+import { YStack } from '../Stack';
 import { Text } from '../Text';
 
 import type { ICON_NAMES } from '../Icon';
@@ -12,6 +12,7 @@ interface ActionListItemProps {
   label: string;
   destructive?: boolean;
   onPress?: () => void;
+  disabled?: boolean;
 }
 
 function ActionListItem({
@@ -19,19 +20,26 @@ function ActionListItem({
   label,
   onPress,
   destructive,
+  disabled,
 }: ActionListItemProps) {
   return (
-    <XStack
-      hoverStyle={{ bg: '$bgHover' }}
-      pressStyle={{ bg: '$bgActive' }}
-      borderRadius="$2"
+    <Popover.Close
+      flexDirection="row"
+      alignItems="center"
       px="$2"
       py="$1.5"
+      borderRadius="$2"
       $md={{
         py: '$2.5',
         borderRadius: '$3',
       }}
-      alignItems="center"
+      opacity={disabled ? 0.5 : 1}
+      disabled={disabled}
+      {...(!disabled && {
+        hoverStyle: { bg: '$bgHover' },
+        pressStyle: { bg: '$bgActive' },
+      })}
+      onPress={onPress}
     >
       {icon && (
         <Icon
@@ -50,7 +58,7 @@ function ActionListItem({
       >
         {label}
       </Text>
-    </XStack>
+    </Popover.Close>
   );
 }
 
@@ -69,19 +77,20 @@ export function ActionList({
   sections,
   ...props
 }: Omit<ActionListProps, 'renderContent'>) {
+  const renderActionListItem = (item: ActionListItemProps) => (
+    <ActionListItem
+      onPress={item.onPress}
+      key={item.label}
+      disabled={item.disabled}
+      {...item}
+    />
+  );
+
   return (
     <Popover
       renderContent={
         <YStack p="$1" $md={{ p: '$3' }}>
-          {items?.map((item) => (
-            <Popover.Close onPress={item.onPress} key={item.label}>
-              <ActionListItem
-                icon={item.icon}
-                label={item.label}
-                destructive={item.destructive}
-              />
-            </Popover.Close>
-          ))}
+          {items?.map(renderActionListItem)}
 
           {sections?.map((section, sectionIdx) => (
             <YStack key={sectionIdx}>
@@ -97,15 +106,7 @@ export function ActionList({
                   {section.title}
                 </Text>
               )}
-              {section.items.map((item) => (
-                <Popover.Close onPress={item.onPress} key={item.label}>
-                  <ActionListItem
-                    icon={item.icon}
-                    label={item.label}
-                    destructive={item.destructive}
-                  />
-                </Popover.Close>
-              ))}
+              {section.items.map(renderActionListItem)}
             </YStack>
           ))}
         </YStack>

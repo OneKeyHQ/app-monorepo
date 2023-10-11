@@ -44,6 +44,7 @@ const ActionListGallery = () => (
                   label: 'Action3',
                   icon: 'PlaceholderOutline',
                   onPress: () => console.log('action2'),
+                  disabled: true,
                 },
               ]}
             />
