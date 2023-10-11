@@ -85,8 +85,13 @@ if (!platformEnv.isManifestV3) {
       if (parsedUrl.pathname.includes('.')) return;
       let indexHtml = getExtensionIndexHtml();
       indexHtml = 'ui-expand-tab.html';
+      /*
+        check chrome.webRequest.onBeforeRequest
+         /ui-expand-tab.html/#/   not working for Windows Chrome
+         /ui-expand-tab.html#/    works fine
+      */
       const newUrl = chrome.runtime.getURL(
-        `/${indexHtml}/#${parsedUrl.pathname}${parsedUrl.query}`,
+        `/${indexHtml}#${parsedUrl.pathname}${parsedUrl.query}`,
       );
 
       return { redirectUrl: newUrl };
