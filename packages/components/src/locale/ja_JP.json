@@ -1184,7 +1184,7 @@
   "form__beginner_guide": "初心者案内",
   "form__below_str": "{0}を下回る",
   "form__best_rate": "👍 ベストレート",
-  "form__between_int_and_int_sats": "有効値は{min}と{max}stasの間になる",
+  "form__between_int_and_int_sats": "有効値は{min}と{max}satsの間になる",
   "form__bip44_standard": "BIP44基準",
   "form__bip44_standard_cointype_61": "BIP44 基準 (コインタイプ 61')",
   "form__bip44_standard_desc": "OneKey, MetaMask, Trezor, imToken",

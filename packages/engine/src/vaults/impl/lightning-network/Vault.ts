@@ -639,6 +639,7 @@ export default class Vault extends VaultBase {
   }> {
     const { invoice: payreq, amount, fee } = encodedTx;
     const invoice = await this._decodedInvoceCache(payreq);
+    const network = await this.getNetwork();
     let finalAmount = amount;
     if (this.isZeroAmountInvoice(invoice)) {
       if (new BigNumber(encodedTx.amount).isLessThan(1)) {
@@ -646,7 +647,7 @@ export default class Vault extends VaultBase {
           success: false,
           key: 'msg__the_invoice_amount_cannot_be_0',
           params: {
-            0: 'stas',
+            0: network.symbol,
           },
         });
       }
@@ -661,7 +662,7 @@ export default class Vault extends VaultBase {
         success: false,
         key: 'form__amount_invalid',
         params: {
-          0: 'stas',
+          0: network.symbol,
         },
       });
     }
