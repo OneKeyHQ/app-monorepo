@@ -11,9 +11,9 @@ export function SearchBar() {
       alignItems="center"
       paddingHorizontal="$1.5"
     >
-      <Icon name="SearchCircleMini" size="$6" />
+      <Icon name="SearchOutline" size="$6" />
       <Input h="$7" borderWidth={0} flex={1} />
-      <Icon name="CloseQuoteOutline" size="$6" />
+      <Icon name="XCircleOutline" size="$6" />
     </XStack>
   );
 }
