@@ -1,5 +1,6 @@
 import * as React from 'react';
 
+import { SafeAreaProviderCompat } from '@react-navigation/elements';
 import {
   StackRouter,
   createNavigatorFactory,

@@ -1,12 +1,12 @@
 import type { FC, ReactNode } from 'react';
 import { memo, useMemo } from 'react';
 
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TamaguiProvider } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import config from '../../tamagui.config';
-import SafeAreaProvider from '../SafeAreaProvider';
 import { ToastProvider } from '../Toast';
 import Toaster from '../Toast/Toaster';
 

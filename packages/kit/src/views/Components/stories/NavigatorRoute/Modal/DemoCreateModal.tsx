@@ -32,7 +32,7 @@ function DemoCreateViewModal({
 
   return (
     <Layout
-      description="这是一个路由 Header"
+      description="这是一个普通的 Modal 测试"
       suggestions={[
         'Modal 可以通过点击空白处关闭或返回上一级',
         'Modal 可以通过按 ESC 键关闭或返回上一级',
@@ -44,7 +44,7 @@ function DemoCreateViewModal({
       ]}
       elements={[
         {
-          title: '下一个例子',
+          title: '开始 Demo',
           element: (
             <Button
               buttonVariant="primary"
@@ -57,7 +57,7 @@ function DemoCreateViewModal({
                 );
               }}
             >
-              <Button.Text>下一个例子</Button.Text>
+              <Button.Text>开始 Demo</Button.Text>
             </Button>
           ),
         },
@@ -85,14 +85,14 @@ function DemoCreateSearchModal({
 
   return (
     <Layout
-      description="这是一个路由 Header"
+      description="这是一个带搜索框的 Modal"
       suggestions={['使用方式与 @react-navigation/native-stack 相同']}
       boundaryConditions={[
         'BackButton 已经处理好了相关内容，所以不支持自定义 headerLeft 组件',
       ]}
       elements={[
         {
-          title: '测试 Input',
+          title: '输入文字测试冻结',
           element: <Input />,
         },
         {
@@ -144,7 +144,7 @@ function DemoCreateOptionsModal({
 
   return (
     <Layout
-      description="这是一个路由 Header"
+      description="这是一个带有搜索框和 RightButton 的 Demo"
       suggestions={['使用方式与 @react-navigation/native-stack 相同']}
       boundaryConditions={[
         'BackButton 已经处理好了相关内容，所以不支持自定义 headerLeft 组件',

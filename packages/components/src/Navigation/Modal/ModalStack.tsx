@@ -27,7 +27,11 @@ type Props = ModalNavigationConfig & {
   descriptors: ModalDescriptorMap;
 };
 
-export default function ModalStack({ state, navigation, descriptors }: Props) {
+export default function ModalStackView({
+  state,
+  navigation,
+  descriptors,
+}: Props) {
   const parentHeaderBack = useContext(HeaderBackContext);
   // const currentRoute = state.routes[state.index];
   // const descriptor = descriptors[currentRoute.key];
@@ -92,7 +96,7 @@ export default function ModalStack({ state, navigation, descriptors }: Props) {
             : parentHeaderBack;
 
           return (
-            <DelayedFreeze freeze={freezeOnBlur && !focused}>
+            <DelayedFreeze key={route.key} freeze={freezeOnBlur && !focused}>
               <CenteredModal
                 key={route.key}
                 visible={focused}

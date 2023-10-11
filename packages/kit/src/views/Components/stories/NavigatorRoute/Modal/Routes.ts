@@ -1,11 +1,13 @@
 export enum RootModalRoutes {
   DemoCreateModal = 'DemoCreateModalStack',
   DemoLockedModal = 'DemoLockedModalStack',
+  DemoCoverageModal = 'DemoCoverageModalStack',
 }
 
 export type DemoRootModalParamList = {
   [RootModalRoutes.DemoCreateModal]: DemoCreateModalParamList;
   [RootModalRoutes.DemoLockedModal]: DemoLockedModalParamList;
+  [RootModalRoutes.DemoCoverageModal]: DemoCoverageModalParamList;
 };
 
 export enum DemoCreateModalRoutes {
@@ -34,4 +36,16 @@ export type DemoLockedModalParamList = {
   [DemoLockedModalRoutes.DemoConfigLockedModal]: undefined;
   [DemoLockedModalRoutes.DemoManualLockedViewModal]: undefined;
   [DemoLockedModalRoutes.DemoRepeatManualLockedViewModal]: undefined;
+};
+
+export enum DemoCoverageModalRoutes {
+  DemoCoverageModal = 'DemoCoverageModal',
+  DemoCoverageDialogModal = 'DemoCoverageDialogModal',
+  DemoCoverageModalModal = 'DemoCoverageModalModal',
+}
+
+export type DemoCoverageModalParamList = {
+  [DemoCoverageModalRoutes.DemoCoverageModal]: undefined;
+  [DemoCoverageModalRoutes.DemoCoverageDialogModal]: undefined;
+  [DemoCoverageModalRoutes.DemoCoverageModalModal]: undefined;
 };

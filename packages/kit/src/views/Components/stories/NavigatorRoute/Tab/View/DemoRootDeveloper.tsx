@@ -13,12 +13,12 @@ const DemoRootDeveloper = () => {
   useFreezeProbe('DemoRootDeveloper');
   return (
     <Layout
-      description="这是一个路由 Modal 的演示"
-      suggestions={['使用方式与 @react-navigation/native-stack 相同']}
+      description="这是一个关于路由 Modal 的相关演示"
+      suggestions={[]}
       boundaryConditions={[]}
       elements={[
         {
-          title: '冻结测试',
+          title: '输入文字测试冻结',
           element: <Input />,
         },
         {
@@ -53,7 +53,7 @@ const DemoRootDeveloper = () => {
                 });
               }}
             >
-              <Button.Text>打开 Modal</Button.Text>
+              <Button.Text>打开 Modal Demo</Button.Text>
             </Button>
           ),
         },
@@ -66,7 +66,7 @@ const DemoRootDeveloper = () => {
                 navigation.pushModal(RootModalRoutes.DemoLockedModal);
               }}
             >
-              <Button.Text>打开 Modal</Button.Text>
+              <Button.Text>打开 Modal Demo</Button.Text>
             </Button>
           ),
         },
@@ -81,7 +81,20 @@ const DemoRootDeveloper = () => {
                 });
               }}
             >
-              <Button.Text>打开 Modal</Button.Text>
+              <Button.Text>打开 Modal Demo</Button.Text>
+            </Button>
+          ),
+        },
+        {
+          title: 'Modal 覆盖测试',
+          element: (
+            <Button
+              buttonVariant="primary"
+              onPress={() => {
+                navigation.pushModal(RootModalRoutes.DemoCoverageModal);
+              }}
+            >
+              <Button.Text>打开 Modal Demo</Button.Text>
             </Button>
           ),
         },

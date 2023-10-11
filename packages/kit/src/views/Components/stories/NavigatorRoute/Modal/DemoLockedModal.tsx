@@ -34,7 +34,7 @@ const DemoLockedViewModal = () => {
       ]}
       elements={[
         {
-          title: '下一个例子',
+          title: '开始 Demo',
           element: (
             <Button
               buttonVariant="primary"
@@ -44,7 +44,7 @@ const DemoLockedViewModal = () => {
                 });
               }}
             >
-              <Button.Text>下一个例子</Button.Text>
+              <Button.Text>开始 Demo</Button.Text>
             </Button>
           ),
         },
@@ -278,12 +278,12 @@ export const LockedModalStack: ModalFlowNavigatorConfig<
   {
     name: DemoLockedModalRoutes.DemoLockedModal,
     component: DemoLockedViewModal,
-    translationId: 'Modal Done',
+    translationId: 'Locked Modal Demo',
   },
   {
     name: DemoLockedModalRoutes.DemoConfigLockedModal,
     component: DemoConfigLockedViewModal,
-    translationId: 'Locked Modal',
+    translationId: 'Config Locked Modal',
     disableClose: true,
   },
   {
