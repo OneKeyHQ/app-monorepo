@@ -160,6 +160,7 @@ const ExtraInfo: FC<ExtraInfoProps> = ({ token, isSearchMode }) => {
     networkId: token?.networkId ?? '',
     accountId: accountId ?? '',
     token,
+    useRecycleBalance: token?.isNative ?? true,
   });
   const price = useTokenPrice(token);
 

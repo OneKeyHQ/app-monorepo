@@ -31,9 +31,8 @@ import {
   TabRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
 import {
-  IMPL_BTC,
-  IMPL_TBTC,
   IMPL_TRON,
+  isBTCNetwork,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -73,7 +72,7 @@ function OneToMany(props: Props) {
   const [isBuildingTx, setIsBuildingTx] = useState(false);
   const [isUnlimited, setIsUnlimited] = useState(false);
   const [isAlreadyUnlimited, setIsAlreadyUnlimited] = useState(false);
-  const [isfetchingAllowance, setIsFetchingAllowance] = useState(false);
+  const [isFetchingAllowance, setIsFetchingAllowance] = useState(false);
 
   const [amountType, setAmountType] = useState<AmountTypeEnum>(
     amountDefaultTypeMap[bulkType] ?? AmountTypeEnum.Fixed,
@@ -89,10 +88,7 @@ function OneToMany(props: Props) {
   const tokens = accountTokens.filter((token) =>
     network?.impl === IMPL_TRON
       ? !new BigNumber(token.tokenIdOnNetwork).isInteger()
-      : true &&
-        (network?.impl === IMPL_BTC || network?.impl === IMPL_TBTC
-          ? token.isNative
-          : true),
+      : true && (isBTCNetwork(network?.id) ? token.isNative : true),
   );
 
   const { serviceBatchTransfer, serviceToken, serviceOverview } =
@@ -102,7 +98,7 @@ function OneToMany(props: Props) {
   const currentToken = selectedToken || initialToken;
   const isNative = currentToken?.isNative;
 
-  const tokenBalnace = useTokenBalanceWithoutFrozen({
+  const tokenBalance = useTokenBalanceWithoutFrozen({
     accountId,
     networkId,
     token: currentToken,
@@ -180,7 +176,7 @@ function OneToMany(props: Props) {
         new BigNumber(0),
       );
 
-      if (totalAmount.gt(tokenBalnace)) {
+      if (totalAmount.gt(tokenBalance)) {
         ToastManager.show(
           {
             title: intl.formatMessage(
@@ -195,7 +191,7 @@ function OneToMany(props: Props) {
 
       return true;
     },
-    [tokenBalnace, intl],
+    [tokenBalance, intl],
   );
 
   const handlePreviewTransfer = useCallback(async () => {
@@ -418,7 +414,7 @@ function OneToMany(props: Props) {
           title={currentToken?.symbol ?? ''}
           desc={intl.formatMessage(
             { id: 'content__balance_str' },
-            { 0: tokenBalnace },
+            { 0: tokenBalance },
           )}
           icon={<TokenIcon size={10} token={currentToken} />}
           onPress={handleOpenTokenSelector}
@@ -435,7 +431,7 @@ function OneToMany(props: Props) {
         />
         {!isNative && network?.settings.batchTransferApprovalRequired && (
           <TxSettingTrigger
-            isLoading={isfetchingAllowance}
+            isLoading={isFetchingAllowance}
             header={intl.formatMessage({ id: 'form__allowance' })}
             title={intl.formatMessage({
               id: isUnlimited ? 'form__unlimited' : 'form__exact_amount',
@@ -498,7 +494,7 @@ function OneToMany(props: Props) {
               !isValid ||
               receiver.length === 0 ||
               isBuildingTx ||
-              isfetchingAllowance
+              isFetchingAllowance
             }
             type="primary"
             size="xl"

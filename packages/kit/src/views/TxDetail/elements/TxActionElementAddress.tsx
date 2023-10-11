@@ -178,6 +178,7 @@ export function TxActionElementAddress(
     amount?: string;
     displayAddress?: boolean;
     numberOfLines?: number;
+    isInscribeTransfer?: boolean;
   } & ComponentProps<typeof Text>,
 ) {
   const {
@@ -190,6 +191,7 @@ export function TxActionElementAddress(
     amount,
     displayAddress = true,
     numberOfLines = 2,
+    isInscribeTransfer,
     ...others
   } = props;
   const intl = useIntl();
@@ -236,6 +238,7 @@ export function TxActionElementAddress(
             isWatchAccount={isWatchAccount}
             isAddressBook={!!contact}
             addressBookLabel={contact?.name}
+            isInscribeAddress={isInscribeTransfer}
             labelStyle={{ mt: 1 }}
           />
         </VStack>
@@ -277,6 +280,7 @@ export function getTxActionElementAddressWithSecurityInfo({
   isCopy,
   isShorten,
   displayAddress,
+  isInscribeTransfer,
 }: {
   address: string;
   withSecurityInfo: boolean;
@@ -286,6 +290,7 @@ export function getTxActionElementAddressWithSecurityInfo({
   isCopy?: boolean;
   isShorten?: boolean;
   displayAddress?: boolean;
+  isInscribeTransfer?: boolean;
 }) {
   if (withSecurityInfo && networkId) {
     return (
@@ -298,6 +303,7 @@ export function getTxActionElementAddressWithSecurityInfo({
         isCopy={isCopy}
         isShorten={isShorten}
         displayAddress={displayAddress}
+        isInscribeTransfer={isInscribeTransfer}
       />
     );
   }
@@ -310,6 +316,7 @@ export function getTxActionElementAddressWithSecurityInfo({
       isCopy={isCopy}
       isShorten={isShorten}
       displayAddress={displayAddress}
+      isInscribeTransfer={isInscribeTransfer}
     />
   );
 }

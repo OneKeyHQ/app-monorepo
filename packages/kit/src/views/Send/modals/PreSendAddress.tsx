@@ -153,6 +153,10 @@ function PreSendAddress() {
     errorMessage: '',
   });
 
+  const [validAddressMessageFromOut, setValidAddressMessageFromOut] = useState({
+    warningMessage: '',
+  });
+
   const submitDisabled =
     isLoading ||
     !formValues?.to ||
@@ -512,6 +516,7 @@ function PreSendAddress() {
         setvalidateMessage({
           errorMessage: '',
         });
+        setValidAddressMessageFromOut({ warningMessage: '' });
         setIsAddressBook(false);
         setAddressBookLabel('');
         setIsContractAddress(false);
@@ -533,7 +538,16 @@ function PreSendAddress() {
             networkId,
             accountId,
           });
-          await validateAddress?.(networkId, toAddress);
+          const result = await validateAddress?.(networkId, toAddress);
+          if (result && result.warningMessage) {
+            setValidAddressMessageFromOut({
+              warningMessage: result.warningMessage,
+            });
+          } else {
+            setValidAddressMessageFromOut({
+              warningMessage: '',
+            });
+          }
         } catch (error0: any) {
           console.error('PreSendAddress validateHandle ERROR: ', error0);
 
@@ -560,6 +574,7 @@ function PreSendAddress() {
               id: 'form__address_invalid',
             }),
           });
+          setValidAddressMessageFromOut({ warningMessage: '' });
           return false;
         }
         const isContractAddressResp = await isContractAddressCheck(toAddress);
@@ -592,9 +607,6 @@ function PreSendAddress() {
                 setValidAddressMessage('msg__valid_payment_request');
               }
             }
-            setvalidateMessage({
-              errorMessage: '',
-            });
           }
         }
         setIsValidatingAddress(false);
@@ -668,6 +680,7 @@ function PreSendAddress() {
                 errorMessage={
                   isNameServiceSearching ? '' : validateMessage.errorMessage
                 }
+                warningMessage={validAddressMessageFromOut.warningMessage}
                 name="to"
                 formControlProps={{ width: 'full' }}
                 helpText={helpTextOfNameServiceResolver}

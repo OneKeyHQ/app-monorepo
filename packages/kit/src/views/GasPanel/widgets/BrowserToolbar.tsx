@@ -8,9 +8,9 @@ export const BrowserToolbar = ({ networkId }: { networkId?: string }) => {
     <Box flexDirection="row" alignItems="center" h="full">
       {price ? (
         <Box flexDirection="row" alignItems="center">
-          <Icon name="GasIllus" size={16} color="text-warning" />
+          <Icon name="GasIllus" size={16} color="text-default" />
           <Box ml="1">
-            <Typography.Button2 color="text-warning">
+            <Typography.Button2 color="text-default">
               {Math.ceil(Number(price))}
             </Typography.Button2>
           </Box>

@@ -128,6 +128,7 @@ export const useTokenBalance = (token?: Token, accountId?: string) => {
     networkId: token?.networkId ?? '',
     accountId: accountId ?? '',
     token,
+    useRecycleBalance: token?.isNative ?? true,
   });
   useEffect(() => {
     if (token && accountId) {

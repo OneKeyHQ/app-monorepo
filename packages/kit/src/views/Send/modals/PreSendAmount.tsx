@@ -45,6 +45,7 @@ import {
   showAccountBalanceDetailsOverlay,
   useAccountBalanceDetailsInfo,
 } from '../../Overlay/AccountBalanceDetailsPanel';
+import BalanceTypeMenu from '../components/BalanceTypeMenu';
 import { BaseSendModal } from '../components/BaseSendModal';
 import { PreSendAmountAlert } from '../components/PreSendAmountAlert';
 import { SendModalRoutes } from '../enums';
@@ -176,7 +177,8 @@ function PreSendAmount() {
   const { account, accountId, networkId, network } =
     useActiveSideAccount(transferInfo);
   const { engine } = backgroundApiProxy;
-
+  const [useCustomAddressesBalance, setuseCustomAddressesBalance] =
+    useState(false);
   useReloadAccountBalance({
     networkId,
     accountId,
@@ -195,15 +197,17 @@ function PreSendAmount() {
       ...tokenInfo,
       sendAddress: transferInfo.tokenSendAddress,
     },
-    useRecycleBalance: tokenInfo?.isNative,
+    useRecycleBalance: tokenInfo?.isNative ?? true,
     fallback: '0',
+    useCustomAddressesBalance,
   });
 
   const frozenBalance = useFrozenBalance({
     networkId,
     accountId,
     tokenId: tokenInfo?.tokenIdOnNetwork || 'main',
-    useRecycleBalance: tokenInfo?.isNative,
+    useRecycleBalance: tokenInfo?.isNative ?? true,
+    useCustomAddressesBalance,
   });
 
   const originalTokenBalance = useTokenBalance({
@@ -213,6 +217,7 @@ function PreSendAmount() {
       ...tokenInfo,
       sendAddress: transferInfo.tokenSendAddress,
     },
+    useRecycleBalance: tokenInfo?.isNative ?? true,
     fallback: '0',
   });
 
@@ -331,6 +336,13 @@ function PreSendAmount() {
     ],
   );
 
+  const shouldShowFrozenBalance = useMemo(() => {
+    if (!network?.settings.isBtcForkChain) {
+      return new BigNumber(frozenBalance ?? '0').isGreaterThan(0);
+    }
+    return false;
+  }, [frozenBalance, network?.settings.isBtcForkChain]);
+
   const {
     title,
     titleAction,
@@ -353,7 +365,8 @@ function PreSendAmount() {
   const balanceDetailsInfo = useAccountBalanceDetailsInfo({
     networkId,
     accountId,
-    useRecycleBalance: tokenInfo?.isNative,
+    useRecycleBalance: tokenInfo?.isNative ?? true,
+    useCustomAddressesBalance,
   });
 
   return (
@@ -376,6 +389,9 @@ function PreSendAmount() {
         if (transferInfo) {
           transferInfo.amount = amountToSend;
           transferInfo.from = account.address;
+        }
+        if (useCustomAddressesBalance) {
+          transferInfo.useCustomAddressesBalance = true;
         }
 
         try {
@@ -474,9 +490,13 @@ function PreSendAmount() {
         <Box mt="auto">
           <Box flexDirection="row" alignItems="center">
             <Box flex={1}>
-              <Typography.Caption color="text-subdued">
-                {intl.formatMessage({ id: 'content__available_balance' })}
-              </Typography.Caption>
+              <BalanceTypeMenu
+                accountId={accountId}
+                networkId={networkId}
+                callback={(value) =>
+                  setuseCustomAddressesBalance(value === 'Manually')
+                }
+              />
               <Pressable
                 onPress={
                   balanceDetailsInfo.enabled
@@ -498,6 +518,8 @@ function PreSendAmount() {
                     ...(tokenInfo || {}),
                     sendAddress: transferInfo.tokenSendAddress,
                   }}
+                  useRecycleBalance={tokenInfo?.isNative ?? true}
+                  useCustomAddressesBalance={useCustomAddressesBalance}
                   render={(ele) => (
                     <Typography.Body1Strong
                       color={
@@ -514,7 +536,7 @@ function PreSendAmount() {
                   </Box>
                 ) : null}
               </Pressable>
-              {new BigNumber(frozenBalance ?? '0').isGreaterThan(0) ? (
+              {shouldShowFrozenBalance ? (
                 <Typography.Caption color="text-subdued" mt={2}>
                   {`${intl.formatMessage({
                     id: 'form__frozen_balance',

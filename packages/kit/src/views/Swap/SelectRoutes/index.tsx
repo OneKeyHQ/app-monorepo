@@ -166,10 +166,10 @@ const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
         </Box>
         <Box alignItems="flex-end">
           <Typography.Body1Strong>{feePrice}</Typography.Body1Strong>
-          <Typography.Caption color="text-subdued">
+          <Typography.Body2 color="text-subdued">
             {intl.formatMessage({ id: 'form__no_fee_price' })}
             {nofeePrice}
-          </Typography.Caption>
+          </Typography.Body2>
         </Box>
       </Box>
       <ProviderNames providers={response.data?.providers} />

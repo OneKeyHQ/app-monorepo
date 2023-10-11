@@ -5,12 +5,14 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Center,
-  Container,
   Empty,
+  Icon,
   Searchbar,
   Spinner,
+  Text,
   Typography,
 } from '@onekeyhq/components';
+import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 
 import type { MatchDAppItemType } from '../explorerUtils';
 
@@ -32,14 +34,26 @@ const HeaderHistories: FC<HeaderHistoriesProps> = ({
         })}
       </Typography.Subheading>
       {keyword && (
-        <Container.Box mb={4}>
-          <Container.Item
-            title={keyword}
-            titleColor="text-default"
-            customArrowIconName="ArrowCircleRightMini"
-            onPress={() => onSelectHistory?.(keyword)}
-          />
-        </Container.Box>
+        <Pressable
+          flexDirection="row"
+          alignItems="center"
+          bg="surface-default"
+          borderRadius={12}
+          px={{ base: '4', lg: '6' }}
+          py="4"
+          mb="4"
+          onPress={() => onSelectHistory?.(keyword)}
+        >
+          <Box flex="1" mr="4">
+            <Text
+              color="text-default"
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            >
+              {keyword}
+            </Text>
+          </Box>
+          <Icon name="ArrowCircleRightMini" />
+        </Pressable>
       )}
     </Box>
   );

@@ -314,7 +314,12 @@ const buildLinking = (): LinkingOptions<any> => {
       }
       // keep manifest v3 url with html file
       if (platformEnv.isExtChrome && platformEnv.isManifestV3) {
-        return `${extHtmlFileUrl}/#${newPath}`;
+        /*
+        check chrome.webRequest.onBeforeRequest
+         /ui-expand-tab.html/#/   not working for Windows Chrome
+         /ui-expand-tab.html#/    works fine
+        */
+        return `${extHtmlFileUrl}#${newPath}`;
       }
       return newPath;
     },

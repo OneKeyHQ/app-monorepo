@@ -9,7 +9,7 @@ import type {
   IBaseMenuOptions,
   IMenu,
 } from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { isBTCNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { useNavigation } from '../../../hooks';
 import {
@@ -102,7 +102,7 @@ const BitcoinUsedAddressMenu: FC<
   const showFindAddressByPath = useMemo(
     () =>
       (walletId.startsWith('hd') || walletId.startsWith('hw')) &&
-      ([OnekeyNetwork.btc, OnekeyNetwork.tbtc] as string[]).includes(networkId),
+      isBTCNetwork(networkId),
     [networkId, walletId],
   );
 

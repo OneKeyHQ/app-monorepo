@@ -448,6 +448,7 @@ function SendConfirm({
 
     handleConfirm,
     onSecondaryActionPress: ({ close }) => {
+      routeParams.onFail?.(new Error('user cancelled'));
       dappApprove.reject();
       close();
     },

@@ -35,6 +35,7 @@ export const SelectorButton: FC<SelectorButtonProps> = ({
           params: {
             screen: DiscoverModalRoutes.ChainSelector,
             params: {
+              currentNetworkId: networkId,
               networkIds,
               onSelect,
             },

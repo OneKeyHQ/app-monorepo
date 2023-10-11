@@ -6553,7 +6553,6 @@ __metadata:
     esbuild: ^0.15.11
     expo: 49.0.6
     glob: ^7.2.0
-    keytar: ^7.9.0
     node-fetch: ^2.6.7
     rimraf: ^3
   languageName: unknown
@@ -6597,7 +6596,7 @@ __metadata:
     bech32: ^2.0.0
     bignumber.js: ^9.0.1
     bip32: ^4.0.0
-    bip39: ^3.0.4
+    bip39: ^3.1.0
     bitcoinforkjs: "git+https://github.com/OneKeyHQ/bitcoinjs-lib.git#feat/remove-npm-lock"
     bitcoinjs-message: ^2.2.0
     bs58check: ^2.1.2
@@ -10042,7 +10041,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^16.11.26, @types/node@npm:^16.7.13":
+"@types/node@npm:^16.11.26":
+  version: 16.18.53
+  resolution: "@types/node@npm:16.18.53"
+  checksum: 26c05cde59664360c22e0dda70776ca6f1b35f0b94e4f84d2c21e2afa2e69ac3a2c99bbb57b43405f81df1b2598f6d707ccc7c4c31865f90e45c4625d8400518
+  languageName: node
+  linkType: hard
+
+"@types/node@npm:^16.7.13":
   version: 16.11.68
   resolution: "@types/node@npm:16.11.68"
   checksum: a35293b6b8867e10ab9e10b6cd5f0e4224a86256d5ef102581dcb9f79f35f255ad87443e8584ddf8dce1229ee28885c58187e41822cf8d1e82495e7897c47c3f
@@ -13278,6 +13284,15 @@ __metadata:
     pbkdf2: ^3.0.9
     randombytes: ^2.0.1
   checksum: 79ce1600a03d1ba5053bdd4e6323f9463ec340764c7e52918b6c6b9dca81221940f2d9a65656447f108f9bc2c8d9ae8df319cca83bbd1dad63f53ef2768d9bae
+  languageName: node
+  linkType: hard
+
+"bip39@npm:^3.1.0":
+  version: 3.1.0
+  resolution: "bip39@npm:3.1.0"
+  dependencies:
+    "@noble/hashes": ^1.2.0
+  checksum: 1224e763ffc6b097052ed8abd57f0e521ad6d31f1645be0d0a15f4417c13f8461f00e47e9cf7c8c784bd533f4fb1ee3ab020f258c7df45ee5dc722b4b0336cfc
   languageName: node
   linkType: hard
 
@@ -23908,17 +23923,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"keytar@npm:^7.9.0":
-  version: 7.9.0
-  resolution: "keytar@npm:7.9.0"
-  dependencies:
-    node-addon-api: ^4.3.0
-    node-gyp: latest
-    prebuild-install: ^7.0.1
-  checksum: 4dbdd21f69e21a53032cbc949847f57338e42df763c5eec04e1b5d7142a689f95d8c3d74fb3b7dc321b5d678271d8d8d1a0dcaa919673ebc50ef8ce76f354e21
-  languageName: node
-  linkType: hard
-
 "keyv@npm:^4.0.0":
   version: 4.0.4
   resolution: "keyv@npm:4.0.4"
@@ -26419,15 +26423,6 @@ __metadata:
   dependencies:
     node-gyp: latest
   checksum: 31fb22d674648204f8dd94167eb5aac896c841b84a9210d614bf5d97c74ef059cc6326389cf0c54d2086e35312938401d4cc82e5fcd679202503eb8ac84814f8
-  languageName: node
-  linkType: hard
-
-"node-addon-api@npm:^4.3.0":
-  version: 4.3.0
-  resolution: "node-addon-api@npm:4.3.0"
-  dependencies:
-    node-gyp: latest
-  checksum: 3de396e23cc209f539c704583e8e99c148850226f6e389a641b92e8967953713228109f919765abc1f4355e801e8f41842f96210b8d61c7dcc10a477002dcf00
   languageName: node
   linkType: hard
 
@@ -29681,16 +29676,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#5036d59cba4f5609c32b7eb5dec560e738ce7115":
+"react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#834d8096f8cfd78a961fb7a13f06f0cc64b2c9c3":
   version: 11.24.0
-  resolution: "react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#commit=5036d59cba4f5609c32b7eb5dec560e738ce7115"
+  resolution: "react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#commit=834d8096f8cfd78a961fb7a13f06f0cc64b2c9c3"
   dependencies:
     escape-string-regexp: 2.0.0
     invariant: 2.2.4
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: fc611002420df2c068517f08846095062bda531dc2651ce5a6b738bd9dbc33c090323105afec4e4b4516459d244bca47e04b50b2c3c6fab67d2593f891f87fab
+  checksum: 740bcc2f986a84398226de87015e0c0ea071f41d7bb9b0a513eefed3598f5d1165b06a8f8448d61343112f482b5e4ea303d9704816bf396ffa0dd67d5142968d
   languageName: node
   linkType: hard
 

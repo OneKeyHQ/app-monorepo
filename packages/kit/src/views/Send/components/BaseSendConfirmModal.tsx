@@ -87,7 +87,10 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
     if (sourceInfo) {
       let nativeBalanceTransferBN = new BigNumber(0);
       for (const action of (decodedTx as IDecodedTx)?.actions ?? []) {
-        if (action.type === IDecodedTxActionType.NATIVE_TRANSFER) {
+        if (
+          action.type === IDecodedTxActionType.NATIVE_TRANSFER &&
+          action.direction === IDecodedTxDirection.OUT
+        ) {
           nativeBalanceTransferBN = nativeBalanceTransferBN.plus(
             action.nativeTransfer?.amount ?? 0,
           );

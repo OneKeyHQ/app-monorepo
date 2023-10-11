@@ -38,8 +38,8 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
+import { isBTCNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -370,7 +370,7 @@ function AccountTypeSelectorTrigger({
   }, [intl, selectedDerivation]);
 
   if (
-    [OnekeyNetwork.btc, OnekeyNetwork.tbtc].includes(network.id) &&
+    isBTCNetwork(network.id) &&
     derivationOptions.length > 0 &&
     selectedDerivation
   ) {

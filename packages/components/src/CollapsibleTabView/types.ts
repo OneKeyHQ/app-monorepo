@@ -11,6 +11,7 @@ export interface CollapsibleContainerProps {
   headerView?: ReactNode;
   headerHeight: number;
   onRefresh?: () => void;
+  onScroll?: () => void;
   onIndexChange?: (index: number) => void;
   onPageScrollStateChange?: (e: OnPageScrollStateChangeEvent) => void;
   containerStyle?: StyleProp<ViewStyle>;

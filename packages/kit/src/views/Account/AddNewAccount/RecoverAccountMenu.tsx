@@ -1,4 +1,4 @@
-import type { FC } from 'react';
+import type { Dispatch, FC, SetStateAction } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { CheckBox, Divider } from '@onekeyhq/components';
@@ -10,6 +10,7 @@ import type {
   IMenu,
 } from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { isHardwareWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 
 import { useNavigation } from '../../../hooks';
 import {
@@ -31,9 +32,20 @@ const RecoverAccountMenu: FC<
     walletId: string;
     networkId: string;
     template: string;
+    isLoadingState: boolean;
+    setLoading: Dispatch<SetStateAction<boolean>>;
   }
 > = (props) => {
-  const { showPath, onChange, password, walletId, networkId, template } = props;
+  const {
+    showPath,
+    onChange,
+    password,
+    walletId,
+    networkId,
+    template,
+    isLoadingState,
+    setLoading,
+  } = props;
   const navigation = useNavigation<NavigationProps['navigation']>();
   const showFindAddressByPath = useMemo(
     () =>
@@ -86,10 +98,12 @@ const RecoverAccountMenu: FC<
       networkId,
       template,
       onConfirm: ({ data }) => {
+        setLoading(true);
         onCreateAccountByAddressIndex({
           password: password ?? '',
           ...data,
           onAddedCustomAddressCallback: (accountId: string) => {
+            setLoading(false);
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.RecoverAccount,
               params: {
@@ -113,6 +127,7 @@ const RecoverAccountMenu: FC<
     password,
     onCreateAccountByAddressIndex,
     navigation,
+    setLoading,
   ]);
 
   const options = useMemo<IBaseMenuOptions>(
@@ -126,6 +141,7 @@ const RecoverAccountMenu: FC<
         id: 'action__find_address_by_path',
         onPress: onPressFindAddressByPath,
         icon: 'MagnifyingGlassMini',
+        isDisabled: isHardwareWallet({ walletId }) && isLoadingState,
       },
       () => <Divider my={1} />,
       {
@@ -140,6 +156,8 @@ const RecoverAccountMenu: FC<
       onPressBulkCopyAddresses,
       onPressFindAddressByPath,
       showFindAddressByPath,
+      walletId,
+      isLoadingState,
     ],
   );
 

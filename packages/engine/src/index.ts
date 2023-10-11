@@ -206,7 +206,7 @@ class Engine {
 
   @backgroundMethod()
   generateMnemonic(): Promise<string> {
-    return Promise.resolve(bip39.generateMnemonic());
+    return Promise.resolve(bip39.generateMnemonic(256));
   }
 
   @backgroundMethod()
@@ -372,7 +372,7 @@ class Engine {
     await this.validator.validatePasswordStrength(password);
 
     const [usedMnemonic] = await Promise.all([
-      this.validator.validateMnemonic(mnemonic || bip39.generateMnemonic()),
+      this.validator.validateMnemonic(mnemonic || bip39.generateMnemonic(256)),
       this.validator.validateHDWalletNumber(),
     ]);
 
@@ -3021,11 +3021,13 @@ class Engine {
     networkId,
     password,
     useRecycleBalance,
+    useCustomAddressesBalance,
   }: {
     accountId: string;
     networkId: string;
     password?: string;
     useRecycleBalance?: boolean;
+    useCustomAddressesBalance?: boolean;
   }) {
     if (!networkId || !accountId) return 0;
     const vault = await this.getVault({
@@ -3042,6 +3044,7 @@ class Engine {
       password,
       useRecycleBalance,
       ignoreInscriptions: shouldHideInscriptions,
+      useCustomAddressesBalance,
     });
   }
 

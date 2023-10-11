@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react';
 
-import { Box, Image, Modal, Text, Token } from '@onekeyhq/components';
+import { Box, Modal, Text, Token } from '@onekeyhq/components';
 
 import { LazyLoadingDisplayView } from '../../../components/LazyDisplayView';
 import { useNetwork } from '../../../hooks';

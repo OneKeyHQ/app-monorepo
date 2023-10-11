@@ -903,8 +903,11 @@ export default class ServiceInscribe extends ServiceBase {
     const btcVault = await this.getActiveBtcVault({ networkId, accountId });
     const provider = await btcVault.getProvider();
     const result = provider.verifyAddress(address);
-    if (result?.encoding === AddressEncodings.P2TR && result?.isValid) {
-      return true;
+    if (result?.isValid) {
+      return {
+        isValidAddress: true,
+        isTaprootAddress: result?.encoding === AddressEncodings.P2TR,
+      };
     }
     throw new Error(`InscribeOrder ERROR: Invalid Taproot address:${address}`);
   }

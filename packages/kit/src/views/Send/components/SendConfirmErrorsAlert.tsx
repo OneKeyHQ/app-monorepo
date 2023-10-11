@@ -1,4 +1,3 @@
-import { useNavigation } from '@react-navigation/native';
 import { find } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -10,7 +9,7 @@ import type { IInvoiceConfig } from '@onekeyhq/engine/src/vaults/impl/lightning-
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNetwork } from '../../../hooks';
 import { useTools } from '../../../hooks/redux';
-import { MainRoutes, RootRoutes, TabRoutes } from '../../../routes/routesEnum';
+import { navigationShortcuts } from '../../../routes/navigationShortcuts';
 import { setHomeTabName } from '../../../store/reducers/status';
 import { openUrl } from '../../../utils/openUrl';
 import { WalletHomeTabEnum } from '../../Wallet/type';
@@ -57,7 +56,6 @@ export function SendConfirmErrorsAlert({
 }) {
   const errors = [];
   const intl = useIntl();
-  const navigation = useNavigation();
 
   const tools = useTools(networkId);
 
@@ -205,12 +203,7 @@ export function SendConfirmErrorsAlert({
           backgroundApiProxy.dispatch(
             setHomeTabName(WalletHomeTabEnum.History),
           );
-          navigation?.navigate(RootRoutes.Main, {
-            screen: MainRoutes.Tab,
-            params: {
-              screen: TabRoutes.Home,
-            },
-          });
+          navigationShortcuts.navigateToHome();
         }}
       />,
     );

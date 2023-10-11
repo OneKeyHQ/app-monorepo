@@ -109,6 +109,7 @@ const TokenBalanceAndValue: FC<TokenBalanceAndValueProps> = ({
     networkId: token?.networkId ?? '',
     accountId: accountId ?? '',
     token,
+    useRecycleBalance: token?.isNative ?? true,
   });
 
   const price = useTokenPrice(token);

@@ -1,6 +1,9 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/unbound-method */
 import * as BitcoinJS from 'bitcoinjs-lib';
 import typeforce from 'typeforce';
+
+import type { IBtcForkImpls } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { AddressEncodings } from '../types';
 
@@ -167,22 +170,26 @@ const dash = {
   wif: 0xcc,
 };
 
-const extendedNetworks: Record<string, BitcoinJS.Network> = {
+const extendedNetworks: Record<IBtcForkImpls, BitcoinJS.Network> = {
   btc,
   tbtc,
-  rbtc,
   ltc,
   bch,
   doge,
-  btg,
-  dgb,
-  nmc,
-  vtc,
-  dash,
+  // TODO not support impl yet
+  // rbtc,
+  // btg,
+  // dgb,
+  // nmc,
+  // vtc,
+  // dash,
 };
 
-const getNetwork = (chainCode: string): Network => {
-  const network = extendedNetworks[chainCode];
+export const allBtcForkNetworks = extendedNetworks;
+
+// check fromDBNetworkToChainInfo
+const getNetwork = (chainCode: IBtcForkImpls | string): Network => {
+  const network = extendedNetworks[chainCode as IBtcForkImpls];
   if (typeof network === 'undefined') {
     throw new Error(`Network not found. chainCode: ${chainCode}`);
   }

@@ -30,7 +30,7 @@ import type {
   ISignCredentialOptions,
   IUnsignedTxPro,
 } from '../../types';
-import type { AddressEncodings } from './types';
+import type { AddressEncodings, IEncodedTxBtc } from './types';
 import type BTCForkVault from './VaultBtcFork';
 
 export class KeyringHd extends KeyringHdBase {
@@ -45,9 +45,11 @@ export class KeyringHd extends KeyringHdBase {
       throw new OneKeyInternalError('Software signing requires a password.');
     }
 
+    const { transferInfo } = unsignedTx.encodedTx as IEncodedTxBtc;
     const signers = await this.getSigners(
       password,
       (inputsToSign || unsignedTx.inputs).map((input) => input.address),
+      transferInfo.useCustomAddressesBalance,
     );
     debugLogger.engine.info('signTransaction', this.networkId, unsignedTx);
 
@@ -72,11 +74,19 @@ export class KeyringHd extends KeyringHdBase {
   override async getSigners(
     password: string,
     addresses: Array<string>,
+    useCustomAddressesBalance?: boolean,
   ): Promise<Record<string, Signer>> {
     const relPathToAddresses: Record<string, string> = {};
+    let customAddressMap;
+    if (useCustomAddressesBalance) {
+      const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+      customAddressMap = (
+        this.vault as unknown as BTCForkVault
+      ).getCustomAddressMap(dbAccount);
+    }
     const { utxos } = await (
       this.vault as unknown as BTCForkVault
-    ).collectUTXOsInfo({ checkInscription: false });
+    ).collectUTXOsInfo({ checkInscription: false, customAddressMap });
     for (const utxo of utxos) {
       const { address, path } = utxo;
       if (addresses.includes(address)) {

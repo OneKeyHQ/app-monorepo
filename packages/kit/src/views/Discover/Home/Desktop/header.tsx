@@ -16,8 +16,7 @@ import PNG from '@onekeyhq/kit/assets/discover/header_bg.png';
 
 import { gotoSite, openMatchDApp } from '../../Explorer/Controller/gotoSite';
 import SearchView from '../../Explorer/Search/SearchView';
-
-import { discoverUIEventBus } from './eventBus';
+import { discoverUIEventBus } from '../eventBus';
 
 import type {
   MatchDAppItemType,
@@ -90,7 +89,7 @@ const SearchInput: FC = () => {
           onFocus={() => setShowSearch(true)}
           onBlur={() => setTimeout(() => setShowSearch(false), 200)}
           ref={ref}
-          pr="60px"
+          pr="80px"
           // @ts-ignore
           onKeyPress={(event) => {
             const { key } = event.nativeEvent;
@@ -103,7 +102,7 @@ const SearchInput: FC = () => {
           }}
         />
         <Box position="absolute" right="0" top="0">
-          <Box h="12" w="54px" p="2">
+          <Box h="12" w="72px" p="2">
             <Pressable
               w="full"
               h="full"
@@ -112,6 +111,7 @@ const SearchInput: FC = () => {
               justifyContent="center"
               alignItems="center"
               onPress={onSearch}
+              _hover={{ bgColor: '#222' }}
             >
               <Typography.Button2 color="#fff">
                 {intl.formatMessage({ id: 'action__go' })}

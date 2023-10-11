@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { createSelector } from '@reduxjs/toolkit';
 import B from 'bignumber.js';
@@ -12,6 +12,7 @@ import type {
 } from '@onekeyhq/engine/src/types/token';
 import KeleLogoPNG from '@onekeyhq/kit/assets/staking/kele_pool.png';
 import { freezedEmptyArray } from '@onekeyhq/shared/src/consts/sharedConsts';
+import { isBTCNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { ModalRoutes, RootRoutes } from '../routes/routesEnum';
@@ -252,25 +253,64 @@ export const useTokenBalance = ({
   accountId,
   token,
   fallback = '0',
+  useRecycleBalance,
+  useCustomAddressesBalance,
 }: {
   networkId: string;
   accountId: string;
   token?: Partial<Token> | null;
   fallback?: string;
-  isBRC20?: boolean;
+  useRecycleBalance?: boolean;
+  useCustomAddressesBalance?: boolean;
 }) => {
   const balances = useAppSelector((s) => s.tokens.accountTokensBalance);
+  const [manuallyAddedAddressBalance, setManuallyAddedAddressBalance] =
+    useState(fallback);
+
+  useEffect(() => {
+    if (!useCustomAddressesBalance) {
+      return;
+    }
+
+    backgroundApiProxy.serviceToken
+      .fetchBalanceDetails({
+        networkId,
+        accountId,
+        useCustomAddressesBalance,
+        useRecycleBalance,
+      })
+      .then((value) => {
+        setManuallyAddedAddressBalance(value?.available ?? fallback);
+      });
+  }, [
+    networkId,
+    accountId,
+    useCustomAddressesBalance,
+    fallback,
+    useRecycleBalance,
+  ]);
 
   if (isAllNetworks(networkId)) {
     throw new Error(`useTokenBalance: networkId is not valid: ${networkId}`);
   }
 
-  return useMemo(
-    () =>
+  return useMemo(() => {
+    if (useCustomAddressesBalance) {
+      return manuallyAddedAddressBalance ?? fallback;
+    }
+    return (
       balances?.[networkId]?.[accountId]?.[getBalanceKey(token)]?.balance ??
-      fallback,
-    [networkId, token, accountId, balances, fallback],
-  );
+      fallback
+    );
+  }, [
+    networkId,
+    token,
+    accountId,
+    balances,
+    fallback,
+    manuallyAddedAddressBalance,
+    useCustomAddressesBalance,
+  ]);
 };
 
 export const useTokenBalanceWithoutFrozen = ({
@@ -279,19 +319,30 @@ export const useTokenBalanceWithoutFrozen = ({
   token,
   fallback = '0',
   useRecycleBalance,
+  useCustomAddressesBalance,
 }: {
   networkId: string;
   accountId: string;
   token?: Partial<Token> | null;
   fallback?: string;
   useRecycleBalance?: boolean;
+  useCustomAddressesBalance?: boolean;
 }) => {
-  const balance = useTokenBalance({ networkId, accountId, token, fallback });
+  const balance = useTokenBalance({
+    networkId,
+    accountId,
+    token,
+    fallback,
+    useRecycleBalance,
+    useCustomAddressesBalance,
+  });
+
   const frozenBalance = useFrozenBalance({
     networkId,
     accountId,
     tokenId: token?.tokenIdOnNetwork || 'main',
     useRecycleBalance,
+    useCustomAddressesBalance,
   });
 
   return useMemo(() => {
@@ -384,6 +435,13 @@ export const useTokenPositionInfo = ({
     },
   );
 
+  const frozenBalance = useFrozenBalance({
+    networkId,
+    accountId,
+    tokenId: tokenAddress || 'main',
+    useRecycleBalance: true,
+  });
+
   return useMemo(() => {
     if (!result) {
       return {
@@ -400,6 +458,15 @@ export const useTokenPositionInfo = ({
     }
     const { totalBalance, keleStakingBalance, items } = result;
 
+    let finalTotalBalance = new B(totalBalance);
+
+    if (isBTCNetwork(networkId) && !tokenAddress) {
+      finalTotalBalance = finalTotalBalance.minus(frozenBalance);
+      finalTotalBalance = finalTotalBalance.isGreaterThan(0)
+        ? finalTotalBalance
+        : new B(0);
+    }
+
     if (new B(keleStakingBalance)?.gt(0)) {
       items.push({
         name: 'Kelepool',
@@ -415,7 +482,7 @@ export const useTokenPositionInfo = ({
 
     return {
       isLoading,
-      balance: new B(totalBalance),
+      balance: new B(finalTotalBalance),
       detailInfo: result.detailInfo,
       items: items.map((item) => {
         if (item.poolCode && item.protocol) {
@@ -428,16 +495,30 @@ export const useTokenPositionInfo = ({
               }),
           };
         }
+
+        if (isBTCNetwork(item.networkId) && !item.address) {
+          let finalBalance = new B(item.balance).minus(frozenBalance);
+          finalBalance = finalBalance.isGreaterThan(0)
+            ? finalBalance
+            : new B(0);
+          return {
+            ...item,
+            balance: finalBalance.toFixed(),
+          };
+        }
+
         return item;
       }),
     };
   }, [
     result,
+    networkId,
+    tokenAddress,
+    isLoading,
+    defaultInfo,
+    frozenBalance,
     intl,
     onPressStaking,
     onPresDefiProtocol,
-    networkId,
-    defaultInfo,
-    isLoading,
   ]);
 };

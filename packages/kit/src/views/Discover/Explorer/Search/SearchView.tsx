@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -13,6 +14,7 @@ import { useWindowDimensions } from 'react-native';
 
 import {
   Box,
+  Button,
   HStack,
   OverlayContainer,
   Pressable,
@@ -22,11 +24,13 @@ import {
 import { FlatListRef } from '@onekeyhq/components/src/FlatList';
 import useClickDocumentClose from '@onekeyhq/components/src/hooks/useClickDocumentClose';
 import { useDropdownPosition } from '@onekeyhq/components/src/hooks/useDropdownPosition';
-import { useDebounce } from '@onekeyhq/kit/src/hooks';
+import { useDebounce, useNavigation } from '@onekeyhq/kit/src/hooks';
 
+import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import DAppIcon, { FallbackIcon } from '../../components/DAppIcon';
 import { useUserBrowserHistories } from '../../hooks';
 import { useSearchDapps } from '../../hooks/useSearchDapps';
+import { DiscoverModalRoutes } from '../../type';
 
 import type {
   MatchDAppItemType,
@@ -35,6 +39,26 @@ import type {
   SearchViewRef,
 } from '../explorerUtils';
 import type { FlatListProps } from 'react-native';
+
+const ListFooterComponent = () => {
+  const intl = useIntl();
+  const navigation = useNavigation();
+  const onHistory = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.Discover,
+      params: {
+        screen: DiscoverModalRoutes.History,
+      },
+    });
+  }, [navigation]);
+  return (
+    <Box px="3" pb="3">
+      <Button type="basic" onPress={onHistory}>
+        {intl.formatMessage({ id: 'action__view_all_history' })}
+      </Button>
+    </Box>
+  );
+};
 
 const SearchView = forwardRef<SearchViewRef, SearchViewProps>(
   (
@@ -65,6 +89,9 @@ const SearchView = forwardRef<SearchViewRef, SearchViewProps>(
       () => (searchContentTerm ? searchedDapps : discoverHistory.slice(0, 8)),
       [searchContentTerm, discoverHistory, searchedDapps],
     );
+
+    const showViewAllHistoryButton =
+      !searchContentTerm && discoverHistory.length;
 
     const flatListData = useMemo(() => data, [data]);
 
@@ -242,6 +269,9 @@ const SearchView = forwardRef<SearchViewRef, SearchViewProps>(
                         </Typography.Subheading>
                       </Box>
                     ) : null
+                  }
+                  ListFooterComponent={
+                    showViewAllHistoryButton ? <ListFooterComponent /> : null
                   }
                   keyExtractor={(item) => item.id}
                   // extraData={selectItemIndex}

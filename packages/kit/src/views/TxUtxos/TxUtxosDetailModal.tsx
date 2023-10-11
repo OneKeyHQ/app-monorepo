@@ -88,6 +88,7 @@ function TxUtxosDetailModal() {
               )}
               utxos={inputs}
               decodedTx={decodedTx}
+              type="inputs"
             />
             <TxUtxoDetailBlock
               title={intl.formatMessage(
@@ -97,6 +98,7 @@ function TxUtxosDetailModal() {
               utxos={outputs}
               decodedTx={decodedTx}
               style={{ mt: 6 }}
+              type="outputs"
             />
           </>
         ),

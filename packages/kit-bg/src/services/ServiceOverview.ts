@@ -35,6 +35,7 @@ import {
   getReduxSingleTokenPrice,
   getReduxTokenPricesMap,
 } from '@onekeyhq/kit/src/hooks/crossHooks';
+import { getShouldHideInscriptions } from '@onekeyhq/kit/src/hooks/crossHooks/useShouldHideInscriptions';
 import { setNFTPrice } from '@onekeyhq/kit/src/store/reducers/nft';
 import type {
   IOverviewPortfolio,
@@ -762,10 +763,19 @@ class ServiceOverview extends ServiceBase {
       calculateTokensTotalValue,
     } = options;
     // IAccountTokenOnChain, IAccountTokenData
-    const tokens: IAccountTokenData[] = getReduxAccountTokensList({
+    let tokens: IAccountTokenData[] = getReduxAccountTokensList({
       networkId,
       accountId,
     });
+
+    const shouldHideInscriptions = getShouldHideInscriptions({
+      accountId,
+      networkId,
+    });
+
+    if (shouldHideInscriptions) {
+      tokens = tokens.filter((t) => t.isNative);
+    }
 
     let balances: IAccountTokensBalanceMap | undefined;
     let prices: ITokensPricesMap | undefined;
@@ -924,6 +934,8 @@ class ServiceOverview extends ServiceBase {
         address: undefined,
         logoURI: t.logoURI,
         balance: t.balance,
+        transferBalance: t.transferBalance,
+        availableBalance: t.availableBalance,
         usdValue: t.value ?? '0',
         value: value.toFixed(3),
         value24h: value24h.toFixed(3),
@@ -1090,6 +1102,11 @@ class ServiceOverview extends ServiceBase {
     const { networkId, accountId } = options;
     const { serviceNFT, appSelector } = this.backgroundApi;
 
+    const shouldHideInscriptions = getShouldHideInscriptions({
+      accountId,
+      networkId,
+    });
+
     debugLogger.allNetworks.info('buildAccountNFTList >>> ', options);
     const nfts = await serviceNFT.getNftListWithAssetType(options);
 
@@ -1124,13 +1141,16 @@ class ServiceOverview extends ServiceBase {
     const nftKeys = nfts
       .map((n) => {
         switch (n.type) {
-          case NFTAssetType.BTC:
+          case NFTAssetType.BTC: {
+            if (shouldHideInscriptions) return [];
             return n.data.map(
               (d) =>
                 `${d.networkId ?? ''}_${d.accountAddress ?? ''}_${
                   d.inscription_id
                 }`,
             );
+          }
+
           case NFTAssetType.EVM:
           case NFTAssetType.SOL:
             return n.data.map((d) => {

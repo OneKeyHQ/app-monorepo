@@ -12,6 +12,7 @@ import {
 import { isLightningNetworkByImpl } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { FormatCurrencyTokenOfAccount } from '../../../components/Format';
+import { useAccount } from '../../../hooks';
 import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBoxAutoTransform';
 import {
   TxListActionBox,
@@ -42,6 +43,7 @@ export function getTxActionTransferInfo(props: ITxActionCardProps) {
   let symbol = '';
   let from = '';
   let to = '';
+  let isInscribeTransfer = false;
   let displayDecimals: number | undefined;
   let displayFromLabel = true;
   let displayFromAddress = true;
@@ -52,6 +54,7 @@ export function getTxActionTransferInfo(props: ITxActionCardProps) {
     symbol = action.nativeTransfer?.tokenInfo.symbol ?? '';
     from = action.nativeTransfer?.from ?? '';
     to = action.nativeTransfer?.to ?? '';
+    isInscribeTransfer = !!action.nativeTransfer?.isInscribeTransfer;
     displayDecimals = network?.nativeDisplayDecimals;
     displayFromLabel = Boolean(
       !(
@@ -106,6 +109,7 @@ export function getTxActionTransferInfo(props: ITxActionCardProps) {
     displayFromAddress,
     displayToLabel,
     displayToAddress,
+    isInscribeTransfer,
   };
 }
 
@@ -123,7 +127,10 @@ export function TxActionTransfer(props: ITxActionCardProps) {
     displayFromAddress,
     displayToLabel,
     displayToAddress,
+    isInscribeTransfer,
   } = getTxActionTransferInfo(props);
+  const { accountId, networkId } = decodedTx;
+  const { account } = useAccount({ accountId, networkId });
 
   const enableCopyAddress = useMemo(
     () => !isLightningNetworkByImpl(network?.impl),
@@ -142,6 +149,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
             isCopy: from !== 'unknown' && enableCopyAddress,
             isShorten: isShortenAddress,
             displayAddress: displayFromAddress,
+            isInscribeTransfer: isInscribeTransfer && account?.address !== from,
           }),
         }
       : null,
@@ -156,6 +164,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
             isCopy: to !== 'unknown' && enableCopyAddress,
             isShorten: isShortenAddress,
             displayAddress: displayToAddress,
+            isInscribeTransfer: isInscribeTransfer && account?.address !== to,
           }),
         }
       : null,

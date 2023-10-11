@@ -193,7 +193,7 @@ const init = ({ mainWindow, store }: Dependencies) => {
 
   ipcMain.on('update/clearSettings', () => {
     logger.info('auto-update', 'clear update settings');
-    store.clear();
+    store.clearUpdateSettings();
   });
 };
 

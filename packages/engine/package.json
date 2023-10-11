@@ -51,7 +51,7 @@
     "bech32": "^2.0.0",
     "bignumber.js": "^9.0.1",
     "bip32": "^4.0.0",
-    "bip39": "^3.0.4",
+    "bip39": "^3.1.0",
     "bitcoinforkjs": "git+https://github.com/OneKeyHQ/bitcoinjs-lib.git#feat/remove-npm-lock",
     "bitcoinjs-message": "^2.2.0",
     "bs58check": "^2.1.2",

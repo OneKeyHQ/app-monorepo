@@ -160,17 +160,16 @@ class BlockBook {
     impl: string;
     options: ICollectUTXOsOptions;
   }): Promise<IBtcUTXOInfo> {
-    const res = await this.backendRequest.get<IBtcUTXOInfo>(
+    const res = await this.backendRequest.post<IBtcUTXOInfo>(
       `/${impl}/api/v2/utxo_info/`,
       {
-        params: {
-          xpub,
-          forceSelectUtxos: JSON.stringify(options.forceSelectUtxos || []),
-          // return utxo without inscriptions
-          checkInscription: isNil(options.checkInscription)
-            ? true
-            : options.checkInscription,
-        },
+        xpub,
+        forceSelectUtxos: options.forceSelectUtxos,
+        // return utxo without inscriptions
+        checkInscription: isNil(options.checkInscription)
+          ? true
+          : options.checkInscription,
+        customAddressMap: options.customAddressMap,
       },
     );
     return res.data;
