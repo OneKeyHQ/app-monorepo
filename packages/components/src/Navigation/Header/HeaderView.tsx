@@ -8,7 +8,6 @@ import { StyleSheet } from 'react-native';
 import { Input } from 'tamagui';
 
 import { Stack, useThemeValue } from '../../index';
-import useBackHandler from '../../Provider/hooks/useBackHandler';
 
 import HeaderButtonBack from './HeaderButtonBack';
 
@@ -63,16 +62,6 @@ function HeaderView({
       navigation?.getParent()?.goBack?.();
     }
   }, [canGoBack, navigation]);
-
-  const handleBackPress = React.useCallback(() => {
-    if (disableClose) {
-      return true;
-    }
-    onBackCallback();
-    return true;
-  }, [disableClose, onBackCallback]);
-
-  useBackHandler(handleBackPress, isModelScreen);
 
   const headerLeftView = useCallback(
     (props: HeaderBackButtonProps): ReactNode => {

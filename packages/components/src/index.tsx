@@ -17,7 +17,6 @@ export * from './Popover';
 export * from './Progress';
 export * from './Form';
 export * from './Portal';
-<<<<<<< HEAD
 export * from './locale';
 export * from './Toast';
 export * from './Input';
@@ -27,18 +26,8 @@ export * from './Radio';
 export * from './SearchBar';
 export * from './Provider/hooks/useThemeValue';
 export * from './Provider/hooks/useIsMounted';
-=======
-
-export type { LocaleSymbol, LocaleIds } from './locale';
-export { LOCALES_OPTION } from './locale';
-
-export { ToastProvider, ToastController } from './Toast';
 export { Tabs } from './CollapsibleTabView';
 export * as DelayedFreeze from './DelayedFreeze';
-
-export { useThemeValue, getThemeTokens } from './Provider/hooks/useThemeValue';
-export { useIsMounted } from './Provider/hooks/useIsMounted';
->>>>>>> 72ea25cea (feat: nestScorllView to tamagui)
 
 // Navigation
 export * from './Navigation/StackNavigator';

@@ -42,11 +42,8 @@ function useDemoAppNavigation<
     },
   ) => {
     navigation.navigate(DemoRootRoutes.Main, {
-      // screen: DemoMainRoutes.Tab,
-      // params: {
       screen: route,
       params,
-      // },
     });
   };
 

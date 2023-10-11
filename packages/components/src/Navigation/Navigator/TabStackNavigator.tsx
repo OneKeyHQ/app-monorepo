@@ -2,6 +2,8 @@ import { useCallback, useMemo } from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import useIsVerticalLayout from '../../Provider/hooks/useIsVerticalLayout';
 import { useThemeValue } from '../../Provider/hooks/useThemeValue';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
@@ -92,7 +94,9 @@ export function TabStackNavigator<RouteName extends string>({
       screenOptions={{
         headerShown: false,
         freezeOnBlur: true,
-        // lazy default is true
+        // Native Load all tabs at once
+        // Web Lazy load
+        lazy: !platformEnv.isNative,
       }}
     >
       {tabComponents.map(({ name, children, ...options }) => (

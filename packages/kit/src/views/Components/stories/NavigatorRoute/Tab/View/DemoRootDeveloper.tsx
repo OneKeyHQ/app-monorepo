@@ -2,7 +2,6 @@ import { Input } from 'tamagui';
 
 import { Button } from '@onekeyhq/components';
 
-import Form from '../../../Form';
 import { Layout } from '../../../utils/Layout';
 import { DemoCreateModalRoutes, RootModalRoutes } from '../../Modal/Routes';
 import { useFreezeProbe } from '../../RenderTools';

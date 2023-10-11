@@ -1,4 +1,4 @@
-import { useLayoutEffect } from 'react';
+import { useCallback, useLayoutEffect } from 'react';
 
 import { Button } from '@onekeyhq/components';
 import type { ModalNavigationProp } from '@onekeyhq/components/src/Navigation';
@@ -30,6 +30,7 @@ const DemoLockedViewModal = () => {
       ]}
       boundaryConditions={[
         'Locked 的 Modal 没有办法保持屏幕常亮，如果有需求需要单独处理',
+        '如果前面有被 Locked 的 Modal，跳转到同级别 Stack 的其他 Modal，返回键会消失，除非将前面 Locked 的 Modal 取消锁定',
       ]}
       elements={[
         {
@@ -58,11 +59,16 @@ const DemoConfigLockedViewModal = () => {
 
   useFreezeProbe('DemoConfigLockedViewModal');
 
+  const headerRightCall = useCallback(
+    () => <HeaderButtonIcon name="AnonymousHidden2Outline" />,
+    [],
+  );
+
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerRight: () => <HeaderButtonIcon name="AnonymousHidden2Outline" />,
+      headerRight: headerRightCall,
     });
-  }, [navigation]);
+  }, [navigation, headerRightCall]);
 
   return (
     <Layout
@@ -118,11 +124,96 @@ const DemoManualLockedViewModal = () => {
 
   useFreezeProbe('DemoManualLockedViewModal');
 
+  const headerRightCall = useCallback(
+    () => <HeaderButtonIcon name="AnonymousHidden2Outline" />,
+    [],
+  );
+
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerRight: () => <HeaderButtonIcon name="AnonymousHidden2Outline" />,
+      headerRight: headerRightCall,
     });
-  }, [navigation]);
+  }, [navigation, headerRightCall]);
+
+  return (
+    <Layout
+      description="这是手动锁定和解锁 Modal 的例子"
+      suggestions={['使用方式设置 navigation.setOptions disableClose 属性']}
+      boundaryConditions={[
+        '锁定: navigation.setOptions({\n' +
+          '                  disableClose: true,\n' +
+          '                });',
+        '取消锁定: navigation.setOptions({\n' +
+          '                  disableClose: false,\n' +
+          '                });',
+      ]}
+      elements={[
+        {
+          title: '下一个例子',
+          element: (
+            <Button
+              buttonVariant="primary"
+              onPress={() => {
+                navigation.pushModal(RootModalRoutes.DemoLockedModal, {
+                  screen: DemoLockedModalRoutes.DemoRepeatManualLockedViewModal,
+                });
+              }}
+            >
+              <Button.Text>下一个例子</Button.Text>
+            </Button>
+          ),
+        },
+        {
+          title: '锁定',
+          element: (
+            <Button
+              buttonVariant="primary"
+              onPress={() => {
+                navigation.setOptions({
+                  disableClose: true,
+                });
+              }}
+            >
+              <Button.Text>锁定</Button.Text>
+            </Button>
+          ),
+        },
+        {
+          title: '取消锁定',
+          element: (
+            <Button
+              buttonVariant="primary"
+              onPress={() => {
+                navigation.setOptions({
+                  disableClose: false,
+                });
+              }}
+            >
+              <Button.Text>取消锁定</Button.Text>
+            </Button>
+          ),
+        },
+      ]}
+    />
+  );
+};
+
+const DemoRepeatManualLockedViewModal = () => {
+  const navigation =
+    useDemoAppNavigation<ModalNavigationProp<DemoLockedModalParamList>>();
+
+  useFreezeProbe('DemoManualLockedViewModal');
+
+  const headerRightCall = useCallback(
+    () => <HeaderButtonIcon name="AnonymousHidden2Outline" />,
+    [],
+  );
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: headerRightCall,
+    });
+  }, [navigation, headerRightCall]);
 
   return (
     <Layout
@@ -199,5 +290,10 @@ export const LockedModalStack: ModalFlowNavigatorConfig<
     name: DemoLockedModalRoutes.DemoManualLockedViewModal,
     component: DemoManualLockedViewModal,
     translationId: 'Manual Locked Modal',
+  },
+  {
+    name: DemoLockedModalRoutes.DemoRepeatManualLockedViewModal,
+    component: DemoRepeatManualLockedViewModal,
+    translationId: 'Repeat Manual Locked Modal',
   },
 ];

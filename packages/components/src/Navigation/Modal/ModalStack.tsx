@@ -2,12 +2,14 @@ import { useCallback, useContext } from 'react';
 
 import { NavigationHelpersContext } from '@react-navigation/core';
 import { HeaderBackContext, getHeaderTitle } from '@react-navigation/elements';
-import { View } from 'react-native';
 
-import { Stack } from '../../Stack';
+import DelayedFreeze from '../../DelayedFreeze';
+import useBackHandler from '../../Provider/hooks/useBackHandler';
+import { Stack, ZStack } from '../../Stack';
 import { HeaderView } from '../Header';
 
 import CenteredModal from './CenteredModal';
+import ModalBackdrop from './ModalBackdrop';
 
 import type {
   ModalDescriptorMap,
@@ -27,35 +29,54 @@ type Props = ModalNavigationConfig & {
 
 export default function ModalStack({ state, navigation, descriptors }: Props) {
   const parentHeaderBack = useContext(HeaderBackContext);
-
-  const currentRoute = state.routes[state.index];
-  const previousRoute = state.index > 0 ? state.routes[state.index - 1] : null;
-  const previousKey = previousRoute?.key;
-  const previousDescriptor = previousKey ? descriptors[previousKey] : undefined;
+  // const currentRoute = state.routes[state.index];
+  // const descriptor = descriptors[currentRoute.key];
+  // const { disableClose }: { disableClose?: boolean } = descriptor.options;
 
   const goBackCall = useCallback(() => {
     navigation.goBack();
   }, [navigation]);
 
+  const handleBackPress = useCallback(() => {
+    const currentRoute = state.routes[state.index];
+    const descriptor = descriptors[currentRoute.key];
+    const { disableClose }: { disableClose?: boolean } = descriptor.options;
+
+    if (disableClose) {
+      return true;
+    }
+    if (navigation.isFocused()) goBackCall();
+    return true;
+  }, [state.routes, state.index, descriptors, navigation, goBackCall]);
+
+  useBackHandler(handleBackPress);
+
   return (
     <NavigationHelpersContext.Provider value={navigation}>
-      <View style={{ flex: 1 }}>
+      <ZStack style={{ flex: 1 }}>
         {/* Background Layer, Android blinks so you need a placeholder background */}
-        {/* <Stack flex={1} backgroundColor="$bgBackdrop" /> */}
-        {/* <CenteredModal visible={state.routes.length > 0} animationType="none" /> */}
+        <ModalBackdrop />
 
         {/* Modal Layer */}
-        {/* TODO: Do toggle animations can be used [previousRoute,currentRoute].filter */}
-        {[currentRoute].filter(Boolean).map((route) => {
+        {state.routes.map((route, index) => {
+          const focused = index === state.index;
+
           const descriptor = descriptors[route.key];
-          const focused = route.key === currentRoute.key;
+          const previousRoute = index > 0 ? state.routes[index - 1] : null;
+          const previousKey = previousRoute?.key;
+          const previousDescriptor = previousKey
+            ? descriptors[previousKey]
+            : undefined;
 
           const {
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             animationType = 'none',
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            freezeOnBlur = true,
             ...options
           }: {
             animationType?: 'none' | 'fade' | 'slide';
+            freezeOnBlur?: boolean;
             disableClose?: boolean;
           } = descriptor.options;
 
@@ -71,28 +92,30 @@ export default function ModalStack({ state, navigation, descriptors }: Props) {
             : parentHeaderBack;
 
           return (
-            <CenteredModal
-              key={route.key}
-              visible={focused}
-              disableClose={disableClose}
-              onClose={goBackCall}
-            >
-              <HeaderView
-                back={headerBack}
-                options={options}
-                route={route}
-                // @ts-expect-error
-                navigation={navigation}
-                isModelScreen
-                isFlowModelScreen
-              />
-              <Stack flex={1} width="100%" testID="APP-Modal-Screen-Content">
-                {descriptor.render()}
-              </Stack>
-            </CenteredModal>
+            <DelayedFreeze freeze={freezeOnBlur && !focused}>
+              <CenteredModal
+                key={route.key}
+                visible={focused}
+                disableClose={disableClose}
+                onClose={goBackCall}
+              >
+                <HeaderView
+                  back={headerBack}
+                  options={options}
+                  route={route}
+                  // @ts-expect-error
+                  navigation={navigation}
+                  isModelScreen
+                  isFlowModelScreen
+                />
+                <Stack flex={1} width="100%" testID="APP-Modal-Screen-Content">
+                  {descriptor.render()}
+                </Stack>
+              </CenteredModal>
+            </DelayedFreeze>
           );
         })}
-      </View>
+      </ZStack>
     </NavigationHelpersContext.Provider>
   );
 }

@@ -10,7 +10,6 @@ import {
 import * as React from 'react';
 
 import { getThemeTokens, useThemeValue } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ActiveTabContext } from './ActiveTabContext';
 import NestedTabView from './NativeNestedTabView/NestedTabView';

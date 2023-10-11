@@ -11,7 +11,6 @@ import {
 } from 'react';
 import * as React from 'react';
 
-import { useWindowDimensions } from 'react-native';
 import { TabBar, TabView } from 'react-native-tab-view';
 import { ScrollView } from 'tamagui';
 

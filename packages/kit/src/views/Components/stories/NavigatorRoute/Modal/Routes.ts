@@ -26,10 +26,12 @@ export enum DemoLockedModalRoutes {
   DemoLockedModal = 'DemoLockedModal',
   DemoConfigLockedModal = 'DemoConfigLockedModal',
   DemoManualLockedViewModal = 'DemoManualLockedViewModal',
+  DemoRepeatManualLockedViewModal = 'DemoRepeatManualLockedViewModal',
 }
 
 export type DemoLockedModalParamList = {
   [DemoLockedModalRoutes.DemoLockedModal]: undefined;
   [DemoLockedModalRoutes.DemoConfigLockedModal]: undefined;
   [DemoLockedModalRoutes.DemoManualLockedViewModal]: undefined;
+  [DemoLockedModalRoutes.DemoRepeatManualLockedViewModal]: undefined;
 };

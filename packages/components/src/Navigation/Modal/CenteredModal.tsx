@@ -1,7 +1,7 @@
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 import type { ReactNode } from 'react';
 
-import { Stack } from 'tamagui';
+import { Stack } from '../../Stack';
 
 function CenteredModal({
   children,
@@ -15,18 +15,16 @@ function CenteredModal({
   disableClose?: boolean;
   onClose?: () => void;
 }) {
-  const handleBackdropClick = () => {
-    if (!disableClose) {
+  const handleBackdropClick = useCallback(() => {
+    if (visible && !disableClose) {
       onClose?.();
     }
-  };
+  }, [disableClose, onClose, visible]);
 
-  return visible ? (
+  return (
     // <Modal transparent animationType={animationType} visible={visible}>
     <Stack
       onPress={handleBackdropClick}
-      testID="APP-Modal-Screen-Backdrop"
-      backgroundColor="$bgBackdrop"
       flex={1}
       $md={{
         justifyContent: 'flex-end',
@@ -61,7 +59,7 @@ function CenteredModal({
         {children}
       </Stack>
     </Stack>
-  ) : null;
+  );
 }
 
 export default memo(CenteredModal);

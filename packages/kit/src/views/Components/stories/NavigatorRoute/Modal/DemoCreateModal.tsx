@@ -1,7 +1,10 @@
 /* eslint-disable react/no-unstable-nested-components */
 import { useLayoutEffect } from 'react';
 
-import { Button, Text } from '@onekeyhq/components';
+import * as Burnt from 'burnt';
+import { Input } from 'tamagui';
+
+import { Button } from '@onekeyhq/components';
 import type { ModalScreenProps } from '@onekeyhq/components/src/Navigation';
 import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
@@ -10,8 +13,9 @@ import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigati
 import IconGallery from '../../Icon';
 import { Layout } from '../../utils/Layout';
 import { useFreezeProbe } from '../RenderTools';
+import { DemoRootRoutes } from '../Routes';
 
-import { DemoCreateModalRoutes } from './Routes';
+import { DemoCreateModalRoutes, RootModalRoutes } from './Routes';
 
 import type { DemoCreateModalParamList } from './Routes';
 
@@ -88,6 +92,10 @@ function DemoCreateSearchModal({
       ]}
       elements={[
         {
+          title: '测试 Input',
+          element: <Input />,
+        },
+        {
           title: '下一个例子',
           element: (
             <Button
@@ -143,15 +151,35 @@ function DemoCreateOptionsModal({
       ]}
       elements={[
         {
-          title: '下一个例子',
+          title: '跳转到其他 Stack 的 Modal',
           element: (
             <Button
               buttonVariant="primary"
               onPress={() => {
+                // @ts-expect-error
+                navigation.navigate(DemoRootRoutes.Modal, {
+                  screen: RootModalRoutes.DemoLockedModal,
+                });
+              }}
+            >
+              <Button.Text>跳转</Button.Text>
+            </Button>
+          ),
+        },
+        {
+          title: '关闭',
+          element: (
+            <Button
+              buttonVariant="primary"
+              onPress={() => {
+                Burnt.toast({
+                  title: 'Close Modal',
+                  preset: 'none',
+                });
                 navigation.getParent()?.goBack?.();
               }}
             >
-              <Button.Text>关闭</Button.Text>
+              <Button.Text>关闭并弹出 Toast</Button.Text>
             </Button>
           ),
         },
