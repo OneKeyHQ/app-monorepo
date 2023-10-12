@@ -39,15 +39,16 @@ export default class ServicePrice extends ServiceBase {
   @bindThis()
   registerEvents() {
     appEventBus.on(AppEventBusNames.CurrencyChanged, () => {
+      const { appSelector } = this.backgroundApi;
       const { activeAccountId: accountId, activeNetworkId: networkId } =
-        this.backgroundApi.appSelector((s) => s.general);
+        appSelector((s) => s.general);
       if (!networkId || !accountId) {
         return;
       }
-      const accountTokens = this.backgroundApi.appSelector(
+      const accountTokens = appSelector(
         (s) => s.tokens.accountTokens?.[networkId]?.[accountId],
       );
-      const currentVsCurrency = this.backgroundApi.appSelector(
+      const currentVsCurrency = appSelector(
         (s) => s.settings.selectedFiatMoneySymbol,
       );
       this.fetchSimpleTokenPrice({
