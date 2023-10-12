@@ -43,6 +43,31 @@ const ButtonsGallery = () => (
         ),
       },
       {
+        title: 'Variants without Button.Text',
+        element: (
+          <YStack space="$2">
+            <Button
+              size="large"
+              buttonVariant="primary"
+              onPress={() => {
+                alert('clicked');
+              }}
+            >
+              Primary
+            </Button>
+            <Button size="large" buttonVariant="secondary">
+              Secondary
+            </Button>
+            <Button size="large" buttonVariant="tertiary">
+              Tertiary
+            </Button>
+            <Button size="large" buttonVariant="destructive">
+              Destructive
+            </Button>
+          </YStack>
+        ),
+      },
+      {
         title: 'Size',
         element: (
           <YStack space="$2">

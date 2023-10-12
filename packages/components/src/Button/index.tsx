@@ -1,3 +1,4 @@
+import type { PropsWithChildren } from 'react';
 import { useContext } from 'react';
 
 import { createStyledContext, styled, withStaticProperties } from 'tamagui';
@@ -18,7 +19,50 @@ export const ButtonContext = createStyledContext<{
   buttonVariant: 'secondary',
 });
 
-export const ButtonFrame = styled(Stack, {
+const ButtonText = styled(Text, {
+  name: 'ButtonText',
+  userSelect: 'none',
+  context: ButtonContext,
+
+  variant: '$bodyLgMedium',
+
+  variants: {
+    size: {
+      small: {
+        variant: '$bodyMdMedium',
+      },
+    },
+    buttonVariant: {
+      primary: {
+        color: '$textInverse',
+      },
+      secondary: {
+        color: '$text',
+      },
+      tertiary: {
+        color: '$textSubdued',
+      },
+      destructive: {
+        color: '$textOnColor',
+      },
+    },
+  } as const,
+});
+
+function ButtonStack({ children, ...restProps }: PropsWithChildren<unknown>) {
+  console.log(restProps);
+  return (
+    <Stack {...restProps}>
+      {typeof children === 'string' ? (
+        <ButtonText>{children}</ButtonText>
+      ) : (
+        children
+      )}
+    </Stack>
+  );
+}
+
+export const ButtonFrame = styled(ButtonStack, {
   name: 'Button',
   tag: 'button',
   role: 'button',
@@ -104,36 +148,6 @@ export const ButtonFrame = styled(Stack, {
           outlineColor: '$transparent',
         },
         opacity: 0.5,
-      },
-    },
-  } as const,
-});
-
-const ButtonText = styled(Text, {
-  name: 'ButtonText',
-  userSelect: 'none',
-  context: ButtonContext,
-
-  variant: '$bodyLgMedium',
-
-  variants: {
-    size: {
-      small: {
-        variant: '$bodyMdMedium',
-      },
-    },
-    buttonVariant: {
-      primary: {
-        color: '$textInverse',
-      },
-      secondary: {
-        color: '$text',
-      },
-      tertiary: {
-        color: '$textSubdued',
-      },
-      destructive: {
-        color: '$textOnColor',
       },
     },
   } as const,
