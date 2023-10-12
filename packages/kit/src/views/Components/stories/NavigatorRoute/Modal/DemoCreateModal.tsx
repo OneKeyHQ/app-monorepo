@@ -4,7 +4,7 @@ import { useLayoutEffect } from 'react';
 import * as Burnt from 'burnt';
 import { Input } from 'tamagui';
 
-import { Button } from '@onekeyhq/components';
+import { Button, Stack } from '@onekeyhq/components';
 import type { ModalScreenProps } from '@onekeyhq/components/src/Navigation';
 import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
@@ -12,7 +12,8 @@ import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigati
 
 import IconGallery from '../../Icon';
 import { Layout } from '../../utils/Layout';
-import { useFreezeProbe } from '../RenderTools';
+import { NavigationFocusTools } from '../../utils/NavigationTools';
+import { FreezeProbe } from '../../utils/RenderTools';
 import { DemoRootRoutes } from '../Routes';
 
 import { DemoCreateModalRoutes, RootModalRoutes } from './Routes';
@@ -27,8 +28,6 @@ function DemoCreateViewModal({
       headerRight: () => <HeaderButtonIcon name="AnonymousHidden2Outline" />,
     });
   }, [navigation]);
-
-  useFreezeProbe('DemoCreateViewModal');
 
   return (
     <Layout
@@ -61,6 +60,15 @@ function DemoCreateViewModal({
             </Button>
           ),
         },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoCreateViewModal" />
+              <NavigationFocusTools componentName="DemoCreateViewModal" />
+            </Stack>
+          ),
+        },
       ]}
     />
   );
@@ -80,8 +88,6 @@ function DemoCreateSearchModal({
       },
     });
   }, [navigation]);
-
-  useFreezeProbe('DemoCreateSearchModal');
 
   return (
     <Layout
@@ -113,6 +119,15 @@ function DemoCreateSearchModal({
             </Button>
           ),
         },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoCreateSearchModal" />
+              <NavigationFocusTools componentName="DemoCreateSearchModal" />
+            </Stack>
+          ),
+        },
       ]}
     />
   );
@@ -139,8 +154,6 @@ function DemoCreateOptionsModal({
       ),
     });
   }, [navigation]);
-
-  useFreezeProbe('DemoCreateOptionsModal');
 
   return (
     <Layout
@@ -181,6 +194,15 @@ function DemoCreateOptionsModal({
             >
               <Button.Text>关闭并弹出 Toast</Button.Text>
             </Button>
+          ),
+        },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoCreateOptionsModal" />
+              <NavigationFocusTools componentName="DemoCreateOptionsModal" />
+            </Stack>
           ),
         },
       ]}

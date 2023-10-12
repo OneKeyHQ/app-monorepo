@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Freeze } from 'react-freeze';
 
 interface FreezeWrapperProps {
-  freeze: boolean;
+  freeze: boolean | undefined;
   children: ReactNode;
   placeholder?: ReactNode;
 }
@@ -18,7 +18,7 @@ function DelayedFreeze({
   freeze,
   children,
   placeholder = null,
-}: FreezeWrapperProps) {
+}: FreezeWrapperProps): JSX.Element {
   // flag used for determining whether freeze should be enabled
   const [freezeState, setFreezeState] = useState(false);
 
@@ -26,7 +26,7 @@ function DelayedFreeze({
     // setImmediate is executed at the end of the JS execution block.
     // Used here for changing the state right after the render.
     setImmediate(() => {
-      setFreezeState(freeze);
+      setFreezeState(!!freeze);
     });
   }
 

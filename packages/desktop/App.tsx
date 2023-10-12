@@ -1,6 +1,6 @@
 import type { FC } from 'react';
 
-import { DesktopDragZoneBox } from '@onekeyhq/components';
+import DesktopDragZoneBox from '@onekeyhq/components/src/DesktopDragZoneBox';
 import {
   DESKTOP_TOP_DRAG_BAR_HEIGHT,
   DESKTOP_TOP_DRAG_BAR_ID,

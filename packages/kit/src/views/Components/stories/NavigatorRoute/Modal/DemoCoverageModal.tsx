@@ -1,15 +1,15 @@
 /* eslint-disable react/no-unstable-nested-components */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import * as Burnt from 'burnt';
 
-import { Button, Dialog } from '@onekeyhq/components';
+import { Button, Dialog, Stack } from '@onekeyhq/components';
 import type { ModalNavigationProp } from '@onekeyhq/components/src/Navigation';
-
 import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator/ModalFlowNavigator';
 
 import { Layout } from '../../utils/Layout';
-
+import { NavigationFocusTools } from '../../utils/NavigationTools';
+import { FreezeProbe } from '../../utils/RenderTools';
 import useDemoAppNavigation from '../useDemoAppNavigation';
 
 import { DemoCoverageModalRoutes, RootModalRoutes } from './Routes';
@@ -44,6 +44,15 @@ function DemoCoverageModal() {
             </Button>
           ),
         },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoCoverageModal" />
+              <NavigationFocusTools componentName="DemoCoverageModal" />
+            </Stack>
+          ),
+        },
       ]}
     />
   );
@@ -54,25 +63,28 @@ const ControlledDialogByButton = () => {
     useDemoAppNavigation<ModalNavigationProp<DemoCoverageModalParamList>>();
 
   const [isOpen, changeIsOpen] = useState(false);
-  return (
-    <>
-      <Button onPress={() => changeIsOpen(true)}>
-        <Button.Text>Open Modal By Button</Button.Text>
-      </Button>
-      <Dialog
-        backdrop
-        title="我站在 Modal 上面"
-        description="通过组件挂载的 Dialog，点击确定按钮关闭 Dialog 打开一个 Modal"
-        open={isOpen}
-        onClose={() => {
-          changeIsOpen(false);
-        }}
-        onConfirm={() => {
-          navigation.pushModal(RootModalRoutes.DemoLockedModal);
-          changeIsOpen(false);
-        }}
-      />
-    </>
+  return useMemo(
+    () => (
+      <>
+        <Button onPress={() => changeIsOpen(true)}>
+          <Button.Text>Open Modal By Button</Button.Text>
+        </Button>
+        <Dialog
+          backdrop
+          title="我站在 Modal 上面"
+          description="通过组件挂载的 Dialog，点击确定按钮关闭 Dialog 打开一个 Modal"
+          open={isOpen}
+          onClose={() => {
+            changeIsOpen(false);
+          }}
+          onConfirm={() => {
+            navigation.pushModal(RootModalRoutes.DemoLockedModal);
+            changeIsOpen(false);
+          }}
+        />
+      </>
+    ),
+    [],
   );
 };
 
@@ -116,10 +128,10 @@ function DemoCoverageDialogModal() {
             </Button>
           ),
         },
-        {
-          title: 'Open Modal by Button',
-          element: <ControlledDialogByButton />,
-        },
+        // {
+        //   title: 'Open Modal by Button',
+        //   element: <ControlledDialogByButton />,
+        // },
         {
           title: 'Open Modal by Api',
           element: (
@@ -138,6 +150,15 @@ function DemoCoverageDialogModal() {
             >
               <Button.Text>Open Dialog</Button.Text>
             </Button>
+          ),
+        },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoCoverageDialogModal" />
+              <NavigationFocusTools componentName="DemoCoverageDialogModal" />
+            </Stack>
           ),
         },
       ]}
@@ -201,6 +222,15 @@ function DemoCoverageModalModal() {
             >
               <Button.Text>弹出 Toast 然后关闭</Button.Text>
             </Button>
+          ),
+        },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoCoverageModalModal" />
+              <NavigationFocusTools componentName="DemoCoverageModalModal" />
+            </Stack>
           ),
         },
       ]}

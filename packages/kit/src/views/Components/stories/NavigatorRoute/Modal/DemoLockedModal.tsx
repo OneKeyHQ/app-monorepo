@@ -1,12 +1,13 @@
 import { useCallback, useLayoutEffect } from 'react';
 
-import { Button } from '@onekeyhq/components';
+import { Button, Stack } from '@onekeyhq/components';
 import type { ModalNavigationProp } from '@onekeyhq/components/src/Navigation';
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
 import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
 
 import { Layout } from '../../utils/Layout';
-import { useFreezeProbe } from '../RenderTools';
+import { NavigationFocusTools } from '../../utils/NavigationTools';
+import { FreezeProbe } from '../../utils/RenderTools';
 import useDemoAppNavigation from '../useDemoAppNavigation';
 
 import { DemoLockedModalRoutes, RootModalRoutes } from './Routes';
@@ -15,7 +16,6 @@ import type { DemoLockedModalParamList } from './Routes';
 
 const DemoLockedViewModal = () => {
   const navigation = useDemoAppNavigation();
-  useFreezeProbe('DemoLockedViewModal');
 
   return (
     <Layout
@@ -48,6 +48,15 @@ const DemoLockedViewModal = () => {
             </Button>
           ),
         },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoLockedViewModal" />
+              <NavigationFocusTools componentName="DemoLockedViewModal" />
+            </Stack>
+          ),
+        },
       ]}
     />
   );
@@ -56,8 +65,6 @@ const DemoLockedViewModal = () => {
 const DemoConfigLockedViewModal = () => {
   const navigation =
     useDemoAppNavigation<ModalNavigationProp<DemoLockedModalParamList>>();
-
-  useFreezeProbe('DemoConfigLockedViewModal');
 
   const headerRightCall = useCallback(
     () => <HeaderButtonIcon name="AnonymousHidden2Outline" />,
@@ -113,6 +120,15 @@ const DemoConfigLockedViewModal = () => {
             </Button>
           ),
         },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoConfigLockedViewModal" />
+              <NavigationFocusTools componentName="DemoConfigLockedViewModal" />
+            </Stack>
+          ),
+        },
       ]}
     />
   );
@@ -121,8 +137,6 @@ const DemoConfigLockedViewModal = () => {
 const DemoManualLockedViewModal = () => {
   const navigation =
     useDemoAppNavigation<ModalNavigationProp<DemoLockedModalParamList>>();
-
-  useFreezeProbe('DemoManualLockedViewModal');
 
   const headerRightCall = useCallback(
     () => <HeaderButtonIcon name="AnonymousHidden2Outline" />,
@@ -193,6 +207,15 @@ const DemoManualLockedViewModal = () => {
             </Button>
           ),
         },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoManualLockedViewModal" />
+              <NavigationFocusTools componentName="DemoManualLockedViewModal" />
+            </Stack>
+          ),
+        },
       ]}
     />
   );
@@ -201,8 +224,6 @@ const DemoManualLockedViewModal = () => {
 const DemoRepeatManualLockedViewModal = () => {
   const navigation =
     useDemoAppNavigation<ModalNavigationProp<DemoLockedModalParamList>>();
-
-  useFreezeProbe('DemoManualLockedViewModal');
 
   const headerRightCall = useCallback(
     () => <HeaderButtonIcon name="AnonymousHidden2Outline" />,
@@ -264,6 +285,15 @@ const DemoRepeatManualLockedViewModal = () => {
             <Button buttonVariant="primary" onPress={navigation.popStack}>
               <Button.Text>关闭</Button.Text>
             </Button>
+          ),
+        },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoRepeatManualLockedViewModal" />
+              <NavigationFocusTools componentName="DemoRepeatManualLockedViewModal" />
+            </Stack>
           ),
         },
       ]}

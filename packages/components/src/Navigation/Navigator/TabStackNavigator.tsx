@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
@@ -9,7 +9,6 @@ import { useThemeValue } from '../../Provider/hooks/useThemeValue';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 import NavigationBar from '../Tab/TabBar';
-import { tabRouteWrapper } from '../Tab/tabRouteWrapper';
 
 import type { ICON_NAMES } from '../../Icon';
 import type { CommonNavigatorConfig } from './types';
@@ -28,6 +27,7 @@ export interface TabNavigatorConfig<RouteName extends string> {
   tabBarIcon: (focused?: boolean) => ICON_NAMES;
   translationId: string;
   children: TabSubNavigatorConfig<any, any>[];
+  freezeOnBlur?: boolean;
   disable?: boolean;
 }
 
@@ -38,20 +38,21 @@ export interface TabNavigatorProps<RouteName extends string> {
 const Stack = createStackNavigator();
 
 function TabSubStackNavigator({
-  screens,
+  config,
 }: {
-  screens: TabSubNavigatorConfig<string, any>[];
+  config: TabSubNavigatorConfig<string, any>[];
 }) {
   const [bgColor, titleColor] = useThemeValue(['bg', 'text']);
 
   return (
     <Stack.Navigator>
-      {screens.map(({ name, component, translationId }) => (
+      {config.map(({ name, component, translationId }) => (
         <Stack.Screen
           key={name}
           name={name}
-          component={tabRouteWrapper(component)}
+          component={component}
           options={({ navigation }: { navigation: any }) => ({
+            freezeOnBlur: true,
             // TODO i18n
             title: translationId,
             ...makeTabScreenOptions({ navigation, bgColor, titleColor }),
@@ -61,6 +62,8 @@ function TabSubStackNavigator({
     </Stack.Navigator>
   );
 }
+
+const TabSubStackNavigatorMemo = memo(TabSubStackNavigator);
 
 const Tab = createBottomTabNavigator();
 
@@ -78,12 +81,13 @@ export function TabStackNavigator<RouteName extends string>({
     () =>
       config
         .filter(({ disable }) => !disable)
-        .map(({ name, translationId, tabBarIcon, children }) => ({
+        .map(({ name, translationId, freezeOnBlur, tabBarIcon, children }) => ({
           name,
           tabBarLabel: translationId,
           tabBarIcon,
+          freezeOnBlur,
           // eslint-disable-next-line react/no-unstable-nested-components
-          children: () => <TabSubStackNavigator screens={children} />,
+          children: () => <TabSubStackNavigatorMemo config={children} />,
         })),
     [config],
   );

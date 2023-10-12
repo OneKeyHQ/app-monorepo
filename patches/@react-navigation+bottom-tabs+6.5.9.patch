@@ -1,8 +1,16 @@
 diff --git a/node_modules/@react-navigation/bottom-tabs/lib/module/views/BottomTabView.js b/node_modules/@react-navigation/bottom-tabs/lib/module/views/BottomTabView.js
-index 2b0dc1c..4d55161 100644
+index 2b0dc1c..710697b 100644
 --- a/node_modules/@react-navigation/bottom-tabs/lib/module/views/BottomTabView.js
 +++ b/node_modules/@react-navigation/bottom-tabs/lib/module/views/BottomTabView.js
-@@ -53,7 +53,14 @@ export default function BottomTabView(props) {
+@@ -17,7 +17,6 @@ export default function BottomTabView(props) {
+     detachInactiveScreens = Platform.OS === 'web' || Platform.OS === 'android' || Platform.OS === 'ios',
+     sceneContainerStyle
+   } = props;
+-  const focusedRouteKey = state.routes[state.index].key;
+   const [loaded, setLoaded] = React.useState([focusedRouteKey]);
+   if (!loaded.includes(focusedRouteKey)) {
+     setLoaded([...loaded, focusedRouteKey]);
+@@ -53,7 +52,14 @@ export default function BottomTabView(props) {
    const {
      routes
    } = state;
@@ -18,7 +26,7 @@ index 2b0dc1c..4d55161 100644
      enabled: detachInactiveScreens,
      hasTwoStates: true,
      style: styles.container
-@@ -120,6 +127,12 @@ const styles = StyleSheet.create({
+@@ -120,6 +126,12 @@ const styles = StyleSheet.create({
    container: {
      flex: 1,
      overflow: 'hidden'

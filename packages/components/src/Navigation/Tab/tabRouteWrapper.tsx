@@ -1,11 +1,27 @@
-import { Stack } from '../../Stack';
+import { useIsFocused } from '@react-navigation/core';
 
-export function tabRouteWrapper(WrappedComponent: any): () => JSX.Element {
+import DelayedFreeze from '../../DelayedFreeze';
+import { Stack } from '../../Stack';
+import { Freeze } from 'react-freeze';
+
+export function tabRouteWrapper(
+  WrappedComponent: any,
+  freezeOnBlur: boolean | undefined,
+  name: string | undefined,
+): () => JSX.Element {
   return function TabLayoutWrapper() {
-    return (
-      <Stack flex={1} testID="App-Navigation-Tab-Wrapper">
-        <WrappedComponent />
-      </Stack>
-    );
+    const isFocused = useIsFocused();
+
+    console.log('===== ', name, freezeOnBlur, isFocused);
+
+    // if (freezeOnBlur) {
+    //   return (
+    //     <DelayedFreeze freeze={!isFocused}>
+    //       <WrappedComponent />
+    //     </DelayedFreeze>
+    //   );
+    // }
+
+    return <WrappedComponent />;
   };
 }

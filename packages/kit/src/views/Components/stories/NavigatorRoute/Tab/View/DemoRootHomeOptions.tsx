@@ -3,12 +3,15 @@ import { useLayoutEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 
-import { YStack } from '@onekeyhq/components';
+import { Button, Stack, YStack } from '@onekeyhq/components';
 import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
 
 import { Layout } from '../../../utils/Layout';
-import { useFreezeProbe } from '../../RenderTools';
+import { NavigationFocusTools } from '../../../utils/NavigationTools';
+import { FreezeProbe } from '../../../utils/RenderTools';
+import { RootModalRoutes } from '../../Modal/Routes';
+import { DemoRootRoutes } from '../../Routes';
 
 import type {
   NativeSyntheticEvent,
@@ -17,8 +20,6 @@ import type {
 
 const DemoRootHomeOptions = () => {
   const navigation = useNavigation();
-
-  useFreezeProbe('DemoRootHomeOptions');
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -68,6 +69,30 @@ const DemoRootHomeOptions = () => {
                 }}
               />
             </YStack>
+          ),
+        },
+        {
+          title: '弹出 Modal',
+          element: (
+            <Button
+              onPress={() => {
+                // @ts-expect-error
+                navigation.navigate(DemoRootRoutes.Modal, {
+                  screen: RootModalRoutes.DemoLockedModal,
+                });
+              }}
+            >
+              <Button.Text>弹出 Modal</Button.Text>
+            </Button>
+          ),
+        },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoRootHomeOptions" />
+              <NavigationFocusTools componentName="DemoRootHomeOptions" />
+            </Stack>
           ),
         },
       ]}

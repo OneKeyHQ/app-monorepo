@@ -1,13 +1,14 @@
-import { Button } from '@onekeyhq/components';
+import { Button, Stack } from '@onekeyhq/components';
 
 import { Layout } from '../../../utils/Layout';
-import { useFreezeProbe } from '../../RenderTools';
+import { NavigationFocusTools } from '../../../utils/NavigationTools';
+import { FreezeProbe } from '../../../utils/RenderTools';
 import useDemoAppNavigation from '../../useDemoAppNavigation';
 import { DemoDeveloperTabRoutes, DemoTabRoutes } from '../Routes';
 
 const DemoRootMe = () => {
   const navigation = useDemoAppNavigation();
-  useFreezeProbe('DemoRootMe');
+
   return (
     <Layout
       description="这是一个 Tab 切换演示"
@@ -43,6 +44,15 @@ const DemoRootMe = () => {
             >
               <Button.Text>跳转 Developer</Button.Text>
             </Button>
+          ),
+        },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoRootMe" />
+              <NavigationFocusTools componentName="DemoRootMe" />
+            </Stack>
           ),
         },
       ]}
