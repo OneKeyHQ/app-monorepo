@@ -1,6 +1,29 @@
-import { Button, XStack, YStack } from '@onekeyhq/components';
+import { useState } from 'react';
+
+import { ActionButton, Button, XStack, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
+
+const ActionButtonDemo = () => {
+  const [spinning, setSpinning] = useState(false);
+  return (
+    <XStack space="$2" alignItems="center">
+      <ActionButton
+        text="action"
+        size="medium"
+        buttonVariant="secondary"
+        iconName="BellSolid"
+        spinning={spinning}
+        onPress={() => {
+          setSpinning(true);
+          setTimeout(() => {
+            setSpinning(false);
+          }, 1500);
+        }}
+      />
+    </XStack>
+  );
+};
 
 const ButtonsGallery = () => (
   <Layout
@@ -167,6 +190,10 @@ const ButtonsGallery = () => (
             </Button>
           </XStack>
         ),
+      },
+      {
+        title: 'Action Button',
+        element: <ActionButtonDemo />,
       },
     ]}
   />

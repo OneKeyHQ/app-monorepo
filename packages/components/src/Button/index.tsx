@@ -1,15 +1,20 @@
 import type { PropsWithChildren } from 'react';
-import React, { Children, useContext } from 'react';
+import { Children, useContext } from 'react';
 
-import { createStyledContext, styled, withStaticProperties } from 'tamagui';
+import {
+  AnimatePresence,
+  createStyledContext,
+  styled,
+  withStaticProperties,
+} from 'tamagui';
 
 import { Icon } from '../Icon';
 import { Spinner } from '../Spinner';
 import { Stack } from '../Stack';
 import { Text } from '../Text';
 
-import type { IconProps } from '../Icon';
-import type { ColorTokens } from 'tamagui';
+import type { ICON_NAMES, IconProps } from '../Icon';
+import type { ColorTokens, GetProps, StackProps } from 'tamagui';
 
 export const ButtonContext = createStyledContext<{
   size: 'small' | 'medium' | 'large';
@@ -174,11 +179,11 @@ const ButtonIcon = (props: IconProps) => {
   );
 };
 
-const ButtonSpinner = () => {
+const ButtonSpinner = (props: StackProps) => {
   const { size, buttonVariant } = useContext(ButtonContext);
 
   return (
-    <Stack padding={size === 'large' ? '$0.5' : '$0'}>
+    <Stack padding={size === 'large' ? '$0.5' : '$0'} {...props}>
       <Spinner color={iconColorMapping[buttonVariant]} />
     </Stack>
   );
@@ -190,3 +195,44 @@ export const Button = withStaticProperties(ButtonFrame, {
   Icon: ButtonIcon,
   Spinner: ButtonSpinner,
 });
+
+export type ActionButtonProps = GetProps<typeof ButtonFrame> & {
+  iconName?: ICON_NAMES;
+  text?: string;
+  spinning?: boolean;
+};
+
+export const ActionButton = ({
+  iconName,
+  spinning,
+  text,
+  disabled,
+  ...restProps
+}: ActionButtonProps) => (
+  <Button {...restProps} disabled={disabled || spinning}>
+    <Button.Icon name={iconName} />
+    <Button.Text>{text}</Button.Text>
+    <AnimatePresence>
+      {spinning ? (
+        <Button.Spinner
+          position="absolute"
+          width="100%"
+          p={0}
+          animation="quick"
+          enterStyle={{
+            scale: 0.9,
+          }}
+          pressStyle={{
+            scale: 0.9,
+          }}
+          hoverStyle={{
+            scale: 0.9,
+          }}
+          exitStyle={{
+            scale: 0.9,
+          }}
+        />
+      ) : null}
+    </AnimatePresence>
+  </Button>
+);
