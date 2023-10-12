@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useContext } from 'react';
+import React, { Children, useContext } from 'react';
 
 import { createStyledContext, styled, withStaticProperties } from 'tamagui';
 
@@ -50,13 +50,15 @@ const ButtonText = styled(Text, {
 });
 
 function ButtonStack({ children, ...restProps }: PropsWithChildren<unknown>) {
-  console.log(restProps);
+  const { buttonVariant } = useContext(ButtonContext);
   return (
     <Stack {...restProps}>
-      {typeof children === 'string' ? (
-        <ButtonText>{children}</ButtonText>
-      ) : (
-        children
+      {Children.map(children, (child) =>
+        typeof child === 'string' ? (
+          <ButtonText buttonVariant={buttonVariant}>{child}</ButtonText>
+        ) : (
+          child
+        ),
       )}
     </Stack>
   );
