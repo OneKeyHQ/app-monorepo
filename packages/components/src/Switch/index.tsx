@@ -1,4 +1,4 @@
-import { Stack, Switch as TMSwitch } from 'tamagui';
+import { Switch as TMSwitch } from 'tamagui';
 
 import type { GetProps } from 'tamagui';
 
