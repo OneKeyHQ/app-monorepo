@@ -130,15 +130,19 @@ export function createTokenSelectorUtils(
   function Observer() {
     const { networkId, accountId } = useContext(context);
     const tokens = useAccountTokens(networkId, accountId);
+    const vsCurrency = useAppSelector(
+      (s) => s.settings.selectedFiatMoneySymbol,
+    );
     useEffect(() => {
       if (networkId && accountId) {
         backgroundApiProxy.servicePrice.fetchSimpleTokenPrice({
           accountId,
           networkId,
           tokenIds: tokens.map((item) => item.tokenIdOnNetwork),
+          vsCurrency,
         });
       }
-    }, [tokens, networkId, accountId]);
+    }, [tokens, networkId, accountId, vsCurrency]);
     return null;
   }
 
