@@ -1,27 +1,32 @@
 import { useLayoutEffect } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
-
 import { Button, Text } from '@onekeyhq/components';
+import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import { Layout } from '../../../utils/Layout';
-import { DemoTabChildRoutes } from '../../Modal/types';
+import { useFreezeProbe } from '../../RenderTools';
+import useDemoAppNavigation from '../../useDemoAppNavigation';
+import { DemoHomeTabRoutes } from '../Routes';
 
+import type { DemoHomeTabParamList } from '../RouteParamTypes';
 import type {
   NativeSyntheticEvent,
   TextInputChangeEventData,
 } from 'react-native';
 
 const DemoRootHomeSearch = () => {
-  const navigation = useNavigation();
+  const navigation =
+    useDemoAppNavigation<PageNavigationProp<DemoHomeTabParamList>>();
+
+  useFreezeProbe('DemoRootHomeSearch');
+
   useLayoutEffect(() => {
     navigation.setOptions({
       headerSearchBarOptions: {
-        headerTransparent: false,
         placeholder: '搜索',
         inputType: 'text',
         onChangeText: (event: NativeSyntheticEvent<TextInputChangeEventData>) =>
-          console.log('=====>>>> event', event.nativeEvent.text),
+          console.log('onChangeText', event.nativeEvent.text),
       },
     });
   }, [navigation]);
@@ -39,11 +44,10 @@ const DemoRootHomeSearch = () => {
             useLayoutEffect(() => {
               navigation.setOptions({
                 headerSearchBarOptions: {
-                  headerTransparent: false,
                   placeholder: '搜索',
                   inputType: 'text',
                   onChangeText: (event: NativeSyntheticEvent<TextInputChangeEventData>) =>
-                    console.log('=====>>>> event', event.nativeEvent.text),
+                    console.log(event.nativeEvent.text),
                 },
               });
             }, []);
@@ -56,10 +60,7 @@ const DemoRootHomeSearch = () => {
             <Button
               buttonVariant="primary"
               onPress={() => {
-                // @ts-expect-error
-                navigation.navigate({
-                  name: DemoTabChildRoutes.DemoRootHomeOptions,
-                });
+                navigation.push(DemoHomeTabRoutes.DemoRootHomeOptions);
               }}
             >
               <Button.Text>跳转自定义 headerRight Demo</Button.Text>

@@ -26,6 +26,8 @@ export * from './Radio';
 export * from './SearchBar';
 export * from './Provider/hooks/useThemeValue';
 export * from './Provider/hooks/useIsMounted';
+export { Tabs } from './CollapsibleTabView';
+export * as DelayedFreeze from './DelayedFreeze';
 
 // Navigation
 export * from './Navigation/StackNavigator';

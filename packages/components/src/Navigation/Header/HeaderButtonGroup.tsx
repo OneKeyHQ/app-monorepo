@@ -15,7 +15,7 @@ export default function HeaderButtonGroup({
       flexDirection="row"
       space={childCount > 1 ? '$4' : '0'}
       alignItems="center"
-      testID="Desktop-Navigation-HeaderButtonGroup"
+      testID="Navigation-HeaderView-ButtonGroup"
     >
       {children}
     </Stack>
