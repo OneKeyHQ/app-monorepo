@@ -73,12 +73,10 @@ export default class ServiceToken extends ServiceBase {
 
   @bindThis()
   registerEvents() {
-    // eslint-disable-next-line @typescript-eslint/unbound-method
     appEventBus.on(AppEventBusNames.NetworkChanged, () => {
       this.refreshAccountTokens({ includeTop50TokensQuery: true });
     });
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    appEventBus.on(AppEventBusNames.CurrencyChanged, () => {
+    appEventBus.on(AppEventBusNames.AccountChanged, () => {
       this.refreshAccountTokens({ includeTop50TokensQuery: true });
     });
 
