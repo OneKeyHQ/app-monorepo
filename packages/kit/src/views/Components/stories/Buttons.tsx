@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { ActionButton, Button, XStack, YStack } from '@onekeyhq/components';
+import {  Button, XStack, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -8,11 +8,23 @@ const ActionButtonDemo = () => {
   const [spinning, setSpinning] = useState(false);
   return (
     <XStack space="$2" alignItems="center">
-      <ActionButton
-        text="action"
+      <Button.Action
+        text="click me!"
         size="medium"
         buttonVariant="secondary"
         iconName="BellSolid"
+        spinning={spinning}
+        onPress={() => {
+          setSpinning(true);
+          setTimeout(() => {
+            setSpinning(false);
+          }, 1500);
+        }}
+      />
+      <Button.Action
+        text="click me!(large size)"
+        size="large"
+        buttonVariant="secondary"
         spinning={spinning}
         onPress={() => {
           setSpinning(true);

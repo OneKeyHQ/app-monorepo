@@ -167,11 +167,14 @@ const iconColorMapping: Record<string, ColorTokens> = {
   destructive: '$iconOnColor',
 };
 
-const ButtonIcon = (props: IconProps) => {
+const ButtonIcon = ({ name, ...props }: IconProps) => {
   const { size, buttonVariant } = useContext(ButtonContext);
-
+  if (!name) {
+    return null;
+  }
   return (
     <Icon
+      name={name}
       color={iconColorMapping[buttonVariant]}
       size={size === 'small' ? '$4.5' : '$5'}
       {...props}
@@ -184,40 +187,29 @@ const ButtonSpinner = (props: StackProps) => {
 
   return (
     <Stack padding={size === 'large' ? '$0.5' : '$0'} {...props}>
-      <Spinner color={iconColorMapping[buttonVariant]} />
+      <Spinner color={iconColorMapping[buttonVariant]} size="small" />
     </Stack>
   );
 };
 
-export const Button = withStaticProperties(ButtonFrame, {
-  Props: ButtonContext.Provider,
-  Text: ButtonText,
-  Icon: ButtonIcon,
-  Spinner: ButtonSpinner,
-});
-
-export type ActionButtonProps = GetProps<typeof ButtonFrame> & {
+type ButtonActionProps = GetProps<typeof ButtonFrame> & {
   iconName?: ICON_NAMES;
   text?: string;
   spinning?: boolean;
 };
 
-export const ActionButton = ({
+const ButtonAction = ({
   iconName,
   spinning,
   text,
   disabled,
   ...restProps
-}: ActionButtonProps) => (
-  <Button {...restProps} disabled={disabled || spinning}>
-    <Button.Icon name={iconName} />
-    <Button.Text>{text}</Button.Text>
+}: ButtonActionProps) => (
+  <ButtonFrame {...restProps} disabled={disabled || spinning}>
     <AnimatePresence>
       {spinning ? (
-        <Button.Spinner
-          position="absolute"
-          width="100%"
-          p={0}
+        <ButtonSpinner
+          size="small"
           animation="quick"
           enterStyle={{
             scale: 0.9,
@@ -232,7 +224,18 @@ export const ActionButton = ({
             scale: 0.9,
           }}
         />
-      ) : null}
+      ) : (
+        <ButtonIcon name={iconName} />
+      )}
     </AnimatePresence>
-  </Button>
+    <ButtonText>{text}</ButtonText>
+  </ButtonFrame>
 );
+
+export const Button = withStaticProperties(ButtonFrame, {
+  Props: ButtonContext.Provider,
+  Text: ButtonText,
+  Icon: ButtonIcon,
+  Spinner: ButtonSpinner,
+  Action: ButtonAction,
+});
