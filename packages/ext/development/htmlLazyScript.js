@@ -28,11 +28,16 @@ function doTaskInFolder({ folder }) {
       return;
     }
 
-    $('body script').each((idx, ele) => {
+    $('html head script').each((idx, ele) => {
       const $ele = $(ele);
       const src = $ele.attr('src');
-      srcList.push(src);
-      $ele.remove();
+      if (
+        !src.includes('preload-html-head.js') &&
+        !src.includes('react-render-tracker')
+      ) {
+        srcList.push(src);
+        $ele.remove();
+      }
     });
     $body.append(
       $(`
