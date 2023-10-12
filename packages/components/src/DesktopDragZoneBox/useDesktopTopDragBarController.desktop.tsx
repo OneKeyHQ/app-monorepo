@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/core';
 
 export const DESKTOP_TOP_DRAG_BAR_ID = 'DesktopDragZoneBoxTopFixedDragBar';
-export const DESKTOP_TOP_DRAG_BAR_HEIGHT = '16px';
+export const DESKTOP_TOP_DRAG_BAR_HEIGHT = '20px';
 
 export function useDesktopTopDragBarController({ height }: { height: string }) {
   useFocusEffect(
