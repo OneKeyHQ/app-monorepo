@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { Label, Checkbox as TMCheckbox, styled } from 'tamagui';
+import { Label, Checkbox as TMCheckbox } from 'tamagui';
 
 import { Icon } from '../Icon';
 import { Stack, XStack } from '../Stack';
