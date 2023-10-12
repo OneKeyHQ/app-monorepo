@@ -1,6 +1,9 @@
 import type { Dispatch, PropsWithChildren } from 'react';
 import {
+  Children,
+  cloneElement,
   createContext,
+  isValidElement,
   useCallback,
   useContext,
   useEffect,
@@ -13,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Sheet,
   Dialog as TMDialog,
+  composeEventHandlers,
   useMedia,
   withStaticProperties,
 } from 'tamagui';
@@ -28,7 +32,26 @@ import { Text } from '../Text';
 import type { FormProps } from '../Form';
 import type { SetStateAction } from 'jotai';
 import type { UseFormReturn } from 'react-hook-form';
-import type { GetProps } from 'tamagui';
+import type { ButtonProps, GetProps } from 'tamagui';
+
+function Trigger({
+  onOpen,
+  children,
+}: PropsWithChildren<{ onOpen?: () => void }>) {
+  if (children) {
+    const child = Children.only(children);
+    if (isValidElement(child)) {
+      const handleOpen = (child.props as ButtonProps).onPress
+        ? composeEventHandlers((child.props as ButtonProps).onPress, onOpen)
+        : onOpen;
+      if (child.type === Button) {
+        return cloneElement(child, { onPress: handleOpen } as ButtonProps);
+      }
+      return <Stack onPress={handleOpen}>{children}</Stack>;
+    }
+  }
+  return null;
+}
 
 export interface ModalProps {
   open?: boolean;
@@ -167,7 +190,7 @@ function DialogFrame({
   if (media.md) {
     return (
       <>
-        {renderTrigger && <Stack onPress={onOpen}>{renderTrigger}</Stack>}
+        <Trigger onOpen={onOpen}>{renderTrigger}</Trigger>
         <Sheet
           modal
           open={open}
