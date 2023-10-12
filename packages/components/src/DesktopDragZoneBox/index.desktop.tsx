@@ -2,7 +2,7 @@ import type { ComponentProps, ComponentPropsWithoutRef, FC } from 'react';
 
 import { Pressable } from 'react-native';
 
-import Box from '../Box';
+import { Stack } from '../Stack';
 
 let lastTime: Date | undefined;
 let num = 0;
@@ -51,12 +51,12 @@ export function DesktopDragZoneAbsoluteBar({
   w = '100%',
   h = 8,
   ...others
-}: ComponentProps<typeof Box>) {
+}: ComponentProps<typeof Stack>) {
   // const highlightDragZone = platformEnv.isDev;
   const highlightDragZone = false;
 
   return (
-    <Box
+    <Stack
       position="absolute"
       zIndex={highlightDragZone ? 1 : -1}
       left={0}
@@ -72,7 +72,7 @@ export function DesktopDragZoneAbsoluteBar({
           backgroundColor: highlightDragZone ? 'rgba(0,0,0,0.3)' : undefined,
         }}
       />
-    </Box>
+    </Stack>
   );
 }
 

@@ -3,7 +3,7 @@ import useIsVerticalLayout from '@onekeyhq/components/src/Provider/hooks/useIsVe
 import DesktopLeftSideBar from './DesktopLeftSideBar';
 import MobileBottomTabBar from './MobileBottomTabBar';
 
-import type { BottomTabBarProps } from '../BottomTabs';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
 
 export default function TabBar({ ...props }: BottomTabBarProps) {
   const isVerticalLayout = useIsVerticalLayout();

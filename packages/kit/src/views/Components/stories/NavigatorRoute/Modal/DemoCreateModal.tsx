@@ -1,61 +1,63 @@
 /* eslint-disable react/no-unstable-nested-components */
 import { useLayoutEffect } from 'react';
 
+import * as Burnt from 'burnt';
+import { Input } from 'tamagui';
+
 import { Button } from '@onekeyhq/components';
-import {
-  createStackNavigator,
-  makeModalStackNavigatorOptions,
-} from '@onekeyhq/components/src/Navigation';
+import type { ModalScreenProps } from '@onekeyhq/components/src/Navigation';
 import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
-import useIsVerticalLayout from '@onekeyhq/components/src/Provider/hooks/useIsVerticalLayout';
-import type { ModalRoutesType } from '@onekeyhq/kit/src/routes/Root/Modal/types';
+import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator/ModalFlowNavigator';
 
+import IconGallery from '../../Icon';
 import { Layout } from '../../utils/Layout';
+import { useFreezeProbe } from '../RenderTools';
+import { DemoRootRoutes } from '../Routes';
 
-import { DemoCreateModalRoutes } from './types';
+import { DemoCreateModalRoutes, RootModalRoutes } from './Routes';
 
-import type { StackScreenProps } from '@react-navigation/stack';
-
-export type DemoCreateModalRoutesParams = {
-  [DemoCreateModalRoutes.DemoCreateModal]: undefined;
-  [DemoCreateModalRoutes.DemoCreateSearchModal]: undefined;
-  [DemoCreateModalRoutes.DemoCreateOptionsModal]: undefined;
-};
-
-const DemoCreateModalNavigator =
-  createStackNavigator<DemoCreateModalRoutesParams>();
+import type { DemoCreateModalParamList } from './Routes';
 
 function DemoCreateViewModal({
   navigation,
-}: StackScreenProps<DemoCreateModalRoutesParams>) {
-  console.log('DemoCreateViewModal');
+}: ModalScreenProps<DemoCreateModalParamList>) {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => <HeaderButtonIcon name="AnonymousHidden2Outline" />,
     });
   }, [navigation]);
 
+  useFreezeProbe('DemoCreateViewModal');
+
   return (
     <Layout
-      description="这是一个路由 Header"
-      suggestions={['使用方式与 @react-navigation/native-stack 相同']}
+      description="这是一个普通的 Modal 测试"
+      suggestions={[
+        'Modal 可以通过点击空白处关闭或返回上一级',
+        'Modal 可以通过按 ESC 键关闭或返回上一级',
+        'Android 平台 Modal 可以通过点击返回键关闭或返回上一级',
+        'iOS 平台 Modal 可以通过向下滑动直接关闭整个 Modal Stack',
+      ]}
       boundaryConditions={[
-        'BackButton 已经处理好了相关内容，所以不支持自定义 headerLeft 组件',
+        '打开 Modal 推荐使用 useDemoAppNavigation() hook 的 pushModal 方法',
       ]}
       elements={[
         {
-          title: '下一个例子',
+          title: '开始 Demo',
           element: (
             <Button
               buttonVariant="primary"
               onPress={() => {
                 navigation.navigate(
                   DemoCreateModalRoutes.DemoCreateSearchModal,
+                  {
+                    question: '你好',
+                  },
                 );
               }}
             >
-              <Button.Text>下一个例子</Button.Text>
+              <Button.Text>开始 Demo</Button.Text>
             </Button>
           ),
         },
@@ -66,31 +68,33 @@ function DemoCreateViewModal({
 
 function DemoCreateSearchModal({
   navigation,
-}: StackScreenProps<DemoCreateModalRoutesParams>) {
-  console.log('DemoCreateSearchModal');
-
+}: ModalScreenProps<DemoCreateModalParamList>) {
   useLayoutEffect(() => {
     navigation.setOptions({
-      // @ts-expect-error
       headerSearchBarOptions: {
-        headerTransparent: false,
         placeholder: '搜索',
         inputType: 'text',
         onChangeText: (event: any) => {
-          console.log('=====>>>> event', event);
+          console.log('onChangeText', event);
         },
       },
     });
   }, [navigation]);
 
+  useFreezeProbe('DemoCreateSearchModal');
+
   return (
     <Layout
-      description="这是一个路由 Header"
+      description="这是一个带搜索框的 Modal"
       suggestions={['使用方式与 @react-navigation/native-stack 相同']}
       boundaryConditions={[
         'BackButton 已经处理好了相关内容，所以不支持自定义 headerLeft 组件',
       ]}
       elements={[
+        {
+          title: '输入文字测试冻结',
+          element: <Input />,
+        },
         {
           title: '下一个例子',
           element: (
@@ -99,6 +103,9 @@ function DemoCreateSearchModal({
               onPress={() => {
                 navigation.navigate(
                   DemoCreateModalRoutes.DemoCreateOptionsModal,
+                  {
+                    question: '你好',
+                  },
                 );
               }}
             >
@@ -113,18 +120,14 @@ function DemoCreateSearchModal({
 
 function DemoCreateOptionsModal({
   navigation,
-}: StackScreenProps<DemoCreateModalRoutesParams>) {
-  console.log('DemoCreateOptionsModal');
-
+}: ModalScreenProps<DemoCreateModalParamList>) {
   useLayoutEffect(() => {
     navigation.setOptions({
-      // @ts-expect-error
       headerSearchBarOptions: {
-        headerTransparent: false,
         placeholder: '搜索',
         inputType: 'text',
         onChangeText: (event: any) => {
-          console.log('=====>>>> event', event);
+          console.log('onChangeText', event);
         },
       },
       headerRight: () => (
@@ -137,24 +140,46 @@ function DemoCreateOptionsModal({
     });
   }, [navigation]);
 
+  useFreezeProbe('DemoCreateOptionsModal');
+
   return (
     <Layout
-      description="这是一个路由 Header"
+      description="这是一个带有搜索框和 RightButton 的 Demo"
       suggestions={['使用方式与 @react-navigation/native-stack 相同']}
       boundaryConditions={[
         'BackButton 已经处理好了相关内容，所以不支持自定义 headerLeft 组件',
       ]}
       elements={[
         {
-          title: '下一个例子',
+          title: '跳转到其他 Stack 的 Modal',
           element: (
             <Button
               buttonVariant="primary"
               onPress={() => {
+                // @ts-expect-error
+                navigation.navigate(DemoRootRoutes.Modal, {
+                  screen: RootModalRoutes.DemoLockedModal,
+                });
+              }}
+            >
+              <Button.Text>跳转</Button.Text>
+            </Button>
+          ),
+        },
+        {
+          title: '关闭',
+          element: (
+            <Button
+              buttonVariant="primary"
+              onPress={() => {
+                Burnt.toast({
+                  title: 'Close Modal',
+                  preset: 'none',
+                });
                 navigation.getParent()?.goBack?.();
               }}
             >
-              <Button.Text>关闭</Button.Text>
+              <Button.Text>关闭并弹出 Toast</Button.Text>
             </Button>
           ),
         },
@@ -163,38 +188,28 @@ function DemoCreateOptionsModal({
   );
 }
 
-const modalRoutes: ModalRoutesType<DemoCreateModalRoutes> = [
+export const CreateModalStack: ModalFlowNavigatorConfig<
+  DemoCreateModalRoutes,
+  DemoCreateModalParamList
+>[] = [
   {
     name: DemoCreateModalRoutes.DemoCreateModal,
     component: DemoCreateViewModal,
+    translationId: 'Modal Demo',
   },
   {
     name: DemoCreateModalRoutes.DemoCreateSearchModal,
     component: DemoCreateSearchModal,
+    translationId: 'Search Modal',
   },
   {
     name: DemoCreateModalRoutes.DemoCreateOptionsModal,
     component: DemoCreateOptionsModal,
+    translationId: 'Options Demo Modal',
+  },
+  {
+    name: DemoCreateModalRoutes.DemoBigListModal,
+    component: IconGallery,
+    translationId: 'Big List Demo Modal',
   },
 ];
-
-const DemoCreateModalStack = () => {
-  const isVerticalLayout = useIsVerticalLayout();
-
-  return (
-    <DemoCreateModalNavigator.Navigator
-      screenOptions={(navInfo) => ({
-        ...makeModalStackNavigatorOptions({ isVerticalLayout, navInfo }),
-      })}
-    >
-      {modalRoutes.map((route) => (
-        <DemoCreateModalNavigator.Screen
-          key={route.name}
-          name={route.name}
-          component={route.component}
-        />
-      ))}
-    </DemoCreateModalNavigator.Navigator>
-  );
-};
-export default DemoCreateModalStack;

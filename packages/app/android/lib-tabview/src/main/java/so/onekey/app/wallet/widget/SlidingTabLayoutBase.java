@@ -69,6 +69,7 @@ public abstract class SlidingTabLayoutBase extends HorizontalScrollView {
     private int mIndicatorStyle = STYLE_NORMAL;
 
     private float mTabPadding;
+    private float mTabVerticalPadding;
     private boolean mTabSpaceEqual;
     private float mTabWidth;
 
@@ -214,6 +215,7 @@ public abstract class SlidingTabLayoutBase extends HorizontalScrollView {
         mTabWidth = ta.getDimension(R.styleable.SlidingTabLayout_tl_tab_width, dp2px(-1));
         mTabPadding = ta.getDimension(R.styleable.SlidingTabLayout_tl_tab_padding,
                 mTabSpaceEqual || mTabWidth > 0 ? dp2px(0) : dp2px(20));
+        mTabVerticalPadding = 0;
 
         ta.recycle();
     }
@@ -317,13 +319,13 @@ public abstract class SlidingTabLayoutBase extends HorizontalScrollView {
             TextView tv_placehold_scale = (TextView) v.findViewById(R.id.tv_placehold_scale);
             if (tv_placehold_scale != null) {
                 tv_placehold_scale.setTextSize(TypedValue.COMPLEX_UNIT_PX, mSelectTextSize);
-                tv_placehold_scale.setPadding((int) mTabPadding, 0, (int) mTabPadding, 0);
+                tv_placehold_scale.setPadding((int) mTabPadding, (int) mTabVerticalPadding, (int) mTabPadding, (int) mTabVerticalPadding);
             }
             if (tv_tab_title != null) {
 
                 tv_tab_title.setTextColor(i == mCurrentTab ? mTextSelectColor : mTextUnselectColor);
                 tv_tab_title.setTextSize(TypedValue.COMPLEX_UNIT_PX, mTextsize);
-                tv_tab_title.setPadding((int) mTabPadding, 0, (int) mTabPadding, 0);
+                tv_tab_title.setPadding((int) mTabPadding, (int) mTabVerticalPadding, (int) mTabPadding, (int) mTabVerticalPadding);
                 if (mTextAllCaps) {
                     tv_tab_title.setText(tv_tab_title.getText().toString().toUpperCase());
                 }
@@ -575,6 +577,11 @@ public abstract class SlidingTabLayoutBase extends HorizontalScrollView {
 
     public void setTabPadding(float tabPadding) {
         this.mTabPadding = dp2px(tabPadding);
+        updateTabStyles();
+    }
+
+    public void setTabVerticalPadding(float tabPadding) {
+        this.mTabVerticalPadding = dp2px(tabPadding);
         updateTabStyles();
     }
 

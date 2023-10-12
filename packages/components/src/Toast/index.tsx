@@ -1,4 +1,4 @@
-import { type PropsWithChildren, useEffect } from 'react';
+import { type PropsWithChildren, memo, useEffect } from 'react';
 
 import {
   ToastProvider as TMToastProvider,
@@ -44,20 +44,24 @@ function ToastInstance() {
   );
 }
 
+const MemoizedToastInstance = memo(ToastInstance);
+
+const MemoizedToastViewport = memo(ToastViewport);
+
 export function ToastProvider({ children }: PropsWithChildren<unknown>) {
   // const { top } = useSafeAreaInsets();
 
   return (
     <TMToastProvider>
       {children}
-      <ToastViewport
+      <MemoizedToastViewport
         flexDirection="column-reverse"
         // top={top || '$5'}
         top="$16"
         right={0}
         left={0}
       />
-      <ToastInstance />
+      <MemoizedToastInstance />
     </TMToastProvider>
   );
 }

@@ -503,6 +503,7 @@ const mergedTokens = createTokens({
     80: 320,
     96: 384,
     100: 400,
+    160: 640,
   },
   radius: {
     0: 0,

@@ -4,8 +4,11 @@ import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
 import ActionListGallery from '@onekeyhq/kit/src/views/Components/stories/ActionList';
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
+import CollapsibleTabViewGallery from '@onekeyhq/kit/src/views/Components/stories/CollapsibleTabView';
+import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import IconButtonGallery from '@onekeyhq/kit/src/views/Components/stories/IconButton';
+import DemoRootApp from '@onekeyhq/kit/src/views/Components/stories/NavigatorRoute';
 import PopoverGallery from '@onekeyhq/kit/src/views/Components/stories/Popover';
 import ProgressGallery from '@onekeyhq/kit/src/views/Components/stories/Progress';
 import SelectGallery from '@onekeyhq/kit/src/views/Components/stories/Select';
@@ -14,10 +17,8 @@ import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 
 import AlertGallery from '../../views/Components/stories/Alert';
-import DialogGallery from '../../views/Components/stories/Dialog';
 import DividerGallery from '../../views/Components/stories/Divider';
 import FormGallery from '../../views/Components/stories/Form';
-import DemoRootApp from '../../views/Components/stories/NavigatorRoute';
 import ThemeGallery from '../../views/Components/stories/Theme';
 
 export enum GalleryRoutes {
@@ -39,6 +40,7 @@ export enum GalleryRoutes {
   ComponentSlider = 'component/slider',
   ComponentPopover = 'component/popover',
   ComponentTheme = 'component/theme',
+  ComponentCollapsibleTabs = 'component/collapsibleTabs',
 }
 
 export const stackScreenList = [
@@ -69,6 +71,11 @@ export const stackScreenList = [
   {
     name: GalleryRoutes.ComponentForm,
     component: FormGallery,
+  },
+  {
+    name: GalleryRoutes.ComponentCollapsibleTabs,
+    component: CollapsibleTabViewGallery,
+    // options: { headerShown: false },
   },
 ];
 

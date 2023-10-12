@@ -21,13 +21,16 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property(nonatomic,assign)CGFloat paddingX;
 @property(nonatomic,assign)CGFloat paddingY;
+@property(nonatomic,assign)CGFloat itemPaddingX;
+@property(nonatomic,assign)CGFloat itemPaddingY;
 
 @property(nonatomic,assign)CGFloat height;
+@property(nonatomic,assign)BOOL tabSpaceEqual;
 @property(nonatomic,strong)NSDictionary *labelStyle;
 
 @end
 
-@interface RNTabView : UIView
+@interface RNTabView : UIView<JXCategoryTitleViewDataSource>
 
 @property(nonatomic,strong)RNTabViewModel *model;
 

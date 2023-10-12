@@ -8,6 +8,7 @@ import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/Header
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
 
 import { Layout } from '../../../utils/Layout';
+import { useFreezeProbe } from '../../RenderTools';
 
 import type {
   NativeSyntheticEvent,
@@ -16,6 +17,9 @@ import type {
 
 const DemoRootHomeOptions = () => {
   const navigation = useNavigation();
+
+  useFreezeProbe('DemoRootHomeOptions');
+
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
@@ -26,11 +30,10 @@ const DemoRootHomeOptions = () => {
         </HeaderButtonGroup>
       ),
       headerSearchBarOptions: {
-        headerTransparent: false,
         placeholder: '搜索',
         inputType: 'text',
         onChangeText: (event: NativeSyntheticEvent<TextInputChangeEventData>) =>
-          console.log('=====>>>> event', event.nativeEvent.text),
+          console.log('onChangeText', event.nativeEvent.text),
       },
     });
   }, [navigation]);
