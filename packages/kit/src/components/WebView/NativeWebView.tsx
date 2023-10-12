@@ -25,7 +25,6 @@ export type NativeWebViewProps = WebViewProps & InpageProviderWebViewProps;
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'transparent',
     flex: 1,
   },
 });
