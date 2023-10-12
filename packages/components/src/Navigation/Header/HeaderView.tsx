@@ -28,8 +28,6 @@ export default function HeaderView({
     headerStyle,
     headerTransparent,
     headerBackground,
-    headerBackTitle,
-    presentation,
     headerSearchBarOptions,
   } = options;
 

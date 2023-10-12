@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { XStack } from 'tamagui';
 
-import { Icon, Stack, Text } from '@onekeyhq/components';
+import { Stack, Text } from '@onekeyhq/components';
 import type { ISelectItem } from '@onekeyhq/components/src/Select';
 import { Select } from '@onekeyhq/components/src/Select';
 

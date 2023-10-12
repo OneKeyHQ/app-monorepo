@@ -10,7 +10,6 @@ import {
 import { YStack } from 'tamagui';
 
 import { removePortalComponent, setPortalComponent } from '../Portal';
-import useSafeAreaInsets from '../Provider/hooks/useSafeAreaInsets';
 import { Text } from '../Text';
 
 import type { CreateNativeToastOptions } from '@tamagui/toast/src/types';
