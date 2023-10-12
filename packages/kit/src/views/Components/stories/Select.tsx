@@ -2,8 +2,11 @@ import { useState } from 'react';
 
 import { XStack } from 'tamagui';
 
-import { Stack, Text } from '@onekeyhq/components';
-import type { ISelectItem } from '@onekeyhq/components/src/Select';
+import { Icon, Stack, Text } from '@onekeyhq/components';
+import type {
+  ISelectItem,
+  ISelectSection,
+} from '@onekeyhq/components/src/Select';
 import { Select } from '@onekeyhq/components/src/Select';
 
 import { Layout } from './utils/Layout';
@@ -45,7 +48,7 @@ const SelectDefaultItem = () => {
 
   return (
     <Select
-      data={items}
+      items={items}
       value={val}
       onValueChange={setVal}
       triggerProps={{ width: '100%' }}
@@ -60,17 +63,19 @@ const SelectCustomTriggerItem = () => {
 
   return (
     <Select
-      data={items}
+      items={items}
       value={val}
       onValueChange={setVal}
       triggerProps={{
         width: '100%',
         padded: false,
         backgroundColor: '$bgActive',
+        overflow: 'hidden',
+        borderRadius: '$2',
       }}
       renderTrigger={(item) => (
         <XStack w="100%" justifyContent="space-between">
-          <Text variant="$bodySm">Fruit</Text>
+          <Text variant="$bodyMd">Fruit</Text>
           <XStack space>
             {item?.leading}
             <Text variant="$bodySm">{item?.label ?? 'Fruit'}</Text>
@@ -79,6 +84,65 @@ const SelectCustomTriggerItem = () => {
       )}
       disablePreventBodyScroll
       title="Custom Trigger"
+    />
+  );
+};
+
+const sections: ISelectSection[] = [
+  {
+    title: 'emoji Section',
+    items: [
+      {
+        label: 'Apple',
+        value: 'Apple',
+        leading: <Text variant="$bodyMdMedium">😀</Text>,
+      },
+
+      {
+        label: 'Pear',
+        value: 'Pear',
+        leading: <Text variant="$bodyMdMedium">🚅</Text>,
+      },
+
+      {
+        label: 'Blackberry',
+        value: 'Blackberry',
+        leading: <Text variant="$bodyMdMedium">🚆</Text>,
+      },
+
+      {
+        label: 'Peach',
+        value: 'Peach',
+        leading: <Icon name="AcademicCapMini" size="$5" />,
+      },
+    ],
+  },
+  {
+    title: 'plain Section',
+    items: [
+      { label: 'Apricot', value: 'Apricot' },
+
+      { label: 'Melon', value: 'Melon' },
+
+      { label: 'Honeydew', value: 'Honeydew' },
+
+      { label: 'Starfruit', value: 'Starfruit' },
+
+      { label: 'Blueberry', value: 'Blueberry' },
+    ],
+  },
+];
+
+const SelectSectionsItemDemo = () => {
+  const [val, setVal] = useState('Apple');
+  return (
+    <Select
+      sections={sections}
+      value={val}
+      onValueChange={setVal}
+      triggerProps={{ width: '100%' }}
+      disablePreventBodyScroll
+      title="Demo Title"
     />
   );
 };
@@ -111,6 +175,14 @@ const SelectGallery = () => (
         element: (
           <Stack space="$1">
             <SelectCustomTriggerItem />
+          </Stack>
+        ),
+      },
+      {
+        title: 'Select Sections',
+        element: (
+          <Stack space="$1">
+            <SelectSectionsItemDemo />
           </Stack>
         ),
       },

@@ -1,7 +1,155 @@
+import { useState } from 'react';
+
 import { Button, Dialog, Stack } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components/src/ActionList';
 
 import { Layout } from './utils/Layout';
+
+const ActionListDemo1 = () => {
+  const [open, onOpenChange] = useState(false);
+  return (
+    <ActionList
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Action List"
+      renderTrigger={
+        <Button onPress={() => onOpenChange(true)}>
+          <Button.Text>Action List</Button.Text>
+        </Button>
+      }
+      items={[
+        {
+          label: 'Action1',
+          icon: 'PlaceholderOutline',
+          onPress: () => console.log('action1'),
+        },
+        {
+          label: 'Action2',
+          icon: 'PlaceholderOutline',
+          onPress: () => console.log('action2'),
+        },
+        {
+          label: 'Action3',
+          icon: 'PlaceholderOutline',
+          onPress: () => console.log('action2'),
+          disabled: true,
+        },
+      ]}
+    />
+  );
+};
+
+const ActionListDemo2 = () => {
+  const [open, onOpenChange] = useState(false);
+  return (
+    <ActionList
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Action List"
+      renderTrigger={
+        <Button onPress={() => onOpenChange(true)}>
+          <Button.Text>Action List</Button.Text>
+        </Button>
+      }
+      sections={[
+        {
+          items: [
+            {
+              label: 'Action1',
+              icon: 'PlaceholderOutline',
+              onPress: () => console.log('action1'),
+            },
+            {
+              label: 'Action2',
+              icon: 'PlaceholderOutline',
+              onPress: () => console.log('action2'),
+            },
+            {
+              label: 'Action3',
+              icon: 'PlaceholderOutline',
+              onPress: () => console.log('action2'),
+            },
+          ],
+        },
+        {
+          items: [
+            {
+              label: 'Action4',
+              icon: 'PlaceholderOutline',
+              destructive: true,
+              onPress: () =>
+                Dialog.confirm({
+                  title: 'Lorem ipsum',
+                  description:
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                  onConfirm() {
+                    alert('confirmed');
+                  },
+                }),
+            },
+          ],
+        },
+      ]}
+    />
+  );
+};
+
+const ActionListDemo3 = () => {
+  const [open, onOpenChange] = useState(false);
+  return (
+    <ActionList
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Action List"
+      renderTrigger={
+        <Button onPress={() => onOpenChange(true)}>
+          <Button.Text>With Section Title</Button.Text>
+        </Button>
+      }
+      sections={[
+        {
+          title: 'Title 1',
+          items: [
+            {
+              label: 'Action1',
+              icon: 'PlaceholderOutline',
+              onPress: () => console.log('action1'),
+            },
+            {
+              label: 'Action2',
+              icon: 'PlaceholderOutline',
+              onPress: () => console.log('action2'),
+            },
+            {
+              label: 'Action3',
+              icon: 'PlaceholderOutline',
+              onPress: () => console.log('action2'),
+            },
+          ],
+        },
+        {
+          title: 'Title 2',
+          items: [
+            {
+              label: 'Action4',
+              icon: 'PlaceholderOutline',
+              destructive: true,
+              onPress: () =>
+                Dialog.confirm({
+                  title: 'Lorem ipsum',
+                  description:
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                  onConfirm() {
+                    alert('confirmed');
+                  },
+                }),
+            },
+          ],
+        },
+      ]}
+    />
+  );
+};
 
 const ActionListGallery = () => (
   <Layout
@@ -22,32 +170,7 @@ const ActionListGallery = () => (
         title: 'Simple',
         element: (
           <Stack space="$1">
-            <ActionList
-              title="Action List"
-              renderTrigger={
-                <Button>
-                  <Button.Text>Action List</Button.Text>
-                </Button>
-              }
-              items={[
-                {
-                  label: 'Action1',
-                  icon: 'PlaceholderOutline',
-                  onPress: () => console.log('action1'),
-                },
-                {
-                  label: 'Action2',
-                  icon: 'PlaceholderOutline',
-                  onPress: () => console.log('action2'),
-                },
-                {
-                  label: 'Action3',
-                  icon: 'PlaceholderOutline',
-                  onPress: () => console.log('action2'),
-                  disabled: true,
-                },
-              ]}
-            />
+            <ActionListDemo1 />
           </Stack>
         ),
       },
@@ -55,102 +178,8 @@ const ActionListGallery = () => (
         title: 'Sections',
         element: (
           <Stack space="$1">
-            <ActionList
-              title="Action List"
-              renderTrigger={
-                <Button>
-                  <Button.Text>Action List</Button.Text>
-                </Button>
-              }
-              sections={[
-                {
-                  items: [
-                    {
-                      label: 'Action1',
-                      icon: 'PlaceholderOutline',
-                      onPress: () => console.log('action1'),
-                    },
-                    {
-                      label: 'Action2',
-                      icon: 'PlaceholderOutline',
-                      onPress: () => console.log('action2'),
-                    },
-                    {
-                      label: 'Action3',
-                      icon: 'PlaceholderOutline',
-                      onPress: () => console.log('action2'),
-                    },
-                  ],
-                },
-                {
-                  items: [
-                    {
-                      label: 'Action4',
-                      icon: 'PlaceholderOutline',
-                      destructive: true,
-                      onPress: () =>
-                        Dialog.confirm({
-                          title: 'Lorem ipsum',
-                          description:
-                            'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
-                          onConfirm() {
-                            alert('confirmed');
-                          },
-                        }),
-                    },
-                  ],
-                },
-              ]}
-            />
-            <ActionList
-              title="Action List"
-              renderTrigger={
-                <Button>
-                  <Button.Text>With Section Title</Button.Text>
-                </Button>
-              }
-              sections={[
-                {
-                  title: 'Title 1',
-                  items: [
-                    {
-                      label: 'Action1',
-                      icon: 'PlaceholderOutline',
-                      onPress: () => console.log('action1'),
-                    },
-                    {
-                      label: 'Action2',
-                      icon: 'PlaceholderOutline',
-                      onPress: () => console.log('action2'),
-                    },
-                    {
-                      label: 'Action3',
-                      icon: 'PlaceholderOutline',
-                      onPress: () => console.log('action2'),
-                    },
-                  ],
-                },
-                {
-                  title: 'Title 2',
-                  items: [
-                    {
-                      label: 'Action4',
-                      icon: 'PlaceholderOutline',
-                      destructive: true,
-                      onPress: () =>
-                        Dialog.confirm({
-                          title: 'Lorem ipsum',
-                          description:
-                            'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
-                          onConfirm() {
-                            alert('confirmed');
-                          },
-                        }),
-                    },
-                  ],
-                },
-              ]}
-            />
+            <ActionListDemo2 />
+            <ActionListDemo3 />
           </Stack>
         ),
       },
