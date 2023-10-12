@@ -53,7 +53,7 @@ const LottieViewGallery = () => {
                 <Text>loop: </Text>
                 <Switch
                   value={loop}
-                  onValueChange={(value) => {
+                  onChange={(value) => {
                     setLoop(value);
 
                     createNewLottieView();
@@ -64,7 +64,7 @@ const LottieViewGallery = () => {
                 <Text>autoPlay: </Text>
                 <Switch
                   value={autoPlay}
-                  onValueChange={(value) => {
+                  onChange={(value) => {
                     setAutoPlay(value);
 
                     createNewLottieView();
@@ -74,17 +74,17 @@ const LottieViewGallery = () => {
               <XStack space="$5">
                 <Button
                   onPress={() => {
-                    ref.current?.pause?.();
-                  }}
-                >
-                  <Button.Text>pause</Button.Text>
-                </Button>
-                <Button
-                  onPress={() => {
                     ref.current?.play?.();
                   }}
                 >
                   <Button.Text>play</Button.Text>
+                </Button>
+                <Button
+                  onPress={() => {
+                    ref.current?.pause?.();
+                  }}
+                >
+                  <Button.Text>pause</Button.Text>
                 </Button>
                 <Button
                   onPress={() => {
