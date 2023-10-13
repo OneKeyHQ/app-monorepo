@@ -1,14 +1,20 @@
-import { useContext } from 'react';
+import type { PropsWithChildren } from 'react';
+import { Children, useContext } from 'react';
 
-import { createStyledContext, styled, withStaticProperties } from 'tamagui';
+import {
+  AnimatePresence,
+  createStyledContext,
+  styled,
+  withStaticProperties,
+} from 'tamagui';
 
 import { Icon } from '../Icon';
 import { Spinner } from '../Spinner';
 import { Stack } from '../Stack';
 import { Text } from '../Text';
 
-import type { IconProps } from '../Icon';
-import type { ColorTokens } from 'tamagui';
+import type { ICON_NAMES, IconProps } from '../Icon';
+import type { ColorTokens, GetProps, StackProps } from 'tamagui';
 
 export const ButtonContext = createStyledContext<{
   size: 'small' | 'medium' | 'large';
@@ -18,7 +24,52 @@ export const ButtonContext = createStyledContext<{
   buttonVariant: 'secondary',
 });
 
-export const ButtonFrame = styled(Stack, {
+const ButtonText = styled(Text, {
+  name: 'ButtonText',
+  userSelect: 'none',
+  context: ButtonContext,
+
+  variant: '$bodyLgMedium',
+
+  variants: {
+    size: {
+      small: {
+        variant: '$bodyMdMedium',
+      },
+    },
+    buttonVariant: {
+      primary: {
+        color: '$textInverse',
+      },
+      secondary: {
+        color: '$text',
+      },
+      tertiary: {
+        color: '$textSubdued',
+      },
+      destructive: {
+        color: '$textOnColor',
+      },
+    },
+  } as const,
+});
+
+function ButtonStack({ children, ...restProps }: PropsWithChildren<unknown>) {
+  const { buttonVariant } = useContext(ButtonContext);
+  return (
+    <Stack {...restProps}>
+      {Children.map(children, (child) =>
+        typeof child === 'string' ? (
+          <ButtonText buttonVariant={buttonVariant}>{child}</ButtonText>
+        ) : (
+          child
+        ),
+      )}
+    </Stack>
+  );
+}
+
+export const ButtonFrame = styled(ButtonStack, {
   name: 'Button',
   tag: 'button',
   role: 'button',
@@ -109,36 +160,6 @@ export const ButtonFrame = styled(Stack, {
   } as const,
 });
 
-const ButtonText = styled(Text, {
-  name: 'ButtonText',
-  userSelect: 'none',
-  context: ButtonContext,
-
-  variant: '$bodyLgMedium',
-
-  variants: {
-    size: {
-      small: {
-        variant: '$bodyMdMedium',
-      },
-    },
-    buttonVariant: {
-      primary: {
-        color: '$textInverse',
-      },
-      secondary: {
-        color: '$text',
-      },
-      tertiary: {
-        color: '$textSubdued',
-      },
-      destructive: {
-        color: '$textOnColor',
-      },
-    },
-  } as const,
-});
-
 const iconColorMapping: Record<string, ColorTokens> = {
   primary: '$iconInverse',
   secondary: '$icon',
@@ -146,11 +167,14 @@ const iconColorMapping: Record<string, ColorTokens> = {
   destructive: '$iconOnColor',
 };
 
-const ButtonIcon = (props: IconProps) => {
+const ButtonIcon = ({ name, ...props }: IconProps) => {
   const { size, buttonVariant } = useContext(ButtonContext);
-
+  if (!name) {
+    return null;
+  }
   return (
     <Icon
+      name={name}
       color={iconColorMapping[buttonVariant]}
       size={size === 'small' ? '$4.5' : '$5'}
       {...props}
@@ -158,19 +182,60 @@ const ButtonIcon = (props: IconProps) => {
   );
 };
 
-const ButtonSpinner = () => {
+const ButtonSpinner = (props: StackProps) => {
   const { size, buttonVariant } = useContext(ButtonContext);
 
   return (
-    <Stack padding={size === 'large' ? '$0.5' : '$0'}>
-      <Spinner color={iconColorMapping[buttonVariant]} />
+    <Stack padding={size === 'large' ? '$0.5' : '$0'} {...props}>
+      <Spinner color={iconColorMapping[buttonVariant]} size="small" />
     </Stack>
   );
 };
+
+type ButtonActionProps = GetProps<typeof ButtonFrame> & {
+  iconName?: ICON_NAMES;
+  text?: string;
+  spinning?: boolean;
+};
+
+const ButtonAction = ({
+  iconName,
+  spinning,
+  text,
+  disabled,
+  ...restProps
+}: ButtonActionProps) => (
+  <ButtonFrame {...restProps} disabled={disabled || spinning}>
+    <AnimatePresence>
+      {spinning ? (
+        <ButtonSpinner
+          size="small"
+          animation="quick"
+          enterStyle={{
+            scale: 0.9,
+          }}
+          pressStyle={{
+            scale: 0.9,
+          }}
+          hoverStyle={{
+            scale: 0.9,
+          }}
+          exitStyle={{
+            scale: 0.9,
+          }}
+        />
+      ) : (
+        <ButtonIcon name={iconName} />
+      )}
+    </AnimatePresence>
+    <ButtonText>{text}</ButtonText>
+  </ButtonFrame>
+);
 
 export const Button = withStaticProperties(ButtonFrame, {
   Props: ButtonContext.Provider,
   Text: ButtonText,
   Icon: ButtonIcon,
   Spinner: ButtonSpinner,
+  Action: ButtonAction,
 });
