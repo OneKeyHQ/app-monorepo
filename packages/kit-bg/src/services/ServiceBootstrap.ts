@@ -101,6 +101,7 @@ export default class ServiceBootstrap extends ServiceBase {
       serviceSwap,
       serviceOnboarding,
       serviceCloudBackup,
+      servicePrice,
       serviceAllNetwork,
     } = this.backgroundApi;
 
@@ -112,6 +113,7 @@ export default class ServiceBootstrap extends ServiceBase {
     serviceSwap.registerEvents();
     serviceAccount.registerEvents();
     serviceAllNetwork.registerEvents();
+    servicePrice.registerEvents();
 
     this.initFetchFiatMoneyRateSchedule();
     serviceOnboarding.checkOnboardingStatus();
