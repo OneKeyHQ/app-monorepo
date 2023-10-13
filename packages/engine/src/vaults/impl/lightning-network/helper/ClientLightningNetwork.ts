@@ -267,19 +267,7 @@ class ClientLightning {
       )
       .then((i) => i.data)
       .catch((e) => {
-        if (axios.isAxiosError(e)) {
-          const error = e as AxiosError<{ message: string }>;
-          const errorMessage = error.response?.data?.message;
-          if (errorMessage?.includes('not_enough_balance_include_ten_sats')) {
-            throw new NotEnoughBalanceIncludeTenSatsError();
-          } else if (
-            errorMessage?.includes('not_enough_balance_include_one_percent')
-          ) {
-            throw new NotEnoughBalanceIncludeOnePercentError();
-          }
-        }
-        throw e;
-        // this.detectCheckBalanceError(e);
+        this.detectCheckBalanceError(e);
       });
   }
 
