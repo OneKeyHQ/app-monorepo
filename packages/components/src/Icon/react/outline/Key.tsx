@@ -1,7 +1,4 @@
-import Svg, { Circle, Path } from 'react-native-svg';
-
-import type { SvgProps } from 'react-native-svg';
-
+import Svg, { SvgProps, Circle, Path } from 'react-native-svg';
 const SvgKey = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Circle cx={7} cy={12} r={1.5} fill="currentColor" />

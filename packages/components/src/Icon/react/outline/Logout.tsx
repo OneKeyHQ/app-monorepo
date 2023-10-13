@@ -1,7 +1,4 @@
-import Svg, { Path } from 'react-native-svg';
-
-import type { SvgProps } from 'react-native-svg';
-
+import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgLogout = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path

@@ -4,12 +4,14 @@ import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
 import ActionListGallery from '@onekeyhq/kit/src/views/Components/stories/ActionList';
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
+import CheckboxGallery from '@onekeyhq/kit/src/views/Components/stories/Checkbox';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import IconButtonGallery from '@onekeyhq/kit/src/views/Components/stories/IconButton';
 import PopoverGallery from '@onekeyhq/kit/src/views/Components/stories/Popover';
 import ProgressGallery from '@onekeyhq/kit/src/views/Components/stories/Progress';
 import SelectGallery from '@onekeyhq/kit/src/views/Components/stories/Select';
 import SliderGallery from '@onekeyhq/kit/src/views/Components/stories/Slider';
+import SwitchGallery from '@onekeyhq/kit/src/views/Components/stories/Switch';
 import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 
@@ -31,9 +33,11 @@ export enum GalleryRoutes {
   ComponentDialog = 'component/dialog',
   ComponentForm = 'component/form',
   ComponentNavigation = 'component/navigation',
+  ComponentSwitch = 'component/switch',
   ComponentAlert = 'component/alert',
   ComponentDivider = 'component/divider',
   ComponentToast = 'component/toast',
+  ComponentCheckbox = 'component/checkbox',
   ComponentActionList = 'component/actionlist',
   ComponentProgress = 'component/progress',
   ComponentSlider = 'component/slider',
@@ -54,9 +58,11 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentSelect, component: SelectGallery },
   { name: GalleryRoutes.ComponentBadge, component: BadgeGallery },
   { name: GalleryRoutes.ComponentDialog, component: DialogGallery },
+  { name: GalleryRoutes.ComponentCheckbox, component: CheckboxGallery },
   { name: GalleryRoutes.ComponentActionList, component: ActionListGallery },
   { name: GalleryRoutes.ComponentPopover, component: PopoverGallery },
   { name: GalleryRoutes.ComponentProgress, component: ProgressGallery },
+  { name: GalleryRoutes.ComponentSwitch, component: SwitchGallery },
   { name: GalleryRoutes.ComponentSlider, component: SliderGallery },
   {
     name: GalleryRoutes.ComponentNavigation,

@@ -1,7 +1,4 @@
-import Svg, { Path } from 'react-native-svg';
-
-import type { SvgProps } from 'react-native-svg';
-
+import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgDisk2 = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path fill="currentColor" d="M10 15a2 2 0 1 1 4 0 2 2 0 0 1-4 0Z" />
