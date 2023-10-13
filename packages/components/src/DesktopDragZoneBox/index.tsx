@@ -1,12 +1,11 @@
-import type { ComponentProps, ComponentPropsWithoutRef, FC } from 'react';
-import { Fragment } from 'react';
+import type { ComponentProps, FC } from 'react';
 
-import type { Stack } from '../Stack';
-import type { Pressable } from 'react-native';
+import { Stack } from '../Stack';
 
-export const DesktopDragZoneAbsoluteBar: FC<ComponentProps<typeof Stack>> =
-  __DEV__
-    ? // @ts-ignore to stop the warning about Fragment under development
-      ({ children }) => <>{children}</>
-    : Fragment;
-export default Fragment as FC<ComponentPropsWithoutRef<typeof Pressable>>;
+export const DesktopDragZoneAbsoluteBar: FC<
+  ComponentProps<typeof Stack>
+> = () => <Stack />;
+
+export const DesktopDragZoneBox: FC<ComponentProps<typeof Stack>> = () => (
+  <Stack />
+);
