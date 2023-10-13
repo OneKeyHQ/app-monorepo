@@ -1,119 +1,70 @@
-import { type PropsWithChildren, memo, useEffect } from 'react';
+import { toast } from 'burnt';
+import { getTokens } from 'tamagui';
 
-import {
-  ToastProvider as TMToastProvider,
-  Toast,
-  ToastViewport,
-  useToastController,
-  useToastState,
-} from '@tamagui/toast';
-import { YStack } from 'tamagui';
+import { Icon } from '../Icon';
 
-import { removePortalComponent, setPortalComponent } from '../Portal';
-import { Text } from '../Text';
-
-import type { CreateNativeToastOptions } from '@tamagui/toast/src/types';
-
-function ToastInstance() {
-  const currentToast = useToastState();
-  if (!currentToast || currentToast.isHandledNatively) return null;
-  return (
-    <Toast
-      key={currentToast.id}
-      duration={currentToast.duration}
-      enterStyle={{ opacity: 0, scale: 0.9, y: -16 }}
-      exitStyle={{ opacity: 0, scale: 0.9, y: -16 }}
-      y={0}
-      opacity={1}
-      scale={1}
-      animation="quick"
-      viewportName={currentToast.viewportName}
-    >
-      <YStack>
-        <Toast.Title asChild>
-          <YStack>
-            <Text variant="$bodyLg">{currentToast.title}</Text>
-          </YStack>
-        </Toast.Title>
-        {!!currentToast.message && (
-          <Toast.Description>{currentToast.message}</Toast.Description>
-        )}
-      </YStack>
-    </Toast>
-  );
-}
-
-const MemoizedToastInstance = memo(ToastInstance);
-
-const MemoizedToastViewport = memo(ToastViewport);
-
-export function ToastProvider({ children }: PropsWithChildren<unknown>) {
-  // const { top } = useSafeAreaInsets();
-
-  return (
-    <TMToastProvider>
-      {children}
-      <MemoizedToastViewport
-        flexDirection="column-reverse"
-        // top={top || '$5'}
-        top="$16"
-        right={0}
-        left={0}
-      />
-      <MemoizedToastInstance />
-    </TMToastProvider>
-  );
-}
-
-interface CustomData {
-  [key: string]: any;
-}
-
-type ShowOptions = CreateNativeToastOptions &
-  CustomData & {
-    /**
-     * Used when need custom data
-     * @deprecated Use `customData` instead
-     */
-    additionalInfo?: CustomData;
-    /**
-     * Used when need custom data
-     */
-    customData?: CustomData;
-    /**
-     * Which viewport to send this toast to. This is only intended to be used with custom toasts and you should wire it up when creating the toast.
-     */
-    viewportName?: string | 'default';
-  };
-type ToastOptions = {
+interface ToastProps {
   title: string;
-} & ShowOptions;
-
-type ToastProps = {
-  name: string;
-  options: ToastOptions;
-};
-function ToastControllerInstance({
-  name,
-  options: { title, ...restProps },
-}: ToastProps) {
-  const toast = useToastController();
-  // only run once time
-  useEffect(() => {
-    toast.show(title, restProps);
-    removePortalComponent(name);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  return null;
+  message?: string;
+  /**
+   * Duration in seconds.
+   */
+  duration?: number;
 }
 
-export const ToastController = {
-  show: (type: string, options: ToastOptions) => {
-    setPortalComponent(
-      <ToastControllerInstance
-        options={options}
-        name={Math.random().toString()}
-      />,
-    );
+export interface ToastBaseProps extends ToastProps {
+  title: string;
+  message?: string;
+  /**
+   * Duration in seconds.
+   */
+  duration?: number;
+  haptic?: 'success' | 'warning' | 'error' | 'none';
+  preset?: 'done' | 'error' | 'none' | 'custom';
+}
+
+const iconMap = {
+  success: {
+    ios: {
+      name: 'checkmark.circle.fill',
+      color: getTokens().color.iconSuccessLight.val,
+    },
+    web: <Icon name="CheckRadioSolid" color="$iconSuccess" size="$5" />,
+  },
+  error: {
+    ios: {
+      name: 'x.circle.fill',
+      color: getTokens().color.iconCriticalLight.val,
+    },
+    web: <Icon name="XCircleSolid" color="$iconCritical" size="$5" />,
+  },
+};
+
+function burntToast({
+  title,
+  message,
+  duration,
+  haptic,
+  preset = 'custom',
+}: ToastBaseProps) {
+  toast({
+    title,
+    message,
+    duration,
+    haptic,
+    preset,
+    icon: iconMap[haptic as keyof typeof iconMap],
+  });
+}
+
+export const Toast = {
+  success: (props: ToastProps) => {
+    burntToast({ haptic: 'success', ...props });
+  },
+  error: (props: ToastProps) => {
+    burntToast({ haptic: 'error', ...props });
+  },
+  message: (props: ToastProps) => {
+    burntToast({ haptic: 'warning', preset: 'none', ...props });
   },
 };

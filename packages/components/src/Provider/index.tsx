@@ -9,7 +9,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import config from '../../tamagui.config';
 import LOCALES from '../locale';
-import { ToastProvider } from '../Toast';
 import Toaster from '../Toast/Toaster';
 
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
@@ -95,7 +94,6 @@ const Provider: FC<UIProviderProps> = ({
                   config={config}
                   defaultTheme={themeVariant}
                 >
-                  <ToastProvider>{children}</ToastProvider>
                   <Toaster />
                 </MemoizedTamaguiProvider>
               </SafeAreaProvider>
