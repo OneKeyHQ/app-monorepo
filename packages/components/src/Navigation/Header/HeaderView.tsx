@@ -5,11 +5,12 @@ import * as React from 'react';
 import { Header } from '@react-navigation/elements';
 import { get } from 'lodash';
 import { StyleSheet } from 'react-native';
-import { Input } from 'tamagui';
+import { Input, useMedia } from 'tamagui';
 
-import { Stack, useThemeValue } from '../../index';
+import { getThemeTokens, Stack, useThemeValue } from '../../index';
 
 import HeaderButtonBack from './HeaderButtonBack';
+import HeaderSearchBar from './HeaderSearchBar';
 
 import type { StackHeaderProps } from '../ScreenProps';
 import type { OneKeyStackHeaderProps } from './HeaderScreenOptions';
@@ -145,19 +146,15 @@ function HeaderView({
             py: isModelScreen ? '$0' : '$3.5',
             pb: isModelScreen ? '$4' : '$0',
             width: isModelScreen ? '100%' : '$60',
+            alignItems: isModelScreen ? 'flex-start' : 'center',
           }}
         >
-          {/* Demo SearchBar */}
-          <Input
-            $md={{
-              height: '$9',
-            }}
-            $gtMd={{
-              height: '$8',
-            }}
-            borderWidth={1}
+          <HeaderSearchBar
             placeholder={headerSearchBarOptions?.placeholder}
-            onChange={headerSearchBarOptions?.onChangeText}
+            onChangeText={headerSearchBarOptions?.onChangeText}
+            onBlur={headerSearchBarOptions?.onBlur}
+            onFocus={headerSearchBarOptions?.onFocus}
+            onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}
           />
         </Stack>
       )}

@@ -13,6 +13,7 @@ import type { DemoHomeTabParamList } from '../RouteParamTypes';
 import type {
   NativeSyntheticEvent,
   TextInputChangeEventData,
+  TextInputSubmitEditingEventData,
 } from 'react-native';
 
 const DemoRootHomeSearch = () => {
@@ -26,6 +27,9 @@ const DemoRootHomeSearch = () => {
         inputType: 'text',
         onChangeText: (event: NativeSyntheticEvent<TextInputChangeEventData>) =>
           console.log('onChangeText', event.nativeEvent.text),
+        onSearchButtonPress: (
+          event: NativeSyntheticEvent<TextInputSubmitEditingEventData>,
+        ) => console.log('onSearchButtonPress', event.nativeEvent.text),
       },
     });
   }, [navigation]);
