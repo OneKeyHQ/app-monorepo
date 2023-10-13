@@ -1,4 +1,4 @@
-import type { ComponentProps, ComponentPropsWithoutRef, FC } from 'react';
+import type { ComponentProps, FC } from 'react';
 
 import { Pressable } from 'react-native';
 
@@ -24,7 +24,7 @@ const toggleMaxWindow = () => {
   }
 };
 
-const DesktopDragZoneBox: FC<ComponentPropsWithoutRef<typeof Pressable>> = ({
+export const DesktopDragZoneBox: FC<ComponentProps<typeof Pressable>> = ({
   children,
   style,
   ...rest
@@ -34,12 +34,12 @@ const DesktopDragZoneBox: FC<ComponentPropsWithoutRef<typeof Pressable>> = ({
     onPress={toggleMaxWindow}
     style={[
       {
-        // @ts-ignore
+        // @ts-expect-error
         WebkitAppRegion: 'drag',
         WebkitUserSelect: 'none',
         cursor: 'default',
       },
-      // @ts-ignore
+      // @ts-expect-error
       style,
     ]}
   >
@@ -49,7 +49,7 @@ const DesktopDragZoneBox: FC<ComponentPropsWithoutRef<typeof Pressable>> = ({
 
 export function DesktopDragZoneAbsoluteBar({
   w = '100%',
-  h = 8,
+  h = '$2',
   ...others
 }: ComponentProps<typeof Stack>) {
   // const highlightDragZone = platformEnv.isDev;
@@ -75,5 +75,3 @@ export function DesktopDragZoneAbsoluteBar({
     </Stack>
   );
 }
-
-export default DesktopDragZoneBox;

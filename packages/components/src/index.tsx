@@ -24,6 +24,7 @@ export * from './TextArea';
 export * from './Switch';
 export * from './Radio';
 export * from './SearchBar';
+export * from './DesktopDragZoneBox';
 export * from './Provider/hooks/useThemeValue';
 export * from './Provider/hooks/useIsMounted';
 export { Tabs } from './CollapsibleTabView';
