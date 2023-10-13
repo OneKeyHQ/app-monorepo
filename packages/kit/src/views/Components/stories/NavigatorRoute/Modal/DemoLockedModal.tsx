@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect } from 'react';
+import { useCallback, useLayoutEffect, useState } from 'react';
 
 import { Button, Stack } from '@onekeyhq/components';
 import type { ModalNavigationProp } from '@onekeyhq/components/src/Navigation';
@@ -29,6 +29,7 @@ const DemoLockedViewModal = () => {
         'Locked 的 Modal 可以通过代码取消锁定或者关闭',
       ]}
       boundaryConditions={[
+        '可以 Locked 的屏幕一定要在配置里写清楚 allowDisableClose: true，否则 disableClose 属性无效',
         'Locked 的 Modal 没有办法保持屏幕常亮，如果有需求需要单独处理',
         '如果前面有被 Locked 的 Modal，跳转到同级别 Stack 的其他 Modal，返回键会消失，除非将前面 Locked 的 Modal 取消锁定',
       ]}
@@ -81,6 +82,7 @@ const DemoConfigLockedViewModal = () => {
     <Layout
       description="这是通过配置锁定 Modal 的例子"
       suggestions={[
+        '可以 Locked 的屏幕一定要在配置里写清楚 allowDisableClose: true，否则 disableClose 属性无效',
         '配置 ModalFlowNavigatorConfig 的时候，在相关页面下配置 disableClose: true 即可',
         '同样可以手动取消锁定',
       ]}
@@ -154,6 +156,7 @@ const DemoManualLockedViewModal = () => {
       description="这是手动锁定和解锁 Modal 的例子"
       suggestions={['使用方式设置 navigation.setOptions disableClose 属性']}
       boundaryConditions={[
+        '可以 Locked 的屏幕一定要在配置里写清楚 allowDisableClose: true，否则 disableClose 属性无效',
         '锁定: navigation.setOptions({\n' +
           '                  disableClose: true,\n' +
           '                });',
@@ -224,6 +227,7 @@ const DemoManualLockedViewModal = () => {
 const DemoRepeatManualLockedViewModal = () => {
   const navigation =
     useDemoAppNavigation<ModalNavigationProp<DemoLockedModalParamList>>();
+  const [locked, setLocked] = useState(true);
 
   const headerRightCall = useCallback(
     () => <HeaderButtonIcon name="AnonymousHidden2Outline" />,
@@ -233,8 +237,9 @@ const DemoRepeatManualLockedViewModal = () => {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: headerRightCall,
+      disableClose: locked,
     });
-  }, [navigation, headerRightCall]);
+  }, [navigation, headerRightCall, locked]);
 
   return (
     <Layout
@@ -250,32 +255,14 @@ const DemoRepeatManualLockedViewModal = () => {
       ]}
       elements={[
         {
-          title: '锁定',
+          title: '切换锁定',
           element: (
             <Button
-              buttonVariant="primary"
               onPress={() => {
-                navigation.setOptions({
-                  disableClose: true,
-                });
+                setLocked((pre) => !pre);
               }}
             >
-              <Button.Text>锁定</Button.Text>
-            </Button>
-          ),
-        },
-        {
-          title: '取消锁定',
-          element: (
-            <Button
-              buttonVariant="primary"
-              onPress={() => {
-                navigation.setOptions({
-                  disableClose: false,
-                });
-              }}
-            >
-              <Button.Text>取消锁定</Button.Text>
+              <Button.Text>切换锁定</Button.Text>
             </Button>
           ),
         },
@@ -314,16 +301,19 @@ export const LockedModalStack: ModalFlowNavigatorConfig<
     name: DemoLockedModalRoutes.DemoConfigLockedModal,
     component: DemoConfigLockedViewModal,
     translationId: 'Config Locked Modal',
+    allowDisableClose: true,
     disableClose: true,
   },
   {
     name: DemoLockedModalRoutes.DemoManualLockedViewModal,
     component: DemoManualLockedViewModal,
     translationId: 'Manual Locked Modal',
+    allowDisableClose: true,
   },
   {
     name: DemoLockedModalRoutes.DemoRepeatManualLockedViewModal,
     component: DemoRepeatManualLockedViewModal,
     translationId: 'Repeat Manual Locked Modal',
+    allowDisableClose: true,
   },
 ];

@@ -16,6 +16,7 @@ export interface ModalFlowNavigatorConfig<
   P extends ParamListBase,
 > extends CommonNavigatorConfig<RouteName, P> {
   translationId: string;
+  allowDisableClose?: boolean;
   disableClose?: boolean;
 }
 
@@ -50,12 +51,18 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
     // @ts-expect-error
     <ModalStack.Navigator screenOptions={makeScreenOptions}>
       {config.map(
-        ({ name, component, options, translationId, disableClose }) => {
+        ({
+          name,
+          component,
+          options,
+          translationId,
+          allowDisableClose,
+          disableClose,
+        }) => {
           const customOptions: ModalNavigationOptions = {
             ...options,
+            allowDisableClose,
             disableClose,
-            // Fixes: iOS config static configuration disableClose software can not unlock the problem
-            presentation: disableClose ? 'modal' : undefined,
             title: translationId,
           };
 

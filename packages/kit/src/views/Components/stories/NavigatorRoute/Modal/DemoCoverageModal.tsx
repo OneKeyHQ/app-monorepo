@@ -1,9 +1,7 @@
 /* eslint-disable react/no-unstable-nested-components */
 import { useMemo, useState } from 'react';
 
-import * as Burnt from 'burnt';
-
-import { Button, Dialog, Stack } from '@onekeyhq/components';
+import { Button, Dialog, Stack, Toast } from '@onekeyhq/components';
 import type { ModalNavigationProp } from '@onekeyhq/components/src/Navigation';
 import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator/ModalFlowNavigator';
 
@@ -118,9 +116,8 @@ function DemoCoverageDialogModal() {
           element: (
             <Button
               onPress={() => {
-                Burnt.toast({
+                Toast.message({
                   title: '我覆盖在 Modal 上面',
-                  preset: 'none',
                 });
               }}
             >
@@ -197,9 +194,8 @@ function DemoCoverageModalModal() {
             <Button
               onPress={() => {
                 navigation.popStack();
-                Burnt.toast({
+                Toast.message({
                   title: 'Close Modal',
-                  preset: 'none',
                 });
               }}
             >
@@ -213,9 +209,8 @@ function DemoCoverageModalModal() {
             <Button
               buttonVariant="primary"
               onPress={() => {
-                Burnt.toast({
+                Toast.message({
                   title: 'Close Modal',
-                  preset: 'none',
                 });
                 navigation.popStack();
               }}
