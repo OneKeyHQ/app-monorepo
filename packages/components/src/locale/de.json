@@ -2284,6 +2284,8 @@
   "msg__inscription_restored": "Inschriften restauriert",
   "msg__insufficient_balance": "Mangelhaftes Gleichgewicht",
   "msg__insufficient_balance_available_amount_str_str": "Mangelhaftes Gleichgewicht. Verfügbarer Betrag: {amount} {symbol}",
+  "msg__insufficient_balance_make_sure_at_least_10_sats_reserved_for_potential_fee_fluctuations": "Mangelhaftes Gleichgewicht! Stellen Sie sicher, dass Sie mindestens 10 Sitzungen für mögliche Gebührenschwankungen reserviert haben",
+  "msg__insufficient_balance_make_sure_at_least_1_percent_ofinvoice_amount_reserved_for_potential_fee_fluctuations": "Mangelhaftes Gleichgewicht! Stellen Sie sicher, dass Sie mindestens 1 % des Rechnungsbetrags für mögliche Gebührenschwankungen zurückhalten",
   "msg__insufficient_funds_for_transaction": "Unzureichende Mittel für die Transaktion aufgrund von {0} eingefrorenen Vermögenswerten und Gasreservierung {1} .",
   "msg__insufficient_liquidity_of_lightning_node_channels": "Unzureichende Liquidität der Lightning-Node-Kanäle",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "Unzureichendes natives Token-Guthaben für Netzwerkgebühren. Verfügbarer Betrag: {amount} {symbol}",

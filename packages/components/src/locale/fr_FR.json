@@ -2284,6 +2284,8 @@
   "msg__inscription_restored": "Inscriptions restaurées",
   "msg__insufficient_balance": "Solde insuffisant",
   "msg__insufficient_balance_available_amount_str_str": "Solde insuffisant. Montant disponible : {amount} {symbol}",
+  "msg__insufficient_balance_make_sure_at_least_10_sats_reserved_for_potential_fee_fluctuations": "Solde insuffisant! Assurez-vous d'avoir au moins 10 sats réservés aux fluctuations potentielles des frais.",
+  "msg__insufficient_balance_make_sure_at_least_1_percent_ofinvoice_amount_reserved_for_potential_fee_fluctuations": "Solde insuffisant! Assurez-vous d'avoir au moins 1 % du montant de la facture réservé aux fluctuations potentielles des frais.",
   "msg__insufficient_funds_for_transaction": "Fonds insuffisants pour la transaction en raison de {0} d'actifs gelés et de réservation de gaz {1} .",
   "msg__insufficient_liquidity_of_lightning_node_channels": "Liquidité insuffisante des canaux du nœud Lightning",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "Solde de jeton natif insuffisant pour les frais de réseau. Montant disponible : {amount} {symbol}",
