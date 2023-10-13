@@ -26,6 +26,54 @@ const ControlledDialogByText = () => {
   );
 };
 
+const ControlledDialogByTextOnButton = () => {
+  const [isOpen, changeIsOpen] = useState(false);
+  return (
+    <Dialog
+      backdrop
+      open={isOpen}
+      title="Lorem ipsum"
+      description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec."
+      onOpen={() => {
+        changeIsOpen(true);
+      }}
+      renderTrigger={<Button>Trigger Modal by Button</Button>}
+      renderContent={<Text>Overlay Content by Text Trigger</Text>}
+      onClose={() => {
+        changeIsOpen(false);
+      }}
+    />
+  );
+};
+
+const ControlledDialogByTextOnButtonWithOnPress = () => {
+  const [isOpen, changeIsOpen] = useState(false);
+  return (
+    <Dialog
+      backdrop
+      open={isOpen}
+      title="Lorem ipsum"
+      description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec."
+      onOpen={() => {
+        changeIsOpen(true);
+      }}
+      renderTrigger={
+        <Button
+          onPress={() => {
+            console.log('trigger');
+          }}
+        >
+          Trigger Modal by Button with onPress Event
+        </Button>
+      }
+      renderContent={<Text>Overlay Content by Text Trigger</Text>}
+      onClose={() => {
+        changeIsOpen(false);
+      }}
+    />
+  );
+};
+
 const ControlledDialogByButton = () => {
   const [isOpen, changeIsOpen] = useState(false);
   return (
@@ -59,6 +107,14 @@ const DialogGallery = () => (
       {
         title: 'open Modal by renderTrigger',
         element: <ControlledDialogByText />,
+      },
+      {
+        title: 'open Modal by renderTrigger on Button',
+        element: <ControlledDialogByTextOnButton />,
+      },
+      {
+        title: 'open Modal by renderTrigger on Button with onPress event',
+        element: <ControlledDialogByTextOnButtonWithOnPress />,
       },
       {
         title: 'open Modal by Button',

@@ -6,8 +6,12 @@ import { Provider } from '@onekeyhq/components';
 import { useThemeProviderVariant } from '../hooks/useThemeVariant';
 
 const ThemeApp: FC = ({ children }) => {
-  const { themeVariant } = useThemeProviderVariant();
-  return <Provider themeVariant={themeVariant}>{children}</Provider>;
+  const { themeVariant, localeVariant } = useThemeProviderVariant();
+  return (
+    <Provider themeVariant={themeVariant} locale={localeVariant}>
+      {children}
+    </Provider>
+  );
 };
 
 export default memo<ComponentProps<typeof ThemeApp>>(ThemeApp);
