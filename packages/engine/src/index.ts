@@ -1550,7 +1550,19 @@ class Engine {
     if (typeof accountId !== 'undefined') {
       if (withMain) {
         if (!tokens.find((t) => t.isNative) && !isAllNetworks(networkId)) {
-          tokens.unshift(await this.generateNativeTokenByNetworkId(networkId));
+          const nativeTokensInSimpleDB = await simpleDb.token.getTokens({
+            networkId,
+            query: {
+              isNative: true,
+            },
+          });
+          if (nativeTokensInSimpleDB?.length > 0) {
+            tokens.unshift(nativeTokensInSimpleDB[0]);
+          } else {
+            tokens.unshift(
+              await this.generateNativeTokenByNetworkId(networkId),
+            );
+          }
         }
         return tokens;
       }
