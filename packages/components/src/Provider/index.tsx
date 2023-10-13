@@ -94,6 +94,7 @@ const Provider: FC<UIProviderProps> = ({
                   config={config}
                   defaultTheme={themeVariant}
                 >
+                  {children}
                   <Toaster />
                 </MemoizedTamaguiProvider>
               </SafeAreaProvider>
