@@ -5,11 +5,10 @@ import { Dimensions } from 'react-native';
 import { getScreenSize } from '../device';
 
 import useDeviceScreenSize from './useDeviceScreenSize';
-import useProviderScreenLayoutValue from './useProviderScreenLayoutValue';
+import useProviderIsVerticalLayout from './useProviderIsVerticalLayout';
 
 export default function useIsVerticalLayout() {
-  const context = useProviderScreenLayoutValue();
-  return context.isVerticalLayout;
+  return useProviderIsVerticalLayout();
 }
 
 export function getIsVerticalLayout() {
