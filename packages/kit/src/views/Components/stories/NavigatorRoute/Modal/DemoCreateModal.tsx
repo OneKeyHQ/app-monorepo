@@ -29,7 +29,12 @@ function DemoCreateViewModal({
   }, [navigation]);
 
   return (
-    <ModalContainer onConfirm={() => {}}>
+    <ModalContainer
+      onConfirm={() => {}}
+      checkboxProps={{
+        label: '测试',
+      }}
+    >
       <Layout
         description="这是一个普通的 Modal 测试"
         suggestions={[
