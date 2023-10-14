@@ -11,6 +11,7 @@ export * from './Divider';
 export * from './Checkbox';
 export * from './Spinner';
 export * from './Dialog';
+export * from './ModalContainer';
 export * from './ActionList';
 export * from './Slider';
 export * from './Popover';
