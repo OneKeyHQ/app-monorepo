@@ -2284,6 +2284,8 @@
   "msg__inscription_restored": "Бичээсүүдийг сэргээсэн",
   "msg__insufficient_balance": "Үлдэгдэл хангалтгүй",
   "msg__insufficient_balance_available_amount_str_str": "Үлдэгдэл хангалтгүй. Боломжтой дүн: {amount} {symbol}",
+  "msg__insufficient_balance_make_sure_at_least_10_sats_reserved_for_potential_fee_fluctuations": "Үлдэгдэл хангалтгүй! Төлбөрийн хэлбэлзэлд зориулж хамгийн багадаа 10 сатаар нөөцөлсөн эсэхийг шалгаарай",
+  "msg__insufficient_balance_make_sure_at_least_1_percent_ofinvoice_amount_reserved_for_potential_fee_fluctuations": "Үлдэгдэл хангалтгүй! Төлбөрийн үнийн хэлбэлзэлд зориулж нэхэмжлэхийн дүнгийн дор хаяж 1%-ийг нөөцөлсөн эсэхийг шалгаарай",
   "msg__insufficient_funds_for_transaction": "Битүүмжилсэн хөрөнгө {0} болон хийн нөөцийн {1} улмаас гүйлгээ хийхэд хүрэлцэхгүй байна.",
   "msg__insufficient_liquidity_of_lightning_node_channels": "Аянга зангилааны сувгуудын хөрвөх чадвар хангалтгүй",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "Сүлжээний хураамжид уугуул жетоны үлдэгдэл хангалтгүй. Боломжтой дүн: {amount} {symbol}",

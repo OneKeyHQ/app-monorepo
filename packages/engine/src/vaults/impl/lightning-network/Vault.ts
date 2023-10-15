@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
 import BigNumber from 'bignumber.js';
@@ -655,12 +654,18 @@ export default class Vault extends VaultBase {
     }
 
     const balanceAddress = await this.getCurrentBalanceAddress();
-    const balance = await this.getBalances([{ address: balanceAddress }]);
-    const balanceBN = new BigNumber(balance[0] || '0');
-    if (balanceBN.isLessThan(new BigNumber(finalAmount).plus(fee))) {
+    const client = await this.getClient();
+    try {
+      await client.checkBalanceBeforePayInvoice({
+        address: balanceAddress,
+        invoice: payreq,
+        amount: finalAmount,
+      });
+    } catch (e: any) {
+      const { key } = e || {};
       return Promise.resolve({
         success: false,
-        key: 'form__amount_invalid',
+        key: key ?? 'form__amount_invalid',
         params: {
           0: network.symbol,
         },
@@ -672,7 +677,6 @@ export default class Vault extends VaultBase {
     );
     if (paymentHash?.data) {
       try {
-        const client = await this.getClient();
         const existInvoice = await client.specialInvoice(
           balanceAddress,
           paymentHash.data as string,

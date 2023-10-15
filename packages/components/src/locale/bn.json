@@ -2284,6 +2284,8 @@
   "msg__inscription_restored": "শিলালিপি পুনরুদ্ধার করা হয়েছে",
   "msg__insufficient_balance": "অপর্যাপ্ত টাকা",
   "msg__insufficient_balance_available_amount_str_str": "অপর্যাপ্ত টাকা. উপলব্ধ পরিমাণ: {amount} {symbol}",
+  "msg__insufficient_balance_make_sure_at_least_10_sats_reserved_for_potential_fee_fluctuations": "অপর্যাপ্ত টাকা! নিশ্চিত করুন যে আপনার সম্ভাব্য ফি ওঠানামার জন্য কমপক্ষে 10টি স্যাট সংরক্ষিত আছে",
+  "msg__insufficient_balance_make_sure_at_least_1_percent_ofinvoice_amount_reserved_for_potential_fee_fluctuations": "অপর্যাপ্ত টাকা! নিশ্চিত করুন যে আপনি সম্ভাব্য ফি ওঠানামার জন্য কমপক্ষে 1% চালানের পরিমাণ সংরক্ষিত আছে",
   "msg__insufficient_funds_for_transaction": "হিমায়িত সম্পদ এবং গ্যাস রিজার্ভেশন {0} এর কারণে লেনদেনের জন্য অপর্যাপ্ত তহবিল {1}",
   "msg__insufficient_liquidity_of_lightning_node_channels": "লাইটনিং নোড চ্যানেলের অপর্যাপ্ত তারল্য",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "নেটওয়ার্ক ফি এর জন্য অপর্যাপ্ত নেটিভ টোকেন ব্যালেন্স। উপলব্ধ পরিমাণ: {amount} {symbol}",
