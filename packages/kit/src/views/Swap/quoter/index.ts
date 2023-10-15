@@ -1,5 +1,7 @@
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
+import { th } from 'date-fns/locale';
+import * as ethers from 'ethers';
 
 import { getNetworkImpl } from '@onekeyhq/engine/src/managers/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
@@ -31,6 +33,7 @@ import { DeezyQuoter } from './deezy';
 import { JupiterQuoter } from './jupiter';
 import { SocketQuoter } from './socket';
 import { SwftcQuoter } from './swftc';
+import { ThorSwapQuoter } from './thorswap';
 
 import type {
   BuildTransactionParams,
@@ -62,6 +65,16 @@ type TransactionOrder = {
   orderId: string;
 };
 
+type ThorSwapOrder = {
+  to: string;
+  memo: string;
+  amountIn: string;
+};
+
+type ThorSwapData = {
+  quoteId: string;
+};
+
 type EVMTransaction = {
   to: string;
   value: string;
@@ -84,6 +97,8 @@ type BuildTransactionHttpResponse = {
   order?: TransactionOrder;
   errMsg?: string;
   result?: FetchQuoteHttpResult;
+  thor?: ThorSwapData;
+  thorOrder?: ThorSwapOrder;
 };
 
 type FetchQuoteHttpParams = {
@@ -147,6 +162,8 @@ export class SwapQuoter {
 
   private socket = new SocketQuoter();
 
+  private thor = new ThorSwapQuoter();
+
   private deezy = new DeezyQuoter();
 
   private quoters: Quoter[] = [
@@ -155,6 +172,7 @@ export class SwapQuoter {
     this.jupiter,
     this.swftc,
     this.deezy,
+    this.thor,
   ];
 
   transactionReceipts: Record<
@@ -207,6 +225,44 @@ export class SwapQuoter {
       });
     }
     return result;
+  }
+
+  async convertThorSwapOrderToTransaction(
+    params: BuildTransactionParams,
+    order: ThorSwapOrder,
+  ) {
+    const { tokenIn, networkIn, activeAccount, sellAmount } = params;
+    if (!sellAmount || !tokenIn) {
+      return;
+    }
+    if (!order.to || !order.memo || order.amountIn !== params.sellAmount) {
+      throw new Error(
+        'failed to build transaction due to invalid thor swap order params',
+      );
+    }
+    const depositCoinAmt = new BigNumber(order.amountIn)
+      .shiftedBy(-tokenIn.decimals)
+      .toFixed();
+    let result: TransactionData | undefined;
+    if (!tokenIn.tokenIdOnNetwork && networkIn.impl === IMPL_EVM) {
+      result = await backgroundApiProxy.engine.buildEncodedTxFromTransfer({
+        networkId: networkIn.id,
+        accountId: activeAccount.id,
+        transferInfo: {
+          from: activeAccount.address,
+          to: order.to,
+          amount: depositCoinAmt,
+        },
+      });
+      const transaction = result as IEncodedTxEvm;
+      if (transaction.data) {
+        throw new Error('failed to build transaction due to invalid data');
+      } else {
+        transaction.data = ethers.utils.hexlify(order.memo);
+      }
+      return result;
+    }
+    throw new Error('failed to build transaction due to unsupported network');
   }
 
   async fetchLimitOrderQuote(params: ILimitOrderQuoteParams) {
@@ -416,7 +472,6 @@ export class SwapQuoter {
     const requestId = this.parseRequestId(res);
 
     const data = res.data as BuildTransactionHttpResponse;
-
     if (data.errMsg) {
       throw new Error(data.errMsg);
     }
@@ -433,14 +488,20 @@ export class SwapQuoter {
             requestId,
           };
         }
-        return {
+        const result = {
           data: {
             ...data.transaction,
             from: params.activeAccount.address,
           } as IEncodedTxEvm,
           result: data.result,
           requestId,
-        };
+        } as BuildTransactionResponse;
+        if (data.thor) {
+          result.attachment = {
+            thorswapQuoteId: data.thor.quoteId,
+          };
+        }
+        return result;
       }
       return { data: data.transaction, result: data.result, requestId };
     }

@@ -120,6 +120,7 @@ export enum QuoterType {
   jupiter = 'jupiter',
   onekey = 'onekey',
   deezy = 'Deezy',
+  thorswap = 'Thorswap',
 }
 
 export type FieldType = 'INPUT' | 'OUTPUT';
@@ -237,6 +238,12 @@ export interface TransactionAttachment {
   swftcReceiveCoinAmt?: string;
   swftcReceiveCoinCode?: string;
   socketUsedBridgeNames?: string[];
+
+  thorswapQuoteId?: string;
+}
+
+export interface ThorswapOrderReceipt {
+  quoteId: string;
 }
 
 export type BuildTransactionParams = FetchQuoteParams & {
