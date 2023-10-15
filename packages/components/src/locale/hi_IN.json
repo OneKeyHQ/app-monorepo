@@ -2284,6 +2284,8 @@
   "msg__inscription_restored": "शिलालेखों को पुनः स्थापित किया गया",
   "msg__insufficient_balance": "अपर्याप्त शेषराशि",
   "msg__insufficient_balance_available_amount_str_str": "अपर्याप्त शेषराशि। उपलब्ध राशि: {amount} {symbol}",
+  "msg__insufficient_balance_make_sure_at_least_10_sats_reserved_for_potential_fee_fluctuations": "अपर्याप्त शेषराशि! सुनिश्चित करें कि आपके पास संभावित शुल्क उतार-चढ़ाव के लिए कम से कम 10 सीटें आरक्षित हैं",
+  "msg__insufficient_balance_make_sure_at_least_1_percent_ofinvoice_amount_reserved_for_potential_fee_fluctuations": "अपर्याप्त शेषराशि! सुनिश्चित करें कि आपके पास संभावित शुल्क उतार-चढ़ाव के लिए चालान राशि का कम से कम 1% आरक्षित है",
   "msg__insufficient_funds_for_transaction": "जमी हुई संपत्तियों के {0} और गैस आरक्षण {1} के कारण लेन-देन के लिए अपर्याप्त धनराशि।",
   "msg__insufficient_liquidity_of_lightning_node_channels": "लाइटनिंग नोड चैनलों की अपर्याप्त तरलता",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "नेटवर्क शुल्क के लिए अपर्याप्त देशी टोकन शेष। उपलब्ध राशि: {amount} {symbol}",
