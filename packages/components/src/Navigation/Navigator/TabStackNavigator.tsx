@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useIntl } from 'react-intl';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -11,6 +12,7 @@ import { createStackNavigator } from '../StackNavigator';
 import NavigationBar from '../Tab/TabBar';
 
 import type { ICON_NAMES } from '../../Icon';
+import type { LocaleIds } from '../../locale';
 import type { CommonNavigatorConfig } from './types';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
 import type { ParamListBase } from '@react-navigation/routers';
@@ -19,13 +21,14 @@ export interface TabSubNavigatorConfig<
   RouteName extends string,
   P extends ParamListBase = ParamListBase,
 > extends CommonNavigatorConfig<RouteName, P> {
-  translationId: string;
+  translationId: LocaleIds;
+  disable?: boolean;
 }
 
 export interface TabNavigatorConfig<RouteName extends string> {
   name: RouteName;
   tabBarIcon: (focused?: boolean) => ICON_NAMES;
-  translationId: string;
+  translationId: LocaleIds;
   children: TabSubNavigatorConfig<any, any>[];
   freezeOnBlur?: boolean;
   disable?: boolean;
@@ -43,22 +46,24 @@ function TabSubStackNavigator({
   config: TabSubNavigatorConfig<string, any>[];
 }) {
   const [bgColor, titleColor] = useThemeValue(['bg', 'text']);
+  const intl = useIntl();
 
   return (
     <Stack.Navigator>
-      {config.map(({ name, component, translationId }) => (
-        <Stack.Screen
-          key={name}
-          name={name}
-          component={component}
-          options={({ navigation }: { navigation: any }) => ({
-            freezeOnBlur: true,
-            // TODO i18n
-            title: translationId,
-            ...makeTabScreenOptions({ navigation, bgColor, titleColor }),
-          })}
-        />
-      ))}
+      {config
+        .filter(({ disable }) => !disable)
+        .map(({ name, component, translationId }) => (
+          <Stack.Screen
+            key={name}
+            name={name}
+            component={component}
+            options={({ navigation }: { navigation: any }) => ({
+              freezeOnBlur: true,
+              title: intl.formatMessage({ id: translationId }),
+              ...makeTabScreenOptions({ navigation, bgColor, titleColor }),
+            })}
+          />
+        ))}
     </Stack.Navigator>
   );
 }
@@ -71,6 +76,7 @@ export function TabStackNavigator<RouteName extends string>({
   config,
 }: TabNavigatorProps<RouteName>) {
   const isVerticalLayout = useIsVerticalLayout();
+  const intl = useIntl();
 
   const tabBarCallback = useCallback(
     (props: BottomTabBarProps) => <NavigationBar {...props} />,
@@ -81,11 +87,8 @@ export function TabStackNavigator<RouteName extends string>({
     () =>
       config
         .filter(({ disable }) => !disable)
-        .map(({ name, translationId, freezeOnBlur, tabBarIcon, children }) => ({
-          name,
-          tabBarLabel: translationId,
-          tabBarIcon,
-          freezeOnBlur,
+        .map(({ children, ...options }) => ({
+          ...options,
           // eslint-disable-next-line react/no-unstable-nested-components
           children: () => <TabSubStackNavigatorMemo config={children} />,
         })),
@@ -109,6 +112,7 @@ export function TabStackNavigator<RouteName extends string>({
           name={name}
           options={{
             ...options,
+            tabBarLabel: intl.formatMessage({ id: options.translationId }),
             // @ts-expect-error BottomTabBar V7
             tabBarPosition: isVerticalLayout ? 'bottom' : 'left',
           }}

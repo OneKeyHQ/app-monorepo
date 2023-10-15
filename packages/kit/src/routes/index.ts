@@ -1,3 +1,1 @@
-import DevScreen from './Gallery';
-
-export { DevScreen };
+export { RootNavigator } from './Root/RootNavigator';

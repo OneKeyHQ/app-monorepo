@@ -4,6 +4,7 @@ import { ThemeProvider } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import PlatformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { Stack } from '../../Stack';
 import { makeRootModalStackOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';

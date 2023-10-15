@@ -1,5 +1,7 @@
 import { memo, useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { useThemeValue } from '../../Provider/hooks/useThemeValue';
 import { makeModalStackNavigatorOptions } from '../GlobalScreenOptions';
 import createModalNavigator from '../Modal/createModalNavigator';
@@ -7,6 +9,7 @@ import { createStackNavigator } from '../StackNavigator';
 
 import { hasStackNavigatorModal } from './CommonConfig.ts';
 
+import type { LocaleIds } from '../../locale';
 import type { ModalNavigationOptions } from '../ScreenProps';
 import type { CommonNavigatorConfig } from './types';
 import type { ParamListBase } from '@react-navigation/routers';
@@ -15,7 +18,7 @@ export interface ModalFlowNavigatorConfig<
   RouteName extends string,
   P extends ParamListBase,
 > extends CommonNavigatorConfig<RouteName, P> {
-  translationId: string;
+  translationId: LocaleIds;
   allowDisableClose?: boolean;
   disableClose?: boolean;
 }
@@ -35,6 +38,7 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   config,
 }: ModalFlowNavigatorProps<RouteName, P>) {
   const [bgColor, titleColor] = useThemeValue(['bg', 'text']);
+  const intl = useIntl();
 
   const makeScreenOptions = useCallback(
     (navInfo) => ({
@@ -63,7 +67,9 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
             ...options,
             allowDisableClose,
             disableClose,
-            title: translationId,
+            title: intl.formatMessage({
+              id: translationId,
+            }),
           };
 
           return (

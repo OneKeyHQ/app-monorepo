@@ -1,4 +1,4 @@
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createStackNavigator } from '@onekeyhq/components';
 
 import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
 import ActionListGallery from '@onekeyhq/kit/src/views/Components/stories/ActionList';
@@ -79,7 +79,7 @@ export const stackScreenList = [
   },
 ];
 
-const DevStack = createNativeStackNavigator();
+const DevStack = createStackNavigator();
 
 const DevScreen = () => (
   <DevStack.Navigator>

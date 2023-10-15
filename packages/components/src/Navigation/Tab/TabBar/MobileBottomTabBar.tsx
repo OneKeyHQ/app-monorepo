@@ -72,8 +72,6 @@ export default function MobileBottomTabBar({
 }: MobileBottomTabBarProps) {
   const size = useDeviceScreenSize();
 
-  console.log('=====>>>>> size', insets);
-
   const dimensions = useSafeAreaFrame();
   const isKeyboardShown = useIsKeyboardShown();
   const { routes } = state;
