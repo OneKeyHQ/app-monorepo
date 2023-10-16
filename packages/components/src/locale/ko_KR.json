@@ -2284,6 +2284,8 @@
   "msg__inscription_restored": "복원된 비문",
   "msg__insufficient_balance": "잔액 불충분",
   "msg__insufficient_balance_available_amount_str_str": "잔액 불충분. 사용 가능한 금액: {amount} {symbol}",
+  "msg__insufficient_balance_make_sure_at_least_10_sats_reserved_for_potential_fee_fluctuations": "잔액 불충분! 잠재적인 수수료 변동을 대비해 최소 10개의 sats를 예약했는지 확인하세요.",
+  "msg__insufficient_balance_make_sure_at_least_1_percent_ofinvoice_amount_reserved_for_potential_fee_fluctuations": "잔액 불충분! 잠재적인 수수료 변동을 대비해 송장 금액의 1% 이상을 확보해 두십시오.",
   "msg__insufficient_funds_for_transaction": "동결된 자산 {0} 및 가스 예약 {1} 으로 인해 거래 자금이 부족합니다.",
   "msg__insufficient_liquidity_of_lightning_node_channels": "라이트닝 노드 채널의 유동성 부족",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "네트워크 수수료에 대한 기본 토큰 잔액이 부족합니다. 사용 가능한 금액: {amount} {symbol}",
