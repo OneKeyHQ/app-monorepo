@@ -2284,6 +2284,8 @@
   "msg__inscription_restored": "Iscrizioni restaurate",
   "msg__insufficient_balance": "Equilibrio insufficiente",
   "msg__insufficient_balance_available_amount_str_str": "Equilibrio insufficiente. Importo disponibile: {amount} {symbol}",
+  "msg__insufficient_balance_make_sure_at_least_10_sats_reserved_for_potential_fee_fluctuations": "Equilibrio insufficiente! Assicurati di avere almeno 10 sat riservati per potenziali fluttuazioni delle tariffe",
+  "msg__insufficient_balance_make_sure_at_least_1_percent_ofinvoice_amount_reserved_for_potential_fee_fluctuations": "Equilibrio insufficiente! Assicurati di avere almeno l'1% dell'importo della fattura riservato per potenziali fluttuazioni delle tariffe",
   "msg__insufficient_funds_for_transaction": "Fondi insufficienti per la transazione a causa di {0} di beni congelati e prenotazione del gas {1} .",
   "msg__insufficient_liquidity_of_lightning_node_channels": "Liquidità insufficiente dei canali Lightning Node",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "Saldo token nativo insufficiente per le tariffe di rete. Importo disponibile: {amount} {symbol}",

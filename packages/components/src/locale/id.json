@@ -2284,6 +2284,8 @@
   "msg__inscription_restored": "Prasasti dipulihkan",
   "msg__insufficient_balance": "Saldo tidak mencukupi",
   "msg__insufficient_balance_available_amount_str_str": "Saldo tidak mencukupi. Jumlah yang tersedia: {amount} {symbol}",
+  "msg__insufficient_balance_make_sure_at_least_10_sats_reserved_for_potential_fee_fluctuations": "Saldo tidak mencukupi! Pastikan Anda memiliki setidaknya 10 sat yang dicadangkan untuk potensi fluktuasi biaya",
+  "msg__insufficient_balance_make_sure_at_least_1_percent_ofinvoice_amount_reserved_for_potential_fee_fluctuations": "Saldo tidak mencukupi! Pastikan Anda memiliki setidaknya 1% dari jumlah faktur yang dicadangkan untuk potensi fluktuasi biaya",
   "msg__insufficient_funds_for_transaction": "Dana tidak cukup untuk transaksi karena {0} aset yang dibekukan dan reservasi gas {1} .",
   "msg__insufficient_liquidity_of_lightning_node_channels": "Likuiditas saluran node petir tidak mencukupi",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "Saldo token asli tidak mencukupi untuk biaya jaringan. Jumlah yang tersedia: {amount} {symbol}",

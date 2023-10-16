@@ -6,6 +6,7 @@ import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
+  WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/engine/src/types/wallet';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
@@ -43,6 +44,11 @@ export function isHdWallet({ walletId }: { walletId: string }) {
 // walletIsHW
 export function isHardwareWallet({ walletId }: { walletId: string }) {
   return !!(walletId && walletId.startsWith(`${WALLET_TYPE_HW}-`));
+}
+
+// walletIsImported
+export function isImportedWallet({ walletId }: { walletId: string }) {
+  return !!(walletId && walletId.startsWith(`${WALLET_TYPE_IMPORTED}`));
 }
 
 export function isExternalWallet({ walletId }: { walletId: string }) {

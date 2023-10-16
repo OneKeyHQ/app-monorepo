@@ -2284,6 +2284,8 @@
   "msg__inscription_restored": "Ang mga inskripsiyon ay naibalik",
   "msg__insufficient_balance": "Hindi sapat na balanse",
   "msg__insufficient_balance_available_amount_str_str": "Hindi sapat na balanse. Available na halaga: {amount} {symbol}",
+  "msg__insufficient_balance_make_sure_at_least_10_sats_reserved_for_potential_fee_fluctuations": "Hindi sapat na balanse! Tiyaking mayroon kang hindi bababa sa 10 sats na nakalaan para sa mga potensyal na pagbabago-bago ng bayad",
+  "msg__insufficient_balance_make_sure_at_least_1_percent_ofinvoice_amount_reserved_for_potential_fee_fluctuations": "Hindi sapat na balanse! Tiyaking mayroon kang hindi bababa sa 1% ng halaga ng invoice na nakalaan para sa mga potensyal na pagbabago-bago ng bayad",
   "msg__insufficient_funds_for_transaction": "Hindi sapat na pondo para sa transaksyon dahil sa {0} ng mga nakapirming asset at pagpapareserba ng gas {1} .",
   "msg__insufficient_liquidity_of_lightning_node_channels": "Hindi sapat na pagkatubig ng mga channel ng lightning node",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "Hindi sapat na balanse ng katutubong token para sa mga bayarin sa network. Available na halaga: {amount} {symbol}",

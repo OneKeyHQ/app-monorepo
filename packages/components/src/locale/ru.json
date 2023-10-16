@@ -2284,6 +2284,8 @@
   "msg__inscription_restored": "Надписи восстановлены",
   "msg__insufficient_balance": "Недостаточный баланс",
   "msg__insufficient_balance_available_amount_str_str": "Недостаточный баланс. Доступная сумма: {amount} {symbol}",
+  "msg__insufficient_balance_make_sure_at_least_10_sats_reserved_for_potential_fee_fluctuations": "Недостаточный баланс! Убедитесь, что у вас зарезервировано не менее 10 сатов на случай возможных колебаний комиссий.",
+  "msg__insufficient_balance_make_sure_at_least_1_percent_ofinvoice_amount_reserved_for_potential_fee_fluctuations": "Недостаточный баланс! Убедитесь, что у вас зарезервировано не менее 1% от суммы счета на случай возможных колебаний комиссий.",
   "msg__insufficient_funds_for_transaction": "Недостаточно средств для транзакции из-за {0} замороженных активов и резервирования газа {1} .",
   "msg__insufficient_liquidity_of_lightning_node_channels": "Недостаточная ликвидность каналов Lightning Node",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "Недостаточный баланс собственных токенов для сетевых комиссий. Доступная сумма: {amount} {symbol}",

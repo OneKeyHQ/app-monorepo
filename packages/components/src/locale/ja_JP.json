@@ -2284,6 +2284,8 @@
   "msg__inscription_restored": "復元された碑文",
   "msg__insufficient_balance": "残高不足",
   "msg__insufficient_balance_available_amount_str_str": "残高不足。利用可能な金額: {amount} {symbol}",
+  "msg__insufficient_balance_make_sure_at_least_10_sats_reserved_for_potential_fee_fluctuations": "残高不足です！潜在的な料金変動に備えて、少なくとも 10 個のSat を確保してください。",
+  "msg__insufficient_balance_make_sure_at_least_1_percent_ofinvoice_amount_reserved_for_potential_fee_fluctuations": "残高不足です！潜在的な手数料変動に備えて、請求額の少なくとも 1% を確保してください。",
   "msg__insufficient_funds_for_transaction": "{0}の資産凍結とガス予約{1}のため、取引に必要な資金が不足になっている。",
   "msg__insufficient_liquidity_of_lightning_node_channels": "ライトニングノードチャネルの流動性が不十分",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "ネットワーク料金に対するネイティブ トークンの残高が不十分になっている。利用可能な金額: {amount} {symbol}",
