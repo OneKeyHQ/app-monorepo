@@ -2284,6 +2284,8 @@
   "msg__inscription_restored": "Написи відновлені",
   "msg__insufficient_balance": "Недостатній баланс",
   "msg__insufficient_balance_available_amount_str_str": "Недостатній баланс. Доступна сума: {amount} {symbol}",
+  "msg__insufficient_balance_make_sure_at_least_10_sats_reserved_for_potential_fee_fluctuations": "Недостатній баланс! Переконайтеся, що у вас є принаймні 10 сат зарезервовано на можливі коливання комісії",
+  "msg__insufficient_balance_make_sure_at_least_1_percent_ofinvoice_amount_reserved_for_potential_fee_fluctuations": "Недостатній баланс! Переконайтеся, що у вас є принаймні 1% суми рахунка-фактури, зарезервований для можливих коливань комісії",
   "msg__insufficient_funds_for_transaction": "Недостатньо коштів для трансакції через {0} заморожених активів і резервування газу {1} .",
   "msg__insufficient_liquidity_of_lightning_node_channels": "Недостатня ліквідність каналів вузла блискавки",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "Недостатній баланс рідних токенів для оплати мережі. Доступна сума: {amount} {symbol}",
