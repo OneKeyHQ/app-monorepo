@@ -1,0 +1,78 @@
+node_modules
+__generated__
+
+.expo-shared
+.expo
+.DS_Store
+.idea/
+.vscode/
+
+dist
+build-electron
+.next
+build
+*.tsbuildinfo
+yarn-error.log
+/apps/mobile/.env
+/apps/mobile/pc-api-8644398719570171123-0-dcae07e2afab.json
+
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+/apps/desktop/public/static/js-sdk
+
+.env
+webpack.config.preview.json
+webpack.config.preview.devServer.json
+
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+# !/apps/web-embed/web-build/
+/inpage-provider-bak
+/apps/shared/src/web/index.html
+
+### VisualStudioCode ###
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
+### VisualStudioCode Patch ###
+# Ignore all local history of files
+.history
+.ionide
+
+# Support for Project snippet scope
+.vscode/*.code-snippets
+
+# Ignore code-workspaces
+*.code-workspace
+
+# Ignore yalc
+.yalc/
+yalc.lock
+
+stats.json
+stats.html
+.java-version
+.eslintcache
+tsconfig.tsbuildinfo
+
+test-report.html
+
+# Temporary files created by Metro to check the health of the file watcher
+.metro-health-check*
+
+.tamagui
