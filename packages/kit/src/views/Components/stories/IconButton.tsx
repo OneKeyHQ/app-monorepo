@@ -1,8 +1,31 @@
+import { useState } from 'react';
+
 import { XStack } from 'tamagui';
 
 import { IconButton } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
+
+const ActionIconButton = () => {
+  const [spinning, setSpinning] = useState(false);
+  const [disabled, setDisabled] = useState(false);
+  return (
+    <IconButton
+      buttonVariant="secondary"
+      name="PlaceholderOutline"
+      spinning={spinning}
+      disabled={disabled}
+      onPress={() => {
+        setSpinning(true);
+        setDisabled(true);
+        setTimeout(() => {
+          setSpinning(false);
+          setDisabled(false);
+        }, 2000);
+      }}
+    />
+  );
+};
 
 const IconButtonGallery = () => (
   <Layout
@@ -23,18 +46,10 @@ const IconButtonGallery = () => (
         title: 'Variants',
         element: (
           <XStack space="$2" alignItems="center">
-            <IconButton buttonVariant="secondary">
-              <IconButton.Icon name="PlaceholderOutline" />
-            </IconButton>
-            <IconButton buttonVariant="primary">
-              <IconButton.Icon name="PlaceholderOutline" />
-            </IconButton>
-            <IconButton buttonVariant="tertiary">
-              <IconButton.Icon name="PlaceholderOutline" />
-            </IconButton>
-            <IconButton buttonVariant="destructive">
-              <IconButton.Icon name="PlaceholderOutline" />
-            </IconButton>
+            <IconButton buttonVariant="secondary" name="PlaceholderOutline" />
+            <IconButton buttonVariant="primary" name="PlaceholderOutline" />
+            <IconButton buttonVariant="tertiary" name="PlaceholderOutline" />
+            <IconButton buttonVariant="destructive" name="PlaceholderOutline" />
           </XStack>
         ),
       },
@@ -42,15 +57,21 @@ const IconButtonGallery = () => (
         title: 'Sizes',
         element: (
           <XStack space="$2" alignItems="center">
-            <IconButton buttonVariant="secondary" size="large">
-              <IconButton.Icon name="PlaceholderOutline" />
-            </IconButton>
-            <IconButton buttonVariant="secondary" size="medium">
-              <IconButton.Icon name="PlaceholderOutline" />
-            </IconButton>
-            <IconButton buttonVariant="secondary" size="small">
-              <IconButton.Icon name="PlaceholderOutline" />
-            </IconButton>
+            <IconButton
+              buttonVariant="secondary"
+              size="large"
+              name="PlaceholderOutline"
+            />
+            <IconButton
+              buttonVariant="secondary"
+              size="medium"
+              name="PlaceholderOutline"
+            />
+            <IconButton
+              buttonVariant="secondary"
+              size="small"
+              name="PlaceholderOutline"
+            />
           </XStack>
         ),
       },
@@ -58,12 +79,8 @@ const IconButtonGallery = () => (
         title: 'Disabled & Loading',
         element: (
           <XStack space="$2" alignItems="center">
-            <IconButton disabled>
-              <IconButton.Icon name="PlaceholderOutline" />
-            </IconButton>
-            <IconButton disabled>
-              <IconButton.Spinner />
-            </IconButton>
+            <IconButton disabled name="PlaceholderOutline" />
+            <ActionIconButton />
           </XStack>
         ),
       },
