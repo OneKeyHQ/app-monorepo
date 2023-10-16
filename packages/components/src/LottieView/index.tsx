@@ -17,7 +17,7 @@ type LottieViewProps = Omit<LottieWebProps, 'animationData'> & {
 };
 
 const LottieView = forwardRef<typeof AnimatedLottieView, LottieViewProps>(
-  ({ source, autoPlay, loop, resizeMode, ...props }, ref) => {
+  ({ source, loop, resizeMode, ...props }, ref) => {
     const animationRef = useRef<AnimatedLottieView | null>();
 
     const appStateRef = useRef(AppState.currentState);
@@ -43,17 +43,6 @@ const LottieView = forwardRef<typeof AnimatedLottieView, LottieViewProps>(
       };
     }, []);
 
-    useEffect(() => {
-      // animation won't work in navigate(), needs delay here
-      setTimeout(() => {
-        if (autoPlay) {
-          animationRef.current?.play?.();
-        } else {
-          animationRef.current?.pause?.();
-        }
-      }, 300);
-    }, [autoPlay]);
-
     useImperativeHandle(ref as any, () => ({
       play: () => {
         animationRef.current?.play?.();
@@ -70,7 +59,6 @@ const LottieView = forwardRef<typeof AnimatedLottieView, LottieViewProps>(
       <AnimatedLottieView
         resizeMode={resizeMode}
         source={source as LottieNativeProps['source']}
-        autoPlay={autoPlay}
         loop={!!loop}
         {...props}
         ref={animationRef as LegacyRef<AnimatedLottieView>}

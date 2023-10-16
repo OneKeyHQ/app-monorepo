@@ -8267,7 +8267,7 @@ __metadata:
     jpush-react-native: "https://github.com/OneKeyHQ/jpush-react-native.git"
     levelup: ^5.1.1
     lottie-react: ^2.4.0
-    lottie-react-native: ^5.1.6
+    lottie-react-native: ^6.3.0
     path-browserify: ^1.0.1
     react: 18.2.0
     react-content-loader: ^6.2.1
@@ -21265,13 +21265,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"dedent@npm:^0.6.0":
-  version: 0.6.0
-  resolution: "dedent@npm:0.6.0"
-  checksum: fe2c0f5adb0b24407988e4adcd22befa0a27259091d4c40574c72da29fa6a6989e15a522ffc0f934ba6bb511b6498b315e7cdcf4a33a310cfaf1a8555a106484
-  languageName: node
-  linkType: hard
-
 "dedent@npm:^0.7.0":
   version: 0.7.0
   resolution: "dedent@npm:0.7.0"
@@ -31395,21 +31388,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lottie-react-native@npm:^5.1.6":
-  version: 5.1.6
-  resolution: "lottie-react-native@npm:5.1.6"
-  dependencies:
-    invariant: ^2.2.2
-    react-native-safe-modules: ^1.0.3
+"lottie-react-native@npm:^6.3.0":
+  version: 6.3.1
+  resolution: "lottie-react-native@npm:6.3.1"
   peerDependencies:
-    lottie-ios: ^3.4.0
     react: "*"
     react-native: ">=0.46"
     react-native-windows: ">=0.63.x"
   peerDependenciesMeta:
     react-native-windows:
       optional: true
-  checksum: e051e3c3e50b6d0c766895ac122cdccdd1acb76daec6eac9538a2892d8e52ab9e0b5580ab258c37d04b1924bc9962c9b8fdcced0a81d332a6076bfa045783f50
+  checksum: c4e5f2326bf68585d443cc88d34a0440b04006a8202c363aa25c3925ab62e6e24fe5bc841f67020e0f86eb2c4ecf7a9b39a2e9fb846c52425a75f70d09fe906d
   languageName: node
   linkType: hard
 
@@ -36971,17 +36960,6 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: a74a9c8b3d8642cab6e92ab12991279d3c0984c8ce09e64a4f5c6b08316001e796678bd3d5fa0e2601a334435c34ee914411a7cf7d8aa0460a49a177093b64ee
-  languageName: node
-  linkType: hard
-
-"react-native-safe-modules@npm:^1.0.3":
-  version: 1.0.3
-  resolution: "react-native-safe-modules@npm:1.0.3"
-  dependencies:
-    dedent: ^0.6.0
-  peerDependencies:
-    react-native: "*"
-  checksum: df30e1935dfb32ece9be57cd21ccbbecd058a68942536ff6c543f591e5488cc22f17093131eaabf490b6e187caa78e802a4b2e55c890af1c48a3f012dd57c9f2
   languageName: node
   linkType: hard
 
