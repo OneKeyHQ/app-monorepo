@@ -6,22 +6,49 @@ import { Icon } from '../Icon';
 import { Input } from '../Input';
 import { Stack, XStack } from '../Stack';
 
+import type {
+  NativeSyntheticEvent,
+  TextInputFocusEventData,
+  TextInputSubmitEditingEventData,
+} from 'react-native';
+
 interface SearchBarProps {
+  height?: string;
   value?: string;
-  onBlur?: () => void;
+  placeholder?: string;
+  onBlur?: (e: NativeSyntheticEvent<TextInputFocusEventData>) => void;
+  onFocus?: (e: NativeSyntheticEvent<TextInputFocusEventData>) => void;
   onChange?: (value: string) => void;
+  onSubmitEditing?: (
+    e: NativeSyntheticEvent<TextInputSubmitEditingEventData>,
+  ) => void;
 }
 
-export function SearchBar({ value, onChange, onBlur }: SearchBarProps) {
+export function SearchBar({
+  height,
+  value,
+  placeholder,
+  onChange,
+  onBlur,
+  onFocus,
+  onSubmitEditing,
+}: SearchBarProps) {
   const [isFocus, setIsFocus] = useState(false);
-  const handleOnFocus = useCallback(() => {
-    setIsFocus(true);
-  }, []);
+  const handleOnFocus = useCallback(
+    (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
+      setIsFocus(true);
+      onFocus?.(e);
+    },
+    [onFocus],
+  );
 
-  const handleOnBlur = useCallback(() => {
-    setIsFocus(false);
-    onBlur?.();
-  }, [onBlur]);
+  const handleOnBlur = useCallback(
+    (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
+      setIsFocus(false);
+      onBlur?.(e);
+    },
+    [onBlur],
+  );
 
   const handleClearValue = useCallback(() => {
     onChange?.('');
@@ -29,6 +56,7 @@ export function SearchBar({ value, onChange, onBlur }: SearchBarProps) {
 
   return (
     <XStack
+      width="100%"
       borderColor="$border"
       borderWidth="$px"
       borderRadius="$2"
@@ -48,11 +76,13 @@ export function SearchBar({ value, onChange, onBlur }: SearchBarProps) {
       </AnimatePresence>
       <Input
         value={value}
+        placeholder={placeholder}
         onFocus={handleOnFocus}
         onBlur={handleOnBlur}
+        onSubmitEditing={onSubmitEditing}
         focusStyle={{ outlineStyle: 'none' }}
         onChangeText={onChange}
-        h="$7"
+        h={height ?? '$7'}
         returnKeyType="search"
         borderWidth={0}
         flex={1}

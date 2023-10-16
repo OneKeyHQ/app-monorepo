@@ -1,10 +1,9 @@
 /* eslint-disable react/no-unstable-nested-components */
 import { useLayoutEffect } from 'react';
 
-import * as Burnt from 'burnt';
 import { Input } from 'tamagui';
 
-import { Button } from '@onekeyhq/components';
+import { Button, ModalContainer, Stack, Toast } from '@onekeyhq/components';
 import type { ModalScreenProps } from '@onekeyhq/components/src/Navigation';
 import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
@@ -12,7 +11,8 @@ import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigati
 
 import IconGallery from '../../Icon';
 import { Layout } from '../../utils/Layout';
-import { useFreezeProbe } from '../RenderTools';
+import { NavigationFocusTools } from '../../utils/NavigationTools';
+import { FreezeProbe } from '../../utils/RenderTools';
 import { DemoRootRoutes } from '../Routes';
 
 import { DemoCreateModalRoutes, RootModalRoutes } from './Routes';
@@ -28,41 +28,59 @@ function DemoCreateViewModal({
     });
   }, [navigation]);
 
-  useFreezeProbe('DemoCreateViewModal');
-
   return (
-    <Layout
-      description="这是一个普通的 Modal 测试"
-      suggestions={[
-        'Modal 可以通过点击空白处关闭或返回上一级',
-        'Modal 可以通过按 ESC 键关闭或返回上一级',
-        'Android 平台 Modal 可以通过点击返回键关闭或返回上一级',
-        'iOS 平台 Modal 可以通过向下滑动直接关闭整个 Modal Stack',
-      ]}
-      boundaryConditions={[
-        '打开 Modal 推荐使用 useDemoAppNavigation() hook 的 pushModal 方法',
-      ]}
-      elements={[
-        {
-          title: '开始 Demo',
-          element: (
-            <Button
-              buttonVariant="primary"
-              onPress={() => {
-                navigation.navigate(
-                  DemoCreateModalRoutes.DemoCreateSearchModal,
-                  {
-                    question: '你好',
-                  },
-                );
-              }}
-            >
-              <Button.Text>开始 Demo</Button.Text>
-            </Button>
-          ),
-        },
-      ]}
-    />
+    <ModalContainer
+      onConfirm={() => {}}
+      checkboxProps={{
+        label: '测试',
+      }}
+    >
+      <Layout
+        description="这是一个普通的 Modal 测试"
+        suggestions={[
+          'Modal 可以通过点击空白处关闭或返回上一级',
+          'Modal 可以通过按 ESC 键关闭或返回上一级',
+          'Android 平台 Modal 可以通过点击返回键关闭或返回上一级',
+          'iOS 平台 Modal 可以通过向下滑动直接关闭整个 Modal Stack',
+        ]}
+        boundaryConditions={[
+          '打开 Modal 推荐使用 useDemoAppNavigation() hook 的 pushModal 方法',
+        ]}
+        elements={[
+          {
+            title: '开始 Demo',
+            element: (
+              <Button
+                buttonVariant="primary"
+                onPress={() => {
+                  navigation.navigate(
+                    DemoCreateModalRoutes.DemoCreateSearchModal,
+                    {
+                      question: '你好',
+                    },
+                  );
+                }}
+              >
+                <Button.Text>开始 Demo</Button.Text>
+              </Button>
+            ),
+          },
+          {
+            title: '测试输入法',
+            element: <Input />,
+          },
+          {
+            title: '渲染测试',
+            element: (
+              <Stack>
+                <FreezeProbe componentName="DemoCreateViewModal" />
+                <NavigationFocusTools componentName="DemoCreateViewModal" />
+              </Stack>
+            ),
+          },
+        ]}
+      />
+    </ModalContainer>
   );
 }
 
@@ -80,8 +98,6 @@ function DemoCreateSearchModal({
       },
     });
   }, [navigation]);
-
-  useFreezeProbe('DemoCreateSearchModal');
 
   return (
     <Layout
@@ -113,6 +129,15 @@ function DemoCreateSearchModal({
             </Button>
           ),
         },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoCreateSearchModal" />
+              <NavigationFocusTools componentName="DemoCreateSearchModal" />
+            </Stack>
+          ),
+        },
       ]}
     />
   );
@@ -139,8 +164,6 @@ function DemoCreateOptionsModal({
       ),
     });
   }, [navigation]);
-
-  useFreezeProbe('DemoCreateOptionsModal');
 
   return (
     <Layout
@@ -172,15 +195,23 @@ function DemoCreateOptionsModal({
             <Button
               buttonVariant="primary"
               onPress={() => {
-                Burnt.toast({
+                Toast.message({
                   title: 'Close Modal',
-                  preset: 'none',
                 });
                 navigation.getParent()?.goBack?.();
               }}
             >
               <Button.Text>关闭并弹出 Toast</Button.Text>
             </Button>
+          ),
+        },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoCreateOptionsModal" />
+              <NavigationFocusTools componentName="DemoCreateOptionsModal" />
+            </Stack>
           ),
         },
       ]}

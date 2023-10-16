@@ -4,7 +4,7 @@ import {
   StackRouter,
   createNavigatorFactory,
   useNavigationBuilder,
-} from '@react-navigation/native';
+} from '@react-navigation/core';
 
 import ModalStack from './ModalStack';
 

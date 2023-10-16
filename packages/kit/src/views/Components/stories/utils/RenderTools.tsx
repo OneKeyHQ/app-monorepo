@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+import { Text } from '@onekeyhq/components';
+
 export function useFreezeProbe(
   componentName: string,
   options?: {
@@ -19,11 +21,19 @@ export function useFreezeProbe(
   }, [options?.pause]);
 
   useEffect(() => {
-    console.log(`::> ${componentName} Rerender Count: ${rerenderCount}`);
+    console.log(
+      `<== FreezeProbe: ${componentName} Rerender Count: ${rerenderCount}`,
+    );
   }, [componentName, rerenderCount]);
+
+  return rerenderCount;
 }
 
 export function FreezeProbe({ componentName }: { componentName: string }) {
-  useFreezeProbe(componentName);
-  return null;
+  const count = useFreezeProbe(componentName);
+  return (
+    <Text>
+      {componentName} Rerender Count: {count}
+    </Text>
+  );
 }

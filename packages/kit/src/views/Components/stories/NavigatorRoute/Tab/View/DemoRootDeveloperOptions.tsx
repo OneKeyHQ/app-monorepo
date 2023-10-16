@@ -1,9 +1,11 @@
 import { useRoute } from '@react-navigation/core';
 
-import { Button } from '@onekeyhq/components';
+import { Button, Stack } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import { Layout } from '../../../utils/Layout';
+import { NavigationFocusTools } from '../../../utils/NavigationTools';
+import { FreezeProbe } from '../../../utils/RenderTools';
 import useDemoAppNavigation from '../../useDemoAppNavigation';
 import { DemoDeveloperTabRoutes } from '../Routes';
 
@@ -53,6 +55,15 @@ const DemoRootDeveloperOptions = () => {
             >
               <Button.Text>Reset Dev 页面</Button.Text>
             </Button>
+          ),
+        },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoRootDeveloperOptions" />
+              <NavigationFocusTools componentName="DemoRootDeveloperOptions" />
+            </Stack>
           ),
         },
       ]}

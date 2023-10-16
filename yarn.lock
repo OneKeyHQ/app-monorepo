@@ -8234,11 +8234,6 @@ __metadata:
     "@react-native-firebase/perf": ^14
     "@react-native-google-signin/google-signin": ^9.1.0
     "@react-native-segmented-control/segmented-control": ^2.4.1
-    "@react-navigation/bottom-tabs": ^6.5.8
-    "@react-navigation/drawer": ^6.6.3
-    "@react-navigation/native": 6.1.7
-    "@react-navigation/native-stack": ^6.9.13
-    "@react-navigation/stack": ^6.3.17
     "@tamagui/animations-moti": 1.74.13
     "@tamagui/babel-plugin": 1.74.13
     "@tamagui/config": 1.74.13
@@ -9564,7 +9559,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-navigation/bottom-tabs@npm:^6.5.8, @react-navigation/bottom-tabs@npm:^6.5.9":
+"@react-navigation/bottom-tabs@npm:^6.5.9":
   version: 6.5.9
   resolution: "@react-navigation/bottom-tabs@npm:6.5.9"
   dependencies:
@@ -9610,7 +9605,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-navigation/drawer@npm:^6.6.3, @react-navigation/drawer@npm:^6.6.4":
+"@react-navigation/drawer@npm:^6.6.4":
   version: 6.6.4
   resolution: "@react-navigation/drawer@npm:6.6.4"
   dependencies:
@@ -9641,7 +9636,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-navigation/native-stack@npm:^6.9.13, @react-navigation/native-stack@npm:^6.9.14":
+"@react-navigation/native-stack@npm:^6.9.14":
   version: 6.9.14
   resolution: "@react-navigation/native-stack@npm:6.9.14"
   dependencies:
@@ -9654,21 +9649,6 @@ __metadata:
     react-native-safe-area-context: ">= 3.0.0"
     react-native-screens: ">= 3.0.0"
   checksum: b983eb728a5fbcb88320da0dbaffd263375da3ddb9317fc4fb0fddf53c1c034a201662abfae6ced75c5b2b799aecca27046be71d917d743ae24697dc71369d4b
-  languageName: node
-  linkType: hard
-
-"@react-navigation/native@npm:6.1.7":
-  version: 6.1.7
-  resolution: "@react-navigation/native@npm:6.1.7"
-  dependencies:
-    "@react-navigation/core": ^6.4.9
-    escape-string-regexp: ^4.0.0
-    fast-deep-equal: ^3.1.3
-    nanoid: ^3.1.23
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 917be90290b2de6aa6d32f0798369757d5577814fa1cf3b6b7fb62efdc6341f0db2c85a1826f1f83ccd563ffd7c2ce3c98ff7560e80f868641a66f162650a992
   languageName: node
   linkType: hard
 
@@ -9696,7 +9676,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-navigation/stack@npm:^6.3.17, @react-navigation/stack@npm:^6.3.18":
+"@react-navigation/stack@npm:^6.3.18":
   version: 6.3.18
   resolution: "@react-navigation/stack@npm:6.3.18"
   dependencies:

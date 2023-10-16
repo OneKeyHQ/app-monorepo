@@ -19,6 +19,7 @@ export type Scene = {
 export type ModalNavigationConfig = NonNullable<unknown>;
 
 export type ModalNavigationOptions = StackNavigationOptions & {
+  allowDisableClose?: boolean;
   disableClose?: boolean;
 };
 
