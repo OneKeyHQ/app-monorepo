@@ -20,6 +20,7 @@ export interface RootStackNavigatorConfig<
 > extends CommonNavigatorConfig<RouteName, P> {
   initialRoute?: boolean;
   type?: RootStackType;
+  disable?: boolean;
 }
 
 interface RootStackNavigatorProps<
@@ -63,26 +64,31 @@ export function RootStackNavigator<
 
   const renderedScreens = useMemo(
     () =>
-      config.map(({ name, component, type, options }) => (
-        <RootStack.Screen
-          key={name}
-          name={name}
-          component={component}
-          options={{ ...options, ...getOptionsWithType(type) }}
-        />
-      )),
+      config
+        .filter(({ disable }) => !disable)
+        .map(({ name, component, type, options }) => (
+          <RootStack.Screen
+            key={name}
+            name={name}
+            component={component}
+            options={{ ...options, ...getOptionsWithType(type) }}
+          />
+        )),
     [config, getOptionsWithType],
   );
 
-  return (
-    <RootStack.Navigator
-      initialRouteName={initialRouteName}
-      screenOptions={{
-        ...presetScreenOptions,
-        ...screenOptions,
-      }}
-    >
-      {renderedScreens}
-    </RootStack.Navigator>
+  return useMemo(
+    () => (
+      <RootStack.Navigator
+        initialRouteName={initialRouteName}
+        screenOptions={{
+          ...presetScreenOptions,
+          ...screenOptions,
+        }}
+      >
+        {renderedScreens}
+      </RootStack.Navigator>
+    ),
+    [initialRouteName, presetScreenOptions, renderedScreens, screenOptions],
   );
 }

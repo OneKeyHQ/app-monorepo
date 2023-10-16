@@ -119,9 +119,7 @@ export function Layout({
                     </Stack>
                   )}
                 </Stack>
-                <Stack>
-                  {item.element}
-                </Stack>
+                <Stack>{item.element}</Stack>
               </Stack>
             ))}
           </Stack>

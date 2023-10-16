@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import useCookie from 'react-use-cookie';
 
-import { Button, YStack } from '@onekeyhq/components';
+import { Button, Stack, YStack } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -10,7 +10,8 @@ import { AppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import { Layout } from '../../../utils/Layout';
-import { useFreezeProbe } from '../../RenderTools';
+import { NavigationFocusTools } from '../../../utils/NavigationTools';
+import { FreezeProbe } from '../../../utils/RenderTools';
 import useDemoAppNavigation from '../../useDemoAppNavigation';
 import { DemoHomeTabRoutes } from '../Routes';
 
@@ -35,7 +36,6 @@ const DemoRootHome = () => {
 
   const [rrtStatus, changeRRTStatus] = useStorage(AppSettingKey.rrt);
 
-  useFreezeProbe('DemoRootHome');
   return (
     <Layout
       description="这是一个路由 Header"
@@ -66,11 +66,33 @@ const DemoRootHome = () => {
             </YStack>
           ),
         },
+
+        {
+          title: '下一个例子',
+          element: (
+            <Button
+              buttonVariant="primary"
+              onPress={() => {
+                navigation.push(DemoHomeTabRoutes.DemoRootHomeSearch);
+              }}
+            >
+              <Button.Text>跳转搜索 Demo</Button.Text>
+            </Button>
+          ),
+        },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoRootHome" />
+              <NavigationFocusTools componentName="DemoRootHome" />
+            </Stack>
+          ),
+        },
         {
           title: '开启 ReactRenderTracker',
           element: (
             <Button
-              buttonVariant="primary"
               onPress={() => {
                 if (platformEnv.isNative) {
                   (changeRRTStatus as (value: boolean) => void)(!rrtStatus);
@@ -95,19 +117,6 @@ const DemoRootHome = () => {
               }}
             >
               <Button.Text>开关 ReactRenderTracker</Button.Text>
-            </Button>
-          ),
-        },
-        {
-          title: '下一个例子',
-          element: (
-            <Button
-              buttonVariant="primary"
-              onPress={() => {
-                navigation.push(DemoHomeTabRoutes.DemoRootHomeSearch);
-              }}
-            >
-              <Button.Text>跳转搜索 Demo</Button.Text>
             </Button>
           ),
         },
