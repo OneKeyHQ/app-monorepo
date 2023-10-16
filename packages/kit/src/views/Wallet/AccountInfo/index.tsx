@@ -2,6 +2,7 @@
 import type { FC } from 'react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import stringify from 'fast-json-stable-stringify';
 import { useIntl } from 'react-intl';
 
@@ -350,7 +351,23 @@ const SummedValueComp = memo(
         s.overview.overviewStats?.[networkId]?.[accountId]?.summary?.totalValue,
     );
 
+    const nftTotalValue = useAppSelector(
+      (s) =>
+        s.overview.overviewStats?.[networkId]?.[accountId]?.nfts?.totalValue,
+    );
+
+    const includeNFTsInTotal = useAppSelector(
+      (s) => s.settings.includeNFTsInTotal,
+    );
+
     const isWatching = isWatchingAccount({ accountId });
+
+    const summaryTotalValue = useMemo(() => {
+      if (!totalValue || includeNFTsInTotal) {
+        return totalValue;
+      }
+      return new BigNumber(totalValue).minus(nftTotalValue ?? 0).toFixed();
+    }, [includeNFTsInTotal, nftTotalValue, totalValue]);
 
     return (
       <Box flexDirection="row" alignItems="center" mt={1} w="full">
@@ -362,7 +379,7 @@ const SummedValueComp = memo(
               <FormatCurrencyNumber
                 decimals={2}
                 value={0}
-                convertValue={totalValue}
+                convertValue={summaryTotalValue}
               />
             </Typography.Display2XLarge>
             {isWatching && isBTCNetwork(networkId) ? null : (
