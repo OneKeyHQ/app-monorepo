@@ -15,11 +15,11 @@ const {
   ENABLE_ANALYZER,
   TARGET_BROWSER,
 } = require('./constant');
-const devUtils = require('../../packages/ext/development/devUtils');
-const codeSplit = require('../../packages/ext/development/codeSplit');
-const pluginsHtml = require('../../packages/ext/development/pluginsHtml');
-const pluginsCopy = require('../../packages/ext/development/pluginsCopy');
-const htmlLazyScript = require('../../packages/ext/development/htmlLazyScript');
+const devUtils = require('../../apps/ext/development/devUtils');
+const codeSplit = require('../../apps/ext/development/codeSplit');
+const pluginsHtml = require('../../apps/ext/development/pluginsHtml');
+const pluginsCopy = require('../../apps/ext/development/pluginsCopy');
+const htmlLazyScript = require('../../apps/ext/development/htmlLazyScript');
 
 const IS_DEV = isDev;
 

@@ -1,7 +1,7 @@
 /*
 - packages/shared/src/web/index.html.ejs
 - packages/kit/src/store/reducers/settings.ts # setThemePreloadToLocalStorage
-- packages/ext/src/assets/preload-html-head.js
+- apps/ext/src/assets/preload-html-head.js
  */
 (function () {
   // $$onekeyPerfTrace start ----------------------------------------------

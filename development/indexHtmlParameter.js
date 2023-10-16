@@ -3,7 +3,7 @@ const path = require('path');
 
 function createEjsParams({ filename = '', platform = '', browser = '' }) {
   const htmlHeadPreloadCode = fs.readFileSync(
-    path.resolve(__dirname, '../packages/ext/src/assets/preload-html-head.js'),
+    path.resolve(__dirname, '../apps/ext/src/assets/preload-html-head.js'),
     {
       encoding: 'utf-8',
     },
