@@ -56,6 +56,7 @@ export function SearchBar({
 
   return (
     <XStack
+      width="100%"
       borderColor="$border"
       borderWidth="$px"
       borderRadius="$2"
