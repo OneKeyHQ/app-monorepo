@@ -1,12 +1,12 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { Button, Stack, Text } from '@onekeyhq/components';
-import {
-  TabHomeParamList,
-  TabHomeRoutes,
-} from '../../../../routes/Root/Tab/Home/Routes';
+import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import { TabHomeRoutes } from '../../../../routes/Root/Tab/Home/Routes';
+
+import type { TabHomeParamList } from '../../../../routes/Root/Tab/Home/Routes';
 
 export default function HomePageHeaderView({
   switchDemoVisible,
@@ -26,7 +26,7 @@ export default function HomePageHeaderView({
 
   const onNextPageCall = useCallback(() => {
     navigation.push(TabHomeRoutes.TabHomeStack1);
-  }, []);
+  }, [navigation]);
 
   return useMemo(
     () => (

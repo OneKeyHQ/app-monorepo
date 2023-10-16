@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import useIsVerticalLayout from '../../Provider/hooks/useIsVerticalLayout';
 import { useThemeValue } from '../../Provider/hooks/useThemeValue';

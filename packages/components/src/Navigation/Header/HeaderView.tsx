@@ -5,9 +5,8 @@ import * as React from 'react';
 import { Header } from '@react-navigation/elements';
 import { get } from 'lodash';
 import { StyleSheet } from 'react-native';
-import { Input, useMedia } from 'tamagui';
 
-import { getThemeTokens, Stack, useThemeValue } from '../../index';
+import { Stack, useThemeValue } from '../../index';
 
 import HeaderButtonBack from './HeaderButtonBack';
 import HeaderSearchBar from './HeaderSearchBar';

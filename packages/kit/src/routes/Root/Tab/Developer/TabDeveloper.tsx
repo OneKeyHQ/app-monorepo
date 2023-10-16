@@ -66,7 +66,13 @@ const TabDeveloper = () => {
   const [rrtStatus, changeRRTStatus] = useStorage(AppSettingKey.rrt);
 
   return (
-    <ScrollView flex={1} width="100%" padding="$5" gap="$5">
+    <ScrollView
+      flex={1}
+      width="100%"
+      paddingHorizontal="$5"
+      paddingBottom="$5"
+      gap="$5"
+    >
       <PartContainer title="Components">
         <Button
           onPress={() => {

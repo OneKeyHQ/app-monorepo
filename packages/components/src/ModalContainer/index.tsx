@@ -1,5 +1,3 @@
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { Button } from '../Button';
 import { Checkbox } from '../Checkbox';
 import { Stack, XStack } from '../Stack';
