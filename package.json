@@ -1,0 +1,29 @@
+{
+  "name": "@onekeyhq/app-monorepo",
+  "version": "1.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "dependencies": {
+    "expo": "~49.0.13",
+    "expo-status-bar": "~1.6.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-native": "0.72.5",
+    "react-native-web": "~0.19.6"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0",
+    "@expo/webpack-config": "^18.1.3"
+  },
+  "scripts": {
+    "app:web": "yarn workspace @onekeyhq/web start",
+    "app:ios": "yarn workspace @onekeyhq/mobile ios",
+    "app:ios:device": "yarn workspace @onekeyhq/mobile ios:device",
+    "app:android": "yarn workspace @onekeyhq/mobile android",
+    "app:android:device": "yarn workspace @onekeyhq/mobile android:device"
+
+  },
+  "private": true
+}

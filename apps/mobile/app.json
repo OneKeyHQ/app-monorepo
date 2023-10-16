@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "scheme": "onekey-wallet",
+    "name": "OneKey Wallet",
+    "slug": "OneKey-Wallet",
+    "owner": "onekeyhq",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "so.onekey.wallet",
+      "associatedDomains": ["applinks:app.onekey.so"]
+    },
+    "android": {
+    },
+    "extra": {
+      "eas": {
+        "projectId": "640c3c38-d160-48c3-b4a3-40d4fc8aeb08"
+      }
+    }
+  }
+}
