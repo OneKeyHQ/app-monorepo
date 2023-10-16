@@ -1,8 +1,5 @@
-diff --git a/node_modules/@react-navigation/native-stack/src/.DS_Store b/node_modules/@react-navigation/native-stack/src/.DS_Store
-new file mode 100644
-index 0000000..e69de29
 diff --git a/node_modules/@react-navigation/native-stack/src/types.tsx b/node_modules/@react-navigation/native-stack/src/types.tsx
-index 206fb0b..cf40587 100644
+index 206fb0b..60d9944 100644
 --- a/node_modules/@react-navigation/native-stack/src/types.tsx
 +++ b/node_modules/@react-navigation/native-stack/src/types.tsx
 @@ -97,6 +97,8 @@ export type HeaderButtonProps = {
@@ -14,12 +11,13 @@ index 206fb0b..cf40587 100644
  };
  
  export type HeaderBackButtonProps = HeaderButtonProps & {
-@@ -490,6 +492,8 @@ export type NativeStackNavigationOptions = {
+@@ -490,6 +492,9 @@ export type NativeStackNavigationOptions = {
     * Only supported on iOS and Android.
     */
    freezeOnBlur?: boolean;
 +
 +  disableClose?: boolean;
++  allowDisableClose?: boolean;
  };
  
  export type NativeStackNavigatorProps = DefaultNavigatorOptions<
@@ -52,7 +50,7 @@ index d144a4c..c424d7a 100644
    const headerRightElement = headerRight?.({
      tintColor,
 diff --git a/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx b/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
-index 5b9fb99..a9d80f6 100644
+index 5b9fb99..04c3c8f 100644
 --- a/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
 +++ b/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
 @@ -17,7 +17,7 @@ import {
@@ -64,36 +62,34 @@ index 5b9fb99..a9d80f6 100644
  import {
    useSafeAreaFrame,
    useSafeAreaInsets,
-@@ -160,6 +160,7 @@ const SceneView = ({
+@@ -160,6 +160,8 @@ const SceneView = ({
      statusBarTranslucent,
      statusBarColor,
      freezeOnBlur,
 +    disableClose,
++    allowDisableClose
    } = options;
  
    let {
-@@ -170,6 +171,20 @@ const SceneView = ({
+@@ -170,6 +172,17 @@ const SceneView = ({
      gestureDirection = presentation === 'card' ? 'horizontal' : 'vertical',
    } = options;
  
-+  const gestureEnabledOverride = (disableClose && Platform.OS === 'ios') ? false : gestureEnabled;
++  const gestureEnabledOverride = (allowDisableClose && disableClose && Platform.OS === 'ios') ? false : gestureEnabled;
++  let presentationOverride = (allowDisableClose && Platform.OS === 'ios') ? 'modal' : presentation;
 +
-+  const preScreenLocked = previousDescriptor?.options.disableClose && Platform.OS === 'ios';
-+  const currentScreenLocked = disableClose && Platform.OS === 'ios';
-+  let presentationOverride = (currentScreenLocked || preScreenLocked) ? 'modal' : presentation;
-+
-+  React.useEffect(()=>{
++  React.useEffect(() => {
 +    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-+        if (disableClose) return true;
++      if (disableClose) return true;
 +    });
 +
 +    return () => subscription.remove();
-+  },[disableClose])
++  }, [disableClose]);
 +
    if (gestureDirection === 'vertical' && Platform.OS === 'ios') {
      // for `vertical` direction to work, we need to set `fullScreenGestureEnabled` to `true`
      // so the screen can be dismissed from any point on screen.
-@@ -196,14 +211,14 @@ const SceneView = ({
+@@ -196,14 +209,14 @@ const SceneView = ({
    if (index === 0) {
      // first screen should always be treated as `card`, it resolves problems with no header animation
      // for navigator with first screen as `modal` and the next as `card`
@@ -110,13 +106,11 @@ index 5b9fb99..a9d80f6 100644
  
    // Modals are fullscreen in landscape only on iPhone
    const isIPhone = Platform.OS === 'ios' && !(Platform.isPad || Platform.isTV);
-@@ -251,14 +266,14 @@ const SceneView = ({
-         isAndroid
+@@ -252,13 +265,13 @@ const SceneView = ({
            ? // This prop enables handling of system back gestures on Android
              // Since we handle them in JS side, we disable this
--            false
+             false
 -          : gestureEnabled
-+          false
 +          : gestureEnabledOverride
        }
        homeIndicatorHidden={autoHideHomeIndicator}
@@ -128,7 +122,7 @@ index 5b9fb99..a9d80f6 100644
        stackAnimation={animation}
        screenOrientation={orientation}
        statusBarAnimation={statusBarAnimation}
-@@ -301,7 +316,7 @@ const SceneView = ({
+@@ -301,7 +314,7 @@ const SceneView = ({
                  <MaybeNestedStack
                    options={options}
                    route={route}

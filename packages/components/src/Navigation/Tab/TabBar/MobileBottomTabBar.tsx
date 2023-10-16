@@ -18,8 +18,9 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types'
 import type { Animated, StyleProp, ViewStyle } from 'react-native';
 import type { EdgeInsets } from 'react-native-safe-area-context';
 
-const DEFAULT_TABBAR_HEIGHT = 54;
-const COMPACT_TABBAR_HEIGHT = 36;
+const DEFAULT_TABBAR_HEIGHT = 63;
+const COMPACT_TABBAR_HEIGHT = 40;
+const COMPACT_PAD_TABBAR_HEIGHT = 54;
 
 type Options = {
   deviceSize: DeviceScreenSize;
@@ -29,8 +30,7 @@ type Options = {
 const shouldUseHorizontalLabels = ({ deviceSize }: Options) =>
   ['NORMAL'].includes(deviceSize);
 
-const getPaddingBottom = (insets: EdgeInsets) =>
-  Math.max(insets.bottom - Platform.select({ ios: 0, default: 0 }), 0);
+const getPaddingBottom = (insets: EdgeInsets) => insets.bottom;
 
 export const getTabBarHeight = ({
   insets,
@@ -49,6 +49,9 @@ export const getTabBarHeight = ({
 
   if (Platform.OS === 'ios' && !Platform.isPad) {
     return COMPACT_TABBAR_HEIGHT + paddingBottom;
+  }
+  if (Platform.OS === 'ios' && Platform.isPad) {
+    return COMPACT_PAD_TABBAR_HEIGHT + paddingBottom;
   }
 
   return DEFAULT_TABBAR_HEIGHT + paddingBottom;

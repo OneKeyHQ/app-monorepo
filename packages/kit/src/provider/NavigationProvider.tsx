@@ -3,9 +3,7 @@ import { createRef, memo } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { useTheme } from 'tamagui';
 
-import { DevScreen } from '@onekeyhq/kit/src/routes';
-
-import DemoRootApp from '../views/Components/stories/NavigatorRoute';
+import { RootNavigator } from '@onekeyhq/kit/src/routes';
 
 export const navigationRef = createRef();
 global.$navigationRef = navigationRef as any;
@@ -25,8 +23,7 @@ const NavigationApp = () => {
       }}
       ref={navigationRef}
     >
-      <DevScreen />
-      {/* <DemoRootApp /> */}
+      <RootNavigator />
     </NavigationContainer>
   );
 };

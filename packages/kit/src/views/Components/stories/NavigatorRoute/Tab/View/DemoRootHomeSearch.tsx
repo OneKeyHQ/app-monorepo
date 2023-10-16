@@ -1,10 +1,11 @@
 import { useLayoutEffect } from 'react';
 
-import { Button, Text } from '@onekeyhq/components';
+import { Button, Stack, Text } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import { Layout } from '../../../utils/Layout';
-import { useFreezeProbe } from '../../RenderTools';
+import { NavigationFocusTools } from '../../../utils/NavigationTools';
+import { FreezeProbe } from '../../../utils/RenderTools';
 import useDemoAppNavigation from '../../useDemoAppNavigation';
 import { DemoHomeTabRoutes } from '../Routes';
 
@@ -12,13 +13,12 @@ import type { DemoHomeTabParamList } from '../RouteParamTypes';
 import type {
   NativeSyntheticEvent,
   TextInputChangeEventData,
+  TextInputSubmitEditingEventData,
 } from 'react-native';
 
 const DemoRootHomeSearch = () => {
   const navigation =
     useDemoAppNavigation<PageNavigationProp<DemoHomeTabParamList>>();
-
-  useFreezeProbe('DemoRootHomeSearch');
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -27,6 +27,9 @@ const DemoRootHomeSearch = () => {
         inputType: 'text',
         onChangeText: (event: NativeSyntheticEvent<TextInputChangeEventData>) =>
           console.log('onChangeText', event.nativeEvent.text),
+        onSearchButtonPress: (
+          event: NativeSyntheticEvent<TextInputSubmitEditingEventData>,
+        ) => console.log('onSearchButtonPress', event.nativeEvent.text),
       },
     });
   }, [navigation]);
@@ -65,6 +68,15 @@ const DemoRootHomeSearch = () => {
             >
               <Button.Text>跳转自定义 headerRight Demo</Button.Text>
             </Button>
+          ),
+        },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoRootHomeSearch" />
+              <NavigationFocusTools componentName="DemoRootHomeSearch" />
+            </Stack>
           ),
         },
       ]}

@@ -24,6 +24,7 @@ const config: TabNavigatorConfig<DemoTabRoutes>[] = [
     tabBarIcon: (focused?: boolean) =>
       focused ? 'CreditCardSolid' : 'CreditCardOutline',
     translationId: 'wallet__wallet',
+    freezeOnBlur: true,
     children: [
       {
         name: DemoHomeTabRoutes.DemoRootHome,
@@ -47,6 +48,7 @@ const config: TabNavigatorConfig<DemoTabRoutes>[] = [
     tabBarIcon: (focused?: boolean) =>
       focused ? 'MailOpenMini' : 'EmailOutline',
     translationId: 'form__me',
+    freezeOnBlur: true,
     children: [
       {
         name: DemoMeTabRoutes.DemoRootMe,
@@ -60,6 +62,7 @@ const config: TabNavigatorConfig<DemoTabRoutes>[] = [
     tabBarIcon: (focused?: boolean) =>
       focused ? 'ChatGptSolid' : 'ChatGptOutline',
     translationId: 'form__tabs',
+    freezeOnBlur: true,
     children: [
       {
         name: DemoTabsTabRoutes.DemoRootTabs,
@@ -73,6 +76,7 @@ const config: TabNavigatorConfig<DemoTabRoutes>[] = [
     tabBarIcon: (focused?: boolean) =>
       focused ? 'CodeBracketSquareMini' : 'CodeBracketMini',
     translationId: 'form__dev_mode',
+    freezeOnBlur: true,
     children: [
       {
         name: DemoDeveloperTabRoutes.DemoRootDeveloper,

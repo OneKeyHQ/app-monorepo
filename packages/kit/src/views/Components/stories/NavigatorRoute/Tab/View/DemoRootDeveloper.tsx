@@ -1,16 +1,17 @@
 import { Input } from 'tamagui';
 
-import { Button } from '@onekeyhq/components';
+import { Button, Stack } from '@onekeyhq/components';
 
 import { Layout } from '../../../utils/Layout';
+import { NavigationFocusTools } from '../../../utils/NavigationTools';
+import { FreezeProbe } from '../../../utils/RenderTools';
 import { DemoCreateModalRoutes, RootModalRoutes } from '../../Modal/Routes';
-import { useFreezeProbe } from '../../RenderTools';
 import useDemoAppNavigation from '../../useDemoAppNavigation';
 import { DemoDeveloperTabRoutes } from '../Routes';
 
 const DemoRootDeveloper = () => {
   const navigation = useDemoAppNavigation();
-  useFreezeProbe('DemoRootDeveloper');
+
   return (
     <Layout
       description="这是一个关于路由 Modal 的相关演示"
@@ -96,6 +97,15 @@ const DemoRootDeveloper = () => {
             >
               <Button.Text>打开 Modal Demo</Button.Text>
             </Button>
+          ),
+        },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoRootDeveloper" />
+              <NavigationFocusTools componentName="DemoRootDeveloper" />
+            </Stack>
           ),
         },
       ]}
