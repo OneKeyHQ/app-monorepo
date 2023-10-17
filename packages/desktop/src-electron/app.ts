@@ -336,6 +336,24 @@ function createMainWindow() {
     }
   });
 
+  ipcMain.on(
+    'app/secureSetItemAsync',
+    (event, { key, value }: { key: string; value: string }) => {
+      store.setSecureItem(key, value);
+      event.returnValue = '';
+    },
+  );
+
+  ipcMain.on('app/secureGetItemAsync', (event, { key }: { key: string }) => {
+    const value = store.getSecureItem(key);
+    event.returnValue = value;
+  });
+
+  ipcMain.on('app/secureDelItemAsync', (event, { key }: { key: string }) => {
+    store.clearSecureItem(key);
+    event.returnValue = '';
+  });
+
   ipcMain.on('app/reloadBridgeProcess', (event) => {
     logger.debug('reloadBridgeProcess receive');
     restartBridge();
