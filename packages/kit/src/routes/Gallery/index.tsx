@@ -1,13 +1,16 @@
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-
+import { createStackNavigator } from '@onekeyhq/components';
 import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
 import ActionListGallery from '@onekeyhq/kit/src/views/Components/stories/ActionList';
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
 import CheckboxGallery from '@onekeyhq/kit/src/views/Components/stories/Checkbox';
+import CollapsibleTabViewGallery from '@onekeyhq/kit/src/views/Components/stories/CollapsibleTabView';
+import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import IconButtonGallery from '@onekeyhq/kit/src/views/Components/stories/IconButton';
 import InputGallery from '@onekeyhq/kit/src/views/Components/stories/Input';
+import LottieViewGallery from '@onekeyhq/kit/src/views/Components/stories/LottieView';
+import DemoRootApp from '@onekeyhq/kit/src/views/Components/stories/NavigatorRoute';
 import PopoverGallery from '@onekeyhq/kit/src/views/Components/stories/Popover';
 import ProgressGallery from '@onekeyhq/kit/src/views/Components/stories/Progress';
 import RadioGallery from '@onekeyhq/kit/src/views/Components/stories/Radio';
@@ -18,16 +21,15 @@ import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 
 import AlertGallery from '../../views/Components/stories/Alert';
-import DialogGallery from '../../views/Components/stories/Dialog';
 import DividerGallery from '../../views/Components/stories/Divider';
 import FormGallery from '../../views/Components/stories/Form';
-import DemoRootApp from '../../views/Components/stories/NavigatorRoute';
 import TextAreaGallery from '../../views/Components/stories/TextArea';
 import ThemeGallery from '../../views/Components/stories/Theme';
 
 export enum GalleryRoutes {
   Components = 'components',
   ComponentTypography = 'component/typography',
+  ComponentLottieView = 'component/lottieview',
   ComponentIcon = 'component/icon',
   ComponentButton = 'component/button',
   ComponentSelect = 'component/select',
@@ -49,6 +51,7 @@ export enum GalleryRoutes {
   ComponentTextArea = 'component/textArea',
   ComponentPopover = 'component/popover',
   ComponentTheme = 'component/theme',
+  ComponentCollapsibleTabs = 'component/collapsibleTabs',
 }
 
 export const stackScreenList = [
@@ -56,6 +59,10 @@ export const stackScreenList = [
   {
     name: GalleryRoutes.ComponentTypography,
     component: TypographyGallery,
+  },
+  {
+    name: GalleryRoutes.ComponentLottieView,
+    component: LottieViewGallery,
   },
   { name: GalleryRoutes.ComponentIcon, component: IconGallery },
   { name: GalleryRoutes.ComponentToast, component: ToastGallery },
@@ -85,9 +92,14 @@ export const stackScreenList = [
     name: GalleryRoutes.ComponentForm,
     component: FormGallery,
   },
+  {
+    name: GalleryRoutes.ComponentCollapsibleTabs,
+    component: CollapsibleTabViewGallery,
+    // options: { headerShown: false },
+  },
 ];
 
-const DevStack = createNativeStackNavigator();
+const DevStack = createStackNavigator();
 
 const DevScreen = () => (
   <DevStack.Navigator>

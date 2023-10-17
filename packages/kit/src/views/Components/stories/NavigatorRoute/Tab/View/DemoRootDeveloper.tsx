@@ -1,32 +1,111 @@
-import { useNavigation } from '@react-navigation/native';
+import { Input } from 'tamagui';
 
-import { Button } from '@onekeyhq/components';
+import { Button, Stack } from '@onekeyhq/components';
 
 import { Layout } from '../../../utils/Layout';
-import { DemoModalRoutes, DemoRootRoutes } from '../../Modal/types';
+import { NavigationFocusTools } from '../../../utils/NavigationTools';
+import { FreezeProbe } from '../../../utils/RenderTools';
+import { DemoCreateModalRoutes, RootModalRoutes } from '../../Modal/Routes';
+import useDemoAppNavigation from '../../useDemoAppNavigation';
+import { DemoDeveloperTabRoutes } from '../Routes';
 
-const DemoRootHome = () => {
-  const navigation = useNavigation();
+const DemoRootDeveloper = () => {
+  const navigation = useDemoAppNavigation();
+
   return (
     <Layout
-      description="这是一个路由 Modal Header 的演示"
-      suggestions={['使用方式与 @react-navigation/native-stack 相同']}
+      description="这是一个关于路由 Modal 的相关演示"
+      suggestions={[]}
       boundaryConditions={[]}
       elements={[
         {
-          title: '打开 Modal',
+          title: '输入文字测试冻结',
+          element: <Input />,
+        },
+        {
+          title: '打开 Developer 下一个页面',
           element: (
             <Button
               buttonVariant="primary"
               onPress={() => {
-                // @ts-expect-error
-                navigation.navigate(DemoRootRoutes.Modal, {
-                  name: DemoModalRoutes.DemoCreateModal,
+                navigation.push(
+                  DemoDeveloperTabRoutes.DemoRootDeveloperOptions,
+                  {
+                    from: '来自 Developer Tab 页面的跳转',
+                  },
+                );
+              }}
+            >
+              <Button.Text>下一个页面</Button.Text>
+            </Button>
+          ),
+        },
+        {
+          title: '这是一个 Modal 的演示',
+          element: (
+            <Button
+              buttonVariant="primary"
+              onPress={() => {
+                navigation.pushModal(RootModalRoutes.DemoCreateModal, {
+                  screen: DemoCreateModalRoutes.DemoCreateModal,
+                  params: {
+                    question: '你好',
+                  },
                 });
               }}
             >
-              <Button.Text>跳转 Demo</Button.Text>
+              <Button.Text>打开 Modal Demo</Button.Text>
             </Button>
+          ),
+        },
+        {
+          title: '这是一个可以锁定的 Modal 的演示',
+          element: (
+            <Button
+              buttonVariant="primary"
+              onPress={() => {
+                navigation.pushModal(RootModalRoutes.DemoLockedModal);
+              }}
+            >
+              <Button.Text>打开 Modal Demo</Button.Text>
+            </Button>
+          ),
+        },
+        {
+          title: '打开 Modal (Big List Demo)',
+          element: (
+            <Button
+              buttonVariant="primary"
+              onPress={() => {
+                navigation.pushModal(RootModalRoutes.DemoCreateModal, {
+                  screen: DemoCreateModalRoutes.DemoBigListModal,
+                });
+              }}
+            >
+              <Button.Text>打开 Modal Demo</Button.Text>
+            </Button>
+          ),
+        },
+        {
+          title: 'Modal 覆盖测试',
+          element: (
+            <Button
+              buttonVariant="primary"
+              onPress={() => {
+                navigation.pushModal(RootModalRoutes.DemoCoverageModal);
+              }}
+            >
+              <Button.Text>打开 Modal Demo</Button.Text>
+            </Button>
+          ),
+        },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoRootDeveloper" />
+              <NavigationFocusTools componentName="DemoRootDeveloper" />
+            </Stack>
           ),
         },
       ]}
@@ -34,4 +113,4 @@ const DemoRootHome = () => {
   );
 };
 
-export default DemoRootHome;
+export default DemoRootDeveloper;

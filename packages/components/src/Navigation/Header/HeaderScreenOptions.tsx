@@ -1,36 +1,47 @@
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { ReactNode } from 'react';
+
+import { hasNativeHeaderView } from '../Navigator/CommonConfig.ts';
 
 import HeaderButtonBack from './HeaderButtonBack';
 import HeaderView from './HeaderView';
 
-import type { StackHeaderProps } from '../StackNavigator.native';
+import type { StackHeaderProps, StackNavigationOptions } from '../ScreenProps';
 import type { HeaderBackButtonProps } from '@react-navigation/elements';
-import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
+import type { VariableVal } from '@tamagui/core';
 
 export type OneKeyStackHeaderProps = {
+  navigation?: StackHeaderProps['navigation'];
   isModelScreen?: boolean;
   isRootScreen?: boolean;
-  navigation?: StackHeaderProps['navigation'];
+  isFlowModelScreen?: boolean;
+  disableClose?: boolean;
 };
 
 export function makeHeaderScreenOptions({
-  navigation: iOSNavigation,
+  navigation: currentNavigation,
   isModelScreen = false,
   isRootScreen = false,
-}: OneKeyStackHeaderProps): NativeStackNavigationOptions {
-  if (platformEnv.isNativeIOS) {
-    console.log('makeHeaderScreenOptions', {
-      canGoBack: iOSNavigation?.canGoBack?.(),
-      isModelScreen,
-      isRootScreen,
-    });
+  bgColor,
+  titleColor,
+}: OneKeyStackHeaderProps & {
+  bgColor: VariableVal;
+  titleColor: VariableVal;
+}): StackNavigationOptions {
+  if (hasNativeHeaderView) {
+    const state = currentNavigation?.getState();
+    const isCanGoBack = (state?.index ?? 0) > 0;
 
     return {
-      headerLeft: (props: HeaderBackButtonProps) => (
+      headerStyle: {
+        backgroundColor: bgColor as string,
+      },
+      headerTintColor: titleColor as string,
+      headerTransparent: false,
+      headerLeft: (props: HeaderBackButtonProps): ReactNode => (
         <HeaderButtonBack
           {...props}
-          onPress={iOSNavigation?.goBack}
-          canGoBack={iOSNavigation?.canGoBack?.()}
+          onPress={currentNavigation?.goBack}
+          canGoBack={isCanGoBack}
           isModelScreen={isModelScreen}
           isRootScreen={isRootScreen}
         />
@@ -40,6 +51,7 @@ export function makeHeaderScreenOptions({
 
   return {
     headerTitleAlign: 'left',
+    // @ts-expect-error
     header: ({
       back: headerBack,
       options,

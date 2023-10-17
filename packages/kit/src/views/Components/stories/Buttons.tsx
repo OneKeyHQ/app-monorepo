@@ -1,6 +1,41 @@
+import { useState } from 'react';
+
 import { Button, XStack, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
+
+const ActionButtonDemo = () => {
+  const [spinning, setSpinning] = useState(false);
+  return (
+    <XStack space="$2" alignItems="center">
+      <Button.Action
+        text="click me!"
+        size="medium"
+        buttonVariant="secondary"
+        iconName="BellSolid"
+        spinning={spinning}
+        onPress={() => {
+          setSpinning(true);
+          setTimeout(() => {
+            setSpinning(false);
+          }, 1500);
+        }}
+      />
+      <Button.Action
+        text="click me!(large size)"
+        size="large"
+        buttonVariant="secondary"
+        spinning={spinning}
+        onPress={() => {
+          setSpinning(true);
+          setTimeout(() => {
+            setSpinning(false);
+          }, 1500);
+        }}
+      />
+    </XStack>
+  );
+};
 
 const ButtonsGallery = () => (
   <Layout
@@ -38,6 +73,31 @@ const ButtonsGallery = () => (
             </Button>
             <Button size="large" buttonVariant="destructive">
               <Button.Text>Destructive</Button.Text>
+            </Button>
+          </YStack>
+        ),
+      },
+      {
+        title: 'Variants without Button.Text',
+        element: (
+          <YStack space="$2">
+            <Button
+              size="large"
+              buttonVariant="primary"
+              onPress={() => {
+                alert('clicked');
+              }}
+            >
+              Primary
+            </Button>
+            <Button size="large" buttonVariant="secondary">
+              Secondary
+            </Button>
+            <Button size="large" buttonVariant="tertiary">
+              Tertiary
+            </Button>
+            <Button size="large" buttonVariant="destructive">
+              Destructive
             </Button>
           </YStack>
         ),
@@ -142,6 +202,10 @@ const ButtonsGallery = () => (
             </Button>
           </XStack>
         ),
+      },
+      {
+        title: 'Action Button',
+        element: <ActionButtonDemo />,
       },
     ]}
   />

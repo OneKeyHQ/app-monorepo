@@ -1,13 +1,41 @@
-import { useNavigation } from '@react-navigation/native';
+import { useState } from 'react';
 
-import { Button, YStack } from '@onekeyhq/components';
+import useCookie from 'react-use-cookie';
+
+import { Button, Stack, YStack } from '@onekeyhq/components';
+import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { AppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import { Layout } from '../../../utils/Layout';
-import { DemoTabChildRoutes } from '../../Modal/types';
+import { NavigationFocusTools } from '../../../utils/NavigationTools';
+import { FreezeProbe } from '../../../utils/RenderTools';
+import useDemoAppNavigation from '../../useDemoAppNavigation';
+import { DemoHomeTabRoutes } from '../Routes';
+
+import type { DemoHomeTabParamList } from '../RouteParamTypes';
+
+const useStorage = platformEnv.isNative
+  ? (key: AppSettingKey, initialValue?: boolean) => {
+      const [data, setData] = useState(
+        initialValue || appStorage.getSettingBoolean(key),
+      );
+      const setNewData = (value: boolean) => {
+        appStorage.setSetting(key, value);
+        setData(value);
+      };
+      return [data, setNewData];
+    }
+  : useCookie;
 
 const DemoRootHome = () => {
-  const navigation = useNavigation();
+  const navigation =
+    useDemoAppNavigation<PageNavigationProp<DemoHomeTabParamList>>();
+
+  const [rrtStatus, changeRRTStatus] = useStorage(AppSettingKey.rrt);
+
   return (
     <Layout
       description="这是一个路由 Header"
@@ -38,19 +66,57 @@ const DemoRootHome = () => {
             </YStack>
           ),
         },
+
         {
           title: '下一个例子',
           element: (
             <Button
               buttonVariant="primary"
               onPress={() => {
-                // @ts-expect-error
-                navigation.navigate({
-                  name: DemoTabChildRoutes.DemoRootHomeSearch,
-                });
+                navigation.push(DemoHomeTabRoutes.DemoRootHomeSearch);
               }}
             >
               <Button.Text>跳转搜索 Demo</Button.Text>
+            </Button>
+          ),
+        },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoRootHome" />
+              <NavigationFocusTools componentName="DemoRootHome" />
+            </Stack>
+          ),
+        },
+        {
+          title: '开启 ReactRenderTracker',
+          element: (
+            <Button
+              onPress={() => {
+                if (platformEnv.isNative) {
+                  (changeRRTStatus as (value: boolean) => void)(!rrtStatus);
+                  alert('Please manually restart the app.');
+                } else {
+                  const status = rrtStatus === '1' ? '0' : '1';
+                  (changeRRTStatus as (value: string) => void)(status);
+                  if (platformEnv.isRuntimeBrowser) {
+                    if (status === '0') {
+                      localStorage.removeItem(
+                        '$$OnekeyReactRenderTrackerEnabled',
+                      );
+                    } else {
+                      localStorage.setItem(
+                        '$$OnekeyReactRenderTrackerEnabled',
+                        'true',
+                      );
+                    }
+                  }
+                  window.location.reload();
+                }
+              }}
+            >
+              <Button.Text>开关 ReactRenderTracker</Button.Text>
             </Button>
           ),
         },

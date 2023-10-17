@@ -1,7 +1,7 @@
 import * as Burnt from 'burnt';
 import { getTokens, useTheme } from 'tamagui';
 
-import { Button, Icon, YStack } from '@onekeyhq/components';
+import { Button, Icon, Toast, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -21,23 +21,8 @@ const ToastGallery = () => {
             <YStack space="$2" justifyContent="center">
               <Button
                 onPress={() => {
-                  Burnt.toast({
+                  Toast.success({
                     title: 'Account created',
-                    preset: 'custom', // default
-                    haptic: 'success',
-                    icon: {
-                      ios: {
-                        name: 'checkmark.circle.fill',
-                        color: getTokens().color.iconSuccessLight.val,
-                      },
-                      web: (
-                        <Icon
-                          name="CheckRadioSolid"
-                          color="$iconSuccess"
-                          size="$5"
-                        />
-                      ),
-                    },
                   });
                 }}
               >
@@ -45,23 +30,8 @@ const ToastGallery = () => {
               </Button>
               <Button
                 onPress={() => {
-                  Burnt.toast({
+                  Toast.error({
                     title: 'Create account failed',
-                    preset: 'custom',
-                    haptic: 'error',
-                    icon: {
-                      ios: {
-                        name: 'x.circle.fill',
-                        color: getTokens().color.iconCriticalLight.val,
-                      },
-                      web: (
-                        <Icon
-                          name="XCircleSolid"
-                          color="$iconCritical"
-                          size="$5"
-                        />
-                      ),
-                    },
                   });
                 }}
               >
@@ -69,9 +39,8 @@ const ToastGallery = () => {
               </Button>
               <Button
                 onPress={() => {
-                  Burnt.toast({
+                  Toast.message({
                     title: 'Address copied',
-                    preset: 'none',
                   });
                 }}
               >

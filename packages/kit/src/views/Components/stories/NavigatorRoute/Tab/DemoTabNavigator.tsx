@@ -1,116 +1,99 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useMemo } from 'react';
 
-import { RouteProp } from '@react-navigation/core/lib/typescript/src/types';
+import type { TabNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
+import { TabStackNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
 
-import { createStackNavigator } from '@onekeyhq/components/src/Navigation';
-import { makeHeaderScreenOptions } from '@onekeyhq/components/src/Navigation/Header';
-import { createBottomTabNavigator } from '@onekeyhq/components/src/Navigation/Tab/BottomTabs';
-import NavigationBar from '@onekeyhq/components/src/Navigation/Tab/TabBar';
-import type { ScreensList } from '@onekeyhq/components/src/Navigation/type';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  DemoDeveloperTabRoutes,
+  DemoHomeTabRoutes,
+  DemoMeTabRoutes,
+  DemoTabRoutes,
+  DemoTabsTabRoutes,
+} from './Routes';
+import DemoRootDeveloper from './View/DemoRootDeveloper';
+import DemoRootDeveloperOptions from './View/DemoRootDeveloperOptions';
+import DemoRootHome from './View/DemoRootHome';
+import DemoRootHomeOptions from './View/DemoRootHomeOptions';
+import DemoRootHomeSearch from './View/DemoRootHomeSearch';
+import DemoRootMe from './View/DemoRootMe';
+import DemoRootTabs from './View/DemoRootTabs';
 
-import AppRootTabDeveloper from './Root/DemoTabDeveloper';
-import AppRootTabHome from './Root/DemoTabHome';
-
-import type { DemoTabRoutes } from '../Modal/types';
-import type { DemoTabRoutesParams } from '../types';
-import type { DemoTabRouteConfig } from './DemoTabRouteConfig';
-
-const tabRoutesConfig: DemoTabRouteConfig[] = [
-  AppRootTabHome,
-  AppRootTabDeveloper,
+const config: TabNavigatorConfig<DemoTabRoutes>[] = [
+  {
+    name: DemoTabRoutes.Home,
+    tabBarIcon: (focused?: boolean) =>
+      focused ? 'CreditCardSolid' : 'CreditCardOutline',
+    translationId: 'wallet__wallet',
+    freezeOnBlur: true,
+    children: [
+      {
+        name: DemoHomeTabRoutes.DemoRootHome,
+        component: DemoRootHome,
+        translationId: 'Home',
+      },
+      {
+        name: DemoHomeTabRoutes.DemoRootHomeSearch,
+        component: DemoRootHomeSearch,
+        translationId: 'RootHomeSearch',
+      },
+      {
+        name: DemoHomeTabRoutes.DemoRootHomeOptions,
+        component: DemoRootHomeOptions,
+        translationId: 'RootHomeOptions',
+      },
+    ],
+  },
+  {
+    name: DemoTabRoutes.Me,
+    tabBarIcon: (focused?: boolean) =>
+      focused ? 'MailOpenMini' : 'EmailOutline',
+    translationId: 'form__me',
+    freezeOnBlur: true,
+    children: [
+      {
+        name: DemoMeTabRoutes.DemoRootMe,
+        component: DemoRootMe,
+        translationId: 'Me',
+      },
+    ],
+  },
+  {
+    name: DemoTabRoutes.Tabs,
+    tabBarIcon: (focused?: boolean) =>
+      focused ? 'ChatGptSolid' : 'ChatGptOutline',
+    translationId: 'form__tabs',
+    freezeOnBlur: true,
+    children: [
+      {
+        name: DemoTabsTabRoutes.DemoRootTabs,
+        component: DemoRootTabs,
+        translationId: 'Tabs',
+      },
+    ],
+  },
+  {
+    name: DemoTabRoutes.Developer,
+    tabBarIcon: (focused?: boolean) =>
+      focused ? 'CodeBracketSquareMini' : 'CodeBracketMini',
+    translationId: 'form__dev_mode',
+    freezeOnBlur: true,
+    children: [
+      {
+        name: DemoDeveloperTabRoutes.DemoRootDeveloper,
+        component: DemoRootDeveloper,
+        translationId: 'Developer',
+      },
+      {
+        name: DemoDeveloperTabRoutes.DemoRootDeveloperOptions,
+        component: DemoRootDeveloperOptions,
+        translationId: 'RootDeveloperOptions',
+      },
+    ],
+  },
 ];
 
-const Tab = createBottomTabNavigator<DemoTabRoutesParams>();
-
-const Stack = createStackNavigator();
-
-export const getStackTabScreen = (tabName: DemoTabRoutes) => {
-  const tab = tabRoutesConfig.find(
-    (t) => t.name === tabName,
-  ) as DemoTabRouteConfig;
-  const screens: ScreensList<string> = [
-    {
-      // fix: Found screens with the same name nested inside one another
-      name: tab.name,
-      component: tab.component,
-      alwaysShowBackButton: false,
-      i18nTitle: tab.translationId,
-    },
-    ...(tab.children || []),
-  ];
-
-  const StackNavigatorComponent = () => (
-    <Stack.Navigator>
-      {screens.map(({ name, component }, index) => (
-        // show navigation header
-        <Stack.Screen
-          key={name}
-          name={name}
-          component={component}
-          // @ts-expect-error
-          options={({ navigation }: { navigation: any }) => ({
-            key: `${name as string}.Stack.Screen.component`,
-            headerShown: true,
-            ...makeHeaderScreenOptions({
-              isRootScreen: true,
-              navigation,
-            }),
-          })}
-        />
-      ))}
-    </Stack.Navigator>
-  );
-  return StackNavigatorComponent;
-};
-
-const DemoTabNavigator = () => {
-  // const intl = useIntl();
-
-  const tabRoutesList = useMemo(
-    () =>
-      tabRoutesConfig.map((tab) => (
-        <Tab.Screen
-          key={tab.name}
-          name={tab.name}
-          component={getStackTabScreen(tab.name)}
-          options={{
-            tabBarIcon: tab.tabBarIcon,
-            // tabBarLabel: intl.formatMessage({ id: tab.translationId }),
-            tabBarLabel: tab.translationId,
-            headerShown: false,
-            // TODO not working
-            tabBarStyle: { display: 'none', height: 0 },
-          }}
-        />
-      )),
-    [],
-  );
-
-  return useMemo(
-    () => (
-      // <LazyDisplayView
-      //   delay={100}
-      //   hideOnUnmount={false}
-      //   isLazyDisabled={platformEnv.isNative}
-      // >
-      <Tab.Navigator
-        tabBar={(props) => <NavigationBar {...props} />}
-        screenOptions={{
-          // TODO make component content lazy
-          // FIXME: lazy causes issues with overlays
-          // header: tabNavigatorHeaderRender,
-          freezeOnBlur: true,
-          lazy: !platformEnv.isNative,
-        }}
-      >
-        {tabRoutesList}
-      </Tab.Navigator>
-      // </LazyDisplayView>
-    ),
-    [tabRoutesList],
-  );
-};
+function DemoTabNavigator() {
+  return <TabStackNavigator<DemoTabRoutes> config={config} />;
+}
 
 export default DemoTabNavigator;

@@ -4,7 +4,7 @@ import { Icon } from '../Icon';
 import { XStack } from '../Stack';
 import { Text } from '../Text';
 
-import { getSharedStyles } from './sharedStyles';
+import { getSharedInputStyles } from './sharedStyles';
 
 import type { ICON_NAMES } from '../Icon';
 import type { GetProps } from 'tamagui';
@@ -63,7 +63,7 @@ export function Input({
     iconLeftPosition,
   } = SIZE_MAPPINGS[size];
 
-  const sharedStyles = getSharedStyles({ disabled, editable, error });
+  const sharedStyles = getSharedInputStyles({ disabled, editable, error });
 
   return (
     <Group

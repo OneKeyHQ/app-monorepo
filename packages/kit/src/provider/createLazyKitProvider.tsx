@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import '../background/instance/backgroundApiProxy';
+// import '../background/instance/backgroundApiProxy';
 
 export function createLazyKitProviderLegacy({
   displayName,

@@ -2,7 +2,7 @@ import type { InputProps } from '.';
 
 type SharedStylesProps = Pick<InputProps, 'disabled' | 'editable' | 'error'>;
 
-export function getSharedStyles({
+export function getSharedInputStyles({
   disabled,
   editable,
   error,

@@ -1,39 +1,45 @@
 import type { FC, ReactNode } from 'react';
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
-import { Toaster } from 'burnt/web';
-import { useWindowDimensions } from 'react-native';
+import { IntlProvider } from 'react-intl';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { TamaguiProvider, useMedia } from 'tamagui';
+import { TamaguiProvider } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import config from '../../tamagui.config';
-import { ToastProvider } from '../Toast';
+import LOCALES from '../locale';
+import Toaster from '../Toast/Toaster';
 
-import { getScreenSize } from './device';
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
 import { Context } from './hooks/useProviderValue';
+import ScreenSizeProvider from './ScreenSizeProvider';
+import SidebarStateProvider from './SidebarStateProvider';
 
+import type { LocaleSymbol } from '../locale';
 import type { ThemeVariant } from './theme';
+import type { IntlShape, MessageDescriptor } from 'react-intl';
 
 export type UIProviderProps = {
   /**
    * default theme variant
    */
   themeVariant: ThemeVariant;
+  /**
+   * default locale symbol
+   */
+  locale: LocaleSymbol;
 
   reduxReady?: boolean;
 
   waitFontLoaded?: boolean;
-
-  leftSidebarCollapsed?: boolean;
-  setLeftSidebarCollapsed?: (value: boolean) => void;
 };
 export type IFontProviderProps = {
   children?: ReactNode;
   waitFontLoaded?: boolean;
 };
+
+const MemoizedTamaguiProvider = memo(TamaguiProvider);
 
 function FontProvider({ children, waitFontLoaded = true }: IFontProviderProps) {
   const [loaded] = useLoadCustomFonts();
@@ -46,57 +52,65 @@ function FontProvider({ children, waitFontLoaded = true }: IFontProviderProps) {
   return <>{children}</>;
 }
 
+export const intlRef: {
+  current: IntlShape | undefined;
+} = {
+  current: undefined,
+};
+
 const Provider: FC<UIProviderProps> = ({
   children,
   themeVariant,
+  locale,
   reduxReady,
   waitFontLoaded,
-  leftSidebarCollapsed,
-  setLeftSidebarCollapsed,
 }) => {
-  const { width, height } = useWindowDimensions();
-  const media = useMedia();
   const providerValue = useMemo(
     () => ({
       themeVariant,
       reduxReady,
-      device: {
-        screenWidth: width,
-        screenHeight: height,
-        size: getScreenSize(width),
-      },
-      leftSidebarCollapsed,
-      setLeftSidebarCollapsed,
     }),
-    [
-      themeVariant,
-      reduxReady,
-      width,
-      height,
-      leftSidebarCollapsed,
-      setLeftSidebarCollapsed,
-    ],
+    [themeVariant, reduxReady],
   );
+
   return (
-    <SafeAreaProvider>
+    <IntlProvider
+      ref={(e) => {
+        try {
+          intlRef.current = e?.state?.intl;
+        } catch (error) {
+          // debugLogger.common.error('IntlProvider get ref error:', error);
+        }
+      }}
+      locale={locale}
+      messages={LOCALES[locale] as Record<string, string>}
+    >
       <FontProvider waitFontLoaded={waitFontLoaded}>
         <Context.Provider value={providerValue}>
-          <TamaguiProvider config={config} defaultTheme={themeVariant}>
-            <ToastProvider>{children}</ToastProvider>
-            <Toaster
-              {...(media.md
-                ? {
-                    position: 'top-center',
-                  }
-                : { position: 'bottom-right' })}
-              closeButton
-              theme={themeVariant}
-            />
-          </TamaguiProvider>
+          <ScreenSizeProvider>
+            <SidebarStateProvider>
+              <SafeAreaProvider>
+                <MemoizedTamaguiProvider
+                  config={config}
+                  defaultTheme={themeVariant}
+                >
+                  {children}
+                  <Toaster />
+                </MemoizedTamaguiProvider>
+              </SafeAreaProvider>
+            </SidebarStateProvider>
+          </ScreenSizeProvider>
         </Context.Provider>
       </FontProvider>
-    </SafeAreaProvider>
+    </IntlProvider>
   );
 };
+
+export function formatMessage(
+  descriptor: MessageDescriptor,
+  values?: Record<string, any>,
+) {
+  return intlRef?.current?.formatMessage(descriptor, values) || descriptor;
+}
 
 export default Provider;

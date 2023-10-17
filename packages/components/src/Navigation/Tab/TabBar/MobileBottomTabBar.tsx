@@ -2,45 +2,39 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import { useMemo } from 'react';
 
+import useIsKeyboardShown from '@react-navigation/bottom-tabs/src/utils/useIsKeyboardShown';
 import { CommonActions } from '@react-navigation/native';
 import { Platform, StyleSheet } from 'react-native';
 import { useSafeAreaFrame } from 'react-native-safe-area-context';
 
-// import { PortalContainer } from '@onekeyhq/kit/src/views/Overlay/RootPortal';
-import PlatformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { Icon } from '../../../Icon';
-import useUserDevice from '../../../Provider/hooks/useUserDevice';
+import useDeviceScreenSize from '../../../Provider/hooks/useDeviceScreenSize';
 import { Stack } from '../../../Stack';
 import { Text } from '../../../Text';
-import useIsKeyboardShown from '../BottomTabs/utils/useIsKeyboardShown';
 
 import type { ICON_NAMES } from '../../../Icon';
-import type { DeviceState } from '../../../Provider/device';
-import type { BottomTabBarProps } from '../BottomTabs';
+import type { DeviceScreenSize } from '../../../Provider/device';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
 import type { Animated, StyleProp, ViewStyle } from 'react-native';
 import type { EdgeInsets } from 'react-native-safe-area-context';
 
-const DEFAULT_TABBAR_HEIGHT = 49;
-const COMPACT_TABBAR_HEIGHT = 32;
-const useNativeDriver = !!PlatformEnv.isNative;
+const DEFAULT_TABBAR_HEIGHT = 63;
+const COMPACT_TABBAR_HEIGHT = 40;
+const COMPACT_PAD_TABBAR_HEIGHT = 54;
 
 type Options = {
-  deviceSize: DeviceState['size'];
+  deviceSize: DeviceScreenSize;
   dimensions?: { height: number; width: number };
 };
 
 const shouldUseHorizontalLabels = ({ deviceSize }: Options) =>
   ['NORMAL'].includes(deviceSize);
 
-const getPaddingBottom = (insets: EdgeInsets) =>
-  Math.max(insets.bottom - Platform.select({ ios: 4, default: 0 }), 0);
+const getPaddingBottom = (insets: EdgeInsets) => insets.bottom;
 
 export const getTabBarHeight = ({
-  dimensions,
   insets,
   style,
-  deviceSize,
 }: Options & {
   insets: EdgeInsets;
   style: Animated.WithAnimatedValue<StyleProp<ViewStyle>> | undefined;
@@ -51,21 +45,13 @@ export const getTabBarHeight = ({
   if (typeof customHeight === 'number' && customHeight > 0) {
     return customHeight;
   }
-
-  const isLandscape = dimensions ? dimensions.width > dimensions.height : false;
-  const horizontalLabels = shouldUseHorizontalLabels({
-    deviceSize,
-    dimensions,
-  });
   const paddingBottom = getPaddingBottom(insets);
 
-  if (
-    Platform.OS === 'ios' &&
-    !Platform.isPad &&
-    isLandscape &&
-    horizontalLabels
-  ) {
+  if (Platform.OS === 'ios' && !Platform.isPad) {
     return COMPACT_TABBAR_HEIGHT + paddingBottom;
+  }
+  if (Platform.OS === 'ios' && Platform.isPad) {
+    return COMPACT_PAD_TABBAR_HEIGHT + paddingBottom;
   }
 
   return DEFAULT_TABBAR_HEIGHT + paddingBottom;
@@ -84,7 +70,7 @@ export default function MobileBottomTabBar({
   insets,
   style,
 }: MobileBottomTabBarProps) {
-  const { size } = useUserDevice();
+  const size = useDeviceScreenSize();
 
   const dimensions = useSafeAreaFrame();
   const isKeyboardShown = useIsKeyboardShown();
@@ -98,7 +84,6 @@ export default function MobileBottomTabBar({
 
   const { tabBarStyle } = focusedOptions;
 
-  const paddingBottom = getPaddingBottom(insets);
   const tabBarHeight = getTabBarHeight({
     insets,
     dimensions,
@@ -134,18 +119,17 @@ export default function MobileBottomTabBar({
         return (
           <Stack
             testID="Mobile-AppTabBar-TabItem"
-            flex={1}
-            px="$1"
-            py={isHide ? '$0' : '$1'}
+            minWidth="$24"
+            p="$1"
             key={route.name}
             backgroundColor={backgroundColor}
           >
             <Stack
               testID="Mobile-AppTabBar-TabItem-Icon"
               alignItems="center"
-              px="$0.5"
-              py={isHide ? '$0' : '$1.5'}
-              mb={isHide ? '$0' : '$4'}
+              py="$0.5"
+              mb="$0"
+              gap="$0.5"
               onPress={onPress}
               hoverStyle={{ backgroundColor: '$bgHover' }}
               borderRadius="$2"
@@ -165,11 +149,11 @@ export default function MobileBottomTabBar({
                 // @ts-expect-error
                 name={options?.tabBarIcon?.(isActive) as ICON_NAMES}
                 color={isActive ? '$icon' : '$iconSubdued'}
-                size={28}
+                size="$7"
               />
-              {useNativeDriver && options?.tabBarLabel?.length ? (
+              {options?.tabBarLabel?.length ? (
                 <Text
-                  variant="$bodyMdMono"
+                  variant="$bodySmMedium"
                   color={isActive ? '$text' : '$textSubdued'}
                   numberOfLines={1}
                 >
@@ -184,7 +168,6 @@ export default function MobileBottomTabBar({
       backgroundColor,
       descriptors,
       horizontal,
-      isHide,
       navigation,
       routes,
       state.index,
@@ -202,24 +185,20 @@ export default function MobileBottomTabBar({
       right="$0"
       bottom="$0"
       bg="$bg"
-      zIndex={99999}
       borderTopColor="$borderSubdued"
-      paddingBottom={`${paddingBottom}px`}
-      height={isHide ? '$0' : tabBarHeight}
-      py={isHide ? '$0' : `${Math.max(insets.left ?? 0, insets.right ?? 0)}`}
+      height={tabBarHeight}
+      py="$0"
     >
       <Stack
         testID="Mobile-AppTabBar-Content"
         accessibilityRole="tablist"
         flex={1}
+        alignItems="baseline"
+        justifyContent="space-around"
         flexDirection="row"
       >
         {tabs}
       </Stack>
-      {/* <PortalContainer */}
-      {/*  // testID="Mobile-AppTabBar-PortalContainer" */}
-      {/*  name={`BottomTab-Overlay-${state.key}`} */}
-      {/* /> */}
     </Stack>
   );
 }

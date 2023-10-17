@@ -12,6 +12,7 @@ export * from './Divider';
 export * from './Checkbox';
 export * from './Spinner';
 export * from './Dialog';
+export * from './ModalContainer';
 export * from './ActionList';
 export * from './Slider';
 export * from './Popover';
@@ -25,8 +26,12 @@ export * from './TextArea';
 export * from './Switch';
 export * from './Radio';
 export * from './SearchBar';
+export * from './DesktopDragZoneBox';
+export * from './LottieView';
 export * from './Provider/hooks/useThemeValue';
 export * from './Provider/hooks/useIsMounted';
+export { Tabs } from './CollapsibleTabView';
+export * as DelayedFreeze from './DelayedFreeze';
 
 // Navigation
 export * from './Navigation/StackNavigator';

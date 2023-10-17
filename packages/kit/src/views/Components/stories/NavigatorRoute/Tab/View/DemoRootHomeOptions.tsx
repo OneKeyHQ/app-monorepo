@@ -3,11 +3,15 @@ import { useLayoutEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 
-import { YStack } from '@onekeyhq/components';
+import { Button, Stack, YStack } from '@onekeyhq/components';
 import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
 
 import { Layout } from '../../../utils/Layout';
+import { NavigationFocusTools } from '../../../utils/NavigationTools';
+import { FreezeProbe } from '../../../utils/RenderTools';
+import { RootModalRoutes } from '../../Modal/Routes';
+import { DemoRootRoutes } from '../../Routes';
 
 import type {
   NativeSyntheticEvent,
@@ -16,6 +20,7 @@ import type {
 
 const DemoRootHomeOptions = () => {
   const navigation = useNavigation();
+
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
@@ -26,11 +31,10 @@ const DemoRootHomeOptions = () => {
         </HeaderButtonGroup>
       ),
       headerSearchBarOptions: {
-        headerTransparent: false,
         placeholder: '搜索',
         inputType: 'text',
         onChangeText: (event: NativeSyntheticEvent<TextInputChangeEventData>) =>
-          console.log('=====>>>> event', event.nativeEvent.text),
+          console.log('onChangeText', event.nativeEvent.text),
       },
     });
   }, [navigation]);
@@ -65,6 +69,30 @@ const DemoRootHomeOptions = () => {
                 }}
               />
             </YStack>
+          ),
+        },
+        {
+          title: '弹出 Modal',
+          element: (
+            <Button
+              onPress={() => {
+                // @ts-expect-error
+                navigation.navigate(DemoRootRoutes.Modal, {
+                  screen: RootModalRoutes.DemoLockedModal,
+                });
+              }}
+            >
+              <Button.Text>弹出 Modal</Button.Text>
+            </Button>
+          ),
+        },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoRootHomeOptions" />
+              <NavigationFocusTools componentName="DemoRootHomeOptions" />
+            </Stack>
           ),
         },
       ]}

@@ -4,11 +4,11 @@ import { Dimensions } from 'react-native';
 
 import { getScreenSize } from '../device';
 
-import useUserDevice from './useUserDevice';
+import useDeviceScreenSize from './useDeviceScreenSize';
+import useProviderIsVerticalLayout from './useProviderIsVerticalLayout';
 
 export default function useIsVerticalLayout() {
-  const { size } = useUserDevice();
-  return size === 'SMALL';
+  return useProviderIsVerticalLayout();
 }
 
 export function getIsVerticalLayout() {
@@ -18,6 +18,6 @@ export function getIsVerticalLayout() {
 }
 
 export function useIsVerticalOrMiddleLayout() {
-  const { size } = useUserDevice();
+  const size = useDeviceScreenSize();
   return useMemo(() => ['SMALL', 'NORMAL'].includes(size), [size]);
 }
