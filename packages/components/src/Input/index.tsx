@@ -71,6 +71,7 @@ export function Input({
       borderRadius={size === 'large' ? '$3' : '$2'}
       disablePassBorderRadius={!addOns?.length}
       disabled={disabled}
+      flex={1}
     >
       {/* input */}
       <Group.Item>
