@@ -20,6 +20,7 @@ import AlertGallery from '../../views/Components/stories/Alert';
 import DividerGallery from '../../views/Components/stories/Divider';
 import FormGallery from '../../views/Components/stories/Form';
 import ThemeGallery from '../../views/Components/stories/Theme';
+import QRCodeGallery from '../../views/Components/stories/QRCode';
 
 export enum GalleryRoutes {
   Components = 'components',
@@ -42,6 +43,7 @@ export enum GalleryRoutes {
   ComponentPopover = 'component/popover',
   ComponentTheme = 'component/theme',
   ComponentCollapsibleTabs = 'component/collapsibleTabs',
+  componentQRCode = 'component/qrCode',
 }
 
 export const stackScreenList = [
@@ -81,6 +83,10 @@ export const stackScreenList = [
     name: GalleryRoutes.ComponentCollapsibleTabs,
     component: CollapsibleTabViewGallery,
     // options: { headerShown: false },
+  },
+  {
+    name: GalleryRoutes.componentQRCode,
+    component: QRCodeGallery,
   },
 ];
 

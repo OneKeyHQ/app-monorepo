@@ -29,7 +29,8 @@ export * from './DesktopDragZoneBox';
 export * from './LottieView';
 export * from './Provider/hooks/useThemeValue';
 export * from './Provider/hooks/useIsMounted';
-export { Tabs } from './CollapsibleTabView';
+export * from './QRCode';
+export * from './CollapsibleTabView';
 export * as DelayedFreeze from './DelayedFreeze';
 
 // Navigation
