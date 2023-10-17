@@ -685,7 +685,11 @@ class Provider {
 
     outputs.forEach((output) => {
       const { payload } = output;
-      if (payload?.opReturn && (payload?.opReturn as string).length > 0) {
+      if (
+        payload?.opReturn &&
+        typeof payload?.opReturn === 'string' &&
+        payload?.opReturn.length > 0
+      ) {
         const embed = BitcoinJS.payments.embed({
           data: [loadOPReturn(payload?.opReturn)],
         });
