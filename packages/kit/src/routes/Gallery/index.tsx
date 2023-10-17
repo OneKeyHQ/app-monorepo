@@ -93,7 +93,13 @@ export const stackScreenList = [
 const DevStack = createStackNavigator();
 
 const DevScreen = () => (
-  <DevStack.Navigator>
+  <DevStack.Navigator
+    screenOptions={{
+      cardStyle: {
+        flex: 1,
+      },
+    }}
+  >
     <DevStack.Group>
       {stackScreenList.map((stack) => (
         <DevStack.Screen
