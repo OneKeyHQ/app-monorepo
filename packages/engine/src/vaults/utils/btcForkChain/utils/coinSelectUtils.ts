@@ -210,6 +210,7 @@ export const coinSelect = ({
   const finalOutputs = outputsForCoinSelect.map((o) => ({
     address: o.address,
     value: o.isMax ? undefined : o.value,
+    script: o.script,
   }));
 
   let unspentSelectFn = max ? coinSelectSplit : coinSelectAuto;

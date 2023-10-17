@@ -608,11 +608,7 @@ class Provider {
     unsignedTx: IUnsignedTxPro,
     signers: { [p: string]: Signer },
   ) {
-    const {
-      inputs,
-      outputs,
-      payload: { opReturn },
-    } = unsignedTx;
+    const { inputs, outputs } = unsignedTx;
 
     const [inputAddressesEncodings, nonWitnessPrevTxs] =
       await this.collectInfoForSoftwareSign(unsignedTx);
@@ -688,21 +684,22 @@ class Provider {
     }
 
     outputs.forEach((output) => {
-      psbt.addOutput({
-        address: output.address,
-        value: output.value.integerValue().toNumber(),
-      });
+      const { payload } = output;
+      if (payload?.opReturn && (payload?.opReturn as string).length > 0) {
+        const embed = BitcoinJS.payments.embed({
+          data: [loadOPReturn(payload?.opReturn)],
+        });
+        psbt.addOutput({
+          script: checkIsDefined(embed.output),
+          value: 0,
+        });
+      } else {
+        psbt.addOutput({
+          address: output.address,
+          value: output.value.integerValue().toNumber(),
+        });
+      }
     });
-
-    if (typeof opReturn === 'string') {
-      const embed = BitcoinJS.payments.embed({
-        data: [loadOPReturn(opReturn)],
-      });
-      psbt.addOutput({
-        script: checkIsDefined(embed.output),
-        value: 0,
-      });
-    }
 
     return psbt;
   }
