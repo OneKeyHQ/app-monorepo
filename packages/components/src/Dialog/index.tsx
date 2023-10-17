@@ -33,7 +33,7 @@ import type { FormProps } from '../Form';
 import type { SetStateAction } from 'jotai';
 import type { UseFormReturn } from 'react-hook-form';
 import type { ButtonProps, GetProps } from 'tamagui';
-import useKeyboardHeight from '../../hooks/useKeyboardHeight';
+import useKeyboardHeight from '../hooks/useKeyboardHeight';
 
 function Trigger({
   onOpen,
