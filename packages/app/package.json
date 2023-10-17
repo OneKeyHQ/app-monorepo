@@ -66,7 +66,7 @@
     "jpush-react-native": "https://github.com/OneKeyHQ/jpush-react-native.git",
     "levelup": "^5.1.1",
     "lottie-react": "^2.4.0",
-    "lottie-react-native": "^5.1.6",
+    "lottie-react-native": "^6.3.0",
     "path-browserify": "^1.0.1",
     "react": "18.2.0",
     "react-content-loader": "^6.2.1",
