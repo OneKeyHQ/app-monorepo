@@ -58,6 +58,8 @@ open class HomePageLayout @JvmOverloads constructor(
     private var mAppBarExtended = true
     private var mHeaderHeight = 0
 
+    val currentIndex: Int get() = viewpager.currentItem
+
     val eventDispatcher =
         (context as ReactContext).getNativeModule(UIManagerModule::class.java)?.eventDispatcher
 
@@ -186,13 +188,17 @@ open class HomePageLayout @JvmOverloads constructor(
 
     fun setTabs(tabProps: MutableList<TabProps>) {
         // diff tabProps mTabProps
-        for (i in 0 until tabProps.size) {
-            if (i < mTabProps.size) {
-                if (mTabProps[i].label != tabProps[i].label) {
+        if(tabProps.size != mTabProps.size) {
+            mTabTitlesChange = true
+        }else {
+            for (i in 0 until tabProps.size) {
+                if (i < mTabProps.size) {
+                    if (mTabProps[i].label != tabProps[i].label) {
+                        mTabTitlesChange = true
+                    }
+                } else {
                     mTabTitlesChange = true
                 }
-            } else {
-                mTabTitlesChange = true
             }
         }
 
@@ -245,12 +251,11 @@ open class HomePageLayout @JvmOverloads constructor(
             }
 
             setHeaderView(newView)
-        } else if (index <= mTabProps.size) {
+        } else {
             child.let {
                 getAdapter()?.addPageView(it, position = index - 1)
             }
         }
-        requestLayout()
     }
 
     fun removeChildViewAt(index: Int) {

@@ -178,6 +178,10 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
     override fun addView(parent: HomePageView?, child: View?, index: Int) {
         if (parent == null) return
         parent.addChildView(child, index)
+        if(parent.currentIndex != index-1) {
+            refreshViewChildrenLayout(parent)
+            return
+        }
     }
 
     override fun addViews(parent: HomePageView?, views: MutableList<View>?) {

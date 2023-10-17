@@ -8,6 +8,7 @@ import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import IconButtonGallery from '@onekeyhq/kit/src/views/Components/stories/IconButton';
 import DemoRootApp from '@onekeyhq/kit/src/views/Components/stories/NavigatorRoute';
+import LottieViewGallery from '@onekeyhq/kit/src/views/Components/stories/LottieView';
 import PopoverGallery from '@onekeyhq/kit/src/views/Components/stories/Popover';
 import ProgressGallery from '@onekeyhq/kit/src/views/Components/stories/Progress';
 import SelectGallery from '@onekeyhq/kit/src/views/Components/stories/Select';
@@ -24,6 +25,7 @@ import QRCodeGallery from '../../views/Components/stories/QRCode';
 export enum GalleryRoutes {
   Components = 'components',
   ComponentTypography = 'component/typography',
+  ComponentLottieView = 'component/lottieview',
   ComponentIcon = 'component/icon',
   ComponentButton = 'component/button',
   ComponentSelect = 'component/select',
@@ -49,6 +51,10 @@ export const stackScreenList = [
   {
     name: GalleryRoutes.ComponentTypography,
     component: TypographyGallery,
+  },
+  {
+    name: GalleryRoutes.ComponentLottieView,
+    component: LottieViewGallery,
   },
   { name: GalleryRoutes.ComponentIcon, component: IconGallery },
   { name: GalleryRoutes.ComponentToast, component: ToastGallery },
