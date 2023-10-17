@@ -25,6 +25,7 @@ import DividerGallery from '../../views/Components/stories/Divider';
 import FormGallery from '../../views/Components/stories/Form';
 import TextAreaGallery from '../../views/Components/stories/TextArea';
 import ThemeGallery from '../../views/Components/stories/Theme';
+import QRCodeGallery from '../../views/Components/stories/QRCode';
 
 export enum GalleryRoutes {
   Components = 'components',
@@ -52,6 +53,7 @@ export enum GalleryRoutes {
   ComponentPopover = 'component/popover',
   ComponentTheme = 'component/theme',
   ComponentCollapsibleTabs = 'component/collapsibleTabs',
+  componentQRCode = 'component/qrCode',
 }
 
 export const stackScreenList = [
@@ -97,12 +99,22 @@ export const stackScreenList = [
     component: CollapsibleTabViewGallery,
     // options: { headerShown: false },
   },
+  {
+    name: GalleryRoutes.componentQRCode,
+    component: QRCodeGallery,
+  },
 ];
 
 const DevStack = createStackNavigator();
 
 const DevScreen = () => (
-  <DevStack.Navigator>
+  <DevStack.Navigator
+    screenOptions={{
+      cardStyle: {
+        flex: 1,
+      },
+    }}
+  >
     <DevStack.Group>
       {stackScreenList.map((stack) => (
         <DevStack.Screen
