@@ -79,12 +79,15 @@ export function SearchBar({
         placeholder={placeholder}
         onFocus={handleOnFocus}
         onBlur={handleOnBlur}
-        borderRightWidth={0}
         onSubmitEditing={onSubmitEditing}
         focusStyle={{ outlineStyle: 'none' }}
         onChangeText={onChange}
         h={height ?? '$7'}
         returnKeyType="search"
+        // remove basic border width
+        borderWidth={0}
+        // remove border on right
+        borderRightWidth={0}
       />
       <AnimatePresence>
         {value?.length ? (
