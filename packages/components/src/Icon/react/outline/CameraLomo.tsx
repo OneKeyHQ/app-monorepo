@@ -1,7 +1,4 @@
-import Svg, { Circle, Path } from 'react-native-svg';
-
-import type { SvgProps } from 'react-native-svg';
-
+import Svg, { SvgProps, Path, Circle } from 'react-native-svg';
 const SvgCameraLomo = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path

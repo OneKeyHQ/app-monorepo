@@ -1,7 +1,4 @@
-import Svg, { Circle, Rect } from 'react-native-svg';
-
-import type { SvgProps } from 'react-native-svg';
-
+import Svg, { SvgProps, Rect, Circle } from 'react-native-svg';
 const SvgDice1 = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Rect

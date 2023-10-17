@@ -1,7 +1,4 @@
-import Svg, { Path } from 'react-native-svg';
-
-import type { SvgProps } from 'react-native-svg';
-
+import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgPizza = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path fill="currentColor" d="M14 5a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z" />

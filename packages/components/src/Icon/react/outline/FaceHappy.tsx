@@ -1,7 +1,4 @@
-import Svg, { Circle, Path } from 'react-native-svg';
-
-import type { SvgProps } from 'react-native-svg';
-
+import Svg, { SvgProps, Circle, Path } from 'react-native-svg';
 const SvgFaceHappy = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Circle cx={12} cy={12} r={9} stroke="currentColor" strokeWidth={2} />

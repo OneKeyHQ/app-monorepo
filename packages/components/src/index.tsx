@@ -7,6 +7,7 @@ export * from './Icon';
 export * from './Stack';
 export * from './Badge';
 export * from './Alert';
+export * from './Label';
 export * from './Divider';
 export * from './Checkbox';
 export * from './Spinner';

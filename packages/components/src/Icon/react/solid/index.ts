@@ -1,4 +1,3 @@
-export { default as Newspaper } from './Newspaper';
 export { default as WcPaperToilet } from './WcPaperToilet';
 export { default as AccessibilityEye } from './AccessibilityEye';
 export { default as Accessibility } from './Accessibility';
@@ -540,6 +539,7 @@ export { default as Move } from './Move';
 export { default as MultiMedia } from './MultiMedia';
 export { default as MultipleDevices } from './MultipleDevices';
 export { default as MusicPlaylist } from './MusicPlaylist';
+export { default as Newspaper } from './Newspaper';
 export { default as Nfc } from './Nfc';
 export { default as NoFlash } from './NoFlash';
 export { default as Note } from './Note';

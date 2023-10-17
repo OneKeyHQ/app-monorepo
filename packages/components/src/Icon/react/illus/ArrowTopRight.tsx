@@ -1,11 +1,8 @@
-import Svg, { Path } from 'react-native-svg';
-
-import type { SvgProps } from 'react-native-svg';
-
+import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgArrowTopRight = (props: SvgProps) => (
   <Svg
-    fill="currentColor"
     viewBox="0 0 69 36"
+    fill="currentColor"
     accessibilityRole="image"
     {...props}
   >
