@@ -23,9 +23,9 @@ import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typogr
 import AlertGallery from '../../views/Components/stories/Alert';
 import DividerGallery from '../../views/Components/stories/Divider';
 import FormGallery from '../../views/Components/stories/Form';
+import QRCodeGallery from '../../views/Components/stories/QRCode';
 import TextAreaGallery from '../../views/Components/stories/TextArea';
 import ThemeGallery from '../../views/Components/stories/Theme';
-import QRCodeGallery from '../../views/Components/stories/QRCode';
 
 export enum GalleryRoutes {
   Components = 'components',
