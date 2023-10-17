@@ -2284,6 +2284,8 @@
   "msg__inscription_restored": "จารึกคืน",
   "msg__insufficient_balance": "ยอดเงินคงเหลือไม่เพียงพอ",
   "msg__insufficient_balance_available_amount_str_str": "ยอดเงินคงเหลือไม่เพียงพอ จำนวนที่มี: {amount} {symbol}",
+  "msg__insufficient_balance_make_sure_at_least_10_sats_reserved_for_potential_fee_fluctuations": "ยอดคงเหลือไม่เพียงพอ! ตรวจสอบให้แน่ใจว่าคุณมีเงินสำรองไว้อย่างน้อย 10 sats สำหรับความผันผวนของค่าธรรมเนียมที่อาจเกิดขึ้น",
+  "msg__insufficient_balance_make_sure_at_least_1_percent_ofinvoice_amount_reserved_for_potential_fee_fluctuations": "ยอดคงเหลือไม่เพียงพอ! ตรวจสอบให้แน่ใจว่าคุณมียอดเงินในใบแจ้งหนี้อย่างน้อย 1% ที่สงวนไว้สำหรับความผันผวนของค่าธรรมเนียมที่อาจเกิดขึ้น",
   "msg__insufficient_funds_for_transaction": "เงินไม่เพียงพอสำหรับธุรกรรมเนื่องจาก {0} สินทรัพย์แช่แข็งและก๊าซสำรอง {1}",
   "msg__insufficient_liquidity_of_lightning_node_channels": "สภาพคล่องไม่เพียงพอของช่องโหนดสายฟ้า",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "ยอดโทเค็นเนทีฟไม่เพียงพอสำหรับค่าธรรมเนียมเครือข่าย จำนวนที่มี: {amount} {symbol}",

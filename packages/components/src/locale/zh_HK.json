@@ -2284,6 +2284,8 @@
   "msg__inscription_restored": "銘文已恢復",
   "msg__insufficient_balance": "余額不足",
   "msg__insufficient_balance_available_amount_str_str": "餘額不足。可用金額： {amount} {symbol}",
+  "msg__insufficient_balance_make_sure_at_least_10_sats_reserved_for_potential_fee_fluctuations": "余額不足！請至少預留 10 sats 來應對潛在的交易費浮動",
+  "msg__insufficient_balance_make_sure_at_least_1_percent_ofinvoice_amount_reserved_for_potential_fee_fluctuations": "余額不足！請至少預留 invoice 金額的 1% 來應對潛在的交易費浮動",
   "msg__insufficient_funds_for_transaction": "由於資產{0}被凍結以及gas預留{1}交易資金不足。",
   "msg__insufficient_liquidity_of_lightning_node_channels": "閃電節點通道流動性不足",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "原生代幣餘額不足以支付網絡費用。可用金額： {amount} {symbol}",

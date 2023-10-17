@@ -2284,6 +2284,8 @@
   "msg__inscription_restored": "chữ khắc phục hồi",
   "msg__insufficient_balance": "Thiếu cân bằng",
   "msg__insufficient_balance_available_amount_str_str": "Thiếu cân bằng. Số tiền khả dụng: {amount} {symbol}",
+  "msg__insufficient_balance_make_sure_at_least_10_sats_reserved_for_potential_fee_fluctuations": "Thiếu cân bằng! Đảm bảo bạn có ít nhất 10 sats dành riêng cho những biến động về phí có thể xảy ra",
+  "msg__insufficient_balance_make_sure_at_least_1_percent_ofinvoice_amount_reserved_for_potential_fee_fluctuations": "Thiếu cân bằng! Đảm bảo bạn có ít nhất 1% số tiền trên hóa đơn dành riêng cho những biến động về phí có thể xảy ra",
   "msg__insufficient_funds_for_transaction": "Không đủ tiền cho giao dịch do {0} tài sản bị đóng băng và dự trữ gas {1} .",
   "msg__insufficient_liquidity_of_lightning_node_channels": "Không đủ thanh khoản của các kênh Lightning Node",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "Số dư mã thông báo gốc không đủ cho phí mạng. Số tiền khả dụng: {amount} {symbol}",
