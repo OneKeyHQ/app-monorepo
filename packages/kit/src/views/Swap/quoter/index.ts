@@ -65,12 +65,6 @@ type TransactionOrder = {
   orderId: string;
 };
 
-type ThorSwapOrder = {
-  to: string;
-  memo: string;
-  amountIn: string;
-};
-
 type ThorSwapData = {
   quoteId: string;
 };
@@ -98,7 +92,6 @@ type BuildTransactionHttpResponse = {
   errMsg?: string;
   result?: FetchQuoteHttpResult;
   thor?: ThorSwapData;
-  thorOrder?: ThorSwapOrder;
 };
 
 type FetchQuoteHttpParams = {
@@ -225,44 +218,6 @@ export class SwapQuoter {
       });
     }
     return result;
-  }
-
-  async convertThorSwapOrderToTransaction(
-    params: BuildTransactionParams,
-    order: ThorSwapOrder,
-  ) {
-    const { tokenIn, networkIn, activeAccount, sellAmount } = params;
-    if (!sellAmount || !tokenIn) {
-      return;
-    }
-    if (!order.to || !order.memo || order.amountIn !== params.sellAmount) {
-      throw new Error(
-        'failed to build transaction due to invalid thor swap order params',
-      );
-    }
-    const depositCoinAmt = new BigNumber(order.amountIn)
-      .shiftedBy(-tokenIn.decimals)
-      .toFixed();
-    let result: TransactionData | undefined;
-    if (!tokenIn.tokenIdOnNetwork && networkIn.impl === IMPL_EVM) {
-      result = await backgroundApiProxy.engine.buildEncodedTxFromTransfer({
-        networkId: networkIn.id,
-        accountId: activeAccount.id,
-        transferInfo: {
-          from: activeAccount.address,
-          to: order.to,
-          amount: depositCoinAmt,
-        },
-      });
-      const transaction = result as IEncodedTxEvm;
-      if (transaction.data) {
-        throw new Error('failed to build transaction due to invalid data');
-      } else {
-        transaction.data = ethers.utils.hexlify(order.memo);
-      }
-      return result;
-    }
-    throw new Error('failed to build transaction due to unsupported network');
   }
 
   async fetchLimitOrderQuote(params: ILimitOrderQuoteParams) {
@@ -464,9 +419,9 @@ export class SwapQuoter {
 
     urlParams.quoterType = quoterType;
     urlParams.disableValidate = Boolean(params.disableValidate);
-    const serverEndPont =
+    const serverEndPoint =
       await backgroundApiProxy.serviceSwap.getServerEndPoint();
-    const url = `${serverEndPont}/exchange/build_tx`;
+    const url = `${serverEndPoint}/exchange/build_tx`;
 
     const res = await this.httpClient.post(url, urlParams);
     const requestId = this.parseRequestId(res);
@@ -503,7 +458,17 @@ export class SwapQuoter {
         }
         return result;
       }
-      return { data: data.transaction, result: data.result, requestId };
+      const result = {
+        data: data.transaction,
+        result: data.result,
+        requestId,
+      } as BuildTransactionResponse;
+      if (data.thor) {
+        result.attachment = {
+          thorswapQuoteId: data.thor.quoteId,
+        };
+      }
+      return result;
     }
     if (data.order && data.result?.instantRate) {
       const transaction = await this.convertOrderToTransaction(
@@ -691,6 +656,13 @@ export class SwapQuoter {
         const orderInfo = await this.swftc.getTxOrderInfo(tx);
         if (orderInfo) {
           return orderInfo.receiveCoinAmt;
+        }
+      } else if (tx?.quoterType === 'Thorswap') {
+        const info = await this.thor.getTransactionInfo(tx);
+        if (info) {
+          const { legs } = info.result;
+          const lastLegs = legs[legs.length - 1];
+          return lastLegs.toAmount;
         }
       } else {
         const historyTx = await this.getHistoryTx(tx);

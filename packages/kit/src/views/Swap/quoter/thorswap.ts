@@ -33,6 +33,23 @@ export class ThorSwapQuoter implements Quoter {
       }
     }
     if (hash && attachment?.thorswapQuoteId) {
+      const data = await this.getTransactionInfo(tx);
+      if (data && data.status === 'success') {
+        const { legs } = data.result;
+        const lastLegs = legs[legs.length - 1];
+        return { status: 'sucesss', destinationTransactionHash: lastLegs.hash };
+      }
+      return { status: 'pending' };
+    }
+    if (Date.now() - tx.addedTime > 60 * 60 * 1000 * 24) {
+      return { status: 'failed' };
+    }
+    return undefined;
+  }
+
+  async getTransactionInfo(tx: TransactionDetails) {
+    const { hash, attachment } = tx;
+    if (hash && attachment?.thorswapQuoteId) {
       const baseUrl = await this.getBaseUrl();
       const url = `${baseUrl}/transaction_status`;
       const res = await axios.get(url, {
@@ -53,17 +70,14 @@ export class ThorSwapQuoter implements Quoter {
           legs: {
             chain: string;
             hash: string;
+            fromAsset: string;
+            fromAmount: string;
+            toAsset: string;
+            toAmount: string;
           }[];
         };
       };
-      if (data.status === 'success') {
-        return { status: 'sucesss' };
-      }
-      return { status: 'pending' };
+      return data;
     }
-    if (Date.now() - tx.addedTime > 60 * 60 * 1000 * 24) {
-      return { status: 'failed' };
-    }
-    return undefined;
   }
 }
