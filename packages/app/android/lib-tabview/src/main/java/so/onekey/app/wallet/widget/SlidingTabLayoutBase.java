@@ -407,6 +407,9 @@ public abstract class SlidingTabLayoutBase extends HorizontalScrollView {
 
     private void calcIndicatorRect() {
         View currentTabView = mTabsContainer.getChildAt(this.mCurrentTab);
+        if(currentTabView == null){
+            return;
+        }
         float left = currentTabView.getLeft();
         float right = currentTabView.getRight();
 
