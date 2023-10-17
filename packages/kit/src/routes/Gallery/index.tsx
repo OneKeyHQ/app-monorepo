@@ -7,8 +7,10 @@ import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
 import CheckboxGallery from '@onekeyhq/kit/src/views/Components/stories/Checkbox';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import IconButtonGallery from '@onekeyhq/kit/src/views/Components/stories/IconButton';
+import InputGallery from '@onekeyhq/kit/src/views/Components/stories/Input';
 import PopoverGallery from '@onekeyhq/kit/src/views/Components/stories/Popover';
 import ProgressGallery from '@onekeyhq/kit/src/views/Components/stories/Progress';
+import RadioGallery from '@onekeyhq/kit/src/views/Components/stories/Radio';
 import SelectGallery from '@onekeyhq/kit/src/views/Components/stories/Select';
 import SliderGallery from '@onekeyhq/kit/src/views/Components/stories/Slider';
 import SwitchGallery from '@onekeyhq/kit/src/views/Components/stories/Switch';
@@ -20,6 +22,7 @@ import DialogGallery from '../../views/Components/stories/Dialog';
 import DividerGallery from '../../views/Components/stories/Divider';
 import FormGallery from '../../views/Components/stories/Form';
 import DemoRootApp from '../../views/Components/stories/NavigatorRoute';
+import TextAreaGallery from '../../views/Components/stories/TextArea';
 import ThemeGallery from '../../views/Components/stories/Theme';
 
 export enum GalleryRoutes {
@@ -34,13 +37,16 @@ export enum GalleryRoutes {
   ComponentForm = 'component/form',
   ComponentNavigation = 'component/navigation',
   ComponentSwitch = 'component/switch',
+  ComponentInput = 'component/input',
   ComponentAlert = 'component/alert',
+  ComponentRadio = 'component/radio',
   ComponentDivider = 'component/divider',
   ComponentToast = 'component/toast',
   ComponentCheckbox = 'component/checkbox',
   ComponentActionList = 'component/actionlist',
   ComponentProgress = 'component/progress',
   ComponentSlider = 'component/slider',
+  ComponentTextArea = 'component/textArea',
   ComponentPopover = 'component/popover',
   ComponentTheme = 'component/theme',
 }
@@ -57,12 +63,15 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentButton, component: ButtonsGallery },
   { name: GalleryRoutes.ComponentSelect, component: SelectGallery },
   { name: GalleryRoutes.ComponentBadge, component: BadgeGallery },
+  { name: GalleryRoutes.ComponentInput, component: InputGallery },
   { name: GalleryRoutes.ComponentDialog, component: DialogGallery },
+  { name: GalleryRoutes.ComponentRadio, component: RadioGallery },
   { name: GalleryRoutes.ComponentCheckbox, component: CheckboxGallery },
   { name: GalleryRoutes.ComponentActionList, component: ActionListGallery },
   { name: GalleryRoutes.ComponentPopover, component: PopoverGallery },
   { name: GalleryRoutes.ComponentProgress, component: ProgressGallery },
   { name: GalleryRoutes.ComponentSwitch, component: SwitchGallery },
+  { name: GalleryRoutes.ComponentTextArea, component: TextAreaGallery },
   { name: GalleryRoutes.ComponentSlider, component: SliderGallery },
   {
     name: GalleryRoutes.ComponentNavigation,

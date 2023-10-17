@@ -1,26 +1,17 @@
 import type { PropsWithChildren, ReactChildren, ReactElement } from 'react';
-import {
-  Children,
-  cloneElement,
-  isValidElement,
-  useCallback,
-  useState,
-} from 'react';
+import { Children, cloneElement, isValidElement, useCallback } from 'react';
 
-import { useHeaderHeight as useHeaderHeightOG } from '@react-navigation/elements';
 import { noop } from 'lodash';
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
-import { KeyboardAvoidingView, Platform } from 'react-native';
 import {
+  AnimatePresence,
   Fieldset,
-  Label,
-  ScrollView,
   Form as TMForm,
-  useWindowDimensions,
   withStaticProperties,
 } from 'tamagui';
 
 import { Input } from '../Input';
+import { Label } from '../Label';
 import { YStack } from '../Stack';
 import { Text } from '../Text';
 import { TextArea } from '../TextArea';
@@ -28,63 +19,16 @@ import { TextArea } from '../TextArea';
 import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';
 import type { GetProps } from 'tamagui';
 
-const useHeaderHeight = () => {
-  try {
-    return useHeaderHeightOG();
-  } catch (error) {
-    return 0;
-  }
-};
-
 export type FormProps = PropsWithChildren<{
   form: UseFormReturn<any>;
   header?: React.ReactNode;
-  footer?: React.ReactNode;
 }>;
 
-export function FormWrapper({
-  form: formContext,
-  header,
-  children,
-  footer,
-}: FormProps) {
-  const [height, setHeight] = useState(0);
-  const dimensions = useWindowDimensions();
-  const headerHeight = useHeaderHeight();
-  const modalOffsetFromTop = height ? dimensions.height - height : headerHeight;
+export function FormWrapper({ form: formContext, children }: FormProps) {
   return (
     <FormProvider {...formContext}>
       <TMForm onSubmit={noop}>
-        <YStack
-          onLayout={(event) => {
-            setHeight(event.nativeEvent.layout.height);
-          }}
-          gap="$4"
-          flex={1}
-          jc="center"
-          $gtSm={{
-            width: '100%',
-            maxWidth: 600,
-            als: 'center',
-          }}
-          // $gtSm={{ width: 500, mx: 'auto' }}
-          $sm={{ jc: 'space-between' }}
-        >
-          {header}
-          <ScrollView>
-            <YStack p="$4" gap="$2" pb="$8">
-              {children}
-            </YStack>
-          </ScrollView>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={modalOffsetFromTop}
-          >
-            <YStack pb="$4" px="$4" gap="$4" flexDirection="column-reverse">
-              {footer}
-            </YStack>
-          </KeyboardAvoidingView>
-        </YStack>
+        <YStack space="$6">{children}</YStack>
       </TMForm>
     </FormProvider>
   );
@@ -109,7 +53,7 @@ const getChildProps = (
     case TextArea:
       return {
         ...field,
-        borderColor: error ? '$textCritical' : undefined,
+        error,
         onChangeText: field.onChange,
       };
     default:
@@ -119,7 +63,7 @@ const getChildProps = (
 
 type FieldProps = Omit<GetProps<typeof Controller>, 'render'> &
   PropsWithChildren<{
-    label: string;
+    label?: string;
   }>;
 
 function Field({ name, label, rules, children }: FieldProps) {
@@ -138,8 +82,12 @@ function Field({ name, label, rules, children }: FieldProps) {
       control={control}
       rules={rules}
       render={({ field }) => (
-        <Fieldset borderWidth={0}>
-          <Label htmlFor={name}>{label}</Label>
+        <Fieldset p="$0" m="$0" borderWidth={0}>
+          {label && (
+            <Label htmlFor={name} mb="$1.5">
+              {label}
+            </Label>
+          )}
           {Children.map(children as ReactChildren, (child) =>
             isValidElement(child)
               ? cloneElement(
@@ -148,11 +96,27 @@ function Field({ name, label, rules, children }: FieldProps) {
                 )
               : child,
           )}
-          {error?.message ? (
-            <Text ml="$2" color="$textCritical" fontSize="$bodyMd">
-              {error.message}
-            </Text>
-          ) : null}
+          <AnimatePresence>
+            {error?.message && (
+              <Text
+                key={error?.message}
+                color="$textCritical"
+                variant="$bodyMd"
+                pt="$1.5"
+                animation="quick"
+                enterStyle={{
+                  opacity: 0,
+                  y: -6,
+                }}
+                exitStyle={{
+                  opacity: 0,
+                  y: -6,
+                }}
+              >
+                {error.message}
+              </Text>
+            )}
+          </AnimatePresence>
         </Fieldset>
       )}
     />

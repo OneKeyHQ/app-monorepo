@@ -10,7 +10,7 @@ import type { CheckedState, CheckboxProps as TMCheckboxProps } from 'tamagui';
 
 export type CheckboxProps = Omit<
   TMCheckboxProps,
-  'size' | 'onCheckedChange' | 'checked'
+  'size' | 'onCheckedChange' | 'checked' | 'value'
 > & {
   label?: string;
   value?: CheckedState;
@@ -62,7 +62,8 @@ export function Checkbox({
         alignItems="center"
         justifyContent="center"
         focusStyle={{
-          outlineColor: '$borderActive',
+          outlineOffset: 2,
+          outlineColor: '$focusRing',
         }}
         $platform-native={{
           hitSlop: 8,
@@ -72,7 +73,7 @@ export function Checkbox({
         {Indicator}
       </TMCheckbox>
       {label && (
-        <Label htmlFor={id} variant="$bodyLgMedium" pl="$2" py="$2" my="$-1.5">
+        <Label htmlFor={id} variant="$bodyLgMedium" pl="$2" py="$2" my="$-2">
           {label}
         </Label>
       )}
