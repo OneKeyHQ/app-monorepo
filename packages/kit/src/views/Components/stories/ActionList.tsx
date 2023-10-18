@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { Dialog, NewButton, Stack } from '@onekeyhq/components';
+import { Button, Dialog, Stack } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components/src/ActionList';
 
 import { Layout } from './utils/Layout';
@@ -13,7 +13,7 @@ const ActionListDemo1 = () => {
       onOpenChange={onOpenChange}
       title="Action List"
       renderTrigger={
-        <NewButton onPress={() => onOpenChange(true)}>Action List</NewButton>
+        <Button onPress={() => onOpenChange(true)}>Action List</Button>
       }
       items={[
         {
@@ -45,7 +45,7 @@ const ActionListDemo2 = () => {
       onOpenChange={onOpenChange}
       title="Action List"
       renderTrigger={
-        <NewButton onPress={() => onOpenChange(true)}>Action List</NewButton>
+        <Button onPress={() => onOpenChange(true)}>Action List</Button>
       }
       sections={[
         {
@@ -98,9 +98,7 @@ const ActionListDemo3 = () => {
       onOpenChange={onOpenChange}
       title="Action List"
       renderTrigger={
-        <NewButton onPress={() => onOpenChange(true)}>
-          With Section Title
-        </NewButton>
+        <Button onPress={() => onOpenChange(true)}>With Section Title</Button>
       }
       sections={[
         {

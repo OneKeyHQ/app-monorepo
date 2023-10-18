@@ -11,8 +11,8 @@ import { StyleSheet } from 'react-native';
 import { createStyledContext, styled } from 'tamagui';
 
 import { Icon } from '../Icon';
-import { NewButton } from '../NewButton';
-import { NewIconButton } from '../NewIconButton';
+import { Button } from '../Button';
+import { IconButton } from '../IconButton';
 import { Stack, XStack, YStack } from '../Stack';
 import { Text } from '../Text';
 
@@ -122,23 +122,23 @@ export const Alert: FC<AlertProps> = ({
         </Text>
         {action ? (
           <XStack pt="$2" space="$4" alignItems="center">
-            <NewButton size="small" onPress={action.onPrimaryPress}>
+            <Button size="small" onPress={action.onPrimaryPress}>
               {action.primary}
-            </NewButton>
+            </Button>
             {action.secondary ? (
-              <NewButton
+              <Button
                 size="small"
                 variant="tertiary"
                 onPress={action.onSecondaryPress}
               >
                 {action.secondary}
-              </NewButton>
+              </Button>
             ) : null}
           </XStack>
         ) : null}
       </YStack>
       {closable ? (
-        <NewIconButton
+        <IconButton
           icon="CrossedSmallSolid"
           size="small"
           variant="tertiary"

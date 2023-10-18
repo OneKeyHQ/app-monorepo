@@ -23,8 +23,8 @@ import {
 
 import { Form, useForm } from '../Form';
 import { type ICON_NAMES, Icon } from '../Icon';
-import { NewButton } from '../NewButton';
-import { NewIconButton } from '../NewIconButton';
+import { Button } from '../Button';
+import { IconButton } from '../IconButton';
 import { removePortalComponent, setPortalComponent } from '../Portal';
 import { Stack, XStack, YStack } from '../Stack';
 import { Text } from '../Text';
@@ -44,7 +44,7 @@ function Trigger({
       const handleOpen = (child.props as ButtonProps).onPress
         ? composeEventHandlers((child.props as ButtonProps).onPress, onOpen)
         : onOpen;
-      if (child.type === NewButton) {
+      if (child.type === Button) {
         return cloneElement(child, { onPress: handleOpen } as ButtonProps);
       }
       return <Stack onPress={handleOpen}>{children}</Stack>;
@@ -66,8 +66,8 @@ export interface ModalProps {
   renderContent?: React.ReactNode;
   onConfirm?: () => void | Promise<boolean>;
   onCancel?: () => void;
-  confirmButtonProps?: GetProps<typeof NewButton>;
-  cancelButtonProps?: GetProps<typeof NewButton>;
+  confirmButtonProps?: GetProps<typeof Button>;
+  cancelButtonProps?: GetProps<typeof Button>;
   dismissOnSnapToBottom?: boolean;
 }
 
@@ -145,7 +145,7 @@ function DialogFrame({
             </Text>
           )}
         </Stack>
-        <NewIconButton
+        <IconButton
           icon="CrossedSmallOutline"
           size="small"
           onPress={handleCancelButtonPress}
@@ -153,7 +153,7 @@ function DialogFrame({
       </XStack>
       {renderContent && <YStack pt="$5">{renderContent}</YStack>}
       <XStack justifyContent="center" pt="$5">
-        <NewButton
+        <Button
           flex={1}
           $md={{
             size: 'large',
@@ -162,8 +162,8 @@ function DialogFrame({
           onPress={handleCancelButtonPress}
         >
           Cancel
-        </NewButton>
-        <NewButton
+        </Button>
+        <Button
           variant={variant === 'destructive' ? 'destructive' : 'primary'}
           flex={1}
           ml="$2.5"
@@ -174,7 +174,7 @@ function DialogFrame({
           onPress={handleConfirmButtonPress}
         >
           Confirm
-        </NewButton>
+        </Button>
       </XStack>
     </Stack>
   );

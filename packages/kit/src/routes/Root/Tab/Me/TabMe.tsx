@@ -1,4 +1,4 @@
-import { NewButton, YStack } from '@onekeyhq/components';
+import { Button, YStack } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -11,13 +11,13 @@ const TabMe = () => {
 
   return (
     <YStack>
-      <NewButton
+      <Button
         onPress={() => {
           navigation.switchTab(TabRoutes.Me);
         }}
       >
         切换到首页
-      </NewButton>
+      </Button>
     </YStack>
   );
 };

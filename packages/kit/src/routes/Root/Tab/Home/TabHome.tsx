@@ -1,4 +1,4 @@
-import { NewButton, YStack } from '@onekeyhq/components';
+import { Button, YStack } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -12,13 +12,13 @@ const TabHome = () => {
 
   return (
     <YStack>
-      <NewButton
+      <Button
         onPress={() => {
           navigation.push(TabHomeRoutes.TabHomeStack1);
         }}
       >
         下一页
-      </NewButton>
+      </Button>
     </YStack>
   );
 };

@@ -1,7 +1,7 @@
 /* eslint-disable react/no-unstable-nested-components */
 import { useMemo, useState } from 'react';
 
-import { Dialog, NewButton, Stack, Toast } from '@onekeyhq/components';
+import { Button, Dialog, Stack, Toast } from '@onekeyhq/components';
 import type { ModalNavigationProp } from '@onekeyhq/components/src/Navigation';
 import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator/ModalFlowNavigator';
 
@@ -31,7 +31,7 @@ function DemoCoverageModal() {
         {
           title: '开始 Demo',
           element: (
-            <NewButton
+            <Button
               onPress={() => {
                 navigation.pushModal(RootModalRoutes.DemoCoverageModal, {
                   screen: DemoCoverageModalRoutes.DemoCoverageDialogModal,
@@ -39,7 +39,7 @@ function DemoCoverageModal() {
               }}
             >
               开始 Demo
-            </NewButton>
+            </Button>
           ),
         },
         {
@@ -64,9 +64,7 @@ const ControlledDialogByButton = () => {
   return useMemo(
     () => (
       <>
-        <NewButton onPress={() => changeIsOpen(true)}>
-          Open Modal By Button
-        </NewButton>
+        <Button onPress={() => changeIsOpen(true)}>Open Modal By Button</Button>
         <Dialog
           backdrop
           title="我站在 Modal 上面"
@@ -99,7 +97,7 @@ function DemoCoverageDialogModal() {
         {
           title: '下一个例子',
           element: (
-            <NewButton
+            <Button
               variant="primary"
               onPress={() => {
                 navigation.pushModal(RootModalRoutes.DemoCoverageModal, {
@@ -108,13 +106,13 @@ function DemoCoverageDialogModal() {
               }}
             >
               下一个例子
-            </NewButton>
+            </Button>
           ),
         },
         {
           title: '测试 Toast 覆盖',
           element: (
-            <NewButton
+            <Button
               onPress={() => {
                 Toast.message({
                   title: '我覆盖在 Modal 上面',
@@ -122,7 +120,7 @@ function DemoCoverageDialogModal() {
               }}
             >
               弹出 Toast
-            </NewButton>
+            </Button>
           ),
         },
         // {
@@ -132,7 +130,7 @@ function DemoCoverageDialogModal() {
         {
           title: 'Open Modal by Api',
           element: (
-            <NewButton
+            <Button
               onPress={() =>
                 Dialog.confirm({
                   title: '我站在 Modal 上面',
@@ -146,7 +144,7 @@ function DemoCoverageDialogModal() {
               }
             >
               Open Dialog
-            </NewButton>
+            </Button>
           ),
         },
         {
@@ -178,20 +176,20 @@ function DemoCoverageModalModal() {
         {
           title: '跳转到其他 Stack 的 Modal',
           element: (
-            <NewButton
+            <Button
               variant="primary"
               onPress={() => {
                 navigation.pushModal(RootModalRoutes.DemoLockedModal);
               }}
             >
               跳转
-            </NewButton>
+            </Button>
           ),
         },
         {
           title: '关闭',
           element: (
-            <NewButton
+            <Button
               onPress={() => {
                 navigation.popStack();
                 Toast.message({
@@ -200,13 +198,13 @@ function DemoCoverageModalModal() {
               }}
             >
               关闭并弹出 Toast
-            </NewButton>
+            </Button>
           ),
         },
         {
           title: '关闭',
           element: (
-            <NewButton
+            <Button
               variant="primary"
               onPress={() => {
                 Toast.message({
@@ -216,7 +214,7 @@ function DemoCoverageModalModal() {
               }}
             >
               弹出 Toast 然后关闭
-            </NewButton>
+            </Button>
           ),
         },
         {

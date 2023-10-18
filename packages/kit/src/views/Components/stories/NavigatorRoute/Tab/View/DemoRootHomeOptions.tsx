@@ -3,7 +3,7 @@ import { useLayoutEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 
-import { NewButton, Stack, YStack } from '@onekeyhq/components';
+import { Button, Stack, YStack } from '@onekeyhq/components';
 import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
 
@@ -74,7 +74,7 @@ const DemoRootHomeOptions = () => {
         {
           title: '弹出 Modal',
           element: (
-            <NewButton
+            <Button
               onPress={() => {
                 // @ts-expect-error
                 navigation.navigate(DemoRootRoutes.Modal, {
@@ -83,7 +83,7 @@ const DemoRootHomeOptions = () => {
               }}
             >
               弹出 Modal
-            </NewButton>
+            </Button>
           ),
         },
         {

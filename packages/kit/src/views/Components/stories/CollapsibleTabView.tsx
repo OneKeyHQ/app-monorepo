@@ -3,14 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList } from 'react-native';
 import { ScrollView, XStack } from 'tamagui';
 
-import {
-  Badge,
-  Icon,
-  NewButton,
-  Stack,
-  Tabs,
-  Text,
-} from '@onekeyhq/components';
+import { Badge, Button, Icon, Stack, Tabs, Text } from '@onekeyhq/components';
 import useIsActiveTab from '@onekeyhq/components/src/CollapsibleTabView/hooks/useIsActiveTab';
 import type { ForwardRefHandle } from '@onekeyhq/components/src/CollapsibleTabView/NativeNestedTabView/NestedTabView';
 
@@ -104,8 +97,8 @@ function CollapsibleTabView() {
         <Text>{`Header Height ${headerHighMode.toString()}`}</Text>
         <Text>{`Item Count ${showNetworks.length}`}</Text>
         {headerHighMode && <Text py="$10">我个子很高</Text>}
-        <NewButton onPress={headerHeightCall}>切换高度</NewButton>
-        <NewButton onPress={loadMoreDataCall}>添加数据</NewButton>
+        <Button onPress={headerHeightCall}>切换高度</Button>
+        <Button onPress={loadMoreDataCall}>添加数据</Button>
       </Stack>
     ),
     [headerHighMode, showNetworks.length, headerHeightCall, loadMoreDataCall],

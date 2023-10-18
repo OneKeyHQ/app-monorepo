@@ -1,6 +1,6 @@
 import { useLayoutEffect } from 'react';
 
-import { NewButton, Stack, Text } from '@onekeyhq/components';
+import { Button, Stack, Text } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import { Layout } from '../../../utils/Layout';
@@ -60,14 +60,14 @@ const DemoRootHomeSearch = () => {
         {
           title: '下一个例子',
           element: (
-            <NewButton
+            <Button
               variant="primary"
               onPress={() => {
                 navigation.push(DemoHomeTabRoutes.DemoRootHomeOptions);
               }}
             >
               跳转自定义 headerRight Demo
-            </NewButton>
+            </Button>
           ),
         },
         {

@@ -1,6 +1,6 @@
 import { useDispatch } from 'react-redux';
 
-import { NewButton, XStack } from '@onekeyhq/components';
+import { Button, XStack } from '@onekeyhq/components';
 
 import { setTheme } from '../../../store/reducers/settings';
 
@@ -18,21 +18,21 @@ const ThemeGallery = () => {
           title: 'Toggle Theme',
           element: (
             <XStack space={10}>
-              <NewButton
+              <Button
                 onPress={() => {
                   dispatch(setTheme('light'));
                 }}
               >
                 Light Theme
-              </NewButton>
-              <NewButton
+              </Button>
+              <Button
                 variant="primary"
                 onPress={() => {
                   dispatch(setTheme('dark'));
                 }}
               >
                 Night Theme
-              </NewButton>
+              </Button>
             </XStack>
           ),
         },

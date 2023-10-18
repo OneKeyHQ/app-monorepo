@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import useCookie from 'react-use-cookie';
 
-import { NewButton, Stack, YStack } from '@onekeyhq/components';
+import { Button, Stack, YStack } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -70,14 +70,14 @@ const DemoRootHome = () => {
         {
           title: '下一个例子',
           element: (
-            <NewButton
+            <Button
               variant="primary"
               onPress={() => {
                 navigation.push(DemoHomeTabRoutes.DemoRootHomeSearch);
               }}
             >
               跳转搜索 Demo
-            </NewButton>
+            </Button>
           ),
         },
         {
@@ -92,7 +92,7 @@ const DemoRootHome = () => {
         {
           title: '开启 ReactRenderTracker',
           element: (
-            <NewButton
+            <Button
               onPress={() => {
                 if (platformEnv.isNative) {
                   (changeRRTStatus as (value: boolean) => void)(!rrtStatus);
@@ -117,7 +117,7 @@ const DemoRootHome = () => {
               }}
             >
               开关 ReactRenderTracker
-            </NewButton>
+            </Button>
           ),
         },
       ]}

@@ -1,7 +1,7 @@
 import { useDispatch } from 'react-redux';
 import { ScrollView } from 'tamagui';
 
-import { NewButton, Stack, Text, XStack } from '@onekeyhq/components';
+import { Button, Stack, Text, XStack } from '@onekeyhq/components';
 
 import { setTheme } from '../../../../store/reducers/settings';
 
@@ -60,14 +60,14 @@ export function Layout({
       }}
     >
       <XStack padding="$4" display="flex" justifyContent="center">
-        <NewButton
+        <Button
           onPress={() => {
             dispatch(setTheme('light'));
           }}
         >
           Light Theme
-        </NewButton>
-        <NewButton
+        </Button>
+        <Button
           ml="$4"
           variant="primary"
           onPress={() => {
@@ -75,7 +75,7 @@ export function Layout({
           }}
         >
           Night Theme
-        </NewButton>
+        </Button>
       </XStack>
       <Stack marginHorizontal="auto" maxWidth="100%" width={576} space="$6">
         {description && (

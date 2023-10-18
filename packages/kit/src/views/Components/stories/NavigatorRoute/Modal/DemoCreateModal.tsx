@@ -3,7 +3,7 @@ import { useLayoutEffect } from 'react';
 
 import { Input } from 'tamagui';
 
-import { ModalContainer, NewButton, Stack, Toast } from '@onekeyhq/components';
+import { Button, ModalContainer, Stack, Toast } from '@onekeyhq/components';
 import type { ModalScreenProps } from '@onekeyhq/components/src/Navigation';
 import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
@@ -50,7 +50,7 @@ function DemoCreateViewModal({
           {
             title: '开始 Demo',
             element: (
-              <NewButton
+              <Button
                 variant="primary"
                 onPress={() => {
                   navigation.navigate(
@@ -62,7 +62,7 @@ function DemoCreateViewModal({
                 }}
               >
                 开始 Demo
-              </NewButton>
+              </Button>
             ),
           },
           {
@@ -114,7 +114,7 @@ function DemoCreateSearchModal({
         {
           title: '下一个例子',
           element: (
-            <NewButton
+            <Button
               variant="primary"
               onPress={() => {
                 navigation.navigate(
@@ -126,7 +126,7 @@ function DemoCreateSearchModal({
               }}
             >
               下一个例子
-            </NewButton>
+            </Button>
           ),
         },
         {
@@ -176,7 +176,7 @@ function DemoCreateOptionsModal({
         {
           title: '跳转到其他 Stack 的 Modal',
           element: (
-            <NewButton
+            <Button
               variant="primary"
               onPress={() => {
                 // @ts-expect-error
@@ -186,13 +186,13 @@ function DemoCreateOptionsModal({
               }}
             >
               跳转
-            </NewButton>
+            </Button>
           ),
         },
         {
           title: '关闭',
           element: (
-            <NewButton
+            <Button
               variant="primary"
               onPress={() => {
                 Toast.message({
@@ -202,7 +202,7 @@ function DemoCreateOptionsModal({
               }}
             >
               关闭并弹出 Toast
-            </NewButton>
+            </Button>
           ),
         },
         {

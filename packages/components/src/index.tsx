@@ -2,9 +2,7 @@ import Provider from './Provider';
 
 export * from './Text';
 export * from './Button';
-export * from './NewButton';
 export * from './IconButton';
-export * from './NewIconButton';
 export * from './Icon';
 export * from './Stack';
 export * from './Badge';

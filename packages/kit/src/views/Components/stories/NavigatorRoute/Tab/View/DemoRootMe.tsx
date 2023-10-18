@@ -1,4 +1,4 @@
-import { NewButton, Stack } from '@onekeyhq/components';
+import { Button, Stack } from '@onekeyhq/components';
 
 import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
@@ -18,20 +18,20 @@ const DemoRootMe = () => {
         {
           title: '切换到首页',
           element: (
-            <NewButton
+            <Button
               variant="primary"
               onPress={() => {
                 navigation.switchTab(DemoTabRoutes.Home);
               }}
             >
               跳转 Home
-            </NewButton>
+            </Button>
           ),
         },
         {
           title: '切换到 Developer Tab 的第二个页面',
           element: (
-            <NewButton
+            <Button
               variant="primary"
               onPress={() => {
                 navigation.switchTab(DemoTabRoutes.Developer, {
@@ -43,7 +43,7 @@ const DemoRootMe = () => {
               }}
             >
               跳转 Developer
-            </NewButton>
+            </Button>
           ),
         },
         {

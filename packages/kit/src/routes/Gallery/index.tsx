@@ -2,7 +2,7 @@ import { createStackNavigator } from '@onekeyhq/components';
 import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
 import ActionListGallery from '@onekeyhq/kit/src/views/Components/stories/ActionList';
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
-import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
+import ButtonGallery from '@onekeyhq/kit/src/views/Components/stories/Button';
 import CheckboxGallery from '@onekeyhq/kit/src/views/Components/stories/Checkbox';
 import CollapsibleTabViewGallery from '@onekeyhq/kit/src/views/Components/stories/CollapsibleTabView';
 import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
@@ -11,8 +11,6 @@ import IconButtonGallery from '@onekeyhq/kit/src/views/Components/stories/IconBu
 import InputGallery from '@onekeyhq/kit/src/views/Components/stories/Input';
 import LottieViewGallery from '@onekeyhq/kit/src/views/Components/stories/LottieView';
 import DemoRootApp from '@onekeyhq/kit/src/views/Components/stories/NavigatorRoute';
-import NewButtonGallery from '@onekeyhq/kit/src/views/Components/stories/NewButton';
-import NewIconButtonGallery from '@onekeyhq/kit/src/views/Components/stories/NewIconButton';
 import PopoverGallery from '@onekeyhq/kit/src/views/Components/stories/Popover';
 import ProgressGallery from '@onekeyhq/kit/src/views/Components/stories/Progress';
 import RadioGallery from '@onekeyhq/kit/src/views/Components/stories/Radio';
@@ -36,10 +34,9 @@ export enum GalleryRoutes {
   ComponentIcon = 'component/icon',
   ComponentButton = 'component/button',
   ComponentSelect = 'component/select',
-  ComponentIconButton = 'component/iconbutton',
+  ComponentIconButton = 'component/iconButton',
   ComponentBadge = 'component/badge',
   ComponentDialog = 'component/dialog',
-  ComponentNewButton = 'component/newButton',
   ComponentForm = 'component/form',
   ComponentNavigation = 'component/navigation',
   ComponentSwitch = 'component/switch',
@@ -50,7 +47,6 @@ export enum GalleryRoutes {
   ComponentToast = 'component/toast',
   ComponentCheckbox = 'component/checkbox',
   ComponentActionList = 'component/actionlist',
-  ComponentNewIconButton = 'component/newIconButton',
   ComponentProgress = 'component/progress',
   ComponentSlider = 'component/slider',
   ComponentTextArea = 'component/textArea',
@@ -72,8 +68,6 @@ export const stackScreenList = [
   },
   { name: GalleryRoutes.ComponentIcon, component: IconGallery },
   { name: GalleryRoutes.ComponentToast, component: ToastGallery },
-  { name: GalleryRoutes.ComponentIconButton, component: IconButtonGallery },
-  { name: GalleryRoutes.ComponentButton, component: ButtonsGallery },
   { name: GalleryRoutes.ComponentSelect, component: SelectGallery },
   { name: GalleryRoutes.ComponentBadge, component: BadgeGallery },
   { name: GalleryRoutes.ComponentInput, component: InputGallery },
@@ -84,11 +78,11 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentPopover, component: PopoverGallery },
   { name: GalleryRoutes.ComponentProgress, component: ProgressGallery },
   {
-    name: GalleryRoutes.ComponentNewIconButton,
-    component: NewIconButtonGallery,
+    name: GalleryRoutes.ComponentIconButton,
+    component: IconButtonGallery,
   },
   { name: GalleryRoutes.ComponentSwitch, component: SwitchGallery },
-  { name: GalleryRoutes.ComponentNewButton, component: NewButtonGallery },
+  { name: GalleryRoutes.ComponentButton, component: ButtonGallery },
   { name: GalleryRoutes.ComponentTextArea, component: TextAreaGallery },
   { name: GalleryRoutes.ComponentSlider, component: SliderGallery },
   {

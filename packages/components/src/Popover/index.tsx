@@ -1,7 +1,7 @@
 import { Popover as TMPopover } from 'tamagui';
 
 import { Divider } from '../Divider';
-import { NewIconButton } from '../NewIconButton';
+import { IconButton } from '../IconButton';
 import useSafeAreaInsets from '../Provider/hooks/useSafeAreaInsets';
 import { XStack, YStack } from '../Stack';
 import { Text } from '../Text';
@@ -132,7 +132,7 @@ export function Popover({
                 {title}
               </Text>
               <TMPopover.Close asChild>
-                <NewIconButton
+                <IconButton
                   icon="CrossedSmallOutline"
                   size="small"
                   $platform-native={{ hitSlop: 8 }}
