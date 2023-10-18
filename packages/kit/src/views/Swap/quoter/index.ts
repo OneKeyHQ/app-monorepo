@@ -8,6 +8,7 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IEncodedTxAptos } from '@onekeyhq/engine/src/vaults/impl/apt/types';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_APTOS, IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -65,6 +66,17 @@ type TransactionOrder = {
   orderId: string;
 };
 
+type ThorswapOrder = {
+  fromAsset: string;
+  userAddress: string;
+  amountIn: string;
+  amountOut: string;
+  amountOutMin: string;
+  memo: string;
+  expiration: string;
+  tcVault: string;
+};
+
 type ThorSwapData = {
   quoteId: string;
 };
@@ -92,6 +104,7 @@ type BuildTransactionHttpResponse = {
   errMsg?: string;
   result?: FetchQuoteHttpResult;
   thor?: ThorSwapData;
+  thorOrder?: ThorswapOrder;
 };
 
 type FetchQuoteHttpParams = {
@@ -218,6 +231,45 @@ export class SwapQuoter {
       });
     }
     return result;
+  }
+
+  async convertThorswapOrderToTransaction(
+    params: BuildTransactionParams,
+    order: ThorswapOrder,
+  ) {
+    const { tokenIn, networkIn, activeAccount, sellAmount } = params;
+    if (!sellAmount || !tokenIn) {
+      return;
+    }
+    if (!order.tcVault) {
+      throw new Error('failed to build transaction due to invalid tcVault');
+    }
+    const depositCoinAmt = new BigNumber(sellAmount)
+      .shiftedBy(-tokenIn.decimals)
+      .toFixed();
+    let result: TransactionData | undefined;
+    if (
+      !tokenIn.tokenIdOnNetwork &&
+      [
+        OnekeyNetwork.btc,
+        OnekeyNetwork.doge,
+        OnekeyNetwork.ltc,
+        OnekeyNetwork.bch,
+      ].includes(networkIn.id)
+    ) {
+      result = await backgroundApiProxy.engine.buildEncodedTxFromTransfer({
+        networkId: networkIn.id,
+        accountId: activeAccount.id,
+        transferInfo: {
+          from: activeAccount.address,
+          to: order.tcVault,
+          amount: depositCoinAmt,
+          opReturn: order.memo,
+        },
+      });
+      return result;
+    }
+    throw new Error('not support network');
   }
 
   async fetchLimitOrderQuote(params: ILimitOrderQuoteParams) {
@@ -488,6 +540,22 @@ export class SwapQuoter {
         },
         requestId,
       };
+    }
+    if (data.thorOrder) {
+      const transaction = await this.convertThorswapOrderToTransaction(
+        params,
+        data.thorOrder,
+      );
+      const result: BuildTransactionResponse = {
+        data: transaction,
+        result: data.result,
+      };
+      if (data.thor) {
+        result.attachment = {
+          thorswapQuoteId: data.thor.quoteId,
+        };
+      }
+      return result;
     }
     return undefined;
   }
