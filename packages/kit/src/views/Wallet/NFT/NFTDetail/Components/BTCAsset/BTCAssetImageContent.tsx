@@ -60,7 +60,7 @@ function BTCAssetImageContent(params: {
           </BlurView>
         </Box>
       ) : isVertical ? (
-        <CollectibleContent asset={asset} size={imageWidth} />
+        <CollectibleContent asset={asset} size={imageWidth} showOrigin />
       ) : (
         <Box
           alignSelf="stretch"

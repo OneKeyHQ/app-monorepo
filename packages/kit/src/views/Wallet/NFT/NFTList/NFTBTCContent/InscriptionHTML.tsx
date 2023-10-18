@@ -26,7 +26,8 @@ function InscriptionHTML({
     }
   }, []);
   const renderInscriptionHTML = useCallback(() => {
-    if (showOrigin) {
+    // some html content will cause native webview crash
+    if (showOrigin && !platformEnv.isNative) {
       return (
         <WebView
           containerProps={{
