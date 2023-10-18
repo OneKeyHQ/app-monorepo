@@ -1,7 +1,7 @@
 import { useDispatch } from 'react-redux';
 import { ScrollView } from 'tamagui';
 
-import { Button, Stack, Text, XStack } from '@onekeyhq/components';
+import { NewButton, Stack, Text, XStack } from '@onekeyhq/components';
 
 import { setTheme } from '../../../../store/reducers/settings';
 
@@ -60,22 +60,22 @@ export function Layout({
       }}
     >
       <XStack padding="$4" display="flex" justifyContent="center">
-        <Button
+        <NewButton
           onPress={() => {
             dispatch(setTheme('light'));
           }}
         >
-          <Button.Text>Light Theme</Button.Text>
-        </Button>
-        <Button
+          Light Theme
+        </NewButton>
+        <NewButton
           ml="$4"
-          buttonVariant="primary"
+          variant="primary"
           onPress={() => {
             dispatch(setTheme('dark'));
           }}
         >
-          <Button.Text>Night Theme</Button.Text>
-        </Button>
+          Night Theme
+        </NewButton>
       </XStack>
       <Stack marginHorizontal="auto" maxWidth="100%" width={576} space="$6">
         {description && (
@@ -108,9 +108,16 @@ export function Layout({
           <Stack>
             <Text variant="$headingXl">组件案例</Text>
           </Stack>
-          <Stack space="$4">
+          <Stack>
             {elements?.map((item, index) => (
-              <Stack space="$2" key={`elements-${index}`}>
+              <Stack
+                space="$2"
+                key={`elements-${index}`}
+                pb="$8"
+                mb="$8"
+                borderBottomWidth="$px"
+                borderBottomColor="$borderSubdued"
+              >
                 <Stack flexDirection="column">
                   <Text variant="$headingLg">{item.title}</Text>
                   {item.description && (

@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 
 import { XStack, YStack } from 'tamagui';
 
-import { Button, LottieView, Switch, Text } from '@onekeyhq/components';
+import { LottieView, NewButton, Switch, Text } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -64,27 +64,27 @@ const LottieViewGallery = () => {
                 />
               </XStack>
               <XStack space="$5">
-                <Button
+                <NewButton
                   onPress={() => {
                     ref.current?.play?.();
                   }}
                 >
-                  <Button.Text>play</Button.Text>
-                </Button>
-                <Button
+                  play
+                </NewButton>
+                <NewButton
                   onPress={() => {
                     ref.current?.pause?.();
                   }}
                 >
-                  <Button.Text>pause</Button.Text>
-                </Button>
-                <Button
+                  pause
+                </NewButton>
+                <NewButton
                   onPress={() => {
                     ref.current?.reset();
                   }}
                 >
-                  <Button.Text>reset</Button.Text>
-                </Button>
+                  reset
+                </NewButton>
               </XStack>
             </YStack>
           ),

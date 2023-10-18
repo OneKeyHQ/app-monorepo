@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useState } from 'react';
 
-import { Button, Stack } from '@onekeyhq/components';
+import { NewButton, Stack } from '@onekeyhq/components';
 import type { ModalNavigationProp } from '@onekeyhq/components/src/Navigation';
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
 import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
@@ -37,16 +37,16 @@ const DemoLockedViewModal = () => {
         {
           title: '开始 Demo',
           element: (
-            <Button
-              buttonVariant="primary"
+            <NewButton
+              variant="primary"
               onPress={() => {
                 navigation.pushModal(RootModalRoutes.DemoLockedModal, {
                   screen: DemoLockedModalRoutes.DemoConfigLockedModal,
                 });
               }}
             >
-              <Button.Text>开始 Demo</Button.Text>
-            </Button>
+              开始 Demo
+            </NewButton>
           ),
         },
         {
@@ -95,31 +95,31 @@ const DemoConfigLockedViewModal = () => {
         {
           title: '下一个例子',
           element: (
-            <Button
-              buttonVariant="primary"
+            <NewButton
+              variant="primary"
               onPress={() => {
                 navigation.pushModal(RootModalRoutes.DemoLockedModal, {
                   screen: DemoLockedModalRoutes.DemoManualLockedViewModal,
                 });
               }}
             >
-              <Button.Text>下一个例子</Button.Text>
-            </Button>
+              下一个例子
+            </NewButton>
           ),
         },
         {
           title: '取消锁定',
           element: (
-            <Button
-              buttonVariant="primary"
+            <NewButton
+              variant="primary"
               onPress={() => {
                 navigation.setOptions({
                   disableClose: false,
                 });
               }}
             >
-              <Button.Text>取消锁定</Button.Text>
-            </Button>
+              取消锁定
+            </NewButton>
           ),
         },
         {
@@ -168,46 +168,46 @@ const DemoManualLockedViewModal = () => {
         {
           title: '下一个例子',
           element: (
-            <Button
-              buttonVariant="primary"
+            <NewButton
+              variant="primary"
               onPress={() => {
                 navigation.pushModal(RootModalRoutes.DemoLockedModal, {
                   screen: DemoLockedModalRoutes.DemoRepeatManualLockedViewModal,
                 });
               }}
             >
-              <Button.Text>下一个例子</Button.Text>
-            </Button>
+              下一个例子
+            </NewButton>
           ),
         },
         {
           title: '锁定',
           element: (
-            <Button
-              buttonVariant="primary"
+            <NewButton
+              variant="primary"
               onPress={() => {
                 navigation.setOptions({
                   disableClose: true,
                 });
               }}
             >
-              <Button.Text>锁定</Button.Text>
-            </Button>
+              锁定
+            </NewButton>
           ),
         },
         {
           title: '取消锁定',
           element: (
-            <Button
-              buttonVariant="primary"
+            <NewButton
+              variant="primary"
               onPress={() => {
                 navigation.setOptions({
                   disableClose: false,
                 });
               }}
             >
-              <Button.Text>取消锁定</Button.Text>
-            </Button>
+              取消锁定
+            </NewButton>
           ),
         },
         {
@@ -257,21 +257,21 @@ const DemoRepeatManualLockedViewModal = () => {
         {
           title: '切换锁定',
           element: (
-            <Button
+            <NewButton
               onPress={() => {
                 setLocked((pre) => !pre);
               }}
             >
-              <Button.Text>切换锁定</Button.Text>
-            </Button>
+              切换锁定
+            </NewButton>
           ),
         },
         {
           title: '关闭',
           element: (
-            <Button buttonVariant="primary" onPress={navigation.popStack}>
-              <Button.Text>关闭</Button.Text>
-            </Button>
+            <NewButton variant="primary" onPress={navigation.popStack}>
+              关闭
+            </NewButton>
           ),
         },
         {

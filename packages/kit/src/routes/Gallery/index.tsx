@@ -11,6 +11,8 @@ import IconButtonGallery from '@onekeyhq/kit/src/views/Components/stories/IconBu
 import InputGallery from '@onekeyhq/kit/src/views/Components/stories/Input';
 import LottieViewGallery from '@onekeyhq/kit/src/views/Components/stories/LottieView';
 import DemoRootApp from '@onekeyhq/kit/src/views/Components/stories/NavigatorRoute';
+import NewButtonGallery from '@onekeyhq/kit/src/views/Components/stories/NewButton';
+import NewIconButtonGallery from '@onekeyhq/kit/src/views/Components/stories/NewIconButton';
 import PopoverGallery from '@onekeyhq/kit/src/views/Components/stories/Popover';
 import ProgressGallery from '@onekeyhq/kit/src/views/Components/stories/Progress';
 import RadioGallery from '@onekeyhq/kit/src/views/Components/stories/Radio';
@@ -37,6 +39,7 @@ export enum GalleryRoutes {
   ComponentIconButton = 'component/iconbutton',
   ComponentBadge = 'component/badge',
   ComponentDialog = 'component/dialog',
+  ComponentNewButton = 'component/newButton',
   ComponentForm = 'component/form',
   ComponentNavigation = 'component/navigation',
   ComponentSwitch = 'component/switch',
@@ -47,6 +50,7 @@ export enum GalleryRoutes {
   ComponentToast = 'component/toast',
   ComponentCheckbox = 'component/checkbox',
   ComponentActionList = 'component/actionlist',
+  ComponentNewIconButton = 'component/newIconButton',
   ComponentProgress = 'component/progress',
   ComponentSlider = 'component/slider',
   ComponentTextArea = 'component/textArea',
@@ -79,7 +83,12 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentActionList, component: ActionListGallery },
   { name: GalleryRoutes.ComponentPopover, component: PopoverGallery },
   { name: GalleryRoutes.ComponentProgress, component: ProgressGallery },
+  {
+    name: GalleryRoutes.ComponentNewIconButton,
+    component: NewIconButtonGallery,
+  },
   { name: GalleryRoutes.ComponentSwitch, component: SwitchGallery },
+  { name: GalleryRoutes.ComponentNewButton, component: NewButtonGallery },
   { name: GalleryRoutes.ComponentTextArea, component: TextAreaGallery },
   { name: GalleryRoutes.ComponentSlider, component: SliderGallery },
   {

@@ -3,7 +3,7 @@ import { useLayoutEffect } from 'react';
 
 import { Input } from 'tamagui';
 
-import { Button, ModalContainer, Stack, Toast } from '@onekeyhq/components';
+import { ModalContainer, NewButton, Stack, Toast } from '@onekeyhq/components';
 import type { ModalScreenProps } from '@onekeyhq/components/src/Navigation';
 import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
@@ -50,8 +50,8 @@ function DemoCreateViewModal({
           {
             title: '开始 Demo',
             element: (
-              <Button
-                buttonVariant="primary"
+              <NewButton
+                variant="primary"
                 onPress={() => {
                   navigation.navigate(
                     DemoCreateModalRoutes.DemoCreateSearchModal,
@@ -61,8 +61,8 @@ function DemoCreateViewModal({
                   );
                 }}
               >
-                <Button.Text>开始 Demo</Button.Text>
-              </Button>
+                开始 Demo
+              </NewButton>
             ),
           },
           {
@@ -114,8 +114,8 @@ function DemoCreateSearchModal({
         {
           title: '下一个例子',
           element: (
-            <Button
-              buttonVariant="primary"
+            <NewButton
+              variant="primary"
               onPress={() => {
                 navigation.navigate(
                   DemoCreateModalRoutes.DemoCreateOptionsModal,
@@ -125,8 +125,8 @@ function DemoCreateSearchModal({
                 );
               }}
             >
-              <Button.Text>下一个例子</Button.Text>
-            </Button>
+              下一个例子
+            </NewButton>
           ),
         },
         {
@@ -176,8 +176,8 @@ function DemoCreateOptionsModal({
         {
           title: '跳转到其他 Stack 的 Modal',
           element: (
-            <Button
-              buttonVariant="primary"
+            <NewButton
+              variant="primary"
               onPress={() => {
                 // @ts-expect-error
                 navigation.navigate(DemoRootRoutes.Modal, {
@@ -185,15 +185,15 @@ function DemoCreateOptionsModal({
                 });
               }}
             >
-              <Button.Text>跳转</Button.Text>
-            </Button>
+              跳转
+            </NewButton>
           ),
         },
         {
           title: '关闭',
           element: (
-            <Button
-              buttonVariant="primary"
+            <NewButton
+              variant="primary"
               onPress={() => {
                 Toast.message({
                   title: 'Close Modal',
@@ -201,8 +201,8 @@ function DemoCreateOptionsModal({
                 navigation.getParent()?.goBack?.();
               }}
             >
-              <Button.Text>关闭并弹出 Toast</Button.Text>
-            </Button>
+              关闭并弹出 Toast
+            </NewButton>
           ),
         },
         {

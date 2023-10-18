@@ -21,10 +21,10 @@ import {
   withStaticProperties,
 } from 'tamagui';
 
-import { Button } from '../Button';
 import { Form, useForm } from '../Form';
 import { type ICON_NAMES, Icon } from '../Icon';
-import { IconButton } from '../IconButton';
+import { NewButton } from '../NewButton';
+import { NewIconButton } from '../NewIconButton';
 import { removePortalComponent, setPortalComponent } from '../Portal';
 import { Stack, XStack, YStack } from '../Stack';
 import { Text } from '../Text';
@@ -44,7 +44,7 @@ function Trigger({
       const handleOpen = (child.props as ButtonProps).onPress
         ? composeEventHandlers((child.props as ButtonProps).onPress, onOpen)
         : onOpen;
-      if (child.type === Button) {
+      if (child.type === NewButton) {
         return cloneElement(child, { onPress: handleOpen } as ButtonProps);
       }
       return <Stack onPress={handleOpen}>{children}</Stack>;
@@ -66,10 +66,8 @@ export interface ModalProps {
   renderContent?: React.ReactNode;
   onConfirm?: () => void | Promise<boolean>;
   onCancel?: () => void;
-  confirmButtonProps?: GetProps<typeof Button>;
-  cancelButtonProps?: GetProps<typeof Button>;
-  confirmButtonTextProps?: GetProps<typeof Button.Text>;
-  cancelButtonTextProps?: GetProps<typeof Button.Text>;
+  confirmButtonProps?: GetProps<typeof NewButton>;
+  cancelButtonProps?: GetProps<typeof NewButton>;
   dismissOnSnapToBottom?: boolean;
 }
 
@@ -86,9 +84,7 @@ function DialogFrame({
   onCancel,
   variant,
   confirmButtonProps,
-  confirmButtonTextProps,
   cancelButtonProps,
-  cancelButtonTextProps,
   backdrop = false,
   dismissOnSnapToBottom = true,
 }: ModalProps) {
@@ -149,41 +145,36 @@ function DialogFrame({
             </Text>
           )}
         </Stack>
-        <IconButton size="small" onPress={handleCancelButtonPress}>
-          <IconButton.Icon name="CrossedSmallOutline" />
-        </IconButton>
+        <NewIconButton
+          icon="CrossedSmallOutline"
+          size="small"
+          onPress={handleCancelButtonPress}
+        />
       </XStack>
       {renderContent && <YStack pt="$5">{renderContent}</YStack>}
       <XStack justifyContent="center" pt="$5">
-        <Button
-          buttonVariant="secondary"
+        <NewButton
           flex={1}
-          size="medium"
           $md={{
             size: 'large',
           }}
           {...cancelButtonProps}
           onPress={handleCancelButtonPress}
         >
-          <Button.Text paddingHorizontal="$3" {...cancelButtonTextProps}>
-            Cancel
-          </Button.Text>
-        </Button>
-        <Button
-          buttonVariant={variant === 'destructive' ? 'destructive' : 'primary'}
+          Cancel
+        </NewButton>
+        <NewButton
+          variant={variant === 'destructive' ? 'destructive' : 'primary'}
           flex={1}
           ml="$2.5"
-          size="medium"
           $md={{
             size: 'large',
           }}
           {...confirmButtonProps}
           onPress={handleConfirmButtonPress}
         >
-          <Button.Text paddingHorizontal="$3" {...confirmButtonTextProps}>
-            Confirm
-          </Button.Text>
-        </Button>
+          Confirm
+        </NewButton>
       </XStack>
     </Stack>
   );

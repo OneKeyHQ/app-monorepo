@@ -1,7 +1,6 @@
-import * as Burnt from 'burnt';
-import { getTokens, useTheme } from 'tamagui';
+import { useTheme } from 'tamagui';
 
-import { Button, Icon, Toast, YStack } from '@onekeyhq/components';
+import { NewButton, Toast, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -19,33 +18,33 @@ const ToastGallery = () => {
           title: 'Native',
           element: (
             <YStack space="$2" justifyContent="center">
-              <Button
+              <NewButton
                 onPress={() => {
                   Toast.success({
                     title: 'Account created',
                   });
                 }}
               >
-                <Button.Text>Success</Button.Text>
-              </Button>
-              <Button
+                Success
+              </NewButton>
+              <NewButton
                 onPress={() => {
                   Toast.error({
                     title: 'Create account failed',
                   });
                 }}
               >
-                <Button.Text>Error</Button.Text>
-              </Button>
-              <Button
+                Error
+              </NewButton>
+              <NewButton
                 onPress={() => {
                   Toast.message({
                     title: 'Address copied',
                   });
                 }}
               >
-                <Button.Text>Default</Button.Text>
-              </Button>
+                Default
+              </NewButton>
             </YStack>
           ),
         },

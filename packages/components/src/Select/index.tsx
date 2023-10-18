@@ -11,7 +11,7 @@ import { LinearGradient } from 'tamagui/linear-gradient';
 
 import { Divider } from '../Divider';
 import { Icon } from '../Icon';
-import { IconButton } from '../IconButton';
+import { NewIconButton } from '../NewIconButton';
 import useSafeAreaInsets from '../Provider/hooks/useSafeAreaInsets';
 import { XStack, YStack } from '../Stack';
 import { Text } from '../Text';
@@ -300,15 +300,13 @@ function Select({
                 <Text variant="$headingXl" color="$text">
                   {title}
                 </Text>
-                <IconButton
-                  buttonVariant="secondary"
+                <NewIconButton
+                  icon="CrossedSmallOutline"
                   size="small"
                   hitSlop={8}
                   aria-label="Close"
                   onPress={() => setOpen(false)}
-                >
-                  <IconButton.Icon name="CrossedSmallOutline" />
-                </IconButton>
+                />
               </XStack>
               {/* divider */}
               <YStack

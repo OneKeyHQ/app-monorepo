@@ -1,6 +1,6 @@
 import { Input } from 'tamagui';
 
-import { Button, Stack } from '@onekeyhq/components';
+import { NewButton, Stack } from '@onekeyhq/components';
 
 import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
@@ -25,8 +25,8 @@ const DemoRootDeveloper = () => {
         {
           title: '打开 Developer 下一个页面',
           element: (
-            <Button
-              buttonVariant="primary"
+            <NewButton
+              variant="primary"
               onPress={() => {
                 navigation.push(
                   DemoDeveloperTabRoutes.DemoRootDeveloperOptions,
@@ -36,15 +36,15 @@ const DemoRootDeveloper = () => {
                 );
               }}
             >
-              <Button.Text>下一个页面</Button.Text>
-            </Button>
+              下一个页面
+            </NewButton>
           ),
         },
         {
           title: '这是一个 Modal 的演示',
           element: (
-            <Button
-              buttonVariant="primary"
+            <NewButton
+              variant="primary"
               onPress={() => {
                 navigation.pushModal(RootModalRoutes.DemoCreateModal, {
                   screen: DemoCreateModalRoutes.DemoCreateModal,
@@ -54,49 +54,49 @@ const DemoRootDeveloper = () => {
                 });
               }}
             >
-              <Button.Text>打开 Modal Demo</Button.Text>
-            </Button>
+              打开 Modal Demo
+            </NewButton>
           ),
         },
         {
           title: '这是一个可以锁定的 Modal 的演示',
           element: (
-            <Button
-              buttonVariant="primary"
+            <NewButton
+              variant="primary"
               onPress={() => {
                 navigation.pushModal(RootModalRoutes.DemoLockedModal);
               }}
             >
-              <Button.Text>打开 Modal Demo</Button.Text>
-            </Button>
+              打开 Modal Demo
+            </NewButton>
           ),
         },
         {
           title: '打开 Modal (Big List Demo)',
           element: (
-            <Button
-              buttonVariant="primary"
+            <NewButton
+              variant="primary"
               onPress={() => {
                 navigation.pushModal(RootModalRoutes.DemoCreateModal, {
                   screen: DemoCreateModalRoutes.DemoBigListModal,
                 });
               }}
             >
-              <Button.Text>打开 Modal Demo</Button.Text>
-            </Button>
+              打开 Modal Demo
+            </NewButton>
           ),
         },
         {
           title: 'Modal 覆盖测试',
           element: (
-            <Button
-              buttonVariant="primary"
+            <NewButton
+              variant="primary"
               onPress={() => {
                 navigation.pushModal(RootModalRoutes.DemoCoverageModal);
               }}
             >
-              <Button.Text>打开 Modal Demo</Button.Text>
-            </Button>
+              打开 Modal Demo
+            </NewButton>
           ),
         },
         {

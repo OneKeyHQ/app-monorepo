@@ -1,6 +1,6 @@
 import { useRoute } from '@react-navigation/core';
 
-import { Button, Stack } from '@onekeyhq/components';
+import { NewButton, Stack } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import { Layout } from '../../../utils/Layout';
@@ -26,21 +26,21 @@ const DemoRootDeveloperOptions = () => {
         {
           title: '打开 Dev 页面',
           element: (
-            <Button
-              buttonVariant="primary"
+            <NewButton
+              variant="primary"
               onPress={() => {
                 navigation.push(DemoDeveloperTabRoutes.DemoRootDeveloper);
               }}
             >
-              <Button.Text>打开 Dev 页面</Button.Text>
-            </Button>
+              打开 Dev 页面
+            </NewButton>
           ),
         },
         {
           title: 'Reset 到 Dev 页面',
           element: (
-            <Button
-              buttonVariant="primary"
+            <NewButton
+              variant="primary"
               onPress={() => {
                 navigation.reset({
                   index: 0,
@@ -53,8 +53,8 @@ const DemoRootDeveloperOptions = () => {
                 });
               }}
             >
-              <Button.Text>Reset Dev 页面</Button.Text>
-            </Button>
+              Reset Dev 页面
+            </NewButton>
           ),
         },
         {

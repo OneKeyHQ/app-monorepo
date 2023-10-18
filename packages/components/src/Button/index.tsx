@@ -69,7 +69,7 @@ function ButtonStack({ children, ...restProps }: PropsWithChildren<unknown>) {
   );
 }
 
-export const ButtonFrame = styled(ButtonStack, {
+export const ButtonFrame = styled(Stack, {
   name: 'Button',
   tag: 'button',
   role: 'button',

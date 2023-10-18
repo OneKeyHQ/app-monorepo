@@ -1,5 +1,5 @@
-import { Button } from '../Button';
 import { Checkbox } from '../Checkbox';
+import { NewButton } from '../NewButton';
 import { Stack, XStack } from '../Stack';
 
 import type { GetProps } from 'tamagui';
@@ -7,10 +7,8 @@ import type { GetProps } from 'tamagui';
 type ModalButtonGroupProps = {
   onConfirm?: () => void | Promise<boolean>;
   onCancel?: () => void;
-  confirmButtonProps?: GetProps<typeof Button>;
-  cancelButtonProps?: GetProps<typeof Button>;
-  confirmButtonTextProps?: GetProps<typeof Button.Text>;
-  cancelButtonTextProps?: GetProps<typeof Button.Text>;
+  confirmButtonProps?: GetProps<typeof NewButton>;
+  cancelButtonProps?: GetProps<typeof NewButton>;
 };
 
 function ModalButtonGroup({
@@ -18,8 +16,6 @@ function ModalButtonGroup({
   onConfirm,
   confirmButtonProps,
   cancelButtonProps,
-  confirmButtonTextProps,
-  cancelButtonTextProps,
 }: ModalButtonGroupProps) {
   return (
     <XStack
@@ -34,8 +30,7 @@ function ModalButtonGroup({
       }}
     >
       {(!!cancelButtonProps || !!onCancel) && (
-        <Button
-          buttonVariant="secondary"
+        <NewButton
           $sm={{
             flex: 1,
             size: 'large',
@@ -46,14 +41,12 @@ function ModalButtonGroup({
           onPress={onCancel}
           {...cancelButtonProps}
         >
-          <Button.Text paddingHorizontal="$3" {...cancelButtonTextProps}>
-            Cancel
-          </Button.Text>
-        </Button>
+          Cancel
+        </NewButton>
       )}
       {(!!confirmButtonProps || !!onConfirm) && (
-        <Button
-          buttonVariant="primary"
+        <NewButton
+          variant="primary"
           $sm={{
             flex: 1,
             size: 'large',
@@ -64,10 +57,8 @@ function ModalButtonGroup({
           onPress={onConfirm}
           {...confirmButtonProps}
         >
-          <Button.Text paddingHorizontal="$3" {...confirmButtonTextProps}>
-            Confirm
-          </Button.Text>
-        </Button>
+          Confirm
+        </NewButton>
       )}
     </XStack>
   );
@@ -85,8 +76,6 @@ export function ModalContainer({
   onConfirm,
   confirmButtonProps,
   cancelButtonProps,
-  confirmButtonTextProps,
-  cancelButtonTextProps,
 }: ModalContainerProps) {
   return (
     <Stack flex={1}>
@@ -124,8 +113,6 @@ export function ModalContainer({
           onConfirm={onConfirm}
           confirmButtonProps={confirmButtonProps}
           cancelButtonProps={cancelButtonProps}
-          confirmButtonTextProps={confirmButtonTextProps}
-          cancelButtonTextProps={cancelButtonTextProps}
         />
       </Stack>
     </Stack>

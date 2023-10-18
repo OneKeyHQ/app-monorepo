@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { Button, Stack, Text } from '@onekeyhq/components';
+import { NewButton, Stack, Text } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -39,15 +39,9 @@ export default function HomePageHeaderView({
         <Text>Header View Simple</Text>
         <Text>{`Header Height ${headerHighMode.toString()}`}</Text>
         {headerHighMode && <Text py="$10">Very high</Text>}
-        <Button onPress={headerHeightCall}>
-          <Button.Text>切换高度</Button.Text>
-        </Button>
-        <Button onPress={switchDemoVisibleCall}>
-          <Button.Text>切换 Demo3 显示</Button.Text>
-        </Button>
-        <Button onPress={onNextPageCall}>
-          <Button.Text>下一页</Button.Text>
-        </Button>
+        <NewButton onPress={headerHeightCall}>切换高度</NewButton>
+        <NewButton onPress={switchDemoVisibleCall}>切换 Demo3 显示</NewButton>
+        <NewButton onPress={onNextPageCall}>下一页</NewButton>
       </Stack>
     ),
     [headerHighMode, headerHeightCall, onNextPageCall, switchDemoVisibleCall],

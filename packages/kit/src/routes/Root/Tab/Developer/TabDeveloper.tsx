@@ -6,7 +6,7 @@ import { useDispatch } from 'react-redux';
 import useCookie from 'react-use-cookie';
 import { ScrollView } from 'tamagui';
 
-import { Button, Stack, Text, XStack, YStack } from '@onekeyhq/components';
+import { NewButton, Stack, Text, XStack, YStack } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { AppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
@@ -74,7 +74,7 @@ const TabDeveloper = () => {
       gap="$5"
     >
       <PartContainer title="Components">
-        <Button
+        <NewButton
           onPress={() => {
             navigation.push(RootRoutes.Gallery, {
               screen: GalleryRoutes.Components,
@@ -84,53 +84,53 @@ const TabDeveloper = () => {
             });
           }}
         >
-          <Button.Text>Gallery</Button.Text>
-        </Button>
+          Gallery
+        </NewButton>
       </PartContainer>
 
       <PartContainer title="App Settings">
         <XStack gap="$4" display="flex" justifyContent="center">
-          <Button
+          <NewButton
             flex={1}
             onPress={() => {
               dispatch(setTheme('light'));
             }}
           >
-            <Button.Text>Light Theme</Button.Text>
-          </Button>
-          <Button
+            Light Theme
+          </NewButton>
+          <NewButton
             flex={1}
-            buttonVariant="primary"
+            variant="primary"
             onPress={() => {
               dispatch(setTheme('dark'));
             }}
           >
-            <Button.Text>Night Theme</Button.Text>
-          </Button>
+            Night Theme
+          </NewButton>
         </XStack>
         <XStack gap="$4" display="flex" justifyContent="center">
-          <Button
+          <NewButton
             flex={1}
             onPress={() => {
               dispatch(setLocale('en-US'));
             }}
           >
-            <Button.Text>英文</Button.Text>
-          </Button>
-          <Button
+            英文
+          </NewButton>
+          <NewButton
             flex={1}
-            buttonVariant="primary"
+            variant="primary"
             onPress={() => {
               dispatch(setLocale('zh-CN'));
             }}
           >
-            <Button.Text>中文</Button.Text>
-          </Button>
+            中文
+          </NewButton>
         </XStack>
       </PartContainer>
 
       <PartContainer title="Debug Tools">
-        <Button
+        <NewButton
           onPress={() => {
             if (platformEnv.isNative) {
               (changeRRTStatus as (value: boolean) => void)(!rrtStatus);
@@ -153,19 +153,19 @@ const TabDeveloper = () => {
           }}
         >
           {platformEnv.isNative ? (
-            <Button.Text>
+            <>
               {rrtStatus
                 ? 'Disabled react-render-tracker'
                 : 'Enabled react-render-tracker'}
-            </Button.Text>
+            </>
           ) : (
-            <Button.Text>
+            <>
               {rrtStatus === '1'
                 ? 'Disabled react-render-tracker'
                 : 'Enabled react-render-tracker'}
-            </Button.Text>
+            </>
           )}
-        </Button>
+        </NewButton>
       </PartContainer>
     </ScrollView>
   );

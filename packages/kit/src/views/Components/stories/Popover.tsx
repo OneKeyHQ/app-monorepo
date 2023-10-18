@@ -1,4 +1,4 @@
-import { Button, Popover, Stack, Text } from '@onekeyhq/components';
+import { NewButton, Popover, Stack, Text } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -13,11 +13,7 @@ const PopoverGallery = () => (
         element: (
           <Popover
             title="Popover Demo"
-            renderTrigger={
-              <Button>
-                <Button.Text>Open</Button.Text>
-              </Button>
-            }
+            renderTrigger={<NewButton>Open</NewButton>}
             renderContent={
               <Stack space="$4" p="$5">
                 <Text>
@@ -25,9 +21,7 @@ const PopoverGallery = () => (
                   exercitation occaecat minim incididunt non est est voluptate.
                 </Text>
                 <Popover.Close>
-                  <Button buttonVariant="primary">
-                    <Button.Text>Button</Button.Text>
-                  </Button>
+                  <NewButton variant="primary">Button</NewButton>
                 </Popover.Close>
               </Stack>
             }

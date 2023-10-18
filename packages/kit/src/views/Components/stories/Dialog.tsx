@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { Input } from 'tamagui';
 
-import { Button, Dialog, Text, YStack } from '@onekeyhq/components';
+import { Dialog, NewButton, Text, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -37,7 +37,7 @@ const ControlledDialogByTextOnButton = () => {
       onOpen={() => {
         changeIsOpen(true);
       }}
-      renderTrigger={<Button>Trigger Modal by Button</Button>}
+      renderTrigger={<NewButton>Trigger Modal by Button</NewButton>}
       renderContent={<Text>Overlay Content by Text Trigger</Text>}
       onClose={() => {
         changeIsOpen(false);
@@ -58,13 +58,13 @@ const ControlledDialogByTextOnButtonWithOnPress = () => {
         changeIsOpen(true);
       }}
       renderTrigger={
-        <Button
+        <NewButton
           onPress={() => {
             console.log('trigger');
           }}
         >
           Trigger Modal by Button with onPress Event
-        </Button>
+        </NewButton>
       }
       renderContent={<Text>Overlay Content by Text Trigger</Text>}
       onClose={() => {
@@ -78,9 +78,9 @@ const ControlledDialogByButton = () => {
   const [isOpen, changeIsOpen] = useState(false);
   return (
     <>
-      <Button onPress={() => changeIsOpen(true)}>
-        <Button.Text>Open Modal By Button</Button.Text>
-      </Button>
+      <NewButton onPress={() => changeIsOpen(true)}>
+        Open Modal By Button
+      </NewButton>
       <Dialog
         backdrop
         title="Lorem ipsum"
@@ -124,7 +124,7 @@ const DialogGallery = () => (
         title: '命令式 API',
         element: (
           <YStack>
-            <Button
+            <NewButton
               onPress={() =>
                 Dialog.confirm({
                   title: 'Lorem ipsum',
@@ -136,8 +136,8 @@ const DialogGallery = () => (
                 })
               }
             >
-              <Button.Text>Confirm</Button.Text>
-            </Button>
+              Confirm
+            </NewButton>
           </YStack>
         ),
       },
@@ -145,7 +145,7 @@ const DialogGallery = () => (
         title: '命令式 API, Confirm Button Loading',
         element: (
           <YStack>
-            <Button
+            <NewButton
               onPress={() =>
                 Dialog.confirm({
                   title: 'Lorem ipsum',
@@ -162,9 +162,9 @@ const DialogGallery = () => (
                 })
               }
             >
-              <Button.Text>load remote data successfully</Button.Text>
-            </Button>
-            <Button
+              load remote data successfully
+            </NewButton>
+            <NewButton
               mt="$4"
               onPress={() =>
                 Dialog.confirm({
@@ -183,8 +183,8 @@ const DialogGallery = () => (
                 })
               }
             >
-              <Button.Text>load remote data failed</Button.Text>
-            </Button>
+              load remote data failed
+            </NewButton>
           </YStack>
         ),
       },
@@ -192,7 +192,7 @@ const DialogGallery = () => (
         title: 'Dialog Form',
         element: (
           <YStack>
-            <Button
+            <NewButton
               mt="$4"
               onPress={() =>
                 Dialog.confirm({
@@ -250,8 +250,8 @@ const DialogGallery = () => (
                 })
               }
             >
-              <Button.Text>Open Dialog Form</Button.Text>
-            </Button>
+              Open Dialog Form
+            </NewButton>
           </YStack>
         ),
       },

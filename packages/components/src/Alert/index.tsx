@@ -10,9 +10,9 @@ import {
 import { StyleSheet } from 'react-native';
 import { createStyledContext, styled } from 'tamagui';
 
-import { Button } from '../Button';
 import { Icon } from '../Icon';
-import { IconButton } from '../IconButton';
+import { NewButton } from '../NewButton';
+import { NewIconButton } from '../NewIconButton';
 import { Stack, XStack, YStack } from '../Stack';
 import { Text } from '../Text';
 
@@ -122,29 +122,28 @@ export const Alert: FC<AlertProps> = ({
         </Text>
         {action ? (
           <XStack pt="$2" space="$4" alignItems="center">
-            <Button
-              size="small"
-              buttonVariant="secondary"
-              onPress={action.onPrimaryPress}
-            >
-              <Button.Text>{action.primary}</Button.Text>
-            </Button>
+            <NewButton size="small" onPress={action.onPrimaryPress}>
+              {action.primary}
+            </NewButton>
             {action.secondary ? (
-              <Button
+              <NewButton
                 size="small"
-                buttonVariant="tertiary"
+                variant="tertiary"
                 onPress={action.onSecondaryPress}
               >
-                <Button.Text> {action.secondary}</Button.Text>
-              </Button>
+                {action.secondary}
+              </NewButton>
             ) : null}
           </XStack>
         ) : null}
       </YStack>
       {closable ? (
-        <IconButton size="small" buttonVariant="tertiary" onPress={onClose}>
-          <IconButton.Icon name="CrossedSmallSolid" />
-        </IconButton>
+        <NewIconButton
+          icon="CrossedSmallSolid"
+          size="small"
+          variant="tertiary"
+          onPress={onClose}
+        />
       ) : null}
     </AlertFrame>
   );
