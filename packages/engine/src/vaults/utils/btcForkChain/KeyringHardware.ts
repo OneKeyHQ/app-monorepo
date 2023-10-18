@@ -1,3 +1,4 @@
+import { bytesToHex } from '@noble/hashes/utils';
 import * as BitcoinJS from 'bitcoinjs-lib';
 
 import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
@@ -336,8 +337,15 @@ export class KeyringHardware extends KeyringHardwareBase {
   private buildHardwareOutput = async (
     output: TxOutput,
   ): Promise<Messages.TxOutputType> => {
-    const { isCharge, bip44Path } = output.payload || {};
+    const { isCharge, bip44Path, opReturn } = output.payload || {};
 
+    if (opReturn && typeof opReturn === 'string' && opReturn.length > 0) {
+      return {
+        script_type: 'PAYTOOPRETURN',
+        amount: '0',
+        op_return_data: bytesToHex(Buffer.from(opReturn)),
+      };
+    }
     if (isCharge && bip44Path) {
       const { getHDPath, getOutputScriptType } = await CoreSDKLoader();
       const addressN = getHDPath(bip44Path);

@@ -126,16 +126,6 @@ function normalizeConfig({
       platform === 'web' && !isDev ? new SubresourceIntegrityPlugin() : null,
     ].filter(Boolean);
 
-    // Compile entrypoints and dynamic imports only when they are in use.
-    if (isDev) {
-      config.experiments = config.experiments || {};
-      config.experiments.lazyCompilation = {
-        imports: true,
-        entries: false,
-        test: /engine/,
-      };
-    }
-
     // add devServer proxy
     if (config.devServer) {
       config.devServer.proxy = {
