@@ -1,0 +1,133 @@
+diff --git a/node_modules/@react-navigation/native-stack/src/types.tsx b/node_modules/@react-navigation/native-stack/src/types.tsx
+index 206fb0b..60d9944 100644
+--- a/node_modules/@react-navigation/native-stack/src/types.tsx
++++ b/node_modules/@react-navigation/native-stack/src/types.tsx
+@@ -97,6 +97,8 @@ export type HeaderButtonProps = {
+    * Whether it's possible to navigate back in stack.
+    */
+   canGoBack: boolean;
++
++  disableClose?: boolean;
+ };
+ 
+ export type HeaderBackButtonProps = HeaderButtonProps & {
+@@ -490,6 +492,9 @@ export type NativeStackNavigationOptions = {
+    * Only supported on iOS and Android.
+    */
+   freezeOnBlur?: boolean;
++
++  disableClose?: boolean;
++  allowDisableClose?: boolean;
+ };
+ 
+ export type NativeStackNavigatorProps = DefaultNavigatorOptions<
+diff --git a/node_modules/@react-navigation/native-stack/src/views/HeaderConfig.tsx b/node_modules/@react-navigation/native-stack/src/views/HeaderConfig.tsx
+index d144a4c..c424d7a 100644
+--- a/node_modules/@react-navigation/native-stack/src/views/HeaderConfig.tsx
++++ b/node_modules/@react-navigation/native-stack/src/views/HeaderConfig.tsx
+@@ -29,6 +29,7 @@ type Props = NativeStackNavigationOptions & {
+   headerHeight: number;
+   route: Route<string>;
+   canGoBack: boolean;
++  disableClose?: boolean;
+ };
+ 
+ export default function HeaderConfig({
+@@ -60,6 +61,7 @@ export default function HeaderConfig({
+   route,
+   title,
+   canGoBack,
++  disableClose,
+ }: Props): JSX.Element {
+   const { colors } = useTheme();
+   const tintColor =
+@@ -104,6 +106,7 @@ export default function HeaderConfig({
+     tintColor,
+     canGoBack,
+     label: headerBackTitle,
++    disableClose,
+   });
+   const headerRightElement = headerRight?.({
+     tintColor,
+diff --git a/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx b/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
+index 5b9fb99..04c3c8f 100644
+--- a/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
++++ b/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
+@@ -17,7 +17,7 @@ import {
+   useTheme,
+ } from '@react-navigation/native';
+ import * as React from 'react';
+-import { Platform, StyleSheet, View } from 'react-native';
++import { BackHandler, Platform, StyleSheet, View } from 'react-native';
+ import {
+   useSafeAreaFrame,
+   useSafeAreaInsets,
+@@ -160,6 +160,8 @@ const SceneView = ({
+     statusBarTranslucent,
+     statusBarColor,
+     freezeOnBlur,
++    disableClose,
++    allowDisableClose
+   } = options;
+ 
+   let {
+@@ -170,6 +172,17 @@ const SceneView = ({
+     gestureDirection = presentation === 'card' ? 'horizontal' : 'vertical',
+   } = options;
+ 
++  const gestureEnabledOverride = (allowDisableClose && disableClose && Platform.OS === 'ios') ? false : gestureEnabled;
++  let presentationOverride = (allowDisableClose && Platform.OS === 'ios') ? 'modal' : presentation;
++
++  React.useEffect(() => {
++    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
++      if (disableClose) return true;
++    });
++
++    return () => subscription.remove();
++  }, [disableClose]);
++
+   if (gestureDirection === 'vertical' && Platform.OS === 'ios') {
+     // for `vertical` direction to work, we need to set `fullScreenGestureEnabled` to `true`
+     // so the screen can be dismissed from any point on screen.
+@@ -196,14 +209,14 @@ const SceneView = ({
+   if (index === 0) {
+     // first screen should always be treated as `card`, it resolves problems with no header animation
+     // for navigator with first screen as `modal` and the next as `card`
+-    presentation = 'card';
++    presentationOverride = 'card';
+   }
+ 
+   const insets = useSafeAreaInsets();
+   const frame = useSafeAreaFrame();
+ 
+   // `modal` and `formSheet` presentations do not take whole screen, so should not take the inset.
+-  const isModal = presentation === 'modal' || presentation === 'formSheet';
++  const isModal = presentationOverride === 'modal' || presentationOverride === 'formSheet';
+ 
+   // Modals are fullscreen in landscape only on iPhone
+   const isIPhone = Platform.OS === 'ios' && !(Platform.isPad || Platform.isTV);
+@@ -252,13 +265,13 @@ const SceneView = ({
+           ? // This prop enables handling of system back gestures on Android
+             // Since we handle them in JS side, we disable this
+             false
+-          : gestureEnabled
++          : gestureEnabledOverride
+       }
+       homeIndicatorHidden={autoHideHomeIndicator}
+       navigationBarColor={navigationBarColor}
+       navigationBarHidden={navigationBarHidden}
+       replaceAnimation={animationTypeForReplace}
+-      stackPresentation={presentation === 'card' ? 'push' : presentation}
++      stackPresentation={presentationOverride === 'card' ? 'push' : presentationOverride}
+       stackAnimation={animation}
+       screenOrientation={orientation}
+       statusBarAnimation={statusBarAnimation}
+@@ -301,7 +314,7 @@ const SceneView = ({
+                 <MaybeNestedStack
+                   options={options}
+                   route={route}
+-                  presentation={presentation}
++                  presentation={presentationOverride}
+                   headerHeight={headerHeight}
+                   headerTopInsetEnabled={headerTopInsetEnabled}
+                 >

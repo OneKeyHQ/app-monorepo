@@ -5,5 +5,10 @@
   "scripts": {
     "start": "webpack serve"
   },
+  "dependencies": {
+    "@onekeyhq/components": "*",
+    "@onekeyhq/shared": "*",
+    "@onekeyhq/kit": "*"
+  },
   "private": true
 }

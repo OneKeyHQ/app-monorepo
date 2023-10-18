@@ -14,6 +14,9 @@
     "start": "yarn dev"
   },
   "dependencies": {
+    "@onekeyhq/components": "*",
+    "@onekeyhq/shared": "*",
+    "@onekeyhq/kit": "*",
     "adm-zip": "^0.5.10",
     "electron-config": "^2.0.0",
     "electron-context-menu": "^3.5.0",

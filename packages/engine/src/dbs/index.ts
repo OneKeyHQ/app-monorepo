@@ -1,0 +1,1 @@
+export { DbApi } from './indexed';

@@ -1,0 +1,5 @@
+- handleDisplayPassphraseWallet 改成上层调用方法时传参回调，不要直接引入上层模块
+- @onekeyhq/kit/src/utils/hardware 
+- import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+- engine listNetworks dbNetworkToNetwork getVaultSettings getChainOnlyVault
+  - settings decouple from vault

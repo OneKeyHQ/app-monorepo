@@ -9,5 +9,10 @@
     "ios": "expo start --ios",
     "web": "expo start --web"
   },
-  "private": true
+  "private": true,
+  "dependencies": {
+    "@onekeyhq/components": "*",
+    "@onekeyhq/shared": "*",
+    "@onekeyhq/kit": "*"
+  }
 }
