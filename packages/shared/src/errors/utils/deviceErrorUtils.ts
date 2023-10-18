@@ -3,7 +3,7 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import type { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import * as Error from '@onekeyhq/shared/src/errors';
 
-import debugLogger from '../../logger/debugLogger';
+// import debugLogger from '../../logger/debugLogger';
 import platformEnv from '../../platformEnv';
 
 function caputureSpecialError(code: number, message: string) {
@@ -42,7 +42,7 @@ export function convertDeviceError(payload: any): OneKeyHardwareError {
     return caputureSpecialError(code, msg) as Error.ConnectTimeoutError;
   }
 
-  debugLogger.hardwareSDK.info('Device Utils Convert Device Error:', code, msg);
+  // debugLogger.hardwareSDK.info('Device Utils Convert Device Error:', code, msg);
 
   switch (code) {
     case HardwareErrorCode.UnknownError:
@@ -135,10 +135,10 @@ export function convertDeviceError(payload: any): OneKeyHardwareError {
       return new Error.BridgeNetworkError(payload);
     case HardwareErrorCode.BridgeTimeoutError:
       if (platformEnv.isDesktop) {
-        debugLogger.hardwareSDK.debug(
-          'desktop bridge timeout, restart desktop bridge.',
-        );
-        window.desktopApi.reloadBridgeProcess();
+        // debugLogger.hardwareSDK.debug(
+        //   'desktop bridge timeout, restart desktop bridge.',
+        // );
+        // window.desktopApi.reloadBridgeProcess();
       }
       return new Error.BridgeTimeoutError(payload);
     case HardwareErrorCode.PollingTimeout:

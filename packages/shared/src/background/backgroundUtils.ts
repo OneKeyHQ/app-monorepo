@@ -16,7 +16,7 @@ import {
 import qs from 'qs';
 import { batch } from 'react-redux';
 
-import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
+// import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 
 import {
   IMPL_ADA,
@@ -35,7 +35,7 @@ import {
   IMPL_TRON,
 } from '../engine/engineConsts';
 import { NotAutoPrintError } from '../errors';
-import debugLogger from '../logger/debugLogger';
+// import debugLogger from '../logger/debugLogger';
 import platformEnv from '../platformEnv';
 
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
@@ -403,21 +403,21 @@ export async function fetchData<T>(
   fallback: T,
   method: Method = 'GET',
 ): Promise<T> {
-  const endpoint = getFiatEndpoint();
-  const isPostBody = ['post', 'put'].includes(method.toLowerCase());
-  const apiUrl = `${endpoint}${path}${
-    !isPostBody ? `?${qs.stringify(query)}` : ''
-  }`;
-  try {
-    const postData = isPostBody ? query : undefined;
-    const requestConfig = { url: apiUrl, method, data: postData };
-    const { data } = await axios.request<T>(requestConfig);
-    return data;
-  } catch (e) {
-    debugLogger.http.error(
-      `backgroundApi.fetchData ERROR: request api ${apiUrl}`,
-      e,
-    );
-    return fallback;
-  }
+  // const endpoint = getFiatEndpoint();
+  // const isPostBody = ['post', 'put'].includes(method.toLowerCase());
+  // const apiUrl = `${endpoint}${path}${
+  //   !isPostBody ? `?${qs.stringify(query)}` : ''
+  // }`;
+  // try {
+  //   const postData = isPostBody ? query : undefined;
+  //   const requestConfig = { url: apiUrl, method, data: postData };
+  //   const { data } = await axios.request<T>(requestConfig);
+  //   return data;
+  // } catch (e) {
+  //   debugLogger.http.error(
+  //     `backgroundApi.fetchData ERROR: request api ${apiUrl}`,
+  //     e,
+  //   );
+  //   return fallback;
+  // }
 }

@@ -1,5 +1,5 @@
 import { getTime } from 'date-fns';
-import { utils } from 'ethers';
+// import { utils } from 'ethers';
 import uuid from 'react-native-uuid';
 
 export const getTimeStamp = () => getTime(new Date());

@@ -20,9 +20,9 @@ const middlewares: Middleware<unknown, unknown>[] = [
 
 if (__DEV__ && !platformEnv.isJest) {
   // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
-  const createDebugger = require('redux-flipper').default;
+  // const createDebugger = require('redux-flipper').default;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  middlewares.push(createDebugger());
+  // middlewares.push(createDebugger());
 
   // TODO:
   // disabled on ui components.
