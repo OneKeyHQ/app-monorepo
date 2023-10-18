@@ -84,8 +84,10 @@ export function SearchBar({
         onChangeText={onChange}
         h={height ?? '$7'}
         returnKeyType="search"
+        // remove basic border width
         borderWidth={0}
-        flex={1}
+        // remove border on right
+        borderRightWidth={0}
       />
       <AnimatePresence>
         {value?.length ? (
