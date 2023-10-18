@@ -34,6 +34,7 @@ interface WebViewProps {
   onContentLoaded?: () => void; // currently works in NativeWebView only
   onOpenWindow?: (event: WebViewOpenWindowEvent) => void;
   androidLayerType?: 'none' | 'software' | 'hardware';
+  scrolling?: 'auto' | 'yes' | 'no';
 }
 
 const WebView: FC<WebViewProps> = ({

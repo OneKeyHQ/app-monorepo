@@ -14,6 +14,7 @@ import {
 import InscriptionUnknow from './InscriptionUnknow';
 
 import type { InscriptionContentProps } from '../type';
+import InscriptionHTML from './InscriptionHTML';
 
 export enum InscriptionContentType {
   Text = 'text/plain;charset=utf-8',
@@ -43,6 +44,11 @@ function ComponentWithContentType({
   ) {
     return InscriptionImage;
   }
+
+  if (contentType.startsWith(InscriptionContentType.HTML)) {
+    return InscriptionHTML;
+  }
+
   if (contentType.startsWith(InscriptionContentType.ImageSVG)) {
     return !platformEnv.isNative ? InscriptionSVG : InscriptionUnknow;
   }
