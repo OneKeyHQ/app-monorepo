@@ -22,6 +22,7 @@ import {
 } from 'tamagui';
 
 import { Form, useForm } from '../Form';
+import useKeyboardHeight from '../hooks/useKeyboardHeight';
 import { type ICON_NAMES, Icon } from '../Icon';
 import { Button } from '../Button';
 import { IconButton } from '../IconButton';
@@ -33,7 +34,6 @@ import type { FormProps } from '../Form';
 import type { SetStateAction } from 'jotai';
 import type { UseFormReturn } from 'react-hook-form';
 import type { ButtonProps, GetProps } from 'tamagui';
-import useKeyboardHeight from '../hooks/useKeyboardHeight';
 
 function Trigger({
   onOpen,

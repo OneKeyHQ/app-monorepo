@@ -1,10 +1,11 @@
+import type { TabWrapperProps } from './FreezeTab';
 import type { Animated } from 'react-native';
 import type { PagerViewProps } from 'react-native-pager-view';
-import type { TabWrapperProps } from '../CollapsibleTabView/FreezeTab';
-import * as React from 'react';
-import { FreezeTab } from '../CollapsibleTabView/FreezeTab';
 
-export type Route = TabWrapperProps;
+export type Route = {
+  key: string;
+  title: string;
+} & Omit<TabWrapperProps, 'route'>;
 
 export type NavigationState<T extends Route> = {
   routes: T[];

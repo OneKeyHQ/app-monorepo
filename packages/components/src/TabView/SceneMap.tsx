@@ -14,6 +14,7 @@ type SceneComponentType =
   | typeof SectionList
   | typeof ScrollView;
 
+// eslint-disable-next-line react/display-name
 const SceneComponent = React.memo(
   <
     T extends {
@@ -27,10 +28,11 @@ const SceneComponent = React.memo(
     return (
       <FreezeTab
         key={route.key}
-        tabKey={route.key}
-        title={route.title}
+        route={{
+          key: route.key,
+          title: route.title,
+        }}
         lazy={route.lazy}
-        // lazy={false}
         freezeType={route.freezeType}
         autoFreeze={route.autoFreeze}
       >

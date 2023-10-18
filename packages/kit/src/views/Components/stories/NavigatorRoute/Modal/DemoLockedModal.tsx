@@ -295,11 +295,13 @@ export const LockedModalStack: ModalFlowNavigatorConfig<
   {
     name: DemoLockedModalRoutes.DemoLockedModal,
     component: DemoLockedViewModal,
+    // @ts-expect-error
     translationId: 'Locked Modal Demo',
   },
   {
     name: DemoLockedModalRoutes.DemoConfigLockedModal,
     component: DemoConfigLockedViewModal,
+    // @ts-expect-error
     translationId: 'Config Locked Modal',
     allowDisableClose: true,
     disableClose: true,
@@ -307,12 +309,14 @@ export const LockedModalStack: ModalFlowNavigatorConfig<
   {
     name: DemoLockedModalRoutes.DemoManualLockedViewModal,
     component: DemoManualLockedViewModal,
+    // @ts-expect-error
     translationId: 'Manual Locked Modal',
     allowDisableClose: true,
   },
   {
     name: DemoLockedModalRoutes.DemoRepeatManualLockedViewModal,
     component: DemoRepeatManualLockedViewModal,
+    // @ts-expect-error
     translationId: 'Repeat Manual Locked Modal',
     allowDisableClose: true,
   },

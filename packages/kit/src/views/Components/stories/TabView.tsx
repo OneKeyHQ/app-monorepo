@@ -1,6 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useIntl } from 'react-intl';
 import { FlatList } from 'react-native';
 import { ScrollView, XStack } from 'tamagui';
 
@@ -56,7 +55,7 @@ function TokenList({ networks, name }: { networks: Network[]; name: string }) {
   const renderItem = useCallback(
     ({ item }: { item: Network }) => (
       <XStack onPress={() => {}}>
-        <Icon name="AcademicCapMini" />
+        <Icon name="VolumeUpSolid" />
         <Text>{item.name}</Text>
         <Badge type="success" size="sm">
           {item.impl.toUpperCase()}
@@ -69,7 +68,7 @@ function TokenList({ networks, name }: { networks: Network[]; name: string }) {
   return useMemo(
     () => (
       <FlatList
-        data={showNetworks}
+        data={networks}
         renderItem={renderItem}
         keyExtractor={(item, index) => `${item.id}-${index}`}
       />
@@ -149,7 +148,7 @@ const Tab5Scene = () => (
     <Text variant="$bodyMd">ScrollView Simple</Text>
     {showNetworks.flatMap((item, index) => (
       <XStack onPress={() => {}} key={`tab5-network-${index}`}>
-        <Icon name="AcademicCapMini" />
+        <Icon name="VolumeUpSolid" />
         <Text>{item.name}</Text>
         <Text>{item.tokenDisplayDecimals}</Text>
         <Badge type="info" size="sm">
@@ -203,10 +202,10 @@ function CollapsibleTabView() {
         <Button onPress={loadMoreDataCall}>添加数据</Button>
       </Stack>
     ),
-    [headerHighMode, showNetworks.length, headerHeightCall, loadMoreDataCall],
+    [headerHighMode, headerHeightCall, loadMoreDataCall],
   );
 
-  const [routes, setRoutes] = useState<Route[]>([
+  const [routes] = useState<Route[]>([
     { key: 'tab1', title: 'Tab1' },
     { key: 'tab2', title: 'Tab2' },
     { key: 'tab3', title: 'Tab3' },

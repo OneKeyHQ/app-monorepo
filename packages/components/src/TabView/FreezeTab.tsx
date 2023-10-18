@@ -14,8 +14,10 @@ import {
 type RenderStatus = 'none' | 'rendered' | 'freeze';
 
 export type TabWrapperProps = {
-  tabKey: string;
-  title: string;
+  route: {
+    key: string;
+    title: string;
+  };
   lazy?: boolean;
   freezeType?: 'unmount' | 'freeze';
   autoFreeze?: true | false | number;
@@ -33,15 +35,15 @@ const DefaultProps = {
 
 const FreezeTabComponent = ({
   children,
-  tabKey,
+  route,
   lazy,
   freezeType,
   autoFreeze,
 }: FreezeTabProps) => {
   const { activeTabKey } = useActiveTabContext();
   const isCurrentTab = useMemo(
-    () => tabKey === activeTabKey,
-    [tabKey, activeTabKey],
+    () => route.key === activeTabKey,
+    [route.key, activeTabKey],
   );
   const initialStatus = lazy && !isCurrentTab ? 'none' : 'rendered';
   const [status, setStatus] = useState<RenderStatus>(initialStatus);

@@ -226,21 +226,25 @@ export const CreateModalStack: ModalFlowNavigatorConfig<
   {
     name: DemoCreateModalRoutes.DemoCreateModal,
     component: DemoCreateViewModal,
+    // @ts-expect-error
     translationId: 'Modal Demo',
   },
   {
     name: DemoCreateModalRoutes.DemoCreateSearchModal,
     component: DemoCreateSearchModal,
+    // @ts-expect-error
     translationId: 'Search Modal',
   },
   {
     name: DemoCreateModalRoutes.DemoCreateOptionsModal,
     component: DemoCreateOptionsModal,
+    // @ts-expect-error
     translationId: 'Options Demo Modal',
   },
   {
     name: DemoCreateModalRoutes.DemoBigListModal,
     component: IconGallery,
+    // @ts-expect-error
     translationId: 'Big List Demo Modal',
   },
 ];

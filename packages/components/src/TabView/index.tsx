@@ -38,8 +38,8 @@ function TabViewInner<T extends Route>(
     onSwipeStart,
     onSwipeEnd,
     renderLazyPlaceholder = () => null,
-    swipeEnabled = true,
     onRefresh,
+    scrollEnabled,
   }: Props<T>,
   ref: React.Ref<ForwardRefHandle>,
 ) {
@@ -57,7 +57,7 @@ function TabViewInner<T extends Route>(
         onSwipeEnd={onSwipeEnd}
         renderLazyPlaceholder={renderLazyPlaceholder}
         onRefresh={onRefresh}
-        swipeEnabled={swipeEnabled}
+        scrollEnabled={scrollEnabled}
       />
     </ActiveTabProvider>
   );

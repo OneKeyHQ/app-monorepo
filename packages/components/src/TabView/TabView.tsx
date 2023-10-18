@@ -12,7 +12,7 @@ import * as React from 'react';
 import { TabBar, TabView } from 'react-native-tab-view';
 import { ScrollView } from 'tamagui';
 
-import { useThemeValue } from '@onekeyhq/components';
+import { getThemeTokens, useThemeValue } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useIsVerticalLayout from '../Provider/hooks/useIsVerticalLayout';
@@ -47,7 +47,6 @@ interface TabViewContentProps {
 
 function TabViewContent(
   {
-    lazy,
     initialIndex = 0,
     routes,
     renderScene,
@@ -56,7 +55,6 @@ function TabViewContent(
     shouldStickyTabBarWeb,
     onSwipeStart,
     onSwipeEnd,
-    renderLazyPlaceholder,
     swipeEnabled = false,
   }: TabViewContentProps,
   ref: React.Ref<TabViewContentRef>,
@@ -98,8 +96,6 @@ function TabViewContent(
 
   return (
     <TabView
-      lazy={lazy}
-      renderLazyPlaceholder={renderLazyPlaceholder}
       onSwipeStart={onSwipeStart}
       onSwipeEnd={onSwipeEnd}
       swipeEnabled={swipeEnabled}
@@ -126,7 +122,7 @@ const TabContentView = memo(
 
 const TabContainerView: ForwardRefRenderFunction<
   ForwardRefHandle,
-  Props<any>
+  Props<Route>
 > = (
   {
     initialIndex = 0,
@@ -137,16 +133,16 @@ const TabContainerView: ForwardRefRenderFunction<
     onSwipeStart,
     onSwipeEnd,
     renderLazyPlaceholder,
-    swipeEnabled,
     scrollEnabled,
   },
   ref,
 ) => {
-  const isVerticalLayout = useIsVerticalLayout();
   const shouldStickyTabBarWeb = useMemo(() => platformEnv.isRuntimeBrowser, []);
   const tabViewContentRef = useRef<TabViewContentRef | null>(null);
 
   const { routes } = navigationState;
+
+  const itemPaddingX = getThemeTokens().size['8'].val;
 
   const [
     activeLabelColor,
@@ -224,7 +220,7 @@ const TabContainerView: ForwardRefRenderFunction<
         <TabBar
           {...props}
           lazy
-          gap={isVerticalLayout ? 0 : 32}
+          gap={itemPaddingX}
           scrollEnabled={scrollEnabled}
           indicatorStyle={tabbarStyle.indicator}
           indicatorContainerStyle={tabbarStyle.indicatorContainer}
@@ -241,7 +237,7 @@ const TabContainerView: ForwardRefRenderFunction<
     [
       activeLabelColor,
       bgColor,
-      isVerticalLayout,
+      itemPaddingX,
       labelColor,
       scrollEnabled,
       shouldStickyTabBarWeb,
@@ -277,7 +273,7 @@ const TabContainerView: ForwardRefRenderFunction<
         onIndexChange={onIndexChange}
         onSwipeEnd={onSwipeEnd}
         onSwipeStart={onSwipeStart}
-        swipeEnabled={swipeEnabled}
+        swipeEnabled
         renderLazyPlaceholder={renderLazyPlaceholder}
       />
     </ScrollView>

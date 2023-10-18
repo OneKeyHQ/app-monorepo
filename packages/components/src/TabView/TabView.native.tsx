@@ -1,9 +1,10 @@
 import type { ForwardRefRenderFunction, ReactNode } from 'react';
-import { forwardRef, memo, useCallback, useMemo } from 'react';
+import { forwardRef, memo, useCallback, useEffect, useMemo } from 'react';
 import * as React from 'react';
 
 import type { Props } from '@onekeyhq/components';
 import { getThemeTokens, useThemeValue } from '@onekeyhq/components';
+import PlatformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import NestedTabView from './NativeTabView/NestedTabView';
 import { useActiveTabContext } from './Provider/ActiveTabContext';
@@ -114,7 +115,15 @@ const TabContainerNativeView: ForwardRefRenderFunction<
   ref,
 ) => {
   const { routes } = navigationState;
-  const { setActiveTabKey } = useActiveTabContext();
+  const { activeTabKey, setActiveTabKey } = useActiveTabContext();
+
+  useEffect(() => {
+    if (PlatformEnv.isNativeIOS && !activeTabKey) {
+      setActiveTabKey?.(routes[0]?.key);
+    }
+    // only run once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onPageChange = useCallback(
     (e: OnPageChangeEvent) => {

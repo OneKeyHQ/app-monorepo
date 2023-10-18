@@ -238,16 +238,19 @@ export const CoverageModalStack: ModalFlowNavigatorConfig<
   {
     name: DemoCoverageModalRoutes.DemoCoverageModal,
     component: DemoCoverageModal,
+    // @ts-expect-error
     translationId: 'Coverage Modal Demo',
   },
   {
     name: DemoCoverageModalRoutes.DemoCoverageDialogModal,
     component: DemoCoverageDialogModal,
+    // @ts-expect-error
     translationId: 'Coverage Dialog Modal',
   },
   {
     name: DemoCoverageModalRoutes.DemoCoverageModalModal,
     component: DemoCoverageModalModal,
+    // @ts-expect-error
     translationId: 'Coverage Modal Modal',
   },
 ];
