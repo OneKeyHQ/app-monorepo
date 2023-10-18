@@ -15,6 +15,7 @@
     "app:ext:v3": "yarn workspace @onekeyhq/ext start:v3",
     "app:web": "yarn workspace @onekeyhq/web start",
     "app:web-embed": "yarn workspace @onekeyhq/web-embed start",
+    "app:native-bundle": "yarn workspace @onekeyhq/mobile native-bundle",
     "app:ios": "yarn workspace @onekeyhq/mobile ios",
     "app:ios:device": "yarn workspace @onekeyhq/mobile ios:device",
     "app:android": "yarn workspace @onekeyhq/mobile android",

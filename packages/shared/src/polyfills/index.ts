@@ -1,10 +1,10 @@
 /* eslint-disable import/order */
 import './polyfillsPlatform';
 
-import { normalizeRequestLibs } from '../request/normalize';
+// import { normalizeRequestLibs } from '../request/normalize';
 import timerUtils from '../utils/timerUtils';
-import { interceptConsoleErrorWithExtraInfo } from '../errors/utils/errorUtils';
+// import { interceptConsoleErrorWithExtraInfo } from '../errors/utils/errorUtils';
 
-normalizeRequestLibs();
+// normalizeRequestLibs();
 timerUtils.interceptTimerWithDisable();
-interceptConsoleErrorWithExtraInfo();
+// interceptConsoleErrorWithExtraInfo();
