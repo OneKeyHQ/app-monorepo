@@ -1,10 +1,25 @@
 {
+  "private": true,
   "name": "@onekeyhq/app-monorepo",
   "version": "1.0.0",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
+  "engines": {
+    "node": ">=16"
+  },
+  "scripts": {
+    "app:desktop": "yarn workspace @onekeyhq/desktop start",
+    "app:ext": "yarn workspace @onekeyhq/ext start",
+    "app:ext:v3": "yarn workspace @onekeyhq/ext start:v3",
+    "app:web": "yarn workspace @onekeyhq/web start",
+    "app:web-embed": "yarn workspace @onekeyhq/web-embed start",
+    "app:ios": "yarn workspace @onekeyhq/mobile ios",
+    "app:ios:device": "yarn workspace @onekeyhq/mobile ios:device",
+    "app:android": "yarn workspace @onekeyhq/mobile android",
+    "app:android:device": "yarn workspace @onekeyhq/mobile android:device"
+  },
   "dependencies": {
     "@onekeyfe/cross-inpage-provider-core": "1.1.38",
     "@onekeyfe/cross-inpage-provider-errors": "1.1.38",
@@ -66,17 +81,5 @@
     "webpack-dev-server": "^4.15.1",
     "webpack-manifest-plugin": "^5.0.0",
     "webpack-subresource-integrity": "^5.2.0-rc.1"
-  },
-  "scripts": {
-    "app:desktop": "yarn workspace @onekeyhq/desktop start",
-    "app:ext": "yarn workspace @onekeyhq/ext start",
-    "app:ext:v3": "yarn workspace @onekeyhq/ext start:v3",
-    "app:web": "yarn workspace @onekeyhq/web start",
-    "app:web-embed": "yarn workspace @onekeyhq/web-embed start",
-    "app:ios": "yarn workspace @onekeyhq/mobile ios",
-    "app:ios:device": "yarn workspace @onekeyhq/mobile ios:device",
-    "app:android": "yarn workspace @onekeyhq/mobile android",
-    "app:android:device": "yarn workspace @onekeyhq/mobile android:device"
-  },
-  "private": true
+  }
 }
