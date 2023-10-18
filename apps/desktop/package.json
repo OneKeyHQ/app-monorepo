@@ -15,16 +15,27 @@
   },
   "dependencies": {
     "adm-zip": "^0.5.10",
-    "electron": "19.1.8",
     "electron-config": "^2.0.0",
     "electron-context-menu": "^3.5.0",
     "electron-is-dev": "^2.0.0",
     "electron-log": "^4.4.8",
     "electron-store": "^8.1.0",
     "electron-updater": "^5.2.1",
-    "expo": "49.0.6",
     "keytar": "^7.9.0",
     "node-fetch": "^2.6.7"
+  },
+  "devDependencies": {
+    "@electron/remote": "^2.0.1",
+    "@types/adm-zip": "^0",
+    "@types/electron-localshortcut": "^3.1.0",
+    "@types/node-fetch": "^2.6.1",
+    "cross-env": "^7.0.3",
+    "electron": "19.1.8",
+    "electron-builder": "22.14.13",
+    "electron-notarize": "^1.1.1",
+    "esbuild": "^0.15.11",
+    "glob": "^7.2.0",
+    "rimraf": "^3"
   },
   "private": true
 }
