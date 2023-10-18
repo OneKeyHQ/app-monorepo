@@ -22,6 +22,7 @@ export enum ScanQrcodeRoutes {
   ScanQrcode = 'ScanQrcode',
   ScanQrcodeResult = 'ScanQrcodeResult',
   PreviewSend = 'PreviewSend',
+  RequestPermission = 'RequestPermission',
 }
 export type ScanQrcodeRoutesParams = {
   [ScanQrcodeRoutes.ScanQrcode]:
@@ -34,6 +35,7 @@ export type ScanQrcodeRoutesParams = {
     address: string;
     possibleNetworks?: string[];
   };
+  [ScanQrcodeRoutes.RequestPermission]: undefined;
 };
 
 export interface ScanCameraProps {

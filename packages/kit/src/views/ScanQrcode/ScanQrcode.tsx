@@ -25,6 +25,7 @@ import { handleScanResult } from '../../utils/gotoScanQrcode';
 import { showMigrateDataModal } from '../Onboarding/screens/Migration/ConnectServer/MigrateDataModal';
 import { OneKeyMigrateQRCodePrefix } from '../Onboarding/screens/Migration/util';
 
+import { PermitDeniedDialog } from './PermitDeniedDialog';
 import ScanCamera from './ScanCamera';
 import { scanFromURLAsync } from './scanFromURLAsync';
 import { ScanQrcodeRoutes, ScanSubResultCategory } from './types';
@@ -188,6 +189,9 @@ const ScanQrcode: FC = () => {
     );
   }
   if (currentPermission === PermissionStatus.DENIED) {
+    if (platformEnv.isExtension) {
+      return <PermitDeniedDialog />;
+    }
     return <PermissionDialog type="camera" />;
   }
   return null;

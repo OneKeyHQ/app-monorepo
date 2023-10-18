@@ -10,6 +10,7 @@ import {
 } from '../components/WalletConnect/walletConnectConsts';
 import { getExtensionIndexHtml } from '../utils/extUtils.getHtml';
 import { EOnboardingRoutes } from '../views/Onboarding/routes/enums';
+import { ScanQrcodeRoutes } from '../views/ScanQrcode/types';
 
 import { legacyLinkingPathMap, linkingPathMap } from './linking.path';
 import {
@@ -185,6 +186,9 @@ export const normalRouteWhiteList: WhiteListItemList = [
   },
   {
     screen: `${RootRoutes.Modal}/${ModalRoutes.Send}/${SendModalRoutes.LNURLWithdraw}`,
+  },
+  {
+    screen: `${RootRoutes.Modal}/${ModalRoutes.ScanQrcode}/${ScanQrcodeRoutes.RequestPermission}`,
   },
   /**
    * refresh page will flash the last item of normalRouteWhiteList
