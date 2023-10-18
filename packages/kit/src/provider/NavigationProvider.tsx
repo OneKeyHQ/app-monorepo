@@ -1,15 +1,20 @@
-import { createRef, memo } from 'react';
+import { createRef, memo, useEffect } from 'react';
 
 import { NavigationContainer } from '@react-navigation/native';
-import { useTheme } from 'tamagui';
+import { useTheme as useThemeTamagui } from 'tamagui';
 
+import { setBackgroundColor } from '@onekeyhq/components/src/Navigation/utils/StatusBarUtils';
 import { RootNavigator } from '@onekeyhq/kit/src/routes';
 
 export const navigationRef = createRef();
 global.$navigationRef = navigationRef as any;
 
 const NavigationApp = () => {
-  const theme = useTheme();
+  const theme = useThemeTamagui();
+
+  useEffect(() => {
+    setBackgroundColor(theme.bg.val);
+  }, [theme]);
 
   return (
     <NavigationContainer

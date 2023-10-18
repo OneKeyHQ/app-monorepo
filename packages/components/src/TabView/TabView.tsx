@@ -15,7 +15,6 @@ import { ScrollView } from 'tamagui';
 import { getThemeTokens, useThemeValue } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import useIsVerticalLayout from '../Provider/hooks/useIsVerticalLayout';
 import { Stack } from '../Stack';
 
 import { useActiveTabContext } from './Provider/ActiveTabContext';
