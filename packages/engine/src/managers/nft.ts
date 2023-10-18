@@ -122,16 +122,6 @@ export const syncImage = async (params: {
   return data;
 };
 
-export const getNFTSymbolPrice = async (networkId: string) => {
-  const backgroundApiProxy = (
-    await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy')
-  ).default;
-  const price = await backgroundApiProxy.servicePrice.getSimpleTokenPrice({
-    networkId,
-  });
-  return price;
-};
-
 export type TxMapType = Record<
   string,
   NFTTransaction[] | BTCTransactionsModel[]

@@ -47,16 +47,32 @@ type EvmExtraInfo = {
 };
 
 type AccountNameInfo = {
-  prefix: string;
+  // because the first account path of ledger live template is the same as the bip44 account path, so we should set idSuffix to uniq them
+  idSuffix?: string; // hd-1--m/44'/60'/0'/0/0--LedgerLive
+  prefix: string; // accountNamePrefix: EVM #1, Ledger Live #2
+  // addressPrefix?: string; // use presetNetworks.extensions.providerOptions.addressPrefix instead.
   category: string;
   template: string;
   coinType: string;
-  label?: { id: MessageDescriptor['id'] } | string;
-  addressPrefix?: string;
-  desc?: { id: MessageDescriptor['id']; placeholder?: any } | string;
+  label?:
+    | {
+        // LocaleIds
+        id: MessageDescriptor['id'];
+      }
+    | string;
+  desc?:
+    | {
+        // LocaleIds
+        id: MessageDescriptor['id'];
+        placeholder?: any;
+      }
+    | string;
   subDesc?: string;
   recommended?: boolean;
   notRecommended?: boolean;
+  enableCondition?: {
+    networkId?: string;
+  };
 };
 
 type BlockExplorer = {
@@ -139,15 +155,15 @@ enum NetworkCongestionThresholds {
 export { NetworkCongestionThresholds };
 
 export type {
-  DBNetwork,
-  PresetNetwork,
-  Network,
-  EvmExtraInfo,
   AccountNameInfo,
-  BlockExplorer,
   AddEVMNetworkParams,
   AddNetworkParams,
-  UpdateNetworkParams,
+  BlockExplorer,
+  DBNetwork,
   EIP1559Fee,
+  EvmExtraInfo,
+  Network,
+  PresetNetwork,
   SwitchRpcParams,
+  UpdateNetworkParams,
 };

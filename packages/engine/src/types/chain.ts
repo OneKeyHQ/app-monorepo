@@ -1,8 +1,11 @@
+import type { ICurveName } from '@onekeyhq/core/src/secret';
+
 export type ChainInfo = {
   code: string;
   feeCode: string;
   impl: string;
-  curve: 'secp256k1' | 'ed25519';
+  curve: ICurveName;
+  // copy from presetNetworks.extensions.providerOptions
   implOptions: { [key: string]: any };
   clients: Array<{ name: string; args: Array<any> }>;
 };

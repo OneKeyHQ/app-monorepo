@@ -50,6 +50,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { isExtensionBackground } from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
@@ -228,7 +229,7 @@ export default class ServiceToken extends ServiceBase {
           accountTokens.push(...autodetectedTokens);
         }
       } catch (e) {
-        debugLogger.common.error('fetchAccountTokens error', e);
+        flowLogger.error.log('fetchAccountTokens error', e);
         return accountTokens;
       }
 
@@ -254,7 +255,7 @@ export default class ServiceToken extends ServiceBase {
             try {
               tokenAddress = await vault.validateTokenAddress(tokenAddress);
             } catch (error) {
-              debugLogger.common.error('validateTokenAddress error', error);
+              flowLogger.error.log('validateTokenAddress error', error);
             }
           }
           return {
@@ -790,7 +791,7 @@ export default class ServiceToken extends ServiceBase {
         );
     } catch (e) {
       serverApiFetchFailed = true;
-      debugLogger.common.error(
+      flowLogger.error.log(
         `getAccountBalanceFromServerApi`,
         {
           params: [networkId, accountId],

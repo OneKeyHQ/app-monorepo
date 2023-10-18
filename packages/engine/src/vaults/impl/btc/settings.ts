@@ -5,7 +5,6 @@ import {
 
 import { BulkTypeEnum } from '../../../types/batchTransfer';
 
-import type { AccountNameInfo } from '../../../types/network';
 import type { IVaultSettings } from '../../types';
 
 const settings: IVaultSettings = Object.freeze({
@@ -37,7 +36,7 @@ const settings: IVaultSettings = Object.freeze({
       coinType: COINTYPE_BTC,
       label: 'Nested SegWit',
       desc: {
-        id: 'form__bitcoin__nested_segwit_desc',
+        id: 'form__bitcoin__nested_segwit_desc' as any,
         placeholder: { 0: '3' },
       },
       subDesc: 'BIP49, P2SH-P2WPKH, Base58.',
@@ -49,7 +48,7 @@ const settings: IVaultSettings = Object.freeze({
       coinType: COINTYPE_BTC,
       label: 'Taproot',
       desc: {
-        id: 'form__bitcoin__taproot_desc',
+        id: 'form__bitcoin__taproot_desc' as any,
         placeholder: { 0: 'bc1p' },
       },
       subDesc: 'BIP86, P2TR, Bech32m.',
@@ -61,7 +60,7 @@ const settings: IVaultSettings = Object.freeze({
       coinType: COINTYPE_BTC,
       label: 'Native SegWit',
       desc: {
-        id: 'form__bitcoin__native_segwit_desc',
+        id: 'form__bitcoin__native_segwit_desc' as any,
         placeholder: { 0: 'bc1' },
       },
       subDesc: 'BIP84, P2WPKH, Bech32.',
@@ -72,11 +71,14 @@ const settings: IVaultSettings = Object.freeze({
       template: `m/44'/${COINTYPE_BTC}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_BTC,
       label: 'Legacy',
-      desc: { id: 'form__bitcoin__legacy_desc', placeholder: { 0: '1' } },
+      desc: {
+        id: 'form__bitcoin__legacy_desc' as any,
+        placeholder: { 0: '1' },
+      },
       subDesc: 'BIP44, P2PKH, Base58.',
       notRecommended: true,
     },
-  } as Record<string, AccountNameInfo>,
+  },
 
   isBtcForkChain: true,
 });

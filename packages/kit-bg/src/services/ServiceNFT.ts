@@ -40,6 +40,13 @@ class ServiceNFT extends ServiceBase {
     return `${getFiatEndpoint()}/NFT`;
   }
 
+  async getNFTSymbolPrice(networkId: string) {
+    const price = await this.backgroundApi.servicePrice.getSimpleTokenPrice({
+      networkId,
+    });
+    return price;
+  }
+
   @backgroundMethod()
   async fetchAsset(params: {
     chain: string;
@@ -409,7 +416,7 @@ class ServiceNFT extends ServiceBase {
 
   @backgroundMethod()
   async fetchSymbolPrice(networkId: string) {
-    const price = await nft.getNFTSymbolPrice(networkId);
+    const price = await this.getNFTSymbolPrice(networkId);
     if (price) {
       const { dispatch } = this.backgroundApi;
       dispatch(

@@ -28,6 +28,7 @@ const hdAccount1: IUnitTestMockAccount = {
     name: 'CFX #1',
     path: "m/44'/503'/0'/0/0",
     pub: '03b03e87ca0c131f33f78d1e6757c2932a88b317858ff99ac48fdd425f7f473159',
+    'template': "m/44'/503'/0'/0/$$INDEX$$",
     type: 'variant' as any,
     addresses: {
       'cfx--1': 'cfxtest:aape4yvxbtmm5vegfuzg115x8kjt1kc8p6b86bwp20',

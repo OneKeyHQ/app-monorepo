@@ -9,7 +9,7 @@ import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import {
   decrypt,
   encrypt,
-} from '@onekeyhq/engine/src/secret/encryptors/aes256';
+} from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type {
   DeviceInfo,
   MigrateData,

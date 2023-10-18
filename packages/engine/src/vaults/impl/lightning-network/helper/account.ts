@@ -1,5 +1,6 @@
 import bs58check from 'bs58check';
 
+import { batchGetPublicKeys } from '@onekeyhq/core/src/secret';
 import { Provider } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/provider/provider';
 import {
   COINTYPE_BTC,
@@ -9,15 +10,12 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
-import { batchGetPublicKeys } from '../../../../secret';
 import { getAccountDefaultByPurpose } from '../../../utils/btcForkChain/utils';
 
 import type { Engine } from '../../../..';
 
 export const getBtcProvider = async (engine: Engine, isTestnet: boolean) => {
-  const chainInfo = await engine.providerManager.getChainInfoByNetworkId(
-    isTestnet ? 'tbtc--0' : 'btc--0',
-  );
+  const chainInfo = await engine.getChainInfo(isTestnet ? 'tbtc--0' : 'btc--0');
   const provider = new Provider(chainInfo);
   return provider;
 };

@@ -16,7 +16,7 @@
     "esModuleInterop": true,
     "module": "esnext",
     "isolatedModules": true,
-    "noImplicitReturns": false,
+    "noImplicitReturns": false, 
     "noUnusedLocals": false,
     "experimentalDecorators": true,
     "useDefineForClassFields": true,

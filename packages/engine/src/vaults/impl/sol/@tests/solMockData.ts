@@ -40,6 +40,8 @@ const hdAccount1: IUnitTestMockAccount = {
       'coinType': '501',
       'pub': 'E48cosDiQZK1iDSsyUzhvW4WxJeoKuDk5qgcdkmANV4N',
       'address': 'E48cosDiQZK1iDSsyUzhvW4WxJeoKuDk5qgcdkmANV4N',
+      'addresses': undefined,
+      'template': "m/44'/501'/$$INDEX$$'/0'",
     },
     {
       'id': "hd-19--m/44'/501'/1'/0'",
@@ -49,6 +51,8 @@ const hdAccount1: IUnitTestMockAccount = {
       'coinType': '501',
       'pub': 'ETjNGPNMYV9cdSWfabNMdMYtFxPziaiavoLuzvJo12qg',
       'address': 'ETjNGPNMYV9cdSWfabNMdMYtFxPziaiavoLuzvJo12qg',
+      'addresses': undefined,
+      'template': "m/44'/501'/$$INDEX$$'/0'",
     },
     {
       'id': "hd-19--m/44'/501'/2'/0'",
@@ -58,6 +62,8 @@ const hdAccount1: IUnitTestMockAccount = {
       'coinType': '501',
       'pub': '3EwCPNjUS1xKNbHcbMmo6wAtMA9ZVzwkiLVQ5H3ZvntC',
       'address': '3EwCPNjUS1xKNbHcbMmo6wAtMA9ZVzwkiLVQ5H3ZvntC',
+      'addresses': undefined,
+      'template': "m/44'/501'/$$INDEX$$'/0'",
     },
     {
       'id': "hd-19--m/44'/501'/3'/0'",
@@ -67,6 +73,8 @@ const hdAccount1: IUnitTestMockAccount = {
       'coinType': '501',
       'pub': 'wpsZdXo6gFeQUXKFCBvbFKLbYtyrko1M1KHFwCtDRj1',
       'address': 'wpsZdXo6gFeQUXKFCBvbFKLbYtyrko1M1KHFwCtDRj1',
+      'addresses': undefined,
+      'template': "m/44'/501'/$$INDEX$$'/0'",
     },
     {
       'id': "hd-19--m/44'/501'/4'/0'",
@@ -76,6 +84,8 @@ const hdAccount1: IUnitTestMockAccount = {
       'coinType': '501',
       'pub': 'F6wmBCXagkZy4nYER1BbspT56MrjzzQhpEoUyLXFd2Jf',
       'address': 'F6wmBCXagkZy4nYER1BbspT56MrjzzQhpEoUyLXFd2Jf',
+      'addresses': undefined,
+      'template': "m/44'/501'/$$INDEX$$'/0'",
     },
     {
       'id': "hd-19--m/44'/501'/5'/0'",
@@ -85,6 +95,8 @@ const hdAccount1: IUnitTestMockAccount = {
       'coinType': '501',
       'pub': 'v5PXxVwJbfmFBvEdbHYYYGWuC7PMVyutLG8rcnQaJHf',
       'address': 'v5PXxVwJbfmFBvEdbHYYYGWuC7PMVyutLG8rcnQaJHf',
+      'addresses': undefined,
+      'template': "m/44'/501'/$$INDEX$$'/0'",
     },
     {
       'id': "hd-19--m/44'/501'/6'/0'",
@@ -94,6 +106,8 @@ const hdAccount1: IUnitTestMockAccount = {
       'coinType': '501',
       'pub': 'DJqCQkFAipfFKMkCADvTRSvdAGYEAwE8g3MnreWD7UP4',
       'address': 'DJqCQkFAipfFKMkCADvTRSvdAGYEAwE8g3MnreWD7UP4',
+      'addresses': undefined,
+      'template': "m/44'/501'/$$INDEX$$'/0'",
     },
     {
       'id': "hd-19--m/44'/501'/7'/0'",
@@ -103,6 +117,8 @@ const hdAccount1: IUnitTestMockAccount = {
       'coinType': '501',
       'pub': 'GEkjftcBFoJp2JntMzEcTERkyKH8CnCBnwMjdbrcgqFb',
       'address': 'GEkjftcBFoJp2JntMzEcTERkyKH8CnCBnwMjdbrcgqFb',
+      'addresses': undefined,
+      'template': "m/44'/501'/$$INDEX$$'/0'",
     },
     {
       'id': "hd-19--m/44'/501'/8'/0'",
@@ -112,6 +128,8 @@ const hdAccount1: IUnitTestMockAccount = {
       'coinType': '501',
       'pub': 'AgiRoMS7i7qpHMWV2CEEF65KZujHjj1hhyCA73AAP3EG',
       'address': 'AgiRoMS7i7qpHMWV2CEEF65KZujHjj1hhyCA73AAP3EG',
+      'addresses': undefined,
+      'template': "m/44'/501'/$$INDEX$$'/0'",
     },
     {
       'id': "hd-19--m/44'/501'/9'/0'",
@@ -121,6 +139,8 @@ const hdAccount1: IUnitTestMockAccount = {
       'coinType': '501',
       'pub': '7rxWcB43PNuPr8bjSHdKcsXudF6hz7qAwAcgXaKJounw',
       'address': '7rxWcB43PNuPr8bjSHdKcsXudF6hz7qAwAcgXaKJounw',
+      'addresses': undefined,
+      'template': "m/44'/501'/$$INDEX$$'/0'",
     },
   ],
   mnemonic: mockCredentials.mnemonic1,
@@ -147,6 +167,8 @@ const hdAccount2: IUnitTestMockAccount = {
       'coinType': '501',
       'pub': '9krGZ6MVHufqrKiGvaCbevTGdBFLZWb6u75QPDXvVWmj',
       'address': '9krGZ6MVHufqrKiGvaCbevTGdBFLZWb6u75QPDXvVWmj',
+      'addresses': undefined,
+      'template': "m/44'/501'/$$INDEX$$'",
     },
     {
       'id': "hd-19--m/44'/501'/1'",
@@ -156,6 +178,8 @@ const hdAccount2: IUnitTestMockAccount = {
       'coinType': '501',
       'pub': '6v4TwtNBLJyXGaAKjwzFYAnVdgBVSRQZLyKv8jjHDi9T',
       'address': '6v4TwtNBLJyXGaAKjwzFYAnVdgBVSRQZLyKv8jjHDi9T',
+      'addresses': undefined,
+      'template': "m/44'/501'/$$INDEX$$'",
     },
     {
       'id': "hd-19--m/44'/501'/2'",
@@ -165,6 +189,8 @@ const hdAccount2: IUnitTestMockAccount = {
       'coinType': '501',
       'pub': '83sJhRq4rT5ysf6Q6ULtJAD5tdqGdidQeRE8ofghVoZe',
       'address': '83sJhRq4rT5ysf6Q6ULtJAD5tdqGdidQeRE8ofghVoZe',
+      'addresses': undefined,
+      'template': "m/44'/501'/$$INDEX$$'",
     },
     {
       'id': "hd-19--m/44'/501'/3'",
@@ -174,6 +200,8 @@ const hdAccount2: IUnitTestMockAccount = {
       'coinType': '501',
       'pub': '7yUxrusKzXdUZjmEqCCPqxtrWCmwJ4EpXzxez56hhc5s',
       'address': '7yUxrusKzXdUZjmEqCCPqxtrWCmwJ4EpXzxez56hhc5s',
+      'addresses': undefined,
+      'template': "m/44'/501'/$$INDEX$$'",
     },
     {
       'id': "hd-19--m/44'/501'/4'",
@@ -183,6 +211,8 @@ const hdAccount2: IUnitTestMockAccount = {
       'coinType': '501',
       'pub': 'HZK7FK8y5ENaPLVAHbKFfVUEjthDNygxoKDmswCWK9VT',
       'address': 'HZK7FK8y5ENaPLVAHbKFfVUEjthDNygxoKDmswCWK9VT',
+      'addresses': undefined,
+      'template': "m/44'/501'/$$INDEX$$'",
     },
     {
       'id': "hd-19--m/44'/501'/5'",
@@ -192,6 +222,8 @@ const hdAccount2: IUnitTestMockAccount = {
       'coinType': '501',
       'pub': '4jf8jfrmz4NxUvSULhak48u2bc1HAfKm6ynqRmVsUcTW',
       'address': '4jf8jfrmz4NxUvSULhak48u2bc1HAfKm6ynqRmVsUcTW',
+      'addresses': undefined,
+      'template': "m/44'/501'/$$INDEX$$'",
     },
     {
       'id': "hd-19--m/44'/501'/6'",
@@ -201,6 +233,8 @@ const hdAccount2: IUnitTestMockAccount = {
       'coinType': '501',
       'pub': 'AFHbbGFNg1xPaWVwPF4DQSY6UJTnW3jVi92jP2iUChae',
       'address': 'AFHbbGFNg1xPaWVwPF4DQSY6UJTnW3jVi92jP2iUChae',
+      'addresses': undefined,
+      'template': "m/44'/501'/$$INDEX$$'",
     },
     {
       'id': "hd-19--m/44'/501'/7'",
@@ -210,6 +244,8 @@ const hdAccount2: IUnitTestMockAccount = {
       'coinType': '501',
       'pub': '62XQHgZDrG8Y3rUMZkQQJ1h2DRxcy5isBVQMfBeRZkWu',
       'address': '62XQHgZDrG8Y3rUMZkQQJ1h2DRxcy5isBVQMfBeRZkWu',
+      'addresses': undefined,
+      'template': "m/44'/501'/$$INDEX$$'",
     },
     {
       'id': "hd-19--m/44'/501'/8'",
@@ -219,6 +255,8 @@ const hdAccount2: IUnitTestMockAccount = {
       'coinType': '501',
       'pub': 'Dm8z5zhUm82ZV3YYLdvjpwb5XNrruBUBCuTiAknfgDWD',
       'address': 'Dm8z5zhUm82ZV3YYLdvjpwb5XNrruBUBCuTiAknfgDWD',
+      'addresses': undefined,
+      'template': "m/44'/501'/$$INDEX$$'",
     },
     {
       'id': "hd-19--m/44'/501'/9'",
@@ -228,6 +266,8 @@ const hdAccount2: IUnitTestMockAccount = {
       'coinType': '501',
       'pub': 'ENiJ5GvT6x3VQ5589jH9Uj95MpxY2pGb8LH1YJUYUKjF',
       'address': 'ENiJ5GvT6x3VQ5589jH9Uj95MpxY2pGb8LH1YJUYUKjF',
+      'addresses': undefined,
+      'template': "m/44'/501'/$$INDEX$$'",
     },
   ],
   mnemonic: mockCredentials.mnemonic1,

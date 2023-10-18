@@ -27,6 +27,8 @@ import {
   IMPL_XRP,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
+import { interceptLogger } from '@onekeyhq/shared/src/logger/interceptLogger';
 
 import { getNetworkImpl } from '../managers/network.utils';
 import {
@@ -174,7 +176,14 @@ export async function createKeyringInstance(vault: VaultBase) {
       `Keyring Class not found for: walletId=${walletId}`,
     );
   }
-  return keyring;
+  const { keyringType } = keyring;
+  return interceptLogger(keyring, ({ method, params }) => {
+    flowLogger.app.apiCalls.callKeyringApi({
+      keyring: `${vault._network.impl}-${keyringType}-keyring`,
+      method,
+      params,
+    });
+  });
 }
 
 export async function createVaultInstance(options: IVaultOptions) {
@@ -302,5 +311,11 @@ export async function createVaultInstance(options: IVaultOptions) {
     keyringCreator: createKeyringInstance,
   });
   // TODO save to cache
-  return vault;
+  return interceptLogger(vault, ({ method, params }) => {
+    flowLogger.app.apiCalls.callVaultApi({
+      networkImpl: `${network.impl}-vault`,
+      method,
+      params,
+    });
+  });
 }

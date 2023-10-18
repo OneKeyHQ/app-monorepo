@@ -6,10 +6,7 @@ import { Buffer } from 'buffer';
 import { isNil } from 'lodash';
 import RNUUID from 'react-native-uuid';
 
-import {
-  decrypt,
-  encrypt,
-} from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import { decrypt, encrypt } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import {
   filterPassphraseWallet,
   handleDisplayPassphraseWallet,
@@ -1411,6 +1408,7 @@ class IndexedDBApi implements DBAPI {
                   credential,
                 ) as StoredPrivateKeyCredential;
                 resolve({
+                  type: 'imported',
                   privateKey: Buffer.from(
                     privateKeyCredentialJSON.privateKey,
                     'hex',
@@ -1421,6 +1419,7 @@ class IndexedDBApi implements DBAPI {
                   credential,
                 ) as StoredSeedCredential;
                 resolve({
+                  type: 'hd',
                   entropy: Buffer.from(seedCredentialJSON.entropy, 'hex'),
                   seed: Buffer.from(seedCredentialJSON.seed, 'hex'),
                 });

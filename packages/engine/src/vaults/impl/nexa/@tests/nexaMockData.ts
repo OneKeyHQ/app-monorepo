@@ -28,12 +28,15 @@ const hdAccount1: IUnitTestMockAccount = {
       '02e3027885ce1ed1d21300158ce8f60649e280e2a8f746e9cea6858a3331021d8a',
     'addresses': {
       'nexa--testnet':
-        '02e3027885ce1ed1d21300158ce8f60649e280e2a8f746e9cea6858a3331021d8a',
+        'nexatest:nqtsq5g5sf9lpff96p5ts8mzxjuzk9ads7xm48c386p5w6t6',
     },
     'xpub': '',
+    'xpubSegwit': undefined,
     'coinType': '29223',
     'id': "hd-19--m/44'/29223'/0'",
-    'path': "m/44'/29223'/0'/0/0",
+    'path': "m/44'/29223'/0'",
+    'pubKey':
+      '02e3027885ce1ed1d21300158ce8f60649e280e2a8f746e9cea6858a3331021d8a',
     'template': "m/44'/29223'/$$INDEX$$'/0/0",
     'type': AccountType.UTXO,
   },
@@ -48,13 +51,14 @@ const importedAccount1: IUnitTestMockAccount = {
       '03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
     'addresses': {
       'nexa--testnet':
-        '03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
+        'nexatest:nqtsq5g5l7rgf6mrvuhrjke8vsm4ng60q86vdycptqn79epv',
     },
     'coinType': '29223',
     'id': 'imported--29223--03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
     name: 'Account #1',
     path: '',
     xpub: '',
+    'pub': '03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
     type: AccountType.UTXO,
   },
   // indexedDB -> credentials

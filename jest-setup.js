@@ -1,5 +1,8 @@
 require('react-native-reanimated').setUpTests();
 
+// FIX:     ReferenceError: self is not defined
+global.self = global.self || global;
+
 class LocalStorageMock {
   constructor() {
     this.store = {};
@@ -23,6 +26,7 @@ class LocalStorageMock {
 }
 
 global.localStorage = new LocalStorageMock();
+global.$$onekeyAppStorage = new LocalStorageMock();
 global.fetch = require('node-fetch');
 global.WebSocket = require('isomorphic-ws');
 

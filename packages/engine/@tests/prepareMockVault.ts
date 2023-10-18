@@ -1,4 +1,4 @@
-import { revealableSeedFromMnemonic } from '@onekeyhq/engine/src/secret';
+import { revealableSeedFromMnemonic } from '@onekeyhq/core/src/secret';
 import bufferUitls from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { getCurveByImpl } from '../src/managers/impl';
@@ -35,6 +35,7 @@ export function prepareMockVault({
   if (privateKey && password) {
     const encryptedPrivateKey = bufferUitls.toBuffer(privateKey);
     seedInfo = {
+      type: 'imported',
       privateKey: encryptedPrivateKey,
     };
   }
@@ -73,6 +74,9 @@ export function prepareMockVault({
         'networkId': dbNetwork.id,
         'tokenIdOnNetwork': '',
       });
+    },
+    getChainInfo() {
+      return Promise.resolve(fromDBNetworkToChainInfo(dbNetwork));
     },
     // @ts-ignore
     providerManager: {

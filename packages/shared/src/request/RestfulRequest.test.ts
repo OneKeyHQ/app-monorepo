@@ -1,11 +1,12 @@
 import fetch, { Response } from 'cross-fetch';
-import { mocked } from 'ts-jest/utils';
 
 import { ResponseError } from '../errors';
 
 import { RestfulRequest } from './RestfulRequest';
 
-const mockFetch = mocked(fetch, true);
+jest.mock('cross-fetch');
+
+const mockFetch = fetch as jest.MockedFunction<typeof fetch>;
 
 beforeEach(() => {
   mockFetch.mockReturnValueOnce(

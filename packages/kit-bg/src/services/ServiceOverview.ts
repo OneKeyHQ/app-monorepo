@@ -385,7 +385,7 @@ class ServiceOverview extends ServiceBase {
   }
 
   @backgroundMethod()
-  fetchAccountOverviewDebounced(options: {
+  async fetchAccountOverviewDebounced(options: {
     networkId: string;
     accountId: string;
     scanTypes?: IOverviewScanTaskItem['scanTypes'];

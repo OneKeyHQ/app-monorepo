@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
+import sdk from '@onekeyhq/core/src/chains/algo/sdkAlgo';
+import type { ISdkAlgoEncodedTransaction } from '@onekeyhq/core/src/chains/algo/sdkAlgo';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_ALGO as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
@@ -7,12 +9,10 @@ import {
   OneKeyHardwareError,
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
-
-import sdk from './sdkAlgo';
 
 import type { DBSimpleAccount } from '../../../types/account';
 import type {
@@ -20,7 +20,6 @@ import type {
   IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
 } from '../../types';
-import type { ISdkAlgoEncodedTransaction } from './sdkAlgo';
 import type { IEncodedTxAlgo } from './types';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0'`;
@@ -96,12 +95,12 @@ export class KeyringHardware extends KeyringHardwareBase {
         },
       );
     } catch (error: any) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
       throw new OneKeyHardwareError(error);
     }
 
     if (!addressesResponse.success) {
-      debugLogger.common.error(addressesResponse.payload);
+      flowLogger.error.log(addressesResponse.payload);
       throw convertDeviceError(addressesResponse.payload);
     }
 

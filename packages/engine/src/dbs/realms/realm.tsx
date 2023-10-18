@@ -9,7 +9,7 @@ import {
   decryptAsync,
   encrypt,
   encryptAsync,
-} from '@onekeyhq/engine/src/secret/encryptors/aes256';
+} from '@onekeyhq/core/src/secret/encryptors/aes256';
 import {
   filterPassphraseWallet,
   handleDisplayPassphraseWallet,
@@ -27,8 +27,7 @@ import {
   TooManyWatchingAccounts,
   WrongPassword,
 } from '@onekeyhq/shared/src/errors';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-// import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import {
   DERIVED_ACCOUNT_MAX_NUM,
@@ -1089,7 +1088,7 @@ class RealmDB implements DBAPI {
       }
       return Promise.resolve(entries[0].internalObj);
     } catch (error: any) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
       return Promise.reject(
         new OneKeyInternalError(`Account ${address} not found.`),
       );
@@ -1478,7 +1477,7 @@ class RealmDB implements DBAPI {
    * @NOTE: this method is only used for hd wallet
    */
   getCredential(
-    credentialId: string,
+    credentialId: string, // walletId || acountId
     password: string,
   ): Promise<ExportedCredential> {
     try {
@@ -1508,6 +1507,7 @@ class RealmDB implements DBAPI {
           credential.credential,
         ) as StoredPrivateKeyCredential;
         exprotedCredential = {
+          type: 'imported',
           privateKey: Buffer.from(privateKeyCredentialJSON.privateKey, 'hex'),
         };
       } else {
@@ -1515,6 +1515,7 @@ class RealmDB implements DBAPI {
           credential.credential,
         );
         exprotedCredential = {
+          type: 'hd',
           entropy: Buffer.from(credentialJSON.entropy, 'hex'),
           seed: Buffer.from(credentialJSON.seed, 'hex'),
         };

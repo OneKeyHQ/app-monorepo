@@ -2,32 +2,27 @@
 /* eslint max-classes-per-file: "off" */
 
 import BigNumber from 'bignumber.js';
-import { get, isNil } from 'lodash';
+import { get, isNil, omit } from 'lodash';
 import uuidLib from 'react-native-uuid';
 
-import type {
-  BaseClient,
-  BaseProvider,
-} from '@onekeyhq/engine/src/client/BaseClient';
+import type { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
 import type {
   FeePricePerUnit,
   PartialTokenInfo,
   TransactionStatus,
-  UnsignedTx,
 } from '@onekeyhq/engine/src/types/provider';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
-  InvalidAddress,
   InvalidTokenAddress,
   NotImplemented,
   PendingQueueTooLong,
 } from '@onekeyhq/shared/src/errors';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import simpleDb from '../dbs/simple/simpleDb';
+import { getBlockNativeGasInfo } from '../managers/blockNative';
 import { getAccountNameInfoByImpl } from '../managers/impl';
-import { IMPL_MAPPINGS } from '../proxyUtils';
+import { getMetaMaskGasInfo } from '../managers/metaMask';
 
 import { IDecodedTxActionType, IDecodedTxDirection } from './types';
 import { VaultContext } from './VaultContext';
@@ -38,10 +33,13 @@ import type {
   BtcForkChainUsedAccount,
   DBAccount,
 } from '../types/account';
+import type { BlockNativeGasInfo } from '../types/blockNative';
 import type { HistoryEntry, HistoryEntryStatus } from '../types/history';
-import type { AccountNameInfo, Network } from '../types/network';
+import type { MetaMaskGasInfo } from '../types/metaMask';
+import type { AccountNameInfo, EIP1559Fee, Network } from '../types/network';
 import type { NFTAssetMeta, NFTListItems } from '../types/nft';
 import type { WalletType } from '../types/wallet';
+import type { Geth } from './impl/evm/client/geth';
 import type { ethers } from './impl/evm/sdk/ethers';
 import type { IEncodedTxEvm } from './impl/evm/Vault';
 import type { KeyringBase, KeyringBaseMock } from './keyring/KeyringBase';
@@ -80,19 +78,6 @@ if (platformEnv.isExtensionUi) {
 export abstract class VaultBaseChainOnly extends VaultContext {
   abstract settings: IVaultSettings;
 
-  engineProvider!: BaseProvider;
-
-  async initProvider() {
-    const networkImpl = (await this.getNetwork()).impl;
-    if (isNil(IMPL_MAPPINGS[networkImpl])) {
-      return;
-    }
-
-    this.engineProvider = await this.engine.providerManager.getProvider(
-      this.networkId,
-    );
-  }
-
   // Methods not related to a single account, but implementation.
 
   async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
@@ -126,14 +111,19 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     return Promise.resolve(address);
   }
 
-  // TODO rename to validateAddressAsync
-  async validateAddress(address: string): Promise<string> {
-    const { normalizedAddress, isValid } =
-      await this.engineProvider.verifyAddress(address);
-    if (!isValid || !normalizedAddress) {
-      throw new InvalidAddress();
-    }
-    return Promise.resolve(normalizedAddress);
+  /*
+  export type AddressValidation = {
+    isValid: boolean;
+    normalizedAddress?: string;
+    displayAddress?: string;
+    encoding?: string;
+  };
+  throw new InvalidAddress();
+  */
+  abstract validateAddress(address: string): Promise<string>;
+
+  async validateTokenAddress(address: string): Promise<string> {
+    throw new InvalidTokenAddress();
   }
 
   validateImportedCredential(input: string): Promise<boolean> {
@@ -148,17 +138,8 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     // Generic address test, override if needed.
     return Promise.resolve(
       this.settings.watchingAccountEnabled &&
-        (await this.engineProvider.verifyAddress(input)).isValid,
+        Boolean(await this.validateAddress(input)),
     );
-  }
-
-  async validateTokenAddress(address: string): Promise<string> {
-    const { normalizedAddress, isValid } =
-      await this.engineProvider.verifyTokenAddress(address);
-    if (!isValid || typeof normalizedAddress === 'undefined') {
-      throw new InvalidTokenAddress();
-    }
-    return Promise.resolve(normalizedAddress);
   }
 
   async validateCanCreateNextAccount(walletId: string, template: string) {
@@ -172,20 +153,11 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     return Promise.resolve(true);
   }
 
-  async getBalances(
+  abstract getBalances(
     requests: Array<{ address: string; tokenAddress?: string }>,
     password?: string,
     passwordLoadedCallback?: (isLoaded: boolean) => void,
-  ): Promise<Array<BigNumber | undefined>> {
-    // Abstract requests
-    const client = await this.engine.providerManager.getClient(this.networkId);
-    return client.getBalances(
-      requests.map(({ address, tokenAddress }) => ({
-        address,
-        coin: { ...(typeof tokenAddress === 'string' ? { tokenAddress } : {}) },
-      })),
-    );
-  }
+  ): Promise<Array<BigNumber | undefined>>;
 
   async getFrozenBalance({
     password,
@@ -205,14 +177,9 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     return Promise.resolve(undefined);
   }
 
-  getTransactionStatuses(
+  abstract getTransactionStatuses(
     txids: Array<string>,
-  ): Promise<Array<TransactionStatus | undefined>> {
-    return this.engine.providerManager.getTransactionStatuses(
-      this.networkId,
-      txids,
-    );
-  }
+  ): Promise<Array<TransactionStatus | undefined>>;
 
   getTransactionFeeInNative(txid: string): Promise<string> {
     return Promise.resolve('');
@@ -224,7 +191,21 @@ export abstract class VaultBaseChainOnly extends VaultContext {
 
   async getAccountNameInfoMap(): Promise<Record<string, AccountNameInfo>> {
     const network = await this.getNetwork();
-    return getAccountNameInfoByImpl(network.impl);
+    let accountNameInfo = getAccountNameInfoByImpl(network.impl);
+    const omitKeys: string[] = [];
+    Object.entries(accountNameInfo).forEach(([key, info]) => {
+      if (!info.enableCondition) {
+        return;
+      }
+      if (
+        info.enableCondition.networkId &&
+        info.enableCondition.networkId !== network.id
+      ) {
+        omitKeys.push(key);
+      }
+    });
+    accountNameInfo = omit(accountNameInfo, omitKeys);
+    return accountNameInfo;
   }
 
   async canAutoCreateNextAccount(password: string): Promise<boolean> {
@@ -305,6 +286,167 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   }): Promise<NFTAssetMeta | undefined> {
     return Promise.resolve(undefined);
   }
+
+  async _getGasInfoFromApi(
+    networkId: string,
+  ): Promise<Partial<MetaMaskGasInfo & BlockNativeGasInfo>> {
+    return new Promise((resolve, reject) => {
+      let metaMaskGasInfoInit = false;
+      let metaMaskGasInfo: MetaMaskGasInfo | null = null;
+      let blockNativeGasInfoInit = false;
+      let blockNativeGasInfo: BlockNativeGasInfo | null = null;
+      getBlockNativeGasInfo({ networkId })
+        .then((gasInfo) => {
+          blockNativeGasInfo = gasInfo;
+        })
+        .catch((e) => console.warn(e))
+        .finally(() => {
+          blockNativeGasInfoInit = true;
+          if (metaMaskGasInfoInit) {
+            if (blockNativeGasInfo || metaMaskGasInfo) {
+              resolve({
+                ...metaMaskGasInfo,
+                ...blockNativeGasInfo,
+              });
+            } else {
+              reject();
+            }
+          }
+        });
+      getMetaMaskGasInfo(networkId)
+        .then((gasInfo) => {
+          metaMaskGasInfo = gasInfo;
+        })
+        .catch((e) => console.warn(e))
+        .finally(() => {
+          metaMaskGasInfoInit = true;
+          if (blockNativeGasInfoInit) {
+            if (blockNativeGasInfo || metaMaskGasInfo) {
+              resolve({
+                ...metaMaskGasInfo,
+                ...blockNativeGasInfo,
+              });
+            } else {
+              reject();
+            }
+          }
+        });
+    });
+  }
+
+  async _getGasInfoByVaultClient(client: BaseClient): Promise<
+    | {
+        prices: Array<BigNumber | EIP1559Fee>;
+        networkCongestion?: number;
+        estimatedTransactionCount?: number;
+      }
+    | undefined
+  > {
+    const { EIP1559Enabled } = (await this.getChainInfo()).implOptions || {};
+    if (EIP1559Enabled || false) {
+      try {
+        const { networkId } = this;
+        const gasInfo = await this._getGasInfoFromApi(networkId);
+        return {
+          ...gasInfo,
+          prices: gasInfo.prices as EIP1559Fee[],
+        };
+      } catch {
+        const {
+          baseFeePerGas,
+          reward,
+        }: { baseFeePerGas: Array<string>; reward: Array<Array<string>> } =
+          await (client as Geth).rpc.call('eth_feeHistory', [
+            20,
+            'latest',
+            [5, 25, 60],
+          ]);
+        const baseFee = new BigNumber(baseFeePerGas.pop() as string).shiftedBy(
+          -9,
+        );
+        const [lows, mediums, highs]: [
+          Array<BigNumber>,
+          Array<BigNumber>,
+          Array<BigNumber>,
+        ] = [[], [], []];
+        reward.forEach((priorityFees: Array<string>) => {
+          lows.push(new BigNumber(priorityFees[0]));
+          mediums.push(new BigNumber(priorityFees[1]));
+          highs.push(new BigNumber(priorityFees[2]));
+        });
+        const coefficients = ['1.13', '1.25', '1.3'].map(
+          (c) => new BigNumber(c),
+        );
+        return {
+          prices: [lows, mediums, highs].map((rewardList, index) => {
+            const coefficient = coefficients[index];
+            const maxPriorityFeePerGas = rewardList
+              .sort((a, b) => (a.gt(b) ? 1 : -1))[11]
+              .shiftedBy(-9);
+            return {
+              baseFee: baseFee.toFixed(),
+              maxPriorityFeePerGas: maxPriorityFeePerGas.toFixed(),
+              maxFeePerGas: baseFee
+                .times(new BigNumber(coefficient))
+                .plus(maxPriorityFeePerGas)
+                .toFixed(),
+            };
+          }),
+        };
+      }
+    } else {
+      const count = 3;
+      const result = await client.getFeePricePerUnit();
+      if (result) {
+        return {
+          prices: [result.normal, ...(result.others || [])]
+            .sort((a, b) => (a.price.gt(b.price) ? 1 : -1))
+            .map((p) => p.price)
+            .slice(0, count),
+        };
+      }
+    }
+  }
+
+  async baseGetGasInfo(client: BaseClient): Promise<{
+    prices: Array<string | EIP1559Fee>;
+    networkCongestion?: number;
+    estimatedTransactionCount?: number;
+  }> {
+    const gasInfo = await this._getGasInfoByVaultClient(client);
+    let prices = [];
+
+    if (gasInfo === undefined) {
+      const result = await this.getFeePricePerUnit();
+      prices = [result.normal, ...(result.others || [])]
+        .sort((a, b) => (a.price.gt(b.price) ? 1 : -1))
+        .map((p) => p.price)
+        .slice(0, 3);
+    } else {
+      prices = gasInfo.prices;
+    }
+
+    if (prices.length > 0 && prices[0] instanceof BigNumber) {
+      const { feeDecimals } = await this.getNetwork();
+      return {
+        ...gasInfo,
+        prices: (prices as Array<BigNumber>).map((price: BigNumber) =>
+          price.shiftedBy(-feeDecimals).toFixed(),
+        ),
+      };
+    }
+    return gasInfo as { prices: EIP1559Fee[] };
+  }
+
+  async getGasInfo(): Promise<{
+    prices: Array<string | EIP1559Fee>;
+    networkCongestion?: number;
+    estimatedTransactionCount?: number;
+  }> {
+    // const client = await this.getJsonRPCClient();
+    // return this.baseGetGasInfo(client);
+    throw new NotImplemented();
+  }
 }
 
 /*
@@ -334,7 +476,6 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   abstract keyringMap: Record<IKeyringMapKey, typeof KeyringBaseMock>;
 
   async init(config: IVaultInitConfig) {
-    await this.initProvider();
     await this.initKeyring(config);
   }
 
@@ -362,15 +503,17 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   ): Promise<IEncodedTx>;
 
   // TODO move to EVM only
-  abstract buildEncodedTxFromApprove(
-    approveInfo: IApproveInfo,
-  ): Promise<IEncodedTx>;
+  buildEncodedTxFromApprove(approveInfo: IApproveInfo): Promise<IEncodedTx> {
+    throw new NotImplemented();
+  }
 
   // TODO move to EVM only
-  abstract updateEncodedTxTokenApprove(
+  updateEncodedTxTokenApprove(
     encodedTx: IEncodedTx,
     amount: string,
-  ): Promise<IEncodedTx>;
+  ): Promise<IEncodedTx> {
+    throw new NotImplemented();
+  }
 
   abstract updateEncodedTx(
     encodedTx: IEncodedTx,
@@ -418,29 +561,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     });
   }
 
-  async broadcastTransaction(
+  abstract broadcastTransaction(
     signedTx: ISignedTxPro,
     options?: any,
-  ): Promise<ISignedTxPro> {
-    debugLogger.engine.info('broadcastTransaction START:', {
-      rawTx: signedTx.rawTx,
-    });
-    // TODO RPC Error format return: EIP-1474 EIP-1193
-    const txid = await this.engine.providerManager.broadcastTransaction(
-      this.networkId,
-      signedTx.rawTx,
-      options,
-    );
-    debugLogger.engine.info('broadcastTransaction END:', {
-      txid,
-      rawTx: signedTx.rawTx,
-    });
-    return {
-      ...signedTx,
-      txid,
-      encodedTx: signedTx.encodedTx,
-    };
-  }
+  ): Promise<ISignedTxPro>;
 
   async buildEncodedTxFromBatchTransfer(params: {
     transferInfos: ITransferInfo[];
@@ -705,14 +829,13 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return IDecodedTxDirection.OTHER;
   }
 
-  async getNextNonce(networkId: string, dbAccount: DBAccount): Promise<number> {
-    // TODO move to Vault.getOnChainNextNonce
-    const onChainNonce =
-      (
-        await this.engine.providerManager.getAddresses(networkId, [
-          dbAccount.address,
-        ])
-      )[0]?.nonce ?? 0;
+  async baseGetNextNonce({
+    onChainNonce,
+  }: {
+    onChainNonce: number;
+  }): Promise<number> {
+    const { networkId } = this;
+    const dbAccount = await this.getDbAccount();
 
     // TODO: Although 100 history items should be enough to cover all the
     // pending transactions, we need to find a more reliable way.
@@ -755,6 +878,15 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     }
 
     return nextNonce;
+  }
+
+  async getNextNonce(): Promise<number> {
+    // const dbAccount = await this.getDbAccount();
+    // const client = await this.getJsonRPCClient();
+    // const onChainNonce =
+    //   (await client.getAddresses([dbAccount.address]))[0]?.nonce ?? 0;
+    // return this.baseGetNextNonce({ onChainNonce });
+    throw new NotImplemented();
   }
 
   validateSendAmount(amount: string, tokenBalance: string, to: string) {

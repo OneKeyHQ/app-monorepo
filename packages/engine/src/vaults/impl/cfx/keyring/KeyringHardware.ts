@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { TypedDataUtils } from 'eth-sig-util';
 import { omitBy } from 'lodash';
 
+import { conflux as sdkCfx } from '@onekeyhq/core/src/chains/cfx/sdkCfx';
 import { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 import { isHexString } from '@onekeyhq/kit/src/utils/helper';
@@ -14,15 +15,17 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { AccountType } from '../../../../types/account';
-import { ETHMessageTypes } from '../../../../types/message';
+import {
+  EMessageTypesEth,
+  type IUnsignedMessageEth,
+} from '../../../../types/message';
 import { KeyringHardwareBase } from '../../../keyring/KeyringHardwareBase';
-import { conflux as sdkCfx } from '../sdk';
 
 import type { DBVariantAccount } from '../../../../types/account';
-import type { ETHMessage } from '../../../../types/message';
 import type {
   IGetAddressParams,
   IPrepareHardwareAccountsParams,
@@ -35,7 +38,7 @@ const { Transaction, address: confluxAddress } = sdkCfx;
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 
-export type IUnsignedMessageCfx = ETHMessage & {
+export type IUnsignedMessageCfxLegacy = IUnsignedMessageEth & {
   payload?: any;
 };
 
@@ -92,7 +95,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   async signMessage(
-    messages: IUnsignedMessageCfx[],
+    messages: IUnsignedMessageCfxLegacy[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     return Promise.all(
@@ -127,12 +130,12 @@ export class KeyringHardware extends KeyringHardwareBase {
         },
       );
     } catch (error: any) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
       throw new OneKeyHardwareError(error);
     }
 
     if (!addressesResponse.success) {
-      debugLogger.common.error(addressesResponse.payload);
+      flowLogger.error.log(addressesResponse.payload);
       throw convertDeviceError(addressesResponse.payload);
     }
 
@@ -195,21 +198,21 @@ export class KeyringHardware extends KeyringHardwareBase {
     }));
   }
 
-  async handleSignMessage(message: IUnsignedMessageCfx) {
+  async handleSignMessage(message: IUnsignedMessageCfxLegacy) {
     const HardwareSDK = await this.getHardwareSDKInstance();
     const path = await this.getAccountPath();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
 
-    if (message.type === ETHMessageTypes.TYPED_DATA_V1) {
+    if (message.type === EMessageTypesEth.TYPED_DATA_V1) {
       throw web3Errors.provider.unsupportedMethod(
         `Sign message method=${message.type} not supported for this device`,
       );
     }
 
     if (
-      message.type === ETHMessageTypes.ETH_SIGN ||
-      message.type === ETHMessageTypes.PERSONAL_SIGN
+      message.type === EMessageTypesEth.ETH_SIGN ||
+      message.type === EMessageTypesEth.PERSONAL_SIGN
     ) {
       let messageBuffer: Buffer;
       try {
@@ -243,10 +246,10 @@ export class KeyringHardware extends KeyringHardwareBase {
     }
 
     if (
-      message.type === ETHMessageTypes.TYPED_DATA_V3 ||
-      message.type === ETHMessageTypes.TYPED_DATA_V4
+      message.type === EMessageTypesEth.TYPED_DATA_V3 ||
+      message.type === EMessageTypesEth.TYPED_DATA_V4
     ) {
-      const useV4 = message.type === ETHMessageTypes.TYPED_DATA_V4;
+      const useV4 = message.type === EMessageTypesEth.TYPED_DATA_V4;
       const data = JSON.parse(message.message);
       const typedData = TypedDataUtils.sanitizeData(data);
 

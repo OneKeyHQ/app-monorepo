@@ -13,7 +13,14 @@ const settings: IVaultSettings = Object.freeze({
 
   isUTXOModel: false,
 
-  accountNameInfo: {},
+  accountNameInfo: {
+    default: {
+      prefix: '',
+      category: '',
+      template: '',
+      coinType: '',
+    },
+  },
 });
 
 export default settings;

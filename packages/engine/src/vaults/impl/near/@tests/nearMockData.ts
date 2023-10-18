@@ -29,6 +29,8 @@ const hdAccount1: IUnitTestMockAccount = {
     path: "m/44'/397'/0'",
     pub: 'ed25519:Cxua8Jtcu4414fr97m1CHqVt7WWFdkca1pFkdtLefD5n',
     type: 'simple' as any,
+    'addresses': undefined,
+    'template': "m/44'/397'/$$INDEX$$'",
   },
   mnemonic: mockCredentials.mnemonic1,
   password: mockCredentials.password,
@@ -55,7 +57,7 @@ const importedAccount2: IUnitTestMockAccount = {
   account: {
     address: '75fe307718a061f3b371c9777ad194ac485fde853d600a8e802ce748e5012361',
     coinType: '397',
-    id: 'imported--397--75fe307718a061f3b371c9777ad194ac485fde853d600a8e802ce748e5012361',
+    id: 'imported--397--ed25519:8wbWQQkeK9NV1qkiQZ95jbj7JNhpeapHafLPw3qsJdqi',
     name: 'Account #1',
     path: '',
     pub: 'ed25519:8wbWQQkeK9NV1qkiQZ95jbj7JNhpeapHafLPw3qsJdqi',

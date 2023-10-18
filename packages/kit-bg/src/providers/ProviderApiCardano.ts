@@ -1,7 +1,7 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
-import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
+import { EMessageTypesAda } from '@onekeyhq/engine/src/types/message';
 import { NetworkId } from '@onekeyhq/engine/src/vaults/impl/ada/types';
 import type AdaVault from '@onekeyhq/engine/src/vaults/impl/ada/Vault';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
@@ -40,7 +40,7 @@ class ProviderApiCardano extends ProviderApiBase {
 
   public notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo) {
     // TODO
-    debugLogger.providerApi.info(info);
+    debugLogger.providerApi.info('notifyDappChainChanged', info);
   }
 
   public async rpcCall(request: IJsonRpcRequest): Promise<any> {
@@ -103,7 +103,6 @@ class ProviderApiCardano extends ProviderApiBase {
         .getActiveConnectedAccounts({ origin, impl: IMPL_ADA })
         .map(({ address }) => address),
     });
-    debugLogger.providerApi.info('cardano disconnect', origin);
   }
 
   @providerApiMethod()
@@ -182,8 +181,8 @@ class ProviderApiCardano extends ProviderApiBase {
     const signature =
       await this.backgroundApi.serviceDapp?.openSignAndSendModal(request, {
         unsignedMessage: {
-          // Use ETH_SIGN to sign plain message
-          type: ETHMessageTypes.ETH_SIGN,
+          // Use ETH_SIGN to sign plain message?
+          type: EMessageTypesAda.SIGN_MESSAGE,
           message: Buffer.from(params.payload, 'hex').toString('utf8'),
           payload: params,
         },

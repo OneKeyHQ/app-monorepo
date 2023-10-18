@@ -1,12 +1,22 @@
 import BigNumber from 'bignumber.js';
 
-import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import {
+  Nexa,
+  buildDecodeTxFromTx,
+  estimateFee,
+  estimateSize,
+  getNexaNetworkInfo,
+  publickeyToAddress,
+  verifyNexaAddress,
+  verifyNexaAddressPrefix,
+} from '@onekeyhq/core/src/chains/nexa/sdkNexa';
+import { decrypt } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   InvalidAddress,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import {
@@ -34,17 +44,7 @@ import {
   KeyringImported,
   KeyringWatching,
 } from './keyring';
-import { Nexa } from './sdk';
 import settings from './settings';
-import {
-  buildDecodeTxFromTx,
-  estimateFee,
-  estimateSize,
-  getNexaNetworkInfo,
-  publickeyToAddress,
-  verifyNexaAddress,
-  verifyNexaAddressPrefix,
-} from './utils';
 
 import type { BaseClient } from '../../../client/BaseClient';
 import type { DBUTXOAccount } from '../../../types/account';
@@ -117,9 +117,7 @@ export default class Vault extends VaultBase {
   createSDKClient = memoizee(
     async (rpcUrl: string, networkId: string) => {
       const sdkClient = this.createClientFromURL(rpcUrl) as Nexa;
-      const chainInfo =
-        await this.engine.providerManager.getChainInfoByNetworkId(networkId);
-      // TODO move to base, setChainInfo like what ProviderController.getClient() do
+      const chainInfo = await this.engine.getChainInfo(networkId);
       sdkClient.setChainInfo(chainInfo);
       return sdkClient;
     },
@@ -233,10 +231,6 @@ export default class Vault extends VaultBase {
     return decodedTx;
   }
 
-  override getNextNonce(): Promise<number> {
-    return Promise.resolve(0);
-  }
-
   override decodedTxToLegacy(): Promise<EVMDecodedItem> {
     return Promise.resolve({} as IDecodedTxLegacy);
   }
@@ -323,7 +317,7 @@ export default class Vault extends VaultBase {
       prices: [new BigNumber(1).shiftedBy(-network.decimals).toFixed()],
       feeList: [feeInfo],
       defaultPresetIndex: '1',
-      isBtcForkChain: true,
+      isBtcForkChain: true, // btcFork like fee model
       tx: null,
     };
   }
@@ -333,7 +327,7 @@ export default class Vault extends VaultBase {
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
       const keyring = this.keyring as KeyringSoftwareBase;
       const [encryptedPrivateKey] = Object.values(
-        await keyring.getPrivateKeys(password),
+        await keyring.getPrivateKeys({ password }),
       );
       return decrypt(password, encryptedPrivateKey).toString('hex');
     }
@@ -361,7 +355,7 @@ export default class Vault extends VaultBase {
       tx = await client.getTransaction(txHash);
     } catch (error) {
       // The result from Nexa Transaction API may be incomplete JSON, resulting in parsing failure.
-      debugLogger.common.error(`Failed to fetch Nexa transaction. `, txHash);
+      flowLogger.error.log(`Failed to fetch Nexa transaction. `, txHash);
       return false;
     }
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;

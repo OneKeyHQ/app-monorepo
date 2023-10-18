@@ -11,13 +11,17 @@ import LotusRpcEngine from '@glif/filecoin-rpc-client';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethers';
-import { isEmpty, isNil, isObject } from 'lodash';
+import { isNil, isObject } from 'lodash';
 
-import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import type { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
+import { decrypt } from '@onekeyhq/core/src/secret/encryptors/aes256';
+import type {
+  PartialTokenInfo,
+  TransactionStatus,
+} from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   InvalidAddress,
+  NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -63,7 +67,6 @@ import type { CID, FilUnit, IEncodedTxFil, IOnChainHistoryTx } from './types';
 
 let suggestedGasPremium = '0';
 
-// @ts-ignore
 export default class Vault extends VaultBase {
   keyringMap = {
     hd: KeyringHd,
@@ -87,6 +90,12 @@ export default class Vault extends VaultBase {
       maxAge: getTimeDurationMs({ minute: 3 }),
     },
   );
+
+  override fetchTokenInfos(
+    tokenAddresses: string[],
+  ): Promise<(PartialTokenInfo | undefined)[]> {
+    throw new NotImplemented();
+  }
 
   async getClient(url?: string) {
     const { rpcURL } = await this.engine.getNetwork(this.networkId);
@@ -302,7 +311,7 @@ export default class Vault extends VaultBase {
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
       const keyring = this.keyring as KeyringSoftwareBase;
       const [encryptedPrivateKey] = Object.values(
-        await keyring.getPrivateKeys(password),
+        await keyring.getPrivateKeys({ password }),
       );
       const privateKey = decrypt(password, encryptedPrivateKey).toString(
         'base64',

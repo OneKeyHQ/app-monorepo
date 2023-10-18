@@ -12,10 +12,10 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { getDebugLoggerSettings } from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isWebEmbedApiAllowedOrigin } from '@onekeyhq/shared/src/utils/originUtils';
+import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 import ProviderApiBase from './ProviderApiBase';
 

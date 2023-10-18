@@ -1,29 +1,29 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await, no-param-reassign */
 
 import { defaultAbiCoder } from '@ethersproject/abi';
+import { getAddress } from '@ethersproject/address';
+import {
+  getEncryptionPublicKey,
+  decrypt as mmSigUtilDecrypt,
+} from '@metamask/eth-sig-util';
 import ERC1155MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC1155.json';
 import ERC20MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC20.json';
 import ERC721MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC721.json';
 import BigNumber from 'bignumber.js';
+import * as ethUtil from 'ethereumjs-util';
 import { Contract } from 'ethers';
-import {
-  difference,
-  isNil,
-  isString,
-  merge,
-  omit,
-  reduce,
-  toLower,
-} from 'lodash';
+import { difference, isNil, isString, merge, reduce, toLower } from 'lodash';
 
-import { Geth } from '@onekeyhq/blockchain-libs/src/provider/chains/eth/geth';
-import type { Provider as EthProvider } from '@onekeyhq/blockchain-libs/src/provider/chains/eth/provider';
-import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
+import type { HashMessageParams } from '@onekeyhq/core/src/chains/evm/message';
+import { hashMessage } from '@onekeyhq/core/src/chains/evm/message';
+import { decrypt } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type {
+  AddressInfo,
+  AddressValidation,
   PartialTokenInfo,
   UnsignedTx,
 } from '@onekeyhq/engine/src/types/provider';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import type {
   BatchSendConfirmPayloadInfo,
@@ -39,15 +39,21 @@ import {
   UNIQUE_TOKEN_SYMBOLS,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
+  InvalidAddress,
+  InvalidTokenAddress,
   NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
+import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  fromBigIntHex,
+  toBigIntHex,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 
 import * as covalentApi from '../../../managers/covalent';
-import { getAccountNameInfoByImpl } from '../../../managers/impl';
 import {
   buildEncodeDataWithABI,
   createOutputActionFromNFTTransaction,
@@ -58,7 +64,7 @@ import { batchTransferContractAddress } from '../../../presets/batchTransferCont
 import { extractResponseError, fillUnsignedTxObj } from '../../../proxy';
 import { BatchTransferSelectors } from '../../../types/batchTransfer';
 import { HistoryEntryStatus } from '../../../types/history';
-import { ETHMessageTypes } from '../../../types/message';
+import { EMessageTypesEth } from '../../../types/message';
 import { NFTAssetType } from '../../../types/nft';
 import { TokenRiskLevel } from '../../../types/token';
 import {
@@ -66,9 +72,11 @@ import {
   IDecodedTxStatus,
   IEncodedTxUpdateType,
 } from '../../types';
+import { getRpcUrlFromChainInfo } from '../../utils/btcForkChain/provider/blockbook';
 import { convertFeeValueToGwei } from '../../utils/feeInfoUtils';
 import { VaultBase } from '../../VaultBase';
 
+import { Geth } from './client/geth';
 import {
   Erc1155MethodSelectors,
   Erc20MethodSelectors,
@@ -95,17 +103,7 @@ import type {
   HistoryEntry,
   HistoryEntryTransaction,
 } from '../../../types/history';
-import type {
-  AptosMessage,
-  BtcMessageTypes,
-  CommonMessage,
-  ETHMessage,
-} from '../../../types/message';
-import type {
-  AccountNameInfo,
-  EIP1559Fee,
-  Network,
-} from '../../../types/network';
+import type { EIP1559Fee, Network } from '../../../types/network';
 import type {
   Collection,
   NFTAsset,
@@ -132,6 +130,7 @@ import type {
   IRawTx,
   ISetApprovalForAll,
   ISignCredentialOptions,
+  ISignedTxPro,
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
@@ -151,14 +150,6 @@ const ERC721 = ERC721MetadataArtifact.abi;
 const ERC1155 = ERC1155MetadataArtifact.abi;
 const ERC20 = ERC20MetadataArtifact.abi;
 
-export type IUnsignedMessageEvm = (
-  | AptosMessage
-  | ETHMessage
-  | CommonMessage
-) & {
-  payload?: any;
-};
-
 // TODO move to types.ts
 export type IEncodedTxEvm = {
   from: string;
@@ -173,6 +164,8 @@ export type IEncodedTxEvm = {
   gasPrice?: string;
   maxFeePerGas?: string;
   maxPriorityFeePerGas?: string;
+
+  chainId?: number;
 };
 
 export enum IDecodedTxEvmType {
@@ -210,6 +203,63 @@ export default class Vault extends VaultBase {
     external: KeyringWatching,
   };
 
+  override async getTransactionStatuses(
+    txids: string[],
+  ): Promise<(TransactionStatus | undefined)[]> {
+    const client = await this.getJsonRPCClient();
+    return client.getTransactionStatuses(txids);
+  }
+
+  override async broadcastTransaction(
+    signedTx: ISignedTxPro,
+    options?: any,
+  ): Promise<ISignedTxPro> {
+    const client = await this.getJsonRPCClient();
+    const txid = await client.broadcastTransaction(signedTx.rawTx, options);
+
+    return {
+      ...signedTx,
+      txid,
+      encodedTx: signedTx.encodedTx,
+    };
+  }
+
+  //
+
+  async getAddresses(
+    addresses: Array<string>,
+  ): Promise<Array<AddressInfo | undefined>> {
+    const client = await this.getJsonRPCClient();
+    return client.getAddresses(addresses);
+  }
+
+  override async getNextNonce(): Promise<number> {
+    const client = await this.getJsonRPCClient();
+    const dbAccount = await this.getDbAccount();
+    const onChainNonce =
+      (await client.getAddresses([dbAccount.address]))[0]?.nonce ?? 0;
+    return super.baseGetNextNonce({ onChainNonce });
+  }
+
+  override async getBalances(
+    requests: { address: string; tokenAddress?: string | undefined }[],
+    password?: string | undefined,
+    passwordLoadedCallback?: ((isLoaded: boolean) => void) | undefined,
+  ): Promise<(BigNumber | undefined)[]> {
+    const client = await this.getJsonRPCClient();
+    return client.getBalances(
+      requests.map(({ address, tokenAddress }) => ({
+        address,
+        coin: { ...(typeof tokenAddress === 'string' ? { tokenAddress } : {}) },
+      })),
+    );
+  }
+
+  override async getGasInfo() {
+    const client = await this.getJsonRPCClient();
+    return this.baseGetGasInfo(client);
+  }
+
   override async getEthersProvider() {
     const network = await this.getNetwork();
     const rpcUrl = network.rpcURL;
@@ -224,13 +274,30 @@ export default class Vault extends VaultBase {
     return this._ethersProvider;
   }
 
-  async getJsonRPCClient(): Promise<Geth> {
-    // shared/src/request
-    // client: cross-fetch
-    return (await this.engine.providerManager.getClient(
-      this.networkId,
-    )) as Geth;
-  }
+  getJsonRPCClient = memoizee(
+    async (): Promise<Geth> => {
+      // shared/src/request
+      // client: cross-fetch
+      const chainInfo = await this.getChainInfo();
+      const rpcUrl = getRpcUrlFromChainInfo(chainInfo);
+      return this.createClientFromURL(rpcUrl);
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 1,
+      maxAge: getTimeDurationMs({ minute: 10 }),
+    },
+  );
+
+  override createClientFromURL = memoizee(
+    (url: string): Geth => new Geth(url),
+    {
+      primitive: true,
+      max: 3,
+      maxAge: getTimeDurationMs({ minute: 3 }),
+    },
+  );
 
   decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
     throw new Error('decodedTxToLegacy in EVM not implemented.');
@@ -719,9 +786,7 @@ export default class Vault extends VaultBase {
     const isTransferToken = Boolean(transferInfo.token);
     const { nftTokenId, isNFT, nftType } = transferInfo;
     const nextNonce: number =
-      prevNonce !== undefined
-        ? prevNonce + 1
-        : await this.getNextNonce(network.id, dbAccount);
+      prevNonce !== undefined ? prevNonce + 1 : await this.getNextNonce();
 
     const contract = batchTransferContractAddress[network.id];
 
@@ -855,7 +920,7 @@ export default class Vault extends VaultBase {
     };
   }
 
-  async buildEncodedTxFromApprove(
+  override async buildEncodedTxFromApprove(
     approveInfo: IApproveInfo,
     prevNonce?: number,
   ): Promise<IEncodedTxEvm> {
@@ -870,9 +935,7 @@ export default class Vault extends VaultBase {
     }
 
     const nextNonce: number =
-      prevNonce !== undefined
-        ? prevNonce + 1
-        : await this.getNextNonce(network.id, dbAccount);
+      prevNonce !== undefined ? prevNonce + 1 : await this.getNextNonce();
 
     const amountBN = new BigNumber(approveInfo.amount);
     const amountHex = toBigIntHex(
@@ -901,9 +964,7 @@ export default class Vault extends VaultBase {
     const network = await this.getNetwork();
     const dbAccount = await this.getDbAccount();
     const nextNonce: number =
-      prevNonce !== undefined
-        ? prevNonce + 1
-        : await this.getNextNonce(network.id, dbAccount);
+      prevNonce !== undefined ? prevNonce + 1 : await this.getNextNonce();
     const encodedTxs = approveInfos.map((approveInfo, index) => ({
       from: approveInfo.from,
       to: approveInfo.to,
@@ -1075,7 +1136,7 @@ export default class Vault extends VaultBase {
     return encodedTx;
   }
 
-  async updateEncodedTxTokenApprove(
+  override async updateEncodedTxTokenApprove(
     encodedTx: IEncodedTxEvm,
     amount: string,
   ): Promise<IEncodedTxEvm> {
@@ -1108,6 +1169,120 @@ export default class Vault extends VaultBase {
     };
   }
 
+  verifyAddress(address: string): Promise<AddressValidation> {
+    let isValid = false;
+    let checksumAddress = '';
+
+    try {
+      checksumAddress = getAddress(address);
+      isValid = checksumAddress.length === 42;
+    } catch {
+      // pass
+    }
+
+    return Promise.resolve({
+      normalizedAddress: checksumAddress.toLowerCase() || undefined,
+      displayAddress: checksumAddress || undefined,
+      isValid,
+    });
+  }
+
+  override async validateAddress(address: string): Promise<string> {
+    const { normalizedAddress, isValid } = await this.verifyAddress(address);
+    if (!isValid || !normalizedAddress) {
+      throw new InvalidAddress();
+    }
+    return Promise.resolve(normalizedAddress);
+  }
+
+  override async validateTokenAddress(address: string): Promise<string> {
+    const { normalizedAddress, isValid } = await this.verifyAddress(address);
+    if (!isValid || typeof normalizedAddress === 'undefined') {
+      throw new InvalidTokenAddress();
+    }
+    return Promise.resolve(normalizedAddress);
+  }
+
+  async buildUnsignedTx(unsignedTx: UnsignedTx): Promise<UnsignedTx> {
+    const input = unsignedTx.inputs[0];
+    const output = unsignedTx.outputs[0];
+
+    const payload = unsignedTx.payload || {};
+    const { nonce } = unsignedTx;
+    let { feeLimit, feeLimitForDisplay } = unsignedTx;
+
+    check(typeof nonce === 'number' && nonce >= 0, 'nonce is required');
+    const client = await this.getJsonRPCClient();
+    const chainInfo = await this.getChainInfo();
+
+    if (input && output) {
+      const fromAddress = input.address;
+      const { tokenAddress } = output;
+      let toAddress = output.address;
+      let value: string = toBigIntHex(output.value);
+      let data: string | undefined;
+
+      if (tokenAddress) {
+        data = `0xa9059cbb${defaultAbiCoder
+          .encode(['address', 'uint256'], [toAddress, value])
+          .slice(2)}`; // method_selector(transfer) + byte32_pad(address) + byte32_pad(value)
+        value = '0x0';
+        toAddress = tokenAddress;
+      } else {
+        data = payload.data;
+      }
+
+      if (typeof data === 'string' && data) {
+        payload.data = data;
+      }
+
+      if (!feeLimit) {
+        const estimatedGasLimit = await client.estimateGasLimit({
+          fromAddress,
+          toAddress,
+          value,
+          data,
+          customData: payload.customData,
+        });
+        const estimatedGasLimitBN = fromBigIntHex(estimatedGasLimit);
+        const multiplier =
+          chainInfo.implOptions.contract_gaslimit_multiplier || 1.2;
+
+        feeLimit =
+          tokenAddress ||
+          ((await this.verifyAddress(toAddress)).isValid &&
+            (await client.isContract(toAddress)))
+            ? estimatedGasLimitBN.multipliedBy(multiplier).integerValue()
+            : estimatedGasLimitBN;
+        feeLimitForDisplay = estimatedGasLimitBN;
+      }
+    }
+
+    feeLimit = feeLimit || new BigNumber(21000);
+    feeLimitForDisplay = feeLimitForDisplay || feeLimit || new BigNumber(21000);
+
+    let { feePricePerUnit } = unsignedTx;
+    if (!feePricePerUnit) {
+      const feePrice = await client.getFeePricePerUnit();
+      const { normal } = feePrice;
+      feePricePerUnit = normal.price;
+
+      if (normal.payload) {
+        Object.assign(payload, normal.payload);
+      }
+    }
+
+    return Object.assign(unsignedTx, {
+      inputs: input ? [input] : [],
+      outputs: output ? [output] : [],
+      nonce,
+      feeLimit,
+      feeLimitForDisplay,
+      feePricePerUnit,
+      payload,
+    });
+  }
+
   async buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxEvm,
     // TODO feeInfo
@@ -1136,7 +1311,7 @@ export default class Vault extends VaultBase {
     const nonceBN = new BigNumber(nonce ?? 'NaN');
     const nextNonce: number = !nonceBN.isNaN()
       ? nonceBN.toNumber()
-      : await this.getNextNonce(network.id, dbAccount);
+      : await this.getNextNonce();
     // fillUnsignedTx in each impl
     const unsignedTxInfo = fillUnsignedTxObj({
       shiftFeeDecimals: false,
@@ -1164,10 +1339,7 @@ export default class Vault extends VaultBase {
       decodeUnsignedTxFeeData(unsignedTxInfo),
     );
 
-    const unsignedTx = await this.engine.providerManager.buildUnsignedTx(
-      this.networkId,
-      unsignedTxInfo,
-    );
+    const unsignedTx = await this.buildUnsignedTx(unsignedTxInfo);
 
     debugLogger.sendTx.info(
       'buildUnsignedTxFromEncodedTx >>>> buildUnsignedTx',
@@ -1176,6 +1348,10 @@ export default class Vault extends VaultBase {
     );
 
     encodedTx.nonce = nextNonce;
+
+    const chainIdStr = await this.getNetworkChainId();
+    const chainId = new BigNumber(chainIdStr).toNumber();
+    encodedTx.chainId = chainId;
 
     return { ...unsignedTx, encodedTx };
   }
@@ -1202,7 +1378,7 @@ export default class Vault extends VaultBase {
 
     // RPC: eth_gasPrice
     let { prices, networkCongestion, estimatedTransactionCount } =
-      await this.engine.getGasInfo(this.networkId);
+      await this.getGasInfo();
 
     // fi blocknative returns 5 gas gears, then take the middle 3 as the default prices
     if (prices.length === 5) {
@@ -1252,7 +1428,7 @@ export default class Vault extends VaultBase {
           encodedTxWithFakePriceAndNonce,
         );
       } catch (error) {
-        debugLogger.common.error(error);
+        flowLogger.error.log(error);
         throw error;
       }
     }
@@ -1400,6 +1576,7 @@ export default class Vault extends VaultBase {
     return Promise.resolve(encodedTxWithFee);
   }
 
+  // The below two mm- methods are very specific functions needed to mimic a metamask provider.
   async mmGetPublicKey(options: ISignCredentialOptions): Promise<string> {
     const dbAccount = await this.getDbAccount();
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
@@ -1412,7 +1589,7 @@ export default class Vault extends VaultBase {
         password,
         [dbAccount.address],
       );
-      return (this.engineProvider as EthProvider).mmGetPublicKey(signer);
+      return getEncryptionPublicKey((await signer.getPrvkey()).toString('hex'));
     }
     throw new NotImplemented(
       'Only software keryings support getting encryption key.',
@@ -1434,16 +1611,51 @@ export default class Vault extends VaultBase {
         password,
         [dbAccount.address],
       );
-      return (this.engineProvider as EthProvider).mmDecrypt(message, signer);
+      const encryptedData = JSON.parse(ethUtil.toBuffer(message).toString());
+      return mmSigUtilDecrypt({
+        encryptedData,
+        privateKey: (await signer.getPrvkey()).toString('hex'),
+      });
     }
     throw new NotImplemented('Only software keryings support mm decryption.');
   }
 
   async personalECRecover(message: string, signature: string): Promise<string> {
-    return (this.engineProvider as EthProvider).ecRecover(
-      { type: ETHMessageTypes.PERSONAL_SIGN, message },
-      signature,
+    const messageInfo: HashMessageParams = {
+      messageType: EMessageTypesEth.PERSONAL_SIGN,
+      message,
+    };
+    return this.ecRecover(messageInfo, signature);
+  }
+
+  async ecRecover(
+    messageInfo: HashMessageParams,
+    signature: string,
+  ): Promise<string> {
+    const messageHash = hashMessage(messageInfo);
+    const hashBuffer = ethUtil.toBuffer(messageHash);
+    const sigBuffer = ethUtil.toBuffer(signature);
+    check(hashBuffer.length === 32, 'Invalid message hash length');
+    check(sigBuffer.length === 65, 'Invalid signature length');
+
+    const [r, s, v] = [
+      sigBuffer.slice(0, 32),
+      sigBuffer.slice(32, 64),
+      sigBuffer[64],
+    ];
+    const publicKey = ethUtil.ecrecover(hashBuffer, v, r, s);
+    return ethUtil.addHexPrefix(
+      ethUtil.pubToAddress(publicKey).toString('hex'),
     );
+  }
+
+  async verifyMessage(
+    address: string,
+    messageInfo: HashMessageParams,
+    signature: string,
+  ): Promise<boolean> {
+    const recoveredAddress = await this.ecRecover(messageInfo, signature);
+    return address.toLowerCase() === recoveredAddress.toLowerCase();
   }
 
   override async getTokenAllowance(
@@ -1527,9 +1739,8 @@ export default class Vault extends VaultBase {
     const dbAccount = await this.getDbAccount();
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
       const keyring = this.keyring as KeyringSoftwareBase;
-      const [encryptedPrivateKey] = Object.values(
-        await keyring.getPrivateKeys(password),
-      );
+      const privateKeys = await keyring.getPrivateKeys({ password });
+      const [encryptedPrivateKey] = Object.values(privateKeys);
       return `0x${decrypt(password, encryptedPrivateKey).toString('hex')}`;
     }
     throw new OneKeyInternalError(
@@ -1586,17 +1797,15 @@ export default class Vault extends VaultBase {
     }
   }
 
-  override createClientFromURL(url: string): Geth {
-    return new Geth(url);
-  }
-
-  fetchTokenInfos(
+  async fetchTokenInfos(
     tokenAddresses: string[],
   ): Promise<Array<PartialTokenInfo | undefined>> {
-    return this.engine.providerManager.getTokenInfos(
-      this.networkId,
-      tokenAddresses,
-    );
+    const client = await this.getJsonRPCClient();
+    return client.getTokenInfos(tokenAddresses);
+    // return this.engine.providerManager.getTokenInfos(
+    //   this.networkId,
+    //   tokenAddresses,
+    // );
   }
 
   override async getAccountNonce(): Promise<number | null> {
@@ -2039,17 +2248,6 @@ export default class Vault extends VaultBase {
     },
   );
 
-  override async getAccountNameInfoMap(): Promise<
-    Record<string, AccountNameInfo>
-  > {
-    const network = await this.getNetwork();
-    let accountNameInfo = getAccountNameInfoByImpl(network.impl);
-    if (network.id !== OnekeyNetwork.etc) {
-      accountNameInfo = omit(accountNameInfo, 'etcNative');
-    }
-    return accountNameInfo;
-  }
-
   override async filterAccounts({
     accounts,
     networkId,
@@ -2148,8 +2346,13 @@ export default class Vault extends VaultBase {
     return result;
   }
 
+  async getEVMChainId(url: string): Promise<string> {
+    const client = this.createClientFromURL(url);
+    return parseInt(await client.rpc.call('eth_chainId', []), 16).toString();
+  }
+
   override async fetchRpcChainId(url: string): Promise<string> {
-    const chainId = await this.engine.providerManager.getEVMChainId(url);
+    const chainId = await this.getEVMChainId(url);
     return String(chainId);
   }
 

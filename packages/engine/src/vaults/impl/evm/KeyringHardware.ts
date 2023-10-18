@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import * as engineUtils from '@onekeyhq/shared/src/engine/engineUtils';
@@ -19,14 +20,16 @@ import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import { ethers } from './sdk/ethers';
 
 import type { DBSimpleAccount } from '../../../types/account';
+import type { IUnsignedMessageEth } from '../../../types/message';
 import type {
   IGetAddressParams,
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
-import type { IUnsignedMessageEvm } from './Vault';
 
 export class KeyringHardware extends KeyringHardwareBase {
+  override coreApi = coreChainApi.evm.hd;
+
   async signTransaction(unsignedTx: UnsignedTx): Promise<SignedTx> {
     const HardwareSDK = await this.getHardwareSDKInstance();
     const path = await this.getAccountPath();
@@ -45,7 +48,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   async signMessage(
-    messages: IUnsignedMessageEvm[],
+    messages: IUnsignedMessageEth[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     const HardwareSDK = await this.getHardwareSDKInstance();
@@ -131,10 +134,12 @@ export class KeyringHardware extends KeyringHardwareBase {
           ).map(async (item) => ({
             path: item.path,
             info: engineUtils.fixAddressCase({
-              address: await this.engine.providerManager.addressFromPub(
-                this.networkId,
-                item.publicKey,
-              ),
+              address: (
+                await this.coreApi.getAddressFromPublic({
+                  networkInfo: await this.baseGetCoreApiNetworkInfo(),
+                  publicKey: item.publicKey,
+                })
+              ).address,
               impl: IMPL_EVM,
             }),
           })),

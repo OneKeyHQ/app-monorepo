@@ -63,7 +63,7 @@ export class VaultContext extends VaultContextBase {
 
   // TODO resetCache after dbAccount and network DB updated
 
-  async getDbAccount(params?: { noCache?: boolean }) {
+  async getDbAccount(params?: { noCache?: boolean }): Promise<DBAccount> {
     const { noCache } = { noCache: false, ...params };
     if (noCache || !this._dbAccount || this._dbAccount.id !== this.accountId) {
       this._dbAccount = await this.engine.dbApi.getAccount(this.accountId);
@@ -106,6 +106,10 @@ export class VaultContext extends VaultContextBase {
       this._network = await this.engine.getNetwork(this.networkId);
     }
     return this._network;
+  }
+
+  async getChainInfo() {
+    return this.engine.getChainInfo(this.networkId);
   }
 
   async getRpcUrl() {

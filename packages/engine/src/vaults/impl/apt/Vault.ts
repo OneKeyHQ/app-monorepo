@@ -7,16 +7,15 @@ import { AptosClient, BCS, TxnBuilderTypes } from 'aptos';
 import BigNumber from 'bignumber.js';
 import { get, groupBy, isEmpty, isNil } from 'lodash';
 
-import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
+import { decrypt } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { Token } from '@onekeyhq/kit/src/store/typings';
 import {
   getTimeDurationMs,
   getTimeStamp,
   isHexString,
 } from '@onekeyhq/kit/src/utils/helper';
-import { openDapp } from '@onekeyhq/kit/src/utils/openUrl';
 import {
   InvalidAddress,
   InvalidTokenAddress,
@@ -25,7 +24,13 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  addHexPrefix,
+  hexlify,
+  stripHexPrefix,
+} from '@onekeyhq/shared/src/utils/hexUtils';
 
 import {
   IDecodedTxActionType,
@@ -36,7 +41,6 @@ import {
   convertFeeGweiToValue,
   convertFeeValueToGwei,
 } from '../../utils/feeInfoUtils';
-import { addHexPrefix, hexlify, stripHexPrefix } from '../../utils/hexUtils';
 import { VaultBase } from '../../VaultBase';
 
 import { KeyringHardware } from './KeyringHardware';
@@ -84,7 +88,6 @@ import type {
 } from '../../types';
 import type { IEncodedTxAptos } from './types';
 
-// @ts-ignore
 export default class Vault extends VaultBase {
   keyringMap = {
     hd: KeyringHd,
@@ -231,7 +234,11 @@ export default class Vault extends VaultBase {
   }
 
   override async activateAccount() {
-    openDapp('https://aptoslabs.com/testnet-faucet');
+    // openDapp('https://aptoslabs.com/testnet-faucet');
+    // TODO should return url to frontend, and openDapp from frontend, not from background
+    return Promise.resolve({
+      openUrl: 'https://aptoslabs.com/testnet-faucet',
+    } as any);
   }
 
   override async activateToken(
@@ -787,7 +794,7 @@ export default class Vault extends VaultBase {
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
       const keyring = this.keyring as KeyringSoftwareBase;
       const [encryptedPrivateKey] = Object.values(
-        await keyring.getPrivateKeys(password),
+        await keyring.getPrivateKeys({ password }),
       );
       return `0x${decrypt(password, encryptedPrivateKey).toString('hex')}`;
     }
@@ -835,7 +842,7 @@ export default class Vault extends VaultBase {
 
         const [coinType] = types;
 
-        const from = get(tx, 'sender', undefined);
+        const from = get(tx, 'sender', undefined) || '';
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, no-unsafe-optional-chaining
         const [moveAddr] = func?.split('::');
 
@@ -972,7 +979,7 @@ export default class Vault extends VaultBase {
           historyTxToMerge,
         });
       } catch (e) {
-        debugLogger.common.error(e);
+        flowLogger.error.log(e);
       }
 
       return Promise.resolve(null);

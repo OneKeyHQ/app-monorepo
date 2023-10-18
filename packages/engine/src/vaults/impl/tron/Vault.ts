@@ -7,7 +7,7 @@ import BigNumber from 'bignumber.js';
 import { find, map, reduce, uniq } from 'lodash';
 import TronWeb from 'tronweb';
 
-import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import { decrypt } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type { FeePricePerUnit } from '@onekeyhq/engine/src/types/provider';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
@@ -19,6 +19,7 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { fromBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
@@ -1176,7 +1177,7 @@ export default class Vault extends VaultBase {
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
       const keyring = this.keyring as KeyringSoftwareBase;
       const [encryptedPrivateKey] = Object.values(
-        await keyring.getPrivateKeys(password),
+        await keyring.getPrivateKeys({ password }),
       );
       return decrypt(password, encryptedPrivateKey).toString('hex');
     }
@@ -1294,7 +1295,7 @@ export default class Vault extends VaultBase {
         };
         return await this.buildHistoryTx({ decodedTx, historyTxToMerge });
       } catch (e) {
-        debugLogger.common.error(e);
+        flowLogger.error.log(e);
       }
 
       return Promise.resolve(null);
@@ -1327,7 +1328,7 @@ export default class Vault extends VaultBase {
         };
         return await this.buildHistoryTx({ decodedTx, historyTxToMerge });
       } catch (e) {
-        debugLogger.common.error(e);
+        flowLogger.error.log(e);
       }
 
       return Promise.resolve(null);
@@ -1366,7 +1367,7 @@ export default class Vault extends VaultBase {
         };
         return await this.buildHistoryTx({ decodedTx, historyTxToMerge });
       } catch (e) {
-        debugLogger.common.error(e);
+        flowLogger.error.log(e);
       }
     });
 

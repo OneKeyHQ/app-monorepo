@@ -1,3 +1,4 @@
+import type { ICurveName } from '@onekeyhq/core/src/secret';
 import type { InputToSign } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.types';
 
 import type { NFTBTCAssetModel } from '../../../types/nft';
@@ -15,12 +16,30 @@ import type {
   WitnessUtxo,
 } from 'bip174/src/lib/interfaces';
 
+/*
+Nested SegWit
+Starts with “3”. Medium network fee.
+BIP49, P2SH-P2WPKH, P2SH_P2WPKH, Base58.
+
+Taproot
+Starts with “bc1p”. Extra low network fee.
+BIP86, P2TR, Bech32m.
+
+Native SegWit
+Starts with with “bc1”. Low network fee.
+BIP84, P2WPKH, Bech32.
+
+Legacy
+Not Recommended
+Starts with “1”. High network fee.
+BIP44, P2PKH, Base58.
+*/
 export enum AddressEncodings {
-  P2PKH = 'P2PKH', // Legacy BIP-44
-  P2SH_P2WPKH = 'P2SH_P2WPKH', // BIP-49 P2WPKH nested in P2SH
-  P2WPKH = 'P2WPKH', // BIP-84 P2WPKH
-  P2WSH = 'P2WSH', // BIP-84 P2WSH
-  P2TR = 'P2TR', // BIP-86 P2TR
+  P2PKH = 'P2PKH', // Legacy BIP-44 (Legacy)
+  P2SH_P2WPKH = 'P2SH_P2WPKH', // BIP-49 P2WPKH nested in P2SH (Nested SegWit)
+  P2WPKH = 'P2WPKH', // BIP-84 P2WPKH (Native SegWit)
+  P2WSH = 'P2WSH', // BIP-84 P2WSH (Native SegWit with script, app not support yet)
+  P2TR = 'P2TR', // BIP-86 P2TR (Taproot)
 }
 
 export enum TransactionStatus {
@@ -35,7 +54,7 @@ export type ChainInfo = {
   code: string;
   feeCode: string;
   impl: string;
-  curve: 'secp256k1' | 'ed25519';
+  curve: ICurveName;
   implOptions: { [key: string]: any };
   clients: Array<{ name: string; args: Array<any> }>;
 };

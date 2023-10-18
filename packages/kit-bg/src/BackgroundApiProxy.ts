@@ -3,7 +3,7 @@
 import type { Engine } from '@onekeyhq/engine';
 import type { Validators } from '@onekeyhq/engine/src/validators';
 import type { VaultFactory } from '@onekeyhq/engine/src/vaults/VaultFactory';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
 
@@ -215,8 +215,17 @@ class BackgroundApiProxy
             const key = `${name}.${prop}`;
             if (!this._proxyServiceCache[key]) {
               this._proxyServiceCache[key] = (...args: any) => {
-                if (!['serviceApp.addLogger'].includes(key)) {
-                  debugLogger.backgroundApi.info('Proxy method call', key);
+                if (
+                  ![
+                    'serviceApp.addLogger',
+                    'serviceApp.refreshLastActivity',
+                  ].includes(key)
+                ) {
+                  flowLogger.app.apiCalls.callBackgroundApi({
+                    service: name,
+                    method: prop,
+                    params: args,
+                  });
                 }
                 return this.callBackground(key, ...args);
               };

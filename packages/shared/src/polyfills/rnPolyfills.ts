@@ -1,3 +1,4 @@
+/* eslint-disable import/order */
 // **** copy from node_modules/@walletconnect-v2/react-native-compat/index.js
 
 // Polyfill TextEncode / TextDecode

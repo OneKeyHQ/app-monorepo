@@ -42,6 +42,7 @@ const tsRules = {
   '@typescript-eslint/ban-ts-comment': 'off',
   '@typescript-eslint/no-unsafe-assignment': 'off',
   '@typescript-eslint/no-unsafe-argument': 'off',
+  '@typescript-eslint/require-await': 'off',
   'sort-imports': [
     'error',
     {
@@ -94,6 +95,12 @@ const tsRules = {
 };
 module.exports = {
   ignorePatterns: [
+    // 'packages/shared',
+    // 'packages/core',
+    // 'packages/engine',
+    // 'packages/engine/src/dbs',
+    // 'packages/engine/src/vaults/impl/_sample',
+
     'packages/components/src/Icon/*',
     'packages/desktop/public/static/js-sdk/*',
     // 临时忽略以下目录的检查，迭代后会逐步开启
@@ -101,10 +108,9 @@ module.exports = {
     'packages/blockchain-libs',
     'packages/kit/src/store',
     'packages/desktop',
-    'packages/engine',
+
     'packages/ext',
     'packages/kit-bg',
-    'packages/shared',
     'packages/web',
     'packages/web-embed',
   ],

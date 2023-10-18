@@ -13,6 +13,7 @@ import {
   InvoiceExpiredError,
   MaxSendAmountError,
   NoRouteFoundError,
+  NotImplemented,
 } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -59,7 +60,6 @@ import type {
 } from '../../types';
 import type { IEncodedTxLightning } from './types';
 import type {
-  IHistoryItem,
   IInvoiceDecodedResponse,
   InvoiceStatusEnum,
 } from './types/invoice';
@@ -75,6 +75,10 @@ export default class Vault extends VaultBase {
   };
 
   settings = settings;
+
+  override validateTokenAddress(address: string): Promise<string> {
+    throw new NotImplemented();
+  }
 
   override async getOutputAccount(): Promise<Account> {
     const dbAccount = await this.getDbAccount({ noCache: true });

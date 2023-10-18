@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import BigNumber from 'bignumber.js';
 
-import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import { getMoneroApi } from '@onekeyhq/core/src/chains/xmr/sdkXmr';
+import { MoneroNetTypeEnum } from '@onekeyhq/core/src/chains/xmr/sdkXmr/moneroUtil/moneroUtilTypes';
+import { decrypt } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   InvalidAddress,
@@ -14,8 +16,6 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import simpleDb from '../../../dbs/simple/simpleDb';
 import { isAccountCompatibleWithNetwork } from '../../../managers/account';
-import { slicePathTemplate } from '../../../managers/derivation';
-import { batchGetPrivateKeys } from '../../../secret';
 import { AccountCredentialType } from '../../../types/account';
 import {
   IDecodedTxActionType,
@@ -30,15 +30,15 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import { getMoneroApi } from './sdk';
-import { MoneroNetTypeEnum } from './sdk/moneroUtil/moneroUtilTypes';
 import settings from './settings';
 import { MoneroTxPriorityEnum } from './types';
 import { getDecodedTxStatus } from './utils';
 
-import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { Account, DBVariantAccount } from '../../../types/account';
-import type { PartialTokenInfo } from '../../../types/provider';
+import type {
+  PartialTokenInfo,
+  TransactionStatus,
+} from '../../../types/provider';
 import type {
   IApproveInfo,
   IDecodedTx,
@@ -64,6 +64,17 @@ export default class Vault extends VaultBase {
     external: KeyringWatching,
   };
 
+  override validateTokenAddress(address: string): Promise<string> {
+    throw new Error('Method not implemented.');
+  }
+
+  override getTransactionStatuses(
+    txids: string[],
+  ): Promise<(TransactionStatus | undefined)[]> {
+    // ClientXmr not support yet
+    throw new Error('Method not implemented.');
+  }
+
   settings = settings;
 
   private getPrivateKey = memoizee(
@@ -73,35 +84,18 @@ export default class Vault extends VaultBase {
       passwordLoadedCallback?: (isLoaded: boolean) => void,
     ) => {
       try {
-        let rawPrivateKey: string | Buffer;
         const psw = password || '';
-        const isImportedAccount = accountId.startsWith('imported');
-        if (isImportedAccount) {
-          const [privateKey] = Object.values(
-            await (this.keyring as KeyringImported).getPrivateKeys(psw),
-          );
+        const privateKeysMap = await (
+          this.keyring as KeyringImported
+        ).getPrivateKeys({
+          password: psw,
+        });
+        const [privateKey] = Object.values(privateKeysMap);
+        const rawPrivateKey: string | Buffer = decrypt(
+          psw,
+          privateKey,
+        ).toString('hex');
 
-          rawPrivateKey = decrypt(psw, privateKey).toString('hex');
-        } else {
-          const { template } = this.settings.accountNameInfo.default;
-          const { seed } = (await this.engine.dbApi.getCredential(
-            this.walletId,
-            psw,
-          )) as ExportedSeedCredential;
-          const { pathPrefix, pathSuffix } = slicePathTemplate(template);
-
-          const [privateKeyInfo] = batchGetPrivateKeys(
-            'ed25519',
-            seed,
-            psw,
-            pathPrefix,
-            [pathSuffix.replace('{index}', '0')],
-          );
-
-          rawPrivateKey = decrypt(psw, privateKeyInfo.extendedKey.key).toString(
-            'hex',
-          );
-        }
         passwordLoadedCallback?.(true);
         return rawPrivateKey;
       } catch (e) {
@@ -132,11 +126,12 @@ export default class Vault extends VaultBase {
             : index;
       }
 
-      return moneroApi.getKeyPairFromRawPrivatekey({
+      const result = await moneroApi.getKeyPairFromRawPrivatekey({
         rawPrivateKey,
         isPrivateSpendKey: isImportedAccount,
         index: accountIndex,
       });
+      return result;
     },
     {
       max: 1,
@@ -187,10 +182,10 @@ export default class Vault extends VaultBase {
       rpcUrl,
       clientApi.mymonero,
       address ?? accountAddress,
-      Buffer.from(publicSpendKey || '').toString('hex'),
-      Buffer.from(publicViewKey || '').toString('hex'),
-      Buffer.from(privateSpendKey).toString('hex'),
-      Buffer.from(privateViewKey).toString('hex'),
+      publicSpendKey || '',
+      publicViewKey || '',
+      privateSpendKey,
+      privateViewKey,
     );
   }
 
@@ -369,9 +364,9 @@ export default class Vault extends VaultBase {
       );
       switch (credentialType) {
         case AccountCredentialType.PrivateSpendKey:
-          return Buffer.from(privateSpendKey).toString('hex');
+          return privateSpendKey;
         case AccountCredentialType.PrivateViewKey:
-          return Buffer.from(privateViewKey).toString('hex');
+          return privateViewKey;
         case AccountCredentialType.Mnemonic:
           return moneroApi.privateSpendKeyToWords(
             bufferUtils.toBuffer(privateSpendKey),

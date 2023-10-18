@@ -11,11 +11,8 @@ import RNRestart from 'react-native-restart';
 import {
   mnemonicFromEntropy,
   revealableSeedFromMnemonic,
-} from '@onekeyhq/engine/src/secret';
-import {
-  decrypt,
-  encrypt,
-} from '@onekeyhq/engine/src/secret/encryptors/aes256';
+} from '@onekeyhq/core/src/secret';
+import { decrypt, encrypt } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import { appSelector } from '@onekeyhq/kit/src/store';
 import type { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
 import {
@@ -42,6 +39,7 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import timelinePerfTrace, {
   ETimelinePerfNames,
 } from '@onekeyhq/shared/src/perf/timelinePerfTrace';
@@ -96,7 +94,7 @@ import {
 import { walletCanBeRemoved, walletIsHD } from './managers/wallet';
 import { getPresetNetworks, networkIsPreset } from './presets';
 import { PriceController } from './priceController';
-import { ProviderController, fromDBNetworkToChainInfo } from './proxy';
+import { fromDBNetworkToChainInfo } from './proxy';
 import { AccountType } from './types/account';
 import { CredentialType } from './types/credential';
 import { GoPlusSupportApis } from './types/goplus';
@@ -113,6 +111,7 @@ import { Validators } from './validators';
 import { createVaultHelperInstance } from './vaults/factory';
 import { createVaultSettings } from './vaults/factory.createVaultSettings';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
+import VaultEvm from './vaults/impl/evm/Vault';
 import { IDecodedTxActionType } from './vaults/types';
 import { VaultFactory } from './vaults/VaultFactory';
 
@@ -126,6 +125,7 @@ import type {
   ImportableHDAccount,
 } from './types/account';
 import type { BackupObject, ImportableHDWallet } from './types/backup';
+import type { ChainInfo } from './types/chain';
 import type { DevicePayload } from './types/device';
 import type { GoPlusTokenSecurity } from './types/goplus';
 import type {
@@ -134,6 +134,7 @@ import type {
   HistoryEntryTransaction,
   HistoryEntryType,
 } from './types/history';
+import type { IUnsignedMessage } from './types/message';
 import type {
   AddNetworkParams,
   DBNetwork,
@@ -143,12 +144,7 @@ import type {
 } from './types/network';
 import type { Token } from './types/token';
 import type { Wallet } from './types/wallet';
-import type { IUnsignedMessageBtc } from './vaults/impl/btc/types';
-import type {
-  IEncodedTxEvm,
-  IUnsignedMessageEvm,
-} from './vaults/impl/evm/Vault';
-import type VaultEvm from './vaults/impl/evm/Vault';
+import type { IEncodedTxEvm } from './vaults/impl/evm/Vault';
 import type VaultSol from './vaults/impl/sol/Vault';
 import type {
   IClientEndpointStatus,
@@ -178,8 +174,6 @@ if (platformEnv.isExtensionUi) {
 class Engine {
   public dbApi: DBAPI;
 
-  public providerManager: ProviderController;
-
   private priceManager: PriceController;
 
   readonly validator: Validators;
@@ -191,18 +185,19 @@ class Engine {
   constructor() {
     this.dbApi = new DbApi() as DBAPI;
     this.priceManager = new PriceController();
-    this.providerManager = new ProviderController((networkId) =>
-      this.dbApi
-        .getNetwork(networkId)
-        .then((dbNetwork) => fromDBNetworkToChainInfo(dbNetwork)),
-    );
     this.validator = new Validators(this);
   }
+
+  getChainInfo = (networkId: string): Promise<ChainInfo> =>
+    this.dbApi
+      .getNetwork(networkId)
+      .then((dbNetwork) => fromDBNetworkToChainInfo(dbNetwork));
 
   async cleanupDBOnStart() {
     await this.dbApi.cleanupPendingWallets();
   }
 
+  // TODO move to serviceAccount
   @backgroundMethod()
   generateMnemonic(): Promise<string> {
     return Promise.resolve(bip39.generateMnemonic());
@@ -332,7 +327,7 @@ class Engine {
     try {
       return await this.getWallet(walletId);
     } catch (error) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
       return undefined;
     }
   }
@@ -615,10 +610,11 @@ class Engine {
 
     const checkActiveWallet = () => {
       setTimeout(() => {
-        const activeWalletId = appSelector((s) => s.general.activeWalletId);
-        if (!activeWalletId && platformEnv.isNative) {
-          RNRestart.Restart();
-        }
+        // TODO should run this checking and restart at frontend by EventBus, not background
+        // const activeWalletId = appSelector((s) => s.general.activeWalletId);
+        // if (!activeWalletId && platformEnv.isNative) {
+        //   RNRestart.Restart();
+        // }
       }, 3000);
     };
 
@@ -896,7 +892,6 @@ class Engine {
       : getDefaultAccountNameInfoByImpl(impl);
     const vault = await this.getWalletOnlyVault(networkId, walletId);
     const accounts = await vault.keyring.prepareAccounts({
-      type: 'SEARCH_ACCOUNTS',
       password,
       indexes,
       purpose,
@@ -1221,7 +1216,7 @@ class Engine {
         ...(await this._findTokenWithMemo(params)),
       };
     } catch (error) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
       return Promise.resolve(undefined);
     }
   }
@@ -1274,7 +1269,7 @@ class Engine {
             });
           }
         } catch (e) {
-          debugLogger.common.error(`fetchTokenInfos error`, {
+          flowLogger.error.log(`fetchTokenInfos error`, {
             params: [tokenIdOnNetwork],
             message: e instanceof Error ? e.message : e,
           });
@@ -1774,7 +1769,7 @@ class Engine {
     networkId,
     accountId,
   }: {
-    unsignedMessage?: IUnsignedMessageEvm | IUnsignedMessageBtc;
+    unsignedMessage: IUnsignedMessage;
     password: string;
     networkId: string;
     accountId: string;
@@ -2165,30 +2160,7 @@ class Engine {
     estimatedTransactionCount?: number;
   }> {
     const vault = await this.getChainOnlyVault(networkId);
-
-    const gasInfo = await this.providerManager.getGasInfo(networkId);
-    let prices = [];
-
-    if (gasInfo === undefined) {
-      const result = await vault.getFeePricePerUnit();
-      prices = [result.normal, ...(result.others || [])]
-        .sort((a, b) => (a.price.gt(b.price) ? 1 : -1))
-        .map((p) => p.price)
-        .slice(0, 3);
-    } else {
-      prices = gasInfo.prices;
-    }
-
-    if (prices.length > 0 && prices[0] instanceof BigNumber) {
-      const { feeDecimals } = await this.dbApi.getNetwork(networkId);
-      return {
-        ...gasInfo,
-        prices: (prices as Array<BigNumber>).map((price: BigNumber) =>
-          price.shiftedBy(-feeDecimals).toFixed(),
-        ),
-      };
-    }
-    return gasInfo as { prices: EIP1559Fee[] };
+    return vault.getGasInfo();
   }
 
   async getVault(options: { networkId: string; accountId: string }) {
@@ -2395,14 +2367,20 @@ class Engine {
     let existingNetwork: Network | undefined;
 
     switch (impl) {
-      case IMPL_EVM:
-        chainId = await this.providerManager.getEVMChainId(rpcURL);
+      case IMPL_EVM: {
+        const vault = new VaultEvm({
+          engine: this,
+          networkId: '',
+          accountId: '',
+        });
+        chainId = await vault.getEVMChainId(rpcURL);
         try {
           existingNetwork = await this.getNetwork(`${IMPL_EVM}--${chainId}`);
         } catch (e) {
           console.debug(e);
         }
         break;
+      }
       default:
         throw new NotImplemented(
           `Adding network for implemetation ${impl} is not supported.`,
@@ -2464,7 +2442,12 @@ class Engine {
     switch (impl) {
       case IMPL_EVM: {
         try {
-          networkId = await this.providerManager.getEVMChainId(params.rpcURL);
+          const vault = new VaultEvm({
+            engine: this,
+            networkId: '',
+            accountId: '',
+          });
+          networkId = await vault.getEVMChainId(params.rpcURL);
         } catch (e) {
           console.error(e);
         }
@@ -2504,7 +2487,7 @@ class Engine {
     try {
       return await this.getNetwork(networkId);
     } catch (error) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
       return undefined;
     }
   }
@@ -2966,8 +2949,7 @@ class Engine {
       networkId: params.networkId,
       accountId: params.accountId,
     });
-    const dbAccount = await vault.getDbAccount();
-    return vault.getNextNonce(params.networkId, dbAccount);
+    return vault.getNextNonce();
   }
 
   @backgroundMethod()
@@ -3045,7 +3027,7 @@ class Engine {
     confirmOnDevice?: boolean;
   }) {
     if (!walletId || !networkId) return [];
-    if (walletId.startsWith('watching')) {
+    if (walletId.startsWith('watching') || walletId.startsWith('imported')) {
       return this.dbApi.getAccount(accountId);
     }
     const vault = await this.getWalletOnlyVault(networkId, walletId);

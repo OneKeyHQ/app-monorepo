@@ -7,7 +7,7 @@ import { get } from 'lodash';
 
 import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
 import type { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
-import { CommonMessageTypes } from '@onekeyhq/engine/src/types/message';
+import { EMessageTypesCommon } from '@onekeyhq/engine/src/types/message';
 import type { IEncodedTxSUI } from '@onekeyhq/engine/src/vaults/impl/sui/types';
 import type VaultSUI from '@onekeyhq/engine/src/vaults/impl/sui/Vault';
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
@@ -193,13 +193,11 @@ class ProviderApiSui extends ProviderApiBase {
         .getActiveConnectedAccounts({ origin, impl: IMPL_SUI })
         .map(({ address }) => address),
     });
-    debugLogger.providerApi.info('SUI disconnect', origin);
   }
 
   private async account(
     request: IJsBridgeMessagePayload,
   ): Promise<AccountInfo | undefined> {
-    debugLogger.providerApi.info('SUI account');
     const { networkId, networkImpl, accountId } = getActiveWalletAccount();
     if (networkImpl !== IMPL_SUI) {
       return undefined;
@@ -356,7 +354,7 @@ class ProviderApiSui extends ProviderApiBase {
       request,
       {
         unsignedMessage: {
-          type: CommonMessageTypes.SIGN_MESSAGE,
+          type: EMessageTypesCommon.SIGN_MESSAGE,
           message: params.messageSerialize,
           secure: false,
         },

@@ -28,23 +28,4 @@ describe('Solana KeyringImported Tests', () => {
       },
     );
   });
-
-  it('solana signTransaction', async () => {
-    const { network, importedAccount2 } = solMockData;
-    const { testSignTransaction } =
-      require('../@tests/solPresetCase') as SOLPresetCaseType;
-    await testSignTransaction(
-      {
-        dbNetwork: network,
-        dbAccount: importedAccount2.account,
-        privateKey: importedAccount2.privateKey,
-        password: importedAccount2.password,
-      },
-      {
-        keyring({ vault }) {
-          return new KeyringImported(vault);
-        },
-      },
-    );
-  });
 });

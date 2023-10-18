@@ -1,11 +1,44 @@
 import { cloneDeep } from 'lodash';
 
-import type { WalletService } from '@onekeyhq/kit/src/components/WalletConnect/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
 import type { IWalletConnectSession } from '@walletconnect/types';
+
+// TODO duplicated type
+// import type { WalletService } from '@onekeyhq/kit/src/components/WalletConnect/types';
+type WalletService = {
+  id: string;
+  name: string;
+  homepage: string;
+  chains: string[];
+  image_url: IExternalAccountInfoWalletImage | undefined;
+  app: {
+    browser: string;
+    ios: string;
+    android: string;
+    mac: string;
+    windows: string;
+    linux: string;
+  };
+  mobile: {
+    native: string;
+    universal: string;
+  };
+  desktop: {
+    native: string;
+    universal: string;
+  };
+  metadata: {
+    shortName: string;
+    colors: {
+      primary: string;
+      secondary: string;
+    };
+  };
+};
 
 export type IExternalAccountInfoWalletImage = {
   sm: string;
@@ -124,7 +157,7 @@ export class SimpleDbEntityWalletConnect extends SimpleDbEntityBase<ISimpleDbEnt
           return true;
         }
       } catch (err) {
-        debugLogger.common.error(err);
+        flowLogger.error.log(err);
       }
       return false;
     });

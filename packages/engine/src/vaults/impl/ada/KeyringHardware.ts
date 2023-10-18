@@ -1,3 +1,9 @@
+import {
+  getChangeAddress,
+  sdk,
+  transformToOneKeyInputs,
+  transformToOneKeyOutputs,
+} from '@onekeyhq/core/src/chains/ada/sdkAda';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import { COINTYPE_ADA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -7,24 +13,19 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
-import { getChangeAddress } from './helper/cardanoUtils';
-import sdk from './helper/sdk';
-import {
-  transformToOneKeyInputs,
-  transformToOneKeyOutputs,
-} from './helper/transformations';
 import { NetworkId } from './types';
 
 import type { DBUTXOAccount } from '../../../types/account';
+import type { IUnsignedMessage } from '../../../types/message';
 import type {
   IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
 } from '../../types';
-import type { IUnsignedMessageEvm } from '../evm/Vault';
 import type { IEncodedTxADA } from './types';
 import type AdaVault from './Vault';
 import type { CardanoGetAddressMethodParams } from '@onekeyfe/hd-core';
@@ -82,7 +83,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         bundle,
       });
     } catch (error: any) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
       throw new OneKeyHardwareError(error);
     }
 
@@ -283,9 +284,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     };
   }
 
-  override async signMessage(
-    messages: IUnsignedMessageEvm[],
-  ): Promise<string[]> {
+  override async signMessage(messages: IUnsignedMessage[]): Promise<string[]> {
     debugLogger.common.info('signMessage', messages);
     const dbAccount = await this.getDbAccount();
     const { connectId, deviceId } = await this.getHardwareInfo();

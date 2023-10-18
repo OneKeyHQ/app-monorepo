@@ -1,17 +1,21 @@
+import { signEncodedTx } from '@onekeyhq/core/src/chains/nexa/sdkNexa';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import { batchGetPublicKeys } from '@onekeyhq/core/src/secret';
 import { COINTYPE_NEXA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
 import { slicePathTemplate } from '../../../../managers/derivation';
-import { Signer } from '../../../../proxy';
-import { batchGetPublicKeys } from '../../../../secret';
+import { ChainSigner } from '../../../../proxy';
 import { AccountType } from '../../../../types/account';
 import { KeyringHdBase } from '../../../keyring/KeyringHdBase';
-import { signEncodedTx } from '../utils';
 
 import type { ExportedSeedCredential } from '../../../../dbs/base';
 import type { DBUTXOAccount } from '../../../../types/account';
+import type { IUnsignedMessageCommon } from '../../../../types/message';
 import type {
-  IPrepareSoftwareAccountsParams,
+  IGetPrivateKeysParams,
+  IGetPrivateKeysResult,
+  IPrepareHdAccountsParams,
   ISignCredentialOptions,
   ISignedTxPro,
   IUnsignedTxPro,
@@ -19,7 +23,52 @@ import type {
 
 const curve = 'secp256k1';
 export class KeyringHd extends KeyringHdBase {
-  override async getSigners(password: string, addresses: Array<string>) {
+  override coreApi = coreChainApi.nexa.hd;
+
+  override getSigners(): Promise<Record<string, ChainSigner>> {
+    throw new Error('getSigners moved to core.');
+  }
+
+  override async getPrivateKeys(
+    params: IGetPrivateKeysParams,
+  ): Promise<IGetPrivateKeysResult> {
+    return this.baseGetPrivateKeys({
+      ...params,
+    });
+  }
+
+  override async prepareAccounts(
+    params: IPrepareHdAccountsParams,
+  ): Promise<DBUTXOAccount[]> {
+    return this.basePrepareAccountsHdUtxo(params, {
+      addressEncoding: undefined,
+      checkIsAccountUsed: async ({ address }) => ({
+        isUsed: true,
+      }),
+    });
+  }
+
+  override async signTransaction(
+    unsignedTx: IUnsignedTxPro,
+    options: ISignCredentialOptions,
+  ): Promise<ISignedTxPro> {
+    const dbAccount = await this.getDbAccount();
+    const address = await this.vault.getDisplayAddress(dbAccount.address);
+    unsignedTx.payload = {
+      address,
+    };
+    return this.baseSignTransaction(unsignedTx, options);
+  }
+
+  override async signMessage(
+    messages: IUnsignedMessageCommon[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]> {
+    // throw new Error('Method not implemented.');
+    return this.baseSignMessage(messages, options);
+  }
+
+  async getSignersOld(password: string, addresses: Array<string>) {
     const dbAccount = await this.getDbAccount();
 
     if (addresses.length !== 1) {
@@ -28,35 +77,24 @@ export class KeyringHd extends KeyringHdBase {
       throw new OneKeyInternalError('Wrong address required for signing.');
     }
 
-    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys(
+    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys({
       password,
-    );
+    });
     if (typeof privateKey === 'undefined') {
       throw new OneKeyInternalError('Unable to get signer.');
     }
 
     return {
-      [dbAccount.address]: new Signer(privateKey, password, curve),
+      [dbAccount.address]: new ChainSigner(privateKey, password, curve),
     };
   }
 
-  async getSigner(
-    options: ISignCredentialOptions,
-    { address }: { address: string },
-  ) {
-    const signers = await this.getSigners(options?.password || '', [address]);
-    const signer = signers[address];
-    return signer;
-  }
-
-  override async signTransaction(
+  async signTransactionOld(
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
   ): Promise<ISignedTxPro> {
     const dbAccount = await this.getDbAccount();
-    const signer = await this.getSigner(options, {
-      address: dbAccount.address,
-    });
+    const signer = {} as ChainSigner;
     const result = await signEncodedTx(
       unsignedTx,
       signer,
@@ -65,8 +103,8 @@ export class KeyringHd extends KeyringHdBase {
     return result;
   }
 
-  override async prepareAccounts(
-    params: IPrepareSoftwareAccountsParams,
+  async prepareAccountsOld(
+    params: IPrepareHdAccountsParams,
   ): Promise<DBUTXOAccount[]> {
     const accountNamePrefix = 'NEXA';
 

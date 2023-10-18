@@ -3,6 +3,11 @@ import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
 import { isString } from 'lodash';
 
+import {
+  decodePassword,
+  decodeSensitiveText,
+  isEncodedSensitiveText,
+} from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type { Network } from '@onekeyhq/kit/src/store/typings';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
@@ -18,11 +23,6 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import * as limits from './limits';
-import {
-  decodePassword,
-  decodeSensitiveText,
-  isEncodedSensitiveText,
-} from './secret/encryptors/aes256';
 import { UserInputCategory } from './types/credential';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW } from './types/wallet';
 

@@ -4,7 +4,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import ServiceBase from './ServiceBase';
 
@@ -26,7 +26,7 @@ class ServiceDappMetaData extends ServiceBase {
       const u = new URL(url);
       result = `${u.origin}${u.pathname}${u.search}`;
     } catch {
-      debugLogger.common.error(`failed to get url key: ${url}`);
+      flowLogger.error.log(`failed to get url key: ${url}`);
     }
     return result;
   }
@@ -54,7 +54,7 @@ class ServiceDappMetaData extends ServiceBase {
         return entity;
       }
     } catch (e: unknown) {
-      debugLogger.common.error(
+      flowLogger.error.log(
         `failed to fetch dapp url info with reason ${(e as Error).message}`,
       );
       return { title: '', icon: '' };

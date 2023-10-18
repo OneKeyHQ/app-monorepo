@@ -7,3 +7,5 @@ export interface Signer extends Verifier {
   sign: (digest: Buffer) => Promise<[Buffer, number]>;
   getPrvkey: () => Promise<Buffer>;
 }
+export type ISigner = Signer;
+export type IVerifier = Verifier;

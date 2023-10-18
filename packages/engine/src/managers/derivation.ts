@@ -185,6 +185,12 @@ function getNextAccountIdsWithAccountDerivation(
     nextId += 1;
   }
 
+  if (nextId === index) {
+    throw new Error(
+      'Get account nextIndexId failed. Check if account.path or db.accountDerivation is correct. UTXO account should use getUtxoAccountPrefixPath() get prefixPath but not fullPath as account.path',
+    );
+  }
+
   console.log('final nextId is : ', nextId);
   return nextId;
 }
@@ -250,14 +256,23 @@ function parsePath(impl: string, path: string, template?: string) {
   };
 }
 
+function getUtxoAccountPrefixPath({ fullPath }: { fullPath: string }) {
+  const pathComponent = fullPath.split('/');
+  pathComponent.pop();
+  pathComponent.pop();
+  const prefixPath = pathComponent.join('/');
+  return prefixPath;
+}
+
 export {
-  getPath,
-  parsePath,
-  getDefaultPurpose,
   derivationPathTemplates,
-  slicePathTemplate,
+  getAccountDerivationPrimaryKey,
+  getDefaultPurpose,
+  getLastAccountId,
   getNextAccountId,
   getNextAccountIdsWithAccountDerivation,
-  getLastAccountId,
-  getAccountDerivationPrimaryKey,
+  getPath,
+  getUtxoAccountPrefixPath,
+  parsePath,
+  slicePathTemplate,
 };

@@ -1,22 +1,27 @@
-import {
-  NotImplemented,
-  OneKeyInternalError,
-} from '@onekeyhq/shared/src/errors';
+import type { ICoreImportedCredential } from '@onekeyhq/core/src/types';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+
+import { EVaultKeyringTypes } from '../types';
 
 import { KeyringSoftwareBase } from './KeyringSoftwareBase';
 
 import type { ExportedPrivateKeyCredential } from '../../dbs/base';
+import type { ISignCredentialOptions } from '../types';
 
 export abstract class KeyringImportedBase extends KeyringSoftwareBase {
-  override async getPrivateKeys(
-    password: string,
-    relPaths?: Array<string>,
-  ): Promise<Record<string, Buffer>> {
+  override keyringType: EVaultKeyringTypes = EVaultKeyringTypes.imported;
+
+  // TODO remove
+  override async getPrivateKeys({
+    password,
+    relPaths,
+  }: {
+    password: string;
+    relPaths?: Array<string>;
+  }): Promise<{ [path: string]: Buffer }> {
     if (typeof relPaths !== 'undefined') {
       // TODO: derive private keys for UTXO model.
-      throw new NotImplemented(
-        'Getting private keys from extended private key',
-      );
     }
 
     const { privateKey } = (await this.engine.dbApi.getCredential(
@@ -27,7 +32,9 @@ export abstract class KeyringImportedBase extends KeyringSoftwareBase {
       throw new OneKeyInternalError('Unable to get credential.');
     }
 
-    return { '': privateKey };
+    // imported account path always be ""
+    const path = '';
+    return { [path]: privateKey };
   }
 
   override getAddress(): Promise<string> {

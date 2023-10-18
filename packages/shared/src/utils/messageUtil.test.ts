@@ -1,4 +1,4 @@
-import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
+import { EMessageTypesEth } from '@onekeyhq/engine/src/types/message';
 
 import * as messageUtils from './messageUtils';
 
@@ -25,7 +25,7 @@ describe('messageUtils', () => {
       const message = '0x879a05';
       expect(() =>
         messageUtils.validateSignMessageData({
-          type: ETHMessageTypes.PERSONAL_SIGN,
+          type: EMessageTypesEth.PERSONAL_SIGN,
           message,
           payload: [message],
         } as any),
@@ -37,7 +37,7 @@ describe('messageUtils', () => {
       const message = '0x879a05';
       expect(() =>
         messageUtils.validateSignMessageData({
-          type: ETHMessageTypes.PERSONAL_SIGN,
+          type: EMessageTypesEth.PERSONAL_SIGN,
           message,
           payload: [message, from],
         } as any),
@@ -49,7 +49,7 @@ describe('messageUtils', () => {
       const message = '0x879a05';
       expect(() =>
         messageUtils.validateSignMessageData({
-          type: ETHMessageTypes.PERSONAL_SIGN,
+          type: EMessageTypesEth.PERSONAL_SIGN,
           message,
           payload: [message, from],
         } as any),
@@ -60,7 +60,7 @@ describe('messageUtils', () => {
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
       expect(() =>
         messageUtils.validateSignMessageData({
-          type: ETHMessageTypes.PERSONAL_SIGN,
+          type: EMessageTypesEth.PERSONAL_SIGN,
           payload: [undefined, from],
         } as any),
       ).toThrow(`Invalid message: undefined must be a valid string.`);
@@ -71,7 +71,7 @@ describe('messageUtils', () => {
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
       expect(() =>
         messageUtils.validateSignMessageData({
-          type: ETHMessageTypes.PERSONAL_SIGN,
+          type: EMessageTypesEth.PERSONAL_SIGN,
           message,
           payload: [message, from],
         } as any),
@@ -83,7 +83,7 @@ describe('messageUtils', () => {
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
       expect(() =>
         messageUtils.validateSignMessageData({
-          type: ETHMessageTypes.PERSONAL_SIGN,
+          type: EMessageTypesEth.PERSONAL_SIGN,
           message,
           payload: [message, from],
         } as any),
@@ -96,7 +96,7 @@ describe('messageUtils', () => {
       const message = [{}];
       expect(() =>
         messageUtils.validateTypedSignMessageDataV1({
-          type: ETHMessageTypes.TYPED_DATA_V1,
+          type: EMessageTypesEth.TYPED_DATA_V1,
           message,
         } as any),
       ).toThrow(`Invalid "from" address: undefined must be a valid string.`);
@@ -107,7 +107,7 @@ describe('messageUtils', () => {
       const message = [{}];
       expect(() =>
         messageUtils.validateTypedSignMessageDataV1({
-          type: ETHMessageTypes.TYPED_DATA_V1,
+          type: EMessageTypesEth.TYPED_DATA_V1,
           message: [],
           payload: [message, from],
         } as any),
@@ -119,7 +119,7 @@ describe('messageUtils', () => {
       const message = [{}];
       expect(() =>
         messageUtils.validateTypedSignMessageDataV1({
-          type: ETHMessageTypes.TYPED_DATA_V1,
+          type: EMessageTypesEth.TYPED_DATA_V1,
           message: [],
           payload: [message, from],
         } as any),
@@ -131,7 +131,7 @@ describe('messageUtils', () => {
       const message = '0x879a05';
       expect(() =>
         messageUtils.validateTypedSignMessageDataV1({
-          type: ETHMessageTypes.TYPED_DATA_V1,
+          type: EMessageTypesEth.TYPED_DATA_V1,
           message,
           payload: [message, from],
         } as any),
@@ -142,7 +142,7 @@ describe('messageUtils', () => {
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
       expect(() =>
         messageUtils.validateTypedSignMessageDataV1({
-          type: ETHMessageTypes.TYPED_DATA_V1,
+          type: EMessageTypesEth.TYPED_DATA_V1,
           payload: [undefined, from],
         } as any),
       ).toThrow('Invalid message: undefined must be a valid array.');
@@ -153,7 +153,7 @@ describe('messageUtils', () => {
       const message = [{ name: 'test', type: 'string', value: 123 }];
       expect(() =>
         messageUtils.validateTypedSignMessageDataV1({
-          type: ETHMessageTypes.TYPED_DATA_V1,
+          type: EMessageTypesEth.TYPED_DATA_V1,
           message,
           payload: [message, from],
         } as any),
@@ -165,7 +165,7 @@ describe('messageUtils', () => {
       const message = [{ name: 'test', type: 'string', value: 'test' }];
       expect(() =>
         messageUtils.validateTypedSignMessageDataV1({
-          type: ETHMessageTypes.TYPED_DATA_V1,
+          type: EMessageTypesEth.TYPED_DATA_V1,
           message,
           payload: [message, from],
         } as any),
@@ -181,7 +181,7 @@ describe('messageUtils', () => {
       expect(() =>
         messageUtils.validateTypedSignMessageDataV3V4(
           {
-            type: ETHMessageTypes.TYPED_DATA_V4,
+            type: EMessageTypesEth.TYPED_DATA_V4,
             message: '0x879a05',
           } as any,
           mockedCurrentChainId,
@@ -195,7 +195,7 @@ describe('messageUtils', () => {
       expect(() =>
         messageUtils.validateTypedSignMessageDataV3V4(
           {
-            type: ETHMessageTypes.TYPED_DATA_V4,
+            type: EMessageTypesEth.TYPED_DATA_V4,
             message,
             payload: [from, message],
           } as any,
@@ -210,7 +210,7 @@ describe('messageUtils', () => {
       expect(() =>
         messageUtils.validateTypedSignMessageDataV3V4(
           {
-            type: ETHMessageTypes.TYPED_DATA_V4,
+            type: EMessageTypesEth.TYPED_DATA_V4,
             message,
             payload: [from, message],
           } as any,
@@ -225,7 +225,7 @@ describe('messageUtils', () => {
       expect(() =>
         messageUtils.validateTypedSignMessageDataV3V4(
           {
-            type: ETHMessageTypes.TYPED_DATA_V4,
+            type: EMessageTypesEth.TYPED_DATA_V4,
             message,
             payload: [from, message],
           } as any,
@@ -239,7 +239,7 @@ describe('messageUtils', () => {
       expect(() =>
         messageUtils.validateTypedSignMessageDataV3V4(
           {
-            type: ETHMessageTypes.TYPED_DATA_V4,
+            type: EMessageTypesEth.TYPED_DATA_V4,
             payload: [from],
           } as any,
           mockedCurrentChainId,
@@ -253,7 +253,7 @@ describe('messageUtils', () => {
       expect(() =>
         messageUtils.validateTypedSignMessageDataV3V4(
           {
-            type: ETHMessageTypes.TYPED_DATA_V4,
+            type: EMessageTypesEth.TYPED_DATA_V4,
             message,
             payload: [from, message],
           } as any,
@@ -267,7 +267,7 @@ describe('messageUtils', () => {
       expect(() =>
         messageUtils.validateTypedSignMessageDataV3V4(
           {
-            type: ETHMessageTypes.TYPED_DATA_V4,
+            type: EMessageTypesEth.TYPED_DATA_V4,
             message: dataTyped,
             payload: [from, dataTyped],
           } as any,
@@ -282,7 +282,7 @@ describe('messageUtils', () => {
       expect(() =>
         messageUtils.validateTypedSignMessageDataV3V4(
           {
-            type: ETHMessageTypes.TYPED_DATA_V4,
+            type: EMessageTypesEth.TYPED_DATA_V4,
             message: dataTyped.replace(`"chainId":1`, `"chainId":"0x1"`),
             payload: [
               from,
@@ -302,7 +302,7 @@ describe('messageUtils', () => {
       expect(() =>
         messageUtils.validateTypedSignMessageDataV3V4(
           {
-            type: ETHMessageTypes.TYPED_DATA_V4,
+            type: EMessageTypesEth.TYPED_DATA_V4,
             message: dataTyped,
             payload: [from, dataTyped],
           } as any,
@@ -319,7 +319,7 @@ describe('messageUtils', () => {
       expect(() =>
         messageUtils.validateTypedSignMessageDataV3V4(
           {
-            type: ETHMessageTypes.TYPED_DATA_V4,
+            type: EMessageTypesEth.TYPED_DATA_V4,
             message,
             payload: [from, message],
           } as any,
@@ -333,7 +333,7 @@ describe('messageUtils', () => {
       expect(() =>
         messageUtils.validateTypedSignMessageDataV3V4(
           {
-            type: ETHMessageTypes.TYPED_DATA_V4,
+            type: EMessageTypesEth.TYPED_DATA_V4,
             message: dataTyped,
             payload: [from, dataTyped],
           } as any,
@@ -348,7 +348,7 @@ describe('messageUtils', () => {
       expect(() =>
         messageUtils.validateTypedSignMessageDataV3V4(
           {
-            type: ETHMessageTypes.TYPED_DATA_V4,
+            type: EMessageTypesEth.TYPED_DATA_V4,
             message,
             payload: [from, message],
           } as any,
@@ -370,7 +370,7 @@ describe('messageUtils', () => {
       expect(() =>
         messageUtils.validateTypedSignMessageDataV3V4(
           {
-            type: ETHMessageTypes.TYPED_DATA_V4,
+            type: EMessageTypesEth.TYPED_DATA_V4,
             message: typedMessage,
             payload: [
               '0x3244e191f1b4903970224322180f1fbbc415696b',
@@ -395,7 +395,7 @@ describe('messageUtils', () => {
       expect(() =>
         messageUtils.validateTypedSignMessageDataV3V4(
           {
-            type: ETHMessageTypes.TYPED_DATA_V4,
+            type: EMessageTypesEth.TYPED_DATA_V4,
             message: typedMessage,
             payload: [
               '0x3244e191f1b4903970224322180f1fbbc415696b',
@@ -421,7 +421,7 @@ describe('messageUtils', () => {
         expect(() =>
           messageUtils.validateTypedSignMessageDataV3V4(
             {
-              type: ETHMessageTypes.TYPED_DATA_V4,
+              type: EMessageTypesEth.TYPED_DATA_V4,
               message: typedMessage,
               payload: [
                 '0x3244e191f1b4903970224322180f1fbbc415696b',
@@ -449,7 +449,7 @@ describe('messageUtils', () => {
       expect(() =>
         messageUtils.validateTypedSignMessageDataV3V4(
           {
-            type: ETHMessageTypes.TYPED_DATA_V4,
+            type: EMessageTypesEth.TYPED_DATA_V4,
             message: typedMessage,
             payload: [
               '0x3244e191f1b4903970224322180f1fbbc415696b',
@@ -479,7 +479,7 @@ describe('messageUtils', () => {
         expect(() =>
           messageUtils.validateTypedSignMessageDataV3V4(
             {
-              type: ETHMessageTypes.TYPED_DATA_V4,
+              type: EMessageTypesEth.TYPED_DATA_V4,
               message: typedMessage,
               payload: [
                 '0x3244e191f1b4903970224322180f1fbbc415696b',
@@ -500,7 +500,7 @@ describe('messageUtils', () => {
         expect(() =>
           messageUtils.validateTypedSignMessageDataV3V4(
             {
-              type: ETHMessageTypes.TYPED_DATA_V4,
+              type: EMessageTypesEth.TYPED_DATA_V4,
               message: invalidObject,
               payload: [
                 '0x3244e191f1b4903970224322180f1fbbc415696b',
@@ -527,7 +527,7 @@ describe('messageUtils', () => {
         expect(() =>
           messageUtils.validateTypedSignMessageDataV3V4(
             {
-              type: ETHMessageTypes.TYPED_DATA_V4,
+              type: EMessageTypesEth.TYPED_DATA_V4,
               message: typedMessage,
               payload: [
                 '0x3244e191f1b4903970224322180f1fbbc415696b',
@@ -553,7 +553,7 @@ describe('messageUtils', () => {
         expect(() =>
           messageUtils.validateTypedSignMessageDataV3V4(
             {
-              type: ETHMessageTypes.TYPED_DATA_V4,
+              type: EMessageTypesEth.TYPED_DATA_V4,
               message: typedMessage,
               payload: [
                 '0x3244e191f1b4903970224322180f1fbbc415696b',
@@ -578,7 +578,7 @@ describe('messageUtils', () => {
         expect(() =>
           messageUtils.validateTypedSignMessageDataV3V4(
             {
-              type: ETHMessageTypes.TYPED_DATA_V4,
+              type: EMessageTypesEth.TYPED_DATA_V4,
               message: typedMessage,
               payload: [
                 '0x3244e191f1b4903970224322180f1fbbc415696b',
@@ -604,7 +604,7 @@ describe('messageUtils', () => {
       expect(() =>
         messageUtils.validateTypedSignMessageDataV3V4(
           {
-            type: ETHMessageTypes.TYPED_DATA_V4,
+            type: EMessageTypesEth.TYPED_DATA_V4,
             message: typedMessage,
             payload: [
               '0x3244e191f1b4903970224322180f1fbbc415696b',
@@ -630,7 +630,7 @@ describe('messageUtils', () => {
       expect(() =>
         messageUtils.validateTypedSignMessageDataV3V4(
           {
-            type: ETHMessageTypes.TYPED_DATA_V4,
+            type: EMessageTypesEth.TYPED_DATA_V4,
             message: typedMessage,
             payload: [
               '0x3244e191f1b4903970224322180f1fbbc415696b',
@@ -658,7 +658,7 @@ describe('messageUtils', () => {
         expect(() =>
           messageUtils.validateTypedSignMessageDataV3V4(
             {
-              type: ETHMessageTypes.TYPED_DATA_V4,
+              type: EMessageTypesEth.TYPED_DATA_V4,
               message: typedMessage,
               payload: [
                 '0x3244e191f1b4903970224322180f1fbbc415696b',
@@ -680,7 +680,7 @@ describe('messageUtils', () => {
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
       const message = 'uh oh';
       const unsignedMessage = {
-        type: ETHMessageTypes.TYPED_DATA_V4,
+        type: EMessageTypesEth.TYPED_DATA_V4,
         message,
         payload: [from, message],
       };
@@ -693,7 +693,7 @@ describe('messageUtils', () => {
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
       const message = typedData;
       const unsignedMessage = {
-        type: ETHMessageTypes.TYPED_DATA_V4,
+        type: EMessageTypesEth.TYPED_DATA_V4,
         message,
         payload: [from, message],
       };
@@ -711,7 +711,7 @@ describe('messageUtils', () => {
         'message': 'THIS IS A FAKE MESSAGE',
       };
       const unsignedMessage = {
-        type: ETHMessageTypes.TYPED_DATA_V4,
+        type: EMessageTypesEth.TYPED_DATA_V4,
         message: JSON.stringify(data),
         payload: [from, JSON.stringify(data)],
       };

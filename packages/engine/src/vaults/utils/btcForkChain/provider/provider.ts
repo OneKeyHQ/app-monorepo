@@ -1,16 +1,10 @@
 import BigNumber from 'bignumber.js';
-import { mnemonicToSeedSync } from 'bip39';
 import * as BitcoinJS from 'bitcoinjs-lib';
 import bitcoinMessage from 'bitcoinjs-message';
 import bs58check from 'bs58check';
 import { encode } from 'varuint-bitcoin';
 
-import {
-  CKDPub,
-  mnemonicFromEntropy,
-  verify,
-} from '@onekeyhq/engine/src/secret';
-import { AddressEncodings } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
+import { CKDPub, verify } from '@onekeyhq/core/src/secret';
 import type {
   AddressValidation,
   ChainInfo,
@@ -22,13 +16,12 @@ import type {
   UTXO,
   UnsignedTx,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
+import { AddressEncodings } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import type { InputToSign } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.types';
 import { getInputsToSignFromPsbt } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.utils';
 import { isBRC20Token } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import {
-  getBitcoinBip32,
-  getBitcoinECPair,
   initBitcoinEcc,
   isTaprootXpubSegwit,
   isWatchAccountTaprootSegwit,
@@ -38,7 +31,7 @@ import { getBlockBook } from './blockbook';
 import { getNetwork } from './networks';
 import { PLACEHOLDER_VSIZE, estimateTxSize, loadOPReturn } from './vsize';
 
-import type { Account } from '../../../../types/account';
+import type { DBUTXOAccount } from '../../../../types/account';
 import type { IUnsignedTxPro } from '../../../types';
 import type { Network } from './networks';
 import type { PsbtInput } from 'bip174/src/lib/interfaces';
@@ -706,7 +699,7 @@ class Provider {
     return psbt;
   }
 
-  private async collectInfoForSoftwareSign(
+  async collectInfoForSoftwareSign(
     unsignedTx: IUnsignedTxPro,
   ): Promise<[string[], Record<string, string>]> {
     const { inputs } = unsignedTx;
@@ -763,6 +756,7 @@ class Provider {
     );
   }
 
+  // TODO remove
   signMessage({
     password,
     entropy,
@@ -775,21 +769,24 @@ class Provider {
     path: string;
     message: string;
     sigOptions?: SignatureOptions | null;
-  }) {
-    initBitcoinEcc();
-    const mnemonic = mnemonicFromEntropy(entropy, password);
-    const seed = mnemonicToSeedSync(mnemonic);
-    const root = getBitcoinBip32().fromSeed(seed);
-    const node = root.derivePath(path);
-    const keyPair = getBitcoinECPair().fromWIF(node.toWIF());
-    const signature = bitcoinMessage.sign(
-      message,
-      // @ts-expect-error
-      keyPair.privateKey,
-      keyPair.compressed,
-      sigOptions,
+  }): Buffer {
+    throw new Error(
+      '39947847 BTC signMessage moved to core, please update code and use BTC core api instead',
     );
-    return signature;
+    // initBitcoinEcc();
+    // const mnemonic = mnemonicFromEntropy(entropy, password);
+    // const seed = mnemonicToSeedSync(mnemonic);
+    // const root = getBitcoinBip32().fromSeed(seed);
+    // const node = root.derivePath(path);
+    // const keyPair = getBitcoinECPair().fromWIF(node.toWIF());
+    // const signature = bitcoinMessage.sign(
+    //   message,
+    //   // @ts-expect-error
+    //   keyPair.privateKey,
+    //   keyPair.compressed,
+    //   sigOptions,
+    // );
+    // return signature;
   }
 
   async signBip322MessageSimple({
@@ -798,7 +795,7 @@ class Provider {
     signers,
     psbtNetwork,
   }: {
-    account: Account;
+    account: DBUTXOAccount;
     message: string;
     signers: Record<string, Signer>;
     psbtNetwork: BitcoinJS.networks.Network;

@@ -8,7 +8,7 @@ import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ServiceBase from './ServiceBase';
@@ -172,7 +172,7 @@ class ServiceHTTP extends ServiceBase {
         window.desktopApi.stopServer();
       }
     } catch (error) {
-      debugLogger.migrate.error('stopHttpServer', error);
+      flowLogger.error.log('dataMigration stopHttpServer error', error);
     }
   }
 }

@@ -4,8 +4,27 @@ import BigNumber from 'bignumber.js';
 import { getTime } from 'date-fns';
 import { get, isEmpty, isNil } from 'lodash';
 
+import type { TxBuilder } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
+import {
+  MessageType,
+  MintScanQuery,
+  TxAminoBuilder,
+  TxMsgBuilder,
+  baseAddressToAddress,
+  defaultAminoMsgOpts,
+  getFee,
+  getMsgs,
+  getSequence,
+  isValidAddress,
+  isValidContractAddress,
+  mintScanTypes,
+  queryRegistry,
+  serializeSignedTx,
+  setFee,
+  setSendAmount,
+} from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
+import { decrypt } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
-import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type {
   DBAccount,
   DBVariantAccount,
@@ -15,12 +34,6 @@ import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
 import type { KeyringSoftwareBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringSoftwareBase';
-import {
-  IDecodedTxActionType,
-  IDecodedTxDirection,
-  IDecodedTxStatus,
-  IEncodedTxUpdateType,
-} from '@onekeyhq/engine/src/vaults/types';
 import type {
   IApproveInfo,
   IDecodedTx,
@@ -38,13 +51,15 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/engine/src/vaults/types';
 import {
+  IDecodedTxActionType,
+  IDecodedTxDirection,
+  IDecodedTxStatus,
+  IEncodedTxUpdateType,
+} from '@onekeyhq/engine/src/vaults/types';
+import {
   convertFeeGweiToValue,
   convertFeeValueToGwei,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
-import {
-  addHexPrefix,
-  stripHexPrefix,
-} from '@onekeyhq/engine/src/vaults/utils/hexUtils';
 import { VaultBase } from '@onekeyhq/engine/src/vaults/VaultBase';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
@@ -56,6 +71,10 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  addHexPrefix,
+  stripHexPrefix,
+} from '@onekeyhq/shared/src/utils/hexUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { KeyringHardware } from './KeyringHardware';
@@ -63,33 +82,12 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { CosmosNodeClient } from './NodeClient';
-import {
-  baseAddressToAddress,
-  isValidAddress,
-  isValidContractAddress,
-} from './sdk/address';
-import { TxAminoBuilder } from './sdk/amino/TxAminoBuilder';
-import { defaultAminoMsgOpts } from './sdk/amino/types';
-import { MessageType } from './sdk/message';
-import { queryRegistry } from './sdk/query/IQuery';
-import { MintScanQuery } from './sdk/query/MintScanQuery';
-import { Type } from './sdk/query/mintScanTypes';
-import { serializeSignedTx } from './sdk/txBuilder';
-import { TxMsgBuilder } from './sdk/txMsgBuilder';
-import {
-  getFee,
-  getMsgs,
-  getSequence,
-  setFee,
-  setSendAmount,
-} from './sdk/wrapper/utils';
 import settings from './settings';
 import {
   getTransactionTypeByMessage,
   getTransactionTypeByProtoMessage,
 } from './utils';
 
-import type { TxBuilder } from './sdk/txBuilder';
 import type { CosmosImplOptions, IEncodedTxCosmos, StdFee } from './type';
 import type { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
@@ -102,7 +100,6 @@ const GAS_ADJUSTMENT: Record<string, string> = {
 };
 const GAS_PRICE = ['0.01', '0.025', '0.04'];
 
-// @ts-ignore
 export default class Vault extends VaultBase {
   keyringMap = {
     hd: KeyringHd,
@@ -137,17 +134,8 @@ export default class Vault extends VaultBase {
     return this.getClientCache(rpcURL);
   }
 
-  private async getChainInfo() {
-    const chainInfo = await this.engine.providerManager.getChainInfoByNetworkId(
-      this.networkId,
-    );
-    return chainInfo;
-  }
-
   private async getChainImplInfo() {
-    const chainInfo = await this.engine.providerManager.getChainInfoByNetworkId(
-      this.networkId,
-    );
+    const chainInfo = await this.getChainInfo();
     return chainInfo.implOptions as CosmosImplOptions;
   }
 
@@ -180,9 +168,7 @@ export default class Vault extends VaultBase {
       accountId,
     )) as DBVariantAccount;
 
-    const chainInfo = await this.engine.providerManager.getChainInfoByNetworkId(
-      networkId,
-    );
+    const chainInfo = await this.getChainInfo();
 
     const address = baseAddressToAddress(
       chainInfo.implOptions?.addressPrefix ?? 'cosmos',
@@ -241,7 +227,7 @@ export default class Vault extends VaultBase {
 
       const token = results.find((item) => {
         if (
-          item.type === Type.Ibc &&
+          item.type === mintScanTypes.Type.Ibc &&
           this.normalIBCAddress(item.denom) === normalizationAddress
         ) {
           return true;
@@ -367,7 +353,7 @@ export default class Vault extends VaultBase {
           this.normalIBCAddress(item.denom) ?? item.denom;
 
         if (
-          item.type === Type.Ibc &&
+          item.type === mintScanTypes.Type.Ibc &&
           ibcTokenAddresses.has(normalizationAddress)
         ) {
           acc.push({
@@ -912,7 +898,7 @@ export default class Vault extends VaultBase {
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
       const keyring = this.keyring as KeyringSoftwareBase;
       const [encryptedPrivateKey] = Object.values(
-        await keyring.getPrivateKeys(password),
+        await keyring.getPrivateKeys({ password }),
       );
       return `0x${decrypt(password, encryptedPrivateKey).toString('hex')}`;
     }
@@ -1111,7 +1097,7 @@ export default class Vault extends VaultBase {
   override async addressFromBase(account: DBAccount) {
     const variantAccount = account as DBVariantAccount;
 
-    const existAddress = variantAccount.addresses[this.networkId]?.trim();
+    const existAddress = variantAccount.addresses?.[this.networkId]?.trim();
     if (isNil(existAddress) || isEmpty(existAddress)) {
       const chainInfo = await this.getChainInfo();
       return baseAddressToAddress(
@@ -1119,6 +1105,9 @@ export default class Vault extends VaultBase {
         variantAccount.address,
       );
     }
-    return variantAccount.addresses[this.networkId];
+    if (!existAddress) {
+      throw new Error('Invalid cosmos address');
+    }
+    return existAddress;
   }
 }

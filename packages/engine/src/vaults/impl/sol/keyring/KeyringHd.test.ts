@@ -64,23 +64,4 @@ describe('Solana KeyringHd Tests', () => {
       },
     );
   });
-
-  it('solana signTransaction', async () => {
-    const { network, hdAccount1 } = solMockData;
-    const { testSignTransaction } =
-      require('../@tests/solPresetCase') as SOLPresetCaseType;
-    await testSignTransaction(
-      {
-        dbNetwork: network,
-        dbAccount: hdAccount1.account,
-        mnemonic: hdAccount1.mnemonic,
-        password: hdAccount1.password,
-      },
-      {
-        keyring({ vault }) {
-          return new KeyringHd(vault);
-        },
-      },
-    );
-  });
 });

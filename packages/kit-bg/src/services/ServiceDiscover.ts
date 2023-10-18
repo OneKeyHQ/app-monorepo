@@ -30,7 +30,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import ServiceBase from './ServiceBase';
 
@@ -88,10 +88,6 @@ class ServicDiscover extends ServiceBase {
     if (currentBookmarks) {
       bookmarks = currentBookmarks.concat(bookmarks);
     }
-
-    debugLogger.common.info(
-      `migrate favorite to bookmarks ${JSON.stringify(bookmarks)}`,
-    );
 
     dispatch(resetBookmarks(bookmarks), setFavoritesMigrated());
   }
@@ -225,7 +221,7 @@ class ServicDiscover extends ServiceBase {
         return { title: urlInfo.title, icon: urlInfo.icon };
       }
     } catch (e: unknown) {
-      debugLogger.common.error(
+      flowLogger.error.log(
         `failed to fetch dapp url info with reason ${(e as Error).message}`,
       );
       return { title: '', icon: '' };

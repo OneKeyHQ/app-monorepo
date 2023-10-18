@@ -5,7 +5,7 @@ import { mnemonicToSeedSync } from 'bip39';
 
 import type { ExportedSeedCredential } from '@onekeyhq/engine/src/dbs/base';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
-import { mnemonicFromEntropy } from '@onekeyhq/engine/src/secret';
+import { mnemonicFromEntropy } from '@onekeyhq/core/src/secret';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import connectors from '@onekeyhq/engine/src/vaults/impl/lightning-network/connectors';
 import {

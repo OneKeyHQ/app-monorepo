@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
 
-import type { IAppSelector, IPersistor, IStore } from '@onekeyhq/kit/src/store';
+import type {
+  IAppSelector,
+  IPersistor,
+  IStore,
+  IStoreState,
+} from '@onekeyhq/kit/src/store';
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   ensurePromiseObject,
@@ -47,7 +52,7 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
     this.callBackgroundSync('dispatch', ...actions);
   };
 
-  getState = (): Promise<{ state: any; bootstrapped: boolean }> =>
+  getState = (): Promise<{ state: IStoreState; bootstrapped: boolean }> =>
     this.callBackground('getState');
 
   sendForProvider(providerName: IInjectedProviderNamesStrings): any {

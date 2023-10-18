@@ -3,10 +3,10 @@ import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { last } from 'lodash';
 
-import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
-import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
+import { ed25519 } from '@onekeyhq/core/src/secret/curves';
+import { decrypt } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import {
   InvalidAddress,
   OneKeyInternalError,
@@ -15,7 +15,7 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
-import { extractResponseError } from '../../../proxy';
+import { Verifier, extractResponseError } from '../../../proxy';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
@@ -67,7 +67,6 @@ import type {
 import type { INearAccountStorageBalance, NearAccessKey } from './types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
-// TODO extends evm/Vault
 export default class Vault extends VaultBase {
   keyringMap = {
     hd: KeyringHd,
@@ -94,12 +93,9 @@ export default class Vault extends VaultBase {
   _createNearCli = memoizee(
     async (rpcUrl: string, networkId: string) => {
       // TODO add timeout params
-      // TODO replace in ProviderController.getClient()
       // client: cross-fetch
       const nearCli = new NearCli(`${rpcUrl}`);
-      const chainInfo =
-        await this.engine.providerManager.getChainInfoByNetworkId(networkId);
-      // TODO move to base, setChainInfo like what ProviderController.getClient() do
+      const chainInfo = await this.engine.getChainInfo(networkId);
       nearCli.setChainInfo(chainInfo);
       // nearCli.rpc.timeout = 60 * 1000;
 
@@ -141,10 +137,7 @@ export default class Vault extends VaultBase {
       dbAccount.pub.startsWith('ed25519:')
         ? baseDecode(dbAccount.pub.split(':')[1]).toString('hex')
         : dbAccount.pub;
-    const verifier = this.engine.providerManager.getVerifier(
-      this.networkId,
-      pub,
-    );
+    const verifier = new Verifier(pub, 'ed25519');
     const pubKeyBuffer = await verifier.getPubkey(true);
 
     if (encoding === 'buffer') {
@@ -400,9 +393,6 @@ export default class Vault extends VaultBase {
   }
 
   async buildUnsignedTxFromEncodedTx(encodedTx: any): Promise<IUnsignedTxPro> {
-    const nativeTx = (await this.helper.parseToNativeTx(
-      encodedTx,
-    )) as nearApiJs.transactions.Transaction;
     const cli = await this._getNearCli();
 
     // nonce is not correct if accounts contains multiple AccessKeys
@@ -410,14 +400,15 @@ export default class Vault extends VaultBase {
     const accessKey = await this.fetchAccountAccessKey();
     const { blockHash } = await cli.getBestBlock();
 
-    nativeTx.nonce = accessKey?.nonce ?? 0;
-    nativeTx.blockHash = baseDecode(blockHash);
+    const nonce = accessKey?.nonce ?? 0;
+    const blockHashBuffer = baseDecode(blockHash);
 
     const unsignedTx: IUnsignedTxPro = {
       inputs: [],
       outputs: [],
       payload: {
-        nativeTx,
+        nonce,
+        blockHash,
       },
       encodedTx,
     };
@@ -516,7 +507,7 @@ export default class Vault extends VaultBase {
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
       const keyring = this.keyring as KeyringSoftwareBase;
       const [encryptedPrivateKey] = Object.values(
-        await keyring.getPrivateKeys(password),
+        await keyring.getPrivateKeys({ password }),
       );
       const privateKey = decrypt(password, encryptedPrivateKey);
       const publicKey = ed25519.publicFromPrivate(privateKey);

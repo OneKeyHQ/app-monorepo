@@ -5,28 +5,25 @@
 
 import BigNumber from 'bignumber.js';
 import Decimal from 'decimal.js';
-import { isNil } from 'lodash';
 
-import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import { decrypt } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type {
   FeePricePerUnit,
   PartialTokenInfo,
   TransactionStatus,
 } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
-import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   InvalidAddress,
   InvalidTokenAddress,
   NotImplemented,
   OneKeyInternalError,
-  PendingQueueTooLong,
 } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
-import simpleDb from '../../../dbs/simple/simpleDb';
-import { Verifier, extractResponseError } from '../../../proxy';
+import { extractResponseError } from '../../../proxy';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
@@ -46,7 +43,7 @@ import {
   KeyringImported,
   KeyringWatching,
 } from './keyring';
-import { ClientStc, StarcoinTypes, encoding, utils } from './sdk';
+import { ClientStc } from './sdk';
 import settings from './settings';
 import {
   buildUnsignedTx,
@@ -341,46 +338,12 @@ export default class Vault extends VaultBase {
     return Promise.resolve(encodedTx);
   }
 
-  override async getNextNonce(
-    networkId: string,
-    dbAccount: DBAccount,
-  ): Promise<number> {
+  override async getNextNonce(): Promise<number> {
     const client = await this.getJsonRPCClient();
-    const [addressInfo] = await client.getAddresses([dbAccount.address]);
-    const onChainNonce = addressInfo?.nonce ?? 0;
-    const maxPendingNonce = await simpleDb.history.getMaxPendingNonce({
-      accountId: this.accountId,
-      networkId,
-    });
-    const pendingNonceList = await simpleDb.history.getPendingNonceList({
-      accountId: this.accountId,
-      networkId,
-    });
-    let nextNonce = Math.max(
-      isNil(maxPendingNonce) ? 0 : maxPendingNonce + 1,
-      onChainNonce,
-    );
-    if (Number.isNaN(nextNonce)) {
-      nextNonce = onChainNonce;
-    }
-    if (nextNonce > onChainNonce) {
-      for (let i = onChainNonce; i < nextNonce; i += 1) {
-        if (!pendingNonceList.includes(i)) {
-          nextNonce = i;
-          break;
-        }
-      }
-    }
-
-    if (nextNonce < onChainNonce) {
-      nextNonce = onChainNonce;
-    }
-
-    if (nextNonce - onChainNonce >= HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH) {
-      throw new PendingQueueTooLong(HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH);
-    }
-
-    return nextNonce;
+    const dbAccount = await this.getDbAccount();
+    const onChainNonce =
+      (await client.getAddresses([dbAccount.address]))[0]?.nonce ?? 0;
+    return super.baseGetNextNonce({ onChainNonce });
   }
 
   override async addressFromBase(account: DBAccount) {
@@ -399,7 +362,7 @@ export default class Vault extends VaultBase {
     const nonceBN = new BigNumber(nonce ?? 'NaN');
     const nextNonce: number = !nonceBN.isNaN()
       ? nonceBN.toNumber()
-      : await this.getNextNonce(network.id, dbAccount);
+      : await this.getNextNonce();
     const unsignedTx = await buildUnsignedTx(
       {
         inputs: [
@@ -439,6 +402,11 @@ export default class Vault extends VaultBase {
     return client.getFeePricePerUnit();
   }
 
+  override async getGasInfo() {
+    const client = await this.getJsonRPCClient();
+    return this.baseGetGasInfo(client);
+  }
+
   async fetchFeeInfo(encodedTx: IEncodedTxSTC): Promise<IFeeInfo> {
     // NOTE: for fetching gas limit, we don't want blockchain-libs to fetch
     // other info such as gas price and nonce. Therefore the hack here to
@@ -450,7 +418,7 @@ export default class Vault extends VaultBase {
 
     const [network, { prices }, unsignedTx] = await Promise.all([
       this.getNetwork(),
-      this.engine.getGasInfo(this.networkId),
+      this.getGasInfo(),
       this.buildUnsignedTxFromEncodedTx(encodedTxWithFakePriceAndNonce),
     ]);
 
@@ -514,7 +482,7 @@ export default class Vault extends VaultBase {
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
       const keyring = this.keyring as KeyringSoftwareBase;
       const [encryptedPrivateKey] = Object.values(
-        await keyring.getPrivateKeys(password),
+        await keyring.getPrivateKeys({ password }),
       );
       return `0x${decrypt(password, encryptedPrivateKey).toString('hex')}`;
     }
@@ -635,7 +603,7 @@ export default class Vault extends VaultBase {
           });
         }
       } catch (e) {
-        debugLogger.common.error(e);
+        flowLogger.error.log(e);
       }
 
       return Promise.resolve(null);
@@ -688,7 +656,7 @@ export default class Vault extends VaultBase {
             decimals: Decimal.log10(scaling_factor).toDP(0).toNumber(),
           };
         } catch (e) {
-          debugLogger.common.error(e);
+          flowLogger.error.log(e);
           return undefined;
         }
       });

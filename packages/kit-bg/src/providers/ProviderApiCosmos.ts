@@ -6,11 +6,13 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { PubKey } from 'cosmjs-types/cosmos/crypto/ed25519/keys';
 import { AuthInfo, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 
+import type { StdSignDoc } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
+import {
+  TransactionWrapper,
+  deserializeTx,
+  getAminoSignDoc,
+} from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
 import type { BroadcastMode } from '@onekeyhq/engine/src/vaults/impl/cosmos/NodeClient';
-import type { StdSignDoc } from '@onekeyhq/engine/src/vaults/impl/cosmos/sdk/amino/types';
-import { deserializeTx } from '@onekeyhq/engine/src/vaults/impl/cosmos/sdk/txBuilder';
-import { TransactionWrapper } from '@onekeyhq/engine/src/vaults/impl/cosmos/sdk/wrapper';
-import { getAminoSignDoc } from '@onekeyhq/engine/src/vaults/impl/cosmos/sdk/wrapper/utils';
 import {
   getADR36SignDoc,
   getDataForADR36,
@@ -138,7 +140,6 @@ class ProviderApiCosmos extends ProviderApiBase {
         .getActiveConnectedAccounts({ origin, impl: IMPL_COSMOS })
         .map(({ address }) => address),
     });
-    debugLogger.providerApi.info('cosmos disconnect', origin);
   }
 
   private convertCosmosChainId(networkId: string | undefined | null) {

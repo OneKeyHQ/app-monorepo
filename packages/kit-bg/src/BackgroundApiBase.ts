@@ -18,6 +18,7 @@ import {
   throwMethodNotFound,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   isProviderApiPrivateAllowedMethod,
@@ -110,9 +111,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
   @bindThis()
   @backgroundMethod()
-  dispatch(...actions: any[]) {
+  async dispatch(...actions: any[]) {
     if (!actions || !actions.length) {
-      return;
+      return Promise.resolve();
     }
     // eslint-disable-next-line no-param-reassign
     actions = actions.filter(Boolean);
@@ -188,7 +189,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
           payloadData?.method
         }`,
       );
-      debugLogger.providerApi.error(error);
+      flowLogger.error.log(error);
       throw error;
     }
     // throw web3Errors.provider.custom({
@@ -201,7 +202,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       payload,
     );
     const result = await provider.handleMethods(payload);
-    ensureSerializable(result);
+    ensureSerializable(result, false, payload);
     // TODO non rpc result return in some chain provider
     const resultWrapped = this.rpcResult(result, payloadData);
     debugLogger.providerApi.info(
@@ -231,10 +232,11 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     }
 
     if (scope) {
-      debugLogger.backgroundApi.info('_bridgeReceiveHandler', {
+      flowLogger.app.apiCalls.callProviderApi({
         scope,
         origin,
         method,
+        params,
       });
       return this.handleProviderMethods(payload);
     }

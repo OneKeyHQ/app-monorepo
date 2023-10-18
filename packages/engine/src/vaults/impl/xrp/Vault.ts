@@ -3,8 +3,11 @@
 import BigNumber from 'bignumber.js';
 import * as XRPL from 'xrpl';
 
-import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import type { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
+import { decrypt } from '@onekeyhq/core/src/secret/encryptors/aes256';
+import type {
+  PartialTokenInfo,
+  TransactionStatus,
+} from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   InvalidAddress,
@@ -13,6 +16,7 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import {
@@ -47,7 +51,6 @@ import type { IEncodedTxXrp, IXrpTransaction } from './types';
 
 let clientInstance: XRPL.Client | null = null;
 
-// @ts-ignore
 export default class Vault extends VaultBase {
   keyringMap = {
     hd: KeyringHd,
@@ -91,13 +94,19 @@ export default class Vault extends VaultBase {
     },
   );
 
+  override fetchTokenInfos(
+    tokenAddresses: string[],
+  ): Promise<(PartialTokenInfo | undefined)[]> {
+    throw new NotImplemented();
+  }
+
   private disconnect = async () => {
     if (clientInstance && clientInstance.isConnected()) {
       try {
         await clientInstance.disconnect();
         clientInstance = null;
       } catch (error) {
-        debugLogger.common.error(error);
+        flowLogger.error.log(error);
       }
     }
   };
@@ -161,7 +170,7 @@ export default class Vault extends VaultBase {
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
       const keyring = this.keyring as KeyringSoftwareBase;
       const [encryptedPrivateKey] = Object.values(
-        await keyring.getPrivateKeys(password),
+        await keyring.getPrivateKeys({ password }),
       );
       return `00${decrypt(password, encryptedPrivateKey)
         .toString('hex')

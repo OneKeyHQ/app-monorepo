@@ -6,13 +6,13 @@ import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
-import { TransactionStatus } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import type {
   ChainInfo,
   IBtcUTXO,
   IBtcUTXOInfo,
   ICollectUTXOsOptions,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
+import { TransactionStatus } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import { TransferValueTooSmall } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -272,7 +272,7 @@ class BlockBook {
   }
 }
 
-function getRpcUrlFromChainInfo(chainInfo: ChainInfo | undefined) {
+function getRpcUrlFromChainInfo(chainInfo: ChainInfo | undefined): string {
   return chainInfo?.clients?.[0].args?.[0];
 }
 

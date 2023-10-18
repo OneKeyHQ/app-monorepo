@@ -12,6 +12,7 @@ import type {
   IPrepareWatchingAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
+import type VaultEvm from './Vault';
 
 export class KeyringWatching extends KeyringWatchingBase {
   // TODO remove
@@ -38,8 +39,9 @@ export class KeyringWatching extends KeyringWatchingBase {
     params: IPrepareWatchingAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
     const { name, target, accountIdPrefix } = params;
-    const { normalizedAddress, isValid } =
-      await this.engine.providerManager.verifyAddress(this.networkId, target);
+    const { normalizedAddress, isValid } = await (
+      this.vault as VaultEvm
+    ).verifyAddress(target);
     if (!isValid || typeof normalizedAddress === 'undefined') {
       throw new InvalidAddress();
     }

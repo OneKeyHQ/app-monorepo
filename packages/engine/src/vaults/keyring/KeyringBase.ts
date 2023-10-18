@@ -1,12 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 // eslint-disable-next-line max-classes-per-file
-import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
+import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
+import type { ICurveName } from '@onekeyhq/core/src/secret';
+import type { ICoreApiNetworkInfo } from '@onekeyhq/core/src/types';
 
-import { IVaultOptions } from '../types';
+import { EVaultKeyringTypes } from '../types';
 import { VaultContext } from '../VaultContext';
 
 import type { DBAccount } from '../../types/account';
-import type { CredentialSelector } from '../../types/credential';
+import type { IUnsignedMessage } from '../../types/message';
 import type {
   IGetAddressParams,
   IPrepareAccountByAddressIndexParams,
@@ -23,22 +25,63 @@ export abstract class KeyringBase extends VaultContext {
     this.vault = vault;
   }
 
+  abstract keyringType: EVaultKeyringTypes;
+
+  isKeyringImported() {
+    return this.keyringType === EVaultKeyringTypes.imported;
+  }
+
+  isKeyringHd() {
+    return this.keyringType === EVaultKeyringTypes.hd;
+  }
+
+  isKeyringHardware() {
+    return this.keyringType === EVaultKeyringTypes.hardware;
+  }
+
+  isKeyringWatching() {
+    return this.keyringType === EVaultKeyringTypes.watching;
+  }
+
   vault: VaultBase;
 
-  // TODO: check history is added
-  abstract signTransaction(
-    unsignedTx: IUnsignedTxPro,
-    options: ISignCredentialOptions,
-  ): Promise<ISignedTxPro>;
+  coreApi: CoreChainApiBase | undefined;
+
+  async baseGetCoreApiNetworkInfo(): Promise<ICoreApiNetworkInfo> {
+    const network = await this.getNetwork();
+    const chainInfo = await this.getChainInfo();
+    // check presetNetworks.extensions.providerOptions
+    const addressPrefix = chainInfo?.implOptions?.addressPrefix as
+      | string
+      | undefined;
+    const curve = chainInfo?.implOptions?.curve as ICurveName | undefined;
+    const chainCode = chainInfo.code;
+    const chainId = await this.vault.getNetworkChainId();
+    const networkImpl = await this.getNetworkImpl();
+    const { isTestnet } = network;
+    const { networkId } = this;
+    return {
+      isTestnet,
+      networkChainCode: chainCode,
+      chainId,
+      networkId,
+      networkImpl,
+      addressPrefix,
+      curve,
+    };
+  }
+
+  override async addressFromBase(account: DBAccount) {
+    return this.vault.addressFromBase(account);
+  }
 
   abstract signTransaction(
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
   ): Promise<ISignedTxPro>;
 
-  // TODO: check history is added
   abstract signMessage(
-    messages: any[],
+    messages: IUnsignedMessage[],
     options: ISignCredentialOptions,
   ): Promise<string[]>;
 
@@ -46,16 +89,14 @@ export abstract class KeyringBase extends VaultContext {
     params: IPrepareAccountsParams,
   ): Promise<Array<DBAccount>>;
 
+  // TODO merge prepareAccounts, getAddress, batchGetAddress, getAddressesFromHd, getAddressFromPrivate
   abstract getAddress(params: IGetAddressParams): Promise<string>;
 
   abstract batchGetAddress(
     params: IGetAddressParams[],
   ): Promise<{ path: string; address: string }[]>;
 
-  override async addressFromBase(account: DBAccount) {
-    return this.vault.addressFromBase(account);
-  }
-
+  // TODO BTC fork only?
   abstract prepareAccountByAddressIndex(
     params: IPrepareAccountByAddressIndexParams,
   ): Promise<Array<DBAccount>>;

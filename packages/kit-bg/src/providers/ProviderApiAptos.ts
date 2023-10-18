@@ -6,7 +6,7 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { BCS, TxnBuilderTypes } from 'aptos';
 import { isArray } from 'lodash';
 
-import { AptosMessageTypes } from '@onekeyhq/engine/src/types/message';
+import { EMessageTypesAptos } from '@onekeyhq/engine/src/types/message';
 import type {
   IEncodedTxAptos,
   SignMessagePayload,
@@ -20,10 +20,6 @@ import {
   transactionPayloadToTxPayload,
 } from '@onekeyhq/engine/src/vaults/impl/apt/utils';
 import type VaultAptos from '@onekeyhq/engine/src/vaults/impl/apt/Vault';
-import {
-  hexlify,
-  stripHexPrefix,
-} from '@onekeyhq/engine/src/vaults/utils/hexUtils';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   backgroundClass,
@@ -32,6 +28,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_APTOS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { hexlify, stripHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -141,7 +138,6 @@ class ProviderApiAptos extends ProviderApiBase {
         .getActiveConnectedAccounts({ origin, impl: IMPL_APTOS })
         .map(({ address }) => address),
     });
-    debugLogger.providerApi.info('aptos disconnect', origin);
   }
 
   @providerApiMethod()
@@ -152,7 +148,6 @@ class ProviderApiAptos extends ProviderApiBase {
       }
     | undefined
   > {
-    debugLogger.providerApi.info('aptos account');
     const { networkId, networkImpl, accountId } = getActiveWalletAccount();
     if (networkImpl !== IMPL_APTOS) {
       return undefined;
@@ -184,7 +179,6 @@ class ProviderApiAptos extends ProviderApiBase {
 
   @providerApiMethod()
   public async network(): Promise<string> {
-    debugLogger.providerApi.info('aptos network');
     const { networkId } = getActiveWalletAccount();
     const network = await this.backgroundApi.engine.getNetwork(networkId);
 
@@ -367,7 +361,7 @@ class ProviderApiAptos extends ProviderApiBase {
       request,
       {
         unsignedMessage: {
-          type: AptosMessageTypes.SIGN_MESSAGE,
+          type: EMessageTypesAptos.SIGN_MESSAGE,
           message: JSON.stringify(format),
         },
       },
@@ -512,8 +506,6 @@ class ProviderApiAptos extends ProviderApiBase {
 
   @providerApiMethod()
   public async getChainId() {
-    debugLogger.providerApi.info('aptos getChainId');
-
     const vault = await this.getAptosVault();
 
     const chainId = await (await vault.getClient()).getChainId();
@@ -540,8 +532,6 @@ class ProviderApiAptos extends ProviderApiBase {
       };
     },
   ) {
-    debugLogger.providerApi.info('aptos generateTransaction');
-
     const vault = await this.getAptosVault();
     const client = await vault.getClient();
     const rawTx = await client.generateTransaction(
@@ -559,8 +549,6 @@ class ProviderApiAptos extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: Uint8Array | string,
   ) {
-    debugLogger.providerApi.info('aptos generateTransaction');
-
     const bcsTxn: Uint8Array = decodeBytesTransaction(params);
     const vault = await this.getAptosVault();
     const client = await vault.getClient();
@@ -573,8 +561,6 @@ class ProviderApiAptos extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: { start?: string; limit?: number },
   ) {
-    debugLogger.providerApi.info('aptos getTransactions');
-
     const vault = await this.getAptosVault();
     const client = await vault.getClient();
     const { start } = params ?? {};
@@ -589,8 +575,6 @@ class ProviderApiAptos extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: string,
   ) {
-    debugLogger.providerApi.info('aptos getTransaction');
-
     const vault = await this.getAptosVault();
     const client = await vault.getClient();
     return client.getTransactionByHash(params);
@@ -604,8 +588,6 @@ class ProviderApiAptos extends ProviderApiBase {
       query?: { start?: string; limit?: number };
     },
   ) {
-    debugLogger.providerApi.info('aptos getAccountTransactions');
-
     const vault = await this.getAptosVault();
     const client = await vault.getClient();
     const { start } = params.query ?? {};
@@ -623,8 +605,6 @@ class ProviderApiAptos extends ProviderApiBase {
       query?: { ledgerVersion?: string };
     },
   ) {
-    debugLogger.providerApi.info('aptos getAccountResources');
-
     const vault = await this.getAptosVault();
     const client = await vault.getClient();
 
@@ -637,8 +617,6 @@ class ProviderApiAptos extends ProviderApiBase {
 
   @providerApiMethod()
   public async getAccount(request: IJsBridgeMessagePayload, params: string) {
-    debugLogger.providerApi.info('aptos getAccount');
-
     const vault = await this.getAptosVault();
     const client = await vault.getClient();
     return client.getAccount(params);
@@ -646,8 +624,6 @@ class ProviderApiAptos extends ProviderApiBase {
 
   @providerApiMethod()
   public async getLedgerInfo() {
-    debugLogger.providerApi.info('aptos getLedgerInfo');
-
     const vault = await this.getAptosVault();
     const client = await vault.getClient();
     return client.getLedgerInfo();

@@ -9,17 +9,15 @@ import { get, isNil } from 'lodash';
 import uuid from 'react-native-uuid';
 
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
-import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
+import type { IUnsignedMessage } from '@onekeyhq/engine/src/types/message';
+import { EMessageTypesEth } from '@onekeyhq/engine/src/types/message';
 import type {
   EvmExtraInfo,
   Network,
   SwitchRpcParams,
 } from '@onekeyhq/engine/src/types/network';
 import type VaultEvm from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import type {
-  IEncodedTxEvm,
-  IUnsignedMessageEvm,
-} from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   backgroundClass,
@@ -101,7 +99,7 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   async _showSignMessageModal(
     request: IJsBridgeMessagePayload,
-    unsignedMessage: IUnsignedMessageEvm,
+    unsignedMessage: IUnsignedMessage,
   ) {
     const result = await this.backgroundApi.serviceDapp?.openSignAndSendModal(
       request,
@@ -139,7 +137,6 @@ class ProviderApiEthereum extends ProviderApiBase {
       };
       return result;
     };
-    // debugLogger.providerApi.info('notifyDappAccountsChanged', data);
     info.send(data);
   }
 
@@ -377,7 +374,7 @@ class ProviderApiEthereum extends ProviderApiBase {
   @providerApiMethod()
   eth_sign(req: IJsBridgeMessagePayload, ...messages: any[]) {
     return this._showSignMessageModal(req, {
-      type: ETHMessageTypes.ETH_SIGN,
+      type: EMessageTypesEth.ETH_SIGN,
       message: messages[1],
       payload: messages,
     });
@@ -476,7 +473,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     message = this.autoFixPersonalSignMessage({ message });
 
     return this._showSignMessageModal(req, {
-      type: ETHMessageTypes.PERSONAL_SIGN,
+      type: EMessageTypesEth.PERSONAL_SIGN,
       message,
       payload: [message, from],
     });
@@ -572,9 +569,9 @@ class ProviderApiEthereum extends ProviderApiBase {
      * Because V4 is backward compatible with V3, we only support V4
      */
     const { types, primaryType, domain } = parsedData;
-    let ethMessageType = ETHMessageTypes.TYPED_DATA_V1;
+    let ethMessageType = EMessageTypesEth.TYPED_DATA_V1;
     if (typeof parsedData === 'object' && (types || primaryType || domain)) {
-      ethMessageType = ETHMessageTypes.TYPED_DATA_V4;
+      ethMessageType = EMessageTypesEth.TYPED_DATA_V4;
     }
 
     // Convert to a JSON string
@@ -599,7 +596,7 @@ class ProviderApiEthereum extends ProviderApiBase {
   eth_signTypedData_v3(req: IJsBridgeMessagePayload, ...messages: any[]) {
     console.log('eth_signTypedData_v3', messages, req);
     return this._showSignMessageModal(req, {
-      type: ETHMessageTypes.TYPED_DATA_V3,
+      type: EMessageTypesEth.TYPED_DATA_V3,
       message: messages[1],
       payload: messages,
     });
@@ -677,7 +674,7 @@ class ProviderApiEthereum extends ProviderApiBase {
   eth_signTypedData_v4(req: IJsBridgeMessagePayload, ...messages: any[]) {
     console.log('eth_signTypedData_v4', messages, req);
     return this._showSignMessageModal(req, {
-      type: ETHMessageTypes.TYPED_DATA_V4,
+      type: EMessageTypesEth.TYPED_DATA_V4,
       message: messages[1],
       payload: messages,
     });

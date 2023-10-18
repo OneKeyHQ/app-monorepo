@@ -1,81 +1,50 @@
-import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
-import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
-import { COINTYPE_CFX as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import { COINTYPE_CFX } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { Signer, Verifier } from '../../../../proxy';
 import { AccountType } from '../../../../types/account';
 import { KeyringImportedBase } from '../../../keyring/KeyringImportedBase';
-import { pubkeyToAddress, signTransactionWithSigner } from '../utils';
 
-import { CURVE_NAME } from './constant';
-
-import type { DBVariantAccount } from '../../../../types/account';
+import type { ChainSigner } from '../../../../proxy';
+import type { DBSimpleAccount } from '../../../../types/account';
 import type {
+  IGetPrivateKeysParams,
+  IGetPrivateKeysResult,
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
+  ISignedTxPro,
   IUnsignedTxPro,
 } from '../../../types';
 
 export class KeyringImported extends KeyringImportedBase {
-  override async getSigners(password: string, addresses: Array<string>) {
-    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
-    const selectedAddress = dbAccount.addresses[this.networkId];
+  override coreApi = coreChainApi.cfx.imported;
 
-    if (addresses.length !== 1) {
-      throw new OneKeyInternalError('CFX signers number should be 1.');
-    } else if (addresses[0] !== selectedAddress) {
-      throw new OneKeyInternalError('Wrong address required for signing.');
-    }
+  override getSigners(): Promise<Record<string, ChainSigner>> {
+    throw new Error('getSigners moved to core.');
+  }
 
-    const [privateKey] = Object.values(await this.getPrivateKeys(password));
-
-    return { [selectedAddress]: new Signer(privateKey, password, CURVE_NAME) };
+  override async getPrivateKeys(
+    params: IGetPrivateKeysParams,
+  ): Promise<IGetPrivateKeysResult> {
+    return this.baseGetPrivateKeys(params);
   }
 
   override async prepareAccounts(
     params: IPrepareImportedAccountsParams,
-  ): Promise<Array<DBVariantAccount>> {
-    const { name, privateKey } = params;
-    if (privateKey.length !== 32) {
-      throw new OneKeyInternalError('Invalid private key.');
-    }
-    const pub = secp256k1.publicFromPrivate(privateKey).toString('hex');
-    // TODO: remove addressFromPub & addressToBase from proxy.ts
-    const chainId = await this.vault.getNetworkChainId();
-    const addressOnNetwork = await pubkeyToAddress(
-      new Verifier(pub, CURVE_NAME),
-      chainId,
-    );
-    const baseAddress = await this.vault.addressToBase(addressOnNetwork);
-    return Promise.resolve([
-      {
-        id: `imported--${COIN_TYPE}--${pub}`,
-        name: name || '',
-        type: AccountType.VARIANT,
-        path: '',
-        coinType: COIN_TYPE,
-        pub,
-        address: baseAddress,
-        addresses: { [this.networkId]: addressOnNetwork },
-      },
-    ]);
+  ): Promise<Array<DBSimpleAccount>> {
+    return this.basePrepareAccountsImported(params, {
+      accountType: AccountType.VARIANT,
+      coinType: COINTYPE_CFX,
+    });
   }
 
   override async signTransaction(
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
-  ): Promise<SignedTx> {
-    const dbAccount = await this.getDbAccount();
-    const selectedAddress = (dbAccount as DBVariantAccount).addresses[
-      this.networkId
-    ];
+  ): Promise<ISignedTxPro> {
+    return this.baseSignTransaction(unsignedTx, options);
+  }
 
-    const signers = await this.getSigners(options.password || '', [
-      selectedAddress,
-    ]);
-    const signer = signers[selectedAddress];
-
-    return signTransactionWithSigner(unsignedTx, signer);
+  override signMessage(): any {
+    throw new Error('Method not implemented.');
   }
 }

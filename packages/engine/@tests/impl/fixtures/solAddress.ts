@@ -2,7 +2,7 @@ import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { getAccountNameInfoByImpl } from '../../../src/managers/impl';
 
-import type { IPrepareSoftwareAccountsParams } from '../../../src/vaults/types';
+import type { IPrepareHdAccountsParams } from '../../../src/vaults/types';
 
 const solAccountNameInfo = getAccountNameInfoByImpl(IMPL_SOL);
 
@@ -12,7 +12,7 @@ const mnemonic =
 const fixtures: {
   description: string;
   params: {
-    prepareAccountParams: IPrepareSoftwareAccountsParams;
+    prepareAccountParams: IPrepareHdAccountsParams;
     mnemonic: string;
   };
   response: string[];

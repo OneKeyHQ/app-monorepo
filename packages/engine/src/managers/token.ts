@@ -11,7 +11,7 @@ import {
   SEPERATOR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { isBRC20Token } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { getFiatEndpoint } from '../endpoint';
@@ -90,7 +90,7 @@ async function doFetch<T>(url: string, fallback: T) {
     const { data } = await axios.get<T>(url);
     return data;
   } catch (error) {
-    debugLogger.common.error(`fetch ${url} error`);
+    flowLogger.error.log(`fetch ${url} error`);
     return fallback;
   }
 }

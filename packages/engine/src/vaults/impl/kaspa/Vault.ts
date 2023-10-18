@@ -3,16 +3,25 @@ import { hexToBytes } from '@noble/hashes/utils';
 import BigNumber from 'bignumber.js';
 import { groupBy } from 'lodash';
 
-import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import {
+  CONFIRMATION_COUNT,
+  DUST_AMOUNT,
+  MAX_BLOCK_SIZE,
+  MAX_SOMPI,
+  MINIMUM_RELAY_TRANSACTION_FEE,
+  RestAPIClient,
+  isValidAddress,
+  privateKeyFromBuffer,
+  privateKeyFromWIF,
+  queryConfirmUTXOs,
+  selectUTXOs,
+} from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
+import { toTransaction } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/transaction';
+import { decrypt } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
+import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { KeyringSoftwareBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringSoftwareBase';
-import {
-  IDecodedTxActionType,
-  IDecodedTxDirection,
-  IDecodedTxStatus,
-  IEncodedTxUpdateType,
-} from '@onekeyhq/engine/src/vaults/types';
 import type {
   IDecodedTx,
   IDecodedTxActionNativeTransfer,
@@ -26,12 +35,19 @@ import type {
   ITransferInfo,
   IUnsignedTxPro,
 } from '@onekeyhq/engine/src/vaults/types';
+import {
+  IDecodedTxActionType,
+  IDecodedTxDirection,
+  IDecodedTxStatus,
+  IEncodedTxUpdateType,
+} from '@onekeyhq/engine/src/vaults/types';
 import type { TxInput } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import { convertFeeValueToGwei } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 import { VaultBase } from '@onekeyhq/engine/src/vaults/VaultBase';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   InvalidAddress,
+  NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -40,25 +56,10 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import {
-  CONFIRMATION_COUNT,
-  DUST_AMOUNT,
-  MAX_BLOCK_SIZE,
-  MAX_SOMPI,
-  MINIMUM_RELAY_TRANSACTION_FEE,
-  RestAPIClient,
-  isValidAddress,
-  privateKeyFromBuffer,
-  privateKeyFromWIF,
-  queryConfirmUTXOs,
-  selectUTXOs,
-} from './sdk';
-import { toTransaction } from './sdk/transaction';
 import settings from './settings';
 
 import type { IEncodedTxKaspa } from './types';
 
-// @ts-ignore
 // DOC https://kaspa-mdbook.aspectron.com/introduction.html
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -80,6 +81,12 @@ export default class Vault extends VaultBase {
   async getClient() {
     const rpcURL = await this.getRpcUrl();
     return this.getClientCache(rpcURL);
+  }
+
+  override fetchTokenInfos(
+    tokenAddresses: string[],
+  ): Promise<(PartialTokenInfo | undefined)[]> {
+    throw new NotImplemented();
   }
 
   getKaspaClient(url: string) {
@@ -419,7 +426,7 @@ export default class Vault extends VaultBase {
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
       const keyring = this.keyring as KeyringSoftwareBase;
       const [encryptedPrivateKey] = Object.values(
-        await keyring.getPrivateKeys(password),
+        await keyring.getPrivateKeys({ password }),
       );
       const chainId = await this.getNetworkChainId();
       const privateKey = privateKeyFromBuffer(

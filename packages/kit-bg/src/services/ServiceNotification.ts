@@ -118,7 +118,7 @@ export default class ServiceNotification extends ServiceBase {
 
   @bindThis()
   @backgroundMethod()
-  clear() {
+  async clear() {
     if (this.interval) {
       clearInterval(this.interval);
     }
@@ -223,12 +223,12 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   @backgroundMethod()
-  emitNotificationStatusChange(content: NotificationType) {
+  async emitNotificationStatusChange(content: NotificationType) {
     appEventBus.emit(AppEventBusNames.NotificationStatusChanged, content);
   }
 
   @backgroundMethod()
-  clearBadge() {
+  async clearBadge() {
     debugLogger.notification.debug('clearBadge');
     if (platformEnv.isNative) {
       JPush.setBadge({
@@ -236,6 +236,7 @@ export default class ServiceNotification extends ServiceBase {
         appBadge: 0,
       });
     }
+    return Promise.resolve();
   }
 
   @bindThis()

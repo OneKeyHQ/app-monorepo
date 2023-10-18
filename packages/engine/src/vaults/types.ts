@@ -1,5 +1,5 @@
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
-import type { CurveName } from '@onekeyhq/engine/src/secret';
+import type { ICurveName } from '@onekeyhq/core/src/secret';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import type { SendConfirmActionType } from '@onekeyhq/kit/src/views/Send/types';
 import type { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
@@ -53,10 +53,13 @@ import type { IEncodedTxXrp } from './impl/xrp/types';
 import type { ICoinSelectAlgorithm } from './utils/btcForkChain/utils';
 
 // Options ----------------------------------------------
+// TODO duplicate with presetNetworks.extensions.providerOptions
 export type IVaultSubNetworkSettings = {
   isIntegerGasPrice?: boolean;
   minGasPrice?: string;
   allowZeroFee?: boolean;
+  // addressPrefix: presetNetworks.extensions.providerOptions.addressPrefix
+  // curve: presetNetworks.extensions.providerOptions.curve
 };
 
 export type TxExtraInfo = {
@@ -67,7 +70,11 @@ export type TxExtraInfo = {
 };
 
 export type IVaultSettings = {
-  accountNameInfo: Record<string, AccountNameInfo>;
+  accountNameInfo: {
+    // default is required
+    default: AccountNameInfo;
+    [key: string]: AccountNameInfo;
+  };
   feeInfoEditable: boolean;
   privateKeyExportEnabled: boolean;
   publicKeyExportEnabled?: boolean;
@@ -162,7 +169,7 @@ export type IVaultOptions = IVaultFactoryOptions & {
   engine: Engine;
 };
 export type ISignCredentialOptions = {
-  password?: string;
+  password: string;
 };
 
 // Internal txInfo ----------------------------------------------
@@ -248,6 +255,7 @@ export type INFTInfo = {
 // EncodedTx\RawTx\SignedTx ----------------------------------------------
 export type IEncodedTx =
   | IEncodedTxEvm
+  | IEncodedTxAlgo
   | IEncodedTxNear
   | IEncodedTxBtc
   | IEncodedTxSTC
@@ -273,6 +281,7 @@ export type INativeTx =
 export type IRawTx = string;
 export type IUnsignedTxPro = UnsignedTx & {
   encodedTx: IEncodedTx;
+  rawTxUnsigned?: string;
   psbtHex?: string;
   inputsToSign?: InputToSign[];
   // signerAccount: ISignerAccountEvm | ISignerAccountNear | ISignerAccountAptos
@@ -282,7 +291,7 @@ export type ISignedTxPro = {
 } & SignedTxResult;
 
 export type SignedTxResult = {
-  signatureScheme?: CurveName;
+  signatureScheme?: ICurveName;
   signature?: string; // hex string
   publicKey?: string; // hex string
   digest?: string; // hex string
@@ -384,6 +393,13 @@ export type IFeeInfoPayload = {
 };
 
 // PrepareAccounts ----------------------------------------------
+export type IGetPrivateKeysParams = {
+  password: string;
+  relPaths?: string[] | undefined;
+};
+export type IGetPrivateKeysResult = {
+  [path: string]: Buffer;
+};
 export type IPrepareWatchingAccountsParams = {
   target: string;
   name: string;
@@ -395,7 +411,7 @@ export type IPrepareImportedAccountsParams = {
   name: string;
   template?: string;
 };
-export type IPrepareSoftwareAccountsParams = {
+export type IPrepareHdAccountsParams = {
   password: string;
   indexes: Array<number>;
   purpose?: number;
@@ -417,7 +433,7 @@ export type IPrepareHardwareAccountsParams = {
 export type IPrepareAccountsParams =
   | IPrepareWatchingAccountsParams
   | IPrepareImportedAccountsParams
-  | IPrepareSoftwareAccountsParams
+  | IPrepareHdAccountsParams
   | IPrepareHardwareAccountsParams;
 
 // GetAddress ----------------------------------------------
@@ -698,3 +714,9 @@ export type IBalanceDetails = {
   unavailableOfInscription?: string; // BTC Inscription value
   unavailableOfUnchecked?: string; // BTC not verified value by ordinals
 };
+export enum EVaultKeyringTypes {
+  hd = 'hd',
+  hardware = 'hardware',
+  imported = 'imported',
+  watching = 'watching',
+}

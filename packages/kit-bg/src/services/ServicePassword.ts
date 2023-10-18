@@ -3,7 +3,7 @@ import {
   decrypt,
   encrypt,
   getBgSensitiveTextEncodeKey,
-} from '@onekeyhq/engine/src/secret/encryptors/aes256';
+} from '@onekeyhq/core/src/secret/encryptors/aes256';
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,

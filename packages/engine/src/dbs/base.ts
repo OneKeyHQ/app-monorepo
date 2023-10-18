@@ -1,15 +1,14 @@
 import { Buffer } from 'buffer';
 
-import type { RevealableSeed } from '@onekeyhq/engine/src/secret';
-import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
-import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
-
+import type { RevealableSeed } from '@onekeyhq/core/src/secret';
+import { decrypt } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import {
   generateKeypair,
   rsaDecrypt,
   rsaEncrypt,
-} from '../secret/encryptors/rsa';
+} from '@onekeyhq/core/src/secret/encryptors/rsa';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import type { DBAccount } from '../types/account';
 import type {
@@ -52,11 +51,13 @@ type StoredPrivateKeyCredential = {
 type StoredCredential = StoredSeedCredential | StoredPrivateKeyCredential;
 
 type ExportedSeedCredential = {
+  type: 'hd';
   entropy: Buffer;
   seed: Buffer;
 };
 
 type ExportedPrivateKeyCredential = {
+  type: 'imported';
   privateKey: Buffer;
 };
 
@@ -171,7 +172,7 @@ interface DBAPI {
   }: ISetNextAccountIdsParams): Promise<Wallet>;
 
   getCredential(
-    walletId: string,
+    credentialId: string, // walletId || acountId
     password: string,
   ): Promise<ExportedCredential>;
   confirmHDWalletBackuped(walletId: string): Promise<Wallet>;

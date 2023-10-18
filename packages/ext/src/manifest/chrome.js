@@ -50,6 +50,7 @@ module.exports = {
   'content_scripts': [
     {
       'matches': ['http://*/*', 'https://*/*', '<all_urls>'],
+      'exclude_matches': ['https://verify.walletconnect.com/*'],
       'js': ['content-script.bundle.js'],
       'run_at': 'document_start', // MUST be document_start to inject ASAP
       'all_frames': true, // including iframe inject

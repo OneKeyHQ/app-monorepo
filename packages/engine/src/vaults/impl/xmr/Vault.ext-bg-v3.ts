@@ -1,7 +1,7 @@
 import { VaultBase } from '../../VaultBase';
 
 // @ts-ignore
-export default class Vault extends VaultBase {
+export default class VaultXmrExtMv3 extends VaultBase {
   // @ts-ignore
   constructor() {
     // $backgroundApiProxy.backgroundApi.engine.getChainOnlyVault('xmr--0')

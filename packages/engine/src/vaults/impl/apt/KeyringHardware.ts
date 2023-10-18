@@ -7,15 +7,16 @@ import { COINTYPE_APTOS as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineC
 import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
+import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
-import { addHexPrefix } from '../../utils/hexUtils';
 
 import { buildSignedTx, generateUnsignedTransaction } from './utils';
 
 import type { DBSimpleAccount } from '../../../types/account';
-import type { AptosMessage } from '../../../types/message';
+import type { IUnsignedMessageAptos } from '../../../types/message';
 import type {
   IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
@@ -40,12 +41,12 @@ export class KeyringHardware extends KeyringHardwareBase {
         ...passphraseState,
       });
     } catch (error: any) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
       throw new OneKeyHardwareError(error);
     }
 
     if (!response.success) {
-      debugLogger.common.error(response.payload);
+      flowLogger.error.log(response.payload);
       throw convertDeviceError(response.payload);
     }
 
@@ -78,11 +79,11 @@ export class KeyringHardware extends KeyringHardwareBase {
         },
       );
     } catch (error: any) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
       throw new OneKeyHardwareError(error);
     }
     if (!addressesResponse.success) {
-      debugLogger.common.error(addressesResponse.payload);
+      flowLogger.error.log(addressesResponse.payload);
       throw convertDeviceError(addressesResponse.payload);
     }
 
@@ -190,7 +191,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   override async signMessage(
-    messages: AptosMessage[],
+    messages: IUnsignedMessageAptos[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     debugLogger.common.info('signMessage', messages);

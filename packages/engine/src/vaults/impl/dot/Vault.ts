@@ -9,12 +9,13 @@ import {
 import BigNumber from 'bignumber.js';
 import { groupBy, isEmpty, isNil } from 'lodash';
 
+import { decrypt } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
-import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type {
   DBAccount,
   DBVariantAccount,
 } from '@onekeyhq/engine/src/types/account';
+import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { KeyringSoftwareBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringSoftwareBase';
@@ -40,14 +41,9 @@ import {
 import {
   convertFeeGweiToValue,
   convertFeeValueToGwei,
+  convertFeeValueToNative,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
-import {
-  addHexPrefix,
-  stripHexPrefix,
-} from '@onekeyhq/engine/src/vaults/utils/hexUtils';
 import { VaultBase } from '@onekeyhq/engine/src/vaults/VaultBase';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { formatBalanceDisplay } from '@onekeyhq/kit/src/components/Format';
 import {
   InvalidAddress,
   InvalidTransferValue,
@@ -55,7 +51,12 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  addHexPrefix,
+  stripHexPrefix,
+} from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -90,7 +91,6 @@ const {
   u8aWrapBytes,
 } = polkadotSdk;
 
-// @ts-ignore
 export default class Vault extends VaultBase {
   keyringMap = {
     hd: KeyringHd,
@@ -259,20 +259,11 @@ export default class Vault extends VaultBase {
 
   // API see https://polkadot.js.org/docs/substrate/runtime
   async getClient() {
-    const vault = await this.getChainVault();
-    return vault.getApiClient();
-  }
-
-  async getChainVault(): Promise<Vault> {
-    return this.engine.getChainOnlyVault(this.networkId) as Promise<Vault>;
+    return this.getApiClient();
   }
 
   async getScanClient() {
     return this.getScanClientCache();
-  }
-
-  private async getChainInfo() {
-    return this.engine.providerManager.getChainInfoByNetworkId(this.networkId);
   }
 
   private async getChainInfoImplOptions(): Promise<DotImplOptions> {
@@ -438,17 +429,16 @@ export default class Vault extends VaultBase {
 
     const { block } = await client.rpc.chain.getBlock();
     const blockHash = await client.rpc.chain.getBlockHash();
-    const chainVault = await this.getChainVault();
-    const genesisHash = await chainVault.getGenesisHashCache();
-    const metadataRpc = await chainVault.getMetadataRpcCache();
+    const genesisHash = await this.getGenesisHashCache();
+    const metadataRpc = await this.getMetadataRpcCache();
     const { specVersion, specName, transactionVersion } =
-      await chainVault.getRPCRuntimeVersionCache();
+      await this.getRPCRuntimeVersionCache();
 
     const previousNonce = await client.call.accountNonceApi.accountNonce(from);
 
     const network = await this.getNetwork();
 
-    const registry = await chainVault.getRegistryCache({
+    const registry = await this.getRegistryCache({
       metadataRpc: metadataRpc.toHex(),
       specVersion: specVersion.toHex(),
       specName: specName.toString(),
@@ -548,6 +538,12 @@ export default class Vault extends VaultBase {
     _decodedTx: IDecodedTx,
   ): Promise<IDecodedTxLegacy> {
     return Promise.resolve({} as IDecodedTxLegacy);
+  }
+
+  override fetchTokenInfos(
+    tokenAddresses: string[],
+  ): Promise<(PartialTokenInfo | undefined)[]> {
+    throw new NotImplemented();
   }
 
   override async decodeTx(
@@ -791,21 +787,14 @@ export default class Vault extends VaultBase {
         return Promise.resolve({ success: true });
 
       // Read in the cache minDepositAmount，Do not use directly this.getMinDepositAmount
-      const minDepositAmount =
-        await backgroundApiProxy.serviceToken.getMinDepositAmount({
-          networkId: this.networkId,
-          accountId: this.accountId,
-        });
+      const minDepositAmount = await this.getMinDepositAmount();
 
       const network = await this.getNetwork();
 
-      const depositAmountDisplay = formatBalanceDisplay(
-        minDepositAmount,
-        null,
-        {
-          unit: network.decimals,
-        },
-      );
+      const depositAmountDisplay = convertFeeValueToNative({
+        value: new BigNumber(minDepositAmount),
+        network,
+      });
 
       const priceValue = convertFeeGweiToValue({
         value: encodedTx?.feeInfo?.price?.toString() ?? '0',
@@ -826,7 +815,7 @@ export default class Vault extends VaultBase {
           success: false,
           key: 'msg__error_dot_account_retention_prompt',
           params: {
-            0: `${depositAmountDisplay.amount ?? '0'} ${network.symbol}`,
+            0: `${depositAmountDisplay || '0'} ${network.symbol}`,
           },
         });
       }
@@ -853,8 +842,7 @@ export default class Vault extends VaultBase {
           dest: { id: toAddress },
         } = decodeUnsignedTx.method.args;
 
-        const chainVault = await this.getChainVault();
-        const registry = await chainVault.getRegistryCache(encodedTx);
+        const registry = await this.getRegistryCache(encodedTx);
 
         const info: BaseTxInfo = {
           address: decodeUnsignedTx.address,
@@ -980,7 +968,7 @@ export default class Vault extends VaultBase {
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
       const keyring = this.keyring as KeyringSoftwareBase;
       const [encryptedPrivateKey] = Object.values(
-        await keyring.getPrivateKeys(password),
+        await keyring.getPrivateKeys({ password }),
       );
       return `0x${decrypt(password, encryptedPrivateKey).toString('hex')}`;
     }
@@ -1105,7 +1093,7 @@ export default class Vault extends VaultBase {
           historyTxToMerge,
         });
       } catch (e) {
-        debugLogger.common.error(e);
+        flowLogger.error.log(e);
       }
 
       return Promise.resolve(null);
@@ -1153,27 +1141,24 @@ export default class Vault extends VaultBase {
       }
       const network = await this.getNetwork();
 
-      const depositAmountOnChain =
-        await backgroundApiProxy.serviceToken.getMinDepositAmount({
-          networkId: this.networkId,
-          accountId: this.accountId,
-        });
+      const depositAmountOnChain = await this.getMinDepositAmount();
       const depositAmount = new BigNumber(depositAmountOnChain);
       const sendAmount = new BigNumber(amount).shiftedBy(network.decimals);
 
       const [accountBalance] = await this.getBalances([{ address: to }]);
 
-      const depositAmountDisplay = formatBalanceDisplay(depositAmount, null, {
-        unit: network.decimals,
+      const depositAmountDisplay = convertFeeValueToNative({
+        value: new BigNumber(depositAmount),
+        network,
       });
 
-      if (!depositAmountDisplay.amount) return false;
+      if (!depositAmountDisplay) return false;
 
       if (accountBalance?.plus(sendAmount).lt(depositAmount)) {
         throw new InvalidTransferValue({
           key: 'form__amount_recipient_activate',
           info: {
-            amount: depositAmountDisplay.amount,
+            amount: depositAmountDisplay || '0',
             unit: network.symbol,
           },
         });
@@ -1186,7 +1171,7 @@ export default class Vault extends VaultBase {
   }
 
   override async getMinDepositAmount(): Promise<BigNumber.Value> {
-    return (await this.getChainVault()).getMinDepositAmountCache();
+    return this.getMinDepositAmountCache();
   }
 
   override async destroy() {
@@ -1198,8 +1183,7 @@ export default class Vault extends VaultBase {
 
   // see https://github.com/paritytech/txwrapper-core/blob/main/packages/txwrapper-examples/polkadot/src/polkadot.ts
   async decodeUnsignedTx(unsigned: IEncodedTxDot) {
-    const chainVault = await this.getChainVault();
-    const registry = await chainVault.getRegistryCache(unsigned);
+    const registry = await this.getRegistryCache(unsigned);
 
     const { metadataRpc } = unsigned;
     const decodedUnsigned = decode(unsigned, {
@@ -1217,8 +1201,7 @@ export default class Vault extends VaultBase {
     const unsigned = encodedTx;
     const { metadataRpc } = unsigned;
 
-    const chainVault = await this.getChainVault();
-    const registry = await chainVault.getRegistryCache(unsigned);
+    const registry = await this.getRegistryCache(unsigned);
 
     registry.setMetadata(createMetadata(registry, metadataRpc));
     const signingPayload = construct.signingPayload(unsigned, { registry });
@@ -1252,8 +1235,7 @@ export default class Vault extends VaultBase {
     signature: string,
   ) {
     const { metadataRpc } = encodedTx;
-    const chainVault = await this.getChainVault();
-    const registry = await chainVault.getRegistryCache(encodedTx);
+    const registry = await this.getRegistryCache(encodedTx);
 
     const tx = construct.signedTx(
       encodedTx,
@@ -1268,8 +1250,7 @@ export default class Vault extends VaultBase {
   }
 
   async encodeUnsignedTransaction(encodedTx: IEncodedTxDot) {
-    const chainVault = await this.getChainVault();
-    const registry = await chainVault.getRegistryCache(encodedTx);
+    const registry = await this.getRegistryCache(encodedTx);
 
     const tx = construct.encodeUnsignedTransaction(encodedTx, {
       registry,

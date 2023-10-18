@@ -73,8 +73,8 @@ class ServicePromise extends ServiceBase {
   }
 
   @backgroundMethod()
-  rejectCallback({ id, error }: PromiseContainerReject) {
-    this._processCallback({
+  async rejectCallback({ id, error }: PromiseContainerReject) {
+    return this._processCallback({
       method: 'reject',
       id,
       error,
@@ -82,15 +82,15 @@ class ServicePromise extends ServiceBase {
   }
 
   @backgroundMethod()
-  resolveCallback({ id, data }: PromiseContainerResolve) {
-    this._processCallback({
+  async resolveCallback({ id, data }: PromiseContainerResolve) {
+    return this._processCallback({
       method: 'resolve',
       id,
       data,
     });
   }
 
-  _processCallback({
+  async _processCallback({
     method,
     id,
     data,

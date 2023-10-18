@@ -1,4 +1,4 @@
-import type { BtcMessageTypes } from '@onekeyhq/engine/src/types/message';
+import type { EMessageTypesBtc } from '@onekeyhq/engine/src/types/message';
 
 export enum NetworkTypeEnum {
   MAINNET,
@@ -36,7 +36,7 @@ export type SendInscriptionParams = {
 };
 export type SignMessageParams = {
   message: string;
-  type: BtcMessageTypes;
+  type: EMessageTypesBtc;
 };
 export type PushTxParams = {
   rawTx: string;

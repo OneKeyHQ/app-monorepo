@@ -1,4 +1,4 @@
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import { TxStatus } from '../../../../types/covalent';
 import { ethers } from '../sdk/ethers';
@@ -179,7 +179,7 @@ class EVMTxDecoder {
           tokenIdOnNetwork: itemBuilder.toAddress,
         });
       } catch (e) {
-        debugLogger.common.error(e);
+        flowLogger.error.log(e);
       }
 
       // erc20 Token

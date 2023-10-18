@@ -77,7 +77,11 @@ class ProviderApiBtc extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  public async getProviderState() {
+  public async getProviderState(): Promise<{
+    network: string | undefined;
+    isUnlocked: boolean;
+    accounts: string[];
+  }> {
     const isUnlocked = await this.backgroundApi.serviceApp.isUnlock();
     const accounts: string[] = [];
     const { accountAddress, network } = getActiveWalletAccount();
@@ -87,7 +91,7 @@ class ProviderApiBtc extends ProviderApiBase {
       }
     }
     return {
-      network: network ? getNetworkName(network) : '',
+      network: network ? await getNetworkName(network) : '',
       isUnlocked,
       accounts,
     };
@@ -124,8 +128,6 @@ class ProviderApiBtc extends ProviderApiBase {
 
   @providerApiMethod()
   public async getNetwork() {
-    debugLogger.providerApi.info('ProviderApiBtc.getNetwork');
-
     const { network } = getActiveWalletAccount();
 
     return network ? getNetworkName(network) : '';
@@ -136,8 +138,6 @@ class ProviderApiBtc extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: SwitchNetworkParams,
   ) {
-    debugLogger.providerApi.info('ProviderApiBtc.switchNetwork');
-
     const { network: networkName } = params;
     let networkId;
     if (networkName === 'livenet') {
@@ -164,7 +164,6 @@ class ProviderApiBtc extends ProviderApiBase {
 
   @providerApiMethod()
   public async getPublicKey() {
-    debugLogger.providerApi.info('ProviderApiBtc.getPublicKey');
     const { accountPubKey } = getActiveWalletAccount();
 
     return Promise.resolve(accountPubKey);
@@ -172,7 +171,6 @@ class ProviderApiBtc extends ProviderApiBase {
 
   @providerApiMethod()
   public async getBalance() {
-    debugLogger.providerApi.info('ProviderApiBtc.getBalance');
     const { accountId, network } = getActiveWalletAccount();
     if (!accountId || !network) return null;
     const balanceDetail =
@@ -201,7 +199,6 @@ class ProviderApiBtc extends ProviderApiBase {
 
   @providerApiMethod()
   public async getInscriptions() {
-    debugLogger.providerApi.info('ProviderApiBtc.getBalance');
     const { networkId, accountAddress } = getActiveWalletAccount();
 
     const req = new RestfulRequest(getFiatEndpoint(), {}, 60 * 1000);

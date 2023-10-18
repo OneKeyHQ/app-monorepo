@@ -1,13 +1,13 @@
+import {
+  getNexaNetworkInfo,
+  verifyNexaAddress,
+  verifyNexaAddressPrefix,
+} from '@onekeyhq/core/src/chains/nexa/sdkNexa';
 import { COINTYPE_NEXA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import { InvalidAddress } from '@onekeyhq/shared/src/errors';
 
 import { AccountType } from '../../../../types/account';
 import { KeyringWatchingBase } from '../../../keyring/KeyringWatchingBase';
-import {
-  getNexaNetworkInfo,
-  verifyNexaAddress,
-  verifyNexaAddressPrefix,
-} from '../utils';
 
 import type { DBSimpleAccount } from '../../../../types/account';
 import type { IPrepareWatchingAccountsParams } from '../../../types';

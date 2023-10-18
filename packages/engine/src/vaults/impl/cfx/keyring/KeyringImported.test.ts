@@ -1,8 +1,5 @@
 import cfxMockData from '../@tests/cfxMockData';
-import {
-  testPrepareAccounts,
-  testSignTransaction,
-} from '../@tests/cfxPresetCase';
+import { testPrepareAccounts } from '../@tests/cfxPresetCase';
 
 import { KeyringImported } from './KeyringImported';
 
@@ -17,23 +14,6 @@ describe('Conflux KeyringImported Tests', () => {
         dbAccount: importedAccount1.account,
         privateKey: importedAccount1.privateKey,
         password: importedAccount1.password,
-      },
-      {
-        keyring({ vault }) {
-          return new KeyringImported(vault);
-        },
-      },
-    );
-  });
-
-  it('conflux signTransaction', async () => {
-    const { network, importedAccount2 } = cfxMockData;
-    await testSignTransaction(
-      {
-        dbNetwork: network,
-        dbAccount: importedAccount2.account,
-        privateKey: importedAccount2.privateKey,
-        password: importedAccount2.password,
       },
       {
         keyring({ vault }) {

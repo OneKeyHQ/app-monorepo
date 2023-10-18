@@ -1,9 +1,6 @@
 import base58 from 'bs58';
 
-import {
-  addHexPrefix,
-  isHexString,
-} from '@onekeyhq/engine/src/vaults/utils/hexUtils';
+import { addHexPrefix, isHexString } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { blake2bAsBytes } from '../utils/blake2b';
 

@@ -6,6 +6,9 @@ import { Provider as ReduxProvider } from 'react-redux';
 
 import { Portal } from '@onekeyhq/components';
 import store from '@onekeyhq/kit/src/store';
+import { freezedEmptyObject } from '@onekeyhq/shared/src/consts/sharedConsts';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import AppLoading from './AppLoading';
@@ -35,5 +38,9 @@ const KitProvider: FC = () => (
     </ThemeProvider>
   </ReduxProvider>
 );
+
+// TODO remove
+console.log(flowLogger);
+debugLogger.providerApi.info('KitProvider imported done!');
 
 export default KitProvider;

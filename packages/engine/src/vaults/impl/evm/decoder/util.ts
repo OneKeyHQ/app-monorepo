@@ -26,10 +26,7 @@ const jsonToEthersTx = (json: string): Promise<ethers.Transaction> => {
 };
 
 const getTxCount = async (address: string, vault: Vault) => {
-  const addressInfos = await vault.engine.providerManager.getAddresses(
-    vault.networkId,
-    [address],
-  );
+  const addressInfos = await vault.getAddresses([address]);
   let nonce = 0;
   if (!!addressInfos && addressInfos.length > 0) {
     const addressInfo = addressInfos[0];
@@ -38,4 +35,4 @@ const getTxCount = async (address: string, vault: Vault) => {
   return nonce;
 };
 
-export { ethersTxToJson, jsonToEthersTx, getTxCount };
+export { ethersTxToJson, getTxCount, jsonToEthersTx };

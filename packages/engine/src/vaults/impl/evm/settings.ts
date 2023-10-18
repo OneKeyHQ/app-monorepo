@@ -6,7 +6,6 @@ import {
 
 import { BulkTypeEnum } from '../../../types/batchTransfer';
 
-import type { AccountNameInfo } from '../../../types/network';
 import type { IVaultSettings } from '../../types';
 
 const settings: IVaultSettings = Object.freeze({
@@ -49,8 +48,8 @@ const settings: IVaultSettings = Object.freeze({
       category: `44'/${COINTYPE_ETH}'`,
       template: `m/44'/${COINTYPE_ETH}'/0'/0/${INDEX_PLACEHOLDER}`,
       coinType: COINTYPE_ETH,
-      label: { id: 'form__bip44_standard' },
-      desc: { id: `form__bip44_standard_desc` },
+      label: { id: 'form__bip44_standard' as any },
+      desc: { id: `form__bip44_standard_desc` as any },
       recommended: true,
     },
     etcNative: {
@@ -58,16 +57,21 @@ const settings: IVaultSettings = Object.freeze({
       category: `44'/${COINTYPE_ETC}'`,
       template: `m/44'/${COINTYPE_ETC}'/0'/0/${INDEX_PLACEHOLDER}`,
       coinType: COINTYPE_ETC,
-      label: { id: 'form__bip44_standard_cointype_61' },
+      label: { id: 'form__bip44_standard_cointype_61' as any },
+      // ETC only, hide in other EVM chains
+      enableCondition: {
+        networkId: 'evm--61', // ETC
+      },
     },
     ledgerLive: {
       prefix: 'Ledger Live',
+      idSuffix: 'LedgerLive', // hd-1--m/44'/60'/0'/0/0--LedgerLive
       category: `44'/${COINTYPE_ETH}'`,
       template: `m/44'/${COINTYPE_ETH}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_ETH,
       label: 'Ledger Live',
     },
-  } as Record<string, AccountNameInfo>,
-});
+  },
+} as IVaultSettings);
 
 export default settings;

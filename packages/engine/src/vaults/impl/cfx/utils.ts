@@ -2,14 +2,14 @@ import { encode as toCfxAddress } from '@conflux-dev/conflux-address-js';
 import { hexZeroPad } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
 
+import { conflux as sdkCfx } from '@onekeyhq/core/src/chains/cfx/sdkCfx';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { IDecodedTxActionType, IDecodedTxStatus } from '../../types';
 
-import { conflux as sdkCfx } from './sdk';
 import { IOnChainTransferType } from './types';
 
-import type { Signer, Verifier } from '../../../proxy';
+import type { ChainSigner, Verifier } from '../../../proxy';
 import type { ISignedTxPro, IUnsignedTxPro } from '../../types';
 import type {
   IEncodedTxCfx,
@@ -39,7 +39,7 @@ export async function isCfxNativeTransferType(
 
 export async function signTransactionWithSigner(
   unsignedTx: IUnsignedTxPro,
-  signer: Signer,
+  signer: ChainSigner,
 ): Promise<ISignedTxPro> {
   const unsignedTransaction = new Transaction(
     unsignedTx.encodedTx as IEncodedTxCfx,

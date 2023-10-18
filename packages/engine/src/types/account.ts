@@ -32,7 +32,7 @@ type DBSimpleAccount = DBBaseAccount & {
 };
 
 type DBUTXOAccount = DBBaseAccount & {
-  pubKey?: string;
+  pubKey?: string; // TODO rename to pub
   xpub: string;
   xpubSegwit?: string; // wrap regular xpub into bitcoind native descriptor
   address: string; // Display/selected address
@@ -43,7 +43,9 @@ type DBUTXOAccount = DBBaseAccount & {
 type DBVariantAccount = DBBaseAccount & {
   pub: string;
   address: string; // Base address
-  addresses: Record<string, string>; // Network -> address
+  // VARIANT: Network -> address
+  // UTXO: relPath -> address
+  addresses: Record<string, string>;
 };
 
 type DBAccount = DBSimpleAccount | DBUTXOAccount | DBVariantAccount;

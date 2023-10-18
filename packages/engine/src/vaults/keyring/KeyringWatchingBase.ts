@@ -3,11 +3,15 @@
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
+import { EVaultKeyringTypes, type ISignCredentialOptions } from '../types';
+
 import { KeyringBase } from './KeyringBase';
 
-import type { ISignCredentialOptions } from '../types';
+import type { IUnsignedMessage } from '../../types/message';
 
 export abstract class KeyringWatchingBase extends KeyringBase {
+  override keyringType: EVaultKeyringTypes = EVaultKeyringTypes.watching;
+
   async signTransaction(
     unsignedTx: UnsignedTx,
     options: ISignCredentialOptions,
@@ -18,7 +22,7 @@ export abstract class KeyringWatchingBase extends KeyringBase {
   }
 
   async signMessage(
-    messages: any[],
+    messages: IUnsignedMessage[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     throw new OneKeyInternalError(

@@ -12,7 +12,6 @@ import type {
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
 } from '@onekeyhq/engine/src/vaults/types';
-import { addHexPrefix } from '@onekeyhq/engine/src/vaults/utils/hexUtils';
 import {
   IMPL_DOT as COIN_IMPL,
   COINTYPE_DOT as COIN_TYPE,
@@ -20,6 +19,8 @@ import {
 import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
+import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { TYPE_PREFIX } from './consts';
 import polkadotSdk from './sdk/polkadotSdk';
@@ -32,10 +33,6 @@ const { u8aConcat } = polkadotSdk;
 
 // @ts-ignore
 export class KeyringHardware extends KeyringHardwareBase {
-  private async getChainInfo() {
-    return this.engine.providerManager.getChainInfoByNetworkId(this.networkId);
-  }
-
   private async getChainInfoImplOptions(): Promise<DotImplOptions> {
     const chainInfo = await this.getChainInfo();
     return chainInfo.implOptions as DotImplOptions;
@@ -73,11 +70,11 @@ export class KeyringHardware extends KeyringHardwareBase {
         },
       );
     } catch (error: any) {
-      debugLogger.common.error(error);
+      flowLogger.error.log(error);
       throw new OneKeyHardwareError(error);
     }
     if (!addressesResponse.success) {
-      debugLogger.common.error(addressesResponse.payload);
+      flowLogger.error.log(addressesResponse.payload);
       throw convertDeviceError(addressesResponse.payload);
     }
 

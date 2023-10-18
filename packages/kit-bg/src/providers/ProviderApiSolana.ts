@@ -5,7 +5,7 @@ import bs58 from 'bs58';
 import isArray from 'lodash/isArray';
 import isString from 'lodash/isString';
 
-import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
+import { EMessageTypesEth } from '@onekeyhq/engine/src/types/message';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   backgroundClass,
@@ -105,7 +105,6 @@ class ProviderApiSolana extends ProviderApiBase {
         .getActiveConnectedAccounts({ origin, impl: IMPL_SOL })
         .map(({ address }) => address),
     });
-    debugLogger.providerApi.info('solana disconnect', origin);
   }
 
   @providerApiMethod()
@@ -203,7 +202,7 @@ class ProviderApiSolana extends ProviderApiBase {
       await this.backgroundApi.serviceDapp?.openSignAndSendModal(request, {
         unsignedMessage: {
           // Use ETH_SIGN to sign plain message
-          type: ETHMessageTypes.ETH_SIGN,
+          type: EMessageTypesEth.ETH_SIGN,
           // TODO: different display needed?
           message: bs58.decode(message).toString(),
         },

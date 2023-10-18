@@ -1,92 +1,54 @@
-import { PublicKey } from '@solana/web3.js';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import { COINTYPE_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
-import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
-import { COINTYPE_SOL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-
-import { Signer } from '../../../../proxy';
 import { AccountType } from '../../../../types/account';
 import { KeyringImportedBase } from '../../../keyring/KeyringImportedBase';
-import { signMessage, signTransaction } from '../utils';
 
+import type { ChainSigner } from '../../../../proxy';
 import type { DBSimpleAccount } from '../../../../types/account';
+import type { IUnsignedMessageCommon } from '../../../../types/message';
 import type {
+  IGetPrivateKeysParams,
+  IGetPrivateKeysResult,
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
+  ISignedTxPro,
+  IUnsignedTxPro,
 } from '../../../types';
 
 export class KeyringImported extends KeyringImportedBase {
+  override coreApi = coreChainApi.sol.imported;
+
+  override getSigners(): Promise<Record<string, ChainSigner>> {
+    throw new Error('getSigners moved to core.');
+  }
+
+  override async getPrivateKeys(
+    params: IGetPrivateKeysParams,
+  ): Promise<IGetPrivateKeysResult> {
+    return this.baseGetPrivateKeys(params);
+  }
+
   override async prepareAccounts(
     params: IPrepareImportedAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
-    const { name, privateKey } = params;
-    if (privateKey.length !== 32) {
-      throw new OneKeyInternalError('Invalid private key.');
-    }
-    const address = new PublicKey(
-      ed25519.publicFromPrivate(privateKey),
-    ).toBase58();
-    return Promise.resolve([
-      {
-        id: `imported--${COIN_TYPE}--${address}`,
-        name: name || '',
-        type: AccountType.SIMPLE,
-        path: '',
-        coinType: COIN_TYPE,
-        pub: address, // base58 encoded
-        address,
-      },
-    ]);
-  }
-
-  override async getSigners(password: string, addresses: Array<string>) {
-    const dbAccount = await this.getDbAccount();
-
-    if (addresses.length !== 1) {
-      throw new OneKeyInternalError('SOL signers number should be 1.');
-    } else if (addresses[0] !== dbAccount.address) {
-      throw new OneKeyInternalError('Wrong address required for signing.');
-    }
-
-    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys(
-      password,
-    );
-    if (typeof privateKey === 'undefined') {
-      throw new OneKeyInternalError('Unable to get signer.');
-    }
-
-    return {
-      [dbAccount.address]: new Signer(privateKey, password, 'ed25519'),
-    };
+    return this.basePrepareAccountsImported(params, {
+      accountType: AccountType.SIMPLE,
+      coinType: COINTYPE_SOL,
+    });
   }
 
   override async signTransaction(
-    unsignedTx: UnsignedTx,
+    unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
-  ): Promise<SignedTx> {
-    const dbAccount = await this.getDbAccount();
-
-    const signers = await this.getSigners(options.password || '', [
-      dbAccount.address,
-    ]);
-    const signer = signers[dbAccount.address];
-
-    return signTransaction(unsignedTx, signer);
+  ): Promise<ISignedTxPro> {
+    return this.baseSignTransaction(unsignedTx, options);
   }
 
   override async signMessage(
-    messages: any[],
+    messages: IUnsignedMessageCommon[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
-    const dbAccount = await this.getDbAccount();
-    const signers = await this.getSigners(options.password || '', [
-      dbAccount.address,
-    ]);
-    const signer = signers[dbAccount.address];
-
-    return Promise.all(
-      messages.map(({ message }) => signMessage(message, signer)),
-    );
+    return this.baseSignMessage(messages, options);
   }
 }

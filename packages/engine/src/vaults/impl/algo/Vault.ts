@@ -4,9 +4,11 @@
 
 import BigNumber from 'bignumber.js';
 
-import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
+import type { ISdkAlgoEncodedTransaction } from '@onekeyhq/core/src/chains/algo/sdkAlgo';
+import sdkAlgo from '@onekeyhq/core/src/chains/algo/sdkAlgo';
+import { decrypt } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   InvalidAddress,
@@ -17,6 +19,7 @@ import {
   RecipientHasNotActived,
 } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { getAlgoSignerEndpoint } from '../../../endpoint';
@@ -32,7 +35,6 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import sdkAlgo from './sdkAlgo';
 import settings from './settings';
 import { encodeTransaction } from './utils';
 
@@ -52,7 +54,6 @@ import type {
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
-import type { ISdkAlgoEncodedTransaction } from './sdkAlgo';
 import type {
   IAccountInformation,
   IAccountTransactionsResp,
@@ -617,7 +618,7 @@ export default class Vault extends VaultBase {
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
       const keyring = this.keyring as KeyringSoftwareBase;
       const [encryptedPrivateKey] = Object.values(
-        await keyring.getPrivateKeys(password),
+        await keyring.getPrivateKeys({ password }),
       );
       return sdk.mnemonicFromSeed(decrypt(password, encryptedPrivateKey));
     }
@@ -769,7 +770,7 @@ export default class Vault extends VaultBase {
           historyTxToMerge,
         });
       } catch (e) {
-        debugLogger.common.error(e);
+        flowLogger.error.log(e);
       }
     });
 

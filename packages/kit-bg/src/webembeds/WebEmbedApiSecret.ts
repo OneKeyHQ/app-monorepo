@@ -1,7 +1,7 @@
 import {
   decrypt,
   encrypt,
-} from '@onekeyhq/engine/src/secret/encryptors/aes256';
+} from '@onekeyhq/core/src/secret/encryptors/aes256';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 class WebEmbedApiSecret {

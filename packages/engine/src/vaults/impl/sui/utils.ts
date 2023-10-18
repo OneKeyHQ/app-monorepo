@@ -1,7 +1,9 @@
 /* eslint-disable camelcase */
 /* eslint-disable @typescript-eslint/naming-convention */
 import {
+  Connection,
   IntentScope,
+  JsonRpcProvider,
   SUI_TYPE_ARG,
   TransactionBlock,
   fromB64,
@@ -10,11 +12,12 @@ import {
 } from '@mysten/sui.js';
 import { blake2b } from '@noble/hashes/blake2b';
 
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+
+import type { DBVariantAccount } from '../../../types/account';
+import type { IUnsignedTxPro } from '../../types';
 import type { IEncodedTxSUI } from './types';
-import type {
-  DryRunTransactionBlockResponse,
-  JsonRpcProvider,
-} from '@mysten/sui.js';
+import type { DryRunTransactionBlockResponse } from '@mysten/sui.js';
 
 export const APTOS_SIGN_MESSAGE_PREFIX = 'APTOS';
 export const ED25519_PUBLIC_KEY_SIZE = 32;
@@ -63,6 +66,27 @@ export async function toTransaction(
   }
 
   return transactionBlockBytes;
+}
+
+export async function toUnsignedRawTx({
+  rpcURL,
+  dbAccount,
+  unsignedTx,
+}: {
+  rpcURL: string;
+  dbAccount: DBVariantAccount;
+  unsignedTx: IUnsignedTxPro;
+}) {
+  const sender = dbAccount.address;
+  const client = new JsonRpcProvider(new Connection({ fullnode: rpcURL }));
+  const txnBytes = await toTransaction(
+    client,
+    sender,
+    unsignedTx.encodedTx as any,
+  );
+  const rawTx = bufferUtils.bytesToHex(txnBytes);
+  unsignedTx.rawTxUnsigned = rawTx;
+  return unsignedTx;
 }
 
 export function computeGasBudget(inputSize: number) {

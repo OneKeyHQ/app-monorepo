@@ -1,7 +1,7 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
-import { CommonMessageTypes } from '@onekeyhq/engine/src/types/message';
+import { EMessageTypesCommon } from '@onekeyhq/engine/src/types/message';
 import {
   findLnurl,
   getLnurlDetails,
@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_LIGHTNING } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -65,7 +66,7 @@ class ProviderApiWebln extends ProviderApiBase {
 
   public notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo) {
     // TODO
-    debugLogger.providerApi.info(info);
+    debugLogger.providerApi.info('notifyDappChainChanged', info);
   }
 
   public async rpcCall(request: IJsonRpcRequest): Promise<any> {
@@ -80,7 +81,7 @@ class ProviderApiWebln extends ProviderApiBase {
       await this.backgroundApi.serviceDapp.openConnectionModal(request);
       return { enabled: true };
     } catch (error) {
-      debugLogger.providerApi.error(`webln.enable error: `, error);
+      flowLogger.error.log(`webln.enable error: `, error);
       throw error;
     }
   }
@@ -120,7 +121,7 @@ class ProviderApiWebln extends ProviderApiBase {
       debugLogger.providerApi.info('webln.makeInvoice: ', paymentRequest);
       return { paymentRequest, paymentHash, rHash: paymentHash };
     } catch (e) {
-      debugLogger.providerApi.error(`webln.makeInvoice error: `, e);
+      flowLogger.error.log(`webln.makeInvoice error: `, e);
       throw e;
     }
   }
@@ -149,7 +150,7 @@ class ProviderApiWebln extends ProviderApiBase {
       debugLogger.providerApi.info('webln.sendPayment: ', txid, invoice);
       return { preimage: invoice.payment_preimage };
     } catch (e) {
-      debugLogger.providerApi.error(`webln.sendPayment error: `, e);
+      flowLogger.error.log(`webln.sendPayment error: `, e);
       throw e;
     }
   }
@@ -165,14 +166,14 @@ class ProviderApiWebln extends ProviderApiBase {
       const signature =
         await this.backgroundApi.serviceDapp?.openSignAndSendModal(request, {
           unsignedMessage: {
-            type: CommonMessageTypes.SIMPLE_SIGN,
+            type: EMessageTypesCommon.SIMPLE_SIGN,
             message,
           },
         });
       debugLogger.providerApi.info('webln.signMessage: ', message, signature);
       return JSON.parse(signature as string) as SignMessageResponse;
     } catch (e) {
-      debugLogger.providerApi.error(`webln.signMessage error: `, e);
+      flowLogger.error.log(`webln.signMessage error: `, e);
       throw e;
     }
   }
@@ -198,7 +199,7 @@ class ProviderApiWebln extends ProviderApiBase {
       });
       debugLogger.providerApi.info('webln.verifyMessage: ', message, signature);
     } catch (e) {
-      debugLogger.providerApi.error(`webln.verifyMessage error: `, e);
+      flowLogger.error.log(`webln.verifyMessage error: `, e);
       throw e;
     }
   }
@@ -221,7 +222,7 @@ class ProviderApiWebln extends ProviderApiBase {
       }
       debugLogger.providerApi.info('webln.lnurl: ', lnurlDetails);
     } catch (e) {
-      debugLogger.providerApi.error(`webln.lnurl error: `, e);
+      flowLogger.error.log(`webln.lnurl error: `, e);
       return { error: 'Failed to parse LNURL' };
     }
 

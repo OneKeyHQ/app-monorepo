@@ -57,6 +57,7 @@ describe('Near KeyringImported Tests', () => {
     try {
       await testPrepareAccounts(
         {
+          password: '',
           dbNetwork: network,
           dbAccount: {
             ...watchingAccount3.account,

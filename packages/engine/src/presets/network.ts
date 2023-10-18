@@ -1,4 +1,4 @@
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import simpleDb from '../dbs/simple/simpleDb';
@@ -52,7 +52,7 @@ async function initNetworkList() {
       const network = formatServerNetworkToPresetNetwork(s);
       record[network.id] = network;
     } catch (error) {
-      debugLogger.common.error(`[initNetworkList] error`, s, error);
+      flowLogger.error.log(`[initNetworkList] error`, s, error);
     }
   });
   presetNetworks = record;

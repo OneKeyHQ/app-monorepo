@@ -6,19 +6,23 @@ import {
 import { defaultAbiCoder } from '@ethersproject/abi';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
-import { isEmpty, isNil, omitBy } from 'lodash';
+import { isEmpty, isNil } from 'lodash';
 
-import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
+import { conflux as sdkCfx } from '@onekeyhq/core/src/chains/cfx/sdkCfx';
+import { decrypt } from '@onekeyhq/core/src/secret/encryptors/aes256';
+import type {
+  PartialTokenInfo,
+  TransactionStatus,
+} from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   InvalidAddress,
   InvalidTokenAddress,
-  NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
   fromBigIntHex,
@@ -26,13 +30,11 @@ import {
 } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { isAccountCompatibleWithNetwork } from '../../../managers/account';
-import { extractResponseError, fillUnsignedTx } from '../../../proxy';
+import { extractResponseError } from '../../../proxy';
 import {
-  IDecodedTxActionTokenTransfer,
   IDecodedTxActionType,
   IDecodedTxStatus,
   IEncodedTxUpdateType,
-  ISignCredentialOptions,
 } from '../../types';
 import {
   convertFeeGweiToValue,
@@ -46,21 +48,15 @@ import {
   KeyringImported,
   KeyringWatching,
 } from './keyring';
-import { conflux as sdkCfx } from './sdk';
 import settings from './settings';
 import { IOnChainTransferType } from './types';
-import {
-  getApiExplorerTransferType,
-  getTransactionStatus,
-  parseTransaction,
-} from './utils';
+import { getTransactionStatus, parseTransaction } from './utils';
 
 import type {
   Account,
   DBAccount,
   DBVariantAccount,
 } from '../../../types/account';
-import type { CoinInfo } from '../../../types/chain';
 import type { Token } from '../../../types/token';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
@@ -90,7 +86,7 @@ const INFINITE_AMOUNT_TEXT = 'Infinite';
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
 const EPOCH_TAG = 'latest_state';
-// TODO extends evm/Vault
+
 export default class Vault extends VaultBase {
   settings = settings;
 
@@ -116,6 +112,20 @@ export default class Vault extends VaultBase {
       maxAge: getTimeDurationMs({ minute: 3 }),
     },
   );
+
+  override async getNextNonce(): Promise<number> {
+    const client = await this.getClient();
+    const bn = await client.getNextNonce(await this.getAccountAddress());
+    return Number(bn);
+  }
+
+  override async getTransactionStatuses(
+    txids: string[],
+  ): Promise<(TransactionStatus | undefined)[]> {
+    const client = await this.getClient();
+    // return client.getTransactionByHash();
+    throw new Error('cfx client getTransactionStatuses not implemented');
+  }
 
   async getApiExplorer() {
     const network = await this.engine.getNetwork(this.networkId);
@@ -456,7 +466,7 @@ export default class Vault extends VaultBase {
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
       const keyring = this.keyring as KeyringSoftwareBase;
       const [encryptedPrivateKey] = Object.values(
-        await keyring.getPrivateKeys(password),
+        await keyring.getPrivateKeys({ password }),
       );
       return `0x${decrypt(password, encryptedPrivateKey).toString('hex')}`;
     }
@@ -503,10 +513,16 @@ export default class Vault extends VaultBase {
       const existsPub = !!dbAccount.pub && !isEmpty(dbAccount.pub);
       let addressOnNetwork: string | undefined;
       if (existsPub) {
-        addressOnNetwork = await this.engine.providerManager.addressFromPub(
-          this.networkId,
-          dbAccount.pub,
-        );
+        checkIsDefined(this.keyring.coreApi);
+        const info = await this.keyring.coreApi?.getAddressFromPublic({
+          publicKey: dbAccount.pub,
+          networkInfo: await this.keyring.baseGetCoreApiNetworkInfo(),
+        });
+        addressOnNetwork = info?.address;
+        // await this.engine.providerManager.addressFromPub(
+        //   this.networkId,
+        //   dbAccount.pub,
+        // );
       } else if (!isEmpty(dbAccount.address.trim())) {
         addressOnNetwork = await this.addressFromBase(dbAccount);
       }
@@ -876,13 +892,16 @@ export default class Vault extends VaultBase {
     );
   }
 
-  fetchTokenInfos(
+  async fetchTokenInfos(
     tokenAddresses: string[],
   ): Promise<Array<PartialTokenInfo | undefined>> {
-    return this.engine.providerManager.getTokenInfos(
-      this.networkId,
-      tokenAddresses,
-    );
+    const client = await this.getClient();
+    // client.getTokenInfos() ????
+    throw new Error('cfx fetchTokenInfos not implemented. 8832783465');
+    // return this.engine.providerManager.getTokenInfos(
+    //   this.networkId,
+    //   tokenAddresses,
+    // );
   }
 
   override async broadcastTransaction(
@@ -905,5 +924,3 @@ export default class Vault extends VaultBase {
     };
   }
 }
-
-export type { IEncodedTxCfx };

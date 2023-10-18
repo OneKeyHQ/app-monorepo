@@ -5,9 +5,11 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import uuid from 'react-native-uuid';
 
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
-import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
+import {
+  EMessageTypesEth,
+  type IUnsignedMessage,
+} from '@onekeyhq/engine/src/types/message';
 import type { EvmExtraInfo, Network } from '@onekeyhq/engine/src/types/network';
-import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { IEncodedTxSTC } from '@onekeyhq/engine/src/vaults/impl/stc/types';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
@@ -140,7 +142,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
 
   async _showSignMessageModal(
     request: IJsBridgeMessagePayload,
-    unsignedMessage: IUnsignedMessageEvm,
+    unsignedMessage: IUnsignedMessage,
   ) {
     const result = await this.backgroundApi.serviceDapp?.openSignAndSendModal(
       request,
@@ -180,7 +182,6 @@ class ProviderApiStarcoin extends ProviderApiBase {
       };
       return result;
     };
-    // debugLogger.providerApi.info('notifyDappAccountsChanged', data);
     info.send(data);
   }
 
@@ -436,7 +437,7 @@ class ProviderApiStarcoin extends ProviderApiBase {
     }
 
     return this._showSignMessageModal(req, {
-      type: ETHMessageTypes.PERSONAL_SIGN,
+      type: EMessageTypesEth.PERSONAL_SIGN,
       message,
       payload: messages,
     });

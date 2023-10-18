@@ -1,18 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import axios from 'axios';
-import {
-  isArray,
-  isBoolean,
-  isEmpty,
-  isFunction,
-  isNil,
-  isNull,
-  isNumber,
-  isPlainObject,
-  isString,
-  isUndefined,
-} from 'lodash';
+import { isFunction } from 'lodash';
 import qs from 'qs';
 import { batch } from 'react-redux';
 
@@ -37,83 +26,24 @@ import {
 import { NotAutoPrintError } from '../errors';
 import debugLogger from '../logger/debugLogger';
 import platformEnv from '../platformEnv';
+import {
+  ensurePromiseObject,
+  ensureSerializable,
+  isSerializable,
+  throwCrossError,
+} from '../utils/assertUtils';
 
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { Method } from 'axios';
 import type { AnyAction } from 'redux';
 
-export function throwCrossError(msg: string, ...args: any) {
-  if (platformEnv.isNative) {
-    // `throw new Error()` won't print error object in iOS/Android,
-    //    so we print it manually by `console.error()`
-    console.error(msg, ...args);
-  }
-  throw new Error(msg);
-}
-
-export function isSerializable(obj: any) {
-  if (
-    isUndefined(obj) ||
-    isNull(obj) ||
-    isBoolean(obj) ||
-    isNumber(obj) ||
-    isString(obj) ||
-    obj instanceof Error
-  ) {
-    return true;
-  }
-
-  if (!isPlainObject(obj) && !isArray(obj)) {
-    // like regex, date
-    return false;
-  }
-
-  // eslint-disable-next-line no-restricted-syntax
-  for (const key in obj) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    if (!isSerializable(obj[key])) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-export function ensureSerializable(obj: any, stringify = false): any {
-  if (process.env.NODE_ENV !== 'production') {
-    if (!isSerializable(obj)) {
-      console.error('Object should be serializable >>>> ', obj);
-      if (stringify) {
-        return JSON.parse(JSON.stringify(obj));
-      }
-
-      throw new Error('Object should be serializable');
-    }
-  }
-  return obj;
-}
-
-export function ensurePromiseObject(
-  obj: any,
-  {
-    serviceName,
-    methodName,
-  }: {
-    serviceName: string;
-    methodName: string;
-  },
-) {
-  if (process.env.NODE_ENV !== 'production') {
-    if (obj !== undefined && !(obj instanceof Promise)) {
-      throwCrossError(
-        `${
-          serviceName ? `${serviceName}.` : ''
-        }${methodName}() should be async or Promise method.`,
-      );
-    }
-  }
-}
+export {
+  ensurePromiseObject,
+  ensureSerializable,
+  isSerializable,
+  throwCrossError,
+};
 
 export function throwMethodNotFound(...methods: string[]) {
   const msg = `DApp Provider or Background method not support (method=${methods.join(
@@ -199,103 +129,6 @@ export function ensureBackgroundObject<T>(object: T): T {
     });
   }
   return object;
-}
-
-export function waitAsync(timeout: number) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, timeout);
-  });
-}
-
-export function makeTimeoutPromise<T>({
-  asyncFunc,
-  timeout,
-  timeoutResult,
-}: {
-  asyncFunc: () => Promise<T>;
-  timeout: number;
-  timeoutResult: T;
-}) {
-  return new Promise<T>((resolve) => {
-    let isResolved = false;
-    const timer = setTimeout(() => {
-      if (isResolved) {
-        return;
-      }
-      isResolved = true;
-      resolve(timeoutResult);
-      // console.log('makeTimeoutPromise timeout result >>>>> ', timeoutResult);
-    }, timeout);
-
-    const p = asyncFunc();
-    p.then((result) => {
-      if (isResolved) {
-        return;
-      }
-      isResolved = true;
-      clearTimeout(timer);
-      resolve(result);
-      // console.log('makeTimeoutPromise correct result >>>>> ', result);
-    });
-  });
-}
-
-export async function waitForDataLoaded({
-  data,
-  wait = 600,
-  logName,
-  timeout = 0,
-}: {
-  data: (...args: any) => any;
-  wait?: number;
-  logName: string;
-  timeout?: number;
-}) {
-  let timeoutReject = false;
-  let timer: any = null;
-  const getDataArrFunc = ([] as ((...args: any) => any)[]).concat(data);
-  if (timeout) {
-    timer = setTimeout(() => {
-      timeoutReject = true;
-    }, timeout);
-  }
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    let isAllLoaded = true;
-
-    if (logName && __DEV__) {
-      console.log(`waitForDataLoaded: ${logName}`);
-    }
-    await Promise.all(
-      getDataArrFunc.map(async (getData) => {
-        const d = await getData();
-        if (d === false) {
-          isAllLoaded = false;
-          return;
-        }
-
-        if (isNil(d)) {
-          isAllLoaded = false;
-          return;
-        }
-
-        if (isEmpty(d)) {
-          if (isPlainObject(d) || isArray(d)) {
-            isAllLoaded = false;
-          }
-        }
-      }),
-    );
-
-    if (isAllLoaded || timeoutReject) {
-      break;
-    }
-    await waitAsync(wait);
-  }
-  clearTimeout(timer);
-  if (timeoutReject) {
-    throw new Error(`waitForDataLoaded: ${logName ?? ''} timeout`);
-  }
 }
 
 export const MAX_LOG_LENGTH = 1000;

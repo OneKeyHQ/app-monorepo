@@ -5,9 +5,9 @@ import bs58check from 'bs58check';
 import { isFunction, isNil } from 'lodash';
 import uuidLib from 'react-native-uuid';
 
+import { decrypt } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
-import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type {
   FeePricePerUnit,
   TransactionStatus,
@@ -15,6 +15,7 @@ import type {
 import type {
   IBlockBookTransaction,
   IBtcUTXO,
+  IBtcUTXOInfo,
   ICoinSelectUTXO,
   ICoinSelectUTXOLite,
   ICollectUTXOsOptions,
@@ -86,7 +87,6 @@ import {
   getBIP44Path,
 } from './utils';
 
-import type { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import type { BRC20TextProps, TxMapType } from '../../../managers/nft';
 import type {
   Account,
@@ -95,12 +95,9 @@ import type {
 } from '../../../types/account';
 import type { NFTAssetMeta } from '../../../types/nft';
 import type { Token } from '../../../types/token';
-import type {
-  CoinControlItem,
-  ICoinControlListItem,
-} from '../../../types/utxoAccounts';
+import type { CoinControlItem } from '../../../types/utxoAccounts';
 import type { KeyringBaseMock } from '../../keyring/KeyringBase';
-import type { KeyringHdBase } from '../../keyring/KeyringHdBase';
+import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
   IApproveInfo,
   IBalanceDetails,
@@ -129,6 +126,10 @@ export default class VaultBtcFork extends VaultBase {
   providerClass = Provider;
 
   private provider?: Provider;
+
+  override getNextNonce(): Promise<number> {
+    return Promise.resolve(-1);
+  }
 
   getDefaultPurpose() {
     return getDefaultPurpose(IMPL_BTC);
@@ -169,10 +170,7 @@ export default class VaultBtcFork extends VaultBase {
       currentProviderRpcUrl = getRpcUrlFromChainInfo(this.provider?.chainInfo);
     }
     if (!this.provider || currentProviderRpcUrl !== rpcURL) {
-      const chainInfo =
-        await this.engine.providerManager.getChainInfoByNetworkId(
-          this.networkId,
-        );
+      const chainInfo = await this.engine.getChainInfo(this.networkId);
       const ProviderClass = this.providerClass;
       this.provider = new ProviderClass(chainInfo);
     }
@@ -364,6 +362,11 @@ export default class VaultBtcFork extends VaultBase {
   async getExportedCredential(password: string): Promise<string> {
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
 
+    const keyring = this.keyring as KeyringSoftwareBase;
+    const privateKeys = await keyring.getPrivateKeys({ password });
+    const privateKeyEncrypt = privateKeys[dbAccount.path];
+    const privateKey = decrypt(password, privateKeyEncrypt);
+
     if (dbAccount.id.startsWith('hd-')) {
       const purpose = parseInt(dbAccount.path.split('/')[1]);
       const { addressEncoding } = getAccountDefaultByPurpose(
@@ -374,10 +377,6 @@ export default class VaultBtcFork extends VaultBase {
       const { private: xprvVersionBytes } =
         (network.segwitVersionBytes || {})[addressEncoding] || network.bip32;
 
-      const keyring = this.keyring as KeyringHdBase;
-      const [encryptedPrivateKey] = Object.values(
-        await keyring.getPrivateKeys(password),
-      );
       return bs58check.encode(
         bs58check
           .decode(dbAccount.xpub)
@@ -386,27 +385,22 @@ export default class VaultBtcFork extends VaultBase {
             0,
             4,
           )
-          .fill(
-            Buffer.concat([
-              Buffer.from([0]),
-              decrypt(password, encryptedPrivateKey),
-            ]),
-            45,
-            78,
-          ),
+          .fill(Buffer.concat([Buffer.from([0]), privateKey]), 45, 78),
       );
     }
 
     if (dbAccount.id.startsWith('imported-')) {
+      // const { privateKey } = (await this.engine.dbApi.getCredential(
+      //   this.accountId,
+      //   password,
+      // )) as ExportedPrivateKeyCredential;
+
       // Imported accounts, crendetial is already xprv
-      const { privateKey } = (await this.engine.dbApi.getCredential(
-        this.accountId,
-        password,
-      )) as ExportedPrivateKeyCredential;
+
       if (typeof privateKey === 'undefined') {
         throw new OneKeyInternalError('Unable to get credential.');
       }
-      return bs58check.encode(decrypt(password, privateKey));
+      return bs58check.encode(privateKey);
     }
 
     throw new OneKeyInternalError(
@@ -879,11 +873,11 @@ export default class VaultBtcFork extends VaultBase {
     };
   }
 
-  buildEncodedTxFromApprove(approveInfo: IApproveInfo): Promise<any> {
+  override buildEncodedTxFromApprove(approveInfo: IApproveInfo): Promise<any> {
     throw new NotImplemented();
   }
 
-  updateEncodedTxTokenApprove(
+  override updateEncodedTxTokenApprove(
     encodedTx: IEncodedTx,
     amount: string,
   ): Promise<IEncodedTx> {
@@ -1434,7 +1428,7 @@ export default class VaultBtcFork extends VaultBase {
   }
 
   collectUTXOsInfo = memoizee(
-    async (options: ICollectUTXOsOptions = {}) => {
+    async (options: ICollectUTXOsOptions = {}): Promise<IBtcUTXOInfo> => {
       const provider = await this.getProvider();
       const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
       try {

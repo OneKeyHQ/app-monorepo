@@ -3871,6 +3871,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@emurgo/cardano-message-signing-nodejs@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "@emurgo/cardano-message-signing-nodejs@npm:1.0.1"
+  checksum: 0849d3cc4dc3d33072afeaa44c7316f62d2cde1e2f7449cf24ac8b2a65a89ff17f301572c89a6890433054098084a57c01013c4a37d956ef7bc33bce90fc048f
+  languageName: node
+  linkType: hard
+
 "@emurgo/cardano-serialization-lib-asmjs@npm:11.1.0":
   version: 11.1.0
   resolution: "@emurgo/cardano-serialization-lib-asmjs@npm:11.1.0"
@@ -3882,6 +3889,13 @@ __metadata:
   version: 11.1.0
   resolution: "@emurgo/cardano-serialization-lib-browser@npm:11.1.0"
   checksum: a4d412cb36aedf0f01124faa65b2366ddbe929d5d4a57b66811d2b3964677d50d32d8c29c9bc37827a4fc2377ae1a2b544113b105f13caf50bc1b69eaaa8afdc
+  languageName: node
+  linkType: hard
+
+"@emurgo/cardano-serialization-lib-nodejs@npm:^11.5.0":
+  version: 11.5.0
+  resolution: "@emurgo/cardano-serialization-lib-nodejs@npm:11.5.0"
+  checksum: f9e271704ef12eb018bc0a15b8c6f83c61db694a422674267be6c546a9a89dd8b200781aca3f97dd5bb4291b0c84f6c60177fcf7e550964188a4ed6a8efd0316
   languageName: node
   linkType: hard
 
@@ -7930,6 +7944,8 @@ __metadata:
     "@cmdcode/buff-utils": 1.7.4
     "@cmdcode/crypto-utils": 1.9.5
     "@cmdcode/tapscript": 1.2.9
+    "@emurgo/cardano-message-signing-nodejs": ^1.0.1
+    "@emurgo/cardano-serialization-lib-nodejs": ^11.5.0
     "@hookform/error-message": ^2.0.1
     "@legendapp/state": ^1.2.9
     "@nderscore/tamagui-typescript-plugin": ^0.5.4
@@ -8169,12 +8185,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@onekeyhq/blockchain-libs@workspace:packages/blockchain-libs":
-  version: 0.0.0-use.local
-  resolution: "@onekeyhq/blockchain-libs@workspace:packages/blockchain-libs"
-  languageName: unknown
-  linkType: soft
-
 "@onekeyhq/components@*, @onekeyhq/components@workspace:packages/components":
   version: 0.0.0-use.local
   resolution: "@onekeyhq/components@workspace:packages/components"
@@ -8205,6 +8215,12 @@ __metadata:
     react-player: ^2.11.2
     recyclerlistview: ^4.2.0
     rimraf: ^3
+  languageName: unknown
+  linkType: soft
+
+"@onekeyhq/core@workspace:packages/core":
+  version: 0.0.0-use.local
+  resolution: "@onekeyhq/core@workspace:packages/core"
   languageName: unknown
   linkType: soft
 

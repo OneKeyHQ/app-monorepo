@@ -3,17 +3,12 @@
 import type { ChainInfo, CoinInfo } from '@onekeyhq/engine/src/types/chain';
 import type {
   AddressInfo,
-  AddressValidation,
   ClientInfo,
   FeePricePerUnit,
   PartialTokenInfo,
-  SignedTx,
   TransactionStatus,
-  TypedMessage,
   UTXO,
-  UnsignedTx,
 } from '@onekeyhq/engine/src/types/provider';
-import type { Signer, Verifier } from '@onekeyhq/engine/src/types/secret';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 import type BigNumber from 'bignumber.js';
@@ -21,11 +16,16 @@ import type BigNumber from 'bignumber.js';
 abstract class BaseClient {
   chainInfo?: ChainInfo;
 
+  // TODO move to contructor
   setChainInfo(chainInfo: ChainInfo) {
     this.chainInfo = chainInfo;
   }
 
   abstract getInfo(): Promise<ClientInfo>;
+
+  abstract getFeePricePerUnit(): Promise<FeePricePerUnit>;
+
+  abstract broadcastTransaction(rawTx: string, options?: any): Promise<string>;
 
   abstract getAddresses(
     addresses: Array<string>,
@@ -38,10 +38,6 @@ abstract class BaseClient {
   abstract getTransactionStatuses(
     txids: Array<string>,
   ): Promise<Array<TransactionStatus | undefined>>;
-
-  abstract getFeePricePerUnit(): Promise<FeePricePerUnit>;
-
-  abstract broadcastTransaction(rawTx: string, options?: any): Promise<string>;
 
   getTokenInfos(
     tokenAddresses: Array<string>,
@@ -141,54 +137,4 @@ abstract class SimpleClient extends BaseClient {
 
 export type ClientFilter = <T extends BaseClient>(client: T) => boolean;
 
-abstract class BaseProvider {
-  readonly chainInfo: ChainInfo;
-
-  readonly clientSelector: <T extends BaseClient>(
-    filter?: ClientFilter,
-  ) => Promise<T>;
-
-  constructor(
-    chainInfo: ChainInfo,
-    clientSelector: <T extends BaseClient>(filter?: ClientFilter) => Promise<T>,
-  ) {
-    this.chainInfo = chainInfo;
-    this.clientSelector = clientSelector;
-  }
-
-  abstract pubkeyToAddress(
-    verifier: Verifier,
-    encoding?: string,
-  ): Promise<string>;
-
-  abstract verifyAddress(address: string): Promise<AddressValidation>;
-
-  abstract buildUnsignedTx(unsignedTx: UnsignedTx): Promise<UnsignedTx>;
-
-  abstract signTransaction(
-    unsignedTx: UnsignedTx,
-    signers: { [p: string]: Signer },
-  ): Promise<SignedTx>;
-
-  verifyTokenAddress(address: string): Promise<AddressValidation> {
-    return this.verifyAddress(address);
-  }
-
-  signMessage(
-    message: TypedMessage,
-    signer: Signer,
-    address?: string,
-  ): Promise<string> {
-    return Promise.reject(NotImplemented);
-  }
-
-  verifyMessage(
-    address: string,
-    message: TypedMessage,
-    signature: string,
-  ): Promise<boolean> {
-    return Promise.reject(NotImplemented);
-  }
-}
-
-export { BaseClient, SimpleClient, BaseProvider };
+export { BaseClient, SimpleClient };

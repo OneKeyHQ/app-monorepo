@@ -128,6 +128,8 @@
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
     "@babel/preset-env": "^7.22.9",
     "@babel/preset-react": "^7.18.6",
+    "@emurgo/cardano-message-signing-nodejs": "^1.0.1",
+    "@emurgo/cardano-serialization-lib-nodejs": "^11.5.0",
     "@open-wc/webpack-import-meta-loader": "^0.4.7",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
     "@types/chrome": "^0.0.161",

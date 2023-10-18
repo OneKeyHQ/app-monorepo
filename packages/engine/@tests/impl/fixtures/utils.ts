@@ -1,6 +1,6 @@
 import * as bip39 from 'bip39';
 
-import { revealableSeedFromMnemonic } from '../../../src/secret';
+import { revealableSeedFromMnemonic } from '@onekeyhq/core/src/secret';
 
 async function validateMnemonic(mnemonic: string): Promise<string> {
   const usedMnemonic = mnemonic.trim().replace(/\s+/g, ' ');

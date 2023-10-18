@@ -29,6 +29,8 @@ export const hdAccount1: IUnitTestMockAccount = {
     'path': "m/44'/101010'/0'/0'/0'",
     'pub': '80c33d24a1f92efde244f91044d4359a8be13b5efb7a4b9fb91d696e0e095b31',
     'type': 'simple' as any,
+    'addresses': undefined,
+    'template': "m/44'/101010'/0'/0'/$$INDEX$$'",
   },
   mnemonic: mockCredentials.mnemonic1,
   password: mockCredentials.password,

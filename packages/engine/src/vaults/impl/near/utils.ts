@@ -14,7 +14,7 @@ import { TxStatus } from '../../../types/covalent';
 import { IDecodedTxActionType } from '../../types';
 import { EVMDecodedTxType } from '../evm/decoder/types';
 
-import type { Signer } from '../../../proxy';
+import type { ChainSigner } from '../../../proxy';
 import type {
   IDecodedTx,
   IDecodedTxAction,
@@ -206,7 +206,7 @@ export function decodedTxToLegacy(tx: IDecodedTx): IDecodedTxLegacy {
 
 export async function signTransaction(
   unsignedTx: IUnsignedTxPro,
-  signer: Signer,
+  signer: ChainSigner,
 ): Promise<ISignedTxPro> {
   const transaction = unsignedTx.payload
     .nativeTx as nearApiJs.transactions.Transaction;

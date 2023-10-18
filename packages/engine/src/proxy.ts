@@ -5,24 +5,16 @@
 import { Buffer } from 'buffer';
 
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import BigNumber from 'bignumber.js';
 
-import { ProviderController as BaseProviderController } from '@onekeyhq/blockchain-libs/src/provider';
-import { Geth } from '@onekeyhq/blockchain-libs/src/provider/chains/eth/geth';
-import type {
-  BaseClient,
-  BaseProvider,
-  ClientFilter,
-} from '@onekeyhq/engine/src/client/BaseClient';
+import type { ICurveName } from '@onekeyhq/core/src/secret';
 import {
   N,
   sign,
   uncompressPublicKey,
   verify,
-} from '@onekeyhq/engine/src/secret';
-import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+} from '@onekeyhq/core/src/secret';
+import { decrypt } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type { ChainInfo } from '@onekeyhq/engine/src/types/chain';
-import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import type {
   Signer as ISigner,
   Verifier as IVerifier,
@@ -36,21 +28,13 @@ import {
   IMPL_TBTC,
   SEPERATOR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUitls from '@onekeyhq/shared/src/utils/bufferUtils';
 
-import { getBlockNativeGasInfo } from './managers/blockNative';
 import { getCurveByImpl } from './managers/impl';
-import { getMetaMaskGasInfo } from './managers/metaMask';
 import { getPresetNetworks } from './presets';
 import { IMPL_MAPPINGS, fillUnsignedTx, fillUnsignedTxObj } from './proxyUtils';
-import { getRpcUrlFromChainInfo } from './vaults/utils/btcForkChain/provider/blockbook';
 
-import type { BlockNativeGasInfo } from './types/blockNative';
-import type { MetaMaskGasInfo } from './types/metaMask';
-import type { DBNetwork, EIP1559Fee } from './types/network';
-
-type Curve = 'secp256k1' | 'ed25519';
+import type { DBNetwork } from './types/network';
 
 function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
   const defaultClient = IMPL_MAPPINGS[dbNetwork.impl]?.defaultClient;
@@ -87,7 +71,7 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
     code,
     feeCode: dbNetwork.id,
     impl: dbNetwork.impl,
-    curve: (dbNetwork.curve || getCurveByImpl(dbNetwork.impl)) as Curve,
+    curve: (dbNetwork.curve || getCurveByImpl(dbNetwork.impl)) as ICurveName,
     implOptions,
     clients: [
       {
@@ -101,7 +85,7 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
   };
 }
 
-export { fillUnsignedTxObj, fillUnsignedTx };
+export { fillUnsignedTx, fillUnsignedTxObj };
 
 export interface IVerifierPro extends IVerifier {
   verifySignature(params: {
@@ -111,14 +95,15 @@ export interface IVerifierPro extends IVerifier {
   }): Promise<boolean>;
 }
 
+// TODO move to core
 export class Verifier implements IVerifierPro {
   private uncompressedPublicKey: Buffer;
 
   private compressedPublicKey: Buffer;
 
-  curve: Curve;
+  curve: ICurveName;
 
-  constructor(pub: string, curve: Curve) {
+  constructor(pub: string, curve: ICurveName) {
     this.curve = curve;
     this.compressedPublicKey = Buffer.from(pub, 'hex');
     this.uncompressedPublicKey = uncompressPublicKey(
@@ -156,12 +141,13 @@ export class Verifier implements IVerifierPro {
   }
 }
 
+// TODO move to core
 // @ts-ignore
-export class Signer extends Verifier implements ISigner {
+export class ChainSigner extends Verifier implements ISigner {
   constructor(
     private encryptedPrivateKey: Buffer,
     private password: string,
-    private override curve: Curve,
+    private override curve: ICurveName,
   ) {
     super(
       N(
@@ -217,259 +203,4 @@ function extractResponseError(e: unknown): unknown {
   return e;
 }
 
-class ProviderController extends BaseProviderController {
-  private clients: Record<string, BaseClient> = {};
-
-  private providers: Record<string, BaseProvider> = {};
-
-  constructor(
-    public getChainInfoByNetworkId: (networkId: string) => Promise<ChainInfo>,
-  ) {
-    super((_chainCode) => ({
-      code: '',
-      feeCode: '',
-      impl: '',
-      implOptions: {},
-      curve: 'secp256k1',
-      clients: [],
-    }));
-  }
-
-  public getVerifier(networkId: string, pub: string): IVerifier {
-    const provider = this.providers[networkId];
-    if (typeof provider === 'undefined') {
-      throw new OneKeyInternalError('Provider not found.');
-    }
-
-    const { curve } = this.providers[networkId].chainInfo;
-    return new Verifier(pub, curve as Curve);
-  }
-  // TODO: set client api to support change.
-
-  // TODO legacy getRpcClient
-  override async getClient(
-    networkId: string,
-    filter?: ClientFilter,
-  ): Promise<BaseClient> {
-    const filterClient = filter || (() => true);
-    const chainInfo = await this.getChainInfoByNetworkId(networkId);
-
-    if (
-      !this.clients[networkId] ||
-      getRpcUrlFromChainInfo(this.clients[networkId].chainInfo) !==
-        getRpcUrlFromChainInfo(chainInfo)
-    ) {
-      const module = this.requireChainImpl(chainInfo.impl);
-      const { name, args } = chainInfo.clients[0];
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const ClientClass = module[name] || module.Client;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      this.clients[networkId] = new ClientClass(...args);
-      this.clients[networkId].setChainInfo(chainInfo);
-    }
-
-    const client = this.clients[networkId];
-
-    if (typeof client !== 'undefined' && filterClient(client)) {
-      return Promise.resolve(client);
-    }
-    return Promise.reject(new OneKeyInternalError('Unable to init client.'));
-  }
-
-  override async getProvider(networkId: string): Promise<BaseProvider> {
-    const chainInfo = await this.getChainInfoByNetworkId(networkId);
-
-    if (
-      !this.providers[networkId] ||
-      getRpcUrlFromChainInfo(this.providers[networkId].chainInfo) !==
-        getRpcUrlFromChainInfo(chainInfo)
-    ) {
-      const { Provider } = this.requireChainImpl(chainInfo.impl);
-
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      this.providers[networkId] = new Provider(
-        chainInfo,
-        (filter?: ClientFilter) => this.getClient(networkId, filter),
-      );
-    }
-
-    const provider = this.providers[networkId];
-    if (typeof provider !== 'undefined') {
-      return Promise.resolve(provider);
-    }
-    return Promise.reject(new OneKeyInternalError('Unable to init provider.'));
-  }
-
-  override requireChainImpl(impl: string): any {
-    return super.requireChainImpl(IMPL_MAPPINGS[impl]?.implName || impl);
-  }
-
-  async getEVMChainId(url: string): Promise<string> {
-    const client = new Geth(url);
-    return parseInt(await client.rpc.call('eth_chainId', []), 16).toString();
-  }
-
-  addressFromXpub(networkId: string, xpub: Buffer): Promise<string> {
-    return this.addressFromPub(networkId, xpub.slice(-33).toString('hex'));
-  }
-
-  async addressFromPub(networkId: string, pub: string): Promise<string> {
-    await this.getProvider(networkId);
-    return this.pubkeyToAddress(
-      networkId,
-      this.getVerifier(networkId, pub),
-      undefined,
-    );
-  }
-
-  async getGasInfo(networkId: string): Promise<
-    | {
-        prices: Array<BigNumber | EIP1559Fee>;
-        networkCongestion?: number;
-        estimatedTransactionCount?: number;
-      }
-    | undefined
-  > {
-    // TODO: move this into libs.
-    const { EIP1559Enabled } =
-      (await this.getProvider(networkId)).chainInfo.implOptions || {};
-    if (EIP1559Enabled || false) {
-      try {
-        const gasInfo = await this.getGasInfoFromApi(networkId);
-        return {
-          ...gasInfo,
-          prices: gasInfo.prices as EIP1559Fee[],
-        };
-      } catch {
-        const {
-          baseFeePerGas,
-          reward,
-        }: { baseFeePerGas: Array<string>; reward: Array<Array<string>> } =
-          await this.getClient(networkId).then((client) =>
-            (client as Geth).rpc.call('eth_feeHistory', [
-              20,
-              'latest',
-              [5, 25, 60],
-            ]),
-          );
-        const baseFee = new BigNumber(baseFeePerGas.pop() as string).shiftedBy(
-          -9,
-        );
-        const [lows, mediums, highs]: [
-          Array<BigNumber>,
-          Array<BigNumber>,
-          Array<BigNumber>,
-        ] = [[], [], []];
-        reward.forEach((priorityFees: Array<string>) => {
-          lows.push(new BigNumber(priorityFees[0]));
-          mediums.push(new BigNumber(priorityFees[1]));
-          highs.push(new BigNumber(priorityFees[2]));
-        });
-        const coefficients = ['1.13', '1.25', '1.3'].map(
-          (c) => new BigNumber(c),
-        );
-        return {
-          prices: [lows, mediums, highs].map((rewardList, index) => {
-            const coefficient = coefficients[index];
-            const maxPriorityFeePerGas = rewardList
-              .sort((a, b) => (a.gt(b) ? 1 : -1))[11]
-              .shiftedBy(-9);
-            return {
-              baseFee: baseFee.toFixed(),
-              maxPriorityFeePerGas: maxPriorityFeePerGas.toFixed(),
-              maxFeePerGas: baseFee
-                .times(new BigNumber(coefficient))
-                .plus(maxPriorityFeePerGas)
-                .toFixed(),
-            };
-          }),
-        };
-      }
-    } else {
-      const count = 3;
-      const result = await this.getFeePricePerUnit(networkId);
-      if (result) {
-        return {
-          prices: [result.normal, ...(result.others || [])]
-            .sort((a, b) => (a.price.gt(b.price) ? 1 : -1))
-            .map((p) => p.price)
-            .slice(0, count),
-        };
-      }
-    }
-  }
-
-  async getGasInfoFromApi(
-    networkId: string,
-  ): Promise<Partial<MetaMaskGasInfo & BlockNativeGasInfo>> {
-    return new Promise((resolve, reject) => {
-      let metaMaskGasInfoInit = false;
-      let metaMaskGasInfo: MetaMaskGasInfo | null = null;
-      let blockNativeGasInfoInit = false;
-      let blockNativeGasInfo: BlockNativeGasInfo | null = null;
-      getBlockNativeGasInfo({ networkId })
-        .then((gasInfo) => {
-          blockNativeGasInfo = gasInfo;
-        })
-        .catch((e) => console.warn(e))
-        .finally(() => {
-          blockNativeGasInfoInit = true;
-          if (metaMaskGasInfoInit) {
-            if (blockNativeGasInfo || metaMaskGasInfo) {
-              resolve({
-                ...metaMaskGasInfo,
-                ...blockNativeGasInfo,
-              });
-            } else {
-              reject();
-            }
-          }
-        });
-      getMetaMaskGasInfo(networkId)
-        .then((gasInfo) => {
-          metaMaskGasInfo = gasInfo;
-        })
-        .catch((e) => console.warn(e))
-        .finally(() => {
-          metaMaskGasInfoInit = true;
-          if (blockNativeGasInfoInit) {
-            if (blockNativeGasInfo || metaMaskGasInfo) {
-              resolve({
-                ...metaMaskGasInfo,
-                ...blockNativeGasInfo,
-              });
-            } else {
-              reject();
-            }
-          }
-        });
-    });
-  }
-
-  // Wrap to throw JSON RPC errors
-  override async buildUnsignedTx(
-    networkId: string,
-    unsignedTx: UnsignedTx,
-  ): Promise<UnsignedTx> {
-    try {
-      return await super.buildUnsignedTx(networkId, unsignedTx);
-    } catch (e) {
-      throw extractResponseError(e);
-    }
-  }
-
-  // Wrap to throw JSON RPC errors
-  override async broadcastTransaction(
-    networkId: string,
-    rawTx: string,
-    options?: any,
-  ): Promise<string> {
-    try {
-      return await super.broadcastTransaction(networkId, rawTx, options);
-    } catch (e) {
-      throw extractResponseError(e);
-    }
-  }
-}
-
-export { fromDBNetworkToChainInfo, ProviderController, extractResponseError };
+export { extractResponseError, fromDBNetworkToChainInfo };
