@@ -1,30 +1,29 @@
-import type { ReactElement } from 'react';
 import { memo, useEffect, useMemo, useState } from 'react';
+import * as React from 'react';
 
 import { max } from 'lodash';
 import { FlatList } from 'react-native';
 
 import DelayedFreeze from '../DelayedFreeze';
 
-import { TabStatusContext, useActiveTab } from './ActiveTabContext';
-
-import type { ScrollView } from 'react-native';
+import {
+  TabStatusContext,
+  useActiveTabContext,
+} from './Provider/ActiveTabContext';
 
 type RenderStatus = 'none' | 'rendered' | 'freeze';
 
-type FreezeTabProps = {
-  children: ReactElement<
-    | typeof FlatList
-    // | typeof FlatListPlain
-    | typeof Selection
-    | typeof ScrollView
-  >;
-  name: string;
-  label: string;
+export type TabWrapperProps = {
+  tabKey: string;
+  title: string;
   lazy?: boolean;
   freezeType?: 'unmount' | 'freeze';
   autoFreeze?: true | false | number;
 };
+
+type FreezeTabProps = {
+  children: React.ComponentType<any>;
+} & TabWrapperProps;
 
 const DefaultProps = {
   lazy: true,
@@ -34,15 +33,15 @@ const DefaultProps = {
 
 const FreezeTabComponent = ({
   children,
-  name,
+  tabKey,
   lazy,
   freezeType,
   autoFreeze,
 }: FreezeTabProps) => {
-  const { activeTabName } = useActiveTab();
+  const { activeTabKey } = useActiveTabContext();
   const isCurrentTab = useMemo(
-    () => name === activeTabName,
-    [name, activeTabName],
+    () => tabKey === activeTabKey,
+    [tabKey, activeTabKey],
   );
   const initialStatus = lazy && !isCurrentTab ? 'none' : 'rendered';
   const [status, setStatus] = useState<RenderStatus>(initialStatus);
@@ -53,6 +52,7 @@ const FreezeTabComponent = ({
     if (isCurrentTab && status !== 'rendered') {
       setStatus('rendered');
     } else if (
+      status !== 'none' &&
       !isCurrentTab &&
       (autoFreeze === true || typeof autoFreeze === 'number')
     ) {

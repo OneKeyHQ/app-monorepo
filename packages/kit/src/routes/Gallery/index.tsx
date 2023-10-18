@@ -4,7 +4,6 @@ import ActionListGallery from '@onekeyhq/kit/src/views/Components/stories/Action
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonGallery from '@onekeyhq/kit/src/views/Components/stories/Button';
 import CheckboxGallery from '@onekeyhq/kit/src/views/Components/stories/Checkbox';
-import CollapsibleTabViewGallery from '@onekeyhq/kit/src/views/Components/stories/CollapsibleTabView';
 import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import IconButtonGallery from '@onekeyhq/kit/src/views/Components/stories/IconButton';
@@ -17,6 +16,7 @@ import RadioGallery from '@onekeyhq/kit/src/views/Components/stories/Radio';
 import SelectGallery from '@onekeyhq/kit/src/views/Components/stories/Select';
 import SliderGallery from '@onekeyhq/kit/src/views/Components/stories/Slider';
 import SwitchGallery from '@onekeyhq/kit/src/views/Components/stories/Switch';
+import TabViewGallery from '@onekeyhq/kit/src/views/Components/stories/TabView';
 import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 
@@ -52,7 +52,7 @@ export enum GalleryRoutes {
   ComponentTextArea = 'component/textArea',
   ComponentPopover = 'component/popover',
   ComponentTheme = 'component/theme',
-  ComponentCollapsibleTabs = 'component/collapsibleTabs',
+  ComponentTabView = 'component/tabView',
   componentQRCode = 'component/qrCode',
 }
 
@@ -98,8 +98,8 @@ export const stackScreenList = [
     component: FormGallery,
   },
   {
-    name: GalleryRoutes.ComponentCollapsibleTabs,
-    component: CollapsibleTabViewGallery,
+    name: GalleryRoutes.ComponentTabView,
+    component: TabViewGallery,
     // options: { headerShown: false },
   },
   {

@@ -5,6 +5,7 @@ import {
   memo,
   useCallback,
   useImperativeHandle,
+  useMemo,
   useRef,
 } from 'react';
 
@@ -14,6 +15,7 @@ import { Stack } from '../../Stack';
 
 import NativeNestedTabView from './NativeNestedTabView';
 
+import type { Route } from '../types';
 import type { PagerViewViewManagerType } from './NativeNestedTabView';
 import type {
   NestedTabViewProps,
@@ -30,11 +32,12 @@ export type ForwardRefHandle = {
 
 const NestedTabView: ForwardRefRenderFunction<
   ForwardRefHandle,
-  NestedTabViewProps
+  NestedTabViewProps<Route>
 > = (
   {
-    headerView,
-    children,
+    routes,
+    renderScene,
+    renderHeaderView,
     onPageChange,
     onPageScrollStateChange,
     onPageVerticalScroll,
@@ -126,21 +129,35 @@ const NestedTabView: ForwardRefRenderFunction<
     [setHeaderHeight],
   );
 
+  const headerView = useMemo(() => renderHeaderView?.(), [renderHeaderView]);
+
+  const tabValues = useMemo(
+    () =>
+      routes.map((route) => ({
+        name: route.key,
+        label: route.title,
+      })),
+    [routes],
+  );
+
   return (
     <NativeNestedTabView
+      values={tabValues}
       onPageChange={onTabChange}
       onPageScrollStateChange={onPageScrollStateChangeCall}
       onPageVerticalScroll={onVerticalCall}
       scrollEnabled={scrollEnabled}
       onMoveShouldSetResponderCapture={onMoveShouldSetResponderCapture}
       disableTabSlide={false}
-      // @ts-ignore
+      // @ts-expect-error
       ref={tabRef}
       {...rest}
     >
       {/* native code get first child as header */}
       <Stack onLayout={onLayoutCallback}>{headerView}</Stack>
-      {children}
+
+      {/* @ts-expect-error */}
+      {routes.map((route) => renderScene({ route }))}
     </NativeNestedTabView>
   );
 };

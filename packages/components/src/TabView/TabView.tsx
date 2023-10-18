@@ -1,13 +1,11 @@
 import type { ForwardRefRenderFunction, ReactNode } from 'react';
 import {
-  Children,
   forwardRef,
   memo,
   useCallback,
   useImperativeHandle,
   useMemo,
   useRef,
-  useState,
 } from 'react';
 import * as React from 'react';
 
@@ -20,16 +18,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import useIsVerticalLayout from '../Provider/hooks/useIsVerticalLayout';
 import { Stack } from '../Stack';
 
-import { ActiveTabContext } from './ActiveTabContext';
+import { useActiveTabContext } from './Provider/ActiveTabContext';
 
-import type { ForwardRefHandle } from './NativeNestedTabView/NestedTabView';
-import type { CollapsibleContainerProps } from './types';
+import type { Props } from './index';
+import type { ForwardRefHandle } from './NativeTabView/NestedTabView';
+import type { Route } from './types';
 import type { StyleProp } from 'react-native';
-
-type TabProps = {
-  name: string;
-  label: string;
-};
 
 const tabbarHeight = 48;
 
@@ -38,70 +32,91 @@ interface TabViewContentRef {
 }
 
 interface TabViewContentProps {
-  initialTabName?: string;
+  lazy?: ((props: { route: Route }) => boolean) | boolean;
   initialIndex: number;
   routes: { key: string; title: string }[];
   renderScene: ({ route }: any) => ReactNode;
   renderTabBar: (props: any) => React.ReactNode;
   onIndexChange?: (index: number) => void;
   shouldStickyTabBarWeb?: boolean;
+  onSwipeStart?: () => void;
+  onSwipeEnd?: () => void;
+  renderLazyPlaceholder?: (props: { route: Route }) => React.ReactNode;
+  swipeEnabled?: boolean;
 }
 
 function TabViewContent(
   {
-    initialTabName,
-    initialIndex,
+    lazy,
+    initialIndex = 0,
     routes,
     renderScene,
     renderTabBar,
     onIndexChange,
     shouldStickyTabBarWeb,
+    onSwipeStart,
+    onSwipeEnd,
+    renderLazyPlaceholder,
+    swipeEnabled = false,
   }: TabViewContentProps,
   ref: React.Ref<TabViewContentRef>,
 ) {
-  const [index, setIndex] = useState(initialIndex);
+  const { activeTabKey, setActiveTabKey } = useActiveTabContext();
 
-  const handleChange = useCallback(
+  if (!activeTabKey) {
+    setImmediate(() => {
+      setActiveTabKey?.(routes[initialIndex]?.key);
+    });
+  }
+
+  const indexMemo = useMemo(() => {
+    const index = routes.findIndex((route) => route.key === activeTabKey);
+    if (index !== -1) {
+      return index;
+    }
+    setActiveTabKey?.(routes[initialIndex]?.key);
+    return initialIndex;
+  }, [routes, setActiveTabKey, initialIndex, activeTabKey]);
+
+  const onIndexChangeCall = useCallback(
     (newIndex: number) => {
-      setIndex(newIndex);
-
+      setActiveTabKey?.(routes[newIndex]?.key);
       onIndexChange?.(newIndex);
     },
-    [onIndexChange],
+    [onIndexChange, routes, setActiveTabKey],
   );
 
   useImperativeHandle(ref, () => ({
     setIndex: (newIndex: number) => {
-      setIndex(newIndex);
-      onIndexChange?.(newIndex);
+      setActiveTabKey?.(routes[newIndex]?.key);
     },
   }));
 
-  const contextValue = useMemo(
-    () => ({ activeTabName: routes[index]?.key ?? initialTabName }),
-    [routes, index, initialTabName],
-  );
+  if (!activeTabKey) {
+    return null;
+  }
 
   return (
-    <ActiveTabContext.Provider value={contextValue}>
-      <TabView
-        lazy
-        animationEnabled={false}
-        navigationState={{ index, routes }}
-        renderScene={renderScene}
-        onIndexChange={handleChange}
-        renderTabBar={renderTabBar}
-        swipeEnabled={false}
-        style={
-          shouldStickyTabBarWeb
-            ? {
-                flex: 1,
-                overflow: 'visible',
-              }
-            : undefined
-        }
-      />
-    </ActiveTabContext.Provider>
+    <TabView
+      lazy={lazy}
+      renderLazyPlaceholder={renderLazyPlaceholder}
+      onSwipeStart={onSwipeStart}
+      onSwipeEnd={onSwipeEnd}
+      swipeEnabled={swipeEnabled}
+      animationEnabled={false}
+      navigationState={{ index: indexMemo, routes }}
+      renderScene={renderScene}
+      onIndexChange={onIndexChangeCall}
+      renderTabBar={renderTabBar}
+      style={
+        shouldStickyTabBarWeb
+          ? {
+              flex: 1,
+              overflow: 'visible',
+            }
+          : undefined
+      }
+    />
   );
 }
 
@@ -109,57 +124,29 @@ const TabContentView = memo(
   forwardRef<TabViewContentRef, TabViewContentProps>(TabViewContent),
 );
 
-const TabContainerWebView: ForwardRefRenderFunction<
+const TabContainerView: ForwardRefRenderFunction<
   ForwardRefHandle,
-  CollapsibleContainerProps
+  Props<any>
 > = (
   {
-    containerStyle,
-    headerView,
+    initialIndex = 0,
     onIndexChange,
-    initialTabName,
-    scrollEnabled = true,
-    stickyTabBar,
-    children,
+    navigationState,
+    renderScene,
+    renderHeaderView = () => null,
+    onSwipeStart,
+    onSwipeEnd,
+    renderLazyPlaceholder,
+    swipeEnabled,
+    scrollEnabled,
   },
   ref,
 ) => {
   const isVerticalLayout = useIsVerticalLayout();
-  const shouldStickyTabBarWeb = useMemo(
-    () => platformEnv.isRuntimeBrowser && isVerticalLayout && stickyTabBar,
-    [isVerticalLayout, stickyTabBar],
-  );
+  const shouldStickyTabBarWeb = useMemo(() => platformEnv.isRuntimeBrowser, []);
   const tabViewContentRef = useRef<TabViewContentRef | null>(null);
 
-  const { routes, renderScene, initialIndex } = useMemo(() => {
-    const routesArray: {
-      key: string;
-      title: string;
-    }[] = [];
-    const scene: Record<string, ReactNode> = {};
-
-    // eslint-disable-next-line @typescript-eslint/no-shadow
-    let initialIndex = 0;
-    Children.forEach(children, (element, index) => {
-      // @ts-expect-error
-      const { name, label } = element.props as TabProps;
-      if (initialTabName === name) {
-        initialIndex = index;
-      }
-      routesArray.push({
-        key: name,
-        title: label,
-      });
-      scene[name] = element;
-    });
-
-    return {
-      routes: routesArray,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      renderScene: ({ route }: any) => scene[route.key],
-      initialIndex,
-    };
-  }, [children, initialTabName]);
+  const { routes } = navigationState;
 
   const [
     activeLabelColor,
@@ -266,33 +253,36 @@ const TabContainerWebView: ForwardRefRenderFunction<
     ],
   );
 
-  const containerStyleMemo: StyleProp<any>[] = useMemo(
-    () => [
-      {
-        backgroundColor: bgColor,
-        flex: 1,
-      },
-      containerStyle,
-    ],
-    [bgColor, containerStyle],
+  const containerStyleMemo: StyleProp<any> = useMemo(
+    () => ({
+      backgroundColor: bgColor,
+      flex: 1,
+    }),
+    [bgColor],
   );
 
+  const headerView = useMemo(() => renderHeaderView?.(), [renderHeaderView]);
+
   return (
-    <ScrollView style={containerStyleMemo} testID="Web-Tabs-ScrollView">
+    <ScrollView style={containerStyleMemo} testID="Web-TabView-Tabs-ScrollView">
       {headerView}
       <TabContentView
-        ref={tabViewContentRef}
-        initialTabName={initialTabName}
+        lazy={false}
         initialIndex={initialIndex}
+        ref={tabViewContentRef}
         routes={routes}
         renderScene={renderScene}
         renderTabBar={renderTabBar}
         shouldStickyTabBarWeb={shouldStickyTabBarWeb}
         onIndexChange={onIndexChange}
+        onSwipeEnd={onSwipeEnd}
+        onSwipeStart={onSwipeStart}
+        swipeEnabled={swipeEnabled}
+        renderLazyPlaceholder={renderLazyPlaceholder}
       />
     </ScrollView>
   );
 };
 
-export const TabContainerWeb: typeof TabContainerWebView = TabContainerWebView;
-TabContainerWeb.displayName = 'TabContainerWeb';
+export default forwardRef<ForwardRefHandle, Props<any>>(TabContainerView);
+TabContainerView.displayName = 'TabContainerWeb';

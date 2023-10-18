@@ -2,6 +2,7 @@ import type { ForwardedRef, ReactNode } from 'react';
 
 import { Dimensions } from 'react-native';
 
+import type { Route, SceneRendererProps } from '../types';
 import type { VariableVal } from '@tamagui/core';
 import type {
   NativeSyntheticEvent,
@@ -61,7 +62,7 @@ export type TabProps = {
   label: string;
 };
 
-export interface NativeNestedTabViewProps {
+export type NativeNestedTabViewProps = {
   values: TabProps[];
   scrollEnabled?: boolean;
   children: ReactNode;
@@ -79,10 +80,15 @@ export interface NativeNestedTabViewProps {
 
   // Android only
   slideDisable?: boolean;
-}
+};
 
-export interface NestedTabViewProps extends NativeNestedTabViewProps {
-  headerView?: ReactNode;
+export type NestedTabViewProps<T extends Route> = Omit<
+  NativeNestedTabViewProps,
+  'values' | 'children'
+> & {
+  routes: T[];
+  renderScene: (props: SceneRendererProps & { route: T }) => ReactNode;
+  renderHeaderView?: () => ReactNode;
   gestureRef?: ForwardedRef<any>;
   canOpenDrawer?: boolean;
-}
+};
