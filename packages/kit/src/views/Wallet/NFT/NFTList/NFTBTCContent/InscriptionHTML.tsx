@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 
 import { Box, Text } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
