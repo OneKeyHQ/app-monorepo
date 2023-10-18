@@ -8578,3 +8578,6 @@ else if (typeof define === 'function' && define['amd'])
   });
 else if (typeof exports === 'object')
   exports['instantiate'] = MyMoneroLibAppCpp;
+
+
+export default MyMoneroLibAppCpp;
