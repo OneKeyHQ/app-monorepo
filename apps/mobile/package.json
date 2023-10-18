@@ -6,7 +6,8 @@
     "android": "expo run:android",
     "android:device": "expo run:android --device",
     "ios": "expo run:ios",
-    "ios:device": "expo run:ios --device"
+    "ios:device": "expo run:ios --device",
+    "native-bundle": "react-native start"
   },
   "private": true,
   "devDependencies": {
