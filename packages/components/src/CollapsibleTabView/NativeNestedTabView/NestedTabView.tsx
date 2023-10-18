@@ -126,23 +126,7 @@ const NestedTabView: ForwardRefRenderFunction<
     [setHeaderHeight],
   );
 
-  return (
-    <NativeNestedTabView
-      onPageChange={onTabChange}
-      onPageScrollStateChange={onPageScrollStateChangeCall}
-      onPageVerticalScroll={onVerticalCall}
-      scrollEnabled={scrollEnabled}
-      onMoveShouldSetResponderCapture={onMoveShouldSetResponderCapture}
-      disableTabSlide={false}
-      // @ts-ignore
-      ref={tabRef}
-      {...rest}
-    >
-      {/* native code get first child as header */}
-      <Stack onLayout={onLayoutCallback}>{headerView}</Stack>
-      {children}
-    </NativeNestedTabView>
-  );
+  return children
 };
 
 export default memo(forwardRef(NestedTabView));

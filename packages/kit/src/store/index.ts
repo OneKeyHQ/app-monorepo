@@ -20,7 +20,7 @@ import {
   AppUIEventBusNames,
   appUIEventBus,
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+// import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage, {
   mockStorage,
@@ -130,7 +130,7 @@ export function makeStore() {
       }).concat(middlewares),
   });
   const persistor = persistStore(store, null, () => {
-    debugLogger.common.info(`receive: store persisted`);
+    // debugLogger.common.info(`receive: store persisted`);
     if (platformEnv.isExtensionUi) {
       // extension ui Persistor done does NOT mean redux is ready, UI needs to sync data from background
       //      UI use and check useReduxReady() for details

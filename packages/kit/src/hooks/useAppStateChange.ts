@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 
 import { AppState, DeviceEventEmitter } from 'react-native';
 
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+// import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { AppStateStatus, NativeEventSubscription } from 'react-native';
@@ -31,9 +31,9 @@ export const useAppStateChange = (
     let listener: NativeEventSubscription | undefined;
 
     const onCall = (nextState: AppStateStatus) => {
-      debugLogger.common.debug(
-        `AppState changed callback trigger from: ${appState.current} , to: ${nextState}`,
-      );
+      // debugLogger.common.debug(
+      //   `AppState changed callback trigger from: ${appState.current} , to: ${nextState}`,
+      // );
       if (
         options?.unFilter ||
         isFromBackgroundToForeground(appState.current, nextState)
