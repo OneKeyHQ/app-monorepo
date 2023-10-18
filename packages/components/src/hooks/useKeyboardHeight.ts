@@ -1,17 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Keyboard, KeyboardEventListener } from 'react-native';
 
 export default function useKeyboardHeight() {
   const [keyboardHeight, setKeyboardHeight] = useState<number>(0);
 
-  const handleKeyboardWillShow: KeyboardEventListener = (e) => {
+  const handleKeyboardWillShow: KeyboardEventListener = useCallback((e) => {
     setKeyboardHeight(e.endCoordinates.height);
-  };
-  const handleKeyboardDidShow: KeyboardEventListener = (e) => {};
-  const handleKeyboardWillHide: KeyboardEventListener = (e) => {
+  });
+  const handleKeyboardDidShow: KeyboardEventListener = useCallback((e) => {});
+  const handleKeyboardWillHide: KeyboardEventListener = useCallback((e) => {
     setKeyboardHeight(0);
-  };
-  const handleKeyboardDidHide: KeyboardEventListener = (e) => {};
+  });
+  const handleKeyboardDidHide: KeyboardEventListener = useCallback((e) => {});
 
   useEffect(() => {
     const subscriptions = [
