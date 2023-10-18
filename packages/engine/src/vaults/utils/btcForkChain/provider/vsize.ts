@@ -25,6 +25,9 @@ const loadOPReturn = (
   opReturn: string,
   opReturnSizeLimit: number = TX_OP_RETURN_SIZE_LIMIT,
 ) => {
+  if (opReturn.length > opReturnSizeLimit) {
+    throw new Error('OP_RETURN data is too large.');
+  }
   const buffer = Buffer.from(opReturn);
   return buffer.slice(0, opReturnSizeLimit);
 };

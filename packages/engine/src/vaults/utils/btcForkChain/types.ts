@@ -108,7 +108,7 @@ export type IEncodedTxBtc = {
   outputs: {
     address: string;
     value: string;
-    payload?: { isCharge?: boolean; bip44Path?: string };
+    payload?: { isCharge?: boolean; bip44Path?: string; opReturn?: string };
     inscriptions?: NFTBTCAssetModel[];
   }[];
   feeRate: string;
@@ -119,6 +119,7 @@ export type IEncodedTxBtc = {
     address: string;
     value?: number;
     isMax?: boolean;
+    script?: string;
   }[];
   transferInfo: ITransferInfo;
   transferInfos?: ITransferInfo[];
