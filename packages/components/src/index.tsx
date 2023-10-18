@@ -37,4 +37,7 @@ export * as DelayedFreeze from './DelayedFreeze';
 // Navigation
 export * from './Navigation/StackNavigator';
 
-export { Provider };
+// hooks
+import useKeyboardHeight from './hooks/useKeyboardHeight';
+
+export { Provider, useKeyboardHeight };

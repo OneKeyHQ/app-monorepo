@@ -35,7 +35,8 @@ export const RootNavigator = () => {
 
   useEffect(() => {
     if (Platform.OS === 'ios') {
-      KeyboardManager.setEnable(true);
+      // 暂时关闭 IQKeyboardManager, 因为 Modal 上的 textField 会让最底层的 View 跟着键盘移动
+      KeyboardManager.setEnable(false);
       KeyboardManager.setEnableDebugging(false);
       KeyboardManager.setKeyboardDistanceFromTextField(10);
       KeyboardManager.setLayoutIfNeededOnUpdate(true);
