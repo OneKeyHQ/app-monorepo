@@ -1,4 +1,7 @@
+import useKeyboardHeight from './hooks/useKeyboardHeight';
 import Provider from './Provider';
+
+// hooks
 
 export * from './Text';
 export * from './Button';
@@ -36,8 +39,5 @@ export * as DelayedFreeze from './DelayedFreeze';
 
 // Navigation
 export * from './Navigation/StackNavigator';
-
-// hooks
-import useKeyboardHeight from './hooks/useKeyboardHeight';
 
 export { Provider, useKeyboardHeight };
