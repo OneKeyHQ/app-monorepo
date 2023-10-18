@@ -71,12 +71,12 @@ const DemoRootHome = () => {
           title: '下一个例子',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 navigation.push(DemoHomeTabRoutes.DemoRootHomeSearch);
               }}
             >
-              <Button.Text>跳转搜索 Demo</Button.Text>
+              跳转搜索 Demo
             </Button>
           ),
         },
@@ -116,7 +116,7 @@ const DemoRootHome = () => {
                 }
               }}
             >
-              <Button.Text>开关 ReactRenderTracker</Button.Text>
+              开关 ReactRenderTracker
             </Button>
           ),
         },

@@ -61,12 +61,12 @@ const DemoRootHomeSearch = () => {
           title: '下一个例子',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 navigation.push(DemoHomeTabRoutes.DemoRootHomeOptions);
               }}
             >
-              <Button.Text>跳转自定义 headerRight Demo</Button.Text>
+              跳转自定义 headerRight Demo
             </Button>
           ),
         },

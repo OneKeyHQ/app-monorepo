@@ -27,12 +27,12 @@ const DemoRootDeveloperOptions = () => {
           title: '打开 Dev 页面',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 navigation.push(DemoDeveloperTabRoutes.DemoRootDeveloper);
               }}
             >
-              <Button.Text>打开 Dev 页面</Button.Text>
+              打开 Dev 页面
             </Button>
           ),
         },
@@ -40,7 +40,7 @@ const DemoRootDeveloperOptions = () => {
           title: 'Reset 到 Dev 页面',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 navigation.reset({
                   index: 0,
@@ -53,7 +53,7 @@ const DemoRootDeveloperOptions = () => {
                 });
               }}
             >
-              <Button.Text>Reset Dev 页面</Button.Text>
+              Reset Dev 页面
             </Button>
           ),
         },
