@@ -33,6 +33,7 @@ import type { FormProps } from '../Form';
 import type { SetStateAction } from 'jotai';
 import type { UseFormReturn } from 'react-hook-form';
 import type { ButtonProps, GetProps } from 'tamagui';
+import useKeyboardHeight from '../hooks/useKeyboardHeight';
 
 function Trigger({
   onOpen,
@@ -116,6 +117,7 @@ function DialogFrame({
   }, [onCancel, onClose]);
 
   const media = useMedia();
+  const keyboardHeight = useKeyboardHeight();
 
   const content = (
     <Stack p="$5" pb={bottom || '$5'}>
@@ -204,6 +206,7 @@ function DialogFrame({
             borderTopLeftRadius="$6"
             borderTopRightRadius="$6"
             bg="$bg"
+            paddingBottom={keyboardHeight}
           >
             {/* grabber */}
             <Stack

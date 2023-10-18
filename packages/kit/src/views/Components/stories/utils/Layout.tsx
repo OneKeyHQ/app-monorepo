@@ -4,6 +4,7 @@ import { ScrollView } from 'tamagui';
 import { Button, Stack, Text, XStack } from '@onekeyhq/components';
 
 import { setTheme } from '../../../../store/reducers/settings';
+import { useKeyboardHeight } from '@onekeyhq/components';
 
 const FormattedText = ({ text }: { text: string | string[] }) => {
   if (typeof text === 'string') {
@@ -49,10 +50,12 @@ export function Layout({
   }[];
 }>) {
   const dispatch = useDispatch();
+  const keyboardHeight = useKeyboardHeight();
   return (
     <ScrollView
       maxWidth="100%"
       flex={1}
+      marginBottom={keyboardHeight}
       paddingHorizontal="$5"
       contentContainerStyle={{
         paddingTop: 20,
