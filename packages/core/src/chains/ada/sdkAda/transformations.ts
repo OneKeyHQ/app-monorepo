@@ -1,4 +1,4 @@
-import type { IAdaUTXO } from '../types';
+import type { IUTXOAda } from '../types';
 
 export enum CardanoAddressType {
   BASE = 0,
@@ -101,7 +101,7 @@ export type CardanoOutput =
 
 export const transformToOneKeyInputs = (
   utxos: Utxo[],
-  onekeyUtxos: IAdaUTXO[],
+  onekeyUtxos: IUTXOAda[],
 ): CardanoInput[] =>
   utxos.map((utxo) => {
     const utxoWithPath = onekeyUtxos.find(

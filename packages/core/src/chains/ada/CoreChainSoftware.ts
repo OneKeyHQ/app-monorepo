@@ -16,10 +16,10 @@ import {
   getXprvString,
   sdk,
 } from './sdkAda';
-import { NetworkId } from './types';
+import { ENetworkIdAda } from './types';
 
 import type { IAdaBaseAddressInfo, IAdaStakingAddressInfo } from './sdkAda';
-import type { IAdaUTXO, IEncodedTxADA } from './types';
+import type { IEncodedTxAda, IUTXOAda } from './types';
 import type { ISigner } from '../../base/ChainSigner';
 import type {
   ICoreApiGetAddressItem,
@@ -97,7 +97,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   ): Promise<ISignedTxPro> {
     // throw new Error('Method not implemented.');
     const { unsignedTx, account } = payload;
-    const encodedTx = unsignedTx.encodedTx as IEncodedTxADA;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxAda;
     const signer = await this.baseGetSingleSigner({
       payload,
       curve,
@@ -113,7 +113,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       encodedTx.tx.body,
       account.address,
       Number(accountIndex),
-      encodedTx.inputs as unknown as IAdaUTXO[],
+      encodedTx.inputs as unknown as IUTXOAda[],
       xprv,
       !!encodedTx.signOnly,
       false,
@@ -195,7 +195,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const addressInfos = batchGetShelleyAddressByRootKey(
       encodeKey.rootKey,
       [index],
-      NetworkId.MAINNET,
+      ENetworkIdAda.MAINNET,
     );
     const { baseAddress, stakingAddress } = addressInfos[0];
 
@@ -229,7 +229,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       bufferUtils.toBuffer(entropy),
       password,
       indexes,
-      NetworkId.MAINNET,
+      ENetworkIdAda.MAINNET,
     );
 
     const addresses = addressInfos.map((info) => {

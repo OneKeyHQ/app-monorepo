@@ -1,8 +1,8 @@
 import type { ICurveName } from './base';
-import type { IEncodedTxADA } from '../chains/ada/types';
+import type { IEncodedTxAda } from '../chains/ada/types';
 import type BigNumber from 'bignumber.js';
 
-export type IEncodedTx = string | IEncodedTxADA;
+export type IEncodedTx = string | IEncodedTxAda;
 //   | IEncodedTxEvm
 //   | IEncodedTxAlgo
 //   | IEncodedTxNear
