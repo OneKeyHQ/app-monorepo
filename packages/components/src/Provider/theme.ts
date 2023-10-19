@@ -174,7 +174,7 @@ const theme = {
 } as const;
 
 export type ThemeVariant = keyof typeof theme;
-export type ThemeValues = typeof theme[ThemeVariant];
+export type ThemeValues = (typeof theme)[ThemeVariant];
 export type ThemeToken = keyof ThemeValues;
 
 export default theme;

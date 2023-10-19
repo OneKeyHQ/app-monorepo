@@ -16,8 +16,8 @@ import { Context } from './hooks/useProviderValue';
 import ScreenSizeProvider from './ScreenSizeProvider';
 import SidebarStateProvider from './SidebarStateProvider';
 
-import type { LocaleSymbol } from '../locale';
 import type { ThemeVariant } from './theme';
+import type { LocaleSymbol } from '../locale';
 import type { IntlShape, MessageDescriptor } from 'react-intl';
 
 export type UIProviderProps = {

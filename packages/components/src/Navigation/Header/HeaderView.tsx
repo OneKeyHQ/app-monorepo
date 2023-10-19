@@ -11,8 +11,8 @@ import { Stack, useThemeValue } from '../../index';
 import HeaderButtonBack from './HeaderButtonBack';
 import HeaderSearchBar from './HeaderSearchBar';
 
-import type { StackHeaderProps } from '../ScreenProps';
 import type { OneKeyStackHeaderProps } from './HeaderScreenOptions';
+import type { StackHeaderProps } from '../ScreenProps';
 import type {
   HeaderBackButtonProps,
   HeaderOptions,

@@ -11,9 +11,9 @@ import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 import NavigationBar from '../Tab/TabBar';
 
+import type { CommonNavigatorConfig } from './types';
 import type { ICON_NAMES } from '../../Icon';
 import type { LocaleIds } from '../../locale';
-import type { CommonNavigatorConfig } from './types';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
 import type { ParamListBase } from '@react-navigation/routers';
 

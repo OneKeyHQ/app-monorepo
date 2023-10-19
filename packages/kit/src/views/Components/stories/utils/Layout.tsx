@@ -1,10 +1,15 @@
 import { useDispatch } from 'react-redux';
 import { ScrollView } from 'tamagui';
 
-import { Button, Stack, Text, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  Stack,
+  Text,
+  XStack,
+  useKeyboardHeight,
+} from '@onekeyhq/components';
 
 import { setTheme } from '../../../../store/reducers/settings';
-import { useKeyboardHeight } from '@onekeyhq/components';
 
 const FormattedText = ({ text }: { text: string | string[] }) => {
   if (typeof text === 'string') {

@@ -126,7 +126,7 @@ const NestedTabView: ForwardRefRenderFunction<
     [setHeaderHeight],
   );
 
-  return children
+  return children;
 };
 
 export default memo(forwardRef(NestedTabView));

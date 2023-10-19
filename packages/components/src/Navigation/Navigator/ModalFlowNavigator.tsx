@@ -9,9 +9,9 @@ import { createStackNavigator } from '../StackNavigator';
 
 import { hasStackNavigatorModal } from './CommonConfig.ts';
 
+import type { CommonNavigatorConfig } from './types';
 import type { LocaleIds } from '../../locale';
 import type { ModalNavigationOptions } from '../ScreenProps';
-import type { CommonNavigatorConfig } from './types';
 import type { ParamListBase } from '@react-navigation/routers';
 
 export interface ModalFlowNavigatorConfig<

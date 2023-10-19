@@ -21,4 +21,4 @@
 //   }
 // }
 // timer = setInterval(checkPortEstablished, getTimeDurationMs({ seconds: 5 }));
-console.log('offscreen')
+console.log('offscreen');

@@ -3,7 +3,6 @@ import { useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 import { useDispatch } from 'react-redux';
-import useCookie from '../../../../hooks/useCookie';
 import { ScrollView } from 'tamagui';
 
 import { Button, Stack, Text, XStack, YStack } from '@onekeyhq/components';
@@ -13,6 +12,7 @@ import { AppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
+import useCookie from '../../../../hooks/useCookie';
 import { setLocale, setTheme } from '../../../../store/reducers/settings';
 import { GalleryRoutes } from '../../../Gallery';
 import { RootRoutes } from '../../Routes';
