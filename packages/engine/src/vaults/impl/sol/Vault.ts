@@ -774,7 +774,7 @@ export default class Vault extends VaultBase {
           // https://docs.solana.com/developing/intro/rent
           if (
             rpcErrorData.code === -32002 &&
-            rpcErrorData.message.endsWith('without insufficient funds for rent')
+            rpcErrorData.message.endsWith('insufficient funds for rent')
           ) {
             isNodeBehind = false;
             throw new MinimumTransferBalanceRequiredError(
