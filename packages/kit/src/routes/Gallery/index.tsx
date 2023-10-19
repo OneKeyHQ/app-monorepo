@@ -2,10 +2,11 @@ import { createStackNavigator } from '@onekeyhq/components';
 import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
 import ActionListGallery from '@onekeyhq/kit/src/views/Components/stories/ActionList';
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
-import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
+import ButtonGallery from '@onekeyhq/kit/src/views/Components/stories/Button';
 import CheckboxGallery from '@onekeyhq/kit/src/views/Components/stories/Checkbox';
 import CollapsibleTabViewGallery from '@onekeyhq/kit/src/views/Components/stories/CollapsibleTabView';
 import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
+import EmptyGallery from '@onekeyhq/kit/src/views/Components/stories/Empty';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import IconButtonGallery from '@onekeyhq/kit/src/views/Components/stories/IconButton';
 import InputGallery from '@onekeyhq/kit/src/views/Components/stories/Input';
@@ -18,6 +19,8 @@ import SelectGallery from '@onekeyhq/kit/src/views/Components/stories/Select';
 import SliderGallery from '@onekeyhq/kit/src/views/Components/stories/Slider';
 import SwitchGallery from '@onekeyhq/kit/src/views/Components/stories/Switch';
 import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
+import ToggleGroupGallery from '@onekeyhq/kit/src/views/Components/stories/ToggleGroup';
+import TooltipGallery from '@onekeyhq/kit/src/views/Components/stories/Tooltip';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 
 import AlertGallery from '../../views/Components/stories/Alert';
@@ -31,14 +34,16 @@ export enum GalleryRoutes {
   Components = 'components',
   ComponentTypography = 'component/typography',
   ComponentLottieView = 'component/lottieview',
+  ComponentTooltip = 'component/tooltip',
   ComponentIcon = 'component/icon',
   ComponentButton = 'component/button',
   ComponentSelect = 'component/select',
-  ComponentIconButton = 'component/iconbutton',
+  ComponentIconButton = 'component/iconButton',
   ComponentBadge = 'component/badge',
   ComponentDialog = 'component/dialog',
   ComponentForm = 'component/form',
   ComponentNavigation = 'component/navigation',
+  ComponentEmpty = 'component/empty',
   ComponentSwitch = 'component/switch',
   ComponentInput = 'component/input',
   ComponentAlert = 'component/alert',
@@ -51,6 +56,7 @@ export enum GalleryRoutes {
   ComponentSlider = 'component/slider',
   ComponentTextArea = 'component/textArea',
   ComponentPopover = 'component/popover',
+  ComponentToggleGroup = 'component/toggleGroup',
   ComponentTheme = 'component/theme',
   ComponentCollapsibleTabs = 'component/collapsibleTabs',
   componentQRCode = 'component/qrCode',
@@ -68,18 +74,24 @@ export const stackScreenList = [
   },
   { name: GalleryRoutes.ComponentIcon, component: IconGallery },
   { name: GalleryRoutes.ComponentToast, component: ToastGallery },
-  { name: GalleryRoutes.ComponentIconButton, component: IconButtonGallery },
-  { name: GalleryRoutes.ComponentButton, component: ButtonsGallery },
   { name: GalleryRoutes.ComponentSelect, component: SelectGallery },
+  { name: GalleryRoutes.ComponentTooltip, component: TooltipGallery },
   { name: GalleryRoutes.ComponentBadge, component: BadgeGallery },
   { name: GalleryRoutes.ComponentInput, component: InputGallery },
   { name: GalleryRoutes.ComponentDialog, component: DialogGallery },
+  { name: GalleryRoutes.ComponentEmpty, component: EmptyGallery },
   { name: GalleryRoutes.ComponentRadio, component: RadioGallery },
   { name: GalleryRoutes.ComponentCheckbox, component: CheckboxGallery },
+  { name: GalleryRoutes.ComponentToggleGroup, component: ToggleGroupGallery },
   { name: GalleryRoutes.ComponentActionList, component: ActionListGallery },
   { name: GalleryRoutes.ComponentPopover, component: PopoverGallery },
   { name: GalleryRoutes.ComponentProgress, component: ProgressGallery },
+  {
+    name: GalleryRoutes.ComponentIconButton,
+    component: IconButtonGallery,
+  },
   { name: GalleryRoutes.ComponentSwitch, component: SwitchGallery },
+  { name: GalleryRoutes.ComponentButton, component: ButtonGallery },
   { name: GalleryRoutes.ComponentTextArea, component: TextAreaGallery },
   { name: GalleryRoutes.ComponentSlider, component: SliderGallery },
   {

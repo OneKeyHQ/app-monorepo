@@ -80,7 +80,7 @@ const ControlledDialogByButton = () => {
         />
       </>
     ),
-    [isOpen, navigation],
+    [],
   );
 };
 
