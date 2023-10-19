@@ -7,8 +7,8 @@
   },
   "dependencies": {
     "@onekeyhq/components": "*",
-    "@onekeyhq/shared": "*",
-    "@onekeyhq/kit": "*"
+    "@onekeyhq/kit": "*",
+    "@onekeyhq/shared": "*"
   },
   "private": true
 }

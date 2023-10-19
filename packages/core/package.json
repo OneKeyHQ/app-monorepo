@@ -1,0 +1,25 @@
+{
+  "name": "@onekeyhq/core",
+  "version": "0.0.1",
+  "private": true,
+  "main": "index.js",
+  "description": "",
+  "scripts": {
+    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
+    "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
+  },
+  "author": "",
+  "license": "SEE https://github.com/OneKeyHQ/app-monorepo/blob/onekey/LICENSE.md",
+  "dependencies": {
+    "@noble/secp256k1": "^2.0.0",
+    "@onekeyfe/cardano-coin-selection": "1.0.0",
+    "@onekeyfe/cardano-coin-selection-asmjs": "1.1.0",
+    "asmcrypto.js": "2.3.2",
+    "bip39": "^3.1.0",
+    "bitcoinjs-lib": "^6.1.5",
+    "bitcoinjs-message": "2.2.0",
+    "cardano-crypto.js": "^6.1.2",
+    "elliptic": "^6.5.4",
+    "jsrsasign": "^10.8.6"
+  }
+}

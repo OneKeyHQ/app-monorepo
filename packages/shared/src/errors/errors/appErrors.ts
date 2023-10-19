@@ -1,7 +1,7 @@
 /* eslint max-classes-per-file: "off" */
 
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
-import type { LocaleKeyInfoMap } from '@onekeyhq/components/src/locale/LocaleKeyInfoMap';
+// import type { LocaleKeyInfoMap } from '@onekeyhq/components/src/locale/LocaleKeyInfoMap';
 
 import { OneKeyErrorClassNames } from '../types/errorTypes';
 import { normalizeErrorProps } from '../utils/errorUtils';
@@ -9,6 +9,11 @@ import { normalizeErrorProps } from '../utils/errorUtils';
 import { OneKeyError } from './baseErrors';
 
 import type { IOneKeyError } from '../types/errorTypes';
+
+const map = {
+  hello: 'world',
+};
+type LocaleKeyInfoMap = typeof map;
 
 // Generic errors.
 export class NotImplemented extends OneKeyError {
