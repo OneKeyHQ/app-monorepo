@@ -5,7 +5,10 @@ import bs58 from 'bs58';
 import isArray from 'lodash/isArray';
 import isString from 'lodash/isString';
 
-import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
+import {
+  CommonMessageTypes,
+  ETHMessageTypes,
+} from '@onekeyhq/engine/src/types/message';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   backgroundClass,
@@ -203,7 +206,7 @@ class ProviderApiSolana extends ProviderApiBase {
       await this.backgroundApi.serviceDapp?.openSignAndSendModal(request, {
         unsignedMessage: {
           // Use ETH_SIGN to sign plain message
-          type: ETHMessageTypes.ETH_SIGN,
+          type: CommonMessageTypes.SIGN_MESSAGE,
           // TODO: different display needed?
           message: bs58.decode(message).toString(),
         },
