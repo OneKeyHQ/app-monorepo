@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
-import axios from 'axios';
 import {
   isArray,
   isBoolean,
@@ -13,7 +12,6 @@ import {
   isString,
   isUndefined,
 } from 'lodash';
-import qs from 'qs';
 import { batch } from 'react-redux';
 
 // import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
@@ -42,6 +40,7 @@ import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provi
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { Method } from 'axios';
 import type { AnyAction } from 'redux';
+import { ensureSerializable } from '../utils/assertUtils';
 
 export function throwCrossError(msg: string, ...args: any) {
   if (platformEnv.isNative) {
@@ -78,41 +77,6 @@ export function isSerializable(obj: any) {
   }
 
   return true;
-}
-
-export function ensureSerializable(obj: any, stringify = false): any {
-  if (process.env.NODE_ENV !== 'production') {
-    if (!isSerializable(obj)) {
-      console.error('Object should be serializable >>>> ', obj);
-      if (stringify) {
-        return JSON.parse(JSON.stringify(obj));
-      }
-
-      throw new Error('Object should be serializable');
-    }
-  }
-  return obj;
-}
-
-export function ensurePromiseObject(
-  obj: any,
-  {
-    serviceName,
-    methodName,
-  }: {
-    serviceName: string;
-    methodName: string;
-  },
-) {
-  if (process.env.NODE_ENV !== 'production') {
-    if (obj !== undefined && !(obj instanceof Promise)) {
-      throwCrossError(
-        `${
-          serviceName ? `${serviceName}.` : ''
-        }${methodName}() should be async or Promise method.`,
-      );
-    }
-  }
 }
 
 export function throwMethodNotFound(...methods: string[]) {
@@ -403,6 +367,7 @@ export async function fetchData<T>(
   fallback: T,
   method: Method = 'GET',
 ): Promise<T> {
+  throw new Error('fetchData not support yet');
   // const endpoint = getFiatEndpoint();
   // const isPostBody = ['post', 'put'].includes(method.toLowerCase());
   // const apiUrl = `${endpoint}${path}${

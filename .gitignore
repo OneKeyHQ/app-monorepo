@@ -6,6 +6,8 @@ __generated__
 .DS_Store
 .idea/
 .vscode/
+.chat/
+packages/core/src/chains/_x/
 
 dist
 build-electron

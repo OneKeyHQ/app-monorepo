@@ -42,6 +42,7 @@ const tsRules = {
   '@typescript-eslint/ban-ts-comment': 'off',
   '@typescript-eslint/no-unsafe-assignment': 'off',
   '@typescript-eslint/no-unsafe-argument': 'off',
+  '@typescript-eslint/require-await': 'off',
   'sort-imports': [
     'error',
     {
