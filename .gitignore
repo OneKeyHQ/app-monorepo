@@ -39,7 +39,7 @@ webpack.config.preview.devServer.json
 web-build/
 # !/apps/web-embed/web-build/
 /inpage-provider-bak
-/apps/shared/src/web/index.html
+/packages/shared/src/web/index.html
 
 ### VisualStudioCode ###
 .vscode/*

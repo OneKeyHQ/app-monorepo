@@ -3,10 +3,15 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "expo start",
+    "start": "webpack serve",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web"
   },
-  "private": true
+  "private": true,
+  "dependencies": {
+    "@onekeyhq/components": "*",
+    "@onekeyhq/shared": "*",
+    "@onekeyhq/kit": "*"
+  }
 }

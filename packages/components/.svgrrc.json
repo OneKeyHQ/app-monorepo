@@ -1,0 +1,36 @@
+{
+  "native": true,
+  "typescript": true,
+  "jsxRuntime": "automatic",
+  "svgoConfig": {
+    "plugins": [
+      "removeDimensions",
+      "removeXMLNS",
+      {
+        "name": "preset-default",
+        "params": {
+          "overrides": {
+            "cleanupids": false,
+            "removeuselessdefs": false
+          }
+        }
+      },
+      {
+        "name": "addAttributesToSVGElement",
+        "params": {
+          "attributes": [
+            {
+              "accessibilityRole": "image"
+            }
+          ]
+        }
+      },
+      {
+        "name": "removeAttrs",
+        "params": {
+          "attrs": "aria-hidden"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,164 @@
+/*
+  global css which apply to Desktop, Web and Extension
+  copy from:
+    node_modules/@expo/webpack-config/web-default/index.html
+ */
+
+/* ---------------------------------------------- */
+
+/**
+ * Extend the react-native-web reset:
+ * https://github.com/necolas/react-native-web/blob/master/packages/react-native-web/src/exports/StyleSheet/initialRules.js
+ */
+html,
+body,
+#root {
+  width: 100%;
+  /* To smooth any scrolling behavior */
+  -webkit-overflow-scrolling: touch;
+  margin: 0px;
+  padding: 0px;
+  /* Allows content to fill the viewport and go beyond the bottom */
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  flex-shrink: 0;
+  flex-basis: auto;
+  flex-grow: 1;
+  display: flex;
+  flex: 1;
+}
+
+html {
+  scroll-behavior: smooth;
+  /* Prevent text size change on orientation change https://gist.github.com/tfausak/2222823#file-ios-8-web-app-html-L138 */
+  -webkit-text-size-adjust: 100%;
+  height: calc(100% + env(safe-area-inset-top));
+}
+
+body {
+  display: flex;
+  /* Allows you to scroll below the viewport; default value is visible */
+  overflow-y: auto;
+  overscroll-behavior-y: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -ms-overflow-style: scrollbar;
+}
+
+/* Enable for apps that support dark-theme */
+/*@media (prefers-color-scheme: dark) {
+  body {
+    background-color: black;
+  }
+}*/
+
+/*
+  hide Scrollbar
+  in JS: extendTheme()
+*/
+/* set width=0 to hide scrollbar */
+::-webkit-scrollbar {
+  width: 0;
+  background: transparent;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+  /* gray color palette comes from design file "illustration" */
+  background: #74748b;
+  border-radius: 3px;
+}
+
+input {
+  outline: none;
+  min-width: 0;
+}
+
+[role='button'] {
+  outline: none;
+}
+
+textarea {
+  outline: none;
+  min-width: 0;
+}
+
+/* data-testid="Segment_Button" */
+[data-testid='Segment_Button'] {
+  width: 100%;
+}
+
+/* WallectConnect Modal */
+.walletconnect-modal__base {
+  max-width: 400px !important;
+}
+
+.debug-render-tracker-animated-bg {
+  position: relative;
+}
+
+.debug-render-tracker-animated-bg:before {
+  pointer-events: none;
+  content: '';
+  position: absolute;
+  z-index: 999999;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  animation: debugRenderTrackerColorFade 1s forwards;
+}
+
+@keyframes debugRenderTrackerColorFade {
+  from {
+    background-color: #e2c6c4;
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+.debug-render-tracker-animated-bg0 {
+  position: relative;
+}
+
+.debug-render-tracker-animated-bg0:before {
+  pointer-events: none;
+  content: '';
+  position: absolute;
+  z-index: 999999;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  animation: debugRenderTrackerColorFade0 1s forwards;
+}
+
+@keyframes debugRenderTrackerColorFade0 {
+  from {
+    background-color: #aab8ab;
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+/* custom sonner toast styles, should remove if the burnt library support such api to custom styles */
+[data-sonner-toast] {
+  max-width: calc(100vw - 32px);
+}
+
+
+button[role="checkbox"]:focus {
+  border: 0;
+  padding: 0;
+}

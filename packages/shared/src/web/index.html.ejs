@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="%LANG_ISO_CODE%"
+   <% if ( platform === 'ext' && filename === 'ui-popup.html' ) { %>
+      style="min-height: 600px; min-width: 375px; margin: 0; overflow: auto;"
+   <% } %>
+>
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <!--
+        This viewport works for phones with notches.
+        It's optimized for gestures by disabling global zoom.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1.00001, viewport-fit=cover"
+    />
+    <title>OneKey</title>
+      <% if ( isDev ) { %>
+        <script
+        <% if ( platform === 'ext'  ) { %>
+          src="http://localhost:3100/react-render-tracker@0.7.3/dist/react-render-tracker.js"
+        <% } else { %>
+          src="/react-render-tracker@0.7.3/dist/react-render-tracker.js"
+        <% } %>
+          data-config="inpage:true"
+        /></script>
+        <meta name="rempl:server" content="localhost:8177" />
+    <% } %>
+    <style>
+      /* add global styles to packages/shared/src/web/index.css */
+    </style>
+
+
+      <% if ( platform === 'ext' ) { %>
+      <!--    <script>-->
+      <!--      // ** inline script not allowed in Ext, use themePreload.js instead-->
+      <!--    </script>-->
+          <script src="/preload-html-head.js?<%=Date.now() %>"></script>
+      <% } %>
+
+      <% if ( platform === 'desktop' || platform === 'web' ) { %>
+          <script>
+// >>>>>>> automatic copy code from preload-html-head.js <<<<<<<<<
+            <%= htmlHeadPreloadCode %>
+          </script>
+      <% } %>
+  </head>
+
+  <!-- html template copy from node_modules/@expo/webpack-config/web-default/index.html -->
+  <body class="onekey-body"
+
+        data-platform="<%= platform %>"
+        data-browser="<%= browser %>"
+        data-filename="<%= filename %>-not-correct-in-ext"
+
+    <% if ( platform === 'ext' && browser === 'firefox' && filename === 'ui-popup.html' ) { %>
+        style="min-height: 600px; min-width: 375px; margin: 0;"
+    <% } %>
+  >
+
+    <!--
+      A generic no script element with a reload button and a message.
+      Feel free to customize this however you'd like.
+    -->
+    <noscript>
+      <form
+        action=""
+        style="
+          background-color: #fff;
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 9999;
+        "
+      >
+        <div
+          style="
+            font-size: 18px;
+            font-family: Helvetica, sans-serif;
+            line-height: 24px;
+            margin: 10%;
+            width: 80%;
+          "
+        >
+          <p>Oh no! It looks like JavaScript is not enabled in your browser.</p>
+          <p style="margin: 20px 0">
+            <button
+              type="submit"
+              style="
+                background-color: #4630eb;
+                border-radius: 100px;
+                border: none;
+                box-shadow: none;
+                color: #fff;
+                cursor: pointer;
+                font-weight: bold;
+                line-height: 20px;
+                padding: 6px 16px;
+              "
+            >
+              Reload
+            </button>
+          </p>
+        </div>
+      </form>
+    </noscript>
+
+    <!-- The root element for your Expo app.  -->
+    <div id="root"></div>
+
+    <!-- <% if ( platform !== 'webEmbed' ) { %>
+    <img
+        width='80'
+        class="onekey-index-html-preload-image"
+        style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%)"
+        src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMF80NTkyMl84OCkiPgo8cGF0aCBkPSJNMTI3LjYxIDYzLjgwNDlDMTI3LjYxIDEwNy44NTMgMTA3Ljg1MyAxMjcuNjEgNjMuODA0OSAxMjcuNjFDMTkuNzU2OCAxMjcuNjEgMCAxMDcuODUzIDAgNjMuODA0OUMwIDE5Ljc1NjggMTkuNzU2OCAwIDYzLjgwNDkgMEMxMDcuODUzIDAgMTI3LjYxIDE5Ljc1NjggMTI3LjYxIDYzLjgwNDlaIiBmaWxsPSIjM0JEMjNEIi8+CjxwYXRoIGQ9Ik02OS41Njk5IDI3LjA1NTdMNTEuODE5NyAyNy4wNTU3TDQ4LjcwNTYgMzYuNDcxOUg1OC41NjQ1TDU4LjU2NDUgNTYuMzA2M0g2OS41Njk5VjI3LjA1NTdaIiBmaWxsPSJibGFjayIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTg0LjA0ODYgODAuMzExMUM4NC4wNDg2IDkxLjQ5MTIgNzQuOTg1NCAxMDAuNTU0IDYzLjgwNTMgMTAwLjU1NEM1Mi42MjUzIDEwMC41NTQgNDMuNTYyMSA5MS40OTEyIDQzLjU2MjEgODAuMzExMUM0My41NjIxIDY5LjEzMTEgNTIuNjI1MyA2MC4wNjc4IDYzLjgwNTMgNjAuMDY3OEM3NC45ODU0IDYwLjA2NzggODQuMDQ4NiA2OS4xMzExIDg0LjA0ODYgODAuMzExMVpNNzQuODU4NCA4MC4zMTExQzc0Ljg1ODQgODYuNDE1NSA2OS45MDk3IDkxLjM2NDEgNjMuODA1MyA5MS4zNjQxQzU3LjcwMDggOTEuMzY0MSA1Mi43NTIyIDg2LjQxNTUgNTIuNzUyMiA4MC4zMTExQzUyLjc1MjIgNzQuMjA2NiA1Ny43MDA4IDY5LjI1OCA2My44MDUzIDY5LjI1OEM2OS45MDk3IDY5LjI1OCA3NC44NTg0IDc0LjIwNjYgNzQuODU4NCA4MC4zMTExWiIgZmlsbD0iYmxhY2siLz4KPC9nPgo8ZGVmcz4KPGNsaXBQYXRoIGlkPSJjbGlwMF80NTkyMl84OCI+CjxyZWN0IHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiBmaWxsPSJ3aGl0ZSIvPgo8L2NsaXBQYXRoPgo8L2RlZnM+Cjwvc3ZnPgo='
+    />
+    <% } %> -->
+
+  </body>
+</html>
