@@ -10,7 +10,7 @@ import '@onekeyhq/shared/src/polyfills/polyfillsExtContentScript';
 import { consts } from '@onekeyfe/cross-inpage-provider-core';
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
 
-import type { IOneKeyWalletInfo } from '@onekeyhq/kit-bg/src/providers/ProviderApiPrivate';
+// import type { IOneKeyWalletInfo } from '@onekeyhq/kit-bg/src/providers/ProviderApiPrivate';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -61,23 +61,23 @@ if (shouldInject()) {
 
 bridgeSetup.contentScript.setupMessagePort();
 
-if (process.env.NODE_ENV !== 'production') {
-  try {
-    if (consts.WALLET_INFO_LOACAL_KEY) {
-      const walletInfo: IOneKeyWalletInfo = JSON.parse(
-        localStorage.getItem(consts.WALLET_INFO_LOACAL_KEY) || '{}',
-      );
-      console.log(walletInfo);
-      if (walletInfo && walletInfo.enableExtContentScriptReloadButton) {
-        setTimeout(() => {
-          devToolsButton.inject();
-        }, 2000);
-      }
-    }
-  } catch (error) {
-    console.error(error);
-  }
-}
+// if (process.env.NODE_ENV !== 'production') {
+//   try {
+//     if (consts.WALLET_INFO_LOACAL_KEY) {
+//       const walletInfo: IOneKeyWalletInfo = JSON.parse(
+//         localStorage.getItem(consts.WALLET_INFO_LOACAL_KEY) || '{}',
+//       );
+//       console.log(walletInfo);
+//       if (walletInfo && walletInfo.enableExtContentScriptReloadButton) {
+//         setTimeout(() => {
+//           devToolsButton.inject();
+//         }, 2000);
+//       }
+//     }
+//   } catch (error) {
+//     console.error(error);
+//   }
+// }
 
 if (process.env.NODE_ENV !== 'production') {
   console.log('==== injected script tag done >>>>>>>', performance.now());

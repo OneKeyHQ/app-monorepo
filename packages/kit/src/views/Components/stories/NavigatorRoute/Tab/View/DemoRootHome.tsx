@@ -1,7 +1,5 @@
 import { useState } from 'react';
 
-import useCookie from '../../../../../../hooks/useCookie';
-
 import { Button, Stack, YStack } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
@@ -9,6 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { AppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
+import useCookie from '../../../../../../hooks/useCookie';
 import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
 import { FreezeProbe } from '../../../utils/RenderTools';

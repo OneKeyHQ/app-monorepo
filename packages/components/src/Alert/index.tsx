@@ -1,11 +1,5 @@
-import type { ComponentProps } from 'react';
-import {
-  type FC,
-  cloneElement,
-  useCallback,
-  useContext,
-  useState,
-} from 'react';
+import { cloneElement, useCallback, useContext, useState } from 'react';
+import type { ComponentProps, type FC } from 'react';
 
 import { StyleSheet } from 'react-native';
 import { createStyledContext, styled } from 'tamagui';

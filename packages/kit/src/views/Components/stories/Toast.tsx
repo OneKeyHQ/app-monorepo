@@ -1,7 +1,6 @@
-import * as Burnt from 'burnt';
-import { getTokens, useTheme } from 'tamagui';
+import { useTheme } from 'tamagui';
 
-import { Button, Icon, Toast, YStack } from '@onekeyhq/components';
+import { Button, Toast, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
