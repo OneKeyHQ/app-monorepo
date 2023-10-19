@@ -21,4 +21,4 @@
 // export default {
 //   disableCacheInBackground,
 // };
-console.log('serviceWorker')
+console.log('serviceWorker');

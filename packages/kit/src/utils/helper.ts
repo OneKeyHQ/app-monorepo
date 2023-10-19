@@ -53,11 +53,11 @@ export const timeout = <T>(p: Promise<T>, ms: number, message?: string) =>
 
 export const generateUUID = () => uuid.v4() as string;
 
-export const hexlify = (...args: Parameters<typeof utils.hexlify>) =>
-  utils.hexlify.apply(utils.hexlify, args);
+// export const hexlify = (...args: Parameters<typeof utils.hexlify>) =>
+//   utils.hexlify.apply(utils.hexlify, args);
 
-export const isHexString = (...args: Parameters<typeof utils.isHexString>) =>
-  utils.isHexString.apply(utils.isHexString, args);
+// export const isHexString = (...args: Parameters<typeof utils.isHexString>) =>
+//   utils.isHexString.apply(utils.isHexString, args);
 
 export const removeTrailingZeros = (num: string | number) => {
   const parts = num.toString().split('.');

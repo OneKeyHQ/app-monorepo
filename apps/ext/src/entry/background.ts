@@ -100,5 +100,5 @@
 //   offscreenApiProxy.adaSdk.sayHello().then(console.log);
 //   offscreenApiProxy.xmrSdk.showMe().then(console.log);
 // }
-console.log('background.ts')
+console.log('background.ts');
 export {};

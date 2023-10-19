@@ -17,7 +17,7 @@ function HomePage() {
     tabsViewRef?.current?.setRefreshing(true);
   }, []);
 
-  const onIndexChange = useCallback((index: number) => {}, []);
+  const onIndexChange = useCallback(() => {}, []);
 
   const onPageScrollStateChangeCall = useCallback(() => {}, []);
 

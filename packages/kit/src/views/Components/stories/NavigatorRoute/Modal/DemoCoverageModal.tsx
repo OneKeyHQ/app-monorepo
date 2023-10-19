@@ -82,7 +82,7 @@ const ControlledDialogByButton = () => {
         />
       </>
     ),
-    [],
+    [isOpen, navigation],
   );
 };
 
