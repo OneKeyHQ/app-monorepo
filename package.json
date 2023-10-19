@@ -267,7 +267,8 @@
     "@polkadot/util-crypto": "^12.2.1",
     "@polkadot/x-global": "^12.2.1",
     "react": "18.2.0",
-    "jsc-android": "294992.0.0"
+    "jsc-android": "294992.0.0",
+    "@tamagui/create-context": "1.73.0"
   },
   "packageManager": "yarn@3.5.0"
 }
