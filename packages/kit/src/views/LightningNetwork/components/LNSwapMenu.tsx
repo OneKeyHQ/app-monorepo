@@ -11,6 +11,7 @@ import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engin
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccount, useNavigation, useNetwork } from '../../../hooks';
 import { TabRoutes } from '../../../routes/routesEnum';
+import { setRecipient } from '../../../store/reducers/swap';
 
 import type { MessageDescriptor } from 'react-intl';
 
@@ -55,11 +56,23 @@ function LNSwapMenu({
       if (account) {
         if (isWithdraw) {
           backgroundApiProxy.serviceSwap.setSendingAccountSimple(account);
-        } else {
-          backgroundApiProxy.serviceSwap.setRecipientToAccount(
-            account,
-            network,
-          );
+        } else if (network?.id && account) {
+          const lnurlMap =
+            await backgroundApiProxy.serviceLightningNetwork.batchGetLnUrlByAccounts(
+              {
+                networkId: network.id,
+                accounts: [account],
+              },
+            );
+          const address = lnurlMap[account.id] ?? account.address;
+          const data = {
+            address,
+            name: account.name,
+            accountId: account.id,
+            networkId: network.id,
+            networkImpl: network.impl,
+          };
+          backgroundApiProxy.dispatch(setRecipient(data));
         }
       }
       navigation.getParent()?.navigate(TabRoutes.Swap);
