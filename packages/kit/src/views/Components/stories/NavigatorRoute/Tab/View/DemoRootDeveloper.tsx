@@ -26,7 +26,7 @@ const DemoRootDeveloper = () => {
           title: '打开 Developer 下一个页面',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 navigation.push(
                   DemoDeveloperTabRoutes.DemoRootDeveloperOptions,
@@ -36,7 +36,7 @@ const DemoRootDeveloper = () => {
                 );
               }}
             >
-              <Button.Text>下一个页面</Button.Text>
+              下一个页面
             </Button>
           ),
         },
@@ -44,7 +44,7 @@ const DemoRootDeveloper = () => {
           title: '这是一个 Modal 的演示',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 navigation.pushModal(RootModalRoutes.DemoCreateModal, {
                   screen: DemoCreateModalRoutes.DemoCreateModal,
@@ -54,7 +54,7 @@ const DemoRootDeveloper = () => {
                 });
               }}
             >
-              <Button.Text>打开 Modal Demo</Button.Text>
+              打开 Modal Demo
             </Button>
           ),
         },
@@ -62,12 +62,12 @@ const DemoRootDeveloper = () => {
           title: '这是一个可以锁定的 Modal 的演示',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 navigation.pushModal(RootModalRoutes.DemoLockedModal);
               }}
             >
-              <Button.Text>打开 Modal Demo</Button.Text>
+              打开 Modal Demo
             </Button>
           ),
         },
@@ -75,14 +75,14 @@ const DemoRootDeveloper = () => {
           title: '打开 Modal (Big List Demo)',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 navigation.pushModal(RootModalRoutes.DemoCreateModal, {
                   screen: DemoCreateModalRoutes.DemoBigListModal,
                 });
               }}
             >
-              <Button.Text>打开 Modal Demo</Button.Text>
+              打开 Modal Demo
             </Button>
           ),
         },
@@ -90,12 +90,12 @@ const DemoRootDeveloper = () => {
           title: 'Modal 覆盖测试',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 navigation.pushModal(RootModalRoutes.DemoCoverageModal);
               }}
             >
-              <Button.Text>打开 Modal Demo</Button.Text>
+              打开 Modal Demo
             </Button>
           ),
         },

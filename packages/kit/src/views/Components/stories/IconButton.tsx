@@ -11,7 +11,7 @@ const ActionIconButton = () => {
   const [disabled, setDisabled] = useState(false);
   return (
     <IconButton
-      buttonVariant="secondary"
+      variant="secondary"
       name="PlaceholderOutline"
       spinning={spinning}
       disabled={disabled}
@@ -46,10 +46,10 @@ const IconButtonGallery = () => (
         title: 'Variants',
         element: (
           <XStack space="$2" alignItems="center">
-            <IconButton buttonVariant="secondary" name="PlaceholderOutline" />
-            <IconButton buttonVariant="primary" name="PlaceholderOutline" />
-            <IconButton buttonVariant="tertiary" name="PlaceholderOutline" />
-            <IconButton buttonVariant="destructive" name="PlaceholderOutline" />
+            <IconButton variant="secondary" name="PlaceholderOutline" />
+            <IconButton variant="primary" name="PlaceholderOutline" />
+            <IconButton variant="tertiary" name="PlaceholderOutline" />
+            <IconButton variant="destructive" name="PlaceholderOutline" />
           </XStack>
         ),
       },
@@ -58,17 +58,17 @@ const IconButtonGallery = () => (
         element: (
           <XStack space="$2" alignItems="center">
             <IconButton
-              buttonVariant="secondary"
+              variant="secondary"
               size="large"
               name="PlaceholderOutline"
             />
             <IconButton
-              buttonVariant="secondary"
+              variant="secondary"
               size="medium"
               name="PlaceholderOutline"
             />
             <IconButton
-              buttonVariant="secondary"
+              variant="secondary"
               size="small"
               name="PlaceholderOutline"
             />

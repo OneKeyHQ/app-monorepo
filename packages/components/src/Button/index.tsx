@@ -1,241 +1,202 @@
-import type { PropsWithChildren } from 'react';
-import { Children, useContext } from 'react';
-
 import {
-  AnimatePresence,
-  createStyledContext,
+  ThemeableStack,
+  getTokenValue,
   styled,
+  useProps,
   withStaticProperties,
 } from 'tamagui';
 
 import { Icon } from '../Icon';
 import { Spinner } from '../Spinner';
-import { Stack } from '../Stack';
 import { Text } from '../Text';
 
-import type { ICON_NAMES, IconProps } from '../Icon';
-import type { ColorTokens, GetProps, StackProps } from 'tamagui';
+import type { ICON_NAMES } from '../Icon';
+import type { ColorTokens, GetProps } from 'tamagui';
 
-export const ButtonContext = createStyledContext<{
-  size: 'small' | 'medium' | 'large';
-  buttonVariant: 'secondary' | 'tertiary' | 'primary' | 'destructive';
-}>({
-  size: 'medium',
-  buttonVariant: 'secondary',
-});
-
-const ButtonText = styled(Text, {
-  name: 'ButtonText',
-  userSelect: 'none',
-  context: ButtonContext,
-
-  variant: '$bodyLgMedium',
-
-  variants: {
-    size: {
-      small: {
-        variant: '$bodyMdMedium',
-      },
-    },
-    buttonVariant: {
-      primary: {
-        color: '$textInverse',
-      },
-      secondary: {
-        color: '$text',
-      },
-      tertiary: {
-        color: '$textSubdued',
-      },
-      destructive: {
-        color: '$textOnColor',
-      },
-    },
-  } as const,
-});
-
-function ButtonStack({ children, ...restProps }: PropsWithChildren<unknown>) {
-  const { buttonVariant } = useContext(ButtonContext);
-  return (
-    <Stack {...restProps}>
-      {Children.map(children, (child) =>
-        typeof child === 'string' ? (
-          <ButtonText buttonVariant={buttonVariant}>{child}</ButtonText>
-        ) : (
-          child
-        ),
-      )}
-    </Stack>
-  );
+export interface ButtonProps extends GetProps<typeof ThemeableStack> {
+  size?: 'small' | 'medium' | 'large';
+  variant?: 'secondary' | 'tertiary' | 'primary' | 'destructive';
+  icon?: ICON_NAMES;
+  iconAfter?: ICON_NAMES;
+  disabled?: boolean;
+  loading?: boolean;
+  children: React.ReactNode;
 }
 
-export const ButtonFrame = styled(ButtonStack, {
-  name: 'Button',
-  tag: 'button',
-  role: 'button',
-  focusable: true,
-  context: ButtonContext,
-
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'center',
-  borderRadius: '$2',
-  borderWidth: '$px',
-  borderStyle: 'solid',
-  borderColor: '$transparent',
-  space: '$2',
-
-  hoverStyle: {
-    backgroundColor: '$bgHover',
+const BUTTON_VARIANTS: Record<
+  Exclude<ButtonProps['variant'], undefined>,
+  {
+    color: ColorTokens;
+    iconColor: ColorTokens;
+    bg: ColorTokens;
+    hoverBg: ColorTokens;
+    activeBg: ColorTokens;
+    focusRingColor: ColorTokens;
+  }
+> = {
+  primary: {
+    color: '$textInverse',
+    iconColor: '$iconInverse',
+    bg: '$bgPrimary',
+    hoverBg: '$bgPrimaryHover',
+    activeBg: '$bgPrimaryActive',
+    focusRingColor: '$focusRing',
   },
-  pressStyle: {
-    backgroundColor: '$bgActive',
+  tertiary: {
+    color: '$textSubdued',
+    iconColor: '$iconSubdued',
+    bg: '$transparent',
+    hoverBg: '$bgHover',
+    activeBg: '$bgActive',
+    focusRingColor: '$focusRing',
   },
-  focusStyle: {
-    outlineColor: '$focusRing',
-    outlineStyle: 'solid',
-    outlineWidth: 2,
+  destructive: {
+    color: '$textOnColor',
+    iconColor: '$iconOnColor',
+    bg: '$bgCriticalStrong',
+    hoverBg: '$bgCriticalStrongHover',
+    activeBg: '$bgCriticalStrongActive',
+    focusRingColor: '$focusRingCritical',
   },
-
-  variants: {
-    size: {
-      small: {
-        paddingVertical: '$1',
-        paddingHorizontal: '$2.5',
-      },
-      medium: {
-        paddingVertical: '$1.5',
-        paddingHorizontal: '$3.5',
-      },
-      large: {
-        paddingVertical: '$3',
-        paddingHorizontal: '$5',
-        borderRadius: '$3',
-      },
-    },
-    buttonVariant: {
-      primary: {
-        backgroundColor: '$bgPrimary',
-        hoverStyle: {
-          backgroundColor: '$bgPrimaryHover',
-        },
-        pressStyle: {
-          backgroundColor: '$bgPrimaryActive',
-        },
-      },
-      secondary: {
-        backgroundColor: '$bgStrong',
-      },
-      tertiary: {
-        backgroundColor: '$transparent',
-        borderWidth: '$0',
-        paddingVertical: '$1',
-        paddingHorizontal: '$2.5',
-        marginVertical: '$-1',
-        marginHorizontal: '$-2.5',
-      },
-      destructive: {
-        backgroundColor: '$bgCriticalStrong',
-        hoverStyle: {
-          backgroundColor: '$bgCriticalStrongHover',
-        },
-        pressStyle: {
-          backgroundColor: '$bgCriticalStrongActive',
-        },
-        focusStyle: {
-          outlineColor: '$focusRingCritical',
-        },
-      },
-    },
-    disabled: {
-      true: {
-        pointerEvents: 'none',
-        focusable: undefined,
-        focusStyle: {
-          outlineColor: '$transparent',
-        },
-        opacity: 0.5,
-      },
-    },
-  } as const,
-});
-
-const iconColorMapping: Record<string, ColorTokens> = {
-  primary: '$iconInverse',
-  secondary: '$icon',
-  tertiary: '$iconSubdued',
-  destructive: '$iconOnColor',
+  secondary: {
+    color: '$text',
+    iconColor: '$icon',
+    bg: '$bgStrong',
+    hoverBg: '$bgHover',
+    activeBg: '$bgActive',
+    focusRingColor: '$focusRing',
+  },
 };
 
-const ButtonIcon = ({ name, ...props }: IconProps) => {
-  const { size, buttonVariant } = useContext(ButtonContext);
-  if (!name) {
-    return null;
-  }
+export const getSharedButtonStyles = ({
+  variant,
+  disabled,
+  loading,
+}: Partial<ButtonProps>) => {
+  const { iconColor, color, bg, hoverBg, activeBg, focusRingColor } =
+    BUTTON_VARIANTS[variant || 'secondary'];
+
+  const sharedFrameStyles = {
+    bg,
+    borderWidth: '$px',
+    borderColor: '$transparent',
+    ...(!disabled && !loading
+      ? {
+          hoverStyle: { bg: hoverBg },
+          pressStyle: { bg: activeBg },
+          focusable: true,
+          focusStyle: {
+            outlineColor: focusRingColor,
+            outlineStyle: 'solid',
+            outlineWidth: 2,
+          },
+        }
+      : {
+          opacity: 0.5,
+        }),
+  };
+
+  return {
+    color,
+    iconColor,
+    sharedFrameStyles,
+  };
+};
+
+const getSizeStyles = (size: ButtonProps['size']) => {
+  const sizes = {
+    small: {
+      py: '$1',
+      px: '$2.5',
+      borderRadius: getTokenValue('$size.2'),
+      textVariant: '$bodyMdMedium',
+    },
+    medium: {
+      py: '$1.5',
+      px: '$3.5',
+      borderRadius: getTokenValue('$size.2'),
+      textVariant: '$bodyLgMedium',
+    },
+    large: {
+      py: '$3',
+      px: '$5',
+      borderRadius: getTokenValue('$size.3'),
+      textVariant: '$bodyLgMedium',
+    },
+  };
+
+  return sizes[size || 'medium'];
+};
+
+export const ButtonFrame = styled(ThemeableStack, {
+  tag: 'button',
+  role: 'button',
+  flexDirection: 'row',
+  justifyContent: 'center',
+  alignItems: 'center',
+});
+
+function ButtonIcon({
+  variant,
+  size,
+  ...props
+}: Pick<ButtonProps, 'variant' | 'size'> &
+  Omit<GetProps<typeof Icon>, 'size'>) {
+  const { iconColor } = BUTTON_VARIANTS[variant || 'secondary'];
+
   return (
     <Icon
-      name={name}
-      color={iconColorMapping[buttonVariant]}
       size={size === 'small' ? '$4.5' : '$5'}
+      color={iconColor}
       {...props}
     />
   );
-};
+}
 
-const ButtonSpinner = (props: StackProps) => {
-  const { size, buttonVariant } = useContext(ButtonContext);
+const ButtonComponent = ButtonFrame.styleable<ButtonProps>((props, ref) => {
+  const {
+    size = 'medium',
+    icon,
+    iconAfter,
+    disabled,
+    loading,
+    children,
+    variant = 'secondary',
+    ...rest
+  } = useProps(props, {});
+
+  const { py, px, borderRadius, textVariant } = getSizeStyles(size);
+
+  const { sharedFrameStyles, iconColor, color } = getSharedButtonStyles({
+    variant,
+    disabled,
+    loading,
+  });
 
   return (
-    <Stack padding={size === 'large' ? '$0.5' : '$0'} {...props}>
-      <Spinner color={iconColorMapping[buttonVariant]} size="small" />
-    </Stack>
-  );
-};
-
-type ButtonActionProps = GetProps<typeof ButtonFrame> & {
-  iconName?: ICON_NAMES;
-  text?: string;
-  spinning?: boolean;
-};
-
-const ButtonAction = ({
-  iconName,
-  spinning,
-  text,
-  disabled,
-  ...restProps
-}: ButtonActionProps) => (
-  <ButtonFrame {...restProps} disabled={disabled || spinning}>
-    <AnimatePresence>
-      {spinning ? (
-        <ButtonSpinner
-          size="small"
-          animation="quick"
-          enterStyle={{
-            scale: 0.9,
-          }}
-          pressStyle={{
-            scale: 0.9,
-          }}
-          hoverStyle={{
-            scale: 0.9,
-          }}
-          exitStyle={{
-            scale: 0.9,
-          }}
-        />
-      ) : (
-        <ButtonIcon name={iconName} />
+    <ButtonFrame
+      ref={ref}
+      my={variant === 'tertiary' ? '$-1' : '$0'}
+      mx={variant === 'tertiary' ? '$-2' : '$0'}
+      py={variant === 'tertiary' ? '$1' : py}
+      px={variant === 'tertiary' ? '$2' : px}
+      borderRadius={borderRadius}
+      disabled={disabled || loading}
+      {...sharedFrameStyles}
+      {...rest}
+    >
+      {icon && !loading && (
+        <ButtonIcon name={icon} variant={variant} size={size} mr="$2" />
       )}
-    </AnimatePresence>
-    <ButtonText>{text}</ButtonText>
-  </ButtonFrame>
-);
-
-export const Button = withStaticProperties(ButtonFrame, {
-  Props: ButtonContext.Provider,
-  Text: ButtonText,
-  Icon: ButtonIcon,
-  Spinner: ButtonSpinner,
-  Action: ButtonAction,
+      {loading && <Spinner size="small" mr="$2" color={iconColor} />}
+      <Text variant={textVariant} color={color}>
+        {children}
+      </Text>
+      {iconAfter && (
+        <ButtonIcon name={iconAfter} variant={variant} size={size} ml="$2" />
+      )}
+    </ButtonFrame>
+  );
 });
+
+export const Button = withStaticProperties(ButtonComponent, {});

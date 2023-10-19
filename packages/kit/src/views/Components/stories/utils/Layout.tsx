@@ -73,16 +73,16 @@ export function Layout({
             dispatch(setTheme('light'));
           }}
         >
-          <Button.Text>Light Theme</Button.Text>
+          Light Theme
         </Button>
         <Button
           ml="$4"
-          buttonVariant="primary"
+          variant="primary"
           onPress={() => {
             dispatch(setTheme('dark'));
           }}
         >
-          <Button.Text>Night Theme</Button.Text>
+          Night Theme
         </Button>
       </XStack>
       <Stack marginHorizontal="auto" maxWidth="100%" width={576} space="$6">

@@ -11,7 +11,7 @@ const ActionButtonDemo = () => {
       <Button.Action
         text="click me!"
         size="medium"
-        buttonVariant="secondary"
+        variant="secondary"
         iconName="BellSolid"
         spinning={spinning}
         onPress={() => {
@@ -24,7 +24,7 @@ const ActionButtonDemo = () => {
       <Button.Action
         text="click me!(large size)"
         size="large"
-        buttonVariant="secondary"
+        variant="secondary"
         spinning={spinning}
         onPress={() => {
           setSpinning(true);
@@ -58,21 +58,21 @@ const ButtonsGallery = () => (
           <YStack space="$2">
             <Button
               size="large"
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 alert('clicked');
               }}
             >
-              <Button.Text>Primary</Button.Text>
+              Primary
             </Button>
-            <Button size="large" buttonVariant="secondary">
-              <Button.Text>Secondary</Button.Text>
+            <Button size="large" variant="secondary">
+              Secondary
             </Button>
-            <Button size="large" buttonVariant="tertiary">
-              <Button.Text>Tertiary</Button.Text>
+            <Button size="large" variant="tertiary">
+              Tertiary
             </Button>
-            <Button size="large" buttonVariant="destructive">
-              <Button.Text>Destructive</Button.Text>
+            <Button size="large" variant="destructive">
+              Destructive
             </Button>
           </YStack>
         ),
@@ -83,20 +83,20 @@ const ButtonsGallery = () => (
           <YStack space="$2">
             <Button
               size="large"
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 alert('clicked');
               }}
             >
               Primary
             </Button>
-            <Button size="large" buttonVariant="secondary">
+            <Button size="large" variant="secondary">
               Secondary
             </Button>
-            <Button size="large" buttonVariant="tertiary">
+            <Button size="large" variant="tertiary">
               Tertiary
             </Button>
-            <Button size="large" buttonVariant="destructive">
+            <Button size="large" variant="destructive">
               Destructive
             </Button>
           </YStack>
@@ -107,36 +107,36 @@ const ButtonsGallery = () => (
         element: (
           <YStack space="$2">
             <XStack space="$2" alignItems="center">
-              <Button size="large" buttonVariant="primary">
-                <Button.Text>Large</Button.Text>
+              <Button size="large" variant="primary">
+                Large
               </Button>
-              <Button size="medium" buttonVariant="primary">
-                <Button.Text>Medium</Button.Text>
+              <Button size="medium" variant="primary">
+                Medium
               </Button>
-              <Button size="small" buttonVariant="primary">
-                <Button.Text>Small</Button.Text>
+              <Button size="small" variant="primary">
+                Small
               </Button>
             </XStack>
             <XStack space="$2" alignItems="center">
-              <Button size="large" buttonVariant="secondary">
-                <Button.Text>Large</Button.Text>
+              <Button size="large" variant="secondary">
+                Large
               </Button>
-              <Button size="medium" buttonVariant="secondary">
-                <Button.Text>Medium</Button.Text>
+              <Button size="medium" variant="secondary">
+                Medium
               </Button>
-              <Button size="small" buttonVariant="secondary">
-                <Button.Text>Small</Button.Text>
+              <Button size="small" variant="secondary">
+                Small
               </Button>
             </XStack>
             <XStack space="$10" alignItems="center">
-              <Button size="large" buttonVariant="tertiary">
-                <Button.Text>Large</Button.Text>
+              <Button size="large" variant="tertiary">
+                Large
               </Button>
-              <Button size="medium" buttonVariant="tertiary">
-                <Button.Text>Medium</Button.Text>
+              <Button size="medium" variant="tertiary">
+                Medium
               </Button>
-              <Button size="small" buttonVariant="tertiary">
-                <Button.Text>Small</Button.Text>
+              <Button size="small" variant="tertiary">
+                Small
               </Button>
             </XStack>
           </YStack>
@@ -146,17 +146,17 @@ const ButtonsGallery = () => (
         title: 'Icon on different sizes',
         element: (
           <XStack space="$2" alignItems="flex-end">
-            <Button size="large" buttonVariant="secondary">
+            <Button size="large" variant="secondary">
               <Button.Icon name="PlaceholderOutline" />
-              <Button.Text>Large</Button.Text>
+              Large
             </Button>
-            <Button size="medium" buttonVariant="secondary">
+            <Button size="medium" variant="secondary">
               <Button.Icon name="PlaceholderOutline" />
-              <Button.Text>Medium</Button.Text>
+              Medium
             </Button>
-            <Button size="small" buttonVariant="secondary">
+            <Button size="small" variant="secondary">
               <Button.Icon name="PlaceholderOutline" />
-              <Button.Text>Small</Button.Text>
+              Small
             </Button>
           </XStack>
         ),
@@ -165,21 +165,21 @@ const ButtonsGallery = () => (
         title: 'Icon on different colors',
         element: (
           <XStack space="$2" alignItems="center">
-            <Button size="medium" buttonVariant="primary">
+            <Button size="medium" variant="primary">
               <Button.Icon name="PlaceholderOutline" />
-              <Button.Text>Primary</Button.Text>
+              Primary
             </Button>
-            <Button size="medium" buttonVariant="secondary">
+            <Button size="medium" variant="secondary">
               <Button.Icon name="PlaceholderOutline" />
-              <Button.Text>Secondary</Button.Text>
+              Secondary
             </Button>
-            <Button size="medium" buttonVariant="tertiary">
+            <Button size="medium" variant="tertiary">
               <Button.Icon name="PlaceholderOutline" />
-              <Button.Text>Tertiary</Button.Text>
+              Tertiary
             </Button>
-            <Button size="medium" buttonVariant="destructive">
+            <Button size="medium" variant="destructive">
               <Button.Icon name="PlaceholderOutline" />
-              <Button.Text>Destructive</Button.Text>
+              Destructive
             </Button>
           </XStack>
         ),
@@ -188,16 +188,16 @@ const ButtonsGallery = () => (
         title: 'Disabled and loading',
         element: (
           <XStack space="$2" alignItems="center">
-            <Button size="medium" buttonVariant="secondary" disabled>
-              <Button.Text>Disabled</Button.Text>
+            <Button size="medium" variant="secondary" disabled>
+              Disabled
             </Button>
-            <Button size="medium" buttonVariant="destructive" disabled>
+            <Button size="medium" variant="destructive" disabled>
               <Button.Spinner />
             </Button>
-            <Button size="medium" buttonVariant="secondary" disabled>
+            <Button size="medium" variant="secondary" disabled>
               <Button.Spinner />
             </Button>
-            <Button size="large" buttonVariant="secondary" disabled>
+            <Button size="large" variant="secondary" disabled>
               <Button.Spinner />
             </Button>
           </XStack>

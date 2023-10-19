@@ -23,15 +23,15 @@ const ThemeGallery = () => {
                   dispatch(setTheme('light'));
                 }}
               >
-                <Button.Text>Light Theme</Button.Text>
+                Light Theme
               </Button>
               <Button
-                buttonVariant="primary"
+                variant="primary"
                 onPress={() => {
                   dispatch(setTheme('dark'));
                 }}
               >
-                <Button.Text>Night Theme</Button.Text>
+                Night Theme
               </Button>
             </XStack>
           ),
