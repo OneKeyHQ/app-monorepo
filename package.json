@@ -124,5 +124,9 @@
     "webpack-dev-server": "^4.15.1",
     "webpack-manifest-plugin": "^5.0.0",
     "webpack-subresource-integrity": "^5.2.0-rc.1"
-  }
+  },
+  "resolutions": {
+    "tronweb@^5.1.0": "5.1.0"
+  },
+  "packageManager": "yarn@3.5.0"
 }
