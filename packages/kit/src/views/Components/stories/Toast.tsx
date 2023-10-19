@@ -25,7 +25,7 @@ const ToastGallery = () => {
                   });
                 }}
               >
-                <Button.Text>Success</Button.Text>
+                Success
               </Button>
               <Button
                 onPress={() => {
@@ -34,7 +34,7 @@ const ToastGallery = () => {
                   });
                 }}
               >
-                <Button.Text>Error</Button.Text>
+                Error
               </Button>
               <Button
                 onPress={() => {
@@ -43,7 +43,7 @@ const ToastGallery = () => {
                   });
                 }}
               >
-                <Button.Text>Default</Button.Text>
+                Default
               </Button>
             </YStack>
           ),

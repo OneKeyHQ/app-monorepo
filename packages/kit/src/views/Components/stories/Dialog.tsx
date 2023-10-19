@@ -78,9 +78,7 @@ const ControlledDialogByButton = () => {
   const [isOpen, changeIsOpen] = useState(false);
   return (
     <>
-      <Button onPress={() => changeIsOpen(true)}>
-        <Button.Text>Open Modal By Button</Button.Text>
-      </Button>
+      <Button onPress={() => changeIsOpen(true)}>Open Modal By Button</Button>
       <Dialog
         backdrop
         title="Lorem ipsum"
@@ -136,7 +134,7 @@ const DialogGallery = () => (
                 })
               }
             >
-              <Button.Text>Confirm</Button.Text>
+              Confirm
             </Button>
           </YStack>
         ),
@@ -162,7 +160,7 @@ const DialogGallery = () => (
                 })
               }
             >
-              <Button.Text>load remote data successfully</Button.Text>
+              load remote data successfully
             </Button>
             <Button
               mt="$4"
@@ -183,7 +181,7 @@ const DialogGallery = () => (
                 })
               }
             >
-              <Button.Text>load remote data failed</Button.Text>
+              load remote data failed
             </Button>
           </YStack>
         ),
@@ -250,7 +248,7 @@ const DialogGallery = () => (
                 })
               }
             >
-              <Button.Text>Open Dialog Form</Button.Text>
+              Open Dialog Form
             </Button>
           </YStack>
         ),

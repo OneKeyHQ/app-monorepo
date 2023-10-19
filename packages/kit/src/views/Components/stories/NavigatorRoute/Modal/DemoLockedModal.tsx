@@ -38,14 +38,14 @@ const DemoLockedViewModal = () => {
           title: '开始 Demo',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 navigation.pushModal(RootModalRoutes.DemoLockedModal, {
                   screen: DemoLockedModalRoutes.DemoConfigLockedModal,
                 });
               }}
             >
-              <Button.Text>开始 Demo</Button.Text>
+              开始 Demo
             </Button>
           ),
         },
@@ -96,14 +96,14 @@ const DemoConfigLockedViewModal = () => {
           title: '下一个例子',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 navigation.pushModal(RootModalRoutes.DemoLockedModal, {
                   screen: DemoLockedModalRoutes.DemoManualLockedViewModal,
                 });
               }}
             >
-              <Button.Text>下一个例子</Button.Text>
+              下一个例子
             </Button>
           ),
         },
@@ -111,14 +111,14 @@ const DemoConfigLockedViewModal = () => {
           title: '取消锁定',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 navigation.setOptions({
                   disableClose: false,
                 });
               }}
             >
-              <Button.Text>取消锁定</Button.Text>
+              取消锁定
             </Button>
           ),
         },
@@ -169,14 +169,14 @@ const DemoManualLockedViewModal = () => {
           title: '下一个例子',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 navigation.pushModal(RootModalRoutes.DemoLockedModal, {
                   screen: DemoLockedModalRoutes.DemoRepeatManualLockedViewModal,
                 });
               }}
             >
-              <Button.Text>下一个例子</Button.Text>
+              下一个例子
             </Button>
           ),
         },
@@ -184,14 +184,14 @@ const DemoManualLockedViewModal = () => {
           title: '锁定',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 navigation.setOptions({
                   disableClose: true,
                 });
               }}
             >
-              <Button.Text>锁定</Button.Text>
+              锁定
             </Button>
           ),
         },
@@ -199,14 +199,14 @@ const DemoManualLockedViewModal = () => {
           title: '取消锁定',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 navigation.setOptions({
                   disableClose: false,
                 });
               }}
             >
-              <Button.Text>取消锁定</Button.Text>
+              取消锁定
             </Button>
           ),
         },
@@ -262,15 +262,15 @@ const DemoRepeatManualLockedViewModal = () => {
                 setLocked((pre) => !pre);
               }}
             >
-              <Button.Text>切换锁定</Button.Text>
+              切换锁定
             </Button>
           ),
         },
         {
           title: '关闭',
           element: (
-            <Button buttonVariant="primary" onPress={navigation.popStack}>
-              <Button.Text>关闭</Button.Text>
+            <Button variant="primary" onPress={navigation.popStack}>
+              关闭
             </Button>
           ),
         },

@@ -19,12 +19,12 @@ const DemoRootMe = () => {
           title: '切换到首页',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 navigation.switchTab(DemoTabRoutes.Home);
               }}
             >
-              <Button.Text>跳转 Home</Button.Text>
+              跳转 Home
             </Button>
           ),
         },
@@ -32,7 +32,7 @@ const DemoRootMe = () => {
           title: '切换到 Developer Tab 的第二个页面',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 navigation.switchTab(DemoTabRoutes.Developer, {
                   screen: DemoDeveloperTabRoutes.DemoRootDeveloperOptions,
@@ -42,7 +42,7 @@ const DemoRootMe = () => {
                 });
               }}
             >
-              <Button.Text>跳转 Developer</Button.Text>
+              跳转 Developer
             </Button>
           ),
         },

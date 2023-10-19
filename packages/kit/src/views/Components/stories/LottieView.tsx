@@ -69,21 +69,21 @@ const LottieViewGallery = () => {
                     ref.current?.play?.();
                   }}
                 >
-                  <Button.Text>play</Button.Text>
+                  play
                 </Button>
                 <Button
                   onPress={() => {
                     ref.current?.pause?.();
                   }}
                 >
-                  <Button.Text>pause</Button.Text>
+                  pause
                 </Button>
                 <Button
                   onPress={() => {
                     ref.current?.reset();
                   }}
                 >
-                  <Button.Text>reset</Button.Text>
+                  reset
                 </Button>
               </XStack>
             </YStack>

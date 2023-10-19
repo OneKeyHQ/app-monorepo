@@ -29,7 +29,7 @@ const Form1 = () => {
       form={form}
       footer={
         <Button
-          buttonVariant="primary"
+          variant="primary"
           onPress={async () => {
             const isValid = await form.trigger();
             if (isValid) {
@@ -39,7 +39,7 @@ const Form1 = () => {
             }
           }}
         >
-          <Button.Text>Submit</Button.Text>
+          Submit
         </Button>
       }
     >

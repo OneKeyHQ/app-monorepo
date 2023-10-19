@@ -17,14 +17,14 @@ const TabHomeStack1 = () => {
           navigation.pop();
         }}
       >
-        <Button.Text>上一页</Button.Text>
+        上一页
       </Button>
       <Button
         onPress={() => {
           navigation.push(TabHomeRoutes.TabHomeStack2);
         }}
       >
-        <Button.Text>下一页</Button.Text>
+        下一页
       </Button>
     </YStack>
   );

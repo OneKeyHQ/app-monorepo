@@ -13,11 +13,7 @@ const PopoverGallery = () => (
         element: (
           <Popover
             title="Popover Demo"
-            renderTrigger={
-              <Button>
-                <Button.Text>Open</Button.Text>
-              </Button>
-            }
+            renderTrigger={<Button>Open</Button>}
             renderContent={
               <Stack space="$4" p="$5">
                 <Text>
@@ -25,9 +21,7 @@ const PopoverGallery = () => (
                   exercitation occaecat minim incididunt non est est voluptate.
                 </Text>
                 <Popover.Close>
-                  <Button buttonVariant="primary">
-                    <Button.Text>Button</Button.Text>
-                  </Button>
+                  <Button variant="primary">Button</Button>
                 </Popover.Close>
               </Stack>
             }

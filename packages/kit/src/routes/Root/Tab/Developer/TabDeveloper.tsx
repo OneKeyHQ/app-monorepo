@@ -84,7 +84,7 @@ const TabDeveloper = () => {
             });
           }}
         >
-          <Button.Text>Gallery</Button.Text>
+          Gallery
         </Button>
       </PartContainer>
 
@@ -96,16 +96,16 @@ const TabDeveloper = () => {
               dispatch(setTheme('light'));
             }}
           >
-            <Button.Text>Light Theme</Button.Text>
+            Light Theme
           </Button>
           <Button
             flex={1}
-            buttonVariant="primary"
+            variant="primary"
             onPress={() => {
               dispatch(setTheme('dark'));
             }}
           >
-            <Button.Text>Night Theme</Button.Text>
+            Night Theme
           </Button>
         </XStack>
         <XStack gap="$4" display="flex" justifyContent="center">
@@ -115,16 +115,16 @@ const TabDeveloper = () => {
               dispatch(setLocale('en-US'));
             }}
           >
-            <Button.Text>英文</Button.Text>
+            英文
           </Button>
           <Button
             flex={1}
-            buttonVariant="primary"
+            variant="primary"
             onPress={() => {
               dispatch(setLocale('zh-CN'));
             }}
           >
-            <Button.Text>中文</Button.Text>
+            中文
           </Button>
         </XStack>
       </PartContainer>
@@ -153,17 +153,17 @@ const TabDeveloper = () => {
           }}
         >
           {platformEnv.isNative ? (
-            <Button.Text>
+            <>
               {rrtStatus
                 ? 'Disabled react-render-tracker'
                 : 'Enabled react-render-tracker'}
-            </Button.Text>
+            </>
           ) : (
-            <Button.Text>
+            <>
               {rrtStatus === '1'
                 ? 'Disabled react-render-tracker'
                 : 'Enabled react-render-tracker'}
-            </Button.Text>
+            </>
           )}
         </Button>
       </PartContainer>

@@ -301,14 +301,12 @@ function Select({
                   {title}
                 </Text>
                 <IconButton
-                  buttonVariant="secondary"
+                  icon="CrossedSmallOutline"
                   size="small"
                   hitSlop={8}
                   aria-label="Close"
                   onPress={() => setOpen(false)}
-                >
-                  <IconButton.Icon name="CrossedSmallOutline" />
-                </IconButton>
+                />
               </XStack>
               {/* divider */}
               <YStack

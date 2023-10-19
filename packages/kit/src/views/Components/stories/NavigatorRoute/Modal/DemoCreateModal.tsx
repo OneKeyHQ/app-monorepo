@@ -51,7 +51,7 @@ function DemoCreateViewModal({
             title: '开始 Demo',
             element: (
               <Button
-                buttonVariant="primary"
+                variant="primary"
                 onPress={() => {
                   navigation.navigate(
                     DemoCreateModalRoutes.DemoCreateSearchModal,
@@ -61,7 +61,7 @@ function DemoCreateViewModal({
                   );
                 }}
               >
-                <Button.Text>开始 Demo</Button.Text>
+                开始 Demo
               </Button>
             ),
           },
@@ -115,7 +115,7 @@ function DemoCreateSearchModal({
           title: '下一个例子',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 navigation.navigate(
                   DemoCreateModalRoutes.DemoCreateOptionsModal,
@@ -125,7 +125,7 @@ function DemoCreateSearchModal({
                 );
               }}
             >
-              <Button.Text>下一个例子</Button.Text>
+              下一个例子
             </Button>
           ),
         },
@@ -177,7 +177,7 @@ function DemoCreateOptionsModal({
           title: '跳转到其他 Stack 的 Modal',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 // @ts-expect-error
                 navigation.navigate(DemoRootRoutes.Modal, {
@@ -185,7 +185,7 @@ function DemoCreateOptionsModal({
                 });
               }}
             >
-              <Button.Text>跳转</Button.Text>
+              跳转
             </Button>
           ),
         },
@@ -193,7 +193,7 @@ function DemoCreateOptionsModal({
           title: '关闭',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 Toast.message({
                   title: 'Close Modal',
@@ -201,7 +201,7 @@ function DemoCreateOptionsModal({
                 navigation.getParent()?.goBack?.();
               }}
             >
-              <Button.Text>关闭并弹出 Toast</Button.Text>
+              关闭并弹出 Toast
             </Button>
           ),
         },

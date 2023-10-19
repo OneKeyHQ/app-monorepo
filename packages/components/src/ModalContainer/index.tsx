@@ -9,8 +9,6 @@ type ModalButtonGroupProps = {
   onCancel?: () => void;
   confirmButtonProps?: GetProps<typeof Button>;
   cancelButtonProps?: GetProps<typeof Button>;
-  confirmButtonTextProps?: GetProps<typeof Button.Text>;
-  cancelButtonTextProps?: GetProps<typeof Button.Text>;
 };
 
 function ModalButtonGroup({
@@ -18,8 +16,6 @@ function ModalButtonGroup({
   onConfirm,
   confirmButtonProps,
   cancelButtonProps,
-  confirmButtonTextProps,
-  cancelButtonTextProps,
 }: ModalButtonGroupProps) {
   return (
     <XStack
@@ -35,7 +31,6 @@ function ModalButtonGroup({
     >
       {(!!cancelButtonProps || !!onCancel) && (
         <Button
-          buttonVariant="secondary"
           $sm={{
             flex: 1,
             size: 'large',
@@ -46,14 +41,12 @@ function ModalButtonGroup({
           onPress={onCancel}
           {...cancelButtonProps}
         >
-          <Button.Text paddingHorizontal="$3" {...cancelButtonTextProps}>
-            Cancel
-          </Button.Text>
+          Cancel
         </Button>
       )}
       {(!!confirmButtonProps || !!onConfirm) && (
         <Button
-          buttonVariant="primary"
+          variant="primary"
           $sm={{
             flex: 1,
             size: 'large',
@@ -64,9 +57,7 @@ function ModalButtonGroup({
           onPress={onConfirm}
           {...confirmButtonProps}
         >
-          <Button.Text paddingHorizontal="$3" {...confirmButtonTextProps}>
-            Confirm
-          </Button.Text>
+          Confirm
         </Button>
       )}
     </XStack>
@@ -85,8 +76,6 @@ export function ModalContainer({
   onConfirm,
   confirmButtonProps,
   cancelButtonProps,
-  confirmButtonTextProps,
-  cancelButtonTextProps,
 }: ModalContainerProps) {
   return (
     <Stack flex={1}>
@@ -124,8 +113,6 @@ export function ModalContainer({
           onConfirm={onConfirm}
           confirmButtonProps={confirmButtonProps}
           cancelButtonProps={cancelButtonProps}
-          confirmButtonTextProps={confirmButtonTextProps}
-          cancelButtonTextProps={cancelButtonTextProps}
         />
       </Stack>
     </Stack>
