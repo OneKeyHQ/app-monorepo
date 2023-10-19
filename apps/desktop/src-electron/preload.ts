@@ -4,29 +4,6 @@ import { ipcRenderer } from 'electron';
 
 import type { UpdateSettings } from './libs/store';
 
-let keytar = {
-  async setPassword(...args: any[]) {
-    // noop
-    console.error('keytar.setPassword() not working.');
-  },
-  async getPassword(...args: any[]) {
-    console.error('keytar.getPassword() not working.');
-    return Promise.resolve('');
-  },
-  async deletePassword(...args: any[]) {
-    console.error('keytar.deletePassword() not working.');
-    return Promise.resolve('');
-  },
-};
-
-try {
-  // eslint-disable-next-line global-require
-  keytar = require('keytar');
-} catch (error: any) {
-  // Error: dlopen(//app-monorepo/node_modules/keytar/build/Release/keytar.node, 0x0001): tried: '//app-monorepo/node_modules/keytar/build/Release/keytar.node' (mach-o file, but is an incompatible architecture (have 'x86_64', need 'arm64e'))
-  console.error(error);
-}
-
 export type PrefType =
   | 'camera'
   | 'bluetooth'
@@ -201,13 +178,13 @@ const desktopApi = {
       ipcRenderer.send('app/promptTouchID', msg);
     }),
   secureSetItemAsync(key: string, value: string) {
-    return keytar.setPassword('OneKey', key, value);
+    return ipcRenderer.sendSync('app/secureSetItemAsync', { key, value });
   },
   secureGetItemAsync(key: string) {
-    return keytar.getPassword('OneKey', key);
+    return ipcRenderer.sendSync('app/secureGetItemAsync', { key });
   },
   secureDelItemAsync(key: string) {
-    return keytar.deletePassword('OneKey', key);
+    return ipcRenderer.sendSync('app/secureDelItemAsync', { key });
   },
   reloadBridgeProcess: () => {
     ipcRenderer.send('app/reloadBridgeProcess');
