@@ -21,9 +21,10 @@ import {
   withStaticProperties,
 } from 'tamagui';
 
-import { Form, useForm } from '../Form';
-import { type ICON_NAMES, Icon } from '../Icon';
 import { Button } from '../Button';
+import { Form, useForm } from '../Form';
+import useKeyboardHeight from '../hooks/useKeyboardHeight';
+import { type ICON_NAMES, Icon } from '../Icon';
 import { IconButton } from '../IconButton';
 import { removePortalComponent, setPortalComponent } from '../Portal';
 import { Stack, XStack, YStack } from '../Stack';
@@ -33,7 +34,6 @@ import type { FormProps } from '../Form';
 import type { SetStateAction } from 'jotai';
 import type { UseFormReturn } from 'react-hook-form';
 import type { ButtonProps, GetProps } from 'tamagui';
-import useKeyboardHeight from '../hooks/useKeyboardHeight';
 
 function Trigger({
   onOpen,

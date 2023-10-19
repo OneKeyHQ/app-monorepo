@@ -10,8 +10,8 @@ import {
 import { StyleSheet } from 'react-native';
 import { createStyledContext, styled } from 'tamagui';
 
-import { Icon } from '../Icon';
 import { Button } from '../Button';
+import { Icon } from '../Icon';
 import { IconButton } from '../IconButton';
 import { Stack, XStack, YStack } from '../Stack';
 import { Text } from '../Text';
