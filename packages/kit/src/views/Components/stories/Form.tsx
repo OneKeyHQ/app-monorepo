@@ -1,5 +1,4 @@
 import {
-  Button,
   Checkbox,
   Form,
   Input,
@@ -25,24 +24,7 @@ const Form1 = () => {
     },
   });
   return (
-    <Form
-      form={form}
-      footer={
-        <Button
-          variant="primary"
-          onPress={async () => {
-            const isValid = await form.trigger();
-            if (isValid) {
-              alert(JSON.stringify(form.getValues()));
-            } else {
-              alert('请检查输入项');
-            }
-          }}
-        >
-          Submit
-        </Button>
-      }
-    >
+    <Form form={form}>
       <Form.Field label="Name" name="name">
         <Input flex={1} />
       </Form.Field>
