@@ -12,4 +12,5 @@ export interface InpageProviderWebViewProps extends InpageWebViewProps {
   onContentLoaded?: () => void; // currently works in NativeWebView only
   onOpenWindow?: (event: any) => void;
   androidLayerType?: 'none' | 'software' | 'hardware';
+  scrolling?: 'auto' | 'yes' | 'no';
 }

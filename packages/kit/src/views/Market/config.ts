@@ -97,10 +97,10 @@ export const ListHeadTags: ListHeadTagType[] = [
     minW: '130px',
     textAlign: 'right',
     showVerticalLayout: false,
-      hide824Width: true,
-      hide924Width: true,
+    hide824Width: true,
+    hide924Width: true,
   },
-  /*{
+  /* {
     id: EMarketCellData.Token24hVolume,
     title: 'form__24h_volume_uppercase',
     minW: '120px',
@@ -108,8 +108,8 @@ export const ListHeadTags: ListHeadTagType[] = [
     showVerticalLayout: false,
     hide924Width: true,
     hide824Width: true,
-  },*/
-  //不再显示24h volume
+  }, */
+  // 不再显示24h volume
   {
     id: EMarketCellData.TokenSparklineChart,
     title: 'form__last_7_days_uppercase',
