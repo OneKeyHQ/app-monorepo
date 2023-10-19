@@ -17,7 +17,7 @@ const TabHome = () => {
           navigation.push(TabHomeRoutes.TabHomeStack1);
         }}
       >
-        <Button.Text>下一页</Button.Text>
+        下一页
       </Button>
     </YStack>
   );

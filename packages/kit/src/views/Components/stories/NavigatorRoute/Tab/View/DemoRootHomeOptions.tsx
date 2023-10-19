@@ -82,7 +82,7 @@ const DemoRootHomeOptions = () => {
                 });
               }}
             >
-              <Button.Text>弹出 Modal</Button.Text>
+              弹出 Modal
             </Button>
           ),
         },

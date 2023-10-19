@@ -69,8 +69,6 @@ export interface ModalProps {
   onCancel?: () => void;
   confirmButtonProps?: GetProps<typeof Button>;
   cancelButtonProps?: GetProps<typeof Button>;
-  confirmButtonTextProps?: GetProps<typeof Button.Text>;
-  cancelButtonTextProps?: GetProps<typeof Button.Text>;
   dismissOnSnapToBottom?: boolean;
 }
 
@@ -87,9 +85,7 @@ function DialogFrame({
   onCancel,
   variant,
   confirmButtonProps,
-  confirmButtonTextProps,
   cancelButtonProps,
-  cancelButtonTextProps,
   backdrop = false,
   dismissOnSnapToBottom = true,
 }: ModalProps) {
@@ -151,40 +147,35 @@ function DialogFrame({
             </Text>
           )}
         </Stack>
-        <IconButton size="small" onPress={handleCancelButtonPress}>
-          <IconButton.Icon name="CrossedSmallOutline" />
-        </IconButton>
+        <IconButton
+          icon="CrossedSmallOutline"
+          size="small"
+          onPress={handleCancelButtonPress}
+        />
       </XStack>
       {renderContent && <YStack pt="$5">{renderContent}</YStack>}
       <XStack justifyContent="center" pt="$5">
         <Button
-          buttonVariant="secondary"
           flex={1}
-          size="medium"
           $md={{
             size: 'large',
           }}
           {...cancelButtonProps}
           onPress={handleCancelButtonPress}
         >
-          <Button.Text paddingHorizontal="$3" {...cancelButtonTextProps}>
-            Cancel
-          </Button.Text>
+          Cancel
         </Button>
         <Button
-          buttonVariant={variant === 'destructive' ? 'destructive' : 'primary'}
+          variant={variant === 'destructive' ? 'destructive' : 'primary'}
           flex={1}
           ml="$2.5"
-          size="medium"
           $md={{
             size: 'large',
           }}
           {...confirmButtonProps}
           onPress={handleConfirmButtonPress}
         >
-          <Button.Text paddingHorizontal="$3" {...confirmButtonTextProps}>
-            Confirm
-          </Button.Text>
+          Confirm
         </Button>
       </XStack>
     </Stack>

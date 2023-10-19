@@ -16,7 +16,7 @@ const TabMe = () => {
           navigation.switchTab(TabRoutes.Me);
         }}
       >
-        <Button.Text>切换到首页</Button.Text>
+        <Button>切换到首页</Button>
       </Button>
     </YStack>
   );

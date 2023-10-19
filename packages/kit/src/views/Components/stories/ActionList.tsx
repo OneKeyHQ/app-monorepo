@@ -13,9 +13,7 @@ const ActionListDemo1 = () => {
       onOpenChange={onOpenChange}
       title="Action List"
       renderTrigger={
-        <Button onPress={() => onOpenChange(true)}>
-          <Button.Text>Action List</Button.Text>
-        </Button>
+        <Button onPress={() => onOpenChange(true)}>Action List</Button>
       }
       items={[
         {
@@ -47,9 +45,7 @@ const ActionListDemo2 = () => {
       onOpenChange={onOpenChange}
       title="Action List"
       renderTrigger={
-        <Button onPress={() => onOpenChange(true)}>
-          <Button.Text>Action List</Button.Text>
-        </Button>
+        <Button onPress={() => onOpenChange(true)}>Action List</Button>
       }
       sections={[
         {
@@ -102,9 +98,7 @@ const ActionListDemo3 = () => {
       onOpenChange={onOpenChange}
       title="Action List"
       renderTrigger={
-        <Button onPress={() => onOpenChange(true)}>
-          <Button.Text>With Section Title</Button.Text>
-        </Button>
+        <Button onPress={() => onOpenChange(true)}>With Section Title</Button>
       }
       sections={[
         {

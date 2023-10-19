@@ -38,7 +38,7 @@ function DemoCoverageModal() {
                 });
               }}
             >
-              <Button.Text>开始 Demo</Button.Text>
+              开始 Demo
             </Button>
           ),
         },
@@ -64,9 +64,7 @@ const ControlledDialogByButton = () => {
   return useMemo(
     () => (
       <>
-        <Button onPress={() => changeIsOpen(true)}>
-          <Button.Text>Open Modal By Button</Button.Text>
-        </Button>
+        <Button onPress={() => changeIsOpen(true)}>Open Modal By Button</Button>
         <Dialog
           backdrop
           title="我站在 Modal 上面"
@@ -82,7 +80,7 @@ const ControlledDialogByButton = () => {
         />
       </>
     ),
-    [isOpen, navigation],
+    [],
   );
 };
 
@@ -100,14 +98,14 @@ function DemoCoverageDialogModal() {
           title: '下一个例子',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 navigation.pushModal(RootModalRoutes.DemoCoverageModal, {
                   screen: DemoCoverageModalRoutes.DemoCoverageModalModal,
                 });
               }}
             >
-              <Button.Text>下一个例子</Button.Text>
+              下一个例子
             </Button>
           ),
         },
@@ -121,7 +119,7 @@ function DemoCoverageDialogModal() {
                 });
               }}
             >
-              <Button.Text>弹出 Toast</Button.Text>
+              弹出 Toast
             </Button>
           ),
         },
@@ -145,7 +143,7 @@ function DemoCoverageDialogModal() {
                 })
               }
             >
-              <Button.Text>Open Dialog</Button.Text>
+              Open Dialog
             </Button>
           ),
         },
@@ -179,12 +177,12 @@ function DemoCoverageModalModal() {
           title: '跳转到其他 Stack 的 Modal',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 navigation.pushModal(RootModalRoutes.DemoLockedModal);
               }}
             >
-              <Button.Text>跳转</Button.Text>
+              跳转
             </Button>
           ),
         },
@@ -199,7 +197,7 @@ function DemoCoverageModalModal() {
                 });
               }}
             >
-              <Button.Text>关闭并弹出 Toast</Button.Text>
+              关闭并弹出 Toast
             </Button>
           ),
         },
@@ -207,7 +205,7 @@ function DemoCoverageModalModal() {
           title: '关闭',
           element: (
             <Button
-              buttonVariant="primary"
+              variant="primary"
               onPress={() => {
                 Toast.message({
                   title: 'Close Modal',
@@ -215,7 +213,7 @@ function DemoCoverageModalModal() {
                 navigation.popStack();
               }}
             >
-              <Button.Text>弹出 Toast 然后关闭</Button.Text>
+              弹出 Toast 然后关闭
             </Button>
           ),
         },
