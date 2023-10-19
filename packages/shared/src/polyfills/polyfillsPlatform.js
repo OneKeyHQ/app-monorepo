@@ -53,7 +53,7 @@ if (typeof crypto === 'undefined') {
 
 // https://docs.ethers.io/v5/cookbook/react-native/
 // Import the crypto getRandomValues shim (**BEFORE** the shims)
-// require('react-native-get-random-values');
+import 'react-native-get-random-values';
 // Import the the ethers shims (**BEFORE** ethers)
 /*
 Shims Injected:
@@ -63,8 +63,8 @@ Shims Injected:
   - FileReader.prototype.readAsArrayBuffer
  */
 // Shim atob and btoa
-// const { Base64 } = require('js-base64');
-
+// const { Base64 } = import('./js-base64');
+// console.log('__Base64__', Base64)
 // if (!global.atob) {
 //   shimsLog('atob');
 //   global.atob = Base64.atob;
