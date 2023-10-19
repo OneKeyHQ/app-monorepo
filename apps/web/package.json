@@ -3,7 +3,12 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "expo start --web"
+    "start": "webpack serve"
+  },
+  "dependencies": {
+    "@onekeyhq/components": "*",
+    "@onekeyhq/shared": "*",
+    "@onekeyhq/kit": "*"
   },
   "private": true
 }

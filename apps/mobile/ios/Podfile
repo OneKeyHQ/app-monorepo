@@ -57,6 +57,9 @@ target 'OneKeyWallet' do
     :flipper_configuration => flipper_config
   )
 
+  pod 'JXPagingView/Pager'
+  pod 'JXCategoryView'
+
   post_install do |installer|
     react_native_post_install(
       installer,
