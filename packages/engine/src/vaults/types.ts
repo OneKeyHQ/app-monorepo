@@ -197,6 +197,7 @@ export type ITransferInfo = {
   txInterval?: string;
   ignoreInscriptions?: boolean;
   useCustomAddressesBalance?: boolean;
+  opReturn?: string;
 };
 export type IApproveInfo = {
   from: string; // token owner
