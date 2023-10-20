@@ -1,6 +1,5 @@
 import coreTestsUtils from '../../../@tests/coreTestsUtils';
 import coreTestsFixtures from '../../../@tests/fixtures/coreTestsFixtures';
-import { EAddressEncodings } from '../../types';
 
 import CoreChainHd from './CoreChainHd';
 
@@ -14,42 +13,56 @@ const {
   msgSamples,
 } = coreTestsFixtures.prepareCoreChainTestsFixtures({
   networkInfo: {
-    networkChainCode: 'ltc',
-    chainId: '0',
-    networkId: 'ltc--0',
-    networkImpl: 'ltc',
+    networkChainCode: 'cfx',
+    chainId: '1029',
+    networkId: 'cfx--1029',
+    networkImpl: 'cfx',
     isTestnet: false,
   },
-  hdAccountTemplate: "m/49'/2'/$$INDEX$$'/0/0",
+  hdAccountTemplate: "m/44'/503'/0'/0/$$INDEX$$",
   hdAccounts: [
     {
-      address: 'MCtPFWzDadmSdGAJXnrE4KpcHTuMpqn14m',
-      addresses: { '0/0': 'MCtPFWzDadmSdGAJXnrE4KpcHTuMpqn14m' },
-      path: "m/49'/2'/0'",
-      relPaths: ['0/0'],
-      xpub: 'Mtub2s6aTFt6zXFfse1eGz7ktsUQALH8Pd58ZBieNJi6c5tX5bzSpQsyhXun9tCH7mZSC4o9sy7gUt1aRx4rg9WVBWgFPWyy8QPiaqNj89FMAZ2',
-      xpvtRaw:
-        '01b2679203187951b380000000456b2937f22c5c8eb9747668a0102644275b7dba5e98333dbd9fef345d79988e00fee33ff0ee7e073d27f1ff09e6e5944ae7b99edbeefd9fe04f4bf85f7fafa8bb',
+      address: '0x1a8348d02ae925bb86e4a4ac031ec42c28a4b5dc',
+      addresses: {
+        'cfx--1029': 'cfx:aarjgwgufnywns6g6wwm2a282u0cvkfz5uekxw2hsm',
+      },
+      path: "m/44'/503'/0'/0/0",
       publicKey:
-        '039987a37562a942b11dd5401fc66688e61789469379435fdd5f7760ece8e4ff53',
+        '02474b4c1b1f3830fc0c161badc1b90ef06513593c67adaaab53e1140ca94cb652',
       privateKeyRaw:
-        '43939708c16241e47781724f04c2e95c48fa857bcc61b54b7c70be1418251c0f',
+        '468e1d6a29086e162746c66f491ddc3cbe3f11a8d826f8e1d4368e8f9bb1275c',
     },
   ],
   txSamples: [
     {
-      encodedTx: '',
+      encodedTx: {
+        'from': 'cfx:aarjgwgufnywns6g6wwm2a282u0cvkfz5uekxw2hsm',
+        'to': 'cfx:aarjgwgufnywns6g6wwm2a282u0cvkfz5uekxw2hsm',
+        'value': '0',
+        'data': '0x',
+        'gas': '0x5208',
+        'gasLimit': '0x5208',
+        'gasPrice': '1000000000',
+        'nonce': 0,
+        'epochHeight': 81203903,
+        'chainId': 1029,
+        'storageLimit': '0',
+      },
       signedTx: {
-        'txid': '',
-        'rawTx': '',
+        'digest':
+          '0x830f7330fe140d0515381cad22f7796b2e2f7a5c451641797f7bb4ee5aed7eeb',
+        'txid':
+          '0xf94d5db32cdfd3c644274c17003a975a2082eb4fffcea4900b5e8a9c10a11884',
+        'rawTx':
+          '0xf86de980843b9aca00825208941a8348d02ae925bb86e4a4ac031ec42c28a4b5dc80808404d712bf8204058001a0c57de20f6d4c8c3785e675cfc76a5fad0fcb6e80bb15edb020ee8c71dfb54b27a003158bbebc413d8ecbd69475f60d8b6b1156c18aeb46d4afd7028a96cdcedfa3',
       },
     },
   ],
   msgSamples: [],
 });
 
-// yarn jest packages/core/src/chains/ltc/CoreChainSoftware.test.ts
-describe('LTC Core tests', () => {
+// yarn jest packages/core/src/chains/cfx/CoreChainSoftware.test.ts
+describe('CFX Core tests', () => {
   it('mnemonic verify', () => {
     coreTestsUtils.expectMnemonicValid({
       hdCredential,
@@ -79,7 +92,6 @@ describe('LTC Core tests', () => {
       hdAccounts,
       hdAccountTemplate,
       hdCredential,
-      addressEncoding: EAddressEncodings.P2SH_P2WPKH,
     });
   });
   it('getPrivateKeys hd', async () => {
@@ -92,9 +104,8 @@ describe('LTC Core tests', () => {
     });
   });
 
-  it.skip('signTransaction', async () => {
+  it('signTransaction', async () => {
     const coreApi = new CoreChainHd();
-    // TODO LTC tx mock
     await coreTestsUtils.expectSignTransactionOk({
       coreApi,
       networkInfo,
@@ -103,7 +114,6 @@ describe('LTC Core tests', () => {
       txSamples,
     });
   });
-
   it.skip('signMessage', async () => {
     const coreApi = new CoreChainHd();
     // coreApi.signMessage

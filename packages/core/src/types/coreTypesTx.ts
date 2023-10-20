@@ -1,8 +1,9 @@
 import type { ICurveName } from './coreTypesBase';
 import type { IEncodedTxAda } from '../chains/ada/types';
+import type { IEncodedTxCfx } from '../chains/cfx/types';
 import type BigNumber from 'bignumber.js';
 
-export type IEncodedTx = string | IEncodedTxAda;
+export type IEncodedTx = string | IEncodedTxAda | IEncodedTxCfx;
 //   | IEncodedTxEvm
 //   | IEncodedTxAlgo
 //   | IEncodedTxNear

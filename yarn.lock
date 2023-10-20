@@ -1790,6 +1790,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@conflux-dev/conflux-address-js@npm:^1.3.16":
+  version: 1.3.16
+  resolution: "@conflux-dev/conflux-address-js@npm:1.3.16"
+  dependencies:
+    jsbi: ^3.1.4
+  checksum: 28d49508cc82ea86028da80b5266dcf179fa12c9e5f1ebcbc787b8d6381f7de53e7e07987ec55c7390a761843cab06cad90a7eb15133c457458d4567960e8482
+  languageName: node
+  linkType: hard
+
 "@develar/schema-utils@npm:~2.6.5":
   version: 2.6.5
   resolution: "@develar/schema-utils@npm:2.6.5"
@@ -2543,7 +2552,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ethersproject/logger@npm:5.7.0, @ethersproject/logger@npm:^5.7.0":
+"@ethersproject/logger@npm:5.7.0, @ethersproject/logger@npm:^5.5.0, @ethersproject/logger@npm:^5.7.0":
   version: 5.7.0
   resolution: "@ethersproject/logger@npm:5.7.0"
   checksum: 075ab2f605f1fd0813f2e39c3308f77b44a67732b36e712d9bc085f22a84aac4da4f71b39bee50fe78da3e1c812673fadc41180c9970fe5e486e91ea17befe0d
@@ -4751,6 +4760,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/core@workspace:packages/core"
   dependencies:
+    "@conflux-dev/conflux-address-js": ^1.3.16
     "@noble/secp256k1": 1.7.1
     "@onekeyfe/cardano-coin-selection": 1.0.0
     "@onekeyfe/cardano-coin-selection-asmjs": 1.1.0
@@ -4767,6 +4777,7 @@ __metadata:
     cardano-crypto.js: ^6.1.2
     ecpair: ^2.1.0
     elliptic: ^6.5.4
+    js-conflux-sdk: ^2.1.12
     jsrsasign: ^10.8.6
   languageName: unknown
   linkType: soft
@@ -8921,6 +8932,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"abi-util-lite@npm:^0.1.0":
+  version: 0.1.0
+  resolution: "abi-util-lite@npm:0.1.0"
+  dependencies:
+    "@ethersproject/logger": ^5.5.0
+  checksum: 1a8511a917278ce43e0637afa20f4bb968fd2a7903c552464b6df5fd5dbf428a353485cf0959c28b89f4be4c133c2c417f8e88870dd457ca1df1dcb9434e5a2a
+  languageName: node
+  linkType: hard
+
 "abort-controller@npm:^3.0.0":
   version: 3.0.0
   resolution: "abort-controller@npm:3.0.0"
@@ -11602,7 +11622,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"commander@npm:^8.3.0":
+"commander@npm:^8.0.0, commander@npm:^8.3.0":
   version: 8.3.0
   resolution: "commander@npm:8.3.0"
   checksum: 0f82321821fc27b83bd409510bb9deeebcfa799ff0bf5d102128b500b7af22872c0c92cb6a0ebc5a4cf19c6b550fba9cedfa7329d18c6442a625f851377bacf0
@@ -18766,6 +18786,29 @@ __metadata:
   languageName: node
   linkType: hard
 
+"js-conflux-sdk@npm:^2.1.12":
+  version: 2.1.12
+  resolution: "js-conflux-sdk@npm:2.1.12"
+  dependencies:
+    "@conflux-dev/conflux-address-js": ^1.3.16
+    abi-util-lite: ^0.1.0
+    big.js: ^5.2.2
+    commander: ^8.0.0
+    keccak: ^2.0.0
+    lodash: ^4.17.19
+    rlp: ^2.2.7
+    scrypt-js: ^3.0.1
+    secp256k1: ^3.7.1
+    superagent: ^6.1.0
+    websocket: ^1.0.31
+  bin:
+    cfxjs: bin/cfxjs.js
+    rpc: bin/rpc.js
+    sponsor: bin/sponsor.js
+  checksum: 15f69856ed311d1d12f831beb142e8aaec82f16eaabfb7e169c88781ecaa8db813b53d8480a9eede0aac35f91607beff612f622a93eb6016d877ab0947b400fc
+  languageName: node
+  linkType: hard
+
 "js-sha256@npm:^0.9.0":
   version: 0.9.0
   resolution: "js-sha256@npm:0.9.0"
@@ -18821,6 +18864,13 @@ __metadata:
   bin:
     js-yaml: bin/js-yaml.js
   checksum: c7830dfd456c3ef2c6e355cc5a92e6700ceafa1d14bba54497b34a99f0376cecbb3e9ac14d3e5849b426d5a5140709a66237a8c991c675431271c4ce5504151a
+  languageName: node
+  linkType: hard
+
+"jsbi@npm:^3.1.4":
+  version: 3.2.5
+  resolution: "jsbi@npm:3.2.5"
+  checksum: 642d1bb139ad1c1e96c4907eb159565e980a0d168487626b493d0d0b7b341da0e43001089d3b21703fe17b18a7a6c0f42c92026f71d54471ed0a0d1b3015ec0f
   languageName: node
   linkType: hard
 
@@ -19136,6 +19186,19 @@ __metadata:
     readable-stream: ~2.3.6
     setimmediate: ^1.0.5
   checksum: abc77bfbe33e691d4d1ac9c74c8851b5761fba6a6986630864f98d876f3fcc2d36817dfc183779f32c00157b5d53a016796677298272a714ae096dfe6b1c8b60
+  languageName: node
+  linkType: hard
+
+"keccak@npm:^2.0.0":
+  version: 2.1.0
+  resolution: "keccak@npm:2.1.0"
+  dependencies:
+    bindings: ^1.5.0
+    inherits: ^2.0.4
+    nan: ^2.14.0
+    node-gyp: latest
+    safe-buffer: ^5.2.0
+  checksum: 41367dc13038b24bfe6cc77d7fc2c8908edada0883bc50d751ad7aa7fc1091a9baab8ff79aeae3b262ff6042cb60b6521277d1f383493ce0bc0e9e3e3c933853
   languageName: node
   linkType: hard
 
@@ -24354,7 +24417,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rlp@npm:^2.2.4":
+"rlp@npm:^2.2.4, rlp@npm:^2.2.7":
   version: 2.2.7
   resolution: "rlp@npm:2.2.7"
   dependencies:
@@ -24569,7 +24632,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"secp256k1@npm:^3.0.1":
+"secp256k1@npm:^3.0.1, secp256k1@npm:^3.7.1":
   version: 3.8.0
   resolution: "secp256k1@npm:3.8.0"
   dependencies:
@@ -25724,7 +25787,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"superagent@npm:6.1.0":
+"superagent@npm:6.1.0, superagent@npm:^6.1.0":
   version: 6.1.0
   resolution: "superagent@npm:6.1.0"
   dependencies:
@@ -27910,7 +27973,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"websocket@npm:^1.0.32":
+"websocket@npm:^1.0.31, websocket@npm:^1.0.32":
   version: 1.0.34
   resolution: "websocket@npm:1.0.34"
   dependencies:
