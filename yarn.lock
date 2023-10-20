@@ -1790,6 +1790,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@bitcoinerlab/secp256k1@npm:^1.0.2":
+  version: 1.0.5
+  resolution: "@bitcoinerlab/secp256k1@npm:1.0.5"
+  dependencies:
+    "@noble/hashes": ^1.1.5
+    "@noble/secp256k1": ^1.7.1
+  checksum: 410a60394f2877941815a8b2ac6b70215ab2278ee106dea67673224c55cee87c8fc7136fc7a0d8ce73181b7953a811738d4c9480bdc2216c9cd75e2e07407723
+  languageName: node
+  linkType: hard
+
 "@conflux-dev/conflux-address-js@npm:^1.3.16":
   version: 1.3.16
   resolution: "@conflux-dev/conflux-address-js@npm:1.3.16"
@@ -3381,6 +3391,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@glif/filecoin-address@npm:^2.0.43":
+  version: 2.0.43
+  resolution: "@glif/filecoin-address@npm:2.0.43"
+  dependencies:
+    blakejs: 1.1.0
+    borc: 3.0.0
+    ethers: ^5.7.2
+    leb128: 0.0.5
+    uint8arrays: 3.0.0
+  checksum: c88cf233f26e26e5b857590f526901576fe941cc6befe99fb84b5e72870844e6c983ad1b916ae561bb67f2a900b39bf7fcfaa001466b4e9c9e740e6d221e3e1a
+  languageName: node
+  linkType: hard
+
 "@graphql-typed-document-node/core@npm:^3.1.0":
   version: 3.2.0
   resolution: "@graphql-typed-document-node/core@npm:3.2.0"
@@ -3435,6 +3458,16 @@ __metadata:
   version: 1.0.0
   resolution: "@ide/backoff@npm:1.0.0"
   checksum: 05860fd05952c83e7bc2f23e5f25b9301a60d99254ee4a8d63f5907da0f908af9db718c9027dd2cdaec8203fa05e9dd6afaca767e7e69cefd0a0eef33d9a17ea
+  languageName: node
+  linkType: hard
+
+"@ipld/dag-cbor@npm:^9.0.0":
+  version: 9.0.6
+  resolution: "@ipld/dag-cbor@npm:9.0.6"
+  dependencies:
+    cborg: ^4.0.0
+    multiformats: ^12.0.1
+  checksum: 4c6f1ef0d91e8cf98bf7df3b029bc7f69d9e8e97fe2a60f80d27734f4be764691b8d63c3b1ed2d9cd0c5ea62c1bcc834a102e166299ea6472cbae4cb36a9c348
   languageName: node
   linkType: hard
 
@@ -3995,7 +4028,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/hashes@npm:1.3.2, @noble/hashes@npm:^1.2.0, @noble/hashes@npm:^1.3.0, @noble/hashes@npm:^1.3.1, @noble/hashes@npm:^1.3.2, @noble/hashes@npm:~1.3.0, @noble/hashes@npm:~1.3.1, @noble/hashes@npm:~1.3.2":
+"@noble/hashes@npm:1.3.2, @noble/hashes@npm:^1.1.5, @noble/hashes@npm:^1.2.0, @noble/hashes@npm:^1.3.0, @noble/hashes@npm:^1.3.1, @noble/hashes@npm:^1.3.2, @noble/hashes@npm:~1.3.0, @noble/hashes@npm:~1.3.1, @noble/hashes@npm:~1.3.2":
   version: 1.3.2
   resolution: "@noble/hashes@npm:1.3.2"
   checksum: fe23536b436539d13f90e4b9be843cc63b1b17666a07634a2b1259dded6f490be3d050249e6af98076ea8f2ea0d56f578773c2197f2aa0eeaa5fba5bc18ba474
@@ -4009,7 +4042,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/secp256k1@npm:1.7.1":
+"@noble/secp256k1@npm:1.7.1, @noble/secp256k1@npm:^1.7.1":
   version: 1.7.1
   resolution: "@noble/secp256k1@npm:1.7.1"
   checksum: d2301f1f7690368d8409a3152450458f27e54df47e3f917292de3de82c298770890c2de7c967d237eff9c95b70af485389a9695f73eb05a43e2bd562d18b18cb
@@ -4761,12 +4794,15 @@ __metadata:
   resolution: "@onekeyhq/core@workspace:packages/core"
   dependencies:
     "@conflux-dev/conflux-address-js": ^1.3.16
+    "@glif/filecoin-address": ^2.0.43
     "@noble/secp256k1": 1.7.1
     "@onekeyfe/cardano-coin-selection": 1.0.0
     "@onekeyfe/cardano-coin-selection-asmjs": 1.1.0
     "@types/bchaddrjs": ^0.4.2
+    "@zondax/izari-filecoin": ^1.2.0
     algosdk: ^2.6.0
     asmcrypto.js: 2.3.2
+    base32-decode: ^1.0.0
     bchaddrjs: ^0.5.2
     bip32: ^4.0.0
     bip39: ^3.1.0
@@ -6115,6 +6151,13 @@ __metadata:
     rpc-websockets: ^7.5.1
     superstruct: ^0.14.2
   checksum: 7e8ae7775f0df82d7d796befd1f2f95482e5935e6879dba7aa6c65093cb7a09158b965e3aba15e218c2652efaa7ec77c2287c01f343e4ec08afd1a298c16a039
+  languageName: node
+  linkType: hard
+
+"@sovpro/delimited-stream@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "@sovpro/delimited-stream@npm:1.1.0"
+  checksum: e78fc97a8509c07b55483df2253137de07b10f14db15d230526a6dd95c86e99d8f54c7af8697806bd16522eec2c50e44e5b4e0294bed80da833a2185f17f3ab6
   languageName: node
   linkType: hard
 
@@ -8906,6 +8949,25 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@zondax/izari-filecoin@npm:^1.2.0":
+  version: 1.2.0
+  resolution: "@zondax/izari-filecoin@npm:1.2.0"
+  dependencies:
+    "@bitcoinerlab/secp256k1": ^1.0.2
+    "@ipld/dag-cbor": ^9.0.0
+    axios: ^1.3.2
+    base32-decode: ^1.0.0
+    bip32: ^4.0.0
+    bip39: ^3.0.4
+    blakejs: ^1.2.1
+    bn.js: ^5.2.1
+    leb128: ^0.0.5
+    multiformats: ^11.0.2
+    secp256k1: ^5.0.0
+  checksum: 3dedcc165438c6a0af235adf84614f54c362e39753ad6175dfbb0e602fd6ddd4bdbea2ebc4993760945e682b9f3125e77db2535ad24d68b00fbabc43fcf1e239
+  languageName: node
+  linkType: hard
+
 "JSONStream@npm:^1.3.5":
   version: 1.3.5
   resolution: "JSONStream@npm:1.3.5"
@@ -9758,7 +9820,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"axios@npm:^1.5.1":
+"axios@npm:^1.3.2, axios@npm:^1.5.1":
   version: 1.5.1
   resolution: "axios@npm:1.5.1"
   dependencies:
@@ -10125,6 +10187,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"base32-decode@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "base32-decode@npm:1.0.0"
+  checksum: db910d7187010ca41892f4316947241be65dd14456a9f06e87c1e113ed4421627e17087d0d45afe6b757567600aeb3d823074a1cb7f7acffdcd08ccb25634e78
+  languageName: node
+  linkType: hard
+
 "base64-js@npm:^1.1.2, base64-js@npm:^1.2.3, base64-js@npm:^1.3.1, base64-js@npm:^1.5.1":
   version: 1.5.1
   resolution: "base64-js@npm:1.5.1"
@@ -10271,7 +10340,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bip39@npm:^3.0.2, bip39@npm:^3.1.0":
+"bip39@npm:^3.0.2, bip39@npm:^3.0.4, bip39@npm:^3.1.0":
   version: 3.1.0
   resolution: "bip39@npm:3.1.0"
   dependencies:
@@ -10379,7 +10448,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"blakejs@npm:^1.1.0":
+"blakejs@npm:1.1.0":
+  version: 1.1.0
+  resolution: "blakejs@npm:1.1.0"
+  checksum: 69df62aee27e30ff2af8d709dd4676e037f2e92ded09b0d1a8187d1a69edaf05f4e63f3f473a0e44576e517196e54193641eec345bcc505c8a221940ec491141
+  languageName: node
+  linkType: hard
+
+"blakejs@npm:^1.1.0, blakejs@npm:^1.2.1":
   version: 1.2.1
   resolution: "blakejs@npm:1.2.1"
   checksum: d699ba116cfa21d0b01d12014a03e484dd76d483133e6dc9eb415aa70a119f08beb3bcefb8c71840106a00b542cba77383f8be60cd1f0d4589cb8afb922eefbe
@@ -10493,6 +10569,26 @@ __metadata:
   version: 3.2.0
   resolution: "boolean@npm:3.2.0"
   checksum: fb29535b8bf710ef45279677a86d14f5185d604557204abd2ca5fa3fb2a5c80e04d695c8dbf13ab269991977a79bb6c04b048220a6b2a3849853faa94f4a7d77
+  languageName: node
+  linkType: hard
+
+"borc@npm:3.0.0":
+  version: 3.0.0
+  resolution: "borc@npm:3.0.0"
+  dependencies:
+    bignumber.js: ^9.0.0
+    buffer: ^6.0.3
+    commander: ^2.15.0
+    ieee754: ^1.1.13
+    iso-url: ^1.1.5
+    json-text-sequence: ~0.3.0
+    readable-stream: ^3.6.0
+  bin:
+    cbor2comment: bin/cbor2comment.js
+    cbor2diag: bin/cbor2diag.js
+    cbor2json: bin/cbor2json.js
+    json2cbor: bin/json2cbor.js
+  checksum: 23e39557ed952a2e6e984cfc6277e714a3077c96202604a1a404149b656766ba1d3351d4a585b0f27126964fcd14aa95ff7acee83bfe947b863bd306b84876c2
   languageName: node
   linkType: hard
 
@@ -10784,6 +10880,15 @@ __metadata:
   version: 1.1.2
   resolution: "buffer-from@npm:1.1.2"
   checksum: 0448524a562b37d4d7ed9efd91685a5b77a50672c556ea254ac9a6d30e3403a517d8981f10e565db24e8339413b43c97ca2951f10e399c6125a0d8911f5679bb
+  languageName: node
+  linkType: hard
+
+"buffer-pipe@npm:0.0.3":
+  version: 0.0.3
+  resolution: "buffer-pipe@npm:0.0.3"
+  dependencies:
+    safe-buffer: ^5.1.2
+  checksum: 04daf09291f88952078578cc1e6e06ce044c1c0c57b0f5fef6a4d9332d7bd016f4f54331421fae1a322de45df5cfd79ff443aa04dfc51c244809e18b7a404746
   languageName: node
   linkType: hard
 
@@ -11127,6 +11232,15 @@ __metadata:
   dependencies:
     big-integer: 1.6.36
   checksum: ffc458dfc96c8f3938c7bc4e024c27d1797c63c99a5fd3a9c5a43c8046e74f891cf132a21c1ac3622474f2bb18131548d6305aac59914768e7ff1be6c18ee882
+  languageName: node
+  linkType: hard
+
+"cborg@npm:^4.0.0":
+  version: 4.0.3
+  resolution: "cborg@npm:4.0.3"
+  bin:
+    cborg: lib/bin.js
+  checksum: c6ae097661793aa561b2322ec40c98a80c0e565da1433899d22e4571233422fe37068121b2600713915a28c839f4804e92934d02049534b1592910554378019f
   languageName: node
   linkType: hard
 
@@ -14760,7 +14874,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ethers@npm:^5.4.4, ethers@npm:^5.6.9":
+"ethers@npm:^5.4.4, ethers@npm:^5.6.9, ethers@npm:^5.7.2":
   version: 5.7.2
   resolution: "ethers@npm:5.7.2"
   dependencies:
@@ -18019,6 +18133,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"iso-url@npm:^1.1.5":
+  version: 1.2.1
+  resolution: "iso-url@npm:1.2.1"
+  checksum: 1af98c4ed6a39598407fd8c3c13e997c978985f477af2be3390d2aa3e422b4b5992ffbb0dac68656b165c71850fff748ac1309d29d4f2a728707d76bf0f98557
+  languageName: node
+  linkType: hard
+
 "iso-url@npm:~0.4.7":
   version: 0.4.7
   resolution: "iso-url@npm:0.4.7"
@@ -19087,6 +19208,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"json-text-sequence@npm:~0.3.0":
+  version: 0.3.0
+  resolution: "json-text-sequence@npm:0.3.0"
+  dependencies:
+    "@sovpro/delimited-stream": ^1.1.0
+  checksum: e5dc050aadd626938514363399cf14c409f878628914922c5d470530c3f3473d6b0e16a10338dd7d863aab0291bb0e5e15d71526d14733c22e30cba771b03297
+  languageName: node
+  linkType: hard
+
 "json5@npm:^1.0.2":
   version: 1.0.2
   resolution: "json5@npm:1.0.2"
@@ -19305,6 +19435,16 @@ __metadata:
   version: 1.0.5
   resolution: "lazy-val@npm:1.0.5"
   checksum: 31e12e0b118826dfae74f8f3ff8ebcddfe4200ff88d0d448db175c7265ee537e0ba55488d411728246337f3ed3c9ec68416f10889f632a2ce28fb7a970909fb5
+  languageName: node
+  linkType: hard
+
+"leb128@npm:0.0.5, leb128@npm:^0.0.5":
+  version: 0.0.5
+  resolution: "leb128@npm:0.0.5"
+  dependencies:
+    bn.js: ^5.0.0
+    buffer-pipe: 0.0.3
+  checksum: d477f9f5c423401f279a7a9e2afa96d42baf1701a4e2a3d62a08696efa8c536d93a122ece14b9b54037e847108f67426abe6bbb6b4e1327a9bbbc9058ebafe60
   languageName: node
   linkType: hard
 
@@ -20854,6 +20994,27 @@ __metadata:
   languageName: node
   linkType: hard
 
+"multiformats@npm:^11.0.2":
+  version: 11.0.2
+  resolution: "multiformats@npm:11.0.2"
+  checksum: e587bbe709f29e42ae3c22458c960070269027d962183afc49a83b8ba26c31525e81ce2ac71082a52ba0a75e9aed4d0d044cac68d32656fdcd5cd340fb367fac
+  languageName: node
+  linkType: hard
+
+"multiformats@npm:^12.0.1":
+  version: 12.1.2
+  resolution: "multiformats@npm:12.1.2"
+  checksum: 092c914fc60e647c976da2bfa82236a426f88d1bd278a0b211539f7252b8a316eb24d78a04549111591beaeb83bbcac233f31f91a65450d27de79194d35ae127
+  languageName: node
+  linkType: hard
+
+"multiformats@npm:^9.4.2":
+  version: 9.9.0
+  resolution: "multiformats@npm:9.9.0"
+  checksum: d3e8c1be400c09a014f557ea02251a2710dbc9fca5aa32cc702ff29f636c5471e17979f30bdcb0a9cbb556f162a8591dc2e1219c24fc21394a56115b820bb84e
+  languageName: node
+  linkType: hard
+
 "multihashes@npm:^0.4.15, multihashes@npm:~0.4.15":
   version: 0.4.21
   resolution: "multihashes@npm:0.4.21"
@@ -21060,6 +21221,15 @@ __metadata:
   dependencies:
     node-gyp: latest
   checksum: 3de396e23cc209f539c704583e8e99c148850226f6e389a641b92e8967953713228109f919765abc1f4355e801e8f41842f96210b8d61c7dcc10a477002dcf00
+  languageName: node
+  linkType: hard
+
+"node-addon-api@npm:^5.0.0":
+  version: 5.1.0
+  resolution: "node-addon-api@npm:5.1.0"
+  dependencies:
+    node-gyp: latest
+  checksum: 2508bd2d2981945406243a7bd31362fc7af8b70b8b4d65f869c61731800058fb818cc2fd36c8eac714ddd0e568cc85becf5e165cebbdf7b5024d5151bbc75ea1
   languageName: node
   linkType: hard
 
@@ -24661,6 +24831,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"secp256k1@npm:^5.0.0":
+  version: 5.0.0
+  resolution: "secp256k1@npm:5.0.0"
+  dependencies:
+    elliptic: ^6.5.4
+    node-addon-api: ^5.0.0
+    node-gyp: latest
+    node-gyp-build: ^4.2.0
+  checksum: a0719dff4687c38d385b5e0b7e811c51a4ea24893128be9d097aee99f879eb0ea52582590deb15a49da627a3db23c6b028ad5c9c6ac1fca92ce760153b8cf21c
+  languageName: node
+  linkType: hard
+
 "select-hose@npm:^2.0.0":
   version: 2.0.0
   resolution: "select-hose@npm:2.0.0"
@@ -26806,6 +26988,15 @@ __metadata:
   bin:
     uglifyjs: bin/uglifyjs
   checksum: f2de133ba71f05aca442db2c31a2f2614201e5b540948f022f5b53cd39b6b1b43a7db7cc2aa9917383bbb26e8043947fce35867cd1edcf2444854cb7fae0fa99
+  languageName: node
+  linkType: hard
+
+"uint8arrays@npm:3.0.0":
+  version: 3.0.0
+  resolution: "uint8arrays@npm:3.0.0"
+  dependencies:
+    multiformats: ^9.4.2
+  checksum: 58470e687140e64a7fa08ab66b64777b75f105bf78180324448dc798436beacf0bd322cd2b58d20ca4cfa2e091f58e4b52d008e95f21d0ade16c1102b5d23ad3
   languageName: node
   linkType: hard
 
