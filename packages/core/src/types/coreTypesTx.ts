@@ -1,8 +1,8 @@
-import type BigNumber from 'bignumber.js';
+import type { ICurveName } from './coreTypesBase';
 import type { IEncodedTxAda } from '../chains/ada/types';
 import type { IEncodedTxCfx } from '../chains/cfx/types';
-import { IEncodedTxCosmos } from '../chains/cosmos/types';
-import type { ICurveName } from './coreTypesBase';
+import type { IEncodedTxCosmos } from '../chains/cosmos/types';
+import type BigNumber from 'bignumber.js';
 
 export type IEncodedTx =
   | string

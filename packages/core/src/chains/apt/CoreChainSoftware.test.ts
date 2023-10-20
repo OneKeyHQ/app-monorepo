@@ -1,4 +1,3 @@
-
 import coreTestsUtils from '../../../@tests/coreTestsUtils';
 import coreTestsFixtures from '../../../@tests/fixtures/coreTestsFixtures';
 import { EMessageTypesAptos } from '../../types';

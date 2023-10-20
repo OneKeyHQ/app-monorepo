@@ -15,6 +15,7 @@ import {
   serializeTxForSignature,
 } from './sdkCosmos';
 
+import type { IEncodedTxCosmos } from './types';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
@@ -28,7 +29,6 @@ import type {
   ICurveName,
   ISignedTxPro,
 } from '../../types';
-import { IEncodedTxCosmos } from './types';
 
 const curve: ICurveName = 'secp256k1';
 
