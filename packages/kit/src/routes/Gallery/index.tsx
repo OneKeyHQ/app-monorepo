@@ -4,7 +4,7 @@ import ActionListGallery from '@onekeyhq/kit/src/views/Components/stories/Action
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonGallery from '@onekeyhq/kit/src/views/Components/stories/Button';
 import CheckboxGallery from '@onekeyhq/kit/src/views/Components/stories/Checkbox';
-import CollapsibleTabViewGallery from '@onekeyhq/kit/src/views/Components/stories/CollapsibleTabView';
+import TabViewGallery from '@onekeyhq/kit/src/views/Components/stories/TabView';
 import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
 import EmptyGallery from '@onekeyhq/kit/src/views/Components/stories/Empty';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
@@ -59,7 +59,7 @@ export enum GalleryRoutes {
   ComponentPopover = 'component/popover',
   ComponentToggleGroup = 'component/toggleGroup',
   ComponentTheme = 'component/theme',
-  ComponentCollapsibleTabs = 'component/collapsibleTabs',
+  ComponentTabview = 'component/tabview',
   componentQRCode = 'component/qrCode',
   ComponentWebview = 'component/webview',
 }
@@ -109,9 +109,8 @@ export const stackScreenList = [
     component: FormGallery,
   },
   {
-    name: GalleryRoutes.ComponentCollapsibleTabs,
-    component: CollapsibleTabViewGallery,
-    // options: { headerShown: false },
+    name: GalleryRoutes.ComponentTabview,
+    component: TabViewGallery,
   },
   {
     name: GalleryRoutes.componentQRCode,
