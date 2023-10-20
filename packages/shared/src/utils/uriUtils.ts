@@ -1,8 +1,3 @@
-
-import { openURL as LinkingOpenURL } from 'expo-linking';
-
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 function getOriginFromUrl({ url }: { url: string }): string {
   try {
     const urlInfo = new URL(url);
@@ -27,12 +22,3 @@ export function checkOneKeyCardGoogleOauthUrl({
     'https://accounts.google.com',
   ].includes(origin);
 }
-
-export const openUrlExternal = (url: string) => {
-  if (platformEnv.isNative) {
-    // open by OS default browser
-    LinkingOpenURL(url);
-  } else {
-    window.open(url, '_blank');
-  }
-};

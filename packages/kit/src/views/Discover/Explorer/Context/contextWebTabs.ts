@@ -7,7 +7,7 @@ import {
   createJotaiContext,
 } from '@onekeyhq/kit/src/store/jotai/createJotaiContext';
 
-import { webviewRefs } from '../explorerUtils';
+import { webviewRefs } from '../../explorerUtils';
 
 export interface WebTab {
   id: string;
@@ -212,7 +212,7 @@ const {
   store: webTabsStore,
 } = createJotaiContext();
 
-export { withProviderWebTabs, useAtomWebTabs };
+export { withProviderWebTabs, useAtomWebTabs, webTabsStore };
 
 export const getCurrentTabId = () => {
   if (!_currentTabId) {

@@ -11,7 +11,7 @@ import {
   useAtomWebTabs,
   withProviderWebTabs,
 } from '../Context/contextWebTabs';
-import { webHandler } from '../explorerUtils';
+import { webHandler } from '../../explorerUtils';
 
 import ControllerBarDesktop from './ControllerBarDesktop';
 import TabBarDesktop from './TabBarDesktop';

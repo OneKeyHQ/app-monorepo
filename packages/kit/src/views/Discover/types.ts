@@ -7,3 +7,9 @@ export type DAppItemType = {
   networkIds: string[];
   _subtitle?: string;
 };
+
+export type WebSiteHistory = {
+  title?: string;
+  url?: string;
+  favicon?: string;
+};

@@ -16,7 +16,7 @@ import {
   setCurrentWebTabAtomWithWriteOnly,
   useAtomWebTabs,
 } from '../Context/contextWebTabs';
-import { dismissWebviewKeyboard } from '../explorerUtils';
+import { dismissWebviewKeyboard } from '../../explorerUtils';
 
 import type { WebTab } from '../Context/contextWebTabs';
 import type { LayoutChangeEvent } from 'react-native';
