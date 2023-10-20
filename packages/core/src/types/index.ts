@@ -6,7 +6,7 @@ import type {
 } from '@onekeyhq/core/src/secret';
 
 import type { ICurveName } from './coreTypesBase';
-import type { AddressEncodings } from './coreEnums';
+import type { EAddressEncodings } from './coreEnums';
 import type { IUnsignedMessage } from './coreTypesMessage';
 import type { IUnsignedTxPro } from './coreTypesTx';
 
@@ -35,7 +35,7 @@ export type ICoreApiGetAddressesQueryHdBase = {
 };
 export type ICoreApiGetAddressesQueryHdEvm = ICoreApiGetAddressesQueryHdBase;
 export type ICoreApiGetAddressesQueryHdBtc = ICoreApiGetAddressesQueryHdBase & {
-  addressEncoding: AddressEncodings;
+  addressEncoding: EAddressEncodings;
 };
 
 export type ICoreApiGetAddressesQueryHd =

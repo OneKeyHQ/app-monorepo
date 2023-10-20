@@ -71,7 +71,6 @@ export type IUnsignedTxPro = UnsignedTx & {
   inputsToSign?: InputToSign[];
   // signerAccount: ISignerAccountEvm | ISignerAccountNear | ISignerAccountAptos
 };
-
 export type SignedTx = {
   txid: string;
   rawTx: string;
