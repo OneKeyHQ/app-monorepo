@@ -4,11 +4,11 @@ on:
   pull_request:
     branches:
       - onekey
-      - next
+      - x
   push:
     branches:
       - onekey
-      - next
+      - x
 
 # Cancel a currently running workflow from the same PR/branch/tag
 # when a new workflow is triggered
