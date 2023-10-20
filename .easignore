@@ -1,0 +1,7 @@
+node_modules/
+build/
+dist/
+
+__generated__/
+build-electron/
+web-build/

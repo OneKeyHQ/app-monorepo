@@ -22,18 +22,30 @@ object EnvManager {
     }
 
     fun readRootEnvFile(fileName: String): Properties {
-        // base file path: apps/mobile/android/
-        val rootEnvPath = "./../../../"
+        val maxDepth = 8
+        var currentDepth = 0
+        var currentPath = "./"
 
         val props = Properties()
-        try {
-            File(rootEnvPath + File.separator + fileName).inputStream().use { stream ->
-                props.load(stream)
+        while (currentDepth < maxDepth) {
+            val potentialFile = File(currentPath + fileName)
+            if (potentialFile.exists()) {
+                try {
+                    potentialFile.inputStream().use { stream ->
+                        props.load(stream)
+                    }
+                    println("Success Load $fileName at ${potentialFile.absolutePath}")
+                } catch (ignore: Exception) {
+                    // ignore
+                }
+                return props
             }
-        } catch (ignore: Exception) {
-            // ignore
+
+            currentPath += "../" // Go one directory up
+            currentDepth++
         }
-        return props
+
+        return props // Return empty properties if file wasn't found
     }
 }
 

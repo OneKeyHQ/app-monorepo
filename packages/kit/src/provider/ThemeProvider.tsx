@@ -2,12 +2,12 @@ import type { ComponentProps, FC } from 'react';
 import { memo, useEffect } from 'react';
 
 import { Provider } from '@onekeyhq/components';
-
-import { useThemeProviderVariant } from '../hooks/useThemeVariant';
 import {
   setDarkContent,
   setLightContent,
 } from '@onekeyhq/components/src/Navigation/utils/StatusBarUtils';
+
+import { useThemeProviderVariant } from '../hooks/useThemeVariant';
 
 const ThemeApp: FC = ({ children }) => {
   const { themeVariant, localeVariant } = useThemeProviderVariant();

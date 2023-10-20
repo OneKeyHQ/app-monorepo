@@ -3,8 +3,10 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "android": "expo run:android",
-    "android:device": "expo run:android --device",
+    "android": "NDROID_CHANNEL=direct expo run:android --variant=ProdDebug",
+    "android:device": "ANDROID_CHANNEL=direct expo run:android --variant=ProdDebug --device",
+    "android:huawei": "ANDROID_CHANNEL=huawei expo run:android --variant=ProdDebug",
+    "android:google": "ANDROID_CHANNEL=google expo run:android --variant=GoogleDebug",
     "ios": "expo run:ios",
     "ios:device": "expo run:ios --device",
     "native-bundle": "react-native start"

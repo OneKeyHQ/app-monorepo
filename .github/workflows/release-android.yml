@@ -35,6 +35,7 @@ jobs:
         uses: OneKeyHQ/actions/expo-server@main
         with:
           eas-version: 5.x
+          token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Setup ENV BUILD_NUMBER to 1
         if: ${{ !github.event.workflow_run }}

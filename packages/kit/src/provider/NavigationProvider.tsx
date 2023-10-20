@@ -3,8 +3,8 @@ import { createRef, memo, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { useTheme } from 'tamagui';
 
-import { RootNavigator } from '@onekeyhq/kit/src/routes';
 import { setBackgroundColor } from '@onekeyhq/components/src/Navigation/utils/StatusBarUtils';
+import { RootNavigator } from '@onekeyhq/kit/src/routes';
 
 export const navigationRef = createRef();
 global.$navigationRef = navigationRef as any;

@@ -15,13 +15,13 @@ import { Stack } from '../../Stack';
 
 import NativeNestedTabView from './NativeNestedTabView';
 
-import type { Route } from '../types';
 import type { PagerViewViewManagerType } from './NativeNestedTabView';
 import type {
   NestedTabViewProps,
   OnPageChangeEvent,
   OnPageScrollStateChangeEvent,
 } from './types';
+import type { Route } from '../types';
 import type { LayoutChangeEvent } from 'react-native';
 
 export type ForwardRefHandle = {
