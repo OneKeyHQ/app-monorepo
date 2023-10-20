@@ -4101,6 +4101,20 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/cross-inpage-provider-core@npm:1.1.42":
+  version: 1.1.42
+  resolution: "@onekeyfe/cross-inpage-provider-core@npm:1.1.42"
+  dependencies:
+    "@onekeyfe/cross-inpage-provider-errors": 1.1.42
+    "@onekeyfe/cross-inpage-provider-events": 1.1.42
+    "@onekeyfe/cross-inpage-provider-types": 1.1.42
+    events: ^3.3.0
+    lodash: ^4.17.21
+    ms: ^2.1.3
+  checksum: 6a1d730f93096898298ac5562ec5cc663d875e243375fa25f9a6c430f7e148f241221acefe03a83a5565528c914b02f0d1c1e498fa9f96be565328eecca30fd3
+  languageName: node
+  linkType: hard
+
 "@onekeyfe/cross-inpage-provider-core@npm:^0.0.17":
   version: 0.0.17
   resolution: "@onekeyfe/cross-inpage-provider-core@npm:0.0.17"
@@ -4124,6 +4138,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/cross-inpage-provider-errors@npm:1.1.42":
+  version: 1.1.42
+  resolution: "@onekeyfe/cross-inpage-provider-errors@npm:1.1.42"
+  dependencies:
+    fast-safe-stringify: ^2.1.1
+  checksum: d89b9beff7c75bbde3b4dd87e32dd84471cf38f9ba627c1407ebcbdee0275bd6961b8964c86c8f30dd332fba50a8c61098c7d160b6d65d5293d38bcd7487933b
+  languageName: node
+  linkType: hard
+
 "@onekeyfe/cross-inpage-provider-errors@npm:^0.0.17":
   version: 0.0.17
   resolution: "@onekeyfe/cross-inpage-provider-errors@npm:0.0.17"
@@ -4137,6 +4160,13 @@ __metadata:
   version: 1.1.38
   resolution: "@onekeyfe/cross-inpage-provider-events@npm:1.1.38"
   checksum: 1a2e08c86b394cced23ea8ba0156f0737f46f8f9d0f0d74aabbcd95977580a42670e13ac0ff881223368da897f68201598a8a08be2a2232c428f94543139f876
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/cross-inpage-provider-events@npm:1.1.42":
+  version: 1.1.42
+  resolution: "@onekeyfe/cross-inpage-provider-events@npm:1.1.42"
+  checksum: 7d653b0c3672c0aa4fa28f179792a78516b93115a069501a6a510af12a40faa9d5e31b550c5bab027aacc3893cd1222e2163e289af4cff7cfb5ff52d7ab61ff9
   languageName: node
   linkType: hard
 
@@ -4168,6 +4198,13 @@ __metadata:
   version: 1.1.38
   resolution: "@onekeyfe/cross-inpage-provider-types@npm:1.1.38"
   checksum: 6c988cc0b3a9fd174a894c7f02cc891039945950f50b98396acd8e01fced09d26269820c05c65201eb82b48a81bbad6117a2b88e1120ba073c4051fe547bb8f9
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/cross-inpage-provider-types@npm:1.1.42":
+  version: 1.1.42
+  resolution: "@onekeyfe/cross-inpage-provider-types@npm:1.1.42"
+  checksum: 14a253c5d4fe0b73c82c7cd2dec382e9f9ddcdecc1d3b8739125a0ac7f13de6b34dd5eb002dfed7eef1d4fd70099c3b687aa91df6a3a89b97299a9197c059a8e
   languageName: node
   linkType: hard
 
@@ -4442,6 +4479,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/onekey-cross-webview@npm:^1.1.42":
+  version: 1.1.42
+  resolution: "@onekeyfe/onekey-cross-webview@npm:1.1.42"
+  dependencies:
+    "@onekeyfe/cross-inpage-provider-core": 1.1.42
+    "@onekeyfe/cross-inpage-provider-types": 1.1.42
+  peerDependencies:
+    electron: "*"
+    react-native-webview: "*"
+  checksum: 036a370af25bf6628fc5a5adc0af737e5f4ae50ff7cbda255bb9c4bf7ae84a798d3fe5f23fae29a7a76282a2138726e1c7dd9a8a21e217aa68caf6ef73f2f9ee
+  languageName: node
+  linkType: hard
+
 "@onekeyfe/onekey-eth-provider@npm:1.1.38":
   version: 1.1.38
   resolution: "@onekeyfe/onekey-eth-provider@npm:1.1.38"
@@ -4582,6 +4632,7 @@ __metadata:
     "@onekeyfe/hd-shared": 0.3.27
     "@onekeyfe/hd-transport": 0.3.27
     "@onekeyfe/hd-web-sdk": 0.3.27
+    "@onekeyfe/onekey-cross-webview": ^1.1.42
     "@open-wc/webpack-import-meta-loader": ^0.4.7
     "@pmmmwh/react-refresh-webpack-plugin": ^0.5.11
     "@tamagui/animations-moti": 1.71.0
@@ -4644,6 +4695,7 @@ __metadata:
     react-dom: 18.2.0
     react-native: 0.72.5
     react-native-web: ~0.19.6
+    react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#5036d59cba4f5609c32b7eb5dec560e738ce7115"
     react-refresh: ^0.14.0
     redux-flipper: ^2.0.2
     stream-browserify: ^3.0.0
@@ -4794,6 +4846,7 @@ __metadata:
     react-native-animated-splash-screen: ^2.0.5
     react-native-camera-kit: 14.0.0-beta2
     react-native-uuid: ^2.0.1
+    react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#5036d59cba4f5609c32b7eb5dec560e738ce7115"
     react-redux: ^8.0.5
     redux-logger: ^3.0.6
     redux-persist: ^6.0.0
@@ -13823,17 +13876,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"escape-string-regexp@npm:2.0.0, escape-string-regexp@npm:^2.0.0":
+  version: 2.0.0
+  resolution: "escape-string-regexp@npm:2.0.0"
+  checksum: 9f8a2d5743677c16e85c810e3024d54f0c8dea6424fad3c79ef6666e81dd0846f7437f5e729dfcdac8981bc9e5294c39b4580814d114076b8d36318f46ae4395
+  languageName: node
+  linkType: hard
+
 "escape-string-regexp@npm:^1.0.5":
   version: 1.0.5
   resolution: "escape-string-regexp@npm:1.0.5"
   checksum: 6092fda75c63b110c706b6a9bfde8a612ad595b628f0bd2147eea1d3406723020810e591effc7db1da91d80a71a737a313567c5abb3813e8d9c71f4aa595b410
-  languageName: node
-  linkType: hard
-
-"escape-string-regexp@npm:^2.0.0":
-  version: 2.0.0
-  resolution: "escape-string-regexp@npm:2.0.0"
-  checksum: 9f8a2d5743677c16e85c810e3024d54f0c8dea6424fad3c79ef6666e81dd0846f7437f5e729dfcdac8981bc9e5294c39b4580814d114076b8d36318f46ae4395
   languageName: node
   linkType: hard
 
@@ -16969,7 +17022,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"invariant@npm:*, invariant@npm:^2.2.4":
+"invariant@npm:*, invariant@npm:2.2.4, invariant@npm:^2.2.4":
   version: 2.2.4
   resolution: "invariant@npm:2.2.4"
   dependencies:
@@ -23064,6 +23117,19 @@ __metadata:
     react: ^18.0.0
     react-dom: ^18.0.0
   checksum: 79fe259a9fc0168c1cd12e72011a5e21cf2493a6b1a92334c3b5cf73ce2219fbf2adb79bca528d02b9643ff4a027e18e4988bc9d50e924be6e9d658c97a7e5ec
+  languageName: node
+  linkType: hard
+
+"react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#5036d59cba4f5609c32b7eb5dec560e738ce7115":
+  version: 11.24.0
+  resolution: "react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#commit=5036d59cba4f5609c32b7eb5dec560e738ce7115"
+  dependencies:
+    escape-string-regexp: 2.0.0
+    invariant: 2.2.4
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: fc611002420df2c068517f08846095062bda531dc2651ce5a6b738bd9dbc33c090323105afec4e4b4516459d244bca47e04b50b2c3c6fab67d2593f891f87fab
   languageName: node
   linkType: hard
 
