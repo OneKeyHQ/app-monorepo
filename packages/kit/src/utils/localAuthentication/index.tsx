@@ -6,9 +6,9 @@ export const hasHardwareSupported = () =>
   });
 
 export const localAuthenticate: () => Promise<LocalAuthenticationResult> = () =>
-  Promise.resolve({ success: false, error: 'no supported' });
+  Promise.reject(new Error('no supported'));
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const savePassword = (password: string) => Promise.resolve();
+export const savePassword = (password: string) =>
+  Promise.reject(new Error('no supported'));
 
-export const getPassword = () => Promise.resolve(null);
+export const getPassword = () => Promise.reject(new Error('no supported'));

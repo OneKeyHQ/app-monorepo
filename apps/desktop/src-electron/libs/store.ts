@@ -1,7 +1,7 @@
 import { safeStorage } from 'electron';
 import Store from 'electron-store';
 
-const store = new Store();
+const store = new Store({ name: 'OneKey' });
 
 export type LocalStore = {
   getUpdateSettings(): UpdateSettings;
@@ -13,7 +13,7 @@ export type UpdateSettings = {
   useTestFeedUrl: boolean;
 };
 
-const EncryptedData = 'EncryptedData';
+const EncryptedData = 'OneKey_EncryptedData';
 
 export const getUpdateSettings = (): UpdateSettings =>
   store.get('updateSettings', { useTestFeedUrl: false }) as UpdateSettings;
@@ -45,7 +45,7 @@ export const setSecureItem = (key: string, value: string): void => {
   store.set(EncryptedData, items);
 };
 
-export const clearSecureItem = (key: string) => {
+export const deleteSecureItem = (key: string) => {
   const items = store.get(EncryptedData, {}) as Record<string, string>;
   delete items[key];
   store.set(EncryptedData, items);
