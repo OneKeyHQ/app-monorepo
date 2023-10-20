@@ -4695,7 +4695,6 @@ __metadata:
     react-dom: 18.2.0
     react-native: 0.72.5
     react-native-web: ~0.19.6
-    react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#5036d59cba4f5609c32b7eb5dec560e738ce7115"
     react-refresh: ^0.14.0
     redux-flipper: ^2.0.2
     stream-browserify: ^3.0.0
