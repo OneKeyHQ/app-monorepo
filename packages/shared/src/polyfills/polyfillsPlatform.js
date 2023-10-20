@@ -63,16 +63,16 @@ Shims Injected:
   - FileReader.prototype.readAsArrayBuffer
  */
 // Shim atob and btoa
-// const { Base64 } = import('./js-base64');
-
-// if (!global.atob) {
-//   shimsLog('atob');
-//   global.atob = Base64.atob;
-// }
-// if (!global.btoa) {
-//   shimsLog('btoa');
-//   global.btoa = Base64.btoa;
-// }
+// js-base64 lib cannot import by `require` function in React Native 0.72.
+import Base64 from 'js-base64';
+if (!global.atob) {
+  shimsLog('atob');
+  global.arrtob = Base64.atob;
+}
+if (!global.btoa) {
+  shimsLog('btoa');
+  global.btoa = Base64.btoa;
+}
 
 // Shim nextTick
 if (!global.nextTick) {
