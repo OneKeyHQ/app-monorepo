@@ -4684,6 +4684,7 @@ __metadata:
     jest: ^29.7.0
     jest-expo: ^49.0.0
     jest-html-reporter: ^3.10.2
+    jotai: ^2.4.3
     memoizee: ^0.4.15
     natsort: ^2.0.3
     node-notifier: ^10.0.1
@@ -18416,6 +18417,21 @@ __metadata:
   version: 1.1.0
   resolution: "join-component@npm:1.1.0"
   checksum: b904c2f98549e4195022caca3a7dc837f9706c670ff333f3d617f2aed23bce2841322a999734683b6ab8e202568ad810c11ff79b58a64df66888153f04750239
+  languageName: node
+  linkType: hard
+
+"jotai@npm:^2.4.3":
+  version: 2.4.3
+  resolution: "jotai@npm:2.4.3"
+  peerDependencies:
+    "@types/react": ">=17.0.0"
+    react: ">=17.0.0"
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    react:
+      optional: true
+  checksum: 4991faba3284978bda3d90c6b1fc711759b76ce83ff04edb181d7929951ee54cb077793e5e4b0bba2ddf07fb6681a97a9d3007e2697d6ef181a66479ef9b2116
   languageName: node
   linkType: hard
 
