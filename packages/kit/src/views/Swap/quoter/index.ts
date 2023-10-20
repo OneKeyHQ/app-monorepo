@@ -269,6 +269,22 @@ export class SwapQuoter {
       });
       return result;
     }
+    if (
+      !tokenIn.tokenIdOnNetwork &&
+      [OnekeyNetwork.cosmoshub].includes(networkIn.id)
+    ) {
+      result = await backgroundApiProxy.engine.buildEncodedTxFromTransfer({
+        networkId: networkIn.id,
+        accountId: activeAccount.id,
+        transferInfo: {
+          from: activeAccount.address,
+          to: order.tcVault,
+          amount: depositCoinAmt,
+          destinationTag: order.memo,
+        },
+      });
+      return result;
+    }
     throw new Error('not support network');
   }
 
