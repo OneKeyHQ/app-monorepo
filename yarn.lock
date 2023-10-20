@@ -4695,8 +4695,8 @@ __metadata:
     react-dom: 18.2.0
     react-native: 0.72.5
     react-native-web: ~0.19.6
-    react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#5036d59cba4f5609c32b7eb5dec560e738ce7115"
     react-refresh: ^0.14.0
+    react-render-tracker: ^0.7.6
     redux-flipper: ^2.0.2
     stream-browserify: ^3.0.0
     style-loader: ^3.3.3
@@ -23283,6 +23283,13 @@ __metadata:
     "@types/react":
       optional: true
   checksum: e0dbb6856beaed2cff4996d9ca62d775686ff72e3e9de34043034d932223b588993b2fc7a18644750dd3d73eb19bd3f2cedb8d91f0e424c1ef8403010da24b1d
+  languageName: node
+  linkType: hard
+
+"react-render-tracker@npm:^0.7.6":
+  version: 0.7.6
+  resolution: "react-render-tracker@npm:0.7.6"
+  checksum: 615c77ae6749e84754cd8970b1f01a3b4e58698896413c885bd5833c2b1aceaeec4734a7545704f6a9bb961242c09684510c1f82191309126d94fa35defb2d9e
   languageName: node
   linkType: hard
 
