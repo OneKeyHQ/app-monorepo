@@ -10,12 +10,17 @@
 		13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB01A68108700A75B9A /* AppDelegate.mm */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
+		18DB0AA52AE271F50039B0F5 /* RNTabView.m in Sources */ = {isa = PBXBuildFile; fileRef = 18DB0AA02AE271F50039B0F5 /* RNTabView.m */; };
+		18DB0AA62AE271F50039B0F5 /* PagingViewContainer.m in Sources */ = {isa = PBXBuildFile; fileRef = 18DB0AA12AE271F50039B0F5 /* PagingViewContainer.m */; };
+		18DB0AA72AE271F50039B0F5 /* RCTScrollView+swizzled.m in Sources */ = {isa = PBXBuildFile; fileRef = 18DB0AA22AE271F50039B0F5 /* RCTScrollView+swizzled.m */; };
+		18DB0AA82AE271F50039B0F5 /* PagingViewManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 18DB0AA32AE271F50039B0F5 /* PagingViewManager.m */; };
+		18DB0AA92AE271F50039B0F5 /* PagingView.m in Sources */ = {isa = PBXBuildFile; fileRef = 18DB0AA42AE271F50039B0F5 /* PagingView.m */; };
+		18DB0AAC2AE273060039B0F5 /* UIColor+Hex.m in Sources */ = {isa = PBXBuildFile; fileRef = 18DB0AAA2AE273060039B0F5 /* UIColor+Hex.m */; };
 		31ADF8BB30114AF196CCBDE4 /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DAB62C802804CA1BF90BB10 /* noop-file.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		96905EF65AED1B983A6B3ABC /* libPods-OneKeyWallet.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 58EEBF8E8E6FB1BC6CAF49B5 /* libPods-OneKeyWallet.a */; };
 		B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		EA0B89D42AE015CD0002B94D /* PagingView in Resources */ = {isa = PBXBuildFile; fileRef = EA0B89D32AE015CD0002B94D /* PagingView */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -25,6 +30,18 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = OneKeyWallet/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = OneKeyWallet/Info.plist; sourceTree = "<group>"; };
 		13B07FB71A68108700A75B9A /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = main.m; path = OneKeyWallet/main.m; sourceTree = "<group>"; };
+		18DB0A9B2AE271F50039B0F5 /* RCTScrollView+swizzled.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "RCTScrollView+swizzled.h"; sourceTree = "<group>"; };
+		18DB0A9C2AE271F50039B0F5 /* RNTabView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RNTabView.h; sourceTree = "<group>"; };
+		18DB0A9D2AE271F50039B0F5 /* PagingViewContainer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PagingViewContainer.h; sourceTree = "<group>"; };
+		18DB0A9E2AE271F50039B0F5 /* PagingView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PagingView.h; sourceTree = "<group>"; };
+		18DB0A9F2AE271F50039B0F5 /* PagingViewManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PagingViewManager.h; sourceTree = "<group>"; };
+		18DB0AA02AE271F50039B0F5 /* RNTabView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RNTabView.m; sourceTree = "<group>"; };
+		18DB0AA12AE271F50039B0F5 /* PagingViewContainer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PagingViewContainer.m; sourceTree = "<group>"; };
+		18DB0AA22AE271F50039B0F5 /* RCTScrollView+swizzled.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "RCTScrollView+swizzled.m"; sourceTree = "<group>"; };
+		18DB0AA32AE271F50039B0F5 /* PagingViewManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PagingViewManager.m; sourceTree = "<group>"; };
+		18DB0AA42AE271F50039B0F5 /* PagingView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PagingView.m; sourceTree = "<group>"; };
+		18DB0AAA2AE273060039B0F5 /* UIColor+Hex.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "UIColor+Hex.m"; path = "../OneKeyWallet/Category/UIColor+Hex.m"; sourceTree = "<group>"; };
+		18DB0AAB2AE273060039B0F5 /* UIColor+Hex.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "UIColor+Hex.h"; path = "../OneKeyWallet/Category/UIColor+Hex.h"; sourceTree = "<group>"; };
 		2DAB62C802804CA1BF90BB10 /* noop-file.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "noop-file.swift"; path = "OneKeyWallet/noop-file.swift"; sourceTree = "<group>"; };
 		3381AFE75EB640B98B8576AB /* OneKeyWallet-Bridging-Header.h */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.h; name = "OneKeyWallet-Bridging-Header.h"; path = "OneKeyWallet/OneKeyWallet-Bridging-Header.h"; sourceTree = "<group>"; };
 		58EEBF8E8E6FB1BC6CAF49B5 /* libPods-OneKeyWallet.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-OneKeyWallet.a"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -32,7 +49,6 @@
 		7A4D352CD337FB3A3BF06240 /* Pods-OneKeyWallet.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OneKeyWallet.release.xcconfig"; path = "Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet.release.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = OneKeyWallet/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		EA0B89D32AE015CD0002B94D /* PagingView */ = {isa = PBXFileReference; lastKnownFileType = folder; path = PagingView; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-OneKeyWallet/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -52,7 +68,7 @@
 		13B07FAE1A68108700A75B9A /* OneKeyWallet */ = {
 			isa = PBXGroup;
 			children = (
-				EA0B89D32AE015CD0002B94D /* PagingView */,
+				18DB0A9A2AE271F50039B0F5 /* PagingView */,
 				BB2F792B24A3F905000567C9 /* Supporting */,
 				13B07FAF1A68108700A75B9A /* AppDelegate.h */,
 				13B07FB01A68108700A75B9A /* AppDelegate.mm */,
@@ -64,6 +80,26 @@
 				3381AFE75EB640B98B8576AB /* OneKeyWallet-Bridging-Header.h */,
 			);
 			name = OneKeyWallet;
+			sourceTree = "<group>";
+		};
+		18DB0A9A2AE271F50039B0F5 /* PagingView */ = {
+			isa = PBXGroup;
+			children = (
+				18DB0AAB2AE273060039B0F5 /* UIColor+Hex.h */,
+				18DB0AAA2AE273060039B0F5 /* UIColor+Hex.m */,
+				18DB0A9B2AE271F50039B0F5 /* RCTScrollView+swizzled.h */,
+				18DB0A9C2AE271F50039B0F5 /* RNTabView.h */,
+				18DB0A9D2AE271F50039B0F5 /* PagingViewContainer.h */,
+				18DB0A9E2AE271F50039B0F5 /* PagingView.h */,
+				18DB0A9F2AE271F50039B0F5 /* PagingViewManager.h */,
+				18DB0AA02AE271F50039B0F5 /* RNTabView.m */,
+				18DB0AA12AE271F50039B0F5 /* PagingViewContainer.m */,
+				18DB0AA22AE271F50039B0F5 /* RCTScrollView+swizzled.m */,
+				18DB0AA32AE271F50039B0F5 /* PagingViewManager.m */,
+				18DB0AA42AE271F50039B0F5 /* PagingView.m */,
+			);
+			name = PagingView;
+			path = "../../../../frontend-monorepo_next/packages/app/ios/PagingView";
 			sourceTree = "<group>";
 		};
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
@@ -206,7 +242,6 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				EA0B89D42AE015CD0002B94D /* PagingView in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -332,7 +367,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				18DB0AA92AE271F50039B0F5 /* PagingView.m in Sources */,
+				18DB0AAC2AE273060039B0F5 /* UIColor+Hex.m in Sources */,
+				18DB0AA72AE271F50039B0F5 /* RCTScrollView+swizzled.m in Sources */,
 				13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */,
+				18DB0AA82AE271F50039B0F5 /* PagingViewManager.m in Sources */,
+				18DB0AA52AE271F50039B0F5 /* RNTabView.m in Sources */,
+				18DB0AA62AE271F50039B0F5 /* PagingViewContainer.m in Sources */,
 				13B07FC11A68108700A75B9A /* main.m in Sources */,
 				B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */,
 				31ADF8BB30114AF196CCBDE4 /* noop-file.swift in Sources */,
@@ -446,7 +487,7 @@
 				COPY_PHASE_STRIP = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = i386;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -463,7 +504,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					/usr/lib/swift,
 					"$(inherited)",
@@ -473,10 +514,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "$(inherited)";
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../../../node_modules/react-native";
 				SDKROOT = iphoneos;
 			};
@@ -514,7 +552,7 @@
 				COPY_PHASE_STRIP = YES;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = i386;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -527,7 +565,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					/usr/lib/swift,
 					"$(inherited)",
@@ -536,10 +574,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_CFLAGS = "$(inherited)";
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				VALIDATE_PRODUCT = YES;
