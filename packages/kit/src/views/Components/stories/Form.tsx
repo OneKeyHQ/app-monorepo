@@ -38,6 +38,7 @@ const Form1 = () => {
       <Form.Field
         label="Required"
         name="required"
+        description="This field is required"
         rules={{ required: { value: true, message: 'requied input text' } }}
       >
         <Input placeholder="Required" />

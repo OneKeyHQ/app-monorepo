@@ -64,9 +64,10 @@ const getChildProps = (
 type FieldProps = Omit<GetProps<typeof Controller>, 'render'> &
   PropsWithChildren<{
     label?: string;
+    description?: string;
   }>;
 
-function Field({ name, label, rules, children }: FieldProps) {
+function Field({ name, label, description, rules, children }: FieldProps) {
   const {
     control,
     trigger,
@@ -96,6 +97,11 @@ function Field({ name, label, rules, children }: FieldProps) {
                 )
               : child,
           )}
+          {description ? (
+            <Text variant="$bodyMd" color="$textSubdued">
+              {description}
+            </Text>
+          ) : null}
           <AnimatePresence>
             {error?.message && (
               <Text
