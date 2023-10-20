@@ -1,4 +1,4 @@
-import type { ICurveName } from './base';
+import type { ICurveName } from './coreTypesBase';
 import type { IEncodedTxAda } from '../chains/ada/types';
 import type BigNumber from 'bignumber.js';
 

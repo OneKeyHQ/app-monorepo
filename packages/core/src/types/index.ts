@@ -5,15 +5,15 @@ import type {
   ISecretPublicKeyInfo,
 } from '@onekeyhq/core/src/secret';
 
-import type { ICurveName } from './base';
-import type { AddressEncodings } from './enums';
-import type { IUnsignedMessage } from './message';
-import type { IUnsignedTxPro } from './tx';
+import type { ICurveName } from './coreTypesBase';
+import type { AddressEncodings } from './coreEnums';
+import type { IUnsignedMessage } from './coreTypesMessage';
+import type { IUnsignedTxPro } from './coreTypesTx';
 
-export * from './base';
-export * from './enums';
-export * from './message';
-export * from './tx';
+export * from './coreTypesBase';
+export * from './coreEnums';
+export * from './coreTypesMessage';
+export * from './coreTypesTx';
 
 // ----------------------------------------------
 
