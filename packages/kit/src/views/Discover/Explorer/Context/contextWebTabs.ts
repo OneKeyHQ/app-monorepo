@@ -38,13 +38,6 @@ export const homeResettingFlags: Record<string, number> = {};
 // eslint-disable-next-line @typescript-eslint/naming-convention
 let _currentTabId = '';
 
-export const getCurrentTabId = () =>
-  // TODO: Fix this
-  // if (!_currentTabId) {
-  //   _currentTabId = webTabsObs.peek().find((t) => t.isCurrent)?.id || '';
-  // }
-  _currentTabId;
-
 export function buildWebTabData(tabs: WebTab[]) {
   const map: Record<string, WebTab> = {};
   const keys: string[] = [];
@@ -70,7 +63,10 @@ export const atomWebTabsMap = atom<Record<string, WebTab>>({
 });
 export const setWebTabsWriteAtom = atom(null, (get, set, payload: WebTab[]) => {
   let newTabs = payload;
-  if (!newTabs) {
+  if (!Array.isArray(payload)) {
+    throw new Error('setWebTabsWriteAtom: payload must be an array');
+  }
+  if (!newTabs || !newTabs.length) {
     newTabs = [{ ...homeTab }];
   }
   const result = buildWebTabData(newTabs);
@@ -174,6 +170,7 @@ export const closeAllWebTabsAtomWithWriteOnly = atom(null, (_, set) => {
 export const setCurrentWebTabAtomWithWriteOnly = atom(
   null,
   (get, set, tabId: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     const currentTabId = getCurrentTabId();
     if (currentTabId !== tabId) {
       // pauseDappInteraction(currentTabId);
@@ -209,7 +206,18 @@ export const setCurrentWebTabAtomWithWriteOnly = atom(
 
 export const incomingUrlAtom = atom('');
 
-const { withProvider: withProviderWebTabs, useContextAtom: useAtomWebTabs } =
-  createJotaiContext();
+const {
+  withProvider: withProviderWebTabs,
+  useContextAtom: useAtomWebTabs,
+  store: webTabsStore,
+} = createJotaiContext();
 
 export { withProviderWebTabs, useAtomWebTabs };
+
+export const getCurrentTabId = () => {
+  if (!_currentTabId) {
+    const { tabs } = webTabsStore.get(atomWebTabs);
+    _currentTabId = tabs.find((t) => t.isCurrent)?.id || '';
+  }
+  return _currentTabId;
+};

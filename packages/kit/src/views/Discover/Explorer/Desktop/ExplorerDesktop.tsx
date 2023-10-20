@@ -13,7 +13,7 @@ import {
 } from '../Context/contextWebTabs';
 import { webHandler } from '../explorerUtils';
 
-// import ControllerBarDesktop from './ControllerBarDesktop';
+import ControllerBarDesktop from './ControllerBarDesktop';
 import TabBarDesktop from './TabBarDesktop';
 
 const showExplorerBar = webHandler !== 'browser';
@@ -48,7 +48,7 @@ function ExplorerHeaderCmp() {
     <Stack mt={`${top ? top + 10 : 0}px`} bg={tabBarBgColor} zIndex={5}>
       <HandleRebuildTabBarData />
       <TabBarDesktop />
-      {/* <ControllerBarDesktop /> */}
+      <ControllerBarDesktop />
     </Stack>
   );
 }
