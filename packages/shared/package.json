@@ -13,7 +13,7 @@
     "@types/webextension-polyfill": "^0.8.2",
     "async-mutex": "^0.3.2",
     "flatted": "^3.2.7",
-    "js-base64": "^3.7.2",
+    "js-base64": "3.7.5",
     "jsonschema": "^1.4.1",
     "localforage": "^1.10.0",
     "ms": "^2.1.3",

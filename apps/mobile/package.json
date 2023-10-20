@@ -27,7 +27,6 @@
     "expo-haptics": "^12.2.1",
     "expo-splash-screen": "~0.20.5",
     "expo-status-bar": "~1.6.0",
-    "js-base64": "^3.7.5",
     "lottie-react": "^2.4.0",
     "lottie-react-native": "^6.3.0",
     "react": "18.2.0",
