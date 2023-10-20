@@ -12,8 +12,10 @@ import { WebView } from 'react-native-webview';
 
 // import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { openUrlExternal } from '../../utils/openUrl';
-import { checkOneKeyCardGoogleOauthUrl } from '../../utils/uriUtils';
+import {
+  checkOneKeyCardGoogleOauthUrl,
+  openUrlExternal,
+} from '@onekeyhq/shared/src/utils/uriUtils';
 
 import ErrorView from './ErrorView';
 
