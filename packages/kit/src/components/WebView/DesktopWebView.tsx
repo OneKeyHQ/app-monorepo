@@ -16,9 +16,7 @@ import { JsBridgeDesktopHost } from '@onekeyfe/onekey-cross-webview';
 import { Freeze } from 'react-freeze';
 
 import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
-// import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
-import { checkOneKeyCardGoogleOauthUrl } from '../../utils/uriUtils';
+import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 
 import ErrorView from './ErrorView';
 import { backgroundApiProxy } from './mock';
