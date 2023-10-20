@@ -126,7 +126,8 @@
     "webpack-subresource-integrity": "^5.2.0-rc.1"
   },
   "resolutions": {
-    "tronweb@^5.1.0": "5.1.0"
+    "tronweb@^5.1.0": "5.1.0",
+    "@tamagui/create-context": "1.73.0"
   },
   "packageManager": "yarn@3.5.0"
 }
