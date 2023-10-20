@@ -9,9 +9,9 @@ import { mnemonicFromEntropy } from '@onekeyhq/core/src/secret';
 
 import { DERIVATION_SCHEME, HARDENED_THRESHOLD } from './constants';
 
-import type { IBIP32PathAda } from '../types';
+import type { IAdaBIP32Path } from '../types';
 
-export function toBip32StringPath(derivationPath: IBIP32PathAda) {
+export function toBip32StringPath(derivationPath: IAdaBIP32Path) {
   return `m/${derivationPath
     .map(
       (item) =>

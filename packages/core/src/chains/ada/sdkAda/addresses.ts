@@ -15,13 +15,13 @@ import {
   // @ts-expect-error
 } from 'cardano-crypto.js';
 
-import { ENetworkIdAda } from '../types';
+import { EAdaNetworkId } from '../types';
 
 import { HARDENED_THRESHOLD } from './constants';
 
-import type { IAddressAda, IBIP32PathAda } from '../types';
+import type { IAdaAddress, IAdaBIP32Path } from '../types';
 
-export const encodeAddress = (address: Buffer): IAddressAda => {
+export const encodeAddress = (address: Buffer): IAdaAddress => {
   const addressType = getAddressType(address);
   if (addressType === AddressTypes.BOOTSTRAP) {
     return base58.encode(address);
@@ -33,7 +33,7 @@ export const encodeAddress = (address: Buffer): IAddressAda => {
     [AddressTypes.REWARD]: 'stake',
   };
   const isTestnet =
-    getShelleyAddressNetworkId(address) === ENetworkIdAda.TESTNET_OR_PREPROD;
+    getShelleyAddressNetworkId(address) === EAdaNetworkId.TESTNET_OR_PREPROD;
   const addressPrefix = `${addressPrefixes[addressType]}${
     isTestnet ? '_test' : ''
   }`;
@@ -48,13 +48,13 @@ export const xpub2ChainCode = (xpub: Buffer) => xpub.slice(32, 64);
 const xpub2blake2b224Hash = (xpub: Buffer) =>
   getPubKeyBlake2b224Hash(xpub2pub(xpub));
 
-export const isShelleyPath = (path: IBIP32PathAda) =>
+export const isShelleyPath = (path: IAdaBIP32Path) =>
   path[0] - HARDENED_THRESHOLD === 1852;
 
 export const stakingAddressFromXpub = (
   stakeXpub: Buffer,
-  networkId: ENetworkIdAda,
-): IAddressAda => {
+  networkId: EAdaNetworkId,
+): IAdaAddress => {
   const addrBuffer: Buffer = packRewardAddress(
     xpub2blake2b224Hash(stakeXpub),
     networkId,
@@ -65,8 +65,8 @@ export const stakingAddressFromXpub = (
 export const baseAddressFromXpub = (
   spendXpub: Buffer,
   stakeXpub: Buffer,
-  networkId: ENetworkIdAda,
-): IAddressAda => {
+  networkId: EAdaNetworkId,
+): IAdaAddress => {
   const addrBuffer = packBaseAddress(
     xpub2blake2b224Hash(spendXpub),
     xpub2blake2b224Hash(stakeXpub),

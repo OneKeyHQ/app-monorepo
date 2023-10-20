@@ -17,14 +17,14 @@ export interface IBtcForkNetwork extends Network {
 }
 export type IBtcForkSigner = Signer;
 
-export type TransactionMixin = {
+export type IBtcForkTransactionMixin = {
   nonWitnessUtxo?: NonWitnessUtxo;
   witnessUtxo?: WitnessUtxo;
   redeemScript?: RedeemScript;
   tapInternalKey?: TapInternalKey;
 };
 
-export type UTXO = {
+export type IBtcForkUTXO = {
   txid: string;
   vout: number;
   value: BigNumber;

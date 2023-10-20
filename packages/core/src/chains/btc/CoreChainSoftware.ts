@@ -58,7 +58,11 @@ import {
   tweakSigner,
 } from './sdkBtc';
 
-import type { IBtcForkNetwork, TransactionMixin, UTXO } from './types';
+import type {
+  IBtcForkNetwork,
+  IBtcForkTransactionMixin,
+  IBtcForkUTXO,
+} from './types';
 import type { ISigner } from '../../base/ChainSigner';
 import type { Bip32KeyDeriver, ExtendedKey } from '../../secret/bip32';
 import type { PsbtInput } from 'bip174/src/lib/interfaces';
@@ -368,11 +372,11 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     // eslint-disable-next-line no-plusplus
     for (let i = 0; i < inputs.length; ++i) {
       const input = inputs[i];
-      const utxo = input.utxo as UTXO;
+      const utxo = input.utxo as IBtcForkUTXO;
       check(utxo);
 
       const encoding = inputAddressesEncodings[i];
-      const mixin: TransactionMixin = {};
+      const mixin: IBtcForkTransactionMixin = {};
 
       const signer = this.pickSigner(signers, input.address);
 

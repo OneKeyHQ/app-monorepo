@@ -1,9 +1,9 @@
-export enum ChainId {
+export enum EFilChainId {
   MAIN = '314',
   CALIBRATION = '314159',
 }
 
-export enum ProtocolIndicator {
+export enum EFilProtocolIndicator {
   ID,
   SECP256K1,
   ACTOR,
@@ -11,14 +11,14 @@ export enum ProtocolIndicator {
   DELEGATED,
 }
 
-export type CID =
+export type IFilCID =
   | string
   | {
       '/': string;
     };
 
 export type IEncodedTxFil = {
-  CID?: CID;
+  CID?: IFilCID;
   Version?: number;
   From: string;
   GasFeeCap: string;

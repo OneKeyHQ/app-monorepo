@@ -1,4 +1,4 @@
-import type { Coin } from '../../types';
+import type { ICosmosCoin } from '../../types';
 
 export interface CosmosMsgOpts {
   readonly send: {
@@ -68,7 +68,7 @@ export interface StdPublickey {
 }
 
 export interface StdFee {
-  amount: Coin[];
+  amount: ICosmosCoin[];
   gas: string;
 }
 

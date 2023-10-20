@@ -1,4 +1,4 @@
-import type { Coin } from '../types';
+import type { ICosmosCoin } from '../types';
 import type { Any } from 'cosmjs-types/google/protobuf/any';
 
 export enum MessageType {
@@ -58,5 +58,5 @@ export interface Message {
 export interface SendMessage extends Message {
   readonly fromAddress: string;
   readonly toAddress: string;
-  amount: Coin[];
+  amount: ICosmosCoin[];
 }

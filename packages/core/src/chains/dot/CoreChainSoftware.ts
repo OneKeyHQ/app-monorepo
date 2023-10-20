@@ -14,7 +14,7 @@ import { mnemonicFromEntropy } from '../../secret';
 import { encrypt } from '../../secret/encryptors/aes256';
 import { slicePathTemplate } from '../../utils';
 
-import { TYPE_PREFIX } from './types';
+import { DOT_TYPE_PREFIX } from './types';
 
 import type {
   ICoreApiGetAddressItem,
@@ -121,7 +121,10 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       checkIsDefined(unsignedTx.rawTxUnsigned),
     );
     const [signature] = await signer.sign(txBytes);
-    const txSignature = u8aConcat(TYPE_PREFIX.ed25519, bufferToU8a(signature));
+    const txSignature = u8aConcat(
+      DOT_TYPE_PREFIX.ed25519,
+      bufferToU8a(signature),
+    );
     const txid = '';
     const rawTx = ''; // build rawTx on highlevel which requires network
     return {
@@ -139,7 +142,10 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     });
     const wrapMessage = await serializeMessage(message);
     const [signature] = await signer.sign(wrapMessage);
-    const txSignature = u8aConcat(TYPE_PREFIX.ed25519, bufferToU8a(signature));
+    const txSignature = u8aConcat(
+      DOT_TYPE_PREFIX.ed25519,
+      bufferToU8a(signature),
+    );
     return addHexPrefix(bufferUtils.bytesToHex(txSignature));
   }
 

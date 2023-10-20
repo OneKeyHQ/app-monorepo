@@ -1,19 +1,19 @@
 import type { TransactionWrapper } from './sdkCosmos';
 
-export interface Coin {
+export interface ICosmosCoin {
   denom: string;
   amount: string;
 }
 
-export interface SignDocHex {
+export interface ICosmosSignDocHex {
   bodyBytes: string;
   authInfoBytes: string;
   chainId: string;
   accountNumber: string;
 }
 
-export interface StdFee {
-  amount: Coin[];
+export interface ICosmosStdFee {
+  amount: ICosmosCoin[];
   gas_limit: string;
   payer: string;
   granter: string;

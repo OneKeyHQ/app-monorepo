@@ -10,7 +10,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import { uncompressPublicKey } from '../../secret';
 
-import { type IEncodedTxFil, ProtocolIndicator } from './types';
+import { EFilProtocolIndicator, type IEncodedTxFil } from './types';
 
 import type { ISigner } from '../../base/ChainSigner';
 import type {
@@ -78,7 +78,7 @@ async function signTransaction(
 
     if (!validateNetworkPrefix(networkPrefix))
       throw new OneKeyInternalError('Invalid filecoin network.');
-    if (parseInt(protocolIndicator) !== ProtocolIndicator.SECP256K1)
+    if (parseInt(protocolIndicator) !== EFilProtocolIndicator.SECP256K1)
       throw new OneKeyInternalError('Invalid filecoin protocol indicator.');
 
     const decodedData = Buffer.from(
@@ -115,7 +115,7 @@ async function signTransaction(
       Message: encodedTx,
       Signature: {
         Data: signatureResult.toString('base64'),
-        Type: ProtocolIndicator.SECP256K1,
+        Type: EFilProtocolIndicator.SECP256K1,
       },
     }),
   });

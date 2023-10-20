@@ -16,10 +16,10 @@ import {
   getXprvString,
   sdk,
 } from './sdkAda';
-import { ENetworkIdAda } from './types';
+import { EAdaNetworkId } from './types';
 
 import type { IAdaBaseAddressInfo, IAdaStakingAddressInfo } from './sdkAda';
-import type { IEncodedTxAda, IUTXOAda } from './types';
+import type { IAdaUTXO, IEncodedTxAda } from './types';
 import type { ISigner } from '../../base/ChainSigner';
 import type {
   ICoreApiGetAddressItem,
@@ -113,7 +113,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       encodedTx.tx.body,
       account.address,
       Number(accountIndex),
-      encodedTx.inputs as unknown as IUTXOAda[],
+      encodedTx.inputs as unknown as IAdaUTXO[],
       xprv,
       !!encodedTx.signOnly,
       false,
@@ -195,7 +195,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const addressInfos = batchGetShelleyAddressByRootKey(
       encodeKey.rootKey,
       [index],
-      ENetworkIdAda.MAINNET,
+      EAdaNetworkId.MAINNET,
     );
     const { baseAddress, stakingAddress } = addressInfos[0];
 
@@ -229,7 +229,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       bufferUtils.toBuffer(entropy),
       password,
       indexes,
-      ENetworkIdAda.MAINNET,
+      EAdaNetworkId.MAINNET,
     );
 
     const addresses = addressInfos.map((info) => {

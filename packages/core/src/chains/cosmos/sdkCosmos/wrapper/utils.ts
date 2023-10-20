@@ -11,7 +11,7 @@ import { MessageType } from '../message';
 import { ProtoSignDoc } from '../proto/protoSignDoc';
 
 import type { TransactionWrapper } from '.';
-import type { StdFee } from '../../types';
+import type { ICosmosStdFee } from '../../types';
 import type { StdSignDoc } from '../amino/types';
 import type { UnpackedMessage } from '../proto/protoDecode';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
@@ -84,7 +84,7 @@ export function getFeeAmount(signDoc: TransactionWrapper): readonly Coin[] {
   return fees;
 }
 
-export function getFee(signDoc: TransactionWrapper): StdFee {
+export function getFee(signDoc: TransactionWrapper): ICosmosStdFee {
   if (signDoc.mode === 'amino') {
     const { fee } = getAminoSignDoc(signDoc);
     return {
@@ -106,7 +106,7 @@ export function getFee(signDoc: TransactionWrapper): StdFee {
   };
 }
 
-export function setFee(signDoc: TransactionWrapper, fee: StdFee) {
+export function setFee(signDoc: TransactionWrapper, fee: ICosmosStdFee) {
   const newSignDoc = signDoc;
   if (newSignDoc.mode === 'amino') {
     const aminoSignDoc = getAminoSignDoc(newSignDoc);

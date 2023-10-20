@@ -1,7 +1,7 @@
 import { bytesToHex } from '@noble/hashes/utils';
 import { SignDoc } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 
-import type { SignDocHex } from '../../types';
+import type { ICosmosSignDocHex } from '../../types';
 import type { StdSignDoc } from '../amino/types';
 import type { ProtoMsgsOrWithAminoMsgs } from '../ITxMsgBuilder';
 import type { ProtoSignDoc } from '../proto/protoSignDoc';
@@ -14,7 +14,7 @@ export class TransactionWrapper {
   public readonly msg: ProtoMsgsOrWithAminoMsgs | undefined;
 
   constructor(
-    public readonly signDoc: StdSignDoc | SignDocHex,
+    public readonly signDoc: StdSignDoc | ICosmosSignDocHex,
     msg?: ProtoMsgsOrWithAminoMsgs,
   ) {
     if ('msgs' in signDoc) {
@@ -33,7 +33,7 @@ export class TransactionWrapper {
   }
 
   static fromDirectSignDoc(signDoc: SignDoc, msg: ProtoMsgsOrWithAminoMsgs) {
-    const signDocHex: SignDocHex = {
+    const signDocHex: ICosmosSignDocHex = {
       bodyBytes: bytesToHex(signDoc.bodyBytes),
       authInfoBytes: bytesToHex(signDoc.authInfoBytes),
       chainId: signDoc.chainId,
@@ -43,7 +43,7 @@ export class TransactionWrapper {
   }
 
   static fromDirectSignDocHex(
-    signDoc: SignDocHex,
+    signDoc: ICosmosSignDocHex,
     msg: ProtoMsgsOrWithAminoMsgs | undefined,
   ) {
     return new TransactionWrapper(signDoc, msg);

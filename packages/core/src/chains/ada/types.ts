@@ -1,31 +1,31 @@
 import type { PROTO } from '@onekeyfe/hd-core';
 
-export const enum ENetworkIdAda {
+export const enum EAdaNetworkId {
   MAINNET = 1,
   TESTNET_OR_PREPROD = 0,
 }
 
-export type IBIP32PathAda = number[];
+export type IAdaBIP32Path = number[];
 
-export type IAddressAda = string & { __typeAddress: any };
+export type IAdaAddress = string & { __typeAddress: any };
 
-export type IAmountAda = {
+export type IAdaAmount = {
   unit: string;
   quantity: string;
 };
 
-export type IUTXOAda = {
+export type IAdaUTXO = {
   path: string;
   address: string;
   tx_hash: string;
   tx_index: number;
   output_index: number;
-  amount: IAmountAda[];
+  amount: IAdaAmount[];
 };
 
-export type IEncodeInputAda = {
+export type IAdaEncodeInput = {
   address: string;
-  amount: IAmountAda[];
+  amount: IAdaAmount[];
   block: string;
   data_hash: string;
   outputIndex: number;
@@ -33,21 +33,21 @@ export type IEncodeInputAda = {
   tx_index: number;
 };
 
-export type IEncodeOutputAda = {
+export type IAdaEncodeOutput = {
   address: string;
   amount: string;
-  assets: IAmountAda[];
+  assets: IAdaAmount[];
   isChange?: boolean;
 };
 
-export type ITxInfoAda = {
+export type IAdaTxInfo = {
   body: string;
   hash: string;
   size: number;
   rawTxHex?: string;
 };
 
-export type IChangeAddressAda = {
+export type IAdaChangeAddress = {
   address: string;
   addressParameters: {
     path: string;
@@ -57,14 +57,14 @@ export type IChangeAddressAda = {
 };
 
 export type IEncodedTxAda = {
-  inputs: IEncodeInputAda[];
-  outputs: IEncodeOutputAda[];
+  inputs: IAdaEncodeInput[];
+  outputs: IAdaEncodeOutput[];
   fee: string;
   totalSpent: string;
   totalFeeInNative: string;
   // transferInfo: ITransferInfo; // TODO
-  tx: ITxInfoAda;
-  changeAddress: IChangeAddressAda;
+  tx: IAdaTxInfo;
+  changeAddress: IAdaChangeAddress;
   signOnly?: boolean;
 };
 

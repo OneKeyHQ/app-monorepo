@@ -7,7 +7,7 @@ import { UnknownMessage } from '../message';
 import { defaultProtoDecodeRegistry } from './protoDecode';
 
 import type { ProtoDecode, UnpackedMessage } from './protoDecode';
-import type { SignDocHex } from '../../types';
+import type { ICosmosSignDocHex } from '../../types';
 
 export class ProtoSignDoc {
   public static decode(bytes: Uint8Array): ProtoSignDoc {
@@ -24,12 +24,12 @@ export class ProtoSignDoc {
 
   protected _authInfo?: AuthInfo;
 
-  public readonly signDoc: SignDocHex;
+  public readonly signDoc: ICosmosSignDocHex;
 
   protected readonly protoDecode: ProtoDecode;
 
   constructor(
-    signDoc: SignDocHex,
+    signDoc: ICosmosSignDocHex,
     protoCodec: ProtoDecode = defaultProtoDecodeRegistry,
   ) {
     this.signDoc = signDoc;
