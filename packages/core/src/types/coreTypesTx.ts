@@ -1,9 +1,14 @@
-import type { ICurveName } from './coreTypesBase';
+import type BigNumber from 'bignumber.js';
 import type { IEncodedTxAda } from '../chains/ada/types';
 import type { IEncodedTxCfx } from '../chains/cfx/types';
-import type BigNumber from 'bignumber.js';
+import { IEncodedTxCosmos } from '../chains/cosmos/types';
+import type { ICurveName } from './coreTypesBase';
 
-export type IEncodedTx = string | IEncodedTxAda | IEncodedTxCfx;
+export type IEncodedTx =
+  | string
+  | IEncodedTxAda
+  | IEncodedTxCfx
+  | IEncodedTxCosmos;
 //   | IEncodedTxEvm
 //   | IEncodedTxAlgo
 //   | IEncodedTxNear
@@ -13,7 +18,6 @@ export type IEncodedTx = string | IEncodedTxAda | IEncodedTxCfx;
 //   | IEncodedTxAptos
 //   | IEncodedTxCfx
 //   | IEncodedTxXrp
-//   | IEncodedTxCosmos
 //   | IEncodedTxSUI
 //   | IEncodedTxFil
 //   | IEncodedTxDot

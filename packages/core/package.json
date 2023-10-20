@@ -25,6 +25,7 @@
     "bitcoinjs-message": "2.2.0",
     "bs58check": "^3.0.1",
     "cardano-crypto.js": "^6.1.2",
+    "cosmjs-types": "^0.8.0",
     "ecpair": "^2.1.0",
     "elliptic": "^6.5.4",
     "js-conflux-sdk": "^2.1.12",
