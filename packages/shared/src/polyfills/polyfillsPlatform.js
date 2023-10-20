@@ -64,7 +64,7 @@ Shims Injected:
  */
 // Shim atob and btoa
 // const { Base64 } = import('./js-base64');
-// console.log('__Base64__', Base64)
+
 // if (!global.atob) {
 //   shimsLog('atob');
 //   global.atob = Base64.atob;
@@ -74,76 +74,76 @@ Shims Injected:
 //   global.btoa = Base64.btoa;
 // }
 
-// // Shim nextTick
-// if (!global.nextTick) {
-//   shimsLog('nextTick');
-//   global.nextTick = function (callback) {
-//     setTimeout(callback, 0);
-//   };
-// }
+// Shim nextTick
+if (!global.nextTick) {
+  shimsLog('nextTick');
+  global.nextTick = function (callback) {
+    setTimeout(callback, 0);
+  };
+}
 
-// // Shim FileReader.readAsArrayBuffer
-// // https://github.com/facebook/react-native/issues/21209
-// // can remove after RN 0.72
-// // https://github.com/facebook/react-native/commit/5b597b5ff94953accc635ed3090186baeecb3873
-// try {
-//   const fr = new FileReader();
-//   try {
-//     fr.readAsArrayBuffer(new Blob(['hello'], { type: 'text/plain' }));
-//   } catch (error) {
-//     shimsLog('FileReader.prototype.readAsArrayBuffer');
-//     FileReader.prototype.readAsArrayBuffer = function (blob) {
-//       if (this.readyState === this.LOADING) {
-//         throw new Error('InvalidStateError');
-//       }
-//       this._setReadyState(this.LOADING);
-//       this._result = null;
-//       this._error = null;
-//       const fr = new FileReader();
-//       fr.onloadend = () => {
-//         const content = atob(fr.result.split(',').pop().trim());
-//         const buffer = new ArrayBuffer(content.length);
-//         const view = new Uint8Array(buffer);
-//         view.set(Array.from(content).map((c) => c.charCodeAt(0)));
-//         this._result = buffer;
-//         this._setReadyState(this.DONE);
-//       };
-//       fr.readAsDataURL(blob);
-//     };
-//   }
-// } catch (error) {
-//   console.log('Missing FileReader; unsupported platform');
-// }
+// Shim FileReader.readAsArrayBuffer
+// https://github.com/facebook/react-native/issues/21209
+// can remove after RN 0.72
+// https://github.com/facebook/react-native/commit/5b597b5ff94953accc635ed3090186baeecb3873
+try {
+  const fr = new FileReader();
+  try {
+    fr.readAsArrayBuffer(new Blob(['hello'], { type: 'text/plain' }));
+  } catch (error) {
+    shimsLog('FileReader.prototype.readAsArrayBuffer');
+    FileReader.prototype.readAsArrayBuffer = function (blob) {
+      if (this.readyState === this.LOADING) {
+        throw new Error('InvalidStateError');
+      }
+      this._setReadyState(this.LOADING);
+      this._result = null;
+      this._error = null;
+      const fr = new FileReader();
+      fr.onloadend = () => {
+        const content = atob(fr.result.split(',').pop().trim());
+        const buffer = new ArrayBuffer(content.length);
+        const view = new Uint8Array(buffer);
+        view.set(Array.from(content).map((c) => c.charCodeAt(0)));
+        this._result = buffer;
+        this._setReadyState(this.DONE);
+      };
+      fr.readAsDataURL(blob);
+    };
+  }
+} catch (error) {
+  console.log('Missing FileReader; unsupported platform');
+}
 
-// if (platformEnv.isNativeAndroid) {
-//   const shimConsoleLog = (method) => {
-//     // @ts-ignore
-//     const originMethod = console[method];
-//     if (!originMethod) {
-//       return;
-//     }
-//     // @ts-ignore
-//     console[method] = (...args) => {
-//       args.forEach((item) => {
-//         if (item instanceof Error) {
-//           // sometimes error.stack cause Android hermes engine crash
-//           delete item.stack;
-//         }
-//       });
-//       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-//       originMethod(...args);
-//     };
-//   };
-//   shimConsoleLog('log');
-//   shimConsoleLog('info');
-//   shimConsoleLog('debug');
-//   shimConsoleLog('warn');
-//   shimConsoleLog('error');
-// }
+if (platformEnv.isNativeAndroid) {
+  const shimConsoleLog = (method) => {
+    // @ts-ignore
+    const originMethod = console[method];
+    if (!originMethod) {
+      return;
+    }
+    // @ts-ignore
+    console[method] = (...args) => {
+      args.forEach((item) => {
+        if (item instanceof Error) {
+          // sometimes error.stack cause Android hermes engine crash
+          delete item.stack;
+        }
+      });
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      originMethod(...args);
+    };
+  };
+  shimConsoleLog('log');
+  shimConsoleLog('info');
+  shimConsoleLog('debug');
+  shimConsoleLog('warn');
+  shimConsoleLog('error');
+}
 
-// if (platformEnv.isNativeIOS) {
-//   // typeforce causes iOS to crash.
-//   Error.captureStackTrace = () => {};
-// }
+if (platformEnv.isNativeIOS) {
+  // typeforce causes iOS to crash.
+  Error.captureStackTrace = () => {};
+}
 
-// console.log('polyfillsPlatform.native shim loaded');
+console.log('polyfillsPlatform.native shim loaded');
