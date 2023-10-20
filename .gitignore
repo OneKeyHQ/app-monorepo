@@ -7,7 +7,7 @@ __generated__
 .idea/
 .vscode/
 .chat/
-packages/core/src/chains/_x/
+packages/core/src/_x/
 
 dist
 build-electron

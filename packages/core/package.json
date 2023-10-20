@@ -14,6 +14,7 @@
     "@noble/secp256k1": "^2.0.0",
     "@onekeyfe/cardano-coin-selection": "1.0.0",
     "@onekeyfe/cardano-coin-selection-asmjs": "1.1.0",
+    "algosdk": "^2.6.0",
     "asmcrypto.js": "2.3.2",
     "bip39": "^3.1.0",
     "bitcoinjs-lib": "^6.1.5",
