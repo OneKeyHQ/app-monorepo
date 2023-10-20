@@ -3,8 +3,7 @@ import { useCallback } from 'react';
 
 import { Button, Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import extUtils from '../../utils/extUtils';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 
 import InpageProviderWebView from './InpageProviderWebView';
 import { backgroundApiProxy } from './mock';
