@@ -4695,7 +4695,6 @@ __metadata:
     react-dom: 18.2.0
     react-native: 0.72.5
     react-native-web: ~0.19.6
-    react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#5036d59cba4f5609c32b7eb5dec560e738ce7115"
     react-refresh: ^0.14.0
     redux-flipper: ^2.0.2
     stream-browserify: ^3.0.0
@@ -4786,7 +4785,7 @@ __metadata:
     electron-notarize: ^1.1.1
     electron-store: ^8.1.0
     electron-updater: ^5.2.1
-    esbuild: ^0.15.11
+    esbuild: 0.15.18
     glob: ^7.2.0
     keytar: ^7.9.0
     node-fetch: ^2.6.7
@@ -13623,7 +13622,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"esbuild@npm:^0.15.11":
+"esbuild@npm:0.15.18":
   version: 0.15.18
   resolution: "esbuild@npm:0.15.18"
   dependencies:
