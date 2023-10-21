@@ -18,15 +18,27 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
           }, 150);
         }
       },
-      loadURL: () => {
-        // noop
+      loadURL: (url: string) => {
+        if (iframeRef.current) {
+          setTimeout(() => {
+            if (iframeRef.current) {
+              iframeRef.current.src = url;
+            }
+          }, 150);
+        }
       },
     });
 
-    useImperativeHandle(
-      ref,
-      (): IWebViewWrapperRef | null => iframeWebviewRef.current,
-    );
+    useImperativeHandle(ref, (): IWebViewWrapperRef => {
+      const wrapper = {
+        innerRef: iframeWebviewRef.current,
+        reload: () => iframeWebviewRef.current?.reload(),
+        loadURL: (url: string) => {
+          iframeWebviewRef.current?.loadURL(url);
+        },
+      };
+      return wrapper as IWebViewWrapperRef;
+    });
 
     return (
       <iframe

@@ -68,6 +68,10 @@ export function crossWebviewLoadUrl({
     // @ts-ignore
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     (wrapperRef?.innerRef as IElectronWebView)?.loadURL(url).catch();
+  } else if (platformEnv.isRuntimeBrowser) {
+    // @ts-ignore
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    (wrapperRef?.innerRef as IElectronWebView)?.loadURL(url);
   } else {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     (wrapperRef?.innerRef as WebView)?.loadUrl(url);

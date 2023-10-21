@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { memo, useEffect } from 'react';
 
 import { Stack, useThemeValue } from '@onekeyhq/components';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
@@ -16,6 +16,7 @@ import {
 
 import ControllerBarDesktop from './ControllerBarDesktop';
 import TabBarDesktop from './TabBarDesktop';
+import TabbedWebContainer from './TabbedWebContainer';
 
 const showExplorerBar = webHandler !== 'browser';
 
@@ -54,15 +55,21 @@ function ExplorerHeaderCmp() {
   );
 }
 
-const ExplorerHeader = withProviderWebTabs(ExplorerHeaderCmp);
+const ExplorerHeader = memo(ExplorerHeaderCmp);
 
-function ExplorerDesktop() {
+function ExplorerDesktopCmp() {
   return (
     <Stack flex={1} zIndex={3}>
       {!showExplorerBar && <ExplorerHeader />}
-      <WebHomeContainer />
+      {webHandler !== 'tabbedWebview' ? (
+        <TabbedWebContainer />
+      ) : (
+        <WebHomeContainer />
+      )}
     </Stack>
   );
 }
+
+const ExplorerDesktop = withProviderWebTabs(ExplorerDesktopCmp);
 
 export default ExplorerDesktop;
