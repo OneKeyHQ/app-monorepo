@@ -16,7 +16,6 @@
   "dependencies": {
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",
-    "@onekeyhq/shared": "*",
     "adm-zip": "^0.5.10",
     "electron-config": "^2.0.0",
     "electron-context-menu": "^3.5.0",
@@ -36,7 +35,7 @@
     "electron": "19.1.8",
     "electron-builder": "22.14.13",
     "electron-notarize": "^1.1.1",
-    "esbuild": "^0.15.11",
+    "esbuild": "0.15.18",
     "glob": "^7.2.0",
     "rimraf": "^3"
   },
