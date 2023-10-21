@@ -14,8 +14,6 @@ export interface MatchDAppItemType {
   isNewWindow?: boolean;
 }
 
-export const webviewRefs: Record<string, IWebViewWrapperRef> = {};
-
 export type WebHandler = 'browser' | 'tabbedWebview';
 export const webHandler: WebHandler = (() => {
   if (platformEnv.isDesktop || platformEnv.isNative) {
@@ -23,6 +21,35 @@ export const webHandler: WebHandler = (() => {
   }
   return 'browser';
 })();
+
+export const webviewRefs: Record<string, IWebViewWrapperRef> = {};
+
+export type OnWebviewNavigation = ({
+  url,
+  title,
+  favicon,
+  isInPlace,
+  isNewWindow,
+  canGoBack,
+  canGoForward,
+  loading,
+  id,
+}: {
+  url?: string;
+  title?: string;
+  favicon?: string;
+  isInPlace?: boolean;
+  isNewWindow?: boolean;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
+  loading?: boolean;
+  id?: string;
+}) => void;
+
+if (process.env.NODE_ENV !== 'production') {
+  // @ts-ignore
+  global.$$webviewRefs = webviewRefs;
+}
 
 export const isValidWebUrl = (url: string) =>
   /^[^/\s]+\.(?:ai|app|art|co|com|club|dev|ee|fi|finance|game|im|info|io|is|it|net|network|news|org|so|xyz)(?:\/[^/\s]*)*$/.test(

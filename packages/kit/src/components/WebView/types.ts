@@ -13,3 +13,23 @@ export interface InpageProviderWebViewProps extends InpageWebViewProps {
   onOpenWindow?: (event: any) => void;
   androidLayerType?: 'none' | 'software' | 'hardware';
 }
+
+export type IElectronWebView = {
+  reload: () => void;
+  loadURL: (...args: any) => void;
+  closeDevTools: () => void;
+  openDevTools: () => void;
+  getURL: () => string;
+  getTitle: () => string;
+  src: string;
+  addEventListener: (name: string, callback: unknown) => void;
+  removeEventListener: (name: string, callback: unknown) => void;
+  executeJavaScript: (code: string) => void;
+  send: (channel: string, payload: any) => void;
+  insertCSS: (css: string) => void;
+  canGoBack: () => boolean;
+  canGoForward: () => boolean;
+  goBack: () => void;
+  goForward: () => void;
+  stop: () => void;
+};
