@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 
-import { openMatchDApp } from '../Controller/gotoSite';
-import DiscoverDashboard from '../Dashboard';
+import { openMatchDApp } from '../../Controller/gotoSite';
+import DiscoverDashboard from '../../Dashboard';
 
 const WebHomeContainer: FC<{ alwaysOpenNewWindow?: boolean }> = ({
   alwaysOpenNewWindow,

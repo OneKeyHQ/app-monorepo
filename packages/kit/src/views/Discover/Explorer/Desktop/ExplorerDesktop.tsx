@@ -5,13 +5,14 @@ import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAr
 import { simpleDb } from '@onekeyhq/kit/src/components/WebView/mock';
 
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
+import { webHandler } from '../../explorerUtils';
+import WebHomeContainer from '../Content/WebHomeContainer';
 import {
   homeTab,
   setWebTabsWriteAtom,
   useAtomWebTabs,
   withProviderWebTabs,
 } from '../Context/contextWebTabs';
-import { webHandler } from '../../explorerUtils';
 
 import ControllerBarDesktop from './ControllerBarDesktop';
 import TabBarDesktop from './TabBarDesktop';
@@ -59,7 +60,7 @@ function ExplorerDesktop() {
   return (
     <Stack flex={1} zIndex={3}>
       {!showExplorerBar && <ExplorerHeader />}
-      <Stack>WebView Content</Stack>
+      <WebHomeContainer />
     </Stack>
   );
 }

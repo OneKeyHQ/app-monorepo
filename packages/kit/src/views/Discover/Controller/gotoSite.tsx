@@ -38,9 +38,9 @@ export const gotoSite = ({
       // TODO: add to history
     }
 
-    if (webHandler === 'browser') {
-      return openUrl(validatedUrl);
-    }
+    // if (webHandler === 'browser') {
+    //   return openUrl(validatedUrl);
+    // }
 
     const tabId = tab.id;
     const isDeepLink =

@@ -47,7 +47,7 @@ export function getWebviewWrapperRef(id?: string) {
   let tabId = id;
   if (!tabId) {
     const { getCurrentTabId } =
-      require('./Context/contextWebTabs') as typeof import('./Explorer/Context/contextWebTabs');
+      require('./Explorer/Context/contextWebTabs') as typeof import('./Explorer/Context/contextWebTabs');
     tabId = getCurrentTabId();
   }
   const ref = tabId ? webviewRefs[tabId] : null;
