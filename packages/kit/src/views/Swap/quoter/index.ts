@@ -1,11 +1,10 @@
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
-import { th } from 'date-fns/locale';
-import * as ethers from 'ethers';
 
 import { getNetworkImpl } from '@onekeyhq/engine/src/managers/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IEncodedTxAptos } from '@onekeyhq/engine/src/vaults/impl/apt/types';
+import type { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
@@ -267,6 +266,17 @@ export class SwapQuoter {
           opReturn: order.memo,
         },
       });
+      if (result) {
+        const btcResult = result as IEncodedTxBtc;
+        const isOpReturnEqualOrderMemo = btcResult.outputs.some(
+          (output) => output.payload?.opReturn === order.memo,
+        );
+        if (!isOpReturnEqualOrderMemo) {
+          throw new Error(
+            'failed to build transaction due to invalid opReturn',
+          );
+        }
+      }
       return result;
     }
     if (
