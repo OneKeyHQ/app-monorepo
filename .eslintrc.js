@@ -101,7 +101,6 @@ module.exports = {
     'packages/blockchain-libs',
     'packages/kit/src/store',
     'packages/kit/src/utils/localAuthentication',
-    'packages/core',
     'packages/engine',
     'packages/kit-bg',
     'packages/shared',

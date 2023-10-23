@@ -56,3 +56,4 @@ jobs:
         run: |
           yarn --mode=skip-build && yarn patch-package
           yarn lint
+          yarn test
