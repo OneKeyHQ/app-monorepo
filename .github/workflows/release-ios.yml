@@ -1,0 +1,121 @@
+name: release-ios
+
+on:
+  workflow_run:
+    workflows:
+      - daily-build
+    types:
+      - completed
+  workflow_dispatch:
+jobs:
+  release-ios:
+    runs-on: ubuntu-latest
+
+    if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          lfs: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16.x
+          registry-url: 'https://npm.pkg.github.com'
+          always-auth: true
+          scope: '@onekeyhq'
+
+      - name: Setup keys secret
+        run: |
+          echo ${{ secrets.GOOGLE_SERVICE_IOS }} | base64 -d > packages/app/ios/OneKeyWallet/GoogleService-Info.plist
+          echo ${{ secrets.ASC_API_KEY }} | base64 -d > packages/app/AscApiKey.p8
+
+      - name: Setup Credentials
+        run: |
+          mkdir packages/app/ios/certs
+          echo ${{ secrets.CREDENTIALS_JSON }} | base64 -d > packages/app/credentials.json
+          echo ${{ secrets.DIST_CERT_P12 }} | base64 -d > packages/app/ios/certs/dist.p12
+          echo ${{ secrets.ADHOC_PROFILE }} | base64 -d > packages/app/ios/certs/profile.mobileprovision
+          echo ${{ secrets.ADHOC_SERVICE_EXTENSION_PROFILE }} | base64 -d > packages/app/ios/certs/serviceextension-profile.mobileprovision
+
+      - name: Setup Expo
+        uses: OneKeyHQ/actions/expo-server@main
+        with:
+          eas-version: 3.5.x
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Setup ENV BUILD_NUMBER to 1
+        if: ${{ !github.event.workflow_run }}
+        run: |
+          # Generate build number ------- start
+          echo "BUILD_NUMBER=1" >> $GITHUB_ENV
+          # Generate build number ------- end
+
+      - name: Setup ENV BUILD_NUMBER by workflow_run
+        if: ${{ github.event.workflow_run }}
+        run: |
+          echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
+
+          # Generate build number ------- start
+          DATE=`date "+%Y%m%d"`
+          run_number=$(($workflow_run_number % 100))
+          run_number=$(printf "%02d" $run_number)
+          build_number="${DATE}${run_number}"
+          echo '$build_number='$build_number
+          echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
+          # Generate build number ------- end
+
+        env:
+          workflow_run_number: ${{ github.event.workflow_run.run_number}}
+
+      - name: Dotenv Action
+        id: dotenv
+        uses: OneKeyHQ/actions/dotenv-action@main
+        with:
+          path: .env.version
+
+      - name: Modify OneKeyWallet info.plist
+        uses: OneKeyHQ/actions/build-plist-edit@main
+        with:
+          buildNumber: ${{ env.BUILD_NUMBER }}
+          versionName: ${{ steps.dotenv.outputs.version }}
+          projectName: OneKeyWallet
+          dir: ./packages/app
+
+      - name: Modify ServiceExtension info.plist
+        uses: OneKeyHQ/actions/build-plist-edit@main
+        with:
+          buildNumber: ${{ env.BUILD_NUMBER }}
+          versionName: ${{ steps.dotenv.outputs.version }}
+          projectName: ServiceExtension
+          dir: ./packages/app
+
+      - name: Write .env.version
+        run: |
+          # pass BUILD_NUMBER as env variable to expo server
+          echo "BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> .env.version
+
+      - name: Inject Environment Variables
+        env:
+          COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env.expo
+          echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env.expo
+
+      - name: Build on EAS And Auto Submit
+        if: ${{ github.event.workflow_run }}
+        run: |
+          cd packages/app
+          # eas build --profile=production --platform ios --non-interactive --no-wait
+          # replace APP STORE provision
+          echo ${{ secrets.APPSTORE_PROFILE }} | base64 -d > ./ios/certs/profile.mobileprovision
+          echo ${{ secrets.APPSTORE_SERVICE_EXTENSION_PROFILE }} | base64 -d > ./ios/certs/serviceextension-profile.mobileprovision
+
+          eas build --profile=production-store --platform ios --non-interactive --no-wait --auto-submit
+
+      - name: Build on EAS
+        if: ${{ !github.event.workflow_run }}
+        run: |
+          cd packages/app
+          eas build --profile=production --platform ios --non-interactive --no-wait

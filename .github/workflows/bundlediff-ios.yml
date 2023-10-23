@@ -1,0 +1,129 @@
+name: bundlediff-ios
+
+on:
+  pull_request:
+    branches: [onekey]
+
+# Cancel a currently running workflow from the same PR/branch/tag
+# when a new workflow is triggered
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Build current and upload stats.json
+  # You may replace this with your own build method. All that
+  # is required is that the stats.json be an artifact
+  build-ios-head:
+    name: 'Build ios head'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{github.event.pull_request.head.ref}}
+
+      - name: Setup Node.js v16
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16.x
+          registry-url: 'https://npm.pkg.github.com'
+          always-auth: true
+          scope: '@onekeyhq'
+
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v3
+        id: yarn-cache # use this to check for `cache-hit` (`steps.yarn-cache.outputs.cache-hit != 'true'`)
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install Dependency
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        run: |
+          yarn
+
+      - name: Generate stats.json
+        env:
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        run: yarn stats:ios
+
+      - name: Upload stats.json
+        uses: actions/upload-artifact@v3
+        with:
+          name: head-stats
+          path: ./packages/app/stats.json
+
+  # Build base for comparison and upload stats.json
+  # You may replace this with your own build method. All that
+  # is required is that the stats.json be an artifact
+  build-ios-base:
+    name: 'Build ios base'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.base_ref }}
+
+      - name: Setup Node.js v16
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16.x
+          registry-url: 'https://npm.pkg.github.com'
+          always-auth: true
+          scope: '@onekeyhq'
+          
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v3
+        id: yarn-cache # use this to check for `cache-hit` (`steps.yarn-cache.outputs.cache-hit != 'true'`)
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install Dependency
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        run: |
+          yarn
+
+      - name: Generate stats.json
+        env:
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        run: yarn stats:ios
+
+      - name: Upload stats.json
+        uses: actions/upload-artifact@v3
+        with:
+          name: base-stats
+          path: ./packages/app/stats.json
+
+  # run the action against the stats.json files
+  compare:
+    name: 'Compare base & head bundle sizes'
+    runs-on: ubuntu-latest
+    needs: [build-ios-base, build-ios-head]
+    steps:
+      - uses: actions/download-artifact@v3
+
+      - uses: github/webpack-bundlesize-compare-action@v1.7.0
+        with:
+          title: 'ios bundle diff'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          current-stats-json-path: ./head-stats/stats.json
+          base-stats-json-path: ./base-stats/stats.json
