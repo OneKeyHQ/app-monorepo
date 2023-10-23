@@ -3967,6 +3967,45 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@mymonero/mymonero-app-bridge@npm:^3.0.0":
+  version: 3.0.0
+  resolution: "@mymonero/mymonero-app-bridge@npm:3.0.0"
+  dependencies:
+    "@mymonero/mymonero-bigint": ^3.0.0
+    "@mymonero/mymonero-bridge-utils": ^3.0.0
+    "@mymonero/mymonero-nettype": ^3.0.0
+  checksum: db2905612fda0031e6f07d411baa7466e2eadd66c5d089d575d72e18c810216d5b3ad825643b9adbeb8fb6e51d10f4b64dcbfaf341bcc2d1fd25a35519d5c6cc
+  languageName: node
+  linkType: hard
+
+"@mymonero/mymonero-bigint@npm:^3.0.0":
+  version: 3.0.0
+  resolution: "@mymonero/mymonero-bigint@npm:3.0.0"
+  checksum: dc10bd86b2d6448e1b2e49f9d2155842b7eb3457b57aeea749b777053584c0f247ecfde9080acce97ed5ab782f90b5a0e3fd34c0533aeb541c77f71fe751568f
+  languageName: node
+  linkType: hard
+
+"@mymonero/mymonero-bridge-utils@npm:^3.0.0":
+  version: 3.0.0
+  resolution: "@mymonero/mymonero-bridge-utils@npm:3.0.0"
+  checksum: 27f78ad0fab67a108430fc9c0aa14f05151f1fc519a48445ad441f636abec742c0eed41313ed91ecb5cf48d83c9dcb852d580c63ec313ca79a2f62da0e447342
+  languageName: node
+  linkType: hard
+
+"@mymonero/mymonero-keyimage-cache@npm:^3.0.0":
+  version: 3.0.0
+  resolution: "@mymonero/mymonero-keyimage-cache@npm:3.0.0"
+  checksum: f7659dcc7fb20c925afbb283daac7d8305c2737f5cb78a6a5ac75cb948019b2780ba6bf4e91ef4183d450e7f990b64f000b48842a97661a23102fe82c2edbf83
+  languageName: node
+  linkType: hard
+
+"@mymonero/mymonero-nettype@npm:^3.0.0":
+  version: 3.0.0
+  resolution: "@mymonero/mymonero-nettype@npm:3.0.0"
+  checksum: 774a9b7d6ade1cd8e44969f43ed4bb5f5fad0e063a3af7334344fa580bb9c346bf944ba2b08f1e06d2a7bcf91d6f4579b4c1ba2dc92bf1b9d3b20c59a8336246
+  languageName: node
+  linkType: hard
+
 "@mysten/bcs@npm:0.7.3":
   version: 0.7.3
   resolution: "@mysten/bcs@npm:0.7.3"
@@ -4964,6 +5003,8 @@ __metadata:
     "@conflux-dev/conflux-address-js": ^1.3.16
     "@glif/filecoin-address": ^2.0.43
     "@kaspa/core-lib": ^1.6.5
+    "@mymonero/mymonero-app-bridge": ^3.0.0
+    "@mymonero/mymonero-keyimage-cache": ^3.0.0
     "@noble/secp256k1": 1.7.1
     "@onekeyfe/cardano-coin-selection": 1.0.0
     "@onekeyfe/cardano-coin-selection-asmjs": 1.1.0
