@@ -25,16 +25,16 @@ jobs:
           always-auth: true
           scope: '@onekeyhq'
 
+      - name: Setup keys secret
+        run: |
+          echo ${{ secrets.GOOGLE_SERVICE_IOS }} | base64 -d > apps/mobile/ios/OneKeyWallet/GoogleService-Info.plist
+          echo ${{ secrets.ASC_API_KEY }} | base64 -d > apps/mobile/AscApiKey.p8
+
       - name: Setup Expo
         uses: OneKeyHQ/actions/expo-server@main
         with:
           eas-version: 5.x
           token: ${{ secrets.EXPO_TOKEN }}
-
-      - name: Setup keys secret
-        run: |
-          echo ${{ secrets.GOOGLE_SERVICE_IOS }} | base64 -d > apps/mobile/ios/OneKeyWallet/GoogleService-Info.plist
-          echo ${{ secrets.ASC_API_KEY }} | base64 -d > apps/mobile/AscApiKey.p8
 
       - name: Setup Credentials
         run: |
