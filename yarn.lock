@@ -4899,6 +4899,7 @@ __metadata:
     "@tamagui/toast": 1.71.0
     "@types/chrome": ^0.0.248
     "@types/elliptic": ^6.4.16
+    "@types/ethjs-util": ^0.1.2
     "@types/jest": ^29.5.6
     "@types/lodash": ^4.14.200
     "@types/memoizee": ^0.4.10
@@ -8220,6 +8221,15 @@ __metadata:
   version: 1.0.2
   resolution: "@types/estree@npm:1.0.2"
   checksum: aeedb1b2fe20cbe06f44b99b562bf9703e360bfcdf5bb3d61d248182ee1dd63500f2474e12f098ffe1f5ac3202b43b3e18ec99902d9328d5374f5512fa077e45
+  languageName: node
+  linkType: hard
+
+"@types/ethjs-util@npm:^0.1.2":
+  version: 0.1.2
+  resolution: "@types/ethjs-util@npm:0.1.2"
+  dependencies:
+    "@types/node": "*"
+  checksum: 6ab66acbebf96d57df01c350c678d613577e46dd7fbfc5aea647f80b06141149782879e09fdf1e91263e4114def8bbd563afa8edccf6914c4211e388011ca95b
   languageName: node
   linkType: hard
 

@@ -75,6 +75,7 @@
     "@tamagui/babel-plugin": "1.71.0",
     "@types/chrome": "^0.0.248",
     "@types/elliptic": "^6.4.16",
+    "@types/ethjs-util": "^0.1.2",
     "@types/jest": "^29.5.6",
     "@types/lodash": "^4.14.200",
     "@types/memoizee": "^0.4.10",

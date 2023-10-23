@@ -2,6 +2,7 @@ import type BigNumber from 'bignumber.js';
 import type { IEncodedTxAda } from '../chains/ada/types';
 import type { IEncodedTxCfx } from '../chains/cfx/types';
 import type { IEncodedTxCosmos } from '../chains/cosmos/types';
+import { IEncodedTxEvm } from '../chains/evm/types';
 import { IEncodedTxFil } from '../chains/fil/types';
 import { IEncodedTxKaspa } from '../chains/kaspa/types';
 import { IEncodedTxNexa } from '../chains/nexa/types';
@@ -22,8 +23,8 @@ export type IEncodedTx =
   | IEncodedTxXrp
   | IEncodedTxXmr
   | IEncodedTxTron
-  | IEncodedTxNexa;
-//   | IEncodedTxEvm
+  | IEncodedTxNexa
+  | IEncodedTxEvm;
 //   | IEncodedTxAlgo
 //   | IEncodedTxNear
 //   | IEncodedTxBtc
