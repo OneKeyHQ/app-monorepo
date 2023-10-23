@@ -2,6 +2,7 @@ import { app, ipcMain } from 'electron';
 import logger from 'electron-log';
 import { CancellationToken, autoUpdater } from 'electron-updater';
 
+import { ipcMessageKeys } from '../config';
 import { b2t, toHumanReadable } from '../libs/utils';
 
 import type { Dependencies } from '.';
@@ -56,7 +57,7 @@ const init = ({ mainWindow, store }: Dependencies) => {
 
   autoUpdater.on('checking-for-update', () => {
     logger.info('auto-updater', 'Checking for update');
-    mainWindow.webContents.send('update/checking');
+    mainWindow.webContents.send(ipcMessageKeys.UPDATE_CHECKING);
   });
 
   autoUpdater.on('update-available', ({ version, releaseDate }) => {
@@ -68,7 +69,7 @@ const init = ({ mainWindow, store }: Dependencies) => {
     ]);
 
     latestVersion = { version, releaseDate, isManualCheck };
-    mainWindow.webContents.send(`update/available`, latestVersion);
+    mainWindow.webContents.send(ipcMessageKeys.UPDATE_AVAILABLE, latestVersion);
 
     // Reset manual check flag
     isManualCheck = false;
@@ -84,7 +85,10 @@ const init = ({ mainWindow, store }: Dependencies) => {
     ]);
 
     latestVersion = { version, releaseDate, isManualCheck };
-    mainWindow.webContents.send('update/not-available', latestVersion);
+    mainWindow.webContents.send(
+      ipcMessageKeys.UPDATE_NOT_AVAILABLE,
+      latestVersion,
+    );
 
     // Reset manual check flag
     isManualCheck = false;
@@ -93,7 +97,7 @@ const init = ({ mainWindow, store }: Dependencies) => {
   autoUpdater.on('error', (err) => {
     logger.error('auto-updater', `An error happened: ${err.toString()}`);
     if (isNetworkError(err)) {
-      mainWindow.webContents.send('update/error', {
+      mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
         err,
         version: latestVersion.version,
         isNetworkError: true,
@@ -108,7 +112,9 @@ const init = ({ mainWindow, store }: Dependencies) => {
         progressObj.transferred,
       )}/${toHumanReadable(progressObj.total)})`,
     );
-    mainWindow.webContents.send('update/downloading', { ...progressObj });
+    mainWindow.webContents.send(ipcMessageKeys.UPDATE_DOWNLOADING, {
+      ...progressObj,
+    });
   });
 
   autoUpdater.on(
@@ -120,7 +126,7 @@ const init = ({ mainWindow, store }: Dependencies) => {
         `- Last release date: ${releaseDate}`,
         `- Downloaded file: ${downloadedFile}`,
       ]);
-      mainWindow.webContents.send('update/downloaded', {
+      mainWindow.webContents.send(ipcMessageKeys.UPDATE_DOWNLOADED, {
         version,
         releaseDate,
         downloadedFile,
@@ -128,7 +134,7 @@ const init = ({ mainWindow, store }: Dependencies) => {
     },
   );
 
-  ipcMain.on('update/check', (_, isManual?: boolean) => {
+  ipcMain.on(ipcMessageKeys.UPDATE_CHECK, (_, isManual?: boolean) => {
     if (isManual) {
       isManualCheck = true;
     }
@@ -151,7 +157,7 @@ const init = ({ mainWindow, store }: Dependencies) => {
             error == null ? 'unknown' : (error?.stack || error)?.toString()
           }`,
         );
-        mainWindow.webContents.send('update/error', {
+        mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
           err: error,
           version: null,
           isNetworkError: false,
@@ -160,9 +166,9 @@ const init = ({ mainWindow, store }: Dependencies) => {
     });
   });
 
-  ipcMain.on('update/download', () => {
+  ipcMain.on(ipcMessageKeys.UPDATE_DOWNLOAD, () => {
     logger.info('auto-updater', 'Download requested');
-    mainWindow.webContents.send('update/downloading', {
+    mainWindow.webContents.send(ipcMessageKeys.UPDATE_DOWNLOADING, {
       percent: 0,
       bytesPerSecond: 0,
       total: 0,
@@ -175,7 +181,7 @@ const init = ({ mainWindow, store }: Dependencies) => {
       .catch(() => logger.info('auto-updater', 'Update cancelled'));
   });
 
-  ipcMain.on('update/install', () => {
+  ipcMain.on(ipcMessageKeys.UPDATE_INSTALL, () => {
     logger.info('auto-updater', 'Installation request');
 
     // Removing listeners & closing window (https://github.com/electron-userland/electron-builder/issues/1604)
@@ -186,12 +192,12 @@ const init = ({ mainWindow, store }: Dependencies) => {
     autoUpdater.quitAndInstall();
   });
 
-  ipcMain.on('update/settings', (_, settings: UpdateSettings) => {
+  ipcMain.on(ipcMessageKeys.UPDATE_SETTINGS, (_, settings: UpdateSettings) => {
     logger.info('auto-update', 'Set setting: ', JSON.stringify(settings));
     setUseTestFeedUrl((settings ?? {}).useTestFeedUrl ?? false);
   });
 
-  ipcMain.on('update/clearSettings', () => {
+  ipcMain.on(ipcMessageKeys.UPDATE_CLEAR_SETTINGS, () => {
     logger.info('auto-update', 'clear update settings');
     store.clear();
   });
