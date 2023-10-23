@@ -30,6 +30,7 @@ import FormGallery from '../../views/Components/stories/Form';
 import QRCodeGallery from '../../views/Components/stories/QRCode';
 import TextAreaGallery from '../../views/Components/stories/TextArea';
 import ThemeGallery from '../../views/Components/stories/Theme';
+import SkeletonGallery from '../../views/Components/stories/Skeleton';
 
 export enum GalleryRoutes {
   Components = 'components',
@@ -39,6 +40,7 @@ export enum GalleryRoutes {
   ComponentIcon = 'component/icon',
   ComponentButton = 'component/button',
   ComponentSelect = 'component/select',
+  ComponentSkeleton = 'component/skeleton',
   ComponentIconButton = 'component/iconButton',
   ComponentBadge = 'component/badge',
   ComponentDialog = 'component/dialog',
@@ -83,6 +85,7 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentDialog, component: DialogGallery },
   { name: GalleryRoutes.ComponentEmpty, component: EmptyGallery },
   { name: GalleryRoutes.ComponentRadio, component: RadioGallery },
+  { name: GalleryRoutes.ComponentSkeleton, component: SkeletonGallery },
   { name: GalleryRoutes.ComponentCheckbox, component: CheckboxGallery },
   { name: GalleryRoutes.ComponentToggleGroup, component: ToggleGroupGallery },
   { name: GalleryRoutes.ComponentActionList, component: ActionListGallery },
