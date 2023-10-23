@@ -4,13 +4,15 @@ import { createServer } from 'http';
 import { ipcMain } from 'electron';
 import RNUUID from 'react-native-uuid';
 
+import { ipcMessageKeys } from '../config';
+
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 
 const init = () => {
   let server: Server;
 
   const resMap: Record<string, ServerResponse | null> = {};
-  ipcMain.on('server/start', (event, port: number) => {
+  ipcMain.on(ipcMessageKeys.SERVER_START, (event, port: number) => {
     try {
       if (!server) {
         server = createServer(
@@ -19,7 +21,7 @@ const init = () => {
             const requestId = RNUUID.v4() as string;
             const { method, url } = request;
             if (method === 'GET') {
-              event.reply('server/listener', {
+              event.reply(ipcMessageKeys.SERVER_LISTENER, {
                 requestId,
                 type: method,
                 url,
@@ -38,7 +40,7 @@ const init = () => {
                 .on('end', () => {
                   body = Buffer.concat(body).toString();
 
-                  event.reply('server/listener', {
+                  event.reply(ipcMessageKeys.SERVER_LISTENER, {
                     requestId,
                     type: method,
                     url,
@@ -57,16 +59,16 @@ const init = () => {
       const { address } = require('ip');
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       const ipAddress = address();
-      event.reply('server/start/res', {
+      event.reply(ipcMessageKeys.SERVER_START_RES, {
         data: `${ipAddress as string}:${port}`,
         success: true,
       });
     } catch (e: any) {
-      event.reply('server/start/res', { success: false });
+      event.reply(ipcMessageKeys.SERVER_START_RES, { success: false });
     }
   });
 
-  ipcMain.on('server/respond', (_, args) => {
+  ipcMain.on(ipcMessageKeys.SERVER_RESPOND, (_, args) => {
     const { requestId, code, type, body } = args;
     const res = resMap[requestId];
     if (res) {
@@ -81,7 +83,7 @@ const init = () => {
     }
   });
 
-  ipcMain.on('server/stop', () => {
+  ipcMain.on(ipcMessageKeys.SERVER_STOP, () => {
     server.close();
   });
 };

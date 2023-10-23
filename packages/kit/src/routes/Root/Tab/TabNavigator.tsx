@@ -1,6 +1,7 @@
 import type { TabNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
 import { TabStackNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
 
+import Swap from '../../../views/Swap';
 import HomePage from '../../../views/Tab/Home/HomePageTabs';
 
 import { TabDeveloperRoutes } from './Developer/Routes';
@@ -10,6 +11,7 @@ import TabHomeStack2 from './Home/TabHomeStack2';
 import { TabMeRoutes } from './Me/Routes';
 import TabMe from './Me/TabMe';
 import { TabRoutes } from './Routes';
+import { TabSwapRoutes } from './Swap/Routes';
 
 const config: TabNavigatorConfig<TabRoutes>[] = [
   {
@@ -33,6 +35,20 @@ const config: TabNavigatorConfig<TabRoutes>[] = [
         name: TabHomeRoutes.TabHomeStack2,
         component: TabHomeStack2,
         translationId: 'wallet__wallet',
+      },
+    ],
+  },
+  {
+    name: TabRoutes.Swap,
+    tabBarIcon: (focused?: boolean) =>
+      focused ? 'CreditCardSolid' : 'CreditCardOutline',
+    translationId: 'title__swap',
+    freezeOnBlur: true,
+    children: [
+      {
+        name: TabSwapRoutes.TabSwap,
+        component: Swap,
+        translationId: 'title__swap',
       },
     ],
   },

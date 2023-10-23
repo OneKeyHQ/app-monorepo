@@ -2,30 +2,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/require-await */
 import { ipcRenderer } from 'electron';
 
+import { ipcMessageKeys } from './config';
+
 import type { UpdateSettings } from './libs/store';
-
-let keytar = {
-  async setPassword(...args: any[]) {
-    // noop
-    console.error('keytar.setPassword() not working.');
-  },
-  async getPassword(...args: any[]) {
-    console.error('keytar.getPassword() not working.');
-    return Promise.resolve('');
-  },
-  async deletePassword(...args: any[]) {
-    console.error('keytar.deletePassword() not working.');
-    return Promise.resolve('');
-  },
-};
-
-try {
-  // eslint-disable-next-line global-require
-  keytar = require('keytar');
-} catch (error: any) {
-  // Error: dlopen(//app-monorepo/node_modules/keytar/build/Release/keytar.node, 0x0001): tried: '//app-monorepo/node_modules/keytar/build/Release/keytar.node' (mach-o file, but is an incompatible architecture (have 'x86_64', need 'arm64e'))
-  console.error(error);
-}
 
 export type PrefType =
   | 'camera'
@@ -109,7 +88,7 @@ declare global {
 }
 
 ipcRenderer.on(
-  'SET_ONEKEY_DESKTOP_GLOBALS',
+  ipcMessageKeys.SET_ONEKEY_DESKTOP_GLOBALS,
   (
     _,
     globals: {
@@ -124,7 +103,7 @@ ipcRenderer.on(
 );
 
 window.ONEKEY_DESKTOP_DEEP_LINKS = window.ONEKEY_DESKTOP_DEEP_LINKS || [];
-ipcRenderer.on('OPEN_URL_DEEP_LINK_MESSAGE', (event, data) => {
+ipcRenderer.on(ipcMessageKeys.OPEN_DEEP_LINK_URL, (event, data) => {
   if (window.ONEKEY_DESKTOP_DEEP_LINKS) {
     window.ONEKEY_DESKTOP_DEEP_LINKS.push(data);
   }
@@ -133,14 +112,14 @@ ipcRenderer.on('OPEN_URL_DEEP_LINK_MESSAGE', (event, data) => {
 
 const validChannels = [
   // Update events
-  'update/checking',
-  'update/available',
-  'update/not-available',
-  'update/error',
-  'update/downloading',
-  'update/downloaded',
-  'touch/update-res-success',
-  'touch/update-progress',
+  ipcMessageKeys.UPDATE_CHECKING,
+  ipcMessageKeys.UPDATE_AVAILABLE,
+  ipcMessageKeys.UPDATE_NOT_AVAILABLE,
+  ipcMessageKeys.UPDATE_ERROR,
+  ipcMessageKeys.UPDATE_DOWNLOADING,
+  ipcMessageKeys.UPDATE_DOWNLOADED,
+  ipcMessageKeys.TOUCH_UPDATE_RES_SUCCESS,
+  ipcMessageKeys.TOUCH_UPDATE_PROGRESS,
 ];
 
 const getChannel = () => {
@@ -168,9 +147,9 @@ const desktopApi = {
   platform: process.platform,
   isMas: process.mas,
   channel: getChannel(),
-  ready: () => ipcRenderer.send('app/ready'),
-  reload: () => ipcRenderer.send('app/reload'),
-  focus: () => ipcRenderer.send('app/focus'),
+  ready: () => ipcRenderer.send(ipcMessageKeys.APP_READY),
+  reload: () => ipcRenderer.send(ipcMessageKeys.APP_RELOAD),
+  focus: () => ipcRenderer.send(ipcMessageKeys.APP_FOCUS),
   addIpcEventListener: (event: string, listener: (...args: any[]) => void) => {
     ipcRenderer.addListener(event, listener);
   },
@@ -182,69 +161,75 @@ const desktopApi = {
   },
   onAppState: (cb: (state: 'active' | 'background') => void) => {
     const handler = (_: any, value: any) => cb(value);
-    ipcRenderer.addListener('appState', handler);
+    ipcRenderer.addListener(ipcMessageKeys.APP_STATE, handler);
     return () => {
-      ipcRenderer.removeListener('appState', handler);
+      ipcRenderer.removeListener(ipcMessageKeys.APP_STATE, handler);
     };
   },
-  openPrefs: () => ipcRenderer.send('app/openPrefs'),
-  toggleMaximizeWindow: () => ipcRenderer.send('app/toggleMaximizeWindow'),
+  openPrefs: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_PREFS),
+  toggleMaximizeWindow: () =>
+    ipcRenderer.send(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW),
   canPromptTouchID: () =>
-    ipcRenderer.sendSync('app/canPromptTouchID') as boolean,
+    ipcRenderer.sendSync(ipcMessageKeys.TOUCH_ID_CAN_PROMPT) as boolean,
   promptTouchID: async (
     msg: string,
   ): Promise<{ success: boolean; error?: string }> =>
     new Promise((resolve) => {
-      ipcRenderer.once('app/promptTouchID/res', (_, arg) => {
+      ipcRenderer.once(ipcMessageKeys.TOUCH_ID_PROMPT_RES, (_, arg) => {
         resolve(arg);
       });
-      ipcRenderer.send('app/promptTouchID', msg);
+      ipcRenderer.send(ipcMessageKeys.TOUCH_ID_PROMPT, msg);
     }),
   secureSetItemAsync(key: string, value: string) {
-    return keytar.setPassword('OneKey', key, value);
+    return ipcRenderer.sendSync(ipcMessageKeys.SECURE_SET_ITEM_ASYNC, {
+      key,
+      value,
+    });
   },
   secureGetItemAsync(key: string) {
-    return keytar.getPassword('OneKey', key);
+    return ipcRenderer.sendSync(ipcMessageKeys.SECURE_GET_ITEM_ASYNC, { key });
   },
   secureDelItemAsync(key: string) {
-    return keytar.deletePassword('OneKey', key);
+    return ipcRenderer.sendSync(ipcMessageKeys.SECURE_DEL_ITEM_ASYNC, { key });
   },
   reloadBridgeProcess: () => {
-    ipcRenderer.send('app/reloadBridgeProcess');
+    ipcRenderer.send(ipcMessageKeys.APP_RELOAD_BRIDGE_PROCESS);
   },
 
   // Updater
   checkForUpdates: (isManual?: boolean) =>
-    ipcRenderer.send('update/check', isManual),
-  downloadUpdate: () => ipcRenderer.send('update/download'),
-  installUpdate: () => ipcRenderer.send('update/install'),
+    ipcRenderer.send(ipcMessageKeys.UPDATE_CHECK, isManual),
+  downloadUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_DOWNLOAD),
+  installUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_INSTALL),
   setAutoUpdateSettings: (settings: UpdateSettings) =>
-    ipcRenderer.send('update/settings', settings),
-  clearAutoUpdateSettings: () => ipcRenderer.send('update/clearSettings'),
+    ipcRenderer.send(ipcMessageKeys.UPDATE_SETTINGS, settings),
+  clearAutoUpdateSettings: () =>
+    ipcRenderer.send(ipcMessageKeys.UPDATE_CLEAR_SETTINGS),
 
   touchUpdateResource: (params: {
     resourceUrl: string;
     dialogTitle: string;
     buttonLabel: string;
-  }) => ipcRenderer.send('touch/res', params),
-  openPrivacyPanel: () => ipcRenderer.send('touch/openPrivacyPanel'),
+  }) => ipcRenderer.send(ipcMessageKeys.TOUCH_RES, params),
+  openPrivacyPanel: () =>
+    ipcRenderer.send(ipcMessageKeys.TOUCH_OPEN_PRIVACY_PANEL),
 
   restore: () => {
-    ipcRenderer.send('app/restoreMainWindow');
+    ipcRenderer.send(ipcMessageKeys.APP_RESTORE_MAIN_WINDOW);
   },
 
   startServer: (port: number, cb: (data: string, success: boolean) => void) => {
-    ipcRenderer.on('server/start/res', (_, arg) => {
+    ipcRenderer.on(ipcMessageKeys.SERVER_START_RES, (_, arg) => {
       const { data, success } = arg;
       cb(data, success);
     });
-    ipcRenderer.send('server/start', port);
+    ipcRenderer.send(ipcMessageKeys.SERVER_START, port);
   },
 
   stopServer: () => {
-    ipcRenderer.send('server/stop');
-    ipcRenderer.removeAllListeners('server/start/res');
-    ipcRenderer.removeAllListeners('server/listener');
+    ipcRenderer.send(ipcMessageKeys.SERVER_STOP);
+    ipcRenderer.removeAllListeners(ipcMessageKeys.SERVER_START_RES);
+    ipcRenderer.removeAllListeners(ipcMessageKeys.SERVER_LISTENER);
   },
   serverListener: (
     cb: (request: {
@@ -254,7 +239,7 @@ const desktopApi = {
       url: string;
     }) => void,
   ) => {
-    ipcRenderer.on('server/listener', (_, arg) => {
+    ipcRenderer.on(ipcMessageKeys.SERVER_LISTENER, (_, arg) => {
       const { requestId, type, url, postData } = arg;
       cb({ requestId, postData, type, url });
     });
@@ -265,13 +250,18 @@ const desktopApi = {
     type: string,
     body: string,
   ) => {
-    ipcRenderer.send('server/respond', { requestId, code, type, body });
+    ipcRenderer.send(ipcMessageKeys.SERVER_RESPOND, {
+      requestId,
+      code,
+      type,
+      body,
+    });
   },
   quitApp: () => {
-    ipcRenderer.send('app/quit');
+    ipcRenderer.send(ipcMessageKeys.APP_QUIT);
   },
   clearWebViewData: () => {
-    ipcRenderer.send('app/clearWebViewData');
+    ipcRenderer.send(ipcMessageKeys.APP_CLEAR_WEBVIEW_DATA);
   },
 };
 

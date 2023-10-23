@@ -11,6 +11,8 @@ import { dialog, ipcMain, shell } from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
 
+import { ipcMessageKeys } from '../config';
+
 import type { BrowserWindow } from 'electron';
 
 const finished = promisify(stream.finished);
@@ -338,7 +340,7 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
     });
 
   ipcMain.on(
-    'touch/res',
+    ipcMessageKeys.TOUCH_RES,
     async (
       _,
       params: {
@@ -393,7 +395,7 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
     },
   );
 
-  ipcMain.on('touch/openPrivacyPanel', () => {
+  ipcMain.on(ipcMessageKeys.TOUCH_OPEN_PRIVACY_PANEL, () => {
     shell.openExternal(
       'x-apple.systempreferences:com.apple.preference.security?Privacy',
     );

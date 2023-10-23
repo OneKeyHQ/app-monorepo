@@ -21,6 +21,7 @@ import logger from 'electron-log';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 
+import { ipcMessageKeys } from './config';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import initProcess, { restartBridge } from './process/index';
@@ -161,9 +162,12 @@ function handleDeepLinkUrl(
     if (mainWindow) {
       showMainWindow();
       if (process.env.NODE_ENV !== 'production') {
-        mainWindow.webContents.send('OPEN_URL_DEEP_LINK_MESSAGE', eventData);
+        mainWindow.webContents.send(
+          ipcMessageKeys.OPEN_DEEP_LINK_URL,
+          eventData,
+        );
       }
-      mainWindow.webContents.send('event-open-url', eventData);
+      mainWindow.webContents.send(ipcMessageKeys.EVENT_OPEN_URL, eventData);
     }
   };
   if (isAppReady && mainWindow) {
@@ -239,7 +243,7 @@ function createMainWindow() {
 
   browserWindow.webContents.on('did-finish-load', () => {
     console.log('browserWindow >>>> did-finish-load');
-    browserWindow.webContents.send('SET_ONEKEY_DESKTOP_GLOBALS', {
+    browserWindow.webContents.send(ipcMessageKeys.SET_ONEKEY_DESKTOP_GLOBALS, {
       resourcesPath: (global as any).resourcesPath,
       staticPath: `file://${staticPath}`,
       preloadJsUrl: `file://${preloadJsUrl}?timestamp=${Date.now()}`,
@@ -274,27 +278,27 @@ function createMainWindow() {
     return { action: 'deny' };
   });
 
-  ipcMain.on('app/ready', () => {
+  ipcMain.on(ipcMessageKeys.APP_READY, () => {
     isAppReady = true;
     console.log('set isAppReady on ipcMain app/ready', isAppReady);
     emitter.emit('ready');
   });
-  ipcMain.on('app/reload', () => {
+  ipcMain.on(ipcMessageKeys.APP_READY, () => {
     if (!process.mas) {
       app.relaunch();
     }
     app.exit(0);
     disposeContextMenu();
   });
-  ipcMain.on('app/focus', () => {
+  ipcMain.on(ipcMessageKeys.APP_FOCUS, () => {
     showMainWindow();
   });
-  ipcMain.on('app/quit', () => {
+  ipcMain.on(ipcMessageKeys.APP_QUIT, () => {
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     quitOrMinimizeApp();
   });
 
-  ipcMain.on('app/openPrefs', (_event, prefType: PrefType) => {
+  ipcMain.on(ipcMessageKeys.APP_OPEN_PREFS, (_event, prefType: PrefType) => {
     const platform = os.type();
     if (platform === 'Darwin') {
       shell.openPath('/System/Library/PreferencePanes/Security.prefPane');
@@ -309,7 +313,7 @@ function createMainWindow() {
     }
   });
 
-  ipcMain.on('app/toggleMaximizeWindow', () => {
+  ipcMain.on(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW, () => {
     if (browserWindow.isMaximized()) {
       // Restore the original window size
       browserWindow.unmaximize();
@@ -319,63 +323,87 @@ function createMainWindow() {
     }
   });
 
-  ipcMain.on('app/canPromptTouchID', (event) => {
+  ipcMain.on(ipcMessageKeys.TOUCH_ID_CAN_PROMPT, (event) => {
     const result = systemPreferences?.canPromptTouchID?.();
     event.returnValue = !!result;
   });
 
-  ipcMain.on('app/promptTouchID', async (event, msg: string) => {
+  ipcMain.on(ipcMessageKeys.TOUCH_ID_PROMPT, async (event, msg: string) => {
     try {
       await systemPreferences.promptTouchID(msg);
-      event.reply('app/promptTouchID/res', { success: true });
+      event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, { success: true });
     } catch (e: any) {
-      event.reply('app/promptTouchID/res', {
+      event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, {
         success: false,
         error: e.message,
       });
     }
   });
 
-  ipcMain.on('app/reloadBridgeProcess', (event) => {
+  ipcMain.on(
+    ipcMessageKeys.SECURE_SET_ITEM_ASYNC,
+    (event, { key, value }: { key: string; value: string }) => {
+      store.setSecureItem(key, value);
+      event.returnValue = '';
+    },
+  );
+
+  ipcMain.on(
+    ipcMessageKeys.SECURE_GET_ITEM_ASYNC,
+    (event, { key }: { key: string }) => {
+      const value = store.getSecureItem(key);
+      event.returnValue = value;
+    },
+  );
+
+  ipcMain.on(
+    ipcMessageKeys.SECURE_DEL_ITEM_ASYNC,
+    (event, { key }: { key: string }) => {
+      store.deleteSecureItem(key);
+      event.returnValue = '';
+    },
+  );
+
+  ipcMain.on(ipcMessageKeys.APP_RELOAD_BRIDGE_PROCESS, (event) => {
     logger.debug('reloadBridgeProcess receive');
     restartBridge();
-    event.reply('app/reloadBridgeProcess', true);
+    event.reply(ipcMessageKeys.APP_RELOAD_BRIDGE_PROCESS, true);
   });
 
-  ipcMain.on('app/restoreMainWindow', (event) => {
+  ipcMain.on(ipcMessageKeys.APP_RESTORE_MAIN_WINDOW, (event) => {
     logger.debug('restoreMainWindow receive');
     browserWindow.show();
-    event.reply('app/restoreMainWindow', true);
+    event.reply(ipcMessageKeys.APP_RESTORE_MAIN_WINDOW, true);
   });
 
-  ipcMain.on('app/clearWebViewData', () => {
+  ipcMain.on(ipcMessageKeys.APP_CLEAR_WEBVIEW_DATA, () => {
     clearWebData();
   });
 
   // reset appState to undefined  to avoid screen lock.
   browserWindow.on('enter-full-screen', () => {
-    browserWindow.webContents.send('appState', undefined);
+    browserWindow.webContents.send(ipcMessageKeys.APP_STATE, undefined);
   });
 
   // reset appState to undefined  to avoid screen lock.
   browserWindow.on('leave-full-screen', () => {
-    browserWindow.webContents.send('appState', undefined);
+    browserWindow.webContents.send(ipcMessageKeys.APP_STATE, undefined);
   });
 
   browserWindow.on('focus', () => {
-    browserWindow.webContents.send('appState', 'active');
+    browserWindow.webContents.send(ipcMessageKeys.APP_STATE, 'active');
     registerShortcuts((event) => {
-      browserWindow.webContents.send('shortcut', event);
+      browserWindow.webContents.send(ipcMessageKeys.APP_SHORCUT, event);
     });
   });
 
   browserWindow.on('blur', () => {
-    browserWindow.webContents.send('appState', 'blur');
+    browserWindow.webContents.send(ipcMessageKeys.APP_STATE, 'blur');
     unregisterShortcuts();
   });
 
   browserWindow.on('hide', () => {
-    browserWindow.webContents.send('appState', 'background');
+    browserWindow.webContents.send(ipcMessageKeys.APP_STATE, 'background');
     unregisterShortcuts();
   });
 
