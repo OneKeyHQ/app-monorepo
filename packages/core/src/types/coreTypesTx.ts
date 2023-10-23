@@ -3,6 +3,7 @@ import type { IEncodedTxAda } from '../chains/ada/types';
 import type { IEncodedTxCfx } from '../chains/cfx/types';
 import type { IEncodedTxCosmos } from '../chains/cosmos/types';
 import { IEncodedTxFil } from '../chains/fil/types';
+import { IEncodedTxKaspa } from '../chains/kaspa/types';
 import type { ICurveName } from './coreTypesBase';
 
 export type IEncodedTx =
@@ -10,7 +11,8 @@ export type IEncodedTx =
   | IEncodedTxAda
   | IEncodedTxCfx
   | IEncodedTxCosmos
-  | IEncodedTxFil;
+  | IEncodedTxFil
+  | IEncodedTxKaspa;
 //   | IEncodedTxEvm
 //   | IEncodedTxAlgo
 //   | IEncodedTxNear
@@ -23,7 +25,6 @@ export type IEncodedTx =
 //   | IEncodedTxSUI
 //   | IEncodedTxDot
 //   | IEncodedTxXmr
-//   | IEncodedTxKaspa
 //   | IEncodedTxNexa
 //   | IEncodedTxLightning;
 

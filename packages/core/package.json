@@ -13,6 +13,7 @@
   "dependencies": {
     "@conflux-dev/conflux-address-js": "^1.3.16",
     "@glif/filecoin-address": "^2.0.43",
+    "@kaspa/core-lib": "^1.6.5",
     "@noble/secp256k1": "1.7.1",
     "@onekeyfe/cardano-coin-selection": "1.0.0",
     "@onekeyfe/cardano-coin-selection-asmjs": "1.1.0",
@@ -35,6 +36,7 @@
     "jsrsasign": "^10.8.6"
   },
   "devDependencies": {
-    "@types/bchaddrjs": "^0.4.2"
+    "@types/bchaddrjs": "^0.4.2",
+    "@types/jsrsasign": "^10.5.11"
   }
 }
