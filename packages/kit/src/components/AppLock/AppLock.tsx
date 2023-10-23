@@ -1,13 +1,11 @@
 import type { FC } from 'react';
-import { Fragment, useEffect, useMemo } from 'react';
+import { Fragment, useEffect } from 'react';
 
 import { Box, OverlayContainer } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAppSelector, useDebounce } from '../../hooks';
 import { useAppLock } from '../../hooks/useAppLock';
-import { unlockWhiteListUrls } from '../../routes/linking.path';
 import { setAppRenderReady } from '../../store/reducers/data';
 import { FULLWINDOW_OVERLAY_PORTAL } from '../../utils/overlayUtils';
 import { isPortalExisted } from '../../views/Overlay/RootPortal';
@@ -18,19 +16,6 @@ import { AppStateUnlock } from './AppStateUnlock';
 import { AppStateUpdater } from './AppStateUpdater';
 
 type AppLockProps = { children: JSX.Element; renderAsOverlay?: boolean };
-
-function isUnlockWhiteListUrl() {
-  // only available for web
-  // TODO only for dapp mode web, but not wallet mode web
-  if (!platformEnv.isWeb) {
-    return false;
-  }
-  return Boolean(
-    unlockWhiteListUrls.find((item) =>
-      window.location?.pathname?.startsWith(item),
-    ),
-  );
-}
 
 export const AppLockView: FC<AppLockProps> = ({
   children,

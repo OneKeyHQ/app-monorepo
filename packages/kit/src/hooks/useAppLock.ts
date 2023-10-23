@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { unlockWhiteListUrls } from '../routes/linking.path';
