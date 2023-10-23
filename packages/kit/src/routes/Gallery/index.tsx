@@ -22,7 +22,7 @@ import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
 import ToggleGroupGallery from '@onekeyhq/kit/src/views/Components/stories/ToggleGroup';
 import TooltipGallery from '@onekeyhq/kit/src/views/Components/stories/Tooltip';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
-import WebviewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
+// import WebviewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 
 import AlertGallery from '../../views/Components/stories/Alert';
 import DividerGallery from '../../views/Components/stories/Divider';
@@ -116,10 +116,10 @@ export const stackScreenList = [
     name: GalleryRoutes.componentQRCode,
     component: QRCodeGallery,
   },
-  {
-    name: GalleryRoutes.ComponentWebview,
-    component: WebviewGallery,
-  },
+  // {
+  //   name: GalleryRoutes.ComponentWebview,
+  //   component: WebviewGallery,
+  // },
 ];
 
 const DevStack = createStackNavigator();
