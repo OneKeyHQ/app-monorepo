@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 
 import { crossWebviewLoadUrl, getWebviewWrapperRef } from '../explorerUtils';
 
@@ -13,23 +13,27 @@ export const useWebviewRef = ({
   onNavigation: OnWebviewNavigation;
   tabId: string;
 }) => {
-  const isDomReady = useRef(false);
-
   const goBack = useCallback(() => {
-    if (isDomReady.current) {
+    try {
       ref?.goBack();
+    } catch {
+      /* empty */
     }
   }, [ref]);
 
   const goForward = useCallback(() => {
-    if (isDomReady.current) {
+    try {
       ref?.goForward();
+    } catch {
+      /* empty */
     }
   }, [ref]);
 
   const stopLoading = useCallback(() => {
-    if (isDomReady.current) {
+    try {
       ref?.stop();
+    } catch {
+      /* empty */
     }
   }, [ref]);
 

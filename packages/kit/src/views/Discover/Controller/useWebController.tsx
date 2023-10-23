@@ -93,8 +93,7 @@ export const useWebController = ({
       let canGoBack = tab?.refReady && tab?.canGoBack;
       if (platformEnv.isDesktop) {
         if (innerRef) {
-          // @ts-expect-error
-          canGoBack = innerRef.canGoBack();
+          canGoBack = (innerRef as IElectronWebView).canGoBack();
         }
       }
 
