@@ -6,6 +6,10 @@ import { useIntl } from 'react-intl';
 import { IconButton, Input, XStack } from '@onekeyhq/components';
 import type { ICON_NAMES } from '@onekeyhq/components';
 
+import { gotoSite, openMatchDApp } from '../../Controller/gotoSite';
+import { useWebController } from '../../Controller/useWebController';
+
+import type { MatchDAppItemType } from '../../explorerUtils';
 import type { WebTab } from '../Context/contextWebTabs';
 import type { TextInput } from 'react-native';
 
@@ -67,7 +71,16 @@ function ControllerBarDesktop() {
   const intl = useIntl();
 
   const [historyVisible, setHistoryVisible] = useState(false);
-  const currentTab: WebTab = {} as WebTab;
+  const { currentTab, stopLoading, goBack, goForward, reload } =
+    useWebController();
+  const { loading, canGoBack, canGoForward } = currentTab ?? {};
+
+  const onSearchSubmitEditing = (dapp: MatchDAppItemType | string) => {
+    if (typeof dapp === 'string') {
+      return gotoSite({ url: dapp, userTriggered: true });
+    }
+    openMatchDApp(dapp);
+  };
 
   const url: string =
     currentTab?.url && currentTab?.url !== 'about:blank' ? currentTab.url : '';
@@ -84,13 +97,18 @@ function ControllerBarDesktop() {
     <XStack bg="$bg" w="100%" h="$12" px="$8" space="$3" alignItems="center">
       <IconButton
         icon="ArrowLeftOutline"
-        onPress={() => console.log('goBack')}
+        disabled={!canGoBack}
+        onPress={goBack}
       />
       <IconButton
         icon="ArrowTopOutline"
-        onPress={() => console.log('Go Forward')}
+        disabled={!canGoForward}
+        onPress={goForward}
       />
-      <IconButton icon="RenewOutline" onPress={() => console.log('Reload')} />
+      <IconButton
+        icon={loading ? 'CrossedLargeOutline' : 'RenewOutline'}
+        onPress={loading ? stopLoading : reload}
+      />
       <XStack>
         <BrowserURLInput
           ref={searchBar}
@@ -108,7 +126,7 @@ function ControllerBarDesktop() {
             const trimText = text.trim();
             if (trimText) {
               setSearchText(trimText);
-              // onSearchSubmitEditing(trimText);
+              onSearchSubmitEditing(trimText);
             }
           }}
           onKeyPress={(event) => {

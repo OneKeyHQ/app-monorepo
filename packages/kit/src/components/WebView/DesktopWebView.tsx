@@ -21,18 +21,27 @@ import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUti
 import ErrorView from './ErrorView';
 import { backgroundApiProxy } from './mock';
 
-import type {
-  IElectronWebView,
-  InpageProviderWebViewProps,
-} from '@onekeyfe/cross-inpage-provider-types';
+import type { IElectronWebView, IElectronWebViewEvents } from './types';
+import type { InpageProviderWebViewProps } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
-import type { LoadURLOptions } from 'electron';
+import type {
+  DidFailLoadEvent,
+  DidStartNavigationEvent,
+  Event,
+  LoadURLOptions,
+  NewWindowEvent,
+  PageFaviconUpdatedEvent,
+  PageTitleUpdatedEvent,
+} from 'electron';
 
-interface IElectronWebViewExt extends IElectronWebView {
-  stop: () => void;
-  setUserAgent: (userAgent: string) => void;
-  getUserAgent: () => string;
-}
+export type {
+  DidFailLoadEvent,
+  DidStartNavigationEvent,
+  Event,
+  NewWindowEvent,
+  PageFaviconUpdatedEvent,
+  PageTitleUpdatedEvent,
+};
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -64,20 +73,32 @@ const DesktopWebView = forwardRef(
       style,
       receiveHandler,
       onSrcChange,
+      onDidStartLoading,
+      onDidStartNavigation,
+      onDidFinishLoad,
+      onDidStopLoading,
+      onDidFailLoad,
+      onPageTitleUpdated,
+      onPageFaviconUpdated,
+      onNewWindow,
+      onDomReady,
       ...props
-    }: ComponentProps<typeof WEBVIEW_TAG> & InpageProviderWebViewProps,
+    }: ComponentProps<typeof WEBVIEW_TAG> &
+      IElectronWebViewEvents &
+      InpageProviderWebViewProps,
     ref: any,
   ) => {
     const [isWebviewReady, setIsWebviewReady] = useState(false);
-    const webviewRef = useRef<IElectronWebViewExt | null>(null);
+    const webviewRef = useRef<IElectronWebView | null>(null);
     const [devToolsAtLeft, setDevToolsAtLeft] = useState(false);
 
     const [desktopLoadError, setDesktopLoadError] = useState(false);
 
+    // Register event listeners
     useEffect(() => {
-      const electronWebView = webviewRef.current;
+      const webview = webviewRef.current;
 
-      if (!electronWebView) {
+      if (!webview) {
         return;
       }
 
@@ -85,12 +106,12 @@ const DesktopWebView = forwardRef(
         const checkGoogleOauth = (checkUrl: string) => {
           try {
             if (checkOneKeyCardGoogleOauthUrl({ url: checkUrl })) {
-              const originUA = electronWebView.getUserAgent();
+              const originUA = webview.getUserAgent();
               const updatedUserAgent = originUA.replace(
                 / Electron\/[\d.]+/,
                 '',
               );
-              electronWebView.setUserAgent(updatedUserAgent);
+              webview.setUserAgent(updatedUserAgent);
             }
           } catch (e) {
             // debugLogger.webview.error('handleNavigation', e);
@@ -98,7 +119,7 @@ const DesktopWebView = forwardRef(
           }
         };
 
-        const handleMessage = (event: any) => {
+        const innerHandleDidFailLoad = (event: any) => {
           if (event.errorCode !== -3) {
             // TODO iframe error also show ErrorView
             //      testing www.163.com
@@ -106,41 +127,64 @@ const DesktopWebView = forwardRef(
               setDesktopLoadError(true);
             }
           }
+          onDidFailLoad?.(event);
         };
 
-        const handleNavigation = ({
-          isMainFrame,
-          url,
-        }: {
-          url: string;
-          isInPlace: boolean;
-          isMainFrame: boolean;
-        }) => {
+        const innerHandleDidStartNavigationNavigation = (
+          event: DidStartNavigationEvent,
+        ) => {
+          const { isMainFrame, url } = event ?? {};
           if (isMainFrame) {
             setDesktopLoadError(false);
           }
           checkGoogleOauth(url);
+          onDidStartNavigation?.(event);
         };
 
-        electronWebView.addEventListener('did-fail-load', handleMessage);
-
-        electronWebView.addEventListener(
+        webview.addEventListener('did-start-loading', onDidStartLoading);
+        webview.addEventListener(
           'did-start-navigation',
-          handleNavigation,
+          innerHandleDidStartNavigationNavigation,
         );
+        webview.addEventListener('did-finish-load', onDidFinishLoad);
+        webview.addEventListener('did-stop-loading', onDidStopLoading);
+        webview.addEventListener('did-fail-load', innerHandleDidFailLoad);
+        webview.addEventListener('page-title-updated', onPageTitleUpdated);
+        webview.addEventListener('page-favicon-updated', onPageFaviconUpdated);
+        webview.addEventListener('new-window', onNewWindow);
+        webview.addEventListener('dom-ready', onDomReady);
 
         return () => {
-          electronWebView.removeEventListener('did-fail-load', handleMessage);
-
-          electronWebView.removeEventListener(
+          webview.removeEventListener('did-start-loading', onDidStartLoading);
+          webview.removeEventListener(
             'did-start-navigation',
-            handleNavigation,
+            innerHandleDidStartNavigationNavigation,
           );
+          webview.removeEventListener('did-finish-load', onDidFinishLoad);
+          webview.removeEventListener('did-stop-loading', onDidStopLoading);
+          webview.removeEventListener('did-fail-load', innerHandleDidFailLoad);
+          webview.removeEventListener('page-title-updated', onPageTitleUpdated);
+          webview.removeEventListener(
+            'page-favicon-updated',
+            onPageFaviconUpdated,
+          );
+          webview.removeEventListener('new-window', onNewWindow);
+          webview.removeEventListener('dom-ready', onDomReady);
         };
       } catch (error) {
         console.error(error);
       }
-    }, []);
+    }, [
+      onDidFailLoad,
+      onDidFinishLoad,
+      onDidStartLoading,
+      onDidStopLoading,
+      onDomReady,
+      onNewWindow,
+      onPageFaviconUpdated,
+      onPageTitleUpdated,
+      onDidStartNavigation,
+    ]);
     if (isDev && props.preload) {
       console.warn(
         'DesktopWebView:  custom preload url may disable built-in injected function',
@@ -180,15 +224,12 @@ const DesktopWebView = forwardRef(
         },
       };
 
-      // @ts-expect-error
       jsBridgeHost.webviewWrapper = wrapper;
-
-      // @ts-expect-error
       return wrapper;
     });
 
     const initWebviewByRef = useCallback(($ref: any) => {
-      webviewRef.current = $ref as IElectronWebViewExt;
+      webviewRef.current = $ref;
       setIsWebviewReady(true);
     }, []);
 

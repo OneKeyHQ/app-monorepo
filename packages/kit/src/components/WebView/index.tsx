@@ -8,6 +8,7 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import InpageProviderWebView from './InpageProviderWebView';
 import { backgroundApiProxy } from './mock';
 
+import type { IElectronWebViewEvents } from './types';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type {
@@ -16,7 +17,7 @@ import type {
   WebViewSource,
 } from 'react-native-webview/lib/WebViewTypes';
 
-interface WebViewProps {
+interface WebViewProps extends IElectronWebViewEvents {
   id?: string;
   src?: string;
   onSrcChange?: (src: string) => void;

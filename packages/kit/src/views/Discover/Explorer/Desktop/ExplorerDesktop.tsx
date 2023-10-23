@@ -60,8 +60,8 @@ const ExplorerHeader = memo(ExplorerHeaderCmp);
 function ExplorerDesktopCmp() {
   return (
     <Stack flex={1} zIndex={3}>
-      {!showExplorerBar && <ExplorerHeader />}
-      {webHandler !== 'tabbedWebview' ? (
+      {showExplorerBar && <ExplorerHeader />}
+      {webHandler === 'tabbedWebview' ? (
         <TabbedWebContainer />
       ) : (
         <WebHomeContainer />

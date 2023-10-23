@@ -1,7 +1,17 @@
+import type {
+  DidFailLoadEvent,
+  DidStartNavigationEvent,
+  Event,
+  NewWindowEvent,
+  PageFaviconUpdatedEvent,
+  PageTitleUpdatedEvent,
+} from './DesktopWebView';
 import type { InpageProviderWebViewProps as InpageWebViewProps } from '@onekeyfe/cross-inpage-provider-types';
 import type { WebViewSource } from 'react-native-webview/lib/WebViewTypes';
 
-export interface InpageProviderWebViewProps extends InpageWebViewProps {
+export interface InpageProviderWebViewProps
+  extends IElectronWebViewEvents,
+    InpageWebViewProps {
   id?: string;
   onNavigationStateChange?: (event: any) => void;
   onShouldStartLoadWithRequest?: (event: any) => boolean;
@@ -32,4 +42,29 @@ export type IElectronWebView = {
   goBack: () => void;
   goForward: () => void;
   stop: () => void;
+  setUserAgent: (userAgent: string) => void;
+  getUserAgent: () => string;
+};
+
+export type IElectronWebViewEventNames =
+  | 'did-start-loading'
+  | 'did-start-navigation'
+  | 'did-finish-load'
+  | 'did-stop-loading'
+  | 'did-fail-load'
+  | 'page-title-updated'
+  | 'page-favicon-updated'
+  | 'new-window'
+  | 'dom-ready';
+
+export type IElectronWebViewEvents = {
+  onDidStartLoading?: (e: Event) => void;
+  onDidStartNavigation?: (e: DidStartNavigationEvent) => void;
+  onDidFinishLoad?: () => void;
+  onDidStopLoading?: () => void;
+  onDidFailLoad?: (e: DidFailLoadEvent) => void;
+  onPageTitleUpdated?: (e: PageTitleUpdatedEvent) => void;
+  onPageFaviconUpdated?: (e: PageFaviconUpdatedEvent) => void;
+  onNewWindow?: (e: NewWindowEvent) => void;
+  onDomReady?: (e: Event) => void;
 };
