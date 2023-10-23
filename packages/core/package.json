@@ -33,10 +33,12 @@
     "ecpair": "^2.1.0",
     "elliptic": "^6.5.4",
     "js-conflux-sdk": "^2.1.12",
-    "jsrsasign": "^10.8.6"
+    "jsrsasign": "^10.8.6",
+    "near-api-js": "^2.1.4"
   },
   "devDependencies": {
     "@types/bchaddrjs": "^0.4.2",
+    "@types/bs58": "^4.0.3",
     "@types/jsrsasign": "^10.5.11"
   }
 }
