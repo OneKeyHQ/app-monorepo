@@ -5,6 +5,7 @@ import type { IEncodedTxCosmos } from '../chains/cosmos/types';
 import { IEncodedTxFil } from '../chains/fil/types';
 import { IEncodedTxKaspa } from '../chains/kaspa/types';
 import { IEncodedTxSui } from '../chains/sui/types';
+import { IEncodedTxTron } from '../chains/tron/types';
 import { IEncodedTxXmr } from '../chains/xmr/types';
 import { IEncodedTxXrp } from '../chains/xrp/types';
 import type { ICurveName } from './coreTypesBase';
@@ -18,13 +19,13 @@ export type IEncodedTx =
   | IEncodedTxKaspa
   | IEncodedTxSui
   | IEncodedTxXrp
-  | IEncodedTxXmr;
+  | IEncodedTxXmr
+  | IEncodedTxTron;
 //   | IEncodedTxEvm
 //   | IEncodedTxAlgo
 //   | IEncodedTxNear
 //   | IEncodedTxBtc
 //   | IEncodedTxSTC
-//   | IEncodedTxTron
 //   | IEncodedTxAptos
 //   | IEncodedTxCfx
 //   | IEncodedTxDot
