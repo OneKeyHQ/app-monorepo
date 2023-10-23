@@ -6,6 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useDebounce } from '../../hooks';
+import { useAppLock } from '../../hooks/useAppLock';
 import { unlockWhiteListUrls } from '../../routes/linking.path';
 import { setAppRenderReady } from '../../store/reducers/data';
 import { FULLWINDOW_OVERLAY_PORTAL } from '../../utils/overlayUtils';
@@ -35,21 +36,7 @@ export const AppLockView: FC<AppLockProps> = ({
   children,
   renderAsOverlay,
 }) => {
-  const enableAppLock = useAppSelector((s) => s.settings.enableAppLock);
-  const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
-  const isStatusUnlock = useAppSelector((s) => s.status.isUnlock);
-  const isDataUnlock = useAppSelector((s) => s.data.isUnlock);
-  const memo = useMemo(
-    () => ({ enableAppLock, isPasswordSet, isStatusUnlock, isDataUnlock }),
-    [enableAppLock, isPasswordSet, isStatusUnlock, isDataUnlock],
-  );
-  const data = useDebounce(memo, 300);
-  // const route = useRoute();
-  // console.log('AppLockView route', route);
-  const prerequisites = data.isPasswordSet;
-  const isUnlock = data.isDataUnlock && data.isStatusUnlock;
-  const showUnlockView = prerequisites && !isUnlock && !isUnlockWhiteListUrl();
-
+  const { showUnlockView, isPasswordSet, isUnlock } = useAppLock();
   // iOS should NOT render unlock screen by Overlay
   // it's not working if Modal visible
   if (showUnlockView && !renderAsOverlay) {
@@ -72,7 +59,7 @@ export const AppLockView: FC<AppLockProps> = ({
           </OverlayContainer>
         </Parent>
       ) : null}
-      {prerequisites && isUnlock ? <AppStateUpdater /> : null}
+      {isPasswordSet && isUnlock ? <AppStateUpdater /> : null}
       {isUnlock ? <AppStateHeartbeat /> : null}
       {children}
     </Box>
