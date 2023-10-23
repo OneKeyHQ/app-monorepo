@@ -4787,7 +4787,7 @@ __metadata:
     electron-notarize: ^1.1.1
     electron-store: ^8.1.0
     electron-updater: ^5.2.1
-    esbuild: ^0.15.11
+    esbuild: 0.15.18
     glob: ^7.2.0
     keytar: ^7.9.0
     node-fetch: ^2.6.7
@@ -13624,7 +13624,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"esbuild@npm:^0.15.11":
+"esbuild@npm:0.15.18":
   version: 0.15.18
   resolution: "esbuild@npm:0.15.18"
   dependencies:
