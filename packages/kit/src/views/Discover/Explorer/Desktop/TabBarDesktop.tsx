@@ -8,6 +8,7 @@ import dAppFavicon from '@onekeyhq/kit/assets/dapp_favicon.png';
 import { DebugRenderTracker } from '@onekeyhq/kit/src/components/DebugRenderTracker';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { dismissWebviewKeyboard } from '../../explorerUtils';
 import {
   addBlankWebTabAtomWithWriteOnly,
   atomWebTabs,
@@ -16,7 +17,6 @@ import {
   setCurrentWebTabAtomWithWriteOnly,
   useAtomWebTabs,
 } from '../Context/contextWebTabs';
-import { dismissWebviewKeyboard } from '../../explorerUtils';
 
 import type { WebTab } from '../Context/contextWebTabs';
 import type { LayoutChangeEvent } from 'react-native';
@@ -162,7 +162,6 @@ const AddTabButton = () => {
 
 function TabBarDesktop() {
   const [webTabs] = useAtomWebTabs(atomWebTabs);
-  console.log('tabs ===>: ', webTabs);
   return (
     <Stack flexDirection="row" w="100%" h="$8" alignItems="center">
       {webTabs.tabs?.map((tab) => (

@@ -91,7 +91,6 @@ function WebContent({ id, url }: IWebContentProps) {
   );
   const onDomReady = useCallback(() => {
     const ref = webviewRefs[id] as IElectronWebView;
-    console.log('====>onDomReady: ', ref);
     // @ts-expect-error
     ref.__domReady = true;
   }, [id]);

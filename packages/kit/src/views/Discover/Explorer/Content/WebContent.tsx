@@ -20,7 +20,6 @@ function WebContent({ id, url }: IWebContentProps) {
         id={id}
         src={url}
         onWebViewRef={(ref) => {
-          console.log('===>>>>onWebViewRef: ', ref);
           if (ref && ref.innerRef) {
             if (!webviewRefs[id]) {
               webTabsStore.set(setWebTabDataAtomWithWriteOnly, {

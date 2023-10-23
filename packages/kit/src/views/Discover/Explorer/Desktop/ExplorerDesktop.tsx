@@ -34,7 +34,6 @@ function HandleRebuildTabBarData() {
   const [, setWebTabsData] = useAtomWebTabs(setWebTabsWriteAtom);
   useEffect(() => {
     const data = result.result;
-    console.log('===>result: ', data);
     if (data && Array.isArray(data)) {
       setWebTabsData(data);
     }
