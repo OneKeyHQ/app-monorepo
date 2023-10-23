@@ -1,5 +1,3 @@
-import { type PropsWithChildren, isValidElement } from 'react';
-
 import { MotiView } from 'moti';
 import { Skeleton as MotiSkeleton } from 'moti/skeleton';
 import { StyleSheet } from 'react-native';
@@ -16,7 +14,9 @@ const styles = StyleSheet.create({
   },
 });
 
-const Spacer = ({ height = 16 } : { height: number }) => <MotiView style={{ height }} />;
+const Spacer = ({ height = 16 }: { height: number }) => (
+  <MotiView style={{ height }} />
+);
 
 export function Skeleton() {
   const { themeVariant } = useTheme();
