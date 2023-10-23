@@ -26,6 +26,7 @@ export function Popover({
   renderContent,
   floatingPanelProps,
   sheetProps,
+  onOpenChange,
   ...props
 }: PopoverProps) {
   const { bottom } = useSafeAreaInsets();
@@ -67,7 +68,13 @@ export function Popover({
   }
 
   return (
-    <TMPopover offset={8} allowFlip placement="bottom-end" {...props}>
+    <TMPopover
+      offset={8}
+      allowFlip
+      placement="bottom-end"
+      onOpenChange={onOpenChange}
+      {...props}
+    >
       <TMPopover.Trigger asChild>{renderTrigger}</TMPopover.Trigger>
 
       {/* floating panel */}
@@ -131,13 +138,12 @@ export function Popover({
               <Text variant="$headingXl" color="$text">
                 {title}
               </Text>
-              <TMPopover.Close asChild>
-                <IconButton
-                  icon="CrossedSmallOutline"
-                  size="small"
-                  $platform-native={{ hitSlop: 8 }}
-                />
-              </TMPopover.Close>
+              <IconButton
+                icon="CrossedSmallOutline"
+                size="small"
+                $platform-native={{ hitSlop: 8 }}
+                onPress={() => onOpenChange(false)}
+              />
             </XStack>
 
             {/* divider */}
