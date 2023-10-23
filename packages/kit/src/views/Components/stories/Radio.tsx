@@ -5,7 +5,7 @@ import { Radio } from '@onekeyhq/components';
 import { Layout } from './utils/Layout';
 
 const RadioExample = () => {
-  const [radioValue, setRadioValue] = useState();
+  const [radioValue, setRadioValue] = useState<string>();
   return (
     <Radio
       value={radioValue}
