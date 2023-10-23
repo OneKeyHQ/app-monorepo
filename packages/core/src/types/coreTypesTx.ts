@@ -4,6 +4,7 @@ import type { IEncodedTxCfx } from '../chains/cfx/types';
 import type { IEncodedTxCosmos } from '../chains/cosmos/types';
 import { IEncodedTxFil } from '../chains/fil/types';
 import { IEncodedTxKaspa } from '../chains/kaspa/types';
+import { IEncodedTxSui } from '../chains/sui/types';
 import type { ICurveName } from './coreTypesBase';
 
 export type IEncodedTx =
@@ -12,7 +13,8 @@ export type IEncodedTx =
   | IEncodedTxCfx
   | IEncodedTxCosmos
   | IEncodedTxFil
-  | IEncodedTxKaspa;
+  | IEncodedTxKaspa
+  | IEncodedTxSui;
 //   | IEncodedTxEvm
 //   | IEncodedTxAlgo
 //   | IEncodedTxNear
@@ -22,7 +24,6 @@ export type IEncodedTx =
 //   | IEncodedTxAptos
 //   | IEncodedTxCfx
 //   | IEncodedTxXrp
-//   | IEncodedTxSUI
 //   | IEncodedTxDot
 //   | IEncodedTxXmr
 //   | IEncodedTxNexa
