@@ -17,11 +17,7 @@ import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { setDevMode } from '@onekeyhq/kit/src/store/reducers/settings';
 
-import {
-  openUrl,
-  openUrlByWebview,
-  openUrlExternal,
-} from '../../../utils/openUrl';
+import { openUrl, openUrlExternal } from '../../../utils/openUrl';
 
 import AppRateSectionItem from './AppRateSectionItem';
 import AutoUpdateSectionItem from './AutoUpdateSectionItem';

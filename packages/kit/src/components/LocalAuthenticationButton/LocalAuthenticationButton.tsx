@@ -1,6 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import type { FC } from 'react';
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useContext,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,6 +16,8 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useLocalAuthentication } from '../../hooks';
 import { useAppSelector } from '../../hooks/redux';
 import { AppStatusActiveListener } from '../AppStatusActiveListener';
+
+import { LocalAuthenticationButtonDisableAutoTriggerContext } from './context';
 
 type LocalAuthenticationButtonProps = {
   onOk?: (password: string) => void;
@@ -23,6 +31,9 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
   const intl = useIntl();
   const [isLoading, setLoading] = useState(false);
   const loading = useRef(false);
+  const disableAutoTrigger = useContext(
+    LocalAuthenticationButtonDisableAutoTriggerContext,
+  );
   const lasttime = useRef(0);
 
   const authenticationType = useAppSelector((s) => s.status.authenticationType);
@@ -70,9 +81,10 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
   }, [onOk, onNg, localAuthenticate, getPassword, intl]);
 
   useLayoutEffect(() => {
-    if (!handOperatedLock) {
-      setTimeout(onLocalAuthenticate, 500);
+    if (handOperatedLock || disableAutoTrigger) {
+      return;
     }
+    setTimeout(onLocalAuthenticate, 500);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

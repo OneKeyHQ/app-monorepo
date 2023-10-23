@@ -9,6 +9,7 @@ import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engin
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { LocalAuthenticationButtonDisableAutoTriggerContext } from '../../components/LocalAuthenticationButton/context';
 import Protected, { ValidationFields } from '../../components/Protected';
 
 function WalletTabsWithAuthCmp({
@@ -31,38 +32,42 @@ function WalletTabsWithAuthCmp({
   );
   return (
     <Center w="full" h="full">
-      <Protected
-        walletId={wallet.id}
-        networkId={network.id}
-        field={ValidationFields.Account}
-        placeCenter={!platformEnv.isNative}
-        subTitle={intl.formatMessage(
-          {
-            id: 'title__password_verification_is_required_to_view_account_details_on_str',
-          },
-          { '0': network.name },
-        )}
-        checkIsNeedPassword={
-          isLightningNetwork
-            ? () =>
-                backgroundApiProxy.serviceLightningNetwork.checkAuth({
-                  networkId,
-                  accountId,
-                })
-            : undefined
-        }
+      <LocalAuthenticationButtonDisableAutoTriggerContext.Provider
+        value={Boolean(platformEnv.isDesktop)}
       >
-        {(password) => (
-          <>
-            <RefreshLightningNetworkToken
-              accountId={accountId}
-              password={password}
-              networkId={network.id}
-            />
-            {children}
-          </>
-        )}
-      </Protected>
+        <Protected
+          walletId={wallet.id}
+          networkId={network.id}
+          field={ValidationFields.Account}
+          placeCenter={!platformEnv.isNative}
+          subTitle={intl.formatMessage(
+            {
+              id: 'title__password_verification_is_required_to_view_account_details_on_str',
+            },
+            { '0': network.name },
+          )}
+          checkIsNeedPassword={
+            isLightningNetwork
+              ? () =>
+                  backgroundApiProxy.serviceLightningNetwork.checkAuth({
+                    networkId,
+                    accountId,
+                  })
+              : undefined
+          }
+        >
+          {(password) => (
+            <>
+              <RefreshLightningNetworkToken
+                accountId={accountId}
+                password={password}
+                networkId={network.id}
+              />
+              {children}
+            </>
+          )}
+        </Protected>
+      </LocalAuthenticationButtonDisableAutoTriggerContext.Provider>
     </Center>
   );
 }

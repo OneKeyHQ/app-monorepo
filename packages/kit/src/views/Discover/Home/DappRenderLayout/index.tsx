@@ -10,7 +10,7 @@ import {
 
 import { chunk, debounce } from 'lodash';
 
-import { Box, Stack, VStack, useIsVerticalLayout } from '@onekeyhq/components';
+import { Box, Stack, useIsVerticalLayout } from '@onekeyhq/components';
 
 import type { LayoutChangeEvent } from 'react-native';
 
