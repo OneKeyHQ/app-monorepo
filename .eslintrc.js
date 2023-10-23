@@ -100,6 +100,7 @@ module.exports = {
     // 临时忽略以下目录的检查，迭代后会逐步开启
     'packages/blockchain-libs',
     'packages/kit/src/store',
+    'packages/kit/src/utils/localAuthentication',
     'packages/core',
     'packages/engine',
     'packages/kit-bg',

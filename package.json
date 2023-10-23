@@ -21,6 +21,7 @@
     "app:ios:device": "yarn workspace @onekeyhq/mobile ios:device",
     "app:android": "yarn workspace @onekeyhq/mobile android",
     "app:android:device": "yarn workspace @onekeyhq/mobile android:device",
+    "build:icon": "yarn workspace @onekeyhq/components build:icons",
     "_lint": "sh -c 'npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"'",
     "lint:project": "yarn _lint",
     "lint": "ultra lint:project"
