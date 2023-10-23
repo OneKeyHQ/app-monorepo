@@ -156,9 +156,3 @@ textarea {
 [data-sonner-toast] {
   max-width: calc(100vw - 32px);
 }
-
-
-button[role="checkbox"]:focus {
-  border: 0;
-  padding: 0;
-}
