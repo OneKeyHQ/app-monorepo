@@ -4770,7 +4770,6 @@ __metadata:
     "@electron/remote": ^2.0.1
     "@onekeyhq/components": "*"
     "@onekeyhq/kit": "*"
-    "@onekeyhq/shared": "*"
     "@types/adm-zip": ^0
     "@types/electron-localshortcut": ^3.1.0
     "@types/node-fetch": ^2.6.1
