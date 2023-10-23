@@ -6,8 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   homeResettingFlags,
   homeTab,
-  setWebTabDataAtomWithWriteOnly,
-  webTabsStore,
+  webTabsActions,
 } from '../Explorer/Context/contextWebTabs';
 import { webviewRefs } from '../explorerUtils';
 
@@ -17,7 +16,6 @@ import { useWebviewRef } from './useWebviewRef';
 
 import type { IElectronWebView } from '../../../components/WebView/types';
 import type { OnWebviewNavigation } from '../explorerUtils';
-import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 export const onNavigation: OnWebviewNavigation = ({
   url,
@@ -51,8 +49,7 @@ export const onNavigation: OnWebviewNavigation = ({
     }
     gotoSite({ url, title, favicon, isNewWindow, isInPlace, id: curId });
   }
-
-  webTabsStore.set(setWebTabDataAtomWithWriteOnly, {
+  webTabsActions.setWebTabData({
     id: curId,
     title,
     favicon,
@@ -101,7 +98,7 @@ export const useWebController = ({
       if (canGoBack) {
         goBack();
       } else {
-        webTabsStore.set(setWebTabDataAtomWithWriteOnly, {
+        webTabsActions.setWebTabData({
           ...homeTab,
           id: curId,
         });

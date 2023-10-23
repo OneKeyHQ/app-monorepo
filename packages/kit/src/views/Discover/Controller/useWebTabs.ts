@@ -5,7 +5,7 @@ import {
   atomWebTabsMap,
   getCurrentTabId,
   useAtomWebTabs,
-  webTabsStore,
+  webTabsActions,
 } from '../Explorer/Context/contextWebTabs';
 
 export const useWebTabs = (id?: string) => {
@@ -26,8 +26,8 @@ export const useWebTabs = (id?: string) => {
 
 // not a hook, won't refresh
 export const getWebTabs = (id?: string) => {
-  const { tabs } = webTabsStore.get(atomWebTabs);
-  const map = webTabsStore.get(atomWebTabsMap);
+  const { tabs } = webTabsActions.getTabs();
+  const map = webTabsActions.getTabsMap();
   const currentTabId = getCurrentTabId();
   const curId = id || currentTabId;
   return {

@@ -1,10 +1,5 @@
 import { openUrl } from '../../../utils/openUrl';
-import {
-  addWebTabAtomWithWriteOnly,
-  closeWebTabAtomWithWriteOnly,
-  setWebTabDataAtomWithWriteOnly,
-  webTabsStore,
-} from '../Explorer/Context/contextWebTabs';
+import { webTabsActions } from '../Explorer/Context/contextWebTabs';
 import { crossWebviewLoadUrl, validateUrl, webHandler } from '../explorerUtils';
 
 import { getWebTabs } from './useWebTabs';
@@ -53,7 +48,7 @@ export const gotoSite = ({
     // const isBookmarked = urls?.includes(url);
 
     if (isNewTab) {
-      webTabsStore.set(addWebTabAtomWithWriteOnly, {
+      webTabsActions.addWebTab({
         title,
         url: validatedUrl,
         favicon,
@@ -61,7 +56,7 @@ export const gotoSite = ({
         isBookmarked: false,
       });
     } else {
-      webTabsStore.set(setWebTabDataAtomWithWriteOnly, {
+      webTabsActions.setWebTabData({
         id: tabId,
         url: validatedUrl,
         title,
@@ -81,7 +76,7 @@ export const gotoSite = ({
     if (isDeepLink) {
       if (webHandler === 'tabbedWebview') {
         setTimeout(() => {
-          webTabsStore.set(closeWebTabAtomWithWriteOnly, tabId);
+          webTabsActions.closeWebTab(tabId);
         }, 1000);
       }
     }

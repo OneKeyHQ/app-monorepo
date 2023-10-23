@@ -52,6 +52,12 @@ export function buildWebTabData(tabs: WebTab[]) {
   };
 }
 
+const {
+  withProvider: withProviderWebTabs,
+  useContextAtom: useAtomWebTabs,
+  store: webTabsStore,
+} = createJotaiContext();
+
 interface IWebTabsAtom {
   tabs: WebTab[];
   keys: string[];
@@ -112,10 +118,15 @@ export const setWebTabDataAtomWithWriteOnly = atom(
       const tabToModify = tabs[tabIndex];
       Object.keys(payload).forEach((k) => {
         const key = k as keyof WebTab;
-        const value = payload[key];
+        let value = payload[key];
         if (value !== undefined && value !== tabToModify[key]) {
-          if (key === 'title' && !value) {
-            return;
+          if (key === 'title') {
+            if (!value) {
+              return;
+            }
+            if (value === 'about:blank') {
+              value = 'OneKey';
+            }
           }
           // @ts-expect-error
           tabToModify[key] = value;
@@ -206,14 +217,6 @@ export const setCurrentWebTabAtomWithWriteOnly = atom(
 
 export const incomingUrlAtom = atom('');
 
-const {
-  withProvider: withProviderWebTabs,
-  useContextAtom: useAtomWebTabs,
-  store: webTabsStore,
-} = createJotaiContext();
-
-export { withProviderWebTabs, useAtomWebTabs, webTabsStore };
-
 export const getCurrentTabId = () => {
   if (!_currentTabId) {
     const { tabs } = webTabsStore.get(atomWebTabs);
@@ -221,3 +224,31 @@ export const getCurrentTabId = () => {
   }
   return _currentTabId;
 };
+
+const webTabsActions = {
+  getTabs: () => webTabsStore.get(atomWebTabs),
+  getTabsMap: () => webTabsStore.get(atomWebTabsMap),
+  addWebTab: (payload: Partial<WebTab>) => {
+    webTabsStore.set(addWebTabAtomWithWriteOnly, payload);
+  },
+  addBlankWebTab: () => {
+    webTabsStore.set(addBlankWebTabAtomWithWriteOnly);
+  },
+  setWebTabData: (payload: Partial<Omit<WebTab, 'isCurrent'>>) => {
+    webTabsStore.set(setWebTabDataAtomWithWriteOnly, payload);
+  },
+  closeWebTab: (tabId: string) => {
+    webTabsStore.set(closeWebTabAtomWithWriteOnly, tabId);
+  },
+  closeAllWebTabs: () => {
+    webTabsStore.set(closeAllWebTabsAtomWithWriteOnly);
+  },
+  setCurrentWebTab: (tabId: string) => {
+    webTabsStore.set(setCurrentWebTabAtomWithWriteOnly, tabId);
+  },
+  setIncomingUrl: (url: string) => {
+    webTabsStore.set(incomingUrlAtom, url);
+  },
+};
+
+export { withProviderWebTabs, useAtomWebTabs, webTabsActions };

@@ -18,14 +18,8 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
           }, 150);
         }
       },
-      loadURL: (url: string) => {
-        if (iframeRef.current) {
-          setTimeout(() => {
-            if (iframeRef.current) {
-              iframeRef.current.src = url;
-            }
-          }, 150);
-        }
+      loadURL: () => {
+        // noop
       },
     });
 

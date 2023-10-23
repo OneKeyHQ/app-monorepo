@@ -4,10 +4,7 @@ import WebView from '@onekeyhq/kit/src/components/WebView';
 
 import { onNavigation } from '../../Controller/useWebController';
 import { webviewRefs } from '../../explorerUtils';
-import {
-  setWebTabDataAtomWithWriteOnly,
-  webTabsStore,
-} from '../Context/contextWebTabs';
+import { webTabsActions } from '../Context/contextWebTabs';
 
 import type { IElectronWebView } from '../../../../components/WebView/types';
 import type { WebTab } from '../Context/contextWebTabs';
@@ -102,7 +99,7 @@ function WebContent({ id, url }: IWebContentProps) {
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {
             if (!webviewRefs[id]) {
-              webTabsStore.set(setWebTabDataAtomWithWriteOnly, {
+              webTabsActions.setWebTabData({
                 id,
                 refReady: true,
               });
