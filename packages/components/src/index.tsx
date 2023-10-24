@@ -40,6 +40,7 @@ export * from './QRCode';
 export * from './CollapsibleTabView';
 export * from './Skeleton';
 export * from './Screen';
+export * from './TabView';
 export * as DelayedFreeze from './DelayedFreeze';
 
 // Navigation

@@ -179,8 +179,8 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
         width: slideBarWidth,
         backgroundColor: slideBg,
         paddingTop: paddingTopValue,
-        borderRightColor: isCollapse ? undefined : slideBorder,
-        borderRightWidth: StyleSheet.hairlineWidth,
+        borderRightColor: slideBorder,
+        borderRightWidth: isCollapse ? 0 : StyleSheet.hairlineWidth,
       }}
       testID="Desktop-AppSideBar-Container"
     >
