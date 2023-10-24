@@ -8,7 +8,7 @@ PODS:
     - CocoaLumberjack/Core (= 3.8.1)
   - CocoaLumberjack/Core (3.8.1)
   - DoubleConversion (1.1.6)
-  - EXApplication (5.1.1):
+  - EXApplication (5.3.1):
     - ExpoModulesCore
   - EXAV (13.6.0):
     - ExpoModulesCore
@@ -842,7 +842,7 @@ SPEC CHECKSUMS:
   Burnt: 8b232817df0d3efd78797702a0a541cc5a8eebe5
   CocoaLumberjack: 5c7e64cdb877770859bddec4d3d5a0d7c9299df9
   DoubleConversion: 5189b271737e1565bdce30deb4a08d647e3f5f54
-  EXApplication: d8f53a7eee90a870a75656280e8d4b85726ea903
+  EXApplication: 042aa2e3f05258a16962ea1a9914bf288db9c9a1
   EXAV: 523cd6969ca53b3b2762f18fb5450b76f84df44f
   EXBarCodeScanner: 296dd50f6c03928d1d71d37ea17473b304cfdb00
   EXCamera: a323a5942b5e7fc8349e17d728e91c18840ad561
@@ -933,4 +933,4 @@ SPEC CHECKSUMS:
 
 PODFILE CHECKSUM: 33db8955d11b0984bcb68b0c3f0b228856fcf638
 
-COCOAPODS: 1.13.0
+COCOAPODS: 1.12.1
