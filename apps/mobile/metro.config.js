@@ -26,12 +26,14 @@ config.resolver.extraNodeModules = {
       '@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.native.js',
   ),
   stream: require.resolve('readable-stream'),
-  // fs: require.resolve('react-native-level-fs'),
-  // path: require.resolve('path-browserify'),
-  // http: require.resolve('stream-http'),
-  // https: require.resolve('https-browserify'),
-  // net: require.resolve('react-native-tcp-socket'),
-  // tls: require.resolve('react-native-tcp-socket'),
+  fs: require.resolve('react-native-level-fs'),
+  path: require.resolve('path-browserify'),
+  stream: require.resolve('readable-stream'),
+  crypto: require.resolve('react-native-crypto'),
+  http: require.resolve('stream-http'),
+  https: require.resolve('https-browserify'),
+  net: require.resolve('react-native-tcp-socket'),
+  tls: require.resolve('react-native-tcp-socket'),
 };
 
 // 1. Watch all files within the monorepo
