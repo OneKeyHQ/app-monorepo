@@ -2,15 +2,14 @@
 import { toLower } from 'lodash';
 
 import type { WalletSchema } from '@onekeyhq/engine/src/dbs/realms/schemas';
+import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/engine/src/types/wallet';
-import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { addDisplayPassphraseWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
-import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { IMPL_EVM } from './engineConsts';
 
@@ -73,5 +72,3 @@ export function handleDisplayPassphraseWallet(walletId: string) {
   const { dispatch } = global.$backgroundApiProxy;
   dispatch(addDisplayPassphraseWallet(walletId));
 }
-
-export { toBigIntHex };

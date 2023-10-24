@@ -21,9 +21,11 @@
     "app:ios:device": "yarn workspace @onekeyhq/mobile ios:device",
     "app:android": "yarn workspace @onekeyhq/mobile android",
     "app:android:device": "yarn workspace @onekeyhq/mobile android:device",
+    "build:icon": "yarn workspace @onekeyhq/components build:icons",
     "_lint": "sh -c 'npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"'",
     "lint:project": "yarn _lint",
-    "lint": "ultra lint:project"
+    "lint": "ultra lint:project",
+    "test": "yarn jest"
   },
   "dependencies": {
     "@onekeyfe/cross-inpage-provider-core": "1.1.38",
@@ -36,6 +38,7 @@
     "@onekeyfe/hd-shared": "0.3.27",
     "@onekeyfe/hd-transport": "0.3.27",
     "@onekeyfe/hd-web-sdk": "0.3.27",
+    "@onekeyfe/onekey-cross-webview": "^1.1.42",
     "@tamagui/animations-moti": "1.71.0",
     "@tamagui/config": "1.71.0",
     "@tamagui/static": "1.71.0",
@@ -73,6 +76,7 @@
     "@tamagui/babel-plugin": "1.71.0",
     "@types/chrome": "^0.0.248",
     "@types/elliptic": "^6.4.16",
+    "@types/ethjs-util": "^0.1.2",
     "@types/jest": "^29.5.6",
     "@types/lodash": "^4.14.200",
     "@types/memoizee": "^0.4.10",

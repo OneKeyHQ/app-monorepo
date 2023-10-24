@@ -14,4 +14,8 @@
 //     stakingPath: `${dbAccount.path.slice(0, -3)}2/0`,
 //   },
 // });
-export default {};
+export function getChangeAddress() {
+  throw new Error(
+    'ADA getChangeAddress not implemented in core, move it to upper layer',
+  );
+}

@@ -23,7 +23,7 @@ import {
 
 import { decrypt, encrypt } from './encryptors/aes256';
 
-import type { ICurveName } from './index';
+import type { ICurveName } from '../types';
 
 const halfNs: Record<string, BigNumber> = {
   // eslint-disable-next-line new-cap

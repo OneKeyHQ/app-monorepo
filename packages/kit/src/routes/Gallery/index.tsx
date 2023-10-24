@@ -23,11 +23,13 @@ import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
 import ToggleGroupGallery from '@onekeyhq/kit/src/views/Components/stories/ToggleGroup';
 import TooltipGallery from '@onekeyhq/kit/src/views/Components/stories/Tooltip';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
+import WebviewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 
 import AlertGallery from '../../views/Components/stories/Alert';
 import DividerGallery from '../../views/Components/stories/Divider';
 import FormGallery from '../../views/Components/stories/Form';
 import QRCodeGallery from '../../views/Components/stories/QRCode';
+import SkeletonGallery from '../../views/Components/stories/Skeleton';
 import TextAreaGallery from '../../views/Components/stories/TextArea';
 import ThemeGallery from '../../views/Components/stories/Theme';
 
@@ -39,6 +41,7 @@ export enum GalleryRoutes {
   ComponentIcon = 'component/icon',
   ComponentButton = 'component/button',
   ComponentSelect = 'component/select',
+  ComponentSkeleton = 'component/skeleton',
   ComponentIconButton = 'component/iconButton',
   ComponentBadge = 'component/badge',
   ComponentDialog = 'component/dialog',
@@ -62,6 +65,7 @@ export enum GalleryRoutes {
   ComponentTheme = 'component/theme',
   ComponentCollapsibleTabs = 'component/collapsibleTabs',
   componentQRCode = 'component/qrCode',
+  ComponentWebview = 'component/webview',
 }
 
 export const stackScreenList = [
@@ -84,6 +88,7 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentEmpty, component: EmptyGallery },
   { name: GalleryRoutes.ComponentRadio, component: RadioGallery },
   { name: GalleryRoutes.ComponentListItem, component: ListItemGallery },
+  { name: GalleryRoutes.ComponentSkeleton, component: SkeletonGallery },
   { name: GalleryRoutes.ComponentCheckbox, component: CheckboxGallery },
   { name: GalleryRoutes.ComponentToggleGroup, component: ToggleGroupGallery },
   { name: GalleryRoutes.ComponentActionList, component: ActionListGallery },
@@ -117,6 +122,10 @@ export const stackScreenList = [
   {
     name: GalleryRoutes.componentQRCode,
     component: QRCodeGallery,
+  },
+  {
+    name: GalleryRoutes.ComponentWebview,
+    component: WebviewGallery,
   },
 ];
 

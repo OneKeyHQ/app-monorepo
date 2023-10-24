@@ -1,0 +1,197 @@
+name: release-desktop-mas
+
+on:
+  workflow_run:
+    workflows:
+      - daily-build
+    types:
+      - completed
+  workflow_dispatch:
+
+jobs:
+  release-desktop-mas:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        node-version: [16.x]
+
+    if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v3
+        with:
+          lfs: true
+
+      - name: Dotenv Action
+        id: dotenv
+        uses: OneKeyHQ/actions/dotenv-action@main
+        with:
+          path: .env.version
+
+      - name: 'Setup ENV'
+        run: |
+          echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
+
+          # Generate build number ------- start
+          DATE=`date "+%Y%m%d"`
+          run_number=$(($workflow_run_number % 100))
+          run_number=$(printf "%02d" $run_number)
+          build_number="${DATE}${run_number}"
+          echo '$build_number='$build_number
+          echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
+          # Generate build number ------- end
+
+          github_ref="${github_ref////-}"
+          github_ref="${github_ref/refs-heads-/}"
+          github_ref="${github_ref/refs-tags-/}"
+          echo '$github_ref='$github_ref
+          echo "GITHUB_TAG=$github_ref" >> $GITHUB_ENV
+          # echo "::set-env name=GITHUB_TAG::$github_ref"
+
+          eval "$(node -e 'const v=require("./packages/desktop/package.json").version; console.log("pkg_version="+v)')"
+          echo '$pkg_version='$pkg_version
+          echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
+
+          artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
+
+        env:
+          github_ref: ${{ github.ref }}
+          workflow_run_number: ${{ github.event.workflow_run.run_number}}
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          registry-url: 'https://npm.pkg.github.com'
+          always-auth: true
+          scope: '@onekeyhq'
+
+      - name: Setup keys secret
+        run: |
+          rm -rf packages/shared/src/analytics/firebase.web.json
+          echo ${{ secrets.GOOGLE_SERVICE_WEB }} | base64 -d > packages/shared/src/analytics/firebase.web.json
+
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v3
+        id: yarn-cache # use this to check for `cache-hit` (`steps.yarn-cache.outputs.cache-hit != 'true'`)
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install Dep
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          yarn
+
+      - name: Install electron-builder v23
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd ./packages/desktop && yarn add electron-builder@23.6.0
+
+      - name: Inject Environment Variables
+        env:
+          COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env
+          echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env
+
+      # - name: Setup Code Signing file
+      #   run: |
+      #     echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > packages/desktop/sign.p12
+      - name: Install the Apple certificate and provisioning profile for build mas
+        env:
+          MAC_INSTALL_P12_BASE64: ${{secrets.MAC_INSTALL_P12_BASE64}}
+          MAC_INSTALL_P12_PASSWORD: ${{secrets.MAC_INSTALL_P12_PASSWORD}}
+          APPLE_DISTRIBUTION_P12_BASE64: ${{secrets.APPLE_DISTRIBUTION_P12_BASE64}}
+          APPLE_DISTRIBUTION_P12_PASSWORD: ${{secrets.APPLE_DISTRIBUTION_P12_PASSWORD}}
+          PROVISION_PROFILE_BASE64: ${{secrets.PROVISION_PROFILE_BASE64}}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          # create variables
+          MAC_INSTALL_P12_PATH=$RUNNER_TEMP/mac_install_certificate.p12
+          APPLE_DISTRIBUTION_P12_PATH=$RUNNER_TEMP/apple_distribution_certificate.p12
+          # APPLE_WWDRCA_PATH=$RUNNER_TEMP/apple_WWDRCAG3.cer
+          PP_PATH=./packages/desktop/OneKey_Mac_App.provisionprofile
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+
+          # import certificate from secrets
+          echo -n "$MAC_INSTALL_P12_BASE64" | base64 --decode > $MAC_INSTALL_P12_PATH
+          echo -n "$APPLE_DISTRIBUTION_P12_BASE64" | base64 --decode > $APPLE_DISTRIBUTION_P12_PATH
+          echo -n "$PROVISION_PROFILE_BASE64" | base64 --decode > $PP_PATH
+          # curl https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer > $APPLE_WWDRCA_PATH
+
+          # create temporary keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # import certificate to keychain
+          security import $MAC_INSTALL_P12_PATH -P "$MAC_INSTALL_P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security import $APPLE_DISTRIBUTION_P12_PATH -P "$APPLE_DISTRIBUTION_P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          # security import $APPLE_WWDRCA_PATH -A -t cert -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          # apply provisioning profile
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
+
+      - name: Build and Sign Static MAS
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          APPLEID: ${{ secrets.APPLEID }}
+          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+          ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: 'cd packages/desktop && yarn build:mas'
+
+      - name: Clean up keychain and provisioning profile
+        if: ${{ always() }}
+        run: |
+          security delete-keychain $RUNNER_TEMP/app-signing.keychain-db
+          rm ~/Library/MobileDevice/Provisioning\ Profiles/OneKey_Mac_App.provisionprofile
+
+      - name: Upload Artifacts mas
+        uses: actions/upload-artifact@v3
+        with:
+          name: onekey-desktop-mas
+          path: |
+            ./packages/desktop/build-electron/mas-universal/*.pkg
+
+      - name: validate mas for Testflight
+        env:
+          APPLEID: ${{ secrets.APPLEID }}
+          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+        run: |
+          xcrun altool --validate-app --f ./packages/desktop/build-electron/mas-universal/*.pkg -t macOS -u $APPLEID -p $APPLEIDPASS --show-progress
+
+      - name: upload mas for Testflight
+        env:
+          APPLEID: ${{ secrets.APPLEID }}
+          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+        run: |
+          xcrun altool --upload-app --f ./packages/desktop/build-electron/mas-universal/*.pkg -t macOS -u $APPLEID -p $APPLEIDPASS --show-progress
+
+      - name: 'Notify to Slack'
+        uses: onekeyhq/actions/notice-slack-app-update@main
+        with:
+          web-hook-url: ${{ secrets.SLACK_DEV_WEBHOOK }}
+          artifact-type: Desktop
+          artifact-name: OneKey-Desktop-MAS
+          artifact-bundle-id: 'so.onekey.wallet'
+          artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-code: '${{ env.BUILD_NUMBER }}'
+          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+          change-log: 'Download [Artifacts] at the bottom of page.'
+          custom-issue-url: ''
+          custom-message-title: ''
+          custom-message-payload: ''
