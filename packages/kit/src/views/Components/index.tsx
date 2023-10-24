@@ -1,8 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
 import natsort from 'natsort';
-import { FlatList, TouchableOpacity } from 'react-native';
+import { FlatList } from 'react-native';
 
-import { Stack, Text, useThemeValue } from '@onekeyhq/components';
+import { ListItem, useThemeValue } from '@onekeyhq/components';
 import { GalleryRoutes } from '@onekeyhq/kit/src/routes/Gallery';
 
 const Index = () => {
@@ -15,29 +15,29 @@ const Index = () => {
   return (
     <FlatList
       data={componentsRoute}
-      style={{ flex: 1, backgroundColor }}
-      renderItem={({ item, index }) => (
-        <TouchableOpacity
+      style={{
+        flex: 1,
+        backgroundColor,
+        paddingVertical: 20,
+      }}
+      contentContainerStyle={{
+        marginHorizontal: 'auto',
+        width: 640,
+        maxWidth: '100%',
+      }}
+      renderItem={({ item }) => (
+        <ListItem
+          key={item.replace('component/', '')}
+          drillIn
           onPress={() => {
             // @ts-expect-error
             navigation.navigate(item);
           }}
-        >
-          <Stack
-            borderBottomWidth={index === componentsRoute.length - 1 ? 0 : 1}
-            borderColor="text-subdued"
-            paddingLeft={4}
-            paddingRight={5}
-            paddingHorizontal={2}
-            marginVertical={12}
-          >
-            <Stack display="flex" flexDirection="row">
-              <Text variant="$bodyLgMedium">
-                {item.replace('component/', '')}
-              </Text>
-            </Stack>
-          </Stack>
-        </TouchableOpacity>
+          title={
+            item.replace('component/', '').charAt(0).toUpperCase() +
+            item.replace('component/', '').substring(1)
+          }
+        />
       )}
       keyExtractor={(_, index) => index.toString()}
     />

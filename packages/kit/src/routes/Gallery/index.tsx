@@ -10,6 +10,7 @@ import EmptyGallery from '@onekeyhq/kit/src/views/Components/stories/Empty';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import IconButtonGallery from '@onekeyhq/kit/src/views/Components/stories/IconButton';
 import InputGallery from '@onekeyhq/kit/src/views/Components/stories/Input';
+import ListItemGallery from '@onekeyhq/kit/src/views/Components/stories/ListItem';
 import LottieViewGallery from '@onekeyhq/kit/src/views/Components/stories/LottieView';
 import DemoRootApp from '@onekeyhq/kit/src/views/Components/stories/NavigatorRoute';
 import PopoverGallery from '@onekeyhq/kit/src/views/Components/stories/Popover';
@@ -43,6 +44,7 @@ export enum GalleryRoutes {
   ComponentDialog = 'component/dialog',
   ComponentForm = 'component/form',
   ComponentNavigation = 'component/navigation',
+  ComponentListItem = 'component/listItem',
   ComponentEmpty = 'component/empty',
   ComponentSwitch = 'component/switch',
   ComponentInput = 'component/input',
@@ -81,6 +83,7 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentDialog, component: DialogGallery },
   { name: GalleryRoutes.ComponentEmpty, component: EmptyGallery },
   { name: GalleryRoutes.ComponentRadio, component: RadioGallery },
+  { name: GalleryRoutes.ComponentListItem, component: ListItemGallery },
   { name: GalleryRoutes.ComponentCheckbox, component: CheckboxGallery },
   { name: GalleryRoutes.ComponentToggleGroup, component: ToggleGroupGallery },
   { name: GalleryRoutes.ComponentActionList, component: ActionListGallery },

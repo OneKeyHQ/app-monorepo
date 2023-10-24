@@ -20,44 +20,85 @@ const ButtonsGallery = () => (
       {
         title: '默认状态',
         element: (
-          <Stack space="$1">
-            <YStack space="$1">
-              <Alert
-                title="Title"
-                description="Description here..."
-                icon="PlaceholderOutline"
-              >
-                Badge
-              </Alert>
-              <Alert
-                type="success"
-                title="Title"
-                description="Description here..."
-                icon="PlaceholderOutline"
-              >
-                Badge
-              </Alert>
-              <Alert
-                type="critical"
-                title="Title"
-                description="Description here..."
-                icon="PlaceholderOutline"
-                action={{ primary: 'Action' }}
-              >
-                Badge
-              </Alert>
-              <Alert
-                type="success"
-                title="Title"
-                description="Description here..."
-                icon="PlaceholderOutline"
-                closable
-                action={{ primary: 'Action', secondary: 'Learn More' }}
-              >
-                Badge
-              </Alert>
-            </YStack>
-          </Stack>
+          <YStack space="$4">
+            <Alert
+              title="Title"
+              description="Description here..."
+              icon="PlaceholderOutline"
+            >
+              Badge
+            </Alert>
+            <Alert
+              type="success"
+              title="Title"
+              description="Description here..."
+              icon="PlaceholderOutline"
+            >
+              Badge
+            </Alert>
+            <Alert
+              type="critical"
+              title="Title"
+              description="Description here..."
+              icon="PlaceholderOutline"
+            >
+              Badge
+            </Alert>
+            <Alert
+              type="info"
+              title="Title"
+              description="Description here..."
+              icon="PlaceholderOutline"
+            >
+              Badge
+            </Alert>
+            <Alert
+              type="warning"
+              title="Title"
+              description="Description here..."
+              icon="PlaceholderOutline"
+            >
+              Badge
+            </Alert>
+          </YStack>
+        ),
+      },
+      {
+        title: 'Dismiss',
+        element: (
+          <YStack space="$4">
+            <Alert
+              title="Title"
+              description="Description here..."
+              icon="PlaceholderOutline"
+              closable
+            >
+              Badge
+            </Alert>
+          </YStack>
+        ),
+      },
+      {
+        title: 'Actions',
+        element: (
+          <YStack space="$4">
+            <Alert
+              title="Title"
+              description="Description here..."
+              icon="PlaceholderOutline"
+              action={{ primary: 'Action' }}
+            >
+              Badge
+            </Alert>
+            <Alert
+              title="Title"
+              description="Description here..."
+              icon="PlaceholderOutline"
+              action={{ primary: 'Action', secondary: 'Learn More' }}
+            >
+              Badge
+            </Alert>
+          </YStack>
         ),
       },
     ]}
