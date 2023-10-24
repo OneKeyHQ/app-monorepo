@@ -10,9 +10,7 @@
     "node": ">=16"
   },
   "scripts": {
-    "setup:env": "bash -c 'if [ ! -f .env ]; then cp .env.example .env; fi'",
-    "postinstall": "yarn setup:env && patch-package && yarn copy:inject",
-    "copy:inject": "bash development/copy-injected.sh",
+    "postinstall": "patch-package",
     "app:desktop": "yarn workspace @onekeyhq/desktop start",
     "app:ext": "yarn workspace @onekeyhq/ext start",
     "app:ext:v3": "yarn workspace @onekeyhq/ext start:v3",

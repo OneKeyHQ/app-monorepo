@@ -287,9 +287,7 @@ module.exports = ({ platform, basePath, configName }) => ({
         'react-native-web/dist/vendor/react-native/NativeEventEmitter',
     },
     fallback: {
-      'crypto': require.resolve(
-          '@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.js',
-      ),
+      crypto: require.resolve('crypto-browserify'),
       stream: require.resolve('stream-browserify'),
       path: false,
       https: false,

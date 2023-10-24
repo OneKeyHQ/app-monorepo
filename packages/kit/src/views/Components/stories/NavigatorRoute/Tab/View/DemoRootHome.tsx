@@ -16,24 +16,24 @@ import { DemoHomeTabRoutes } from '../Routes';
 
 import type { DemoHomeTabParamList } from '../RouteParamTypes';
 
-const useStorage = platformEnv.isNative
-  ? (key: AppSettingKey, initialValue?: boolean) => {
-      const [data, setData] = useState(
-        initialValue || appStorage.getSettingBoolean(key),
-      );
-      const setNewData = (value: boolean) => {
-        appStorage.setSetting(key, value);
-        setData(value);
-      };
-      return [data, setNewData];
-    }
-  : useCookie;
+// const useStorage = platformEnv.isNative
+//   ? (key: AppSettingKey, initialValue?: boolean) => {
+//       const [data, setData] = useState(
+//         initialValue || appStorage.getSettingBoolean(key),
+//       );
+//       const setNewData = (value: boolean) => {
+//         appStorage.setSetting(key, value);
+//         setData(value);
+//       };
+//       return [data, setNewData];
+//     }
+//   : useCookie;
 
 const DemoRootHome = () => {
   const navigation =
     useDemoAppNavigation<PageNavigationProp<DemoHomeTabParamList>>();
 
-  const [rrtStatus, changeRRTStatus] = useStorage(AppSettingKey.rrt);
+  // const [rrtStatus, changeRRTStatus] = useStorage(AppSettingKey.rrt);
 
   return (
     <Layout
@@ -93,26 +93,26 @@ const DemoRootHome = () => {
           element: (
             <Button
               onPress={() => {
-                if (platformEnv.isNative) {
-                  (changeRRTStatus as (value: boolean) => void)(!rrtStatus);
-                  alert('Please manually restart the app.');
-                } else {
-                  const status = rrtStatus === '1' ? '0' : '1';
-                  (changeRRTStatus as (value: string) => void)(status);
-                  if (platformEnv.isRuntimeBrowser) {
-                    if (status === '0') {
-                      localStorage.removeItem(
-                        '$$OnekeyReactRenderTrackerEnabled',
-                      );
-                    } else {
-                      localStorage.setItem(
-                        '$$OnekeyReactRenderTrackerEnabled',
-                        'true',
-                      );
-                    }
-                  }
-                  window.location.reload();
-                }
+                // if (platformEnv.isNative) {
+                //   (changeRRTStatus as (value: boolean) => void)(!rrtStatus);
+                //   alert('Please manually restart the app.');
+                // } else {
+                //   const status = rrtStatus === '1' ? '0' : '1';
+                //   (changeRRTStatus as (value: string) => void)(status);
+                //   if (platformEnv.isRuntimeBrowser) {
+                //     if (status === '0') {
+                //       localStorage.removeItem(
+                //         '$$OnekeyReactRenderTrackerEnabled',
+                //       );
+                //     } else {
+                //       localStorage.setItem(
+                //         '$$OnekeyReactRenderTrackerEnabled',
+                //         'true',
+                //       );
+                //     }
+                //   }
+                //   window.location.reload();
+                // }
               }}
             >
               开关 ReactRenderTracker

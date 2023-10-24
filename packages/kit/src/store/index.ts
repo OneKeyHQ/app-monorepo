@@ -77,7 +77,7 @@ const allReducers = combineReducers({
   // runtime: runtimeReducer,
   settings: settingsReducer,
   // staking: stakingReducer,
-  status: statusReducer,
+  // status: statusReducer,
   // swap: swapReducer,
   // swapTransactions: swapTransactionsReducer,
   // tokens: tokensReducer,

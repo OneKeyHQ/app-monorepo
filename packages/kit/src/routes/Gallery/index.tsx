@@ -4,6 +4,7 @@ import ActionListGallery from '@onekeyhq/kit/src/views/Components/stories/Action
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonGallery from '@onekeyhq/kit/src/views/Components/stories/Button';
 import CheckboxGallery from '@onekeyhq/kit/src/views/Components/stories/Checkbox';
+import CollapsibleTabViewGallery from '@onekeyhq/kit/src/views/Components/stories/CollapsibleTabView';
 import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
 import EmptyGallery from '@onekeyhq/kit/src/views/Components/stories/Empty';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
@@ -17,12 +18,11 @@ import RadioGallery from '@onekeyhq/kit/src/views/Components/stories/Radio';
 import SelectGallery from '@onekeyhq/kit/src/views/Components/stories/Select';
 import SliderGallery from '@onekeyhq/kit/src/views/Components/stories/Slider';
 import SwitchGallery from '@onekeyhq/kit/src/views/Components/stories/Switch';
-import TabViewGallery from '@onekeyhq/kit/src/views/Components/stories/TabView';
 import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
 import ToggleGroupGallery from '@onekeyhq/kit/src/views/Components/stories/ToggleGroup';
 import TooltipGallery from '@onekeyhq/kit/src/views/Components/stories/Tooltip';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
-// import WebviewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
+import WebviewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 
 import AlertGallery from '../../views/Components/stories/Alert';
 import DividerGallery from '../../views/Components/stories/Divider';
@@ -61,7 +61,7 @@ export enum GalleryRoutes {
   ComponentPopover = 'component/popover',
   ComponentToggleGroup = 'component/toggleGroup',
   ComponentTheme = 'component/theme',
-  ComponentTabview = 'component/tabview',
+  ComponentCollapsibleTabs = 'component/collapsibleTabs',
   componentQRCode = 'component/qrCode',
   ComponentWebview = 'component/webview',
 }
@@ -112,17 +112,18 @@ export const stackScreenList = [
     component: FormGallery,
   },
   {
-    name: GalleryRoutes.ComponentTabview,
-    component: TabViewGallery,
+    name: GalleryRoutes.ComponentCollapsibleTabs,
+    component: CollapsibleTabViewGallery,
+    // options: { headerShown: false },
   },
   {
     name: GalleryRoutes.componentQRCode,
     component: QRCodeGallery,
   },
-  // {
-  //   name: GalleryRoutes.ComponentWebview,
-  //   component: WebviewGallery,
-  // },
+  {
+    name: GalleryRoutes.ComponentWebview,
+    component: WebviewGallery,
+  },
 ];
 
 const DevStack = createStackNavigator();

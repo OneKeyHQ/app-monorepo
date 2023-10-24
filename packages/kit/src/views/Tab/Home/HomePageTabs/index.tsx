@@ -1,148 +1,121 @@
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { ScrollView } from 'react-native';
-import { useDispatch } from 'react-redux';
 
-import { Stack, TabView, Text } from '@onekeyhq/components';
-import type { ForwardRefHandle } from '@onekeyhq/components/src/TabView/NativeTabView/NestedTabView';
-import { SceneMap } from '@onekeyhq/components/src/TabView/SceneMap';
-import type { Route } from '@onekeyhq/components/src/TabView/types';
-
-import { useAppSelector } from '../../../../hooks/useAppSelector';
-import { setHomeTabViewActive } from '../../../../store/reducers/status';
+import { Tabs, Text } from '@onekeyhq/components';
+import type { ForwardRefHandle } from '@onekeyhq/components/src/CollapsibleTabView/NativeNestedTabView/NestedTabView';
 
 import HeaderView from './HeaderView';
 import { HomePageTabsEnum } from './types';
 
-const FirstRoute = () => (
-  <ScrollView>
-    <Stack bg="#ff4081" height="$100">
-      <Text>demo1</Text>
-    </Stack>
-  </ScrollView>
-);
-const SecondRoute = () => (
-  <ScrollView>
-    <Stack bg="#673ab7">
-      {Array.from({ length: 100 }).map((_, index) => (
-        <Text key={index}>demo2 ${index}</Text>
-      ))}
-    </Stack>
-  </ScrollView>
-);
-
-const OtherRoute = () => (
-  <ScrollView>
-    <Stack bg="#ff4081" height="$100">
-      <Text>demo3</Text>
-    </Stack>
-  </ScrollView>
-);
-
-const renderScene = SceneMap({
-  [HomePageTabsEnum.Demo1]: FirstRoute,
-  [HomePageTabsEnum.Demo2]: SecondRoute,
-  [HomePageTabsEnum.Demo3]: OtherRoute,
-});
-
 function HomePage() {
-  const intl = useIntl();
-  const dispatch = useDispatch();
-  const homeTabViewActive = useAppSelector(
-    (state) => state.status.homeTabViewActive,
-  );
   const tabsViewRef = useRef<ForwardRefHandle>(null);
-  const [showDemo3, setShowDemo3] = useState(true);
-
-  const globalRoutes: Route[] = useMemo(
-    () => [
-      {
-        key: HomePageTabsEnum.Demo1,
-        title: intl.formatMessage({ id: 'form__tools' }),
-      },
-      {
-        key: HomePageTabsEnum.Demo2,
-        title: intl.formatMessage({ id: 'form__tools' }),
-      },
-      {
-        key: HomePageTabsEnum.Demo3,
-        title: intl.formatMessage({ id: 'form__tools' }),
-      },
-    ],
-    [intl],
-  );
-
-  const [routes, setRoutes] = useState<Route[]>(globalRoutes);
-
+  const [showDemo3, setShowDemo3] = useState(false);
+  const intl = useIntl();
   const onRefresh = useCallback(() => {
     tabsViewRef?.current?.setRefreshing(true);
   }, []);
 
-  const onIndexChange = useCallback(
-    (index: number) => {
-      const tabKey = routes?.[index]?.key;
-      if (tabKey) {
-        dispatch(
-          setHomeTabViewActive({
-            activeTab: tabKey as HomePageTabsEnum,
-            disUpdate: true,
-          }),
-        );
-      }
-    },
-    [dispatch, routes],
-  );
+  const onIndexChange = useCallback(() => {}, []);
+
+  const onPageScrollStateChangeCall = useCallback(() => {}, []);
 
   const onDemo3VisibleChange = useCallback(() => {
     setShowDemo3((pre) => !pre);
   }, []);
 
-  useLayoutEffect(() => {
-    if (showDemo3) {
-      setRoutes(() => globalRoutes);
-    } else {
-      setRoutes((pre) =>
-        pre.filter((item) => item.key !== HomePageTabsEnum.Demo3),
-      );
-    }
-  }, [globalRoutes, showDemo3]);
+  const tabDemo1 = useMemo(
+    () => (
+      <Tabs.Tab
+        name={HomePageTabsEnum.Demo1}
+        label={intl.formatMessage({ id: 'form__tools' })}
+        key={HomePageTabsEnum.Demo1}
+      >
+        <ScrollView>
+          <Text>demo1</Text>
+        </ScrollView>
+      </Tabs.Tab>
+    ),
+    [intl],
+  );
 
-  useEffect(() => {
-    if (homeTabViewActive?.disUpdate) return;
-    const saveIndex = routes.findIndex(
-      (item) => item.key === homeTabViewActive?.activeTab,
-    );
-    if (saveIndex !== -1) {
-      tabsViewRef?.current?.setPageIndex(saveIndex);
-    }
-  }, [homeTabViewActive, routes]);
+  const tabDemo2 = useMemo(
+    () => (
+      <Tabs.Tab
+        name={HomePageTabsEnum.Demo2}
+        label={intl.formatMessage({ id: 'form__tools' })}
+        key={HomePageTabsEnum.Demo2}
+      >
+        <ScrollView>
+          <Text>demo2</Text>
+        </ScrollView>
+      </Tabs.Tab>
+    ),
+    [intl],
+  );
 
-  const renderHeaderView = useCallback(
-    () => <HeaderView switchDemoVisible={onDemo3VisibleChange} />,
-    [onDemo3VisibleChange],
+  const tabDemo3 = useMemo(
+    () => (
+      <Tabs.Tab
+        name={HomePageTabsEnum.Demo3}
+        label={intl.formatMessage({ id: 'form__tools' })}
+        key={HomePageTabsEnum.Demo3}
+      >
+        <ScrollView>
+          <Text>demo3</Text>
+        </ScrollView>
+      </Tabs.Tab>
+    ),
+    [intl],
+  );
+
+  const tabsMap = useMemo(
+    () => ({
+      [HomePageTabsEnum.Demo1]: tabDemo1,
+      [HomePageTabsEnum.Demo2]: tabDemo2,
+      [HomePageTabsEnum.Demo3]: tabDemo3,
+    }),
+    [tabDemo1, tabDemo2, tabDemo3],
+  );
+
+  const usedTabs = useMemo(() => {
+    const defaultTabsKey = Object.keys(tabsMap) as HomePageTabsEnum[];
+
+    return defaultTabsKey.filter((t) => {
+      if (t === HomePageTabsEnum.Demo3) {
+        return !showDemo3;
+      }
+      return true;
+    });
+  }, [showDemo3, tabsMap]);
+
+  const tabContents = useMemo(
+    () => usedTabs.map((t) => tabsMap[t]).filter(Boolean),
+    [tabsMap, usedTabs],
   );
 
   return useMemo(
     () => (
-      <TabView
-        navigationState={{ routes }}
+      <Tabs.Container
+        stickyTabBar
+        initialTabName="Home"
         onRefresh={onRefresh}
         onIndexChange={onIndexChange}
-        renderScene={renderScene}
-        renderHeaderView={renderHeaderView}
+        onPageScrollStateChange={onPageScrollStateChangeCall}
+        headerView={<HeaderView switchDemoVisible={onDemo3VisibleChange} />}
         ref={tabsViewRef}
-      />
+      >
+        {tabContents}
+      </Tabs.Container>
     ),
-    [routes, onRefresh, onIndexChange, renderHeaderView],
+    [
+      onIndexChange,
+      onPageScrollStateChangeCall,
+      onRefresh,
+      tabContents,
+      onDemo3VisibleChange,
+    ],
   );
 }
 
