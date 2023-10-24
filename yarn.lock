@@ -6603,7 +6603,7 @@ __metadata:
     buffer: ^6.0.3
     camelcase-keys: ^7.0.2
     cardano-crypto.js: ^6.1.1
-    coinselect: ^3.1.12
+    coinselect: "https://github.com/OneKeyHQ/coinselect.git#91e8db20cf3464143cb9d404dee6de7fabb3b04a"
     cosmjs-types: ^0.5.2
     crypto-browserify: ^3.12.0
     ecpair: 2.0.1
@@ -14780,10 +14780,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"coinselect@npm:^3.1.12":
-  version: 3.1.12
-  resolution: "coinselect@npm:3.1.12"
-  checksum: 8628f43e22c612171196c3b1c934158d1e16df29982134d8d771e65f68df033588c2608253155c2d614380a62e8756c9db1f1c3a0b4c872406bfba5ca9377be6
+"coinselect@https://github.com/OneKeyHQ/coinselect.git#91e8db20cf3464143cb9d404dee6de7fabb3b04a":
+  version: 3.1.13
+  resolution: "coinselect@https://github.com/OneKeyHQ/coinselect.git#commit=91e8db20cf3464143cb9d404dee6de7fabb3b04a"
+  checksum: 809e87f7b92878cecd0ff36b2f4852a5163a721703b449475a071ed4a61b7cfcbf6db74635ae82a4e8c2a9ed11b45d5f6f84bc4d50b67880f1f280ff089b60d1
   languageName: node
   linkType: hard
 

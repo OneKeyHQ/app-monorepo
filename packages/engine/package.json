@@ -58,7 +58,7 @@
     "buffer": "^6.0.3",
     "camelcase-keys": "^7.0.2",
     "cardano-crypto.js": "^6.1.1",
-    "coinselect": "^3.1.12",
+    "coinselect": "https://github.com/OneKeyHQ/coinselect.git#91e8db20cf3464143cb9d404dee6de7fabb3b04a",
     "cosmjs-types": "^0.5.2",
     "crypto-browserify": "^3.12.0",
     "ecpair": "2.0.1",
