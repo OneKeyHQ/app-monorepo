@@ -18694,6 +18694,7 @@ __metadata:
   checksum: bd5bbe4104438c4196ba58a54650116007fa0262eccef13a4c55b2e09a5b36b59f1e75b9fcc49883dd9d4953892e6fc007eef9e9155648ceea036e184b0f930a
   languageName: node
   linkType: hard
+
 "isbinaryfile@npm:^3.0.2":
   version: 3.0.3
   resolution: "isbinaryfile@npm:3.0.3"
