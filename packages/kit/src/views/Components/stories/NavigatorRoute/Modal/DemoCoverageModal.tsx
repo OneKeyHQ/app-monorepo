@@ -123,10 +123,10 @@ function DemoCoverageDialogModal() {
             </Button>
           ),
         },
-        // {
-        //   title: 'Open Modal by Button',
-        //   element: <ControlledDialogByButton />,
-        // },
+        {
+          title: 'Open Modal by Button',
+          element: <ControlledDialogByButton />,
+        },
         {
           title: 'Open Modal by Api',
           element: (
