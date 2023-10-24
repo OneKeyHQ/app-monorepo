@@ -12,7 +12,10 @@ module.exports = function (api) {
           require('@tamagui/babel-plugin/dist/cjs/index.native'),
           {
             components: ['tamagui'],
-            config: path.join(__dirname, '../../packages/components/tamagui.config.ts'),
+            config: path.join(
+              __dirname,
+              '../../packages/components/tamagui.config.ts',
+            ),
             importsWhitelist: [],
             logTimings: true,
             disableExtraction: process.env.NODE_ENV === 'development',
