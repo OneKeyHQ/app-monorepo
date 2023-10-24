@@ -12,7 +12,7 @@ import type {
 } from './fixtures/coreTestsFixtures';
 import type { CoreChainApiBase } from '../src/base/CoreChainApiBase';
 import type {
-  AddressEncodings,
+  EAddressEncodings,
   ICoreApiGetAddressItem,
   ICoreApiNetworkInfo,
   ICoreApiSignAccount,
@@ -132,7 +132,7 @@ async function expectGetAddressFromHdOk({
   hdAccounts: IPrepareCoreChainTestsFixturesOptions['hdAccounts'];
   hdAccountTemplate: string;
   hdCredential: ICoreTestsHdCredential;
-  addressEncoding?: AddressEncodings;
+  addressEncoding?: EAddressEncodings;
 }) {
   const indexes = range(0, hdAccounts.length);
   const addresses = await coreApi.getAddressesFromHd({

@@ -1,24 +1,37 @@
-import type { ICurveName } from './base';
-import type { IEncodedTxADA } from '../chains/ada/types';
+import type { ICurveName } from './coreTypesBase';
+import type { IEncodedTxAda } from '../chains/ada/types';
+import type { IEncodedTxCfx } from '../chains/cfx/types';
+import type { IEncodedTxCosmos } from '../chains/cosmos/types';
+import type { IEncodedTxEvm } from '../chains/evm/types';
+import type { IEncodedTxFil } from '../chains/fil/types';
+import type { IEncodedTxKaspa } from '../chains/kaspa/types';
+import type { IEncodedTxNexa } from '../chains/nexa/types';
+import type { IEncodedTxSui } from '../chains/sui/types';
+import type { IEncodedTxTron } from '../chains/tron/types';
+import type { IEncodedTxXmr } from '../chains/xmr/types';
+import type { IEncodedTxXrp } from '../chains/xrp/types';
 import type BigNumber from 'bignumber.js';
 
-export type IEncodedTx = string | IEncodedTxADA;
-//   | IEncodedTxEvm
+export type IEncodedTx =
+  | string
+  | IEncodedTxAda
+  | IEncodedTxCfx
+  | IEncodedTxCosmos
+  | IEncodedTxFil
+  | IEncodedTxKaspa
+  | IEncodedTxSui
+  | IEncodedTxXrp
+  | IEncodedTxXmr
+  | IEncodedTxTron
+  | IEncodedTxNexa
+  | IEncodedTxEvm;
 //   | IEncodedTxAlgo
 //   | IEncodedTxNear
 //   | IEncodedTxBtc
 //   | IEncodedTxSTC
-//   | IEncodedTxTron
 //   | IEncodedTxAptos
 //   | IEncodedTxCfx
-//   | IEncodedTxXrp
-//   | IEncodedTxCosmos
-//   | IEncodedTxSUI
-//   | IEncodedTxFil
 //   | IEncodedTxDot
-//   | IEncodedTxXmr
-//   | IEncodedTxKaspa
-//   | IEncodedTxNexa
 //   | IEncodedTxLightning;
 
 export type INativeTx = object;
@@ -71,7 +84,6 @@ export type IUnsignedTxPro = UnsignedTx & {
   inputsToSign?: InputToSign[];
   // signerAccount: ISignerAccountEvm | ISignerAccountNear | ISignerAccountAptos
 };
-
 export type SignedTx = {
   txid: string;
   rawTx: string;

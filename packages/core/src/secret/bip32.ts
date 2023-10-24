@@ -182,4 +182,4 @@ class ED25519Bip32KeyDeriver implements Bip32KeyDeriver {
   }
 }
 
-export { ser256, parse256, BaseBip32KeyDeriver, ED25519Bip32KeyDeriver };
+export { BaseBip32KeyDeriver, ED25519Bip32KeyDeriver, parse256, ser256 };

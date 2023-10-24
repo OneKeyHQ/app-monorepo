@@ -11,15 +11,41 @@
   "author": "",
   "license": "SEE https://github.com/OneKeyHQ/app-monorepo/blob/onekey/LICENSE.md",
   "dependencies": {
-    "@noble/secp256k1": "^2.0.0",
+    "@conflux-dev/conflux-address-js": "^1.3.16",
+    "@glif/filecoin-address": "^2.0.43",
+    "@kaspa/core-lib": "^1.6.5",
+    "@mymonero/mymonero-app-bridge": "^3.0.0",
+    "@mymonero/mymonero-keyimage-cache": "^3.0.0",
+    "@noble/secp256k1": "1.7.1",
     "@onekeyfe/cardano-coin-selection": "1.0.0",
     "@onekeyfe/cardano-coin-selection-asmjs": "1.1.0",
+    "@solana/web3.js": "^1.87.2",
+    "@starcoin/starcoin": "^2.3.7",
+    "@zondax/izari-filecoin": "^1.2.0",
+    "algosdk": "^2.6.0",
     "asmcrypto.js": "2.3.2",
+    "base32-decode": "^1.0.0",
+    "bchaddrjs": "^0.5.2",
+    "bip32": "^4.0.0",
     "bip39": "^3.1.0",
+    "bitcoinforkjs": "git+https://github.com/OneKeyHQ/bitcoinjs-lib.git#feat/remove-npm-lock",
     "bitcoinjs-lib": "^6.1.5",
     "bitcoinjs-message": "2.2.0",
+    "bs58check": "^3.0.1",
     "cardano-crypto.js": "^6.1.2",
+    "cosmjs-types": "^0.8.0",
+    "ecpair": "^2.1.0",
     "elliptic": "^6.5.4",
-    "jsrsasign": "^10.8.6"
+    "js-conflux-sdk": "^2.1.12",
+    "jsrsasign": "^10.8.6",
+    "near-api-js": "^2.1.4",
+    "ripple-keypairs": "^1.3.1",
+    "tronweb": "^5.3.1",
+    "xrpl": "^2.13.0"
+  },
+  "devDependencies": {
+    "@types/bchaddrjs": "^0.4.2",
+    "@types/bs58": "^4.0.3",
+    "@types/jsrsasign": "^10.5.11"
   }
 }

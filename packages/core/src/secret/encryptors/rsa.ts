@@ -1,6 +1,6 @@
 import { KEYUTIL, KJUR } from 'jsrsasign';
 
-import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
+// import flowLogger from '@onekeyhq/shared/src/logger/flowLogger/flowLogger';
 
 import type { RSAKey } from 'jsrsasign';
 
@@ -9,8 +9,8 @@ const KEY_LENGTH = 1024;
 function generateKeypair() {
   const rsaKeypair = KEYUTIL.generateKeypair('RSA', KEY_LENGTH);
   return {
-    publicKey: KEYUTIL.getPEM(rsaKeypair.pubKeyObj as RSAKey),
-    privateKey: KEYUTIL.getPEM(rsaKeypair.prvKeyObj as RSAKey, 'PKCS8PRV'),
+    publicKey: KEYUTIL.getPEM(rsaKeypair.pubKeyObj),
+    privateKey: KEYUTIL.getPEM(rsaKeypair.prvKeyObj, 'PKCS8PRV'),
   };
 }
 
@@ -20,7 +20,7 @@ function rsaEncrypt(publicKey: string, data: string) {
     const pubKeyObj = KEYUTIL.getKey(publicKey);
     return KJUR.crypto.Cipher.encrypt(data, pubKeyObj as RSAKey, 'RSA');
   } catch (error) {
-    flowLogger.error.log('rsa encrypt fail = ', error);
+    // flowLogger.error.log('rsa encrypt fail = ', error);
     return false;
   }
 }
@@ -30,7 +30,7 @@ function rsaDecrypt(privateKey: string, encryptData: string) {
     const prvKeyObj = KEYUTIL.getKey(privateKey) as RSAKey;
     return KJUR.crypto.Cipher.decrypt(encryptData, prvKeyObj, 'RSA');
   } catch (error) {
-    flowLogger.error.log('rsa decrypt fail = ', error);
+    // flowLogger.error.log('rsa decrypt fail = ', error);
     return false;
   }
 }

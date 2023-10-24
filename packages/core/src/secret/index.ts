@@ -7,7 +7,7 @@ import { hash160 } from './hash';
 import type { Bip32KeyDeriver, ExtendedKey } from './bip32';
 import type { RevealableSeed } from './bip39';
 import type { BaseCurve } from './curves';
-import type { ICurveName } from '../types/base';
+import type { ICurveName } from '../types';
 
 const curves: Map<ICurveName, BaseCurve> = new Map([
   ['secp256k1', secp256k1],
