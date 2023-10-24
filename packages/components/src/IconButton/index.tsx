@@ -7,26 +7,27 @@ import { Icon } from '../Icon';
 import { Spinner } from '../Spinner';
 import { Stack } from '../Stack';
 
-import type { ICON_NAMES } from '../Icon';
+import type { ICON_NAMES, IconProps } from '../Icon';
 
-interface IconButtonProps
+export interface IconButtonProps
   extends Omit<ButtonProps, 'iconAfter' | 'children' | 'icon'> {
   icon: ICON_NAMES;
+  iconProps?: IconProps;
 }
 
 const getSizeStyles = (size: ButtonProps['size']) => {
   const sizes = {
     small: {
       p: '$1',
-      negativeMargin: '$-1',
+      negativeMargin: -5,
     },
     medium: {
       p: '$1.5',
-      negativeMargin: '$-1.5',
+      negativeMargin: -7,
     },
     large: {
       p: '$3',
-      negativeMargin: '$-3',
+      negativeMargin: -13,
     },
   };
 
@@ -38,6 +39,7 @@ export const IconButton = (props: IconButtonProps) => {
     disabled,
     loading,
     icon,
+    iconProps,
     size,
     variant = 'secondary',
     ...rest
@@ -75,6 +77,7 @@ export const IconButton = (props: IconButtonProps) => {
           color={iconColor}
           name={icon}
           size={size === 'small' ? '$5' : '$6'}
+          {...iconProps}
         />
       )}
     </ButtonFrame>
