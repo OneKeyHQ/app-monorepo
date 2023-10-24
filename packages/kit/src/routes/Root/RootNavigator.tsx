@@ -26,7 +26,7 @@ const rootConfig: RootStackNavigatorConfig<RootRoutes, any>[] = [
     name: RootRoutes.Gallery,
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     component: require('../Gallery').default,
-    disable: process.env.NODE_ENV === 'production',
+    // disable: process.env.NODE_ENV === 'production',
   },
 ];
 

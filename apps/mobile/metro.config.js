@@ -22,14 +22,16 @@ config.resolver.sourceExts = [
 ];
 config.resolver.extraNodeModules = {
   ...config.resolver.extraNodeModules,
-  // fs: require.resolve('react-native-level-fs'),
-  // path: require.resolve('path-browserify'),
-  // stream: require.resolve('readable-stream'),
-  // crypto: require.resolve('react-native-crypto'),
-  // http: require.resolve('stream-http'),
-  // https: require.resolve('https-browserify'),
-  // net: require.resolve('react-native-tcp-socket'),
-  // tls: require.resolve('react-native-tcp-socket'),
+  crypto: require.resolve(
+    '@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.native.js',
+  ),
+  fs: require.resolve('react-native-level-fs'),
+  path: require.resolve('path-browserify'),
+  stream: require.resolve('readable-stream'),
+  http: require.resolve('stream-http'),
+  https: require.resolve('https-browserify'),
+  net: require.resolve('react-native-tcp-socket'),
+  tls: require.resolve('react-native-tcp-socket'),
 };
 
 // 1. Watch all files within the monorepo

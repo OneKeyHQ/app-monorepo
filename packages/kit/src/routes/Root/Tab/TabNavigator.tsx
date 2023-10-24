@@ -55,7 +55,7 @@ const config: TabNavigatorConfig<TabRoutes>[] = [
   {
     name: TabRoutes.Me,
     tabBarIcon: (focused?: boolean) =>
-      focused ? 'MailOpenMini' : 'EmailOutline',
+      focused ? 'EmailSolid' : 'EmailOutline',
     translationId: 'title__me',
     freezeOnBlur: true,
     children: [
@@ -69,10 +69,10 @@ const config: TabNavigatorConfig<TabRoutes>[] = [
   {
     name: TabRoutes.Developer,
     tabBarIcon: (focused?: boolean) =>
-      focused ? 'CodeBracketSquareMini' : 'CodeBracketMini',
+      focused ? 'CodeBracketsSolid' : 'CodeBracketsOutline',
     translationId: 'form__dev_mode',
     freezeOnBlur: true,
-    disable: process.env.NODE_ENV === 'production',
+    // disable: process.env.NODE_ENV === 'production',
     children: [
       {
         name: TabDeveloperRoutes.TabDeveloper,

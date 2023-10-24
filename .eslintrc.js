@@ -96,8 +96,8 @@ const tsRules = {
 module.exports = {
   ignorePatterns: [
     '*.wasm.bin',
+    'apps/desktop/public/static/js-sdk*',
     'packages/components/src/Icon/*',
-    'packages/desktop/public/static/js-sdk/*',
     // 临时忽略以下目录的检查，迭代后会逐步开启
     'packages/blockchain-libs',
     'packages/kit/src/store',

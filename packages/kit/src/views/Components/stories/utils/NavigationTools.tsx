@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { useIsFocused } from '@react-navigation/core';
 
 import { Text } from '@onekeyhq/components';
-import useIsActiveTab from '@onekeyhq/components/src/CollapsibleTabView/hooks/useIsActiveTab';
+import useIsActiveTab from '@onekeyhq/components/src/TabView/hooks/useIsActiveTab';
 
 export function NavigationFocusTools({
   componentName,

@@ -111,19 +111,19 @@
     CGFloat categoryWidth = self.frame.size.width - _model.paddingX * 2;
     _categoryView.titles = [self.values valueForKey:@"label"];
     _categoryView.defaultSelectedIndex = self.defaultIndex;
-    _categoryView.backgroundColor = [UIColor colorWithRGBAHexString:_model.backgroundColor];
-    _categoryView.titleColor = [UIColor colorWithRGBAHexString:_model.inactiveColor];
+    _categoryView.backgroundColor = [UIColor colorWithHexString:_model.backgroundColor];
+    _categoryView.titleColor = [UIColor colorWithHexString:_model.inactiveColor];
     _categoryView.titleFont = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
     if (_model.labelStyle && _model.labelStyle[@"fontFamily"] && _model.labelStyle[@"fontSize"]) {
       _categoryView.titleFont = [UIFont fontWithName:_model.labelStyle[@"fontFamily"] size:[_model.labelStyle[@"fontSize"] floatValue]];
     }
-    _categoryView.titleSelectedColor = [UIColor colorWithRGBAHexString:_model.activeColor];
+    _categoryView.titleSelectedColor = [UIColor colorWithHexString:_model.activeColor];
     _categoryView.cellSpacing = _model.itemPaddingX;
     
     JXCategoryIndicatorLineView *lineView = [[JXCategoryIndicatorLineView alloc] init];
     lineView.indicatorHeight = 2;
     lineView.lineScrollOffsetX = 0;
-    lineView.indicatorColor = [UIColor colorWithRGBAHexString:_model.indicatorColor];
+    lineView.indicatorColor = [UIColor colorWithHexString:_model.indicatorColor];
     if (_model.tabSpaceEqual) {
       _categoryView.cellWidth = categoryWidth / self.values.count;
       _categoryView.averageCellSpacingEnabled = YES;
@@ -171,7 +171,7 @@
 -(UIView *)bottomLineView {
   if (!_bottomLineView) {
     _bottomLineView = [[UIView alloc] init];
-    _bottomLineView.backgroundColor = [UIColor colorWithRGBAHexString:_model.bottomLineColor];
+    _bottomLineView.backgroundColor = [UIColor colorWithHexString:_model.bottomLineColor];
     [self addSubview:_bottomLineView];
   }
   return _bottomLineView;
