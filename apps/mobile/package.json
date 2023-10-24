@@ -53,6 +53,7 @@
     "react-native-tcp-socket": "^6.0.6",
     "react-native-uuid": "^2.0.1",
     "react-native-zip-archive": "^6.0.9",
+    "readable-stream": "^3.6.0",
     "stream-http": "^3.2.0",
     "text-encoding": "^0.7.0",
     "uuid": "^3.0.0"
