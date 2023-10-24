@@ -1,5 +1,5 @@
-import CollapsibleTabView from '../../../CollapsibleTabView';
+import TabView from '../../../TabView';
 
-const DemoRootTabs = () => <CollapsibleTabView />;
+const DemoRootTabs = () => <TabView />;
 
 export default DemoRootTabs;

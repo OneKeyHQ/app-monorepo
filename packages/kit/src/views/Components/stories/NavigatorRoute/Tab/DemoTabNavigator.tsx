@@ -29,16 +29,19 @@ const config: TabNavigatorConfig<DemoTabRoutes>[] = [
       {
         name: DemoHomeTabRoutes.DemoRootHome,
         component: DemoRootHome,
+        // @ts-expect-error
         translationId: 'Home',
       },
       {
         name: DemoHomeTabRoutes.DemoRootHomeSearch,
         component: DemoRootHomeSearch,
+        // @ts-expect-error
         translationId: 'RootHomeSearch',
       },
       {
         name: DemoHomeTabRoutes.DemoRootHomeOptions,
         component: DemoRootHomeOptions,
+        // @ts-expect-error
         translationId: 'RootHomeOptions',
       },
     ],
@@ -46,14 +49,14 @@ const config: TabNavigatorConfig<DemoTabRoutes>[] = [
   {
     name: DemoTabRoutes.Me,
     tabBarIcon: (focused?: boolean) =>
-      focused ? 'MailOpenMini' : 'EmailOutline',
-    translationId: 'form__me',
+      focused ? 'EmailSolid' : 'EmailOutline',
+    translationId: 'msg__mine',
     freezeOnBlur: true,
     children: [
       {
         name: DemoMeTabRoutes.DemoRootMe,
         component: DemoRootMe,
-        translationId: 'Me',
+        translationId: 'msg__mine',
       },
     ],
   },
@@ -61,31 +64,33 @@ const config: TabNavigatorConfig<DemoTabRoutes>[] = [
     name: DemoTabRoutes.Tabs,
     tabBarIcon: (focused?: boolean) =>
       focused ? 'ChatGptSolid' : 'ChatGptOutline',
-    translationId: 'form__tabs',
+    translationId: 'title__str_tabs',
     freezeOnBlur: true,
     children: [
       {
         name: DemoTabsTabRoutes.DemoRootTabs,
         component: DemoRootTabs,
-        translationId: 'Tabs',
+        translationId: 'title__str_tabs',
       },
     ],
   },
   {
     name: DemoTabRoutes.Developer,
     tabBarIcon: (focused?: boolean) =>
-      focused ? 'CodeBracketSquareMini' : 'CodeBracketMini',
+      focused ? 'CodeBracketsSolid' : 'CodeBracketsOutline',
     translationId: 'form__dev_mode',
     freezeOnBlur: true,
     children: [
       {
         name: DemoDeveloperTabRoutes.DemoRootDeveloper,
         component: DemoRootDeveloper,
+        // @ts-expect-error
         translationId: 'Developer',
       },
       {
         name: DemoDeveloperTabRoutes.DemoRootDeveloperOptions,
         component: DemoRootDeveloperOptions,
+        // @ts-expect-error
         translationId: 'RootDeveloperOptions',
       },
     ],

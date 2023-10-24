@@ -5161,6 +5161,7 @@ __metadata:
     lottie-react-native: ^6.3.0
     react: 18.2.0
     react-native: 0.72.5
+    react-native-crypto: ^2.2.0
     react-native-device-info: ^10.8.0
     react-native-file-logger: ^0.4.1
     react-native-fs: ^2.20.0
@@ -5168,6 +5169,7 @@ __metadata:
     react-native-get-random-values: ^1.9.0
     react-native-keyboard-manager: ^6.5.11-1
     react-native-mmkv: ^2.8.0
+    react-native-randombytes: ^3.6.1
     react-native-reanimated: ^3.5.4
     react-native-safe-area-context: ^4.7.2
     react-native-screens: ^3.25.0
@@ -10531,7 +10533,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"base64-js@npm:^1.1.2, base64-js@npm:^1.2.3, base64-js@npm:^1.3.1, base64-js@npm:^1.5.1":
+"base64-js@npm:^1.0.2, base64-js@npm:^1.1.2, base64-js@npm:^1.2.3, base64-js@npm:^1.3.1, base64-js@npm:^1.5.1":
   version: 1.5.1
   resolution: "base64-js@npm:1.5.1"
   checksum: 669632eb3745404c2f822a18fc3a0122d2f9a7a13f7fb8b5823ee19d1d2ff9ee5b52c53367176ea4ad093c332fd5ab4bd0ebae5a8e27917a4105a4cfc86b1005
@@ -11087,7 +11089,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"browserify-sign@npm:^4.0.0":
+"browserify-sign@npm:^4.0.0, browserify-sign@npm:^4.0.4":
   version: 4.2.1
   resolution: "browserify-sign@npm:4.2.1"
   dependencies:
@@ -11264,6 +11266,17 @@ __metadata:
     base64-js: ^1.3.1
     ieee754: ^1.2.1
   checksum: 5ad23293d9a731e4318e420025800b42bf0d264004c0286c8cc010af7a270c7a0f6522e84f54b9ad65cbd6db20b8badbfd8d2ebf4f80fa03dab093b89e68c3f9
+  languageName: node
+  linkType: hard
+
+"buffer@npm:^4.9.1":
+  version: 4.9.2
+  resolution: "buffer@npm:4.9.2"
+  dependencies:
+    base64-js: ^1.0.2
+    ieee754: ^1.1.4
+    isarray: ^1.0.0
+  checksum: 8801bc1ba08539f3be70eee307a8b9db3d40f6afbfd3cf623ab7ef41dffff1d0a31de0addbe1e66e0ca5f7193eeb667bfb1ecad3647f8f1b0750de07c13295c3
   languageName: node
   linkType: hard
 
@@ -12516,7 +12529,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"create-hmac@npm:^1.1.0, create-hmac@npm:^1.1.3, create-hmac@npm:^1.1.4, create-hmac@npm:^1.1.7":
+"create-hmac@npm:^1.1.0, create-hmac@npm:^1.1.2, create-hmac@npm:^1.1.3, create-hmac@npm:^1.1.4, create-hmac@npm:^1.1.7":
   version: 1.1.7
   resolution: "create-hmac@npm:1.1.7"
   dependencies:
@@ -17719,7 +17732,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ieee754@npm:^1.1.13, ieee754@npm:^1.2.1":
+"ieee754@npm:^1.1.13, ieee754@npm:^1.1.4, ieee754@npm:^1.2.1":
   version: 1.2.1
   resolution: "ieee754@npm:1.2.1"
   checksum: 5144c0c9815e54ada181d80a0b810221a253562422e7c6c3a60b1901154184f49326ec239d618c416c1c5945a2e197107aee8d986a3dd836b53dffefd99b5e7e
@@ -18559,17 +18572,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"isarray@npm:^1.0.0, isarray@npm:~1.0.0":
+  version: 1.0.0
+  resolution: "isarray@npm:1.0.0"
+  checksum: f032df8e02dce8ec565cf2eb605ea939bdccea528dbcf565cdf92bfa2da9110461159d86a537388ef1acef8815a330642d7885b29010e8f7eac967c9993b65ab
+  languageName: node
+  linkType: hard
+
 "isarray@npm:^2.0.5":
   version: 2.0.5
   resolution: "isarray@npm:2.0.5"
   checksum: bd5bbe4104438c4196ba58a54650116007fa0262eccef13a4c55b2e09a5b36b59f1e75b9fcc49883dd9d4953892e6fc007eef9e9155648ceea036e184b0f930a
-  languageName: node
-  linkType: hard
-
-"isarray@npm:~1.0.0":
-  version: 1.0.0
-  resolution: "isarray@npm:1.0.0"
-  checksum: f032df8e02dce8ec565cf2eb605ea939bdccea528dbcf565cdf92bfa2da9110461159d86a537388ef1acef8815a330642d7885b29010e8f7eac967c9993b65ab
   languageName: node
   linkType: hard
 
@@ -22718,6 +22731,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"pbkdf2@npm:3.0.8":
+  version: 3.0.8
+  resolution: "pbkdf2@npm:3.0.8"
+  dependencies:
+    create-hmac: ^1.1.2
+  checksum: e63a29896a148f758a91b7933bd414830c4cb40673d93e4da379e4204c7182da7c6aac53ce6f4dabd25b21ab2892f4b9dca89a8beb567e90d31f1bb2dec593dc
+  languageName: node
+  linkType: hard
+
 "pbkdf2@npm:^3.0.17, pbkdf2@npm:^3.0.3":
   version: 3.1.2
   resolution: "pbkdf2@npm:3.1.2"
@@ -23967,6 +23989,26 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-native-crypto@npm:^2.2.0":
+  version: 2.2.0
+  resolution: "react-native-crypto@npm:2.2.0"
+  dependencies:
+    browserify-cipher: ^1.0.0
+    browserify-sign: ^4.0.4
+    create-ecdh: ^4.0.0
+    create-hash: ^1.1.0
+    create-hmac: ^1.1.0
+    diffie-hellman: ^5.0.0
+    inherits: ^2.0.1
+    pbkdf2: 3.0.8
+    public-encrypt: ^4.0.0
+    randomfill: ^1.0.3
+  peerDependencies:
+    react-native-randombytes: ">=2.0.0 <4.0.0"
+  checksum: 52631bf32e5d3e0aad9329e3271808a30b91f8a072d4a0c2791105cd3c3aac5d1a63a4016a570790342baa7fc4b10f15024e4d6df47e57906197d7587af450e1
+  languageName: node
+  linkType: hard
+
 "react-native-device-info@npm:^10.8.0":
   version: 10.11.0
   resolution: "react-native-device-info@npm:10.11.0"
@@ -24132,6 +24174,16 @@ __metadata:
   peerDependencies:
     react-native-svg: "*"
   checksum: c634373c9b667db763cb92bc3fb766aa399fc59e2621072b5fcf1671677563b46e8ff398e3bcbac3760c0e4400c469958b0c00d2434149010f94a3a5edc360f5
+  languageName: node
+  linkType: hard
+
+"react-native-randombytes@npm:^3.6.1":
+  version: 3.6.1
+  resolution: "react-native-randombytes@npm:3.6.1"
+  dependencies:
+    buffer: ^4.9.1
+    sjcl: ^1.0.3
+  checksum: a0d8ec80e1a4573d8c4924cb52b01007fe2ae1d3698bb5e1e1330246f0ae307af4e7df236e176f438a7f69151e321a36a633f53dbb61f1c965a960f572bd3b1e
   languageName: node
   linkType: hard
 
@@ -25852,6 +25904,13 @@ __metadata:
   version: 1.0.5
   resolution: "sisteransi@npm:1.0.5"
   checksum: aba6438f46d2bfcef94cf112c835ab395172c75f67453fe05c340c770d3c402363018ae1ab4172a1026a90c47eaccf3af7b6ff6fa749a680c2929bd7fa2b37a4
+  languageName: node
+  linkType: hard
+
+"sjcl@npm:^1.0.3":
+  version: 1.0.8
+  resolution: "sjcl@npm:1.0.8"
+  checksum: ae5bc8172dec88376fbb1c8508f2be24c1dd064be2af25368e6267824b6a84b52b515546b48c8f72460c715a39e934b077f0bf2adefc36c22527bff57ec06e1d
   languageName: node
   linkType: hard
 
