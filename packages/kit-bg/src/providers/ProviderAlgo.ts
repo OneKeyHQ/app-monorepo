@@ -101,30 +101,30 @@ class ProviderApiAlgo extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     walletTransactions: Array<{ txn: string; signers: [] }>,
   ): Promise<(string | null)[]> {
-    const signedTxs: (string | null)[] = [];
+    const txsToSign: string[] = [];
     for (let i = 0; i < walletTransactions.length; i += 1) {
       // transaction with signers means that this transaction is not meant to be signed
-      if (Array.isArray(walletTransactions[i].signers)) {
-        signedTxs.push(null);
-      } else {
-        await this.backgroundApi.serviceDapp.processBatchTransactionOneByOne({
-          run: async () => {
-            const { txn } = walletTransactions[i];
-            const result =
-              await this.backgroundApi.serviceDapp.openSignAndSendModal(
-                request,
-                {
-                  encodedTx: txn,
-                  signOnly: true,
-                },
-              );
-            signedTxs.push(result as string);
-          },
-        });
+      if (!Array.isArray(walletTransactions[i].signers)) {
+        txsToSign.push(walletTransactions[i].txn);
       }
     }
 
-    return signedTxs;
+    const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
+      request,
+      {
+        encodedTx: txsToSign,
+        signOnly: true,
+      },
+    )) as string;
+
+    const signedTxs = result.split(',');
+
+    return walletTransactions.map((tx) => {
+      if (Array.isArray(tx.signers)) {
+        return null;
+      }
+      return signedTxs.shift() ?? null;
+    });
   }
 }
 
