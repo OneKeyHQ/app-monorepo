@@ -5171,6 +5171,7 @@ __metadata:
     react-native-get-random-values: ^1.9.0
     react-native-keyboard-manager: ^6.5.11-1
     react-native-level-fs: ^3.0.1
+    react-native-metrix: ^0.6.3
     react-native-mmkv: ^2.8.0
     react-native-randombytes: ^3.6.1
     react-native-reanimated: ^3.5.4
@@ -24383,6 +24384,16 @@ __metadata:
     react: ^16.2.0
     react-native: ">=0.50.4"
   checksum: 9f8f7a9ae165e6964719dc16a79d254e1ce7febc9938ebf035f1194f3cda3154eb6c7efd622de1b92b9c01704aad88c0501e64c00a0a2439331c44a039929db4
+  languageName: node
+  linkType: hard
+
+"react-native-metrix@npm:^0.6.3":
+  version: 0.6.3
+  resolution: "react-native-metrix@npm:0.6.3"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: bbd4e9a7aaf3660c715095bd3f00f4afcc06facf8a478ea789eaf57f556f41f39da9cb5a359ff5cd570f40bbf6b3e06abf2795de099ac5c57feaf8f595d4521d
   languageName: node
   linkType: hard
 

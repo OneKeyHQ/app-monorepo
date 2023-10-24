@@ -7,6 +7,7 @@ import { ScrollView } from 'tamagui';
 
 import { Button, Stack, Text, XStack, YStack } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import { getMeasureTime } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { AppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -166,6 +167,10 @@ const TabDeveloper = () => {
             </>
           )}
         </Button>
+      </PartContainer>
+
+      <PartContainer title="Code Startup Time(s)">
+        <Text>{getMeasureTime().jsBundleLoadedTime}</Text>
       </PartContainer>
     </ScrollView>
   );
