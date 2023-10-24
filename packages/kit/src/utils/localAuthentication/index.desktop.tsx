@@ -2,7 +2,7 @@ import LOCALES from '@onekeyhq/components/src/locale';
 import {
   decodeSensitiveText,
   encodeSensitiveText,
-} from '@onekeyhq/core/src/secret/encryptors/aes256';
+} from '@onekeyhq/core/src/secret';
 
 // import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { getDefaultLocale } from '../locale';

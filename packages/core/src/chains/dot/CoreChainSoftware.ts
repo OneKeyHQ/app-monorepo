@@ -11,7 +11,7 @@ import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import { mnemonicFromEntropy } from '../../secret';
-import { encrypt } from '../../secret/encryptors/aes256';
+import { encrypt } from '../../secret';
 import { slicePathTemplate } from '../../utils';
 
 import { DOT_TYPE_PREFIX } from './types';

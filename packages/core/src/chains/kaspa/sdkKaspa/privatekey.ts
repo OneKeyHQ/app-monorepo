@@ -1,9 +1,9 @@
 import { PrivateKey } from '@kaspa/core-lib';
 import { bytesToHex } from '@noble/hashes/utils';
 
-import { tapTweakHash } from '@onekeyhq/core/src/secret/bip340';
+import { tapTweakHash } from '@onekeyhq/core/src/secret';
 
-import ecc from '../../../secret/nobleSecp256k1Wrapper';
+import { ecc } from '../../../secret';
 
 export function privateKeyFromWIF(wif: string): PrivateKey {
   // @ts-expect-error

@@ -4,7 +4,7 @@ import { BCS, TransactionBuilder, TxnBuilderTypes } from 'aptos';
 // eslint-disable-next-line camelcase
 import { sha3_256 } from 'js-sha3';
 
-import { ed25519 } from '@onekeyhq/core/src/secret/curves';
+import { ed25519 } from '@onekeyhq/core/src/secret';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import {

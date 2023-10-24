@@ -1,7 +1,7 @@
 import { PublicKey } from '@kaspa/core-lib';
 import { bytesToHex } from '@noble/hashes/utils';
 
-import { tweakPublicKey } from '@onekeyhq/core/src/secret/bip340';
+import { tweakPublicKey } from '@onekeyhq/core/src/secret';
 
 export enum SignType {
   Schnorr = 'schnorr',

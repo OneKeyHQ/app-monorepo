@@ -1,13 +1,23 @@
 import { BaseBip32KeyDeriver, ED25519Bip32KeyDeriver } from './bip32';
 import { mnemonicToRevealableSeed, revealEntropy } from './bip39';
 import { ed25519, nistp256, secp256k1 } from './curves';
-import * as encryptor from './encryptors/aes256';
+import { decrypt, encrypt } from './encryptors/aes256';
 import { hash160 } from './hash';
+import ecc from './nobleSecp256k1Wrapper';
 
 import type { Bip32KeyDeriver, ExtendedKey } from './bip32';
 import type { RevealableSeed } from './bip39';
 import type { BaseCurve } from './curves';
 import type { ICurveName } from '../types';
+
+export { ecc };
+export * from './bip32';
+export * from './bip340';
+export * from './bip39';
+export * from './curves';
+export * from './encryptors/aes256';
+export * from './encryptors/rsa';
+export * from './hash';
 
 const curves: Map<ICurveName, BaseCurve> = new Map([
   ['secp256k1', secp256k1],
@@ -70,7 +80,7 @@ function sign(
   password: string,
 ): Buffer {
   return getCurveByName(curveName).sign(
-    encryptor.decrypt(password, encryptedPrivateKey),
+    decrypt(password, encryptedPrivateKey),
     digest,
   );
 }
@@ -81,7 +91,7 @@ function publicFromPrivate(
   password: string,
 ): Buffer {
   return getCurveByName(curveName).publicFromPrivate(
-    encryptor.decrypt(password, encryptedPrivateKey),
+    decrypt(password, encryptedPrivateKey),
   );
 }
 
@@ -126,7 +136,7 @@ function batchGetKeys(
   > = {};
 
   const deriver: Bip32KeyDeriver = getDeriverByCurveName(curveName);
-  const seed: Buffer = encryptor.decrypt(password, encryptedSeed);
+  const seed: Buffer = decrypt(password, encryptedSeed);
   let key: ExtendedKey = deriver.generateMasterKeyFromSeed(seed);
 
   prefix.split('/').forEach((pathComponent) => {
@@ -181,7 +191,7 @@ function batchGetKeys(
         type === 'private'
           ? {
               chainCode: cache[currentPath].privkey.chainCode,
-              key: encryptor.encrypt(password, cache[currentPath].privkey.key),
+              key: encrypt(password, cache[currentPath].privkey.key),
             }
           : deriver.N(cache[currentPath].privkey),
     });
@@ -240,10 +250,10 @@ function generateMasterKeyFromSeed(
   password: string,
 ): ExtendedKey {
   const deriver: Bip32KeyDeriver = getDeriverByCurveName(curveName);
-  const seed: Buffer = encryptor.decrypt(password, encryptedSeed);
+  const seed: Buffer = decrypt(password, encryptedSeed);
   const masterKey: ExtendedKey = deriver.generateMasterKeyFromSeed(seed);
   return {
-    key: encryptor.encrypt(password, masterKey.key),
+    key: encrypt(password, masterKey.key),
     chainCode: masterKey.chainCode,
   };
 }
@@ -255,7 +265,7 @@ function N(
 ): ExtendedKey {
   const deriver: Bip32KeyDeriver = getDeriverByCurveName(curveName);
   const extPriv: ExtendedKey = {
-    key: encryptor.decrypt(password, encryptedExtPriv.key),
+    key: decrypt(password, encryptedExtPriv.key),
     chainCode: encryptedExtPriv.chainCode,
   };
   return deriver.N(extPriv);
@@ -269,12 +279,12 @@ function CKDPriv(
 ): ExtendedKey {
   const deriver: Bip32KeyDeriver = getDeriverByCurveName(curveName);
   const parent: ExtendedKey = {
-    key: encryptor.decrypt(password, encryptedParent.key),
+    key: decrypt(password, encryptedParent.key),
     chainCode: encryptedParent.chainCode,
   };
   const child: ExtendedKey = deriver.CKDPriv(parent, index);
   return {
-    key: encryptor.encrypt(password, child.key),
+    key: encrypt(password, child.key),
     chainCode: child.chainCode,
   };
 }
@@ -294,11 +304,8 @@ function revealableSeedFromMnemonic(
 ): RevealableSeed {
   const rs: RevealableSeed = mnemonicToRevealableSeed(mnemonic, passphrase);
   return {
-    entropyWithLangPrefixed: encryptor.encrypt(
-      password,
-      rs.entropyWithLangPrefixed,
-    ),
-    seed: encryptor.encrypt(password, rs.seed),
+    entropyWithLangPrefixed: encrypt(password, rs.entropyWithLangPrefixed),
+    seed: encrypt(password, rs.seed),
   };
 }
 
@@ -306,7 +313,7 @@ function mnemonicFromEntropy(
   encryptedEntropy: Buffer,
   password: string,
 ): string {
-  return revealEntropy(encryptor.decrypt(password, encryptedEntropy));
+  return revealEntropy(decrypt(password, encryptedEntropy));
 }
 
 function generateRootFingerprint(
@@ -339,4 +346,3 @@ export {
   uncompressPublicKey,
   verify,
 };
-export type { ExtendedKey, RevealableSeed };

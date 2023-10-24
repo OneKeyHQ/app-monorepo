@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { uncompressPublicKey } from '@onekeyhq/core/src/secret';
-import { secp256k1 } from '@onekeyhq/core/src/secret/curves';
+import { secp256k1 } from '@onekeyhq/core/src/secret';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
