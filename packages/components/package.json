@@ -30,11 +30,12 @@
     "recyclerlistview": "^4.2.0"
   },
   "devDependencies": {
+    "@svgr/cli": "6.3.1",
     "@types/qrcode": "^1.4.2",
     "rimraf": "^3"
   },
   "scripts": {
-    "build:icons": "rm -rf src/Icon/react && npx @svgr/cli@6.3.1 --config-file .svgrrc.json -d src/Icon/react svg && node src/Icon/script.js",
+    "build:icons": "rm -rf src/Icon/react && svgr --config-file .svgrrc.json -d src/Icon/react svg && node src/Icon/script.js",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix",
     "fetch:locale": "rimraf ./src/locale/*.json && npx lokalise-client fetch"

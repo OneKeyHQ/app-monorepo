@@ -602,7 +602,7 @@ export { default as Printer } from './Printer';
 export { default as Processor } from './Processor';
 export { default as PullRequest } from './PullRequest';
 export { default as QrCode } from './QrCode';
-export { default as QuestionMark } from './QuestionMark';
+export { default as Questionmark } from './Questionmark';
 export { default as Radar } from './Radar';
 export { default as Rainbow } from './Rainbow';
 export { default as Rainy } from './Rainy';
