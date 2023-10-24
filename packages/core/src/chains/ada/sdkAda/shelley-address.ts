@@ -8,9 +8,9 @@ import { baseAddressFromXpub, stakingAddressFromXpub } from './addresses';
 import { getRootKey, toBip32StringPath } from './bip32';
 import { DERIVATION_SCHEME, HARDENED_THRESHOLD } from './constants';
 
-import type { BIP32Path, NetworkId } from '../types';
+import type { EAdaNetworkId, IAdaBIP32Path } from '../types';
 
-const shelleyPath = (account: number): BIP32Path => [
+const shelleyPath = (account: number): IAdaBIP32Path => [
   HARDENED_THRESHOLD + 1852,
   HARDENED_THRESHOLD + 1815,
   HARDENED_THRESHOLD + account,
@@ -18,7 +18,7 @@ const shelleyPath = (account: number): BIP32Path => [
   0,
 ];
 
-const shelleyStakeAccountPath = (account: number): BIP32Path => [
+const shelleyStakeAccountPath = (account: number): IAdaBIP32Path => [
   HARDENED_THRESHOLD + 1852,
   HARDENED_THRESHOLD + 1815,
   HARDENED_THRESHOLD + account,
@@ -26,7 +26,7 @@ const shelleyStakeAccountPath = (account: number): BIP32Path => [
   0,
 ];
 
-export const derivePath = (paths: BIP32Path, rootKey: Buffer) =>
+export const derivePath = (paths: IAdaBIP32Path, rootKey: Buffer) =>
   paths.reduce(
     (prev, path) => derivePrivate(prev, path, DERIVATION_SCHEME),
     rootKey,
@@ -39,7 +39,7 @@ export const derivePath = (paths: BIP32Path, rootKey: Buffer) =>
  * @returns hex
  */
 export const deriveAccountXpub = (
-  paths: BIP32Path,
+  paths: IAdaBIP32Path,
   rootKey: Buffer,
 ): string => {
   const accountKey = derivePath(paths, rootKey);
@@ -52,19 +52,19 @@ export const deriveAccountXpub = (
  * @param rootKey privateKey
  * @returns Buffer
  */
-export const deriveXpub = (paths: BIP32Path, rootKey: Buffer): Buffer => {
+export const deriveXpub = (paths: IAdaBIP32Path, rootKey: Buffer): Buffer => {
   const deriveSecret = derivePath(paths, rootKey);
   return toPublic(deriveSecret.slice(0, 64));
 };
 
 export type IAdaStakingAddressInfo = {
-  path: BIP32Path;
+  path: IAdaBIP32Path;
   address: string;
 };
 export function ShelleyStakingAccountProvider(
   accountIndex: number,
   rootKey: Buffer,
-  networkId: NetworkId,
+  networkId: EAdaNetworkId,
 ): IAdaStakingAddressInfo {
   const pathStake = shelleyStakeAccountPath(accountIndex);
   const stakeXpub = deriveXpub(pathStake, rootKey);
@@ -83,7 +83,7 @@ export type IAdaBaseAddressInfo = {
 export function ShelleyBaseAddressProvider(
   accountIndex: number,
   rootKey: Buffer,
-  networkId: NetworkId,
+  networkId: EAdaNetworkId,
 ): IAdaBaseAddressInfo {
   const pathSpend = shelleyPath(accountIndex);
   const spendXpub = deriveXpub(pathSpend, rootKey);
@@ -103,7 +103,7 @@ export function ShelleyBaseAddressProvider(
 export const batchGetShelleyAddressByRootKey = (
   rootKey: Buffer,
   indexes: number[],
-  networkId: NetworkId,
+  networkId: EAdaNetworkId,
 ) =>
   indexes.map((accountIndex) => ({
     baseAddress: ShelleyBaseAddressProvider(accountIndex, rootKey, networkId),
@@ -118,7 +118,7 @@ export const batchGetShelleyAddresses = async (
   entropy: Buffer,
   password: string,
   indexes: number[],
-  networkId: NetworkId,
+  networkId: EAdaNetworkId,
 ) => {
   const rootKey = await getRootKey(password, entropy);
   return batchGetShelleyAddressByRootKey(rootKey, indexes, networkId);
