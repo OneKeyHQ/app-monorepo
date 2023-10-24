@@ -67,7 +67,7 @@ Shims Injected:
 import Base64 from 'js-base64';
 if (!global.atob) {
   shimsLog('atob');
-  global.arrtob = Base64.atob;
+  global.atob = Base64.atob;
 }
 if (!global.btoa) {
   shimsLog('btoa');
