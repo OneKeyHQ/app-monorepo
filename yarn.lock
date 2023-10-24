@@ -5101,7 +5101,7 @@ __metadata:
     dequal: ^2.0.3
     dotbit: ^0.4.1
     eth-chains: ^1.0.0
-    expo-application: ~5.1.1
+    expo-application: ~5.3.1
     expo-av: ^13.2.1
     expo-barcode-scanner: ^12.3.2
     expo-blur: ~12.3.0
@@ -15468,16 +15468,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-application@npm:~5.1.1":
-  version: 5.1.1
-  resolution: "expo-application@npm:5.1.1"
-  peerDependencies:
-    expo: "*"
-  checksum: 34eb1bbf066befd8e6ee578b611674556d42241ce754c64ca75578191287e05e091a8b3e2911e07353c2ede7e6f18fc76871b80196bd6a3096b5d89892515516
-  languageName: node
-  linkType: hard
-
-"expo-application@npm:~5.3.0":
+"expo-application@npm:~5.3.0, expo-application@npm:~5.3.1":
   version: 5.3.1
   resolution: "expo-application@npm:5.3.1"
   peerDependencies:
