@@ -169,7 +169,7 @@ const TabDeveloper = () => {
         </Button>
       </PartContainer>
 
-      <PartContainer title="Code Startup Time(s)">
+      <PartContainer title="Cold Startup Time(ms)">
         <Text>{getMeasureTime().jsBundleLoadedTime}</Text>
       </PartContainer>
     </ScrollView>
