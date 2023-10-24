@@ -37,9 +37,7 @@ export * from './LottieView';
 export * from './Provider/hooks/useThemeValue';
 export * from './Provider/hooks/useIsMounted';
 export * from './QRCode';
-export * from './CollapsibleTabView';
-export * from './Skeleton';
-export * from './Screen';
+export * from './TabView';
 export * as DelayedFreeze from './DelayedFreeze';
 
 // Navigation
