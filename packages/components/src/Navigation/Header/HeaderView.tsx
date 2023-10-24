@@ -6,7 +6,7 @@ import { Header } from '@react-navigation/elements';
 import { get } from 'lodash';
 import { StyleSheet } from 'react-native';
 
-import { Stack, useThemeValue } from '../../index';
+import { DesktopDragZoneBox, Stack, useThemeValue } from '../../index';
 
 import HeaderButtonBack from './HeaderButtonBack';
 import HeaderSearchBar from './HeaderSearchBar';
@@ -81,83 +81,86 @@ function HeaderView({
   );
 
   return (
-    <Stack
-      px="$5"
-      $md={{
-        flexDirection: 'column',
-      }}
-      $gtMd={{
-        flexDirection: isModelScreen ? 'column' : 'row',
-      }}
-      borderTopLeftRadius={isModelScreen ? '$2' : 0}
-      borderTopRightRadius={isModelScreen ? '$2' : 0}
-      backgroundColor="$bg"
-      overflow="hidden"
-      borderBottomWidth={StyleSheet.hairlineWidth}
-      borderBottomColor="$borderSubdued"
-    >
+    <DesktopDragZoneBox>
       <Stack
+        px="$5"
         $md={{
-          width: '100%',
+          flexDirection: 'column',
         }}
         $gtMd={{
-          flex: isModelScreen ? 0 : 1,
-          width: isModelScreen ? '100%' : undefined,
+          flexDirection: isModelScreen ? 'column' : 'row',
         }}
+        borderTopLeftRadius={isModelScreen ? '$2' : 0}
+        borderTopRightRadius={isModelScreen ? '$2' : 0}
+        backgroundColor="$bg"
+        overflow="hidden"
+        borderBottomWidth={StyleSheet.hairlineWidth}
+        borderBottomColor="$borderSubdued"
+        pointerEvents="box-none"
       >
-        <Header
-          title={getHeaderTitle(options, route.name)}
-          // @ts-expect-error
-          headerTintColor={headerTintColor}
-          headerLeft={headerLeftView}
-          headerRight={
-            typeof headerRight === 'function'
-              ? ({ tintColor }) => headerRight({ tintColor, canGoBack })
-              : headerRight
-          }
-          headerTitle={
-            typeof headerTitle === 'function'
-              ? ({ children, tintColor }) =>
-                  headerTitle({ children, tintColor })
-              : headerTitle
-          }
-          headerTitleAlign={headerTitleAlign}
-          headerTitleStyle={{
-            fontSize: 18,
-            lineHeight: 28,
-            fontWeight: '600',
-          }}
-          headerTransparent={headerTransparent}
-          headerShadowVisible={false}
-          headerBackground={headerBackground}
-          headerStyle={headerStyle}
-        />
-      </Stack>
-      {!!headerSearchBarOptions && (
         <Stack
-          flex={0}
           $md={{
-            pb: '$4',
             width: '100%',
           }}
           $gtMd={{
-            pl: isModelScreen ? '$0' : '$5',
-            py: isModelScreen ? '$0' : '$3.5',
-            pb: isModelScreen ? '$4' : '$0',
-            width: isModelScreen ? '100%' : '$60',
-            alignItems: isModelScreen ? 'flex-start' : 'center',
+            flex: isModelScreen ? 0 : 1,
+            width: isModelScreen ? '100%' : undefined,
           }}
         >
-          <HeaderSearchBar
-            placeholder={headerSearchBarOptions?.placeholder}
-            onChangeText={headerSearchBarOptions?.onChangeText}
-            onBlur={headerSearchBarOptions?.onBlur}
-            onFocus={headerSearchBarOptions?.onFocus}
-            onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}
+          <Header
+            title={getHeaderTitle(options, route.name)}
+            // @ts-expect-error
+            headerTintColor={headerTintColor}
+            headerLeft={headerLeftView}
+            headerRight={
+              typeof headerRight === 'function'
+                ? ({ tintColor }) => headerRight({ tintColor, canGoBack })
+                : headerRight
+            }
+            headerTitle={
+              typeof headerTitle === 'function'
+                ? ({ children, tintColor }) =>
+                    headerTitle({ children, tintColor })
+                : headerTitle
+            }
+            headerTitleAlign={headerTitleAlign}
+            headerTitleStyle={{
+              fontSize: 18,
+              lineHeight: 28,
+              fontWeight: '600',
+            }}
+            headerTransparent={headerTransparent}
+            headerShadowVisible={false}
+            headerBackground={headerBackground}
+            headerStyle={headerStyle}
           />
         </Stack>
-      )}
-    </Stack>
+        {!!headerSearchBarOptions && (
+          <Stack
+            flex={0}
+            $md={{
+              pb: '$4',
+              width: '100%',
+            }}
+            $gtMd={{
+              pl: isModelScreen ? '$0' : '$5',
+              py: isModelScreen ? '$0' : '$3.5',
+              pb: isModelScreen ? '$4' : '$0',
+              width: isModelScreen ? '100%' : '$60',
+              alignItems: isModelScreen ? 'flex-start' : 'center',
+            }}
+          >
+            <HeaderSearchBar
+              placeholder={headerSearchBarOptions?.placeholder}
+              onChangeText={headerSearchBarOptions?.onChangeText}
+              onBlur={headerSearchBarOptions?.onBlur}
+              onFocus={headerSearchBarOptions?.onFocus}
+              onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}
+            />
+          </Stack>
+        )}
+      </Stack>
+    </DesktopDragZoneBox>
   );
 }
 

@@ -27,22 +27,22 @@ jobs:
 
       - name: Setup keys secret
         run: |
-          echo ${{ secrets.GOOGLE_SERVICE_IOS }} | base64 -d > packages/app/ios/OneKeyWallet/GoogleService-Info.plist
-          echo ${{ secrets.ASC_API_KEY }} | base64 -d > packages/app/AscApiKey.p8
-
-      - name: Setup Credentials
-        run: |
-          mkdir packages/app/ios/certs
-          echo ${{ secrets.CREDENTIALS_JSON }} | base64 -d > packages/app/credentials.json
-          echo ${{ secrets.DIST_CERT_P12 }} | base64 -d > packages/app/ios/certs/dist.p12
-          echo ${{ secrets.ADHOC_PROFILE }} | base64 -d > packages/app/ios/certs/profile.mobileprovision
-          echo ${{ secrets.ADHOC_SERVICE_EXTENSION_PROFILE }} | base64 -d > packages/app/ios/certs/serviceextension-profile.mobileprovision
+          echo ${{ secrets.GOOGLE_SERVICE_IOS }} | base64 -d > apps/mobile/ios/OneKeyWallet/GoogleService-Info.plist
+          echo ${{ secrets.ASC_API_KEY }} | base64 -d > apps/mobile/AscApiKey.p8
 
       - name: Setup Expo
         uses: OneKeyHQ/actions/expo-server@main
         with:
-          eas-version: 3.5.x
+          eas-version: 5.x
           token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Setup Credentials
+        run: |
+          mkdir apps/mobile/ios/certs
+          echo ${{ secrets.CREDENTIALS_JSON }} | base64 -d > apps/mobile/credentials.json
+          echo ${{ secrets.DIST_CERT_P12 }} | base64 -d > apps/mobile/ios/certs/dist.p12
+          echo ${{ secrets.ADHOC_PROFILE }} | base64 -d > apps/mobile/ios/certs/profile.mobileprovision
+          echo ${{ secrets.ADHOC_SERVICE_EXTENSION_PROFILE }} | base64 -d > apps/mobile/ios/certs/serviceextension-profile.mobileprovision
 
       - name: Setup ENV BUILD_NUMBER to 1
         if: ${{ !github.event.workflow_run }}
@@ -80,7 +80,7 @@ jobs:
           buildNumber: ${{ env.BUILD_NUMBER }}
           versionName: ${{ steps.dotenv.outputs.version }}
           projectName: OneKeyWallet
-          dir: ./packages/app
+          dir: ./apps/mobile
 
       - name: Modify ServiceExtension info.plist
         uses: OneKeyHQ/actions/build-plist-edit@main
@@ -88,7 +88,7 @@ jobs:
           buildNumber: ${{ env.BUILD_NUMBER }}
           versionName: ${{ steps.dotenv.outputs.version }}
           projectName: ServiceExtension
-          dir: ./packages/app
+          dir: ./apps/mobile
 
       - name: Write .env.version
         run: |
@@ -106,7 +106,7 @@ jobs:
       - name: Build on EAS And Auto Submit
         if: ${{ github.event.workflow_run }}
         run: |
-          cd packages/app
+          cd apps/mobile
           # eas build --profile=production --platform ios --non-interactive --no-wait
           # replace APP STORE provision
           echo ${{ secrets.APPSTORE_PROFILE }} | base64 -d > ./ios/certs/profile.mobileprovision
@@ -117,5 +117,5 @@ jobs:
       - name: Build on EAS
         if: ${{ !github.event.workflow_run }}
         run: |
-          cd packages/app
+          cd apps/mobile
           eas build --profile=production --platform ios --non-interactive --no-wait
