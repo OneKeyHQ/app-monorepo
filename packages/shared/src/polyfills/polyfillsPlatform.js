@@ -147,3 +147,4 @@ if (platformEnv.isNativeIOS) {
 }
 
 console.log('polyfillsPlatform.native shim loaded');
+
