@@ -8,7 +8,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
-import type { Transaction } from 'xrpl';
+import type { IEncodedTxXrp } from './types';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
@@ -22,7 +22,7 @@ import type {
   ICurveName,
   ISignedTxPro,
 } from '../../types';
-import { IEncodedTxXrp } from './types';
+import type { Transaction } from 'xrpl';
 
 const curve: ICurveName = 'secp256k1';
 

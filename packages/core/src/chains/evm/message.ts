@@ -1,8 +1,11 @@
-import { ToBufferInputTypes, toBuffer } from '@ethereumjs/util';
+import { toBuffer } from '@ethereumjs/util';
 import * as signUtil from '@metamask/eth-sig-util';
 import * as ethUtil from 'ethereumjs-util';
 import { isHexString } from 'ethjs-util';
+
 import { EMessageTypesEth } from '../../types';
+
+import type { ToBufferInputTypes } from '@ethereumjs/util';
 
 // https://github.com/MetaMask/eth-sig-util/blob/main/src/utils.ts#L59C13-L59C13
 // import { legacyToBuffer } from '@metamask/eth-sig-util/dist/utils';

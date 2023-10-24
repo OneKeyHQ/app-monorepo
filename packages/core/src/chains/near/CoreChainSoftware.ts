@@ -1,22 +1,19 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import BN from 'bn.js';
 import { baseDecode, baseEncode } from 'borsh';
 import bs58 from 'bs58';
 import sha256 from 'js-sha256';
 import { isString } from 'lodash';
 import { transactions, utils } from 'near-api-js';
-import BN from 'bn.js';
 
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
-import type {
-  SignedTransaction,
-  Transaction,
-} from 'near-api-js/lib/transaction';
-import { ISigner } from '../../base/ChainSigner';
+import type { IEncodedTxNear, INativeTxNear } from './types';
+import type { ISigner } from '../../base/ChainSigner';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
@@ -31,7 +28,10 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '../../types';
-import { IEncodedTxNear, INativeTxNear } from './types';
+import type {
+  SignedTransaction,
+  Transaction,
+} from 'near-api-js/lib/transaction';
 
 const curve: ICurveName = 'ed25519';
 

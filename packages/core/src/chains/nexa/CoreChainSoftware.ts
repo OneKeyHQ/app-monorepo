@@ -3,6 +3,7 @@
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
+import { getUtxoAccountPrefixPath } from '../../utils';
 
 import { getDisplayAddress, signEncodedTx } from './sdkNexa';
 
@@ -19,7 +20,6 @@ import type {
   ICurveName,
   ISignedTxPro,
 } from '../../types';
-import { getUtxoAccountPrefixPath } from '../../utils';
 
 const curve: ICurveName = 'secp256k1';
 const firstAddressRelPath = '0/0';

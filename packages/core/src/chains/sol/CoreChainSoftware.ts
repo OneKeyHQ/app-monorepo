@@ -8,7 +8,8 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
-import { ISigner } from '../../base/ChainSigner';
+import type { IEncodedTxSol, INativeTxSol } from './types';
+import type { ISigner } from '../../base/ChainSigner';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
@@ -23,7 +24,6 @@ import type {
   ISignedTxPro,
   SignedTx,
 } from '../../types';
-import { IEncodedTxSol, INativeTxSol } from './types';
 
 const curve: ICurveName = 'ed25519';
 

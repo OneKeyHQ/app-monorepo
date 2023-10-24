@@ -95,6 +95,7 @@ const tsRules = {
 };
 module.exports = {
   ignorePatterns: [
+    '*.wasm.bin',
     'packages/components/src/Icon/*',
     'packages/desktop/public/static/js-sdk/*',
     // 临时忽略以下目录的检查，迭代后会逐步开启

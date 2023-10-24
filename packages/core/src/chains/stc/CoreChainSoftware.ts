@@ -11,9 +11,9 @@ import {
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { hexlify } from '@onekeyhq/shared/src/utils/hexUtils';
 
+import { Verifier } from '../../base/ChainSigner';
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
-import { Verifier } from '../../base/ChainSigner';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,

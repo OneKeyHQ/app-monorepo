@@ -9,6 +9,7 @@ import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import { getMoneroApi } from './sdkXmr';
 import { MoneroNetTypeEnum } from './sdkXmr/moneroUtil/moneroUtilTypes';
 
+import type { IEncodedTxXmr, ISendFundsArgs } from './types';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
@@ -22,7 +23,6 @@ import type {
   ICurveName,
   ISignedTxPro,
 } from '../../types';
-import { IEncodedTxXmr, ISendFundsArgs } from './types';
 
 const curve: ICurveName = 'ed25519';
 

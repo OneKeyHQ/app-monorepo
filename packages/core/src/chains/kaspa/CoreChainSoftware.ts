@@ -13,7 +13,7 @@ import {
   toTransaction,
 } from './sdkKaspa';
 
-import type { PrivateKey } from '@kaspa/core-lib';
+import type { IEncodedTxKaspa } from './types';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
@@ -27,7 +27,7 @@ import type {
   ICurveName,
   ISignedTxPro,
 } from '../../types';
-import { IEncodedTxKaspa } from './types';
+import type { PrivateKey } from '@kaspa/core-lib';
 
 const curve: ICurveName = 'secp256k1';
 

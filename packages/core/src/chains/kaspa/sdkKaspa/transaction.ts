@@ -7,17 +7,18 @@ import BigNumber from 'bignumber.js';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { hexlify, stripHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
+import ecc from '../../../secret/nobleSecp256k1Wrapper';
+
 import { DEFAULT_SEQNUMBER } from './constant';
 import { UnspentOutput } from './types';
 
-import type { Script } from '@kaspa/core-lib';
-import ecc from '../../../secret/nobleSecp256k1Wrapper';
-import { IEncodedTxKaspa, IKaspaSigner } from '../types';
 import type {
   SubmitTransactionRequest,
   TransactionInput,
   TransactionOutput,
 } from './types';
+import type { IEncodedTxKaspa, IKaspaSigner } from '../types';
+import type { Script } from '@kaspa/core-lib';
 
 export enum SignatureType {
   SIGHASH_ALL = 0x01,

@@ -1,7 +1,6 @@
-import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
-
 import type * as moneroAddress from './moneroAddress';
 import type { privateSpendKeyToWords } from './moneroWords';
+import type { SignedTx } from '../../../types';
 
 type IHexString = string;
 

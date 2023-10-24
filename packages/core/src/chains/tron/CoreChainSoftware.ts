@@ -4,12 +4,12 @@ import { keccak256 } from '@ethersproject/keccak256';
 import TronWeb from 'tronweb';
 
 import { uncompressPublicKey } from '@onekeyhq/core/src/secret';
-
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
-import { ISigner } from '../../base/ChainSigner';
+import type { IEncodedTxTron } from './types';
+import type { ISigner } from '../../base/ChainSigner';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
@@ -25,7 +25,6 @@ import type {
   IUnsignedTxPro,
   SignedTx,
 } from '../../types';
-import { IEncodedTxTron } from './types';
 
 const curve: ICurveName = 'secp256k1';
 

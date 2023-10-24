@@ -2,6 +2,7 @@ import { PrivateKey } from '@kaspa/core-lib';
 import { bytesToHex } from '@noble/hashes/utils';
 
 import { tapTweakHash } from '@onekeyhq/core/src/secret/bip340';
+
 import ecc from '../../../secret/nobleSecp256k1Wrapper';
 
 export function privateKeyFromWIF(wif: string): PrivateKey {

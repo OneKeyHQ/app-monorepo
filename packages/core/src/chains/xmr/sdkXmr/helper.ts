@@ -11,10 +11,10 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { cnFastHash } from './moneroAddress';
 
-import { ISignedTxPro } from '../../../types';
-import { ISendFundsArgs, ISendFundsCallback } from '../types';
 import type { MoneroCoreInstance } from './moneroCore/moneroCoreTypes';
 import type { MoneroUtilInstance } from './moneroUtil/moneroUtilTypes';
+import type { ISignedTxPro } from '../../../types';
+import type { ISendFundsArgs, ISendFundsCallback } from '../types';
 
 const handleMoneroCoreResponse = <T>(
   resp: undefined | string | { retVal: T },

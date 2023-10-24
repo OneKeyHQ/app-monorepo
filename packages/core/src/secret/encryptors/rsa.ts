@@ -9,8 +9,8 @@ const KEY_LENGTH = 1024;
 function generateKeypair() {
   const rsaKeypair = KEYUTIL.generateKeypair('RSA', KEY_LENGTH);
   return {
-    publicKey: KEYUTIL.getPEM(rsaKeypair.pubKeyObj as RSAKey),
-    privateKey: KEYUTIL.getPEM(rsaKeypair.prvKeyObj as RSAKey, 'PKCS8PRV'),
+    publicKey: KEYUTIL.getPEM(rsaKeypair.pubKeyObj),
+    privateKey: KEYUTIL.getPEM(rsaKeypair.prvKeyObj, 'PKCS8PRV'),
   };
 }
 

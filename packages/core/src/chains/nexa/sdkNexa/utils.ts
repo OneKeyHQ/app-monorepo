@@ -20,18 +20,18 @@ import {
   writeUInt64LEBN,
   writeUInt8,
 } from '@onekeyhq/core/src/chains/nexa/sdkNexa/sdk';
-
 import { InvalidAddress } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
-import { ISigner } from '../../../base/ChainSigner';
 import { hash160, sha256 } from '../../../secret/hash';
-import { ISignedTxPro, IUnsignedTxPro } from '../../../types';
-import {
+import { NexaSignature } from '../types';
+
+import type { ISigner } from '../../../base/ChainSigner';
+import type { ISignedTxPro, IUnsignedTxPro } from '../../../types';
+import type {
   IEncodedTxNexa,
   INexaInputSignature,
   INexaOutputSignature,
-  NexaSignature,
 } from '../types';
 
 export function verifyNexaAddress(address: string) {

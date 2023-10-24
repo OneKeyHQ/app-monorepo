@@ -1,4 +1,5 @@
 import { EMessageTypesEth } from '../../types';
+
 import { hashMessage } from './message';
 
 const MAX_SAFE_INTEGER_AS_HEX = `0x${Number.MAX_SAFE_INTEGER.toString(16)}`;

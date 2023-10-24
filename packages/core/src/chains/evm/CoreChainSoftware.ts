@@ -13,6 +13,7 @@ import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import { hashMessage } from './message';
 import { getPublicKeyFromPrivateKey, packTransaction } from './sdkEvm';
 
+import type { IEncodedTxEvm } from './types';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
@@ -27,7 +28,6 @@ import type {
   ISignedTxPro,
   IUnsignedMessageEth,
 } from '../../types';
-import { IEncodedTxEvm } from './types';
 
 const curve: ICurveName = 'secp256k1';
 

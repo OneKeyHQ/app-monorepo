@@ -4,10 +4,10 @@ import { secp256k1 } from '@onekeyhq/core/src/secret/curves';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-
-import type { UnsignedTransaction } from '@ethersproject/transactions';
-import { IEncodedTxEvm } from '../types';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+
+import type { IEncodedTxEvm } from '../types';
+import type { UnsignedTransaction } from '@ethersproject/transactions';
 
 export async function getPublicKeyFromPrivateKey({
   privateKeyRaw,

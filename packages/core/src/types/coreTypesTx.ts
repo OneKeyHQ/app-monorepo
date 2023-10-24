@@ -1,16 +1,16 @@
-import type BigNumber from 'bignumber.js';
+import type { ICurveName } from './coreTypesBase';
 import type { IEncodedTxAda } from '../chains/ada/types';
 import type { IEncodedTxCfx } from '../chains/cfx/types';
 import type { IEncodedTxCosmos } from '../chains/cosmos/types';
-import { IEncodedTxEvm } from '../chains/evm/types';
-import { IEncodedTxFil } from '../chains/fil/types';
-import { IEncodedTxKaspa } from '../chains/kaspa/types';
-import { IEncodedTxNexa } from '../chains/nexa/types';
-import { IEncodedTxSui } from '../chains/sui/types';
-import { IEncodedTxTron } from '../chains/tron/types';
-import { IEncodedTxXmr } from '../chains/xmr/types';
-import { IEncodedTxXrp } from '../chains/xrp/types';
-import type { ICurveName } from './coreTypesBase';
+import type { IEncodedTxEvm } from '../chains/evm/types';
+import type { IEncodedTxFil } from '../chains/fil/types';
+import type { IEncodedTxKaspa } from '../chains/kaspa/types';
+import type { IEncodedTxNexa } from '../chains/nexa/types';
+import type { IEncodedTxSui } from '../chains/sui/types';
+import type { IEncodedTxTron } from '../chains/tron/types';
+import type { IEncodedTxXmr } from '../chains/xmr/types';
+import type { IEncodedTxXrp } from '../chains/xrp/types';
+import type BigNumber from 'bignumber.js';
 
 export type IEncodedTx =
   | string

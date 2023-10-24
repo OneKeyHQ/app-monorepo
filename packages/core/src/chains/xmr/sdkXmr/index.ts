@@ -2,7 +2,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable no-bitwise */
 
-import { SignedTx } from '../../../types';
 import { Helper } from './helper';
 import * as moneroAddress from './moneroAddress';
 import { getMoneroCoreInstance } from './moneroCore/instance';
@@ -10,6 +9,7 @@ import { getMoneroUtilInstance } from './moneroUtil/instance';
 import { privateSpendKeyToWords } from './moneroWords';
 
 import type { IMoneroApi } from './types';
+import type { SignedTx } from '../../../types';
 
 async function getMoneroApi(): Promise<IMoneroApi> {
   const moneroCoreInstance = await getMoneroCoreInstance();

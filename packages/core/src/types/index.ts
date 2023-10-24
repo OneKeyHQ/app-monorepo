@@ -5,8 +5,8 @@ import type {
   ISecretPublicKeyInfo,
 } from '@onekeyhq/core/src/secret';
 
-import type { ICurveName } from './coreTypesBase';
 import type { EAddressEncodings } from './coreEnums';
+import type { ICurveName } from './coreTypesBase';
 import type { IUnsignedMessage } from './coreTypesMessage';
 import type { IUnsignedTxPro } from './coreTypesTx';
 

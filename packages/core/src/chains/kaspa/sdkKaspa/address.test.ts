@@ -3,6 +3,7 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { batchGetPublicKeys } from '@onekeyhq/core/src/secret';
 
 import { encrypt } from '../../../secret/encryptors/aes256';
+
 import { addressFromPublicKey, isValidAddress } from './address';
 import { publicKeyFromOriginPubkey } from './publickey';
 

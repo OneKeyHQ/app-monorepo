@@ -2,8 +2,8 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import coreTestsUtils from '../../../@tests/coreTestsUtils';
 import coreTestsFixtures from '../../../@tests/fixtures/coreTestsFixtures';
-
 import { EMessageTypesEth } from '../../types';
+
 import CoreChainHd from './CoreChainHd';
 
 const {
