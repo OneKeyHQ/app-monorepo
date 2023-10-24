@@ -1,7 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 
+import type { WalletHomeTabEnum } from '../../views/Wallet/type';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import { HomePageTabsEnum } from '../../views/Tab/Home/HomePageTabs/types';
 
 export type IRpcStatus =
   | {
@@ -18,10 +18,7 @@ export type StatusState = {
   webviewGlobalKey: number;
   authenticationType?: 'FINGERPRINT' | 'FACIAL';
   hideAddressBookAttention?: boolean;
-  homeTabViewActive?: {
-    activeTab?: HomePageTabsEnum;
-    disUpdate?: boolean;
-  };
+  homeTabName?: WalletHomeTabEnum;
   swapPopoverShown?: boolean;
   guideToPushFirstTime?: boolean;
   firstTimeShowCheckRPCNodeTooltip?: boolean;
@@ -35,7 +32,7 @@ const initialState: StatusState = {
   boardingCompleted: false,
   webviewGlobalKey: 0,
   hideAddressBookAttention: false,
-  homeTabViewActive: undefined,
+  homeTabName: undefined,
   swapPopoverShown: false,
   guideToPushFirstTime: false,
   firstTimeShowCheckRPCNodeTooltip: false,
@@ -47,11 +44,8 @@ export const slice = createSlice({
   name: 'status',
   initialState,
   reducers: {
-    setHomeTabViewActive(
-      state,
-      action: PayloadAction<StatusState['homeTabViewActive']>,
-    ) {
-      state.homeTabViewActive = action.payload;
+    setHomeTabName(state, action: PayloadAction<WalletHomeTabEnum>) {
+      state.homeTabName = action.payload;
     },
     setBoardingCompleted: (state) => {
       state.boardingCompleted = true;
@@ -138,7 +132,7 @@ export const {
   unlock,
   refreshWebviewGlobalKey,
   setHideAddressBookAttention,
-  setHomeTabViewActive,
+  setHomeTabName,
   setSwapPopoverShown,
   setGuideToPushFistTime,
   setFistTimeShowCheckRPCNodeTooltip,
