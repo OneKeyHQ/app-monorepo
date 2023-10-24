@@ -20,7 +20,7 @@ export type IEncodedTxBtc = {
   outputs: Array<{
     address: string;
     value: string;
-    payload?: { isCharge?: boolean; bip44Path?: string };
+    payload?: { isCharge?: boolean; bip44Path?: string; opReturn?: string };
     inscriptions?: NFTBTCAssetModel[];
   }>;
   totalFee: string;
