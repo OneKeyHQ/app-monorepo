@@ -399,6 +399,8 @@ PODS:
   - react-native-mmkv (2.10.2):
     - MMKV (>= 1.2.13)
     - React-Core
+  - react-native-randombytes (3.6.1):
+    - React-Core
   - react-native-safe-area-context (4.7.2):
     - React-Core
   - react-native-tcp-socket (6.0.6):
@@ -636,6 +638,7 @@ DEPENDENCIES:
   - react-native-get-random-values (from `../../../node_modules/react-native-get-random-values`)
   - react-native-metrix (from `../../../node_modules/react-native-metrix`)
   - react-native-mmkv (from `../../../node_modules/react-native-mmkv`)
+  - react-native-randombytes (from `../../../node_modules/react-native-randombytes`)
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
   - react-native-tcp-socket (from `../../../node_modules/react-native-tcp-socket`)
   - React-NativeModulesApple (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
@@ -785,6 +788,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-metrix"
   react-native-mmkv:
     :path: "../../../node_modules/react-native-mmkv"
+  react-native-randombytes:
+    :path: "../../../node_modules/react-native-randombytes"
   react-native-safe-area-context:
     :path: "../../../node_modules/react-native-safe-area-context"
   react-native-tcp-socket:
@@ -906,6 +911,7 @@ SPEC CHECKSUMS:
   react-native-get-random-values: dee677497c6a740b71e5612e8dbd83e7539ed5bb
   react-native-metrix: d65e435f30b0d303fff85b01794c33ad349dd329
   react-native-mmkv: 9ae7ca3977e8ef48dbf7f066974eb844c20b5fd7
+  react-native-randombytes: 421f1c7d48c0af8dbcd471b0324393ebf8fe7846
   react-native-safe-area-context: 7aa8e6d9d0f3100a820efb1a98af68aa747f9284
   react-native-tcp-socket: e724380c910c2e704816ec817ed28f1342246ff7
   React-NativeModulesApple: 797bc6078d566eef3fb3f74127e6e1d2e945a15f
