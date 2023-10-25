@@ -12,6 +12,7 @@ import { useHtmlPreloadSplashLogoRemove } from '@onekeyhq/kit/src/hooks/useHtmlP
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { VariableVal } from '@tamagui/core';
+import { Dimensions } from 'react-native';
 
 const AnimatedSplashView = memo(
   ({
@@ -56,8 +57,8 @@ const AnimatedSplashView = memo(
           // backgroundColor={platformEnv.isExtension ? 'rbga(0,0,0,0)' : bgColor}
           // same size to onekey-index-html-preload-image at index.html.ejs
           //      background img not working
-          logoHeight={platformEnv.isRuntimeBrowser ? 80 : '100%'}
-          logoWidth={platformEnv.isRuntimeBrowser ? 80 : '100%'}
+          logoHeight={platformEnv.isRuntimeBrowser ? 80 : Dimensions.get('window').height}
+          logoWidth={platformEnv.isRuntimeBrowser ? 80 : Dimensions.get('window').width}
         >
           {children}
         </AnimatedSplash>

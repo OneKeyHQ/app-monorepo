@@ -44,7 +44,7 @@ function IconLoader({ name, ...props }: {
     <SVGComponent {...props} />
   )
 }
-const IconContainer = forwardRef(({ name, style }: IconProps) => {
+const IconContainer = forwardRef(({ name, style }: IconProps, _) => {
   if (!name) {
     return null
   }
