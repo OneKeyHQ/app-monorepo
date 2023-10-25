@@ -7002,12 +7002,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tamagui/create-context@npm:1.71.0":
-  version: 1.71.0
-  resolution: "@tamagui/create-context@npm:1.71.0"
+"@tamagui/create-context@npm:1.73.0":
+  version: 1.73.0
+  resolution: "@tamagui/create-context@npm:1.73.0"
   peerDependencies:
     react: "*"
-  checksum: 17895d94abb9b7fffcee2a6b4939c6a7613c304fbb4a8643b744b0c8c28e99d2a3da98f2c76f40422d5d59d1e17cd0b26b18f0d0bce298ca8a6ced1b1eb9d748
+  checksum: 8c1a0270c17af4d14822d4e52723b1599ee23b57ab79e6fccde2a7b35c89e9d79fedb07553c9ed077b4d260463fb99b33b96449eb4224106cbbab332009d0666
   languageName: node
   linkType: hard
 
