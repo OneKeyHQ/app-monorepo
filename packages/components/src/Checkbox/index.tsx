@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { FlatList, ViewStyle } from 'react-native';
 import { Checkbox as TMCheckbox, withStaticProperties } from 'tamagui';
 
 import { Divider } from '../Divider';
@@ -89,6 +90,7 @@ interface CheckboxGroupProps {
   value: CheckedState[];
   disabled?: boolean;
   onChange: (value: CheckedState[]) => void;
+  listStyle?: ViewStyle;
   options: {
     disabled?: boolean;
     label: string;
@@ -130,6 +132,7 @@ function CheckboxGroup({
   onChange,
   disabled,
   value,
+  listStyle,
 }: CheckboxGroupProps) {
   const [isAll, setAll] = useState(
     value.length === options.length && !value.find((v) => !v),
@@ -154,16 +157,24 @@ function CheckboxGroup({
         onChange={handleSelectAll}
       />
       <Divider />
-      {options.map(({ label: labelText, disabled: disabledElement }, i) => (
-        <CheckboxGroupItem
-          key={label}
-          label={labelText}
-          value={value[i]}
-          index={i}
-          disabled={disabled || !!disabledElement}
-          onChange={onChangeHandler}
-        />
-      ))}
+      <FlatList
+        removeClippedSubviews
+        style={listStyle}
+        data={options}
+        renderItem={({
+          item: { label: labelText, disabled: disabledElement },
+          index,
+        }) => (
+          <CheckboxGroupItem
+            key={label}
+            label={labelText}
+            value={value[index]}
+            index={index}
+            disabled={disabled || !!disabledElement}
+            onChange={onChangeHandler}
+          />
+        )}
+      />
     </YStack>
   );
 }
