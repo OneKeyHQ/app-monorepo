@@ -93,8 +93,29 @@ const tsRules = {
     },
   ],
 };
+
+const resolveExtensions = (platform) =>
+  ['.ts', '.tsx', '.js', '.jsx'].map((ext) => `${platform}${ext}`);
 module.exports = {
-  plugins: ['spellcheck'],
+  // plugins: ['spellcheck'],
+  settings: {
+    'import/extensions': [
+      ...resolveExtensions('web'),
+      ...resolveExtensions('desktop'),
+      ...resolveExtensions('android'),
+      ...resolveExtensions('ios'),
+      ...resolveExtensions('native'),
+      ...resolveExtensions('ext'),
+      '.ts',
+      '.tsx',
+      '.mjs',
+      '.cjs',
+      '.js',
+      '.jsx',
+      '.json',
+      '.d.ts',
+    ],
+  },
   ignorePatterns: [
     '*.wasm.bin',
     'apps/desktop/public/static/js-sdk*',
@@ -114,33 +135,33 @@ module.exports = {
     serviceworker: true,
     worker: true,
   },
-  rules: {
-    'spellcheck/spell-checker': [
-      1,
-      {
-        'comments': true,
-        'strings': false,
-        'identifiers': true,
-        'lang': 'en_US',
-        'skipWords': [
-          'eth',
-          'Enum',
-          'Defi',
-          'xpub',
-          'nfts',
-          'defi',
-          'usd',
-          'impl',
-          'coingecko',
-          'OneKey',
-          'rpc',
-          'Redux',
-        ],
-        'skipIfMatch': ['http://[^s]*'],
-        'minLength': 3,
-      },
-    ],
-  },
+  // rules: {
+  //   'spellcheck/spell-checker': [
+  //     1,
+  //     {
+  //       'comments': true,
+  //       'strings': false,
+  //       'identifiers': true,
+  //       'lang': 'en_US',
+  //       'skipWords': [
+  //         'eth',
+  //         'Enum',
+  //         'Defi',
+  //         'xpub',
+  //         'nfts',
+  //         'defi',
+  //         'usd',
+  //         'impl',
+  //         'coingecko',
+  //         'OneKey',
+  //         'rpc',
+  //         'Redux',
+  //       ],
+  //       'skipIfMatch': ['http://[^s]*'],
+  //       'minLength': 3,
+  //     },
+  //   ],
+  // },
   overrides: [
     {
       files: ['*.js', '*.jsx', '*.text-js'],
