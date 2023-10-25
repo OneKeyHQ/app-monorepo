@@ -115,8 +115,8 @@ function TabViewContent(
   );
 }
 
-const TabContentView = memo(
-  forwardRef<TabViewContentRef, TabViewContentProps>(TabViewContent),
+const TabContentView = forwardRef<TabViewContentRef, TabViewContentProps>(
+  TabViewContent,
 );
 
 const TabContainerView: ForwardRefRenderFunction<
