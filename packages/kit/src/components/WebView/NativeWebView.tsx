@@ -63,7 +63,7 @@ const NativeWebView = forwardRef(
           const uri = new URL(event.nativeEvent.url);
           const origin = uri?.origin || '';
           // debugLogger.webview.info('onMessage', origin, data);
-          console.log('onMessage: ', origin, data);
+          // console.log('onMessage: ', origin, data);
           // - receive
           jsBridge.receive(data, { origin });
         } catch {

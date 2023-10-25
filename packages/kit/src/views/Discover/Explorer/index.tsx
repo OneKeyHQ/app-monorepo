@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { memo } from 'react';
 
 import { Stack } from '@onekeyhq/components';
@@ -5,16 +6,26 @@ import useIsVerticalLayout from '@onekeyhq/components/src/Provider/hooks/useIsVe
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 let ExplorerDesktop: any;
+let ExplorerMobile: any;
+
+if (platformEnv.isDesktop || platformEnv.isNativeIOSPad) {
+  ExplorerDesktop = require('./Desktop/ExplorerDesktop').default;
+} else if (platformEnv.isNative) {
+  ExplorerMobile = require('./Mobile/ExplorerMobile').default;
+}
 
 function Explorer() {
   const isVerticalLayout = useIsVerticalLayout();
-
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  ExplorerDesktop = require('./Desktop/ExplorerDesktop').default;
+  // lazy load
+  if (isVerticalLayout && !ExplorerMobile) {
+    ExplorerMobile = require('./Mobile/ExplorerMobile').default;
+  } else if (!isVerticalLayout && !ExplorerDesktop) {
+    ExplorerDesktop = require('./Desktop/ExplorerDesktop').default;
+  }
 
   return (
     <Stack flex={1} bg="background-default">
-      {isVerticalLayout ? <ExplorerDesktop /> : <ExplorerDesktop />}
+      {isVerticalLayout ? <ExplorerMobile /> : <ExplorerDesktop />}
     </Stack>
   );
 }

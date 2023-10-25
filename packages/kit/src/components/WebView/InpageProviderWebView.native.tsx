@@ -3,7 +3,7 @@ import { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
 
 import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
 
-import { Spinner, Stack } from '@onekeyhq/components';
+import { Spinner, Stack, Text } from '@onekeyhq/components';
 
 // @ts-expect-error
 import injectedNativeCode from './injectedNative.text-js';
@@ -107,7 +107,9 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
           //     bg: 'interactive-default',
           //   }}
           // />
-          <Stack>Progress Bar</Stack>
+          <Stack>
+            <Text>Progress Bar</Text>
+          </Stack>
         );
       }
       return null;

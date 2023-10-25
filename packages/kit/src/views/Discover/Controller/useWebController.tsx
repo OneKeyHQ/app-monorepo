@@ -95,6 +95,7 @@ export const useWebController = ({
       }
 
       stopLoading();
+      console.log('=>>>canGoBack: ', canGoBack);
       if (canGoBack) {
         goBack();
       } else {
