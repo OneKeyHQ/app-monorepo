@@ -100,7 +100,8 @@ const CheckboxGallery = () => (
       },
       {
         title: 'Checkbox Group',
-        description: 'Checkbox Group 中展示的 Checkbox 数量越多，在数据更新时将会越影响性能。通过虚拟列表减少同屏展示的视图数量，可以缓解性能问题。',
+        description:
+          'Checkbox Group 中展示的 Checkbox 数量越多，在数据更新时将会越影响性能。通过虚拟列表减少同屏展示的视图数量，可以缓解性能问题。',
         element: <CheckboxGroupDemo />,
       },
     ]}

@@ -21,6 +21,7 @@ export interface ButtonProps extends GetProps<typeof ThemeableStack> {
   disabled?: boolean;
   loading?: boolean;
   children: React.ReactNode;
+  color: ColorTokens;
 }
 
 const BUTTON_VARIANTS: Record<
@@ -154,6 +155,7 @@ function ButtonIcon({
 }
 
 const ButtonComponent = ButtonFrame.styleable<ButtonProps>((props, ref) => {
+  console.log(props);
   const {
     size = 'medium',
     icon,
@@ -161,6 +163,7 @@ const ButtonComponent = ButtonFrame.styleable<ButtonProps>((props, ref) => {
     disabled,
     loading,
     children,
+    color: textColor,
     variant = 'secondary',
     ...rest
   } = useProps(props, {});
@@ -189,7 +192,7 @@ const ButtonComponent = ButtonFrame.styleable<ButtonProps>((props, ref) => {
         <ButtonIcon name={icon} variant={variant} size={size} mr="$2" />
       )}
       {loading && <Spinner size="small" mr="$2" color={iconColor} />}
-      <Text variant={textVariant} color={color}>
+      <Text variant={textVariant} color={textColor || color}>
         {children}
       </Text>
       {iconAfter && (

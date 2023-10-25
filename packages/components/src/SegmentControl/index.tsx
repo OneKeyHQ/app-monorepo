@@ -34,6 +34,14 @@ function SegmentControlItem({
       variant={active ? 'primary' : 'tertiary'}
       onPress={handleChange}
       marginHorizontal="$1"
+      focusStyle={{
+        backgroundColor: active ? '$bg' : undefined,
+      }}
+      hoverStyle={{
+        backgroundColor: active ? '$bg' : undefined,
+      }}
+      color="$text"
+      backgroundColor={active ? '$bg' : undefined}
     >
       {label}
     </Button>

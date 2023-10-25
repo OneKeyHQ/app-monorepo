@@ -14,11 +14,11 @@ import DemoRootApp from '@onekeyhq/kit/src/views/Components/stories/NavigatorRou
 import PopoverGallery from '@onekeyhq/kit/src/views/Components/stories/Popover';
 import ProgressGallery from '@onekeyhq/kit/src/views/Components/stories/Progress';
 import RadioGallery from '@onekeyhq/kit/src/views/Components/stories/Radio';
+import SegmentControlGallery from '@onekeyhq/kit/src/views/Components/stories/SegmentControl';
 import SelectGallery from '@onekeyhq/kit/src/views/Components/stories/Select';
 import SliderGallery from '@onekeyhq/kit/src/views/Components/stories/Slider';
 import SwitchGallery from '@onekeyhq/kit/src/views/Components/stories/Switch';
 import TabViewGallery from '@onekeyhq/kit/src/views/Components/stories/TabView';
-import SegmentControlGallery from '@onekeyhq/kit/src/views/Components/stories/SegmentControl';
 import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
 import ToggleGroupGallery from '@onekeyhq/kit/src/views/Components/stories/ToggleGroup';
 import TooltipGallery from '@onekeyhq/kit/src/views/Components/stories/Tooltip';
@@ -106,7 +106,10 @@ export const stackScreenList = [
     component: DemoRootApp,
     options: { headerShown: false },
   },
-  { name: GalleryRoutes.ComponentSegmentControl, component: SegmentControlGallery},
+  {
+    name: GalleryRoutes.ComponentSegmentControl,
+    component: SegmentControlGallery,
+  },
   { name: GalleryRoutes.ComponentAlert, component: AlertGallery },
   { name: GalleryRoutes.ComponentDivider, component: DividerGallery },
   { name: GalleryRoutes.ComponentTheme, component: ThemeGallery },
