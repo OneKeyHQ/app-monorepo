@@ -3,15 +3,23 @@ import { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { Button, IconButton, Stack } from '@onekeyhq/components';
+import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
 
+import useAppNavigation from '../../../../hooks/useAppNavigation';
+import { ModalRoutes } from '../../../../routes/Root/Modal/Routes';
 import { useWebController } from '../../Controller/useWebController';
+import { useWebTabs } from '../../Controller/useWebTabs';
+import { type DiscoverModalParamList, DiscoverModalRoutes } from '../../types';
 import { homeTab, webTabsActions } from '../Context/contextWebTabs';
 
 function BrowserBottomBar({ showHome }: { showHome?: () => void }) {
+  const navigation =
+    useAppNavigation<PageNavigationProp<DiscoverModalParamList>>();
   const { currentTab, goBack, goForward } = useWebController();
   const { bottom } = useSafeAreaInsets();
   const { canGoForward, url } = currentTab ?? {};
+  const { tabs } = useWebTabs();
 
   useEffect(() => {
     if (url === homeTab.url) {
@@ -43,7 +51,15 @@ function BrowserBottomBar({ showHome }: { showHome?: () => void }) {
           icon="PlusLargeOutline"
           onPress={() => webTabsActions.addBlankWebTab()}
         />
-        <Button onPress={() => console.log('go to tabs')}>5</Button>
+        <Button
+          onPress={() =>
+            navigation.pushModal(ModalRoutes.DiscoverModal, {
+              screen: DiscoverModalRoutes.MobileTabList,
+            })
+          }
+        >
+          {tabs.length}
+        </Button>
         <IconButton
           icon="PlusLargeOutline"
           onPress={() => console.log('show more menu')}

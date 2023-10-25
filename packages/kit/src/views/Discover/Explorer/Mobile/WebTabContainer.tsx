@@ -9,7 +9,13 @@ import { onItemSelect } from '../../Controller/gotoSite';
 import { useWebTabs } from '../../Controller/useWebTabs';
 import DiscoverDashboard from '../../Dashboard';
 import WebContent from '../Content/WebContent';
-import { homeTab } from '../Context/contextWebTabs';
+import {
+  atomWebTabsMap,
+  homeTab,
+  useAtomWebTabs,
+} from '../Context/contextWebTabs';
+
+import type { WebTab } from '../Context/contextWebTabs';
 
 const styles = StyleSheet.create({
   container: {
@@ -21,16 +27,25 @@ const styles = StyleSheet.create({
   },
 });
 
+function WebContentWithFreeze({ tab }: { tab: WebTab }) {
+  const [map] = useAtomWebTabs(atomWebTabsMap);
+  const freshTab = map[tab.id || ''];
+  const content = useMemo(
+    () => (
+      <Freeze key={tab.id} freeze={!freshTab.isCurrent}>
+        <WebContent {...tab} />
+      </Freeze>
+    ),
+    [freshTab.isCurrent, tab],
+  );
+  return <>{content}</>;
+}
+
 function WebTabContainerCmp() {
   const { tabs, tab } = useWebTabs();
   const showHome = tab?.url === homeTab.url;
   const content = useMemo(
-    () =>
-      tabs.slice(1).map((t) => (
-        <Freeze key={t.id} freeze={!t.isCurrent}>
-          <WebContent {...t} />
-        </Freeze>
-      )),
+    () => tabs.slice(1).map((t) => <WebContentWithFreeze tab={t} />),
     [tabs],
   );
 

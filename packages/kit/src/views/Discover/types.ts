@@ -13,3 +13,11 @@ export type WebSiteHistory = {
   url?: string;
   favicon?: string;
 };
+
+export enum DiscoverModalRoutes {
+  MobileTabList = 'MobileTabList',
+}
+
+export type DiscoverModalParamList = {
+  [DiscoverModalRoutes.MobileTabList]: undefined;
+};

@@ -1,5 +1,5 @@
 import { isEqual } from 'lodash';
-import { nanoid } from 'nanoid';
+// import { nanoid } from 'nanoid';
 
 import { simpleDb } from '@onekeyhq/kit/src/components/WebView/mock';
 import {
@@ -77,7 +77,6 @@ export const setWebTabsWriteAtom = atom(null, (get, set, payload: WebTab[]) => {
   }
   const result = buildWebTabData(newTabs);
   if (!isEqual(result.keys, get(atomWebTabs).keys)) {
-    console.log('===>refresh new data: ', result);
     set(atomWebTabs, { keys: result.keys, tabs: result.data });
   }
 
@@ -93,9 +92,13 @@ export const addWebTabAtomWithWriteOnly = atom(
     // TODO: Add limit for native
 
     if (!payload.id || payload.id === homeTab.id) {
-      payload.id = nanoid();
+      // TODO: nanoid will crash on native
+      // payload.id = nanoid();
+      // tabs.length + random(10 - 100)
+      payload.id = `${
+        tabs.length + Math.floor(Math.random() * (100 - 10 + 1)) + 10
+      }`;
     }
-
     if (payload.isCurrent) {
       for (const tab of tabs) {
         tab.isCurrent = false;
