@@ -1,6 +1,4 @@
-import { ToggleGroup } from 'tamagui';
-
-import { Stack } from '@onekeyhq/components';
+import { Stack, ToggleGroup } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -13,11 +11,17 @@ const ToggleGroupGallery = () => (
       {
         title: 'Default',
         element: (
-          <Stack space="$2">
+          <Stack space="$4">
             <ToggleGroup type="single">
-              <ToggleGroup.Item value="1">Item</ToggleGroup.Item>
-              <ToggleGroup.Item value="2">Item</ToggleGroup.Item>
-              <ToggleGroup.Item value="3">Item</ToggleGroup.Item>
+              <ToggleGroup.Item value="1">
+                <ToggleGroup.Text>Item</ToggleGroup.Text>
+              </ToggleGroup.Item>
+              <ToggleGroup.Item value="2">
+                <ToggleGroup.Text>Item</ToggleGroup.Text>
+              </ToggleGroup.Item>
+              <ToggleGroup.Item value="3">
+                <ToggleGroup.Text>Item</ToggleGroup.Text>
+              </ToggleGroup.Item>
             </ToggleGroup>
           </Stack>
         ),

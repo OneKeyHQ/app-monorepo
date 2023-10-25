@@ -97,11 +97,6 @@ function Field({ name, label, description, rules, children }: FieldProps) {
                 )
               : child,
           )}
-          {description ? (
-            <Text variant="$bodyMd" color="$textSubdued">
-              {description}
-            </Text>
-          ) : null}
           <AnimatePresence>
             {error?.message && (
               <Text
@@ -123,6 +118,11 @@ function Field({ name, label, description, rules, children }: FieldProps) {
               </Text>
             )}
           </AnimatePresence>
+          {description ? (
+            <Text variant="$bodyMd" pt="$1.5" color="$textSubdued">
+              {description}
+            </Text>
+          ) : null}
         </Fieldset>
       )}
     />

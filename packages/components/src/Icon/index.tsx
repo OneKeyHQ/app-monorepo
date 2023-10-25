@@ -6,12 +6,12 @@ import { createSuspender } from '@onekeyhq/shared/src/modules3rdParty/use-suspen
 import ICON_CONFIG from './Icons';
 
 import type { ICON_NAMES } from './Icons';
-import { styled } from 'tamagui';
+import { GetProps, styled } from 'tamagui';
 import type { Svg, SvgProps } from 'react-native-svg';
 import { TextStyle } from 'react-native';
 import { Skeleton } from '../Skeleton';
 
-export type IconProps = Omit<SvgProps, 'color' | 'style'> & {
+export type IconContainerProps = Omit<SvgProps, 'color' | 'style'> & {
   name?: ICON_NAMES;
   style?: TextStyle;
 };
@@ -44,7 +44,7 @@ function IconLoader({ name, ...props }: {
     <SVGComponent {...props} />
   )
 }
-const IconContainer = forwardRef(({ name, style }: IconProps, _) => {
+const IconContainer = forwardRef(({ name, style }: IconContainerProps, _) => {
   if (!name) {
     return null
   }
@@ -108,3 +108,4 @@ export const Icon = styled(IconContainer, {
 });
 
 export type { ICON_NAMES };
+export type IconProps = GetProps<typeof Icon> & IconContainerProps;
