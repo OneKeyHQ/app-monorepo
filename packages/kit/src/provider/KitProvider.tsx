@@ -34,7 +34,6 @@ const KitProvider: FC = () => (
           </FullWindowOverlay>
         </GestureHandlerRootView>
       </AppLoading>
-      <Portal />
     </ThemeProvider>
   </ReduxProvider>
 );
