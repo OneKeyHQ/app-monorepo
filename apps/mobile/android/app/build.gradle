@@ -1,4 +1,9 @@
-apply plugin: "com.android.application"
+plugins {
+    id "com.android.application"
+    id "onekey.android.application"
+    id "onekey.android.application.flavors"
+    id "onekey.android.application.version"
+}
 apply plugin: "com.facebook.react"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
@@ -79,11 +84,11 @@ def jscFlavor = 'org.webkit:android-jsc:+'
 android {
     ndkVersion rootProject.ext.ndkVersion
 
-    compileSdkVersion rootProject.ext.compileSdkVersion
+    compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'so.onekey.wallet'
+    namespace 'so.onekey.app.wallet'
     defaultConfig {
-        applicationId 'so.onekey.wallet'
+        applicationId 'so.onekey.app.wallet.dev'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -101,15 +106,20 @@ android {
     }
     buildTypes {
         debug {
+            resValue "string", "app_name", "OneKey Dev"
             signingConfig signingConfigs.debug
         }
         release {
+            resValue "string", "app_name", "OneKey"
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
             signingConfig signingConfigs.debug
             shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds')?.toBoolean() ?: false)
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            ndk {
+                abiFilters "arm64-v8a"
+            }
         }
     }
 }

@@ -23,7 +23,7 @@ import {
 
 import { decrypt, encrypt } from './encryptors/aes256';
 
-import type { ICurveName } from './index';
+import type { ICurveName } from '../types';
 
 const halfNs: Record<string, BigNumber> = {
   // eslint-disable-next-line new-cap
@@ -781,7 +781,7 @@ test('Basic mnemonic & seed tests', () => {
 });
 
 test('Mnemonic generation', () => {
-  const mnemonic = bip39.generateMnemonic();
+  const mnemonic = bip39.generateMnemonic(256);
   const rs = revealableSeedFromMnemonic(mnemonic, password);
   expect(
     mnemonicFromEntropy(rs.entropyWithLangPrefixed, password),

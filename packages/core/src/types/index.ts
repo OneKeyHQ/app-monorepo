@@ -5,15 +5,15 @@ import type {
   ISecretPublicKeyInfo,
 } from '@onekeyhq/core/src/secret';
 
-import type { ICurveName } from './base';
-import type { AddressEncodings } from './enums';
-import type { IUnsignedMessage } from './message';
-import type { IUnsignedTxPro } from './tx';
+import type { EAddressEncodings } from './coreEnums';
+import type { ICurveName } from './coreTypesBase';
+import type { IUnsignedMessage } from './coreTypesMessage';
+import type { IUnsignedTxPro } from './coreTypesTx';
 
-export * from './base';
-export * from './enums';
-export * from './message';
-export * from './tx';
+export * from './coreTypesBase';
+export * from './coreEnums';
+export * from './coreTypesMessage';
+export * from './coreTypesTx';
 
 // ----------------------------------------------
 
@@ -35,7 +35,7 @@ export type ICoreApiGetAddressesQueryHdBase = {
 };
 export type ICoreApiGetAddressesQueryHdEvm = ICoreApiGetAddressesQueryHdBase;
 export type ICoreApiGetAddressesQueryHdBtc = ICoreApiGetAddressesQueryHdBase & {
-  addressEncoding: AddressEncodings;
+  addressEncoding: EAddressEncodings;
 };
 
 export type ICoreApiGetAddressesQueryHd =

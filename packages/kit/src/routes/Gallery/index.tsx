@@ -4,7 +4,6 @@ import ActionListGallery from '@onekeyhq/kit/src/views/Components/stories/Action
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import ButtonGallery from '@onekeyhq/kit/src/views/Components/stories/Button';
 import CheckboxGallery from '@onekeyhq/kit/src/views/Components/stories/Checkbox';
-import CollapsibleTabViewGallery from '@onekeyhq/kit/src/views/Components/stories/CollapsibleTabView';
 import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
 import EmptyGallery from '@onekeyhq/kit/src/views/Components/stories/Empty';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
@@ -18,6 +17,7 @@ import RadioGallery from '@onekeyhq/kit/src/views/Components/stories/Radio';
 import SelectGallery from '@onekeyhq/kit/src/views/Components/stories/Select';
 import SliderGallery from '@onekeyhq/kit/src/views/Components/stories/Slider';
 import SwitchGallery from '@onekeyhq/kit/src/views/Components/stories/Switch';
+import TabViewGallery from '@onekeyhq/kit/src/views/Components/stories/TabView';
 import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
 import ToggleGroupGallery from '@onekeyhq/kit/src/views/Components/stories/ToggleGroup';
 import TooltipGallery from '@onekeyhq/kit/src/views/Components/stories/Tooltip';
@@ -28,6 +28,7 @@ import AlertGallery from '../../views/Components/stories/Alert';
 import DividerGallery from '../../views/Components/stories/Divider';
 import FormGallery from '../../views/Components/stories/Form';
 import QRCodeGallery from '../../views/Components/stories/QRCode';
+import SkeletonGallery from '../../views/Components/stories/Skeleton';
 import TextAreaGallery from '../../views/Components/stories/TextArea';
 import ThemeGallery from '../../views/Components/stories/Theme';
 
@@ -39,6 +40,7 @@ export enum GalleryRoutes {
   ComponentIcon = 'component/icon',
   ComponentButton = 'component/button',
   ComponentSelect = 'component/select',
+  ComponentSkeleton = 'component/skeleton',
   ComponentIconButton = 'component/iconButton',
   ComponentBadge = 'component/badge',
   ComponentDialog = 'component/dialog',
@@ -59,7 +61,7 @@ export enum GalleryRoutes {
   ComponentPopover = 'component/popover',
   ComponentToggleGroup = 'component/toggleGroup',
   ComponentTheme = 'component/theme',
-  ComponentCollapsibleTabs = 'component/collapsibleTabs',
+  ComponentTabview = 'component/tabview',
   componentQRCode = 'component/qrCode',
   ComponentWebview = 'component/webview',
 }
@@ -83,6 +85,7 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentDialog, component: DialogGallery },
   { name: GalleryRoutes.ComponentEmpty, component: EmptyGallery },
   { name: GalleryRoutes.ComponentRadio, component: RadioGallery },
+  { name: GalleryRoutes.ComponentSkeleton, component: SkeletonGallery },
   { name: GalleryRoutes.ComponentCheckbox, component: CheckboxGallery },
   { name: GalleryRoutes.ComponentToggleGroup, component: ToggleGroupGallery },
   { name: GalleryRoutes.ComponentActionList, component: ActionListGallery },
@@ -109,9 +112,8 @@ export const stackScreenList = [
     component: FormGallery,
   },
   {
-    name: GalleryRoutes.ComponentCollapsibleTabs,
-    component: CollapsibleTabViewGallery,
-    // options: { headerShown: false },
+    name: GalleryRoutes.ComponentTabview,
+    component: TabViewGallery,
   },
   {
     name: GalleryRoutes.componentQRCode,
