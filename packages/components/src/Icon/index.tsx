@@ -6,19 +6,19 @@ import { useIsMounted } from '@onekeyhq/components/src/Provider/hooks/useIsMount
 import ICON_CONFIG from './Icons';
 
 import type { ICON_NAMES } from './Icons';
-import { styled } from 'tamagui';
+import { GetProps, styled } from 'tamagui';
 import type { Svg, SvgProps } from 'react-native-svg';
 import { TextStyle } from 'react-native';
 
-export type IconProps = Omit<SvgProps, 'color'> & {
+export type RowIconProps = Omit<SvgProps, 'color'> & {
   name?: ICON_NAMES;
   style?: TextStyle;
 };
 
 const ComponentMaps: Record<string, typeof Svg> = {};
 
-const DEFAULT_SIZE = 24
-const RawIcon = ({ name = 'AkashIllus', style }: IconProps) => {
+const DEFAULT_SIZE = 24;
+const RawIcon = ({ name = 'AkashIllus', style }: RowIconProps) => {
   const defaultColor = useThemeValue('icon-default') as string;
   const primaryColor: string = (style?.color as string) || defaultColor;
   const SVGComponent = ComponentMaps[name];
@@ -82,3 +82,4 @@ export const Icon = styled(RawIcon, {
 });
 
 export type { ICON_NAMES };
+export type IconProps = GetProps<typeof Icon> & RowIconProps;

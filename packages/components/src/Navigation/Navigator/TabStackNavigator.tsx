@@ -45,7 +45,7 @@ function TabSubStackNavigator({
 }: {
   config: TabSubNavigatorConfig<string, any>[];
 }) {
-  const [bgColor, titleColor] = useThemeValue(['bg', 'text']);
+  const [bgColor, titleColor] = useThemeValue(['bgApp', 'text']);
   const intl = useIntl();
 
   return (
