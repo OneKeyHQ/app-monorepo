@@ -21,7 +21,7 @@ export interface ButtonProps extends GetProps<typeof ThemeableStack> {
   disabled?: boolean;
   loading?: boolean;
   children: React.ReactNode;
-  color: ColorTokens;
+  color?: ColorTokens;
 }
 
 const BUTTON_VARIANTS: Record<

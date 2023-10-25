@@ -31,4 +31,5 @@ export enum GalleryRoutes {
   ComponentTabview = 'component/tabview',
   componentQRCode = 'component/qrCode',
   ComponentWebview = 'component/webview',
+  ComponentListItem = 'component/ComponentListItem',
 }
