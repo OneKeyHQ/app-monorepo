@@ -28,7 +28,9 @@ function SegmentControlItem({
   }, [onChange, value]);
   return (
     <Button
-      padding="$2"
+      padding="$0"
+      paddingHorizontal="$0.5"
+      size="small"
       variant={active ? 'primary' : 'tertiary'}
       onPress={handleChange}
       marginHorizontal="$1"
@@ -53,9 +55,9 @@ export function SegmentControl({
     <XStack
       width="auto"
       alignSelf="flex-start"
-      backgroundColor="$bgActive"
-      padding="$1"
+      backgroundColor="$neutral5"
       borderRadius="$3"
+      paddingVertical="$1"
     >
       {options.map(({ label, value: v }) => (
         <SegmentControlItem
