@@ -3,6 +3,7 @@ import { Icon } from '../Icon';
 import { Popover } from '../Popover';
 import { YStack } from '../Stack';
 import { Text } from '../Text';
+import { ButtonFrame } from '../Button';
 
 import type { ICON_NAMES } from '../Icon';
 import type { PopoverProps } from '../Popover';
@@ -23,11 +24,12 @@ function ActionListItem({
   disabled,
 }: ActionListItemProps) {
   return (
-    <Popover.Close
-      flexDirection="row"
-      alignItems="center"
+    <ButtonFrame
+      justifyContent={'flex-start'}
+      bg={'$bg'}
       px="$2"
       py="$1.5"
+      borderWidth={0}
       borderRadius="$2"
       $md={{
         py: '$2.5',
@@ -36,8 +38,15 @@ function ActionListItem({
       opacity={disabled ? 0.5 : 1}
       disabled={disabled}
       {...(!disabled && {
+        mb: 2,
         hoverStyle: { bg: '$bgHover' },
         pressStyle: { bg: '$bgActive' },
+        focusable: true,
+        focusStyle: {
+          outlineColor: '$focusRing',
+          outlineStyle: 'solid',
+          outlineWidth: 2,
+        },
       })}
       onPress={onPress}
     >
@@ -58,7 +67,7 @@ function ActionListItem({
       >
         {label}
       </Text>
-    </Popover.Close>
+    </ButtonFrame>
   );
 }
 
