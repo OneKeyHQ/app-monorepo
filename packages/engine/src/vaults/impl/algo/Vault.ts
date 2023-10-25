@@ -440,8 +440,9 @@ export default class Vault extends VaultBase {
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
     const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
     const actions: IDecodedTxAction[] = [];
-    const notes = [];
+    const notes: string[] = [];
     let sender = '';
+    let groupId = '';
 
     const txGroup = isArray(encodedTx) ? encodedTx : [encodedTx];
     let txFee = new BigNumber(0);
@@ -451,11 +452,11 @@ export default class Vault extends VaultBase {
       actions.push(action);
       txFee = txFee.plus(nativeTx.fee ?? 0);
       sender = nativeTx.snd ? sdk.encodeAddress(nativeTx.snd) : '';
+      if (nativeTx.grp) {
+        groupId = Buffer.from(nativeTx.grp).toString('base64');
+      }
       if (nativeTx.note) {
-        const note = Buffer.from(nativeTx.note);
-        if (note) {
-          notes.push(note.toString());
-        }
+        notes.push(nativeTx.note.toString());
       }
     }
 
@@ -471,6 +472,7 @@ export default class Vault extends VaultBase {
       totalFeeInNative: txFee.shiftedBy(-nativeToken.decimals).toFixed(),
       extraInfo: {
         note: trim(notes.join(' ')),
+        groupId,
       },
       encodedTx,
     };
