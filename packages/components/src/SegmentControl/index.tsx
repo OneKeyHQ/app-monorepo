@@ -4,7 +4,8 @@ import { styled } from 'tamagui';
 
 import { Button } from '../Button';
 import { XStack } from '../Stack';
-import { ViewStyle } from 'react-native';
+
+import type { ViewStyle } from 'react-native';
 
 interface SegmentControlProps {
   style?: ViewStyle;
