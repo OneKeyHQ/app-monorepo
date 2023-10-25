@@ -22,6 +22,20 @@ export const Text = styled(OriginText, {
         };
       },
     },
+    tone: {
+      subdued: {
+        color: '$textSubdued',
+      },
+      success: {
+        color: '$textSuccess',
+      },
+      caution: {
+        color: '$textCaution',
+      },
+      critical: {
+        color: '$textCritical',
+      },
+    },
   } as const,
 
   defaultVariants: {

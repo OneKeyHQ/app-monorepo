@@ -9,13 +9,12 @@ export type SwitchProps = Omit<
   value?: boolean;
   onChange?: (checked: boolean) => void;
   size?: 'small' | 'large';
-  disabled?: boolean;
 };
 
 export function Switch({
   value,
   onChange,
-  size = 'small',
+  size = 'large',
   disabled,
   ...restProps
 }: SwitchProps) {

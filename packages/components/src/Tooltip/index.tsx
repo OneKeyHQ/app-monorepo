@@ -36,7 +36,14 @@ export function Tooltip({
   const transformOrigin = transformOriginMap[placement] || 'bottom center';
 
   return (
-    <TMTooltip unstyled offset={6} allowFlip placement={placement} {...props}>
+    <TMTooltip
+      unstyled
+      delay={0}
+      offset={6}
+      allowFlip
+      placement={placement}
+      {...props}
+    >
       <TMTooltip.Trigger>{renderTrigger}</TMTooltip.Trigger>
       <TMTooltip.Content
         unstyled

@@ -30,12 +30,7 @@ export default function HomePageHeaderView({
 
   return useMemo(
     () => (
-      <Stack
-        backgroundColor="$bg"
-        alignItems="center"
-        justifyContent="center"
-        py="$4"
-      >
+      <Stack alignItems="center" justifyContent="center" py="$4">
         <Text>Header View Simple</Text>
         <Text>{`Header Height ${headerHighMode.toString()}`}</Text>
         {headerHighMode && <Text py="$10">Very high</Text>}

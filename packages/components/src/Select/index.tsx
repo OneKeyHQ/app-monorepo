@@ -54,7 +54,7 @@ function SelectSectionsContent({
       unstyled
       minWidth="$48"
       outlineWidth="$px"
-      outlineColor="$neutral2"
+      outlineColor="$neutral3"
       outlineStyle="solid"
       borderRadius="$3"
       overflow="hidden"
@@ -140,7 +140,7 @@ function SelectItemsContent({
       unstyled
       minWidth="$48"
       outlineWidth="$px"
-      outlineColor="$neutral2"
+      outlineColor="$neutral3"
       outlineStyle="solid"
       borderRadius="$3"
       overflow="hidden"
