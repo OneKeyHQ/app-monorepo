@@ -26,6 +26,7 @@ const jsRules = {
   'no-promise-executor-return': 'off',
   'default-param-last': 'off',
   'import/no-cycle': 'error',
+  'require-await': 'off',
   // 'no-console': [isDev ? 'warn' : 'off'],
 };
 const tsRules = {
@@ -125,7 +126,6 @@ module.exports = {
     'packages/kit/src/store',
     'packages/kit/src/utils',
     'packages/engine',
-    'packages/kit-bg',
     'packages/shared',
   ],
   env: {

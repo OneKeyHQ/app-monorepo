@@ -14,6 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import localDb from '@onekeyhq/kit-bg/src/dbs/local/localDb';
 import { getMeasureTime } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { AppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
@@ -97,6 +98,19 @@ const TabDeveloper = () => {
           </Button>
         </PartContainer>
 
+        <PartContainer title="DB">
+          <Button
+            onPress={async () => {
+              const ctx = await localDb.getContext();
+              // @ts-ignore
+              window.$$localDb = localDb;
+              console.log(ctx);
+            }}
+          >
+            Show Context
+          </Button>
+        </PartContainer>
+
         <PartContainer title="App Settings">
           <XStack gap="$4" display="flex" justifyContent="center">
             <Button
@@ -137,7 +151,6 @@ const TabDeveloper = () => {
             </Button>
           </XStack>
         </PartContainer>
-
         <PartContainer title="Debug Tools">
           <Button
             onPress={() => {
