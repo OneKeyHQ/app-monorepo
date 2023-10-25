@@ -33,40 +33,7 @@ import SkeletonGallery from '../../views/Components/stories/Skeleton';
 import TextAreaGallery from '../../views/Components/stories/TextArea';
 import ThemeGallery from '../../views/Components/stories/Theme';
 
-export enum GalleryRoutes {
-  Components = 'components',
-  ComponentTypography = 'component/typography',
-  ComponentLottieView = 'component/lottieview',
-  ComponentTooltip = 'component/tooltip',
-  ComponentIcon = 'component/icon',
-  ComponentSegmentControl = 'component/segment-control',
-  ComponentButton = 'component/button',
-  ComponentSelect = 'component/select',
-  ComponentSkeleton = 'component/skeleton',
-  ComponentIconButton = 'component/iconButton',
-  ComponentBadge = 'component/badge',
-  ComponentDialog = 'component/dialog',
-  ComponentForm = 'component/form',
-  ComponentNavigation = 'component/navigation',
-  ComponentEmpty = 'component/empty',
-  ComponentSwitch = 'component/switch',
-  ComponentInput = 'component/input',
-  ComponentAlert = 'component/alert',
-  ComponentRadio = 'component/radio',
-  ComponentDivider = 'component/divider',
-  ComponentToast = 'component/toast',
-  ComponentCheckbox = 'component/checkbox',
-  ComponentActionList = 'component/actionlist',
-  ComponentProgress = 'component/progress',
-  ComponentSlider = 'component/slider',
-  ComponentTextArea = 'component/textArea',
-  ComponentPopover = 'component/popover',
-  ComponentToggleGroup = 'component/toggleGroup',
-  ComponentTheme = 'component/theme',
-  ComponentTabview = 'component/tabview',
-  componentQRCode = 'component/qrCode',
-  ComponentWebview = 'component/webview',
-}
+import { GalleryRoutes } from './routes';
 
 export const stackScreenList = [
   { name: GalleryRoutes.Components, component: ComponentsScreen },

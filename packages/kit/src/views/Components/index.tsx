@@ -3,7 +3,7 @@ import natsort from 'natsort';
 import { FlatList, TouchableOpacity } from 'react-native';
 
 import { Stack, Text, useThemeValue } from '@onekeyhq/components';
-import { GalleryRoutes } from '@onekeyhq/kit/src/routes/Gallery';
+import { GalleryRoutes } from '@onekeyhq/kit/src/routes/Gallery/routes';
 
 const Index = () => {
   const navigation = useNavigation();
