@@ -17,6 +17,7 @@ import {
 } from '../Context/contextWebTabs';
 
 import BrowserBottomBar from './BrowserBottomBar';
+import BrowserInfoBar from './BrowserInfoBar';
 import WebTabContainer from './WebTabContainer';
 
 export function useTabBarDataFromSimpleDb() {
@@ -60,6 +61,7 @@ function ExplorerMobileCmp() {
       </Freeze>
       {!showHome && (
         <>
+          <BrowserInfoBar />
           <WebTabContainer />
           <BrowserBottomBar showHome={() => {}} />
         </>

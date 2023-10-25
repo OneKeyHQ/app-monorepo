@@ -5,9 +5,9 @@ import { StyleSheet } from 'react-native';
 import { Button, IconButton, Stack } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { ModalRoutes } from '../../../../routes/Root/Modal/Routes';
 import { useWebController } from '../../Controller/useWebController';
 import { useWebTabs } from '../../Controller/useWebTabs';
 import { type DiscoverModalParamList, DiscoverModalRoutes } from '../../types';
