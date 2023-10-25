@@ -5,9 +5,9 @@ import { AES_CBC, Pbkdf2HmacSha256 } from 'asmcrypto.js';
 import { IncorrectPassword } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { sha256 } from '../hash';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 // Below codes are comments to note algorithm and digest method used.
 // const ALGORITHM = 'aes-256-cbc';

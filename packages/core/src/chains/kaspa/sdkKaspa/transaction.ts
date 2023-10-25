@@ -7,7 +7,7 @@ import BigNumber from 'bignumber.js';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { hexlify, stripHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
-import {ecc} from '../../../secret';
+import { ecc } from '../../../secret';
 
 import { DEFAULT_SEQNUMBER } from './constant';
 import { UnspentOutput } from './types';

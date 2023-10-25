@@ -1,13 +1,14 @@
 import { Buffer } from 'buffer';
 
 import { decrypt } from '@onekeyhq/core/src/secret';
+import { WrongPassword } from '@onekeyhq/shared/src/errors';
 
 import {
-  DEFAULT_VERIFY_STRING,
   type CreateHDWalletParams,
   type CreateHWWalletParams,
   type DBAccount,
   type DBAccountDerivation,
+  DEFAULT_VERIFY_STRING,
   type DevicePayload,
   type ExportedCredential,
   type IAddAccountDerivationParams,
@@ -21,7 +22,6 @@ import {
 } from './types';
 
 import type { Device } from '@onekeyfe/hd-core';
-import { WrongPassword } from '@onekeyhq/shared/src/errors';
 
 export abstract class LocalDbBase {
   // ---------------------------------------------- base

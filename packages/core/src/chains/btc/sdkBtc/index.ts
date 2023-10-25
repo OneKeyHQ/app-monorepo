@@ -10,12 +10,12 @@ import { ECPairFactory } from 'ecpair';
 
 import { ecc } from '../../../secret';
 
+import type { ICoreApiSignAccount, InputToSign } from '../../../types';
+import type { IBtcForkNetwork, IBtcForkSigner } from '../types';
 import type { BIP32API } from 'bip32/types/bip32';
 import type { Psbt, networks } from 'bitcoinjs-lib';
 import type { TinySecp256k1Interface } from 'bitcoinjs-lib/src/types';
 import type { ECPairAPI } from 'ecpair/src/ecpair';
-import type { ICoreApiSignAccount, InputToSign } from '../../../types';
-import type { IBtcForkNetwork, IBtcForkSigner } from '../types';
 
 export * from './networks';
 

@@ -10,8 +10,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
-import { mnemonicFromEntropy } from '../../secret';
-import { encrypt } from '../../secret';
+import { encrypt, mnemonicFromEntropy } from '../../secret';
 import { slicePathTemplate } from '../../utils';
 
 import { DOT_TYPE_PREFIX } from './types';

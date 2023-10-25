@@ -15,6 +15,7 @@ import { slicePathTemplate } from '../utils';
 
 import { ChainSigner } from './ChainSigner';
 
+import type { ISigner } from './ChainSigner';
 import type { ISecretPrivateKeyInfo, ISecretPublicKeyInfo } from '../secret';
 import type {
   ICoreApiGetAddressItem,
@@ -30,7 +31,6 @@ import type {
   ICurveName,
   ISignedTxPro,
 } from '../types';
-import type { ISigner } from './ChainSigner';
 
 export abstract class CoreChainApiBase {
   protected baseGetCurve(curveName: ICurveName) {
