@@ -1,9 +1,14 @@
 import { useCallback } from 'react';
 
+import { styled } from 'tamagui';
+
 import { Button } from '../Button';
 import { XStack } from '../Stack';
+import { ViewStyle } from 'react-native';
 
 interface SegmentControlProps {
+  style?: ViewStyle;
+  fullWidth?: boolean;
   value: string | number;
   options: {
     label: string;
@@ -34,11 +39,14 @@ function SegmentControlItem({
       variant={active ? 'primary' : 'tertiary'}
       onPress={handleChange}
       marginHorizontal="$1"
+      pressStyle={{
+        bg: active ? '$bg' : undefined,
+      }}
       focusStyle={{
-        backgroundColor: active ? '$bg' : undefined,
+        bg: active ? '$bg' : undefined,
       }}
       hoverStyle={{
-        backgroundColor: active ? '$bg' : undefined,
+        bg: active ? '$bg' : undefined,
       }}
       color="$text"
       backgroundColor={active ? '$bg' : undefined}
@@ -48,10 +56,12 @@ function SegmentControlItem({
   );
 }
 
-export function SegmentControl({
+function SegmentControlFrame({
   value,
   options,
   onChange,
+  fullWidth,
+  style,
 }: SegmentControlProps) {
   const handleChange = useCallback(
     (v: string | number) => {
@@ -61,11 +71,13 @@ export function SegmentControl({
   );
   return (
     <XStack
-      width="auto"
-      alignSelf="flex-start"
+      width={fullWidth ? '100%' : 'auto'}
+      justifyContent={fullWidth ? 'space-between' : undefined}
+      alignSelf={fullWidth ? undefined : 'flex-start'}
       backgroundColor="$neutral5"
       borderRadius="$3"
       paddingVertical="$1"
+      style={style}
     >
       {options.map(({ label, value: v }) => (
         <SegmentControlItem
@@ -78,3 +90,5 @@ export function SegmentControl({
     </XStack>
   );
 }
+
+export const SegmentControl = styled(SegmentControlFrame, {});

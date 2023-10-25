@@ -154,8 +154,25 @@ function ButtonIcon({
   );
 }
 
+type SharedFrameStylesProps = {
+  hoverStyle: {
+    bg: ColorTokens;
+  };
+  pressStyle: {
+    bg: ColorTokens;
+  };
+  focusable: boolean;
+  focusStyle: {
+    outlineColor: ColorTokens;
+    outlineStyle: string;
+    outlineWidth: number;
+  };
+  bg: ColorTokens;
+  borderWidth: string;
+  borderColor: string;
+};
+
 const ButtonComponent = ButtonFrame.styleable<ButtonProps>((props, ref) => {
-  console.log(props);
   const {
     size = 'medium',
     icon,
@@ -174,7 +191,11 @@ const ButtonComponent = ButtonFrame.styleable<ButtonProps>((props, ref) => {
     variant,
     disabled,
     loading,
-  });
+  }) as {
+    sharedFrameStyles: SharedFrameStylesProps;
+    iconColor: ColorTokens;
+    color: ColorTokens;
+  };
 
   return (
     <ButtonFrame
@@ -187,6 +208,18 @@ const ButtonComponent = ButtonFrame.styleable<ButtonProps>((props, ref) => {
       disabled={disabled || loading}
       {...sharedFrameStyles}
       {...rest}
+      hoverStyle={{
+        ...sharedFrameStyles.hoverStyle,
+        ...props.hoverStyle,
+      }}
+      focusStyle={{
+        ...sharedFrameStyles.focusStyle,
+        ...props.focusStyle,
+      }}
+      pressStyle={{
+        ...sharedFrameStyles.pressStyle,
+        ...props.pressStyle,
+      }}
     >
       {icon && !loading && (
         <ButtonIcon name={icon} variant={variant} size={size} mr="$2" />

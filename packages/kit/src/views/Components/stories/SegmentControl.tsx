@@ -4,10 +4,28 @@ import { Radio, SegmentControl } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
-const SegmentControlExample = () => {
+const SegmentControlExample1 = () => {
   const [value, setValue] = useState(1);
   return (
     <SegmentControl
+      value={value}
+      onChange={(v) => {
+        setValue(v as number);
+      }}
+      options={[
+        { label: 'Label 1', value: 1 },
+        { label: 'Label 2', value: 2 },
+        { label: 'Label 3', value: 3 },
+      ]}
+    />
+  );
+};
+
+const SegmentControlExample2 = () => {
+  const [value, setValue] = useState(1);
+  return (
+    <SegmentControl
+      fullWidth
       value={value}
       onChange={(v) => {
         setValue(v as number);
@@ -29,7 +47,11 @@ const SegmentControlGallery = () => (
     elements={[
       {
         title: 'Default',
-        element: <SegmentControlExample />,
+        element: <SegmentControlExample1 />,
+      },
+      {
+        title: 'Full Width',
+        element: <SegmentControlExample2 />,
       },
     ]}
   />
