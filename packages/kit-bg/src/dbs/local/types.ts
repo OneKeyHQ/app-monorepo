@@ -34,7 +34,7 @@ export type HasName = BaseObject & {
   name: string;
 };
 export type OneKeyContext = {
-  id: string;
+  id: string; // DB_MAIN_CONTEXT_ID
   nextHD: number;
   verifyString: string;
   networkOrderChanged?: boolean;

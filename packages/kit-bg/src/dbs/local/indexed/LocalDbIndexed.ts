@@ -25,8 +25,6 @@ import { EIndexedDBStoreNames } from './types';
 
 import type { KnownDevice } from '@onekeyfe/hd-core';
 
-// require('fake-indexeddb/auto');
-
 export class LocalDbIndexed extends LocalDbIndexedBase {
   // ---------------------------------------------- base
 

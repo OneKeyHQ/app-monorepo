@@ -4938,6 +4938,7 @@ __metadata:
     eslint-plugin-spellcheck: ^0.0.20
     expo: ~49.0.13
     expo-status-bar: ~1.6.0
+    fake-indexeddb: ^5.0.0
     html-webpack-plugin: ^5.5.3
     jest: ^29.7.0
     jest-expo: ^49.0.0
@@ -16050,6 +16051,13 @@ __metadata:
   version: 0.1.8
   resolution: "eyes@npm:0.1.8"
   checksum: c31703a92bf36ba75ee8d379ee7985c24ee6149f3a6175f44cec7a05b178c38bce9836d3ca48c9acb0329a960ac2c4b2ead4e60cdd4fe6e8c92cad7cd6913687
+  languageName: node
+  linkType: hard
+
+"fake-indexeddb@npm:^5.0.0":
+  version: 5.0.0
+  resolution: "fake-indexeddb@npm:5.0.0"
+  checksum: 15e6883d0cbe94f26b13165a03aca970aec9aba5cfde17e725048ef888feae94318aa65b9a801518502b707753f6632b2684c5743e214b3ab2dba9d596cbf28c
   languageName: node
   linkType: hard
 
