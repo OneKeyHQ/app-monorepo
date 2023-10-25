@@ -1,13 +1,8 @@
-import WebView from '@onekeyhq/kit/src/components/WebView';
+// import WebView from '@onekeyhq/kit/src/components/WebView';
+import WebView from 'react-native-webview';
 
 const WebviewGallery = () => (
-  <WebView
-    src="https://dapp-example.onekeytest.com"
-    containerProps={{
-      w: '100%',
-      h: '100%',
-    }}
-  />
+  <WebView source={{ uri: 'https://www.baidu.com' }} />
 );
 
 export default WebviewGallery;
