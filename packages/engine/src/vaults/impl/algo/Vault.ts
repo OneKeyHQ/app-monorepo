@@ -452,7 +452,10 @@ export default class Vault extends VaultBase {
       txFee = txFee.plus(nativeTx.fee ?? 0);
       sender = nativeTx.snd ? sdk.encodeAddress(nativeTx.snd) : '';
       if (nativeTx.note) {
-        notes.push(Buffer.from(nativeTx.note).toString());
+        const note = Buffer.from(nativeTx.note);
+        if (note) {
+          notes.push(note.toString());
+        }
       }
     }
 
@@ -471,8 +474,6 @@ export default class Vault extends VaultBase {
       },
       encodedTx,
     };
-
-    console.log(tx);
 
     return tx;
   }
