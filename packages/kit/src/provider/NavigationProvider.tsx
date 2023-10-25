@@ -10,19 +10,8 @@ export const navigationRef = createRef();
 global.$navigationRef = navigationRef as any;
 
 const NavigationApp = () => {
-  const theme = useTheme();
-
-  useEffect(() => {
-    setBackgroundColor(theme.bg.val);
-  }, [theme]);
-
   return (
     <NavigationContainer
-      theme={{
-        colors: {
-          background: theme.bg.val,
-        },
-      }}
       documentTitle={{
         formatter: () => 'OneKey',
       }}

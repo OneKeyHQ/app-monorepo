@@ -37,9 +37,13 @@ function LoadingScreen({ children }: PropsWithChildren<unknown>) {
 
 export function Screen({ children }: PropsWithChildren<unknown>) {
   const isLowPerformanceDevice = useIsLowPerformanceDevice();
-  return isLowPerformanceDevice ? (
-    <LoadingScreen>{children}</LoadingScreen>
-  ) : (
-    children
+  return (
+    <Stack flex={1}>
+      {isLowPerformanceDevice ? (
+        <LoadingScreen>{children}</LoadingScreen>
+      ) : (
+        children
+      )}
+    </Stack>
   );
 }
