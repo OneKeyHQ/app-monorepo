@@ -1,7 +1,7 @@
-import { Component, useEffect, useState } from 'react';
+import { Suspense, forwardRef } from 'react';
 
 import { useThemeValue } from '@onekeyhq/components/src/Provider/hooks/useThemeValue';
-import { useIsMounted } from '@onekeyhq/components/src/Provider/hooks/useIsMounted';
+import { createSuspender } from '@onekeyhq/shared/src/modules3rdParty/use-suspender';
 
 import ICON_CONFIG from './Icons';
 
@@ -9,8 +9,9 @@ import type { ICON_NAMES } from './Icons';
 import { styled } from 'tamagui';
 import type { Svg, SvgProps } from 'react-native-svg';
 import { TextStyle } from 'react-native';
+import { Skeleton } from '../Skeleton';
 
-export type IconProps = Omit<SvgProps, 'color'> & {
+export type IconProps = Omit<SvgProps, 'color' | 'style'> & {
   name?: ICON_NAMES;
   style?: TextStyle;
 };
@@ -18,39 +19,64 @@ export type IconProps = Omit<SvgProps, 'color'> & {
 const ComponentMaps: Record<string, typeof Svg> = {};
 
 const DEFAULT_SIZE = 24
-const RawIcon = ({ name = 'AkashIllus', style }: IconProps) => {
+
+
+const { useSuspender } = createSuspender((name: ICON_NAMES) => new Promise<typeof Svg>((resolve) => {
+  if (ComponentMaps[name]) {
+    resolve(ComponentMaps[name])
+  } else {
+    ICON_CONFIG[name]().then((module: any) => {
+      ComponentMaps[name] = module.default as typeof Svg;
+      resolve(ComponentMaps[name])
+    })
+  }
+}))
+
+function IconLoader({ name, ...props }: {
+  name: ICON_NAMES;
+  width: number;
+  height: number;
+  color: string;
+  style?: TextStyle;
+} ) {
+  const SVGComponent = useSuspender(name);
+  return (
+    <SVGComponent {...props} />
+  )
+}
+const IconContainer = forwardRef(({ name, style }: IconProps) => {
+  if (!name) {
+    return null
+  }
   const defaultColor = useThemeValue('icon-default') as string;
   const primaryColor: string = (style?.color as string) || defaultColor;
-  const SVGComponent = ComponentMaps[name];
-  const [, setRefreshKey] = useState(Math.random());
-  const isMounted = useIsMounted();
 
-  useEffect(() => {
-    if (!SVGComponent && ICON_CONFIG[name]) {
-      ICON_CONFIG[name]().then((module: any) => {
-        ComponentMaps[name] = module.default as typeof Svg;
-        if (isMounted) {
-          setRefreshKey(Math.random());
-        }
-      });
-    }
-  }, [name]);
+  const Svg = ComponentMaps[name] 
 
-  if (!SVGComponent) {
-    return null;
-  }
-
-  return (
-    <SVGComponent
-      width={style?.width || DEFAULT_SIZE}
-      height={style?.height || DEFAULT_SIZE}
+  const componentWidth = style?.width as number || DEFAULT_SIZE
+  const componentHeight = style?.height as number || DEFAULT_SIZE
+  const componentColor = primaryColor || defaultColor
+  return Svg ? (
+    <Svg
+      width={componentWidth}
+      height={componentHeight}
       style={style}
-      color={primaryColor || defaultColor}
+      color={componentColor}
     />
-  );
-};
+  ) : (
+    <Suspense fallback={null}>
+      <IconLoader
+      width={componentWidth}
+      height={componentHeight}
+        style={style}
+        color={componentColor}
+        name={name}
+      />
+    </Suspense>
+  )
+});
 
-export const Icon = styled(RawIcon, {
+export const Icon = styled(IconContainer, {
   variants: {
     color: {
       '...color': (color) => ({

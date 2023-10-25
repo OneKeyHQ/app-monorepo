@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { Suspense } from 'react';
 
-import { createSuspender } from 'use-suspender/lib/useSuspender';
+import { createSuspender } from '@onekeyhq/shared/src/modules3rdParty/use-suspender';
 
 import useIsLowPerformanceDevice from '../hooks/useIsLowPerformanceDevice';
 import { Spinner } from '../Spinner';
