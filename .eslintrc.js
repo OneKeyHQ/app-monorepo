@@ -94,6 +94,7 @@ const tsRules = {
   ],
 };
 module.exports = {
+  plugins: ['spellcheck'],
   ignorePatterns: [
     '*.wasm.bin',
     'apps/desktop/public/static/js-sdk*',
@@ -101,7 +102,7 @@ module.exports = {
     // 临时忽略以下目录的检查，迭代后会逐步开启
     'packages/blockchain-libs',
     'packages/kit/src/store',
-    'packages/kit/src/utils/localAuthentication',
+    'packages/kit/src/utils',
     'packages/engine',
     'packages/kit-bg',
     'packages/shared',
@@ -112,6 +113,33 @@ module.exports = {
     webextensions: true,
     serviceworker: true,
     worker: true,
+  },
+  rules: {
+    'spellcheck/spell-checker': [
+      1,
+      {
+        'comments': true,
+        'strings': false,
+        'identifiers': true,
+        'lang': 'en_US',
+        'skipWords': [
+          'eth',
+          'Enum',
+          'Defi',
+          'xpub',
+          'nfts',
+          'defi',
+          'usd',
+          'impl',
+          'coingecko',
+          'OneKey',
+          'rpc',
+          'Redux',
+        ],
+        'skipIfMatch': ['http://[^s]*'],
+        'minLength': 3,
+      },
+    ],
   },
   overrides: [
     {

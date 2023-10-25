@@ -54,36 +54,34 @@ export const IconButton = (props: IconButtonProps) => {
     variant,
   });
 
-  const renderIconButton = () => {
-    return (
-      <ButtonFrame
-        p={p}
-        borderRadius="$full"
-        disabled={disabled || loading}
-        {...(variant === 'tertiary' && {
-          m: negativeMargin,
-        })}
-        {...sharedFrameStyles}
-        {...rest}
-      >
-        {loading ? (
-          <Stack
-            {...(size !== 'small' && {
-              m: '$0.5',
-            })}
-          >
-            <Spinner color={iconColor} size="small" />
-          </Stack>
-        ) : (
-          <Icon
-            color={iconColor}
-            name={icon}
-            size={size === 'small' ? '$5' : '$6'}
-          />
-        )}
-      </ButtonFrame>
-    );
-  };
+  const renderIconButton = () => (
+    <ButtonFrame
+      p={p}
+      borderRadius="$full"
+      disabled={disabled || loading}
+      {...(variant === 'tertiary' && {
+        m: negativeMargin,
+      })}
+      {...sharedFrameStyles}
+      {...rest}
+    >
+      {loading ? (
+        <Stack
+          {...(size !== 'small' && {
+            m: '$0.5',
+          })}
+        >
+          <Spinner color={iconColor} size="small" />
+        </Stack>
+      ) : (
+        <Icon
+          color={iconColor}
+          name={icon}
+          size={size === 'small' ? '$5' : '$6'}
+        />
+      )}
+    </ButtonFrame>
+  );
 
   if (title) {
     return <Tooltip renderTrigger={renderIconButton()} renderContent={title} />;

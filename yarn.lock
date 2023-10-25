@@ -4935,6 +4935,7 @@ __metadata:
     eslint-plugin-prettier: ^4.2.1
     eslint-plugin-react: ^7.31.11
     eslint-plugin-react-hooks: ^4.6.0
+    eslint-plugin-spellcheck: ^0.0.20
     expo: ~49.0.13
     expo-status-bar: ~1.6.0
     html-webpack-plugin: ^5.5.3
@@ -15069,6 +15070,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"eslint-plugin-spellcheck@npm:^0.0.20":
+  version: 0.0.20
+  resolution: "eslint-plugin-spellcheck@npm:0.0.20"
+  dependencies:
+    globals: ^13.0.0
+    hunspell-spellchecker: ^1.0.2
+    lodash: ^4.17.15
+  peerDependencies:
+    eslint: ">=0.8.0"
+  checksum: 2ab85337774910de86586581f76bf10e40f83be4e0971d2f6f5a31b658ed3bb003528bedd25d70b07e2942e8418cd0009bf6eeab829eb7cbf2108e13afa83f35
+  languageName: node
+  linkType: hard
+
 "eslint-scope@npm:5.1.1, eslint-scope@npm:^5.1.1":
   version: 5.1.1
   resolution: "eslint-scope@npm:5.1.1"
@@ -17099,7 +17113,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"globals@npm:^13.19.0":
+"globals@npm:^13.0.0, globals@npm:^13.19.0":
   version: 13.23.0
   resolution: "globals@npm:13.23.0"
   dependencies:
@@ -17758,6 +17772,15 @@ __metadata:
   dependencies:
     ms: ^2.0.0
   checksum: 9c7a74a2827f9294c009266c82031030eae811ca87b0da3dceb8d6071b9bde22c9f3daef0469c3c533cc67a97d8a167cd9fc0389350e5f415f61a79b171ded16
+  languageName: node
+  linkType: hard
+
+"hunspell-spellchecker@npm:^1.0.2":
+  version: 1.0.2
+  resolution: "hunspell-spellchecker@npm:1.0.2"
+  bin:
+    hunspell-tojson: ./bin/hunspell-tojson.js
+  checksum: 098e00a705b1b8975924ccef1b23e1d63acc139a493a392bb55f887926c518b2edae01f9a697cffa73346160c562f89610f80d354360a2cb637a67f7c54f8227
   languageName: node
   linkType: hard
 
