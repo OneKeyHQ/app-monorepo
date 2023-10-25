@@ -2,12 +2,11 @@ import { useNavigation } from '@react-navigation/native';
 import natsort from 'natsort';
 import { FlatList } from 'react-native';
 
-import { ListItem, useThemeValue } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/components';
 import { GalleryRoutes } from '@onekeyhq/kit/src/routes/Gallery';
 
 const Index = () => {
   const navigation = useNavigation();
-  const backgroundColor = useThemeValue('bg') as string;
   const componentsRoute = Object.values(GalleryRoutes)
     .filter((item) => item.startsWith('component'))
     .sort((a, b) => natsort({ insensitive: true })(a, b));
@@ -17,7 +16,6 @@ const Index = () => {
       data={componentsRoute}
       style={{
         flex: 1,
-        backgroundColor,
         paddingVertical: 20,
       }}
       contentContainerStyle={{

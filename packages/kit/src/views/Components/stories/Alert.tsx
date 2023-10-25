@@ -18,48 +18,38 @@ const ButtonsGallery = () => (
     ]}
     elements={[
       {
-        title: '默认状态',
+        title: 'State',
         element: (
           <YStack space="$4">
             <Alert
               title="Title"
               description="Description here..."
               icon="PlaceholderOutline"
-            >
-              Badge
-            </Alert>
+            />
             <Alert
               type="success"
               title="Title"
               description="Description here..."
               icon="PlaceholderOutline"
-            >
-              Badge
-            </Alert>
+            />
             <Alert
               type="critical"
               title="Title"
               description="Description here..."
               icon="PlaceholderOutline"
-            >
-              Badge
-            </Alert>
+            />
             <Alert
               type="info"
               title="Title"
               description="Description here..."
               icon="PlaceholderOutline"
-            >
-              Badge
-            </Alert>
+            />
             <Alert
               type="warning"
               title="Title"
               description="Description here..."
               icon="PlaceholderOutline"
-            >
-              Badge
-            </Alert>
+            />
           </YStack>
         ),
       },
@@ -72,9 +62,7 @@ const ButtonsGallery = () => (
               description="Description here..."
               icon="PlaceholderOutline"
               closable
-            >
-              Badge
-            </Alert>
+            />
           </YStack>
         ),
       },
@@ -87,17 +75,13 @@ const ButtonsGallery = () => (
               description="Description here..."
               icon="PlaceholderOutline"
               action={{ primary: 'Action' }}
-            >
-              Badge
-            </Alert>
+            />
             <Alert
               title="Title"
               description="Description here..."
               icon="PlaceholderOutline"
               action={{ primary: 'Action', secondary: 'Learn More' }}
-            >
-              Badge
-            </Alert>
+            />
           </YStack>
         ),
       },

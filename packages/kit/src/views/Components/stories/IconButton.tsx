@@ -59,6 +59,22 @@ const IconButtonGallery = () => (
           </Stack>
         ),
       },
+      {
+        title: 'Tooltip title',
+        element: (
+          <Stack flexDirection="row" space="$4" alignItems="center">
+            <IconButton
+              icon="PlaceholderOutline"
+              title="Qui nulla occaecat anim"
+            />
+            <IconButton
+              variant="tertiary"
+              icon="PlaceholderOutline"
+              title="Qui nulla occaecat anim&nbsp;Qui nulla occaecat anim&nbsp;Qui nulla occaecat anim&nbsp;Qui nulla occaecat anim&nbsp;"
+            />
+          </Stack>
+        ),
+      },
     ]}
   />
 );

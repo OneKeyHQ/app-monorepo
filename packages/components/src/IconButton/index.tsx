@@ -6,6 +6,7 @@ import {
 import { Icon } from '../Icon';
 import { Spinner } from '../Spinner';
 import { Stack } from '../Stack';
+import { Tooltip } from '../Tooltip';
 
 import type { ICON_NAMES, IconProps } from '../Icon';
 
@@ -13,6 +14,7 @@ export interface IconButtonProps
   extends Omit<ButtonProps, 'iconAfter' | 'children' | 'icon'> {
   icon: ICON_NAMES;
   iconProps?: IconProps;
+  title?: string;
 }
 
 const getSizeStyles = (size: ButtonProps['size']) => {
@@ -38,6 +40,7 @@ export const IconButton = (props: IconButtonProps) => {
   const {
     disabled,
     loading,
+    title,
     icon,
     iconProps,
     size,
@@ -53,33 +56,40 @@ export const IconButton = (props: IconButtonProps) => {
     variant,
   });
 
-  return (
-    <ButtonFrame
-      p={p}
-      borderRadius="$full"
-      disabled={disabled || loading}
-      {...(variant === 'tertiary' && {
-        m: negativeMargin,
-      })}
-      {...sharedFrameStyles}
-      {...rest}
-    >
-      {loading ? (
-        <Stack
-          {...(size !== 'small' && {
-            p: '$0.5',
-          })}
-        >
-          <Spinner color={iconColor} size="small" />
-        </Stack>
-      ) : (
-        <Icon
-          color={iconColor}
-          name={icon}
-          size={size === 'small' ? '$5' : '$6'}
-          {...iconProps}
-        />
-      )}
-    </ButtonFrame>
-  );
+  const renderIconButton = () => {
+    return (
+      <ButtonFrame
+        p={p}
+        borderRadius="$full"
+        disabled={disabled || loading}
+        {...(variant === 'tertiary' && {
+          m: negativeMargin,
+        })}
+        {...sharedFrameStyles}
+        {...rest}
+      >
+        {loading ? (
+          <Stack
+            {...(size !== 'small' && {
+              m: '$0.5',
+            })}
+          >
+            <Spinner color={iconColor} size="small" />
+          </Stack>
+        ) : (
+          <Icon
+            color={iconColor}
+            name={icon}
+            size={size === 'small' ? '$5' : '$6'}
+          />
+        )}
+      </ButtonFrame>
+    );
+  };
+
+  if (title) {
+    return <Tooltip renderTrigger={renderIconButton()} renderContent={title} />;
+  }
+
+  return renderIconButton();
 };
