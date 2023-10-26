@@ -122,6 +122,7 @@
     "react-refresh": "^0.14.0",
     "style-loader": "^3.3.3",
     "tamagui-loader": "1.71.0",
+    "terser-webpack-plugin": "^5.3.9",
     "ts-jest": "^29.1.1",
     "ultra-runner": "^3.10.5",
     "webpack": "5.88.2",

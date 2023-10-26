@@ -6,7 +6,7 @@ module.exports = function (api) {
   return babelTools.normalizeConfig({
     platform: babelTools.developmentConsts.platforms.app,
     config: {
-      presets: ['babel-preset-expo'],
+      presets: ['module:metro-react-native-babel-preset'],
       plugins: [
         [
           require('@tamagui/babel-plugin/dist/cjs/index.native'),
