@@ -12,7 +12,7 @@ import { useIntl } from 'react-intl';
 import { ScrollView } from 'react-native';
 import { useDispatch } from 'react-redux';
 
-import { Stack, TabView, Text } from '@onekeyhq/components';
+import { Screen, Stack, TabView, Text } from '@onekeyhq/components';
 import type { ForwardRefHandle } from '@onekeyhq/components/src/TabView/NativeTabView/NestedTabView';
 import { SceneMap } from '@onekeyhq/components/src/TabView/SceneMap';
 import type { Route } from '@onekeyhq/components/src/TabView/types';
@@ -133,14 +133,16 @@ function HomePage() {
 
   return useMemo(
     () => (
-      <TabView
-        navigationState={{ routes }}
-        onRefresh={onRefresh}
-        onIndexChange={onIndexChange}
-        renderScene={renderScene}
-        renderHeaderView={renderHeaderView}
-        ref={tabsViewRef}
-      />
+      <Screen>
+        <TabView
+          navigationState={{ routes }}
+          onRefresh={onRefresh}
+          onIndexChange={onIndexChange}
+          renderScene={renderScene}
+          renderHeaderView={renderHeaderView}
+          ref={tabsViewRef}
+        />
+      </Screen>
     ),
     [routes, onRefresh, onIndexChange, renderHeaderView],
   );
