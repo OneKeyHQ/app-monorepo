@@ -19,17 +19,26 @@ const ActionListDemo1 = () => {
         {
           label: 'Action1',
           icon: 'PlaceholderOutline',
-          onPress: () => console.log('action1'),
+          onPress: () => {
+            onOpenChange(false);
+            console.log('action1');
+          },
         },
         {
           label: 'Action2',
           icon: 'PlaceholderOutline',
-          onPress: () => console.log('action2'),
+          onPress: () => {
+            onOpenChange(false);
+            console.log('action2');
+          },
         },
         {
           label: 'Action3',
           icon: 'PlaceholderOutline',
-          onPress: () => console.log('action2'),
+          onPress: () => {
+            onOpenChange(false);
+            console.log('action2');
+          },
           disabled: true,
         },
       ]}
@@ -53,17 +62,26 @@ const ActionListDemo2 = () => {
             {
               label: 'Action1',
               icon: 'PlaceholderOutline',
-              onPress: () => console.log('action1'),
+              onPress: () => {
+                onOpenChange(false);
+                console.log('action1');
+              },
             },
             {
               label: 'Action2',
               icon: 'PlaceholderOutline',
-              onPress: () => console.log('action2'),
+              onPress: () => {
+                onOpenChange(false);
+                console.log('action2');
+              },
             },
             {
               label: 'Action3',
               icon: 'PlaceholderOutline',
-              onPress: () => console.log('action2'),
+              onPress: () => {
+                onOpenChange(false);
+                console.log('action2');
+              },
             },
           ],
         },
@@ -73,15 +91,17 @@ const ActionListDemo2 = () => {
               label: 'Action4',
               icon: 'PlaceholderOutline',
               destructive: true,
-              onPress: () =>
+              onPress: () => {
+                onOpenChange(false);
                 Dialog.confirm({
                   title: 'Lorem ipsum',
                   description:
                     'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
-                  onConfirm() {
+                  onConfirm: () => {
                     alert('confirmed');
                   },
-                }),
+                });
+              },
             },
           ],
         },
@@ -107,17 +127,26 @@ const ActionListDemo3 = () => {
             {
               label: 'Action1',
               icon: 'PlaceholderOutline',
-              onPress: () => console.log('action1'),
+              onPress: () => {
+                onOpenChange(false);
+                console.log('action1');
+              },
             },
             {
               label: 'Action2',
               icon: 'PlaceholderOutline',
-              onPress: () => console.log('action2'),
+              onPress: () => {
+                onOpenChange(false);
+                console.log('action2');
+              },
             },
             {
               label: 'Action3',
               icon: 'PlaceholderOutline',
-              onPress: () => console.log('action2'),
+              onPress: () => {
+                onOpenChange(false);
+                console.log('action2');
+              },
             },
           ],
         },
@@ -128,15 +157,17 @@ const ActionListDemo3 = () => {
               label: 'Action4',
               icon: 'PlaceholderOutline',
               destructive: true,
-              onPress: () =>
+              onPress: () => {
+                onOpenChange(false);
                 Dialog.confirm({
                   title: 'Lorem ipsum',
                   description:
                     'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
-                  onConfirm() {
+                  onConfirm: () => {
                     alert('confirmed');
                   },
-                }),
+                });
+              },
             },
           ],
         },

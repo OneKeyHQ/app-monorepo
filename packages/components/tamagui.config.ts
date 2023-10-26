@@ -131,7 +131,6 @@ const animations = createAnimations({
 
 const lightColors = {
   bg: '#ffffff',
-  background: '#ffffff',
   bgActive: '#0000001b',
   bgApp: '#ffffff',
   bgBackdrop: '#00000044',
@@ -286,7 +285,6 @@ const lightColors = {
 
 const darkColors: typeof lightColors = {
   bg: '#1b1b1b',
-  background: '#1b1b1b',
   bgActive: '#ffffff22',
   bgApp: '#0f0f0f',
   bgBackdrop: '#0000009b',
@@ -509,6 +507,7 @@ const mergedTokens = createTokens({
     0: 0,
     1: 4,
     2: 8,
+    2.5: 10,
     true: 8,
     3: 12,
     4: 16,
@@ -587,7 +586,6 @@ const config = createTamagui({
     light: {
       ...themes.light,
       ...lightColors,
-      'background-default': mergedTokens.color.bgLight,
 
       // override default theme
       'background': mergedTokens.color.bgAppLight,
@@ -605,7 +603,6 @@ const config = createTamagui({
     dark: {
       ...themes.dark,
       ...darkColors,
-      'background-default': mergedTokens.color.bgDark,
 
       // override default theme
       'background': mergedTokens.color.bgAppDark,

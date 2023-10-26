@@ -1,7 +1,6 @@
 import type { ForwardRefRenderFunction, ReactNode } from 'react';
 import {
   forwardRef,
-  memo,
   useCallback,
   useImperativeHandle,
   useMemo,
@@ -12,9 +11,9 @@ import * as React from 'react';
 import { TabBar, TabView } from 'react-native-tab-view';
 import { ScrollView } from 'tamagui';
 
-import { getThemeTokens, useThemeValue } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { getThemeTokens, useThemeValue } from '../Provider/hooks/useThemeValue';
 import { Stack } from '../Stack';
 
 import { useActiveTabContext } from './Provider/ActiveTabContext';
@@ -24,7 +23,10 @@ import type { ForwardRefHandle } from './NativeTabView/NestedTabView';
 import type { Route } from './types';
 import type { StyleProp } from 'react-native';
 
-const tabbarHeight = 48;
+type TabProps = {
+  name: string;
+  label: string;
+};
 
 interface TabViewContentRef {
   setIndex: (newIndex: number) => void;
@@ -98,7 +100,7 @@ function TabViewContent(
       onSwipeStart={onSwipeStart}
       onSwipeEnd={onSwipeEnd}
       swipeEnabled={swipeEnabled}
-      animationEnabled={false}
+      animationEnabled
       navigationState={{ index: indexMemo, routes }}
       renderScene={renderScene}
       onIndexChange={onIndexChangeCall}
@@ -115,8 +117,8 @@ function TabViewContent(
   );
 }
 
-const TabContentView = memo(
-  forwardRef<TabViewContentRef, TabViewContentProps>(TabViewContent),
+const TabContentView = forwardRef<TabViewContentRef, TabViewContentProps>(
+  TabViewContent,
 );
 
 const TabContainerView: ForwardRefRenderFunction<
@@ -143,21 +145,9 @@ const TabContainerView: ForwardRefRenderFunction<
 
   const itemPaddingX = getThemeTokens().size['8'].val;
 
-  const [
-    activeLabelColor,
-    labelColor,
-    indicatorColor,
-    indicatorContainerColor,
-    borderDefault,
-    bgColor,
-  ] = useThemeValue([
-    'text',
-    'textSubdued',
-    'bgPrimary',
-    'bgApp',
-    'borderSubdued',
-    'bg',
-  ]);
+  const [activeLabelColor, labelColor, indicatorColor, bgColor] = useThemeValue(
+    ['text', 'textSubdued', 'bgPrimary', 'bgApp'],
+  );
 
   useImperativeHandle(ref, () => ({
     setPageIndex: (pageIndex: number) => {
@@ -170,34 +160,28 @@ const TabContainerView: ForwardRefRenderFunction<
   const tabbarStyle = useMemo(
     () => ({
       tabbar: {
-        backgroundColor: 'transparent',
-        flex: 1,
-        height: tabbarHeight,
-        borderBottomWidth: 0,
-        borderBottomColor: borderDefault,
-        shadowOffset: null,
+        backgroundColor: '$transparent',
+        boxShadow: 'none',
       },
       indicator: {
         backgroundColor: indicatorColor,
-        height: 2,
       },
-      indicatorContainer: {
-        height: 1,
-        top: tabbarHeight - 1,
-        width: '100%',
-        backgroundColor: indicatorContainerColor,
-      },
+      indicatorContainer: {},
       tabStyle: {
         width: 'auto',
+        paddingTop: 14,
+        paddingBottom: 16,
         paddingHorizontal: 0,
       },
       label: {
-        fontWeight: '500',
+        margin: 0,
+        fontWeight: 500,
         fontSize: 16,
         lineHeight: 24,
+        textTransform: 'CamaelCase',
       },
     }),
-    [borderDefault, indicatorColor, indicatorContainerColor],
+    [indicatorColor],
   );
 
   const renderTabBar = useCallback(

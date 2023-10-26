@@ -8,11 +8,12 @@ import { Spinner } from '../Spinner';
 import { Stack } from '../Stack';
 import { Tooltip } from '../Tooltip';
 
-import type { ICON_NAMES } from '../Icon';
+import type { ICON_NAMES, IconProps } from '../Icon';
 
-interface IconButtonProps
+export interface IconButtonProps
   extends Omit<ButtonProps, 'iconAfter' | 'children' | 'icon'> {
   icon: ICON_NAMES;
+  iconProps?: IconProps;
   title?: string;
 }
 
@@ -20,15 +21,15 @@ const getSizeStyles = (size: ButtonProps['size']) => {
   const sizes = {
     small: {
       p: '$1',
-      negativeMargin: '$-1',
+      negativeMargin: -5,
     },
     medium: {
       p: '$1.5',
-      negativeMargin: '$-1.5',
+      negativeMargin: -7,
     },
     large: {
       p: '$3',
-      negativeMargin: '$-3',
+      negativeMargin: -13,
     },
   };
 
@@ -41,6 +42,7 @@ export const IconButton = (props: IconButtonProps) => {
     loading,
     title,
     icon,
+    iconProps,
     size,
     variant = 'secondary',
     ...rest
@@ -54,36 +56,34 @@ export const IconButton = (props: IconButtonProps) => {
     variant,
   });
 
-  const renderIconButton = () => {
-    return (
-      <ButtonFrame
-        p={p}
-        borderRadius="$full"
-        disabled={disabled || loading}
-        {...(variant === 'tertiary' && {
-          m: negativeMargin,
-        })}
-        {...sharedFrameStyles}
-        {...rest}
-      >
-        {loading ? (
-          <Stack
-            {...(size !== 'small' && {
-              m: '$0.5',
-            })}
-          >
-            <Spinner color={iconColor} size="small" />
-          </Stack>
-        ) : (
-          <Icon
-            color={iconColor}
-            name={icon}
-            size={size === 'small' ? '$5' : '$6'}
-          />
-        )}
-      </ButtonFrame>
-    );
-  };
+  const renderIconButton = () => (
+    <ButtonFrame
+      p={p}
+      borderRadius="$full"
+      disabled={disabled || loading}
+      {...(variant === 'tertiary' && {
+        m: negativeMargin,
+      })}
+      {...sharedFrameStyles}
+      {...rest}
+    >
+      {loading ? (
+        <Stack
+          {...(size !== 'small' && {
+            m: '$0.5',
+          })}
+        >
+          <Spinner color={iconColor} size="small" />
+        </Stack>
+      ) : (
+        <Icon
+          color={iconColor}
+          name={icon}
+          size={size === 'small' ? '$5' : '$6'}
+        />
+      )}
+    </ButtonFrame>
+  );
 
   if (title) {
     return <Tooltip renderTrigger={renderIconButton()} renderContent={title} />;
