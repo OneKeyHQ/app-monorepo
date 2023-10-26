@@ -126,7 +126,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       bufferToU8a(signature),
     );
     const txid = '';
-    const rawTx = ''; // build rawTx on highlevel which requires network
+    const rawTx = ''; // build rawTx on high level which requires network
     return {
       txid,
       rawTx,

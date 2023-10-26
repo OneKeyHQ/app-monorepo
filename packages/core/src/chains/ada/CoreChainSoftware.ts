@@ -122,7 +122,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return {
       rawTx: signedTx,
       txid,
-      // do NOT return encodedTx here, you should set it on highlevel
+      // do NOT return encodedTx here, you should set it on high level
       // encodedTx: unsignedTx.encodedTx,
     };
   }
