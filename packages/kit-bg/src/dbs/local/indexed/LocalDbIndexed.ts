@@ -56,7 +56,7 @@ export class LocalDbIndexed extends LocalDbIndexedBase {
     }
     const store = await this.getObjectStore(EIndexedDBStoreNames.context);
     context.backupUUID = generateUUID();
-    store.put(context);
+    await store.put(context);
     return backupUUID;
   }
 

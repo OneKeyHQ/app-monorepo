@@ -13,19 +13,19 @@ async function createOffscreen() {
   // @ts-ignore
   await chrome.offscreen.createDocument({
     url: 'offscreen.html',
-    reasons: ['BLOBS'],
+    reasons: ['BLOBS'] as any,
     justification: 'keep background service worker running and alive',
   });
 }
 
 // run in background
 export function setupKeepAlive() {
-  createOffscreen();
+  void createOffscreen();
   setTimeout(() => {
-    createOffscreen();
+    void createOffscreen();
   }, 1000);
   chrome.runtime.onStartup.addListener(() => {
-    createOffscreen();
+    void createOffscreen();
   });
   // a message from an offscreen document every 20 second resets the inactivity timer
   chrome.runtime.onMessage.addListener(
@@ -70,8 +70,8 @@ export function startKeepAlivePolling() {
       reconnectToBg();
     }
   };
-  doPolling();
+  void doPolling();
   setInterval(() => {
-    doPolling();
+    void doPolling();
   }, 20000);
 }

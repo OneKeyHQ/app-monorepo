@@ -10,6 +10,7 @@ import {
   Screen,
   Stack,
   Text,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -20,6 +21,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { AppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import useCookie from '../../../../hooks/useCookie';
 import { setLocale, setTheme } from '../../../../store/reducers/settings';
@@ -95,6 +97,25 @@ const TabDeveloper = () => {
             }}
           >
             Gallery
+          </Button>
+        </PartContainer>
+
+        <PartContainer title="Background">
+          <Button
+            onPress={async () => {
+              const r = await backgroundApiProxy.servicePromise.testHelloWorld(
+                'jack',
+              );
+              Toast.success({
+                title: r,
+                message: r,
+              });
+              console.log('testHelloWorld > ', r);
+              await backgroundApiProxy.servicePromise.testHelloWorld('jack');
+              void backgroundApiProxy.servicePromise.testHelloWorld2('jack');
+            }}
+          >
+            Test service
           </Button>
         </PartContainer>
 

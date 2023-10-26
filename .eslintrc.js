@@ -27,6 +27,7 @@ const jsRules = {
   'default-param-last': 'off',
   'import/no-cycle': 'error',
   'require-await': 'off',
+  'no-void': 'off',
   // 'no-console': [isDev ? 'warn' : 'off'],
 };
 const tsRules = {
@@ -44,6 +45,8 @@ const tsRules = {
   '@typescript-eslint/no-unsafe-assignment': 'off',
   '@typescript-eslint/no-unsafe-argument': 'off',
   '@typescript-eslint/require-await': 'off',
+  // force awaited promise call, explicit add `void` if don't want await
+  '@typescript-eslint/no-floating-promises': ['error'],
   'sort-imports': [
     'error',
     {
