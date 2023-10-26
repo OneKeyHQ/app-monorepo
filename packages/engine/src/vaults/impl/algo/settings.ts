@@ -40,6 +40,12 @@ const settings: IVaultSettings = Object.freeze({
       canCopy: false,
       isShorten: false,
     },
+    {
+      key: 'groupId',
+      title: 'form__algo_tx_group_id' as LocaleIds,
+      canCopy: false,
+      isShorten: false,
+    },
   ],
 });
 
