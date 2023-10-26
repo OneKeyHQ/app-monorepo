@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from 'react';
-import { useEffect, useState } from 'react';
+import { Suspense } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
+import { createSuspender } from '@onekeyhq/shared/src/modules3rdParty/use-suspender';
 
 import useIsLowPerformanceDevice from '../hooks/useIsLowPerformanceDevice';
 import { Spinner } from '../Spinner';
@@ -9,24 +9,41 @@ import { Stack } from '../Stack';
 
 const Loading = () => (
   <Stack flex={1} alignContent="center" justifyContent="center">
-    <Spinner size="large" />
+    <Spinner size="small" />
   </Stack>
 );
 
+const useWaitNavigationAnimation = createSuspender(
+  () =>
+    new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(true);
+      }, 0);
+    }),
+);
+
+const PendingComponent = ({ children }: PropsWithChildren<unknown>) => {
+  useWaitNavigationAnimation();
+  return children;
+};
+
 function LoadingScreen({ children }: PropsWithChildren<unknown>) {
-  const [isTransitionEnd, setIsTransitionEnd] = useState(false);
-  const navigation = useNavigation();
-  useEffect(() => {
-    // 'onTransitionEnd' event is missing in react navigation types
-    const unsubscribe = navigation.addListener('transitionEnd' as any, () => {
-      setIsTransitionEnd(true);
-    });
-    return unsubscribe;
-  }, [navigation]);
-  return isTransitionEnd ? children : <Loading />;
+  return (
+    <Suspense fallback={<Loading />}>
+      <PendingComponent>{children}</PendingComponent>
+    </Suspense>
+  );
 }
 
 export function Screen({ children }: PropsWithChildren<unknown>) {
   const isLowPerformanceDevice = useIsLowPerformanceDevice();
-  return isLowPerformanceDevice ? LoadingScreen : children;
+  return (
+    <Stack flex={1}>
+      {isLowPerformanceDevice ? (
+        <LoadingScreen>{children}</LoadingScreen>
+      ) : (
+        children
+      )}
+    </Stack>
+  );
 }

@@ -6,6 +6,7 @@ import Icons from '@onekeyhq/components/src/Icon/Icons';
 
 import { Layout } from './utils/Layout';
 
+const iconData = Object.keys(Icons) as ICON_NAMES[];
 const IconGallery = () => (
   <Layout
     description="图标是一种视觉符号，用于表示对象或概念"
@@ -38,9 +39,10 @@ const IconGallery = () => (
         title: 'icons',
         element: (
           <FlatList
-            style={{ width: '100%' }}
+            removeClippedSubviews
+            style={{ width: '100%', height: 300 }}
             numColumns={4}
-            data={Object.keys(Icons) as ICON_NAMES[]}
+            data={iconData}
             renderItem={({ item }) => (
               <Stack width="25%" height={80} alignItems="center" key={item}>
                 <Text>{item}</Text>

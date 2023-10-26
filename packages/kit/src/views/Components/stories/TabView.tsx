@@ -195,11 +195,7 @@ function CollapsibleTabView() {
 
   const renderHeaderViewCall = useCallback(
     () => (
-      <Stack
-        alignItems="center"
-        justifyContent="center"
-        py="$4"
-      >
+      <Stack alignItems="center" justifyContent="center" py="$4">
         <Text>Header View Simple</Text>
         <Text>{`Header Height ${headerHighMode.toString()}`}</Text>
         <Text>{`Item Count ${showNetworks.length}`}</Text>

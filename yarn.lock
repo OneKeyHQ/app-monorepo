@@ -5081,6 +5081,7 @@ __metadata:
     terser-webpack-plugin: ^5.3.9
     ts-jest: ^29.1.1
     ultra-runner: ^3.10.5
+    use-suspender: ^2.0.0-beta.0
     webpack: 5.88.2
     webpack-bundle-analyzer: ^4.9.1
     webpack-cli: 5.1.4
@@ -16254,7 +16255,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fast-deep-equal@npm:^3.1.1, fast-deep-equal@npm:^3.1.3":
+"fast-deep-equal@npm:3.1.3, fast-deep-equal@npm:^3.1.1, fast-deep-equal@npm:^3.1.3":
   version: 3.1.3
   resolution: "fast-deep-equal@npm:3.1.3"
   checksum: e21a9d8d84f53493b6aa15efc9cfd53dd5b714a1f23f67fb5dc8f574af80df889b3bce25dc081887c6d25457cce704e636395333abad896ccdec03abaf1f3f9d
@@ -28979,6 +28980,17 @@ __metadata:
     "@types/react":
       optional: true
   checksum: 925d1922f9853e516eaad526b6fed1be38008073067274f0ecc3f56b17bb8ab63480140dd7c271f94150027c996cea4efe83d3e3525e8f3eda22055f6a39220b
+  languageName: node
+  linkType: hard
+
+"use-suspender@npm:^2.0.0-beta.0":
+  version: 2.0.0-beta.0
+  resolution: "use-suspender@npm:2.0.0-beta.0"
+  dependencies:
+    fast-deep-equal: 3.1.3
+  peerDependencies:
+    react: 18.x
+  checksum: 852bdea0aa770f016b86c3e1953d754a9d4674bcf982ad1da06bbebc7f7eb7b1b608f2000348e9424b1e73b286b732d2f6fd2ddc289fc34d4ce52c658474a740
   languageName: node
   linkType: hard
 
