@@ -101,7 +101,7 @@ export function QRCode({
             ) {
               arr.push(
                 <Circle
-                  key={`circel row${i} col${j}`}
+                  key={`circle row${i} col${j}`}
                   cx={i * cellSize + cellSize / 2}
                   cy={j * cellSize + cellSize / 2}
                   fill="black"

@@ -97,7 +97,7 @@ const tsRules = {
 const resolveExtensions = (platform) =>
   ['.ts', '.tsx', '.js', '.jsx'].map((ext) => `${platform}${ext}`);
 module.exports = {
-  // plugins: ['spellcheck'],
+  plugins: ['spellcheck'],
   settings: {
     'import/extensions': [
       ...resolveExtensions('web'),
@@ -135,33 +135,21 @@ module.exports = {
     serviceworker: true,
     worker: true,
   },
-  // rules: {
-  //   'spellcheck/spell-checker': [
-  //     1,
-  //     {
-  //       'comments': true,
-  //       'strings': false,
-  //       'identifiers': true,
-  //       'lang': 'en_US',
-  //       'skipWords': [
-  //         'eth',
-  //         'Enum',
-  //         'Defi',
-  //         'xpub',
-  //         'nfts',
-  //         'defi',
-  //         'usd',
-  //         'impl',
-  //         'coingecko',
-  //         'OneKey',
-  //         'rpc',
-  //         'Redux',
-  //       ],
-  //       'skipIfMatch': ['http://[^s]*'],
-  //       'minLength': 3,
-  //     },
-  //   ],
-  // },
+  rules: {
+    'spellcheck/spell-checker': [
+      1,
+      {
+        'comments': true,
+        'strings': false,
+        'identifiers': true,
+        'lang': 'en_US',
+        'skipWords': require('./development/skipWords'),
+        'skipWordIfMatch': [/bip32/i, /pbkdf2/i, /Secp256k1/i, /googleapis/i],
+        'skipIfMatch': ['http://[^s]*'],
+        'minLength': 3,
+      },
+    ],
+  },
   overrides: [
     {
       files: ['*.js', '*.jsx', '*.text-js'],
