@@ -44,7 +44,7 @@ type IProps = { onItemSelect: (item: DAppItemType) => void };
 
 function Dashboard({ onItemSelect }: IProps) {
   return (
-    <YStack>
+    <YStack h="full" bg="$bgApp">
       {data.map((i) => (
         <Button
           onPress={() => {

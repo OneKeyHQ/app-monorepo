@@ -63,7 +63,6 @@ function ExplorerMobileCmp() {
         <>
           <BrowserInfoBar />
           <WebTabContainer />
-          <BrowserBottomBar showHome={() => {}} />
         </>
       )}
     </Stack>

@@ -20,6 +20,7 @@ function BrowserInfoBar() {
   const { currentTabId } = useWebTabs();
   const [map] = useAtomWebTabs(atomWebTabsMap);
   const tab = map[currentTabId || ''];
+  console.log('=====>>>>>>currentTab: ', tab.url, tab.title);
   const content = useMemo(
     () => (
       <Stack

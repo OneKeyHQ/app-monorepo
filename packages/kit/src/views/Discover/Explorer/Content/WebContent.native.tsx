@@ -43,6 +43,14 @@ function WebContent({
         url: navUrl,
       } = navigationStateChangeEvent;
       if (loading) {
+        console.log('=> loading state: ', {
+          url: navUrl,
+          title,
+          canGoBack: navCanGoBack,
+          canGoForward,
+          loading,
+          id,
+        });
         onNavigation({
           url: navUrl,
           title,
@@ -52,6 +60,13 @@ function WebContent({
           id,
         });
       } else {
+        console.log('$=> stop loading: ', {
+          title,
+          canGoBack: navCanGoBack,
+          canGoForward,
+          loading,
+          id,
+        });
         onNavigation({
           title,
           canGoBack: navCanGoBack,

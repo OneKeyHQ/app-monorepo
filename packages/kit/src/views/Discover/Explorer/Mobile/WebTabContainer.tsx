@@ -15,6 +15,8 @@ import {
   useAtomWebTabs,
 } from '../Context/contextWebTabs';
 
+import BrowserBottomBar from './BrowserBottomBar';
+
 import type { WebTab } from '../Context/contextWebTabs';
 
 const styles = StyleSheet.create({
@@ -23,6 +25,8 @@ const styles = StyleSheet.create({
   },
   blankPage: {
     ...StyleSheet.absoluteFillObject,
+    bottom: 56,
+    backgroundColor: '#ffffff',
     zIndex: 1,
   },
 });
@@ -34,6 +38,7 @@ function WebContentWithFreeze({ tab }: { tab: WebTab }) {
     () => (
       <Freeze key={tab.id} freeze={!freshTab.isCurrent}>
         <WebContent {...tab} />
+        <BrowserBottomBar showHome={() => {}} />
       </Freeze>
     ),
     [freshTab.isCurrent, tab],

@@ -32,6 +32,7 @@ export const homeTab: WebTab = {
   isCurrent: true,
   canGoBack: false,
   loading: false,
+  favicon: '',
 };
 
 export const homeResettingFlags: Record<string, number> = {};
@@ -117,18 +118,16 @@ export const setWebTabDataAtomWithWriteOnly = atom(
   (get, set, payload: Partial<WebTab>) => {
     const { tabs } = get(atomWebTabs);
     const tabIndex = tabs.findIndex((t) => t.id === payload.id);
+    console.log('setWebTabDataAtomWithWriteOnly: payload: => : ', payload);
     if (tabIndex > -1) {
       const tabToModify = tabs[tabIndex];
       Object.keys(payload).forEach((k) => {
         const key = k as keyof WebTab;
-        let value = payload[key];
+        const value = payload[key];
         if (value !== undefined && value !== tabToModify[key]) {
           if (key === 'title') {
             if (!value) {
               return;
-            }
-            if (value === 'about:blank') {
-              value = 'OneKey';
             }
           }
           // @ts-expect-error
@@ -150,6 +149,13 @@ export const setWebTabDataAtomWithWriteOnly = atom(
           }
         }
       });
+      // if the tab is home tab, update the title
+      if (
+        tabToModify.url === homeTab.url &&
+        (!tabToModify.title || tabToModify.title !== homeTab.title)
+      ) {
+        tabToModify.title = homeTab.title;
+      }
       tabs[tabIndex] = tabToModify;
       set(setWebTabsWriteAtom, tabs);
     }

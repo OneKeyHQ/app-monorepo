@@ -16,6 +16,7 @@ import { useWebviewRef } from './useWebviewRef';
 
 import type { IElectronWebView } from '../../../components/WebView/types';
 import type { OnWebviewNavigation } from '../explorerUtils';
+import type WebView from 'react-native-webview';
 
 export const onNavigation: OnWebviewNavigation = ({
   url,
@@ -88,10 +89,8 @@ export const useWebController = ({
     currentTab: tab,
     goBack: () => {
       let canGoBack = tab?.refReady && tab?.canGoBack;
-      if (platformEnv.isDesktop) {
-        if (innerRef) {
-          canGoBack = (innerRef as IElectronWebView).canGoBack();
-        }
+      if (platformEnv.isDesktop && innerRef) {
+        canGoBack = (innerRef as IElectronWebView).canGoBack();
       }
 
       stopLoading();
@@ -99,6 +98,9 @@ export const useWebController = ({
       if (canGoBack) {
         goBack();
       } else {
+        if (platformEnv.isNative && innerRef) {
+          (innerRef as WebView)?.loadUrl(homeTab.url);
+        }
         webTabsActions.setWebTabData({
           ...homeTab,
           id: curId,
