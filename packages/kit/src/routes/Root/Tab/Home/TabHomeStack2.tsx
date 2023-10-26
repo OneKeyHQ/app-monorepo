@@ -13,21 +13,21 @@ const TabHomeStack2 = () => {
   return (
     <Screen>
       <YStack>
-      <Button
-        onPress={() => {
-          navigation.pop();
-        }}
-      >
-        上一页
-      </Button>
-      <Button
-        onPress={() => {
-          navigation.push(TabHomeRoutes.TabHome);
-        }}
-      >
-        回首页
-      </Button>
-    </YStack>
+        <Button
+          onPress={() => {
+            navigation.pop();
+          }}
+        >
+          上一页
+        </Button>
+        <Button
+          onPress={() => {
+            navigation.push(TabHomeRoutes.TabHome);
+          }}
+        >
+          回首页
+        </Button>
+      </YStack>
     </Screen>
   );
 };
