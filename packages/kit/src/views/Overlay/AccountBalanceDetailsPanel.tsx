@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Box, Icon, Skeleton, Typography } from '@onekeyhq/components';
 import type { IBalanceDetails } from '@onekeyhq/engine/src/vaults/types';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useNativeToken } from '../../hooks';
+import { useActiveWalletAccount, useNativeToken } from '../../hooks';
 import { showOverlay } from '../../utils/overlayUtils';
 
 import { BottomSheetSettings } from './BottomSheetSettings';
@@ -126,19 +127,17 @@ export function AccountBalanceDetailsPanel({
   info: ReturnType<typeof useAccountBalanceDetailsInfo>;
 }) {
   const intl = useIntl();
+  const { networkId } = useActiveWalletAccount();
 
   const { enabled, balanceDetails, isLoading, nativeToken, errorMsg } = info;
 
-  if (!enabled) {
-    // this network may not implement fetchBalanceDetails API
-    return null;
-  }
+  const renderBalanceDetails = useCallback(() => {
+    if (isLoading) {
+      return <Skeleton shape="DisplayXLarge" />;
+    }
 
-  return (
-    <Box>
-      {isLoading ? (
-        <Skeleton shape="DisplayXLarge" />
-      ) : (
+    if (networkId === OnekeyNetwork.sol) {
+      return (
         <>
           <Typography.DisplayXLarge>
             {balanceDetails?.total} {nativeToken?.symbol}
@@ -150,27 +149,69 @@ export function AccountBalanceDetailsPanel({
             symbol={nativeToken?.symbol}
           />
           <AccountBalanceDetailsRow
-            label={intl.formatMessage({ id: 'content__frozen' })}
-            amount={balanceDetails?.unavailableOfLocalFrozen}
-            symbol={nativeToken?.symbol}
-          />
-          <AccountBalanceDetailsRow
-            label={intl.formatMessage({ id: 'content__inscriptions_occupy' })}
-            amount={balanceDetails?.unavailableOfInscription}
-            symbol={nativeToken?.symbol}
-          />
-          <AccountBalanceDetailsRow
-            label={intl.formatMessage({ id: 'content__unconfirmed' })}
-            amount={balanceDetails?.unavailableOfUnconfirmed}
-            symbol={nativeToken?.symbol}
-          />
-          <AccountBalanceDetailsRow
-            label={intl.formatMessage({ id: 'content__unusable' })}
-            amount={balanceDetails?.unavailableOfUnchecked}
+            alwaysShow
+            label={intl.formatMessage({ id: 'content__rent' })}
+            amount={balanceDetails?.unavailable}
             symbol={nativeToken?.symbol}
           />
         </>
-      )}
+      );
+    }
+    return (
+      <>
+        <Typography.DisplayXLarge>
+          {balanceDetails?.total} {nativeToken?.symbol}
+        </Typography.DisplayXLarge>
+        <AccountBalanceDetailsRow
+          alwaysShow
+          label={intl.formatMessage({ id: 'content__spendable' })}
+          amount={balanceDetails?.available}
+          symbol={nativeToken?.symbol}
+        />
+        <AccountBalanceDetailsRow
+          label={intl.formatMessage({ id: 'content__frozen' })}
+          amount={balanceDetails?.unavailableOfLocalFrozen}
+          symbol={nativeToken?.symbol}
+        />
+        <AccountBalanceDetailsRow
+          label={intl.formatMessage({ id: 'content__inscriptions_occupy' })}
+          amount={balanceDetails?.unavailableOfInscription}
+          symbol={nativeToken?.symbol}
+        />
+        <AccountBalanceDetailsRow
+          label={intl.formatMessage({ id: 'content__unconfirmed' })}
+          amount={balanceDetails?.unavailableOfUnconfirmed}
+          symbol={nativeToken?.symbol}
+        />
+        <AccountBalanceDetailsRow
+          label={intl.formatMessage({ id: 'content__unusable' })}
+          amount={balanceDetails?.unavailableOfUnchecked}
+          symbol={nativeToken?.symbol}
+        />
+      </>
+    );
+  }, [
+    balanceDetails?.available,
+    balanceDetails?.total,
+    balanceDetails?.unavailable,
+    balanceDetails?.unavailableOfInscription,
+    balanceDetails?.unavailableOfLocalFrozen,
+    balanceDetails?.unavailableOfUnchecked,
+    balanceDetails?.unavailableOfUnconfirmed,
+    intl,
+    isLoading,
+    nativeToken?.symbol,
+    networkId,
+  ]);
+
+  if (!enabled) {
+    // this network may not implement fetchBalanceDetails API
+    return null;
+  }
+
+  return (
+    <Box>
+      {renderBalanceDetails()}
       {errorMsg ? (
         <Box flexDirection="row" alignItems="center">
           <Icon

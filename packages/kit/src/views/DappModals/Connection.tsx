@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Button,
   Center,
   Empty,
   HStack,
@@ -30,6 +31,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import {
+  NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY,
+  useCreateAccountInWallet,
+} from '../../components/NetworkAccountSelector/hooks/useCreateAccountInWallet';
 import walletConnectUtils from '../../components/WalletConnect/utils/walletConnectUtils';
 import { useActiveWalletAccount, useAppSelector } from '../../hooks';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
@@ -81,9 +86,11 @@ function ConnectionContent({
   origin,
   hostname,
   network,
+  walletId,
 }: {
   account: IAccount | null | undefined;
   network: INetwork | null;
+  walletId: string;
   isWalletConnectPreloading: boolean;
   walletConnectError: string;
   getWalletConnectBridge: () => string;
@@ -91,6 +98,10 @@ function ConnectionContent({
   hostname: string;
 }) {
   const intl = useIntl();
+  const { createAccount, isCreateAccountSupported } = useCreateAccountInWallet({
+    walletId,
+    networkId: network?.id,
+  });
   if (isWalletConnectPreloading) {
     return (
       <Center flex={1} minH="300px">
@@ -128,6 +139,38 @@ function ConnectionContent({
             id: 'empty__no_account_title',
           })}
         />
+        <Box
+          position="relative"
+          w={{ md: 'full' }}
+          alignItems="center"
+          h="56px"
+          justifyContent="center"
+        >
+          <Button
+            leftIconName={
+              isCreateAccountSupported ? 'PlusOutline' : 'BanOutline'
+            }
+            type="primary"
+            onPress={() => {
+              if (isCreateAccountSupported) {
+                // ** createAccount for current wallet directly
+                createAccount();
+              } else {
+                ToastManager.show({
+                  title: intl.formatMessage(
+                    {
+                      id: NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY,
+                    },
+                    { 0: network?.shortName },
+                  ),
+                });
+              }
+            }}
+            size="lg"
+          >
+            {intl.formatMessage({ id: 'action__create_account' })}
+          </Button>
+        </Box>
       </Center>
     );
   }
@@ -245,8 +288,14 @@ const Connection = () => {
   const [rugConfirmDialogVisible, setRugConfirmDialogVisible] = useState(false);
   const intl = useIntl();
 
-  const { networkImpl, network, accountAddress, accountPubKey, account } =
-    useActiveWalletAccount();
+  const {
+    networkImpl,
+    network,
+    accountAddress,
+    accountPubKey,
+    account,
+    walletId,
+  } = useActiveWalletAccount();
 
   const { sourceInfo } = useDappParams();
   const { origin, scope, id } = sourceInfo ?? defaultSourceInfo;
@@ -465,6 +514,7 @@ const Connection = () => {
               getWalletConnectBridge={getWalletConnectBridge}
               network={network}
               account={account}
+              walletId={walletId}
               hostname={hostname}
               origin={origin}
             />
