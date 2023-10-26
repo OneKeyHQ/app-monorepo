@@ -15,6 +15,7 @@ import DemoRootApp from '@onekeyhq/kit/src/views/Components/stories/NavigatorRou
 import PopoverGallery from '@onekeyhq/kit/src/views/Components/stories/Popover';
 import ProgressGallery from '@onekeyhq/kit/src/views/Components/stories/Progress';
 import RadioGallery from '@onekeyhq/kit/src/views/Components/stories/Radio';
+import SegmentControlGallery from '@onekeyhq/kit/src/views/Components/stories/SegmentControl';
 import SelectGallery from '@onekeyhq/kit/src/views/Components/stories/Select';
 import SliderGallery from '@onekeyhq/kit/src/views/Components/stories/Slider';
 import SwitchGallery from '@onekeyhq/kit/src/views/Components/stories/Switch';
@@ -33,40 +34,7 @@ import SkeletonGallery from '../../views/Components/stories/Skeleton';
 import TextAreaGallery from '../../views/Components/stories/TextArea';
 import ThemeGallery from '../../views/Components/stories/Theme';
 
-export enum GalleryRoutes {
-  Components = 'components',
-  ComponentTypography = 'component/typography',
-  ComponentLottieView = 'component/lottieview',
-  ComponentTooltip = 'component/tooltip',
-  ComponentIcon = 'component/icon',
-  ComponentButton = 'component/button',
-  ComponentSelect = 'component/select',
-  ComponentSkeleton = 'component/skeleton',
-  ComponentIconButton = 'component/iconButton',
-  ComponentBadge = 'component/badge',
-  ComponentDialog = 'component/dialog',
-  ComponentForm = 'component/form',
-  ComponentNavigation = 'component/navigation',
-  ComponentListItem = 'component/listItem',
-  ComponentEmpty = 'component/empty',
-  ComponentSwitch = 'component/switch',
-  ComponentInput = 'component/input',
-  ComponentAlert = 'component/alert',
-  ComponentRadio = 'component/radio',
-  ComponentDivider = 'component/divider',
-  ComponentToast = 'component/toast',
-  ComponentCheckbox = 'component/checkbox',
-  ComponentActionList = 'component/actionlist',
-  ComponentProgress = 'component/progress',
-  ComponentSlider = 'component/slider',
-  ComponentTextArea = 'component/textArea',
-  ComponentPopover = 'component/popover',
-  ComponentToggleGroup = 'component/toggleGroup',
-  ComponentTheme = 'component/theme',
-  ComponentTabview = 'component/tabview',
-  componentQRCode = 'component/qrCode',
-  ComponentWebview = 'component/webview',
-}
+import { GalleryRoutes } from './routes';
 
 export const stackScreenList = [
   { name: GalleryRoutes.Components, component: ComponentsScreen },
@@ -106,6 +74,10 @@ export const stackScreenList = [
     name: GalleryRoutes.ComponentNavigation,
     component: DemoRootApp,
     options: { headerShown: false },
+  },
+  {
+    name: GalleryRoutes.ComponentSegmentControl,
+    component: SegmentControlGallery,
   },
   { name: GalleryRoutes.ComponentAlert, component: AlertGallery },
   { name: GalleryRoutes.ComponentDivider, component: DividerGallery },

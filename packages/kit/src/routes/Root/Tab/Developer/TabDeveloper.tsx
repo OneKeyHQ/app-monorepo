@@ -15,7 +15,7 @@ import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import useCookie from '../../../../hooks/useCookie';
 import { setLocale, setTheme } from '../../../../store/reducers/settings';
-import { GalleryRoutes } from '../../../Gallery';
+import { GalleryRoutes } from '../../../Gallery/routes';
 import { RootRoutes } from '../../Routes';
 
 import type { TabDeveloperParamList } from './Routes';
