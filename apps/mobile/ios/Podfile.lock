@@ -403,8 +403,14 @@ PODS:
     - React-Core
   - react-native-safe-area-context (4.7.2):
     - React-Core
+  - react-native-tab-page-view (1.0.0):
+    - JXCategoryView
+    - JXPagingView/Pager
+    - React
   - react-native-tcp-socket (6.0.6):
     - CocoaAsyncSocket
+    - React-Core
+  - react-native-webview (11.24.0):
     - React-Core
   - React-NativeModulesApple (0.72.5):
     - hermes-engine
@@ -615,8 +621,6 @@ DEPENDENCIES:
   - FBReactNativeSpec (from `../../../node_modules/react-native/React/FBReactNativeSpec`)
   - glog (from `../../../node_modules/react-native/third-party-podspecs/glog.podspec`)
   - hermes-engine (from `../../../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
-  - JXCategoryView
-  - JXPagingView/Pager
   - libevent (~> 2.1.12)
   - lottie-react-native (from `../../../node_modules/lottie-react-native`)
   - RCT-Folly (from `../../../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec`)
@@ -640,7 +644,9 @@ DEPENDENCIES:
   - react-native-mmkv (from `../../../node_modules/react-native-mmkv`)
   - react-native-randombytes (from `../../../node_modules/react-native-randombytes`)
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
+  - react-native-tab-page-view (from `../../../node_modules/react-native-tab-page-view`)
   - react-native-tcp-socket (from `../../../node_modules/react-native-tcp-socket`)
+  - react-native-webview (from `../../../node_modules/react-native-webview`)
   - React-NativeModulesApple (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
   - React-perflogger (from `../../../node_modules/react-native/ReactCommon/reactperflogger`)
   - React-RCTActionSheet (from `../../../node_modules/react-native/Libraries/ActionSheetIOS`)
@@ -792,8 +798,12 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-randombytes"
   react-native-safe-area-context:
     :path: "../../../node_modules/react-native-safe-area-context"
+  react-native-tab-page-view:
+    :path: "../../../node_modules/react-native-tab-page-view"
   react-native-tcp-socket:
     :path: "../../../node_modules/react-native-tcp-socket"
+  react-native-webview:
+    :path: "../../../node_modules/react-native-webview"
   React-NativeModulesApple:
     :path: "../../../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios"
   React-perflogger:
@@ -913,7 +923,9 @@ SPEC CHECKSUMS:
   react-native-mmkv: 9ae7ca3977e8ef48dbf7f066974eb844c20b5fd7
   react-native-randombytes: 421f1c7d48c0af8dbcd471b0324393ebf8fe7846
   react-native-safe-area-context: 7aa8e6d9d0f3100a820efb1a98af68aa747f9284
+  react-native-tab-page-view: e9615be0d94e7f8d9c9027b72c0e757ea8dc58a1
   react-native-tcp-socket: e724380c910c2e704816ec817ed28f1342246ff7
+  react-native-webview: 6408bc328e65042d240d0ebd62baa76ffd23b1aa
   React-NativeModulesApple: 797bc6078d566eef3fb3f74127e6e1d2e945a15f
   React-perflogger: cd8886513f68e1c135a1e79d20575c6489641597
   React-RCTActionSheet: 726d2615ca62a77ce3e2c13d87f65379cdc73498
@@ -948,6 +960,6 @@ SPEC CHECKSUMS:
   Yoga: 86fed2e4d425ee4c6eab3813ba1791101ee153c6
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
-PODFILE CHECKSUM: 33db8955d11b0984bcb68b0c3f0b228856fcf638
+PODFILE CHECKSUM: 841ade86d77e2013a5a43c43e75c47c10296dcd3
 
 COCOAPODS: 1.12.1

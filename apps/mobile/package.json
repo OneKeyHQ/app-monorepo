@@ -50,6 +50,7 @@
     "react-native-safe-area-context": "^4.7.2",
     "react-native-screens": "^3.25.0",
     "react-native-svg": "^13.9.0",
+    "react-native-tab-page-view": "https://github.com/hellohublot/react-native-tab-page-view#acefaa266249e9cfcdd0bb6bc6f2852e3ec83c96",
     "react-native-tcp-socket": "^6.0.6",
     "react-native-uuid": "^2.0.1",
     "react-native-webview": "https://github.com/OneKeyHQ/react-native-webview.git#5036d59cba4f5609c32b7eb5dec560e738ce7115",
