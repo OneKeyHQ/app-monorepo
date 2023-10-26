@@ -5,6 +5,7 @@ import QRCodeUtil from 'qrcode';
 import Svg, { Circle, ClipPath, Defs, G, Image, Rect } from 'react-native-svg';
 
 import type { ImageProps } from 'react-native';
+import { useThemeValue } from '../Provider/hooks/useThemeValue';
 
 export type QRCodeProps = {
   size: number;
@@ -117,8 +118,10 @@ export function QRCode({
   }, [ecl, logoSize, size, value]);
   const logoPosition = size / 2 - logoSize / 2 - logoMargin;
   const logoWrapperSize = logoSize + logoMargin * 2;
+
+  const color = useThemeValue('text') as string;
   return (
-    <Svg height={size} width={size}>
+    <Svg height={size} width={size} color={color}>
       <Defs>
         <ClipPath id="clip-wrapper">
           <Rect height={logoWrapperSize} width={logoWrapperSize} />
