@@ -1,7 +1,7 @@
 import { type FC } from 'react';
 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { enableFreeze } from 'react-native-screens';
+import { FullWindowOverlay, enableFreeze } from 'react-native-screens';
 import { Provider as ReduxProvider } from 'react-redux';
 
 import { Portal } from '@onekeyhq/components';
@@ -29,9 +29,11 @@ const KitProvider: FC = () => (
       <AppLoading>
         <GestureHandlerRootView style={flexStyle}>
           <NavigationProvider />
+          <FullWindowOverlay>
+            <Portal />
+          </FullWindowOverlay>
         </GestureHandlerRootView>
       </AppLoading>
-      <Portal />
     </ThemeProvider>
   </ReduxProvider>
 );
