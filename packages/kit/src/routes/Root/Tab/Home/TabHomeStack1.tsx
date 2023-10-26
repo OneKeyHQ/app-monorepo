@@ -1,4 +1,4 @@
-import { Button, YStack } from '@onekeyhq/components';
+import { Button, Screen, YStack } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -11,22 +11,24 @@ const TabHomeStack1 = () => {
   const navigation = useAppNavigation<PageNavigationProp<TabHomeParamList>>();
 
   return (
-    <YStack>
-      <Button
-        onPress={() => {
-          navigation.pop();
-        }}
-      >
-        上一页
-      </Button>
-      <Button
-        onPress={() => {
-          navigation.push(TabHomeRoutes.TabHomeStack2);
-        }}
-      >
-        下一页
-      </Button>
-    </YStack>
+    <Screen>
+      <YStack>
+        <Button
+          onPress={() => {
+            navigation.pop();
+          }}
+        >
+          上一页
+        </Button>
+        <Button
+          onPress={() => {
+            navigation.push(TabHomeRoutes.TabHomeStack2);
+          }}
+        >
+          下一页
+        </Button>
+      </YStack>
+    </Screen>
   );
 };
 

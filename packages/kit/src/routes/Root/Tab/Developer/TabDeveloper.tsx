@@ -5,7 +5,7 @@ import { StyleSheet } from 'react-native';
 import { useDispatch } from 'react-redux';
 import { ScrollView } from 'tamagui';
 
-import { Button, Stack, Text, XStack, YStack } from '@onekeyhq/components';
+import { Button, Screen, Stack, Text, XStack, YStack } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import { getMeasureTime } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -67,7 +67,8 @@ const TabDeveloper = () => {
   const [rrtStatus, changeRRTStatus] = useStorage(AppSettingKey.rrt);
 
   return (
-    <ScrollView
+   <Screen>
+     <ScrollView
       flex={1}
       width="100%"
       paddingHorizontal="$5"
@@ -173,6 +174,7 @@ const TabDeveloper = () => {
         <Text>{getMeasureTime().jsBundleLoadedTime}</Text>
       </PartContainer>
     </ScrollView>
+   </Screen>
   );
 };
 
