@@ -1,6 +1,7 @@
 import { Group, Input as TMInput, getFontSize } from 'tamagui';
 
 import { Icon } from '../Icon';
+import { Spinner } from '../Spinner';
 import { XStack, YStack } from '../Stack';
 import { Text } from '../Text';
 
@@ -8,7 +9,6 @@ import { getSharedInputStyles } from './sharedStyles';
 
 import type { ICON_NAMES } from '../Icon';
 import type { GetProps } from 'tamagui';
-import { Spinner } from '../Spinner';
 
 type TMInputProps = GetProps<typeof TMInput>;
 
