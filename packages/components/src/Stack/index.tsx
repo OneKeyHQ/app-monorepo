@@ -7,17 +7,17 @@ import {
 } from 'tamagui';
 
 export const Stack = styled(TMStack, {
-  backgroundColor: 'transparent',
+  backgroundColor: '$transparent',
 });
 
 export const XStack = styled(TMXStack, {
-  backgroundColor: 'transparent',
+  backgroundColor: '$transparent',
 });
 
 export const YStack = styled(TMYStack, {
-  backgroundColor: 'transparent',
+  backgroundColor: '$transparent',
 });
 
 export const ZStack = styled(TMZStack, {
-  backgroundColor: 'transparent',
+  backgroundColor: '$transparent',
 });

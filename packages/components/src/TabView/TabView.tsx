@@ -1,7 +1,6 @@
 import type { ForwardRefRenderFunction, ReactNode } from 'react';
 import {
   forwardRef,
-  memo,
   useCallback,
   useImperativeHandle,
   useMemo,
@@ -12,9 +11,9 @@ import * as React from 'react';
 import { TabBar, TabView } from 'react-native-tab-view';
 import { ScrollView } from 'tamagui';
 
-import { getThemeTokens, useThemeValue } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { getThemeTokens, useThemeValue } from '../Provider/hooks/useThemeValue';
 import { Stack } from '../Stack';
 
 import { useActiveTabContext } from './Provider/ActiveTabContext';
@@ -118,8 +117,8 @@ function TabViewContent(
   );
 }
 
-const TabContentView = memo(
-  forwardRef<TabViewContentRef, TabViewContentProps>(TabViewContent),
+const TabContentView = forwardRef<TabViewContentRef, TabViewContentProps>(
+  TabViewContent,
 );
 
 const TabContainerView: ForwardRefRenderFunction<

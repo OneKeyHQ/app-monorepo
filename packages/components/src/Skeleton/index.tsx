@@ -1,47 +1,49 @@
-import { MotiView } from 'moti';
+import type { RefObject } from 'react';
+
 import { Skeleton as MotiSkeleton } from 'moti/skeleton';
-import { StyleSheet } from 'react-native';
+import { styled, withStaticProperties } from 'tamagui';
 
 import useTheme from '../Provider/hooks/useTheme';
+import { useThemeValue } from '../Provider/hooks/useThemeValue';
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  padded: {
-    padding: 16,
-  },
-});
+import type { MotiSkeletonProps } from 'moti/build/skeleton/types';
 
-const Spacer = ({ height = 16 }: { height: number }) => (
-  <MotiView style={{ height }} />
-);
+export type SkeletonProps = Omit<MotiSkeletonProps, 'Gradient'> & {
+  style?: any;
+};
 
-export function Skeleton() {
+function BasicSkeleton(
+  { children, style, ...restProps }: SkeletonProps,
+  _: RefObject<unknown>,
+) {
   const { themeVariant } = useTheme();
+  const primaryColor: any = useThemeValue('bgStrong');
+  const secondaryColor =
+    themeVariant === 'light' ? 'rgb(205, 205, 205)' : 'rgb(51, 51, 51)';
+  console.log(restProps);
   return (
-    <MotiView
-      transition={{
-        type: 'timing',
-      }}
-      style={[styles.container, styles.padded]}
-      animate={{
-        backgroundColor: themeVariant === 'dark' ? '#000000' : '#ffffff',
-      }}
+    <MotiSkeleton
+      colors={[
+        primaryColor,
+        secondaryColor,
+        secondaryColor,
+        primaryColor,
+        secondaryColor,
+        primaryColor,
+      ]}
+      {...style}
+      {...restProps}
     >
-      <MotiSkeleton
-        colorMode={themeVariant}
-        radius="round"
-        height={75}
-        width={75}
-      />
-      <Spacer />
-      <MotiSkeleton colorMode={themeVariant} width={250} />
-      <Spacer height={8} />
-      <MotiSkeleton colorMode={themeVariant} width="100%" />
-      <Spacer height={8} />
-      <MotiSkeleton colorMode={themeVariant} width="100%" />
-    </MotiView>
+      {children}
+    </MotiSkeleton>
   );
 }
+
+export const Skeleton = withStaticProperties(
+  styled(BasicSkeleton, {
+    name: 'Skeleton',
+  } as const),
+  {
+    Group: MotiSkeleton.Group,
+  },
+);

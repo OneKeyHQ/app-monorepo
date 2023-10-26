@@ -60,7 +60,7 @@ export interface ModalProps {
   onOpen?: () => void;
   onClose?: () => void;
   renderTrigger?: React.ReactNode;
-  leadingIcon?: ICON_NAMES;
+  icon?: ICON_NAMES;
   title?: string;
   description?: string;
   variant?: 'default' | 'destructive';
@@ -78,7 +78,7 @@ function DialogFrame({
   renderTrigger,
   onOpen,
   title,
-  leadingIcon,
+  icon,
   description,
   renderContent,
   onConfirm,
@@ -121,14 +121,14 @@ function DialogFrame({
 
   const content = (
     <Stack p="$5" pb={bottom || '$5'}>
-      {leadingIcon && (
+      {icon && (
         <Stack
           p="$3"
           borderRadius="$full"
           bg={variant === 'destructive' ? '$bgCritical' : '$bgStrong'}
         >
           <Icon
-            name={leadingIcon}
+            name={icon}
             size="$8"
             color={variant === 'destructive' ? '$iconCritical' : '$icon'}
           />
