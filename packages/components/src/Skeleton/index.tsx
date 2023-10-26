@@ -39,8 +39,11 @@ function BasicSkeleton(
   );
 }
 
-export const Skeleton = withStaticProperties(styled(BasicSkeleton, {
-  name: 'Skeleton',
-} as const), {
-  Group: MotiSkeleton.Group
-})
+export const Skeleton = withStaticProperties(
+  styled(BasicSkeleton, {
+    name: 'Skeleton',
+  } as const),
+  {
+    Group: MotiSkeleton.Group,
+  },
+);
