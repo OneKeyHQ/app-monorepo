@@ -2,7 +2,13 @@ name: unittest
 
 on:
   pull_request:
-    branches: [onekey]
+    branches:
+      - onekey
+      - x
+  push:
+    branches:
+      - onekey
+      - x
 
 # Cancel a currently running workflow from the same PR/branch/tag
 # when a new workflow is triggered
