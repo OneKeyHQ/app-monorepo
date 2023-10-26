@@ -25,8 +25,6 @@ yarn-error.log
 !.yarn/sdks
 !.yarn/versions
 
-/apps/desktop/public/static/js-sdk
-
 .env
 webpack.config.preview.json
 webpack.config.preview.devServer.json
@@ -40,7 +38,6 @@ webpack.config.preview.devServer.json
 web-build/
 # !/apps/web-embed/web-build/
 /inpage-provider-bak
-/packages/shared/src/web/index.html
 
 ### VisualStudioCode ###
 .vscode/*
@@ -76,4 +73,13 @@ test-report.html
 # Temporary files created by Metro to check the health of the file watcher
 .metro-health-check*
 
+# Ignore tamagui config file 
 .tamagui
+
+# Ignore copy inject files
+/apps/desktop/public/static/js-sdk
+/apps/ext/src/entry/injected.js
+/apps/desktop/public/static/preload.js
+/apps/ext/src/entry/injected.text-js
+/packages/kit/src/components/WebView/injectedNative.text-js
+/packages/shared/src/web/index.html
