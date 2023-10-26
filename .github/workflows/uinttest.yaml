@@ -1,4 +1,4 @@
-name: lint
+name: unittest
 
 on:
   pull_request:
@@ -55,6 +55,6 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=4096'
         run: |
           yarn --mode=skip-build && yarn patch-package
-          yarn lint
+          yarn test
 
 
