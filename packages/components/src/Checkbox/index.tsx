@@ -1,12 +1,17 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
-import { Checkbox as TMCheckbox } from 'tamagui';
+import { FlatList } from 'react-native';
+import { Checkbox as TMCheckbox, withStaticProperties } from 'tamagui';
 
+import { Divider } from '../Divider';
 import { Icon } from '../Icon';
 import { Label } from '../Label';
-import { XStack } from '../Stack';
+import { XStack, YStack } from '../Stack';
 
+import type { ViewStyle } from 'react-native';
 import type { CheckedState, CheckboxProps as TMCheckboxProps } from 'tamagui';
+
+export type { CheckedState } from 'tamagui';
 
 export type CheckboxProps = Omit<
   TMCheckboxProps,
@@ -17,7 +22,7 @@ export type CheckboxProps = Omit<
   onChange?: (checked: CheckedState) => void;
 };
 
-export function Checkbox({
+function RawCheckbox({
   label,
   onChange,
   value,
@@ -80,3 +85,101 @@ export function Checkbox({
     </XStack>
   );
 }
+
+interface CheckboxGroupProps {
+  label?: string;
+  value: CheckedState[];
+  disabled?: boolean;
+  onChange: (value: CheckedState[]) => void;
+  listStyle?: ViewStyle;
+  options: {
+    disabled?: boolean;
+    label: string;
+  }[];
+}
+
+function CheckboxGroupItem({
+  disabled,
+  label,
+  value,
+  index,
+  onChange,
+}: {
+  disabled: boolean;
+  label: string;
+  value: CheckedState;
+  index: number;
+  onChange: (index: number, value: CheckedState) => void;
+}) {
+  const handleOnChange = useCallback(
+    (v: CheckedState) => {
+      onChange(index, v);
+    },
+    [index, onChange],
+  );
+  return (
+    <RawCheckbox
+      label={label}
+      value={value}
+      disabled={disabled}
+      onChange={handleOnChange}
+    />
+  );
+}
+
+function CheckboxGroup({
+  label,
+  options,
+  onChange,
+  disabled,
+  value,
+  listStyle,
+}: CheckboxGroupProps) {
+  const [isAll, setAll] = useState(
+    value.length === options.length && !value.find((v) => !v),
+  );
+  const handleSelectAll = useCallback(() => {
+    setAll(!isAll);
+    onChange(options.map(() => !isAll));
+  }, [isAll, onChange, options]);
+  const onChangeHandler = useCallback(
+    (index: number, v: CheckedState) => {
+      value[index] = v;
+      onChange([...value]);
+    },
+    [onChange, value],
+  );
+  return (
+    <YStack>
+      <RawCheckbox
+        disabled={disabled}
+        label={label}
+        value={isAll}
+        onChange={handleSelectAll}
+      />
+      <Divider />
+      <FlatList
+        removeClippedSubviews
+        style={listStyle}
+        data={options}
+        renderItem={({
+          item: { label: labelText, disabled: disabledElement },
+          index,
+        }) => (
+          <CheckboxGroupItem
+            key={label}
+            label={labelText}
+            value={value[index]}
+            index={index}
+            disabled={disabled || !!disabledElement}
+            onChange={onChangeHandler}
+          />
+        )}
+      />
+    </YStack>
+  );
+}
+
+export const Checkbox = withStaticProperties(RawCheckbox, {
+  Group: CheckboxGroup,
+});

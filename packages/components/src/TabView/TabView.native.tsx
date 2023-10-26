@@ -2,13 +2,14 @@ import type { ForwardRefRenderFunction, ReactNode } from 'react';
 import { forwardRef, memo, useCallback, useEffect, useMemo } from 'react';
 import * as React from 'react';
 
-import type { Props } from '@onekeyhq/components';
-import { getThemeTokens, useThemeValue } from '@onekeyhq/components';
 import PlatformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { getThemeTokens, useThemeValue } from '../Provider/hooks/useThemeValue';
 
 import NestedTabView from './NativeTabView/NestedTabView';
 import { useActiveTabContext } from './Provider/ActiveTabContext';
 
+import type { Props } from './index';
 import type { ForwardRefHandle } from './NativeTabView/NestedTabView';
 import type {
   OnPageChangeEvent,

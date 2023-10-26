@@ -1,4 +1,4 @@
-import type { ComponentProps, FC } from 'react';
+import type { ComponentProps, FC, PropsWithChildren } from 'react';
 import { memo, useEffect } from 'react';
 
 import { Provider } from '@onekeyhq/components';
@@ -9,9 +9,8 @@ import {
 
 import { useThemeProviderVariant } from '../hooks/useThemeVariant';
 
-const ThemeApp: FC = ({ children }) => {
+const ThemeApp: FC = ({ children }: PropsWithChildren<unknown>) => {
   const { themeVariant, localeVariant } = useThemeProviderVariant();
-
   useEffect(() => {
     if (themeVariant === 'light') {
       setDarkContent();

@@ -1,9 +1,9 @@
+import { ButtonFrame } from '../Button';
 import { Divider } from '../Divider';
 import { Icon } from '../Icon';
 import { Popover } from '../Popover';
 import { YStack } from '../Stack';
 import { Text } from '../Text';
-import { ButtonFrame } from '../Button';
 
 import type { ICON_NAMES } from '../Icon';
 import type { PopoverProps } from '../Popover';
@@ -25,8 +25,8 @@ function ActionListItem({
 }: ActionListItemProps) {
   return (
     <ButtonFrame
-      justifyContent={'flex-start'}
-      bg={'$bg'}
+      justifyContent="flex-start"
+      bg="$bg"
       px="$2"
       py="$1.5"
       borderWidth={0}
