@@ -65,7 +65,10 @@ function TokenActions(props: Props) {
         id: 'action__send',
         onPress: onPressSend,
         icon: 'PaperAirplaneOutline',
-        isDisabled: isInsufficientTransferBalance || isWatching,
+        isDisabled:
+          (isInsufficientTransferBalance && !isTaproot) ||
+          isInsufficientAvailableBalance ||
+          isWatching,
       },
       {
         id: 'action__receive',
@@ -98,7 +101,11 @@ function TokenActions(props: Props) {
           size="lg"
           onPress={onPressSend}
           flex={1}
-          isDisabled={isInsufficientTransferBalance || isWatching}
+          isDisabled={
+            (isInsufficientTransferBalance && !isTaproot) ||
+            isInsufficientAvailableBalance ||
+            isWatching
+          }
         >
           {intl.formatMessage({ id: 'action__send' })}
         </Button>
