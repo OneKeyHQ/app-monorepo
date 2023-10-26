@@ -59,16 +59,31 @@ function TokenActions(props: Props) {
     [balanceWithoutRecycle.availableBalance],
   );
 
+  const isSendActionDisabled = useMemo(
+    () =>
+      (isInsufficientTransferBalance && !isTaproot) ||
+      (isInsufficientAvailableBalance && isInsufficientTransferBalance) ||
+      isWatching,
+    [
+      isInsufficientAvailableBalance,
+      isInsufficientTransferBalance,
+      isTaproot,
+      isWatching,
+    ],
+  );
+
+  const isTransferActionDisabled = useMemo(
+    () => isInsufficientAvailableBalance || isWatching || !isTaproot,
+    [isInsufficientAvailableBalance, isTaproot, isWatching],
+  );
+
   const actions = useMemo(
     () => [
       {
         id: 'action__send',
         onPress: onPressSend,
         icon: 'PaperAirplaneOutline',
-        isDisabled:
-          (isInsufficientTransferBalance && !isTaproot) ||
-          isInsufficientAvailableBalance ||
-          isWatching,
+        isDisabled: isSendActionDisabled,
       },
       {
         id: 'action__receive',
@@ -80,13 +95,12 @@ function TokenActions(props: Props) {
         id: 'action__transfer_brc20',
         onPress: onPressTransfer,
         icon: 'ArrowUturnDownMini',
-        isDisabled: isInsufficientAvailableBalance || isWatching || !isTaproot,
+        isDisabled: isTransferActionDisabled,
       },
     ],
     [
-      isInsufficientAvailableBalance,
-      isInsufficientTransferBalance,
-      isTaproot,
+      isSendActionDisabled,
+      isTransferActionDisabled,
       isWatching,
       onPressReceive,
       onPressSend,
@@ -101,11 +115,7 @@ function TokenActions(props: Props) {
           size="lg"
           onPress={onPressSend}
           flex={1}
-          isDisabled={
-            (isInsufficientTransferBalance && !isTaproot) ||
-            isInsufficientAvailableBalance ||
-            isWatching
-          }
+          isDisabled={isSendActionDisabled}
         >
           {intl.formatMessage({ id: 'action__send' })}
         </Button>
@@ -123,7 +133,7 @@ function TokenActions(props: Props) {
               id: 'action__transfer_brc20',
               onPress: onPressTransfer,
               icon: 'ArrowUturnDownMini',
-              isDisabled: isInsufficientAvailableBalance || isWatching,
+              isDisabled: isTransferActionDisabled,
             },
           ]}
         >

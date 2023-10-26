@@ -25,6 +25,7 @@ export enum RPC_METHODS {
   GET_TOKEN_ACCOUNTS_BY_OWNER = 'getTokenAccountsByOwner',
   GET_FEES = 'getFees',
   GET_TRANSACTION = 'getTransaction',
+  GET_MINIMUM_BALANCE_FOR_RENT_EXEMPTION = 'getMinimumBalanceForRentExemption',
 }
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export enum PARAMS_ENCODINGS {
@@ -147,10 +148,11 @@ export class ClientSol extends BaseClient {
 
   async getAccountInfo(
     address: string,
+    encoding: PARAMS_ENCODINGS = PARAMS_ENCODINGS.JSON_PARSED,
   ): Promise<{ [key: string]: any } | null> {
     const response: { [key: string]: any } = await this.rpc.call(
       RPC_METHODS.GET_ACCOUNT_INFO,
-      [address, { encoding: PARAMS_ENCODINGS.JSON_PARSED }],
+      [address, { encoding }],
     );
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return response.value;
@@ -246,6 +248,15 @@ export class ClientSol extends BaseClient {
     }
 
     return result;
+  }
+
+  async getMinimumBalanceForRentExemption(dataLength: number): Promise<number> {
+    const response: number = await this.rpc.call(
+      RPC_METHODS.GET_MINIMUM_BALANCE_FOR_RENT_EXEMPTION,
+      [dataLength],
+    );
+
+    return response;
   }
 
   override getTokenInfos = async (
