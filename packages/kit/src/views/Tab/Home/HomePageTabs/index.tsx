@@ -135,13 +135,13 @@ function HomePage() {
     () => (
       <Screen>
         <TabView
-        navigationState={{ routes }}
-        onRefresh={onRefresh}
-        onIndexChange={onIndexChange}
-        renderScene={renderScene}
-        renderHeaderView={renderHeaderView}
-        ref={tabsViewRef}
-      />
+          navigationState={{ routes }}
+          onRefresh={onRefresh}
+          onIndexChange={onIndexChange}
+          renderScene={renderScene}
+          renderHeaderView={renderHeaderView}
+          ref={tabsViewRef}
+        />
       </Screen>
     ),
     [routes, onRefresh, onIndexChange, renderHeaderView],

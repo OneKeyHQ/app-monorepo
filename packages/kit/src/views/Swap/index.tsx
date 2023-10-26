@@ -9,9 +9,9 @@ const Swap = () => {
   return (
     <Screen>
       <YStack space="@4">
-      <Text>Swap</Text>
-      <LocalAuthenticationButton />
-    </YStack>
+        <Text>Swap</Text>
+        <LocalAuthenticationButton />
+      </YStack>
     </Screen>
   );
 };
