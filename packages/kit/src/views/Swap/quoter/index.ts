@@ -12,6 +12,7 @@ import { IMPL_APTOS, IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { QuoterType } from '../typings';
 import {
   calculateNetworkFee,
   convertBuildParams,
@@ -34,6 +35,7 @@ import { JupiterQuoter } from './jupiter';
 import { SocketQuoter } from './socket';
 import { SwftcQuoter } from './swftc';
 import { ThorSwapQuoter } from './thorswap';
+import { ThorSwapStreamQuoter } from './thorswapStream';
 
 import type {
   BuildTransactionParams,
@@ -45,7 +47,6 @@ import type {
   QuoteData,
   QuoteLimited,
   Quoter,
-  QuoterType,
   SOLSerializableTransactionReceipt,
   SOLSerializableTransactionReceiptTokenBalancesItem,
   SerializableBlockReceipt,
@@ -167,7 +168,9 @@ export class SwapQuoter {
 
   private socket = new SocketQuoter();
 
-  private thor = new ThorSwapQuoter();
+  private thorswap = new ThorSwapQuoter();
+
+  private thorswapStream = new ThorSwapStreamQuoter();
 
   private deezy = new DeezyQuoter();
 
@@ -177,7 +180,8 @@ export class SwapQuoter {
     this.jupiter,
     this.swftc,
     this.deezy,
-    this.thor,
+    this.thorswap,
+    this.thorswapStream,
   ];
 
   transactionReceipts: Record<
@@ -751,8 +755,11 @@ export class SwapQuoter {
         if (orderInfo) {
           return orderInfo.receiveCoinAmt;
         }
-      } else if (tx?.quoterType === 'Thorswap') {
-        const info = await this.thor.getTransactionInfo(tx);
+      } else if (
+        tx?.quoterType === QuoterType.thorswap ||
+        tx.quoterType === QuoterType.thorswapStream
+      ) {
+        const info = await this.thorswap.getTransactionInfo(tx);
         if (info) {
           const { legs } = info.result;
           const lastLegs = legs[legs.length - 1];

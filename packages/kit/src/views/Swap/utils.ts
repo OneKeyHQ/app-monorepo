@@ -301,7 +301,7 @@ export function convertParams(params: FetchQuoteParams) {
     urlParams.onChainSatsPerVbyte = params.onChainSatsPerVbyte;
   }
   urlParams.includes =
-    '0x,1inch,jupiter,openocean,swftc,socket,mdex,Deezy,Thorswap';
+    '0x,1inch,jupiter,openocean,swftc,socket,mdex,Deezy,Thorswap,ThorswapStream';
   urlParams.noFilter = true;
   return urlParams;
 }

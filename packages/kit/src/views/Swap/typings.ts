@@ -121,6 +121,7 @@ export enum QuoterType {
   onekey = 'onekey',
   deezy = 'Deezy',
   thorswap = 'Thorswap',
+  thorswapStream = 'ThorswapStream',
 }
 
 export type FieldType = 'INPUT' | 'OUTPUT';
