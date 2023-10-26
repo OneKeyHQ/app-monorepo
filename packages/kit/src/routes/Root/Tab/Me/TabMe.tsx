@@ -12,14 +12,14 @@ const TabMe = () => {
   return (
     <Screen>
       <YStack>
-      <Button
-        onPress={() => {
-          navigation.switchTab(TabRoutes.Me);
-        }}
-      >
-        <Button>切换到首页</Button>
-      </Button>
-    </YStack>
+        <Button
+          onPress={() => {
+            navigation.switchTab(TabRoutes.Me);
+          }}
+        >
+          <Button>切换到首页</Button>
+        </Button>
+      </YStack>
     </Screen>
   );
 };
