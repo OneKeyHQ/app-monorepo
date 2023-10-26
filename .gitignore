@@ -77,3 +77,8 @@ test-report.html
 .metro-health-check*
 
 .tamagui
+
+apps/ext/src/entry/injected.js
+apps/desktop/public/static/preload.js
+apps/ext/src/entry/injected.text-js
+packages/kit/src/components/WebView/injectedNative.text-js
