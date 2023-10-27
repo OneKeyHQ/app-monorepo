@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useState } from 'react';
 
 import { Input } from 'tamagui';
@@ -5,6 +6,8 @@ import { Input } from 'tamagui';
 import { Button, Dialog, Text, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
+
+import type { UseFormReturn } from 'react-hook-form';
 
 const ControlledDialogByText = () => {
   const [isOpen, changeIsOpen] = useState(false);
@@ -93,6 +96,26 @@ const ControlledDialogByButton = () => {
   );
 };
 
+const HideFooterDialog = () => {
+  const [isOpen, changeIsOpen] = useState(false);
+  return (
+    <>
+      <Button onPress={() => changeIsOpen(true)}>Hide Footer</Button>
+      <Dialog
+        backdrop
+        title="Lorem ipsum"
+        description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec."
+        open={isOpen}
+        onClose={() => {
+          changeIsOpen(false);
+        }}
+        renderContent={<Text>Overlay Content by Button Trigger</Text>}
+        renderFooter={null}
+      />
+    </>
+  );
+};
+
 const DialogGallery = () => (
   <Layout
     description="需要用户处理事务，又不希望跳转路由以致打断工作流程时，可以使用 Dialog 组件"
@@ -117,6 +140,10 @@ const DialogGallery = () => (
       {
         title: 'open Modal by Button',
         element: <ControlledDialogByButton />,
+      },
+      {
+        title: 'hide footer',
+        element: <HideFooterDialog />,
       },
       {
         title: '命令式 API',
@@ -231,6 +258,94 @@ const DialogGallery = () => (
                       >
                         <Input placeholder="Required" />
                       </Dialog.FormField>
+                    </Dialog.Form>
+                  ),
+                  onConfirm: async ({ form }) => {
+                    if (form) {
+                      const isValid = await form.trigger();
+                      if (isValid) {
+                        alert(JSON.stringify(form.getValues()));
+                      } else {
+                        alert('请检查输入项');
+                      }
+                      return isValid;
+                    }
+                    return false;
+                  },
+                })
+              }
+            >
+              Open Dialog Form
+            </Button>
+          </YStack>
+        ),
+      },
+      {
+        title: 'Dialog Form With Form Context',
+        element: (
+          <YStack>
+            <Button
+              mt="$4"
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'Password',
+                  description: 'input password',
+                  renderContent: (
+                    <Dialog.Form
+                      useFormProps={
+                        {
+                          defaultValues: {
+                            name: 'Nate Wienert',
+                            length: '1234567',
+                          },
+                        } as any
+                      }
+                    >
+                      {
+                        // eslint-disable-next-line react/no-unstable-nested-components
+                        (({
+                          form,
+                        }: {
+                          form: UseFormReturn<{
+                            name: string;
+                            async: string;
+                          }>;
+                        }) => (
+                          <>
+                            <Dialog.FormField label="Name" name="name">
+                              <Input flex={1} />
+                            </Dialog.FormField>
+                            <Dialog.FormField
+                              label="MaxLength"
+                              name="length"
+                              rules={{
+                                maxLength: {
+                                  value: 6,
+                                  message: 'maxLength is 6',
+                                },
+                              }}
+                            >
+                              <Input placeholder="Max Length Limit" />
+                            </Dialog.FormField>
+                            <Dialog.FormField
+                              label="async load remote data"
+                              name="async"
+                              rules={{
+                                validate: (value: string) =>
+                                  new Promise((resolve) => {
+                                    setTimeout(() => {
+                                      // get form value
+                                      console.log(value, form.getValues().name);
+                                      resolve(true);
+                                    }, 1500);
+                                  }),
+                              }}
+                            >
+                              <Input placeholder="Required" />
+                            </Dialog.FormField>
+                          </>
+                        )) as any as ReactNode
+                      }
                     </Dialog.Form>
                   ),
                   onConfirm: async ({ form }) => {

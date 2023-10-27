@@ -1,9 +1,7 @@
-import { createRef, memo, useEffect } from 'react';
+import { createRef, memo } from 'react';
 
 import { NavigationContainer } from '@react-navigation/native';
-import { useTheme } from 'tamagui';
 
-import { setBackgroundColor } from '@onekeyhq/components/src/Navigation/utils/StatusBarUtils';
 import { RootNavigator } from '@onekeyhq/kit/src/routes';
 
 export const navigationRef = createRef();

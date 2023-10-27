@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { Radio, SegmentControl } from '@onekeyhq/components';
+import { SegmentControl } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 

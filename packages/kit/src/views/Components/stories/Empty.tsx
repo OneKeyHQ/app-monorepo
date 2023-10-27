@@ -1,4 +1,4 @@
-import { Empty, Stack } from '@onekeyhq/components';
+import { Empty } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
