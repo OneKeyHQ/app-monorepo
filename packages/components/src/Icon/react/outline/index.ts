@@ -53,6 +53,7 @@ export { default as ArrowPathLeft } from './ArrowPathLeft';
 export { default as ArrowPathRight } from './ArrowPathRight';
 export { default as ArrowPathUp } from './ArrowPathUp';
 export { default as ArrowRightCircle } from './ArrowRightCircle';
+export { default as ArrowRight } from './ArrowRight';
 export { default as ArrowTopCircle } from './ArrowTopCircle';
 export { default as ArrowTopLeft } from './ArrowTopLeft';
 export { default as ArrowTopRight } from './ArrowTopRight';

@@ -120,7 +120,7 @@ function DialogFrame({
   const keyboardHeight = useKeyboardHeight();
 
   const content = (
-    <Stack p="$5" pb={bottom || '$5'}>
+    <Stack {...(bottom && { pb: bottom })}>
       {icon && (
         <Stack
           p="$3"
@@ -134,7 +134,7 @@ function DialogFrame({
           />
         </Stack>
       )}
-      <XStack alignItems="flex-start">
+      <XStack alignItems="flex-start" p="$5">
         <Stack flex={1} pr="$2.5">
           {title && (
             <Text variant="$headingXl" py="$px">
@@ -153,8 +153,12 @@ function DialogFrame({
           onPress={handleCancelButtonPress}
         />
       </XStack>
-      {renderContent && <YStack pt="$5">{renderContent}</YStack>}
-      <XStack justifyContent="center" pt="$5">
+      {renderContent && (
+        <YStack px="$5" pb="$5">
+          {renderContent}
+        </YStack>
+      )}
+      <XStack p="$5" pt="$0">
         <Button
           flex={1}
           $md={{
