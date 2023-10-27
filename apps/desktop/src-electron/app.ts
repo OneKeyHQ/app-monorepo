@@ -14,7 +14,6 @@ import {
   shell,
   systemPreferences,
 } from 'electron';
-import Config from 'electron-config';
 import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
@@ -30,17 +29,6 @@ import type { PrefType } from './preload';
 
 const ONEKEY_APP_DEEP_LINK_NAME = 'onekey-wallet';
 const WALLET_CONNECT_DEEP_LINK_NAME = 'wc';
-
-// eslint-disable-next-line @typescript-eslint/no-unsafe-call
-const config = new Config() as
-  | {
-      set: (key: string, data: any) => void;
-      get: (key: string) => any;
-    }
-  | undefined;
-const configKeys = {
-  winBounds: 'winBounds',
-};
 
 // https://github.com/sindresorhus/electron-context-menu
 const disposeContextMenu = contextMenu({
@@ -183,7 +171,7 @@ function handleDeepLinkUrl(
 
 function clearWebData() {
   return session.defaultSession.clearStorageData({
-    storages: ['cookies', 'appcache'],
+    storages: ['cookies'],
   });
 }
 
@@ -191,7 +179,7 @@ function createMainWindow() {
   const display = screen.getPrimaryDisplay();
   const dimensions = display.workAreaSize;
   const ratio = 16 / 9;
-  const savedWinBounds = config?.get(configKeys.winBounds) || {};
+  const savedWinBounds: any = store.getWinBounds();
   const browserWindow = new BrowserWindow({
     title: APP_NAME,
     titleBarStyle: isWin ? 'default' : 'hidden',
@@ -213,6 +201,7 @@ function createMainWindow() {
       // webview injected js needs isolation=false, because property can not be exposeInMainWorld() when isolation enabled.
       contextIsolation: false,
       preload: path.join(__dirname, 'preload.js'),
+      sandbox: false,
     },
     icon: path.join(staticPath, 'images/icons/512x512.png'),
     ...savedWinBounds,
@@ -252,7 +241,7 @@ function createMainWindow() {
   });
 
   browserWindow.on('resize', () => {
-    config?.set(configKeys.winBounds, browserWindow.getBounds());
+    store.setWinBounds(browserWindow.getBounds());
   });
   browserWindow.on('closed', () => {
     mainWindow = null;
@@ -410,9 +399,7 @@ function createMainWindow() {
   // Prevents clicking on links to open new Windows
   app.on('web-contents-created', (event, contents) => {
     if (contents.getType() === 'webview') {
-      contents.on('new-window', (newWindowEvent: Event) => {
-        newWindowEvent.preventDefault();
-      });
+      contents.setWindowOpenHandler(() => ({ action: 'deny' }));
     }
   });
 
@@ -485,6 +472,7 @@ function createMainWindow() {
     );
   }
 
+  // @ts-expect-error
   browserWindow.on('close', (event: Event) => {
     // hide() instead of close() on MAC
     if (isMac) {
@@ -614,6 +602,7 @@ app.on('will-finish-launching', () => {
   // app.off('open-url', handleDeepLinkUrl);
   // ** Protocol handler for osx
   // deeplink: Handle the protocol. In this case, we choose to show an Error Box.
+  // @ts-expect-error
   app.on('open-url', handleDeepLinkUrl);
 });
 
