@@ -146,4 +146,9 @@ if (platformEnv.isNativeIOS) {
   Error.captureStackTrace = () => {};
 }
 
+// Shim structuredClone
+if (!("structuredClone" in globalThis)) {
+  globalThis.structuredClone = require('@ungap/structured-clone/cjs');
+}
+
 console.log('polyfillsPlatform.native shim loaded');
