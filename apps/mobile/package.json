@@ -25,6 +25,7 @@
     "@onekeyhq/kit": "*",
     "@onekeyhq/shared": "*",
     "@react-native-async-storage/async-storage": "1.18.2",
+    "@react-native-community/slider": "^4.4.3",
     "burnt": "0.12",
     "expo": "~49.0.13",
     "expo-device": "~5.4.0",

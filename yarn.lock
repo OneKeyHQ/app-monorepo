@@ -5124,6 +5124,7 @@ __metadata:
     "@onekeyhq/kit": "*"
     "@onekeyhq/shared": "*"
     "@react-native-async-storage/async-storage": 1.18.2
+    "@react-native-community/slider": ^4.4.3
     burnt: 0.12
     expo: ~49.0.13
     expo-device: ~5.4.0
@@ -5972,6 +5973,13 @@ __metadata:
   bin:
     react-native: build/bin.js
   checksum: 704e3d5e252a42a45697384b55f140b4961cbc213a90701ef163d1d0bab4fa8481ae4bf9ffe9c965114817087068186422d96d60aed479466bab036049a32866
+  languageName: node
+  linkType: hard
+
+"@react-native-community/slider@npm:^4.4.3":
+  version: 4.4.3
+  resolution: "@react-native-community/slider@npm:4.4.3"
+  checksum: e02416e763a05bee54967aae1e14ff9c7d76395416dc4ff7c0595a71c9866db35ac0bca8305fa1c7feca3568a327d563f6f14e14d342536257e91d3d4b6d5f3e
   languageName: node
   linkType: hard
 

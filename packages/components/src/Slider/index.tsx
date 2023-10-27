@@ -6,8 +6,25 @@ export interface SliderProps extends TMSliderProps {
   disabled?: boolean;
 }
 
-export const Slider = ({ disabled, ...props }: SliderProps) => (
-  <TMSlider {...props} h="$1" opacity={disabled ? 0.5 : 1} disabled={disabled}>
+export const Slider = ({
+  disabled,
+  value,
+  defaultValue,
+  onValueChange,
+  ...props
+}: SliderProps) => (
+  <TMSlider
+    {...props}
+    h="$1"
+    opacity={disabled ? 0.5 : 1}
+    disabled={disabled}
+    min={0}
+    max={1}
+    step={0.001}
+    defaultValue={defaultValue ? [defaultValue] : undefined}
+    value={value ? [value] : undefined}
+    onValueChange={(valueList) => onValueChange && onValueChange(valueList[0])}
+  >
     <TMSlider.Track bg="$neutral5">
       <TMSlider.TrackActive bg="$bgPrimary" />
     </TMSlider.Track>
@@ -15,7 +32,9 @@ export const Slider = ({ disabled, ...props }: SliderProps) => (
       unstyled
       position="absolute"
       size="$5"
-      hitSlop={8}
+      $platform-native={{
+        hitSlop: 8,
+      }}
       circular
       index={0}
       bg="$bg"
