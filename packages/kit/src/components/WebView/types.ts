@@ -7,7 +7,11 @@ import type {
   PageTitleUpdatedEvent,
 } from './DesktopWebView';
 import type { InpageProviderWebViewProps as InpageWebViewProps } from '@onekeyfe/cross-inpage-provider-types';
-import type { WebViewSource } from 'react-native-webview/lib/WebViewTypes';
+import type {
+  WebViewErrorEvent,
+  WebViewNavigationEvent,
+  WebViewSource,
+} from 'react-native-webview/lib/WebViewTypes';
 
 export interface InpageProviderWebViewProps
   extends IElectronWebViewEvents,
@@ -22,6 +26,9 @@ export interface InpageProviderWebViewProps
   onContentLoaded?: () => void; // currently works in NativeWebView only
   onOpenWindow?: (event: any) => void;
   androidLayerType?: 'none' | 'software' | 'hardware';
+  onLoadStart?: (event: WebViewNavigationEvent) => void;
+  onLoad?: (event: WebViewNavigationEvent) => void;
+  onLoadEnd?: (event: WebViewNavigationEvent | WebViewErrorEvent) => void;
 }
 
 export type IElectronWebView = {

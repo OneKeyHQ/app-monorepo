@@ -12,7 +12,9 @@ import type { IElectronWebViewEvents } from './types';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type {
+  WebViewErrorEvent,
   WebViewNavigation,
+  WebViewNavigationEvent,
   WebViewOpenWindowEvent,
   WebViewSource,
 } from 'react-native-webview/lib/WebViewTypes';
@@ -34,6 +36,9 @@ interface WebViewProps extends IElectronWebViewEvents {
   onContentLoaded?: () => void; // currently works in NativeWebView only
   onOpenWindow?: (event: WebViewOpenWindowEvent) => void;
   androidLayerType?: 'none' | 'software' | 'hardware';
+  onLoadStart?: (event: WebViewNavigationEvent) => void;
+  onLoad?: (event: WebViewNavigationEvent) => void;
+  onLoadEnd?: (event: WebViewNavigationEvent | WebViewErrorEvent) => void;
 }
 
 const WebView: FC<WebViewProps> = ({

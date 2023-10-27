@@ -41,6 +41,7 @@ const NativeWebView = forwardRef(
       onLoadProgress,
       injectedJavaScriptBeforeContentLoaded,
       onMessage,
+      onLoadStart,
       ...props
     }: NativeWebViewProps,
     ref,
@@ -87,20 +88,24 @@ const NativeWebView = forwardRef(
       return wrapper;
     });
 
-    // @ts-expect-error
-    const webViewOnLoadStart = useCallback((syntheticEvent) => {
-      // eslint-disable-next-line no-unsafe-optional-chaining, @typescript-eslint/no-unsafe-member-access
-      const { url } = syntheticEvent?.nativeEvent;
-      try {
-        if (checkOneKeyCardGoogleOauthUrl({ url })) {
-          openUrlExternal(url);
-          webviewRef.current?.stopLoading();
+    const webViewOnLoadStart = useCallback(
+      // @ts-expect-error
+      (syntheticEvent) => {
+        // eslint-disable-next-line no-unsafe-optional-chaining, @typescript-eslint/no-unsafe-member-access
+        const { url } = syntheticEvent?.nativeEvent;
+        try {
+          if (checkOneKeyCardGoogleOauthUrl({ url })) {
+            openUrlExternal(url);
+            webviewRef.current?.stopLoading();
+          }
+          onLoadStart?.(syntheticEvent);
+        } catch (error) {
+          // debugLogger.webview.error('onLoadStart', error);
+          console.log('onLoadStart: ', error);
         }
-      } catch (error) {
-        // debugLogger.webview.error('onLoadStart', error);
-        console.log('onLoadStart: ', error);
-      }
-    }, []);
+      },
+      [onLoadStart],
+    );
 
     const renderError = useCallback(
       (

@@ -26,6 +26,9 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       isSpinnerLoading,
       onContentLoaded,
       onOpenWindow,
+      onLoad,
+      onLoadStart,
+      onLoadEnd,
       androidLayerType,
     }: InpageProviderWebViewProps,
     ref: any,
@@ -127,6 +130,9 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
           onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
           textInteractionEnabled={undefined}
           minimumFontSize={undefined}
+          onLoad={onLoad}
+          onLoadStart={onLoadStart}
+          onLoadEnd={onLoadEnd}
           // allowFileAccessFromFileURLs
           // allowFileAccess
           // allowUniversalAccessFromFileURLs
