@@ -2,5 +2,5 @@
 
 export default function useIsLowPerformanceDevice() {
   //   return !platformEnv.isDev ? IsLowPerformanceDevice : false;
-  return false;
+  return true;
 }

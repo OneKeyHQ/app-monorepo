@@ -68,7 +68,7 @@ export const ipcMessageKeys = {
   SERVER_LISTENER: 'server/listener',
   SERVER_RESPOND: 'server/respond',
 
-  // Evnet
+  // Event
   EVENT_OPEN_URL: 'event-open-url',
 
   // DeepLink

@@ -160,12 +160,19 @@ const Tab5Scene = () => (
   </ScrollView>
 );
 
+const Tab6Scene = () => <Text>Tab</Text>;
+const Tab7Scene = () => <Text>Tab</Text>;
+const Tab8Scene = () => <Text>Tab</Text>;
+
 const renderScene = SceneMap({
   tab1: Tab1Scene,
   tab2: Tab2Scene,
   tab3: Tab3Scene,
   tab4: Tab4Scene,
   tab5: Tab5Scene,
+  tab6: Tab6Scene,
+  tab7: Tab7Scene,
+  tab8: Tab8Scene,
 });
 
 function CollapsibleTabView() {
@@ -188,12 +195,7 @@ function CollapsibleTabView() {
 
   const renderHeaderViewCall = useCallback(
     () => (
-      <Stack
-        backgroundColor="$bg"
-        alignItems="center"
-        justifyContent="center"
-        py="$4"
-      >
+      <Stack alignItems="center" justifyContent="center" py="$4">
         <Text>Header View Simple</Text>
         <Text>{`Header Height ${headerHighMode.toString()}`}</Text>
         <Text>{`Item Count ${showNetworks.length}`}</Text>
@@ -211,11 +213,14 @@ function CollapsibleTabView() {
     { key: 'tab3', title: 'Tab3' },
     { key: 'tab4', title: 'Tab4', autoFreeze: 15 * 1000 },
     { key: 'tab5', title: 'Tab5', autoFreeze: 10 * 1000 },
+    { key: 'tab6', title: 'Tab6' },
+    { key: 'tab7', title: 'Tab7' },
+    { key: 'tab8', title: 'Tab8' },
   ]);
 
   return useMemo(
     () => (
-      <Stack flex={1} backgroundColor="$bgHovered">
+      <Stack flex={1}>
         <TabView
           ref={tabsViewRef}
           lazy

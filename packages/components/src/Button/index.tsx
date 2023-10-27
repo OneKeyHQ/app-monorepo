@@ -21,6 +21,7 @@ export interface ButtonProps extends GetProps<typeof ThemeableStack> {
   disabled?: boolean;
   loading?: boolean;
   children: React.ReactNode;
+  color?: ColorTokens;
 }
 
 const BUTTON_VARIANTS: Record<
@@ -153,6 +154,24 @@ function ButtonIcon({
   );
 }
 
+type SharedFrameStylesProps = {
+  hoverStyle: {
+    bg: ColorTokens;
+  };
+  pressStyle: {
+    bg: ColorTokens;
+  };
+  focusable: boolean;
+  focusStyle: {
+    outlineColor: ColorTokens;
+    outlineStyle: string;
+    outlineWidth: number;
+  };
+  bg: ColorTokens;
+  borderWidth: string;
+  borderColor: string;
+};
+
 const ButtonComponent = ButtonFrame.styleable<ButtonProps>((props, ref) => {
   const {
     size = 'medium',
@@ -161,6 +180,7 @@ const ButtonComponent = ButtonFrame.styleable<ButtonProps>((props, ref) => {
     disabled,
     loading,
     children,
+    color: textColor,
     variant = 'secondary',
     ...rest
   } = useProps(props, {});
@@ -171,7 +191,11 @@ const ButtonComponent = ButtonFrame.styleable<ButtonProps>((props, ref) => {
     variant,
     disabled,
     loading,
-  });
+  }) as {
+    sharedFrameStyles: SharedFrameStylesProps;
+    iconColor: ColorTokens;
+    color: ColorTokens;
+  };
 
   return (
     <ButtonFrame
@@ -184,12 +208,24 @@ const ButtonComponent = ButtonFrame.styleable<ButtonProps>((props, ref) => {
       disabled={disabled || loading}
       {...sharedFrameStyles}
       {...rest}
+      hoverStyle={{
+        ...sharedFrameStyles.hoverStyle,
+        ...props.hoverStyle,
+      }}
+      focusStyle={{
+        ...sharedFrameStyles.focusStyle,
+        ...props.focusStyle,
+      }}
+      pressStyle={{
+        ...sharedFrameStyles.pressStyle,
+        ...props.pressStyle,
+      }}
     >
       {icon && !loading && (
         <ButtonIcon name={icon} variant={variant} size={size} mr="$2" />
       )}
       {loading && <Spinner size="small" mr="$2" color={iconColor} />}
-      <Text variant={textVariant} color={color}>
+      <Text variant={textVariant} color={textColor || color}>
         {children}
       </Text>
       {iconAfter && (

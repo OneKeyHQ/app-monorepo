@@ -5,8 +5,9 @@ import { Button, Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+
 import InpageProviderWebView from './InpageProviderWebView';
-import { backgroundApiProxy } from './mock';
 
 import type { IElectronWebViewEvents } from './types';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';

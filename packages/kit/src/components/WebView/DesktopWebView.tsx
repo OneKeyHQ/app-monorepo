@@ -18,8 +18,9 @@ import { Freeze } from 'react-freeze';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+
 import ErrorView from './ErrorView';
-import { backgroundApiProxy } from './mock';
 
 import type { IElectronWebView, IElectronWebViewEvents } from './types';
 import type { InpageProviderWebViewProps } from '@onekeyfe/cross-inpage-provider-types';

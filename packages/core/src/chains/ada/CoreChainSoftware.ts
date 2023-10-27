@@ -3,7 +3,7 @@
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
-import { encrypt } from '../../secret/encryptors/aes256';
+import { encrypt } from '../../secret';
 import { getUtxoAccountPrefixPath } from '../../utils';
 
 import {
@@ -122,7 +122,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return {
       rawTx: signedTx,
       txid,
-      // do NOT return encodedTx here, you should set it on highlevel
+      // do NOT return encodedTx here, you should set it on high level
       // encodedTx: unsignedTx.encodedTx,
     };
   }

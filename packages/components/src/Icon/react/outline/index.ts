@@ -209,6 +209,7 @@ export { default as ChevronLargeDown } from './ChevronLargeDown';
 export { default as ChevronLargeLeft } from './ChevronLargeLeft';
 export { default as ChevronLargeRight } from './ChevronLargeRight';
 export { default as ChevronLargeTop } from './ChevronLargeTop';
+export { default as ChevronLeftSmall } from './ChevronLeftSmall';
 export { default as ChevronLeft } from './ChevronLeft';
 export { default as ChevronRightSmall } from './ChevronRightSmall';
 export { default as ChevronRight } from './ChevronRight';

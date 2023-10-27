@@ -9,6 +9,9 @@ export * from './ToggleGroup';
 export * from './IconButton';
 export * from './Tooltip';
 export * from './Empty';
+export * from './Image';
+export * from './ListItem';
+export * from './Avatar';
 export * from './Icon';
 export * from './Stack';
 export * from './Badge';
@@ -40,6 +43,7 @@ export * from './QRCode';
 export * from './Skeleton';
 export * from './Screen';
 export * from './TabView';
+export * from './SegmentControl';
 export * as DelayedFreeze from './DelayedFreeze';
 
 // Navigation

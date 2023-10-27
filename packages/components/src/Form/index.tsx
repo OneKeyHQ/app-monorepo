@@ -74,9 +74,9 @@ function Field({ name, label, description, rules, children }: FieldProps) {
     formState: { errors },
   } = useFormContext();
   const validateField = useCallback(() => {
-    trigger(name);
+    void trigger(name);
   }, [name, trigger]);
-  const error = errors[name] as Error;
+  const error = errors[name] as unknown as Error;
   return (
     <Controller
       name={name}
@@ -97,11 +97,6 @@ function Field({ name, label, description, rules, children }: FieldProps) {
                 )
               : child,
           )}
-          {description ? (
-            <Text variant="$bodyMd" color="$textSubdued">
-              {description}
-            </Text>
-          ) : null}
           <AnimatePresence>
             {error?.message && (
               <Text
@@ -123,6 +118,11 @@ function Field({ name, label, description, rules, children }: FieldProps) {
               </Text>
             )}
           </AnimatePresence>
+          {description ? (
+            <Text variant="$bodyMd" pt="$1.5" color="$textSubdued">
+              {description}
+            </Text>
+          ) : null}
         </Fieldset>
       )}
     />
