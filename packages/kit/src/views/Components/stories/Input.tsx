@@ -105,7 +105,7 @@ const InputGallery = () => (
                   },
                 },
                 {
-                  iconName: 'TouchIdOutline',
+                  iconName: 'ArrowRightOutline',
                   onPress: () => {
                     console.log('clicked');
                   },
