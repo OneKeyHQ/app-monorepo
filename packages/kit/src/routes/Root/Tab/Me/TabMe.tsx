@@ -1,4 +1,4 @@
-import { Button, YStack } from '@onekeyhq/components';
+import { Button, Screen, YStack } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -10,15 +10,17 @@ const TabMe = () => {
   const navigation = useAppNavigation<PageNavigationProp<TabMeParamList>>();
 
   return (
-    <YStack>
-      <Button
-        onPress={() => {
-          navigation.switchTab(TabRoutes.Me);
-        }}
-      >
-        <Button>切换到首页</Button>
-      </Button>
-    </YStack>
+    <Screen>
+      <YStack>
+        <Button
+          onPress={() => {
+            navigation.switchTab(TabRoutes.Me);
+          }}
+        >
+          <Button>切换到首页</Button>
+        </Button>
+      </YStack>
+    </Screen>
   );
 };
 

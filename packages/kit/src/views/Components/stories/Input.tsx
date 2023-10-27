@@ -82,6 +82,20 @@ const InputGallery = () => (
             />
             <Input
               size="large"
+              disabled
+              placeholder="Placeholder"
+              addOns={[
+                {
+                  iconName: 'EyeOutline',
+                  onPress: () => {
+                    console.log('clicked');
+                  },
+                  loading: true,
+                },
+              ]}
+            />
+            <Input
+              size="large"
               placeholder="Placeholder"
               addOns={[
                 {

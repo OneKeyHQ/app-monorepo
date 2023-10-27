@@ -93,7 +93,29 @@ const tsRules = {
     },
   ],
 };
+
+const resolveExtensions = (platform) =>
+  ['.ts', '.tsx', '.js', '.jsx'].map((ext) => `${platform}${ext}`);
 module.exports = {
+  plugins: ['spellcheck'],
+  settings: {
+    'import/extensions': [
+      ...resolveExtensions('web'),
+      ...resolveExtensions('desktop'),
+      ...resolveExtensions('android'),
+      ...resolveExtensions('ios'),
+      ...resolveExtensions('native'),
+      ...resolveExtensions('ext'),
+      '.ts',
+      '.tsx',
+      '.mjs',
+      '.cjs',
+      '.js',
+      '.jsx',
+      '.json',
+      '.d.ts',
+    ],
+  },
   ignorePatterns: [
     '*.wasm.bin',
     'apps/desktop/public/static/js-sdk*',
@@ -101,7 +123,7 @@ module.exports = {
     // 临时忽略以下目录的检查，迭代后会逐步开启
     'packages/blockchain-libs',
     'packages/kit/src/store',
-    'packages/kit/src/utils/localAuthentication',
+    'packages/kit/src/utils',
     'packages/engine',
     'packages/kit-bg',
     'packages/shared',
@@ -112,6 +134,21 @@ module.exports = {
     webextensions: true,
     serviceworker: true,
     worker: true,
+  },
+  rules: {
+    'spellcheck/spell-checker': [
+      1,
+      {
+        'comments': true,
+        'strings': false,
+        'identifiers': true,
+        'lang': 'en_US',
+        'skipWords': require('./development/skipWords'),
+        'skipWordIfMatch': [/bip32/i, /pbkdf2/i, /Secp256k1/i, /googleapis/i],
+        'skipIfMatch': ['http://[^s]*'],
+        'minLength': 3,
+      },
+    ],
   },
   overrides: [
     {
