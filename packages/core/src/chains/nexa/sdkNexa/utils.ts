@@ -23,7 +23,7 @@ import {
 import { InvalidAddress } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
-import { hash160, sha256 } from '../../../secret/hash';
+import { hash160, sha256 } from '../../../secret';
 import { NexaSignature } from '../types';
 
 import type { ISigner } from '../../../base/ChainSigner';

@@ -2,8 +2,7 @@
 
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
-import { N, sign, uncompressPublicKey, verify } from '../secret';
-import { decrypt } from '../secret/encryptors/aes256';
+import { N, decrypt, sign, uncompressPublicKey, verify } from '../secret';
 
 import type { ICurveName } from '../types';
 
