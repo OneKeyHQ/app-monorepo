@@ -13,6 +13,14 @@ export const simpleDb = {
             'loading': false,
           },
           {
+            'id': 'WsxUCWustX5tI6fmqQs21',
+            'url': 'https://dapp-example.onekeytest.com/',
+            'title': 'DApp Example',
+            'isCurrent': false,
+            'canGoBack': false,
+            'loading': false,
+          },
+          {
             'id': 'BMgUCWustX5tI6fmqQsoT',
             'url': 'about:blank',
             'title': 'OneKey',

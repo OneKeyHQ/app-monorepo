@@ -4,6 +4,20 @@ import type { DAppItemType } from '../types';
 
 const data = [
   {
+    'url': 'https://dapp-example.onekeytest.com/',
+    'name': 'DApp Example',
+    '_id': '645b6b8203be4e9f3e9932c',
+    'logoURL':
+      'https://nft.onekey-asset.com/admin/upload_1683712871498.0.9361315179110976.0.png',
+  },
+  {
+    'url': 'https://webln.twentyuno.net/info',
+    'name': 'WebLN Experiments',
+    '_id': '645b6b8203be4e9f3421932c',
+    'logoURL':
+      'https://nft.onekey-asset.com/admin/upload_1683712871498.0.9361315179110976.0.png',
+  },
+  {
     'url': 'https://helio.money/app/loans/',
     'name': 'Helio Protocol',
     '_id': '645b6b8203be4e9f3e99130b',
