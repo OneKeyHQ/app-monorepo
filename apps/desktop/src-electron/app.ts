@@ -500,7 +500,7 @@ function createMainWindow() {
   return browserWindow;
 }
 
-function init() {
+function initChildProcess() {
   return initProcess({ mainWindow: mainWindow as BrowserWindow, store });
 }
 
@@ -546,7 +546,7 @@ if (!singleInstance && !process.mas) {
     if (!mainWindow) {
       mainWindow = createMainWindow();
     }
-    await init();
+    void initChildProcess();
     showMainWindow();
   });
 }
