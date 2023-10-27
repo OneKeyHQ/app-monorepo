@@ -2,9 +2,9 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { Button, Stack, Text } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import { GalleryRoutes } from '@onekeyhq/kit/src/routes/Gallery/routes';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { GalleryRoutes } from '../../../../routes/Gallery';
 import { RootRoutes } from '../../../../routes/Root/Routes';
 import { TabHomeRoutes } from '../../../../routes/Root/Tab/Home/Routes';
 
