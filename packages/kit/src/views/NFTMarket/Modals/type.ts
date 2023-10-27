@@ -1,5 +1,5 @@
 import type { Network } from '@onekeyhq/engine/src/types/network';
-import type { MarketPlace } from '@onekeyhq/engine/src/types/nft';
+import type { Collection, MarketPlace } from '@onekeyhq/engine/src/types/nft';
 
 import type { PNLData } from '../PNL/PNLDetail';
 

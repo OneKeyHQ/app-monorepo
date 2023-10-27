@@ -10,7 +10,6 @@ import {
   Button,
   CustomSkeleton,
   HStack,
-  Icon,
   IconButton,
   ScrollView,
   Skeleton,
