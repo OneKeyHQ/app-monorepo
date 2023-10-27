@@ -1,4 +1,9 @@
-import type { Dispatch, PropsWithChildren } from 'react';
+import type {
+  Dispatch,
+  PropsWithChildren,
+  ReactNode,
+  SetStateAction,
+} from 'react';
 import {
   Children,
   cloneElement,
@@ -31,7 +36,6 @@ import { Stack, XStack, YStack } from '../Stack';
 import { Text } from '../Text';
 
 import type { FormProps } from '../Form';
-import type { SetStateAction } from 'jotai';
 import type { UseFormReturn } from 'react-hook-form';
 import type { ButtonProps, GetProps } from 'tamagui';
 
@@ -65,6 +69,7 @@ export interface ModalProps {
   description?: string;
   variant?: 'default' | 'destructive';
   renderContent?: React.ReactNode;
+  renderFooter?: React.ReactNode;
   onConfirm?: () => void | Promise<boolean>;
   onCancel?: () => void;
   confirmButtonProps?: GetProps<typeof Button>;
@@ -81,6 +86,7 @@ function DialogFrame({
   icon,
   description,
   renderContent,
+  renderFooter,
   onConfirm,
   onCancel,
   variant,
@@ -153,35 +159,35 @@ function DialogFrame({
           onPress={handleCancelButtonPress}
         />
       </XStack>
-      {renderContent && (
-        <YStack px="$5" pb="$5">
-          {renderContent}
-        </YStack>
+      {renderContent && <YStack px="$5" pb="$5">{renderContent}</YStack>}
+      {renderFooter !== undefined ? (
+        renderFooter
+      ) : (
+        <XStack p="$5" pt="$0">
+          <Button
+            flex={1}
+            $md={{
+              size: 'large',
+            }}
+            {...cancelButtonProps}
+            onPress={handleCancelButtonPress}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant={variant === 'destructive' ? 'destructive' : 'primary'}
+            flex={1}
+            ml="$2.5"
+            $md={{
+              size: 'large',
+            }}
+            {...confirmButtonProps}
+            onPress={handleConfirmButtonPress}
+          >
+            Confirm
+          </Button>
+        </XStack>
       )}
-      <XStack p="$5" pt="$0">
-        <Button
-          flex={1}
-          $md={{
-            size: 'large',
-          }}
-          {...cancelButtonProps}
-          onPress={handleCancelButtonPress}
-        >
-          Cancel
-        </Button>
-        <Button
-          variant={variant === 'destructive' ? 'destructive' : 'primary'}
-          flex={1}
-          ml="$2.5"
-          $md={{
-            size: 'large',
-          }}
-          {...confirmButtonProps}
-          onPress={handleConfirmButtonPress}
-        >
-          Confirm
-        </Button>
-      </XStack>
     </Stack>
   );
   if (media.md) {
@@ -297,9 +303,15 @@ function DialogForm({ useFormProps, children, ...props }: DialogFormProps) {
   useEffect(() => {
     setContext?.({ form: formContext });
   }, [formContext, setContext]);
+  const element =
+    typeof children === 'function'
+      ? (children as (props: { form: UseFormReturn<unknown> }) => ReactNode)({
+          form: formContext,
+        })
+      : children;
   return (
     <Form {...props} form={formContext}>
-      {children}
+      {element}
     </Form>
   );
 }
