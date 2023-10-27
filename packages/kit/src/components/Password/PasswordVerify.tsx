@@ -75,6 +75,7 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
       } else {
         const { error } = localAuthenticateResult;
         if (!error.includes('cancelled')) {
+          // TODO
           Burnt.toast({
             title: intl.formatMessage({ id: 'msg__verification_failure' }),
             haptic: 'error',
@@ -126,13 +127,13 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
       });
     } else {
       actions.push({
-        iconName: 'EyeSolid',
+        iconName: secureEntry ? 'EyeOutline' : 'EyeOffOutline',
         onPress: () => {
           setSecureEntry(!secureEntry);
         },
       });
       actions.push({
-        iconName: 'ArrowRightCircleSolid',
+        iconName: 'ArrowRightCircleOutline',
         onPress: form.handleSubmit(onInputPasswordAuthenticate),
         loading: status.value === 'verifying',
       });
