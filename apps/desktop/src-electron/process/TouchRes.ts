@@ -396,7 +396,7 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
   );
 
   ipcMain.on(ipcMessageKeys.TOUCH_OPEN_PRIVACY_PANEL, () => {
-    shell.openExternal(
+    void shell.openExternal(
       'x-apple.systempreferences:com.apple.preference.security?Privacy',
     );
   });

@@ -3,9 +3,14 @@ import { merge } from 'lodash';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
-import { batchGetPrivateKeys, batchGetPublicKeys } from '../secret';
-import { ed25519, nistp256, secp256k1 } from '../secret/curves';
-import { decrypt } from '../secret/encryptors/aes256';
+import {
+  batchGetPrivateKeys,
+  batchGetPublicKeys,
+  decrypt,
+  ed25519,
+  nistp256,
+  secp256k1,
+} from '../secret';
 import { slicePathTemplate } from '../utils';
 
 import { ChainSigner } from './ChainSigner';

@@ -7,7 +7,7 @@ const shortcutsMap = getShortcutsMap(process.platform === 'darwin');
 export function registerShortcuts(
   callback: (event: ExplorerShortcutEvents) => void,
 ) {
-  app.whenReady().then(() => {
+  void app.whenReady().then(() => {
     Object.entries(shortcutsMap).forEach(([event, { keys }]) => {
       if (keys) {
         globalShortcut.register(keys, () => {

@@ -51,8 +51,6 @@ export const timeout = <T>(p: Promise<T>, ms: number, message?: string) =>
     p.then((value) => resolve(value)).catch((err) => reject(err));
   });
 
-export const generateUUID = () => uuid.v4() as string;
-
 // export const hexlify = (...args: Parameters<typeof utils.hexlify>) =>
 //   utils.hexlify.apply(utils.hexlify, args);
 

@@ -182,7 +182,7 @@ function handleDeepLinkUrl(
 }
 
 function clearWebData() {
-  session.defaultSession.clearStorageData({
+  return session.defaultSession.clearStorageData({
     storages: ['cookies', 'appcache'],
   });
 }
@@ -232,7 +232,7 @@ function createMainWindow() {
         slashes: true,
       });
 
-  browserWindow.loadURL(src);
+  void browserWindow.loadURL(src);
 
   // Protocol handler for win32
   if (isWin || isMac) {
@@ -274,7 +274,7 @@ function createMainWindow() {
   });
 
   browserWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    void shell.openExternal(url);
     return { action: 'deny' };
   });
 
@@ -301,11 +301,11 @@ function createMainWindow() {
   ipcMain.on(ipcMessageKeys.APP_OPEN_PREFS, (_event, prefType: PrefType) => {
     const platform = os.type();
     if (platform === 'Darwin') {
-      shell.openPath('/System/Library/PreferencePanes/Security.prefPane');
+      void shell.openPath('/System/Library/PreferencePanes/Security.prefPane');
     } else if (platform === 'Windows_NT') {
       // ref https://docs.microsoft.com/en-us/windows/uwp/launch-resume/launch-settings-app
       if (prefType === 'camera') {
-        shell.openExternal('ms-settings:privacy-webcam');
+        void shell.openExternal('ms-settings:privacy-webcam');
       }
       // BlueTooth is not supported on desktop currently
     } else {
@@ -366,7 +366,7 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.APP_RELOAD_BRIDGE_PROCESS, (event) => {
     logger.debug('reloadBridgeProcess receive');
-    restartBridge();
+    void restartBridge();
     event.reply(ipcMessageKeys.APP_RELOAD_BRIDGE_PROCESS, true);
   });
 
@@ -377,7 +377,7 @@ function createMainWindow() {
   });
 
   ipcMain.on(ipcMessageKeys.APP_CLEAR_WEBVIEW_DATA, () => {
-    clearWebData();
+    void clearWebData();
   });
 
   // reset appState to undefined  to avoid screen lock.
@@ -479,7 +479,7 @@ function createMainWindow() {
       (_, __, ___, validatedURL) => {
         const redirectPath = validatedURL.replace(`${PROTOCOL}://`, '');
         if (validatedURL.startsWith(PROTOCOL) && !redirectPath.includes('.')) {
-          browserWindow.loadURL(src);
+          void browserWindow.loadURL(src);
         }
       },
     );
@@ -500,8 +500,8 @@ function createMainWindow() {
   return browserWindow;
 }
 
-function init() {
-  initProcess({ mainWindow: mainWindow as BrowserWindow, store });
+function initChildProcess() {
+  return initProcess({ mainWindow: mainWindow as BrowserWindow, store });
 }
 
 const singleInstance = app.requestSingleInstanceLock();
@@ -542,11 +542,11 @@ if (!singleInstance && !process.mas) {
   });
 
   app.name = APP_NAME;
-  app.on('ready', () => {
+  app.on('ready', async () => {
     if (!mainWindow) {
       mainWindow = createMainWindow();
     }
-    init();
+    void initChildProcess();
     showMainWindow();
   });
 }

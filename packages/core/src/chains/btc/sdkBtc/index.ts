@@ -8,7 +8,7 @@ import {
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
 import { ECPairFactory } from 'ecpair';
 
-import ecc from '../../../secret/nobleSecp256k1Wrapper';
+import { ecc } from '../../../secret';
 
 import type { ICoreApiSignAccount, InputToSign } from '../../../types';
 import type { IBtcForkNetwork, IBtcForkSigner } from '../types';

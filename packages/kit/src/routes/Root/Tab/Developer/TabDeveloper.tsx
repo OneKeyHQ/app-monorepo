@@ -10,15 +10,18 @@ import {
   Screen,
   Stack,
   Text,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import localDb from '@onekeyhq/kit-bg/src/dbs/local/localDb';
 import { getMeasureTime } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { AppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import useCookie from '../../../../hooks/useCookie';
 import { setLocale, setTheme } from '../../../../store/reducers/settings';
@@ -97,6 +100,38 @@ const TabDeveloper = () => {
           </Button>
         </PartContainer>
 
+        <PartContainer title="Background">
+          <Button
+            onPress={async () => {
+              const r = await backgroundApiProxy.servicePromise.testHelloWorld(
+                'jack',
+              );
+              Toast.success({
+                title: r,
+                message: r,
+              });
+              console.log('testHelloWorld > ', r);
+              await backgroundApiProxy.servicePromise.testHelloWorld('jack');
+              void backgroundApiProxy.servicePromise.testHelloWorld2('jack');
+            }}
+          >
+            Test service
+          </Button>
+        </PartContainer>
+
+        <PartContainer title="DB">
+          <Button
+            onPress={async () => {
+              const ctx = await localDb.getContext();
+              // @ts-ignore
+              window.$$localDb = localDb;
+              console.log(ctx);
+            }}
+          >
+            Show Context
+          </Button>
+        </PartContainer>
+
         <PartContainer title="App Settings">
           <XStack gap="$4" display="flex" justifyContent="center">
             <Button
@@ -137,7 +172,6 @@ const TabDeveloper = () => {
             </Button>
           </XStack>
         </PartContainer>
-
         <PartContainer title="Debug Tools">
           <Button
             onPress={() => {

@@ -32,7 +32,7 @@ export function useThemeProviderVariant() {
   useEffect(() => {
     if (!localeReady) {
       if (typeof cachedLocale === 'function') {
-        cachedLocale().then((module) => {
+        void cachedLocale().then((module) => {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           LOCALES[currentVariant] = module.default;
           setLocaleVariant(currentVariant);

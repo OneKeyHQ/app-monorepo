@@ -1,0 +1,13 @@
+{
+  "name": "@onekeyhq/kit-bg",
+  "version": "0.0.1",
+  "private": true,
+  "main": "src/index.tsx",
+  "dependencies": {
+    "idb": "^7.1.1"
+  },
+  "scripts": {
+    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
+    "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
+  }
+}

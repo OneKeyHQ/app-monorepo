@@ -2,8 +2,11 @@ import { range } from 'lodash';
 
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
-import { revealableSeedFromMnemonic } from '../src/secret';
-import { decryptString, encryptString } from '../src/secret/encryptors/aes256';
+import {
+  decryptString,
+  encryptString,
+  revealableSeedFromMnemonic,
+} from '../src/secret';
 
 import type {
   ICoreTestsAccountInfo,

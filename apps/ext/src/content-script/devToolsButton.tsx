@@ -79,7 +79,7 @@ function injectDevToolsButton() {
         }, 500);
       }, 1000);
 
-      chrome.runtime.sendMessage({
+      void chrome.runtime.sendMessage({
         channel: 'EXTENSION_INTERNAL_CHANNEL',
         method: 'reload',
       });

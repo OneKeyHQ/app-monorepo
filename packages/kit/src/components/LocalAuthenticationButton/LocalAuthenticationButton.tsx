@@ -97,7 +97,7 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
     const now = Date.now();
     if (now - lasttime.current > 1000) {
       lasttime.current = now;
-      onLocalAuthenticate();
+      void onLocalAuthenticate();
     }
   }, [onLocalAuthenticate]);
 
