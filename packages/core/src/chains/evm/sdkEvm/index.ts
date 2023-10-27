@@ -1,6 +1,6 @@
 import BigNumber from 'bignumber.js';
 
-import { secp256k1 } from '@onekeyhq/core/src/secret/curves';
+import { secp256k1 } from '@onekeyhq/core/src/secret';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
