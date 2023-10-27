@@ -14,8 +14,6 @@ import type {
 
 import CollectionLogo from '../../../../CollectionLogo';
 import { PriceString } from '../../../../PriceText';
-import { useCollectionDetail } from '../../../hook';
-import { useStatsListContext } from '../../context';
 import EmptyView from '../../EmptyView';
 
 import type { ListRenderItem } from 'react-native';
@@ -45,10 +43,8 @@ const Mobile: FC<Props> = ({
   listData,
   ...listProps
 }) => {
-  const context = useStatsListContext()?.context;
   const intl = useIntl();
-  const goToCollectionDetail = useCollectionDetail();
-  const network = context?.selectedNetwork ?? selectNetwork;
+  const network = selectNetwork;
 
   const renderItem: ListRenderItem<NFTMarketRanking> = useCallback(
     ({ item, index }) => {
@@ -72,12 +68,6 @@ const Mobile: FC<Props> = ({
           onPress={() => {
             if (onSelectCollection) {
               onSelectCollection({
-                contractAddress: item.contract_address as string,
-                networkId: network?.id as string,
-                title: item.contract_name,
-              });
-            } else {
-              goToCollectionDetail({
                 contractAddress: item.contract_address as string,
                 networkId: network?.id as string,
                 title: item.contract_name,
@@ -121,7 +111,7 @@ const Mobile: FC<Props> = ({
                 price: new BigNumber(item.volume ?? '0')
                   .decimalPlaces(2)
                   .toString(),
-                networkId: context?.selectedNetwork?.id,
+                networkId: selectNetwork?.id,
               }),
               labelProps: { textAlign: 'right', numberOfLines: 1 },
               description: (
@@ -146,23 +136,17 @@ const Mobile: FC<Props> = ({
         </ListItem>
       );
     },
-    [
-      intl,
-      network?.id,
-      context?.selectedNetwork?.id,
-      onSelectCollection,
-      goToCollectionDetail,
-    ],
+    [intl, network?.id, selectNetwork, onSelectCollection],
   );
 
   const ItemSeparatorComponent = useCallback(() => <Box h="4px" />, []);
   const ListFooterComponent = useCallback(() => <Box height="20px" />, []);
 
-  if (listData === undefined || listData?.length === 0 || context?.loading) {
+  if (listData === undefined || listData?.length === 0) {
     return (
       <EmptyView
-        isTab={context?.isTab}
-        numberOfData={context?.isTab ? 5 : 10}
+        isTab={false}
+        numberOfData={10}
         ListHeaderComponent={listProps.ListHeaderComponent}
       />
     );

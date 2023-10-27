@@ -162,14 +162,6 @@ export type HomeRoutesParams = {
     marketTokenId: string;
   };
   [HomeRoutes.Revoke]: undefined;
-  [HomeRoutes.NFTMarketStatsList]: { network: Network; selectedIndex?: number };
-  [HomeRoutes.NFTMarketLiveMintingList]: { network: Network };
-  [HomeRoutes.NFTMarketCollectionScreen]: {
-    networkId: string;
-    contractAddress: string;
-    collection?: Collection;
-    title?: string;
-  };
   [HomeRoutes.RevokeRedirect]: undefined;
   [HomeRoutes.RevokeRedirect2]: undefined;
   [HomeRoutes.NFTPNLScreen]: undefined;

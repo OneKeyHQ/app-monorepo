@@ -4,26 +4,19 @@ import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import * as nft from '@onekeyhq/engine/src/managers/nft';
-import { NFTDataType, getNFTListKey } from '@onekeyhq/engine/src/managers/nft';
-import type { Account } from '@onekeyhq/engine/src/types/account';
+import { NFTDataType } from '@onekeyhq/engine/src/managers/nft';
 import type {
   Collection,
-  CollectionAttribute,
   MarketPlace,
-  NFTAsset,
   NFTAssetMeta,
   NFTBTCAssetModel,
   NFTListItems,
-  NFTMarketCapCollection,
   NFTMarketRanking,
   NFTPNL,
   NFTServiceResp,
   NFTTransaction,
 } from '@onekeyhq/engine/src/types/nft';
-import {
-  setNFTPriceType,
-  setNFTSymbolPrice,
-} from '@onekeyhq/kit/src/store/reducers/nft';
+import { setNFTPriceType } from '@onekeyhq/kit/src/store/reducers/nft';
 import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
 import {
   backgroundClass,
@@ -76,88 +69,12 @@ class ServiceNFT extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getCollectionAttributes({
-    chain,
-    contractAddress,
-  }: {
-    chain: string;
-    contractAddress: string;
-  }) {
-    const urlParams = new URLSearchParams({ chain, contractAddress });
-    const url = `${this.baseUrl}/collection/attributes?${urlParams.toString()}`;
-
-    const { data, success } = await this.client
-      .get<NFTServiceResp<CollectionAttribute[]>>(url)
-      .then((resp) => resp.data)
-      .catch(() => ({ success: false, data: [] }));
-    if (!success) {
-      return undefined;
-    }
-    return data;
-  }
-
-  @backgroundMethod()
   async searchCollections({ chain, name }: { chain: string; name: string }) {
     const url = `${this.baseUrl}/collection/search?chain=${chain}&name=${name}`;
     const { data, success } = await this.client
       .get<NFTServiceResp<Collection[]>>(url)
       .then((resp) => resp.data)
       .catch(() => ({ success: false, data: [] as Collection[] }));
-    if (!success) {
-      return undefined;
-    }
-    return data;
-  }
-
-  @backgroundMethod()
-  async getCollectionAssets({
-    chain,
-    contractAddress,
-    cursor,
-    limit = 50,
-  }: {
-    chain: string;
-    contractAddress: string;
-    cursor?: string;
-    limit?: number;
-  }) {
-    let url = `${this.baseUrl}/collection/assets?chain=${chain}&contractAddress=${contractAddress}&limit=${limit}`;
-    if (cursor) {
-      url += `&cursor=${cursor}`;
-    }
-    const { data, success } = await this.client
-      .get<
-        NFTServiceResp<{ total: number; next: string; content: NFTAsset[] }>
-      >(url)
-      .then((resp) => resp.data)
-      .catch(() => ({
-        success: false,
-        data: { total: 0, next: undefined, content: [] as NFTAsset[] },
-      }));
-    if (!success) {
-      return undefined;
-    }
-    return data;
-  }
-
-  @backgroundMethod()
-  async getAssetsWithAttributes(params: {
-    chain: string;
-    contractAddress: string;
-    attributes: any[];
-    limit?: number;
-    cursor?: string;
-  }) {
-    const apiUrl = `${this.baseUrl}/assets/attributes`;
-    const { data, success } = await this.client
-      .post<
-        NFTServiceResp<{ total: number; next: string; content: NFTAsset[] }>
-      >(apiUrl, params)
-      .then((resp) => resp.data)
-      .catch(() => ({
-        success: false,
-        data: { total: 0, next: undefined, content: [] as NFTAsset[] },
-      }));
     if (!success) {
       return undefined;
     }
@@ -210,30 +127,6 @@ class ServiceNFT extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getMarketCapCollection({
-    chain,
-    limit,
-  }: {
-    chain?: string;
-    limit?: number;
-  }) {
-    let url = `${this.baseUrl}/market/marketCap?chain=${
-      chain ?? OnekeyNetwork.eth
-    }`;
-    if (limit) {
-      url += `&limit=${limit}`;
-    }
-    const { data, success } = await this.client
-      .get<NFTServiceResp<NFTMarketCapCollection[]>>(url)
-      .then((resp) => resp.data)
-      .catch(() => ({ success: false, data: [] as NFTMarketCapCollection[] }));
-    if (!success) {
-      return [];
-    }
-    return data;
-  }
-
-  @backgroundMethod()
   async getMarketRanking({ chain, time }: { chain?: string; time?: string }) {
     const url = `${this.baseUrl}/market/ranking?chain=${
       chain ?? OnekeyNetwork.eth
@@ -242,34 +135,6 @@ class ServiceNFT extends ServiceBase {
       .get<NFTServiceResp<NFTMarketRanking[]>>(url)
       .then((resp) => resp.data)
       .catch(() => ({ success: false, data: [] as NFTMarketRanking[] }));
-    if (!success) {
-      return [];
-    }
-    return data;
-  }
-
-  @backgroundMethod()
-  async getMarketCollection() {
-    const url = `${this.baseUrl}/market/collection`;
-    const { data, success } = await this.client
-      .get<NFTServiceResp<Collection[]>>(url)
-      .then((resp) => resp.data)
-      .catch(() => ({ success: false, data: [] as Collection[] }));
-    if (!success) {
-      return [];
-    }
-    return data;
-  }
-
-  @backgroundMethod()
-  async getLiveMinting({ chain, limit }: { chain?: string; limit?: number }) {
-    const url = `${this.baseUrl}/market/liveMint?chain=${
-      chain ?? OnekeyNetwork.eth
-    }&limit=${limit ?? 5}`;
-    const { data, success } = await this.client
-      .get<NFTServiceResp<NFTAsset[]>>(url)
-      .then((resp) => resp.data)
-      .catch(() => ({ success: false, data: [] as NFTAsset[] }));
     if (!success) {
       return [];
     }
@@ -327,23 +192,6 @@ class ServiceNFT extends ServiceBase {
   }
 
   @backgroundMethod()
-  async batchLocalCollection({
-    networkId,
-    account,
-  }: {
-    networkId: string;
-    account: Account;
-  }): Promise<NFTAssetMeta | undefined> {
-    const key = getNFTListKey(account.address, networkId);
-    const items = await simpleDb.nft.getNFTs(key);
-    if (items) {
-      const { engine } = this.backgroundApi;
-      const vault = await engine.getVault({ networkId, accountId: account.id });
-      return vault.getUserNFTAssets({ serviceData: items });
-    }
-  }
-
-  @backgroundMethod()
   async fetchNFT({
     accountId,
     networkId,
@@ -386,21 +234,6 @@ class ServiceNFT extends ServiceBase {
     networkId: string;
   }) {
     return nft.getAllAssetsFromLocal(params);
-  }
-
-  @backgroundMethod()
-  async fetchSymbolPrice(networkId: string) {
-    const price = await nft.getNFTSymbolPrice(networkId);
-    if (price) {
-      const { dispatch } = this.backgroundApi;
-      dispatch(
-        setNFTSymbolPrice({
-          networkId,
-          price,
-        }),
-      );
-      return price;
-    }
   }
 
   @backgroundMethod()
