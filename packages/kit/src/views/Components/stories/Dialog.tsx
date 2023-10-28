@@ -1,30 +1,114 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 
-import { Input } from 'tamagui';
+import {
+  Input,
+  Adapt as TMAdapt,
+  Dialog as TMDialog,
+  Sheet as TMSheet,
+} from 'tamagui';
 
-import { Button, Dialog, Text, YStack } from '@onekeyhq/components';
+import type { DialogProps } from '@onekeyhq/components';
+import { Button, Dialog, Text, XStack, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
 import type { UseFormReturn } from 'react-hook-form';
 
-const ControlledDialogByText = () => {
+function DialogInstance() {
+  const [open, setOpen] = useState(false);
+  const [show, setShow] = useState(false);
+
+  return (
+    <TMDialog
+      modal
+      onOpenChange={(open) => {
+        setOpen(open);
+      }}
+    >
+      <TMDialog.Trigger asChild>
+        <Button>Show TMDialog</Button>
+      </TMDialog.Trigger>
+
+      <TMAdapt when="md">
+        <TMSheet
+          animation="quick"
+          zIndex={200000}
+          modal
+          dismissOnSnapToBottom
+          snapPointsMode="fit"
+        >
+          <TMSheet.Frame padding="$4" gap="$4">
+            <TMAdapt.Contents />
+          </TMSheet.Frame>
+          <TMSheet.Overlay
+            animation="quick"
+            enterStyle={{ opacity: 0 }}
+            exitStyle={{ opacity: 0 }}
+          />
+        </TMSheet>
+      </TMAdapt>
+
+      <TMDialog.Portal>
+        <TMDialog.Overlay
+          key="overlay"
+          animation="quick"
+          opacity={0.5}
+          enterStyle={{ opacity: 0 }}
+          exitStyle={{ opacity: 0 }}
+        />
+
+        <TMDialog.Content
+          bordered
+          elevate
+          key="content"
+          animateOnly={['transform', 'opacity']}
+          animation={[
+            'quick',
+            {
+              opacity: {
+                overshootClamping: true,
+              },
+            },
+          ]}
+          enterStyle={{ x: 0, y: -20, opacity: 0, scale: 0.9 }}
+          exitStyle={{ x: 0, y: 10, opacity: 0, scale: 0.95 }}
+          gap="$4"
+        >
+          <TMDialog.Title>Edit profile</TMDialog.Title>
+          <TMDialog.Description>
+            Make changes to your profile here. Click save when you're done.
+          </TMDialog.Description>
+          <Button
+            onPress={() => {
+              setShow(!show);
+            }}
+          >
+            Show
+          </Button>
+          {show && <Text>hiddenContent</Text>}
+        </TMDialog.Content>
+      </TMDialog.Portal>
+    </TMDialog>
+  );
+}
+
+const VariantsDemo = ({ tone }: DialogProps) => {
   const [isOpen, changeIsOpen] = useState(false);
   return (
     <Dialog
-      backdrop
       open={isOpen}
+      icon="PlaceholderOutline"
       title="Lorem ipsum"
       description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec."
       onOpen={() => {
         changeIsOpen(true);
       }}
-      renderTrigger={<Text>Open Modal by Text</Text>}
-      renderContent={<Text>Overlay Content by Text Trigger</Text>}
+      renderTrigger={<Button>{tone || 'Default'}</Button>}
       onClose={() => {
         changeIsOpen(false);
       }}
+      tone={tone}
     />
   );
 };
@@ -33,14 +117,13 @@ const ControlledDialogByTextOnButton = () => {
   const [isOpen, changeIsOpen] = useState(false);
   return (
     <Dialog
-      backdrop
       open={isOpen}
       title="Lorem ipsum"
       description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec."
       onOpen={() => {
         changeIsOpen(true);
       }}
-      renderTrigger={<Button>Trigger Modal by Button</Button>}
+      renderTrigger={<Button>Trigger</Button>}
       renderContent={<Text>Overlay Content by Text Trigger</Text>}
       onClose={() => {
         changeIsOpen(false);
@@ -53,7 +136,6 @@ const ControlledDialogByTextOnButtonWithOnPress = () => {
   const [isOpen, changeIsOpen] = useState(false);
   return (
     <Dialog
-      backdrop
       open={isOpen}
       title="Lorem ipsum"
       description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec."
@@ -66,10 +148,9 @@ const ControlledDialogByTextOnButtonWithOnPress = () => {
             console.log('trigger');
           }}
         >
-          Trigger Modal by Button with onPress Event
+          Trigger
         </Button>
       }
-      renderContent={<Text>Overlay Content by Text Trigger</Text>}
       onClose={() => {
         changeIsOpen(false);
       }}
@@ -81,16 +162,14 @@ const ControlledDialogByButton = () => {
   const [isOpen, changeIsOpen] = useState(false);
   return (
     <>
-      <Button onPress={() => changeIsOpen(true)}>Open Modal By Button</Button>
+      <Button onPress={() => changeIsOpen(true)}>Trigger</Button>
       <Dialog
-        backdrop
         title="Lorem ipsum"
         description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec."
         open={isOpen}
         onClose={() => {
           changeIsOpen(false);
         }}
-        renderContent={<Text>Overlay Content by Button Trigger</Text>}
       />
     </>
   );
@@ -100,17 +179,15 @@ const HideFooterDialog = () => {
   const [isOpen, changeIsOpen] = useState(false);
   return (
     <>
-      <Button onPress={() => changeIsOpen(true)}>Hide Footer</Button>
+      <Button onPress={() => changeIsOpen(true)}>Trigger</Button>
       <Dialog
-        backdrop
         title="Lorem ipsum"
         description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec."
         open={isOpen}
         onClose={() => {
           changeIsOpen(false);
         }}
-        renderContent={<Text>Overlay Content by Button Trigger</Text>}
-        renderFooter={null}
+        showFooter={false}
       />
     </>
   );
@@ -126,23 +203,32 @@ const DialogGallery = () => (
     boundaryConditions={['禁止将 Dialog 作为路由页面使用']}
     elements={[
       {
-        title: 'open Modal by renderTrigger',
-        element: <ControlledDialogByText />,
+        title: 'TM',
+        element: <DialogInstance />,
       },
       {
-        title: 'open Modal by renderTrigger on Button',
+        title: 'Variants',
+        element: (
+          <XStack space="$4">
+            <VariantsDemo />
+            <VariantsDemo tone="destructive" />
+          </XStack>
+        ),
+      },
+      {
+        title: 'Button as value of renderTrigger',
         element: <ControlledDialogByTextOnButton />,
       },
       {
-        title: 'open Modal by renderTrigger on Button with onPress event',
+        title: 'Button with onPress as value of renderTrigger',
         element: <ControlledDialogByTextOnButtonWithOnPress />,
       },
       {
-        title: 'open Modal by Button',
+        title: 'Button as trigger',
         element: <ControlledDialogByButton />,
       },
       {
-        title: 'hide footer',
+        title: 'Hide dialog footer',
         element: <HideFooterDialog />,
       },
       {
