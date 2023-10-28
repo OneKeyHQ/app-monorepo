@@ -22,7 +22,7 @@ function DialogInstance() {
   return (
     <TMDialog
       modal
-      onOpenChange={(open) => {
+      onOpenChange={() => {
         setOpen(open);
       }}
     >
