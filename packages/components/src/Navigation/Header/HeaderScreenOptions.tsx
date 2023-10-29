@@ -35,7 +35,11 @@ export function makeHeaderScreenOptions({
       headerStyle: {
         backgroundColor: bgColor as string,
       },
-      headerTintColor: titleColor as string,
+      headerTitleStyle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: titleColor as string,
+      },
       headerTransparent: false,
       headerLeft: (props: HeaderBackButtonProps): ReactNode => (
         <HeaderButtonBack
