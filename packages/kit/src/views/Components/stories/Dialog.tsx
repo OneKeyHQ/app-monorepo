@@ -460,6 +460,36 @@ const DialogGallery = () => (
           </YStack>
         ),
       },
+      {
+        title: 'Dialog Form With Form & AutoFocus Input',
+        element: (
+          <YStack>
+            <Button
+              mt="$4"
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'Password',
+                  description: 'input password',
+                  renderContent: (
+                    <Dialog.Form>
+                      <Dialog.FormField label="Name" name="name">
+                        <Input
+                          autoFocus
+                          flex={1}
+                          placeholder="only numeric value"
+                        />
+                      </Dialog.FormField>
+                    </Dialog.Form>
+                  ),
+                  onConfirm: () => {},
+                })
+              }
+            >
+              Open Dialog Form
+            </Button>
+          </YStack>
+        ),
+      },
     ]}
   />
 );
