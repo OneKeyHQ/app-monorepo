@@ -2,14 +2,20 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 
 import {
-  Input,
   Adapt as TMAdapt,
   Dialog as TMDialog,
   Sheet as TMSheet,
 } from 'tamagui';
 
 import type { DialogProps } from '@onekeyhq/components';
-import { Button, Dialog, Text, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  Input,
+  Text,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
