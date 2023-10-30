@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useState } from 'react';
-import * as React from 'react';
+import { PropsWithChildren } from 'react';
 
 import { max } from 'lodash';
 import { FlatList } from 'react-native';
@@ -23,9 +23,7 @@ export type TabWrapperProps = {
   autoFreeze?: true | false | number;
 };
 
-type FreezeTabProps = {
-  children: React.ComponentType<any>;
-} & TabWrapperProps;
+type FreezeTabProps = PropsWithChildren<TabWrapperProps>;
 
 const DefaultProps = {
   lazy: true,
