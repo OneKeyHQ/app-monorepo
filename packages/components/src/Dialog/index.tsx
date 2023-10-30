@@ -307,7 +307,7 @@ export const DialogContext = createContext<{
 }>({});
 
 function DialogForm({ useFormProps, children, ...props }: DialogFormProps) {
-  const formContext = useForm(useFormProps as any || {});
+  const formContext = useForm((useFormProps as any) || {});
   const { setContext } = useContext(DialogContext);
   useEffect(() => {
     setContext?.({ form: formContext });
