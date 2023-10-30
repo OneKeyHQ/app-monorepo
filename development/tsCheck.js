@@ -16,6 +16,7 @@ try {
 
   const lines = result.split('\n').length;
   if (lines > ERROR_LINES) {
+    console.log(`Error lines: ${lines}`);
     console.log(`Please do not add more errors than ${ERROR_LINES}`);
     console.log('Hope you can fix the ts errors introduced after this merge.');
     exit(1);
