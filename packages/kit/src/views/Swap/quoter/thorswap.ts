@@ -35,9 +35,10 @@ export class ThorSwapQuoter implements Quoter {
     if (hash && attachment?.thorswapQuoteId) {
       const data = await this.getTransactionInfo(tx);
       if (data && data.status === 'success') {
-        const { legs } = data.result;
-        const lastLegs = legs[legs.length - 1];
-        return { status: 'sucesss', destinationTransactionHash: lastLegs.hash };
+        return {
+          status: 'sucesss',
+          destinationTransactionHash: data.destinationTransactionHash,
+        };
       }
       return { status: 'pending' };
     }
@@ -51,7 +52,7 @@ export class ThorSwapQuoter implements Quoter {
     const { hash, attachment } = tx;
     if (hash && attachment?.thorswapQuoteId) {
       const baseUrl = await this.getBaseUrl();
-      const url = `${baseUrl}/transaction_status`;
+      const url = `${baseUrl}/transaction_status_v2`;
       const res = await axios.get(url, {
         params: {
           hash,
@@ -59,23 +60,9 @@ export class ThorSwapQuoter implements Quoter {
         },
       });
       const data = res.data as {
-        status: string;
-        done: boolean;
-        result: {
-          quoteId: string;
-          firstTransactionHash: string;
-          status: string;
-          isLending: boolean;
-          isStreamingSwap: false;
-          legs: {
-            chain: string;
-            hash: string;
-            fromAsset: string;
-            fromAmount: string;
-            toAsset: string;
-            toAmount: string;
-          }[];
-        };
+        status: 'success' | 'failed' | 'pending';
+        destinationTransactionHash?: string;
+        actualReceived?: string;
       };
       return data;
     }

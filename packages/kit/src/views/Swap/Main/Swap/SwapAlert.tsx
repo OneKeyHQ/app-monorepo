@@ -103,13 +103,14 @@ const RecipientAlert = () => {
 
 const DepositLimitAlert = () => {
   const limitsError = useInputLimitsError();
+  const loading = useAppSelector((s) => s.swap.loading);
   const intl = useIntl();
   const onAction = useCallback(() => {
     if (limitsError?.value) {
       backgroundApiProxy.serviceSwap.userInput('INPUT', limitsError.value);
     }
   }, [limitsError]);
-  if (limitsError) {
+  if (limitsError && !loading) {
     return (
       <Box mt="6">
         <Alert

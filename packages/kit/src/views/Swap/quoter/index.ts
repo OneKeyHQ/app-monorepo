@@ -761,9 +761,7 @@ export class SwapQuoter {
       ) {
         const info = await this.thorswap.getTransactionInfo(tx);
         if (info) {
-          const { legs } = info.result;
-          const lastLegs = legs[legs.length - 1];
-          return lastLegs.toAmount;
+          return info.actualReceived;
         }
       } else {
         const historyTx = await this.getHistoryTx(tx);
