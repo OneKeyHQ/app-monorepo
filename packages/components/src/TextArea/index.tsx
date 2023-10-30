@@ -1,3 +1,6 @@
+import type { Ref } from 'react';
+import { forwardRef } from 'react';
+
 import { TextArea as TMTextArea, getFontSize } from 'tamagui';
 
 import { getSharedInputStyles } from '../Input/sharedStyles';
@@ -5,13 +8,16 @@ import { getSharedInputStyles } from '../Input/sharedStyles';
 import type { InputProps } from '../Input';
 import type { TextAreaProps } from 'tamagui';
 
-export function TextArea({
-  disabled,
-  editable,
-  error,
-  ...props
-}: Pick<InputProps, 'disabled' | 'editable' | 'error'> &
-  Omit<TextAreaProps, 'size'>) {
+function BaseTextArea(
+  {
+    disabled,
+    editable,
+    error,
+    ...props
+  }: Pick<InputProps, 'disabled' | 'editable' | 'error'> &
+    Omit<TextAreaProps, 'size'>,
+  ref: Ref<any>,
+) {
   const sharedStyles = getSharedInputStyles({
     disabled,
     editable,
@@ -21,6 +27,7 @@ export function TextArea({
   return (
     <TMTextArea
       unstyled
+      ref={ref}
       fontSize={getFontSize('$bodyLg')}
       px="$3"
       py="$1.5"
@@ -38,3 +45,5 @@ export function TextArea({
     />
   );
 }
+
+export const TextArea = forwardRef(BaseTextArea);
