@@ -9,7 +9,7 @@ const Swap = () => {
   const [open, setOpen] = useState(false);
   return (
     <Screen>
-      <YStack space="@4">
+      <YStack space="$4">
         <Text>Swap</Text>
         <Button
           onPress={() => {
