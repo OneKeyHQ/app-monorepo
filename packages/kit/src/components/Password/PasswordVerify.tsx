@@ -8,20 +8,19 @@ import {
   useState,
 } from 'react';
 
-import * as Burnt from 'burnt';
 import { useIntl } from 'react-intl';
-import { getTokens } from 'tamagui';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
-import { Form, Icon, Input, useForm } from '@onekeyhq/components';
+import { Form, Input, Toast, useForm } from '@onekeyhq/components';
 
 import { wait } from '../../utils/helper';
 import {
   getPassword,
-  hasHardwareSupported,
   localAuthenticate,
 } from '../../utils/localAuthentication';
 import { AppStatusActiveListener } from '../AppStatusActiveListener';
+
+import useBiologyAuth from './hooks/useBiologyAuth';
 
 interface IPasswordVerifyProps {
   onVerifyRes: (password: string) => void;
@@ -41,7 +40,7 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
   }>({ value: 'default' });
   const intl = useIntl();
   const [secureEntry, setSecureEntry] = useState(true);
-  const [isSupportBiometricId, setIsSupportBiometricId] = useState(false);
+  const { isSupportBiologyAuth } = useBiologyAuth();
   const lastTime = useRef(0);
 
   const passwordInput = form.watch('password');
@@ -54,7 +53,7 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
   }, []);
 
   // 生物识别验证获取密码
-  const onBiometricAuthenticate = useCallback(async () => {
+  const onBiologyAuthenticate = useCallback(async () => {
     if (status.value === 'verifying') {
       return;
     }
@@ -67,32 +66,16 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
           const verifiedPassword = await verifyPassword(password);
           onVerifyRes(verifiedPassword);
           setStatues({ value: 'verified' });
-        } else {
-          // TODO no password
-          setStatues({ value: 'error', message: 'no password' });
-          console.log('no password in localAuthenticate');
+          return;
         }
-      } else {
-        const { error } = localAuthenticateResult;
-        if (!error.includes('cancelled')) {
-          // TODO
-          Burnt.toast({
-            title: intl.formatMessage({ id: 'msg__verification_failure' }),
-            haptic: 'error',
-            icon: {
-              ios: {
-                name: 'x.circle.fill',
-                color: getTokens().color.iconCriticalLight.val,
-              },
-              web: <Icon name="XCircleSolid" color="$iconCritical" size="$5" />,
-            },
-          });
-        }
-        setStatues({
-          value: 'error',
-          message: intl.formatMessage({ id: 'msg__verification_failure' }),
-        });
       }
+      setStatues({
+        value: 'error',
+        message: intl.formatMessage({ id: 'msg__verification_failure' }),
+      });
+      Toast.error({
+        title: intl.formatMessage({ id: 'msg__verification_failure' }),
+      });
     } catch (e) {
       setStatues({
         value: 'error',
@@ -119,10 +102,10 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
       onPress?: () => void;
       loading?: boolean;
     }[] = [];
-    if (isSupportBiometricId && !passwordInput) {
+    if (isSupportBiologyAuth && !passwordInput) {
       actions.push({
         iconName: 'FaceArcSolid',
-        onPress: onBiometricAuthenticate,
+        onPress: onBiologyAuthenticate,
         loading: status.value === 'verifying',
       });
     } else {
@@ -141,20 +124,14 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
 
     return actions;
   }, [
-    isSupportBiometricId,
+    isSupportBiologyAuth,
     passwordInput,
-    onBiometricAuthenticate,
+    onBiologyAuthenticate,
     status.value,
     form,
     onInputPasswordAuthenticate,
     secureEntry,
   ]);
-
-  // TODO get authenticationType supportedAuthenticationTypesAsync 获取支持的生物识别类型
-  // TODO 获取生物识别开关状态
-  useEffect(() => {
-    hasHardwareSupported().then(setIsSupportBiometricId);
-  }, []);
 
   useEffect(() => {
     if (status.value === 'error') {
@@ -166,21 +143,21 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
   }, [form, status]);
 
   useLayoutEffect(() => {
-    if (isSupportBiometricId && !passwordInput) {
-      onBiometricAuthenticate();
+    if (isSupportBiologyAuth && !passwordInput) {
+      void onBiologyAuthenticate();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSupportBiometricId]);
+  }, [isSupportBiologyAuth]);
 
   const onActive = useCallback(() => {
     const now = Date.now();
     if (now - lastTime.current > 1000) {
       lastTime.current = now;
-      if (isSupportBiometricId && !passwordInput) {
-        onBiometricAuthenticate();
+      if (isSupportBiologyAuth && !passwordInput) {
+        void onBiologyAuthenticate();
       }
     }
-  }, [isSupportBiometricId, onBiometricAuthenticate, passwordInput]);
+  }, [isSupportBiologyAuth, onBiologyAuthenticate, passwordInput]);
 
   return (
     <Form form={form}>
@@ -204,7 +181,7 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
           addOns={rightActions}
         />
       </Form.Field>
-      {isSupportBiometricId && <AppStatusActiveListener onActive={onActive} />}
+      {isSupportBiologyAuth && <AppStatusActiveListener onActive={onActive} />}
     </Form>
   );
 };

@@ -1,29 +1,42 @@
 import { memo, useState } from 'react';
 
-import { Button, Screen, Text, YStack } from '@onekeyhq/components';
+import { Button, Dialog, Screen, Text, YStack } from '@onekeyhq/components';
 
-import PasswordDialog from '../../components/Password/PasswordDialog';
+import PasswordSetup from '../../components/Password/PasswordSetup';
+import PasswordVerify from '../../components/Password/PasswordVerify';
 
 const Swap = () => {
   console.log('swap');
   const [open, setOpen] = useState(false);
   return (
     <Screen>
-      <YStack space="$4">
+      <YStack space="@4">
         <Text>Swap</Text>
         <Button
           onPress={() => {
-            setOpen(!open);
+            Dialog.confirm({
+              title: 'ConfirmPassword',
+              renderContent: <PasswordSetup onSetupRes={(data) => {}} />,
+              showFooter: false,
+            });
+            // setOpen(!open);
+          }}
+        >
+          密码设置弹窗
+        </Button>
+        <Button
+          onPress={() => {
+            Dialog.confirm({
+              title: 'ConfirmPassword',
+              renderContent: <PasswordVerify onVerifyRes={(data) => {}} />,
+              showFooter: false,
+            });
+            // setOpen(!open);
           }}
         >
           密码验证弹窗
         </Button>
-        <PasswordDialog
-          onClose={() => {
-            setOpen(false);
-          }}
-          open={open}
-        />
+        {/* <Button>清除缓存密码</Button> */}
       </YStack>
     </Screen>
   );
