@@ -80,6 +80,7 @@ export const IconButton = (props: IconButtonProps) => {
           color={iconColor}
           name={icon}
           size={size === 'small' ? '$5' : '$6'}
+          {...iconProps}
         />
       )}
     </ButtonFrame>

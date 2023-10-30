@@ -1,4 +1,9 @@
-import type { Dispatch, PropsWithChildren } from 'react';
+import type {
+  Dispatch,
+  PropsWithChildren,
+  ReactNode,
+  SetStateAction,
+} from 'react';
 import {
   Children,
   cloneElement,
@@ -11,7 +16,6 @@ import {
   useState,
 } from 'react';
 
-import { StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Sheet,
@@ -30,10 +34,13 @@ import { removePortalComponent, setPortalComponent } from '../Portal';
 import { Stack, XStack, YStack } from '../Stack';
 import { Text } from '../Text';
 
+import type { ButtonProps } from '../Button';
 import type { FormProps } from '../Form';
-import type { SetStateAction } from 'jotai';
 import type { UseFormReturn } from 'react-hook-form';
-import type { ButtonProps, GetProps } from 'tamagui';
+import type {
+  DialogProps as TMDialogProps,
+  SheetProps as TMSheetProps,
+} from 'tamagui';
 
 function Trigger({
   onOpen,
@@ -54,22 +61,22 @@ function Trigger({
   return null;
 }
 
-export interface ModalProps {
-  open?: boolean;
-  backdrop?: boolean;
+export interface DialogProps extends TMDialogProps {
   onOpen?: () => void;
   onClose?: () => void;
   renderTrigger?: React.ReactNode;
   icon?: ICON_NAMES;
   title?: string;
   description?: string;
-  variant?: 'default' | 'destructive';
+  tone?: 'default' | 'destructive';
   renderContent?: React.ReactNode;
+  showFooter?: boolean;
   onConfirm?: () => void | Promise<boolean>;
   onCancel?: () => void;
-  confirmButtonProps?: GetProps<typeof Button>;
-  cancelButtonProps?: GetProps<typeof Button>;
-  dismissOnSnapToBottom?: boolean;
+  confirmButtonProps?: ButtonProps;
+  cancelButtonProps?: ButtonProps;
+  dismissOnOverlayPress?: TMSheetProps['dismissOnOverlayPress'];
+  sheetProps?: Omit<TMSheetProps, 'dismissOnOverlayPress'>;
 }
 
 function DialogFrame({
@@ -81,18 +88,19 @@ function DialogFrame({
   icon,
   description,
   renderContent,
+  showFooter = true,
   onConfirm,
   onCancel,
-  variant,
+  tone,
   confirmButtonProps,
   cancelButtonProps,
-  backdrop = false,
-  dismissOnSnapToBottom = true,
-}: ModalProps) {
+  dismissOnOverlayPress = true,
+  sheetProps,
+}: DialogProps) {
   const [position, setPosition] = useState(0);
-  const backdropClose = useMemo(
-    () => (backdrop ? onClose : undefined),
-    [backdrop, onClose],
+  const handleBackdropPress = useMemo(
+    () => (dismissOnOverlayPress ? onClose : undefined),
+    [dismissOnOverlayPress, onClose],
   );
   const handleOpenChange = useCallback(
     (isOpen: boolean) => {
@@ -120,64 +128,75 @@ function DialogFrame({
   const keyboardHeight = useKeyboardHeight();
 
   const content = (
-    <Stack p="$5" pb={bottom || '$5'}>
+    <Stack {...(bottom && { pb: bottom })}>
       {icon && (
         <Stack
+          alignSelf="flex-start"
           p="$3"
+          ml="$5"
+          mt="$5"
           borderRadius="$full"
-          bg={variant === 'destructive' ? '$bgCritical' : '$bgStrong'}
+          bg={tone === 'destructive' ? '$bgCritical' : '$bgStrong'}
         >
           <Icon
             name={icon}
             size="$8"
-            color={variant === 'destructive' ? '$iconCritical' : '$icon'}
+            color={tone === 'destructive' ? '$iconCritical' : '$icon'}
           />
         </Stack>
       )}
-      <XStack alignItems="flex-start">
-        <Stack flex={1} pr="$2.5">
-          {title && (
-            <Text variant="$headingXl" py="$px">
-              {title}
-            </Text>
-          )}
-          {description && (
-            <Text variant="$bodyLg" pt="$1.5">
-              {description}
-            </Text>
-          )}
-        </Stack>
-        <IconButton
-          icon="CrossedSmallOutline"
-          size="small"
-          onPress={handleCancelButtonPress}
-        />
-      </XStack>
-      {renderContent && <YStack pt="$5">{renderContent}</YStack>}
-      <XStack justifyContent="center" pt="$5">
-        <Button
-          flex={1}
-          $md={{
-            size: 'large',
-          }}
-          {...cancelButtonProps}
-          onPress={handleCancelButtonPress}
-        >
-          Cancel
-        </Button>
-        <Button
-          variant={variant === 'destructive' ? 'destructive' : 'primary'}
-          flex={1}
-          ml="$2.5"
-          $md={{
-            size: 'large',
-          }}
-          {...confirmButtonProps}
-          onPress={handleConfirmButtonPress}
-        >
-          Confirm
-        </Button>
-      </XStack>
+      <Stack p="$5" pr="$16">
+        <Text variant="$headingXl" py="$px">
+          {title}
+        </Text>
+        {description && (
+          <Text variant="$bodyLg" pt="$1.5">
+            {description}
+          </Text>
+        )}
+      </Stack>
+      <IconButton
+        position="absolute"
+        right="$5"
+        top="$5"
+        icon="CrossedSmallOutline"
+        iconProps={{
+          color: '$iconSubdued',
+        }}
+        size="small"
+        onPress={handleCancelButtonPress}
+      />
+      {renderContent && (
+        <YStack px="$5" pb="$5">
+          {renderContent}
+        </YStack>
+      )}
+      {showFooter && (
+        <XStack p="$5" pt="$0">
+          <Button
+            flex={1}
+            $md={{
+              size: 'large',
+            }}
+            {...cancelButtonProps}
+            onPress={handleCancelButtonPress}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant={tone === 'destructive' ? 'destructive' : 'primary'}
+            flex={1}
+            ml="$2.5"
+            $md={{
+              size: 'large',
+            }}
+            {...confirmButtonProps}
+            onPress={handleConfirmButtonPress}
+          >
+            Confirm
+          </Button>
+        </XStack>
+      )}
     </Stack>
   );
   if (media.md) {
@@ -189,11 +208,12 @@ function DialogFrame({
           open={open}
           position={position}
           onPositionChange={setPosition}
-          dismissOnSnapToBottom={dismissOnSnapToBottom}
-          dismissOnOverlayPress={backdrop}
+          dismissOnSnapToBottom
+          dismissOnOverlayPress={dismissOnOverlayPress}
           onOpenChange={handleOpenChange}
           snapPointsMode="fit"
           animation="quick"
+          {...sheetProps}
         >
           <Sheet.Overlay
             animation="quick"
@@ -239,11 +259,10 @@ function DialogFrame({
         <TMDialog.Overlay
           key="overlay"
           animation="quick"
-          opacity={0.5}
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
           backgroundColor="$bgBackdrop"
-          onPress={backdropClose}
+          onPress={handleBackdropPress}
         />
         <TMDialog.Content
           elevate
@@ -263,7 +282,7 @@ function DialogFrame({
           borderWidth="$0"
           outlineColor="$borderSubdued"
           outlineStyle="solid"
-          outlineWidth={StyleSheet.hairlineWidth}
+          outlineWidth="$px"
           bg="$bg"
           width={400}
           p="$0"
@@ -293,15 +312,21 @@ function DialogForm({ useFormProps, children, ...props }: DialogFormProps) {
   useEffect(() => {
     setContext?.({ form: formContext });
   }, [formContext, setContext]);
+  const element =
+    typeof children === 'function'
+      ? (children as (props: { form: UseFormReturn<unknown> }) => ReactNode)({
+          form: formContext,
+        })
+      : children;
   return (
     <Form {...props} form={formContext}>
-      {children}
+      {element}
     </Form>
   );
 }
 
 type DialogContainerProps = PropsWithChildren<
-  { name: string } & Omit<ModalProps, 'onConfirm'> & {
+  { name: string } & Omit<DialogProps, 'onConfirm'> & {
       onConfirm?: (context: {
         form?: UseFormReturn<any> | undefined;
       }) => void | Promise<boolean>;
