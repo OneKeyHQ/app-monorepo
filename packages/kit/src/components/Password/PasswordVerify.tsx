@@ -136,7 +136,7 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
   useEffect(() => {
     if (status.value === 'error') {
       form.setError('password', { message: status.message });
-      form.setFocus('password', { shouldSelect: true });
+      form.setFocus('password');
     } else {
       form.clearErrors('password');
     }
@@ -171,11 +171,11 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
         }}
       >
         <Input
+          autoFocus
+          selectTextOnFocus
           size="large"
           disabled={status.value === 'verifying'}
           placeholder="Enter your password"
-          autoFocus
-          key="password"
           flex={1}
           secureTextEntry={secureEntry}
           addOns={rightActions}
