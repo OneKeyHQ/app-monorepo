@@ -1,3 +1,5 @@
+import { type Ref, forwardRef } from 'react';
+
 import { Group, Input as TMInput, getFontSize } from 'tamagui';
 
 import { Icon } from '../Icon';
@@ -48,15 +50,18 @@ const SIZE_MAPPINGS = {
   },
 };
 
-export function Input({
-  size = 'medium',
-  leftIconName,
-  addOns,
-  disabled,
-  editable,
-  error,
-  ...props
-}: InputProps) {
+function BaseInput(
+  {
+    size = 'medium',
+    leftIconName,
+    addOns,
+    disabled,
+    editable,
+    error,
+    ...props
+  }: InputProps,
+  ref: Ref<any>,
+) {
   const {
     verticalPadding,
     horizontalPadding,
@@ -66,7 +71,6 @@ export function Input({
   } = SIZE_MAPPINGS[size];
 
   const sharedStyles = getSharedInputStyles({ disabled, editable, error });
-
   return (
     <Group
       orientation="horizontal"
@@ -79,11 +83,12 @@ export function Input({
       <Group.Item>
         <TMInput
           unstyled
+          ref={ref}
           flex={1}
           /* 
-            use height instead of lineHeight because of a RN issue while render TextInput on iOS
-            https://github.com/facebook/react-native/issues/28012
-          */
+          use height instead of lineHeight because of a RN issue while render TextInput on iOS
+          https://github.com/facebook/react-native/issues/28012
+        */
           h={height}
           py={verticalPadding}
           pr={horizontalPadding}
@@ -182,3 +187,5 @@ export function Input({
     </Group>
   );
 }
+
+export const Input = forwardRef(BaseInput);
