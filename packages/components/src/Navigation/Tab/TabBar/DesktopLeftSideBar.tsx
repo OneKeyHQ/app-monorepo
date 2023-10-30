@@ -173,7 +173,6 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
         type: 'timing',
         duration: 150,
       }}
-      // @ts-expect-error
       style={{
         height: '100%',
         width: slideBarWidth,

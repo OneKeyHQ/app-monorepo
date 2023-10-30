@@ -10,6 +10,15 @@ import Animated, {
 
 import type { MotiView } from 'moti';
 
+const styles = StyleSheet.create({
+  autoBottom: {
+    bottom: 'auto',
+  },
+  hidden: {
+    overflow: 'hidden',
+  },
+});
+
 type AnimateHeightProps = {
   children?: React.ReactNode;
   /**
@@ -61,14 +70,5 @@ function HeightTransition({
     </Animated.View>
   );
 }
-
-const styles = StyleSheet.create({
-  autoBottom: {
-    bottom: 'auto',
-  },
-  hidden: {
-    overflow: 'hidden',
-  },
-});
 
 export { HeightTransition };

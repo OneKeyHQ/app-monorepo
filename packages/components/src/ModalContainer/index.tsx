@@ -2,6 +2,7 @@ import { Button } from '../Button';
 import { Checkbox } from '../Checkbox';
 import { Stack, XStack } from '../Stack';
 
+import type { ButtonProps } from '../Button';
 import type { GetProps } from 'tamagui';
 
 type ModalButtonGroupProps = {
@@ -31,13 +32,17 @@ function ModalButtonGroup({
     >
       {(!!cancelButtonProps || !!onCancel) && (
         <Button
-          $sm={{
-            flex: 1,
-            size: 'large',
-          }}
-          $gtSm={{
-            size: 'medium',
-          }}
+          $sm={
+            {
+              flex: 1,
+              size: 'large',
+            } as ButtonProps
+          }
+          $gtSm={
+            {
+              size: 'medium',
+            } as ButtonProps
+          }
           onPress={onCancel}
           {...cancelButtonProps}
         >
@@ -47,13 +52,17 @@ function ModalButtonGroup({
       {(!!confirmButtonProps || !!onConfirm) && (
         <Button
           variant="primary"
-          $sm={{
-            flex: 1,
-            size: 'large',
-          }}
-          $gtSm={{
-            size: 'medium',
-          }}
+          $sm={
+            {
+              flex: 1,
+              size: 'large',
+            } as ButtonProps
+          }
+          $gtSm={
+            {
+              size: 'medium',
+            } as ButtonProps
+          }
           onPress={onConfirm}
           {...confirmButtonProps}
         >
