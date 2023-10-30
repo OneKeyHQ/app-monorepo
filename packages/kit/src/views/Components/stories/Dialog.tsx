@@ -421,7 +421,10 @@ const DialogGallery = () => (
                                 },
                               }}
                             >
-                              <Input placeholder="Max Length Limit" />
+                              <Input
+                                placeholder="Max Length Limit"
+                                selectTextOnFocus
+                              />
                             </Dialog.FormField>
                             <Dialog.FormField label="textArea" name="textArea">
                               <TextArea placeholder="type something random" />
