@@ -2,7 +2,6 @@ import type {
   DidFailLoadEvent,
   DidStartNavigationEvent,
   Event,
-  NewWindowEvent,
   PageFaviconUpdatedEvent,
   PageTitleUpdatedEvent,
 } from './DesktopWebView';
@@ -72,6 +71,5 @@ export type IElectronWebViewEvents = {
   onDidFailLoad?: (e: DidFailLoadEvent) => void;
   onPageTitleUpdated?: (e: PageTitleUpdatedEvent) => void;
   onPageFaviconUpdated?: (e: PageFaviconUpdatedEvent) => void;
-  onNewWindow?: (e: NewWindowEvent) => void;
   onDomReady?: (e: Event) => void;
 };

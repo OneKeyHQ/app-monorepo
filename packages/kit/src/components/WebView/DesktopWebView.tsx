@@ -30,7 +30,6 @@ import type {
   DidStartNavigationEvent,
   Event,
   LoadURLOptions,
-  NewWindowEvent,
   PageFaviconUpdatedEvent,
   PageTitleUpdatedEvent,
 } from 'electron';
@@ -39,7 +38,6 @@ export type {
   DidFailLoadEvent,
   DidStartNavigationEvent,
   Event,
-  NewWindowEvent,
   PageFaviconUpdatedEvent,
   PageTitleUpdatedEvent,
 };
@@ -81,6 +79,7 @@ const DesktopWebView = forwardRef(
       onDidFailLoad,
       onPageTitleUpdated,
       onPageFaviconUpdated,
+      // @ts-expect-error
       onNewWindow,
       onDomReady,
       ...props
@@ -348,12 +347,11 @@ const DesktopWebView = forwardRef(
               'height': '100%',
               ...style,
             }}
+            allowpopups
+            nodeintegration
             // @ts-expect-error
-            allowpopups="true"
-            // @ts-expect-error
-            nodeintegration="true"
-            nodeintegrationinsubframes="true"
-            webpreferences="contextIsolation=0, contextisolation=0, nativeWindowOpen=1"
+            nodeintegrationinsubframes
+            webpreferences="contextIsolation=0, contextisolation=0, nativeWindowOpen=1, sandbox=0"
             // mobile user-agent
             // useragent="Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1"
             {...props}

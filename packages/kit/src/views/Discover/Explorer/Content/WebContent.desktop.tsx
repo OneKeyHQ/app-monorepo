@@ -10,7 +10,6 @@ import type { IElectronWebView } from '../../../../components/WebView/types';
 import type { WebTab } from '../Context/contextWebTabs';
 import type {
   DidStartNavigationEvent,
-  NewWindowEvent,
   PageFaviconUpdatedEvent,
   PageTitleUpdatedEvent,
 } from 'electron';
@@ -39,11 +38,15 @@ function WebContent({ id, url }: IWebContentProps) {
     onNavigation({ id, loading: true });
   }, [id]);
   const onDidStartNavigation = useCallback(
-    ({ url: willNaviUrl, isInPlace, isMainFrame }: DidStartNavigationEvent) => {
+    ({
+      url: willNavigationUrl,
+      isInPlace,
+      isMainFrame,
+    }: DidStartNavigationEvent) => {
       if (isMainFrame) {
         onNavigation({
           id,
-          url: willNaviUrl,
+          url: willNavigationUrl,
           loading: true,
           isInPlace,
           ...getNavStatusInfo(),
@@ -78,14 +81,14 @@ function WebContent({ id, url }: IWebContentProps) {
     },
     [id],
   );
-  const onNewWindow = useCallback(
-    ({ url: newWindowUrl }: NewWindowEvent) => {
-      if (newWindowUrl) {
-        onNavigation({ id, url: newWindowUrl, isNewWindow: true });
-      }
-    },
-    [id],
-  );
+  // const onNewWindow = useCallback(
+  //   ({ url: newWindowUrl }: NewWindowEvent) => {
+  //     if (newWindowUrl) {
+  //       onNavigation({ id, url: newWindowUrl, isNewWindow: true });
+  //     }
+  //   },
+  //   [id],
+  // );
   const onDomReady = useCallback(() => {
     const ref = webviewRefs[id] as IElectronWebView;
     // @ts-expect-error
@@ -115,7 +118,7 @@ function WebContent({ id, url }: IWebContentProps) {
         onDidFailLoad={onDidFinishLoad}
         onPageTitleUpdated={onPageTitleUpdated}
         onPageFaviconUpdated={onPageFaviconUpdated}
-        onNewWindow={onNewWindow}
+        // onNewWindow={onNewWindow}
         onDomReady={onDomReady}
       />
     ),
@@ -126,7 +129,7 @@ function WebContent({ id, url }: IWebContentProps) {
       onDidStartLoading,
       onDidStartNavigation,
       onDomReady,
-      onNewWindow,
+      // onNewWindow,
       onPageFaviconUpdated,
       onPageTitleUpdated,
     ],
