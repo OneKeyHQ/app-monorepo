@@ -4885,6 +4885,7 @@ __metadata:
     jest: ^29.7.0
     jest-expo: ^49.0.0
     jest-html-reporter: ^3.10.2
+    jotai: ^2.4.3
     memoizee: ^0.4.15
     natsort: ^2.0.3
     node-notifier: ^10.0.1
@@ -4895,8 +4896,8 @@ __metadata:
     react-dev-utils: ^12.0.1
     react-dom: 18.2.0
     react-native: 0.72.5
-    react-native-web: ~0.19.6
     react-refresh: ^0.14.0
+    react-render-tracker: ^0.7.6
     redux-flipper: ^2.0.2
     stream-browserify: ^3.0.0
     style-loader: ^3.3.3
@@ -5077,6 +5078,7 @@ __metadata:
     react-intl: ^5.21.2
     react-native-animated-splash-screen: ^2.0.5
     react-native-camera-kit: 14.0.0-beta2
+    react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#834d8096f8cfd78a961fb7a13f06f0cc64b2c9c3"
     react-redux: ^8.0.5
     redux-logger: ^3.0.6
     redux-persist: ^6.0.0
@@ -19414,6 +19416,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"jotai@npm:^2.4.3":
+  version: 2.5.0
+  resolution: "jotai@npm:2.5.0"
+  peerDependencies:
+    "@types/react": ">=17.0.0"
+    react: ">=17.0.0"
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    react:
+      optional: true
+  checksum: 95bafc2912a3b5da29a891b6d5b9fa73decf314def6db1fb56cec93c971334704bac3b566dfcf16f4c96f4563a04b49bbbf67eabe5d3379d19bd99e10a2ce759
+  languageName: node
+  linkType: hard
+
 "js-base64@npm:3.7.5":
   version: 3.7.5
   resolution: "js-base64@npm:3.7.5"
@@ -24466,7 +24483,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-web@npm:^0.19.6, react-native-web@npm:~0.19.6":
+"react-native-web@npm:^0.19.6":
   version: 0.19.9
   resolution: "react-native-web@npm:0.19.9"
   dependencies:
@@ -24495,6 +24512,19 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: fc611002420df2c068517f08846095062bda531dc2651ce5a6b738bd9dbc33c090323105afec4e4b4516459d244bca47e04b50b2c3c6fab67d2593f891f87fab
+  languageName: node
+  linkType: hard
+
+"react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#834d8096f8cfd78a961fb7a13f06f0cc64b2c9c3":
+  version: 11.24.0
+  resolution: "react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#commit=834d8096f8cfd78a961fb7a13f06f0cc64b2c9c3"
+  dependencies:
+    escape-string-regexp: 2.0.0
+    invariant: 2.2.4
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 740bcc2f986a84398226de87015e0c0ea071f41d7bb9b0a513eefed3598f5d1165b06a8f8448d61343112f482b5e4ea303d9704816bf396ffa0dd67d5142968d
   languageName: node
   linkType: hard
 
@@ -24649,6 +24679,13 @@ __metadata:
     "@types/react":
       optional: true
   checksum: e0dbb6856beaed2cff4996d9ca62d775686ff72e3e9de34043034d932223b588993b2fc7a18644750dd3d73eb19bd3f2cedb8d91f0e424c1ef8403010da24b1d
+  languageName: node
+  linkType: hard
+
+"react-render-tracker@npm:^0.7.6":
+  version: 0.7.6
+  resolution: "react-render-tracker@npm:0.7.6"
+  checksum: 615c77ae6749e84754cd8970b1f01a3b4e58698896413c885bd5833c2b1aceaeec4734a7545704f6a9bb961242c09684510c1f82191309126d94fa35defb2d9e
   languageName: node
   linkType: hard
 

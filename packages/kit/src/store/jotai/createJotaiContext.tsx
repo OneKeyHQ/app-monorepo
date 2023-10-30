@@ -9,9 +9,10 @@ export { atom };
 
 export function createJotaiContext() {
   const Context = createContext<ReturnType<typeof createStore> | null>(null);
+  const store = createStore();
   function Provider({ children }: { children?: ReactNode | undefined }) {
-    const store = useMemo(() => createStore(), []);
-    return <Context.Provider value={store}>{children}</Context.Provider>;
+    const innerStore = useMemo(() => store, []);
+    return <Context.Provider value={innerStore}>{children}</Context.Provider>;
   }
   function useContextAtom<Value, Args extends any[], Result>(
     atomInstance: WritableAtom<Value, Args, Result>,
@@ -36,5 +37,6 @@ export function createJotaiContext() {
     Provider,
     withProvider,
     useContextAtom,
+    store,
   };
 }

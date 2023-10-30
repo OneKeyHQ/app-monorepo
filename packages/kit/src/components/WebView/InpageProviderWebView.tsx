@@ -23,10 +23,16 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       },
     });
 
-    useImperativeHandle(
-      ref,
-      (): IWebViewWrapperRef | null => iframeWebviewRef.current,
-    );
+    useImperativeHandle(ref, (): IWebViewWrapperRef => {
+      const wrapper = {
+        innerRef: iframeWebviewRef.current,
+        reload: () => iframeWebviewRef.current?.reload(),
+        loadURL: (url: string) => {
+          iframeWebviewRef.current?.loadURL(url);
+        },
+      };
+      return wrapper as IWebViewWrapperRef;
+    });
 
     return (
       <iframe

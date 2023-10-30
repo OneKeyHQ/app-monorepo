@@ -287,20 +287,25 @@ function createMainWindow() {
     quitOrMinimizeApp();
   });
 
-  ipcMain.on(ipcMessageKeys.APP_OPEN_PREFS, (_event, prefType: PrefType) => {
-    const platform = os.type();
-    if (platform === 'Darwin') {
-      void shell.openPath('/System/Library/PreferencePanes/Security.prefPane');
-    } else if (platform === 'Windows_NT') {
-      // ref https://docs.microsoft.com/en-us/windows/uwp/launch-resume/launch-settings-app
-      if (prefType === 'camera') {
-        void shell.openExternal('ms-settings:privacy-webcam');
+  ipcMain.on(
+    ipcMessageKeys.APP_OPEN_PREFERENCES,
+    (_event, prefType: PrefType) => {
+      const platform = os.type();
+      if (platform === 'Darwin') {
+        void shell.openPath(
+          '/System/Library/PreferencePanes/Security.prefPane',
+        );
+      } else if (platform === 'Windows_NT') {
+        // ref https://docs.microsoft.com/en-us/windows/uwp/launch-resume/launch-settings-app
+        if (prefType === 'camera') {
+          void shell.openExternal('ms-settings:privacy-webcam');
+        }
+        // BlueTooth is not supported on desktop currently
+      } else {
+        // Linux ??
       }
-      // BlueTooth is not supported on desktop currently
-    } else {
-      // Linux ??
-    }
-  });
+    },
+  );
 
   ipcMain.on(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW, () => {
     if (browserWindow.isMaximized()) {
