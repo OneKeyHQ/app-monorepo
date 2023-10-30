@@ -101,7 +101,12 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async searchDevices() {
     const hardwareSDK = await this.getSDKInstance();
-    return hardwareSDK?.searchDevices();
+    const response = await hardwareSDK?.searchDevices();
+    if (response.success) {
+      return response.payload;
+    }
+    const deviceError = convertDeviceError(response.payload);
+    return Promise.reject(deviceError);
   }
 
   @backgroundMethod()
