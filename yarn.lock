@@ -5125,6 +5125,7 @@ __metadata:
     react-native-level-fs: ^3.0.1
     react-native-metrix: ^0.6.3
     react-native-mmkv: ^2.8.0
+    react-native-pager-view: ^6.2.2
     react-native-randombytes: ^3.6.1
     react-native-reanimated: ^3.5.4
     react-native-safe-area-context: ^4.7.2
@@ -24264,6 +24265,16 @@ __metadata:
     react-native: "> 0.50.0"
     react-native-gesture-handler: "> 1.0.0"
   checksum: c383c79d9397d72e285b67eb8c50e0743037bb72f0d12dc5a743ae45d092a4aa87e6fba0cd8cb8bef4ce675ffe784adb24bc996c137b4a30d9b8a882e7610c30
+  languageName: node
+  linkType: hard
+
+"react-native-pager-view@npm:^6.2.2":
+  version: 6.2.2
+  resolution: "react-native-pager-view@npm:6.2.2"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: ac563431c10e96ff28367e57310ebd6901e1ddd532430802cab03ed9a216f85cf9567e05aaf7fd58bb1a328ffac11e1f0f19907cf55103a487c103e2f6d2e390
   languageName: node
   linkType: hard
 
