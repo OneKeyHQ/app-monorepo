@@ -4,7 +4,7 @@ import { shorthands } from '@tamagui/shorthands';
 import { themes } from '@tamagui/themes';
 import { createFont, createTamagui, createTokens } from 'tamagui';
 
-import type { Variable } from '@tamagui/web/src/createVariable';
+import type { Variable } from '@tamagui/web/types/createVariable';
 
 const isTamaguiNative = process.env.TAMAGUI_TARGET === 'native';
 const font = createFont({
