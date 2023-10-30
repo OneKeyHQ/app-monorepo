@@ -10,6 +10,7 @@ import {
   withStaticProperties,
 } from 'tamagui';
 
+import { HeightTransition } from '../HeightTransition';
 import { Input } from '../Input';
 import { Label } from '../Label';
 import { YStack } from '../Stack';
@@ -97,7 +98,7 @@ function Field({ name, label, description, rules, children }: FieldProps) {
                 )
               : child,
           )}
-          <AnimatePresence>
+          <HeightTransition>
             {error?.message && (
               <Text
                 key={error?.message}
@@ -117,7 +118,7 @@ function Field({ name, label, description, rules, children }: FieldProps) {
                 {error.message}
               </Text>
             )}
-          </AnimatePresence>
+          </HeightTransition>
           {description ? (
             <Text variant="$bodyMd" pt="$1.5" color="$textSubdued">
               {description}

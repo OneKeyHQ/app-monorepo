@@ -2,14 +2,20 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 
 import {
-  Input,
   Adapt as TMAdapt,
   Dialog as TMDialog,
   Sheet as TMSheet,
 } from 'tamagui';
 
 import type { DialogProps } from '@onekeyhq/components';
-import { Button, Dialog, Text, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  Input,
+  Text,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -446,6 +452,36 @@ const DialogGallery = () => (
                     }
                     return false;
                   },
+                })
+              }
+            >
+              Open Dialog Form
+            </Button>
+          </YStack>
+        ),
+      },
+      {
+        title: 'Dialog Form With Form & AutoFocus Input',
+        element: (
+          <YStack>
+            <Button
+              mt="$4"
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'Password',
+                  description: 'input password',
+                  renderContent: (
+                    <Dialog.Form>
+                      <Dialog.FormField label="Name" name="name">
+                        <Input
+                          autoFocus
+                          flex={1}
+                          placeholder="only numeric value"
+                        />
+                      </Dialog.FormField>
+                    </Dialog.Form>
+                  ),
+                  onConfirm: () => {},
                 })
               }
             >
