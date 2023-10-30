@@ -7,11 +7,11 @@ const css2 = 'debug-render-tracker-animated-bg0';
 
 function DebugRenderTracker(props: { children: ReactElement }): ReactElement {
   const { children } = props;
-  const cls = useRef<typeof css1 | typeof css2>(css1);
+  const classRef = useRef<typeof css1 | typeof css2>(css1);
   if (process.env.NODE_ENV !== 'production') {
     if (platformEnv.isRuntimeBrowser) {
-      cls.current = cls.current === css1 ? css2 : css1;
-      return <div className={cls.current}>{children}</div>;
+      classRef.current = classRef.current === css1 ? css2 : css1;
+      return <div className={classRef.current}>{children}</div>;
     }
   }
 

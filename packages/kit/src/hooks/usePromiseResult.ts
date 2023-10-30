@@ -131,7 +131,7 @@ export function usePromiseResult<T>(
   );
 
   useEffect(() => {
-    run({ triggerByDeps: true });
+    void run({ triggerByDeps: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
@@ -142,7 +142,7 @@ export function usePromiseResult<T>(
       isDepsChangedOnBlur.current
     ) {
       isDepsChangedOnBlur.current = false;
-      run();
+      void run();
     }
   }, [isFocused, run]);
 

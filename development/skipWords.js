@@ -505,4 +505,6 @@ module.exports = [
   'webln',
   'submenu',
   'unregister',
+  'debounce',
+  'goto',
 ];
