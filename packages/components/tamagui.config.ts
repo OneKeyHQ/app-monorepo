@@ -4,7 +4,7 @@ import { shorthands } from '@tamagui/shorthands';
 import { themes } from '@tamagui/themes';
 import { createFont, createTamagui, createTokens } from 'tamagui';
 
-import type { Variable } from '@tamagui/web/src/createVariable';
+import type { Variable } from '@tamagui/web/types/createVariable';
 
 const isTamaguiNative = process.env.TAMAGUI_TARGET === 'native';
 const font = createFont({
@@ -22,6 +22,7 @@ const font = createFont({
     headingMd: 16,
     headingSm: 14,
     headingXs: 12,
+    headingXxs: 10,
     bodyLg: 16,
     bodyLgMedium: 16,
     bodyMd: 14,
@@ -40,6 +41,7 @@ const font = createFont({
     headingMd: 24,
     headingSm: 20,
     headingXs: 16,
+    headingXxs: 12,
     bodyLg: 24,
     bodyLgMedium: 24,
     bodyMd: 20,
@@ -58,6 +60,7 @@ const font = createFont({
     headingMd: '600',
     headingSm: '600',
     headingXs: '600',
+    headingXxs: '500',
     bodyLg: '400',
     bodyLgMedium: '500',
     bodyMd: '400',
@@ -76,6 +79,7 @@ const font = createFont({
     headingMd: 'none',
     headingSm: 'none',
     headingXs: 'uppercase',
+    headingXxs: 'none',
     bodyLg: 'none',
     bodyLgMedium: 'none',
     bodyMd: 'none',
@@ -94,6 +98,7 @@ const font = createFont({
     headingMd: 0,
     headingSm: 0,
     headingXs: 0.8,
+    headingXxs: 0,
     bodyLg: 0,
     bodyLgMedium: 0,
     bodyMd: 0,
@@ -158,6 +163,7 @@ const lightColors = {
   bgSuccess: '#02ba3c16',
   bgSuccessStrong: '#008f4acf',
   bgSuccessSubdued: '#00c43b0d',
+  bgSidebar: '#F9F9F9',
   border: '#00000022',
   borderActive: '#000000df',
   borderCaution: '#be980091',
@@ -312,6 +318,7 @@ const darkColors: typeof lightColors = {
   bgSuccess: '#00fc7a12',
   bgSuccessStrong: '#3fffa29b',
   bgSuccessSubdued: '#00fb0006',
+  bgSidebar: '#121212',
   border: '#ffffff2b',
   borderActive: '#ffffffec',
   borderCaution: '#fecd1b51',
