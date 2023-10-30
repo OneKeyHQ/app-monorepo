@@ -295,7 +295,7 @@ function DialogFrame({
 }
 
 type DialogFormProps = Omit<FormProps, 'form'> & {
-  useFormProps: Parameters<typeof useForm>;
+  useFormProps?: Parameters<typeof useForm>;
 };
 export const DialogContext = createContext<{
   context?: { form?: UseFormReturn<any> };
@@ -307,7 +307,7 @@ export const DialogContext = createContext<{
 }>({});
 
 function DialogForm({ useFormProps, children, ...props }: DialogFormProps) {
-  const formContext = useForm(useFormProps as any);
+  const formContext = useForm(useFormProps as any || {});
   const { setContext } = useContext(DialogContext);
   useEffect(() => {
     setContext?.({ form: formContext });
