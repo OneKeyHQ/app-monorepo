@@ -5101,6 +5101,7 @@ __metadata:
     "@onekeyhq/kit": "*"
     "@onekeyhq/shared": "*"
     "@react-native-async-storage/async-storage": 1.18.2
+    "@react-native-community/netinfo": ^9.4.1
     "@react-native-community/slider": ^4.4.3
     burnt: 0.12
     expo: ~49.0.13
@@ -5130,6 +5131,7 @@ __metadata:
     react-native-reanimated: ^3.5.4
     react-native-safe-area-context: ^4.7.2
     react-native-screens: ^3.25.0
+    react-native-share: ^9.4.1
     react-native-svg: ^13.9.0
     react-native-tcp-socket: ^6.0.6
     react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#5036d59cba4f5609c32b7eb5dec560e738ce7115"
@@ -5951,6 +5953,15 @@ __metadata:
   bin:
     react-native: build/bin.js
   checksum: 704e3d5e252a42a45697384b55f140b4961cbc213a90701ef163d1d0bab4fa8481ae4bf9ffe9c965114817087068186422d96d60aed479466bab036049a32866
+  languageName: node
+  linkType: hard
+
+"@react-native-community/netinfo@npm:^9.4.1":
+  version: 9.4.1
+  resolution: "@react-native-community/netinfo@npm:9.4.1"
+  peerDependencies:
+    react-native: ">=0.59"
+  checksum: cf6471a50a5282f858797cda7531c61ac3d94de2e1c379b14a11f6b049f582606dae55a041dd900c56b01faf69eb5cfef9b4e84b0ea7f02de52804aa5a6e22df
   languageName: node
   linkType: hard
 
@@ -24347,6 +24358,13 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 18750fb15e80d2c2e4eea9992d1f07f72298e1f65b5c7614196c539f2191bed853d5c09cfaad33f1c8be0ae5d3f70e90458d1e842954e1090957dd42a71084f5
+  languageName: node
+  linkType: hard
+
+"react-native-share@npm:^9.4.1":
+  version: 9.4.1
+  resolution: "react-native-share@npm:9.4.1"
+  checksum: 22b0f38b79bfa791b105c3c809ed0199d233c0ccddb5060546ade710767cab68812e5c9456ce858141dd0218bbbd946180c97e74132389996e00fdef4fbc355b
   languageName: node
   linkType: hard
 
