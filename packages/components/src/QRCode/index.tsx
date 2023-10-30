@@ -23,11 +23,7 @@ const generateMatrix = (
   errorCorrectionLevel: 'L' | 'M' | 'Q' | 'H',
 ): number[][] => {
   const arr: number[] = Array.prototype.slice.call(
-    (
-      QRCodeUtil.create(value, { errorCorrectionLevel }).modules as {
-        data: number[];
-      }
-    ).data,
+    QRCodeUtil.create(value, { errorCorrectionLevel }).modules.data,
     0,
   );
   const sqrt = Math.sqrt(arr.length);
@@ -51,8 +47,8 @@ export function QRCode({
   value,
 }: QRCodeProps) {
   const href = logo;
-  const primaryColor = useThemeValue('text') as string;
-  const secondaryColor = useThemeValue('bg') as string;
+  const primaryColor = useThemeValue('text');
+  const secondaryColor = useThemeValue('bg');
   const dots = useMemo(() => {
     const arr: ReactElement[] = [];
     const qrList = [

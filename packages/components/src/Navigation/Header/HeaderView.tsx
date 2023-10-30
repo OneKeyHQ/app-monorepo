@@ -109,7 +109,6 @@ function HeaderView({
         >
           <Header
             title={getHeaderTitle(options, route.name)}
-            // @ts-expect-error
             headerTintColor={headerTintColor}
             headerLeft={headerLeftView}
             headerRight={

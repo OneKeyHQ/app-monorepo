@@ -175,9 +175,11 @@ function DialogFrame({
         <XStack p="$5" pt="$0">
           <Button
             flex={1}
-            $md={{
-              size: 'large',
-            }}
+            $md={
+              {
+                size: 'large',
+              } as ButtonProps
+            }
             {...cancelButtonProps}
             onPress={handleCancelButtonPress}
           >
@@ -187,9 +189,11 @@ function DialogFrame({
             variant={tone === 'destructive' ? 'destructive' : 'primary'}
             flex={1}
             ml="$2.5"
-            $md={{
-              size: 'large',
-            }}
+            $md={
+              {
+                size: 'large',
+              } as ButtonProps
+            }
             {...confirmButtonProps}
             onPress={handleConfirmButtonPress}
           >
@@ -307,14 +311,14 @@ export const DialogContext = createContext<{
 }>({});
 
 function DialogForm({ useFormProps, children, ...props }: DialogFormProps) {
-  const formContext = useForm(useFormProps as any || {});
+  const formContext = useForm((useFormProps as any) || {});
   const { setContext } = useContext(DialogContext);
   useEffect(() => {
     setContext?.({ form: formContext });
   }, [formContext, setContext]);
   const element =
     typeof children === 'function'
-      ? (children as (props: { form: UseFormReturn<unknown> }) => ReactNode)({
+      ? (children as (props: { form: UseFormReturn<any> }) => ReactNode)({
           form: formContext,
         })
       : children;

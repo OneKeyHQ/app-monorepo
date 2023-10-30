@@ -1,4 +1,4 @@
-import type { FC, ReactNode } from 'react';
+import type { FC, PropsWithChildren, ReactNode } from 'react';
 import { memo, useMemo } from 'react';
 
 import { IntlProvider } from 'react-intl';
@@ -16,15 +16,14 @@ import { Context } from './hooks/useProviderValue';
 import ScreenSizeProvider from './ScreenSizeProvider';
 import SidebarStateProvider from './SidebarStateProvider';
 
-import type { ThemeVariant } from './theme';
 import type { LocaleSymbol } from '../locale';
 import type { IntlShape, MessageDescriptor } from 'react-intl';
 
-export type UIProviderProps = {
+export type UIProviderProps = PropsWithChildren<{
   /**
    * default theme variant
    */
-  themeVariant: ThemeVariant;
+  themeVariant: 'light' | 'dark';
   /**
    * default locale symbol
    */
@@ -33,7 +32,7 @@ export type UIProviderProps = {
   reduxReady?: boolean;
 
   waitFontLoaded?: boolean;
-};
+}>;
 export type IFontProviderProps = {
   children?: ReactNode;
   waitFontLoaded?: boolean;

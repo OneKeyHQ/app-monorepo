@@ -4,7 +4,6 @@ import { debounce, uniq } from 'lodash';
 import uuid from 'react-native-uuid';
 
 import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
-import type { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 // import type { FirmwareType } from '@onekeyhq/kit/src/views/Hardware/UpdateFirmware/Updating';
 import { defaultHapticStatus } from '@onekeyhq/shared/src/haptics';
@@ -50,7 +49,7 @@ export type ISettingsDevModeInfo = {
   showContentScriptReloadButton?: boolean;
 };
 export type SettingsState = {
-  theme: ThemeVariant | 'system';
+  theme: 'light' | 'dark' | 'system';
   lastLocale: LocaleSymbol;
   locale: LocaleSymbol;
   version: string;

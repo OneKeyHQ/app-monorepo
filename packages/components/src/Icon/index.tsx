@@ -48,7 +48,7 @@ const IconContainer = forwardRef(({ name, style }: IconContainerProps, _) => {
   if (!name) {
     return null
   }
-  const defaultColor = useThemeValue('icon-default') as string;
+  const defaultColor = useThemeValue('icon');
   const primaryColor: string = (style?.color as string) || defaultColor;
 
   const Svg = ComponentMaps[name] 

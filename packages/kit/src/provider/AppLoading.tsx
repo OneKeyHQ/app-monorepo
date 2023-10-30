@@ -2,8 +2,6 @@
 import type { FC, ReactNode } from 'react';
 import { memo, useEffect, useMemo, useState } from 'react';
 
-// TODO: add .d.ts for react-native-animated-splash-screen
-// @ts-expect-error no .d.ts
 import { Dimensions } from 'react-native';
 import AnimatedSplash from 'react-native-animated-splash-screen';
 

@@ -142,7 +142,7 @@ export function Popover({
                 icon="CrossedSmallOutline"
                 size="small"
                 $platform-native={{ hitSlop: 8 }}
-                onPress={() => onOpenChange(false)}
+                onPress={() => onOpenChange?.(false)}
               />
             </XStack>
 

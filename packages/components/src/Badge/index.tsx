@@ -1,4 +1,4 @@
-import { type FC } from 'react';
+import type { FC, PropsWithChildren } from 'react';
 
 import { styled } from '@tamagui/core';
 
@@ -31,10 +31,10 @@ const textColors: Record<BadgeType, string> = {
   'default': '$textSubdued',
 };
 
-type BadgeProps = {
+type BadgeProps = PropsWithChildren<{
   type: BadgeType;
   size: 'lg' | 'sm';
-};
+}>;
 
 export const Badge: FC<BadgeProps> = ({ children, type, size }) => {
   const bgColor = bgColors[type];

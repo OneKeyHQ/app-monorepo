@@ -112,4 +112,7 @@ function SegmentControlFrame({
   );
 }
 
-export const SegmentControl = styled(SegmentControlFrame, {});
+export const SegmentControl = styled(
+  SegmentControlFrame,
+  {} as SegmentControlProps,
+);
