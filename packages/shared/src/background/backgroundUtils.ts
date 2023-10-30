@@ -319,8 +319,17 @@ export const isDappScopeMatchNetwork = (
   return true;
 };
 
+export const GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME = 'globaStatesSyncBroadcast';
+export type IGlobalStatesSyncBroadcastParams = {
+  $$isFromBgStatesSyncBroadcast: true;
+  name: string;
+  payload: any;
+}
+
+
 export const DISPATCH_ACTION_BROADCAST_METHOD_NAME = 'dispatchActionBroadcast';
 export const REPLACE_WHOLE_STATE = 'REPLACE_WHOLE_STATE';
+
 export type IDispatchActionBroadcastParams = {
   actions?: PayloadAction[];
   $isDispatchFromBackground: boolean;

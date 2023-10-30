@@ -54,7 +54,7 @@
     "eslint": "^8.25.0",
     "expo": "~49.0.13",
     "expo-status-bar": "~1.6.0",
-    "jotai": "^2.4.3",
+    "jotai": "^2.5.0",
     "memoizee": "^0.4.15",
     "natsort": "^2.0.3",
     "prettier": "^2.8.1",

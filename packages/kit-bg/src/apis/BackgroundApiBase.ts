@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { createBackgroundProviders } from '../providers/backgroundProviders';
+import allAtoms from '../states/jotai/atoms';
 
 import {
   isExtensionInternalCall,
@@ -46,6 +47,7 @@ import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 @backgroundClass()
 class BackgroundApiBase implements IBackgroundApiBridge {
   constructor() {
+    console.log('allAtoms:', allAtoms);
     this.cycleDepsCheck();
     this._initBackgroundPersistor();
   }
