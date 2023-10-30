@@ -61,23 +61,53 @@ if (shouldInject()) {
 
 bridgeSetup.contentScript.setupMessagePort();
 
-// if (process.env.NODE_ENV !== 'production') {
-//   try {
-//     if (consts.WALLET_INFO_LOACAL_KEY) {
-//       const walletInfo: IOneKeyWalletInfo = JSON.parse(
-//         localStorage.getItem(consts.WALLET_INFO_LOACAL_KEY) || '{}',
-//       );
-//       console.log(walletInfo);
-//       if (walletInfo && walletInfo.enableExtContentScriptReloadButton) {
-//         setTimeout(() => {
-//           devToolsButton.inject();
-//         }, 2000);
-//       }
-//     }
-//   } catch (error) {
-//     console.error(error);
-//   }
-// }
+export interface IOneKeyWalletInfo {
+  enableExtContentScriptReloadButton?: boolean;
+  platform?: string;
+  version?: string;
+  buildNumber?: string;
+  disableExt: boolean;
+  walletSwitchConfig: Record<string, string[]>;
+  isLegacy: boolean;
+  platformEnv: {
+    isRuntimeBrowser?: boolean;
+    isRuntimeChrome?: boolean;
+    isRuntimeFirefox?: boolean;
+
+    isWeb?: boolean;
+
+    isNative?: boolean;
+    isNativeIOS?: boolean;
+    isNativeAndroid?: boolean;
+
+    isExtension?: boolean;
+    isExtChrome?: boolean;
+    isExtFirefox?: boolean;
+
+    isDesktop?: boolean;
+    isDesktopWin?: boolean;
+    isDesktopLinux?: boolean;
+    isDesktopMac?: boolean;
+  };
+}
+
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    if (consts.WALLET_INFO_LOACAL_KEY) {
+      const walletInfo: IOneKeyWalletInfo = JSON.parse(
+        localStorage.getItem(consts.WALLET_INFO_LOACAL_KEY) || '{}',
+      );
+      console.log(walletInfo);
+      if (walletInfo && walletInfo.enableExtContentScriptReloadButton) {
+        setTimeout(() => {
+          devToolsButton.inject();
+        }, 2000);
+      }
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
 
 if (process.env.NODE_ENV !== 'production') {
   console.log('==== injected script tag done >>>>>>>', performance.now());

@@ -1,8 +1,8 @@
 // eslint-disable-next-line import/order
 import '@onekeyhq/shared/src/polyfills';
 
-// import hotReload from '../ui/hotReload';
-// import uiJsBridge from '../ui/uiJsBridge';
+import hotReload from '../ui/hotReload';
+import uiJsBridge from '../ui/uiJsBridge';
 
 function initUi() {
   const renderApp: typeof import('../ui/renderApp').default =
@@ -12,20 +12,20 @@ function initUi() {
 }
 
 function init() {
-  // uiJsBridge.init();
+  uiJsBridge.init();
 
   // popupSizeFix();
   // **** must be after popupSizeFix();
   // resizeEventOptimize();
 
-  // global.$$onekeyPerfTrace?.log({
-  //   name: '[EXT]: ui.tsx init() / KitProviderExt render()',
-  // });
+  global.$$onekeyPerfTrace?.log({
+    name: '[EXT]: ui.tsx init() / KitProviderExt render()',
+  });
   initUi();
 
-  // if (process.env.NODE_ENV !== 'production') {
-  //   hotReload.enable();
-  // }
+  if (process.env.NODE_ENV !== 'production') {
+    hotReload.enable();
+  }
 }
 
 export default { init };

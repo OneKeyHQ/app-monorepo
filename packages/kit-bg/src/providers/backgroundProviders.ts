@@ -1,3 +1,5 @@
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+
 // import ProviderAlgo from './ProviderAlgo';
 // import ProviderApiAptos from './ProviderApiAptos';
 // import ProviderApiBtc from './ProviderApiBtc';
@@ -12,7 +14,7 @@
 // import ProviderApiStarcoin from './ProviderApiStarcoin';
 // import ProviderApiSui from './ProviderApiSui';
 // import ProviderApiTron from './ProviderApiTron';
-// import ProviderApiWebln from './ProviderApiWebln';
+import ProviderApiWebln from './ProviderApiWebln';
 
 import type ProviderApiBase from './ProviderApiBase';
 import type {
@@ -65,7 +67,7 @@ function createBackgroundProviders({
     // [IInjectedProviderNames.polkadot]: new ProviderApiPolkadot({
     //   backgroundApi,
     // }),
-    // [IInjectedProviderNames.webln]: new ProviderApiWebln({ backgroundApi }),
+    [IInjectedProviderNames.webln]: new ProviderApiWebln({ backgroundApi }),
     // [IInjectedProviderNames.btc]: new ProviderApiBtc({
     //   backgroundApi,
     // }),

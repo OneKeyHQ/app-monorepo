@@ -26,7 +26,7 @@ export type DesktopAPI = {
   reload: () => void;
   ready: () => void;
   focus: () => void;
-  openPrefs: (prefType: PrefType) => void;
+  openPreferences: (prefType: PrefType) => void;
   toggleMaximizeWindow: () => void;
   onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
   canPromptTouchID: () => boolean;
@@ -166,7 +166,7 @@ const desktopApi = {
       ipcRenderer.removeListener(ipcMessageKeys.APP_STATE, handler);
     };
   },
-  openPrefs: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_PREFS),
+  openPreferences: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_PREFERENCES),
   toggleMaximizeWindow: () =>
     ipcRenderer.send(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW),
   canPromptTouchID: () =>

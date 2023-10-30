@@ -1,7 +1,7 @@
 import { app, globalShortcut } from 'electron';
 
-import type { ExplorerShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { getShortcutsMap } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import type { ExplorerShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 const shortcutsMap = getShortcutsMap(process.platform === 'darwin');
 export function registerShortcuts(

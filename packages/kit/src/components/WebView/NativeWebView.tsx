@@ -12,10 +12,9 @@ import { WebView } from 'react-native-webview';
 
 // import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import {
-  checkOneKeyCardGoogleOauthUrl,
-  openUrlExternal,
-} from '@onekeyhq/shared/src/utils/uriUtils';
+import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUtils';
+
+import { openUrlExternal } from '../../utils/openUrl';
 
 import ErrorView from './ErrorView';
 
@@ -42,6 +41,7 @@ const NativeWebView = forwardRef(
       onLoadProgress,
       injectedJavaScriptBeforeContentLoaded,
       onMessage,
+      onLoadStart,
       ...props
     }: NativeWebViewProps,
     ref,
@@ -64,7 +64,7 @@ const NativeWebView = forwardRef(
           const uri = new URL(event.nativeEvent.url);
           const origin = uri?.origin || '';
           // debugLogger.webview.info('onMessage', origin, data);
-          console.log('onMessage: ', origin, data);
+          // console.log('onMessage: ', origin, data);
           // - receive
           jsBridge.receive(data, { origin });
         } catch {
@@ -88,20 +88,24 @@ const NativeWebView = forwardRef(
       return wrapper;
     });
 
-    // @ts-expect-error
-    const webViewOnLoadStart = useCallback((syntheticEvent) => {
-      // eslint-disable-next-line no-unsafe-optional-chaining, @typescript-eslint/no-unsafe-member-access
-      const { url } = syntheticEvent?.nativeEvent;
-      try {
-        if (checkOneKeyCardGoogleOauthUrl({ url })) {
-          openUrlExternal(url);
-          webviewRef.current?.stopLoading();
+    const webViewOnLoadStart = useCallback(
+      // @ts-expect-error
+      (syntheticEvent) => {
+        // eslint-disable-next-line no-unsafe-optional-chaining, @typescript-eslint/no-unsafe-member-access
+        const { url } = syntheticEvent?.nativeEvent;
+        try {
+          if (checkOneKeyCardGoogleOauthUrl({ url })) {
+            openUrlExternal(url);
+            webviewRef.current?.stopLoading();
+          }
+          onLoadStart?.(syntheticEvent);
+        } catch (error) {
+          // debugLogger.webview.error('onLoadStart', error);
+          console.log('onLoadStart: ', error);
         }
-      } catch (error) {
-        // debugLogger.webview.error('onLoadStart', error);
-        console.log('onLoadStart: ', error);
-      }
-    }, []);
+      },
+      [onLoadStart],
+    );
 
     const renderError = useCallback(
       (
