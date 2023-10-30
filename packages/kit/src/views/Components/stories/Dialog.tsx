@@ -373,7 +373,7 @@ const DialogGallery = () => (
         ),
       },
       {
-        title: 'Dialog Form With Form Context',
+        title: 'Dialog Form with Form Context & Focus by Code',
         element: (
           <YStack>
             <Button
@@ -400,6 +400,7 @@ const DialogGallery = () => (
                         }: {
                           form: UseFormReturn<{
                             name: string;
+                            length: string;
                             async: string;
                           }>;
                         }) => (
@@ -435,6 +436,14 @@ const DialogGallery = () => (
                             >
                               <Input placeholder="Required" />
                             </Dialog.FormField>
+                            <Button
+                              marginVertical="$6"
+                              onPress={() => {
+                                form.setFocus('length');
+                              }}
+                            >
+                              Focus MaxLength Field
+                            </Button>
                           </>
                         )) as any as ReactNode
                       }
@@ -455,7 +464,7 @@ const DialogGallery = () => (
                 })
               }
             >
-              Open Dialog Form
+              Open Dialog Form with Form Context & Focus by Code
             </Button>
           </YStack>
         ),
