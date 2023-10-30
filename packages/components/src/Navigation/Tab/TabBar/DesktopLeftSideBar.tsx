@@ -50,8 +50,8 @@ function TabItemView({
         onPress={onPress}
         flexDirection="row"
         alignItems="center"
-        px={touchMode ? '$2.5' : '$1.5'}
-        py={touchMode ? '$3' : '$2'}
+        px={touchMode ? '$3' : '$2'}
+        py={touchMode ? '$2.5' : '$1.5'}
         borderRadius="$2"
         backgroundColor={isActive ? '$bgActive' : undefined}
         hoverStyle={!isActive ? { backgroundColor: '$bgHover' } : undefined}
@@ -61,7 +61,7 @@ function TabItemView({
           <Icon
             // @ts-expect-error
             name={options?.tabBarIcon?.(isActive) as ICON_NAMES}
-            color={isActive ? '$icon' : '$iconSubdued'}
+            color="$iconSubdued"
             size={touchMode ? '$6' : '$5'}
           />
         </Stack>
@@ -70,8 +70,8 @@ function TabItemView({
           <Text
             variant={touchMode ? '$bodyLg' : '$bodyMd'}
             flex={1}
-            marginLeft="$1"
-            color={isActive ? '$text' : '$textSubdued'}
+            marginLeft="$2"
+            color="$text"
             numberOfLines={1}
           >
             {options.tabBarLabel ?? route.name}
@@ -117,7 +117,7 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
   const paddingTopValue =
     slideBarPadding + top + (disExtraPaddingTop ? 0 : defaultHeight);
 
-  const [slideBg, slideBorder] = useThemeValue(['bgSubdued', 'borderSubdued']);
+  const [slideBg, slideBorder] = useThemeValue(['bgSidebar', 'borderSubdued']);
 
   const tabs = useMemo(
     () =>

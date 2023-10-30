@@ -8,7 +8,7 @@ const Swap = () => {
   console.log('swap');
   return (
     <Screen>
-      <YStack space="@4">
+      <YStack space="$4">
         <Text>Swap</Text>
         <LocalAuthenticationButton />
       </YStack>

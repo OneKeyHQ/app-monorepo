@@ -1,3 +1,5 @@
+import { useTheme } from '@tamagui/core';
+
 import { createStackNavigator } from '@onekeyhq/components';
 import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
 import ActionListGallery from '@onekeyhq/kit/src/views/Components/stories/ActionList';
@@ -102,25 +104,35 @@ export const stackScreenList = [
 
 const DevStack = createStackNavigator();
 
-const DevScreen = () => (
-  <DevStack.Navigator
-    screenOptions={{
-      cardStyle: {
-        flex: 1,
-      },
-    }}
-  >
-    <DevStack.Group>
-      {stackScreenList.map((stack) => (
-        <DevStack.Screen
-          key={stack.name}
-          name={stack.name}
-          component={stack.component}
-          options={stack.options}
-        />
-      ))}
-    </DevStack.Group>
-  </DevStack.Navigator>
-);
+const DevScreen = () => {
+  const theme = useTheme();
+  return (
+    <DevStack.Navigator
+      screenOptions={{
+        cardStyle: {
+          flex: 1,
+        },
+      }}
+    >
+      <DevStack.Group>
+        {stackScreenList.map((stack) => (
+          <DevStack.Screen
+            key={stack.name}
+            name={stack.name}
+            component={stack.component}
+            options={({ navigation }: { navigation: any }) => ({
+              headerStyle: {
+                backgroundColor: theme.bgApp.val,
+              },
+              headerTintColor: theme.text.val,
+              headerShadowVisible: false,
+              ...stack.options,
+            })}
+          />
+        ))}
+      </DevStack.Group>
+    </DevStack.Navigator>
+  );
+};
 
 export default DevScreen;

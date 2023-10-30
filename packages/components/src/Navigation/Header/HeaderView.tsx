@@ -92,7 +92,7 @@ function HeaderView({
         }}
         borderTopLeftRadius={isModelScreen ? '$2' : 0}
         borderTopRightRadius={isModelScreen ? '$2' : 0}
-        backgroundColor="$bg"
+        backgroundColor="$bgApp"
         overflow="hidden"
         borderBottomWidth={StyleSheet.hairlineWidth}
         borderBottomColor="$borderSubdued"
@@ -132,7 +132,7 @@ function HeaderView({
             headerTransparent={headerTransparent}
             headerShadowVisible={false}
             headerBackground={headerBackground}
-            headerStyle={headerStyle}
+            headerStyle={[{ backgroundColor: 'transparent' }, headerStyle]}
           />
         </Stack>
         {!!headerSearchBarOptions && (
