@@ -318,7 +318,7 @@ function DialogForm({ useFormProps, children, ...props }: DialogFormProps) {
   }, [formContext, setContext]);
   const element =
     typeof children === 'function'
-      ? (children as (props: { form: UseFormReturn<unknown> }) => ReactNode)({
+      ? (children as (props: { form: UseFormReturn<any> }) => ReactNode)({
           form: formContext,
         })
       : children;
