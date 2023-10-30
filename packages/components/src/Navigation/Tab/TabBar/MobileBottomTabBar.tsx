@@ -153,7 +153,7 @@ export default function MobileBottomTabBar({
               />
               {options?.tabBarLabel?.length ? (
                 <Text
-                  variant="$bodySmMedium"
+                  variant="$headingXxs"
                   color={isActive ? '$text' : '$textSubdued'}
                   numberOfLines={1}
                 >
@@ -184,7 +184,7 @@ export default function MobileBottomTabBar({
       left="$0"
       right="$0"
       bottom="$0"
-      bg="$bg"
+      bg="$bgApp"
       borderTopColor="$borderSubdued"
       height={tabBarHeight}
       py="$0"
