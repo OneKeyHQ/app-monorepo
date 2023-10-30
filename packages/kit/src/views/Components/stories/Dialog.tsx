@@ -13,6 +13,7 @@ import {
   Dialog,
   Input,
   Text,
+  TextArea,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -388,7 +389,8 @@ const DialogGallery = () => (
                         {
                           defaultValues: {
                             name: 'Nate Wienert',
-                            length: '1234567',
+                            input: '1234567',
+                            textArea: 'textArea',
                           },
                         } as any
                       }
@@ -401,7 +403,8 @@ const DialogGallery = () => (
                           form: UseFormReturn<{
                             name: string;
                             length: string;
-                            async: string;
+                            input: string;
+                            textArea: string;
                           }>;
                         }) => (
                           <>
@@ -410,7 +413,7 @@ const DialogGallery = () => (
                             </Dialog.FormField>
                             <Dialog.FormField
                               label="MaxLength"
-                              name="length"
+                              name="input"
                               rules={{
                                 maxLength: {
                                   value: 6,
@@ -419,6 +422,9 @@ const DialogGallery = () => (
                               }}
                             >
                               <Input placeholder="Max Length Limit" />
+                            </Dialog.FormField>
+                            <Dialog.FormField label="textArea" name="textArea">
+                              <TextArea placeholder="type something random" />
                             </Dialog.FormField>
                             <Dialog.FormField
                               label="async load remote data"
@@ -439,10 +445,18 @@ const DialogGallery = () => (
                             <Button
                               marginVertical="$6"
                               onPress={() => {
-                                form.setFocus('length');
+                                form.setFocus('input');
                               }}
                             >
-                              Focus MaxLength Field
+                              Focus MaxLength Input
+                            </Button>
+                            <Button
+                              marginVertical="$6"
+                              onPress={() => {
+                                form.setFocus('textArea');
+                              }}
+                            >
+                              Focus TextArea
                             </Button>
                           </>
                         )) as any as ReactNode
