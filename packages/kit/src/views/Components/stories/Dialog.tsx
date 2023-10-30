@@ -318,14 +318,12 @@ const DialogGallery = () => (
                   description: 'input password',
                   renderContent: (
                     <Dialog.Form
-                      useFormProps={
-                        {
-                          defaultValues: {
-                            name: 'Nate Wienert',
-                            length: '1234567',
-                          },
-                        } as any
-                      }
+                      useFormProps={{
+                        defaultValues: {
+                          name: 'Nate Wienert',
+                          length: '1234567',
+                        },
+                      }}
                     >
                       <Dialog.FormField label="Name" name="name">
                         <Input flex={1} />
@@ -385,15 +383,13 @@ const DialogGallery = () => (
                   description: 'input password',
                   renderContent: (
                     <Dialog.Form
-                      useFormProps={
-                        {
-                          defaultValues: {
-                            name: 'Nate Wienert',
-                            input: '1234567',
-                            textArea: 'textArea',
-                          },
-                        } as any
-                      }
+                      useFormProps={{
+                        defaultValues: {
+                          name: 'Nate Wienert',
+                          input: '1234567',
+                          textArea: 'textArea',
+                        },
+                      }}
                     >
                       {
                         // eslint-disable-next-line react/no-unstable-nested-components
@@ -462,7 +458,7 @@ const DialogGallery = () => (
                               Focus TextArea
                             </Button>
                           </>
-                        )) as any as ReactNode
+                        )) as unknown as ReactNode
                       }
                     </Dialog.Form>
                   ),

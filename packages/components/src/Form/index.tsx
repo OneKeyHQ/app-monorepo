@@ -3,12 +3,7 @@ import { Children, cloneElement, isValidElement, useCallback } from 'react';
 
 import { noop } from 'lodash';
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
-import {
-  AnimatePresence,
-  Fieldset,
-  Form as TMForm,
-  withStaticProperties,
-} from 'tamagui';
+import { Fieldset, Form as TMForm, withStaticProperties } from 'tamagui';
 
 import { HeightTransition } from '../HeightTransition';
 import { Input } from '../Input';
