@@ -1,10 +1,10 @@
 import { Slider as TMSlider } from 'tamagui';
 
+import type { BaseSliderProps } from './type';
 import type { SliderProps as TMSliderProps } from 'tamagui';
 
-export interface SliderProps extends TMSliderProps {
-  disabled?: boolean;
-}
+export type SliderProps = BaseSliderProps &
+  Omit<TMSliderProps, 'defaultValue' | 'value' | 'onValueChange'>;
 
 export const Slider = ({
   disabled,

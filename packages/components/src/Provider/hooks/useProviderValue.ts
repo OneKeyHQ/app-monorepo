@@ -1,9 +1,7 @@
 import { createContext, useContext } from 'react';
 
-import type { ThemeVariant } from '../theme';
-
 export type ContextValue = {
-  themeVariant: ThemeVariant;
+  themeVariant: 'light' | 'dark';
   reduxReady?: boolean;
 };
 

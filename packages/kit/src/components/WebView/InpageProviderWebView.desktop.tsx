@@ -22,6 +22,15 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       onSrcChange,
       receiveHandler,
       allowpopups,
+      onDidStartLoading,
+      onDidStartNavigation,
+      onDidFinishLoad,
+      onDidStopLoading,
+      onDidFailLoad,
+      onPageTitleUpdated,
+      onPageFaviconUpdated,
+      onNewWindow,
+      onDomReady,
     }: InpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -52,6 +61,15 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
               DESKTOP_USER_AGENT_MOCK
             : undefined
         }
+        onDidStartLoading={onDidStartLoading}
+        onDidStartNavigation={onDidStartNavigation}
+        onDidFinishLoad={onDidFinishLoad}
+        onDidStopLoading={onDidStopLoading}
+        onDidFailLoad={onDidFailLoad}
+        onPageTitleUpdated={onPageTitleUpdated}
+        onPageFaviconUpdated={onPageFaviconUpdated}
+        onNewWindow={onNewWindow}
+        onDomReady={onDomReady}
       />
     );
   },
