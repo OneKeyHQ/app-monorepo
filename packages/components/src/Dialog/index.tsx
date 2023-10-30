@@ -175,9 +175,11 @@ function DialogFrame({
         <XStack p="$5" pt="$0">
           <Button
             flex={1}
-            $md={{
-              size: 'large',
-            }}
+            $md={
+              {
+                size: 'large',
+              } as ButtonProps
+            }
             {...cancelButtonProps}
             onPress={handleCancelButtonPress}
           >
@@ -187,9 +189,11 @@ function DialogFrame({
             variant={tone === 'destructive' ? 'destructive' : 'primary'}
             flex={1}
             ml="$2.5"
-            $md={{
-              size: 'large',
-            }}
+            $md={
+              {
+                size: 'large',
+              } as ButtonProps
+            }
             {...confirmButtonProps}
             onPress={handleConfirmButtonPress}
           >
