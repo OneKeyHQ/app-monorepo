@@ -3,12 +3,7 @@ const { exit } = require('process');
 
 const MAX_WARNINGS_COUNT = 180;
 
-try {
-  const result = execSync(
-    `sh -c 'npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"'`,
-  ).toString('utf-8');
-
-  console.log(result);
+function handleWarnings(result) {
   const warningsCount = result.match(/, (\d+) warnings\)/)?.[1];
   if (Number(warningsCount) > MAX_WARNINGS_COUNT) {
     console.log(`Warnings Counts: ${warningsCount}`);
@@ -20,6 +15,14 @@ try {
     );
     exit(1);
   }
+}
+
+try {
+  const result = execSync(
+    `sh -c 'npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"'`,
+  ).toString('utf-8');
+  console.log(result);
+  handleWarnings(result);
 } catch (error) {
   const result = error.stdout.toString('utf-8');
   console.log(result);
@@ -27,8 +30,10 @@ try {
   const errorCount = Number(result.match(/(\d+) errors/)?.[1]);
   if (errorCount > 0) {
     console.error(`${errorCount} errors must be resolved`);
-    exit(1);
   }
+
+  handleWarnings(result);
+  exit(1);
 }
 
 exit(0);
