@@ -49,6 +49,7 @@
     "react-native-level-fs": "^3.0.1",
     "react-native-metrix": "^0.6.3",
     "react-native-mmkv": "^2.8.0",
+    "react-native-pager-view": "^6.2.2",
     "react-native-randombytes": "^3.6.1",
     "react-native-reanimated": "^3.5.4",
     "react-native-safe-area-context": "^4.7.2",
