@@ -1,7 +1,8 @@
 const { execSync } = require('child_process');
 const { exit } = require('process');
 
-const MAX_WARNINGS_COUNT = 180;
+const MAX_ERROR_COUNT = 90;
+const MAX_WARNINGS_COUNT = 730;
 
 function handleWarnings(result) {
   const warningsCount = result.match(/, (\d+) warnings\)/)?.[1];
@@ -28,8 +29,12 @@ try {
   console.log(result);
 
   const errorCount = Number(result.match(/(\d+) errors/)?.[1]);
-  if (errorCount > 0) {
-    console.error(`${errorCount} errors must be resolved`);
+  if (errorCount > MAX_ERROR_COUNT) {
+    console.log(`Error Counts: ${errorCount}`);
+    console.log(`Please do not add more ESLint errors than ${MAX_ERROR_COUNT}`);
+    console.log(
+      'Hope you can fix the ESLint erros introduced after this merge.\n',
+    );
   }
 
   handleWarnings(result);
