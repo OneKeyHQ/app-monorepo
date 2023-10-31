@@ -202,26 +202,22 @@ const HideFooterDialog = () => {
   );
 };
 
-const ContentB = ({ prevDialog }: { prevDialog: DialogInstanceRef }) => {
+const ContentA = ({ index }: { index: number }) => {
   const dialog = useDialogInstance();
   return (
     <YStack space="$4">
-      <Button onPress={() => prevDialog.close()}>Close Prev Dialog</Button>
-      <Button onPress={() => dialog.close()}>Close Current Dialog</Button>
-    </YStack>
-  );
-};
-
-const ContentA = () => {
-  const dialog = useDialogInstance();
-  return (
-    <YStack space="$4">
-      <Button onPress={() => dialog.close()}>Close Dialog</Button>
+      <Button
+        onPress={() => {
+          dialog.close();
+        }}
+      >
+        {`Close Current Dialog #${index}`}
+      </Button>
       <Button
         onPress={() => {
           Dialog.confirm({
             title: 'ContentB',
-            renderContent: <ContentB prevDialog={dialog} />,
+            renderContent: <ContentA index={index + 1} />,
             showFooter: false,
           });
         }}
@@ -578,7 +574,7 @@ const DialogGallery = () => (
               onPress={() => {
                 Dialog.confirm({
                   title: 'click button to close',
-                  renderContent: <ContentA />,
+                  renderContent: <ContentA index={1} />,
                   showFooter: false,
                 });
               }}

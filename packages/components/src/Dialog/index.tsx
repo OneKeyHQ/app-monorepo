@@ -358,7 +358,6 @@ function BaseDialogContainer(
 ) {
   const [isOpen, changeIsOpen] = useState(true);
   const [context, setContext] = useState<{ form?: UseFormReturn<any> }>({});
-
   const handleClose = useCallback(() => {
     changeIsOpen(false);
     onClose?.();
