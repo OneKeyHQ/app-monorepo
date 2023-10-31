@@ -509,4 +509,5 @@ module.exports = [
   'boardloader',
   'debounce',
   'goto',
+  'bluetooth'
 ];
