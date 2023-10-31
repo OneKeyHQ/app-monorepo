@@ -373,9 +373,8 @@ function BaseDialogContainer(
     () => ({
       context,
       setContext,
-      handleClose,
     }),
-    [context, handleClose],
+    [context],
   );
 
   const handleOpen = useCallback(() => {
