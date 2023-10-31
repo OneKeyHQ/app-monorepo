@@ -18,7 +18,6 @@ import {
   YStack,
   useDialogInstance,
 } from '@onekeyhq/components';
-import type { DialogInstanceRef } from '@onekeyhq/components/src/Dialog/type';
 
 import { Layout } from './utils/Layout';
 
@@ -205,26 +204,31 @@ const HideFooterDialog = () => {
 const ContentA = ({ index }: { index: number }) => {
   const dialog = useDialogInstance();
   return (
-    <YStack space="$4">
-      <Button
-        onPress={() => {
-          dialog.close();
-        }}
-      >
-        {`Close Current Dialog #${index}`}
-      </Button>
-      <Button
-        onPress={() => {
-          Dialog.confirm({
-            title: 'ContentB',
-            renderContent: <ContentA index={index + 1} />,
-            showFooter: false,
-          });
-        }}
-      >
-        Open New Dialog
-      </Button>
-    </YStack>
+    <Dialog.Form useFormProps={{}}>
+      <Dialog.FormField label="Password" name="password">
+        <Input />
+      </Dialog.FormField>
+      <YStack space="$4">
+        <Button
+          onPress={() => {
+            dialog.close();
+          }}
+        >
+          {`Close Current Dialog #${index}`}
+        </Button>
+        <Button
+          onPress={() => {
+            Dialog.confirm({
+              title: `#${index + 1}`,
+              renderContent: <ContentA index={index + 1} />,
+              showFooter: false,
+            });
+          }}
+        >
+          Open New Dialog
+        </Button>
+      </YStack>
+    </Dialog.Form>
   );
 };
 
@@ -573,7 +577,7 @@ const DialogGallery = () => (
               mt="$4"
               onPress={() => {
                 Dialog.confirm({
-                  title: 'click button to close',
+                  title: '#1',
                   renderContent: <ContentA index={1} />,
                   showFooter: false,
                 });
