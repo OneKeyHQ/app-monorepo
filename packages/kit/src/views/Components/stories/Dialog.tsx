@@ -42,7 +42,6 @@ function DialogInstance() {
       <TMAdapt when="md">
         <TMSheet
           animation="quick"
-          zIndex={200000}
           modal
           dismissOnSnapToBottom
           snapPointsMode="fit"
