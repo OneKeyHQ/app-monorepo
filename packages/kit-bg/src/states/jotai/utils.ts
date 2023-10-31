@@ -15,7 +15,15 @@ import {
 } from './jotaiStorage';
 
 import type { EAtomNames } from './atomNames';
-import type { Read, SetAtom, Setter, WithInitialValue, Write } from './types';
+import type {
+  IAtomPro,
+  IWritableAtomPro,
+  Read,
+  SetAtom,
+  Setter,
+  WithInitialValue,
+  Write,
+} from './types';
 import type { Atom, PrimitiveAtom, WritableAtom } from 'jotai';
 import type {
   ExtractAtomArgs,
@@ -25,8 +33,15 @@ import type {
 
 export const jotaiDefaultStore = getDefaultStore();
 
-function wrapAtom(name: string, baseAtom: ReturnType<typeof atom>) {
-  const doSet = ({
+function wrapAtom(
+  name: string,
+  baseAtom: IWritableAtomPro<
+    unknown,
+    [update: unknown],
+    Promise<void> | undefined
+  >,
+) {
+  const doSet = async ({
     payload,
     proxyToBg,
     set,
@@ -39,7 +54,7 @@ function wrapAtom(name: string, baseAtom: ReturnType<typeof atom>) {
       // TODO call bg service to update states from bg and all ui
       return;
     }
-    set(baseAtom, payload);
+    await set(baseAtom, payload);
     console.log('------- enhanceAtom update to', name, payload);
     if (platformEnv.isExtensionBackground) {
       const p: IGlobalStatesSyncBroadcastParams = {
@@ -55,7 +70,7 @@ function wrapAtom(name: string, baseAtom: ReturnType<typeof atom>) {
   };
   const proAtom = atom(
     (get) => get(baseAtom),
-    (get, set, update) => {
+    async (get, set, update) => {
       let nextValue =
         typeof update === 'function'
           ? (
@@ -79,35 +94,30 @@ function wrapAtom(name: string, baseAtom: ReturnType<typeof atom>) {
       }
 
       if (nextValue === RESET) {
-        doSet({
+        await doSet({
           proxyToBg,
           set,
-          payload: baseAtom.init,
+          payload: baseAtom.initialValue,
         });
         return;
       }
       if (nextValue instanceof Promise) {
-        return nextValue.then((resolvedValue) => {
+        return nextValue.then(async (resolvedValue) =>
           doSet({
             proxyToBg,
             set,
             payload: resolvedValue,
-          });
-        });
+          }),
+        );
       }
 
-      doSet({
+      await doSet({
         proxyToBg,
         set,
         payload: nextValue,
       });
     },
-  );
-
-  // @ts-ignore
-  proAtom.storageReady = globalJotaiStorageReadyHandler.ready;
-  // @ts-ignore
-  proAtom.initialValue = baseAtom.initialValue;
+  ) as IWritableAtomPro<unknown, [update: unknown], Promise<void> | undefined>;
 
   return proAtom;
 }
@@ -123,10 +133,8 @@ export class CrossAtom<T extends () => any> {
   atom: T;
 
   ready = async () => {
-    const a = this.atom() as Atom<ExtractAtomValue<ReturnType<T>>>;
-    // @ts-ignore
+    const a = this.atom() as IAtomPro<ExtractAtomValue<ReturnType<T>>>;
     await a.storageReady;
-    // @ts-ignore
     if (isNil(a.storageReady)) {
       console.error('atom does not have storageReady checking: ', this.name);
     }
@@ -145,7 +153,7 @@ export class CrossAtom<T extends () => any> {
   >(
     ...args: Args
   ) => {
-    const a = (await this.ready()) as WritableAtom<AtomValue, Args, Result>;
+    const a = (await this.ready()) as IWritableAtomPro<AtomValue, Args, Result>;
     return jotaiDefaultStore.set(a, ...args);
   };
 }
@@ -257,6 +265,7 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
   write?: Write<Args, Result>;
 }) {
   let a = null;
+  let persist = false;
   if (typeof write === 'function') {
     if (typeof read === 'function') {
       // read, write
@@ -271,14 +280,23 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
   } else if (storageName && typeof storageName === 'string') {
     // storage
     a = atomWithStorage(storageName, initialValue!);
+    persist = true;
   } else {
     // initialValue
     a = atom(initialValue!);
   }
-  // @ts-ignore
-  a.initialValue = initialValue;
+
+  const baseAtom = a as IWritableAtomPro<
+    unknown,
+    [update: unknown],
+    Promise<void> | undefined
+  >;
+  const proAtom = wrapAtom(name, baseAtom);
+  proAtom.storageReady = globalJotaiStorageReadyHandler.ready;
+  proAtom.initialValue = initialValue;
+  proAtom.persist = persist;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  return wrapAtom(name, a as any) as unknown as any;
+  return proAtom as unknown as any;
 }
 
 /*

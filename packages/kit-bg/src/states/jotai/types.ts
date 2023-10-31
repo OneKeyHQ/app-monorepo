@@ -42,3 +42,15 @@ export type Write<Args extends unknown[], Result> = (
   set: Setter,
   ...args: Args
 ) => Result;
+
+type IAtomProProps<Value> = {
+  initialValue: Value;
+  storageReady: Promise<boolean>;
+  persist: boolean;
+};
+export type IAtomPro<Value> = Atom<Value> & IAtomProProps<Value>;
+export type IWritableAtomPro<
+  Value,
+  Args extends unknown[],
+  Result,
+> = WritableAtom<Value, Args, Result> & IAtomProProps<Value>;

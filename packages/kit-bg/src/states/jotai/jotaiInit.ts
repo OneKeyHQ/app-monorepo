@@ -6,7 +6,7 @@ import {
 } from './jotaiStorage';
 import { CrossAtom, jotaiDefaultStore } from './utils';
 
-import type { WritableAtom } from 'jotai';
+import type { IWritableAtomPro } from './types';
 
 export async function jotaiInit() {
   const allAtoms = await import('./atoms');
@@ -38,12 +38,22 @@ export async function jotaiInit() {
       }
       const skey = buildJotaiStorageKey(value.name);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      const atomObj = value.atom() as WritableAtom<any, any, any>;
-      // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      const atomObj = value.atom() as unknown as IWritableAtomPro<
+        any,
+        any,
+        any
+      >;
       const initValue = atomObj.initialValue;
-      const v = await onekeyJotaiStorage.getItem(skey, initValue);
-      await jotaiDefaultStore.set(atomObj, v);
+
+      if (!atomObj.persist) {
+        return;
+      }
+
+      const storageValue = await onekeyJotaiStorage.getItem(skey, initValue);
+      const currentValue = await jotaiDefaultStore.get(atomObj);
+      if (currentValue !== storageValue) {
+        await jotaiDefaultStore.set(atomObj, storageValue);
+      }
     }),
   );
 

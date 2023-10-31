@@ -117,9 +117,7 @@ class GlobalJotaiStorageReadyHandler {
   };
 
   ready = new Promise<boolean>((resolve) => {
-    console.log(this.resolveReady);
     this.resolveReady = resolve;
-    console.log(this.resolveReady);
     if (this.resolveReady !== resolve) {
       throw new Error('update resolveReady callback failed');
     }

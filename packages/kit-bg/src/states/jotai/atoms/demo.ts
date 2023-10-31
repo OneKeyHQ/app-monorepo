@@ -11,6 +11,15 @@ export const { target: demoPriceAtom, use: useDemoPriceAtom } = globalAtom({
   name: EAtomNames.demoPriceAtom,
   persist: true,
 });
+
+export const {
+  target: demoPriceNotPersistAtom,
+  use: useDemoPriceNotPersistAtom,
+} = globalAtom({
+  initialValue: 3,
+  name: EAtomNames.demoPriceNotPersistAtom,
+});
+
 // export const { target: demoPriceAtom, use: useDemoPriceAtom } = makeCrossAtom(
 //   'demoPriceAtom',
 //   () =>
