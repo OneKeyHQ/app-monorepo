@@ -18,6 +18,7 @@ import {
   YStack,
   useDialogInstance,
 } from '@onekeyhq/components';
+import type { DialogInstanceRef } from '@onekeyhq/components/src/Dialog/type';
 
 import { Layout } from './utils/Layout';
 
@@ -201,9 +202,34 @@ const HideFooterDialog = () => {
   );
 };
 
+const ContentB = ({ prevDialog }: { prevDialog: DialogInstanceRef }) => {
+  const dialog = useDialogInstance();
+  return (
+    <YStack space="$4">
+      <Button onPress={() => prevDialog.close()}>Close Prev Dialog</Button>
+      <Button onPress={() => dialog.close()}>Close Current Dialog</Button>
+    </YStack>
+  );
+};
+
 const ContentA = () => {
   const dialog = useDialogInstance();
-  return <Button onPress={() => dialog.close()}>Close Dialog</Button>;
+  return (
+    <YStack space="$4">
+      <Button onPress={() => dialog.close()}>Close Dialog</Button>
+      <Button
+        onPress={() => {
+          Dialog.confirm({
+            title: 'ContentB',
+            renderContent: <ContentB prevDialog={dialog} />,
+            showFooter: false,
+          });
+        }}
+      >
+        Open New Dialog
+      </Button>
+    </YStack>
+  );
 };
 
 const DialogGallery = () => (
