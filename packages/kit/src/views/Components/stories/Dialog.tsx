@@ -512,6 +512,38 @@ const DialogGallery = () => (
           </YStack>
         ),
       },
+      {
+        title: '命令式 API, Close Dialog ',
+        element: (
+          <YStack>
+            <Button
+              mt="$4"
+              onPress={() => {
+                const dialog = Dialog.confirm({
+                  title: '1500ms',
+                  renderContent: (
+                    <Dialog.Form>
+                      <Dialog.FormField label="Name" name="name">
+                        <Input
+                          autoFocus
+                          flex={1}
+                          placeholder="only numeric value"
+                        />
+                      </Dialog.FormField>
+                    </Dialog.Form>
+                  ),
+                  onConfirm: () => {},
+                });
+                setTimeout(() => {
+                  dialog.close();
+                }, 1500);
+              }}
+            >
+              Close Dialog!
+            </Button>
+          </YStack>
+        ),
+      },
     ]}
   />
 );

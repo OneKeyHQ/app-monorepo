@@ -1,5 +1,7 @@
 import type {
   Dispatch,
+  ForwardedRef,
+  MutableRefObject,
   PropsWithChildren,
   ReactNode,
   SetStateAction,
@@ -8,10 +10,13 @@ import {
   Children,
   cloneElement,
   createContext,
+  createRef,
+  forwardRef,
   isValidElement,
   useCallback,
   useContext,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useState,
 } from 'react';
@@ -337,14 +342,21 @@ type DialogContainerProps = PropsWithChildren<
     }
 >;
 
-function DialogContainer({
-  name,
-  onOpen,
-  onClose,
-  renderContent,
-  onConfirm,
-  ...props
-}: DialogContainerProps) {
+export interface DialogInstanceRef {
+  close(): void;
+}
+
+function BaseDialogContainer(
+  {
+    name,
+    onOpen,
+    onClose,
+    renderContent,
+    onConfirm,
+    ...props
+  }: DialogContainerProps,
+  ref: ForwardedRef<DialogInstanceRef>,
+) {
   const [isOpen, changeIsOpen] = useState(true);
   const [context, setContext] = useState<{ form?: UseFormReturn<any> }>({});
   const contextValue = useMemo(
@@ -362,12 +374,27 @@ function DialogContainer({
   const handleClose = useCallback(() => {
     changeIsOpen(false);
     onClose?.();
+    // release ref object
+    if ((ref as MutableRefObject<DialogInstanceRef>)?.current) {
+      (ref as MutableRefObject<DialogInstanceRef | null>).current = null;
+    }
     removePortalComponent(name);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name, onClose]);
 
   const handleConfirm = useCallback(
     () => onConfirm?.(context),
     [context, onConfirm],
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      close: () => {
+        handleClose();
+      },
+    }),
+    [handleClose],
   );
 
   return (
@@ -384,10 +411,22 @@ function DialogContainer({
   );
 }
 
-function DialogConfirm(props: Omit<DialogContainerProps, 'name'>) {
+const DialogContainer = forwardRef<DialogInstanceRef, DialogContainerProps>(
+  BaseDialogContainer,
+);
+
+function DialogConfirm(
+  props: Omit<DialogContainerProps, 'name'>,
+): DialogInstanceRef {
+  const ref = createRef<DialogInstanceRef>();
   setPortalComponent(
-    <DialogContainer {...props} name={Math.random().toString()} />,
+    <DialogContainer ref={ref} {...props} name={Math.random().toString()} />,
   );
+  return {
+    close: () => {
+      ref.current?.close();
+    },
+  };
 }
 
 export const Dialog = withStaticProperties(DialogFrame, {
