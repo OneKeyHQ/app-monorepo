@@ -13,6 +13,7 @@ import {
   Dialog,
   Input,
   Text,
+  TextArea,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -317,14 +318,12 @@ const DialogGallery = () => (
                   description: 'input password',
                   renderContent: (
                     <Dialog.Form
-                      useFormProps={
-                        {
-                          defaultValues: {
-                            name: 'Nate Wienert',
-                            length: '1234567',
-                          },
-                        } as any
-                      }
+                      useFormProps={{
+                        defaultValues: {
+                          name: 'Nate Wienert',
+                          length: '1234567',
+                        },
+                      }}
                     >
                       <Dialog.FormField label="Name" name="name">
                         <Input flex={1} />
@@ -373,7 +372,7 @@ const DialogGallery = () => (
         ),
       },
       {
-        title: 'Dialog Form With Form Context',
+        title: 'Dialog Form with Form Context & Focus by Code',
         element: (
           <YStack>
             <Button
@@ -384,14 +383,13 @@ const DialogGallery = () => (
                   description: 'input password',
                   renderContent: (
                     <Dialog.Form
-                      useFormProps={
-                        {
-                          defaultValues: {
-                            name: 'Nate Wienert',
-                            length: '1234567',
-                          },
-                        } as any
-                      }
+                      useFormProps={{
+                        defaultValues: {
+                          name: 'Nate Wienert',
+                          input: '1234567',
+                          textArea: 'textArea',
+                        },
+                      }}
                     >
                       {
                         // eslint-disable-next-line react/no-unstable-nested-components
@@ -400,7 +398,9 @@ const DialogGallery = () => (
                         }: {
                           form: UseFormReturn<{
                             name: string;
-                            async: string;
+                            length: string;
+                            input: string;
+                            textArea: string;
                           }>;
                         }) => (
                           <>
@@ -409,7 +409,7 @@ const DialogGallery = () => (
                             </Dialog.FormField>
                             <Dialog.FormField
                               label="MaxLength"
-                              name="length"
+                              name="input"
                               rules={{
                                 maxLength: {
                                   value: 6,
@@ -417,7 +417,13 @@ const DialogGallery = () => (
                                 },
                               }}
                             >
-                              <Input placeholder="Max Length Limit" />
+                              <Input
+                                placeholder="Max Length Limit"
+                                selectTextOnFocus
+                              />
+                            </Dialog.FormField>
+                            <Dialog.FormField label="textArea" name="textArea">
+                              <TextArea placeholder="type something random" />
                             </Dialog.FormField>
                             <Dialog.FormField
                               label="async load remote data"
@@ -435,8 +441,24 @@ const DialogGallery = () => (
                             >
                               <Input placeholder="Required" />
                             </Dialog.FormField>
+                            <Button
+                              marginVertical="$6"
+                              onPress={() => {
+                                form.setFocus('input');
+                              }}
+                            >
+                              Focus MaxLength Input
+                            </Button>
+                            <Button
+                              marginVertical="$6"
+                              onPress={() => {
+                                form.setFocus('textArea');
+                              }}
+                            >
+                              Focus TextArea
+                            </Button>
                           </>
-                        )) as any as ReactNode
+                        )) as unknown as ReactNode
                       }
                     </Dialog.Form>
                   ),
@@ -455,7 +477,7 @@ const DialogGallery = () => (
                 })
               }
             >
-              Open Dialog Form
+              Open Dialog Form with Form Context & Focus by Code
             </Button>
           </YStack>
         ),

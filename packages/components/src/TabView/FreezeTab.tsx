@@ -1,5 +1,5 @@
+import type { PropsWithChildren } from 'react';
 import { memo, useEffect, useMemo, useState } from 'react';
-import { PropsWithChildren } from 'react';
 
 import { max } from 'lodash';
 import { FlatList } from 'react-native';
