@@ -124,12 +124,6 @@ module.exports = {
     '*.wasm.bin',
     'apps/desktop/public/static/js-sdk*',
     'packages/components/src/Icon/*',
-    // 临时忽略以下目录的检查，迭代后会逐步开启
-    'packages/blockchain-libs',
-    'packages/kit/src/store',
-    'packages/kit/src/utils',
-    'packages/engine',
-    'packages/shared',
   ],
   env: {
     browser: true,
