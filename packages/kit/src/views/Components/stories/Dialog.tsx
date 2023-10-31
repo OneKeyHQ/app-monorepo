@@ -2,12 +2,6 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 
 import {
-  Adapt as TMAdapt,
-  Dialog as TMDialog,
-  Sheet as TMSheet,
-} from 'tamagui';
-
-import {
   Button,
   Dialog,
   Input,
@@ -279,7 +273,7 @@ const DialogGallery = () => (
                   renderContent: (
                     <Dialog.Form
                       useFormProps={{
-                        defaultValues: {
+                        values: {
                           name: 'Nate Wienert',
                           length: '1234567',
                         },
@@ -344,7 +338,7 @@ const DialogGallery = () => (
                   renderContent: (
                     <Dialog.Form
                       useFormProps={{
-                        defaultValues: {
+                        values: {
                           name: 'Nate Wienert',
                           input: '1234567',
                           textArea: 'textArea',
