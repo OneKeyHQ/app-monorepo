@@ -7,7 +7,6 @@ import {
   Sheet as TMSheet,
 } from 'tamagui';
 
-import type { DialogProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -16,8 +15,10 @@ import {
   TextArea,
   XStack,
   YStack,
+  useDialogForm,
   useDialogInstance,
 } from '@onekeyhq/components';
+import type { DialogProps } from '@onekeyhq/components/src/Dialog/type';
 
 import { Layout } from './utils/Layout';
 
@@ -201,36 +202,45 @@ const HideFooterDialog = () => {
   );
 };
 
-const ContentA = ({ index }: { index: number }) => {
+const CustomFooter = ({ index }: { index: number }) => {
   const dialog = useDialogInstance();
+  const form = useDialogForm();
+  return (
+    <XStack space="$4" justifyContent="center">
+      <Button
+        onPress={() => {
+          console.log(form?.getValues());
+          dialog?.close();
+        }}
+      >
+        Close
+      </Button>
+      <Button
+        onPress={() => {
+          Dialog.confirm({
+            title: `#${index}`,
+            // eslint-disable-next-line @typescript-eslint/no-use-before-define
+            renderContent: <ContentA index={index} />,
+            showFooter: false,
+          });
+        }}
+      >
+        New
+      </Button>
+    </XStack>
+  );
+};
+
+function ContentA({ index }: { index: number }) {
   return (
     <Dialog.Form useFormProps={{}}>
       <Dialog.FormField label="Password" name="password">
         <Input />
       </Dialog.FormField>
-      <YStack space="$4">
-        <Button
-          onPress={() => {
-            dialog.close();
-          }}
-        >
-          {`Close Current Dialog #${index}`}
-        </Button>
-        <Button
-          onPress={() => {
-            Dialog.confirm({
-              title: `#${index + 1}`,
-              renderContent: <ContentA index={index + 1} />,
-              showFooter: false,
-            });
-          }}
-        >
-          Open New Dialog
-        </Button>
-      </YStack>
+      <CustomFooter index={index + 1} />
     </Dialog.Form>
   );
-};
+}
 
 const DialogGallery = () => (
   <Layout
