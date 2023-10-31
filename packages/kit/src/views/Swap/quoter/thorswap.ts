@@ -1,5 +1,7 @@
 import axios from 'axios';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { QuoterType } from '../typings';
 
@@ -35,11 +37,11 @@ export class ThorSwapQuoter implements Quoter {
     if (hash && attachment?.thorswapQuoteId) {
       const data = await this.getTransactionInfo(tx);
       if (data && data.status === 'success') {
-        const { legs } = data.result;
-        const lastLegs = legs[legs.length - 1];
-        return { status: 'sucesss', destinationTransactionHash: lastLegs.hash };
+        return {
+          status: 'sucesss',
+          destinationTransactionHash: data.destinationTransactionHash,
+        };
       }
-      return { status: 'pending' };
     }
     if (Date.now() - tx.addedTime > 60 * 60 * 1000 * 24) {
       return { status: 'failed' };
@@ -51,33 +53,24 @@ export class ThorSwapQuoter implements Quoter {
     const { hash, attachment } = tx;
     if (hash && attachment?.thorswapQuoteId) {
       const baseUrl = await this.getBaseUrl();
-      const url = `${baseUrl}/transaction_status`;
-      const res = await axios.get(url, {
-        params: {
-          hash,
-          quoteId: attachment?.thorswapQuoteId,
-        },
-      });
-      const data = res.data as {
-        status: string;
-        done: boolean;
-        result: {
-          quoteId: string;
-          firstTransactionHash: string;
-          status: string;
-          isLending: boolean;
-          isStreamingSwap: false;
-          legs: {
-            chain: string;
-            hash: string;
-            fromAsset: string;
-            fromAmount: string;
-            toAsset: string;
-            toAmount: string;
-          }[];
+      const url = `${baseUrl}/transaction_status_v2`;
+      try {
+        const res = await axios.get(url, {
+          params: {
+            hash,
+            quoteId: attachment?.thorswapQuoteId,
+          },
+        });
+        const data = res.data as {
+          status: 'success' | 'failed' | 'pending';
+          destinationTransactionHash?: string;
+          actualReceived?: string;
         };
-      };
-      return data;
+        return data;
+      } catch (e) {
+        debugLogger.common.info('thorswap getTransactionInfo error', e);
+        return undefined;
+      }
     }
   }
 }
