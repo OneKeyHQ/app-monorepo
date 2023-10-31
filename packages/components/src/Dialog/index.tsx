@@ -28,6 +28,8 @@ import {
   withStaticProperties,
 } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { Button } from '../Button';
 import { Form, useForm } from '../Form';
 import useKeyboardHeight from '../hooks/useKeyboardHeight';
@@ -115,82 +117,80 @@ function DialogFrame({
   const media = useMedia();
   const keyboardHeight = useKeyboardHeight();
   const content = (
-    <DialogContext.Provider value={contextValue}>
-      <Stack {...(bottom && { pb: bottom })}>
-        {icon && (
-          <Stack
-            alignSelf="flex-start"
-            p="$3"
-            ml="$5"
-            mt="$5"
-            borderRadius="$full"
-            bg={tone === 'destructive' ? '$bgCritical' : '$bgStrong'}
-          >
-            <Icon
-              name={icon}
-              size="$8"
-              color={tone === 'destructive' ? '$iconCritical' : '$icon'}
-            />
-          </Stack>
-        )}
-        <Stack p="$5" pr="$16">
-          <Text variant="$headingXl" py="$px">
-            {title}
-          </Text>
-          {description && (
-            <Text variant="$bodyLg" pt="$1.5">
-              {description}
-            </Text>
-          )}
+    <Stack {...(bottom && { pb: bottom })}>
+      {icon && (
+        <Stack
+          alignSelf="flex-start"
+          p="$3"
+          ml="$5"
+          mt="$5"
+          borderRadius="$full"
+          bg={tone === 'destructive' ? '$bgCritical' : '$bgStrong'}
+        >
+          <Icon
+            name={icon}
+            size="$8"
+            color={tone === 'destructive' ? '$iconCritical' : '$icon'}
+          />
         </Stack>
-        <IconButton
-          position="absolute"
-          right="$5"
-          top="$5"
-          icon="CrossedSmallOutline"
-          iconProps={{
-            color: '$iconSubdued',
-          }}
-          size="small"
-          onPress={handleCancelButtonPress}
-        />
-        {renderContent && (
-          <YStack px="$5" pb="$5">
-            {renderContent}
-          </YStack>
-        )}
-        {showFooter && (
-          <XStack p="$5" pt="$0">
-            <Button
-              flex={1}
-              $md={
-                {
-                  size: 'large',
-                } as ButtonProps
-              }
-              {...cancelButtonProps}
-              onPress={handleCancelButtonPress}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant={tone === 'destructive' ? 'destructive' : 'primary'}
-              flex={1}
-              ml="$2.5"
-              $md={
-                {
-                  size: 'large',
-                } as ButtonProps
-              }
-              {...confirmButtonProps}
-              onPress={handleConfirmButtonPress}
-            >
-              Confirm
-            </Button>
-          </XStack>
+      )}
+      <Stack p="$5" pr="$16">
+        <Text variant="$headingXl" py="$px">
+          {title}
+        </Text>
+        {description && (
+          <Text variant="$bodyLg" pt="$1.5">
+            {description}
+          </Text>
         )}
       </Stack>
-    </DialogContext.Provider>
+      <IconButton
+        position="absolute"
+        right="$5"
+        top="$5"
+        icon="CrossedSmallOutline"
+        iconProps={{
+          color: '$iconSubdued',
+        }}
+        size="small"
+        onPress={handleCancelButtonPress}
+      />
+      {renderContent && (
+        <YStack px="$5" pb="$5">
+          {renderContent}
+        </YStack>
+      )}
+      {showFooter && (
+        <XStack p="$5" pt="$0">
+          <Button
+            flex={1}
+            $md={
+              {
+                size: 'large',
+              } as ButtonProps
+            }
+            {...cancelButtonProps}
+            onPress={handleCancelButtonPress}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant={tone === 'destructive' ? 'destructive' : 'primary'}
+            flex={1}
+            ml="$2.5"
+            $md={
+              {
+                size: 'large',
+              } as ButtonProps
+            }
+            {...confirmButtonProps}
+            onPress={handleConfirmButtonPress}
+          >
+            Confirm
+          </Button>
+        </XStack>
+      )}
+    </Stack>
   );
   if (media.md) {
     return (
@@ -280,7 +280,13 @@ function DialogFrame({
           width={400}
           p="$0"
         >
-          {content}
+          {contextValue ? (
+            <DialogContext.Provider value={contextValue}>
+              {content}
+            </DialogContext.Provider>
+          ) : (
+            content
+          )}
         </TMDialog.Content>
       </TMDialog.Portal>
     </TMDialog>
@@ -345,8 +351,7 @@ function BaseDialogContainer(
       form,
       setForm,
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [form],
+    [form, handleClose],
   );
 
   const handleOpen = useCallback(() => {
@@ -364,15 +369,18 @@ function BaseDialogContainer(
     [handleClose],
   );
   return (
-    <DialogFrame
-      contextValue={contextValue}
-      open={isOpen}
-      onOpen={handleOpen}
-      renderContent={renderContent}
-      onClose={handleClose}
-      {...props}
-      onConfirm={handleConfirm}
-    />
+    <DialogContext.Provider value={contextValue}>
+      <DialogFrame
+        // fix missing Context in Dialog.Portal.
+        contextValue={platformEnv.isNative ? undefined : contextValue}
+        open={isOpen}
+        onOpen={handleOpen}
+        renderContent={renderContent}
+        onClose={handleClose}
+        {...props}
+        onConfirm={handleConfirm}
+      />
+    </DialogContext.Provider>
   );
 }
 
