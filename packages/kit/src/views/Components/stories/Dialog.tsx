@@ -383,7 +383,7 @@ const DialogGallery = () => (
                       </Dialog.FormField>
                     </Dialog.Form>
                   ),
-                  onConfirm: async ({ form }) => {
+                  onConfirm: async (form) => {
                     if (form) {
                       const isValid = await form.trigger();
                       if (isValid) {
@@ -494,7 +494,7 @@ const DialogGallery = () => (
                       }
                     </Dialog.Form>
                   ),
-                  onConfirm: async ({ form }) => {
+                  onConfirm: async (form) => {
                     if (form) {
                       const isValid = await form.trigger();
                       if (isValid) {
