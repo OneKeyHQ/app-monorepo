@@ -9,7 +9,9 @@ import {
   globalJotaiStorageReadyHandler,
 } from '../jotaiStorage';
 
-import type { Atom, PrimitiveAtom, WritableAtom } from 'jotai';
+import { JotaiCrossAtom } from './JotaiCrossAtom';
+import { wrapAtomPro } from './wrapAtomPro';
+
 import type { EAtomNames } from '../atomNames';
 import type {
   IWritableAtomPro,
@@ -18,8 +20,7 @@ import type {
   WithInitialValue,
   Write,
 } from '../types';
-import { JotaiCrossAtom } from './JotaiCrossAtom';
-import { wrapAtomPro } from './wrapAtomPro';
+import type { Atom, PrimitiveAtom, WritableAtom } from 'jotai';
 
 export function makeCrossAtom<T extends () => any>(name: string, fn: T) {
   const atomBuilder = memoizee(fn, {

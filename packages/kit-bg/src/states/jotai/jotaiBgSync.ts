@@ -39,7 +39,7 @@ export class JotaiBgSync {
     await jotaiInitFromUi({ states });
   }
 
-  async jotaiUpdateFromUi(){
+  async jotaiUpdateFromUi() {
     if (!platformEnv.isExtensionUi) {
       return;
     }

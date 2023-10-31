@@ -2,13 +2,13 @@
 /* eslint-disable camelcase */
 import { atom } from 'jotai';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage, {
   mockStorage,
 } from '@onekeyhq/shared/src/storage/appStorage';
 
 import { RESET } from './types';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   AsyncStorage,
   SetStateActionWithReset,
