@@ -36,7 +36,7 @@ import { Text } from '../Text';
 
 import type { ButtonProps } from '../Button';
 import type { FormProps } from '../Form';
-import type { UseFormReturn } from 'react-hook-form';
+import type { UseFormProps, UseFormReturn } from 'react-hook-form';
 import type {
   DialogProps as TMDialogProps,
   SheetProps as TMSheetProps,
@@ -299,7 +299,7 @@ function DialogFrame({
 }
 
 type DialogFormProps = Omit<FormProps, 'form'> & {
-  useFormProps?: Parameters<typeof useForm>;
+  useFormProps?: UseFormProps<any>;
 };
 export const DialogContext = createContext<{
   context?: { form?: UseFormReturn<any> };
