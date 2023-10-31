@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import RNSlider, {
   type SliderProps as RNSliderProps,
 } from '@react-native-community/slider';
@@ -9,22 +11,27 @@ import type { BaseSliderProps } from './type';
 
 export type SliderProps = RNSliderProps & BaseSliderProps;
 
-const BaseSlider = ({ disabled, ...props }: SliderProps) => {
+function BaseSlider({ disabled, onChange, ...props }: SliderProps) {
   const [bgPrimaryColor, neutral5Color, borderInverseColor] = useThemeValue([
     'bgPrimary',
     'neutral5',
     'borderInverse',
   ]);
+  console.log(disabled, props);
+
+  const handleValueChange = useCallback(
+    (values: number) => onChange?.(values),
+    [onChange],
+  );
   return (
     <RNSlider
-      // not work in native
-      // opacity={disabled ? 0.5 : 1}
       disabled={disabled}
       tapToSeek
       minimumTrackTintColor={bgPrimaryColor}
       maximumTrackTintColor={neutral5Color}
       thumbTintColor={borderInverseColor}
       value={props.value ? props.value : props.defaultValue}
+      onValueChange={handleValueChange}
       {...props}
     />
   );
