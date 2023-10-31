@@ -507,4 +507,13 @@ module.exports = [
   'unregister',
   'debounce',
   'goto',
+  'Polkadot',
+  'Solana',
+  'localhost',
+  'Persistor',
+  'persistor',
+  'Cron',
+  'enums',
+  'Xxs',
+  'bitcoind',
 ];
