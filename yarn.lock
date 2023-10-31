@@ -5128,14 +5128,13 @@ __metadata:
     react-native-level-fs: ^3.0.1
     react-native-metrix: ^0.6.3
     react-native-mmkv: ^2.8.0
-    react-native-pager-view: ^6.2.2
     react-native-randombytes: ^3.6.1
     react-native-reanimated: ^3.5.4
     react-native-safe-area-context: ^4.7.2
     react-native-screens: ^3.25.0
+    react-native-selected-page: "https://github.com/hellohublot/react-native-selected-page#119479ddb893d54886ab942101a9a016d8be41f5"
     react-native-share: ^9.4.1
     react-native-svg: ^13.9.0
-    react-native-tab-page-view: "https://github.com/hellohublot/react-native-tab-page-view#acefaa266249e9cfcdd0bb6bc6f2852e3ec83c96"
     react-native-tcp-socket: ^6.0.6
     react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#5036d59cba4f5609c32b7eb5dec560e738ce7115"
     react-native-zip-archive: ^6.0.9
@@ -24297,16 +24296,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-pager-view@npm:^6.2.2":
-  version: 6.2.2
-  resolution: "react-native-pager-view@npm:6.2.2"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: ac563431c10e96ff28367e57310ebd6901e1ddd532430802cab03ed9a216f85cf9567e05aaf7fd58bb1a328ffac11e1f0f19907cf55103a487c103e2f6d2e390
-  languageName: node
-  linkType: hard
-
 "react-native-progress@npm:^5.0.0":
   version: 5.0.0
   resolution: "react-native-progress@npm:5.0.0"
@@ -24379,6 +24368,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-native-selected-page@https://github.com/hellohublot/react-native-selected-page#119479ddb893d54886ab942101a9a016d8be41f5":
+  version: 1.0.0
+  resolution: "react-native-selected-page@https://github.com/hellohublot/react-native-selected-page.git#commit=119479ddb893d54886ab942101a9a016d8be41f5"
+  peerDependencies:
+    prop-types: ^15.7.2
+    react: ^16.8.1
+    react-native: ">=0.60.0-rc.0 <1.0.x"
+  checksum: 2d8f152ad7217de1c45eee607e09c5a7cf71937c6014c8e8ed3ba7ed8abb4f124624a7967f68cc6ed04204bdf7ef10f93de2f0eca0c427ad9842b926ca43aa27
+  languageName: node
+  linkType: hard
+
 "react-native-share@npm:^9.4.1":
   version: 9.4.1
   resolution: "react-native-share@npm:9.4.1"
@@ -24396,16 +24396,6 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 4668028563ae0ca669003cc29ff5f03fd5b13a61d53273f294f04a496cbc0af6003277025793d01fb9c3a53af4515839185578d59e9eecb072587178b751c234
-  languageName: node
-  linkType: hard
-
-"react-native-tab-page-view@https://github.com/hellohublot/react-native-tab-page-view#acefaa266249e9cfcdd0bb6bc6f2852e3ec83c96":
-  version: 1.0.0
-  resolution: "react-native-tab-page-view@https://github.com/hellohublot/react-native-tab-page-view.git#commit=acefaa266249e9cfcdd0bb6bc6f2852e3ec83c96"
-  peerDependencies:
-    react: ^16.8.1
-    react-native: ">=0.60.0-rc.0 <1.0.x"
-  checksum: 6c8c0e22181cb4666d4c4cc3212eecc311e0ab8a46994f260f4234794d90b1a83ae3f471f61b31ab1d540863477b5fe76b292971dc91caff44d53b66709ba4ce
   languageName: node
   linkType: hard
 
