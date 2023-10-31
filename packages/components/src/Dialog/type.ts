@@ -1,3 +1,5 @@
+import type { Dispatch, SetStateAction } from 'react';
+
 import type { ButtonProps } from '../Button';
 import type { FormProps } from '../Form';
 import type { ICON_NAMES } from '../Icon';
@@ -6,6 +8,12 @@ import type {
   DialogProps as TMDialogProps,
   SheetProps as TMSheetProps,
 } from 'tamagui';
+
+export type DialogContextType = {
+  dialogInstance?: DialogInstanceRef;
+  form?: DialogContextForm;
+  setForm?: Dispatch<SetStateAction<DialogContextForm>>;
+};
 
 export interface DialogProps extends TMDialogProps {
   onOpen?: () => void;
@@ -23,6 +31,7 @@ export interface DialogProps extends TMDialogProps {
   cancelButtonProps?: ButtonProps;
   dismissOnOverlayPress?: TMSheetProps['dismissOnOverlayPress'];
   sheetProps?: Omit<TMSheetProps, 'dismissOnOverlayPress'>;
+  contextValue?: DialogContextType;
 }
 
 export interface DialogInstanceRef {

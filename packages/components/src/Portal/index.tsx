@@ -1,10 +1,12 @@
 import type { ReactElement } from 'react';
 import { useEffect, useState } from 'react';
 
-const PortalComponentsMap: Map<
-  string,
-  ReactElement<{ name: string }>
-> = new Map();
+import { reverse } from 'lodash';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+type PortalComponentsMapType = Map<string, ReactElement<{ name: string }>>;
+const PortalComponentsMap: PortalComponentsMapType = new Map();
 
 let onUpdateComponentsCallback: () => void;
 
@@ -13,6 +15,11 @@ export const setPortalComponent = (
 ) => {
   PortalComponentsMap.set(component.props.name, component);
   onUpdateComponentsCallback();
+};
+
+const sortMap = (map: PortalComponentsMapType) => {
+  const elements = [...map.values()];
+  return platformEnv.isNativeIOS ? reverse(elements) : elements;
 };
 
 export const removePortalComponent = (name: string) => {
@@ -37,5 +44,5 @@ export function Portal() {
       setNum((number) => number + 1);
     });
   }, []);
-  return <>{[...PortalComponentsMap.values()]}</>;
+  return <>{sortMap(PortalComponentsMap)}</>;
 }

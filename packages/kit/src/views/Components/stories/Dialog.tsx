@@ -24,83 +24,6 @@ import { Layout } from './utils/Layout';
 
 import type { UseFormReturn } from 'react-hook-form';
 
-function DialogInstance() {
-  const [open, setOpen] = useState(false);
-  const [show, setShow] = useState(false);
-
-  return (
-    <TMDialog
-      modal
-      onOpenChange={() => {
-        setOpen(open);
-      }}
-    >
-      <TMDialog.Trigger asChild>
-        <Button>Show TMDialog</Button>
-      </TMDialog.Trigger>
-
-      <TMAdapt when="md">
-        <TMSheet
-          animation="quick"
-          modal
-          dismissOnSnapToBottom
-          snapPointsMode="fit"
-        >
-          <TMSheet.Frame padding="$4" gap="$4">
-            <TMAdapt.Contents />
-          </TMSheet.Frame>
-          <TMSheet.Overlay
-            animation="quick"
-            enterStyle={{ opacity: 0 }}
-            exitStyle={{ opacity: 0 }}
-          />
-        </TMSheet>
-      </TMAdapt>
-
-      <TMDialog.Portal>
-        <TMDialog.Overlay
-          key="overlay"
-          animation="quick"
-          opacity={0.5}
-          enterStyle={{ opacity: 0 }}
-          exitStyle={{ opacity: 0 }}
-        />
-
-        <TMDialog.Content
-          bordered
-          elevate
-          key="content"
-          animateOnly={['transform', 'opacity']}
-          animation={[
-            'quick',
-            {
-              opacity: {
-                overshootClamping: true,
-              },
-            },
-          ]}
-          enterStyle={{ x: 0, y: -20, opacity: 0, scale: 0.9 }}
-          exitStyle={{ x: 0, y: 10, opacity: 0, scale: 0.95 }}
-          gap="$4"
-        >
-          <TMDialog.Title>Edit profile</TMDialog.Title>
-          <TMDialog.Description>
-            Make changes to your profile here. Click save when you're done.
-          </TMDialog.Description>
-          <Button
-            onPress={() => {
-              setShow(!show);
-            }}
-          >
-            Show
-          </Button>
-          {show && <Text>hiddenContent</Text>}
-        </TMDialog.Content>
-      </TMDialog.Portal>
-    </TMDialog>
-  );
-}
-
 const VariantsDemo = ({ tone }: DialogProps) => {
   const [isOpen, changeIsOpen] = useState(false);
   return (
@@ -250,10 +173,6 @@ const DialogGallery = () => (
     ]}
     boundaryConditions={['禁止将 Dialog 作为路由页面使用']}
     elements={[
-      {
-        title: 'TM',
-        element: <DialogInstance />,
-      },
       {
         title: 'Variants',
         element: (

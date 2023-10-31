@@ -6,6 +6,7 @@ import type {
 } from 'react';
 import {
   Children,
+  Fragment,
   cloneElement,
   createRef,
   forwardRef,
@@ -82,6 +83,7 @@ function DialogFrame({
   cancelButtonProps,
   dismissOnOverlayPress = true,
   sheetProps,
+  contextValue,
 }: DialogProps) {
   const [position, setPosition] = useState(0);
   const handleBackdropPress = useMemo(
@@ -112,82 +114,83 @@ function DialogFrame({
 
   const media = useMedia();
   const keyboardHeight = useKeyboardHeight();
-
   const content = (
-    <Stack {...(bottom && { pb: bottom })}>
-      {icon && (
-        <Stack
-          alignSelf="flex-start"
-          p="$3"
-          ml="$5"
-          mt="$5"
-          borderRadius="$full"
-          bg={tone === 'destructive' ? '$bgCritical' : '$bgStrong'}
-        >
-          <Icon
-            name={icon}
-            size="$8"
-            color={tone === 'destructive' ? '$iconCritical' : '$icon'}
-          />
-        </Stack>
-      )}
-      <Stack p="$5" pr="$16">
-        <Text variant="$headingXl" py="$px">
-          {title}
-        </Text>
-        {description && (
-          <Text variant="$bodyLg" pt="$1.5">
-            {description}
+    <DialogContext.Provider value={contextValue}>
+      <Stack {...(bottom && { pb: bottom })}>
+        {icon && (
+          <Stack
+            alignSelf="flex-start"
+            p="$3"
+            ml="$5"
+            mt="$5"
+            borderRadius="$full"
+            bg={tone === 'destructive' ? '$bgCritical' : '$bgStrong'}
+          >
+            <Icon
+              name={icon}
+              size="$8"
+              color={tone === 'destructive' ? '$iconCritical' : '$icon'}
+            />
+          </Stack>
+        )}
+        <Stack p="$5" pr="$16">
+          <Text variant="$headingXl" py="$px">
+            {title}
           </Text>
+          {description && (
+            <Text variant="$bodyLg" pt="$1.5">
+              {description}
+            </Text>
+          )}
+        </Stack>
+        <IconButton
+          position="absolute"
+          right="$5"
+          top="$5"
+          icon="CrossedSmallOutline"
+          iconProps={{
+            color: '$iconSubdued',
+          }}
+          size="small"
+          onPress={handleCancelButtonPress}
+        />
+        {renderContent && (
+          <YStack px="$5" pb="$5">
+            {renderContent}
+          </YStack>
+        )}
+        {showFooter && (
+          <XStack p="$5" pt="$0">
+            <Button
+              flex={1}
+              $md={
+                {
+                  size: 'large',
+                } as ButtonProps
+              }
+              {...cancelButtonProps}
+              onPress={handleCancelButtonPress}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant={tone === 'destructive' ? 'destructive' : 'primary'}
+              flex={1}
+              ml="$2.5"
+              $md={
+                {
+                  size: 'large',
+                } as ButtonProps
+              }
+              {...confirmButtonProps}
+              onPress={handleConfirmButtonPress}
+            >
+              Confirm
+            </Button>
+          </XStack>
         )}
       </Stack>
-      <IconButton
-        position="absolute"
-        right="$5"
-        top="$5"
-        icon="CrossedSmallOutline"
-        iconProps={{
-          color: '$iconSubdued',
-        }}
-        size="small"
-        onPress={handleCancelButtonPress}
-      />
-      {renderContent && (
-        <YStack px="$5" pb="$5">
-          {renderContent}
-        </YStack>
-      )}
-      {showFooter && (
-        <XStack p="$5" pt="$0">
-          <Button
-            flex={1}
-            $md={
-              {
-                size: 'large',
-              } as ButtonProps
-            }
-            {...cancelButtonProps}
-            onPress={handleCancelButtonPress}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant={tone === 'destructive' ? 'destructive' : 'primary'}
-            flex={1}
-            ml="$2.5"
-            $md={
-              {
-                size: 'large',
-              } as ButtonProps
-            }
-            {...confirmButtonProps}
-            onPress={handleConfirmButtonPress}
-          >
-            Confirm
-          </Button>
-        </XStack>
-      )}
-    </Stack>
+    </DialogContext.Provider>
   );
   if (media.md) {
     return (
@@ -337,9 +340,7 @@ function BaseDialogContainer(
   const contextValue = useMemo(
     () => ({
       dialogInstance: {
-        close: () => {
-          instanceRef?.current?.close();
-        },
+        close: handleClose,
       },
       form,
       setForm,
@@ -358,23 +359,20 @@ function BaseDialogContainer(
   useImperativeHandle(
     ref,
     () => ({
-      close: () => {
-        handleClose();
-      },
+      close: handleClose,
     }),
     [handleClose],
   );
   return (
-    <DialogContext.Provider key={name} value={contextValue}>
-      <DialogFrame
-        open={isOpen}
-        onOpen={handleOpen}
-        renderContent={renderContent}
-        onClose={handleClose}
-        {...props}
-        onConfirm={handleConfirm}
-      />
-    </DialogContext.Provider>
+    <DialogFrame
+      contextValue={contextValue}
+      open={isOpen}
+      onOpen={handleOpen}
+      renderContent={renderContent}
+      onClose={handleClose}
+      {...props}
+      onConfirm={handleConfirm}
+    />
   );
 }
 
@@ -392,6 +390,7 @@ function DialogConfirm({
       ref.current?.close();
     },
   };
+  const key = `modal-${new Date().getTime()}`;
   setPortalComponent(
     <DialogContainer
       ref={ref}
@@ -399,7 +398,8 @@ function DialogConfirm({
       onClose={() => {
         onClose?.();
       }}
-      name={Math.random().toString()}
+      name={key}
+      key={key}
     />,
   );
   return instance;
