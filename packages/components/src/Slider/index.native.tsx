@@ -39,7 +39,6 @@ export function Slider({ onChange, min, max, step, ...props }: SliderProps) {
       minimumTrackTintColor={bgPrimaryColor}
       maximumTrackTintColor={neutral5Color}
       thumbTintColor={borderInverseColor}
-      value={props.value ? props.value : props.defaultValue}
       onValueChange={handleValueChange}
       {...restProps}
     />
