@@ -39,6 +39,9 @@ import { removePortalComponent, setPortalComponent } from '../Portal';
 import { Stack, XStack, YStack } from '../Stack';
 import { Text } from '../Text';
 
+import { dialogContainerContext } from './context';
+
+import type { DialogInstanceRef } from './type';
 import type { ButtonProps } from '../Button';
 import type { FormProps } from '../Form';
 import type { UseFormProps, UseFormReturn } from 'react-hook-form';
@@ -342,10 +345,6 @@ type DialogContainerProps = PropsWithChildren<
     }
 >;
 
-export interface DialogInstanceRef {
-  close(): void;
-}
-
 function BaseDialogContainer(
   {
     name,
@@ -359,17 +358,6 @@ function BaseDialogContainer(
 ) {
   const [isOpen, changeIsOpen] = useState(true);
   const [context, setContext] = useState<{ form?: UseFormReturn<any> }>({});
-  const contextValue = useMemo(
-    () => ({
-      context,
-      setContext,
-    }),
-    [context],
-  );
-  const handleOpen = useCallback(() => {
-    changeIsOpen(true);
-    onOpen?.();
-  }, [onOpen]);
 
   const handleClose = useCallback(() => {
     changeIsOpen(false);
@@ -381,6 +369,20 @@ function BaseDialogContainer(
     removePortalComponent(name);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name, onClose]);
+
+  const contextValue = useMemo(
+    () => ({
+      context,
+      setContext,
+      handleClose,
+    }),
+    [context, handleClose],
+  );
+
+  const handleOpen = useCallback(() => {
+    changeIsOpen(true);
+    onOpen?.();
+  }, [onOpen]);
 
   const handleConfirm = useCallback(
     () => onConfirm?.(context),
@@ -415,19 +417,33 @@ const DialogContainer = forwardRef<DialogInstanceRef, DialogContainerProps>(
   BaseDialogContainer,
 );
 
-function DialogConfirm(
-  props: Omit<DialogContainerProps, 'name'>,
-): DialogInstanceRef {
+function DialogConfirm({
+  onClose,
+  ...props
+}: Omit<DialogContainerProps, 'name'>): DialogInstanceRef {
   const ref = createRef<DialogInstanceRef>();
-  setPortalComponent(
-    <DialogContainer ref={ref} {...props} name={Math.random().toString()} />,
-  );
-  return {
+  const instance = {
     close: () => {
       ref.current?.close();
     },
   };
+  dialogContainerContext.push(instance);
+  setPortalComponent(
+    <DialogContainer
+      ref={ref}
+      {...props}
+      onClose={() => {
+        dialogContainerContext.pop();
+        onClose?.();
+      }}
+      name={Math.random().toString()}
+    />,
+  );
+  return instance;
 }
+
+export const useDialogInstance = () =>
+  useMemo(() => dialogContainerContext[dialogContainerContext.length - 1], []);
 
 export const Dialog = withStaticProperties(DialogFrame, {
   confirm: DialogConfirm,

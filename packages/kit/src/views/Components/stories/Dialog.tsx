@@ -16,6 +16,7 @@ import {
   TextArea,
   XStack,
   YStack,
+  useDialogInstance,
 } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
@@ -198,6 +199,11 @@ const HideFooterDialog = () => {
       />
     </>
   );
+};
+
+const ContentA = () => {
+  const dialog = useDialogInstance();
+  return <Button onPress={() => dialog.close()}>Close Dialog</Button>;
 };
 
 const DialogGallery = () => (
@@ -540,6 +546,18 @@ const DialogGallery = () => (
               }}
             >
               Close Dialog!
+            </Button>
+            <Button
+              mt="$4"
+              onPress={() => {
+                Dialog.confirm({
+                  title: 'click button to close',
+                  renderContent: <ContentA />,
+                  showFooter: false,
+                });
+              }}
+            >
+              Close Dialog by Hooks !
             </Button>
           </YStack>
         ),
