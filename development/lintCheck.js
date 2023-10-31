@@ -29,7 +29,8 @@ try {
   console.log(result);
 
   const errorCount = Number(result.match(/(\d+) errors/)?.[1]);
-  if (errorCount > MAX_ERROR_COUNT) {
+  const isErrorExit = errorCount > MAX_ERROR_COUNT
+  if (isErrorExit) {
     console.log(`Error Counts: ${errorCount}`);
     console.log(`Please do not add more ESLint errors than ${MAX_ERROR_COUNT}`);
     console.log(
@@ -38,7 +39,10 @@ try {
   }
 
   handleWarnings(result);
-  exit(1);
+
+  if (isErrorExit) {
+    exit(1);
+  }
 }
 
 exit(0);
