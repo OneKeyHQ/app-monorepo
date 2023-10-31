@@ -6,12 +6,14 @@ import type { BaseSliderProps } from './type';
 import type { SliderProps as TMSliderProps } from 'tamagui';
 
 export type SliderProps = BaseSliderProps &
-  Omit<TMSliderProps, 'defaultValue' | 'value' | 'onValueChange'>;
+  Omit<
+    TMSliderProps,
+    'defaultValue' | 'value' | 'onValueChange' | 'min' | 'max' | 'step'
+  >;
 
 export const Slider = ({
   disabled,
   value,
-  defaultValue,
   onChange,
   ...props
 }: SliderProps) => {
@@ -21,14 +23,10 @@ export const Slider = ({
   );
   return (
     <TMSlider
-      {...props}
       h="$1"
+      {...props}
       opacity={disabled ? 0.5 : 1}
       disabled={disabled}
-      min={0}
-      max={1}
-      step={0.001}
-      defaultValue={defaultValue ? [defaultValue] : undefined}
       value={value ? [value] : undefined}
       onValueChange={handleValueChange}
     >

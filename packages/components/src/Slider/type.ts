@@ -1,6 +1,8 @@
 export type BaseSliderProps = {
   disabled?: boolean;
-  defaultValue?: number | undefined;
-  value?: number | undefined;
+  value?: number;
+  min: number;
+  max: number;
+  step: number;
   onChange?: (value: number) => void;
 };

@@ -10,6 +10,9 @@ const SliderDemo = () => {
     <Stack space="$2">
       <Slider
         value={value}
+        min={1}
+        max={100}
+        step={0.01}
         onChange={(v) => {
           console.log(v);
           setValue(v);
@@ -31,13 +34,23 @@ const SliderGallery = () => (
       },
       {
         title: 'Styled',
-        element: <Slider width="$60" height="$10" m="$8" />,
+        element: (
+          <Slider
+            width="$60"
+            height="$10"
+            m="$8"
+            min={100}
+            max={1000}
+            step={1}
+            onChange={console.log}
+          />
+        ),
       },
       {
         title: 'Disabled',
         element: (
           <Stack space="$2">
-            <Slider disabled defaultValue={0.5} />
+            <Slider disabled min={1} max={100} value={50} step={1} />
           </Stack>
         ),
       },
@@ -50,7 +63,7 @@ const SliderGallery = () => (
                 Dialog.confirm({
                   renderContent: (
                     <Stack paddingVertical={100}>
-                      <Slider />
+                      <Slider min={1} max={100} step={1} />
                     </Stack>
                   ),
                 });
