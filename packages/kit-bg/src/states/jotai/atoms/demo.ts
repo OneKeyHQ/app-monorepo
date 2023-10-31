@@ -1,3 +1,4 @@
+import { EAtomNames } from '../atomNames';
 import {
   globalAtom,
   globalAtomComputedR,
@@ -7,7 +8,7 @@ import {
 
 export const { target: demoPriceAtom, use: useDemoPriceAtom } = globalAtom({
   initialValue: 10,
-  name: 'demoPriceAtom',
+  name: EAtomNames.demoPriceAtom,
   persist: true,
 });
 // export const { target: demoPriceAtom, use: useDemoPriceAtom } = makeCrossAtom(
@@ -23,7 +24,6 @@ export const { target: demoPriceAtom, use: useDemoPriceAtom } = globalAtom({
 // computed atoms (R)
 export const { target: demoReadOnlyAtom, use: useDemoReadOnlyAtom } =
   globalAtomComputedR({
-    name: 'demoReadOnlyAtom',
     read: (get) => {
       const a = demoPriceAtom.atom();
       return get(a) * 2;
@@ -33,7 +33,6 @@ export const { target: demoReadOnlyAtom, use: useDemoReadOnlyAtom } =
 // (W)
 export const { target: demoWriteOnlyAtom, use: useDemoWriteOnlyAtom } =
   globalAtomComputedW<null, [{ discount: number }], void>({
-    name: 'demoWriteOnlyAtom',
     // read: () => null,
     write: async (get, set, update) => {
       const v1 = get(demoPriceAtom.atom());
@@ -60,7 +59,6 @@ export const { target: demoWriteOnlyAtom, use: useDemoWriteOnlyAtom } =
 // computed atoms with setter (RW)
 export const { target: demoReadWriteAtom, use: useDemoReadWriteAtom } =
   globalAtomComputedRW<string, [number], void>({
-    name: 'demoReadWriteAtom',
     read: (get) => (get(demoPriceAtom.atom()) * 0.5).toString(), // NOT working for reactive update, use get() instead
     write: async (get, set, newPrice) => {
       set(demoPriceAtom.atom(), newPrice / 2);

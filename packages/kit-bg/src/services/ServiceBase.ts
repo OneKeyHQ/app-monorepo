@@ -7,6 +7,7 @@ import {
 
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { AxiosInstance } from 'axios';
+import { jotaiInit } from '../states/jotai/jotaiInit';
 
 export type IServiceBaseProps = {
   backgroundApi: any;

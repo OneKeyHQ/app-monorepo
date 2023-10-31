@@ -4885,7 +4885,7 @@ __metadata:
     jest: ^29.7.0
     jest-expo: ^49.0.0
     jest-html-reporter: ^3.10.2
-    jotai: ^2.4.3
+    jotai: ^2.5.0
     memoizee: ^0.4.15
     natsort: ^2.0.3
     node-notifier: ^10.0.1
@@ -19416,7 +19416,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jotai@npm:^2.4.3":
+"jotai@npm:^2.5.0":
   version: 2.5.0
   resolution: "jotai@npm:2.5.0"
   peerDependencies:

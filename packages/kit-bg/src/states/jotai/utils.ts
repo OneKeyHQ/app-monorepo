@@ -7,180 +7,22 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME } from '@onekeyhq/shared/src/background/backgroundUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
+import { atomWithStorage } from './jotaiStorage';
+
+import type { EAtomNames } from './atomNames';
+import type { Read, SetAtom, Setter, WithInitialValue, Write } from './types';
 import type { Atom, PrimitiveAtom, WritableAtom } from 'jotai';
 import type {
   ExtractAtomArgs,
   ExtractAtomResult,
   ExtractAtomValue,
 } from 'jotai/vanilla';
-import type {
-  AsyncStorage,
-  SyncStorage,
-} from 'jotai/vanilla/utils/atomWithStorage';
 
-type Unsubscribe = () => void;
+const store = getDefaultStore();
 
-type WithInitialValue<Value> = {
-  init: Value;
-};
-
-type SetStateActionWithReset<Value> =
-  | Value
-  | typeof RESET
-  | ((prev: Value) => Value | typeof RESET);
-
-type Getter = <Value>(atom: Atom<Value>) => Value;
-type Setter = <Value, Args extends unknown[], Result>(
-  atom: WritableAtom<Value, Args, Result>,
-  ...args: Args
-) => Result;
-
-type Read<Value, SetSelf = never> = (
-  get: Getter,
-  options: {
-    readonly signal: AbortSignal;
-    readonly setSelf: SetSelf;
-  },
-) => Value;
-
-type SetAtom<Args extends unknown[], Result> = <A extends Args>(
-  ...args: A
-) => Result;
-
-type Write<Args extends unknown[], Result> = (
-  get: Getter,
-  set: Setter,
-  ...args: Args
-) => Result;
-
-class JotaiStorage implements AsyncStorage<any> {
-  async getItem(key: string, initialValue: any): Promise<any> {
-    const r = await appStorage.getItem(key);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return r ?? initialValue;
-  }
-
-  async setItem(key: string, newValue: any): Promise<void> {
-    await appStorage.setItem(key, newValue);
-  }
-
-  async removeItem(key: string): Promise<void> {
-    await appStorage.removeItem(key);
-  }
-
-  subscribe = undefined;
-}
-const onekeyJotaiStorage = new JotaiStorage();
-
-export function atomWithStorage<Value>(
-  storageName: string,
-  initialValue: Value,
-  storage: AsyncStorage<Value>,
-  unstable_options?: { unstable_getOnInit?: boolean },
-): WritableAtom<
-  Value | Promise<Value>,
-  [SetStateActionWithReset<Value | Promise<Value>>],
-  Promise<void>
->;
-
-export function atomWithStorage<Value>(
-  storageName: string,
-  initialValue: Value,
-  storage?: SyncStorage<Value>,
-  unstable_options?: { unstable_getOnInit?: boolean },
-): WritableAtom<Value, [SetStateActionWithReset<Value>], void>;
-
-// TODO rename to atomPro
-// - support async storage
-// - support storage ready check (apply to raw atom and computed atom)
-// - support Ext ui & bg sync
-export function atomWithStorage<Value>(
-  storageName: string,
-  initialValue: Value,
-  storage: AsyncStorage<Value> | SyncStorage<Value> = onekeyJotaiStorage,
-  unstable_options?: { unstable_getOnInit?: boolean },
-): any {
-  let updateAtomStorageReady: ((v: boolean) => void) | undefined;
-  const key = `global_states:${storageName}`;
-  const getOnInit = unstable_options?.unstable_getOnInit ?? false;
-  const baseAtom = atom(
-    getOnInit
-      ? (storage.getItem(key, initialValue) as Value | Promise<Value>)
-      : initialValue,
-  );
-
-  if (process.env.NODE_ENV !== 'production') {
-    baseAtom.debugPrivate = true;
-  }
-
-  // TODO onMount not trigger when UI not reference this atom
-  // TODO computed atom storage ready not working
-  baseAtom.onMount = (async (setAtom: (value: Value) => void) => {
-    if (!getOnInit) {
-      const val = (await storage.getItem(key, initialValue)) as Value;
-      setAtom(val);
-      if (!updateAtomStorageReady) {
-        throw new Error('updateAtomStorageReady is undefined');
-      }
-      updateAtomStorageReady(true);
-    }
-    let unsub: Unsubscribe | undefined;
-    if (storage.subscribe) {
-      unsub = storage.subscribe(key, setAtom, initialValue);
-    }
-    return unsub;
-  }) as any;
-
-  const anAtom = atom(
-    (get) => get(baseAtom),
-    (get, set, update: SetStateActionWithReset<Value | Promise<Value>>) => {
-      const nextValue =
-        typeof update === 'function'
-          ? (
-              update as (
-                prev: Value | Promise<Value>,
-              ) => Value | Promise<Value> | typeof RESET
-            )(get(baseAtom))
-          : update;
-      if (nextValue === RESET) {
-        set(baseAtom, initialValue);
-        return storage.removeItem(key);
-      }
-      if (nextValue instanceof Promise) {
-        return nextValue.then((resolvedValue) => {
-          set(baseAtom, resolvedValue);
-          return storage.setItem(key, resolvedValue);
-        });
-      }
-      set(baseAtom, nextValue);
-      return storage.setItem(key, nextValue);
-    },
-  );
-
-  const storageReady = new Promise<boolean>((resolve) => {
-    updateAtomStorageReady = resolve;
-    if (process.env.NODE_ENV !== 'production') {
-      // @ts-ignore
-      global[`$$updateAtomStorageReady_${storageName}`] = resolve;
-    }
-  });
-  // @ts-ignore
-  anAtom.storageReady = storageReady;
-
-  return anAtom;
-}
-
-// @ts-ignore
-global.$globalStatsStorageReadyResolve = (v: boolean) => v;
-// @ts-ignore
-global.$globalStatsStorageReady = new Promise<boolean>(
-  // @ts-ignore
-  (resolve) => (global.$globalStatsStorageReadyResolve = resolve),
-);
-function enhanceAtom(name: string, baseAtom: ReturnType<typeof atom>) {
+function wrapAtom(name: string, baseAtom: ReturnType<typeof atom>) {
   const doSet = ({
     payload,
     proxyToBg,
@@ -264,7 +106,43 @@ function enhanceAtom(name: string, baseAtom: ReturnType<typeof atom>) {
   return proAtom;
 }
 
-const store = getDefaultStore();
+export class CrossAtom<T extends () => any> {
+  constructor(name: string, atomBuilder: T) {
+    this.name = name;
+    this.atom = atomBuilder;
+  }
+
+  name: string;
+
+  atom: T;
+
+  ready = async () => {
+    const a = this.atom() as Atom<ExtractAtomValue<ReturnType<T>>>;
+    // @ts-ignore
+    await a.storageReady;
+    // @ts-ignore
+    if (isNil(a.storageReady)) {
+      console.error('atom does not have storageReady checking: ', this.name);
+    }
+    return a;
+  };
+
+  get = async () => {
+    const a = await this.ready();
+    return store.get(a);
+  };
+
+  set = async <
+    AtomValue extends ExtractAtomValue<ReturnType<T>>,
+    Args extends ExtractAtomArgs<ReturnType<T>>,
+    Result extends ExtractAtomResult<ReturnType<T>>,
+  >(
+    ...args: Args
+  ) => {
+    const a = (await this.ready()) as WritableAtom<AtomValue, Args, Result>;
+    return store.set(a, ...args);
+  };
+}
 
 export function makeCrossAtom<T extends () => any>(name: string, fn: T) {
   const atomBuilder = memoizee(fn, {
@@ -284,26 +162,7 @@ export function makeCrossAtom<T extends () => any>(name: string, fn: T) {
   };
 
   return {
-    target: {
-      atom: atomBuilder,
-      name,
-      ready,
-      get: async () => {
-        const a = await ready();
-        return store.get(a);
-      },
-      // TODO sync from bg to ui
-      set: async <
-        AtomValue extends ExtractAtomValue<ReturnType<T>>,
-        Args extends ExtractAtomArgs<ReturnType<T>>,
-        Result extends ExtractAtomResult<ReturnType<T>>,
-      >(
-        ...args: Args
-      ) => {
-        const a = (await ready()) as WritableAtom<AtomValue, Args, Result>;
-        return store.set(a, ...args);
-      },
-    },
+    target: new CrossAtom(name, atomBuilder),
     // eslint-disable-next-line react-hooks/rules-of-hooks
     use: () => useAtom(atomBuilder() as ReturnType<T>),
   };
@@ -422,7 +281,7 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
     a = atom(initialValue!);
   }
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  return enhanceAtom(name, a as any) as unknown as any;
+  return wrapAtom(name, a as any) as unknown as any;
 }
 
 /*
@@ -441,7 +300,7 @@ export function globalAtom<Value, Args extends unknown[], Result>({
   name,
   persist,
 }: {
-  name: string;
+  name: EAtomNames;
   initialValue?: Value;
   persist?: boolean;
 }) {
@@ -456,20 +315,19 @@ export function globalAtom<Value, Args extends unknown[], Result>({
   );
 }
 
+// TODO TS issue fix
 export function globalAtomComputed<Value, Args extends unknown[], Result>({
   read,
   write,
-  name,
 }: {
-  name: string;
   read?: Read<Value, SetAtom<Args, Result>> | Read<Value>;
   write?: Write<Args, Result>;
 }) {
   if (typeof write === 'function' && typeof read === 'function') {
     // Read & Write
-    return makeCrossAtom(name, () =>
+    return makeCrossAtom('', () =>
       crossAtomBuilder({
-        name,
+        name: '',
         read: read as Read<Value, SetAtom<Args, Result>>,
         write,
       }),
@@ -477,18 +335,18 @@ export function globalAtomComputed<Value, Args extends unknown[], Result>({
   }
   if (typeof write === 'function') {
     // Write
-    return makeCrossAtom(name, () =>
+    return makeCrossAtom('', () =>
       crossAtomBuilder({
-        name,
+        name: '',
         write,
       }),
     );
   }
   if (typeof read === 'function') {
     // Read
-    return makeCrossAtom(name, () =>
+    return makeCrossAtom('', () =>
       crossAtomBuilder({
-        name,
+        name: '',
         read: read as Read<Value>,
       }),
     );
@@ -499,33 +357,25 @@ export function globalAtomComputed<Value, Args extends unknown[], Result>({
 export function globalAtomComputedRW<Value, Args extends unknown[], Result>({
   read,
   write,
-  name,
 }: {
-  name: string;
   read: Read<Value, SetAtom<Args, Result>>;
   write: Write<Args, Result>;
 }) {
   // Read & Write
-  return makeCrossAtom(name, () =>
+  return makeCrossAtom('', () =>
     crossAtomBuilder({
-      name,
+      name: '',
       read,
       write,
     }),
   );
 }
 
-export function globalAtomComputedR<Value>({
-  read,
-  name,
-}: {
-  name: string;
-  read: Read<Value>;
-}) {
+export function globalAtomComputedR<Value>({ read }: { read: Read<Value> }) {
   // Read
-  return makeCrossAtom(name, () =>
+  return makeCrossAtom('', () =>
     crossAtomBuilder({
-      name,
+      name: '',
       read,
     }),
   );
@@ -533,15 +383,13 @@ export function globalAtomComputedR<Value>({
 
 export function globalAtomComputedW<Value, Args extends unknown[], Result>({
   write,
-  name,
 }: {
-  name: string;
   write: Write<Args, Result>;
 }) {
   // Write
-  return makeCrossAtom(name, () =>
+  return makeCrossAtom('', () =>
     crossAtomBuilder({
-      name,
+      name: '',
       write,
     }),
   );

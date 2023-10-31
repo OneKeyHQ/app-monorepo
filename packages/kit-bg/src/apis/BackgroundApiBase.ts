@@ -22,6 +22,7 @@ import {
 
 import { createBackgroundProviders } from '../providers/backgroundProviders';
 import allAtoms from '../states/jotai/atoms';
+import { jotaiInit } from '../states/jotai/jotaiInit';
 
 import {
   isExtensionInternalCall,
@@ -50,6 +51,8 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     console.log('allAtoms:', allAtoms);
     this.cycleDepsCheck();
     this._initBackgroundPersistor();
+    // TODO move to serviceBoostrap
+    jotaiInit();
   }
 
   cycleDepsCheck() {
