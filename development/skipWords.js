@@ -510,4 +510,13 @@ module.exports = [
   'debounce',
   'goto',
   'bluetooth'
+  'Polkadot',
+  'Solana',
+  'localhost',
+  'Persistor',
+  'persistor',
+  'Cron',
+  'enums',
+  'Xxs',
+  'bitcoind',
 ];
