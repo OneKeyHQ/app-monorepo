@@ -260,8 +260,15 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
       setPendingTxCount(count);
     };
 
-    getPendingTxCount();
-  }, [accountId, advancedSettings?.currentNonce, networkId]);
+    if (network?.settings.showPendingTxs) {
+      getPendingTxCount();
+    }
+  }, [
+    accountId,
+    advancedSettings?.currentNonce,
+    network?.settings.showPendingTxs,
+    networkId,
+  ]);
 
   useEffect(() => {
     const checkPendingTxWithSameNonce = async () => {
