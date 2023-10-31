@@ -1,3 +1,4 @@
+/* eslint-disable max-classes-per-file */
 /* eslint-disable camelcase */
 import { atom } from 'jotai';
 
@@ -9,7 +10,6 @@ import type {
   AsyncStorage,
   SetStateActionWithReset,
   SyncStorage,
-  Unsubscribe,
   WritableAtom,
 } from './types';
 
@@ -21,7 +21,10 @@ class JotaiStorage implements AsyncStorage<any> {
   }
 
   async setItem(key: string, newValue: any): Promise<void> {
-    await appStorage.setItem(key, newValue);
+    const r = await appStorage.getItem(key);
+    if (r !== newValue) {
+      await appStorage.setItem(key, newValue);
+    }
   }
 
   async removeItem(key: string): Promise<void> {
@@ -31,7 +34,12 @@ class JotaiStorage implements AsyncStorage<any> {
   subscribe = undefined;
 }
 
-const onekeyJotaiStorage = new JotaiStorage();
+export const onekeyJotaiStorage = new JotaiStorage();
+
+export function buildJotaiStorageKey(name: string) {
+  const key = `global_states:${name}`;
+  return key;
+}
 
 export function atomWithStorage<Value>(
   storageName: string,
@@ -61,8 +69,7 @@ export function atomWithStorage<Value>(
   storage: AsyncStorage<Value> | SyncStorage<Value> = onekeyJotaiStorage,
   unstable_options?: { unstable_getOnInit?: boolean },
 ): any {
-  let updateAtomStorageReady: ((v: boolean) => void) | undefined;
-  const key = `global_states:${storageName}`;
+  const key = buildJotaiStorageKey(storageName);
   const getOnInit = unstable_options?.unstable_getOnInit ?? false;
   const baseAtom = atom(
     getOnInit
@@ -73,24 +80,6 @@ export function atomWithStorage<Value>(
   if (process.env.NODE_ENV !== 'production') {
     baseAtom.debugPrivate = true;
   }
-
-  // TODO onMount not trigger when UI not reference this atom
-  // TODO computed atom storage ready not working
-  baseAtom.onMount = (async (setAtom: (value: Value) => void) => {
-    if (!getOnInit) {
-      const val = (await storage.getItem(key, initialValue)) as Value;
-      setAtom(val);
-      if (!updateAtomStorageReady) {
-        throw new Error('updateAtomStorageReady is undefined');
-      }
-      updateAtomStorageReady(true);
-    }
-    let unsub: Unsubscribe | undefined;
-    if (storage.subscribe) {
-      unsub = storage.subscribe(key, setAtom, initialValue);
-    }
-    return unsub;
-  }) as any;
 
   const anAtom = atom(
     (get) => get(baseAtom),
@@ -118,25 +107,23 @@ export function atomWithStorage<Value>(
     },
   );
 
-  const storageReady = new Promise<boolean>((resolve) => {
-    updateAtomStorageReady = resolve;
-    if (process.env.NODE_ENV !== 'production') {
-      // @ts-ignore
-      global[`$$updateAtomStorageReady_${storageName}`] = resolve;
-    }
-  });
-  // @ts-ignore
-  anAtom.storageReady = storageReady;
-
   return anAtom;
 }
 
-// @ts-ignore
-global.$globalStatsStorageReadyResolve = (v: boolean) => v;
-// @ts-ignore
-global.$globalStatsStorageReady = new Promise<boolean>(
-  // @ts-ignore
-  (resolve) => (global.$globalStatsStorageReadyResolve = resolve),
-);
+class GlobalJotaiStorageReadyHandler {
+  resolveReady: (value: boolean | PromiseLike<boolean>) => void = () => {
+    // do nothing
+    throw new Error('this is not expected to be called');
+  };
 
-function jotaiStorageInit() {}
+  ready = new Promise<boolean>((resolve) => {
+    console.log(this.resolveReady);
+    this.resolveReady = resolve;
+    console.log(this.resolveReady);
+    if (this.resolveReady !== resolve) {
+      throw new Error('update resolveReady callback failed');
+    }
+  });
+}
+export const globalJotaiStorageReadyHandler =
+  new GlobalJotaiStorageReadyHandler();

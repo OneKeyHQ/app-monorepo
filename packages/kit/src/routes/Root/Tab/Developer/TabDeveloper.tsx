@@ -19,7 +19,6 @@ import localDb from '@onekeyhq/kit-bg/src/dbs/local/localDb';
 import {
   demoPriceAtom,
   demoReadOnlyAtom,
-  demoReadWriteAtom,
   demoWriteOnlyAtom,
   useDemoPriceAtom,
   useDemoReadOnlyAtom,
@@ -94,7 +93,7 @@ function JotaiDemo() {
   const [b] = useDemoReadOnlyAtom();
   const [, w] = useDemoWriteOnlyAtom();
   const [c, rw] = useDemoReadWriteAtom();
-  console.log('useDemoReadOnlyAtom > ', b);
+  console.log('useDemoReadOnlyAtom > ', { a, b, c });
   return (
     <PartContainer title="Jotai">
       <Button

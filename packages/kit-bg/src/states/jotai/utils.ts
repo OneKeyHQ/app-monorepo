@@ -9,7 +9,10 @@ import { GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME } from '@onekeyhq/shared/src/b
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
-import { atomWithStorage } from './jotaiStorage';
+import {
+  atomWithStorage,
+  globalJotaiStorageReadyHandler,
+} from './jotaiStorage';
 
 import type { EAtomNames } from './atomNames';
 import type { Read, SetAtom, Setter, WithInitialValue, Write } from './types';
@@ -20,7 +23,7 @@ import type {
   ExtractAtomValue,
 } from 'jotai/vanilla';
 
-const store = getDefaultStore();
+export const jotaiDefaultStore = getDefaultStore();
 
 function wrapAtom(name: string, baseAtom: ReturnType<typeof atom>) {
   const doSet = ({
@@ -102,7 +105,10 @@ function wrapAtom(name: string, baseAtom: ReturnType<typeof atom>) {
   );
 
   // @ts-ignore
-  proAtom.storageReady = global.$globalStatsStorageReady;
+  proAtom.storageReady = globalJotaiStorageReadyHandler.ready;
+  // @ts-ignore
+  proAtom.initialValue = baseAtom.initialValue;
+
   return proAtom;
 }
 
@@ -129,7 +135,7 @@ export class CrossAtom<T extends () => any> {
 
   get = async () => {
     const a = await this.ready();
-    return store.get(a);
+    return jotaiDefaultStore.get(a);
   };
 
   set = async <
@@ -140,7 +146,7 @@ export class CrossAtom<T extends () => any> {
     ...args: Args
   ) => {
     const a = (await this.ready()) as WritableAtom<AtomValue, Args, Result>;
-    return store.set(a, ...args);
+    return jotaiDefaultStore.set(a, ...args);
   };
 }
 
@@ -149,17 +155,6 @@ export function makeCrossAtom<T extends () => any>(name: string, fn: T) {
     primitive: true,
     normalizer: () => '',
   });
-
-  const ready = async () => {
-    const a = atomBuilder() as Atom<ExtractAtomValue<ReturnType<T>>>;
-    // @ts-ignore
-    await a.storageReady;
-    // @ts-ignore
-    if (isNil(a.storageReady)) {
-      console.error('atom does not have storageReady checking: ', name);
-    }
-    return a;
-  };
 
   return {
     target: new CrossAtom(name, atomBuilder),
@@ -280,6 +275,8 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
     // initialValue
     a = atom(initialValue!);
   }
+  // @ts-ignore
+  a.initialValue = initialValue;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return wrapAtom(name, a as any) as unknown as any;
 }
