@@ -1,19 +1,62 @@
+import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
+
 import { EAtomNames } from './atomNames';
 import {
   buildJotaiStorageKey,
   globalJotaiStorageReadyHandler,
   onekeyJotaiStorage,
 } from './jotaiStorage';
-import { CrossAtom, jotaiDefaultStore } from './utils';
+import { JotaiCrossAtom } from './utils/JotaiCrossAtom';
+import { jotaiDefaultStore } from './utils/jotaiDefaultStore';
 
-import type { IWritableAtomPro } from './types';
+import type { IAtomSetWithoutProxy, IWritableAtomPro } from './types';
+
+export async function jotaiUpdateFromUiByBgBroadcast(
+  params: IGlobalStatesSyncBroadcastParams,
+) {
+  const allAtoms = await import('./atoms');
+  // @ts-ignore
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  const atomInfo = allAtoms[params.name] as JotaiCrossAtom<any>;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  const atomObj = atomInfo.atom() as unknown as IWritableAtomPro<any, any, any>;
+  await jotaiDefaultStore.set(atomObj, params);
+}
+
+export async function jotaiInitFromUi({
+  states,
+}: {
+  states: Record<EAtomNames, any>;
+}) {
+  const allAtoms = await import('./atoms');
+  await Promise.all(
+    Object.entries(states).map(async ([key, value]) => {
+      // @ts-ignore
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const atomInfo = allAtoms[key] as JotaiCrossAtom<any>;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      const atomObj = atomInfo.atom() as unknown as IWritableAtomPro<
+        any,
+        any,
+        any
+      >;
+      const data: IAtomSetWithoutProxy = {
+        $$isForceSetAtomWithoutProxy: true,
+        name: key,
+        payload: value,
+      };
+      await jotaiDefaultStore.set(atomObj, data);
+    }),
+  );
+  globalJotaiStorageReadyHandler.resolveReady(true);
+}
 
 export async function jotaiInit() {
   const allAtoms = await import('./atoms');
   let namesLength = 0;
-  const atoms: { [key: string]: CrossAtom<any> } = {};
+  const atoms: { [key: string]: JotaiCrossAtom<any> } = {};
   Object.entries(allAtoms).forEach(([key, value]) => {
-    if (value instanceof CrossAtom) {
+    if (value instanceof JotaiCrossAtom && value.name) {
       atoms[key] = value;
     }
   });
@@ -58,4 +101,10 @@ export async function jotaiInit() {
   );
 
   globalJotaiStorageReadyHandler.resolveReady(true);
+
+  if (process.env.NODE_ENV !== 'production') {
+    global.$$allAtoms = allAtoms;
+  }
+
+  return atoms;
 }

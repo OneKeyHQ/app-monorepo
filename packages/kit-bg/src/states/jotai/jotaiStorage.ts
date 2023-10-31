@@ -2,10 +2,13 @@
 /* eslint-disable camelcase */
 import { atom } from 'jotai';
 
-import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import appStorage, {
+  mockStorage,
+} from '@onekeyhq/shared/src/storage/appStorage';
 
 import { RESET } from './types';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   AsyncStorage,
   SetStateActionWithReset,
@@ -34,7 +37,9 @@ class JotaiStorage implements AsyncStorage<any> {
   subscribe = undefined;
 }
 
-export const onekeyJotaiStorage = new JotaiStorage();
+export const onekeyJotaiStorage = platformEnv.isExtensionUi
+  ? mockStorage // extension real storage is running at bg, the ui is a mock storage
+  : new JotaiStorage();
 
 export function buildJotaiStorageKey(name: string) {
   const key = `global_states:${name}`;

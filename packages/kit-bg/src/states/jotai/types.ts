@@ -54,3 +54,8 @@ export type IWritableAtomPro<
   Args extends unknown[],
   Result,
 > = WritableAtom<Value, Args, Result> & IAtomProProps<Value>;
+export type IAtomSetWithoutProxy = {
+  $$isForceSetAtomWithoutProxy: true;
+  name: string;
+  payload: any;
+};

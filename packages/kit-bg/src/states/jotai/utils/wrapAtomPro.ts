@@ -1,0 +1,103 @@
+import { atom } from 'jotai';
+import { RESET } from 'jotai/utils';
+
+import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import type { EAtomNames } from '../atomNames';
+import type { IAtomSetWithoutProxy, IWritableAtomPro, Setter } from '../types';
+
+export function wrapAtomPro(
+  name: EAtomNames,
+  baseAtom: IWritableAtomPro<
+    unknown,
+    [update: unknown],
+    Promise<void> | undefined
+  >,
+) {
+  const doSet = async ({
+    payload,
+    proxyToBg,
+    set,
+  }: {
+    payload: any;
+    proxyToBg: boolean;
+    set: Setter;
+  }) => {
+    if (proxyToBg && platformEnv.isExtensionUi) {
+      await global.$jotaiBgSync.proxyStateUpdateActionFromUiToBg({
+        name,
+        payload,
+      });
+      return;
+    }
+    await set(baseAtom, payload);
+    console.log('------- enhanceAtom update to', name, payload);
+    if (platformEnv.isExtensionBackground) {
+      await global.$jotaiBgSync.broadcastStateUpdateFromBgToUi({
+        name,
+        payload,
+      });
+    }
+  };
+  const proAtom = atom(
+    (get) => get(baseAtom),
+    async (get, set, update) => {
+      let nextValue =
+        typeof update === 'function'
+          ? (
+              update as (
+                prev: any | Promise<any>,
+              ) => any | Promise<any> | typeof RESET
+            )(get(baseAtom))
+          : update;
+
+      let proxyToBg = false;
+      if (platformEnv.isExtensionUi && name) {
+        proxyToBg = true;
+        const nextValueFromBg = nextValue as IGlobalStatesSyncBroadcastParams;
+        if (
+          nextValueFromBg?.$$isFromBgStatesSyncBroadcast &&
+          nextValueFromBg?.name === name
+        ) {
+          nextValue = nextValueFromBg.payload;
+          proxyToBg = false;
+        }
+        const nextValueFromUiInit = nextValue as IAtomSetWithoutProxy;
+        if (
+          nextValueFromUiInit?.$$isForceSetAtomWithoutProxy &&
+          nextValueFromUiInit.name === name
+        ) {
+          nextValue = nextValueFromUiInit.payload;
+          proxyToBg = false;
+        }
+      }
+
+      if (nextValue === RESET) {
+        await doSet({
+          proxyToBg,
+          set,
+          payload: baseAtom.initialValue,
+        });
+        return;
+      }
+      if (nextValue instanceof Promise) {
+        return nextValue.then(async (resolvedValue) =>
+          doSet({
+            proxyToBg,
+            set,
+            payload: resolvedValue,
+          }),
+        );
+      }
+
+      await doSet({
+        proxyToBg,
+        set,
+        payload: nextValue,
+      });
+    },
+  ) as IWritableAtomPro<unknown, [update: unknown], Promise<void> | undefined>;
+
+  return proAtom;
+}

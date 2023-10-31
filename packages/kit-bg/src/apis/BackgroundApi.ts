@@ -8,6 +8,9 @@ import BackgroundApiBase from './BackgroundApiBase';
 import type { IBackgroundApi } from './IBackgroundApi';
 
 class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
+  constructor() {
+    super();
+  }
   // validator = this.engine.validator;
 
   // vaultFactory = this.engine.vaultFactory;

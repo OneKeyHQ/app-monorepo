@@ -1,162 +1,25 @@
 /* eslint-disable camelcase */
-import { atom, getDefaultStore, useAtom } from 'jotai';
-import { RESET } from 'jotai/utils';
-import { isNil } from 'lodash';
+import { atom, useAtom } from 'jotai';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
-import { GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME } from '@onekeyhq/shared/src/background/backgroundUtils';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
+// import { jotaiBgSync } from './jotaiBgSync';
 import {
   atomWithStorage,
   globalJotaiStorageReadyHandler,
-} from './jotaiStorage';
+} from '../jotaiStorage';
 
-import type { EAtomNames } from './atomNames';
+import type { Atom, PrimitiveAtom, WritableAtom } from 'jotai';
+import type { EAtomNames } from '../atomNames';
 import type {
-  IAtomPro,
   IWritableAtomPro,
   Read,
   SetAtom,
-  Setter,
   WithInitialValue,
   Write,
-} from './types';
-import type { Atom, PrimitiveAtom, WritableAtom } from 'jotai';
-import type {
-  ExtractAtomArgs,
-  ExtractAtomResult,
-  ExtractAtomValue,
-} from 'jotai/vanilla';
-
-export const jotaiDefaultStore = getDefaultStore();
-
-function wrapAtom(
-  name: string,
-  baseAtom: IWritableAtomPro<
-    unknown,
-    [update: unknown],
-    Promise<void> | undefined
-  >,
-) {
-  const doSet = async ({
-    payload,
-    proxyToBg,
-    set,
-  }: {
-    payload: any;
-    proxyToBg: boolean;
-    set: Setter;
-  }) => {
-    if (proxyToBg && platformEnv.isExtensionUi) {
-      // TODO call bg service to update states from bg and all ui
-      return;
-    }
-    await set(baseAtom, payload);
-    console.log('------- enhanceAtom update to', name, payload);
-    if (platformEnv.isExtensionBackground) {
-      const p: IGlobalStatesSyncBroadcastParams = {
-        $$isFromBgStatesSyncBroadcast: true,
-        name,
-        payload,
-      };
-      backgroundApiProxy.bridgeExtBg?.requestToAllUi({
-        method: GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME,
-        params: [p],
-      });
-    }
-  };
-  const proAtom = atom(
-    (get) => get(baseAtom),
-    async (get, set, update) => {
-      let nextValue =
-        typeof update === 'function'
-          ? (
-              update as (
-                prev: any | Promise<any>,
-              ) => any | Promise<any> | typeof RESET
-            )(get(baseAtom))
-          : update;
-
-      let proxyToBg = false;
-      if (platformEnv.isExtensionUi) {
-        proxyToBg = true;
-        const nextValueFromBg = nextValue as IGlobalStatesSyncBroadcastParams;
-        if (
-          nextValueFromBg?.$$isFromBgStatesSyncBroadcast &&
-          nextValueFromBg?.name === name
-        ) {
-          nextValue = nextValueFromBg.payload;
-          proxyToBg = false;
-        }
-      }
-
-      if (nextValue === RESET) {
-        await doSet({
-          proxyToBg,
-          set,
-          payload: baseAtom.initialValue,
-        });
-        return;
-      }
-      if (nextValue instanceof Promise) {
-        return nextValue.then(async (resolvedValue) =>
-          doSet({
-            proxyToBg,
-            set,
-            payload: resolvedValue,
-          }),
-        );
-      }
-
-      await doSet({
-        proxyToBg,
-        set,
-        payload: nextValue,
-      });
-    },
-  ) as IWritableAtomPro<unknown, [update: unknown], Promise<void> | undefined>;
-
-  return proAtom;
-}
-
-export class CrossAtom<T extends () => any> {
-  constructor(name: string, atomBuilder: T) {
-    this.name = name;
-    this.atom = atomBuilder;
-  }
-
-  name: string;
-
-  atom: T;
-
-  ready = async () => {
-    const a = this.atom() as IAtomPro<ExtractAtomValue<ReturnType<T>>>;
-    await a.storageReady;
-    if (isNil(a.storageReady)) {
-      console.error('atom does not have storageReady checking: ', this.name);
-    }
-    return a;
-  };
-
-  get = async () => {
-    const a = await this.ready();
-    return jotaiDefaultStore.get(a);
-  };
-
-  set = async <
-    AtomValue extends ExtractAtomValue<ReturnType<T>>,
-    Args extends ExtractAtomArgs<ReturnType<T>>,
-    Result extends ExtractAtomResult<ReturnType<T>>,
-  >(
-    ...args: Args
-  ) => {
-    const a = (await this.ready()) as IWritableAtomPro<AtomValue, Args, Result>;
-    return jotaiDefaultStore.set(a, ...args);
-  };
-}
+} from '../types';
+import { JotaiCrossAtom } from './JotaiCrossAtom';
+import { wrapAtomPro } from './wrapAtomPro';
 
 export function makeCrossAtom<T extends () => any>(name: string, fn: T) {
   const atomBuilder = memoizee(fn, {
@@ -165,7 +28,7 @@ export function makeCrossAtom<T extends () => any>(name: string, fn: T) {
   });
 
   return {
-    target: new CrossAtom(name, atomBuilder),
+    target: new JotaiCrossAtom(name, atomBuilder),
     // eslint-disable-next-line react-hooks/rules-of-hooks
     use: () => useAtom(atomBuilder() as ReturnType<T>),
   };
@@ -291,7 +154,7 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
     [update: unknown],
     Promise<void> | undefined
   >;
-  const proAtom = wrapAtom(name, baseAtom);
+  const proAtom = wrapAtomPro(name as EAtomNames, baseAtom);
   proAtom.storageReady = globalJotaiStorageReadyHandler.ready;
   proAtom.initialValue = initialValue;
   proAtom.persist = persist;
