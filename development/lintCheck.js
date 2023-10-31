@@ -15,7 +15,9 @@ try {
     console.log(
       `Please do not add more ESLint warnings than ${MAX_WARNINGS_COUNT}`,
     );
-    console.log('Hope you can fix the ts warings introduced after this merge.');
+    console.log(
+      'Hope you can fix the ESLint warings introduced after this merge.',
+    );
     exit(1);
   }
 } catch (error) {
