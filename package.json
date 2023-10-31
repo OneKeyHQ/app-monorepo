@@ -25,7 +25,7 @@
     "app:android:device": "yarn copy:inject && yarn workspace @onekeyhq/mobile android:device",
     "build:icon": "yarn workspace @onekeyhq/components build:icons",
     "_tsc": "node ./development/tsCheck",
-    "_lint": "sh -c 'npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"'",
+    "_lint": "node ./development/lintCheck",
     "lint:project": "yarn _tsc && yarn _lint",
     "lint": "ultra lint:project",
     "test": "yarn jest"

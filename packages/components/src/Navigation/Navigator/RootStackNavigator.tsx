@@ -45,7 +45,7 @@ export function RootStackNavigator<
   const bgColor = useThemeValue('bg');
   const isVerticalLayout = useIsVerticalLayout();
   const presetScreenOptions = clearStackNavigatorOptions({
-    bgColor: bgColor as string,
+    bgColor,
   });
 
   const getOptionsWithType = useCallback(
