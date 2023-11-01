@@ -124,6 +124,8 @@ module.exports = {
     '*.wasm.bin',
     'apps/desktop/public/static/js-sdk*',
     'packages/components/src/Icon/*',
+    'packages/kit/src/store',
+    'packages/shared/src/engine',
   ],
   env: {
     browser: true,

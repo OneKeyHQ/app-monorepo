@@ -4,12 +4,12 @@ import { get } from 'lodash';
 
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 
-import type {
- IOneKeyErrorInfo } from '../types/errorTypes';
 import {
+  type IOneKeyErrorInfo,
   OneKeyErrorClassNames,
   type OneKeyHardwareErrorData,
-  type OneKeyHardwareErrorPayload } from '../types/errorTypes';
+  type OneKeyHardwareErrorPayload,
+} from '../types/errorTypes';
 
 import { OneKeyError } from './baseErrors';
 
