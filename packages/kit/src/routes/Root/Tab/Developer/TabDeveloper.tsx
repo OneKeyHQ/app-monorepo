@@ -37,6 +37,7 @@ import { setLocale, setTheme } from '../../../../store/reducers/settings';
 import { GalleryRoutes } from '../../../Gallery/routes';
 import { RootRoutes } from '../../Routes';
 
+import { JOTAI_RESET } from '@onekeyhq/kit-bg/src/states/jotai/types';
 import type { TabDeveloperParamList } from './Routes';
 
 void (async () => {
@@ -96,6 +97,13 @@ function JotaiDemo() {
   console.log('useDemoReadOnlyAtom > ', { a, b, c });
   return (
     <PartContainer title="Jotai">
+      <Button
+        onPress={() => {
+          w(JOTAI_RESET);
+        }}
+      >
+        reset
+      </Button>
       <Button
         onPress={() => {
           console.log('1');

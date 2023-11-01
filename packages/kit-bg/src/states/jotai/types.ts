@@ -6,7 +6,8 @@ import type {
   SyncStorage,
 } from 'jotai/vanilla/utils/atomWithStorage';
 
-export { AsyncStorage, Atom, RESET, SyncStorage, WritableAtom };
+export const JOTAI_RESET = RESET as unknown as any | typeof RESET;
+export { AsyncStorage, Atom, SyncStorage, WritableAtom };
 
 export type Unsubscribe = () => void;
 
@@ -16,8 +17,8 @@ export type WithInitialValue<Value> = {
 
 export type SetStateActionWithReset<Value> =
   | Value
-  | typeof RESET
-  | ((prev: Value) => Value | typeof RESET);
+  | typeof JOTAI_RESET
+  | ((prev: Value) => Value | typeof JOTAI_RESET);
 
 export type Getter = <Value>(atom: Atom<Value>) => Value;
 export type Setter = <Value, Args extends unknown[], Result>(

@@ -155,6 +155,7 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
     [update: unknown],
     Promise<void> | undefined
   >;
+  baseAtom.initialValue = initialValue;
   const proAtom = wrapAtomPro(name as EAtomNames, baseAtom);
   proAtom.storageReady = globalJotaiStorageReadyHandler.ready;
   proAtom.initialValue = initialValue;

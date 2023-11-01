@@ -39,14 +39,6 @@ export class JotaiBgSync {
     await jotaiInitFromUi({ states });
   }
 
-  async jotaiUpdateFromUi() {
-    if (!platformEnv.isExtensionUi) {
-      return;
-    }
-    const { states } = await this.backgroundApiProxy.getAtomStates();
-    await jotaiInitFromUi({ states });
-  }
-
   async broadcastStateUpdateFromBgToUi({
     name,
     payload,

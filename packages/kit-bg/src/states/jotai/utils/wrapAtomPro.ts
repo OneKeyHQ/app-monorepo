@@ -1,11 +1,10 @@
 import { atom } from 'jotai';
-import { RESET } from 'jotai/utils';
 
 import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { EAtomNames } from '../atomNames';
-import type { IAtomSetWithoutProxy, IWritableAtomPro, Setter } from '../types';
+import { IAtomSetWithoutProxy, IWritableAtomPro, JOTAI_RESET, Setter } from '../types';
 
 export function wrapAtomPro(
   name: EAtomNames,
@@ -48,7 +47,7 @@ export function wrapAtomPro(
           ? (
               update as (
                 prev: any | Promise<any>,
-              ) => any | Promise<any> | typeof RESET
+              ) => any | Promise<any> | typeof JOTAI_RESET
             )(get(baseAtom))
           : update;
 
@@ -73,7 +72,7 @@ export function wrapAtomPro(
         }
       }
 
-      if (nextValue === RESET) {
+      if (nextValue === JOTAI_RESET) {
         await doSet({
           proxyToBg,
           set,
