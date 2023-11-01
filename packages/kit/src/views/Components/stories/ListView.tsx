@@ -38,9 +38,7 @@ const ListViewDemo = () => {
             <Button
               onPress={() => {
                 const scrollView = ref.current;
-                if (scrollView) {
-                  scrollView.scrollToEnd({ animated: true });
-                }
+                scrollView?.scrollToEnd({ animated: true });
               }}
             >
               Scroll to Bottom

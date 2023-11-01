@@ -21,7 +21,7 @@ export type ListViewProps<T> = Omit<
     ListFooterComponentStyle?: StackProps;
   };
 
-export type ListViewRef = FlatList<Record<string, unknown>>;
+export type ListViewRef = FlatList<any>;
 
 function BaseListView<T>(
   {
@@ -29,7 +29,7 @@ function BaseListView<T>(
     data,
     renderItem,
     contentContainerStyle = {},
-    columnWrapperStyle = {},
+    columnWrapperStyle,
     ListHeaderComponentStyle = {},
     ListFooterComponentStyle = {},
     ...props
@@ -46,9 +46,12 @@ function BaseListView<T>(
     },
   );
 
-  const columnStyle = useStyle(columnWrapperStyle as Record<string, unknown>, {
-    resolveValues: 'auto',
-  });
+  const columnStyle = useStyle(
+    (columnWrapperStyle || {}) as Record<string, unknown>,
+    {
+      resolveValues: 'auto',
+    },
+  );
 
   const listHeaderStyle = useStyle(
     ListHeaderComponentStyle as Record<string, unknown>,
@@ -67,7 +70,7 @@ function BaseListView<T>(
     <FlatList
       ref={ref}
       style={style as StyleProp<ViewStyle>}
-      // columnWrapperStyle={columnStyle}
+      columnWrapperStyle={columnWrapperStyle ? columnStyle : undefined}
       ListHeaderComponentStyle={listHeaderStyle}
       ListFooterComponentStyle={listFooterStyle}
       contentContainerStyle={contentStyle}
