@@ -26,19 +26,3 @@ export function NavigationFocusTools({
     </Text>
   );
 }
-
-export function TabsFocusTools({ componentName }: { componentName: string }) {
-  // const isFocused = useIsActiveTab(componentName);
-
-  useEffect(() => {
-    console.log(
-      `::> tabs ${componentName} isFocused: ${isFocused ? 'true' : 'false'}`,
-    );
-  }, [componentName, isFocused]);
-
-  return (
-    <Text>
-      {componentName} isFocused: {isFocused ? 'true' : 'false'}
-    </Text>
-  );
-}
