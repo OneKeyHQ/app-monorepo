@@ -1,15 +1,40 @@
 import { useRef } from 'react';
 
-import type { ListViewRef } from '@onekeyhq/components';
-import { Button, Divider, ListView, Text, XStack } from '@onekeyhq/components';
+import type { SectionListRef } from '@onekeyhq/components';
+import {
+  Button,
+  Divider,
+  SectionList,
+  Stack,
+  Text,
+  XStack,
+} from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
-const listData = new Array(100).fill(0).map((_, index) => index);
-const ListViewDemo = () => {
-  const ref = useRef<ListViewRef | null>(null);
+const sectionListData = [
+  {
+    title: 'Main dishes',
+    data: ['Pizza', 'Burger', 'Risotto'],
+  },
+  {
+    title: 'Sides',
+    data: ['French Fries', 'Onion Rings', 'Fried Shrimps'],
+  },
+  {
+    title: 'Drinks',
+    data: ['Water', 'Coke', 'Beer'],
+  },
+  {
+    title: 'Desserts',
+    data: ['Cheese Cake', 'Ice Cream'],
+  },
+];
+
+const SectionListDemo = () => {
+  const ref = useRef<SectionListRef | null>(null);
   return (
-    <ListView
+    <SectionList
       h="$60"
       bg="$backgroundPress"
       contentContainerStyle={{
@@ -27,7 +52,12 @@ const ListViewDemo = () => {
         bg: 'red',
       }}
       ref={ref}
-      data={listData}
+      sections={sectionListData}
+      renderSectionHeader={({ section: { title } }) => (
+        <Stack bg="$bg">
+          <Text variant="$headingXs">{title}</Text>
+        </Stack>
+      )}
       ListHeaderComponent={XStack}
       ListFooterComponent={XStack}
       renderItem={({ item }) => (
@@ -50,7 +80,7 @@ const ListViewDemo = () => {
   );
 };
 
-const ListViewGallery = () => (
+const SectionListGallery = () => (
   <Layout
     description=".."
     suggestions={['...']}
@@ -58,11 +88,11 @@ const ListViewGallery = () => (
     scrollEnabled={false}
     elements={[
       {
-        title: 'Styled ListView',
-        element: <ListViewDemo />,
+        title: 'Styled SectionList',
+        element: <SectionListDemo />,
       },
     ]}
   />
 );
 
-export default ListViewGallery;
+export default SectionListGallery;

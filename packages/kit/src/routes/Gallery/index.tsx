@@ -34,6 +34,7 @@ import FormGallery from '../../views/Components/stories/Form';
 import ListViewGallery from '../../views/Components/stories/ListView';
 import QRCodeGallery from '../../views/Components/stories/QRCode';
 import ScrollViewGallery from '../../views/Components/stories/ScrollView';
+import SectionListGallery from '../../views/Components/stories/SectionList';
 import SkeletonGallery from '../../views/Components/stories/Skeleton';
 import TextAreaGallery from '../../views/Components/stories/TextArea';
 import ThemeGallery from '../../views/Components/stories/Theme';
@@ -60,6 +61,7 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentEmpty, component: EmptyGallery },
   { name: GalleryRoutes.ComponentRadio, component: RadioGallery },
   { name: GalleryRoutes.ComponentListView, component: ListViewGallery },
+  { name: GalleryRoutes.ComponentSectionList, component: SectionListGallery },
   { name: GalleryRoutes.ComponentListItem, component: ListItemGallery },
   { name: GalleryRoutes.ComponentSkeleton, component: SkeletonGallery },
   { name: GalleryRoutes.ComponentCheckbox, component: CheckboxGallery },

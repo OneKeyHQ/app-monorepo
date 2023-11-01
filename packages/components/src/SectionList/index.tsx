@@ -2,51 +2,45 @@ import type { ForwardedRef } from 'react';
 import { forwardRef } from 'react';
 
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
-import { FlatList } from 'react-native';
+import { SectionList as NativeSectionList } from 'react-native';
 
 import type { StackProps } from '@tamagui/web/types';
-import type { FlatListProps, StyleProp, ViewStyle } from 'react-native';
+import type {
+  SectionListProps as NativeSectionListProps,
+  StyleProp,
+  ViewStyle,
+} from 'react-native';
 
-export type ListViewProps<T> = Omit<
-  FlatListProps<T>,
+export type SectionListProps<T> = Omit<
+  NativeSectionListProps<T>,
   | 'contentContainerStyle'
-  | 'columnWrapperStyle'
   | 'ListHeaderComponentStyle'
   | 'ListFooterComponentStyle'
 > &
   StackProps & {
     contentContainerStyle?: StackProps;
-    columnWrapperStyle?: StackProps;
     ListHeaderComponentStyle?: StackProps;
     ListFooterComponentStyle?: StackProps;
   };
 
-export type ListViewRef = FlatList<any>;
+export type SectionListRef = NativeSectionList<any>;
 
-function BaseListView<T>(
+function BaseSectionList<T>(
   {
-    data,
+    sections,
     renderItem,
     contentContainerStyle = {},
-    columnWrapperStyle,
     ListHeaderComponentStyle = {},
     ListFooterComponentStyle = {},
     ...props
-  }: ListViewProps<T>,
-  ref: ForwardedRef<ListViewRef>,
+  }: NativeSectionListProps<T>,
+  ref: ForwardedRef<SectionListRef>,
 ) {
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
   });
   const contentStyle = useStyle(
     contentContainerStyle as Record<string, unknown>,
-    {
-      resolveValues: 'auto',
-    },
-  );
-
-  const columnStyle = useStyle(
-    (columnWrapperStyle || {}) as Record<string, unknown>,
     {
       resolveValues: 'auto',
     },
@@ -66,18 +60,17 @@ function BaseListView<T>(
     },
   );
   return (
-    <FlatList
+    <NativeSectionList
       ref={ref}
       style={style as StyleProp<ViewStyle>}
-      columnWrapperStyle={columnWrapperStyle ? columnStyle : undefined}
       ListHeaderComponentStyle={listHeaderStyle}
       ListFooterComponentStyle={listFooterStyle}
       contentContainerStyle={contentStyle}
-      data={data}
+      sections={sections}
       renderItem={renderItem}
       {...restProps}
     />
   );
 }
 
-export const ListView = forwardRef(BaseListView);
+export const SectionList = forwardRef(BaseSectionList);

@@ -56,7 +56,7 @@ const ScrollViewGallery = () => (
         element: <BasicScrollViewDemo />,
       },
       {
-        title: 'Styled Scroll',
+        title: 'Styled ScrollView',
         element: <ScrollViewDemo />,
       },
     ]}
