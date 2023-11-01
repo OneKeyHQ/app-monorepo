@@ -3,7 +3,6 @@ import { Suspense, useMemo } from 'react';
 
 import { createSuspender } from '@onekeyhq/shared/src/modules3rdParty/use-suspender';
 
-import useIsLowPerformanceDevice from '../hooks/useIsLowPerformanceDevice';
 import { Spinner } from '../Spinner';
 import { Stack } from '../Stack';
 
@@ -36,19 +35,12 @@ function LoadingScreen({ children }: PropsWithChildren<unknown>) {
 }
 
 export function Screen({ children }: PropsWithChildren<unknown>) {
-  const isLowPerformanceDevice = useIsLowPerformanceDevice();
   return useMemo(
     () => (
       <Stack flex={1} bg="$bg">
-        {isLowPerformanceDevice ? (
-          <LoadingScreen>{children}</LoadingScreen>
-        ) : (
-          children
-        )}
+        <LoadingScreen>{children}</LoadingScreen>
       </Stack>
     ),
-    // 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 }
