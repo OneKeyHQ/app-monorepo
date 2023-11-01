@@ -1,10 +1,6 @@
 import type { ReactElement } from 'react';
 import { useEffect, useState } from 'react';
 
-import { reverse } from 'lodash';
-
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 type PortalComponentsMapType = Map<string, ReactElement<{ name: string }>>;
 const PortalComponentsMap: PortalComponentsMapType = new Map();
 
