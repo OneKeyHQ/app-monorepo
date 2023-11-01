@@ -11,14 +11,17 @@ try {
   const result = error.stdout.toString('utf-8');
   console.log(result);
   if (result.includes('packages/components')) {
+    console.error('Please do not add errors in packages/components');
     exit(1);
   }
 
   const lines = result.split('\n').length;
   if (lines > ERROR_LINES) {
-    console.log(`Error lines: ${lines}`);
-    console.log(`Please do not add more errors than ${ERROR_LINES}`);
-    console.log('Hope you can fix the ts errors introduced after this merge.');
+    console.error(`Error lines: ${lines}`);
+    console.error(`Please do not add more errors than ${ERROR_LINES}`);
+    console.error(
+      'Hope you can fix the ts errors introduced after this merge.',
+    );
     exit(1);
   }
 }
