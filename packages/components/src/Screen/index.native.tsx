@@ -41,6 +41,8 @@ export function Screen({ children }: PropsWithChildren<unknown>) {
         <LoadingScreen>{children}</LoadingScreen>
       </Stack>
     ),
+    // Children are the content of page elements, Do not re-render by children.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 }
