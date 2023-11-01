@@ -13,7 +13,7 @@ import { useIntl } from 'react-intl';
 import type { ICON_NAMES } from '@onekeyhq/components';
 import { Form, Input, Toast, useForm } from '@onekeyhq/components';
 
-import { wait } from '../../utils/helper';
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
   getPassword,
   localAuthenticate,
@@ -45,13 +45,6 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
 
   const passwordInput = form.watch('password');
 
-  // 密码验证
-  const verifyPassword = useCallback(async (password: string) => {
-    console.log('TODO service verify password :', password);
-    await wait(2000);
-    return Promise.resolve(password);
-  }, []);
-
   // 生物识别验证获取密码
   const onBiologyAuthenticate = useCallback(async () => {
     if (status.value === 'verifying') {
@@ -63,37 +56,47 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
       if (localAuthenticateResult.success) {
         const password = await getPassword();
         if (password) {
-          const verifiedPassword = await verifyPassword(password);
-          onVerifyRes(verifiedPassword);
-          setStatues({ value: 'verified' });
-          return;
+          const verifiedPassword =
+            await backgroundApiProxy.servicePassword.verifyPassword(password);
+          if (verifiedPassword) {
+            onVerifyRes(verifiedPassword);
+            setStatues({ value: 'verified' });
+          }
         }
+      } else {
+        setStatues({
+          value: 'error',
+          message: intl.formatMessage({ id: 'msg__verification_failure' }),
+        });
       }
-      setStatues({
-        value: 'error',
-        message: intl.formatMessage({ id: 'msg__verification_failure' }),
-      });
-      Toast.error({
-        title: intl.formatMessage({ id: 'msg__verification_failure' }),
-      });
     } catch (e) {
       setStatues({
         value: 'error',
         message: intl.formatMessage({ id: 'msg__verification_failure' }),
       });
     }
-  }, [intl, onVerifyRes, status.value, verifyPassword]);
+  }, [intl, onVerifyRes, status.value]);
 
   // 输入密码验证
   const onInputPasswordAuthenticate = useCallback(
     async (data: IPasswordVerifyForm) => {
       setStatues({ value: 'verifying' });
-      const verifiedPassword = await verifyPassword(data.password);
-      // TODO error or verified logic
-      onVerifyRes(verifiedPassword);
-      setStatues({ value: 'error', message: 'password error' });
+      try {
+        const verifiedPassword =
+          await backgroundApiProxy.servicePassword.verifyPassword(
+            data.password,
+          );
+        if (verifiedPassword) {
+          onVerifyRes(verifiedPassword);
+          setStatues({ value: 'verified' });
+        } else {
+          setStatues({ value: 'error', message: 'password error' });
+        }
+      } catch (e) {
+        setStatues({ value: 'error', message: 'password verify error' });
+      }
     },
-    [onVerifyRes, verifyPassword],
+    [onVerifyRes],
   );
 
   const rightActions = useMemo(() => {

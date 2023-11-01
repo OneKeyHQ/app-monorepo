@@ -3,6 +3,7 @@
 import type { IAppSelector, IPersistor, IStore } from '@onekeyhq/kit/src/store';
 
 import type ProviderApiBase from '../providers/ProviderApiBase';
+import type ServicePassword from '../services/ServicePassword';
 import type ServicePromise from '../services/ServicePromise';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
@@ -49,6 +50,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
 
   // **** services
   servicePromise: ServicePromise;
+  servicePassword: ServicePassword;
   // serviceBootstrap: ServiceBootstrap;
   // serviceCronJob: ServiceCronJob;
   // serviceApp: ServiceApp;

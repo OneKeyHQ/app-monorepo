@@ -1,5 +1,10 @@
-import { isNil } from 'lodash';
+import { get, isNil } from 'lodash';
 
+import { decodePassword, decrypt, encrypt } from '@onekeyhq/core/src/secret';
+import {
+  OneKeyInternalError,
+  WrongPassword,
+} from '@onekeyhq/shared/src/errors';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import {
@@ -7,7 +12,9 @@ import {
   type CreateHWWalletParams,
   type DBAccount,
   type DBAccountDerivation,
+  type DBCredential,
   DB_MAIN_CONTEXT_ID,
+  DEFAULT_VERIFY_STRING,
   type DevicePayload,
   type ExportedCredential,
   type IAddAccountDerivationParams,
@@ -17,6 +24,8 @@ import {
   type OneKeyContext,
   type PrivateKeyCredential,
   type SetWalletNameAndAvatarParams,
+  type StoredPrivateKeyCredential,
+  type StoredSeedCredential,
   type Wallet,
 } from '../types';
 
@@ -35,12 +44,18 @@ export class LocalDbIndexed extends LocalDbIndexedBase {
       EIndexedDBStoreNames.context,
       DB_MAIN_CONTEXT_ID,
     );
-    if (options?.verifyPassword) {
-      await this.verifyPassword(options.verifyPassword);
-    }
+
     if (!ctx) {
       throw new Error('failed get local db context');
     }
+
+    if (options?.verifyPassword) {
+      const { verifyPassword } = options;
+      if (!this.checkPassword(ctx, verifyPassword)) {
+        throw new WrongPassword();
+      }
+    }
+
     return ctx;
   }
 
@@ -69,7 +84,82 @@ export class LocalDbIndexed extends LocalDbIndexedBase {
     oldPassword: string,
     newPassword: string,
   ): Promise<void> {
-    throw new Error('Method not implemented.');
+    return this.readyDb.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction = db.transaction(
+            [EIndexedDBStoreNames.context, EIndexedDBStoreNames.credentials],
+            'readwrite',
+          );
+          transaction.onerror = () => {
+            reject(new OneKeyInternalError('Failed to update password.'));
+          };
+          transaction.oncomplete = () => {
+            resolve();
+          };
+
+          const contextStore = transaction.objectStore(
+            EIndexedDBStoreNames.context,
+          );
+          const getMainContextRequest = contextStore.get(DB_MAIN_CONTEXT_ID);
+          void getMainContextRequest.then(async (context) => {
+            if (!context) return;
+            if (!this.checkPassword(context, oldPassword)) {
+              throw new WrongPassword();
+            }
+            context.verifyString = encrypt(
+              newPassword,
+              Buffer.from(DEFAULT_VERIFY_STRING),
+            ).toString('hex');
+            void contextStore.put(context);
+            // const openCursorRequest = transaction
+            //   .objectStore(EIndexedDBStoreNames.credentials)
+            //   .openCursor();
+            // void openCursorRequest.then((cursor) => {
+            //   if (!cursor) return;
+            //   const credentialItem: DBCredential = cursor.value;
+
+            //   if (credentialItem.id.startsWith('imported')) {
+            //     const privateKeyCredentialJSON: StoredPrivateKeyCredential =
+            //       JSON.parse(credentialItem.credential);
+            //     credentialItem.credential = JSON.stringify({
+            //       privateKey: encrypt(
+            //         newPassword,
+            //         decrypt(
+            //           oldPassword,
+            //           Buffer.from(privateKeyCredentialJSON.privateKey, 'hex'),
+            //         ),
+            //       ).toString('hex'),
+            //     });
+            //   } else {
+            //     const credentialJSON: StoredSeedCredential = JSON.parse(
+            //       credentialItem.credential,
+            //     );
+            //     credentialItem.credential = JSON.stringify({
+            //       entropy: encrypt(
+            //         newPassword,
+            //         decrypt(
+            //           oldPassword,
+            //           Buffer.from(credentialJSON.entropy, 'hex'),
+            //         ),
+            //       ).toString('hex'),
+            //       seed: encrypt(
+            //         newPassword,
+            //         decrypt(
+            //           oldPassword,
+            //           Buffer.from(credentialJSON.seed, 'hex'),
+            //         ),
+            //       ).toString('hex'),
+            //     });
+            //   }
+
+            //   void cursor.update(credentialItem);
+            //   void cursor.continue();
+            // });
+          });
+        }),
+    );
+    // throw new Error('Method not implemented.');
   }
 
   override dumpCredentials(password: string): Promise<Record<string, string>> {

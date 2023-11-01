@@ -7,9 +7,13 @@ import {
   Input,
   Switch,
   Text,
+  Toast,
   XStack,
   useForm,
 } from '@onekeyhq/components';
+
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { savePassword } from '../../utils/localAuthentication';
 
 import useBiologyAuth from './hooks/useBiologyAuth';
 
@@ -36,12 +40,30 @@ const PasswordSetup = ({ onSetupRes }: IPasswordSetupProps) => {
   const { isSupportBiologyAuth } = useBiologyAuth();
 
   const onSetupPassword = useCallback(
-    (data: IPasswordSetupForm) => {
-      console.log('TODO service setup password :', data);
+    async (data: IPasswordSetupForm) => {
       if (data.confirmPassword !== data.password) {
         form.setError('confirmPassword', { message: 'password not match' });
       } else {
-        onSetupRes(data.password);
+        setLoading(true);
+        try {
+          const updatePasswordRes =
+            await backgroundApiProxy.servicePassword.updatePassword(
+              '',
+              data.password,
+            );
+          if (updatePasswordRes) {
+            if (data.biologyAuth) {
+              await savePassword(updatePasswordRes);
+            }
+            onSetupRes(updatePasswordRes);
+            Toast.success({ title: 'password set success' });
+          }
+        } catch (e) {
+          onSetupRes('');
+          Toast.error({ title: 'password set failed' });
+        } finally {
+          setLoading(false);
+        }
       }
     },
     [form, onSetupRes],

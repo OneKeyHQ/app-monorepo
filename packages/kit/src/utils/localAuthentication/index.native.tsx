@@ -35,17 +35,17 @@ export const savePassword = (password: string) => {
     //   'method localAuthentication.savePassword() failed to decodeSensitiveText',
     // );
   }
-  const instanceId = appSelector((s) => s.settings.instanceId);
-  text = encodeSensitiveText({ text, key: instanceId });
+  // const instanceId = appSelector((s) => s.settings.instanceId);
+  // text = encodeSensitiveText({ text, key: instanceId });
   setItemAsync('password', text);
 };
 
 export const getPassword = async () => {
-  const instanceId = appSelector((s) => s.settings.instanceId);
+  // const instanceId = appSelector((s) => s.settings.instanceId);
   let text = await getItemAsync('password');
   if (text) {
     try {
-      text = decodeSensitiveText({ encodedText: text, key: instanceId });
+      // text = decodeSensitiveText({ encodedText: text, key: instanceId });
       const result = encodeSensitiveText({ text });
       return result;
     } catch (e: any) {

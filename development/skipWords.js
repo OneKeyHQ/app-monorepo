@@ -507,4 +507,5 @@ module.exports = [
   'unregister',
   'debounce',
   'goto',
+  'oncomplete',
 ];
