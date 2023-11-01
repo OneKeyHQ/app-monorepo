@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import Fuse from 'fuse.js';
 import { useIntl } from 'react-intl';
 
@@ -21,15 +21,15 @@ import {
 } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
-import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../../components/Format';
 import { useActiveSideAccount, useTokenBalance } from '../../../hooks';
-import { FiatPayModalRoutes } from '../../../routes/routesEnum';
+import { openUrlExternal } from '../../../utils/openUrl';
 import { useFiatPayTokens } from '../../ManageTokens/hooks';
 
 import type { FiatPayModalRoutesParams } from '../../../routes/Root/Modal/FiatPay';
+import type { FiatPayModalRoutes } from '../../../routes/routesEnum';
 import type { FiatPayModeType } from '../types';
 import type { RouteProp } from '@react-navigation/native';
 import type { ListRenderItem } from 'react-native';
@@ -55,8 +55,6 @@ export function searchTokens(tokens: Token[], terms: string): Token[] {
   const searchResult = fuse.search(terms);
   return searchResult.map((item) => item.item);
 }
-
-type NavigationProps = ModalScreenProps<FiatPayModalRoutesParams>;
 
 type ListCellProps = {
   token: Token;
@@ -105,7 +103,6 @@ const TokenListCell: FC<ListCellProps> = ({
     );
   }, [balance, decimal]);
 
-  const navigation = useNavigation<NavigationProps['navigation']>();
   const { serviceFiatPay } = backgroundApiProxy;
 
   const goToWebView = useCallback(async () => {
@@ -116,11 +113,9 @@ const TokenListCell: FC<ListCellProps> = ({
       networkId,
     });
     if (signedUrl.length > 0) {
-      navigation.navigate(FiatPayModalRoutes.MoonpayWebViewModal, {
-        url: signedUrl,
-      });
+      openUrlExternal(signedUrl);
     }
-  }, [address, navigation, networkId, serviceFiatPay, token.address, type]);
+  }, [address, networkId, serviceFiatPay, token.address, type]);
 
   return (
     <Pressable

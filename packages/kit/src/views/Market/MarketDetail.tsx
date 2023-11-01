@@ -17,12 +17,8 @@ import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import {
-  FiatPayModalRoutes,
-  ModalRoutes,
-  RootRoutes,
-  TabRoutes,
-} from '../../routes/routesEnum';
+import { TabRoutes } from '../../routes/routesEnum';
+import { openUrlExternal } from '../../utils/openUrl';
 import { coingeckoId2StakingTypes } from '../Staking/utils';
 import { MarketStakeButton } from '../Staking/Widgets/MarketStakingButton';
 import { SwapPlugins } from '../Swap/Plugins/Swap';
@@ -245,13 +241,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
               {signedUrl.length > 0 && !platformEnv.isAppleStoreEnv ? (
                 <PurchaseButton
                   onPress={() => {
-                    navigation.navigate(RootRoutes.Modal, {
-                      screen: ModalRoutes.FiatPay,
-                      params: {
-                        screen: FiatPayModalRoutes.MoonpayWebViewModal,
-                        params: { url: signedUrl },
-                      },
-                    });
+                    openUrlExternal(signedUrl);
                   }}
                 />
               ) : null}
