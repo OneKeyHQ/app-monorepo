@@ -17,11 +17,6 @@ export const setPortalComponent = (
   onUpdateComponentsCallback();
 };
 
-const sortMap = (map: PortalComponentsMapType) => {
-  const elements = [...map.values()];
-  return platformEnv.isNativeIOS ? reverse(elements) : elements;
-};
-
 export const removePortalComponent = (name: string) => {
   if (PortalComponentsMap.size === 0) {
     return;
@@ -44,5 +39,5 @@ export function Portal() {
       setNum((number) => number + 1);
     });
   }, []);
-  return <>{sortMap(PortalComponentsMap)}</>;
+  return <>{[...PortalComponentsMap.values()]}</>;
 }
