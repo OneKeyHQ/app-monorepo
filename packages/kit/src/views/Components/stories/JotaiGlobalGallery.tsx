@@ -1,6 +1,7 @@
 import { Button, Stack, Text } from '@onekeyhq/components';
 import {
   demoPriceAtom,
+  demoReadOnlyAtom,
   demoWriteOnlyAtom,
   useDemoPriceAtom,
   useDemoReadOnlyAtom,
@@ -15,6 +16,16 @@ import { JOTAI_RESET } from '@onekeyhq/kit-bg/src/states/jotai/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import { Layout } from './utils/Layout';
+
+void (async () => {
+  const r = await demoPriceAtom.get();
+  console.log('demoPriceAtom.get() > ', r);
+})();
+
+void (async () => {
+  const r = await demoReadOnlyAtom.get();
+  console.log('demoReadOnlyAtom.get() > ', r);
+})();
 
 function JotaiDemo1() {
   const [a, setA] = useDemoPriceAtom();

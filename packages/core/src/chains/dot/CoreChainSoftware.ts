@@ -65,7 +65,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       const pathComponents = account.path.split('/');
       const usedRelativePaths = relPaths || [pathComponents.pop() as string];
       const basePath = pathComponents.join('/');
-      const { seed, entropy } = credentials.hd;
+      const { entropy } = credentials.hd;
       const mnemonic = mnemonicFromEntropy(
         bufferUtils.toBuffer(entropy),
         password,
@@ -87,7 +87,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     }
     if (credentials.imported) {
       // TODO handle relPaths privateKey here
-      const { relPaths } = account;
+      // const { relPaths } = account;
       const { privateKey } = credentials.imported;
       privateKeys[account.path] = privateKey;
     }

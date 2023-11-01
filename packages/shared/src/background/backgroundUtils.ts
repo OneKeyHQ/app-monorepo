@@ -371,9 +371,10 @@ export function buildReduxBatchAction(...actions: AnyAction[]) {
 
 export async function fetchData<T>(
   path: string,
-  // eslint-disable-next-line default-param-last, @typescript-eslint/default-param-last
+  // eslint-disable-next-line default-param-last, @typescript-eslint/default-param-last, @typescript-eslint/no-unused-vars
   query: Record<string, unknown> = {},
   fallback: T,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   method: Method = 'GET',
 ): Promise<T> {
   throw new Error('fetchData not support yet');

@@ -15,7 +15,6 @@ import type {
   ICoreApiGetAddressesResult,
   ICoreApiPrivateKeysMap,
   ICoreApiSignBasePayload,
-  ICoreApiSignMsgPayload,
   ICoreApiSignTxPayload,
   ICurveName,
   ISignedTxPro,
@@ -88,7 +87,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
     // throw new Error('Method not implemented.');
-    const { unsignedTx, account } = payload;
+    const { unsignedTx } = payload;
     const signer = await this.baseGetSingleSigner({
       payload,
       curve,
@@ -97,7 +96,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const pub = (await signer.getPubkey(true)).toString('hex').toUpperCase();
     // eslint-disable-next-line prefer-destructuring
     const encodedTx = unsignedTx.encodedTx;
-    const txBytes = bufferUtils.toBuffer('');
+    // const txBytes = bufferUtils.toBuffer('');
     const signResult = signature(
       encodedTx as IEncodedTxXrp,
       pub,
@@ -112,7 +111,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     };
   }
 
-  override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
+  override async signMessage(): Promise<string> {
     throw new Error('Method not implemented.');
   }
 

@@ -185,9 +185,9 @@ const checkIsRuntimeEdge = (): boolean => {
   }
   const isChromium = window.chrome;
   const winNav = window.navigator as typeof window.navigator | undefined;
-  const isIEedge = winNav ? winNav.userAgent.indexOf('Edg') > -1 : false;
+  const isIEEdge = winNav ? winNav.userAgent.indexOf('Edg') > -1 : false;
 
-  if (isChromium && isIEedge === true) return true;
+  if (isChromium && isIEEdge === true) return true;
 
   return false;
 };

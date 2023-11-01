@@ -72,7 +72,7 @@ export abstract class LocalDbBase {
   abstract dumpCredentials(password: string): Promise<Record<string, string>>;
 
   abstract getCredential(
-    credentialId: string, // walletId || acountId
+    credentialId: string, // walletId || accountId
     password: string,
   ): Promise<ExportedCredential>;
 

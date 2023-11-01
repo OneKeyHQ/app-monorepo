@@ -6,7 +6,7 @@ import * as Error from '@onekeyhq/shared/src/errors';
 // import debugLogger from '../../logger/debugLogger';
 import platformEnv from '../../platformEnv';
 
-function caputureSpecialError(code: number, message: string) {
+function captureSpecialError(code: number, message: string) {
   if (typeof message !== 'string') return null;
   if (
     code === HardwareErrorCode.DeviceInitializeFailed &&
@@ -38,8 +38,8 @@ export function convertDeviceError(payload: any): OneKeyHardwareError {
    * Catch some special errors
    * they may have multiple error codes
    */
-  if (caputureSpecialError(code, msg)) {
-    return caputureSpecialError(code, msg) as Error.ConnectTimeoutError;
+  if (captureSpecialError(code, msg)) {
+    return captureSpecialError(code, msg) as Error.ConnectTimeoutError;
   }
 
   // debugLogger.hardwareSDK.info('Device Utils Convert Device Error:', code, msg);

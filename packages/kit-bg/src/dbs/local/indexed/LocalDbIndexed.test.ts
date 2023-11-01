@@ -47,6 +47,6 @@ describe('LocalDbIndexed tests', () => {
 
     // TODO thrown: "Exceeded timeout of 5000 ms for a test.
     await db.reset();
-    const context2 = await db.getContext();
+    // const context2 = await db.getContext();
   });
 });

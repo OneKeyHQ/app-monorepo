@@ -1,3 +1,4 @@
+/* eslint-disable spellcheck/spell-checker */
 // @ts-nocheck
 // eslint-disable-next-line max-classes-per-file
 import * as mimeTypes from 'mime-types';

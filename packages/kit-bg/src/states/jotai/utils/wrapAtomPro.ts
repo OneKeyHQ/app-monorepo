@@ -33,7 +33,6 @@ export function wrapAtomPro(
       return;
     }
     await set(baseAtom, payload);
-    console.log('------- enhanceAtom update to', name, payload);
     if (platformEnv.isExtensionBackground) {
       await global.$jotaiBgSync.broadcastStateUpdateFromBgToUi({
         name,

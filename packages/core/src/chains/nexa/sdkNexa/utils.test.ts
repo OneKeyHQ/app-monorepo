@@ -356,6 +356,7 @@ describe('Nexa Utils Tests', () => {
   });
 
   it('Nexa buildDecodeTxFromTx test', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const testData0 = {
       'tx': {
         'blockhash':
@@ -438,6 +439,7 @@ describe('Nexa Utils Tests', () => {
       'networkId': 'nexa--0',
       'accountId': "hd-1--m/44'/29223'/0'",
     };
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const testData1 = {
       'tx': {
         'blockhash':
@@ -555,7 +557,7 @@ describe('Nexa Utils Tests', () => {
       'networkId': 'nexa--0',
       'accountId': "hd-1--m/44'/29223'/0'",
     };
-
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const testData2 = {
       'tx': {
         'blockhash':
@@ -658,7 +660,7 @@ describe('Nexa Utils Tests', () => {
       'networkId': 'nexa--0',
       'accountId': "hd-1--m/44'/29223'/0'",
     };
-
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const testData3 = {
       'tx': {
         'blockhash':
@@ -741,7 +743,7 @@ describe('Nexa Utils Tests', () => {
       'networkId': 'nexa--0',
       'accountId': "hd-1--m/44'/29223'/1'",
     };
-
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const testData4 = {
       'tx': {
         'blockhash':

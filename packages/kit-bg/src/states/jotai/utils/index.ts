@@ -130,24 +130,26 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
 }) {
   let a = null;
   let persist = false;
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const initialVal = initialValue!;
   if (typeof write === 'function') {
     if (typeof read === 'function') {
       // read, write
       a = atom(read as Read<Value, SetAtom<Args, Result>>, write);
     } else {
       // initialValue, write
-      a = atom(initialValue!, write);
+      a = atom(initialVal, write);
     }
   } else if (typeof read === 'function') {
     // read
     a = atom(read as Read<Value>);
   } else if (storageName && typeof storageName === 'string') {
     // storage
-    a = atomWithStorage(storageName, initialValue!);
+    a = atomWithStorage(storageName, initialVal);
     persist = true;
   } else {
     // initialValue
-    a = atom(initialValue!);
+    a = atom(initialVal);
   }
 
   const baseAtom = a as IWritableAtomPro<
@@ -155,10 +157,10 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
     [update: unknown],
     Promise<void> | undefined
   >;
-  baseAtom.initialValue = initialValue;
+  baseAtom.initialValue = initialVal;
   const proAtom = wrapAtomPro(name as EAtomNames, baseAtom);
   proAtom.storageReady = globalJotaiStorageReadyHandler.ready;
-  proAtom.initialValue = initialValue;
+  proAtom.initialValue = initialVal;
   proAtom.persist = persist;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return proAtom as unknown as any;
@@ -181,15 +183,14 @@ export function globalAtom<Value>({
   persist,
 }: {
   name: EAtomNames;
-  initialValue?: Value;
+  initialValue: Value;
   persist?: boolean;
 }) {
-  const initialValue0 = initialValue!; // as Value | typeof RESET;
   const storageName = persist ? name : undefined;
   return makeCrossAtom(name, () =>
     crossAtomBuilder({
       name,
-      initialValue: initialValue0,
+      initialValue,
       storageName,
     }),
   );
@@ -261,6 +262,7 @@ export function globalAtomComputedR<Value>({ read }: { read: Read<Value> }) {
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function globalAtomComputedW<Value, Args extends unknown[], Result>({
   write,
 }: {

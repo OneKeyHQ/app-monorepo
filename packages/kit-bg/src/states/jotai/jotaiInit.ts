@@ -82,7 +82,7 @@ export async function jotaiInit() {
           `Atom name not matched with key: key=${key} name=${value.name}`,
         );
       }
-      const skey = buildJotaiStorageKey(value.name);
+      const storageKey = buildJotaiStorageKey(value.name);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       const atomObj = value.atom() as unknown as IWritableAtomPro<
         any,
@@ -95,7 +95,10 @@ export async function jotaiInit() {
         return;
       }
 
-      const storageValue = await onekeyJotaiStorage.getItem(skey, initValue);
+      const storageValue = await onekeyJotaiStorage.getItem(
+        storageKey,
+        initValue,
+      );
       const currentValue = await jotaiDefaultStore.get(atomObj);
       if (currentValue !== storageValue) {
         await jotaiDefaultStore.set(atomObj, storageValue);

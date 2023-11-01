@@ -32,7 +32,7 @@ export abstract class CoreChainScopeBase {
   protected _createApiProxy(apiName: string) {
     if (this.apiProxyCache[apiName] !== undefined) {
       throw new Error(
-        `CoreChainScopeBase _creatApiProxy ERROR, apiName already defined: ${apiName}`,
+        `CoreChainScopeBase _createApiProxy ERROR, apiName already defined: ${apiName}`,
       );
     }
     this.apiProxyCache[apiName] = null;
