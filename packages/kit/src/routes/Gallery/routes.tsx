@@ -17,6 +17,7 @@ export enum GalleryRoutes {
   ComponentSwitch = 'component/switch',
   ComponentInput = 'component/input',
   ComponentAlert = 'component/alert',
+  ComponentScrollView = 'component/scrollView',
   ComponentRadio = 'component/radio',
   ComponentDivider = 'component/divider',
   ComponentToast = 'component/toast',
