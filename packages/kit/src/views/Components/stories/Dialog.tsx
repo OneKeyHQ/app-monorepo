@@ -184,14 +184,13 @@ const DialogNavigatorDemo = () => {
                 </Dialog.FormField>
               </Dialog.Form>
             ),
-            onConfirm: () => {
-            },
+            onConfirm: () => {},
           });
           setTimeout(() => {
             Toast.error({
               title: 'Toaster is always on top',
               duration: 3000,
-            })
+            });
             navigation.push(GalleryRoutes.Components);
           }, 1500);
         }}
