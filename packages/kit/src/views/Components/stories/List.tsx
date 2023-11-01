@@ -1,14 +1,14 @@
 import { useRef } from 'react';
 
 import type { ScrollViewRef } from '@onekeyhq/components';
-import { Button, ScrollView, YStack } from '@onekeyhq/components';
+import { Button, List, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
-const ScrollViewDemo = () => {
+const ListDemo = () => {
   const ref = useRef<ScrollViewRef | null>(null);
   return (
-    <ScrollView
+    <List
       h="$60"
       bg="$backgroundPress"
       contentContainerStyle={{
@@ -20,9 +20,7 @@ const ScrollViewDemo = () => {
       <YStack h="$96" padding="$8" justifyContent="space-around">
         <Button
           onPress={() => {
-            if (ref.current) {
-              ref.current.scrollToEnd();
-            }
+            ref.current?.scrollToEnd();
           }}
         >
           Scroll to Bottom
@@ -39,7 +37,7 @@ const ScrollViewDemo = () => {
           Scroll to Top
         </Button>
       </YStack>
-    </ScrollView>
+    </List>
   );
 };
 
@@ -51,8 +49,8 @@ const ScrollViewGallery = () => (
     scrollEnabled={false}
     elements={[
       {
-        title: 'Styled Scroll',
-        element: <ScrollViewDemo />,
+        title: 'Styled List',
+        element: <ListDemo />,
       },
     ]}
   />
