@@ -24,7 +24,11 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../../components/Format';
-import { useActiveSideAccount, useTokenBalance } from '../../../hooks';
+import {
+  useActiveSideAccount,
+  useNavigation,
+  useTokenBalance,
+} from '../../../hooks';
 import { openUrlExternal } from '../../../utils/openUrl';
 import { useFiatPayTokens } from '../../ManageTokens/hooks';
 
@@ -72,6 +76,7 @@ const TokenListCell: FC<ListCellProps> = ({
   networkId,
   network,
 }) => {
+  const navigation = useNavigation();
   const balance = useTokenBalance({
     accountId,
     networkId,
@@ -114,8 +119,9 @@ const TokenListCell: FC<ListCellProps> = ({
     });
     if (signedUrl.length > 0) {
       openUrlExternal(signedUrl);
+      navigation?.goBack();
     }
-  }, [address, networkId, serviceFiatPay, token.address, type]);
+  }, [address, networkId, serviceFiatPay, token.address, type, navigation]);
 
   return (
     <Pressable
