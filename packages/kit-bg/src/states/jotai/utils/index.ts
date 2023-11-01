@@ -1,6 +1,5 @@
 /* eslint-disable camelcase */
 import { atom, useAtom } from 'jotai';
-import { RESET } from 'jotai/utils';
 
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
@@ -176,7 +175,7 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
 export {};
 */
 
-export function globalAtom<Value, Args extends unknown[], Result>({
+export function globalAtom<Value>({
   initialValue,
   name,
   persist,
@@ -197,7 +196,7 @@ export function globalAtom<Value, Args extends unknown[], Result>({
 }
 
 // TODO TS issue fix
-export function globalAtomComputed<Value, Args extends unknown[], Result>({
+export function globalAtomComputedAll<Value, Args extends unknown[], Result>({
   read,
   write,
 }: {
@@ -274,4 +273,9 @@ export function globalAtomComputedW<Value, Args extends unknown[], Result>({
       write,
     }),
   );
+}
+
+export function globalAtomComputed<Value>(read: Read<Value>) {
+  // Read
+  return globalAtomComputedR({ read });
 }

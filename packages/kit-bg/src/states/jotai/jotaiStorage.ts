@@ -7,6 +7,8 @@ import appStorage, {
   mockStorage,
 } from '@onekeyhq/shared/src/storage/appStorage';
 
+import { JOTAI_RESET } from './types';
+
 import type {
   AsyncStorage,
   SetStateActionWithReset,
@@ -91,10 +93,10 @@ export function atomWithStorage<Value>(
           ? (
               update as (
                 prev: Value | Promise<Value>,
-              ) => Value | Promise<Value> | typeof RESET
+              ) => Value | Promise<Value> | typeof JOTAI_RESET
             )(get(baseAtom))
           : update;
-      if (nextValue === RESET) {
+      if (nextValue === JOTAI_RESET) {
         set(baseAtom, initialValue);
         return storage.removeItem(key);
       }

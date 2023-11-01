@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import BigNumber from 'bignumber.js';
 import { sign } from 'ripple-keypairs';
 import { deriveAddress, encode, encodeForSigning, hashes } from 'xrpl';

@@ -46,8 +46,8 @@ export class Verifier implements IVerifierPro {
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  verify(_digest: Buffer, _signature: Buffer) {
+  verify() {
+    // verify(_digest: Buffer, _signature: Buffer) {
     // Not used.
     return Promise.resolve(Buffer.from([]));
   }

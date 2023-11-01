@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import { bufferToU8a, u8aConcat, u8aToU8a, u8aWrapBytes } from '@polkadot/util';
 import { hdLedger } from '@polkadot/util-crypto';
 import { merge } from 'lodash';

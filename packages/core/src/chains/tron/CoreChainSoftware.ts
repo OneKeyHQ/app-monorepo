@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import { keccak256 } from '@ethersproject/keccak256';
 import TronWeb from 'tronweb';
 

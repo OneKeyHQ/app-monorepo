@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { mnemonicToSeedSync } from 'bip39';
 import {
   address as BitcoinJsAddress,
@@ -108,8 +107,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressFromPublic(
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem> {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { networkInfo, publicKey, publicKeyInfo } = query;
+    const { networkInfo, publicKey } = query;
     const network = getBtcForkNetwork(networkInfo.networkChainCode);
     // 'BTC fork UTXO account should pass account xpub but not single address publicKey.',
     const xpub = publicKey;
@@ -287,7 +285,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     });
     const pathToAddresses = payload?.btcExtraInfo?.pathToAddresses;
     const signers: { [address: string]: ISigner } = {};
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     for (const [fullPath, privateKey] of Object.entries(privateKeys)) {
       const address = pathToAddresses?.[fullPath]?.address;
       if (!address) {
@@ -731,7 +728,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
           xpub = bs58check.encode(
             privateKey.fill(pubVersionBytes, 0, 4).fill(publicKey, 45, 78),
           );
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const publicKeyStr1 = keyPair.publicKey.toString('hex');
           const publicKeyStr2 = publicKey.toString('hex');
           // TODO publicKey is different with HD account
@@ -793,8 +789,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
     // template:  "m/49'/0'/$$INDEX$$'/0/0"
     // { pathPrefix: "m/49'/0'", pathSuffix: "{index}'/0/0" }
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { pathPrefix, pathSuffix } = slicePathTemplate(template);
+    const { pathPrefix } = slicePathTemplate(template);
 
     const seedBuffer = bufferUtils.toBuffer(seed);
 

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { baseDecode } from 'borsh';
 
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';

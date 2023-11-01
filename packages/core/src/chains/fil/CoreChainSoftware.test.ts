@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { compressPublicKey } from '@onekeyhq/core/src/secret';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 

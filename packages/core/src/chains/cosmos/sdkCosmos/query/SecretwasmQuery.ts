@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import type {
   Cw20AssetInfo,
   Cw20TokenBalance,

@@ -117,8 +117,7 @@ export abstract class CoreChainApiBase {
     }
     if (credentials.imported) {
       // TODO handle relPaths privateKey here
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { relPaths } = account;
+      // const { relPaths } = account;
       const { privateKey } = credentials.imported;
       privateKeys[account.path] = privateKey;
     }
@@ -138,8 +137,7 @@ export abstract class CoreChainApiBase {
     curve: ICurveName;
   }): Promise<ICoreApiPrivateKeysMap> {
     const { seed } = hdCredential;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { path, address } = account;
+    const { path } = account;
     const seedBuffer = bufferUtils.toBuffer(seed);
     const pathComponents = path.split('/');
     const usedRelativePaths = relPaths || [pathComponents.pop() as string];
@@ -176,8 +174,7 @@ export abstract class CoreChainApiBase {
     },
   ): Promise<ICoreApiGetAddressesResult> {
     const { curve, generateFrom } = options;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { template, hdCredential, password, indexes, networkInfo } = query;
+    const { template, hdCredential, password, indexes } = query;
     const { seed } = hdCredential;
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
     const seedBuffer = bufferUtils.toBuffer(seed);

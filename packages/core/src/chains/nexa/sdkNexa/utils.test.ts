@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { sign, verify } from '@onekeyhq/core/src/chains/nexa/sdkNexa/sdk';
 
 import {

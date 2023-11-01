@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import {
   crypto_hash as CryptoHash,
   starcoin_types as StarcoinTypes,

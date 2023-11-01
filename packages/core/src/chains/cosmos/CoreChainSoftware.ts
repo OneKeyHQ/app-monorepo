@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import { sha256 } from '@noble/hashes/sha256';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';

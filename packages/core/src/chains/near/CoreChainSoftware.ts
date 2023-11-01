@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import BN from 'bn.js';
 import { baseDecode, baseEncode } from 'borsh';
 import bs58 from 'bs58';
