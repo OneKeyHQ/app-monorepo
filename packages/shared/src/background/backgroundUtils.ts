@@ -35,12 +35,12 @@ import {
 import { NotAutoPrintError } from '../errors';
 // import debugLogger from '../logger/debugLogger';
 import platformEnv from '../platformEnv';
+import { ensureSerializable } from '../utils/assertUtils';
 
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { Method } from 'axios';
 import type { AnyAction } from 'redux';
-import { ensureSerializable } from '../utils/assertUtils';
 
 export function throwCrossError(msg: string, ...args: any) {
   if (platformEnv.isNative) {
@@ -319,13 +319,13 @@ export const isDappScopeMatchNetwork = (
   return true;
 };
 
-export const GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME = 'globaStatesSyncBroadcast';
+export const GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME =
+  'globaStatesSyncBroadcast';
 export type IGlobalStatesSyncBroadcastParams = {
   $$isFromBgStatesSyncBroadcast: true;
   name: string;
   payload: any;
-}
-
+};
 
 export const DISPATCH_ACTION_BROADCAST_METHOD_NAME = 'dispatchActionBroadcast';
 export const REPLACE_WHOLE_STATE = 'REPLACE_WHOLE_STATE';

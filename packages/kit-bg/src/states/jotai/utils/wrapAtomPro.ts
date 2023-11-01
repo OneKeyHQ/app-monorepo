@@ -3,8 +3,10 @@ import { atom } from 'jotai';
 import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { JOTAI_RESET } from '../types';
+
 import type { EAtomNames } from '../atomNames';
-import { IAtomSetWithoutProxy, IWritableAtomPro, JOTAI_RESET, Setter } from '../types';
+import type { IAtomSetWithoutProxy, IWritableAtomPro, Setter } from '../types';
 
 export function wrapAtomPro(
   name: EAtomNames,

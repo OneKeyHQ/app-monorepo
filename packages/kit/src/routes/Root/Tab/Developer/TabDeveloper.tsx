@@ -25,6 +25,7 @@ import {
   useDemoReadWriteAtom,
   useDemoWriteOnlyAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/demo';
+import { JOTAI_RESET } from '@onekeyhq/kit-bg/src/states/jotai/types';
 import { getMeasureTime } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { AppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
@@ -37,7 +38,6 @@ import { setLocale, setTheme } from '../../../../store/reducers/settings';
 import { GalleryRoutes } from '../../../Gallery/routes';
 import { RootRoutes } from '../../Routes';
 
-import { JOTAI_RESET } from '@onekeyhq/kit-bg/src/states/jotai/types';
 import type { TabDeveloperParamList } from './Routes';
 
 void (async () => {

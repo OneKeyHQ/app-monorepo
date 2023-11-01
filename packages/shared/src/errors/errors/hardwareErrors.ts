@@ -4,15 +4,14 @@ import { get } from 'lodash';
 
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 
+import type {
+ IOneKeyErrorInfo } from '../types/errorTypes';
 import {
   OneKeyErrorClassNames,
   type OneKeyHardwareErrorData,
-  type OneKeyHardwareErrorPayload,
-} from '../types/errorTypes';
+  type OneKeyHardwareErrorPayload } from '../types/errorTypes';
 
 import { OneKeyError } from './baseErrors';
-
-import type { IOneKeyErrorInfo } from '../types/errorTypes';
 
 export enum CustomOneKeyHardwareError {
   NeedOneKeyBridge = 3030,
