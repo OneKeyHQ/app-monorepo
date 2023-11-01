@@ -7,8 +7,6 @@ import appStorage, {
   mockStorage,
 } from '@onekeyhq/shared/src/storage/appStorage';
 
-import { RESET } from './types';
-
 import type {
   AsyncStorage,
   SetStateActionWithReset,
@@ -71,11 +69,10 @@ export function atomWithStorage<Value>(
 export function atomWithStorage<Value>(
   storageName: string,
   initialValue: Value,
-  storage: AsyncStorage<Value> | SyncStorage<Value> = onekeyJotaiStorage,
-  unstable_options?: { unstable_getOnInit?: boolean },
 ): any {
+  const storage = onekeyJotaiStorage;
   const key = buildJotaiStorageKey(storageName);
-  const getOnInit = unstable_options?.unstable_getOnInit ?? false;
+  const getOnInit = false;
   const baseAtom = atom(
     getOnInit
       ? (storage.getItem(key, initialValue) as Value | Promise<Value>)

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { EAtomNames } from '../atomNames';
 import {
   globalAtom,

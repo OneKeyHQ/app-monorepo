@@ -1,5 +1,6 @@
 /* eslint-disable camelcase */
 import { atom, useAtom } from 'jotai';
+import { RESET } from 'jotai/utils';
 
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
@@ -184,7 +185,7 @@ export function globalAtom<Value, Args extends unknown[], Result>({
   initialValue?: Value;
   persist?: boolean;
 }) {
-  const initialValue0 = initialValue!;
+  const initialValue0 = initialValue!; // as Value | typeof RESET;
   const storageName = persist ? name : undefined;
   return makeCrossAtom(name, () =>
     crossAtomBuilder({

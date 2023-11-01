@@ -1,6 +1,11 @@
 module.exports = [
   'Jotai',
   'jotai',
+  'readwrite',
+  'backuped',
+  'cointype',
+  'debounced',
+  'Debounced',
   'camelcase',
   'Monero',
   'coinbase',

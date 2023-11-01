@@ -24,6 +24,10 @@
     "typeRoots": ["node_modules/@types", "./@types"]
   },
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules"],
+  "exclude": [
+    "node_modules",
+    "apps/ext/src/offscreen",
+    "packages/kit/src/store"
+  ],
   "extends": "expo/tsconfig.base"
 }

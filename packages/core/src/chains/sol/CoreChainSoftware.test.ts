@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import base58 from 'bs58';
 
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';

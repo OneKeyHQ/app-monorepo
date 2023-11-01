@@ -26,8 +26,9 @@
     "build:icon": "yarn workspace @onekeyhq/components build:icons",
     "_tsc": "node ./development/tsCheck",
     "_lint": "node ./development/lintCheck",
-    "lint:project": "yarn _tsc && yarn _lint",
-    "lint": "ultra lint:project",
+    "lint:project:tsc": "yarn _tsc && yarn _lint",
+    "lint:project": "yarn _lint",
+    "lint": "ultra lint:project:tsc",
     "test": "yarn jest"
   },
   "dependencies": {

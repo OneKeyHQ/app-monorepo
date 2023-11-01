@@ -77,6 +77,7 @@ export abstract class LocalDbBase {
   ): Promise<ExportedCredential>;
 
   // ---------------------------------------------- wallet
+  // eslint-disable-next-line spellcheck/spell-checker
   /**
    * Get all wallets
 

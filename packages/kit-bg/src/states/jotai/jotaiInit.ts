@@ -53,7 +53,6 @@ export async function jotaiInitFromUi({
 
 export async function jotaiInit() {
   const allAtoms = await import('./atoms');
-  let namesLength = 0;
   const atoms: { [key: string]: JotaiCrossAtom<any> } = {};
   Object.entries(allAtoms).forEach(([key, value]) => {
     if (value instanceof JotaiCrossAtom && value.name) {
@@ -61,7 +60,6 @@ export async function jotaiInit() {
     }
   });
   Object.entries(EAtomNames).forEach(([key, value]) => {
-    namesLength += 1;
     if (key !== value) {
       throw new Error(`Atom names key value not matched: ${key}`);
     }
@@ -78,6 +76,11 @@ export async function jotaiInit() {
     Object.entries(atoms).map(async ([key, value]) => {
       if (!value.name) {
         return;
+      }
+      if (key !== value.name) {
+        throw new Error(
+          `Atom name not matched with key: key=${key} name=${value.name}`,
+        );
       }
       const skey = buildJotaiStorageKey(value.name);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
