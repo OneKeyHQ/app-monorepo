@@ -31,7 +31,7 @@ const HeaderPropsList = {
   },
 };
 
-const FirstRoute = (props: any) => (
+const FirstRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number, h: number) => void) | undefined }) => (
   <FlatList
     data={new Array(20).fill({})}
     scrollEnabled={false}
@@ -40,11 +40,11 @@ const FirstRoute = (props: any) => (
         <Text>Page 1 Row: {index}</Text>
       </Stack>
     )}
-    onContentSizeChange={props.onContentSizeChange}
+    onContentSizeChange={onContentSizeChange}
   />
 );
 
-const SecondRoute = (props: any) => (
+const SecondRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number, h: number) => void) | undefined }) => (
   <FlatList
     data={new Array(50).fill({})}
     scrollEnabled={false}
@@ -53,7 +53,7 @@ const SecondRoute = (props: any) => (
         <Text>Page 2 Row: {index}</Text>
       </Stack>
     )}
-    onContentSizeChange={props.onContentSizeChange}
+    onContentSizeChange={onContentSizeChange}
   />
 );
 
@@ -107,7 +107,7 @@ const TabViewScrollStickyDemo = () => {
       />
       <Stack style={{ height: contentHeight }}>
         <Content
-          renderItem={({ item, index }: { item: any; index: number }) => (
+          renderItem={({ item, index }: { item: { backgroundColor: string, contentHeight: number | undefined, page: any }; index: number }) => (
             <Stack
               style={{
                 flex: 1,

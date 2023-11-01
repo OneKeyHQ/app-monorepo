@@ -1,12 +1,12 @@
 import {
-  HTPageHeaderView,
-  HTPageContentView,
-  HTPageManager,
-  HTSelectedLabel,
-} from 'react-native-selected-page';
+  PageHeaderView,
+  PageContentView,
+  PageManager,
+  SelectedLabel,
+} from 'react-native-tab-page-view';
 
-HTPageHeaderView.defaultProps = {
-  ...HTPageHeaderView.defaultProps,
+PageHeaderView.defaultProps = {
+  ...PageHeaderView.defaultProps,
   titleFromItem: (item: any) => (item as { title: string }).title,
   itemContainerStyle: { paddingHorizontal: 10, marginLeft: 10 },
   itemTitleStyle: { fontSize: 15 },
@@ -21,7 +21,4 @@ HTPageHeaderView.defaultProps = {
   },
 };
 
-export const PageHeaderView = HTPageHeaderView;
-export const PageContentView = HTPageContentView;
-export const PageManager = HTPageManager;
-export const SelectedLabel = HTSelectedLabel;
+export { PageHeaderView, PageContentView, PageManager, SelectedLabel };
