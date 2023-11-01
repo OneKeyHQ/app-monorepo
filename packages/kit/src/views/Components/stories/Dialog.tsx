@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import {
   Adapt as TMAdapt,
   Dialog as TMDialog,
@@ -17,6 +18,9 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { ModalNavigationProp } from '@onekeyhq/components/src/Navigation';
+
+import { GalleryRoutes } from '../../../routes/Gallery/routes';
 
 import { Layout } from './utils/Layout';
 
@@ -197,6 +201,39 @@ const HideFooterDialog = () => {
         showFooter={false}
       />
     </>
+  );
+};
+
+const DialogNavigatorDemo = () => {
+  const navigation = useNavigation<
+    ModalNavigationProp<{
+      [GalleryRoutes.Components]: undefined;
+    }>
+  >();
+  return (
+    <YStack>
+      <Button
+        mt="$4"
+        onPress={() => {
+          Dialog.confirm({
+            title: 'Confirm whether the Dialog is always on top.',
+            renderContent: (
+              <Dialog.Form>
+                <Dialog.FormField label="Name" name="name">
+                  <Input autoFocus flex={1} placeholder="only numeric value" />
+                </Dialog.FormField>
+              </Dialog.Form>
+            ),
+            onConfirm: () => {},
+          });
+          setTimeout(() => {
+            navigation.push(GalleryRoutes.Components);
+          }, 1500);
+        }}
+      >
+        Test Visibility in Navigator
+      </Button>
+    </YStack>
   );
 };
 
@@ -511,6 +548,10 @@ const DialogGallery = () => (
             </Button>
           </YStack>
         ),
+      },
+      {
+        title: 'Test Visibility in Navigator',
+        element: <DialogNavigatorDemo />,
       },
     ]}
   />
