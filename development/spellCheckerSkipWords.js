@@ -1,4 +1,6 @@
 module.exports = [
+  'Jotai',
+  'jotai',
   'camelcase',
   'Monero',
   'coinbase',

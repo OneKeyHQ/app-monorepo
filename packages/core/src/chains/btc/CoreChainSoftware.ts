@@ -107,6 +107,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressFromPublic(
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { networkInfo, publicKey, publicKeyInfo } = query;
     const network = getBtcForkNetwork(networkInfo.networkChainCode);
     // 'BTC fork UTXO account should pass account xpub but not single address publicKey.',

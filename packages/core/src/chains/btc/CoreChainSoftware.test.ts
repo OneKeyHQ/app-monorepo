@@ -11,7 +11,6 @@ const {
   hdAccountTemplate,
   hdAccounts,
   txSamples,
-  msgSamples,
 } = coreTestsFixtures.prepareCoreChainTestsFixtures({
   networkInfo: {
     networkChainCode: 'btc',
@@ -107,6 +106,7 @@ describe('BTC Core tests', () => {
   });
 
   it.skip('signMessage', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const coreApi = new CoreChainHd();
     // coreApi.signMessage
     throw new Error('Method not implemented.');

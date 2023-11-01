@@ -124,6 +124,8 @@ module.exports = {
     '*.wasm.bin',
     'apps/desktop/public/static/js-sdk*',
     'packages/components/src/Icon/*',
+    'apps/ext/src/offscreen/',
+    'packages/kit/src/store/',
   ],
   env: {
     browser: true,
@@ -140,7 +142,7 @@ module.exports = {
         'strings': false,
         'identifiers': true,
         'lang': 'en_US',
-        'skipWords': require('./development/skipWords'),
+        'skipWords': require('./development/spellCheckerSkipWords.js'),
         'skipWordIfMatch': [/bip32/i, /pbkdf2/i, /Secp256k1/i, /googleapis/i],
         'skipIfMatch': ['http://[^s]*'],
         'minLength': 3,
