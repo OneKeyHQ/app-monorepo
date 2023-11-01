@@ -507,5 +507,17 @@ module.exports = [
   'unregister',
   'debounce',
   'goto',
+<<<<<<< HEAD
   'oncomplete',
+=======
+  'Polkadot',
+  'Solana',
+  'localhost',
+  'Persistor',
+  'persistor',
+  'Cron',
+  'enums',
+  'Xxs',
+  'bitcoind',
+>>>>>>> x
 ];

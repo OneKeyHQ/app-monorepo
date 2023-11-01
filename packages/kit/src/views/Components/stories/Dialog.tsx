@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import {
   Adapt as TMAdapt,
   Dialog as TMDialog,
@@ -17,6 +18,9 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { ModalNavigationProp } from '@onekeyhq/components/src/Navigation';
+
+import { GalleryRoutes } from '../../../routes/Gallery/routes';
 
 import { Layout } from './utils/Layout';
 
@@ -200,6 +204,39 @@ const HideFooterDialog = () => {
   );
 };
 
+const DialogNavigatorDemo = () => {
+  const navigation = useNavigation<
+    ModalNavigationProp<{
+      [GalleryRoutes.Components]: undefined;
+    }>
+  >();
+  return (
+    <YStack>
+      <Button
+        mt="$4"
+        onPress={() => {
+          Dialog.confirm({
+            title: 'Confirm whether the Dialog is always on top.',
+            renderContent: (
+              <Dialog.Form>
+                <Dialog.FormField label="Name" name="name">
+                  <Input autoFocus flex={1} placeholder="only numeric value" />
+                </Dialog.FormField>
+              </Dialog.Form>
+            ),
+            onConfirm: () => {},
+          });
+          setTimeout(() => {
+            navigation.push(GalleryRoutes.Components);
+          }, 1500);
+        }}
+      >
+        Test Visibility in Navigator
+      </Button>
+    </YStack>
+  );
+};
+
 const DialogGallery = () => (
   <Layout
     description="需要用户处理事务，又不希望跳转路由以致打断工作流程时，可以使用 Dialog 组件"
@@ -318,14 +355,12 @@ const DialogGallery = () => (
                   description: 'input password',
                   renderContent: (
                     <Dialog.Form
-                      useFormProps={
-                        {
-                          defaultValues: {
-                            name: 'Nate Wienert',
-                            length: '1234567',
-                          },
-                        } as any
-                      }
+                      useFormProps={{
+                        defaultValues: {
+                          name: 'Nate Wienert',
+                          length: '1234567',
+                        },
+                      }}
                     >
                       <Dialog.FormField label="Name" name="name">
                         <Input flex={1} />
@@ -385,15 +420,13 @@ const DialogGallery = () => (
                   description: 'input password',
                   renderContent: (
                     <Dialog.Form
-                      useFormProps={
-                        {
-                          defaultValues: {
-                            name: 'Nate Wienert',
-                            input: '1234567',
-                            textArea: 'textArea',
-                          },
-                        } as any
-                      }
+                      useFormProps={{
+                        defaultValues: {
+                          name: 'Nate Wienert',
+                          input: '1234567',
+                          textArea: 'textArea',
+                        },
+                      }}
                     >
                       {
                         // eslint-disable-next-line react/no-unstable-nested-components
@@ -462,7 +495,7 @@ const DialogGallery = () => (
                               Focus TextArea
                             </Button>
                           </>
-                        )) as any as ReactNode
+                        )) as unknown as ReactNode
                       }
                     </Dialog.Form>
                   ),
@@ -515,6 +548,10 @@ const DialogGallery = () => (
             </Button>
           </YStack>
         ),
+      },
+      {
+        title: 'Test Visibility in Navigator',
+        element: <DialogNavigatorDemo />,
       },
     ]}
   />
