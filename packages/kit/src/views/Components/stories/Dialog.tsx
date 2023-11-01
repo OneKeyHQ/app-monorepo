@@ -189,7 +189,7 @@ const DialogNavigatorDemo = () => {
           setTimeout(() => {
             Toast.error({
               title: 'Toaster is always on top',
-              duration: 3000,
+              duration: 3,
             });
             navigation.push(GalleryRoutes.Components);
           }, 1500);
