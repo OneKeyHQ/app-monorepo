@@ -36,7 +36,7 @@
     "react-intl": "^5.21.2",
     "react-native-animated-splash-screen": "^2.0.5",
     "react-native-camera-kit": "14.0.0-beta2",
-    "react-native-uuid": "^2.0.1",
+    "react-native-webview": "https://github.com/OneKeyHQ/react-native-webview.git#834d8096f8cfd78a961fb7a13f06f0cc64b2c9c3",
     "react-redux": "^8.0.5",
     "redux-logger": "^3.0.6",
     "redux-persist": "^6.0.0",

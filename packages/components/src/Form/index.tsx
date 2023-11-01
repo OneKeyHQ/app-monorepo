@@ -3,13 +3,9 @@ import { Children, cloneElement, isValidElement, useCallback } from 'react';
 
 import { noop } from 'lodash';
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
-import {
-  AnimatePresence,
-  Fieldset,
-  Form as TMForm,
-  withStaticProperties,
-} from 'tamagui';
+import { Fieldset, Form as TMForm, withStaticProperties } from 'tamagui';
 
+import { HeightTransition } from '../HeightTransition';
 import { Input } from '../Input';
 import { Label } from '../Label';
 import { YStack } from '../Stack';
@@ -74,9 +70,9 @@ function Field({ name, label, description, rules, children }: FieldProps) {
     formState: { errors },
   } = useFormContext();
   const validateField = useCallback(() => {
-    trigger(name);
+    void trigger(name);
   }, [name, trigger]);
-  const error = errors[name] as Error;
+  const error = errors[name] as unknown as Error;
   return (
     <Controller
       name={name}
@@ -97,7 +93,7 @@ function Field({ name, label, description, rules, children }: FieldProps) {
                 )
               : child,
           )}
-          <AnimatePresence>
+          <HeightTransition>
             {error?.message && (
               <Text
                 key={error?.message}
@@ -117,7 +113,7 @@ function Field({ name, label, description, rules, children }: FieldProps) {
                 {error.message}
               </Text>
             )}
-          </AnimatePresence>
+          </HeightTransition>
           {description ? (
             <Text variant="$bodyMd" pt="$1.5" color="$textSubdued">
               {description}

@@ -2,13 +2,12 @@ import { useCallback } from 'react';
 
 import { styled } from 'tamagui';
 
-import { Button } from '../Button';
-import { XStack } from '../Stack';
+import { XStack, YStack } from '../Stack';
+import { Text } from '../Text';
 
-import type { ViewStyle } from 'react-native';
+import type { GetProps } from 'tamagui';
 
 interface SegmentControlProps {
-  style?: ViewStyle;
   fullWidth?: boolean;
   value: string | number;
   options: {
@@ -23,37 +22,58 @@ function SegmentControlItem({
   value,
   onChange,
   active,
+  disabled,
+  ...rest
 }: {
   label: string;
   value: string | number;
   active: boolean;
+  disabled?: boolean;
   onChange: (value: string | number) => void;
-}) {
+} & GetProps<typeof YStack>) {
   const handleChange = useCallback(() => {
     onChange(value);
   }, [onChange, value]);
   return (
-    <Button
-      padding="$0"
-      paddingHorizontal="$0.5"
-      size="small"
-      variant={active ? 'primary' : 'tertiary'}
+    <YStack
+      py="$1"
+      px="$2"
+      flex={1}
       onPress={handleChange}
-      marginHorizontal="$1"
-      pressStyle={{
-        bg: active ? '$bg' : undefined,
-      }}
+      borderRadius="$2"
+      focusable={!disabled}
       focusStyle={{
-        bg: active ? '$bg' : undefined,
+        outlineWidth: 2,
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
       }}
-      hoverStyle={{
-        bg: active ? '$bg' : undefined,
-      }}
-      color="$text"
-      backgroundColor={active ? '$bg' : undefined}
+      {...(active
+        ? {
+            bg: '$bg',
+            elevation: 2,
+          }
+        : {
+            hoverStyle: {
+              bg: '$bgHover',
+            },
+            pressStyle: {
+              bg: '$bgActive',
+            },
+          })}
+      {...(disabled && {
+        opacity: 0.5,
+      })}
+      {...rest}
     >
-      {label}
-    </Button>
+      <Text
+        variant="$bodyMdMedium"
+        textAlign="center"
+        color={active ? '$text' : '$textSubdued'}
+        userSelect="none"
+      >
+        {label}
+      </Text>
+    </YStack>
   );
 }
 
@@ -62,7 +82,6 @@ function SegmentControlFrame({
   options,
   onChange,
   fullWidth,
-  style,
 }: SegmentControlProps) {
   const handleChange = useCallback(
     (v: string | number) => {
@@ -73,23 +92,27 @@ function SegmentControlFrame({
   return (
     <XStack
       width={fullWidth ? '100%' : 'auto'}
-      justifyContent={fullWidth ? 'space-between' : undefined}
       alignSelf={fullWidth ? undefined : 'flex-start'}
       backgroundColor="$neutral5"
-      borderRadius="$3"
-      paddingVertical="$1"
-      style={style}
+      borderRadius="$2.5"
+      p="$0.5"
     >
-      {options.map(({ label, value: v }) => (
+      {options.map(({ label, value: v }, index) => (
         <SegmentControlItem
           label={label}
           value={v}
           active={value === v}
           onChange={handleChange}
+          {...(index !== 0 && {
+            ml: '$0.5',
+          })}
         />
       ))}
     </XStack>
   );
 }
 
-export const SegmentControl = styled(SegmentControlFrame, {});
+export const SegmentControl = styled(
+  SegmentControlFrame,
+  {} as SegmentControlProps,
+);

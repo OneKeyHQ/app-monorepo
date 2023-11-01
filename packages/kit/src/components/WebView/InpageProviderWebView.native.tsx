@@ -3,7 +3,7 @@ import { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
 
 import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
 
-import { Spinner, Stack } from '@onekeyhq/components';
+import { Progress, Spinner, Stack } from '@onekeyhq/components';
 
 // @ts-expect-error
 import injectedNativeCode from './injectedNative.text-js';
@@ -26,6 +26,9 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       isSpinnerLoading,
       onContentLoaded,
       onOpenWindow,
+      onLoad,
+      onLoadStart,
+      onLoadEnd,
       androidLayerType,
     }: InpageProviderWebViewProps,
     ref: any,
@@ -92,22 +95,16 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
           );
         }
         return (
-          // TODO: REPLACE_COMPONENT
-          // <Progress
-          //   value={progress}
-          //   position="absolute"
-          //   left={0}
-          //   top={0}
-          //   right={0}
-          //   zIndex={10}
-          //   rounded={0}
-          //   size="xs"
-          //   bg="surface-neutral-default"
-          //   _filledTrack={{
-          //     bg: 'interactive-default',
-          //   }}
-          // />
-          <Stack>Progress Bar</Stack>
+          <Progress
+            value={progress}
+            width="100%"
+            position="absolute"
+            left={0}
+            top={0}
+            right={0}
+            zIndex={10}
+            borderRadius={0}
+          />
         );
       }
       return null;
@@ -133,6 +130,9 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
           onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
           textInteractionEnabled={undefined}
           minimumFontSize={undefined}
+          onLoad={onLoad}
+          onLoadStart={onLoadStart}
+          onLoadEnd={onLoadEnd}
           // allowFileAccessFromFileURLs
           // allowFileAccess
           // allowUniversalAccessFromFileURLs

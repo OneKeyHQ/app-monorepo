@@ -1,7 +1,10 @@
+import { type Ref, forwardRef } from 'react';
+
 import { Group, Input as TMInput, getFontSize } from 'tamagui';
 
 import { Icon } from '../Icon';
-import { XStack } from '../Stack';
+import { Spinner } from '../Spinner';
+import { XStack, YStack } from '../Stack';
 import { Text } from '../Text';
 
 import { getSharedInputStyles } from './sharedStyles';
@@ -19,6 +22,7 @@ export type InputProps = {
     iconName?: ICON_NAMES;
     label?: string;
     onPress?: () => void;
+    loading?: boolean;
   }[];
 } & Omit<TMInputProps, 'size'>;
 
@@ -46,15 +50,18 @@ const SIZE_MAPPINGS = {
   },
 };
 
-export function Input({
-  size = 'medium',
-  leftIconName,
-  addOns,
-  disabled,
-  editable,
-  error,
-  ...props
-}: InputProps) {
+function BaseInput(
+  {
+    size = 'medium',
+    leftIconName,
+    addOns,
+    disabled,
+    editable,
+    error,
+    ...props
+  }: InputProps,
+  ref: Ref<any>,
+) {
   const {
     verticalPadding,
     horizontalPadding,
@@ -64,7 +71,6 @@ export function Input({
   } = SIZE_MAPPINGS[size];
 
   const sharedStyles = getSharedInputStyles({ disabled, editable, error });
-
   return (
     <Group
       orientation="horizontal"
@@ -77,11 +83,12 @@ export function Input({
       <Group.Item>
         <TMInput
           unstyled
+          ref={ref}
           flex={1}
           /* 
-            use height instead of lineHeight because of a RN issue while render TextInput on iOS
-            https://github.com/facebook/react-native/issues/28012
-          */
+          use height instead of lineHeight because of a RN issue while render TextInput on iOS
+          https://github.com/facebook/react-native/issues/28012
+        */
           h={height}
           py={verticalPadding}
           pr={horizontalPadding}
@@ -129,7 +136,7 @@ export function Input({
             bg={sharedStyles.backgroundColor}
             disabled={disabled}
           >
-            {addOns.map(({ iconName, label, onPress }) => (
+            {addOns.map(({ iconName, label, onPress, loading }) => (
               <Group.Item>
                 <XStack
                   onPress={onPress}
@@ -145,15 +152,21 @@ export function Input({
                         bg: '$bgActive',
                       },
                     })}
-                  focusable={!disabled}
+                  focusable={!(disabled || loading)}
                   focusStyle={sharedStyles.focusStyle}
                 >
-                  {iconName && (
-                    <Icon
-                      name={iconName}
-                      color={disabled ? '$iconDisabled' : '$icon'}
-                      size={size === 'small' ? '$5' : '$6'}
-                    />
+                  {loading ? (
+                    <YStack {...(size !== 'small' && { p: '$0.5' })}>
+                      <Spinner size="small" />
+                    </YStack>
+                  ) : (
+                    iconName && (
+                      <Icon
+                        name={iconName}
+                        color={disabled ? '$iconDisabled' : '$icon'}
+                        size={size === 'small' ? '$5' : '$6'}
+                      />
+                    )
                   )}
                   {label && (
                     <Text
@@ -174,3 +187,5 @@ export function Input({
     </Group>
   );
 }
+
+export const Input = forwardRef(BaseInput);

@@ -31,7 +31,7 @@ export const launchBridge = async () => {
 
   app.on('before-quit', () => {
     logger.info('bridge', 'Stopping when app quit');
-    bridge.stop();
+    void bridge.stop();
   });
 };
 

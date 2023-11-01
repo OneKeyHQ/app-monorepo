@@ -44,7 +44,7 @@ export const ipcMessageKeys = {
   APP_QUIT: 'app/quit',
   APP_RESTORE_MAIN_WINDOW: 'app/restoreMainWindow',
   APP_CLEAR_WEBVIEW_DATA: 'app/clearWebViewData',
-  APP_OPEN_PREFS: 'app/openPrefs',
+  APP_OPEN_PREFERENCES: 'app/openPreferences',
   APP_TOGGLE_MAXIMIZE_WINDOW: 'app/toggleMaximizeWindow',
   APP_RELOAD_BRIDGE_PROCESS: 'app/reloadBridgeProcess',
   APP_SHORCUT: 'app/shortcut',
@@ -68,7 +68,7 @@ export const ipcMessageKeys = {
   SERVER_LISTENER: 'server/listener',
   SERVER_RESPOND: 'server/respond',
 
-  // Evnet
+  // Event
   EVENT_OPEN_URL: 'event-open-url',
 
   // DeepLink

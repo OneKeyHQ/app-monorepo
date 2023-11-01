@@ -11,7 +11,7 @@ export function useLocalAuthentication() {
   const [isOk, setOk] = useState(false);
 
   useEffect(() => {
-    hasHardwareSupported().then(setOk);
+    void hasHardwareSupported().then(setOk);
   }, []);
 
   return {

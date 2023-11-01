@@ -8,7 +8,7 @@ import { getItemAsync, setItemAsync } from 'expo-secure-store';
 import {
   decodeSensitiveText,
   encodeSensitiveText,
-} from '@onekeyhq/core/src/secret/encryptors/aes256';
+} from '@onekeyhq/core/src/secret';
 
 import { appSelector } from '../../store';
 // import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';

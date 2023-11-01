@@ -10,8 +10,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
-import { mnemonicFromEntropy } from '../../secret';
-import { encrypt } from '../../secret/encryptors/aes256';
+import { encrypt, mnemonicFromEntropy } from '../../secret';
 import { slicePathTemplate } from '../../utils';
 
 import { DOT_TYPE_PREFIX } from './types';
@@ -126,7 +125,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       bufferToU8a(signature),
     );
     const txid = '';
-    const rawTx = ''; // build rawTx on highlevel which requires network
+    const rawTx = ''; // build rawTx on high level which requires network
     return {
       txid,
       rawTx,

@@ -26,6 +26,8 @@ const jsRules = {
   'no-promise-executor-return': 'off',
   'default-param-last': 'off',
   'import/no-cycle': 'error',
+  'require-await': 'off',
+  'no-void': 'off',
   // 'no-console': [isDev ? 'warn' : 'off'],
 };
 const tsRules = {
@@ -43,6 +45,8 @@ const tsRules = {
   '@typescript-eslint/no-unsafe-assignment': 'off',
   '@typescript-eslint/no-unsafe-argument': 'off',
   '@typescript-eslint/require-await': 'off',
+  // force awaited promise call, explicit add `void` if don't want await
+  '@typescript-eslint/no-floating-promises': ['error'],
   'sort-imports': [
     'error',
     {
@@ -93,18 +97,33 @@ const tsRules = {
     },
   ],
 };
+
+const resolveExtensions = (platform) =>
+  ['.ts', '.tsx', '.js', '.jsx'].map((ext) => `${platform}${ext}`);
 module.exports = {
+  plugins: ['spellcheck'],
+  settings: {
+    'import/extensions': [
+      ...resolveExtensions('web'),
+      ...resolveExtensions('desktop'),
+      ...resolveExtensions('android'),
+      ...resolveExtensions('ios'),
+      ...resolveExtensions('native'),
+      ...resolveExtensions('ext'),
+      '.ts',
+      '.tsx',
+      '.mjs',
+      '.cjs',
+      '.js',
+      '.jsx',
+      '.json',
+      '.d.ts',
+    ],
+  },
   ignorePatterns: [
     '*.wasm.bin',
     'apps/desktop/public/static/js-sdk*',
     'packages/components/src/Icon/*',
-    // 临时忽略以下目录的检查，迭代后会逐步开启
-    'packages/blockchain-libs',
-    'packages/kit/src/store',
-    'packages/kit/src/utils/localAuthentication',
-    'packages/engine',
-    'packages/kit-bg',
-    'packages/shared',
   ],
   env: {
     browser: true,
@@ -112,6 +131,21 @@ module.exports = {
     webextensions: true,
     serviceworker: true,
     worker: true,
+  },
+  rules: {
+    'spellcheck/spell-checker': [
+      1,
+      {
+        'comments': true,
+        'strings': false,
+        'identifiers': true,
+        'lang': 'en_US',
+        'skipWords': require('./development/skipWords'),
+        'skipWordIfMatch': [/bip32/i, /pbkdf2/i, /Secp256k1/i, /googleapis/i],
+        'skipIfMatch': ['http://[^s]*'],
+        'minLength': 3,
+      },
+    ],
   },
   overrides: [
     {

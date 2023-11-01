@@ -5,18 +5,22 @@ import { Button, Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 
-import InpageProviderWebView from './InpageProviderWebView';
-import { backgroundApiProxy } from './mock';
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
+import InpageProviderWebView from './InpageProviderWebView';
+
+import type { IElectronWebViewEvents } from './types';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type {
+  WebViewErrorEvent,
   WebViewNavigation,
+  WebViewNavigationEvent,
   WebViewOpenWindowEvent,
   WebViewSource,
 } from 'react-native-webview/lib/WebViewTypes';
 
-interface WebViewProps {
+interface WebViewProps extends IElectronWebViewEvents {
   id?: string;
   src?: string;
   onSrcChange?: (src: string) => void;
@@ -33,6 +37,9 @@ interface WebViewProps {
   onContentLoaded?: () => void; // currently works in NativeWebView only
   onOpenWindow?: (event: WebViewOpenWindowEvent) => void;
   androidLayerType?: 'none' | 'software' | 'hardware';
+  onLoadStart?: (event: WebViewNavigationEvent) => void;
+  onLoad?: (event: WebViewNavigationEvent) => void;
+  onLoadEnd?: (event: WebViewNavigationEvent | WebViewErrorEvent) => void;
 }
 
 const WebView: FC<WebViewProps> = ({

@@ -4,6 +4,8 @@ import { useMemo } from 'react';
 import QRCodeUtil from 'qrcode';
 import Svg, { Circle, ClipPath, Defs, G, Image, Rect } from 'react-native-svg';
 
+import { useThemeValue } from '../Provider/hooks/useThemeValue';
+
 import type { ImageProps } from 'react-native';
 
 export type QRCodeProps = {
@@ -21,11 +23,7 @@ const generateMatrix = (
   errorCorrectionLevel: 'L' | 'M' | 'Q' | 'H',
 ): number[][] => {
   const arr: number[] = Array.prototype.slice.call(
-    (
-      QRCodeUtil.create(value, { errorCorrectionLevel }).modules as {
-        data: number[];
-      }
-    ).data,
+    QRCodeUtil.create(value, { errorCorrectionLevel }).modules.data,
     0,
   );
   const sqrt = Math.sqrt(arr.length);
@@ -49,7 +47,8 @@ export function QRCode({
   value,
 }: QRCodeProps) {
   const href = logo;
-
+  const primaryColor = useThemeValue('text');
+  const secondaryColor = useThemeValue('bg');
   const dots = useMemo(() => {
     const arr: ReactElement[] = [];
     const qrList = [
@@ -66,7 +65,7 @@ export function QRCode({
         arr.push(
           <Rect
             key={`Rect${x}${y}${i}`}
-            fill={i % 2 !== 0 ? 'white' : 'black'}
+            fill={i % 2 !== 0 ? secondaryColor : primaryColor}
             x={x1 + cellSize * i}
             y={y1 + cellSize * i}
             width={cellSize * (7 - i * 2)}
@@ -101,10 +100,10 @@ export function QRCode({
             ) {
               arr.push(
                 <Circle
-                  key={`circel row${i} col${j}`}
+                  key={`circle row${i} col${j}`}
                   cx={i * cellSize + cellSize / 2}
                   cy={j * cellSize + cellSize / 2}
-                  fill="black"
+                  fill={primaryColor}
                   r={cellSize / 3} // calculate size of single dots
                 />,
               );
@@ -114,9 +113,10 @@ export function QRCode({
       });
     });
     return arr;
-  }, [ecl, logoSize, size, value]);
+  }, [ecl, logoSize, primaryColor, secondaryColor, size, value]);
   const logoPosition = size / 2 - logoSize / 2 - logoMargin;
   const logoWrapperSize = logoSize + logoMargin * 2;
+
   return (
     <Svg height={size} width={size}>
       <Defs>
@@ -127,7 +127,7 @@ export function QRCode({
           <Rect height={logoSize} width={logoSize} />
         </ClipPath>
       </Defs>
-      <Rect fill="white" height={size} width={size} />
+      <Rect fill={secondaryColor} height={size} width={size} />
       {dots}
       {logo && (
         <G x={logoPosition} y={logoPosition}>

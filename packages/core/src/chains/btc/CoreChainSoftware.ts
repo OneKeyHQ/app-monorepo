@@ -18,15 +18,16 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import {
+  BaseBip32KeyDeriver,
   CKDPub,
   batchGetPublicKeys,
+  decrypt,
+  encrypt,
   generateRootFingerprint,
   mnemonicFromEntropy,
+  secp256k1,
   verify,
 } from '../../secret';
-import { BaseBip32KeyDeriver } from '../../secret/bip32';
-import { secp256k1 } from '../../secret/curves';
-import { decrypt, encrypt } from '../../secret/encryptors/aes256';
 import {
   EAddressEncodings,
   EMessageTypesBtc,
@@ -64,7 +65,7 @@ import type {
   IBtcForkUTXO,
 } from './types';
 import type { ISigner } from '../../base/ChainSigner';
-import type { Bip32KeyDeriver, ExtendedKey } from '../../secret/bip32';
+import type { Bip32KeyDeriver, ExtendedKey } from '../../secret';
 import type { PsbtInput } from 'bip174/src/lib/interfaces';
 import type { Payment, Signer, networks } from 'bitcoinjs-lib';
 
