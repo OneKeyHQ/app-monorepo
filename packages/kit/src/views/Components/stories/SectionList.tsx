@@ -67,11 +67,15 @@ const SectionListDemo = () => {
           <XStack space="$8">
             <Button
               onPress={() => {
-                const scrollView = ref.current;
-                scrollView?.scrollToEnd({ animated: true });
+                const sectionList = ref.current;
+                sectionList?.scrollToLocation({
+                  sectionIndex: 1,
+                  itemIndex: 0,
+                  animated: true,
+                });
               }}
             >
-              Scroll to Bottom
+              Scroll to `SIDES` section
             </Button>
           </XStack>
         </XStack>

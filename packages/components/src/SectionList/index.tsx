@@ -23,7 +23,7 @@ export type SectionListProps<T> = Omit<
     ListFooterComponentStyle?: StackProps;
   };
 
-export type SectionListRef = NativeSectionList<any>;
+export type SectionListRef = NativeSectionList<any, any>;
 
 function BaseSectionList<T>(
   {
