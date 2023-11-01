@@ -45,7 +45,7 @@ export * from './Screen';
 export * from './ScrollView';
 export * from './TabView';
 export * from './SegmentControl';
-export * from './List';
+export * from './ListView';
 export * as DelayedFreeze from './DelayedFreeze';
 
 // Navigation

@@ -31,7 +31,7 @@ import WebviewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 import AlertGallery from '../../views/Components/stories/Alert';
 import DividerGallery from '../../views/Components/stories/Divider';
 import FormGallery from '../../views/Components/stories/Form';
-import ListGallery from '../../views/Components/stories/List';
+import ListViewGallery from '../../views/Components/stories/ListView';
 import QRCodeGallery from '../../views/Components/stories/QRCode';
 import ScrollViewGallery from '../../views/Components/stories/ScrollView';
 import SkeletonGallery from '../../views/Components/stories/Skeleton';
@@ -59,7 +59,7 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentDialog, component: DialogGallery },
   { name: GalleryRoutes.ComponentEmpty, component: EmptyGallery },
   { name: GalleryRoutes.ComponentRadio, component: RadioGallery },
-  { name: GalleryRoutes.ComponentList, component: ListGallery },
+  { name: GalleryRoutes.ComponentListView, component: ListViewGallery },
   { name: GalleryRoutes.ComponentListItem, component: ListItemGallery },
   { name: GalleryRoutes.ComponentSkeleton, component: SkeletonGallery },
   { name: GalleryRoutes.ComponentCheckbox, component: CheckboxGallery },

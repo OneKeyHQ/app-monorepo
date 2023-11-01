@@ -21,13 +21,13 @@ export type ScrollViewProps = Omit<
   'contentContainerStyle'
 > &
   StackProps & {
-    contentContainerStyle: StackProps;
+    contentContainerStyle?: StackProps;
   };
 
 export type ScrollViewRef = ScrollViewNative;
 
 function BaseScrollView(
-  { children, contentContainerStyle, ...props }: ScrollViewProps,
+  { children, contentContainerStyle = {}, ...props }: ScrollViewProps,
   ref: ForwardedRef<ScrollViewRef>,
 ) {
   const [restProps, style] = usePropsAndStyle(props, {

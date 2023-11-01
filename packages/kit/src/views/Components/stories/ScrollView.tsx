@@ -5,6 +5,8 @@ import { Button, ScrollView, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
+const BasicScrollViewDemo = () => <ScrollView h="$10" bg="red" />;
+
 const ScrollViewDemo = () => {
   const ref = useRef<ScrollViewRef | null>(null);
   return (
@@ -48,8 +50,11 @@ const ScrollViewGallery = () => (
     description=".."
     suggestions={['...']}
     boundaryConditions={['...']}
-    scrollEnabled={false}
     elements={[
+      {
+        title: 'Basic',
+        element: <BasicScrollViewDemo />,
+      },
       {
         title: 'Styled Scroll',
         element: <ScrollViewDemo />,
