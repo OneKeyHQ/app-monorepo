@@ -4,14 +4,14 @@ import { FlatList, RefreshControl } from 'react-native';
 import { ScrollView, XStack } from 'tamagui';
 
 import { Badge, Button, Icon, Stack, Text } from '@onekeyhq/components';
-
-import { Layout } from './utils/Layout';
 import {
-  PageHeaderView,
   PageContentView,
+  PageHeaderView,
   PageManager,
   SelectedLabel,
 } from '@onekeyhq/components/src/TabView';
+
+import { Layout } from './utils/Layout';
 
 const HeaderPropsList = {
   data: [
@@ -35,13 +35,11 @@ const FirstRoute = (props: any) => (
   <FlatList
     data={new Array(20).fill({})}
     scrollEnabled={false}
-    renderItem={({ item, index }) => {
-      return (
-        <Stack style={{ padding: 10 }}>
-          <Text>Page 1 Row: {index}</Text>
-        </Stack>
-      );
-    }}
+    renderItem={({ item, index }) => (
+      <Stack style={{ padding: 10 }}>
+        <Text>Page 1 Row: {index}</Text>
+      </Stack>
+    )}
     onContentSizeChange={props.onContentSizeChange}
   />
 );
@@ -50,20 +48,18 @@ const SecondRoute = (props: any) => (
   <FlatList
     data={new Array(50).fill({})}
     scrollEnabled={false}
-    renderItem={({ item, index }) => {
-      return (
-        <Stack style={{ padding: 20 }}>
-          <Text>Page 2 Row: {index}</Text>
-        </Stack>
-      );
-    }}
+    renderItem={({ item, index }) => (
+      <Stack style={{ padding: 20 }}>
+        <Text>Page 2 Row: {index}</Text>
+      </Stack>
+    )}
     onContentSizeChange={props.onContentSizeChange}
   />
 );
 
 const TabViewScrollStickyDemo = () => {
   const onRefresh = () => {};
-  const [contentHeight, setContentHeight] = useState(0);
+  const [contentHeight, setContentHeight] = useState<number | undefined>(0);
   const data = useMemo(
     () => [
       {
@@ -84,7 +80,7 @@ const TabViewScrollStickyDemo = () => {
   const pageManager = useMemo(
     () =>
       new PageManager({
-        data: data,
+        data,
         initialScrollIndex: 1,
         onSelectedPageIndex: (index: number) => {
           setContentHeight(data[index]?.contentHeight);
@@ -97,13 +93,13 @@ const TabViewScrollStickyDemo = () => {
   return (
     <ScrollView
       style={{ height: 600, backgroundColor: 'black' }}
-      nestedScrollEnabled={true}
+      nestedScrollEnabled
       refreshControl={
         <RefreshControl refreshing={false} onRefresh={onRefresh} />
       }
       stickyHeaderIndices={[1]}
     >
-      <Stack style={{ height: 100 }}></Stack>
+      <Stack style={{ height: 100 }} />
       <Header
         // HTPageHeaderView.defaultProps in TabView
         style={HeaderPropsList.style}
@@ -111,22 +107,20 @@ const TabViewScrollStickyDemo = () => {
       />
       <Stack style={{ height: contentHeight }}>
         <Content
-          renderItem={({ item, index }: { item: any; index: number }) => {
-            return (
-              <Stack
-                style={{
-                  flex: 1,
-                  backgroundColor: item.backgroundColor,
+          renderItem={({ item, index }: { item: any; index: number }) => (
+            <Stack
+              style={{
+                flex: 1,
+                backgroundColor: item.backgroundColor,
+              }}
+            >
+              <item.page
+                onContentSizeChange={(width: number, height: number) => {
+                  item.contentHeight = height;
                 }}
-              >
-                <item.page
-                  onContentSizeChange={(width: number, height: number) => {
-                    item.contentHeight = height;
-                  }}
-                />
-              </Stack>
-            );
-          }}
+              />
+            </Stack>
+          )}
         />
       </Stack>
     </ScrollView>
@@ -138,7 +132,6 @@ const TabViewGallery = () => (
     description=""
     suggestions={[]}
     boundaryConditions={[]}
-    stickyHeaderIndices={[1]}
     elements={[
       {
         title: 'Header 单独使用',
@@ -161,7 +154,7 @@ const TabViewGallery = () => (
         ),
       },
       {
-        title: '和页面组合悬浮使用',
+        title: 'Manager 组合悬浮使用',
         element: <TabViewScrollStickyDemo />,
       },
       // {

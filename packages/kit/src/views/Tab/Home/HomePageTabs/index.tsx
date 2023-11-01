@@ -1,4 +1,6 @@
 import {
+  Component,
+  Fragment,
   memo,
   useCallback,
   useEffect,
@@ -6,13 +8,11 @@ import {
   useMemo,
   useRef,
   useState,
-  Component,
-  Fragment,
 } from 'react';
 
 import { useIntl } from 'react-intl';
+import { FlatList, RefreshControl, ScrollView } from 'react-native';
 import { useDispatch } from 'react-redux';
-import { ScrollView, FlatList, RefreshControl } from 'react-native';
 
 import { Screen, Stack, Text } from '@onekeyhq/components';
 import { PageManager } from '@onekeyhq/components/src/TabView';
@@ -64,13 +64,11 @@ const ListRoute = (props: any) => (
   <FlatList
     data={new Array(50).fill({})}
     scrollEnabled={false}
-    renderItem={({ item, index }) => {
-      return (
-        <Stack style={{ padding: 20 }}>
-          <Text>Row: {index}</Text>
-        </Stack>
-      );
-    }}
+    renderItem={({ item, index }) => (
+      <Stack style={{ padding: 20 }}>
+        <Text>Row: {index}</Text>
+      </Stack>
+    )}
     onContentSizeChange={props.onContentSizeChange}
   />
 );
@@ -88,7 +86,7 @@ function HomePage() {
     // tabsViewRef?.current?.setRefreshing(true);
   }, []);
 
-  const [contentHeight, setContentHeight] = useState(0);
+  const [contentHeight, setContentHeight] = useState<number | undefined>(0);
   const data = useMemo(
     () => [
       {
@@ -121,7 +119,7 @@ function HomePage() {
   const pageManager = useMemo(
     () =>
       new PageManager({
-        data: data,
+        data,
         initialScrollIndex: 2,
         onSelectedPageIndex: (index: number) => {
           setContentHeight(data[index].contentHeight);
@@ -136,7 +134,7 @@ function HomePage() {
 
   return useMemo(
     () => (
-      <Stack bg={'$bg'} flex={1}>
+      <Stack bg="$bg" flex={1}>
         <ScrollView
           style={{ flex: 1 }}
           refreshControl={
@@ -156,22 +154,20 @@ function HomePage() {
           />
           <Stack style={{ height: contentHeight }}>
             <Content
-              renderItem={({ item, index }: { item: any; index: number }) => {
-                return (
-                  <Stack
-                    style={{
-                      flex: 1,
-                      backgroundColor: item.backgroundColor,
+              renderItem={({ item, index }: { item: any; index: number }) => (
+                <Stack
+                  style={{
+                    flex: 1,
+                    backgroundColor: item.backgroundColor,
+                  }}
+                >
+                  <item.page
+                    onContentSizeChange={(width: number, height: number) => {
+                      item.contentHeight = height;
                     }}
-                  >
-                    <item.page
-                      onContentSizeChange={(width: number, height: number) => {
-                        item.contentHeight = height;
-                      }}
-                    />
-                  </Stack>
-                );
-              }}
+                  />
+                </Stack>
+              )}
             />
           </Stack>
         </ScrollView>
