@@ -1,14 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { FlatList, RefreshControl } from 'react-native';
-import { ScrollView, XStack } from 'tamagui';
+import { ScrollView } from 'tamagui';
 
-import { Badge, Button, Icon, Stack, Text } from '@onekeyhq/components';
+import { Stack, Text } from '@onekeyhq/components';
 import {
-  PageContentView,
   PageHeaderView,
   PageManager,
-  SelectedLabel,
 } from '@onekeyhq/components/src/TabView';
 
 import { Layout } from './utils/Layout';
@@ -35,7 +33,7 @@ const FirstRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number,
   <FlatList
     data={new Array(20).fill({})}
     scrollEnabled={false}
-    renderItem={({ item, index }) => (
+    renderItem={({ index }) => (
       <Stack style={{ padding: 10 }}>
         <Text>Page 1 Row: {index}</Text>
       </Stack>
@@ -48,7 +46,7 @@ const SecondRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number
   <FlatList
     data={new Array(50).fill({})}
     scrollEnabled={false}
-    renderItem={({ item, index }) => (
+    renderItem={({ index }) => (
       <Stack style={{ padding: 20 }}>
         <Text>Page 2 Row: {index}</Text>
       </Stack>
@@ -86,7 +84,7 @@ const TabViewScrollStickyDemo = () => {
           setContentHeight(data[index]?.contentHeight);
         },
       }),
-    [],
+    [data],
   );
   const Header = pageManager.renderHeaderView;
   const Content = pageManager.renderContentView;
@@ -107,7 +105,7 @@ const TabViewScrollStickyDemo = () => {
       />
       <Stack style={{ height: contentHeight }}>
         <Content
-          renderItem={({ item, index }: { item: { backgroundColor: string, contentHeight: number | undefined, page: any }; index: number }) => (
+          renderItem={({ item }: { item: { backgroundColor: string, contentHeight: number | undefined, page: any }; index: number }) => (
             <Stack
               style={{
                 flex: 1,

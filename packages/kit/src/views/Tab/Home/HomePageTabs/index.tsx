@@ -1,27 +1,16 @@
 import {
-  Component,
-  Fragment,
-  memo,
   useCallback,
-  useEffect,
-  useLayoutEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 
-import { useIntl } from 'react-intl';
+// import { useIntl } from 'react-intl';
 import { FlatList, RefreshControl, ScrollView } from 'react-native';
-import { useDispatch } from 'react-redux';
 
-import { Screen, Stack, Text } from '@onekeyhq/components';
+import { Stack, Text } from '@onekeyhq/components';
 import { PageManager } from '@onekeyhq/components/src/TabView';
 
-import { useAppSelector } from '../../../../hooks/useAppSelector';
-import { setHomeTabViewActive } from '../../../../store/reducers/status';
-
 import HeaderView from './HeaderView';
-import { HomePageTabsEnum } from './types';
 
 const FirstRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number, h: number) => void) | undefined}) => (
   <ScrollView
@@ -64,7 +53,7 @@ const ListRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number, 
   <FlatList
     data={new Array(50).fill({})}
     scrollEnabled={false}
-    renderItem={({ item, index }) => (
+    renderItem={({ index }) => (
       <Stack style={{ padding: 20 }}>
         <Text>Row: {index}</Text>
       </Stack>
@@ -80,7 +69,7 @@ const ListRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number, 
 // });
 
 function HomePage() {
-  const intl = useIntl();
+  // const intl = useIntl();
 
   const onRefresh = useCallback(() => {
     // tabsViewRef?.current?.setRefreshing(true);
@@ -125,7 +114,7 @@ function HomePage() {
           setContentHeight(data[index].contentHeight);
         },
       }),
-    [],
+    [data],
   );
   const Header = pageManager.renderHeaderView;
   const Content = pageManager.renderContentView;
@@ -154,7 +143,7 @@ function HomePage() {
           />
           <Stack style={{ height: contentHeight }}>
             <Content
-              renderItem={({ item, index }: { item: { backgroundColor: string, contentHeight: number | undefined, page: any }; index: number }) => (
+              renderItem={({ item }: { item: { backgroundColor: string, contentHeight: number | undefined, page: any }; index: number }) => (
                 <Stack
                   style={{
                     flex: 1,
@@ -173,7 +162,7 @@ function HomePage() {
         </ScrollView>
       </Stack>
     ),
-    [contentHeight],
+    [contentHeight, Header, Content, onRefresh, renderHeaderView],
   );
 }
 
