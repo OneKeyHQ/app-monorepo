@@ -27,6 +27,7 @@ module.exports = [
   'shortname',
   'shortcode',
   'camelcase',
+  'xhr',
   'Monero',
   'coinbase',
   'mempool',

@@ -208,7 +208,7 @@ const checkIsRuntimeChrome = (): boolean => {
   const vendorName = winNav ? winNav.vendor : '';
   // @ts-ignore
   const isOpera = typeof window.opr !== 'undefined';
-  const isIEedge = winNav ? winNav.userAgent.indexOf('Edg') > -1 : false;
+  const isIEEdge = winNav ? winNav.userAgent.indexOf('Edg') > -1 : false;
   const isIOSChrome = /CriOS/.exec(winNav ? winNav.userAgent : '');
 
   if (isIOSChrome) {
@@ -220,7 +220,7 @@ const checkIsRuntimeChrome = (): boolean => {
     typeof isChromium !== 'undefined' &&
     vendorName === 'Google Inc.' &&
     !isOpera &&
-    !isIEedge
+    !isIEEdge
   ) {
     // is Google Chrome
     return true;
