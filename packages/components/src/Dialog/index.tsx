@@ -192,6 +192,13 @@ function DialogFrame({
       )}
     </Stack>
   );
+  const renderDialogContent = contextValue ? (
+    <DialogContext.Provider value={contextValue}>
+      {content}
+    </DialogContext.Provider>
+  ) : (
+    content
+  );
   if (media.md) {
     return (
       <>
@@ -236,7 +243,7 @@ function DialogFrame({
                 borderRadius="$full"
               />
             </Stack>
-            {content}
+            {renderDialogContent}
           </Sheet.Frame>
         </Sheet>
       </>
@@ -280,13 +287,7 @@ function DialogFrame({
           width={400}
           p="$0"
         >
-          {contextValue ? (
-            <DialogContext.Provider value={contextValue}>
-              {content}
-            </DialogContext.Provider>
-          ) : (
-            content
-          )}
+          {renderDialogContent}
         </TMDialog.Content>
       </TMDialog.Portal>
     </TMDialog>
@@ -372,7 +373,7 @@ function BaseDialogContainer(
     <DialogContext.Provider value={contextValue}>
       <DialogFrame
         // fix missing Context in Dialog.Portal.
-        contextValue={platformEnv.isNative ? undefined : contextValue}
+        contextValue={platformEnv.isNativeIOS ? undefined : contextValue}
         open={isOpen}
         onOpen={handleOpen}
         renderContent={renderContent}
