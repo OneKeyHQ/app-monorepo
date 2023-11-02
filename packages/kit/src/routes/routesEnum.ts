@@ -294,7 +294,6 @@ export enum CollectiblesModalRoutes {
 
 export enum FiatPayModalRoutes {
   SupportTokenListModal = 'SupportTokenList',
-  MoonpayWebViewModal = 'MoonpayWebViewModal',
 }
 
 export enum BackupWalletModalRoutes {
