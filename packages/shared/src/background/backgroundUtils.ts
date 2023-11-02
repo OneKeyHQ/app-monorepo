@@ -35,12 +35,12 @@ import {
 import { NotAutoPrintError } from '../errors';
 // import debugLogger from '../logger/debugLogger';
 import platformEnv from '../platformEnv';
+import { ensureSerializable } from '../utils/assertUtils';
 
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { Method } from 'axios';
 import type { AnyAction } from 'redux';
-import { ensureSerializable } from '../utils/assertUtils';
 
 export function throwCrossError(msg: string, ...args: any) {
   if (platformEnv.isNative) {
@@ -192,7 +192,7 @@ export function makeTimeoutPromise<T>({
     }, timeout);
 
     const p = asyncFunc();
-    p.then((result) => {
+    void p.then((result) => {
       if (isResolved) {
         return;
       }
@@ -319,8 +319,17 @@ export const isDappScopeMatchNetwork = (
   return true;
 };
 
+export const GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME =
+  'globaStatesSyncBroadcast';
+export type IGlobalStatesSyncBroadcastParams = {
+  $$isFromBgStatesSyncBroadcast: true;
+  name: string;
+  payload: any;
+};
+
 export const DISPATCH_ACTION_BROADCAST_METHOD_NAME = 'dispatchActionBroadcast';
 export const REPLACE_WHOLE_STATE = 'REPLACE_WHOLE_STATE';
+
 export type IDispatchActionBroadcastParams = {
   actions?: PayloadAction[];
   $isDispatchFromBackground: boolean;
@@ -362,9 +371,10 @@ export function buildReduxBatchAction(...actions: AnyAction[]) {
 
 export async function fetchData<T>(
   path: string,
-  // eslint-disable-next-line default-param-last, @typescript-eslint/default-param-last
+  // eslint-disable-next-line default-param-last, @typescript-eslint/default-param-last, @typescript-eslint/no-unused-vars
   query: Record<string, unknown> = {},
   fallback: T,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   method: Method = 'GET',
 ): Promise<T> {
   throw new Error('fetchData not support yet');

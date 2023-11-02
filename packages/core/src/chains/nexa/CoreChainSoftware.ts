@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
@@ -15,7 +13,6 @@ import type {
   ICoreApiGetAddressesResult,
   ICoreApiPrivateKeysMap,
   ICoreApiSignBasePayload,
-  ICoreApiSignMsgPayload,
   ICoreApiSignTxPayload,
   ICurveName,
   ISignedTxPro,
@@ -58,7 +55,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return result;
   }
 
-  override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
+  override async signMessage(): Promise<string> {
     throw new Error('Method not implemented.');
   }
 

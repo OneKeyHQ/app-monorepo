@@ -29,6 +29,7 @@ export enum GalleryRoutes {
   ComponentPopover = 'component/popover',
   ComponentToggleGroup = 'component/toggleGroup',
   ComponentTheme = 'component/theme',
+  ComponentJotaiGlobal = 'component/jotaiGlobal',
   ComponentTabview = 'component/tabview',
   componentQRCode = 'component/qrCode',
   ComponentWebview = 'component/webview',

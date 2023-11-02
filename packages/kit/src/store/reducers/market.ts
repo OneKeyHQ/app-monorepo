@@ -5,9 +5,9 @@ import type { ISimpleSearchHistoryToken } from '@onekeyhq/engine/src/dbs/simple/
 
 import { EMarketCellData } from '../../views/Market/config';
 
+import type { TokenChartData } from './tokens';
 import type { TabRoutes } from '../../routes/routesEnum';
 import type { Token } from '../typings';
-import type { TokenChartData } from './tokens';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
 export const MARKET_FAVORITES_CATEGORYID = 'favorites';

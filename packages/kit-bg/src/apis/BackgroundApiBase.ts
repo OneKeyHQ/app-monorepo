@@ -21,6 +21,8 @@ import {
 } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { createBackgroundProviders } from '../providers/backgroundProviders';
+import { settingsTimeNowAtom } from '../states/jotai/atoms';
+import { jotaiInit } from '../states/jotai/jotaiInit';
 
 import {
   isExtensionInternalCall,
@@ -33,6 +35,8 @@ import type {
   IBackgroundApiInternalCallMessage,
 } from './IBackgroundApi';
 import type ProviderApiBase from '../providers/ProviderApiBase';
+import type { EAtomNames } from '../states/jotai/atomNames';
+import type { JotaiCrossAtom } from '../states/jotai/utils/JotaiCrossAtom';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
   IInjectedProviderNamesStrings,
@@ -48,6 +52,43 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   constructor() {
     this.cycleDepsCheck();
     this._initBackgroundPersistor();
+    this.allAtoms = jotaiInit();
+    this.startDemoNowTimeUpdateInterval();
+  }
+
+  allAtoms: Promise<{
+    [key: string]: JotaiCrossAtom<any>;
+  }>;
+
+  startDemoNowTimeUpdateInterval() {
+    if (process.env.NODE_ENV !== 'production') {
+      setInterval(() => {
+        void settingsTimeNowAtom.set(new Date().toLocaleTimeString());
+      }, 1000);
+    }
+  }
+
+  @backgroundMethod()
+  async getAtomStates(): Promise<{ states: Record<EAtomNames, any> }> {
+    const atoms = await this.allAtoms;
+    const states = {} as Record<EAtomNames, any>;
+    await Promise.all(
+      Object.entries(atoms).map(async ([key, value]) => {
+        states[key as EAtomNames] = await value.get();
+      }),
+    );
+    return { states };
+  }
+
+  @bindThis()
+  @backgroundMethod()
+  async setAtomValue(atomName: EAtomNames, value: any) {
+    const atoms = await this.allAtoms;
+    const atom = atoms[atomName];
+    if (!atom) {
+      throw new Error(`setAtomValue ERROR: atomName not found: ${atomName}`);
+    }
+    await atom.set(value);
   }
 
   cycleDepsCheck() {
