@@ -63,9 +63,9 @@ function useDemoAppNavigation<
   const iosHeaderStyle = Platform.select<StackNavigationOptions>({
     ios: {
       headerStyle: {
-        backgroundColor: bgColor as string,
+        backgroundColor: bgColor,
       },
-      headerTintColor: titleColor as string,
+      headerTintColor: titleColor,
     },
   });
 

@@ -1,4 +1,5 @@
 import { isNil } from 'lodash';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function openUrl(url: string) {
@@ -68,7 +69,6 @@ export function getExtensionIndexHtml() {
   }
   return EXT_HTML_FILES.uiExpandTab;
 }
-
 
 export default {
   openUrl,

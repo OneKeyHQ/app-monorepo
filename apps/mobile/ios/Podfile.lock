@@ -86,8 +86,6 @@ PODS:
   - hermes-engine/Pre-built (0.72.5)
   - IQKeyboardManagerSwift (6.5.11)
   - JWTDecode (3.0.1)
-  - JXCategoryView (1.6.1)
-  - JXPagingView/Pager (2.1.2)
   - libevent (2.1.12)
   - lottie-ios (4.3.3)
   - lottie-react-native (6.3.1):
@@ -406,8 +404,6 @@ PODS:
     - React-Core
   - react-native-netinfo (9.4.1):
     - React-Core
-  - react-native-pager-view (6.2.2):
-    - React-Core
   - react-native-randombytes (3.6.1):
     - React-Core
   - react-native-safe-area-context (4.7.2):
@@ -634,8 +630,6 @@ DEPENDENCIES:
   - FBReactNativeSpec (from `../../../node_modules/react-native/React/FBReactNativeSpec`)
   - glog (from `../../../node_modules/react-native/third-party-podspecs/glog.podspec`)
   - hermes-engine (from `../../../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
-  - JXCategoryView
-  - JXPagingView/Pager
   - libevent (~> 2.1.12)
   - lottie-react-native (from `../../../node_modules/lottie-react-native`)
   - RCT-Folly (from `../../../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec`)
@@ -658,7 +652,6 @@ DEPENDENCIES:
   - react-native-metrix (from `../../../node_modules/react-native-metrix`)
   - react-native-mmkv (from `../../../node_modules/react-native-mmkv`)
   - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
-  - react-native-pager-view (from `../../../node_modules/react-native-pager-view`)
   - react-native-randombytes (from `../../../node_modules/react-native-randombytes`)
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
   - "react-native-slider (from `../../../node_modules/@react-native-community/slider`)"
@@ -701,8 +694,6 @@ SPEC REPOS:
     - fmt
     - IQKeyboardManagerSwift
     - JWTDecode
-    - JXCategoryView
-    - JXPagingView
     - libevent
     - lottie-ios
     - MMKV
@@ -818,8 +809,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-mmkv"
   react-native-netinfo:
     :path: "../../../node_modules/@react-native-community/netinfo"
-  react-native-pager-view:
-    :path: "../../../node_modules/react-native-pager-view"
   react-native-randombytes:
     :path: "../../../node_modules/react-native-randombytes"
   react-native-safe-area-context:
@@ -926,8 +915,6 @@ SPEC CHECKSUMS:
   hermes-engine: f6cf92a471053245614d9d8097736f6337d5b86c
   IQKeyboardManagerSwift: c7955c0bdbf7b2eb29bb7daaa44e3d90f55a9a85
   JWTDecode: 2eed97c2fa46ccaf3049a787004eedf0be474a87
-  JXCategoryView: 7b1ee69ede4843c581688afe84d0f047723262f2
-  JXPagingView: 90924b364a2ff7e94db534fad1fa50925ff69ee4
   libevent: 4049cae6c81cdb3654a443be001fb9bdceff7913
   lottie-ios: 25e7b2675dad5c3ddad369ac9baab03560c5bfdd
   lottie-react-native: c9f1db4f4124dcce9f8159e65d8dc6e8bcb11fb4
@@ -952,7 +939,6 @@ SPEC CHECKSUMS:
   react-native-metrix: d65e435f30b0d303fff85b01794c33ad349dd329
   react-native-mmkv: 9ae7ca3977e8ef48dbf7f066974eb844c20b5fd7
   react-native-netinfo: fefd4e98d75cbdd6e85fc530f7111a8afdf2b0c5
-  react-native-pager-view: 02a5c4962530f7efc10dd51ee9cdabeff5e6c631
   react-native-randombytes: 421f1c7d48c0af8dbcd471b0324393ebf8fe7846
   react-native-safe-area-context: 7aa8e6d9d0f3100a820efb1a98af68aa747f9284
   react-native-slider: 1cdd6ba29675df21f30544253bf7351d3c2d68c4
@@ -994,6 +980,6 @@ SPEC CHECKSUMS:
   Yoga: 86fed2e4d425ee4c6eab3813ba1791101ee153c6
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
-PODFILE CHECKSUM: 33db8955d11b0984bcb68b0c3f0b228856fcf638
+PODFILE CHECKSUM: 841ade86d77e2013a5a43c43e75c47c10296dcd3
 
 COCOAPODS: 1.12.1

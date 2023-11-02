@@ -31,6 +31,7 @@ import WebviewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 import AlertGallery from '../../views/Components/stories/Alert';
 import DividerGallery from '../../views/Components/stories/Divider';
 import FormGallery from '../../views/Components/stories/Form';
+import JotaiGlobalGallery from '../../views/Components/stories/JotaiGlobalGallery';
 import QRCodeGallery from '../../views/Components/stories/QRCode';
 import SkeletonGallery from '../../views/Components/stories/Skeleton';
 import TextAreaGallery from '../../views/Components/stories/TextArea';
@@ -84,6 +85,7 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentAlert, component: AlertGallery },
   { name: GalleryRoutes.ComponentDivider, component: DividerGallery },
   { name: GalleryRoutes.ComponentTheme, component: ThemeGallery },
+  { name: GalleryRoutes.ComponentJotaiGlobal, component: JotaiGlobalGallery },
   {
     name: GalleryRoutes.ComponentForm,
     component: FormGallery,
@@ -120,7 +122,7 @@ const DevScreen = () => {
             key={stack.name}
             name={stack.name}
             component={stack.component}
-            options={({ navigation }: { navigation: any }) => ({
+            options={() => ({
               headerStyle: {
                 backgroundColor: theme.bgApp.val,
               },
