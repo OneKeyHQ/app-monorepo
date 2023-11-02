@@ -507,9 +507,6 @@ module.exports = [
   'unregister',
   'debounce',
   'goto',
-<<<<<<< HEAD
-  'oncomplete',
-=======
   'Polkadot',
   'Solana',
   'localhost',
@@ -519,5 +516,4 @@ module.exports = [
   'enums',
   'Xxs',
   'bitcoind',
->>>>>>> x
 ];
