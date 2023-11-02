@@ -811,7 +811,7 @@ export default class Vault extends VaultBase {
             );
           }
 
-          // when send NFT, if the receiver is not a token account, the error message is:
+          // sending some NFT has minimum balance requirements
           if (
             rpcErrorData.code === -32002 &&
             rpcErrorData.message.startsWith('Transaction simulation failed')
