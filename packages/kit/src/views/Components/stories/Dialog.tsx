@@ -2,22 +2,20 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import {
-  Adapt as TMAdapt,
-  Dialog as TMDialog,
-  Sheet as TMSheet,
-} from 'tamagui';
 
-import type { DialogProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
   Input,
   Text,
   TextArea,
+  Toast,
   XStack,
   YStack,
+  useDialogForm,
+  useDialogInstance,
 } from '@onekeyhq/components';
+import type { DialogProps } from '@onekeyhq/components/src/Dialog/type';
 import type { ModalNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import { GalleryRoutes } from '../../../routes/Gallery/routes';
@@ -25,84 +23,6 @@ import { GalleryRoutes } from '../../../routes/Gallery/routes';
 import { Layout } from './utils/Layout';
 
 import type { UseFormReturn } from 'react-hook-form';
-
-function DialogInstance() {
-  const [open, setOpen] = useState(false);
-  const [show, setShow] = useState(false);
-
-  return (
-    <TMDialog
-      modal
-      onOpenChange={() => {
-        setOpen(open);
-      }}
-    >
-      <TMDialog.Trigger asChild>
-        <Button>Show TMDialog</Button>
-      </TMDialog.Trigger>
-
-      <TMAdapt when="md">
-        <TMSheet
-          animation="quick"
-          zIndex={200000}
-          modal
-          dismissOnSnapToBottom
-          snapPointsMode="fit"
-        >
-          <TMSheet.Frame padding="$4" gap="$4">
-            <TMAdapt.Contents />
-          </TMSheet.Frame>
-          <TMSheet.Overlay
-            animation="quick"
-            enterStyle={{ opacity: 0 }}
-            exitStyle={{ opacity: 0 }}
-          />
-        </TMSheet>
-      </TMAdapt>
-
-      <TMDialog.Portal>
-        <TMDialog.Overlay
-          key="overlay"
-          animation="quick"
-          opacity={0.5}
-          enterStyle={{ opacity: 0 }}
-          exitStyle={{ opacity: 0 }}
-        />
-
-        <TMDialog.Content
-          bordered
-          elevate
-          key="content"
-          animateOnly={['transform', 'opacity']}
-          animation={[
-            'quick',
-            {
-              opacity: {
-                overshootClamping: true,
-              },
-            },
-          ]}
-          enterStyle={{ x: 0, y: -20, opacity: 0, scale: 0.9 }}
-          exitStyle={{ x: 0, y: 10, opacity: 0, scale: 0.95 }}
-          gap="$4"
-        >
-          <TMDialog.Title>Edit profile</TMDialog.Title>
-          <TMDialog.Description>
-            Make changes to your profile here. Click save when you're done.
-          </TMDialog.Description>
-          <Button
-            onPress={() => {
-              setShow(!show);
-            }}
-          >
-            Show
-          </Button>
-          {show && <Text>hiddenContent</Text>}
-        </TMDialog.Content>
-      </TMDialog.Portal>
-    </TMDialog>
-  );
-}
 
 const VariantsDemo = ({ tone }: DialogProps) => {
   const [isOpen, changeIsOpen] = useState(false);
@@ -204,6 +124,46 @@ const HideFooterDialog = () => {
   );
 };
 
+const CustomFooter = ({ index }: { index: number }) => {
+  const dialog = useDialogInstance();
+  const form = useDialogForm();
+  return (
+    <XStack space="$4" justifyContent="center">
+      <Button
+        onPress={() => {
+          console.log(form?.getValues());
+          dialog?.close();
+        }}
+      >
+        Close
+      </Button>
+      <Button
+        onPress={() => {
+          Dialog.confirm({
+            title: `#${index}`,
+            // eslint-disable-next-line @typescript-eslint/no-use-before-define
+            renderContent: <ContentA index={index} />,
+            showFooter: false,
+          });
+        }}
+      >
+        New
+      </Button>
+    </XStack>
+  );
+};
+
+function ContentA({ index }: { index: number }) {
+  return (
+    <Dialog.Form useFormProps={{}}>
+      <Dialog.FormField label="Password" name="password">
+        <Input />
+      </Dialog.FormField>
+      <CustomFooter index={index + 1} />
+    </Dialog.Form>
+  );
+}
+
 const DialogNavigatorDemo = () => {
   const navigation = useNavigation<
     ModalNavigationProp<{
@@ -227,6 +187,10 @@ const DialogNavigatorDemo = () => {
             onConfirm: () => {},
           });
           setTimeout(() => {
+            Toast.error({
+              title: 'Toaster is always on top',
+              duration: 3,
+            });
             navigation.push(GalleryRoutes.Components);
           }, 1500);
         }}
@@ -246,10 +210,6 @@ const DialogGallery = () => (
     ]}
     boundaryConditions={['禁止将 Dialog 作为路由页面使用']}
     elements={[
-      {
-        title: 'TM',
-        element: <DialogInstance />,
-      },
       {
         title: 'Variants',
         element: (
@@ -356,7 +316,7 @@ const DialogGallery = () => (
                   renderContent: (
                     <Dialog.Form
                       useFormProps={{
-                        defaultValues: {
+                        values: {
                           name: 'Nate Wienert',
                           length: '1234567',
                         },
@@ -388,7 +348,7 @@ const DialogGallery = () => (
                       </Dialog.FormField>
                     </Dialog.Form>
                   ),
-                  onConfirm: async ({ form }) => {
+                  onConfirm: async (form) => {
                     if (form) {
                       const isValid = await form.trigger();
                       if (isValid) {
@@ -421,7 +381,7 @@ const DialogGallery = () => (
                   renderContent: (
                     <Dialog.Form
                       useFormProps={{
-                        defaultValues: {
+                        values: {
                           name: 'Nate Wienert',
                           input: '1234567',
                           textArea: 'textArea',
@@ -499,7 +459,7 @@ const DialogGallery = () => (
                       }
                     </Dialog.Form>
                   ),
-                  onConfirm: async ({ form }) => {
+                  onConfirm: async (form) => {
                     if (form) {
                       const isValid = await form.trigger();
                       if (isValid) {
@@ -545,6 +505,50 @@ const DialogGallery = () => (
               }
             >
               Open Dialog Form
+            </Button>
+          </YStack>
+        ),
+      },
+      {
+        title: '命令式 API, Close Dialog ',
+        element: (
+          <YStack>
+            <Button
+              mt="$4"
+              onPress={() => {
+                const dialog = Dialog.confirm({
+                  title: '1500ms',
+                  renderContent: (
+                    <Dialog.Form>
+                      <Dialog.FormField label="Name" name="name">
+                        <Input
+                          autoFocus
+                          flex={1}
+                          placeholder="only numeric value"
+                        />
+                      </Dialog.FormField>
+                    </Dialog.Form>
+                  ),
+                  onConfirm: () => {},
+                });
+                setTimeout(() => {
+                  dialog.close();
+                }, 1500);
+              }}
+            >
+              Close Dialog!
+            </Button>
+            <Button
+              mt="$4"
+              onPress={() => {
+                Dialog.confirm({
+                  title: '#1',
+                  renderContent: <ContentA index={1} />,
+                  showFooter: false,
+                });
+              }}
+            >
+              Close Dialog by Hooks !
             </Button>
           </YStack>
         ),
