@@ -1,10 +1,8 @@
 import type { ReactElement } from 'react';
 import { useEffect, useState } from 'react';
 
-const PortalComponentsMap: Map<
-  string,
-  ReactElement<{ name: string }>
-> = new Map();
+type PortalComponentsMapType = Map<string, ReactElement<{ name: string }>>;
+const PortalComponentsMap: PortalComponentsMapType = new Map();
 
 let onUpdateComponentsCallback: () => void;
 
