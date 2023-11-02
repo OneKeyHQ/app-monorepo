@@ -61,7 +61,7 @@ export abstract class LocalDbBase {
     if (ctx && ctx.verifyString !== DEFAULT_VERIFY_STRING) {
       return this.checkPassword(ctx, password);
     }
-    return true;
+    throw new WrongPassword();
   }
 
   abstract updatePassword(

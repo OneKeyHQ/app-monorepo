@@ -11,6 +11,7 @@ import {
   Toast,
   YStack,
 } from '@onekeyhq/components';
+import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import useBiologyAuth from '../../components/Password/hooks/useBiologyAuth';
 import PasswordSetup from '../../components/Password/PasswordSetup';
@@ -21,12 +22,17 @@ const Swap = () => {
   console.log('swap');
   const { isSupportBiologyAuth, enableBiologyAuth, setBiologyAuthEnable } =
     useBiologyAuth();
+  const [settings] = useSettingsAtom();
   return (
     <Screen>
       <YStack space="@4">
         <Text>Swap</Text>
         <Button
           onPress={() => {
+            if (settings.passwordSet) {
+              Toast.error({ title: '已设置密码' });
+              return;
+            }
             Dialog.confirm({
               title: 'SetupPassword',
               renderContent: (

@@ -12,6 +12,7 @@ import {
 import * as error from '@onekeyhq/shared/src/errors';
 
 import localDb from '../dbs/local/localDb';
+import { settingsAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
@@ -85,7 +86,10 @@ export default class ServicePassword extends ServiceBase {
     const enCodedNewPassword = encodeSensitiveText({ text: newPassword });
     await this.validatePasswordStrength(enCodedNewPassword);
     await localDb.updatePassword(enCodedOldPassword, enCodedNewPassword);
-    // TODO update status passwordSet
+    const settings = await settingsAtom.get();
+    if (!settings.passwordSet) {
+      await settingsAtom.set((v) => ({ ...v, passwordSet: true }));
+    }
     await this.saveCachedPassword(enCodedNewPassword);
     return enCodedNewPassword;
   }

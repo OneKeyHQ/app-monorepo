@@ -45,7 +45,7 @@ const PasswordUpdate = ({ onUpdateRes }: IPasswordUpdateProps) => {
               await savePassword(updatePasswordRes);
             }
             onUpdateRes(updatePasswordRes);
-            Toast.success({ title: 'password set success' });
+            Toast.success({ title: 'password update success' });
           }
         } catch (e) {
           onUpdateRes('');
