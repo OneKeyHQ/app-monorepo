@@ -47,7 +47,7 @@ let cancelSubscription: () => void;
 export const startLogging = () => {
   if (!isLogging) {
     isLogging = true;
-    initLogFolder();
+    void initLogFolder();
     cancelSubscription = onUpdate((info) => {
       metrixLogger.info(JSON.stringify(info));
     });
