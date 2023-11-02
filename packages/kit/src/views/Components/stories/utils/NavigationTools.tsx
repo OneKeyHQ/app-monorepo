@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { useIsFocused } from '@react-navigation/core';
 
 import { Text } from '@onekeyhq/components';
-import useIsActiveTab from '@onekeyhq/components/src/TabView/hooks/useIsActiveTab';
+// import useIsActiveTab from '@onekeyhq/components/src/TabView/hooks/useIsActiveTab';
 
 export function NavigationFocusTools({
   componentName,
@@ -17,22 +17,6 @@ export function NavigationFocusTools({
       `<=== NavigationFocus: ${componentName} isFocused: ${
         isFocused ? 'true' : 'false'
       }`,
-    );
-  }, [componentName, isFocused]);
-
-  return (
-    <Text>
-      {componentName} isFocused: {isFocused ? 'true' : 'false'}
-    </Text>
-  );
-}
-
-export function TabsFocusTools({ componentName }: { componentName: string }) {
-  const isFocused = useIsActiveTab(componentName);
-
-  useEffect(() => {
-    console.log(
-      `::> tabs ${componentName} isFocused: ${isFocused ? 'true' : 'false'}`,
     );
   }, [componentName, isFocused]);
 

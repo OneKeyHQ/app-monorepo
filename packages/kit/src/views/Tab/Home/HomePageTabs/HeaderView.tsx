@@ -10,10 +10,9 @@ import { TabHomeRoutes } from '../../../../routes/Root/Tab/Home/Routes';
 
 import type { TabHomeParamList } from '../../../../routes/Root/Tab/Home/Routes';
 
-export default function HomePageHeaderView({
-  switchDemoVisible,
-}: {
-  switchDemoVisible: () => void;
+export default function HomePageHeaderView({}: // switchDemoVisible,
+{
+  // switchDemoVisible: () => void;
 }) {
   const navigation = useAppNavigation<PageNavigationProp<TabHomeParamList>>();
   const [headerHighMode, setHeaderHighMode] = useState(true);
@@ -22,9 +21,9 @@ export default function HomePageHeaderView({
     setHeaderHighMode((pre) => !pre);
   }, []);
 
-  const switchDemoVisibleCall = useCallback(() => {
-    switchDemoVisible?.();
-  }, [switchDemoVisible]);
+  // const switchDemoVisibleCall = useCallback(() => {
+  //   switchDemoVisible?.();
+  // }, [switchDemoVisible]);
 
   const onNextPageCall = useCallback(() => {
     navigation.push(TabHomeRoutes.TabHomeStack1);
@@ -37,7 +36,7 @@ export default function HomePageHeaderView({
         <Text>{`Header Height ${headerHighMode.toString()}`}</Text>
         {headerHighMode && <Text py="$10">Very high</Text>}
         <Button onPress={headerHeightCall}>切换高度</Button>
-        <Button onPress={switchDemoVisibleCall}>切换 Demo3 显示</Button>
+        {/* <Button onPress={switchDemoVisibleCall}>切换 Demo3 显示</Button> */}
         <Button onPress={onNextPageCall}>下一页</Button>
         <Button
           onPress={() => {
@@ -57,7 +56,7 @@ export default function HomePageHeaderView({
       headerHighMode,
       headerHeightCall,
       onNextPageCall,
-      switchDemoVisibleCall,
+      // switchDemoVisibleCall,
       navigation,
     ],
   );

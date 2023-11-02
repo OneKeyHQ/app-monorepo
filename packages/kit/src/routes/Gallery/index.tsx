@@ -122,7 +122,7 @@ const DevScreen = () => {
             key={stack.name}
             name={stack.name}
             component={stack.component}
-            options={({ navigation }: { navigation: any }) => ({
+            options={() => ({
               headerStyle: {
                 backgroundColor: theme.bgApp.val,
               },
