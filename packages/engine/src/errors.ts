@@ -445,6 +445,19 @@ export class MinimumTransferBalanceRequiredError extends OneKeyError {
   }
 }
 
+export class MinimumTransferBalanceRequiredForSendingAssetError extends OneKeyError {
+  override key =
+    'msg__sending_str_requires_an_account_balance_of_at_least_str_str';
+
+  constructor(name: string, amount: string, symbol: string) {
+    super('', {
+      '0': name,
+      '1': amount,
+      '2': symbol,
+    });
+  }
+}
+
 // all networks ----------------------------------------------
 export class AllNetworksMinAccountsError extends OneKeyError {
   override key = 'msg__you_need_str_accounts_on_any_network_to_create';

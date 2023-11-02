@@ -20,7 +20,7 @@ import {
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
-import { isArray, isEmpty, isNil, omit } from 'lodash';
+import { isArray, isEmpty, isNaN, isNil, omit } from 'lodash';
 
 import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
@@ -37,6 +37,7 @@ import simpleDb from '../../../dbs/simple/simpleDb';
 import {
   InvalidAddress,
   MinimumTransferBalanceRequiredError,
+  MinimumTransferBalanceRequiredForSendingAssetError,
   NotImplemented,
   OneKeyError,
   OneKeyInternalError,
@@ -808,6 +809,32 @@ export default class Vault extends VaultBase {
               '0.00089088',
               network.symbol,
             );
+          }
+
+          // when send NFT, if the receiver is not a token account, the error message is:
+          if (
+            rpcErrorData.code === -32002 &&
+            rpcErrorData.message.startsWith('Transaction simulation failed')
+          ) {
+            const logs = (rpcErrorData.data?.logs ?? []) as string[];
+            for (const log of logs) {
+              const match = log.match(
+                /Transfer: insufficient lamports \d+, need (\d+)/,
+              );
+
+              const minimumBalance = Number(match?.[1]);
+
+              if (!isNaN(minimumBalance)) {
+                isNodeBehind = false;
+                throw new MinimumTransferBalanceRequiredForSendingAssetError(
+                  'NFT',
+                  new BigNumber(minimumBalance)
+                    .shiftedBy(-network.decimals)
+                    .toFixed(),
+                  network.symbol,
+                );
+              }
+            }
           }
 
           // https://marinade.finance/app/defi/
