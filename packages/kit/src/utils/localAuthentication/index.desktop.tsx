@@ -48,13 +48,7 @@ export const localAuthenticate: () => Promise<LocalAuthenticationResult> =
 export const savePassword = (password: string) => {
   let text = password;
   if (text) {
-    try {
-      text = decodeSensitiveText({ encodedText: text });
-    } catch (e: any) {
-      //   debugLogger.common.error(
-      //     'method localAuthentication.savePassword() failed to decodeSensitiveText',
-      //   );
-    }
+    text = decodeSensitiveText({ encodedText: text });
     return window?.desktopApi.secureSetItemAsync('password', text);
   }
   return window?.desktopApi.secureDelItemAsync('password');

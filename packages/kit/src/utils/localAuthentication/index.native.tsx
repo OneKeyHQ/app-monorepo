@@ -10,9 +10,6 @@ import {
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
 
-import { appSelector } from '../../store';
-// import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
 export const hasHardwareSupported = () =>
   hasHardwareAsync().then((supported) =>
     isEnrolledAsync().then((isEnrolled) => supported && isEnrolled),
@@ -27,31 +24,15 @@ export const localAuthenticate = async () => {
 };
 
 export const savePassword = (password: string) => {
-  let text = password;
-  try {
-    text = decodeSensitiveText({ encodedText: text });
-  } catch (e: any) {
-    // debugLogger.common.error(
-    //   'method localAuthentication.savePassword() failed to decodeSensitiveText',
-    // );
-  }
-  // const instanceId = appSelector((s) => s.settings.instanceId);
-  // text = encodeSensitiveText({ text, key: instanceId });
+  const text = decodeSensitiveText({ encodedText: password });
+
   void setItemAsync('password', text);
 };
 
 export const getPassword = async () => {
-  // const instanceId = appSelector((s) => s.settings.instanceId);
   const text = await getItemAsync('password');
   if (text) {
-    try {
-      // text = decodeSensitiveText({ encodedText: text, key: instanceId });
-      const result = encodeSensitiveText({ text });
-      return result;
-    } catch (e: any) {
-      // debugLogger.common.error(
-      //   'method localAuthentication.getPassword() failed to decodeSensitiveText',
-      // );
-    }
+    const result = encodeSensitiveText({ text });
+    return result;
   }
 };

@@ -8,6 +8,7 @@ import {
   Screen,
   Switch,
   Text,
+  Toast,
   YStack,
 } from '@onekeyhq/components';
 
@@ -32,6 +33,9 @@ const Swap = () => {
                 <PasswordSetup
                   onSetupRes={(data) => {
                     console.log('setup data', data);
+                    if (data) {
+                      Toast.success({ title: '设置成功' });
+                    }
                   }}
                 />
               ),
@@ -50,6 +54,9 @@ const Swap = () => {
                 <PasswordUpdate
                   onUpdateRes={(data) => {
                     console.log('update data', data);
+                    if (data) {
+                      Toast.success({ title: '修改成功' });
+                    }
                   }}
                 />
               ),
@@ -68,6 +75,9 @@ const Swap = () => {
                 <PasswordVerify
                   onVerifyRes={(data) => {
                     console.log('verify data', data);
+                    if (data) {
+                      Toast.success({ title: '验证成功' });
+                    }
                   }}
                 />
               ),

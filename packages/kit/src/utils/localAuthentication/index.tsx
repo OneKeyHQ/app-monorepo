@@ -8,7 +8,8 @@ export const hasHardwareSupported = () =>
 export const localAuthenticate: () => Promise<LocalAuthenticationResult> = () =>
   Promise.reject(new Error('no supported'));
 
-export const savePassword = (password: string) =>
+export const savePassword = async (password: string) =>
   Promise.reject(new Error('no supported'));
 
-export const getPassword = () => Promise.reject(new Error('no supported'));
+export const getPassword = async () =>
+  Promise.reject(new Error('no supported'));
