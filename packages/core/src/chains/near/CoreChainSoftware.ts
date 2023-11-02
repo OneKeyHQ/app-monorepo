@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import BN from 'bn.js';
 import { baseDecode, baseEncode } from 'borsh';
 import bs58 from 'bs58';
@@ -22,7 +20,6 @@ import type {
   ICoreApiGetAddressesResult,
   ICoreApiPrivateKeysMap,
   ICoreApiSignBasePayload,
-  ICoreApiSignMsgPayload,
   ICoreApiSignTxPayload,
   ICurveName,
   ISignedTxPro,
@@ -164,7 +161,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return signTransaction(unsignedTx, signer);
   }
 
-  override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
+  override async signMessage(): Promise<string> {
     throw new Error('Method not implemented.');
   }
 

@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import { CoinType, newSecp256k1Address } from '@glif/filecoin-address';
 import base32Decode from 'base32-decode';
 import blake from 'blakejs';
@@ -21,7 +19,6 @@ import type {
   ICoreApiGetAddressesResult,
   ICoreApiPrivateKeysMap,
   ICoreApiSignBasePayload,
-  ICoreApiSignMsgPayload,
   ICoreApiSignTxPayload,
   ICurveName,
   ISignedTxPro,
@@ -144,7 +141,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return signTransaction(unsignedTx, signer);
   }
 
-  override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
+  override async signMessage(): Promise<string> {
     throw new Error('Method not implemented.');
   }
 
