@@ -107,7 +107,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressFromPublic(
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem> {
-    const { networkInfo, publicKey, publicKeyInfo } = query;
+    const { networkInfo, publicKey } = query;
     const network = getBtcForkNetwork(networkInfo.networkChainCode);
     // 'BTC fork UTXO account should pass account xpub but not single address publicKey.',
     const xpub = publicKey;
@@ -285,7 +285,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     });
     const pathToAddresses = payload?.btcExtraInfo?.pathToAddresses;
     const signers: { [address: string]: ISigner } = {};
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     for (const [fullPath, privateKey] of Object.entries(privateKeys)) {
       const address = pathToAddresses?.[fullPath]?.address;
       if (!address) {
@@ -722,15 +721,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
           versionBytes.public.toString(16).padStart(8, '0'),
           'hex',
         );
-        const keyPair = getBitcoinECPair().fromPrivateKey(privateKeySlice, {
-          network,
-        });
+        // const keyPair = getBitcoinECPair().fromPrivateKey(privateKeySlice, {
+        //   network,
+        // });
         try {
           xpub = bs58check.encode(
             privateKey.fill(pubVersionBytes, 0, 4).fill(publicKey, 45, 78),
           );
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const publicKeyStr1 = keyPair.publicKey.toString('hex');
+          // const publicKeyStr1 = keyPair.publicKey.toString('hex');
           const publicKeyStr2 = publicKey.toString('hex');
           // TODO publicKey is different with HD account
           //  - hd "03171d7528ce1cc199f2b8ce29ad7976de0535742169a8ba8b5a6dd55df7e589d1"
@@ -791,8 +789,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
     // template:  "m/49'/0'/$$INDEX$$'/0/0"
     // { pathPrefix: "m/49'/0'", pathSuffix: "{index}'/0/0" }
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { pathPrefix, pathSuffix } = slicePathTemplate(template);
+    const { pathPrefix } = slicePathTemplate(template);
 
     const seedBuffer = bufferUtils.toBuffer(seed);
 
@@ -900,11 +897,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
     const {
-      password,
       unsignedTx,
-      credentials,
       networkInfo: { networkChainCode },
-      btcExtraInfo,
       account,
     } = payload;
     const { psbtHex, inputsToSign } = unsignedTx;
@@ -976,8 +970,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
     const {
       account,
-      password,
-      btcExtraInfo,
       networkInfo: { networkChainCode },
     } = payload;
 

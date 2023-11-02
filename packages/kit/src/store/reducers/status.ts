@@ -1,7 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 
+import type { HomePageTabsEnum } from '../../views/Tab/Home/HomePageTabs/types';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import { HomePageTabsEnum } from '../../views/Tab/Home/HomePageTabs/types';
 
 export type IRpcStatus =
   | {

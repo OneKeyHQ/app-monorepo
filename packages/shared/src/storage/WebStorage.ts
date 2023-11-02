@@ -24,7 +24,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 class WebStorage implements AsyncStorageStatic {
   constructor() {
-    this.migrateFromLocalStorage();
+    void this.migrateFromLocalStorage();
   }
 
   mutex = new Semaphore(1);

@@ -72,6 +72,7 @@ function createBackgroundProviders({
     //   backgroundApi,
     // }),
     // near
+    // eslint-disable-next-line spellcheck/spell-checker
     // sollet
   };
 

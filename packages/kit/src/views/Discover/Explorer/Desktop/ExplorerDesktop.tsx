@@ -44,7 +44,7 @@ function HandleRebuildTabBarData() {
 
 function ExplorerHeaderCmp() {
   const { top } = useSafeAreaInsets();
-  const tabBarBgColor = useThemeValue('bgSubdued') as string;
+  const tabBarBgColor = useThemeValue('bgSubdued');
   return (
     <Stack mt={`${top ? top + 10 : 0}px`} bg={tabBarBgColor} zIndex={5}>
       <HandleRebuildTabBarData />

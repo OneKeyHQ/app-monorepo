@@ -9,12 +9,15 @@ import {
   ensureSerializable,
 } from '@onekeyhq/shared/src/utils/assertUtils';
 
+import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
+
 import type {
   IBackgroundApi,
   IBackgroundApiBridge,
   IBackgroundApiInternalCallMessage,
 } from './IBackgroundApi';
 import type ProviderApiBase from '../providers/ProviderApiBase';
+import type { EAtomNames } from '../states/jotai/atomNames';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
   IInjectedProviderNames,
@@ -25,6 +28,27 @@ import type {
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 
 export class BackgroundApiProxyBase implements IBackgroundApiBridge {
+  constructor({
+    backgroundApi,
+  }: {
+    backgroundApi?: any;
+  } = {}) {
+    if (backgroundApi) {
+      this.backgroundApi = backgroundApi as IBackgroundApi;
+    }
+    jotaiBgSync.setBackgroundApi(this as any);
+    void jotaiBgSync.jotaiInitFromUi();
+  }
+
+  async getAtomStates(): Promise<{ states: Record<EAtomNames, any> }> {
+    return this.callBackground('getAtomStates');
+  }
+
+  async setAtomValue(atomName: EAtomNames, value: any) {
+    // await this.allAtoms;
+    return this.callBackground('setAtomValue', atomName, value);
+  }
+
   store = {} as IStore;
 
   persistor = {} as IPersistor;
@@ -64,16 +88,6 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
   bridgeReceiveHandler = (
     payload: IJsBridgeMessagePayload,
   ): any | Promise<any> => this.backgroundApi?.bridgeReceiveHandler(payload);
-
-  constructor({
-    backgroundApi,
-  }: {
-    backgroundApi?: any;
-  } = {}) {
-    if (backgroundApi) {
-      this.backgroundApi = backgroundApi as IBackgroundApi;
-    }
-  }
 
   // init in NON-Ext UI env
   readonly backgroundApi?: IBackgroundApi | null = null;

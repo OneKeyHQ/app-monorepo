@@ -10,6 +10,7 @@ import WebStorage from './WebStorage';
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
 const appStorage: AsyncStorageStatic = // IndexedDB in web:
+  // eslint-disable-next-line spellcheck/spell-checker
   //    OneKeyStorage -> keyvaluepairs
   new WebStorage();
 

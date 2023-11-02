@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { isNil } from 'lodash';
 
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';

@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
@@ -24,7 +22,6 @@ import type { ISigner } from '../../base/ChainSigner';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
-  ICoreApiGetAddressQueryPublicKey,
   ICoreApiGetAddressesQueryHd,
   ICoreApiGetAddressesResult,
   ICoreApiGetPrivateKeysMapHdQuery,
@@ -48,8 +45,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }: ICoreApiGetPrivateKeysMapHdQuery & {
     curve: ICurveName;
   }): Promise<ICoreApiPrivateKeysMap> {
-    const { seed, entropy } = hdCredential;
-    const { path, address } = account;
+    const { entropy } = hdCredential;
+    const { path } = account;
 
     const xprv = await generateExportedCredential(
       password,
@@ -206,9 +203,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return result;
   }
 
-  override async getAddressFromPublic(
-    query: ICoreApiGetAddressQueryPublicKey,
-  ): Promise<ICoreApiGetAddressItem> {
+  override async getAddressFromPublic(): Promise<ICoreApiGetAddressItem> {
     throw new Error(
       'Method not implemented. use getAddressFromPrivate instead.',
     );

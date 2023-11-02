@@ -1,6 +1,7 @@
 /* eslint-disable no-var,vars-on-top */
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/IBackgroundApi';
+import type { JotaiBgSync } from '@onekeyhq/kit-bg/src/states/jotai/jotaiBgSync';
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { ProviderPrivate } from '@onekeyfe/onekey-private-provider';
@@ -20,6 +21,7 @@ declare global {
   var $onekey: IWindowOneKeyHub;
   var $backgroundApiProxy: IBackgroundApi;
   var $backgroundApi: IBackgroundApi;
+  var $jotaiBgSync: JotaiBgSync;
 
   var $$navigationShortcuts: any;
   var $$simpleDb: any;
@@ -29,6 +31,7 @@ declare global {
   var $$appDispatch: any;
   var $$appSelector: any;
   var $$appStorage: any;
+  var $$allAtoms: any;
   var $$platformEnv: any;
   var $$debugLogger: any;
   var $$localforage: any;

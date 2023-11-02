@@ -3,7 +3,7 @@
 import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
 
 import type { IBackgroundApi } from './IBackgroundApi';
-// import type ServiceApp from './services/ServiceApp';
+import type ServiceApp from '../services/ServiceApp';
 // import type ServiceBootstrap from './services/ServiceBootstrap';
 // import type ServiceCronJob from './services/ServiceCronJob';
 import type ServicePromise from '../services/ServicePromise';
@@ -18,7 +18,7 @@ class BackgroundApiProxy
 
   servicePromise = this._createProxyService('servicePromise') as ServicePromise;
 
-  // serviceApp = this._createProxyService('serviceApp') as ServiceApp;
+  serviceApp = this._createProxyService('serviceApp') as ServiceApp;
 
   // serviceCronJob = this._createProxyService('serviceCronJob') as ServiceCronJob;
 

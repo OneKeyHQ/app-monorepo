@@ -129,12 +129,12 @@ export class InvalidMnemonic extends OneKeyError {
   }
 }
 
-export type IMimimumBalanceRequiredInfo = {
+export type IMinimumBalanceRequiredInfo = {
   token: string;
   amount: string;
 };
-export class MimimumBalanceRequired extends OneKeyError<IMimimumBalanceRequiredInfo> {
-  constructor(props?: IOneKeyError<IMimimumBalanceRequiredInfo>) {
+export class MinimumBalanceRequired extends OneKeyError<IMinimumBalanceRequiredInfo> {
+  constructor(props?: IOneKeyError<IMinimumBalanceRequiredInfo>) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'MimimumBalanceRequired',
@@ -144,11 +144,11 @@ export class MimimumBalanceRequired extends OneKeyError<IMimimumBalanceRequiredI
   }
 }
 
-export type IRecipientHasNotActivedInfo = {
+export type IRecipientHasNotActivatedInfo = {
   '0': string; // tokenName
 };
-export class RecipientHasNotActived extends OneKeyError<IRecipientHasNotActivedInfo> {
-  constructor(props?: IOneKeyError<IRecipientHasNotActivedInfo>) {
+export class RecipientHasNotActivated extends OneKeyError<IRecipientHasNotActivatedInfo> {
+  constructor(props?: IOneKeyError<IRecipientHasNotActivatedInfo>) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'RecipientHasNotActived',
@@ -459,7 +459,7 @@ export class InvalidLightningPaymentRequest extends OneKeyError {
   }
 }
 
-export class InvoiceAlreadPaid extends OneKeyError {
+export class InvoiceAlreadyPaid extends OneKeyError {
   constructor(props?: IOneKeyError) {
     super(
       normalizeErrorProps(props, {
@@ -580,7 +580,7 @@ export class AllNetworksMinAccountsError extends OneKeyError {
   }
 }
 
-export class AllNetworksUpto3LimitsError extends OneKeyError {
+export class AllNetworksUpToThreeLimitsError extends OneKeyError {
   constructor(props?: IOneKeyError) {
     super(
       normalizeErrorProps(props, {

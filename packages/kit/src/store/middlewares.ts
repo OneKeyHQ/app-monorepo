@@ -23,7 +23,6 @@ if (__DEV__ && !platformEnv.isJest) {
   // const createDebugger = require('redux-flipper').default;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   // middlewares.push(createDebugger());
-
   // TODO:
   // disabled on ui components.
   // const backgroundCheck: Middleware<unknown, unknown> =

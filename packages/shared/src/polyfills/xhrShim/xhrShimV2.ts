@@ -1,3 +1,4 @@
+/* eslint-disable spellcheck/spell-checker */
 // @ts-nocheck
 // eslint-disable-next-line max-classes-per-file
 import * as mimeTypes from 'mime-types';
@@ -47,6 +48,7 @@ function extractMIMEType(headers: Headers) {
     throw new Error('missing content type');
   }
   for (const value of values) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
     const temporaryMimeType = mimeTypes.contentType(value);
     if (!temporaryMimeType || getEssence(temporaryMimeType) === '*/*') {
       // eslint-disable-next-line no-continue
@@ -583,6 +585,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
         'InvalidStateError',
       );
     }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
     this.#mime = mimeTypes.contentType(mime) || 'application/octet-stream';
   }
 
@@ -699,7 +702,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
       const t = new Promise<boolean>((res) => {
         tid = setTimeout(() => res(true), this.#timeout) as any;
       });
-      Promise.race([p, t]).then((value) => {
+      void Promise.race([p, t]).then((value) => {
         clearTimeout(tid);
         if (value) {
           this.#timedoutFlag = true;

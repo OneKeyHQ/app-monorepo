@@ -29,8 +29,10 @@ global.localStorage = new LocalStorageMock();
 global.$$onekeyAppStorage = new LocalStorageMock();
 global.fetch = require('node-fetch');
 global.WebSocket = require('isomorphic-ws');
-console.log(require('@ungap/structured-clone'));
-global.structuredClone = require('@ungap/structured-clone').default;
+
+if (typeof structuredClone === 'undefined') {
+  global.structuredClone = require('@ungap/structured-clone').default;
+}
 
 jest.mock('react-native-zip-archive', () => ({
   zip: jest.fn(),

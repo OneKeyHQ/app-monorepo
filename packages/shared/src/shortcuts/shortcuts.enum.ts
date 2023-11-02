@@ -2,7 +2,7 @@ export enum ExplorerShortcutEvents {
   NewTab = 'NewTab',
   NewTabAndFocus = 'NewTabAndFocus',
   JumpToNextTab = 'JumpToNextTab',
-  GobackHistory = 'GobackHistory',
+  GoBackHistory = 'GoBackHistory',
   GoForwardHistory = 'GoForwardHistory',
   CloseTab = 'CloseTab',
   CloseTabOnWinOrLinux = 'CloseTabOnWinOrLinux',
@@ -25,7 +25,7 @@ export const getShortcutsMap: (
     keys: isMac ? 'Cmd+Alt+Right' : 'Ctrl+Tab',
     desc: 'New Tab',
   },
-  [ExplorerShortcutEvents.GobackHistory]: {
+  [ExplorerShortcutEvents.GoBackHistory]: {
     keys: 'Alt+Left',
     desc: 'New Tab',
   },

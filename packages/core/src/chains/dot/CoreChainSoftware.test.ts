@@ -10,7 +10,6 @@ const {
   hdAccountTemplate,
   hdAccounts,
   txSamples,
-  msgSamples,
 } = coreTestsFixtures.prepareCoreChainTestsFixtures({
   networkInfo: {
     networkChainCode: 'dot',
@@ -25,6 +24,7 @@ const {
       // TODO use accountIdToAddress generate DOT real address
       address: '',
       addresses: {
+        // eslint-disable-next-line spellcheck/spell-checker
         // 12EKdsrFTWA3oZoEzoB4ZNh64VrkuLjFKDnxFpEJZx4JF2Y6
       },
       path: "m/44'/354'/0'/0'/0'",
@@ -109,7 +109,7 @@ describe('DOT Core tests', () => {
     });
   });
   it.skip('signMessage', async () => {
-    const coreApi = new CoreChainHd();
+    // const coreApi = new CoreChainHd();
     // coreApi.signMessage
     throw new Error('Method not implemented.');
   });

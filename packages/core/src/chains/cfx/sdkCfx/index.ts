@@ -21,7 +21,6 @@ export function ethAddressToCfxAddress(address: string): string {
 
 export function pubkeyToCfxAddress(
   uncompressPubKey: Buffer,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   chainId: string,
 ): Promise<string> {
   const pubkey = uncompressPubKey.slice(1);

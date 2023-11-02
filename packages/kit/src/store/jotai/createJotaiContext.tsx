@@ -17,11 +17,11 @@ export function createJotaiContext() {
   function useContextAtom<Value, Args extends any[], Result>(
     atomInstance: WritableAtom<Value, Args, Result>,
   ) {
-    const store = useContext(Context);
-    if (!store) {
+    const $store = useContext(Context);
+    if (!$store) {
       throw new Error('useContextAtom ERROR: store not initialized');
     }
-    return useAtom(atomInstance, { store });
+    return useAtom(atomInstance, { store: $store });
   }
   function withProvider<P>(WrappedComponent: React.ComponentType<P>) {
     return function WithProvider(props: P) {

@@ -1,5 +1,6 @@
 /* eslint-disable max-classes-per-file */
 import type { IJsonRpcResponse } from '@onekeyfe/cross-inpage-provider-types';
+
 export interface IJsonRpcResponsePro<T> extends IJsonRpcResponse<T> {
   error?: any;
 }

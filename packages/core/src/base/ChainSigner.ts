@@ -46,7 +46,8 @@ export class Verifier implements IVerifierPro {
     );
   }
 
-  verify(_digest: Buffer, _signature: Buffer) {
+  verify() {
+    // verify(_digest: Buffer, _signature: Buffer) {
     // Not used.
     return Promise.resolve(Buffer.from([]));
   }

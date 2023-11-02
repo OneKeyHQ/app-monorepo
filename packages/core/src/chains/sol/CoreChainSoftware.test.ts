@@ -14,7 +14,6 @@ const {
   hdAccountTemplate,
   hdAccounts,
   txSamples,
-  msgSamples,
 } = coreTestsFixtures.prepareCoreChainTestsFixtures({
   networkInfo: {
     networkChainCode: 'sol',
@@ -107,7 +106,7 @@ describe('SOL Core tests', () => {
     });
   });
   it.skip('signMessage', async () => {
-    const coreApi = new CoreChainHd();
+    // const coreApi = new CoreChainHd();
     // coreApi.signMessage
     throw new Error('Method not implemented.');
   });

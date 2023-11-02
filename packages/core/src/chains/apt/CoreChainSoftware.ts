@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import { BCS, TransactionBuilder, TxnBuilderTypes } from 'aptos';
 // eslint-disable-next-line camelcase
 import { sha3_256 } from 'js-sha3';

@@ -41,7 +41,7 @@ export function createTimeoutPromise<T>({
     }, timeout);
 
     const p = asyncFunc();
-    p.then((result) => {
+    void p.then((result) => {
       if (isResolved) {
         return;
       }
