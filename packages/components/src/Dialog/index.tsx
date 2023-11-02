@@ -155,6 +155,7 @@ function DialogFrame({
         size="small"
         onPress={handleCancelButtonPress}
       />
+
       {renderContent && (
         <YStack px="$5" pb="$5">
           {renderContent}

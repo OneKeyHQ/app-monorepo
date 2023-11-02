@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import { Psbt } from 'bitcoinjs-lib';
 
 import CoreChainSoftwareBtc from '../btc/CoreChainSoftware';

@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import {
   crypto_hash as CryptoHash,
   starcoin_types as StarcoinTypes,
@@ -22,7 +20,6 @@ import type {
   ICoreApiGetAddressesResult,
   ICoreApiPrivateKeysMap,
   ICoreApiSignBasePayload,
-  ICoreApiSignMsgPayload,
   ICoreApiSignTxPayload,
   ICurveName,
   ISignedTxPro,
@@ -163,7 +160,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return buildSignedTx(senderPublicKey as string, signature, rawTxn);
   }
 
-  override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
+  override async signMessage(): Promise<string> {
     throw new Error('Method not implemented.');
   }
 

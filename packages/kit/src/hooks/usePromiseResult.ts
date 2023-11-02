@@ -108,19 +108,15 @@ export function usePromiseResult<T>(
       };
 
       if (optionsRef.current.debounced) {
-        const runnderDebounced = debounce(
-          runner,
-          optionsRef.current.debounced,
-          {
-            leading: false,
-            trailing: true,
-          },
-        );
+        const runnerDebounced = debounce(runner, optionsRef.current.debounced, {
+          leading: false,
+          trailing: true,
+        });
         return async (config?: IRunnerConfig) => {
           if (shouldSetState()) {
             setLoadingTrue();
           }
-          await runnderDebounced(config);
+          await runnerDebounced(config);
         };
       }
 
