@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // import webembedApiProxy from '@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy';
 
 import type { IAdaSdk, IEnsureSDKReady, IGetCardanoApi } from './types';

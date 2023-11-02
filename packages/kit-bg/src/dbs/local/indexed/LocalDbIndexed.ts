@@ -1,4 +1,5 @@
-import { get, isNil } from 'lodash';
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import { isNil } from 'lodash';
 
 import { decodePassword, decrypt, encrypt } from '@onekeyhq/core/src/secret';
 import {

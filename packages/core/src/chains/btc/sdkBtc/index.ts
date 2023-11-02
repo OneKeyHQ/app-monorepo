@@ -110,16 +110,12 @@ export function getInputsToSignFromPsbt({
   const inputsToSign: InputToSign[] = [];
   psbt.data.inputs.forEach((v, index) => {
     let script: any = null;
-    let value = 0;
     if (v.witnessUtxo) {
       script = v.witnessUtxo.script;
-      value = v.witnessUtxo.value;
     } else if (v.nonWitnessUtxo) {
       const tx = Transaction.fromBuffer(v.nonWitnessUtxo);
       const output = tx.outs[psbt.txInputs[index].index];
       script = output.script;
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      value = output.value;
     }
     const isSigned = v.finalScriptSig || v.finalScriptWitness;
 

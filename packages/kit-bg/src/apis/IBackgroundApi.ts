@@ -4,7 +4,9 @@ import type { IAppSelector, IPersistor, IStore } from '@onekeyhq/kit/src/store';
 
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type ServicePassword from '../services/ServicePassword';
+import type ServiceApp from '../services/ServiceApp';
 import type ServicePromise from '../services/ServicePromise';
+import type { EAtomNames } from '../states/jotai/atomNames';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
   IInjectedProviderNames,
@@ -15,9 +17,9 @@ import type {
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
-// import type ServiceApp from './services/ServiceApp';
-// import type ServiceBootstrap from './services/ServiceBootstrap';
-// import type ServiceCronJob from './services/ServiceCronJob';
+
+// import type ServiceBootstrap from '../services/ServiceBootstrap';
+// import type ServiceCronJob from '../services/ServiceCronJob';
 
 export type IBackgroundApiInternalCallMessage = IJsonRpcRequest & {
   service: string;
@@ -30,6 +32,10 @@ export interface IBackgroundApiBridge {
   dispatch: (...actions: any[]) => void;
   getState: () => Promise<{ state: any; bootstrapped: boolean }>;
   appSelector: IAppSelector;
+
+  // **** jotai
+  setAtomValue: (atomName: EAtomNames, value: any) => Promise<void>;
+  getAtomStates: () => Promise<{ states: Record<EAtomNames, any> }>;
 
   // **** webview bridge
   bridge: JsBridgeBase | null;
@@ -51,7 +57,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   // **** services
   servicePromise: ServicePromise;
   servicePassword: ServicePassword;
+  serviceApp: ServiceApp;
   // serviceBootstrap: ServiceBootstrap;
   // serviceCronJob: ServiceCronJob;
-  // serviceApp: ServiceApp;
 }

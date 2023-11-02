@@ -20,7 +20,7 @@ function handleWarnings(result) {
 
 try {
   const result = execSync(
-    `sh -c 'npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"'`,
+    `sh -c 'npx eslint . --ext .ts,.tsx --fix --cache --cache-location "$(yarn config get cacheFolder)"'`,
   ).toString('utf-8');
   console.log(result);
   handleWarnings(result);
@@ -29,7 +29,7 @@ try {
   console.log(result);
 
   const errorCount = Number(result.match(/(\d+) errors/)?.[1]);
-  const isErrorExit = errorCount > MAX_ERROR_COUNT
+  const isErrorExit = errorCount > MAX_ERROR_COUNT;
   if (isErrorExit) {
     console.log(`Error Counts: ${errorCount}`);
     console.log(`Please do not add more ESLint errors than ${MAX_ERROR_COUNT}`);

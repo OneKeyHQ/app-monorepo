@@ -42,7 +42,7 @@ export const savePassword = (password: string) => {
 
 export const getPassword = async () => {
   // const instanceId = appSelector((s) => s.settings.instanceId);
-  let text = await getItemAsync('password');
+  const text = await getItemAsync('password');
   if (text) {
     try {
       // text = decodeSensitiveText({ encodedText: text, key: instanceId });
