@@ -5,6 +5,8 @@ import { Form, Input, Toast, useForm } from '@onekeyhq/components';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { savePassword } from '../../utils/localAuthentication';
 
+import useBiologyAuth from './hooks/useBiologyAuth';
+
 interface IPasswordUpdateForm {
   newPassword: string;
   oldPassword: string;
@@ -23,6 +25,7 @@ const PasswordUpdate = ({ onUpdateRes }: IPasswordUpdateProps) => {
   });
   const [secureEntry, setSecureEntry] = useState(true);
   const [loading, setLoading] = useState(false);
+  const { isSupportBiologyAuth } = useBiologyAuth();
 
   const onUpdatePassword = useCallback(
     async (data: IPasswordUpdateForm) => {
@@ -37,9 +40,10 @@ const PasswordUpdate = ({ onUpdateRes }: IPasswordUpdateProps) => {
               data.oldPassword,
               data.newPassword,
             );
-          // TODO 生物识别打开则需要更新生物识别本地密码
           if (updatePasswordRes) {
-            await savePassword(updatePasswordRes);
+            if (isSupportBiologyAuth) {
+              await savePassword(updatePasswordRes);
+            }
             onUpdateRes(updatePasswordRes);
             Toast.success({ title: 'password set success' });
           }
@@ -50,7 +54,7 @@ const PasswordUpdate = ({ onUpdateRes }: IPasswordUpdateProps) => {
       }
       setLoading(false);
     },
-    [form, onUpdateRes],
+    [form, isSupportBiologyAuth, onUpdateRes],
   );
 
   return (

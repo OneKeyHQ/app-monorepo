@@ -1,13 +1,25 @@
 import { memo, useState } from 'react';
 
-import { Button, Dialog, Screen, Text, YStack } from '@onekeyhq/components';
+import { XStack } from 'tamagui';
 
+import {
+  Button,
+  Dialog,
+  Screen,
+  Switch,
+  Text,
+  YStack,
+} from '@onekeyhq/components';
+
+import useBiologyAuth from '../../components/Password/hooks/useBiologyAuth';
 import PasswordSetup from '../../components/Password/PasswordSetup';
 import PasswordUpdate from '../../components/Password/PasswordUpdate';
 import PasswordVerify from '../../components/Password/PasswordVerify';
 
 const Swap = () => {
   console.log('swap');
+  const { isSupportBiologyAuth, enableBiologyAuth, setBiologyAuthEnable } =
+    useBiologyAuth();
   return (
     <Screen>
       <YStack space="@4">
@@ -66,6 +78,17 @@ const Swap = () => {
         >
           密码验证弹窗
         </Button>
+        {isSupportBiologyAuth && (
+          <XStack>
+            <Switch
+              value={enableBiologyAuth}
+              onChange={(checked) => {
+                void setBiologyAuthEnable(checked);
+              }}
+            />
+            <Text>生物识别开关</Text>
+          </XStack>
+        )}
       </YStack>
     </Screen>
   );

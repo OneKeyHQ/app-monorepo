@@ -11,6 +11,7 @@ export type ISettingsAtom = {
   version: string;
   buildNumber?: string;
   instanceId: string;
+  biologyAuthEnable: boolean;
 };
 export const { target: settingsAtom, use: useSettingsAtom } =
   globalAtom<ISettingsAtom>({
@@ -23,6 +24,7 @@ export const { target: settingsAtom, use: useSettingsAtom } =
       version: process.env.VERSION ?? '1.0.0',
       buildNumber: process.env.BUILD_NUMBER ?? '2022010100',
       instanceId: generateUUID(),
+      biologyAuthEnable: false,
     },
   });
 

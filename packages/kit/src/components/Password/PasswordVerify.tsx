@@ -11,7 +11,7 @@ import {
 import { useIntl } from 'react-intl';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
-import { Form, Input, Toast, useForm } from '@onekeyhq/components';
+import { Form, Input, useForm } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
@@ -40,7 +40,7 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
   }>({ value: 'default' });
   const intl = useIntl();
   const [secureEntry, setSecureEntry] = useState(true);
-  const { isSupportBiologyAuth } = useBiologyAuth();
+  const { enableBiologyAuth } = useBiologyAuth();
   const lastTime = useRef(0);
 
   const passwordInput = form.watch('password');
@@ -105,7 +105,7 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
       onPress?: () => void;
       loading?: boolean;
     }[] = [];
-    if (isSupportBiologyAuth && !passwordInput) {
+    if (enableBiologyAuth && !passwordInput) {
       actions.push({
         iconName: 'FaceArcSolid',
         onPress: onBiologyAuthenticate,
@@ -127,7 +127,7 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
 
     return actions;
   }, [
-    isSupportBiologyAuth,
+    enableBiologyAuth,
     passwordInput,
     onBiologyAuthenticate,
     status.value,
@@ -146,21 +146,22 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
   }, [form, status]);
 
   useLayoutEffect(() => {
-    if (isSupportBiologyAuth && !passwordInput) {
+    if (enableBiologyAuth && !passwordInput) {
       void onBiologyAuthenticate();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSupportBiologyAuth]);
+  }, [enableBiologyAuth]);
 
+  // 进入后台 1s 后返回进行生物识别验证
   const onActive = useCallback(() => {
     const now = Date.now();
     if (now - lastTime.current > 1000) {
       lastTime.current = now;
-      if (isSupportBiologyAuth && !passwordInput) {
+      if (enableBiologyAuth && !passwordInput) {
         void onBiologyAuthenticate();
       }
     }
-  }, [isSupportBiologyAuth, onBiologyAuthenticate, passwordInput]);
+  }, [enableBiologyAuth, onBiologyAuthenticate, passwordInput]);
 
   return (
     <Form form={form}>
@@ -184,7 +185,7 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
           addOns={rightActions}
         />
       </Form.Field>
-      {isSupportBiologyAuth && <AppStatusActiveListener onActive={onActive} />}
+      {enableBiologyAuth && <AppStatusActiveListener onActive={onActive} />}
     </Form>
   );
 };

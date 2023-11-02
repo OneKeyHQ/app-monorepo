@@ -3,8 +3,8 @@
 import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
 
 import type { IBackgroundApi } from './IBackgroundApi';
-import type ServicePassword from '../services/ServicePassword';
 import type ServiceApp from '../services/ServiceApp';
+import type ServicePassword from '../services/ServicePassword';
 // import type ServiceBootstrap from './services/ServiceBootstrap';
 // import type ServiceCronJob from './services/ServiceCronJob';
 import type ServicePromise from '../services/ServicePromise';

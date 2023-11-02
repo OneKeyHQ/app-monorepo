@@ -32,12 +32,13 @@ const PasswordSetup = ({ onSetupRes }: IPasswordSetupProps) => {
     defaultValues: {
       password: '',
       confirmPassword: '',
-      biologyAuth: true,
+      biologyAuth: false,
     },
   });
   const [secureEntry, setSecureEntry] = useState(true);
   const [loading, setLoading] = useState(false);
-  const { isSupportBiologyAuth } = useBiologyAuth();
+  const { isSupportBiologyAuth, setBiologyAuthEnable, enableBiologyAuth } =
+    useBiologyAuth();
 
   const onSetupPassword = useCallback(
     async (data: IPasswordSetupForm) => {
@@ -51,8 +52,9 @@ const PasswordSetup = ({ onSetupRes }: IPasswordSetupProps) => {
               '',
               data.password,
             );
+
           if (updatePasswordRes) {
-            if (data.biologyAuth) {
+            if (isSupportBiologyAuth) {
               await savePassword(updatePasswordRes);
             }
             onSetupRes(updatePasswordRes);
@@ -66,7 +68,7 @@ const PasswordSetup = ({ onSetupRes }: IPasswordSetupProps) => {
         }
       }
     },
-    [form, onSetupRes],
+    [form, isSupportBiologyAuth, onSetupRes],
   );
 
   return (
@@ -129,9 +131,10 @@ const PasswordSetup = ({ onSetupRes }: IPasswordSetupProps) => {
             <XStack justifyContent="space-between">
               <Text>生物识别</Text>
               <Switch
-                value={field.value}
+                value={enableBiologyAuth}
                 onChange={(checked) => {
                   field.onChange(checked);
+                  void setBiologyAuthEnable(checked);
                 }}
               />
             </XStack>
