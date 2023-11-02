@@ -29,7 +29,7 @@ export enum GalleryRoutes {
   ComponentToggleGroup = 'component/toggleGroup',
   ComponentTheme = 'component/theme',
   ComponentJotaiGlobal = 'component/jotaiGlobal',
-  ComponentTabview = 'component/tabview',
+  ComponentTabview = 'component/tabView',
   componentQRCode = 'component/qrCode',
   ComponentWebview = 'component/webview',
   ComponentListItem = 'component/ComponentListItem',
