@@ -37,7 +37,7 @@ export const savePassword = (password: string) => {
   }
   const instanceId = appSelector((s) => s.settings.instanceId);
   text = encodeSensitiveText({ text, key: instanceId });
-  void setItemAsync('password', text);
+  return setItemAsync('password', text);
 };
 
 export const getPassword = async () => {

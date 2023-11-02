@@ -55,10 +55,9 @@ export const savePassword = (password: string) => {
       //     'method localAuthentication.savePassword() failed to decodeSensitiveText',
       //   );
     }
-    void window?.desktopApi.secureSetItemAsync('password', text);
-  } else {
-    void window?.desktopApi.secureDelItemAsync('password');
+    return window?.desktopApi.secureSetItemAsync('password', text);
   }
+  return window?.desktopApi.secureDelItemAsync('password');
 };
 
 export const getPassword = async () => {

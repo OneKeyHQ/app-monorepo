@@ -185,9 +185,9 @@ const checkIsRuntimeEdge = (): boolean => {
   }
   const isChromium = window.chrome;
   const winNav = window.navigator as typeof window.navigator | undefined;
-  const isIEedge = winNav ? winNav.userAgent.indexOf('Edg') > -1 : false;
+  const isIEEdge = winNav ? winNav.userAgent.indexOf('Edg') > -1 : false;
 
-  if (isChromium && isIEedge === true) return true;
+  if (isChromium && isIEEdge === true) return true;
 
   return false;
 };
@@ -208,7 +208,7 @@ const checkIsRuntimeChrome = (): boolean => {
   const vendorName = winNav ? winNav.vendor : '';
   // @ts-ignore
   const isOpera = typeof window.opr !== 'undefined';
-  const isIEedge = winNav ? winNav.userAgent.indexOf('Edg') > -1 : false;
+  const isIEEdge = winNav ? winNav.userAgent.indexOf('Edg') > -1 : false;
   const isIOSChrome = /CriOS/.exec(winNav ? winNav.userAgent : '');
 
   if (isIOSChrome) {
@@ -220,7 +220,7 @@ const checkIsRuntimeChrome = (): boolean => {
     typeof isChromium !== 'undefined' &&
     vendorName === 'Google Inc.' &&
     !isOpera &&
-    !isIEedge
+    !isIEEdge
   ) {
     // is Google Chrome
     return true;

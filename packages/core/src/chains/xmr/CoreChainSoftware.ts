@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -13,12 +11,10 @@ import type { IEncodedTxXmr, ISendFundsArgs } from './types';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
-  ICoreApiGetAddressQueryPublicKey,
   ICoreApiGetAddressesQueryHd,
   ICoreApiGetAddressesResult,
   ICoreApiPrivateKeysMap,
   ICoreApiSignBasePayload,
-  ICoreApiSignMsgPayload,
   ICoreApiSignTxPayload,
   ICurveName,
   ISignedTxPro,
@@ -42,7 +38,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   ): Promise<ISignedTxPro> {
     const moneroApi = await getMoneroApi();
     // throw new Error('Method not implemented.');
-    const { unsignedTx, password } = payload;
+    const { unsignedTx } = payload;
     const signer = await this.baseGetSingleSigner({
       payload,
       curve,
@@ -100,7 +96,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return signedTx;
   }
 
-  override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
+  override async signMessage(): Promise<string> {
     throw new Error('Method not implemented.');
   }
 
@@ -140,9 +136,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     };
   }
 
-  override async getAddressFromPublic(
-    query: ICoreApiGetAddressQueryPublicKey,
-  ): Promise<ICoreApiGetAddressItem> {
+  override async getAddressFromPublic(): Promise<ICoreApiGetAddressItem> {
     throw new Error(
       'Method not implemented, use getAddressFromPrivate instead.',
     );
