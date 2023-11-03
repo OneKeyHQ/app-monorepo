@@ -18,6 +18,7 @@ build({
   platform: 'node',
   bundle: true,
   target: 'node16',
+  // Help esbuild locate missing dependencies.
   alias: {
     '@onekeyhq/shared': path.join(__dirname, '../../../packages/shared'),
     'react-native-uuid': path.join(
