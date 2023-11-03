@@ -11,11 +11,10 @@ import {
   XStack,
   useForm,
 } from '@onekeyhq/components';
+import { encodePassword } from '@onekeyhq/core/src/secret';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { savePassword } from '../../utils/localAuthentication';
-
-import useBiologyAuth from './hooks/useBiologyAuth';
+import useBiologyAuthSettings from '../../hooks/useBiologyAuthSettings';
 
 interface IPasswordSetupForm {
   password: string;
@@ -38,7 +37,7 @@ const PasswordSetup = ({ onSetupRes }: IPasswordSetupProps) => {
   const [secureEntry, setSecureEntry] = useState(true);
   const [loading, setLoading] = useState(false);
   const { isSupportBiologyAuth, setBiologyAuthEnable, enableBiologyAuth } =
-    useBiologyAuth();
+    useBiologyAuthSettings();
 
   const onSetupPassword = useCallback(
     async (data: IPasswordSetupForm) => {
@@ -47,16 +46,13 @@ const PasswordSetup = ({ onSetupRes }: IPasswordSetupProps) => {
       } else {
         setLoading(true);
         try {
+          const enCodePassword = encodePassword({ password: data.password });
           const updatePasswordRes =
-            await backgroundApiProxy.servicePassword.updatePassword(
-              '',
-              data.password,
+            await backgroundApiProxy.servicePassword.setPassword(
+              enCodePassword,
             );
 
           if (updatePasswordRes) {
-            if (isSupportBiologyAuth) {
-              await savePassword(updatePasswordRes);
-            }
             onSetupRes(updatePasswordRes);
             Toast.success({ title: 'password set success' });
           }
@@ -68,7 +64,7 @@ const PasswordSetup = ({ onSetupRes }: IPasswordSetupProps) => {
         }
       }
     },
-    [form, isSupportBiologyAuth, onSetupRes],
+    [form, onSetupRes],
   );
 
   return (

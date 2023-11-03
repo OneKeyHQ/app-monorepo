@@ -29,7 +29,8 @@ function keyFromPasswordAndSalt(password: string, salt: Buffer): Buffer {
   );
 }
 
-const encodeKeyPrefix = 'ENCODE_KEY::755174C1-6480-401A-8C3D-84ADB2E0C376::';
+export const encodeKeyPrefix =
+  'ENCODE_KEY::755174C1-6480-401A-8C3D-84ADB2E0C376::';
 const encodeKey = `${encodeKeyPrefix}${generateUUID()}`;
 const ENCODE_TEXT_PREFIX =
   'SENSITIVE_ENCODE::AE7EADC1-CDA0-45FA-A340-E93BEDDEA21E::';
@@ -55,7 +56,7 @@ function decodePassword({ password }: { password: string }): string {
     console.error(
       'Passing raw password is not allowed and not safe, please encode it at the beginning of debugger breakpoint call stack.',
     );
-    debugger;
+    throw new Error('Passing raw password is not allowed and not safe.');
   }
   return password;
 }
@@ -67,17 +68,10 @@ function encodePassword({ password }: { password: string }): string {
   });
 }
 
-function encrypt(
-  password: string,
-  data: Buffer,
-  { skipSafeCheck }: { skipSafeCheck?: boolean } = {},
-): Buffer {
-  // DO NOT skip safe check if you passed a real user password to this function
-  if (!skipSafeCheck) {
-    // eslint-disable-next-line no-param-reassign
-    password = decodePassword({ password });
-  }
-
+function encrypt(password: string, data: Buffer): Buffer {
+  // eslint-disable-next-line no-param-reassign
+  password = decodePassword({ password });
+  console.log('password--', password);
   const salt: Buffer = crypto.randomBytes(PBKDF2_SALT_LENGTH);
   const key: Buffer = keyFromPasswordAndSalt(password, salt);
   const iv: Buffer = crypto.randomBytes(AES256_IV_LENGTH);
@@ -91,17 +85,12 @@ function encrypt(
 async function encryptAsync({
   password,
   data,
-  skipSafeCheck,
 }: {
   password: string;
   data: Buffer;
-  skipSafeCheck?: boolean;
 }): Promise<Buffer> {
-  // DO NOT skip safe check if you passed a real user password to this function
-  if (!skipSafeCheck) {
-    // eslint-disable-next-line no-param-reassign
-    password = decodePassword({ password });
-  }
+  // eslint-disable-next-line no-param-reassign
+  password = decodePassword({ password });
 
   if (platformEnv.isNative && !platformEnv.isJest) {
     throw new Error('webembedApiProxy not ready yet');
@@ -115,7 +104,7 @@ async function encryptAsync({
     // return bufferUtils.toBuffer(str, 'hex');
   }
 
-  return Promise.resolve(encrypt(password, data, { skipSafeCheck }));
+  return Promise.resolve(encrypt(password, data));
 }
 
 function encryptString({
@@ -129,16 +118,10 @@ function encryptString({
   return bufferUtils.bytesToHex(bytes);
 }
 
-function decrypt(
-  password: string,
-  data: Buffer,
-  { skipSafeCheck }: { skipSafeCheck?: boolean } = {},
-): Buffer {
-  // DO NOT skip safe check if you passed a real user password to this function
-  if (!skipSafeCheck) {
-    // eslint-disable-next-line no-param-reassign
-    password = decodePassword({ password });
-  }
+function decrypt(password: string, data: Buffer): Buffer {
+  // eslint-disable-next-line no-param-reassign
+  password = decodePassword({ password });
+
   const salt: Buffer = data.slice(0, PBKDF2_SALT_LENGTH);
   const key: Buffer = keyFromPasswordAndSalt(password, salt);
   const iv: Buffer = data.slice(PBKDF2_SALT_LENGTH, ENCRYPTED_DATA_OFFSET);
@@ -158,17 +141,12 @@ function decrypt(
 async function decryptAsync({
   password,
   data,
-  skipSafeCheck,
 }: {
   password: string;
   data: Buffer;
-  skipSafeCheck?: boolean;
 }): Promise<Buffer> {
-  // DO NOT skip safe check if you passed a real user password to this function
-  if (!skipSafeCheck) {
-    // eslint-disable-next-line no-param-reassign
-    password = decodePassword({ password });
-  }
+  // eslint-disable-next-line no-param-reassign
+  password = decodePassword({ password });
 
   if (platformEnv.isNative && !platformEnv.isJest) {
     throw new Error('webembedApiProxy not ready yet');
@@ -182,7 +160,7 @@ async function decryptAsync({
     // return bufferUtils.toBuffer(str, 'hex');
   }
 
-  return Promise.resolve(decrypt(password, data, { skipSafeCheck }));
+  return Promise.resolve(decrypt(password, data));
 }
 
 function decryptString({

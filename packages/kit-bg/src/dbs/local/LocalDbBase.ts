@@ -64,10 +64,7 @@ export abstract class LocalDbBase {
     throw new WrongPassword();
   }
 
-  abstract updatePassword(
-    oldPassword: string,
-    newPassword: string,
-  ): Promise<void>;
+  abstract updatePassword(password: string): Promise<void>;
 
   abstract dumpCredentials(password: string): Promise<Record<string, string>>;
 

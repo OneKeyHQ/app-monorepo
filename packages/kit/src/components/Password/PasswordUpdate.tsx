@@ -1,11 +1,9 @@
 import { memo, useCallback, useState } from 'react';
 
 import { Form, Input, Toast, useForm } from '@onekeyhq/components';
+import { encodePassword } from '@onekeyhq/core/src/secret';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { savePassword } from '../../utils/localAuthentication';
-
-import useBiologyAuth from './hooks/useBiologyAuth';
 
 interface IPasswordUpdateForm {
   newPassword: string;
@@ -25,7 +23,6 @@ const PasswordUpdate = ({ onUpdateRes }: IPasswordUpdateProps) => {
   });
   const [secureEntry, setSecureEntry] = useState(true);
   const [loading, setLoading] = useState(false);
-  const { isSupportBiologyAuth } = useBiologyAuth();
 
   const onUpdatePassword = useCallback(
     async (data: IPasswordUpdateForm) => {
@@ -35,15 +32,18 @@ const PasswordUpdate = ({ onUpdateRes }: IPasswordUpdateProps) => {
         form.setFocus('newPassword');
       } else {
         try {
+          const enCodeNewPassword = encodePassword({
+            password: data.newPassword,
+          });
+          const enCodeOldPassword = encodePassword({
+            password: data.oldPassword,
+          });
           const updatePasswordRes =
             await backgroundApiProxy.servicePassword.updatePassword(
-              data.oldPassword,
-              data.newPassword,
+              enCodeOldPassword,
+              enCodeNewPassword,
             );
           if (updatePasswordRes) {
-            if (isSupportBiologyAuth) {
-              await savePassword(updatePasswordRes);
-            }
             onUpdateRes(updatePasswordRes);
             Toast.success({ title: 'password update success' });
           }
@@ -54,7 +54,7 @@ const PasswordUpdate = ({ onUpdateRes }: IPasswordUpdateProps) => {
       }
       setLoading(false);
     },
-    [form, isSupportBiologyAuth, onUpdateRes],
+    [form, onUpdateRes],
   );
 
   return (

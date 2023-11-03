@@ -13,10 +13,10 @@ import {
 } from '@onekeyhq/components';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import useBiologyAuth from '../../components/Password/hooks/useBiologyAuth';
 import PasswordSetup from '../../components/Password/PasswordSetup';
 import PasswordUpdate from '../../components/Password/PasswordUpdate';
 import PasswordVerify from '../../components/Password/PasswordVerify';
+import useBiologyAuth from '../../hooks/useBiologyAuthSettings';
 
 const Swap = () => {
   console.log('swap');
@@ -33,7 +33,7 @@ const Swap = () => {
               Toast.error({ title: '已设置密码' });
               return;
             }
-            Dialog.confirm({
+            const dialog = Dialog.confirm({
               title: 'SetupPassword',
               renderContent: (
                 <PasswordSetup
@@ -41,6 +41,7 @@ const Swap = () => {
                     console.log('setup data', data);
                     if (data) {
                       Toast.success({ title: '设置成功' });
+                      dialog.close();
                     }
                   }}
                 />
@@ -54,7 +55,7 @@ const Swap = () => {
         </Button>
         <Button
           onPress={() => {
-            Dialog.confirm({
+            const dialog = Dialog.confirm({
               title: 'UpdatePassword',
               renderContent: (
                 <PasswordUpdate
@@ -62,6 +63,7 @@ const Swap = () => {
                     console.log('update data', data);
                     if (data) {
                       Toast.success({ title: '修改成功' });
+                      dialog.close();
                     }
                   }}
                 />
@@ -75,7 +77,7 @@ const Swap = () => {
         </Button>
         <Button
           onPress={() => {
-            Dialog.confirm({
+            const dialog = Dialog.confirm({
               title: 'ConfirmPassword',
               renderContent: (
                 <PasswordVerify
@@ -83,6 +85,7 @@ const Swap = () => {
                     console.log('verify data', data);
                     if (data) {
                       Toast.success({ title: '验证成功' });
+                      dialog.close();
                     }
                   }}
                 />

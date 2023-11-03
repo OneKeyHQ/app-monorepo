@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { isNil } from 'lodash';
 
-import { decodePassword, decrypt, encrypt } from '@onekeyhq/core/src/secret';
+import { encrypt } from '@onekeyhq/core/src/secret';
 import {
   OneKeyInternalError,
   WrongPassword,
@@ -81,18 +81,12 @@ export class LocalDbIndexed extends LocalDbIndexedBase {
   }
   // ---------------------------------------------- credential
 
-  override async updatePassword(
-    oldPassword: string,
-    newPassword: string,
-  ): Promise<void> {
+  override async updatePassword(password: string): Promise<void> {
     const context = await this.getContext();
     if (!context) return;
-    if (!this.checkPassword(context, oldPassword)) {
-      throw new WrongPassword();
-    }
     const store = await this.getObjectStore(EIndexedDBStoreNames.context);
     context.verifyString = encrypt(
-      newPassword,
+      password,
       Buffer.from(DEFAULT_VERIFY_STRING),
     ).toString('hex');
     await store.put(context);

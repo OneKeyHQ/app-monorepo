@@ -8,9 +8,9 @@ import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   hasHardwareSupported,
   localAuthenticate,
-} from '../../../utils/localAuthentication';
+} from '../components/biologyAuth';
 
-const useBiologyAuth = () => {
+const useBiologyAuthSettings = () => {
   const [isSupportBiologyAuth, setIsSupportBiologyAuth] = useState(false);
   const intl = useIntl();
   // TODO get authenticationType supportedAuthenticationTypesAsync 获取支持的生物识别类型
@@ -44,4 +44,4 @@ const useBiologyAuth = () => {
   return { enableBiologyAuth, isSupportBiologyAuth, setBiologyAuthEnable };
 };
 
-export default useBiologyAuth;
+export default useBiologyAuthSettings;

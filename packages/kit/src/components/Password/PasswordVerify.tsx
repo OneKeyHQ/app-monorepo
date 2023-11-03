@@ -12,15 +12,11 @@ import { useIntl } from 'react-intl';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
 import { Form, Input, useForm } from '@onekeyhq/components';
+import { encodePassword } from '@onekeyhq/core/src/secret';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import {
-  getPassword,
-  localAuthenticate,
-} from '../../utils/localAuthentication';
+import useBiologyAuth from '../../hooks/useBiologyAuthSettings';
 import { AppStatusActiveListener } from '../AppStatusActiveListener';
-
-import useBiologyAuth from './hooks/useBiologyAuth';
 
 interface IPasswordVerifyProps {
   onVerifyRes: (password: string) => void;
@@ -52,17 +48,11 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
     }
     setStatues({ value: 'verifying' });
     try {
-      const localAuthenticateResult = await localAuthenticate();
-      if (localAuthenticateResult.success) {
-        const password = await getPassword();
-        if (password) {
-          const verifiedPassword =
-            await backgroundApiProxy.servicePassword.verifyPassword(password);
-          if (verifiedPassword) {
-            onVerifyRes(verifiedPassword);
-            setStatues({ value: 'verified' });
-          }
-        }
+      const biologyAuthRes =
+        await backgroundApiProxy.servicePassword.verifyBiologyAuth();
+      if (biologyAuthRes) {
+        onVerifyRes(biologyAuthRes);
+        setStatues({ value: 'verified' });
       } else {
         setStatues({
           value: 'error',
@@ -82,9 +72,10 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
     async (data: IPasswordVerifyForm) => {
       setStatues({ value: 'verifying' });
       try {
+        const enCodePassword = encodePassword({ password: data.password });
         const verifiedPassword =
           await backgroundApiProxy.servicePassword.verifyPassword(
-            data.password,
+            enCodePassword,
           );
         if (verifiedPassword) {
           onVerifyRes(verifiedPassword);

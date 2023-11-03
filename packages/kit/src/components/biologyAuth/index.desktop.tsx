@@ -1,11 +1,13 @@
 import LOCALES from '@onekeyhq/components/src/locale';
 import {
   decodeSensitiveText,
+  encodeKeyPrefix,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
+import { getDefaultLocale } from '@onekeyhq/kit/src/utils/locale';
+import { settingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 // import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import { getDefaultLocale } from '../locale';
 
 import type { LocalAuthenticationResult } from 'expo-local-authentication';
 
@@ -45,19 +47,31 @@ export const localAuthenticate: () => Promise<LocalAuthenticationResult> =
     }
   };
 
-export const savePassword = (password: string) => {
+export const savePassword = async (password: string) => {
   let text = password;
   if (text) {
     text = decodeSensitiveText({ encodedText: text });
+
+    const settings = await settingsAtom.get();
+    text = encodeSensitiveText({
+      text,
+      key: `${encodeKeyPrefix}${settings.instanceId}`,
+    });
     return window?.desktopApi.secureSetItemAsync('password', text);
   }
   return window?.desktopApi.secureDelItemAsync('password');
 };
 
 export const getPassword = async () => {
-  const text = await window?.desktopApi.secureGetItemAsync('password');
+  let text = await window?.desktopApi.secureGetItemAsync('password');
   if (text) {
-    const result = encodeSensitiveText({ text });
-    return result;
+    const settings = await settingsAtom.get();
+    text = decodeSensitiveText({
+      encodedText: text,
+      key: `${encodeKeyPrefix}${settings.instanceId}`,
+    });
+    text = encodeSensitiveText({ text });
+    return text;
   }
+  throw new Error('No password');
 };

@@ -7,8 +7,10 @@ import { getItemAsync, setItemAsync } from 'expo-secure-store';
 
 import {
   decodeSensitiveText,
+  encodeKeyPrefix,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
+import { settingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 export const hasHardwareSupported = () =>
   hasHardwareAsync().then((supported) =>
@@ -23,16 +25,26 @@ export const localAuthenticate = async () => {
   return authenticateAsync();
 };
 
-export const savePassword = (password: string) => {
-  const text = decodeSensitiveText({ encodedText: password });
-
+export const savePassword = async (password: string) => {
+  let text = decodeSensitiveText({ encodedText: password });
+  const settings = await settingsAtom.get();
+  text = encodeSensitiveText({
+    text,
+    key: `${encodeKeyPrefix}${settings.instanceId}`,
+  });
   void setItemAsync('password', text);
 };
 
 export const getPassword = async () => {
-  const text = await getItemAsync('password');
+  let text = await getItemAsync('password');
   if (text) {
-    const result = encodeSensitiveText({ text });
-    return result;
+    const settings = await settingsAtom.get();
+    text = decodeSensitiveText({
+      encodedText: text,
+      key: `${encodeKeyPrefix}${settings.instanceId}`,
+    });
+    text = encodeSensitiveText({ text });
+    return text;
   }
+  throw new Error('No password');
 };
