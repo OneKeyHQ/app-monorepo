@@ -15,7 +15,7 @@ import { Form, Input, useForm } from '@onekeyhq/components';
 import { encodePassword } from '@onekeyhq/core/src/secret';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import useBiologyAuth from '../../hooks/useBiologyAuthSettings';
+import useBiologyAuthSettings from '../../hooks/useBiologyAuthSettings';
 import { AppStatusActiveListener } from '../AppStatusActiveListener';
 
 interface IPasswordVerifyProps {
@@ -36,7 +36,7 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
   }>({ value: 'default' });
   const intl = useIntl();
   const [secureEntry, setSecureEntry] = useState(true);
-  const { enableBiologyAuth } = useBiologyAuth();
+  const { enableBiologyAuth } = useBiologyAuthSettings();
   const lastTime = useRef(0);
 
   const passwordInput = form.watch('password');

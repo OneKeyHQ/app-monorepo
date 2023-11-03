@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo } from 'react';
 
 import { XStack } from 'tamagui';
 
@@ -16,12 +16,12 @@ import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import PasswordSetup from '../../components/Password/PasswordSetup';
 import PasswordUpdate from '../../components/Password/PasswordUpdate';
 import PasswordVerify from '../../components/Password/PasswordVerify';
-import useBiologyAuth from '../../hooks/useBiologyAuthSettings';
+import useBiologyAuthSettings from '../../hooks/useBiologyAuthSettings';
 
 const Swap = () => {
   console.log('swap');
   const { isSupportBiologyAuth, enableBiologyAuth, setBiologyAuthEnable } =
-    useBiologyAuth();
+    useBiologyAuthSettings();
   const [settings] = useSettingsAtom();
   return (
     <Screen>
