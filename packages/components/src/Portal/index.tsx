@@ -1,15 +1,24 @@
-import type { ReactElement } from 'react';
-import { useEffect, useState } from 'react';
+import type { PropsWithChildren, ReactElement } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 
 type PortalComponentsMapType = Map<string, ReactElement<{ name: string }>>;
 const PortalComponentsMap: PortalComponentsMapType = new Map();
 
 let onUpdateComponentsCallback: () => void;
 
+function PortalComponent({ children }: PropsWithChildren<unknown>) {
+  // disablee=d re-render at any time
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => children, []);
+}
+
 export const setPortalComponent = (
   component: ReactElement<{ name: string }>,
 ) => {
-  PortalComponentsMap.set(component.props.name, component);
+  PortalComponentsMap.set(
+    component.props.name,
+    <PortalComponent>{component}</PortalComponent>,
+  );
   onUpdateComponentsCallback();
 };
 
@@ -22,7 +31,7 @@ export const removePortalComponent = (name: string) => {
   setTimeout(() => {
     onUpdateComponentsCallback();
   }, 300);
-};
+}
 
 const onUpdateComponents = (callback: () => void) => {
   onUpdateComponentsCallback = callback;
