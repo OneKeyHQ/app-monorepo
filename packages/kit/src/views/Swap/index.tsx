@@ -29,7 +29,7 @@ const Swap = () => {
         <Text>Swap</Text>
         <Button
           onPress={() => {
-            if (settings.passwordSet) {
+            if (settings.isPasswordSet) {
               Toast.error({ title: '已设置密码' });
               return;
             }

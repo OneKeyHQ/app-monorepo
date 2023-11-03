@@ -8,7 +8,7 @@ import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   hasHardwareSupported,
   localAuthenticate,
-} from '../components/biologyAuth';
+} from '../components/BioloygAuth';
 
 const useBiologyAuthSettings = () => {
   const [isSupportBiologyAuth, setIsSupportBiologyAuth] = useState(false);
@@ -22,8 +22,8 @@ const useBiologyAuthSettings = () => {
   }, []);
 
   const enableBiologyAuth = useMemo(
-    () => isSupportBiologyAuth && settings.biologyAuthEnable,
-    [isSupportBiologyAuth, settings.biologyAuthEnable],
+    () => isSupportBiologyAuth && settings.isBiologyAuthEnable,
+    [isSupportBiologyAuth, settings.isBiologyAuthEnable],
   );
 
   const setBiologyAuthEnable = useCallback(
@@ -37,7 +37,7 @@ const useBiologyAuthSettings = () => {
           return;
         }
       }
-      setSettings((prev) => ({ ...prev, biologyAuthEnable: enable }));
+      setSettings((prev) => ({ ...prev, isBiologyAuthEnable: enable }));
     },
     [intl, setSettings],
   );

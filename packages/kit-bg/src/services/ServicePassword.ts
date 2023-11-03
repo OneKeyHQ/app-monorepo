@@ -7,7 +7,7 @@ import {
   hasHardwareSupported,
   localAuthenticate,
   savePassword,
-} from '@onekeyhq/kit/src/components/biologyAuth';
+} from '@onekeyhq/kit/src/components/BioloygAuth';
 import {
   backgroundClass,
   backgroundMethod,
@@ -108,8 +108,8 @@ export default class ServicePassword extends ServiceBase {
       await this.biologyAuthSavePassword(newPassword);
       await this.saveCachedPassword(newPassword);
       const settings = await settingsAtom.get();
-      if (!settings.passwordSet) {
-        await settingsAtom.set((v) => ({ ...v, passwordSet: true }));
+      if (!settings.isPasswordSet) {
+        await settingsAtom.set((v) => ({ ...v, isPasswordSet: true }));
       }
       return newPassword;
     }
@@ -123,8 +123,8 @@ export default class ServicePassword extends ServiceBase {
     await this.biologyAuthSavePassword(password);
     await this.saveCachedPassword(password);
     const settings = await settingsAtom.get();
-    if (!settings.passwordSet) {
-      await settingsAtom.set((v) => ({ ...v, passwordSet: true }));
+    if (!settings.isPasswordSet) {
+      await settingsAtom.set((v) => ({ ...v, isPasswordSet: true }));
     }
     return password;
   }
