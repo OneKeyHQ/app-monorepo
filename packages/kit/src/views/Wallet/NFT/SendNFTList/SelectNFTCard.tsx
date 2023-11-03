@@ -16,13 +16,12 @@ import {
   useAtomSendNFTList,
 } from './sendNFTListContext';
 
-import type { SelectAsset } from './sendNFTListContext';
-
-type Props = NFTAsset & {
+type Props = {
   cardWidth: number;
   accountId: string;
   networkId: string;
   multiSelect: boolean;
+  asset: NFTAsset;
 };
 
 export function getKeyExtrator(params: {
@@ -37,13 +36,21 @@ export function getKeyExtrator(params: {
   }-${params.accountAddress ?? ''}-${params.tokenAddress ?? ''}`;
 }
 
-const CardItem: FC<
-  SelectAsset & {
-    onSelectAsset: () => void;
-    multiSelect: boolean;
-    cardWidth: number;
-  }
-> = ({ onSelectAsset, multiSelect, cardWidth, ...asset }) => {
+const CardItem: FC<{
+  asset: NFTAsset;
+  selected: boolean;
+  selectAmount: string;
+  onSelectAsset: () => void;
+  multiSelect: boolean;
+  cardWidth: number;
+}> = ({
+  onSelectAsset,
+  multiSelect,
+  cardWidth,
+  asset,
+  selectAmount,
+  selected,
+}) => {
   const AmountTag = useMemo(() => {
     if (
       asset?.amount &&
@@ -53,10 +60,8 @@ const CardItem: FC<
       const total = new BigNumber(asset.amount).gt(9999)
         ? '9999+'
         : asset.amount;
-      const selectAmount = new BigNumber(asset.selectAmount).gt(9999)
-        ? '9999+'
-        : asset.selectAmount;
-      const title = `${selectAmount}/${total}`;
+      const sam = new BigNumber(selectAmount).gt(9999) ? '9999+' : selectAmount;
+      const title = `${sam}/${total}`;
       return (
         <Badge
           position="absolute"
@@ -69,7 +74,7 @@ const CardItem: FC<
       );
     }
     return null;
-  }, [asset.amount, asset.ercType, asset.selectAmount]);
+  }, [asset.amount, asset.ercType, selectAmount]);
 
   return (
     <Box mb="16px" mr="2">
@@ -99,7 +104,7 @@ const CardItem: FC<
             <Box position="absolute" right="6px" top="6px">
               <SelectedIndicator
                 multiSelect={multiSelect}
-                selected={asset.selected}
+                selected={selected}
                 width={20}
               />
             </Box>
@@ -112,51 +117,43 @@ const CardItem: FC<
 
 const CardItemMemo = memo(CardItem);
 
-const SelectNFTCard: FC<Props> = ({
-  accountId,
-  networkId,
-  cardWidth,
-  multiSelect,
-  ...item
-}) => {
+const SelectNFTCard: FC<Props> = ({ cardWidth, multiSelect, asset }) => {
   const [selectedList, setSelectedList] = useAtomSendNFTList(
     atomSelectedSendNFTList,
   );
-  const asset = useMemo(
-    () =>
-      selectedList.find((n) => getKeyExtrator(n) === getKeyExtrator(item)) ?? {
-        ...item,
-        selected: false,
-        selectAmount: '0',
-      },
-    [selectedList, item],
+
+  const selectedAsset = useMemo(
+    () => selectedList.find((n) => getKeyExtrator(n) === getKeyExtrator(asset)),
+    [selectedList, asset],
+  );
+
+  const isSelected = useMemo(() => !!selectedAsset, [selectedAsset]);
+
+  const selectedAmount = useMemo(
+    () => selectedAsset?.selectAmount ?? '0',
+    [selectedAsset?.selectAmount],
   );
 
   const onSelectAmount = useCallback(
-    (selected: boolean, selectAmount: string) => {
+    (selected: boolean, amount: string) => {
       const data = {
         ...asset,
         selected,
-        selectAmount,
+        selectAmount: amount,
       };
-      let newList = [];
 
-      if (data.selected) {
-        newList = [...selectedList, data];
-      } else {
-        newList = selectedList.filter(
-          (i) => getKeyExtrator(i) !== getKeyExtrator(data),
-        );
-      }
-
-      setSelectedList(newList);
+      setSelectedList((list) => {
+        if (data.selected) {
+          return [...list, data];
+        }
+        return list.filter((i) => getKeyExtrator(i) !== getKeyExtrator(data));
+      });
     },
-    [asset, setSelectedList, selectedList],
+    [asset, setSelectedList],
   );
 
   const onSelectAsset = useCallback(() => {
-    const { selected } = asset;
-    if (selected) {
+    if (isSelected) {
       onSelectAmount(false, '0');
       return;
     }
@@ -170,11 +167,13 @@ const SelectNFTCard: FC<Props> = ({
       return;
     }
     onSelectAmount(true, '1');
-  }, [asset, onSelectAmount]);
+  }, [asset, onSelectAmount, isSelected]);
 
   return (
     <CardItemMemo
-      {...asset}
+      asset={asset}
+      selected={isSelected}
+      selectAmount={selectedAmount}
       cardWidth={cardWidth}
       onSelectAsset={onSelectAsset}
       multiSelect={multiSelect}

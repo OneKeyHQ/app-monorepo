@@ -1,3 +1,4 @@
+import type { FC } from 'react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
@@ -46,6 +47,7 @@ import {
 import type { SendRoutesParams } from '../../../../routes';
 import type { ModalScreenProps } from '../../../../routes/types';
 import type { PreSendParams } from '../../../Send/types';
+import type { LayoutChangeEvent } from 'react-native';
 
 type NavigationProps = ModalScreenProps<SendRoutesParams>;
 
@@ -200,18 +202,38 @@ export function HandleRebuildSendNFTListData(options: ISendNFTListData) {
   return null;
 }
 
-function SendNFTList({
-  accountId,
-  networkId,
-}: {
-  accountId: string;
+interface ISendNFTListProps {
   networkId: string;
-}) {
+  accountId: string;
+}
+
+const ListEmpty: FC<ISendNFTListProps> = ({ networkId, accountId }) => {
   const intl = useIntl();
   const nftIsLoading = useNFTIsLoading({
     networkId,
     accountId,
   });
+  return (
+    <Box flex={1} justifyContent="center" alignItems="center">
+      {nftIsLoading ? (
+        <Spinner size="lg" />
+      ) : (
+        <>
+          <Text typography="Display2XLarge" fontSize={48} lineHeight={60}>
+            🖼️
+          </Text>
+          <Text typography="DisplayMedium" mt="12px">
+            {intl.formatMessage({ id: 'empty__no_nfts' })}
+          </Text>
+        </>
+      )}
+    </Box>
+  );
+};
+const ListEmptyMemo = memo(ListEmpty);
+
+function SendNFTList({ accountId, networkId }: ISendNFTListProps) {
+  const intl = useIntl();
   const [page, setPage] = useState(1);
   const [{ data, multi }] = useAtomSendNFTList(atomSendNFTList);
   const [pageWidth, setPageWidth] = useState<number>(0);
@@ -232,7 +254,7 @@ function SendNFTList({
         cardWidth={cardWidth}
         key={item.tokenId ?? item.tokenAddress}
         multiSelect={multi}
-        {...item}
+        asset={item}
       />
     ),
     [accountId, cardWidth, networkId, multi],
@@ -240,62 +262,54 @@ function SendNFTList({
 
   const pageData = useMemo(() => data.slice(0, page * pageSize), [data, page]);
 
-  const hasMore = useMemo(
-    () => page * pageSize < data.length,
-    [page, data.length],
-  );
-
   const handleLoadMore = useCallback(() => {
     setPage((prev) => prev + 1);
   }, []);
 
+  const onLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      if (pageWidth !== e.nativeEvent.layout.width) {
+        setPageWidth(e.nativeEvent.layout.width);
+      }
+    },
+    [pageWidth],
+  );
+
+  const footer = useMemo(
+    () =>
+      page * pageSize < data.length ? (
+        <HStack justifyContent="center" mb="8">
+          <IconButton name="ChevronDownMini" onPress={handleLoadMore}>
+            {intl.formatMessage({ id: 'action__load_more' })}
+          </IconButton>
+        </HStack>
+      ) : null,
+    [intl, page, data.length, handleLoadMore],
+  );
+
   return (
-    <>
+    <Box onLayout={onLayout} flex="1">
       <HandleRebuildSendNFTListData
         networkId={networkId}
         accountId={accountId}
       />
-      <FlatList
-        onLayout={(e) => {
-          if (pageWidth !== e.nativeEvent.layout.width) {
-            setPageWidth(e.nativeEvent.layout.width);
+      {pageWidth > 0 ? (
+        <FlatList
+          key={numColumns}
+          numColumns={numColumns}
+          data={pageData}
+          renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
+          py="24px"
+          keyExtractor={getKeyExtrator}
+          ListFooterComponent={footer}
+          ListEmptyComponent={
+            <ListEmptyMemo networkId={networkId} accountId={accountId} />
           }
-        }}
-        key={numColumns}
-        numColumns={numColumns}
-        data={pageData}
-        renderItem={renderItem}
-        showsVerticalScrollIndicator={false}
-        py="24px"
-        keyExtractor={getKeyExtrator}
-        ListFooterComponent={
-          hasMore ? (
-            <HStack justifyContent="center" mb="8">
-              <IconButton name="ChevronDownMini" onPress={handleLoadMore}>
-                {intl.formatMessage({ id: 'action__load_more' })}
-              </IconButton>
-            </HStack>
-          ) : null
-        }
-        ListEmptyComponent={
-          <Box flex={1} justifyContent="center" alignItems="center">
-            {nftIsLoading ? (
-              <Spinner size="lg" />
-            ) : (
-              <>
-                <Text typography="Display2XLarge" fontSize={48} lineHeight={60}>
-                  🖼️
-                </Text>
-                <Text typography="DisplayMedium" mt="12px">
-                  {intl.formatMessage({ id: 'empty__no_nfts' })}
-                </Text>
-              </>
-            )}
-          </Box>
-        }
-      />
+        />
+      ) : null}
       <SendButtonMemo accountId={accountId} networkId={networkId} />
-    </>
+    </Box>
   );
 }
 export default withProviderSendNFTList(SendNFTList);
