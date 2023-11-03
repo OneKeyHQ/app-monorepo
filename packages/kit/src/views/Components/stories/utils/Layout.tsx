@@ -1,5 +1,4 @@
 import { useDispatch } from 'react-redux';
-import { ScrollView } from 'tamagui';
 
 import {
   Button,
@@ -8,6 +7,7 @@ import {
   Text,
   XStack,
   useKeyboardHeight,
+  ScrollView,
 } from '@onekeyhq/components';
 
 import { setTheme } from '../../../../store/reducers/settings';
@@ -44,11 +44,13 @@ export function Layout({
   suggestions = [],
   boundaryConditions = [],
   elements = [],
+  scrollEnabled = true,
   children,
 }: React.PropsWithChildren<{
   description?: string;
   suggestions?: string[];
   boundaryConditions?: string[];
+  scrollEnabled?: boolean;
   elements?: {
     title: string;
     description?: string;
@@ -61,6 +63,7 @@ export function Layout({
     <Screen>
       <ScrollView
         maxWidth="100%"
+        scrollEnabled={scrollEnabled}
         flex={1}
         marginBottom={keyboardHeight}
         paddingHorizontal="$5"

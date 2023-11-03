@@ -31,11 +31,15 @@ import WebviewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 import AlertGallery from '../../views/Components/stories/Alert';
 import DividerGallery from '../../views/Components/stories/Divider';
 import FormGallery from '../../views/Components/stories/Form';
+import ListViewGallery from '../../views/Components/stories/ListView';
 import JotaiGlobalGallery from '../../views/Components/stories/JotaiGlobalGallery';
 import QRCodeGallery from '../../views/Components/stories/QRCode';
+import ScrollViewGallery from '../../views/Components/stories/ScrollView';
+import SectionListGallery from '../../views/Components/stories/SectionList';
 import SkeletonGallery from '../../views/Components/stories/Skeleton';
 import TextAreaGallery from '../../views/Components/stories/TextArea';
 import ThemeGallery from '../../views/Components/stories/Theme';
+import TouchableGallery from '../../views/Components/stories/Touchable';
 
 import { GalleryRoutes } from './routes';
 
@@ -58,6 +62,9 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentDialog, component: DialogGallery },
   { name: GalleryRoutes.ComponentEmpty, component: EmptyGallery },
   { name: GalleryRoutes.ComponentRadio, component: RadioGallery },
+  { name: GalleryRoutes.ComponentListView, component: ListViewGallery },
+  { name: GalleryRoutes.ComponentSectionList, component: SectionListGallery },
+  { name: GalleryRoutes.ComponentTouchable, component: TouchableGallery },
   { name: GalleryRoutes.ComponentListItem, component: ListItemGallery },
   { name: GalleryRoutes.ComponentSkeleton, component: SkeletonGallery },
   { name: GalleryRoutes.ComponentCheckbox, component: CheckboxGallery },
@@ -85,6 +92,7 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentAlert, component: AlertGallery },
   { name: GalleryRoutes.ComponentDivider, component: DividerGallery },
   { name: GalleryRoutes.ComponentTheme, component: ThemeGallery },
+  { name: GalleryRoutes.ComponentScrollView, component: ScrollViewGallery },
   { name: GalleryRoutes.ComponentJotaiGlobal, component: JotaiGlobalGallery },
   {
     name: GalleryRoutes.ComponentForm,
