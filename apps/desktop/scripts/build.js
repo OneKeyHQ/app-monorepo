@@ -18,6 +18,18 @@ build({
   platform: 'node',
   bundle: true,
   target: 'node16',
+  alias: {
+    '@onekeyhq/shared': path.join(__dirname, '../../../packages/shared'),
+    'react-native-uuid': path.join(
+      __dirname,
+      '../../../node_modules/react-native-uuid/dist',
+    ),
+    'axios': path.join(
+      __dirname,
+      '../../../node_modules/axios/dist/esm/axios.js',
+    ),
+  },
+  // Avoid introducing dependencies that lead to script bloat.
   external: Object.keys({
     ...pkg.dependencies,
     ...pkg.devDependencies,
