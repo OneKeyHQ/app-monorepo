@@ -90,7 +90,7 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async verifyPassword(password: string): Promise<string> {
     const verified = await localDb.verifyPassword(password);
-    if (verified) {
+    if (verified && password) {
       return password;
     }
     return '';
