@@ -42,8 +42,12 @@ export * from './Provider/hooks/useIsMounted';
 export * from './QRCode';
 export * from './Skeleton';
 export * from './Screen';
+export * from './ScrollView';
 export * from './TabView';
 export * from './SegmentControl';
+export * from './ListView';
+export * from './SectionList';
+export * from './Touchable';
 export * as DelayedFreeze from './DelayedFreeze';
 
 // Navigation
