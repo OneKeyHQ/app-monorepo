@@ -71,7 +71,6 @@ function encodePassword({ password }: { password: string }): string {
 function encrypt(password: string, data: Buffer): Buffer {
   // eslint-disable-next-line no-param-reassign
   password = decodePassword({ password });
-  console.log('password--', password);
   const salt: Buffer = crypto.randomBytes(PBKDF2_SALT_LENGTH);
   const key: Buffer = keyFromPasswordAndSalt(password, salt);
   const iv: Buffer = crypto.randomBytes(AES256_IV_LENGTH);
