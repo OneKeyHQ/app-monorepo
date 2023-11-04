@@ -1,4 +1,3 @@
-import type { FC } from 'react';
 import { useMemo } from 'react';
 
 import getDefaultHeaderHeight from '@react-navigation/elements/src/Header/getDefaultHeaderHeight';
@@ -171,21 +170,24 @@ export function DesktopLeftSideBar({
     ],
   );
 
-  const customTab = platformEnv.isDesktop ? (
-    <YStack
-      onPress={() => {
-        navigation.dispatch({
-          ...CommonActions.navigate({
-            name: route.name,
-            merge: true,
-          }),
-          target: state.key,
-        });
-      }}
-    >
-      <Portal.Container name={Portal.Constant.WEB_TAB_BAR} />
-    </YStack>
-  ) : null;
+  if (platformEnv.isDesktop) {
+    tabs.pop();
+    tabs.push(
+      <YStack
+        onPress={() => {
+          navigation.dispatch({
+            ...CommonActions.navigate({
+              name: 'Discover',
+              merge: true,
+            }),
+            target: state.key,
+          });
+        }}
+      >
+        <Portal.Container name={Portal.Constant.WEB_TAB_BAR} />
+      </YStack>,
+    );
+  }
   return (
     <MotiView
       animate={{ width: isCollapse ? slideBarCollapseWidth : slideBarWidth }}
@@ -215,10 +217,7 @@ export function DesktopLeftSideBar({
         marginHorizontal={touchMode ? '$4' : '$3'}
       >
         <ScrollView flex={1}>
-          <YStack flex={1}>
-            {tabs}
-            {customTab}
-          </YStack>
+          <YStack flex={1}>{tabs}</YStack>
         </ScrollView>
       </YStack>
     </MotiView>

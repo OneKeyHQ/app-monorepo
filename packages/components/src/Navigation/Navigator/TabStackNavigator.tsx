@@ -47,7 +47,6 @@ function TabSubStackNavigator({
 }) {
   const [bgColor, titleColor] = useThemeValue(['bgApp', 'text']);
   const intl = useIntl();
-
   return (
     <Stack.Navigator>
       {config
@@ -95,6 +94,39 @@ export function TabStackNavigator<RouteName extends string>({
     [config],
   );
 
+  const tabScreens = tabComponents.map(({ name, children, ...options }) => (
+    <Tab.Screen
+      key={name}
+      name={name}
+      options={{
+        ...options,
+        tabBarLabel: intl.formatMessage({ id: options.translationId }),
+        // @ts-expect-error BottomTabBar V7
+        tabBarPosition: isVerticalLayout ? 'bottom' : 'left',
+      }}
+    >
+      {children}
+    </Tab.Screen>
+  ));
+  if (platformEnv.isDesktop) {
+    tabScreens.push(
+      <Tab.Screen
+        key="Discover"
+        name="Discover"
+        options={{
+          // name: 'Discover',
+          freezeOnBlur: true,
+          // translationId: 'form__dev_mode',
+          // tabBarLabel: intl.formatMessage({ id: 'form__dev_mode' }),
+          // @ts-expect-error BottomTabBar V7
+          tabBarPosition: isVerticalLayout ? 'bottom' : 'left',
+          tabBarIcon: () => null,
+        }}
+      >
+        {tabComponents[tabComponents.length - 1].children}
+      </Tab.Screen>,
+    );
+  }
   return (
     <Tab.Navigator
       tabBar={tabBarCallback}
@@ -106,20 +138,7 @@ export function TabStackNavigator<RouteName extends string>({
         lazy: !platformEnv.isNative,
       }}
     >
-      {tabComponents.map(({ name, children, ...options }) => (
-        <Tab.Screen
-          key={name}
-          name={name}
-          options={{
-            ...options,
-            tabBarLabel: intl.formatMessage({ id: options.translationId }),
-            // @ts-expect-error BottomTabBar V7
-            tabBarPosition: isVerticalLayout ? 'bottom' : 'left',
-          }}
-        >
-          {children}
-        </Tab.Screen>
-      ))}
+      {tabScreens}
     </Tab.Navigator>
   );
 }
