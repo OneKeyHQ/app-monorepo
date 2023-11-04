@@ -10,6 +10,7 @@ import { ScrollView } from 'tamagui';
 
 import {
   Icon,
+  Portal,
   Stack,
   Text,
   YStack,
@@ -85,7 +86,11 @@ function TabItemView({
   return contentMemo;
 }
 
-const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
+export function DesktopLeftSideBar({
+  navigation,
+  state,
+  descriptors,
+}: BottomTabBarProps) {
   const { routes } = state;
   const { leftSidebarCollapsed: isCollapse } = useProviderSideBarValue();
   const { top } = useSafeAreaInsets(); // used for ipad
@@ -166,6 +171,21 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
     ],
   );
 
+  const customTab = platformEnv.isDesktop ? (
+    <YStack
+      onPress={() => {
+        navigation.dispatch({
+          ...CommonActions.navigate({
+            name: route.name,
+            merge: true,
+          }),
+          target: state.key,
+        });
+      }}
+    >
+      <Portal.Container name={Portal.Constant.WEB_TAB_BAR} />
+    </YStack>
+  ) : null;
   return (
     <MotiView
       animate={{ width: isCollapse ? slideBarCollapseWidth : slideBarWidth }}
@@ -195,10 +215,12 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
         marginHorizontal={touchMode ? '$4' : '$3'}
       >
         <ScrollView flex={1}>
-          <YStack flex={1}>{tabs}</YStack>
+          <YStack flex={1}>
+            {tabs}
+            {customTab}
+          </YStack>
         </ScrollView>
       </YStack>
     </MotiView>
   );
-};
-export default Sidebar;
+}

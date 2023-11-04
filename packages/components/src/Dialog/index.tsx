@@ -31,7 +31,6 @@ import useKeyboardHeight from '../hooks/useKeyboardHeight';
 import { Icon } from '../Icon';
 import { IconButton } from '../IconButton';
 import { Portal } from '../Portal';
-import { FULL_WINDOW_OVERLAY_PORTAL } from '../Portal/constant';
 import { Stack, XStack, YStack } from '../Stack';
 import { Text } from '../Text';
 
@@ -400,7 +399,7 @@ function DialogConfirm({
   };
   portalRef = {
     current: Portal.Render(
-      FULL_WINDOW_OVERLAY_PORTAL,
+      Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
       <DialogContainer ref={instanceRef} {...props} onClose={handleClose} />,
     ),
   };

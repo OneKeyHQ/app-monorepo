@@ -6,13 +6,13 @@ import { FullWindowOverlay, enableFreeze } from 'react-native-screens';
 import { Provider as ReduxProvider } from 'react-redux';
 
 import { Portal } from '@onekeyhq/components';
-import { FULL_WINDOW_OVERLAY_PORTAL } from '@onekeyhq/components/src/Portal/constant';
 import store from '@onekeyhq/kit/src/store';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import AppLoading from './AppLoading';
 import NavigationProvider from './NavigationProvider';
 import ThemeProvider from './ThemeProvider';
+import { WebTabBarItem } from './WebTabBarItem';
 
 if (platformEnv.isRuntimeBrowser) {
   // FIXME need reanimated update, see https://github.com/software-mansion/react-native-reanimated/issues/3355
@@ -33,7 +33,14 @@ const KitProvider: FC = () => (
           <GestureHandlerRootView style={flexStyle}>
             <NavigationProvider />
             <FullWindowOverlay>
-              <Portal.Container name={FULL_WINDOW_OVERLAY_PORTAL} />
+              <Portal.Container
+                name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}
+              />
+              {platformEnv.isDesktop ? (
+                <Portal.Body container={Portal.Constant.WEB_TAB_BAR}>
+                  <WebTabBarItem />
+                </Portal.Body>
+              ) : null}
             </FullWindowOverlay>
           </GestureHandlerRootView>
         </RootSiblingParent>

@@ -1,6 +1,6 @@
 import useIsVerticalLayout from '@onekeyhq/components/src/Provider/hooks/useIsVerticalLayout';
 
-import DesktopLeftSideBar from './DesktopLeftSideBar';
+import { DesktopLeftSideBar } from './DesktopLeftSideBar';
 import MobileBottomTabBar from './MobileBottomTabBar';
 
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';

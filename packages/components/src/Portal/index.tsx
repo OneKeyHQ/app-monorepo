@@ -24,7 +24,12 @@ function isPortalExisted(name: string): boolean {
   return portalManagers.has(name);
 }
 
-interface PortalManager {
+enum ConstantName {
+  WEB_TAB_BAR = 'WEB_TAB_BAR',
+  FULL_WINDOW_OVERLAY_PORTAL = 'Root-FullWindowOverlay',
+}
+
+export interface PortalManager {
   update: (
     updater: ReactNode,
     updateCallback?: (() => void) | undefined,
@@ -33,7 +38,7 @@ interface PortalManager {
 }
 
 function renderToPortal(
-  container: string,
+  container: ConstantName,
   guest: ReactNode,
   callback?: () => void,
 ): PortalManager {
@@ -58,7 +63,10 @@ function renderToPortal(
   };
 }
 
-function PortalRender(props: { children: ReactNode; container?: string }) {
+function PortalRender(props: {
+  children: ReactNode;
+  container?: ConstantName;
+}) {
   const { children, container } = props;
   const [retry, setRetry] = useState(false);
 
@@ -181,4 +189,5 @@ export const Portal = withStaticProperties(PortalContainer, {
   Container: PortalContainer,
   Body: PortalRender,
   Render: renderToPortal,
+  Constant: ConstantName,
 });
