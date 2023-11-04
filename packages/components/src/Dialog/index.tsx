@@ -387,6 +387,7 @@ function DialogConfirm({
     | undefined;
   const handleClose = () => {
     onClose?.();
+    // Remove the React node after the animation has finished.
     setTimeout(() => {
       if (instanceRef) {
         instanceRef = undefined;
@@ -395,7 +396,7 @@ function DialogConfirm({
         portalRef.current.destroy();
         portalRef = undefined;
       }
-    }, 0);
+    }, 300);
   };
   portalRef = {
     current: renderToPortal(

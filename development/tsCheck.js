@@ -1,11 +1,11 @@
 const { execSync } = require('child_process');
 const { exit } = require('process');
 
-const ERROR_LINES = 100;
+const MAX_ERROR_COUNT = 65;
 
 try {
   execSync(
-    `sh -c 'npx tsc --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache'`,
+    `sh -c 'npx tsc --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache  --pretty'`,
   );
 } catch (error) {
   const result = error.stdout.toString('utf-8');
@@ -15,10 +15,10 @@ try {
     exit(1);
   }
 
-  const lines = result.split('\n').length;
-  if (lines > ERROR_LINES) {
-    console.error(`Error lines: ${lines}`);
-    console.error(`Please do not add more errors than ${ERROR_LINES}`);
+  const errorCount = result.match(/Found (\d+) errors in/)?.[1];
+  if (errorCount > MAX_ERROR_COUNT) {
+    console.error(`Error count: ${errorCount}`);
+    console.error(`Please do not add more errors than ${MAX_ERROR_COUNT}`);
     console.error(
       'Hope you can fix the ts errors introduced after this merge.',
     );
