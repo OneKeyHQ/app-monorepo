@@ -9,7 +9,7 @@ import {
 
 import { useThemeProviderVariant } from '../hooks/useThemeVariant';
 
-const ThemeApp: FC = ({ children }: PropsWithChildren<unknown>) => {
+const ThemeApp = ({ children }: PropsWithChildren<unknown>) => {
   const { themeVariant, localeVariant } = useThemeProviderVariant();
   useEffect(() => {
     if (themeVariant === 'light') {
@@ -26,4 +26,4 @@ const ThemeApp: FC = ({ children }: PropsWithChildren<unknown>) => {
   );
 };
 
-export default memo<ComponentProps<typeof ThemeApp>>(ThemeApp);
+export default memo(ThemeApp);
