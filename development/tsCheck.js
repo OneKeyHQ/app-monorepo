@@ -1,7 +1,7 @@
 const { execSync } = require('child_process');
 const { exit } = require('process');
 
-const MAX_ERROR_COUNT = 65;
+const MAX_ERROR_COUNT = 62;
 
 try {
   execSync(
