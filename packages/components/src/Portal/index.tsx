@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import ChildrenWrapper from 'react-native-root-siblings/lib/ChildrenWrapper';
 import wrapRootComponent from 'react-native-root-siblings/lib/wrapRootComponent';
+import { withStaticProperties } from 'tamagui';
 
 import type { RootSiblingManager } from 'react-native-root-siblings/lib/wrapRootComponent';
 
@@ -19,11 +20,11 @@ function createPortalId(id: number): string {
   return `portal:${id}`;
 }
 
-export function isPortalExisted(name: string): boolean {
+function isPortalExisted(name: string): boolean {
   return portalManagers.has(name);
 }
 
-export interface PortalManager {
+interface PortalManager {
   update: (
     updater: ReactNode,
     updateCallback?: (() => void) | undefined,
@@ -31,7 +32,7 @@ export interface PortalManager {
   destroy: (destroyCallback?: () => void) => void;
 }
 
-export function renderToPortal(
+function renderToPortal(
   container: string,
   guest: ReactNode,
   callback?: () => void,
@@ -57,10 +58,7 @@ export function renderToPortal(
   };
 }
 
-export function PortalRender(props: {
-  children: ReactNode;
-  container?: string;
-}) {
+function PortalRender(props: { children: ReactNode; container?: string }) {
   const { children, container } = props;
   const [retry, setRetry] = useState(false);
 
@@ -135,7 +133,7 @@ export function PortalRender(props: {
   return null;
 }
 
-export function PortalContainer(props: {
+function PortalContainer(props: {
   name: string;
   renderSibling?: (sibling: ReactNode) => ReactNode;
   children?: ReactNode;
@@ -178,3 +176,9 @@ export function PortalContainer(props: {
     </>
   );
 }
+
+export const Portal = withStaticProperties(PortalContainer, {
+  Container: PortalContainer,
+  Body: PortalRender,
+  Render: renderToPortal,
+});

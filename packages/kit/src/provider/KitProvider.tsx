@@ -5,7 +5,7 @@ import { RootSiblingParent } from 'react-native-root-siblings';
 import { FullWindowOverlay, enableFreeze } from 'react-native-screens';
 import { Provider as ReduxProvider } from 'react-redux';
 
-import { PortalContainer } from '@onekeyhq/components';
+import { Portal } from '@onekeyhq/components';
 import { FULL_WINDOW_OVERLAY_PORTAL } from '@onekeyhq/components/src/Portal/constant';
 import store from '@onekeyhq/kit/src/store';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -33,7 +33,7 @@ const KitProvider: FC = () => (
           <GestureHandlerRootView style={flexStyle}>
             <NavigationProvider />
             <FullWindowOverlay>
-              <PortalContainer name={FULL_WINDOW_OVERLAY_PORTAL} />
+              <Portal.Container name={FULL_WINDOW_OVERLAY_PORTAL} />
             </FullWindowOverlay>
           </GestureHandlerRootView>
         </RootSiblingParent>

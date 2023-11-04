@@ -30,7 +30,7 @@ import { Form, useForm } from '../Form';
 import useKeyboardHeight from '../hooks/useKeyboardHeight';
 import { Icon } from '../Icon';
 import { IconButton } from '../IconButton';
-import { renderToPortal } from '../Portal';
+import { Portal } from '../Portal';
 import { FULL_WINDOW_OVERLAY_PORTAL } from '../Portal/constant';
 import { Stack, XStack, YStack } from '../Stack';
 import { Text } from '../Text';
@@ -399,7 +399,7 @@ function DialogConfirm({
     }, 300);
   };
   portalRef = {
-    current: renderToPortal(
+    current: Portal.Render(
       FULL_WINDOW_OVERLAY_PORTAL,
       <DialogContainer ref={instanceRef} {...props} onClose={handleClose} />,
     ),
