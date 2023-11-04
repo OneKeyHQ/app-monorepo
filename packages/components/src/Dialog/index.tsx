@@ -1,9 +1,4 @@
-import type {
-  ForwardedRef,
-  MutableRefObject,
-  PropsWithChildren,
-  ReactNode,
-} from 'react';
+import type { ForwardedRef, PropsWithChildren, ReactNode } from 'react';
 import {
   Children,
   Fragment,
@@ -35,7 +30,8 @@ import { Form, useForm } from '../Form';
 import useKeyboardHeight from '../hooks/useKeyboardHeight';
 import { Icon } from '../Icon';
 import { IconButton } from '../IconButton';
-import { removePortalComponent, setPortalComponent } from '../Portal';
+import { renderToPortal } from '../Portal';
+import { FULL_WINDOW_OVERLAY_PORTAL } from '../Portal/constant';
 import { Stack, XStack, YStack } from '../Stack';
 import { Text } from '../Text';
 
@@ -48,6 +44,7 @@ import type {
   DialogProps,
 } from './type';
 import type { ButtonProps } from '../Button';
+import type { PortalManager } from '../Portal';
 
 function Trigger({
   onOpen,
@@ -315,35 +312,22 @@ function DialogForm({ useFormProps, children, ...props }: DialogFormProps) {
 }
 
 type DialogContainerProps = PropsWithChildren<
-  { name: string } & Omit<DialogProps, 'onConfirm'> & {
-      onConfirm?: (form?: DialogContextForm) => void | Promise<boolean>;
-    }
+  Omit<DialogProps, 'onConfirm'> & {
+    onConfirm?: (form?: DialogContextForm) => void | Promise<boolean>;
+  }
 >;
 
 function BaseDialogContainer(
-  {
-    name,
-    onOpen,
-    onClose,
-    renderContent,
-    onConfirm,
-    ...props
-  }: DialogContainerProps,
+  { onOpen, onClose, renderContent, onConfirm, ...props }: DialogContainerProps,
   ref: ForwardedRef<DialogInstanceRef>,
 ) {
-  const instanceRef = ref as MutableRefObject<DialogInstanceRef | null>;
   const [isOpen, changeIsOpen] = useState(true);
   const [form, setForm] = useState<DialogContextForm>();
   const handleClose = useCallback(() => {
     changeIsOpen(false);
     onClose?.();
-    // release ref object
-    if (instanceRef?.current) {
-      instanceRef.current = null;
-    }
-    removePortalComponent(name);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, onClose]);
+  }, [onClose]);
 
   const contextValue = useMemo(
     () => ({
@@ -394,25 +378,34 @@ function DialogConfirm({
   onClose,
   ...props
 }: Omit<DialogContainerProps, 'name'>): DialogInstanceRef {
-  const ref = createRef<DialogInstanceRef>();
-  const instance = {
-    close: () => {
-      ref.current?.close();
-    },
+  let instanceRef: React.RefObject<DialogInstanceRef> | undefined =
+    createRef<DialogInstanceRef>();
+  let portalRef:
+    | {
+        current: PortalManager;
+      }
+    | undefined;
+  const handleClose = () => {
+    onClose?.();
+    setTimeout(() => {
+      if (instanceRef) {
+        instanceRef = undefined;
+      }
+      if (portalRef) {
+        portalRef.current.destroy();
+        portalRef = undefined;
+      }
+    }, 0);
   };
-  const key = `modal-${new Date().getTime()}`;
-  setPortalComponent(
-    <DialogContainer
-      ref={ref}
-      {...props}
-      onClose={() => {
-        onClose?.();
-      }}
-      name={key}
-      key={key}
-    />,
-  );
-  return instance;
+  portalRef = {
+    current: renderToPortal(
+      FULL_WINDOW_OVERLAY_PORTAL,
+      <DialogContainer ref={instanceRef} {...props} onClose={handleClose} />,
+    ),
+  };
+  return {
+    close: handleClose,
+  };
 }
 
 export const useDialogInstance = () => {

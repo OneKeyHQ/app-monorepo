@@ -6,13 +6,13 @@ import { FullWindowOverlay, enableFreeze } from 'react-native-screens';
 import { Provider as ReduxProvider } from 'react-redux';
 
 import { PortalContainer } from '@onekeyhq/components';
+import { FULL_WINDOW_OVERLAY_PORTAL } from '@onekeyhq/components/src/Portal/constant';
 import store from '@onekeyhq/kit/src/store';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import AppLoading from './AppLoading';
 import NavigationProvider from './NavigationProvider';
 import ThemeProvider from './ThemeProvider';
-import { FULLWINDOW_OVERLAY_PORTAL } from '@onekeyhq/components/src/Portal/constant';
 
 if (platformEnv.isRuntimeBrowser) {
   // FIXME need reanimated update, see https://github.com/software-mansion/react-native-reanimated/issues/3355
@@ -33,7 +33,7 @@ const KitProvider: FC = () => (
           <GestureHandlerRootView style={flexStyle}>
             <NavigationProvider />
             <FullWindowOverlay>
-              <PortalContainer name={FULLWINDOW_OVERLAY_PORTAL} />
+              <PortalContainer name={FULL_WINDOW_OVERLAY_PORTAL} />
             </FullWindowOverlay>
           </GestureHandlerRootView>
         </RootSiblingParent>
