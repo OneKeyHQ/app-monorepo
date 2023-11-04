@@ -1,4 +1,4 @@
-import type { ComponentProps, FC, PropsWithChildren } from 'react';
+import type { PropsWithChildren } from 'react';
 import { memo, useEffect } from 'react';
 
 import { Provider } from '@onekeyhq/components';
