@@ -11,32 +11,8 @@ import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 import NavigationBar from '../Tab/TabBar';
 
-import type { CommonNavigatorConfig } from './types';
-import type { ICON_NAMES } from '../../Icon';
-import type { LocaleIds } from '../../locale';
+import type { TabNavigatorProps, TabSubNavigatorConfig } from './types';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
-import type { ParamListBase } from '@react-navigation/routers';
-
-export interface TabSubNavigatorConfig<
-  RouteName extends string,
-  P extends ParamListBase = ParamListBase,
-> extends CommonNavigatorConfig<RouteName, P> {
-  translationId: LocaleIds;
-  disable?: boolean;
-}
-
-export interface TabNavigatorConfig<RouteName extends string> {
-  name: RouteName;
-  tabBarIcon: (focused?: boolean) => ICON_NAMES;
-  translationId: LocaleIds;
-  children: TabSubNavigatorConfig<any, any>[];
-  freezeOnBlur?: boolean;
-  disable?: boolean;
-}
-
-export interface TabNavigatorProps<RouteName extends string> {
-  config: TabNavigatorConfig<RouteName>[];
-}
 
 const Stack = createStackNavigator();
 
@@ -58,7 +34,11 @@ function TabSubStackNavigator({
             component={component}
             options={({ navigation }: { navigation: any }) => ({
               freezeOnBlur: true,
-              title: intl.formatMessage({ id: translationId }),
+              title: translationId
+                ? intl.formatMessage({
+                    id: translationId,
+                  })
+                : '',
               ...makeTabScreenOptions({ navigation, bgColor, titleColor }),
             })}
           />
@@ -73,13 +53,16 @@ const Tab = createBottomTabNavigator();
 
 export function TabStackNavigator<RouteName extends string>({
   config,
+  extraConfig,
 }: TabNavigatorProps<RouteName>) {
   const isVerticalLayout = useIsVerticalLayout();
   const intl = useIntl();
 
   const tabBarCallback = useCallback(
-    (props: BottomTabBarProps) => <NavigationBar {...props} />,
-    [],
+    (props: BottomTabBarProps) => (
+      <NavigationBar {...props} extraConfig={extraConfig} />
+    ),
+    [extraConfig],
   );
 
   const tabComponents = useMemo(
@@ -108,22 +91,22 @@ export function TabStackNavigator<RouteName extends string>({
       {children}
     </Tab.Screen>
   ));
-  if (platformEnv.isDesktop) {
+
+  if (extraConfig) {
+    const children = () => (
+      <TabSubStackNavigatorMemo config={extraConfig.children} />
+    );
     tabScreens.push(
       <Tab.Screen
-        key="Discover"
-        name="Discover"
+        key={extraConfig.name}
+        name={extraConfig.name}
         options={{
-          // name: 'Discover',
           freezeOnBlur: true,
-          // translationId: 'form__dev_mode',
-          // tabBarLabel: intl.formatMessage({ id: 'form__dev_mode' }),
           // @ts-expect-error BottomTabBar V7
-          tabBarPosition: isVerticalLayout ? 'bottom' : 'left',
-          tabBarIcon: () => null,
+          tabBarPosition: 'left',
         }}
       >
-        {tabComponents[tabComponents.length - 1].children}
+        {children}
       </Tab.Screen>,
     );
   }

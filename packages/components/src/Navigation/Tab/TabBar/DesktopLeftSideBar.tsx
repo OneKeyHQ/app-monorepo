@@ -23,6 +23,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import useProviderSideBarValue from '../../../Provider/hooks/useProviderSideBarValue';
 
 import type { ICON_NAMES } from '../../../Icon';
+import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
 import type {
   BottomTabBarProps,
   BottomTabNavigationOptions,
@@ -89,7 +90,10 @@ export function DesktopLeftSideBar({
   navigation,
   state,
   descriptors,
-}: BottomTabBarProps) {
+  extraConfig,
+}: BottomTabBarProps & {
+  extraConfig?: ITabNavigatorExtraConfig<string>;
+}) {
   const { routes } = state;
   const { leftSidebarCollapsed: isCollapse } = useProviderSideBarValue();
   const { top } = useSafeAreaInsets(); // used for ipad
@@ -170,14 +174,14 @@ export function DesktopLeftSideBar({
     ],
   );
 
-  if (platformEnv.isDesktop) {
+  if (extraConfig) {
     tabs.pop();
     tabs.push(
       <YStack
         onPress={() => {
           navigation.dispatch({
             ...CommonActions.navigate({
-              name: 'Discover',
+              name: extraConfig.name,
               merge: true,
             }),
             target: state.key,
