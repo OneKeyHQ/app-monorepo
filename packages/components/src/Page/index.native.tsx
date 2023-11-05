@@ -1,10 +1,15 @@
 import type { PropsWithChildren } from 'react';
 import { Suspense, useMemo } from 'react';
 
+import { withStaticProperties } from 'tamagui';
+
 import { createSuspender } from '@onekeyhq/shared/src/modules3rdParty/use-suspender';
 
 import { Spinner } from '../Spinner';
 import { Stack } from '../Stack';
+
+import { PageFooter } from './PageFooter';
+import { PageHeader } from './PageHeader';
 
 const Loading = () => (
   <Stack flex={1} alignContent="center" justifyContent="center">
@@ -34,7 +39,7 @@ function LoadingScreen({ children }: PropsWithChildren<unknown>) {
   );
 }
 
-export function Screen({ children }: PropsWithChildren<unknown>) {
+export function BasicPage({ children }: PropsWithChildren<unknown>) {
   return useMemo(
     () => (
       <Stack flex={1} bg="$bg">
@@ -46,3 +51,8 @@ export function Screen({ children }: PropsWithChildren<unknown>) {
     [],
   );
 }
+
+export const Page = withStaticProperties(BasicPage, {
+  Header: PageHeader,
+  Footer: PageFooter,
+});

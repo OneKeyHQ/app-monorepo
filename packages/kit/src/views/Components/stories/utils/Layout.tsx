@@ -2,7 +2,7 @@ import { useDispatch } from 'react-redux';
 
 import {
   Button,
-  Screen,
+  Page,
   Stack,
   Text,
   XStack,
@@ -60,7 +60,7 @@ export function Layout({
   const dispatch = useDispatch();
   const keyboardHeight = useKeyboardHeight();
   return (
-    <Screen>
+    <Page>
       <ScrollView
         maxWidth="100%"
         scrollEnabled={scrollEnabled}
@@ -147,6 +147,6 @@ export function Layout({
           </Stack>
         </Stack>
       </ScrollView>
-    </Screen>
+    </Page>
   );
 }

@@ -37,4 +37,5 @@ export enum GalleryRoutes {
   ComponentTouchable = 'component/Touchable',
   ComponentSectionList = 'component/SectionList',
   ComponentListItem = 'component/ListItem',
+  ComponentPage = 'component/page',
 }

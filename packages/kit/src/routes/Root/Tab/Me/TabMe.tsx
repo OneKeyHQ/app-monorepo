@@ -1,6 +1,6 @@
 import { useAtom } from 'jotai';
 
-import { Button, Screen, YStack } from '@onekeyhq/components';
+import { Button, Page, YStack } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import {
   demoReadOnlyAtom,
@@ -31,7 +31,7 @@ const TabMe = () => {
   const navigation = useAppNavigation<PageNavigationProp<TabMeParamList>>();
 
   return (
-    <Screen>
+    <Page>
       <YStack>
         <Button
           onPress={() => {
@@ -42,7 +42,7 @@ const TabMe = () => {
         </Button>
         <MeJotaiDemo />
       </YStack>
-    </Screen>
+    </Page>
   );
 };
 

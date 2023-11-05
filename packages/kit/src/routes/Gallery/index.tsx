@@ -31,8 +31,9 @@ import WebviewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 import AlertGallery from '../../views/Components/stories/Alert';
 import DividerGallery from '../../views/Components/stories/Divider';
 import FormGallery from '../../views/Components/stories/Form';
-import ListViewGallery from '../../views/Components/stories/ListView';
 import JotaiGlobalGallery from '../../views/Components/stories/JotaiGlobalGallery';
+import ListViewGallery from '../../views/Components/stories/ListView';
+import PageGallery from '../../views/Components/stories/Page';
 import QRCodeGallery from '../../views/Components/stories/QRCode';
 import ScrollViewGallery from '../../views/Components/stories/ScrollView';
 import SectionListGallery from '../../views/Components/stories/SectionList';
@@ -94,6 +95,7 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentTheme, component: ThemeGallery },
   { name: GalleryRoutes.ComponentScrollView, component: ScrollViewGallery },
   { name: GalleryRoutes.ComponentJotaiGlobal, component: JotaiGlobalGallery },
+  { name: GalleryRoutes.ComponentPage, component: PageGallery },
   {
     name: GalleryRoutes.ComponentForm,
     component: FormGallery,

@@ -7,7 +7,7 @@ import { ScrollView } from 'tamagui';
 
 import {
   Button,
-  Screen,
+  Page,
   Stack,
   Text,
   Toast,
@@ -77,7 +77,7 @@ const TabDeveloper = () => {
   const [rrtStatus, changeRRTStatus] = useStorage(AppSettingKey.rrt);
 
   return (
-    <Screen>
+    <Page>
       <ScrollView
         flex={1}
         width="100%"
@@ -217,7 +217,7 @@ const TabDeveloper = () => {
           <Text>{getMeasureTime().jsBundleLoadedTime}</Text>
         </PartContainer>
       </ScrollView>
-    </Screen>
+    </Page>
   );
 };
 
