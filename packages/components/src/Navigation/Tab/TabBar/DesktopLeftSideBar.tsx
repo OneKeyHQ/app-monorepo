@@ -151,6 +151,24 @@ export function DesktopLeftSideBar({
           }
         };
 
+        if (route.name === extraConfig?.name) {
+          return (
+            <YStack
+              onPress={() => {
+                navigation.dispatch({
+                  ...CommonActions.navigate({
+                    name: extraConfig.name,
+                    merge: true,
+                  }),
+                  target: state.key,
+                });
+              }}
+            >
+              <Portal.Container name={Portal.Constant.WEB_TAB_BAR} />
+            </YStack>
+          );
+        }
+
         return (
           <TabItemView
             touchMode={touchMode}
@@ -171,27 +189,10 @@ export function DesktopLeftSideBar({
       state.index,
       state.key,
       touchMode,
+      extraConfig?.name,
     ],
   );
 
-  if (extraConfig) {
-    tabs.pop();
-    tabs.push(
-      <YStack
-        onPress={() => {
-          navigation.dispatch({
-            ...CommonActions.navigate({
-              name: extraConfig.name,
-              merge: true,
-            }),
-            target: state.key,
-          });
-        }}
-      >
-        <Portal.Container name={Portal.Constant.WEB_TAB_BAR} />
-      </YStack>,
-    );
-  }
   return (
     <MotiView
       animate={{ width: isCollapse ? slideBarCollapseWidth : slideBarWidth }}
