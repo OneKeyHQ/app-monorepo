@@ -1,87 +1,64 @@
 /* eslint-disable global-require */
-import type { FC, ReactNode } from 'react';
-import { memo, useEffect, useMemo, useState } from 'react';
+import type { PropsWithChildren } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Dimensions } from 'react-native';
-import AnimatedSplash from 'react-native-animated-splash-screen';
 
-import { Stack, useThemeValue } from '@onekeyhq/components';
+import { Image, Stack, useThemeValue } from '@onekeyhq/components';
 // import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHtmlPreloadSplashLogoRemove } from '@onekeyhq/kit/src/hooks/useHtmlPreloadSplashLogoRemove';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { VariableVal } from '@tamagui/core';
+import type { ImageSourcePropType } from 'react-native';
 
-const AnimatedSplashView = memo(
-  ({
-    bgColor,
-    initDataReady,
-    children,
-  }: {
-    bgColor?: string;
-    children?: ReactNode | undefined;
-    initDataReady: boolean;
-  }) => {
-    global.$$onekeyPerfTrace?.log({
-      name: `AppLoading SplashScreen render`,
-      payload: {
-        initDataReady,
-        bgColor,
-      },
-    });
+const { height: windowHeight, width: windowWidth } = Dimensions.get('window');
 
-    const logoImage = useMemo((): any => {
-      if (initDataReady && platformEnv.isExtension) {
-        // do not show default splash logo in extension
-        return null;
-      }
-      return platformEnv.isRuntimeBrowser
-        ? require('../../assets/splash.svg') // SVG in web env
-        : require('../../assets/splash.png');
-    }, [initDataReady]);
+const buildImageSource = () =>
+  platformEnv.isRuntimeBrowser
+    ? ({
+        uri: require('../../assets/splash.svg'),
+        width: '100%',
+        height: '100%',
+      } as unknown as ImageSourcePropType)
+    : (require('../../assets/splash.png') as ImageSourcePropType);
 
-    const content = useMemo(
-      () => (
-        <AnimatedSplash
-          preload
-          disableAppScale={platformEnv.isExtension}
-          disableImageBackgroundAnimation={platformEnv.isExtension}
-          // imageBackgroundSource
-          translucent={!platformEnv.isNativeAndroid}
-          isLoaded={initDataReady}
-          // isLoaded={false}
-          logoImage={logoImage}
-          backgroundColor={bgColor}
-          // backgroundColor={platformEnv.isExtension ? 'rbga(0,0,0,0)' : bgColor}
-          // same size to onekey-index-html-preload-image at index.html.ejs
-          //      background img not working
-          logoHeight={
-            platformEnv.isRuntimeBrowser ? 80 : Dimensions.get('window').height
-          }
-          logoWidth={
-            platformEnv.isRuntimeBrowser ? 80 : Dimensions.get('window').width
-          }
-        >
-          {children}
-        </AnimatedSplash>
-      ),
-      [bgColor, children, initDataReady, logoImage],
-    );
-    return (
-      <Stack flex={1} backgroundColor={bgColor}>
-        {content}
-      </Stack>
-    );
-  },
-);
-AnimatedSplashView.displayName = 'AnimatedSplashView';
-
-const AppLoading: FC = ({ children }) => {
-  const [initDataReady, setInitDataReady] = useState(false);
-  let bgColor: VariableVal | undefined = useThemeValue('background-default');
-  if (platformEnv.isRuntimeBrowser) {
-    bgColor = undefined;
+function SplashView({
+  bgColor,
+  initDataReady,
+  children,
+}: PropsWithChildren<{
+  bgColor?: string;
+  initDataReady: boolean;
+}>) {
+  const logoImage = useMemo((): any => {
+    if (initDataReady && platformEnv.isExtension) {
+      // do not show default splash logo in extension
+      return null;
+    }
+    return buildImageSource();
+  }, [initDataReady]);
+  if (!initDataReady) {
+    return children;
   }
+  return platformEnv.isRuntimeBrowser ? (
+    <Stack flex={1} bg={bgColor} justifyContent="center" alignItems="center">
+      <Stack w={80} h={80}>
+        <Image flex={1} source={logoImage} />
+      </Stack>
+    </Stack>
+  ) : (
+    <Image
+      flex={1}
+      aspectRatio={windowWidth / windowHeight}
+      resizeMode="contain"
+      source={logoImage}
+    />
+  );
+}
+
+function AppLoading({ children }: PropsWithChildren<unknown>) {
+  const [initDataReady, setInitDataReady] = useState(false);
+  const bgColor = useThemeValue('bg');
   useHtmlPreloadSplashLogoRemove();
 
   useEffect(() => {
@@ -91,13 +68,13 @@ const AppLoading: FC = ({ children }) => {
   }, []);
 
   return (
-    <AnimatedSplashView
+    <SplashView
       initDataReady={initDataReady}
-      bgColor={bgColor as string}
+      bgColor={platformEnv.isRuntimeBrowser ? undefined : bgColor}
     >
       {children}
-    </AnimatedSplashView>
+    </SplashView>
   );
-};
+}
 
 export default AppLoading;

@@ -1,6 +1,6 @@
 import {
-  PageHeaderView,
   PageContentView,
+  PageHeaderView,
   PageManager,
   SelectedLabel,
 } from 'react-native-tab-page-view';
