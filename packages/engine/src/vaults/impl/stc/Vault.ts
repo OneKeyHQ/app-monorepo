@@ -463,6 +463,8 @@ export default class Vault extends VaultBase {
       if (!encodedTx.data) {
         // Native STC transfer, give a default limit.
         limit = DEFAULT_GAS_LIMIT_NATIVE_TRANSFER;
+      } else {
+        throw new OneKeyInternalError('', 'msg__broadcast_tx_Insufficient_fee');
       }
     }
 

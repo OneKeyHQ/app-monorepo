@@ -56,11 +56,11 @@ function BTCAssetImageContent(params: {
               padding: 24,
             }}
           >
-            <CollectibleContent asset={asset} size={imageWidth} />
+            <CollectibleContent asset={asset} size={imageWidth} showOrigin />
           </BlurView>
         </Box>
       ) : isVertical ? (
-        <CollectibleContent asset={asset} size={imageWidth} />
+        <CollectibleContent asset={asset} size={imageWidth} showOrigin />
       ) : (
         <Box
           alignSelf="stretch"
@@ -86,7 +86,7 @@ function BTCAssetImageContent(params: {
               padding: 24,
             }}
           >
-            <CollectibleContent asset={asset} size={imageWidth} />
+            <CollectibleContent asset={asset} size={imageWidth} showOrigin />
           </BlurView>
         </Box>
       )}

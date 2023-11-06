@@ -51,9 +51,6 @@ export enum HomeRoutes {
   BulkSender = 'BulkSender',
 
   // **** NFT Tab
-  NFTMarketStatsList = 'NFTMarketStatsList',
-  NFTMarketLiveMintingList = 'NFTMarketLiveMintingList',
-  NFTMarketCollectionScreen = 'NFTMarketCollectionScreen',
   NFTPNLScreen = 'NFTPNLScreen',
 
   // ****  Me Tab
@@ -297,7 +294,6 @@ export enum CollectiblesModalRoutes {
 
 export enum FiatPayModalRoutes {
   SupportTokenListModal = 'SupportTokenList',
-  MoonpayWebViewModal = 'MoonpayWebViewModal',
 }
 
 export enum BackupWalletModalRoutes {

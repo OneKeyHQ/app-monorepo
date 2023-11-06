@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { BigNumber } from 'bignumber.js';
 import { pick } from 'lodash';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
@@ -192,7 +193,18 @@ export const useTokenPrice = ({
     ? `${networkId}-${tokenIdOnNetwork ?? ''}`
     : networkId;
   const prices = useAppSelector((s) => s.tokens.tokenPriceMap);
+  const exchangeRateMap = useAppSelector((s) => s.fiatMoney.map);
   const price = prices?.[key]?.[vsCurrency];
+  const usdPrice = prices?.[key]?.usd;
+
+  if (typeof price === 'undefined' && usdPrice) {
+    const convertedValue = new BigNumber(usdPrice).multipliedBy(
+      exchangeRateMap?.[vsCurrency]?.value ?? 0,
+    );
+    if (!convertedValue.isNaN()) {
+      return convertedValue.toNumber();
+    }
+  }
   return price ?? fallback;
 };
 

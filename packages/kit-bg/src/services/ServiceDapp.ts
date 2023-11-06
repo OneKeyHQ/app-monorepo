@@ -497,7 +497,7 @@ class ServiceDapp extends ServiceBase {
           reject(error);
         }
       } else {
-        this._openModalByRouteParams({
+        this._openModalByRouteParamsDebounced({
           routeNames,
           routeParams,
           modalParams,

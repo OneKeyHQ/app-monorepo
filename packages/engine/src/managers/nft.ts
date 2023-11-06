@@ -30,10 +30,6 @@ import { IDecodedTxActionType, IDecodedTxDirection } from '../vaults/types';
 
 import { isAllNetworks } from './network';
 
-export function getNFTListKey(accountId: string, networkId: string) {
-  return `${accountId.toLowerCase()}-${networkId}`.toLowerCase();
-}
-
 export const isCollectibleSupportedChainId = (networkId?: string) => {
   if (!networkId) return false;
   if (isAllNetworks(networkId)) return true;

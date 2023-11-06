@@ -28,6 +28,7 @@ import {
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -337,11 +338,11 @@ function PreSendAmount() {
   );
 
   const shouldShowFrozenBalance = useMemo(() => {
-    if (!network?.settings.isBtcForkChain) {
-      return new BigNumber(frozenBalance ?? '0').isGreaterThan(0);
+    if (network?.settings.isBtcForkChain || network?.id === OnekeyNetwork.sol) {
+      return false;
     }
-    return false;
-  }, [frozenBalance, network?.settings.isBtcForkChain]);
+    return new BigNumber(frozenBalance ?? '0').isGreaterThan(0);
+  }, [frozenBalance, network?.id, network?.settings.isBtcForkChain]);
 
   const {
     title,

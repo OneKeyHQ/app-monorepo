@@ -20,7 +20,7 @@ import {
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
-import { isArray, isEmpty, isNil, omit } from 'lodash';
+import { isArray, isEmpty, isNaN, isNil, omit } from 'lodash';
 
 import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
@@ -37,6 +37,7 @@ import simpleDb from '../../../dbs/simple/simpleDb';
 import {
   InvalidAddress,
   MinimumTransferBalanceRequiredError,
+  MinimumTransferBalanceRequiredForSendingAssetError,
   NotImplemented,
   OneKeyError,
   OneKeyInternalError,
@@ -62,7 +63,7 @@ import {
   KeyringImported,
   KeyringWatching,
 } from './keyring';
-import { ClientSol } from './sdk';
+import { ClientSol, PARAMS_ENCODINGS } from './sdk';
 import settings from './settings';
 
 import type { DBAccount, DBSimpleAccount } from '../../../types/account';
@@ -78,6 +79,7 @@ import type { TransactionStatus } from '../../../types/provider';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
   IApproveInfo,
+  IBalanceDetails,
   IDecodedTx,
   IDecodedTxAction,
   IDecodedTxLegacy,
@@ -98,6 +100,7 @@ import type {
   ParsedAccountInfo,
 } from './types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import type { AccountInfo } from '@solana/web3.js';
 
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -126,6 +129,31 @@ export default class Vault extends VaultBase {
     const rpcURL = await this.getRpcUrl();
     return this.createClientFromURL(rpcURL);
   }
+
+  private getMinimumBalanceForRentExemption = memoizee(
+    async (address): Promise<number> => {
+      const client = await this.getClient();
+      const accountInfo =
+        (await client.getAccountInfo(address, PARAMS_ENCODINGS.BASE64)) ?? {};
+
+      const accountData = (accountInfo as AccountInfo<[string, string]>)
+        .data[0];
+
+      const accountDataLength = Buffer.from(
+        accountData,
+        PARAMS_ENCODINGS.BASE64,
+      ).length;
+      const minimumBalanceForRentExemption =
+        await client.getMinimumBalanceForRentExemption(accountDataLength);
+      return minimumBalanceForRentExemption;
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 50,
+      maxAge: getTimeDurationMs({ minute: 3 }),
+    },
+  );
 
   private getAssociatedAccountInfo = memoizee(
     async (ataAddress): Promise<AssociatedTokenInfo> => {
@@ -774,13 +802,39 @@ export default class Vault extends VaultBase {
           // https://docs.solana.com/developing/intro/rent
           if (
             rpcErrorData.code === -32002 &&
-            rpcErrorData.message.endsWith('without insufficient funds for rent')
+            rpcErrorData.message.endsWith('insufficient funds for rent')
           ) {
             isNodeBehind = false;
             throw new MinimumTransferBalanceRequiredError(
               '0.00089088',
               network.symbol,
             );
+          }
+
+          // sending some NFT has minimum balance requirements
+          if (
+            rpcErrorData.code === -32002 &&
+            rpcErrorData.message.startsWith('Transaction simulation failed')
+          ) {
+            const logs = (rpcErrorData.data?.logs ?? []) as string[];
+            for (const log of logs) {
+              const match = log.match(
+                /Transfer: insufficient lamports \d+, need (\d+)/,
+              );
+
+              const minimumBalance = Number(match?.[1]);
+
+              if (!isNaN(minimumBalance)) {
+                isNodeBehind = false;
+                throw new MinimumTransferBalanceRequiredForSendingAssetError(
+                  'NFT',
+                  new BigNumber(minimumBalance)
+                    .shiftedBy(-network.decimals)
+                    .toFixed(),
+                  network.symbol,
+                );
+              }
+            }
           }
 
           // https://marinade.finance/app/defi/
@@ -834,6 +888,47 @@ export default class Vault extends VaultBase {
         feePayer: new PublicKey(dbAccount.pub),
       },
       encodedTx,
+    };
+  }
+
+  override async getFrozenBalance(): Promise<number | Record<string, number>> {
+    const address = await this.getAccountAddress();
+    const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
+    try {
+      const minimumBalance = await this.getMinimumBalanceForRentExemption(
+        address,
+      );
+
+      return {
+        'main': new BigNumber(minimumBalance ?? 0)
+          .shiftedBy(-decimals)
+          .toNumber(),
+      };
+    } catch {
+      return 0;
+    }
+  }
+
+  override async fetchBalanceDetails(): Promise<IBalanceDetails | undefined> {
+    const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
+    const address = await this.getAccountAddress();
+    const [[nativeTokenBalance], rent] = await Promise.all([
+      this.getBalances([{ address }]),
+      this.getFrozenBalance(),
+    ]);
+
+    const rentBalance = new BigNumber((rent as { main: number }).main ?? '0');
+    const totalBalance = new BigNumber(nativeTokenBalance ?? '0').shiftedBy(
+      -decimals,
+    );
+
+    const availableBalance = totalBalance.minus(rentBalance);
+    return {
+      total: totalBalance.toFixed(),
+      available: availableBalance.isGreaterThan(0)
+        ? availableBalance.toFixed()
+        : '0',
+      unavailable: rentBalance.toFixed(),
     };
   }
 

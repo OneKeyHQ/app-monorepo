@@ -21,7 +21,11 @@ import type {
   WALLET_TYPE_WATCHING,
 } from '../types/wallet';
 import type { IEncodedTxADA } from './impl/ada/types';
-import type { IDecodedTxExtraAlgo, IEncodedTxAlgo } from './impl/algo/types';
+import type {
+  IDecodedTxExtraAlgo,
+  IEncodedTxAlgo,
+  IEncodedTxGroupAlgo,
+} from './impl/algo/types';
 import type { IEncodedTxAptos } from './impl/apt/types';
 import type {
   IDecodedTxExtraBtc,
@@ -261,6 +265,7 @@ export type IEncodedTx =
   | IEncodedTxAptos
   | IEncodedTxCfx
   | IEncodedTxAlgo
+  | IEncodedTxGroupAlgo
   | IEncodedTxXrp
   | IEncodedTxCosmos
   | IEncodedTxADA

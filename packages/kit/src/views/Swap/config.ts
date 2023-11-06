@@ -6,7 +6,7 @@ import type { Token } from '../../store/typings';
 import type { Provider } from './typings';
 
 export const swftcCustomerSupportUrl =
-  'https://www.bangwo8.com/osp2016/im/pc/index.php?vendorID=782460&uid=&customSource=onekey';
+  'https://tawk.to/chat/6520bf666fcfe87d54b751ef/1hc3unaha';
 
 export const zeroXenabledNetworkIds: string[] = [
   OnekeyNetwork.eth,

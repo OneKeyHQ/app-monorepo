@@ -3,6 +3,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import BigNumber from 'bignumber.js';
+import { isArray, trim } from 'lodash';
 
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
@@ -58,6 +59,7 @@ import type {
   IAccountTransactionsResp,
   IClientError,
   IEncodedTxAlgo,
+  IEncodedTxGroupAlgo,
   IPendingTransactionInformation,
 } from './types';
 
@@ -113,6 +115,42 @@ export default class Vault extends VaultBase {
     const rpcURL = await this.getRpcUrl();
     // TODO: token support
     return this.getAlgod('', rpcURL, 443);
+  }
+
+  private async buildAlgoTxFromTransferInfo(transferInfo: ITransferInfo) {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
+    const { from, to, amount, token: assetId } = transferInfo;
+
+    const token = await this.engine.ensureTokenInDB(
+      this.networkId,
+      assetId || '',
+    );
+
+    if (!token) {
+      throw new OneKeyInternalError(`Token not found: ${assetId || 'ALGO'}`);
+    }
+
+    const suggestedParams = await this.getSuggestedParams();
+    if (assetId) {
+      return sdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+        amount: BigInt(
+          new BigNumber(amount).shiftedBy(token.decimals).toFixed(),
+        ),
+        assetIndex: parseInt(assetId),
+        from,
+        to,
+        suggestedParams,
+      });
+    }
+
+    return sdk.makePaymentTxnWithSuggestedParamsFromObject({
+      amount: BigInt(new BigNumber(amount).shiftedBy(token.decimals).toFixed()),
+      from,
+      to,
+      suggestedParams,
+    });
   }
 
   private getSuggestedParams = memoizee(
@@ -310,14 +348,10 @@ export default class Vault extends VaultBase {
     return Promise.resolve(params.encodedTx);
   }
 
-  override async decodeTx(
-    encodedTx: IEncodedTxAlgo,
-    _payload?: any,
-  ): Promise<IDecodedTx> {
+  async decodeAlgoTx(encodedTx: IEncodedTxAlgo) {
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
     const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
     let action: IDecodedTxAction = { type: IDecodedTxActionType.UNKNOWN };
-
     const nativeTx = sdk.decodeObj(
       Buffer.from(encodedTx, 'base64'),
     ) as ISdkAlgoEncodedTransaction;
@@ -394,22 +428,56 @@ export default class Vault extends VaultBase {
     }
 
     return {
+      action,
+      nativeTx,
+    };
+  }
+
+  override async decodeTx(
+    encodedTx: IEncodedTxAlgo | IEncodedTxGroupAlgo,
+    _payload?: any,
+  ): Promise<IDecodedTx> {
+    const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
+    const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
+    const actions: IDecodedTxAction[] = [];
+    const notes: string[] = [];
+    let sender = '';
+    let groupId = '';
+
+    const txGroup = isArray(encodedTx) ? encodedTx : [encodedTx];
+    let txFee = new BigNumber(0);
+
+    for (let i = 0, len = txGroup.length; i < len; i += 1) {
+      const { action, nativeTx } = await this.decodeAlgoTx(txGroup[i]);
+      actions.push(action);
+      txFee = txFee.plus(nativeTx.fee ?? 0);
+      sender = nativeTx.snd ? sdk.encodeAddress(nativeTx.snd) : '';
+      if (nativeTx.grp) {
+        groupId = Buffer.from(nativeTx.grp).toString('base64');
+      }
+      if (nativeTx.note) {
+        notes.push(nativeTx.note.toString());
+      }
+    }
+
+    const tx = {
       txid: '',
       owner: dbAccount.address,
       signer: sender,
       nonce: 0,
-      actions: [action],
+      actions,
       status: IDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
-      totalFeeInNative: new BigNumber(nativeTx.fee!)
-        .shiftedBy(-nativeToken.decimals)
-        .toFixed(),
+      totalFeeInNative: txFee.shiftedBy(-nativeToken.decimals).toFixed(),
       extraInfo: {
-        note: Buffer.from(nativeTx.note ?? '').toString(),
+        note: trim(notes.join(' ')),
+        groupId,
       },
       encodedTx,
     };
+
+    return tx;
   }
 
   override decodedTxToLegacy(
@@ -421,45 +489,23 @@ export default class Vault extends VaultBase {
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxAlgo> {
-    if (!transferInfo.to) {
-      throw new Error('Invalid transferInfo.to params');
-    }
-    const { from, to, amount, token: assetId } = transferInfo;
+    const tx = await this.buildAlgoTxFromTransferInfo(transferInfo);
+    return encodeTransaction(tx);
+  }
 
-    const token = await this.engine.ensureTokenInDB(
-      this.networkId,
-      assetId || '',
+  override async buildEncodedTxFromBatchTransfer(params: {
+    transferInfos: ITransferInfo[];
+  }): Promise<IEncodedTxGroupAlgo> {
+    const { transferInfos } = params;
+    const txs = await Promise.all(
+      transferInfos.map((transferInfo) =>
+        this.buildAlgoTxFromTransferInfo(transferInfo),
+      ),
     );
 
-    if (!token) {
-      throw new OneKeyInternalError(`Token not found: ${assetId || 'ALGO'}`);
-    }
+    const txGroup = sdk.assignGroupID(txs);
 
-    const suggestedParams = await this.getSuggestedParams();
-    if (assetId) {
-      return encodeTransaction(
-        sdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
-          amount: BigInt(
-            new BigNumber(amount).shiftedBy(token.decimals).toFixed(),
-          ),
-          assetIndex: parseInt(assetId),
-          from,
-          to,
-          suggestedParams,
-        }),
-      );
-    }
-
-    return encodeTransaction(
-      sdk.makePaymentTxnWithSuggestedParamsFromObject({
-        amount: BigInt(
-          new BigNumber(amount).shiftedBy(token.decimals).toFixed(),
-        ),
-        from,
-        to,
-        suggestedParams,
-      }),
-    );
+    return txGroup.map((tx) => encodeTransaction(tx));
   }
 
   override buildEncodedTxFromApprove(
@@ -496,6 +542,10 @@ export default class Vault extends VaultBase {
     payload: any,
     options: IEncodedTxUpdateOptions,
   ): Promise<IEncodedTxAlgo> {
+    if (isArray(encodedTx)) {
+      return Promise.resolve(encodedTx);
+    }
+
     const nativeTx = sdk.decodeObj(
       Buffer.from(encodedTx, 'base64'),
     ) as ISdkAlgoEncodedTransaction;
@@ -527,11 +577,21 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override async fetchFeeInfo(encodedTx: IEncodedTxAlgo): Promise<IFeeInfo> {
+  override async fetchFeeInfo(
+    encodedTx: IEncodedTxAlgo | IEncodedTxGroupAlgo,
+  ): Promise<IFeeInfo> {
     const network = await this.getNetwork();
-    const { fee = 0 } = sdk.decodeObj(
-      Buffer.from(encodedTx, 'base64'),
-    ) as ISdkAlgoEncodedTransaction;
+
+    let txFee = new BigNumber(0);
+
+    const txGroup = isArray(encodedTx) ? encodedTx : [encodedTx];
+
+    for (const tx of txGroup) {
+      const { fee = 0 } = sdk.decodeObj(
+        Buffer.from(tx, 'base64'),
+      ) as ISdkAlgoEncodedTransaction;
+      txFee = txFee.plus(fee);
+    }
 
     return {
       nativeSymbol: network.symbol,
@@ -545,9 +605,7 @@ export default class Vault extends VaultBase {
       defaultPresetIndex: '0',
 
       tx: null,
-      baseFeeValue: new BigNumber(fee.toString())
-        .shiftedBy(-network.feeDecimals)
-        .toFixed(),
+      baseFeeValue: txFee.shiftedBy(-network.feeDecimals).toFixed(),
     };
   }
 

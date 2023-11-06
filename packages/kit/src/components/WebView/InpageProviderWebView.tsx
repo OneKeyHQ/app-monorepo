@@ -5,7 +5,7 @@ import type { InpageProviderWebViewProps } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
 const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
-  ({ src = '' }: InpageProviderWebViewProps, ref: any) => {
+  ({ src = '', scrolling }: InpageProviderWebViewProps, ref: any) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const iframeWebviewRef = useRef<IWebViewWrapperRef>({
       reload: () => {
@@ -34,6 +34,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
         title="iframe-web"
         src={src}
         frameBorder="0"
+        scrolling={scrolling}
         style={{ height: '100%', width: '100%' }}
       />
     );
