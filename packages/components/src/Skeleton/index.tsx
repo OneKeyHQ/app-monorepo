@@ -1,5 +1,3 @@
-import type { RefObject } from 'react';
-
 import { Skeleton as MotiSkeleton } from 'moti/skeleton';
 import { styled, withStaticProperties } from 'tamagui';
 
@@ -12,10 +10,8 @@ export type SkeletonProps = Omit<MotiSkeletonProps, 'Gradient'> & {
   style?: any;
 };
 
-function BasicSkeleton(
-  { children, style, ...restProps }: SkeletonProps,
-  _: RefObject<unknown>,
-) {
+function BasicSkeleton({ children, style, ...restProps }: SkeletonProps) {
+  // _: RefObject<unknown>,
   const { themeVariant } = useTheme();
   const primaryColor: any = useThemeValue('bgStrong');
   const secondaryColor =
