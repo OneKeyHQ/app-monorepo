@@ -1,5 +1,5 @@
 /* eslint-disable global-require */
-import type { FC, ReactNode } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 import { memo, useEffect, useMemo, useState } from 'react';
 
 import { Dimensions } from 'react-native';
@@ -9,8 +9,6 @@ import { Stack, useThemeValue } from '@onekeyhq/components';
 // import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHtmlPreloadSplashLogoRemove } from '@onekeyhq/kit/src/hooks/useHtmlPreloadSplashLogoRemove';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import type { VariableVal } from '@tamagui/core';
 
 const AnimatedSplashView = memo(
   ({
@@ -76,12 +74,9 @@ const AnimatedSplashView = memo(
 );
 AnimatedSplashView.displayName = 'AnimatedSplashView';
 
-const AppLoading: FC = ({ children }) => {
+const AppLoading = ({ children }: PropsWithChildren<unknown>) => {
   const [initDataReady, setInitDataReady] = useState(false);
-  let bgColor: VariableVal | undefined = useThemeValue('background-default');
-  if (platformEnv.isRuntimeBrowser) {
-    bgColor = undefined;
-  }
+  const bgColor = useThemeValue('bg');
   useHtmlPreloadSplashLogoRemove();
 
   useEffect(() => {
@@ -93,7 +88,7 @@ const AppLoading: FC = ({ children }) => {
   return (
     <AnimatedSplashView
       initDataReady={initDataReady}
-      bgColor={bgColor as string}
+      bgColor={platformEnv.isRuntimeBrowser ? undefined : bgColor}
     >
       {children}
     </AnimatedSplashView>

@@ -35,7 +35,7 @@ export interface DialogProps extends TMDialogProps {
 }
 
 export interface DialogInstanceRef {
-  close(): void;
+  close: () => void;
 }
 
 export type DialogContextForm = UseFormReturn<any> | undefined;
