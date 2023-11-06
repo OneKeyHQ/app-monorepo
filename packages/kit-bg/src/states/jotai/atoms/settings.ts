@@ -1,8 +1,14 @@
 import type { LocaleSymbol } from '@onekeyhq/components';
+import {
+  getBiologyAuthType,
+  isSupportBiologyAuth,
+} from '@onekeyhq/shared/src/biologyAuth';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { EAtomNames } from '../atomNames';
-import { globalAtom, globalAtomComputed } from '../utils';
+import { globalAtom, globalAtomComputed, globalAtomComputedRW } from '../utils';
+
+import type { AuthenticationType } from 'expo-local-authentication';
 
 export type ISettingsAtom = {
   theme: 'light' | 'dark' | 'system';
@@ -12,7 +18,9 @@ export type ISettingsAtom = {
   buildNumber?: string;
   instanceId: string;
   isBiologyAuthEnable: boolean;
+  isBiologyAuthSupported?: boolean;
   isPasswordSet: boolean;
+  biologyAuthType?: AuthenticationType;
 };
 export const { target: settingsAtom, use: useSettingsAtom } =
   globalAtom<ISettingsAtom>({
@@ -48,3 +56,30 @@ export const { target: settingsIsLightCNAtom, use: useSettingsIsLightCNAtom } =
       timeNow.length > 0
     );
   });
+
+export const {
+  target: settingsIsBioAuthSupportedAtom,
+  use: useSettingsIsBioAuthSupportedAtom,
+} = globalAtomComputed(async () => isSupportBiologyAuth());
+
+export const {
+  target: settingsBiologyAuthTypeAtom,
+  use: useSettingsBiologyAuthTypeAtom,
+} = globalAtomComputed(async () => getBiologyAuthType());
+
+export const {
+  target: settingsIsBioAuthEnableAtom,
+  use: useSettingsIsBioAuthEnableAtom,
+} = globalAtomComputedRW<Promise<boolean>, [boolean], void>({
+  read: async (get) => {
+    const isSupport = await get(settingsIsBioAuthSupportedAtom.atom());
+    return isSupport && get(settingsAtom.atom()).isBiologyAuthEnable;
+  },
+  write: (get, set, value) => {
+    const settings = get(settingsAtom.atom());
+    set(settingsAtom.atom(), {
+      ...settings,
+      isBiologyAuthEnable: value,
+    });
+  },
+});

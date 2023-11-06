@@ -27,34 +27,30 @@ const PasswordUpdate = ({ onUpdateRes }: IPasswordUpdateProps) => {
   const onUpdatePassword = useCallback(
     async (data: IPasswordUpdateForm) => {
       setLoading(true);
-      if (data.oldPassword === data.newPassword) {
-        Toast.error({ title: 'password is same' });
-        form.setFocus('newPassword');
-      } else {
-        try {
-          const enCodeNewPassword = encodePassword({
-            password: data.newPassword,
-          });
-          const enCodeOldPassword = encodePassword({
-            password: data.oldPassword,
-          });
-          const updatePasswordRes =
-            await backgroundApiProxy.servicePassword.updatePassword(
-              enCodeOldPassword,
-              enCodeNewPassword,
-            );
-          if (updatePasswordRes) {
-            onUpdateRes(updatePasswordRes);
-            Toast.success({ title: 'password update success' });
-          }
-        } catch (e) {
-          onUpdateRes('');
-          Toast.error({ title: 'password set failed' });
+      try {
+        const enCodeNewPassword = encodePassword({
+          password: data.newPassword,
+        });
+        const enCodeOldPassword = encodePassword({
+          password: data.oldPassword,
+        });
+        const updatePasswordRes =
+          await backgroundApiProxy.servicePassword.updatePassword(
+            enCodeOldPassword,
+            enCodeNewPassword,
+          );
+        if (updatePasswordRes) {
+          onUpdateRes(updatePasswordRes);
+          Toast.success({ title: 'password update success' });
         }
+      } catch (e) {
+        onUpdateRes('');
+        Toast.error({ title: 'password set failed' });
       }
+
       setLoading(false);
     },
-    [form, onUpdateRes],
+    [onUpdateRes],
   );
 
   return (

@@ -1,27 +1,25 @@
-import { memo } from 'react';
-
-import { XStack } from 'tamagui';
+import { Suspense, memo } from 'react';
 
 import {
   Button,
   Dialog,
   Screen,
-  Switch,
+  Spinner,
   Text,
   Toast,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
+import BiologyAuthSwitch from '../../components/BiologyAuthComponent/BiologyAuthSwitch';
 import PasswordSetup from '../../components/Password/PasswordSetup';
 import PasswordUpdate from '../../components/Password/PasswordUpdate';
 import PasswordVerify from '../../components/Password/PasswordVerify';
-import useBiologyAuthSettings from '../../hooks/useBiologyAuthSettings';
 
 const Swap = () => {
   console.log('swap');
-  const { isSupportBiologyAuth, enableBiologyAuth, setBiologyAuthEnable } =
-    useBiologyAuthSettings();
+
   const [settings] = useSettingsAtom();
   return (
     <Screen>
@@ -80,15 +78,17 @@ const Swap = () => {
             const dialog = Dialog.confirm({
               title: 'ConfirmPassword',
               renderContent: (
-                <PasswordVerify
-                  onVerifyRes={(data) => {
-                    console.log('verify data', data);
-                    if (data) {
-                      Toast.success({ title: '验证成功' });
-                      dialog.close();
-                    }
-                  }}
-                />
+                <Suspense fallback={<Spinner size="large" />}>
+                  <PasswordVerify
+                    onVerifyRes={(data) => {
+                      console.log('verify data', data);
+                      if (data) {
+                        Toast.success({ title: '验证成功' });
+                        dialog.close();
+                      }
+                    }}
+                  />
+                </Suspense>
               ),
               showFooter: false,
             });
@@ -97,17 +97,12 @@ const Swap = () => {
         >
           密码验证弹窗
         </Button>
-        {isSupportBiologyAuth && (
-          <XStack>
-            <Switch
-              value={enableBiologyAuth}
-              onChange={(checked) => {
-                void setBiologyAuthEnable(checked);
-              }}
-            />
-            <Text>生物识别开关</Text>
-          </XStack>
-        )}
+        <XStack justifyContent="space-between">
+          <Text>生物识别</Text>
+          <Suspense fallback={<Spinner size="large" />}>
+            <BiologyAuthSwitch />
+          </Suspense>
+        </XStack>
       </YStack>
     </Screen>
   );

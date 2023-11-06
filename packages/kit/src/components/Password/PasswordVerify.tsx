@@ -8,14 +8,18 @@ import {
   useState,
 } from 'react';
 
+import { AuthenticationType } from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
 import { Form, Input, useForm } from '@onekeyhq/components';
 import { encodePassword } from '@onekeyhq/core/src/secret';
+import {
+  useSettingsBiologyAuthTypeAtom,
+  useSettingsIsBioAuthEnableAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import useBiologyAuthSettings from '../../hooks/useBiologyAuthSettings';
 import { AppStatusActiveListener } from '../AppStatusActiveListener';
 
 interface IPasswordVerifyProps {
@@ -36,7 +40,8 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
   }>({ value: 'default' });
   const intl = useIntl();
   const [secureEntry, setSecureEntry] = useState(true);
-  const { enableBiologyAuth } = useBiologyAuthSettings();
+  const [isBioAuthEnable] = useSettingsIsBioAuthEnableAtom();
+  const [bioAuthType] = useSettingsBiologyAuthTypeAtom();
   const lastTime = useRef(0);
   const passwordInput = form.watch('password');
 
@@ -93,9 +98,12 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
       onPress?: () => void;
       loading?: boolean;
     }[] = [];
-    if (enableBiologyAuth && !passwordInput) {
+    if (isBioAuthEnable && !passwordInput) {
       actions.push({
-        iconName: 'FaceArcSolid',
+        iconName:
+          bioAuthType && bioAuthType === AuthenticationType.FACIAL_RECOGNITION
+            ? 'FaceArcSolid'
+            : 'FinderOutline',
         onPress: onBiologyAuthenticate,
         loading: status.value === 'verifying',
       });
@@ -115,13 +123,14 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
 
     return actions;
   }, [
-    enableBiologyAuth,
+    isBioAuthEnable,
     passwordInput,
+    bioAuthType,
     onBiologyAuthenticate,
     status.value,
+    secureEntry,
     form,
     onInputPasswordAuthenticate,
-    secureEntry,
   ]);
 
   useEffect(() => {
@@ -134,22 +143,22 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
   }, [form, status]);
 
   useLayoutEffect(() => {
-    if (enableBiologyAuth && !passwordInput) {
+    if (isBioAuthEnable && !passwordInput) {
       void onBiologyAuthenticate();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enableBiologyAuth]);
+  }, [isBioAuthEnable]);
 
   // Perform biology verification upon returning to the backend after a 1-second interval.
   const onActive = useCallback(() => {
     const now = Date.now();
     if (now - lastTime.current > 1000) {
       lastTime.current = now;
-      if (enableBiologyAuth && !passwordInput) {
+      if (isBioAuthEnable && !passwordInput) {
         void onBiologyAuthenticate();
       }
     }
-  }, [enableBiologyAuth, onBiologyAuthenticate, passwordInput]);
+  }, [isBioAuthEnable, onBiologyAuthenticate, passwordInput]);
 
   return (
     <Form form={form}>
@@ -173,7 +182,7 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
           addOns={rightActions}
         />
       </Form.Field>
-      {enableBiologyAuth && <AppStatusActiveListener onActive={onActive} />}
+      {isBioAuthEnable && <AppStatusActiveListener onActive={onActive} />}
     </Form>
   );
 };

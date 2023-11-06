@@ -64,7 +64,18 @@ export abstract class LocalDbBase {
     throw new WrongPassword();
   }
 
-  abstract updatePassword(password: string): Promise<void>;
+  async checkPasswordSet(): Promise<boolean> {
+    const ctx = await this.getContext();
+    if (ctx && ctx.verifyString !== DEFAULT_VERIFY_STRING) {
+      return true;
+    }
+    return false;
+  }
+
+  abstract updatePassword(
+    oldPassword: string,
+    newPassword: string,
+  ): Promise<void>;
 
   abstract dumpCredentials(password: string): Promise<Record<string, string>>;
 

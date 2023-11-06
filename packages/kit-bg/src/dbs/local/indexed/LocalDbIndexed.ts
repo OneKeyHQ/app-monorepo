@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { isNil } from 'lodash';
 
-import { encrypt } from '@onekeyhq/core/src/secret';
+import { decrypt, encrypt } from '@onekeyhq/core/src/secret';
 import {
   OneKeyInternalError,
   WrongPassword,
@@ -81,53 +81,57 @@ export class LocalDbIndexed extends LocalDbIndexedBase {
   }
   // ---------------------------------------------- credential
 
-  override async updatePassword(password: string): Promise<void> {
+  override async updatePassword(
+    oldPassword: string,
+    newPassword: string,
+  ): Promise<void> {
     const context = await this.getContext();
     if (!context) return;
     const store = await this.getObjectStore(EIndexedDBStoreNames.context);
     context.verifyString = encrypt(
-      password,
+      newPassword,
       Buffer.from(DEFAULT_VERIFY_STRING),
     ).toString('hex');
     await store.put(context);
-    // const credentialsStore = await this.getObjectStore(
-    //   EIndexedDBStoreNames.credentials,
-    // );
-    // const cursor = await credentialsStore.openCursor();
-    // if (!cursor) return;
-    // const credentialItem: DBCredential = cursor.value;
+    if (!oldPassword) return;
+    const credentialsStore = await this.getObjectStore(
+      EIndexedDBStoreNames.credentials,
+    );
+    const cursor = await credentialsStore.openCursor();
+    if (!cursor) return;
+    const credentialItem: DBCredential = cursor.value;
 
-    // if (credentialItem.id.startsWith('imported')) {
-    //   const privateKeyCredentialJSON: StoredPrivateKeyCredential = JSON.parse(
-    //     credentialItem.credential,
-    //   );
-    //   credentialItem.credential = JSON.stringify({
-    //     privateKey: encrypt(
-    //       newPassword,
-    //       decrypt(
-    //         oldPassword,
-    //         Buffer.from(privateKeyCredentialJSON.privateKey, 'hex'),
-    //       ),
-    //     ).toString('hex'),
-    //   });
-    // } else {
-    //   const credentialJSON: StoredSeedCredential = JSON.parse(
-    //     credentialItem.credential,
-    //   );
-    //   credentialItem.credential = JSON.stringify({
-    //     entropy: encrypt(
-    //       newPassword,
-    //       decrypt(oldPassword, Buffer.from(credentialJSON.entropy, 'hex')),
-    //     ).toString('hex'),
-    //     seed: encrypt(
-    //       newPassword,
-    //       decrypt(oldPassword, Buffer.from(credentialJSON.seed, 'hex')),
-    //     ).toString('hex'),
-    //   });
-    // }
+    if (credentialItem.id.startsWith('imported')) {
+      const privateKeyCredentialJSON: StoredPrivateKeyCredential = JSON.parse(
+        credentialItem.credential,
+      );
+      credentialItem.credential = JSON.stringify({
+        privateKey: encrypt(
+          newPassword,
+          decrypt(
+            oldPassword,
+            Buffer.from(privateKeyCredentialJSON.privateKey, 'hex'),
+          ),
+        ).toString('hex'),
+      });
+    } else {
+      const credentialJSON: StoredSeedCredential = JSON.parse(
+        credentialItem.credential,
+      );
+      credentialItem.credential = JSON.stringify({
+        entropy: encrypt(
+          newPassword,
+          decrypt(oldPassword, Buffer.from(credentialJSON.entropy, 'hex')),
+        ).toString('hex'),
+        seed: encrypt(
+          newPassword,
+          decrypt(oldPassword, Buffer.from(credentialJSON.seed, 'hex')),
+        ).toString('hex'),
+      });
+    }
 
-    // await cursor.update(credentialItem);
-    // await cursor.continue();
+    await cursor.update(credentialItem);
+    await cursor.continue();
   }
 
   override dumpCredentials(password: string): Promise<Record<string, string>> {

@@ -1,25 +1,14 @@
-import { memo, useCallback, useState } from 'react';
+import { Suspense, memo, useCallback, useState } from 'react';
 
-import { Controller } from 'react-hook-form';
-
-import {
-  Form,
-  Input,
-  Switch,
-  Text,
-  Toast,
-  XStack,
-  useForm,
-} from '@onekeyhq/components';
+import { Form, Input, Spinner, Toast, useForm } from '@onekeyhq/components';
 import { encodePassword } from '@onekeyhq/core/src/secret';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import useBiologyAuthSettings from '../../hooks/useBiologyAuthSettings';
+import BiologyAuthSwitch from '../BiologyAuthComponent/BiologyAuthSwitch';
 
 interface IPasswordSetupForm {
   password: string;
   confirmPassword: string;
-  biologyAuth: boolean;
 }
 
 interface IPasswordSetupProps {
@@ -31,14 +20,10 @@ const PasswordSetup = ({ onSetupRes }: IPasswordSetupProps) => {
     defaultValues: {
       password: '',
       confirmPassword: '',
-      biologyAuth: false,
     },
   });
   const [secureEntry, setSecureEntry] = useState(true);
   const [loading, setLoading] = useState(false);
-  const { isSupportBiologyAuth, setBiologyAuthEnable, enableBiologyAuth } =
-    useBiologyAuthSettings();
-
   const onSetupPassword = useCallback(
     async (data: IPasswordSetupForm) => {
       if (data.confirmPassword !== data.password) {
@@ -58,6 +43,7 @@ const PasswordSetup = ({ onSetupRes }: IPasswordSetupProps) => {
           }
         } catch (e) {
           onSetupRes('');
+          console.log('e', e);
           Toast.error({ title: 'password set failed' });
         } finally {
           setLoading(false);
@@ -118,25 +104,9 @@ const PasswordSetup = ({ onSetupRes }: IPasswordSetupProps) => {
           ]}
         />
       </Form.Field>
-
-      {isSupportBiologyAuth && (
-        <Controller
-          control={form.control}
-          name="biologyAuth"
-          render={({ field }) => (
-            <XStack justifyContent="space-between">
-              <Text>生物识别</Text>
-              <Switch
-                value={enableBiologyAuth}
-                onChange={(checked) => {
-                  field.onChange(checked);
-                  void setBiologyAuthEnable(checked);
-                }}
-              />
-            </XStack>
-          )}
-        />
-      )}
+      <Suspense fallback={<Spinner size="small" />}>
+        <BiologyAuthSwitch />
+      </Suspense>
     </Form>
   );
 };
