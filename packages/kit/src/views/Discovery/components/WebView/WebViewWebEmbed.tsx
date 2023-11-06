@@ -4,7 +4,7 @@ import WebView from './index';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useThemeProviderVariant } from '../../hooks/useThemeVariant';
+import { useThemeProviderVariant } from '../../../../hooks/useThemeVariant';
 
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';

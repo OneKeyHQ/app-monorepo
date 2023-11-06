@@ -2,7 +2,7 @@ import { memo, useEffect } from 'react';
 
 import { Stack, useThemeValue } from '@onekeyhq/components';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
-import { simpleDb } from '@onekeyhq/kit/src/components/WebView/mock';
+import { simpleDb } from '@onekeyhq/kit/src/views/Discovery/components/WebView/mock';
 
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import { webHandler } from '../../explorerUtils';

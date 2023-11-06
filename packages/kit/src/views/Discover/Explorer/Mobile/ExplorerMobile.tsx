@@ -4,7 +4,7 @@ import { Freeze } from 'react-freeze';
 
 import { Stack, Text } from '@onekeyhq/components';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
-import { simpleDb } from '@onekeyhq/kit/src/components/WebView/mock';
+import { simpleDb } from '@onekeyhq/kit/src/views/Discovery/components/WebView/mock';
 
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import { onItemSelect } from '../../Controller/gotoSite';

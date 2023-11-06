@@ -5,7 +5,7 @@ import { Button, Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
 import InpageProviderWebView from './InpageProviderWebView';
 

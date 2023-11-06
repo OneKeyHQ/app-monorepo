@@ -18,7 +18,7 @@ import { Freeze } from 'react-freeze';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
 import ErrorView from './ErrorView';
 
@@ -71,6 +71,7 @@ const DesktopWebView = forwardRef(
       src,
       style,
       receiveHandler,
+      allowpopups,
       onSrcChange,
       onDidStartLoading,
       onDidStartNavigation,
@@ -347,10 +348,10 @@ const DesktopWebView = forwardRef(
               'height': '100%',
               ...style,
             }}
-            allowpopups
-            nodeintegration
+            allowpopups={allowpopups}
             // @ts-expect-error
-            nodeintegrationinsubframes
+            nodeintegration="true"
+            nodeintegrationinsubframes="true"
             webpreferences="contextIsolation=0, contextisolation=0, nativeWindowOpen=1, sandbox=0"
             // mobile user-agent
             // useragent="Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1"

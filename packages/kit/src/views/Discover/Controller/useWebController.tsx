@@ -14,7 +14,7 @@ import { gotoSite } from './gotoSite';
 import { getWebTabs, useWebTabs } from './useWebTabs';
 import { useWebviewRef } from './useWebviewRef';
 
-import type { IElectronWebView } from '../../../components/WebView/types';
+import type { IElectronWebView } from '../../Discovery/components/WebView/types';
 import type { OnWebviewNavigation } from '../explorerUtils';
 import type WebView from 'react-native-webview';
 

@@ -4,7 +4,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { crossWebviewLoadUrl, getWebviewWrapperRef } from '../explorerUtils';
 
-import type { IElectronWebView } from '../../../components/WebView/types';
+import type { IElectronWebView } from '../../Discovery/components/WebView/types';
 import type { OnWebviewNavigation } from '../explorerUtils';
 import type WebView from 'react-native-webview';
 

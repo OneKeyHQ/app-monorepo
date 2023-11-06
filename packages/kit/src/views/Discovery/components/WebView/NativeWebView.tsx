@@ -14,7 +14,7 @@ import { WebView } from 'react-native-webview';
 
 import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 
-import { openUrlExternal } from '../../utils/openUrl';
+import { openUrlExternal } from '../../../../utils/openUrl';
 
 import ErrorView from './ErrorView';
 

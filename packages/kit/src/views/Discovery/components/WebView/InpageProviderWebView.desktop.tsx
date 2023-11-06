@@ -29,7 +29,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       onDidFailLoad,
       onPageTitleUpdated,
       onPageFaviconUpdated,
-      onNewWindow,
+      // onNewWindow,
       onDomReady,
     }: InpageProviderWebViewProps,
     ref: any,
@@ -53,7 +53,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
         receiveHandler={receiveHandler}
         // Warning: any string work, any bool not work
         // @ts-expect-error
-        allowpopups={allowpopups ? 'true' : false}
+        allowpopups={allowpopups.toString()}
         useragent={
           // we can resize desktop to vertical only in DEV env currently
           platformEnv.isDev && isVertical
@@ -68,7 +68,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
         onDidFailLoad={onDidFailLoad}
         onPageTitleUpdated={onPageTitleUpdated}
         onPageFaviconUpdated={onPageFaviconUpdated}
-        onNewWindow={onNewWindow}
+        // onNewWindow={onNewWindow}
         onDomReady={onDomReady}
       />
     );

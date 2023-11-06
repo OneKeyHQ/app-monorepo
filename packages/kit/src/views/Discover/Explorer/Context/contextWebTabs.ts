@@ -1,11 +1,11 @@
 import { isEqual } from 'lodash';
 // import { nanoid } from 'nanoid';
 
-import { simpleDb } from '@onekeyhq/kit/src/components/WebView/mock';
 import {
   atom,
   createJotaiContext,
 } from '@onekeyhq/kit/src/store/jotai/createJotaiContext';
+import { simpleDb } from '@onekeyhq/kit/src/views/Discovery/components/WebView/mock';
 
 import { webviewRefs } from '../../explorerUtils';
 

@@ -6,7 +6,7 @@ import { onNavigation } from '../../Controller/useWebController';
 import { webviewRefs } from '../../explorerUtils';
 import { webTabsActions } from '../Context/contextWebTabs';
 
-import type { IElectronWebView } from '../../../../components/WebView/types';
+import type { IElectronWebView } from '../../../Discovery/components/WebView/types';
 import type { WebTab } from '../Context/contextWebTabs';
 import type {
   DidStartNavigationEvent,
