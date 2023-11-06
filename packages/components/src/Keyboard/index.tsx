@@ -1,4 +1,4 @@
-import { type FC, useCallback, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { chunk } from 'lodash';
 import { XStack, YStack } from 'tamagui';
