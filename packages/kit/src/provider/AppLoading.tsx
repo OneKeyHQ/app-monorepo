@@ -48,6 +48,7 @@ function SplashView() {
 
 const useWaitReady = createSuspender(
   () =>
+    // TODO：It needs to be modified to listen for the event of data loading completion to end the waiting.
     new Promise<void>((resolve) => {
       setTimeout(() => {
         resolve();
