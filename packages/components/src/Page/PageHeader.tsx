@@ -10,7 +10,7 @@ export function PageHeader(props: IPageHeaderProps) {
   const navigation = useNavigation();
   useEffect(() => {
     navigation.setOptions(props);
-  }, [props]);
+  }, [navigation, props]);
 
   return null;
 }

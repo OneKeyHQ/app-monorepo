@@ -1,4 +1,4 @@
-import { Page, Stack } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
