@@ -185,14 +185,15 @@ export function DesktopLeftSideBar({
         );
       }),
     [
-      descriptors,
-      isCollapse,
-      navigation,
       routes,
       state.index,
       state.key,
-      touchMode,
+      state.routeNames,
+      descriptors,
       extraConfig?.name,
+      touchMode,
+      isCollapse,
+      navigation,
     ],
   );
 
