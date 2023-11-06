@@ -14,7 +14,13 @@ const InputGallery = () => (
       },
       {
         title: 'Page Footer',
-        element: <Page.Footer />,
+        element: (
+          <Page.Footer
+            onConfirm={() => {
+              console.log('Confirmed');
+            }}
+          />
+        ),
       },
     ]}
   />

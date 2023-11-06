@@ -1,22 +1,16 @@
 import type { PropsWithChildren } from 'react';
 import { Suspense, useMemo } from 'react';
 
-import { withStaticProperties } from 'tamagui';
-
 import { createSuspender } from '@onekeyhq/shared/src/modules3rdParty/use-suspender';
 
 import { Spinner } from '../Spinner';
 import { Stack } from '../Stack';
-
-import { PageFooter } from './PageFooter';
-import { PageHeader } from './PageHeader';
 
 const Loading = () => (
   <Stack flex={1} alignContent="center" justifyContent="center">
     <Spinner size="small" />
   </Stack>
 );
-
 const useWaitNavigationAnimation = createSuspender(
   () =>
     new Promise((resolve) => {
@@ -25,12 +19,10 @@ const useWaitNavigationAnimation = createSuspender(
       }, 0);
     }),
 );
-
 const PendingComponent = ({ children }: PropsWithChildren<unknown>) => {
   useWaitNavigationAnimation();
   return children;
 };
-
 function LoadingScreen({ children }: PropsWithChildren<unknown>) {
   return (
     <Suspense fallback={<Loading />}>
@@ -38,7 +30,6 @@ function LoadingScreen({ children }: PropsWithChildren<unknown>) {
     </Suspense>
   );
 }
-
 export function BasicPage({ children }: PropsWithChildren<unknown>) {
   return useMemo(
     () => (
@@ -51,8 +42,3 @@ export function BasicPage({ children }: PropsWithChildren<unknown>) {
     [],
   );
 }
-
-export const Page = withStaticProperties(BasicPage, {
-  Header: PageHeader,
-  Footer: PageFooter,
-});

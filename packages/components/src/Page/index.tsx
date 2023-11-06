@@ -1,21 +1,61 @@
-import type { PropsWithChildren } from 'react';
+import { type PropsWithChildren, useMemo, useState } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
 import { Stack } from '../Stack';
 
+import { BasicPage } from './BasicPage';
+import { PageButtonGroup } from './PageButtonGroup';
+import { PageContext } from './PageContext';
 import { PageFooter } from './PageFooter';
 import { PageHeader } from './PageHeader';
 
-function BasicPage({ children }: PropsWithChildren<unknown>) {
+import type { IPageButtonGroupProps } from './PageButtonGroup';
+
+function PageContainer({ children }: PropsWithChildren<unknown>) {
   return (
-    <Stack bg="$bg" flex={1}>
-      {children}
-    </Stack>
+    <BasicPage>
+      <>
+        {children}
+        <Stack
+          bg="$bg"
+          padding="$5"
+          $sm={{
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}
+          $gtSm={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <PageButtonGroup />
+        </Stack>
+      </>
+    </BasicPage>
   );
 }
 
-export const Page = withStaticProperties(BasicPage, {
+function PageProvider({ children }: PropsWithChildren<unknown>) {
+  const [options, setOptions] = useState<{
+    footerOptions: IPageButtonGroupProps;
+  }>();
+  const value = useMemo(
+    () => ({
+      options,
+      setOptions,
+    }),
+    [options],
+  );
+  return (
+    <PageContext.Provider value={value}>
+      <PageContainer>{children}</PageContainer>
+    </PageContext.Provider>
+  );
+}
+
+export const Page = withStaticProperties(PageProvider, {
   Header: PageHeader,
   Footer: PageFooter,
 });
