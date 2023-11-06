@@ -35,10 +35,10 @@ const TabMe = () => {
       <YStack>
         <Button
           onPress={() => {
-            navigation.switchTab(TabRoutes.Me);
+            navigation.switchTab(TabRoutes.Home);
           }}
         >
-          <Button>切换到首页</Button>
+          切换到首页
         </Button>
         <MeJotaiDemo />
       </YStack>

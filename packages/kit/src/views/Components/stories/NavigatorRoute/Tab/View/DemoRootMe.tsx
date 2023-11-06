@@ -1,4 +1,4 @@
-import { Button, Stack } from '@onekeyhq/components';
+import { Button, Stack, Text } from '@onekeyhq/components';
 
 import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
@@ -52,6 +52,16 @@ const DemoRootMe = () => {
             <Stack>
               <FreezeProbe componentName="DemoRootMe" />
               <NavigationFocusTools componentName="DemoRootMe" />
+            </Stack>
+          ),
+        },
+        {
+          title: 'BottomTab 渲染卡顿测试',
+          element: (
+            <Stack>
+              {new Array(1000).fill({}).map((_, index) => (
+                <Text>这是有1000个 View 的 BottomTab 卡顿测试{index}</Text>
+              ))}
             </Stack>
           ),
         },
