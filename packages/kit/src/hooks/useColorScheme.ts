@@ -2,9 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Appearance } from 'react-native';
 
-import type { ColorSchemeName } from 'react-native';
-
-export function useColorScheme(delay = 500): NonNullable<ColorSchemeName> {
+export function useColorScheme(delay = 500) {
   const [colorScheme, setColorScheme] = useState(Appearance.getColorScheme());
 
   const ref = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -35,5 +33,5 @@ export function useColorScheme(delay = 500): NonNullable<ColorSchemeName> {
     };
   }, [onColorSchemeChange, resetCurrentTimeout]);
 
-  return colorScheme as NonNullable<ColorSchemeName>;
+  return colorScheme;
 }
