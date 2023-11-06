@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
 
-import { Stack, Text } from '@onekeyhq/components';
+import { Stack } from '@onekeyhq/components';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
 import { simpleDb } from '@onekeyhq/kit/src/components/WebView/mock';
 
@@ -16,7 +16,6 @@ import {
   withProviderWebTabs,
 } from '../Context/contextWebTabs';
 
-import BrowserBottomBar from './BrowserBottomBar';
 import BrowserInfoBar from './BrowserInfoBar';
 import WebTabContainer from './WebTabContainer';
 
@@ -45,7 +44,6 @@ function HandleRebuildTabBarData() {
 function ExplorerMobileCmp() {
   const { top } = useSafeAreaInsets();
   const [showHome, setShowHome] = useState(true);
-  const [showContent, setShowContent] = useState(true);
 
   return (
     <Stack flex={1} bg="$bg" mt={`${top}px`}>

@@ -1,5 +1,9 @@
-import type { TabNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
 import { TabStackNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
+import type {
+  ITabNavigatorExtraConfig,
+  TabNavigatorConfig,
+} from '@onekeyhq/components/src/Navigation/Navigator/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Swap from '../../../views/Swap';
 import HomePage from '../../../views/Tab/Home/HomePageTabs';
@@ -12,6 +16,7 @@ import { TabMeRoutes } from './Me/Routes';
 import TabMe from './Me/TabMe';
 import { TabRoutes } from './Routes';
 import { TabSwapRoutes } from './Swap/Routes';
+import { WebViewRoutes } from './WebView/Routes';
 
 const config: TabNavigatorConfig<TabRoutes>[] = [
   {
@@ -84,6 +89,22 @@ const config: TabNavigatorConfig<TabRoutes>[] = [
   },
 ];
 
+const extraConfig: ITabNavigatorExtraConfig<TabRoutes> | undefined =
+  platformEnv.isDesktop
+    ? {
+        name: TabRoutes.WebViewTab,
+        children: [
+          {
+            name: WebViewRoutes.WebView,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            component: require('./WebView/WebView').default,
+          },
+        ],
+      }
+    : undefined;
+
 export default function TabNavigator() {
-  return <TabStackNavigator<TabRoutes> config={config} />;
+  return (
+    <TabStackNavigator<TabRoutes> config={config} extraConfig={extraConfig} />
+  );
 }

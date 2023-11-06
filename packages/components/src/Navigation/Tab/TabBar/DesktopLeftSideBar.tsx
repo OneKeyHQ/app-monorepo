@@ -1,4 +1,3 @@
-import type { FC } from 'react';
 import { useMemo } from 'react';
 
 import getDefaultHeaderHeight from '@react-navigation/elements/src/Header/getDefaultHeaderHeight';
@@ -10,6 +9,7 @@ import { ScrollView } from 'tamagui';
 
 import {
   Icon,
+  Portal,
   Stack,
   Text,
   YStack,
@@ -23,6 +23,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import useProviderSideBarValue from '../../../Provider/hooks/useProviderSideBarValue';
 
 import type { ICON_NAMES } from '../../../Icon';
+import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
 import type {
   BottomTabBarProps,
   BottomTabNavigationOptions,
@@ -85,7 +86,14 @@ function TabItemView({
   return contentMemo;
 }
 
-const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
+export function DesktopLeftSideBar({
+  navigation,
+  state,
+  descriptors,
+  extraConfig,
+}: BottomTabBarProps & {
+  extraConfig?: ITabNavigatorExtraConfig<string>;
+}) {
   const { routes } = state;
   const { leftSidebarCollapsed: isCollapse } = useProviderSideBarValue();
   const { top } = useSafeAreaInsets(); // used for ipad
@@ -143,6 +151,27 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
           }
         };
 
+        if (route.name === extraConfig?.name) {
+          return (
+            <YStack
+              onPress={() => {
+                // Avoid re-rendering by checking if it's the current route.
+                if (state.routeNames[state.index] !== extraConfig?.name) {
+                  navigation.dispatch({
+                    ...CommonActions.navigate({
+                      name: extraConfig.name,
+                      merge: true,
+                    }),
+                    target: state.key,
+                  });
+                }
+              }}
+            >
+              <Portal.Container name={Portal.Constant.WEB_TAB_BAR} />
+            </YStack>
+          );
+        }
+
         return (
           <TabItemView
             touchMode={touchMode}
@@ -156,13 +185,15 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
         );
       }),
     [
-      descriptors,
-      isCollapse,
-      navigation,
       routes,
       state.index,
       state.key,
+      state.routeNames,
+      descriptors,
+      extraConfig?.name,
       touchMode,
+      isCollapse,
+      navigation,
     ],
   );
 
@@ -200,5 +231,4 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
       </YStack>
     </MotiView>
   );
-};
-export default Sidebar;
+}

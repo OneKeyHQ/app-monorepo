@@ -19,7 +19,7 @@ export interface ModalFlowNavigatorConfig<
   RouteName extends string,
   P extends ParamListBase,
 > extends CommonNavigatorConfig<RouteName, P> {
-  translationId: LocaleIds;
+  translationId: LocaleIds | string;
   allowDisableClose?: boolean;
   disableClose?: boolean;
 }
@@ -69,7 +69,7 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
             allowDisableClose,
             disableClose,
             title: intl.formatMessage({
-              id: translationId,
+              id: translationId as LocaleIds,
             }),
           };
 

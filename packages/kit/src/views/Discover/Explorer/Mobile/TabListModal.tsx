@@ -16,7 +16,7 @@ import type { View } from 'react-native';
 
 export const tabGridRefs: Record<string, View> = {};
 
-const WebTabItem: FC<WebTab> = ({ isCurrent, title, favicon, id, url }) => {
+const WebTabItem: FC<WebTab> = ({ isCurrent, title, id, url }) => {
   const navigation =
     useAppNavigation<PageNavigationProp<DiscoverModalParamList>>();
   return (

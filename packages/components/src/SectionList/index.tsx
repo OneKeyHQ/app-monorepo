@@ -33,7 +33,7 @@ function BaseSectionList<T>(
     ListHeaderComponentStyle = {},
     ListFooterComponentStyle = {},
     ...props
-  }: NativeSectionListProps<T>,
+  }: SectionListProps<T>,
   ref: ForwardedRef<SectionListRef>,
 ) {
   const [restProps, style] = usePropsAndStyle(props, {

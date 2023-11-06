@@ -66,7 +66,7 @@ const ControlledDialogByButton = () => {
       <>
         <Button onPress={() => changeIsOpen(true)}>Open Modal By Button</Button>
         <Dialog
-          backdrop
+          dismissOnOverlayPress
           title="我站在 Modal 上面"
           description="通过组件挂载的 Dialog，点击确定按钮关闭 Dialog 打开一个 Modal"
           open={isOpen}
@@ -80,7 +80,7 @@ const ControlledDialogByButton = () => {
         />
       </>
     ),
-    [],
+    [isOpen, navigation],
   );
 };
 

@@ -12,7 +12,7 @@ import { useSystemLocale } from './useSystemLocale';
 export function useThemeProviderVariant() {
   const { theme, locale, lastLocale } = useAppSelector(themeProviderSelector);
   const systemLocale = useSystemLocale();
-  const colorScheme: string = useColorScheme();
+  const colorScheme = useColorScheme();
   const themeVariant = theme === 'system' ? colorScheme ?? 'dark' : theme;
   const currentVariant = (
     locale === 'system' ? systemLocale : locale

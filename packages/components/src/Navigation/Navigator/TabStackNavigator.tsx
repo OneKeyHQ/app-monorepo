@@ -11,32 +11,8 @@ import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 import NavigationBar from '../Tab/TabBar';
 
-import type { CommonNavigatorConfig } from './types';
-import type { ICON_NAMES } from '../../Icon';
-import type { LocaleIds } from '../../locale';
+import type { TabNavigatorProps, TabSubNavigatorConfig } from './types';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
-import type { ParamListBase } from '@react-navigation/routers';
-
-export interface TabSubNavigatorConfig<
-  RouteName extends string,
-  P extends ParamListBase = ParamListBase,
-> extends CommonNavigatorConfig<RouteName, P> {
-  translationId: LocaleIds;
-  disable?: boolean;
-}
-
-export interface TabNavigatorConfig<RouteName extends string> {
-  name: RouteName;
-  tabBarIcon: (focused?: boolean) => ICON_NAMES;
-  translationId: LocaleIds;
-  children: TabSubNavigatorConfig<any, any>[];
-  freezeOnBlur?: boolean;
-  disable?: boolean;
-}
-
-export interface TabNavigatorProps<RouteName extends string> {
-  config: TabNavigatorConfig<RouteName>[];
-}
 
 const Stack = createStackNavigator();
 
@@ -47,7 +23,6 @@ function TabSubStackNavigator({
 }) {
   const [bgColor, titleColor] = useThemeValue(['bgApp', 'text']);
   const intl = useIntl();
-
   return (
     <Stack.Navigator>
       {config
@@ -59,7 +34,11 @@ function TabSubStackNavigator({
             component={component}
             options={({ navigation }: { navigation: any }) => ({
               freezeOnBlur: true,
-              title: intl.formatMessage({ id: translationId }),
+              title: translationId
+                ? intl.formatMessage({
+                    id: translationId,
+                  })
+                : '',
               ...makeTabScreenOptions({ navigation, bgColor, titleColor }),
             })}
           />
@@ -74,13 +53,16 @@ const Tab = createBottomTabNavigator();
 
 export function TabStackNavigator<RouteName extends string>({
   config,
+  extraConfig,
 }: TabNavigatorProps<RouteName>) {
   const isVerticalLayout = useIsVerticalLayout();
   const intl = useIntl();
 
   const tabBarCallback = useCallback(
-    (props: BottomTabBarProps) => <NavigationBar {...props} />,
-    [],
+    (props: BottomTabBarProps) => (
+      <NavigationBar {...props} extraConfig={extraConfig} />
+    ),
+    [extraConfig],
   );
 
   const tabComponents = useMemo(
@@ -95,6 +77,39 @@ export function TabStackNavigator<RouteName extends string>({
     [config],
   );
 
+  const tabScreens = tabComponents.map(({ name, children, ...options }) => (
+    <Tab.Screen
+      key={name}
+      name={name}
+      options={{
+        ...options,
+        tabBarLabel: intl.formatMessage({ id: options.translationId }),
+        // @ts-expect-error BottomTabBar V7
+        tabBarPosition: isVerticalLayout ? 'bottom' : 'left',
+      }}
+    >
+      {children}
+    </Tab.Screen>
+  ));
+
+  if (extraConfig) {
+    const children = () => (
+      <TabSubStackNavigatorMemo config={extraConfig.children} />
+    );
+    tabScreens.push(
+      <Tab.Screen
+        key={extraConfig.name}
+        name={extraConfig.name}
+        options={{
+          freezeOnBlur: true,
+          // @ts-expect-error BottomTabBar V7
+          tabBarPosition: 'left',
+        }}
+      >
+        {children}
+      </Tab.Screen>,
+    );
+  }
   return (
     <Tab.Navigator
       tabBar={tabBarCallback}
@@ -106,20 +121,7 @@ export function TabStackNavigator<RouteName extends string>({
         lazy: !platformEnv.isNative,
       }}
     >
-      {tabComponents.map(({ name, children, ...options }) => (
-        <Tab.Screen
-          key={name}
-          name={name}
-          options={{
-            ...options,
-            tabBarLabel: intl.formatMessage({ id: options.translationId }),
-            // @ts-expect-error BottomTabBar V7
-            tabBarPosition: isVerticalLayout ? 'bottom' : 'left',
-          }}
-        >
-          {children}
-        </Tab.Screen>
-      ))}
+      {tabScreens}
     </Tab.Navigator>
   );
 }
