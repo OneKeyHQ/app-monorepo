@@ -1,8 +1,4 @@
-import {
-  useCallback,
-  useMemo,
-  useState,
-} from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 // import { useIntl } from 'react-intl';
 import { FlatList, RefreshControl, ScrollView } from 'react-native';
@@ -12,7 +8,11 @@ import { PageManager } from '@onekeyhq/components/src/TabView';
 
 import HeaderView from './HeaderView';
 
-const FirstRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number, h: number) => void) | undefined}) => (
+const FirstRoute = ({
+  onContentSizeChange,
+}: {
+  onContentSizeChange: ((w: number, h: number) => void) | undefined;
+}) => (
   <ScrollView
     style={{ flex: 1 }}
     scrollEnabled={false}
@@ -23,7 +23,11 @@ const FirstRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number,
     </Stack>
   </ScrollView>
 );
-const SecondRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number, h: number) => void) | undefined}) => (
+const SecondRoute = ({
+  onContentSizeChange,
+}: {
+  onContentSizeChange: ((w: number, h: number) => void) | undefined;
+}) => (
   <ScrollView
     style={{ flex: 1 }}
     scrollEnabled={false}
@@ -37,7 +41,11 @@ const SecondRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number
   </ScrollView>
 );
 
-const OtherRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number, h: number) => void) | undefined}) => (
+const OtherRoute = ({
+  onContentSizeChange,
+}: {
+  onContentSizeChange: ((w: number, h: number) => void) | undefined;
+}) => (
   <ScrollView
     style={{ flex: 1 }}
     scrollEnabled={false}
@@ -49,7 +57,11 @@ const OtherRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number,
   </ScrollView>
 );
 
-const ListRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number, h: number) => void) | undefined}) => (
+const ListRoute = ({
+  onContentSizeChange,
+}: {
+  onContentSizeChange: ((w: number, h: number) => void) | undefined;
+}) => (
   <FlatList
     data={new Array(50).fill({})}
     scrollEnabled={false}
@@ -143,7 +155,16 @@ function HomePage() {
           />
           <Stack style={{ height: contentHeight }}>
             <Content
-              renderItem={({ item }: { item: { backgroundColor: string, contentHeight: number | undefined, page: any }; index: number }) => (
+              renderItem={({
+                item,
+              }: {
+                item: {
+                  backgroundColor: string;
+                  contentHeight: number | undefined;
+                  page: any;
+                };
+                index: number;
+              }) => (
                 <Stack
                   style={{
                     flex: 1,
