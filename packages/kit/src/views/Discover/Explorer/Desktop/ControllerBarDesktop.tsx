@@ -151,7 +151,7 @@ function ControllerBarDesktop() {
         />
       </XStack>
       {/* <NetworkAccountSelectorTriggerDesktop /> */}
-      {/* BrowserToolbar gas pannel */}
+      {/* BrowserToolbar gas panel */}
       {/* Toolbar More Menu */}
     </XStack>
     // Add: SearchView

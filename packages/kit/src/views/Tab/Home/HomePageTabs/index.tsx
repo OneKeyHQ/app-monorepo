@@ -133,6 +133,33 @@ function HomePage() {
 
   const renderHeaderView = useCallback(() => <HeaderView />, []);
 
+  const renderContentItem = useCallback(
+    ({
+      item,
+    }: {
+      item: {
+        backgroundColor: string;
+        contentHeight: number | undefined;
+        page: any;
+      };
+      index: number;
+    }) => (
+      <Stack
+        style={{
+          flex: 1,
+          backgroundColor: item.backgroundColor,
+        }}
+      >
+        <item.page
+          onContentSizeChange={(_: number, height: number) => {
+            item.contentHeight = height;
+          }}
+        />
+      </Stack>
+    ),
+    [],
+  );
+
   return useMemo(
     () => (
       <Stack bg="$bg" flex={1}>
@@ -154,36 +181,19 @@ function HomePage() {
             }}
           />
           <Stack style={{ height: contentHeight }}>
-            <Content
-              renderItem={({
-                item,
-              }: {
-                item: {
-                  backgroundColor: string;
-                  contentHeight: number | undefined;
-                  page: any;
-                };
-                index: number;
-              }) => (
-                <Stack
-                  style={{
-                    flex: 1,
-                    backgroundColor: item.backgroundColor,
-                  }}
-                >
-                  <item.page
-                    onContentSizeChange={(width: number, height: number) => {
-                      item.contentHeight = height;
-                    }}
-                  />
-                </Stack>
-              )}
-            />
+            <Content renderItem={renderContentItem} />
           </Stack>
         </ScrollView>
       </Stack>
     ),
-    [contentHeight, Header, Content, onRefresh, renderHeaderView],
+    [
+      onRefresh,
+      renderHeaderView,
+      Header,
+      contentHeight,
+      Content,
+      renderContentItem,
+    ],
   );
 }
 

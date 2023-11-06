@@ -4,7 +4,7 @@ import { Suspense, useMemo } from 'react';
 
 import { Dimensions } from 'react-native';
 
-import { Image, Stack, useThemeValue } from '@onekeyhq/components';
+import { Image, Stack } from '@onekeyhq/components';
 // import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHtmlPreloadSplashLogoRemove } from '@onekeyhq/kit/src/hooks/useHtmlPreloadSplashLogoRemove';
 import { createSuspender } from '@onekeyhq/shared/src/modules3rdParty/use-suspender';
