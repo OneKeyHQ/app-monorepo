@@ -23,7 +23,7 @@ const Swap = () => {
   const [settings] = useSettingsAtom();
   return (
     <Screen>
-      <YStack space="@4">
+      <YStack space="$4">
         <Text>Swap</Text>
         <Button
           onPress={() => {
