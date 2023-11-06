@@ -19,7 +19,7 @@ import type { Animated, StyleProp, ViewStyle } from 'react-native';
 import type { EdgeInsets } from 'react-native-safe-area-context';
 
 const DEFAULT_TABBAR_HEIGHT = 63;
-const COMPACT_TABBAR_HEIGHT = 40;
+const COMPACT_TABBAR_HEIGHT = 49;
 const COMPACT_PAD_TABBAR_HEIGHT = 54;
 
 type Options = {
@@ -116,55 +116,65 @@ export default function MobileBottomTabBar({
           }
         };
 
+        const renderItemContent = (renderActive: boolean) => (
+          <Stack
+            testID="Mobile-AppTabBar-TabItem-Icon"
+            alignItems="center"
+            gap="$0.5"
+            pt="$0.5"
+            mb={insets.bottom}
+            borderRadius="$2"
+            justifyContent="center"
+            style={[
+              StyleSheet.absoluteFill,
+              horizontal
+                ? {
+                    flexDirection: 'row',
+                  }
+                : {
+                    flexDirection: 'column',
+                  },
+              {
+                opacity: isActive === renderActive ? 1 : 0,
+              },
+            ]}
+          >
+            <Icon
+              // @ts-expect-error
+              name={options?.tabBarIcon?.(renderActive) as ICON_NAMES}
+              color={renderActive ? '$icon' : '$iconSubdued'}
+              size="$7"
+            />
+            {options?.tabBarLabel?.length ? (
+              <Text
+                variant="$headingXxs"
+                color={renderActive ? '$text' : '$textSubdued'}
+                numberOfLines={1}
+              >
+                {options?.tabBarLabel}
+              </Text>
+            ) : null}
+          </Stack>
+        );
+
         return (
           <Stack
             testID="Mobile-AppTabBar-TabItem"
             minWidth="$24"
             p="$1"
+            h="100%"
             key={route.name}
-            backgroundColor={backgroundColor}
+            bg={backgroundColor}
+            hoverStyle={{ backgroundColor: '$bgHover' }}
+            onPress={onPress}
           >
-            <Stack
-              testID="Mobile-AppTabBar-TabItem-Icon"
-              alignItems="center"
-              py="$0.5"
-              mb="$0"
-              gap="$0.5"
-              onPress={onPress}
-              hoverStyle={{ backgroundColor: '$bgHover' }}
-              borderRadius="$2"
-              justifyContent="center"
-              key={route.name}
-              style={
-                horizontal
-                  ? {
-                      flexDirection: 'row',
-                    }
-                  : {
-                      flexDirection: 'column',
-                    }
-              }
-            >
-              <Icon
-                // @ts-expect-error
-                name={options?.tabBarIcon?.(isActive) as ICON_NAMES}
-                color={isActive ? '$icon' : '$iconSubdued'}
-                size="$7"
-              />
-              {options?.tabBarLabel?.length ? (
-                <Text
-                  variant="$headingXxs"
-                  color={isActive ? '$text' : '$textSubdued'}
-                  numberOfLines={1}
-                >
-                  {options?.tabBarLabel}
-                </Text>
-              ) : null}
-            </Stack>
+            {renderItemContent(false)}
+            {renderItemContent(true)}
           </Stack>
         );
       }),
     [
+      insets.bottom,
       backgroundColor,
       descriptors,
       horizontal,
