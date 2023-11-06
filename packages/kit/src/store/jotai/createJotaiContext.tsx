@@ -7,11 +7,18 @@ import type { WritableAtom } from 'jotai';
 
 export { atom };
 
-export function createJotaiContext() {
+export function createJotaiContext({
+ isSingletonStore 
+}: {
+  isSingletonStore?: boolean
+}) {
   const Context = createContext<ReturnType<typeof createStore> | null>(null);
-  const store = createStore();
+  let store: ReturnType<typeof createStore> | null = null
+  if (isSingletonStore) {
+    store = createStore()
+  }
   function Provider({ children }: { children?: ReactNode | undefined }) {
-    const innerStore = useMemo(() => store, []);
+    const innerStore = useMemo(() => isSingletonStore ? store : createStore(), []);
     return <Context.Provider value={innerStore}>{children}</Context.Provider>;
   }
   function useContextAtom<Value, Args extends any[], Result>(

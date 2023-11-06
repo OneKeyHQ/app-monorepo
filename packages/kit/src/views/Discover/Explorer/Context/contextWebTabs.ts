@@ -57,7 +57,7 @@ const {
   withProvider: withProviderWebTabs,
   useContextAtom: useAtomWebTabs,
   store: webTabsStore,
-} = createJotaiContext();
+} = createJotaiContext({ isSingletonStore: true });
 
 interface IWebTabsAtom {
   tabs: WebTab[];
