@@ -69,61 +69,67 @@ const setWebTabsAtom = atom(null, (get, set, payload: IWebTab[]) => {
     tabs: newTabs,
   });
 });
-const addWebTabAtom = atom(null, (get, set, payload: Partial<IWebTab>) => {
-  const { tabs } = get(webTabsAtom);
-  if (!payload.id || payload.id === homeTab.id) {
-    // TODO: nanoid will crash on native
-    // payload.id = nanoid();
-    // tabs.length + random(10 - 100)
-    payload.id = `${
-      tabs.length + Math.floor(Math.random() * (100 - 10 + 1)) + 10
-    }`;
-  }
-  payload.timestamp = Date.now();
-  set(setWebTabsAtom, [...tabs, payload as IWebTab]);
-  set(activeTabIdAtom, payload.id);
-});
-const addBlankWebTabAtom = atom(null, (_, set) => {
+export const addWebTabAtom = atom(
+  null,
+  (get, set, payload: Partial<IWebTab>) => {
+    const { tabs } = get(webTabsAtom);
+    if (!payload.id || payload.id === homeTab.id) {
+      // TODO: nanoid will crash on native
+      // payload.id = nanoid();
+      // tabs.length + random(10 - 100)
+      payload.id = `${
+        tabs.length + Math.floor(Math.random() * (100 - 10 + 1)) + 10
+      }`;
+    }
+    payload.timestamp = Date.now();
+    set(setWebTabsAtom, [...tabs, payload as IWebTab]);
+    set(activeTabIdAtom, payload.id);
+  },
+);
+export const addBlankWebTabAtom = atom(null, (_, set) => {
   set(addWebTabAtom, { ...homeTab });
 });
-const setWebTabDataAtom = atom(null, (get, set, payload: Partial<IWebTab>) => {
-  const { tabs } = get(webTabsAtom);
-  const tabIndex = tabs.findIndex((t) => t.id === payload.id);
-  if (tabIndex > -1) {
-    const tabToModify = tabs[tabIndex];
-    Object.keys(payload).forEach((k) => {
-      const key = k as keyof IWebTab;
-      const value = payload[key];
-      if (value !== undefined && value !== tabToModify[key]) {
-        if (key === 'title') {
-          if (!value) {
-            return;
+export const setWebTabDataAtom = atom(
+  null,
+  (get, set, payload: Partial<IWebTab>) => {
+    const { tabs } = get(webTabsAtom);
+    const tabIndex = tabs.findIndex((t) => t.id === payload.id);
+    if (tabIndex > -1) {
+      const tabToModify = tabs[tabIndex];
+      Object.keys(payload).forEach((k) => {
+        const key = k as keyof IWebTab;
+        const value = payload[key];
+        if (value !== undefined && value !== tabToModify[key]) {
+          if (key === 'title') {
+            if (!value) {
+              return;
+            }
           }
-        }
-        // @ts-expect-error
-        tabToModify[key] = value;
-        if (key === 'url') {
-          tabToModify.timestamp = Date.now();
-          if (value === homeTab.url && payload.id) {
-            homeResettingFlags[payload.id] = tabToModify.timestamp;
-          }
-          if (!payload.favicon) {
-            try {
-              tabToModify.favicon = `${
-                new URL(tabToModify.url ?? '').origin
-              }/favicon.ico`;
-            } catch {
-              // ignore
+          // @ts-expect-error
+          tabToModify[key] = value;
+          if (key === 'url') {
+            tabToModify.timestamp = Date.now();
+            if (value === homeTab.url && payload.id) {
+              homeResettingFlags[payload.id] = tabToModify.timestamp;
+            }
+            if (!payload.favicon) {
+              try {
+                tabToModify.favicon = `${
+                  new URL(tabToModify.url ?? '').origin
+                }/favicon.ico`;
+              } catch {
+                // ignore
+              }
             }
           }
         }
-      }
-    });
-    tabs[tabIndex] = tabToModify;
-    set(setWebTabsAtom, tabs);
-  }
-});
-const closeWebTabAtom = atom(null, (get, set, tabId: string) => {
+      });
+      tabs[tabIndex] = tabToModify;
+      set(setWebTabsAtom, tabs);
+    }
+  },
+);
+export const closeWebTabAtom = atom(null, (get, set, tabId: string) => {
   delete webviewRefs[tabId];
   const { tabs } = get(webTabsAtom);
   const targetIndex = tabs.findIndex((t) => t.id === tabId);
@@ -136,7 +142,7 @@ const closeWebTabAtom = atom(null, (get, set, tabId: string) => {
     set(setWebTabsAtom, [...tabs]);
   }
 });
-const closeAllWebTabsAtom = atom(null, (_, set) => {
+export const closeAllWebTabsAtom = atom(null, (_, set) => {
   for (const id of Object.getOwnPropertyNames(webviewRefs)) {
     delete webviewRefs[id];
   }
@@ -151,4 +157,14 @@ export const setCurrentWebTabAtom = atom(null, (get, set, tabId: string) => {
 });
 
 export const incomingUrlAtom = atom('');
-export const getCurrentTabId = () => webTabsStore?.get(activeTabIdAtom);
+export const getActiveTabId = () => webTabsStore?.get(activeTabIdAtom);
+export const getTabs = () => webTabsStore?.get(webTabsAtom);
+export const getTabsMap = () => webTabsStore?.get(webTabsMapAtom);
+export const addWebTab = (payload: Partial<IWebTab>) =>
+  webTabsStore?.set(addWebTabAtom, payload);
+export const closeWebTab = (tabId: string) =>
+  webTabsStore?.set(closeWebTabAtom, tabId);
+export const setWebTabData = (payload: Partial<IWebTab>) =>
+  webTabsStore?.set(setWebTabDataAtom, payload);
+
+export { useAtomWebTabs, withProviderWebTabs };
