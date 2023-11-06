@@ -10,10 +10,12 @@ import { TabHomeRoutes } from '../../../../routes/Root/Tab/Home/Routes';
 
 import type { TabHomeParamList } from '../../../../routes/Root/Tab/Home/Routes';
 
-export default function HomePageHeaderView({}: // switchDemoVisible,
-{
-  // switchDemoVisible: () => void;
-}) {
+// export default function HomePageHeaderView({
+//   switchDemoVisible,
+// }: {
+//   switchDemoVisible: () => void;
+// }) {
+export default function HomePageHeaderView() {
   const navigation = useAppNavigation<PageNavigationProp<TabHomeParamList>>();
   const [headerHighMode, setHeaderHighMode] = useState(true);
 
