@@ -4,8 +4,8 @@ import { Layout } from './utils/Layout';
 
 const TouchableDemo = () => (
   <Touchable
-    p="$10"
-    bg="$borderLight"
+    padding="$10"
+    backgroundColor="$borderLight"
     onPress={() => {
       alert('Hello');
     }}

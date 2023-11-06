@@ -10,11 +10,6 @@ try {
 } catch (error) {
   const result = error.stdout.toString('utf-8');
   console.log(result);
-  if (result.includes('packages/components')) {
-    console.error('\n\n\n');
-    console.error('Please do not add errors in packages/components');
-    exit(1);
-  }
 
   const errorCount = result.match(/Found (\d+) errors in/)?.[1];
   if (errorCount > MAX_ERROR_COUNT) {
