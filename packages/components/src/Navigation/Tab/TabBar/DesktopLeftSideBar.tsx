@@ -155,13 +155,16 @@ export function DesktopLeftSideBar({
           return (
             <YStack
               onPress={() => {
-                navigation.dispatch({
-                  ...CommonActions.navigate({
-                    name: extraConfig.name,
-                    merge: true,
-                  }),
-                  target: state.key,
-                });
+                // Avoid re-rendering by checking if it's the current route.
+                if (state.routeNames[state.index] !== extraConfig?.name) {
+                  navigation.dispatch({
+                    ...CommonActions.navigate({
+                      name: extraConfig.name,
+                      merge: true,
+                    }),
+                    target: state.key,
+                  });
+                }
               }}
             >
               <Portal.Container name={Portal.Constant.WEB_TAB_BAR} />
