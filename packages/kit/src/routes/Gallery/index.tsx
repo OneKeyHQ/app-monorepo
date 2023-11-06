@@ -32,6 +32,7 @@ import AlertGallery from '../../views/Components/stories/Alert';
 import DividerGallery from '../../views/Components/stories/Divider';
 import FormGallery from '../../views/Components/stories/Form';
 import JotaiGlobalGallery from '../../views/Components/stories/JotaiGlobalGallery';
+import KeyboardGallery from '../../views/Components/stories/Keyboard';
 import ListViewGallery from '../../views/Components/stories/ListView';
 import QRCodeGallery from '../../views/Components/stories/QRCode';
 import ScrollViewGallery from '../../views/Components/stories/ScrollView';
@@ -53,6 +54,7 @@ export const stackScreenList = [
     name: GalleryRoutes.ComponentLottieView,
     component: LottieViewGallery,
   },
+  { name: GalleryRoutes.ComponentKeyboard, component: KeyboardGallery },
   { name: GalleryRoutes.ComponentIcon, component: IconGallery },
   { name: GalleryRoutes.ComponentToast, component: ToastGallery },
   { name: GalleryRoutes.ComponentSelect, component: SelectGallery },

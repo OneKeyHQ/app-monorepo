@@ -1,22 +1,36 @@
-import { forwardRef } from 'react';
+import { usePropsAndStyle, useStyle } from '@tamagui/core';
+import {
+  TouchableOpacity,
+  type TouchableOpacityProps,
+} from 'react-native-gesture-handler';
 
-import { usePropsAndStyle } from '@tamagui/core';
-import { TouchableOpacity } from 'react-native';
-
-import type { StyleProp, TouchableOpacityProps, ViewStyle } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 import type { StackProps } from 'tamagui';
 
-export type TouchableProps = TouchableOpacityProps & StackProps;
+export type TouchableProps = Omit<
+  TouchableOpacityProps,
+  'style' | 'containerStyle'
+> &
+  StackProps & {
+    containerStyle: StackProps;
+  };
 
-export function BaseTouchable({ children, ...props }: TouchableProps) {
+export function Touchable({
+  children,
+  containerStyle,
+  ...props
+}: TouchableProps) {
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
   });
+  const containerStyleSheet = useStyle(containerStyle);
   return (
-    <TouchableOpacity style={style as StyleProp<ViewStyle>} {...restProps}>
+    <TouchableOpacity
+      style={style as StyleProp<ViewStyle>}
+      containerStyle={containerStyleSheet as StyleProp<ViewStyle>}
+      {...(restProps as TouchableOpacityProps)}
+    >
       {children}
     </TouchableOpacity>
   );
 }
-
-export const Touchable = forwardRef(BaseTouchable);

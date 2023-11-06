@@ -5,6 +5,7 @@ export enum GalleryRoutes {
   ComponentTooltip = 'component/tooltip',
   ComponentIcon = 'component/icon',
   ComponentSegmentControl = 'component/segment-control',
+  ComponentKeyboard = 'component/keyboard',
   ComponentButton = 'component/button',
   ComponentSelect = 'component/select',
   ComponentSkeleton = 'component/skeleton',

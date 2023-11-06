@@ -48,6 +48,7 @@ export * from './SegmentControl';
 export * from './ListView';
 export * from './SectionList';
 export * from './Touchable';
+export * from './Keyboard';
 export * as DelayedFreeze from './DelayedFreeze';
 
 // Navigation
