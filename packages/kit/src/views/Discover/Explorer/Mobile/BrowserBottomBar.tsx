@@ -1,7 +1,5 @@
 import { useEffect } from 'react';
 
-import { StyleSheet } from 'react-native';
-
 import { Button, IconButton, Stack } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
