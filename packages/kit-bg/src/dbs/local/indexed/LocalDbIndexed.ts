@@ -126,8 +126,8 @@ export class LocalDbIndexed extends LocalDbIndexedBase {
     //   });
     // }
 
-    // void cursor.update(credentialItem);
-    // void cursor.continue();
+    // await cursor.update(credentialItem);
+    // await cursor.continue();
   }
 
   override dumpCredentials(password: string): Promise<Record<string, string>> {

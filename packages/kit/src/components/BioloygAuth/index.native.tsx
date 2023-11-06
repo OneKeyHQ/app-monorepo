@@ -32,7 +32,7 @@ export const savePassword = async (password: string) => {
     text,
     key: `${encodeKeyPrefix}${settings.instanceId}`,
   });
-  void setItemAsync('password', text);
+  await setItemAsync('password', text);
 };
 
 export const getPassword = async () => {

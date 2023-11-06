@@ -38,10 +38,8 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
   const [secureEntry, setSecureEntry] = useState(true);
   const { enableBiologyAuth } = useBiologyAuthSettings();
   const lastTime = useRef(0);
-
   const passwordInput = form.watch('password');
 
-  // 生物识别验证获取密码
   const onBiologyAuthenticate = useCallback(async () => {
     if (status.value === 'verifying') {
       return;
@@ -67,7 +65,6 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
     }
   }, [intl, onVerifyRes, status.value]);
 
-  // 输入密码验证
   const onInputPasswordAuthenticate = useCallback(
     async (data: IPasswordVerifyForm) => {
       setStatues({ value: 'verifying' });
@@ -143,7 +140,7 @@ const PasswordVerify = ({ onVerifyRes }: IPasswordVerifyProps) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enableBiologyAuth]);
 
-  // 进入后台 1s 后返回进行生物识别验证
+  // Perform biology verification upon returning to the backend after a 1-second interval.
   const onActive = useCallback(() => {
     const now = Date.now();
     if (now - lastTime.current > 1000) {
