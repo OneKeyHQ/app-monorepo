@@ -12,7 +12,11 @@ import {
   validateUrl,
 } from './explorerUtils';
 
-import type { IDAppItemType, IWebSiteHistory } from '../types';
+import type {
+  IDAppItemType,
+  IMatchDAppItemType,
+  IWebSiteHistory,
+} from '../types';
 
 export const gotoSite = ({
   url,
@@ -88,4 +92,34 @@ export const gotoSite = ({
   }
 
   return false;
+};
+
+export const openMatchDApp = ({
+  dapp,
+  webSite,
+  isNewWindow,
+}: IMatchDAppItemType) => {
+  if (webSite) {
+    return gotoSite({
+      url: webSite.url,
+      title: webSite.title,
+      favicon: webSite.favicon,
+      isNewWindow,
+      userTriggered: true,
+    });
+  }
+  if (dapp) {
+    return gotoSite({
+      url: dapp.url,
+      title: dapp.name,
+      dAppId: dapp._id,
+      favicon: dapp.logoURL,
+      userTriggered: true,
+      isNewWindow,
+    });
+  }
+};
+
+export const onItemSelect = (dapp: IDAppItemType) => {
+  openMatchDApp({ id: dapp._id, dapp });
 };

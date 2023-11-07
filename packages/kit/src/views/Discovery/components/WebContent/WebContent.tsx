@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from 'react';
 import { useMemo } from 'react';
 
 import { setWebTabData } from '../../container/Context/contextWebTabs';
@@ -7,7 +8,11 @@ import WebView from '../WebView';
 import type { IWebTab } from '../../types';
 import type { WebViewProps } from 'react-native-webview';
 
-type IWebContentProps = IWebTab & WebViewProps;
+type IWebContentProps = IWebTab &
+  WebViewProps & {
+    setBackEnabled?: Dispatch<SetStateAction<boolean>>;
+    setForwardEnabled?: Dispatch<SetStateAction<boolean>>;
+  };
 
 function WebContent({ id, url }: IWebContentProps) {
   const webview = useMemo(

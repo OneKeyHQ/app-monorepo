@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useMemo, useRef } from 'react';
 
 import useBackHandler from '../../../../hooks/useBackHandler';
@@ -14,6 +15,14 @@ import type {
   WebViewNavigation,
   WebViewProps,
 } from 'react-native-webview';
+import type { WebViewNavigationEvent } from 'react-native-webview/lib/WebViewTypes';
+
+type IWebContentProps = IWebTab &
+  WebViewProps & {
+    isCurrent: boolean;
+    setBackEnabled: Dispatch<SetStateAction<boolean>>;
+    setForwardEnabled: Dispatch<SetStateAction<boolean>>;
+  };
 
 function WebContent({
   id,
@@ -21,10 +30,36 @@ function WebContent({
   isCurrent,
   androidLayerType,
   canGoBack,
-}: IWebTab & WebViewProps & { isCurrent: boolean }) {
+  setBackEnabled,
+  setForwardEnabled,
+}: IWebContentProps) {
   const lastNavEventSnapshot = useRef('');
   const showHome = url === homeTab.url;
   const { setWebTabData } = useWebTabAction();
+
+  const changeNavigationInfo = (siteInfo: WebViewNavigation) => {
+    setBackEnabled(siteInfo.canGoBack);
+    setForwardEnabled(siteInfo.canGoForward);
+  };
+
+  const onLoadStart = ({ nativeEvent }: WebViewNavigationEvent) => {
+    // const { hostname } = new URL(nativeEvent.url);
+
+    if (
+      nativeEvent.url !== url &&
+      nativeEvent.loading &&
+      nativeEvent.navigationType === 'backforward'
+    ) {
+      changeNavigationInfo({ ...nativeEvent });
+    }
+  };
+
+  const onLoadEnd = ({ nativeEvent }: WebViewNavigationEvent) => {
+    if (nativeEvent.loading) {
+      return;
+    }
+    changeNavigationInfo({ ...nativeEvent });
+  };
 
   const onNavigationStateChange = useCallback(
     (navigationStateChangeEvent: WebViewNavigation) => {
@@ -128,6 +163,8 @@ function WebContent({
           gotoSite({ url: e.nativeEvent.targetUrl, userTriggered: true });
         }}
         allowpopups
+        onLoadStart={onLoadStart}
+        onLoadEnd={onLoadEnd as any}
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps

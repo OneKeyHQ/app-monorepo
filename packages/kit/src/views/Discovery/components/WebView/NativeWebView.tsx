@@ -42,6 +42,8 @@ const NativeWebView = forwardRef(
       injectedJavaScriptBeforeContentLoaded,
       onMessage,
       onLoadStart,
+      onLoad,
+      onLoadEnd,
       ...props
     }: NativeWebViewProps,
     ref,
@@ -146,6 +148,8 @@ const NativeWebView = forwardRef(
         source={{ uri: src }}
         onMessage={webviewOnMessage}
         onLoadStart={webViewOnLoadStart}
+        onLoad={onLoad}
+        onLoadEnd={onLoadEnd}
         renderError={renderError}
         {...props}
       />
