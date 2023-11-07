@@ -2,10 +2,10 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useIntl } from 'react-intl';
+import { useMedia } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import useIsVerticalLayout from '../../Provider/hooks/useIsVerticalLayout';
 import { useThemeValue } from '../../Provider/hooks/useThemeValue';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
@@ -56,8 +56,8 @@ export function TabStackNavigator<RouteName extends string>({
   config,
   extraConfig,
 }: TabNavigatorProps<RouteName>) {
-  const isVerticalLayout = useIsVerticalLayout();
   const intl = useIntl();
+  const media = useMedia();
 
   const tabBarCallback = useCallback(
     (props: BottomTabBarProps) => (
@@ -86,7 +86,7 @@ export function TabStackNavigator<RouteName extends string>({
         ...options,
         tabBarLabel: intl.formatMessage({ id: options.translationId }),
         // @ts-expect-error BottomTabBar V7
-        tabBarPosition: isVerticalLayout ? 'bottom' : 'left',
+        tabBarPosition: media.md ? 'bottom' : 'left',
       }}
     >
       {children}

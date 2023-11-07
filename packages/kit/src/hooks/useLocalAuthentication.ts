@@ -9,11 +9,9 @@ import {
 
 export function useLocalAuthentication() {
   const [isOk, setOk] = useState(false);
-
   useEffect(() => {
     void hasHardwareSupported().then(setOk);
   }, []);
-
   return {
     isOk,
     localAuthenticate,
