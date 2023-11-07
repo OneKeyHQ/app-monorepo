@@ -2,9 +2,8 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useMemo, useRef } from 'react';
 
 import useBackHandler from '../../../../hooks/useBackHandler';
-import { homeTab } from '../../container/Context/contextWebTabs';
+import { homeTab, setWebTabData } from '../../container/Context/contextWebTabs';
 import { onNavigation } from '../../hooks/useWebController';
-import useWebTabAction from '../../hooks/useWebTabAction';
 import { webviewRefs } from '../../utils/explorerUtils';
 import { gotoSite } from '../../utils/gotoSite';
 import WebView from '../WebView';
@@ -35,7 +34,7 @@ function WebContent({
 }: IWebContentProps) {
   const lastNavEventSnapshot = useRef('');
   const showHome = url === homeTab.url;
-  const { setWebTabData } = useWebTabAction();
+  // const { setWebTabData } = useWebTabAction();
 
   const changeNavigationInfo = (siteInfo: WebViewNavigation) => {
     console.log('===>canGoBack: ', siteInfo.canGoBack);
@@ -82,14 +81,6 @@ function WebContent({
         url: navUrl,
       } = navigationStateChangeEvent;
       if (loading) {
-        console.log('=> loading state: ', {
-          url: navUrl,
-          title,
-          canGoBack: navCanGoBack,
-          canGoForward,
-          loading,
-          id,
-        });
         onNavigation({
           url: navUrl,
           title,
@@ -99,13 +90,6 @@ function WebContent({
           id,
         });
       } else {
-        console.log('$=> stop loading: ', {
-          title,
-          canGoBack: navCanGoBack,
-          canGoForward,
-          loading,
-          id,
-        });
         onNavigation({
           title,
           canGoBack: navCanGoBack,
@@ -115,7 +99,7 @@ function WebContent({
         });
       }
     },
-    [id, showHome],
+    [id],
   );
 
   const onShouldStartLoadWithRequest = useCallback(

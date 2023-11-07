@@ -51,7 +51,7 @@ interface IWebTabsAtom {
 export const activeTabIdAtom = atom<string | null>(null);
 export const webTabsAtom = atom<IWebTabsAtom>({ tabs: [], keys: [] });
 export const webTabsMapAtom = atom<Record<string, IWebTab>>({});
-const setWebTabsAtom = atom(null, (get, set, payload: IWebTab[]) => {
+export const setWebTabsAtom = atom(null, (get, set, payload: IWebTab[]) => {
   let newTabs = payload;
   if (!Array.isArray(payload)) {
     throw new Error('setWebTabsWriteAtom: payload must be an array');
@@ -61,6 +61,14 @@ const setWebTabsAtom = atom(null, (get, set, payload: IWebTab[]) => {
   }
   const result = buildWebTabData(newTabs);
   if (!isEqual(result.keys, get(webTabsAtom).keys)) {
+    console.log(
+      'setWebTabsAtom: payload: ',
+      payload,
+      ' keys: ',
+      result.keys,
+      ' data: ',
+      result.data,
+    );
     set(webTabsAtom, { keys: result.keys, tabs: result.data });
   }
 
@@ -72,7 +80,9 @@ const setWebTabsAtom = atom(null, (get, set, payload: IWebTab[]) => {
 export const addWebTabAtom = atom(
   null,
   (get, set, payload: Partial<IWebTab>) => {
+    console.log('addWebTabAtom payload: ', payload);
     const { tabs } = get(webTabsAtom);
+    console.log('previous tabs: ', tabs);
     if (!payload.id || payload.id === homeTab.id) {
       // TODO: nanoid will crash on native
       // payload.id = nanoid();
@@ -162,6 +172,7 @@ export const getTabs = () => webTabsStore?.get(webTabsAtom);
 export const getTabsMap = () => webTabsStore?.get(webTabsMapAtom);
 export const addWebTab = (payload: Partial<IWebTab>) =>
   webTabsStore?.set(addWebTabAtom, payload);
+export const addBlankWebTab = () => webTabsStore?.set(addBlankWebTabAtom);
 export const closeWebTab = (tabId: string) =>
   webTabsStore?.set(closeWebTabAtom, tabId);
 export const setWebTabData = (payload: Partial<IWebTab>) =>

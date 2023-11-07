@@ -12,6 +12,7 @@ type IWebContentProps = IWebTab &
   WebViewProps & {
     setBackEnabled?: Dispatch<SetStateAction<boolean>>;
     setForwardEnabled?: Dispatch<SetStateAction<boolean>>;
+    isCurrent: boolean;
   };
 
 function WebContent({ id, url }: IWebContentProps) {
