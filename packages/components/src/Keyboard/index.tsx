@@ -10,7 +10,7 @@ import { Stack } from '../Stack';
 import { Text } from '../Text';
 import { Touchable } from '../Touchable';
 
-type KeyType =
+type IKeyType =
   | '0'
   | '1'
   | '2'
@@ -24,11 +24,11 @@ type KeyType =
   | '.'
   | 'del';
 
-function isNumber(key: KeyType) {
+function isNumber(key: IKeyType) {
   return !(key === '.' || key === 'del');
 }
 
-const defaultKeys: KeyType[] = [
+const defaultKeys: IKeyType[] = [
   '1',
   '2',
   '3',
@@ -43,8 +43,8 @@ const defaultKeys: KeyType[] = [
   'del',
 ];
 
-type KeyboardProps = {
-  keys?: KeyType[];
+type IKeyboardProps = {
+  keys?: IKeyType[];
   text: string;
   onTextChange?: (text: string) => void;
   secure?: boolean;
@@ -52,11 +52,11 @@ type KeyboardProps = {
   itemHeight?: string;
 };
 
-type KeyBoardItemProps = {
-  item: KeyType;
+type IKeyBoardItemProps = {
+  item: IKeyType;
   secure: boolean;
 };
-function KeyBoardItem({ item, secure }: KeyBoardItemProps) {
+function KeyBoardItem({ item, secure }: IKeyBoardItemProps) {
   if (item === 'del') {
     return <Icon name="DeleteOutline" size="$6" color="$icon" />;
   }
@@ -75,10 +75,10 @@ export function Keyboard({
   onTextChange,
   pattern,
   itemHeight,
-}: KeyboardProps) {
+}: IKeyboardProps) {
   const delIntervalRef = useRef<ReturnType<typeof setTimeout>>();
   const innerKeyArray = chunk(keys ?? defaultKeys, 3);
-  const onPress = (item: KeyType) => {
+  const onPress = (item: IKeyType) => {
     const prev = text;
     const inputText = text;
     let changeText = '';
