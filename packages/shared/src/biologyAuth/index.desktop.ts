@@ -1,12 +1,22 @@
 import { AuthenticationType } from 'expo-local-authentication';
 
+import { memoizee } from '../utils/cacheUtils';
+
+import type { IBiologyAuth } from './types';
 import type { LocalAuthenticationResult } from 'expo-local-authentication';
 
-export const isSupportBiologyAuth = () =>
+const isSupportBiologyAuthFn = () =>
   new Promise<boolean>((resolve) => {
     const result = window?.desktopApi?.canPromptTouchID();
     resolve(!!result);
   });
+
+export const isSupportBiologyAuth = memoizee(isSupportBiologyAuthFn);
+
+const getBiologyAuthTypeFn: () => Promise<AuthenticationType[]> = () =>
+  Promise.resolve([AuthenticationType.FINGERPRINT]);
+
+export const getBiologyAuthType = memoizee(getBiologyAuthTypeFn);
 
 export const biologyAuthenticate: () => Promise<LocalAuthenticationResult> =
   async () => {
@@ -26,5 +36,9 @@ export const biologyAuthenticate: () => Promise<LocalAuthenticationResult> =
     }
   };
 
-export const getBiologyAuthType: () => Promise<AuthenticationType[]> = () =>
-  Promise.resolve([AuthenticationType.FINGERPRINT]);
+const biologyAuth: IBiologyAuth = {
+  isSupportBiologyAuth,
+  biologyAuthenticate,
+  getBiologyAuthType,
+};
+export default biologyAuth;

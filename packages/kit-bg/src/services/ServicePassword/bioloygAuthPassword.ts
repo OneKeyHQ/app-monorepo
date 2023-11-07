@@ -3,20 +3,9 @@ import {
   encodeKeyPrefix,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
-import {
-  biologyAuthenticate,
-  isSupportBiologyAuth,
-} from '@onekeyhq/shared/src/biologyAuth';
-import {
-  getSecureItem,
-  setSecureItem,
-} from '@onekeyhq/shared/src/storage/secureStorage';
+import secureStorage from '@onekeyhq/shared/src/storage/secureStorage';
 
 import { settingsAtom } from '../../states/jotai/atoms';
-
-export { isSupportBiologyAuth };
-
-export { biologyAuthenticate };
 
 export const savePassword = async (password: string) => {
   let text = decodeSensitiveText({ encodedText: password });
@@ -25,11 +14,11 @@ export const savePassword = async (password: string) => {
     text,
     key: `${encodeKeyPrefix}${settings.instanceId}`,
   });
-  await setSecureItem('password', text);
+  await secureStorage.setSecureItem('password', text);
 };
 
 export const getPassword = async () => {
-  let text = await getSecureItem('password');
+  let text = await secureStorage.getSecureItem('password');
   if (text) {
     const settings = await settingsAtom.get();
     text = decodeSensitiveText({

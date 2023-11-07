@@ -5,12 +5,22 @@ import {
   supportedAuthenticationTypesAsync,
 } from 'expo-local-authentication';
 
+import { memoizee } from '../utils/cacheUtils';
+
+import type { IBiologyAuth } from './types';
 import type { AuthenticationType } from 'expo-local-authentication';
 
-export const isSupportBiologyAuth = () =>
+const isSupportBiologyAuthFn = () =>
   hasHardwareAsync().then((supported) =>
     isEnrolledAsync().then((isEnrolled) => supported && isEnrolled),
   );
+
+const isSupportBiologyAuth = memoizee(isSupportBiologyAuthFn);
+
+const getBiologyAuthTypeFn: () => Promise<AuthenticationType[]> = () =>
+  supportedAuthenticationTypesAsync();
+
+const getBiologyAuthType = memoizee(getBiologyAuthTypeFn);
 
 export const biologyAuthenticate = async () => {
   if (!(await isSupportBiologyAuth())) {
@@ -20,5 +30,9 @@ export const biologyAuthenticate = async () => {
   return authenticateAsync();
 };
 
-export const getBiologyAuthType: () => Promise<AuthenticationType[]> = () =>
-  supportedAuthenticationTypesAsync();
+const biologyAuth: IBiologyAuth = {
+  isSupportBiologyAuth,
+  biologyAuthenticate,
+  getBiologyAuthType,
+};
+export default biologyAuth;

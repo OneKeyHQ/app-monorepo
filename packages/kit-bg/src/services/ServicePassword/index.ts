@@ -6,17 +6,18 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import * as error from '@onekeyhq/shared/src/errors';
 
 import localDb from '../../dbs/local/localDb';
 import {
   settingsAtom,
-  settingsIsBioAuthEnableAtom,
-  settingsIsBioAuthSupportedAtom,
+  settingsBiologyAuthInfoAtom,
+  settingsIsBiologyAuthSwitchOnAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
-import { biologyAuthenticate, getPassword, savePassword } from './bioloygAuth';
+import { getPassword, savePassword } from './bioloygAuthPassword';
 
 @backgroundClass()
 export default class ServicePassword extends ServiceBase {
@@ -54,14 +55,14 @@ export default class ServicePassword extends ServiceBase {
   }
 
   async biologyAuthSavePassword(password: string): Promise<void> {
-    const isSupportBiologyAuth = await settingsIsBioAuthSupportedAtom.get();
+    const isSupportBiologyAuth = await settingsBiologyAuthInfoAtom.get();
     if (isSupportBiologyAuth) {
       await savePassword(password);
     }
   }
 
   async biologyAuthGetPassword(): Promise<string> {
-    const isSupportBiologyAuth = await settingsIsBioAuthSupportedAtom.get();
+    const isSupportBiologyAuth = await settingsBiologyAuthInfoAtom.get();
     if (isSupportBiologyAuth) {
       return getPassword();
     }
@@ -95,17 +96,17 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async setBiologyAuthEnable(enable: boolean): Promise<void> {
     if (enable) {
-      const authRes = await biologyAuthenticate();
+      const authRes = await biologyAuth.biologyAuthenticate();
       if (!authRes.success) {
         throw new error.BiologyAuthFailed();
       }
     }
-    await settingsIsBioAuthEnableAtom.set(enable);
+    await settingsIsBiologyAuthSwitchOnAtom.set(enable);
   }
 
   @backgroundMethod()
   async verifyBiologyAuth(): Promise<string> {
-    const authRes = await biologyAuthenticate();
+    const authRes = await biologyAuth.biologyAuthenticate();
     if (authRes.success) {
       return this.verifyBiologyAuthPassword();
     }

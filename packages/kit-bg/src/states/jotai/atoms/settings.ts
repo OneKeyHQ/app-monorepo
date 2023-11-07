@@ -1,12 +1,9 @@
 import type { LocaleSymbol } from '@onekeyhq/components';
-import {
-  getBiologyAuthType,
-  isSupportBiologyAuth,
-} from '@onekeyhq/shared/src/biologyAuth';
+import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { EAtomNames } from '../atomNames';
-import { globalAtom, globalAtomComputed, globalAtomComputedRW } from '../utils';
+import { globalAtom, globalAtomComputed } from '../utils';
 
 import type { AuthenticationType } from 'expo-local-authentication';
 
@@ -17,7 +14,6 @@ export type ISettingsAtom = {
   version: string;
   buildNumber?: string;
   instanceId: string;
-  isBiologyAuthEnable: boolean;
   isBiologyAuthSupported?: boolean;
   isPasswordSet: boolean;
   biologyAuthType?: AuthenticationType;
@@ -33,7 +29,6 @@ export const { target: settingsAtom, use: useSettingsAtom } =
       version: process.env.VERSION ?? '1.0.0',
       buildNumber: process.env.BUILD_NUMBER ?? '2022010100',
       instanceId: generateUUID(),
-      isBiologyAuthEnable: false,
       isPasswordSet: false,
     },
   });
@@ -58,28 +53,19 @@ export const { target: settingsIsLightCNAtom, use: useSettingsIsLightCNAtom } =
   });
 
 export const {
-  target: settingsIsBioAuthSupportedAtom,
-  use: useSettingsIsBioAuthSupportedAtom,
-} = globalAtomComputed(async () => isSupportBiologyAuth());
+  target: settingsIsBiologyAuthSwitchOnAtom,
+  use: useSettingsIsBiologyAuthSwitchOnAtom,
+} = globalAtom({
+  name: EAtomNames.settingsIsBiologyAuthSwitchOn,
+  initialValue: false,
+});
 
 export const {
-  target: settingsBiologyAuthTypeAtom,
-  use: useSettingsBiologyAuthTypeAtom,
-} = globalAtomComputed(async () => getBiologyAuthType());
-
-export const {
-  target: settingsIsBioAuthEnableAtom,
-  use: useSettingsIsBioAuthEnableAtom,
-} = globalAtomComputedRW<Promise<boolean>, [boolean], void>({
-  read: async (get) => {
-    const isSupport = await get(settingsIsBioAuthSupportedAtom.atom());
-    return isSupport && get(settingsAtom.atom()).isBiologyAuthEnable;
-  },
-  write: (get, set, value) => {
-    const settings = get(settingsAtom.atom());
-    set(settingsAtom.atom(), {
-      ...settings,
-      isBiologyAuthEnable: value,
-    });
-  },
+  target: settingsBiologyAuthInfoAtom,
+  use: useSettingsBiologyAuthInfoAtom,
+} = globalAtomComputed(async (get) => {
+  const authType = await biologyAuth.getBiologyAuthType();
+  const isSupport = await biologyAuth.isSupportBiologyAuth();
+  const isEnable = isSupport && get(settingsIsBiologyAuthSwitchOnAtom.atom());
+  return { authType, isSupport, isEnable };
 });
