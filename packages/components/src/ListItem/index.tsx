@@ -123,6 +123,7 @@ function ListItem(props: ListItemProps) {
     <Stack
       flexDirection="row"
       alignItems="center"
+      minHeight="$11"
       space="$3"
       p="$2"
       mx="$3"

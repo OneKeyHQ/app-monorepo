@@ -14,6 +14,7 @@ export interface TabSubNavigatorConfig<
   P extends ParamListBase = ParamListBase,
 > extends CommonNavigatorConfig<RouteName, P> {
   translationId?: LocaleIds;
+  headerShown?: boolean;
   disable?: boolean;
 }
 
