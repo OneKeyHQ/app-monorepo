@@ -103,7 +103,7 @@ const WebTabItem: FC<IWebTab> = ({ title, favicon, id, url }) => {
 
 function MobileTabListModal() {
   const { tabs } = useWebTabs();
-  const data = useMemo(() => tabs.slice(1), [tabs]);
+  const data = useMemo(() => tabs, [tabs]);
   const keyExtractor = useCallback((item: IWebTab) => item.id, []);
   const renderItem = useCallback(
     ({ item: tab }: { item: IWebTab }) => <WebTabItem {...tab} />,

@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 
-import { atomWebTabsMap } from '../../Discover/Explorer/Context/contextWebTabs';
 import {
   activeTabIdAtom,
   getActiveTabId,
@@ -8,6 +7,7 @@ import {
   getTabsMap,
   useAtomWebTabs,
   webTabsAtom,
+  webTabsMapAtom,
 } from '../container/Context/contextWebTabs';
 
 export const useWebTabs = () => {
@@ -21,7 +21,7 @@ export const useWebTabs = () => {
 };
 
 export const useWebTabData = (id?: string) => {
-  const [map] = useAtomWebTabs(atomWebTabsMap);
+  const [map] = useAtomWebTabs(webTabsMapAtom);
   return useMemo(
     () => ({
       tab: map[id ?? ''],

@@ -1,12 +1,14 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
 import { Stack } from 'tamagui';
 
-import { homeTab } from '../../container/Context/contextWebTabs';
+import {
+  homeTab,
+  withProviderWebTabs,
+} from '../../container/Context/contextWebTabs';
 import DiscoveryDashboard from '../../container/Dashboard';
 import {
-  getWebTabs,
   useActiveTabId,
   useWebTabData,
   useWebTabs,
@@ -25,15 +27,13 @@ function WebContentWithFreeze({ tab: webTab }: { tab: IWebTab }) {
   const { activeTabId } = useActiveTabId();
   const [backEnabled, setBackEnabled] = useState(false);
   const [forwardEnabled, setForwardEnabled] = useState(false);
-  const isActive = useMemo(() => activeTabId === tab.id, [tab.id, activeTabId]);
-  const content = useMemo(
+  const isActive = useMemo(
+    () => activeTabId === tab?.id,
+    [tab?.id, activeTabId],
+  );
+  const BrowserBottomBar = useMemo(
     () => (
       <Freeze key={tab.id} freeze={!isActive}>
-        <WebContent
-          {...tab}
-          setBackEnabled={setBackEnabled}
-          setForwardEnabled={setForwardEnabled}
-        />
         <MobileBrowserBottomBar
           id={tab.id}
           goBack={() => {
@@ -47,21 +47,52 @@ function WebContentWithFreeze({ tab: webTab }: { tab: IWebTab }) {
         />
       </Freeze>
     ),
-    [tab, isActive, backEnabled, forwardEnabled],
+    [tab.id, backEnabled, forwardEnabled, isActive],
   );
-  return <>{content}</>;
+
+  useEffect(() => {
+    console.log('===>backEnabled: ', backEnabled);
+    console.log('===>forwardEnabled: ', forwardEnabled);
+    console.log('tab url => : ', tab.url);
+  }, [backEnabled, forwardEnabled, tab]);
+
+  const content = useMemo(() => {
+    if (!tab || !tab.id) {
+      return null;
+    }
+    console.log('RERENDER WEBVIEW ====>: ', tab);
+    return (
+      <Freeze key={tab.id} freeze={!isActive}>
+        <WebContent
+          {...tab}
+          setBackEnabled={setBackEnabled}
+          setForwardEnabled={setForwardEnabled}
+        />
+      </Freeze>
+    );
+  }, [tab, isActive]);
+  return (
+    <>
+      {content}
+      {BrowserBottomBar}
+    </>
+  );
 }
 
 function MobileBrowser() {
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
+  const { tab } = useWebTabData(activeTabId ?? '');
   const showHome = useMemo(() => {
     if (!activeTabId) {
       return true;
     }
-    const { tab } = getWebTabs(activeTabId);
     return tab?.url === homeTab.url;
-  }, [activeTabId]);
+  }, [tab?.url, activeTabId]);
+
+  useEffect(() => {
+    console.log('showHome: ', showHome);
+  }, [showHome]);
 
   const content = useMemo(
     () => tabs.map((t) => <WebContentWithFreeze tab={t} key={t.id} />),
@@ -74,7 +105,7 @@ function MobileBrowser() {
       <Freeze freeze={!showHome}>
         <Stack
           position="absolute"
-          top="$0"
+          top="$10"
           bottom="$14"
           left="$0"
           right="$0"
@@ -88,4 +119,4 @@ function MobileBrowser() {
   );
 }
 
-export default memo(MobileBrowser);
+export default memo(withProviderWebTabs(MobileBrowser));

@@ -5,7 +5,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 
 import useWebTabAction from '../../hooks/useWebTabAction';
-import { useWebTabData, useWebTabs } from '../../hooks/useWebTabs';
+import { useWebTabs } from '../../hooks/useWebTabs';
 import {
   type DiscoverModalParamList,
   DiscoverModalRoutes,
@@ -43,7 +43,7 @@ function MobileBrowserBottomBar({
       >
         <IconButton
           icon="ArrowLeftOutline"
-          disabled={canGoBack}
+          disabled={!canGoBack}
           onPress={goBack}
         />
         <IconButton

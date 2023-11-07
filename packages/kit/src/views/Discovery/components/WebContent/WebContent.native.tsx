@@ -38,6 +38,9 @@ function WebContent({
   const { setWebTabData } = useWebTabAction();
 
   const changeNavigationInfo = (siteInfo: WebViewNavigation) => {
+    console.log('===>canGoBack: ', siteInfo.canGoBack);
+    console.log('===>canGoForward: ', siteInfo.canGoBack);
+    console.log('===>siteInfo: ', siteInfo);
     setBackEnabled(siteInfo.canGoBack);
     setForwardEnabled(siteInfo.canGoForward);
   };
@@ -63,9 +66,9 @@ function WebContent({
 
   const onNavigationStateChange = useCallback(
     (navigationStateChangeEvent: WebViewNavigation) => {
-      if (showHome) {
-        return;
-      }
+      // if (showHome) {
+      //   return;
+      // }
       const snapshot = JSON.stringify(navigationStateChangeEvent);
       if (snapshot === lastNavEventSnapshot.current) {
         return;

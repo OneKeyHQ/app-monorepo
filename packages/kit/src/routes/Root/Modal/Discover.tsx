@@ -1,8 +1,8 @@
 import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
-import TabListModal from '@onekeyhq/kit/src/views/Discover/Explorer/Mobile/TabListModal';
-import type { DiscoverModalParamList } from '@onekeyhq/kit/src/views/Discover/types';
-import { DiscoverModalRoutes } from '@onekeyhq/kit/src/views/Discover/types';
 import SearchModal from '@onekeyhq/kit/src/views/Discover/views/SearchModal/SearchModal';
+import MobileTabListModal from '@onekeyhq/kit/src/views/Discovery/container/MobileTabListModal';
+import type { DiscoverModalParamList } from '@onekeyhq/kit/src/views/Discovery/router/Routes';
+import { DiscoverModalRoutes } from '@onekeyhq/kit/src/views/Discovery/router/Routes';
 
 export const ModalDiscoverStack: ModalFlowNavigatorConfig<
   DiscoverModalRoutes,
@@ -10,7 +10,7 @@ export const ModalDiscoverStack: ModalFlowNavigatorConfig<
 >[] = [
   {
     name: DiscoverModalRoutes.MobileTabList,
-    component: TabListModal,
+    component: MobileTabListModal,
     translationId: 'title__about',
   },
   {
