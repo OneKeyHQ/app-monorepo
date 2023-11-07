@@ -62,7 +62,7 @@ const SecondRoute = ({
 
 const TabViewScrollStickyDemo = () => {
   const onRefresh = () => {};
-  const [contentHeight, setContentHeight] = useState<number | undefined>(0);
+  const [contentHeight, setContentHeight] = useState<number | undefined>(1);
   const data = useMemo(
     () => [
       {
@@ -112,6 +112,7 @@ const TabViewScrollStickyDemo = () => {
         <Content
           renderItem={({
             item,
+            index,
           }: {
             item: {
               backgroundColor: string;
@@ -129,6 +130,9 @@ const TabViewScrollStickyDemo = () => {
               <item.page
                 onContentSizeChange={(width: number, height: number) => {
                   item.contentHeight = height;
+                  if (index === pageManager.pageIndex) {
+                    setContentHeight(height);
+                  }
                 }}
               />
             </Stack>
