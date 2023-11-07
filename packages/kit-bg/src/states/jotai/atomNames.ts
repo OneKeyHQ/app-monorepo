@@ -5,4 +5,5 @@ export enum EAtomNames {
   settingsAtom = 'settingsAtom',
   settingsTimeNowAtom = 'settingsTimeNowAtom',
   settingsIsBiologyAuthSwitchOnAtom = 'settingsIsBiologyAuthSwitchOnAtom',
+  settingsPromptPromiseAtom = 'settingsPromptPromiseAtom',
 }

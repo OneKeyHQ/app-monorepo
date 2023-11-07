@@ -10,12 +10,16 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  EPasswordResStatus,
+  type IPasswordRes,
+} from '@onekeyhq/kit-bg/src/services/ServicePassword';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import BiologyAuthSwitchContainer from '../../components/BiologyAuthComponent/container/BiologyAuthSwitchContainer';
 import PasswordSetupContainer from '../../components/Password/container/PasswordSetupContainer';
 import PasswordUpdateContainer from '../../components/Password/container/PasswordUpdateContainer';
-import PasswordVerifyContainer from '../../components/Password/container/PasswordVerifyContainer';
 
 const Swap = () => {
   console.log('swap');
@@ -74,25 +78,14 @@ const Swap = () => {
           密码修改弹窗
         </Button>
         <Button
-          onPress={() => {
-            const dialog = Dialog.confirm({
-              title: 'ConfirmPassword',
-              renderContent: (
-                <Suspense fallback={<Spinner size="large" />}>
-                  <PasswordVerifyContainer
-                    onVerifyRes={(data) => {
-                      console.log('verify data', data);
-                      if (data) {
-                        Toast.success({ title: '验证成功' });
-                        dialog.close();
-                      }
-                    }}
-                  />
-                </Suspense>
-              ),
-              showFooter: false,
-            });
-            // setOpen(!open);
+          onPress={async () => {
+            const { status, data } =
+              await (backgroundApiProxy.servicePassword.promptPasswordVerify() as Promise<IPasswordRes>);
+            console.log('status-', status);
+            console.log('data-', data);
+            if (status === EPasswordResStatus.PASS_STATUS) {
+              Toast.success({ title: '验证成功' });
+            }
           }}
         >
           密码验证弹窗

@@ -9,6 +9,8 @@ import { Portal } from '@onekeyhq/components';
 import store from '@onekeyhq/kit/src/store';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
+
 import AppLoading from './AppLoading';
 import NavigationProvider from './NavigationProvider';
 import ThemeProvider from './ThemeProvider';
@@ -33,6 +35,7 @@ const KitProvider: FC = () => (
           <GestureHandlerRootView style={flexStyle}>
             <NavigationProvider />
             <FullWindowOverlay>
+              <PasswordVerifyPromptMount />
               <Portal.Container
                 name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}
               />

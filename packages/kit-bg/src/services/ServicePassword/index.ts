@@ -9,17 +9,32 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import * as error from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import localDb from '../../dbs/local/localDb';
 import {
   settingsAtom,
   settingsBiologyAuthInfoAtom,
   settingsIsBiologyAuthSwitchOnAtom,
+  settingsPromptPromiseAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
+import { checkExtUIOpen } from '../utils';
 
 import { getPassword, savePassword } from './bioloygAuthPassword';
 
+interface IPasswordResData {
+  password: string;
+}
+
+export enum EPasswordResStatus {
+  CLOSE_STATUS = 'close',
+  PASS_STATUS = 'pass',
+}
+export interface IPasswordRes {
+  status: EPasswordResStatus;
+  data: IPasswordResData;
+}
 @backgroundClass()
 export default class ServicePassword extends ServiceBase {
   private cachedPassword?: string;
@@ -49,7 +64,7 @@ export default class ServicePassword extends ServiceBase {
   }
 
   async saveCachedPassword(password: string): Promise<void> {
-    const checkResult = await this.verifyPassword(password);
+    const checkResult = await this.validatePassword(password);
     if (checkResult) {
       await this.setCachedPassword(password);
     }
@@ -72,7 +87,7 @@ export default class ServicePassword extends ServiceBase {
 
   async verifyBiologyAuthPassword(): Promise<string> {
     const biologyAuthPassword = await this.biologyAuthGetPassword();
-    const verified = await this.validatePassword(biologyAuthPassword);
+    const verified = await this.verifyPassword(biologyAuthPassword);
     if (verified) {
       return biologyAuthPassword;
     }
@@ -123,6 +138,7 @@ export default class ServicePassword extends ServiceBase {
   async verifyPassword(password: string): Promise<string> {
     const verified = await this.validatePassword(password);
     if (verified) {
+      await this.saveCachedPassword(password);
       return password;
     }
     return '';
@@ -162,6 +178,31 @@ export default class ServicePassword extends ServiceBase {
     await this.saveCachedPassword(password);
     await localDb.updatePassword('', password);
     return password;
+  }
+
+  @backgroundMethod()
+  async promptPasswordVerify() {
+    // check ext ui open
+    if (platformEnv.isExtension && !checkExtUIOpen()) {
+      throw new error.OneKeyInternalError();
+    }
+
+    // TODO check field(settings protection)
+    const cachedPassword = await this.getCachedPassword();
+    if (cachedPassword) {
+      return Promise.resolve({
+        status: EPasswordResStatus.PASS_STATUS,
+        data: { password: cachedPassword },
+      });
+    }
+
+    return new Promise((resolve, reject) => {
+      const promiseId = this.backgroundApi.servicePromise.createCallback({
+        resolve,
+        reject,
+      });
+      void settingsPromptPromiseAtom.set({ promiseId });
+    });
   }
 
   @backgroundMethod()

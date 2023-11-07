@@ -57,6 +57,7 @@ const PasswordVerifyContainer = ({ onVerifyRes }: IPasswordVerifyProps) => {
           await backgroundApiProxy.servicePassword.verifyPassword(
             enCodePassword,
           );
+        console.log('verifiedPassword-', verifiedPassword);
         if (verifiedPassword) {
           onVerifyRes(verifiedPassword);
           setStatues({ value: 'verified' });

@@ -67,3 +67,14 @@ export const {
   const isEnable = isSupport && get(settingsIsBiologyAuthSwitchOnAtom.atom());
   return { authType, isSupport, isEnable };
 });
+
+export type ISettingsPromptPromiseAtom = {
+  promiseId?: number;
+};
+export const {
+  target: settingsPromptPromiseAtom,
+  use: useSettingsPromptPromiseAtom,
+} = globalAtom<ISettingsPromptPromiseAtom>({
+  name: EAtomNames.settingsPromptPromiseAtom,
+  initialValue: {},
+});
