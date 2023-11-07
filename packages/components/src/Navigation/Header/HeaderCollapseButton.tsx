@@ -3,10 +3,11 @@ import { memo, useCallback } from 'react';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useProviderSideBarValue from '../../Provider/hooks/useProviderSideBarValue';
+import { Stack } from '../../Stack';
 
-import HeaderButtonIcon from './HeaderButtonIcon';
+import HeaderIconButton from './HeaderIconButton';
 
-function HeaderButtonSide({ isRootScreen }: { isRootScreen?: boolean }) {
+function HeaderCollapseButton({ isRootScreen }: { isRootScreen?: boolean }) {
   const {
     leftSidebarCollapsed: isCollpase,
     setLeftSidebarCollapsed: setIsCollapse,
@@ -20,12 +21,10 @@ function HeaderButtonSide({ isRootScreen }: { isRootScreen?: boolean }) {
     platformEnv.isDesktopMac && isRootScreen && isCollpase ? '$20' : '$0';
 
   return (
-    <HeaderButtonIcon
-      paddingLeft={paddingLeft}
-      onPress={onPressCall}
-      name="SidebarOutline"
-    />
+    <Stack pl={paddingLeft}>
+      <HeaderIconButton onPress={onPressCall} icon="SidebarOutline" />
+    </Stack>
   );
 }
 
-export default memo(HeaderButtonSide);
+export default memo(HeaderCollapseButton);
