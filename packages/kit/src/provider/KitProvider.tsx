@@ -35,7 +35,6 @@ const KitProvider: FC = () => (
           <GestureHandlerRootView style={flexStyle}>
             <NavigationProvider />
             <FullWindowOverlay>
-              <PasswordVerifyPromptMount />
               <Portal.Container
                 name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}
               />
@@ -48,6 +47,7 @@ const KitProvider: FC = () => (
           </GestureHandlerRootView>
         </RootSiblingParent>
       </AppLoading>
+      <PasswordVerifyPromptMount />
     </ThemeProvider>
   </ReduxProvider>
 );
