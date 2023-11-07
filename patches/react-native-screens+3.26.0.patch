@@ -91,7 +91,7 @@ index 1ed4914..50a73b1 100644
  #import "RNSScreenWindowTraits.h"
  
  #ifdef RCT_NEW_ARCH_ENABLED
-@@ -456,8 +457,91 @@ - (BOOL)isMountedUnderScreenOrReactRoot
+@@ -456,8 +457,83 @@ - (BOOL)isMountedUnderScreenOrReactRoot
  #undef RNS_EXPECTED_VIEW
  }
  
@@ -166,14 +166,6 @@ index 1ed4914..50a73b1 100644
 +    }
 +  }];
 +}
-+
-+- (RNSScreenContainerView *)findContainerViewForView:(UIView *)view {
-+    while (view && ![view isKindOfClass:[RNSScreenContainerView class]]) {
-+        view = view.superview;
-+    }
-+    return (RNSScreenContainerView *)view;
-+}
-+
 +
  - (void)didMoveToWindow
  {

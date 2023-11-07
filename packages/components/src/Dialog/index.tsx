@@ -357,7 +357,7 @@ function BaseDialogContainer(
     <DialogContext.Provider value={contextValue}>
       <DialogFrame
         // fix missing Context in Dialog.Portal.
-        contextValue={platformEnv.isNativeIOS ? undefined : contextValue}
+        contextValue={contextValue}
         open={isOpen}
         onOpen={handleOpen}
         renderContent={renderContent}
