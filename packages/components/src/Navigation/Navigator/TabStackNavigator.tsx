@@ -27,13 +27,14 @@ function TabSubStackNavigator({
     <Stack.Navigator>
       {config
         .filter(({ disable }) => !disable)
-        .map(({ name, component, translationId }) => (
+        .map(({ name, component, translationId, headerShown = true }) => (
           <Stack.Screen
             key={name}
             name={name}
             component={component}
             options={({ navigation }: { navigation: any }) => ({
               freezeOnBlur: true,
+              headerShown,
               title: translationId
                 ? intl.formatMessage({
                     id: translationId,

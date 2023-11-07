@@ -110,7 +110,6 @@ export function makeTabScreenOptions({
 }): StackNavigationOptions {
   // @ts-expect-error
   return {
-    headerShown: true,
     ...makeHeaderScreenOptions({
       isRootScreen: true,
       navigation,

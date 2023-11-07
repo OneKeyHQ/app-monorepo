@@ -98,6 +98,7 @@ const extraConfig: ITabNavigatorExtraConfig<TabRoutes> | undefined =
             name: WebViewRoutes.WebView,
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             component: require('./WebView/WebView').default,
+            headerShown: false,
           },
         ],
       }
