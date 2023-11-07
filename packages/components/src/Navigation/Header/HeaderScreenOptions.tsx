@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react';
 
+import { getFontSize } from 'tamagui';
+
 import { hasNativeHeaderView } from '../Navigator/CommonConfig.ts';
 
-import HeaderButtonBack from './HeaderButtonBack';
+import HeaderBackButton from './HeaderBackButton';
 import HeaderView from './HeaderView';
 
 import type { StackHeaderProps, StackNavigationOptions } from '../ScreenProps';
@@ -35,14 +37,13 @@ export function makeHeaderScreenOptions({
       headerStyle: {
         backgroundColor: bgColor as string,
       },
+      headerTransparent: false,
       headerTitleStyle: {
-        fontSize: 18,
-        fontWeight: '600',
+        fontSize: getFontSize('$headingLg'),
         color: titleColor as string,
       },
-      headerTransparent: false,
       headerLeft: (props: HeaderBackButtonProps): ReactNode => (
-        <HeaderButtonBack
+        <HeaderBackButton
           {...props}
           onPress={currentNavigation?.goBack}
           canGoBack={isCanGoBack}

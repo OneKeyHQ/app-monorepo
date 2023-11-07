@@ -1,4 +1,4 @@
-import useIsVerticalLayout from '@onekeyhq/components/src/Provider/hooks/useIsVerticalLayout';
+import { useMedia } from 'tamagui';
 
 import { DesktopLeftSideBar } from './DesktopLeftSideBar';
 import MobileBottomTabBar from './MobileBottomTabBar';
@@ -11,9 +11,9 @@ export default function TabBar({
 }: BottomTabBarProps & {
   extraConfig?: ITabNavigatorExtraConfig<string>;
 }) {
-  const isVerticalLayout = useIsVerticalLayout();
+  const media = useMedia();
 
-  if (isVerticalLayout) {
+  if (media.md) {
     return <MobileBottomTabBar {...props} />;
   }
   return <DesktopLeftSideBar {...props} />;

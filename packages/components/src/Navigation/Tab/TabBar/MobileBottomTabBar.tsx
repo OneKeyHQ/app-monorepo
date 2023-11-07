@@ -1,61 +1,17 @@
-/* eslint-disable no-nested-ternary */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { useMemo } from 'react';
 
 import useIsKeyboardShown from '@react-navigation/bottom-tabs/src/utils/useIsKeyboardShown';
 import { CommonActions } from '@react-navigation/native';
-import { Platform, StyleSheet } from 'react-native';
-import { useSafeAreaFrame } from 'react-native-safe-area-context';
+import { StyleSheet } from 'react-native';
 
-import { Icon } from '../../../Icon';
-import useDeviceScreenSize from '../../../Provider/hooks/useDeviceScreenSize';
+import useSafeAreaInsets from '../../../Provider/hooks/useSafeAreaInsets';
 import { Stack } from '../../../Stack';
-import { Text } from '../../../Text';
+
+import { TabItem } from './TabItem';
 
 import type { ICON_NAMES } from '../../../Icon';
-import type { DeviceScreenSize } from '../../../Provider/device';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
 import type { Animated, StyleProp, ViewStyle } from 'react-native';
-import type { EdgeInsets } from 'react-native-safe-area-context';
-
-const DEFAULT_TABBAR_HEIGHT = 63;
-const COMPACT_TABBAR_HEIGHT = 49;
-const COMPACT_PAD_TABBAR_HEIGHT = 54;
-
-type Options = {
-  deviceSize: DeviceScreenSize;
-  dimensions?: { height: number; width: number };
-};
-
-const shouldUseHorizontalLabels = ({ deviceSize }: Options) =>
-  ['NORMAL'].includes(deviceSize);
-
-const getPaddingBottom = (insets: EdgeInsets) => insets.bottom;
-
-export const getTabBarHeight = ({
-  insets,
-  style,
-}: Options & {
-  insets: EdgeInsets;
-  style: Animated.WithAnimatedValue<StyleProp<ViewStyle>> | undefined;
-}) => {
-  // @ts-ignore
-  const customHeight = StyleSheet.flatten(style)?.height;
-
-  if (typeof customHeight === 'number' && customHeight > 0) {
-    return customHeight;
-  }
-  const paddingBottom = getPaddingBottom(insets);
-
-  if (Platform.OS === 'ios' && !Platform.isPad) {
-    return COMPACT_TABBAR_HEIGHT + paddingBottom;
-  }
-  if (Platform.OS === 'ios' && Platform.isPad) {
-    return COMPACT_PAD_TABBAR_HEIGHT + paddingBottom;
-  }
-
-  return DEFAULT_TABBAR_HEIGHT + paddingBottom;
-};
 
 export type MobileBottomTabBarProps = BottomTabBarProps & {
   backgroundColor?: string;
@@ -66,34 +22,12 @@ export default function MobileBottomTabBar({
   navigation,
   state,
   descriptors,
-  backgroundColor,
-  insets,
-  style,
 }: MobileBottomTabBarProps) {
-  const size = useDeviceScreenSize();
-
-  const dimensions = useSafeAreaFrame();
   const isKeyboardShown = useIsKeyboardShown();
   const { routes } = state;
+  const { bottom } = useSafeAreaInsets();
 
   const isHide = isKeyboardShown;
-
-  const focusedRoute = state.routes[state.index];
-  const focusedDescriptor = descriptors[focusedRoute.key];
-  const focusedOptions = focusedDescriptor.options;
-
-  const { tabBarStyle } = focusedOptions;
-
-  const tabBarHeight = getTabBarHeight({
-    insets,
-    dimensions,
-    deviceSize: size,
-    style: [tabBarStyle, style],
-  });
-
-  const horizontal = shouldUseHorizontalLabels({
-    deviceSize: size,
-  });
 
   const tabs = useMemo(
     () =>
@@ -117,55 +51,24 @@ export default function MobileBottomTabBar({
         };
 
         const renderItemContent = (renderActive: boolean) => (
-          <Stack
+          <TabItem
             testID="Mobile-AppTabBar-TabItem-Icon"
-            alignItems="center"
-            gap="$0.5"
-            pt="$0.5"
-            mb={insets.bottom}
-            borderRadius="$2"
-            justifyContent="center"
-            style={[
-              StyleSheet.absoluteFill,
-              horizontal
-                ? {
-                    flexDirection: 'row',
-                  }
-                : {
-                    flexDirection: 'column',
-                  },
-              {
-                opacity: isActive === renderActive ? 1 : 0,
-              },
-            ]}
-          >
-            <Icon
-              // @ts-expect-error
-              name={options?.tabBarIcon?.(renderActive) as ICON_NAMES}
-              color={renderActive ? '$icon' : '$iconSubdued'}
-              size="$7"
-            />
-            {options?.tabBarLabel?.length ? (
-              <Text
-                variant="$headingXxs"
-                color={renderActive ? '$text' : '$textSubdued'}
-                numberOfLines={1}
-              >
-                {options?.tabBarLabel}
-              </Text>
-            ) : null}
-          </Stack>
+            // @ts-expect-error
+            icon={options?.tabBarIcon?.(renderActive) as ICON_NAMES}
+            label={options?.tabBarLabel as string}
+            style={[StyleSheet.absoluteFill]}
+            selected={renderActive}
+            {...(!(isActive === renderActive) && {
+              opacity: 0,
+            })}
+          />
         );
 
         return (
           <Stack
             testID="Mobile-AppTabBar-TabItem"
-            minWidth="$24"
-            p="$1"
-            h="100%"
+            flex={1}
             key={route.name}
-            bg={backgroundColor}
-            hoverStyle={{ backgroundColor: '$bgHover' }}
             onPress={onPress}
           >
             {renderItemContent(false)}
@@ -173,16 +76,7 @@ export default function MobileBottomTabBar({
           </Stack>
         );
       }),
-    [
-      insets.bottom,
-      backgroundColor,
-      descriptors,
-      horizontal,
-      navigation,
-      routes,
-      state.index,
-      state.key,
-    ],
+    [descriptors, navigation, routes, state.index, state.key],
   );
   if (isHide) {
     return null;
@@ -191,21 +85,16 @@ export default function MobileBottomTabBar({
     <Stack
       testID="Mobile-AppTabBar"
       borderTopWidth={StyleSheet.hairlineWidth}
-      left="$0"
-      right="$0"
-      bottom="$0"
       bg="$bgApp"
       borderTopColor="$borderSubdued"
-      height={tabBarHeight}
-      py="$0"
+      pb={bottom}
     >
       <Stack
         testID="Mobile-AppTabBar-Content"
         accessibilityRole="tablist"
-        flex={1}
-        alignItems="baseline"
-        justifyContent="space-around"
         flexDirection="row"
+        justifyContent="space-around"
+        h={54}
       >
         {tabs}
       </Stack>

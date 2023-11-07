@@ -3,13 +3,13 @@ import { memo, useCallback, useMemo } from 'react';
 import useIsVerticalLayout from '../../Provider/hooks/useIsVerticalLayout';
 
 import HeaderButtonGroup from './HeaderButtonGroup';
-import HeaderButtonIcon from './HeaderButtonIcon';
-import HeaderButtonSide from './HeaderButtonSide';
+import HeaderCollapseButton from './HeaderCollapseButton';
+import HeaderIconButton from './HeaderIconButton';
 
 import type { OneKeyStackHeaderProps } from './HeaderScreenOptions';
 import type { HeaderBackButtonProps } from '@react-navigation/elements';
 
-function HeaderButtonBack({
+function HeaderBackButton({
   isModelScreen,
   isRootScreen,
   canGoBack,
@@ -25,12 +25,12 @@ function HeaderButtonBack({
   const backImageCallback = useCallback(() => {
     if (canGoBack) {
       return (
-        <HeaderButtonIcon onPress={props.onPress} name="ChevronLeftOutline" />
+        <HeaderIconButton onPress={props.onPress} icon="ChevronLeftOutline" />
       );
     }
     if (showCloseButton) {
       return (
-        <HeaderButtonIcon onPress={props.onPress} name="CrossedLargeOutline" />
+        <HeaderIconButton onPress={props.onPress} icon="CrossedLargeOutline" />
       );
     }
   }, [canGoBack, props.onPress, showCloseButton]);
@@ -44,7 +44,7 @@ function HeaderButtonBack({
   const slideButtonMemo = useMemo(() => {
     if (!showSlideButton) return null;
 
-    return <HeaderButtonSide isRootScreen={isRootScreen} />;
+    return <HeaderCollapseButton isRootScreen={isRootScreen} />;
   }, [isRootScreen, showSlideButton]);
 
   return (
@@ -55,4 +55,4 @@ function HeaderButtonBack({
   );
 }
 
-export default memo(HeaderButtonBack);
+export default memo(HeaderBackButton);

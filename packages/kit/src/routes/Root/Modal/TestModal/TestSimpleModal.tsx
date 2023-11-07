@@ -2,7 +2,7 @@ import { useCallback, useLayoutEffect } from 'react';
 
 import { ModalContainer, Stack, Text } from '@onekeyhq/components';
 import type { ModalScreenProps } from '@onekeyhq/components/src/Navigation';
-import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
+import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';
 
 import type { ModalTestParamList } from './Routes';
 
@@ -10,7 +10,7 @@ export default function TestSimpleModal({
   navigation,
 }: ModalScreenProps<ModalTestParamList>) {
   const headerRightCall = useCallback(
-    () => <HeaderButtonIcon name="AnonymousHidden2Outline" />,
+    () => <HeaderIconButton icon="AnonymousHidden2Outline" />,
     [],
   );
 

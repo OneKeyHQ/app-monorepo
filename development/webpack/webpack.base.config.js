@@ -21,7 +21,9 @@ class BuildDoneNotifyPlugin {
         console.log('===================================');
         console.log('\u001b[0m'); // reset color
       }, 300);
-      notifier.notify(msg);
+      try {
+        notifier.notify(msg);
+      } catch {}
     });
   }
 }
@@ -288,7 +290,7 @@ module.exports = ({ platform, basePath, configName }) => ({
     },
     fallback: {
       'crypto': require.resolve(
-          '@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.js',
+        '@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.js',
       ),
       stream: require.resolve('stream-browserify'),
       path: false,

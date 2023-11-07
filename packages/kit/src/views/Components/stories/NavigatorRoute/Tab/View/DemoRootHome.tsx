@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { Button, Stack, YStack } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
-import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
+import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { AppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -41,23 +41,23 @@ const DemoRootHome = () => {
       suggestions={['使用方式与 @react-navigation/native-stack 相同']}
       boundaryConditions={[
         'BackButton 已经处理好了相关内容，所以不支持自定义 headerLeft 组件',
-        '为了不破坏 Navigation 默认行为，只有一个 headerRight 图标可以根据官方 API 写，推荐使用 <HeaderButtonIcon> 组件，与 Icon 组件用法相同',
+        '为了不破坏 Navigation 默认行为，只有一个 headerRight 图标可以根据官方 API 写，推荐使用 <HeaderIconButton> 组件，与 Icon 组件用法相同',
         '为了不破坏 Navigation 默认行为，如果是一个 headerRight 图标组需要使用 <HeaderButtonGroup> 组件，里面处理好了各种边距问题',
       ]}
       elements={[
         {
-          title: 'HeaderButtonIcon 演示',
+          title: 'HeaderIconButton 演示',
           element: (
             <YStack>
-              <HeaderButtonIcon
-                name="CrossedLargeOutline"
+              <HeaderIconButton
+                icon="CrossedLargeOutline"
                 color="$borderColorHover"
                 onPress={() => {
                   alert('clicked');
                 }}
               />
-              <HeaderButtonIcon
-                name="ChevronLeftOutline"
+              <HeaderIconButton
+                icon="ChevronLeftOutline"
                 onPress={() => {
                   alert('clicked');
                 }}

@@ -6,7 +6,7 @@ import { Input } from 'tamagui';
 import { Button, ModalContainer, Stack, Toast } from '@onekeyhq/components';
 import type { ModalScreenProps } from '@onekeyhq/components/src/Navigation';
 import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
-import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
+import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';
 import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator/ModalFlowNavigator';
 
 import IconGallery from '../../Icon';
@@ -24,7 +24,7 @@ function DemoCreateViewModal({
 }: ModalScreenProps<DemoCreateModalParamList>) {
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerRight: () => <HeaderButtonIcon name="AnonymousHidden2Outline" />,
+      headerRight: () => <HeaderIconButton icon="AnonymousHidden2Outline" />,
     });
   }, [navigation]);
 
@@ -157,9 +157,9 @@ function DemoCreateOptionsModal({
       },
       headerRight: () => (
         <HeaderButtonGroup>
-          <HeaderButtonIcon name="AnonymousHidden2Outline" />
-          <HeaderButtonIcon name="ArchiveOutline" />
-          <HeaderButtonIcon name="AlignmentJustifyOutline" />
+          <HeaderIconButton icon="AnonymousHidden2Outline" />
+          <HeaderIconButton icon="ArchiveOutline" />
+          <HeaderIconButton icon="AlignmentJustifyOutline" />
         </HeaderButtonGroup>
       ),
     });

@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "webpack serve"
+    "start": "webpack serve",
+    "build": "../../node_modules/.bin/webpack build"
   },
   "dependencies": {
     "@onekeyhq/components": "*",
