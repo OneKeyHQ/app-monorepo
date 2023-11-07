@@ -42,7 +42,7 @@ import type {
   DialogInstanceRef,
   DialogProps,
 } from './type';
-import type { ButtonProps } from '../Button';
+import type { IButtonProps } from '../Button';
 import type { PortalManager } from '../Portal';
 
 function Trigger({
@@ -52,11 +52,11 @@ function Trigger({
   if (children) {
     const child = Children.only(children);
     if (isValidElement(child)) {
-      const handleOpen = (child.props as ButtonProps).onPress
-        ? composeEventHandlers((child.props as ButtonProps).onPress, onOpen)
+      const handleOpen = (child.props as IButtonProps).onPress
+        ? composeEventHandlers((child.props as IButtonProps).onPress, onOpen)
         : onOpen;
       if (child.type === Button) {
-        return cloneElement(child, { onPress: handleOpen } as ButtonProps);
+        return cloneElement(child, { onPress: handleOpen } as IButtonProps);
       }
       return <Stack onPress={handleOpen}>{children}</Stack>;
     }
@@ -164,7 +164,7 @@ function DialogFrame({
             $md={
               {
                 size: 'large',
-              } as ButtonProps
+              } as IButtonProps
             }
             {...cancelButtonProps}
             onPress={handleCancelButtonPress}
@@ -178,7 +178,7 @@ function DialogFrame({
             $md={
               {
                 size: 'large',
-              } as ButtonProps
+              } as IButtonProps
             }
             {...confirmButtonProps}
             onPress={handleConfirmButtonPress}

@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 
-import type { ButtonProps } from '../Button';
+import type { IButtonProps } from '../Button';
 import type { FormProps } from '../Form';
 import type { ICON_NAMES } from '../Icon';
 import type { UseFormProps, UseFormReturn } from 'react-hook-form';
@@ -27,8 +27,8 @@ export interface DialogProps extends TMDialogProps {
   showFooter?: boolean;
   onConfirm?: () => void | Promise<boolean>;
   onCancel?: () => void;
-  confirmButtonProps?: ButtonProps;
-  cancelButtonProps?: ButtonProps;
+  confirmButtonProps?: IButtonProps;
+  cancelButtonProps?: IButtonProps;
   dismissOnOverlayPress?: TMSheetProps['dismissOnOverlayPress'];
   sheetProps?: Omit<TMSheetProps, 'dismissOnOverlayPress'>;
   contextValue?: DialogContextType;

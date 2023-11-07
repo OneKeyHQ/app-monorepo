@@ -1,6 +1,6 @@
 import {
   ButtonFrame,
-  type ButtonProps,
+  type IButtonProps,
   getSharedButtonStyles,
 } from '../Button';
 import { Icon } from '../Icon';
@@ -11,13 +11,13 @@ import { Tooltip } from '../Tooltip';
 import type { ICON_NAMES, IconProps } from '../Icon';
 
 export interface IconButtonProps
-  extends Omit<ButtonProps, 'iconAfter' | 'children' | 'icon'> {
+  extends Omit<IButtonProps, 'iconAfter' | 'children' | 'icon'> {
   icon: ICON_NAMES;
   iconProps?: IconProps;
   title?: string;
 }
 
-const getSizeStyles = (size: ButtonProps['size']) => {
+const getSizeStyles = (size: IButtonProps['size']) => {
   const sizes = {
     small: {
       p: '$1',

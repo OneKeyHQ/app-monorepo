@@ -3,7 +3,7 @@ import { Icon } from '../Icon';
 import { YStack } from '../Stack';
 import { Text } from '../Text';
 
-import type { ButtonProps } from '../Button';
+import type { IButtonProps } from '../Button';
 import type { ICON_NAMES } from '../Icon';
 import type { YStackProps } from 'tamagui';
 
@@ -11,7 +11,7 @@ interface EmptyProps extends YStackProps {
   icon?: ICON_NAMES;
   title?: string;
   description?: string;
-  buttonProps?: ButtonProps;
+  buttonProps?: IButtonProps;
 }
 
 export function Empty(props: EmptyProps) {

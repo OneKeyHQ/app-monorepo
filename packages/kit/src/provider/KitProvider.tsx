@@ -1,4 +1,4 @@
-import { type FC } from 'react';
+import { type FC, Fragment } from 'react';
 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { RootSiblingParent } from 'react-native-root-siblings';
@@ -24,6 +24,11 @@ const flexStyle = { flex: 1 };
 
 enableFreeze();
 
+// Importing FullWindowOverlay is only valid on iOS devices.
+const FullWindowOverlayContainer = platformEnv.isNativeIOS
+  ? FullWindowOverlay
+  : Fragment;
+
 // TODO: detect network change & APP in background mode
 const KitProvider: FC = () => (
   <ReduxProvider store={store}>
@@ -32,7 +37,7 @@ const KitProvider: FC = () => (
         <RootSiblingParent>
           <GestureHandlerRootView style={flexStyle}>
             <NavigationProvider />
-            <FullWindowOverlay>
+            <FullWindowOverlayContainer>
               <Portal.Container
                 name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}
               />
@@ -41,7 +46,7 @@ const KitProvider: FC = () => (
                   <WebTabBarItem />
                 </Portal.Body>
               ) : null}
-            </FullWindowOverlay>
+            </FullWindowOverlayContainer>
           </GestureHandlerRootView>
         </RootSiblingParent>
       </AppLoading>

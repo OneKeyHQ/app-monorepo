@@ -2,7 +2,7 @@ import { Button } from '../Button';
 import { Checkbox } from '../Checkbox';
 import { Stack, XStack } from '../Stack';
 
-import type { ButtonProps } from '../Button';
+import type { IButtonProps } from '../Button';
 import type { GetProps } from 'tamagui';
 
 type ModalButtonGroupProps = {
@@ -36,12 +36,12 @@ function ModalButtonGroup({
             {
               flex: 1,
               size: 'large',
-            } as ButtonProps
+            } as IButtonProps
           }
           $gtSm={
             {
               size: 'medium',
-            } as ButtonProps
+            } as IButtonProps
           }
           onPress={onCancel}
           {...cancelButtonProps}
@@ -56,12 +56,12 @@ function ModalButtonGroup({
             {
               flex: 1,
               size: 'large',
-            } as ButtonProps
+            } as IButtonProps
           }
           $gtSm={
             {
               size: 'medium',
-            } as ButtonProps
+            } as IButtonProps
           }
           onPress={onConfirm}
           {...confirmButtonProps}
