@@ -110,23 +110,6 @@ const font = createFont({
 
 // https://docs.swmansion.com/react-native-reanimated/docs/2.x/api/animations/withSpring/
 const animations = createAnimations({
-  '150ms': {
-    type: 'timing',
-    duration: 150,
-  },
-  '300ms': {
-    type: 'timing',
-    duration: 300,
-  },
-  bouncy: {
-    type: 'spring',
-    damping: 10,
-    mass: 0.9,
-  },
-  lazy: {
-    type: 'spring',
-    damping: 20,
-  },
   quick: {
     type: 'spring',
     damping: 20,

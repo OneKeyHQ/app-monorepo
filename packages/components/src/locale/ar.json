@@ -199,6 +199,7 @@
   "action__learn_more": "يتعلم أكثر",
   "action__learn_more_n_purchase": "تعلم المزيد واشتري",
   "action__lets_go": "لنذهب",
+  "action__lightning_invoice": "فاتورة البرق",
   "action__like": "يحب",
   "action__link__lnurl": "وصلة",
   "action__list_view": "عرض القائمة",
@@ -223,6 +224,7 @@
   "action__ok": "نعم",
   "action__ok_im_done": "نعم. منتهي!",
   "action__open_blockchain_browser": "افتح متصفح Blockchain",
+  "action__open_expand_view": "فتح توسيع العرض",
   "action__open_finder": "افتح الباحث",
   "action__open_in_browser": "افتح في المتصفح",
   "action__open_onekey": "افتح OneKey",
@@ -248,6 +250,7 @@
   "action__recover_accounts": "استعادة الحسابات",
   "action__refresh": "تحديث",
   "action__register__lnurl": "يسجل",
+  "action__register_now": "سجل الان",
   "action__reject": "رفض",
   "action__remove": "إزالة",
   "action__remove_account": "إزالة الحساب",
@@ -518,6 +521,7 @@
   "content__connecting": "توصيل",
   "content__contract_address": "عنوان العقد",
   "content__copy_and_private_key": "انسخ والصق المفتاح الخاص في الحقل الموجود على اليسار",
+  "content__create_a_specific_amount_invoice_payment_request": "إنشاء طلب دفع فاتورة بمبلغ محدد",
   "content__create_wallet_desc": "من خلال إنشاء عبارة استرداد جديدة",
   "content__created": "مخلوق",
   "content__creating_an_str_account_will_create_other_accounts": "سيؤدي إنشاء حساب {impl} إلى إنشاء حسابات أخرى للشبكة المتوافقة {impl} بشكل متزامن.",
@@ -572,6 +576,7 @@
   "content__enable_mac_permissions_for_oneKey_step_4": "انقر على \"Quit & Reopen\" في مربع الحوار",
   "content__encrypting_your_data": "<a> تشفير </a> <b> بياناتك </b>",
   "content__enter": "يدخل",
+  "content__enter_a_username_with_lowercase_letters_or_numbers": "أدخل اسم مستخدم بأحرف صغيرة أو أرقام",
   "content__enter_bootloader_mode": "ادخل إلى وضع Bootloader",
   "content__enter_current_password_before_resetting_it": "أدخل كلمة المرور الحالية قبل إعادة تعيينها",
   "content__enter_invoice": "أدخل الفاتورة",
@@ -752,6 +757,7 @@
   "content__notable_collections": "مجموعات بارزة",
   "content__note_that_exchanges_may_not_accept_contract_transfers": "لاحظ أن البورصات قد لا تقبل تحويلات العقود ، لذا يرجى تجنب إجراء مثل هذه التحويلات.",
   "content__onboarding_import_wallet_desc": "مع عبارة الاسترداد والمفتاح الخاص والعنوان و OneKey Lite و KeyTag والمزيد ...",
+  "content__once_submitted_you_will_no_longer_receive_any_payments_from_the_older_lightning_address": "بمجرد الإرسال، لن تتلقى أي مدفوعات من عنوان Lightning الأقدم",
   "content__onekey_bridge_str_is_now_available_do_you_want_to_download": "OneKey Bridge {0} متوفر الآن ، هل تريد التنزيل؟",
   "content__onekey_does_not_charge_any_service_fees": "لا يتقاضى OneKey أي رسوم خدمة",
   "content__onekey_does_not_check_typos_nor_the_status_of_the_protocol_check_by_youself_and_inscribe_with_caution": "لا يتحقق OneKey من الأخطاء الإملائية ولا الحالة الحالية للبروتوكولات ، مثل نطاق .sats و brc-20 وما إلى ذلك. تحقق بنفسك وقم بالتسجيل بحذر.",
@@ -800,6 +806,7 @@
   "content__receive_notifications_of_account_dynamics_and_asset_changes": "تلقي إخطارات ديناميكيات الحساب وتغييرات الأصول.",
   "content__recovery_phrase_restore": "إذا نسيت كلمة المرور الخاصة بك ، فيمكنك استخدام عبارة الاسترداد للعودة إلى محفظتك.",
   "content__release_occupied_balance": "قم بتحرير {0} مرة أخرى إلى رصيد الحساب، ويمكنك الانتقال إلى \"إدارة UTXO\" لاستعادة هذا النقش. برجاء ملاحظة أنه بمجرد إنفاق UTXOs المرتبطة، ستفقد أصول النقش بشكل دائم.",
+  "content__rent": "إيجار",
   "content__request_invoices_and_send_transaction": "طلب الفواتير وإرسال المعاملة.",
   "content__request_lnurl_linkingkey": "طلب مفتاح ربط LNURL.",
   "content__request_to_sign_partially_signed_btc_tx": "طلب توقيع معاملات البيتكوين الموقعة جزئيًا.",
@@ -826,6 +833,7 @@
   "content__select_restore_wallet": "حدد \"استعادة المحفظة\"",
   "content__select_restore_wallet_desc": "اتبع التعليمات التي تظهر على الشاشة لبدء استعادة مفاتيحك الخاصة على جهاز جديد.",
   "content__select_wallet_type": "اختر نوعًا للإعداد",
+  "content__send_bitcoin_like_sending_email_onekey_now_supports_lightning_address": "أرسل البيتكوين مثل إرسال البريد الإلكتروني! يدعم OneKey الآن عنوان Lightning.",
   "content__send_encrypted_messages_to_you": "إرسال رسائل مشفرة لك.",
   "content__send_maximum_amount_of_str_from_the_addresses": "أرسل أقصى قدر من {token_symbol} من العناوين.",
   "content__send_the_listed_inscription_back_to_your_current_account_this_will_unlist_your_previous_order_in_market": "أرسل النقش المدرج مرة أخرى إلى حسابك الحالي، سيؤدي ذلك إلى إلغاء إدراج طلبك السابق في أسواق النقش.",
@@ -841,6 +849,7 @@
   "content__share_revoke_3": "إدارة مخصصات الرمز المميز الخاصة بك وحماية نفسك من عمليات الاحتيال. متوفر على أكثر من 30 شبكة blockchain.\n جربه الآن 👇\n https://revoke.gg",
   "content__share_revoke_4": "مدقق موافقات الرمز المميز بواسطة OneKey. سهل الاستخدام ومجاني ومفتوح المصدر.\nhttps://revoke.gg",
   "content__shared_with": "مشترك مع",
+  "content__signing_up_a_human_readable_address_for_your_lightning_account_no_more_lengthy_lightning_invoices": "قم بتسجيل عنوان يمكن قراءته لحساب Lightning الخاص بك، ولا مزيد من فواتير Lightning الطويلة.",
   "content__since_str": "منذ {0}",
   "content__slow": "بطيء",
   "content__some_ordinals_wallets_may_not_support_non_taproot_address_check_the_type_before_continue": "قد لا تدعم بعض المحافظ الترتيبية عنوانًا غير رئيسي. تحقق جيدًا من نوع العنوان قبل المتابعة.",
@@ -1127,6 +1136,7 @@
   "form__alert_uppercase": "إنذار",
   "form__alerts_uppercase": "التنبيهات",
   "form__algo__note": "ملحوظة (Note)",
+  "form__algo_tx_group_id": "معرف مجموعة",
   "form__all_networks": "جميع الشبكات",
   "form__all_networks_str": "كافة الشبكات ( {0} )",
   "form__all_tags": "جميع العلامات",
@@ -1283,7 +1293,7 @@
   "form__designated_recipient_desc": "يمكنك اختيار حساب آخر لاستلام المبادلة.",
   "form__destination_tag_placeholder": "علامة / مذكرة (اختياري)",
   "form__destroyed_inscriptions__uppercase": "الكتابات المدمرة",
-  "form__dev_mode": "وضع المطور",
+  "form__dev_mode": "ديف",
   "form__dev_platform_channel": "المنصات والقنوات",
   "form__dev_pre_update": "ترقية إصدار المعاينة",
   "form__direct_wrap": "التفاف مباشر",
@@ -1497,6 +1507,7 @@
   "form__minimum_received": "تلقى الحد الأدنى",
   "form__minimum_received_desc": "الحد الأدنى من الرموز التي يمكن استلامها بعد خصم الرسوم المختلفة",
   "form__mint_str": "النعناع {0}",
+  "form__model": "نموذج",
   "form__modifiable_tax": "ضريبة قابلة للتعديل",
   "form__modifiable_tax_desc": "إذا تم زيادة ضريبة المعاملات إلى أكثر من 49٪ ، فلن تكون التوكنات قادرة على التداول (مخاطرة موضع الجذب).",
   "form__modify_the_line_with_the_correct_format": "قم بتعديل الخط بالتنسيق الصحيح",
@@ -2140,6 +2151,7 @@
   "msg__amount_should_not_be_less_than_int": "يجب ألا يقل المبلغ عن {0}",
   "msg__amount_should_not_exceed_int": "يجب ألا يتجاوز المبلغ {0}",
   "msg__amount_too_small": "مبلغ التحويل صغير جدًا",
+  "msg__approving_camera_permission_needs_to_be_turned_on_in_expand_view": "يجب تشغيل الموافقة على إذن الكاميرا في Expand View",
   "msg__aptos_first_activation_token": "إذا تم تنشيط الرمز المميز لأول مرة ، فسيتم إصدار معاملة عملة.",
   "msg__asset_ratio": "نسبة الأصول",
   "msg__authentication_failed_verify_again": "فشلت المصادقة ، تحقق من اتصال الشبكة وحاول مرة أخرى",
@@ -2284,11 +2296,14 @@
   "msg__inscription_restored": "استعادة النقوش",
   "msg__insufficient_balance": "رصيد غير كاف",
   "msg__insufficient_balance_available_amount_str_str": "رصيد غير كاف. الكمية المتوفرة: {amount} {symbol}",
+  "msg__insufficient_balance_make_sure_at_least_10_sats_reserved_for_potential_fee_fluctuations": "رصيد غير كافي! تأكد من أن لديك ما لا يقل عن 10 أيام محجوزة لتقلبات الرسوم المحتملة",
+  "msg__insufficient_balance_make_sure_at_least_1_percent_ofinvoice_amount_reserved_for_potential_fee_fluctuations": "رصيد غير كافي! تأكد من أن لديك ما لا يقل عن 1% من مبلغ الفاتورة محجوزًا لتقلبات الرسوم المحتملة",
   "msg__insufficient_funds_for_transaction": "أموال غير كافية للمعاملات بسبب {0} الأصول المجمدة وحجز الغاز {1} .",
   "msg__insufficient_liquidity_of_lightning_node_channels": "السيولة غير الكافية لقنوات عقدة البرق",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "رصيد الرمز الأصلي غير كافٍ لرسوم الشبكة. الكمية المتوفرة: {amount} {symbol}",
   "msg__insufficient_outbound_liquidity_sending_failed": "السيولة الصادرة غير كافية ، فشل الإرسال",
   "msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address": "عنوان خاطئ! لا يمكن إرسال الأصول الترتيبية إلا إلى عناوين Taproot",
+  "msg__invalid_characters_detected_lowercase_letters_and_numbers_only": "تم اكتشاف أحرف غير صالحة، أحرف صغيرة وأرقام فقط",
   "msg__invalid_file_format": "تنسيق ملف غير صالح",
   "msg__invalid_hex_data": "بيانات HEX غير صالحة.",
   "msg__invalid_lightning_payment_request": "طلب دفع البرق غير صالح",
@@ -2302,6 +2317,7 @@
   "msg__invoice_is_already_paid": "تم دفع الفاتورة بالفعل",
   "msg__keep_device_charged_during_update_or_may_cause_malfunction": "احتفظ بجهازك مشحونًا أثناء التحديث ، وإلا فقد يتسبب ذلك في حدوث خلل لا رجعة فيه",
   "msg__label_name_can_be_up_to_15_characters": "يمكن أن يصل اسم التصنيف إلى 15 حرفًا",
+  "msg__lightning_address_changed": "تم تغيير عنوان البرق",
   "msg__limit_price_is_str_lower_than_the_current_market_price": "السعر المحدد أقل {0} من السوق.",
   "msg__limit_price_is_str_lower_than_the_current_market_price_desc": "سوف تبيع {0} بسعر رخيص للغاية.",
   "msg__link_copied": "تم نسخ الرابط",
@@ -2354,6 +2370,7 @@
   "msg__password_validation": "يجب أن تكون كلمة المرور بين 8 و 128 حرفًا.",
   "msg__payment_channel_not_found_sending_failed": "قناة الدفع غير موجودة ، فشل الإرسال",
   "msg__payment_received": "تم استلام الدفعة",
+  "msg__please_approve_camera_permission_on_your_browser": "يرجى الموافقة على إذن الكاميرا على متصفحك.",
   "msg__please_limit_the_amount_of_tokens_to_str_decimal_places_or_less": "الرجاء تحديد مقدار الرموز المميزة بـ {0} منازل عشرية أو أقل.",
   "msg__please_limit_the_file_size_to_str_or_less": "الرجاء تحديد حجم الملف بـ {0} أو أقل",
   "msg__please_upgrade_to_the_lastest_version_of_onekey_bridge": "الرجاء الترقية إلى أحدث إصدار من OneKey Bridge",
@@ -2373,7 +2390,7 @@
   "msg__recover_account_progress": "{0} تم استرداد الحسابات. {1} الإجماليات",
   "msg__recover_account_stopping": "جاري إيقاف الاسترداد ، يرجى الانتظار ...",
   "msg__remember_your_path_settings": "تذكر إعدادات مسارك",
-  "msg__remember_your_path_settings_desc": "ينصح الخيار القياسي. إذا كنت تريد حساب مسار مخصص ، فيرجى تذكر إعدادات المسار ، وإلا فلن تتمكن من استرداد الأصول.",
+  "msg__remember_your_path_settings_desc": "إذا كنت تريد حساب مسار مخصص، فيرجى تذكر إعدادات المسار الخاصة بك، وإلا فلن تتمكن من استرداد الأصول.",
   "msg__removed": "إزالة!",
   "msg__renamed": "أعيدت تسميته",
   "msg__restored_str": "تمت استعادة \" {0} \"",
@@ -2384,6 +2401,7 @@
   "msg__rpc_or_network_error_desc": "لا يزال بإمكانك محاولة تحديد الرسوم مع العرف.",
   "msg__send_tokens_to_the_system_s_financing_address": "في الوضع السريع ، يتم إرسال الرموز المميزة الخاصة بك إلى عنوان النظام ويتم تحويلها تلقائيًا إلى حساب المستخدم الخاص بك. إذا كان العنوان لا يحتوي على رصيد كافٍ ، فسيتم تخزين المبلغ المتبقي في رصيدك القابل للسحب ويمكن سحبه في أي وقت.",
   "msg__sending_interval_for_all_addresses_will_be_randomized_from_str_to_str": "سيتم اختيار الفاصل الزمني لإرسال كافة العناوين عشوائيًا من {min_s} إلى {max_s} .",
+  "msg__sending_str_requires_an_account_balance_of_at_least_str_str": "يتطلب إرسال {0} رصيد حساب لا يقل عن {1} {2}",
   "msg__sent": "💸 تم إرسال {assets}",
   "msg__sent_a_nft": "💸 أرسل NFT",
   "msg__sent_desc": "إلى {address}",
@@ -2471,6 +2489,8 @@
   "msg__use_passphrase_enter_hint_not_forget_dsc": "لا يمكن استرداد عبارات المرور وستفقد أموالك بشكل دائم",
   "msg__use_passphrase_remember_wallet": "دبوس",
   "msg__use_passphrase_remember_wallet_dsc": "تأكد من عدم إزالة هذه المحفظة المخفية بعد إغلاق التطبيق",
+  "msg__username_already_registered": "اسم المستخدم مسجل مسبقا",
+  "msg__username_should_be_between_str_and_str_characters": "يجب أن يتراوح اسم المستخدم بين {0} و {1} حرفًا",
   "msg__using_dust_will_increase_tx_fee_and_reduce_anonymity_and_privacy": "سيؤدي استخدام Dust UTXO إلى زيادة رسوم المعاملات غير الضرورية ، وقد يقلل من إخفاء الهوية وخصوصية المعاملات",
   "msg__using_latest_release": "أنت تستخدم أحدث إصدار! 🎉",
   "msg__utxo_is_frozen_you_can_find_it_in_frozen_tab": "UTXO متجمد ، يمكنك العثور عليه في علامة التبويب \"Frozen\".",
@@ -2556,6 +2576,7 @@
   "title__approve": "يوافق",
   "title__approved": "وافق",
   "title__approving": "الموافقة",
+  "title__are_you_sure_to_change_the_lightning_address": "هل أنت متأكد من تغيير عنوان البرق؟",
   "title__arrival_time": "وقت الوصول",
   "title__asset__display": "عرض الأصول",
   "title__assets": "أصول",
@@ -2577,6 +2598,7 @@
   "title__bulksender_desc": "دعم إرسال الدُفعات من واحد إلى واحد ومن متعدد إلى متعدد ومن متعدد إلى واحد.",
   "title__buy_onekey_hardware": "شراء أجهزة OneKey",
   "title__buy_str": "شراء {0}",
+  "title__camera_permission_required": "مطلوب إذن الكاميرا",
   "title__caution": "الحذر",
   "title__cautions_scam_site": "يحذر! موقع احتيال",
   "title__cautions_scam_site_desc": "كن حذرا عند زيارة هذا الموقع.",
@@ -2741,6 +2763,7 @@
   "title__recovery_phrase_desc": "اقرأ ما يلي ، ثم احفظ العبارة بشكل آمن.",
   "title__refresh_website_to_take_effect": "قم بتحديث موقع الويب حتى يسري مفعوله",
   "title__refresh_website_to_take_effect_desc": "بعد تغيير الإعدادات ، يرجى تذكر تحديث موقع الويب ليصبح ساري المفعول.",
+  "title__register_lightning_address": "تسجيل عنوان البرق",
   "title__release_occupied_balance": "الافراج عن الرصيد المحتل",
   "title__reopen_app_required": "مطلوب إعادة فتح التطبيق",
   "title__reopen_app_required_desc": "الآن سيتم إنهاء التطبيق وبعد إعادة فتح التطبيق يمكنك رؤية أن الإعدادات ستصبح سارية المفعول.",
