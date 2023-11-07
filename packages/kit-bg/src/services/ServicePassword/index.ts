@@ -1,5 +1,6 @@
 import {
   decodePassword,
+  encodePassword,
   getBgSensitiveTextEncodeKey,
 } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import {
@@ -55,15 +56,15 @@ export default class ServicePassword extends ServiceBase {
   }
 
   async biologyAuthSavePassword(password: string): Promise<void> {
-    const isSupportBiologyAuth = await settingsBiologyAuthInfoAtom.get();
-    if (isSupportBiologyAuth) {
+    const { isSupport } = await settingsBiologyAuthInfoAtom.get();
+    if (isSupport) {
       await savePassword(password);
     }
   }
 
   async biologyAuthGetPassword(): Promise<string> {
-    const isSupportBiologyAuth = await settingsBiologyAuthInfoAtom.get();
-    if (isSupportBiologyAuth) {
+    const { isSupport } = await settingsBiologyAuthInfoAtom.get();
+    if (isSupport) {
       return getPassword();
     }
     return '';
@@ -91,6 +92,11 @@ export default class ServicePassword extends ServiceBase {
       throw new error.PasswordUpdateSameFailed();
     }
     return localDb.verifyPassword(password);
+  }
+
+  @backgroundMethod()
+  async encodeSensitivePassword(password: string): Promise<string> {
+    return Promise.resolve(encodePassword({ password }));
   }
 
   @backgroundMethod()

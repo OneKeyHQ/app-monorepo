@@ -5,8 +5,6 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputed } from '../utils';
 
-import type { AuthenticationType } from 'expo-local-authentication';
-
 export type ISettingsAtom = {
   theme: 'light' | 'dark' | 'system';
   lastLocale: LocaleSymbol;
@@ -16,7 +14,6 @@ export type ISettingsAtom = {
   instanceId: string;
   isBiologyAuthSupported?: boolean;
   isPasswordSet: boolean;
-  biologyAuthType?: AuthenticationType;
 };
 export const { target: settingsAtom, use: useSettingsAtom } =
   globalAtom<ISettingsAtom>({
@@ -56,8 +53,9 @@ export const {
   target: settingsIsBiologyAuthSwitchOnAtom,
   use: useSettingsIsBiologyAuthSwitchOnAtom,
 } = globalAtom({
-  name: EAtomNames.settingsIsBiologyAuthSwitchOn,
-  initialValue: false,
+  persist: true,
+  name: EAtomNames.settingsIsBiologyAuthSwitchOnAtom,
+  initialValue: true,
 });
 
 export const {

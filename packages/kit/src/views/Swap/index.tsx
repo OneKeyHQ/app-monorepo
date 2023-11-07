@@ -12,10 +12,10 @@ import {
 } from '@onekeyhq/components';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import BiologyAuthSwitch from '../../components/BiologyAuthComponent/BiologyAuthSwitch';
-import PasswordSetup from '../../components/Password/PasswordSetup';
-import PasswordUpdate from '../../components/Password/PasswordUpdate';
-import PasswordVerify from '../../components/Password/PasswordVerify';
+import BiologyAuthSwitchContainer from '../../components/BiologyAuthComponent/container/BiologyAuthSwitchContainer';
+import PasswordSetupContainer from '../../components/Password/container/PasswordSetupContainer';
+import PasswordUpdateContainer from '../../components/Password/container/PasswordUpdateContainer';
+import PasswordVerifyContainer from '../../components/Password/container/PasswordVerifyContainer';
 
 const Swap = () => {
   console.log('swap');
@@ -34,7 +34,7 @@ const Swap = () => {
             const dialog = Dialog.confirm({
               title: 'SetupPassword',
               renderContent: (
-                <PasswordSetup
+                <PasswordSetupContainer
                   onSetupRes={(data) => {
                     console.log('setup data', data);
                     if (data) {
@@ -56,7 +56,7 @@ const Swap = () => {
             const dialog = Dialog.confirm({
               title: 'UpdatePassword',
               renderContent: (
-                <PasswordUpdate
+                <PasswordUpdateContainer
                   onUpdateRes={(data) => {
                     console.log('update data', data);
                     if (data) {
@@ -79,7 +79,7 @@ const Swap = () => {
               title: 'ConfirmPassword',
               renderContent: (
                 <Suspense fallback={<Spinner size="large" />}>
-                  <PasswordVerify
+                  <PasswordVerifyContainer
                     onVerifyRes={(data) => {
                       console.log('verify data', data);
                       if (data) {
@@ -100,7 +100,7 @@ const Swap = () => {
         <XStack justifyContent="space-between">
           <Text>生物识别</Text>
           <Suspense fallback={<Spinner size="large" />}>
-            <BiologyAuthSwitch />
+            <BiologyAuthSwitchContainer />
           </Suspense>
         </XStack>
       </YStack>

@@ -1,21 +1,22 @@
-import { Suspense, memo, useCallback, useState } from 'react';
+import { Suspense, memo, useState } from 'react';
 
-import { Form, Input, Spinner, Toast, useForm } from '@onekeyhq/components';
-import { encodePassword } from '@onekeyhq/core/src/secret';
+import { Form, Input, Spinner, useForm } from '@onekeyhq/components';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import BiologyAuthSwitch from '../BiologyAuthComponent/BiologyAuthSwitch';
-
-interface IPasswordSetupForm {
+export interface IPasswordSetupForm {
   password: string;
   confirmPassword: string;
 }
-
 interface IPasswordSetupProps {
-  onSetupRes: (password: string) => void;
+  biologyAuthSwitchContainer: React.ReactNode;
+  loading: boolean;
+  onSetupPassword: (data: IPasswordSetupForm) => void;
 }
 
-const PasswordSetup = ({ onSetupRes }: IPasswordSetupProps) => {
+const PasswordSetup = ({
+  loading,
+  biologyAuthSwitchContainer,
+  onSetupPassword,
+}: IPasswordSetupProps) => {
   const form = useForm<IPasswordSetupForm>({
     defaultValues: {
       password: '',
@@ -23,35 +24,6 @@ const PasswordSetup = ({ onSetupRes }: IPasswordSetupProps) => {
     },
   });
   const [secureEntry, setSecureEntry] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const onSetupPassword = useCallback(
-    async (data: IPasswordSetupForm) => {
-      if (data.confirmPassword !== data.password) {
-        form.setError('confirmPassword', { message: 'password not match' });
-      } else {
-        setLoading(true);
-        try {
-          const enCodePassword = encodePassword({ password: data.password });
-          const updatePasswordRes =
-            await backgroundApiProxy.servicePassword.setPassword(
-              enCodePassword,
-            );
-
-          if (updatePasswordRes) {
-            onSetupRes(updatePasswordRes);
-            Toast.success({ title: 'password set success' });
-          }
-        } catch (e) {
-          onSetupRes('');
-          console.log('e', e);
-          Toast.error({ title: 'password set failed' });
-        } finally {
-          setLoading(false);
-        }
-      }
-    },
-    [form, onSetupRes],
-  );
 
   return (
     <Form form={form}>
@@ -105,7 +77,7 @@ const PasswordSetup = ({ onSetupRes }: IPasswordSetupProps) => {
         />
       </Form.Field>
       <Suspense fallback={<Spinner size="small" />}>
-        <BiologyAuthSwitch />
+        {biologyAuthSwitchContainer}
       </Suspense>
     </Form>
   );

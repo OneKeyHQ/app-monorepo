@@ -1,20 +1,21 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useState } from 'react';
 
-import { Form, Input, Toast, useForm } from '@onekeyhq/components';
-import { encodePassword } from '@onekeyhq/core/src/secret';
+import { Form, Input, useForm } from '@onekeyhq/components';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-
-interface IPasswordUpdateForm {
+export interface IPasswordUpdateForm {
   newPassword: string;
   oldPassword: string;
 }
 
 interface IPasswordUpdateProps {
-  onUpdateRes: (newPassword: string) => void;
+  loading: boolean;
+  onUpdatePassword: (data: IPasswordUpdateForm) => void;
 }
 
-const PasswordUpdate = ({ onUpdateRes }: IPasswordUpdateProps) => {
+const PasswordUpdate = ({
+  loading,
+  onUpdatePassword,
+}: IPasswordUpdateProps) => {
   const form = useForm<IPasswordUpdateForm>({
     defaultValues: {
       newPassword: '',
@@ -22,36 +23,6 @@ const PasswordUpdate = ({ onUpdateRes }: IPasswordUpdateProps) => {
     },
   });
   const [secureEntry, setSecureEntry] = useState(true);
-  const [loading, setLoading] = useState(false);
-
-  const onUpdatePassword = useCallback(
-    async (data: IPasswordUpdateForm) => {
-      setLoading(true);
-      try {
-        const enCodeNewPassword = encodePassword({
-          password: data.newPassword,
-        });
-        const enCodeOldPassword = encodePassword({
-          password: data.oldPassword,
-        });
-        const updatePasswordRes =
-          await backgroundApiProxy.servicePassword.updatePassword(
-            enCodeOldPassword,
-            enCodeNewPassword,
-          );
-        if (updatePasswordRes) {
-          onUpdateRes(updatePasswordRes);
-          Toast.success({ title: 'password update success' });
-        }
-      } catch (e) {
-        onUpdateRes('');
-        Toast.error({ title: 'password set failed' });
-      }
-
-      setLoading(false);
-    },
-    [onUpdateRes],
-  );
 
   return (
     <Form form={form}>
