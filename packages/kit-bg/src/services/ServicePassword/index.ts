@@ -156,8 +156,8 @@ export default class ServicePassword extends ServiceBase {
     if (verified) {
       await this.biologyAuthSavePassword(newPassword);
       await this.saveCachedPassword(newPassword);
-      const passwordAtom = await passwordPersistAtom.get();
-      if (!passwordAtom.isPasswordSet) {
+      const passwordPersistAtomValue = await passwordPersistAtom.get();
+      if (!passwordPersistAtomValue.isPasswordSet) {
         await settingsPersistAtom.set((v) => ({ ...v, isPasswordSet: true }));
       }
       await localDb.updatePassword(oldPassword, newPassword);
@@ -171,8 +171,8 @@ export default class ServicePassword extends ServiceBase {
     this.validatePasswordStrength(password);
     const checkPasswordSet = await localDb.checkPasswordSet();
     if (checkPasswordSet) {
-      const passwordAtom = await passwordPersistAtom.get();
-      if (!passwordAtom.isPasswordSet) {
+      const passwordPersistAtomValue = await passwordPersistAtom.get();
+      if (!passwordPersistAtomValue.isPasswordSet) {
         await settingsPersistAtom.set((v) => ({ ...v, isPasswordSet: true }));
       }
       throw new error.PasswordAlreadySetFailed();
