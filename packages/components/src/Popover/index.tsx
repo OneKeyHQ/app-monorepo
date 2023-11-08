@@ -8,11 +8,11 @@ import { Text } from '../Text';
 
 import type {
   SheetProps,
-  PopoverProps as TMPopoverProps,
+  IPopoverProps as TMPopoverProps,
   YStackProps,
 } from 'tamagui';
 
-export interface PopoverProps extends TMPopoverProps {
+export interface IPopoverProps extends TMPopoverProps {
   title: string;
   renderTrigger: React.ReactNode;
   renderContent: React.ReactNode;
@@ -28,7 +28,7 @@ export function Popover({
   sheetProps,
   onOpenChange,
   ...props
-}: PopoverProps) {
+}: IPopoverProps) {
   const { bottom } = useSafeAreaInsets();
   let transformOrigin;
 
