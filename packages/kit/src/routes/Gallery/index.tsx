@@ -39,7 +39,6 @@ import SectionListGallery from '../../views/Components/stories/SectionList';
 import SkeletonGallery from '../../views/Components/stories/Skeleton';
 import TextAreaGallery from '../../views/Components/stories/TextArea';
 import ThemeGallery from '../../views/Components/stories/Theme';
-import TouchableGallery from '../../views/Components/stories/Touchable';
 
 import { GalleryRoutes } from './routes';
 
@@ -64,7 +63,6 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentRadio, component: RadioGallery },
   { name: GalleryRoutes.ComponentListView, component: ListViewGallery },
   { name: GalleryRoutes.ComponentSectionList, component: SectionListGallery },
-  { name: GalleryRoutes.ComponentTouchable, component: TouchableGallery },
   { name: GalleryRoutes.ComponentListItem, component: ListItemGallery },
   { name: GalleryRoutes.ComponentSkeleton, component: SkeletonGallery },
   { name: GalleryRoutes.ComponentCheckbox, component: CheckboxGallery },
