@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 
-import type { ScrollViewRef } from '@onekeyhq/components';
+import type { IScrollViewRef } from '@onekeyhq/components';
 import { Button, ScrollView, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
@@ -8,7 +8,7 @@ import { Layout } from './utils/Layout';
 const BasicScrollViewDemo = () => <ScrollView h="$10" bg="red" />;
 
 const ScrollViewDemo = () => {
-  const ref = useRef<ScrollViewRef | null>(null);
+  const ref = useRef<IScrollViewRef | null>(null);
   return (
     <ScrollView
       h="$60"
