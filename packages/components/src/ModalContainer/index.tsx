@@ -5,7 +5,7 @@ import { Stack, XStack } from '../Stack';
 import type { IButtonProps } from '../Button';
 import type { GetProps } from 'tamagui';
 
-type ModalButtonGroupProps = {
+type IModalButtonGroupProps = {
   onConfirm?: () => void | Promise<boolean>;
   onCancel?: () => void;
   confirmButtonProps?: GetProps<typeof Button>;
@@ -17,7 +17,7 @@ function ModalButtonGroup({
   onConfirm,
   confirmButtonProps,
   cancelButtonProps,
-}: ModalButtonGroupProps) {
+}: IModalButtonGroupProps) {
   return (
     <XStack
       $sm={{
@@ -76,7 +76,7 @@ function ModalButtonGroup({
 type ModalContainerProps = {
   children: React.ReactNode;
   checkboxProps?: GetProps<typeof Checkbox>;
-} & ModalButtonGroupProps;
+} & IModalButtonGroupProps;
 
 export function ModalContainer({
   children,

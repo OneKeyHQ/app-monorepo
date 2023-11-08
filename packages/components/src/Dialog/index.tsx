@@ -33,7 +33,7 @@ import { DialogContext } from './context';
 
 import type { IDialogInstanceRef, IDialogProps } from './type';
 import type { IButtonProps } from '../Button';
-import type { PortalManager } from '../Portal';
+import type { IPortalManager } from '../Portal';
 
 function Trigger({
   onOpen,
@@ -356,7 +356,7 @@ function DialogConfirm({
     createRef<IDialogInstanceRef>();
   let portalRef:
     | {
-        current: PortalManager;
+        current: IPortalManager;
       }
     | undefined;
   const handleClose = () => {

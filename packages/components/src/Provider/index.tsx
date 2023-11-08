@@ -16,7 +16,7 @@ import { Context } from './hooks/useProviderValue';
 import ScreenSizeProvider from './ScreenSizeProvider';
 import SidebarStateProvider from './SidebarStateProvider';
 
-import type { LocaleSymbol } from '../locale';
+import type { ILocaleSymbol } from '../locale';
 import type { IntlShape, MessageDescriptor } from 'react-intl';
 
 export type IUIProviderProps = PropsWithChildren<{
@@ -27,7 +27,7 @@ export type IUIProviderProps = PropsWithChildren<{
   /**
    * default locale symbol
    */
-  locale: LocaleSymbol;
+  locale: ILocaleSymbol;
 
   reduxReady?: boolean;
 

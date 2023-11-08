@@ -43,4 +43,4 @@ export const Text = styled(OriginText, {
   },
 });
 
-export type TextProps = GetProps<typeof Text>;
+export type ITextProps = GetProps<typeof Text>;

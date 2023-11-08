@@ -20,9 +20,9 @@ import type {
 } from 'react-native';
 
 export type {
-  ModalScreenProps,
-  ModalNavigationProp,
-  ModalNavigationOptions,
+  IModalScreenProps,
+  IModalNavigationProp,
+  IModalNavigationOptions,
 } from './Modal/types';
 
 export interface SearchBarProps {

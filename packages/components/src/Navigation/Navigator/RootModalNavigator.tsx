@@ -12,11 +12,11 @@ import { createStackNavigator } from '../StackNavigator';
 import { TransparentModalTheme } from './CommonConfig.ts';
 import ModalFlowNavigator from './ModalFlowNavigator';
 
-import type { ModalFlowNavigatorConfig } from './ModalFlowNavigator';
+import type { IModalFlowNavigatorConfig } from './ModalFlowNavigator';
 
 export interface ModalRootNavigatorConfig<RouteName extends string> {
   name: RouteName;
-  children: ModalFlowNavigatorConfig<any, any>[];
+  children: IModalFlowNavigatorConfig<any, any>[];
 }
 
 interface ModalNavigatorProps<RouteName extends string> {

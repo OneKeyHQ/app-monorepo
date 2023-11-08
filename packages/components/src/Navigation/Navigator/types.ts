@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react';
 
 import type { IICON_NAMES } from '../../Icon';
-import type { LocaleIds } from '../../locale';
+import type { ILocaleIds } from '../../locale';
 import type { RouteProp } from '@react-navigation/core/lib/typescript/src/types';
 import type { ParamListBase } from '@react-navigation/routers';
 
@@ -13,7 +13,7 @@ export interface TabSubNavigatorConfig<
   RouteName extends string,
   P extends ParamListBase = ParamListBase,
 > extends CommonNavigatorConfig<RouteName, P> {
-  translationId?: LocaleIds;
+  translationId?: ILocaleIds;
   headerShown?: boolean;
   disable?: boolean;
 }
@@ -21,7 +21,7 @@ export interface TabSubNavigatorConfig<
 export interface TabNavigatorConfig<RouteName extends string> {
   name: RouteName;
   tabBarIcon: (focused?: boolean) => IICON_NAMES;
-  translationId: LocaleIds;
+  translationId: ILocaleIds;
   children: TabSubNavigatorConfig<any, any>[];
   freezeOnBlur?: boolean;
   disable?: boolean;

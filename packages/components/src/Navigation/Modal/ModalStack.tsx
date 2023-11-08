@@ -13,17 +13,17 @@ import ModalBackdrop from './ModalBackdrop';
 
 import type {
   ModalDescriptorMap,
-  ModalNavigationConfig,
-  ModalNavigationHelpers,
+  IModalNavigationConfig,
+  IModalNavigationHelpers,
 } from './types';
 import type {
   ParamListBase,
   StackNavigationState,
 } from '@react-navigation/native';
 
-type Props = ModalNavigationConfig & {
+type IProps = IModalNavigationConfig & {
   state: StackNavigationState<ParamListBase>;
-  navigation: ModalNavigationHelpers;
+  navigation: IModalNavigationHelpers;
   descriptors: ModalDescriptorMap;
 };
 
@@ -31,7 +31,7 @@ export default function ModalStackView({
   state,
   navigation,
   descriptors,
-}: Props) {
+}: IProps) {
   const parentHeaderBack = useContext(HeaderBackContext);
   // const currentRoute = state.routes[state.index];
   // const descriptor = descriptors[currentRoute.key];

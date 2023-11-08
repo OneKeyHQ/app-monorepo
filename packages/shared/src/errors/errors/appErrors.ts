@@ -1,6 +1,6 @@
 /* eslint max-classes-per-file: "off" */
 
-import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { ILocaleIds } from '@onekeyhq/components/src/locale';
 // import type { LocaleKeyInfoMap } from '@onekeyhq/components/src/locale/LocaleKeyInfoMap';
 
 import { OneKeyErrorClassNames } from '../types/errorTypes';
@@ -53,7 +53,7 @@ export class OneKeyValidatorError<
     message?: string;
   }) {
     super({
-      key: (key as any) || ('onekey_error_validator' as LocaleIds),
+      key: (key as any) || ('onekey_error_validator' as ILocaleIds),
       info,
       message,
     });
@@ -75,7 +75,7 @@ export class OneKeyValidatorTip<
     message?: string;
   }) {
     super({
-      key: (key as any) || ('onekey_tip_validator' as LocaleIds),
+      key: (key as any) || ('onekey_tip_validator' as ILocaleIds),
       info,
       message,
     });
@@ -329,9 +329,9 @@ export type INumberLimitInfo = {
   limit: string | number;
 };
 export class NumberLimit<T = INumberLimitInfo> extends OneKeyError<T> {
-  constructor({ limit, key }: { limit: number; key?: LocaleIds }) {
+  constructor({ limit, key }: { limit: number; key?: ILocaleIds }) {
     const info: INumberLimitInfo = { limit: limit.toString() };
-    const keyWithDefault: LocaleIds =
+    const keyWithDefault: ILocaleIds =
       key || ('generic_number_limitation' as any);
     super(
       normalizeErrorProps(
@@ -350,7 +350,7 @@ export class NumberLimit<T = INumberLimitInfo> extends OneKeyError<T> {
 export class TooManyWatchingAccounts extends NumberLimit {
   constructor(
     limit: number,
-    key: LocaleIds = 'msg__engine_too_many_watching_accounts',
+    key: ILocaleIds = 'msg__engine_too_many_watching_accounts',
   ) {
     super({ limit, key });
   }
@@ -359,7 +359,7 @@ export class TooManyWatchingAccounts extends NumberLimit {
 export class TooManyExternalAccounts extends NumberLimit {
   constructor(
     limit: number,
-    key: LocaleIds = 'msg__engine_too_many_external_accounts',
+    key: ILocaleIds = 'msg__engine_too_many_external_accounts',
   ) {
     super({ limit, key });
   }
@@ -368,7 +368,7 @@ export class TooManyExternalAccounts extends NumberLimit {
 export class TooManyImportedAccounts extends NumberLimit {
   constructor(
     limit: number,
-    key: LocaleIds = 'msg__engine__too_many_imported_accounts',
+    key: ILocaleIds = 'msg__engine__too_many_imported_accounts',
   ) {
     super({ limit, key });
   }
@@ -377,7 +377,7 @@ export class TooManyImportedAccounts extends NumberLimit {
 export class TooManyHDWallets extends NumberLimit {
   constructor(
     limit: number,
-    key: LocaleIds = 'msg__engine__too_many_hd_wallets',
+    key: ILocaleIds = 'msg__engine__too_many_hd_wallets',
   ) {
     super({ limit, key });
   }
@@ -386,7 +386,7 @@ export class TooManyHDWallets extends NumberLimit {
 export class TooManyHWWallets extends NumberLimit {
   constructor(
     limit: number,
-    key: LocaleIds = 'msg__engine__too_many_hw_wallets',
+    key: ILocaleIds = 'msg__engine__too_many_hw_wallets',
   ) {
     super({ limit, key });
   }
@@ -395,7 +395,7 @@ export class TooManyHWWallets extends NumberLimit {
 export class TooManyHWPassphraseWallets extends NumberLimit {
   constructor(
     limit: number,
-    key: LocaleIds = 'msg__engine__too_many_hw_passphrase_wallets' as any,
+    key: ILocaleIds = 'msg__engine__too_many_hw_passphrase_wallets' as any,
   ) {
     super({ limit, key });
   }
@@ -404,7 +404,7 @@ export class TooManyHWPassphraseWallets extends NumberLimit {
 export class PendingQueueTooLong extends NumberLimit {
   constructor(
     limit: number,
-    key: LocaleIds = 'msg__engine__pending_queue_too_long',
+    key: ILocaleIds = 'msg__engine__pending_queue_too_long',
   ) {
     super({ limit, key });
   }
@@ -595,7 +595,7 @@ export class TestAppError2 extends OneKeyError {
   override className = OneKeyErrorClassNames.OneKeyAbortError;
 
   // override key is bad practice, use constructor
-  override key: LocaleIds = 'Handling_Fee';
+  override key: ILocaleIds = 'Handling_Fee';
 }
 
 export class TestAppError3 extends OneKeyError {

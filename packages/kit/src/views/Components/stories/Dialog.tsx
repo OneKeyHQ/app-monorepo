@@ -14,7 +14,7 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import type { IDialogProps } from '@onekeyhq/components/src/Dialog/type';
-import type { ModalNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IModalNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import { GalleryRoutes } from '../../../routes/Gallery/routes';
 
@@ -108,7 +108,7 @@ function ContentA({ index }: { index: number }) {
 
 const DialogNavigatorDemo = () => {
   const navigation = useNavigation<
-    ModalNavigationProp<{
+    IModalNavigationProp<{
       [GalleryRoutes.Components]: undefined;
     }>
   >();

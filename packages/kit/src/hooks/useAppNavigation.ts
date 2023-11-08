@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 
 import { useThemeValue } from '@onekeyhq/components';
 import type {
-  ModalNavigationProp,
+  IModalNavigationProp,
   PageNavigationProp,
   StackNavigationOptions,
 } from '@onekeyhq/components/src/Navigation';
@@ -16,7 +16,7 @@ import type { TabRoutes, TabStackParamList } from '../routes/Root/Tab/Routes';
 function useAppNavigation<
   P extends
     | PageNavigationProp<any>
-    | ModalNavigationProp<any> = PageNavigationProp<any>,
+    | IModalNavigationProp<any> = PageNavigationProp<any>,
 >() {
   const navigation = useNavigation<P>();
   const [bgColor, titleColor] = useThemeValue(['bg', 'text']);

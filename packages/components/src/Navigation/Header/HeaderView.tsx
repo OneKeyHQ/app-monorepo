@@ -12,7 +12,7 @@ import { DesktopDragZoneBox, Stack } from '../../index';
 import HeaderBackButton from './HeaderBackButton';
 import HeaderSearchBar from './HeaderSearchBar';
 
-import type { OneKeyStackHeaderProps } from './HeaderScreenOptions';
+import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';
 import type { StackHeaderProps } from '../ScreenProps';
 import type {
   HeaderBackButtonProps,
@@ -38,7 +38,7 @@ function HeaderView({
   navigation,
   isModelScreen = false,
   isRootScreen = false,
-}: StackHeaderProps & OneKeyStackHeaderProps) {
+}: StackHeaderProps & IOnekeyStackHeaderProps) {
   const {
     headerRight,
     headerTitle,

@@ -26,7 +26,7 @@ const ListItemAvatar = (props: ListItemAvatarProps) => {
 };
 
 /* Text */
-interface ListItemTextProps extends StackProps {
+interface IListItemTextProps extends StackProps {
   primary?: string | React.ReactNode;
   secondary?: string | React.ReactNode;
   align?: 'left' | 'center' | 'right';
@@ -34,7 +34,7 @@ interface ListItemTextProps extends StackProps {
   secondaryTextProps?: GetProps<typeof Text>;
 }
 
-const ListItemText = (props: ListItemTextProps) => {
+const ListItemText = (props: IListItemTextProps) => {
   const {
     primary,
     secondary,
@@ -95,9 +95,9 @@ const ListItemIconButton = (props: IIconButtonProps) => (
 /* ListItem */
 interface IListItemProps extends StackProps {
   title?: string;
-  titleProps?: ListItemTextProps['primaryTextProps'];
+  titleProps?: IListItemTextProps['primaryTextProps'];
   subtitle?: string;
-  subtitleProps?: ListItemTextProps['secondaryTextProps'];
+  subtitleProps?: IListItemTextProps['secondaryTextProps'];
   avatarProps?: ListItemAvatarProps;
   icon?: IICON_NAMES;
   drillIn?: boolean;
