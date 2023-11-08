@@ -11,8 +11,6 @@ import { XStack, YStack } from '../Stack';
 import type { ViewStyle } from 'react-native';
 import type { CheckedState, CheckboxProps as TMCheckboxProps } from 'tamagui';
 
-export type { CheckedState } from 'tamagui';
-
 export type ICheckboxProps = Omit<
   TMCheckboxProps,
   'size' | 'onCheckedChange' | 'checked' | 'value'
@@ -21,6 +19,8 @@ export type ICheckboxProps = Omit<
   value?: CheckedState;
   onChange?: (checked: CheckedState) => void;
 };
+
+export type ICheckedState = CheckedState;
 
 function RawCheckbox({
   label,

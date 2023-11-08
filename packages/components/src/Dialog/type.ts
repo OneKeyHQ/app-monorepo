@@ -33,4 +33,3 @@ export interface IDialogProps extends TMDialogProps {
 export interface IDialogInstanceRef {
   close: () => void;
 }
-
