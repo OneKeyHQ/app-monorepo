@@ -5,18 +5,21 @@ import type {
 } from '@onekeyhq/components/src/Navigation/Navigator/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import Browser from '../../../views/Discovery/container/Browser';
+import DiscoveryDashboard from '../../../views/Discovery/container/Dashboard';
 import Swap from '../../../views/Swap';
 import HomePage from '../../../views/Tab/Home/HomePageTabs';
 
 import { TabDeveloperRoutes } from './Developer/Routes';
+import { TabDiscoveryRoutes } from './Discovery/Routes';
 import { TabHomeRoutes } from './Home/Routes';
 import TabHomeStack1 from './Home/TabHomeStack1';
 import TabHomeStack2 from './Home/TabHomeStack2';
 import { TabMeRoutes } from './Me/Routes';
 import TabMe from './Me/TabMe';
+import { MultiTabBrowserRoutes } from './MultiTabBrowser/Routes';
 import { TabRoutes } from './Routes';
 import { TabSwapRoutes } from './Swap/Routes';
-import { WebViewRoutes } from './WebView/Routes';
 
 const config: TabNavigatorConfig<TabRoutes>[] = [
   {
@@ -58,6 +61,20 @@ const config: TabNavigatorConfig<TabRoutes>[] = [
     ],
   },
   {
+    name: TabRoutes.Discovery,
+    tabBarIcon: (focused?: boolean) =>
+      focused ? 'CreditCardSolid' : 'CreditCardOutline',
+    translationId: 'title__explore',
+    freezeOnBlur: true,
+    children: [
+      {
+        name: TabDiscoveryRoutes.TabDiscovery,
+        component: platformEnv.isNative ? Browser : DiscoveryDashboard,
+        translationId: 'title__explore',
+      },
+    ],
+  },
+  {
     name: TabRoutes.Me,
     tabBarIcon: (focused?: boolean) =>
       focused ? 'EmailSolid' : 'EmailOutline',
@@ -92,12 +109,13 @@ const config: TabNavigatorConfig<TabRoutes>[] = [
 const extraConfig: ITabNavigatorExtraConfig<TabRoutes> | undefined =
   platformEnv.isDesktop
     ? {
-        name: TabRoutes.WebViewTab,
+        name: TabRoutes.MultiTabBrowser,
         children: [
           {
-            name: WebViewRoutes.WebView,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            component: require('./WebView/WebView').default,
+            name: MultiTabBrowserRoutes.MultiTabBrowser,
+            component:
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              require('../../../views/Discovery/container/Browser').default,
             headerShown: false,
           },
         ],

@@ -21,7 +21,7 @@ function MobileBrowserInfoBar({ id }: { id: string }) {
   const content = useMemo(
     () => (
       <Stack
-        w="full"
+        w="100%"
         h="$12"
         px="$3"
         py="$2"

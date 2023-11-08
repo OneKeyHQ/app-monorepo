@@ -32,7 +32,7 @@ const ErrorView: FC<ErrorViewProps> = ({ errorCode, onRefresh }) => {
   }, [errorCode]);
 
   return (
-    <Stack w="full" h="full" bg="background-default">
+    <Stack w="100%" h="100%" bg="background-default">
       {/* TODO: REPLACE_COMPONENT Empty */}
       <Stack mb={3}>
         <Text>{intl.formatMessage({ id: messages.title })}</Text>

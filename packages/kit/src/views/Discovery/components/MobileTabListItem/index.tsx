@@ -19,7 +19,7 @@ function MobileTabListItem({
   const isActive = useMemo(() => activeTabId === id, [id, activeTabId]);
   return (
     <Stack
-      w="full"
+      w="100%"
       px="2"
       mt="$4"
       onPress={() => {
@@ -27,7 +27,7 @@ function MobileTabListItem({
       }}
     >
       <Stack
-        w="full"
+        w="100%"
         py="$1"
         bg="$background-default"
         borderRadius="$3"

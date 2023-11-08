@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
 import { Stack } from 'tamagui';

@@ -1,4 +1,11 @@
+import { useCallback } from 'react';
+
 import { Button, YStack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import useAppNavigation from '../../../../hooks/useAppNavigation';
+import { TabRoutes } from '../../../../routes/Root/Tab/Routes';
+import { onItemSelect as onDAppItemSelect } from '../../utils/gotoSite';
 
 import type { IDAppItemType } from '../../types';
 
@@ -54,15 +61,27 @@ const data = [
   },
 ];
 
-type IProps = { onItemSelect: (item: IDAppItemType) => void };
+type IProps = { onItemSelect?: (item: IDAppItemType) => void };
 
 function Dashboard({ onItemSelect }: IProps) {
+  const navigation = useAppNavigation();
+  const handlerItemSelect = useCallback(
+    (item: IDAppItemType) => {
+      if (onItemSelect) {
+        onItemSelect(item);
+      } else {
+        onDAppItemSelect(item, true);
+        navigation.switchTab(TabRoutes.MultiTabBrowser);
+      }
+    },
+    [onItemSelect, navigation],
+  );
   return (
-    <YStack h="full" bg="$bgApp">
+    <YStack h="100%" bg="$bgApp">
       {data.map((i) => (
         <Button
           onPress={() => {
-            onItemSelect(i as IDAppItemType);
+            handlerItemSelect(i as IDAppItemType);
           }}
         >
           {i.name}

@@ -9,7 +9,7 @@ let DesktopBrowser: any;
 let MobileBrowser: any;
 
 if (platformEnv.isDesktop || platformEnv.isNativeIOSPad) {
-  DesktopBrowser = require('./MobileBrowser').default;
+  DesktopBrowser = require('./DesktopBrowser').default;
 } else if (platformEnv.isNative) {
   MobileBrowser = require('./MobileBrowser').default;
 }
@@ -20,7 +20,7 @@ function Browser() {
   if (isVerticalLayout && !MobileBrowser) {
     MobileBrowser = require('./MobileBrowser').default;
   } else if (!isVerticalLayout && !DesktopBrowser) {
-    DesktopBrowser = require('./MobileBrowser').default;
+    DesktopBrowser = require('./DesktopBrowser').default;
   }
 
   return (

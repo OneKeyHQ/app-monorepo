@@ -120,6 +120,6 @@ export const openMatchDApp = ({
   }
 };
 
-export const onItemSelect = (dapp: IDAppItemType) => {
-  openMatchDApp({ id: dapp._id, dapp });
+export const onItemSelect = (dapp: IDAppItemType, isNewWindow?: boolean) => {
+  openMatchDApp({ id: dapp._id, dapp, isNewWindow });
 };

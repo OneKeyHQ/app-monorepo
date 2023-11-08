@@ -7,12 +7,12 @@ import { Provider as ReduxProvider } from 'react-redux';
 
 import { Portal } from '@onekeyhq/components';
 import store from '@onekeyhq/kit/src/store';
+import DesktopCustomTabBar from '@onekeyhq/kit/src/views/Discovery/container/DesktopCustomTabBar';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import AppLoading from './AppLoading';
 import NavigationProvider from './NavigationProvider';
 import ThemeProvider from './ThemeProvider';
-import { WebTabBarItem } from './WebTabBarItem';
 
 if (platformEnv.isRuntimeBrowser) {
   // FIXME need reanimated update, see https://github.com/software-mansion/react-native-reanimated/issues/3355
@@ -38,7 +38,7 @@ const KitProvider: FC = () => (
               />
               {platformEnv.isDesktop ? (
                 <Portal.Body container={Portal.Constant.WEB_TAB_BAR}>
-                  <WebTabBarItem />
+                  <DesktopCustomTabBar />
                 </Portal.Body>
               ) : null}
             </FullWindowOverlay>
