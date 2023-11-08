@@ -1,14 +1,7 @@
 import { Button, IconButton, Stack } from '@onekeyhq/components';
-import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 
 import useWebTabAction from '../../hooks/useWebTabAction';
-import {
-  type DiscoverModalParamList,
-  DiscoverModalRoutes,
-} from '../../router/Routes';
 
 function MobileBrowserBottomBar({
   goBack,
@@ -16,6 +9,7 @@ function MobileBrowserBottomBar({
   canGoBack,
   canGoForward,
   tabCount,
+  onShowTabList,
 }: {
   id: string;
   tabCount: number;
@@ -23,9 +17,8 @@ function MobileBrowserBottomBar({
   goForward: () => void;
   canGoBack: boolean;
   canGoForward: boolean;
+  onShowTabList: () => void;
 }) {
-  const navigation =
-    useAppNavigation<PageNavigationProp<DiscoverModalParamList>>();
   const { bottom } = useSafeAreaInsets();
 
   const { addBlankWebTab } = useWebTabAction();
@@ -52,11 +45,9 @@ function MobileBrowserBottomBar({
         />
         <IconButton icon="PlusLargeOutline" onPress={() => addBlankWebTab()} />
         <Button
-          onPress={() =>
-            navigation.pushModal(ModalRoutes.DiscoverModal, {
-              screen: DiscoverModalRoutes.MobileTabList,
-            })
-          }
+          onPress={() => {
+            onShowTabList();
+          }}
         >
           {tabCount}
         </Button>

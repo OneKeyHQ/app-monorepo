@@ -3,6 +3,10 @@ import { useMemo, useState } from 'react';
 import { Freeze } from 'react-freeze';
 import { Stack } from 'tamagui';
 
+import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
+
 import { homeTab } from '../../container/Context/contextWebTabs';
 import DiscoveryDashboard from '../../container/Dashboard';
 import {
@@ -10,6 +14,10 @@ import {
   useWebTabData,
   useWebTabs,
 } from '../../hooks/useWebTabs';
+import {
+  type DiscoverModalParamList,
+  DiscoverModalRoutes,
+} from '../../router/Routes';
 import { webviewRefs } from '../../utils/explorerUtils';
 import { onItemSelect } from '../../utils/gotoSite';
 import WebContent from '../WebContent/WebContent';
@@ -24,6 +32,8 @@ function MobileBrowserContent({ id }: { id: string }) {
   const { activeTabId } = useActiveTabId();
   const [backEnabled, setBackEnabled] = useState(false);
   const [forwardEnabled, setForwardEnabled] = useState(false);
+  const navigation =
+    useAppNavigation<PageNavigationProp<DiscoverModalParamList>>();
   const isActive = useMemo(
     () => activeTabId === tab?.id,
     [tab?.id, activeTabId],
@@ -47,10 +57,15 @@ function MobileBrowserContent({ id }: { id: string }) {
           }}
           canGoBack={backEnabled}
           canGoForward={forwardEnabled}
+          onShowTabList={() => {
+            navigation.pushModal(ModalRoutes.DiscoverModal, {
+              screen: DiscoverModalRoutes.MobileTabList,
+            });
+          }}
         />
       </Freeze>
     ),
-    [tab.id, backEnabled, forwardEnabled, isActive, tabCount],
+    [tab.id, backEnabled, forwardEnabled, isActive, tabCount, navigation],
   );
 
   const content = useMemo(() => {
