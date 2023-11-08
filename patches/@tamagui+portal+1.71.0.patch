@@ -1,0 +1,37 @@
+diff --git a/node_modules/@tamagui/portal/dist/cjs/Portal.native.js b/node_modules/@tamagui/portal/dist/cjs/Portal.native.js
+index 7801d77..9692abc 100644
+--- a/node_modules/@tamagui/portal/dist/cjs/Portal.native.js
++++ b/node_modules/@tamagui/portal/dist/cjs/Portal.native.js
+@@ -42,7 +42,12 @@ const Portal = (props) => {
+       ...props
+     }
+   );
+-  return import_react_native.Platform.OS === "android" || !rootTag ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_GorhomPortal.PortalItem, { hostName: "root", children: contents }) : createPortal(contents, rootTag);
++  /*
++    Fix the incorrect zIndex when multiple Dialogs pop up on iOS
++    This is a RN/createPortal(rootTag) bug
++    So we fix it same as android
++  */
++  return import_react_native.Platform.OS !== "web" || !rootTag ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_GorhomPortal.PortalItem, { hostName: "root", children: contents }) : createPortal(contents, rootTag);
+ };
+ // Annotate the CommonJS export names for ESM import in node:
+ 0 && (module.exports = {
+diff --git a/node_modules/@tamagui/portal/src/Portal.native.tsx b/node_modules/@tamagui/portal/src/Portal.native.tsx
+index 6c1de2b..deefc32 100644
+--- a/node_modules/@tamagui/portal/src/Portal.native.tsx
++++ b/node_modules/@tamagui/portal/src/Portal.native.tsx
+@@ -28,7 +28,13 @@ export const Portal = (props: PortalProps) => {
+     />
+   )
+ 
+-  if (Platform.OS === 'android' || !rootTag) {
++  /*
++    Fix the incorrect zIndex when multiple Dialogs pop up on iOS
++    This is a RN/createPortal(rootTag) bug
++    So we fix it same as android
++  */
++
++  if (Platform.OS !== 'web' || !rootTag) {
+     return <PortalItem hostName="root">{contents}</PortalItem>
+   }
+ 

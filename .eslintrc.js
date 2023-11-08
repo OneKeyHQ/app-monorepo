@@ -47,6 +47,19 @@ const tsRules = {
   '@typescript-eslint/require-await': 'off',
   // force awaited promise call, explicit add `void` if don't want await
   '@typescript-eslint/no-floating-promises': ['error'],
+  '@typescript-eslint/naming-convention': [
+    'warn',
+    {
+      'selector': ['interface', 'typeAlias'],
+      'format': ['PascalCase'],
+      'prefix': ['I'],
+    },
+    {
+      'selector': ['enum'],
+      'format': ['PascalCase'],
+      'prefix': ['E'],
+    },
+  ],
   'sort-imports': [
     'error',
     {
