@@ -153,7 +153,7 @@ function ButtonIcon({
   );
 }
 
-type SharedFrameStylesProps = {
+type ISharedFrameStylesProps = {
   hoverStyle: {
     bg: ColorTokens;
   };
@@ -191,7 +191,7 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
     disabled,
     loading,
   }) as {
-    sharedFrameStyles: SharedFrameStylesProps;
+    sharedFrameStyles: ISharedFrameStylesProps;
     iconColor: ColorTokens;
     color: ColorTokens;
   };
