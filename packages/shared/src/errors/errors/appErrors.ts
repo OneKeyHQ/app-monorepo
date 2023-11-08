@@ -115,6 +115,39 @@ export class PasswordStrengthValidationFailed extends OneKeyError {
   }
 }
 
+export class PasswordUpdateSameFailed extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'PasswordUpdateSameFailed',
+        defaultKey: 'form__password_invalid',
+      }),
+    );
+  }
+}
+
+export class BiologyAuthFailed extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'BiologyAuthFailed',
+        defaultKey: 'msg__verification_failure',
+      }),
+    );
+  }
+}
+
+export class PasswordAlreadySetFailed extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'PasswordAlreadySetFaield',
+        defaultKey: 'form__password_invalid',
+      }),
+    );
+  }
+}
+
 // Simple input errors.
 
 export class InvalidMnemonic extends OneKeyError {

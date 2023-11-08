@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { isNil } from 'lodash';
 
+import { decrypt, encrypt } from '@onekeyhq/core/src/secret';
+import {
+  OneKeyInternalError,
+  WrongPassword,
+} from '@onekeyhq/shared/src/errors';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import {
@@ -8,7 +13,9 @@ import {
   type CreateHWWalletParams,
   type DBAccount,
   type DBAccountDerivation,
+  type DBCredential,
   DB_MAIN_CONTEXT_ID,
+  DEFAULT_VERIFY_STRING,
   type DevicePayload,
   type ExportedCredential,
   type IAddAccountDerivationParams,
@@ -18,6 +25,8 @@ import {
   type OneKeyContext,
   type PrivateKeyCredential,
   type SetWalletNameAndAvatarParams,
+  type StoredPrivateKeyCredential,
+  type StoredSeedCredential,
   type Wallet,
 } from '../types';
 
@@ -36,12 +45,18 @@ export class LocalDbIndexed extends LocalDbIndexedBase {
       EIndexedDBStoreNames.context,
       DB_MAIN_CONTEXT_ID,
     );
-    if (options?.verifyPassword) {
-      await this.verifyPassword(options.verifyPassword);
-    }
+
     if (!ctx) {
       throw new Error('failed get local db context');
     }
+
+    if (options?.verifyPassword) {
+      const { verifyPassword } = options;
+      if (!this.checkPassword(ctx, verifyPassword)) {
+        throw new WrongPassword();
+      }
+    }
+
     return ctx;
   }
 
@@ -66,11 +81,57 @@ export class LocalDbIndexed extends LocalDbIndexedBase {
   }
   // ---------------------------------------------- credential
 
-  override updatePassword(
+  override async updatePassword(
     oldPassword: string,
     newPassword: string,
   ): Promise<void> {
-    throw new Error('Method not implemented.');
+    const context = await this.getContext();
+    if (!context) return;
+    const store = await this.getObjectStore(EIndexedDBStoreNames.context);
+    context.verifyString = encrypt(
+      newPassword,
+      Buffer.from(DEFAULT_VERIFY_STRING),
+    ).toString('hex');
+    await store.put(context);
+    if (!oldPassword) return;
+    const credentialsStore = await this.getObjectStore(
+      EIndexedDBStoreNames.credentials,
+    );
+    const cursor = await credentialsStore.openCursor();
+    if (!cursor) return;
+    const credentialItem: DBCredential = cursor.value;
+
+    if (credentialItem.id.startsWith('imported')) {
+      const privateKeyCredentialJSON: StoredPrivateKeyCredential = JSON.parse(
+        credentialItem.credential,
+      );
+      credentialItem.credential = JSON.stringify({
+        privateKey: encrypt(
+          newPassword,
+          decrypt(
+            oldPassword,
+            Buffer.from(privateKeyCredentialJSON.privateKey, 'hex'),
+          ),
+        ).toString('hex'),
+      });
+    } else {
+      const credentialJSON: StoredSeedCredential = JSON.parse(
+        credentialItem.credential,
+      );
+      credentialItem.credential = JSON.stringify({
+        entropy: encrypt(
+          newPassword,
+          decrypt(oldPassword, Buffer.from(credentialJSON.entropy, 'hex')),
+        ).toString('hex'),
+        seed: encrypt(
+          newPassword,
+          decrypt(oldPassword, Buffer.from(credentialJSON.seed, 'hex')),
+        ).toString('hex'),
+      });
+    }
+
+    await cursor.update(credentialItem);
+    await cursor.continue();
   }
 
   override dumpCredentials(password: string): Promise<Record<string, string>> {
