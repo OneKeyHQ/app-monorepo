@@ -214,7 +214,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
   ): Promise<IIndexedDBSchema[T]['value'] | undefined> {
     const store = this._getOrCreateObjectStore(db, storeName);
     // @ts-ignore
-    const recordId = record.id as string;
+    const recordId = record.id;
     let existsRecord = await store.get(recordId);
     if (isNil(existsRecord)) {
       await store.add(record);
