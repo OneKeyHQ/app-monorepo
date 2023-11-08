@@ -11,7 +11,7 @@ import type { Svg, SvgProps } from 'react-native-svg';
 import { TextStyle } from 'react-native';
 import { Skeleton } from '../Skeleton';
 
-export type IconContainerProps = Omit<SvgProps, 'color' | 'style'> & {
+export type IIconContainerProps = Omit<SvgProps, 'color' | 'style'> & {
   name?: ICON_NAMES;
   style?: TextStyle;
 };
@@ -44,7 +44,7 @@ function IconLoader({ name, ...props }: {
     <SVGComponent {...props} />
   )
 }
-const IconContainer = forwardRef(({ name, style }: IconContainerProps, _) => {
+const IconContainer = forwardRef(({ name, style }: IIconContainerProps, _) => {
   if (!name) {
     return null
   }
@@ -108,4 +108,4 @@ export const Icon = styled(IconContainer, {
 });
 
 export type { ICON_NAMES };
-export type IconProps = GetProps<typeof Icon> & IconContainerProps;
+export type IIconProps = GetProps<typeof Icon> & IIconContainerProps;

@@ -10,7 +10,7 @@ import { Icon } from '../Icon';
 import { Spinner } from '../Spinner';
 import { Text } from '../Text';
 
-import type { ICON_NAMES } from '../Icon';
+import type { ICON_NAMES, IIconProps } from '../Icon';
 import type { ColorTokens, ThemeableStackProps } from 'tamagui';
 
 export interface IButtonProps extends ThemeableStackProps {
@@ -141,8 +141,7 @@ function ButtonIcon({
   variant,
   size,
   ...props
-}: Pick<IButtonProps, 'variant' | 'size'> &
-  Omit<GetProps<typeof Icon>, 'size'>) {
+}: Pick<IButtonProps, 'variant' | 'size'> & Omit<IIconProps, 'size'>) {
   const { iconColor } = BUTTON_VARIANTS[variant || 'secondary'];
 
   return (
