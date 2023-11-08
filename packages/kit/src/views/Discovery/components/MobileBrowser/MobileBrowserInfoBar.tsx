@@ -31,7 +31,7 @@ function MobileBrowserInfoBar({ id }: { id: string }) {
           navigation.pushModal(ModalRoutes.DiscoverModal, {
             screen: DiscoverModalRoutes.SearchModal,
             params: {
-              onSubmitContent: (text) => {
+              onSubmitContent: (text: string) => {
                 console.log('onSubmitContent: ===> : ', text);
                 gotoSite({
                   url: text,
