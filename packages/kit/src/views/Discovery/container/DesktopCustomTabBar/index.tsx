@@ -10,7 +10,7 @@ import { withProviderWebTabs } from '../Context/contextWebTabs';
 function DesktopCustomTabBar() {
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
-  const { setCurrentWebTab } = useWebTabAction();
+  const { setCurrentWebTab, closeWebTab } = useWebTabAction();
   return (
     <Stack>
       <Divider py="$4" />
@@ -20,6 +20,9 @@ function DesktopCustomTabBar() {
           activeTabId={activeTabId}
           onPress={(id) => {
             setCurrentWebTab(id);
+          }}
+          onCloseTab={(id) => {
+            closeWebTab(id);
           }}
         />
       ))}

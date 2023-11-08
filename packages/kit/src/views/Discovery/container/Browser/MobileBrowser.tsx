@@ -19,16 +19,9 @@ function HandleRebuildTabBarData() {
   const [, setWebTabsData] = useAtomWebTabs(setWebTabsAtom);
   const [, setCurrentWebTab] = useAtomWebTabs(setCurrentWebTabAtom);
   const [, addBlankWebTab] = useAtomWebTabs(addBlankWebTabAtom);
-  useEffect(() => {
-    console.log('HandleRebuildTabBarData renderer ===> : ');
-  }, []);
 
   useEffect(() => {
     if (!result.result) return;
-    console.log(
-      'HandleRebuildTabBarData hooks renderer ===> : ',
-      result.result,
-    );
     const data = result.result;
     if (data && Array.isArray(data) && data.length > 0) {
       setWebTabsData(data);

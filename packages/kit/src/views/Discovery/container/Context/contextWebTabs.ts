@@ -80,9 +80,7 @@ export const setWebTabsAtom = atom(null, (get, set, payload: IWebTab[]) => {
 export const addWebTabAtom = atom(
   null,
   (get, set, payload: Partial<IWebTab>) => {
-    console.log('addWebTabAtom payload: ', payload);
     const { tabs } = get(webTabsAtom);
-    console.log('previous tabs: ', tabs);
     if (!payload.id || payload.id === homeTab.id) {
       // TODO: nanoid will crash on native
       // payload.id = nanoid();

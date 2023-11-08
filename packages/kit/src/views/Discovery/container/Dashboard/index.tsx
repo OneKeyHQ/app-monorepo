@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 
 import { Button, YStack } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { TabRoutes } from '../../../../routes/Root/Tab/Routes';

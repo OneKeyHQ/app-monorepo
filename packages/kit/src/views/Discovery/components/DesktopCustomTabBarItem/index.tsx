@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { Image } from 'react-native';
 
-import { Stack, Text } from '@onekeyhq/components';
+import { IconButton, Stack, Text } from '@onekeyhq/components';
 
 import { useWebTabData } from '../../hooks/useWebTabs';
 
@@ -10,10 +10,12 @@ function DesktopCustomTabBarItem({
   id,
   activeTabId,
   onPress,
+  onCloseTab,
 }: {
   id: string;
   activeTabId: string | null;
   onPress: (id: string) => void;
+  onCloseTab: (id: string) => void;
 }) {
   const { tab } = useWebTabData(id);
   const isActive = useMemo(() => activeTabId === id, [activeTabId, id]);
@@ -36,6 +38,14 @@ function DesktopCustomTabBarItem({
         />
       )}
       <Text>{tab.title}</Text>
+      <IconButton
+        icon="CrossedSmallOutline"
+        size="small"
+        onPress={(e) => {
+          e.stopPropagation();
+          onCloseTab?.(id);
+        }}
+      />
     </Stack>
   );
 }
