@@ -2,8 +2,8 @@
 import { YStack } from 'tamagui';
 
 import { Divider, Text } from '@onekeyhq/components';
-import useListenTabFocusState from '@onekeyhq/components/src/hooks/useListenTabFocusState';
 
+import useListenTabFocusState from '../hooks/useListenTabFocusState';
 import { TabRoutes } from '../routes/Root/Tab/Routes';
 
 export function WebTabBarItem() {
