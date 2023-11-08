@@ -1,4 +1,4 @@
-import type { ForwardedRef } from 'react';
+import type { ForwardedRef, MutableRefObject } from 'react';
 import { forwardRef } from 'react';
 
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
@@ -11,6 +11,8 @@ import type {
   StyleProp,
   ViewStyle,
 } from 'react-native';
+
+export type IListViewRef<T> = FlatList<T>;
 
 export type IListViewProps<T> = Omit<
   FlatListProps<T>,
@@ -29,9 +31,8 @@ export type IListViewProps<T> = Omit<
   } & {
     data: ArrayLike<T> | null | undefined;
     renderItem: ListRenderItem<T> | null | undefined;
+    ref?: MutableRefObject<IListViewRef<any> | null>;
   };
-
-export type IListViewRef<T> = FlatList<T>;
 
 function BaseListView<T>(
   {
