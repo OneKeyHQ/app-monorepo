@@ -3,11 +3,11 @@ import { useDispatch } from 'react-redux';
 import {
   Button,
   Screen,
+  ScrollView,
   Stack,
   Text,
   XStack,
   useKeyboardHeight,
-  ScrollView,
 } from '@onekeyhq/components';
 
 import { setTheme } from '../../../../store/reducers/settings';

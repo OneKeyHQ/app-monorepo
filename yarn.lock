@@ -4940,7 +4940,7 @@ __metadata:
     react-native-markdown-display: ^7.0.0-alpha.2
     react-native-modalize: ^2.1.1
     react-native-progress: ^5.0.0
-    react-native-root-siblings: ^4.1.1
+    react-native-root-siblings: ^5.0.1
     react-native-svg: ^13.9.0
     react-native-tab-view: ^3.5.1
     react-native-typewriter: ^0.7.0
@@ -5134,7 +5134,7 @@ __metadata:
     react-native-screens: ^3.25.0
     react-native-share: ^9.4.1
     react-native-svg: ^13.9.0
-    react-native-tab-page-view: "https://github.com/OneKeyHQ/react-native-tab-page-view#7aebe31d78ce8213fc07dbd7111ffd58a3639caf"
+    react-native-tab-page-view: "https://github.com/OneKeyHQ/react-native-tab-page-view#c8cd08667ac0331e060167a0b5e5f8fb23c55f17"
     react-native-tcp-socket: ^6.0.6
     react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#5036d59cba4f5609c32b7eb5dec560e738ce7115"
     react-native-zip-archive: ^6.0.9
@@ -24338,10 +24338,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-root-siblings@npm:^4.1.1":
-  version: 4.1.1
-  resolution: "react-native-root-siblings@npm:4.1.1"
-  checksum: a4df9213be4864ec9ca5a99dd5e9218034a3cda66faa76b8910247a5e728d720df297f4dde811d83219adf370762a62948a8d954f8198bb3e4512e4dbc7dad00
+"react-native-root-siblings@npm:^5.0.1":
+  version: 5.0.1
+  resolution: "react-native-root-siblings@npm:5.0.1"
+  checksum: f6885e60064eca9181d02b643901dee313368e53167683d9869951fb870542f3faf01548a9dd82df12d6964bb61ef636ec7b53aca9b9b42309b4ac11c1710199
   languageName: node
   linkType: hard
 
@@ -24388,14 +24388,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-tab-page-view@https://github.com/OneKeyHQ/react-native-tab-page-view#7aebe31d78ce8213fc07dbd7111ffd58a3639caf":
-  version: 1.0.0
-  resolution: "react-native-tab-page-view@https://github.com/OneKeyHQ/react-native-tab-page-view.git#commit=7aebe31d78ce8213fc07dbd7111ffd58a3639caf"
+"react-native-tab-page-view@https://github.com/OneKeyHQ/react-native-tab-page-view#c8cd08667ac0331e060167a0b5e5f8fb23c55f17":
+  version: 0.1.0
+  resolution: "react-native-tab-page-view@https://github.com/OneKeyHQ/react-native-tab-page-view.git#commit=c8cd08667ac0331e060167a0b5e5f8fb23c55f17"
   peerDependencies:
-    prop-types: ^15.7.2
-    react: ^16.8.1
-    react-native: ">=0.60.0-rc.0 <1.0.x"
-  checksum: b498b2aa4d881d63e1bdb9c2e9fbe7dbf34aafe41582b2072c83578be2ca8270f5d67211f4b488cd5defc88c31c07cececd77a317ee7e9b7651061d85dcf4d9e
+    react: "*"
+    react-native: "*"
+  checksum: 95602aa61e7112e4491bad098457df9925db920d257ccb62b7018717f233742033332456e9fef73695d7513f930621aaedbb2985eae98310fee682963f896aa2
   languageName: node
   linkType: hard
 

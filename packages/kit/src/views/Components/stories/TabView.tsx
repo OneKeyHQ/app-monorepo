@@ -4,10 +4,7 @@ import { FlatList, RefreshControl } from 'react-native';
 import { ScrollView } from 'tamagui';
 
 import { Stack, Text } from '@onekeyhq/components';
-import {
-  PageHeaderView,
-  PageManager,
-} from '@onekeyhq/components/src/TabView';
+import { PageHeaderView, PageManager } from '@onekeyhq/components/src/TabView';
 
 import { Layout } from './utils/Layout';
 
@@ -29,7 +26,11 @@ const HeaderPropsList = {
   },
 };
 
-const FirstRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number, h: number) => void) | undefined }) => (
+const FirstRoute = ({
+  onContentSizeChange,
+}: {
+  onContentSizeChange: ((w: number, h: number) => void) | undefined;
+}) => (
   <FlatList
     data={new Array(20).fill({})}
     scrollEnabled={false}
@@ -42,7 +43,11 @@ const FirstRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number,
   />
 );
 
-const SecondRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number, h: number) => void) | undefined }) => (
+const SecondRoute = ({
+  onContentSizeChange,
+}: {
+  onContentSizeChange: ((w: number, h: number) => void) | undefined;
+}) => (
   <FlatList
     data={new Array(50).fill({})}
     scrollEnabled={false}
@@ -57,7 +62,7 @@ const SecondRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number
 
 const TabViewScrollStickyDemo = () => {
   const onRefresh = () => {};
-  const [contentHeight, setContentHeight] = useState<number | undefined>(0);
+  const [contentHeight, setContentHeight] = useState<number | undefined>(1);
   const data = useMemo(
     () => [
       {
@@ -105,7 +110,17 @@ const TabViewScrollStickyDemo = () => {
       />
       <Stack style={{ height: contentHeight }}>
         <Content
-          renderItem={({ item }: { item: { backgroundColor: string, contentHeight: number | undefined, page: any }; index: number }) => (
+          renderItem={({
+            item,
+            index,
+          }: {
+            item: {
+              backgroundColor: string;
+              contentHeight: number | undefined;
+              page: any;
+            };
+            index: number;
+          }) => (
             <Stack
               style={{
                 flex: 1,
@@ -115,6 +130,9 @@ const TabViewScrollStickyDemo = () => {
               <item.page
                 onContentSizeChange={(width: number, height: number) => {
                   item.contentHeight = height;
+                  if (index === pageManager.pageIndex) {
+                    setContentHeight(height);
+                  }
                 }}
               />
             </Stack>

@@ -1,18 +1,19 @@
-import {
-  useCallback,
-  useMemo,
-  useState,
-} from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
-// import { useIntl } from 'react-intl';
+import { useIntl } from 'react-intl';
 import { FlatList, RefreshControl, ScrollView } from 'react-native';
 
 import { Stack, Text } from '@onekeyhq/components';
 import { PageManager } from '@onekeyhq/components/src/TabView';
+import { useThemeValue } from '@onekeyhq/components/src/Provider/hooks/useThemeValue';
 
 import HeaderView from './HeaderView';
 
-const FirstRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number, h: number) => void) | undefined}) => (
+const FirstRoute = ({
+  onContentSizeChange,
+}: {
+  onContentSizeChange: ((w: number, h: number) => void) | undefined;
+}) => (
   <ScrollView
     style={{ flex: 1 }}
     scrollEnabled={false}
@@ -23,21 +24,31 @@ const FirstRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number,
     </Stack>
   </ScrollView>
 );
-const SecondRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number, h: number) => void) | undefined}) => (
+const SecondRoute = ({
+  onContentSizeChange,
+}: {
+  onContentSizeChange: ((w: number, h: number) => void) | undefined;
+}) => (
   <ScrollView
     style={{ flex: 1 }}
     scrollEnabled={false}
     onContentSizeChange={onContentSizeChange}
   >
-    <Stack bg="#673ab7">
+    <Stack bg="$bg">
       {Array.from({ length: 100 }).map((_, index) => (
-        <Text key={index}>demo2 ${index}</Text>
+        <Text color={'$text'} key={index}>
+          demo2 ${index}
+        </Text>
       ))}
     </Stack>
   </ScrollView>
 );
 
-const OtherRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number, h: number) => void) | undefined}) => (
+const OtherRoute = ({
+  onContentSizeChange,
+}: {
+  onContentSizeChange: ((w: number, h: number) => void) | undefined;
+}) => (
   <ScrollView
     style={{ flex: 1 }}
     scrollEnabled={false}
@@ -49,7 +60,11 @@ const OtherRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number,
   </ScrollView>
 );
 
-const ListRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number, h: number) => void) | undefined}) => (
+const ListRoute = ({
+  onContentSizeChange,
+}: {
+  onContentSizeChange: ((w: number, h: number) => void) | undefined;
+}) => (
   <FlatList
     data={new Array(50).fill({})}
     scrollEnabled={false}
@@ -69,47 +84,55 @@ const ListRoute = ({ onContentSizeChange }: { onContentSizeChange: ((w: number, 
 // });
 
 function HomePage() {
-  // const intl = useIntl();
+  const intl = useIntl();
 
   const onRefresh = useCallback(() => {
     // tabsViewRef?.current?.setRefreshing(true);
   }, []);
 
-  const [contentHeight, setContentHeight] = useState<number | undefined>(0);
+  const [contentHeight, setContentHeight] = useState<number | undefined>(1);
+  const [bgAppColor, textColor, textSubduedColor] = useThemeValue(
+    ['bgApp', 'text', 'textSubdued'],
+    undefined,
+    true,
+  );
   const data = useMemo(
     () => [
       {
-        title: '你好',
+        title: 'Label',
         backgroundColor: 'skyblue',
         contentHeight: undefined,
         page: FirstRoute,
       },
       {
-        title: '世界',
+        title: intl.formatMessage({
+          id: 'msg__verification_failure',
+        }),
         backgroundColor: 'coral',
         contentHeight: undefined,
         page: SecondRoute,
       },
       {
-        title: '晒太阳喝热水',
+        title: 'Label',
         backgroundColor: 'turquoise',
         contentHeight: undefined,
         page: ListRoute,
       },
       {
-        title: '骑单车',
+        title: 'Label',
         backgroundColor: 'pink',
         contentHeight: undefined,
         page: OtherRoute,
       },
     ],
-    [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [intl, bgAppColor, textColor, textSubduedColor],
   );
   const pageManager = useMemo(
     () =>
       new PageManager({
         data,
-        initialScrollIndex: 2,
+        initialScrollIndex: 1,
         onSelectedPageIndex: (index: number) => {
           setContentHeight(data[index].contentHeight);
         },
@@ -135,15 +158,31 @@ function HomePage() {
           <Header
             // HTPageHeaderView.defaultProps in TabView
             style={{
-              height: 50,
-              backgroundColor: 'white',
-              borderBottomColor: '#F5F5F5',
-              borderBottomWidth: 1,
+              height: 54,
+              backgroundColor: bgAppColor,
+            }}
+            itemTitleStyle={{ fontSize: 16 }}
+            itemTitleNormalStyle={{ color: textSubduedColor }}
+            itemTitleSelectedStyle={{ color: textColor, fontSize: 16 }}
+            cursorStyle={{
+              left: 12,
+              right: 12,
+              height: 2,
+              backgroundColor: textColor,
             }}
           />
           <Stack style={{ height: contentHeight }}>
             <Content
-              renderItem={({ item }: { item: { backgroundColor: string, contentHeight: number | undefined, page: any }; index: number }) => (
+              renderItem={({
+                item,
+              }: {
+                item: {
+                  backgroundColor: string;
+                  contentHeight: number | undefined;
+                  page: any;
+                };
+                index: number;
+              }) => (
                 <Stack
                   style={{
                     flex: 1,
@@ -162,7 +201,16 @@ function HomePage() {
         </ScrollView>
       </Stack>
     ),
-    [contentHeight, Header, Content, onRefresh, renderHeaderView],
+    [
+      bgAppColor,
+      textColor,
+      textSubduedColor,
+      contentHeight,
+      Header,
+      Content,
+      onRefresh,
+      renderHeaderView,
+    ],
   );
 }
 
