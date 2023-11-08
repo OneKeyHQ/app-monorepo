@@ -92,9 +92,14 @@ function HeaderView({
         pointerEvents="box-none"
       >
         <Stack
-          {...(!isModelScreen && {
-            flex: 1,
-          })}
+          // for android and wap
+          $md={{
+            width: '100%',
+          }}
+          $gtMd={{
+            flex: isModelScreen ? 0 : 1,
+            width: isModelScreen ? '100%' : undefined,
+          }}
         >
           <Header
             title={getHeaderTitle(options, route.name)}
