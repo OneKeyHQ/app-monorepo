@@ -8,6 +8,8 @@ import { getTokens, useTheme } from 'tamagui';
 import { Portal, YStack } from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useRouteAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/route';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useProviderSideBarValue from '../../../Provider/hooks/useProviderSideBarValue';
@@ -21,8 +23,6 @@ import type {
   BottomTabNavigationOptions,
 } from '@react-navigation/bottom-tabs/src/types';
 import type { NavigationState } from '@react-navigation/routers/src/types';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useRouteAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/route';
 
 function TabItemView({
   isActive,
