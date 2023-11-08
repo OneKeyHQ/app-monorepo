@@ -1,7 +1,7 @@
 import type { ComponentProps, ReactElement } from 'react';
 
 import type { HeaderButtonGroup } from './Header';
-import type HeaderButtonIcon from './Header/HeaderButtonIcon';
+import type HeaderIconButton from './Header/HeaderIconButton';
 import type {
   NavigationProp,
   StackActionHelpers,
@@ -103,7 +103,7 @@ export type StackNavigationOptions = Omit<
   headerRight?: (
     props: HeaderButtonProps,
   ) => ReactElement<
-    | ComponentProps<typeof HeaderButtonIcon>
+    | ComponentProps<typeof HeaderIconButton>
     | ComponentProps<typeof HeaderButtonGroup>
   >;
 };
