@@ -46,6 +46,9 @@ export type IDbApiGetContextOptions = {
 };
 
 // ---------------------------------------------- credential
+export type DBCredential = BaseObject & {
+  credential: string;
+};
 export type PrivateKeyCredential = {
   type: CredentialType.PRIVATE_KEY;
   privateKey: Buffer;

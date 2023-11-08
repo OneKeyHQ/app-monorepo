@@ -36,8 +36,7 @@ export abstract class LocalDbBase {
   abstract confirmHDWalletBackuped(walletId: string): Promise<Wallet>;
 
   // ---------------------------------------------- credential
-  async checkPassword(password: string): Promise<boolean> {
-    const context = await this.getContext({ verifyPassword: password });
+  checkPassword(context: OneKeyContext, password: string): boolean {
     if (!context) {
       console.error('Unable to get main context.');
       return false;
@@ -57,11 +56,20 @@ export abstract class LocalDbBase {
     }
   }
 
-  async verifyPassword(password: string): Promise<void> {
-    const r = await this.checkPassword(password);
-    if (!r) {
-      throw new WrongPassword();
+  async verifyPassword(password: string): Promise<boolean> {
+    const ctx = await this.getContext();
+    if (ctx && ctx.verifyString !== DEFAULT_VERIFY_STRING) {
+      return this.checkPassword(ctx, password);
     }
+    throw new WrongPassword();
+  }
+
+  async checkPasswordSet(): Promise<boolean> {
+    const ctx = await this.getContext();
+    if (ctx && ctx.verifyString !== DEFAULT_VERIFY_STRING) {
+      return true;
+    }
+    return false;
   }
 
   abstract updatePassword(

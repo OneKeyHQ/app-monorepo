@@ -7,9 +7,9 @@ import {
   useDemoReadOnlyAtom,
   useDemoReadWriteAtom,
   useDemoWriteOnlyAtom,
-  useSettingsAtom,
   useSettingsIsLightCNAtom,
   useSettingsTimeNowAtom,
+  useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { JOTAI_RESET } from '@onekeyhq/kit-bg/src/states/jotai/types';
 
@@ -88,7 +88,7 @@ function JotaiDemo1() {
 }
 
 function JotaiDemo2() {
-  const [settings, setSettings] = useSettingsAtom();
+  const [settings, setSettings] = useSettingsPersistAtom();
   const [now] = useSettingsTimeNowAtom();
   const [isLightCN] = useSettingsIsLightCNAtom();
   return (
@@ -176,7 +176,7 @@ const JotaiGlobalGallery = () => (
         ),
       },
       {
-        title: 'SettingsAtom',
+        title: 'settingsPersistAtom',
         element: (
           <Stack space="$1">
             <JotaiDemo2 />

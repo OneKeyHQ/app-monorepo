@@ -1,10 +1,10 @@
 import type {
   DBAccount,
   DBAccountDerivation,
+  DBCredential,
   DBDevice,
   DBWallet,
   OneKeyContext,
-  StoredCredential,
 } from '../types';
 import type { DBSchema } from 'idb';
 
@@ -33,7 +33,7 @@ export interface IIndexedDBSchema extends DBSchema {
   };
   [EIndexedDBStoreNames.credentials]: {
     key: string;
-    value: StoredCredential;
+    value: DBCredential;
   };
   [EIndexedDBStoreNames.wallets]: {
     key: string;
