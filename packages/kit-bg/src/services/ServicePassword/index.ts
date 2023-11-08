@@ -12,10 +12,11 @@ import * as error from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import localDb from '../../dbs/local/localDb';
-import { settingsAtom } from '../../states/jotai/atoms';
+import { settingsPersistAtom } from '../../states/jotai/atoms';
 import {
   passwordBiologyAuthInfoAtom,
   passwordAtom,
+  passwordPersistAtom,
 } from '../../states/jotai/atoms/password';
 import ServiceBase from '../ServiceBase';
 import { checkExtUIOpen } from '../utils';
@@ -121,7 +122,7 @@ export default class ServicePassword extends ServiceBase {
         throw new error.BiologyAuthFailed();
       }
     }
-    await settingsAtom.set((v) => ({
+    await settingsPersistAtom.set((v) => ({
       ...v,
       isBiologyAuthSwitchOn: enable,
     }));
@@ -155,9 +156,9 @@ export default class ServicePassword extends ServiceBase {
     if (verified) {
       await this.biologyAuthSavePassword(newPassword);
       await this.saveCachedPassword(newPassword);
-      const settings = await settingsAtom.get();
-      if (!settings.isPasswordSet) {
-        await settingsAtom.set((v) => ({ ...v, isPasswordSet: true }));
+      const passwordAtom = await passwordPersistAtom.get();
+      if (!passwordAtom.isPasswordSet) {
+        await settingsPersistAtom.set((v) => ({ ...v, isPasswordSet: true }));
       }
       await localDb.updatePassword(oldPassword, newPassword);
       return newPassword;
@@ -170,9 +171,9 @@ export default class ServicePassword extends ServiceBase {
     this.validatePasswordStrength(password);
     const checkPasswordSet = await localDb.checkPasswordSet();
     if (checkPasswordSet) {
-      const settings = await settingsAtom.get();
-      if (!settings.isPasswordSet) {
-        await settingsAtom.set((v) => ({ ...v, isPasswordSet: true }));
+      const passwordAtom = await passwordPersistAtom.get();
+      if (!passwordAtom.isPasswordSet) {
+        await settingsPersistAtom.set((v) => ({ ...v, isPasswordSet: true }));
       }
       throw new error.PasswordAlreadySetFailed();
     }

@@ -14,7 +14,7 @@ import {
   EPasswordResStatus,
   type IPasswordRes,
 } from '@onekeyhq/kit-bg/src/services/ServicePassword';
-import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import BiologyAuthSwitchContainer from '../../components/BiologyAuthComponent/container/BiologyAuthSwitchContainer';
@@ -24,14 +24,14 @@ import PasswordUpdateContainer from '../../components/Password/container/Passwor
 const Swap = () => {
   console.log('swap');
 
-  const [settings] = useSettingsAtom();
+  const [{ isPasswordSet }] = usePasswordPersistAtom();
   return (
     <Screen>
       <YStack space="$4">
         <Text>Swap</Text>
         <Button
           onPress={() => {
-            if (settings.isPasswordSet) {
+            if (isPasswordSet) {
               Toast.error({ title: '已设置密码' });
               return;
             }

@@ -2,7 +2,8 @@ export enum EAtomNames {
   demoPriceAtom = 'demoPriceAtom',
   demoPriceNotPersistAtom = 'demoPriceNotPersistAtom',
   // accountIdAtom = 'accountIdAtom',
-  settingsAtom = 'settingsAtom',
+  settingsPersistAtom = 'settingsPersistAtom',
   settingsTimeNowAtom = 'settingsTimeNowAtom',
   passwordAtom = 'passwordAtom',
+  passwordPersistAtom = 'passwordPersistAtom',
 }

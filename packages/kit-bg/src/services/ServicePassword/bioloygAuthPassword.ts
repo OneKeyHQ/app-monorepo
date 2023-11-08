@@ -5,11 +5,11 @@ import {
 } from '@onekeyhq/core/src/secret';
 import secureStorage from '@onekeyhq/shared/src/storage/secureStorage';
 
-import { settingsAtom } from '../../states/jotai/atoms';
+import { settingsPersistAtom } from '../../states/jotai/atoms';
 
 export const savePassword = async (password: string) => {
   let text = decodeSensitiveText({ encodedText: password });
-  const settings = await settingsAtom.get();
+  const settings = await settingsPersistAtom.get();
   text = encodeSensitiveText({
     text,
     key: `${encodeKeyPrefix}${settings.instanceId}`,
@@ -20,7 +20,7 @@ export const savePassword = async (password: string) => {
 export const getPassword = async () => {
   let text = await secureStorage.getSecureItem('password');
   if (text) {
-    const settings = await settingsAtom.get();
+    const settings = await settingsPersistAtom.get();
     text = decodeSensitiveText({
       encodedText: text,
       key: `${encodeKeyPrefix}${settings.instanceId}`,
