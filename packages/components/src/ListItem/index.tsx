@@ -93,7 +93,7 @@ const ListItemIconButton = (props: IIconButtonProps) => (
 );
 
 /* ListItem */
-interface ListItemProps extends StackProps {
+interface IListItemProps extends StackProps {
   title?: string;
   titleProps?: ListItemTextProps['primaryTextProps'];
   subtitle?: string;
@@ -104,7 +104,7 @@ interface ListItemProps extends StackProps {
   checkMark?: boolean;
 }
 
-function ListItem(props: ListItemProps) {
+function ListItem(props: IListItemProps) {
   const {
     avatarProps,
     icon,
