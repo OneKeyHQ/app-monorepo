@@ -23,8 +23,6 @@ import {
   withStaticProperties,
 } from 'tamagui';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { Button } from '../Button';
 import { Form, useForm } from '../Form';
 import useKeyboardHeight from '../hooks/useKeyboardHeight';
@@ -356,8 +354,7 @@ function BaseDialogContainer(
   return (
     <DialogContext.Provider value={contextValue}>
       <DialogFrame
-        // fix missing Context in Dialog.Portal.
-        contextValue={platformEnv.isNativeIOS ? undefined : contextValue}
+        contextValue={contextValue}
         open={isOpen}
         onOpen={handleOpen}
         renderContent={renderContent}
