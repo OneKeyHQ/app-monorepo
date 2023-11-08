@@ -1,5 +1,5 @@
 import type { IButtonProps } from '../Button';
-import type { ICON_NAMES } from '../Icon';
+import type { IICON_NAMES } from '../Icon';
 import type {
   DialogProps as TMDialogProps,
   SheetProps as TMSheetProps,
@@ -13,7 +13,7 @@ export interface IDialogProps extends TMDialogProps {
   onOpen?: () => void;
   onClose?: () => void;
   renderTrigger?: React.ReactNode;
-  icon?: ICON_NAMES;
+  icon?: IICON_NAMES;
   title?: string;
   description?: string;
   tone?: 'default' | 'destructive';

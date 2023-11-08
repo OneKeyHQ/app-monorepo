@@ -1,12 +1,12 @@
 import { isValidElement } from 'react';
 
 import { Avatar } from '../Avatar';
-import { type ICON_NAMES, Icon } from '../Icon';
+import { type IICON_NAMES, Icon } from '../Icon';
 import { IconButton } from '../IconButton';
 import { Stack } from '../Stack';
 import { Text } from '../Text';
 
-import type { IconButtonProps } from '../IconButton';
+import type { IIconButtonProps } from '../IconButton';
 import type { AvatarProps, GetProps, StackProps } from 'tamagui';
 
 /* Image */
@@ -88,7 +88,7 @@ const ListItemText = (props: ListItemTextProps) => {
 };
 
 /* IconButton */
-const ListItemIconButton = (props: IconButtonProps) => (
+const ListItemIconButton = (props: IIconButtonProps) => (
   <IconButton variant="tertiary" size="medium" {...props} />
 );
 
@@ -99,7 +99,7 @@ interface ListItemProps extends StackProps {
   subtitle?: string;
   subtitleProps?: ListItemTextProps['secondaryTextProps'];
   avatarProps?: ListItemAvatarProps;
-  icon?: ICON_NAMES;
+  icon?: IICON_NAMES;
   drillIn?: boolean;
   checkMark?: boolean;
 }

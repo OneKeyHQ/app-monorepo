@@ -4,17 +4,17 @@ import { YStack } from '../Stack';
 import { Text } from '../Text';
 
 import type { IButtonProps } from '../Button';
-import type { ICON_NAMES } from '../Icon';
+import type { IICON_NAMES } from '../Icon';
 import type { YStackProps } from 'tamagui';
 
-interface EmptyProps extends YStackProps {
-  icon?: ICON_NAMES;
+interface IEmptyProps extends YStackProps {
+  icon?: IICON_NAMES;
   title?: string;
   description?: string;
   buttonProps?: IButtonProps;
 }
 
-export function Empty(props: EmptyProps) {
+export function Empty(props: IEmptyProps) {
   const { icon, title, description, buttonProps, ...rest } = props;
 
   return (

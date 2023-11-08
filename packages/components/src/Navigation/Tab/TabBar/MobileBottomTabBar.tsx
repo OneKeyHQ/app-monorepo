@@ -9,7 +9,7 @@ import { Stack } from '../../../Stack';
 
 import { TabItem } from './TabItem';
 
-import type { ICON_NAMES } from '../../../Icon';
+import type { IICON_NAMES } from '../../../Icon';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
 import type { Animated, StyleProp, ViewStyle } from 'react-native';
 
@@ -54,7 +54,7 @@ export default function MobileBottomTabBar({
           <TabItem
             testID="Mobile-AppTabBar-TabItem-Icon"
             // @ts-expect-error
-            icon={options?.tabBarIcon?.(renderActive) as ICON_NAMES}
+            icon={options?.tabBarIcon?.(renderActive) as IICON_NAMES}
             label={options?.tabBarLabel as string}
             style={[StyleSheet.absoluteFill]}
             selected={renderActive}

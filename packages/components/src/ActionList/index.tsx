@@ -5,11 +5,11 @@ import { Popover } from '../Popover';
 import { YStack } from '../Stack';
 import { Text } from '../Text';
 
-import type { ICON_NAMES } from '../Icon';
+import type { IICON_NAMES } from '../Icon';
 import type { PopoverProps } from '../Popover';
 
 interface IActionListItemProps {
-  icon?: ICON_NAMES;
+  icon?: IICON_NAMES;
   label: string;
   destructive?: boolean;
   onPress?: () => void;

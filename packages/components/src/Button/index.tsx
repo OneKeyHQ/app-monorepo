@@ -10,14 +10,14 @@ import { Icon } from '../Icon';
 import { Spinner } from '../Spinner';
 import { Text } from '../Text';
 
-import type { ICON_NAMES, IIconProps } from '../Icon';
+import type { IICON_NAMES, IIconProps } from '../Icon';
 import type { ColorTokens, ThemeableStackProps } from 'tamagui';
 
 export interface IButtonProps extends ThemeableStackProps {
   size?: 'small' | 'medium' | 'large';
   variant?: 'secondary' | 'tertiary' | 'primary' | 'destructive';
-  icon?: ICON_NAMES;
-  iconAfter?: ICON_NAMES;
+  icon?: IICON_NAMES;
+  iconAfter?: IICON_NAMES;
   disabled?: boolean;
   loading?: boolean;
   children: React.ReactNode;

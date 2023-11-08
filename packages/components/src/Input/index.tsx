@@ -9,17 +9,17 @@ import { Text } from '../Text';
 
 import { getSharedInputStyles } from './sharedStyles';
 
-import type { ICON_NAMES } from '../Icon';
+import type { IICON_NAMES } from '../Icon';
 import type { GetProps } from 'tamagui';
 
 type TMInputProps = GetProps<typeof TMInput>;
 
 export type InputProps = {
   size?: 'small' | 'medium' | 'large';
-  leftIconName?: ICON_NAMES;
+  leftIconName?: IICON_NAMES;
   error?: boolean;
   addOns?: {
-    iconName?: ICON_NAMES;
+    iconName?: IICON_NAMES;
     label?: string;
     onPress?: () => void;
     loading?: boolean;

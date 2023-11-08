@@ -8,11 +8,11 @@ import { Spinner } from '../Spinner';
 import { Stack } from '../Stack';
 import { Tooltip } from '../Tooltip';
 
-import type { ICON_NAMES, IIconProps } from '../Icon';
+import type { IICON_NAMES, IIconProps } from '../Icon';
 
-export interface IconButtonProps
+export interface IIconButtonProps
   extends Omit<IButtonProps, 'iconAfter' | 'children' | 'icon'> {
-  icon: ICON_NAMES;
+  icon: IICON_NAMES;
   iconProps?: IIconProps;
   title?: string;
 }
@@ -36,7 +36,7 @@ const getSizeStyles = (size: IButtonProps['size']) => {
   return sizes[size || 'medium'];
 };
 
-export const IconButton = (props: IconButtonProps) => {
+export const IconButton = (props: IIconButtonProps) => {
   const {
     disabled,
     loading,
