@@ -4,8 +4,8 @@ import { useIntl } from 'react-intl';
 import { FlatList, RefreshControl, ScrollView } from 'react-native';
 
 import { Stack, Text } from '@onekeyhq/components';
-import { PageManager } from '@onekeyhq/components/src/TabView';
 import { useThemeValue } from '@onekeyhq/components/src/Provider/hooks/useThemeValue';
+import { PageManager } from '@onekeyhq/components/src/TabView';
 
 import HeaderView from './HeaderView';
 
@@ -36,7 +36,7 @@ const SecondRoute = ({
   >
     <Stack bg="$bg">
       {Array.from({ length: 100 }).map((_, index) => (
-        <Text color={'$text'} key={index}>
+        <Text color="$text" key={index}>
           demo2 ${index}
         </Text>
       ))}
