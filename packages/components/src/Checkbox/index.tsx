@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { FlatList } from 'react-native';
 import { Checkbox as TMCheckbox, withStaticProperties } from 'tamagui';
 
 import { Divider } from '../Divider';
 import { Icon } from '../Icon';
 import { Label } from '../Label';
+import { ListView } from '../ListView';
 import { XStack, YStack } from '../Stack';
 
 import type { ViewStyle } from 'react-native';
@@ -158,7 +158,7 @@ function CheckboxGroup({
         onChange={handleSelectAll}
       />
       <Divider />
-      <FlatList
+      <ListView
         removeClippedSubviews
         style={listStyle}
         data={options}

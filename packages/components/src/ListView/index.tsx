@@ -4,24 +4,34 @@ import { forwardRef } from 'react';
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
 import { FlatList } from 'react-native';
 
-import type { StackProps } from '@tamagui/web/types';
-import type { FlatListProps, StyleProp, ViewStyle } from 'react-native';
+import type { StackStyleProps } from '@tamagui/web/types/types';
+import type {
+  FlatListProps,
+  ListRenderItem,
+  StyleProp,
+  ViewStyle,
+} from 'react-native';
 
-export type ListViewProps<T> = Omit<
+export type IListViewProps<T> = Omit<
   FlatListProps<T>,
   | 'contentContainerStyle'
   | 'columnWrapperStyle'
   | 'ListHeaderComponentStyle'
   | 'ListFooterComponentStyle'
+  | 'data'
+  | 'renderItem'
 > &
-  StackProps & {
-    contentContainerStyle?: StackProps;
-    columnWrapperStyle?: StackProps;
-    ListHeaderComponentStyle?: StackProps;
-    ListFooterComponentStyle?: StackProps;
+  StackStyleProps & {
+    contentContainerStyle?: StackStyleProps;
+    columnWrapperStyle?: StackStyleProps;
+    ListHeaderComponentStyle?: StackStyleProps;
+    ListFooterComponentStyle?: StackStyleProps;
+  } & {
+    data: ArrayLike<T> | null | undefined;
+    renderItem: ListRenderItem<T> | null | undefined;
   };
 
-export type ListViewRef = FlatList<any>;
+export type IListViewRef<T> = FlatList<T>;
 
 function BaseListView<T>(
   {
@@ -32,8 +42,8 @@ function BaseListView<T>(
     ListHeaderComponentStyle = {},
     ListFooterComponentStyle = {},
     ...props
-  }: ListViewProps<T>,
-  ref: ForwardedRef<ListViewRef>,
+  }: IListViewProps<T>,
+  ref: ForwardedRef<IListViewRef<T>>,
 ) {
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
@@ -66,7 +76,7 @@ function BaseListView<T>(
     },
   );
   return (
-    <FlatList
+    <FlatList<T>
       ref={ref}
       style={style as StyleProp<ViewStyle>}
       columnWrapperStyle={columnWrapperStyle ? columnStyle : undefined}
@@ -80,4 +90,5 @@ function BaseListView<T>(
   );
 }
 
-export const ListView = forwardRef(BaseListView);
+// forwardRef cannot cast typescript generic
+export const ListView = forwardRef(BaseListView) as typeof BaseListView;
