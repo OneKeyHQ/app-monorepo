@@ -7,12 +7,12 @@ import { hasNativeHeaderView } from '../Navigator/CommonConfig.ts';
 import HeaderBackButton from './HeaderBackButton';
 import HeaderView from './HeaderView';
 
-import type { StackHeaderProps, StackNavigationOptions } from '../ScreenProps';
+import type { IStackHeaderProps, IStackNavigationOptions } from '../ScreenProps';
 import type { HeaderBackButtonProps } from '@react-navigation/elements';
 import type { VariableVal } from '@tamagui/core';
 
 export type IOnekeyStackHeaderProps = {
-  navigation?: StackHeaderProps['navigation'];
+  navigation?: IStackHeaderProps['navigation'];
   isModelScreen?: boolean;
   isRootScreen?: boolean;
   isFlowModelScreen?: boolean;
@@ -28,7 +28,7 @@ export function makeHeaderScreenOptions({
 }: IOnekeyStackHeaderProps & {
   bgColor: VariableVal;
   titleColor: VariableVal;
-}): StackNavigationOptions {
+}): IStackNavigationOptions {
   if (hasNativeHeaderView) {
     const state = currentNavigation?.getState();
     const isCanGoBack = (state?.index ?? 0) > 0;
@@ -62,7 +62,7 @@ export function makeHeaderScreenOptions({
       options,
       route,
       navigation,
-    }: StackHeaderProps) => (
+    }: IStackHeaderProps) => (
       <HeaderView
         back={headerBack}
         options={options}

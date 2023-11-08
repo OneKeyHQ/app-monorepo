@@ -73,7 +73,7 @@ function ModalButtonGroup({
   );
 }
 
-type ModalContainerProps = {
+type IModalContainerProps = {
   children: React.ReactNode;
   checkboxProps?: GetProps<typeof Checkbox>;
 } & IModalButtonGroupProps;
@@ -85,7 +85,7 @@ export function ModalContainer({
   onConfirm,
   confirmButtonProps,
   cancelButtonProps,
-}: ModalContainerProps) {
+}: IModalContainerProps) {
   return (
     <Stack flex={1}>
       <Stack flex={1}>{children}</Stack>

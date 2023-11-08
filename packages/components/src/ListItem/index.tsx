@@ -10,11 +10,11 @@ import type { IIconButtonProps } from '../IconButton';
 import type { AvatarProps, GetProps, StackProps } from 'tamagui';
 
 /* Image */
-type ListItemAvatarProps = {
+type IListItemAvatarProps = {
   src: string;
 } & AvatarProps;
 
-const ListItemAvatar = (props: ListItemAvatarProps) => {
+const ListItemAvatar = (props: IListItemAvatarProps) => {
   const { src, ...rest } = props;
 
   return (
@@ -98,7 +98,7 @@ interface IListItemProps extends StackProps {
   titleProps?: IListItemTextProps['primaryTextProps'];
   subtitle?: string;
   subtitleProps?: IListItemTextProps['secondaryTextProps'];
-  avatarProps?: ListItemAvatarProps;
+  avatarProps?: IListItemAvatarProps;
   icon?: IICON_NAMES;
   drillIn?: boolean;
   checkMark?: boolean;

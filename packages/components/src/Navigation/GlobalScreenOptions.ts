@@ -8,12 +8,12 @@ import { extAnimConfig } from './ExtAnimConfig';
 import { makeHeaderScreenOptions } from './Header';
 
 import type { RouteProp } from '@react-navigation/native';
-import type { StackNavigationOptions } from '@react-navigation/stack';
+import type { IStackNavigationOptions } from '@react-navigation/stack';
 import type { VariableVal } from '@tamagui/core';
 
 export function clearStackNavigatorOptions(options?: {
   bgColor?: string;
-}): StackNavigationOptions {
+}): IStackNavigationOptions {
   return {
     headerShown: false,
     animationEnabled: false,
@@ -22,7 +22,7 @@ export function clearStackNavigatorOptions(options?: {
 
 export function makeRootScreenOptions(options: {
   isVerticalLayout?: boolean;
-}): StackNavigationOptions {
+}): IStackNavigationOptions {
   return {
     headerShown: false,
     ...(options.isVerticalLayout
@@ -33,7 +33,7 @@ export function makeRootScreenOptions(options: {
 
 export function makeModalOpenAnimationOptions(options: {
   isVerticalLayout?: boolean;
-}): StackNavigationOptions {
+}): IStackNavigationOptions {
   if (platformEnv.isExtension) {
     return {
       animationEnabled: true,
@@ -63,8 +63,8 @@ export function makeModalStackNavigatorOptions({
     route: RouteProp<any>;
     navigation: any;
   };
-}): StackNavigationOptions {
-  const options: StackNavigationOptions = {
+}): IStackNavigationOptions {
+  const options: IStackNavigationOptions = {
     headerShown: false,
     ...(platformEnv.isExtension
       ? { ...extAnimConfig.transition, ...extAnimConfig.stackScreenAnim }
@@ -82,7 +82,7 @@ export function makeModalScreenOptions({
   isVerticalLayout,
 }: {
   isVerticalLayout: boolean;
-}): StackNavigationOptions {
+}): IStackNavigationOptions {
   return {
     headerShown: false,
     presentation: 'transparentModal',
@@ -91,7 +91,7 @@ export function makeModalScreenOptions({
   };
 }
 
-export function makeRootModalStackOptions(): StackNavigationOptions {
+export function makeRootModalStackOptions(): IStackNavigationOptions {
   return {
     headerShown: false,
     presentation: 'transparentModal',
@@ -107,7 +107,7 @@ export function makeTabScreenOptions({
   navigation: any;
   bgColor: VariableVal;
   titleColor: VariableVal;
-}): StackNavigationOptions {
+}): IStackNavigationOptions {
   // @ts-expect-error
   return {
     ...makeHeaderScreenOptions({
@@ -119,7 +119,7 @@ export function makeTabScreenOptions({
   };
 }
 
-export function makeFullScreenOptions(): StackNavigationOptions {
+export function makeFullScreenOptions(): IStackNavigationOptions {
   return {
     headerShown: false,
     animationEnabled: true,

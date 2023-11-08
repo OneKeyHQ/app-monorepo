@@ -4,8 +4,8 @@ import { Platform } from 'react-native';
 import { useThemeValue } from '@onekeyhq/components';
 import type {
   IModalNavigationProp,
-  PageNavigationProp,
-  StackNavigationOptions,
+  IPageNavigationProp,
+  IStackNavigationOptions,
 } from '@onekeyhq/components/src/Navigation';
 
 import { RootRoutes } from '../routes/Root/Routes';
@@ -15,8 +15,8 @@ import type { TabRoutes, TabStackParamList } from '../routes/Root/Tab/Routes';
 
 function useAppNavigation<
   P extends
-    | PageNavigationProp<any>
-    | IModalNavigationProp<any> = PageNavigationProp<any>,
+    | IPageNavigationProp<any>
+    | IModalNavigationProp<any> = IPageNavigationProp<any>,
 >() {
   const navigation = useNavigation<P>();
   const [bgColor, titleColor] = useThemeValue(['bg', 'text']);
@@ -59,7 +59,7 @@ function useAppNavigation<
     });
   };
 
-  const iosHeaderStyle = Platform.select<StackNavigationOptions>({
+  const iosHeaderStyle = Platform.select<IStackNavigationOptions>({
     ios: {
       headerStyle: {
         backgroundColor: bgColor,
@@ -68,10 +68,10 @@ function useAppNavigation<
     },
   });
 
-  function setOptions(options: Partial<StackNavigationOptions>) {
+  function setOptions(options: Partial<IStackNavigationOptions>) {
     const { headerSearchBarOptions, ...otherOptions } = options;
 
-    let newHeaderSearchBarOptions: StackNavigationOptions = {};
+    let newHeaderSearchBarOptions: IStackNavigationOptions = {};
     if (headerSearchBarOptions) {
       newHeaderSearchBarOptions = {
         headerSearchBarOptions: {

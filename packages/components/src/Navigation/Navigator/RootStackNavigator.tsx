@@ -12,22 +12,22 @@ import { createStackNavigator } from '../StackNavigator';
 import type { CommonNavigatorConfig } from './types';
 import type { ParamListBase } from '@react-navigation/routers';
 
-type RootStackType = 'normal' | 'modal' | 'fullScreen';
+type IRootStackType = 'normal' | 'modal' | 'fullScreen';
 
-export interface RootStackNavigatorConfig<
+export interface IRootStackNavigatorConfig<
   RouteName extends string,
   P extends ParamListBase,
 > extends CommonNavigatorConfig<RouteName, P> {
   initialRoute?: boolean;
-  type?: RootStackType;
+  type?: IRootStackType;
   disable?: boolean;
 }
 
-interface RootStackNavigatorProps<
+interface IRootStackNavigatorProps<
   RouteName extends string,
   P extends ParamListBase,
 > {
-  config: RootStackNavigatorConfig<RouteName, P>[];
+  config: IRootStackNavigatorConfig<RouteName, P>[];
   screenOptions?: Record<any, any>;
 }
 
@@ -36,7 +36,7 @@ const RootStack = createStackNavigator<ParamListBase>();
 export function RootStackNavigator<
   RouteName extends string,
   P extends ParamListBase,
->({ config, screenOptions = {} }: RootStackNavigatorProps<RouteName, P>) {
+>({ config, screenOptions = {} }: IRootStackNavigatorProps<RouteName, P>) {
   const initialRouteName = useMemo(
     () => config.find((route) => route.initialRoute)?.name ?? config[0].name,
     [config],
@@ -49,7 +49,7 @@ export function RootStackNavigator<
   });
 
   const getOptionsWithType = useCallback(
-    (type?: RootStackType) => {
+    (type?: IRootStackType) => {
       switch (type) {
         case 'modal':
           return makeModalScreenOptions({ isVerticalLayout });

@@ -13,7 +13,7 @@ import HeaderBackButton from './HeaderBackButton';
 import HeaderSearchBar from './HeaderSearchBar';
 
 import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';
-import type { StackHeaderProps } from '../ScreenProps';
+import type { IStackHeaderProps } from '../ScreenProps';
 import type {
   HeaderBackButtonProps,
   HeaderOptions,
@@ -38,7 +38,7 @@ function HeaderView({
   navigation,
   isModelScreen = false,
   isRootScreen = false,
-}: StackHeaderProps & IOnekeyStackHeaderProps) {
+}: IStackHeaderProps & IOnekeyStackHeaderProps) {
   const {
     headerRight,
     headerTitle,

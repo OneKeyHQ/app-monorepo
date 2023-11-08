@@ -1,6 +1,6 @@
 import type {
-  PageNavigationProp,
-  StackNavigationOptions,
+  IPageNavigationProp,
+  IStackNavigationOptions,
 } from '../ScreenProps';
 import type {
   Descriptor,
@@ -18,7 +18,7 @@ export type IScene = {
 
 export type IModalNavigationConfig = NonNullable<unknown>;
 
-export type IModalNavigationOptions = StackNavigationOptions & {
+export type IModalNavigationOptions = IStackNavigationOptions & {
   allowDisableClose?: boolean;
   disableClose?: boolean;
 };
@@ -46,7 +46,7 @@ export type IModalNavigationProp<
   ParamList extends ParamListBase,
   RouteName extends keyof ParamList = string,
   NavigatorID extends string | undefined = undefined,
-> = PageNavigationProp<
+> = IPageNavigationProp<
   ParamList,
   RouteName,
   NavigatorID,
@@ -68,6 +68,6 @@ export type IModalDescriptor = Descriptor<
   RouteProp<ParamListBase>
 >;
 
-export type ModalDescriptorMap = {
+export type IModalDescriptorMap = {
   [key: string]: IModalDescriptor;
 };

@@ -205,7 +205,8 @@ export class NeedBluetoothTurnedOn extends OneKeyHardwareError {
 export class NeedBluetoothPermissions extends OneKeyHardwareError {
   override code = HardwareErrorCode.BleLocationError;
 
-  override key: ILocaleIds = 'msg__hardware_bluetooth_requires_permission_error';
+  override key: ILocaleIds =
+    'msg__hardware_bluetooth_requires_permission_error';
 }
 
 export class BleLocationServiceError extends OneKeyHardwareError {

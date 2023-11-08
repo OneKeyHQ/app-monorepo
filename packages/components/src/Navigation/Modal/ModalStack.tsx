@@ -12,9 +12,9 @@ import CenteredModal from './CenteredModal';
 import ModalBackdrop from './ModalBackdrop';
 
 import type {
-  ModalDescriptorMap,
   IModalNavigationConfig,
   IModalNavigationHelpers,
+  IModalDescriptorMap,
 } from './types';
 import type {
   ParamListBase,
@@ -24,7 +24,7 @@ import type {
 type IProps = IModalNavigationConfig & {
   state: StackNavigationState<ParamListBase>;
   navigation: IModalNavigationHelpers;
-  descriptors: ModalDescriptorMap;
+  descriptors: IModalDescriptorMap;
 };
 
 export default function ModalStackView({

@@ -6,13 +6,13 @@ import { Text } from '../../../Text';
 
 import type { IICON_NAMES } from '../../../Icon';
 
-interface StackProps {
+interface IStackProps {
   icon?: IICON_NAMES;
   label?: string;
   selected?: boolean;
 }
 
-export function TabItem(props: StackProps & GetProps<typeof Stack>) {
+export function TabItem(props: IStackProps & GetProps<typeof Stack>) {
   const { icon, label, selected, ...rest } = props;
 
   return (

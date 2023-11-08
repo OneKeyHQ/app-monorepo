@@ -13,7 +13,7 @@ import type { IICON_NAMES } from '../../../Icon';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
 import type { Animated, StyleProp, ViewStyle } from 'react-native';
 
-export type MobileBottomTabBarProps = BottomTabBarProps & {
+export type IMobileBottomTabBarProps = BottomTabBarProps & {
   backgroundColor?: string;
   style?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
 };
@@ -22,7 +22,7 @@ export default function MobileBottomTabBar({
   navigation,
   state,
   descriptors,
-}: MobileBottomTabBarProps) {
+}: IMobileBottomTabBarProps) {
   const isKeyboardShown = useIsKeyboardShown();
   const { routes } = state;
   const { bottom } = useSafeAreaInsets();
