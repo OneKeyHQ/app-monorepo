@@ -6,7 +6,7 @@ import { YStack } from '../Stack';
 import { Text } from '../Text';
 
 import type { IICON_NAMES } from '../Icon';
-import type { PopoverProps } from '../Popover';
+import type { IPopoverProps } from '../Popover';
 
 interface IActionListItemProps {
   icon?: IICON_NAMES;
@@ -76,7 +76,7 @@ interface IActionListSection {
   items: IActionListItemProps[];
 }
 
-export interface IActionListProps extends PopoverProps {
+export interface IActionListProps extends IPopoverProps {
   items?: IActionListItemProps[];
   sections?: IActionListSection[];
 }

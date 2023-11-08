@@ -6,7 +6,7 @@ import { SectionList as NativeSectionList } from 'react-native';
 
 import type { StackProps } from '@tamagui/web/types';
 import type {
-  ISectionListProps as NativeSectionListProps,
+  SectionListProps as NativeSectionListProps,
   StyleProp,
   ViewStyle,
 } from 'react-native';

@@ -12,9 +12,9 @@ import CenteredModal from './CenteredModal';
 import ModalBackdrop from './ModalBackdrop';
 
 import type {
+  IModalDescriptorMap,
   IModalNavigationConfig,
   IModalNavigationHelpers,
-  IModalDescriptorMap,
 } from './types';
 import type {
   ParamListBase,

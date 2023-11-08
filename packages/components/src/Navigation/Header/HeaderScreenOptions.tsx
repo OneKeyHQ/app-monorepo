@@ -7,7 +7,10 @@ import { hasNativeHeaderView } from '../Navigator/CommonConfig.ts';
 import HeaderBackButton from './HeaderBackButton';
 import HeaderView from './HeaderView';
 
-import type { IStackHeaderProps, IStackNavigationOptions } from '../ScreenProps';
+import type {
+  IStackHeaderProps,
+  IStackNavigationOptions,
+} from '../ScreenProps';
 import type { HeaderBackButtonProps } from '@react-navigation/elements';
 import type { VariableVal } from '@tamagui/core';
 
