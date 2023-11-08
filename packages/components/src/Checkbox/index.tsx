@@ -13,7 +13,7 @@ import type { CheckedState, CheckboxProps as TMCheckboxProps } from 'tamagui';
 
 export type { CheckedState } from 'tamagui';
 
-export type CheckboxProps = Omit<
+export type ICheckboxProps = Omit<
   TMCheckboxProps,
   'size' | 'onCheckedChange' | 'checked' | 'value'
 > & {
@@ -27,7 +27,7 @@ function RawCheckbox({
   onChange,
   value,
   ...checkboxProps
-}: CheckboxProps) {
+}: ICheckboxProps) {
   const id = useMemo(() => Math.random().toString(), []);
 
   const Indicator = useMemo(() => {
@@ -86,7 +86,7 @@ function RawCheckbox({
   );
 }
 
-interface CheckboxGroupProps {
+interface ICheckboxGroupProps {
   label?: string;
   value: CheckedState[];
   disabled?: boolean;
@@ -134,7 +134,7 @@ function CheckboxGroup({
   disabled,
   value,
   listStyle,
-}: CheckboxGroupProps) {
+}: ICheckboxGroupProps) {
   const [isAll, setAll] = useState(
     value.length === options.length && !value.find((v) => !v),
   );
