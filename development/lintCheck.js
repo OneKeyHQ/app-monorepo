@@ -1,12 +1,12 @@
 const { execSync } = require('child_process');
 const { exit } = require('process');
 
-const MAX_WARNINGS_COUNT = 307;
+const MAX_WARNINGS_COUNT = 305;
 
 function handleWarnings(result) {
   const warningsCount = result.match(/, (\d+) warnings\)/)?.[1];
+  console.log(`Warnings Counts: ${warningsCount}`);
   if (Number(warningsCount) > MAX_WARNINGS_COUNT) {
-    console.log(`Warnings Counts: ${warningsCount}`);
     console.log(
       `Please do not add more ESLint warnings than ${MAX_WARNINGS_COUNT}`,
     );
