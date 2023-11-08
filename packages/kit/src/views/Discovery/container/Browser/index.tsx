@@ -9,22 +9,18 @@ let DesktopBrowser: any;
 let MobileBrowser: any;
 
 if (platformEnv.isDesktop || platformEnv.isNativeIOSPad) {
-  DesktopBrowser =
-    require('../../components/MobileBrowser/MobileBrowser').default;
+  DesktopBrowser = require('./MobileBrowser').default;
 } else if (platformEnv.isNative) {
-  MobileBrowser =
-    require('../../components/MobileBrowser/MobileBrowser').default;
+  MobileBrowser = require('./MobileBrowser').default;
 }
 
 function Browser() {
   const isVerticalLayout = useIsVerticalLayout();
   // lazy load
   if (isVerticalLayout && !MobileBrowser) {
-    MobileBrowser =
-      require('../../components/MobileBrowser/MobileBrowser').default;
+    MobileBrowser = require('./MobileBrowser').default;
   } else if (!isVerticalLayout && !DesktopBrowser) {
-    DesktopBrowser =
-      require('../../components/MobileBrowser/MobileBrowser').default;
+    DesktopBrowser = require('./MobileBrowser').default;
   }
 
   return (
