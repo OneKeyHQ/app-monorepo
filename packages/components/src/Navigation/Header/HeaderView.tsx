@@ -92,7 +92,7 @@ function HeaderView({
         pointerEvents="box-none"
       >
         <Stack
-          // for android and wap
+          // android
           $md={{
             width: '100%',
           }}
