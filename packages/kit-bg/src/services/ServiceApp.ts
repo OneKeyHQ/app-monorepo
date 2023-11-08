@@ -4,8 +4,8 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import {
-  settingsAtom,
   settingsIsLightCNAtom,
+  settingsPersistAtom,
   settingsTimeNowAtom,
 } from '../states/jotai/atoms';
 
@@ -20,7 +20,7 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   public async demoJotaiGetSettings() {
     const now = await settingsTimeNowAtom.get();
-    const settings = await settingsAtom.get();
+    const settings = await settingsPersistAtom.get();
     const isLightCN = await settingsIsLightCNAtom.get();
     return {
       now,
@@ -32,7 +32,7 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   public async demoJotaiUpdateSettings() {
     const now = await settingsTimeNowAtom.set((v) => `${v}: hello world`);
-    const settings = await settingsAtom.set((v) => ({
+    const settings = await settingsPersistAtom.set((v) => ({
       ...v,
       locale: v.locale !== 'zh-CN' ? 'zh-CN' : 'en-US',
       theme: v.theme !== 'dark' ? 'dark' : 'light',
