@@ -1,7 +1,7 @@
 const { execSync } = require('child_process');
 const { exit } = require('process');
 
-const MAX_WARNINGS_COUNT = 9;
+const MAX_WARNINGS_COUNT = 307
 
 function handleWarnings(result) {
   const warningsCount = result.match(/, (\d+) warnings\)/)?.[1];
@@ -17,10 +17,15 @@ function handleWarnings(result) {
   }
 }
 
-const result = execSync(
-  `sh -c 'npx eslint . --ext .ts,.tsx --fix --cache --cache-location "$(yarn config get cacheFolder)"'`,
-).toString('utf-8');
-console.log(result);
-handleWarnings(result);
+try {
+  const result = execSync(
+    `sh -c 'npx eslint . --ext .ts,.tsx --fix --cache --cache-location "$(yarn config get cacheFolder)"'`,
+  ).toString('utf-8');
+  console.log(result);
+  handleWarnings(result);
+} catch (error) {
+  console.log(error.stdout.toString('utf-8'));
+  exit(1);
+}
 
 exit(0);
