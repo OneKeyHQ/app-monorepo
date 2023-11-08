@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
 import RNSlider, {
-  type SliderProps as RNSliderProps,
+  type ISliderProps as RNSliderProps,
 } from '@react-native-community/slider';
 import { usePropsAndStyle } from '@tamagui/core';
 
@@ -9,13 +9,13 @@ import { useThemeValue } from '../Provider/hooks/useThemeValue';
 
 import type { BaseSliderProps } from './type';
 
-export type SliderProps = Omit<
+export type ISliderProps = Omit<
   RNSliderProps,
   'onValueChange' | 'minimumValue' | 'maximumValue' | 'step'
 > &
   BaseSliderProps;
 
-export function Slider({ onChange, min, max, step, ...props }: SliderProps) {
+export function Slider({ onChange, min, max, step, ...props }: ISliderProps) {
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
   });

@@ -22,6 +22,31 @@ const SliderDemo = () => {
   );
 };
 
+const SlidingEventDemo = () => {
+  const [value, setValue] = useState<number>();
+  return (
+    <Slider
+      min={1}
+      max={100}
+      step={1}
+      value={value}
+      onChange={(v) => {
+        console.log('onChange', v);
+        setValue(v);
+      }}
+      onSlideStart={() => {
+        console.log('onSlideStart:');
+      }}
+      onSlideMove={(v) => {
+        console.log('onSlideMove:', v);
+      }}
+      onSlideEnd={() => {
+        console.log('onSlideEnd:');
+      }}
+    />
+  );
+};
+
 const SliderGallery = () => (
   <Layout
     description=".."
@@ -55,7 +80,11 @@ const SliderGallery = () => (
         ),
       },
       {
-        title: 'Dialog',
+        title: 'Listen Sliding event',
+        element: <SlidingEventDemo />,
+      },
+      {
+        title: 'Slider in Dialog',
         element: (
           <Stack space="$2">
             <Button
