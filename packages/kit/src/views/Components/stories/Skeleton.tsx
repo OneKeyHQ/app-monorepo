@@ -64,7 +64,7 @@ const SelectGallery = () => (
   <Layout
     description="..."
     suggestions={['...']}
-    boundaryConditions={['...']}
+    boundaryConditions={['不要建议同屏绘制超过20个视图']}
     elements={[
       {
         title: '默认状态',
