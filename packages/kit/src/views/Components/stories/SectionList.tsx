@@ -39,10 +39,8 @@ const SectionListDemo = () => {
       bg="$backgroundPress"
       contentContainerStyle={{
         bg: '$borderLight',
-        m: '$4',
       }}
       ListHeaderComponentStyle={{
-        h: '$10',
         w: '100%',
         bg: 'blue',
       }}
