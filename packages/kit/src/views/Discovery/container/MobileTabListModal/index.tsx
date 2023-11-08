@@ -9,7 +9,7 @@ import useAppNavigation from '../../../../hooks/useAppNavigation';
 import MobileTabListItem from '../../components/MobileTabListItem';
 import useWebTabAction from '../../hooks/useWebTabAction';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
-import { withProviderWebTabs } from '../Context/contextWebTabs';
+import { withProviderWebTabs } from '../../store/contextWebTabs';
 
 import type { DiscoverModalParamList } from '../../router/Routes';
 import type { IWebTab } from '../../types';

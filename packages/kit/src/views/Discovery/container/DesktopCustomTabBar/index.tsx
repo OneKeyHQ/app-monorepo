@@ -5,7 +5,7 @@ import { Divider, Stack } from '@onekeyhq/components';
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
 import useWebTabAction from '../../hooks/useWebTabAction';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
-import { withProviderWebTabs } from '../Context/contextWebTabs';
+import { withProviderWebTabs } from '../../store/contextWebTabs';
 
 function DesktopCustomTabBar() {
   const { tabs } = useWebTabs();

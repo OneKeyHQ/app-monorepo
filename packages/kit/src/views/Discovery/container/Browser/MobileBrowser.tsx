@@ -6,7 +6,6 @@ import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 
-import MobileBrowserContent from '../../components/MobileBrowser/MobileBrowserContent';
 import MobileBrowserInfoBar from '../../components/MobileBrowser/MobileBrowserInfoBar';
 import { useTabDataFromSimpleDb } from '../../hooks/useTabDataFromSimpleDb';
 import useWebTabAction from '../../hooks/useWebTabAction';
@@ -19,8 +18,10 @@ import {
   type DiscoverModalParamList,
   DiscoverModalRoutes,
 } from '../../router/Routes';
+import { withProviderWebTabs } from '../../store/contextWebTabs';
 import { gotoSite } from '../../utils/gotoSite';
-import { withProviderWebTabs } from '../Context/contextWebTabs';
+
+import MobileBrowserContent from './MobileBrowserContent';
 
 function HandleRebuildTabBarData() {
   const result = useTabDataFromSimpleDb();

@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useMemo } from 'react';
 
-import { setWebTabData } from '../../container/Context/contextWebTabs';
+import { setWebTabData } from '../../store/contextWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
 import WebView from '../WebView';
 

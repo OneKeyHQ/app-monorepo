@@ -2,7 +2,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useMemo, useRef } from 'react';
 
 import useBackHandler from '../../../../hooks/useBackHandler';
-import { homeTab, setWebTabData } from '../../container/Context/contextWebTabs';
+import { homeTab, setWebTabData } from '../../store/contextWebTabs';
 import { onNavigation } from '../../hooks/useWebController';
 import { webviewRefs } from '../../utils/explorerUtils';
 import { gotoSite } from '../../utils/gotoSite';

@@ -8,7 +8,7 @@ import {
   useAtomWebTabs,
   webTabsAtom,
   webTabsMapAtom,
-} from '../container/Context/contextWebTabs';
+} from '../store/contextWebTabs';
 
 export const useWebTabs = () => {
   const [webTabs] = useAtomWebTabs(webTabsAtom);

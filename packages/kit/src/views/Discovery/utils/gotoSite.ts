@@ -3,7 +3,7 @@ import {
   addWebTab,
   closeWebTab,
   setWebTabData,
-} from '../container/Context/contextWebTabs';
+} from '../store/contextWebTabs';
 import { getWebTabs } from '../hooks/useWebTabs';
 
 import {

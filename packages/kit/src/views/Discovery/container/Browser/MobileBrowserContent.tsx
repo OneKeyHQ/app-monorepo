@@ -7,8 +7,8 @@ import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 
-import { homeTab } from '../../container/Context/contextWebTabs';
-import DiscoveryDashboard from '../../container/Dashboard';
+import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
+import WebContent from '../../components/WebContent/WebContent';
 import {
   useActiveTabId,
   useWebTabData,
@@ -18,11 +18,10 @@ import {
   type DiscoverModalParamList,
   DiscoverModalRoutes,
 } from '../../router/Routes';
+import { homeTab } from '../../store/contextWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
 import { onItemSelect } from '../../utils/gotoSite';
-import WebContent from '../WebContent/WebContent';
-
-import MobileBrowserBottomBar from './MobileBrowserBottomBar';
+import DiscoveryDashboard from '../Dashboard';
 
 import type WebView from 'react-native-webview';
 

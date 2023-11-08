@@ -7,7 +7,7 @@ import {
   setWebTabDataAtom,
   setWebTabsAtom,
   useAtomWebTabs,
-} from '../container/Context/contextWebTabs';
+} from '../store/contextWebTabs';
 
 function useWebTabAction() {
   const [, addWebTab] = useAtomWebTabs(addWebTabAtom);

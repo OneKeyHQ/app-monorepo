@@ -2,7 +2,7 @@ import {
   homeResettingFlags,
   homeTab,
   setWebTabData,
-} from '../container/Context/contextWebTabs';
+} from '../store/contextWebTabs';
 import { gotoSite } from '../utils/gotoSite';
 
 import { getWebTabs } from './useWebTabs';

@@ -6,9 +6,9 @@ import {
 } from '@onekeyhq/kit/src/store/jotai/createJotaiContext';
 import { simpleDb } from '@onekeyhq/kit/src/views/Discovery/components/WebView/mock';
 
-import { webviewRefs } from '../../utils/explorerUtils';
+import { webviewRefs } from '../utils/explorerUtils';
 
-import type { IWebTab } from '../../types';
+import type { IWebTab } from '../types';
 
 const BLANK_PAGE_URL = 'about:blank';
 export const homeTab: IWebTab = {

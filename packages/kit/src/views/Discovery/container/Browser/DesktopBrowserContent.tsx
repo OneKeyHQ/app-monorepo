@@ -2,8 +2,8 @@ import { useMemo } from 'react';
 
 import { Freeze } from 'react-freeze';
 
+import WebContent from '../../components/WebContent/WebContent';
 import { useWebTabData } from '../../hooks/useWebTabs';
-import WebContent from '../WebContent/WebContent';
 
 function DesktopBrowserContent({
   id,
