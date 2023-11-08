@@ -4,14 +4,14 @@ import { isNil } from 'lodash';
 
 import { Dialog, Spinner } from '@onekeyhq/components';
 import { EPasswordResStatus } from '@onekeyhq/kit-bg/src/services/ServicePassword';
-import { usePasswordPromptPromiseAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
+import { usePasswordAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import PasswordVerifyContainer from './PasswordVerifyContainer';
 
 const PasswordVerifyPromptMount = () => {
-  const [{ promiseId }] = usePasswordPromptPromiseAtom();
+  const [{ passwordPromptPromiseId }] = usePasswordAtom();
   const showPasswordVerifyPrompt = useCallback((id: number) => {
     const dialog = Dialog.confirm({
       title: 'ConfirmPassword',
@@ -43,10 +43,10 @@ const PasswordVerifyPromptMount = () => {
     });
   }, []);
   useEffect(() => {
-    if (!isNil(promiseId)) {
-      showPasswordVerifyPrompt(promiseId);
+    if (!isNil(passwordPromptPromiseId)) {
+      showPasswordVerifyPrompt(passwordPromptPromiseId);
     }
-  }, [promiseId, showPasswordVerifyPrompt]);
+  }, [passwordPromptPromiseId, showPasswordVerifyPrompt]);
   return null;
 };
 

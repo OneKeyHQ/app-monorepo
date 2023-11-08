@@ -15,7 +15,7 @@ import localDb from '../../dbs/local/localDb';
 import { settingsAtom } from '../../states/jotai/atoms';
 import {
   passwordBiologyAuthInfoAtom,
-  passwordPromptPromiseAtom,
+  passwordAtom,
 } from '../../states/jotai/atoms/password';
 import ServiceBase from '../ServiceBase';
 import { checkExtUIOpen } from '../utils';
@@ -203,7 +203,10 @@ export default class ServicePassword extends ServiceBase {
         resolve,
         reject,
       });
-      void passwordPromptPromiseAtom.set({ promiseId });
+      void passwordAtom.set((v) => ({
+        ...v,
+        passwordPromptPromiseId: promiseId,
+      }));
     });
   }
 

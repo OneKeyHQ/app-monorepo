@@ -5,6 +5,15 @@ import { globalAtom, globalAtomComputed } from '../utils';
 
 import { settingsAtom } from './settings';
 
+export type IPasswordAtom = {
+  passwordPromptPromiseId: number | undefined;
+};
+export const { target: passwordAtom, use: usePasswordAtom } =
+  globalAtom<IPasswordAtom>({
+    name: EAtomNames.passwordAtom,
+    initialValue: { passwordPromptPromiseId: undefined },
+  });
+
 export const {
   target: passwordBiologyAuthInfoAtom,
   use: usePasswordBiologyAuthInfoAtom,
@@ -13,15 +22,4 @@ export const {
   const isSupport = await biologyAuth.isSupportBiologyAuth();
   const isEnable = isSupport && get(settingsAtom.atom()).isBiologyAuthSwitchOn;
   return { authType, isSupport, isEnable };
-});
-
-export type IPasswordPromptPromiseAtom = {
-  promiseId: number | undefined;
-};
-export const {
-  target: passwordPromptPromiseAtom,
-  use: usePasswordPromptPromiseAtom,
-} = globalAtom<IPasswordPromptPromiseAtom>({
-  name: EAtomNames.passwordPromptPromiseAtom,
-  initialValue: { promiseId: undefined },
 });
