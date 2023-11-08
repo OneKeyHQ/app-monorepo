@@ -21,6 +21,8 @@ import type {
   BottomTabNavigationOptions,
 } from '@react-navigation/bottom-tabs/src/types';
 import type { NavigationState } from '@react-navigation/routers/src/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useRouteAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/route';
 
 function TabItemView({
   isActive,
@@ -60,6 +62,7 @@ export function DesktopLeftSideBar({
   extraConfig?: ITabNavigatorExtraConfig<string>;
 }) {
   const { routes } = state;
+  const [, setRoute] = useRouteAtom();
   const { leftSidebarCollapsed: isCollapse } = useProviderSideBarValue();
   const { top } = useSafeAreaInsets(); // used for ipad
   const theme = useTheme();
@@ -89,6 +92,9 @@ export function DesktopLeftSideBar({
               }),
               target: state.key,
             });
+            setRoute({
+              currentTab: route.name,
+            });
           }
         };
 
@@ -104,6 +110,9 @@ export function DesktopLeftSideBar({
                       merge: true,
                     }),
                     target: state.key,
+                  });
+                  setRoute({
+                    currentTab: extraConfig.name,
                   });
                 }
               }}
