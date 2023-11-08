@@ -8,7 +8,7 @@ import { Text } from '../Text';
 
 import type {
   SheetProps,
-  IPopoverProps as TMPopoverProps,
+  PopoverProps as TMPopoverProps,
   YStackProps,
 } from 'tamagui';
 

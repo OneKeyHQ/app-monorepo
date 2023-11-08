@@ -19,7 +19,7 @@ import SidebarStateProvider from './SidebarStateProvider';
 import type { LocaleSymbol } from '../locale';
 import type { IntlShape, MessageDescriptor } from 'react-intl';
 
-export type UIProviderProps = PropsWithChildren<{
+export type IUIProviderProps = PropsWithChildren<{
   /**
    * default theme variant
    */
@@ -57,7 +57,7 @@ export const intlRef: {
   current: undefined,
 };
 
-const Provider: FC<UIProviderProps> = ({
+const Provider: FC<IUIProviderProps> = ({
   children,
   themeVariant,
   locale,
