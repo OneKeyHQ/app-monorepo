@@ -5,20 +5,20 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 
 import useWebTabAction from '../../hooks/useWebTabAction';
-import { useWebTabs } from '../../hooks/useWebTabs';
 import {
   type DiscoverModalParamList,
   DiscoverModalRoutes,
 } from '../../router/Routes';
 
 function MobileBrowserBottomBar({
-  id,
   goBack,
   goForward,
   canGoBack,
   canGoForward,
+  tabCount,
 }: {
   id: string;
+  tabCount: number;
   goBack: () => void;
   goForward: () => void;
   canGoBack: boolean;
@@ -28,7 +28,6 @@ function MobileBrowserBottomBar({
     useAppNavigation<PageNavigationProp<DiscoverModalParamList>>();
   const { bottom } = useSafeAreaInsets();
 
-  const { tabs } = useWebTabs();
   const { addBlankWebTab } = useWebTabAction();
 
   return (
@@ -59,7 +58,7 @@ function MobileBrowserBottomBar({
             })
           }
         >
-          {tabs.length}
+          {tabCount}
         </Button>
         <IconButton
           icon="PlusLargeOutline"

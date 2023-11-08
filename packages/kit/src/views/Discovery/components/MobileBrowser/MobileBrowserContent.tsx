@@ -5,7 +5,11 @@ import { Stack } from 'tamagui';
 
 import { homeTab } from '../../container/Context/contextWebTabs';
 import DiscoveryDashboard from '../../container/Dashboard';
-import { useActiveTabId, useWebTabData } from '../../hooks/useWebTabs';
+import {
+  useActiveTabId,
+  useWebTabData,
+  useWebTabs,
+} from '../../hooks/useWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
 import { onItemSelect } from '../../utils/gotoSite';
 import WebContent from '../WebContent/WebContent';
@@ -16,6 +20,7 @@ import type WebView from 'react-native-webview';
 
 function MobileBrowserContent({ id }: { id: string }) {
   const { tab } = useWebTabData(id);
+  const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
   const [backEnabled, setBackEnabled] = useState(false);
   const [forwardEnabled, setForwardEnabled] = useState(false);
@@ -27,11 +32,13 @@ function MobileBrowserContent({ id }: { id: string }) {
     () => isActive && tab?.url === homeTab.url,
     [isActive, tab?.url],
   );
+  const tabCount = useMemo(() => tabs?.length ?? 0, [tabs.length]);
   const BrowserBottomBar = useMemo(
     () => (
       <Freeze key={`${tab.id}-BottomBar`} freeze={!isActive}>
         <MobileBrowserBottomBar
           id={tab.id}
+          tabCount={tabCount}
           goBack={() => {
             (webviewRefs[tab.id]?.innerRef as WebView)?.goBack();
           }}
@@ -43,7 +50,7 @@ function MobileBrowserContent({ id }: { id: string }) {
         />
       </Freeze>
     ),
-    [tab.id, backEnabled, forwardEnabled, isActive],
+    [tab.id, backEnabled, forwardEnabled, isActive, tabCount],
   );
 
   const content = useMemo(() => {
