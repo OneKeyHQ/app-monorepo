@@ -5,10 +5,11 @@ import * as React from 'react';
 import { Header } from '@react-navigation/elements';
 import { get } from 'lodash';
 import { StyleSheet } from 'react-native';
+import { useTheme } from 'tamagui';
 
-import { DesktopDragZoneBox, Stack, useThemeValue } from '../../index';
+import { DesktopDragZoneBox, Stack } from '../../index';
 
-import HeaderButtonBack from './HeaderButtonBack';
+import HeaderBackButton from './HeaderBackButton';
 import HeaderSearchBar from './HeaderSearchBar';
 
 import type { OneKeyStackHeaderProps } from './HeaderScreenOptions';
@@ -43,13 +44,11 @@ function HeaderView({
     headerTitle,
     headerTitleAlign,
     headerStyle,
-    headerTransparent,
     headerBackground,
     headerSearchBarOptions,
   } = options || {};
 
-  const headerTintColor = useThemeValue('text');
-
+  const theme = useTheme();
   const state = navigation?.getState();
   const canGoBack = headerBack !== undefined;
   const topStack = (state?.index ?? 0) === 0;
@@ -68,7 +67,7 @@ function HeaderView({
       if (disableClose) return null;
 
       return (
-        <HeaderButtonBack
+        <HeaderBackButton
           {...props}
           canGoBack={!topStack}
           onPress={onBackCallback}
@@ -84,32 +83,22 @@ function HeaderView({
     <DesktopDragZoneBox>
       <Stack
         px="$5"
-        $md={{
-          flexDirection: 'column',
-        }}
         $gtMd={{
           flexDirection: isModelScreen ? 'column' : 'row',
         }}
-        borderTopLeftRadius={isModelScreen ? '$2' : 0}
-        borderTopRightRadius={isModelScreen ? '$2' : 0}
         backgroundColor="$bgApp"
-        overflow="hidden"
         borderBottomWidth={StyleSheet.hairlineWidth}
         borderBottomColor="$borderSubdued"
         pointerEvents="box-none"
       >
         <Stack
-          $md={{
-            width: '100%',
-          }}
-          $gtMd={{
-            flex: isModelScreen ? 0 : 1,
-            width: isModelScreen ? '100%' : undefined,
-          }}
+          {...(!isModelScreen && {
+            flex: 1,
+          })}
         >
           <Header
             title={getHeaderTitle(options, route.name)}
-            headerTintColor={headerTintColor}
+            headerTintColor={theme.text.val}
             headerLeft={headerLeftView}
             headerRight={
               typeof headerRight === 'function'
@@ -128,15 +117,14 @@ function HeaderView({
               lineHeight: 28,
               fontWeight: '600',
             }}
-            headerTransparent={headerTransparent}
+            headerTransparent
             headerShadowVisible={false}
             headerBackground={headerBackground}
-            headerStyle={[{ backgroundColor: 'transparent' }, headerStyle]}
+            headerStyle={[{}, headerStyle]}
           />
         </Stack>
         {!!headerSearchBarOptions && (
           <Stack
-            flex={0}
             $md={{
               pb: '$4',
               width: '100%',

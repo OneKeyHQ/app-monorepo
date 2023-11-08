@@ -2,7 +2,7 @@ import { useCallback, useLayoutEffect, useState } from 'react';
 
 import { Button, Stack } from '@onekeyhq/components';
 import type { ModalNavigationProp } from '@onekeyhq/components/src/Navigation';
-import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
+import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';
 import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
 
 import { Layout } from '../../utils/Layout';
@@ -68,7 +68,7 @@ const DemoConfigLockedViewModal = () => {
     useDemoAppNavigation<ModalNavigationProp<DemoLockedModalParamList>>();
 
   const headerRightCall = useCallback(
-    () => <HeaderButtonIcon name="AnonymousHidden2Outline" />,
+    () => <HeaderIconButton icon="AnonymousHidden2Outline" />,
     [],
   );
 
@@ -141,7 +141,7 @@ const DemoManualLockedViewModal = () => {
     useDemoAppNavigation<ModalNavigationProp<DemoLockedModalParamList>>();
 
   const headerRightCall = useCallback(
-    () => <HeaderButtonIcon name="AnonymousHidden2Outline" />,
+    () => <HeaderIconButton icon="AnonymousHidden2Outline" />,
     [],
   );
 
@@ -230,7 +230,7 @@ const DemoRepeatManualLockedViewModal = () => {
   const [locked, setLocked] = useState(true);
 
   const headerRightCall = useCallback(
-    () => <HeaderButtonIcon name="AnonymousHidden2Outline" />,
+    () => <HeaderIconButton icon="AnonymousHidden2Outline" />,
     [],
   );
 
