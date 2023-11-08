@@ -1,4 +1,4 @@
-import type { ISecureStorage } from './typrs';
+import type { ISecureStorage } from './types';
 
 const setSecureItem = async (key: string, data: string) =>
   window?.desktopApi.secureSetItemAsync(key, data);

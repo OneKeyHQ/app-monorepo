@@ -11,28 +11,41 @@ const isSupportBiologyAuthFn = () =>
     resolve(!!result);
   });
 
-export const isSupportBiologyAuth = memoizee(isSupportBiologyAuthFn);
+export const isSupportBiologyAuth = memoizee(isSupportBiologyAuthFn, {
+  promise: true,
+});
 
 const getBiologyAuthTypeFn: () => Promise<AuthenticationType[]> = () =>
   Promise.resolve([AuthenticationType.FINGERPRINT]);
 
-export const getBiologyAuthType = memoizee(getBiologyAuthTypeFn);
+export const getBiologyAuthType = memoizee(getBiologyAuthTypeFn, {
+  promise: true,
+});
 
 export const biologyAuthenticate: () => Promise<LocalAuthenticationResult> =
   async () => {
     const supported = await isSupportBiologyAuth();
     if (!supported) {
-      return { success: false, error: 'no supported' };
+      return {
+        success: false,
+        error: 'biologyAuthenticate no supported',
+      };
     }
 
     try {
       const result = await window?.desktopApi?.promptTouchID('action__unlock');
+      return result.success
+        ? { success: true }
+        : {
+            success: false,
+            error: result.error || 'biologyAuthenticate failed',
+          };
+    } catch (e: any) {
       return {
-        success: result.success,
-        error: result.error ?? 'no supported',
+        success: false,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        error: e?.message || 'biologyAuthenticate failed',
       };
-    } catch {
-      return { success: false, error: 'no supported' };
     }
   };
 

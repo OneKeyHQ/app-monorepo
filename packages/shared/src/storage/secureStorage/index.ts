@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import type { ISecureStorage } from './typrs';
+import type { ISecureStorage } from './types';
 
 const setSecureItem = async (key: string, data: string) =>
   Promise.reject(new Error('no supported'));

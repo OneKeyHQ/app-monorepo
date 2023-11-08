@@ -1,5 +1,4 @@
 import type { LocaleSymbol } from '@onekeyhq/components';
-import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { EAtomNames } from '../atomNames';
@@ -12,8 +11,8 @@ export type ISettingsAtom = {
   version: string;
   buildNumber?: string;
   instanceId: string;
-  isBiologyAuthSupported?: boolean;
   isPasswordSet: boolean;
+  isBiologyAuthSwitchOn: boolean;
 };
 export const { target: settingsAtom, use: useSettingsAtom } =
   globalAtom<ISettingsAtom>({
@@ -27,6 +26,7 @@ export const { target: settingsAtom, use: useSettingsAtom } =
       buildNumber: process.env.BUILD_NUMBER ?? '2022010100',
       instanceId: generateUUID(),
       isPasswordSet: false,
+      isBiologyAuthSwitchOn: true,
     },
   });
 
@@ -48,33 +48,3 @@ export const { target: settingsIsLightCNAtom, use: useSettingsIsLightCNAtom } =
       timeNow.length > 0
     );
   });
-
-export const {
-  target: settingsIsBiologyAuthSwitchOnAtom,
-  use: useSettingsIsBiologyAuthSwitchOnAtom,
-} = globalAtom({
-  persist: true,
-  name: EAtomNames.settingsIsBiologyAuthSwitchOnAtom,
-  initialValue: true,
-});
-
-export const {
-  target: settingsBiologyAuthInfoAtom,
-  use: useSettingsBiologyAuthInfoAtom,
-} = globalAtomComputed(async (get) => {
-  const authType = await biologyAuth.getBiologyAuthType();
-  const isSupport = await biologyAuth.isSupportBiologyAuth();
-  const isEnable = isSupport && get(settingsIsBiologyAuthSwitchOnAtom.atom());
-  return { authType, isSupport, isEnable };
-});
-
-export type ISettingsPromptPromiseAtom = {
-  promiseId?: number;
-};
-export const {
-  target: settingsPromptPromiseAtom,
-  use: useSettingsPromptPromiseAtom,
-} = globalAtom<ISettingsPromptPromiseAtom>({
-  name: EAtomNames.settingsPromptPromiseAtom,
-  initialValue: {},
-});

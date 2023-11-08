@@ -81,8 +81,7 @@ const Swap = () => {
           onPress={async () => {
             const { status, data } =
               await (backgroundApiProxy.servicePassword.promptPasswordVerify() as Promise<IPasswordRes>);
-            console.log('status-', status);
-            console.log('data-', data);
+            console.log('data', data);
             if (status === EPasswordResStatus.PASS_STATUS) {
               Toast.success({ title: '验证成功' });
             }

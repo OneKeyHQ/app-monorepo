@@ -18,18 +18,18 @@ const PasswordUpdateContainer = ({
     async (data: IPasswordUpdateForm) => {
       setLoading(true);
       try {
-        const enCodeNewPassword =
+        const encodeNewPassword =
           await backgroundApiProxy.servicePassword.encodeSensitivePassword(
             data.newPassword,
           );
-        const enCodeOldPassword =
+        const encodeOldPassword =
           await backgroundApiProxy.servicePassword.encodeSensitivePassword(
             data.oldPassword,
           );
         const updatePasswordRes =
           await backgroundApiProxy.servicePassword.updatePassword(
-            enCodeOldPassword,
-            enCodeNewPassword,
+            encodeOldPassword,
+            encodeNewPassword,
           );
         if (updatePasswordRes) {
           onUpdateRes(updatePasswordRes);

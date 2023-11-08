@@ -2,8 +2,7 @@ import { memo, useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { encodePassword } from '@onekeyhq/core/src/secret';
-import { useSettingsBiologyAuthInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePasswordBiologyAuthInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import PasswordVerify from '../components/PasswordVerify';
@@ -18,7 +17,7 @@ interface IPasswordVerifyForm {
 
 const PasswordVerifyContainer = ({ onVerifyRes }: IPasswordVerifyProps) => {
   const intl = useIntl();
-  const [{ authType, isEnable }] = useSettingsBiologyAuthInfoAtom();
+  const [{ authType, isEnable }] = usePasswordBiologyAuthInfoAtom();
   const [status, setStatues] = useState<{
     value: 'default' | 'verifying' | 'verified' | 'error';
     message?: string;
@@ -52,12 +51,14 @@ const PasswordVerifyContainer = ({ onVerifyRes }: IPasswordVerifyProps) => {
     async (data: IPasswordVerifyForm) => {
       setStatues({ value: 'verifying' });
       try {
-        const enCodePassword = encodePassword({ password: data.password });
+        const encodePassword =
+          await backgroundApiProxy.servicePassword.encodeSensitivePassword(
+            data.password,
+          );
         const verifiedPassword =
           await backgroundApiProxy.servicePassword.verifyPassword(
-            enCodePassword,
+            encodePassword,
           );
-        console.log('verifiedPassword-', verifiedPassword);
         if (verifiedPassword) {
           onVerifyRes(verifiedPassword);
           setStatues({ value: 'verified' });

@@ -1,6 +1,6 @@
 import { deleteItemAsync, getItemAsync, setItemAsync } from 'expo-secure-store';
 
-import type { ISecureStorage } from './typrs';
+import type { ISecureStorage } from './types';
 
 export const setSecureItem = async (key: string, data: string) =>
   setItemAsync(key, data);

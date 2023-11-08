@@ -70,9 +70,9 @@ function encodePassword({ password }: { password: string }): string {
 
 function encrypt(password: string, data: Buffer): Buffer {
   // eslint-disable-next-line no-param-reassign
-  password = decodePassword({ password });
+  const passwordDecoded = decodePassword({ password });
   const salt: Buffer = crypto.randomBytes(PBKDF2_SALT_LENGTH);
-  const key: Buffer = keyFromPasswordAndSalt(password, salt);
+  const key: Buffer = keyFromPasswordAndSalt(passwordDecoded, salt);
   const iv: Buffer = crypto.randomBytes(AES256_IV_LENGTH);
   return Buffer.concat([
     salt,
@@ -89,7 +89,7 @@ async function encryptAsync({
   data: Buffer;
 }): Promise<Buffer> {
   // eslint-disable-next-line no-param-reassign
-  password = decodePassword({ password });
+  const passwordDecoded = decodePassword({ password });
 
   if (platformEnv.isNative && !platformEnv.isJest) {
     throw new Error('webembedApiProxy not ready yet');
@@ -103,7 +103,7 @@ async function encryptAsync({
     // return bufferUtils.toBuffer(str, 'hex');
   }
 
-  return Promise.resolve(encrypt(password, data));
+  return Promise.resolve(encrypt(passwordDecoded, data));
 }
 
 function encryptString({
@@ -119,10 +119,10 @@ function encryptString({
 
 function decrypt(password: string, data: Buffer): Buffer {
   // eslint-disable-next-line no-param-reassign
-  password = decodePassword({ password });
+  const passwordDecoded = decodePassword({ password });
 
   const salt: Buffer = data.slice(0, PBKDF2_SALT_LENGTH);
-  const key: Buffer = keyFromPasswordAndSalt(password, salt);
+  const key: Buffer = keyFromPasswordAndSalt(passwordDecoded, salt);
   const iv: Buffer = data.slice(PBKDF2_SALT_LENGTH, ENCRYPTED_DATA_OFFSET);
 
   try {
@@ -145,7 +145,7 @@ async function decryptAsync({
   data: Buffer;
 }): Promise<Buffer> {
   // eslint-disable-next-line no-param-reassign
-  password = decodePassword({ password });
+  const passwordDecoded = decodePassword({ password });
 
   if (platformEnv.isNative && !platformEnv.isJest) {
     throw new Error('webembedApiProxy not ready yet');
@@ -159,7 +159,7 @@ async function decryptAsync({
     // return bufferUtils.toBuffer(str, 'hex');
   }
 
-  return Promise.resolve(decrypt(password, data));
+  return Promise.resolve(decrypt(passwordDecoded, data));
 }
 
 function decryptString({

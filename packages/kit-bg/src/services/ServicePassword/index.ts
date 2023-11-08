@@ -12,12 +12,11 @@ import * as error from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import localDb from '../../dbs/local/localDb';
+import { settingsAtom } from '../../states/jotai/atoms';
 import {
-  settingsAtom,
-  settingsBiologyAuthInfoAtom,
-  settingsIsBiologyAuthSwitchOnAtom,
-  settingsPromptPromiseAtom,
-} from '../../states/jotai/atoms';
+  passwordBiologyAuthInfoAtom,
+  passwordPromptPromiseAtom,
+} from '../../states/jotai/atoms/password';
 import ServiceBase from '../ServiceBase';
 import { checkExtUIOpen } from '../utils';
 
@@ -71,14 +70,14 @@ export default class ServicePassword extends ServiceBase {
   }
 
   async biologyAuthSavePassword(password: string): Promise<void> {
-    const { isSupport } = await settingsBiologyAuthInfoAtom.get();
+    const { isSupport } = await passwordBiologyAuthInfoAtom.get();
     if (isSupport) {
       await savePassword(password);
     }
   }
 
   async biologyAuthGetPassword(): Promise<string> {
-    const { isSupport } = await settingsBiologyAuthInfoAtom.get();
+    const { isSupport } = await passwordBiologyAuthInfoAtom.get();
     if (isSupport) {
       return getPassword();
     }
@@ -122,7 +121,10 @@ export default class ServicePassword extends ServiceBase {
         throw new error.BiologyAuthFailed();
       }
     }
-    await settingsIsBiologyAuthSwitchOnAtom.set(enable);
+    await settingsAtom.set((v) => ({
+      ...v,
+      isBiologyAuthSwitchOn: enable,
+    }));
   }
 
   @backgroundMethod()
@@ -201,7 +203,7 @@ export default class ServicePassword extends ServiceBase {
         resolve,
         reject,
       });
-      void settingsPromptPromiseAtom.set({ promiseId });
+      void passwordPromptPromiseAtom.set({ promiseId });
     });
   }
 

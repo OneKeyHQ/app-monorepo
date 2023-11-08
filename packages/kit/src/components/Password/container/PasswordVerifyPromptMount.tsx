@@ -1,15 +1,17 @@
 import { Suspense, useCallback, useEffect } from 'react';
 
+import { isNil } from 'lodash';
+
 import { Dialog, Spinner } from '@onekeyhq/components';
 import { EPasswordResStatus } from '@onekeyhq/kit-bg/src/services/ServicePassword';
-import { useSettingsPromptPromiseAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePasswordPromptPromiseAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import PasswordVerifyContainer from './PasswordVerifyContainer';
 
 const PasswordVerifyPromptMount = () => {
-  const [{ promiseId }] = useSettingsPromptPromiseAtom();
+  const [{ promiseId }] = usePasswordPromptPromiseAtom();
   const showPasswordVerifyPrompt = useCallback((id: number) => {
     const dialog = Dialog.confirm({
       title: 'ConfirmPassword',
@@ -41,7 +43,7 @@ const PasswordVerifyPromptMount = () => {
     });
   }, []);
   useEffect(() => {
-    if (promiseId) {
+    if (!isNil(promiseId)) {
       showPasswordVerifyPrompt(promiseId);
     }
   }, [promiseId, showPasswordVerifyPrompt]);

@@ -21,13 +21,13 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
       } else {
         setLoading(true);
         try {
-          const enCodePassword =
+          const encodePassword =
             await backgroundApiProxy.servicePassword.encodeSensitivePassword(
               data.password,
             );
           const updatePasswordRes =
             await backgroundApiProxy.servicePassword.setPassword(
-              enCodePassword,
+              encodePassword,
             );
 
           if (updatePasswordRes) {
