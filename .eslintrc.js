@@ -54,6 +54,11 @@ const tsRules = {
       'format': ['PascalCase'],
       'prefix': ['I'],
     },
+    {
+      'selector': ['enum'],
+      'format': ['PascalCase'],
+      'prefix': ['E'],
+    },
   ],
   'sort-imports': [
     'error',
