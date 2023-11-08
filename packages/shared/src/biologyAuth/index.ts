@@ -13,7 +13,7 @@ const biologyAuthenticate: () => Promise<LocalAuthenticationResult> = () =>
   Promise.reject(new Error('no supported'));
 
 const getBiologyAuthType: () => Promise<AuthenticationType[]> = () =>
-  Promise.reject(new Error('no supported'));
+  Promise.resolve([]);
 
 const biologyAuth: IBiologyAuth = {
   isSupportBiologyAuth,

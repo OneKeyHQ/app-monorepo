@@ -10,7 +10,6 @@ import BiologyAuthSwitch from '../components/BiologyAuthSwitch';
 const BiologyAuthSwitchContainer = () => {
   const [{ isSupport }] = usePasswordBiologyAuthInfoAtom();
   const [settings] = useSettingsAtom();
-  console.log('isBio', settings.isBiologyAuthSwitchOn);
   const onChange = useCallback(async (checked: boolean) => {
     try {
       await backgroundApiProxy.servicePassword.setBiologyAuthEnable(checked);
