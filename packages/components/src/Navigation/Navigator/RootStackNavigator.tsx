@@ -9,7 +9,7 @@ import {
 } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
-import type { CommonNavigatorConfig } from './types';
+import type { ICommonNavigatorConfig } from './types';
 import type { ParamListBase } from '@react-navigation/routers';
 
 type IRootStackType = 'normal' | 'modal' | 'fullScreen';
@@ -17,7 +17,7 @@ type IRootStackType = 'normal' | 'modal' | 'fullScreen';
 export interface IRootStackNavigatorConfig<
   RouteName extends string,
   P extends ParamListBase,
-> extends CommonNavigatorConfig<RouteName, P> {
+> extends ICommonNavigatorConfig<RouteName, P> {
   initialRoute?: boolean;
   type?: IRootStackType;
   disable?: boolean;

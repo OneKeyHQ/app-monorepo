@@ -9,7 +9,7 @@ import { createStackNavigator } from '../StackNavigator';
 
 import { hasStackNavigatorModal } from './CommonConfig.ts';
 
-import type { CommonNavigatorConfig } from './types';
+import type { ICommonNavigatorConfig } from './types';
 import type { ILocaleIds } from '../../locale';
 import type { IModalNavigationOptions } from '../ScreenProps';
 import type { RouteProp } from '@react-navigation/native';
@@ -18,7 +18,7 @@ import type { ParamListBase } from '@react-navigation/routers';
 export interface IModalFlowNavigatorConfig<
   RouteName extends string,
   P extends ParamListBase,
-> extends CommonNavigatorConfig<RouteName, P> {
+> extends ICommonNavigatorConfig<RouteName, P> {
   translationId: ILocaleIds | string;
   allowDisableClose?: boolean;
   disableClose?: boolean;
