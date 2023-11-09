@@ -5,7 +5,7 @@ import { MotiView } from 'moti';
 import { StyleSheet } from 'react-native';
 import { getTokens, useTheme } from 'tamagui';
 
-import { Portal, YStack } from '@onekeyhq/components';
+import { Icon, Portal, YStack } from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -34,6 +34,14 @@ function TabItemView({
   options: BottomTabNavigationOptions;
   isCollapse?: boolean;
 }) {
+  useMemo(() => {
+    // @ts-expect-error
+    const activeIcon = options?.tabBarIcon?.(true) as IICON_NAMES;
+    // @ts-expect-error
+    const inActiveIcon = options?.tabBarIcon?.(false) as IICON_NAMES;
+    // Avoid icon jitter during lazy loading by prefetching icons.
+    void Icon.prefetch(activeIcon, inActiveIcon);
+  }, [options]);
   const contentMemo = useMemo(
     () => (
       <TabItem
