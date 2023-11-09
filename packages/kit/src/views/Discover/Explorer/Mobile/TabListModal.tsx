@@ -4,7 +4,7 @@ import { useCallback, useMemo } from 'react';
 import { FlatList } from 'react-native';
 
 import { IconButton, ModalContainer, Stack, Text } from '@onekeyhq/components';
-import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { useWebTabs } from '../../Controller/useWebTabs';
@@ -18,7 +18,7 @@ export const tabGridRefs: Record<string, View> = {};
 
 const WebTabItem: FC<WebTab> = ({ isCurrent, title, id, url }) => {
   const navigation =
-    useAppNavigation<PageNavigationProp<DiscoverModalParamList>>();
+    useAppNavigation<IPageNavigationProp<DiscoverModalParamList>>();
   return (
     <Stack
       w="full"

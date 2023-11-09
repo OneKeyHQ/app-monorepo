@@ -11,7 +11,7 @@ import type {
   TextInputSubmitEditingEventData,
 } from 'react-native';
 
-type HeaderSearchBarProps = {
+type IHeaderSearchBarProps = {
   height?: string;
   /**
    * A callback that gets called when search bar has lost focus
@@ -43,7 +43,7 @@ function HeaderSearchBar({
   onChangeText,
   onSearchButtonPress,
   placeholder,
-}: HeaderSearchBarProps) {
+}: IHeaderSearchBarProps) {
   const media = useMedia();
 
   const handleChangeCallback = useCallback(

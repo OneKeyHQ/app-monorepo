@@ -1,20 +1,20 @@
 import { isValidElement } from 'react';
 
 import { Avatar } from '../Avatar';
-import { type ICON_NAMES, Icon } from '../Icon';
+import { type IICON_NAMES, Icon } from '../Icon';
 import { IconButton } from '../IconButton';
 import { Stack } from '../Stack';
 import { Text } from '../Text';
 
-import type { IconButtonProps } from '../IconButton';
+import type { IIconButtonProps } from '../IconButton';
 import type { AvatarProps, GetProps, StackProps } from 'tamagui';
 
 /* Image */
-type ListItemAvatarProps = {
+type IListItemAvatarProps = {
   src: string;
 } & AvatarProps;
 
-const ListItemAvatar = (props: ListItemAvatarProps) => {
+const ListItemAvatar = (props: IListItemAvatarProps) => {
   const { src, ...rest } = props;
 
   return (
@@ -26,7 +26,7 @@ const ListItemAvatar = (props: ListItemAvatarProps) => {
 };
 
 /* Text */
-interface ListItemTextProps extends StackProps {
+interface IListItemTextProps extends StackProps {
   primary?: string | React.ReactNode;
   secondary?: string | React.ReactNode;
   align?: 'left' | 'center' | 'right';
@@ -34,7 +34,7 @@ interface ListItemTextProps extends StackProps {
   secondaryTextProps?: GetProps<typeof Text>;
 }
 
-const ListItemText = (props: ListItemTextProps) => {
+const ListItemText = (props: IListItemTextProps) => {
   const {
     primary,
     secondary,
@@ -88,23 +88,23 @@ const ListItemText = (props: ListItemTextProps) => {
 };
 
 /* IconButton */
-const ListItemIconButton = (props: IconButtonProps) => (
+const ListItemIconButton = (props: IIconButtonProps) => (
   <IconButton variant="tertiary" size="medium" {...props} />
 );
 
 /* ListItem */
-interface ListItemProps extends StackProps {
+interface IListItemProps extends StackProps {
   title?: string;
-  titleProps?: ListItemTextProps['primaryTextProps'];
+  titleProps?: IListItemTextProps['primaryTextProps'];
   subtitle?: string;
-  subtitleProps?: ListItemTextProps['secondaryTextProps'];
-  avatarProps?: ListItemAvatarProps;
-  icon?: ICON_NAMES;
+  subtitleProps?: IListItemTextProps['secondaryTextProps'];
+  avatarProps?: IListItemAvatarProps;
+  icon?: IICON_NAMES;
   drillIn?: boolean;
   checkMark?: boolean;
 }
 
-function ListItem(props: ListItemProps) {
+function ListItem(props: IListItemProps) {
   const {
     avatarProps,
     icon,

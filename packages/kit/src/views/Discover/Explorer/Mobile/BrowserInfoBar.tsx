@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { Image } from 'react-native';
 
 import { Stack, Text } from '@onekeyhq/components';
-import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 // @ts-expect-error
 import dAppFavicon from '@onekeyhq/kit/assets/dapp_favicon.png';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -16,7 +16,7 @@ import { atomWebTabsMap, useAtomWebTabs } from '../Context/contextWebTabs';
 
 function BrowserInfoBar() {
   const navigation =
-    useAppNavigation<PageNavigationProp<DiscoverModalParamList>>();
+    useAppNavigation<IPageNavigationProp<DiscoverModalParamList>>();
   const { currentTabId } = useWebTabs();
   const [map] = useAtomWebTabs(atomWebTabsMap);
   const tab = map[currentTabId || ''];

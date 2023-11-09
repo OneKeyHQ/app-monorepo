@@ -9,9 +9,9 @@ import {
 import ModalStack from './ModalStack';
 
 import type {
-  ModalNavigationConfig,
-  ModalNavigationEventMap,
-  ModalNavigationOptions,
+  IModalNavigationConfig,
+  IModalNavigationEventMap,
+  IModalNavigationOptions,
 } from './types';
 import type {
   DefaultNavigatorOptions,
@@ -21,27 +21,27 @@ import type {
   StackRouterOptions,
 } from '@react-navigation/native';
 
-type Props = DefaultNavigatorOptions<
+type IProps = DefaultNavigatorOptions<
   ParamListBase,
   StackNavigationState<ParamListBase>,
-  ModalNavigationOptions,
-  ModalNavigationEventMap
+  IModalNavigationOptions,
+  IModalNavigationEventMap
 > &
   StackRouterOptions &
-  ModalNavigationConfig;
+  IModalNavigationConfig;
 
 function ModalNavigator({
   initialRouteName,
   children,
   screenOptions,
   ...rest
-}: Props) {
+}: IProps) {
   const { state, descriptors, navigation } = useNavigationBuilder<
     StackNavigationState<ParamListBase>,
     StackRouterOptions,
     StackActionHelpers<ParamListBase>,
-    ModalNavigationOptions,
-    ModalNavigationEventMap
+    IModalNavigationOptions,
+    IModalNavigationEventMap
   >(StackRouter, {
     initialRouteName,
     children,
@@ -61,7 +61,7 @@ function ModalNavigator({
 
 export default createNavigatorFactory<
   StackNavigationState<ParamListBase>,
-  ModalNavigationOptions,
-  ModalNavigationEventMap,
+  IModalNavigationOptions,
+  IModalNavigationEventMap,
   typeof ModalNavigator
 >(ModalNavigator);

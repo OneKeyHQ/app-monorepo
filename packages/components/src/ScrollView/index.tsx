@@ -16,7 +16,7 @@ setupReactNative({
   ScrollView: ScrollViewNative,
 });
 
-export type ScrollViewProps = Omit<
+export type IScrollViewProps = Omit<
   ScrollViewNativeProps,
   'contentContainerStyle'
 > &
@@ -24,11 +24,11 @@ export type ScrollViewProps = Omit<
     contentContainerStyle?: StackProps;
   };
 
-export type ScrollViewRef = ScrollViewNative;
+export type IScrollViewRef = ScrollViewNative;
 
 function BaseScrollView(
-  { children, contentContainerStyle = {}, ...props }: ScrollViewProps,
-  ref: ForwardedRef<ScrollViewRef>,
+  { children, contentContainerStyle = {}, ...props }: IScrollViewProps,
+  ref: ForwardedRef<IScrollViewRef>,
 ) {
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',

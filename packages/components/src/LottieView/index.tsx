@@ -9,14 +9,14 @@ import type { LottieViewProps as LottieNativeProps } from 'lottie-react-native';
 import type { AppStateStatus } from 'react-native';
 
 // Stick props the same as LottieNative by now
-type LottieViewProps = Omit<LottieWebProps, 'animationData'> & {
+export type ILottieViewProps = Omit<LottieWebProps, 'animationData'> & {
   source: LottieWebProps['animationData'] | LottieNativeProps['source'];
   style?: LottieNativeProps['style'];
   autoPlay?: boolean;
   resizeMode?: 'cover' | 'contain' | 'center';
 };
 
-const LottieView = forwardRef<typeof AnimatedLottieView, LottieViewProps>(
+const LottieView = forwardRef<typeof AnimatedLottieView, ILottieViewProps>(
   ({ source, loop, resizeMode, ...props }, ref) => {
     const animationRef = useRef<AnimatedLottieView | null>();
 

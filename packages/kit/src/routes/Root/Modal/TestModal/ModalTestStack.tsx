@@ -1,11 +1,11 @@
-import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
+import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
 
 import { ModalTestRoutes } from './Routes';
 import TestSimpleModal from './TestSimpleModal';
 
 import type { ModalTestParamList } from './Routes';
 
-export const ModalTestStack: ModalFlowNavigatorConfig<
+export const ModalTestStack: IModalFlowNavigatorConfig<
   ModalTestRoutes,
   ModalTestParamList
 >[] = [

@@ -10,14 +10,14 @@ import { Icon } from '../Icon';
 import { Spinner } from '../Spinner';
 import { Text } from '../Text';
 
-import type { ICON_NAMES } from '../Icon';
-import type { ColorTokens, GetProps } from 'tamagui';
+import type { IICON_NAMES, IIconProps } from '../Icon';
+import type { ColorTokens, ThemeableStackProps } from 'tamagui';
 
-export interface ButtonProps extends GetProps<typeof ThemeableStack> {
+export interface IButtonProps extends ThemeableStackProps {
   size?: 'small' | 'medium' | 'large';
   variant?: 'secondary' | 'tertiary' | 'primary' | 'destructive';
-  icon?: ICON_NAMES;
-  iconAfter?: ICON_NAMES;
+  icon?: IICON_NAMES;
+  iconAfter?: IICON_NAMES;
   disabled?: boolean;
   loading?: boolean;
   children: React.ReactNode;
@@ -25,7 +25,7 @@ export interface ButtonProps extends GetProps<typeof ThemeableStack> {
 }
 
 const BUTTON_VARIANTS: Record<
-  Exclude<ButtonProps['variant'], undefined>,
+  Exclude<IButtonProps['variant'], undefined>,
   {
     color: ColorTokens;
     iconColor: ColorTokens;
@@ -73,7 +73,7 @@ export const getSharedButtonStyles = ({
   variant,
   disabled,
   loading,
-}: Partial<ButtonProps>) => {
+}: Partial<IButtonProps>) => {
   const { iconColor, color, bg, hoverBg, activeBg, focusRingColor } =
     BUTTON_VARIANTS[variant || 'secondary'];
 
@@ -104,7 +104,7 @@ export const getSharedButtonStyles = ({
   };
 };
 
-const getSizeStyles = (size: ButtonProps['size']) => {
+const getSizeStyles = (size: IButtonProps['size']) => {
   const sizes = {
     small: {
       py: '$1',
@@ -141,8 +141,7 @@ function ButtonIcon({
   variant,
   size,
   ...props
-}: Pick<ButtonProps, 'variant' | 'size'> &
-  Omit<GetProps<typeof Icon>, 'size'>) {
+}: Pick<IButtonProps, 'variant' | 'size'> & Omit<IIconProps, 'size'>) {
   const { iconColor } = BUTTON_VARIANTS[variant || 'secondary'];
 
   return (
@@ -154,7 +153,7 @@ function ButtonIcon({
   );
 }
 
-type SharedFrameStylesProps = {
+type ISharedFrameStylesProps = {
   hoverStyle: {
     bg: ColorTokens;
   };
@@ -172,7 +171,7 @@ type SharedFrameStylesProps = {
   borderColor: string;
 };
 
-const ButtonComponent = ButtonFrame.styleable<ButtonProps>((props, ref) => {
+const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
   const {
     size = 'medium',
     icon,
@@ -192,7 +191,7 @@ const ButtonComponent = ButtonFrame.styleable<ButtonProps>((props, ref) => {
     disabled,
     loading,
   }) as {
-    sharedFrameStyles: SharedFrameStylesProps;
+    sharedFrameStyles: ISharedFrameStylesProps;
     iconColor: ColorTokens;
     color: ColorTokens;
   };

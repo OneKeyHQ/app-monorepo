@@ -3,8 +3,8 @@
 import type { IAppSelector, IPersistor, IStore } from '@onekeyhq/kit/src/store';
 
 import type ProviderApiBase from '../providers/ProviderApiBase';
-import type ServicePassword from '../services/ServicePassword';
 import type ServiceApp from '../services/ServiceApp';
+import type ServicePassword from '../services/ServicePassword';
 import type ServicePromise from '../services/ServicePromise';
 import type { EAtomNames } from '../states/jotai/atomNames';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';

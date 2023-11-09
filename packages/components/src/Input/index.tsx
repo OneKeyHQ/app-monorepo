@@ -9,22 +9,22 @@ import { Text } from '../Text';
 
 import { getSharedInputStyles } from './sharedStyles';
 
-import type { ICON_NAMES } from '../Icon';
+import type { IICON_NAMES } from '../Icon';
 import type { GetProps } from 'tamagui';
 
-type TMInputProps = GetProps<typeof TMInput>;
+type ITMInputProps = GetProps<typeof TMInput>;
 
-export type InputProps = {
+export type IInputProps = {
   size?: 'small' | 'medium' | 'large';
-  leftIconName?: ICON_NAMES;
+  leftIconName?: IICON_NAMES;
   error?: boolean;
   addOns?: {
-    iconName?: ICON_NAMES;
+    iconName?: IICON_NAMES;
     label?: string;
     onPress?: () => void;
     loading?: boolean;
   }[];
-} & Omit<TMInputProps, 'size'>;
+} & Omit<ITMInputProps, 'size'>;
 
 const SIZE_MAPPINGS = {
   'large': {
@@ -59,7 +59,7 @@ function BaseInput(
     editable,
     error,
     ...props
-  }: InputProps,
+  }: IInputProps,
   ref: Ref<any>,
 ) {
   const {

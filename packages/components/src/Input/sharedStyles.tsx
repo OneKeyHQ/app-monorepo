@@ -1,12 +1,12 @@
-import type { InputProps } from '.';
+import type { IInputProps } from '.';
 
-type SharedStylesProps = Pick<InputProps, 'disabled' | 'editable' | 'error'>;
+type ISharedStylesProps = Pick<IInputProps, 'disabled' | 'editable' | 'error'>;
 
 export function getSharedInputStyles({
   disabled,
   editable,
   error,
-}: SharedStylesProps) {
+}: ISharedStylesProps) {
   const getBorderColor = () => {
     if (disabled) return '$borderDisabled';
     if (editable === false) return '$border';

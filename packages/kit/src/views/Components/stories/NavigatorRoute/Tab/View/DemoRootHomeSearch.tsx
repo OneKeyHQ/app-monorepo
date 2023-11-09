@@ -1,7 +1,7 @@
 import { useLayoutEffect } from 'react';
 
 import { Button, Stack, Text } from '@onekeyhq/components';
-import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
@@ -18,7 +18,7 @@ import type {
 
 const DemoRootHomeSearch = () => {
   const navigation =
-    useDemoAppNavigation<PageNavigationProp<DemoHomeTabParamList>>();
+    useDemoAppNavigation<IPageNavigationProp<DemoHomeTabParamList>>();
 
   useLayoutEffect(() => {
     navigation.setOptions({

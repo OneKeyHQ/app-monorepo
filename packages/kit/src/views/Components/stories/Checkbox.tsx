@@ -1,11 +1,11 @@
 import { useState } from 'react';
 
-import type { CheckboxProps, CheckedState } from '@onekeyhq/components';
+import type { ICheckboxProps, ICheckedState } from '@onekeyhq/components';
 import { Checkbox, Stack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
-function CheckboxDemo({ ...props }: CheckboxProps) {
+function CheckboxDemo({ ...props }: ICheckboxProps) {
   const [val, setVal] = useState(false);
 
   return (
@@ -20,7 +20,7 @@ function CheckboxDemo({ ...props }: CheckboxProps) {
 }
 
 function CheckboxGroupDemo() {
-  const [val, setVal] = useState([false, true, false] as CheckedState[]);
+  const [val, setVal] = useState<ICheckedState[]>([false, true, false]);
   return (
     <Checkbox.Group
       label="All"

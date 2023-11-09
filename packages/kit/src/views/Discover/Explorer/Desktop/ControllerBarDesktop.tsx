@@ -4,7 +4,7 @@ import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { IconButton, Input, XStack } from '@onekeyhq/components';
-import type { ICON_NAMES } from '@onekeyhq/components';
+import type { IICON_NAMES } from '@onekeyhq/components';
 
 import { gotoSite, openMatchDApp } from '../../Controller/gotoSite';
 import { useWebController } from '../../Controller/useWebController';
@@ -16,7 +16,7 @@ import type { TextInput } from 'react-native';
 type BrowserURLInputProps = {
   onClear?: () => void;
   onChangeText?: (text: string) => void;
-  customLeftIcon?: ICON_NAMES;
+  customLeftIcon?: IICON_NAMES;
 } & Omit<ComponentProps<typeof Input>, 'onChange' | 'onChangeText'>;
 
 const BrowserURLInput = forwardRef<TextInput, BrowserURLInputProps>(
@@ -48,7 +48,7 @@ const BrowserURLInput = forwardRef<TextInput, BrowserURLInputProps>(
 );
 BrowserURLInput.displayName = 'BrowserURLInput';
 
-function getHttpSafeState(searchContent?: string): ICON_NAMES {
+function getHttpSafeState(searchContent?: string): IICON_NAMES {
   try {
     if (!searchContent) {
       return 'SearchOutline';

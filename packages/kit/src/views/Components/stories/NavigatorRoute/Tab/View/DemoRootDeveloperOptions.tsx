@@ -1,7 +1,7 @@
 import { useRoute } from '@react-navigation/core';
 
 import { Button, Stack } from '@onekeyhq/components';
-import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
@@ -14,7 +14,7 @@ import type { RouteProp } from '@react-navigation/core';
 
 const DemoRootDeveloperOptions = () => {
   const navigation =
-    useDemoAppNavigation<PageNavigationProp<DemoDeveloperTabParamList>>();
+    useDemoAppNavigation<IPageNavigationProp<DemoDeveloperTabParamList>>();
   const route = useRoute<RouteProp<DemoDeveloperTabParamList>>();
 
   return (

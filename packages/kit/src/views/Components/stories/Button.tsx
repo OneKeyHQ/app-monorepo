@@ -1,4 +1,4 @@
-import { Button, Stack, XStack } from '@onekeyhq/components';
+import { Button, Stack, XStack, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -11,7 +11,7 @@ const ButtonGallery = () => (
       {
         title: 'Variants',
         element: (
-          <XStack space="$2" alignItems="center">
+          <YStack space="$2" alignItems="center">
             <Button icon="PlaceholderOutline">Secondary</Button>
             <Button icon="PlaceholderOutline" variant="primary">
               Primary
@@ -22,7 +22,7 @@ const ButtonGallery = () => (
             <Button icon="PlaceholderOutline" variant="tertiary">
               Tertiary
             </Button>
-          </XStack>
+          </YStack>
         ),
       },
       {
@@ -76,6 +76,16 @@ const ButtonGallery = () => (
             </Button>
             <Button loading variant="tertiary">
               Tertiary
+            </Button>
+          </Stack>
+        ),
+      },
+      {
+        title: 'iconAfter',
+        element: (
+          <Stack space="$4">
+            <Button iconAfter="PlaceholderOutline" color="$red1">
+              IconAfter
             </Button>
           </Stack>
         ),

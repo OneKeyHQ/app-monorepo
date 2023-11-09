@@ -2,7 +2,7 @@ import { Switch as TMSwitch, useTheme } from 'tamagui';
 
 import type { GetProps } from 'tamagui';
 
-export type SwitchProps = Omit<
+export type ISwitchProps = Omit<
   GetProps<typeof TMSwitch>,
   'checked' | 'onCheckedChange' | 'value'
 > & {
@@ -17,7 +17,7 @@ export function Switch({
   size = 'large',
   disabled,
   ...restProps
-}: SwitchProps) {
+}: ISwitchProps) {
   const theme = useTheme();
 
   return (

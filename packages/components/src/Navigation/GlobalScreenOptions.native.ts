@@ -4,13 +4,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { makeHeaderScreenOptions } from './Header';
 
-import type { StackNavigationOptions } from './ScreenProps';
+import type { IStackNavigationOptions } from './ScreenProps';
 import type { RouteProp } from '@react-navigation/native';
 import type { VariableVal } from '@tamagui/core';
 
 export function clearStackNavigatorOptions(options?: {
   bgColor?: string;
-}): StackNavigationOptions {
+}): IStackNavigationOptions {
   return {
     headerShown: false,
     animation: 'none',
@@ -19,7 +19,7 @@ export function clearStackNavigatorOptions(options?: {
 
 export function makeRootScreenOptions(_: {
   isVerticalLayout?: boolean;
-}): StackNavigationOptions {
+}): IStackNavigationOptions {
   return {
     headerShown: false,
     animation: 'simple_push',
@@ -28,7 +28,7 @@ export function makeRootScreenOptions(_: {
 
 export function makeModalOpenAnimationOptions(_: {
   isVerticalLayout?: boolean;
-}): StackNavigationOptions {
+}): IStackNavigationOptions {
   if (platformEnv.isNativeIOS) {
     return {
       animation: 'slide_from_bottom',
@@ -58,8 +58,8 @@ export function makeModalStackNavigatorOptions({
     route: RouteProp<any>;
     navigation: any;
   };
-}): StackNavigationOptions {
-  let options: StackNavigationOptions = {};
+}): IStackNavigationOptions {
+  let options: IStackNavigationOptions = {};
 
   if (platformEnv.isNativeAndroid) {
     options = {
@@ -113,7 +113,7 @@ export function makeModalScreenOptions({
   isVerticalLayout,
 }: {
   isVerticalLayout: boolean;
-}): StackNavigationOptions {
+}): IStackNavigationOptions {
   return {
     headerShown: false,
     // presentation: platformEnv.isNativeIOS ? 'modal' : 'transparentModal',
@@ -122,8 +122,8 @@ export function makeModalScreenOptions({
   };
 }
 
-export function makeRootModalStackOptions(): StackNavigationOptions {
-  const options: StackNavigationOptions = {
+export function makeRootModalStackOptions(): IStackNavigationOptions {
+  const options: IStackNavigationOptions = {
     headerShown: false,
   };
 
@@ -142,8 +142,8 @@ export function makeTabScreenOptions({
   navigation: any;
   bgColor: VariableVal;
   titleColor: VariableVal;
-}): StackNavigationOptions {
-  const options: StackNavigationOptions = {
+}): IStackNavigationOptions {
+  const options: IStackNavigationOptions = {
     headerShown: true,
     ...makeHeaderScreenOptions({
       isRootScreen: true,
@@ -161,7 +161,7 @@ export function makeTabScreenOptions({
   return options;
 }
 
-export function makeFullScreenOptions(): StackNavigationOptions {
+export function makeFullScreenOptions(): IStackNavigationOptions {
   return {
     headerShown: false,
     presentation: 'fullScreenModal', // containedModal card fullScreenModal

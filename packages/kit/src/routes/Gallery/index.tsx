@@ -24,7 +24,6 @@ import SliderGallery from '@onekeyhq/kit/src/views/Components/stories/Slider';
 import SwitchGallery from '@onekeyhq/kit/src/views/Components/stories/Switch';
 import TabViewGallery from '@onekeyhq/kit/src/views/Components/stories/TabView';
 import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
-import ToggleGroupGallery from '@onekeyhq/kit/src/views/Components/stories/ToggleGroup';
 import TooltipGallery from '@onekeyhq/kit/src/views/Components/stories/Tooltip';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 import WebviewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
@@ -67,7 +66,6 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentListItem, component: ListItemGallery },
   { name: GalleryRoutes.ComponentSkeleton, component: SkeletonGallery },
   { name: GalleryRoutes.ComponentCheckbox, component: CheckboxGallery },
-  { name: GalleryRoutes.ComponentToggleGroup, component: ToggleGroupGallery },
   { name: GalleryRoutes.ComponentActionList, component: ActionListGallery },
   { name: GalleryRoutes.ComponentPopover, component: PopoverGallery },
   { name: GalleryRoutes.ComponentProgress, component: ProgressGallery },

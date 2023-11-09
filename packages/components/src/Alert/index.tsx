@@ -12,9 +12,9 @@ import { Text } from '../Text';
 
 import type { ColorTokens } from 'tamagui';
 
-type AlertType = 'info' | 'warning' | 'critical' | 'success' | 'default';
+type IAlertType = 'info' | 'warning' | 'critical' | 'success' | 'default';
 
-type AlertActionProps = {
+type IAlertActionProps = {
   primary: string;
   onPrimaryPress?: () => void;
   secondary?: string;
@@ -22,18 +22,18 @@ type AlertActionProps = {
 };
 
 const AlertContext = createStyledContext<{
-  type: AlertType;
+  type: IAlertType;
 }>({
   type: 'default',
 });
 
-type AlertProps = {
-  type?: AlertType;
+type IAlertProps = {
+  type?: IAlertType;
   title: string;
   description: string;
   closable?: boolean;
   icon?: ComponentProps<typeof Icon>['name'];
-  action?: AlertActionProps;
+  action?: IAlertActionProps;
 };
 
 const AlertFrame = styled(XStack, {
@@ -75,7 +75,7 @@ const AlertFrame = styled(XStack, {
 
 const AlertIcon = (props: { children: any }) => {
   const { type } = useContext(AlertContext);
-  const colorMapping: Record<AlertType, ColorTokens> = {
+  const colorMapping: Record<IAlertType, ColorTokens> = {
     default: '$iconSubdued',
     info: '$iconInfo',
     warning: '$iconCaution',
@@ -87,7 +87,7 @@ const AlertIcon = (props: { children: any }) => {
   });
 };
 
-export const Alert: FC<AlertProps> = ({
+export const Alert: FC<IAlertProps> = ({
   icon,
   title,
   description,

@@ -14,7 +14,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import localDb from '@onekeyhq/kit-bg/src/dbs/local/localDb';
 import { getMeasureTime } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -71,7 +71,7 @@ function PartContainer({
 
 const TabDeveloper = () => {
   const navigation =
-    useAppNavigation<PageNavigationProp<TabDeveloperParamList>>();
+    useAppNavigation<IPageNavigationProp<TabDeveloperParamList>>();
   const dispatch = useDispatch();
 
   const [rrtStatus, changeRRTStatus] = useStorage(AppSettingKey.rrt);

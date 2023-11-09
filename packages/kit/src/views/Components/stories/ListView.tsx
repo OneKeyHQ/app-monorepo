@@ -1,13 +1,13 @@
 import { useRef } from 'react';
 
-import type { ListViewRef } from '@onekeyhq/components';
+import type { IListViewRef } from '@onekeyhq/components';
 import { Button, Divider, ListView, Text, XStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
 const listData = new Array(100).fill(0).map((_, index) => index);
 const ListViewDemo = () => {
-  const ref = useRef<ListViewRef | null>(null);
+  const ref = useRef<IListViewRef<any> | null>(null);
   return (
     <ListView
       h="$60"

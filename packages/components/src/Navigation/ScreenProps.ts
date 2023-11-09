@@ -20,12 +20,12 @@ import type {
 } from 'react-native';
 
 export type {
-  ModalScreenProps,
-  ModalNavigationProp,
-  ModalNavigationOptions,
+  IModalScreenProps,
+  IModalNavigationProp,
+  IModalNavigationOptions,
 } from './Modal/types';
 
-export interface SearchBarProps {
+export interface ISearchBarProps {
   /**
    * The auto-capitalization behavior
    */
@@ -86,20 +86,20 @@ export interface SearchBarProps {
   hideNavigationBar?: boolean;
 }
 
-export type StackHeaderProps = {
+export type IStackHeaderProps = {
   back?: {
     title: string;
   };
-  options: StackNavigationOptions;
+  options: IStackNavigationOptions;
   route: Route<string>;
-  navigation: PageNavigationProp<ParamListBase>;
+  navigation: IPageNavigationProp<ParamListBase>;
 };
 
-export type StackNavigationOptions = Omit<
+export type IStackNavigationOptions = Omit<
   NativeStackNavigationOptions,
   'headerRight' | 'headerSearchBarOptions'
 > & {
-  headerSearchBarOptions?: SearchBarProps;
+  headerSearchBarOptions?: ISearchBarProps;
   headerRight?: (
     props: HeaderButtonProps,
   ) => ReactElement<
@@ -108,20 +108,20 @@ export type StackNavigationOptions = Omit<
   >;
 };
 
-export type PageScreenProps<
+export type IPageScreenProps<
   ParamList extends ParamListBase,
   RouteName extends keyof ParamList = keyof ParamList,
   NavigatorID extends string | undefined = undefined,
 > = {
-  navigation: PageNavigationProp<ParamList, RouteName, NavigatorID>;
+  navigation: IPageNavigationProp<ParamList, RouteName, NavigatorID>;
   route: RouteProp<ParamList, RouteName>;
 };
 
-export type PageNavigationProp<
+export type IPageNavigationProp<
   ParamList extends ParamListBase,
   RouteName extends keyof ParamList = string,
   NavigatorID extends string | undefined = undefined,
-  Options extends StackNavigationOptions = StackNavigationOptions,
+  Options extends IStackNavigationOptions = IStackNavigationOptions,
 > = NavigationProp<
   ParamList,
   RouteName,

@@ -6,12 +6,12 @@ import LottieViewWeb from 'lottie-react';
 import type { LottieComponentProps as LottieWebProps } from 'lottie-react';
 
 // Stick props the same as LottieNative by now
-type LottieViewProps = Omit<LottieWebProps, 'animationData'> & {
+type ILottieViewProps = Omit<LottieWebProps, 'animationData'> & {
   source: LottieWebProps['animationData'];
   autoPlay?: boolean;
 };
 
-const LottieView = forwardRef<typeof LottieViewWeb, LottieViewProps>(
+const LottieView = forwardRef<typeof LottieViewWeb, ILottieViewProps>(
   ({ source, autoPlay = false, loop, ...props }, ref) => {
     const animationRef = useRef<any>(null);
 

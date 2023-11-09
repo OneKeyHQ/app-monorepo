@@ -3,7 +3,7 @@ import { dequal as deepEqual } from 'dequal';
 import { debounce, uniq } from 'lodash';
 import uuid from 'react-native-uuid';
 
-import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
+import type { ILocaleSymbol } from '@onekeyhq/components/src/locale';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 // import type { FirmwareType } from '@onekeyhq/kit/src/views/Hardware/UpdateFirmware/Updating';
 import { defaultHapticStatus } from '@onekeyhq/shared/src/haptics';
@@ -50,8 +50,8 @@ export type ISettingsDevModeInfo = {
 };
 export type SettingsState = {
   theme: 'light' | 'dark' | 'system';
-  lastLocale: LocaleSymbol;
-  locale: LocaleSymbol;
+  lastLocale: ILocaleSymbol;
+  locale: ILocaleSymbol;
   version: string;
   buildNumber?: string;
   instanceId: string;
@@ -259,7 +259,7 @@ export const settingsSlice = createSlice({
     setTheme: (state, action: PayloadAction<ThemeVariant | 'system'>) => {
       state.theme = action.payload;
     },
-    setLocale: (state, action: PayloadAction<LocaleSymbol>) => {
+    setLocale: (state, action: PayloadAction<ILocaleSymbol>) => {
       state.lastLocale = state.locale;
       state.locale = action.payload;
     },

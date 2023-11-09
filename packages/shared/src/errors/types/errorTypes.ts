@@ -1,4 +1,4 @@
-import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { ILocaleIds } from '@onekeyhq/components/src/locale';
 
 export enum OneKeyErrorClassNames {
   OneKeyError = 'OneKeyError',
@@ -39,7 +39,7 @@ export interface IOneKeyError<
   // OneKeyError props
   className?: OneKeyErrorClassNames;
   info?: InfoT;
-  key?: LocaleIds;
+  key?: ILocaleIds;
   constructorName?: string;
 }
 

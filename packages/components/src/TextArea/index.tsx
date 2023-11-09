@@ -5,17 +5,17 @@ import { TextArea as TMTextArea, getFontSize } from 'tamagui';
 
 import { getSharedInputStyles } from '../Input/sharedStyles';
 
-import type { InputProps } from '../Input';
+import type { IInputProps } from '../Input';
 import type { TextAreaProps } from 'tamagui';
 
+export type ITextAreaProps = Pick<
+  IInputProps,
+  'disabled' | 'editable' | 'error'
+> &
+  Omit<TextAreaProps, 'size'>;
+
 function BaseTextArea(
-  {
-    disabled,
-    editable,
-    error,
-    ...props
-  }: Pick<InputProps, 'disabled' | 'editable' | 'error'> &
-    Omit<TextAreaProps, 'size'>,
+  { disabled, editable, error, ...props }: ITextAreaProps,
   ref: Ref<any>,
 ) {
   const sharedStyles = getSharedInputStyles({

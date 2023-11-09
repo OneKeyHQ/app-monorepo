@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
+import type { ILocaleSymbol } from '@onekeyhq/components/src/locale';
 import LOCALES from '@onekeyhq/components/src/locale';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 
@@ -16,7 +16,7 @@ export function useThemeProviderVariant() {
   const themeVariant = theme === 'system' ? colorScheme ?? 'dark' : theme;
   const currentVariant = (
     locale === 'system' ? systemLocale : locale
-  ) as LocaleSymbol;
+  ) as ILocaleSymbol;
   const cachedLocale = LOCALES[currentVariant];
   const localeReady = typeof cachedLocale === 'object';
   const [localeVariant, setLocaleVariant] = useState(() => {

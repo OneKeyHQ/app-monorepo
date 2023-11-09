@@ -7,7 +7,7 @@ import { Text } from '../Text';
 
 import type { GetProps } from 'tamagui';
 
-interface SegmentControlProps {
+interface ISegmentControlProps {
   fullWidth?: boolean;
   value: string | number;
   options: {
@@ -82,7 +82,7 @@ function SegmentControlFrame({
   options,
   onChange,
   fullWidth,
-}: SegmentControlProps) {
+}: ISegmentControlProps) {
   const handleChange = useCallback(
     (v: string | number) => {
       onChange(v);
@@ -114,5 +114,5 @@ function SegmentControlFrame({
 
 export const SegmentControl = styled(
   SegmentControlFrame,
-  {} as SegmentControlProps,
+  {} as ISegmentControlProps,
 );

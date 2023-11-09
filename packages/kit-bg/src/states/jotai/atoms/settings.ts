@@ -1,4 +1,4 @@
-import type { LocaleSymbol } from '@onekeyhq/components';
+import type { ILocaleSymbol } from '@onekeyhq/components';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { EAtomNames } from '../atomNames';
@@ -6,8 +6,8 @@ import { globalAtom, globalAtomComputed } from '../utils';
 
 export type ISettingsPersistAtom = {
   theme: 'light' | 'dark' | 'system';
-  lastLocale: LocaleSymbol;
-  locale: LocaleSymbol;
+  lastLocale: ILocaleSymbol;
+  locale: ILocaleSymbol;
   version: string;
   buildNumber?: string;
   instanceId: string;

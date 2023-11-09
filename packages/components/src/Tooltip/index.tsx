@@ -4,13 +4,13 @@ import { Text } from '../Text';
 
 import type { TooltipProps as TMTooltipProps } from 'tamagui';
 
-interface TooltipProps extends TMTooltipProps {
+interface ITooltipProps extends TMTooltipProps {
   renderTrigger: React.ReactNode;
   renderContent: React.ReactNode;
 }
 
 const transformOriginMap: Record<
-  NonNullable<TooltipProps['placement']>,
+  NonNullable<ITooltipProps['placement']>,
   string
 > = {
   'top': 'bottom center',
@@ -32,7 +32,7 @@ export function Tooltip({
   renderContent,
   placement = 'bottom',
   ...props
-}: TooltipProps) {
+}: ITooltipProps) {
   const transformOrigin = transformOriginMap[placement] || 'bottom center';
 
   return (

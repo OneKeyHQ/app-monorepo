@@ -1,11 +1,11 @@
 import { useState } from 'react';
 
-import type { SwitchProps } from '@onekeyhq/components';
+import type { ISwitchProps } from '@onekeyhq/components';
 import { ListItem, Stack, Switch } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
-const SwitchDemo = ({ ...rest }: SwitchProps) => {
+const SwitchDemo = ({ ...rest }: ISwitchProps) => {
   const [val, setVal] = useState(false);
 
   return (

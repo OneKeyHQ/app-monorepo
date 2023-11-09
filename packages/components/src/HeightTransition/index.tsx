@@ -19,7 +19,7 @@ const styles = StyleSheet.create({
   },
 });
 
-type AnimateHeightProps = {
+type IAnimateHeightProps = {
   children?: React.ReactNode;
   /**
    * If `true`, the height will automatically animate to 0. Default: `false`.
@@ -37,7 +37,7 @@ function HeightTransition({
   style,
   onHeightDidAnimate,
   initialHeight = 0,
-}: AnimateHeightProps) {
+}: IAnimateHeightProps) {
   const measuredHeight = useSharedValue(initialHeight);
   const childStyle = useAnimatedStyle(
     () => ({

@@ -4,15 +4,15 @@ import { Icon } from '../../../Icon';
 import { Stack } from '../../../Stack';
 import { Text } from '../../../Text';
 
-import type { ICON_NAMES } from '../../../Icon';
+import type { IICON_NAMES } from '../../../Icon';
 
-interface StackProps {
-  icon?: ICON_NAMES;
+interface IStackProps {
+  icon?: IICON_NAMES;
   label?: string;
   selected?: boolean;
 }
 
-export function TabItem(props: StackProps & GetProps<typeof Stack>) {
+export function TabItem(props: IStackProps & GetProps<typeof Stack>) {
   const { icon, label, selected, ...rest } = props;
 
   return (

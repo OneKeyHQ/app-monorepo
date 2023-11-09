@@ -8,7 +8,7 @@ import { useThemeValue } from '../Provider/hooks/useThemeValue';
 
 import type { ImageProps } from 'react-native';
 
-export type QRCodeProps = {
+export type IQRCodeProps = {
   size: number;
   ecl?: 'L' | 'M' | 'Q' | 'H';
   logo?: ImageProps['source'];
@@ -45,7 +45,7 @@ export function QRCode({
   logoSize = 62,
   size,
   value,
-}: QRCodeProps) {
+}: IQRCodeProps) {
   const href = logo;
   const primaryColor = useThemeValue('text');
   const secondaryColor = useThemeValue('bg');

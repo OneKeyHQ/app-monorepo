@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { Button, Stack, YStack } from '@onekeyhq/components';
-import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { AppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
@@ -31,7 +31,7 @@ const useStorage = platformEnv.isNative
 
 const DemoRootHome = () => {
   const navigation =
-    useDemoAppNavigation<PageNavigationProp<DemoHomeTabParamList>>();
+    useDemoAppNavigation<IPageNavigationProp<DemoHomeTabParamList>>();
 
   const [rrtStatus, changeRRTStatus] = useStorage(AppSettingKey.rrt);
 

@@ -34,7 +34,7 @@ interface ISelectSection {
   title?: string;
 }
 
-interface SelectProps extends TMSelectProps {
+interface ISelectProps extends TMSelectProps {
   items?: ISelectItem[];
   sections?: ISelectSection[];
   sheetProps?: SheetProps;
@@ -212,7 +212,7 @@ function SelectItemsContent({
   );
 }
 
-function Select({
+export function Select({
   items,
   sections,
   sheetProps,
@@ -226,7 +226,7 @@ function Select({
   onValueChange,
   renderTrigger,
   ...props
-}: SelectProps) {
+}: ISelectProps) {
   const { bottom } = useSafeAreaInsets();
 
   const [isOpen, setOpen] = useControllableState({
@@ -423,6 +423,4 @@ function Select({
   );
 }
 
-Select.displayName = 'Select';
-export { Select };
-export type { SelectProps, ISelectItem, ISelectSection };
+export type { ISelectProps, ISelectItem, ISelectSection };
