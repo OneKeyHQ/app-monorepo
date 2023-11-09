@@ -1,5 +1,5 @@
 declare module 'react-native-animated-splash-screen' {
-  interface Props {
+  interface IProps {
     preload?: boolean;
     logoWidth?: number;
     logoHeight?: number;
@@ -17,6 +17,6 @@ declare module 'react-native-animated-splash-screen' {
     children?: React.ReactNode;
   }
 
-  const props: React.FC<Props>;
+  const props: React.FC<IProps>;
   export default props;
 }

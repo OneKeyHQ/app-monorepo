@@ -8,17 +8,17 @@ import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/Navigat
 import { RootStackNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
 
 import ModalNavigator from './Modal/ModalNavigator';
-import { RootRoutes } from './Routes';
+import { ERootRoutes } from './Routes';
 import TabNavigator from './Tab/TabNavigator';
 
-const rootConfig: IRootStackNavigatorConfig<RootRoutes, any>[] = [
+const rootConfig: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   {
-    name: RootRoutes.Main,
+    name: ERootRoutes.Main,
     component: TabNavigator,
     initialRoute: true,
   },
   {
-    name: RootRoutes.Modal,
+    name: ERootRoutes.Modal,
     component: ModalNavigator,
     type: 'modal',
   },
@@ -44,5 +44,5 @@ export const RootNavigator = () => {
     }
   }, [intl]);
 
-  return <RootStackNavigator<RootRoutes, any> config={rootConfig} />;
+  return <RootStackNavigator<ERootRoutes, any> config={rootConfig} />;
 };

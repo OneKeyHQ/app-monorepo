@@ -5,7 +5,7 @@ import { Button, Stack } from '@onekeyhq/components';
 import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
 import { FreezeProbe } from '../../../utils/RenderTools';
-import { DemoCreateModalRoutes, RootModalRoutes } from '../../Modal/Routes';
+import { EDemoCreateModalRoutes, ERootModalRoutes } from '../../Modal/Routes';
 import useDemoAppNavigation from '../../useDemoAppNavigation';
 import { EDemoDeveloperTabRoutes } from '../Routes';
 
@@ -46,8 +46,8 @@ const DemoRootDeveloper = () => {
             <Button
               variant="primary"
               onPress={() => {
-                navigation.pushModal(RootModalRoutes.DemoCreateModal, {
-                  screen: DemoCreateModalRoutes.DemoCreateModal,
+                navigation.pushModal(ERootModalRoutes.DemoCreateModal, {
+                  screen: EDemoCreateModalRoutes.DemoCreateModal,
                   params: {
                     question: '你好',
                   },
@@ -64,7 +64,7 @@ const DemoRootDeveloper = () => {
             <Button
               variant="primary"
               onPress={() => {
-                navigation.pushModal(RootModalRoutes.DemoLockedModal);
+                navigation.pushModal(ERootModalRoutes.DemoLockedModal);
               }}
             >
               打开 Modal Demo
@@ -77,8 +77,8 @@ const DemoRootDeveloper = () => {
             <Button
               variant="primary"
               onPress={() => {
-                navigation.pushModal(RootModalRoutes.DemoCreateModal, {
-                  screen: DemoCreateModalRoutes.DemoBigListModal,
+                navigation.pushModal(ERootModalRoutes.DemoCreateModal, {
+                  screen: EDemoCreateModalRoutes.DemoBigListModal,
                 });
               }}
             >
@@ -92,7 +92,7 @@ const DemoRootDeveloper = () => {
             <Button
               variant="primary"
               onPress={() => {
-                navigation.pushModal(RootModalRoutes.DemoCoverageModal);
+                navigation.pushModal(ERootModalRoutes.DemoCoverageModal);
               }}
             >
               打开 Modal Demo

@@ -2,22 +2,22 @@ import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/Navigat
 import { RootStackNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
 
 import DemoModalStackScreen from './Modal';
-import { DemoRootRoutes } from './Routes';
+import { EDemoRootRoutes } from './Routes';
 import Tab from './Tab/DemoTabNavigator';
 
-const rootConfig: IRootStackNavigatorConfig<DemoRootRoutes, any>[] = [
+const rootConfig: IRootStackNavigatorConfig<EDemoRootRoutes, any>[] = [
   {
-    name: DemoRootRoutes.Main,
+    name: EDemoRootRoutes.Main,
     component: Tab,
     initialRoute: true,
   },
   {
-    name: DemoRootRoutes.Modal,
+    name: EDemoRootRoutes.Modal,
     component: DemoModalStackScreen,
     type: 'modal',
   },
 ];
 
 export const DemoRootApp = () => (
-  <RootStackNavigator<DemoRootRoutes, any> config={rootConfig} />
+  <RootStackNavigator<EDemoRootRoutes, any> config={rootConfig} />
 );

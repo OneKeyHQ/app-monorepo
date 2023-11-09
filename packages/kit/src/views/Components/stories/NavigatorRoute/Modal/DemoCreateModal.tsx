@@ -13,15 +13,15 @@ import IconGallery from '../../Icon';
 import { Layout } from '../../utils/Layout';
 import { NavigationFocusTools } from '../../utils/NavigationTools';
 import { FreezeProbe } from '../../utils/RenderTools';
-import { DemoRootRoutes } from '../Routes';
+import { EDemoRootRoutes } from '../Routes';
 
-import { DemoCreateModalRoutes, RootModalRoutes } from './Routes';
+import { EDemoCreateModalRoutes, ERootModalRoutes } from './Routes';
 
-import type { DemoCreateModalParamList } from './Routes';
+import type { IDemoCreateModalParamList } from './Routes';
 
 function DemoCreateViewModal({
   navigation,
-}: IModalScreenProps<DemoCreateModalParamList>) {
+}: IModalScreenProps<IDemoCreateModalParamList>) {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => <HeaderIconButton icon="AnonymousHidden2Outline" />,
@@ -54,7 +54,7 @@ function DemoCreateViewModal({
                 variant="primary"
                 onPress={() => {
                   navigation.navigate(
-                    DemoCreateModalRoutes.DemoCreateSearchModal,
+                    EDemoCreateModalRoutes.DemoCreateSearchModal,
                     {
                       question: '你好',
                     },
@@ -86,7 +86,7 @@ function DemoCreateViewModal({
 
 function DemoCreateSearchModal({
   navigation,
-}: IModalScreenProps<DemoCreateModalParamList>) {
+}: IModalScreenProps<IDemoCreateModalParamList>) {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerSearchBarOptions: {
@@ -118,7 +118,7 @@ function DemoCreateSearchModal({
               variant="primary"
               onPress={() => {
                 navigation.navigate(
-                  DemoCreateModalRoutes.DemoCreateOptionsModal,
+                  EDemoCreateModalRoutes.DemoCreateOptionsModal,
                   {
                     question: '你好',
                   },
@@ -145,7 +145,7 @@ function DemoCreateSearchModal({
 
 function DemoCreateOptionsModal({
   navigation,
-}: IModalScreenProps<DemoCreateModalParamList>) {
+}: IModalScreenProps<IDemoCreateModalParamList>) {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerSearchBarOptions: {
@@ -180,8 +180,8 @@ function DemoCreateOptionsModal({
               variant="primary"
               onPress={() => {
                 // @ts-expect-error
-                navigation.navigate(DemoRootRoutes.Modal, {
-                  screen: RootModalRoutes.DemoLockedModal,
+                navigation.navigate(EDemoRootRoutes.Modal, {
+                  screen: ERootModalRoutes.DemoLockedModal,
                 });
               }}
             >
@@ -220,26 +220,26 @@ function DemoCreateOptionsModal({
 }
 
 export const CreateModalStack: IModalFlowNavigatorConfig<
-  DemoCreateModalRoutes,
-  DemoCreateModalParamList
+  EDemoCreateModalRoutes,
+  IDemoCreateModalParamList
 >[] = [
   {
-    name: DemoCreateModalRoutes.DemoCreateModal,
+    name: EDemoCreateModalRoutes.DemoCreateModal,
     component: DemoCreateViewModal,
     translationId: 'Modal Demo',
   },
   {
-    name: DemoCreateModalRoutes.DemoCreateSearchModal,
+    name: EDemoCreateModalRoutes.DemoCreateSearchModal,
     component: DemoCreateSearchModal,
     translationId: 'Search Modal',
   },
   {
-    name: DemoCreateModalRoutes.DemoCreateOptionsModal,
+    name: EDemoCreateModalRoutes.DemoCreateOptionsModal,
     component: DemoCreateOptionsModal,
     translationId: 'Options Demo Modal',
   },
   {
-    name: DemoCreateModalRoutes.DemoBigListModal,
+    name: EDemoCreateModalRoutes.DemoBigListModal,
     component: IconGallery,
     translationId: 'Big List Demo Modal',
   },

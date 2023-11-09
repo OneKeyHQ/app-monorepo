@@ -8,9 +8,9 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/demo';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { TabRoutes } from '../Routes';
+import { ETabRoutes } from '../Routes';
 
-import type { TabMeParamList } from './Routes';
+import type { ITabMeParamList } from './Routes';
 
 function MeJotaiDemo() {
   const [b] = useAtom(demoReadOnlyAtom());
@@ -28,14 +28,14 @@ function MeJotaiDemo() {
 }
 
 const TabMe = () => {
-  const navigation = useAppNavigation<IPageNavigationProp<TabMeParamList>>();
+  const navigation = useAppNavigation<IPageNavigationProp<ITabMeParamList>>();
 
   return (
     <Screen>
       <YStack>
         <Button
           onPress={() => {
-            navigation.switchTab(TabRoutes.Home);
+            navigation.switchTab(ETabRoutes.Home);
           }}
         >
           切换到首页
