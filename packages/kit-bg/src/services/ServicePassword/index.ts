@@ -67,13 +67,6 @@ export default class ServicePassword extends ServiceBase {
     throw new OneKeyError.PasswordStrengthValidationFailed();
   }
 
-  async saveCachedPassword(password: string): Promise<void> {
-    const checkResult = await this.validatePassword(password);
-    if (checkResult) {
-      await this.setCachedPassword(password);
-    }
-  }
-
   async biologyAuthSavePassword(password: string): Promise<void> {
     const { isSupport } = await passwordBiologyAuthInfoAtom.get();
     if (isSupport) {
@@ -163,7 +156,7 @@ export default class ServicePassword extends ServiceBase {
   async verifyPassword(password: string): Promise<string> {
     const verified = await this.validatePassword(password);
     if (verified) {
-      await this.saveCachedPassword(password);
+      await this.setCachedPassword(password);
       return password;
     }
     return '';
@@ -191,10 +184,10 @@ export default class ServicePassword extends ServiceBase {
   ): Promise<string> {
     const verified = await this.validatePassword(oldPassword, newPassword);
     if (verified) {
-      await localDb.updatePassword(oldPassword, newPassword);
       await this.biologyAuthSavePassword(newPassword);
-      await this.saveCachedPassword(newPassword);
+      await this.setCachedPassword(newPassword);
       await this.setPasswordSetStatus(true);
+      await localDb.updatePassword(oldPassword, newPassword);
       return newPassword;
     }
     throw new OneKeyError.WrongPassword();
@@ -203,10 +196,10 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async setPassword(password: string): Promise<string> {
     this.validatePasswordStrength(password);
-    await localDb.updatePassword('', password);
     await this.biologyAuthSavePassword(password);
-    await this.saveCachedPassword(password);
+    await this.setCachedPassword(password);
     await this.setPasswordSetStatus(true);
+    await localDb.updatePassword('', password);
     return password;
   }
 
