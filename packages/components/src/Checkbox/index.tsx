@@ -11,16 +11,17 @@ import { XStack, YStack } from '../Stack';
 import type { ViewStyle } from 'react-native';
 import type { CheckedState, CheckboxProps as TMCheckboxProps } from 'tamagui';
 
+export type ICheckedState = CheckedState;
+
 export type ICheckboxProps = Omit<
   TMCheckboxProps,
   'size' | 'onCheckedChange' | 'checked' | 'value'
 > & {
   label?: string;
-  value?: CheckedState;
-  onChange?: (checked: CheckedState) => void;
+  value?: ICheckedState;
+  onChange?: (checked: ICheckedState) => void;
 };
 
-export type ICheckedState = CheckedState;
 
 function RawCheckbox({
   label,
@@ -88,9 +89,9 @@ function RawCheckbox({
 
 interface ICheckboxGroupProps {
   label?: string;
-  value: CheckedState[];
+  value: ICheckedState[];
   disabled?: boolean;
-  onChange: (value: CheckedState[]) => void;
+  onChange: (value: ICheckedState[]) => void;
   listStyle?: ViewStyle;
   options: {
     disabled?: boolean;
@@ -107,12 +108,12 @@ function CheckboxGroupItem({
 }: {
   disabled: boolean;
   label: string;
-  value: CheckedState;
+  value: ICheckedState;
   index: number;
-  onChange: (index: number, value: CheckedState) => void;
+  onChange: (index: number, value: ICheckedState) => void;
 }) {
   const handleOnChange = useCallback(
-    (v: CheckedState) => {
+    (v: ICheckedState) => {
       onChange(index, v);
     },
     [index, onChange],
@@ -143,7 +144,7 @@ function CheckboxGroup({
     onChange(options.map(() => !isAll));
   }, [isAll, onChange, options]);
   const onChangeHandler = useCallback(
-    (index: number, v: CheckedState) => {
+    (index: number, v: ICheckedState) => {
       value[index] = v;
       onChange([...value]);
     },
