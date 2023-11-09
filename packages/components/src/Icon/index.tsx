@@ -9,7 +9,6 @@ import type { IICON_NAMES } from './Icons';
 import { GetProps, styled } from 'tamagui';
 import type { Svg, SvgProps } from 'react-native-svg';
 import { TextStyle } from 'react-native';
-import { Skeleton } from '../Skeleton';
 
 export type IIconContainerProps = Omit<SvgProps, 'color' | 'style'> & {
   name?: IICON_NAMES;
