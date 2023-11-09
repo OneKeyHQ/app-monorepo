@@ -33,7 +33,7 @@ export type DesktopAPI = {
   promptTouchID: (msg: string) => Promise<{ success: boolean; error?: string }>;
   secureSetItemAsync: (key: string, value: string) => Promise<void>;
   secureGetItemAsync: (key: string) => Promise<string | null>;
-  secureDelItemAsync: (key: string) => Promise<string | null>;
+  secureDelItemAsync: (key: string) => Promise<void>;
   reloadBridgeProcess: () => void;
   addIpcEventListener: (
     event: string,
