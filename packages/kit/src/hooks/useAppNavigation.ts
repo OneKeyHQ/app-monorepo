@@ -11,7 +11,7 @@ import type {
 import { RootRoutes } from '../routes/Root/Routes';
 
 import type { ModalParamList, ModalRoutes } from '../routes/Root/Modal/Routes';
-import type { TabRoutes, TabStackParamList } from '../routes/Root/Tab/Routes';
+import type { TabRoutes, ITabStackParamList } from '../routes/Root/Tab/Routes';
 
 function useAppNavigation<
   P extends
@@ -36,8 +36,8 @@ function useAppNavigation<
   const switchTab = <T extends TabRoutes>(
     route: T,
     params?: {
-      screen: keyof TabStackParamList[T];
-      params?: TabStackParamList[T][keyof TabStackParamList[T]];
+      screen: keyof ITabStackParamList[T];
+      params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
     },
   ) => {
     navigation.navigate(RootRoutes.Main, {

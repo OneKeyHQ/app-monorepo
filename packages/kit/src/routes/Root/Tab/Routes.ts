@@ -2,7 +2,7 @@ import type { TabHomeParamList } from './Home/Routes';
 import type { TabMeParamList } from './Me/Routes';
 import type { TabSwapParamList } from './Swap/Routes';
 import type { WebViewParamList } from './WebView/Routes';
-import type { DemoDeveloperTabParamList } from '../../../views/Components/stories/NavigatorRoute/Tab/RouteParamTypes';
+import type { IDemoDeveloperTabParamList } from '../../../views/Components/stories/NavigatorRoute/Tab/RouteParamTypes';
 
 export enum TabRoutes {
   Home = 'Home',
@@ -12,10 +12,10 @@ export enum TabRoutes {
   WebViewTab = 'WebViewTab',
 }
 
-export type TabStackParamList = {
+export type ITabStackParamList = {
   [TabRoutes.Home]: TabHomeParamList;
   [TabRoutes.Me]: TabMeParamList;
-  [TabRoutes.Developer]: DemoDeveloperTabParamList;
+  [TabRoutes.Developer]: IDemoDeveloperTabParamList;
   [TabRoutes.Swap]: TabSwapParamList;
   [TabRoutes.WebViewTab]: WebViewParamList;
 };

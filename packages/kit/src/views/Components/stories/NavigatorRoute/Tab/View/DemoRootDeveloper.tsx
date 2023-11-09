@@ -7,7 +7,7 @@ import { NavigationFocusTools } from '../../../utils/NavigationTools';
 import { FreezeProbe } from '../../../utils/RenderTools';
 import { DemoCreateModalRoutes, RootModalRoutes } from '../../Modal/Routes';
 import useDemoAppNavigation from '../../useDemoAppNavigation';
-import { DemoDeveloperTabRoutes } from '../Routes';
+import { EDemoDeveloperTabRoutes } from '../Routes';
 
 const DemoRootDeveloper = () => {
   const navigation = useDemoAppNavigation();
@@ -29,7 +29,7 @@ const DemoRootDeveloper = () => {
               variant="primary"
               onPress={() => {
                 navigation.push(
-                  DemoDeveloperTabRoutes.DemoRootDeveloperOptions,
+                  EDemoDeveloperTabRoutes.DemoRootDeveloperOptions,
                   {
                     from: '来自 Developer Tab 页面的跳转',
                   },

@@ -11,8 +11,8 @@ import type {
 import { DemoRootRoutes } from './Routes';
 
 import type { DemoRootModalParamList, RootModalRoutes } from './Modal/Routes';
-import type { TabStackParamList } from './Tab/RouteParamTypes';
-import type { DemoTabRoutes } from './Tab/Routes';
+import type { ITabStackParamList } from './Tab/RouteParamTypes';
+import type { EDemoTabRoutes } from './Tab/Routes';
 
 function useDemoAppNavigation<
   P extends
@@ -34,11 +34,11 @@ function useDemoAppNavigation<
     }
   };
 
-  const switchTab = <T extends DemoTabRoutes>(
+  const switchTab = <T extends EDemoTabRoutes>(
     route: T,
     params?: {
-      screen: keyof TabStackParamList[T];
-      params?: TabStackParamList[T][keyof TabStackParamList[T]];
+      screen: keyof ITabStackParamList[T];
+      params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
     },
   ) => {
     navigation.navigate(DemoRootRoutes.Main, {
