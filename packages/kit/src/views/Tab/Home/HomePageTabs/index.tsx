@@ -6,6 +6,7 @@ import { FlatList, RefreshControl, ScrollView } from 'react-native';
 import { Stack, Text } from '@onekeyhq/components';
 import { useThemeValue } from '@onekeyhq/components/src/Provider/hooks/useThemeValue';
 import { PageManager } from '@onekeyhq/components/src/TabView';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import HeaderView from './HeaderView';
 
@@ -173,6 +174,8 @@ function HomePage() {
           />
           <Stack style={{ height: contentHeight }}>
             <Content
+              scrollEnabled={platformEnv.isNative}
+              shouldSelectedPageAnimation={platformEnv.isNative}
               renderItem={({
                 item,
               }: {
