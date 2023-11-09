@@ -1,12 +1,12 @@
 import { createContext, useContext } from 'react';
 
-export type ContextScreenLayoutValue = {
+export type IContextScreenLayoutValue = {
   leftSidebarCollapsed?: boolean;
   setLeftSidebarCollapsed?: (value: boolean) => void;
 };
 
-export const ContextSideBar = createContext<ContextScreenLayoutValue>(
-  {} as ContextScreenLayoutValue,
+export const ContextSideBar = createContext<IContextScreenLayoutValue>(
+  {} as IContextScreenLayoutValue,
 );
 
 const useProviderSideBarValue = () => useContext(ContextSideBar);

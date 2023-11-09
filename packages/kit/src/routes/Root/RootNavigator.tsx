@@ -4,14 +4,14 @@ import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 import KeyboardManager from 'react-native-keyboard-manager';
 
-import type { RootStackNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
+import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
 import { RootStackNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
 
 import ModalNavigator from './Modal/ModalNavigator';
 import { RootRoutes } from './Routes';
 import TabNavigator from './Tab/TabNavigator';
 
-const rootConfig: RootStackNavigatorConfig<RootRoutes, any>[] = [
+const rootConfig: IRootStackNavigatorConfig<RootRoutes, any>[] = [
   {
     name: RootRoutes.Main,
     component: TabNavigator,

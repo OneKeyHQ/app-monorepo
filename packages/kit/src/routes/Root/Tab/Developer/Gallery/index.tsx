@@ -24,7 +24,6 @@ import SliderGallery from '@onekeyhq/kit/src/views/Components/stories/Slider';
 import SwitchGallery from '@onekeyhq/kit/src/views/Components/stories/Switch';
 import TabViewGallery from '@onekeyhq/kit/src/views/Components/stories/TabView';
 import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
-import ToggleGroupGallery from '@onekeyhq/kit/src/views/Components/stories/ToggleGroup';
 import TooltipGallery from '@onekeyhq/kit/src/views/Components/stories/Tooltip';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 import WebviewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
@@ -67,7 +66,6 @@ export const galleryScreenList = [
   { name: EGalleryRoutes.ComponentListItem, component: ListItemGallery },
   { name: EGalleryRoutes.ComponentSkeleton, component: SkeletonGallery },
   { name: EGalleryRoutes.ComponentCheckbox, component: CheckboxGallery },
-  { name: EGalleryRoutes.ComponentToggleGroup, component: ToggleGroupGallery },
   { name: EGalleryRoutes.ComponentActionList, component: ActionListGallery },
   { name: EGalleryRoutes.ComponentPopover, component: PopoverGallery },
   { name: EGalleryRoutes.ComponentProgress, component: ProgressGallery },

@@ -1,4 +1,4 @@
-import type { ModalRootNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
+import type { IModalRootNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
 import { RootModalNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
 
 import { CoverageModalStack } from './DemoCoverageModal';
@@ -6,7 +6,7 @@ import { CreateModalStack } from './DemoCreateModal';
 import { LockedModalStack } from './DemoLockedModal';
 import { RootModalRoutes } from './Routes';
 
-const modalgalleryScreenList: ModalRootNavigatorConfig<RootModalRoutes>[] = [
+const modalGalleryScreenList: IModalRootNavigatorConfig<RootModalRoutes>[] = [
   {
     name: RootModalRoutes.DemoCreateModal,
     children: CreateModalStack,
@@ -22,5 +22,7 @@ const modalgalleryScreenList: ModalRootNavigatorConfig<RootModalRoutes>[] = [
 ];
 
 export default function DemoModalStackScreen() {
-  return <RootModalNavigator<RootModalRoutes> config={modalgalleryScreenList} />;
+  return (
+    <RootModalNavigator<RootModalRoutes> config={modalGalleryScreenList} />
+  );
 }

@@ -1,25 +1,19 @@
-import type { Dispatch, SetStateAction } from 'react';
-
-import type { ButtonProps } from '../Button';
-import type { FormProps } from '../Form';
-import type { ICON_NAMES } from '../Icon';
-import type { UseFormProps, UseFormReturn } from 'react-hook-form';
+import type { IButtonProps } from '../Button';
+import type { IICON_NAMES } from '../Icon';
 import type {
   DialogProps as TMDialogProps,
   SheetProps as TMSheetProps,
 } from 'tamagui';
 
-export type DialogContextType = {
-  dialogInstance?: DialogInstanceRef;
-  form?: DialogContextForm;
-  setForm?: Dispatch<SetStateAction<DialogContextForm>>;
+export type IDialogContextType = {
+  dialogInstance?: IDialogInstanceRef;
 };
 
-export interface DialogProps extends TMDialogProps {
+export interface IDialogProps extends TMDialogProps {
   onOpen?: () => void;
   onClose?: () => void;
   renderTrigger?: React.ReactNode;
-  icon?: ICON_NAMES;
+  icon?: IICON_NAMES;
   title?: string;
   description?: string;
   tone?: 'default' | 'destructive';
@@ -27,19 +21,15 @@ export interface DialogProps extends TMDialogProps {
   showFooter?: boolean;
   onConfirm?: () => void | Promise<boolean>;
   onCancel?: () => void;
-  confirmButtonProps?: ButtonProps;
-  cancelButtonProps?: ButtonProps;
+  onConfirmText?: string;
+  onCancelText?: string;
+  confirmButtonProps?: IButtonProps;
+  cancelButtonProps?: IButtonProps;
   dismissOnOverlayPress?: TMSheetProps['dismissOnOverlayPress'];
   sheetProps?: Omit<TMSheetProps, 'dismissOnOverlayPress'>;
-  contextValue?: DialogContextType;
+  contextValue?: IDialogContextType;
 }
 
-export interface DialogInstanceRef {
+export interface IDialogInstanceRef {
   close: () => void;
 }
-
-export type DialogContextForm = UseFormReturn<any> | undefined;
-
-export type DialogFormProps = Omit<FormProps, 'form'> & {
-  useFormProps?: UseFormProps<any>;
-};

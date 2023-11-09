@@ -2,8 +2,8 @@
 import { useMemo, useState } from 'react';
 
 import { Button, Dialog, Stack, Toast } from '@onekeyhq/components';
-import type { ModalNavigationProp } from '@onekeyhq/components/src/Navigation';
-import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator/ModalFlowNavigator';
+import type { IModalNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator/ModalFlowNavigator';
 
 import { Layout } from '../../utils/Layout';
 import { NavigationFocusTools } from '../../utils/NavigationTools';
@@ -16,7 +16,7 @@ import type { DemoCoverageModalParamList } from './Routes';
 
 function DemoCoverageModal() {
   const navigation =
-    useDemoAppNavigation<ModalNavigationProp<DemoCoverageModalParamList>>();
+    useDemoAppNavigation<IModalNavigationProp<DemoCoverageModalParamList>>();
 
   return (
     <Layout
@@ -58,7 +58,7 @@ function DemoCoverageModal() {
 
 const ControlledDialogByButton = () => {
   const navigation =
-    useDemoAppNavigation<ModalNavigationProp<DemoCoverageModalParamList>>();
+    useDemoAppNavigation<IModalNavigationProp<DemoCoverageModalParamList>>();
 
   const [isOpen, changeIsOpen] = useState(false);
   return useMemo(
@@ -86,7 +86,7 @@ const ControlledDialogByButton = () => {
 
 function DemoCoverageDialogModal() {
   const navigation =
-    useDemoAppNavigation<ModalNavigationProp<DemoCoverageModalParamList>>();
+    useDemoAppNavigation<IModalNavigationProp<DemoCoverageModalParamList>>();
 
   return (
     <Layout
@@ -163,7 +163,7 @@ function DemoCoverageDialogModal() {
 
 function DemoCoverageModalModal() {
   const navigation =
-    useDemoAppNavigation<ModalNavigationProp<DemoCoverageModalParamList>>();
+    useDemoAppNavigation<IModalNavigationProp<DemoCoverageModalParamList>>();
 
   return (
     <Layout
@@ -231,7 +231,7 @@ function DemoCoverageModalModal() {
   );
 }
 
-export const CoverageModalStack: ModalFlowNavigatorConfig<
+export const CoverageModalStack: IModalFlowNavigatorConfig<
   DemoCoverageModalRoutes,
   DemoCoverageModalParamList
 >[] = [
