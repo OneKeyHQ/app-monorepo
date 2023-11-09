@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 import { useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
@@ -6,17 +5,16 @@ import { useNavigation } from '@react-navigation/core';
 import {
   Button,
   Dialog,
+  Form,
   Input,
-  Text,
-  TextArea,
   Toast,
   XStack,
   YStack,
-  useDialogForm,
   useDialogInstance,
+  useForm,
 } from '@onekeyhq/components';
-import type { DialogProps } from '@onekeyhq/components/src/Dialog/type';
-import type { ModalNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IDialogProps } from '@onekeyhq/components/src/Dialog/type';
+import type { IModalNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import { GalleryRoutes } from '../../../routes/Gallery/routes';
 
@@ -24,7 +22,7 @@ import { Layout } from './utils/Layout';
 
 import type { UseFormReturn } from 'react-hook-form';
 
-const VariantsDemo = ({ tone }: DialogProps) => {
+const VariantsDemo = ({ tone }: IDialogProps) => {
   const [isOpen, changeIsOpen] = useState(false);
   return (
     <Dialog
@@ -41,68 +39,6 @@ const VariantsDemo = ({ tone }: DialogProps) => {
       }}
       tone={tone}
     />
-  );
-};
-
-const ControlledDialogByTextOnButton = () => {
-  const [isOpen, changeIsOpen] = useState(false);
-  return (
-    <Dialog
-      open={isOpen}
-      title="Lorem ipsum"
-      description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec."
-      onOpen={() => {
-        changeIsOpen(true);
-      }}
-      renderTrigger={<Button>Trigger</Button>}
-      renderContent={<Text>Overlay Content by Text Trigger</Text>}
-      onClose={() => {
-        changeIsOpen(false);
-      }}
-    />
-  );
-};
-
-const ControlledDialogByTextOnButtonWithOnPress = () => {
-  const [isOpen, changeIsOpen] = useState(false);
-  return (
-    <Dialog
-      open={isOpen}
-      title="Lorem ipsum"
-      description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec."
-      onOpen={() => {
-        changeIsOpen(true);
-      }}
-      renderTrigger={
-        <Button
-          onPress={() => {
-            console.log('trigger');
-          }}
-        >
-          Trigger
-        </Button>
-      }
-      onClose={() => {
-        changeIsOpen(false);
-      }}
-    />
-  );
-};
-
-const ControlledDialogByButton = () => {
-  const [isOpen, changeIsOpen] = useState(false);
-  return (
-    <>
-      <Button onPress={() => changeIsOpen(true)}>Trigger</Button>
-      <Dialog
-        title="Lorem ipsum"
-        description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec."
-        open={isOpen}
-        onClose={() => {
-          changeIsOpen(false);
-        }}
-      />
-    </>
   );
 };
 
@@ -124,9 +60,14 @@ const HideFooterDialog = () => {
   );
 };
 
-const CustomFooter = ({ index }: { index: number }) => {
+const CustomFooter = ({
+  index,
+  form,
+}: {
+  index: number;
+  form: UseFormReturn<any>;
+}) => {
   const dialog = useDialogInstance();
-  const form = useDialogForm();
   return (
     <XStack space="$4" justifyContent="center">
       <Button
@@ -154,19 +95,20 @@ const CustomFooter = ({ index }: { index: number }) => {
 };
 
 function ContentA({ index }: { index: number }) {
+  const form = useForm({});
   return (
-    <Dialog.Form useFormProps={{}}>
-      <Dialog.FormField label="Password" name="password">
+    <Form form={form}>
+      <Form.Field label="Password" name="password">
         <Input />
-      </Dialog.FormField>
-      <CustomFooter index={index + 1} />
-    </Dialog.Form>
+      </Form.Field>
+      <CustomFooter form={form} index={index + 1} />
+    </Form>
   );
 }
 
 const DialogNavigatorDemo = () => {
   const navigation = useNavigation<
-    ModalNavigationProp<{
+    IModalNavigationProp<{
       [GalleryRoutes.Components]: undefined;
     }>
   >();
@@ -177,13 +119,7 @@ const DialogNavigatorDemo = () => {
         onPress={() => {
           Dialog.confirm({
             title: 'Confirm whether the Dialog is always on top.',
-            renderContent: (
-              <Dialog.Form>
-                <Dialog.FormField label="Name" name="name">
-                  <Input autoFocus flex={1} placeholder="only numeric value" />
-                </Dialog.FormField>
-              </Dialog.Form>
-            ),
+            renderContent: <Input />,
             onConfirm: () => {},
           });
           setTimeout(() => {
@@ -220,18 +156,6 @@ const DialogGallery = () => (
         ),
       },
       {
-        title: 'Button as value of renderTrigger',
-        element: <ControlledDialogByTextOnButton />,
-      },
-      {
-        title: 'Button with onPress as value of renderTrigger',
-        element: <ControlledDialogByTextOnButtonWithOnPress />,
-      },
-      {
-        title: 'Button as trigger',
-        element: <ControlledDialogByButton />,
-      },
-      {
         title: 'Hide dialog footer',
         element: <HideFooterDialog />,
       },
@@ -243,6 +167,8 @@ const DialogGallery = () => (
               onPress={() =>
                 Dialog.confirm({
                   title: 'Lorem ipsum',
+                  onConfirmText: 'OK',
+                  onCancelText: 'Bye',
                   description:
                     'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
                   onConfirm() {
@@ -304,7 +230,7 @@ const DialogGallery = () => (
         ),
       },
       {
-        title: 'Dialog Form',
+        title: 'Dialog & AutoFocus Input',
         element: (
           <YStack>
             <Button
@@ -314,191 +240,11 @@ const DialogGallery = () => (
                   title: 'Password',
                   description: 'input password',
                   renderContent: (
-                    <Dialog.Form
-                      useFormProps={{
-                        values: {
-                          name: 'Nate Wienert',
-                          length: '1234567',
-                        },
-                      }}
-                    >
-                      <Dialog.FormField label="Name" name="name">
-                        <Input flex={1} />
-                      </Dialog.FormField>
-                      <Dialog.FormField
-                        label="MaxLength"
-                        name="length"
-                        rules={{
-                          maxLength: { value: 6, message: 'maxLength is 6' },
-                        }}
-                      >
-                        <Input placeholder="Max Length Limit" />
-                      </Dialog.FormField>
-                      <Dialog.FormField
-                        label="Required"
-                        name="required"
-                        rules={{
-                          required: {
-                            value: true,
-                            message: 'requied input text',
-                          },
-                        }}
-                      >
-                        <Input placeholder="Required" />
-                      </Dialog.FormField>
-                    </Dialog.Form>
-                  ),
-                  onConfirm: async (form) => {
-                    if (form) {
-                      const isValid = await form.trigger();
-                      if (isValid) {
-                        alert(JSON.stringify(form.getValues()));
-                      } else {
-                        alert('请检查输入项');
-                      }
-                      return isValid;
-                    }
-                    return false;
-                  },
-                })
-              }
-            >
-              Open Dialog Form
-            </Button>
-          </YStack>
-        ),
-      },
-      {
-        title: 'Dialog Form with Form Context & Focus by Code',
-        element: (
-          <YStack>
-            <Button
-              mt="$4"
-              onPress={() =>
-                Dialog.confirm({
-                  title: 'Password',
-                  description: 'input password',
-                  renderContent: (
-                    <Dialog.Form
-                      useFormProps={{
-                        values: {
-                          name: 'Nate Wienert',
-                          input: '1234567',
-                          textArea: 'textArea',
-                        },
-                      }}
-                    >
-                      {
-                        // eslint-disable-next-line react/no-unstable-nested-components
-                        (({
-                          form,
-                        }: {
-                          form: UseFormReturn<{
-                            name: string;
-                            length: string;
-                            input: string;
-                            textArea: string;
-                          }>;
-                        }) => (
-                          <>
-                            <Dialog.FormField label="Name" name="name">
-                              <Input flex={1} />
-                            </Dialog.FormField>
-                            <Dialog.FormField
-                              label="MaxLength"
-                              name="input"
-                              rules={{
-                                maxLength: {
-                                  value: 6,
-                                  message: 'maxLength is 6',
-                                },
-                              }}
-                            >
-                              <Input
-                                placeholder="Max Length Limit"
-                                selectTextOnFocus
-                              />
-                            </Dialog.FormField>
-                            <Dialog.FormField label="textArea" name="textArea">
-                              <TextArea placeholder="type something random" />
-                            </Dialog.FormField>
-                            <Dialog.FormField
-                              label="async load remote data"
-                              name="async"
-                              rules={{
-                                validate: (value: string) =>
-                                  new Promise((resolve) => {
-                                    setTimeout(() => {
-                                      // get form value
-                                      console.log(value, form.getValues().name);
-                                      resolve(true);
-                                    }, 1500);
-                                  }),
-                              }}
-                            >
-                              <Input placeholder="Required" />
-                            </Dialog.FormField>
-                            <Button
-                              marginVertical="$6"
-                              onPress={() => {
-                                form.setFocus('input');
-                              }}
-                            >
-                              Focus MaxLength Input
-                            </Button>
-                            <Button
-                              marginVertical="$6"
-                              onPress={() => {
-                                form.setFocus('textArea');
-                              }}
-                            >
-                              Focus TextArea
-                            </Button>
-                          </>
-                        )) as unknown as ReactNode
-                      }
-                    </Dialog.Form>
-                  ),
-                  onConfirm: async (form) => {
-                    if (form) {
-                      const isValid = await form.trigger();
-                      if (isValid) {
-                        alert(JSON.stringify(form.getValues()));
-                      } else {
-                        alert('请检查输入项');
-                      }
-                      return isValid;
-                    }
-                    return false;
-                  },
-                })
-              }
-            >
-              Open Dialog Form with Form Context & Focus by Code
-            </Button>
-          </YStack>
-        ),
-      },
-      {
-        title: 'Dialog Form With Form & AutoFocus Input',
-        element: (
-          <YStack>
-            <Button
-              mt="$4"
-              onPress={() =>
-                Dialog.confirm({
-                  title: 'Password',
-                  description: 'input password',
-                  renderContent: (
-                    <Dialog.Form>
-                      <Dialog.FormField label="Name" name="name">
-                        <Input
-                          autoFocus
-                          flex={1}
-                          placeholder="only numeric value"
-                        />
-                      </Dialog.FormField>
-                    </Dialog.Form>
+                    <Input
+                      autoFocus
+                      flex={1}
+                      placeholder="only numeric value"
+                    />
                   ),
                   onConfirm: () => {},
                 })
@@ -519,15 +265,11 @@ const DialogGallery = () => (
                 const dialog = Dialog.confirm({
                   title: '1500ms',
                   renderContent: (
-                    <Dialog.Form>
-                      <Dialog.FormField label="Name" name="name">
-                        <Input
-                          autoFocus
-                          flex={1}
-                          placeholder="only numeric value"
-                        />
-                      </Dialog.FormField>
-                    </Dialog.Form>
+                    <Input
+                      autoFocus
+                      flex={1}
+                      placeholder="only numeric value"
+                    />
                   ),
                   onConfirm: () => {},
                 });

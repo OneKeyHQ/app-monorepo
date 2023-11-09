@@ -12,7 +12,7 @@ import type {
   TextInputSubmitEditingEventData,
 } from 'react-native';
 
-interface SearchBarProps {
+interface ISearchBarProps {
   height?: string;
   value?: string;
   placeholder?: string;
@@ -32,7 +32,7 @@ export function SearchBar({
   onBlur,
   onFocus,
   onSubmitEditing,
-}: SearchBarProps) {
+}: ISearchBarProps) {
   const [isFocus, setIsFocus] = useState(false);
   const handleOnFocus = useCallback(
     (e: NativeSyntheticEvent<TextInputFocusEventData>) => {

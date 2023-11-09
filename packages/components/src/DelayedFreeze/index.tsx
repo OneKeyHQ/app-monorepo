@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 import { Freeze } from 'react-freeze';
 
-interface FreezeWrapperProps {
+interface IFreezeWrapperProps {
   freeze: boolean | undefined;
   children: ReactNode;
   placeholder?: ReactNode;
@@ -18,7 +18,7 @@ function DelayedFreeze({
   freeze,
   children,
   placeholder = null,
-}: FreezeWrapperProps): JSX.Element {
+}: IFreezeWrapperProps): JSX.Element {
   // flag used for determining whether freeze should be enabled
   const [freezeState, setFreezeState] = useState(false);
 

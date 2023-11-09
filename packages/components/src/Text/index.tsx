@@ -11,10 +11,10 @@ export const Text = styled(OriginText, {
       '...size': (variant, { font }) => {
         const defaultFont = { size: {}, lineHeight: {}, weight: {} };
         const resolvedFont = font || defaultFont;
-        type SizeType = keyof typeof resolvedFont.size;
+        type ISizeType = keyof typeof resolvedFont.size;
 
         return {
-          fontSize: resolvedFont?.size[variant as SizeType] || '$true',
+          fontSize: resolvedFont?.size[variant as ISizeType] || '$true',
           lineHeight: font?.lineHeight[variant],
           fontWeight: font?.weight[variant],
           textTransform: font?.transform[variant],
@@ -43,4 +43,4 @@ export const Text = styled(OriginText, {
   },
 });
 
-export type TextProps = GetProps<typeof Text>;
+export type ITextProps = GetProps<typeof Text>;

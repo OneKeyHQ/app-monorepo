@@ -14,8 +14,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import localDb from '../../dbs/local/localDb';
 import { settingsPersistAtom } from '../../states/jotai/atoms';
 import {
-  passwordBiologyAuthInfoAtom,
   passwordAtom,
+  passwordBiologyAuthInfoAtom,
   passwordPersistAtom,
 } from '../../states/jotai/atoms/password';
 import ServiceBase from '../ServiceBase';

@@ -1,9 +1,9 @@
 import { createContext, useContext } from 'react';
 
-import type { DeviceScreenSize } from '../device';
+import type { IDeviceScreenSize } from '../device';
 
 export const ContextDeviceScreenSize =
-  createContext<DeviceScreenSize>('NORMAL');
+  createContext<IDeviceScreenSize>('NORMAL');
 
 const useProviderDeviceScreenSize = () => useContext(ContextDeviceScreenSize);
 export default useProviderDeviceScreenSize;
