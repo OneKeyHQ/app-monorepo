@@ -1,6 +1,7 @@
 import { memo } from 'react';
 
 import { createStackNavigator } from '@onekeyhq/components';
+import type { ITabSubNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
 import { useThemeValue } from '@onekeyhq/components/src/Provider/hooks/useThemeValue';
 import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
 import ActionListGallery from '@onekeyhq/kit/src/views/Components/stories/ActionList';
@@ -80,7 +81,7 @@ export const galleryScreenList = [
   {
     name: EGalleryRoutes.ComponentNavigation,
     component: DemoRootApp,
-    options: { headerShown: false },
+    // options: { headerShown: false },
   },
   {
     name: EGalleryRoutes.ComponentSegmentControl,
@@ -108,44 +109,3 @@ export const galleryScreenList = [
     component: WebviewGallery,
   },
 ];
-
-const DevStack = createStackNavigator();
-
-const DevScreen = () => {
-  const [bgAppColor, textColor] = useThemeValue(
-    ['bgApp', 'text'],
-    undefined,
-    true,
-  );
-  return (
-    <DevStack.Navigator>
-      <DevStack.Group>
-        {galleryScreenList.map((stack) => (
-          <DevStack.Screen
-            key={stack.name}
-            name={stack.name}
-            component={stack.component}
-            options={() => ({
-              headerStyle: {
-                backgroundColor: bgAppColor,
-              },
-              cardStyle: {
-                flex: 1,
-              },
-              headerTintColor: textColor,
-              headerShadowVisible: false,
-              detachPreviousScreen: false,
-              freezeOnBlur: true,
-
-              // native stack
-              animation: 'none',
-              ...stack.options,
-            })}
-          />
-        ))}
-      </DevStack.Group>
-    </DevStack.Navigator>
-  );
-};
-
-export default memo(DevScreen, () => true);

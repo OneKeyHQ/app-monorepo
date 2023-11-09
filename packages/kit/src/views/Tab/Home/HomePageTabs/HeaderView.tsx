@@ -41,18 +41,6 @@ export default function HomePageHeaderView() {
         <Button onPress={headerHeightCall}>切换高度</Button>
         {/* <Button onPress={switchDemoVisibleCall}>切换 Demo3 显示</Button> */}
         <Button onPress={onNextPageCall}>下一页</Button>
-        <Button
-          onPress={() => {
-            navigation.push(RootRoutes.Gallery, {
-              screen: EGalleryRoutes.Components,
-              params: {
-                ts: new Date().getTime(),
-              },
-            });
-          }}
-        >
-          Gallery
-        </Button>
       </Stack>
     ),
     [
@@ -60,7 +48,6 @@ export default function HomePageHeaderView() {
       headerHeightCall,
       onNextPageCall,
       // switchDemoVisibleCall,
-      navigation,
     ],
   );
 }
