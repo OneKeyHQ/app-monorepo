@@ -1,11 +1,11 @@
-import type { RootStackNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
+import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
 import { RootStackNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
 
 import DemoModalStackScreen from './Modal';
 import { DemoRootRoutes } from './Routes';
 import Tab from './Tab/DemoTabNavigator';
 
-const rootConfig: RootStackNavigatorConfig<DemoRootRoutes, any>[] = [
+const rootConfig: IRootStackNavigatorConfig<DemoRootRoutes, any>[] = [
   {
     name: DemoRootRoutes.Main,
     component: Tab,
