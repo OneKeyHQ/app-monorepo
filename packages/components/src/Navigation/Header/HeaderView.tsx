@@ -68,11 +68,11 @@ function HeaderView({
 
       return (
         <HeaderBackButton
-          {...props}
           canGoBack={!topStack}
           onPress={onBackCallback}
           isRootScreen={isRootScreen}
           isModelScreen={isModelScreen}
+          {...props}
         />
       );
     },
@@ -113,14 +113,20 @@ function HeaderView({
             }
             headerTitleAlign={headerTitleAlign}
             headerTitleStyle={{
-              fontSize: 18,
               lineHeight: 28,
               fontWeight: '600',
             }}
+            headerTitleContainerStyle={{
+              marginHorizontal: 0,
+            }}
             headerTransparent
-            headerShadowVisible={false}
             headerBackground={headerBackground}
-            headerStyle={[{}, headerStyle]}
+            headerStyle={[
+              {
+                height: 52,
+              },
+              headerStyle,
+            ]}
           />
         </Stack>
         {!!headerSearchBarOptions && (
