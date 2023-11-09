@@ -22,7 +22,6 @@ export type ICheckboxProps = Omit<
   onChange?: (checked: ICheckedState) => void;
 };
 
-
 function RawCheckbox({
   label,
   onChange,
