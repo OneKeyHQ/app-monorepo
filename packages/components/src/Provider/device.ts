@@ -5,9 +5,9 @@ export const SCREEN_SIZE = {
   ULTRALARGE: 9999,
 } as const;
 
-export type DeviceScreenSize = 'SMALL' | 'NORMAL' | 'LARGE' | 'XLARGE';
+export type IDeviceScreenSize = 'SMALL' | 'NORMAL' | 'LARGE' | 'XLARGE';
 
-export const getScreenSize = (screenWidth: number): DeviceScreenSize => {
+export const getScreenSize = (screenWidth: number): IDeviceScreenSize => {
   if (!screenWidth) {
     return 'NORMAL';
   }

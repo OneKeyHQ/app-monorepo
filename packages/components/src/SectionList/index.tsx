@@ -11,7 +11,7 @@ import type {
   ViewStyle,
 } from 'react-native';
 
-export type SectionListProps<T> = Omit<
+export type ISectionListProps<T> = Omit<
   NativeSectionListProps<T>,
   | 'contentContainerStyle'
   | 'ListHeaderComponentStyle'
@@ -23,7 +23,7 @@ export type SectionListProps<T> = Omit<
     ListFooterComponentStyle?: StackProps;
   };
 
-export type SectionListRef = NativeSectionList<any, any>;
+export type ISectionListRef = NativeSectionList<any, any>;
 
 function BaseSectionList<T>(
   {
@@ -33,8 +33,8 @@ function BaseSectionList<T>(
     ListHeaderComponentStyle = {},
     ListFooterComponentStyle = {},
     ...props
-  }: SectionListProps<T>,
-  ref: ForwardedRef<SectionListRef>,
+  }: ISectionListProps<T>,
+  ref: ForwardedRef<ISectionListRef>,
 ) {
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',

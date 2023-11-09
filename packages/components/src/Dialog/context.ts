@@ -1,5 +1,5 @@
 import { createContext } from 'react';
 
-import type { DialogContextType } from './type';
+import type { IDialogContextType } from './type';
 
-export const DialogContext = createContext<DialogContextType>({});
+export const DialogContext = createContext<IDialogContextType>({});

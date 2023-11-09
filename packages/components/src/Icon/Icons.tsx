@@ -1636,5 +1636,5 @@ const icons = {
   ZoomInSolid: () => import("./react/solid/ZoomIn"),
   ZoomOutSolid: () => import("./react/solid/ZoomOut"),
 };
-export type ICON_NAMES = keyof typeof icons;
+export type IICON_NAMES = keyof typeof icons;
 export default icons;

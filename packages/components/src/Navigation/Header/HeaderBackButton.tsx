@@ -6,7 +6,7 @@ import HeaderButtonGroup from './HeaderButtonGroup';
 import HeaderCollapseButton from './HeaderCollapseButton';
 import HeaderIconButton from './HeaderIconButton';
 
-import type { OneKeyStackHeaderProps } from './HeaderScreenOptions';
+import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';
 import type { HeaderBackButtonProps } from '@react-navigation/elements';
 
 function HeaderBackButton({
@@ -15,7 +15,7 @@ function HeaderBackButton({
   canGoBack,
   disableClose,
   ...props
-}: OneKeyStackHeaderProps & HeaderBackButtonProps) {
+}: IOnekeyStackHeaderProps & HeaderBackButtonProps) {
   const isVerticalLayout = useIsVerticalLayout();
 
   const showCloseButton = isModelScreen && !isRootScreen && !canGoBack;

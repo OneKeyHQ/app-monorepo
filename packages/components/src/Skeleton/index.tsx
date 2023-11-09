@@ -6,17 +6,16 @@ import { useThemeValue } from '../Provider/hooks/useThemeValue';
 
 import type { MotiSkeletonProps } from 'moti/build/skeleton/types';
 
-export type SkeletonProps = Omit<MotiSkeletonProps, 'Gradient'> & {
+export type ISkeletonProps = Omit<MotiSkeletonProps, 'Gradient'> & {
   style?: any;
 };
 
-function BasicSkeleton({ children, style, ...restProps }: SkeletonProps) {
+function BasicSkeleton({ children, style, ...restProps }: ISkeletonProps) {
   // _: RefObject<unknown>,
   const { themeVariant } = useTheme();
   const primaryColor: any = useThemeValue('bgStrong');
   const secondaryColor =
     themeVariant === 'light' ? 'rgb(205, 205, 205)' : 'rgb(51, 51, 51)';
-  console.log(restProps);
   return (
     <MotiSkeleton
       colors={[

@@ -15,7 +15,7 @@ import useProviderSideBarValue from '../../../Provider/hooks/useProviderSideBarV
 
 import { TabItem } from './TabItem';
 
-import type { ICON_NAMES } from '../../../Icon';
+import type { IICON_NAMES } from '../../../Icon';
 import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
 import type {
   BottomTabBarProps,
@@ -42,7 +42,7 @@ function TabItemView({
         aria-current={isActive ? 'page' : undefined}
         selected={isActive}
         // @ts-expect-error
-        icon={options?.tabBarIcon?.(isActive) as ICON_NAMES}
+        icon={options?.tabBarIcon?.(isActive) as IICON_NAMES}
         label={(options.tabBarLabel ?? route.name) as string}
       />
     ),

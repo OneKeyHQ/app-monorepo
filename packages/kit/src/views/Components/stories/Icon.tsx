@@ -1,12 +1,12 @@
 import { FlatList, Text, View } from 'react-native';
 
 import { Icon, Stack, XStack } from '@onekeyhq/components';
-import type { ICON_NAMES } from '@onekeyhq/components/src/Icon/Icons';
+import type { IICON_NAMES } from '@onekeyhq/components/src/Icon/Icons';
 import Icons from '@onekeyhq/components/src/Icon/Icons';
 
 import { Layout } from './utils/Layout';
 
-const iconData = Object.keys(Icons) as ICON_NAMES[];
+const iconData = Object.keys(Icons) as IICON_NAMES[];
 const IconGallery = () => (
   <Layout
     description="图标是一种视觉符号，用于表示对象或概念"
