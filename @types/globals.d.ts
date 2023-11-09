@@ -1,5 +1,5 @@
 /* eslint-disable no-var,vars-on-top */
-import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { ILocaleIds } from '@onekeyhq/components/src/locale';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/IBackgroundApi';
 import type { JotaiBgSync } from '@onekeyhq/kit-bg/src/states/jotai/jotaiBgSync';
 
@@ -77,7 +77,7 @@ declare global {
 declare global {
   namespace FormatjsIntl {
     interface Message {
-      ids: LocaleIds;
+      ids: ILocaleIds;
     }
   }
 }

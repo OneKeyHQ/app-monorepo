@@ -11,7 +11,7 @@ import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 import NavigationBar from '../Tab/TabBar';
 
-import type { TabNavigatorProps, TabSubNavigatorConfig } from './types';
+import type { ITabNavigatorProps, ITabSubNavigatorConfig } from './types';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
 
 const Stack = createStackNavigator();
@@ -19,7 +19,7 @@ const Stack = createStackNavigator();
 function TabSubStackNavigator({
   config,
 }: {
-  config: TabSubNavigatorConfig<string, any>[];
+  config: ITabSubNavigatorConfig<string, any>[];
 }) {
   const [bgColor, titleColor] = useThemeValue(['bgApp', 'text']);
   const intl = useIntl();
@@ -55,7 +55,7 @@ const Tab = createBottomTabNavigator();
 export function TabStackNavigator<RouteName extends string>({
   config,
   extraConfig,
-}: TabNavigatorProps<RouteName>) {
+}: ITabNavigatorProps<RouteName>) {
   const intl = useIntl();
   const media = useMedia();
 

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { Button, Stack, Text } from '@onekeyhq/components';
-import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import { GalleryRoutes } from '@onekeyhq/kit/src/routes/Gallery/routes';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -16,7 +16,7 @@ import type { TabHomeParamList } from '../../../../routes/Root/Tab/Home/Routes';
 //   switchDemoVisible: () => void;
 // }) {
 export default function HomePageHeaderView() {
-  const navigation = useAppNavigation<PageNavigationProp<TabHomeParamList>>();
+  const navigation = useAppNavigation<IPageNavigationProp<TabHomeParamList>>();
   const [headerHighMode, setHeaderHighMode] = useState(true);
 
   const headerHeightCall = useCallback(() => {

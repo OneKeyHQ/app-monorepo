@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import type { TabNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
+import type { ITabNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
 import { TabStackNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
 
 import {
@@ -18,7 +18,7 @@ import DemoRootHomeSearch from './View/DemoRootHomeSearch';
 import DemoRootMe from './View/DemoRootMe';
 import DemoRootTabs from './View/DemoRootTabs';
 
-const config: TabNavigatorConfig<DemoTabRoutes>[] = [
+const config: ITabNavigatorConfig<DemoTabRoutes>[] = [
   {
     name: DemoTabRoutes.Home,
     tabBarIcon: (focused?: boolean) =>
