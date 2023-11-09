@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 
-import type { SectionListRef } from '@onekeyhq/components';
+import type { ISectionListRef } from '@onekeyhq/components';
 import {
   Button,
   Divider,
@@ -32,17 +32,15 @@ const sectionListData = [
 ];
 
 const SectionListDemo = () => {
-  const ref = useRef<SectionListRef | null>(null);
+  const ref = useRef<ISectionListRef | null>(null);
   return (
     <SectionList
       h="$60"
       bg="$backgroundPress"
       contentContainerStyle={{
         bg: '$borderLight',
-        m: '$4',
       }}
       ListHeaderComponentStyle={{
-        h: '$10',
         w: '100%',
         bg: 'blue',
       }}

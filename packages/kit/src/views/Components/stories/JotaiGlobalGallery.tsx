@@ -8,8 +8,8 @@ import {
   useDemoReadWriteAtom,
   useDemoWriteOnlyAtom,
   useSettingsIsLightCNAtom,
-  useSettingsTimeNowAtom,
   useSettingsPersistAtom,
+  useSettingsTimeNowAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { JOTAI_RESET } from '@onekeyhq/kit-bg/src/states/jotai/types';
 

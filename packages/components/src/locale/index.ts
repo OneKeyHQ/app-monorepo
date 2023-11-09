@@ -4,10 +4,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { LOCALES as _LOCALES, enUS } from './localeJsonMap';
 
-export type LocaleSymbol = keyof typeof _LOCALES | 'system';
-export type LocaleIds = keyof typeof enUS;
+export type ILocaleSymbol = keyof typeof _LOCALES | 'system';
+export type ILocaleIds = keyof typeof enUS;
 const LOCALES = _LOCALES as Record<
-  LocaleSymbol,
+  ILocaleSymbol,
   Record<keyof typeof enUS, string> | (() => Promise<any>)
 >;
 
