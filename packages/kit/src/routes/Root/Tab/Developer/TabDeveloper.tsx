@@ -69,7 +69,7 @@ function PartContainer({
 
 const TabDeveloper = () => {
   const navigation =
-    useAppNavigation<PageNavigationProp<ITabDeveloperParamList>>();
+    useAppNavigation<IPageNavigationProp<ITabDeveloperParamList>>();
   const dispatch = useDispatch();
 
   const [rrtStatus, changeRRTStatus] = useStorage(AppSettingKey.rrt);

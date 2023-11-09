@@ -1,13 +1,14 @@
 import { TabStackNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
 import type {
+  ITabNavigatorConfig,
   ITabNavigatorExtraConfig,
-  TabNavigatorConfig,
 } from '@onekeyhq/components/src/Navigation/Navigator/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Swap from '../../../views/Swap';
 import HomePage from '../../../views/Tab/Home/HomePageTabs';
 
+import { galleryScreenList } from './Developer/Gallery';
 import { ETabDeveloperRoutes } from './Developer/Routes';
 import { TabHomeRoutes } from './Home/Routes';
 import TabHomeStack1 from './Home/TabHomeStack1';
@@ -17,9 +18,8 @@ import TabMe from './Me/TabMe';
 import { TabRoutes } from './Routes';
 import { TabSwapRoutes } from './Swap/Routes';
 import { WebViewRoutes } from './WebView/Routes';
-import { galleryScreenList } from './Developer/Gallery';
 
-const config: TabNavigatorConfig<TabRoutes>[] = [
+const config: ITabNavigatorConfig<TabRoutes>[] = [
   {
     name: TabRoutes.Home,
     tabBarIcon: (focused?: boolean) =>
