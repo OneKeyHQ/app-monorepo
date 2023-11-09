@@ -20,7 +20,7 @@ function CheckboxDemo({ ...props }: ICheckboxProps) {
 }
 
 function CheckboxGroupDemo() {
-  const [val, setVal] = useState([false, true, false] as ICheckedState[]);
+  const [val, setVal] = useState<ICheckedState[]>([false, true, false]);
   return (
     <Checkbox.Group
       label="All"
