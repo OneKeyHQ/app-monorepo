@@ -13,9 +13,9 @@ const BadgeFrame = styled(Stack, {
   borderRadius: '$1',
 });
 
-type BadgeType = 'success' | 'info' | 'warning' | 'critical' | 'default';
+type IBadgeType = 'success' | 'info' | 'warning' | 'critical' | 'default';
 
-const bgColors: Record<BadgeType, string> = {
+const bgColors: Record<IBadgeType, string> = {
   'success': '$bgSuccess',
   'info': '$bgInfo',
   'warning': '$bgCaution',
@@ -23,7 +23,7 @@ const bgColors: Record<BadgeType, string> = {
   'default': '$bgStrong',
 };
 
-const textColors: Record<BadgeType, string> = {
+const textColors: Record<IBadgeType, string> = {
   'success': '$textSuccess',
   'info': '$textInfo',
   'warning': '$textCaution',
@@ -31,12 +31,12 @@ const textColors: Record<BadgeType, string> = {
   'default': '$textSubdued',
 };
 
-type BadgeProps = PropsWithChildren<{
-  type: BadgeType;
+type IBadgeProps = PropsWithChildren<{
+  type: IBadgeType;
   size: 'lg' | 'sm';
 }>;
 
-export const Badge: FC<BadgeProps> = ({ children, type, size }) => {
+export const Badge: FC<IBadgeProps> = ({ children, type, size }) => {
   const bgColor = bgColors[type];
   const textColor = textColors[type];
   const variant = size === 'sm' ? '$bodySmMedium' : '$bodyMdMedium';

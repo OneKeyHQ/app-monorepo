@@ -10,7 +10,7 @@ import {
 
 import { AuthenticationType } from 'expo-local-authentication';
 
-import type { ICON_NAMES } from '@onekeyhq/components';
+import type { IICON_NAMES } from '@onekeyhq/components';
 import { Form, Input, useForm } from '@onekeyhq/components';
 
 import { AppStatusActiveListener } from '../../AppStatusActiveListener';
@@ -49,7 +49,7 @@ const PasswordVerify = ({
 
   const rightActions = useMemo(() => {
     const actions: {
-      iconName?: ICON_NAMES;
+      iconName?: IICON_NAMES;
       onPress?: () => void;
       loading?: boolean;
     }[] = [];

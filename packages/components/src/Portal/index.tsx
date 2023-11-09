@@ -29,7 +29,7 @@ enum EConstantName {
   FULL_WINDOW_OVERLAY_PORTAL = 'Root-FullWindowOverlay',
 }
 
-export interface PortalManager {
+export interface IPortalManager {
   update: (
     updater: ReactNode,
     updateCallback?: (() => void) | undefined,
@@ -41,7 +41,7 @@ function renderToPortal(
   container: EConstantName,
   guest: ReactNode,
   callback?: () => void,
-): PortalManager {
+): IPortalManager {
   const manager = portalManagers.get(container);
   const id = createPortalId(++portalUuid);
 

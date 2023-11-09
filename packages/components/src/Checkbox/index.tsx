@@ -1,25 +1,25 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { FlatList } from 'react-native';
 import { Checkbox as TMCheckbox, withStaticProperties } from 'tamagui';
 
 import { Divider } from '../Divider';
 import { Icon } from '../Icon';
 import { Label } from '../Label';
+import { ListView } from '../ListView';
 import { XStack, YStack } from '../Stack';
 
 import type { ViewStyle } from 'react-native';
 import type { CheckedState, CheckboxProps as TMCheckboxProps } from 'tamagui';
 
-export type { CheckedState } from 'tamagui';
+export type ICheckedState = CheckedState;
 
-export type CheckboxProps = Omit<
+export type ICheckboxProps = Omit<
   TMCheckboxProps,
   'size' | 'onCheckedChange' | 'checked' | 'value'
 > & {
   label?: string;
-  value?: CheckedState;
-  onChange?: (checked: CheckedState) => void;
+  value?: ICheckedState;
+  onChange?: (checked: ICheckedState) => void;
 };
 
 function RawCheckbox({
@@ -27,7 +27,7 @@ function RawCheckbox({
   onChange,
   value,
   ...checkboxProps
-}: CheckboxProps) {
+}: ICheckboxProps) {
   const id = useMemo(() => Math.random().toString(), []);
 
   const Indicator = useMemo(() => {
@@ -86,11 +86,11 @@ function RawCheckbox({
   );
 }
 
-interface CheckboxGroupProps {
+interface ICheckboxGroupProps {
   label?: string;
-  value: CheckedState[];
+  value: ICheckedState[];
   disabled?: boolean;
-  onChange: (value: CheckedState[]) => void;
+  onChange: (value: ICheckedState[]) => void;
   listStyle?: ViewStyle;
   options: {
     disabled?: boolean;
@@ -107,12 +107,12 @@ function CheckboxGroupItem({
 }: {
   disabled: boolean;
   label: string;
-  value: CheckedState;
+  value: ICheckedState;
   index: number;
-  onChange: (index: number, value: CheckedState) => void;
+  onChange: (index: number, value: ICheckedState) => void;
 }) {
   const handleOnChange = useCallback(
-    (v: CheckedState) => {
+    (v: ICheckedState) => {
       onChange(index, v);
     },
     [index, onChange],
@@ -134,7 +134,7 @@ function CheckboxGroup({
   disabled,
   value,
   listStyle,
-}: CheckboxGroupProps) {
+}: ICheckboxGroupProps) {
   const [isAll, setAll] = useState(
     value.length === options.length && !value.find((v) => !v),
   );
@@ -143,7 +143,7 @@ function CheckboxGroup({
     onChange(options.map(() => !isAll));
   }, [isAll, onChange, options]);
   const onChangeHandler = useCallback(
-    (index: number, v: CheckedState) => {
+    (index: number, v: ICheckedState) => {
       value[index] = v;
       onChange([...value]);
     },
@@ -158,7 +158,7 @@ function CheckboxGroup({
         onChange={handleSelectAll}
       />
       <Divider />
-      <FlatList
+      <ListView
         removeClippedSubviews
         style={listStyle}
         data={options}

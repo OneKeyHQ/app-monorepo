@@ -5,11 +5,11 @@ import { Popover } from '../Popover';
 import { YStack } from '../Stack';
 import { Text } from '../Text';
 
-import type { ICON_NAMES } from '../Icon';
-import type { PopoverProps } from '../Popover';
+import type { IICON_NAMES } from '../Icon';
+import type { IPopoverProps } from '../Popover';
 
-interface ActionListItemProps {
-  icon?: ICON_NAMES;
+interface IActionListItemProps {
+  icon?: IICON_NAMES;
   label: string;
   destructive?: boolean;
   onPress?: () => void;
@@ -22,7 +22,7 @@ function ActionListItem({
   onPress,
   destructive,
   disabled,
-}: ActionListItemProps) {
+}: IActionListItemProps) {
   return (
     <ButtonFrame
       justifyContent="flex-start"
@@ -71,22 +71,22 @@ function ActionListItem({
   );
 }
 
-interface ActionListSection {
+interface IActionListSection {
   title?: string;
-  items: ActionListItemProps[];
+  items: IActionListItemProps[];
 }
 
-export interface ActionListProps extends PopoverProps {
-  items?: ActionListItemProps[];
-  sections?: ActionListSection[];
+export interface IActionListProps extends IPopoverProps {
+  items?: IActionListItemProps[];
+  sections?: IActionListSection[];
 }
 
 export function ActionList({
   items,
   sections,
   ...props
-}: Omit<ActionListProps, 'renderContent'>) {
-  const renderActionListItem = (item: ActionListItemProps) => (
+}: Omit<IActionListProps, 'renderContent'>) {
+  const renderActionListItem = (item: IActionListItemProps) => (
     <ActionListItem
       onPress={item.onPress}
       key={item.label}

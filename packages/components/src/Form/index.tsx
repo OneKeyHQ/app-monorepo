@@ -15,12 +15,12 @@ import { TextArea } from '../TextArea';
 import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';
 import type { GetProps } from 'tamagui';
 
-export type FormProps = PropsWithChildren<{
+export type IFormProps = PropsWithChildren<{
   form: UseFormReturn<any>;
   header?: React.ReactNode;
 }>;
 
-export function FormWrapper({ form: formContext, children }: FormProps) {
+export function FormWrapper({ form: formContext, children }: IFormProps) {
   return (
     <FormProvider {...formContext}>
       <TMForm onSubmit={noop}>
@@ -57,13 +57,13 @@ const getChildProps = (
   }
 };
 
-type FieldProps = Omit<GetProps<typeof Controller>, 'render'> &
+type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
   PropsWithChildren<{
     label?: string;
     description?: string;
   }>;
 
-function Field({ name, label, description, rules, children }: FieldProps) {
+function Field({ name, label, description, rules, children }: IFieldProps) {
   const {
     control,
     trigger,
