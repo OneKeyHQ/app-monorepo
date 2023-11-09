@@ -1,10 +1,6 @@
 import { useEffect } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
-
 import { useRouteAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/route';
-
-import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 /**
  * Note that this method is only effective in the current routing structure.
