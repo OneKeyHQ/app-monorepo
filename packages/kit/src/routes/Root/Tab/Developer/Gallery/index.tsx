@@ -1,8 +1,3 @@
-import { memo } from 'react';
-
-import { createStackNavigator } from '@onekeyhq/components';
-import type { ITabSubNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
-import { useThemeValue } from '@onekeyhq/components/src/Provider/hooks/useThemeValue';
 import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
 import ActionListGallery from '@onekeyhq/kit/src/views/Components/stories/ActionList';
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
