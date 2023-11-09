@@ -22,12 +22,6 @@ const rootConfig: RootStackNavigatorConfig<RootRoutes, any>[] = [
     component: ModalNavigator,
     type: 'modal',
   },
-  {
-    name: RootRoutes.Gallery,
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    component: require('../Gallery').default,
-    // disable: process.env.NODE_ENV === 'production',
-  },
 ];
 
 export const RootNavigator = () => {

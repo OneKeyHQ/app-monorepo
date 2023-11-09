@@ -29,84 +29,84 @@ import TooltipGallery from '@onekeyhq/kit/src/views/Components/stories/Tooltip';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 import WebviewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 
-import AlertGallery from '../../views/Components/stories/Alert';
-import DividerGallery from '../../views/Components/stories/Divider';
-import FormGallery from '../../views/Components/stories/Form';
-import JotaiGlobalGallery from '../../views/Components/stories/JotaiGlobalGallery';
-import ListViewGallery from '../../views/Components/stories/ListView';
-import QRCodeGallery from '../../views/Components/stories/QRCode';
-import ScrollViewGallery from '../../views/Components/stories/ScrollView';
-import SectionListGallery from '../../views/Components/stories/SectionList';
-import SkeletonGallery from '../../views/Components/stories/Skeleton';
-import TextAreaGallery from '../../views/Components/stories/TextArea';
-import ThemeGallery from '../../views/Components/stories/Theme';
+import AlertGallery from '../../../../../views/Components/stories/Alert';
+import DividerGallery from '../../../../../views/Components/stories/Divider';
+import FormGallery from '../../../../../views/Components/stories/Form';
+import JotaiGlobalGallery from '../../../../../views/Components/stories/JotaiGlobalGallery';
+import ListViewGallery from '../../../../../views/Components/stories/ListView';
+import QRCodeGallery from '../../../../../views/Components/stories/QRCode';
+import ScrollViewGallery from '../../../../../views/Components/stories/ScrollView';
+import SectionListGallery from '../../../../../views/Components/stories/SectionList';
+import SkeletonGallery from '../../../../../views/Components/stories/Skeleton';
+import TextAreaGallery from '../../../../../views/Components/stories/TextArea';
+import ThemeGallery from '../../../../../views/Components/stories/Theme';
 
-import { GalleryRoutes } from './routes';
+import { EGalleryRoutes } from './routes';
 
-export const stackScreenList = [
-  { name: GalleryRoutes.Components, component: ComponentsScreen },
+export const galleryScreenList = [
+  { name: EGalleryRoutes.Components, component: ComponentsScreen },
   {
-    name: GalleryRoutes.ComponentTypography,
+    name: EGalleryRoutes.ComponentTypography,
     component: TypographyGallery,
   },
   {
-    name: GalleryRoutes.ComponentLottieView,
+    name: EGalleryRoutes.ComponentLottieView,
     component: LottieViewGallery,
   },
-  { name: GalleryRoutes.ComponentIcon, component: IconGallery },
-  { name: GalleryRoutes.ComponentToast, component: ToastGallery },
-  { name: GalleryRoutes.ComponentSelect, component: SelectGallery },
-  { name: GalleryRoutes.ComponentTooltip, component: TooltipGallery },
-  { name: GalleryRoutes.ComponentBadge, component: BadgeGallery },
-  { name: GalleryRoutes.ComponentInput, component: InputGallery },
-  { name: GalleryRoutes.ComponentDialog, component: DialogGallery },
-  { name: GalleryRoutes.ComponentEmpty, component: EmptyGallery },
-  { name: GalleryRoutes.ComponentRadio, component: RadioGallery },
-  { name: GalleryRoutes.ComponentListView, component: ListViewGallery },
-  { name: GalleryRoutes.ComponentSectionList, component: SectionListGallery },
-  { name: GalleryRoutes.ComponentListItem, component: ListItemGallery },
-  { name: GalleryRoutes.ComponentSkeleton, component: SkeletonGallery },
-  { name: GalleryRoutes.ComponentCheckbox, component: CheckboxGallery },
-  { name: GalleryRoutes.ComponentToggleGroup, component: ToggleGroupGallery },
-  { name: GalleryRoutes.ComponentActionList, component: ActionListGallery },
-  { name: GalleryRoutes.ComponentPopover, component: PopoverGallery },
-  { name: GalleryRoutes.ComponentProgress, component: ProgressGallery },
+  { name: EGalleryRoutes.ComponentIcon, component: IconGallery },
+  { name: EGalleryRoutes.ComponentToast, component: ToastGallery },
+  { name: EGalleryRoutes.ComponentSelect, component: SelectGallery },
+  { name: EGalleryRoutes.ComponentTooltip, component: TooltipGallery },
+  { name: EGalleryRoutes.ComponentBadge, component: BadgeGallery },
+  { name: EGalleryRoutes.ComponentInput, component: InputGallery },
+  { name: EGalleryRoutes.ComponentDialog, component: DialogGallery },
+  { name: EGalleryRoutes.ComponentEmpty, component: EmptyGallery },
+  { name: EGalleryRoutes.ComponentRadio, component: RadioGallery },
+  { name: EGalleryRoutes.ComponentListView, component: ListViewGallery },
+  { name: EGalleryRoutes.ComponentSectionList, component: SectionListGallery },
+  { name: EGalleryRoutes.ComponentListItem, component: ListItemGallery },
+  { name: EGalleryRoutes.ComponentSkeleton, component: SkeletonGallery },
+  { name: EGalleryRoutes.ComponentCheckbox, component: CheckboxGallery },
+  { name: EGalleryRoutes.ComponentToggleGroup, component: ToggleGroupGallery },
+  { name: EGalleryRoutes.ComponentActionList, component: ActionListGallery },
+  { name: EGalleryRoutes.ComponentPopover, component: PopoverGallery },
+  { name: EGalleryRoutes.ComponentProgress, component: ProgressGallery },
   {
-    name: GalleryRoutes.ComponentIconButton,
+    name: EGalleryRoutes.ComponentIconButton,
     component: IconButtonGallery,
   },
-  { name: GalleryRoutes.ComponentSwitch, component: SwitchGallery },
-  { name: GalleryRoutes.ComponentButton, component: ButtonGallery },
-  { name: GalleryRoutes.ComponentTextArea, component: TextAreaGallery },
-  { name: GalleryRoutes.ComponentSlider, component: SliderGallery },
+  { name: EGalleryRoutes.ComponentSwitch, component: SwitchGallery },
+  { name: EGalleryRoutes.ComponentButton, component: ButtonGallery },
+  { name: EGalleryRoutes.ComponentTextArea, component: TextAreaGallery },
+  { name: EGalleryRoutes.ComponentSlider, component: SliderGallery },
   {
-    name: GalleryRoutes.ComponentNavigation,
+    name: EGalleryRoutes.ComponentNavigation,
     component: DemoRootApp,
     options: { headerShown: false },
   },
   {
-    name: GalleryRoutes.ComponentSegmentControl,
+    name: EGalleryRoutes.ComponentSegmentControl,
     component: SegmentControlGallery,
   },
-  { name: GalleryRoutes.ComponentAlert, component: AlertGallery },
-  { name: GalleryRoutes.ComponentDivider, component: DividerGallery },
-  { name: GalleryRoutes.ComponentTheme, component: ThemeGallery },
-  { name: GalleryRoutes.ComponentScrollView, component: ScrollViewGallery },
-  { name: GalleryRoutes.ComponentJotaiGlobal, component: JotaiGlobalGallery },
+  { name: EGalleryRoutes.ComponentAlert, component: AlertGallery },
+  { name: EGalleryRoutes.ComponentDivider, component: DividerGallery },
+  { name: EGalleryRoutes.ComponentTheme, component: ThemeGallery },
+  { name: EGalleryRoutes.ComponentScrollView, component: ScrollViewGallery },
+  { name: EGalleryRoutes.ComponentJotaiGlobal, component: JotaiGlobalGallery },
   {
-    name: GalleryRoutes.ComponentForm,
+    name: EGalleryRoutes.ComponentForm,
     component: FormGallery,
   },
   {
-    name: GalleryRoutes.ComponentTabview,
+    name: EGalleryRoutes.ComponentTabview,
     component: TabViewGallery,
   },
   {
-    name: GalleryRoutes.componentQRCode,
+    name: EGalleryRoutes.componentQRCode,
     component: QRCodeGallery,
   },
   {
-    name: GalleryRoutes.ComponentWebview,
+    name: EGalleryRoutes.ComponentWebview,
     component: WebviewGallery,
   },
 ];
@@ -122,7 +122,7 @@ const DevScreen = () => {
   return (
     <DevStack.Navigator>
       <DevStack.Group>
-        {stackScreenList.map((stack) => (
+        {galleryScreenList.map((stack) => (
           <DevStack.Screen
             key={stack.name}
             name={stack.name}

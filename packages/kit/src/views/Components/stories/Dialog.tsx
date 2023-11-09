@@ -18,7 +18,7 @@ import {
 import type { DialogProps } from '@onekeyhq/components/src/Dialog/type';
 import type { ModalNavigationProp } from '@onekeyhq/components/src/Navigation';
 
-import { GalleryRoutes } from '../../../routes/Gallery/routes';
+import { EGalleryRoutes } from '../../../routes/Root/Tab/Developer/Gallery/routes';
 
 import { Layout } from './utils/Layout';
 
@@ -167,7 +167,7 @@ function ContentA({ index }: { index: number }) {
 const DialogNavigatorDemo = () => {
   const navigation = useNavigation<
     ModalNavigationProp<{
-      [GalleryRoutes.Components]: undefined;
+      [EGalleryRoutes.Components]: undefined;
     }>
   >();
   return (
@@ -191,7 +191,7 @@ const DialogNavigatorDemo = () => {
               title: 'Toaster is always on top',
               duration: 3,
             });
-            navigation.push(GalleryRoutes.Components);
+            navigation.push(EGalleryRoutes.Components);
           }, 1500);
         }}
       >

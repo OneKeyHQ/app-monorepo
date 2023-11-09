@@ -8,7 +8,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import Swap from '../../../views/Swap';
 import HomePage from '../../../views/Tab/Home/HomePageTabs';
 
-import { TabDeveloperRoutes } from './Developer/Routes';
+import { ETabDeveloperRoutes } from './Developer/Routes';
 import { TabHomeRoutes } from './Home/Routes';
 import TabHomeStack1 from './Home/TabHomeStack1';
 import TabHomeStack2 from './Home/TabHomeStack2';
@@ -17,6 +17,7 @@ import TabMe from './Me/TabMe';
 import { TabRoutes } from './Routes';
 import { TabSwapRoutes } from './Swap/Routes';
 import { WebViewRoutes } from './WebView/Routes';
+import { galleryScreenList } from './Developer/Gallery';
 
 const config: TabNavigatorConfig<TabRoutes>[] = [
   {
@@ -80,11 +81,12 @@ const config: TabNavigatorConfig<TabRoutes>[] = [
     // disable: process.env.NODE_ENV === 'production',
     children: [
       {
-        name: TabDeveloperRoutes.TabDeveloper,
+        name: ETabDeveloperRoutes.TabDeveloper,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         component: require('./Developer/TabDeveloper').default,
         translationId: 'form__dev_mode',
       },
+      ...galleryScreenList,
     ],
   },
 ];

@@ -6,7 +6,7 @@ import { CreateModalStack } from './DemoCreateModal';
 import { LockedModalStack } from './DemoLockedModal';
 import { RootModalRoutes } from './Routes';
 
-const modalStackScreenList: ModalRootNavigatorConfig<RootModalRoutes>[] = [
+const modalgalleryScreenList: ModalRootNavigatorConfig<RootModalRoutes>[] = [
   {
     name: RootModalRoutes.DemoCreateModal,
     children: CreateModalStack,
@@ -22,5 +22,5 @@ const modalStackScreenList: ModalRootNavigatorConfig<RootModalRoutes>[] = [
 ];
 
 export default function DemoModalStackScreen() {
-  return <RootModalNavigator<RootModalRoutes> config={modalStackScreenList} />;
+  return <RootModalNavigator<RootModalRoutes> config={modalgalleryScreenList} />;
 }
