@@ -1,11 +1,14 @@
-import { VersionedTransaction } from '@solana/web3.js';
+import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 
 import type { Signer } from '../../../proxy';
 import type { INativeTxSol } from './types';
-import type { PublicKey } from '@solana/web3.js';
+
+export const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
+  'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s',
+);
 
 export async function signTransaction(
   unsignedTx: UnsignedTx,
