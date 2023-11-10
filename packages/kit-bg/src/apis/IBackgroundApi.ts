@@ -4,6 +4,7 @@ import type { IAppSelector, IPersistor, IStore } from '@onekeyhq/kit/src/store';
 
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type ServiceApp from '../services/ServiceApp';
+import type ServiceDiscovery from '../services/ServiceDiscovery';
 import type ServicePassword from '../services/ServicePassword';
 import type ServicePromise from '../services/ServicePromise';
 import type { EAtomNames } from '../states/jotai/atomNames';
@@ -58,6 +59,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   servicePromise: ServicePromise;
   servicePassword: ServicePassword;
   serviceApp: ServiceApp;
+  serviceDiscovery: ServiceDiscovery;
   // serviceBootstrap: ServiceBootstrap;
   // serviceCronJob: ServiceCronJob;
 }

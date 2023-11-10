@@ -1,15 +1,15 @@
-import { isEqual } from 'lodash';
-
 import {
   atom,
   createJotaiContext,
 } from '@onekeyhq/kit/src/store/jotai/createJotaiContext';
 import { simpleDb } from '@onekeyhq/kit/src/views/Discovery/components/WebView/mock';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { webviewRefs } from '../utils/explorerUtils';
 
-import type { IWebTab } from '../types';
+import type { IWebTab, IWebTabsAtom } from '../types';
 
+const { serviceDiscovery } = backgroundApiProxy;
 const BLANK_PAGE_URL = 'about:blank';
 export const homeTab: IWebTab = {
   id: 'home',
@@ -23,60 +23,59 @@ export const homeTab: IWebTab = {
 
 export const homeResettingFlags: Record<string, number> = {};
 
-function buildWebTabData(tabs: IWebTab[]) {
-  const map: Record<string, IWebTab> = {};
-  const keys: string[] = [];
-  tabs.forEach((tab) => {
-    keys.push(tab.id);
-    map[tab.id] = tab;
-  });
-  return {
-    data: tabs,
-    keys,
-    map,
-  };
-}
-
 const {
   withProvider: withProviderWebTabs,
   useContextAtom: useAtomWebTabs,
   store: webTabsStore,
 } = createJotaiContext({ isSingletonStore: true });
 
-interface IWebTabsAtom {
-  tabs: IWebTab[];
-  keys: string[];
-}
-
-export const activeTabIdAtom = atom<string | null>(null);
 export const webTabsAtom = atom<IWebTabsAtom>({ tabs: [], keys: [] });
 export const webTabsMapAtom = atom<Record<string, IWebTab>>({});
-export const setWebTabsAtom = atom(null, (get, set, payload: IWebTab[]) => {
-  let newTabs = payload;
-  if (!Array.isArray(payload)) {
-    throw new Error('setWebTabsWriteAtom: payload must be an array');
-  }
-  if (!newTabs || !newTabs.length) {
-    newTabs = [];
-  }
-  const result = buildWebTabData(newTabs);
-  if (!isEqual(result.keys, get(webTabsAtom).keys)) {
-    console.log(
-      'setWebTabsAtom: payload: ',
-      payload,
-      ' keys: ',
-      result.keys,
-      ' data: ',
-      result.data,
-    );
-    set(webTabsAtom, { keys: result.keys, tabs: result.data });
-  }
 
-  set(webTabsMapAtom, () => result.map);
-  simpleDb.discoverWebTabs.setRawData({
-    tabs: newTabs,
-  });
+export const activeTabIdAtom = atom<string | null>(null);
+
+export const setWebTabsAtom = atom(
+  null,
+  async (get, set, payload: IWebTab[]) => {
+    const webTabs = get(webTabsAtom);
+    const { keys, data, map, shouldUpdateTabs } =
+      await serviceDiscovery.setWebTabs(webTabs, payload);
+    if (shouldUpdateTabs) {
+      set(webTabsAtom, { keys, tabs: data });
+    }
+
+    console.log(
+      '====> keys, data, map, shouldUpdateTabs: ',
+      keys,
+      data,
+      map,
+      shouldUpdateTabs,
+    );
+    set(webTabsMapAtom, () => map);
+    // TODO: remove logic to service
+    simpleDb.discoverWebTabs.setRawData({
+      tabs: data,
+    });
+  },
+);
+
+export const setCurrentWebTabAtom = atom(null, (get, set, tabId: string) => {
+  const currentTabId = get(activeTabIdAtom);
+  if (currentTabId !== tabId) {
+    // set isActive to true
+    const { tabs } = get(webTabsAtom);
+    const targetIndex = tabs.findIndex((t) => t.id === tabId);
+    if (targetIndex !== -1) {
+      tabs.forEach((t) => {
+        t.isActive = false;
+      });
+      tabs[targetIndex].isActive = true;
+      void set(setWebTabsAtom, [...tabs]);
+      set(activeTabIdAtom, tabId);
+    }
+  }
 });
+
 export const addWebTabAtom = atom(
   null,
   (get, set, payload: Partial<IWebTab>) => {
@@ -90,51 +89,32 @@ export const addWebTabAtom = atom(
       }`;
     }
     payload.timestamp = Date.now();
-    set(setWebTabsAtom, [...tabs, payload as IWebTab]);
-    set(activeTabIdAtom, payload.id);
+    set(setWebTabsAtom, [...tabs, payload as IWebTab])
+      .then(() => {
+        set(setCurrentWebTabAtom, payload.id ?? '');
+      })
+      .catch((e) => {
+        console.log('====> addWebTabAtom error: ', e);
+      });
   },
 );
 export const addBlankWebTabAtom = atom(null, (_, set) => {
-  set(addWebTabAtom, { ...homeTab });
+  set(addWebTabAtom, { ...homeTab, isActive: true });
 });
 export const setWebTabDataAtom = atom(
   null,
-  (get, set, payload: Partial<IWebTab>) => {
+  async (get, set, payload: Partial<IWebTab>) => {
     const { tabs } = get(webTabsAtom);
-    const tabIndex = tabs.findIndex((t) => t.id === payload.id);
-    if (tabIndex > -1) {
-      const tabToModify = tabs[tabIndex];
-      Object.keys(payload).forEach((k) => {
-        const key = k as keyof IWebTab;
-        const value = payload[key];
-        if (value !== undefined && value !== tabToModify[key]) {
-          if (key === 'title') {
-            if (!value) {
-              return;
-            }
-          }
-          // @ts-expect-error
-          tabToModify[key] = value;
-          if (key === 'url') {
-            tabToModify.timestamp = Date.now();
-            if (value === homeTab.url && payload.id) {
-              homeResettingFlags[payload.id] = tabToModify.timestamp;
-            }
-            if (!payload.favicon) {
-              try {
-                tabToModify.favicon = `${
-                  new URL(tabToModify.url ?? '').origin
-                }/favicon.ico`;
-              } catch {
-                // ignore
-              }
-            }
-          }
-        }
+    const { tabs: newTabs, resetFlag } = await serviceDiscovery.setWebTabData(
+      tabs,
+      payload,
+    );
+    if (resetFlag) {
+      Object.entries(resetFlag).forEach(([id, timestamp]) => {
+        homeResettingFlags[id] = timestamp;
       });
-      tabs[tabIndex] = tabToModify;
-      set(setWebTabsAtom, tabs);
     }
+    void set(setWebTabsAtom, newTabs);
   },
 );
 export const closeWebTabAtom = atom(null, (get, set, tabId: string) => {
@@ -144,24 +124,19 @@ export const closeWebTabAtom = atom(null, (get, set, tabId: string) => {
   if (targetIndex !== -1) {
     if (tabs[targetIndex].id === get(activeTabIdAtom)) {
       const prev = tabs[targetIndex - 1];
-      set(activeTabIdAtom, prev ? prev.id : null);
+      if (prev) {
+        prev.isActive = true;
+      }
     }
     tabs.splice(targetIndex, 1);
-    set(setWebTabsAtom, [...tabs]);
+    void set(setWebTabsAtom, [...tabs]);
   }
 });
 export const closeAllWebTabsAtom = atom(null, (_, set) => {
   for (const id of Object.getOwnPropertyNames(webviewRefs)) {
     delete webviewRefs[id];
   }
-  set(setWebTabsAtom, []);
-  set(activeTabIdAtom, null);
-});
-export const setCurrentWebTabAtom = atom(null, (get, set, tabId: string) => {
-  const currentTabId = get(activeTabIdAtom);
-  if (currentTabId !== tabId) {
-    set(activeTabIdAtom, tabId);
-  }
+  void set(setWebTabsAtom, []);
 });
 
 export const incomingUrlAtom = atom('');

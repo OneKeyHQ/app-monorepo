@@ -31,10 +31,10 @@ export const useWebTabData = (id?: string) => {
 };
 
 export const useActiveTabId = () => {
-  const [activeTabId] = useAtomWebTabs(activeTabIdAtom);
+  const [activeTabId] = useAtomWebTabs(activeTabIdAtom as any);
   return useMemo(
     () => ({
-      activeTabId,
+      activeTabId: activeTabId as string | null,
     }),
     [activeTabId],
   );

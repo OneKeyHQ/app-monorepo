@@ -50,13 +50,20 @@ export type IOnWebviewNavigation = ({
 export interface IWebTab {
   id: string;
   url: string;
+  isActive?: boolean;
   title?: string;
   favicon?: string;
   thumbnail?: string;
-  isBookmarked?: boolean;
+  isBookmark?: boolean;
+  isPined?: boolean;
+  loading?: boolean;
   canGoBack?: boolean;
   canGoForward?: boolean;
-  loading?: boolean;
   refReady?: boolean;
   timestamp?: number;
+}
+
+export interface IWebTabsAtom {
+  tabs: IWebTab[];
+  keys: string[];
 }

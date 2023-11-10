@@ -5,7 +5,7 @@ import { Freeze } from 'react-freeze';
 import { captureRef } from 'react-native-view-shot';
 import { Stack } from 'tamagui';
 
-import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 
@@ -33,7 +33,7 @@ import type { TamaguiElement } from 'tamagui';
 
 function MobileBrowserContent({ id }: { id: string }) {
   const navigation =
-    useAppNavigation<PageNavigationProp<DiscoverModalParamList>>();
+    useAppNavigation<IPageNavigationProp<DiscoverModalParamList>>();
   const { tabs } = useWebTabs();
   const { tab } = useWebTabData(id);
   const { activeTabId } = useActiveTabId();
@@ -63,7 +63,7 @@ function MobileBrowserContent({ id }: { id: string }) {
         })
           .then(async (imageUri) => {
             const path = getScreenshotPath(`${tab?.id}.jpg`);
-            setWebTabData({
+            void setWebTabData({
               id: tab?.id,
               thumbnail: path,
             });
@@ -91,15 +91,15 @@ function MobileBrowserContent({ id }: { id: string }) {
 
   const BrowserBottomBar = useMemo(
     () => (
-      <Freeze key={`${tab.id}-BottomBar`} freeze={!isActive}>
+      <Freeze key={`${id}-BottomBar`} freeze={!isActive}>
         <MobileBrowserBottomBar
-          id={tab.id}
+          id={id}
           tabCount={tabCount}
           goBack={() => {
-            (webviewRefs[tab.id]?.innerRef as WebView)?.goBack();
+            (webviewRefs[id]?.innerRef as WebView)?.goBack();
           }}
           goForward={() => {
-            (webviewRefs[tab.id]?.innerRef as WebView)?.goForward();
+            (webviewRefs[id]?.innerRef as WebView)?.goForward();
           }}
           canGoBack={backEnabled}
           canGoForward={forwardEnabled}
@@ -107,11 +107,11 @@ function MobileBrowserContent({ id }: { id: string }) {
         />
       </Freeze>
     ),
-    [tab.id, backEnabled, forwardEnabled, isActive, tabCount, onShowTabList],
+    [id, backEnabled, forwardEnabled, isActive, tabCount, onShowTabList],
   );
 
   const content = useMemo(() => {
-    if (!tab || !tab.id) {
+    if (!tab || !tab?.id) {
       return null;
     }
     return (

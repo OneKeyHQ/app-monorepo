@@ -1,10 +1,6 @@
 import { openUrl } from '../../../utils/openUrl';
-import {
-  addWebTab,
-  closeWebTab,
-  setWebTabData,
-} from '../store/contextWebTabs';
 import { getWebTabs } from '../hooks/useWebTabs';
+import { addWebTab, closeWebTab, setWebTabData } from '../store/contextWebTabs';
 
 import {
   browserTypeHandler,
@@ -61,15 +57,15 @@ export const gotoSite = ({
         title,
         url: validatedUrl,
         favicon,
-        isBookmarked: false,
+        isBookmark: false,
       });
     } else {
-      setWebTabData({
+      void setWebTabData({
         id: tabId,
         url: validatedUrl,
         title,
         favicon,
-        isBookmarked: false,
+        isBookmark: false,
       });
     }
 

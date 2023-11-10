@@ -2,7 +2,7 @@ import { memo, useEffect, useMemo } from 'react';
 
 import { Stack } from 'tamagui';
 
-import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 
@@ -32,7 +32,7 @@ function HandleRebuildTabBarData() {
     if (!result.result) return;
     const data = result.result;
     if (data && Array.isArray(data) && data.length > 0) {
-      setWebTabs(data);
+      void setWebTabs(data);
     } else {
       addBlankWebTab();
     }
@@ -46,7 +46,7 @@ function MobileBrowser() {
   const { activeTabId } = useActiveTabId();
   const { tab } = useWebTabData(activeTabId ?? '');
   const navigation =
-    useAppNavigation<PageNavigationProp<DiscoverModalParamList>>();
+    useAppNavigation<IPageNavigationProp<DiscoverModalParamList>>();
 
   useEffect(() => {
     console.log('MobileBrowser renderer ===> : ');

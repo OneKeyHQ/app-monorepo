@@ -61,7 +61,7 @@ function MobileTabListItem({
             textAlign="left"
             numberOfLines={1}
           >
-            {tab.title || ''}
+            {tab?.title || ''}
           </Text>
         </XStack>
         <Image
