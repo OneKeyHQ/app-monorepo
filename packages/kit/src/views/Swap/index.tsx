@@ -18,12 +18,12 @@ import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import BiologyAuthSwitchContainer from '../../components/BiologyAuthComponent/container/BiologyAuthSwitchContainer';
+import WebAuthSwitchContainer from '../../components/BiologyAuthComponent/container/WebAuthSwitchContainer';
 import PasswordSetupContainer from '../../components/Password/container/PasswordSetupContainer';
 import PasswordUpdateContainer from '../../components/Password/container/PasswordUpdateContainer';
 
 const Swap = () => {
   console.log('swap');
-
   const [{ isPasswordSet }] = usePasswordPersistAtom();
   return (
     <Screen>
@@ -79,11 +79,19 @@ const Swap = () => {
         </Button>
         <Button
           onPress={async () => {
-            const { status, data } =
-              await (backgroundApiProxy.servicePassword.promptPasswordVerify() as Promise<IPasswordRes>);
-            console.log('data', data);
-            if (status === EPasswordResStatus.PASS_STATUS) {
-              Toast.success({ title: '验证成功' });
+            try {
+              const { status, data } =
+                await (backgroundApiProxy.servicePassword.promptPasswordVerify() as Promise<IPasswordRes>);
+              console.log('data', data);
+              if (status === EPasswordResStatus.PASS_STATUS) {
+                Toast.success({ title: '验证成功' });
+              }
+            } catch (e: any) {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              const errorMessage = e?.message;
+              if (errorMessage) {
+                Toast.error({ title: errorMessage });
+              }
             }
           }}
         >
@@ -95,6 +103,25 @@ const Swap = () => {
             <BiologyAuthSwitchContainer />
           </Suspense>
         </XStack>
+        <XStack justifyContent="space-between">
+          <Text>Chrome生物识别</Text>
+          <Suspense fallback={<Spinner size="large" />}>
+            <WebAuthSwitchContainer />
+          </Suspense>
+        </XStack>
+        <Button
+          onPress={async () => {
+            try {
+              const res =
+                await backgroundApiProxy.servicePassword.verifyWebAuth();
+              Toast.success({ title: res ? '解锁成功' : '请输入密码' });
+            } catch (e) {
+              console.log('e', e);
+            }
+          }}
+        >
+          验证 Chrome生物识别
+        </Button>
       </YStack>
     </Screen>
   );
