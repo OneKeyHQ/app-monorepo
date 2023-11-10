@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useCallback, useLayoutEffect, useState } from 'react';
 
-import { Button, Stack, YStack } from '@onekeyhq/components';
+import { Button, Stack, Text, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -34,6 +34,59 @@ const DemoRootHome = () => {
     useDemoAppNavigation<IPageNavigationProp<DemoHomeTabParamList>>();
 
   const [rrtStatus, changeRRTStatus] = useStorage(AppSettingKey.rrt);
+
+  const renderHeaderTitle = useCallback(
+    () => (
+      <Stack flex={1} justifyContent="center">
+        <Stack
+          alignSelf="flex-start"
+          focusable
+          flexDirection="row"
+          p="$1.5"
+          m="$-1.5"
+          hoverStyle={{
+            bg: '$bgHover',
+          }}
+          pressStyle={{
+            bg: '$bgActive',
+          }}
+          focusStyle={{
+            outlineWidth: 2,
+            outlineStyle: 'solid',
+            outlineColor: '$focusRing',
+          }}
+          borderRadius="$2"
+        >
+          <Stack
+            w="$6"
+            h="$6"
+            borderRadius="$1"
+            bg="skyblue"
+            justifyContent="center"
+            alignItems="center"
+          >
+            <Text variant="$bodyLgMedium">🦄</Text>
+          </Stack>
+          <Text ml="$2" variant="$bodyLgMedium" userSelect="none">
+            Wallet Name
+          </Text>
+        </Stack>
+      </Stack>
+    ),
+    [],
+  );
+
+  const renderHeaderRight = useCallback(
+    () => <HeaderIconButton icon="SettingsOutline" />,
+    [],
+  );
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerTitle: renderHeaderTitle,
+      headerRight: renderHeaderRight,
+    });
+  }, [navigation, renderHeaderRight, renderHeaderTitle]);
 
   return (
     <Layout
