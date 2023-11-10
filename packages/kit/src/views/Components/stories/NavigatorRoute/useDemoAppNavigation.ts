@@ -79,6 +79,12 @@ function useDemoAppNavigation<
           hideNavigationBar: false,
           // @ts-expect-error
           hideWhenScrolling: false,
+          /* Although the default value of `obscureBackground` is `true` too, 
+             we still cannot remove it here.
+             because RNSSearchBar seems will read an incorrect default value.
+
+             It can also dismiss the keyboard when the user taps the `UISearchViewController`.
+          */
           obscureBackground: true,
           ...headerSearchBarOptions,
         },

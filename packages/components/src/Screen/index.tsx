@@ -5,7 +5,7 @@ import { Stack } from '../Stack';
 export function Screen({
   children,
 }: PropsWithChildren<unknown> & {
-  skipLoading: boolean;
+  skipLoading?: boolean;
 }) {
   return (
     <Stack bg="$bgApp" flex={1}>

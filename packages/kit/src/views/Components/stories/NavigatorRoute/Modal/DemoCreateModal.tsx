@@ -14,7 +14,6 @@ import { Layout } from '../../utils/Layout';
 import { NavigationFocusTools } from '../../utils/NavigationTools';
 import { FreezeProbe } from '../../utils/RenderTools';
 import { EDemoRootRoutes } from '../Routes';
-import useDemoAppNavigation from '../useDemoAppNavigation';
 
 import { EDemoCreateModalRoutes, ERootModalRoutes } from './Routes';
 
@@ -23,9 +22,8 @@ import type { IDemoCreateModalParamList } from './Routes';
 function DemoCreateViewModal({
   navigation,
 }: IModalScreenProps<IDemoCreateModalParamList>) {
-  const demoNavigation = useDemoAppNavigation();
   useLayoutEffect(() => {
-    demoNavigation.setOptions({
+    navigation.setOptions({
       headerSearchBarOptions: {
         placeholder: '搜索',
         inputType: 'text',
@@ -35,7 +33,8 @@ function DemoCreateViewModal({
       },
       headerRight: () => <HeaderIconButton icon="AnonymousHidden2Outline" />,
     });
-  }, [demoNavigation]);
+  }, [navigation]);
+
   return (
     <ModalContainer
       onConfirm={() => {}}
@@ -95,9 +94,8 @@ function DemoCreateViewModal({
 function DemoCreateSearchModal({
   navigation,
 }: IModalScreenProps<IDemoCreateModalParamList>) {
-  const demoNavigation = useDemoAppNavigation();
   useLayoutEffect(() => {
-    demoNavigation.setOptions({
+    navigation.setOptions({
       headerSearchBarOptions: {
         placeholder: '搜索',
         inputType: 'text',
@@ -106,7 +104,7 @@ function DemoCreateSearchModal({
         },
       },
     });
-  }, [demoNavigation]);
+  }, [navigation]);
 
   return (
     <Layout
@@ -155,9 +153,8 @@ function DemoCreateSearchModal({
 function DemoCreateOptionsModal({
   navigation,
 }: IModalScreenProps<IDemoCreateModalParamList>) {
-  const demoNavigation = useDemoAppNavigation();
   useLayoutEffect(() => {
-    demoNavigation.setOptions({
+    navigation.setOptions({
       headerSearchBarOptions: {
         placeholder: '搜索',
         inputType: 'text',
@@ -173,7 +170,7 @@ function DemoCreateOptionsModal({
         </HeaderButtonGroup>
       ),
     });
-  }, [demoNavigation]);
+  }, [navigation]);
 
   return (
     <Layout

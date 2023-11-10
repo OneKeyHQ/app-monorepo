@@ -38,7 +38,7 @@ export function Screen({
   children,
   skipLoading = false,
 }: PropsWithChildren<unknown> & {
-  skipLoading: boolean;
+  skipLoading?: boolean;
 }) {
   return useMemo(
     () => (
