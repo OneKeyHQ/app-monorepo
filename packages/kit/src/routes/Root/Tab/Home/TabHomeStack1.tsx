@@ -3,12 +3,12 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 
-import { TabHomeRoutes } from './Routes';
+import { ETabHomeRoutes } from './Routes';
 
-import type { TabHomeParamList } from './Routes';
+import type { ITabHomeParamList } from './Routes';
 
 const TabHomeStack1 = () => {
-  const navigation = useAppNavigation<IPageNavigationProp<TabHomeParamList>>();
+  const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
 
   return (
     <Screen>
@@ -22,7 +22,7 @@ const TabHomeStack1 = () => {
         </Button>
         <Button
           onPress={() => {
-            navigation.push(TabHomeRoutes.TabHomeStack2);
+            navigation.push(ETabHomeRoutes.TabHomeStack2);
           }}
         >
           下一页

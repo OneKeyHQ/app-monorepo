@@ -1,4 +1,4 @@
-export enum GalleryRoutes {
+export enum EGalleryRoutes {
   Components = 'components',
   ComponentTypography = 'component/typography',
   ComponentLottieView = 'component/lottieview',

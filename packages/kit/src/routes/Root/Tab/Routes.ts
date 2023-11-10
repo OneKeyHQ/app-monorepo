@@ -1,10 +1,10 @@
-import type { TabHomeParamList } from './Home/Routes';
-import type { TabMeParamList } from './Me/Routes';
-import type { TabSwapParamList } from './Swap/Routes';
-import type { WebViewParamList } from './WebView/Routes';
-import type { DemoDeveloperTabParamList } from '../../../views/Components/stories/NavigatorRoute/Tab/RouteParamTypes';
+import type { ITabHomeParamList } from './Home/Routes';
+import type { ITabMeParamList } from './Me/Routes';
+import type { ITabSwapParamList } from './Swap/Routes';
+import type { IWebViewParamList } from './WebView/Routes';
+import type { IDemoDeveloperTabParamList } from '../../../views/Components/stories/NavigatorRoute/Tab/RouteParamTypes';
 
-export enum TabRoutes {
+export enum ETabRoutes {
   Home = 'Home',
   Me = 'Me',
   Developer = 'Developer',
@@ -12,10 +12,10 @@ export enum TabRoutes {
   WebViewTab = 'WebViewTab',
 }
 
-export type TabStackParamList = {
-  [TabRoutes.Home]: TabHomeParamList;
-  [TabRoutes.Me]: TabMeParamList;
-  [TabRoutes.Developer]: DemoDeveloperTabParamList;
-  [TabRoutes.Swap]: TabSwapParamList;
-  [TabRoutes.WebViewTab]: WebViewParamList;
+export type ITabStackParamList = {
+  [ETabRoutes.Home]: ITabHomeParamList;
+  [ETabRoutes.Me]: ITabMeParamList;
+  [ETabRoutes.Developer]: IDemoDeveloperTabParamList;
+  [ETabRoutes.Swap]: ITabSwapParamList;
+  [ETabRoutes.WebViewTab]: IWebViewParamList;
 };

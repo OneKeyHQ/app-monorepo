@@ -10,9 +10,9 @@ import { NavigationFocusTools } from '../../utils/NavigationTools';
 import { FreezeProbe } from '../../utils/RenderTools';
 import useDemoAppNavigation from '../useDemoAppNavigation';
 
-import { DemoLockedModalRoutes, RootModalRoutes } from './Routes';
+import { EDemoLockedModalRoutes, ERootModalRoutes } from './Routes';
 
-import type { DemoLockedModalParamList } from './Routes';
+import type { IDemoLockedModalParamList } from './Routes';
 
 const DemoLockedViewModal = () => {
   const navigation = useDemoAppNavigation();
@@ -40,8 +40,8 @@ const DemoLockedViewModal = () => {
             <Button
               variant="primary"
               onPress={() => {
-                navigation.pushModal(RootModalRoutes.DemoLockedModal, {
-                  screen: DemoLockedModalRoutes.DemoConfigLockedModal,
+                navigation.pushModal(ERootModalRoutes.DemoLockedModal, {
+                  screen: EDemoLockedModalRoutes.DemoConfigLockedModal,
                 });
               }}
             >
@@ -65,7 +65,7 @@ const DemoLockedViewModal = () => {
 
 const DemoConfigLockedViewModal = () => {
   const navigation =
-    useDemoAppNavigation<IModalNavigationProp<DemoLockedModalParamList>>();
+    useDemoAppNavigation<IModalNavigationProp<IDemoLockedModalParamList>>();
 
   const headerRightCall = useCallback(
     () => <HeaderIconButton icon="AnonymousHidden2Outline" />,
@@ -98,8 +98,8 @@ const DemoConfigLockedViewModal = () => {
             <Button
               variant="primary"
               onPress={() => {
-                navigation.pushModal(RootModalRoutes.DemoLockedModal, {
-                  screen: DemoLockedModalRoutes.DemoManualLockedViewModal,
+                navigation.pushModal(ERootModalRoutes.DemoLockedModal, {
+                  screen: EDemoLockedModalRoutes.DemoManualLockedViewModal,
                 });
               }}
             >
@@ -138,7 +138,7 @@ const DemoConfigLockedViewModal = () => {
 
 const DemoManualLockedViewModal = () => {
   const navigation =
-    useDemoAppNavigation<IModalNavigationProp<DemoLockedModalParamList>>();
+    useDemoAppNavigation<IModalNavigationProp<IDemoLockedModalParamList>>();
 
   const headerRightCall = useCallback(
     () => <HeaderIconButton icon="AnonymousHidden2Outline" />,
@@ -171,8 +171,9 @@ const DemoManualLockedViewModal = () => {
             <Button
               variant="primary"
               onPress={() => {
-                navigation.pushModal(RootModalRoutes.DemoLockedModal, {
-                  screen: DemoLockedModalRoutes.DemoRepeatManualLockedViewModal,
+                navigation.pushModal(ERootModalRoutes.DemoLockedModal, {
+                  screen:
+                    EDemoLockedModalRoutes.DemoRepeatManualLockedViewModal,
                 });
               }}
             >
@@ -226,7 +227,7 @@ const DemoManualLockedViewModal = () => {
 
 const DemoRepeatManualLockedViewModal = () => {
   const navigation =
-    useDemoAppNavigation<IModalNavigationProp<DemoLockedModalParamList>>();
+    useDemoAppNavigation<IModalNavigationProp<IDemoLockedModalParamList>>();
   const [locked, setLocked] = useState(true);
 
   const headerRightCall = useCallback(
@@ -289,29 +290,29 @@ const DemoRepeatManualLockedViewModal = () => {
 };
 
 export const LockedModalStack: IModalFlowNavigatorConfig<
-  DemoLockedModalRoutes,
-  DemoLockedModalParamList
+  EDemoLockedModalRoutes,
+  IDemoLockedModalParamList
 >[] = [
   {
-    name: DemoLockedModalRoutes.DemoLockedModal,
+    name: EDemoLockedModalRoutes.DemoLockedModal,
     component: DemoLockedViewModal,
     translationId: 'Locked Modal Demo',
   },
   {
-    name: DemoLockedModalRoutes.DemoConfigLockedModal,
+    name: EDemoLockedModalRoutes.DemoConfigLockedModal,
     component: DemoConfigLockedViewModal,
     translationId: 'Config Locked Modal',
     allowDisableClose: true,
     disableClose: true,
   },
   {
-    name: DemoLockedModalRoutes.DemoManualLockedViewModal,
+    name: EDemoLockedModalRoutes.DemoManualLockedViewModal,
     component: DemoManualLockedViewModal,
     translationId: 'Manual Locked Modal',
     allowDisableClose: true,
   },
   {
-    name: DemoLockedModalRoutes.DemoRepeatManualLockedViewModal,
+    name: EDemoLockedModalRoutes.DemoRepeatManualLockedViewModal,
     component: DemoRepeatManualLockedViewModal,
     translationId: 'Repeat Manual Locked Modal',
     allowDisableClose: true,

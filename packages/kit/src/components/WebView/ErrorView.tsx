@@ -6,18 +6,18 @@ import { ERROR_CODE } from 'react-native-webview/lib/WebViewShared';
 import { Button, Stack, Text } from '@onekeyhq/components';
 import type EnLanguage from '@onekeyhq/components/src/locale/en-US.json';
 
-type LanguageId = keyof typeof EnLanguage;
+type ILanguageId = keyof typeof EnLanguage;
 
-interface ErrorViewProps {
+interface IErrorViewProps {
   errorCode?: number;
   onRefresh: () => void;
 }
 
-const ErrorView: FC<ErrorViewProps> = ({ errorCode, onRefresh }) => {
+const ErrorView: FC<IErrorViewProps> = ({ errorCode, onRefresh }) => {
   const intl = useIntl();
   const messages: {
-    title: LanguageId;
-    subTitle: LanguageId;
+    title: ILanguageId;
+    subTitle: ILanguageId;
   } = useMemo(() => {
     if (errorCode === ERROR_CODE.CONNECTION_FAILED) {
       return {

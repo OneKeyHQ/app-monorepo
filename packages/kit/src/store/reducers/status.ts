@@ -1,6 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 
-import type { HomePageTabsEnum } from '../../views/Tab/Home/HomePageTabs/types';
+import type { EHomePageTabsEnum } from '../../views/Tab/Home/HomePageTabs/types';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
 export type IRpcStatus =
@@ -19,7 +19,7 @@ export type StatusState = {
   authenticationType?: 'FINGERPRINT' | 'FACIAL';
   hideAddressBookAttention?: boolean;
   homeTabViewActive?: {
-    activeTab?: HomePageTabsEnum;
+    activeTab?: EHomePageTabsEnum;
     disUpdate?: boolean;
   };
   swapPopoverShown?: boolean;

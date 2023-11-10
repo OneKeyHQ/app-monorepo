@@ -1,7 +1,7 @@
-export enum WebViewRoutes {
+export enum EWebViewRoutes {
   WebView = 'WebView',
 }
 
-export type WebViewParamList = {
-  [WebViewRoutes.WebView]: undefined;
+export type IWebViewParamList = {
+  [EWebViewRoutes.WebView]: undefined;
 };

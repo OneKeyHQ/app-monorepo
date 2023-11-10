@@ -7,7 +7,7 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 // @ts-expect-error
 import dAppFavicon from '@onekeyhq/kit/assets/dapp_favicon.png';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 
 import { gotoSite } from '../../Controller/gotoSite';
 import { useWebTabs } from '../../Controller/useWebTabs';
@@ -31,7 +31,7 @@ function BrowserInfoBar() {
         flexDirection="row"
         alignItems="center"
         onPress={() => {
-          navigation.pushModal(ModalRoutes.DiscoverModal, {
+          navigation.pushModal(EModalRoutes.DiscoverModal, {
             screen: DiscoverModalRoutes.SearchModal,
             params: {
               onSubmitContent: (text) => {

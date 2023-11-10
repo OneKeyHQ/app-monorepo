@@ -4,16 +4,16 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { IDesktopAppState } from '@onekeyhq/desktop/src-electron/preload';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-type Status = IDesktopAppState;
+type IStatus = IDesktopAppState;
 
-type AppStatusActiveListenerProps = { onActive: () => void };
+type IAppStatusActiveListenerProps = { onActive: () => void };
 
-const DesktopStatusActiveListener: FC<AppStatusActiveListenerProps> = ({
+const DesktopStatusActiveListener: FC<IAppStatusActiveListenerProps> = ({
   onActive,
 }) => {
-  const appState = useRef<Status>();
+  const appState = useRef<IStatus>();
   const onChange = useCallback(
-    (nextState: Status) => {
+    (nextState: IStatus) => {
       if (appState.current === 'background' && nextState === 'active') {
         onActive?.();
       }
@@ -25,14 +25,14 @@ const DesktopStatusActiveListener: FC<AppStatusActiveListenerProps> = ({
   return null;
 };
 
-const ExtStatusActiveListener: FC<AppStatusActiveListenerProps> = ({
+const ExtStatusActiveListener: FC<IAppStatusActiveListenerProps> = ({
   onActive,
 }) => {
   useEffect(onActive, [onActive]);
   return null;
 };
 
-export const AppStatusActiveListener: FC<AppStatusActiveListenerProps> = ({
+export const AppStatusActiveListener: FC<IAppStatusActiveListenerProps> = ({
   onActive,
 }) => {
   if (platformEnv.isDesktop) {

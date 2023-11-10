@@ -3,11 +3,11 @@ import natsort from 'natsort';
 import { FlatList } from 'react-native';
 
 import { ListItem, Screen } from '@onekeyhq/components';
-import { GalleryRoutes } from '@onekeyhq/kit/src/routes/Gallery/routes';
+import { EGalleryRoutes } from '@onekeyhq/kit/src/routes/Root/Tab/Developer/Gallery/routes';
 
 const Index = () => {
   const navigation = useNavigation();
-  const componentsRoute = Object.values(GalleryRoutes)
+  const componentsRoute = Object.values(EGalleryRoutes)
     .filter((item) => item.startsWith('component'))
     .sort((a, b) => natsort({ insensitive: true })(a, b));
 

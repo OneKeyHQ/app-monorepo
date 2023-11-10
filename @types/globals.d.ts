@@ -55,6 +55,7 @@ declare global {
   var chrome: typeof chrome; // chrome api
   var browser: typeof chrome; // firefox api
 
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   interface Window {
     // All website
     ethereum: any;
@@ -76,6 +77,7 @@ declare global {
 
 declare global {
   namespace FormatjsIntl {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     interface Message {
       ids: ILocaleIds;
     }

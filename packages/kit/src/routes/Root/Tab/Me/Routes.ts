@@ -1,7 +1,7 @@
-export enum TabMeRoutes {
+export enum ETabMeRoutes {
   TabMe = 'TabMe',
 }
 
-export type TabMeParamList = {
-  [TabMeRoutes.TabMe]: undefined;
+export type ITabMeParamList = {
+  [ETabMeRoutes.TabMe]: undefined;
 };

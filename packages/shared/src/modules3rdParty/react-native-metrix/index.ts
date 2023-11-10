@@ -71,7 +71,7 @@ export const stopRecordingMetrics = () => {
   stopLogging();
 };
 
-export type MetrixDeviceInfo = {
+export type IMetrixDeviceInfo = {
   commitHash: string;
   brand: string;
   buildNumber: string;
@@ -84,7 +84,7 @@ export type MetrixDeviceInfo = {
 export const uploadMetricsInfo = async (
   unitTestName: string,
   password: string,
-  deviceInfo: MetrixDeviceInfo,
+  deviceInfo: IMetrixDeviceInfo,
 ) =>
   uploadMetricsLogFile(
     'https://perf.onekeytest.com/api/logs/upload',

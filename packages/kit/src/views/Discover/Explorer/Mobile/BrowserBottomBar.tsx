@@ -4,7 +4,7 @@ import { Button, IconButton, Stack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 
 import { useWebController } from '../../Controller/useWebController';
 import { useWebTabs } from '../../Controller/useWebTabs';
@@ -51,7 +51,7 @@ function BrowserBottomBar({ showHome }: { showHome?: () => void }) {
         />
         <Button
           onPress={() =>
-            navigation.pushModal(ModalRoutes.DiscoverModal, {
+            navigation.pushModal(EModalRoutes.DiscoverModal, {
               screen: DiscoverModalRoutes.MobileTabList,
             })
           }

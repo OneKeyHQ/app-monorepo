@@ -1,25 +1,25 @@
-export enum DemoTabRoutes {
+export enum EDemoTabRoutes {
   Home = 'home',
   Me = 'me',
   Tabs = 'tabs',
   Developer = 'developer',
 }
 
-export enum DemoHomeTabRoutes {
+export enum EDemoHomeTabRoutes {
   DemoRootHome = 'DemoRootHome',
   DemoRootHomeSearch = 'DemoRootHomeSearch',
   DemoRootHomeOptions = 'DemoRootHomeOptions',
 }
 
-export enum DemoDeveloperTabRoutes {
+export enum EDemoDeveloperTabRoutes {
   DemoRootDeveloper = 'DemoRootDeveloper',
   DemoRootDeveloperOptions = 'DemoRootDeveloperOptions',
 }
 
-export enum DemoMeTabRoutes {
+export enum EDemoMeTabRoutes {
   DemoRootMe = 'DemoRootMe',
 }
 
-export enum DemoTabsTabRoutes {
+export enum EDemoTabsTabRoutes {
   DemoRootTabs = 'DemoRootTabs',
 }
