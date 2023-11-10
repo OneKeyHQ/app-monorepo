@@ -44,6 +44,7 @@ export function makeHeaderScreenOptions({
         fontSize: getFontSize('$headingLg'),
         color: titleColor as string,
       },
+      headerTitleAlign: 'left',
       headerLeft: (props: HeaderBackButtonProps): ReactNode => (
         <HeaderBackButton
           onPress={currentNavigation?.goBack}
