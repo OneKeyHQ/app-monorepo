@@ -4850,7 +4850,7 @@ __metadata:
     "@typescript-eslint/parser": ^5.46.1
     "@ungap/structured-clone": ^1.2.0
     "@vespaiach/axios-fetch-adapter": ^0.3.1
-    axios: ^1.5.1
+    axios: ^1.6.0
     babel-loader: ^9.1.3
     babel-plugin-import: ^1.13.5
     babel-plugin-inline-import: ^3.0.0
@@ -5076,7 +5076,6 @@ __metadata:
     react-async-hook: ^4.0.0
     react-freeze: ^1.0.3
     react-intl: ^5.21.2
-    react-native-animated-splash-screen: ^2.0.5
     react-native-camera-kit: 14.0.0-beta2
     react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#834d8096f8cfd78a961fb7a13f06f0cc64b2c9c3"
     react-redux: ^8.0.5
@@ -10149,7 +10148,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"axios@npm:^1.3.2, axios@npm:^1.5.1":
+"axios@npm:^1.3.2":
   version: 1.5.1
   resolution: "axios@npm:1.5.1"
   dependencies:
@@ -10157,6 +10156,17 @@ __metadata:
     form-data: ^4.0.0
     proxy-from-env: ^1.1.0
   checksum: 4444f06601f4ede154183767863d2b8e472b4a6bfc5253597ed6d21899887e1fd0ee2b3de792ac4f8459fe2e359d2aa07c216e45fd8b9e4e0688a6ebf48a5a8d
+  languageName: node
+  linkType: hard
+
+"axios@npm:^1.6.0":
+  version: 1.6.1
+  resolution: "axios@npm:1.6.1"
+  dependencies:
+    follow-redirects: ^1.15.0
+    form-data: ^4.0.0
+    proxy-from-env: ^1.1.0
+  checksum: 573f03f59b7487d54551b16f5e155d1d130ad4864ed32d1da93d522b78a57123b34e3bde37f822a65ee297e79f1db840f9ad6514addff50d3cbf5caeed39e8dc
   languageName: node
   linkType: hard
 
@@ -24050,15 +24060,6 @@ __metadata:
   version: 17.0.2
   resolution: "react-is@npm:17.0.2"
   checksum: 9d6d111d8990dc98bc5402c1266a808b0459b5d54830bbea24c12d908b536df7883f268a7868cfaedde3dd9d4e0d574db456f84d2e6df9c4526f99bb4b5344d8
-  languageName: node
-  linkType: hard
-
-"react-native-animated-splash-screen@npm:^2.0.5":
-  version: 2.0.5
-  resolution: "react-native-animated-splash-screen@npm:2.0.5"
-  dependencies:
-    prop-types: ^15.7.2
-  checksum: 60a0a14563e4f5de917b1beb20e2c0c7fbb74ed9049ca452a10b8ba9ad705d9825b6430aba090e6912ac7a922e2ad19ba4579181ea103479e405702468bb1b96
   languageName: node
   linkType: hard
 

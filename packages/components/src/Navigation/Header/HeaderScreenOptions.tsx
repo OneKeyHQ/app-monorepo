@@ -40,18 +40,18 @@ export function makeHeaderScreenOptions({
       headerStyle: {
         backgroundColor: bgColor as string,
       },
-      headerTransparent: false,
       headerTitleStyle: {
         fontSize: getFontSize('$headingLg'),
         color: titleColor as string,
       },
+      headerTitleAlign: 'left',
       headerLeft: (props: HeaderBackButtonProps): ReactNode => (
         <HeaderBackButton
-          {...props}
           onPress={currentNavigation?.goBack}
           canGoBack={isCanGoBack}
           isModelScreen={isModelScreen}
           isRootScreen={isRootScreen}
+          {...props}
         />
       ),
     };

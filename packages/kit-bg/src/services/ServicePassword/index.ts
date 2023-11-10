@@ -2,13 +2,13 @@ import {
   decodePassword,
   encodePassword,
   getBgSensitiveTextEncodeKey,
-} from '@onekeyhq/core/src/secret/encryptors/aes256';
+} from '@onekeyhq/core/src/secret';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
-import * as error from '@onekeyhq/shared/src/errors';
+import * as OneKeyError from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { registerWebAuth, verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
 
@@ -22,7 +22,11 @@ import {
 import ServiceBase from '../ServiceBase';
 import { checkExtUIOpen } from '../utils';
 
-import { getPassword, savePassword } from './bioloygAuthPassword';
+import {
+  deletePassword,
+  getPassword,
+  savePassword,
+} from './bioloygAuthPassword';
 
 interface IPasswordResData {
   password: string;
@@ -61,20 +65,20 @@ export default class ServicePassword extends ServiceBase {
     if (realPassword.length >= 8 && realPassword.length <= 128) {
       return password;
     }
-    throw new error.PasswordStrengthValidationFailed();
-  }
-
-  async saveCachedPassword(password: string): Promise<void> {
-    const checkResult = await this.validatePassword(password);
-    if (checkResult) {
-      await this.setCachedPassword(password);
-    }
+    throw new OneKeyError.PasswordStrengthValidationFailed();
   }
 
   async biologyAuthSavePassword(password: string): Promise<void> {
     const { isSupport } = await passwordBiologyAuthInfoAtom.get();
     if (isSupport) {
       await savePassword(password);
+    }
+  }
+
+  async biologyAuthDeletePassword(): Promise<void> {
+    const { isSupport } = await passwordBiologyAuthInfoAtom.get();
+    if (isSupport) {
+      await deletePassword();
     }
   }
 
@@ -105,9 +109,20 @@ export default class ServicePassword extends ServiceBase {
       : undefined;
     this.validatePasswordStrength(password);
     if (realPassword === realNewPassword) {
-      throw new error.PasswordUpdateSameFailed();
+      throw new OneKeyError.PasswordUpdateSameFailed();
     }
     return localDb.verifyPassword(password);
+  }
+
+  async rollbackPassword(password?: string): Promise<void> {
+    if (!password) {
+      await this.biologyAuthDeletePassword();
+      this.clearCachedPassword();
+      await this.setPasswordSetStatus(false);
+    } else {
+      await this.biologyAuthSavePassword(password);
+      await this.setCachedPassword(password);
+    }
   }
 
   @backgroundMethod()
@@ -120,7 +135,7 @@ export default class ServicePassword extends ServiceBase {
     if (enable) {
       const authRes = await biologyAuth.biologyAuthenticate();
       if (!authRes.success) {
-        throw new error.BiologyAuthFailed();
+        throw new OneKeyError.BiologyAuthFailed();
       }
     }
     await settingsPersistAtom.set((v) => ({
@@ -166,10 +181,25 @@ export default class ServicePassword extends ServiceBase {
   async verifyPassword(password: string): Promise<string> {
     const verified = await this.validatePassword(password);
     if (verified) {
-      await this.saveCachedPassword(password);
+      await this.setCachedPassword(password);
       return password;
     }
     return '';
+  }
+
+  // check is only done the app open
+  @backgroundMethod()
+  async checkPasswordSet(): Promise<boolean> {
+    const checkPasswordSet = await localDb.checkPasswordSet();
+    if (checkPasswordSet) {
+      await this.setPasswordSetStatus(checkPasswordSet);
+    }
+    return checkPasswordSet;
+  }
+
+  @backgroundMethod()
+  async setPasswordSetStatus(isSet: boolean): Promise<void> {
+    await passwordPersistAtom.set((v) => ({ ...v, isPasswordSet: isSet }));
   }
 
   @backgroundMethod()
@@ -180,30 +210,20 @@ export default class ServicePassword extends ServiceBase {
     const verified = await this.validatePassword(oldPassword, newPassword);
     if (verified) {
       await this.biologyAuthSavePassword(newPassword);
-      await this.saveCachedPassword(newPassword);
-      const passwordPersistAtomValue = await passwordPersistAtom.get();
-      if (!passwordPersistAtomValue.isPasswordSet) {
-        await settingsPersistAtom.set((v) => ({ ...v, isPasswordSet: true }));
-      }
+      await this.setCachedPassword(newPassword);
+      await this.setPasswordSetStatus(true);
       await localDb.updatePassword(oldPassword, newPassword);
       return newPassword;
     }
-    throw new error.WrongPassword();
+    throw new OneKeyError.WrongPassword();
   }
 
   @backgroundMethod()
   async setPassword(password: string): Promise<string> {
     this.validatePasswordStrength(password);
-    const checkPasswordSet = await localDb.checkPasswordSet();
-    if (checkPasswordSet) {
-      const passwordPersistAtomValue = await passwordPersistAtom.get();
-      if (!passwordPersistAtomValue.isPasswordSet) {
-        await settingsPersistAtom.set((v) => ({ ...v, isPasswordSet: true }));
-      }
-      throw new error.PasswordAlreadySetFailed();
-    }
     await this.biologyAuthSavePassword(password);
-    await this.saveCachedPassword(password);
+    await this.setCachedPassword(password);
+    await this.setPasswordSetStatus(true);
     await localDb.updatePassword('', password);
     return password;
   }
@@ -212,7 +232,7 @@ export default class ServicePassword extends ServiceBase {
   async promptPasswordVerify() {
     // check ext ui open
     if (platformEnv.isExtension && !checkExtUIOpen()) {
-      throw new error.OneKeyInternalError();
+      throw new OneKeyError.OneKeyInternalError();
     }
 
     // TODO check field(settings protection)
@@ -229,11 +249,29 @@ export default class ServicePassword extends ServiceBase {
         resolve,
         reject,
       });
-      void passwordAtom.set((v) => ({
-        ...v,
-        passwordPromptPromiseId: promiseId,
-      }));
+      void this.showPasswordPromptDialog(promiseId);
     });
+  }
+
+  @backgroundMethod()
+  async showPasswordPromptDialog(promiseId: number) {
+    await passwordAtom.set((v) => ({
+      ...v,
+      passwordPromptPromiseId: promiseId,
+    }));
+  }
+
+  @backgroundMethod()
+  async resolvePasswordPromptDialog(promiseId: number, data: IPasswordRes) {
+    this.backgroundApi.servicePromise.resolveCallback({ id: promiseId, data });
+  }
+
+  @backgroundMethod()
+  async rejectPasswordPromptDialog(
+    promiseId: number,
+    error: { message: string },
+  ) {
+    this.backgroundApi.servicePromise.rejectCallback({ id: promiseId, error });
   }
 
   @backgroundMethod()

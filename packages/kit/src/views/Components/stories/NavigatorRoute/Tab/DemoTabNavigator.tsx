@@ -4,11 +4,11 @@ import type { ITabNavigatorConfig } from '@onekeyhq/components/src/Navigation/Na
 import { TabStackNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
 
 import {
-  DemoDeveloperTabRoutes,
-  DemoHomeTabRoutes,
-  DemoMeTabRoutes,
-  DemoTabRoutes,
-  DemoTabsTabRoutes,
+  EDemoDeveloperTabRoutes,
+  EDemoHomeTabRoutes,
+  EDemoMeTabRoutes,
+  EDemoTabRoutes,
+  EDemoTabsTabRoutes,
 } from './Routes';
 import DemoRootDeveloper from './View/DemoRootDeveloper';
 import DemoRootDeveloperOptions from './View/DemoRootDeveloperOptions';
@@ -18,28 +18,28 @@ import DemoRootHomeSearch from './View/DemoRootHomeSearch';
 import DemoRootMe from './View/DemoRootMe';
 import DemoRootTabs from './View/DemoRootTabs';
 
-const config: ITabNavigatorConfig<DemoTabRoutes>[] = [
+const config: ITabNavigatorConfig<EDemoTabRoutes>[] = [
   {
-    name: DemoTabRoutes.Home,
+    name: EDemoTabRoutes.Home,
     tabBarIcon: (focused?: boolean) =>
       focused ? 'CreditCardSolid' : 'CreditCardOutline',
     translationId: 'wallet__wallet',
     freezeOnBlur: true,
     children: [
       {
-        name: DemoHomeTabRoutes.DemoRootHome,
+        name: EDemoHomeTabRoutes.DemoRootHome,
         component: DemoRootHome,
         // @ts-expect-error
         translationId: 'Home',
       },
       {
-        name: DemoHomeTabRoutes.DemoRootHomeSearch,
+        name: EDemoHomeTabRoutes.DemoRootHomeSearch,
         component: DemoRootHomeSearch,
         // @ts-expect-error
         translationId: 'RootHomeSearch',
       },
       {
-        name: DemoHomeTabRoutes.DemoRootHomeOptions,
+        name: EDemoHomeTabRoutes.DemoRootHomeOptions,
         component: DemoRootHomeOptions,
         // @ts-expect-error
         translationId: 'RootHomeOptions',
@@ -47,48 +47,48 @@ const config: ITabNavigatorConfig<DemoTabRoutes>[] = [
     ],
   },
   {
-    name: DemoTabRoutes.Me,
+    name: EDemoTabRoutes.Me,
     tabBarIcon: (focused?: boolean) =>
       focused ? 'EmailSolid' : 'EmailOutline',
     translationId: 'msg__mine',
     freezeOnBlur: true,
     children: [
       {
-        name: DemoMeTabRoutes.DemoRootMe,
+        name: EDemoMeTabRoutes.DemoRootMe,
         component: DemoRootMe,
         translationId: 'msg__mine',
       },
     ],
   },
   {
-    name: DemoTabRoutes.Tabs,
+    name: EDemoTabRoutes.Tabs,
     tabBarIcon: (focused?: boolean) =>
       focused ? 'ChatGptSolid' : 'ChatGptOutline',
     translationId: 'title__str_tabs',
     freezeOnBlur: true,
     children: [
       {
-        name: DemoTabsTabRoutes.DemoRootTabs,
+        name: EDemoTabsTabRoutes.DemoRootTabs,
         component: DemoRootTabs,
         translationId: 'title__str_tabs',
       },
     ],
   },
   {
-    name: DemoTabRoutes.Developer,
+    name: EDemoTabRoutes.Developer,
     tabBarIcon: (focused?: boolean) =>
       focused ? 'CodeBracketsSolid' : 'CodeBracketsOutline',
     translationId: 'form__dev_mode',
     freezeOnBlur: true,
     children: [
       {
-        name: DemoDeveloperTabRoutes.DemoRootDeveloper,
+        name: EDemoDeveloperTabRoutes.DemoRootDeveloper,
         component: DemoRootDeveloper,
         // @ts-expect-error
         translationId: 'Developer',
       },
       {
-        name: DemoDeveloperTabRoutes.DemoRootDeveloperOptions,
+        name: EDemoDeveloperTabRoutes.DemoRootDeveloperOptions,
         component: DemoRootDeveloperOptions,
         // @ts-expect-error
         translationId: 'RootDeveloperOptions',
@@ -98,7 +98,7 @@ const config: ITabNavigatorConfig<DemoTabRoutes>[] = [
 ];
 
 function DemoTabNavigator() {
-  return <TabStackNavigator<DemoTabRoutes> config={config} />;
+  return <TabStackNavigator<EDemoTabRoutes> config={config} />;
 }
 
 export default DemoTabNavigator;

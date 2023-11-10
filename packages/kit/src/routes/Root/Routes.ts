@@ -1,4 +1,4 @@
-export enum RootRoutes {
+export enum ERootRoutes {
   Main = 'main',
 
   Modal = 'modal',

@@ -30,3 +30,7 @@ export const getPassword = async () => {
   }
   throw new Error('No password');
 };
+
+export const deletePassword = async () => {
+  await secureStorage.removeSecureItem('password');
+};

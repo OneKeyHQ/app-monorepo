@@ -14,7 +14,6 @@ import {
   EPasswordResStatus,
   type IPasswordRes,
 } from '@onekeyhq/kit-bg/src/services/ServicePassword';
-import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import BiologyAuthSwitchContainer from '../../components/BiologyAuthComponent/container/BiologyAuthSwitchContainer';
@@ -24,39 +23,56 @@ import PasswordUpdateContainer from '../../components/Password/container/Passwor
 
 const Swap = () => {
   console.log('swap');
-  const [{ isPasswordSet }] = usePasswordPersistAtom();
+  const handlePasswordVerify = async () => {
+    try {
+      const { status, data } =
+        await (backgroundApiProxy.servicePassword.promptPasswordVerify() as Promise<IPasswordRes>);
+      console.log('data', data);
+      if (status === EPasswordResStatus.PASS_STATUS) {
+        Toast.success({ title: '验证成功' });
+      }
+    } catch (e: any) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const errorMessage = e?.message;
+      if (errorMessage) {
+        Toast.error({ title: errorMessage });
+      }
+    }
+  };
   return (
     <Screen>
       <YStack space="$4">
         <Text>Swap</Text>
         <Button
-          onPress={() => {
-            if (isPasswordSet) {
-              Toast.error({ title: '已设置密码' });
-              return;
+          onPress={async () => {
+            const checkPasswordSet =
+              await backgroundApiProxy.servicePassword.checkPasswordSet();
+            if (checkPasswordSet) {
+              await handlePasswordVerify();
+            } else {
+              const dialog = Dialog.confirm({
+                title: 'SetupPassword',
+                renderContent: (
+                  <PasswordSetupContainer
+                    onSetupRes={(data) => {
+                      console.log('setup data', data);
+                      if (data) {
+                        Toast.success({ title: '设置成功' });
+                        dialog.close();
+                      }
+                    }}
+                  />
+                ),
+                showFooter: false,
+              });
             }
-            const dialog = Dialog.confirm({
-              title: 'SetupPassword',
-              renderContent: (
-                <PasswordSetupContainer
-                  onSetupRes={(data) => {
-                    console.log('setup data', data);
-                    if (data) {
-                      Toast.success({ title: '设置成功' });
-                      dialog.close();
-                    }
-                  }}
-                />
-              ),
-              showFooter: false,
-            });
             // setOpen(!open);
           }}
         >
           密码设置弹窗
         </Button>
         <Button
-          onPress={() => {
+          onPress={async () => {
             const dialog = Dialog.confirm({
               title: 'UpdatePassword',
               renderContent: (
@@ -72,31 +88,11 @@ const Swap = () => {
               ),
               showFooter: false,
             });
-            // setOpen(!open);
           }}
         >
           密码修改弹窗
         </Button>
-        <Button
-          onPress={async () => {
-            try {
-              const { status, data } =
-                await (backgroundApiProxy.servicePassword.promptPasswordVerify() as Promise<IPasswordRes>);
-              console.log('data', data);
-              if (status === EPasswordResStatus.PASS_STATUS) {
-                Toast.success({ title: '验证成功' });
-              }
-            } catch (e: any) {
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              const errorMessage = e?.message;
-              if (errorMessage) {
-                Toast.error({ title: errorMessage });
-              }
-            }
-          }}
-        >
-          密码验证弹窗
-        </Button>
+        <Button onPress={handlePasswordVerify}>密码验证弹窗</Button>
         <XStack justifyContent="space-between">
           <Text>生物识别</Text>
           <Suspense fallback={<Spinner size="large" />}>
