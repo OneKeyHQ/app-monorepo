@@ -25,9 +25,8 @@ const DemoRootHomeOptions = () => {
     navigation.setOptions({
       headerRight: () => (
         <HeaderButtonGroup>
-          <HeaderIconButton icon="AnonymousHidden2Outline" />
-          <HeaderIconButton icon="ArchiveOutline" />
-          <HeaderIconButton icon="AlignmentJustifyOutline" />
+          <HeaderIconButton icon="StarOutline" />
+          <HeaderIconButton icon="ScanOutline" />
         </HeaderButtonGroup>
       ),
       headerSearchBarOptions: {

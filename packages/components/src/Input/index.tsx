@@ -24,6 +24,7 @@ export type IInputProps = {
     onPress?: () => void;
     loading?: boolean;
   }[];
+  containerProps?: GetProps<typeof Group>;
 } & Omit<ITMInputProps, 'size'>;
 
 const SIZE_MAPPINGS = {
@@ -58,6 +59,7 @@ function BaseInput(
     disabled,
     editable,
     error,
+    containerProps,
     ...props
   }: IInputProps,
   ref: Ref<any>,
@@ -77,7 +79,7 @@ function BaseInput(
       borderRadius={size === 'large' ? '$3' : '$2'}
       disablePassBorderRadius={!addOns?.length}
       disabled={disabled}
-      flex={1}
+      {...containerProps}
     >
       {/* input */}
       <Group.Item>
