@@ -45,12 +45,14 @@ export function Layout({
   boundaryConditions = [],
   elements = [],
   scrollEnabled = true,
+  skipLoading = false,
   children,
 }: React.PropsWithChildren<{
   description?: string;
   suggestions?: string[];
   boundaryConditions?: string[];
   scrollEnabled?: boolean;
+  skipLoading?: boolean;
   elements?: {
     title: string;
     description?: string;
@@ -60,7 +62,7 @@ export function Layout({
   const dispatch = useDispatch();
   const keyboardHeight = useKeyboardHeight();
   return (
-    <Screen>
+    <Screen skipLoading={skipLoading}>
       <ScrollView
         maxWidth="100%"
         scrollEnabled={scrollEnabled}

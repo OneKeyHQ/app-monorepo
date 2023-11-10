@@ -79,6 +79,7 @@ function useAppNavigation<
           hideNavigationBar: false,
           // @ts-expect-error
           hideWhenScrolling: false,
+          obscureBackground: true,
           ...headerSearchBarOptions,
         },
       };

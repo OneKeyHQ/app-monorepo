@@ -110,7 +110,7 @@ function HomePage() {
       },
       {
         title: intl.formatMessage({
-          id: 'msg__verification_failure',
+          id: 'action__default_chain',
         }),
         backgroundColor: 'coral',
         contentHeight: undefined,

@@ -1,7 +1,7 @@
 /* eslint-disable react/no-unstable-nested-components */
 import { useLayoutEffect } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 
 import { Button, Stack, YStack } from '@onekeyhq/components';
 import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
@@ -12,6 +12,7 @@ import { NavigationFocusTools } from '../../../utils/NavigationTools';
 import { FreezeProbe } from '../../../utils/RenderTools';
 import { RootModalRoutes } from '../../Modal/Routes';
 import { DemoRootRoutes } from '../../Routes';
+import useDemoAppNavigation from '../../useDemoAppNavigation';
 
 import type {
   NativeSyntheticEvent,
@@ -19,7 +20,8 @@ import type {
 } from 'react-native';
 
 const DemoRootHomeOptions = () => {
-  const navigation = useNavigation();
+  const intl = useIntl();
+  const navigation = useDemoAppNavigation();
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -30,16 +32,22 @@ const DemoRootHomeOptions = () => {
         </HeaderButtonGroup>
       ),
       headerSearchBarOptions: {
-        placeholder: '搜索',
+        hideNavigationBar: true,
+        // @ts-expect-error
+        hideWhenScrolling: true,
+        placeholder: intl.formatMessage({
+          id: 'content__search_dapps_or_type_url',
+        }),
         inputType: 'text',
         onChangeText: (event: NativeSyntheticEvent<TextInputChangeEventData>) =>
           console.log('onChangeText', event.nativeEvent.text),
       },
     });
-  }, [navigation]);
+  }, [navigation, intl]);
 
   return (
     <Layout
+      skipLoading
       description="这是一个路由 Header 演示自定义 headerRight 的用法"
       suggestions={[
         '使用方式与 @react-navigation/native-stack 相同',
@@ -76,7 +84,7 @@ const DemoRootHomeOptions = () => {
             <Button
               onPress={() => {
                 // @ts-expect-error
-                navigation.navigate(DemoRootRoutes.Modal, {
+                navigation.pushModal(DemoRootRoutes.Modal, {
                   screen: RootModalRoutes.DemoLockedModal,
                 });
               }}
