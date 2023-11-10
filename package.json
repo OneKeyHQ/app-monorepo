@@ -17,6 +17,7 @@
     "app:ext": "yarn copy:inject && yarn workspace @onekeyhq/ext start",
     "app:ext:v3": "yarn copy:inject && yarn workspace @onekeyhq/ext start:v3",
     "app:web": "yarn copy:inject && yarn workspace @onekeyhq/web start",
+    "app:web:build": "yarn copy:inject && yarn workspace @onekeyhq/web build",
     "app:web-embed": "yarn copy:inject && yarn workspace @onekeyhq/web-embed start",
     "app:native-bundle": "yarn workspace @onekeyhq/mobile native-bundle",
     "app:ios": "yarn copy:inject && yarn workspace @onekeyhq/mobile ios",

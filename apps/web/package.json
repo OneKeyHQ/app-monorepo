@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "start": "webpack serve",
-    "build": "../../node_modules/.bin/webpack build"
+    "build": "../../node_modules/.bin/webpack build && cp ./web-build/index.html ./web-build/404.html && sh ./postbuild.sh"
   },
   "dependencies": {
     "@onekeyhq/components": "*",
