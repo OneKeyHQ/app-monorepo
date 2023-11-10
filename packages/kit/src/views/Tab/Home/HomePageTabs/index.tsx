@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { FlatList, RefreshControl, ScrollView } from 'react-native';
+import { FlatList, RefreshControl, useWindowDimensions } from 'react-native';
+import { getTokens } from 'tamagui';
 
-import { Stack, Text } from '@onekeyhq/components';
+import { ScrollView, Stack, Text } from '@onekeyhq/components';
 import { useThemeValue } from '@onekeyhq/components/src/Provider/hooks/useThemeValue';
 import { PageManager } from '@onekeyhq/components/src/TabView';
 
@@ -84,6 +85,8 @@ const ListRoute = ({
 // });
 
 function HomePage() {
+  const screenWidth = useWindowDimensions().width;
+  const sideBarWidth = getTokens().size.sideBarWidth.val;
   const intl = useIntl();
 
   const onRefresh = useCallback(() => {
@@ -173,9 +176,14 @@ function HomePage() {
 
   return useMemo(
     () => (
-      <Stack bg="$bg" flex={1}>
+      <Stack bg="$bg" flex={1} alignItems="center">
         <ScrollView
-          style={{ flex: 1 }}
+          $md={{
+            width: '100%',
+          }}
+          $gtMd={{
+            width: screenWidth - sideBarWidth - 150,
+          }}
           refreshControl={
             <RefreshControl refreshing={false} onRefresh={onRefresh} />
           }
@@ -205,14 +213,16 @@ function HomePage() {
       </Stack>
     ),
     [
+      screenWidth,
+      sideBarWidth,
+      bgAppColor,
+      textColor,
+      textSubduedColor,
+      contentHeight,
+      Header,
+      Content,
       onRefresh,
       renderHeaderView,
-      Header,
-      bgAppColor,
-      textSubduedColor,
-      textColor,
-      contentHeight,
-      Content,
       renderContentItem,
     ],
   );

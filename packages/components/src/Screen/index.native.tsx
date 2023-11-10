@@ -37,7 +37,7 @@ function LoadingScreen({ children }: PropsWithChildren<unknown>) {
 export function Screen({ children }: PropsWithChildren<unknown>) {
   return useMemo(
     () => (
-      <Stack flex={1} bg="$bg">
+      <Stack flex={1} bg="$bgApp">
         <LoadingScreen>{children}</LoadingScreen>
       </Stack>
     ),

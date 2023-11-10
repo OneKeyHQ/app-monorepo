@@ -24,6 +24,13 @@ function DemoCreateViewModal({
 }: IModalScreenProps<DemoCreateModalParamList>) {
   useLayoutEffect(() => {
     navigation.setOptions({
+      headerSearchBarOptions: {
+        placeholder: '搜索',
+        inputType: 'text',
+        onChangeText: (event: any) => {
+          console.log('onChangeText', event);
+        },
+      },
       headerRight: () => <HeaderIconButton icon="AnonymousHidden2Outline" />,
     });
   }, [navigation]);

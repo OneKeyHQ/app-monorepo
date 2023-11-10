@@ -68,11 +68,11 @@ function HeaderView({
 
       return (
         <HeaderBackButton
-          {...props}
           canGoBack={!topStack}
           onPress={onBackCallback}
           isRootScreen={isRootScreen}
           isModelScreen={isModelScreen}
+          {...props}
         />
       );
     },
@@ -82,19 +82,21 @@ function HeaderView({
   return (
     <DesktopDragZoneBox>
       <Stack
-        px="$5"
         $gtMd={{
-          flexDirection: isModelScreen ? 'column' : 'row',
+          flexDirection: 'row',
         }}
+        alignItems="center"
         backgroundColor="$bgApp"
         borderBottomWidth={StyleSheet.hairlineWidth}
         borderBottomColor="$borderSubdued"
         pointerEvents="box-none"
       >
         <Stack
-          {...(!isModelScreen && {
+          alignSelf="stretch"
+          px="$5"
+          $gtMd={{
             flex: 1,
-          })}
+          }}
         >
           <Header
             title={getHeaderTitle(options, route.name)}
@@ -113,38 +115,30 @@ function HeaderView({
             }
             headerTitleAlign={headerTitleAlign}
             headerTitleStyle={{
-              fontSize: 18,
               lineHeight: 28,
               fontWeight: '600',
             }}
+            headerTitleContainerStyle={{
+              marginHorizontal: 0,
+            }}
             headerTransparent
-            headerShadowVisible={false}
             headerBackground={headerBackground}
-            headerStyle={[{}, headerStyle]}
+            headerStyle={[
+              {
+                height: 52,
+              },
+              headerStyle,
+            ]}
           />
         </Stack>
         {!!headerSearchBarOptions && (
-          <Stack
-            $md={{
-              pb: '$4',
-              width: '100%',
-            }}
-            $gtMd={{
-              pl: isModelScreen ? '$0' : '$5',
-              py: isModelScreen ? '$0' : '$3.5',
-              pb: isModelScreen ? '$4' : '$0',
-              width: isModelScreen ? '100%' : '$60',
-              alignItems: isModelScreen ? 'flex-start' : 'center',
-            }}
-          >
-            <HeaderSearchBar
-              placeholder={headerSearchBarOptions?.placeholder}
-              onChangeText={headerSearchBarOptions?.onChangeText}
-              onBlur={headerSearchBarOptions?.onBlur}
-              onFocus={headerSearchBarOptions?.onFocus}
-              onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}
-            />
-          </Stack>
+          <HeaderSearchBar
+            placeholder={headerSearchBarOptions?.placeholder}
+            onChangeText={headerSearchBarOptions?.onChangeText}
+            onBlur={headerSearchBarOptions?.onBlur}
+            onFocus={headerSearchBarOptions?.onFocus}
+            onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}
+          />
         )}
       </Stack>
     </DesktopDragZoneBox>
