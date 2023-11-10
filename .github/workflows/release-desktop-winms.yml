@@ -93,10 +93,8 @@ jobs:
 
       - name: Inject Environment Variables
         env:
-          COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
           GITHUB_SHA: ${{ github.sha }}
         run: |
-          echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env
           echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env
 
       - name: Setup Code Signing file

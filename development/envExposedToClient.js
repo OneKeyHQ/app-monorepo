@@ -16,7 +16,6 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'TAMAGUI_TARGET',
     'ANDROID_CHANNEL',
     'DESK_CHANNEL',
-    'COVALENT_KEY',
     'HARDWARE_SDK_CONNECT_SRC',
     'GITHUB_SHA',
     'STORYBOOK_ENABLED',

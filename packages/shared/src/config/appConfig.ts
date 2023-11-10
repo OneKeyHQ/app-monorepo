@@ -1,10 +1,5 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 
-/**
- * Tokens will injected at build process. These are client token.
- */
-export const COVALENT_API_KEY = process.env.COVALENT_KEY!;
-
 export const JPUSH_KEY = process.env.JPUSH_KEY!;
 
 export const HARDWARE_SDK_IFRAME_SRC_ONEKEYSO =
