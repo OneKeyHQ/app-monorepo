@@ -1,8 +1,8 @@
 import { IconButton } from '../../IconButton';
 
-import type { IconButtonProps } from '../../IconButton';
+import type { IIconButtonProps } from '../../IconButton';
 
-function HeaderIconButton(props: IconButtonProps) {
+function HeaderIconButton(props: IIconButtonProps) {
   return <IconButton variant="tertiary" {...props} />;
 }
 

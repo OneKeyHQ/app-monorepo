@@ -1,6 +1,6 @@
 import {
   ButtonFrame,
-  type ButtonProps,
+  type IButtonProps,
   getSharedButtonStyles,
 } from '../Button';
 import { Icon } from '../Icon';
@@ -8,16 +8,16 @@ import { Spinner } from '../Spinner';
 import { Stack } from '../Stack';
 import { Tooltip } from '../Tooltip';
 
-import type { ICON_NAMES, IconProps } from '../Icon';
+import type { IICON_NAMES, IIconProps } from '../Icon';
 
-export interface IconButtonProps
-  extends Omit<ButtonProps, 'iconAfter' | 'children' | 'icon'> {
-  icon: ICON_NAMES;
-  iconProps?: IconProps;
+export interface IIconButtonProps
+  extends Omit<IButtonProps, 'iconAfter' | 'children' | 'icon'> {
+  icon: IICON_NAMES;
+  iconProps?: IIconProps;
   title?: string;
 }
 
-const getSizeStyles = (size: ButtonProps['size']) => {
+const getSizeStyles = (size: IButtonProps['size']) => {
   const sizes = {
     small: {
       p: '$1',
@@ -36,7 +36,7 @@ const getSizeStyles = (size: ButtonProps['size']) => {
   return sizes[size || 'medium'];
 };
 
-export const IconButton = (props: IconButtonProps) => {
+export const IconButton = (props: IIconButtonProps) => {
   const {
     disabled,
     loading,

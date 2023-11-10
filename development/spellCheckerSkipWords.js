@@ -560,4 +560,5 @@ module.exports = [
   'nanoid',
   'ico',
   'Ons',
+  'Themeable',
 ];

@@ -3,7 +3,7 @@ import { getTokens } from 'tamagui';
 
 import { Icon } from '../Icon';
 
-interface ToastProps {
+interface IToastProps {
   title: string;
   message?: string;
   /**
@@ -12,7 +12,7 @@ interface ToastProps {
   duration?: number;
 }
 
-export interface ToastBaseProps extends ToastProps {
+export interface IToastBaseProps extends IToastProps {
   title: string;
   message?: string;
   /**
@@ -46,7 +46,7 @@ function burntToast({
   duration,
   haptic,
   preset = 'custom',
-}: ToastBaseProps) {
+}: IToastBaseProps) {
   toast({
     title,
     message,
@@ -58,13 +58,13 @@ function burntToast({
 }
 
 export const Toast = {
-  success: (props: ToastProps) => {
+  success: (props: IToastProps) => {
     burntToast({ haptic: 'success', ...props });
   },
-  error: (props: ToastProps) => {
+  error: (props: IToastProps) => {
     burntToast({ haptic: 'error', ...props });
   },
-  message: (props: ToastProps) => {
+  message: (props: IToastProps) => {
     burntToast({ haptic: 'warning', preset: 'none', ...props });
   },
 };
