@@ -5,7 +5,7 @@ import { MotiView } from 'moti';
 import { StyleSheet } from 'react-native';
 import { getTokens, useTheme } from 'tamagui';
 
-import { Portal, YStack } from '@onekeyhq/components';
+import { Icon, Portal, YStack } from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -14,7 +14,7 @@ import useProviderSideBarValue from '../../../Provider/hooks/useProviderSideBarV
 
 import { TabItem } from './TabItem';
 
-import type { ICON_NAMES } from '../../../Icon';
+import type { IICON_NAMES } from '../../../Icon';
 import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
 import type {
   BottomTabBarProps,
@@ -34,6 +34,14 @@ function TabItemView({
   options: BottomTabNavigationOptions;
   isCollapse?: boolean;
 }) {
+  useMemo(() => {
+    // @ts-expect-error
+    const activeIcon = options?.tabBarIcon?.(true) as IICON_NAMES;
+    // @ts-expect-error
+    const inActiveIcon = options?.tabBarIcon?.(false) as IICON_NAMES;
+    // Avoid icon jitter during lazy loading by prefetching icons.
+    void Icon.prefetch(activeIcon, inActiveIcon);
+  }, [options]);
   const contentMemo = useMemo(
     () => (
       <TabItem
@@ -41,7 +49,7 @@ function TabItemView({
         aria-current={isActive ? 'page' : undefined}
         selected={isActive}
         // @ts-expect-error
-        icon={options?.tabBarIcon?.(isActive) as ICON_NAMES}
+        icon={options?.tabBarIcon?.(isActive) as IICON_NAMES}
         label={(options.tabBarLabel ?? route.name) as string}
       />
     ),
@@ -65,7 +73,7 @@ export function DesktopLeftSideBar({
   const theme = useTheme();
   const getSizeTokens = getTokens().size;
 
-  const sidebarWidth = getSizeTokens['52'].val;
+  const sidebarWidth = getSizeTokens.sideBarWidth.val;
   const HeaderHeight = 52; // for desktop
 
   const tabs = useMemo(
@@ -148,7 +156,7 @@ export function DesktopLeftSideBar({
       style={{
         backgroundColor: theme.bgSidebar.val,
         paddingTop: top,
-        borderRightColor: theme.borderSubdued.val,
+        borderRightColor: theme.neutral4.val,
         borderRightWidth: isCollapse ? 0 : StyleSheet.hairlineWidth,
         overflow: 'hidden',
       }}

@@ -1,9 +1,9 @@
-export enum DemoRootRoutes {
+export enum EDemoRootRoutes {
   Main = 'main',
 
   Modal = 'modal',
 }
 
-export enum DemoMainRoutes {
+export enum EDemoMainRoutes {
   Tab = 'tab',
 }

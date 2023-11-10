@@ -492,6 +492,7 @@ const mergedTokens = createTokens({
     96: 384,
     100: 400,
     160: 640,
+    sideBarWidth: 208,
   },
   radius: {
     0: 0,
@@ -633,15 +634,15 @@ const config = createTamagui({
   },
 });
 
-export type AppConfig = typeof config;
+export type IAppConfig = typeof config;
 
 declare module 'tamagui' {
   // or '@tamagui/core'
   // overrides TamaguiCustomConfig so your custom types
   // work everywhere you import `tamagui`
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-interface
-  interface TamaguiCustomConfig extends AppConfig {}
+  // eslint-disable-next-line @typescript-eslint/no-empty-interface, @typescript-eslint/naming-convention
+  interface TamaguiCustomConfig extends IAppConfig {}
 }
 
 export default config;

@@ -1,11 +1,11 @@
 import { useState } from 'react';
 
-import type { SwitchProps } from '@onekeyhq/components';
+import type { ISwitchProps } from '@onekeyhq/components';
 import { Stack, Switch, Text } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
-const SwitchDemo = ({ ...rest }: SwitchProps) => {
+const SwitchDemo = ({ ...rest }: ISwitchProps) => {
   const [val, setVal] = useState(false);
 
   return (
@@ -41,7 +41,7 @@ const SwitchGallery = () => (
         ),
       },
       {
-        title: 'Status',
+        title: 'Status(View Only)',
         element: (
           <Stack space="$4">
             <Stack flexDirection="row" alignItems="center" space="$2">

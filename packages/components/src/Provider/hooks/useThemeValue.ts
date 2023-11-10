@@ -5,10 +5,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { VariableVal } from '@tamagui/core';
 import type { UseThemeResult } from '@tamagui/web/types/hooks/useTheme';
 
-type ThemeKeys = keyof UseThemeResult;
+type IThemeKeys = keyof UseThemeResult;
 const getValue = (
   theme: UseThemeResult,
-  key: ThemeKeys,
+  key: IThemeKeys,
   fallback?: VariableVal,
   isRawValue?: boolean,
 ): VariableVal => {
@@ -23,14 +23,14 @@ const getValue = (
 
 export const getThemeTokens = coreGetTokens;
 
-export function useThemeValue<T extends ThemeKeys[] | ThemeKeys>(
+export function useThemeValue<T extends IThemeKeys[] | IThemeKeys>(
   colorSymbol: T,
   fallback?: VariableVal,
   isRawValue?: boolean,
-): T extends ThemeKeys ? string : string[];
+): T extends IThemeKeys ? string : string[];
 
 export function useThemeValue(
-  colorSymbol: ThemeKeys | ThemeKeys[],
+  colorSymbol: IThemeKeys | IThemeKeys[],
   fallback?: VariableVal,
   isRawValue?: boolean,
 ): VariableVal | VariableVal[] {

@@ -5,14 +5,13 @@ import { createSuspender } from '@onekeyhq/shared/src/modules3rdParty/use-suspen
 
 import ICON_CONFIG from './Icons';
 
-import type { ICON_NAMES } from './Icons';
-import { GetProps, styled } from 'tamagui';
+import type { IICON_NAMES } from './Icons';
+import { GetProps, styled, withStaticProperties } from 'tamagui';
 import type { Svg, SvgProps } from 'react-native-svg';
 import { TextStyle } from 'react-native';
-import { Skeleton } from '../Skeleton';
 
-export type IconContainerProps = Omit<SvgProps, 'color' | 'style'> & {
-  name?: ICON_NAMES;
+export type IIconContainerProps = Omit<SvgProps, 'color' | 'style'> & {
+  name?: IICON_NAMES;
   style?: TextStyle;
 };
 
@@ -20,20 +19,25 @@ const ComponentMaps: Record<string, typeof Svg> = {};
 
 const DEFAULT_SIZE = 24
 
-
-const { useSuspender } = createSuspender((name: ICON_NAMES) => new Promise<typeof Svg>((resolve) => {
-  if (ComponentMaps[name]) {
-    resolve(ComponentMaps[name])
-  } else {
+const loadIcon = (name: IICON_NAMES) =>  {
+  return new Promise<typeof Svg>(resolve => {
     ICON_CONFIG[name]().then((module: any) => {
       ComponentMaps[name] = module.default as typeof Svg;
       resolve(ComponentMaps[name])
     })
+  })
+}
+
+const { useSuspender } = createSuspender((name: IICON_NAMES) => new Promise<typeof Svg>((resolve) => {
+  if (ComponentMaps[name]) {
+    resolve(ComponentMaps[name])
+  } else {
+    loadIcon(name).then(resolve)
   }
 }))
 
 function IconLoader({ name, ...props }: {
-  name: ICON_NAMES;
+  name: IICON_NAMES;
   width: number;
   height: number;
   color: string;
@@ -44,7 +48,7 @@ function IconLoader({ name, ...props }: {
     <SVGComponent {...props} />
   )
 }
-const IconContainer = forwardRef(({ name, style }: IconContainerProps, _) => {
+const IconContainer = forwardRef(({ name, style }: IIconContainerProps, _) => {
   if (!name) {
     return null
   }
@@ -76,7 +80,7 @@ const IconContainer = forwardRef(({ name, style }: IconContainerProps, _) => {
   )
 });
 
-export const Icon = styled(IconContainer, {
+const BasicIcon = styled(IconContainer, {
   variants: {
     color: {
       '...color': (color) => ({
@@ -107,5 +111,13 @@ export const Icon = styled(IconContainer, {
   } as const,
 });
 
-export type { ICON_NAMES };
-export type IconProps = GetProps<typeof Icon> & IconContainerProps;
+const loadIcons = (...names: IICON_NAMES[]) => {
+  return Promise.all(names.map(name => loadIcon(name)))
+}
+
+export const Icon = withStaticProperties(BasicIcon, {
+  prefetch: loadIcons,
+})
+
+export type { IICON_NAMES };
+export type IIconProps = GetProps<typeof Icon> & IIconContainerProps;

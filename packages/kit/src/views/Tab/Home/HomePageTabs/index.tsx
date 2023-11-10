@@ -1,11 +1,13 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { FlatList, RefreshControl, ScrollView } from 'react-native';
+import { FlatList, RefreshControl, useWindowDimensions } from 'react-native';
+import { getTokens } from 'tamagui';
 
-import { Stack, Text } from '@onekeyhq/components';
+import { ScrollView, Stack, Text } from '@onekeyhq/components';
 import { useThemeValue } from '@onekeyhq/components/src/Provider/hooks/useThemeValue';
 import { PageManager } from '@onekeyhq/components/src/TabView';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import HeaderView from './HeaderView';
 
@@ -78,12 +80,14 @@ const ListRoute = ({
 );
 
 // const renderScene = SceneMap({
-//   [HomePageTabsEnum.Demo1]: FirstRoute,
-//   [HomePageTabsEnum.Demo2]: SecondRoute,
-//   [HomePageTabsEnum.Demo3]: OtherRoute,
+//   [EHomePageTabsEnum.Demo1]: FirstRoute,
+//   [EHomePageTabsEnum.Demo2]: SecondRoute,
+//   [EHomePageTabsEnum.Demo3]: OtherRoute,
 // });
 
 function HomePage() {
+  const screenWidth = useWindowDimensions().width;
+  const sideBarWidth = getTokens().size.sideBarWidth.val;
   const intl = useIntl();
 
   const onRefresh = useCallback(() => {
@@ -144,11 +148,47 @@ function HomePage() {
 
   const renderHeaderView = useCallback(() => <HeaderView />, []);
 
+  const renderContentItem = useCallback(
+    ({
+      item,
+      index,
+    }: {
+      item: {
+        backgroundColor: string;
+        contentHeight: number | undefined;
+        page: any;
+      };
+      index: number;
+    }) => (
+      <Stack
+        style={{
+          flex: 1,
+          backgroundColor: item.backgroundColor,
+        }}
+      >
+        <item.page
+          onContentSizeChange={(_: number, height: number) => {
+            item.contentHeight = height;
+            if (index === pageManager.pageIndex) {
+              setContentHeight(height);
+            }
+          }}
+        />
+      </Stack>
+    ),
+    [pageManager],
+  );
+
   return useMemo(
     () => (
-      <Stack bg="$bg" flex={1}>
+      <Stack bg="$bg" flex={1} alignItems="center">
         <ScrollView
-          style={{ flex: 1 }}
+          $md={{
+            width: '100%',
+          }}
+          $gtMd={{
+            width: screenWidth - sideBarWidth - 150,
+          }}
           refreshControl={
             <RefreshControl refreshing={false} onRefresh={onRefresh} />
           }
@@ -174,39 +214,17 @@ function HomePage() {
           <Stack style={{ height: contentHeight }}>
             <Content
               windowSize={5}
-              renderItem={({
-                item,
-                index,
-              }: {
-                item: {
-                  backgroundColor: string;
-                  contentHeight: number | undefined;
-                  page: any;
-                };
-                index: number;
-              }) => (
-                <Stack
-                  style={{
-                    flex: 1,
-                    backgroundColor: item.backgroundColor,
-                  }}
-                >
-                  <item.page
-                    onContentSizeChange={(width: number, height: number) => {
-                      item.contentHeight = height;
-                      if (index === pageManager.pageIndex) {
-                        setContentHeight(height);
-                      }
-                    }}
-                  />
-                </Stack>
-              )}
+              scrollEnabled={platformEnv.isNative}
+              shouldSelectedPageAnimation={platformEnv.isNative}
+              renderItem={renderContentItem}
             />
           </Stack>
         </ScrollView>
       </Stack>
     ),
     [
+      screenWidth,
+      sideBarWidth,
       bgAppColor,
       textColor,
       textSubduedColor,
@@ -215,7 +233,7 @@ function HomePage() {
       Content,
       onRefresh,
       renderHeaderView,
-      pageManager,
+      renderContentItem,
     ],
   );
 }

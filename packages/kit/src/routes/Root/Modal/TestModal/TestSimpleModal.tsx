@@ -1,14 +1,14 @@
 import { useCallback, useLayoutEffect } from 'react';
 
 import { ModalContainer, Stack, Text } from '@onekeyhq/components';
-import type { ModalScreenProps } from '@onekeyhq/components/src/Navigation';
+import type { IModalScreenProps } from '@onekeyhq/components/src/Navigation';
 import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';
 
-import type { ModalTestParamList } from './Routes';
+import type { IModalTestParamList } from './Routes';
 
 export default function TestSimpleModal({
   navigation,
-}: ModalScreenProps<ModalTestParamList>) {
+}: IModalScreenProps<IModalTestParamList>) {
   const headerRightCall = useCallback(
     () => <HeaderIconButton icon="AnonymousHidden2Outline" />,
     [],

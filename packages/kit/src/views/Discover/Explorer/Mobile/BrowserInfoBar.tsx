@@ -3,11 +3,11 @@ import { useMemo } from 'react';
 import { Image } from 'react-native';
 
 import { Stack, Text } from '@onekeyhq/components';
-import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 // @ts-expect-error
 import dAppFavicon from '@onekeyhq/kit/assets/dapp_favicon.png';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 
 import { gotoSite } from '../../Controller/gotoSite';
 import { useWebTabs } from '../../Controller/useWebTabs';
@@ -16,7 +16,7 @@ import { atomWebTabsMap, useAtomWebTabs } from '../Context/contextWebTabs';
 
 function BrowserInfoBar() {
   const navigation =
-    useAppNavigation<PageNavigationProp<DiscoverModalParamList>>();
+    useAppNavigation<IPageNavigationProp<DiscoverModalParamList>>();
   const { currentTabId } = useWebTabs();
   const [map] = useAtomWebTabs(atomWebTabsMap);
   const tab = map[currentTabId || ''];
@@ -31,7 +31,7 @@ function BrowserInfoBar() {
         flexDirection="row"
         alignItems="center"
         onPress={() => {
-          navigation.pushModal(ModalRoutes.DiscoverModal, {
+          navigation.pushModal(EModalRoutes.DiscoverModal, {
             screen: DiscoverModalRoutes.SearchModal,
             params: {
               onSubmitContent: (text) => {

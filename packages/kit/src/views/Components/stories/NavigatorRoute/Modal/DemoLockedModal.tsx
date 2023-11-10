@@ -1,18 +1,18 @@
 import { useCallback, useLayoutEffect, useState } from 'react';
 
 import { Button, Stack } from '@onekeyhq/components';
-import type { ModalNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IModalNavigationProp } from '@onekeyhq/components/src/Navigation';
 import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';
-import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
+import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
 
 import { Layout } from '../../utils/Layout';
 import { NavigationFocusTools } from '../../utils/NavigationTools';
 import { FreezeProbe } from '../../utils/RenderTools';
 import useDemoAppNavigation from '../useDemoAppNavigation';
 
-import { DemoLockedModalRoutes, RootModalRoutes } from './Routes';
+import { EDemoLockedModalRoutes, ERootModalRoutes } from './Routes';
 
-import type { DemoLockedModalParamList } from './Routes';
+import type { IDemoLockedModalParamList } from './Routes';
 
 const DemoLockedViewModal = () => {
   const navigation = useDemoAppNavigation();
@@ -40,8 +40,8 @@ const DemoLockedViewModal = () => {
             <Button
               variant="primary"
               onPress={() => {
-                navigation.pushModal(RootModalRoutes.DemoLockedModal, {
-                  screen: DemoLockedModalRoutes.DemoConfigLockedModal,
+                navigation.pushModal(ERootModalRoutes.DemoLockedModal, {
+                  screen: EDemoLockedModalRoutes.DemoConfigLockedModal,
                 });
               }}
             >
@@ -65,7 +65,7 @@ const DemoLockedViewModal = () => {
 
 const DemoConfigLockedViewModal = () => {
   const navigation =
-    useDemoAppNavigation<ModalNavigationProp<DemoLockedModalParamList>>();
+    useDemoAppNavigation<IModalNavigationProp<IDemoLockedModalParamList>>();
 
   const headerRightCall = useCallback(
     () => <HeaderIconButton icon="AnonymousHidden2Outline" />,
@@ -83,7 +83,7 @@ const DemoConfigLockedViewModal = () => {
       description="这是通过配置锁定 Modal 的例子"
       suggestions={[
         '可以 Locked 的屏幕一定要在配置里写清楚 allowDisableClose: true，否则 disableClose 属性无效',
-        '配置 ModalFlowNavigatorConfig 的时候，在相关页面下配置 disableClose: true 即可',
+        '配置 IModalFlowNavigatorConfig 的时候，在相关页面下配置 disableClose: true 即可',
         '同样可以手动取消锁定',
       ]}
       boundaryConditions={[
@@ -98,8 +98,8 @@ const DemoConfigLockedViewModal = () => {
             <Button
               variant="primary"
               onPress={() => {
-                navigation.pushModal(RootModalRoutes.DemoLockedModal, {
-                  screen: DemoLockedModalRoutes.DemoManualLockedViewModal,
+                navigation.pushModal(ERootModalRoutes.DemoLockedModal, {
+                  screen: EDemoLockedModalRoutes.DemoManualLockedViewModal,
                 });
               }}
             >
@@ -138,7 +138,7 @@ const DemoConfigLockedViewModal = () => {
 
 const DemoManualLockedViewModal = () => {
   const navigation =
-    useDemoAppNavigation<ModalNavigationProp<DemoLockedModalParamList>>();
+    useDemoAppNavigation<IModalNavigationProp<IDemoLockedModalParamList>>();
 
   const headerRightCall = useCallback(
     () => <HeaderIconButton icon="AnonymousHidden2Outline" />,
@@ -171,8 +171,9 @@ const DemoManualLockedViewModal = () => {
             <Button
               variant="primary"
               onPress={() => {
-                navigation.pushModal(RootModalRoutes.DemoLockedModal, {
-                  screen: DemoLockedModalRoutes.DemoRepeatManualLockedViewModal,
+                navigation.pushModal(ERootModalRoutes.DemoLockedModal, {
+                  screen:
+                    EDemoLockedModalRoutes.DemoRepeatManualLockedViewModal,
                 });
               }}
             >
@@ -226,7 +227,7 @@ const DemoManualLockedViewModal = () => {
 
 const DemoRepeatManualLockedViewModal = () => {
   const navigation =
-    useDemoAppNavigation<ModalNavigationProp<DemoLockedModalParamList>>();
+    useDemoAppNavigation<IModalNavigationProp<IDemoLockedModalParamList>>();
   const [locked, setLocked] = useState(true);
 
   const headerRightCall = useCallback(
@@ -288,30 +289,30 @@ const DemoRepeatManualLockedViewModal = () => {
   );
 };
 
-export const LockedModalStack: ModalFlowNavigatorConfig<
-  DemoLockedModalRoutes,
-  DemoLockedModalParamList
+export const LockedModalStack: IModalFlowNavigatorConfig<
+  EDemoLockedModalRoutes,
+  IDemoLockedModalParamList
 >[] = [
   {
-    name: DemoLockedModalRoutes.DemoLockedModal,
+    name: EDemoLockedModalRoutes.DemoLockedModal,
     component: DemoLockedViewModal,
     translationId: 'Locked Modal Demo',
   },
   {
-    name: DemoLockedModalRoutes.DemoConfigLockedModal,
+    name: EDemoLockedModalRoutes.DemoConfigLockedModal,
     component: DemoConfigLockedViewModal,
     translationId: 'Config Locked Modal',
     allowDisableClose: true,
     disableClose: true,
   },
   {
-    name: DemoLockedModalRoutes.DemoManualLockedViewModal,
+    name: EDemoLockedModalRoutes.DemoManualLockedViewModal,
     component: DemoManualLockedViewModal,
     translationId: 'Manual Locked Modal',
     allowDisableClose: true,
   },
   {
-    name: DemoLockedModalRoutes.DemoRepeatManualLockedViewModal,
+    name: EDemoLockedModalRoutes.DemoRepeatManualLockedViewModal,
     component: DemoRepeatManualLockedViewModal,
     translationId: 'Repeat Manual Locked Modal',
     allowDisableClose: true,

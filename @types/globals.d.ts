@@ -1,5 +1,5 @@
 /* eslint-disable no-var,vars-on-top */
-import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { ILocaleIds } from '@onekeyhq/components/src/locale';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/IBackgroundApi';
 import type { JotaiBgSync } from '@onekeyhq/kit-bg/src/states/jotai/jotaiBgSync';
 
@@ -55,6 +55,7 @@ declare global {
   var chrome: typeof chrome; // chrome api
   var browser: typeof chrome; // firefox api
 
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   interface Window {
     // All website
     ethereum: any;
@@ -76,8 +77,9 @@ declare global {
 
 declare global {
   namespace FormatjsIntl {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     interface Message {
-      ids: LocaleIds;
+      ids: ILocaleIds;
     }
   }
 }

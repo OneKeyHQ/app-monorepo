@@ -1,14 +1,14 @@
 import { Button, Screen, YStack } from '@onekeyhq/components';
-import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 
-import { TabHomeRoutes } from './Routes';
+import { ETabHomeRoutes } from './Routes';
 
-import type { TabHomeParamList } from './Routes';
+import type { ITabHomeParamList } from './Routes';
 
 const TabHomeStack2 = () => {
-  const navigation = useAppNavigation<PageNavigationProp<TabHomeParamList>>();
+  const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
 
   return (
     <Screen>
@@ -22,7 +22,7 @@ const TabHomeStack2 = () => {
         </Button>
         <Button
           onPress={() => {
-            navigation.push(TabHomeRoutes.TabHome);
+            navigation.push(ETabHomeRoutes.TabHome);
           }}
         >
           回首页

@@ -1,7 +1,7 @@
-export enum TabSwapRoutes {
+export enum ETabSwapRoutes {
   TabSwap = 'TabSwap',
 }
 
-export type TabSwapParamList = {
-  [TabSwapRoutes.TabSwap]: undefined;
+export type ITabSwapParamList = {
+  [ETabSwapRoutes.TabSwap]: undefined;
 };

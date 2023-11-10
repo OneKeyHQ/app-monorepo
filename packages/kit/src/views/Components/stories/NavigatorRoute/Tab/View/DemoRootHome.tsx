@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useCallback, useLayoutEffect, useState } from 'react';
 
-import { Button, Stack, YStack } from '@onekeyhq/components';
-import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import { Button, Stack, Text, YStack } from '@onekeyhq/components';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { AppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
@@ -12,9 +12,9 @@ import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
 import { FreezeProbe } from '../../../utils/RenderTools';
 import useDemoAppNavigation from '../../useDemoAppNavigation';
-import { DemoHomeTabRoutes } from '../Routes';
+import { EDemoHomeTabRoutes } from '../Routes';
 
-import type { DemoHomeTabParamList } from '../RouteParamTypes';
+import type { IDemoHomeTabParamList } from '../RouteParamTypes';
 
 const useStorage = platformEnv.isNative
   ? (key: AppSettingKey, initialValue?: boolean) => {
@@ -31,9 +31,62 @@ const useStorage = platformEnv.isNative
 
 const DemoRootHome = () => {
   const navigation =
-    useDemoAppNavigation<PageNavigationProp<DemoHomeTabParamList>>();
+    useDemoAppNavigation<IPageNavigationProp<IDemoHomeTabParamList>>();
 
   const [rrtStatus, changeRRTStatus] = useStorage(AppSettingKey.rrt);
+
+  const renderHeaderTitle = useCallback(
+    () => (
+      <Stack flex={1} justifyContent="center">
+        <Stack
+          alignSelf="flex-start"
+          focusable
+          flexDirection="row"
+          p="$1.5"
+          m="$-1.5"
+          hoverStyle={{
+            bg: '$bgHover',
+          }}
+          pressStyle={{
+            bg: '$bgActive',
+          }}
+          focusStyle={{
+            outlineWidth: 2,
+            outlineStyle: 'solid',
+            outlineColor: '$focusRing',
+          }}
+          borderRadius="$2"
+        >
+          <Stack
+            w="$6"
+            h="$6"
+            borderRadius="$1"
+            bg="skyblue"
+            justifyContent="center"
+            alignItems="center"
+          >
+            <Text variant="$bodyLgMedium">🦄</Text>
+          </Stack>
+          <Text ml="$2" variant="$bodyLgMedium" userSelect="none">
+            Wallet Name
+          </Text>
+        </Stack>
+      </Stack>
+    ),
+    [],
+  );
+
+  const renderHeaderRight = useCallback(
+    () => <HeaderIconButton icon="SettingsOutline" />,
+    [],
+  );
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerTitle: renderHeaderTitle,
+      headerRight: renderHeaderRight,
+    });
+  }, [navigation, renderHeaderRight, renderHeaderTitle]);
 
   return (
     <Layout
@@ -72,7 +125,7 @@ const DemoRootHome = () => {
             <Button
               variant="primary"
               onPress={() => {
-                navigation.push(DemoHomeTabRoutes.DemoRootHomeSearch);
+                navigation.push(EDemoHomeTabRoutes.DemoRootHomeSearch);
               }}
             >
               跳转搜索 Demo

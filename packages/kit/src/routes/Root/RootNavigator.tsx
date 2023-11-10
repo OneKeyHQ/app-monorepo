@@ -4,29 +4,23 @@ import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 import KeyboardManager from 'react-native-keyboard-manager';
 
-import type { RootStackNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
+import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
 import { RootStackNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
 
 import ModalNavigator from './Modal/ModalNavigator';
-import { RootRoutes } from './Routes';
+import { ERootRoutes } from './Routes';
 import TabNavigator from './Tab/TabNavigator';
 
-const rootConfig: RootStackNavigatorConfig<RootRoutes, any>[] = [
+const rootConfig: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   {
-    name: RootRoutes.Main,
+    name: ERootRoutes.Main,
     component: TabNavigator,
     initialRoute: true,
   },
   {
-    name: RootRoutes.Modal,
+    name: ERootRoutes.Modal,
     component: ModalNavigator,
     type: 'modal',
-  },
-  {
-    name: RootRoutes.Gallery,
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    component: require('../Gallery').default,
-    // disable: process.env.NODE_ENV === 'production',
   },
 ];
 
@@ -50,5 +44,5 @@ export const RootNavigator = () => {
     }
   }, [intl]);
 
-  return <RootStackNavigator<RootRoutes, any> config={rootConfig} />;
+  return <RootStackNavigator<ERootRoutes, any> config={rootConfig} />;
 };

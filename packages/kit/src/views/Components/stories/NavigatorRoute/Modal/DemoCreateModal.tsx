@@ -4,26 +4,33 @@ import { useLayoutEffect } from 'react';
 import { Input } from 'tamagui';
 
 import { Button, ModalContainer, Stack, Toast } from '@onekeyhq/components';
-import type { ModalScreenProps } from '@onekeyhq/components/src/Navigation';
+import type { IModalScreenProps } from '@onekeyhq/components/src/Navigation';
 import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
 import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';
-import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator/ModalFlowNavigator';
+import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator/ModalFlowNavigator';
 
 import IconGallery from '../../Icon';
 import { Layout } from '../../utils/Layout';
 import { NavigationFocusTools } from '../../utils/NavigationTools';
 import { FreezeProbe } from '../../utils/RenderTools';
-import { DemoRootRoutes } from '../Routes';
+import { EDemoRootRoutes } from '../Routes';
 
-import { DemoCreateModalRoutes, RootModalRoutes } from './Routes';
+import { EDemoCreateModalRoutes, ERootModalRoutes } from './Routes';
 
-import type { DemoCreateModalParamList } from './Routes';
+import type { IDemoCreateModalParamList } from './Routes';
 
 function DemoCreateViewModal({
   navigation,
-}: ModalScreenProps<DemoCreateModalParamList>) {
+}: IModalScreenProps<IDemoCreateModalParamList>) {
   useLayoutEffect(() => {
     navigation.setOptions({
+      headerSearchBarOptions: {
+        placeholder: '搜索',
+        inputType: 'text',
+        onChangeText: (event: any) => {
+          console.log('onChangeText', event);
+        },
+      },
       headerRight: () => <HeaderIconButton icon="AnonymousHidden2Outline" />,
     });
   }, [navigation]);
@@ -54,7 +61,7 @@ function DemoCreateViewModal({
                 variant="primary"
                 onPress={() => {
                   navigation.navigate(
-                    DemoCreateModalRoutes.DemoCreateSearchModal,
+                    EDemoCreateModalRoutes.DemoCreateSearchModal,
                     {
                       question: '你好',
                     },
@@ -86,7 +93,7 @@ function DemoCreateViewModal({
 
 function DemoCreateSearchModal({
   navigation,
-}: ModalScreenProps<DemoCreateModalParamList>) {
+}: IModalScreenProps<IDemoCreateModalParamList>) {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerSearchBarOptions: {
@@ -118,7 +125,7 @@ function DemoCreateSearchModal({
               variant="primary"
               onPress={() => {
                 navigation.navigate(
-                  DemoCreateModalRoutes.DemoCreateOptionsModal,
+                  EDemoCreateModalRoutes.DemoCreateOptionsModal,
                   {
                     question: '你好',
                   },
@@ -145,7 +152,7 @@ function DemoCreateSearchModal({
 
 function DemoCreateOptionsModal({
   navigation,
-}: ModalScreenProps<DemoCreateModalParamList>) {
+}: IModalScreenProps<IDemoCreateModalParamList>) {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerSearchBarOptions: {
@@ -180,8 +187,8 @@ function DemoCreateOptionsModal({
               variant="primary"
               onPress={() => {
                 // @ts-expect-error
-                navigation.navigate(DemoRootRoutes.Modal, {
-                  screen: RootModalRoutes.DemoLockedModal,
+                navigation.navigate(EDemoRootRoutes.Modal, {
+                  screen: ERootModalRoutes.DemoLockedModal,
                 });
               }}
             >
@@ -219,27 +226,27 @@ function DemoCreateOptionsModal({
   );
 }
 
-export const CreateModalStack: ModalFlowNavigatorConfig<
-  DemoCreateModalRoutes,
-  DemoCreateModalParamList
+export const CreateModalStack: IModalFlowNavigatorConfig<
+  EDemoCreateModalRoutes,
+  IDemoCreateModalParamList
 >[] = [
   {
-    name: DemoCreateModalRoutes.DemoCreateModal,
+    name: EDemoCreateModalRoutes.DemoCreateModal,
     component: DemoCreateViewModal,
     translationId: 'Modal Demo',
   },
   {
-    name: DemoCreateModalRoutes.DemoCreateSearchModal,
+    name: EDemoCreateModalRoutes.DemoCreateSearchModal,
     component: DemoCreateSearchModal,
     translationId: 'Search Modal',
   },
   {
-    name: DemoCreateModalRoutes.DemoCreateOptionsModal,
+    name: EDemoCreateModalRoutes.DemoCreateOptionsModal,
     component: DemoCreateOptionsModal,
     translationId: 'Options Demo Modal',
   },
   {
-    name: DemoCreateModalRoutes.DemoBigListModal,
+    name: EDemoCreateModalRoutes.DemoBigListModal,
     component: IconGallery,
     translationId: 'Big List Demo Modal',
   },

@@ -3,20 +3,23 @@ import { Platform } from 'react-native';
 
 import { useThemeValue } from '@onekeyhq/components';
 import type {
-  ModalNavigationProp,
-  PageNavigationProp,
-  StackNavigationOptions,
+  IModalNavigationProp,
+  IPageNavigationProp,
+  IStackNavigationOptions,
 } from '@onekeyhq/components/src/Navigation';
 
-import { RootRoutes } from '../routes/Root/Routes';
+import { ERootRoutes } from '../routes/Root/Routes';
 
-import type { ModalParamList, ModalRoutes } from '../routes/Root/Modal/Routes';
-import type { TabRoutes, TabStackParamList } from '../routes/Root/Tab/Routes';
+import type {
+  EModalRoutes,
+  IModalParamList,
+} from '../routes/Root/Modal/Routes';
+import type { ETabRoutes, ITabStackParamList } from '../routes/Root/Tab/Routes';
 
 function useAppNavigation<
   P extends
-    | PageNavigationProp<any>
-    | ModalNavigationProp<any> = PageNavigationProp<any>,
+    | IPageNavigationProp<any>
+    | IModalNavigationProp<any> = IPageNavigationProp<any>,
 >() {
   const navigation = useNavigation<P>();
   const [bgColor, titleColor] = useThemeValue(['bg', 'text']);
@@ -33,33 +36,33 @@ function useAppNavigation<
     }
   };
 
-  const switchTab = <T extends TabRoutes>(
+  const switchTab = <T extends ETabRoutes>(
     route: T,
     params?: {
-      screen: keyof TabStackParamList[T];
-      params?: TabStackParamList[T][keyof TabStackParamList[T]];
+      screen: keyof ITabStackParamList[T];
+      params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
     },
   ) => {
-    navigation.navigate(RootRoutes.Main, {
+    navigation.navigate(ERootRoutes.Main, {
       screen: route,
       params,
     });
   };
 
-  const pushModal = <T extends ModalRoutes>(
+  const pushModal = <T extends EModalRoutes>(
     route: T,
     params?: {
-      screen: keyof ModalParamList[T];
-      params?: ModalParamList[T][keyof ModalParamList[T]];
+      screen: keyof IModalParamList[T];
+      params?: IModalParamList[T][keyof IModalParamList[T]];
     },
   ) => {
-    navigation.navigate(RootRoutes.Modal, {
+    navigation.navigate(ERootRoutes.Modal, {
       screen: route,
       params,
     });
   };
 
-  const iosHeaderStyle = Platform.select<StackNavigationOptions>({
+  const iosHeaderStyle = Platform.select<IStackNavigationOptions>({
     ios: {
       headerStyle: {
         backgroundColor: bgColor,
@@ -68,10 +71,10 @@ function useAppNavigation<
     },
   });
 
-  function setOptions(options: Partial<StackNavigationOptions>) {
+  function setOptions(options: Partial<IStackNavigationOptions>) {
     const { headerSearchBarOptions, ...otherOptions } = options;
 
-    let newHeaderSearchBarOptions: StackNavigationOptions = {};
+    let newHeaderSearchBarOptions: IStackNavigationOptions = {};
     if (headerSearchBarOptions) {
       newHeaderSearchBarOptions = {
         headerSearchBarOptions: {

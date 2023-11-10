@@ -1,6 +1,6 @@
 import { isString } from 'lodash';
 
-import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { ILocaleIds } from '@onekeyhq/components/src/locale';
 
 import platformEnv from '../../platformEnv';
 
@@ -75,7 +75,7 @@ export function normalizeErrorProps(
   props?: IOneKeyError | string,
   config?: {
     defaultMessage?: string;
-    defaultKey?: LocaleIds;
+    defaultKey?: ILocaleIds;
   },
 ) {
   const msg: string =

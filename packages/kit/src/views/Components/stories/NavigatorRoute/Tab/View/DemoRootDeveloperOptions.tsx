@@ -1,21 +1,21 @@
 import { useRoute } from '@react-navigation/core';
 
 import { Button, Stack } from '@onekeyhq/components';
-import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
 import { FreezeProbe } from '../../../utils/RenderTools';
 import useDemoAppNavigation from '../../useDemoAppNavigation';
-import { DemoDeveloperTabRoutes } from '../Routes';
+import { EDemoDeveloperTabRoutes } from '../Routes';
 
-import type { DemoDeveloperTabParamList } from '../RouteParamTypes';
+import type { IDemoDeveloperTabParamList } from '../RouteParamTypes';
 import type { RouteProp } from '@react-navigation/core';
 
 const DemoRootDeveloperOptions = () => {
   const navigation =
-    useDemoAppNavigation<PageNavigationProp<DemoDeveloperTabParamList>>();
-  const route = useRoute<RouteProp<DemoDeveloperTabParamList>>();
+    useDemoAppNavigation<IPageNavigationProp<IDemoDeveloperTabParamList>>();
+  const route = useRoute<RouteProp<IDemoDeveloperTabParamList>>();
 
   return (
     <Layout
@@ -29,7 +29,7 @@ const DemoRootDeveloperOptions = () => {
             <Button
               variant="primary"
               onPress={() => {
-                navigation.push(DemoDeveloperTabRoutes.DemoRootDeveloper);
+                navigation.push(EDemoDeveloperTabRoutes.DemoRootDeveloper);
               }}
             >
               打开 Dev 页面
@@ -46,8 +46,8 @@ const DemoRootDeveloperOptions = () => {
                   index: 0,
                   routes: [
                     {
-                      key: DemoDeveloperTabRoutes.DemoRootDeveloper,
-                      name: DemoDeveloperTabRoutes.DemoRootDeveloper,
+                      key: EDemoDeveloperTabRoutes.DemoRootDeveloper,
+                      name: EDemoDeveloperTabRoutes.DemoRootDeveloper,
                     },
                   ],
                 });

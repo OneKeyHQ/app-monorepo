@@ -9,22 +9,23 @@ import { Text } from '../Text';
 
 import { getSharedInputStyles } from './sharedStyles';
 
-import type { ICON_NAMES } from '../Icon';
+import type { IICON_NAMES } from '../Icon';
 import type { GetProps } from 'tamagui';
 
-type TMInputProps = GetProps<typeof TMInput>;
+type ITMInputProps = GetProps<typeof TMInput>;
 
-export type InputProps = {
+export type IInputProps = {
   size?: 'small' | 'medium' | 'large';
-  leftIconName?: ICON_NAMES;
+  leftIconName?: IICON_NAMES;
   error?: boolean;
   addOns?: {
-    iconName?: ICON_NAMES;
+    iconName?: IICON_NAMES;
     label?: string;
     onPress?: () => void;
     loading?: boolean;
   }[];
-} & Omit<TMInputProps, 'size'>;
+  containerProps?: GetProps<typeof Group>;
+} & Omit<ITMInputProps, 'size'>;
 
 const SIZE_MAPPINGS = {
   'large': {
@@ -58,8 +59,9 @@ function BaseInput(
     disabled,
     editable,
     error,
+    containerProps,
     ...props
-  }: InputProps,
+  }: IInputProps,
   ref: Ref<any>,
 ) {
   const {
@@ -77,7 +79,7 @@ function BaseInput(
       borderRadius={size === 'large' ? '$3' : '$2'}
       disablePassBorderRadius={!addOns?.length}
       disabled={disabled}
-      flex={1}
+      {...containerProps}
     >
       {/* input */}
       <Group.Item>
