@@ -54,14 +54,6 @@ class ServiceDiscovery extends ServiceBase {
     const result = buildWebTabData(newTabs);
     let shouldUpdateTabs = false;
     if (!isEqual(result.keys, previousWebTabs.keys)) {
-      console.log(
-        'setWebTabsAtom: payload: ',
-        payload,
-        ' keys: ',
-        result.keys,
-        ' data: ',
-        result.data,
-      );
       shouldUpdateTabs = true;
     }
     return Promise.resolve({
@@ -120,6 +112,47 @@ class ServiceDiscovery extends ServiceBase {
       resetFlag,
       tabs,
     };
+  }
+
+  @backgroundMethod()
+  public async closeWebTab(
+    tabs: IWebTab[],
+    activeTabId: string | null,
+    tabId: string,
+  ) {
+    const targetIndex = tabs.findIndex((t) => t.id === tabId);
+    if (targetIndex !== -1) {
+      if (tabs[targetIndex].id === activeTabId) {
+        const prev = tabs[targetIndex - 1];
+        if (prev) {
+          prev.isActive = true;
+        }
+      }
+      tabs.splice(targetIndex, 1);
+    }
+    return Promise.resolve({
+      tabs,
+    });
+  }
+
+  @backgroundMethod()
+  public async closeAllWebTabsAtom(
+    tabs: IWebTab[],
+    activeTabId: string | null,
+  ) {
+    let newActiveTabId = null;
+    const pinnedTabs = tabs.filter((tab) => tab.isPinned); // close all tabs exclude pinned tab
+    // should update active tab, if active tab is not in pinnedTabs
+    if (!pinnedTabs.every((tab) => tab.id !== activeTabId)) {
+      if (pinnedTabs.length) {
+        pinnedTabs[pinnedTabs.length - 1].isActive = true;
+        newActiveTabId = pinnedTabs[pinnedTabs.length - 1].id;
+      }
+    }
+    return Promise.resolve({
+      pinnedTabs,
+      newActiveTabId,
+    });
   }
 }
 

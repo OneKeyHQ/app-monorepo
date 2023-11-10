@@ -117,26 +117,32 @@ export const setWebTabDataAtom = atom(
     void set(setWebTabsAtom, newTabs);
   },
 );
-export const closeWebTabAtom = atom(null, (get, set, tabId: string) => {
+export const closeWebTabAtom = atom(null, async (get, set, tabId: string) => {
   delete webviewRefs[tabId];
   const { tabs } = get(webTabsAtom);
-  const targetIndex = tabs.findIndex((t) => t.id === tabId);
-  if (targetIndex !== -1) {
-    if (tabs[targetIndex].id === get(activeTabIdAtom)) {
-      const prev = tabs[targetIndex - 1];
-      if (prev) {
-        prev.isActive = true;
-      }
-    }
-    tabs.splice(targetIndex, 1);
-    void set(setWebTabsAtom, [...tabs]);
-  }
+  const activeTabId = get(activeTabIdAtom);
+  const { tabs: newTabs } = await serviceDiscovery.closeWebTab(
+    tabs,
+    activeTabId,
+    tabId,
+  );
+  void set(setWebTabsAtom, [...newTabs]);
 });
-export const closeAllWebTabsAtom = atom(null, (_, set) => {
+
+export const closeAllWebTabsAtom = atom(null, async (get, set) => {
+  const { tabs } = get(webTabsAtom);
+  const activeTabId = get(activeTabIdAtom);
+  const { pinnedTabs, newActiveTabId } =
+    await serviceDiscovery.closeAllWebTabsAtom(tabs, activeTabId);
   for (const id of Object.getOwnPropertyNames(webviewRefs)) {
-    delete webviewRefs[id];
+    if (!pinnedTabs.find((tab) => tab.id === id)) {
+      delete webviewRefs[id];
+    }
   }
-  void set(setWebTabsAtom, []);
+  if (newActiveTabId) {
+    set(setCurrentWebTabAtom, newActiveTabId);
+  }
+  void set(setWebTabsAtom, pinnedTabs);
 });
 
 export const incomingUrlAtom = atom('');
