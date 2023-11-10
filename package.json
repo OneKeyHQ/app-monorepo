@@ -128,6 +128,7 @@
     "progress-bar-webpack-plugin": "^2.1.0",
     "react-dev-utils": "^12.0.1",
     "react-refresh": "^0.14.0",
+    "rimraf": "^5.0.5",
     "style-loader": "^3.3.3",
     "tamagui-loader": "1.71.0",
     "ts-jest": "^29.1.1",
