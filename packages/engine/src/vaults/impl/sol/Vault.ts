@@ -941,7 +941,9 @@ export default class Vault extends VaultBase {
         return {
           metadata,
           isProgrammableNFT:
-            metadata.tokenStandard === TokenStandard.ProgrammableNonFungible,
+            metadata.tokenStandard === TokenStandard.ProgrammableNonFungible ||
+            metadata.tokenStandard ===
+              TokenStandard.ProgrammableNonFungibleEdition,
         };
       }
       return {
