@@ -80,9 +80,9 @@ const ListRoute = ({
 );
 
 // const renderScene = SceneMap({
-//   [HomePageTabsEnum.Demo1]: FirstRoute,
-//   [HomePageTabsEnum.Demo2]: SecondRoute,
-//   [HomePageTabsEnum.Demo3]: OtherRoute,
+//   [EHomePageTabsEnum.Demo1]: FirstRoute,
+//   [EHomePageTabsEnum.Demo2]: SecondRoute,
+//   [EHomePageTabsEnum.Demo3]: OtherRoute,
 // });
 
 function HomePage() {

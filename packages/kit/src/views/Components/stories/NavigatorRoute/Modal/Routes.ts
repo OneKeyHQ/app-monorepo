@@ -1,51 +1,51 @@
-export enum RootModalRoutes {
+export enum ERootModalRoutes {
   DemoCreateModal = 'DemoCreateModalStack',
   DemoLockedModal = 'DemoLockedModalStack',
   DemoCoverageModal = 'DemoCoverageModalStack',
 }
 
-export type DemoRootModalParamList = {
-  [RootModalRoutes.DemoCreateModal]: DemoCreateModalParamList;
-  [RootModalRoutes.DemoLockedModal]: DemoLockedModalParamList;
-  [RootModalRoutes.DemoCoverageModal]: DemoCoverageModalParamList;
+export type IDemoRootModalParamList = {
+  [ERootModalRoutes.DemoCreateModal]: IDemoCreateModalParamList;
+  [ERootModalRoutes.DemoLockedModal]: IDemoLockedModalParamList;
+  [ERootModalRoutes.DemoCoverageModal]: IDemoCoverageModalParamList;
 };
 
-export enum DemoCreateModalRoutes {
+export enum EDemoCreateModalRoutes {
   DemoCreateModal = 'DemoCreateModal',
   DemoCreateSearchModal = 'DemoCreateSearchModal',
   DemoCreateOptionsModal = 'DemoCreateOptionsModal',
   DemoBigListModal = 'DemoBigListModal',
 }
 
-export type DemoCreateModalParamList = {
-  [DemoCreateModalRoutes.DemoCreateModal]: { question: string };
-  [DemoCreateModalRoutes.DemoCreateSearchModal]: { question: string };
-  [DemoCreateModalRoutes.DemoCreateOptionsModal]: { question: string };
-  [DemoCreateModalRoutes.DemoBigListModal]: undefined;
+export type IDemoCreateModalParamList = {
+  [EDemoCreateModalRoutes.DemoCreateModal]: { question: string };
+  [EDemoCreateModalRoutes.DemoCreateSearchModal]: { question: string };
+  [EDemoCreateModalRoutes.DemoCreateOptionsModal]: { question: string };
+  [EDemoCreateModalRoutes.DemoBigListModal]: undefined;
 };
 
-export enum DemoLockedModalRoutes {
+export enum EDemoLockedModalRoutes {
   DemoLockedModal = 'DemoLockedModal',
   DemoConfigLockedModal = 'DemoConfigLockedModal',
   DemoManualLockedViewModal = 'DemoManualLockedViewModal',
   DemoRepeatManualLockedViewModal = 'DemoRepeatManualLockedViewModal',
 }
 
-export type DemoLockedModalParamList = {
-  [DemoLockedModalRoutes.DemoLockedModal]: undefined;
-  [DemoLockedModalRoutes.DemoConfigLockedModal]: undefined;
-  [DemoLockedModalRoutes.DemoManualLockedViewModal]: undefined;
-  [DemoLockedModalRoutes.DemoRepeatManualLockedViewModal]: undefined;
+export type IDemoLockedModalParamList = {
+  [EDemoLockedModalRoutes.DemoLockedModal]: undefined;
+  [EDemoLockedModalRoutes.DemoConfigLockedModal]: undefined;
+  [EDemoLockedModalRoutes.DemoManualLockedViewModal]: undefined;
+  [EDemoLockedModalRoutes.DemoRepeatManualLockedViewModal]: undefined;
 };
 
-export enum DemoCoverageModalRoutes {
+export enum EDemoCoverageModalRoutes {
   DemoCoverageModal = 'DemoCoverageModal',
   DemoCoverageDialogModal = 'DemoCoverageDialogModal',
   DemoCoverageModalModal = 'DemoCoverageModalModal',
 }
 
-export type DemoCoverageModalParamList = {
-  [DemoCoverageModalRoutes.DemoCoverageModal]: undefined;
-  [DemoCoverageModalRoutes.DemoCoverageDialogModal]: undefined;
-  [DemoCoverageModalRoutes.DemoCoverageModalModal]: undefined;
+export type IDemoCoverageModalParamList = {
+  [EDemoCoverageModalRoutes.DemoCoverageModal]: undefined;
+  [EDemoCoverageModalRoutes.DemoCoverageDialogModal]: undefined;
+  [EDemoCoverageModalRoutes.DemoCoverageModalModal]: undefined;
 };
