@@ -27,7 +27,6 @@ export enum GalleryRoutes {
   ComponentSlider = 'component/slider',
   ComponentTextArea = 'component/textArea',
   ComponentPopover = 'component/popover',
-  ComponentToggleGroup = 'component/toggleGroup',
   ComponentTheme = 'component/theme',
   ComponentJotaiGlobal = 'component/jotaiGlobal',
   ComponentTabview = 'component/tabView',

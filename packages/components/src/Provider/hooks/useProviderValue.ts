@@ -1,11 +1,11 @@
 import { createContext, useContext } from 'react';
 
-export type ContextValue = {
+export type IContextValue = {
   themeVariant: 'light' | 'dark';
   reduxReady?: boolean;
 };
 
-export const Context = createContext<ContextValue>({} as ContextValue);
+export const Context = createContext<IContextValue>({} as IContextValue);
 
 const useProviderValue = () => useContext(Context);
 export default useProviderValue;

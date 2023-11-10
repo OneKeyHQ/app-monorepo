@@ -1,6 +1,6 @@
 import type {
-  PageNavigationProp,
-  StackNavigationOptions,
+  IPageNavigationProp,
+  IStackNavigationOptions,
 } from '../ScreenProps';
 import type {
   Descriptor,
@@ -10,20 +10,20 @@ import type {
   RouteProp,
 } from '@react-navigation/native';
 
-export type Scene = {
+export type IScene = {
   route: Route<string>;
   focused: boolean;
   color?: string;
 };
 
-export type ModalNavigationConfig = NonNullable<unknown>;
+export type IModalNavigationConfig = NonNullable<unknown>;
 
-export type ModalNavigationOptions = StackNavigationOptions & {
+export type IModalNavigationOptions = IStackNavigationOptions & {
   allowDisableClose?: boolean;
   disableClose?: boolean;
 };
 
-export type ModalNavigationEventMap = {
+export type IModalNavigationEventMap = {
   /**
    * Event which fires when the orientation changes while the modal is being displayed.
    * The orientation provided is only 'portrait' or 'landscape'.
@@ -37,37 +37,37 @@ export type ModalNavigationEventMap = {
   };
 };
 
-export type ModalNavigationHelpers = NavigationHelpers<
+export type IModalNavigationHelpers = NavigationHelpers<
   ParamListBase,
-  ModalNavigationEventMap
+  IModalNavigationEventMap
 >;
 
-export type ModalNavigationProp<
+export type IModalNavigationProp<
   ParamList extends ParamListBase,
   RouteName extends keyof ParamList = string,
   NavigatorID extends string | undefined = undefined,
-> = PageNavigationProp<
+> = IPageNavigationProp<
   ParamList,
   RouteName,
   NavigatorID,
-  ModalNavigationOptions
+  IModalNavigationOptions
 >;
 
-export type ModalScreenProps<
+export type IModalScreenProps<
   ParamList extends ParamListBase,
   RouteName extends keyof ParamList = string,
   NavigatorID extends string | undefined = undefined,
 > = {
-  navigation: ModalNavigationProp<ParamList, RouteName, NavigatorID>;
+  navigation: IModalNavigationProp<ParamList, RouteName, NavigatorID>;
   route: RouteProp<ParamList, RouteName>;
 };
 
-export type ModalDescriptor = Descriptor<
+export type IModalDescriptor = Descriptor<
   ParamListBase,
-  ModalNavigationProp<ParamListBase>,
+  IModalNavigationProp<ParamListBase>,
   RouteProp<ParamListBase>
 >;
 
-export type ModalDescriptorMap = {
-  [key: string]: ModalDescriptor;
+export type IModalDescriptorMap = {
+  [key: string]: IModalDescriptor;
 };

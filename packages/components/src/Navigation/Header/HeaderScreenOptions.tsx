@@ -7,12 +7,15 @@ import { hasNativeHeaderView } from '../Navigator/CommonConfig.ts';
 import HeaderBackButton from './HeaderBackButton';
 import HeaderView from './HeaderView';
 
-import type { StackHeaderProps, StackNavigationOptions } from '../ScreenProps';
+import type {
+  IStackHeaderProps,
+  IStackNavigationOptions,
+} from '../ScreenProps';
 import type { HeaderBackButtonProps } from '@react-navigation/elements';
 import type { VariableVal } from '@tamagui/core';
 
-export type OneKeyStackHeaderProps = {
-  navigation?: StackHeaderProps['navigation'];
+export type IOnekeyStackHeaderProps = {
+  navigation?: IStackHeaderProps['navigation'];
   isModelScreen?: boolean;
   isRootScreen?: boolean;
   isFlowModelScreen?: boolean;
@@ -25,10 +28,10 @@ export function makeHeaderScreenOptions({
   isRootScreen = false,
   bgColor,
   titleColor,
-}: OneKeyStackHeaderProps & {
+}: IOnekeyStackHeaderProps & {
   bgColor: VariableVal;
   titleColor: VariableVal;
-}): StackNavigationOptions {
+}): IStackNavigationOptions {
   if (hasNativeHeaderView) {
     const state = currentNavigation?.getState();
     const isCanGoBack = (state?.index ?? 0) > 0;
@@ -37,18 +40,18 @@ export function makeHeaderScreenOptions({
       headerStyle: {
         backgroundColor: bgColor as string,
       },
-      headerTransparent: false,
       headerTitleStyle: {
         fontSize: getFontSize('$headingLg'),
         color: titleColor as string,
       },
+      headerTitleAlign: 'left',
       headerLeft: (props: HeaderBackButtonProps): ReactNode => (
         <HeaderBackButton
-          {...props}
           onPress={currentNavigation?.goBack}
           canGoBack={isCanGoBack}
           isModelScreen={isModelScreen}
           isRootScreen={isRootScreen}
+          {...props}
         />
       ),
     };
@@ -62,7 +65,7 @@ export function makeHeaderScreenOptions({
       options,
       route,
       navigation,
-    }: StackHeaderProps) => (
+    }: IStackHeaderProps) => (
       <HeaderView
         back={headerBack}
         options={options}

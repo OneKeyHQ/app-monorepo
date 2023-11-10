@@ -72,25 +72,25 @@ export function Layout({
           paddingBottom: 280,
         }}
       >
-        <XStack padding="$4" display="flex" justifyContent="center">
-          <Button
-            onPress={() => {
-              dispatch(setTheme('light'));
-            }}
-          >
-            Light Theme
-          </Button>
-          <Button
-            ml="$4"
-            variant="primary"
-            onPress={() => {
-              dispatch(setTheme('dark'));
-            }}
-          >
-            Night Theme
-          </Button>
-        </XStack>
         <Stack marginHorizontal="auto" maxWidth="100%" width={576} space="$6">
+          <XStack>
+            <Button
+              onPress={() => {
+                dispatch(setTheme('light'));
+              }}
+            >
+              Light Theme
+            </Button>
+            <Button
+              ml="$4"
+              variant="primary"
+              onPress={() => {
+                dispatch(setTheme('dark'));
+              }}
+            >
+              Dark Theme
+            </Button>
+          </XStack>
           {description && (
             <Stack space="$2">
               <Stack>

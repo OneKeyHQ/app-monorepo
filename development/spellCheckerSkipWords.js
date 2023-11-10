@@ -564,4 +564,5 @@ module.exports = [
   'png',
   'gif',
   'jpeg',
+  'Themeable',
 ];

@@ -4,10 +4,10 @@ import { useLayoutEffect } from 'react';
 import { Input } from 'tamagui';
 
 import { Button, ModalContainer, Stack, Toast } from '@onekeyhq/components';
-import type { ModalScreenProps } from '@onekeyhq/components/src/Navigation';
+import type { IModalScreenProps } from '@onekeyhq/components/src/Navigation';
 import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
 import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';
-import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator/ModalFlowNavigator';
+import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator/ModalFlowNavigator';
 
 import IconGallery from '../../Icon';
 import { Layout } from '../../utils/Layout';
@@ -21,9 +21,16 @@ import type { DemoCreateModalParamList } from './Routes';
 
 function DemoCreateViewModal({
   navigation,
-}: ModalScreenProps<DemoCreateModalParamList>) {
+}: IModalScreenProps<DemoCreateModalParamList>) {
   useLayoutEffect(() => {
     navigation.setOptions({
+      headerSearchBarOptions: {
+        placeholder: '搜索',
+        inputType: 'text',
+        onChangeText: (event: any) => {
+          console.log('onChangeText', event);
+        },
+      },
       headerRight: () => <HeaderIconButton icon="AnonymousHidden2Outline" />,
     });
   }, [navigation]);
@@ -86,7 +93,7 @@ function DemoCreateViewModal({
 
 function DemoCreateSearchModal({
   navigation,
-}: ModalScreenProps<DemoCreateModalParamList>) {
+}: IModalScreenProps<DemoCreateModalParamList>) {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerSearchBarOptions: {
@@ -145,7 +152,7 @@ function DemoCreateSearchModal({
 
 function DemoCreateOptionsModal({
   navigation,
-}: ModalScreenProps<DemoCreateModalParamList>) {
+}: IModalScreenProps<DemoCreateModalParamList>) {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerSearchBarOptions: {
@@ -219,7 +226,7 @@ function DemoCreateOptionsModal({
   );
 }
 
-export const CreateModalStack: ModalFlowNavigatorConfig<
+export const CreateModalStack: IModalFlowNavigatorConfig<
   DemoCreateModalRoutes,
   DemoCreateModalParamList
 >[] = [

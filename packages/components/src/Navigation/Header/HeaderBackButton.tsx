@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo } from 'react';
 
 import useIsVerticalLayout from '../../Provider/hooks/useIsVerticalLayout';
 
@@ -6,7 +6,7 @@ import HeaderButtonGroup from './HeaderButtonGroup';
 import HeaderCollapseButton from './HeaderCollapseButton';
 import HeaderIconButton from './HeaderIconButton';
 
-import type { OneKeyStackHeaderProps } from './HeaderScreenOptions';
+import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';
 import type { HeaderBackButtonProps } from '@react-navigation/elements';
 
 function HeaderBackButton({
@@ -15,14 +15,14 @@ function HeaderBackButton({
   canGoBack,
   disableClose,
   ...props
-}: OneKeyStackHeaderProps & HeaderBackButtonProps) {
+}: IOnekeyStackHeaderProps & HeaderBackButtonProps) {
   const isVerticalLayout = useIsVerticalLayout();
 
   const showCloseButton = isModelScreen && !isRootScreen && !canGoBack;
-  const showSlideButton = isRootScreen && !isVerticalLayout;
+  const showCollapseButton = isRootScreen && !isVerticalLayout;
   const showBackButton = canGoBack || showCloseButton;
 
-  const backImageCallback = useCallback(() => {
+  const renderBackButton = () => {
     if (canGoBack) {
       return (
         <HeaderIconButton onPress={props.onPress} icon="ChevronLeftOutline" />
@@ -33,24 +33,23 @@ function HeaderBackButton({
         <HeaderIconButton onPress={props.onPress} icon="CrossedLargeOutline" />
       );
     }
-  }, [canGoBack, props.onPress, showCloseButton]);
+    return null;
+  };
 
-  const backButtonMemo = useMemo(() => {
-    if (showBackButton === false) return null;
+  const renderCollapseButton = () =>
+    showCollapseButton ? (
+      <HeaderCollapseButton isRootScreen={isRootScreen} />
+    ) : null;
 
-    return backImageCallback();
-  }, [backImageCallback, showBackButton]);
-
-  const slideButtonMemo = useMemo(() => {
-    if (!showSlideButton) return null;
-
-    return <HeaderCollapseButton isRootScreen={isRootScreen} />;
-  }, [isRootScreen, showSlideButton]);
+  // If neither button should be shown, return null early.
+  if (!showCollapseButton && !showBackButton) {
+    return null;
+  }
 
   return (
-    <HeaderButtonGroup>
-      {slideButtonMemo}
-      {!disableClose && backButtonMemo}
+    <HeaderButtonGroup mr="$4">
+      {renderCollapseButton()}
+      {!disableClose && renderBackButton()}
     </HeaderButtonGroup>
   );
 }

@@ -1,6 +1,7 @@
-import { useTheme } from '@tamagui/core';
+import { memo } from 'react';
 
 import { createStackNavigator } from '@onekeyhq/components';
+import { useThemeValue } from '@onekeyhq/components/src/Provider/hooks/useThemeValue';
 import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
 import ActionListGallery from '@onekeyhq/kit/src/views/Components/stories/ActionList';
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
@@ -23,7 +24,6 @@ import SliderGallery from '@onekeyhq/kit/src/views/Components/stories/Slider';
 import SwitchGallery from '@onekeyhq/kit/src/views/Components/stories/Switch';
 import TabViewGallery from '@onekeyhq/kit/src/views/Components/stories/TabView';
 import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
-import ToggleGroupGallery from '@onekeyhq/kit/src/views/Components/stories/ToggleGroup';
 import TooltipGallery from '@onekeyhq/kit/src/views/Components/stories/Tooltip';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 import WebviewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
@@ -66,7 +66,6 @@ export const stackScreenList = [
   { name: GalleryRoutes.ComponentListItem, component: ListItemGallery },
   { name: GalleryRoutes.ComponentSkeleton, component: SkeletonGallery },
   { name: GalleryRoutes.ComponentCheckbox, component: CheckboxGallery },
-  { name: GalleryRoutes.ComponentToggleGroup, component: ToggleGroupGallery },
   { name: GalleryRoutes.ComponentActionList, component: ActionListGallery },
   { name: GalleryRoutes.ComponentPopover, component: PopoverGallery },
   { name: GalleryRoutes.ComponentProgress, component: ProgressGallery },
@@ -113,15 +112,13 @@ export const stackScreenList = [
 const DevStack = createStackNavigator();
 
 const DevScreen = () => {
-  const theme = useTheme();
+  const [bgAppColor, textColor] = useThemeValue(
+    ['bgApp', 'text'],
+    undefined,
+    true,
+  );
   return (
-    <DevStack.Navigator
-      screenOptions={{
-        cardStyle: {
-          flex: 1,
-        },
-      }}
-    >
+    <DevStack.Navigator>
       <DevStack.Group>
         {stackScreenList.map((stack) => (
           <DevStack.Screen
@@ -130,10 +127,18 @@ const DevScreen = () => {
             component={stack.component}
             options={() => ({
               headerStyle: {
-                backgroundColor: theme.bgApp.val,
+                backgroundColor: bgAppColor,
               },
-              headerTintColor: theme.text.val,
+              cardStyle: {
+                flex: 1,
+              },
+              headerTintColor: textColor,
               headerShadowVisible: false,
+              detachPreviousScreen: false,
+              freezeOnBlur: true,
+
+              // native stack
+              animation: 'none',
               ...stack.options,
             })}
           />
@@ -143,4 +148,4 @@ const DevScreen = () => {
   );
 };
 
-export default DevScreen;
+export default memo(DevScreen, () => true);
