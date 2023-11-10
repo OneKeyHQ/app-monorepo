@@ -6,7 +6,7 @@ import type { ISimpleSearchHistoryToken } from '@onekeyhq/engine/src/dbs/simple/
 import { EMarketCellData } from '../../views/Market/config';
 
 import type { TokenChartData } from './tokens';
-import type { TabRoutes } from '../../routes/routesEnum';
+import type { ETabRoutes } from '../../routes/routesEnum';
 import type { Token } from '../typings';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
@@ -166,7 +166,7 @@ type SearchTokenPayloadAction = {
   coingeckoIds: CoingeckoId[];
 };
 
-export type MarketTopTabName = TabRoutes.Market | TabRoutes.Swap;
+export type MarketTopTabName = ETabRoutes.Market | ETabRoutes.Swap;
 
 export type MarketInitialState = {
   selectedCategoryId?: CategoryId;

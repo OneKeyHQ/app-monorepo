@@ -7,6 +7,7 @@ import { getTokens } from 'tamagui';
 import { ScrollView, Stack, Text } from '@onekeyhq/components';
 import { useThemeValue } from '@onekeyhq/components/src/Provider/hooks/useThemeValue';
 import { PageManager } from '@onekeyhq/components/src/TabView';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import HeaderView from './HeaderView';
 
@@ -79,9 +80,9 @@ const ListRoute = ({
 );
 
 // const renderScene = SceneMap({
-//   [HomePageTabsEnum.Demo1]: FirstRoute,
-//   [HomePageTabsEnum.Demo2]: SecondRoute,
-//   [HomePageTabsEnum.Demo3]: OtherRoute,
+//   [EHomePageTabsEnum.Demo1]: FirstRoute,
+//   [EHomePageTabsEnum.Demo2]: SecondRoute,
+//   [EHomePageTabsEnum.Demo3]: OtherRoute,
 // });
 
 function HomePage() {
@@ -207,7 +208,11 @@ function HomePage() {
             }}
           />
           <Stack style={{ height: contentHeight }}>
-            <Content renderItem={renderContentItem} />
+            <Content
+              scrollEnabled={platformEnv.isNative}
+              shouldSelectedPageAnimation={platformEnv.isNative}
+              renderItem={renderContentItem}
+            />
           </Stack>
         </ScrollView>
       </Stack>
