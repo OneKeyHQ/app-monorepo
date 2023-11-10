@@ -15,25 +15,25 @@ const PasswordVerifyPromptMount = () => {
   const showPasswordVerifyPrompt = useCallback((id: number) => {
     const dialog = Dialog.confirm({
       title: 'ConfirmPassword',
+      onClose() {
+        void backgroundApiProxy.servicePassword.rejectPasswordPromptDialog(id, {
+          message: '',
+        });
+      },
       renderContent: (
         <Suspense fallback={<Spinner size="large" />}>
           <PasswordVerifyContainer
-            onVerifyRes={(data) => {
+            onVerifyRes={async (data) => {
               console.log('verify data', data);
               if (data) {
-                backgroundApiProxy.servicePromise.resolveCallback({
+                await backgroundApiProxy.servicePassword.resolvePasswordPromptDialog(
                   id,
-                  data: {
+                  {
                     status: EPasswordResStatus.PASS_STATUS,
                     data: { password: data },
                   },
-                });
+                );
                 dialog.close();
-              } else {
-                backgroundApiProxy.servicePromise.rejectCallback({
-                  id,
-                  error: { message: '密码验证失败' },
-                });
               }
             }}
           />
