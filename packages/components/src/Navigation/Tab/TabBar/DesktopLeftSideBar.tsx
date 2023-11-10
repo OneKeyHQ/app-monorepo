@@ -148,7 +148,7 @@ export function DesktopLeftSideBar({
       style={{
         backgroundColor: theme.bgSidebar.val,
         paddingTop: top,
-        borderRightColor: theme.borderSubdued.val,
+        borderRightColor: theme.neutral4.val,
         borderRightWidth: isCollapse ? 0 : StyleSheet.hairlineWidth,
         overflow: 'hidden',
       }}

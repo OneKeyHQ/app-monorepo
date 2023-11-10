@@ -145,6 +145,33 @@ function HomePage() {
 
   const renderHeaderView = useCallback(() => <HeaderView />, []);
 
+  const renderContentItem = useCallback(
+    ({
+      item,
+    }: {
+      item: {
+        backgroundColor: string;
+        contentHeight: number | undefined;
+        page: any;
+      };
+      index: number;
+    }) => (
+      <Stack
+        style={{
+          flex: 1,
+          backgroundColor: item.backgroundColor,
+        }}
+      >
+        <item.page
+          onContentSizeChange={(_: number, height: number) => {
+            item.contentHeight = height;
+          }}
+        />
+      </Stack>
+    ),
+    [],
+  );
+
   return useMemo(
     () => (
       <Stack bg="$bg" flex={1}>
@@ -173,46 +200,25 @@ function HomePage() {
             }}
           />
           <Stack style={{ height: contentHeight }}>
-            <Content
+            <Content 
               scrollEnabled={platformEnv.isNative}
-              shouldSelectedPageAnimation={platformEnv.isNative}
-              renderItem={({
-                item,
-              }: {
-                item: {
-                  backgroundColor: string;
-                  contentHeight: number | undefined;
-                  page: any;
-                };
-                index: number;
-              }) => (
-                <Stack
-                  style={{
-                    flex: 1,
-                    backgroundColor: item.backgroundColor,
-                  }}
-                >
-                  <item.page
-                    onContentSizeChange={(width: number, height: number) => {
-                      item.contentHeight = height;
-                    }}
-                  />
-                </Stack>
-              )}
+              shouldSelectedPageAnimation={true}
+              renderItem={renderContentItem} 
             />
           </Stack>
         </ScrollView>
       </Stack>
     ),
     [
-      bgAppColor,
-      textColor,
-      textSubduedColor,
-      contentHeight,
-      Header,
-      Content,
       onRefresh,
       renderHeaderView,
+      Header,
+      bgAppColor,
+      textSubduedColor,
+      textColor,
+      contentHeight,
+      Content,
+      renderContentItem,
     ],
   );
 }
