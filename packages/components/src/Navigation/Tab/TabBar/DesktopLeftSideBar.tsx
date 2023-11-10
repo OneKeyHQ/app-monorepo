@@ -65,7 +65,7 @@ export function DesktopLeftSideBar({
   const theme = useTheme();
   const getSizeTokens = getTokens().size;
 
-  const sidebarWidth = getSizeTokens['52'].val;
+  const sidebarWidth = getSizeTokens.sideBarWidth.val;
   const HeaderHeight = 52; // for desktop
 
   const tabs = useMemo(
@@ -148,7 +148,7 @@ export function DesktopLeftSideBar({
       style={{
         backgroundColor: theme.bgSidebar.val,
         paddingTop: top,
-        borderRightColor: theme.borderSubdued.val,
+        borderRightColor: theme.neutral4.val,
         borderRightWidth: isCollapse ? 0 : StyleSheet.hairlineWidth,
         overflow: 'hidden',
       }}
