@@ -10,8 +10,8 @@ import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderI
 import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
 import { FreezeProbe } from '../../../utils/RenderTools';
-import { RootModalRoutes } from '../../Modal/Routes';
-import { DemoRootRoutes } from '../../Routes';
+import { ERootModalRoutes } from '../../Modal/Routes';
+import { EDemoRootRoutes } from '../../Routes';
 import useDemoAppNavigation from '../../useDemoAppNavigation';
 
 import type {
@@ -84,8 +84,8 @@ const DemoRootHomeOptions = () => {
             <Button
               onPress={() => {
                 // @ts-expect-error
-                navigation.pushModal(DemoRootRoutes.Modal, {
-                  screen: RootModalRoutes.DemoLockedModal,
+                navigation.pushModal(EDemoRootRoutes.Modal, {
+                  screen: ERootModalRoutes.DemoLockedModal,
                 });
               }}
             >

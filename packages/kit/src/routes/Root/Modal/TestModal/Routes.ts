@@ -1,7 +1,7 @@
-export enum ModalTestRoutes {
+export enum EModalTestRoutes {
   TestSimpleModal = 'TestSimpleModal',
 }
 
-export type ModalTestParamList = {
-  [ModalTestRoutes.TestSimpleModal]: { question: string };
+export type IModalTestParamList = {
+  [EModalTestRoutes.TestSimpleModal]: { question: string };
 };

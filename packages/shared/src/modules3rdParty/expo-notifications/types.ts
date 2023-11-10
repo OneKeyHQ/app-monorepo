@@ -1,7 +1,7 @@
 // <<<<< ReferenceError: localStorage is not defined
 // export { IosAuthorizationStatus } from 'expo-notifications';
 
-export enum IosAuthorizationStatus {
+export enum EIosAuthorizationStatus {
   NOT_DETERMINED = 0,
   DENIED = 1,
   AUTHORIZED = 2,

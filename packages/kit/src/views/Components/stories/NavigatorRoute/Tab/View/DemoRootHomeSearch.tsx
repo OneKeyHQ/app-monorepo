@@ -9,9 +9,9 @@ import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
 import { FreezeProbe } from '../../../utils/RenderTools';
 import useDemoAppNavigation from '../../useDemoAppNavigation';
-import { DemoHomeTabRoutes } from '../Routes';
+import { EDemoHomeTabRoutes } from '../Routes';
 
-import type { DemoHomeTabParamList } from '../RouteParamTypes';
+import type { IDemoHomeTabParamList } from '../RouteParamTypes';
 import type {
   NativeSyntheticEvent,
   TextInputChangeEventData,
@@ -21,7 +21,7 @@ import type {
 const DemoRootHomeSearch = () => {
   const intl = useIntl();
   const navigation =
-    useDemoAppNavigation<IPageNavigationProp<DemoHomeTabParamList>>();
+    useDemoAppNavigation<IPageNavigationProp<IDemoHomeTabParamList>>();
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -71,7 +71,7 @@ const DemoRootHomeSearch = () => {
             <Button
               variant="primary"
               onPress={() => {
-                navigation.push(DemoHomeTabRoutes.DemoRootHomeOptions);
+                navigation.push(EDemoHomeTabRoutes.DemoRootHomeOptions);
               }}
             >
               跳转自定义 headerRight Demo
