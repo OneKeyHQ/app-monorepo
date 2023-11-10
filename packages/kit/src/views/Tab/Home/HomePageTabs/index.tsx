@@ -200,10 +200,10 @@ function HomePage() {
             }}
           />
           <Stack style={{ height: contentHeight }}>
-            <Content 
+            <Content
               scrollEnabled={platformEnv.isNative}
-              shouldSelectedPageAnimation={true}
-              renderItem={renderContentItem} 
+              shouldSelectedPageAnimation={platformEnv.isNative}
+              renderItem={renderContentItem}
             />
           </Stack>
         </ScrollView>
