@@ -20,6 +20,7 @@ import {
 } from '../../router/Routes';
 import { withProviderWebTabs } from '../../store/contextWebTabs';
 import { gotoSite } from '../../utils/gotoSite';
+import { checkAndCreateFolder } from '../../utils/screenshot';
 
 import MobileBrowserContent from './MobileBrowserContent';
 
@@ -49,6 +50,7 @@ function MobileBrowser() {
 
   useEffect(() => {
     console.log('MobileBrowser renderer ===> : ');
+    void checkAndCreateFolder();
   }, []);
 
   const content = useMemo(

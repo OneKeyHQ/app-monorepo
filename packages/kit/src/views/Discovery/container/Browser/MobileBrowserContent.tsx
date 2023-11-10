@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react';
+import type { RefObject } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
+import { captureRef } from 'react-native-view-shot';
 import { Stack } from 'tamagui';
 
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
@@ -9,6 +11,8 @@ import { ModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import WebContent from '../../components/WebContent/WebContent';
+import { THUMB_HEIGHT, THUMB_WIDTH } from '../../config/TabList.constants';
+import useWebTabAction from '../../hooks/useWebTabAction';
 import {
   useActiveTabId,
   useWebTabData,
@@ -21,18 +25,23 @@ import {
 import { homeTab } from '../../store/contextWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
 import { onItemSelect } from '../../utils/gotoSite';
+import { getScreenshotPath, saveScreenshot } from '../../utils/screenshot';
 import DiscoveryDashboard from '../Dashboard';
 
 import type WebView from 'react-native-webview';
+import type { TamaguiElement } from 'tamagui';
 
 function MobileBrowserContent({ id }: { id: string }) {
-  const { tab } = useWebTabData(id);
+  const navigation =
+    useAppNavigation<PageNavigationProp<DiscoverModalParamList>>();
   const { tabs } = useWebTabs();
+  const { tab } = useWebTabData(id);
   const { activeTabId } = useActiveTabId();
   const [backEnabled, setBackEnabled] = useState(false);
   const [forwardEnabled, setForwardEnabled] = useState(false);
-  const navigation =
-    useAppNavigation<PageNavigationProp<DiscoverModalParamList>>();
+  const captureViewRef = useRef<TamaguiElement | null>();
+  const { setWebTabData } = useWebTabAction();
+
   const isActive = useMemo(
     () => activeTabId === tab?.id,
     [tab?.id, activeTabId],
@@ -42,6 +51,44 @@ function MobileBrowserContent({ id }: { id: string }) {
     [isActive, tab?.url],
   );
   const tabCount = useMemo(() => tabs?.length ?? 0, [tabs.length]);
+
+  const takeScreenshot = useCallback(
+    async () =>
+      new Promise<boolean>((resolve, reject) => {
+        captureRef(captureViewRef, {
+          format: 'jpg',
+          quality: 0.2,
+          width: THUMB_WIDTH,
+          height: THUMB_HEIGHT,
+        })
+          .then(async (imageUri) => {
+            const path = getScreenshotPath(`${tab?.id}.jpg`);
+            setWebTabData({
+              id: tab?.id,
+              thumbnail: path,
+            });
+            void saveScreenshot(imageUri, path);
+            resolve(true);
+          })
+          .catch((e) => {
+            console.log('capture error e: ', e);
+            reject(e);
+          });
+      }),
+    [captureViewRef, setWebTabData, tab?.id],
+  );
+
+  const onShowTabList = useCallback(async () => {
+    try {
+      await takeScreenshot();
+    } catch (e) {
+      console.log(e);
+    }
+    navigation.pushModal(ModalRoutes.DiscoverModal, {
+      screen: DiscoverModalRoutes.MobileTabList,
+    });
+  }, [navigation, takeScreenshot]);
+
   const BrowserBottomBar = useMemo(
     () => (
       <Freeze key={`${tab.id}-BottomBar`} freeze={!isActive}>
@@ -56,15 +103,11 @@ function MobileBrowserContent({ id }: { id: string }) {
           }}
           canGoBack={backEnabled}
           canGoForward={forwardEnabled}
-          onShowTabList={() => {
-            navigation.pushModal(ModalRoutes.DiscoverModal, {
-              screen: DiscoverModalRoutes.MobileTabList,
-            });
-          }}
+          onShowTabList={onShowTabList}
         />
       </Freeze>
     ),
-    [tab.id, backEnabled, forwardEnabled, isActive, tabCount, navigation],
+    [tab.id, backEnabled, forwardEnabled, isActive, tabCount, onShowTabList],
   );
 
   const content = useMemo(() => {
@@ -79,13 +122,15 @@ function MobileBrowserContent({ id }: { id: string }) {
           </Stack>
         </Freeze>
         <Freeze key={tab.id} freeze={!isActive}>
-          <WebContent
-            id={tab.id}
-            url={tab.url}
-            isCurrent={isActive}
-            setBackEnabled={setBackEnabled}
-            setForwardEnabled={setForwardEnabled}
-          />
+          <Stack ref={captureViewRef as RefObject<TamaguiElement>} flex={1}>
+            <WebContent
+              id={tab.id}
+              url={tab.url}
+              isCurrent={isActive}
+              setBackEnabled={setBackEnabled}
+              setForwardEnabled={setForwardEnabled}
+            />
+          </Stack>
         </Freeze>
       </>
     );

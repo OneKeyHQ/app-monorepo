@@ -560,4 +560,8 @@ module.exports = [
   'nanoid',
   'ico',
   'Ons',
+  'jpg',
+  'png',
+  'gif',
+  'jpeg',
 ];

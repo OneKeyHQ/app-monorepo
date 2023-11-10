@@ -1,12 +1,13 @@
 import { useCallback, useMemo } from 'react';
 
-import { FlatList } from 'react-native';
+import { FlatList, StyleSheet } from 'react-native';
 
-import { ModalContainer } from '@onekeyhq/components';
+import { ModalContainer, Stack } from '@onekeyhq/components';
 import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import MobileTabListItem from '../../components/MobileTabListItem';
+import { TAB_LIST_CELL_COUNT_PER_ROW } from '../../config/TabList.constants';
 import useWebTabAction from '../../hooks/useWebTabAction';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import { withProviderWebTabs } from '../../store/contextWebTabs';
@@ -16,6 +17,16 @@ import type { IWebTab } from '../../types';
 import type { View } from 'react-native';
 
 export const tabGridRefs: Record<string, View> = {};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 16,
+  },
+  listContentContainer: {
+    paddingBottom: 16,
+  },
+});
 
 function MobileTabListModal() {
   const navigation =
@@ -43,18 +54,23 @@ function MobileTabListModal() {
     ),
     [navigation, setCurrentWebTab, closeWebTab, activeTabId],
   );
+
   const { addBlankWebTab, closeAllWebTab } = useWebTabAction();
   return (
     <ModalContainer
       onConfirm={() => addBlankWebTab()}
       onCancel={() => closeAllWebTab()}
     >
-      <FlatList
-        style={{ width: '100%', height: 200 }}
-        data={data}
-        renderItem={renderItem}
-        keyExtractor={keyExtractor}
-      />
+      <Stack style={styles.container}>
+        <FlatList
+          data={data}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
+          numColumns={TAB_LIST_CELL_COUNT_PER_ROW}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.listContentContainer}
+        />
+      </Stack>
     </ModalContainer>
   );
 }
