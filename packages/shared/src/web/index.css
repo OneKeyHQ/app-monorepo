@@ -85,6 +85,7 @@ input {
 
 [role='button'] {
   outline: none;
+  -webkit-app-region: no-drag;
 }
 
 textarea {
