@@ -80,7 +80,7 @@ export const gotoSite = ({
     if (maybeDeepLink) {
       if (browserTypeHandler === 'MultiTabBrowser' && tabId) {
         setTimeout(() => {
-          closeWebTab(tabId);
+          void closeWebTab(tabId);
         }, 1000);
       }
     }

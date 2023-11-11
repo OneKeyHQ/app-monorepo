@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { FlatList, StyleSheet } from 'react-native';
 
 import { ModalContainer, Stack } from '@onekeyhq/components';
-import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import MobileTabListItem from '../../components/MobileTabListItem';
@@ -30,7 +30,7 @@ const styles = StyleSheet.create({
 
 function MobileTabListModal() {
   const navigation =
-    useAppNavigation<PageNavigationProp<DiscoverModalParamList>>();
+    useAppNavigation<IPageNavigationProp<DiscoverModalParamList>>();
 
   const { tabs } = useWebTabs();
   const data = useMemo(() => tabs, [tabs]);
@@ -48,7 +48,7 @@ function MobileTabListModal() {
           navigation.pop();
         }}
         onCloseItem={(id) => {
-          closeWebTab(id);
+          void closeWebTab(id);
         }}
       />
     ),
@@ -58,7 +58,9 @@ function MobileTabListModal() {
   const { addBlankWebTab, closeAllWebTab } = useWebTabAction();
   return (
     <ModalContainer
-      onConfirm={() => addBlankWebTab()}
+      onConfirm={() => {
+        addBlankWebTab();
+      }}
       onCancel={() => closeAllWebTab()}
     >
       <Stack style={styles.container}>

@@ -120,18 +120,21 @@ class ServiceDiscovery extends ServiceBase {
     activeTabId: string | null,
     tabId: string,
   ) {
+    let newActiveTabId = null;
     const targetIndex = tabs.findIndex((t) => t.id === tabId);
     if (targetIndex !== -1) {
       if (tabs[targetIndex].id === activeTabId) {
         const prev = tabs[targetIndex - 1];
         if (prev) {
           prev.isActive = true;
+          newActiveTabId = prev.id;
         }
       }
       tabs.splice(targetIndex, 1);
     }
     return Promise.resolve({
       tabs,
+      newActiveTabId,
     });
   }
 

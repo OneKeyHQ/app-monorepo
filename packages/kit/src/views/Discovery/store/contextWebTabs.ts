@@ -79,6 +79,8 @@ export const setCurrentWebTabAtom = atom(null, (get, set, tabId: string) => {
 export const addWebTabAtom = atom(
   null,
   (get, set, payload: Partial<IWebTab>) => {
+    // 记录函数执行时间
+    const startTime = performance.now();
     const { tabs } = get(webTabsAtom);
     if (!payload.id || payload.id === homeTab.id) {
       // TODO: nanoid will crash on native
@@ -92,6 +94,8 @@ export const addWebTabAtom = atom(
     set(setWebTabsAtom, [...tabs, payload as IWebTab])
       .then(() => {
         set(setCurrentWebTabAtom, payload.id ?? '');
+        const endTime = performance.now();
+        console.log(`addBlankWebTab took ${endTime - startTime} milliseconds.`);
       })
       .catch((e) => {
         console.log('====> addWebTabAtom error: ', e);
@@ -121,11 +125,14 @@ export const closeWebTabAtom = atom(null, async (get, set, tabId: string) => {
   delete webviewRefs[tabId];
   const { tabs } = get(webTabsAtom);
   const activeTabId = get(activeTabIdAtom);
-  const { tabs: newTabs } = await serviceDiscovery.closeWebTab(
+  const { tabs: newTabs, newActiveTabId } = await serviceDiscovery.closeWebTab(
     tabs,
     activeTabId,
     tabId,
   );
+  if (newActiveTabId) {
+    set(setCurrentWebTabAtom, newActiveTabId);
+  }
   void set(setWebTabsAtom, [...newTabs]);
 });
 
