@@ -25,10 +25,8 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import useCookie from '../../../../hooks/useCookie';
 import { setLocale, setTheme } from '../../../../store/reducers/settings';
-import { GalleryRoutes } from '../../../Gallery/routes';
-import { RootRoutes } from '../../Routes';
 
-import type { TabDeveloperParamList } from './Routes';
+import { ETabDeveloperRoutes, type ITabDeveloperParamList } from './Routes';
 
 const useStorage = platformEnv.isNative
   ? (key: AppSettingKey, initialValue?: boolean) => {
@@ -71,7 +69,7 @@ function PartContainer({
 
 const TabDeveloper = () => {
   const navigation =
-    useAppNavigation<IPageNavigationProp<TabDeveloperParamList>>();
+    useAppNavigation<IPageNavigationProp<ITabDeveloperParamList>>();
   const dispatch = useDispatch();
 
   const [rrtStatus, changeRRTStatus] = useStorage(AppSettingKey.rrt);
@@ -88,12 +86,7 @@ const TabDeveloper = () => {
         <PartContainer title="Components">
           <Button
             onPress={() => {
-              navigation.push(RootRoutes.Gallery, {
-                screen: GalleryRoutes.Components,
-                params: {
-                  ts: new Date().getTime(),
-                },
-              });
+              navigation.push(ETabDeveloperRoutes.ComponentsGallery);
             }}
           >
             Gallery

@@ -2,20 +2,20 @@ import type { IModalRootNavigatorConfig } from '@onekeyhq/components/src/Navigat
 import { RootModalNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
 
 import { ModalDiscoverStack } from './Discover';
-import { ModalRoutes } from './Routes';
+import { EModalRoutes } from './Routes';
 import { ModalTestStack } from './TestModal/ModalTestStack';
 
-const config: IModalRootNavigatorConfig<ModalRoutes>[] = [
+const config: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
-    name: ModalRoutes.TestModal,
+    name: EModalRoutes.TestModal,
     children: ModalTestStack,
   },
   {
-    name: ModalRoutes.DiscoverModal,
+    name: EModalRoutes.DiscoverModal,
     children: ModalDiscoverStack,
   },
 ];
 
 export default function ModalNavigator() {
-  return <RootModalNavigator<ModalRoutes> config={config} />;
+  return <RootModalNavigator<EModalRoutes> config={config} />;
 }

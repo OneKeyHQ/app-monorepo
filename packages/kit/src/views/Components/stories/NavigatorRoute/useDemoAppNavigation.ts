@@ -8,11 +8,11 @@ import type {
   IStackNavigationOptions,
 } from '@onekeyhq/components/src/Navigation';
 
-import { DemoRootRoutes } from './Routes';
+import { EDemoRootRoutes } from './Routes';
 
-import type { DemoRootModalParamList, RootModalRoutes } from './Modal/Routes';
-import type { TabStackParamList } from './Tab/RouteParamTypes';
-import type { DemoTabRoutes } from './Tab/Routes';
+import type { ERootModalRoutes, IDemoRootModalParamList } from './Modal/Routes';
+import type { ITabStackParamList } from './Tab/RouteParamTypes';
+import type { EDemoTabRoutes } from './Tab/Routes';
 
 function useDemoAppNavigation<
   P extends
@@ -34,27 +34,27 @@ function useDemoAppNavigation<
     }
   };
 
-  const switchTab = <T extends DemoTabRoutes>(
+  const switchTab = <T extends EDemoTabRoutes>(
     route: T,
     params?: {
-      screen: keyof TabStackParamList[T];
-      params?: TabStackParamList[T][keyof TabStackParamList[T]];
+      screen: keyof ITabStackParamList[T];
+      params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
     },
   ) => {
-    navigation.navigate(DemoRootRoutes.Main, {
+    navigation.navigate(EDemoRootRoutes.Main, {
       screen: route,
       params,
     });
   };
 
-  const pushModal = <T extends RootModalRoutes>(
+  const pushModal = <T extends ERootModalRoutes>(
     route: T,
     params?: {
-      screen: keyof DemoRootModalParamList[T];
-      params?: DemoRootModalParamList[T][keyof DemoRootModalParamList[T]];
+      screen: keyof IDemoRootModalParamList[T];
+      params?: IDemoRootModalParamList[T][keyof IDemoRootModalParamList[T]];
     },
   ) => {
-    navigation.navigate(DemoRootRoutes.Modal, {
+    navigation.navigate(EDemoRootRoutes.Modal, {
       screen: route,
       params,
     });

@@ -80,10 +80,22 @@ function HeaderSearchBar({
 
   return (
     <SearchBar
-      height={media.gtMd ? '$8' : '$9'}
+      containerProps={{
+        alignSelf: 'stretch',
+        mb: '$4',
+        mx: '$5',
+        $gtMd: {
+          width: '$52',
+          mb: '$0',
+          alignSelf: 'auto',
+        },
+      }}
+      {...(media.gtMd && {
+        size: 'small',
+      })}
       onBlur={onBlurCallback}
       onFocus={onFocusCallback}
-      onChange={handleChangeCallback}
+      onChangeText={handleChangeCallback}
       onSubmitEditing={onSubmitEditingCallback}
       placeholder={placeholder}
     />
