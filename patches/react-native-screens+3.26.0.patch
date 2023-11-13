@@ -72,10 +72,10 @@ index 401d57e..3b1ca6a 100644
      }
  
      open fun onUpdate() {
-+        if (shouldBreakJSUpdateCount > 0) {
-+            shouldBreakJSUpdateCount = 0
-+            return
-+        }
++        // if (shouldBreakJSUpdateCount > 0) {
++        //     shouldBreakJSUpdateCount = 0
++        //     return
++        // }
          createTransaction().let {
              // detach screens that are no longer active
              val orphaned: MutableSet<Fragment> = HashSet(
