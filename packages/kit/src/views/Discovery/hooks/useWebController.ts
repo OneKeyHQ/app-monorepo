@@ -41,7 +41,7 @@ export const onNavigation: IOnWebviewNavigation = ({
     }
     gotoSite({ url, title, favicon, isNewWindow, isInPlace, id: curId });
   }
-  setWebTabData({
+  void setWebTabData({
     id: curId,
     title,
     favicon,

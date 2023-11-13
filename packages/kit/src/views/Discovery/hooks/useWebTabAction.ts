@@ -5,6 +5,7 @@ import {
   closeWebTabAtom,
   refreshTabsAtom,
   setCurrentWebTabAtom,
+  setPinedTabAtom,
   setWebTabDataAtom,
   setWebTabsAtom,
   useAtomWebTabs,
@@ -19,6 +20,7 @@ function useWebTabAction() {
   const [, closeWebTab] = useAtomWebTabs(closeWebTabAtom);
   const [, closeAllWebTab] = useAtomWebTabs(closeAllWebTabsAtom);
   const [, setCurrentWebTab] = useAtomWebTabs(setCurrentWebTabAtom);
+  const [, setPinedTab] = useAtomWebTabs(setPinedTabAtom);
 
   console.log('useWebTabAction render ===>');
 
@@ -31,6 +33,7 @@ function useWebTabAction() {
     closeWebTab,
     closeAllWebTab,
     setCurrentWebTab,
+    setPinedTab,
   };
 }
 

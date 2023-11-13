@@ -11,14 +11,29 @@ function DesktopCustomTabBarItem({
   activeTabId,
   onPress,
   onCloseTab,
+  onLongPress,
 }: {
   id: string;
   activeTabId: string | null;
   onPress: (id: string) => void;
   onCloseTab: (id: string) => void;
+  onLongPress: (id: string) => void;
 }) {
   const { tab } = useWebTabData(id);
   const isActive = useMemo(() => activeTabId === id, [activeTabId, id]);
+  const isPined = useMemo(() => tab.isPined, [tab.isPined]);
+  const bgColor = useMemo(() => {
+    if (isActive && isPined) {
+      return '$bgCriticalStrong';
+    }
+    if (isPined) {
+      return '$bgCautionStrong';
+    }
+    if (isActive) {
+      return '$bgActive';
+    }
+    return undefined;
+  }, [isActive, isPined]);
   return (
     <Stack
       key={id}
@@ -26,9 +41,16 @@ function DesktopCustomTabBarItem({
       alignItems="center"
       py="$1.5"
       px="$2"
-      bg={isActive ? '$bgActive' : undefined}
+      bg={bgColor}
       borderRadius="$2"
       onPress={() => onPress(id)}
+      // @ts-expect-error
+      onContextMenu={(event) => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        event.preventDefault();
+        console.log('===> onContextMenu: ');
+        onLongPress(id);
+      }}
     >
       {isActive && <Stack w="$1" h="100%" bg="$iconActive" mr="$2" />}
       {tab?.favicon && (

@@ -55,7 +55,7 @@ export interface IWebTab {
   favicon?: string;
   thumbnail?: string;
   isBookmark?: boolean;
-  isPinned?: boolean;
+  isPined?: boolean;
   pinnedTimestamp?: number;
   loading?: boolean;
   canGoBack?: boolean;

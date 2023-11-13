@@ -1,13 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { FlatList, StyleSheet } from 'react-native';
 
-import {
-  ActionList,
-  Button,
-  ModalContainer,
-  Stack,
-} from '@onekeyhq/components';
+import { ModalContainer, Stack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -39,9 +34,9 @@ function MobileTabListModal() {
     useAppNavigation<IPageNavigationProp<DiscoverModalParamList>>();
 
   const { tabs } = useWebTabs();
-  const data = useMemo(() => (tabs ?? []).filter((t) => !t.isPinned), [tabs]);
+  const data = useMemo(() => (tabs ?? []).filter((t) => !t.isPined), [tabs]);
   const pinedData = useMemo(
-    () => (tabs ?? []).filter((t) => t.isPinned),
+    () => (tabs ?? []).filter((t) => t.isPined),
     [tabs],
   );
 
@@ -53,8 +48,7 @@ function MobileTabListModal() {
   }, [pinedData]);
 
   const { activeTabId } = useActiveTabId();
-  const { setCurrentWebTab, closeWebTab, setWebTabData, refreshTabs } =
-    useWebTabAction();
+  const { setCurrentWebTab, closeWebTab, setPinedTab } = useWebTabAction();
 
   const keyExtractor = useCallback((item: IWebTab) => item.id, []);
   const renderItem = useCallback(
@@ -92,8 +86,7 @@ function MobileTabListModal() {
               void closeWebTab(id);
             }}
             onLongPress={(id) => {
-              void setWebTabData({ id, isPinned: false });
-              void refreshTabs();
+              void setPinedTab({ id, pined: false });
             }}
           />
         ))}
@@ -103,10 +96,9 @@ function MobileTabListModal() {
     pinedData,
     setCurrentWebTab,
     closeWebTab,
-    setWebTabData,
     activeTabId,
     navigation,
-    refreshTabs,
+    setPinedTab,
   ]);
 
   const { addBlankWebTab, closeAllWebTab } = useWebTabAction();

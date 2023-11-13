@@ -1,6 +1,6 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
-import { Divider, Stack } from '@onekeyhq/components';
+import { Button, Divider, Stack, Text, YStack } from '@onekeyhq/components';
 
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
 import useWebTabAction from '../../hooks/useWebTabAction';
@@ -10,11 +10,16 @@ import { withProviderWebTabs } from '../../store/contextWebTabs';
 function DesktopCustomTabBar() {
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
-  const { setCurrentWebTab, closeWebTab } = useWebTabAction();
+  const { setCurrentWebTab, closeWebTab, setPinedTab, closeAllWebTab } =
+    useWebTabAction();
+  const data = useMemo(() => (tabs ?? []).filter((t) => !t.isPined), [tabs]);
+  const pinedData = useMemo(
+    () => (tabs ?? []).filter((t) => t.isPined),
+    [tabs],
+  );
   return (
     <Stack>
-      <Divider py="$4" />
-      {tabs.map((t) => (
+      {pinedData.map((t) => (
         <DesktopCustomTabBarItem
           id={t.id}
           activeTabId={activeTabId}
@@ -22,10 +27,38 @@ function DesktopCustomTabBar() {
             setCurrentWebTab(id);
           }}
           onCloseTab={(id) => {
-            closeWebTab(id);
+            void closeWebTab(id);
+          }}
+          onLongPress={(id) => {
+            void setPinedTab({ id, pined: false });
           }}
         />
       ))}
+      <Divider py="$4" />
+      {data.map((t) => (
+        <DesktopCustomTabBarItem
+          id={t.id}
+          activeTabId={activeTabId}
+          onPress={(id) => {
+            setCurrentWebTab(id);
+          }}
+          onCloseTab={(id) => {
+            void closeWebTab(id);
+          }}
+          onLongPress={(id) => {
+            void setPinedTab({ id, pined: true });
+          }}
+        />
+      ))}
+      <YStack>
+        <Button
+          onPress={() => {
+            void closeAllWebTab();
+          }}
+        >
+          <Text>CloseAll</Text>
+        </Button>
+      </YStack>
     </Stack>
   );
 }

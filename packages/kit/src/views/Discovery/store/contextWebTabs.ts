@@ -113,7 +113,7 @@ export const addWebTabAtom = atom(
   },
 );
 export const addBlankWebTabAtom = atom(null, (_, set) => {
-  set(addWebTabAtom, { ...homeTab, isActive: true, isPinned: true });
+  set(addWebTabAtom, { ...homeTab, isActive: true });
 });
 export const setWebTabDataAtom = atom(
   null,
@@ -161,6 +161,18 @@ export const closeAllWebTabsAtom = atom(null, async (get, set) => {
   }
   void set(setWebTabsAtom, { data: pinnedTabs });
 });
+
+export const setPinedTabAtom = atom(
+  null,
+  async (_, set, payload: { id: string; pined: boolean }) => {
+    void set(setWebTabDataAtom, {
+      id: payload.id,
+      isPined: payload.pined,
+      timestamp: Date.now(),
+    });
+    void set(refreshTabsAtom);
+  },
+);
 
 export const incomingUrlAtom = atom('');
 export const getActiveTabId = () => webTabsStore?.get(activeTabIdAtom);
