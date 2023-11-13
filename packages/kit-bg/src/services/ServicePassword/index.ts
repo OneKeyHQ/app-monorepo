@@ -146,22 +146,22 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   async setWebAuthEnable(enable: boolean): Promise<void> {
-    let credId: string | undefined;
+    let webAuthCredentialId: string | undefined;
     if (enable) {
-      credId = await registerWebAuth();
+      webAuthCredentialId = await registerWebAuth();
     }
     await passwordPersistAtom.set((v) => ({
       ...v,
-      credId: credId ?? '',
+      webAuthCredentialId: webAuthCredentialId ?? '',
     }));
   }
 
   @backgroundMethod()
   async verifyWebAuth(): Promise<string> {
-    const { credId } = await passwordPersistAtom.get();
-    if (credId && this.cachedPassword) {
-      const cred = await verifiedWebAuth(credId);
-      if (cred?.id === credId) {
+    const { webAuthCredentialId } = await passwordPersistAtom.get();
+    if (webAuthCredentialId && this.cachedPassword) {
+      const cred = await verifiedWebAuth(webAuthCredentialId);
+      if (cred?.id === webAuthCredentialId) {
         return this.cachedPassword;
       }
     }
