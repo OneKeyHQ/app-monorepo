@@ -193,7 +193,6 @@ function DialogFrame({
       <>
         <Trigger onOpen={onOpen}>{renderTrigger}</Trigger>
         <Sheet
-          modal
           open={open}
           position={position}
           onPositionChange={setPosition}
@@ -240,7 +239,7 @@ function DialogFrame({
   }
 
   return (
-    <TMDialog modal open={open}>
+    <TMDialog open={open}>
       <TMDialog.Trigger onPress={onOpen} asChild>
         {renderTrigger}
       </TMDialog.Trigger>
