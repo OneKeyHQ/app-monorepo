@@ -3,6 +3,7 @@ import {
   addWebTabAtom,
   closeAllWebTabsAtom,
   closeWebTabAtom,
+  refreshTabsAtom,
   setCurrentWebTabAtom,
   setWebTabDataAtom,
   setWebTabsAtom,
@@ -13,6 +14,7 @@ function useWebTabAction() {
   const [, addWebTab] = useAtomWebTabs(addWebTabAtom);
   const [, addBlankWebTab] = useAtomWebTabs(addBlankWebTabAtom);
   const [, setWebTabs] = useAtomWebTabs(setWebTabsAtom);
+  const [, refreshTabs] = useAtomWebTabs(refreshTabsAtom);
   const [, setWebTabData] = useAtomWebTabs(setWebTabDataAtom);
   const [, closeWebTab] = useAtomWebTabs(closeWebTabAtom);
   const [, closeAllWebTab] = useAtomWebTabs(closeAllWebTabsAtom);
@@ -24,6 +26,7 @@ function useWebTabAction() {
     addWebTab,
     addBlankWebTab,
     setWebTabs,
+    refreshTabs,
     setWebTabData,
     closeWebTab,
     closeAllWebTab,

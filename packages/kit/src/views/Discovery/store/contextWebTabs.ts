@@ -36,7 +36,11 @@ export const activeTabIdAtom = atom<string | null>(null);
 
 export const setWebTabsAtom = atom(
   null,
-  async (get, set, payload: IWebTab[]) => {
+  async (
+    get,
+    set,
+    payload: { data: IWebTab[]; options?: { forceUpdate?: boolean } },
+  ) => {
     const webTabs = get(webTabsAtom);
     const { keys, data, map, shouldUpdateTabs } =
       await serviceDiscovery.setWebTabs(webTabs, payload);
@@ -59,6 +63,12 @@ export const setWebTabsAtom = atom(
   },
 );
 
+export const refreshTabsAtom = atom(null, async (get, set) => {
+  const { tabs } = get(webTabsAtom);
+  const newTabs = [...tabs];
+  void set(setWebTabsAtom, { data: newTabs, options: { forceUpdate: true } });
+});
+
 export const setCurrentWebTabAtom = atom(null, (get, set, tabId: string) => {
   const currentTabId = get(activeTabIdAtom);
   if (currentTabId !== tabId) {
@@ -70,7 +80,7 @@ export const setCurrentWebTabAtom = atom(null, (get, set, tabId: string) => {
         t.isActive = false;
       });
       tabs[targetIndex].isActive = true;
-      void set(setWebTabsAtom, [...tabs]);
+      void set(setWebTabsAtom, { data: [...tabs] });
       set(activeTabIdAtom, tabId);
     }
   }
@@ -91,7 +101,7 @@ export const addWebTabAtom = atom(
       }`;
     }
     payload.timestamp = Date.now();
-    set(setWebTabsAtom, [...tabs, payload as IWebTab])
+    set(setWebTabsAtom, { data: [...tabs, payload as IWebTab] })
       .then(() => {
         set(setCurrentWebTabAtom, payload.id ?? '');
         const endTime = performance.now();
@@ -103,7 +113,7 @@ export const addWebTabAtom = atom(
   },
 );
 export const addBlankWebTabAtom = atom(null, (_, set) => {
-  set(addWebTabAtom, { ...homeTab, isActive: true });
+  set(addWebTabAtom, { ...homeTab, isActive: true, isPinned: true });
 });
 export const setWebTabDataAtom = atom(
   null,
@@ -118,7 +128,7 @@ export const setWebTabDataAtom = atom(
         homeResettingFlags[id] = timestamp;
       });
     }
-    void set(setWebTabsAtom, newTabs);
+    void set(setWebTabsAtom, { data: newTabs });
   },
 );
 export const closeWebTabAtom = atom(null, async (get, set, tabId: string) => {
@@ -133,7 +143,7 @@ export const closeWebTabAtom = atom(null, async (get, set, tabId: string) => {
   if (newActiveTabId) {
     set(setCurrentWebTabAtom, newActiveTabId);
   }
-  void set(setWebTabsAtom, [...newTabs]);
+  void set(setWebTabsAtom, { data: [...newTabs] });
 });
 
 export const closeAllWebTabsAtom = atom(null, async (get, set) => {
@@ -149,7 +159,7 @@ export const closeAllWebTabsAtom = atom(null, async (get, set) => {
   if (newActiveTabId) {
     set(setCurrentWebTabAtom, newActiveTabId);
   }
-  void set(setWebTabsAtom, pinnedTabs);
+  void set(setWebTabsAtom, { data: pinnedTabs });
 });
 
 export const incomingUrlAtom = atom('');

@@ -37,15 +37,16 @@ class ServiceDiscovery extends ServiceBase {
   @backgroundMethod()
   public async setWebTabs(
     previousWebTabs: IWebTabsAtom,
-    payload: IWebTab[],
+    payload: { data: IWebTab[]; options?: { forceUpdate?: boolean } },
   ): Promise<{
     data: IWebTab[];
     keys: string[];
     map: Record<string, IWebTab>;
     shouldUpdateTabs: boolean;
   }> {
-    let newTabs = payload;
-    if (!Array.isArray(payload)) {
+    const { data, options } = payload;
+    let newTabs = data;
+    if (!Array.isArray(payload.data)) {
       throw new Error('setWebTabsWriteAtom: payload must be an array');
     }
     if (!newTabs || !newTabs.length) {
@@ -53,7 +54,12 @@ class ServiceDiscovery extends ServiceBase {
     }
     const result = buildWebTabData(newTabs);
     let shouldUpdateTabs = false;
-    if (!isEqual(result.keys, previousWebTabs.keys)) {
+    console.log(
+      'forceUpdate: ',
+      options?.forceUpdate,
+      !isEqual(result.keys, previousWebTabs.keys) || options?.forceUpdate,
+    );
+    if (!isEqual(result.keys, previousWebTabs.keys) || options?.forceUpdate) {
       shouldUpdateTabs = true;
     }
     return Promise.resolve({

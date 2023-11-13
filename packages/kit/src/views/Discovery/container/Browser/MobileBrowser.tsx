@@ -32,7 +32,7 @@ function HandleRebuildTabBarData() {
     if (!result.result) return;
     const data = result.result;
     if (data && Array.isArray(data) && data.length > 0) {
-      void setWebTabs(data);
+      void setWebTabs({ data });
     } else {
       addBlankWebTab();
     }
