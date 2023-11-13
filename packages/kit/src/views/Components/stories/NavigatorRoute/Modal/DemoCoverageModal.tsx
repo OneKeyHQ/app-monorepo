@@ -1,7 +1,15 @@
 /* eslint-disable react/no-unstable-nested-components */
 import { useMemo, useState } from 'react';
 
-import { Button, Dialog, Stack, Toast } from '@onekeyhq/components';
+import {
+  ActionList,
+  Button,
+  Dialog,
+  Popover,
+  Stack,
+  Text,
+  Toast,
+} from '@onekeyhq/components';
 import type { IModalNavigationProp } from '@onekeyhq/components/src/Navigation';
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator/ModalFlowNavigator';
 
@@ -84,6 +92,70 @@ const ControlledDialogByButton = () => {
   );
 };
 
+const ControlledPopoverByButton = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <Popover
+      title="Popover Demo"
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      renderTrigger={<Button onPress={() => setIsOpen(true)}>Open</Button>}
+      renderContent={
+        <Stack space="$4" p="$5">
+          <Text>
+            Non exercitation ea laborum cupidatat sunt amet aute exercitation
+            occaecat minim incididunt non est est voluptate.
+          </Text>
+          <Button variant="primary" onPress={() => setIsOpen(false)}>
+            Button
+          </Button>
+        </Stack>
+      }
+    />
+  );
+};
+
+const ControlledActionListByButton = () => {
+  const [open, onOpenChange] = useState(false);
+  return (
+    <ActionList
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Action List"
+      renderTrigger={
+        <Button onPress={() => onOpenChange(true)}>Action List</Button>
+      }
+      items={[
+        {
+          label: 'Action1',
+          icon: 'PlaceholderOutline',
+          onPress: () => {
+            onOpenChange(false);
+            console.log('action1');
+          },
+        },
+        {
+          label: 'Action2',
+          icon: 'PlaceholderOutline',
+          onPress: () => {
+            onOpenChange(false);
+            console.log('action2');
+          },
+        },
+        {
+          label: 'Action3',
+          icon: 'PlaceholderOutline',
+          onPress: () => {
+            onOpenChange(false);
+            console.log('action2');
+          },
+          disabled: true,
+        },
+      ]}
+    />
+  );
+};
+
 function DemoCoverageDialogModal() {
   const navigation =
     useDemoAppNavigation<IModalNavigationProp<IDemoCoverageModalParamList>>();
@@ -124,8 +196,16 @@ function DemoCoverageDialogModal() {
           ),
         },
         {
-          title: 'Open Modal by Button',
+          title: 'Open Dialog by Button',
           element: <ControlledDialogByButton />,
+        },
+        {
+          title: 'Open Popover by Button',
+          element: <ControlledPopoverByButton />,
+        },
+        {
+          title: 'Open ActionList by Button',
+          element: <ControlledActionListByButton />,
         },
         {
           title: 'Open Modal by Api',
