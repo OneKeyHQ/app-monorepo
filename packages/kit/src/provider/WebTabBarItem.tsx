@@ -4,10 +4,10 @@ import { YStack } from 'tamagui';
 import { Divider, Text } from '@onekeyhq/components';
 
 import useListenTabFocusState from '../hooks/useListenTabFocusState';
-import { TabRoutes } from '../routes/Root/Tab/Routes';
+import { ETabRoutes } from '../routes/Root/Tab/Routes';
 
 export function WebTabBarItem() {
-  useListenTabFocusState(TabRoutes.WebViewTab, (isFocus: boolean) => {
+  useListenTabFocusState(ETabRoutes.WebViewTab, (isFocus: boolean) => {
     console.log('isFocus: ', isFocus);
   });
   return (
