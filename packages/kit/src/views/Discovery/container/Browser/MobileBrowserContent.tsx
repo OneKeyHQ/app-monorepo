@@ -12,6 +12,7 @@ import { ModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import WebContent from '../../components/WebContent/WebContent';
 import { THUMB_HEIGHT, THUMB_WIDTH } from '../../config/TabList.constants';
+import useBrowserHistoryAction from '../../hooks/useBrowserHistoryAction';
 import useWebTabAction from '../../hooks/useWebTabAction';
 import {
   useActiveTabId,
@@ -36,6 +37,7 @@ function MobileBrowserContent({ id }: { id: string }) {
     useAppNavigation<IPageNavigationProp<DiscoverModalParamList>>();
   const { tabs } = useWebTabs();
   const { tab } = useWebTabData(id);
+  const { addBrowserHistory } = useBrowserHistoryAction();
   const { activeTabId } = useActiveTabId();
   const [backEnabled, setBackEnabled] = useState(false);
   const [forwardEnabled, setForwardEnabled] = useState(false);
@@ -129,6 +131,9 @@ function MobileBrowserContent({ id }: { id: string }) {
               isCurrent={isActive}
               setBackEnabled={setBackEnabled}
               setForwardEnabled={setForwardEnabled}
+              addBrowserHistory={(siteInfo) => {
+                addBrowserHistory(siteInfo);
+              }}
             />
           </Stack>
         </Freeze>

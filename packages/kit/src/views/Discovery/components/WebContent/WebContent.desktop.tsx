@@ -14,7 +14,10 @@ import type {
 } from 'electron';
 import type { WebViewProps } from 'react-native-webview';
 
-type IWebContentProps = IWebTab & WebViewProps;
+type IWebContentProps = IWebTab &
+  WebViewProps & {
+    addBrowserHistory?: (siteInfo: { url: string; title: string }) => void;
+  };
 
 function WebContent({ id, url }: IWebContentProps) {
   const { setWebTabData } = useWebTabAction();
@@ -102,7 +105,7 @@ function WebContent({ id, url }: IWebContentProps) {
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {
             if (!webviewRefs[id]) {
-              setWebTabData({
+              void setWebTabData({
                 id,
                 refReady: true,
               });

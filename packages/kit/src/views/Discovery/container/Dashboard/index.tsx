@@ -79,6 +79,7 @@ function Dashboard({ onItemSelect }: IProps) {
     <YStack h="100%" bg="$bgApp">
       {data.map((i) => (
         <Button
+          key={i._id}
           onPress={() => {
             handlerItemSelect(i as IDAppItemType);
           }}

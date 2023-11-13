@@ -5,7 +5,7 @@ import { Button, Divider, Stack, Text, YStack } from '@onekeyhq/components';
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
 import useWebTabAction from '../../hooks/useWebTabAction';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
-import { withProviderWebTabs } from '../../store/contextWebTabs';
+import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 function DesktopCustomTabBar() {
   const { tabs } = useWebTabs();
@@ -63,4 +63,4 @@ function DesktopCustomTabBar() {
   );
 }
 
-export default memo(withProviderWebTabs(DesktopCustomTabBar));
+export default memo(withBrowserProvider(DesktopCustomTabBar));

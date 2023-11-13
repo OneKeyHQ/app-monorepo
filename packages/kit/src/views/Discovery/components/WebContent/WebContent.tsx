@@ -10,9 +10,10 @@ import type { WebViewProps } from 'react-native-webview';
 
 type IWebContentProps = IWebTab &
   WebViewProps & {
+    isCurrent: boolean;
     setBackEnabled?: Dispatch<SetStateAction<boolean>>;
     setForwardEnabled?: Dispatch<SetStateAction<boolean>>;
-    isCurrent: boolean;
+    addBrowserHistory?: (siteInfo: { url: string; title: string }) => void;
   };
 
 function WebContent({ id, url }: IWebContentProps) {
@@ -24,7 +25,7 @@ function WebContent({ id, url }: IWebContentProps) {
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {
             if (!webviewRefs[id]) {
-              setWebTabData({
+              void setWebTabData({
                 id,
                 refReady: true,
               });

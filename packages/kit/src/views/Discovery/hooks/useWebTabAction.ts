@@ -22,8 +22,6 @@ function useWebTabAction() {
   const [, setCurrentWebTab] = useAtomWebTabs(setCurrentWebTabAtom);
   const [, setPinedTab] = useAtomWebTabs(setPinedTabAtom);
 
-  console.log('useWebTabAction render ===>');
-
   return {
     addWebTab,
     addBlankWebTab,

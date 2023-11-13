@@ -60,11 +60,6 @@ class ServiceDiscovery extends ServiceBase {
     }
     const result = buildWebTabData(newTabs);
     let shouldUpdateTabs = false;
-    console.log(
-      'forceUpdate: ',
-      options?.forceUpdate,
-      !isEqual(result.keys, previousWebTabs.keys) || options?.forceUpdate,
-    );
     if (!isEqual(result.keys, previousWebTabs.keys) || options?.forceUpdate) {
       shouldUpdateTabs = true;
     }

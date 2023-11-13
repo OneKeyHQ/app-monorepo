@@ -2,8 +2,8 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useMemo, useRef } from 'react';
 
 import useBackHandler from '../../../../hooks/useBackHandler';
-import { homeTab, setWebTabData } from '../../store/contextWebTabs';
 import { onNavigation } from '../../hooks/useWebController';
+import { homeTab, setWebTabData } from '../../store/contextWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
 import { gotoSite } from '../../utils/gotoSite';
 import WebView from '../WebView';
@@ -21,6 +21,7 @@ type IWebContentProps = IWebTab &
     isCurrent: boolean;
     setBackEnabled: Dispatch<SetStateAction<boolean>>;
     setForwardEnabled: Dispatch<SetStateAction<boolean>>;
+    addBrowserHistory: (siteInfo: { url: string; title: string }) => void;
   };
 
 function WebContent({
@@ -31,6 +32,7 @@ function WebContent({
   canGoBack,
   setBackEnabled,
   setForwardEnabled,
+  addBrowserHistory,
 }: IWebContentProps) {
   const lastNavEventSnapshot = useRef('');
   const showHome = url === homeTab.url;
@@ -42,6 +44,7 @@ function WebContent({
     // console.log('===>siteInfo: ', siteInfo);
     setBackEnabled(siteInfo.canGoBack);
     setForwardEnabled(siteInfo.canGoForward);
+    addBrowserHistory?.(siteInfo);
   };
 
   const onLoadStart = ({ nativeEvent }: WebViewNavigationEvent) => {
@@ -134,7 +137,7 @@ function WebContent({
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {
             if (!webviewRefs[id]) {
-              setWebTabData({
+              void setWebTabData({
                 id,
                 refReady: true,
               });

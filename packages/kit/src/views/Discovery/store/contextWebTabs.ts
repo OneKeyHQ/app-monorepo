@@ -48,13 +48,6 @@ export const setWebTabsAtom = atom(
       set(webTabsAtom, { keys, tabs: data });
     }
 
-    console.log(
-      '====> keys, data, map, shouldUpdateTabs: ',
-      keys,
-      data,
-      map,
-      shouldUpdateTabs,
-    );
     set(webTabsMapAtom, () => map);
     // TODO: remove logic to service
     simpleDb.discoverWebTabs.setRawData({

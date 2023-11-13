@@ -18,11 +18,11 @@ import {
   type DiscoverModalParamList,
   DiscoverModalRoutes,
 } from '../../router/Routes';
-import { withProviderWebTabs } from '../../store/contextWebTabs';
 import { gotoSite } from '../../utils/gotoSite';
 import { checkAndCreateFolder } from '../../utils/screenshot';
 
 import MobileBrowserContent from './MobileBrowserContent';
+import { withBrowserProvider } from './WithBrowserProvider';
 
 function HandleRebuildTabBarData() {
   const result = useTabDataFromSimpleDb();
@@ -86,4 +86,4 @@ function MobileBrowser() {
   );
 }
 
-export default memo(withProviderWebTabs(MobileBrowser));
+export default memo(withBrowserProvider(MobileBrowser));

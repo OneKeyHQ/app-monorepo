@@ -11,7 +11,7 @@ import MobileTabListPinedItem from '../../components/MobileTabListItem/MobileTab
 import { TAB_LIST_CELL_COUNT_PER_ROW } from '../../config/TabList.constants';
 import useWebTabAction from '../../hooks/useWebTabAction';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
-import { withProviderWebTabs } from '../../store/contextWebTabs';
+import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { DiscoverModalParamList } from '../../router/Routes';
 import type { IWebTab } from '../../types';
@@ -125,4 +125,4 @@ function MobileTabListModal() {
   );
 }
 
-export default withProviderWebTabs(MobileTabListModal);
+export default withBrowserProvider(MobileTabListModal);
