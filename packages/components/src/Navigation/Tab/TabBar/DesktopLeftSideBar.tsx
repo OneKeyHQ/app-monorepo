@@ -60,7 +60,6 @@ export function DesktopLeftSideBar({
   extraConfig?: ITabNavigatorExtraConfig<string>;
 }) {
   const { routes } = state;
-  const [, setRoute] = useRouteAtom();
   const { leftSidebarCollapsed: isCollapse } = useProviderSideBarValue();
   const { top } = useSafeAreaInsets(); // used for ipad
   const theme = useTheme();
@@ -90,9 +89,6 @@ export function DesktopLeftSideBar({
               }),
               target: state.key,
             });
-            setRoute({
-              currentTab: route.name,
-            });
           }
         };
 
@@ -108,9 +104,6 @@ export function DesktopLeftSideBar({
                       merge: true,
                     }),
                     target: state.key,
-                  });
-                  setRoute({
-                    currentTab: extraConfig.name,
                   });
                 }
               }}
@@ -140,7 +133,6 @@ export function DesktopLeftSideBar({
       extraConfig?.name,
       isCollapse,
       navigation,
-      setRoute,
     ],
   );
 
