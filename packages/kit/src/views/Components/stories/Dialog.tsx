@@ -42,24 +42,6 @@ const VariantsDemo = ({ tone }: IDialogProps) => {
   );
 };
 
-const HideFooterDialog = () => {
-  const [isOpen, changeIsOpen] = useState(false);
-  return (
-    <>
-      <Button onPress={() => changeIsOpen(true)}>Trigger</Button>
-      <Dialog
-        title="Lorem ipsum"
-        description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec."
-        open={isOpen}
-        onClose={() => {
-          changeIsOpen(false);
-        }}
-        showFooter={false}
-      />
-    </>
-  );
-};
-
 const CustomFooter = ({
   index,
   form,
@@ -149,15 +131,58 @@ const DialogGallery = () => (
       {
         title: 'Variants',
         element: (
-          <XStack space="$4">
-            <VariantsDemo />
-            <VariantsDemo tone="destructive" />
-          </XStack>
+          <YStack space="$2">
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'Lorem ipsum',
+                  icon: 'PlaceholderOutline',
+                  description:
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                  tone: 'default',
+                })
+              }
+            >
+              tone Default
+            </Button>
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'Lorem ipsum',
+                  icon: 'PlaceholderOutline',
+                  description:
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                  tone: 'destructive',
+                })
+              }
+            >
+              destructive
+            </Button>
+          </YStack>
         ),
       },
       {
         title: 'Hide dialog footer',
-        element: <HideFooterDialog />,
+        element: (
+          <YStack>
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'Lorem ipsum',
+                  onConfirmText: 'OK',
+                  onCancelText: 'Bye',
+                  description:
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                  onConfirm() {
+                    alert('confirmed');
+                  },
+                })
+              }
+            >
+              Hide dialog footer
+            </Button>
+          </YStack>
+        ),
       },
       {
         title: '命令式 API',
