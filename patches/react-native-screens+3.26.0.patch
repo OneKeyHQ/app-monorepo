@@ -79,6 +79,38 @@ index 401d57e..3b1ca6a 100644
          createTransaction().let {
              // detach screens that are no longer active
              val orphaned: MutableSet<Fragment> = HashSet(
+diff --git a/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm b/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
+index 74f1804..e364ecc 100644
+--- a/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
++++ b/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
+@@ -33,6 +33,27 @@ - (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event
+   return NO;
+ }
+ 
++- (NSArray<UIView *> *)reactZIndexSortedSubviews
++{
++  // Check if sorting is required - in most cases it won't be.
++  BOOL sortingRequired = NO;
++  for (UIView *subview in self.subviews) {
++    if (subview.reactZIndex != 0) {
++      sortingRequired = YES;
++      break;
++    }
++  }
++  return sortingRequired ? [self.subviews sortedArrayUsingComparator:^NSComparisonResult(UIView *a, UIView *b) {
++    if (a.reactZIndex > b.reactZIndex) {
++      return NSOrderedDescending;
++    } else {
++      // Ensure sorting is stable by treating equal zIndex as ascending so
++      // that original order is preserved.
++      return NSOrderedAscending;
++    }
++  }] : self.subviews;
++}
++
+ - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
+ {
+   BOOL canReceiveTouchEvents = ([self isUserInteractionEnabled] && ![self isHidden]);
 diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
 index 1ed4914..50a73b1 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
