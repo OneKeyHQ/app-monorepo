@@ -10,16 +10,15 @@ export interface IDAppItemType {
   _subtitle?: string;
 }
 
-export interface IWebSiteHistory {
-  title?: string;
-  url?: string;
-  favicon?: string;
+export interface IBrowserHistory {
+  title: string;
+  url: string;
 }
 
 export interface IMatchDAppItemType {
   id: string;
   dapp?: IDAppItemType;
-  webSite?: IWebSiteHistory;
+  webSite?: IBrowserHistory;
   clicks?: number;
   timestamp?: number;
   isNewWindow?: boolean;

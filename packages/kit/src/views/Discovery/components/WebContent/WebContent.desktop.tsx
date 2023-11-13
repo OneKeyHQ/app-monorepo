@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { onNavigation } from '../../hooks/useWebController';
 import useWebTabAction from '../../hooks/useWebTabAction';
@@ -19,7 +19,8 @@ type IWebContentProps = IWebTab &
     addBrowserHistory?: (siteInfo: { url: string; title: string }) => void;
   };
 
-function WebContent({ id, url }: IWebContentProps) {
+function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
+  const urlRef = useRef<string>('');
   const { setWebTabData } = useWebTabAction();
   const getNavStatusInfo = useCallback(() => {
     const ref = webviewRefs[id];
@@ -54,6 +55,7 @@ function WebContent({ id, url }: IWebContentProps) {
           isInPlace,
           ...getNavStatusInfo(),
         });
+        urlRef.current = willNavigationUrl;
       }
     },
     [getNavStatusInfo, id],
@@ -67,11 +69,17 @@ function WebContent({ id, url }: IWebContentProps) {
   }, [getNavStatusInfo, id]);
   const onPageTitleUpdated = useCallback(
     ({ title }: PageTitleUpdatedEvent) => {
-      if (title) {
+      if (title && title.length) {
         onNavigation({ id, title });
+        if (urlRef.current) {
+          addBrowserHistory?.({
+            url: urlRef.current,
+            title,
+          });
+        }
       }
     },
-    [id],
+    [id, addBrowserHistory],
   );
   const onPageFaviconUpdated = useCallback(
     ({ favicons }: PageFaviconUpdatedEvent) => {

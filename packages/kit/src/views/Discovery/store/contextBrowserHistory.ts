@@ -5,15 +5,12 @@ import {
 
 import { homeTab } from './contextWebTabs';
 
+import type { IBrowserHistory } from '../types';
+
 export const {
   withProvider: withProviderBrowserHistory,
   useContextAtom: useAtomBrowserHistory,
 } = createJotaiContext();
-
-interface IBrowserHistory {
-  title: string;
-  url: string;
-}
 
 export const browserHistoryAtom = atom<IBrowserHistory[]>([]);
 
