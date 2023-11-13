@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
-
-import { useRouteAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/route';
+import { useNavigationState } from '@react-navigation/native';
 
 /**
  * Note that this method is only effective in the current routing structure.
@@ -11,8 +10,9 @@ export default function useListenTabFocusState(
   tabName: string,
   callback: (isFocus: boolean) => void,
 ) {
-  const [route] = useRouteAtom();
-  useEffect(() => {
-    callback(route.currentTab === tabName);
-  }, [callback, route.currentTab, tabName]);
+  const routes = useNavigationState((state) => state.routes);
+  console.log(routes)
+  // useEffect(() => {
+  //   callback(route.currentTab === tabName);
+  // }, [callback, route.currentTab, tabName]);
 }

@@ -8,7 +8,6 @@ import { getTokens, useTheme } from 'tamagui';
 import { Portal, YStack } from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
-import { useRouteAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/route';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useProviderSideBarValue from '../../../Provider/hooks/useProviderSideBarValue';
