@@ -73,6 +73,7 @@ export function Layout({
           paddingTop: 20,
           paddingBottom: 280,
         }}
+        keyboardDismissMode="on-drag"
       >
         <Stack marginHorizontal="auto" maxWidth="100%" width={576} space="$6">
           <XStack>

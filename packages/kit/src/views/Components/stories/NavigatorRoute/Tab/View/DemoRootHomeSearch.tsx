@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Button, Stack, Text } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
@@ -41,7 +42,7 @@ const DemoRootHomeSearch = () => {
 
   return (
     <Layout
-      skipLoading
+      skipLoading={platformEnv.isNativeIOS}
       description="这是一个带搜索的路由 Header"
       suggestions={['使用方式与 @react-navigation/native-stack 相同']}
       boundaryConditions={['无']}

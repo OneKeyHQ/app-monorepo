@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { Button, Stack, YStack } from '@onekeyhq/components';
 import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
 import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
@@ -47,7 +48,7 @@ const DemoRootHomeOptions = () => {
 
   return (
     <Layout
-      skipLoading
+      skipLoading={platformEnv.isNativeIOS}
       description="这是一个路由 Header 演示自定义 headerRight 的用法"
       suggestions={[
         '使用方式与 @react-navigation/native-stack 相同',
