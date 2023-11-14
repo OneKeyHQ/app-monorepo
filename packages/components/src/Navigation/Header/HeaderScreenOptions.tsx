@@ -32,6 +32,7 @@ export function makeHeaderScreenOptions({
   bgColor: VariableVal;
   titleColor: VariableVal;
 }): IStackNavigationOptions {
+  // It's only for iOS, see CommonConfig.hasNativeHeaderView
   if (hasNativeHeaderView) {
     const state = currentNavigation?.getState();
     const isCanGoBack = (state?.index ?? 0) > 0;
@@ -44,6 +45,11 @@ export function makeHeaderScreenOptions({
         fontSize: getFontSize('$headingLg'),
         color: titleColor as string,
       },
+      /* Although the default value of `headerTransparent` is `false` too, 
+         we still cannot remove it here.
+         because RNSSearchBar seems will read an incorrect default value.
+      */
+      headerTransparent: false,
       headerTitleAlign: 'left',
       headerLeft: (props: HeaderBackButtonProps): ReactNode => (
         <HeaderBackButton
