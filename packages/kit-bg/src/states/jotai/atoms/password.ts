@@ -1,4 +1,5 @@
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
+import { isSupportWebAuth } from '@onekeyhq/shared/src/webAuth';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputed } from '../utils';
@@ -17,13 +18,24 @@ export const { target: passwordAtom, use: usePasswordAtom } =
 
 export type IPasswordPersistAtom = {
   isPasswordSet: boolean;
+  webAuthCredentialId: string;
 };
 export const { target: passwordPersistAtom, use: usePasswordPersistAtom } =
   globalAtom({
     persist: true,
     name: EAtomNames.passwordPersistAtom,
-    initialValue: { isPasswordSet: false },
+    initialValue: { isPasswordSet: false, webAuthCredentialId: '' },
   });
+
+export const {
+  target: passwordWebAuthInfoAtom,
+  use: usePasswordWebAuthInfoAtom,
+} = globalAtomComputed(async (get) => {
+  const { webAuthCredentialId } = get(passwordPersistAtom.atom());
+  const isSupport = await isSupportWebAuth();
+  const isEnable = isSupport && webAuthCredentialId?.length > 0;
+  return { isSupport, isEnable };
+});
 
 export const {
   target: passwordBiologyAuthInfoAtom,
