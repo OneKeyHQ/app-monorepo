@@ -5,7 +5,7 @@
   "scripts": {
     "start": "webpack serve",
     "clean": "rimraf web-build",
-    "build": "yarn clean && webpack build && cp ./web-build/index.html ./web-build/404.html && sh ./postbuild.sh"
+    "build": "yarn clean && cross-env NODE_ENV=production webpack build && cp ./web-build/index.html ./web-build/404.html && sh ./postbuild.sh"
   },
   "dependencies": {
     "@onekeyhq/components": "*",
