@@ -6,12 +6,11 @@ import {
   setDarkContent,
   setLightContent,
 } from '@onekeyhq/components/src/Navigation/utils/StatusBarUtils';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 const ThemeApp = ({ children }: PropsWithChildren<unknown>) => {
-  const { themeVariant, localeVariant } = {
-    themeVariant: 'light',
-    localeVariant: 'en',
-  };
+  const [{ theme: themeVariant, locale: localeVariant }] =
+    useSettingsPersistAtom();
   useEffect(() => {
     if (themeVariant === 'light') {
       setDarkContent();

@@ -89,7 +89,6 @@ export function ModalContainer({
   return (
     <Stack flex={1}>
       <Stack flex={1}>{children}</Stack>
-
       <Stack
         bg="$bg"
         padding="$5"

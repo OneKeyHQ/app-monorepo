@@ -20,6 +20,7 @@ export * from './Label';
 export * from './Divider';
 export * from './Checkbox';
 export * from './Spinner';
+export * from './Select';
 export * from './Dialog';
 export * from './ModalContainer';
 export * from './ActionList';
