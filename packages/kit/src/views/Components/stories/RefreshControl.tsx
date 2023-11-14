@@ -15,7 +15,7 @@ const Demo = () => {
   }, []);
   return (
     <ScrollView
-      h="$10"
+      h="$20"
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
