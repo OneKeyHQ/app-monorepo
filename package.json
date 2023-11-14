@@ -14,6 +14,7 @@
     "postinstall": "yarn setup:env && patch-package && yarn copy:inject",
     "copy:inject": "bash development/copy-injected.sh",
     "app:desktop": "yarn copy:inject && yarn workspace @onekeyhq/desktop start",
+    "app:desktop:build": "yarn copy:inject && yarn workspace @onekeyhq/desktop build",
     "app:ext": "yarn copy:inject && yarn workspace @onekeyhq/ext start",
     "app:ext:v3": "yarn copy:inject && yarn workspace @onekeyhq/ext start:v3",
     "app:web": "yarn copy:inject && yarn workspace @onekeyhq/web start",
