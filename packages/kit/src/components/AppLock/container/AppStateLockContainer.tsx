@@ -1,7 +1,10 @@
 import type { FC } from 'react';
 import { useCallback } from 'react';
 
-import { usePasswordAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePasswordAtom,
+  usePasswordPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import PasswordVerifyContainer from '../../Password/container/PasswordVerifyContainer';
@@ -14,12 +17,14 @@ interface IAppStateLockContainerProps {
 const AppStateLockContainer: FC<IAppStateLockContainerProps> = ({
   children,
 }) => {
-  const [passwordAtom] = usePasswordAtom();
+  const [{ unLock }] = usePasswordAtom();
+  const [{ isPasswordSet }] = usePasswordPersistAtom();
 
   const handleUnlock = useCallback(async () => {
     await backgroundApiProxy.servicePassword.unLockApp();
   }, []);
-  if (passwordAtom.unLock) {
+
+  if (unLock || !isPasswordSet) {
     return children;
   }
 
