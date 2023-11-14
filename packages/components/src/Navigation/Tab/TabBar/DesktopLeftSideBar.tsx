@@ -74,7 +74,7 @@ export function DesktopLeftSideBar({
   const getSizeTokens = getTokens().size;
 
   const sidebarWidth = getSizeTokens.sideBarWidth.val;
-  const HeaderHeight = 52; // for desktop
+  const HeaderHeight = 64; // for desktop
 
   const tabs = useMemo(
     () =>
