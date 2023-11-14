@@ -74,7 +74,6 @@ export function DesktopLeftSideBar({
   const getSizeTokens = getTokens().size;
 
   const sidebarWidth = getSizeTokens.sideBarWidth.val;
-  const HeaderHeight = 64; // for desktop
 
   const tabs = useMemo(
     () =>
@@ -165,7 +164,6 @@ export function DesktopLeftSideBar({
         <DesktopDragZoneAbsoluteBar
           position="relative"
           testID="Desktop-AppSideBar-DragZone"
-          h={HeaderHeight}
         />
       )}
       <YStack
