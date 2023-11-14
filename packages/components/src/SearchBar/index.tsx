@@ -30,7 +30,7 @@ export function SearchBar({
       value={value}
       onChangeText={handleChange}
       leftIconName="SearchOutline"
-      {...((value?.length ?? 0) > 0 && {
+      {...(value?.length && {
         addOns: [
           {
             iconName: 'XCircleOutline',
