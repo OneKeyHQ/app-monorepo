@@ -79,8 +79,42 @@ index 401d57e..3b1ca6a 100644
          createTransaction().let {
              // detach screens that are no longer active
              val orphaned: MutableSet<Fragment> = HashSet(
+diff --git a/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm b/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
+index 74f1804..aebed6e 100644
+--- a/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
++++ b/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
+@@ -33,6 +33,29 @@ - (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event
+   return NO;
+ }
+ 
++// Here is just copied from UIView+React, but we have modified `self.reactSubviews` to `self.subviews`
++// because `RNSFullWindowOverlayContainer` is just a simple UIView without the `reactSubviews` property.
++- (NSArray<UIView *> *)reactZIndexSortedSubviews
++{
++  // Check if sorting is required - in most cases it won't be.
++  BOOL sortingRequired = NO;
++  for (UIView *subview in self.subviews) {
++    if (subview.reactZIndex != 0) {
++      sortingRequired = YES;
++      break;
++    }
++  }
++  return sortingRequired ? [self.subviews sortedArrayUsingComparator:^NSComparisonResult(UIView *a, UIView *b) {
++    if (a.reactZIndex > b.reactZIndex) {
++      return NSOrderedDescending;
++    } else {
++      // Ensure sorting is stable by treating equal zIndex as ascending so
++      // that original order is preserved.
++      return NSOrderedAscending;
++    }
++  }] : self.subviews;
++}
++
+ - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
+ {
+   BOOL canReceiveTouchEvents = ([self isUserInteractionEnabled] && ![self isHidden]);
 diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
-index 1ed4914..50a73b1 100644
+index 1ed4914..e1252b0 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreen.mm
 @@ -2,6 +2,7 @@
@@ -204,4 +238,18 @@ index f10671e..20e0d45 100644
 +      }
        [screen notifyFinishTransitioning];
      }
+   }
+diff --git a/node_modules/react-native-screens/ios/RNSSearchBar.mm b/node_modules/react-native-screens/ios/RNSSearchBar.mm
+index 94475b7..4829c45 100644
+--- a/node_modules/react-native-screens/ios/RNSSearchBar.mm
++++ b/node_modules/react-native-screens/ios/RNSSearchBar.mm
+@@ -195,6 +195,9 @@ - (void)hideCancelButton
+   if (@available(iOS 13, *)) {
+     // On iOS 13+ UISearchController automatically shows/hides cancel button
+     // https://developer.apple.com/documentation/uikit/uisearchcontroller/3152926-automaticallyshowscancelbutton?language=objc
++
++    // But when we use `keyboardDismissMode` to dismiss the search bar, we should manually hide the cancel button with the following code.
++    _controller.active = NO;
+   } else {
+     [_controller.searchBar setShowsCancelButton:NO animated:YES];
    }
