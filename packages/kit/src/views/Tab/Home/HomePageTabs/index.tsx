@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { FlatList, RefreshControl, useWindowDimensions } from 'react-native';
@@ -106,27 +106,27 @@ function HomePage() {
         title: 'Label',
         backgroundColor: 'skyblue',
         contentHeight: undefined,
-        page: FirstRoute,
+        page: memo(FirstRoute, () => true),
       },
       {
         title: intl.formatMessage({
-          id: 'msg__verification_failure',
+          id: 'action__default_chain',
         }),
         backgroundColor: 'coral',
         contentHeight: undefined,
-        page: SecondRoute,
+        page: memo(SecondRoute, () => true),
       },
       {
         title: 'Label',
         backgroundColor: 'turquoise',
         contentHeight: undefined,
-        page: ListRoute,
+        page: memo(ListRoute, () => true),
       },
       {
         title: 'Label',
         backgroundColor: 'pink',
         contentHeight: undefined,
-        page: OtherRoute,
+        page: memo(OtherRoute, () => true),
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -151,6 +151,7 @@ function HomePage() {
   const renderContentItem = useCallback(
     ({
       item,
+      index,
     }: {
       item: {
         backgroundColor: string;
@@ -168,11 +169,14 @@ function HomePage() {
         <item.page
           onContentSizeChange={(_: number, height: number) => {
             item.contentHeight = height;
+            if (index === pageManager.pageIndex) {
+              setContentHeight(height);
+            }
           }}
         />
       </Stack>
     ),
-    [],
+    [pageManager],
   );
 
   return useMemo(
@@ -209,6 +213,7 @@ function HomePage() {
           />
           <Stack style={{ height: contentHeight }}>
             <Content
+              windowSize={5}
               scrollEnabled={platformEnv.isNative}
               shouldSelectedPageAnimation={platformEnv.isNative}
               renderItem={renderContentItem}
