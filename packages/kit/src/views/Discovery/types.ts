@@ -15,6 +15,11 @@ export interface IBrowserHistory {
   url: string;
 }
 
+export interface IBrowserBookmark {
+  title: string;
+  url: string;
+}
+
 export interface IMatchDAppItemType {
   id: string;
   dapp?: IDAppItemType;
