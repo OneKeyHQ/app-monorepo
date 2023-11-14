@@ -239,3 +239,17 @@ index f10671e..20e0d45 100644
        [screen notifyFinishTransitioning];
      }
    }
+diff --git a/node_modules/react-native-screens/ios/RNSSearchBar.mm b/node_modules/react-native-screens/ios/RNSSearchBar.mm
+index 94475b7..4829c45 100644
+--- a/node_modules/react-native-screens/ios/RNSSearchBar.mm
++++ b/node_modules/react-native-screens/ios/RNSSearchBar.mm
+@@ -195,6 +195,9 @@ - (void)hideCancelButton
+   if (@available(iOS 13, *)) {
+     // On iOS 13+ UISearchController automatically shows/hides cancel button
+     // https://developer.apple.com/documentation/uikit/uisearchcontroller/3152926-automaticallyshowscancelbutton?language=objc
++
++    // But when we use `keyboardDismissMode` to dismiss the search bar, we should manually hide the cancel button with the following code.
++    _controller.active = NO;
+   } else {
+     [_controller.searchBar setShowsCancelButton:NO animated:YES];
+   }
