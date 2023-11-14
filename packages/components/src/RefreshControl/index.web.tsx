@@ -1,9 +1,4 @@
-import type {
-  ElementType,
-  PropsWithChildren,
-  ReactElement,
-  RefObject,
-} from 'react';
+import type { ElementType, PropsWithChildren, ReactElement } from 'react';
 import {
   Children,
   Component,
