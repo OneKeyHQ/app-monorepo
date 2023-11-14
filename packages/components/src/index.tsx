@@ -47,6 +47,7 @@ export * from './SegmentControl';
 export * from './ListView';
 export * from './SectionList';
 export * as DelayedFreeze from './DelayedFreeze';
+export * from './RefreshControl';
 
 // Navigation
 export * from './Navigation/StackNavigator';

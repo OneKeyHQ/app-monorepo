@@ -14,6 +14,7 @@ import DemoRootApp from '@onekeyhq/kit/src/views/Components/stories/NavigatorRou
 import PopoverGallery from '@onekeyhq/kit/src/views/Components/stories/Popover';
 import ProgressGallery from '@onekeyhq/kit/src/views/Components/stories/Progress';
 import RadioGallery from '@onekeyhq/kit/src/views/Components/stories/Radio';
+import RefreshControlGallery from '@onekeyhq/kit/src/views/Components/stories/RefreshControl';
 import SegmentControlGallery from '@onekeyhq/kit/src/views/Components/stories/SegmentControl';
 import SelectGallery from '@onekeyhq/kit/src/views/Components/stories/Select';
 import SliderGallery from '@onekeyhq/kit/src/views/Components/stories/Slider';
@@ -102,5 +103,9 @@ export const galleryScreenList = [
   {
     name: EGalleryRoutes.ComponentWebview,
     component: WebviewGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentRefreshControl,
+    component: RefreshControlGallery,
   },
 ];

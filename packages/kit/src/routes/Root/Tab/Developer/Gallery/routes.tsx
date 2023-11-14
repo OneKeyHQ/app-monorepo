@@ -4,6 +4,7 @@ export enum EGalleryRoutes {
   ComponentLottieView = 'component/lottieview',
   ComponentTooltip = 'component/tooltip',
   ComponentIcon = 'component/icon',
+  ComponentRefreshControl = 'component/refresh-control',
   ComponentSegmentControl = 'component/segment-control',
   ComponentButton = 'component/button',
   ComponentSelect = 'component/select',
