@@ -561,4 +561,5 @@ module.exports = [
   'ico',
   'Ons',
   'Themeable',
+  'gitkeep',
 ];
