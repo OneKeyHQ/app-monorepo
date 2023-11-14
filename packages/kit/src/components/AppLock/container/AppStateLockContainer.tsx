@@ -1,26 +1,35 @@
+import type { FC } from 'react';
 import { useCallback } from 'react';
 
+import { usePasswordAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import PasswordVerifyContainer from '../../Password/container/PasswordVerifyContainer';
 import AppStateLock from '../components/AppStateLock';
 
 interface IAppStateLockContainerProps {
-  onUnlock: () => void;
+  children: JSX.Element;
 }
 
-const AppStateLockContainer = ({ onUnlock }: IAppStateLockContainerProps) => {
-  console.log('app state lock container');
-  const handleUnlock = useCallback(() => {
-    console.log('on unlock');
-    // todo: unlock
-    onUnlock();
-  }, [onUnlock]);
+const AppStateLockContainer: FC<IAppStateLockContainerProps> = ({
+  children,
+}) => {
+  const [passwordAtom] = usePasswordAtom();
+
+  const handleUnlock = useCallback(async () => {
+    await backgroundApiProxy.servicePassword.unLockApp();
+  }, []);
+  if (passwordAtom.unLock) {
+    return children;
+  }
+
   return (
     <AppStateLock
       passwordVerifyContainer={
         <PasswordVerifyContainer
-          onVerifyRes={(data) => {
+          onVerifyRes={async (data) => {
             if (data) {
-              handleUnlock();
+              await handleUnlock();
             }
           }}
         />
