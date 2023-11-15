@@ -3,7 +3,7 @@ import { forwardRef } from 'react';
 
 import { FlashList } from '@shopify/flash-list';
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
-import { getTokens } from 'tamagui';
+import { getTokenValue } from 'tamagui';
 
 import { View } from '../View';
 
@@ -46,11 +46,10 @@ function BaseListView<T>(
       resolveValues: 'auto',
     },
   );
-  const getSizeTokens = getTokens().size;
   const itemSize =
     typeof estimatedItemSize === 'number'
       ? estimatedItemSize
-      : getSizeTokens[estimatedItemSize].val;
+      : getTokenValue(estimatedItemSize);
   return (
     <View style={style as StyleProp<ViewStyle>}>
       <FlashList<T>
