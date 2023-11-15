@@ -1,10 +1,8 @@
-import { RefreshControl as NativeRefreshControl } from 'react-native';
+import type { IRefreshControlType } from './type';
 
-import { useThemeValue } from '../Provider/hooks/useThemeValue';
+export * from './type';
 
-import type { RefreshControlProps } from 'react-native';
-
-export function RefreshControl(props: RefreshControlProps) {
-  const color = useThemeValue('bgPrimaryActive');
-  return <NativeRefreshControl tintColor={color} {...props} />;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function RefreshControl(_: IRefreshControlType) {
+  return null;
 }
