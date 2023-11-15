@@ -11,6 +11,7 @@ export * from './Empty';
 export * from './Image';
 export * from './ListItem';
 export * from './Avatar';
+export * from './SheetGrabber';
 export * from './Icon';
 export * from './Stack';
 export * from './Badge';
