@@ -6,7 +6,7 @@ const path = require('path');
 // const util = require('util');
 const stringify = require('json-stringify-safe');
 const prettier = require('prettier');
-const manifest = require('../src/manifest');
+const manifest = require('../../../apps/ext/src/manifest');
 
 // TODO move to developmentConsts.js
 const consts = {
