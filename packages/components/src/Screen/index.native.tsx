@@ -34,11 +34,16 @@ function LoadingScreen({ children }: PropsWithChildren<unknown>) {
   );
 }
 
-export function Screen({ children }: PropsWithChildren<unknown>) {
+export function Screen({
+  children,
+  skipLoading = false,
+}: PropsWithChildren<unknown> & {
+  skipLoading?: boolean;
+}) {
   return useMemo(
     () => (
       <Stack flex={1} bg="$bgApp">
-        <LoadingScreen>{children}</LoadingScreen>
+        {skipLoading ? children : <LoadingScreen>{children}</LoadingScreen>}
       </Stack>
     ),
     // Children are the content of page elements, Do not re-render by children.

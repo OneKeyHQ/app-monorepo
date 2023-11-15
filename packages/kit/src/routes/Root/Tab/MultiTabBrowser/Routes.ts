@@ -1,7 +1,7 @@
-export enum MultiTabBrowserRoutes {
+export enum EMultiTabBrowserRoutes {
   MultiTabBrowser = 'MultiTabBrowser',
 }
 
-export type MultiTabBrowserParamList = {
-  [MultiTabBrowserRoutes.MultiTabBrowser]: undefined;
+export type IMultiTabBrowserParamList = {
+  [EMultiTabBrowserRoutes.MultiTabBrowser]: undefined;
 };

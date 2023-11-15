@@ -492,6 +492,7 @@ const mergedTokens = createTokens({
     96: 384,
     100: 400,
     160: 640,
+    sideBarWidth: 208,
   },
   radius: {
     0: 0,
@@ -627,6 +628,10 @@ const config = createTamagui({
     hoverNone: { hover: 'none' },
     pointerCoarse: { pointer: 'coarse' },
   }),
+  mediaQueryDefaultActive: {
+    sm: true,
+    md: true,
+  },
 });
 
 export type IAppConfig = typeof config;

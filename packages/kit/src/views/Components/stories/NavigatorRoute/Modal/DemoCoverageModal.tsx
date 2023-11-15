@@ -1,7 +1,15 @@
 /* eslint-disable react/no-unstable-nested-components */
 import { useMemo, useState } from 'react';
 
-import { Button, Dialog, Stack, Toast } from '@onekeyhq/components';
+import {
+  ActionList,
+  Button,
+  Dialog,
+  Popover,
+  Stack,
+  Text,
+  Toast,
+} from '@onekeyhq/components';
 import type { IModalNavigationProp } from '@onekeyhq/components/src/Navigation';
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator/ModalFlowNavigator';
 
@@ -10,13 +18,13 @@ import { NavigationFocusTools } from '../../utils/NavigationTools';
 import { FreezeProbe } from '../../utils/RenderTools';
 import useDemoAppNavigation from '../useDemoAppNavigation';
 
-import { DemoCoverageModalRoutes, RootModalRoutes } from './Routes';
+import { EDemoCoverageModalRoutes, ERootModalRoutes } from './Routes';
 
-import type { DemoCoverageModalParamList } from './Routes';
+import type { IDemoCoverageModalParamList } from './Routes';
 
 function DemoCoverageModal() {
   const navigation =
-    useDemoAppNavigation<IModalNavigationProp<DemoCoverageModalParamList>>();
+    useDemoAppNavigation<IModalNavigationProp<IDemoCoverageModalParamList>>();
 
   return (
     <Layout
@@ -33,8 +41,8 @@ function DemoCoverageModal() {
           element: (
             <Button
               onPress={() => {
-                navigation.pushModal(RootModalRoutes.DemoCoverageModal, {
-                  screen: DemoCoverageModalRoutes.DemoCoverageDialogModal,
+                navigation.pushModal(ERootModalRoutes.DemoCoverageModal, {
+                  screen: EDemoCoverageModalRoutes.DemoCoverageDialogModal,
                 });
               }}
             >
@@ -58,7 +66,7 @@ function DemoCoverageModal() {
 
 const ControlledDialogByButton = () => {
   const navigation =
-    useDemoAppNavigation<IModalNavigationProp<DemoCoverageModalParamList>>();
+    useDemoAppNavigation<IModalNavigationProp<IDemoCoverageModalParamList>>();
 
   const [isOpen, changeIsOpen] = useState(false);
   return useMemo(
@@ -74,7 +82,7 @@ const ControlledDialogByButton = () => {
             changeIsOpen(false);
           }}
           onConfirm={() => {
-            navigation.pushModal(RootModalRoutes.DemoLockedModal);
+            navigation.pushModal(ERootModalRoutes.DemoLockedModal);
             changeIsOpen(false);
           }}
         />
@@ -84,9 +92,73 @@ const ControlledDialogByButton = () => {
   );
 };
 
+const ControlledPopoverByButton = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <Popover
+      title="Popover Demo"
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      renderTrigger={<Button onPress={() => setIsOpen(true)}>Open</Button>}
+      renderContent={
+        <Stack space="$4" p="$5">
+          <Text>
+            Non exercitation ea laborum cupidatat sunt amet aute exercitation
+            occaecat minim incididunt non est est voluptate.
+          </Text>
+          <Button variant="primary" onPress={() => setIsOpen(false)}>
+            Button
+          </Button>
+        </Stack>
+      }
+    />
+  );
+};
+
+const ControlledActionListByButton = () => {
+  const [open, onOpenChange] = useState(false);
+  return (
+    <ActionList
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Action List"
+      renderTrigger={
+        <Button onPress={() => onOpenChange(true)}>Action List</Button>
+      }
+      items={[
+        {
+          label: 'Action1',
+          icon: 'PlaceholderOutline',
+          onPress: () => {
+            onOpenChange(false);
+            console.log('action1');
+          },
+        },
+        {
+          label: 'Action2',
+          icon: 'PlaceholderOutline',
+          onPress: () => {
+            onOpenChange(false);
+            console.log('action2');
+          },
+        },
+        {
+          label: 'Action3',
+          icon: 'PlaceholderOutline',
+          onPress: () => {
+            onOpenChange(false);
+            console.log('action2');
+          },
+          disabled: true,
+        },
+      ]}
+    />
+  );
+};
+
 function DemoCoverageDialogModal() {
   const navigation =
-    useDemoAppNavigation<IModalNavigationProp<DemoCoverageModalParamList>>();
+    useDemoAppNavigation<IModalNavigationProp<IDemoCoverageModalParamList>>();
 
   return (
     <Layout
@@ -100,8 +172,8 @@ function DemoCoverageDialogModal() {
             <Button
               variant="primary"
               onPress={() => {
-                navigation.pushModal(RootModalRoutes.DemoCoverageModal, {
-                  screen: DemoCoverageModalRoutes.DemoCoverageModalModal,
+                navigation.pushModal(ERootModalRoutes.DemoCoverageModal, {
+                  screen: EDemoCoverageModalRoutes.DemoCoverageModalModal,
                 });
               }}
             >
@@ -124,8 +196,16 @@ function DemoCoverageDialogModal() {
           ),
         },
         {
-          title: 'Open Modal by Button',
+          title: 'Open Dialog by Button',
           element: <ControlledDialogByButton />,
+        },
+        {
+          title: 'Open Popover by Button',
+          element: <ControlledPopoverByButton />,
+        },
+        {
+          title: 'Open ActionList by Button',
+          element: <ControlledActionListByButton />,
         },
         {
           title: 'Open Modal by Api',
@@ -137,7 +217,7 @@ function DemoCoverageDialogModal() {
                   description:
                     '通过 Api 打开的, 点击确定按钮会关闭 Dialog 打开一个 Modal',
                   onConfirm() {
-                    navigation.pushModal(RootModalRoutes.DemoLockedModal);
+                    navigation.pushModal(ERootModalRoutes.DemoLockedModal);
                     return Promise.resolve(true);
                   },
                 })
@@ -163,13 +243,13 @@ function DemoCoverageDialogModal() {
 
 function DemoCoverageModalModal() {
   const navigation =
-    useDemoAppNavigation<IModalNavigationProp<DemoCoverageModalParamList>>();
+    useDemoAppNavigation<IModalNavigationProp<IDemoCoverageModalParamList>>();
 
   return (
     <Layout
       description="这是一个测试 Modal 覆盖的演示"
       suggestions={[
-        '直接通过 navigation.pushModal(RootModalRoutes.DemoLockedModal) 跳转即可',
+        '直接通过 navigation.pushModal(ERootModalRoutes.DemoLockedModal) 跳转即可',
       ]}
       boundaryConditions={[]}
       elements={[
@@ -179,7 +259,7 @@ function DemoCoverageModalModal() {
             <Button
               variant="primary"
               onPress={() => {
-                navigation.pushModal(RootModalRoutes.DemoLockedModal);
+                navigation.pushModal(ERootModalRoutes.DemoLockedModal);
               }}
             >
               跳转
@@ -232,21 +312,21 @@ function DemoCoverageModalModal() {
 }
 
 export const CoverageModalStack: IModalFlowNavigatorConfig<
-  DemoCoverageModalRoutes,
-  DemoCoverageModalParamList
+  EDemoCoverageModalRoutes,
+  IDemoCoverageModalParamList
 >[] = [
   {
-    name: DemoCoverageModalRoutes.DemoCoverageModal,
+    name: EDemoCoverageModalRoutes.DemoCoverageModal,
     component: DemoCoverageModal,
     translationId: 'Coverage Modal Demo',
   },
   {
-    name: DemoCoverageModalRoutes.DemoCoverageDialogModal,
+    name: EDemoCoverageModalRoutes.DemoCoverageDialogModal,
     component: DemoCoverageDialogModal,
     translationId: 'Coverage Dialog Modal',
   },
   {
-    name: DemoCoverageModalRoutes.DemoCoverageModalModal,
+    name: EDemoCoverageModalRoutes.DemoCoverageModalModal,
     component: DemoCoverageModalModal,
     translationId: 'Coverage Modal Modal',
   },

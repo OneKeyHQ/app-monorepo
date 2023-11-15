@@ -12,9 +12,9 @@ import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
 import { FreezeProbe } from '../../../utils/RenderTools';
 import useDemoAppNavigation from '../../useDemoAppNavigation';
-import { DemoHomeTabRoutes } from '../Routes';
+import { EDemoHomeTabRoutes } from '../Routes';
 
-import type { DemoHomeTabParamList } from '../RouteParamTypes';
+import type { IDemoHomeTabParamList } from '../RouteParamTypes';
 
 const useStorage = platformEnv.isNative
   ? (key: AppSettingKey, initialValue?: boolean) => {
@@ -31,7 +31,7 @@ const useStorage = platformEnv.isNative
 
 const DemoRootHome = () => {
   const navigation =
-    useDemoAppNavigation<IPageNavigationProp<DemoHomeTabParamList>>();
+    useDemoAppNavigation<IPageNavigationProp<IDemoHomeTabParamList>>();
 
   const [rrtStatus, changeRRTStatus] = useStorage(AppSettingKey.rrt);
 
@@ -125,7 +125,7 @@ const DemoRootHome = () => {
             <Button
               variant="primary"
               onPress={() => {
-                navigation.push(DemoHomeTabRoutes.DemoRootHomeSearch);
+                navigation.push(EDemoHomeTabRoutes.DemoRootHomeSearch);
               }}
             >
               跳转搜索 Demo

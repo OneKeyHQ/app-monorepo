@@ -1,4 +1,5 @@
 import { useNavigation } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 
 import { useThemeValue } from '@onekeyhq/components';
@@ -8,10 +9,13 @@ import type {
   IStackNavigationOptions,
 } from '@onekeyhq/components/src/Navigation';
 
-import { RootRoutes } from '../routes/Root/Routes';
+import { ERootRoutes } from '../routes/Root/Routes';
 
-import type { ModalParamList, ModalRoutes } from '../routes/Root/Modal/Routes';
-import type { TabRoutes, TabStackParamList } from '../routes/Root/Tab/Routes';
+import type {
+  EModalRoutes,
+  IModalParamList,
+} from '../routes/Root/Modal/Routes';
+import type { ETabRoutes, ITabStackParamList } from '../routes/Root/Tab/Routes';
 
 function useAppNavigation<
   P extends
@@ -33,27 +37,27 @@ function useAppNavigation<
     }
   };
 
-  const switchTab = <T extends TabRoutes>(
+  const switchTab = <T extends ETabRoutes>(
     route: T,
     params?: {
-      screen: keyof TabStackParamList[T];
-      params?: TabStackParamList[T][keyof TabStackParamList[T]];
+      screen: keyof ITabStackParamList[T];
+      params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
     },
   ) => {
-    navigation.navigate(RootRoutes.Main, {
+    navigation.navigate(ERootRoutes.Main, {
       screen: route,
       params,
     });
   };
 
-  const pushModal = <T extends ModalRoutes>(
+  const pushModal = <T extends EModalRoutes>(
     route: T,
     params?: {
-      screen: keyof ModalParamList[T];
-      params?: ModalParamList[T][keyof ModalParamList[T]];
+      screen: keyof IModalParamList[T];
+      params?: IModalParamList[T][keyof IModalParamList[T]];
     },
   ) => {
-    navigation.navigate(RootRoutes.Modal, {
+    navigation.navigate(ERootRoutes.Modal, {
       screen: route,
       params,
     });
@@ -68,6 +72,10 @@ function useAppNavigation<
     },
   });
 
+  const searchTextColor = titleColor;
+  const intl = useIntl();
+  const searchCancelText = intl.formatMessage({ id: 'action__cancel' });
+
   function setOptions(options: Partial<IStackNavigationOptions>) {
     const { headerSearchBarOptions, ...otherOptions } = options;
 
@@ -79,6 +87,8 @@ function useAppNavigation<
           hideNavigationBar: false,
           // @ts-expect-error
           hideWhenScrolling: false,
+          cancelButtonText: searchCancelText,
+          textColor: searchTextColor,
           ...headerSearchBarOptions,
         },
       };

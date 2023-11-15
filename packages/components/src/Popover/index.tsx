@@ -1,7 +1,10 @@
 import { Popover as TMPopover } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { Divider } from '../Divider';
 import { IconButton } from '../IconButton';
+import { Portal } from '../Portal';
 import useSafeAreaInsets from '../Provider/hooks/useSafeAreaInsets';
 import { XStack, YStack } from '../Stack';
 import { Text } from '../Text';
@@ -20,7 +23,7 @@ export interface IPopoverProps extends TMPopoverProps {
   sheetProps?: SheetProps;
 }
 
-export function Popover({
+function RawPopover({
   title,
   renderTrigger,
   renderContent,
@@ -111,7 +114,6 @@ export function Popover({
       {/* sheet */}
       <TMPopover.Adapt when="md">
         <TMPopover.Sheet
-          modal
           dismissOnSnapToBottom
           animation="quick"
           snapPointsMode="fit"
@@ -172,4 +174,28 @@ export function Popover({
   );
 }
 
+const Popover = ({ renderTrigger, ...rest }: IPopoverProps) => {
+  // on web and WAP, we add the popover to the RNRootView
+  if (platformEnv.isWeb) {
+    return (
+      <RawPopover
+        sheetProps={{ modal: true }}
+        renderTrigger={renderTrigger}
+        {...rest}
+      />
+    );
+  }
+  // on native and ipad, we add the popover to the RNScreen.FULL_WINDOW_OVERLAY
+  return (
+    <>
+      {renderTrigger}
+      <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
+        <RawPopover renderTrigger={undefined} {...rest} />
+      </Portal.Body>
+    </>
+  );
+};
+
 Popover.Close = TMPopover.Close;
+
+export { Popover };

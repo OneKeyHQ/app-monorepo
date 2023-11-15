@@ -1,11 +1,13 @@
-import { useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { FlatList, RefreshControl, ScrollView } from 'react-native';
+import { FlatList, RefreshControl, useWindowDimensions } from 'react-native';
+import { getTokens } from 'tamagui';
 
-import { Stack, Text } from '@onekeyhq/components';
+import { ScrollView, Stack, Text } from '@onekeyhq/components';
 import { useThemeValue } from '@onekeyhq/components/src/Provider/hooks/useThemeValue';
 import { PageManager } from '@onekeyhq/components/src/TabView';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import HeaderView from './HeaderView';
 
@@ -78,12 +80,14 @@ const ListRoute = ({
 );
 
 // const renderScene = SceneMap({
-//   [HomePageTabsEnum.Demo1]: FirstRoute,
-//   [HomePageTabsEnum.Demo2]: SecondRoute,
-//   [HomePageTabsEnum.Demo3]: OtherRoute,
+//   [EHomePageTabsEnum.Demo1]: FirstRoute,
+//   [EHomePageTabsEnum.Demo2]: SecondRoute,
+//   [EHomePageTabsEnum.Demo3]: OtherRoute,
 // });
 
 function HomePage() {
+  const screenWidth = useWindowDimensions().width;
+  const sideBarWidth = getTokens().size.sideBarWidth.val;
   const intl = useIntl();
 
   const onRefresh = useCallback(() => {
@@ -102,27 +106,27 @@ function HomePage() {
         title: 'Label',
         backgroundColor: 'skyblue',
         contentHeight: undefined,
-        page: FirstRoute,
+        page: memo(FirstRoute, () => true),
       },
       {
         title: intl.formatMessage({
-          id: 'msg__verification_failure',
+          id: 'action__default_chain',
         }),
         backgroundColor: 'coral',
         contentHeight: undefined,
-        page: SecondRoute,
+        page: memo(SecondRoute, () => true),
       },
       {
         title: 'Label',
         backgroundColor: 'turquoise',
         contentHeight: undefined,
-        page: ListRoute,
+        page: memo(ListRoute, () => true),
       },
       {
         title: 'Label',
         backgroundColor: 'pink',
         contentHeight: undefined,
-        page: OtherRoute,
+        page: memo(OtherRoute, () => true),
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -147,6 +151,7 @@ function HomePage() {
   const renderContentItem = useCallback(
     ({
       item,
+      index,
     }: {
       item: {
         backgroundColor: string;
@@ -164,18 +169,26 @@ function HomePage() {
         <item.page
           onContentSizeChange={(_: number, height: number) => {
             item.contentHeight = height;
+            if (index === pageManager.pageIndex) {
+              setContentHeight(height);
+            }
           }}
         />
       </Stack>
     ),
-    [],
+    [pageManager],
   );
 
   return useMemo(
     () => (
-      <Stack bg="$bg" flex={1}>
+      <Stack bg="$bg" flex={1} alignItems="center">
         <ScrollView
-          style={{ flex: 1 }}
+          $md={{
+            width: '100%',
+          }}
+          $gtMd={{
+            width: screenWidth - sideBarWidth - 150,
+          }}
           refreshControl={
             <RefreshControl refreshing={false} onRefresh={onRefresh} />
           }
@@ -199,20 +212,27 @@ function HomePage() {
             }}
           />
           <Stack style={{ height: contentHeight }}>
-            <Content renderItem={renderContentItem} />
+            <Content
+              windowSize={5}
+              scrollEnabled={platformEnv.isNative}
+              shouldSelectedPageAnimation={platformEnv.isNative}
+              renderItem={renderContentItem}
+            />
           </Stack>
         </ScrollView>
       </Stack>
     ),
     [
+      screenWidth,
+      sideBarWidth,
+      bgAppColor,
+      textColor,
+      textSubduedColor,
+      contentHeight,
+      Header,
+      Content,
       onRefresh,
       renderHeaderView,
-      Header,
-      bgAppColor,
-      textSubduedColor,
-      textColor,
-      contentHeight,
-      Content,
       renderContentItem,
     ],
   );

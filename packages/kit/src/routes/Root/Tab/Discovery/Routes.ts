@@ -1,7 +1,7 @@
-export enum TabDiscoveryRoutes {
+export enum ETabDiscoveryRoutes {
   TabDiscovery = 'TabDiscovery',
 }
 
-export type TabDiscoveryParamList = {
-  [TabDiscoveryRoutes.TabDiscovery]: undefined;
+export type ITabDiscoveryParamList = {
+  [ETabDiscoveryRoutes.TabDiscovery]: undefined;
 };
