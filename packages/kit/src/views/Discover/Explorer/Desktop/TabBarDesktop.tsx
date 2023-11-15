@@ -8,9 +8,8 @@ import dAppFavicon from '@onekeyhq/kit/assets/dapp_favicon.png';
 import { DebugRenderTracker } from '@onekeyhq/kit/src/components/DebugRenderTracker';
 
 import {
-  atomWebTabs,
-  useAtomWebTabs,
   useWebTabsActions,
+  useWebTabsAtom,
   useWebTabsMapAtom,
 } from '../Context/contextWebTabs';
 
@@ -136,7 +135,7 @@ const AddTabButton = () => {
 };
 
 function TabBarDesktop() {
-  const [webTabs] = useAtomWebTabs(atomWebTabs);
+  const [webTabs] = useWebTabsAtom();
   return (
     <Stack flexDirection="row" w="100%" h="$8" alignItems="center">
       {webTabs.tabs?.map((tab) => (

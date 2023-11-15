@@ -10,6 +10,7 @@ import WebContent from '../Content/WebContent';
 import {
   homeTab,
   useWebTabsActions,
+  useWebTabsInfo,
   useWebTabsMapAtom,
 } from '../Context/contextWebTabs';
 
@@ -47,7 +48,7 @@ function WebContentWithFreeze({ tab }: { tab: WebTab }) {
 
 function WebTabContainerCmp() {
   const actions = useWebTabsActions();
-  const { tabs, tab } = actions.getWebTabs();
+  const { tabs, tab } = useWebTabsInfo();
   const showHome = tab?.url === homeTab.url;
   const content = useMemo(
     () => tabs.slice(1).map((t) => <WebContentWithFreeze tab={t} />),

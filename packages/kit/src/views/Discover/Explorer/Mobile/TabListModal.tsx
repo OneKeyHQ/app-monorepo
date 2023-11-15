@@ -9,6 +9,7 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import {
   useWebTabsActions,
+  useWebTabsInfo,
   withProviderWebTabs,
 } from '../Context/contextWebTabs';
 
@@ -103,7 +104,7 @@ const WebTabItem: FC<WebTab> = ({ isCurrent, title, id, url }) => {
 function TabListModal() {
   const actions = useWebTabsActions();
   // TODO performance?
-  const { tabs } = actions.getWebTabs();
+  const { tabs } = useWebTabsInfo();
   const data = useMemo(() => tabs.slice(1), [tabs]);
   const keyExtractor = useCallback((item: WebTab) => item.id, []);
   const renderItem = useCallback(

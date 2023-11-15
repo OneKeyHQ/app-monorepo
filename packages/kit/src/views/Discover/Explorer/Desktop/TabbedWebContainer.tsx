@@ -1,8 +1,19 @@
-import { StyleSheet } from 'react-native';
+import { memo } from 'react';
 
-import { Button, Stack } from '@onekeyhq/components';
+import { Freeze } from 'react-freeze';
+import { StyleSheet, View } from 'react-native';
 
-import { homeTab, useWebTabsActions } from '../Context/contextWebTabs';
+import { Stack } from '@onekeyhq/components';
+
+import DiscoverDashboard from '../../Dashboard';
+import WebContent from '../Content/WebContent';
+import {
+  homeTab,
+  useWebTabsActions,
+  useWebTabsInfo,
+} from '../Context/contextWebTabs';
+
+import type { DAppItemType } from '../../types';
 
 const styles = StyleSheet.create({
   blankPage: {
@@ -13,23 +24,17 @@ const styles = StyleSheet.create({
 
 function TabbedWebContainerCmp() {
   const actions = useWebTabsActions();
-  const { tabs, tab } = actions.getWebTabs();
+  const { tabs, tab } = useWebTabsInfo();
   const showHome = tab?.url === homeTab.url;
 
   return (
     <Stack flex={1} zIndex={3}>
-      <Button>HI World</Button>
-      {tabs.map((t) => {
-        console.log(t);
-        return <Button key={t.id}>Hello World::::{t.url}</Button>;
-        // return <WebContent key={t.id} {...t} />;
-        // return (
-        //   <Freeze key={t.id} freeze={!t.isCurrent;}>
-        //     <WebContent {...t} />
-        //   </Freeze>
-        // );
-      })}
-      {/* <Freeze freeze={!showHome}>
+      {tabs.map((t) => (
+        <Freeze key={t.id} freeze={!t.isCurrent}>
+          <WebContent {...t} />
+        </Freeze>
+      ))}
+      <Freeze freeze={!showHome}>
         <View style={styles.blankPage}>
           <DiscoverDashboard
             key="dashboard"
@@ -38,11 +43,10 @@ function TabbedWebContainerCmp() {
             }}
           />
         </View>
-      </Freeze> */}
+      </Freeze>
     </Stack>
   );
 }
 
-// const TabbedWebContainer = memo(TabbedWebContainerCmp);
-// export default TabbedWebContainer;
-export default TabbedWebContainerCmp;
+const TabbedWebContainer = memo(TabbedWebContainerCmp);
+export default TabbedWebContainer;

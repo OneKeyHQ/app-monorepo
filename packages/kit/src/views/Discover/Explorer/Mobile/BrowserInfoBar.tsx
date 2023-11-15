@@ -12,6 +12,7 @@ import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 import { type DiscoverModalParamList, DiscoverModalRoutes } from '../../types';
 import {
   useWebTabsActions,
+  useWebTabsInfo,
   useWebTabsMapAtom,
 } from '../Context/contextWebTabs';
 
@@ -19,7 +20,7 @@ function BrowserInfoBar() {
   const actions = useWebTabsActions();
   const navigation =
     useAppNavigation<IPageNavigationProp<DiscoverModalParamList>>();
-  const { currentTabId } = actions.getWebTabs();
+  const { currentTabId } = useWebTabsInfo();
   const [map] = useWebTabsMapAtom();
   const tab = map[currentTabId || ''];
   console.log('=====>>>>>>currentTab: ', tab.url, tab.title);

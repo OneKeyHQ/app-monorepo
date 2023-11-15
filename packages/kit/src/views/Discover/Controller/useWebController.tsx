@@ -3,7 +3,11 @@ import { useEffect, useState } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { homeTab, useWebTabsActions } from '../Explorer/Context/contextWebTabs';
+import {
+  homeTab,
+  useWebTabsActions,
+  useWebTabsInfo,
+} from '../Explorer/Context/contextWebTabs';
 import { webviewRefs } from '../explorerUtils';
 
 import { useWebviewRef } from './useWebviewRef';
@@ -19,7 +23,7 @@ export const useWebController = ({
     }
   | undefined = {}) => {
   const actions = useWebTabsActions();
-  const { currentTabId, tabs, tab } = actions.getWebTabs(id);
+  const { currentTabId, tabs, tab } = useWebTabsInfo(id);
   const curId = id || currentTabId;
   const [innerRef, setInnerRef] = useState(webviewRefs[curId]?.innerRef);
 

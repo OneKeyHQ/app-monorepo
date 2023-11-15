@@ -8,7 +8,11 @@ import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 
 import { useWebController } from '../../Controller/useWebController';
 import { type DiscoverModalParamList, DiscoverModalRoutes } from '../../types';
-import { homeTab, useWebTabsActions } from '../Context/contextWebTabs';
+import {
+  homeTab,
+  useWebTabsActions,
+  useWebTabsInfo,
+} from '../Context/contextWebTabs';
 
 function BrowserBottomBar({ showHome }: { showHome?: () => void }) {
   const actions = useWebTabsActions();
@@ -17,7 +21,7 @@ function BrowserBottomBar({ showHome }: { showHome?: () => void }) {
   const { currentTab, goBack, goForward } = useWebController();
   const { bottom } = useSafeAreaInsets();
   const { canGoForward, url } = currentTab ?? {};
-  const { tabs } = actions.getWebTabs();
+  const { tabs } = useWebTabsInfo();
 
   useEffect(() => {
     if (url === homeTab.url) {

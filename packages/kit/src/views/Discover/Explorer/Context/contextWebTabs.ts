@@ -3,9 +3,13 @@ import { isEqual } from 'lodash';
 // import { nanoid } from 'nanoid';
 
 import { simpleDb } from '@onekeyhq/kit/src/components/WebView/mock';
-import { createJotaiContext } from '@onekeyhq/kit/src/store/jotai/createJotaiContext';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import {
+  ContextJotaiActionsBase,
+  createJotaiContext,
+  memoJotaiActions,
+} from '../../../../store/jotai';
 import { validateUrl, webHandler, webviewRefs } from '../../explorerUtils';
 
 import type {
@@ -62,8 +66,6 @@ export function buildWebTabData(tabs: WebTab[]) {
 
 const {
   withProvider: withProviderWebTabs,
-  useContextAtom: useAtomWebTabs,
-  store: webTabsStore,
   contextAtomMethod,
   contextAtom,
   contextAtomComputed,
@@ -74,10 +76,10 @@ interface IWebTabsAtom {
   keys: string[];
 }
 
-export const { atom: atomWebTabs, use: useWebTabsAtom } =
+export const { atom: webTabsAtom, use: useWebTabsAtom } =
   contextAtom<IWebTabsAtom>({ tabs: [], keys: [] });
 
-export const { atom: atomWebTabsMap, use: useWebTabsMapAtom } = contextAtom<
+export const { atom: webTabsMapAtom, use: useWebTabsMapAtom } = contextAtom<
   Record<string, WebTab>
 >({
   [homeTab.id]: homeTab,
@@ -86,63 +88,50 @@ export const { atom: atomWebTabsMap, use: useWebTabsMapAtom } = contextAtom<
 export const { atom: incomingUrlAtom, use: useIncomingUrlAtom } =
   contextAtom<string>('');
 
-// standalone primitive atom
+// TODO standalone primitive atom
 export const { atom: currentTabIdAtom, use: useCurrentTabIdAtom } =
   contextAtomComputed(
-    (get) => get(atomWebTabs).tabs.find((t) => t.isCurrent)?.id || '',
+    (get) => get(webTabsAtom()).tabs.find((t) => t.isCurrent)?.id || '',
   );
 
-abstract class ContextJotaiActionsBase {
-  abstract exportMethodHooks(): () => unknown;
+function getWebTabsInfo({
+  id,
+  data,
+  map,
+  currentTabId,
+}: {
+  id?: string;
+  data: IWebTabsAtom;
+  map: Record<string, WebTab>;
+  currentTabId: string;
+}) {
+  const { tabs } = data;
+  const curId = id || currentTabId;
+  return {
+    tabs, // TODO remove
+    tab: map[curId || ''] ?? tabs[0],
+    currentTabId,
+  };
+}
+
+export function useWebTabsInfo(id?: string) {
+  const [data] = useWebTabsAtom();
+  const [map] = useWebTabsMapAtom();
+  const [currentTabId] = useCurrentTabIdAtom();
+  return getWebTabsInfo({ id, map, data, currentTabId });
 }
 
 class ContextJotaiActionsWebTabs extends ContextJotaiActionsBase {
-  override exportMethodHooks() {
-    return () => {
-      const addBlankWebTab = this.addBlankWebTab.use();
-      const addWebTab = this.addWebTab.use();
-      const setWebTabs = this.setWebTabs.use();
-      const closeWebTab = this.closeWebTab.use();
-      const setWebTabData = this.setWebTabData.use();
-      const closeAllWebTabs = this.closeAllWebTabs.use();
-      const setCurrentWebTab = this.setCurrentWebTab.use();
-      const getWebTabs = this.getWebTabs.use();
-      const goToSite = this.goToSite.use();
-      const openMatchDApp = this.openMatchDApp.use();
-      const handleWebviewNavigation = this.handleWebviewNavigation.use();
-      const getWebviewWrapperRef = this.getWebviewWrapperRef.use();
-      const crossWebviewLoadUrl = this.crossWebviewLoadUrl.use();
-      const dismissWebviewKeyboard = this.dismissWebviewKeyboard.use();
-
-      return {
-        addBlankWebTab,
-        addWebTab,
-        setWebTabs,
-        closeWebTab,
-        setWebTabData,
-        closeAllWebTabs,
-        setCurrentWebTab,
-        getWebTabs,
-        goToSite,
-        openMatchDApp,
-        handleWebviewNavigation,
-        getWebviewWrapperRef,
-        crossWebviewLoadUrl,
-        dismissWebviewKeyboard,
-      };
-    };
-  }
-
-  getWebTabs = contextAtomMethod((get, set, id?: string) => {
-    const { tabs } = get(atomWebTabs);
-    const map = get(atomWebTabsMap);
-    const currentTabId = get(currentTabIdAtom);
-    const curId = id || currentTabId;
-    return {
-      tabs,
-      tab: map[curId || ''] ?? tabs[0],
+  getWebTabsInfo = contextAtomMethod((get, set, id?: string) => {
+    const data = get(webTabsAtom());
+    const map = get(webTabsMapAtom());
+    const currentTabId = get(currentTabIdAtom());
+    return getWebTabsInfo({
+      id,
+      data,
+      map,
       currentTabId,
-    };
+    });
   });
 
   addBlankWebTab = contextAtomMethod((_, set) => {
@@ -150,7 +139,7 @@ class ContextJotaiActionsWebTabs extends ContextJotaiActionsBase {
   });
 
   addWebTab = contextAtomMethod((get, set, payload: Partial<WebTab>) => {
-    const { tabs } = get(atomWebTabs);
+    const { tabs } = get(webTabsAtom());
     // TODO: Add limit for native
 
     if (!payload.id || payload.id === homeTab.id) {
@@ -180,11 +169,11 @@ class ContextJotaiActionsWebTabs extends ContextJotaiActionsBase {
       newTabs = [{ ...homeTab }];
     }
     const result = buildWebTabData(newTabs);
-    if (!isEqual(result.keys, get(atomWebTabs).keys)) {
-      set(atomWebTabs, { keys: result.keys, tabs: result.data });
+    if (!isEqual(result.keys, get(webTabsAtom()).keys)) {
+      set(webTabsAtom(), { keys: result.keys, tabs: result.data });
     }
 
-    set(atomWebTabsMap, () => result.map);
+    set(webTabsMapAtom(), () => result.map);
     simpleDb.discoverWebTabs.setRawData({
       tabs: newTabs,
     });
@@ -192,7 +181,7 @@ class ContextJotaiActionsWebTabs extends ContextJotaiActionsBase {
 
   closeWebTab = contextAtomMethod((get, set, tabId: string) => {
     delete webviewRefs[tabId];
-    const { tabs } = get(atomWebTabs);
+    const { tabs } = get(webTabsAtom());
     const targetIndex = tabs.findIndex((t) => t.id === tabId);
     if (targetIndex !== -1) {
       if (tabs[targetIndex].isCurrent) {
@@ -208,7 +197,7 @@ class ContextJotaiActionsWebTabs extends ContextJotaiActionsBase {
   });
 
   setWebTabData = contextAtomMethod((get, set, payload: Partial<WebTab>) => {
-    const { tabs } = get(atomWebTabs);
+    const { tabs } = get(webTabsAtom());
     const tabIndex = tabs.findIndex((t) => t.id === payload.id);
     // console.log('setWebTabDataAtomWithWriteOnly: payload: => : ', payload);
     if (tabIndex > -1) {
@@ -266,10 +255,10 @@ class ContextJotaiActionsWebTabs extends ContextJotaiActionsBase {
       this.dismissWebviewKeyboard.call(set);
     }
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    const currentTabId = get(currentTabIdAtom);
+    const currentTabId = get(currentTabIdAtom());
     if (currentTabId !== tabId) {
       // pauseDappInteraction(currentTabId);
-      const { tabs } = get(atomWebTabs);
+      const { tabs } = get(webTabsAtom());
       let previousTabUpdated = false;
       let nextTabUpdated = false;
 
@@ -313,7 +302,7 @@ class ContextJotaiActionsWebTabs extends ContextJotaiActionsBase {
       const { url, title, favicon, isNewWindow, isInPlace, id, userTriggered } =
         payload;
 
-      const { tab } = this.getWebTabs.call(set, id);
+      const { tab } = this.getWebTabsInfo.call(set, id);
       if (url && tab) {
         const validatedUrl = validateUrl(url);
         if (!validatedUrl) {
@@ -415,7 +404,7 @@ class ContextJotaiActionsWebTabs extends ContextJotaiActionsBase {
         id,
       } = payload;
       const now = Date.now();
-      const { tab: curTab } = this.getWebTabs.call(set, id);
+      const { tab: curTab } = this.getWebTabsInfo.call(set, id);
       if (!curTab) {
         return;
       }
@@ -456,7 +445,7 @@ class ContextJotaiActionsWebTabs extends ContextJotaiActionsBase {
   getWebviewWrapperRef = contextAtomMethod((get, _, id?: string) => {
     let tabId = id;
     if (!tabId) {
-      tabId = get(currentTabIdAtom);
+      tabId = get(currentTabIdAtom());
     }
     const refs = webviewRefs;
     const ref = tabId ? refs[tabId] : null;
@@ -527,8 +516,49 @@ class ContextJotaiActionsWebTabs extends ContextJotaiActionsBase {
   });
 }
 
-const actions = new ContextJotaiActionsWebTabs();
+const createActions = memoJotaiActions(() => {
+  console.log('new ContextJotaiActionsWebTabs()', Date.now());
+  return new ContextJotaiActionsWebTabs();
+});
 
-export const useWebTabsActions = actions.exportMethodHooks();
+// const actions1 = createActions();
+// const actions2 = createActions();
+// const actions3 = createActions();
+// const actions4 = createActions();
 
-export { useAtomWebTabs, withProviderWebTabs };
+export function useWebTabsActions() {
+  const actions = createActions();
+  const actions1 = createActions();
+  const actions2 = createActions();
+  const addBlankWebTab = actions.addBlankWebTab.use();
+  const addWebTab = actions.addWebTab.use();
+  const setWebTabs = actions.setWebTabs.use();
+  const closeWebTab = actions.closeWebTab.use();
+  const setWebTabData = actions.setWebTabData.use();
+  const closeAllWebTabs = actions.closeAllWebTabs.use();
+  const setCurrentWebTab = actions.setCurrentWebTab.use();
+  const goToSite = actions.goToSite.use();
+  const openMatchDApp = actions.openMatchDApp.use();
+  const handleWebviewNavigation = actions.handleWebviewNavigation.use();
+  const getWebviewWrapperRef = actions.getWebviewWrapperRef.use();
+  const crossWebviewLoadUrl = actions.crossWebviewLoadUrl.use();
+  const dismissWebviewKeyboard = actions.dismissWebviewKeyboard.use();
+
+  return {
+    addBlankWebTab,
+    addWebTab,
+    setWebTabs,
+    closeWebTab,
+    setWebTabData,
+    closeAllWebTabs,
+    setCurrentWebTab,
+    goToSite,
+    openMatchDApp,
+    handleWebviewNavigation,
+    getWebviewWrapperRef,
+    crossWebviewLoadUrl,
+    dismissWebviewKeyboard,
+  };
+}
+
+export { withProviderWebTabs };

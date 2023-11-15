@@ -293,11 +293,11 @@ export function contextAtomBase<Value>({
     atomInstance: WritableAtom<Value2, Args, Result>,
   ) => [Awaited<Value2>, SetAtom<Args, Result>];
 }) {
-  const atomObj = atom(initialValue);
-  const useFn = () => useContextAtom(atomObj);
+  const atomBuilder = memoizee(() => atom(initialValue));
+  const useFn = () => useContextAtom(atomBuilder());
 
   return {
-    atom: atomObj,
+    atom: atomBuilder,
     use: useFn,
   };
 }
@@ -309,14 +309,17 @@ export function contextAtomComputedBase<Value>({
   read: Read<Value>;
   useContextAtom: <Value2>(atomInstance: Atom<Value2>) => [Awaited<Value2>];
 }) {
-  const atomObj = atom(read);
+  const atomBuilder = memoizee(() => {
+    console.log('create contextAtomComputedBase', Date.now());
+    return atom(read);
+  });
   const useFn = () => {
-    const [getter] = useContextAtom(atomObj);
-    return getter;
+    const r = useContextAtom(atomBuilder());
+    return r;
   };
 
   return {
-    atom: atomObj,
+    atom: atomBuilder,
     use: useFn,
   };
 }
@@ -330,16 +333,16 @@ export function contextAtomMethodBase<Value, Args extends unknown[], Result>({
     atomInstance: WritableAtom<Value2, Args2, Result2>,
   ) => [Awaited<Value2>, SetAtom<Args2, Result2>];
 }) {
-  const atomObj = atom(null, fn);
+  const atomBuilder = memoizee(() => atom(null, fn));
   const useFn = () => {
-    const [, setter] = useContextAtom(atomObj);
+    const [, setter] = useContextAtom(atomBuilder());
     return setter;
   };
 
-  const call = (set: Setter, ...args: Args) => set(atomObj, ...args);
+  const call = (set: Setter, ...args: Args) => set(atomBuilder(), ...args);
 
   return {
-    atom: atomObj,
+    atom: atomBuilder,
     use: useFn,
     call,
   };
