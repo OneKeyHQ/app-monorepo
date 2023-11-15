@@ -31,7 +31,7 @@ function MobileBrowserBottomBar({
   const { addBlankWebTab } = useWebTabAction();
   const [open, onOpenChange] = useState(false);
   return (
-    <Stack bg="$bgActiveDark" height="$14" zIndex={1} display="flex">
+    <Stack bg="$bgApp" h={54} zIndex={1} display="flex">
       <Stack
         flex={1}
         flexDirection="row"
@@ -39,19 +39,33 @@ function MobileBrowserBottomBar({
         mb={`${bottom}px`}
         alignItems="center"
         justifyContent="space-between"
+        px={27}
       >
         <IconButton
-          icon="ArrowLeftOutline"
+          variant="tertiary"
+          size="medium"
+          icon="ChevronLeftOutline"
           disabled={!canGoBack}
           onPress={goBack}
         />
         <IconButton
-          icon="ArrowTopOutline"
+          variant="tertiary"
+          size="medium"
+          icon="ChevronRightOutline"
           disabled={!canGoForward}
           onPress={goForward}
         />
-        <IconButton icon="PlusLargeOutline" onPress={() => addBlankWebTab()} />
+        <IconButton
+          variant="secondary"
+          size="medium"
+          icon="PlusLargeOutline"
+          onPress={() => addBlankWebTab()}
+        />
         <Button
+          variant="tertiary"
+          size="medium"
+          borderWidth={1}
+          borderColor="$border"
           onPress={() => {
             onShowTabList();
           }}
@@ -63,7 +77,12 @@ function MobileBrowserBottomBar({
           onOpenChange={onOpenChange}
           {...rest}
         >
-          <IconButton icon="MoreIllus" onPress={() => onOpenChange(true)} />
+          <IconButton
+            variant="tertiary"
+            size="medium"
+            icon="DotHorOutline"
+            onPress={() => onOpenChange(true)}
+          />
         </MobileBrowserBottomOptions>
       </Stack>
     </Stack>

@@ -26,43 +26,51 @@ function MobileBrowserBottomOptions({
     <ActionList
       open={open}
       onOpenChange={onOpenChange}
-      title="More"
+      title="Options"
       renderTrigger={children}
-      items={[
+      sections={[
         {
-          label: isBookmark ? '取消收藏' : '收藏',
-          icon: 'PlaceholderOutline',
-          onPress: () => onBookmarkPress(!isBookmark),
+          items: [
+            {
+              label: 'Reload',
+              icon: 'RotateClockwiseOutline',
+              onPress: () => onRefresh(),
+            },
+            {
+              label: isBookmark ? '取消收藏' : 'Bookmark',
+              icon: isBookmark ? 'BookmarkSolid' : 'BookmarkOutline',
+              onPress: () => onBookmarkPress(!isBookmark),
+            },
+            {
+              label: isPined ? 'Un-Pin' : 'Pin',
+              icon: isPined ? 'PinSolid' : 'PinOutline',
+              onPress: () => onPinedPress(!isPined),
+            },
+            {
+              label: 'Share',
+              icon: 'ShareOutline',
+              onPress: () => onShare(),
+            },
+            {
+              label: '复制网址',
+              icon: 'PlaceholderOutline',
+              onPress: () => onCopyUrl(),
+            },
+            {
+              label: 'Open in Browser',
+              icon: 'CompassOutline',
+              onPress: () => onBrowserOpen(),
+            },
+          ],
         },
         {
-          label: '刷新',
-          icon: 'PlaceholderOutline',
-          onPress: () => onRefresh(),
-        },
-        {
-          label: '分享',
-          icon: 'PlaceholderOutline',
-          onPress: () => onShare(),
-        },
-        {
-          label: isPined ? '取消固定标签页' : '固定标签页',
-          icon: 'PlaceholderOutline',
-          onPress: () => onPinedPress(!isPined),
-        },
-        {
-          label: '复制网址',
-          icon: 'PlaceholderOutline',
-          onPress: () => onCopyUrl(),
-        },
-        {
-          label: '在浏览器打开',
-          icon: 'PlaceholderOutline',
-          onPress: () => onBrowserOpen(),
-        },
-        {
-          label: '返回首页',
-          icon: 'PlaceholderOutline',
-          onPress: () => onGoBackHomePage(),
+          items: [
+            {
+              label: 'Back to Home',
+              icon: 'HomeOpenOutline',
+              onPress: () => onGoBackHomePage(),
+            },
+          ],
         },
       ]}
     />
