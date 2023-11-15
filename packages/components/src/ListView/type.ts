@@ -9,8 +9,6 @@ import type { StackStyleProps, Tokens } from '@tamagui/web/types/types';
 
 export type IListViewRef<T> = FlashList<T>;
 
-type TokenSize = keyof Tokens['size'];
-
 export type IListViewProps<T> = Omit<
   FlashListProps<T>,
   | 'contentContainerStyle'

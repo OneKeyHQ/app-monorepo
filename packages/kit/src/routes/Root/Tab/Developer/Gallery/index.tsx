@@ -1,6 +1,7 @@
 import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
 import ActionListGallery from '@onekeyhq/kit/src/views/Components/stories/ActionList';
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
+import BlurViewGallery from '@onekeyhq/kit/src/views/Components/stories/BlurView';
 import ButtonGallery from '@onekeyhq/kit/src/views/Components/stories/Button';
 import CheckboxGallery from '@onekeyhq/kit/src/views/Components/stories/Checkbox';
 import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
@@ -39,7 +40,10 @@ import ThemeGallery from '../../../../../views/Components/stories/Theme';
 
 import { EGalleryRoutes } from './routes';
 
-export const galleryScreenList = [
+export const galleryScreenList: {
+  name: EGalleryRoutes;
+  component: () => React.JSX.Element;
+}[] = [
   { name: EGalleryRoutes.Components, component: ComponentsScreen },
   {
     name: EGalleryRoutes.ComponentTypography,
@@ -107,5 +111,9 @@ export const galleryScreenList = [
   {
     name: EGalleryRoutes.ComponentRefreshControl,
     component: RefreshControlGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentBlurView,
+    component: BlurViewGallery,
   },
 ];

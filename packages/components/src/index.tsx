@@ -48,6 +48,7 @@ export * from './ListView';
 export * from './SectionList';
 export * as DelayedFreeze from './DelayedFreeze';
 export * from './RefreshControl';
+export * from './BlurView';
 
 // Navigation
 export * from './Navigation/StackNavigator';
