@@ -49,7 +49,7 @@ export const DesktopDragZoneBox: FC<ComponentProps<typeof Pressable>> = ({
 
 export function DesktopDragZoneAbsoluteBar({
   w = '100%',
-  h = '$2',
+  h = '$16',
   ...others
 }: ComponentProps<typeof Stack>) {
   // const highlightDragZone = platformEnv.isDev;
