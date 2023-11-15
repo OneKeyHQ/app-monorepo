@@ -1,6 +1,5 @@
 const isDev = process.env.NODE_ENV !== 'production';
 
-const devUtils = require('../../development/devUtils');
 const excludeMatches = require('../content-script/excludeMatches');
 const common = require('./common');
 

@@ -1,10 +1,11 @@
-require('../../../development/env');
+require('../../env');
 const path = require('path');
 const devUtils = require('./devUtils');
-const packageJson = require('../package.json');
 
-const buildFolder = path.resolve(__dirname, '../build');
+const buildFolder = path.resolve(__dirname, '../../../apps/ext/build');
 
+// TODO:
+// commands cannot be work on Windows.
 devUtils.execSync(`
   rm -rf ${buildFolder}/_dist/
   mkdir -p ${buildFolder}/_dist/

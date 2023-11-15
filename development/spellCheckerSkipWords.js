@@ -562,4 +562,5 @@ module.exports = [
   'Ons',
   'Themeable',
   'alg',
+  'gitkeep',
 ];
