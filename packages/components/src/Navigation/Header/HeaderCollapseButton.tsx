@@ -7,7 +7,11 @@ import { Stack } from '../../Stack';
 
 import HeaderIconButton from './HeaderIconButton';
 
-function HeaderCollapseButton({ isRootScreen }: { isRootScreen?: boolean }) {
+function HeaderCollapseButton({
+  isRootScreen = true,
+}: {
+  isRootScreen?: boolean;
+}) {
   const {
     leftSidebarCollapsed: isCollpase,
     setLeftSidebarCollapsed: setIsCollapse,
