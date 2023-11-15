@@ -4,7 +4,7 @@ import { Stack } from 'tamagui';
 
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 
 import MobileBrowserInfoBar from '../../components/MobileBrowser/MobileBrowserInfoBar';
 import { useTabDataFromSimpleDb } from '../../hooks/useTabDataFromSimpleDb';
@@ -14,15 +14,14 @@ import {
   useWebTabData,
   useWebTabs,
 } from '../../hooks/useWebTabs';
-import {
-  type DiscoverModalParamList,
-  DiscoverModalRoutes,
-} from '../../router/Routes';
+import { EDiscoveryModalRoutes } from '../../router/Routes';
 import { gotoSite } from '../../utils/gotoSite';
 import { checkAndCreateFolder } from '../../utils/screenshot';
 
 import MobileBrowserContent from './MobileBrowserContent';
 import { withBrowserProvider } from './WithBrowserProvider';
+
+import type { IDiscoveryModalParamList } from '../../router/Routes';
 
 function HandleRebuildTabBarData() {
   const result = useTabDataFromSimpleDb();
@@ -46,7 +45,7 @@ function MobileBrowser() {
   const { activeTabId } = useActiveTabId();
   const { tab } = useWebTabData(activeTabId ?? '');
   const navigation =
-    useAppNavigation<IPageNavigationProp<DiscoverModalParamList>>();
+    useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
 
   useEffect(() => {
     console.log('MobileBrowser renderer ===> : ');
@@ -63,11 +62,10 @@ function MobileBrowser() {
       <HandleRebuildTabBarData />
       <MobileBrowserInfoBar
         id={activeTabId ?? ''}
-        title={tab?.title ?? ''}
-        favicon={tab?.favicon ?? ''}
+        url={tab?.url ?? ''}
         onSearch={() => {
-          navigation.pushModal(ModalRoutes.DiscoverModal, {
-            screen: DiscoverModalRoutes.SearchModal,
+          navigation.pushModal(EModalRoutes.DiscoveryModal, {
+            screen: EDiscoveryModalRoutes.SearchModal,
             params: {
               onSubmitContent: (text: string) => {
                 console.log('onSubmitContent: ===> : ', text);

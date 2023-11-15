@@ -1,7 +1,7 @@
 import type { IModalRootNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
 import { RootModalNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
 
-import { ModalDiscoverStack } from './Discover';
+import { ModalDiscoverStack } from './Discovery';
 import { EModalRoutes } from './Routes';
 import { ModalTestStack } from './TestModal/ModalTestStack';
 

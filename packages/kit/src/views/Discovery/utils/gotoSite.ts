@@ -9,11 +9,7 @@ import {
   validateUrl,
 } from './explorerUtils';
 
-import type {
-  IBrowserHistory,
-  IDAppItemType,
-  IMatchDAppItemType,
-} from '../types';
+import type { IDAppItemType, IMatchDAppItemType } from '../types';
 
 export const gotoSite = ({
   url,
@@ -23,7 +19,9 @@ export const gotoSite = ({
   isInPlace,
   id,
   userTriggered,
-}: IBrowserHistory & {
+}: {
+  url: string;
+  title?: string;
   favicon?: string;
   dAppId?: string;
   isNewWindow?: boolean;

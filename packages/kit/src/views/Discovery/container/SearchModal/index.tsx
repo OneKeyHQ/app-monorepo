@@ -4,8 +4,8 @@ import { ModalContainer, SearchBar } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 import type {
-  DiscoverModalParamList,
-  DiscoverModalRoutes,
+  EDiscoveryModalRoutes,
+  IDiscoveryModalParamList,
 } from '../../router/Routes';
 import type { RouteProp } from '@react-navigation/core';
 
@@ -13,7 +13,7 @@ function SearchModal() {
   const navigation = useAppNavigation();
   const route =
     useRoute<
-      RouteProp<DiscoverModalParamList, DiscoverModalRoutes.SearchModal>
+      RouteProp<IDiscoveryModalParamList, EDiscoveryModalRoutes.SearchModal>
     >();
   const { onSubmitContent } = route.params;
   return (

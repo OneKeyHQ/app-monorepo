@@ -1,4 +1,4 @@
-import { Input, Stack } from '@onekeyhq/components';
+import { Input, Stack, XStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -27,11 +27,20 @@ const InputGallery = () => (
               placeholder="Placeholder"
               leftIconName="SearchOutline"
             />
-            <Input
-              size="medium"
-              placeholder="Placeholder"
-              leftIconName="SearchOutline"
-            />
+            <XStack flex={1} alignItems="center">
+              <Input
+                size="medium"
+                leftIconName="LockSolid"
+                value="ajdlfkajsldkfj"
+              />
+            </XStack>
+            <XStack flex={1} alignItems="center">
+              <Input
+                size="medium"
+                placeholder="Placeholder"
+                leftIconName="SearchOutline"
+              />
+            </XStack>
             <Input
               size="large"
               placeholder="Placeholder"

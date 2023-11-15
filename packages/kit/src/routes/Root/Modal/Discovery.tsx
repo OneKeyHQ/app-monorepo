@@ -1,20 +1,20 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
 import MobileTabListModal from '@onekeyhq/kit/src/views/Discovery/container/MobileTabListModal';
 import SearchModal from '@onekeyhq/kit/src/views/Discovery/container/SearchModal';
-import type { DiscoverModalParamList } from '@onekeyhq/kit/src/views/Discovery/router/Routes';
-import { DiscoverModalRoutes } from '@onekeyhq/kit/src/views/Discovery/router/Routes';
+import type { IDiscoveryModalParamList } from '@onekeyhq/kit/src/views/Discovery/router/Routes';
+import { EDiscoveryModalRoutes } from '@onekeyhq/kit/src/views/Discovery/router/Routes';
 
-export const ModalDiscoverStack: IModalFlowNavigatorConfig<
-  DiscoverModalRoutes,
-  DiscoverModalParamList
+export const ModalDiscoveryStack: IModalFlowNavigatorConfig<
+  EDiscoveryModalRoutes,
+  IDiscoveryModalParamList
 >[] = [
   {
-    name: DiscoverModalRoutes.MobileTabList,
+    name: EDiscoveryModalRoutes.MobileTabList,
     component: MobileTabListModal,
     translationId: 'title__about',
   },
   {
-    name: DiscoverModalRoutes.SearchModal,
+    name: EDiscoveryModalRoutes.SearchModal,
     component: SearchModal,
     translationId: 'title__accounts',
   },

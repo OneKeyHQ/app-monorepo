@@ -1,6 +1,9 @@
 import { useMedia } from 'tamagui';
 
-import { IconButton, Input, XStack } from '@onekeyhq/components';
+import { IconButton, Input, Stack, XStack } from '@onekeyhq/components';
+import HeaderCollapseButton from '@onekeyhq/components/src/Navigation/Header/HeaderCollapseButton';
+import useProviderSideBarValue from '@onekeyhq/components/src/Provider/hooks/useProviderSideBarValue';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function HeaderLeftToolBar({
   url,
@@ -11,6 +14,7 @@ function HeaderLeftToolBar({
   goForward,
   stopLoading,
   reload,
+  onSearch,
 }: {
   url: string;
   canGoBack?: boolean;
@@ -20,22 +24,28 @@ function HeaderLeftToolBar({
   goForward?: () => void;
   stopLoading?: () => void;
   reload?: () => void;
+  onSearch?: () => void;
 }) {
   const media = useMedia();
+  const { leftSidebarCollapsed: isCollpase } = useProviderSideBarValue();
+  const paddingLeft = platformEnv.isDesktopMac && isCollpase ? '$20' : '$0';
 
   if (media.md) {
     return (
-      <Input
-        containerProps={{ ml: '$6' }}
-        size="medium"
-        leftIconName="LockSolid"
-        value={url}
-      />
+      <Stack flex={1} alignItems="center" onPress={() => onSearch?.()}>
+        <Input
+          size="medium"
+          leftIconName="LockSolid"
+          value={url}
+          editable={false}
+        />
+      </Stack>
     );
   }
   return (
-    <XStack alignItems="center" justifyContent="center">
+    <XStack alignItems="center" justifyContent="center" pl={paddingLeft}>
       <XStack space="$6">
+        <HeaderCollapseButton />
         <IconButton
           size="medium"
           variant="tertiary"

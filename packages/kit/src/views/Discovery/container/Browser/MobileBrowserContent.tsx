@@ -7,7 +7,7 @@ import { Stack } from 'tamagui';
 
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import WebContent from '../../components/WebContent/WebContent';
@@ -20,22 +20,20 @@ import {
   useWebTabData,
   useWebTabs,
 } from '../../hooks/useWebTabs';
-import {
-  type DiscoverModalParamList,
-  DiscoverModalRoutes,
-} from '../../router/Routes';
+import { EDiscoveryModalRoutes } from '../../router/Routes';
 import { homeTab } from '../../store/contextWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
 import { onItemSelect } from '../../utils/gotoSite';
 import { getScreenshotPath, saveScreenshot } from '../../utils/screenshot';
 import DiscoveryDashboard from '../Dashboard';
 
+import type { IDiscoveryModalParamList } from '../../router/Routes';
 import type WebView from 'react-native-webview';
 import type { TamaguiElement } from 'tamagui';
 
 function MobileBrowserContent({ id }: { id: string }) {
   const navigation =
-    useAppNavigation<IPageNavigationProp<DiscoverModalParamList>>();
+    useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
   const { tabs } = useWebTabs();
   const { tab } = useWebTabData(id);
   const { addBrowserHistory } = useBrowserHistoryAction();
@@ -89,8 +87,8 @@ function MobileBrowserContent({ id }: { id: string }) {
     } catch (e) {
       console.log(e);
     }
-    navigation.pushModal(ModalRoutes.DiscoverModal, {
-      screen: DiscoverModalRoutes.MobileTabList,
+    navigation.pushModal(EModalRoutes.DiscoveryModal, {
+      screen: EDiscoveryModalRoutes.MobileTabList,
     });
   }, [navigation, takeScreenshot]);
 

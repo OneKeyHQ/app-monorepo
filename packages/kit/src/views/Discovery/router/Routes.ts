@@ -1,11 +1,11 @@
-export enum DiscoverModalRoutes {
+export enum EDiscoveryModalRoutes {
   MobileTabList = 'MobileTabList',
   SearchModal = 'SearchModal',
 }
 
-export type DiscoverModalParamList = {
-  [DiscoverModalRoutes.MobileTabList]: undefined;
-  [DiscoverModalRoutes.SearchModal]: {
+export type IDiscoveryModalParamList = {
+  [EDiscoveryModalRoutes.MobileTabList]: undefined;
+  [EDiscoveryModalRoutes.SearchModal]: {
     onSubmitContent?: (content: string) => void;
   };
 };

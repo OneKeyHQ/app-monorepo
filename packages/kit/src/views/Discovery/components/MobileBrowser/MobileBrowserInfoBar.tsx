@@ -1,39 +1,36 @@
 import { useMemo } from 'react';
 
-import { Image, Stack, Text } from '@onekeyhq/components';
-// @ts-expect-error
-import dAppFavicon from '@onekeyhq/kit/assets/dapp_favicon.png';
+import { IconButton, XStack } from '@onekeyhq/components';
+
+import HeaderLeftToolBar from '../HeaderLeftToolBar';
 
 function MobileBrowserInfoBar({
-  title,
-  favicon,
+  url,
   onSearch,
 }: {
   id: string;
-  title: string;
-  favicon: string;
+  url: string;
   onSearch: () => void;
 }) {
   const content = useMemo(
     () => (
-      <Stack
-        w="100%"
-        h="$12"
-        px="$3"
-        py="$2"
-        flexDirection="row"
-        alignItems="center"
-        onPress={onSearch}
-      >
-        <Image
-          style={{ width: 16, height: 16, marginRight: 8 }}
-          source={{ uri: favicon }}
-          defaultSource={dAppFavicon}
-        />
-        <Text>{title}</Text>
-      </Stack>
+      <XStack w="100%" h="$11" px="$5" bg="$bgApp" alignItems="center">
+        <HeaderLeftToolBar url={url} onSearch={onSearch} />
+        <XStack space="$6" ml="$4">
+          <IconButton
+            size="medium"
+            variant="tertiary"
+            icon="PlaceholderOutline"
+          />
+          <IconButton
+            size="medium"
+            variant="tertiary"
+            icon="PlaceholderOutline"
+          />
+        </XStack>
+      </XStack>
     ),
-    [title, favicon, onSearch],
+    [url, onSearch],
   );
   return <>{content}</>;
 }

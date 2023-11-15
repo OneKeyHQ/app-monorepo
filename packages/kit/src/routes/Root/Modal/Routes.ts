@@ -1,12 +1,12 @@
 import type { IModalTestParamList } from './TestModal/Routes';
-import type { DiscoverModalParamList } from '../../../views/Discover/types';
+import type { IDiscoveryModalParamList } from '../../../views/Discovery/router/Routes';
 
 export enum EModalRoutes {
   TestModal = 'TestModalStack',
-  DiscoverModal = 'DiscoverModal',
+  DiscoveryModal = 'DiscoveryModal',
 }
 
 export type IModalParamList = {
   [EModalRoutes.TestModal]: IModalTestParamList;
-  [EModalRoutes.DiscoverModal]: DiscoverModalParamList;
+  [EModalRoutes.DiscoveryModal]: IDiscoveryModalParamList;
 };

@@ -1,4 +1,4 @@
-import { XStack } from '@onekeyhq/components';
+import { DesktopDragZoneBox, IconButton, XStack } from '@onekeyhq/components';
 
 import HeaderLeftToolBar from '../HeaderLeftToolBar';
 
@@ -20,18 +20,34 @@ function DesktopBrowserInfoBar({
   reload: () => void;
 }) {
   return (
-    <XStack bg="$bg" w="100%" h={52} px="$5">
-      <HeaderLeftToolBar
-        url={url}
-        canGoBack={canGoBack}
-        canGoForward={canGoForward}
-        loading={loading}
-        goBack={goBack}
-        goForward={goForward}
-        stopLoading={stopLoading}
-        reload={reload}
-      />
-    </XStack>
+    <DesktopDragZoneBox>
+      <XStack w="100%" h={52} px="$5" bg="$bgApp">
+        <XStack w="100%" alignItems="center" justifyContent="space-between">
+          <HeaderLeftToolBar
+            url={url}
+            canGoBack={canGoBack}
+            canGoForward={canGoForward}
+            loading={loading}
+            goBack={goBack}
+            goForward={goForward}
+            stopLoading={stopLoading}
+            reload={reload}
+          />
+          <XStack space="$6">
+            <IconButton
+              size="medium"
+              variant="tertiary"
+              icon="PlaceholderOutline"
+            />
+            <IconButton
+              size="medium"
+              variant="tertiary"
+              icon="PlaceholderOutline"
+            />
+          </XStack>
+        </XStack>
+      </XStack>
+    </DesktopDragZoneBox>
   );
 }
 
