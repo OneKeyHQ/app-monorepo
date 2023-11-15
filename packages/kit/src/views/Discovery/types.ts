@@ -39,6 +39,7 @@ export type IOnWebviewNavigation = ({
   canGoForward,
   loading,
   id,
+  handlePhishingUrl,
 }: {
   url?: string;
   title?: string;
@@ -49,6 +50,7 @@ export type IOnWebviewNavigation = ({
   canGoForward?: boolean;
   loading?: boolean;
   id?: string;
+  handlePhishingUrl?: (url: string) => void;
 }) => void;
 
 export interface IWebTab {

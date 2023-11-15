@@ -21,6 +21,7 @@ export const onNavigation: IOnWebviewNavigation = ({
   canGoForward,
   loading,
   id,
+  handlePhishingUrl,
 }) => {
   const now = Date.now();
   const { tab: curTab } = getWebTabs(id);
@@ -44,7 +45,7 @@ export const onNavigation: IOnWebviewNavigation = ({
 
     const { action } = uriUtils.parseDappRedirect(url);
     if (action === uriUtils.EDAppOpenActionEnum.DENY) {
-      console.log('TODO: show error page');
+      handlePhishingUrl?.(url);
       return;
     }
 

@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
+import { Stack } from '@onekeyhq/components';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import useBackHandler from '../../../../hooks/useBackHandler';
@@ -8,6 +9,7 @@ import { onNavigation } from '../../hooks/useWebController';
 import { homeTab, setWebTabData } from '../../store/contextWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
 import { gotoSite } from '../../utils/gotoSite';
+import PhishingView from '../PhishingView';
 import WebView from '../WebView';
 
 import type { IWebTab } from '../../types';
@@ -38,7 +40,7 @@ function WebContent({
 }: IWebContentProps) {
   const lastNavEventSnapshot = useRef('');
   const showHome = url === homeTab.url;
-  // const { setWebTabData } = useWebTabAction();
+  const [showPhishingView, setShowPhishingView] = useState(false);
 
   const changeNavigationInfo = (siteInfo: WebViewNavigation) => {
     // console.log('===>canGoBack: ', siteInfo.canGoBack);
@@ -111,12 +113,13 @@ function WebContent({
     (navigationStateChangeEvent: WebViewNavigation) => {
       const { url: navUrl } = navigationStateChangeEvent;
       const maybeDeepLink =
-        !navUrl.startsWith('http') && navUrl !== 'about:blank';
+        !navUrl.startsWith('https') && navUrl !== 'about:blank';
       if (maybeDeepLink) {
         console.log('===>Maybe deeplink, just return');
         const { action } = uriUtils.parseDappRedirect(navUrl);
+        console.log('===> action: ', action);
         if (action === uriUtils.EDAppOpenActionEnum.DENY) {
-          console.log('===> TODO: show error page');
+          setShowPhishingView(true);
         }
         return false;
       }
@@ -167,7 +170,22 @@ function WebContent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [id, showHome, androidLayerType],
   );
-  return webview;
+
+  const phishingView = useMemo(
+    () => (
+      <Stack position="absolute" top={0} bottom={0} left={0} right={0}>
+        <PhishingView />
+      </Stack>
+    ),
+    [],
+  );
+
+  return (
+    <>
+      {webview}
+      {showPhishingView && phishingView}
+    </>
+  );
 }
 
 export default WebContent;

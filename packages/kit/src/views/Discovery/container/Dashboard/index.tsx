@@ -10,6 +10,27 @@ import type { IDAppItemType } from '../../types';
 
 const data = [
   {
+    'url': 'https://www.onekey111.so/',
+    'name': 'ErrorPage',
+    '_id': '64086c61ea3412b877c2d8de',
+    'logoURL':
+      'https://nft.onekey-asset.com/admin/upload_1678273561733.0.26599601397534145.0.png',
+  },
+  {
+    'url': 'http://www.onekey111danger.so/',
+    'name': 'DangerPage',
+    '_id': '64082361ea3412b877c2d8de',
+    'logoURL':
+      'https://nft.onekey-asset.com/admin/upload_1678273561733.0.26599601397534145.0.png',
+  },
+  {
+    'url': 'https://8571e594.n0p.online/db1728.html',
+    'name': '慢雾测试',
+    '_id': '64022361ea3412b877c2d8de',
+    'logoURL':
+      'https://nft.onekey-asset.com/admin/upload_1678273561733.0.26599601397534145.0.png',
+  },
+  {
     'url': 'https://dapp-example.onekeytest.com/',
     'name': 'DApp Example',
     '_id': '645b6b8203be4e9f3e9932c',
@@ -58,27 +79,6 @@ const data = [
     'logoURL':
       'https://nft.onekey-asset.com/admin/upload_1678273561733.0.26599601397534145.0.png',
   },
-  {
-    'url': 'https://www.onekey111.so/',
-    'name': 'ErrorPage',
-    '_id': '64086c61ea3412b877c2d8de',
-    'logoURL':
-      'https://nft.onekey-asset.com/admin/upload_1678273561733.0.26599601397534145.0.png',
-  },
-  {
-    'url': 'http://www.onekey111danger.so/',
-    'name': 'DangerPage',
-    '_id': '64082361ea3412b877c2d8de',
-    'logoURL':
-      'https://nft.onekey-asset.com/admin/upload_1678273561733.0.26599601397534145.0.png',
-  },
-  {
-    'url': 'https://8571e594.n0p.online/db1728.html',
-    'name': '慢雾测试',
-    '_id': '64022361ea3412b877c2d8de',
-    'logoURL':
-      'https://nft.onekey-asset.com/admin/upload_1678273561733.0.26599601397534145.0.png',
-  },
 ];
 
 type IProps = { onItemSelect?: (item: IDAppItemType) => void };
@@ -97,7 +97,7 @@ function Dashboard({ onItemSelect }: IProps) {
     [onItemSelect, navigation],
   );
   return (
-    <YStack h="100%" bg="$bgApp">
+    <YStack h={500} bg="red">
       {data.map((i) => (
         <Button
           key={i._id}

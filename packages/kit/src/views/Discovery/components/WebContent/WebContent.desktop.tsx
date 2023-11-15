@@ -1,8 +1,11 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+
+import { Stack } from '@onekeyhq/components';
 
 import { onNavigation } from '../../hooks/useWebController';
 import useWebTabAction from '../../hooks/useWebTabAction';
 import { webviewRefs } from '../../utils/explorerUtils';
+import PhishingView from '../PhishingView';
 import WebView from '../WebView';
 
 import type { IWebTab } from '../../types';
@@ -21,6 +24,7 @@ type IWebContentProps = IWebTab &
 
 function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
   const urlRef = useRef<string>('');
+  const [showPhishingView, setShowPhishingView] = useState(false);
   const { setWebTabData } = useWebTabAction();
   const getNavStatusInfo = useCallback(() => {
     const ref = webviewRefs[id];
@@ -54,6 +58,10 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
           loading: true,
           isInPlace,
           ...getNavStatusInfo(),
+          handlePhishingUrl: (illegalUrl) => {
+            console.log('=====>>>>: handlePhishingUrl', illegalUrl);
+            setShowPhishingView(true);
+          },
         });
         urlRef.current = willNavigationUrl;
       }
@@ -146,7 +154,21 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
     ],
   );
 
-  return webview;
+  const phishingView = useMemo(
+    () => (
+      <Stack position="absolute" top={52} bottom={0} left={0} right={0}>
+        <PhishingView />
+      </Stack>
+    ),
+    [],
+  );
+
+  return (
+    <>
+      {webview}
+      {showPhishingView && phishingView}
+    </>
+  );
 }
 
 export default WebContent;

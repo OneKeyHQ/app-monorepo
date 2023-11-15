@@ -4,7 +4,7 @@ export const WALLET_CONNECT_DEEP_LINK_NAME = 'wc';
 export const WALLET_CONNECT_DEEP_LINK = `${WALLET_CONNECT_DEEP_LINK_NAME}://`;
 
 export const PROTOCOLS_SUPPORTED_TO_OPEN = [
-  'http:' as const,
+  // 'http:' as const,
   'https:' as const,
   // 'file:' as const,
 
