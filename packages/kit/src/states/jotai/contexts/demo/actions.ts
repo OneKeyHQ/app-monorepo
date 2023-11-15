@@ -42,6 +42,7 @@ class ContextJotaiActionsDemo extends ContextJotaiActionsBase {
     const message2 = get(demoComputedAtom());
     console.log('sayHello', message, message2, profile);
     await wait(1000);
+    set(demoProfileAtom(), { ...profile, name: 'LazyUpdate' });
     return message;
   });
 }
