@@ -22,7 +22,7 @@ import type { InpageProviderWebViewProps } from '@onekeyfe/cross-inpage-provider
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
 
-export type NativeWebViewProps = WebViewProps & InpageProviderWebViewProps;
+export type INativeWebViewProps = WebViewProps & InpageProviderWebViewProps;
 
 const styles = StyleSheet.create({
   container: {
@@ -45,7 +45,7 @@ const NativeWebView = forwardRef(
       onLoad,
       onLoadEnd,
       ...props
-    }: NativeWebViewProps,
+    }: INativeWebViewProps,
     ref,
   ) => {
     const webviewRef = useRef<WebView>();
