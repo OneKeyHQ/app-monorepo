@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { Button, YStack } from '@onekeyhq/components';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { TabRoutes } from '../../../../routes/Root/Tab/Routes';
+import { ETabRoutes } from '../../../../routes/Root/Tab/Routes';
 import { onItemSelect as onDAppItemSelect } from '../../utils/gotoSite';
 
 import type { IDAppItemType } from '../../types';
@@ -70,7 +70,7 @@ function Dashboard({ onItemSelect }: IProps) {
         onItemSelect(item);
       } else {
         onDAppItemSelect(item, true);
-        navigation.switchTab(TabRoutes.MultiTabBrowser);
+        navigation.switchTab(ETabRoutes.MultiTabBrowser);
       }
     },
     [onItemSelect, navigation],

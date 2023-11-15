@@ -1,4 +1,6 @@
-import { IconButton, Text, XStack } from '@onekeyhq/components';
+import { XStack } from '@onekeyhq/components';
+
+import HeaderLeftToolBar from '../HeaderLeftToolBar';
 
 import type { IWebTab } from '../../types';
 
@@ -18,21 +20,16 @@ function DesktopBrowserInfoBar({
   reload: () => void;
 }) {
   return (
-    <XStack bg="$bg" w="100%" h="$12" px="$8" alignItems="center" space="$3">
-      <Text>{url}</Text>
-      <IconButton
-        icon="ArrowLeftOutline"
-        disabled={!canGoBack}
-        onPress={goBack}
-      />
-      <IconButton
-        icon="ArrowTopOutline"
-        disabled={!canGoForward}
-        onPress={goForward}
-      />
-      <IconButton
-        icon={loading ? 'CrossedLargeOutline' : 'RenewOutline'}
-        onPress={loading ? stopLoading : reload}
+    <XStack bg="$bg" w="100%" h={52} px="$5">
+      <HeaderLeftToolBar
+        url={url}
+        canGoBack={canGoBack}
+        canGoForward={canGoForward}
+        loading={loading}
+        goBack={goBack}
+        goForward={goForward}
+        stopLoading={stopLoading}
+        reload={reload}
       />
     </XStack>
   );
