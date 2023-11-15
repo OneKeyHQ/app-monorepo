@@ -17,6 +17,7 @@ import type {
   IWritableAtomPro,
   Read,
   SetAtom,
+  Setter,
   WithInitialValue,
   Write,
 } from '../types';
@@ -28,10 +29,11 @@ export function makeCrossAtom<T extends () => any>(name: string, fn: T) {
     normalizer: () => '',
   });
 
+  const useFn = () => useAtom(atomBuilder() as ReturnType<T>);
+
   return {
     target: new JotaiCrossAtom(name, atomBuilder),
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    use: () => useAtom(atomBuilder() as ReturnType<T>),
+    use: useFn,
   };
 }
 
@@ -280,4 +282,65 @@ export function globalAtomComputedW<Value, Args extends unknown[], Result>({
 export function globalAtomComputed<Value>(read: Read<Value>) {
   // Read
   return globalAtomComputedR({ read });
+}
+
+export function contextAtomBase<Value>({
+  initialValue,
+  useContextAtom,
+}: {
+  initialValue: Value;
+  useContextAtom: <Value2, Args extends any[], Result>(
+    atomInstance: WritableAtom<Value2, Args, Result>,
+  ) => [Awaited<Value2>, SetAtom<Args, Result>];
+}) {
+  const atomObj = atom(initialValue);
+  const useFn = () => useContextAtom(atomObj);
+
+  return {
+    atom: atomObj,
+    use: useFn,
+  };
+}
+
+export function contextAtomComputedBase<Value>({
+  read,
+  useContextAtom,
+}: {
+  read: Read<Value>;
+  useContextAtom: <Value2>(atomInstance: Atom<Value2>) => [Awaited<Value2>];
+}) {
+  const atomObj = atom(read);
+  const useFn = () => {
+    const [getter] = useContextAtom(atomObj);
+    return getter;
+  };
+
+  return {
+    atom: atomObj,
+    use: useFn,
+  };
+}
+
+export function contextAtomMethodBase<Value, Args extends unknown[], Result>({
+  fn,
+  useContextAtom,
+}: {
+  fn: Write<Args, Result>;
+  useContextAtom: <Value2, Args2 extends any[], Result2>(
+    atomInstance: WritableAtom<Value2, Args2, Result2>,
+  ) => [Awaited<Value2>, SetAtom<Args2, Result2>];
+}) {
+  const atomObj = atom(null, fn);
+  const useFn = () => {
+    const [, setter] = useContextAtom(atomObj);
+    return setter;
+  };
+
+  const call = (set: Setter, ...args: Args) => set(atomObj, ...args);
+
+  return {
+    atom: atomObj,
+    use: useFn,
+    call,
+  };
 }

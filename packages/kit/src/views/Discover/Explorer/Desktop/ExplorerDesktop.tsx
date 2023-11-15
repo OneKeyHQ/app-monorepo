@@ -9,8 +9,7 @@ import { webHandler } from '../../explorerUtils';
 import WebHomeContainer from '../Content/WebHomeContainer';
 import {
   homeTab,
-  setWebTabsWriteAtom,
-  useAtomWebTabs,
+  useWebTabsActions,
   withProviderWebTabs,
 } from '../Context/contextWebTabs';
 
@@ -30,14 +29,14 @@ export function useTabBarDataFromSimpleDb() {
 }
 
 function HandleRebuildTabBarData() {
+  const actions = useWebTabsActions();
   const result = useTabBarDataFromSimpleDb();
-  const [, setWebTabsData] = useAtomWebTabs(setWebTabsWriteAtom);
   useEffect(() => {
     const data = result.result;
     if (data && Array.isArray(data)) {
-      setWebTabsData(data);
+      actions.setWebTabs(data);
     }
-  }, [result.result, setWebTabsData]);
+  }, [actions, result.result]);
 
   return null;
 }

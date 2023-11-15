@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 
 import { webviewRefs } from '../../explorerUtils';
-import { webTabsActions } from '../Context/contextWebTabs';
+import { useWebTabsActions } from '../Context/contextWebTabs';
 
 import type { WebTab } from '../Context/contextWebTabs';
 import type { WebViewProps } from 'react-native-webview';
@@ -11,6 +11,7 @@ import type { WebViewProps } from 'react-native-webview';
 type IWebContentProps = WebTab & WebViewProps;
 
 function WebContent({ id, url }: IWebContentProps) {
+  const actions = useWebTabsActions();
   const webview = useMemo(
     () => (
       <WebView
@@ -19,7 +20,7 @@ function WebContent({ id, url }: IWebContentProps) {
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {
             if (!webviewRefs[id]) {
-              webTabsActions.setWebTabData({
+              actions.setWebTabData({
                 id,
                 refReady: true,
               });

@@ -3,62 +3,13 @@ import { useEffect, useState } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import {
-  homeResettingFlags,
-  homeTab,
-  webTabsActions,
-} from '../Explorer/Context/contextWebTabs';
+import { homeTab, useWebTabsActions } from '../Explorer/Context/contextWebTabs';
 import { webviewRefs } from '../explorerUtils';
 
-import { gotoSite } from './gotoSite';
-import { getWebTabs, useWebTabs } from './useWebTabs';
 import { useWebviewRef } from './useWebviewRef';
 
 import type { IElectronWebView } from '../../../components/WebView/types';
-import type { OnWebviewNavigation } from '../explorerUtils';
 import type WebView from 'react-native-webview';
-
-export const onNavigation: OnWebviewNavigation = ({
-  url,
-  isNewWindow,
-  isInPlace,
-  title,
-  favicon,
-  canGoBack,
-  canGoForward,
-  loading,
-  id,
-}) => {
-  const now = Date.now();
-  const { tab: curTab } = getWebTabs(id);
-  if (!curTab) {
-    return;
-  }
-  const curId = curTab.id;
-  const isValidNewUrl = typeof url === 'string' && url !== curTab.url;
-  if (isValidNewUrl) {
-    if (curTab.timestamp && now - curTab.timestamp < 500) {
-      // ignore url change if it's too fast to avoid back & forth loop
-      return;
-    }
-    if (
-      homeResettingFlags[curId] &&
-      url !== homeTab.url &&
-      now - homeResettingFlags[curId] < 1000
-    ) {
-      return;
-    }
-    gotoSite({ url, title, favicon, isNewWindow, isInPlace, id: curId });
-  }
-  webTabsActions.setWebTabData({
-    id: curId,
-    title,
-    favicon,
-    canGoBack,
-    canGoForward,
-    loading,
-  });
-};
 
 export const useWebController = ({
   id,
@@ -67,7 +18,8 @@ export const useWebController = ({
       id?: string;
     }
   | undefined = {}) => {
-  const { currentTabId, tabs, tab } = useWebTabs(id);
+  const actions = useWebTabsActions();
+  const { currentTabId, tabs, tab } = actions.getWebTabs(id);
   const curId = id || currentTabId;
   const [innerRef, setInnerRef] = useState(webviewRefs[curId]?.innerRef);
 
@@ -79,7 +31,7 @@ export const useWebController = ({
 
   const { goBack, goForward, stopLoading, reload } = useWebviewRef({
     ref: innerRef as IElectronWebView,
-    onNavigation,
+    onNavigation: actions.handleWebviewNavigation,
     tabId: curId,
   });
 
@@ -101,7 +53,7 @@ export const useWebController = ({
         if (platformEnv.isNative && innerRef) {
           (innerRef as WebView)?.loadUrl(homeTab.url);
         }
-        webTabsActions.setWebTabData({
+        actions.setWebTabData({
           ...homeTab,
           id: curId,
         });

@@ -3,10 +3,8 @@ import { useCallback, useMemo, useRef } from 'react';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 
 import useBackHandler from '../../../../hooks/useBackHandler';
-import { gotoSite } from '../../Controller/gotoSite';
-import { onNavigation } from '../../Controller/useWebController';
 import { webviewRefs } from '../../explorerUtils';
-import { homeTab, webTabsActions } from '../Context/contextWebTabs';
+import { homeTab, useWebTabsActions } from '../Context/contextWebTabs';
 
 import type { WebTab } from '../Context/contextWebTabs';
 import type {
@@ -22,6 +20,7 @@ function WebContent({
   androidLayerType,
   canGoBack,
 }: WebTab & WebViewProps) {
+  const actions = useWebTabsActions();
   const lastNavEventSnapshot = useRef('');
   const showHome = url === homeTab.url;
 
@@ -51,7 +50,7 @@ function WebContent({
           loading,
           id,
         });
-        onNavigation({
+        actions.handleWebviewNavigation({
           url: navUrl,
           title,
           canGoBack: navCanGoBack,
@@ -67,7 +66,7 @@ function WebContent({
           loading,
           id,
         });
-        onNavigation({
+        actions.handleWebviewNavigation({
           title,
           canGoBack: navCanGoBack,
           canGoForward,
@@ -76,7 +75,7 @@ function WebContent({
         });
       }
     },
-    [id, showHome],
+    [actions, id, showHome],
   );
 
   const onShouldStartLoadWithRequest = useCallback(
@@ -111,7 +110,7 @@ function WebContent({
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {
             if (!webviewRefs[id]) {
-              webTabsActions.setWebTabData({
+              actions.setWebTabData({
                 id,
                 refReady: true,
               });
@@ -124,7 +123,10 @@ function WebContent({
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         onNavigationStateChange={onNavigationStateChange}
         onOpenWindow={(e) => {
-          gotoSite({ url: e.nativeEvent.targetUrl, userTriggered: true });
+          actions.goToSite({
+            url: e.nativeEvent.targetUrl,
+            userTriggered: true,
+          });
         }}
         allowpopups
       />

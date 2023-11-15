@@ -7,17 +7,17 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 
 import { useWebController } from '../../Controller/useWebController';
-import { useWebTabs } from '../../Controller/useWebTabs';
 import { type DiscoverModalParamList, DiscoverModalRoutes } from '../../types';
-import { homeTab, webTabsActions } from '../Context/contextWebTabs';
+import { homeTab, useWebTabsActions } from '../Context/contextWebTabs';
 
 function BrowserBottomBar({ showHome }: { showHome?: () => void }) {
+  const actions = useWebTabsActions();
   const navigation =
     useAppNavigation<IPageNavigationProp<DiscoverModalParamList>>();
   const { currentTab, goBack, goForward } = useWebController();
   const { bottom } = useSafeAreaInsets();
   const { canGoForward, url } = currentTab ?? {};
-  const { tabs } = useWebTabs();
+  const { tabs } = actions.getWebTabs();
 
   useEffect(() => {
     if (url === homeTab.url) {
@@ -47,7 +47,7 @@ function BrowserBottomBar({ showHome }: { showHome?: () => void }) {
         />
         <IconButton
           icon="PlusLargeOutline"
-          onPress={() => webTabsActions.addBlankWebTab()}
+          onPress={() => actions.addBlankWebTab()}
         />
         <Button
           onPress={() =>

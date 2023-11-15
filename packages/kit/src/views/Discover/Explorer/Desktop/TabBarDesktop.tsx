@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { Image } from 'react-native';
 
@@ -6,47 +6,22 @@ import { IconButton, Stack, Text } from '@onekeyhq/components';
 // @ts-expect-error
 import dAppFavicon from '@onekeyhq/kit/assets/dapp_favicon.png';
 import { DebugRenderTracker } from '@onekeyhq/kit/src/components/DebugRenderTracker';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { dismissWebviewKeyboard } from '../../explorerUtils';
 import {
-  addBlankWebTabAtomWithWriteOnly,
   atomWebTabs,
-  atomWebTabsMap,
-  closeWebTabAtomWithWriteOnly,
-  setCurrentWebTabAtomWithWriteOnly,
   useAtomWebTabs,
+  useWebTabsActions,
+  useWebTabsMapAtom,
 } from '../Context/contextWebTabs';
 
 import type { WebTab } from '../Context/contextWebTabs';
 import type { LayoutChangeEvent } from 'react-native';
 
-function useTabActions({ id }: { id: string }) {
-  const [, setCurrentWebTabAction] = useAtomWebTabs(
-    setCurrentWebTabAtomWithWriteOnly,
-  );
-  const setCurrentTab = useCallback(() => {
-    if (platformEnv.isNative) {
-      dismissWebviewKeyboard();
-    }
-    setCurrentWebTabAction(id);
-  }, [id, setCurrentWebTabAction]);
-
-  const [, closeWebTab] = useAtomWebTabs(closeWebTabAtomWithWriteOnly);
-  const closeTab = useCallback(() => {
-    closeWebTab(id);
-  }, [id, closeWebTab]);
-
-  return {
-    setCurrentTab,
-    closeTab,
-  };
-}
-
 function HomeTab({ id }: WebTab) {
-  const [map] = useAtomWebTabs(atomWebTabsMap);
+  const actions = useWebTabsActions();
+  // const [map] = useAtomWebTabs(atomWebTabsMap);
+  const [map] = useWebTabsMapAtom();
   const tab = map[id || ''];
-  const { setCurrentTab } = useTabActions({ id: tab.id });
   const ButtonContent = useMemo(
     () => (
       <DebugRenderTracker>
@@ -55,11 +30,11 @@ function HomeTab({ id }: WebTab) {
           borderRadius={0}
           bg={tab?.isCurrent ? '$bg' : '$bgHover'}
           icon="HomeRoofSolid"
-          onPress={setCurrentTab}
+          onPress={() => actions.setCurrentWebTab(tab.id)}
         />
       </DebugRenderTracker>
     ),
-    [tab.isCurrent, setCurrentTab],
+    [actions, tab.id, tab?.isCurrent],
   );
   return <>{ButtonContent}</>;
 }
@@ -68,9 +43,9 @@ function StandardTab({
   id,
   onLayout,
 }: WebTab & { onLayout?: (e: LayoutChangeEvent) => void }) {
-  const [map] = useAtomWebTabs(atomWebTabsMap);
+  const actions = useWebTabsActions();
+  const [map] = useWebTabsMapAtom();
   const tab = map[id || ''];
-  const { setCurrentTab, closeTab } = useTabActions({ id: tab.id });
 
   const Content = useMemo(
     () => (
@@ -84,7 +59,7 @@ function StandardTab({
           borderRightWidth="0.5px"
           px="$3"
           bg={tab.isCurrent ? '$bg' : '$bgHover'}
-          onPress={setCurrentTab}
+          onPress={() => actions.setCurrentWebTab(tab.id)}
           flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
@@ -108,13 +83,13 @@ function StandardTab({
             size="small"
             onPress={(e) => {
               e.stopPropagation();
-              closeTab();
+              actions.closeWebTab(tab.id);
             }}
           />
         </Stack>
       </DebugRenderTracker>
     ),
-    [tab.isCurrent, tab.title, tab.favicon, setCurrentTab, closeTab, onLayout],
+    [tab.isCurrent, tab?.favicon, tab?.title, tab.id, onLayout, actions],
   );
 
   return <>{Content}</>;
@@ -150,11 +125,11 @@ function Tab({
 }
 
 const AddTabButton = () => {
-  const [, addBlankWebTab] = useAtomWebTabs(addBlankWebTabAtomWithWriteOnly);
+  const actions = useWebTabsActions();
   return (
     <IconButton
       borderRadius={0}
-      onPress={() => addBlankWebTab()}
+      onPress={() => actions.addBlankWebTab()}
       icon="PlusSmallOutline"
     />
   );

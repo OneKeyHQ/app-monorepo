@@ -7,17 +7,17 @@ import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAr
 import { simpleDb } from '@onekeyhq/kit/src/components/WebView/mock';
 
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
-import { onItemSelect } from '../../Controller/gotoSite';
 import DiscoverDashboard from '../../Dashboard';
 import {
   homeTab,
-  setWebTabsWriteAtom,
-  useAtomWebTabs,
+  useWebTabsActions,
   withProviderWebTabs,
 } from '../Context/contextWebTabs';
 
 import BrowserInfoBar from './BrowserInfoBar';
 import WebTabContainer from './WebTabContainer';
+
+import type { DAppItemType } from '../../types';
 
 export function useTabBarDataFromSimpleDb() {
   const result = usePromiseResult(async () => {
@@ -29,19 +29,20 @@ export function useTabBarDataFromSimpleDb() {
 }
 
 function HandleRebuildTabBarData() {
+  const actions = useWebTabsActions();
   const result = useTabBarDataFromSimpleDb();
-  const [, setWebTabsData] = useAtomWebTabs(setWebTabsWriteAtom);
   useEffect(() => {
     const data = result.result;
     if (data && Array.isArray(data)) {
-      setWebTabsData(data);
+      actions.setWebTabs(data);
     }
-  }, [result.result, setWebTabsData]);
+  }, [actions, result.result]);
 
   return null;
 }
 
 function ExplorerMobileCmp() {
+  const actions = useWebTabsActions();
   const { top } = useSafeAreaInsets();
   const [showHome, setShowHome] = useState(true);
 
@@ -51,9 +52,9 @@ function ExplorerMobileCmp() {
       <Freeze freeze={!showHome}>
         <DiscoverDashboard
           key="dashboard"
-          onItemSelect={(item) => {
+          onItemSelect={(dapp: DAppItemType) => {
             setShowHome(false);
-            onItemSelect(item);
+            actions.openMatchDApp({ id: dapp._id, dapp });
           }}
         />
       </Freeze>

@@ -7,8 +7,10 @@ import { IconButton, ModalContainer, Stack, Text } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { useWebTabs } from '../../Controller/useWebTabs';
-import { webTabsActions, withProviderWebTabs } from '../Context/contextWebTabs';
+import {
+  useWebTabsActions,
+  withProviderWebTabs,
+} from '../Context/contextWebTabs';
 
 import type { DiscoverModalParamList } from '../../types';
 import type { WebTab } from '../Context/contextWebTabs';
@@ -17,6 +19,7 @@ import type { View } from 'react-native';
 export const tabGridRefs: Record<string, View> = {};
 
 const WebTabItem: FC<WebTab> = ({ isCurrent, title, id, url }) => {
+  const actions = useWebTabsActions();
   const navigation =
     useAppNavigation<IPageNavigationProp<DiscoverModalParamList>>();
   return (
@@ -26,7 +29,7 @@ const WebTabItem: FC<WebTab> = ({ isCurrent, title, id, url }) => {
       mt="$4"
       onPress={() => {
         if (!isCurrent) {
-          webTabsActions.setCurrentWebTab(id);
+          actions.setCurrentWebTab(id);
         }
         navigation.pop();
       }}
@@ -87,7 +90,7 @@ const WebTabItem: FC<WebTab> = ({ isCurrent, title, id, url }) => {
             variant="primary"
             icon="CrossedSmallOutline"
             onPress={() => {
-              webTabsActions.closeWebTab(id);
+              actions.closeWebTab(id);
             }}
           />
           {/* </Box> */}
@@ -98,7 +101,9 @@ const WebTabItem: FC<WebTab> = ({ isCurrent, title, id, url }) => {
 };
 
 function TabListModal() {
-  const { tabs } = useWebTabs();
+  const actions = useWebTabsActions();
+  // TODO performance?
+  const { tabs } = actions.getWebTabs();
   const data = useMemo(() => tabs.slice(1), [tabs]);
   const keyExtractor = useCallback((item: WebTab) => item.id, []);
   const renderItem = useCallback(
@@ -107,8 +112,8 @@ function TabListModal() {
   );
   return (
     <ModalContainer
-      onConfirm={() => webTabsActions.addBlankWebTab()}
-      onCancel={() => webTabsActions.closeAllWebTabs()}
+      onConfirm={() => actions.addBlankWebTab()}
+      onCancel={() => actions.closeAllWebTabs()}
     >
       <FlatList
         style={{ width: '100%', height: 200 }}

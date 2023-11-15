@@ -24,6 +24,17 @@ export const webHandler: WebHandler = (() => {
 
 export const webviewRefs: Record<string, IWebViewWrapperRef> = {};
 
+export interface IOnWebviewNavigationParams {
+  url?: string;
+  title?: string;
+  favicon?: string;
+  isInPlace?: boolean;
+  isNewWindow?: boolean;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
+  loading?: boolean;
+  id?: string;
+}
 export type OnWebviewNavigation = ({
   url,
   title,
@@ -34,17 +45,7 @@ export type OnWebviewNavigation = ({
   canGoForward,
   loading,
   id,
-}: {
-  url?: string;
-  title?: string;
-  favicon?: string;
-  isInPlace?: boolean;
-  isNewWindow?: boolean;
-  canGoBack?: boolean;
-  canGoForward?: boolean;
-  loading?: boolean;
-  id?: string;
-}) => void;
+}: IOnWebviewNavigationParams) => void;
 
 if (process.env.NODE_ENV !== 'production') {
   // @ts-ignore
@@ -69,74 +70,3 @@ export const validateUrl = (url: string) => {
 
   return url;
 };
-
-export function getWebviewWrapperRef(id?: string) {
-  let tabId = id;
-  if (!tabId) {
-    const { getCurrentTabId } =
-      require('./Explorer/Context/contextWebTabs') as typeof import('./Explorer/Context/contextWebTabs');
-    tabId = getCurrentTabId();
-  }
-  const ref = tabId ? webviewRefs[tabId] : null;
-  return ref ?? null;
-}
-
-export function crossWebviewLoadUrl({
-  url,
-  tabId,
-}: {
-  url: string;
-  tabId?: string;
-}) {
-  const wrapperRef = getWebviewWrapperRef(tabId);
-  // debugLogger.webview.info('crossWebviewLoadUrl >>>>', url);
-  console.log('crossWebviewLoadUrl >>>>', url);
-  if (platformEnv.isDesktop) {
-    // @ts-ignore
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    (wrapperRef?.innerRef as IElectronWebView)?.loadURL(url).catch();
-  } else if (platformEnv.isRuntimeBrowser) {
-    // @ts-ignore
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    (wrapperRef?.innerRef as IElectronWebView)?.loadURL(url);
-  } else {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    (wrapperRef?.innerRef as WebView)?.loadUrl(url);
-  }
-}
-
-// for hide keyboard
-const injectToDismissWebviewKeyboard = `
-(function(){
-  document.activeElement && document.activeElement.blur()
-})()
-`;
-
-export function dismissWebviewKeyboard(id?: string) {
-  const ref = getWebviewWrapperRef(id);
-  if (ref) {
-    if (platformEnv.isNative) {
-      try {
-        (ref.innerRef as WebView)?.injectJavaScript(
-          injectToDismissWebviewKeyboard,
-        );
-      } catch (error) {
-        // ipad mini orientation changed cause injectJavaScript ERROR, which crash app
-        console.error(
-          'blurActiveElement webview.injectJavaScript() ERROR >>>>> ',
-          error,
-        );
-      }
-    }
-    if (platformEnv.isDesktop) {
-      const deskTopRef = ref.innerRef as IElectronWebView;
-      if (deskTopRef) {
-        try {
-          deskTopRef.executeJavaScript(injectToDismissWebviewKeyboard);
-        } catch (e) {
-          // if not dom ready, no need to pause websocket
-        }
-      }
-    }
-  }
-}

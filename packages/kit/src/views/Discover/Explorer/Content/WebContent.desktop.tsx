@@ -2,9 +2,8 @@ import { useCallback, useMemo } from 'react';
 
 import WebView from '@onekeyhq/kit/src/components/WebView';
 
-import { onNavigation } from '../../Controller/useWebController';
 import { webviewRefs } from '../../explorerUtils';
-import { webTabsActions } from '../Context/contextWebTabs';
+import { useWebTabsActions } from '../Context/contextWebTabs';
 
 import type { IElectronWebView } from '../../../../components/WebView/types';
 import type { WebTab } from '../Context/contextWebTabs';
@@ -18,6 +17,7 @@ import type { WebViewProps } from 'react-native-webview';
 type IWebContentProps = WebTab & WebViewProps;
 
 function WebContent({ id, url }: IWebContentProps) {
+  const actions = useWebTabsActions();
   const getNavStatusInfo = useCallback(() => {
     const ref = webviewRefs[id];
     const webviewRef = ref.innerRef as IElectronWebView;
@@ -35,8 +35,8 @@ function WebContent({ id, url }: IWebContentProps) {
     }
   }, [id]);
   const onDidStartLoading = useCallback(() => {
-    onNavigation({ id, loading: true });
-  }, [id]);
+    actions.handleWebviewNavigation({ id, loading: true });
+  }, [actions, id]);
   const onDidStartNavigation = useCallback(
     ({
       url: willNavigationUrl,
@@ -44,7 +44,7 @@ function WebContent({ id, url }: IWebContentProps) {
       isMainFrame,
     }: DidStartNavigationEvent) => {
       if (isMainFrame) {
-        onNavigation({
+        actions.handleWebviewNavigation({
           id,
           url: willNavigationUrl,
           loading: true,
@@ -53,33 +53,33 @@ function WebContent({ id, url }: IWebContentProps) {
         });
       }
     },
-    [getNavStatusInfo, id],
+    [actions, getNavStatusInfo, id],
   );
   const onDidFinishLoad = useCallback(() => {
-    onNavigation({
+    actions.handleWebviewNavigation({
       id,
       loading: false,
       ...getNavStatusInfo(),
     });
-  }, [getNavStatusInfo, id]);
+  }, [actions, getNavStatusInfo, id]);
   const onPageTitleUpdated = useCallback(
     ({ title }: PageTitleUpdatedEvent) => {
       if (title) {
-        onNavigation({ id, title });
+        actions.handleWebviewNavigation({ id, title });
       }
     },
-    [id],
+    [actions, id],
   );
   const onPageFaviconUpdated = useCallback(
     ({ favicons }: PageFaviconUpdatedEvent) => {
       if (favicons.length > 0) {
-        onNavigation({
+        actions.handleWebviewNavigation({
           id,
           favicon: favicons[0],
         });
       }
     },
-    [id],
+    [actions, id],
   );
   // const onNewWindow = useCallback(
   //   ({ url: newWindowUrl }: NewWindowEvent) => {
@@ -102,7 +102,7 @@ function WebContent({ id, url }: IWebContentProps) {
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {
             if (!webviewRefs[id]) {
-              webTabsActions.setWebTabData({
+              actions.setWebTabData({
                 id,
                 refReady: true,
               });

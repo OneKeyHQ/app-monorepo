@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { crossWebviewLoadUrl, getWebviewWrapperRef } from '../explorerUtils';
+import { useWebTabsActions } from '../Explorer/Context/contextWebTabs';
 
 import type { IElectronWebView } from '../../../components/WebView/types';
 import type { OnWebviewNavigation } from '../explorerUtils';
@@ -17,6 +17,7 @@ export const useWebviewRef = ({
   onNavigation: OnWebviewNavigation;
   tabId: string;
 }) => {
+  const actions = useWebTabsActions();
   const goBack = useCallback(() => {
     try {
       ref?.goBack();
@@ -51,23 +52,23 @@ export const useWebviewRef = ({
       if (platformEnv.isNative) {
         ref?.reload();
       } else {
-        const wrapperRef = getWebviewWrapperRef(tabId);
+        const wrapperRef = actions.getWebviewWrapperRef(tabId);
         // cross-platform reload()
         wrapperRef?.reload();
       }
     } catch {
       /* empty */
     }
-  }, [tabId, ref]);
+  }, [ref, actions, tabId]);
 
   const loadURL = useCallback(
     (url: string) => {
-      crossWebviewLoadUrl({
+      actions.crossWebviewLoadUrl({
         url,
         tabId,
       });
     },
-    [tabId],
+    [actions, tabId],
   );
 
   return {

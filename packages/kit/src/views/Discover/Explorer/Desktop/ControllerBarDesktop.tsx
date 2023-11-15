@@ -3,14 +3,13 @@ import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { IconButton, Input, XStack } from '@onekeyhq/components';
 import type { IICON_NAMES } from '@onekeyhq/components';
+import { IconButton, Input, XStack } from '@onekeyhq/components';
 
-import { gotoSite, openMatchDApp } from '../../Controller/gotoSite';
 import { useWebController } from '../../Controller/useWebController';
+import { useWebTabsActions } from '../Context/contextWebTabs';
 
 import type { MatchDAppItemType } from '../../explorerUtils';
-import type { WebTab } from '../Context/contextWebTabs';
 import type { TextInput } from 'react-native';
 
 type BrowserURLInputProps = {
@@ -68,6 +67,7 @@ function getHttpSafeState(searchContent?: string): IICON_NAMES {
 }
 
 function ControllerBarDesktop() {
+  const actions = useWebTabsActions();
   const intl = useIntl();
 
   const [historyVisible, setHistoryVisible] = useState(false);
@@ -77,9 +77,9 @@ function ControllerBarDesktop() {
 
   const onSearchSubmitEditing = (dapp: MatchDAppItemType | string) => {
     if (typeof dapp === 'string') {
-      return gotoSite({ url: dapp, userTriggered: true });
+      return actions.goToSite({ url: dapp, userTriggered: true });
     }
-    openMatchDApp(dapp);
+    actions.openMatchDApp(dapp);
   };
 
   const url: string =

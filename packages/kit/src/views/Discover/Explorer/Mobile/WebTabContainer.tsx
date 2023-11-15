@@ -5,18 +5,17 @@ import { StyleSheet, View } from 'react-native';
 
 import { Stack } from '@onekeyhq/components';
 
-import { onItemSelect } from '../../Controller/gotoSite';
-import { useWebTabs } from '../../Controller/useWebTabs';
 import DiscoverDashboard from '../../Dashboard';
 import WebContent from '../Content/WebContent';
 import {
-  atomWebTabsMap,
   homeTab,
-  useAtomWebTabs,
+  useWebTabsActions,
+  useWebTabsMapAtom,
 } from '../Context/contextWebTabs';
 
 import BrowserBottomBar from './BrowserBottomBar';
 
+import type { DAppItemType } from '../../types';
 import type { WebTab } from '../Context/contextWebTabs';
 
 const styles = StyleSheet.create({
@@ -32,7 +31,7 @@ const styles = StyleSheet.create({
 });
 
 function WebContentWithFreeze({ tab }: { tab: WebTab }) {
-  const [map] = useAtomWebTabs(atomWebTabsMap);
+  const [map] = useWebTabsMapAtom();
   const freshTab = map[tab.id || ''];
   const content = useMemo(
     () => (
@@ -47,7 +46,8 @@ function WebContentWithFreeze({ tab }: { tab: WebTab }) {
 }
 
 function WebTabContainerCmp() {
-  const { tabs, tab } = useWebTabs();
+  const actions = useWebTabsActions();
+  const { tabs, tab } = actions.getWebTabs();
   const showHome = tab?.url === homeTab.url;
   const content = useMemo(
     () => tabs.slice(1).map((t) => <WebContentWithFreeze tab={t} />),
@@ -59,7 +59,12 @@ function WebTabContainerCmp() {
       {content}
       <Freeze freeze={!showHome}>
         <View style={styles.blankPage}>
-          <DiscoverDashboard key="dashboard" onItemSelect={onItemSelect} />
+          <DiscoverDashboard
+            key="dashboard"
+            onItemSelect={(dapp: DAppItemType) => {
+              actions.openMatchDApp({ id: dapp._id, dapp });
+            }}
+          />
         </View>
       </Freeze>
     </Stack>

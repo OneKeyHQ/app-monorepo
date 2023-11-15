@@ -5,11 +5,11 @@ import { StyleSheet, View } from 'react-native';
 
 import { Stack } from '@onekeyhq/components';
 
-import { onItemSelect } from '../../Controller/gotoSite';
-import { useWebTabs } from '../../Controller/useWebTabs';
 import DiscoverDashboard from '../../Dashboard';
 import WebContent from '../Content/WebContent';
-import { homeTab } from '../Context/contextWebTabs';
+import { homeTab, useWebTabsActions } from '../Context/contextWebTabs';
+
+import type { DAppItemType } from '../../types';
 
 const styles = StyleSheet.create({
   blankPage: {
@@ -19,7 +19,8 @@ const styles = StyleSheet.create({
 });
 
 function TabbedWebContainerCmp() {
-  const { tabs, tab } = useWebTabs();
+  const actions = useWebTabsActions();
+  const { tabs, tab } = actions.getWebTabs();
   const showHome = tab?.url === homeTab.url;
 
   return (
@@ -31,7 +32,12 @@ function TabbedWebContainerCmp() {
       ))}
       <Freeze freeze={!showHome}>
         <View style={styles.blankPage}>
-          <DiscoverDashboard key="dashboard" onItemSelect={onItemSelect} />
+          <DiscoverDashboard
+            key="dashboard"
+            onItemSelect={(dapp: DAppItemType) => {
+              actions.openMatchDApp({ id: dapp._id, dapp });
+            }}
+          />
         </View>
       </Freeze>
     </Stack>
