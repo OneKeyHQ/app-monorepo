@@ -162,6 +162,7 @@ function CheckboxGroup({
         removeClippedSubviews
         style={listStyle}
         data={options}
+        estimatedItemSize="$10"
         renderItem={({
           item: { label: labelText, disabled: disabledElement },
           index,
