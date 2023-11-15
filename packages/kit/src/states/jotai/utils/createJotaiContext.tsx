@@ -3,6 +3,13 @@ import { createContext, useContext, useMemo } from 'react';
 
 import { atom, createStore, useAtom } from 'jotai';
 
+import type { Read, Write } from '@onekeyhq/kit-bg/src/states/jotai/types';
+import {
+  contextAtomBase,
+  contextAtomComputedBase,
+  contextAtomMethodBase,
+} from '@onekeyhq/kit-bg/src/states/jotai/utils';
+
 import type { WritableAtom } from 'jotai';
 
 export { atom };
@@ -32,11 +39,38 @@ export function createJotaiContext() {
       );
     };
   }
+
+  function contextAtom<Value>(initialValue: Value) {
+    return contextAtomBase({
+      useContextAtom,
+      initialValue,
+    });
+  }
+
+  function contextAtomComputed<Value>(read: Read<Value>) {
+    return contextAtomComputedBase({
+      useContextAtom: useContextAtom as any,
+      read,
+    });
+  }
+
+  function contextAtomMethod<Value, Args extends unknown[], Result>(
+    fn: Write<Args, Result>,
+  ) {
+    return contextAtomMethodBase({
+      useContextAtom,
+      fn,
+    });
+  }
+
   return {
     Context,
     Provider,
     withProvider,
     useContextAtom,
+    contextAtom,
+    contextAtomMethod,
+    contextAtomComputed,
     store,
   };
 }
