@@ -5104,6 +5104,7 @@ __metadata:
     "@react-native-async-storage/async-storage": 1.18.2
     "@react-native-community/netinfo": ^9.4.1
     "@react-native-community/slider": ^4.4.3
+    "@shopify/flash-list": ^1.6.3
     burnt: 0.12
     expo: ~49.0.13
     expo-device: ~5.4.0
@@ -6259,6 +6260,20 @@ __metadata:
     component-type: ^1.2.1
     join-component: ^1.1.0
   checksum: 8c4aacc903fb717619b69ca7eecf8d4a7b928661b0e835c9cd98f1b858a85ce62c348369ad9a52cb2df8df02578c0525a73fce4c69a42ac414d9554cc6be7117
+  languageName: node
+  linkType: hard
+
+"@shopify/flash-list@npm:^1.6.3":
+  version: 1.6.3
+  resolution: "@shopify/flash-list@npm:1.6.3"
+  dependencies:
+    recyclerlistview: 4.2.0
+    tslib: 2.4.0
+  peerDependencies:
+    "@babel/runtime": "*"
+    react: "*"
+    react-native: "*"
+  checksum: 655723d750275c07837099b79ec01a63c40223ccf56a706299e0906cec907fb9617e1135b49d59a05ff550fdaa7565957dee92929b84671cd6d910a145664b2c
   languageName: node
   linkType: hard
 
@@ -24850,7 +24865,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"recyclerlistview@npm:^4.2.0":
+"recyclerlistview@npm:4.2.0, recyclerlistview@npm:^4.2.0":
   version: 4.2.0
   resolution: "recyclerlistview@npm:4.2.0"
   dependencies:
