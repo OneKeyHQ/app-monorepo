@@ -22,8 +22,11 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 
 import ErrorView from './ErrorView';
 
-import type { IElectronWebView, IElectronWebViewEvents } from './types';
-import type { InpageProviderWebViewProps } from '@onekeyfe/cross-inpage-provider-types';
+import type {
+  IElectronWebView,
+  IElectronWebViewEvents,
+  IInpageProviderWebViewProps,
+} from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type {
   DidFailLoadEvent,
@@ -86,7 +89,7 @@ const DesktopWebView = forwardRef(
       ...props
     }: ComponentProps<typeof WEBVIEW_TAG> &
       IElectronWebViewEvents &
-      InpageProviderWebViewProps,
+      IInpageProviderWebViewProps,
     ref: any,
   ) => {
     const [isWebviewReady, setIsWebviewReady] = useState(false);

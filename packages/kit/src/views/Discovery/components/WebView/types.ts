@@ -12,7 +12,7 @@ import type {
   WebViewSource,
 } from 'react-native-webview/lib/WebViewTypes';
 
-export interface InpageProviderWebViewProps
+export interface IInpageProviderWebViewProps
   extends IElectronWebViewEvents,
     InpageWebViewProps {
   id?: string;

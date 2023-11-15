@@ -19,12 +19,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DesktopWebView } from './DesktopWebView';
 
-import type { InpageProviderWebViewProps } from './types';
+import type { IInpageProviderWebViewProps } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
 const DESKTOP_USER_AGENT_MOCK = undefined;
 
-const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
+const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
   (
     {
       id,
@@ -42,7 +42,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       onPageFaviconUpdated,
       // onNewWindow,
       onDomReady,
-    }: InpageProviderWebViewProps,
+    }: IInpageProviderWebViewProps,
     ref: any,
   ) => {
     const [progress, setProgress] = useState(5);

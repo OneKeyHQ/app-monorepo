@@ -9,11 +9,11 @@ import { Progress, Spinner, Stack } from '@onekeyhq/components';
 import injectedNativeCode from './injectedNative.text-js';
 import { NativeWebView } from './NativeWebView';
 
-import type { InpageProviderWebViewProps } from './types';
+import type { IInpageProviderWebViewProps } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewProps } from 'react-native-webview';
 
-const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
+const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
   (
     {
       src = '',
@@ -30,7 +30,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       onLoadStart,
       onLoadEnd,
       androidLayerType,
-    }: InpageProviderWebViewProps,
+    }: IInpageProviderWebViewProps,
     ref: any,
   ) => {
     const [progress, setProgress] = useState(5);

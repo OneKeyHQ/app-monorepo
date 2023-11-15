@@ -19,11 +19,11 @@ import { openUrlExternal } from '../../../../utils/openUrl';
 
 import ErrorView from './ErrorView';
 
-import type { InpageProviderWebViewProps } from '@onekeyfe/cross-inpage-provider-types';
+import type { IInpageProviderWebViewProps } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
 
-export type INativeWebViewProps = WebViewProps & InpageProviderWebViewProps;
+export type INativeWebViewProps = WebViewProps & IInpageProviderWebViewProps;
 
 const styles = StyleSheet.create({
   container: {

@@ -1,11 +1,11 @@
 import type { FC } from 'react';
 import { forwardRef, useImperativeHandle, useRef } from 'react';
 
-import type { InpageProviderWebViewProps } from './types';
+import type { IInpageProviderWebViewProps } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
-const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
-  ({ src = '' }: InpageProviderWebViewProps, ref: any) => {
+const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
+  ({ src = '' }: IInpageProviderWebViewProps, ref: any) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const iframeWebviewRef = useRef<IWebViewWrapperRef>({
       reload: () => {
