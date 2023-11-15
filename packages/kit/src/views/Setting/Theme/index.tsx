@@ -1,54 +1,39 @@
-import type { FC } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { ListItem, ModalContainer, Stack } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ModalContainer, Stack } from '@onekeyhq/components';
+import {
+  type ISettingsPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-type IListItemCheckProps = {
-  title: string;
-  isChecked: boolean;
-  onPress?: () => void;
-};
+import {
+  type IListItemSelectOption,
+  ListItemSelect,
+} from '../Components/ListItemSelect';
 
-const ListItemCheck: FC<IListItemCheckProps> = ({
-  title,
-  isChecked,
-  onPress,
-}) => (
-  <ListItem title={title} onPress={onPress}>
-    {isChecked ? (
-      <ListItem.IconButton
-        iconProps={{ 'color': '$iconActive' }}
-        icon="CheckRadioSolid"
-      />
-    ) : null}
-  </ListItem>
-);
+type IThemeValue = ISettingsPersistAtom['theme'];
 
 export default function SettingThemeModal() {
   const [settings, setSettings] = useSettingsPersistAtom();
+  const options = useMemo<IListItemSelectOption<IThemeValue>[]>(
+    () => [
+      { title: 'Auto', value: 'system' as const },
+      { title: 'Light', value: 'light' as const },
+      { title: 'Dark', value: 'dark' as const },
+    ],
+    [],
+  );
+  const onChange = useCallback(
+    (text: IThemeValue) => setSettings({ ...settings, 'theme': text }),
+    [settings, setSettings],
+  );
   return (
     <ModalContainer>
       <Stack>
-        <ListItemCheck
-          title="Auto"
-          isChecked={settings.theme === 'system'}
-          onPress={() => {
-            setSettings({ ...settings, 'theme': 'system' });
-          }}
-        />
-        <ListItemCheck
-          title="Light"
-          isChecked={settings.theme === 'light'}
-          onPress={() => {
-            setSettings({ ...settings, 'theme': 'light' });
-          }}
-        />
-        <ListItemCheck
-          title="Dark"
-          isChecked={settings.theme === 'dark'}
-          onPress={() => {
-            setSettings({ ...settings, 'theme': 'dark' });
-          }}
+        <ListItemSelect
+          onChange={onChange}
+          value={settings.theme}
+          options={options}
         />
       </Stack>
     </ModalContainer>
