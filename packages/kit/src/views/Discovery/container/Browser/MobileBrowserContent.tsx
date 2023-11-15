@@ -12,6 +12,7 @@ import { ModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import WebContent from '../../components/WebContent/WebContent';
 import { THUMB_HEIGHT, THUMB_WIDTH } from '../../config/TabList.constants';
+import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
 import useBrowserHistoryAction from '../../hooks/useBrowserHistoryAction';
 import useWebTabAction from '../../hooks/useWebTabAction';
 import {
@@ -38,11 +39,13 @@ function MobileBrowserContent({ id }: { id: string }) {
   const { tabs } = useWebTabs();
   const { tab } = useWebTabData(id);
   const { addBrowserHistory } = useBrowserHistoryAction();
+  const { addBrowserBookmark, removeBrowserBookmark } =
+    useBrowserBookmarkAction();
   const { activeTabId } = useActiveTabId();
   const [backEnabled, setBackEnabled] = useState(false);
   const [forwardEnabled, setForwardEnabled] = useState(false);
   const captureViewRef = useRef<TamaguiElement | null>();
-  const { setWebTabData } = useWebTabAction();
+  const { setWebTabData, setPinedTab } = useWebTabAction();
 
   const isActive = useMemo(
     () => activeTabId === tab?.id,
@@ -106,10 +109,46 @@ function MobileBrowserContent({ id }: { id: string }) {
           canGoBack={backEnabled}
           canGoForward={forwardEnabled}
           onShowTabList={onShowTabList}
+          isBookmark={tab?.isBookmark ?? false}
+          onBookmarkPress={(isBookmark) => {
+            if (isBookmark) {
+              addBrowserBookmark({ url: tab?.url, title: tab?.title ?? '' });
+            } else {
+              removeBrowserBookmark(tab?.url);
+            }
+            void setWebTabData({
+              id,
+              isBookmark,
+            });
+          }}
+          onRefresh={() => webviewRefs[id]?.reload()}
+          onShare={() => console.log('TODO: share')}
+          isPined={tab?.isPined ?? false}
+          onPinedPress={(pined) => {
+            void setPinedTab({ id, pined });
+          }}
+          onCopyUrl={() => console.log('TODO: copy url')}
+          onBrowserOpen={() => console.log('TODO: open in browser')}
+          onGoBackHomePage={() => console.log('TODO: go back home page')}
         />
       </Freeze>
     ),
-    [id, backEnabled, forwardEnabled, isActive, tabCount, onShowTabList],
+    [
+      id,
+      backEnabled,
+      forwardEnabled,
+      isActive,
+      tabCount,
+      onShowTabList,
+      tab?.isPined,
+      tab?.isBookmark,
+      tab?.url,
+      tab?.title,
+      addBrowserBookmark,
+      removeBrowserBookmark,
+      setPinedTab,
+      setWebTabData,
+    ],
   );
 
   const content = useMemo(() => {

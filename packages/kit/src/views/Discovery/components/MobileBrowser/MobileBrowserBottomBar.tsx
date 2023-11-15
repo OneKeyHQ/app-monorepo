@@ -1,7 +1,13 @@
+import { useState } from 'react';
+
 import { Button, IconButton, Stack } from '@onekeyhq/components';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
 
 import useWebTabAction from '../../hooks/useWebTabAction';
+
+import MobileBrowserBottomOptions from './MobileBrowserBottomOptions';
+
+import type { IMobileBottomOptionsProps } from '../../types';
 
 function MobileBrowserBottomBar({
   goBack,
@@ -10,6 +16,7 @@ function MobileBrowserBottomBar({
   canGoForward,
   tabCount,
   onShowTabList,
+  ...rest
 }: {
   id: string;
   tabCount: number;
@@ -18,11 +25,11 @@ function MobileBrowserBottomBar({
   canGoBack: boolean;
   canGoForward: boolean;
   onShowTabList: () => void;
-}) {
+} & IMobileBottomOptionsProps) {
   const { bottom } = useSafeAreaInsets();
 
   const { addBlankWebTab } = useWebTabAction();
-
+  const [open, onOpenChange] = useState(false);
   return (
     <Stack bg="$bgActiveDark" height="$14" zIndex={1} display="flex">
       <Stack
@@ -51,10 +58,13 @@ function MobileBrowserBottomBar({
         >
           {tabCount}
         </Button>
-        <IconButton
-          icon="PlusLargeOutline"
-          onPress={() => console.log('show more menu')}
-        />
+        <MobileBrowserBottomOptions
+          open={open}
+          onOpenChange={onOpenChange}
+          {...rest}
+        >
+          <IconButton icon="MoreIllus" onPress={() => onOpenChange(true)} />
+        </MobileBrowserBottomOptions>
       </Stack>
     </Stack>
   );

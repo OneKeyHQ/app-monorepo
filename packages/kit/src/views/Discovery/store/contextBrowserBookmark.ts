@@ -10,7 +10,10 @@ import type { IBrowserBookmark } from '../types';
 export const {
   withProvider: withProviderBrowserBookmark,
   useContextAtom: useAtomBrowserBookmark,
-} = createJotaiContext();
+  store: browserBookmarkStore,
+} = createJotaiContext({
+  isSingletonStore: true,
+});
 
 export const browserBookmarkAtom = atom<IBrowserBookmark[]>([]);
 
@@ -42,3 +45,6 @@ export const removeBrowserBookmarkAtom = atom(
     set(browserBookmarkAtom, bookmark);
   },
 );
+
+export const getBrowserBookmarks = () =>
+  browserBookmarkStore?.get(browserBookmarkAtom);

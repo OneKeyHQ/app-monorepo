@@ -1,5 +1,6 @@
 import { openUrl } from '../../../utils/openUrl';
 import { getWebTabs } from '../hooks/useWebTabs';
+import { getBrowserBookmarks } from '../store/contextBrowserBookmark';
 import { addWebTab, closeWebTab, setWebTabData } from '../store/contextWebTabs';
 
 import {
@@ -9,9 +10,9 @@ import {
 } from './explorerUtils';
 
 import type {
+  IBrowserHistory,
   IDAppItemType,
   IMatchDAppItemType,
-  IWebSiteHistory,
 } from '../types';
 
 export const gotoSite = ({
@@ -22,7 +23,8 @@ export const gotoSite = ({
   isInPlace,
   id,
   userTriggered,
-}: IWebSiteHistory & {
+}: IBrowserHistory & {
+  favicon?: string;
   dAppId?: string;
   isNewWindow?: boolean;
   isInPlace?: boolean;
@@ -52,12 +54,17 @@ export const gotoSite = ({
       (isNewWindow || !tabId || tabId === 'home' || maybeDeepLink) &&
       browserTypeHandler === 'MultiTabBrowser';
 
+    const bookmarks = getBrowserBookmarks();
+    const isBookmark = bookmarks?.some((item) =>
+      item.url.includes(validatedUrl),
+    );
+
     if (isNewTab) {
       addWebTab({
         title,
         url: validatedUrl,
         favicon,
-        isBookmark: false,
+        isBookmark,
       });
     } else {
       void setWebTabData({
@@ -65,7 +72,7 @@ export const gotoSite = ({
         url: validatedUrl,
         title,
         favicon,
-        isBookmark: false,
+        isBookmark,
       });
     }
 
@@ -99,6 +106,8 @@ export const openMatchDApp = ({
     return gotoSite({
       url: webSite.url,
       title: webSite.title,
+      // TODO: get favicon from url
+      // @ts-expect-error
       favicon: webSite.favicon,
       isNewWindow,
       userTriggered: true,
