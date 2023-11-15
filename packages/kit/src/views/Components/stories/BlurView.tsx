@@ -12,7 +12,14 @@ import {
 import { Layout } from './utils/Layout';
 
 const mockData = [...Array(20).keys()];
-const colors = ['orangered', 'gold', 'purple', 'turquoise', 'salmon'];
+const colors = [
+  'orangered',
+  'gold',
+  'purple',
+  'turquoise',
+  'salmon',
+  'yellowgreen',
+];
 const getColor = () => colors[Math.floor(Math.random() * colors.length)];
 
 function Background({ children }: PropsWithChildren<unknown>) {
@@ -78,11 +85,11 @@ const BlurViewGallery = () => (
     boundaryConditions={['****']}
     elements={[
       {
-        title: '默认状态',
+        title: 'Default',
         element: <BasicDemo />,
       },
       {
-        title: '默认状态',
+        title: 'List',
         element: <ListDemo />,
       },
     ]}
