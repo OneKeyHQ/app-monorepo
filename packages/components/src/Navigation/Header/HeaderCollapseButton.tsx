@@ -15,16 +15,16 @@ function HeaderCollapseButton({
   isRootScreen?: boolean;
 }) {
   const {
-    leftSidebarCollapsed: isCollpase,
+    leftSidebarCollapsed: isCollapse,
     setLeftSidebarCollapsed: setIsCollapse,
   } = useProviderSideBarValue();
 
   const onPressCall = useCallback(() => {
-    setIsCollapse?.(!isCollpase);
-  }, [isCollpase, setIsCollapse]);
+    setIsCollapse?.(!isCollapse);
+  }, [isCollapse, setIsCollapse]);
 
   const paddingLeft = getTokenValue(
-    platformEnv.isDesktopMac && isRootScreen && isCollpase ? '$20' : '$0',
+    platformEnv.isDesktopMac && isRootScreen && isCollapse ? '$20' : '$0',
     'size',
   );
   return (
