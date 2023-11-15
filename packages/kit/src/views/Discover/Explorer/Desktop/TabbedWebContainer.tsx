@@ -25,11 +25,15 @@ function TabbedWebContainerCmp() {
 
   return (
     <Stack flex={1} zIndex={3}>
-      {tabs.map((t) => (
-        <Freeze key={t.id} freeze={!t.isCurrent}>
-          <WebContent {...t} />
-        </Freeze>
-      ))}
+      {tabs.map((t) => {
+        console.log(t);
+        return <WebContent key={t.id} {...t} />;
+        // return (
+        //   <Freeze key={t.id} freeze={!t.isCurrent;}>
+        //     <WebContent {...t} />
+        //   </Freeze>
+        // );
+      })}
       <Freeze freeze={!showHome}>
         <View style={styles.blankPage}>
           <DiscoverDashboard

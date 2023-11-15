@@ -8,13 +8,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { validateUrl, webHandler, webviewRefs } from '../../explorerUtils';
 
-import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
-import type { WebView } from 'react-native-webview';
 import type {
   IOnWebviewNavigationParams,
   MatchDAppItemType,
 } from '../../explorerUtils';
 import type { WebSiteHistory } from '../../types';
+import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
+import type { WebView } from 'react-native-webview';
 
 export interface WebTab {
   id: string;
@@ -458,7 +458,8 @@ class ContextJotaiActionsWebTabs extends ContextJotaiActionsBase {
     if (!tabId) {
       tabId = get(currentTabIdAtom);
     }
-    const ref = tabId ? webviewRefs[tabId] : null;
+    const refs = webviewRefs;
+    const ref = tabId ? refs[tabId] : null;
     return ref ?? null;
   });
 
