@@ -1,15 +1,8 @@
-import { memo } from 'react';
+import { StyleSheet } from 'react-native';
 
-import { Freeze } from 'react-freeze';
-import { StyleSheet, View } from 'react-native';
+import { Button, Stack } from '@onekeyhq/components';
 
-import { Stack } from '@onekeyhq/components';
-
-import DiscoverDashboard from '../../Dashboard';
-import WebContent from '../Content/WebContent';
 import { homeTab, useWebTabsActions } from '../Context/contextWebTabs';
-
-import type { DAppItemType } from '../../types';
 
 const styles = StyleSheet.create({
   blankPage: {
@@ -25,16 +18,18 @@ function TabbedWebContainerCmp() {
 
   return (
     <Stack flex={1} zIndex={3}>
+      <Button>HI World</Button>
       {tabs.map((t) => {
         console.log(t);
-        return <WebContent key={t.id} {...t} />;
+        return <Button key={t.id}>Hello World::::{t.url}</Button>;
+        // return <WebContent key={t.id} {...t} />;
         // return (
         //   <Freeze key={t.id} freeze={!t.isCurrent;}>
         //     <WebContent {...t} />
         //   </Freeze>
         // );
       })}
-      <Freeze freeze={!showHome}>
+      {/* <Freeze freeze={!showHome}>
         <View style={styles.blankPage}>
           <DiscoverDashboard
             key="dashboard"
@@ -43,10 +38,11 @@ function TabbedWebContainerCmp() {
             }}
           />
         </View>
-      </Freeze>
+      </Freeze> */}
     </Stack>
   );
 }
 
-const TabbedWebContainer = memo(TabbedWebContainerCmp);
-export default TabbedWebContainer;
+// const TabbedWebContainer = memo(TabbedWebContainerCmp);
+// export default TabbedWebContainer;
+export default TabbedWebContainerCmp;

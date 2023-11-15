@@ -81,6 +81,8 @@ export function DesktopLeftSideBar({
         const focus = index === state.index;
         const { options } = descriptors[route.key];
 
+        const cmpKey = `${route.key}--${index}`;
+
         const onPress = () => {
           const event = navigation.emit({
             type: 'tabPress',
@@ -102,6 +104,7 @@ export function DesktopLeftSideBar({
         if (route.name === extraConfig?.name) {
           return (
             <YStack
+              key={cmpKey}
               onPress={() => {
                 // Avoid re-rendering by checking if it's the current route.
                 if (state.routeNames[state.index] !== extraConfig?.name) {
@@ -122,7 +125,7 @@ export function DesktopLeftSideBar({
 
         return (
           <TabItemView
-            key={route.key}
+            key={cmpKey}
             route={route}
             onPress={onPress}
             isActive={focus}
