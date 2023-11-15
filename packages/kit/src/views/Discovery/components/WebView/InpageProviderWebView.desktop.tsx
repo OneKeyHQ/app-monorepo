@@ -2,7 +2,6 @@ import type { FC } from 'react';
 import {
   forwardRef,
   useCallback,
-  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -58,19 +57,14 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       (): IWebViewWrapperRef | null => webviewRef.current,
     );
 
-    useEffect(() => {
-      console.log('===>progress: ', progress);
-    }, [progress]);
-
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const innerOnDidStartLoading = useCallback(
       (e: any) => {
         onDidStartLoading?.(e);
-
+        setShowProgress(true);
         setProgress(5);
         intervalRef.current = setInterval(() => {
           setProgress((oldProgress) => {
-            console.log('===>setProgress: ', oldProgress);
             if (oldProgress >= 90) {
               if (intervalRef.current) {
                 clearInterval(intervalRef.current);

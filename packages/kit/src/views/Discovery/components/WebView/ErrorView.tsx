@@ -3,7 +3,7 @@ import { type FC, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import { ERROR_CODE } from 'react-native-webview/lib/WebViewShared';
 
-import { Button, Stack, Text } from '@onekeyhq/components';
+import { Empty, Stack } from '@onekeyhq/components';
 import type EnLanguage from '@onekeyhq/components/src/locale/en-US.json';
 
 type ILanguageId = keyof typeof EnLanguage;
@@ -32,21 +32,16 @@ const ErrorView: FC<IErrorViewProps> = ({ errorCode, onRefresh }) => {
   }, [errorCode]);
 
   return (
-    <Stack w="100%" h="100%" bg="background-default">
-      {/* TODO: REPLACE_COMPONENT Empty */}
-      <Stack mb={3}>
-        <Text>{intl.formatMessage({ id: messages.title })}</Text>
-        <Text>{intl.formatMessage({ id: messages.subTitle })}</Text>
-      </Stack>
-      <Button
-        mt={6}
-        size="large"
-        variant="primary"
-        icon="ArrowPathUpOutline"
-        onPress={onRefresh}
-      >
-        {intl.formatMessage({ id: 'action__refresh' })}
-      </Button>
+    <Stack flex={1} alignItems="center" justifyContent="center">
+      <Empty
+        icon="CloudOffOutline"
+        title={intl.formatMessage({ id: messages.title })}
+        description={intl.formatMessage({ id: messages.subTitle })}
+        buttonProps={{
+          children: intl.formatMessage({ id: 'action__refresh' }),
+          onPress: () => onRefresh?.(),
+        }}
+      />
     </Stack>
   );
 };

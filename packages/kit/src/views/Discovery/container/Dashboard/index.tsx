@@ -58,6 +58,20 @@ const data = [
     'logoURL':
       'https://nft.onekey-asset.com/admin/upload_1678273561733.0.26599601397534145.0.png',
   },
+  {
+    'url': 'https://www.onekey111.so/',
+    'name': 'ErrorPage',
+    '_id': '64086c61ea3412b877c2d8de',
+    'logoURL':
+      'https://nft.onekey-asset.com/admin/upload_1678273561733.0.26599601397534145.0.png',
+  },
+  {
+    'url': 'https://www.onekey111danger.so/',
+    'name': 'DangerPage',
+    '_id': '64082361ea3412b877c2d8de',
+    'logoURL':
+      'https://nft.onekey-asset.com/admin/upload_1678273561733.0.26599601397534145.0.png',
+  },
 ];
 
 type IProps = { onItemSelect?: (item: IDAppItemType) => void };

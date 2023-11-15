@@ -13,8 +13,8 @@ import {
 
 import { consts } from '@onekeyfe/cross-inpage-provider-core';
 import { JsBridgeDesktopHost } from '@onekeyfe/onekey-cross-webview';
-import { Freeze } from 'react-freeze';
 
+import { Stack } from '@onekeyhq/components';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 
@@ -336,34 +336,33 @@ const DesktopWebView = forwardRef(
             DevTools
           </button>
         )}
-
-        <Freeze freeze={desktopLoadError}>
-          <webview
-            ref={initWebviewByRef}
-            preload={preloadJsUrl}
-            src={src}
-            partition="webview"
-            style={{
-              'width': '100%',
-              'height': '100%',
-              ...style,
-            }}
-            allowpopups={allowpopups}
-            // @ts-expect-error
-            nodeintegration="true"
-            nodeintegrationinsubframes="true"
-            webpreferences="contextIsolation=0, contextisolation=0, nativeWindowOpen=1, sandbox=0"
-            // mobile user-agent
-            // useragent="Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1"
-            {...props}
-          />
-        </Freeze>
+        <webview
+          ref={initWebviewByRef}
+          preload={preloadJsUrl}
+          src={src}
+          partition="webview"
+          style={{
+            'width': '100%',
+            'height': '100%',
+            ...style,
+          }}
+          allowpopups={allowpopups}
+          // @ts-expect-error
+          nodeintegration="true"
+          nodeintegrationinsubframes="true"
+          webpreferences="contextIsolation=0, contextisolation=0, nativeWindowOpen=1, sandbox=0"
+          // mobile user-agent
+          // useragent="Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1"
+          {...props}
+        />
         {desktopLoadError && (
-          <ErrorView
-            onRefresh={() => {
-              webviewRef.current?.reload();
-            }}
-          />
+          <Stack position="absolute" top={0} bottom={0} left={0} right={0}>
+            <ErrorView
+              onRefresh={() => {
+                webviewRef.current?.reload();
+              }}
+            />
+          </Stack>
         )}
       </>
     );

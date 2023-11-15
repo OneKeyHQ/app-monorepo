@@ -12,6 +12,7 @@ import { WebView } from 'react-native-webview';
 
 // import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { Stack } from '@onekeyhq/components';
 import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { openUrlExternal } from '../../../../utils/openUrl';
@@ -118,14 +119,18 @@ const NativeWebView = forwardRef(
         // debugLogger.webview.error({ errorDomain, errorCode, errorDesc, src });
         console.log({ errorDomain, errorCode, errorDesc, src });
         return (
-          <ErrorView
-            errorCode={errorCode}
-            onRefresh={() => webviewRef.current?.reload()}
-          />
+          <Stack position="absolute" top={0} bottom={0} left={0} right={0}>
+            <ErrorView
+              errorCode={errorCode}
+              onRefresh={() => webviewRef.current?.reload()}
+            />
+          </Stack>
         );
       },
       [src],
     );
+
+    const renderLoading = useCallback(() => <Stack />, []);
 
     return (
       <WebView
@@ -151,6 +156,7 @@ const NativeWebView = forwardRef(
         onLoad={onLoad}
         onLoadEnd={onLoadEnd}
         renderError={renderError}
+        renderLoading={renderLoading}
         {...props}
       />
     );
