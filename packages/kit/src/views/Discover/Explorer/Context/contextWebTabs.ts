@@ -4,11 +4,11 @@ import { isEqual } from 'lodash';
 
 import { simpleDb } from '@onekeyhq/kit/src/components/WebView/mock';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import {
   ContextJotaiActionsBase,
   createJotaiContext,
-  memoJotaiActions,
 } from '../../../../store/jotai';
 import { validateUrl, webHandler, webviewRefs } from '../../explorerUtils';
 
@@ -516,7 +516,7 @@ class ContextJotaiActionsWebTabs extends ContextJotaiActionsBase {
   });
 }
 
-const createActions = memoJotaiActions(() => {
+const createActions = memoFn(() => {
   console.log('new ContextJotaiActionsWebTabs()', Date.now());
   return new ContextJotaiActionsWebTabs();
 });
