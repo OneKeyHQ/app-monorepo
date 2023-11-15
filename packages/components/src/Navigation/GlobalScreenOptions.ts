@@ -15,6 +15,16 @@ export function clearStackNavigatorOptions(options?: {
   bgColor?: string;
 }): StackNavigationOptions {
   return {
+    /*
+
+      We have configured all `detachPreviousScreen` options as false to address the flash screen issue when popping. 
+      This is because it also hides `cardStyle.backgroundColor`, leaving only the unconfigurable gray-white background color of the `Background`.
+      See https://github.com/react-navigation/react-navigation/blob/858a8746a5c007a623206c920f70d55935ed39b4/packages/stack/src/views/Stack/CardStack.tsx#L595C1-L676 
+
+      Even if we address the background color issue, re-rendering will still cause some flickering. Therefore, using `freezeOnBlur` alone is sufficient.
+
+    */
+    detachPreviousScreen: false,
     headerShown: false,
     animationEnabled: false,
   };
@@ -24,6 +34,7 @@ export function makeRootScreenOptions(options: {
   isVerticalLayout?: boolean;
 }): StackNavigationOptions {
   return {
+    detachPreviousScreen: false,
     headerShown: false,
     ...(options.isVerticalLayout
       ? TransitionPresets.ScaleFromCenterAndroid
@@ -65,6 +76,7 @@ export function makeModalStackNavigatorOptions({
   };
 }): StackNavigationOptions {
   const options: StackNavigationOptions = {
+    detachPreviousScreen: false,
     headerShown: false,
     ...(platformEnv.isExtension
       ? { ...extAnimConfig.transition, ...extAnimConfig.stackScreenAnim }
@@ -84,6 +96,7 @@ export function makeModalScreenOptions({
   isVerticalLayout: boolean;
 }): StackNavigationOptions {
   return {
+    detachPreviousScreen: false,
     headerShown: false,
     presentation: 'transparentModal',
     cardStyle: { backgroundColor: 'transparent' },
@@ -93,6 +106,7 @@ export function makeModalScreenOptions({
 
 export function makeRootModalStackOptions(): StackNavigationOptions {
   return {
+    detachPreviousScreen: false,
     headerShown: false,
     presentation: 'transparentModal',
     cardStyle: { backgroundColor: 'transparent' },
@@ -110,6 +124,7 @@ export function makeTabScreenOptions({
 }): StackNavigationOptions {
   // @ts-expect-error
   return {
+    detachPreviousScreen: false,
     ...makeHeaderScreenOptions({
       isRootScreen: true,
       navigation,
@@ -121,6 +136,7 @@ export function makeTabScreenOptions({
 
 export function makeFullScreenOptions(): StackNavigationOptions {
   return {
+    detachPreviousScreen: false,
     headerShown: false,
     animationEnabled: true,
     presentation: 'modal', // containedModal card fullScreenModal
