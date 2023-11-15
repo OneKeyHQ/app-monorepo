@@ -1,5 +1,21 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-unsafe-member-access */
 import {
+  CMT_PROGRAM,
+  MintState,
+  computeBudgetIx,
+  findFreezeAuthorityPk,
+  findMintStatePk,
+  createInitAccountInstruction as ocpCreateInitAccountInstruction,
+  createTransferInstruction as ocpCreateTransferInstruction,
+} from '@magiceden-oss/open_creator_protocol';
+import {
+  Metadata,
+  TokenRecord,
+  TokenStandard,
+  TokenState,
+  createTransferInstruction as createTokenMetadataTransferInstruction,
+} from '@metaplex-foundation/mpl-token-metadata';
+import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
   TokenInstruction,
@@ -12,6 +28,7 @@ import {
 } from '@solana/spl-token';
 import {
   PublicKey,
+  SYSVAR_INSTRUCTIONS_PUBKEY,
   SystemInstruction,
   SystemProgram,
   Transaction,
@@ -28,6 +45,7 @@ import type {
   FeePricePerUnit,
   PartialTokenInfo,
 } from '@onekeyhq/engine/src/types/provider';
+import type { Token } from '@onekeyhq/kit/src/store/typings';
 import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -65,6 +83,13 @@ import {
 } from './keyring';
 import { ClientSol, PARAMS_ENCODINGS } from './sdk';
 import settings from './settings';
+import {
+  TOKEN_AUTH_RULES_ID,
+  TOKEN_METADATA_PROGRAM_ID,
+  masterEditionAddress,
+  metadataAddress,
+  tokenRecordAddress,
+} from './utils';
 
 import type { DBAccount, DBSimpleAccount } from '../../../types/account';
 import type { AccountNameInfo } from '../../../types/network';
@@ -99,8 +124,12 @@ import type {
   INativeTxSol,
   ParsedAccountInfo,
 } from './types';
+import type {
+  TransferInstructionAccounts,
+  TransferInstructionArgs,
+} from '@metaplex-foundation/mpl-token-metadata';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
-import type { AccountInfo } from '@solana/web3.js';
+import type { AccountInfo, TransactionInstruction } from '@solana/web3.js';
 
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -558,7 +587,7 @@ export default class Vault extends VaultBase {
     const transferInfo = transferInfos[0];
     const { from, to: firstReceiver, isNFT } = transferInfo;
 
-    const feePayer = new PublicKey(from);
+    const source = new PublicKey(from);
     const nativeTx = new Transaction();
 
     const doGetFee = async () => {
@@ -591,7 +620,7 @@ export default class Vault extends VaultBase {
       await wait(1000);
     } while (!nativeTx.recentBlockhash);
 
-    nativeTx.feePayer = feePayer;
+    nativeTx.feePayer = source;
 
     for (let i = 0; i < transferInfos.length; i += 1) {
       const {
@@ -600,7 +629,7 @@ export default class Vault extends VaultBase {
         to,
         tokenSendAddress,
       } = transferInfos[i];
-      const receiver = new PublicKey(to || firstReceiver);
+      const destination = new PublicKey(to || firstReceiver);
 
       const token = await this.engine.ensureTokenInDB(
         this.networkId,
@@ -612,48 +641,90 @@ export default class Vault extends VaultBase {
         );
       }
       if (tokenAddress) {
+        // ata - associated token account
         const mint = new PublicKey(tokenAddress);
-        let associatedTokenAddress = receiver;
-        if (PublicKey.isOnCurve(receiver.toString())) {
+        let destinationAta = destination;
+
+        const sourceAta = tokenSendAddress
+          ? new PublicKey(tokenSendAddress)
+          : await this.getAssociatedTokenAddress({
+              mint,
+              owner: source,
+              isNFT,
+            });
+
+        if (PublicKey.isOnCurve(destination.toString())) {
           // system account, get token receiver address
-          associatedTokenAddress = await this.getAssociatedTokenAddress({
+          destinationAta = await this.getAssociatedTokenAddress({
             mint,
-            owner: receiver,
+            owner: destination,
             isNFT,
           });
         }
 
-        const associatedAccountInfo = await client.getAccountInfo(
-          associatedTokenAddress.toString(),
+        const destinationAtaInfo = await client.getAccountInfo(
+          destinationAta.toString(),
         );
-        if (associatedAccountInfo === null) {
+
+        if (isNFT) {
+          const { isProgrammableNFT, metadata } =
+            await this.checkIsProgrammableNFT(mint);
+          if (isProgrammableNFT) {
+            nativeTx.add(
+              ...(await this.buildProgrammableNFTInstructions({
+                mint,
+                source,
+                sourceAta,
+                destination,
+                destinationAta,
+                destinationAtaInfo,
+                amount,
+                metadata: metadata as Metadata,
+              })),
+            );
+          } else {
+            const ocpMintState = await this.checkIsOpenCreatorProtocol(mint);
+            if (ocpMintState) {
+              nativeTx.add(
+                ...this.buildOpenCreatorProtocolInstructions({
+                  mint,
+                  source,
+                  sourceAta,
+                  destination,
+                  destinationAta,
+                  destinationAtaInfo,
+                  mintState: ocpMintState,
+                }),
+              );
+            } else {
+              nativeTx.add(
+                ...this.buildTransferTokenInstructions({
+                  mint,
+                  source,
+                  sourceAta,
+                  destination,
+                  destinationAta,
+                  destinationAtaInfo,
+                  token,
+                  amount,
+                }),
+              );
+            }
+          }
+        } else {
           nativeTx.add(
-            createAssociatedTokenAccountInstruction(
-              feePayer,
-              associatedTokenAddress,
-              receiver,
+            ...this.buildTransferTokenInstructions({
               mint,
-            ),
+              source,
+              sourceAta,
+              destination,
+              destinationAta,
+              destinationAtaInfo,
+              token,
+              amount,
+            }),
           );
         }
-
-        const source = tokenSendAddress
-          ? new PublicKey(tokenSendAddress)
-          : await this.getAssociatedTokenAddress({
-              mint,
-              owner: feePayer,
-              isNFT,
-            });
-        nativeTx.add(
-          createTransferCheckedInstruction(
-            source,
-            mint,
-            associatedTokenAddress,
-            feePayer,
-            BigInt(new BigNumber(amount).shiftedBy(token.decimals).toFixed()),
-            token.decimals,
-          ),
-        );
       } else {
         nativeTx.add(
           SystemProgram.transfer({
@@ -668,6 +739,235 @@ export default class Vault extends VaultBase {
     }
 
     return bs58.encode(nativeTx.serialize({ requireAllSignatures: false }));
+  }
+
+  private async buildProgrammableNFTInstructions({
+    mint,
+    source,
+    sourceAta,
+    destination,
+    destinationAta,
+    destinationAtaInfo,
+    amount,
+    metadata,
+  }: {
+    mint: PublicKey;
+    source: PublicKey;
+    sourceAta: PublicKey;
+    destination: PublicKey;
+    destinationAta: PublicKey;
+    destinationAtaInfo: AccountInfo<[string, string]> | null;
+    amount: string;
+    metadata: Metadata;
+  }) {
+    const client = await this.getClient();
+    const instructions: TransactionInstruction[] = [];
+    const ownerTokenRecord = tokenRecordAddress(mint, sourceAta);
+    const ownerTokenRecordInfo = await client.getAccountInfo(
+      ownerTokenRecord.toString(),
+    );
+
+    if (ownerTokenRecordInfo) {
+      // need to check whether the token is lock or listed
+      const tokenRecord = TokenRecord.fromAccountInfo({
+        ...ownerTokenRecordInfo,
+        data: Buffer.from(ownerTokenRecordInfo.data[0], 'base64'),
+      })[0];
+
+      if (tokenRecord.state === TokenState.Locked) {
+        throw new Error('token account is locked');
+      } else if (tokenRecord.state === TokenState.Listed) {
+        throw new Error('token is listed');
+      }
+
+      let authorizationRules: PublicKey | undefined;
+
+      if (metadata.programmableConfig) {
+        authorizationRules = metadata.programmableConfig.ruleSet ?? undefined;
+      }
+
+      const transferAccounts: TransferInstructionAccounts = {
+        authority: source,
+        tokenOwner: source,
+        token: sourceAta,
+        metadata: metadataAddress(mint),
+        mint,
+        edition: masterEditionAddress(mint),
+        destinationOwner: destination,
+        destination: destinationAta,
+        payer: source,
+        splTokenProgram: TOKEN_PROGRAM_ID,
+        splAtaProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        sysvarInstructions: SYSVAR_INSTRUCTIONS_PUBKEY,
+        authorizationRules,
+        authorizationRulesProgram: TOKEN_AUTH_RULES_ID,
+        ownerTokenRecord,
+        destinationTokenRecord: tokenRecordAddress(mint, destinationAta),
+      };
+
+      const transferArgs: TransferInstructionArgs = {
+        transferArgs: {
+          __kind: 'V1',
+          amount: Number(amount),
+          authorizationData: null,
+        },
+      };
+
+      instructions.push(
+        createTokenMetadataTransferInstruction(transferAccounts, transferArgs),
+      );
+    }
+
+    return instructions;
+  }
+
+  private buildOpenCreatorProtocolInstructions({
+    mint,
+    source,
+    sourceAta,
+    destination,
+    destinationAta,
+    destinationAtaInfo,
+    mintState,
+  }: {
+    mint: PublicKey;
+    source: PublicKey;
+    sourceAta: PublicKey;
+    destination: PublicKey;
+    destinationAta: PublicKey;
+    destinationAtaInfo: AccountInfo<[string, string]> | null;
+    mintState: MintState;
+  }) {
+    const inscriptions: TransactionInstruction[] = [];
+
+    inscriptions.push(computeBudgetIx);
+
+    if (!destinationAtaInfo) {
+      inscriptions.push(
+        ocpCreateInitAccountInstruction({
+          policy: mintState.policy,
+          freezeAuthority: findFreezeAuthorityPk(mintState.policy),
+          mint,
+          metadata: metadataAddress(mint),
+          mintState: findMintStatePk(mint),
+          from: destination,
+          fromAccount: destinationAta,
+          cmtProgram: CMT_PROGRAM,
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY,
+          payer: source,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        }),
+      );
+    }
+
+    inscriptions.push(
+      ocpCreateTransferInstruction({
+        policy: mintState.policy,
+        freezeAuthority: findFreezeAuthorityPk(mintState.policy),
+        mint,
+        metadata: metadataAddress(mint),
+        mintState: findMintStatePk(mint),
+        from: source,
+        fromAccount: sourceAta,
+        cmtProgram: CMT_PROGRAM,
+        instructions: SYSVAR_INSTRUCTIONS_PUBKEY,
+        to: destination,
+        toAccount: destinationAta,
+      }),
+    );
+
+    return inscriptions;
+  }
+
+  private buildTransferTokenInstructions({
+    mint,
+    source,
+    sourceAta,
+    destination,
+    destinationAta,
+    destinationAtaInfo,
+    token,
+    amount,
+  }: {
+    mint: PublicKey;
+    source: PublicKey;
+    sourceAta: PublicKey;
+    destination: PublicKey;
+    destinationAta: PublicKey;
+    destinationAtaInfo: AccountInfo<[string, string]> | null;
+    token: Token;
+    amount: string;
+  }): TransactionInstruction[] {
+    const instructions: TransactionInstruction[] = [];
+    if (destinationAtaInfo === null) {
+      instructions.push(
+        createAssociatedTokenAccountInstruction(
+          source,
+          destinationAta,
+          destination,
+          mint,
+        ),
+      );
+    }
+
+    instructions.push(
+      createTransferCheckedInstruction(
+        sourceAta,
+        mint,
+        destinationAta,
+        source,
+        BigInt(new BigNumber(amount).shiftedBy(token.decimals).toFixed()),
+        token.decimals,
+      ),
+    );
+
+    return instructions;
+  }
+
+  private async checkIsProgrammableNFT(mint: PublicKey) {
+    try {
+      const client = await this.getClient();
+      const metaAddress = metadataAddress(mint);
+      const mintAccountInfo = await client.getAccountInfo(
+        metaAddress.toString(),
+      );
+
+      if (mintAccountInfo) {
+        const metadata = Metadata.fromAccountInfo({
+          ...mintAccountInfo,
+          data: Buffer.from(mintAccountInfo.data[0], 'base64'),
+        })[0];
+
+        return {
+          metadata,
+          isProgrammableNFT:
+            metadata.tokenStandard === TokenStandard.ProgrammableNonFungible ||
+            metadata.tokenStandard ===
+              TokenStandard.ProgrammableNonFungibleEdition,
+        };
+      }
+      return {
+        isProgrammableNFT: false,
+      };
+    } catch (error) {
+      console.log(error);
+      return {
+        isProgrammableNFT: false,
+      };
+    }
+  }
+
+  private async checkIsOpenCreatorProtocol(mint: PublicKey) {
+    const client = await this.getClient();
+    const mintStatePk = findMintStatePk(mint);
+    const mintAccountInfo = await client.getAccountInfo(mintStatePk.toString());
+
+    return mintAccountInfo !== null
+      ? MintState.fromAccountInfo({
+          ...mintAccountInfo,
+          data: Buffer.from(mintAccountInfo.data[0], 'base64'),
+        })[0]
+      : null;
   }
 
   private async getAssociatedTokenAddress({
