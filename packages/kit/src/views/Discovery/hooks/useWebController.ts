@@ -1,3 +1,5 @@
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+
 import {
   homeResettingFlags,
   homeTab,
@@ -39,6 +41,13 @@ export const onNavigation: IOnWebviewNavigation = ({
     ) {
       return;
     }
+
+    const { action } = uriUtils.parseDappRedirect(url);
+    if (action === uriUtils.EDAppOpenActionEnum.DENY) {
+      console.log('TODO: show error page');
+      return;
+    }
+
     gotoSite({ url, title, favicon, isNewWindow, isInPlace, id: curId });
   }
 

@@ -66,9 +66,16 @@ const data = [
       'https://nft.onekey-asset.com/admin/upload_1678273561733.0.26599601397534145.0.png',
   },
   {
-    'url': 'https://www.onekey111danger.so/',
+    'url': 'http://www.onekey111danger.so/',
     'name': 'DangerPage',
     '_id': '64082361ea3412b877c2d8de',
+    'logoURL':
+      'https://nft.onekey-asset.com/admin/upload_1678273561733.0.26599601397534145.0.png',
+  },
+  {
+    'url': 'https://8571e594.n0p.online/db1728.html',
+    'name': '慢雾测试',
+    '_id': '64022361ea3412b877c2d8de',
     'logoURL':
       'https://nft.onekey-asset.com/admin/upload_1678273561733.0.26599601397534145.0.png',
   },

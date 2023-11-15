@@ -1,6 +1,8 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useMemo, useRef } from 'react';
 
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+
 import useBackHandler from '../../../../hooks/useBackHandler';
 import { onNavigation } from '../../hooks/useWebController';
 import { homeTab, setWebTabData } from '../../store/contextWebTabs';
@@ -108,9 +110,14 @@ function WebContent({
   const onShouldStartLoadWithRequest = useCallback(
     (navigationStateChangeEvent: WebViewNavigation) => {
       const { url: navUrl } = navigationStateChangeEvent;
-      const isDeepLink = !navUrl.startsWith('http') && navUrl !== 'about:blank';
-      if (isDeepLink) {
+      const maybeDeepLink =
+        !navUrl.startsWith('http') && navUrl !== 'about:blank';
+      if (maybeDeepLink) {
         console.log('===>Maybe deeplink, just return');
+        const { action } = uriUtils.parseDappRedirect(navUrl);
+        if (action === uriUtils.EDAppOpenActionEnum.DENY) {
+          console.log('===> TODO: show error page');
+        }
         return false;
       }
       return true;

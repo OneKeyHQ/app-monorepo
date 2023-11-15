@@ -20,6 +20,8 @@ import logger from 'electron-log';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+
 import { ipcMessageKeys } from './config';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
@@ -405,6 +407,18 @@ function createMainWindow() {
   app.on('web-contents-created', (event, contents) => {
     if (contents.getType() === 'webview') {
       contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+      contents.on('will-frame-navigate', (e) => {
+        const { url } = e;
+        const { action } = uriUtils.parseDappRedirect(url);
+        if (action === uriUtils.EDAppOpenActionEnum.DENY) {
+          e.preventDefault();
+          console.log(
+            '====>>>>>>>reject navigate main process will-frame-navigate: ',
+            url,
+          );
+          return false;
+        }
+      });
     }
   });
 
