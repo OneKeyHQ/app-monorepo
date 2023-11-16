@@ -1,9 +1,11 @@
 import { memo, useCallback } from 'react';
 
+import { MotiView } from 'moti';
+import { getTokenValue } from 'tamagui';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useProviderSideBarValue from '../../Provider/hooks/useProviderSideBarValue';
-import { Stack } from '../../Stack';
 
 import HeaderIconButton from './HeaderIconButton';
 
@@ -13,21 +15,30 @@ function HeaderCollapseButton({
   isRootScreen?: boolean;
 }) {
   const {
-    leftSidebarCollapsed: isCollpase,
+    leftSidebarCollapsed: isCollapse,
     setLeftSidebarCollapsed: setIsCollapse,
   } = useProviderSideBarValue();
 
   const onPressCall = useCallback(() => {
-    setIsCollapse?.(!isCollpase);
-  }, [isCollpase, setIsCollapse]);
+    setIsCollapse?.(!isCollapse);
+  }, [isCollapse, setIsCollapse]);
 
-  const paddingLeft =
-    platformEnv.isDesktopMac && isRootScreen && isCollpase ? '$20' : '$0';
-
+  const paddingLeft = getTokenValue(
+    platformEnv.isDesktopMac && isRootScreen && isCollapse ? '$20' : '$0',
+    'size',
+  );
   return (
-    <Stack pl={paddingLeft}>
+    <MotiView
+      testID="Desktop-AppSideBar-Container"
+      animate={{ paddingLeft }}
+      transition={{
+        type: 'spring',
+        damping: 20,
+        mass: 0.1,
+      }}
+    >
       <HeaderIconButton onPress={onPressCall} icon="SidebarOutline" />
-    </Stack>
+    </MotiView>
   );
 }
 
