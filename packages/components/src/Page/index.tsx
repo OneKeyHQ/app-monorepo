@@ -5,13 +5,13 @@ import { withStaticProperties } from 'tamagui';
 import { Stack } from '../Stack';
 
 import { BasicPage } from './BasicPage';
+import { BasicPageFooter } from './BasicPageFooter';
 import { PageButtonGroup } from './PageButtonGroup';
 import { PageContext } from './PageContext';
 import { PageFooter } from './PageFooter';
 import { PageHeader } from './PageHeader';
 
 import type { IPageButtonGroupProps } from './PageButtonGroup';
-import { BasicPageFooter } from './BasicPageFooter';
 
 function PageContainer({ children }: PropsWithChildren<unknown>) {
   return (
