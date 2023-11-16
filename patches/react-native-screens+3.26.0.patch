@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
-index 401d57e..3b1ca6a 100644
+index 401d57e..fc18e6a 100644
 --- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
 +++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
 @@ -14,6 +14,7 @@ import com.facebook.react.ReactRootView
@@ -240,7 +240,7 @@ index f10671e..20e0d45 100644
      }
    }
 diff --git a/node_modules/react-native-screens/ios/RNSSearchBar.mm b/node_modules/react-native-screens/ios/RNSSearchBar.mm
-index 94475b7..4829c45 100644
+index 94475b7..862f904 100644
 --- a/node_modules/react-native-screens/ios/RNSSearchBar.mm
 +++ b/node_modules/react-native-screens/ios/RNSSearchBar.mm
 @@ -195,6 +195,9 @@ - (void)hideCancelButton
@@ -253,3 +253,22 @@ index 94475b7..4829c45 100644
    } else {
      [_controller.searchBar setShowsCancelButton:NO animated:YES];
    }
+@@ -304,6 +307,18 @@ - (void)setText:(NSString *)text
+   [_controller.searchBar setText:text];
+ }
+ 
++// Set the color of the `searchIcon` and `searchPlaceholder` by `textColor`
++- (void)didSetProps:(NSArray<NSString *> *)changedProps {
++  if (@available(iOS 13.0, *)) {
++    UIColor *placeholderColor = [_controller.searchBar.searchTextField.textColor colorWithAlphaComponent:0.5];
++    _controller.searchBar.searchTextField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:_controller.searchBar.placeholder attributes:@{
++      NSForegroundColorAttributeName: placeholderColor,
++    }];
++    [_controller.searchBar.searchTextField.leftView setTintColor:placeholderColor];
++    [_controller.searchBar.searchTextField.rightView setTintColor:placeholderColor];
++  }
++}
++
+ #pragma mark-- Fabric specific
+ 
+ #ifdef RCT_NEW_ARCH_ENABLED
