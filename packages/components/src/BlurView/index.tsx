@@ -1,30 +1,49 @@
 import type { ForwardedRef } from 'react';
 import { forwardRef } from 'react';
 
-import { usePropsAndStyle } from '@tamagui/core';
+import { usePropsAndStyle, useStyle } from '@tamagui/core';
 import { BlurView as NativeBlurView } from 'expo-blur';
+import { type View as IView, type ViewStyle } from 'react-native';
 
 import useTheme from '../Provider/hooks/useTheme';
+import { View } from '../View';
 
 import type { StackStyleProps } from '@tamagui/web/types/types';
 import type { BlurViewProps } from 'expo-blur';
-import type { StyleProp, View, ViewStyle } from 'react-native';
 
-export type IBlurViewPros = Omit<BlurViewProps, 'style'> & StackStyleProps;
+export type IBlurViewPros = Omit<BlurViewProps, 'style'> &
+  StackStyleProps & {
+    contentStyle?: StackStyleProps;
+  };
 
-function BasicBlurView(props: IBlurViewPros, ref: ForwardedRef<View>) {
+function BasicBlurView(
+  { contentStyle, ...props }: IBlurViewPros,
+  ref: ForwardedRef<IView>,
+) {
   const { themeVariant } = useTheme();
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
   });
+
+  const resolvedContentStyle = useStyle(contentStyle || {}, {
+    resolveValues: 'auto',
+  });
+
   return (
-    <NativeBlurView
-      style={style as StyleProp<ViewStyle>}
-      {...restProps}
-      tint={themeVariant}
-      ref={ref}
-    />
+    <View
+      style={{
+        ...(style as ViewStyle),
+        overflow: 'hidden',
+      }}
+    >
+      <NativeBlurView
+        style={contentStyle ? (resolvedContentStyle as ViewStyle) : { flex: 1 }}
+        tint={themeVariant}
+        {...restProps}
+        ref={ref}
+      />
+    </View>
   );
 }
 
-export const BlurView = forwardRef<View, IBlurViewPros>(BasicBlurView);
+export const BlurView = forwardRef<IView, IBlurViewPros>(BasicBlurView);
