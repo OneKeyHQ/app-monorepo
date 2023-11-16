@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { Button, Divider, Stack, Text, YStack } from '@onekeyhq/components';
+import { Divider, Icon, Stack, Text, XStack } from '@onekeyhq/components';
 
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
 import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
@@ -8,10 +8,34 @@ import useWebTabAction from '../../hooks/useWebTabAction';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
+function AddTabButton({ onAddTab }: { onAddTab: () => void }) {
+  return (
+    <XStack
+      key="AddTabButton"
+      flexDirection="row"
+      alignItems="center"
+      py="$1.5"
+      px="$2"
+      h="$8"
+      borderRadius="$2"
+      space="$2"
+      onPress={onAddTab}
+      hoverStyle={{
+        bg: '$bgActive',
+      }}
+    >
+      <Icon name="PlusSmallOutline" size="$5" />
+      <Text variant="$bodyMd" numberOfLines={1} flex={1}>
+        New Tab
+      </Text>
+    </XStack>
+  );
+}
+
 function DesktopCustomTabBar() {
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
-  const { setCurrentWebTab, closeWebTab, setPinnedTab, closeAllWebTab } =
+  const { setCurrentWebTab, closeWebTab, setPinnedTab, addBlankWebTab } =
     useWebTabAction();
   const { addBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction();
@@ -58,7 +82,8 @@ function DesktopCustomTabBar() {
           onClose={handleCloseTab}
         />
       ))}
-      <Divider py="$4" />
+      {pinnedData.length > 0 && <Divider m="$1.5" />}
+      <AddTabButton onAddTab={() => addBlankWebTab()} />
       {data.map((t) => (
         <DesktopCustomTabBarItem
           id={t.id}
@@ -71,15 +96,6 @@ function DesktopCustomTabBar() {
           onClose={handleCloseTab}
         />
       ))}
-      <YStack>
-        <Button
-          onPress={() => {
-            void closeAllWebTab();
-          }}
-        >
-          <Text>CloseAll</Text>
-        </Button>
-      </YStack>
     </Stack>
   );
 }

@@ -85,7 +85,7 @@ function DesktopCustomTabBarItem({
               items: [
                 {
                   label: tab.isBookmark ? 'Delete Bookmark' : 'Bookmark',
-                  icon: 'BookmarkOutline',
+                  icon: tab.isBookmark ? 'BookmarkSolid' : 'BookmarkOutline',
                   onPress: () => {
                     onBookmarkPress(!tab.isBookmark, tab.url, tab.title ?? '');
                     onOpenChange(false);
@@ -93,7 +93,7 @@ function DesktopCustomTabBarItem({
                 },
                 {
                   label: tab.isPinned ? 'Un-Pin' : 'Pin',
-                  icon: 'ThumbtackOutline',
+                  icon: tab.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
                   onPress: () => {
                     onPinnedPress(tab.id, !tab.isPinned);
                     onOpenChange(false);
