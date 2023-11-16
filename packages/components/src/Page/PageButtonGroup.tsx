@@ -1,6 +1,6 @@
 import { useContext } from 'react';
 
-import { Button, type ButtonProps } from '../Button';
+import { Button, type IButtonProps } from '../Button';
 import { XStack } from '../Stack';
 
 import { PageContext } from './PageContext';
@@ -8,8 +8,8 @@ import { PageContext } from './PageContext';
 export interface IPageButtonGroupProps {
   onConfirm?: () => void | Promise<boolean>;
   onCancel?: () => void;
-  confirmButtonProps?: ButtonProps;
-  cancelButtonProps?: ButtonProps;
+  confirmButtonProps?: IButtonProps;
+  cancelButtonProps?: IButtonProps;
 }
 
 export function PageButtonGroup() {
@@ -37,12 +37,12 @@ export function PageButtonGroup() {
             {
               flex: 1,
               size: 'large',
-            } as ButtonProps
+            } as IButtonProps
           }
           $gtSm={
             {
               size: 'medium',
-            } as ButtonProps
+            } as IButtonProps
           }
           onPress={onCancel}
           {...cancelButtonProps}
@@ -57,12 +57,12 @@ export function PageButtonGroup() {
             {
               flex: 1,
               size: 'large',
-            } as ButtonProps
+            } as IButtonProps
           }
           $gtSm={
             {
               size: 'medium',
-            } as ButtonProps
+            } as IButtonProps
           }
           onPress={onConfirm}
           {...confirmButtonProps}
