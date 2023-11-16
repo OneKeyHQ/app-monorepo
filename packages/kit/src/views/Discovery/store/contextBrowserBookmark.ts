@@ -1,7 +1,7 @@
 import {
   atom,
   createJotaiContext,
-} from '../../../store/jotai/createJotaiContext';
+} from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 
 import { homeTab } from './contextWebTabs';
 

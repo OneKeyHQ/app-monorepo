@@ -1,7 +1,7 @@
 import {
   atom,
   createJotaiContext,
-} from '@onekeyhq/kit/src/store/jotai/createJotaiContext';
+} from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 import { simpleDb } from '@onekeyhq/kit/src/views/Discovery/components/WebView/mock';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
