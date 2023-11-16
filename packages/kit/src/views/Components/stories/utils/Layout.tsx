@@ -45,12 +45,14 @@ export function Layout({
   boundaryConditions = [],
   elements = [],
   scrollEnabled = true,
+  skipLoading = false,
   children,
 }: React.PropsWithChildren<{
   description?: string;
   suggestions?: string[];
   boundaryConditions?: string[];
   scrollEnabled?: boolean;
+  skipLoading?: boolean;
   elements?: {
     title: string;
     description?: string;
@@ -60,7 +62,7 @@ export function Layout({
   const dispatch = useDispatch();
   const keyboardHeight = useKeyboardHeight();
   return (
-    <Screen>
+    <Screen skipLoading={skipLoading}>
       <ScrollView
         maxWidth="100%"
         scrollEnabled={scrollEnabled}
@@ -71,6 +73,7 @@ export function Layout({
           paddingTop: 20,
           paddingBottom: 280,
         }}
+        keyboardDismissMode="on-drag"
       >
         <Stack marginHorizontal="auto" maxWidth="100%" width={576} space="$6">
           <XStack>

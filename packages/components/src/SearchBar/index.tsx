@@ -6,28 +6,31 @@ import type { IInputProps } from '../Input';
 
 type ISearchBarProps = IInputProps;
 
-export function SearchBar({ value, onChangeText, ...rest }: ISearchBarProps) {
-  const [valueLength, setValueLength] = useState(value?.length ?? 0);
-
-  const handleClearValue = useCallback(() => {
-    onChangeText?.('');
-    setValueLength(0);
-  }, [onChangeText]);
+export function SearchBar({
+  value: defaultValue,
+  onChangeText,
+  ...rest
+}: ISearchBarProps) {
+  const [value, setValue] = useState(defaultValue ?? '');
 
   const handleChange = useCallback(
     (text: string) => {
+      setValue(text);
       onChangeText?.(text);
-      setValueLength(text.length);
     },
     [onChangeText],
   );
+
+  const handleClearValue = useCallback(() => {
+    handleChange('');
+  }, [handleChange]);
 
   return (
     <Input
       value={value}
       onChangeText={handleChange}
       leftIconName="SearchOutline"
-      {...(valueLength && {
+      {...(value?.length && {
         addOns: [
           {
             iconName: 'XCircleOutline',

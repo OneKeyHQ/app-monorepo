@@ -9,27 +9,25 @@ import { Stack } from '../Stack';
 import { Tooltip } from '../Tooltip';
 
 import type { IICON_NAMES, IIconProps } from '../Icon';
+import type { ITooltipProps } from '../Tooltip';
 
 export interface IIconButtonProps
   extends Omit<IButtonProps, 'iconAfter' | 'children' | 'icon'> {
   icon: IICON_NAMES;
   iconProps?: IIconProps;
-  title?: string;
+  title?: ITooltipProps['renderContent'];
 }
 
 const getSizeStyles = (size: IButtonProps['size']) => {
   const sizes = {
     small: {
       p: '$1',
-      negativeMargin: -5,
     },
     medium: {
       p: '$1.5',
-      negativeMargin: -7,
     },
     large: {
       p: '$3',
-      negativeMargin: -13,
     },
   };
 
@@ -48,7 +46,7 @@ export const IconButton = (props: IIconButtonProps) => {
     ...rest
   } = props;
 
-  const { p, negativeMargin } = getSizeStyles(size);
+  const { p } = getSizeStyles(size);
 
   const { sharedFrameStyles, iconColor } = getSharedButtonStyles({
     disabled,
@@ -61,9 +59,6 @@ export const IconButton = (props: IIconButtonProps) => {
       p={p}
       borderRadius="$full"
       disabled={disabled || loading}
-      {...(variant === 'tertiary' && {
-        m: negativeMargin,
-      })}
       {...sharedFrameStyles}
       {...rest}
     >

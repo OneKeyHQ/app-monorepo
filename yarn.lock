@@ -4899,6 +4899,7 @@ __metadata:
     react-refresh: ^0.14.0
     react-render-tracker: ^0.7.6
     redux-flipper: ^2.0.2
+    rimraf: ^5.0.5
     stream-browserify: ^3.0.0
     style-loader: ^3.3.3
     superagent: 6.1.0
@@ -5057,7 +5058,6 @@ __metadata:
     expo-application: ~5.3.1
     expo-av: ^13.2.1
     expo-barcode-scanner: ^12.3.2
-    expo-blur: ~12.3.0
     expo-camera: 13.2.1
     expo-clipboard: ^4.1.2
     expo-image-manipulator: ^11.1.1
@@ -5104,8 +5104,10 @@ __metadata:
     "@react-native-async-storage/async-storage": 1.18.2
     "@react-native-community/netinfo": ^9.4.1
     "@react-native-community/slider": ^4.4.3
+    "@shopify/flash-list": ^1.6.3
     burnt: 0.12
     expo: ~49.0.13
+    expo-blur: ~12.3.0
     expo-device: ~5.4.0
     expo-haptics: ^12.2.1
     expo-splash-screen: ~0.20.5
@@ -6259,6 +6261,20 @@ __metadata:
     component-type: ^1.2.1
     join-component: ^1.1.0
   checksum: 8c4aacc903fb717619b69ca7eecf8d4a7b928661b0e835c9cd98f1b858a85ce62c348369ad9a52cb2df8df02578c0525a73fce4c69a42ac414d9554cc6be7117
+  languageName: node
+  linkType: hard
+
+"@shopify/flash-list@npm:^1.6.3":
+  version: 1.6.3
+  resolution: "@shopify/flash-list@npm:1.6.3"
+  dependencies:
+    recyclerlistview: 4.2.0
+    tslib: 2.4.0
+  peerDependencies:
+    "@babel/runtime": "*"
+    react: "*"
+    react-native: "*"
+  checksum: 655723d750275c07837099b79ec01a63c40223ccf56a706299e0906cec907fb9617e1135b49d59a05ff550fdaa7565957dee92929b84671cd6d910a145664b2c
   languageName: node
   linkType: hard
 
@@ -16908,7 +16924,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"glob@npm:^10.2.2":
+"glob@npm:^10.2.2, glob@npm:^10.3.7":
   version: 10.3.10
   resolution: "glob@npm:10.3.10"
   dependencies:
@@ -24850,7 +24866,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"recyclerlistview@npm:^4.2.0":
+"recyclerlistview@npm:4.2.0, recyclerlistview@npm:^4.2.0":
   version: 4.2.0
   resolution: "recyclerlistview@npm:4.2.0"
   dependencies:
@@ -25368,6 +25384,17 @@ __metadata:
   bin:
     rimraf: bin.js
   checksum: 87f4164e396f0171b0a3386cc1877a817f572148ee13a7e113b238e48e8a9f2f31d009a92ec38a591ff1567d9662c6b67fd8818a2dbbaed74bc26a87a2a4a9a0
+  languageName: node
+  linkType: hard
+
+"rimraf@npm:^5.0.5":
+  version: 5.0.5
+  resolution: "rimraf@npm:5.0.5"
+  dependencies:
+    glob: ^10.3.7
+  bin:
+    rimraf: dist/esm/bin.mjs
+  checksum: d66eef829b2e23b16445f34e73d75c7b7cf4cbc8834b04720def1c8f298eb0753c3d76df77325fad79d0a2c60470525d95f89c2475283ad985fd7441c32732d1
   languageName: node
   linkType: hard
 

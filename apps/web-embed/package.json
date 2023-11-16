@@ -4,9 +4,7 @@
   "main": "index.js",
   "scripts": {
     "start": "webpack serve",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+    "build": "cross-env NODE_ENV=production webpack build && cp ./web-build/index.html ./web-build/404.html && sh ./postbuild.sh"
   },
   "private": true,
   "dependencies": {

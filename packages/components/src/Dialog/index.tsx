@@ -26,6 +26,7 @@ import useKeyboardHeight from '../hooks/useKeyboardHeight';
 import { Icon } from '../Icon';
 import { IconButton } from '../IconButton';
 import { Portal } from '../Portal';
+import { SheetGrabber } from '../SheetGrabber';
 import { Stack, XStack, YStack } from '../Stack';
 import { Text } from '../Text';
 
@@ -216,21 +217,7 @@ function DialogFrame({
             bg="$bg"
             paddingBottom={keyboardHeight}
           >
-            {/* grabber */}
-            <Stack
-              position="absolute"
-              top={0}
-              width="100%"
-              py="$1"
-              alignItems="center"
-            >
-              <Stack
-                width="$9"
-                height="$1"
-                bg="$neutral5"
-                borderRadius="$full"
-              />
-            </Stack>
+            <SheetGrabber />
             {renderDialogContent}
           </Sheet.Frame>
         </Sheet>

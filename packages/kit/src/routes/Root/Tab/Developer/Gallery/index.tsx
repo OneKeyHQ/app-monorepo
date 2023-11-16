@@ -1,6 +1,7 @@
 import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
 import ActionListGallery from '@onekeyhq/kit/src/views/Components/stories/ActionList';
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
+import BlurViewGallery from '@onekeyhq/kit/src/views/Components/stories/BlurView';
 import ButtonGallery from '@onekeyhq/kit/src/views/Components/stories/Button';
 import CheckboxGallery from '@onekeyhq/kit/src/views/Components/stories/Checkbox';
 import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
@@ -14,8 +15,10 @@ import DemoRootApp from '@onekeyhq/kit/src/views/Components/stories/NavigatorRou
 import PopoverGallery from '@onekeyhq/kit/src/views/Components/stories/Popover';
 import ProgressGallery from '@onekeyhq/kit/src/views/Components/stories/Progress';
 import RadioGallery from '@onekeyhq/kit/src/views/Components/stories/Radio';
+import RefreshControlGallery from '@onekeyhq/kit/src/views/Components/stories/RefreshControl';
 import SegmentControlGallery from '@onekeyhq/kit/src/views/Components/stories/SegmentControl';
 import SelectGallery from '@onekeyhq/kit/src/views/Components/stories/Select';
+import ShortcutGallery from '@onekeyhq/kit/src/views/Components/stories/Shortcut';
 import SliderGallery from '@onekeyhq/kit/src/views/Components/stories/Slider';
 import SwitchGallery from '@onekeyhq/kit/src/views/Components/stories/Switch';
 import TabViewGallery from '@onekeyhq/kit/src/views/Components/stories/TabView';
@@ -38,7 +41,10 @@ import ThemeGallery from '../../../../../views/Components/stories/Theme';
 
 import { EGalleryRoutes } from './routes';
 
-export const galleryScreenList = [
+export const galleryScreenList: {
+  name: EGalleryRoutes;
+  component: () => React.JSX.Element;
+}[] = [
   { name: EGalleryRoutes.Components, component: ComponentsScreen },
   {
     name: EGalleryRoutes.ComponentTypography,
@@ -50,6 +56,7 @@ export const galleryScreenList = [
   },
   { name: EGalleryRoutes.ComponentIcon, component: IconGallery },
   { name: EGalleryRoutes.ComponentToast, component: ToastGallery },
+  { name: EGalleryRoutes.ComponentShortcut, component: ShortcutGallery },
   { name: EGalleryRoutes.ComponentSelect, component: SelectGallery },
   { name: EGalleryRoutes.ComponentTooltip, component: TooltipGallery },
   { name: EGalleryRoutes.ComponentBadge, component: BadgeGallery },
@@ -102,5 +109,13 @@ export const galleryScreenList = [
   {
     name: EGalleryRoutes.ComponentWebview,
     component: WebviewGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentRefreshControl,
+    component: RefreshControlGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentBlurView,
+    component: BlurViewGallery,
   },
 ];

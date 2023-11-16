@@ -1,4 +1,5 @@
 import { useNavigation } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 
 import { useThemeValue } from '@onekeyhq/components';
@@ -69,6 +70,10 @@ function useDemoAppNavigation<
     },
   });
 
+  const searchTextColor = titleColor;
+  const intl = useIntl();
+  const searchCancelText = intl.formatMessage({ id: 'action__cancel' });
+
   function setOptions(options: Partial<IStackNavigationOptions>) {
     const { headerSearchBarOptions, ...otherOptions } = options;
 
@@ -79,6 +84,8 @@ function useDemoAppNavigation<
           hideNavigationBar: false,
           // @ts-expect-error
           hideWhenScrolling: false,
+          cancelButtonText: searchCancelText,
+          textColor: searchTextColor,
           ...headerSearchBarOptions,
         },
       };
