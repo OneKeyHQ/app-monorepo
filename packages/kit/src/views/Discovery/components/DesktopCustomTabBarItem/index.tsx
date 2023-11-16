@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Image } from 'react-native';
 
-import { IconButton, Stack, Text } from '@onekeyhq/components';
+import { ActionList, Icon, Stack, Text, XStack } from '@onekeyhq/components';
 
 import { useWebTabData } from '../../hooks/useWebTabs';
 
@@ -10,65 +10,113 @@ function DesktopCustomTabBarItem({
   id,
   activeTabId,
   onPress,
-  onCloseTab,
-  onLongPress,
+  onBookmarkPress,
+  onPinnedPress,
+  onClose,
 }: {
   id: string;
   activeTabId: string | null;
   onPress: (id: string) => void;
-  onCloseTab: (id: string) => void;
-  onLongPress: (id: string) => void;
+  onBookmarkPress: (bookmark: boolean, url: string, title: string) => void;
+  onPinnedPress: (id: string, pinned: boolean) => void;
+  onClose: (id: string) => void;
 }) {
   const { tab } = useWebTabData(id);
+  const [menuHoverVisible, setMenuHoverVisible] = useState(false);
+  const [open, onOpenChange] = useState(false);
   const isActive = useMemo(() => activeTabId === id, [activeTabId, id]);
-  const isPinned = useMemo(() => tab.isPinned, [tab.isPinned]);
-  const bgColor = useMemo(() => {
-    if (isActive && isPinned) {
-      return '$bgCriticalStrong';
-    }
-    if (isPinned) {
-      return '$bgCautionStrong';
-    }
-    if (isActive) {
-      return '$bgActive';
-    }
-    return undefined;
-  }, [isActive, isPinned]);
   return (
-    <Stack
+    <XStack
       key={id}
       flexDirection="row"
       alignItems="center"
       py="$1.5"
       px="$2"
-      bg={bgColor}
+      h="$8"
       borderRadius="$2"
+      space="$2"
+      bg={isActive ? '$bgActive' : undefined}
       onPress={() => onPress(id)}
       // @ts-expect-error
       onContextMenu={(event) => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
         event.preventDefault();
         console.log('===> onContextMenu: ');
-        onLongPress(id);
       }}
     >
-      {isActive && <Stack w="$1" h="100%" bg="$iconActive" mr="$2" />}
-      {tab?.favicon && (
-        <Image
-          style={{ width: 16, height: 16, marginRight: 8 }}
-          source={{ uri: tab?.favicon }}
+      <Stack p="$0.5">
+        {tab?.favicon && (
+          <Image
+            style={{ width: 16, height: 16 }}
+            source={{ uri: tab?.favicon }}
+          />
+        )}
+      </Stack>
+      <XStack
+        flex={1}
+        onHoverIn={() => setMenuHoverVisible(true)}
+        onHoverOut={() => setMenuHoverVisible(false)}
+        alignItems="center"
+      >
+        <Text variant="$bodyMd" numberOfLines={1} flex={1}>
+          {tab.title}
+        </Text>
+        <ActionList
+          open={open}
+          title="Action List"
+          renderTrigger={
+            menuHoverVisible && (
+              <Stack
+                p="$1"
+                onPress={() => {
+                  onOpenChange(true);
+                }}
+                pressStyle={{
+                  borderRadius: '$full',
+                  backgroundColor: '$bgActive',
+                }}
+              >
+                <Icon name="DotHorOutline" />
+              </Stack>
+            )
+          }
+          sections={[
+            {
+              items: [
+                {
+                  label: tab.isBookmark ? 'Delete Bookmark' : 'Bookmark',
+                  icon: 'BookmarkOutline',
+                  onPress: () => {
+                    onBookmarkPress(!tab.isBookmark, tab.url, tab.title ?? '');
+                    onOpenChange(false);
+                  },
+                },
+                {
+                  label: tab.isPinned ? 'Un-Pin' : 'Pin',
+                  icon: 'ThumbtackOutline',
+                  onPress: () => {
+                    onPinnedPress(tab.id, !tab.isPinned);
+                    onOpenChange(false);
+                  },
+                },
+              ],
+            },
+            {
+              items: [
+                {
+                  label: tab.isPinned ? 'Close Pin Tab' : 'Close Tab',
+                  icon: 'CrossedLargeOutline',
+                  onPress: () => {
+                    onClose(id);
+                    onOpenChange(false);
+                  },
+                },
+              ],
+            },
+          ]}
         />
-      )}
-      <Text>{tab.title}</Text>
-      <IconButton
-        icon="CrossedSmallOutline"
-        size="small"
-        onPress={(e) => {
-          e.stopPropagation();
-          onCloseTab?.(id);
-        }}
-      />
-    </Stack>
+      </XStack>
+    </XStack>
   );
 }
 

@@ -1,8 +1,9 @@
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { Button, Divider, Stack, Text, YStack } from '@onekeyhq/components';
 
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
+import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
 import useWebTabAction from '../../hooks/useWebTabAction';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
@@ -12,11 +13,37 @@ function DesktopCustomTabBar() {
   const { activeTabId } = useActiveTabId();
   const { setCurrentWebTab, closeWebTab, setPinnedTab, closeAllWebTab } =
     useWebTabAction();
+  const { addBrowserBookmark, removeBrowserBookmark } =
+    useBrowserBookmarkAction();
   const data = useMemo(() => (tabs ?? []).filter((t) => !t.isPinned), [tabs]);
   const pinnedData = useMemo(
     () => (tabs ?? []).filter((t) => t.isPinned),
     [tabs],
   );
+
+  const handlePinnedPress = useCallback(
+    (id: string, pinned: boolean) => {
+      void setPinnedTab({ id, pinned });
+    },
+    [setPinnedTab],
+  );
+  const handleCloseTab = useCallback(
+    (id: string) => {
+      void closeWebTab(id);
+    },
+    [closeWebTab],
+  );
+  const handleBookmarkPress = useCallback(
+    (bookmark: boolean, url: string, title: string) => {
+      if (bookmark) {
+        addBrowserBookmark({ url, title });
+      } else {
+        removeBrowserBookmark(url);
+      }
+    },
+    [addBrowserBookmark, removeBrowserBookmark],
+  );
+
   return (
     <Stack>
       {pinnedData.map((t) => (
@@ -26,12 +53,9 @@ function DesktopCustomTabBar() {
           onPress={(id) => {
             setCurrentWebTab(id);
           }}
-          onCloseTab={(id) => {
-            void closeWebTab(id);
-          }}
-          onLongPress={(id) => {
-            void setPinnedTab({ id, pinned: false });
-          }}
+          onBookmarkPress={handleBookmarkPress}
+          onPinnedPress={handlePinnedPress}
+          onClose={handleCloseTab}
         />
       ))}
       <Divider py="$4" />
@@ -42,12 +66,9 @@ function DesktopCustomTabBar() {
           onPress={(id) => {
             setCurrentWebTab(id);
           }}
-          onCloseTab={(id) => {
-            void closeWebTab(id);
-          }}
-          onLongPress={(id) => {
-            void setPinnedTab({ id, pinned: true });
-          }}
+          onBookmarkPress={handleBookmarkPress}
+          onPinnedPress={handlePinnedPress}
+          onClose={handleCloseTab}
         />
       ))}
       <YStack>
