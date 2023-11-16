@@ -4,6 +4,8 @@ import { FlatList, StyleSheet } from 'react-native';
 
 import {
   BlurView,
+  Button,
+  IconButton,
   ListView,
   ModalContainer,
   Stack,
@@ -35,6 +37,39 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
 });
+
+function TabToolBar({
+  onAddTab,
+  onCloseAll,
+  onDone,
+}: {
+  onAddTab: () => void;
+  onCloseAll: () => void;
+  onDone: () => void;
+}) {
+  return (
+    <Stack
+      py="$2"
+      px="$8"
+      flexDirection="row"
+      alignItems="center"
+      justifyContent="space-between"
+    >
+      <Button variant="tertiary" size="medium" onPress={onCloseAll}>
+        Close All
+      </Button>
+      <IconButton
+        variant="secondary"
+        size="medium"
+        icon="PlusLargeOutline"
+        onPress={onAddTab}
+      />
+      <Button variant="tertiary" size="medium" onPress={onDone}>
+        Done
+      </Button>
+    </Stack>
+  );
+}
 
 function MobileTabListModal() {
   const navigation =
@@ -170,13 +205,7 @@ function MobileTabListModal() {
   }, [pinnedData, renderPinnedItem]);
 
   return (
-    <ModalContainer
-      onConfirm={() => {
-        addBlankWebTab();
-        navigation.pop();
-      }}
-      onCancel={() => closeAllWebTab()}
-    >
+    <ModalContainer onConfirm={() => {}} onCancel={() => closeAllWebTab()}>
       <Stack style={styles.container}>
         <FlatList
           data={data}
@@ -196,6 +225,16 @@ function MobileTabListModal() {
         onPinnedPress={handlePinnedPress}
         onShare={handleShare}
         onClose={handleCloseTab}
+      />
+      <TabToolBar
+        onAddTab={() => {
+          addBlankWebTab();
+          navigation.pop();
+        }}
+        onCloseAll={() => closeAllWebTab()}
+        onDone={() => {
+          navigation.pop();
+        }}
       />
     </ModalContainer>
   );
