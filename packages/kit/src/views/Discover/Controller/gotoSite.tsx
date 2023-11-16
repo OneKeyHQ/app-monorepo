@@ -1,4 +1,3 @@
-import { openUrl } from '../../../utils/openUrl';
 import { webTabsActions } from '../Explorer/Context/contextWebTabs';
 import { crossWebviewLoadUrl, validateUrl, webHandler } from '../explorerUtils';
 
