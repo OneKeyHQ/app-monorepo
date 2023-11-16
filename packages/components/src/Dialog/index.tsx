@@ -226,7 +226,7 @@ function DialogFrame({
   }
 
   return (
-    <TMDialog open={open}>
+    <TMDialog modal open={open}>
       <TMDialog.Trigger onPress={onOpen} asChild>
         {renderTrigger}
       </TMDialog.Trigger>

@@ -5,7 +5,7 @@ import { RootSiblingParent } from 'react-native-root-siblings';
 import { FullWindowOverlay, enableFreeze } from 'react-native-screens';
 import { Provider as ReduxProvider } from 'react-redux';
 
-import { Portal, Toaster } from '@onekeyhq/components';
+import { Portal } from '@onekeyhq/components';
 import store from '@onekeyhq/kit/src/store';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -48,7 +48,6 @@ const KitProvider: FC = () => (
                   <WebTabBarItem />
                 </Portal.Body>
               ) : null}
-              <Toaster />
             </FullWindowOverlayContainer>
           </GestureHandlerRootView>
         </RootSiblingParent>

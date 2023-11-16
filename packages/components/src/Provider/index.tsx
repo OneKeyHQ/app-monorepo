@@ -17,6 +17,7 @@ import SidebarStateProvider from './SidebarStateProvider';
 
 import type { ILocaleSymbol } from '../locale';
 import type { IntlShape, MessageDescriptor } from 'react-intl';
+import Toaster from '../Toast/Toaster';
 
 export type IUIProviderProps = PropsWithChildren<{
   /**
@@ -93,6 +94,7 @@ const Provider: FC<IUIProviderProps> = ({
                   defaultTheme={themeVariant}
                 >
                   {children}
+                  <Toaster />
                 </MemoizedTamaguiProvider>
               </SafeAreaProvider>
             </SidebarStateProvider>
