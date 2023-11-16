@@ -9,12 +9,13 @@ import { Stack } from '../Stack';
 import { Tooltip } from '../Tooltip';
 
 import type { IICON_NAMES, IIconProps } from '../Icon';
+import type { ITooltipProps } from '../Tooltip';
 
 export interface IIconButtonProps
   extends Omit<IButtonProps, 'iconAfter' | 'children' | 'icon'> {
   icon: IICON_NAMES;
   iconProps?: IIconProps;
-  title?: string;
+  title?: ITooltipProps['renderContent'];
 }
 
 const getSizeStyles = (size: IButtonProps['size']) => {

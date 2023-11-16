@@ -1,4 +1,10 @@
-import { IconButton, Stack } from '@onekeyhq/components';
+import {
+  IconButton,
+  Shortcut,
+  Stack,
+  Tooltip,
+  XStack,
+} from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -71,6 +77,19 @@ const IconButtonGallery = () => (
               variant="tertiary"
               icon="PlaceholderOutline"
               title="Qui nulla occaecat anim&nbsp;Qui nulla occaecat anim&nbsp;Qui nulla occaecat anim&nbsp;Qui nulla occaecat anim&nbsp;"
+            />
+            <IconButton
+              variant="tertiary"
+              icon="PlaceholderOutline"
+              title={
+                <XStack alignItems="center">
+                  <Tooltip.Text>Go back</Tooltip.Text>
+                  <Shortcut ml="$2">
+                    <Shortcut.Key>⌘</Shortcut.Key>
+                    <Shortcut.Key>t</Shortcut.Key>
+                  </Shortcut>
+                </XStack>
+              }
             />
           </Stack>
         ),
