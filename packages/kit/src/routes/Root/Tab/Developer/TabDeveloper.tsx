@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 
 import { StyleSheet } from 'react-native';
-import { useDispatch } from 'react-redux';
 import { ScrollView } from 'tamagui';
 
 import {
@@ -24,9 +23,16 @@ import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import useCookie from '../../../../hooks/useCookie';
-import { setLocale, setTheme } from '../../../../store/reducers/settings';
 
 import { ETabDeveloperRoutes, type ITabDeveloperParamList } from './Routes';
+
+function setTheme(theme: string) {
+  console.log(theme);
+}
+
+function setLocale(locale: string) {
+  console.log(locale);
+}
 
 const useStorage = platformEnv.isNative
   ? (key: AppSettingKey, initialValue?: boolean) => {
@@ -70,8 +76,8 @@ function PartContainer({
 const TabDeveloper = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabDeveloperParamList>>();
-  const dispatch = useDispatch();
 
+  // @ts-expect-error
   const [rrtStatus, changeRRTStatus] = useStorage(AppSettingKey.rrt);
 
   return (
@@ -130,7 +136,7 @@ const TabDeveloper = () => {
             <Button
               flex={1}
               onPress={() => {
-                dispatch(setTheme('light'));
+                setTheme('light');
               }}
             >
               Light Theme
@@ -139,7 +145,7 @@ const TabDeveloper = () => {
               flex={1}
               variant="primary"
               onPress={() => {
-                dispatch(setTheme('dark'));
+                setTheme('dark');
               }}
             >
               Night Theme
@@ -149,7 +155,7 @@ const TabDeveloper = () => {
             <Button
               flex={1}
               onPress={() => {
-                dispatch(setLocale('en-US'));
+                setLocale('en-US');
               }}
             >
               英文
@@ -158,7 +164,7 @@ const TabDeveloper = () => {
               flex={1}
               variant="primary"
               onPress={() => {
-                dispatch(setLocale('zh-CN'));
+                setLocale('zh-CN');
               }}
             >
               中文

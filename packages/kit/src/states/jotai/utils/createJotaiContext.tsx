@@ -54,6 +54,7 @@ export function createJotaiContext() {
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function contextAtomMethod<Value, Args extends unknown[], Result>(
     fn: Write<Args, Result>,
   ) {

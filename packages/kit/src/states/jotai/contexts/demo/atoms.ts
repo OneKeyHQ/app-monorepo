@@ -8,6 +8,7 @@ const {
 } = createJotaiContext();
 export { ProviderJotaiContextDemo, contextAtomMethod };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { atom: demoHelloAtom, use: useDemoHelloAtom } =
   contextAtom<string>('hello world');
 

@@ -1,5 +1,3 @@
-import { useDispatch } from 'react-redux';
-
 import {
   Button,
   Screen,
@@ -9,8 +7,6 @@ import {
   XStack,
   useKeyboardHeight,
 } from '@onekeyhq/components';
-
-import { setTheme } from '../../../../store/reducers/settings';
 
 const FormattedText = ({ text }: { text: string | string[] }) => {
   if (typeof text === 'string') {
@@ -59,7 +55,6 @@ export function Layout({
     element: React.ReactElement;
   }[];
 }>) {
-  const dispatch = useDispatch();
   const keyboardHeight = useKeyboardHeight();
   return (
     <Screen skipLoading={skipLoading}>
@@ -79,7 +74,7 @@ export function Layout({
           <XStack>
             <Button
               onPress={() => {
-                dispatch(setTheme('light'));
+                //  (setTheme('light'));
               }}
             >
               Light Theme
@@ -88,7 +83,7 @@ export function Layout({
               ml="$4"
               variant="primary"
               onPress={() => {
-                dispatch(setTheme('dark'));
+                // (setTheme('dark'));
               }}
             >
               Dark Theme

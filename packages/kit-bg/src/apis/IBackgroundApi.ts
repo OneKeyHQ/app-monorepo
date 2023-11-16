@@ -1,7 +1,5 @@
 // import type only here to avoid cycle-deps error
 
-import type { IAppSelector, IPersistor, IStore } from '@onekeyhq/kit/src/store';
-
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type ServiceApp from '../services/ServiceApp';
 import type ServicePassword from '../services/ServicePassword';
@@ -26,13 +24,6 @@ export type IBackgroundApiInternalCallMessage = IJsonRpcRequest & {
 };
 
 export interface IBackgroundApiBridge {
-  // **** redux
-  store: IStore;
-  persistor: IPersistor;
-  dispatch: (...actions: any[]) => void;
-  getState: () => Promise<{ state: any; bootstrapped: boolean }>;
-  appSelector: IAppSelector;
-
   // **** jotai
   setAtomValue: (atomName: EAtomNames, value: any) => Promise<void>;
   getAtomStates: () => Promise<{ states: Record<EAtomNames, any> }>;
