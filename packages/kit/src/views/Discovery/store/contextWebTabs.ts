@@ -155,12 +155,12 @@ export const closeAllWebTabsAtom = atom(null, async (get, set) => {
   void set(setWebTabsAtom, { data: pinnedTabs });
 });
 
-export const setPinedTabAtom = atom(
+export const setPinnedTabAtom = atom(
   null,
-  async (_, set, payload: { id: string; pined: boolean }) => {
+  async (_, set, payload: { id: string; pinned: boolean }) => {
     void set(setWebTabDataAtom, {
       id: payload.id,
-      isPined: payload.pined,
+      isPinned: payload.pinned,
       timestamp: Date.now(),
     });
     void set(refreshTabsAtom);

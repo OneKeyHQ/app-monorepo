@@ -61,7 +61,7 @@ export interface IWebTab {
   favicon?: string;
   thumbnail?: string;
   isBookmark?: boolean;
-  isPined?: boolean;
+  isPinned?: boolean;
   pinnedTimestamp?: number;
   loading?: boolean;
   canGoBack?: boolean;
@@ -80,8 +80,8 @@ export interface IMobileBottomOptionsProps {
   onBookmarkPress: (bookmark: boolean) => void;
   onRefresh: () => void;
   onShare: () => void;
-  isPined: boolean;
-  onPinedPress: (pined: boolean) => void;
+  isPinned: boolean;
+  onPinnedPress: (pinned: boolean) => void;
   onCopyUrl: () => void;
   onBrowserOpen: () => void;
   onGoBackHomePage: () => void;

@@ -10,16 +10,16 @@ import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 function DesktopCustomTabBar() {
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
-  const { setCurrentWebTab, closeWebTab, setPinedTab, closeAllWebTab } =
+  const { setCurrentWebTab, closeWebTab, setPinnedTab, closeAllWebTab } =
     useWebTabAction();
-  const data = useMemo(() => (tabs ?? []).filter((t) => !t.isPined), [tabs]);
-  const pinedData = useMemo(
-    () => (tabs ?? []).filter((t) => t.isPined),
+  const data = useMemo(() => (tabs ?? []).filter((t) => !t.isPinned), [tabs]);
+  const pinnedData = useMemo(
+    () => (tabs ?? []).filter((t) => t.isPinned),
     [tabs],
   );
   return (
     <Stack>
-      {pinedData.map((t) => (
+      {pinnedData.map((t) => (
         <DesktopCustomTabBarItem
           id={t.id}
           activeTabId={activeTabId}
@@ -30,7 +30,7 @@ function DesktopCustomTabBar() {
             void closeWebTab(id);
           }}
           onLongPress={(id) => {
-            void setPinedTab({ id, pined: false });
+            void setPinnedTab({ id, pinned: false });
           }}
         />
       ))}
@@ -46,7 +46,7 @@ function DesktopCustomTabBar() {
             void closeWebTab(id);
           }}
           onLongPress={(id) => {
-            void setPinedTab({ id, pined: true });
+            void setPinnedTab({ id, pinned: true });
           }}
         />
       ))}

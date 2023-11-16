@@ -7,7 +7,7 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import MobileTabListItem from '../../components/MobileTabListItem';
-import MobileTabListPinedItem from '../../components/MobileTabListItem/MobileTabListPinedItem';
+import MobileTabListPinnedItem from '../../components/MobileTabListItem/MobileTabListPinnedItem';
 import { TAB_LIST_CELL_COUNT_PER_ROW } from '../../config/TabList.constants';
 import useWebTabAction from '../../hooks/useWebTabAction';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
@@ -34,9 +34,9 @@ function MobileTabListModal() {
     useAppNavigation<IPageNavigationProp<DiscoverModalParamList>>();
 
   const { tabs } = useWebTabs();
-  const data = useMemo(() => (tabs ?? []).filter((t) => !t.isPined), [tabs]);
-  const pinedData = useMemo(
-    () => (tabs ?? []).filter((t) => t.isPined),
+  const data = useMemo(() => (tabs ?? []).filter((t) => !t.isPinned), [tabs]);
+  const pinnedData = useMemo(
+    () => (tabs ?? []).filter((t) => t.isPinned),
     [tabs],
   );
 
@@ -44,11 +44,11 @@ function MobileTabListModal() {
     console.log('MobileTabListModal data changed ===> : ', data);
   }, [data]);
   useEffect(() => {
-    console.log('MobileTabListModal pinedData changed ===> : ', pinedData);
-  }, [pinedData]);
+    console.log('MobileTabListModal pinnedData changed ===> : ', pinnedData);
+  }, [pinnedData]);
 
   const { activeTabId } = useActiveTabId();
-  const { setCurrentWebTab, closeWebTab, setPinedTab } = useWebTabAction();
+  const { setCurrentWebTab, closeWebTab, setPinnedTab } = useWebTabAction();
 
   const keyExtractor = useCallback((item: IWebTab) => item.id, []);
   const renderItem = useCallback(
@@ -69,14 +69,14 @@ function MobileTabListModal() {
   );
 
   const ListHeader = useMemo(() => {
-    if (pinedData.length === 0) {
+    if (pinnedData.length === 0) {
       return null;
     }
     return (
       <>
-        {pinedData.map((pinedTab) => (
-          <MobileTabListPinedItem
-            {...pinedTab}
+        {pinnedData.map((pinnedTab) => (
+          <MobileTabListPinnedItem
+            {...pinnedTab}
             activeTabId={activeTabId}
             onSelectedItem={(id) => {
               setCurrentWebTab(id);
@@ -86,19 +86,19 @@ function MobileTabListModal() {
               void closeWebTab(id);
             }}
             onLongPress={(id) => {
-              void setPinedTab({ id, pined: false });
+              void setPinnedTab({ id, pinned: false });
             }}
           />
         ))}
       </>
     );
   }, [
-    pinedData,
+    pinnedData,
     setCurrentWebTab,
     closeWebTab,
     activeTabId,
     navigation,
-    setPinedTab,
+    setPinnedTab,
   ]);
 
   const { addBlankWebTab, closeAllWebTab } = useWebTabAction();

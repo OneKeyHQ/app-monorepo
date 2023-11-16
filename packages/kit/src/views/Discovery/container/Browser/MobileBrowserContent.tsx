@@ -43,7 +43,7 @@ function MobileBrowserContent({ id }: { id: string }) {
   const [backEnabled, setBackEnabled] = useState(false);
   const [forwardEnabled, setForwardEnabled] = useState(false);
   const captureViewRef = useRef<TamaguiElement | null>();
-  const { setWebTabData, setPinedTab } = useWebTabAction();
+  const { setWebTabData, setPinnedTab } = useWebTabAction();
 
   const isActive = useMemo(
     () => activeTabId === tab?.id,
@@ -121,9 +121,9 @@ function MobileBrowserContent({ id }: { id: string }) {
           }}
           onRefresh={() => webviewRefs[id]?.reload()}
           onShare={() => console.log('TODO: share')}
-          isPined={tab?.isPined ?? false}
-          onPinedPress={(pined) => {
-            void setPinedTab({ id, pined });
+          isPinned={tab?.isPinned ?? false}
+          onPinnedPress={(pinned) => {
+            void setPinnedTab({ id, pinned });
           }}
           onCopyUrl={() => console.log('TODO: copy url')}
           onBrowserOpen={() => console.log('TODO: open in browser')}
@@ -138,13 +138,13 @@ function MobileBrowserContent({ id }: { id: string }) {
       isActive,
       tabCount,
       onShowTabList,
-      tab?.isPined,
+      tab?.isPinned,
       tab?.isBookmark,
       tab?.url,
       tab?.title,
       addBrowserBookmark,
       removeBrowserBookmark,
-      setPinedTab,
+      setPinnedTab,
       setWebTabData,
     ],
   );
