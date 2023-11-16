@@ -63,12 +63,14 @@ function renderToPortal(
   };
 }
 
+const MAX_RETRY_TIMES = 5;
+
 function PortalRender(props: {
   children: ReactNode;
   container?: EConstantName;
 }) {
   const { children, container } = props;
-  const [retry, setRetry] = useState(false);
+  const [retryTimes, updateRetryTimes] = useState(0);
 
   const managerController = useMemo(() => {
     const manager = container ? portalManagers.get(container) : null;
@@ -100,7 +102,9 @@ function PortalRender(props: {
         );
       },
     };
-  }, [container]);
+    // fetch portalManagers by every retry times.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [container, retryTimes]);
 
   // * try first time by sync (iOS required, web not inited yet)
   managerController.update(children);
@@ -122,17 +126,17 @@ function PortalRender(props: {
     const isUpdated = managerController.update(children);
 
     // * try 3rd time by setTimeout
-    if (!retry && !isUpdated) {
+    if (retryTimes < MAX_RETRY_TIMES && !isUpdated) {
       // manager not exists, may be portalManagers not init yet,
       // try again in 600ms
       setTimeout(() => {
         console.error(
           `react-native-root-portal: retry load PortalContainer:'${container}'.`,
         );
-        setRetry(true);
-      }, 800);
+        updateRetryTimes((i) => i + 1);
+      }, 80);
     }
-  }, [children, container, managerController, retry]);
+  }, [children, container, managerController, retryTimes]);
 
   if (!container) {
     return <>{children}</>;
