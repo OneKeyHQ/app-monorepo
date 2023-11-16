@@ -149,10 +149,8 @@ function MobileTabListModal() {
         bottom={0}
         right={10}
         bg="$bgStrong"
-        // h="$20"
         px="$2"
         py="$3"
-        intensity={25}
         borderRadius="$5"
         display="flex"
         flexDirection="row"

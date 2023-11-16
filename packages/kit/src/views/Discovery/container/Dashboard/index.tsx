@@ -10,6 +10,27 @@ import type { IDAppItemType } from '../../types';
 
 const data = [
   {
+    'url': 'https://cryptoskyland.com/#/index??utm_source=onekey',
+    'name': 'CryptoSkyland',
+    '_id': '634fa07920ec3e25ecd1ff74',
+    'logoURL':
+      'https://nft.onekey-asset.com/admin/u_b_956c13b0-38a9-11ed-8a53-c14e5b2d68f4.jpeg.jpeg',
+  },
+  {
+    'url': 'https://arbitrum.foundation',
+    'name': 'Arbitrum Foundation',
+    '_id': '64199bbacbfe888538c3c772',
+    'logoURL':
+      'https://nft.onekey-asset.com/admin/upload_1679399863339.0.7540050077875533.0.jpeg',
+  },
+  {
+    'url': 'https://www.carrier.so/',
+    'name': 'Carrier',
+    '_id': '64086c61ea3412b877c208de',
+    'logoURL':
+      'https://nft.onekey-asset.com/admin/upload_1678273561733.0.26599601397534145.0.png',
+  },
+  {
     'url': 'https://www.onekey111.so/',
     'name': 'ErrorPage',
     '_id': '64086c61ea3412b877c2d8de',
@@ -58,27 +79,6 @@ const data = [
     'logoURL':
       'https://nft.onekey-asset.com/admin/upload_1681814481583.0.10849986891361785.0.png',
   },
-  {
-    'url': 'https://cryptoskyland.com/#/index??utm_source=onekey',
-    'name': 'CryptoSkyland',
-    '_id': '634fa07920ec3e25ecd1ff74',
-    'logoURL':
-      'https://nft.onekey-asset.com/admin/u_b_956c13b0-38a9-11ed-8a53-c14e5b2d68f4.jpeg.jpeg',
-  },
-  {
-    'url': 'https://arbitrum.foundation',
-    'name': 'Arbitrum Foundation',
-    '_id': '64199bbacbfe888538c3c772',
-    'logoURL':
-      'https://nft.onekey-asset.com/admin/upload_1679399863339.0.7540050077875533.0.jpeg',
-  },
-  {
-    'url': 'https://www.carrier.so/',
-    'name': 'Carrier',
-    '_id': '64086c61ea3412b877c208de',
-    'logoURL':
-      'https://nft.onekey-asset.com/admin/upload_1678273561733.0.26599601397534145.0.png',
-  },
 ];
 
 type IProps = { onItemSelect?: (item: IDAppItemType) => void };
@@ -97,7 +97,7 @@ function Dashboard({ onItemSelect }: IProps) {
     [onItemSelect, navigation],
   );
   return (
-    <YStack h={500} bg="red">
+    <YStack h={500} bg="$bgApp">
       {data.map((i) => (
         <Button
           key={i._id}

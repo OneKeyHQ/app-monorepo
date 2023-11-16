@@ -1,16 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
-import {
-  ActionList,
-  IconButton,
-  Image,
-  Stack,
-  Text,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Image, Stack, Text, XStack } from '@onekeyhq/components';
 
-import { TAB_LIST_CELL_WIDTH } from '../../config/TabList.constants';
 import { useWebTabData } from '../../hooks/useWebTabs';
 
 import type { IWebTab } from '../../types';
@@ -30,22 +21,29 @@ function MobileTabListPinnedItem({
   const isActive = useMemo(() => activeTabId === id, [id, activeTabId]);
   return (
     <Stack
-      p="$2"
+      p="$1"
       minHeight="$8"
       minWidth="$28"
       maxWidth="$40"
+      borderRadius="$3"
+      borderWidth={2}
+      borderColor={isActive ? '$borderActive' : '$transparent'}
+      marginHorizontal={2}
       onPress={() => {
         onSelectedItem(id);
       }}
       onLongPress={() => {
         onLongPress(id);
       }}
-      borderRadius="$2"
-      bg="$bgStrong"
-      overflow="hidden"
-      marginHorizontal={6}
     >
-      <XStack justifyContent="center" alignItems="center" space="$2">
+      <XStack
+        bg="$bgStrong"
+        p="$2"
+        justifyContent="center"
+        alignItems="center"
+        space="$2"
+        borderRadius="$2"
+      >
         <Image w={16} h={16} source={{ uri: tab?.favicon }} />
         <Text flex={1} variant="$bodySm" numberOfLines={1}>
           {tab?.title || ''}

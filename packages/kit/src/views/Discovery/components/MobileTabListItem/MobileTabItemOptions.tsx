@@ -37,7 +37,7 @@ function MobileTabItemOptions({
         {
           items: [
             {
-              label: tab.isBookmark ? '取消收藏' : 'Bookmark',
+              label: tab.isBookmark ? 'Delete Bookmark' : 'Bookmark',
               icon: tab.isBookmark ? 'BookmarkSolid' : 'BookmarkOutline',
               onPress: () =>
                 onBookmarkPress(!tab.isBookmark, tab.url, tab.title ?? ''),
