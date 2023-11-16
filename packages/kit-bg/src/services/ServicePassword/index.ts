@@ -10,6 +10,7 @@ import {
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import * as OneKeyError from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { registerWebAuth, verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
 
 import localDb from '../../dbs/local/localDb';
 import { settingsPersistAtom } from '../../states/jotai/atoms';
@@ -141,6 +142,30 @@ export default class ServicePassword extends ServiceBase {
       ...v,
       isBiologyAuthSwitchOn: enable,
     }));
+  }
+
+  @backgroundMethod()
+  async setWebAuthEnable(enable: boolean): Promise<void> {
+    let webAuthCredentialId: string | undefined;
+    if (enable) {
+      webAuthCredentialId = await registerWebAuth();
+    }
+    await passwordPersistAtom.set((v) => ({
+      ...v,
+      webAuthCredentialId: webAuthCredentialId ?? '',
+    }));
+  }
+
+  @backgroundMethod()
+  async verifyWebAuth(): Promise<string> {
+    const { webAuthCredentialId } = await passwordPersistAtom.get();
+    if (webAuthCredentialId && this.cachedPassword) {
+      const cred = await verifiedWebAuth(webAuthCredentialId);
+      if (cred?.id === webAuthCredentialId) {
+        return this.cachedPassword;
+      }
+    }
+    return '';
   }
 
   @backgroundMethod()

@@ -1,10 +1,18 @@
 const isDev = process.env.NODE_ENV !== 'production';
 // https://developer.chrome.com/docs/extensions/mv3/manifest/key/
-const extensionIdKey = '';
+// const extensionIdKey = '';
+
+// TODO:
+// Required value 'version' is missing or invalid. It must be between 1-4 dot-separated integers each between 0 and 65536.
+// beta version cannot be work in chrome store.
+
+// const version = process.env.VERSION;
+const version = '5.0.0';
+
 module.exports = {
   // generate extensionId in local
   // 'key': process.env.NODE_ENV !== 'production' ? extensionIdKey : undefined,
-  'version': process.env.VERSION,
+  version,
   'name': 'OneKey',
   'description':
     'Multi-Chain Support for BTC, ETH, BNB, NEAR & other Layer2 Networks',
