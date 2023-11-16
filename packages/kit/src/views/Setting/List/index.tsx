@@ -1,5 +1,4 @@
 import { useCallback, useState } from 'react';
-import type { FC, ReactNode } from 'react';
 
 import {
   ListItem,
@@ -7,34 +6,10 @@ import {
   ScrollView,
   Stack,
   Switch,
-  Text,
 } from '@onekeyhq/components';
-import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
-import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/types';
 
-import type { IModalSettingParamList } from '../types';
-
-type ISectionProps = {
-  title: string;
-  children: ReactNode;
-};
-
-const Section: FC<ISectionProps> = ({ title, children }) => (
-  <Stack>
-    <Text
-      variant="$headingSm"
-      paddingHorizontal="$4"
-      paddingBottom="$2"
-      paddingTop="$5"
-      color="$textSubdued"
-    >
-      {title}
-    </Text>
-    <Stack>{children}</Stack>
-  </Stack>
-);
+import { PreferenceSection } from './PreferenceSection';
+import { Section } from './Section';
 
 const SecuritySection = () => {
   const onPress = useCallback(() => {}, []);
@@ -59,67 +34,6 @@ const SecuritySection = () => {
         title="Change password"
         drillIn
       />
-    </Section>
-  );
-};
-
-const PreferenceSection = () => {
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
-  const onPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingCurrencyModal,
-    });
-  }, [navigation]);
-  const onTheme = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingThemeModal,
-    });
-  }, [navigation]);
-  const onLanguage = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingLanguageModal,
-    });
-  }, [navigation]);
-  return (
-    <Section title="PREFERENCE">
-      <ListItem
-        icon="DollarOutline"
-        title="Default currency"
-        drillIn
-        onPress={onPress}
-      >
-        <ListItem.Text
-          primary="USD"
-          align="right"
-          primaryTextProps={{
-            tone: 'subdued',
-          }}
-        />
-      </ListItem>
-      <ListItem
-        onPress={onLanguage}
-        icon="GlobusOutline"
-        title="Language"
-        drillIn
-      >
-        <ListItem.Text
-          primary="English"
-          align="right"
-          primaryTextProps={{
-            tone: 'subdued',
-          }}
-        />
-      </ListItem>
-      <ListItem onPress={onTheme} icon="PaletteOutline" title="Theme" drillIn>
-        <ListItem.Text
-          primary="Auto"
-          align="right"
-          primaryTextProps={{
-            tone: 'subdued',
-          }}
-        />
-      </ListItem>
     </Section>
   );
 };
