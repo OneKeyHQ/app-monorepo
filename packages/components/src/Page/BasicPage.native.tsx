@@ -34,7 +34,7 @@ function LoadingScreen({ children }: PropsWithChildren<unknown>) {
   );
 }
 
-export function Page({
+export function BasicPage({
   children,
   skipLoading = false,
 }: PropsWithChildren<unknown> & {

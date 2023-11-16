@@ -42,7 +42,7 @@ export * from './Provider/hooks/useThemeValue';
 export * from './Provider/hooks/useIsMounted';
 export * from './QRCode';
 export * from './Skeleton';
-export * from './Page';
+export * from './Page/BasicPage';
 export * from './ScrollView';
 export * from './TabView';
 export * from './SegmentControl';
