@@ -1,4 +1,4 @@
-import { Button, Screen, YStack } from '@onekeyhq/components';
+import { Button, Page, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -10,7 +10,7 @@ const TabMe = () => {
   const navigation = useAppNavigation<IPageNavigationProp<ITabMeParamList>>();
 
   return (
-    <Screen>
+    <Page>
       <YStack>
         <Button
           onPress={() => {
@@ -20,7 +20,7 @@ const TabMe = () => {
           切换到首页
         </Button>
       </YStack>
-    </Screen>
+    </Page>
   );
 };
 
