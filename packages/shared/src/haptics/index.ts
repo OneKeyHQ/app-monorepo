@@ -1,5 +1,3 @@
-import { selectionAsync } from 'expo-haptics';
-
 import platformEnv from '../platformEnv';
 
 /** only support on iphone or android(tablet), not include ipad */
@@ -13,10 +11,6 @@ export const defaultHapticStatus = !!(
 
 export const doHapticsWhenEnabled = supportedHaptics
   ? () => {
-      const { appSelector } =
-        require('@onekeyhq/kit/src/store') as typeof import('@onekeyhq/kit/src/store');
-      if (appSelector((s) => s.settings.enableHaptics) ?? defaultHapticStatus) {
-        void selectionAsync();
-      }
+      // eslint-disable-next-line no-console
     }
   : () => {};

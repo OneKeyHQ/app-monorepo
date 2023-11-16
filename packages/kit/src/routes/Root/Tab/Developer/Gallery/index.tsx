@@ -30,6 +30,7 @@ import WebviewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 import AlertGallery from '../../../../../views/Components/stories/Alert';
 import DividerGallery from '../../../../../views/Components/stories/Divider';
 import FormGallery from '../../../../../views/Components/stories/Form';
+import JotaiContextGallery from '../../../../../views/Components/stories/JotaiContextGallery';
 import JotaiGlobalGallery from '../../../../../views/Components/stories/JotaiGlobalGallery';
 import ListViewGallery from '../../../../../views/Components/stories/ListView';
 import QRCodeGallery from '../../../../../views/Components/stories/QRCode';
@@ -93,6 +94,10 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentDivider, component: DividerGallery },
   { name: EGalleryRoutes.ComponentTheme, component: ThemeGallery },
   { name: EGalleryRoutes.ComponentScrollView, component: ScrollViewGallery },
+  {
+    name: EGalleryRoutes.ComponentJotaiContext,
+    component: JotaiContextGallery,
+  },
   { name: EGalleryRoutes.ComponentJotaiGlobal, component: JotaiGlobalGallery },
   {
     name: EGalleryRoutes.ComponentForm,
