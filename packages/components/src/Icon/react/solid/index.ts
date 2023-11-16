@@ -706,6 +706,7 @@ export { default as TextSize } from './TextSize';
 export { default as Text } from './Text';
 export { default as ThumbDown } from './ThumbDown';
 export { default as ThumbUp } from './ThumbUp';
+export { default as Thumbtack } from './Thumbtack';
 export { default as Ticket } from './Ticket';
 export { default as TitleCase } from './TitleCase';
 export { default as Toast } from './Toast';
