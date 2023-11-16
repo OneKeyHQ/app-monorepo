@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { FlatList, StyleSheet } from 'react-native';
 
@@ -7,13 +7,15 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import MobileTabListItem from '../../components/MobileTabListItem';
+import MobileTabItemOptions from '../../components/MobileTabListItem/MobileTabItemOptions';
 import MobileTabListPinnedItem from '../../components/MobileTabListItem/MobileTabListPinnedItem';
 import { TAB_LIST_CELL_COUNT_PER_ROW } from '../../config/TabList.constants';
+import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
 import useWebTabAction from '../../hooks/useWebTabAction';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
-import type { DiscoverModalParamList } from '../../router/Routes';
+import type { IDiscoveryModalParamList } from '../../router/Routes';
 import type { IWebTab } from '../../types';
 import type { View } from 'react-native';
 
@@ -31,8 +33,7 @@ const styles = StyleSheet.create({
 
 function MobileTabListModal() {
   const navigation =
-    useAppNavigation<IPageNavigationProp<DiscoverModalParamList>>();
-
+    useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
   const { tabs } = useWebTabs();
   const data = useMemo(() => (tabs ?? []).filter((t) => !t.isPinned), [tabs]);
   const pinnedData = useMemo(
@@ -48,7 +49,50 @@ function MobileTabListModal() {
   }, [pinnedData]);
 
   const { activeTabId } = useActiveTabId();
-  const { setCurrentWebTab, closeWebTab, setPinnedTab } = useWebTabAction();
+
+  const { addBrowserBookmark, removeBrowserBookmark } =
+    useBrowserBookmarkAction();
+
+  const {
+    addBlankWebTab,
+    closeAllWebTab,
+    setCurrentWebTab,
+    closeWebTab,
+    setPinnedTab,
+  } = useWebTabAction();
+
+  const [open, onOpenChange] = useState(false);
+  const [selectedTabId, setSelectedTabId] = useState<string | null>(null);
+
+  const handleBookmarkPress = useCallback(
+    (bookmark: boolean, url: string, title: string) => {
+      if (bookmark) {
+        addBrowserBookmark({ url, title });
+      } else {
+        removeBrowserBookmark(url);
+      }
+      onOpenChange(false);
+    },
+    [addBrowserBookmark, removeBrowserBookmark],
+  );
+  const handleShare = useCallback(() => {
+    console.log('TODO: on share');
+    onOpenChange(false);
+  }, []);
+  const handlePinnedPress = useCallback(
+    (id: string, pinned: boolean) => {
+      void setPinnedTab({ id, pinned });
+      onOpenChange(false);
+    },
+    [setPinnedTab],
+  );
+  const handleCloseTab = useCallback(
+    (id: string) => {
+      void closeWebTab(id);
+      onOpenChange(false);
+    },
+    [closeWebTab],
+  );
 
   const keyExtractor = useCallback((item: IWebTab) => item.id, []);
   const renderItem = useCallback(
@@ -60,12 +104,14 @@ function MobileTabListModal() {
           setCurrentWebTab(id);
           navigation.pop();
         }}
-        onCloseItem={(id) => {
-          void closeWebTab(id);
+        onCloseItem={handleCloseTab}
+        onLongPress={(id) => {
+          setSelectedTabId(id);
+          onOpenChange(true);
         }}
       />
     ),
-    [navigation, setCurrentWebTab, closeWebTab, activeTabId],
+    [navigation, setCurrentWebTab, activeTabId, handleCloseTab],
   );
 
   const ListHeader = useMemo(() => {
@@ -82,26 +128,17 @@ function MobileTabListModal() {
               setCurrentWebTab(id);
               navigation.pop();
             }}
-            onCloseItem={(id) => {
-              void closeWebTab(id);
-            }}
+            onCloseItem={(id) => handleCloseTab}
             onLongPress={(id) => {
-              void setPinnedTab({ id, pinned: false });
+              setSelectedTabId(id);
+              onOpenChange(true);
             }}
           />
         ))}
       </>
     );
-  }, [
-    pinnedData,
-    setCurrentWebTab,
-    closeWebTab,
-    activeTabId,
-    navigation,
-    setPinnedTab,
-  ]);
+  }, [pinnedData, setCurrentWebTab, activeTabId, navigation, handleCloseTab]);
 
-  const { addBlankWebTab, closeAllWebTab } = useWebTabAction();
   return (
     <ModalContainer
       onConfirm={() => {
@@ -121,6 +158,15 @@ function MobileTabListModal() {
           ListHeaderComponent={ListHeader}
         />
       </Stack>
+      <MobileTabItemOptions
+        open={open}
+        onOpenChange={onOpenChange}
+        id={selectedTabId}
+        onBookmarkPress={handleBookmarkPress}
+        onPinnedPress={handlePinnedPress}
+        onShare={handleShare}
+        onClose={handleCloseTab}
+      />
     </ModalContainer>
   );
 }

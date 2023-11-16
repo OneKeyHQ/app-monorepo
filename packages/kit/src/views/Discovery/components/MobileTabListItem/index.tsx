@@ -24,10 +24,12 @@ function MobileTabListItem({
   activeTabId,
   onSelectedItem,
   onCloseItem,
+  onLongPress,
 }: IWebTab & {
   activeTabId: string | null;
   onSelectedItem: (id: string) => void;
   onCloseItem: (id: string) => void;
+  onLongPress: (id: string) => void;
 }) {
   const { tab } = useWebTabData(id);
   const isActive = useMemo(() => activeTabId === id, [id, activeTabId]);
@@ -39,6 +41,9 @@ function MobileTabListItem({
       mb="$4"
       onPress={() => {
         onSelectedItem(id);
+      }}
+      onLongPress={() => {
+        onLongPress(id);
       }}
       borderRadius="$3"
       borderWidth={1}

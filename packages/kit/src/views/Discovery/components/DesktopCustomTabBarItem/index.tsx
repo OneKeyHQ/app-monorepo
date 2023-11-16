@@ -21,19 +21,19 @@ function DesktopCustomTabBarItem({
 }) {
   const { tab } = useWebTabData(id);
   const isActive = useMemo(() => activeTabId === id, [activeTabId, id]);
-  const isPined = useMemo(() => tab.isPined, [tab.isPined]);
+  const isPinned = useMemo(() => tab.isPinned, [tab.isPinned]);
   const bgColor = useMemo(() => {
-    if (isActive && isPined) {
+    if (isActive && isPinned) {
       return '$bgCriticalStrong';
     }
-    if (isPined) {
+    if (isPinned) {
       return '$bgCautionStrong';
     }
     if (isActive) {
       return '$bgActive';
     }
     return undefined;
-  }, [isActive, isPined]);
+  }, [isActive, isPinned]);
   return (
     <Stack
       key={id}

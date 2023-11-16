@@ -12,8 +12,8 @@ function MobileBrowserBottomOptions({
   onBookmarkPress,
   onRefresh,
   onShare,
-  isPined,
-  onPinedPress,
+  isPinned,
+  onPinnedPress,
   onCopyUrl,
   onBrowserOpen,
   onGoBackHomePage,
@@ -42,9 +42,9 @@ function MobileBrowserBottomOptions({
               onPress: () => onBookmarkPress(!isBookmark),
             },
             {
-              label: isPined ? 'Un-Pin' : 'Pin',
-              icon: isPined ? 'PinSolid' : 'PinOutline',
-              onPress: () => onPinedPress(!isPined),
+              label: isPinned ? 'Un-Pin' : 'Pin',
+              icon: isPinned ? 'PinSolid' : 'PinOutline',
+              onPress: () => onPinnedPress(!isPinned),
             },
             {
               label: 'Share',

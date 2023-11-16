@@ -151,7 +151,7 @@ class ServiceDiscovery extends ServiceBase {
     activeTabId: string | null,
   ) {
     let newActiveTabId = null;
-    const pinnedTabs = tabs.filter((tab) => tab.isPined); // close all tabs exclude pinned tab
+    const pinnedTabs = tabs.filter((tab) => tab.isPinned); // close all tabs exclude pinned tab
     // should update active tab, if active tab is not in pinnedTabs
     if (pinnedTabs.every((tab) => tab.id !== activeTabId)) {
       if (pinnedTabs.length) {

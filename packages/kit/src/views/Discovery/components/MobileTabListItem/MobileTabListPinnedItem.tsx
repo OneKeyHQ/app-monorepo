@@ -10,28 +10,22 @@ import {
   YStack,
 } from '@onekeyhq/components';
 
-import {
-  TAB_LIST_CELL_HEIGHT,
-  TAB_LIST_CELL_WIDTH,
-  THUMB_HEIGHT,
-  THUMB_WIDTH,
-} from '../../config/TabList.constants';
+import { TAB_LIST_CELL_WIDTH } from '../../config/TabList.constants';
 import { useWebTabData } from '../../hooks/useWebTabs';
 
 import type { IWebTab } from '../../types';
 
-function MobileTabListPinedItem({
+function MobileTabListPinnedItem({
   id,
   activeTabId,
   onSelectedItem,
-  onCloseItem,
   onLongPress,
-}: IWebTab & {
+}: {
   activeTabId: string | null;
   onSelectedItem: (id: string) => void;
   onCloseItem: (id: string) => void;
   onLongPress: (id: string) => void;
-}) {
+} & IWebTab) {
   const { tab } = useWebTabData(id);
   const isActive = useMemo(() => activeTabId === id, [id, activeTabId]);
   return (
@@ -44,7 +38,6 @@ function MobileTabListPinedItem({
         onSelectedItem(id);
       }}
       onLongPress={() => {
-        console.log('on long press: ===>>>');
         onLongPress(id);
       }}
       borderRadius="$3"
@@ -63,4 +56,4 @@ function MobileTabListPinedItem({
   );
 }
 
-export default MobileTabListPinedItem;
+export default MobileTabListPinnedItem;

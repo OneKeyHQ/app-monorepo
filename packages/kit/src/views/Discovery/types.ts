@@ -86,3 +86,16 @@ export interface IMobileBottomOptionsProps {
   onBrowserOpen: () => void;
   onGoBackHomePage: () => void;
 }
+
+export interface IMobileTabListOptionsProps {
+  onBookmarkPress: (bookmark: boolean, url: string, title: string) => void;
+  onShare: () => void;
+  onPinnedPress: (id: string, pinned: boolean) => void;
+  onClose: (id: string) => void;
+}
+
+export interface IMobileTabListEventProps {
+  onBookmarkPress: (bookmark: boolean, url: string, title: string) => void;
+  onShare: () => void;
+  onPinnedPress: (id: string, pinned: boolean) => void;
+}
