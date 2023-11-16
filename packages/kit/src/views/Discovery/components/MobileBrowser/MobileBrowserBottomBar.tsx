@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { Button, IconButton, Stack } from '@onekeyhq/components';
+import { IconButton, Stack, Text } from '@onekeyhq/components';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
 
 import useWebTabAction from '../../hooks/useWebTabAction';
@@ -61,17 +61,32 @@ function MobileBrowserBottomBar({
           icon="PlusLargeOutline"
           onPress={() => addBlankWebTab()}
         />
-        <Button
-          variant="tertiary"
-          size="medium"
-          borderWidth={1}
-          borderColor="$border"
+        <Stack
+          p="$2"
+          borderRadius="$full"
+          pressStyle={{
+            bg: '$bgActive',
+          }}
           onPress={() => {
             onShowTabList();
           }}
         >
-          {tabCount}
-        </Button>
+          <Stack
+            minWidth="$5"
+            minHeight="$5"
+            p={tabCount.toString().length > 1 ? '$1' : undefined}
+            borderRadius="$1"
+            borderWidth="$0.5"
+            borderColor="$iconSubdued"
+            flexDirection="row"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Text variant="$bodySmMedium" color="$iconSubdued">
+              {tabCount}
+            </Text>
+          </Stack>
+        </Stack>
         <MobileBrowserBottomOptions
           open={open}
           onOpenChange={onOpenChange}
