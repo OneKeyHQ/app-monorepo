@@ -16,6 +16,7 @@ import ProgressGallery from '@onekeyhq/kit/src/views/Components/stories/Progress
 import RadioGallery from '@onekeyhq/kit/src/views/Components/stories/Radio';
 import SegmentControlGallery from '@onekeyhq/kit/src/views/Components/stories/SegmentControl';
 import SelectGallery from '@onekeyhq/kit/src/views/Components/stories/Select';
+import ShortcutGallery from '@onekeyhq/kit/src/views/Components/stories/Shortcut';
 import SliderGallery from '@onekeyhq/kit/src/views/Components/stories/Slider';
 import SwitchGallery from '@onekeyhq/kit/src/views/Components/stories/Switch';
 import TabViewGallery from '@onekeyhq/kit/src/views/Components/stories/TabView';
@@ -50,6 +51,7 @@ export const galleryScreenList = [
   },
   { name: EGalleryRoutes.ComponentIcon, component: IconGallery },
   { name: EGalleryRoutes.ComponentToast, component: ToastGallery },
+  { name: EGalleryRoutes.ComponentShortcut, component: ShortcutGallery },
   { name: EGalleryRoutes.ComponentSelect, component: SelectGallery },
   { name: EGalleryRoutes.ComponentTooltip, component: TooltipGallery },
   { name: EGalleryRoutes.ComponentBadge, component: BadgeGallery },
