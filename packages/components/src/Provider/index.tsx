@@ -9,6 +9,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import config from '../../tamagui.config';
 import LOCALES from '../locale';
+import { Toaster } from '../Toast';
 
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
 import { Context } from './hooks/useProviderValue';
@@ -17,7 +18,6 @@ import SidebarStateProvider from './SidebarStateProvider';
 
 import type { ILocaleSymbol } from '../locale';
 import type { IntlShape, MessageDescriptor } from 'react-intl';
-import Toaster from '../Toast/Toaster';
 
 export type IUIProviderProps = PropsWithChildren<{
   /**
