@@ -11,6 +11,7 @@ export * from './Empty';
 export * from './Image';
 export * from './ListItem';
 export * from './Avatar';
+export * from './SheetGrabber';
 export * from './Icon';
 export * from './Stack';
 export * from './Badge';
@@ -24,6 +25,7 @@ export * from './ModalContainer';
 export * from './ActionList';
 export * from './Slider';
 export * from './Popover';
+export * from './Shortcut';
 export * from './Progress';
 export * from './Form';
 export * from './Portal';
@@ -47,6 +49,8 @@ export * from './SegmentControl';
 export * from './ListView';
 export * from './SectionList';
 export * as DelayedFreeze from './DelayedFreeze';
+export * from './RefreshControl';
+export * from './BlurView';
 
 // Navigation
 export * from './Navigation/StackNavigator';

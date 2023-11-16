@@ -6,8 +6,12 @@ import type { IInputProps } from '../Input';
 
 type ISearchBarProps = IInputProps;
 
-export function SearchBar({ onChangeText, ...rest }: ISearchBarProps) {
-  const [value, setValue] = useState('');
+export function SearchBar({
+  value: defaultValue,
+  onChangeText,
+  ...rest
+}: ISearchBarProps) {
+  const [value, setValue] = useState(defaultValue ?? '');
 
   const handleChange = useCallback(
     (text: string) => {
@@ -26,7 +30,7 @@ export function SearchBar({ onChangeText, ...rest }: ISearchBarProps) {
       value={value}
       onChangeText={handleChange}
       leftIconName="SearchOutline"
-      {...(value.length > 0 && {
+      {...(value?.length && {
         addOns: [
           {
             iconName: 'XCircleOutline',
