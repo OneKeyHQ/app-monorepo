@@ -22,6 +22,7 @@ export enum EGalleryRoutes {
   ComponentScrollView = 'component/scrollView',
   ComponentRadio = 'component/radio',
   ComponentDivider = 'component/divider',
+  ComponentShortcut = 'component/shortcut',
   ComponentToast = 'component/toast',
   ComponentCheckbox = 'component/checkbox',
   ComponentActionList = 'component/actionlist',

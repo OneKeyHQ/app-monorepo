@@ -25,6 +25,7 @@ export * from './ModalContainer';
 export * from './ActionList';
 export * from './Slider';
 export * from './Popover';
+export * from './Shortcut';
 export * from './Progress';
 export * from './Form';
 export * from './Portal';
