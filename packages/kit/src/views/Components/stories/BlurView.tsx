@@ -52,7 +52,11 @@ function Background({ children }: PropsWithChildren<unknown>) {
 function BasicDemo() {
   return (
     <Background>
-      <BlurView w="100%" h="$20" intensity={70} />
+      <BlurView w="90%" h="$20" intensity={70} />
+      <BlurView w="80%" h="$20" margin="$4" borderRadius="$4" intensity={70} />
+      <BlurView contentStyle={{ p: '$4' }} borderRadius="$4" intensity={70}>
+        <Text>999</Text>
+      </BlurView>
     </Background>
   );
 }
@@ -68,8 +72,8 @@ function ListDemo() {
           showsHorizontalScrollIndicator={false}
           estimatedItemSize="$10"
           renderItem={({ item }) => (
-            <BlurView m="$2">
-              <Text m="$2">{item}</Text>
+            <BlurView m="$2" borderRadius="$2" contentStyle={{ p: '$2' }}>
+              <Text>{item}</Text>
             </BlurView>
           )}
         />
