@@ -5,6 +5,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { RootNavigator } from '@onekeyhq/kit/src/routes';
 
 export const navigationRef = createRef();
+// @ts-ignore
 global.$navigationRef = navigationRef as any;
 
 const NavigationApp = () => (
@@ -12,6 +13,7 @@ const NavigationApp = () => (
     documentTitle={{
       formatter: () => 'OneKey',
     }}
+    // @ts-ignore
     ref={navigationRef}
   >
     <RootNavigator />

@@ -4,8 +4,6 @@ import WebView from './index';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useThemeProviderVariant } from '../../hooks/useThemeVariant';
-
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
@@ -25,7 +23,10 @@ export function WebViewWebEmbed({
   isSpinnerLoading?: boolean;
   onContentLoaded?: () => void; // currently works in NativeWebView only
 }) {
-  const { themeVariant, localeVariant } = useThemeProviderVariant();
+  const { themeVariant, localeVariant } = {
+    themeVariant: 'light',
+    localeVariant: 'en',
+  };
   const nativeWebviewSource = useMemo(() => {
     if (src) {
       return undefined;

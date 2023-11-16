@@ -17,6 +17,7 @@ import type {
   IWritableAtomPro,
   Read,
   SetAtom,
+  Setter,
   WithInitialValue,
   Write,
 } from '../types';
@@ -280,4 +281,69 @@ export function globalAtomComputedW<Value, Args extends unknown[], Result>({
 export function globalAtomComputed<Value>(read: Read<Value>) {
   // Read
   return globalAtomComputedR({ read });
+}
+
+export function contextAtomBase<Value>({
+  initialValue,
+  useContextAtom,
+}: {
+  initialValue: Value;
+  useContextAtom: <Value2, Args extends any[], Result>(
+    atomInstance: WritableAtom<Value2, Args, Result>,
+  ) => [Awaited<Value2>, SetAtom<Args, Result>];
+}) {
+  const atomBuilder = memoizee(() => atom(initialValue));
+  const useFn = () => useContextAtom(atomBuilder());
+
+  return {
+    atom: atomBuilder,
+    use: useFn,
+  };
+}
+
+export function contextAtomComputedBase<Value>({
+  read,
+  useContextAtom,
+}: {
+  read: Read<Value>;
+  useContextAtom: <Value2>(atomInstance: Atom<Value2>) => [Awaited<Value2>];
+}) {
+  const atomBuilder = memoizee(() => {
+    console.log('create contextAtomComputedBase', Date.now());
+    return atom(read);
+  });
+  const useFn = () => {
+    const r = useContextAtom(atomBuilder());
+    return r;
+  };
+
+  return {
+    atom: atomBuilder,
+    use: useFn,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function contextAtomMethodBase<Value, Args extends unknown[], Result>({
+  fn,
+  useContextAtom,
+}: {
+  fn: Write<Args, Result>;
+  useContextAtom: <Value2, Args2 extends any[], Result2>(
+    atomInstance: WritableAtom<Value2, Args2, Result2>,
+  ) => [Awaited<Value2>, SetAtom<Args2, Result2>];
+}) {
+  const atomBuilder = memoizee(() => atom(null, fn));
+  const useFn = () => {
+    const [, setter] = useContextAtom(atomBuilder());
+    return setter;
+  };
+
+  const call = (set: Setter, ...args: Args) => set(atomBuilder(), ...args);
+
+  return {
+    atom: atomBuilder,
+    use: useFn,
+    call,
+  };
 }

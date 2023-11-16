@@ -327,47 +327,7 @@ export type IGlobalStatesSyncBroadcastParams = {
   payload: any;
 };
 
-export const DISPATCH_ACTION_BROADCAST_METHOD_NAME = 'dispatchActionBroadcast';
 export const REPLACE_WHOLE_STATE = 'REPLACE_WHOLE_STATE';
-
-export type IDispatchActionBroadcastParams = {
-  actions?: PayloadAction[];
-  $isDispatchFromBackground: boolean;
-};
-export function buildReduxBatchAction(...actions: AnyAction[]) {
-  if (!actions || !actions.length) {
-    return undefined;
-  }
-  if (actions && actions.length > 1) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const batchAction = (dispatch: (p: any) => void, getState: any) => {
-      // should only result in one combined re-render, not two
-      batch(() => {
-        actions.forEach((action) => {
-          if (isFunction(action)) {
-            throw new Error(
-              'backgroundApi.dispatch ERROR:  async action is NOT allowed.',
-            );
-          }
-          if (action) {
-            action.$isDispatchFromBackground = true;
-          }
-
-          dispatch(action);
-          ensureSerializable(action);
-        });
-      });
-    };
-    return batchAction;
-  }
-
-  const singleAction: AnyAction | undefined = actions?.[0];
-  if (singleAction) {
-    singleAction.$isDispatchFromBackground = true;
-  }
-
-  return singleAction;
-}
 
 export async function fetchData<T>(
   path: string,

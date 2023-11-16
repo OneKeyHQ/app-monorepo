@@ -31,6 +31,7 @@ export enum EGalleryRoutes {
   ComponentTextArea = 'component/textArea',
   ComponentPopover = 'component/popover',
   ComponentTheme = 'component/theme',
+  ComponentJotaiContext = 'component/jotaiContext',
   ComponentJotaiGlobal = 'component/jotaiGlobal',
   ComponentTabview = 'component/tabView',
   componentQRCode = 'component/qrCode',

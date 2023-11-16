@@ -2,11 +2,11 @@ import { isEqual } from 'lodash';
 // import { nanoid } from 'nanoid';
 
 import { simpleDb } from '@onekeyhq/kit/src/components/WebView/mock';
+
 import {
   atom,
   createJotaiContext,
-} from '@onekeyhq/kit/src/store/jotai/createJotaiContext';
-
+} from '../../../../states/jotai/utils/createJotaiContext';
 import { webviewRefs } from '../../explorerUtils';
 
 export interface WebTab {
@@ -260,4 +260,4 @@ const webTabsActions = {
   },
 };
 
-export { withProviderWebTabs, useAtomWebTabs, webTabsActions };
+export { useAtomWebTabs, webTabsActions, withProviderWebTabs };

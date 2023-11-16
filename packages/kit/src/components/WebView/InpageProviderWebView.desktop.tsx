@@ -29,6 +29,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       onDidFailLoad,
       onPageTitleUpdated,
       onPageFaviconUpdated,
+      // @ts-expect-error
       onNewWindow,
       onDomReady,
     }: InpageProviderWebViewProps,

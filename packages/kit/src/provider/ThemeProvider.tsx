@@ -7,10 +7,11 @@ import {
   setLightContent,
 } from '@onekeyhq/components/src/Navigation/utils/StatusBarUtils';
 
-import { useThemeProviderVariant } from '../hooks/useThemeVariant';
-
 const ThemeApp = ({ children }: PropsWithChildren<unknown>) => {
-  const { themeVariant, localeVariant } = useThemeProviderVariant();
+  const { themeVariant, localeVariant } = {
+    themeVariant: 'light',
+    localeVariant: 'en',
+  };
   useEffect(() => {
     if (themeVariant === 'light') {
       setDarkContent();
@@ -20,7 +21,7 @@ const ThemeApp = ({ children }: PropsWithChildren<unknown>) => {
   }, [themeVariant]);
 
   return (
-    <Provider themeVariant={themeVariant} locale={localeVariant}>
+    <Provider themeVariant={themeVariant as any} locale={localeVariant as any}>
       {children}
     </Provider>
   );

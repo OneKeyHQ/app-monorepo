@@ -1,14 +1,3 @@
-import type {
-  Collection,
-  NFTBTCAssetModel,
-} from '@onekeyhq/engine/src/types/nft';
-import type { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
-
-import type {
-  IAmountValue,
-  ITokenPriceValue,
-} from '../../store/reducers/tokens';
-
 export interface IBaseOverviewQuery {
   networkId: string;
   address: string; // accountAddress
@@ -120,7 +109,7 @@ export interface IOverviewDeFiPoolTokenBalance extends ITokenInfo {
 
   coingeckoId?: string;
 
-  riskLevel: TokenRiskLevel;
+  riskLevel: any;
   decimals: number;
 }
 
@@ -270,7 +259,7 @@ export type OverviewModalRoutesParams = {
 
 export interface OverviewAllNetworksPortfolioRes {
   [EOverviewScanTaskType.token]: IOverviewAllNetworksToken[];
-  [EOverviewScanTaskType.nfts]: (Collection | NFTBTCAssetModel)[];
+  [EOverviewScanTaskType.nfts]: any[];
   [EOverviewScanTaskType.defi]: OverviewDefiRes[];
 }
 
@@ -295,10 +284,10 @@ export interface IOverviewAllNetworksToken {
     accountAddress?: string;
     address: string;
     xpub?: string;
-    balance: IAmountValue;
+    balance: any;
     decimals: number;
-    riskLevel: TokenRiskLevel;
-    value: IAmountValue;
+    riskLevel: any;
+    value: any;
   }[];
 }
 
@@ -309,16 +298,16 @@ export interface IAccountToken {
   symbol: string;
   address?: string;
   logoURI?: string;
-  balance: IAmountValue;
-  availableBalance?: IAmountValue;
-  transferBalance?: IAmountValue;
-  usdValue: IAmountValue;
-  value: IAmountValue;
-  value24h?: IAmountValue;
-  price: ITokenPriceValue;
-  price24h?: ITokenPriceValue;
+  balance: any;
+  availableBalance?: any;
+  transferBalance?: any;
+  usdValue: any;
+  value: any;
+  value24h?: any;
+  price: any;
+  price24h?: any;
   isNative?: boolean;
-  riskLevel?: TokenRiskLevel;
+  riskLevel?: any;
   sendAddress?: string;
   key: string;
   coingeckoId?: string;

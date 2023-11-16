@@ -15,3 +15,7 @@ export const memoizee: typeof cache = (f, options) => {
     normalizer,
   });
 };
+
+export function memoFn<T>(fn: () => T) {
+  return memoizee(fn);
+}
