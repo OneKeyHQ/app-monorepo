@@ -30,25 +30,24 @@ function MobileTabListPinnedItem({
   const isActive = useMemo(() => activeTabId === id, [id, activeTabId]);
   return (
     <Stack
-      w={TAB_LIST_CELL_WIDTH}
-      h="$10"
-      mr="$4"
-      mb="$4"
+      p="$2"
+      minHeight="$8"
+      minWidth="$28"
+      maxWidth="$40"
       onPress={() => {
         onSelectedItem(id);
       }}
       onLongPress={() => {
         onLongPress(id);
       }}
-      borderRadius="$3"
-      borderWidth={1}
-      borderColor={isActive ? '$borderActive' : '$borderCritical'}
-      bg="$background-default"
+      borderRadius="$2"
+      bg="$bgStrong"
       overflow="hidden"
+      marginHorizontal={6}
     >
-      <XStack justifyContent="center" alignItems="center" h="$8">
-        {/* <Image w="$4" h="$4" source={{ uri: tab?.favicon }} /> */}
-        <Text px="$2" flex={1} color="$text" textAlign="left" numberOfLines={1}>
+      <XStack justifyContent="center" alignItems="center" space="$2">
+        <Image w={16} h={16} source={{ uri: tab?.favicon }} />
+        <Text flex={1} variant="$bodySm" numberOfLines={1}>
           {tab?.title || ''}
         </Text>
       </XStack>

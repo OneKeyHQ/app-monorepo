@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { FlatList, StyleSheet } from 'react-native';
 
-import { ModalContainer, Stack } from '@onekeyhq/components';
+import {
+  BlurView,
+  ListView,
+  ModalContainer,
+  Stack,
+} from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -114,30 +119,57 @@ function MobileTabListModal() {
     [navigation, setCurrentWebTab, activeTabId, handleCloseTab],
   );
 
-  const ListHeader = useMemo(() => {
+  const renderPinnedItem = useCallback(
+    ({ item: tab }: { item: IWebTab }) => (
+      <MobileTabListPinnedItem
+        {...tab}
+        activeTabId={activeTabId}
+        onSelectedItem={(id) => {
+          setCurrentWebTab(id);
+          navigation.pop();
+        }}
+        onCloseItem={(id) => handleCloseTab}
+        onLongPress={(id) => {
+          setSelectedTabId(id);
+          onOpenChange(true);
+        }}
+      />
+    ),
+    [navigation, setCurrentWebTab, activeTabId, handleCloseTab],
+  );
+
+  const renderPinnedList = useMemo(() => {
     if (pinnedData.length === 0) {
       return null;
     }
     return (
-      <>
-        {pinnedData.map((pinnedTab) => (
-          <MobileTabListPinnedItem
-            {...pinnedTab}
-            activeTabId={activeTabId}
-            onSelectedItem={(id) => {
-              setCurrentWebTab(id);
-              navigation.pop();
-            }}
-            onCloseItem={(id) => handleCloseTab}
-            onLongPress={(id) => {
-              setSelectedTabId(id);
-              onOpenChange(true);
-            }}
-          />
-        ))}
-      </>
+      <BlurView
+        position="absolute"
+        left={10}
+        bottom={0}
+        right={10}
+        bg="$bgStrong"
+        // h="$20"
+        px="$2"
+        py="$3"
+        intensity={25}
+        borderRadius="$5"
+        display="flex"
+        flexDirection="row"
+        alignItems="center"
+      >
+        <ListView
+          w="100%"
+          horizontal
+          data={pinnedData}
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => item.id}
+          estimatedItemSize="$28"
+          renderItem={renderPinnedItem}
+        />
+      </BlurView>
     );
-  }, [pinnedData, setCurrentWebTab, activeTabId, navigation, handleCloseTab]);
+  }, [pinnedData, renderPinnedItem]);
 
   return (
     <ModalContainer
@@ -155,9 +187,9 @@ function MobileTabListModal() {
           numColumns={TAB_LIST_CELL_COUNT_PER_ROW}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.listContentContainer}
-          ListHeaderComponent={ListHeader}
         />
       </Stack>
+      {renderPinnedList}
       <MobileTabItemOptions
         open={open}
         onOpenChange={onOpenChange}

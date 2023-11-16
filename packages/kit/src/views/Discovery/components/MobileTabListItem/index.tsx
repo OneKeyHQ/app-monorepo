@@ -91,6 +91,7 @@ function MobileTabListItem({
           />
         </XStack>
         <Image
+          flex={1}
           w={THUMB_WIDTH}
           h={THUMB_HEIGHT}
           source={{ uri: tab?.thumbnail }}
