@@ -535,6 +535,8 @@ PODS:
   - RNFileLogger (0.4.1):
     - CocoaLumberjack
     - React
+  - RNFlashList (1.6.3):
+    - React-Core
   - RNFS (2.20.0):
     - React-Core
   - RNGestureHandler (2.13.3):
@@ -675,6 +677,7 @@ DEPENDENCIES:
   - "RNCAsyncStorage (from `../../../node_modules/@react-native-async-storage/async-storage`)"
   - RNDeviceInfo (from `../../../node_modules/react-native-device-info`)
   - RNFileLogger (from `../../../node_modules/react-native-file-logger`)
+  - "RNFlashList (from `../../../node_modules/@shopify/flash-list`)"
   - RNFS (from `../../../node_modules/react-native-fs`)
   - RNGestureHandler (from `../../../node_modules/react-native-gesture-handler`)
   - RNReanimated (from `../../../node_modules/react-native-reanimated`)
@@ -858,6 +861,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-device-info"
   RNFileLogger:
     :path: "../../../node_modules/react-native-file-logger"
+  RNFlashList:
+    :path: "../../../node_modules/@shopify/flash-list"
   RNFS:
     :path: "../../../node_modules/react-native-fs"
   RNGestureHandler:
@@ -962,6 +967,7 @@ SPEC CHECKSUMS:
   RNCAsyncStorage: ddc4ee162bfd41b0d2c68bf2d95acd81dd7f1f93
   RNDeviceInfo: bf8a32acbcb875f568217285d1793b0e8588c974
   RNFileLogger: 9eaf7a6ea709eaaffe646cc485b98ae1dbf1e9f0
+  RNFlashList: 4b4b6b093afc0df60ae08f9cbf6ccd4c836c667a
   RNFS: 4ac0f0ea233904cb798630b3c077808c06931688
   RNGestureHandler: fa40ab6b6cafaa7609294d31f8e8fbbd0cce8ea6
   RNReanimated: 9633f8c2e214b721e35e371b473fbf3a1522948d

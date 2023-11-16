@@ -566,4 +566,5 @@ module.exports = [
   'jpeg',
   'Themeable',
   'alg',
+  'gitkeep',
 ];
