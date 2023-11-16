@@ -13,5 +13,5 @@ export const TAB_LIST_CELL_HEIGHT = Math.floor(
   (TAB_LIST_CELL_WIDTH * 210) / 171,
 );
 
-export const THUMB_HEIGHT = Math.floor(TAB_LIST_CELL_HEIGHT - 36 - 12);
+export const THUMB_HEIGHT = Math.floor(TAB_LIST_CELL_HEIGHT - 32);
 export const THUMB_WIDTH = TAB_LIST_CELL_WIDTH - 10;

@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+import { StyleSheet } from 'react-native';
+
 import {
   IconButton,
   Image,
@@ -37,8 +39,8 @@ function MobileTabListItem({
     <Stack
       w={TAB_LIST_CELL_WIDTH}
       h={TAB_LIST_CELL_HEIGHT}
-      mr="$4"
-      mb="$4"
+      mr="$3"
+      mb="$3"
       onPress={() => {
         onSelectedItem(id);
       }}
@@ -46,44 +48,52 @@ function MobileTabListItem({
         onLongPress(id);
       }}
       borderRadius="$3"
-      borderWidth={1}
-      borderColor={isActive ? '$borderActive' : '$borderCritical'}
-      bg="$background-default"
+      borderWidth="$0.5"
+      borderColor={isActive ? '$borderActive' : '$transparent'}
       overflow="hidden"
     >
       <YStack
+        m="$0.5"
         flex={1}
         collapsable={false}
         justifyContent="center"
         alignItems="center"
+        borderRadius="$2"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+        bg="$bgStrong"
+        zIndex={1}
+        overflow="hidden"
       >
-        <XStack justifyContent="center" alignItems="center" h="$8">
-          <Image w="$4" h="$4" source={{ uri: tab?.favicon }} />
-          <Text
-            px="$2"
-            flex={1}
-            color="$text"
-            textAlign="left"
-            numberOfLines={1}
-          >
+        <XStack
+          py="$2"
+          pl="$2.5"
+          pr="$2"
+          justifyContent="center"
+          alignItems="center"
+          h="$8"
+          space="$2"
+        >
+          <Image
+            w={16}
+            h={16}
+            source={{ uri: tab?.favicon }}
+            borderRadius="$1"
+          />
+          <Text flex={1} variant="$bodySm" textAlign="left" numberOfLines={1}>
             {tab?.title || ''}
           </Text>
+          <IconButton
+            variant="tertiary"
+            size="small"
+            icon="CrossedSmallOutline"
+            onPress={() => onCloseItem(id)}
+          />
         </XStack>
         <Image
           w={THUMB_WIDTH}
           h={THUMB_HEIGHT}
           source={{ uri: tab?.thumbnail }}
-        />
-        <IconButton
-          mb="$2"
-          w="$8"
-          h="$8"
-          size="small"
-          variant="primary"
-          icon="CrossedSmallOutline"
-          onPress={() => {
-            onCloseItem(id);
-          }}
         />
       </YStack>
     </Stack>
