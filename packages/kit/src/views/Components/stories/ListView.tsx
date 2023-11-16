@@ -5,13 +5,15 @@ import { Button, Divider, ListView, Text, XStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
+// read it before you use it.
+// https://shopify.github.io/flash-list/docs/fundamentals/performant-components
 const listData = new Array(100).fill(0).map((_, index) => index);
 const ListViewDemo = () => {
   const ref = useRef<IListViewRef<any> | null>(null);
   return (
     <ListView
       h="$60"
-      bg="$backgroundPress"
+      estimatedItemSize="$10"
       contentContainerStyle={{
         bg: '$borderLight',
         m: '$4',
