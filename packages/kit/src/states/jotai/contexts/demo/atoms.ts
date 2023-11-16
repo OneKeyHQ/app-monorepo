@@ -15,6 +15,7 @@ export interface IDemoJotaiContextProfile {
   name: string;
   id: number;
 }
+
 export type IDemoJotaiContextProfilesMap = {
   [key: number]: IDemoJotaiContextProfile;
 };
