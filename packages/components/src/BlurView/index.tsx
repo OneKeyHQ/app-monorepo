@@ -11,8 +11,14 @@ import { View } from '../View';
 import type { StackStyleProps } from '@tamagui/web/types/types';
 import type { BlurViewProps } from 'expo-blur';
 
-export type IBlurViewPros = Omit<BlurViewProps, 'style'> &
+export type IBlurViewPros = Omit<BlurViewProps, 'style' | 'intensity'> &
   StackStyleProps & {
+    /**
+     * intensity will be used like `blur(${intensity * 0.2}px)` on Web.
+     *
+     * @default 50
+     */
+    intensity?: number;
     contentStyle?: StackStyleProps;
   };
 
