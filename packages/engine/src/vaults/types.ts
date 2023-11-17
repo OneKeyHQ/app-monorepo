@@ -91,7 +91,7 @@ export type IVaultSettings = {
   exportCredentialInfo?: AccountCredential[];
   txExtraInfo?: TxExtraInfo[];
   enabledInDevModeOnly?: boolean;
-  showPendingTxs?: boolean;
+  showPendingTxsWarning?: boolean;
 
   minTransferAmount?: string;
   allowZeroFee?: boolean;

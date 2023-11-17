@@ -43,7 +43,7 @@ const settings: IVaultSettings = Object.freeze({
   sendNFTEnable: true,
   hexDataEditable: true,
 
-  showPendingTxs: true,
+  showPendingTxsWarning: true,
 
   accountNameInfo: {
     default: {

@@ -260,13 +260,13 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
       setPendingTxCount(count);
     };
 
-    if (network?.settings.showPendingTxs) {
+    if (network?.settings.showPendingTxsWarning) {
       getPendingTxCount();
     }
   }, [
     accountId,
     advancedSettings?.currentNonce,
-    network?.settings.showPendingTxs,
+    network?.settings.showPendingTxsWarning,
     networkId,
   ]);
 
