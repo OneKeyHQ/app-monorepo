@@ -1,3 +1,5 @@
+import { getTokenValue } from 'tamagui';
+
 import { TabStackNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
 import type {
   ITabNavigatorConfig,
@@ -21,6 +23,26 @@ import TabMe from './Me/TabMe';
 import { EMultiTabBrowserRoutes } from './MultiTabBrowser/Routes';
 import { ETabRoutes } from './Routes';
 import { ETabSwapRoutes } from './Swap/Routes';
+
+const discoverRouteConfig: ITabNavigatorConfig<ETabRoutes> = {
+  name: ETabRoutes.Discovery,
+  tabBarIcon: (focused?: boolean) =>
+    focused ? 'CreditCardSolid' : 'CreditCardOutline',
+  translationId: 'title__explore',
+  freezeOnBlur: true,
+  children: [
+    {
+      name: ETabDiscoveryRoutes.TabDiscovery,
+      component: platformEnv.isNative ? Browser : DiscoveryDashboard,
+      translationId: 'title__explore',
+    },
+  ],
+  tabBarStyle: platformEnv.isDesktop
+    ? {
+        marginTop: getTokenValue('$4', 'size'),
+      }
+    : undefined,
+};
 
 const config: ITabNavigatorConfig<ETabRoutes>[] = [
   {
@@ -61,20 +83,7 @@ const config: ITabNavigatorConfig<ETabRoutes>[] = [
       },
     ],
   },
-  {
-    name: ETabRoutes.Discovery,
-    tabBarIcon: (focused?: boolean) =>
-      focused ? 'CreditCardSolid' : 'CreditCardOutline',
-    translationId: 'title__explore',
-    freezeOnBlur: true,
-    children: [
-      {
-        name: ETabDiscoveryRoutes.TabDiscovery,
-        component: platformEnv.isNative ? Browser : DiscoveryDashboard,
-        translationId: 'title__explore',
-      },
-    ],
-  },
+  !platformEnv.isDesktop ? discoverRouteConfig : undefined,
   {
     name: ETabRoutes.Me,
     tabBarIcon: (focused?: boolean) =>
@@ -106,7 +115,10 @@ const config: ITabNavigatorConfig<ETabRoutes>[] = [
       ...galleryScreenList,
     ],
   },
-];
+  platformEnv.isDesktop ? discoverRouteConfig : undefined,
+].filter<ITabNavigatorConfig<ETabRoutes>>(
+  (i): i is ITabNavigatorConfig<ETabRoutes> => !!i,
+);
 
 const extraConfig: ITabNavigatorExtraConfig<ETabRoutes> | undefined =
   platformEnv.isDesktop

@@ -64,6 +64,7 @@ function DesktopCustomTabBarItem({
         <ActionList
           open={open}
           title="Action List"
+          placement="right-start"
           renderTrigger={
             menuHoverVisible && (
               <Stack
