@@ -23,7 +23,6 @@ import {
 import { EDiscoveryModalRoutes } from '../../router/Routes';
 import { homeTab } from '../../store/contextWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
-import { onItemSelect } from '../../utils/gotoSite';
 import { getScreenshotPath, saveScreenshot } from '../../utils/screenshot';
 import DiscoveryDashboard from '../Dashboard';
 
@@ -157,7 +156,7 @@ function MobileBrowserContent({ id }: { id: string }) {
       <>
         <Freeze freeze={!showHome}>
           <Stack flex={1}>
-            <DiscoveryDashboard onItemSelect={onItemSelect} />
+            <DiscoveryDashboard />
           </Stack>
         </Freeze>
         <Freeze key={tab.id} freeze={!isActive}>
