@@ -13,21 +13,21 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingListModal,
     component: SettingListModal,
-    translationId: 'Setting',
+    translationId: 'title__settings',
   },
   {
     name: EModalSettingRoutes.SettingCurrencyModal,
     component: SettingCurrencyModal,
-    translationId: 'Currency',
+    translationId: 'content__currency',
   },
   {
     name: EModalSettingRoutes.SettingLanguageModal,
     component: SettingLanguageModal,
-    translationId: 'Language',
+    translationId: 'form__language',
   },
   {
     name: EModalSettingRoutes.SettingThemeModal,
     component: SettingThemeModal,
-    translationId: 'Theme',
+    translationId: 'form__theme',
   },
 ];

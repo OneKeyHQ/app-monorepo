@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { ModalContainer, Stack } from '@onekeyhq/components';
 import {
   type ISettingsPersistAtom,
@@ -15,11 +17,21 @@ type IThemeValue = ISettingsPersistAtom['theme'];
 
 export default function SettingThemeModal() {
   const [settings, setSettings] = useSettingsPersistAtom();
+  const intl = useIntl();
   const options = useMemo<IListItemSelectOption<IThemeValue>[]>(
     () => [
-      { title: 'Auto', value: 'system' as const },
-      { title: 'Light', value: 'light' as const },
-      { title: 'Dark', value: 'dark' as const },
+      {
+        title: intl.formatMessage({ id: 'form__auto' }),
+        value: 'system' as const,
+      },
+      {
+        title: intl.formatMessage({ id: 'form__light' }),
+        value: 'light' as const,
+      },
+      {
+        title: intl.formatMessage({ id: 'form__dark' }),
+        value: 'dark' as const,
+      },
     ],
     [],
   );

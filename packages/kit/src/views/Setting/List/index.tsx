@@ -1,5 +1,7 @@
 import { useCallback, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   ListItem,
   ModalContainer,
@@ -13,13 +15,23 @@ import { Section } from './Section';
 
 const SecuritySection = () => {
   const onPress = useCallback(() => {}, []);
+  const intl = useIntl();
   const [val, setVal] = useState(false);
+
   return (
     <Section title="SECURITY">
-      <ListItem icon="FaceIdOutline" title="Face ID">
+      <ListItem
+        icon="FaceIdOutline"
+        title={intl.formatMessage({ id: 'content__face_id' })}
+      >
         <Switch value={val} onChange={setVal} />
       </ListItem>
-      <ListItem onPress={onPress} icon="LockOutline" title="Auto-lock" drillIn>
+      <ListItem
+        onPress={onPress}
+        icon="LockOutline"
+        title={intl.formatMessage({ id: 'form__app_lock' })}
+        drillIn
+      >
         <ListItem.Text
           primary="Never"
           align="right"
@@ -31,7 +43,7 @@ const SecuritySection = () => {
       <ListItem
         onPress={onPress}
         icon="KeyOutline"
-        title="Change password"
+        title={intl.formatMessage({ id: 'form__change_password' })}
         drillIn
       />
     </Section>
@@ -40,6 +52,7 @@ const SecuritySection = () => {
 
 const DataSection = () => {
   const onPress = useCallback(() => {}, []);
+  const intl = useIntl();
   return (
     <Section title="PREFERENCE">
       <ListItem
@@ -52,7 +65,11 @@ const DataSection = () => {
         icon="CompassOutline"
         title="Clear cache of web browser"
       />
-      <ListItem onPress={onPress} icon="Document2Outline" title="State logs">
+      <ListItem
+        onPress={onPress}
+        icon="Document2Outline"
+        title={intl.formatMessage({ id: 'content__state_logs' })}
+      >
         <ListItem.IconButton
           disabled
           icon="DownloadOutline"
@@ -65,7 +82,7 @@ const DataSection = () => {
         iconProps={{ color: '$textCritical' }}
         onPress={onPress}
         icon="DeleteOutline"
-        title="Erase data"
+        title={intl.formatMessage({ id: 'action__erase_data' })}
         titleProps={{ color: '$textCritical' }}
       />
     </Section>
@@ -74,12 +91,13 @@ const DataSection = () => {
 
 const CryptoCurrencySection = () => {
   const onPress = useCallback(() => {}, []);
+  const intl = useIntl();
   return (
     <Section title="CRYPTOCURRENCY">
       <ListItem
         onPress={onPress}
         icon="CryptoCoinOutline"
-        title="Spend Dust UTXO"
+        title={intl.formatMessage({ id: 'form__spend_dust_utxo' })}
         drillIn
       />
       <ListItem
@@ -94,18 +112,19 @@ const CryptoCurrencySection = () => {
 
 const HardwareBridgeSection = () => {
   const onPress = useCallback(() => {}, []);
+  const intl = useIntl();
   return (
     <Section title="HARDWARE BRIDGE">
       <ListItem
         onPress={onPress}
         icon="CodeOutline"
-        title="Hardware SDK URL"
+        title={intl.formatMessage({ id: 'form__hardware_bridge_sdk_url' })}
         drillIn
       />
       <ListItem
         onPress={onPress}
         icon="ChartTrendingOutline"
-        title="Hardware bridge status"
+        title={intl.formatMessage({ id: 'form__hardware_bridge_status' })}
       >
         <ListItem.IconButton
           disabled
@@ -121,12 +140,13 @@ const HardwareBridgeSection = () => {
 
 const AboutSection = () => {
   const onPress = useCallback(() => {}, []);
+  const intl = useIntl();
   return (
     <Section title="ABOUT">
       <ListItem
         onPress={onPress}
         icon="InfoCircleOutline"
-        title="Version"
+        title={intl.formatMessage({ id: 'form__version' })}
         drillIn
       >
         <ListItem.Text
@@ -137,7 +157,11 @@ const AboutSection = () => {
           }}
         />
       </ListItem>
-      <ListItem onPress={onPress} icon="ThumbUpOutline" title="Rate the App">
+      <ListItem
+        onPress={onPress}
+        icon="ThumbUpOutline"
+        title={intl.formatMessage({ id: 'form__rate_our_app' })}
+      >
         <ListItem.IconButton
           disabled
           icon="ArrowTopRightOutline"
@@ -146,7 +170,11 @@ const AboutSection = () => {
           }}
         />
       </ListItem>
-      <ListItem onPress={onPress} icon="HelpSupportOutline" title="Help center">
+      <ListItem
+        onPress={onPress}
+        icon="HelpSupportOutline"
+        title={intl.formatMessage({ id: 'title__help_center' })}
+      >
         <ListItem.IconButton
           disabled
           icon="ArrowTopRightOutline"
@@ -167,13 +195,13 @@ const AboutSection = () => {
       <ListItem
         onPress={onPress}
         icon="AddedPeopleOutline"
-        title="User agreement"
+        title={intl.formatMessage({ id: 'form__user_agreement' })}
         drillIn
       />
       <ListItem
         onPress={onPress}
         icon="Shield2CheckOutline"
-        title="Privacy policy"
+        title={intl.formatMessage({ id: 'terms__privacy_policy' })}
         drillIn
       />
     </Section>

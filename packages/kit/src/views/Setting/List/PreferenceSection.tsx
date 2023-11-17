@@ -3,7 +3,6 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ListItem } from '@onekeyhq/components';
-import { LOCALES_OPTION } from '@onekeyhq/components/src/locale';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
@@ -19,12 +18,6 @@ import { Section } from './Section';
 
 import type { IModalSettingParamList } from '../types';
 
-const themes: Record<ISettingsPersistAtom['theme'], string> = {
-  'dark': 'Dark',
-  'light': 'Light',
-  'system': 'Auto',
-};
-
 const ThemeListItem = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
@@ -34,8 +27,22 @@ const ThemeListItem = () => {
     });
   }, [navigation]);
   const [{ theme }] = useSettingsPersistAtom();
+  const intl = useIntl();
+  const themes = useMemo<Record<ISettingsPersistAtom['theme'], string>>(
+    () => ({
+      'dark': intl.formatMessage({ id: 'form__dark' }),
+      'light': intl.formatMessage({ id: 'form__light' }),
+      'system': intl.formatMessage({ id: 'form__auto' }),
+    }),
+    [intl],
+  );
   return (
-    <ListItem onPress={onTheme} icon="PaletteOutline" title="Theme" drillIn>
+    <ListItem
+      onPress={onTheme}
+      icon="PaletteOutline"
+      title={intl.formatMessage({ id: 'form__theme' })}
+      drillIn
+    >
       <ListItem.Text
         primary={themes[theme]}
         align="right"
@@ -64,13 +71,13 @@ const LocaleListItem = () => {
       }, {} as Record<string, string>),
     [locales],
   );
-
+  const intl = useIntl();
   const [{ locale }] = useSettingsPersistAtom();
   return (
     <ListItem
       onPress={onLanguage}
       icon="GlobusOutline"
-      title="Language"
+      title={intl.formatMessage({ id: 'form__language' })}
       drillIn
     >
       <ListItem.Text
@@ -92,11 +99,12 @@ export const PreferenceSection = () => {
       screen: EModalSettingRoutes.SettingCurrencyModal,
     });
   }, [navigation]);
+  const intl = useIntl();
   return (
     <Section title="PREFERENCE">
       <ListItem
         icon="DollarOutline"
-        title="Default currency"
+        title={intl.formatMessage({ id: 'form__default_currency' })}
         drillIn
         onPress={onPress}
       >
