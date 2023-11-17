@@ -1,18 +1,8 @@
-import { useCallback } from 'react';
-
-import { Button, SearchBar, Stack, YStack } from '@onekeyhq/components';
+import { Button, SearchBar, YStack } from '@onekeyhq/components';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
-import { ETabRoutes } from '../../../../routes/Root/Tab/Routes';
 import { EDiscoveryModalRoutes } from '../../router/Routes';
-import { onItemSelect as onDAppItemSelect } from '../../utils/gotoSite';
-
-import { mockData } from './dataSource';
-
-import type { IDAppItemType } from '../../types';
-
-type IProps = { onItemSelect?: (item: IDAppItemType) => void };
 
 function Dashboard() {
   const navigation = useAppNavigation();
