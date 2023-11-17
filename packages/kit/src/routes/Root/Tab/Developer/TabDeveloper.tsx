@@ -15,7 +15,7 @@ import {
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import { getMeasureTime } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { AppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
+import { EAppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -32,7 +32,7 @@ function setLocale(locale: string) {
 }
 
 const useStorage = platformEnv.isNative
-  ? (key: AppSettingKey, initialValue?: boolean) => {
+  ? (key: EAppSettingKey, initialValue?: boolean) => {
       const [data, setData] = useState(
         initialValue || appStorage.getSettingBoolean(key),
       );
@@ -75,7 +75,7 @@ const TabDeveloper = () => {
     useAppNavigation<IPageNavigationProp<ITabDeveloperParamList>>();
 
   // @ts-expect-error
-  const [rrtStatus, changeRRTStatus] = useStorage(AppSettingKey.rrt);
+  const [rrtStatus, changeRRTStatus] = useStorage(EAppSettingKey.rrt);
 
   return (
     <Page>

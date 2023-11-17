@@ -6,7 +6,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { JOTAI_RESET } from '../types';
 
 import type { EAtomNames } from '../atomNames';
-import type { IJotaiAtomSetWithoutProxy, IJotaiWritableAtomPro, IJotaiSetter } from '../types';
+import type {
+  IJotaiAtomSetWithoutProxy,
+  IJotaiSetter,
+  IJotaiWritableAtomPro,
+} from '../types';
 
 export function wrapAtomPro(
   name: EAtomNames,
@@ -97,7 +101,11 @@ export function wrapAtomPro(
         payload: nextValue,
       });
     },
-  ) as IJotaiWritableAtomPro<unknown, [update: unknown], Promise<void> | undefined>;
+  ) as IJotaiWritableAtomPro<
+    unknown,
+    [update: unknown],
+    Promise<void> | undefined
+  >;
 
   return proAtom;
 }

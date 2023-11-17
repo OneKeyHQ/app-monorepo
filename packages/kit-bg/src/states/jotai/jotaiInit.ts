@@ -21,7 +21,11 @@ export async function jotaiUpdateFromUiByBgBroadcast(
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const atomInfo = allAtoms[params.name] as JotaiCrossAtom<any>;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  const atomObj = atomInfo.atom() as unknown as IJotaiWritableAtomPro<any, any, any>;
+  const atomObj = atomInfo.atom() as unknown as IJotaiWritableAtomPro<
+    any,
+    any,
+    any
+  >;
   await jotaiDefaultStore.set(atomObj, params);
 }
 

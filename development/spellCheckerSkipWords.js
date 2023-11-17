@@ -13,6 +13,8 @@ module.exports = [
   'Ble',
   'bip39',
   'Bip39',
+  'bip',
+  'IBip39',
   'ethers',
   'mutex',
   'instanceof',

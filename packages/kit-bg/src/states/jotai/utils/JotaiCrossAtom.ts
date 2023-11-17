@@ -40,7 +40,11 @@ export class JotaiCrossAtom<T extends () => any> {
   >(
     ...args: Args
   ) => {
-    const a = (await this.ready()) as IJotaiWritableAtomPro<AtomValue, Args, Result>;
+    const a = (await this.ready()) as IJotaiWritableAtomPro<
+      AtomValue,
+      Args,
+      Result
+    >;
     return jotaiDefaultStore.set(a, ...args);
   };
 }

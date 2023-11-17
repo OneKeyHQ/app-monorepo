@@ -3,7 +3,10 @@ import { createContext, useContext, useMemo } from 'react';
 
 import { atom, createStore, useAtom } from 'jotai';
 
-import type { IJotaiRead, IJotaiWrite } from '@onekeyhq/kit-bg/src/states/jotai/types';
+import type {
+  IJotaiRead,
+  IJotaiWrite,
+} from '@onekeyhq/kit-bg/src/states/jotai/types';
 import {
   contextAtomBase,
   contextAtomComputedBase,

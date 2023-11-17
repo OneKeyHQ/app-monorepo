@@ -12,9 +12,9 @@ import platformEnv from '../platformEnv';
 
 import { isPromiseObject } from './promiseUtils';
 
-type ErrorType = undefined | string | Error;
+type IErrorType = undefined | string | Error;
 
-export const check = (statement: any, orError?: ErrorType) => {
+export const check = (statement: any, orError?: IErrorType) => {
   if (!statement) {
     // eslint-disable-next-line no-param-reassign
     orError = orError || 'Invalid statement';
@@ -24,7 +24,7 @@ export const check = (statement: any, orError?: ErrorType) => {
     throw orError;
   }
 };
-export const checkIsDefined = <T>(something?: T, orError?: ErrorType): T => {
+export const checkIsDefined = <T>(something?: T, orError?: IErrorType): T => {
   check(
     typeof something !== 'undefined',
     orError || 'Expect defined but actually undefined',
@@ -32,7 +32,7 @@ export const checkIsDefined = <T>(something?: T, orError?: ErrorType): T => {
   return something as T;
 };
 
-export const checkIsUndefined = (something: any, orError?: ErrorType) => {
+export const checkIsUndefined = (something: any, orError?: IErrorType) => {
   check(
     typeof something === 'undefined',
     orError || `Expect undefined but actually ${something as string}`,

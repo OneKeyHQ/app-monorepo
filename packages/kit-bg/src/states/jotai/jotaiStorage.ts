@@ -87,7 +87,11 @@ export function atomWithStorage<Value>(
 
   const anAtom = atom(
     (get) => get(baseAtom),
-    (get, set, update: IJotaiSetStateActionWithReset<Value | Promise<Value>>) => {
+    (
+      get,
+      set,
+      update: IJotaiSetStateActionWithReset<Value | Promise<Value>>,
+    ) => {
       const nextValue =
         typeof update === 'function'
           ? (

@@ -6,10 +6,10 @@ import { isPlainObject, isString } from 'lodash';
 import type { ILocaleIds } from '@onekeyhq/components/src/locale';
 
 import type {
+  EOneKeyErrorClassNames,
   IOneKeyError,
   IOneKeyErrorInfo,
   IOneKeyJsError,
-  OneKeyErrorClassNames,
 } from '../types/errorTypes';
 
 // const fakeMessage = 'FAKE_MESSAGE:F43E2460-AB7F-4EA5-9651-7D38C189AB45';
@@ -23,7 +23,7 @@ export class OneKeyError<
   extends OneKeyWeb3RpcError<DataT>
   implements IOneKeyError<InfoT, DataT>
 {
-  className?: OneKeyErrorClassNames;
+  className?: EOneKeyErrorClassNames;
 
   // i18n key
   readonly key?: ILocaleIds = 'onekey_error' as ILocaleIds;

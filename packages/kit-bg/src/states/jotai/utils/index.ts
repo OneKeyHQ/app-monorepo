@@ -14,11 +14,11 @@ import { wrapAtomPro } from './wrapAtomPro';
 
 import type { EAtomNames } from '../atomNames';
 import type {
-  IJotaiWritableAtomPro,
   IJotaiRead,
   IJotaiSetAtom,
   IJotaiSetter,
   IJotaiWithInitialValue,
+  IJotaiWritableAtomPro,
   IJotaiWrite,
 } from '../types';
 import type { Atom, PrimitiveAtom, WritableAtom } from 'jotai';
@@ -253,7 +253,11 @@ export function globalAtomComputedRW<Value, Args extends unknown[], Result>({
   );
 }
 
-export function globalAtomComputedR<Value>({ read }: { read: IJotaiRead<Value> }) {
+export function globalAtomComputedR<Value>({
+  read,
+}: {
+  read: IJotaiRead<Value>;
+}) {
   // Read
   return makeCrossAtom('', () =>
     crossAtomBuilder({
@@ -339,7 +343,8 @@ export function contextAtomMethodBase<Value, Args extends unknown[], Result>({
     return setter;
   };
 
-  const call = (set: IJotaiSetter, ...args: Args) => set(atomBuilder(), ...args);
+  const call = (set: IJotaiSetter, ...args: Args) =>
+    set(atomBuilder(), ...args);
 
   return {
     atom: atomBuilder,
