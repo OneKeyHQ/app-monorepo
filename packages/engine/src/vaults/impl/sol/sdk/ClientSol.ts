@@ -14,7 +14,7 @@ import type {
   FeePricePerUnit,
   PartialTokenInfo,
 } from '../../../../types/provider';
-import type { PublicKey } from '@solana/web3.js';
+import type { AccountInfo, PublicKey } from '@solana/web3.js';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export enum RPC_METHODS {
@@ -149,7 +149,7 @@ export class ClientSol extends BaseClient {
   async getAccountInfo(
     address: string,
     encoding: PARAMS_ENCODINGS = PARAMS_ENCODINGS.JSON_PARSED,
-  ): Promise<{ [key: string]: any } | null> {
+  ): Promise<AccountInfo<[string, string]> | null> {
     const response: { [key: string]: any } = await this.rpc.call(
       RPC_METHODS.GET_ACCOUNT_INFO,
       [address, { encoding }],
