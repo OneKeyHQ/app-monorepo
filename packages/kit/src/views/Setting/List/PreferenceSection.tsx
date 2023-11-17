@@ -7,16 +7,15 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/types';
-import {
-  type ISettingsPersistAtom,
-  useSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { useLocaleOptions } from '../hooks';
 
 import { Section } from './Section';
 
 import type { IModalSettingParamList } from '../types';
+
+type IThemeValue = 'light' | 'dark' | 'system';
 
 const ThemeListItem = () => {
   const navigation =
@@ -28,7 +27,7 @@ const ThemeListItem = () => {
   }, [navigation]);
   const [{ theme }] = useSettingsPersistAtom();
   const intl = useIntl();
-  const themes = useMemo<Record<ISettingsPersistAtom['theme'], string>>(
+  const themes = useMemo<Record<IThemeValue, string>>(
     () => ({
       'dark': intl.formatMessage({ id: 'form__dark' }),
       'light': intl.formatMessage({ id: 'form__light' }),
