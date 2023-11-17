@@ -1,19 +1,12 @@
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { isFunction } from 'lodash';
-import cloneDeep from 'lodash/cloneDeep';
 
-import store, { appSelector, persistor } from '@onekeyhq/kit/src/store';
 import {
   backgroundClass,
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import type { IDispatchActionBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
-import {
-  DISPATCH_ACTION_BROADCAST_METHOD_NAME,
-  buildReduxBatchAction,
-  throwMethodNotFound,
-} from '@onekeyhq/shared/src/background/backgroundUtils';
+import { throwMethodNotFound } from '@onekeyhq/shared/src/background/backgroundUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ensurePromiseObject,
@@ -51,7 +44,6 @@ import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 class BackgroundApiBase implements IBackgroundApiBridge {
   constructor() {
     this.cycleDepsCheck();
-    this._initBackgroundPersistor();
     this.allAtoms = jotaiInit();
     this.startDemoNowTimeUpdateInterval();
   }
@@ -92,18 +84,8 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   }
 
   cycleDepsCheck() {
-    if (!this.persistor || !this.store || !this.appSelector) {
-      const msg = `background cycle deps ERROR: redux store failed, some reducer may reference backgroundApiProxy`;
-      alert(msg);
-      throw new Error(msg);
-    }
+    //
   }
-
-  persistor = persistor;
-
-  store = store;
-
-  appSelector = appSelector;
 
   bridge: JsBridgeBase | null = null;
 
@@ -118,59 +100,6 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
   // @ts-ignore
   _persistorUnsubscribe: () => void;
-
-  _handlePersistorState = () => {
-    const persistorState = this.persistor.getState();
-    if (persistorState.bootstrapped) {
-      // TODO dispatch persistorState.bootstrapped
-      // this.dispatch('persistor/bootstrapped');
-      if (this._persistorUnsubscribe) {
-        this._persistorUnsubscribe();
-      }
-    }
-  };
-
-  _initBackgroundPersistor() {
-    this._persistorUnsubscribe = this.persistor.subscribe(
-      this._handlePersistorState,
-    );
-  }
-
-  @bindThis()
-  @backgroundMethod()
-  dispatch(...actions: any[]) {
-    if (!actions || !actions.length) {
-      return;
-    }
-    // eslint-disable-next-line no-param-reassign
-    actions = actions.filter(Boolean);
-    const actionData = buildReduxBatchAction(...actions);
-
-    if (actionData) {
-      // * update background store
-      this.store.dispatch(actionData);
-
-      // * broadcast action to Ext ui
-      //    packages/ext/src/ui/uiJsBridge.ts
-      const params: IDispatchActionBroadcastParams = {
-        actions,
-        $isDispatchFromBackground: true,
-      };
-      this.bridgeExtBg?.requestToAllUi({
-        method: DISPATCH_ACTION_BROADCAST_METHOD_NAME,
-        params,
-      } as IJsonRpcRequest);
-    }
-  }
-
-  // getStoreState
-  @bindThis()
-  @backgroundMethod()
-  getState(): Promise<{ state: any; bootstrapped: boolean }> {
-    const state = cloneDeep(this.store.getState());
-    const { bootstrapped } = this.persistor.getState();
-    return Promise.resolve({ state, bootstrapped });
-  }
 
   connectBridge(bridge: JsBridgeBase) {
     if (platformEnv.isExtension) {
