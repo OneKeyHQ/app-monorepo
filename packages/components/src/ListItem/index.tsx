@@ -7,20 +7,26 @@ import { Stack } from '../Stack';
 import { Text } from '../Text';
 
 import type { IIconButtonProps } from '../IconButton';
-import type { AvatarProps, GetProps, StackProps } from 'tamagui';
+import type {
+  AvatarFallbackProps,
+  AvatarProps,
+  GetProps,
+  StackProps,
+} from 'tamagui';
 
 /* Image */
 type IListItemAvatarProps = {
   src: string;
+  fallbackProps?: AvatarFallbackProps;
 } & AvatarProps;
 
 const ListItemAvatar = (props: IListItemAvatarProps) => {
-  const { src, ...rest } = props;
+  const { src, fallbackProps, ...rest } = props;
 
   return (
     <Avatar size="$10" {...rest}>
       <Avatar.Image src={src} />
-      <Avatar.Fallback />
+      <Avatar.Fallback {...fallbackProps} />
     </Avatar>
   );
 };

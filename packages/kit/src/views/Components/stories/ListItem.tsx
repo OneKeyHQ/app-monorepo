@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import type { ISwitchProps } from '@onekeyhq/components';
-import { ListItem, Stack, Switch } from '@onekeyhq/components';
+import { Icon, ListItem, Stack, Switch } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -65,6 +65,13 @@ const NFTDATA = [
     amount: '3.186 SOL',
     value: '$52.82',
   },
+  {
+    src: '',
+    title: 'Critter Osar',
+    subtitle: 'Magic Eden · 5/22/23, 1:33 PM',
+    amount: '3.186 SOL',
+    value: '$52.82',
+  },
 ];
 
 const ListItemGallery = () => (
@@ -116,6 +123,12 @@ const ListItemGallery = () => (
                 }}
                 avatarProps={{
                   src: item.src,
+                  fallbackProps: {
+                    bg: '$bgStrong',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    children: <Icon name="ImageMountainSolid" />,
+                  },
                 }}
                 onPress={() => {
                   console.log('clicked');
