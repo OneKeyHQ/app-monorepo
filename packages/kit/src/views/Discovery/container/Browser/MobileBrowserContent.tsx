@@ -22,7 +22,7 @@ import {
 } from '../../hooks/useWebTabs';
 import { EDiscoveryModalRoutes } from '../../router/Routes';
 import { homeTab } from '../../store/contextWebTabs';
-import { webviewRefs } from '../../utils/explorerUtils';
+import { captureViewRefs, webviewRefs } from '../../utils/explorerUtils';
 import { getScreenshotPath, saveScreenshot } from '../../utils/screenshot';
 import DiscoveryDashboard from '../Dashboard';
 
@@ -53,6 +53,14 @@ function MobileBrowserContent({ id }: { id: string }) {
     [isActive, tab?.url],
   );
   const tabCount = useMemo(() => tabs?.length ?? 0, [tabs.length]);
+
+  const initCaptureViewRef = useCallback(
+    ($ref: any) => {
+      captureViewRef.current = $ref;
+      captureViewRefs[id] = $ref;
+    },
+    [id],
+  );
 
   const takeScreenshot = useCallback(
     async () =>
@@ -160,7 +168,7 @@ function MobileBrowserContent({ id }: { id: string }) {
           </Stack>
         </Freeze>
         <Freeze key={tab.id} freeze={!isActive}>
-          <Stack ref={captureViewRef as RefObject<TamaguiElement>} flex={1}>
+          <Stack ref={initCaptureViewRef} flex={1}>
             <WebContent
               id={tab.id}
               url={tab.url}
@@ -180,7 +188,7 @@ function MobileBrowserContent({ id }: { id: string }) {
   return (
     <>
       {content}
-      {BrowserBottomBar}
+      {/* {BrowserBottomBar} */}
     </>
   );
 }

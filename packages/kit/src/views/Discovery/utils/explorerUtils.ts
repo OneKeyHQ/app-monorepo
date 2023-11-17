@@ -4,6 +4,7 @@ import type { IBrowserType } from '../types';
 import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebView } from 'react-native-webview';
+import type { TamaguiElement } from 'tamagui';
 
 export const browserTypeHandler: IBrowserType = (() => {
   if (platformEnv.isDesktop || platformEnv.isNative) {
@@ -13,6 +14,7 @@ export const browserTypeHandler: IBrowserType = (() => {
 })();
 
 export const webviewRefs: Record<string, IWebViewWrapperRef> = {};
+export const captureViewRefs: Record<string, TamaguiElement> = {};
 
 if (process.env.NODE_ENV !== 'production') {
   // @ts-ignore

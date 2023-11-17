@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import {
   activeTabIdAtom,
+  displayHomePageAtom,
   getActiveTabId,
   getTabs,
   getTabsMap,
@@ -38,6 +39,13 @@ export const useActiveTabId = () => {
     }),
     [activeTabId],
   );
+};
+
+export const useDisplayHomePageFlag = () => {
+  const [value] = useAtomWebTabs(displayHomePageAtom);
+  return {
+    displayHomePage: value,
+  };
 };
 
 // not a hook, won't refresh

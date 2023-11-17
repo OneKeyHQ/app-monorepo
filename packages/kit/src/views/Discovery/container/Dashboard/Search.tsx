@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   Button,
@@ -11,14 +11,38 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { ETabRoutes } from '../../../../routes/Root/Tab/Routes';
+import useWebTabAction from '../../hooks/useWebTabAction';
+import { useDisplayHomePageFlag } from '../../hooks/useWebTabs';
 import { openMatchDApp } from '../../utils/gotoSite';
+import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import { mockData } from './dataSource';
 
 function SearchModal() {
   const navigation = useAppNavigation();
   const [value, setValue] = useState('');
-  // const [dataSource, setDataSource] = useState([]);
+  const { setDisplayHomePage } = useWebTabAction();
+  const { displayHomePage } = useDisplayHomePageFlag();
+
+  useEffect(() => {
+    console.log('SearchModal renderer ===> : ', displayHomePage);
+  }, [displayHomePage]);
+
+  const handleOnPress = useCallback(
+    (item: { url: string; name: string; _id: string; logoURL: string }) => {
+      console.log(1, 'displayHomePage', displayHomePage);
+      setDisplayHomePage(false);
+
+      // @ts-expect-error
+      openMatchDApp({ dapp: item, isNewWindow: true });
+      if (platformEnv.isDesktop) {
+        navigation.switchTab(ETabRoutes.MultiTabBrowser);
+      } else {
+        navigation.pop();
+      }
+    },
+    [displayHomePage, setDisplayHomePage, navigation],
+  );
 
   const dataSource = useMemo(() => {
     // 如果 value 为空，返回 mockData 的数据
@@ -36,8 +60,6 @@ function SearchModal() {
       ...mockData,
     ];
   }, [value]);
-
-  console.log(dataSource);
 
   return (
     <ModalContainer>
@@ -58,13 +80,7 @@ function SearchModal() {
           renderItem={({ item }) => (
             <Button
               onPress={() => {
-                // @ts-expect-error
-                openMatchDApp({ dapp: item, isNewWindow: true });
-                if (platformEnv.isDesktop) {
-                  navigation.switchTab(ETabRoutes.MultiTabBrowser);
-                } else {
-                  navigation.pop();
-                }
+                handleOnPress(item);
               }}
             >
               {item.name}
@@ -76,4 +92,4 @@ function SearchModal() {
   );
 }
 
-export default SearchModal;
+export default withBrowserProvider(SearchModal);

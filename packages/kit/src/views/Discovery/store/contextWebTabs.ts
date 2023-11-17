@@ -167,6 +167,16 @@ export const setPinnedTabAtom = atom(
   },
 );
 
+export const displayHomePageAtom = atom(true);
+export const setDisplayHomePageAtom = atom(
+  null,
+  (get, set, payload: boolean) => {
+    const v = get(displayHomePageAtom);
+    console.log('v => : ', v);
+    set(displayHomePageAtom, payload);
+  },
+);
+
 export const incomingUrlAtom = atom('');
 export const getActiveTabId = () => webTabsStore?.get(activeTabIdAtom);
 export const getTabs = () => webTabsStore?.get(webTabsAtom);
