@@ -37,6 +37,7 @@ const PasswordUpdateContainer = ({
         }
       } catch (e) {
         onUpdateRes('');
+        console.error(e);
         Toast.error({ title: 'password set failed' });
       }
 

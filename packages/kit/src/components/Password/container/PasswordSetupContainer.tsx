@@ -37,6 +37,7 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
         } catch (e) {
           onSetupRes('');
           console.log('e', e);
+          console.error(e);
           Toast.error({ title: 'password set failed' });
         } finally {
           setLoading(false);

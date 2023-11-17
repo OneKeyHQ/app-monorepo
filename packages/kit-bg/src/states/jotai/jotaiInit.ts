@@ -1,3 +1,5 @@
+import { isNil } from 'lodash';
+
 import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 
 import { EAtomNames } from './atomNames';
@@ -95,10 +97,14 @@ export async function jotaiInit() {
         return;
       }
 
-      const storageValue = await onekeyJotaiStorage.getItem(
+      let storageValue = await onekeyJotaiStorage.getItem(
         storageKey,
-        initValue,
+        undefined,
       );
+      if (isNil(storageValue)) {
+        await onekeyJotaiStorage.setItem(storageKey, initValue);
+        storageValue = await onekeyJotaiStorage.getItem(storageKey, initValue);
+      }
       const currentValue = await jotaiDefaultStore.get(atomObj);
       if (currentValue !== storageValue) {
         await jotaiDefaultStore.set(atomObj, storageValue);

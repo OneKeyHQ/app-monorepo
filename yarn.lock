@@ -4857,6 +4857,7 @@ __metadata:
     babel-plugin-react-native-web: ^0.19.9
     babel-plugin-transform-define: ^2.1.2
     babel-plugin-transform-inline-environment-variables: ^0.4.4
+    browserify-zlib: ^0.2.0
     cheerio: ^1.0.0-rc.12
     copy-webpack-plugin: ^6.0.2
     cross-env: ^7.0.3
@@ -5140,6 +5141,8 @@ __metadata:
     react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#5036d59cba4f5609c32b7eb5dec560e738ce7115"
     react-native-zip-archive: ^6.0.9
     readable-stream: ^3.6.0
+    realm: ^12.3.0
+    realm-flipper-plugin-device: ^1.1.0
     stream-http: ^3.2.0
     text-encoding: ^0.7.0
     uuid: ^3.0.0
@@ -11131,6 +11134,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"browserify-zlib@npm:^0.2.0":
+  version: 0.2.0
+  resolution: "browserify-zlib@npm:0.2.0"
+  dependencies:
+    pako: ~1.0.5
+  checksum: 5cd9d6a665190fedb4a97dfbad8dabc8698d8a507298a03f42c734e96d58ca35d3c7d4085e283440bbca1cd1938cff85031728079bedb3345310c58ab1ec92d6
+  languageName: node
+  linkType: hard
+
 "browserslist@npm:^4.0.0, browserslist@npm:^4.14.5, browserslist@npm:^4.18.1, browserslist@npm:^4.21.4, browserslist@npm:^4.21.9, browserslist@npm:^4.22.1":
   version: 4.22.1
   resolution: "browserslist@npm:4.22.1"
@@ -11199,6 +11211,15 @@ __metadata:
   dependencies:
     node-int64: ^0.4.0
   checksum: 9ba4dc58ce86300c862bffc3ae91f00b2a03b01ee07f3564beeeaf82aa243b8b03ba53f123b0b842c190d4399b94697970c8e7cf7b1ea44b61aa28c3526a4449
+  languageName: node
+  linkType: hard
+
+"bson@npm:^4.7.2":
+  version: 4.7.2
+  resolution: "bson@npm:4.7.2"
+  dependencies:
+    buffer: ^5.6.0
+  checksum: f357d12c5679c8eb029a62e410ad40fb862b7b91f0fc12a3399fb3668e14aecaa63205ffeeee48735a01d393171743607dcd527eb8c058b6f2bd294079ee4125
   languageName: node
   linkType: hard
 
@@ -16687,10 +16708,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fs@npm:^0.0.1-security":
-  version: 0.0.1-security
-  resolution: "fs@npm:0.0.1-security"
-  checksum: 53c6230e1faae9fa32c1df82c16a84b51b1243d20f3da2b64bd110bb472b73b9185169b703e008356e3cdc92d155088b617d9d39a63b5227a30b3621baad7f5d
+"fs@https://registry.yarnpkg.com/@favware/skip-dependency/-/skip-dependency-1.2.1.tgz":
+  version: 1.2.1
+  resolution: "fs@https://registry.yarnpkg.com/@favware/skip-dependency/-/skip-dependency-1.2.1.tgz"
+  checksum: 6c75e6a05a097f40da92ec76999b93b880f0082ba6692e22597bfe87448a646fc7b0c768757f8252af971058981014adc4be09f1bb24b8ffbf2baf467c5d14e1
   languageName: node
   linkType: hard
 
@@ -21943,7 +21964,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"node-fetch@npm:^2.2.0, node-fetch@npm:^2.6.0, node-fetch@npm:^2.6.1, node-fetch@npm:^2.6.12, node-fetch@npm:^2.6.7":
+"node-fetch@npm:^2.2.0, node-fetch@npm:^2.6.0, node-fetch@npm:^2.6.1, node-fetch@npm:^2.6.12, node-fetch@npm:^2.6.7, node-fetch@npm:^2.6.9":
   version: 2.7.0
   resolution: "node-fetch@npm:2.7.0"
   dependencies:
@@ -22021,6 +22042,13 @@ __metadata:
   version: 0.4.0
   resolution: "node-int64@npm:0.4.0"
   checksum: d0b30b1ee6d961851c60d5eaa745d30b5c95d94bc0e74b81e5292f7c42a49e3af87f1eb9e89f59456f80645d679202537de751b7d72e9e40ceea40c5e449057e
+  languageName: node
+  linkType: hard
+
+"node-machine-id@npm:^1.1.12":
+  version: 1.1.12
+  resolution: "node-machine-id@npm:1.1.12"
+  checksum: e23088a0fb4a77a1d6484b7f09a22992fd3e0054d4f2e427692b4c7081e6cf30118ba07b6113b6c89f1ce46fd26ec5ab1d76dcaf6c10317717889124511283a5
   languageName: node
   linkType: hard
 
@@ -22610,7 +22638,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"pako@npm:~1.0.2":
+"pako@npm:~1.0.2, pako@npm:~1.0.5":
   version: 1.0.11
   resolution: "pako@npm:1.0.11"
   checksum: 1be2bfa1f807608c7538afa15d6f25baa523c30ec870a3228a89579e474a4d992f4293859524e46d5d87fd30fa17c5edf34dbef0671251d9749820b488660b16
@@ -23409,7 +23437,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prebuild-install@npm:^7.0.1":
+"prebuild-install@npm:^7.0.1, prebuild-install@npm:^7.1.1":
   version: 7.1.1
   resolution: "prebuild-install@npm:7.1.1"
   dependencies:
@@ -24833,6 +24861,38 @@ __metadata:
   version: 1.3.0
   resolution: "readline@npm:1.3.0"
   checksum: dfaf8e6ac20408ea00d650e95f7bb47f77c4c62dd12ed7fb51731ee84532a2f3675fcdc4cab4923dc1eef227520a2e082a093215190907758bea9f585b19438e
+  languageName: node
+  linkType: hard
+
+"realm-flipper-plugin-device@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "realm-flipper-plugin-device@npm:1.1.0"
+  dependencies:
+    flatted: ^3.2.7
+  peerDependencies:
+    react: ">=17"
+    react-native-flipper: ">=0.162.0"
+    realm: ">=11.0.0"
+  checksum: e142d6d9c8b681eec832bf9caa90faee96006abd44bea69b8f21440bfa2d6cd680493cc7d0f4f2bc5a7060d2941164e904a54b4760a85e181cfae9d6af3c445a
+  languageName: node
+  linkType: hard
+
+"realm@npm:^12.3.0":
+  version: 12.3.0
+  resolution: "realm@npm:12.3.0"
+  dependencies:
+    bson: ^4.7.2
+    debug: ^4.3.4
+    node-fetch: ^2.6.9
+    node-gyp: latest
+    node-machine-id: ^1.1.12
+    prebuild-install: ^7.1.1
+  peerDependencies:
+    react-native: ">=0.71.0"
+  peerDependenciesMeta:
+    react-native:
+      optional: true
+  checksum: e45d2bf98d706b341cbd50ce1ab6ed8fc9ebc86a1a7c06a10a7fa1e77b1c6c40a90e6801b53de23ba1ede60e1843644ad7e70a00a3eb6d1c3c3cf4bd0b3f0045
   languageName: node
   linkType: hard
 

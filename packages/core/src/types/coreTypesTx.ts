@@ -66,15 +66,16 @@ export type InputToSign = {
   address: string;
   sighashTypes?: number[];
 };
+// TODO remove
 export type UnsignedTx = {
-  inputs: TxInput[];
-  outputs: TxOutput[];
+  inputs?: TxInput[];
+  outputs?: TxOutput[];
   type?: string;
   nonce?: number;
   feeLimit?: BigNumber;
   feeLimitForDisplay?: BigNumber;
   feePricePerUnit?: BigNumber;
-  payload: { [key: string]: any };
+  payload?: { [key: string]: any };
   tokensChangedTo?: { [key: string]: string };
 };
 export type IUnsignedTxPro = UnsignedTx & {
@@ -101,5 +102,6 @@ export type SignedTxResult = SignedTx & {
   randomSeed?: number;
 };
 export type ISignedTxPro = SignedTxResult & {
-  encodedTx?: IEncodedTx;
+  encodedTx: IEncodedTx | null;
 };
+export type ISignedMessagePro = string[];

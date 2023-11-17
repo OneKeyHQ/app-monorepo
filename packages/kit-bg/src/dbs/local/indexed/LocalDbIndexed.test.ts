@@ -1,8 +1,7 @@
-import { DB_MAIN_CONTEXT_ID } from '../types';
+import * as consts from '../consts';
+import { DB_MAIN_CONTEXT_ID, INDEXED_DB_VERSION } from '../consts';
 
 import { LocalDbIndexed } from './LocalDbIndexed';
-import * as indexedDbConfigs from './types';
-import { INDEXED_DB_VERSION } from './types';
 
 // add indexedDB for node
 require('fake-indexeddb/auto');
@@ -16,11 +15,12 @@ jest.mock('react-native-uuid', () => ({
 describe('LocalDbIndexed tests', () => {
   it('getContext', async () => {
     const db = new LocalDbIndexed();
+    // @ts-ignore
     const db0 = await db.readyDb;
     const context = await db.getContext();
     expect(context.id).toEqual(DB_MAIN_CONTEXT_ID);
     expect(context.backupUUID).toEqual('fake-uuid');
-    expect(db0.version).toEqual(INDEXED_DB_VERSION);
+    expect(db0.indexed.version).toEqual(INDEXED_DB_VERSION);
   });
   it('getBackupUUID', async () => {
     const db = new LocalDbIndexed();
@@ -32,15 +32,16 @@ describe('LocalDbIndexed tests', () => {
 
     // @ts-ignore
     // eslint-disable-next-line no-import-assign
-    indexedDbConfigs.INDEXED_DB_VERSION = 11;
+    consts.INDEXED_DB_VERSION = 11;
 
     const db = new LocalDbIndexed();
+    // @ts-ignore
     const db0 = await db.readyDb;
-    expect(db0.objectStoreNames).not.toContain('hello');
-    expect(db0.version).toBe(1);
+    expect(db0.indexed.objectStoreNames).not.toContain('hello');
+    expect(db0.indexed.version).toBe(1);
 
     // @ts-ignore
-    // EIndexedDBStoreNames.hello = 'hello';
+    // ELocalDBStoreNames.hello = 'hello';
   });
   it.skip('reset', async () => {
     const db = new LocalDbIndexed();

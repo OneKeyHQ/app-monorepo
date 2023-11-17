@@ -59,6 +59,7 @@ export async function signTransactionWithSigner(
   });
 
   return {
+    encodedTx: unsignedTx.encodedTx,
     digest,
     txid: signedTransaction.hash,
     rawTx: signedTransaction.serialize(),

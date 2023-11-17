@@ -138,7 +138,11 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       payload,
       curve,
     });
-    return signTransaction(unsignedTx, signer);
+    const tx = await signTransaction(unsignedTx, signer);
+    return {
+      ...tx,
+      encodedTx: unsignedTx.encodedTx,
+    };
   }
 
   override async signMessage(): Promise<string> {

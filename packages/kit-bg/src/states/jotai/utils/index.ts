@@ -132,7 +132,7 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
   let a = null;
   let persist = false;
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-  const initialVal = initialValue!;
+  const initialVal = Object.freeze(initialValue!);
   if (typeof write === 'function') {
     if (typeof read === 'function') {
       // read, write
