@@ -134,7 +134,7 @@ export default class Vault extends VaultBase {
 
     const suggestedParams = await this.getSuggestedParams();
     if (assetId) {
-      sdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+      return sdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
         amount: BigInt(
           new BigNumber(amount).shiftedBy(token.decimals).toFixed(),
         ),
