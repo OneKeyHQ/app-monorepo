@@ -22,26 +22,6 @@ import { Layout } from './utils/Layout';
 
 import type { UseFormReturn } from 'react-hook-form';
 
-const VariantsDemo = ({ tone }: IDialogProps) => {
-  const [isOpen, changeIsOpen] = useState(false);
-  return (
-    <Dialog
-      open={isOpen}
-      icon="PlaceholderOutline"
-      title="Lorem ipsum"
-      description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec."
-      onOpen={() => {
-        changeIsOpen(true);
-      }}
-      renderTrigger={<Button>{tone || 'Default'}</Button>}
-      onClose={() => {
-        changeIsOpen(false);
-      }}
-      tone={tone}
-    />
-  );
-};
-
 const CustomFooter = ({
   index,
   form,
