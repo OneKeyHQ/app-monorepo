@@ -4,9 +4,14 @@ import { useIntl } from 'react-intl';
 
 import { ListItem } from '@onekeyhq/components';
 
+import { useHelpLink } from '../../../hooks/useHelpLink';
+import { UrlExternalListItem } from '../Components/UrlExternalListItem';
+
 import { Section } from './Section';
 
 export const AboutSection = () => {
+  const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
+  const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
   const onPress = useCallback(() => {}, []);
   const intl = useIntl();
   return (
@@ -38,38 +43,26 @@ export const AboutSection = () => {
           }}
         />
       </ListItem>
-      <ListItem
-        onPress={onPress}
+      <UrlExternalListItem
         icon="HelpSupportOutline"
         title={intl.formatMessage({ id: 'title__help_center' })}
-      >
-        <ListItem.IconButton
-          disabled
-          icon="ArrowTopRightOutline"
-          iconProps={{
-            color: '$iconActive',
-          }}
-        />
-      </ListItem>
-      <ListItem onPress={onPress} icon="EditOutline" title="Submit ticket">
-        <ListItem.IconButton
-          disabled
-          icon="ArrowTopRightOutline"
-          iconProps={{
-            color: '$iconActive',
-          }}
-        />
-      </ListItem>
-      <ListItem
-        onPress={onPress}
+        url="https://help.onekey.so/hc"
+      />
+      <UrlExternalListItem
+        icon="EditOutline"
+        title="Submit ticket"
+        url="https://help.onekey.so/hc/en-us/requests/new"
+      />
+      <UrlExternalListItem
         icon="AddedPeopleOutline"
         title={intl.formatMessage({ id: 'form__user_agreement' })}
+        url={userAgreementUrl}
         drillIn
       />
-      <ListItem
-        onPress={onPress}
+      <UrlExternalListItem
         icon="Shield2CheckOutline"
         title={intl.formatMessage({ id: 'terms__privacy_policy' })}
+        url={privacyPolicyUrl}
         drillIn
       />
     </Section>

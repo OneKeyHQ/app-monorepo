@@ -105,7 +105,7 @@ export default function SettingListModal() {
   return (
     <ModalContainer>
       <ScrollView>
-        <Stack>
+        <Stack pb="$2">
           <SecuritySection />
           <PreferenceSection />
           <DataSection />
