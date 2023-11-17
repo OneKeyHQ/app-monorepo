@@ -8,6 +8,7 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   type IListItemSelectOption,
   ListItemSelect,
@@ -16,7 +17,7 @@ import {
 type IThemeValue = ISettingsPersistAtom['theme'];
 
 export default function SettingThemeModal() {
-  const [settings, setSettings] = useSettingsPersistAtom();
+  const [settings] = useSettingsPersistAtom();
   const intl = useIntl();
   const options = useMemo<IListItemSelectOption<IThemeValue>[]>(
     () => [
@@ -33,11 +34,12 @@ export default function SettingThemeModal() {
         value: 'dark' as const,
       },
     ],
-    [],
+    [intl],
   );
   const onChange = useCallback(
-    (text: IThemeValue) => setSettings({ ...settings, 'theme': text }),
-    [settings, setSettings],
+    async (text: IThemeValue) =>
+      backgroundApiProxy.serviceSetting.setTheme(text),
+    [],
   );
   return (
     <ModalContainer>
