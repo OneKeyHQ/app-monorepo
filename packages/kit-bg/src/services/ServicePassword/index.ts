@@ -280,6 +280,11 @@ export default class ServicePassword extends ServiceBase {
   }
 
   @backgroundMethod()
+  async lockApp() {
+    await passwordAtom.set((v) => ({ ...v, unLock: false }));
+  }
+
+  @backgroundMethod()
   async getBgSensitiveTextEncodeKey(): Promise<string> {
     return Promise.resolve(getBgSensitiveTextEncodeKey());
   }
