@@ -1,10 +1,14 @@
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import { useColorScheme } from './useColorScheme';
+import {
+  defaultColorScheme,
+  useSystemColorScheme,
+} from './useSystemColorScheme';
 
 export function useThemeVariant() {
   const [{ theme }] = useSettingsPersistAtom();
-  const colorScheme = useColorScheme();
-  const themeVariant = theme === 'system' ? colorScheme ?? 'dark' : theme;
+  const colorScheme = useSystemColorScheme();
+  const themeVariant =
+    theme === 'system' ? colorScheme ?? defaultColorScheme : theme;
   return themeVariant;
 }

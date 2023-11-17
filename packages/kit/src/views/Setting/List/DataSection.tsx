@@ -14,12 +14,12 @@ export const DataSection = () => {
       <ListItem
         onPress={onPress}
         icon="BroomOutline"
-        title="Clear cache on App"
+        title={intl.formatMessage({ id: 'action__clear_all_cache_on_app' })}
       />
       <ListItem
         onPress={onPress}
         icon="CompassOutline"
-        title="Clear cache of web browser"
+        title={intl.formatMessage({ id: 'action__clear_cache_of_web_browser' })}
       />
       <ListItem
         onPress={onPress}
