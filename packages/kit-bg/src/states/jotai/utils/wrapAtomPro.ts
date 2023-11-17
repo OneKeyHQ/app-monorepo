@@ -6,11 +6,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { JOTAI_RESET } from '../types';
 
 import type { EAtomNames } from '../atomNames';
-import type { IAtomSetWithoutProxy, IWritableAtomPro, Setter } from '../types';
+import type { IJotaiAtomSetWithoutProxy, IJotaiWritableAtomPro, IJotaiSetter } from '../types';
 
 export function wrapAtomPro(
   name: EAtomNames,
-  baseAtom: IWritableAtomPro<
+  baseAtom: IJotaiWritableAtomPro<
     unknown,
     [update: unknown],
     Promise<void> | undefined
@@ -23,7 +23,7 @@ export function wrapAtomPro(
   }: {
     payload: any;
     proxyToBg: boolean;
-    set: Setter;
+    set: IJotaiSetter;
   }) => {
     if (proxyToBg && platformEnv.isExtensionUi) {
       await global.$jotaiBgSync.proxyStateUpdateActionFromUiToBg({
@@ -63,7 +63,7 @@ export function wrapAtomPro(
           nextValue = nextValueFromBg.payload;
           proxyToBg = false;
         }
-        const nextValueFromUiInit = nextValue as IAtomSetWithoutProxy;
+        const nextValueFromUiInit = nextValue as IJotaiAtomSetWithoutProxy;
         if (
           nextValueFromUiInit?.$$isForceSetAtomWithoutProxy &&
           nextValueFromUiInit.name === name
@@ -97,7 +97,7 @@ export function wrapAtomPro(
         payload: nextValue,
       });
     },
-  ) as IWritableAtomPro<unknown, [update: unknown], Promise<void> | undefined>;
+  ) as IJotaiWritableAtomPro<unknown, [update: unknown], Promise<void> | undefined>;
 
   return proAtom;
 }

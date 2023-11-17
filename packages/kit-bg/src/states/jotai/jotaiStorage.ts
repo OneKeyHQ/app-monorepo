@@ -11,7 +11,7 @@ import { JOTAI_RESET } from './types';
 
 import type {
   AsyncStorage,
-  SetStateActionWithReset,
+  IJotaiSetStateActionWithReset,
   SyncStorage,
   WritableAtom,
 } from './types';
@@ -53,7 +53,7 @@ export function atomWithStorage<Value>(
   unstable_options?: { unstable_getOnInit?: boolean },
 ): WritableAtom<
   Value | Promise<Value>,
-  [SetStateActionWithReset<Value | Promise<Value>>],
+  [IJotaiSetStateActionWithReset<Value | Promise<Value>>],
   Promise<void>
 >;
 
@@ -62,7 +62,7 @@ export function atomWithStorage<Value>(
   initialValue: Value,
   storage?: SyncStorage<Value>,
   unstable_options?: { unstable_getOnInit?: boolean },
-): WritableAtom<Value, [SetStateActionWithReset<Value>], void>;
+): WritableAtom<Value, [IJotaiSetStateActionWithReset<Value>], void>;
 
 // TODO rename to atomPro
 // - support async storage
@@ -87,7 +87,7 @@ export function atomWithStorage<Value>(
 
   const anAtom = atom(
     (get) => get(baseAtom),
-    (get, set, update: SetStateActionWithReset<Value | Promise<Value>>) => {
+    (get, set, update: IJotaiSetStateActionWithReset<Value | Promise<Value>>) => {
       const nextValue =
         typeof update === 'function'
           ? (

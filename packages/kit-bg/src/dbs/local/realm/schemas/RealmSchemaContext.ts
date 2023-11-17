@@ -3,10 +3,10 @@
 import { ELocalDBStoreNames } from '../../localDBStoreNames';
 import { RealmObjectBase } from '../base/RealmObjectBase';
 
-import type { OneKeyContext } from '../../types';
+import type { IDBContext } from '../../types';
 import type Realm from 'realm';
 
-class RealmSchemaContext extends RealmObjectBase<OneKeyContext> {
+class RealmSchemaContext extends RealmObjectBase<IDBContext> {
   public id!: string;
 
   public nextHD!: number;
@@ -32,7 +32,7 @@ class RealmSchemaContext extends RealmObjectBase<OneKeyContext> {
     },
   };
 
-  get record(): OneKeyContext {
+  get record(): IDBContext {
     return {
       id: this.id,
       nextHD: this.nextHD,

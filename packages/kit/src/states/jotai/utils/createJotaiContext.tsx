@@ -3,7 +3,7 @@ import { createContext, useContext, useMemo } from 'react';
 
 import { atom, createStore, useAtom } from 'jotai';
 
-import type { Read, Write } from '@onekeyhq/kit-bg/src/states/jotai/types';
+import type { IJotaiRead, IJotaiWrite } from '@onekeyhq/kit-bg/src/states/jotai/types';
 import {
   contextAtomBase,
   contextAtomComputedBase,
@@ -47,7 +47,7 @@ export function createJotaiContext() {
     });
   }
 
-  function contextAtomComputed<Value>(read: Read<Value>) {
+  function contextAtomComputed<Value>(read: IJotaiRead<Value>) {
     return contextAtomComputedBase({
       useContextAtom: useContextAtom as any,
       read,
@@ -56,7 +56,7 @@ export function createJotaiContext() {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function contextAtomMethod<Value, Args extends unknown[], Result>(
-    fn: Write<Args, Result>,
+    fn: IJotaiWrite<Args, Result>,
   ) {
     return contextAtomMethodBase({
       useContextAtom,

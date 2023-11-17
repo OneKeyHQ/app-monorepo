@@ -7,9 +7,9 @@ import {
 
 import { KeyringBase } from './KeyringBase';
 
-import type { DBAccount } from '../../dbs/local/types';
+import type { IDBAccount } from '../../dbs/local/types';
 
-export type WalletPassphraseState = {
+export type IWalletPassphraseState = {
   passphraseState?: string;
   useEmptyPassphrase?: boolean;
 };

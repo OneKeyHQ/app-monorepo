@@ -3,10 +3,10 @@ import { RealmObjectBase } from '../base/RealmObjectBase';
 
 import type { RealmSchemaAccount } from './RealmSchemaAccount';
 import type { RealmSchemaDevice } from './RealmSchemaDevice';
-import type { DBWallet, IDBAvatar, IDBWalletType } from '../../types';
+import type { IDBAvatar, IDBWallet, IDBWalletType } from '../../types';
 import type Realm from 'realm';
 
-class RealmSchemaWallet extends RealmObjectBase<DBWallet> {
+class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
   public id!: string;
 
   public name!: string;
@@ -48,7 +48,7 @@ class RealmSchemaWallet extends RealmObjectBase<DBWallet> {
     },
   };
 
-  get record(): DBWallet {
+  get record(): IDBWallet {
     let avatar: IDBAvatar | undefined;
     const parsedAvatar = JSON.parse(this.avatar || '{}');
     if (Object.keys(parsedAvatar).length > 0) {

@@ -1,6 +1,6 @@
 import type * as moneroAddress from './moneroAddress';
 import type { privateSpendKeyToWords } from './moneroWords';
-import type { SignedTx } from '../../../types';
+import type { ISignedTx } from '../../../types';
 
 type IHexString = string;
 
@@ -43,7 +43,7 @@ export type IMoneroApiWebembed = {
     priority: string;
     feePerByte: string;
   }) => Promise<string | undefined>;
-  sendFunds: (args: any, scanUrl: string) => Promise<SignedTx>;
+  sendFunds: (args: any, scanUrl: string) => Promise<ISignedTx>;
 };
 
 export type IMoneroApi = IMoneroApiWebembed & {

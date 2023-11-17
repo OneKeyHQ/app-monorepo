@@ -12,7 +12,7 @@ import { EVaultKeyringTypes } from '../types';
 import { VaultContext } from './VaultContext';
 
 import type { VaultBase } from './VaultBase';
-import type { DBAccount } from '../../dbs/local/types';
+import type { IDBAccount } from '../../dbs/local/types';
 import type {
   IPrepareAccountsParams,
   ISignMessageParams,
@@ -79,7 +79,7 @@ export abstract class KeyringBase extends VaultContext {
 
   abstract prepareAccounts(
     params: IPrepareAccountsParams,
-  ): Promise<DBAccount[]>;
+  ): Promise<IDBAccount[]>;
 }
 
 // @ts-ignore

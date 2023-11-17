@@ -11,6 +11,8 @@ module.exports = [
   'unittest',
   'Cancelled',
   'Ble',
+  'bip39',
+  'Bip39',
   'ethers',
   'mutex',
   'instanceof',

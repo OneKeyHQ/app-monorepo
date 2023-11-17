@@ -1,10 +1,10 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 
-import { AccountType } from '../../../dbs/local/consts';
+import { EDBAccountType } from '../../../dbs/local/consts';
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
-import type { DBSimpleAccount } from '../../../dbs/local/types';
+import type { IDBSimpleAccount } from '../../../dbs/local/types';
 import type {
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
@@ -24,9 +24,9 @@ export class KeyringHd extends KeyringHdBase {
 
   override async prepareAccounts(
     params: IPrepareHdAccountsParams,
-  ): Promise<Array<DBSimpleAccount>> {
+  ): Promise<Array<IDBSimpleAccount>> {
     return this.basePrepareAccountsHd(params, {
-      accountType: AccountType.SIMPLE,
+      accountType: EDBAccountType.SIMPLE,
       usedIndexes: params.indexes,
     });
   }

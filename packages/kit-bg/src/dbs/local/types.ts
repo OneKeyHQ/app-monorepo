@@ -1,8 +1,8 @@
-import type { RevealableSeed } from '@onekeyhq/core/src/secret';
+import type { IBip39RevealableSeed } from '@onekeyhq/core/src/secret';
 
 import type {
-  AccountType,
-  CredentialType,
+  EDBAccountType,
+  EDBCredentialType,
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
@@ -20,13 +20,13 @@ import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { DBSchema, IDBPObjectStore } from 'idb';
 
 // ---------------------------------------------- base
-export type BaseObject = {
+export type IDBBaseObject = {
   id: string;
 };
-export type HasName = BaseObject & {
+export type IDBBaseObjectWithName = IDBBaseObject & {
   name: string;
 };
-export type OneKeyContext = {
+export type IDBContext = {
   id: string; // DB_MAIN_CONTEXT_ID
   nextHD: number;
   verifyString: string;
@@ -34,41 +34,41 @@ export type OneKeyContext = {
   pendingWallets?: Array<string>;
   backupUUID: string;
 };
-export type IDbApiGetContextOptions = {
+export type IDBApiGetContextOptions = {
   verifyPassword?: string;
 };
 
 // ---------------------------------------------- credential
-export type DBCredential = BaseObject & {
+export type IDBCredential = IDBBaseObject & {
   credential: string;
 };
-export type PrivateKeyCredential = {
-  type: CredentialType.PRIVATE_KEY;
+export type IDBPrivateKeyCredential = {
+  type: EDBCredentialType.PRIVATE_KEY;
   privateKey: Buffer;
   password: string;
 };
-export type StoredSeedCredential = {
+export type IDBStoredSeedCredential = {
   entropy: string;
   seed: string;
 };
-export type StoredPrivateKeyCredential = {
+export type IDBStoredPrivateKeyCredential = {
   privateKey: string;
 };
-export type StoredCredential =
-  | StoredSeedCredential
-  | StoredPrivateKeyCredential;
-export type ExportedSeedCredential = {
+export type IDBStoredCredential =
+  | IDBStoredSeedCredential
+  | IDBStoredPrivateKeyCredential;
+export type IDBExportedSeedCredential = {
   type: 'hd';
   entropy: Buffer;
   seed: Buffer;
 };
-export type ExportedPrivateKeyCredential = {
+export type IDBExportedPrivateKeyCredential = {
   type: 'imported';
   privateKey: Buffer;
 };
-export type ExportedCredential =
-  | ExportedSeedCredential
-  | ExportedPrivateKeyCredential;
+export type IDBExportedCredential =
+  | IDBExportedSeedCredential
+  | IDBExportedPrivateKeyCredential;
 export type IDBCredentialBase = {
   id: string;
   credential: string;
@@ -89,30 +89,29 @@ export type IDBWalletType =
   | typeof WALLET_TYPE_IMPORTED
   | typeof WALLET_TYPE_WATCHING
   | typeof WALLET_TYPE_EXTERNAL;
-export type Wallet = HasName & {
+export type IDBWallet = IDBBaseObjectWithName & {
   type: IDBWalletType;
   backuped: boolean;
   accounts: Array<string>;
   nextAccountIds: Record<string, number>; // purpose + cointype => index
   associatedDevice?: string; // alias to `deviceId`
-  avatar?: Avatar;
+  avatar?: IDBAvatar;
   deviceType?: string;
   hidden?: boolean;
   passphraseState?: string;
 };
-export type DBWallet = Wallet;
-export type CreateHDWalletParams = {
+export type IDBCreateHDWalletParams = {
   password: string;
-  rs: RevealableSeed;
+  rs: IBip39RevealableSeed;
   backuped: boolean;
   name?: string;
-  avatar?: Avatar;
+  avatar?: IDBAvatar;
   nextAccountIds?: Record<string, number>;
 };
-export type CreateHWWalletParams = {
+export type IDBCreateHWWalletParams = {
   id: string;
   name: string;
-  avatar?: Avatar;
+  avatar?: IDBAvatar;
   connectId: string;
   deviceId?: string;
   deviceType: IDeviceType;
@@ -120,28 +119,27 @@ export type CreateHWWalletParams = {
   features: string;
   passphraseState?: string;
 };
-export type SetWalletNameAndAvatarParams = {
+export type IDBSetWalletNameAndAvatarParams = {
   name?: string;
-  avatar?: Avatar;
+  avatar?: IDBAvatar;
 };
 
 // ---------------------------------------------- account
-export type Avatar = {
+export type IDBAvatar = {
   emoji: string | 'img'; // lazy load EmojiTypes
   bgColor: string;
 };
-export type IDBAvatar = Avatar;
-export type DBBaseAccount = HasName & {
-  type: AccountType;
+export type IDBBaseAccount = IDBBaseObjectWithName & {
+  type: EDBAccountType;
   path: string;
   coinType: string;
   template?: string;
 };
-export type DBSimpleAccount = DBBaseAccount & {
+export type IDBSimpleAccount = IDBBaseAccount & {
   pub: string;
   address: string;
 };
-export type DBUTXOAccount = DBBaseAccount & {
+export type IDBUtxoAccount = IDBBaseAccount & {
   pub?: string; // TODO rename pubKey to pub
   xpub: string;
   xpubSegwit?: string; // wrap regular xpub into bitcoind native descriptor
@@ -149,40 +147,40 @@ export type DBUTXOAccount = DBBaseAccount & {
   addresses: Record<string, string>;
   customAddresses?: Record<string, string>; // for btc custom address
 };
-export type DBVariantAccount = DBBaseAccount & {
+export type IDBVariantAccount = IDBBaseAccount & {
   pub: string;
   address: string; // Base address
   // VARIANT: Network -> address
   // UTXO: relPath -> address
   addresses: Record<string, string>;
 };
-export type DBAccount = DBSimpleAccount | DBUTXOAccount | DBVariantAccount;
-export type DBAccountDerivation = BaseObject & {
+export type IDBAccount = IDBSimpleAccount | IDBUtxoAccount | IDBVariantAccount;
+export type IDBAccountDerivation = IDBBaseObject & {
   walletId: string;
   accounts: string[];
   template: string;
 };
-export type ISetAccountTemplateParams = {
+export type IDBSetAccountTemplateParams = {
   accountId: string;
   template: string;
 };
-export type IAddAccountDerivationParams = {
+export type IDBAddAccountDerivationParams = {
   walletId: string;
   accountId: string;
   impl: string;
   template: string;
   derivationStore?: IDBObjectStore;
 };
-export type ISetNextAccountIdsParams = {
+export type IDBSetNextAccountIdsParams = {
   walletId: string;
   nextAccountIds: Record<string, number>;
 };
 
 // ---------------------------------------------- device
-export type DevicePayload = {
+export type IDBDevicePayload = {
   onDeviceInputPin?: boolean;
 };
-export type DBDevice = HasName & {
+export type IDBDevice = IDBBaseObjectWithName & {
   features: string;
   mac: string;
   name: string;
@@ -193,18 +191,18 @@ export type DBDevice = HasName & {
   createdAt: number;
   updatedAt: number;
 };
-export type Device = Omit<DBDevice, 'payloadJson'> & {
-  payload: DevicePayload;
+export type IDBDevicePro = Omit<IDBDevice, 'payloadJson'> & {
+  payload: IDBDevicePayload;
 };
 
 // DB SCHEMA map ----------------------------------------------
 export interface ILocalDBSchemaMap {
-  [ELocalDBStoreNames.Context]: OneKeyContext;
+  [ELocalDBStoreNames.Context]: IDBContext;
   [ELocalDBStoreNames.Credential]: IDBCredentialBase;
-  [ELocalDBStoreNames.Wallet]: DBWallet;
-  [ELocalDBStoreNames.Account]: DBAccount;
-  [ELocalDBStoreNames.AccountDerivation]: DBAccountDerivation;
-  [ELocalDBStoreNames.Device]: DBDevice;
+  [ELocalDBStoreNames.Wallet]: IDBWallet;
+  [ELocalDBStoreNames.Account]: IDBAccount;
+  [ELocalDBStoreNames.AccountDerivation]: IDBAccountDerivation;
+  [ELocalDBStoreNames.Device]: IDBDevice;
 }
 
 export interface IRealmDBSchemaMap {
@@ -219,16 +217,16 @@ export interface IRealmDBSchemaMap {
 export interface IIndexedDBSchemaMap extends DBSchema {
   [ELocalDBStoreNames.AccountDerivation]: {
     key: string;
-    value: DBAccountDerivation;
+    value: IDBAccountDerivation;
   };
   [ELocalDBStoreNames.Account]: {
     key: string;
-    value: DBAccount;
+    value: IDBAccount;
     // indexes: { date: Date; title: string };
   };
   [ELocalDBStoreNames.Context]: {
     key: string;
-    value: OneKeyContext;
+    value: IDBContext;
   };
   [ELocalDBStoreNames.Credential]: {
     key: string;
@@ -236,11 +234,11 @@ export interface IIndexedDBSchemaMap extends DBSchema {
   };
   [ELocalDBStoreNames.Device]: {
     key: string;
-    value: DBDevice;
+    value: IDBDevice;
   };
   [ELocalDBStoreNames.Wallet]: {
     key: string;
-    value: DBWallet;
+    value: IDBWallet;
   };
 }
 
@@ -391,6 +389,6 @@ export interface ILocalDBAgent {
 }
 
 // ---------------------------------------------- test only
-export type DBTestNewStore = HasName & {
+export type IDBTestNewStore = IDBBaseObjectWithName & {
   test: string;
 };

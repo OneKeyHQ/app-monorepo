@@ -19,14 +19,14 @@ export const ALL_LOCAL_DB_STORE_NAMES: ELocalDBStoreNames[] =
 
 // ---------------------------------------------- enums
 
-export enum AccountType {
+export enum EDBAccountType {
   SIMPLE = 'simple',
   UTXO = 'utxo',
   VARIANT = 'variant',
   // used for allNetworks
   FAKE = 'FAKE',
 }
-export enum CredentialType {
+export enum EDBCredentialType {
   SOFTWARE = 'software',
   HARDWARE = 'hardware',
   PRIVATE_KEY = 'private_key',

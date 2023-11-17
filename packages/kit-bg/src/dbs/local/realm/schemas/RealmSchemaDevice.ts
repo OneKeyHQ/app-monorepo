@@ -1,10 +1,10 @@
 import { ELocalDBStoreNames } from '../../localDBStoreNames';
 import { RealmObjectBase } from '../base/RealmObjectBase';
 
-import type { DBDevice } from '../../types';
+import type { IDBDevice } from '../../types';
 import type Realm from 'realm';
 
-class RealmSchemaDevice extends RealmObjectBase<DBDevice> {
+class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
   /**
    * The device's unique identifier.
    */
@@ -73,7 +73,7 @@ class RealmSchemaDevice extends RealmObjectBase<DBDevice> {
   };
 
   // TODO rename record()
-  get record(): DBDevice {
+  get record(): IDBDevice {
     return {
       id: this.id,
       name: this.name,

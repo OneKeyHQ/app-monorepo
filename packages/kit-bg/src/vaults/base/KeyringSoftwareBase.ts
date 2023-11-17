@@ -13,18 +13,18 @@ import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
-import { AccountType } from '../../dbs/local/consts';
+import { EDBAccountType } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDb';
 import { mockGetAccountNameInfoByTemplate } from '../mock';
 
 import { KeyringBase } from './KeyringBase';
 
 import type {
-  DBSimpleAccount,
-  DBUTXOAccount,
-  DBVariantAccount,
-  ExportedPrivateKeyCredential,
-  ExportedSeedCredential,
+  IDBExportedPrivateKeyCredential,
+  IDBExportedSeedCredential,
+  IDBSimpleAccount,
+  IDBUtxoAccount,
+  IDBVariantAccount,
 } from '../../dbs/local/types';
 import type {
   IGetPrivateKeysParams,
@@ -49,7 +49,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       const credential = (await localDb.getCredential(
         checkIsDefined(this.walletId),
         password,
-      )) as ExportedSeedCredential;
+      )) as IDBExportedSeedCredential;
       hd = {
         seed: bufferUtils.bytesToHex(credential.seed),
         entropy: bufferUtils.bytesToHex(credential.entropy),
@@ -61,7 +61,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       const credential = (await localDb.getCredential(
         this.accountId,
         password,
-      )) as ExportedPrivateKeyCredential;
+      )) as IDBExportedPrivateKeyCredential;
       imported = {
         privateKey: bufferUtils.bytesToHex(credential.privateKey),
       };
@@ -151,9 +151,9 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     params: IPrepareImportedAccountsParams,
     options: {
       coinType: string;
-      accountType: AccountType;
+      accountType: EDBAccountType;
     },
-  ): Promise<Array<DBSimpleAccount>> {
+  ): Promise<Array<IDBSimpleAccount>> {
     if (!this.coreApi) {
       throw new Error('coreApi is not defined');
     }
@@ -187,9 +187,9 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     params: IPrepareImportedAccountsParams,
     options: {
       coinType: string;
-      accountType: AccountType;
+      accountType: EDBAccountType;
     },
-  ): Promise<Array<DBUTXOAccount>> {
+  ): Promise<Array<IDBUtxoAccount>> {
     if (!this.coreApi) {
       throw new Error('coreApi is not defined');
     }
@@ -228,10 +228,10 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
   async basePrepareAccountsHd(
     params: IPrepareHdAccountsParams,
     options: {
-      accountType: AccountType;
+      accountType: EDBAccountType;
       usedIndexes: number[];
     },
-  ): Promise<Array<DBSimpleAccount | DBVariantAccount>> {
+  ): Promise<Array<IDBSimpleAccount | IDBVariantAccount>> {
     if (!this.coreApi) {
       throw new Error('coreApi is not defined');
     }
@@ -261,13 +261,13 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       template,
     });
 
-    const ret: Array<DBSimpleAccount | DBVariantAccount> = [];
+    const ret: Array<IDBSimpleAccount | IDBVariantAccount> = [];
     for (let index = 0; index < addressInfos.length; index += 1) {
       const { path, publicKey, address, addresses } = addressInfos[index];
       if (!path) {
         throw new Error('KeyringHD prepareAccounts ERROR: path not found');
       }
-      if (accountType === AccountType.VARIANT && !addresses) {
+      if (accountType === EDBAccountType.VARIANT && !addresses) {
         throw new Error('addresses is required for variant account');
       }
 
@@ -305,7 +305,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         address: string;
       }) => Promise<{ isUsed: boolean }>;
     },
-  ): Promise<DBUTXOAccount[]> {
+  ): Promise<IDBUtxoAccount[]> {
     if (!this.coreApi) {
       throw new Error('coreApi is undefined');
     }
@@ -350,7 +350,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       template,
     });
 
-    const ret: DBUTXOAccount[] = [];
+    const ret: IDBUtxoAccount[] = [];
     let index = 0;
     for (const {
       path,
@@ -371,7 +371,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         ret.push({
           id,
           name,
-          type: AccountType.UTXO,
+          type: EDBAccountType.UTXO,
           path,
           coinType,
           pub: publicKey,

@@ -45,7 +45,7 @@ import {
   type IEncodedTx,
   type ISignedTxPro,
   type IUnsignedMessageBtc,
-  type InputToSign,
+  type ITxInputToSign,
 } from '../../types';
 import { slicePathTemplate } from '../../utils';
 
@@ -63,7 +63,7 @@ import {
 import type { PsbtInput } from 'bip174/src/lib/interfaces';
 import type { Payment, Signer, networks } from 'bitcoinjs-lib';
 import type { ISigner } from '../../base/ChainSigner';
-import type { Bip32KeyDeriver, ExtendedKey } from '../../secret';
+import type { IBip32KeyDeriver, IBip32ExtendedKey } from '../../secret';
 import type {
   IBtcForkNetwork,
   IBtcForkTransactionMixin,
@@ -234,7 +234,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
     const ret: Record<string, string> = {};
 
-    const startExtendedKey: ExtendedKey = {
+    const startExtendedKey: IBip32ExtendedKey = {
       chainCode: bufferUtils.toBuffer(decodedXpub.slice(13, 45)),
       key: bufferUtils.toBuffer(decodedXpub.slice(45, 78)),
     };
@@ -479,7 +479,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const deriver = new BaseBip32KeyDeriver(
       Buffer.from('Bitcoin seed'),
       secp256k1,
-    ) as Bip32KeyDeriver;
+    ) as IBip32KeyDeriver;
 
     // imported account return "" key as root privateKey
     const privateKey = privateKeys[''];
@@ -489,7 +489,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       key: xprv.slice(46, 78),
     };
 
-    const cache: Record<string, ExtendedKey> = {};
+    const cache: Record<string, IBip32ExtendedKey> = {};
 
     relPaths?.forEach((relPath) => {
       const pathComponents = relPath.split('/');
@@ -657,7 +657,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     network: IBtcForkNetwork;
     psbt: Psbt;
     signers: Partial<{ [address: string]: ISigner }>;
-    inputsToSign: InputToSign[];
+    inputsToSign: ITxInputToSign[];
   }) {
     for (let i = 0, len = inputsToSign.length; i < len; i += 1) {
       const input = inputsToSign[i];

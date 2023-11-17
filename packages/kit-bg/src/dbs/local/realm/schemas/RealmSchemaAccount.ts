@@ -1,22 +1,22 @@
-import { AccountType } from '../../consts';
+import { EDBAccountType } from '../../consts';
 import { ELocalDBStoreNames } from '../../localDBStoreNames';
 import { RealmObjectBase } from '../base/RealmObjectBase';
 
 import type { RealmSchemaWallet } from './RealmSchemaWallet';
 import type {
-  DBAccount,
-  DBSimpleAccount,
-  DBUTXOAccount,
-  DBVariantAccount,
+  IDBAccount,
+  IDBSimpleAccount,
+  IDBUtxoAccount,
+  IDBVariantAccount,
 } from '../../types';
 import type Realm from 'realm';
 
-class RealmSchemaAccount extends RealmObjectBase<DBAccount> {
+class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
   public id!: string;
 
   public name!: string;
 
-  public type!: AccountType;
+  public type!: EDBAccountType;
 
   public path?: string;
 
@@ -66,7 +66,7 @@ class RealmSchemaAccount extends RealmObjectBase<DBAccount> {
     },
   };
 
-  get record(): DBAccount {
+  get record(): IDBAccount {
     const ret = {
       id: this.id,
       name: this.name,
@@ -75,20 +75,20 @@ class RealmSchemaAccount extends RealmObjectBase<DBAccount> {
       coinType: this.coinType,
       address: this.address || '',
       template: this.template || '',
-    } as DBAccount;
-    if (this.type === AccountType.SIMPLE) {
-      (ret as DBSimpleAccount).pub = this.pub || '';
+    } as IDBAccount;
+    if (this.type === EDBAccountType.SIMPLE) {
+      (ret as IDBSimpleAccount).pub = this.pub || '';
     }
-    if (this.type === AccountType.VARIANT) {
-      (ret as DBVariantAccount).pub = this.pub || '';
-      (ret as DBVariantAccount).addresses = this.addresses || {};
+    if (this.type === EDBAccountType.VARIANT) {
+      (ret as IDBVariantAccount).pub = this.pub || '';
+      (ret as IDBVariantAccount).addresses = this.addresses || {};
     }
-    if (this.type === AccountType.UTXO) {
-      (ret as DBUTXOAccount).pub = this.pub || '';
-      (ret as DBUTXOAccount).xpub = this.xpub || '';
-      (ret as DBUTXOAccount).xpubSegwit = this.xpubSegwit || '';
-      (ret as DBUTXOAccount).addresses = this.addresses || {};
-      (ret as DBUTXOAccount).customAddresses = this.customAddresses || {};
+    if (this.type === EDBAccountType.UTXO) {
+      (ret as IDBUtxoAccount).pub = this.pub || '';
+      (ret as IDBUtxoAccount).xpub = this.xpub || '';
+      (ret as IDBUtxoAccount).xpubSegwit = this.xpubSegwit || '';
+      (ret as IDBUtxoAccount).addresses = this.addresses || {};
+      (ret as IDBUtxoAccount).customAddresses = this.customAddresses || {};
     }
     return ret;
   }

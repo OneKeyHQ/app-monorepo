@@ -10,7 +10,7 @@ import { ECPairFactory } from 'ecpair';
 
 import { ecc } from '../../../secret';
 
-import type { ICoreApiSignAccount, InputToSign } from '../../../types';
+import type { ICoreApiSignAccount, ITxInputToSign } from '../../../types';
 import type { IBtcForkNetwork, IBtcForkSigner } from '../types';
 import type { BIP32API } from 'bip32/types/bip32';
 import type { Psbt, networks } from 'bitcoinjs-lib';
@@ -107,7 +107,7 @@ export function getInputsToSignFromPsbt({
   psbt: Psbt;
   psbtNetwork: networks.Network;
 }) {
-  const inputsToSign: InputToSign[] = [];
+  const inputsToSign: ITxInputToSign[] = [];
   psbt.data.inputs.forEach((v, index) => {
     let script: any = null;
     if (v.witnessUtxo) {

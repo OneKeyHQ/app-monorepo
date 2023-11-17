@@ -1,10 +1,10 @@
 import { ELocalDBStoreNames } from '../../localDBStoreNames';
 import { RealmObjectBase } from '../base/RealmObjectBase';
 
-import type { DBAccountDerivation } from '../../types';
+import type { IDBAccountDerivation } from '../../types';
 import type Realm from 'realm';
 
-class RealmSchemaAccountDerivation extends RealmObjectBase<DBAccountDerivation> {
+class RealmSchemaAccountDerivation extends RealmObjectBase<IDBAccountDerivation> {
   public id!: string;
 
   public walletId!: string;
@@ -24,7 +24,7 @@ class RealmSchemaAccountDerivation extends RealmObjectBase<DBAccountDerivation> 
     },
   };
 
-  get record(): DBAccountDerivation {
+  get record(): IDBAccountDerivation {
     return {
       id: this.id,
       walletId: this.walletId,

@@ -5,7 +5,7 @@ import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
-import type { DBSimpleAccount } from '../../../dbs/local/types';
+import type { IDBSimpleAccount } from '../../../dbs/local/types';
 import type { IPrepareHardwareAccountsParams } from '../../types';
 
 export class KeyringHardware extends KeyringHardwareBase {
@@ -21,7 +21,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
-  ): Promise<Array<DBSimpleAccount>> {
+  ): Promise<Array<IDBSimpleAccount>> {
     throw new Error('Method not implemented.');
   }
 }

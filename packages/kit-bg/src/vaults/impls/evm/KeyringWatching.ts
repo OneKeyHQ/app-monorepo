@@ -2,11 +2,11 @@ import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase'
 import { COINTYPE_ETH as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import { InvalidAddress } from '@onekeyhq/shared/src/errors';
 
-import { AccountType } from '../../../dbs/local/consts';
+import { EDBAccountType } from '../../../dbs/local/consts';
 import { KeyringWatchingBase } from '../../base/KeyringWatchingBase';
 import { mockVerifyAddress } from '../../mock';
 
-import type { DBSimpleAccount } from '../../../dbs/local/types';
+import type { IDBSimpleAccount } from '../../../dbs/local/types';
 import type { IPrepareWatchingAccountsParams } from '../../types';
 
 export class KeyringWatching extends KeyringWatchingBase {
@@ -14,7 +14,7 @@ export class KeyringWatching extends KeyringWatchingBase {
 
   override async prepareAccounts(
     params: IPrepareWatchingAccountsParams,
-  ): Promise<Array<DBSimpleAccount>> {
+  ): Promise<Array<IDBSimpleAccount>> {
     const { name, target, accountIdPrefix } = params;
     // const { normalizedAddress, isValid } = await (
     //   this.vault as VaultEvm
@@ -30,7 +30,7 @@ export class KeyringWatching extends KeyringWatchingBase {
       {
         id: `${accountIdPrefix}--${COIN_TYPE}--${normalizedAddress}`,
         name: name || '',
-        type: AccountType.SIMPLE,
+        type: EDBAccountType.SIMPLE,
         path: '',
         coinType: COIN_TYPE,
         pub: '', // TODO: only address is supported for now.

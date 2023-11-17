@@ -42,34 +42,34 @@ export type INativeTx = object;
 
 export type IRawTx = string;
 
-export type UTXO = {
+export type ITxUTXO = {
   txid: string;
   vout: number;
   value: BigNumber;
 };
-export type TxInput = {
+export type ITxInput = {
   address: string;
   value: BigNumber;
   tokenAddress?: string;
-  utxo?: UTXO;
+  utxo?: ITxUTXO;
   publicKey?: string; // used in stc
 };
-export type TxOutput = {
+export type ITxOutput = {
   address: string;
   value: BigNumber;
   tokenAddress?: string;
   payload?: { [key: string]: any };
 };
-export type InputToSign = {
+export type ITxInputToSign = {
   index: number;
   publicKey: string;
   address: string;
   sighashTypes?: number[];
 };
 // TODO remove
-export type UnsignedTx = {
-  inputs?: TxInput[];
-  outputs?: TxOutput[];
+export type IUnsignedTx = {
+  inputs?: ITxInput[];
+  outputs?: ITxOutput[];
   type?: string;
   nonce?: number;
   feeLimit?: BigNumber;
@@ -78,19 +78,19 @@ export type UnsignedTx = {
   payload?: { [key: string]: any };
   tokensChangedTo?: { [key: string]: string };
 };
-export type IUnsignedTxPro = UnsignedTx & {
+export type IUnsignedTxPro = IUnsignedTx & {
   encodedTx: IEncodedTx;
   rawTxUnsigned?: string;
   psbtHex?: string;
-  inputsToSign?: InputToSign[];
+  inputsToSign?: ITxInputToSign[];
   // signerAccount: ISignerAccountEvm | ISignerAccountNear | ISignerAccountAptos
 };
-export type SignedTx = {
+export type ISignedTx = {
   txid: string;
   rawTx: string;
   psbtHex?: string;
 };
-export type SignedTxResult = SignedTx & {
+export type ISignedTxResult = ISignedTx & {
   signatureScheme?: ICurveName;
   signature?: string; // hex string
   publicKey?: string; // hex string
@@ -101,7 +101,7 @@ export type SignedTxResult = SignedTx & {
   nonce?: number;
   randomSeed?: number;
 };
-export type ISignedTxPro = SignedTxResult & {
+export type ISignedTxPro = ISignedTxResult & {
   encodedTx: IEncodedTx | null;
 };
 export type ISignedMessagePro = string[];

@@ -14,12 +14,12 @@ import { wrapAtomPro } from './wrapAtomPro';
 
 import type { EAtomNames } from '../atomNames';
 import type {
-  IWritableAtomPro,
-  Read,
-  SetAtom,
-  Setter,
-  WithInitialValue,
-  Write,
+  IJotaiWritableAtomPro,
+  IJotaiRead,
+  IJotaiSetAtom,
+  IJotaiSetter,
+  IJotaiWithInitialValue,
+  IJotaiWrite,
 } from '../types';
 import type { Atom, PrimitiveAtom, WritableAtom } from 'jotai';
 
@@ -50,7 +50,7 @@ export function crossAtomBuilder<Value>({
   storageName?: string;
   read?: undefined;
   write?: undefined;
-}): PrimitiveAtom<Value> & WithInitialValue<Value>;
+}): PrimitiveAtom<Value> & IJotaiWithInitialValue<Value>;
 
 // initialValue + storage
 export function crossAtomBuilder<Value>({
@@ -77,7 +77,7 @@ export function crossAtomBuilder<Value>({
   storageName,
 }: {
   name: string;
-  read: Read<Value>;
+  read: IJotaiRead<Value>;
   //
   initialValue?: Value;
   storageName?: string;
@@ -93,12 +93,12 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
   storageName,
 }: {
   name: string;
-  write: Write<Args, Result>;
+  write: IJotaiWrite<Args, Result>;
   //
   initialValue?: Value;
   read?: undefined;
   storageName?: string;
-}): WritableAtom<Value, Args, Result> & WithInitialValue<Value>;
+}): WritableAtom<Value, Args, Result> & IJotaiWithInitialValue<Value>;
 
 // Read & Write
 export function crossAtomBuilder<Value, Args extends unknown[], Result>({
@@ -109,8 +109,8 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
   storageName,
 }: {
   name: string;
-  read: Read<Value, SetAtom<Args, Result>>;
-  write: Write<Args, Result>;
+  read: IJotaiRead<Value, IJotaiSetAtom<Args, Result>>;
+  write: IJotaiWrite<Args, Result>;
   //
   initialValue?: Value;
   storageName?: string;
@@ -126,8 +126,8 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
   name: string;
   initialValue?: Value;
   storageName?: string;
-  read?: Read<Value, SetAtom<Args, Result>> | Read<Value>;
-  write?: Write<Args, Result>;
+  read?: IJotaiRead<Value, IJotaiSetAtom<Args, Result>> | IJotaiRead<Value>;
+  write?: IJotaiWrite<Args, Result>;
 }) {
   let a = null;
   let persist = false;
@@ -136,14 +136,14 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
   if (typeof write === 'function') {
     if (typeof read === 'function') {
       // read, write
-      a = atom(read as Read<Value, SetAtom<Args, Result>>, write);
+      a = atom(read as IJotaiRead<Value, IJotaiSetAtom<Args, Result>>, write);
     } else {
       // initialValue, write
       a = atom(initialVal, write);
     }
   } else if (typeof read === 'function') {
     // read
-    a = atom(read as Read<Value>);
+    a = atom(read as IJotaiRead<Value>);
   } else if (storageName && typeof storageName === 'string') {
     // storage
     a = atomWithStorage(storageName, initialVal);
@@ -153,7 +153,7 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
     a = atom(initialVal);
   }
 
-  const baseAtom = a as IWritableAtomPro<
+  const baseAtom = a as IJotaiWritableAtomPro<
     unknown,
     [update: unknown],
     Promise<void> | undefined
@@ -202,15 +202,15 @@ export function globalAtomComputedAll<Value, Args extends unknown[], Result>({
   read,
   write,
 }: {
-  read?: Read<Value, SetAtom<Args, Result>> | Read<Value>;
-  write?: Write<Args, Result>;
+  read?: IJotaiRead<Value, IJotaiSetAtom<Args, Result>> | IJotaiRead<Value>;
+  write?: IJotaiWrite<Args, Result>;
 }) {
   if (typeof write === 'function' && typeof read === 'function') {
     // Read & Write
     return makeCrossAtom('', () =>
       crossAtomBuilder({
         name: '',
-        read: read as Read<Value, SetAtom<Args, Result>>,
+        read: read as IJotaiRead<Value, IJotaiSetAtom<Args, Result>>,
         write,
       }),
     );
@@ -229,7 +229,7 @@ export function globalAtomComputedAll<Value, Args extends unknown[], Result>({
     return makeCrossAtom('', () =>
       crossAtomBuilder({
         name: '',
-        read: read as Read<Value>,
+        read: read as IJotaiRead<Value>,
       }),
     );
   }
@@ -240,8 +240,8 @@ export function globalAtomComputedRW<Value, Args extends unknown[], Result>({
   read,
   write,
 }: {
-  read: Read<Value, SetAtom<Args, Result>>;
-  write: Write<Args, Result>;
+  read: IJotaiRead<Value, IJotaiSetAtom<Args, Result>>;
+  write: IJotaiWrite<Args, Result>;
 }) {
   // Read & Write
   return makeCrossAtom('', () =>
@@ -253,7 +253,7 @@ export function globalAtomComputedRW<Value, Args extends unknown[], Result>({
   );
 }
 
-export function globalAtomComputedR<Value>({ read }: { read: Read<Value> }) {
+export function globalAtomComputedR<Value>({ read }: { read: IJotaiRead<Value> }) {
   // Read
   return makeCrossAtom('', () =>
     crossAtomBuilder({
@@ -267,7 +267,7 @@ export function globalAtomComputedR<Value>({ read }: { read: Read<Value> }) {
 export function globalAtomComputedW<Value, Args extends unknown[], Result>({
   write,
 }: {
-  write: Write<Args, Result>;
+  write: IJotaiWrite<Args, Result>;
 }) {
   // Write
   return makeCrossAtom('', () =>
@@ -278,7 +278,7 @@ export function globalAtomComputedW<Value, Args extends unknown[], Result>({
   );
 }
 
-export function globalAtomComputed<Value>(read: Read<Value>) {
+export function globalAtomComputed<Value>(read: IJotaiRead<Value>) {
   // Read
   return globalAtomComputedR({ read });
 }
@@ -290,7 +290,7 @@ export function contextAtomBase<Value>({
   initialValue: Value;
   useContextAtom: <Value2, Args extends any[], Result>(
     atomInstance: WritableAtom<Value2, Args, Result>,
-  ) => [Awaited<Value2>, SetAtom<Args, Result>];
+  ) => [Awaited<Value2>, IJotaiSetAtom<Args, Result>];
 }) {
   const atomBuilder = memoizee(() => atom(initialValue));
   const useFn = () => useContextAtom(atomBuilder());
@@ -305,7 +305,7 @@ export function contextAtomComputedBase<Value>({
   read,
   useContextAtom,
 }: {
-  read: Read<Value>;
+  read: IJotaiRead<Value>;
   useContextAtom: <Value2>(atomInstance: Atom<Value2>) => [Awaited<Value2>];
 }) {
   const atomBuilder = memoizee(() => {
@@ -328,10 +328,10 @@ export function contextAtomMethodBase<Value, Args extends unknown[], Result>({
   fn,
   useContextAtom,
 }: {
-  fn: Write<Args, Result>;
+  fn: IJotaiWrite<Args, Result>;
   useContextAtom: <Value2, Args2 extends any[], Result2>(
     atomInstance: WritableAtom<Value2, Args2, Result2>,
-  ) => [Awaited<Value2>, SetAtom<Args2, Result2>];
+  ) => [Awaited<Value2>, IJotaiSetAtom<Args2, Result2>];
 }) {
   const atomBuilder = memoizee(() => atom(null, fn));
   const useFn = () => {
@@ -339,7 +339,7 @@ export function contextAtomMethodBase<Value, Args extends unknown[], Result>({
     return setter;
   };
 
-  const call = (set: Setter, ...args: Args) => set(atomBuilder(), ...args);
+  const call = (set: IJotaiSetter, ...args: Args) => set(atomBuilder(), ...args);
 
   return {
     atom: atomBuilder,

@@ -10,7 +10,7 @@ import {
   mockGetWalletIdFromAccountId,
 } from '../mock';
 
-import type { DBAccount, IDBWalletId } from '../../dbs/local/types';
+import type { IDBAccount, IDBWalletId } from '../../dbs/local/types';
 import type { IVaultFactoryOptions } from '../types';
 
 export class VaultContext {
@@ -36,11 +36,11 @@ export class VaultContext {
 
   accountId: string; // "hd-1--m/44'/60'/0'/0/0"
 
-  _dbAccount!: DBAccount;
+  _dbAccount!: IDBAccount;
 
   // TODO resetCache after dbAccount and network DB updated
 
-  async getDbAccount(params?: { noCache?: boolean }): Promise<DBAccount> {
+  async getDbAccount(params?: { noCache?: boolean }): Promise<IDBAccount> {
     const { noCache } = { noCache: false, ...params };
     if (noCache || !this._dbAccount || this._dbAccount.id !== this.accountId) {
       this._dbAccount = await localDb.getAccount(this.accountId);

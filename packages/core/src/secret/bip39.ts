@@ -5,7 +5,7 @@ import * as bip39 from 'bip39';
 import { InvalidMnemonic } from '@onekeyhq/shared/src/errors';
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 
-export type RevealableSeed = {
+export type IBip39RevealableSeed = {
   entropyWithLangPrefixed: Buffer;
   seed: Buffer;
 };
@@ -13,7 +13,7 @@ export type RevealableSeed = {
 function mnemonicToRevealableSeed(
   mnemonic: string,
   passphrase?: string,
-): RevealableSeed {
+): IBip39RevealableSeed {
   try {
     const entropyHexStr = bip39.mnemonicToEntropy(
       mnemonic,

@@ -10,22 +10,30 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import {
-  AccountType,
   DB_MAIN_CONTEXT_ID,
   DEFAULT_VERIFY_STRING,
+  EDBAccountType,
   WALLET_TYPE_WATCHING,
 } from './consts';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 import {
-  type CreateHDWalletParams,
-  type CreateHWWalletParams,
-  type DBAccount,
-  type DBAccountDerivation,
-  type DevicePayload,
-  type ExportedCredential,
-  type IAddAccountDerivationParams,
+  type IDBAccount,
+  type IDBAccountDerivation,
+  type IDBAddAccountDerivationParams,
+  type IDBApiGetContextOptions,
+  type IDBContext,
+  type IDBCreateHDWalletParams,
+  type IDBCreateHWWalletParams,
+  type IDBDevicePayload,
+  type IDBExportedCredential,
+  type IDBPrivateKeyCredential,
+  type IDBSetAccountTemplateParams,
+  type IDBSetNextAccountIdsParams,
+  type IDBSetWalletNameAndAvatarParams,
+  type IDBStoredPrivateKeyCredential,
+  type IDBStoredSeedCredential,
+  type IDBWallet,
   type IDBWalletId,
-  type IDbApiGetContextOptions,
   type ILocalDBAgent,
   type ILocalDBGetAllRecordsParams,
   type ILocalDBGetAllRecordsResult,
@@ -41,14 +49,6 @@ import {
   type ILocalDBTxRemoveRecordsParams,
   type ILocalDBTxUpdateRecordsParams,
   type ILocalDBWithTransactionTask,
-  type ISetAccountTemplateParams,
-  type ISetNextAccountIdsParams,
-  type OneKeyContext,
-  type PrivateKeyCredential,
-  type SetWalletNameAndAvatarParams,
-  type StoredPrivateKeyCredential,
-  type StoredSeedCredential,
-  type Wallet,
 } from './types';
 
 import type { Device } from '@onekeyfe/hd-core';
@@ -122,13 +122,13 @@ export abstract class LocalDbBase implements ILocalDBAgent {
   // ---------------------------------------------- base
   abstract reset(): Promise<void>;
 
-  confirmHDWalletBackuped(walletId: string): Promise<Wallet> {
+  confirmHDWalletBackuped(walletId: string): Promise<IDBWallet> {
     throw new Error('Method not implemented.');
   }
 
   async getContext(
-    options?: IDbApiGetContextOptions | undefined,
-  ): Promise<OneKeyContext> {
+    options?: IDBApiGetContextOptions | undefined,
+  ): Promise<IDBContext> {
     const ctx = await this.getRecordById({
       name: ELocalDBStoreNames.Context,
       id: DB_MAIN_CONTEXT_ID,
@@ -192,7 +192,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
   }
 
   // ---------------------------------------------- credential
-  checkPassword(context: OneKeyContext, password: string): boolean {
+  checkPassword(context: IDBContext, password: string): boolean {
     if (!context) {
       console.error('Unable to get main context.');
       return false;
@@ -260,7 +260,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
       name: ELocalDBStoreNames.Credential,
       updater: (credential) => {
         if (credential.id.startsWith('imported')) {
-          const privateKeyCredentialJSON: StoredPrivateKeyCredential =
+          const privateKeyCredentialJSON: IDBStoredPrivateKeyCredential =
             JSON.parse(credential.credential);
           credential.credential = JSON.stringify({
             privateKey: encrypt(
@@ -272,7 +272,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
             ).toString('hex'),
           });
         } else {
-          const credentialJSON: StoredSeedCredential = JSON.parse(
+          const credentialJSON: IDBStoredSeedCredential = JSON.parse(
             credential.credential,
           );
           credential.credential = JSON.stringify({
@@ -347,7 +347,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
   async getCredential(
     credentialId: string,
     password: string,
-  ): Promise<ExportedCredential> {
+  ): Promise<IDBExportedCredential> {
     const demoHdCredential = coreTestsFixtures.hdCredential1;
     return Promise.resolve({
       type: 'hd',
@@ -406,23 +406,23 @@ ssphrase wallet
           displayPassphraseWalletIds?: string[] | undefined;
         }
       | undefined,
-  ): Promise<Wallet[]> {
+  ): Promise<IDBWallet[]> {
     throw new Error('Method not implemented.');
   }
 
-  getWallet(walletId: string): Promise<Wallet | undefined> {
+  getWallet(walletId: string): Promise<IDBWallet | undefined> {
     throw new Error('Method not implemented.');
   }
 
-  getWalletByDeviceId(deviceId: string): Promise<Wallet[]> {
+  getWalletByDeviceId(deviceId: string): Promise<IDBWallet[]> {
     throw new Error('Method not implemented.');
   }
 
-  createHDWallet(params: CreateHDWalletParams): Promise<Wallet> {
+  createHDWallet(params: IDBCreateHDWalletParams): Promise<IDBWallet> {
     throw new Error('Method not implemented.');
   }
 
-  addHWWallet(params: CreateHWWalletParams): Promise<Wallet> {
+  addHWWallet(params: IDBCreateHWWalletParams): Promise<IDBWallet> {
     throw new Error('Method not implemented.');
   }
 
@@ -436,19 +436,19 @@ ssphrase wallet
 
   setWalletNameAndAvatar(
     walletId: string,
-    params: SetWalletNameAndAvatarParams,
-  ): Promise<Wallet> {
+    params: IDBSetWalletNameAndAvatarParams,
+  ): Promise<IDBWallet> {
     throw new Error('Method not implemented.');
   }
 
   updateWalletNextAccountIds({
     walletId,
     nextAccountIds,
-  }: ISetNextAccountIdsParams): Promise<Wallet> {
+  }: IDBSetNextAccountIdsParams): Promise<IDBWallet> {
     throw new Error('Method not implemented.');
   }
 
-  confirmWalletCreated(walletId: string): Promise<Wallet> {
+  confirmWalletCreated(walletId: string): Promise<IDBWallet> {
     throw new Error('Method not implemented.');
   }
 
@@ -458,14 +458,14 @@ ssphrase wallet
 
   addAccountToWallet(
     walletId: string,
-    account: DBAccount,
-    importedCredential?: PrivateKeyCredential | undefined,
-  ): Promise<DBAccount> {
+    account: IDBAccount,
+    importedCredential?: IDBPrivateKeyCredential | undefined,
+  ): Promise<IDBAccount> {
     throw new Error('Method not implemented.');
   }
 
   // ---------------------------------------------- account
-  async getAccount(accountId: string): Promise<DBAccount> {
+  async getAccount(accountId: string): Promise<IDBAccount> {
     return Promise.resolve({
       address: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
       coinType: '60',
@@ -474,22 +474,22 @@ ssphrase wallet
       path: "m/44'/60'/0'/0/0",
       pub: '02bd51e5b1a6e8271e1f87d2464b856790800c6c5fd38acdf1cee73857735fc8a4',
       template: "m/44'/60'/0'/0/$$INDEX$$",
-      type: AccountType.SIMPLE,
+      type: EDBAccountType.SIMPLE,
     });
   }
 
-  getAllAccounts(): Promise<DBAccount[]> {
+  getAllAccounts(): Promise<IDBAccount[]> {
     throw new Error('Method not implemented.');
   }
 
-  getAccounts(accountIds: string[]): Promise<DBAccount[]> {
+  getAccounts(accountIds: string[]): Promise<IDBAccount[]> {
     throw new Error('Method not implemented.');
   }
 
   getAccountByAddress(params: {
     address: string;
     coinType?: string | undefined;
-  }): Promise<DBAccount> {
+  }): Promise<IDBAccount> {
     throw new Error('Method not implemented.');
   }
 
@@ -503,14 +503,14 @@ ssphrase wallet
     throw new Error('Method not implemented.');
   }
 
-  setAccountName(accountId: string, name: string): Promise<DBAccount> {
+  setAccountName(accountId: string, name: string): Promise<IDBAccount> {
     throw new Error('Method not implemented.');
   }
 
   setAccountTemplate({
     accountId,
     template,
-  }: ISetAccountTemplateParams): Promise<DBAccount> {
+  }: IDBSetAccountTemplateParams): Promise<IDBAccount> {
     throw new Error('Method not implemented.');
   }
 
@@ -518,7 +518,7 @@ ssphrase wallet
     accountId: string,
     networkId: string,
     address: string,
-  ): Promise<DBAccount> {
+  ): Promise<IDBAccount> {
     throw new Error('Method not implemented.');
   }
 
@@ -530,7 +530,7 @@ ssphrase wallet
     accountId: string;
     addresses: Record<string, string>;
     isCustomPath: boolean;
-  }): Promise<DBAccount> {
+  }): Promise<IDBAccount> {
     throw new Error('Method not implemented.');
   }
 
@@ -542,7 +542,7 @@ ssphrase wallet
     accountId: string;
     addresses: Record<string, string>;
     isCustomPath: boolean;
-  }): Promise<DBAccount> {
+  }): Promise<IDBAccount> {
     throw new Error('Method not implemented.');
   }
 
@@ -551,7 +551,7 @@ ssphrase wallet
     accountId,
     impl,
     template,
-  }: IAddAccountDerivationParams): Promise<void> {
+  }: IDBAddAccountDerivationParams): Promise<void> {
     throw new Error('Method not implemented.');
   }
 
@@ -589,7 +589,7 @@ ssphrase wallet
     walletId,
   }: {
     walletId: string;
-  }): Promise<Record<string, DBAccountDerivation>> {
+  }): Promise<Record<string, IDBAccountDerivation>> {
     throw new Error('Method not implemented.');
   }
 
@@ -606,7 +606,10 @@ ssphrase wallet
     throw new Error('Method not implemented.');
   }
 
-  updateDevicePayload(deviceId: string, payload: DevicePayload): Promise<void> {
+  updateDevicePayload(
+    deviceId: string,
+    payload: IDBDevicePayload,
+  ): Promise<void> {
     throw new Error('Method not implemented.');
   }
 

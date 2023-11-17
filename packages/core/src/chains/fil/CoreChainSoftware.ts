@@ -23,7 +23,7 @@ import type {
   ICurveName,
   ISignedTxPro,
   IUnsignedTxPro,
-  SignedTx,
+  ISignedTx,
 } from '../../types';
 
 const curve: ICurveName = 'secp256k1';
@@ -47,7 +47,7 @@ function getDigest(message: Buffer): Buffer {
 async function signTransaction(
   unsignedTx: IUnsignedTxPro,
   signer: ISigner,
-): Promise<SignedTx> {
+): Promise<ISignedTx> {
   const { AddressSecp256k1, NetworkPrefix, Transaction } =
     require('@zondax/izari-filecoin') as typeof import('@zondax/izari-filecoin');
 
