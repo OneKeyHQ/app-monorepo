@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 import { useNavigation } from '@react-navigation/core';
 
 import {
@@ -13,7 +11,6 @@ import {
   useDialogInstance,
   useForm,
 } from '@onekeyhq/components';
-import type { IDialogProps } from '@onekeyhq/components/src/Dialog/type';
 import type { IModalNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import { EGalleryRoutes } from '../../../routes/Root/Tab/Developer/Gallery/routes';
