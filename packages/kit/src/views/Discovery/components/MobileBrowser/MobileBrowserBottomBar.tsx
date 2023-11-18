@@ -8,6 +8,7 @@ import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAr
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
+import { openUrlExternal } from '../../../../utils/openUrl';
 import { THUMB_HEIGHT, THUMB_WIDTH } from '../../config/TabList.constants';
 import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
 import useWebTabAction from '../../hooks/useWebTabAction';
@@ -180,7 +181,9 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
             setShowOptionsList(false);
           }}
           onBrowserOpen={() => {
-            console.log('TODO: open in browser');
+            if (tab?.url) {
+              openUrlExternal(tab.url);
+            }
             setShowOptionsList(false);
           }}
           onGoBackHomePage={async () => {

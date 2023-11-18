@@ -92,9 +92,11 @@ function MobileBrowser() {
     opacity: toolbarOpacity.value,
   }));
 
+  // Reset toolbar animation state when activeTabId changes.
   useEffect(() => {
     toolbarHeight.value = withTiming(52);
     toolbarOpacity.value = withTiming(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTabId]);
 
   const content = useMemo(
@@ -105,10 +107,6 @@ function MobileBrowser() {
     [tabs, handleScroll],
   );
   const { top } = useSafeAreaInsets();
-
-  useEffect(() => {
-    console.log('MobileBrowser displayHomePage ===> : ', displayHomePage);
-  }, [displayHomePage]);
 
   return (
     <Stack flex={1} zIndex={3} pt={top} bg="$bgApp">

@@ -13,6 +13,7 @@ import {
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
+import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
 import MobileTabListItem from '../../components/MobileTabListItem';
 import MobileTabItemOptions from '../../components/MobileTabListItem/MobileTabItemOptions';
 import MobileTabListPinnedItem from '../../components/MobileTabListItem/MobileTabListPinnedItem';
@@ -20,9 +21,12 @@ import { TAB_LIST_CELL_COUNT_PER_ROW } from '../../config/TabList.constants';
 import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
 import useWebTabAction from '../../hooks/useWebTabAction';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
+import {
+  EDiscoveryModalRoutes,
+  type IDiscoveryModalParamList,
+} from '../../router/Routes';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
-import type { IDiscoveryModalParamList } from '../../router/Routes';
 import type { IWebTab } from '../../types';
 import type { View } from 'react-native';
 
@@ -93,13 +97,8 @@ function MobileTabListModal() {
   const { addBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction();
 
-  const {
-    addBlankWebTab,
-    closeAllWebTab,
-    setCurrentWebTab,
-    closeWebTab,
-    setPinnedTab,
-  } = useWebTabAction();
+  const { closeAllWebTab, setCurrentWebTab, closeWebTab, setPinnedTab } =
+    useWebTabAction();
 
   const [open, onOpenChange] = useState(false);
   const [selectedTabId, setSelectedTabId] = useState<string | null>(null);
@@ -163,7 +162,7 @@ function MobileTabListModal() {
           setCurrentWebTab(id);
           navigation.pop();
         }}
-        onCloseItem={(id) => handleCloseTab}
+        onCloseItem={handleCloseTab}
         onLongPress={(id) => {
           setSelectedTabId(id);
           onOpenChange(true);
@@ -228,8 +227,10 @@ function MobileTabListModal() {
       />
       <TabToolBar
         onAddTab={() => {
-          addBlankWebTab();
           navigation.pop();
+          navigation.pushModal(EModalRoutes.DiscoveryModal, {
+            screen: EDiscoveryModalRoutes.FakeSearchModal,
+          });
         }}
         onCloseAll={() => closeAllWebTab()}
         onDone={() => {

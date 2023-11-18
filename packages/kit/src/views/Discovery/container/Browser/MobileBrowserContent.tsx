@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
-import { useAnimatedScrollHandler } from 'react-native-reanimated';
 import { Stack } from 'tamagui';
 
 import WebContent from '../../components/WebContent/WebContent';
