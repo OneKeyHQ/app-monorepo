@@ -1,35 +1,82 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+
+import { captureRef } from 'react-native-view-shot';
 
 import { IconButton, Stack, Text } from '@onekeyhq/components';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
 
+import useAppNavigation from '../../../../hooks/useAppNavigation';
+import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
+import { THUMB_HEIGHT, THUMB_WIDTH } from '../../config/TabList.constants';
 import useWebTabAction from '../../hooks/useWebTabAction';
+import { useWebTabData, useWebTabs } from '../../hooks/useWebTabs';
+import {
+  EDiscoveryModalRoutes,
+  type IDiscoveryModalParamList,
+} from '../../router/Routes';
+import { setWebTabData } from '../../store/contextWebTabs';
+import { captureViewRefs, webviewRefs } from '../../utils/explorerUtils';
+import { getScreenshotPath, saveScreenshot } from '../../utils/screenshot';
 
 import MobileBrowserBottomOptions from './MobileBrowserBottomOptions';
 
 import type { IMobileBottomOptionsProps } from '../../types';
+import type WebView from 'react-native-webview';
 
-function MobileBrowserBottomBar({
-  goBack,
-  goForward,
-  canGoBack,
-  canGoForward,
-  tabCount,
-  onShowTabList,
-  ...rest
-}: {
-  id: string;
-  tabCount: number;
-  goBack: () => void;
-  goForward: () => void;
-  canGoBack: boolean;
-  canGoForward: boolean;
-  onShowTabList: () => void;
-} & IMobileBottomOptionsProps) {
+function MobileBrowserBottomBar({ id }: { id: string }) {
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
+  const { tab } = useWebTabData(id);
+  const { tabs } = useWebTabs();
   const { bottom } = useSafeAreaInsets();
 
   const { addBlankWebTab } = useWebTabAction();
   const [open, onOpenChange] = useState(false);
+
+  const tabCount = useMemo(() => tabs.length, [tabs]);
+
+  const takeScreenshot = useCallback(
+    async () =>
+      new Promise<boolean>((resolve, reject) => {
+        if (!id) {
+          reject(new Error('capture view id is null'));
+          return;
+        }
+        captureRef(captureViewRefs[id ?? ''], {
+          format: 'jpg',
+          quality: 0.2,
+          width: THUMB_WIDTH,
+          height: THUMB_HEIGHT,
+        })
+          .then(async (imageUri) => {
+            const path = getScreenshotPath(`${id}.jpg`);
+            void setWebTabData({
+              id,
+              thumbnail: path,
+            });
+            void saveScreenshot(imageUri, path);
+            resolve(true);
+          })
+          .catch((e) => {
+            console.log('capture error e: ', e);
+            reject(e);
+          });
+      }),
+    [id],
+  );
+
+  const handleShowTabList = useCallback(async () => {
+    try {
+      await takeScreenshot();
+    } catch (e) {
+      console.log(e);
+    }
+    navigation.pushModal(EModalRoutes.DiscoveryModal, {
+      screen: EDiscoveryModalRoutes.MobileTabList,
+    });
+  }, [takeScreenshot, navigation]);
+
   return (
     <Stack bg="$bgApp" h={54} zIndex={1} display="flex">
       <Stack
@@ -45,15 +92,19 @@ function MobileBrowserBottomBar({
           variant="tertiary"
           size="medium"
           icon="ChevronLeftOutline"
-          disabled={!canGoBack}
-          onPress={goBack}
+          disabled={!tab?.canGoBack}
+          onPress={() => {
+            (webviewRefs[id]?.innerRef as WebView)?.goBack();
+          }}
         />
         <IconButton
           variant="tertiary"
           size="medium"
           icon="ChevronRightOutline"
-          disabled={!canGoForward}
-          onPress={goForward}
+          disabled={!tab?.canGoForward}
+          onPress={() => {
+            (webviewRefs[id]?.innerRef as WebView)?.goForward();
+          }}
         />
         <IconButton
           variant="secondary"
@@ -68,7 +119,7 @@ function MobileBrowserBottomBar({
             bg: '$bgActive',
           }}
           onPress={() => {
-            onShowTabList();
+            void handleShowTabList();
           }}
         >
           <Stack
@@ -90,7 +141,7 @@ function MobileBrowserBottomBar({
         <MobileBrowserBottomOptions
           open={open}
           onOpenChange={onOpenChange}
-          {...rest}
+          // {...rest}
         >
           <IconButton
             variant="tertiary"

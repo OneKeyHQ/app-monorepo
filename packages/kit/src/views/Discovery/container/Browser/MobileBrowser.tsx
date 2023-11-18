@@ -131,14 +131,7 @@ function MobileBrowser() {
       )}
       <Freeze freeze={displayHomePage}>{content}</Freeze>
       <Freeze freeze={displayHomePage}>
-        {/* @ts-expect-error */}
-        <MobileBrowserBottomBar
-          id={activeTabId ?? ''}
-          tabCount={10}
-          onShowTabList={async () => {
-            await takeScreenshot();
-          }}
-        />
+        <MobileBrowserBottomBar id={activeTabId ?? ''} />
       </Freeze>
     </Stack>
   );
