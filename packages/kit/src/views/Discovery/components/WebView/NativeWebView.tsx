@@ -45,6 +45,8 @@ const NativeWebView = forwardRef(
       onLoadStart,
       onLoad,
       onLoadEnd,
+      onScroll,
+      webviewHeight,
       ...props
     }: INativeWebViewProps,
     ref,
@@ -134,7 +136,7 @@ const NativeWebView = forwardRef(
 
     return (
       <WebView
-        style={styles.container}
+        style={[styles.container, { height: webviewHeight }]}
         originWhitelist={['*']}
         allowFileAccess
         allowFileAccessFromFileURLs
@@ -157,6 +159,7 @@ const NativeWebView = forwardRef(
         onLoadEnd={onLoadEnd}
         renderError={renderError}
         renderLoading={renderLoading}
+        onScroll={onScroll}
         {...props}
       />
     );

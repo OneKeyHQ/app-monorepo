@@ -17,10 +17,11 @@ import type {
   WebViewNavigation,
   WebViewNavigationEvent,
   WebViewOpenWindowEvent,
+  WebViewScrollEvent,
   WebViewSource,
 } from 'react-native-webview/lib/WebViewTypes';
 
-interface WebViewProps extends IElectronWebViewEvents {
+interface IWebViewProps extends IElectronWebViewEvents {
   id?: string;
   src?: string;
   onSrcChange?: (src: string) => void;
@@ -40,9 +41,11 @@ interface WebViewProps extends IElectronWebViewEvents {
   onLoadStart?: (event: WebViewNavigationEvent) => void;
   onLoad?: (event: WebViewNavigationEvent) => void;
   onLoadEnd?: (event: WebViewNavigationEvent | WebViewErrorEvent) => void;
+  onScroll?: (event: WebViewScrollEvent) => void;
+  webviewHeight?: number;
 }
 
-const WebView: FC<WebViewProps> = ({
+const WebView: FC<IWebViewProps> = ({
   src = '',
   openUrlInExt = false,
   allowpopups = false,

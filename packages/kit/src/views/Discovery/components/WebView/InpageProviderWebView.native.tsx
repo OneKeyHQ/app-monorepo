@@ -29,7 +29,9 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       onLoad,
       onLoadStart,
       onLoadEnd,
+      onScroll,
       androidLayerType,
+      webviewHeight,
     }: IInpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -116,6 +118,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
         <NativeWebView
           ref={setWebViewRef}
           src={src}
+          webviewHeight={webviewHeight}
           onSrcChange={onSrcChange}
           receiveHandler={receiveHandler}
           injectedJavaScriptBeforeContentLoaded={nativeInjectedJsCode}
@@ -133,6 +136,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           onLoad={onLoad}
           onLoadStart={onLoadStart}
           onLoadEnd={onLoadEnd}
+          onScroll={onScroll}
           // allowFileAccessFromFileURLs
           // allowFileAccess
           // allowUniversalAccessFromFileURLs

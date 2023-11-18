@@ -1,7 +1,9 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { Stack } from '@onekeyhq/components';
+import { Dimensions } from 'react-native';
+
+import { RefreshControl, ScrollView, Stack } from '@onekeyhq/components';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import useBackHandler from '../../../../hooks/useBackHandler';
@@ -41,6 +43,13 @@ function WebContent({
   const lastNavEventSnapshot = useRef('');
   const showHome = url === homeTab.url;
   const [showPhishingView, setShowPhishingView] = useState(false);
+
+  const [height, setHeight] = useState(Dimensions.get('screen').height);
+  const [isEnabled, setEnabled] = useState(true);
+  const [isRefresh, setRefresh] = useState(false);
+  const onRefresh = useCallback(() => {
+    webviewRefs[id]?.innerRef?.reload();
+  }, [id]);
 
   const changeNavigationInfo = (siteInfo: WebViewNavigation) => {
     // console.log('===>canGoBack: ', siteInfo.canGoBack);
@@ -143,6 +152,7 @@ function WebContent({
       <WebView
         key={url}
         androidLayerType={androidLayerType}
+        webviewHeight={height}
         src={url}
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {
@@ -165,10 +175,13 @@ function WebContent({
         allowpopups
         onLoadStart={onLoadStart}
         onLoadEnd={onLoadEnd as any}
+        onScroll={(e) => {
+          setEnabled(e.nativeEvent.contentOffset.y === 0);
+        }}
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, showHome, androidLayerType],
+    [id, showHome, androidLayerType, height],
   );
 
   const phishingView = useMemo(
@@ -182,7 +195,21 @@ function WebContent({
 
   return (
     <>
-      {webview}
+      <ScrollView
+        flex={1}
+        onLayout={(e) => {
+          setHeight(e.nativeEvent.layout.height);
+        }}
+        refreshControl={
+          <RefreshControl
+            onRefresh={onRefresh}
+            refreshing={isRefresh}
+            enabled={isEnabled}
+          />
+        }
+      >
+        {webview}
+      </ScrollView>
       {showPhishingView && phishingView}
     </>
   );

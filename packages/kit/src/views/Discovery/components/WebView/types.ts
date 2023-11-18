@@ -9,6 +9,7 @@ import type { InpageProviderWebViewProps as InpageWebViewProps } from '@onekeyfe
 import type {
   WebViewErrorEvent,
   WebViewNavigationEvent,
+  WebViewScrollEvent,
   WebViewSource,
 } from 'react-native-webview/lib/WebViewTypes';
 
@@ -28,6 +29,8 @@ export interface IInpageProviderWebViewProps
   onLoadStart?: (event: WebViewNavigationEvent) => void;
   onLoad?: (event: WebViewNavigationEvent) => void;
   onLoadEnd?: (event: WebViewNavigationEvent | WebViewErrorEvent) => void;
+  onScroll?: (event: WebViewScrollEvent) => void;
+  webviewHeight?: number;
 }
 
 export type IElectronWebView = {
