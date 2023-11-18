@@ -36,8 +36,7 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
   const { tabs } = useWebTabs();
 
   const { displayHomePage } = useDisplayHomePageFlag();
-  const { addBlankWebTab, setPinnedTab, setDisplayHomePage } =
-    useWebTabAction();
+  const { setPinnedTab, setDisplayHomePage } = useWebTabAction();
   const { addBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction();
 
@@ -121,7 +120,11 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
           variant="secondary"
           size="medium"
           icon="PlusLargeOutline"
-          onPress={() => addBlankWebTab()}
+          onPress={() =>
+            navigation.pushModal(EModalRoutes.DiscoveryModal, {
+              screen: EDiscoveryModalRoutes.FakeSearchModal,
+            })
+          }
         />
         <Stack
           p="$2"

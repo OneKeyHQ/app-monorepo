@@ -8,16 +8,6 @@ function Dashboard() {
   const navigation = useAppNavigation();
   return (
     <YStack p="$2" alignItems="center" justifyContent="center">
-      {/* <Stack
-        h="auto"
-        w="80%"
-        onPress={() => {
-          console.log('onPress');
-          navigation.pushModal(EModalRoutes.DiscoveryModal, {
-            screen: EDiscoveryModalRoutes.FakeSearchModal,
-          });
-        }}
-      > */}
       <SearchBar
         onPress={() => {
           console.log('onPress');
@@ -26,7 +16,6 @@ function Dashboard() {
           });
         }}
       />
-      {/* </Stack> */}
       <Button
         onPress={() => {
           console.log('onPress');
