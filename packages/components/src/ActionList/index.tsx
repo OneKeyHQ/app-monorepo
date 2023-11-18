@@ -17,7 +17,6 @@ interface IActionListItemProps {
   destructive?: boolean;
   onPress?: () => void | Promise<boolean>;
   disabled?: boolean;
-  onClose: () => void;
 }
 
 function ActionListItem({
@@ -27,7 +26,9 @@ function ActionListItem({
   destructive,
   disabled,
   onClose,
-}: IActionListItemProps) {
+}: IActionListItemProps & {
+  onClose?: () => void;
+}) {
   const handlePress = useCallback(async () => {
     const result = await onPress?.();
     if (result || result === undefined) {

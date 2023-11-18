@@ -5,110 +5,93 @@ import { ActionList } from '@onekeyhq/components/src/ActionList';
 
 import { Layout } from './utils/Layout';
 
-const ActionListDemo1 = () => {
-  const [open, onOpenChange] = useState(false);
-  return (
-    <ActionList
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Action List"
-      renderTrigger={
-        <Button onPress={() => onOpenChange(true)}>Action List</Button>
-      }
-      items={[
-        {
-          label: 'Action1',
-          icon: 'PlaceholderOutline',
-          onPress: () => {
-            onOpenChange(false);
-            console.log('action1');
-          },
+const ActionListDemo1 = () => (
+  <ActionList
+    title="Action List"
+    renderTrigger={
+      <Button onPress={() => console.log('action trigger')}>Action List</Button>
+    }
+    items={[
+      {
+        label: 'Action1',
+        icon: 'PlaceholderOutline',
+        onPress: () => {
+          console.log('action1');
         },
-        {
-          label: 'Action2',
-          icon: 'PlaceholderOutline',
-          onPress: () => {
-            onOpenChange(false);
-            console.log('action2');
-          },
+      },
+      {
+        label: 'Action2',
+        icon: 'PlaceholderOutline',
+        onPress: () => {
+          console.log('action2');
         },
-        {
-          label: 'Action3',
-          icon: 'PlaceholderOutline',
-          onPress: () => {
-            onOpenChange(false);
-            console.log('action2');
-          },
-          disabled: true,
+      },
+      {
+        label: 'Action3',
+        icon: 'PlaceholderOutline',
+        onPress: () => {
+          console.log('action2');
         },
-      ]}
-    />
-  );
-};
+        disabled: true,
+      },
+    ]}
+  />
+);
 
-const ActionListDemo2 = () => {
-  const [open, onOpenChange] = useState(false);
-  return (
-    <ActionList
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Action List"
-      renderTrigger={
-        <Button onPress={() => onOpenChange(true)}>Action List</Button>
-      }
-      sections={[
-        {
-          items: [
-            {
-              label: 'Action1',
-              icon: 'PlaceholderOutline',
-              onPress: () => {
-                onOpenChange(false);
-                console.log('action1');
-              },
+const ActionListDemo2 = () => (
+  <ActionList
+    title="Action List"
+    renderTrigger={
+      <Button onPress={() => console.log('trigger')}>Action List</Button>
+    }
+    sections={[
+      {
+        items: [
+          {
+            label: 'Action1',
+            icon: 'PlaceholderOutline',
+            onPress: () => {
+              console.log('action1');
             },
-            {
-              label: 'Action2',
-              icon: 'PlaceholderOutline',
-              onPress: () => {
-                onOpenChange(false);
-                console.log('action2');
-              },
+          },
+          {
+            label: 'Action2',
+            icon: 'PlaceholderOutline',
+            onPress: () => {
+              console.log('action2');
             },
-            {
-              label: 'Action3',
-              icon: 'PlaceholderOutline',
-              onPress: () => {
-                onOpenChange(false);
-                console.log('action2');
-              },
+          },
+          {
+            label: 'Action3',
+            icon: 'PlaceholderOutline',
+            onPress: () => {
+              console.log('action2');
             },
-          ],
-        },
-        {
-          items: [
-            {
-              label: 'Action4',
-              icon: 'PlaceholderOutline',
-              destructive: true,
-              onPress: () => {
-                onOpenChange(false);
-                Dialog.confirm({
-                  title: 'Lorem ipsum',
-                  description:
-                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
-                  onConfirm: () => {
-                    alert('confirmed');
-                  },
-                });
-              },
+          },
+        ],
+      },
+      {
+        items: [
+          {
+            label: 'Action4',
+            icon: 'PlaceholderOutline',
+            destructive: true,
+            onPress: () => {
+              Dialog.confirm({
+                title: 'Lorem ipsum',
+                description:
+                  'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                onConfirm: () => {
+                  alert('confirmed');
+                },
+              });
             },
-          ],
-        },
-      ]}
-    />
-  );
-};
+          },
+        ],
+      },
+    ]}
+  />
+);
 
 const ActionListDemo3 = () => {
   const [open, onOpenChange] = useState(false);
