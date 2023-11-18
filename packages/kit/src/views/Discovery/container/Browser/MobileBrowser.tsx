@@ -1,9 +1,8 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { Freeze } from 'react-freeze';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { captureRef } from 'react-native-view-shot';
 
 import { Stack, Text } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
@@ -12,7 +11,6 @@ import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import MobileBrowserInfoBar from '../../components/MobileBrowser/MobileBrowserInfoBar';
-import { THUMB_HEIGHT, THUMB_WIDTH } from '../../config/TabList.constants';
 import { useTabDataFromSimpleDb } from '../../hooks/useTabDataFromSimpleDb';
 import useWebTabAction from '../../hooks/useWebTabAction';
 import {
@@ -22,11 +20,6 @@ import {
   useWebTabs,
 } from '../../hooks/useWebTabs';
 import { EDiscoveryModalRoutes } from '../../router/Routes';
-import {
-  displayHomePageAtom,
-  useAtomWebTabs,
-} from '../../store/contextWebTabs';
-import { captureViewRefs } from '../../utils/explorerUtils';
 import { gotoSite } from '../../utils/gotoSite';
 import { checkAndCreateFolder } from '../../utils/screenshot';
 import Dashboard from '../Dashboard';
@@ -60,6 +53,12 @@ function MobileBrowser() {
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
   const { displayHomePage } = useDisplayHomePageFlag();
 
+  const displayBottomBar = useMemo(() => {
+    if (!displayHomePage) return true;
+    if (displayHomePage && tabs.length > 0) return true;
+    return false;
+  }, [displayHomePage, tabs]);
+
   useEffect(() => {
     console.log('MobileBrowser renderer ===> : ');
     navigationCore.setOptions({
@@ -78,27 +77,6 @@ function MobileBrowser() {
   useEffect(() => {
     console.log('MobileBrowser displayHomePage ===> : ', displayHomePage);
   }, [displayHomePage]);
-
-  const takeScreenshot = useCallback(
-    async () =>
-      new Promise<boolean>((resolve, reject) => {
-        captureRef(captureViewRefs[activeTabId ?? ''], {
-          format: 'jpg',
-          quality: 0.2,
-          width: THUMB_WIDTH,
-          height: THUMB_HEIGHT,
-        })
-          .then(async (imageUri) => {
-            console.log('imgUrl: ', imageUri);
-            resolve(true);
-          })
-          .catch((e) => {
-            console.log('capture error e: ', e);
-            reject(e);
-          });
-      }),
-    [activeTabId],
-  );
 
   return (
     <Stack flex={1} zIndex={3} pt={top} bg="$bgApp">
@@ -130,7 +108,7 @@ function MobileBrowser() {
         />
       )}
       <Freeze freeze={displayHomePage}>{content}</Freeze>
-      <Freeze freeze={displayHomePage}>
+      <Freeze freeze={!displayBottomBar}>
         <MobileBrowserBottomBar id={activeTabId ?? ''} />
       </Freeze>
     </Stack>

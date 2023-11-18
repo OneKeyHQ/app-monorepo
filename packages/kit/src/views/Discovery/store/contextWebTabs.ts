@@ -29,6 +29,16 @@ const {
   store: webTabsStore,
 } = createJotaiContext({ isSingletonStore: true });
 
+export const displayHomePageAtom = atom(true);
+export const setDisplayHomePageAtom = atom(
+  null,
+  (get, set, payload: boolean) => {
+    const v = get(displayHomePageAtom);
+    console.log('v => : ', v);
+    set(displayHomePageAtom, payload);
+  },
+);
+
 export const webTabsAtom = atom<IWebTabsAtom>({ tabs: [], keys: [] });
 export const webTabsMapAtom = atom<Record<string, IWebTab>>({});
 
@@ -76,6 +86,9 @@ export const setCurrentWebTabAtom = atom(null, (get, set, tabId: string) => {
       void set(setWebTabsAtom, { data: [...tabs] });
       set(activeTabIdAtom, tabId);
     }
+  }
+  if (get(displayHomePageAtom)) {
+    set(setDisplayHomePageAtom, false);
   }
 });
 
@@ -164,16 +177,6 @@ export const setPinnedTabAtom = atom(
       timestamp: Date.now(),
     });
     void set(refreshTabsAtom);
-  },
-);
-
-export const displayHomePageAtom = atom(true);
-export const setDisplayHomePageAtom = atom(
-  null,
-  (get, set, payload: boolean) => {
-    const v = get(displayHomePageAtom);
-    console.log('v => : ', v);
-    set(displayHomePageAtom, payload);
   },
 );
 

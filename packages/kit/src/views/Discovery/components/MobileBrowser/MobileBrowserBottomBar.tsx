@@ -11,7 +11,11 @@ import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
 import { THUMB_HEIGHT, THUMB_WIDTH } from '../../config/TabList.constants';
 import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
 import useWebTabAction from '../../hooks/useWebTabAction';
-import { useWebTabData, useWebTabs } from '../../hooks/useWebTabs';
+import {
+  useDisplayHomePageFlag,
+  useWebTabData,
+  useWebTabs,
+} from '../../hooks/useWebTabs';
 import {
   EDiscoveryModalRoutes,
   type IDiscoveryModalParamList,
@@ -31,6 +35,7 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
   const { tab } = useWebTabData(id);
   const { tabs } = useWebTabs();
 
+  const { displayHomePage } = useDisplayHomePageFlag();
   const { addBlankWebTab, setPinnedTab, setDisplayHomePage } =
     useWebTabAction();
   const { addBrowserBookmark, removeBrowserBookmark } =
@@ -72,14 +77,16 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
 
   const handleShowTabList = useCallback(async () => {
     try {
-      await takeScreenshot();
+      if (!displayHomePage) {
+        await takeScreenshot();
+      }
     } catch (e) {
       console.error(e);
     }
     navigation.pushModal(EModalRoutes.DiscoveryModal, {
       screen: EDiscoveryModalRoutes.MobileTabList,
     });
-  }, [takeScreenshot, navigation]);
+  }, [takeScreenshot, navigation, displayHomePage]);
 
   return (
     <Stack bg="$bgApp" h={54} zIndex={1} display="flex">
@@ -96,7 +103,7 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
           variant="tertiary"
           size="medium"
           icon="ChevronLeftOutline"
-          disabled={!tab?.canGoBack}
+          disabled={displayHomePage ? false : !tab?.canGoBack}
           onPress={() => {
             (webviewRefs[id]?.innerRef as WebView)?.goBack();
           }}
@@ -105,7 +112,7 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
           variant="tertiary"
           size="medium"
           icon="ChevronRightOutline"
-          disabled={!tab?.canGoForward}
+          disabled={displayHomePage ? false : !tab?.canGoForward}
           onPress={() => {
             (webviewRefs[id]?.innerRef as WebView)?.goForward();
           }}
@@ -173,7 +180,8 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
             console.log('TODO: open in browser');
             setShowOptionsList(false);
           }}
-          onGoBackHomePage={() => {
+          onGoBackHomePage={async () => {
+            await takeScreenshot();
             setShowOptionsList(false);
             setTimeout(() => {
               setDisplayHomePage(true);
