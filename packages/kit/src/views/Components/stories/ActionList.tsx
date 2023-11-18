@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 import { Button, Dialog, Stack } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components/src/ActionList';
 

@@ -118,6 +118,7 @@ export function ActionList({
   return (
     <Popover
       open={isOpen}
+      onOpenChange={setOpenStatus}
       renderContent={
         <YStack p="$1" $md={{ p: '$3' }}>
           {items?.map(renderActionListItem)}
