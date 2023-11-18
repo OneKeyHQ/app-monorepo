@@ -33,6 +33,7 @@ const DemoRootHome = () => {
   const navigation =
     useDemoAppNavigation<IPageNavigationProp<IDemoHomeTabParamList>>();
 
+  // @ts-expect-error
   const [rrtStatus, changeRRTStatus] = useStorage(AppSettingKey.rrt);
 
   const renderHeaderTitle = useCallback(

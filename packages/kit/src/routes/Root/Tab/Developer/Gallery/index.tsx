@@ -1,6 +1,7 @@
 import ComponentsScreen from '@onekeyhq/kit/src/views/Components';
 import ActionListGallery from '@onekeyhq/kit/src/views/Components/stories/ActionList';
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
+import BlurViewGallery from '@onekeyhq/kit/src/views/Components/stories/BlurView';
 import ButtonGallery from '@onekeyhq/kit/src/views/Components/stories/Button';
 import CheckboxGallery from '@onekeyhq/kit/src/views/Components/stories/Checkbox';
 import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
@@ -14,6 +15,7 @@ import DemoRootApp from '@onekeyhq/kit/src/views/Components/stories/NavigatorRou
 import PopoverGallery from '@onekeyhq/kit/src/views/Components/stories/Popover';
 import ProgressGallery from '@onekeyhq/kit/src/views/Components/stories/Progress';
 import RadioGallery from '@onekeyhq/kit/src/views/Components/stories/Radio';
+import RefreshControlGallery from '@onekeyhq/kit/src/views/Components/stories/RefreshControl';
 import SegmentControlGallery from '@onekeyhq/kit/src/views/Components/stories/SegmentControl';
 import SelectGallery from '@onekeyhq/kit/src/views/Components/stories/Select';
 import ShortcutGallery from '@onekeyhq/kit/src/views/Components/stories/Shortcut';
@@ -28,6 +30,7 @@ import WebviewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 import AlertGallery from '../../../../../views/Components/stories/Alert';
 import DividerGallery from '../../../../../views/Components/stories/Divider';
 import FormGallery from '../../../../../views/Components/stories/Form';
+import JotaiContextGallery from '../../../../../views/Components/stories/JotaiContextGallery';
 import JotaiGlobalGallery from '../../../../../views/Components/stories/JotaiGlobalGallery';
 import ListViewGallery from '../../../../../views/Components/stories/ListView';
 import QRCodeGallery from '../../../../../views/Components/stories/QRCode';
@@ -39,7 +42,10 @@ import ThemeGallery from '../../../../../views/Components/stories/Theme';
 
 import { EGalleryRoutes } from './routes';
 
-export const galleryScreenList = [
+export const galleryScreenList: {
+  name: EGalleryRoutes;
+  component: () => React.JSX.Element;
+}[] = [
   { name: EGalleryRoutes.Components, component: ComponentsScreen },
   {
     name: EGalleryRoutes.ComponentTypography,
@@ -88,6 +94,10 @@ export const galleryScreenList = [
   { name: EGalleryRoutes.ComponentDivider, component: DividerGallery },
   { name: EGalleryRoutes.ComponentTheme, component: ThemeGallery },
   { name: EGalleryRoutes.ComponentScrollView, component: ScrollViewGallery },
+  {
+    name: EGalleryRoutes.ComponentJotaiContext,
+    component: JotaiContextGallery,
+  },
   { name: EGalleryRoutes.ComponentJotaiGlobal, component: JotaiGlobalGallery },
   {
     name: EGalleryRoutes.ComponentForm,
@@ -104,5 +114,13 @@ export const galleryScreenList = [
   {
     name: EGalleryRoutes.ComponentWebview,
     component: WebviewGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentRefreshControl,
+    component: RefreshControlGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentBlurView,
+    component: BlurViewGallery,
   },
 ];

@@ -1,38 +1,14 @@
-import type { ForwardedRef, MutableRefObject } from 'react';
+import type { ForwardedRef } from 'react';
 import { forwardRef } from 'react';
 
+import { FlashList } from '@shopify/flash-list';
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
-import { FlatList } from 'react-native';
+import { getTokenValue } from 'tamagui';
 
-import type { StackStyleProps } from '@tamagui/web/types/types';
-import type {
-  FlatListProps,
-  ListRenderItem,
-  StyleProp,
-  ViewStyle,
-} from 'react-native';
+import { View } from '../View';
 
-export type IListViewRef<T> = FlatList<T>;
-
-export type IListViewProps<T> = Omit<
-  FlatListProps<T>,
-  | 'contentContainerStyle'
-  | 'columnWrapperStyle'
-  | 'ListHeaderComponentStyle'
-  | 'ListFooterComponentStyle'
-  | 'data'
-  | 'renderItem'
-> &
-  StackStyleProps & {
-    contentContainerStyle?: StackStyleProps;
-    columnWrapperStyle?: StackStyleProps;
-    ListHeaderComponentStyle?: StackStyleProps;
-    ListFooterComponentStyle?: StackStyleProps;
-  } & {
-    data: ArrayLike<T> | null | undefined;
-    renderItem: ListRenderItem<T> | null | undefined;
-    ref?: MutableRefObject<IListViewRef<any> | null>;
-  };
+import type { IListViewProps, IListViewRef } from './type';
+import type { StyleProp, ViewStyle } from 'react-native';
 
 function BaseListView<T>(
   {
@@ -42,6 +18,7 @@ function BaseListView<T>(
     columnWrapperStyle,
     ListHeaderComponentStyle = {},
     ListFooterComponentStyle = {},
+    estimatedItemSize,
     ...props
   }: IListViewProps<T>,
   ref: ForwardedRef<IListViewRef<T>>,
@@ -51,13 +28,6 @@ function BaseListView<T>(
   });
   const contentStyle = useStyle(
     contentContainerStyle as Record<string, unknown>,
-    {
-      resolveValues: 'auto',
-    },
-  );
-
-  const columnStyle = useStyle(
-    (columnWrapperStyle || {}) as Record<string, unknown>,
     {
       resolveValues: 'auto',
     },
@@ -76,20 +46,27 @@ function BaseListView<T>(
       resolveValues: 'auto',
     },
   );
+  const itemSize =
+    typeof estimatedItemSize === 'number'
+      ? estimatedItemSize
+      : getTokenValue(estimatedItemSize);
   return (
-    <FlatList<T>
-      ref={ref}
-      style={style as StyleProp<ViewStyle>}
-      columnWrapperStyle={columnWrapperStyle ? columnStyle : undefined}
-      ListHeaderComponentStyle={listHeaderStyle}
-      ListFooterComponentStyle={listFooterStyle}
-      contentContainerStyle={contentStyle}
-      data={data}
-      renderItem={renderItem}
-      {...restProps}
-    />
+    <View style={style as StyleProp<ViewStyle>}>
+      <FlashList<T>
+        ref={ref}
+        ListHeaderComponentStyle={listHeaderStyle}
+        ListFooterComponentStyle={listFooterStyle}
+        contentContainerStyle={contentStyle}
+        data={data}
+        renderItem={renderItem}
+        estimatedItemSize={itemSize}
+        {...restProps}
+      />
+    </View>
   );
 }
+
+export * from './type';
 
 // forwardRef cannot cast typescript generic
 export const ListView = forwardRef(BaseListView) as typeof BaseListView;
