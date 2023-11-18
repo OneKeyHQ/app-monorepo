@@ -1,7 +1,12 @@
-import { memo, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { Freeze } from 'react-freeze';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Stack, Text } from '@onekeyhq/components';
@@ -68,9 +73,36 @@ function MobileBrowser() {
     void checkAndCreateFolder();
   }, [navigationCore]);
 
+  const toolbarHeight = useSharedValue(52);
+  const toolbarOpacity = useSharedValue(1);
+  const lastScrollY = useRef(0); // Keep track of the last scroll position
+  const handleScroll = useCallback(
+    (contentOffsetY: number) => {
+      // Determine the direction of the scroll
+      const isScrollingDown = contentOffsetY < lastScrollY.current;
+      lastScrollY.current = contentOffsetY;
+      const height = isScrollingDown ? 52 : Math.max(0, 52 - contentOffsetY);
+      toolbarHeight.value = withTiming(height, { duration: 100 }); // No gradual animation
+      toolbarOpacity.value = withTiming(height / 52, { duration: 100 }); // No gradual animation
+    },
+    [toolbarHeight, toolbarOpacity],
+  );
+  const toolbarAnimatedStyle = useAnimatedStyle(() => ({
+    height: toolbarHeight.value,
+    opacity: toolbarOpacity.value,
+  }));
+
+  useEffect(() => {
+    toolbarHeight.value = withTiming(52);
+    toolbarOpacity.value = withTiming(1);
+  }, [activeTabId]);
+
   const content = useMemo(
-    () => tabs.map((t) => <MobileBrowserContent id={t.id} key={t.id} />),
-    [tabs],
+    () =>
+      tabs.map((t) => (
+        <MobileBrowserContent id={t.id} key={t.id} onScroll={handleScroll} />
+      )),
+    [tabs, handleScroll],
   );
   const { top } = useSafeAreaInsets();
 
@@ -109,7 +141,9 @@ function MobileBrowser() {
       )}
       <Freeze freeze={displayHomePage}>{content}</Freeze>
       <Freeze freeze={!displayBottomBar}>
-        <MobileBrowserBottomBar id={activeTabId ?? ''} />
+        <Animated.View style={[toolbarAnimatedStyle]}>
+          <MobileBrowserBottomBar id={activeTabId ?? ''} />
+        </Animated.View>
       </Freeze>
     </Stack>
   );

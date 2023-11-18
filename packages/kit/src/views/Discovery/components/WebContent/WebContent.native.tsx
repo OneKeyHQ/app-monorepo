@@ -39,6 +39,7 @@ function WebContent({
   setBackEnabled,
   setForwardEnabled,
   addBrowserHistory,
+  onScroll,
 }: IWebContentProps) {
   const lastNavEventSnapshot = useRef('');
   const showHome = url === homeTab.url;
@@ -177,6 +178,7 @@ function WebContent({
         onLoadEnd={onLoadEnd as any}
         onScroll={(e) => {
           setEnabled(e.nativeEvent.contentOffset.y === 0);
+          onScroll?.(e);
         }}
       />
     ),

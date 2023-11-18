@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
+import { useAnimatedScrollHandler } from 'react-native-reanimated';
 import { Stack } from 'tamagui';
 
 import WebContent from '../../components/WebContent/WebContent';
@@ -10,7 +11,13 @@ import { homeTab } from '../../store/contextWebTabs';
 import { captureViewRefs } from '../../utils/explorerUtils';
 import DiscoveryDashboard from '../Dashboard';
 
-function MobileBrowserContent({ id }: { id: string }) {
+function MobileBrowserContent({
+  id,
+  onScroll,
+}: {
+  id: string;
+  onScroll?: (contentOffsetY: number) => void;
+}) {
   const { tab } = useWebTabData(id);
   const { addBrowserHistory } = useBrowserHistoryAction();
   const { activeTabId } = useActiveTabId();
@@ -54,6 +61,9 @@ function MobileBrowserContent({ id }: { id: string }) {
               setForwardEnabled={setForwardEnabled}
               addBrowserHistory={(siteInfo) => {
                 addBrowserHistory(siteInfo);
+              }}
+              onScroll={(e) => {
+                onScroll?.(e.nativeEvent.contentOffset.y);
               }}
             />
           </Stack>

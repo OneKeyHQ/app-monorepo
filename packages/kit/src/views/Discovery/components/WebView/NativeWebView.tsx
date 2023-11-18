@@ -160,6 +160,7 @@ const NativeWebView = forwardRef(
         renderError={renderError}
         renderLoading={renderLoading}
         onScroll={onScroll}
+        scrollEventThrottle={16}
         {...props}
       />
     );
