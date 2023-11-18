@@ -88,7 +88,7 @@ export interface IMobileBottomOptionsProps {
 
 export interface IMobileTabListOptionsProps {
   onBookmarkPress: (bookmark: boolean, url: string, title: string) => void;
-  onShare: () => void;
+  onShare: (url: string) => void;
   onPinnedPress: (id: string, pinned: boolean) => void;
   onClose: (id: string) => void;
 }

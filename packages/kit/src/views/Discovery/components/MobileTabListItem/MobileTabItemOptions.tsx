@@ -50,7 +50,7 @@ function MobileTabItemOptions({
             {
               label: 'Share',
               icon: 'ShareOutline',
-              onPress: () => onShare(),
+              onPress: () => onShare(tab.url),
             },
           ],
         },

@@ -11,6 +11,7 @@ import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
 import { openUrlExternal } from '../../../../utils/openUrl';
 import { THUMB_HEIGHT, THUMB_WIDTH } from '../../config/TabList.constants';
 import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
+import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
 import useWebTabAction from '../../hooks/useWebTabAction';
 import {
   useDisplayHomePageFlag,
@@ -40,6 +41,7 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
   const { setPinnedTab, setDisplayHomePage } = useWebTabAction();
   const { addBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction();
+  const { handleShareUrl } = useBrowserOptionsAction();
 
   const [showOptionsList, setShowOptionsList] = useState(false);
 
@@ -87,6 +89,10 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
       screen: EDiscoveryModalRoutes.MobileTabList,
     });
   }, [takeScreenshot, navigation, displayHomePage]);
+
+  const onShare = useCallback(() => {
+    handleShareUrl(tab?.url ?? '', () => setShowOptionsList(false));
+  }, [tab?.url, handleShareUrl]);
 
   return (
     <Stack bg="$bgApp" h={54} zIndex={1} display="flex">
@@ -174,7 +180,7 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
             webviewRefs[id]?.reload();
             setShowOptionsList(false);
           }}
-          onShare={() => console.log('TODO: Share')}
+          onShare={onShare}
           isPinned={tab?.isPinned ?? false}
           onPinnedPress={(pinned) => {
             void setPinnedTab({ id, pinned });

@@ -19,6 +19,7 @@ import MobileTabItemOptions from '../../components/MobileTabListItem/MobileTabIt
 import MobileTabListPinnedItem from '../../components/MobileTabListItem/MobileTabListPinnedItem';
 import { TAB_LIST_CELL_COUNT_PER_ROW } from '../../config/TabList.constants';
 import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
+import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
 import useWebTabAction from '../../hooks/useWebTabAction';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import {
@@ -100,7 +101,9 @@ function MobileTabListModal() {
   const { closeAllWebTab, setCurrentWebTab, closeWebTab, setPinnedTab } =
     useWebTabAction();
 
-  const [open, onOpenChange] = useState(false);
+  const { handleShareUrl } = useBrowserOptionsAction();
+
+  const [showOptionsList, setShowOptionsList] = useState(false);
   const [selectedTabId, setSelectedTabId] = useState<string | null>(null);
 
   const handleBookmarkPress = useCallback(
@@ -110,25 +113,27 @@ function MobileTabListModal() {
       } else {
         removeBrowserBookmark(url);
       }
-      onOpenChange(false);
+      setShowOptionsList(false);
     },
     [addBrowserBookmark, removeBrowserBookmark],
   );
-  const handleShare = useCallback(() => {
-    console.log('TODO: on share');
-    onOpenChange(false);
-  }, []);
+  const handleShare = useCallback(
+    (url: string) => {
+      handleShareUrl(url, () => setShowOptionsList(false));
+    },
+    [handleShareUrl],
+  );
   const handlePinnedPress = useCallback(
     (id: string, pinned: boolean) => {
       void setPinnedTab({ id, pinned });
-      onOpenChange(false);
+      setShowOptionsList(false);
     },
     [setPinnedTab],
   );
   const handleCloseTab = useCallback(
     (id: string) => {
       void closeWebTab(id);
-      onOpenChange(false);
+      setShowOptionsList(false);
     },
     [closeWebTab],
   );
@@ -146,7 +151,7 @@ function MobileTabListModal() {
         onCloseItem={handleCloseTab}
         onLongPress={(id) => {
           setSelectedTabId(id);
-          onOpenChange(true);
+          setShowOptionsList(true);
         }}
       />
     ),
@@ -165,7 +170,7 @@ function MobileTabListModal() {
         onCloseItem={handleCloseTab}
         onLongPress={(id) => {
           setSelectedTabId(id);
-          onOpenChange(true);
+          setShowOptionsList(true);
         }}
       />
     ),
@@ -217,8 +222,8 @@ function MobileTabListModal() {
       </Stack>
       {renderPinnedList}
       <MobileTabItemOptions
-        open={open}
-        onOpenChange={onOpenChange}
+        open={showOptionsList}
+        onOpenChange={setShowOptionsList}
         id={selectedTabId}
         onBookmarkPress={handleBookmarkPress}
         onPinnedPress={handlePinnedPress}
