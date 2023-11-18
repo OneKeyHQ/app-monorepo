@@ -82,7 +82,6 @@ export interface IMobileBottomOptionsProps {
   onShare: () => void;
   isPinned: boolean;
   onPinnedPress: (pinned: boolean) => void;
-  onCopyUrl: () => void;
   onBrowserOpen: () => void;
   onGoBackHomePage: () => void;
 }

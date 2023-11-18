@@ -9,6 +9,7 @@ import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAr
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
 import { THUMB_HEIGHT, THUMB_WIDTH } from '../../config/TabList.constants';
+import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
 import useWebTabAction from '../../hooks/useWebTabAction';
 import { useWebTabData, useWebTabs } from '../../hooks/useWebTabs';
 import {
@@ -21,18 +22,21 @@ import { getScreenshotPath, saveScreenshot } from '../../utils/screenshot';
 
 import MobileBrowserBottomOptions from './MobileBrowserBottomOptions';
 
-import type { IMobileBottomOptionsProps } from '../../types';
 import type WebView from 'react-native-webview';
 
 function MobileBrowserBottomBar({ id }: { id: string }) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
+  const { bottom } = useSafeAreaInsets();
   const { tab } = useWebTabData(id);
   const { tabs } = useWebTabs();
-  const { bottom } = useSafeAreaInsets();
 
-  const { addBlankWebTab } = useWebTabAction();
-  const [open, onOpenChange] = useState(false);
+  const { addBlankWebTab, setPinnedTab, setDisplayHomePage } =
+    useWebTabAction();
+  const { addBrowserBookmark, removeBrowserBookmark } =
+    useBrowserBookmarkAction();
+
+  const [showOptionsList, setShowOptionsList] = useState(false);
 
   const tabCount = useMemo(() => tabs.length, [tabs]);
 
@@ -70,7 +74,7 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
     try {
       await takeScreenshot();
     } catch (e) {
-      console.log(e);
+      console.error(e);
     }
     navigation.pushModal(EModalRoutes.DiscoveryModal, {
       screen: EDiscoveryModalRoutes.MobileTabList,
@@ -139,15 +143,48 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
           </Stack>
         </Stack>
         <MobileBrowserBottomOptions
-          open={open}
-          onOpenChange={onOpenChange}
-          // {...rest}
+          open={showOptionsList}
+          onOpenChange={setShowOptionsList}
+          isBookmark={tab?.isBookmark ?? false}
+          onBookmarkPress={(isBookmark) => {
+            if (isBookmark) {
+              addBrowserBookmark({ url: tab?.url, title: tab?.title ?? '' });
+            } else {
+              removeBrowserBookmark(tab?.url);
+            }
+            void setWebTabData({
+              id,
+              isBookmark,
+            });
+            setShowOptionsList(false);
+          }}
+          onRefresh={() => {
+            console.log(webviewRefs[id]?.reload);
+            webviewRefs[id]?.reload();
+            setShowOptionsList(false);
+          }}
+          onShare={() => console.log('TODO: Share')}
+          isPinned={tab?.isPinned ?? false}
+          onPinnedPress={(pinned) => {
+            void setPinnedTab({ id, pinned });
+            setShowOptionsList(false);
+          }}
+          onBrowserOpen={() => {
+            console.log('TODO: open in browser');
+            setShowOptionsList(false);
+          }}
+          onGoBackHomePage={() => {
+            setShowOptionsList(false);
+            setTimeout(() => {
+              setDisplayHomePage(true);
+            });
+          }}
         >
           <IconButton
             variant="tertiary"
             size="medium"
             icon="DotHorOutline"
-            onPress={() => onOpenChange(true)}
+            onPress={() => setShowOptionsList(true)}
           />
         </MobileBrowserBottomOptions>
       </Stack>

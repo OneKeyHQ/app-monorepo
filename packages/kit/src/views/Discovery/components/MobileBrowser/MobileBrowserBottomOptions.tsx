@@ -14,7 +14,6 @@ function MobileBrowserBottomOptions({
   onShare,
   isPinned,
   onPinnedPress,
-  onCopyUrl,
   onBrowserOpen,
   onGoBackHomePage,
 }: {
@@ -50,11 +49,6 @@ function MobileBrowserBottomOptions({
               label: 'Share',
               icon: 'ShareOutline',
               onPress: () => onShare(),
-            },
-            {
-              label: '复制网址',
-              icon: 'PlaceholderOutline',
-              onPress: () => onCopyUrl(),
             },
             {
               label: 'Open in Browser',
