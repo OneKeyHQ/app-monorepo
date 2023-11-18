@@ -1,25 +1,50 @@
 import { useMemo } from 'react';
 
-import { Button, Icon, Text, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  Stack,
+  Text,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 
-function PhishingView() {
+function PhishingView({ onCloseTab }: { onCloseTab: () => void }) {
   const content = useMemo(
     () => (
-      <YStack flex={1} bg="red">
-        <XStack>
-          <Icon name="BucketOutline" width={48} height={48} />
-          <Text>欺骗性网站警告</Text>
-        </XStack>
-        <Text>
-          此网站可能尝试诱骗你进行危险操作，如安装软件或泄漏个人或财务信息，如密码、电话号码或信用卡。
-        </Text>
-        <XStack>
-          <Button>显示详细信息</Button>
-          <Button>返回</Button>
-        </XStack>
+      <YStack
+        flex={1}
+        bg="$bgCriticalStrong"
+        justifyContent="center"
+        alignItems="center"
+      >
+        <YStack maxWidth="$96" p="$6" borderRadius="$6" bg="$bg">
+          <Icon name="InfoCircleOutline" size="$16" color="$iconCritical" />
+          <Text mt="$6" variant="$heading4xl">
+            Malicious DApp
+          </Text>
+          <Text variant="$bodyLg" py="$2">
+            Potential risks
+          </Text>
+          <XStack alignItems="center" px="$1" mb="$2" space="$3">
+            <Stack h="$1.5" w="$1.5" borderRadius="$full" bg="$textSubdued" />
+            <Text>Theft of recovery phrase or password</Text>
+          </XStack>
+          <XStack alignItems="center" px="$1" mb="$2" space="$3">
+            <Stack h="$1.5" w="$1.5" borderRadius="$full" bg="$textSubdued" />
+            <Text>Phishing attacks</Text>
+          </XStack>
+          <XStack alignItems="center" px="$1" space="$3">
+            <Stack h="$1.5" w="$1.5" borderRadius="$full" bg="$textSubdued" />
+            <Text>Fake tokens or scams</Text>
+          </XStack>
+          <Button variant="primary" size="large" my="$6" onPress={onCloseTab}>
+            Close Tab
+          </Button>
+        </YStack>
       </YStack>
     ),
-    [],
+    [onCloseTab],
   );
   return content;
 }

@@ -30,6 +30,15 @@ export const onNavigation: IOnWebviewNavigation = ({
   }
   const curId = curTab.id;
   const isValidNewUrl = typeof url === 'string' && url !== curTab.url;
+
+  if (url) {
+    const { action } = uriUtils.parseDappRedirect(url);
+    if (action === uriUtils.EDAppOpenActionEnum.DENY) {
+      handlePhishingUrl?.(url);
+      return;
+    }
+  }
+
   if (isValidNewUrl) {
     if (curTab.timestamp && now - curTab.timestamp < 500) {
       // ignore url change if it's too fast to avoid back & forth loop
@@ -40,12 +49,6 @@ export const onNavigation: IOnWebviewNavigation = ({
       url !== homeTab.url &&
       now - homeResettingFlags[curId] < 1000
     ) {
-      return;
-    }
-
-    const { action } = uriUtils.parseDappRedirect(url);
-    if (action === uriUtils.EDAppOpenActionEnum.DENY) {
-      handlePhishingUrl?.(url);
       return;
     }
 

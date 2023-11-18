@@ -8,6 +8,7 @@ import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import useBackHandler from '../../../../hooks/useBackHandler';
 import { onNavigation } from '../../hooks/useWebController';
+import useWebTabAction from '../../hooks/useWebTabAction';
 import { homeTab, setWebTabData } from '../../store/contextWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
 import { gotoSite } from '../../utils/gotoSite';
@@ -47,15 +48,13 @@ function WebContent({
 
   const [height, setHeight] = useState(Dimensions.get('screen').height);
   const [isEnabled, setEnabled] = useState(true);
-  const [isRefresh, setRefresh] = useState(false);
+  const [isRefresh] = useState(false);
   const onRefresh = useCallback(() => {
     webviewRefs[id]?.innerRef?.reload();
   }, [id]);
+  const { closeWebTab } = useWebTabAction();
 
   const changeNavigationInfo = (siteInfo: WebViewNavigation) => {
-    // console.log('===>canGoBack: ', siteInfo.canGoBack);
-    // console.log('===>canGoForward: ', siteInfo.canGoBack);
-    // console.log('===>siteInfo: ', siteInfo);
     setBackEnabled(siteInfo.canGoBack);
     setForwardEnabled(siteInfo.canGoForward);
     addBrowserHistory?.(siteInfo);
@@ -125,9 +124,7 @@ function WebContent({
       const maybeDeepLink =
         !navUrl.startsWith('https') && navUrl !== 'about:blank';
       if (maybeDeepLink) {
-        console.log('===>Maybe deeplink, just return');
         const { action } = uriUtils.parseDappRedirect(navUrl);
-        console.log('===> action: ', action);
         if (action === uriUtils.EDAppOpenActionEnum.DENY) {
           setShowPhishingView(true);
         }
@@ -189,10 +186,10 @@ function WebContent({
   const phishingView = useMemo(
     () => (
       <Stack position="absolute" top={0} bottom={0} left={0} right={0}>
-        <PhishingView />
+        <PhishingView onCloseTab={() => closeWebTab(id)} />
       </Stack>
     ),
-    [],
+    [closeWebTab, id],
   );
 
   return (

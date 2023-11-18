@@ -25,7 +25,7 @@ type IWebContentProps = IWebTab &
 function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
   const urlRef = useRef<string>('');
   const [showPhishingView, setShowPhishingView] = useState(false);
-  const { setWebTabData } = useWebTabAction();
+  const { setWebTabData, closeWebTab } = useWebTabAction();
   const getNavStatusInfo = useCallback(() => {
     const ref = webviewRefs[id];
     const webviewRef = ref.innerRef as IElectronWebView;
@@ -157,10 +157,10 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
   const phishingView = useMemo(
     () => (
       <Stack position="absolute" top={52} bottom={0} left={0} right={0}>
-        <PhishingView />
+        <PhishingView onCloseTab={() => closeWebTab(id)} />
       </Stack>
     ),
-    [],
+    [closeWebTab, id],
   );
 
   return (
