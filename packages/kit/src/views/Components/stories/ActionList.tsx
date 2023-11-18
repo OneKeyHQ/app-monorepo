@@ -1,3 +1,5 @@
+import { YStack } from 'tamagui';
+
 import { Button, Dialog, Stack } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components/src/ActionList';
 
@@ -36,9 +38,50 @@ const ActionListDemo1 = () => (
   />
 );
 
+const ActionLisPlacement = () => (
+  <YStack space="$2">
+    <ActionList
+      title="right(Web Only)"
+      placement="right"
+      renderTrigger={
+        <Button onPress={() => console.log('action trigger')}>
+          right(Web Only)
+        </Button>
+      }
+      items={[
+        {
+          label: 'Action1',
+          icon: 'PlaceholderOutline',
+          onPress: () => {
+            console.log('action1');
+          },
+        },
+      ]}
+    />
+    <ActionList
+      title="bottom-end(Web Only)"
+      placement="bottom-end"
+      renderTrigger={
+        <Button onPress={() => console.log('action trigger')}>
+          bottom-end(Web Only)
+        </Button>
+      }
+      items={[
+        {
+          label: 'Action1',
+          icon: 'PlaceholderOutline',
+          onPress: () => {
+            console.log('action1');
+          },
+        },
+      ]}
+    />
+  </YStack>
+);
+
 const ActionListDemo2 = () => (
   <ActionList
-    title="Action List"
+    title="Action List(Close demo)"
     renderTrigger={
       <Button onPress={() => console.log('trigger')}>Action List</Button>
     }
@@ -46,25 +89,33 @@ const ActionListDemo2 = () => (
       {
         items: [
           {
-            label: 'Action1',
+            label: 'just close it',
             icon: 'PlaceholderOutline',
             onPress: () => {
               console.log('action1');
             },
           },
           {
-            label: 'Action2',
+            label: 'async action(fail)',
             icon: 'PlaceholderOutline',
-            onPress: () => {
-              console.log('action2');
-            },
+            onPress: () =>
+              new Promise((resolve) => {
+                setTimeout(() => {
+                  alert('fail');
+                  resolve(false);
+                }, 1000);
+              }),
           },
           {
-            label: 'Action3',
+            label: 'async action(success)',
             icon: 'PlaceholderOutline',
-            onPress: () => {
-              console.log('action2');
-            },
+            onPress: () =>
+              new Promise((resolve) => {
+                setTimeout(() => {
+                  alert('success');
+                  resolve(true);
+                }, 1000);
+              }),
           },
         ],
       },
@@ -166,6 +217,14 @@ const ActionListGallery = () => (
         element: (
           <Stack space="$1">
             <ActionListDemo1 />
+          </Stack>
+        ),
+      },
+      {
+        title: 'Placement',
+        element: (
+          <Stack space="$1">
+            <ActionLisPlacement />
           </Stack>
         ),
       },
