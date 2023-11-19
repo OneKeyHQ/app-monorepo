@@ -13,7 +13,7 @@ export default function TestSimpleModal() {
   return (
     <Page>
       <Page.Header title="test modal" headerRight={headerRightCall} />
-      <Page.Body>
+      <Page.Body bg="burlywood">
         <XStack>
           <Switch value={showFooter} onChange={changeFooterStatus} />
           <Text>{showFooter ? 'Show Footer' : 'Hide Fotter'}</Text>
