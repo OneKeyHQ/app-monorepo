@@ -15,6 +15,10 @@ function HeaderLeftToolBar({
   stopLoading,
   reload,
   onSearch,
+  isBookmark,
+  onBookmarkPress,
+  isPinned,
+  onPinnedPress,
 }: {
   url: string;
   canGoBack?: boolean;
@@ -25,6 +29,10 @@ function HeaderLeftToolBar({
   stopLoading?: () => void;
   reload?: () => void;
   onSearch?: () => void;
+  isBookmark?: boolean;
+  onBookmarkPress?: (bookmark: boolean) => void;
+  isPinned?: boolean;
+  onPinnedPress?: (pinned: boolean) => void;
 }) {
   const media = useMedia();
   const { leftSidebarCollapsed: isCollpase } = useProviderSideBarValue();
@@ -74,16 +82,12 @@ function HeaderLeftToolBar({
         value={url}
         addOns={[
           {
-            iconName: 'StarOutline',
-            onPress: () => {
-              console.log('bookmark');
-            },
+            iconName: isBookmark ? 'BookmarkSolid' : 'BookmarkOutline',
+            onPress: () => onBookmarkPress?.(!isBookmark),
           },
           {
-            iconName: 'PinOutline',
-            onPress: () => {
-              console.log('pin');
-            },
+            iconName: isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
+            onPress: () => onPinnedPress?.(!isPinned),
           },
         ]}
       />

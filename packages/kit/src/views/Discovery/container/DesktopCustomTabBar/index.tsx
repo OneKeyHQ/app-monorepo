@@ -1,11 +1,18 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import { Divider, Icon, Stack, Text, XStack } from '@onekeyhq/components';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
+import useAppNavigation from '../../../../hooks/useAppNavigation';
+import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
 import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
 import useWebTabAction from '../../hooks/useWebTabAction';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
+import {
+  EDiscoveryModalRoutes,
+  type IDiscoveryModalParamList,
+} from '../../router/Routes';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 function AddTabButton({ onAddTab }: { onAddTab: () => void }) {
@@ -33,10 +40,11 @@ function AddTabButton({ onAddTab }: { onAddTab: () => void }) {
 }
 
 function DesktopCustomTabBar() {
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
-  const { setCurrentWebTab, closeWebTab, setPinnedTab, addBlankWebTab } =
-    useWebTabAction();
+  const { setCurrentWebTab, closeWebTab, setPinnedTab } = useWebTabAction();
   const { addBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction();
   const data = useMemo(() => (tabs ?? []).filter((t) => !t.isPinned), [tabs]);
@@ -83,7 +91,13 @@ function DesktopCustomTabBar() {
         />
       ))}
       {pinnedData.length > 0 && <Divider m="$1.5" />}
-      <AddTabButton onAddTab={() => addBlankWebTab()} />
+      <AddTabButton
+        onAddTab={() => {
+          navigation.pushModal(EModalRoutes.DiscoveryModal, {
+            screen: EDiscoveryModalRoutes.FakeSearchModal,
+          });
+        }}
+      />
       {data.map((t) => (
         <DesktopCustomTabBarItem
           id={t.id}

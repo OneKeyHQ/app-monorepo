@@ -13,11 +13,19 @@ function DesktopBrowserInfoBar({
   goForward,
   stopLoading,
   reload,
+  isBookmark,
+  onBookmarkPress,
+  isPinned,
+  onPinnedPress,
 }: IWebTab & {
   goBack: () => void;
   goForward: () => void;
   stopLoading: () => void;
   reload: () => void;
+  isBookmark: boolean;
+  onBookmarkPress: (bookmark: boolean) => void;
+  isPinned: boolean;
+  onPinnedPress: (pinned: boolean) => void;
 }) {
   return (
     <DesktopDragZoneBox>
@@ -32,6 +40,10 @@ function DesktopBrowserInfoBar({
             goForward={goForward}
             stopLoading={stopLoading}
             reload={reload}
+            isBookmark={isBookmark}
+            onBookmarkPress={onBookmarkPress}
+            isPinned={isPinned}
+            onPinnedPress={onPinnedPress}
           />
           <XStack space="$6">
             <IconButton

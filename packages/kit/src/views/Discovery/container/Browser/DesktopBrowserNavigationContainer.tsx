@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Freeze } from 'react-freeze';
 
 import DesktopBrowserInfoBar from '../../components/DesktopBrowser/DesktopBrowserInfoBar';
+import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
+import useWebTabAction from '../../hooks/useWebTabAction';
 import { useWebTabData } from '../../hooks/useWebTabs';
 import { getWebviewWrapperRef, webviewRefs } from '../../utils/explorerUtils';
 
@@ -17,6 +19,9 @@ function DesktopBrowserNavigationBar({
 }) {
   const { tab } = useWebTabData(id);
   const isActive = useMemo(() => activeTabId === id, [activeTabId, id]);
+  const { setPinnedTab, setWebTabData } = useWebTabAction();
+  const { addBrowserBookmark, removeBrowserBookmark } =
+    useBrowserBookmarkAction();
   const [innerRef, setInnerRef] = useState<IElectronWebView>(
     webviewRefs[id]?.innerRef as IElectronWebView,
   );
@@ -73,6 +78,22 @@ function DesktopBrowserNavigationBar({
         goForward={goForward}
         stopLoading={stopLoading}
         reload={reload}
+        isBookmark={tab?.isBookmark ?? false}
+        onBookmarkPress={(isBookmark) => {
+          if (isBookmark) {
+            addBrowserBookmark({ url: tab?.url, title: tab?.title ?? '' });
+          } else {
+            removeBrowserBookmark(tab?.url);
+          }
+          void setWebTabData({
+            id,
+            isBookmark,
+          });
+        }}
+        isPinned={tab?.isPinned ?? false}
+        onPinnedPress={(pinned) => {
+          void setPinnedTab({ id, pinned });
+        }}
       />
     </Freeze>
   );
