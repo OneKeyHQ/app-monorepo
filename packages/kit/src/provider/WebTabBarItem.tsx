@@ -1,7 +1,5 @@
 // it's a demo
-import { YStack } from 'tamagui';
-
-import { Divider, Text } from '@onekeyhq/components';
+import { Divider, Text, YStack } from '@onekeyhq/components';
 
 import useListenTabFocusState from '../hooks/useListenTabFocusState';
 import { ETabRoutes } from '../routes/Root/Tab/Routes';

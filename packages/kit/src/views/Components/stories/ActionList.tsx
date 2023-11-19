@@ -1,6 +1,4 @@
-import { YStack } from 'tamagui';
-
-import { Button, Dialog, Stack } from '@onekeyhq/components';
+import { Button, Dialog, Stack, YStack } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components/src/ActionList';
 
 import { Layout } from './utils/Layout';
