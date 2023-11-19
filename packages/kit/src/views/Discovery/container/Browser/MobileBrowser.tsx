@@ -14,6 +14,7 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 
+import { ETabRoutes } from '../../../../routes/Root/Tab/Routes';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import MobileBrowserInfoBar from '../../components/MobileBrowser/MobileBrowserInfoBar';
 import { useTabDataFromSimpleDb } from '../../hooks/useTabDataFromSimpleDb';
@@ -56,6 +57,7 @@ function MobileBrowser() {
   const { tab } = useWebTabData(activeTabId ?? '');
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
+
   const { displayHomePage } = useDisplayHomePageFlag();
 
   const displayBottomBar = useMemo(() => {
@@ -63,6 +65,17 @@ function MobileBrowser() {
     if (displayHomePage && tabs.length > 0) return true;
     return false;
   }, [displayHomePage, tabs]);
+
+  const { setDisplayHomePage } = useWebTabAction();
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (!firstRender.current && tabs.length === 0) {
+      setDisplayHomePage(true);
+    }
+    if (firstRender.current) {
+      firstRender.current = false;
+    }
+  }, [tabs, navigation, setDisplayHomePage]);
 
   useEffect(() => {
     console.log('MobileBrowser renderer ===> : ');

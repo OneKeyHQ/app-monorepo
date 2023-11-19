@@ -1,7 +1,9 @@
-import { memo } from 'react';
+import { memo, useEffect, useRef } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 
+import useAppNavigation from '../../../../hooks/useAppNavigation';
+import { ETabRoutes } from '../../../../routes/Root/Tab/Routes';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 
 import DesktopBrowserContent from './DesktopBrowserContent';
@@ -11,6 +13,18 @@ import { withBrowserProvider } from './WithBrowserProvider';
 function DesktopBrowser() {
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
+
+  const navigation = useAppNavigation();
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (!firstRender.current && tabs.length === 0) {
+      navigation.switchTab(ETabRoutes.Discovery);
+    }
+    if (firstRender.current) {
+      firstRender.current = false;
+    }
+  }, [tabs, navigation]);
+
   return (
     <Stack flex={1} zIndex={3}>
       {tabs.map((t) => (
