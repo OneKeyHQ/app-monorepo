@@ -1,39 +1,98 @@
+/* eslint-disable import/no-named-as-default-member */
 import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
 
-import { isExtensionUi } from '../platformEnv';
+import platformEnv from '../platformEnv';
 
-// eslint-disable-next-line import/no-mutable-exports
-let appEventBus: CrossEventEmitter;
-
-enum EAppEventBusNames {
-  AccountNameChanged = 'AccountNameChanged',
+export enum EAppEventBusNames {
   NetworkChanged = 'NetworkChanged',
   AccountChanged = 'AccountChanged',
-  CurrencyChanged = 'CurrencyChanged',
-  BackupRequired = 'BackupRequired',
-  NotificationStatusChanged = 'NotificationStatusChanged',
-  StoreInitedFromPersistor = 'StoreInitedFromPersistor',
-  Unlocked = 'Unlocked',
-  HttpServerRequest = 'HttpServerRequest',
+  // AccountNameChanged = 'AccountNameChanged',
+  // CurrencyChanged = 'CurrencyChanged',
+  // BackupRequired = 'BackupRequired',
+  // NotificationStatusChanged = 'NotificationStatusChanged',
+  // StoreInitedFromPersistor = 'StoreInitedFromPersistor',
+  // Unlocked = 'Unlocked',
+  // HttpServerRequest = 'HttpServerRequest',
 }
 
-if (isExtensionUi) {
-  appEventBus = new Proxy(
-    {},
-    {
-      get() {
-        throw new Error(
-          '[appEventBus] is NOT allowed in UI process currently. use [appUIEventBus] instead',
-        );
-      },
-    },
-  ) as CrossEventEmitter;
-} else {
-  appEventBus = new CrossEventEmitter();
+export interface IAppEventBusPayload {
+  [EAppEventBusNames.AccountChanged]: {
+    name: string;
+    id: number;
+  };
+  [EAppEventBusNames.NetworkChanged]: undefined;
 }
+
+interface IAppEventBusBroadcastMethods {
+  uiToBg?: (type: string, payload: any) => void;
+  bgToUi?: (type: string, payload: any) => void;
+}
+class AppEventBus extends CrossEventEmitter {
+  // TODO make to Promise object
+  broadcastMethods: IAppEventBusBroadcastMethods | undefined;
+
+  registerBroadcastMethods(methods: IAppEventBusBroadcastMethods) {
+    this.broadcastMethods = {
+      ...this.broadcastMethods,
+      ...methods,
+    };
+  }
+
+  get shouldEmitToSelf() {
+    return (
+      !platformEnv.isExtensionOffscreen &&
+      !platformEnv.isExtensionUi &&
+      !platformEnv.isWebEmbed
+    );
+  }
+
+  override emit<T extends EAppEventBusNames>(
+    type: T,
+    payload: IAppEventBusPayload[T],
+  ): boolean {
+    if (this.shouldEmitToSelf) {
+      this.emitToSelf(type, payload);
+    }
+    this.emitToRemote(type, payload);
+    return true;
+  }
+
+  emitToSelf(type: EAppEventBusNames, ...args: any[]) {
+    super.emit(type, ...args);
+    return true;
+  }
+
+  emitToRemote(type: string, payload: any) {
+    if (!this.broadcastMethods) {
+      throw new Error('broadcastMethods not registerred');
+    }
+    if (platformEnv.isExtensionOffscreen || platformEnv.isWebEmbed) {
+      // request background
+      throw new Error('offscreen or webembed event bus not support yet.');
+    }
+    if (platformEnv.isNative) {
+      // requestToWebEmbed
+    }
+    // eslint-disable-next-line import/no-named-as-default-member
+    if (platformEnv.isExtensionUi) {
+      // request background
+      return this.broadcastMethods.uiToBg?.(type, payload);
+    }
+    // eslint-disable-next-line import/no-named-as-default-member
+    if (platformEnv.isExtensionBackground) {
+      // requestToOffscreen
+      // requestToAllUi
+      return this.broadcastMethods.bgToUi?.(type, payload);
+    }
+  }
+}
+const appEventBus = new AppEventBus();
+
+// appEventBus.emit(EAppEventBusNames.AccountChanged, { name: '1,', id: 1 });
+// appEventBus.emit(EAppEventBusNames.NetworkChanged, undefined);
 
 if (process.env.NODE_ENV !== 'production') {
   global.$$appEventBus = appEventBus;
 }
 
-export { appEventBus, EAppEventBusNames as AppEventBusNames };
+export { appEventBus };
