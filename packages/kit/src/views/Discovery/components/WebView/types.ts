@@ -31,6 +31,8 @@ export interface IInpageProviderWebViewProps
   onLoadEnd?: (event: WebViewNavigationEvent | WebViewErrorEvent) => void;
   onScroll?: (event: WebViewScrollEvent) => void;
   webviewHeight?: number;
+  displayProgressBar?: boolean;
+  onProgress?: (progress: number) => void;
 }
 
 export type IElectronWebView = {

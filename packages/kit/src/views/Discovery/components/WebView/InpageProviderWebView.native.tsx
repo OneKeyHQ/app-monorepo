@@ -32,6 +32,8 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       onScroll,
       androidLayerType,
       webviewHeight,
+      displayProgressBar,
+      onProgress,
     }: IInpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -77,6 +79,9 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
     }, [nativeInjectedJavaScriptBeforeContentLoaded]);
 
     const progressLoading = useMemo(() => {
+      if (!displayProgressBar) {
+        return null;
+      }
       if (progress < 100) {
         if (isSpinnerLoading) {
           // should be absolute position, otherwise android will crashed!
@@ -110,7 +115,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
         );
       }
       return null;
-    }, [isSpinnerLoading, progress]);
+    }, [isSpinnerLoading, progress, displayProgressBar]);
 
     return (
       <Stack flex={1}>
@@ -124,6 +129,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           injectedJavaScriptBeforeContentLoaded={nativeInjectedJsCode}
           onLoadProgress={({ nativeEvent }) => {
             const p = Math.ceil(nativeEvent.progress * 100);
+            onProgress?.(p);
             setProgress(p);
             if (p >= 100) {
               onContentLoaded?.();

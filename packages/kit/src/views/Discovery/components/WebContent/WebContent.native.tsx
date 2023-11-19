@@ -3,7 +3,12 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { Dimensions } from 'react-native';
 
-import { RefreshControl, ScrollView, Stack } from '@onekeyhq/components';
+import {
+  Progress,
+  RefreshControl,
+  ScrollView,
+  Stack,
+} from '@onekeyhq/components';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import useBackHandler from '../../../../hooks/useBackHandler';
@@ -44,6 +49,7 @@ function WebContent({
 }: IWebContentProps) {
   const lastNavEventSnapshot = useRef('');
   const showHome = url === homeTab.url;
+  const [progress, setProgress] = useState(5);
   const [showPhishingView, setShowPhishingView] = useState(false);
 
   const [height, setHeight] = useState(Dimensions.get('screen').height);
@@ -177,11 +183,31 @@ function WebContent({
           setEnabled(e.nativeEvent.contentOffset.y === 0);
           onScroll?.(e);
         }}
+        displayProgressBar={false}
+        onProgress={(p) => setProgress(p)}
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [id, showHome, androidLayerType, height],
   );
+
+  const progressBar = useMemo(() => {
+    if (progress < 100) {
+      return (
+        <Progress
+          value={progress}
+          width="100%"
+          position="absolute"
+          left={0}
+          top={0}
+          right={0}
+          zIndex={10}
+          borderRadius={0}
+        />
+      );
+    }
+    return null;
+  }, [progress]);
 
   const phishingView = useMemo(
     () => (
@@ -194,6 +220,7 @@ function WebContent({
 
   return (
     <>
+      {progressBar}
       <ScrollView
         flex={1}
         onLayout={(e) => {
