@@ -1,4 +1,4 @@
-import { Button, SearchBar, YStack } from '@onekeyhq/components';
+import { Button, SearchBar, Stack, YStack } from '@onekeyhq/components';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
@@ -8,14 +8,21 @@ function Dashboard() {
   const navigation = useAppNavigation();
   return (
     <YStack p="$2" alignItems="center" justifyContent="center">
-      <SearchBar
+      <SearchBar />
+      <Stack
+        $md={{
+          width: '100%',
+        }}
         onPress={() => {
           console.log('onPress');
           navigation.pushModal(EModalRoutes.DiscoveryModal, {
             screen: EDiscoveryModalRoutes.FakeSearchModal,
           });
         }}
-      />
+      >
+        <SearchBar readonly />
+      </Stack>
+
       <Button
         onPress={() => {
           console.log('onPress');
