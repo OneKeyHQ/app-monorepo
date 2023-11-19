@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { Suspense, useMemo, useRef } from 'react';
+import { Suspense, useRef } from 'react';
 
 import { createSuspender } from '@onekeyhq/shared/src/modules3rdParty/use-suspender';
 
