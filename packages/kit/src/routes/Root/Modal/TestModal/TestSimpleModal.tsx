@@ -1,7 +1,14 @@
 import { useCallback, useState } from 'react';
 
+import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Button, Page, Switch, Text, XStack } from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';
+
+import useAppNavigation from '../../../../hooks/useAppNavigation';
+
+import { EModalTestRoutes } from './Routes';
+
+import type { ITabHomeParamList } from '../../Tab/Home/Routes';
 
 export default function TestSimpleModal() {
   const headerRightCall = useCallback(
@@ -11,6 +18,11 @@ export default function TestSimpleModal() {
   const [showFooter, changeFooterStatus] = useState(true);
   const [showCustomFooter, changeCustomFooterStatus] = useState(false);
   const [showNewHeader, changeNewHeaderStatus] = useState(false);
+
+  const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
+  const navigateToNextPage = useCallback(() => {
+    navigation.push(EModalTestRoutes.TestSimpleModal);
+  }, [navigation]);
   return (
     <Page>
       <Page.Header title="test modal" headerRight={headerRightCall} />
@@ -33,6 +45,7 @@ export default function TestSimpleModal() {
           <Text>{showNewHeader ? 'Show New Header' : 'Hide New Header'}</Text>
         </XStack>
         <Text>这是一个普通的 Modal 测试</Text>
+        <Button onPress={navigateToNextPage}>Push Next Page</Button>
       </Page.Body>
       {showNewHeader ? (
         <XStack>
