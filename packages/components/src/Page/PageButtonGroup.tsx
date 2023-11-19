@@ -1,3 +1,4 @@
+import type { PropsWithChildren } from 'react';
 import { useContext } from 'react';
 
 import { Button, type IButtonProps } from '../Button';
@@ -5,9 +6,11 @@ import { XStack } from '../Stack';
 
 import { PageContext } from './PageContext';
 
-export interface IPageButtonGroupProps {
+export interface IPageButtonGroupProps extends PropsWithChildren<unknown> {
   onConfirm?: () => void | Promise<boolean>;
   onCancel?: () => void;
+  onConfirmText?: string;
+  onCancelText?: string;
   confirmButtonProps?: IButtonProps;
   cancelButtonProps?: IButtonProps;
 }
@@ -17,8 +20,19 @@ export function PageButtonGroup() {
   if (!options?.footerOptions) {
     return null;
   }
-  const { onCancel, onConfirm, confirmButtonProps, cancelButtonProps } =
-    options.footerOptions;
+  const {
+    onCancel,
+    onCancelText,
+    onConfirm,
+    onConfirmText,
+    confirmButtonProps,
+    cancelButtonProps,
+    children,
+  } = options.footerOptions;
+
+  if (children) {
+    return children;
+  }
   return (
     <XStack
       $sm={{
@@ -47,7 +61,7 @@ export function PageButtonGroup() {
           onPress={onCancel}
           {...cancelButtonProps}
         >
-          Cancel
+          {onCancelText || 'Cancel'}
         </Button>
       )}
       {(!!confirmButtonProps || !!onConfirm) && (
@@ -67,7 +81,7 @@ export function PageButtonGroup() {
           onPress={onConfirm}
           {...confirmButtonProps}
         >
-          Confirm
+          {onConfirmText || 'Confirm'}
         </Button>
       )}
     </XStack>

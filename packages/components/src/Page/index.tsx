@@ -2,10 +2,12 @@ import { type PropsWithChildren, useMemo, useState } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
+import { View } from '../View';
+
 import { BasicPage } from './BasicPage';
-import { BasicPageFooter } from './BasicPageFooter';
+import { BasicPageFooter, PageContextFooter } from './BasicPageFooter';
+import { PageBody } from './PageBody';
 import { PageContext } from './PageContext';
-import { PageFooter } from './PageFooter';
 import { PageHeader } from './PageHeader';
 
 import type { IPageButtonGroupProps } from './PageButtonGroup';
@@ -14,29 +16,16 @@ function PageContainer({
   children,
   skipLoading,
 }: PropsWithChildren<{ skipLoading: boolean }>) {
-  return (
-    <BasicPage skipLoading={skipLoading}>
-      <>
-        {children}
-        {/* <Stack
-          bg="$bg"
-          padding="$5"
-          $sm={{
-            flexDirection: 'column',
-            alignItems: 'center',
-          }}
-          $gtSm={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <PageButtonGroup />
-        </Stack> */}
+  const memoPageContainer = useMemo(
+    () => (
+      <BasicPage skipLoading={skipLoading}>
+        <View style={{ flex: 1 }}>{children}</View>
         <BasicPageFooter />
-      </>
-    </BasicPage>
+      </BasicPage>
+    ),
+    [skipLoading, children],
   );
+  return memoPageContainer;
 }
 
 function PageProvider({
@@ -62,5 +51,6 @@ function PageProvider({
 
 export const Page = withStaticProperties(PageProvider, {
   Header: PageHeader,
-  Footer: PageFooter,
+  Body: PageBody,
+  Footer: PageContextFooter,
 });
