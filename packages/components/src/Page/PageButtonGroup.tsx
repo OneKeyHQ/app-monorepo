@@ -48,6 +48,7 @@ export function PageButtonGroup() {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+        p: '$4',
       }}
     >
       <XStack
