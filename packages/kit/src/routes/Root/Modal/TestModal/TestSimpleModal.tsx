@@ -33,6 +33,9 @@ export default function TestSimpleModal() {
         <Page.Footer
           onConfirm={() => alert('confirmed')}
           onConfirmText="YES"
+          confirmButtonProps={{
+            w: '$40',
+          }}
           onCancel={() => {
             alert('cancel');
           }}

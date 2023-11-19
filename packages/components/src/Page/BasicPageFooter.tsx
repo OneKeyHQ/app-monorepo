@@ -1,30 +1,12 @@
 import { memo, useContext, useEffect } from 'react';
 
-import { XStack } from '../Stack';
-
 import { PageButtonGroup } from './PageButtonGroup';
 import { PageContext } from './PageContext';
 
 import type { IPageButtonGroupProps } from './PageButtonGroup';
 
 export function BasicPageFooterContainer() {
-  return (
-    <XStack
-      bg="$bg"
-      padding="$5"
-      $sm={{
-        flexDirection: 'column',
-        alignItems: 'center',
-      }}
-      $gtSm={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-      }}
-    >
-      <PageButtonGroup />
-    </XStack>
-  );
+  return <PageButtonGroup />;
 }
 
 export const BasicPageFooter = memo(BasicPageFooterContainer);

@@ -2,17 +2,19 @@ import type { PropsWithChildren } from 'react';
 import { useContext } from 'react';
 
 import { Button, type IButtonProps } from '../Button';
-import { XStack } from '../Stack';
+import { Stack, XStack } from '../Stack';
 
 import { PageContext } from './PageContext';
+
+type IActionButtonProps = Omit<IButtonProps, 'onPress' | 'children'>;
 
 export interface IPageButtonGroupProps extends PropsWithChildren<unknown> {
   onConfirm?: () => void | Promise<boolean>;
   onCancel?: () => void;
   onConfirmText?: string;
   onCancelText?: string;
-  confirmButtonProps?: IButtonProps;
-  cancelButtonProps?: IButtonProps;
+  confirmButtonProps?: IActionButtonProps;
+  cancelButtonProps?: IActionButtonProps;
 }
 
 export function PageButtonGroup() {
@@ -33,57 +35,43 @@ export function PageButtonGroup() {
   if (children) {
     return children;
   }
+
   return (
-    <XStack
+    <Stack
+      bg="$bg"
+      pt="$4"
       $sm={{
-        width: '100%',
-        justifyContent: 'center',
-        gap: '$5',
+        flexDirection: 'column',
+        alignItems: 'center',
       }}
       $gtSm={{
-        justifyContent: 'flex-end',
-        gap: '$2',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
       }}
     >
-      {(!!cancelButtonProps || !!onCancel) && (
-        <Button
-          $sm={
-            {
-              flex: 1,
-              size: 'large',
-            } as IButtonProps
-          }
-          $gtSm={
-            {
-              size: 'medium',
-            } as IButtonProps
-          }
-          onPress={onCancel}
-          {...cancelButtonProps}
-        >
-          {onCancelText || 'Cancel'}
-        </Button>
-      )}
-      {(!!confirmButtonProps || !!onConfirm) && (
-        <Button
-          variant="primary"
-          $sm={
-            {
-              flex: 1,
-              size: 'large',
-            } as IButtonProps
-          }
-          $gtSm={
-            {
-              size: 'medium',
-            } as IButtonProps
-          }
-          onPress={onConfirm}
-          {...confirmButtonProps}
-        >
-          {onConfirmText || 'Confirm'}
-        </Button>
-      )}
-    </XStack>
+      <XStack
+        $sm={{
+          width: '100%',
+          justifyContent: 'center',
+          gap: '$5',
+        }}
+        $gtSm={{
+          justifyContent: 'flex-end',
+          gap: '$2',
+        }}
+      >
+        {(!!cancelButtonProps || !!onCancel) && (
+          <Button onPress={onCancel} {...cancelButtonProps}>
+            {onCancelText || 'Cancel'}
+          </Button>
+        )}
+        {(!!confirmButtonProps || !!onConfirm) && (
+          <Button variant="primary" onPress={onConfirm} {...confirmButtonProps}>
+            {onConfirmText || 'Confirm'}
+          </Button>
+        )}
+      </XStack>
+    </Stack>
   );
 }
