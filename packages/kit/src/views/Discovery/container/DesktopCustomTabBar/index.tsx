@@ -15,7 +15,13 @@ import {
 } from '../../router/Routes';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
-function AddTabButton({ onAddTab }: { onAddTab: () => void }) {
+import type { GestureResponderEvent } from 'react-native';
+
+function AddTabButton({
+  onAddTab,
+}: {
+  onAddTab: (event: GestureResponderEvent) => void;
+}) {
   return (
     <XStack
       key="AddTabButton"
@@ -26,7 +32,9 @@ function AddTabButton({ onAddTab }: { onAddTab: () => void }) {
       h="$8"
       borderRadius="$2"
       space="$2"
-      onPress={onAddTab}
+      onPress={(e) => {
+        onAddTab(e);
+      }}
       hoverStyle={{
         bg: '$bgActive',
       }}
@@ -92,7 +100,8 @@ function DesktopCustomTabBar() {
       ))}
       {pinnedData.length > 0 && <Divider m="$1.5" />}
       <AddTabButton
-        onAddTab={() => {
+        onAddTab={(e) => {
+          e.stopPropagation();
           navigation.pushModal(EModalRoutes.DiscoveryModal, {
             screen: EDiscoveryModalRoutes.FakeSearchModal,
           });
