@@ -23,7 +23,9 @@ export default function TestSimpleModal() {
             value={showCustomFooter}
             onChange={changeCustomFooterStatus}
           />
-          <Text>{showFooter ? 'Show Footer' : 'Hide Fotter'}</Text>
+          <Text>
+            {showCustomFooter ? 'Show Custom Footer' : 'Hide Custom Fotter'}
+          </Text>
         </XStack>
         <Text>这是一个普通的 Modal 测试</Text>
       </Page.Body>
