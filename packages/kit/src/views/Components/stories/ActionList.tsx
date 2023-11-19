@@ -38,7 +38,7 @@ const ActionListDemo1 = () => (
   />
 );
 
-const ActionLisPlacement = () => (
+const ActionListPlacement = () => (
   <YStack space="$2">
     <ActionList
       title="right(Web Only)"
@@ -224,7 +224,7 @@ const ActionListGallery = () => (
         title: 'Placement',
         element: (
           <Stack space="$1">
-            <ActionLisPlacement />
+            <ActionListPlacement />
           </Stack>
         ),
       },
