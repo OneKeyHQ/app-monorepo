@@ -7,7 +7,8 @@ import { get } from 'lodash';
 import { StyleSheet } from 'react-native';
 import { useTheme } from 'tamagui';
 
-import { DesktopDragZoneBox, Stack } from '../../index';
+import { DesktopDragZoneBox } from '../../DesktopDragZoneBox';
+import { Stack } from '../../Stack';
 
 import HeaderBackButton from './HeaderBackButton';
 import HeaderSearchBar from './HeaderSearchBar';

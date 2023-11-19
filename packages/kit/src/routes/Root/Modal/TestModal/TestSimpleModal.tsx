@@ -10,6 +10,7 @@ export default function TestSimpleModal() {
   );
   const [showFooter, changeFooterStatus] = useState(true);
   const [showCustomFooter, changeCustomFooterStatus] = useState(false);
+  const [showNewHeader, changeNewHeaderStatus] = useState(false);
   return (
     <Page>
       <Page.Header title="test modal" headerRight={headerRightCall} />
@@ -27,8 +28,17 @@ export default function TestSimpleModal() {
             {showCustomFooter ? 'Show Custom Footer' : 'Hide Custom Fotter'}
           </Text>
         </XStack>
+        <XStack>
+          <Switch value={showNewHeader} onChange={changeNewHeaderStatus} />
+          <Text>{showNewHeader ? 'Show New Header' : 'Hide New Header'}</Text>
+        </XStack>
         <Text>这是一个普通的 Modal 测试</Text>
       </Page.Body>
+      {showNewHeader ? (
+        <XStack>
+          <Page.Header title="new title" />
+        </XStack>
+      ) : null}
       {showFooter ? (
         <Page.Footer
           onConfirm={() => alert('confirmed')}
