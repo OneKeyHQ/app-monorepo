@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-import { Page, Switch, Text, XStack } from '@onekeyhq/components';
+import { Button, Page, Switch, Text, XStack } from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';
 
 export default function TestSimpleModal() {
@@ -36,7 +36,17 @@ export default function TestSimpleModal() {
           }}
           onCancelText="NO"
         >
-          {showCustomFooter ? <Text>Custom Footer</Text> : null}
+          {showCustomFooter ? (
+            <XStack
+              alignItems="center"
+              justifyContent="space-between"
+              width="100%"
+            >
+              <Button>Close All</Button>
+              <Text>+</Text>
+              <Button>Done</Button>
+            </XStack>
+          ) : null}
         </Page.Footer>
       ) : null}
     </Page>
