@@ -119,7 +119,7 @@ function normalizeConfig({ platform, config }) {
         'platformEnv.isNative': isNative,
         'platformEnv.isExtChrome': isExtChrome,
         'platformEnv.isExtFirefox': isExtFirefox,
-        'platformEnv.isWeb': isWeb || isDesktop || isExtension,
+        'platformEnv.isWeb': isWeb,
       },
     ],
     /*
