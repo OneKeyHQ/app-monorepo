@@ -180,7 +180,7 @@ function RawPopover({
 
 const Popover = ({ renderTrigger, ...rest }: IPopoverProps) => {
   // on web and WAP, we add the popover to the RNRootView
-  if (platformEnv.isWeb) {
+  if (platformEnv.isRuntimeBrowser) {
     return (
       <RawPopover
         sheetProps={{ modal: true }}
