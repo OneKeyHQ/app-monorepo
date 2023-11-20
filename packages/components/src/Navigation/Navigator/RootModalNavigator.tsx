@@ -43,6 +43,7 @@ export function RootModalNavigator<RouteName extends string>({
 
   return (
     <Stack
+      bg="$bg"
       flex={1}
       paddingBottom={
         // iOS Pad Modal not is full screen

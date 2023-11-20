@@ -105,7 +105,9 @@ function useAppNavigation<
     navigation,
     reset: navigation.reset,
     dispatch: navigation.dispatch,
-    push: navigation.navigate,
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    push: navigation.push,
+    navigate: navigation.navigate,
     switchTab,
     pushModal,
     pop,

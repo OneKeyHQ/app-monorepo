@@ -2,7 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import natsort from 'natsort';
 import { FlatList } from 'react-native';
 
-import { ListItem, Screen } from '@onekeyhq/components';
+import { ListItem, Page } from '@onekeyhq/components';
 import { EGalleryRoutes } from '@onekeyhq/kit/src/routes/Root/Tab/Developer/Gallery/routes';
 
 const Index = () => {
@@ -12,7 +12,7 @@ const Index = () => {
     .sort((a, b) => natsort({ insensitive: true })(a, b));
 
   return (
-    <Screen>
+    <Page>
       <FlatList
         data={componentsRoute}
         style={{
@@ -40,7 +40,7 @@ const Index = () => {
         )}
         keyExtractor={(_, index) => index.toString()}
       />
-    </Screen>
+    </Page>
   );
 };
 

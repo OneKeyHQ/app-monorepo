@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 
 import { FlatList } from 'react-native';
 
-import { IconButton, ModalContainer, Stack, Text } from '@onekeyhq/components';
+import { IconButton, Page, Stack, Text } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -106,17 +106,17 @@ function TabListModal() {
     [],
   );
   return (
-    <ModalContainer
-      onConfirm={() => webTabsActions.addBlankWebTab()}
-      onCancel={() => webTabsActions.closeAllWebTabs()}
-    >
-      <FlatList
-        style={{ width: '100%', height: 200 }}
-        data={data}
-        renderItem={renderItem}
-        keyExtractor={keyExtractor}
-      />
-    </ModalContainer>
+    <Page>
+      <Page.Header title="Tab List" />
+      <Page.Body>
+        <FlatList
+          style={{ width: '100%', height: 200 }}
+          data={data}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
+        />
+      </Page.Body>
+    </Page>
   );
 }
 
