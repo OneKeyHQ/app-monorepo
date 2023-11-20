@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   ListItem,
-  ModalContainer,
+  Page,
   ScrollView,
   Stack,
   Switch,
@@ -103,7 +103,7 @@ const HardwareBridgeSection = () => {
 
 export default function SettingListModal() {
   return (
-    <ModalContainer>
+    <Page>
       <ScrollView>
         <Stack pb="$2">
           <SecuritySection />
@@ -114,6 +114,6 @@ export default function SettingListModal() {
           <AboutSection />
         </Stack>
       </ScrollView>
-    </ModalContainer>
+    </Page>
   );
 }

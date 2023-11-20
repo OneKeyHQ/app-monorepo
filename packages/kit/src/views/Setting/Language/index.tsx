@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { ModalContainer, ScrollView } from '@onekeyhq/components';
+import { Page, ScrollView } from '@onekeyhq/components';
 import type { ILocaleSymbol } from '@onekeyhq/components/src/locale';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
@@ -15,7 +15,7 @@ export default function SettingLanguageModal() {
     await backgroundApiProxy.serviceSetting.setLocale(text as ILocaleSymbol);
   }, []);
   return (
-    <ModalContainer>
+    <Page>
       <ScrollView showsVerticalScrollIndicator={false}>
         <ListItemSelect
           onChange={onChange}
@@ -23,6 +23,6 @@ export default function SettingLanguageModal() {
           options={options.map((o) => ({ title: o.label, value: o.value }))}
         />
       </ScrollView>
-    </ModalContainer>
+    </Page>
   );
 }

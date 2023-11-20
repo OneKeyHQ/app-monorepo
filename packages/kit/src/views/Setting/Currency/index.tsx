@@ -1,11 +1,11 @@
-import { ModalContainer, Stack, Text } from '@onekeyhq/components';
+import { Page, Stack, Text } from '@onekeyhq/components';
 
 export default function SettingCurrencyModal() {
   return (
-    <ModalContainer>
+    <Page>
       <Stack>
         <Text>Currency Setting</Text>
       </Stack>
-    </ModalContainer>
+    </Page>
   );
 }

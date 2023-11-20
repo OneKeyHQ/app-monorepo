@@ -3,7 +3,7 @@ import { useLayoutEffect } from 'react';
 
 import { Input } from 'tamagui';
 
-import { Button, ModalContainer, Stack, Toast } from '@onekeyhq/components';
+import { Button, Stack, Toast } from '@onekeyhq/components';
 import type { IModalScreenProps } from '@onekeyhq/components/src/Navigation';
 import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
 import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';
@@ -36,58 +36,51 @@ function DemoCreateViewModal({
   }, [navigation]);
 
   return (
-    <ModalContainer
-      onConfirm={() => {}}
-      checkboxProps={{
-        label: '测试',
-      }}
-    >
-      <Layout
-        description="这是一个普通的 Modal 测试"
-        suggestions={[
-          'Modal 可以通过点击空白处关闭或返回上一级',
-          'Modal 可以通过按 ESC 键关闭或返回上一级',
-          'Android 平台 Modal 可以通过点击返回键关闭或返回上一级',
-          'iOS 平台 Modal 可以通过向下滑动直接关闭整个 Modal Stack',
-        ]}
-        boundaryConditions={[
-          '打开 Modal 推荐使用 useDemoAppNavigation() hook 的 pushModal 方法',
-        ]}
-        elements={[
-          {
-            title: '开始 Demo',
-            element: (
-              <Button
-                variant="primary"
-                onPress={() => {
-                  navigation.navigate(
-                    EDemoCreateModalRoutes.DemoCreateSearchModal,
-                    {
-                      question: '你好',
-                    },
-                  );
-                }}
-              >
-                开始 Demo
-              </Button>
-            ),
-          },
-          {
-            title: '测试输入法',
-            element: <Input />,
-          },
-          {
-            title: '渲染测试',
-            element: (
-              <Stack>
-                <FreezeProbe componentName="DemoCreateViewModal" />
-                <NavigationFocusTools componentName="DemoCreateViewModal" />
-              </Stack>
-            ),
-          },
-        ]}
-      />
-    </ModalContainer>
+    <Layout
+      description="这是一个普通的 Modal 测试"
+      suggestions={[
+        'Modal 可以通过点击空白处关闭或返回上一级',
+        'Modal 可以通过按 ESC 键关闭或返回上一级',
+        'Android 平台 Modal 可以通过点击返回键关闭或返回上一级',
+        'iOS 平台 Modal 可以通过向下滑动直接关闭整个 Modal Stack',
+      ]}
+      boundaryConditions={[
+        '打开 Modal 推荐使用 useDemoAppNavigation() hook 的 pushModal 方法',
+      ]}
+      elements={[
+        {
+          title: '开始 Demo',
+          element: (
+            <Button
+              variant="primary"
+              onPress={() => {
+                navigation.navigate(
+                  EDemoCreateModalRoutes.DemoCreateSearchModal,
+                  {
+                    question: '你好',
+                  },
+                );
+              }}
+            >
+              开始 Demo
+            </Button>
+          ),
+        },
+        {
+          title: '测试输入法',
+          element: <Input />,
+        },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoCreateViewModal" />
+              <NavigationFocusTools componentName="DemoCreateViewModal" />
+            </Stack>
+          ),
+        },
+      ]}
+    />
   );
 }
 

@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ModalContainer, Stack } from '@onekeyhq/components';
+import { Page, Stack } from '@onekeyhq/components';
 import {
   type ISettingsPersistAtom,
   useSettingsPersistAtom,
@@ -42,7 +42,7 @@ export default function SettingThemeModal() {
     [],
   );
   return (
-    <ModalContainer>
+    <Page>
       <Stack>
         <ListItemSelect
           onChange={onChange}
@@ -50,6 +50,6 @@ export default function SettingThemeModal() {
           options={options}
         />
       </Stack>
-    </ModalContainer>
+    </Page>
   );
 }
