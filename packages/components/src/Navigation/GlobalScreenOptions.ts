@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { TransitionPresets } from '@react-navigation/stack';
-import { getTokenValue } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
