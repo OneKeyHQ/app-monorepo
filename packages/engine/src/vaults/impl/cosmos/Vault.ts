@@ -241,8 +241,8 @@ export default class Vault extends VaultBase {
 
       const token = results.find((item) => {
         if (
-          item.type === Type.Ibc &&
-          this.normalIBCAddress(item.denom) === normalizationAddress
+          item.type_asset === 'ics20' &&
+          this.normalIBCAddress(item.base) === normalizationAddress
         ) {
           return true;
         }
@@ -364,16 +364,30 @@ export default class Vault extends VaultBase {
 
       const ibcTokens = results.reduce((acc, item) => {
         const normalizationAddress =
-          this.normalIBCAddress(item.denom) ?? item.denom;
+          this.normalIBCAddress(item.base) ?? item.base;
 
         if (
-          item.type === Type.Ibc &&
+          item.type_asset === 'ics20' &&
           ibcTokenAddresses.has(normalizationAddress)
         ) {
+          const decimals = item.denom_units.find(
+            (unit) => unit.denom === item.display,
+          )?.exponent;
+
+          if (decimals === undefined) {
+            // throw new Error('Invalid token decimals');
+            return acc;
+          }
+
+          const ibcChannelId =
+            item.traces?.at(0)?.chain?.channel_id?.toUpperCase() ?? '';
+
           acc.push({
-            name: `${item.dp_denom}(${item.channel?.toUpperCase() ?? ''})`,
-            symbol: item.dp_denom,
-            decimals: item.decimal,
+            name: `${item.symbol}${
+              ibcChannelId?.length > 0 ? `(${ibcChannelId})` : ''
+            }`,
+            symbol: item.symbol,
+            decimals,
           });
         }
         return acc;

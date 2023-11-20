@@ -26,7 +26,6 @@ const NetworkIDMinScanMap: Record<string, string> = {
   [OnekeyNetwork.juno]: 'juno',
   [OnekeyNetwork.osmosis]: 'osmosis',
   [OnekeyNetwork.secretnetwork]: 'secret',
-  // [OnekeyNetwork.injective]: 'injective',
 };
 
 export class MintScanQuery implements IQuery {
@@ -56,26 +55,7 @@ export class MintScanQuery implements IQuery {
     chainInfo: QueryChainInfo,
     contractAddressArray: string[],
   ): Promise<ICw20AssetInfo[]> {
-    const { networkId } = chainInfo;
-    const cw20Tokens = await this.fetchCw20TokenInfos(networkId);
-
-    const contractsSet = contractAddressArray.reduce((acc, cur) => {
-      if (acc.has(cur)) return acc;
-      return acc.add(cur);
-    }, new Set<string>());
-
-    const tokens = cw20Tokens.reduce((acc, cur) => {
-      if (contractsSet.has(cur.contract_address)) {
-        acc.push({
-          contractAddress: cur.contract_address,
-          name: cur.denom,
-          decimals: cur.decimal,
-          symbol: cur.denom,
-        });
-      }
-      return acc;
-    }, [] as ICw20AssetInfo[]);
-    return tokens;
+    return Promise.resolve([] as ICw20AssetInfo[]);
   }
 
   async queryCw20TokenBalance(
@@ -93,14 +73,29 @@ export class MintScanQuery implements IQuery {
     return Promise.resolve(balance);
   }
 
+  private async proxyFetchAssets(url: string) {
+    try {
+      const proxyUrl = `https://mirror.ghproxy.com/${url}`;
+      const resp = await this.axios.get<{ assets: AssetInfo[] }>(proxyUrl);
+      return resp.data.assets;
+    } catch (proxyError) {
+      try {
+        const resp = await this.axios.get<{ assets: AssetInfo[] }>(url);
+        return resp.data.assets;
+      } catch (error) {
+        return [];
+      }
+    }
+  }
+
   async fetchAssertInfos(networkId: string): Promise<AssetInfo[]> {
     const chain = NetworkIDMinScanMap[networkId];
     if (!chain) return [];
     try {
-      const resp = await this.axios.get<{ assets: AssetInfo[] }>(
-        `/v2/assets/${chain}`,
+      const resp = await this.proxyFetchAssets(
+        `https://raw.githubusercontent.com/cosmos/chain-registry/master/${chain}/assetlist.json`,
       );
-      return resp.data.assets;
+      return resp;
     } catch (error) {
       return [];
     }
