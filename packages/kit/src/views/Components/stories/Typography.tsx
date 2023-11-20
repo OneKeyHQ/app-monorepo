@@ -1,6 +1,4 @@
-import { YStack } from 'tamagui';
-
-import { Text } from '@onekeyhq/components';
+import { Text, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
