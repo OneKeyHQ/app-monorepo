@@ -9,7 +9,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import config from '../../tamagui.config';
 import LOCALES from '../locale';
-import Toaster from '../Toast/Toaster';
+import { Toaster } from '../Toast';
 
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
 import { Context } from './hooks/useProviderValue';
