@@ -3,14 +3,13 @@ import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { IconButton, Input, XStack } from '@onekeyhq/components';
 import type { IICON_NAMES } from '@onekeyhq/components';
+import { IconButton, Input, XStack } from '@onekeyhq/components';
 
 import { gotoSite, openMatchDApp } from '../../Controller/gotoSite';
 import { useWebController } from '../../Controller/useWebController';
 
 import type { MatchDAppItemType } from '../../explorerUtils';
-import type { WebTab } from '../Context/contextWebTabs';
 import type { TextInput } from 'react-native';
 
 type BrowserURLInputProps = {

@@ -7,11 +7,11 @@ export interface IJsonRpcResponsePro<T> extends IJsonRpcResponse<T> {
 
 // import type { Response as FetchResponse } from 'cross-fetch';
 
-type ErrorResponse = Response | IJsonRpcResponsePro<any>;
+type IErrorResponse = Response | IJsonRpcResponsePro<any>;
 export class ResponseError extends Error {
-  readonly response?: ErrorResponse;
+  readonly response?: IErrorResponse;
 
-  constructor(message?: string, response?: ErrorResponse) {
+  constructor(message?: string, response?: IErrorResponse) {
     super(message);
     if (response) {
       if ('jsonrpc' in response) {
@@ -26,7 +26,7 @@ export class ResponseError extends Error {
 export class JsonPRCResponseError extends ResponseError {
   readonly error?: unknown;
 
-  constructor(message?: string, response?: ErrorResponse, error?: unknown) {
+  constructor(message?: string, response?: IErrorResponse, error?: unknown) {
     super(message, response);
     this.error = error;
   }

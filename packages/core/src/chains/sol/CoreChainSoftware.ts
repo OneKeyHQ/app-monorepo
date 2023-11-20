@@ -6,7 +6,6 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
-import type { IEncodedTxSol, INativeTxSol } from './types';
 import type { ISigner } from '../../base/ChainSigner';
 import type {
   ICoreApiGetAddressItem,
@@ -20,8 +19,8 @@ import type {
   ICoreApiSignTxPayload,
   ICurveName,
   ISignedTxPro,
-  SignedTx,
 } from '../../types';
+import type { IEncodedTxSol, INativeTxSol } from './types';
 
 const curve: ICurveName = 'ed25519';
 
@@ -45,11 +44,13 @@ async function signTransaction({
   nativeTx,
   feePayer,
   signer,
+  encodedTx,
 }: {
   nativeTx: INativeTxSol;
   feePayer: PublicKey;
   signer: ISigner;
-}): Promise<SignedTx> {
+  encodedTx: IEncodedTxSol;
+}): Promise<ISignedTxPro> {
   const transaction = nativeTx;
   const isVersionedTransaction = transaction instanceof VersionedTransaction;
 
@@ -61,6 +62,7 @@ async function signTransaction({
   transaction.addSignature(feePayer, sig);
 
   return {
+    encodedTx,
     txid: bs58.encode(sig),
     rawTx: Buffer.from(
       transaction.serialize({ requireAllSignatures: false }),
@@ -100,7 +102,12 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       throw new Error('nativeTx is null');
     }
 
-    return signTransaction({ nativeTx, feePayer, signer });
+    return signTransaction({
+      nativeTx,
+      feePayer,
+      signer,
+      encodedTx: unsignedTx.encodedTx as any,
+    });
   }
 
   override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {

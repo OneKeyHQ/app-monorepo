@@ -35,6 +35,7 @@ const {
       encodedTx:
         'AKhoybLLJS1deDJDyjELDNhfkBBX3k4dt4bBfmppjfPVVimhQdFEfDo8AiFcCBCC9VkYWV2r3jkh9n1DAXEhnJPwMmnsrzPU2tzHAKYnwTBaPFbZyQ5TdfhLktRm9RnYgLDqDby5R5LQp2FrFkkMiPWuPT7Za6TFvccnuZ1CZ88HnU5tAyLbX25oCEzsTN9xHxFess7V37H3W97jELbHDsdvc6mhKqdq41oPKhprZYBukt8cLyHdeEbno',
       signedTx: {
+        'encodedTx': null,
         'txid':
           '5BDe9KffLU3FoPdGEuT3reDCC534yWCBRHA2spYGV8Gj6x5WwB7zTzed2j9bbdCiBVRyu4VAv4AKuQc3EBe595Hy',
         'rawTx':

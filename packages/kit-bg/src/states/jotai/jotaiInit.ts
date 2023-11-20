@@ -1,3 +1,5 @@
+import { isNil } from 'lodash';
+
 import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 
 import { EAtomNames } from './atomNames';
@@ -9,7 +11,7 @@ import {
 import { JotaiCrossAtom } from './utils/JotaiCrossAtom';
 import { jotaiDefaultStore } from './utils/jotaiDefaultStore';
 
-import type { IAtomSetWithoutProxy, IWritableAtomPro } from './types';
+import type { IJotaiAtomSetWithoutProxy, IJotaiWritableAtomPro } from './types';
 
 export async function jotaiUpdateFromUiByBgBroadcast(
   params: IGlobalStatesSyncBroadcastParams,
@@ -19,7 +21,11 @@ export async function jotaiUpdateFromUiByBgBroadcast(
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const atomInfo = allAtoms[params.name] as JotaiCrossAtom<any>;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  const atomObj = atomInfo.atom() as unknown as IWritableAtomPro<any, any, any>;
+  const atomObj = atomInfo.atom() as unknown as IJotaiWritableAtomPro<
+    any,
+    any,
+    any
+  >;
   await jotaiDefaultStore.set(atomObj, params);
 }
 
@@ -35,12 +41,12 @@ export async function jotaiInitFromUi({
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const atomInfo = allAtoms[key] as JotaiCrossAtom<any>;
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      const atomObj = atomInfo.atom() as unknown as IWritableAtomPro<
+      const atomObj = atomInfo.atom() as unknown as IJotaiWritableAtomPro<
         any,
         any,
         any
       >;
-      const data: IAtomSetWithoutProxy = {
+      const data: IJotaiAtomSetWithoutProxy = {
         $$isForceSetAtomWithoutProxy: true,
         name: key,
         payload: value,
@@ -84,7 +90,7 @@ export async function jotaiInit() {
       }
       const storageKey = buildJotaiStorageKey(value.name);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      const atomObj = value.atom() as unknown as IWritableAtomPro<
+      const atomObj = value.atom() as unknown as IJotaiWritableAtomPro<
         any,
         any,
         any
@@ -95,10 +101,14 @@ export async function jotaiInit() {
         return;
       }
 
-      const storageValue = await onekeyJotaiStorage.getItem(
+      let storageValue = await onekeyJotaiStorage.getItem(
         storageKey,
-        initValue,
+        undefined,
       );
+      if (isNil(storageValue)) {
+        await onekeyJotaiStorage.setItem(storageKey, initValue);
+        storageValue = await onekeyJotaiStorage.getItem(storageKey, initValue);
+      }
       const currentValue = await jotaiDefaultStore.get(atomObj);
       if (currentValue !== storageValue) {
         await jotaiDefaultStore.set(atomObj, storageValue);

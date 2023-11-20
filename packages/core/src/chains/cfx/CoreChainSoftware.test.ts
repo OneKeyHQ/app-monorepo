@@ -48,6 +48,7 @@ const {
         'storageLimit': '0',
       },
       signedTx: {
+        encodedTx: null,
         'digest':
           '0x830f7330fe140d0515381cad22f7796b2e2f7a5c451641797f7bb4ee5aed7eeb',
         'txid':
