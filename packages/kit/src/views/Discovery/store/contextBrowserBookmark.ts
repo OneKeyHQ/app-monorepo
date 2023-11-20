@@ -3,7 +3,7 @@ import {
   createJotaiContext,
 } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 
-import { homeTab } from './contextWebTabs';
+import { homeTab, syncBookmark } from './contextWebTabs';
 
 import type { IBrowserBookmark } from '../types';
 
@@ -31,6 +31,7 @@ export const addBrowserBookmarkAtom = atom(
     bookmark.push({ url: payload.url, title: payload.title });
     set(browserBookmarkAtom, bookmark);
     console.log('===>set browserBookmarkAtom: ', bookmark);
+    syncBookmark(payload.url, true);
   },
 );
 
@@ -43,6 +44,7 @@ export const removeBrowserBookmarkAtom = atom(
       bookmark.splice(index, 1);
     }
     set(browserBookmarkAtom, bookmark);
+    syncBookmark(payload, false);
   },
 );
 

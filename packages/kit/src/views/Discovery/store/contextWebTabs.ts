@@ -192,4 +192,14 @@ export const closeWebTab = (tabId: string) =>
 export const setWebTabData = (payload: Partial<IWebTab>) =>
   webTabsStore?.set(setWebTabDataAtom, payload);
 
+export const syncBookmark = (url: string, isBookmark: boolean) => {
+  const tabMap = getTabsMap();
+  if (!tabMap) return;
+  Object.entries(tabMap).forEach(([, value]) => {
+    if (value.url === url) {
+      void setWebTabData({ id: value.id, isBookmark });
+    }
+  });
+};
+
 export { useAtomWebTabs, withProviderWebTabs };
