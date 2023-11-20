@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { Image } from 'react-native';
 
@@ -24,6 +24,9 @@ function DesktopCustomTabBarItem({
   const { tab } = useWebTabData(id);
   const [menuHoverVisible, setMenuHoverVisible] = useState(false);
   const isActive = useMemo(() => activeTabId === id, [activeTabId, id]);
+  const handleOpenChange = useCallback((isOpen: boolean) => {
+    console.log(isOpen);
+  }, []);
   return (
     <XStack
       key={id}
@@ -63,6 +66,7 @@ function DesktopCustomTabBarItem({
         <ActionList
           title="Action List"
           placement="right-start"
+          onOpenChange={handleOpenChange}
           renderTrigger={
             menuHoverVisible && (
               <Stack
