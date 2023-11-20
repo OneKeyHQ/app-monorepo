@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 import { useNavigation } from '@react-navigation/core';
 
 import {
@@ -13,7 +11,6 @@ import {
   useDialogInstance,
   useForm,
 } from '@onekeyhq/components';
-import type { IDialogProps } from '@onekeyhq/components/src/Dialog/type';
 import type { IModalNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import { EGalleryRoutes } from '../../../routes/Root/Tab/Developer/Gallery/routes';
@@ -21,44 +18,6 @@ import { EGalleryRoutes } from '../../../routes/Root/Tab/Developer/Gallery/route
 import { Layout } from './utils/Layout';
 
 import type { UseFormReturn } from 'react-hook-form';
-
-const VariantsDemo = ({ tone }: IDialogProps) => {
-  const [isOpen, changeIsOpen] = useState(false);
-  return (
-    <Dialog
-      open={isOpen}
-      icon="PlaceholderOutline"
-      title="Lorem ipsum"
-      description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec."
-      onOpen={() => {
-        changeIsOpen(true);
-      }}
-      renderTrigger={<Button>{tone || 'Default'}</Button>}
-      onClose={() => {
-        changeIsOpen(false);
-      }}
-      tone={tone}
-    />
-  );
-};
-
-const HideFooterDialog = () => {
-  const [isOpen, changeIsOpen] = useState(false);
-  return (
-    <>
-      <Button onPress={() => changeIsOpen(true)}>Trigger</Button>
-      <Dialog
-        title="Lorem ipsum"
-        description="Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec."
-        open={isOpen}
-        onClose={() => {
-          changeIsOpen(false);
-        }}
-        showFooter={false}
-      />
-    </>
-  );
-};
 
 const CustomFooter = ({
   index,
@@ -149,15 +108,58 @@ const DialogGallery = () => (
       {
         title: 'Variants',
         element: (
-          <XStack space="$4">
-            <VariantsDemo />
-            <VariantsDemo tone="destructive" />
-          </XStack>
+          <YStack space="$2">
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'Lorem ipsum',
+                  icon: 'PlaceholderOutline',
+                  description:
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                  tone: 'default',
+                })
+              }
+            >
+              tone Default
+            </Button>
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'Lorem ipsum',
+                  icon: 'PlaceholderOutline',
+                  description:
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                  tone: 'destructive',
+                })
+              }
+            >
+              destructive
+            </Button>
+          </YStack>
         ),
       },
       {
         title: 'Hide dialog footer',
-        element: <HideFooterDialog />,
+        element: (
+          <YStack>
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'Lorem ipsum',
+                  onConfirmText: 'OK',
+                  onCancelText: 'Bye',
+                  description:
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                  onConfirm() {
+                    alert('confirmed');
+                  },
+                })
+              }
+            >
+              Hide dialog footer
+            </Button>
+          </YStack>
+        ),
       },
       {
         title: '命令式 API',

@@ -172,7 +172,6 @@ function DialogFrame({
       <>
         <Trigger onOpen={onOpen}>{renderTrigger}</Trigger>
         <Sheet
-          modal
           open={open}
           position={position}
           onPositionChange={setPosition}
