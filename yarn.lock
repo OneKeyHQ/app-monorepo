@@ -6765,7 +6765,7 @@ __metadata:
     "@types/node-fetch": ^2.6.1
     adm-zip: ^0.5.10
     cross-env: ^7.0.3
-    electron: 19.1.8
+    electron: 22.3.25
     electron-builder: 22.14.13
     electron-config: ^2.0.0
     electron-context-menu: ^3.5.0
