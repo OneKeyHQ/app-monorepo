@@ -1,4 +1,4 @@
-import { isValidElement } from 'react';
+import { type ComponentProps, isValidElement } from 'react';
 
 import { Avatar } from '../Avatar';
 import { type IIconProps, Icon } from '../Icon';
@@ -174,6 +174,7 @@ interface IListItemProps extends StackProps {
   subtitleProps?: IListItemTextProps['secondaryTextProps'];
   avatarProps?: IListItemAvatarProps;
   icon?: IIconProps['name'];
+  iconProps?: Exclude<ComponentProps<typeof Icon>, 'name'>;
   drillIn?: boolean;
   checkMark?: boolean;
 }
@@ -187,6 +188,7 @@ function ListItem(props: IListItemProps) {
     subtitle,
     subtitleProps,
     drillIn,
+    iconProps,
     checkMark,
     onPress,
     children,
@@ -221,7 +223,7 @@ function ListItem(props: IListItemProps) {
           {...avatarProps}
         />
       )}
-      {icon && <Icon name={icon} color="$iconSubdued" />}
+      {icon && <Icon name={icon} color="$iconSubdued" {...iconProps} />}
       {(title || subtitle) && (
         <ListItemText
           flex={1}
