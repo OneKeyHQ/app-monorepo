@@ -5,24 +5,24 @@ import { get } from 'lodash';
 import type { ILocaleIds } from '@onekeyhq/components/src/locale';
 
 import {
+  EOneKeyErrorClassNames,
   type IOneKeyErrorInfo,
-  OneKeyErrorClassNames,
-  type OneKeyHardwareErrorData,
-  type OneKeyHardwareErrorPayload,
+  type IOneKeyHardwareErrorData,
+  type IOneKeyHardwareErrorPayload,
 } from '../types/errorTypes';
 
 import { OneKeyError } from './baseErrors';
 
-export enum CustomOneKeyHardwareError {
+export enum ECustomOneKeyHardwareError {
   NeedOneKeyBridge = 3030,
   // TODO: remove this error code
   NeedFirmwareUpgrade = 4030,
 }
 
 export class OneKeyHardwareError<
-  T extends OneKeyHardwareErrorData = OneKeyHardwareErrorData,
+  T extends IOneKeyHardwareErrorData = IOneKeyHardwareErrorData,
 > extends OneKeyError<any, T> {
-  override className = OneKeyErrorClassNames.OneKeyHardwareError;
+  override className = EOneKeyErrorClassNames.OneKeyHardwareError;
 
   codeHardware?: string;
 
@@ -50,7 +50,7 @@ export class OneKeyHardwareError<
    * @param errorParams Hardware Error params, key is i18n placeholder, value is error payload key
    */
   constructor(
-    errorPayload?: OneKeyHardwareErrorPayload,
+    errorPayload?: IOneKeyHardwareErrorPayload,
     errorParams?: Record<string | number, string>,
     data?: T,
   ) {
@@ -77,7 +77,7 @@ export class OneKeyHardwareError<
 }
 
 export class OneKeyHardwareAbortError extends OneKeyError {
-  override className = OneKeyErrorClassNames.OneKeyAbortError;
+  override className = EOneKeyErrorClassNames.OneKeyAbortError;
 
   override key: ILocaleIds = 'msg__engine__internal_error';
 }
@@ -86,9 +86,9 @@ export class OneKeyAlreadyExistWalletError extends OneKeyHardwareError<
   {
     walletId: string;
     walletName: string | undefined;
-  } & OneKeyHardwareErrorData
+  } & IOneKeyHardwareErrorData
 > {
-  override className = OneKeyErrorClassNames.OneKeyAlreadyExistWalletError;
+  override className = EOneKeyErrorClassNames.OneKeyAlreadyExistWalletError;
 
   override key: ILocaleIds = 'msg__wallet_already_exist';
 
@@ -145,7 +145,7 @@ export class ConnectTimeout extends OneKeyHardwareError {
 }
 
 export class NeedOneKeyBridge extends OneKeyHardwareError {
-  override code = CustomOneKeyHardwareError.NeedOneKeyBridge;
+  override code = ECustomOneKeyHardwareError.NeedOneKeyBridge;
 
   override key: ILocaleIds = 'modal__need_install_onekey_bridge';
 }
@@ -242,7 +242,7 @@ export class OpenBlindSign extends OneKeyHardwareError {
 export class FirmwareVersionTooLow extends OneKeyHardwareError {
   override code = HardwareErrorCode.CallMethodNeedUpgradeFirmware;
 
-  constructor(errorPayload?: OneKeyHardwareErrorPayload) {
+  constructor(errorPayload?: IOneKeyHardwareErrorPayload) {
     super(errorPayload, { 0: 'require' });
   }
 
@@ -339,7 +339,7 @@ export class NotSupportPassphraseError extends OneKeyHardwareError {
 
   override key: ILocaleIds = 'msg__not_support_passphrase_need_upgrade';
 
-  constructor(errorPayload?: OneKeyHardwareErrorPayload) {
+  constructor(errorPayload?: IOneKeyHardwareErrorPayload) {
     super(errorPayload, { 0: 'require' });
   }
 }

@@ -4,11 +4,11 @@ import elliptic from 'elliptic';
 
 import { parse256 } from '../bip32';
 
-import type { BaseCurve, CurveForKD } from './base';
+import type { IBaseCurve, ICurveForKD } from './base';
 
-type ELPoint = elliptic.curve.base.BasePoint;
+type IEllipticBasePoint = elliptic.curve.base.BasePoint;
 
-class EllipticECWrapper implements CurveForKD {
+class EllipticECWrapper implements ICurveForKD {
   groupOrder: BigNumber;
 
   constructor(private curve: elliptic.ec) {
@@ -70,9 +70,11 @@ class EllipticECWrapper implements CurveForKD {
     if (parse256(IL).gte(this.groupOrder)) {
       return null;
     }
-    const p: ELPoint = this.curve.keyFromPrivate(IL).getPublic();
-    const q: ELPoint = this.curve.keyFromPublic(parentPublicKey).getPublic();
-    const r: ELPoint = p.add(q);
+    const p: IEllipticBasePoint = this.curve.keyFromPrivate(IL).getPublic();
+    const q: IEllipticBasePoint = this.curve
+      .keyFromPublic(parentPublicKey)
+      .getPublic();
+    const r: IEllipticBasePoint = p.add(q);
     if (r.isInfinity()) {
       return null;
     }
@@ -80,7 +82,7 @@ class EllipticECWrapper implements CurveForKD {
   }
 }
 
-class EllipticEDDSAWrapper implements BaseCurve {
+class EllipticEDDSAWrapper implements IBaseCurve {
   // eslint-disable-next-line no-useless-constructor
   constructor(private curve: elliptic.eddsa) {
     // noop
@@ -107,15 +109,15 @@ class EllipticEDDSAWrapper implements BaseCurve {
   }
 }
 
-const secp256k1: CurveForKD = new EllipticECWrapper(
+const secp256k1: ICurveForKD = new EllipticECWrapper(
   // eslint-disable-next-line new-cap
   new elliptic.ec('secp256k1'),
 );
 // eslint-disable-next-line new-cap
-const nistp256: CurveForKD = new EllipticECWrapper(new elliptic.ec('p256'));
-const ed25519: BaseCurve = new EllipticEDDSAWrapper(
+const nistp256: ICurveForKD = new EllipticECWrapper(new elliptic.ec('p256'));
+const ed25519: IBaseCurve = new EllipticEDDSAWrapper(
   // eslint-disable-next-line new-cap
   new elliptic.eddsa('ed25519'),
 );
 
-export { secp256k1, nistp256, ed25519 };
+export { ed25519, nistp256, secp256k1 };

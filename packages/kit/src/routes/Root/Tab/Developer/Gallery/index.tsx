@@ -33,6 +33,7 @@ import FormGallery from '../../../../../views/Components/stories/Form';
 import JotaiContextGallery from '../../../../../views/Components/stories/JotaiContextGallery';
 import JotaiGlobalGallery from '../../../../../views/Components/stories/JotaiGlobalGallery';
 import ListViewGallery from '../../../../../views/Components/stories/ListView';
+import LocalDBGallery from '../../../../../views/Components/stories/LocalDBGallery';
 import QRCodeGallery from '../../../../../views/Components/stories/QRCode';
 import ScrollViewGallery from '../../../../../views/Components/stories/ScrollView';
 import SectionListGallery from '../../../../../views/Components/stories/SectionList';
@@ -99,6 +100,7 @@ export const galleryScreenList: {
     component: JotaiContextGallery,
   },
   { name: EGalleryRoutes.ComponentJotaiGlobal, component: JotaiGlobalGallery },
+  { name: EGalleryRoutes.ComponentLocalDB, component: LocalDBGallery },
   {
     name: EGalleryRoutes.ComponentForm,
     component: FormGallery,

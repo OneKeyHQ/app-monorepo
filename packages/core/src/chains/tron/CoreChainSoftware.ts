@@ -20,7 +20,6 @@ import type {
   ICurveName,
   ISignedTxPro,
   IUnsignedTxPro,
-  SignedTx,
 } from '../../types';
 
 const curve: ICurveName = 'secp256k1';
@@ -38,13 +37,14 @@ function publicKeyToAddress(publicKey: string): string {
 async function signTransaction(
   unsignedTx: IUnsignedTxPro,
   signer: ISigner,
-): Promise<SignedTx> {
+): Promise<ISignedTxPro> {
   const encodedTx = unsignedTx.encodedTx as IEncodedTxTron;
   const [sig, recoveryParam] = await signer.sign(
     Buffer.from(encodedTx.txID, 'hex'),
   );
 
-  return Promise.resolve({
+  const signedTx: ISignedTxPro = {
+    encodedTx: unsignedTx.encodedTx,
     txid: encodedTx.txID,
     rawTx: JSON.stringify({
       ...encodedTx,
@@ -52,7 +52,9 @@ async function signTransaction(
         Buffer.concat([sig, Buffer.from([recoveryParam])]).toString('hex'),
       ],
     }),
-  });
+  };
+
+  return Promise.resolve(signedTx);
 }
 
 export default class CoreChainSoftware extends CoreChainApiBase {
