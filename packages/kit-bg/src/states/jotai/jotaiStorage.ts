@@ -1,6 +1,7 @@
 /* eslint-disable max-classes-per-file */
 /* eslint-disable camelcase */
 import { atom } from 'jotai';
+import { isString } from 'lodash';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage, {
@@ -18,15 +19,23 @@ import type {
 
 class JotaiStorage implements AsyncStorage<any> {
   async getItem(key: string, initialValue: any): Promise<any> {
-    const r = await appStorage.getItem(key);
+    let data: string | null = await appStorage.getItem(key);
+    if (isString(data)) {
+      try {
+        data = JSON.parse(data);
+      } catch (e) {
+        console.error(e);
+        data = null;
+      }
+    }
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return r ?? initialValue;
+    return data ?? initialValue;
   }
 
   async setItem(key: string, newValue: any): Promise<void> {
-    const r = await appStorage.getItem(key);
+    const r = await this.getItem(key, undefined);
     if (r !== newValue) {
-      await appStorage.setItem(key, newValue);
+      await appStorage.setItem(key, JSON.stringify(newValue));
     }
   }
 
