@@ -54,10 +54,10 @@ export function makeHeaderScreenOptions({
       headerLeft: (props: HeaderBackButtonProps): ReactNode => (
         <HeaderBackButton
           onPress={currentNavigation?.goBack}
-          canGoBack={isCanGoBack}
           isModelScreen={isModelScreen}
           isRootScreen={isRootScreen}
           {...props}
+          canGoBack={isCanGoBack}
         />
       ),
     };

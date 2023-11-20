@@ -3,7 +3,7 @@ import { Suspense, memo } from 'react';
 import {
   Button,
   Dialog,
-  Screen,
+  Page,
   Spinner,
   Text,
   Toast,
@@ -40,7 +40,7 @@ const Swap = () => {
     }
   };
   return (
-    <Screen>
+    <Page>
       <YStack space="$4">
         <Text>Swap</Text>
         <Button
@@ -119,7 +119,7 @@ const Swap = () => {
           验证 Chrome生物识别
         </Button>
       </YStack>
-    </Screen>
+    </Page>
   );
 };
 
