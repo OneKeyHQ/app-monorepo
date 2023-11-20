@@ -1,42 +1,56 @@
 import { memo, useCallback, useMemo } from 'react';
-import type { ComponentProps, FC } from 'react';
+import type { FC } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { MotiView } from 'moti';
 
 import { Badge, Box, Pressable, Text } from '@onekeyhq/components';
-import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
+import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 
 import { SelectedIndicator } from '../../../../components/SelectedIndicator';
-import { useActiveSideAccount } from '../../../../hooks';
 import { showAmountInputDialog } from '../AmountInputDialog';
 import NFTListImage from '../NFTList/NFTListImage';
 
-import { useSendNFTContent } from './SendNFTContent';
+import {
+  atomSelectedSendNFTList,
+  useAtomSendNFTList,
+} from './sendNFTListContext';
 
-import type { SelectAsset } from './SendNFTContent';
-
-type Props = ComponentProps<typeof Box> & {
+type Props = {
   cardWidth: number;
-  asset: SelectAsset;
   accountId: string;
   networkId: string;
+  multiSelect: boolean;
+  asset: NFTAsset;
 };
 
-const SelectNFTCard: FC<Props> = ({
-  accountId,
-  networkId,
+export function getKeyExtrator(params: {
+  contractAddress?: string;
+  tokenId?: string;
+  networkId?: string;
+  accountAddress?: string;
+  tokenAddress?: string;
+}) {
+  return `${params.contractAddress ?? ''}-${params.tokenId ?? ''}-${
+    params.networkId ?? ''
+  }-${params.accountAddress ?? ''}-${params.tokenAddress ?? ''}`;
+}
+
+const CardItem: FC<{
+  asset: NFTAsset;
+  selected: boolean;
+  selectAmount: string;
+  onSelectAsset: () => void;
+  multiSelect: boolean;
+  cardWidth: number;
+}> = ({
+  onSelectAsset,
+  multiSelect,
   cardWidth,
   asset,
-  ...rest
+  selectAmount,
+  selected,
 }) => {
-  const content = useSendNFTContent();
-  const { networkImpl } = useActiveSideAccount({
-    accountId,
-    networkId,
-  });
-  const multiSelect = content?.context.multiSelect;
-
   const AmountTag = useMemo(() => {
     if (
       asset?.amount &&
@@ -46,10 +60,8 @@ const SelectNFTCard: FC<Props> = ({
       const total = new BigNumber(asset.amount).gt(9999)
         ? '9999+'
         : asset.amount;
-      const selectAmount = new BigNumber(asset.selectAmount).gt(9999)
-        ? '9999+'
-        : asset.selectAmount;
-      const title = `${selectAmount}/${total}`;
+      const sam = new BigNumber(selectAmount).gt(9999) ? '9999+' : selectAmount;
+      const title = `${sam}/${total}`;
       return (
         <Badge
           position="absolute"
@@ -62,58 +74,10 @@ const SelectNFTCard: FC<Props> = ({
       );
     }
     return null;
-  }, [asset.amount, asset.ercType, asset.selectAmount]);
-
-  const onSelectAmount = useCallback(
-    (selected: boolean, selectAmount: string) => {
-      content?.setContext((value) => {
-        const { listData } = value;
-        const newList = listData.map((item) => {
-          if (
-            networkImpl === IMPL_EVM &&
-            item.contractAddress === asset.contractAddress &&
-            item.tokenId === asset.tokenId
-          ) {
-            return { ...item, selected, selectAmount };
-          }
-          if (
-            networkImpl === IMPL_SOL &&
-            item.tokenAddress &&
-            item.tokenAddress === asset.tokenAddress
-          ) {
-            return { ...item, selected, selectAmount };
-          }
-          return item;
-        });
-        return {
-          ...value,
-          listData: newList,
-        };
-      });
-    },
-    [asset, content, networkImpl],
-  );
-
-  const onSelectAsset = useCallback(() => {
-    const { selected } = asset;
-    if (selected) {
-      onSelectAmount(false, '0');
-      return;
-    }
-    if (asset.amount && new BigNumber(asset.amount).gt(1)) {
-      showAmountInputDialog({
-        total: asset.amount,
-        onConfirm: (amount) => {
-          onSelectAmount(true, amount);
-        },
-      });
-      return;
-    }
-    onSelectAmount(true, '1');
-  }, [asset, onSelectAmount]);
+  }, [asset.amount, asset.ercType, selectAmount]);
 
   return (
-    <Box mb="16px" {...rest}>
+    <Box mb="16px" mr="2">
       <Pressable
         flexDirection="column"
         width={cardWidth}
@@ -140,7 +104,7 @@ const SelectNFTCard: FC<Props> = ({
             <Box position="absolute" right="6px" top="6px">
               <SelectedIndicator
                 multiSelect={multiSelect}
-                selected={asset.selected}
+                selected={selected}
                 width={20}
               />
             </Box>
@@ -148,6 +112,72 @@ const SelectNFTCard: FC<Props> = ({
         )}
       </Pressable>
     </Box>
+  );
+};
+
+const CardItemMemo = memo(CardItem);
+
+const SelectNFTCard: FC<Props> = ({ cardWidth, multiSelect, asset }) => {
+  const [selectedList, setSelectedList] = useAtomSendNFTList(
+    atomSelectedSendNFTList,
+  );
+
+  const selectedAsset = useMemo(
+    () => selectedList.find((n) => getKeyExtrator(n) === getKeyExtrator(asset)),
+    [selectedList, asset],
+  );
+
+  const isSelected = useMemo(() => !!selectedAsset, [selectedAsset]);
+
+  const selectedAmount = useMemo(
+    () => selectedAsset?.selectAmount ?? '0',
+    [selectedAsset?.selectAmount],
+  );
+
+  const onSelectAmount = useCallback(
+    (selected: boolean, amount: string) => {
+      const data = {
+        ...asset,
+        selected,
+        selectAmount: amount,
+      };
+
+      setSelectedList((list) => {
+        if (data.selected) {
+          return [...list, data];
+        }
+        return list.filter((i) => getKeyExtrator(i) !== getKeyExtrator(data));
+      });
+    },
+    [asset, setSelectedList],
+  );
+
+  const onSelectAsset = useCallback(() => {
+    if (isSelected) {
+      onSelectAmount(false, '0');
+      return;
+    }
+    if (asset.amount && new BigNumber(asset.amount).gt(1)) {
+      showAmountInputDialog({
+        total: asset.amount,
+        onConfirm: (amount) => {
+          onSelectAmount(true, amount);
+        },
+      });
+      return;
+    }
+    onSelectAmount(true, '1');
+  }, [asset, onSelectAmount, isSelected]);
+
+  return (
+    <CardItemMemo
+      asset={asset}
+      selected={isSelected}
+      selectAmount={selectedAmount}
+      cardWidth={cardWidth}
+      onSelectAsset={onSelectAsset}
+      multiSelect={multiSelect}
+    />
   );
 };
 

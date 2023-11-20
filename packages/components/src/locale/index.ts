@@ -15,6 +15,7 @@ const defaultLanguage: Record<string, string> = {
   'zh-CN': '简体中文',
   'zh-HK': '繁體中文',
   'fil': 'Filipino',
+  'pt-BR': 'Português (Brasil)',
 };
 
 const getLanguage = (symbol: string): string => {
