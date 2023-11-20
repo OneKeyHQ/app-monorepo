@@ -8,7 +8,6 @@ import {
   Text,
   Toast,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
 import {
   EPasswordResStatus,

@@ -1,8 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
 import natsort from 'natsort';
-import { FlatList } from 'react-native';
 
-import { ListItem, Page } from '@onekeyhq/components';
+import { ListItem, ListView, Page } from '@onekeyhq/components';
 import { EGalleryRoutes } from '@onekeyhq/kit/src/routes/Root/Tab/Developer/Gallery/routes';
 
 const Index = () => {
@@ -13,7 +12,8 @@ const Index = () => {
 
   return (
     <Page>
-      <FlatList
+      <ListView
+        estimatedItemSize="$4"
         data={componentsRoute}
         style={{
           flex: 1,

@@ -1,7 +1,7 @@
 const { execSync } = require('child_process');
 const { exit } = require('process');
 
-const MAX_WARNINGS_COUNT = 197;
+const MAX_WARNINGS_COUNT = 32;
 
 function handleWarnings(result) {
   const warningsCount = result.match(/, (\d+) warnings\)/)?.[1];
