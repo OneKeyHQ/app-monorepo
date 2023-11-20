@@ -41,7 +41,7 @@ const Swap = () => {
   };
   return (
     <Page>
-      <YStack space="$4">
+      <Page.Body space="$4">
         <Text>Swap</Text>
         <Button
           onPress={async () => {
@@ -118,7 +118,7 @@ const Swap = () => {
         >
           验证 Chrome生物识别
         </Button>
-      </YStack>
+      </Page.Body>
     </Page>
   );
 };

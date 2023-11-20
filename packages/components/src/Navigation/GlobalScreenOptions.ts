@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { TransitionPresets } from '@react-navigation/stack';
+import { getTokenValue } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -99,7 +100,6 @@ export function makeModalScreenOptions({
     detachPreviousScreen: false,
     headerShown: false,
     presentation: 'transparentModal',
-    cardStyle: { backgroundColor: 'transparent' },
     ...makeModalOpenAnimationOptions({ isVerticalLayout }),
   };
 }
@@ -109,7 +109,6 @@ export function makeRootModalStackOptions(): StackNavigationOptions {
     detachPreviousScreen: false,
     headerShown: false,
     presentation: 'transparentModal',
-    cardStyle: { backgroundColor: 'transparent' },
   };
 }
 

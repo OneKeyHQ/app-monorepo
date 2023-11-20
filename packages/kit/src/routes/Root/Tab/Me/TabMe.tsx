@@ -22,7 +22,7 @@ const TabMe = () => {
   }, [navigation]);
   return (
     <Page>
-      <YStack>
+      <Page.Body>
         <Button
           onPress={() => {
             navigation.switchTab(ETabRoutes.Home);
@@ -33,7 +33,7 @@ const TabMe = () => {
         <Button onPress={onPress}>
           {intl.formatMessage({ id: 'title__settings' })}
         </Button>
-      </YStack>
+      </Page.Body>
     </Page>
   );
 };

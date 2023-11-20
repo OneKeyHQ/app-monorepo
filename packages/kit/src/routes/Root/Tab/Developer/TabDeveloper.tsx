@@ -26,14 +26,6 @@ import useCookie from '../../../../hooks/useCookie';
 
 import { ETabDeveloperRoutes, type ITabDeveloperParamList } from './Routes';
 
-function setTheme(theme: string) {
-  console.log(theme);
-}
-
-function setLocale(locale: string) {
-  console.log(locale);
-}
-
 const useStorage = platformEnv.isNative
   ? (key: AppSettingKey, initialValue?: boolean) => {
       const [data, setData] = useState(
@@ -82,140 +74,103 @@ const TabDeveloper = () => {
 
   return (
     <Page>
-      <ScrollView
-        flex={1}
-        width="100%"
-        paddingHorizontal="$5"
-        paddingBottom="$5"
-        gap="$5"
-      >
-        <PartContainer title="Components">
-          <Button
-            onPress={() => {
-              navigation.push(ETabDeveloperRoutes.ComponentsGallery);
-            }}
-          >
-            Gallery
-          </Button>
-        </PartContainer>
+      <Page.Body>
+        <ScrollView
+          flex={1}
+          width="100%"
+          paddingHorizontal="$5"
+          paddingBottom="$5"
+          gap="$5"
+        >
+          <PartContainer title="Components">
+            <Button
+              onPress={() => {
+                navigation.push(ETabDeveloperRoutes.ComponentsGallery);
+              }}
+            >
+              Gallery
+            </Button>
+          </PartContainer>
 
-        <PartContainer title="Background">
-          <Button
-            onPress={async () => {
-              const r = await backgroundApiProxy.servicePromise.testHelloWorld(
-                'jack',
-              );
-              Toast.success({
-                title: r,
-                message: r,
-              });
-              console.log('testHelloWorld > ', r);
-              await backgroundApiProxy.servicePromise.testHelloWorld('jack');
-              void backgroundApiProxy.servicePromise.testHelloWorld2('jack');
-            }}
-          >
-            Test service
-          </Button>
-        </PartContainer>
+          <PartContainer title="Background">
+            <Button
+              onPress={async () => {
+                const r =
+                  await backgroundApiProxy.servicePromise.testHelloWorld(
+                    'jack',
+                  );
+                Toast.success({
+                  title: r,
+                  message: r,
+                });
+                console.log('testHelloWorld > ', r);
+                await backgroundApiProxy.servicePromise.testHelloWorld('jack');
+                void backgroundApiProxy.servicePromise.testHelloWorld2('jack');
+              }}
+            >
+              Test service
+            </Button>
+          </PartContainer>
 
-        <PartContainer title="DB">
-          <Button
-            onPress={async () => {
-              const ctx = await localDb.getContext();
-              // @ts-ignore
-              window.$$localDb = localDb;
-              console.log(ctx);
-            }}
-          >
-            Show Context
-          </Button>
-        </PartContainer>
+          <PartContainer title="DB">
+            <Button
+              onPress={async () => {
+                const ctx = await localDb.getContext();
+                // @ts-ignore
+                window.$$localDb = localDb;
+                console.log(ctx);
+              }}
+            >
+              Show Context
+            </Button>
+          </PartContainer>
 
-        <PartContainer title="App Settings">
-          <XStack gap="$4" display="flex" justifyContent="center">
+          <PartContainer title="Debug Tools">
             <Button
-              flex={1}
               onPress={() => {
-                setTheme('light');
-              }}
-            >
-              Light Theme
-            </Button>
-            <Button
-              flex={1}
-              variant="primary"
-              onPress={() => {
-                setTheme('dark');
-              }}
-            >
-              Night Theme
-            </Button>
-          </XStack>
-          <XStack gap="$4" display="flex" justifyContent="center">
-            <Button
-              flex={1}
-              onPress={() => {
-                setLocale('en-US');
-              }}
-            >
-              英文
-            </Button>
-            <Button
-              flex={1}
-              variant="primary"
-              onPress={() => {
-                setLocale('zh-CN');
-              }}
-            >
-              中文
-            </Button>
-          </XStack>
-        </PartContainer>
-        <PartContainer title="Debug Tools">
-          <Button
-            onPress={() => {
-              if (platformEnv.isNative) {
-                (changeRRTStatus as (value: boolean) => void)(!rrtStatus);
-                alert('Please manually restart the app.');
-              } else {
-                const status = rrtStatus === '1' ? '0' : '1';
-                (changeRRTStatus as (value: string) => void)(status);
-                if (platformEnv.isRuntimeBrowser) {
-                  if (status === '0') {
-                    localStorage.removeItem(
-                      '$$OnekeyReactRenderTrackerEnabled',
-                    );
-                  } else {
-                    localStorage.setItem(
-                      '$$OnekeyReactRenderTrackerEnabled',
-                      'true',
-                    );
+                if (platformEnv.isNative) {
+                  (changeRRTStatus as (value: boolean) => void)(!rrtStatus);
+                  alert('Please manually restart the app.');
+                } else {
+                  const status = rrtStatus === '1' ? '0' : '1';
+                  (changeRRTStatus as (value: string) => void)(status);
+                  if (platformEnv.isRuntimeBrowser) {
+                    if (status === '0') {
+                      localStorage.removeItem(
+                        '$$OnekeyReactRenderTrackerEnabled',
+                      );
+                    } else {
+                      localStorage.setItem(
+                        '$$OnekeyReactRenderTrackerEnabled',
+                        'true',
+                      );
+                    }
                   }
+                  window.location.reload();
                 }
-                window.location.reload();
-              }
-            }}
-          >
-            {platformEnv.isNative ? (
-              <>
-                {rrtStatus
-                  ? 'Disabled react-render-tracker'
-                  : 'Enabled react-render-tracker'}
-              </>
-            ) : (
-              <>
-                {rrtStatus === '1'
-                  ? 'Disabled react-render-tracker'
-                  : 'Enabled react-render-tracker'}
-              </>
-            )}
-          </Button>
-        </PartContainer>
+              }}
+            >
+              {platformEnv.isNative ? (
+                <>
+                  {rrtStatus
+                    ? 'Disabled react-render-tracker'
+                    : 'Enabled react-render-tracker'}
+                </>
+              ) : (
+                <>
+                  {rrtStatus === '1'
+                    ? 'Disabled react-render-tracker'
+                    : 'Enabled react-render-tracker'}
+                </>
+              )}
+            </Button>
+          </PartContainer>
 
-        <PartContainer title="Cold Startup Time(ms)">
-          <Text>{getMeasureTime().jsBundleLoadedTime}</Text>
-        </PartContainer>
-      </ScrollView>
+          <PartContainer title="Cold Startup Time(ms)">
+            <Text>{getMeasureTime().jsBundleLoadedTime}</Text>
+          </PartContainer>
+        </ScrollView>
+      </Page.Body>
     </Page>
   );
 };
