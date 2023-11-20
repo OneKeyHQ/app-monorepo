@@ -15,7 +15,10 @@ import type {
   EAppEventBusNames,
   IAppEventBusPayload,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EEventBusBroadcastMethodNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ensurePromiseObject,
@@ -59,8 +62,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       global.$backgroundApi = this;
     }
     // this.startDemoNowTimeUpdateInterval();
-    appEventBus.registerBroadcastMethods({
-      bgToUi: (type, payload) => {
+    appEventBus.registerBroadcastMethods(
+      EEventBusBroadcastMethodNames.bgToUi,
+      async (type, payload) => {
         const params: IGlobalEventBusSyncBroadcastParams = {
           $$isFromBgEventBusSyncBroadcast: true,
           type,
@@ -71,7 +75,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
           params,
         });
       },
-    });
+    );
   }
 
   allAtoms: Promise<{

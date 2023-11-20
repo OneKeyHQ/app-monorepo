@@ -4,6 +4,7 @@ import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgrou
 import { throwMethodNotFound } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
   type EAppEventBusNames,
+  EEventBusBroadcastMethodNames,
   type IAppEventBusPayload,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -42,9 +43,12 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
     }
     jotaiBgSync.setBackgroundApi(this as any);
     void jotaiBgSync.jotaiInitFromUi();
-    appEventBus.registerBroadcastMethods({
-      uiToBg: (type, payload) => this.emitEvent(type as any, payload),
-    });
+    appEventBus.registerBroadcastMethods(
+      EEventBusBroadcastMethodNames.uiToBg,
+      async (type, payload) => {
+        await this.emitEvent(type as any, payload);
+      },
+    );
   }
 
   async getAtomStates(): Promise<{ states: Record<EAtomNames, any> }> {

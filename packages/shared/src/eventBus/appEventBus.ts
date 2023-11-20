@@ -23,19 +23,53 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.NetworkChanged]: undefined;
 }
 
-interface IAppEventBusBroadcastMethods {
-  uiToBg?: (type: string, payload: any) => void;
-  bgToUi?: (type: string, payload: any) => void;
+export enum EEventBusBroadcastMethodNames {
+  uiToBg = 'uiToBg',
+  bgToUi = 'bgToUi',
 }
-class AppEventBus extends CrossEventEmitter {
-  // TODO make to Promise object
-  broadcastMethods: IAppEventBusBroadcastMethods | undefined;
+type IEventBusBroadcastMethod = (type: string, payload: any) => Promise<void>;
 
-  registerBroadcastMethods(methods: IAppEventBusBroadcastMethods) {
-    this.broadcastMethods = {
-      ...this.broadcastMethods,
-      ...methods,
-    };
+class AppEventBus extends CrossEventEmitter {
+  broadcastMethodsResolver: Record<
+    EEventBusBroadcastMethodNames,
+    ((value: IEventBusBroadcastMethod) => void) | undefined
+  > = {
+    uiToBg: undefined,
+    bgToUi: undefined,
+  };
+
+  broadcastMethodsReady: Record<
+    EEventBusBroadcastMethodNames,
+    Promise<IEventBusBroadcastMethod>
+  > = {
+    uiToBg: new Promise<IEventBusBroadcastMethod>((resolve) => {
+      this.broadcastMethodsResolver.uiToBg = resolve;
+    }),
+    bgToUi: new Promise<IEventBusBroadcastMethod>((resolve) => {
+      this.broadcastMethodsResolver.bgToUi = resolve;
+    }),
+  };
+
+  broadcastMethods: Record<
+    EEventBusBroadcastMethodNames,
+    IEventBusBroadcastMethod
+  > = {
+    uiToBg: async (type: string, payload: any) => {
+      const fn = await this.broadcastMethodsReady.uiToBg;
+      await fn(type, payload);
+    },
+    bgToUi: async (type: string, payload: any) => {
+      const fn = await this.broadcastMethodsReady.bgToUi;
+      await fn(type, payload);
+    },
+  };
+
+  registerBroadcastMethods(
+    name: EEventBusBroadcastMethodNames,
+    method: IEventBusBroadcastMethod,
+  ) {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    this.broadcastMethodsResolver[name]!(method);
   }
 
   get shouldEmitToSelf() {
@@ -53,8 +87,43 @@ class AppEventBus extends CrossEventEmitter {
     if (this.shouldEmitToSelf) {
       this.emitToSelf(type, payload);
     }
-    this.emitToRemote(type, payload);
+    void this.emitToRemote(type, payload);
     return true;
+  }
+
+  override once<T extends EAppEventBusNames>(
+    type: T,
+    listener: (payload: IAppEventBusPayload[T]) => void,
+  ) {
+    return super.once(type, listener);
+  }
+
+  override on<T extends EAppEventBusNames>(
+    type: T,
+    listener: (payload: IAppEventBusPayload[T]) => void,
+  ) {
+    return super.on(type, listener);
+  }
+
+  override off<T extends EAppEventBusNames>(
+    type: T,
+    listener: (payload: IAppEventBusPayload[T]) => void,
+  ) {
+    return super.off(type, listener);
+  }
+
+  override addListener<T extends EAppEventBusNames>(
+    type: T,
+    listener: (payload: IAppEventBusPayload[T]) => void,
+  ) {
+    return super.addListener(type, listener);
+  }
+
+  override removeListener<T extends EAppEventBusNames>(
+    type: T,
+    listener: (payload: IAppEventBusPayload[T]) => void,
+  ) {
+    return super.removeListener(type, listener);
   }
 
   emitToSelf(type: EAppEventBusNames, ...args: any[]) {
@@ -62,10 +131,7 @@ class AppEventBus extends CrossEventEmitter {
     return true;
   }
 
-  emitToRemote(type: string, payload: any) {
-    if (!this.broadcastMethods) {
-      throw new Error('broadcastMethods not registerred');
-    }
+  async emitToRemote(type: string, payload: any) {
     if (platformEnv.isExtensionOffscreen || platformEnv.isWebEmbed) {
       // request background
       throw new Error('offscreen or webembed event bus not support yet.');
@@ -73,23 +139,18 @@ class AppEventBus extends CrossEventEmitter {
     if (platformEnv.isNative) {
       // requestToWebEmbed
     }
-    // eslint-disable-next-line import/no-named-as-default-member
     if (platformEnv.isExtensionUi) {
       // request background
-      return this.broadcastMethods.uiToBg?.(type, payload);
+      return this.broadcastMethods.uiToBg(type, payload);
     }
-    // eslint-disable-next-line import/no-named-as-default-member
     if (platformEnv.isExtensionBackground) {
       // requestToOffscreen
       // requestToAllUi
-      return this.broadcastMethods.bgToUi?.(type, payload);
+      return this.broadcastMethods.bgToUi(type, payload);
     }
   }
 }
 const appEventBus = new AppEventBus();
-
-// appEventBus.emit(EAppEventBusNames.AccountChanged, { name: '1,', id: 1 });
-// appEventBus.emit(EAppEventBusNames.NetworkChanged, undefined);
 
 if (process.env.NODE_ENV !== 'production') {
   global.$$appEventBus = appEventBus;
