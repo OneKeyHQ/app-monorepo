@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 
 import { ActionList } from '@onekeyhq/components';
 
@@ -9,18 +9,15 @@ import type { IMobileTabListOptionsProps } from '../../types';
 function MobileTabItemOptions({
   id,
   children,
-  open,
-  onOpenChange,
   onBookmarkPress,
   onShare,
   onPinnedPress,
   onClose,
-}: {
-  id: string | null;
-  children?: ReactNode;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-} & IMobileTabListOptionsProps) {
+}: PropsWithChildren<
+  {
+    id: string | null;
+  } & IMobileTabListOptionsProps
+>) {
   const { tab } = useWebTabData(id ?? '');
 
   if (!id || !tab) {
@@ -29,8 +26,6 @@ function MobileTabItemOptions({
 
   return (
     <ActionList
-      open={open}
-      onOpenChange={onOpenChange}
       title="Options"
       renderTrigger={children}
       sections={[

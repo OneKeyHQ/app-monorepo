@@ -88,7 +88,8 @@ interface IActionListSection {
   items: IActionListItemProps[];
 }
 
-export interface IActionListProps extends IPopoverProps {
+export interface IActionListProps
+  extends Omit<IPopoverProps, 'renderContent' | 'open' | 'onOpenChange'> {
   items?: IActionListItemProps[];
   sections?: IActionListSection[];
 }
@@ -98,7 +99,7 @@ export function ActionList({
   sections,
   renderTrigger,
   ...props
-}: Omit<IActionListProps, 'renderContent'>) {
+}: IActionListProps) {
   const [isOpen, setOpenStatus] = useState(false);
   const handleActionListOpen = useCallback(() => {
     setOpenStatus(true);

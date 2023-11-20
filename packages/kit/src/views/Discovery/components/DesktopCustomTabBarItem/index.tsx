@@ -23,7 +23,6 @@ function DesktopCustomTabBarItem({
 }) {
   const { tab } = useWebTabData(id);
   const [menuHoverVisible, setMenuHoverVisible] = useState(false);
-  const [open, onOpenChange] = useState(false);
   const isActive = useMemo(() => activeTabId === id, [activeTabId, id]);
   return (
     <XStack
@@ -62,16 +61,12 @@ function DesktopCustomTabBarItem({
           {tab.title}
         </Text>
         <ActionList
-          open={open}
           title="Action List"
           placement="right-start"
           renderTrigger={
             menuHoverVisible && (
               <Stack
                 p="$1"
-                onPress={() => {
-                  onOpenChange(true);
-                }}
                 pressStyle={{
                   borderRadius: '$full',
                   backgroundColor: '$bgActive',
@@ -89,7 +84,6 @@ function DesktopCustomTabBarItem({
                   icon: tab.isBookmark ? 'BookmarkSolid' : 'BookmarkOutline',
                   onPress: () => {
                     onBookmarkPress(!tab.isBookmark, tab.url, tab.title ?? '');
-                    onOpenChange(false);
                   },
                 },
                 {
@@ -97,7 +91,6 @@ function DesktopCustomTabBarItem({
                   icon: tab.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
                   onPress: () => {
                     onPinnedPress(tab.id, !tab.isPinned);
-                    onOpenChange(false);
                   },
                 },
               ],
@@ -109,7 +102,6 @@ function DesktopCustomTabBarItem({
                   icon: 'CrossedLargeOutline',
                   onPress: () => {
                     onClose(id);
-                    onOpenChange(false);
                   },
                 },
               ],

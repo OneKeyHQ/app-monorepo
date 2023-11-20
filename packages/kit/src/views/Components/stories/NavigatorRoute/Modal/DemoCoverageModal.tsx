@@ -115,46 +115,36 @@ const ControlledPopoverByButton = () => {
   );
 };
 
-const ControlledActionListByButton = () => {
-  const [open, onOpenChange] = useState(false);
-  return (
-    <ActionList
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Action List"
-      renderTrigger={
-        <Button onPress={() => onOpenChange(true)}>Action List</Button>
-      }
-      items={[
-        {
-          label: 'Action1',
-          icon: 'PlaceholderOutline',
-          onPress: () => {
-            onOpenChange(false);
-            console.log('action1');
-          },
+const ControlledActionListByButton = () => (
+  <ActionList
+    title="Action List"
+    renderTrigger={<Button>Action List</Button>}
+    items={[
+      {
+        label: 'Action1',
+        icon: 'PlaceholderOutline',
+        onPress: () => {
+          console.log('action1');
         },
-        {
-          label: 'Action2',
-          icon: 'PlaceholderOutline',
-          onPress: () => {
-            onOpenChange(false);
-            console.log('action2');
-          },
+      },
+      {
+        label: 'Action2',
+        icon: 'PlaceholderOutline',
+        onPress: () => {
+          console.log('action2');
         },
-        {
-          label: 'Action3',
-          icon: 'PlaceholderOutline',
-          onPress: () => {
-            onOpenChange(false);
-            console.log('action2');
-          },
-          disabled: true,
+      },
+      {
+        label: 'Action3',
+        icon: 'PlaceholderOutline',
+        onPress: () => {
+          console.log('action2');
         },
-      ]}
-    />
-  );
-};
+        disabled: true,
+      },
+    ]}
+  />
+);
 
 function DemoCoverageDialogModal() {
   const navigation =
