@@ -72,8 +72,8 @@ import { TxAminoBuilder } from './sdk/amino/TxAminoBuilder';
 import { defaultAminoMsgOpts } from './sdk/amino/types';
 import { MessageType } from './sdk/message';
 import { queryRegistry } from './sdk/query/IQuery';
-import { MintScanQuery } from './sdk/query/MintScanQuery';
 import { Type } from './sdk/query/mintScanTypes';
+import { OneKeyQuery } from './sdk/query/OneKeyQuery';
 import { serializeSignedTx } from './sdk/txBuilder';
 import { TxMsgBuilder } from './sdk/txMsgBuilder';
 import {
@@ -232,7 +232,7 @@ export default class Vault extends VaultBase {
     if (this.isIbcToken(tokenAddress)) {
       const normalizationAddress =
         this.normalIBCAddress(tokenAddress) ?? tokenAddress;
-      const query = new MintScanQuery();
+      const query = new OneKeyQuery();
       const results = await query.fetchAssertInfos(this.networkId);
 
       if (!results) {
@@ -356,7 +356,7 @@ export default class Vault extends VaultBase {
     const tokens = [];
 
     if (ibcTokenAddresses.size > 0) {
-      const query = new MintScanQuery();
+      const query = new OneKeyQuery();
       const results = await query.fetchAssertInfos(this.networkId);
       if (!results) {
         return Promise.resolve([]);
@@ -950,7 +950,7 @@ export default class Vault extends VaultBase {
     const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
     const chainInfo = await this.getChainInfo();
 
-    const mintScanQuery = new MintScanQuery();
+    const mintScanQuery = new OneKeyQuery();
     const explorerTxs =
       (await mintScanQuery.fetchAccountTxs(
         this.networkId,
