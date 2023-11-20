@@ -100,6 +100,7 @@ export function makeModalScreenOptions({
     detachPreviousScreen: false,
     headerShown: false,
     presentation: 'transparentModal',
+    cardStyle: { backgroundColor: 'transparent' },
     ...makeModalOpenAnimationOptions({ isVerticalLayout }),
   };
 }
@@ -109,6 +110,7 @@ export function makeRootModalStackOptions(): StackNavigationOptions {
     detachPreviousScreen: false,
     headerShown: false,
     presentation: 'transparentModal',
+    cardStyle: { backgroundColor: 'transparent' },
   };
 }
 
