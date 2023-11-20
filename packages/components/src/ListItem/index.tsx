@@ -1,8 +1,7 @@
-import type { ComponentProps } from 'react';
 import { isValidElement } from 'react';
 
 import { Avatar } from '../Avatar';
-import { type IICON_NAMES, Icon } from '../Icon';
+import { type IIconProps, Icon } from '../Icon';
 import { IconButton } from '../IconButton';
 import { Stack } from '../Stack';
 import { Text } from '../Text';
@@ -10,25 +9,93 @@ import { Text } from '../Text';
 import type { IIconButtonProps } from '../IconButton';
 import type {
   AvatarFallbackProps,
+  AvatarImageProps,
   AvatarProps,
   GetProps,
   StackProps,
 } from 'tamagui';
 
-/* Image */
-type IListItemAvatarProps = {
-  src: string;
-  fallbackProps?: AvatarFallbackProps;
-} & AvatarProps;
+type IListItemAvatarCornerIconProps = IIconProps;
 
-const ListItemAvatar = (props: IListItemAvatarProps) => {
-  const { src, fallbackProps, ...rest } = props;
+/* Avatar Corner Icon */
+const ListItemAvatarCornerIcon = (props: IListItemAvatarCornerIconProps) => {
+  const { name, ...rest } = props;
 
   return (
-    <Avatar size="$10" {...rest}>
+    <Stack
+      position="absolute"
+      right="$-1"
+      bottom="$-1"
+      bg="$bgApp"
+      p="$px"
+      borderRadius="$full"
+      zIndex="$1"
+    >
+      <Icon size="$4.5" name={name} {...rest} />
+    </Stack>
+  );
+};
+
+type IListItemAvatarCornerImageProps = Omit<
+  IListItemAvatarProps,
+  'children' | 'cornerIconProps'
+>;
+
+const ListItemAvatarCornerImage = ({
+  src,
+  fallbackProps,
+  ...rest
+}: IListItemAvatarCornerImageProps) => (
+  <Stack
+    position="absolute"
+    right="$-1"
+    bottom="$-1"
+    bg="$bgApp"
+    p="$0.5"
+    borderRadius="$full"
+    zIndex="$1"
+  >
+    <Avatar size="$4" circular {...rest}>
       <Avatar.Image src={src} />
       <Avatar.Fallback {...fallbackProps} />
     </Avatar>
+  </Stack>
+);
+
+/* Avatar */
+type IListItemAvatarProps = {
+  src: AvatarImageProps['src'];
+  fallbackProps?: AvatarFallbackProps;
+  cornerIconProps?: IListItemAvatarCornerIconProps;
+  cornerImageProps?: IListItemAvatarCornerImageProps;
+  children?: React.ReactNode;
+} & AvatarProps;
+
+const ListItemAvatar = (props: IListItemAvatarProps) => {
+  const {
+    src,
+    fallbackProps,
+    children,
+    circular,
+    cornerIconProps,
+    cornerImageProps,
+    ...rest
+  } = props;
+
+  return (
+    <Stack>
+      <Avatar
+        size="$10"
+        {...(circular ? { circular: true } : { borderRadius: '$2' })}
+        {...rest}
+      >
+        <Avatar.Image src={src} />
+        <Avatar.Fallback {...fallbackProps} />
+      </Avatar>
+      {cornerIconProps && <ListItemAvatarCornerIcon {...cornerIconProps} />}
+      {cornerImageProps && <ListItemAvatarCornerImage {...cornerImageProps} />}
+      {children}
+    </Stack>
   );
 };
 
@@ -106,8 +173,7 @@ interface IListItemProps extends StackProps {
   subtitle?: string;
   subtitleProps?: IListItemTextProps['secondaryTextProps'];
   avatarProps?: IListItemAvatarProps;
-  icon?: IICON_NAMES;
-  iconProps?: Exclude<ComponentProps<typeof Icon>, 'name'>;
+  icon?: IIconProps['name'];
   drillIn?: boolean;
   checkMark?: boolean;
 }
@@ -116,7 +182,6 @@ function ListItem(props: IListItemProps) {
   const {
     avatarProps,
     icon,
-    iconProps,
     title,
     titleProps,
     subtitle,
@@ -156,14 +221,16 @@ function ListItem(props: IListItemProps) {
           {...avatarProps}
         />
       )}
-      {icon && <Icon color="$iconSubdued" {...iconProps} name={icon} />}
-      <ListItemText
-        flex={1}
-        primary={title}
-        primaryTextProps={titleProps}
-        secondary={subtitle}
-        secondaryTextProps={subtitleProps}
-      />
+      {icon && <Icon name={icon} color="$iconSubdued" />}
+      {(title || subtitle) && (
+        <ListItemText
+          flex={1}
+          primary={title}
+          primaryTextProps={titleProps}
+          secondary={subtitle}
+          secondaryTextProps={subtitleProps}
+        />
+      )}
       {children}
       {drillIn && (
         <Icon name="ChevronRightSmallOutline" color="$iconSubdued" mx="$-1.5" />
@@ -174,7 +241,11 @@ function ListItem(props: IListItemProps) {
 }
 
 ListItem.Text = ListItemText;
-ListItem.Image = ListItemAvatar;
+ListItem.Avatar = {
+  Component: ListItemAvatar,
+  CornerIcon: ListItemAvatarCornerIcon,
+  CornerImage: ListItemAvatarCornerImage,
+};
 ListItem.IconButton = ListItemIconButton;
 
 export { ListItem };
