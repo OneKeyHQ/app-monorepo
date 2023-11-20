@@ -1,9 +1,12 @@
+import { useCallback, useState } from 'react';
+
 import { ButtonFrame } from '../Button';
 import { Divider } from '../Divider';
 import { Icon } from '../Icon';
 import { Popover } from '../Popover';
 import { YStack } from '../Stack';
 import { Text } from '../Text';
+import { Trigger } from '../Trigger';
 
 import type { IICON_NAMES } from '../Icon';
 import type { IPopoverProps } from '../Popover';
@@ -12,7 +15,7 @@ interface IActionListItemProps {
   icon?: IICON_NAMES;
   label: string;
   destructive?: boolean;
-  onPress?: () => void;
+  onPress?: () => void | Promise<boolean>;
   disabled?: boolean;
 }
 
@@ -22,7 +25,16 @@ function ActionListItem({
   onPress,
   destructive,
   disabled,
-}: IActionListItemProps) {
+  onClose,
+}: IActionListItemProps & {
+  onClose?: () => void;
+}) {
+  const handlePress = useCallback(async () => {
+    const result = await onPress?.();
+    if (result || result === undefined) {
+      onClose?.();
+    }
+  }, [onClose, onPress]);
   return (
     <ButtonFrame
       justifyContent="flex-start"
@@ -48,7 +60,7 @@ function ActionListItem({
           outlineWidth: 2,
         },
       })}
-      onPress={onPress}
+      onPress={handlePress}
     >
       {icon && (
         <Icon
@@ -84,19 +96,30 @@ export interface IActionListProps extends IPopoverProps {
 export function ActionList({
   items,
   sections,
+  renderTrigger,
   ...props
 }: Omit<IActionListProps, 'renderContent'>) {
+  const [isOpen, setOpenStatus] = useState(false);
+  const handleActionListOpen = useCallback(() => {
+    setOpenStatus(true);
+  }, []);
+  const handleActionListClose = useCallback(() => {
+    setOpenStatus(false);
+  }, []);
   const renderActionListItem = (item: IActionListItemProps) => (
     <ActionListItem
       onPress={item.onPress}
       key={item.label}
       disabled={item.disabled}
       {...item}
+      onClose={handleActionListClose}
     />
   );
-
   return (
     <Popover
+      open={isOpen}
+      onOpenChange={setOpenStatus}
+      onFocusOutside={handleActionListClose}
       renderContent={
         <YStack p="$1" $md={{ p: '$3' }}>
           {items?.map(renderActionListItem)}
@@ -124,6 +147,9 @@ export function ActionList({
         width: '$56',
       }}
       {...props}
+      renderTrigger={
+        <Trigger onOpen={handleActionListOpen}>{renderTrigger}</Trigger>
+      }
     />
   );
 }
