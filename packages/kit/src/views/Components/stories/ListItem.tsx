@@ -26,6 +26,7 @@ const TOKENDATA = [
     subtitle: '30.00 BTC',
     price: '$902,617.17',
     change: '+4.32%',
+    state: 'unverified',
   },
   {
     src: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
@@ -33,6 +34,7 @@ const TOKENDATA = [
     subtitle: '2.35 ETH',
     price: '$3,836.97',
     change: '+4.32%',
+    state: 'unknown',
   },
   {
     src: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/matic.png',
@@ -50,6 +52,8 @@ const NFTDATA = [
     subtitle: 'Hyperspace · 6/27/23, 7:19 AM',
     amount: '3.186 SOL',
     value: '$52.82',
+    networkSrc:
+      'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/btc.png',
   },
   {
     src: 'https://images.glow.app/https%3A%2F%2Farweave.net%2FhRZG2ePVGpBSogaNSdp4Jm3vUILhvB-h3gB7-nRrPsE%3Fext%3Dpng?ixlib=js-3.8.0&w=80&h=80&dpr=2&fit=crop&s=cbd0b1bc0ab5d8b867930546c5e87358',
@@ -57,6 +61,8 @@ const NFTDATA = [
     subtitle: 'Magic Eden · 5/23/23, 6:40 PM',
     amount: '3.186 SOL',
     value: '$52.82',
+    networkSrc:
+      'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
   },
   {
     src: 'https://images.glow.app/https%3A%2F%2Farweave.net%2F99eb109nC2JgMA5GHpW0GK8TdidO8lm5eDj0FgzfWdA%3Fext%3Dpng?ixlib=js-3.8.0&w=80&h=80&dpr=2&fit=crop&s=2ff9b1faad864bf338d0b881051f6c16',
@@ -64,6 +70,8 @@ const NFTDATA = [
     subtitle: 'Magic Eden · 5/22/23, 1:33 PM',
     amount: '3.186 SOL',
     value: '$52.82',
+    networkSrc:
+      'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/matic.png',
   },
   {
     src: '',
@@ -71,6 +79,7 @@ const NFTDATA = [
     subtitle: 'Magic Eden · 5/22/23, 1:33 PM',
     amount: '3.186 SOL',
     value: '$52.82',
+    networkSrc: '',
   },
 ];
 
@@ -91,6 +100,18 @@ const ListItemGallery = () => (
                 subtitle={item.subtitle}
                 avatarProps={{
                   src: item.src,
+                  cornerIconProps: item.state
+                    ? {
+                        name:
+                          item.state === 'unverified'
+                            ? 'ErrorSolid'
+                            : 'QuestionmarkSolid',
+                        color:
+                          item.state === 'unverified'
+                            ? '$iconCritical'
+                            : '$iconCaution',
+                      }
+                    : undefined,
                 }}
                 onPress={() => {
                   console.log('clicked');
@@ -129,6 +150,9 @@ const ListItemGallery = () => (
                     alignItems: 'center',
                     children: <Icon name="ImageMountainSolid" />,
                   },
+                  cornerImageProps: item.networkSrc
+                    ? { src: item.networkSrc }
+                    : undefined,
                 }}
                 onPress={() => {
                   console.log('clicked');
