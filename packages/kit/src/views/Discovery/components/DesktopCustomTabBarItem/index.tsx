@@ -5,6 +5,7 @@ import { Image } from 'react-native';
 import { ActionList, Icon, Stack, Text, XStack } from '@onekeyhq/components';
 
 import { useWebTabData } from '../../hooks/useWebTabs';
+import { dispatchOverlayEvent } from '../WebView/DesktopOverlay';
 
 function DesktopCustomTabBarItem({
   id,
@@ -23,9 +24,12 @@ function DesktopCustomTabBarItem({
 }) {
   const { tab } = useWebTabData(id);
   const [menuHoverVisible, setMenuHoverVisible] = useState(false);
+  const [isShowPopover, setPopoverStatus] = useState(false);
   const isActive = useMemo(() => activeTabId === id, [activeTabId, id]);
   const handleOpenChange = useCallback((isOpen: boolean) => {
-    console.log(isOpen);
+    setMenuHoverVisible(isOpen);
+    setPopoverStatus(isOpen);
+    dispatchOverlayEvent(isOpen);
   }, []);
   return (
     <XStack
@@ -57,7 +61,7 @@ function DesktopCustomTabBarItem({
       <XStack
         flex={1}
         onHoverIn={() => setMenuHoverVisible(true)}
-        onHoverOut={() => setMenuHoverVisible(false)}
+        onHoverOut={() => !isShowPopover && setMenuHoverVisible(false)}
         alignItems="center"
       >
         <Text variant="$bodyMd" numberOfLines={1} flex={1}>
