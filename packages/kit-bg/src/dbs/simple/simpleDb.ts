@@ -1,9 +1,15 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { SimpleDbEntityBrowserBookmarks } from './entity/SimpleDbEntityBrowserBookmarks';
+import { SimpleDbEntityBrowserHistory } from './entity/SimpleDbEntityBrowserHistory';
 import { SimpleDbEntityBrowserTabs } from './entity/SimpleDbEntityBrowserTabs';
 
 class SimpleDb {
   browserTabs = new SimpleDbEntityBrowserTabs();
+
+  browserBookmarks = new SimpleDbEntityBrowserBookmarks();
+
+  browserHistory = new SimpleDbEntityBrowserHistory();
 }
 
 // eslint-disable-next-line import/no-mutable-exports

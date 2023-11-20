@@ -2,6 +2,7 @@ import {
   atom,
   createJotaiContext,
 } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
+import simpleDb from '@onekeyhq/kit-bg/src/dbs/simple/simpleDb';
 
 import { homeTab } from './contextWebTabs';
 
@@ -13,6 +14,19 @@ export const {
 } = createJotaiContext();
 
 export const browserHistoryAtom = atom<IBrowserHistory[]>([]);
+
+export const setHistoryDataAtom = atom(
+  null,
+  (get, set, payload: IBrowserHistory[]) => {
+    if (!Array.isArray(payload)) {
+      return;
+    }
+    set(browserHistoryAtom, payload);
+    void simpleDb.browserHistory.setRawData({
+      data: payload,
+    });
+  },
+);
 
 export const addBrowserHistoryAtom = atom(
   null,
@@ -26,7 +40,7 @@ export const addBrowserHistoryAtom = atom(
       history.splice(index, 1);
     }
     history.unshift({ url: payload.url, title: payload.title });
-    set(browserHistoryAtom, history);
+    set(setHistoryDataAtom, history);
     console.log('===>set browserHistoryAtom: ', history);
   },
 );
@@ -39,6 +53,6 @@ export const removeBrowserHistoryAtom = atom(
     if (index !== -1) {
       history.splice(index, 1);
     }
-    set(browserHistoryAtom, history);
+    set(setHistoryDataAtom, history);
   },
 );

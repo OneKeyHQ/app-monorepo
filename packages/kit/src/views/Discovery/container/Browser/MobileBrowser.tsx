@@ -14,7 +14,7 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 
-import { HandleRebuildTabData } from '../../components/HandleData/HandleRebuildBrowserTabData';
+import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import MobileBrowserInfoBar from '../../components/MobileBrowser/MobileBrowserInfoBar';
 import useWebTabAction from '../../hooks/useWebTabAction';
@@ -107,7 +107,7 @@ function MobileBrowser() {
 
   return (
     <Stack flex={1} zIndex={3} pt={top} bg="$bgApp">
-      <HandleRebuildTabData />
+      <HandleRebuildBrowserData />
       {displayHomePage ? (
         <Stack flex={1}>
           <Text>Dashboard</Text>

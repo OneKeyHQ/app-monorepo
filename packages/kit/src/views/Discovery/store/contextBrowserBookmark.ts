@@ -2,6 +2,7 @@ import {
   atom,
   createJotaiContext,
 } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
+import simpleDb from '@onekeyhq/kit-bg/src/dbs/simple/simpleDb';
 
 import { homeTab, syncBookmark } from './contextWebTabs';
 
@@ -17,6 +18,19 @@ export const {
 
 export const browserBookmarkAtom = atom<IBrowserBookmark[]>([]);
 
+export const setBookmarkDataAtom = atom(
+  null,
+  (get, set, payload: IBrowserBookmark[]) => {
+    if (!Array.isArray(payload)) {
+      return;
+    }
+    set(browserBookmarkAtom, payload);
+    void simpleDb.browserBookmarks.setRawData({
+      data: payload,
+    });
+  },
+);
+
 export const addBrowserBookmarkAtom = atom(
   null,
   (get, set, payload: IBrowserBookmark) => {
@@ -29,7 +43,7 @@ export const addBrowserBookmarkAtom = atom(
       bookmark.splice(index, 1);
     }
     bookmark.push({ url: payload.url, title: payload.title });
-    set(browserBookmarkAtom, bookmark);
+    set(setBookmarkDataAtom, bookmark);
     console.log('===>set browserBookmarkAtom: ', bookmark);
     syncBookmark(payload.url, true);
   },
@@ -43,7 +57,7 @@ export const removeBrowserBookmarkAtom = atom(
     if (index !== -1) {
       bookmark.splice(index, 1);
     }
-    set(browserBookmarkAtom, bookmark);
+    set(setBookmarkDataAtom, bookmark);
     syncBookmark(payload, false);
   },
 );
