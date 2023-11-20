@@ -69,7 +69,10 @@ const init = ({ mainWindow, store }: Dependencies) => {
     ]);
 
     ILatestVersion = { version, releaseDate, isManualCheck };
-    mainWindow.webContents.send(ipcMessageKeys.UPDATE_AVAILABLE, ILatestVersion);
+    mainWindow.webContents.send(
+      ipcMessageKeys.UPDATE_AVAILABLE,
+      ILatestVersion,
+    );
 
     // Reset manual check flag
     isManualCheck = false;

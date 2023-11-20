@@ -4,14 +4,7 @@ import { useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { ScrollView } from 'tamagui';
 
-import {
-  Button,
-  Page,
-  Stack,
-  Text,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, Page, Stack, Text, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import { getMeasureTime } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
