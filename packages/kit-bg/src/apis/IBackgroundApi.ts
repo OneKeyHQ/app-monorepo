@@ -5,6 +5,8 @@ import type ServiceApp from '../services/ServiceApp';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
 import type ServicePassword from '../services/ServicePassword';
 import type ServicePromise from '../services/ServicePromise';
+import type ServiceSend from '../services/ServiceSend';
+import type ServiceSetting from '../services/ServiceSetting';
 import type { EAtomNames } from '../states/jotai/atomNames';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
@@ -49,8 +51,10 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   // **** services
   servicePromise: ServicePromise;
   servicePassword: ServicePassword;
+  serviceSetting: ServiceSetting;
   serviceApp: ServiceApp;
   serviceDiscovery: ServiceDiscovery;
+  serviceSend: ServiceSend;
   // serviceBootstrap: ServiceBootstrap;
   // serviceCronJob: ServiceCronJob;
 }

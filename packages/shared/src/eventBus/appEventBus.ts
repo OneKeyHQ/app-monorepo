@@ -5,7 +5,7 @@ import { isExtensionUi } from '../platformEnv';
 // eslint-disable-next-line import/no-mutable-exports
 let appEventBus: CrossEventEmitter;
 
-enum AppEventBusNames {
+enum EAppEventBusNames {
   AccountNameChanged = 'AccountNameChanged',
   NetworkChanged = 'NetworkChanged',
   AccountChanged = 'AccountChanged',
@@ -36,4 +36,4 @@ if (process.env.NODE_ENV !== 'production') {
   global.$$appEventBus = appEventBus;
 }
 
-export { appEventBus, AppEventBusNames };
+export { appEventBus, EAppEventBusNames as AppEventBusNames };

@@ -129,7 +129,7 @@ export function convertDeviceError(payload: any): OneKeyHardwareError {
       return new Error.UserCancel(payload);
     case HardwareErrorCode.BridgeNotInstalled:
       return new Error.NeedOneKeyBridge(payload);
-    case Error.CustomOneKeyHardwareError.NeedOneKeyBridge:
+    case Error.ECustomOneKeyHardwareError.NeedOneKeyBridge:
       return new Error.NeedOneKeyBridge(payload);
     case HardwareErrorCode.BridgeNetworkError:
       return new Error.BridgeNetworkError(payload);

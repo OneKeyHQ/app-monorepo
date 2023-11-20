@@ -57,6 +57,8 @@ function burntToast({
   });
 }
 
+export { default as Toaster } from './Toaster';
+
 export const Toast = {
   success: (props: IToastProps) => {
     burntToast({ haptic: 'success', ...props });

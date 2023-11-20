@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Appearance } from 'react-native';
 
-export function useColorScheme(delay = 500) {
+export function useSystemColorScheme(delay = 500) {
   const [colorScheme, setColorScheme] = useState(Appearance.getColorScheme());
 
   const ref = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -35,3 +35,5 @@ export function useColorScheme(delay = 500) {
 
   return colorScheme;
 }
+
+export const defaultColorScheme = 'dark';

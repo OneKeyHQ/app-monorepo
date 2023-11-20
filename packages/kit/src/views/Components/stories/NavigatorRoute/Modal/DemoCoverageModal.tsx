@@ -1,5 +1,5 @@
 /* eslint-disable react/no-unstable-nested-components */
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 
 import {
   ActionList,
@@ -63,34 +63,6 @@ function DemoCoverageModal() {
     />
   );
 }
-
-const ControlledDialogByButton = () => {
-  const navigation =
-    useDemoAppNavigation<IModalNavigationProp<IDemoCoverageModalParamList>>();
-
-  const [isOpen, changeIsOpen] = useState(false);
-  return useMemo(
-    () => (
-      <>
-        <Button onPress={() => changeIsOpen(true)}>Open Modal By Button</Button>
-        <Dialog
-          dismissOnOverlayPress
-          title="我站在 Modal 上面"
-          description="通过组件挂载的 Dialog，点击确定按钮关闭 Dialog 打开一个 Modal"
-          open={isOpen}
-          onClose={() => {
-            changeIsOpen(false);
-          }}
-          onConfirm={() => {
-            navigation.pushModal(ERootModalRoutes.DemoLockedModal);
-            changeIsOpen(false);
-          }}
-        />
-      </>
-    ),
-    [isOpen, navigation],
-  );
-};
 
 const ControlledPopoverByButton = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -176,18 +148,22 @@ function DemoCoverageDialogModal() {
           element: (
             <Button
               onPress={() => {
-                Toast.message({
-                  title: '我覆盖在 Modal 上面',
-                });
+                const toastMessage = (i = 0) => {
+                  Toast.message({
+                    title: `我覆盖在 Modal 上面: ${i}`,
+                  });
+                  if (i < 10) {
+                    setTimeout(() => {
+                      toastMessage(i + 1);
+                    }, 1000);
+                  }
+                };
+                toastMessage();
               }}
             >
               弹出 Toast
             </Button>
           ),
-        },
-        {
-          title: 'Open Dialog by Button',
-          element: <ControlledDialogByButton />,
         },
         {
           title: 'Open Popover by Button',
