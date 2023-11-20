@@ -2,7 +2,7 @@ import {
   atom,
   createJotaiContext,
 } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
-import { simpleDb } from '@onekeyhq/kit/src/views/Discovery/components/WebView/mock';
+import simpleDb from '@onekeyhq/kit-bg/src/dbs/simple/simpleDb';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { webviewRefs } from '../utils/explorerUtils';
@@ -60,7 +60,7 @@ export const setWebTabsAtom = atom(
 
     set(webTabsMapAtom, () => map);
     // TODO: remove logic to service
-    simpleDb.discoverWebTabs.setRawData({
+    void simpleDb.browserTabs.setRawData({
       tabs: data,
     });
   },
