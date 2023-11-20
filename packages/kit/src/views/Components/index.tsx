@@ -12,34 +12,34 @@ const Index = () => {
 
   return (
     <Page>
-      <ListView
-        estimatedItemSize="$4"
-        data={componentsRoute}
-        style={{
-          flex: 1,
-          paddingVertical: 20,
-        }}
-        contentContainerStyle={{
-          marginHorizontal: 'auto',
-          width: 640,
-          maxWidth: '100%',
-        }}
-        renderItem={({ item }) => (
-          <ListItem
-            key={item.replace('component/', '')}
-            drillIn
-            onPress={() => {
-              // @ts-expect-error
-              navigation.navigate(item);
-            }}
-            title={
-              item.replace('component/', '').charAt(0).toUpperCase() +
-              item.replace('component/', '').substring(1)
-            }
-          />
-        )}
-        keyExtractor={(_, index) => index.toString()}
-      />
+      <Page.Body>
+        <ListView
+          estimatedItemSize="$4"
+          flex={1}
+          paddingVertical={20}
+          data={componentsRoute}
+          contentContainerStyle={{
+            marginHorizontal: 'auto',
+            width: 640,
+            maxWidth: '100%',
+          }}
+          renderItem={({ item }) => (
+            <ListItem
+              key={item.replace('component/', '')}
+              drillIn
+              onPress={() => {
+                // @ts-expect-error
+                navigation.navigate(item);
+              }}
+              title={
+                item.replace('component/', '').charAt(0).toUpperCase() +
+                item.replace('component/', '').substring(1)
+              }
+            />
+          )}
+          keyExtractor={(_, index) => index.toString()}
+        />
+      </Page.Body>
     </Page>
   );
 };
