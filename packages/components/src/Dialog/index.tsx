@@ -1,10 +1,7 @@
 import type { ForwardedRef, PropsWithChildren } from 'react';
 import {
-  Children,
-  cloneElement,
   createRef,
   forwardRef,
-  isValidElement,
   useCallback,
   useContext,
   useImperativeHandle,
@@ -16,7 +13,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Sheet,
   Dialog as TMDialog,
-  composeEventHandlers,
   useMedia,
   withStaticProperties,
 } from 'tamagui';
@@ -29,31 +25,13 @@ import { Portal } from '../Portal';
 import { SheetGrabber } from '../SheetGrabber';
 import { Stack, XStack, YStack } from '../Stack';
 import { Text } from '../Text';
+import { Trigger } from '../Trigger';
 
 import { DialogContext } from './context';
 
 import type { IDialogInstanceRef, IDialogProps } from './type';
 import type { IButtonProps } from '../Button';
 import type { IPortalManager } from '../Portal';
-
-function Trigger({
-  onOpen,
-  children,
-}: PropsWithChildren<{ onOpen?: () => void }>) {
-  if (children) {
-    const child = Children.only(children);
-    if (isValidElement(child)) {
-      const handleOpen = (child.props as IButtonProps).onPress
-        ? composeEventHandlers((child.props as IButtonProps).onPress, onOpen)
-        : onOpen;
-      if (child.type === Button) {
-        return cloneElement(child, { onPress: handleOpen } as IButtonProps);
-      }
-      return <Stack onPress={handleOpen}>{children}</Stack>;
-    }
-  }
-  return null;
-}
 
 function DialogFrame({
   open,

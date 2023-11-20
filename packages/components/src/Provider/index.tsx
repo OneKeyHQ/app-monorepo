@@ -43,7 +43,10 @@ const MemoizedTamaguiProvider = memo(TamaguiProvider);
 function FontProvider({ children, waitFontLoaded = true }: IFontProviderProps) {
   const [loaded] = useLoadCustomFonts();
   if (loaded) return <>{children}</>;
-  if (waitFontLoaded && (platformEnv.isNative || platformEnv.isWeb)) {
+  if (
+    waitFontLoaded &&
+    (platformEnv.isNative || platformEnv.isRuntimeBrowser)
+  ) {
     return null;
   }
   // Web can render if font not loaded

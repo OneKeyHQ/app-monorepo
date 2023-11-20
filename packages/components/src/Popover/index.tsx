@@ -9,6 +9,7 @@ import useSafeAreaInsets from '../Provider/hooks/useSafeAreaInsets';
 import { XStack, YStack } from '../Stack';
 import { Text } from '../Text';
 
+import type { FocusOutsideEvent } from '@tamagui/dismissable/types';
 import type {
   SheetProps,
   PopoverProps as TMPopoverProps,
@@ -21,6 +22,7 @@ export interface IPopoverProps extends TMPopoverProps {
   renderContent: React.ReactNode;
   floatingPanelProps?: YStackProps;
   sheetProps?: SheetProps;
+  onFocusOutside?: (event: FocusOutsideEvent) => void;
 }
 
 function RawPopover({
@@ -30,6 +32,7 @@ function RawPopover({
   floatingPanelProps,
   sheetProps,
   onOpenChange,
+  onFocusOutside,
   ...props
 }: IPopoverProps) {
   const { bottom } = useSafeAreaInsets();
@@ -98,6 +101,7 @@ function RawPopover({
         bg="$bg"
         borderRadius="$3"
         elevation={20}
+        onFocusOutside={onFocusOutside}
         animation={[
           'quick',
           {
@@ -176,7 +180,7 @@ function RawPopover({
 
 const Popover = ({ renderTrigger, ...rest }: IPopoverProps) => {
   // on web and WAP, we add the popover to the RNRootView
-  if (platformEnv.isWeb) {
+  if (platformEnv.isRuntimeBrowser) {
     return (
       <RawPopover
         sheetProps={{ modal: true }}
