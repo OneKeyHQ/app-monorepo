@@ -219,9 +219,12 @@ export function useInputLimitsError():
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const quoteLimited = useAppSelector((s) => s.swap.quoteLimited);
   const typedValue = useAppSelector((s) => s.swap.typedValue);
+  const v = greaterThanZeroOrUndefined(typedValue);
   const inputAmount = useTokenAmount(
     inputToken,
-    greaterThanZeroOrUndefined(typedValue),
+    v !== undefined && inputToken
+      ? getTokenAmountString(inputToken, v)
+      : undefined,
   );
   const maxAmount = useTokenAmount(inputToken, quoteLimited?.max);
   const minAmount = useTokenAmount(inputToken, quoteLimited?.min);
