@@ -14,10 +14,9 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 
-import { ETabRoutes } from '../../../../routes/Root/Tab/Routes';
+import { HandleRebuildTabData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import MobileBrowserInfoBar from '../../components/MobileBrowser/MobileBrowserInfoBar';
-import { useTabDataFromSimpleDb } from '../../hooks/useTabDataFromSimpleDb';
 import useWebTabAction from '../../hooks/useWebTabAction';
 import {
   useActiveTabId,
@@ -34,21 +33,6 @@ import MobileBrowserContent from './MobileBrowserContent';
 import { withBrowserProvider } from './WithBrowserProvider';
 
 import type { IDiscoveryModalParamList } from '../../router/Routes';
-
-function HandleRebuildTabBarData() {
-  const result = useTabDataFromSimpleDb();
-  const { setWebTabs, addBlankWebTab } = useWebTabAction();
-
-  useEffect(() => {
-    if (!result.result) return;
-    const data = result.result;
-    if (data && Array.isArray(data) && data.length > 0) {
-      void setWebTabs({ data });
-    }
-  }, [result.result, addBlankWebTab, setWebTabs]);
-
-  return null;
-}
 
 function MobileBrowser() {
   const navigationCore = useNavigation();
@@ -123,7 +107,7 @@ function MobileBrowser() {
 
   return (
     <Stack flex={1} zIndex={3} pt={top} bg="$bgApp">
-      <HandleRebuildTabBarData />
+      <HandleRebuildTabData />
       {displayHomePage ? (
         <Stack flex={1}>
           <Text>Dashboard</Text>

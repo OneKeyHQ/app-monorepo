@@ -59,7 +59,6 @@ export const setWebTabsAtom = atom(
     }
 
     set(webTabsMapAtom, () => map);
-    // TODO: remove logic to service
     void simpleDb.browserTabs.setRawData({
       tabs: data,
     });

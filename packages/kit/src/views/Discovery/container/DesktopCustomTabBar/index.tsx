@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { Divider, Icon, Stack, Text, XStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import { HandleRebuildTabData } from '@onekeyhq/kit/src/views/Discovery/components/HandleData/HandleRebuildBrowserTabData';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
@@ -86,6 +87,7 @@ function DesktopCustomTabBar() {
 
   return (
     <Stack>
+      <HandleRebuildTabData />
       {pinnedData.map((t) => (
         <DesktopCustomTabBarItem
           id={t.id}
