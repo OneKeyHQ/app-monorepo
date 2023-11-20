@@ -3,7 +3,7 @@
 import type { ILocaleIds } from '@onekeyhq/components/src/locale';
 // import type { LocaleKeyInfoMap } from '@onekeyhq/components/src/locale/LocaleKeyInfoMap';
 
-import { OneKeyErrorClassNames } from '../types/errorTypes';
+import { EOneKeyErrorClassNames } from '../types/errorTypes';
 import { normalizeErrorProps } from '../utils/errorUtils';
 
 import { OneKeyError } from './baseErrors';
@@ -13,7 +13,7 @@ import type { IOneKeyError } from '../types/errorTypes';
 const map = {
   hello: 'world',
 };
-type LocaleKeyInfoMap = typeof map;
+type ILocaleKeyInfoMap = typeof map;
 
 // Generic errors.
 export class NotImplemented extends OneKeyError {
@@ -39,9 +39,9 @@ export class OneKeyInternalError extends OneKeyError {
 }
 
 export class OneKeyValidatorError<
-  K extends keyof LocaleKeyInfoMap = any,
-> extends OneKeyError<LocaleKeyInfoMap[K]> {
-  override className = OneKeyErrorClassNames.OneKeyValidatorError;
+  K extends keyof ILocaleKeyInfoMap = any,
+> extends OneKeyError<ILocaleKeyInfoMap[K]> {
+  override className = EOneKeyErrorClassNames.OneKeyValidatorError;
 
   constructor({
     key,
@@ -49,7 +49,7 @@ export class OneKeyValidatorError<
     message,
   }: {
     key: K;
-    info?: LocaleKeyInfoMap[K];
+    info?: ILocaleKeyInfoMap[K];
     message?: string;
   }) {
     super({
@@ -61,9 +61,9 @@ export class OneKeyValidatorError<
 }
 
 export class OneKeyValidatorTip<
-  K extends keyof LocaleKeyInfoMap = any,
-> extends OneKeyError<LocaleKeyInfoMap[K]> {
-  override className = OneKeyErrorClassNames.OneKeyValidatorTip;
+  K extends keyof ILocaleKeyInfoMap = any,
+> extends OneKeyError<ILocaleKeyInfoMap[K]> {
+  override className = EOneKeyErrorClassNames.OneKeyValidatorTip;
 
   constructor({
     key,
@@ -71,7 +71,7 @@ export class OneKeyValidatorTip<
     message,
   }: {
     key: K;
-    info?: LocaleKeyInfoMap[K];
+    info?: ILocaleKeyInfoMap[K];
     message?: string;
   }) {
     super({
@@ -268,7 +268,7 @@ export class TransferValueTooSmall extends OneKeyError {
 // **** only for Native Token  InsufficientBalance
 export class InsufficientBalance extends OneKeyError {
   override className =
-    OneKeyErrorClassNames.OneKeyErrorInsufficientNativeBalance;
+    EOneKeyErrorClassNames.OneKeyErrorInsufficientNativeBalance;
 
   // For situations that utxo selection failed.
   constructor(props?: IOneKeyError) {
@@ -625,14 +625,14 @@ export class AllNetworksUpToThreeLimitsError extends OneKeyError {
 }
 
 export class TestAppError2 extends OneKeyError {
-  override className = OneKeyErrorClassNames.OneKeyAbortError;
+  override className = EOneKeyErrorClassNames.OneKeyAbortError;
 
   // override key is bad practice, use constructor
   override key: ILocaleIds = 'Handling_Fee';
 }
 
 export class TestAppError3 extends OneKeyError {
-  override className = OneKeyErrorClassNames.OneKeyAbortError;
+  override className = EOneKeyErrorClassNames.OneKeyAbortError;
 
   constructor(props?: IOneKeyError | string) {
     super(normalizeErrorProps(props));

@@ -5,7 +5,7 @@ import { merge } from 'lodash';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import { encrypt, mnemonicFromEntropy } from '../../secret';
@@ -125,9 +125,10 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const txid = '';
     const rawTx = ''; // build rawTx on high level which requires network
     return {
+      encodedTx: unsignedTx.encodedTx,
       txid,
       rawTx,
-      signature: addHexPrefix(bufferUtils.bytesToHex(txSignature)),
+      signature: hexUtils.addHexPrefix(bufferUtils.bytesToHex(txSignature)),
     };
   }
 
@@ -143,7 +144,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       DOT_TYPE_PREFIX.ed25519,
       bufferToU8a(signature),
     );
-    return addHexPrefix(bufferUtils.bytesToHex(txSignature));
+    return hexUtils.addHexPrefix(bufferUtils.bytesToHex(txSignature));
   }
 
   override async getAddressFromPrivate(

@@ -39,6 +39,7 @@ const {
     {
       encodedTx: '',
       signedTx: {
+        'encodedTx': null,
         'txid': '',
         'rawTx': '',
       },

@@ -5,7 +5,7 @@ import { hmacSHA512 } from './hash';
 
 import type { BaseCurve, CurveForKD } from './curves';
 
-export type ExtendedKey = {
+export type IBip32ExtendedKey = {
   key: Buffer;
   chainCode: Buffer;
 };
@@ -59,14 +59,14 @@ function N(curve: BaseCurve, privateKey: Buffer): Buffer {
   return publicKey;
 }
 
-export interface Bip32KeyDeriver {
-  generateMasterKeyFromSeed(seed: Buffer): ExtendedKey;
-  N(extPriv: ExtendedKey): ExtendedKey;
-  CKDPriv(parent: ExtendedKey, index: number): ExtendedKey;
-  CKDPub(parent: ExtendedKey, index: number): ExtendedKey;
+export interface IBip32KeyDeriver {
+  generateMasterKeyFromSeed(seed: Buffer): IBip32ExtendedKey;
+  N(extPriv: IBip32ExtendedKey): IBip32ExtendedKey;
+  CKDPriv(parent: IBip32ExtendedKey, index: number): IBip32ExtendedKey;
+  CKDPub(parent: IBip32ExtendedKey, index: number): IBip32ExtendedKey;
 }
 
-class BaseBip32KeyDeriver implements Bip32KeyDeriver {
+class BaseBip32KeyDeriver implements IBip32KeyDeriver {
   /* NOTE: The retrying in key generation (in both master key generation
    * and CKD functions) doesn't follow BIP-0032 but SLIP-0010. */
 
@@ -75,7 +75,7 @@ class BaseBip32KeyDeriver implements Bip32KeyDeriver {
     // noop
   }
 
-  generateMasterKeyFromSeed(seed: Buffer): ExtendedKey {
+  generateMasterKeyFromSeed(seed: Buffer): IBip32ExtendedKey {
     const I: Buffer = hmacSHA512(this.key, seed);
     const IL: Buffer = I.slice(0, 32);
     const chainCode: Buffer = I.slice(32, 64);
@@ -87,14 +87,14 @@ class BaseBip32KeyDeriver implements Bip32KeyDeriver {
     return this.generateMasterKeyFromSeed(I);
   }
 
-  N(extPriv: ExtendedKey): ExtendedKey {
+  N(extPriv: IBip32ExtendedKey): IBip32ExtendedKey {
     return {
       key: N(this.curve as BaseCurve, extPriv.key),
       chainCode: extPriv.chainCode,
     };
   }
 
-  CKDPriv(parent: ExtendedKey, index: number): ExtendedKey {
+  CKDPriv(parent: IBip32ExtendedKey, index: number): IBip32ExtendedKey {
     const data: Buffer = Buffer.alloc(37);
 
     data.fill(ser32(index), 33, 37);
@@ -121,7 +121,7 @@ class BaseBip32KeyDeriver implements Bip32KeyDeriver {
     }
   }
 
-  CKDPub(parent: ExtendedKey, index: number): ExtendedKey {
+  CKDPub(parent: IBip32ExtendedKey, index: number): IBip32ExtendedKey {
     if (isHardenedIndex(index)) {
       throw Error(`Can't derive public key for index ${index}.`);
     }
@@ -149,22 +149,22 @@ class BaseBip32KeyDeriver implements Bip32KeyDeriver {
   }
 }
 
-class ED25519Bip32KeyDeriver implements Bip32KeyDeriver {
+class ED25519Bip32KeyDeriver implements IBip32KeyDeriver {
   // eslint-disable-next-line no-useless-constructor
   constructor(private key: Buffer, private curve: BaseCurve) {
     // noop
   }
 
-  generateMasterKeyFromSeed(seed: Buffer): ExtendedKey {
+  generateMasterKeyFromSeed(seed: Buffer): IBip32ExtendedKey {
     const I: Buffer = hmacSHA512(this.key, seed);
     return { key: I.slice(0, 32), chainCode: I.slice(32, 64) };
   }
 
-  N(extPriv: ExtendedKey): ExtendedKey {
+  N(extPriv: IBip32ExtendedKey): IBip32ExtendedKey {
     return { key: N(this.curve, extPriv.key), chainCode: extPriv.chainCode };
   }
 
-  CKDPriv(parent: ExtendedKey, index: number): ExtendedKey {
+  CKDPriv(parent: IBip32ExtendedKey, index: number): IBip32ExtendedKey {
     if (!isHardenedIndex(index)) {
       throw Error('Only hardened CKDPriv is supported for ed25519.');
     }
@@ -176,7 +176,7 @@ class ED25519Bip32KeyDeriver implements Bip32KeyDeriver {
     return { key: I.slice(0, 32), chainCode: I.slice(32, 64) };
   }
 
-  CKDPub(): ExtendedKey {
+  CKDPub(): IBip32ExtendedKey {
     // CKDPub(parent: ExtendedKey, index: number): ExtendedKey {
     throw Error('CKDPub is not supported for ed25519.');
   }

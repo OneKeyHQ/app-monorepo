@@ -5,7 +5,7 @@ import { isExtensionBackground } from '../platformEnv';
 // eslint-disable-next-line import/no-mutable-exports
 let appUIEventBus: CrossEventEmitter;
 
-enum AppUIEventBusNames {
+enum EAppUIEventBusNames {
   SwapCompleted = 'SwapCompleted',
   SwapError = 'SwapError',
   SwapAddTransaction = 'SwapAddTransaction',
@@ -42,4 +42,4 @@ if (process.env.NODE_ENV !== 'production') {
   global.$$appUIEventBus = appUIEventBus;
 }
 
-export { appUIEventBus, AppUIEventBusNames };
+export { appUIEventBus, EAppUIEventBusNames as AppUIEventBusNames };

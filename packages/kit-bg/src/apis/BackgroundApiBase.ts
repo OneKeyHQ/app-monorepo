@@ -46,6 +46,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     this.cycleDepsCheck();
     this.allAtoms = jotaiInit();
     this.startDemoNowTimeUpdateInterval();
+    if (process.env.NODE_ENV !== 'production') {
+      global.$backgroundApi = this;
+    }
   }
 
   allAtoms: Promise<{

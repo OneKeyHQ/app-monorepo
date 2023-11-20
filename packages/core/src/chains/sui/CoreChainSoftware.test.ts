@@ -54,6 +54,7 @@ const {
         },
       },
       signedTx: {
+        'encodedTx': null,
         'txid': '',
         'publicKey':
           '0x2292f77c31cc7e6d3c0b97636387e66c6fb0aceb579de99f8cf3be19ea86a418',

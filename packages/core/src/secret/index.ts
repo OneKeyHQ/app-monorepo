@@ -5,8 +5,8 @@ import { decrypt, encrypt } from './encryptors/aes256';
 import { hash160 } from './hash';
 import ecc from './nobleSecp256k1Wrapper';
 
-import type { Bip32KeyDeriver, ExtendedKey } from './bip32';
-import type { RevealableSeed } from './bip39';
+import type { IBip32ExtendedKey, IBip32KeyDeriver } from './bip32';
+import type { IBip39RevealableSeed } from './bip39';
 import type { BaseCurve } from './curves';
 import type { ICurveName } from '../types';
 
@@ -24,27 +24,27 @@ const curves: Map<ICurveName, BaseCurve> = new Map([
   ['nistp256', nistp256],
   ['ed25519', ed25519],
 ]);
-const derivers: Map<ICurveName, Bip32KeyDeriver> = new Map([
+const derivers: Map<ICurveName, IBip32KeyDeriver> = new Map([
   [
     'secp256k1',
     new BaseBip32KeyDeriver(
       Buffer.from('Bitcoin seed'),
       secp256k1,
-    ) as Bip32KeyDeriver,
+    ) as IBip32KeyDeriver,
   ],
   [
     'nistp256',
     new BaseBip32KeyDeriver(
       Buffer.from('Nist256p1 seed'),
       nistp256,
-    ) as Bip32KeyDeriver,
+    ) as IBip32KeyDeriver,
   ],
   [
     'ed25519',
     new ED25519Bip32KeyDeriver(
       Buffer.from('ed25519 seed'),
       ed25519,
-    ) as Bip32KeyDeriver,
+    ) as IBip32KeyDeriver,
   ],
 ]);
 
@@ -56,8 +56,8 @@ function getCurveByName(curveName: ICurveName): BaseCurve {
   return curve;
 }
 
-function getDeriverByCurveName(curveName: ICurveName): Bip32KeyDeriver {
-  const deriver: Bip32KeyDeriver | undefined = derivers.get(curveName);
+function getDeriverByCurveName(curveName: ICurveName): IBip32KeyDeriver {
+  const deriver: IBip32KeyDeriver | undefined = derivers.get(curveName);
   if (deriver === undefined) {
     throw Error(`Key derivation is not supported for curve ${curveName}.`);
   }
@@ -119,25 +119,25 @@ function batchGetKeys(
 ): Array<{
   path: string;
   parentFingerPrint: Buffer;
-  extendedKey: ExtendedKey;
+  extendedKey: IBip32ExtendedKey;
 }> {
   const ret: Array<{
     path: string;
     parentFingerPrint: Buffer;
-    extendedKey: ExtendedKey;
+    extendedKey: IBip32ExtendedKey;
   }> = [];
   const cache: Record<
     string,
     {
       fingerPrint: Buffer | undefined;
       parentFingerPrint: Buffer;
-      privkey: ExtendedKey;
+      privkey: IBip32ExtendedKey;
     }
   > = {};
 
-  const deriver: Bip32KeyDeriver = getDeriverByCurveName(curveName);
+  const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
   const seed: Buffer = decrypt(password, encryptedSeed);
-  let key: ExtendedKey = deriver.generateMasterKeyFromSeed(seed);
+  let key: IBip32ExtendedKey = deriver.generateMasterKeyFromSeed(seed);
 
   prefix.split('/').forEach((pathComponent) => {
     if (pathComponent === 'm') {
@@ -203,7 +203,7 @@ function batchGetKeys(
 export type ISecretPrivateKeyInfo = {
   path: string;
   parentFingerPrint: Buffer;
-  extendedKey: ExtendedKey;
+  extendedKey: IBip32ExtendedKey;
 };
 function batchGetPrivateKeys(
   curveName: ICurveName,
@@ -225,7 +225,7 @@ function batchGetPrivateKeys(
 export type ISecretPublicKeyInfo = {
   path: string;
   parentFingerPrint: Buffer;
-  extendedKey: ExtendedKey;
+  extendedKey: IBip32ExtendedKey;
 };
 function batchGetPublicKeys(
   curveName: ICurveName,
@@ -248,10 +248,10 @@ function generateMasterKeyFromSeed(
   curveName: ICurveName,
   encryptedSeed: Buffer,
   password: string,
-): ExtendedKey {
-  const deriver: Bip32KeyDeriver = getDeriverByCurveName(curveName);
+): IBip32ExtendedKey {
+  const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
   const seed: Buffer = decrypt(password, encryptedSeed);
-  const masterKey: ExtendedKey = deriver.generateMasterKeyFromSeed(seed);
+  const masterKey: IBip32ExtendedKey = deriver.generateMasterKeyFromSeed(seed);
   return {
     key: encrypt(password, masterKey.key),
     chainCode: masterKey.chainCode,
@@ -260,11 +260,11 @@ function generateMasterKeyFromSeed(
 
 function N(
   curveName: ICurveName,
-  encryptedExtPriv: ExtendedKey,
+  encryptedExtPriv: IBip32ExtendedKey,
   password: string,
-): ExtendedKey {
-  const deriver: Bip32KeyDeriver = getDeriverByCurveName(curveName);
-  const extPriv: ExtendedKey = {
+): IBip32ExtendedKey {
+  const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
+  const extPriv: IBip32ExtendedKey = {
     key: decrypt(password, encryptedExtPriv.key),
     chainCode: encryptedExtPriv.chainCode,
   };
@@ -273,16 +273,16 @@ function N(
 
 function CKDPriv(
   curveName: ICurveName,
-  encryptedParent: ExtendedKey,
+  encryptedParent: IBip32ExtendedKey,
   index: number,
   password: string,
-): ExtendedKey {
-  const deriver: Bip32KeyDeriver = getDeriverByCurveName(curveName);
-  const parent: ExtendedKey = {
+): IBip32ExtendedKey {
+  const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
+  const parent: IBip32ExtendedKey = {
     key: decrypt(password, encryptedParent.key),
     chainCode: encryptedParent.chainCode,
   };
-  const child: ExtendedKey = deriver.CKDPriv(parent, index);
+  const child: IBip32ExtendedKey = deriver.CKDPriv(parent, index);
   return {
     key: encrypt(password, child.key),
     chainCode: child.chainCode,
@@ -291,9 +291,9 @@ function CKDPriv(
 
 function CKDPub(
   curveName: ICurveName,
-  parent: ExtendedKey,
+  parent: IBip32ExtendedKey,
   index: number,
-): ExtendedKey {
+): IBip32ExtendedKey {
   return getDeriverByCurveName(curveName).CKDPub(parent, index);
 }
 
@@ -301,8 +301,11 @@ function revealableSeedFromMnemonic(
   mnemonic: string,
   password: string,
   passphrase?: string,
-): RevealableSeed {
-  const rs: RevealableSeed = mnemonicToRevealableSeed(mnemonic, passphrase);
+): IBip39RevealableSeed {
+  const rs: IBip39RevealableSeed = mnemonicToRevealableSeed(
+    mnemonic,
+    passphrase,
+  );
   return {
     entropyWithLangPrefixed: encrypt(password, rs.entropyWithLangPrefixed),
     seed: encrypt(password, rs.seed),

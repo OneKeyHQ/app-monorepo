@@ -5,11 +5,7 @@ import { sha3_256 } from 'js-sha3';
 import { ed25519 } from '@onekeyhq/core/src/secret';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import {
-  addHexPrefix,
-  hexlify,
-  stripHexPrefix,
-} from '@onekeyhq/shared/src/utils/hexUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
@@ -43,13 +39,14 @@ async function buildSignedTx(
   rawTxn: TxnBuilderTypes.RawTransaction,
   senderPublicKey: string,
   signature: string,
+  encodedTx: any,
 ) {
   const txSignature = new TxnBuilderTypes.Ed25519Signature(
     bufferUtils.hexToBytes(signature),
   );
   const authenticator = new TxnBuilderTypes.TransactionAuthenticatorEd25519(
     new TxnBuilderTypes.Ed25519PublicKey(
-      bufferUtils.hexToBytes(stripHexPrefix(senderPublicKey)),
+      bufferUtils.hexToBytes(hexUtils.stripHexPrefix(senderPublicKey)),
     ),
     txSignature,
   );
@@ -59,6 +56,7 @@ async function buildSignedTx(
   return Promise.resolve({
     txid: '',
     rawTx: bufferUtils.bytesToHex(signRawTx),
+    encodedTx,
   });
 }
 
@@ -80,7 +78,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       payload,
       curve: curveName,
     });
-    const { rawTxUnsigned } = unsignedTx;
+    const { rawTxUnsigned, encodedTx } = unsignedTx;
     if (!rawTxUnsigned) {
       throw new Error('rawTxUnsigned is undefined');
     }
@@ -91,10 +89,10 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const rawTxn = await deserializeTransactionAptos(rawTxUnsigned);
     const signingMessage = TransactionBuilder.getSigningMessage(rawTxn);
     const [signature] = await signer.sign(bufferUtils.toBuffer(signingMessage));
-    const signatureHex = hexlify(signature, {
+    const signatureHex = hexUtils.hexlify(signature, {
       noPrefix: true,
     });
-    return buildSignedTx(rawTxn, senderPublicKey, signatureHex);
+    return buildSignedTx(rawTxn, senderPublicKey, signatureHex, encodedTx);
   }
 
   override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
@@ -105,7 +103,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     });
     const { fullMessage } = JSON.parse(unsignedMsg.message);
     const [signature] = await signer.sign(Buffer.from(fullMessage));
-    return addHexPrefix(signature.toString('hex'));
+    return hexUtils.addHexPrefix(signature.toString('hex'));
   }
 
   override async getAddressFromPublic(
@@ -118,7 +116,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const hash = sha3_256.create();
     hash.update(pubkey);
     hash.update('\x00');
-    const address = addHexPrefix(hash.hex());
+    const address = hexUtils.addHexPrefix(hash.hex());
     return Promise.resolve({
       address,
       publicKey,

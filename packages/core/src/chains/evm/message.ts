@@ -15,7 +15,7 @@ function legacyToBuffer(value: ToBufferInputTypes) {
     : toBuffer(value);
 }
 
-export type HashMessageParams =
+export type IEvmHashMessageParams =
   | {
       messageType: EMessageTypesEth.ETH_SIGN | EMessageTypesEth.PERSONAL_SIGN;
       message: string;
@@ -31,7 +31,10 @@ export type HashMessageParams =
       message: string | Record<string, unknown>;
     };
 
-const hashMessage = ({ messageType, message }: HashMessageParams): string => {
+const hashMessage = ({
+  messageType,
+  message,
+}: IEvmHashMessageParams): string => {
   switch (messageType) {
     case EMessageTypesEth.ETH_SIGN:
       return ethUtil.addHexPrefix(message);

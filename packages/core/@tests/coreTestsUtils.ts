@@ -1,4 +1,4 @@
-import { range } from 'lodash';
+import { omit, range } from 'lodash';
 
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -234,8 +234,7 @@ async function expectSignTransactionOk({
       },
     });
     expect(resultHd).toEqual(resultImported);
-    expect(resultHd).toEqual(signedTx);
-    expect(resultHd).toMatchSnapshot();
+    expect(omit(resultHd, 'encodedTx')).toEqual(omit(signedTx, 'encodedTx'));
   }
 }
 

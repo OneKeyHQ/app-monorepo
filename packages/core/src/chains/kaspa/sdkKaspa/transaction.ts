@@ -5,7 +5,7 @@ import * as necc from '@noble/secp256k1';
 import BigNumber from 'bignumber.js';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import { hexlify, stripHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import ecc from '../../../secret/nobleSecp256k1Wrapper';
 
@@ -102,12 +102,12 @@ async function sign(
     //   bytesToHex(signer.getPublicKey().toBuffer()),
     // );
 
-    const sig = crypto.Signature.fromString(stripHexPrefix(signature));
+    const sig = crypto.Signature.fromString(hexUtils.stripHexPrefix(signature));
     // @ts-expect-error
     const b = sig.toBuffer('schnorr').toString('hex');
     if (b.length < 128)
       throw new Error(
-        `Invalid Signature\nsecp256k1 sig:${hexlify(
+        `Invalid Signature\nsecp256k1 sig:${hexUtils.hexlify(
           signature,
         )}\nSignature.fromString:${b}`,
       );
@@ -125,9 +125,9 @@ async function sign(
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       (await signer.getPrivateKey()).toBuffer(),
     );
-    const signature = hexlify(signatureBuffer);
+    const signature = hexUtils.hexlify(signatureBuffer);
 
-    const sig = crypto.Signature.fromString(stripHexPrefix(signature));
+    const sig = crypto.Signature.fromString(hexUtils.stripHexPrefix(signature));
     sig.compressed = true;
     // @ts-expect-error
     sig.nhashtype = sighashType;
@@ -152,9 +152,14 @@ async function getSignaturesWithInput(
 
     if (
       publicKey.toString() ===
-      // @ts-expect-error
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-      hexlify(input?.output?.script?.getPublicKey(), { noPrefix: true })
+      hexUtils.hexlify(
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        input?.output?.script?.getPublicKey(),
+        {
+          noPrefix: true,
+        },
+      )
     ) {
       const txSign = await sign(
         transaction,

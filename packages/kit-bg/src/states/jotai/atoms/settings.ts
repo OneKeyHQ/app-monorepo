@@ -17,6 +17,7 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
     persist: true,
     name: EAtomNames.settingsPersistAtom,
+
     initialValue: {
       theme: 'system',
       lastLocale: 'system',

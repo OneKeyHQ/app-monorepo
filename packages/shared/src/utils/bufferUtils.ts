@@ -7,7 +7,7 @@ import {
 } from '@noble/hashes/utils';
 import { isString } from 'lodash';
 
-import { stripHexPrefix } from './hexUtils';
+import hexUtils from './hexUtils';
 
 function toBuffer(
   data: Buffer | Uint8Array | string,
@@ -17,7 +17,7 @@ function toBuffer(
   if (isString(data)) {
     if (encoding === 'hex') {
       // eslint-disable-next-line no-param-reassign
-      data = stripHexPrefix(data);
+      data = hexUtils.stripHexPrefix(data);
     }
     // buffer from hex string in default
     return Buffer.from(data, encoding);

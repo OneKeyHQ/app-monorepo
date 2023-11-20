@@ -4,7 +4,7 @@ import { Button, Stack, Text, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { AppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
+import { EAppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import useCookie from '../../../../../../hooks/useCookie';
@@ -17,7 +17,7 @@ import { EDemoHomeTabRoutes } from '../Routes';
 import type { IDemoHomeTabParamList } from '../RouteParamTypes';
 
 const useStorage = platformEnv.isNative
-  ? (key: AppSettingKey, initialValue?: boolean) => {
+  ? (key: EAppSettingKey, initialValue?: boolean) => {
       const [data, setData] = useState(
         initialValue || appStorage.getSettingBoolean(key),
       );
@@ -34,7 +34,7 @@ const DemoRootHome = () => {
     useDemoAppNavigation<IPageNavigationProp<IDemoHomeTabParamList>>();
 
   // @ts-expect-error
-  const [rrtStatus, changeRRTStatus] = useStorage(AppSettingKey.rrt);
+  const [rrtStatus, changeRRTStatus] = useStorage(EAppSettingKey.rrt);
 
   const renderHeaderTitle = useCallback(
     () => (

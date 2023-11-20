@@ -7,7 +7,7 @@ import {
 } from '@starcoin/starcoin';
 
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import { hexlify } from '@onekeyhq/shared/src/utils/hexUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { Verifier } from '../../base/ChainSigner';
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
@@ -51,13 +51,13 @@ const buildUnsignedRawTx = (
   unsignedTx: IUnsignedTxPro,
   chainId: string,
 ): [StarcoinTypes.RawUserTransaction, Uint8Array] => {
-  const fromAddr = unsignedTx.inputs[0].address;
-  const { scriptFn, data } = unsignedTx.payload;
+  const fromAddr = unsignedTx?.inputs?.[0].address;
+  const { scriptFn, data } = unsignedTx.payload || {};
 
   const gasLimit = unsignedTx.feeLimit;
   const gasPrice = unsignedTx.feePricePerUnit;
   const { nonce } = unsignedTx;
-  const { expirationTime } = unsignedTx.payload;
+  const { expirationTime } = unsignedTx.payload || {};
 
   if (
     !fromAddr ||
@@ -101,6 +101,7 @@ const buildSignedTx = (
   senderPublicKey: string,
   rawSignature: Buffer,
   rawTxn: StarcoinTypes.RawUserTransaction,
+  encodedTx: any,
 ) => {
   const publicKey = new StarcoinTypes.Ed25519PublicKey(
     Buffer.from(senderPublicKey, 'hex'),
@@ -120,9 +121,9 @@ const buildSignedTx = (
   const txid = CryptoHash.createUserTransactionHasher().crypto_hash(
     se.getBytes(),
   );
-  const rawTx = hexlify(se.getBytes());
+  const rawTx = hexUtils.hexlify(se.getBytes());
 
-  return { txid, rawTx };
+  return { txid, rawTx, encodedTx };
 };
 
 export default class CoreChainSoftware extends CoreChainApiBase {
@@ -157,7 +158,12 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const txBytes = hashRawTx(rawUserTransactionBytes);
 
     const [signature] = await signer.sign(bufferUtils.toBuffer(txBytes));
-    return buildSignedTx(senderPublicKey as string, signature, rawTxn);
+    return buildSignedTx(
+      senderPublicKey as string,
+      signature,
+      rawTxn,
+      unsignedTx.encodedTx,
+    );
   }
 
   override async signMessage(): Promise<string> {

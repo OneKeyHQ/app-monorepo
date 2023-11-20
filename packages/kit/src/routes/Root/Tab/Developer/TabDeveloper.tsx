@@ -9,18 +9,15 @@ import {
   Page,
   Stack,
   Text,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
-import localDb from '@onekeyhq/kit-bg/src/dbs/local/localDb';
 import { getMeasureTime } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { AppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
+import { EAppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import useCookie from '../../../../hooks/useCookie';
 
@@ -35,7 +32,7 @@ function setLocale(locale: string) {
 }
 
 const useStorage = platformEnv.isNative
-  ? (key: AppSettingKey, initialValue?: boolean) => {
+  ? (key: EAppSettingKey, initialValue?: boolean) => {
       const [data, setData] = useState(
         initialValue || appStorage.getSettingBoolean(key),
       );
@@ -78,7 +75,7 @@ const TabDeveloper = () => {
     useAppNavigation<IPageNavigationProp<ITabDeveloperParamList>>();
 
   // @ts-expect-error
-  const [rrtStatus, changeRRTStatus] = useStorage(AppSettingKey.rrt);
+  const [rrtStatus, changeRRTStatus] = useStorage(EAppSettingKey.rrt);
 
   return (
     <Page>
@@ -96,38 +93,6 @@ const TabDeveloper = () => {
             }}
           >
             Gallery
-          </Button>
-        </PartContainer>
-
-        <PartContainer title="Background">
-          <Button
-            onPress={async () => {
-              const r = await backgroundApiProxy.servicePromise.testHelloWorld(
-                'jack',
-              );
-              Toast.success({
-                title: r,
-                message: r,
-              });
-              console.log('testHelloWorld > ', r);
-              await backgroundApiProxy.servicePromise.testHelloWorld('jack');
-              void backgroundApiProxy.servicePromise.testHelloWorld2('jack');
-            }}
-          >
-            Test service
-          </Button>
-        </PartContainer>
-
-        <PartContainer title="DB">
-          <Button
-            onPress={async () => {
-              const ctx = await localDb.getContext();
-              // @ts-ignore
-              window.$$localDb = localDb;
-              console.log(ctx);
-            }}
-          >
-            Show Context
           </Button>
         </PartContainer>
 
