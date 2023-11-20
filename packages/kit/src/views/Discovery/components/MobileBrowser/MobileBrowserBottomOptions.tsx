@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 
 import { ActionList } from '@onekeyhq/components';
 
@@ -6,8 +6,6 @@ import type { IMobileBottomOptionsProps } from '../../types';
 
 function MobileBrowserBottomOptions({
   children,
-  open,
-  onOpenChange,
   isBookmark,
   onBookmarkPress,
   onRefresh,
@@ -16,15 +14,9 @@ function MobileBrowserBottomOptions({
   onPinnedPress,
   onBrowserOpen,
   onGoBackHomePage,
-}: {
-  children?: ReactNode;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-} & IMobileBottomOptionsProps) {
+}: PropsWithChildren<IMobileBottomOptionsProps>) {
   return (
     <ActionList
-      open={open}
-      onOpenChange={onOpenChange}
       title="Options"
       renderTrigger={children}
       sections={[

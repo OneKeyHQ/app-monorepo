@@ -14,7 +14,6 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 
-import { ETabRoutes } from '../../../../routes/Root/Tab/Routes';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import MobileBrowserInfoBar from '../../components/MobileBrowser/MobileBrowserInfoBar';
 import { useTabDataFromSimpleDb } from '../../hooks/useTabDataFromSimpleDb';
