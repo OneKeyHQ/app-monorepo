@@ -92,21 +92,31 @@ export interface IActionListProps
   extends Omit<IPopoverProps, 'renderContent' | 'open' | 'onOpenChange'> {
   items?: IActionListItemProps[];
   sections?: IActionListSection[];
+  onOpenChange?: (isOpen: boolean) => void;
 }
 
 export function ActionList({
   items,
   sections,
   renderTrigger,
+  onOpenChange,
   ...props
 }: IActionListProps) {
   const [isOpen, setOpenStatus] = useState(false);
+  const handleOpenStatusChange = useCallback(
+    (openStatus: boolean) => {
+      setOpenStatus(openStatus);
+      onOpenChange?.(openStatus);
+    },
+    [onOpenChange],
+  );
   const handleActionListOpen = useCallback(() => {
-    setOpenStatus(true);
-  }, []);
+    handleOpenStatusChange(true);
+  }, [handleOpenStatusChange]);
   const handleActionListClose = useCallback(() => {
-    setOpenStatus(false);
-  }, []);
+    handleOpenStatusChange(false);
+  }, [handleOpenStatusChange]);
+
   const renderActionListItem = (item: IActionListItemProps) => (
     <ActionListItem
       onPress={item.onPress}
@@ -119,7 +129,7 @@ export function ActionList({
   return (
     <Popover
       open={isOpen}
-      onOpenChange={setOpenStatus}
+      onOpenChange={handleOpenStatusChange}
       onFocusOutside={handleActionListClose}
       renderContent={
         <YStack p="$1" $md={{ p: '$3' }}>

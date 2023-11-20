@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { Image } from 'react-native';
 
 import { ActionList, Icon, Stack, Text, XStack } from '@onekeyhq/components';
 
 import { useWebTabData } from '../../hooks/useWebTabs';
+import { dispatchOverlayEvent } from '../WebView/DesktopOverlay';
 
 function DesktopCustomTabBarItem({
   id,
@@ -23,7 +24,13 @@ function DesktopCustomTabBarItem({
 }) {
   const { tab } = useWebTabData(id);
   const [menuHoverVisible, setMenuHoverVisible] = useState(false);
+  const [isShowPopover, setPopoverStatus] = useState(false);
   const isActive = useMemo(() => activeTabId === id, [activeTabId, id]);
+  const handleOpenChange = useCallback((isOpen: boolean) => {
+    setMenuHoverVisible(isOpen);
+    setPopoverStatus(isOpen);
+    dispatchOverlayEvent(isOpen);
+  }, []);
   return (
     <XStack
       key={id}
@@ -54,7 +61,7 @@ function DesktopCustomTabBarItem({
       <XStack
         flex={1}
         onHoverIn={() => setMenuHoverVisible(true)}
-        onHoverOut={() => setMenuHoverVisible(false)}
+        onHoverOut={() => !isShowPopover && setMenuHoverVisible(false)}
         alignItems="center"
       >
         <Text variant="$bodyMd" numberOfLines={1} flex={1}>
@@ -63,6 +70,7 @@ function DesktopCustomTabBarItem({
         <ActionList
           title="Action List"
           placement="right-start"
+          onOpenChange={handleOpenChange}
           renderTrigger={
             menuHoverVisible && (
               <Stack
