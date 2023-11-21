@@ -4,6 +4,7 @@ import { Children, cloneElement, forwardRef, isValidElement } from 'react';
 import { composeEventHandlers } from 'tamagui';
 
 import { Button } from '../Button';
+import { IconButton } from '../IconButton';
 import { Stack } from '../Stack';
 
 import type { IButtonProps } from '../Button';
@@ -20,7 +21,7 @@ function BasicTrigger(
       const handleOpen = onPress
         ? composeEventHandlers(onPress, onOpen)
         : onOpen;
-      if (child.type === Button) {
+      if ([Button, IconButton].includes(child.type as any)) {
         return cloneElement(child, {
           onPress: handleOpen,
           ...props,
