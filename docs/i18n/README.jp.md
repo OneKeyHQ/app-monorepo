@@ -43,7 +43,7 @@ yarn
 - `packages/components` はUIコンポーネントを保持します
 - `packages/kit`再利用可能なページレベルのUIコンテンツ用の
 - `packages /app`APPコード
-- `packages/desktop`デスクトップの電子コード
+- `apps/desktop`デスクトップの電子コード
 - `packages /web`Webコード
 - `packages/ext`プラグインサイドコード
 

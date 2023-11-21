@@ -43,7 +43,7 @@ I repository sono organizzati utilizzando il modello monorepo per mantenere il c
 - `packages/components` per i componenti UI
 - `packages/kit` contiene contenuti UI riutilizzabili a livello di pagina
 - `packages/app` codice APP
-- `packages/desktop` Codice elettronico del desktop
+- `apps/desktop` Codice elettronico del desktop
 - `pacchetti/web` codice lato web
 - `pacchetti/ext` Codice lato plugin
 
