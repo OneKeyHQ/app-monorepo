@@ -1,8 +1,9 @@
 /* eslint-disable global-require */
 import type { PropsWithChildren } from 'react';
-import { Suspense, useMemo } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 
 import { Dimensions } from 'react-native';
+import { AnimatePresence } from 'tamagui';
 
 import { Image, Stack } from '@onekeyhq/components';
 // import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -26,12 +27,7 @@ const buildImageSource = () =>
 function SplashView() {
   const logoImage = useMemo(() => buildImageSource(), []);
   return platformEnv.isRuntimeBrowser ? (
-    <Stack
-      flex={1}
-      bg="$background"
-      justifyContent="center"
-      alignItems="center"
-    >
+    <Stack flex={1} justifyContent="center" alignItems="center">
       <Stack w={80} h={80}>
         <Image flex={1} source={logoImage} />
       </Stack>
@@ -46,27 +42,71 @@ function SplashView() {
   );
 }
 
-const useWaitReady = createSuspender(
+const waitUIReady = () =>
+  new Promise<void>((resolve) => {
+    setTimeout(() => {
+      // TODO：Hide the Splash View only when the UI view is ready.
+      resolve();
+    }, 100);
+  });
+
+function PendingSplashView() {
+  const [isVisible, changeVisibleStatus] = useState(true);
+  useEffect(() => {
+    void waitUIReady().then(() => {
+      changeVisibleStatus(false);
+    });
+  }, []);
+  return (
+    <AnimatePresence>
+      {isVisible && (
+        <Stack
+          bg="$background"
+          animation="quick"
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          flex={1}
+          enterStyle={{
+            opacity: 0,
+          }}
+          exitStyle={{
+            opacity: 0,
+          }}
+        >
+          <SplashView />
+        </Stack>
+      )}
+    </AnimatePresence>
+  );
+}
+
+const useWaitDataReady = createSuspender(
   () =>
-    // TODO：It needs to be modified to listen for the event of data loading completion to end the waiting.
+    // TODO：Show the UI View only when data is ready.
     new Promise<void>((resolve) => {
       setTimeout(() => {
         resolve();
-      }, 50);
+      }, 0);
     }),
 );
 
 const PendingComponent = ({ children }: PropsWithChildren<unknown>) => {
-  useWaitReady();
+  useWaitDataReady();
   return children;
 };
 
 function AppLoading({ children }: PropsWithChildren<unknown>) {
   useHtmlPreloadSplashLogoRemove();
   return (
-    <Suspense fallback={<SplashView />}>
-      <PendingComponent>{children}</PendingComponent>
-    </Suspense>
+    <Stack flex={1}>
+      <Suspense fallback={null}>
+        <PendingComponent>{children}</PendingComponent>
+      </Suspense>
+      <PendingSplashView />
+    </Stack>
   );
 }
 
