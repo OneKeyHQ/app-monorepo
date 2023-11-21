@@ -91,12 +91,12 @@ class ServicePromise extends ServiceBase {
 
   @backgroundMethod()
   async testHelloWorld(name: string) {
-    return Promise.resolve(`hello world:${name} ${Date.now()}`);
+    return Promise.resolve(`hello world @@@@:   ${name} ${Date.now()}`);
   }
 
   @backgroundMethod()
   testHelloWorld2(name: string) {
-    return Promise.resolve(`hello world:${name} ${Date.now()}`);
+    return Promise.resolve(`hello world %%%%:   ${name} ${Date.now()}`);
   }
 
   _processCallback({
