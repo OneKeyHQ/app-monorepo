@@ -12,16 +12,13 @@ export const ModalDiscoveryStack: IModalFlowNavigatorConfig<
   {
     name: EDiscoveryModalRoutes.MobileTabList,
     component: MobileTabListModal,
-    translationId: 'title__about',
   },
   {
     name: EDiscoveryModalRoutes.SearchModal,
     component: SearchModal,
-    translationId: 'title__accounts',
   },
   {
     name: EDiscoveryModalRoutes.FakeSearchModal,
     component: FakeSearchModal,
-    translationId: 'title__accounts',
   },
 ];

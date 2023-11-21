@@ -17,7 +17,6 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
 import MobileTabListItem from '../../components/MobileTabListItem';
-import MobileTabItemOptions from '../../components/MobileTabListItem/MobileTabItemOptions';
 import MobileTabListPinnedItem from '../../components/MobileTabListItem/MobileTabListPinnedItem';
 import { TAB_LIST_CELL_COUNT_PER_ROW } from '../../config/TabList.constants';
 import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
@@ -78,6 +77,10 @@ function TabToolBar({
   );
 }
 
+function HeaderTitle({ tabCount }: { tabCount: number }) {
+  return <Text>{tabCount} Tabs</Text>;
+}
+
 function MobileTabListModal() {
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
@@ -127,6 +130,50 @@ function MobileTabListModal() {
     [closeWebTab],
   );
 
+  const showTabOptions = useCallback(
+    (tab: IWebTab, id: string) => {
+      ActionList.show({
+        title: 'Options',
+        sections: [
+          {
+            items: [
+              {
+                label: tab.isBookmark ? 'Delete Bookmark' : 'Bookmark',
+                icon: tab.isBookmark ? 'BookmarkSolid' : 'BookmarkOutline',
+                onPress: () =>
+                  handleBookmarkPress(
+                    !tab.isBookmark,
+                    tab.url,
+                    tab.title ?? '',
+                  ),
+              },
+              {
+                label: tab.isPinned ? 'Un-Pin' : 'Pin',
+                icon: tab.isPinned ? 'PinSolid' : 'PinOutline',
+                onPress: () => handlePinnedPress(id, !tab.isPinned),
+              },
+              {
+                label: 'Share',
+                icon: 'ShareOutline',
+                onPress: () => handleShare(tab.url),
+              },
+            ],
+          },
+          {
+            items: [
+              {
+                label: tab.isPinned ? 'Close Pin Tab' : 'Close Tab',
+                icon: 'CrossedLargeOutline',
+                onPress: () => handleCloseTab(id),
+              },
+            ],
+          },
+        ],
+      });
+    },
+    [handleBookmarkPress, handlePinnedPress, handleShare, handleCloseTab],
+  );
+
   const keyExtractor = useCallback((item: IWebTab) => item.id, []);
   const renderItem = useCallback(
     ({ item: tab }: { item: IWebTab }) => (
@@ -139,56 +186,11 @@ function MobileTabListModal() {
         }}
         onCloseItem={handleCloseTab}
         onLongPress={(id) => {
-          ActionList.show({
-            title: 'Options',
-            sections: [
-              {
-                items: [
-                  {
-                    label: tab.isBookmark ? 'Delete Bookmark' : 'Bookmark',
-                    icon: tab.isBookmark ? 'BookmarkSolid' : 'BookmarkOutline',
-                    onPress: () =>
-                      handleBookmarkPress(
-                        !tab.isBookmark,
-                        tab.url,
-                        tab.title ?? '',
-                      ),
-                  },
-                  {
-                    label: tab.isPinned ? 'Un-Pin' : 'Pin',
-                    icon: tab.isPinned ? 'PinSolid' : 'PinOutline',
-                    onPress: () => handlePinnedPress(id, !tab.isPinned),
-                  },
-                  {
-                    label: 'Share',
-                    icon: 'ShareOutline',
-                    onPress: () => handleShare(tab.url),
-                  },
-                ],
-              },
-              {
-                items: [
-                  {
-                    label: tab.isPinned ? 'Close Pin Tab' : 'Close Tab',
-                    icon: 'CrossedLargeOutline',
-                    onPress: () => handleCloseTab(id),
-                  },
-                ],
-              },
-            ],
-          });
+          showTabOptions(tab, id);
         }}
       />
     ),
-    [
-      activeTabId,
-      handleCloseTab,
-      setCurrentWebTab,
-      navigation,
-      handleBookmarkPress,
-      handlePinnedPress,
-      handleShare,
-    ],
+    [activeTabId, handleCloseTab, setCurrentWebTab, navigation, showTabOptions],
   );
 
   const renderPinnedItem = useCallback(
@@ -201,10 +203,12 @@ function MobileTabListModal() {
           navigation.pop();
         }}
         onCloseItem={handleCloseTab}
-        onLongPress={(id) => {}}
+        onLongPress={(id) => {
+          showTabOptions(tab, id);
+        }}
       />
     ),
-    [navigation, setCurrentWebTab, activeTabId, handleCloseTab],
+    [navigation, setCurrentWebTab, activeTabId, handleCloseTab, showTabOptions],
   );
 
   const renderPinnedList = useMemo(() => {
@@ -240,7 +244,8 @@ function MobileTabListModal() {
 
   return (
     <Page>
-      <Page.Header headerTitle={() => <Text>Hello World</Text>} />
+      {/* @ts-expect-error */}
+      <Page.Header headerTitle={<HeaderTitle tabCount={tabs.length ?? 0} />} />
       <Page.Body>
         <Stack style={styles.container}>
           <FlatList

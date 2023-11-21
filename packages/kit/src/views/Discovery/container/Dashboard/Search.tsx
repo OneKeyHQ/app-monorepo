@@ -57,6 +57,7 @@ function SearchModal() {
 
   return (
     <Page>
+      <Page.Header headerTitle="Search Modal" />
       <Page.Body>
         <Stack p="$4">
           <SearchBar value={value} onChangeText={setValue} />
