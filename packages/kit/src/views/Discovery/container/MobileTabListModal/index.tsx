@@ -78,7 +78,6 @@ function TabToolBar({
   );
 }
 
-
 function HeaderTitle({ children }: PropsWithChildren<unknown>) {
   return <Text>{children} Tabs</Text>;
 }
