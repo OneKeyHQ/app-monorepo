@@ -322,6 +322,14 @@ export type IGlobalStatesSyncBroadcastParams = {
   payload: any;
 };
 
+export const GLOBAL_EVENT_BUS_SYNC_BROADCAST_METHOD_NAME =
+  'globaEventBusSyncBroadcast';
+export type IGlobalEventBusSyncBroadcastParams = {
+  $$isFromBgEventBusSyncBroadcast: true;
+  type: string;
+  payload: any;
+};
+
 export const REPLACE_WHOLE_STATE = 'REPLACE_WHOLE_STATE';
 
 export async function fetchData<T>(
