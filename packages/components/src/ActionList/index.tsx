@@ -1,9 +1,12 @@
 import { useCallback, useState } from 'react';
 
+import { withStaticProperties } from 'tamagui';
+
 import { ButtonFrame } from '../Button';
 import { Divider } from '../Divider';
 import { Icon } from '../Icon';
 import { Popover } from '../Popover';
+import { Portal } from '../Portal';
 import { YStack } from '../Stack';
 import { Text } from '../Text';
 import { Trigger } from '../Trigger';
@@ -15,7 +18,7 @@ interface IActionListItemProps {
   icon?: IICON_NAMES;
   label: string;
   destructive?: boolean;
-  onPress?: () => void | Promise<boolean>;
+  onPress?: () => void | Promise<boolean | void>;
   disabled?: boolean;
 }
 
@@ -93,16 +96,18 @@ export interface IActionListProps
   items?: IActionListItemProps[];
   sections?: IActionListSection[];
   onOpenChange?: (isOpen: boolean) => void;
+  defaultOpen?: boolean;
 }
 
-export function ActionList({
+function BasicActionList({
   items,
   sections,
   renderTrigger,
   onOpenChange,
+  defaultOpen = false,
   ...props
 }: IActionListProps) {
-  const [isOpen, setOpenStatus] = useState(false);
+  const [isOpen, setOpenStatus] = useState(defaultOpen);
   const handleOpenStatusChange = useCallback(
     (openStatus: boolean) => {
       setOpenStatus(openStatus);
@@ -164,3 +169,12 @@ export function ActionList({
     />
   );
 }
+
+export const ActionList = withStaticProperties(BasicActionList, {
+  show: (props: Omit<IActionListProps, 'renderTrigger' | 'defaultOpen'>) => {
+    Portal.Render(
+      Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
+      <BasicActionList {...props} defaultOpen renderTrigger={null} />,
+    );
+  },
+});

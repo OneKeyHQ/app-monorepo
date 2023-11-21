@@ -5,26 +5,22 @@ import { Share } from 'react-native';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function useBrowserOptionsAction() {
-  const handleShareUrl = useCallback(
-    (url: string, onCloseActionList: () => void) => {
-      if (!url) {
-        throw new Error('url is required');
-      }
-      setTimeout(() => {
-        onCloseActionList();
-        void Share.share(
-          platformEnv.isNativeIOS
-            ? {
-                url,
-              }
-            : {
-                message: url,
-              },
-        );
-      }, 100);
-    },
-    [],
-  );
+  const handleShareUrl = useCallback((url: string) => {
+    if (!url) {
+      throw new Error('url is required');
+    }
+    setTimeout(() => {
+      void Share.share(
+        platformEnv.isNativeIOS
+          ? {
+              url,
+            }
+          : {
+              message: url,
+            },
+      );
+    }, 100);
+  }, []);
 
   return {
     handleShareUrl,
