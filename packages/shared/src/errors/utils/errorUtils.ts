@@ -99,12 +99,13 @@ export function normalizeErrorProps(
     config?.defaultKey ||
     undefined;
 
-  if (!msg && key && errorsIntlFormatter.formatMessage) {
-    msg = errorsIntlFormatter.formatMessage(
-      { id: key },
-      (props as IOneKeyError)?.info,
-    );
-  }
+  // if (!msg && key && errorsIntlFormatter.formatMessage) {
+  //   msg = errorsIntlFormatter.formatMessage(
+  //     { id: key },
+  //     (props as IOneKeyError)?.info,
+  //   );
+  // }
+
   msg = msg || config?.defaultMessage || '';
 
   return {
