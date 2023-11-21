@@ -4,10 +4,13 @@ import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 import KeyboardManager from 'react-native-keyboard-manager';
 
+import { Portal } from '@onekeyhq/components';
 import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
 import { RootStackNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import AppStateLockContainer from '../../components/AppLock/container/AppStateLockContainer';
+import DesktopCustomTabBar from '../../views/Discovery/container/DesktopCustomTabBar';
 
 import ModalNavigator from './Modal/ModalNavigator';
 import { ERootRoutes } from './Routes';
@@ -49,6 +52,11 @@ export const RootNavigator = () => {
   return (
     <AppStateLockContainer>
       <RootStackNavigator<ERootRoutes, any> config={rootConfig} />
+      {platformEnv.isDesktop ? (
+        <Portal.Body container={Portal.Constant.WEB_TAB_BAR}>
+          <DesktopCustomTabBar />
+        </Portal.Body>
+      ) : null}
     </AppStateLockContainer>
   );
 };
