@@ -1,6 +1,7 @@
-import type { FC } from 'react';
+import type { FC, PropsWithChildren } from 'react';
 import { useCallback } from 'react';
 
+import { Toast } from '@onekeyhq/components';
 import {
   usePasswordAtom,
   usePasswordPersistAtom,
@@ -10,16 +11,9 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import PasswordVerifyContainer from '../../Password/container/PasswordVerifyContainer';
 import AppStateLock from '../components/AppStateLock';
 
-interface IAppStateLockContainerProps {
-  children: JSX.Element;
-}
-
-const AppStateLockContainer: FC<IAppStateLockContainerProps> = ({
-  children,
-}) => {
+const AppStateLockContainer: FC<PropsWithChildren> = ({ children }) => {
   const [{ unLock }] = usePasswordAtom();
-  const [{ isPasswordSet }] = usePasswordPersistAtom();
-
+  const [{ isPasswordSet, webAuthCredentialId }] = usePasswordPersistAtom();
   const handleUnlock = useCallback(async () => {
     await backgroundApiProxy.servicePassword.unLockApp();
   }, []);
@@ -30,6 +24,15 @@ const AppStateLockContainer: FC<IAppStateLockContainerProps> = ({
 
   return (
     <AppStateLock
+      enableWebAuth={!!webAuthCredentialId}
+      onWebAuthVerify={async () => {
+        const res = await backgroundApiProxy.servicePassword.verifyWebAuth();
+        if (res) {
+          await handleUnlock();
+        } else {
+          Toast.error({ title: '请输入密码' });
+        }
+      }}
       passwordVerifyContainer={
         <PasswordVerifyContainer
           onVerifyRes={async (data) => {
