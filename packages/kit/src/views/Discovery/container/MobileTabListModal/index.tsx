@@ -7,7 +7,9 @@ import {
   Button,
   IconButton,
   ListView,
+  Page,
   Stack,
+  Text,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
@@ -208,38 +210,43 @@ function MobileTabListModal() {
   }, [pinnedData, renderPinnedItem]);
 
   return (
-    <ModalContainer onConfirm={() => {}} onCancel={() => closeAllWebTab()}>
-      <Stack style={styles.container}>
-        <FlatList
-          data={data}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
-          numColumns={TAB_LIST_CELL_COUNT_PER_ROW}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.listContentContainer}
+    <Page>
+      <Page.Header headerTitle={() => <Text>Hello World</Text>} />
+      <Page.Body>
+        <Stack style={styles.container}>
+          <FlatList
+            data={data}
+            renderItem={renderItem}
+            keyExtractor={keyExtractor}
+            numColumns={TAB_LIST_CELL_COUNT_PER_ROW}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.listContentContainer}
+          />
+        </Stack>
+        {renderPinnedList}
+        <MobileTabItemOptions
+          id={selectedTabId}
+          onBookmarkPress={handleBookmarkPress}
+          onPinnedPress={handlePinnedPress}
+          onShare={handleShare}
+          onClose={handleCloseTab}
         />
-      </Stack>
-      {renderPinnedList}
-      <MobileTabItemOptions
-        id={selectedTabId}
-        onBookmarkPress={handleBookmarkPress}
-        onPinnedPress={handlePinnedPress}
-        onShare={handleShare}
-        onClose={handleCloseTab}
-      />
-      <TabToolBar
-        onAddTab={() => {
-          navigation.pop();
-          navigation.pushModal(EModalRoutes.DiscoveryModal, {
-            screen: EDiscoveryModalRoutes.FakeSearchModal,
-          });
-        }}
-        onCloseAll={() => closeAllWebTab()}
-        onDone={() => {
-          navigation.pop();
-        }}
-      />
-    </ModalContainer>
+      </Page.Body>
+      <Page.Footer>
+        <TabToolBar
+          onAddTab={() => {
+            navigation.pop();
+            navigation.pushModal(EModalRoutes.DiscoveryModal, {
+              screen: EDiscoveryModalRoutes.FakeSearchModal,
+            });
+          }}
+          onCloseAll={() => closeAllWebTab()}
+          onDone={() => {
+            navigation.pop();
+          }}
+        />
+      </Page.Footer>
+    </Page>
   );
 }
 
