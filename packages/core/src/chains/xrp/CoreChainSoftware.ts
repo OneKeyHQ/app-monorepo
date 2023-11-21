@@ -6,7 +6,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
-import type { IEncodedTxXrp } from './types';
+import type { Transaction } from 'xrpl';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
@@ -19,7 +19,7 @@ import type {
   ICurveName,
   ISignedTxPro,
 } from '../../types';
-import type { Transaction } from 'xrpl';
+import type { IEncodedTxXrp } from './types';
 
 const curve: ICurveName = 'secp256k1';
 
@@ -106,6 +106,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const txid = signResult.hash;
     const rawTx = signResult.tx_blob;
     return {
+      encodedTx: unsignedTx.encodedTx,
       txid,
       rawTx,
     };

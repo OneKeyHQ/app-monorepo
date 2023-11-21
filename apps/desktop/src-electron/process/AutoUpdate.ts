@@ -8,7 +8,7 @@ import { b2t, toHumanReadable } from '../libs/utils';
 import type { Dependencies } from '.';
 import type { UpdateSettings } from '../libs/store';
 
-interface LatestVersion {
+interface ILatestVersion {
   version: string;
   releaseDate: string;
   isManualCheck: boolean;
@@ -37,7 +37,7 @@ const init = ({ mainWindow, store }: Dependencies) => {
   });
 
   let isManualCheck = false;
-  let latestVersion: LatestVersion = {} as LatestVersion;
+  let ILatestVersion: ILatestVersion = {} as ILatestVersion;
   let updateCancellationToken: CancellationToken;
   const updateSettings = store.getUpdateSettings();
 
@@ -68,8 +68,11 @@ const init = ({ mainWindow, store }: Dependencies) => {
       `- Manual check: ${b2t(isManualCheck)}`,
     ]);
 
-    latestVersion = { version, releaseDate, isManualCheck };
-    mainWindow.webContents.send(ipcMessageKeys.UPDATE_AVAILABLE, latestVersion);
+    ILatestVersion = { version, releaseDate, isManualCheck };
+    mainWindow.webContents.send(
+      ipcMessageKeys.UPDATE_AVAILABLE,
+      ILatestVersion,
+    );
 
     // Reset manual check flag
     isManualCheck = false;
@@ -84,10 +87,10 @@ const init = ({ mainWindow, store }: Dependencies) => {
       `- Manual check: ${b2t(isManualCheck)}`,
     ]);
 
-    latestVersion = { version, releaseDate, isManualCheck };
+    ILatestVersion = { version, releaseDate, isManualCheck };
     mainWindow.webContents.send(
       ipcMessageKeys.UPDATE_NOT_AVAILABLE,
-      latestVersion,
+      ILatestVersion,
     );
 
     // Reset manual check flag
@@ -99,7 +102,7 @@ const init = ({ mainWindow, store }: Dependencies) => {
     if (isNetworkError(err)) {
       mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
         err,
-        version: latestVersion.version,
+        version: ILatestVersion.version,
         isNetworkError: true,
       });
     }

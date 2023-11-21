@@ -1,9 +1,16 @@
 // import type only here to avoid cycle-deps error
 
+import type {
+  EAppEventBusNames,
+  IAppEventBusPayload,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type ServiceApp from '../services/ServiceApp';
 import type ServicePassword from '../services/ServicePassword';
 import type ServicePromise from '../services/ServicePromise';
+import type ServiceSend from '../services/ServiceSend';
+import type ServiceSetting from '../services/ServiceSetting';
 import type { EAtomNames } from '../states/jotai/atomNames';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
@@ -28,6 +35,12 @@ export interface IBackgroundApiBridge {
   setAtomValue: (atomName: EAtomNames, value: any) => Promise<void>;
   getAtomStates: () => Promise<{ states: Record<EAtomNames, any> }>;
 
+  // **** eventBus
+  emitEvent<T extends EAppEventBusNames>(
+    type: T,
+    payload: IAppEventBusPayload[T],
+  ): Promise<boolean>;
+
   // **** webview bridge
   bridge: JsBridgeBase | null;
   bridgeExtBg: JsBridgeExtBackground | null;
@@ -48,7 +61,9 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   // **** services
   servicePromise: ServicePromise;
   servicePassword: ServicePassword;
+  serviceSetting: ServiceSetting;
   serviceApp: ServiceApp;
+  serviceSend: ServiceSend;
   // serviceBootstrap: ServiceBootstrap;
   // serviceCronJob: ServiceCronJob;
 }

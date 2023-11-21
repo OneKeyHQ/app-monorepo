@@ -4,7 +4,6 @@ import {
   isArray,
   isBoolean,
   isEmpty,
-  isFunction,
   isNil,
   isNull,
   isNumber,
@@ -12,7 +11,6 @@ import {
   isString,
   isUndefined,
 } from 'lodash';
-import { batch } from 'react-redux';
 
 // import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 
@@ -35,12 +33,9 @@ import {
 import { NotAutoPrintError } from '../errors';
 // import debugLogger from '../logger/debugLogger';
 import platformEnv from '../platformEnv';
-import { ensureSerializable } from '../utils/assertUtils';
 
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
-import type { PayloadAction } from '@reduxjs/toolkit';
 import type { Method } from 'axios';
-import type { AnyAction } from 'redux';
 
 export function throwCrossError(msg: string, ...args: any) {
   if (platformEnv.isNative) {
@@ -324,6 +319,14 @@ export const GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME =
 export type IGlobalStatesSyncBroadcastParams = {
   $$isFromBgStatesSyncBroadcast: true;
   name: string;
+  payload: any;
+};
+
+export const GLOBAL_EVENT_BUS_SYNC_BROADCAST_METHOD_NAME =
+  'globaEventBusSyncBroadcast';
+export type IGlobalEventBusSyncBroadcastParams = {
+  $$isFromBgEventBusSyncBroadcast: true;
+  type: string;
   payload: any;
 };
 

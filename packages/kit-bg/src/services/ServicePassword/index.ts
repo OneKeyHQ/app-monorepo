@@ -111,7 +111,12 @@ export default class ServicePassword extends ServiceBase {
     if (realPassword === realNewPassword) {
       throw new OneKeyError.PasswordUpdateSameFailed();
     }
-    return localDb.verifyPassword(password);
+    try {
+      await localDb.verifyPassword(password);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async rollbackPassword(password?: string): Promise<void> {
@@ -164,6 +169,7 @@ export default class ServicePassword extends ServiceBase {
       if (cred?.id === webAuthCredentialId) {
         return this.cachedPassword;
       }
+      throw new OneKeyError.BiologyAuthFailed();
     }
     return '';
   }
@@ -209,11 +215,16 @@ export default class ServicePassword extends ServiceBase {
   ): Promise<string> {
     const verified = await this.validatePassword(oldPassword, newPassword);
     if (verified) {
-      await this.biologyAuthSavePassword(newPassword);
-      await this.setCachedPassword(newPassword);
-      await this.setPasswordSetStatus(true);
-      await localDb.updatePassword(oldPassword, newPassword);
-      return newPassword;
+      try {
+        await this.biologyAuthSavePassword(newPassword);
+        await this.setCachedPassword(newPassword);
+        await this.setPasswordSetStatus(true);
+        await localDb.changePassword({ oldPassword, newPassword });
+        return newPassword;
+      } catch (e) {
+        await this.rollbackPassword(oldPassword);
+        throw e;
+      }
     }
     throw new OneKeyError.WrongPassword();
   }
@@ -221,11 +232,16 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async setPassword(password: string): Promise<string> {
     this.validatePasswordStrength(password);
-    await this.biologyAuthSavePassword(password);
-    await this.setCachedPassword(password);
-    await this.setPasswordSetStatus(true);
-    await localDb.updatePassword('', password);
-    return password;
+    try {
+      await this.biologyAuthSavePassword(password);
+      await this.setCachedPassword(password);
+      await this.setPasswordSetStatus(true);
+      await localDb.createPassword({ password });
+      return password;
+    } catch (e) {
+      await this.rollbackPassword();
+      throw e;
+    }
   }
 
   @backgroundMethod()
@@ -272,6 +288,16 @@ export default class ServicePassword extends ServiceBase {
     error: { message: string },
   ) {
     this.backgroundApi.servicePromise.rejectCallback({ id: promiseId, error });
+  }
+
+  @backgroundMethod()
+  async unLockApp() {
+    await passwordAtom.set((v) => ({ ...v, unLock: true }));
+  }
+
+  @backgroundMethod()
+  async lockApp() {
+    await passwordAtom.set((v) => ({ ...v, unLock: false }));
   }
 
   @backgroundMethod()

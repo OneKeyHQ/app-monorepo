@@ -110,6 +110,7 @@ const {
         'signOnly': false,
       } as any,
       signedTx: {
+        'encodedTx': null,
         'txid':
           '91e66c9cf210e66331d34dfc0c7829f8880bd4a4f7d9f1c95d75efd38a51df95',
         'rawTx':

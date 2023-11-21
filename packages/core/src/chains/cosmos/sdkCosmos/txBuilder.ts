@@ -11,7 +11,7 @@ import {
 import { Any } from 'cosmjs-types/google/protobuf/any';
 import Long from 'long';
 
-import { stripHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import {
   getAminoSignDoc,
@@ -108,7 +108,7 @@ export const serializeSignedTx = ({
       value: Uint8Array.from(
         PubKey.encode(
           PubKey.fromPartial({
-            key: hexToBytes(stripHexPrefix(pubKey)),
+            key: hexToBytes(hexUtils.stripHexPrefix(pubKey)),
           }),
         ).finish(),
       ),

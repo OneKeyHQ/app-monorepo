@@ -1,73 +1,174 @@
-import type { ForwardedRef } from 'react';
-import { forwardRef } from 'react';
+import type { ForwardedRef, ReactNode } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from 'react';
 
-import { usePropsAndStyle, useStyle } from '@tamagui/core';
-import { SectionList as NativeSectionList } from 'react-native';
+import { ListView } from '../ListView';
 
-import type { StackProps } from '@tamagui/web/types';
-import type {
-  SectionListProps as NativeSectionListProps,
-  StyleProp,
-  ViewStyle,
-} from 'react-native';
+import type { IListViewProps, IListViewRef } from '../ListView';
+import type { ListRenderItem } from '@shopify/flash-list';
+
+type ISectionRenderInfo = (info: {
+  section: any;
+  index: number;
+}) => ReactNode | null;
 
 export type ISectionListProps<T> = Omit<
-  NativeSectionListProps<T>,
-  | 'contentContainerStyle'
-  | 'ListHeaderComponentStyle'
-  | 'ListFooterComponentStyle'
-> &
-  StackProps & {
-    contentContainerStyle?: StackProps;
-    ListHeaderComponentStyle?: StackProps;
-    ListFooterComponentStyle?: StackProps;
-  };
+  IListViewProps<T>,
+  'data' | 'renderItem'
+> & {
+  sections: Array<{
+    data?: any[];
+  }>;
+  renderItem?: (info: {
+    item: any;
+    section: any;
+    index: number;
+  }) => ReactNode | null;
+  renderSectionHeader?: ISectionRenderInfo;
+  renderSectionFooter?: ISectionRenderInfo;
+  stickySectionHeadersEnabled?: boolean;
+};
 
-export type ISectionListRef = NativeSectionList<any, any>;
+type IScrollToLocationParams = {
+  animated?: boolean;
+  itemIndex?: number;
+  sectionIndex?: number;
+  viewOffset?: number;
+  viewPosition?: number;
+};
+
+export type ISectionListRef<T> = IListViewRef<T> & {
+  scrollToLocation: (info: IScrollToLocationParams) => void;
+};
+
+enum ESectionLayoutType {
+  Header = 'sectionHeader',
+  Item = 'item',
+  Footer = 'sectionFooter',
+}
+
+type ISectionLayoutItem = {
+  index: number;
+  type: ESectionLayoutType;
+  value: any;
+  section?: any;
+};
 
 function BaseSectionList<T>(
   {
     sections,
     renderItem,
-    contentContainerStyle = {},
-    ListHeaderComponentStyle = {},
-    ListFooterComponentStyle = {},
-    ...props
+    renderSectionHeader,
+    renderSectionFooter,
+    stickySectionHeadersEnabled = false,
+    ...restProps
   }: ISectionListProps<T>,
-  ref: ForwardedRef<ISectionListRef>,
+  parentRef: ForwardedRef<IListViewRef<T>>,
 ) {
-  const [restProps, style] = usePropsAndStyle(props, {
-    resolveValues: 'auto',
-  });
-  const contentStyle = useStyle(
-    contentContainerStyle as Record<string, unknown>,
-    {
-      resolveValues: 'auto',
-    },
-  );
+  const reloadSections = useMemo(() => {
+    const reloadSectionList: ISectionLayoutItem[] = [];
+    sections?.forEach?.((section, sectionIndex) => {
+      reloadSectionList.push({
+        value: section,
+        index: sectionIndex,
+        type: ESectionLayoutType.Header,
+      });
+      section?.data?.forEach?.((item, index) => {
+        reloadSectionList.push({
+          value: item,
+          section,
+          index,
+          type: ESectionLayoutType.Item,
+        });
+      });
+      reloadSectionList.push({
+        value: section,
+        index: sectionIndex,
+        type: ESectionLayoutType.Footer,
+      });
+    });
+    return reloadSectionList;
+  }, [sections]);
 
-  const listHeaderStyle = useStyle(
-    ListHeaderComponentStyle as Record<string, unknown>,
-    {
-      resolveValues: 'auto',
-    },
-  );
+  const reloadStickyHeaderIndices = useMemo(() => {
+    if (!stickySectionHeadersEnabled) {
+      return [];
+    }
+    return reloadSections
+      .map((item, index) =>
+        item.type === ESectionLayoutType.Header ? index : null,
+      )
+      .filter((index) => index != null) as number[];
+  }, [stickySectionHeadersEnabled, reloadSections]);
 
-  const listFooterStyle = useStyle(
-    ListFooterComponentStyle as Record<string, unknown>,
-    {
-      resolveValues: 'auto',
+  const ref = useRef<IListViewRef<T>>(null);
+  useImperativeHandle(parentRef as any, () => ({
+    scrollToLocation: ({
+      animated,
+      itemIndex = 0,
+      sectionIndex = 0,
+      viewOffset,
+      viewPosition,
+    }: IScrollToLocationParams) => {
+      ref?.current?.scrollToIndex?.({
+        index:
+          reloadSections.findIndex(
+            (item) =>
+              item.type === ESectionLayoutType.Header &&
+              item.index === sectionIndex,
+          ) + itemIndex,
+        animated,
+        viewOffset,
+        viewPosition,
+      });
     },
+  }));
+  const renderSectionAndItem = useCallback(
+    ({ item }: { item: T }) => {
+      const { type, value, section, index } = item as ISectionLayoutItem;
+      switch (type) {
+        case ESectionLayoutType.Header: {
+          return renderSectionHeader?.({
+            section: value,
+            index,
+          });
+        }
+        case ESectionLayoutType.Item: {
+          return renderItem?.({
+            item: value,
+            section,
+            index,
+          });
+        }
+        case ESectionLayoutType.Footer: {
+          return renderSectionFooter?.({
+            section: value,
+            index,
+          });
+        }
+        default: {
+          break;
+        }
+      }
+    },
+    [renderItem, renderSectionHeader, renderSectionFooter],
+  );
+  const getItemType = useCallback(
+    (item: T) => (item as ISectionLayoutItem).type,
+    [],
   );
   return (
-    <NativeSectionList
+    <ListView
       ref={ref}
-      style={style as StyleProp<ViewStyle>}
-      ListHeaderComponentStyle={listHeaderStyle}
-      ListFooterComponentStyle={listFooterStyle}
-      contentContainerStyle={contentStyle}
-      sections={sections}
-      renderItem={renderItem}
+      data={reloadSections as T[]}
+      renderItem={renderSectionAndItem as ListRenderItem<T>}
+      stickyHeaderIndices={reloadStickyHeaderIndices}
+      getItemType={getItemType}
       {...restProps}
     />
   );

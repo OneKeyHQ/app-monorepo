@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { Suspense, useMemo } from 'react';
+import { Suspense, useRef } from 'react';
 
 import { createSuspender } from '@onekeyhq/shared/src/modules3rdParty/use-suspender';
 
@@ -12,7 +12,7 @@ const Loading = () => (
   </Stack>
 );
 
-const useWaitNavigationAnimation = createSuspender(
+const waitNavigationAnimation = createSuspender(
   () =>
     new Promise((resolve) => {
       setTimeout(() => {
@@ -22,7 +22,11 @@ const useWaitNavigationAnimation = createSuspender(
 );
 
 const PendingComponent = ({ children }: PropsWithChildren<unknown>) => {
-  useWaitNavigationAnimation();
+  const isLoaded = useRef(false);
+  if (!isLoaded.current) {
+    waitNavigationAnimation();
+    isLoaded.current = true;
+  }
   return children;
 };
 
@@ -34,20 +38,15 @@ function LoadingScreen({ children }: PropsWithChildren<unknown>) {
   );
 }
 
-export function Screen({
+export function BasicPage({
   children,
   skipLoading = false,
 }: PropsWithChildren<unknown> & {
   skipLoading?: boolean;
 }) {
-  return useMemo(
-    () => (
-      <Stack flex={1} bg="$bgApp">
-        {skipLoading ? children : <LoadingScreen>{children}</LoadingScreen>}
-      </Stack>
-    ),
-    // Children are the content of page elements, Do not re-render by children.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+  return (
+    <Stack bg="$bgApp" flex={1}>
+      {skipLoading ? children : <LoadingScreen>{children}</LoadingScreen>}
+    </Stack>
   );
 }

@@ -2,7 +2,7 @@ import type { PropsWithChildren } from 'react';
 
 import { Stack } from '../Stack';
 
-export function Screen({
+export function BasicPage({
   children,
 }: PropsWithChildren<unknown> & {
   skipLoading?: boolean;

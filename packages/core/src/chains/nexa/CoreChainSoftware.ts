@@ -50,6 +50,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const result = await signEncodedTx(
       unsignedTx,
       signer,
+      // @ts-expect-error
       unsignedTx.payload.address,
     );
     return result;

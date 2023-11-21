@@ -1,5 +1,11 @@
-import { Button, Screen, YStack } from '@onekeyhq/components';
+import { useCallback } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import { Button, Page } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
+import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/types';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { ETabRoutes } from '../Routes';
@@ -7,11 +13,16 @@ import { ETabRoutes } from '../Routes';
 import type { ITabMeParamList } from './Routes';
 
 const TabMe = () => {
+  const intl = useIntl();
   const navigation = useAppNavigation<IPageNavigationProp<ITabMeParamList>>();
-
+  const onPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingListModal,
+    });
+  }, [navigation]);
   return (
-    <Screen>
-      <YStack>
+    <Page>
+      <Page.Body>
         <Button
           onPress={() => {
             navigation.switchTab(ETabRoutes.Home);
@@ -19,8 +30,11 @@ const TabMe = () => {
         >
           切换到首页
         </Button>
-      </YStack>
-    </Screen>
+        <Button onPress={onPress}>
+          {intl.formatMessage({ id: 'title__settings' })}
+        </Button>
+      </Page.Body>
+    </Page>
   );
 };
 

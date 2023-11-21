@@ -1,12 +1,14 @@
 import {
   Button,
-  Screen,
+  Page,
   ScrollView,
   Stack,
   Text,
   XStack,
   useKeyboardHeight,
 } from '@onekeyhq/components';
+
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
 const FormattedText = ({ text }: { text: string | string[] }) => {
   if (typeof text === 'string') {
@@ -57,7 +59,7 @@ export function Layout({
 }>) {
   const keyboardHeight = useKeyboardHeight();
   return (
-    <Screen skipLoading={skipLoading}>
+    <Page skipLoading={skipLoading}>
       <ScrollView
         maxWidth="100%"
         scrollEnabled={scrollEnabled}
@@ -73,8 +75,8 @@ export function Layout({
         <Stack marginHorizontal="auto" maxWidth="100%" width={576} space="$6">
           <XStack>
             <Button
-              onPress={() => {
-                //  (setTheme('light'));
+              onPress={async () => {
+                await backgroundApiProxy.serviceSetting.setTheme('light');
               }}
             >
               Light Theme
@@ -82,8 +84,8 @@ export function Layout({
             <Button
               ml="$4"
               variant="primary"
-              onPress={() => {
-                // (setTheme('dark'));
+              onPress={async () => {
+                await backgroundApiProxy.serviceSetting.setTheme('dark');
               }}
             >
               Dark Theme
@@ -145,6 +147,6 @@ export function Layout({
           </Stack>
         </Stack>
       </ScrollView>
-    </Screen>
+    </Page>
   );
 }

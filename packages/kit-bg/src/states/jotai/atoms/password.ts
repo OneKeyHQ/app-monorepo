@@ -8,12 +8,13 @@ import { settingsPersistAtom } from './settings';
 
 export type IPasswordAtom = {
   passwordPromptPromiseId: number | undefined;
+  unLock: boolean;
 };
 export const { target: passwordAtom, use: usePasswordAtom } =
   globalAtom<IPasswordAtom>({
     persist: false,
     name: EAtomNames.passwordAtom,
-    initialValue: { passwordPromptPromiseId: undefined },
+    initialValue: { passwordPromptPromiseId: undefined, unLock: false },
   });
 
 export type IPasswordPersistAtom = {
