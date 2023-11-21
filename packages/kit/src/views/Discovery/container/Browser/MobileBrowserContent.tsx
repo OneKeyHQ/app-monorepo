@@ -3,6 +3,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { Freeze } from 'react-freeze';
 import { Stack } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import WebContent from '../../components/WebContent/WebContent';
 import useBrowserHistoryAction from '../../hooks/useBrowserHistoryAction';
 import { useActiveTabId, useWebTabData } from '../../hooks/useWebTabs';
@@ -51,7 +53,13 @@ function MobileBrowserContent({
           </Stack>
         </Freeze>
         <Freeze key={tab.id} freeze={!isActive}>
-          <Stack ref={initCaptureViewRef} flex={1}>
+          <Stack
+            ref={initCaptureViewRef}
+            flex={1}
+            // https://github.com/gre/react-native-view-shot/issues/7
+            collapsable={platformEnv.isNativeAndroid ? false : undefined}
+            bg={platformEnv.isNativeAndroid ? '$bgApp' : undefined}
+          >
             <WebContent
               id={tab.id}
               url={tab.url}

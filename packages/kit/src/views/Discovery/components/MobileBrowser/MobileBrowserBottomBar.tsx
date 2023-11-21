@@ -59,7 +59,7 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
           height: THUMB_HEIGHT,
         })
           .then(async (imageUri) => {
-            const path = getScreenshotPath(`${id}.jpg`);
+            const path = getScreenshotPath(`${id}-${Date.now()}.jpg`);
             void setWebTabData({
               id,
               thumbnail: path,
@@ -89,7 +89,7 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
   }, [takeScreenshot, navigation, displayHomePage]);
 
   const onShare = useCallback(() => {
-    handleShareUrl(tab?.url ?? '', () => {});
+    handleShareUrl(tab?.url ?? '');
   }, [tab?.url, handleShareUrl]);
 
   return (
