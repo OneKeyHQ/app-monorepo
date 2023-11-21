@@ -6,7 +6,19 @@ import {
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { throwMethodNotFound } from '@onekeyhq/shared/src/background/backgroundUtils';
+import type { IGlobalEventBusSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
+import {
+  GLOBAL_EVENT_BUS_SYNC_BROADCAST_METHOD_NAME,
+  throwMethodNotFound,
+} from '@onekeyhq/shared/src/background/backgroundUtils';
+import type {
+  EAppEventBusNames,
+  IAppEventBusPayload,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EEventBusBroadcastMethodNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ensurePromiseObject,
@@ -49,6 +61,21 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     if (process.env.NODE_ENV !== 'production') {
       global.$backgroundApi = this;
     }
+    // this.startDemoNowTimeUpdateInterval();
+    appEventBus.registerBroadcastMethods(
+      EEventBusBroadcastMethodNames.bgToUi,
+      async (type, payload) => {
+        const params: IGlobalEventBusSyncBroadcastParams = {
+          $$isFromBgEventBusSyncBroadcast: true,
+          type,
+          payload,
+        };
+        this.bridgeExtBg?.requestToAllUi({
+          method: GLOBAL_EVENT_BUS_SYNC_BROADCAST_METHOD_NAME,
+          params,
+        });
+      },
+    );
   }
 
   allAtoms: Promise<{
@@ -84,6 +111,15 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       throw new Error(`setAtomValue ERROR: atomName not found: ${atomName}`);
     }
     await atom.set(value);
+  }
+
+  @backgroundMethod()
+  async emitEvent<T extends EAppEventBusNames>(
+    type: T,
+    payload: IAppEventBusPayload[T],
+  ): Promise<boolean> {
+    appEventBus.emit(type, payload);
+    return Promise.resolve(true);
   }
 
   cycleDepsCheck() {
