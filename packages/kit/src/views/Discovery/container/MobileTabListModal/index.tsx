@@ -7,7 +7,6 @@ import {
   Button,
   IconButton,
   ListView,
-  ModalContainer,
   Stack,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
@@ -222,8 +221,6 @@ function MobileTabListModal() {
       </Stack>
       {renderPinnedList}
       <MobileTabItemOptions
-        open={showOptionsList}
-        onOpenChange={setShowOptionsList}
         id={selectedTabId}
         onBookmarkPress={handleBookmarkPress}
         onPinnedPress={handlePinnedPress}

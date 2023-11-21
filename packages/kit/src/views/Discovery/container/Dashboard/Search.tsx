@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import {
-  Button,
-  ListView,
-  ModalContainer,
-  SearchBar,
-  Stack,
-} from '@onekeyhq/components';
+import { Button, ListView, Page, SearchBar, Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -62,33 +56,35 @@ function SearchModal() {
   }, [value]);
 
   return (
-    <ModalContainer>
-      <Stack p="$4">
-        <SearchBar value={value} onChangeText={setValue} />
-      </Stack>
+    <Page>
+      <Page.Body>
+        <Stack p="$4">
+          <SearchBar value={value} onChangeText={setValue} />
+        </Stack>
 
-      <Stack flex={1}>
-        <ListView
-          height="100%"
-          estimatedItemSize="$10"
-          contentContainerStyle={{
-            bg: '$borderLight',
-            m: '$4',
-          }}
-          data={dataSource}
-          keyExtractor={(item) => item._id}
-          renderItem={({ item }) => (
-            <Button
-              onPress={() => {
-                handleOnPress(item);
-              }}
-            >
-              {item.name}
-            </Button>
-          )}
-        />
-      </Stack>
-    </ModalContainer>
+        <Stack flex={1}>
+          <ListView
+            height="100%"
+            estimatedItemSize="$10"
+            contentContainerStyle={{
+              bg: '$borderLight',
+              m: '$4',
+            }}
+            data={dataSource}
+            keyExtractor={(item) => item._id}
+            renderItem={({ item }) => (
+              <Button
+                onPress={() => {
+                  handleOnPress(item);
+                }}
+              >
+                {item.name}
+              </Button>
+            )}
+          />
+        </Stack>
+      </Page.Body>
+    </Page>
   );
 }
 

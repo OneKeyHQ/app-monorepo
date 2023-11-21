@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { captureRef } from 'react-native-view-shot';
 
@@ -42,8 +42,6 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
   const { addBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction();
   const { handleShareUrl } = useBrowserOptionsAction();
-
-  const [showOptionsList, setShowOptionsList] = useState(false);
 
   const tabCount = useMemo(() => tabs.length, [tabs]);
 
@@ -91,7 +89,7 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
   }, [takeScreenshot, navigation, displayHomePage]);
 
   const onShare = useCallback(() => {
-    handleShareUrl(tab?.url ?? '', () => setShowOptionsList(false));
+    handleShareUrl(tab?.url ?? '', () => {});
   }, [tab?.url, handleShareUrl]);
 
   return (
@@ -160,8 +158,6 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
           </Stack>
         </Stack>
         <MobileBrowserBottomOptions
-          open={showOptionsList}
-          onOpenChange={setShowOptionsList}
           isBookmark={tab?.isBookmark ?? false}
           onBookmarkPress={(isBookmark) => {
             if (isBookmark) {
@@ -173,39 +169,29 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
               id,
               isBookmark,
             });
-            setShowOptionsList(false);
           }}
           onRefresh={() => {
             console.log(webviewRefs[id]?.reload);
             webviewRefs[id]?.reload();
-            setShowOptionsList(false);
           }}
           onShare={onShare}
           isPinned={tab?.isPinned ?? false}
           onPinnedPress={(pinned) => {
             void setPinnedTab({ id, pinned });
-            setShowOptionsList(false);
           }}
           onBrowserOpen={() => {
             if (tab?.url) {
               openUrlExternal(tab.url);
             }
-            setShowOptionsList(false);
           }}
           onGoBackHomePage={async () => {
             await takeScreenshot();
-            setShowOptionsList(false);
             setTimeout(() => {
               setDisplayHomePage(true);
             });
           }}
         >
-          <IconButton
-            variant="tertiary"
-            size="medium"
-            icon="DotHorOutline"
-            onPress={() => setShowOptionsList(true)}
-          />
+          <IconButton variant="tertiary" size="medium" icon="DotHorOutline" />
         </MobileBrowserBottomOptions>
       </Stack>
     </Stack>
