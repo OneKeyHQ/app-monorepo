@@ -8,7 +8,6 @@ function Dashboard() {
   const navigation = useAppNavigation();
   return (
     <YStack p="$2" alignItems="center" justifyContent="center">
-      <SearchBar />
       <Stack
         $md={{
           width: '100%',
