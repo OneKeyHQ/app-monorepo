@@ -40,9 +40,9 @@ function DesktopBrowser() {
             id={t.id}
             activeTabId={activeTabId}
           />
-          <DesktopOverlay />
         </>
       ))}
+      <DesktopOverlay />
     </Stack>
   );
 }
