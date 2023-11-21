@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, StyleSheet } from 'react-native';
 
 import {
+  ActionList,
   BlurView,
   Button,
   IconButton,
@@ -104,38 +105,25 @@ function MobileTabListModal() {
 
   const { handleShareUrl } = useBrowserOptionsAction();
 
-  const [showOptionsList, setShowOptionsList] = useState(false);
-  const [selectedTabId, setSelectedTabId] = useState<string | null>(null);
-
   const handleBookmarkPress = useCallback(
-    (bookmark: boolean, url: string, title: string) => {
-      if (bookmark) {
-        addBrowserBookmark({ url, title });
-      } else {
-        removeBrowserBookmark(url);
-      }
-      setShowOptionsList(false);
-    },
+    (bookmark: boolean, url: string, title: string) =>
+      bookmark
+        ? addBrowserBookmark({ url, title })
+        : removeBrowserBookmark(url),
     [addBrowserBookmark, removeBrowserBookmark],
   );
   const handleShare = useCallback(
     (url: string) => {
-      handleShareUrl(url, () => setShowOptionsList(false));
+      handleShareUrl(url);
     },
     [handleShareUrl],
   );
   const handlePinnedPress = useCallback(
-    (id: string, pinned: boolean) => {
-      void setPinnedTab({ id, pinned });
-      setShowOptionsList(false);
-    },
+    (id: string, pinned: boolean) => setPinnedTab({ id, pinned }),
     [setPinnedTab],
   );
   const handleCloseTab = useCallback(
-    (id: string) => {
-      void closeWebTab(id);
-      setShowOptionsList(false);
-    },
+    (id: string) => closeWebTab(id),
     [closeWebTab],
   );
 
@@ -151,12 +139,56 @@ function MobileTabListModal() {
         }}
         onCloseItem={handleCloseTab}
         onLongPress={(id) => {
-          setSelectedTabId(id);
-          setShowOptionsList(true);
+          ActionList.show({
+            title: 'Options',
+            sections: [
+              {
+                items: [
+                  {
+                    label: tab.isBookmark ? 'Delete Bookmark' : 'Bookmark',
+                    icon: tab.isBookmark ? 'BookmarkSolid' : 'BookmarkOutline',
+                    onPress: () =>
+                      handleBookmarkPress(
+                        !tab.isBookmark,
+                        tab.url,
+                        tab.title ?? '',
+                      ),
+                  },
+                  {
+                    label: tab.isPinned ? 'Un-Pin' : 'Pin',
+                    icon: tab.isPinned ? 'PinSolid' : 'PinOutline',
+                    onPress: () => handlePinnedPress(id, !tab.isPinned),
+                  },
+                  {
+                    label: 'Share',
+                    icon: 'ShareOutline',
+                    onPress: () => handleShare(tab.url),
+                  },
+                ],
+              },
+              {
+                items: [
+                  {
+                    label: tab.isPinned ? 'Close Pin Tab' : 'Close Tab',
+                    icon: 'CrossedLargeOutline',
+                    onPress: () => handleCloseTab(id),
+                  },
+                ],
+              },
+            ],
+          });
         }}
       />
     ),
-    [navigation, setCurrentWebTab, activeTabId, handleCloseTab],
+    [
+      activeTabId,
+      handleCloseTab,
+      setCurrentWebTab,
+      navigation,
+      handleBookmarkPress,
+      handlePinnedPress,
+      handleShare,
+    ],
   );
 
   const renderPinnedItem = useCallback(
@@ -169,10 +201,7 @@ function MobileTabListModal() {
           navigation.pop();
         }}
         onCloseItem={handleCloseTab}
-        onLongPress={(id) => {
-          setSelectedTabId(id);
-          setShowOptionsList(true);
-        }}
+        onLongPress={(id) => {}}
       />
     ),
     [navigation, setCurrentWebTab, activeTabId, handleCloseTab],
@@ -224,13 +253,6 @@ function MobileTabListModal() {
           />
         </Stack>
         {renderPinnedList}
-        <MobileTabItemOptions
-          id={selectedTabId}
-          onBookmarkPress={handleBookmarkPress}
-          onPinnedPress={handlePinnedPress}
-          onShare={handleShare}
-          onClose={handleCloseTab}
-        />
       </Page.Body>
       <Page.Footer>
         <TabToolBar

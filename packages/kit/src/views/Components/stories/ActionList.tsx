@@ -235,6 +235,16 @@ const ActionListGallery = () => (
           </Stack>
         ),
       },
+      {
+        title: 'Long Press',
+        element: (
+          <Stack space="$1">
+            <Button onLongPress={() => {
+              
+            }}/>
+          </Stack>
+        ),
+      },
     ]}
   />
 );
