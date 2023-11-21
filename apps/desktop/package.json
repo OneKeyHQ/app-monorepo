@@ -46,7 +46,7 @@
     "@types/node-fetch": "^2.6.1",
     "cross-env": "^7.0.3",
     "electron": "27.0.0",
-    "electron-builder": "22.14.13",
+    "electron-builder": "24.6.4",
     "electron-notarize": "^1.1.1",
     "esbuild": "0.15.18",
     "glob": "^7.2.0",
