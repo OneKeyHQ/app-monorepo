@@ -245,8 +245,10 @@ function MobileTabListModal() {
 
   return (
     <Page>
-      {/* @ts-expect-error */}
-      <Page.Header headerTitle={<HeaderTitle tabCount={tabs.length ?? 0} />} />
+      <Page.Header
+        headerTitle={HeaderTitle}
+        title={(tabs.length ?? 0).toString()}
+      />
       <Page.Body>
         <Stack style={styles.container}>
           <FlatList
