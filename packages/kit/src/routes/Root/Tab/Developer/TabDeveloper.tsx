@@ -177,6 +177,10 @@ const TabDeveloper = () => {
           </Button>
         </PartContainer>
 
+        <PartContainer title="Commit Hash">
+          <Text>{process.env.COMMITHASH}</Text>
+        </PartContainer>
+
         <PartContainer title="Cold Startup Time(ms)">
           <Text>{getMeasureTime().jsBundleLoadedTime}</Text>
         </PartContainer>
