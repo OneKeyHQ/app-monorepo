@@ -61,7 +61,7 @@ export class OneKeyError<
     }
   }
 
-  // this is not stable, do not use it. may be different in compressed code
+  // for jest only: this is not stable, do not use it. may be different in compressed code
   get constructorName() {
     return this?.constructor?.name;
   }
