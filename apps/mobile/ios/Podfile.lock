@@ -528,6 +528,8 @@ PODS:
     - IQKeyboardManagerSwift (= 6.5.11)
     - React-Core
     - React-RCTText
+  - RealmJS (12.3.0):
+    - React
   - RNCAsyncStorage (1.18.2):
     - React-Core
   - RNDeviceInfo (10.11.0):
@@ -674,6 +676,7 @@ DEPENDENCIES:
   - React-utils (from `../../../node_modules/react-native/ReactCommon/react/utils`)
   - ReactCommon/turbomodule/core (from `../../../node_modules/react-native/ReactCommon`)
   - ReactNativeKeyboardManager (from `../../../node_modules/react-native-keyboard-manager`)
+  - RealmJS (from `../../../node_modules/realm`)
   - "RNCAsyncStorage (from `../../../node_modules/@react-native-async-storage/async-storage`)"
   - RNDeviceInfo (from `../../../node_modules/react-native-device-info`)
   - RNFileLogger (from `../../../node_modules/react-native-file-logger`)
@@ -855,6 +858,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon"
   ReactNativeKeyboardManager:
     :path: "../../../node_modules/react-native-keyboard-manager"
+  RealmJS:
+    :path: "../../../node_modules/realm"
   RNCAsyncStorage:
     :path: "../../../node_modules/@react-native-async-storage/async-storage"
   RNDeviceInfo:
@@ -964,6 +969,7 @@ SPEC CHECKSUMS:
   React-utils: 7a9918a1ffdd39aba67835d42386f592ea3f8e76
   ReactCommon: 91ece8350ebb3dd2be9cef662abd78b6948233c0
   ReactNativeKeyboardManager: 60292dbac467c49841a7d69588208ec4a4f7b2a2
+  RealmJS: 4c52a15602e70b64cd9230b0a17a9c12741371f4
   RNCAsyncStorage: ddc4ee162bfd41b0d2c68bf2d95acd81dd7f1f93
   RNDeviceInfo: bf8a32acbcb875f568217285d1793b0e8588c974
   RNFileLogger: 9eaf7a6ea709eaaffe646cc485b98ae1dbf1e9f0

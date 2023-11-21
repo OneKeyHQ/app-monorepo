@@ -32,7 +32,7 @@ const sectionListData = [
 ];
 
 const SectionListDemo = () => {
-  const ref = useRef<ISectionListRef | null>(null);
+  const ref = useRef<ISectionListRef<any>>(null);
   return (
     <SectionList
       h="$60"
@@ -58,6 +58,7 @@ const SectionListDemo = () => {
       )}
       ListHeaderComponent={XStack}
       ListFooterComponent={XStack}
+      estimatedItemSize="$10"
       renderItem={({ item }) => (
         <XStack>
           <Text>{item}</Text>
@@ -65,8 +66,8 @@ const SectionListDemo = () => {
           <XStack space="$8">
             <Button
               onPress={() => {
-                const sectionList = ref.current;
-                sectionList?.scrollToLocation({
+                const sectionList = ref?.current;
+                sectionList?.scrollToLocation?.({
                   sectionIndex: 1,
                   itemIndex: 0,
                   animated: true,
