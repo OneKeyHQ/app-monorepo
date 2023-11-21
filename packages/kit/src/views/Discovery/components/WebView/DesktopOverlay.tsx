@@ -19,7 +19,7 @@ function BasicDesktopOverlay() {
     };
   }, [changeOverlayStatus]);
   return isShowOverlay ? (
-    <Stack position="absolute" bg="red" top={0} bottom={0} left={0} right={0} />
+    <Stack position="absolute" top={0} bottom={0} left={0} right={0} />
   ) : null;
 }
 
