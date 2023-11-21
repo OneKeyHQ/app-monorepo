@@ -1,4 +1,5 @@
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs/index.native';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SCREENSHOT_FOLDER } from '../config/Screenshot.constants';
 
@@ -17,6 +18,9 @@ export async function checkAndCreateFolder() {
 }
 
 export function getScreenshotPath(filename: string) {
+  if (platformEnv.isNativeAndroid) {
+    return `file://${SCREENSHOT_FOLDER}/${filename}`;
+  }
   return `${SCREENSHOT_FOLDER}/${filename}`;
 }
 
