@@ -9,6 +9,7 @@ import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import DesktopBrowserContent from './DesktopBrowserContent';
 import DesktopBrowserNavigationContainer from './DesktopBrowserNavigationContainer';
 import { withBrowserProvider } from './WithBrowserProvider';
+import { DesktopOverlay } from '../../components/WebView/DesktopOverlay';
 
 function DesktopBrowser() {
   const { tabs } = useWebTabs();
@@ -39,6 +40,7 @@ function DesktopBrowser() {
             id={t.id}
             activeTabId={activeTabId}
           />
+          <DesktopOverlay />
         </>
       ))}
     </Stack>
