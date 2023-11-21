@@ -1,4 +1,4 @@
-import { Input, Stack, XStack } from '@onekeyhq/components';
+import { Input, Stack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -27,20 +27,11 @@ const InputGallery = () => (
               placeholder="Placeholder"
               leftIconName="SearchOutline"
             />
-            <XStack flex={1} alignItems="center">
-              <Input
-                size="medium"
-                leftIconName="LockSolid"
-                value="ajdlfkajsldkfj"
-              />
-            </XStack>
-            <XStack flex={1} alignItems="center">
-              <Input
-                size="medium"
-                placeholder="Placeholder"
-                leftIconName="SearchOutline"
-              />
-            </XStack>
+            <Input
+              size="medium"
+              placeholder="Placeholder"
+              leftIconName="SearchOutline"
+            />
             <Input
               size="large"
               placeholder="Placeholder"
@@ -92,6 +83,20 @@ const InputGallery = () => (
             <Input
               size="large"
               disabled
+              placeholder="Placeholder"
+              addOns={[
+                {
+                  iconName: 'EyeOutline',
+                  onPress: () => {
+                    console.log('clicked');
+                  },
+                  loading: true,
+                },
+              ]}
+            />
+            <Input
+              size="large"
+              readonly
               placeholder="Placeholder"
               addOns={[
                 {
