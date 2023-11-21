@@ -2,6 +2,12 @@
 
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { throwMethodNotFound } from '@onekeyhq/shared/src/background/backgroundUtils';
+import {
+  type EAppEventBusNames,
+  EEventBusBroadcastMethodNames,
+  type IAppEventBusPayload,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ensurePromiseObject,
@@ -37,6 +43,12 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
     }
     jotaiBgSync.setBackgroundApi(this as any);
     void jotaiBgSync.jotaiInitFromUi();
+    appEventBus.registerBroadcastMethods(
+      EEventBusBroadcastMethodNames.uiToBg,
+      async (type, payload) => {
+        await this.emitEvent(type as any, payload);
+      },
+    );
   }
 
   async getAtomStates(): Promise<{ states: Record<EAtomNames, any> }> {
@@ -46,6 +58,13 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
   async setAtomValue(atomName: EAtomNames, value: any) {
     // await this.allAtoms;
     return this.callBackground('setAtomValue', atomName, value);
+  }
+
+  async emitEvent<T extends EAppEventBusNames>(
+    type: T,
+    payload: IAppEventBusPayload[T],
+  ): Promise<boolean> {
+    return this.callBackground('emitEvent', type, payload);
   }
 
   bridge = {} as JsBridgeBase;

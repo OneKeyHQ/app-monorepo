@@ -45,7 +45,7 @@ export function BasicPage({
   skipLoading?: boolean;
 }) {
   return (
-    <Stack flex={1}>
+    <Stack bg="$bgApp" flex={1}>
       {skipLoading ? children : <LoadingScreen>{children}</LoadingScreen>}
     </Stack>
   );
