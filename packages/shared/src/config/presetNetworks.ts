@@ -294,7 +294,7 @@ const serverPresetNetworks = [
     'code': 'btc',
     'decimals': 8,
     'extensions': {
-      'position': 2,
+      'position': 1,
       'providerOptions': {
         'hardwareCoinName': 'btc',
       },
@@ -1305,7 +1305,7 @@ const serverPresetNetworks = [
         '0x4fabb145d64652a948d72533023f6e7a623c7c53',
         '0x6b175474e89094c44da98b954eedeac495271d0f',
       ],
-      'position': 1,
+      'position': 3,
       'providerOptions': {
         'EIP1559Enabled': true,
         'preferMetamask': true,
@@ -2377,7 +2377,7 @@ const serverPresetNetworks = [
         '0xe9e7cea3dedca5984780bafc599bd69add087d56',
         '0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3',
       ],
-      'position': 3,
+      'position': 4,
     },
     'id': 'evm--56',
     'impl': 'evm',
