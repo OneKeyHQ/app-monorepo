@@ -5,7 +5,7 @@ import { RefreshControl, useWindowDimensions } from 'react-native';
 import { getTokens } from 'tamagui';
 
 import type { IScrollViewRef } from '@onekeyhq/components';
-import { ListView, ScrollView, Stack, Text } from '@onekeyhq/components';
+import { ListView, Page, ScrollView, Stack, Text } from '@onekeyhq/components';
 import { useThemeValue } from '@onekeyhq/components/src/Provider/hooks/useThemeValue';
 import { PageManager } from '@onekeyhq/components/src/TabView';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -245,69 +245,71 @@ function HomePage() {
 
   return useMemo(
     () => (
-      <Stack bg="$bg" flex={1} alignItems="center">
-        <ScrollView
-          $md={{
-            width: '100%',
-          }}
-          $gtMd={{
-            width: screenWidth - sideBarWidth - 150,
-          }}
-          refreshControl={
-            <RefreshControl refreshing={false} onRefresh={onRefresh} />
-          }
-          stickyHeaderIndices={[1]}
-          ref={scrollView}
-          showsVerticalScrollIndicator={false}
-          scrollEventThrottle={16}
-          onLayout={(event) => {
-            config.scrollViewHeight = event.nativeEvent.layout.height;
-          }}
-          onScroll={(event) => {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            data[pageManager.pageIndex].contentOffsetY = (
-              event as any
-            ).nativeEvent.contentOffset.y;
-          }}
-        >
-          {renderHeaderView()}
-          <Header
-            // HTPageHeaderView.defaultProps in TabView
-            style={{
-              height: 54,
-              backgroundColor: bgAppColor,
+      <Page>
+        <Page.Body alignItems="center">
+          <ScrollView
+            $md={{
+              width: '100%',
             }}
-            onLayout={(event: any) => {
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              config.headerViewHeight = event.nativeEvent.layout.height;
+            $gtMd={{
+              width: screenWidth - sideBarWidth - 150,
             }}
-            itemTitleStyle={{ fontSize: 16 }}
-            itemTitleNormalStyle={{ color: textSubduedColor }}
-            itemTitleSelectedStyle={{ color: textColor, fontSize: 16 }}
-            cursorStyle={{
-              left: 12,
-              right: 12,
-              height: 2,
-              backgroundColor: textColor,
-            }}
-          />
-          <Stack
-            ref={container}
+            refreshControl={
+              <RefreshControl refreshing={false} onRefresh={onRefresh} />
+            }
+            stickyHeaderIndices={[1]}
+            ref={scrollView}
+            showsVerticalScrollIndicator={false}
+            scrollEventThrottle={16}
             onLayout={(event) => {
-              config.headerLayoutY =
-                event.nativeEvent.layout.y - config.headerViewHeight;
+              config.scrollViewHeight = event.nativeEvent.layout.height;
             }}
-            style={{ height: contentHeight }}
+            onScroll={(event) => {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              data[pageManager.pageIndex].contentOffsetY = (
+                event as any
+              ).nativeEvent.contentOffset.y;
+            }}
           >
-            <Content
-              windowSize={5}
-              scrollEnabled={platformEnv.isNative}
-              shouldSelectedPageAnimation={platformEnv.isNative}
-              renderItem={renderContentItem}
+            {renderHeaderView()}
+            <Header
+              // HTPageHeaderView.defaultProps in TabView
+              style={{
+                height: 54,
+                backgroundColor: bgAppColor,
+              }}
+              onLayout={(event: any) => {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                config.headerViewHeight = event.nativeEvent.layout.height;
+              }}
+              itemTitleStyle={{ fontSize: 16 }}
+              itemTitleNormalStyle={{ color: textSubduedColor }}
+              itemTitleSelectedStyle={{ color: textColor, fontSize: 16 }}
+              cursorStyle={{
+                left: 12,
+                right: 12,
+                height: 2,
+                backgroundColor: textColor,
+              }}
             />
-          </Stack>
-        </ScrollView>
-      </Stack>
+            <Stack
+              ref={container}
+              onLayout={(event) => {
+                config.headerLayoutY =
+                  event.nativeEvent.layout.y - config.headerViewHeight;
+              }}
+              style={{ height: contentHeight }}
+            >
+              <Content
+                windowSize={5}
+                scrollEnabled={platformEnv.isNative}
+                shouldSelectedPageAnimation={platformEnv.isNative}
+                renderItem={renderContentItem}
+              />
+            </Stack>
+          </ScrollView>
+        </Page.Body>
+      </Page>
     ),
     [
       screenWidth,
