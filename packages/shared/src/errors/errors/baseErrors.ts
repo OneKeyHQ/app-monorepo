@@ -76,4 +76,26 @@ export class OneKeyError<
   get constructorName() {
     return this?.constructor?.name;
   }
+
+  override serialize() {
+    const serialized: {
+      code: number;
+      message: string;
+      data?: DataT;
+      stack?: string;
+    } = {
+      code: this.code,
+      message: this.message,
+    };
+    if (this.data !== undefined) {
+      serialized.data = this.data;
+    }
+    // TODO read error.stack cause app crash
+    // if (this.stack) {
+    //   // serialized.stack = this.stack;
+    // }
+    // TODO Crash in Android hermes engine (error.stack serialize fail, only if Web3Errors object)
+
+    return serialized;
+  }
 }
