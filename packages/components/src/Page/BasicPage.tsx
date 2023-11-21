@@ -7,5 +7,9 @@ export function BasicPage({
 }: PropsWithChildren<unknown> & {
   skipLoading?: boolean;
 }) {
-  return <Stack flex={1}>{children}</Stack>;
+  return (
+    <Stack bg="$bgApp" flex={1}>
+      {children}
+    </Stack>
+  );
 }
