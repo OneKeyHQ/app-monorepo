@@ -31,14 +31,24 @@ export class OneKeyError<
   // i18n params
   readonly info?: InfoT;
 
+  autoToast?: boolean | undefined;
+
   constructor(errorProps?: IOneKeyError<InfoT, DataT> | string, info?: InfoT) {
     let msg;
     let code;
     let data;
     let key;
     let infoData: InfoT | undefined;
+    let autoToast: boolean | undefined;
     if (!isString(errorProps) && errorProps && isPlainObject(errorProps)) {
-      ({ message: msg, code, data, info: infoData, key } = errorProps);
+      ({
+        message: msg,
+        code,
+        data,
+        info: infoData,
+        key,
+        autoToast,
+      } = errorProps);
     } else {
       msg = isString(errorProps) ? errorProps : '';
       code = -99999;
@@ -59,6 +69,7 @@ export class OneKeyError<
     if (infoData) {
       this.info = infoData;
     }
+    this.autoToast = autoToast;
   }
 
   // for jest only: this is not stable, do not use it. may be different in compressed code

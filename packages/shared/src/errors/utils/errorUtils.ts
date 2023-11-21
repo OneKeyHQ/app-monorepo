@@ -1,11 +1,13 @@
-import { isString } from 'lodash';
+import { isString, isUndefined, omitBy } from 'lodash';
 
 import type { ILocaleIds } from '@onekeyhq/components/src/locale';
 
 import platformEnv from '../../platformEnv';
 
 import type { IOneKeyError } from '../types/errorTypes';
+import type { MessageDescriptor } from 'react-intl';
 
+// TODO also update JsBridgeBase.toPlainError
 /**
  * Converts an error object into a plain object with specific properties.
  *
@@ -16,20 +18,24 @@ export function toPlainErrorObject(error: IOneKeyError) {
   if (!error) {
     return error;
   }
-  return {
-    name: error.name,
-    constructorName: error.constructorName,
-    className: error.className,
-    key: error.key,
-    code: error.code,
-    message: error.message,
-    data: error.data,
-    info: error.info,
-    // Crash in Android hermes engine (error.stack serialize fail, only if Web3Errors object)
-    stack: platformEnv.isNativeAndroid
-      ? 'Access error.stack failed in Android hermes engine: unable to serialize, circular reference is too complex to analyze'
-      : error.stack,
-  };
+  return omitBy(
+    {
+      name: error.name,
+      constructorName: error.constructorName,
+      className: error.className,
+      key: error.key,
+      code: error.code,
+      message: error.message,
+      autoToast: error.autoToast,
+      data: error.data,
+      info: error.info,
+      // Crash in Android hermes engine (error.stack serialize fail, only if Web3Errors object)
+      stack: platformEnv.isNativeAndroid
+        ? 'Access error.stack failed in Android hermes engine: unable to serialize, circular reference is too complex to analyze'
+        : error.stack,
+    },
+    isUndefined,
+  );
 }
 
 // 生成 jsdoc 文档, 包含一个 example
@@ -71,6 +77,15 @@ export function interceptConsoleErrorWithExtraInfo() {
   console.error.$isIntercepted = true;
 }
 
+export const errorsIntlFormatter: {
+  formatMessage?: (
+    descriptor: MessageDescriptor,
+    values?: Record<string, any>,
+  ) => string | undefined;
+} = {
+  formatMessage: undefined,
+};
+
 export function normalizeErrorProps(
   props?: IOneKeyError | string,
   config?: {
@@ -78,12 +93,20 @@ export function normalizeErrorProps(
     defaultKey?: ILocaleIds;
   },
 ) {
-  const msg: string =
-    (isString(props) ? props : props?.message) || config?.defaultMessage || '';
+  let msg: string | undefined = isString(props) ? props : props?.message;
   const key =
     (isString(props) ? undefined : props?.key) ||
     config?.defaultKey ||
     undefined;
+
+  if (!msg && key && errorsIntlFormatter.formatMessage) {
+    msg = errorsIntlFormatter.formatMessage(
+      { id: key },
+      (props as IOneKeyError)?.info,
+    );
+  }
+  msg = msg || config?.defaultMessage || '';
+
   return {
     message: msg,
     key,

@@ -17,7 +17,7 @@ import ScreenSizeProvider from './ScreenSizeProvider';
 import SidebarStateProvider from './SidebarStateProvider';
 
 import type { ILocaleSymbol } from '../locale';
-import type { IntlShape, MessageDescriptor } from 'react-intl';
+import appIntl from './appIntl';
 
 export type IUIProviderProps = PropsWithChildren<{
   /**
@@ -54,12 +54,6 @@ function FontProvider({ children, waitFontLoaded = true }: IFontProviderProps) {
   return <>{children}</>;
 }
 
-export const intlRef: {
-  current: IntlShape | undefined;
-} = {
-  current: undefined,
-};
-
 const Provider: FC<IUIProviderProps> = ({
   children,
   themeVariant,
@@ -79,7 +73,7 @@ const Provider: FC<IUIProviderProps> = ({
     <IntlProvider
       ref={(e) => {
         try {
-          intlRef.current = e?.state?.intl;
+          appIntl.intlRef.current = e?.state?.intl;
         } catch (error) {
           // debugLogger.common.error('IntlProvider get ref error:', error);
         }
@@ -107,12 +101,5 @@ const Provider: FC<IUIProviderProps> = ({
     </IntlProvider>
   );
 };
-
-export function formatMessage(
-  descriptor: MessageDescriptor,
-  values?: Record<string, any>,
-) {
-  return intlRef?.current?.formatMessage(descriptor, values) || descriptor;
-}
 
 export default Provider;
