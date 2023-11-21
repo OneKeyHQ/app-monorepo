@@ -54,7 +54,6 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
     globalErrorHandler.addListener((error) => {
       // TODO log error to file if developer mode on
       if (error && error.autoToast) {
-        console.log('globalErrorHandler toast error');
         Toast.error({
           title: error?.message ?? 'Error',
         });
