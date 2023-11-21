@@ -40,7 +40,7 @@ yarn
 - `packages/components` 存放 UI 组件
 - `packages/kit` 存放可复用页面级别 UI 内容
 - `packages/app` APP 代码
-- `packages/desktop` 桌面端 electron 代码
+- `apps/desktop` 桌面端 electron 代码
 - `packages/web` 网页端代码
 - `packages/ext` 插件端代码
 

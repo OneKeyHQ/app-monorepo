@@ -43,7 +43,7 @@ Les dépôts sont organisés selon le modèle monorepo afin de centraliser et de
 - `packages/components` pour les composants de l'interface utilisateur.
 - `packages/kit` contient le contenu réutilisable de l'interface utilisateur au niveau de la page.
 - `packages/app` Code APP
-- `packages/desktop` Code électronique du bureau
+- `apps/desktop` Code électronique du bureau
 - `packages/web` code côté web
 - `packages/ext` Code côté plugin
 
