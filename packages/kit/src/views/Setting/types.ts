@@ -3,6 +3,10 @@ export enum EModalSettingRoutes {
   SettingCurrencyModal = 'SettingCurrencyModal',
   SettingThemeModal = 'SettingThemeModal',
   SettingLanguageModal = 'SettingLanguageModal',
+  SettingAccountDerivationModal = 'SettingAccountDerivationModal',
+  SettingHardwareSdkUrlModal = 'SettingHardwareSdkUrlModal',
+  SettingSpendUTXOModal = 'SettingSpendUTXOModal',
+  SettingAppLockModal = 'SettingAppLockModal',
 }
 
 export type IModalSettingParamList = {
@@ -10,4 +14,8 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingCurrencyModal]: undefined;
   [EModalSettingRoutes.SettingThemeModal]: undefined;
   [EModalSettingRoutes.SettingLanguageModal]: undefined;
+  [EModalSettingRoutes.SettingAccountDerivationModal]: undefined;
+  [EModalSettingRoutes.SettingHardwareSdkUrlModal]: undefined;
+  [EModalSettingRoutes.SettingSpendUTXOModal]: undefined;
+  [EModalSettingRoutes.SettingAppLockModal]: undefined;
 };
