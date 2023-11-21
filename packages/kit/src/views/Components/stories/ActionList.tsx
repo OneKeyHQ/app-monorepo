@@ -239,9 +239,69 @@ const ActionListGallery = () => (
         title: 'Long Press',
         element: (
           <Stack space="$1">
-            <Button onLongPress={() => {
-              
-            }}/>
+            <Button
+              onLongPress={() => {
+                ActionList.show({
+                  title: 'Action List',
+                  sections: [
+                    {
+                      items: [
+                        {
+                          label: 'just close it',
+                          icon: 'PlaceholderOutline',
+                          onPress: () => {
+                            console.log('action1');
+                          },
+                        },
+                        {
+                          label: 'async action(fail)',
+                          icon: 'PlaceholderOutline',
+                          onPress: () =>
+                            new Promise((resolve) => {
+                              setTimeout(() => {
+                                alert('fail');
+                                resolve(false);
+                              }, 1000);
+                            }),
+                        },
+                        {
+                          label: 'async action(success)',
+                          icon: 'PlaceholderOutline',
+                          onPress: () =>
+                            new Promise((resolve) => {
+                              setTimeout(() => {
+                                alert('success');
+                                resolve(true);
+                              }, 1000);
+                            }),
+                        },
+                      ],
+                    },
+                    {
+                      items: [
+                        {
+                          label: 'Action4',
+                          icon: 'PlaceholderOutline',
+                          destructive: true,
+                          onPress: () => {
+                            Dialog.confirm({
+                              title: 'Lorem ipsum',
+                              description:
+                                'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                              onConfirm: () => {
+                                alert('confirmed');
+                              },
+                            });
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                });
+              }}
+            >
+              Long Press
+            </Button>
           </Stack>
         ),
       },
