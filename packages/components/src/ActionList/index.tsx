@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
@@ -107,7 +107,7 @@ function BasicActionList({
   defaultOpen = false,
   ...props
 }: IActionListProps) {
-  const [isOpen, setOpenStatus] = useState(defaultOpen);
+  const [isOpen, setOpenStatus] = useState(false);
   const handleOpenStatusChange = useCallback(
     (openStatus: boolean) => {
       setOpenStatus(openStatus);
@@ -115,6 +115,15 @@ function BasicActionList({
     },
     [onOpenChange],
   );
+  // Fix the crash on Android where the view node cannot be found.
+  useEffect(() => {
+    if (defaultOpen) {
+      setTimeout(() => {
+        setOpenStatus(defaultOpen);
+      }, 0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const handleActionListOpen = useCallback(() => {
     handleOpenStatusChange(true);
   }, [handleOpenStatusChange]);
