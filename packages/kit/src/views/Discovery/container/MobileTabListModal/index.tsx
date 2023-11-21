@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { PropsWithChildren } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { FlatList, StyleSheet } from 'react-native';
 
@@ -17,7 +18,6 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
 import MobileTabListItem from '../../components/MobileTabListItem';
-import MobileTabItemOptions from '../../components/MobileTabListItem/MobileTabItemOptions';
 import MobileTabListPinnedItem from '../../components/MobileTabListItem/MobileTabListPinnedItem';
 import { TAB_LIST_CELL_COUNT_PER_ROW } from '../../config/TabList.constants';
 import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
@@ -76,6 +76,10 @@ function TabToolBar({
       </Button>
     </Stack>
   );
+}
+
+function HeaderTitle({ children }: PropsWithChildren<unknown>) {
+  return useMemo(() => <Text>{children}</Text>, [children]);
 }
 
 function MobileTabListModal() {
@@ -240,7 +244,7 @@ function MobileTabListModal() {
 
   return (
     <Page>
-      <Page.Header headerTitle={() => <Text>Hello World</Text>} />
+      <Page.Header title={tabs.length.toString()} headerTitle={HeaderTitle} />
       <Page.Body>
         <Stack style={styles.container}>
           <FlatList
