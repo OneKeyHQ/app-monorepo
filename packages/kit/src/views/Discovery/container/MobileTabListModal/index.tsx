@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { FlatList, StyleSheet } from 'react-native';
 
@@ -78,9 +78,12 @@ function TabToolBar({
   );
 }
 
+
 function HeaderTitle({ children }: PropsWithChildren<unknown>) {
-  return useMemo(() => <Text>{children} Tabs</Text>, [children]);
+  return <Text>{children} Tabs</Text>;
 }
+
+const MemoHeaderTitle = memo(HeaderTitle);
 
 function MobileTabListModal() {
   const navigation =
@@ -246,7 +249,7 @@ function MobileTabListModal() {
   return (
     <Page>
       <Page.Header
-        headerTitle={HeaderTitle}
+        headerTitle={MemoHeaderTitle}
         title={(tabs.length ?? 0).toString()}
       />
       <Page.Body>
