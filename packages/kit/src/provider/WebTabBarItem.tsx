@@ -1,9 +1,13 @@
 // it's a demo
-import { YStack } from 'tamagui';
+import { Divider, Text, YStack } from '@onekeyhq/components';
 
-import { Divider, Text } from '@onekeyhq/components';
+import useListenTabFocusState from '../hooks/useListenTabFocusState';
+import { ETabRoutes } from '../routes/Root/Tab/Routes';
 
 export function WebTabBarItem() {
+  useListenTabFocusState(ETabRoutes.WebViewTab, (isFocus: boolean) => {
+    console.log('isFocus: ', isFocus);
+  });
   return (
     <YStack flex={1}>
       <Divider marginVertical="$2" />

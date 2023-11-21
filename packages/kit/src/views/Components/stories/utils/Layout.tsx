@@ -1,6 +1,6 @@
 import {
   Button,
-  Screen,
+  Page,
   ScrollView,
   Stack,
   Text,
@@ -57,7 +57,7 @@ export function Layout({
 }>) {
   const keyboardHeight = useKeyboardHeight();
   return (
-    <Screen skipLoading={skipLoading}>
+    <Page skipLoading={skipLoading}>
       <ScrollView
         maxWidth="100%"
         scrollEnabled={scrollEnabled}
@@ -145,6 +145,6 @@ export function Layout({
           </Stack>
         </Stack>
       </ScrollView>
-    </Screen>
+    </Page>
   );
 }

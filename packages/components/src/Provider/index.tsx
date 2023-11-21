@@ -9,7 +9,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import config from '../../tamagui.config';
 import LOCALES from '../locale';
-import Toaster from '../Toast/Toaster';
+import { Toaster } from '../Toast';
 
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
 import { Context } from './hooks/useProviderValue';
@@ -43,7 +43,10 @@ const MemoizedTamaguiProvider = memo(TamaguiProvider);
 function FontProvider({ children, waitFontLoaded = true }: IFontProviderProps) {
   const [loaded] = useLoadCustomFonts();
   if (loaded) return <>{children}</>;
-  if (waitFontLoaded && (platformEnv.isNative || platformEnv.isWeb)) {
+  if (
+    waitFontLoaded &&
+    (platformEnv.isNative || platformEnv.isRuntimeBrowser)
+  ) {
     return null;
   }
   // Web can render if font not loaded

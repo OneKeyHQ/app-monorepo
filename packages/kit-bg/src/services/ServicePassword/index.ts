@@ -111,7 +111,12 @@ export default class ServicePassword extends ServiceBase {
     if (realPassword === realNewPassword) {
       throw new OneKeyError.PasswordUpdateSameFailed();
     }
-    return localDb.verifyPassword(password);
+    try {
+      await localDb.verifyPassword(password);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async rollbackPassword(password?: string): Promise<void> {
@@ -212,7 +217,7 @@ export default class ServicePassword extends ServiceBase {
       await this.biologyAuthSavePassword(newPassword);
       await this.setCachedPassword(newPassword);
       await this.setPasswordSetStatus(true);
-      await localDb.updatePassword(oldPassword, newPassword);
+      await localDb.changePassword({ oldPassword, newPassword });
       return newPassword;
     }
     throw new OneKeyError.WrongPassword();
@@ -224,7 +229,7 @@ export default class ServicePassword extends ServiceBase {
     await this.biologyAuthSavePassword(password);
     await this.setCachedPassword(password);
     await this.setPasswordSetStatus(true);
-    await localDb.updatePassword('', password);
+    await localDb.createPassword({ password });
     return password;
   }
 

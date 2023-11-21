@@ -2,7 +2,7 @@ import { isNil } from 'lodash';
 
 import { jotaiDefaultStore } from './jotaiDefaultStore';
 
-import type { IAtomPro, IWritableAtomPro } from '../types';
+import type { IJotaiAtomPro, IJotaiWritableAtomPro } from '../types';
 import type {
   ExtractAtomArgs,
   ExtractAtomResult,
@@ -20,7 +20,7 @@ export class JotaiCrossAtom<T extends () => any> {
   atom: T;
 
   ready = async () => {
-    const a = this.atom() as IAtomPro<ExtractAtomValue<ReturnType<T>>>;
+    const a = this.atom() as IJotaiAtomPro<ExtractAtomValue<ReturnType<T>>>;
     await a.storageReady;
     if (isNil(a.storageReady)) {
       console.error('atom does not have storageReady checking: ', this.name);
@@ -40,7 +40,11 @@ export class JotaiCrossAtom<T extends () => any> {
   >(
     ...args: Args
   ) => {
-    const a = (await this.ready()) as IWritableAtomPro<AtomValue, Args, Result>;
+    const a = (await this.ready()) as IJotaiWritableAtomPro<
+      AtomValue,
+      Args,
+      Result
+    >;
     return jotaiDefaultStore.set(a, ...args);
   };
 }
