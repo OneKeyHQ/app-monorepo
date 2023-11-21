@@ -7,6 +7,8 @@ import KeyboardManager from 'react-native-keyboard-manager';
 import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
 import { RootStackNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
 
+import AppStateLockContainer from '../../components/AppLock/container/AppStateLockContainer';
+
 import ModalNavigator from './Modal/ModalNavigator';
 import { ERootRoutes } from './Routes';
 import TabNavigator from './Tab/TabNavigator';
@@ -44,5 +46,9 @@ export const RootNavigator = () => {
     }
   }, [intl]);
 
-  return <RootStackNavigator<ERootRoutes, any> config={rootConfig} />;
+  return (
+    <AppStateLockContainer>
+      <RootStackNavigator<ERootRoutes, any> config={rootConfig} />
+    </AppStateLockContainer>
+  );
 };
