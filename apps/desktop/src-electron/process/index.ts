@@ -6,12 +6,12 @@ import BridgeProcess, { BridgeHeart } from './Bridge';
 import HttpServerInit from './HttpServer';
 import updateTouchResInit from './TouchRes';
 
-import type { LocalStore } from '../libs/store';
+import type { ILocalStore } from '../libs/store';
 import type { BrowserWindow } from 'electron';
 
 export type Dependencies = {
   mainWindow: BrowserWindow;
-  store: LocalStore;
+  store: ILocalStore;
 };
 
 let bridgeInstance: BridgeProcess;

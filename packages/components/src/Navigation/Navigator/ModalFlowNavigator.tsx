@@ -19,7 +19,7 @@ export interface IModalFlowNavigatorConfig<
   RouteName extends string,
   P extends ParamListBase,
 > extends ICommonNavigatorConfig<RouteName, P> {
-  translationId: ILocaleIds | string;
+  translationId?: ILocaleIds | string;
   allowDisableClose?: boolean;
   disableClose?: boolean;
 }
@@ -68,9 +68,11 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
             ...options,
             allowDisableClose,
             disableClose,
-            title: intl.formatMessage({
-              id: translationId as ILocaleIds,
-            }),
+            title: translationId
+              ? intl.formatMessage({
+                  id: translationId as ILocaleIds,
+                })
+              : '',
           };
 
           return (

@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Page, YStack } from '@onekeyhq/components';
+import { Button, Page } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/types';
@@ -22,7 +22,7 @@ const TabMe = () => {
   }, [navigation]);
   return (
     <Page>
-      <YStack>
+      <Page.Body>
         <Button
           onPress={() => {
             navigation.switchTab(ETabRoutes.Home);
@@ -33,7 +33,7 @@ const TabMe = () => {
         <Button onPress={onPress}>
           {intl.formatMessage({ id: 'title__settings' })}
         </Button>
-      </YStack>
+      </Page.Body>
     </Page>
   );
 };

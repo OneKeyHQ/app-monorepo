@@ -12,6 +12,5 @@ export const ModalTestStack: IModalFlowNavigatorConfig<
   {
     name: EModalTestRoutes.TestSimpleModal,
     component: TestSimpleModal,
-    translationId: 'Locked Modal Demo',
   },
 ];

@@ -4,7 +4,7 @@ import Store from 'electron-store';
 
 const store = new Store({ name: 'OneKey' });
 
-export type LocalStore = {
+export type ILocalStore = {
   getUpdateSettings(): UpdateSettings;
   setUpdateSettings(updateSettings: UpdateSettings): void;
   clear(): void;

@@ -39,7 +39,6 @@ import ScrollViewGallery from '../../../../../views/Components/stories/ScrollVie
 import SectionListGallery from '../../../../../views/Components/stories/SectionList';
 import SkeletonGallery from '../../../../../views/Components/stories/Skeleton';
 import TextAreaGallery from '../../../../../views/Components/stories/TextArea';
-import ThemeGallery from '../../../../../views/Components/stories/Theme';
 
 import { EGalleryRoutes } from './routes';
 
@@ -93,7 +92,6 @@ export const galleryScreenList: {
   },
   { name: EGalleryRoutes.ComponentAlert, component: AlertGallery },
   { name: EGalleryRoutes.ComponentDivider, component: DividerGallery },
-  { name: EGalleryRoutes.ComponentTheme, component: ThemeGallery },
   { name: EGalleryRoutes.ComponentScrollView, component: ScrollViewGallery },
   {
     name: EGalleryRoutes.ComponentJotaiContext,

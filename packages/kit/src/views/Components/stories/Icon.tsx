@@ -1,6 +1,6 @@
-import { FlatList, Text, View } from 'react-native';
+import { Text } from 'react-native';
 
-import { Icon, Stack, XStack } from '@onekeyhq/components';
+import { Icon, ListView, Stack, XStack } from '@onekeyhq/components';
 import type { IICON_NAMES } from '@onekeyhq/components/src/Icon/Icons';
 import Icons from '@onekeyhq/components/src/Icon/Icons';
 
@@ -38,17 +38,19 @@ const IconGallery = () => (
       {
         title: 'icons',
         element: (
-          <FlatList
+          <ListView
+            estimatedItemSize="$20"
             removeClippedSubviews
-            style={{ width: '100%', height: 300 }}
+            width="100%"
+            height="$75"
             numColumns={4}
             data={iconData}
             renderItem={({ item }) => (
-              <Stack width="25%" height={80} alignItems="center" key={item}>
+              <Stack height="$28" key={item}>
                 <Text>{item}</Text>
-                <View style={{ position: 'absolute', bottom: 10 }}>
+                <Stack position="absolute" bottom="$10">
                   <Icon name={item} />
-                </View>
+                </Stack>
               </Stack>
             )}
           />
