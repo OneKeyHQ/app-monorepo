@@ -48,6 +48,7 @@ function TabItemView({
         onPress={onPress}
         aria-current={isActive ? 'page' : undefined}
         selected={isActive}
+        tabBarStyle={options.tabBarStyle}
         // @ts-expect-error
         icon={options?.tabBarIcon?.(isActive) as IICON_NAMES}
         label={(options.tabBarLabel ?? route.name) as string}
@@ -80,7 +81,6 @@ export function DesktopLeftSideBar({
       routes.map((route, index) => {
         const focus = index === state.index;
         const { options } = descriptors[route.key];
-
         const onPress = () => {
           const event = navigation.emit({
             type: 'tabPress',
@@ -120,6 +120,7 @@ export function DesktopLeftSideBar({
           );
         }
 
+        console.log(options);
         return (
           <TabItemView
             key={route.key}
