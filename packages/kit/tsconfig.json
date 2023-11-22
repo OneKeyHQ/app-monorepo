@@ -4,7 +4,7 @@
     "plugins": [
       {
         "name": "@nderscore/tamagui-typescript-plugin",
-        "pathToApp": "./packages/web",
+        "pathToApp": "./apps/web",
         "defaultTheme": "light",
         "colorTileSize": 18,
         "completionFilters": {
