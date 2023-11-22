@@ -5,8 +5,8 @@ import type { ILocaleIds } from '@onekeyhq/components/src/locale';
 import { appLocale } from '../../locale/appLocale';
 import platformEnv from '../../platformEnv';
 
-import type { MessageDescriptor } from 'react-intl';
 import type { IOneKeyError } from '../types/errorTypes';
+import type { MessageDescriptor } from 'react-intl';
 
 // TODO also update JsBridgeBase.toPlainError
 /**
