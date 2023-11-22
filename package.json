@@ -30,7 +30,7 @@
     "app:android": "yarn workspace @onekeyhq/mobile android",
     "app:android:device": "yarn workspace @onekeyhq/mobile android:device",
     "build:icon": "yarn workspace @onekeyhq/components build:icons",
-    "_tsc": "node ./development/tsCheck",
+    "_tsc": "sh -c 'npx tsc --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache  --pretty'",
     "_lint": "node ./development/lintCheck",
     "lint:project": "yarn _tsc && yarn _lint",
     "lint": "ultra lint:project",
