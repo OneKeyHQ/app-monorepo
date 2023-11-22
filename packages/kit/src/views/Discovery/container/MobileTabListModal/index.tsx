@@ -100,8 +100,22 @@ function MobileTabListModal() {
   const { addBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction();
 
-  const { closeAllWebTab, setCurrentWebTab, closeWebTab, setPinnedTab } =
-    useWebTabAction();
+  const {
+    closeAllWebTab,
+    setCurrentWebTab,
+    closeWebTab,
+    setPinnedTab,
+    setDisplayHomePage,
+  } = useWebTabAction();
+
+  const triggerCloseAllTab = useRef(false);
+  useEffect(() => {
+    if (triggerCloseAllTab.current && !tabs.length) {
+      setDisplayHomePage(true);
+      navigation.pop();
+      triggerCloseAllTab.current = false;
+    }
+  }, [tabs, setDisplayHomePage, navigation]);
 
   const flatListRef = useRef<FlatList<IWebTab> | null>(null);
   const pinnedListRef = useRef<IListViewRef<IWebTab> | null>(null);
@@ -286,6 +300,7 @@ function MobileTabListModal() {
             keyExtractor={keyExtractor}
             numColumns={TAB_LIST_CELL_COUNT_PER_ROW}
             showsHorizontalScrollIndicator={false}
+            showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContentContainer}
           />
         </Stack>
@@ -299,7 +314,10 @@ function MobileTabListModal() {
               screen: EDiscoveryModalRoutes.FakeSearchModal,
             });
           }}
-          onCloseAll={() => closeAllWebTab()}
+          onCloseAll={() => {
+            triggerCloseAllTab.current = true;
+            void closeAllWebTab();
+          }}
           onDone={() => {
             navigation.pop();
           }}
