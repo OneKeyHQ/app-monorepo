@@ -5,12 +5,12 @@ import Store from 'electron-store';
 const store = new Store({ name: 'OneKey' });
 
 export type ILocalStore = {
-  getUpdateSettings(): UpdateSettings;
-  setUpdateSettings(updateSettings: UpdateSettings): void;
+  getUpdateSettings(): IUpdateSettings;
+  setUpdateSettings(updateSettings: IUpdateSettings): void;
   clear(): void;
 };
 
-export type UpdateSettings = {
+export type IUpdateSettings = {
   useTestFeedUrl: boolean;
 };
 
@@ -20,12 +20,12 @@ const configKeys = {
   EncryptedData: 'OneKey_EncryptedData',
 };
 
-export const getUpdateSettings = (): UpdateSettings =>
+export const getUpdateSettings = (): IUpdateSettings =>
   store.get(configKeys.UpdateSettings, {
     useTestFeedUrl: false,
-  }) as UpdateSettings;
+  }) as IUpdateSettings;
 
-export const setUpdateSettings = (updateSettings: UpdateSettings): void => {
+export const setUpdateSettings = (updateSettings: IUpdateSettings): void => {
   store.set(configKeys.UpdateSettings, updateSettings);
 };
 
