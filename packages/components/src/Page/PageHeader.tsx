@@ -4,9 +4,9 @@ import { useNavigation } from '@react-navigation/native';
 
 import { navigationRef } from '../Navigation/Navigator/NavigationContainer';
 
-import type { StackNavigationOptions } from '@react-navigation/stack';
+import type { IStackNavigationOptions } from '../Navigation';
 
-export type IPageHeaderProps = StackNavigationOptions;
+export type IPageHeaderProps = IStackNavigationOptions;
 
 export function PageHeader(props: IPageHeaderProps) {
   const navigation = useNavigation();
