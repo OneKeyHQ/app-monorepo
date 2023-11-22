@@ -10,7 +10,7 @@ import { Icon } from '../Icon';
 import { Spinner } from '../Spinner';
 import { Text } from '../Text';
 
-import type { IKeyOfIcons, IIconProps } from '../Icon';
+import type { IIconProps, IKeyOfIcons } from '../Icon';
 import type { ColorTokens, ThemeableStackProps } from 'tamagui';
 
 export interface IButtonProps extends ThemeableStackProps {

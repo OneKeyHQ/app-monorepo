@@ -8,7 +8,7 @@ import { Spinner } from '../Spinner';
 import { Stack } from '../Stack';
 import { Tooltip } from '../Tooltip';
 
-import type { IKeyOfIcons, IIconProps } from '../Icon';
+import type { IIconProps, IKeyOfIcons } from '../Icon';
 import type { ITooltipProps } from '../Tooltip';
 
 export interface IIconButtonProps
