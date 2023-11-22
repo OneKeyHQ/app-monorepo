@@ -1,5 +1,7 @@
 import { memo } from 'react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import useIsVerticalLayout from '../../Provider/hooks/useIsVerticalLayout';
 
 import HeaderButtonGroup from './HeaderButtonGroup';
@@ -25,7 +27,11 @@ function HeaderBackButton({
   const renderBackButton = () => {
     if (canGoBack) {
       return (
-        <HeaderIconButton onPress={props.onPress} icon="ChevronLeftOutline" />
+        <HeaderIconButton
+          onPress={props.onPress}
+          icon="ChevronLeftOutline"
+          {...(platformEnv.isNativeIOS && { pressStyle: undefined })}
+        />
       );
     }
     if (showCloseButton) {
