@@ -573,4 +573,5 @@ module.exports = [
   'Themeable',
   'alg',
   'gitkeep',
+  'COMMITHASH',
 ];
