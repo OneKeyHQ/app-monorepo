@@ -6,18 +6,18 @@ import logger from 'electron-log';
 
 import type { ChildProcess } from 'child_process';
 
-export type Status = {
+export type IStatus = {
   service: boolean;
   process: boolean;
 };
 
-export type Options = {
+export type IOptions = {
   startupThrottleTime?: number;
   stopWaitTimes?: number;
   autoRestart?: number;
 };
 
-const defaultOptions: Options = {
+const defaultOptions: IOptions = {
   startupThrottleTime: 0,
   stopWaitTimes: 10,
   autoRestart: 2,
@@ -30,7 +30,7 @@ export default abstract class BaseProcess {
 
   processName: string;
 
-  options: Options;
+  options: IOptions;
 
   launchThrottle: ReturnType<typeof setTimeout> | null;
 
@@ -41,7 +41,7 @@ export default abstract class BaseProcess {
   constructor(
     resource: string,
     processName: string,
-    options: Options = defaultOptions,
+    options: IOptions = defaultOptions,
   ) {
     this.process = null;
     this.launchThrottle = null;
