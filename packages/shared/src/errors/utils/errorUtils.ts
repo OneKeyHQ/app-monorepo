@@ -5,8 +5,8 @@ import type { ILocaleIds } from '@onekeyhq/components/src/locale';
 import { appLocale } from '../../locale/appLocale';
 import platformEnv from '../../platformEnv';
 
-import type { IOneKeyError } from '../types/errorTypes';
 import type { MessageDescriptor } from 'react-intl';
+import type { IOneKeyError } from '../types/errorTypes';
 
 // TODO also update JsBridgeBase.toPlainError
 /**
@@ -99,7 +99,7 @@ export function normalizeErrorProps(
     config?.defaultKey ||
     undefined;
 
-  if (!msg && key && appLocale.intl.formatMessage) {
+  if (!msg && key && appLocale.intl.formatMessage && !platformEnv.isJest) {
     msg = appLocale.intl.formatMessage(
       { id: key },
       (props as IOneKeyError)?.info,
