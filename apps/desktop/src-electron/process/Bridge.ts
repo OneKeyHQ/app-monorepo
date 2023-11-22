@@ -4,7 +4,7 @@ import fetch from 'node-fetch';
 
 import BaseProcess from './BaseProcess';
 
-import type { Status } from './BaseProcess';
+import type { IStatus } from './BaseProcess';
 
 class BridgeProcess extends BaseProcess {
   constructor() {
@@ -14,7 +14,7 @@ class BridgeProcess extends BaseProcess {
     logger.info('logger file name =====> :', logger.transports.file.file);
   }
 
-  async getStatus(): Promise<Status> {
+  async getStatus(): Promise<IStatus> {
     try {
       const resp = await fetch(`http://127.0.0.1:21320/`, {
         method: 'POST',

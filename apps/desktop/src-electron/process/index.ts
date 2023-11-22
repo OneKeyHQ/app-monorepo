@@ -9,7 +9,7 @@ import updateTouchResInit from './TouchRes';
 import type { ILocalStore } from '../libs/store';
 import type { BrowserWindow } from 'electron';
 
-export type Dependencies = {
+export type IDependencies = {
   mainWindow: BrowserWindow;
   store: ILocalStore;
 };
@@ -40,7 +40,7 @@ export const restartBridge = async () => {
   await bridgeInstance?.restart();
 };
 
-const init = async ({ mainWindow, store }: Dependencies) => {
+const init = async ({ mainWindow, store }: IDependencies) => {
   logger.info('Electron main process log path: ', logger.transports.file.file);
   await launchBridge();
   if (!process.mas) {

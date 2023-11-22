@@ -5,8 +5,8 @@ import { CancellationToken, autoUpdater } from 'electron-updater';
 import { ipcMessageKeys } from '../config';
 import { b2t, toHumanReadable } from '../libs/utils';
 
-import type { Dependencies } from '.';
-import type { UpdateSettings } from '../libs/store';
+import type { IDependencies } from '.';
+import type { IUpdateSettings } from '../libs/store';
 
 interface ILatestVersion {
   version: string;
@@ -30,7 +30,7 @@ function isNetworkError(errorObject: Error) {
   );
 }
 
-const init = ({ mainWindow, store }: Dependencies) => {
+const init = ({ mainWindow, store }: IDependencies) => {
   // Enable feature on FE once it's ready
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow.webContents.send('update/enable');
@@ -195,7 +195,7 @@ const init = ({ mainWindow, store }: Dependencies) => {
     autoUpdater.quitAndInstall();
   });
 
-  ipcMain.on(ipcMessageKeys.UPDATE_SETTINGS, (_, settings: UpdateSettings) => {
+  ipcMain.on(ipcMessageKeys.UPDATE_SETTINGS, (_, settings: IUpdateSettings) => {
     logger.info('auto-update', 'Set setting: ', JSON.stringify(settings));
     setUseTestFeedUrl((settings ?? {}).useTestFeedUrl ?? false);
   });
