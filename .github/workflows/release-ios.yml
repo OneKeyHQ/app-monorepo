@@ -99,9 +99,12 @@ jobs:
         env:
           COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
           GITHUB_SHA: ${{ github.sha }}
+          JPUSH_KEY: ${{ secrets.JPUSH_KEY }}
         run: |
           echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env.expo
           echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env.expo
+          echo "JPUSH_KEY=${{ env.JPUSH_KEY }}" >> .env.expo
+          echo ${{ secrets.IOS_SECRET }} | base64 -d > .env.expo
 
       - name: Build on EAS And Auto Submit
         if: ${{ github.event.workflow_run }}
