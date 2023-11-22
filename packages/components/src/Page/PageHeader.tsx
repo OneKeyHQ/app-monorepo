@@ -10,7 +10,7 @@ export type IPageHeaderProps = IStackNavigationOptions;
 
 export function PageHeader(props: IPageHeaderProps) {
   const navigation = useNavigation();
-  const ref = useRef<object | undefined>();
+  const ref = useRef<IPageHeaderProps | undefined>();
   useEffect(() => {
     if (!ref.current) {
       ref.current = navigationRef.current?.getCurrentOptions();
