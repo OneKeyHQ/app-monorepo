@@ -5,7 +5,6 @@ import { RootSiblingParent } from 'react-native-root-siblings';
 import { FullWindowOverlay, enableFreeze } from 'react-native-screens';
 
 import { Portal } from '@onekeyhq/components';
-import DesktopCustomTabBar from '@onekeyhq/kit/src/views/Discovery/container/DesktopCustomTabBar';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';

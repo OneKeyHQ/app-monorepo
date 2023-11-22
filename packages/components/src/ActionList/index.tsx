@@ -86,7 +86,7 @@ function ActionListItem({
   );
 }
 
-interface IActionListSection {
+export interface IActionListSection {
   title?: string;
   items: IActionListItemProps[];
 }

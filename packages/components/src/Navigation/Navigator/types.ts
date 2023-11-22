@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 
+import type { IActionListSection } from '../../ActionList';
 import type { IICON_NAMES } from '../../Icon';
 import type { ILocaleIds } from '../../locale';
 import type { RouteProp } from '@react-navigation/core/lib/typescript/src/types';
@@ -27,6 +28,7 @@ export interface ITabNavigatorConfig<RouteName extends string> {
   freezeOnBlur?: boolean;
   disable?: boolean;
   tabBarStyle?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
+  actionList?: IActionListSection[];
 }
 
 export interface ICommonNavigatorConfig<
