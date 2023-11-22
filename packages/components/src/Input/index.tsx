@@ -15,6 +15,7 @@ import type { GetProps } from 'tamagui';
 type ITMInputProps = GetProps<typeof TMInput>;
 
 export type IInputProps = {
+  readonly?: boolean;
   size?: 'small' | 'medium' | 'large';
   leftIconName?: IICON_NAMES;
   error?: boolean;
@@ -60,6 +61,7 @@ function BaseInput(
     editable,
     error,
     containerProps,
+    readonly,
     ...props
   }: IInputProps,
   ref: Ref<any>,
@@ -87,6 +89,7 @@ function BaseInput(
           unstyled
           ref={ref}
           flex={1}
+          pointerEvents={readonly ? 'none' : undefined}
           /* 
           use height instead of lineHeight because of a RN issue while render TextInput on iOS
           https://github.com/facebook/react-native/issues/28012
