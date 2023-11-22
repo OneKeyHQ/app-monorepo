@@ -185,7 +185,7 @@ function createMainWindow() {
   const browserWindow = new BrowserWindow({
     title: APP_NAME,
     titleBarStyle: isWin ? 'default' : 'hidden',
-    trafficLightPosition: { x: 20, y: 20 },
+    trafficLightPosition: { x: 20, y: 18 },
     autoHideMenuBar: true,
     frame: true,
     resizable: true,
