@@ -57,12 +57,17 @@ function SearchModal() {
 
   return (
     <Page>
-      <Page.Header headerTitle="Search Modal" />
+      <Page.Header
+        headerTitle="Search Modal"
+        headerSearchBarOptions={{
+          placeholder: 'search',
+          inputType: 'text',
+          onChangeText: ({ nativeEvent }) => {
+            setValue(nativeEvent.text);
+          },
+        }}
+      />
       <Page.Body>
-        <Stack p="$4">
-          <SearchBar value={value} onChangeText={setValue} />
-        </Stack>
-
         <Stack flex={1}>
           <ListView
             height="100%"

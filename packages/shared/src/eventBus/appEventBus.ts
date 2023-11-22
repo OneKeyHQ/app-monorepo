@@ -6,6 +6,7 @@ import platformEnv from '../platformEnv';
 export enum EAppEventBusNames {
   NetworkChanged = 'NetworkChanged',
   AccountChanged = 'AccountChanged',
+  CloseAllBrowserTab = 'CloseAllBrowserTab',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',

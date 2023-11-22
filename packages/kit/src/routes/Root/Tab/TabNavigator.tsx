@@ -5,6 +5,10 @@ import type {
   ITabNavigatorConfig,
   ITabNavigatorExtraConfig,
 } from '@onekeyhq/components/src/Navigation/Navigator/types';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Browser from '../../../views/Discovery/container/Browser';
@@ -46,9 +50,11 @@ const discoverRouteConfig: ITabNavigatorConfig<ETabRoutes> = {
     {
       items: [
         {
+          icon: 'CrossedLargeOutline',
           label: 'Close All Tabs',
           onPress: () => {
             console.log('Close All');
+            appEventBus.emit(EAppEventBusNames.CloseAllBrowserTab, undefined);
           },
         },
       ],

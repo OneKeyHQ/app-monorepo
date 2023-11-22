@@ -1,8 +1,12 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { Divider, Icon, Stack, Text, XStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import { HandleRebuildBrowserData } from '@onekeyhq/kit/src/views/Discovery/components/HandleData/HandleRebuildBrowserTabData';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
@@ -53,7 +57,8 @@ function DesktopCustomTabBar() {
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
-  const { setCurrentWebTab, closeWebTab, setPinnedTab } = useWebTabAction();
+  const { setCurrentWebTab, closeWebTab, setPinnedTab, closeAllWebTab } =
+    useWebTabAction();
   const { addBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction();
   const data = useMemo(() => (tabs ?? []).filter((t) => !t.isPinned), [tabs]);
@@ -85,12 +90,23 @@ function DesktopCustomTabBar() {
     [addBrowserBookmark, removeBrowserBookmark],
   );
 
+  useEffect(() => {
+    const listener = () => {
+      void closeAllWebTab();
+    };
+    appEventBus.on(EAppEventBusNames.CloseAllBrowserTab, listener);
+    return () => {
+      appEventBus.off(EAppEventBusNames.CloseAllBrowserTab, listener);
+    };
+  }, [closeAllWebTab]);
+
   return (
     <Stack>
       <HandleRebuildBrowserData />
       {pinnedData.map((t) => (
         <DesktopCustomTabBarItem
           id={t.id}
+          key={t.id}
           activeTabId={activeTabId}
           onPress={(id) => {
             setCurrentWebTab(id);
@@ -102,6 +118,7 @@ function DesktopCustomTabBar() {
       ))}
       {pinnedData.length > 0 && <Divider m="$1.5" />}
       <AddTabButton
+        key="AddTabButton"
         onAddTab={(e) => {
           e.stopPropagation();
           navigation.pushModal(EModalRoutes.DiscoveryModal, {
