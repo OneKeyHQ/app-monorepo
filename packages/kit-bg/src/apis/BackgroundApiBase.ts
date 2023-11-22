@@ -52,7 +52,6 @@ import type {
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 @backgroundClass()
 class BackgroundApiBase implements IBackgroundApiBridge {

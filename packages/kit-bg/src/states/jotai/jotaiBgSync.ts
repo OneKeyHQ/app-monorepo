@@ -4,8 +4,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { jotaiInitFromUi } from './jotaiInit';
 
-import type BackgroundApiProxy from '../../apis/BackgroundApiProxy';
 import type { EAtomNames } from './atomNames';
+import type BackgroundApiProxy from '../../apis/BackgroundApiProxy';
 
 export class JotaiBgSync {
   backgroundApiProxy!: BackgroundApiProxy;
