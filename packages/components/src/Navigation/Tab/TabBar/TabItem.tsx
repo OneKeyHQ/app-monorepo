@@ -5,15 +5,17 @@ import { Stack } from '../../../Stack';
 import { Text } from '../../../Text';
 
 import type { IICON_NAMES } from '../../../Icon';
+import type { Animated, StyleProp, ViewStyle } from 'react-native';
 
-interface IStackProps {
+interface ITabItemProps {
   icon?: IICON_NAMES;
   label?: string;
   selected?: boolean;
+  tabBarStyle?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
 }
 
-export function TabItem(props: IStackProps & GetProps<typeof Stack>) {
-  const { icon, label, selected, ...rest } = props;
+export function TabItem(props: ITabItemProps & GetProps<typeof Stack>) {
+  const { icon, label, selected, tabBarStyle, ...rest } = props;
 
   return (
     <Stack
@@ -25,6 +27,7 @@ export function TabItem(props: IStackProps & GetProps<typeof Stack>) {
         bg: selected ? '$bgActive' : undefined,
         borderRadius: '$2',
       }}
+      style={tabBarStyle as ViewStyle}
       {...rest}
     >
       {icon && (

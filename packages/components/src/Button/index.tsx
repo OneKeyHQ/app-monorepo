@@ -199,6 +199,8 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
   return (
     <ButtonFrame
       ref={ref}
+      my={variant === 'tertiary' ? '$-1' : '$0'}
+      mx={variant === 'tertiary' ? '$-2' : '$0'}
       py={variant === 'tertiary' ? '$1' : py}
       px={variant === 'tertiary' ? '$2' : px}
       borderRadius={borderRadius}

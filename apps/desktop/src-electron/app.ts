@@ -183,7 +183,7 @@ function createMainWindow() {
   const browserWindow = new BrowserWindow({
     title: APP_NAME,
     titleBarStyle: isWin ? 'default' : 'hidden',
-    trafficLightPosition: { x: 20, y: 20 },
+    trafficLightPosition: { x: 20, y: 18 },
     autoHideMenuBar: true,
     frame: true,
     resizable: true,
@@ -593,7 +593,7 @@ if (!app.isDefaultProtocolClient(WALLET_CONNECT_DEEP_LINK_NAME)) {
   // Define custom protocol handler. Deep linking works on packaged versions of the application!
   app.setAsDefaultProtocolClient(WALLET_CONNECT_DEEP_LINK_NAME);
 }
-// also define `protocols` at packages/desktop/electron-builder.config.js
+// also define `protocols` at apps/desktop/electron-builder.config.js
 if (!app.isDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME)) {
   // Define custom protocol handler. Deep linking works on packaged versions of the application!
   app.setAsDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME);
