@@ -59,6 +59,7 @@ const SectionListDemo = () => {
       ListHeaderComponent={XStack}
       ListFooterComponent={XStack}
       estimatedItemSize="$10"
+      SectionSeparatorComponent={<Stack bg="$bgApp" h={100} />}
       renderItem={({ item }) => (
         <XStack>
           <Text>{item}</Text>
