@@ -88,8 +88,8 @@ function HeaderView({
         }}
         alignItems="center"
         backgroundColor="$bgApp"
-        borderBottomWidth={StyleSheet.hairlineWidth}
-        borderBottomColor="$borderSubdued"
+        // borderBottomWidth={StyleSheet.hairlineWidth}
+        // borderBottomColor="$borderSubdued"
         pointerEvents="box-none"
       >
         <Stack
