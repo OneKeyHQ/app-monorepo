@@ -33,8 +33,8 @@ yarn
 
 #### 第二の方法：公式開発者向け
 
-1.暗号化リポジトリから `debug.keystore` ファイルを取得し、 `packages/app/android/keystores` ディレクトリに配置します（ない場合は自分で作成してください）。
-2.暗号化リポジトリで `keys.secret` ファイルを取得し、`packages/app/android` ディレクトリに配置します。
+1.暗号化リポジトリから `debug.keystore` ファイルを取得し、 `apps/android/keystores` ディレクトリに配置します（ない場合は自分で作成してください）。
+2.暗号化リポジトリで `keys.secret` ファイルを取得し、`apps/android` ディレクトリに配置します。
 
 ## 🗂 複数のリポジトリディレクトリ構造
 
@@ -43,9 +43,9 @@ yarn
 - `packages/components` はUIコンポーネントを保持します
 - `packages/kit`再利用可能なページレベルのUIコンテンツ用の
 - `packages /app`APPコード
-- `packages/desktop`デスクトップの電子コード
+- `apps/desktop`デスクトップの電子コード
 - `packages /web`Webコード
-- `packages/ext`プラグインサイドコード
+- `apps/ext`プラグインサイドコード
 
 ## 🧲 依存関係をインストールする
 
@@ -53,7 +53,7 @@ packages/` ディレクトリの下のサブディレクトリはそれぞれ別
 
 サブディレクトリの依存関係をインストールする必要があるときは、`yarn workspace @onekeyhq/web add axios`とすればよいでしょう。 yarn workspace @onekeyhq/web` のような接頭辞をつけると、最終的に axios モジュールは web サブプロジェクトのルートディレクトリにインストールされるようになります。
 
-依存関係の中にはネイティブな部分もあるので、JSの依存関係をインストールした後に、`packages/app/ios`ディレクトリに移動して、`pod install`を実行する必要があります。
+依存関係の中にはネイティブな部分もあるので、JSの依存関係をインストールした後に、`apps/ios`ディレクトリに移動して、`pod install`を実行する必要があります。
 
 ## 😷 よくある質問
 

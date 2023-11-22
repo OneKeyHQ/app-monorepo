@@ -29,12 +29,12 @@ Sviluppare codice commerciale diverso eseguendo i seguenti comandi nella directo
 
 #### Primo metodo: per gli sviluppatori della comunità
 
-Configura le chiavi rilevanti in `packages/app/android/lib-keys-secret/src/main/cpp/keys.c`, o usa le opzioni predefinite. Alcune API possono avere delle restrizioni.
+Configura le chiavi rilevanti in `apps/android/lib-keys-secret/src/main/cpp/keys.c`, o usa le opzioni predefinite. Alcune API possono avere delle restrizioni.
 
 #### Secondo modo: per gli sviluppatori ufficiali
 
-1. Vai al repository di crittografia e prendi il file `debug.keystore` e mettilo nella directory `packages/app/android/keystores`, se non lo hai, crealo tu stesso.
-2. Vai al repository di crittografia e prendi il file `keys.secret` e mettilo nella directory `packages/app/android`.
+1. Vai al repository di crittografia e prendi il file `debug.keystore` e mettilo nella directory `apps/android/keystores`, se non lo hai, crealo tu stesso.
+2. Vai al repository di crittografia e prendi il file `keys.secret` e mettilo nella directory `apps/android`.
 
 ## 🗂 Struttura di directory di repository multipli
 
@@ -42,8 +42,8 @@ I repository sono organizzati utilizzando il modello monorepo per mantenere il c
 
 - `packages/components` per i componenti UI
 - `packages/kit` contiene contenuti UI riutilizzabili a livello di pagina
-- `packages/app` codice APP
-- `packages/desktop` Codice elettronico del desktop
+- `apps` codice APP
+- `apps/desktop` Codice elettronico del desktop
 - `pacchetti/web` codice lato web
 - `pacchetti/ext` Codice lato plugin
 
@@ -53,7 +53,7 @@ Ogni sottodirectory sotto la directory `packages/` è un progetto separato, il c
 
 Quando hai bisogno di installare una dipendenza per una sottodirectory, usa semplicemente `yarn workspace @onekeyhq/web add axios`. Con un prefisso come `yarn workspace @onekeyhq/web`, il modulo axios può eventualmente essere installato nella directory principale del sottoprogetto web.
 
-Alcune delle dipendenze hanno parti native, quindi dovrai andare nella directory `packages/app/ios` ed eseguire `pod install` dopo aver installato le dipendenze JS.
+Alcune delle dipendenze hanno parti native, quindi dovrai andare nella directory `apps/ios` ed eseguire `pod install` dopo aver installato le dipendenze JS.
 
 ## 😷 Domande frequenti
 

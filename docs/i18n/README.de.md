@@ -29,12 +29,12 @@ Entwickeln Sie verschiedene Geschäftscodes, indem Sie die folgenden Befehle im 
 
 #### Erste Methode: für Gemeindeentwickler
 
-Konfigurieren Sie die entsprechenden Schlüssel in `packages/app/android/lib-keys-secret/src/main/cpp/keys.c`, oder verwenden Sie die Standardoptionen. Einige APIs können Einschränkungen haben.
+Konfigurieren Sie die entsprechenden Schlüssel in `apps/android/lib-keys-secret/src/main/cpp/keys.c`, oder verwenden Sie die Standardoptionen. Einige APIs können Einschränkungen haben.
 
 #### Zweiter Weg: für offizielle Entwickler
 
-1. gehen Sie zum Verschlüsselungs-Repository und holen Sie die Datei "debug.keystore" und legen Sie sie in das Verzeichnis "packages/app/android/keystores", wenn Sie sie nicht haben, erstellen Sie sie selbst.
-2. gehen Sie zum Verschlüsselungs-Repository und holen Sie die Datei `keys.secret` und legen Sie sie in das Verzeichnis `packages/app/android`.
+1. gehen Sie zum Verschlüsselungs-Repository und holen Sie die Datei "debug.keystore" und legen Sie sie in das Verzeichnis "apps/android/keystores", wenn Sie sie nicht haben, erstellen Sie sie selbst.
+2. gehen Sie zum Verschlüsselungs-Repository und holen Sie die Datei `keys.secret` und legen Sie sie in das Verzeichnis `apps/android`.
 
 ## 🗂 Mehrere Repository-Verzeichnisstrukturen
 
@@ -42,7 +42,7 @@ Die Repositories sind nach dem Monorepo-Modell organisiert, um den Code auf vers
 
 - Pakete/Komponenten" für UI-Komponenten
 - packages/kit" enthält wiederverwendbare UI-Inhalte auf Seitenebene
-- packages/app` APP-Code
+- apps` APP-Code
 - Pakete/desktop" Desktop-Elektronencode
 - Pakete/web" Webseitiger Code
 - Packages/ext" Plugin-seitiger Code
@@ -53,7 +53,7 @@ Jedes Unterverzeichnis unter dem Verzeichnis `packages/` ist ein separates Proje
 
 Wenn Sie eine Abhängigkeit für ein Unterverzeichnis installieren müssen, verwenden Sie einfach `yarn workspace @onekeyhq/web add axios`. Mit einem Präfix wie `yarn workspace @onekeyhq/web` kann das axios-Modul schließlich im Stammverzeichnis des Web-Unterprojekts installiert werden.
 
-Einige der Abhängigkeiten haben native Teile, daher müssen Sie in das Verzeichnis `packages/app/ios` gehen und `pod install` ausführen, nachdem Sie die JS-Abhängigkeiten installiert haben.
+Einige der Abhängigkeiten haben native Teile, daher müssen Sie in das Verzeichnis `apps/ios` gehen und `pod install` ausführen, nachdem Sie die JS-Abhängigkeiten installiert haben.
 
 ## 😷 Häufig gestellte Fragen
 
