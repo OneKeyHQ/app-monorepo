@@ -52,8 +52,9 @@ const SecondRoute = ({
 }: {
   onContentSizeChange: ((w: number, h: number) => void) | undefined;
 }) => (
-  <FlatList
+  <ListView
     data={new Array(50).fill({})}
+    estimatedItemSize="$10"
     scrollEnabled={false}
     renderItem={({ index }) => (
       <Stack style={{ padding: 20 }}>
