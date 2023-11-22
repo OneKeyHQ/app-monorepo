@@ -1,5 +1,9 @@
 import { Button, Stack } from '@onekeyhq/components';
-import { BadAuthError, InvoiceExpiredError } from '@onekeyhq/shared/src/errors';
+import {
+  BadAuthError,
+  InvoiceExpiredError,
+  OneKeyError,
+} from '@onekeyhq/shared/src/errors';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { wait } from '../../../utils/helper';
@@ -10,17 +14,23 @@ function error10() {
   throw new BadAuthError();
 }
 function error00() {
-  throw new Error(`demoErrorInSyncMethod: ${Date.now()}`);
+  throw new Error(`原生 new Error 不显示 toast: ${Date.now()}`);
 }
 function error11() {
   throw new BadAuthError({
     autoToast: true,
   });
 }
+function error13() {
+  throw new OneKeyError({
+    autoToast: true,
+    message: '使用基类 new OneKeyError + autoToast 显示 toast',
+  });
+}
 function error12() {
   throw new BadAuthError({
     autoToast: true,
-    message: '显式传入自定义 message，不再使用内置 i18n',
+    message: '自定义 Error 类，显式传入自定义 message，不再使用内置 i18n',
   });
   // throw new Error(`demoErrorInSyncMethod: ${Date.now()}`);
 }
@@ -51,10 +61,17 @@ function Demo1() {
       </Button>
       <Button
         onPress={() => {
-          error11();
+          error13();
         }}
       >
         显示 toast
+      </Button>
+      <Button
+        onPress={() => {
+          error11();
+        }}
+      >
+        显示 toast2
       </Button>
       <Button
         onPress={() => {

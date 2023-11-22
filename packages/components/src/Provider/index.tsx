@@ -1,10 +1,10 @@
 import type { FC, PropsWithChildren, ReactNode } from 'react';
 import { memo, useMemo } from 'react';
 
-import { IntlProvider } from 'react-intl';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TamaguiProvider } from 'tamagui';
 
+import { AppIntlProvider } from '@onekeyhq/shared/src/locale/AppIntlProvider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import config from '../../tamagui.config';
@@ -17,7 +17,6 @@ import ScreenSizeProvider from './ScreenSizeProvider';
 import SidebarStateProvider from './SidebarStateProvider';
 
 import type { ILocaleSymbol } from '../locale';
-import appIntl from './appIntl';
 
 export type IUIProviderProps = PropsWithChildren<{
   /**
@@ -70,14 +69,7 @@ const Provider: FC<IUIProviderProps> = ({
   );
 
   return (
-    <IntlProvider
-      ref={(e) => {
-        try {
-          appIntl.intlRef.current = e?.state?.intl;
-        } catch (error) {
-          // debugLogger.common.error('IntlProvider get ref error:', error);
-        }
-      }}
+    <AppIntlProvider
       locale={locale}
       messages={LOCALES[locale] as Record<string, string>}
     >
@@ -98,7 +90,7 @@ const Provider: FC<IUIProviderProps> = ({
           </ScreenSizeProvider>
         </Context.Provider>
       </FontProvider>
-    </IntlProvider>
+    </AppIntlProvider>
   );
 };
 

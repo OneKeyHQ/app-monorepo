@@ -7,6 +7,7 @@ import type {
 
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type ServiceApp from '../services/ServiceApp';
+import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServicePassword from '../services/ServicePassword';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceSend from '../services/ServiceSend';
@@ -22,8 +23,6 @@ import type {
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
-
-// import type ServiceBootstrap from '../services/ServiceBootstrap';
 // import type ServiceCronJob from '../services/ServiceCronJob';
 
 export type IBackgroundApiInternalCallMessage = IJsonRpcRequest & {
@@ -64,6 +63,6 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceSetting: ServiceSetting;
   serviceApp: ServiceApp;
   serviceSend: ServiceSend;
-  // serviceBootstrap: ServiceBootstrap;
+  serviceBootstrap: ServiceBootstrap;
   // serviceCronJob: ServiceCronJob;
 }

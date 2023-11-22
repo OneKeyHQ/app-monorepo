@@ -2,6 +2,7 @@ import { isString, isUndefined, omitBy } from 'lodash';
 
 import type { ILocaleIds } from '@onekeyhq/components/src/locale';
 
+import { appLocale } from '../../locale/appLocale';
 import platformEnv from '../../platformEnv';
 
 import type { IOneKeyError } from '../types/errorTypes';
@@ -98,8 +99,8 @@ export function normalizeErrorProps(
     config?.defaultKey ||
     undefined;
 
-  if (!msg && key && errorsIntlFormatter.formatMessage) {
-    msg = errorsIntlFormatter.formatMessage(
+  if (!msg && key && appLocale.intl.formatMessage) {
+    msg = appLocale.intl.formatMessage(
       { id: key },
       (props as IOneKeyError)?.info,
     );
