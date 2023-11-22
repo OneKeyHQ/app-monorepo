@@ -48,7 +48,7 @@ jobs:
           echo "GITHUB_TAG=$github_ref" >> $GITHUB_ENV
           # echo "::set-env name=GITHUB_TAG::$github_ref"
 
-          eval "$(node -e 'const v=require("./packages/desktop/package.json").version; console.log("pkg_version="+v)')"
+          eval "$(node -e 'const v=require("./apps/desktop/package.json").version; console.log("pkg_version="+v)')"
           echo '$pkg_version='$pkg_version
           echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
 
@@ -101,7 +101,7 @@ jobs:
 
       - name: Setup Code Signing file
         run: |
-          echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > packages/desktop/sign.p12
+          echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > apps/desktop/sign.p12
 
       - name: Publish and Sign Static Windows Installer
         if: ${{ (github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/onekey') }}
@@ -113,7 +113,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           CSC_LINK: './sign.p12'
-        run: 'cd packages/desktop && yarn publish:winms'
+        run: 'cd apps/desktop && yarn publish:winms'
 
       - name: Build and Sign Static Windows Installer
         env:
@@ -124,26 +124,26 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           CSC_LINK: './sign.p12'
-        run: 'cd packages/desktop && yarn build:winms'
+        run: 'cd apps/desktop && yarn build:winms'
 
       - name: Upload Artifacts Windows
         uses: actions/upload-artifact@v3
         with:
           name: onekey-desktop-windows
           path: |
-            ./packages/desktop/build-electron/*.exe
+            ./apps/desktop/build-electron/*.exe
 
       - name: Upload Artifacts Release
         uses: actions/upload-artifact@v3
         with:
           name: release
           path: |
-            ./packages/desktop/build-electron/*
-            !./packages/desktop/build-electron/win-unpacked
-            !./packages/desktop/build-electron/mac-arm64
-            !./packages/desktop/build-electron/mac
-            !./packages/desktop/build-electron/linux-unpacked
-            !./packages/desktop/build-electron/builder-debug.yml
+            ./apps/desktop/build-electron/*
+            !./apps/desktop/build-electron/win-unpacked
+            !./apps/desktop/build-electron/mac-arm64
+            !./apps/desktop/build-electron/mac
+            !./apps/desktop/build-electron/linux-unpacked
+            !./apps/desktop/build-electron/builder-debug.yml
 
       - name: 'Notify to Slack'
         uses: onekeyhq/actions/notice-slack-app-update@main
