@@ -48,7 +48,7 @@ jobs:
           echo "GITHUB_TAG=$github_ref" >> $GITHUB_ENV
           # echo "::set-env name=GITHUB_TAG::$github_ref"
 
-          eval "$(node -e 'const v=require("./packages/desktop/package.json").version; console.log("pkg_version="+v)')"
+          eval "$(node -e 'const v=require("./apps/desktop/package.json").version; console.log("pkg_version="+v)')"
           echo '$pkg_version='$pkg_version
           echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
 
@@ -95,7 +95,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cd ./packages/desktop && yarn add electron-builder@23.6.0
+          cd ./apps/desktop && yarn add electron-builder@23.6.0
 
       - name: Inject Environment Variables
         env:
@@ -107,7 +107,7 @@ jobs:
 
       # - name: Setup Code Signing file
       #   run: |
-      #     echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > packages/desktop/sign.p12
+      #     echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > apps/desktop/sign.p12
       - name: Install the Apple certificate and provisioning profile for build mas
         env:
           MAC_INSTALL_P12_BASE64: ${{secrets.MAC_INSTALL_P12_BASE64}}
@@ -121,7 +121,7 @@ jobs:
           MAC_INSTALL_P12_PATH=$RUNNER_TEMP/mac_install_certificate.p12
           APPLE_DISTRIBUTION_P12_PATH=$RUNNER_TEMP/apple_distribution_certificate.p12
           # APPLE_WWDRCA_PATH=$RUNNER_TEMP/apple_WWDRCAG3.cer
-          PP_PATH=./packages/desktop/OneKey_Mac_App.provisionprofile
+          PP_PATH=./apps/desktop/OneKey_Mac_App.provisionprofile
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
           # import certificate from secrets
@@ -152,7 +152,7 @@ jobs:
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
           ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: 'cd packages/desktop && yarn build:mas'
+        run: 'cd apps/desktop && yarn build:mas'
 
       - name: Clean up keychain and provisioning profile
         if: ${{ always() }}
@@ -165,21 +165,21 @@ jobs:
         with:
           name: onekey-desktop-mas
           path: |
-            ./packages/desktop/build-electron/mas-universal/*.pkg
+            ./apps/desktop/build-electron/mas-universal/*.pkg
 
       - name: validate mas for Testflight
         env:
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
         run: |
-          xcrun altool --validate-app --f ./packages/desktop/build-electron/mas-universal/*.pkg -t macOS -u $APPLEID -p $APPLEIDPASS --show-progress
+          xcrun altool --validate-app --f ./apps/desktop/build-electron/mas-universal/*.pkg -t macOS -u $APPLEID -p $APPLEIDPASS --show-progress
 
       - name: upload mas for Testflight
         env:
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
         run: |
-          xcrun altool --upload-app --f ./packages/desktop/build-electron/mas-universal/*.pkg -t macOS -u $APPLEID -p $APPLEIDPASS --show-progress
+          xcrun altool --upload-app --f ./apps/desktop/build-electron/mas-universal/*.pkg -t macOS -u $APPLEID -p $APPLEIDPASS --show-progress
 
       - name: 'Notify to Slack'
         uses: onekeyhq/actions/notice-slack-app-update@main
