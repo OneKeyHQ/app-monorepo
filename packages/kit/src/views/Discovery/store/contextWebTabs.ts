@@ -176,6 +176,11 @@ export const setPinnedTabAtom = atom(
   },
 );
 
+export const disabledAddedNewTabAtom = atom((get) => {
+  const { tabs } = get(webTabsAtom);
+  return tabs.length >= 20;
+});
+
 export const incomingUrlAtom = atom('');
 export const getActiveTabId = () => webTabsStore?.get(activeTabIdAtom);
 export const getTabs = () => webTabsStore?.get(webTabsAtom);

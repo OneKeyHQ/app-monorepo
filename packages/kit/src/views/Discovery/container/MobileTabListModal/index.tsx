@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { FlatList, StyleSheet } from 'react-native';
 
@@ -13,6 +13,7 @@ import {
   Page,
   Stack,
   Text,
+  Toast,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
@@ -24,7 +25,11 @@ import { TAB_LIST_CELL_COUNT_PER_ROW } from '../../config/TabList.constants';
 import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
 import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
 import useWebTabAction from '../../hooks/useWebTabAction';
-import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
+import {
+  useActiveTabId,
+  useDisabledAddedNewTab,
+  useWebTabs,
+} from '../../hooks/useWebTabs';
 import {
   EDiscoveryModalRoutes,
   type IDiscoveryModalParamList,
@@ -83,8 +88,6 @@ function HeaderTitle({ children }: PropsWithChildren<unknown>) {
   return <Text>{children} Tabs</Text>;
 }
 
-const MemoHeaderTitle = memo(HeaderTitle);
-
 function MobileTabListModal() {
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
@@ -94,6 +97,7 @@ function MobileTabListModal() {
     () => (tabs ?? []).filter((t) => t.isPinned),
     [tabs],
   );
+  const { disabledAddedNewTab } = useDisabledAddedNewTab();
 
   const { activeTabId } = useActiveTabId();
 
@@ -122,30 +126,36 @@ function MobileTabListModal() {
 
   useEffect(() => {
     // wait for flatListRef.current to be ready
-    setTimeout(() => {
-      if (!flatListRef.current) return;
-      const index = data.findIndex((t) => t.id === activeTabId);
-      if (index === -1) return;
-      flatListRef.current.scrollToIndex({
-        index: Math.floor(index / TAB_LIST_CELL_COUNT_PER_ROW),
-        animated: false,
-        viewPosition: 0,
-      });
-    }, 200);
+    setTimeout(
+      () => {
+        if (!flatListRef.current) return;
+        const index = data.findIndex((t) => t.id === activeTabId);
+        if (index === -1) return;
+        flatListRef.current.scrollToIndex({
+          index: Math.floor(index / TAB_LIST_CELL_COUNT_PER_ROW),
+          animated: false,
+          viewPosition: 0,
+        });
+      },
+      data.length > 10 ? 300 : 200,
+    );
   }, [activeTabId, data]);
 
   useEffect(() => {
     // wait for pinnedListRef.current to be ready
-    setTimeout(() => {
-      if (!pinnedListRef.current) return;
-      const index = pinnedData.findIndex((t) => t.id === activeTabId);
-      if (index === -1) return;
-      pinnedListRef.current.scrollToIndex({
-        index,
-        animated: false,
-        viewPosition: 0,
-      });
-    }, 200);
+    setTimeout(
+      () => {
+        if (!pinnedListRef.current) return;
+        const index = pinnedData.findIndex((t) => t.id === activeTabId);
+        if (index === -1) return;
+        pinnedListRef.current.scrollToIndex({
+          index,
+          animated: false,
+          viewPosition: 0,
+        });
+      },
+      pinnedData.length > 10 ? 300 : 200,
+    );
   }, [activeTabId, pinnedData]);
 
   const { handleShareUrl } = useBrowserOptionsAction();
@@ -171,6 +181,17 @@ function MobileTabListModal() {
     (id: string) => closeWebTab(id),
     [closeWebTab],
   );
+
+  const handleAddNewTab = useCallback(() => {
+    if (disabledAddedNewTab) {
+      Toast.message({ title: '窗口已达 20 个上限' });
+      return;
+    }
+    navigation.pop();
+    navigation.pushModal(EModalRoutes.DiscoveryModal, {
+      screen: EDiscoveryModalRoutes.FakeSearchModal,
+    });
+  }, [disabledAddedNewTab, navigation]);
 
   const showTabOptions = useCallback(
     (tab: IWebTab, id: string) => {
@@ -288,7 +309,7 @@ function MobileTabListModal() {
   return (
     <Page>
       <Page.Header
-        headerTitle={MemoHeaderTitle}
+        headerTitle={HeaderTitle}
         title={(tabs.length ?? 0).toString()}
       />
       <Page.Body>
@@ -308,12 +329,7 @@ function MobileTabListModal() {
       </Page.Body>
       <Page.Footer>
         <TabToolBar
-          onAddTab={() => {
-            navigation.pop();
-            navigation.pushModal(EModalRoutes.DiscoveryModal, {
-              screen: EDiscoveryModalRoutes.FakeSearchModal,
-            });
-          }}
+          onAddTab={handleAddNewTab}
           onCloseAll={() => {
             triggerCloseAllTab.current = true;
             void closeAllWebTab();
