@@ -60,7 +60,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: head-stats
-          path: ./packages/app/stats.json
+          path: ./apps/app/stats.json
 
   # Build base for comparison and upload stats.json
   # You may replace this with your own build method. All that
@@ -111,7 +111,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: base-stats
-          path: ./packages/app/stats.json
+          path: ./apps/app/stats.json
 
   # run the action against the stats.json files
   compare:

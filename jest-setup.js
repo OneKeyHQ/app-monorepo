@@ -68,7 +68,7 @@ jest.mock('react-native-device-info', () => ({
 // global.TextDecoder = TextDecoder;
 
 // ** shim App variables
-// require('./packages/app/shim');
+// require('./apps/shim');
 
 // ** Array, Buffer, Error
 // https://github.com/facebook/jest/issues/2549
