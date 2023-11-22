@@ -3,6 +3,7 @@ import {
   createJotaiContext,
 } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 import simpleDb from '@onekeyhq/kit-bg/src/dbs/simple/simpleDb';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { webviewRefs } from '../utils/explorerUtils';
@@ -98,12 +99,8 @@ export const addWebTabAtom = atom(
     const startTime = performance.now();
     const { tabs } = get(webTabsAtom);
     if (!payload.id || payload.id === homeTab.id) {
-      // TODO: nanoid will crash on native
-      // payload.id = nanoid();
-      // tabs.length + random(10 - 100)
-      payload.id = `${
-        tabs.length + Math.floor(Math.random() * (100 - 10 + 1)) + 10
-      }`;
+      // TODO: nanoid will crash on native, replace by nanoid
+      payload.id = generateUUID();
     }
     payload.timestamp = Date.now();
     set(setWebTabsAtom, { data: [...tabs, payload as IWebTab] })
