@@ -1,8 +1,9 @@
 import type { PropsWithChildren } from 'react';
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { FlatList, StyleSheet } from 'react-native';
 
+import type { IListViewRef } from '@onekeyhq/components';
 import {
   ActionList,
   BlurView,
@@ -94,13 +95,6 @@ function MobileTabListModal() {
     [tabs],
   );
 
-  useEffect(() => {
-    console.log('MobileTabListModal data changed ===> : ', data);
-  }, [data]);
-  useEffect(() => {
-    console.log('MobileTabListModal pinnedData changed ===> : ', pinnedData);
-  }, [pinnedData]);
-
   const { activeTabId } = useActiveTabId();
 
   const { addBrowserBookmark, removeBrowserBookmark } =
@@ -108,6 +102,37 @@ function MobileTabListModal() {
 
   const { closeAllWebTab, setCurrentWebTab, closeWebTab, setPinnedTab } =
     useWebTabAction();
+
+  const flatListRef = useRef<FlatList<IWebTab> | null>(null);
+  const pinnedListRef = useRef<IListViewRef<IWebTab> | null>(null);
+
+  useEffect(() => {
+    // wait for flatListRef.current to be ready
+    setTimeout(() => {
+      if (!flatListRef.current) return;
+      const index = data.findIndex((t) => t.id === activeTabId);
+      if (index === -1) return;
+      flatListRef.current.scrollToIndex({
+        index: Math.floor(index / TAB_LIST_CELL_COUNT_PER_ROW),
+        animated: false,
+        viewPosition: 0,
+      });
+    }, 200);
+  }, [activeTabId, data]);
+
+  useEffect(() => {
+    // wait for pinnedListRef.current to be ready
+    setTimeout(() => {
+      if (!pinnedListRef.current) return;
+      const index = pinnedData.findIndex((t) => t.id === activeTabId);
+      if (index === -1) return;
+      pinnedListRef.current.scrollToIndex({
+        index,
+        animated: false,
+        viewPosition: 0,
+      });
+    }, 200);
+  }, [activeTabId, pinnedData]);
 
   const { handleShareUrl } = useBrowserOptionsAction();
 
@@ -234,6 +259,7 @@ function MobileTabListModal() {
       >
         <ListView
           w="100%"
+          ref={pinnedListRef}
           horizontal
           data={pinnedData}
           showsHorizontalScrollIndicator={false}
@@ -254,6 +280,7 @@ function MobileTabListModal() {
       <Page.Body>
         <Stack style={styles.container}>
           <FlatList
+            ref={flatListRef}
             data={data}
             renderItem={renderItem}
             keyExtractor={keyExtractor}
