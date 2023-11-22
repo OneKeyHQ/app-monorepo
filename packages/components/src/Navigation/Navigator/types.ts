@@ -4,6 +4,7 @@ import type { IICON_NAMES } from '../../Icon';
 import type { ILocaleIds } from '../../locale';
 import type { RouteProp } from '@react-navigation/core/lib/typescript/src/types';
 import type { ParamListBase } from '@react-navigation/routers';
+import type { Animated, StyleProp, ViewStyle } from 'react-native';
 
 export type ICommonScreenOptions = {
   showHeader?: boolean;
@@ -25,6 +26,7 @@ export interface ITabNavigatorConfig<RouteName extends string> {
   children: ITabSubNavigatorConfig<any, any>[];
   freezeOnBlur?: boolean;
   disable?: boolean;
+  tabBarStyle?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
 }
 
 export interface ICommonNavigatorConfig<
