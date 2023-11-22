@@ -42,6 +42,18 @@ const discoverRouteConfig: ITabNavigatorConfig<ETabRoutes> = {
         marginTop: getTokenValue('$4', 'size'),
       }
     : undefined,
+  actionList: [
+    {
+      items: [
+        {
+          label: 'Close All Tabs',
+          onPress: () => {
+            console.log('Close All');
+          },
+        },
+      ],
+    },
+  ],
 };
 
 const config: ITabNavigatorConfig<ETabRoutes>[] = [

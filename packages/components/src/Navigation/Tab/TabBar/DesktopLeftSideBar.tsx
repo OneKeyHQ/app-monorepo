@@ -5,6 +5,7 @@ import { MotiView } from 'moti';
 import { StyleSheet } from 'react-native';
 import { getTokens, useTheme } from 'tamagui';
 
+import type { IActionListSection } from '@onekeyhq/components';
 import { Icon, Portal, YStack } from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
@@ -31,7 +32,9 @@ function TabItemView({
   isActive: boolean;
   route: NavigationState['routes'][0];
   onPress: () => void;
-  options: BottomTabNavigationOptions;
+  options: BottomTabNavigationOptions & {
+    actionList?: IActionListSection[];
+  };
   isCollapse?: boolean;
 }) {
   useMemo(() => {
@@ -52,6 +55,7 @@ function TabItemView({
         // @ts-expect-error
         icon={options?.tabBarIcon?.(isActive) as IICON_NAMES}
         label={(options.tabBarLabel ?? route.name) as string}
+        actionList={options.actionList}
       />
     ),
     [isActive, onPress, options, route.name],
