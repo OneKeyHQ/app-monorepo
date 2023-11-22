@@ -120,7 +120,6 @@ export function DesktopLeftSideBar({
           );
         }
 
-        console.log(options);
         return (
           <TabItemView
             key={route.key}
