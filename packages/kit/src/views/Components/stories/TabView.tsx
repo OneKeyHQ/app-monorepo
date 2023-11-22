@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react';
 
-import { FlatList, RefreshControl } from 'react-native';
-import { ScrollView } from 'tamagui';
-
-import { Stack, Text } from '@onekeyhq/components';
+import {
+  ListView,
+  RefreshControl,
+  ScrollView,
+  Stack,
+  Text,
+} from '@onekeyhq/components';
 import { PageHeaderView, PageManager } from '@onekeyhq/components/src/TabView';
 
 import { Layout } from './utils/Layout';
@@ -31,8 +34,9 @@ const FirstRoute = ({
 }: {
   onContentSizeChange: ((w: number, h: number) => void) | undefined;
 }) => (
-  <FlatList
+  <ListView
     data={new Array(20).fill({})}
+    estimatedItemSize="$10"
     scrollEnabled={false}
     renderItem={({ index }) => (
       <Stack style={{ padding: 10 }}>
@@ -173,12 +177,6 @@ const TabViewGallery = () => (
         title: 'Manager 组合悬浮使用',
         element: <TabViewScrollStickyDemo />,
       },
-      // {
-      //   title: '悬浮案例',
-      //   element: (
-
-      //   ),
-      // },
     ]}
   />
 );
