@@ -45,6 +45,7 @@ export function makeHeaderScreenOptions({
         fontSize: getFontSize('$headingLg'),
         color: titleColor as string,
       },
+      headerShadowVisible: false,
       /* Although the default value of `headerTransparent` is `false` too, 
          we still cannot remove it here.
          because RNSSearchBar seems will read an incorrect default value.
