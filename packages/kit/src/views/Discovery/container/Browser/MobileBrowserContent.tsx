@@ -12,12 +12,14 @@ import { homeTab } from '../../store/contextWebTabs';
 import { captureViewRefs } from '../../utils/explorerUtils';
 import DiscoveryDashboard from '../Dashboard';
 
+import type { WebViewScrollEvent } from 'react-native-webview/lib/WebViewTypes';
+
 function MobileBrowserContent({
   id,
   onScroll,
 }: {
   id: string;
-  onScroll?: (contentOffsetY: number) => void;
+  onScroll?: (event: WebViewScrollEvent) => void;
 }) {
   const { tab } = useWebTabData(id);
   const { addBrowserHistory } = useBrowserHistoryAction();
@@ -69,9 +71,7 @@ function MobileBrowserContent({
               addBrowserHistory={(siteInfo) => {
                 addBrowserHistory(siteInfo);
               }}
-              onScroll={(e) => {
-                onScroll?.(e.nativeEvent.contentOffset.y);
-              }}
+              onScroll={onScroll}
             />
           </Stack>
         </Freeze>

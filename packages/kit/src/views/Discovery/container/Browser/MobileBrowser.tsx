@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { Freeze } from 'react-freeze';
+import { Dimensions } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -33,6 +34,7 @@ import MobileBrowserContent from './MobileBrowserContent';
 import { withBrowserProvider } from './WithBrowserProvider';
 
 import type { IDiscoveryModalParamList } from '../../router/Routes';
+import type { WebViewScrollEvent } from 'react-native-webview/lib/WebViewTypes';
 
 function MobileBrowser() {
   const navigationCore = useNavigation();
@@ -74,7 +76,24 @@ function MobileBrowser() {
   const toolbarOpacity = useSharedValue(1);
   const lastScrollY = useRef(0); // Keep track of the last scroll position
   const handleScroll = useCallback(
-    (contentOffsetY: number) => {
+    ({ nativeEvent }: WebViewScrollEvent) => {
+      const { contentSize, contentOffset, layoutMeasurement } = nativeEvent;
+      const contentOffsetY = contentOffset.y;
+
+      // console.log('device height: ', Dimensions.get('window').height);
+      // console.log('onScroll ====>: ', nativeEvent);
+      // Reached bottom of the page
+      if (
+        contentOffset.y + layoutMeasurement.height >=
+        contentSize.height - 52
+      ) {
+        // console.log('Reached bottom of the page');
+        toolbarHeight.value = withTiming(52, { duration: 100 });
+        toolbarOpacity.value = withTiming(1, { duration: 100 });
+        return;
+      }
+
+      // console.log('Common Scroll Logic');
       // Determine the direction of the scroll
       const isScrollingDown = contentOffsetY < lastScrollY.current;
       lastScrollY.current = contentOffsetY;
