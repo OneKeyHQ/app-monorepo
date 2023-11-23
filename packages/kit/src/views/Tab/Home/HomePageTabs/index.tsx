@@ -153,26 +153,31 @@ function HomePage() {
 
   const reloadContentHeight = useCallback(
     (index: number) => {
-      const finallyHeight = config.scrollViewHeight - config.headerViewHeight;
+      if (config.scrollViewHeight * config.headerViewHeight <= 0) {
+        return;
+      }
+      const minHeight = config.scrollViewHeight - config.headerViewHeight;
+      const height = Math.max(data[index].contentHeight ?? 0, minHeight);
+      if (height === contentHeight) {
+        return;
+      }
       if (platformEnv.isNative) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
         container?.current?.setNativeProps?.({
-          height: Math.max(data[index].contentHeight ?? 0, finallyHeight),
+          height,
         });
       } else {
-        setContentHeight(
-          Math.max(data[index].contentHeight ?? 0, finallyHeight),
-        );
+        setContentHeight(height);
       }
     },
-    [data, config, container],
+    [data, config, container, contentHeight],
   );
 
   const pageManager = useMemo(
     () =>
       new PageManager({
         data,
-        initialScrollIndex: 1,
+        initialScrollIndex: 3,
         onSelectedPageIndex: (index: number) => {
           reloadContentHeight(index);
           const { contentOffsetY } = data[index];
