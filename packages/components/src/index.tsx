@@ -1,4 +1,3 @@
-import useKeyboardHeight from './hooks/useKeyboardHeight';
 import Provider from './Provider';
 
 // hooks
@@ -53,4 +52,4 @@ export * from './RefreshControl';
 export * from './BlurView';
 export * from './Navigation';
 
-export { Provider, useKeyboardHeight };
+export { Provider };

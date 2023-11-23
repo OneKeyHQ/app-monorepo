@@ -8,12 +8,12 @@ import { Spinner } from '../Spinner';
 import { Stack } from '../Stack';
 import { Tooltip } from '../Tooltip';
 
-import type { IICON_NAMES, IIconProps } from '../Icon';
+import type { IIconProps, IKeyOfIcons } from '../Icon';
 import type { ITooltipProps } from '../Tooltip';
 
 export interface IIconButtonProps
   extends Omit<IButtonProps, 'iconAfter' | 'children' | 'icon'> {
-  icon: IICON_NAMES;
+  icon: IKeyOfIcons;
   iconProps?: IIconProps;
   title?: ITooltipProps['renderContent'];
 }

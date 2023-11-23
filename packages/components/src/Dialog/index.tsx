@@ -18,7 +18,7 @@ import {
 } from 'tamagui';
 
 import { Button } from '../Button';
-import useKeyboardHeight from '../hooks/useKeyboardHeight';
+import { useKeyboardHeight } from '../hooks';
 import { Icon } from '../Icon';
 import { IconButton } from '../IconButton';
 import { Portal } from '../Portal';

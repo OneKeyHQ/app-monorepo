@@ -4,11 +4,11 @@ import { YStack } from '../Stack';
 import { Text } from '../Text';
 
 import type { IButtonProps } from '../Button';
-import type { IICON_NAMES } from '../Icon';
+import type { IKeyOfIcons } from '../Icon';
 import type { YStackProps } from 'tamagui';
 
 interface IEmptyProps extends YStackProps {
-  icon?: IICON_NAMES;
+  icon?: IKeyOfIcons;
   title?: string;
   description?: string;
   buttonProps?: IButtonProps;
