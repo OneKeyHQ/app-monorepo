@@ -170,7 +170,7 @@ const SectionListGallery = () => (
         element: <SectionListDemo />,
       },
       {
-        title: 'Sticky and SectionHeader Header SectionList',
+        title: 'Sticky SectionHeader SectionList',
         element: <StickySectionListDemo />,
       },
     ]}
