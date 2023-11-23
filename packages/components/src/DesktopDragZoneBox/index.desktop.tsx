@@ -27,13 +27,15 @@ const toggleMaxWindow = () => {
 export const DesktopDragZoneBox: FC<ComponentProps<typeof Pressable>> = ({
   children,
   style,
+  disabled,
   ...rest
 }) => (
   <Pressable
     {...rest}
     onPress={toggleMaxWindow}
+    disabled={disabled}
     style={[
-      {
+      !disabled && {
         // @ts-expect-error
         WebkitAppRegion: 'drag',
         WebkitUserSelect: 'none',
