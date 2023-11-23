@@ -10,7 +10,9 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
+import useListenTabFocusState from '../../../../hooks/useListenTabFocusState';
 import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
+import { ETabRoutes } from '../../../../routes/Root/Tab/Routes';
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
 import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
 import useWebTabAction from '../../hooks/useWebTabAction';
@@ -63,6 +65,13 @@ function DesktopCustomTabBar() {
     [addBrowserBookmark, removeBrowserBookmark],
   );
 
+  useListenTabFocusState(ETabRoutes.MultiTabBrowser, (isFocus: boolean) => {
+    console.log('isFocus', isFocus);
+    if (!isFocus) {
+      setCurrentWebTab('');
+    }
+  });
+
   useEffect(() => {
     const listener = () => {
       void closeAllWebTab();
@@ -83,6 +92,7 @@ function DesktopCustomTabBar() {
           key={t.id}
           activeTabId={activeTabId}
           onPress={(id) => {
+            console.log('isFocus-id', id)
             setCurrentWebTab(id);
           }}
           onBookmarkPress={handleBookmarkPress}
