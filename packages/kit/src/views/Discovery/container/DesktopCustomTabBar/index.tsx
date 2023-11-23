@@ -106,6 +106,7 @@ function DesktopCustomTabBar() {
       {/* Tabs */}
       {data.map((t) => (
         <DesktopCustomTabBarItem
+          key={t.id}
           id={t.id}
           activeTabId={activeTabId}
           onPress={(id) => {

@@ -106,6 +106,7 @@ export function DesktopLeftSideBar({
         if (route.name === extraConfig?.name) {
           return (
             <YStack
+              key={route.key}
               onPress={() => {
                 // Avoid re-rendering by checking if it's the current route.
                 if (state.routeNames[state.index] !== extraConfig?.name) {
