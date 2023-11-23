@@ -14,7 +14,7 @@ import useProviderSideBarValue from '../../../Provider/hooks/useProviderSideBarV
 
 import { TabItem } from './TabItem';
 
-import type { IICON_NAMES } from '../../../Icon';
+import type { IKeyOfIcons } from '../../../Icon';
 import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
 import type {
   BottomTabBarProps,
@@ -36,9 +36,9 @@ function TabItemView({
 }) {
   useMemo(() => {
     // @ts-expect-error
-    const activeIcon = options?.tabBarIcon?.(true) as IICON_NAMES;
+    const activeIcon = options?.tabBarIcon?.(true) as IKeyOfIcons;
     // @ts-expect-error
-    const inActiveIcon = options?.tabBarIcon?.(false) as IICON_NAMES;
+    const inActiveIcon = options?.tabBarIcon?.(false) as IKeyOfIcons;
     // Avoid icon jitter during lazy loading by prefetching icons.
     void Icon.prefetch(activeIcon, inActiveIcon);
   }, [options]);
@@ -50,7 +50,7 @@ function TabItemView({
         selected={isActive}
         tabBarStyle={options.tabBarStyle}
         // @ts-expect-error
-        icon={options?.tabBarIcon?.(isActive) as IICON_NAMES}
+        icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
         label={(options.tabBarLabel ?? route.name) as string}
       />
     ),
