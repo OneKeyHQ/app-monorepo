@@ -20,6 +20,7 @@ import {
   ManageNetworkModalRoutes,
   ManageTokenModalRoutes,
   ModalRoutes,
+  NostrModalRoutes,
   RootRoutes,
   SendModalRoutes,
   SubmitRequestModalRoutes,
@@ -189,6 +190,12 @@ export const normalRouteWhiteList: WhiteListItemList = [
   },
   {
     screen: `${RootRoutes.Modal}/${ModalRoutes.ScanQrcode}/${ScanQrcodeRoutes.RequestPermission}`,
+  },
+  /**
+   * Nostr
+   */
+  {
+    screen: `${RootRoutes.Modal}/${ModalRoutes.Nostr}/${NostrModalRoutes.GetPublicKey}`,
   },
   /**
    * refresh page will flash the last item of normalRouteWhiteList

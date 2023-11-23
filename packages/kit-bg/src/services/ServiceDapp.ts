@@ -431,6 +431,10 @@ class ServiceDapp extends ServiceBase {
       shouldShowNotMatchedNetworkModal = false;
     }
 
+    if (isNotMatchedNetwork && request.scope === 'nostr') {
+      isNotMatchedNetwork = false;
+    }
+
     return new Promise((resolve, reject) => {
       const id = this.backgroundApi.servicePromise.createCallback({
         resolve,

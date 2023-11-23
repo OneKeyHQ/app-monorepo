@@ -16,6 +16,7 @@ import type {
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   ModalRoutes,
+  NostrModalRoutes,
   SendModalRoutes,
   WeblnModalRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
@@ -86,15 +87,15 @@ class ProviderApiNostr extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  public async getPublicKey(): Promise<string> {
+  public async getPublicKey(request: IJsBridgeMessagePayload): Promise<string> {
     const { walletId } = getActiveWalletAccount();
-    const pubkey = await this.backgroundApi.serviceNostr.getPublicKey({
-      walletId,
+    const pubkey = await this.backgroundApi.serviceDapp.openModal({
+      request,
+      screens: [ModalRoutes.Nostr, NostrModalRoutes.GetPublicKey],
+      params: { walletId },
     });
     console.log('=====> publickey: ', pubkey);
-    return Promise.resolve(
-      '17162c921dc4d2518f9a101db33695df1afb56ab82f5ff3e5da6eec3ca5cd917',
-    );
+    return Promise.resolve(pubkey as string);
   }
 }
 

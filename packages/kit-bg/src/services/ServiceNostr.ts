@@ -10,8 +10,14 @@ import ServiceBase from './ServiceBase';
 @backgroundClass()
 export default class ServiceNostr extends ServiceBase {
   @backgroundMethod()
-  async getPublicKey({ walletId }: { walletId: string }) {
-    const password = await backgroundApiProxy.servicePassword.getPassword();
+  async getPublicKey({
+    walletId,
+    password,
+  }: {
+    walletId: string;
+    password: string;
+  }) {
     console.log(password);
+    return Promise.resolve('PUBKEY_FAKE');
   }
 }
