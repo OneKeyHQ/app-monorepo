@@ -1,6 +1,10 @@
+import * as crypto from 'crypto';
+
 import { schnorr } from '@noble/curves/secp256k1';
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
+import * as secp256k1 from '@noble/secp256k1';
+import { AES_CBC } from 'asmcrypto.js';
 import * as bip39 from 'bip39';
 
 import { mnemonicFromEntropy } from '../../../secret';
@@ -102,6 +106,29 @@ class Nostr {
     const signature = signEvent(event, bytesToHex(this.node.privateKey));
     event.sig = signature;
     return Promise.resolve(event);
+  }
+
+  encrypt(pubkey: string, plaintext: string): string {
+    if (!this.node.privateKey) {
+      throw new Error('Nostr: private key not found');
+    }
+    const sharedPoint = secp256k1.getSharedSecret(
+      bytesToHex(this.node.privateKey),
+      `02${pubkey}`,
+    );
+    const sharedX = sharedPoint.slice(1, 33);
+    const iv = crypto.randomBytes(16);
+
+    const encrypted = AES_CBC.encrypt(
+      Buffer.from(plaintext),
+      sharedX,
+      true,
+      iv,
+    );
+
+    return `${Buffer.from(encrypted).toString('base64')}?iv=${iv.toString(
+      'base64',
+    )}`;
   }
 }
 

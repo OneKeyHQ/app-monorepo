@@ -62,4 +62,21 @@ export default class ServiceNostr extends ServiceBase {
       console.error(e);
     }
   }
+
+  @backgroundMethod()
+  async encrypt({
+    walletId,
+    password,
+    pubkey,
+    plaintext,
+  }: IGetNostrParams & { pubkey: string; plaintext: string }) {
+    if (!pubkey || !plaintext) {
+      throw new Error('Invalid encrypt params');
+    }
+    const nostr = await this.getNostrInstance(walletId, password);
+    const encrypted = nostr.encrypt(pubkey, plaintext);
+    return {
+      data: encrypted,
+    };
+  }
 }

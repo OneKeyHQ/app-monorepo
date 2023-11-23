@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -33,7 +33,8 @@ const NostrSignEventModal = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const { sourceInfo, walletId } = useDappParams();
-  const event = (sourceInfo?.data.params as { event: NostrEvent })?.event;
+  const { event, pubkey, plaintext } = sourceInfo?.data
+    .params as NostrRoutesParams[NostrModalRoutes.SignEvent];
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -44,6 +45,10 @@ const NostrSignEventModal = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [displayDetails, setDisplayDetails] = useState(false);
+  const isEncryptType = useMemo(
+    () => !!(pubkey && plaintext && !event),
+    [pubkey, plaintext, event],
+  );
 
   const closeModal = useModalClose();
 
@@ -54,17 +59,28 @@ const NostrSignEventModal = () => {
           throw new Error('walletId is required');
         }
         setIsLoading(true);
-        const signedEvent = await backgroundApiProxy.serviceNostr.signEvent({
-          walletId,
-          password,
-          event,
-        });
+        let result: { data: NostrEvent } | { data: string } | undefined;
+        if (!isEncryptType) {
+          result = await backgroundApiProxy.serviceNostr.signEvent({
+            walletId,
+            password,
+            event: event ?? ({} as NostrEvent),
+          });
+        } else {
+          result = await backgroundApiProxy.serviceNostr.encrypt({
+            walletId,
+            password,
+            pubkey: pubkey ?? '',
+            plaintext: plaintext ?? '',
+          });
+        }
         ToastManager.show({
           title: intl.formatMessage({ id: 'msg__success' }),
         });
         setTimeout(() => {
           dappApprove.resolve({
-            result: signedEvent?.data ?? null,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            result: result?.data ?? null,
             close: closeModal,
           });
         }, 300);
@@ -93,7 +109,16 @@ const NostrSignEventModal = () => {
         setIsLoading(false);
       }
     },
-    [walletId, closeModal, intl, dappApprove, event],
+    [
+      walletId,
+      closeModal,
+      intl,
+      dappApprove,
+      event,
+      isEncryptType,
+      pubkey,
+      plaintext,
+    ],
   );
 
   const onConfirmWithAuth = useCallback(
@@ -105,6 +130,45 @@ const NostrSignEventModal = () => {
     [walletId, navigation, onDone],
   );
 
+  const renderEventDetails = useMemo(
+    () => (
+      <>
+        <Button
+          type="plain"
+          onPress={() => {
+            setDisplayDetails(!displayDetails);
+          }}
+        >
+          {displayDetails ? 'Hide details' : 'View details'}
+        </Button>
+
+        {displayDetails && (
+          <Box
+            bg="surface-default"
+            borderColor="border-default"
+            borderWidth={1}
+            borderRadius={12}
+            paddingX={4}
+            paddingY={3}
+            my={4}
+          >
+            <Text typography="Body2" color="text-subdued">
+              {JSON.stringify(event, null, 2)}
+            </Text>
+          </Box>
+        )}
+      </>
+    ),
+    [event, displayDetails],
+  );
+
+  const content = useMemo(() => {
+    if (isEncryptType) {
+      return plaintext;
+    }
+    return event?.content;
+  }, [isEncryptType, event, plaintext]);
+
   return (
     <Modal
       header="Nostr"
@@ -115,8 +179,13 @@ const NostrSignEventModal = () => {
       }}
       onPrimaryActionPress={() => onConfirmWithAuth()}
       secondaryActionTranslationId="action__cancel"
-      onSecondaryActionPress={() => {
+      onModalClose={() => {
         dappApprove.reject();
+      }}
+      onSecondaryActionPress={() => {
+        if (navigation?.canGoBack?.()) {
+          navigation.goBack();
+        }
       }}
       height="500px"
       scrollViewProps={{
@@ -146,33 +215,10 @@ const NostrSignEventModal = () => {
                 Allow {new URL(interactInfo?.url ?? '').host} to sign content:
               </Text>
               <Text typography="Body2" color="text-subdued">
-                {event.content}
+                {content}
               </Text>
             </Box>
-            <Button
-              type="plain"
-              onPress={() => {
-                setDisplayDetails(!displayDetails);
-              }}
-            >
-              {displayDetails ? 'Hide details' : 'View details'}
-            </Button>
-
-            {displayDetails && (
-              <Box
-                bg="surface-default"
-                borderColor="border-default"
-                borderWidth={1}
-                borderRadius={12}
-                paddingX={4}
-                paddingY={3}
-                my={4}
-              >
-                <Text typography="Body2" color="text-subdued">
-                  {JSON.stringify(event, null, 2)}
-                </Text>
-              </Box>
-            )}
+            {!isEncryptType && renderEventDetails}
           </Box>
         ),
       }}

@@ -109,6 +109,36 @@ class ProviderApiNostr extends ProviderApiBase {
       throw e;
     }
   }
+
+  @providerApiMethod()
+  public async encrypt(request: IJsBridgeMessagePayload): Promise<string> {
+    const { walletId } = getActiveWalletAccount();
+    console.log(request);
+    const params = (request.data as IJsonRpcRequest)?.params as {
+      pubkey: string;
+      plaintext: string;
+    };
+    if (!params.pubkey || !params.plaintext) {
+      throw web3Errors.rpc.invalidInput();
+    }
+
+    try {
+      const encrypted = await this.backgroundApi.serviceDapp.openModal({
+        request,
+        screens: [ModalRoutes.Nostr, NostrModalRoutes.SignEvent],
+        params: {
+          walletId,
+          pubkey: params.pubkey,
+          plaintext: params.plaintext,
+        },
+      });
+      return encrypted as string;
+    } catch (e) {
+      debugLogger.providerApi.error(`nostr.encrypt data: `, params);
+      debugLogger.providerApi.error(`nostr.encrypt error: `, e);
+      throw e;
+    }
+  }
 }
 
 export default ProviderApiNostr;

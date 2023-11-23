@@ -11,7 +11,9 @@ export type NostrRoutesParams = {
   };
   [NostrModalRoutes.SignEvent]: {
     sourceInfo: IDappSourceInfo;
-    event: NostrEvent;
+    event?: NostrEvent;
+    pubkey?: string;
+    plaintext?: string;
   };
   [NostrModalRoutes.NostrAuthentication]: {
     onDone: (password: string) => void;
