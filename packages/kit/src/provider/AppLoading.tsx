@@ -2,6 +2,7 @@
 import type { PropsWithChildren } from 'react';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 
+import { hideAsync, preventAutoHideAsync } from 'expo-splash-screen';
 import { Dimensions } from 'react-native';
 import { AnimatePresence } from 'tamagui';
 
@@ -12,6 +13,8 @@ import { createSuspender } from '@onekeyhq/shared/src/modules3rdParty/use-suspen
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { ImageSourcePropType } from 'react-native';
+
+void preventAutoHideAsync();
 
 const { height: windowHeight, width: windowWidth } = Dimensions.get('window');
 
@@ -26,6 +29,12 @@ const buildImageSource = () =>
 
 function SplashView() {
   const logoImage = useMemo(() => buildImageSource(), []);
+  useEffect(() => {
+    // wait the SplashView view is ready.
+    setTimeout(() => {
+      void hideAsync();
+    }, 20);
+  }, []);
   return platformEnv.isRuntimeBrowser ? (
     <Stack flex={1} justifyContent="center" alignItems="center">
       <Stack w={80} h={80}>
