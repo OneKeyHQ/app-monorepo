@@ -106,7 +106,6 @@ export function DesktopLeftSideBar({
         if (route.name === extraConfig?.name) {
           return (
             <YStack
-              id="DesktopLeftSideBar"
               flex={1}
               key={route.key}
               onPress={() => {
