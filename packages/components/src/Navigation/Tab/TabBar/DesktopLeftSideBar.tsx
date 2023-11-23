@@ -6,7 +6,7 @@ import { StyleSheet } from 'react-native';
 import { getTokens, useTheme } from 'tamagui';
 
 import type { IActionListSection } from '@onekeyhq/components';
-import { Icon, Portal, ScrollView, YStack } from '@onekeyhq/components';
+import { Icon, Portal, YStack } from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

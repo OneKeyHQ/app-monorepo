@@ -1,9 +1,6 @@
 import { useMedia } from 'tamagui';
 
 import { IconButton, Input, Stack, XStack } from '@onekeyhq/components';
-import HeaderCollapseButton from '@onekeyhq/components/src/Navigation/Header/HeaderCollapseButton';
-import useProviderSideBarValue from '@onekeyhq/components/src/Provider/hooks/useProviderSideBarValue';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function HeaderLeftToolBar({
   url,
@@ -35,8 +32,6 @@ function HeaderLeftToolBar({
   onPinnedPress?: (pinned: boolean) => void;
 }) {
   const media = useMedia();
-  const { leftSidebarCollapsed: isCollpase } = useProviderSideBarValue();
-  const paddingLeft = platformEnv.isDesktopMac && isCollpase ? '$20' : '$0';
 
   if (media.md) {
     return (
@@ -51,9 +46,8 @@ function HeaderLeftToolBar({
     );
   }
   return (
-    <XStack alignItems="center" justifyContent="center" pl={paddingLeft}>
+    <XStack alignItems="center" justifyContent="center">
       <XStack space="$6">
-        <HeaderCollapseButton />
         <IconButton
           size="medium"
           variant="tertiary"

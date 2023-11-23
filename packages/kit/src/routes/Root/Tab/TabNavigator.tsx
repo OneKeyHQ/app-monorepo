@@ -148,7 +148,6 @@ const extraConfig: ITabNavigatorExtraConfig<ETabRoutes> | undefined =
             component:
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               require('../../../views/Discovery/container/Browser').default,
-            headerShown: false,
           },
         ],
       }

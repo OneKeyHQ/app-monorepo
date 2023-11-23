@@ -16,11 +16,6 @@ export function PageHeader(props: IPageHeaderProps) {
       ref.current = navigationRef.current?.getCurrentOptions();
     }
     navigation.setOptions(props);
-    return () => {
-      if (ref.current) {
-        navigation.setOptions(ref.current);
-      }
-    };
   }, [navigation, props]);
 
   return null;
