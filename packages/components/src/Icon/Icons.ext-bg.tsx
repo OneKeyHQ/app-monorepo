@@ -5,5 +5,5 @@ const icons = new Proxy({}, {
     return () => null
   },
 });
-export type IICON_NAMES = keyof typeof icons;
+export type IKeyOfIcons = keyof typeof icons;
 export default icons;
