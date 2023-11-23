@@ -7,11 +7,15 @@ import {
   useRef,
 } from 'react';
 
+import { withStaticProperties } from 'tamagui';
+
 import { ListView } from '../ListView';
-import { Stack } from '../Stack';
+import { Stack, XStack } from '../Stack';
+import { Text } from '../Text';
 
 import type { IListViewProps, IListViewRef } from '../ListView';
 import type { ListRenderItem } from 'react-native';
+import type { GetProps } from 'tamagui';
 
 type ISectionRenderInfo = (info: {
   section: any;
@@ -193,4 +197,29 @@ function BaseSectionList<T>(
   );
 }
 
-export const SectionList = forwardRef(BaseSectionList);
+const SectionHeader = ({
+  title,
+  titleProps,
+  children,
+  ...restProps
+}: GetProps<typeof XStack> & {
+  title?: string;
+  titleProps?: GetProps<typeof Text>;
+}) => (
+  <XStack h="$9" px="$5" alignItems="center" bg="$bgApp" {...restProps}>
+    {children ?? (
+      <Text
+        numberOfLines={1}
+        variant="$headingSm"
+        color="$textSubdued"
+        {...titleProps}
+      >
+        {title}
+      </Text>
+    )}
+  </XStack>
+);
+
+export const SectionList = withStaticProperties(forwardRef(BaseSectionList), {
+  SectionHeader,
+});

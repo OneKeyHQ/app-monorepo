@@ -36,7 +36,11 @@ const sectionListData = [
 
 const stickySectionListData = [
   { title: 'NFT', data: NFTDATA },
-  { title: 'TOKEN', data: TOKENDATA },
+  {
+    title:
+      'TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN',
+    data: TOKENDATA,
+  },
   { title: 'NFT', data: NFTDATA },
   { title: 'TOKEN', data: TOKENDATA },
 ];
@@ -98,10 +102,14 @@ const StickySectionListDemo = () => {
       ref={ref}
       h={500}
       sections={stickySectionListData}
-      renderSectionHeader={({ section: { title } }) => (
-        <Stack bg="$bg">
-          <Text variant="$headingXs">{title}</Text>
-        </Stack>
+      renderSectionHeader={({ section: { title }, index }) => (
+        <SectionList.SectionHeader title={title}>
+          {index !== 0 ? null : (
+            <Text numberOfLines={1}>
+              {title} (custom the children of section header)
+            </Text>
+          )}
+        </SectionList.SectionHeader>
       )}
       estimatedItemSize="$10"
       stickySectionHeadersEnabled
@@ -162,7 +170,7 @@ const SectionListGallery = () => (
         element: <SectionListDemo />,
       },
       {
-        title: 'Sticky Header SectionList',
+        title: 'Sticky and SectionHeader Header SectionList',
         element: <StickySectionListDemo />,
       },
     ]}
