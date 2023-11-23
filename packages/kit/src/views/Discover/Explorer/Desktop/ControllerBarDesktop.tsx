@@ -3,7 +3,7 @@ import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IICON_NAMES } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import { IconButton, Input, XStack } from '@onekeyhq/components';
 
 import { gotoSite, openMatchDApp } from '../../Controller/gotoSite';
@@ -15,7 +15,7 @@ import type { TextInput } from 'react-native';
 type BrowserURLInputProps = {
   onClear?: () => void;
   onChangeText?: (text: string) => void;
-  customLeftIcon?: IICON_NAMES;
+  customLeftIcon?: IKeyOfIcons;
 } & Omit<ComponentProps<typeof Input>, 'onChange' | 'onChangeText'>;
 
 const BrowserURLInput = forwardRef<TextInput, BrowserURLInputProps>(
@@ -47,7 +47,7 @@ const BrowserURLInput = forwardRef<TextInput, BrowserURLInputProps>(
 );
 BrowserURLInput.displayName = 'BrowserURLInput';
 
-function getHttpSafeState(searchContent?: string): IICON_NAMES {
+function getHttpSafeState(searchContent?: string): IKeyOfIcons {
   try {
     if (!searchContent) {
       return 'SearchOutline';

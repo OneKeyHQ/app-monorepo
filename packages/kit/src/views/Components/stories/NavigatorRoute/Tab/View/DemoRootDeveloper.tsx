@@ -1,6 +1,4 @@
-import { Input } from 'tamagui';
-
-import { Button, Stack } from '@onekeyhq/components';
+import { Button, Input, Stack } from '@onekeyhq/components';
 
 import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';

@@ -5,8 +5,8 @@ import {
   Stack,
   Text,
   XStack,
-  useKeyboardHeight,
 } from '@onekeyhq/components';
+import { useKeyboardHeight } from '@onekeyhq/components/src/hooks';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 

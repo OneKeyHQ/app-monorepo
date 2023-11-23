@@ -2,10 +2,10 @@ import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { RefreshControl, useWindowDimensions } from 'react-native';
-import { getTokens } from 'tamagui';
 
 import type { IScrollViewRef } from '@onekeyhq/components';
 import { ListView, Page, ScrollView, Stack, Text } from '@onekeyhq/components';
+import { getTokens } from '@onekeyhq/components/src/hooks';
 import { useThemeValue } from '@onekeyhq/components/src/Provider/hooks/useThemeValue';
 import { PageManager } from '@onekeyhq/components/src/TabView';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

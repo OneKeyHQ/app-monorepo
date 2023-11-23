@@ -1,9 +1,7 @@
 /* eslint-disable react/no-unstable-nested-components */
 import { useLayoutEffect } from 'react';
 
-import { Input } from 'tamagui';
-
-import { Button, Stack, Toast } from '@onekeyhq/components';
+import { Button, Input, Stack, Toast } from '@onekeyhq/components';
 import type { IModalScreenProps } from '@onekeyhq/components/src/Navigation';
 import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
 import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';

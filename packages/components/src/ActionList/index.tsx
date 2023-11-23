@@ -11,11 +11,11 @@ import { YStack } from '../Stack';
 import { Text } from '../Text';
 import { Trigger } from '../Trigger';
 
-import type { IICON_NAMES } from '../Icon';
+import type { IKeyOfIcons } from '../Icon';
 import type { IPopoverProps } from '../Popover';
 
 interface IActionListItemProps {
-  icon?: IICON_NAMES;
+  icon?: IKeyOfIcons;
   label: string;
   destructive?: boolean;
   onPress?: () => void | Promise<boolean | void>;

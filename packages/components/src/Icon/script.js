@@ -37,7 +37,7 @@ const typesTemplate = `
       .map((item) => `${item.symbol}: () => import('./react/${item.path}')`)
       .join(',')}
   }
-  export type IICON_NAMES = keyof typeof icons;
+  export type IKeyOfIcons = keyof typeof icons;
   export default icons;
 `;
 fs.writeFileSync(

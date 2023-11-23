@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 
-import type { IICON_NAMES } from '../../Icon';
+import type { IKeyOfIcons } from '../../Icon';
 import type { ILocaleIds } from '../../locale';
 import type { RouteProp } from '@react-navigation/core/lib/typescript/src/types';
 import type { ParamListBase } from '@react-navigation/routers';
@@ -21,7 +21,7 @@ export interface ITabSubNavigatorConfig<
 
 export interface ITabNavigatorConfig<RouteName extends string> {
   name: RouteName;
-  tabBarIcon: (focused?: boolean) => IICON_NAMES;
+  tabBarIcon: (focused?: boolean) => IKeyOfIcons;
   translationId: ILocaleIds;
   children: ITabSubNavigatorConfig<any, any>[];
   freezeOnBlur?: boolean;

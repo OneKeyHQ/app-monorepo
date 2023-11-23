@@ -1,8 +1,6 @@
 import { useState } from 'react';
 
-import { XStack } from 'tamagui';
-
-import { Icon, Stack, Text } from '@onekeyhq/components';
+import { Icon, Stack, Text, XStack } from '@onekeyhq/components';
 import type {
   ISelectItem,
   ISelectSection,

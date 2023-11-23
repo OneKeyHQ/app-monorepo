@@ -1,12 +1,12 @@
 import { Text } from 'react-native';
 
 import { Icon, ListView, Stack, XStack } from '@onekeyhq/components';
-import type { IICON_NAMES } from '@onekeyhq/components/src/Icon/Icons';
+import type { IKeyOfIcons } from '@onekeyhq/components/src/Icon/Icons';
 import Icons from '@onekeyhq/components/src/Icon/Icons';
 
 import { Layout } from './utils/Layout';
 
-const iconData = Object.keys(Icons) as IICON_NAMES[];
+const iconData = Object.keys(Icons) as IKeyOfIcons[];
 const IconGallery = () => (
   <Layout
     description="图标是一种视觉符号，用于表示对象或概念"
