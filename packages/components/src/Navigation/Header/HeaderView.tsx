@@ -4,7 +4,6 @@ import * as React from 'react';
 
 import { Header } from '@react-navigation/elements';
 import { get } from 'lodash';
-import { StyleSheet } from 'react-native';
 import { useTheme } from 'tamagui';
 
 import { DesktopDragZoneBox } from '../../DesktopDragZoneBox';
@@ -88,8 +87,8 @@ function HeaderView({
         }}
         alignItems="center"
         backgroundColor="$bgApp"
-        borderBottomWidth={StyleSheet.hairlineWidth}
-        borderBottomColor="$borderSubdued"
+        // borderBottomWidth={StyleSheet.hairlineWidth}
+        // borderBottomColor="$borderSubdued"
         pointerEvents="box-none"
       >
         <Stack

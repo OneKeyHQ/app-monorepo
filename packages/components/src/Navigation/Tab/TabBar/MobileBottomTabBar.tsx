@@ -7,7 +7,7 @@ import { StyleSheet } from 'react-native';
 import useSafeAreaInsets from '../../../Provider/hooks/useSafeAreaInsets';
 import { Stack } from '../../../Stack';
 
-import { TabItem } from './TabItem';
+import { MobileTabItem } from './MobileTabItem';
 
 import type { IICON_NAMES } from '../../../Icon';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
@@ -51,7 +51,7 @@ export default function MobileBottomTabBar({
         };
 
         const renderItemContent = (renderActive: boolean) => (
-          <TabItem
+          <MobileTabItem
             testID="Mobile-AppTabBar-TabItem-Icon"
             // @ts-expect-error
             icon={options?.tabBarIcon?.(renderActive) as IICON_NAMES}

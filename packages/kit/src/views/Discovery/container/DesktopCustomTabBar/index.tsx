@@ -1,7 +1,8 @@
 import { memo, useCallback, useEffect, useMemo } from 'react';
 
-import { Divider, Icon, Stack, Text, XStack } from '@onekeyhq/components';
+import { Divider, Stack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import { DesktopTabItem } from '@onekeyhq/components/src/Navigation/Tab/TabBar/DesktopTabItem';
 import { HandleRebuildBrowserData } from '@onekeyhq/kit/src/views/Discovery/components/HandleData/HandleRebuildBrowserTabData';
 import {
   EAppEventBusNames,
@@ -19,38 +20,6 @@ import {
   type IDiscoveryModalParamList,
 } from '../../router/Routes';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
-
-import type { GestureResponderEvent } from 'react-native';
-
-function AddTabButton({
-  onAddTab,
-}: {
-  onAddTab: (event: GestureResponderEvent) => void;
-}) {
-  return (
-    <XStack
-      key="AddTabButton"
-      flexDirection="row"
-      alignItems="center"
-      py="$1.5"
-      px="$2"
-      h="$8"
-      borderRadius="$2"
-      space="$2"
-      onPress={(e) => {
-        onAddTab(e);
-      }}
-      hoverStyle={{
-        bg: '$bgActive',
-      }}
-    >
-      <Icon name="PlusSmallOutline" size="$5" />
-      <Text variant="$bodyMd" numberOfLines={1} flex={1}>
-        New Tab
-      </Text>
-    </XStack>
-  );
-}
 
 function DesktopCustomTabBar() {
   const navigation =
@@ -107,6 +76,7 @@ function DesktopCustomTabBar() {
   return (
     <Stack>
       <HandleRebuildBrowserData />
+      {/* Pin Tabs */}
       {pinnedData.map((t) => (
         <DesktopCustomTabBarItem
           id={t.id}
@@ -121,15 +91,19 @@ function DesktopCustomTabBar() {
         />
       ))}
       {pinnedData.length > 0 && <Divider m="$1.5" />}
-      <AddTabButton
+      {/* New Tab */}
+      <DesktopTabItem
         key="AddTabButton"
-        onAddTab={(e) => {
+        label="New Tab"
+        icon="PlusSmallOutline"
+        onPress={(e) => {
           e.stopPropagation();
           navigation.pushModal(EModalRoutes.DiscoveryModal, {
             screen: EDiscoveryModalRoutes.FakeSearchModal,
           });
         }}
       />
+      {/* Tabs */}
       {data.map((t) => (
         <DesktopCustomTabBarItem
           id={t.id}
