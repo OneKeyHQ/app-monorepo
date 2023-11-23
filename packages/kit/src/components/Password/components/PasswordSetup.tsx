@@ -1,6 +1,6 @@
 import { Suspense, memo, useState } from 'react';
 
-import { Form, Input, Spinner, useForm } from '@onekeyhq/components';
+import { Button, Form, Input, Spinner, useForm } from '@onekeyhq/components';
 
 export interface IPasswordSetupForm {
   password: string;
@@ -24,13 +24,22 @@ const PasswordSetup = ({
     },
   });
   const [secureEntry, setSecureEntry] = useState(true);
+  const [secureReentry, setSecureReentry] = useState(true);
 
   return (
     <Form form={form}>
       <Form.Field
         name="password"
         rules={{
-          required: { value: true, message: 'required input text' },
+          required: { value: true, message: 'Please enter a password' },
+          minLength: {
+            value: 8,
+            message: 'Password must be at least 8 characters',
+          },
+          maxLength: {
+            value: 128,
+            message: 'Password cannot exceed 128 characters',
+          },
           onChange: () => {
             form.clearErrors('confirmPassword');
           },
@@ -38,14 +47,14 @@ const PasswordSetup = ({
       >
         <Input
           size="large"
-          placeholder="ennter password"
+          placeholder="Create a strong password"
           disabled={loading}
           autoFocus
           flex={1}
           secureTextEntry={secureEntry}
           addOns={[
             {
-              iconName: secureEntry ? 'EyeOutline' : 'EyeOffOutline',
+              iconName: secureEntry ? 'EyeOffOutline' : 'EyeOutline',
               onPress: () => {
                 setSecureEntry(!secureEntry);
               },
@@ -56,6 +65,17 @@ const PasswordSetup = ({
       <Form.Field
         name="confirmPassword"
         rules={{
+          validate: {
+            equal: (v, values) => {
+              const state = form.getFieldState('password');
+              if (!state.error) {
+                return v !== values.password
+                  ? 'Passwords do not match'
+                  : undefined;
+              }
+              return undefined;
+            },
+          },
           onChange: () => {
             form.clearErrors('confirmPassword');
           },
@@ -63,19 +83,23 @@ const PasswordSetup = ({
       >
         <Input
           size="large"
-          placeholder="ennter password confirm"
+          placeholder="Re-enter your password"
           disabled={loading}
           flex={1}
-          secureTextEntry={secureEntry}
+          secureTextEntry={secureReentry}
           addOns={[
             {
-              iconName: 'ArrowRightCircleOutline',
-              onPress: form.handleSubmit(onSetupPassword),
-              loading,
+              iconName: secureReentry ? 'EyeOffOutline' : 'EyeOutline',
+              onPress: () => {
+                setSecureReentry(!secureReentry);
+              },
             },
           ]}
         />
       </Form.Field>
+      <Button variant="primary" onPress={form.handleSubmit(onSetupPassword)}>
+        Set Password
+      </Button>
       <Suspense fallback={<Spinner size="small" />}>
         {biologyAuthSwitchContainer}
       </Suspense>
