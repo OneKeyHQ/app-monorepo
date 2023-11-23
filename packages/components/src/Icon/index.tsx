@@ -9,6 +9,7 @@ import type { IKeyOfIcons } from './Icons';
 import { GetProps, styled, withStaticProperties } from 'tamagui';
 import type { Svg, SvgProps } from 'react-native-svg';
 import { TextStyle } from 'react-native';
+import { View } from '../View';
 
 export type IIconContainerProps = Omit<SvgProps, 'color' | 'style'> & {
   name?: IKeyOfIcons;
@@ -68,10 +69,10 @@ const IconContainer = forwardRef(({ name, style }: IIconContainerProps, _) => {
       color={componentColor}
     />
   ) : (
-    <Suspense fallback={null}>
+    <Suspense fallback={<View width={componentWidth} height={componentHeight} />}>
       <IconLoader
-      width={componentWidth}
-      height={componentHeight}
+        width={componentWidth}
+        height={componentHeight}
         style={style}
         color={componentColor}
         name={name}
