@@ -140,6 +140,9 @@ function MobileBrowser() {
   useEffect(() => {
     toolbarHeight.value = withTiming(BROWSER_BOTTOM_BAR_HEIGHT);
     toolbarOpacity.value = withTiming(MAX_OPACITY_BOTTOM_BAR);
+    initialEventsCounterRef.current = 0;
+    lastScrollEventTimeRef.current = 0;
+    lastScrollY.current = 0;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTabId]);
 
