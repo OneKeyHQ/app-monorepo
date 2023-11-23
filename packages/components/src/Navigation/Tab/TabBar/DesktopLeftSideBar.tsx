@@ -179,7 +179,7 @@ export function DesktopLeftSideBar({
         testID="Desktop-AppSideBar-Content-Container"
         // HeaderView's height is 68px
         // Need to replaced by HeaderHeightContext
-        maxHeight="calc(100% - 68px)"
+        maxHeight="calc(100vh - 68px)"
         pt={platformEnv.isDesktopMac ? undefined : '$3'}
       >
         {tabs}
