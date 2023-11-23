@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo } from 'react';
 
-import { Divider, Stack } from '@onekeyhq/components';
+import { Divider, ScrollView, Stack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import { DesktopTabItem } from '@onekeyhq/components/src/Navigation/Tab/TabBar/DesktopTabItem';
 import { HandleRebuildBrowserData } from '@onekeyhq/kit/src/views/Discovery/components/HandleData/HandleRebuildBrowserTabData';
@@ -74,7 +74,7 @@ function DesktopCustomTabBar() {
   }, [closeAllWebTab]);
 
   return (
-    <Stack>
+    <Stack flex={1}>
       <HandleRebuildBrowserData />
       {/* Pin Tabs */}
       {pinnedData.map((t) => (
@@ -103,20 +103,22 @@ function DesktopCustomTabBar() {
           });
         }}
       />
-      {/* Tabs */}
-      {data.map((t) => (
-        <DesktopCustomTabBarItem
-          key={t.id}
-          id={t.id}
-          activeTabId={activeTabId}
-          onPress={(id) => {
-            setCurrentWebTab(id);
-          }}
-          onBookmarkPress={handleBookmarkPress}
-          onPinnedPress={handlePinnedPress}
-          onClose={handleCloseTab}
-        />
-      ))}
+      <ScrollView flex={1}>
+        {/* Tabs */}
+        {data.map((t) => (
+          <DesktopCustomTabBarItem
+            key={t.id}
+            id={t.id}
+            activeTabId={activeTabId}
+            onPress={(id) => {
+              setCurrentWebTab(id);
+            }}
+            onBookmarkPress={handleBookmarkPress}
+            onPinnedPress={handlePinnedPress}
+            onClose={handleCloseTab}
+          />
+        ))}
+      </ScrollView>
     </Stack>
   );
 }
