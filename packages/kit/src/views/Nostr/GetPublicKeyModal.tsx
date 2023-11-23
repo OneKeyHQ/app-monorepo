@@ -1,14 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
-import type { ICON_NAMES } from '@onekeyhq/components';
 import {
   Box,
   Center,
-  Divider,
   HStack,
   Icon,
   Modal,
@@ -18,33 +14,27 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
-import type { LNURLAuthServiceResponse } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/lnurl';
 import { TxInteractInfo } from '@onekeyhq/kit/src/views/TxDetail/components/TxInteractInfo';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAccount, useNavigation } from '../../hooks';
+import { useNavigation } from '../../hooks';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
 import { useInteractWithInfo } from '../../hooks/useDecodedTx';
-import { SendModalRoutes } from '../Send/enums';
 
 import { NostrModalRoutes } from './types';
 
 import type { NostrRoutesParams } from '../../routes';
 import type { ModalScreenProps } from '../../routes/types';
-import type { LnUrlAuthenticationParams } from '../Send/types';
-import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<NostrRoutesParams>;
-type RouteProps = RouteProp<NostrRoutesParams, NostrModalRoutes.GetPublicKey>;
 
 const NostrGetPublicKeyModal = () => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
-  const route = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const { sourceInfo, walletId, networkId, accountId } = useDappParams();
+  const { sourceInfo, walletId } = useDappParams();
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -64,7 +54,7 @@ const NostrGetPublicKeyModal = () => {
           throw new Error('walletId is required');
         }
         setIsLoading(true);
-        const pubkey = await backgroundApiProxy.serviceNostr.getPublicKey({
+        const pubkey = await backgroundApiProxy.serviceNostr.getPublicKeyHex({
           walletId,
           password,
         });
