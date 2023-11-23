@@ -31,7 +31,7 @@ import { ETabSwapRoutes } from './Swap/Routes';
 const discoverRouteConfig: ITabNavigatorConfig<ETabRoutes> = {
   name: ETabRoutes.Discovery,
   tabBarIcon: (focused?: boolean) =>
-    focused ? 'CreditCardSolid' : 'CreditCardOutline',
+    focused ? 'CompassCircleSolid' : 'CompassCircleOutline',
   translationId: 'title__explore',
   freezeOnBlur: true,
   children: [
@@ -66,7 +66,7 @@ const config: ITabNavigatorConfig<ETabRoutes>[] = [
   {
     name: ETabRoutes.Home,
     tabBarIcon: (focused?: boolean) =>
-      focused ? 'CreditCardSolid' : 'CreditCardOutline',
+      focused ? 'WalletSolid' : 'WalletOutline',
     translationId: 'wallet__wallet',
     freezeOnBlur: true,
     children: [
@@ -90,7 +90,7 @@ const config: ITabNavigatorConfig<ETabRoutes>[] = [
   {
     name: ETabRoutes.Swap,
     tabBarIcon: (focused?: boolean) =>
-      focused ? 'CreditCardSolid' : 'CreditCardOutline',
+      focused ? 'SwitchHorSolid' : 'SwitchHorOutline',
     translationId: 'title__swap',
     freezeOnBlur: true,
     children: [
@@ -106,13 +106,13 @@ const config: ITabNavigatorConfig<ETabRoutes>[] = [
     name: ETabRoutes.Me,
     tabBarIcon: (focused?: boolean) =>
       focused ? 'EmailSolid' : 'EmailOutline',
-    translationId: 'title__me',
+    translationId: 'action__more',
     freezeOnBlur: true,
     children: [
       {
         name: ETabMeRoutes.TabMe,
         component: TabMe,
-        translationId: 'title__me',
+        translationId: 'action__more',
       },
     ],
   },
