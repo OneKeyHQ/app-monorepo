@@ -5,13 +5,13 @@ import { createSuspender } from '@onekeyhq/shared/src/modules3rdParty/use-suspen
 
 import ICON_CONFIG from './Icons';
 
-import type { IICON_NAMES } from './Icons';
+import type { IKeyOfIcons } from './Icons';
 import { GetProps, styled, withStaticProperties } from 'tamagui';
 import type { Svg, SvgProps } from 'react-native-svg';
 import { TextStyle } from 'react-native';
 
 export type IIconContainerProps = Omit<SvgProps, 'color' | 'style'> & {
-  name?: IICON_NAMES;
+  name?: IKeyOfIcons;
   style?: TextStyle;
 };
 
@@ -19,7 +19,7 @@ const ComponentMaps: Record<string, typeof Svg> = {};
 
 const DEFAULT_SIZE = 24
 
-const loadIcon = (name: IICON_NAMES) =>  {
+const loadIcon = (name: IKeyOfIcons) =>  {
   return new Promise<typeof Svg>(resolve => {
     ICON_CONFIG[name]().then((module: any) => {
       ComponentMaps[name] = module.default as typeof Svg;
@@ -28,7 +28,7 @@ const loadIcon = (name: IICON_NAMES) =>  {
   })
 }
 
-const { useSuspender } = createSuspender((name: IICON_NAMES) => new Promise<typeof Svg>((resolve) => {
+const { useSuspender } = createSuspender((name: IKeyOfIcons) => new Promise<typeof Svg>((resolve) => {
   if (ComponentMaps[name]) {
     resolve(ComponentMaps[name])
   } else {
@@ -37,7 +37,7 @@ const { useSuspender } = createSuspender((name: IICON_NAMES) => new Promise<type
 }))
 
 function IconLoader({ name, ...props }: {
-  name: IICON_NAMES;
+  name: IKeyOfIcons;
   width: number;
   height: number;
   color: string;
@@ -111,7 +111,7 @@ const BasicIcon = styled(IconContainer, {
   } as const,
 });
 
-const loadIcons = (...names: IICON_NAMES[]) => {
+const loadIcons = (...names: IKeyOfIcons[]) => {
   return Promise.all(names.map(name => loadIcon(name)))
 }
 
@@ -119,5 +119,5 @@ export const Icon = withStaticProperties(BasicIcon, {
   prefetch: loadIcons,
 })
 
-export type { IICON_NAMES };
+export type { IKeyOfIcons };
 export type IIconProps = GetProps<typeof Icon> & IIconContainerProps;
