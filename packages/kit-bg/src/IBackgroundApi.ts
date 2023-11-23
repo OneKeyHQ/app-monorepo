@@ -36,6 +36,7 @@ import type ServiceMigrate from './services/ServiceMigrate';
 import type ServiceNameResolver from './services/ServiceNameResolver';
 import type ServiceNetwork from './services/ServiceNetwork';
 import type ServiceNFT from './services/ServiceNFT';
+import type ServiceNostr from './services/ServiceNostr';
 import type ServiceNotification from './services/ServiceNotification';
 import type ServiceOnboarding from './services/ServiceOnboarding';
 import type ServiceOverview from './services/ServiceOverview';
@@ -132,6 +133,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceAllNetwork: ServiceAllNetwork;
   serviceDappMetaData: ServiceDappMetaData;
   serviceBRC20: ServiceBRC20;
+  serviceNostr: ServiceNostr;
   serviceNFT: ServiceNFT;
   serviceStaking: ServiceStaking;
 }
