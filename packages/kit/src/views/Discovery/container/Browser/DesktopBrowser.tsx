@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef } from 'react';
 
-import { Stack } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { ETabRoutes } from '../../../../routes/Root/Tab/Routes';
@@ -27,23 +27,19 @@ function DesktopBrowser() {
   }, [tabs, navigation]);
 
   return (
-    <Stack flex={1} zIndex={3}>
-      {tabs.map((t) => (
-        <>
-          <DesktopBrowserNavigationContainer
-            key={`DesktopBrowserNavigationContainer-${t.id}`}
-            id={t.id}
-            activeTabId={activeTabId}
-          />
+    <Page>
+      <Page.Header headerTitle={DesktopBrowserNavigationContainer} />
+      <Page.Body>
+        {tabs.map((t) => (
           <DesktopBrowserContent
             key={t.id}
             id={t.id}
             activeTabId={activeTabId}
           />
-        </>
-      ))}
-      <DesktopOverlay />
-    </Stack>
+        ))}
+        <DesktopOverlay />
+      </Page.Body>
+    </Page>
   );
 }
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Button, ListView, Page, SearchBar, Stack } from '@onekeyhq/components';
+import { Button, ListView, Page, Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';

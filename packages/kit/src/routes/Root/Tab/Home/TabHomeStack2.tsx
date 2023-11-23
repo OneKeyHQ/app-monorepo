@@ -22,7 +22,7 @@ const TabHomeStack2 = () => {
         </Button>
         <Button
           onPress={() => {
-            navigation.push(ETabHomeRoutes.TabHome);
+            navigation.navigate(ETabHomeRoutes.TabHome);
           }}
         >
           回首页

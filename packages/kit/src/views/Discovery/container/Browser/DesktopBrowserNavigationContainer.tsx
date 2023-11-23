@@ -5,8 +5,14 @@ import { Freeze } from 'react-freeze';
 import DesktopBrowserInfoBar from '../../components/DesktopBrowser/DesktopBrowserInfoBar';
 import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
 import useWebTabAction from '../../hooks/useWebTabAction';
-import { useWebTabData } from '../../hooks/useWebTabs';
+import {
+  useActiveTabId,
+  useWebTabData,
+  useWebTabs,
+} from '../../hooks/useWebTabs';
 import { getWebviewWrapperRef, webviewRefs } from '../../utils/explorerUtils';
+
+import { withBrowserProvider } from './WithBrowserProvider';
 
 import type { IElectronWebView } from '../../components/WebView/types';
 
@@ -70,6 +76,13 @@ function DesktopBrowserNavigationBar({
     }
   }, [id]);
 
+  useEffect(() => {
+    console.log('useEffect');
+    return () => {
+      console.log('unmount-container');
+    };
+  }, []);
+
   return (
     <Freeze key={`${id}-navigationBar`} freeze={!isActive}>
       <DesktopBrowserInfoBar
@@ -99,4 +112,16 @@ function DesktopBrowserNavigationBar({
   );
 }
 
-export default DesktopBrowserNavigationBar;
+function DesktopBrowserNavigationBarContainer() {
+  const { tabs } = useWebTabs();
+  const { activeTabId } = useActiveTabId();
+  return tabs.map((t) => (
+    <DesktopBrowserNavigationBar
+      key={`DesktopBrowserNavigationContainer-${t.id}`}
+      id={t.id}
+      activeTabId={activeTabId}
+    />
+  ));
+}
+
+export default withBrowserProvider(DesktopBrowserNavigationBarContainer);

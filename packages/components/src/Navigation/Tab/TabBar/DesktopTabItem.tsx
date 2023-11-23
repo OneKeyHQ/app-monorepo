@@ -5,12 +5,12 @@ import { IconButton } from '../../../IconButton';
 import { Stack, XStack } from '../../../Stack';
 import { Text } from '../../../Text';
 
-import type { IICON_NAMES } from '../../../Icon';
+import type { IKeyOfIcons } from '../../../Icon';
 import type { Animated, StyleProp, ViewStyle } from 'react-native';
 import type { AvatarImage, GetProps } from 'tamagui';
 
 export interface IDesktopTabItemProps {
-  icon?: IICON_NAMES;
+  icon?: IKeyOfIcons;
   avatarSrc?: GetProps<typeof AvatarImage>['src'];
   label?: string;
   selected?: boolean;

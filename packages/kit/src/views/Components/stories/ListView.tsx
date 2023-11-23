@@ -16,7 +16,7 @@ const ListViewDemo = () => {
       estimatedItemSize="$10"
       contentContainerStyle={{
         bg: '$borderLight',
-        m: '$4',
+        p: '$4',
       }}
       ListHeaderComponentStyle={{
         h: '$10',

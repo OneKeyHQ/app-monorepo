@@ -24,8 +24,8 @@ function MobileBrowserContent({
   const { tab } = useWebTabData(id);
   const { addBrowserHistory } = useBrowserHistoryAction();
   const { activeTabId } = useActiveTabId();
-  const [backEnabled, setBackEnabled] = useState(false);
-  const [forwardEnabled, setForwardEnabled] = useState(false);
+  const [, setBackEnabled] = useState(false);
+  const [, setForwardEnabled] = useState(false);
 
   const isActive = useMemo(
     () => activeTabId === tab?.id,
