@@ -8,6 +8,7 @@ import {
 } from 'react';
 
 import { ListView } from '../ListView';
+import { Stack } from '../Stack';
 
 import type { IListViewProps, IListViewRef } from '../ListView';
 import type { ListRenderItem } from 'react-native';
@@ -67,7 +68,7 @@ function BaseSectionList<T>(
     renderItem,
     renderSectionHeader,
     renderSectionFooter,
-    SectionSeparatorComponent,
+    SectionSeparatorComponent = <Stack h="$5" />,
     stickySectionHeadersEnabled = false,
     ...restProps
   }: ISectionListProps<T>,
