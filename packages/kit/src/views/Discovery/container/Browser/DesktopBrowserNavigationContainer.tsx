@@ -76,13 +76,6 @@ function DesktopBrowserNavigationBar({
     }
   }, [id]);
 
-  useEffect(() => {
-    console.log('useEffect');
-    return () => {
-      console.log('unmount-container');
-    };
-  }, []);
-
   return (
     <Freeze key={`${id}-navigationBar`} freeze={!isActive}>
       <DesktopBrowserInfoBar

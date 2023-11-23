@@ -16,13 +16,22 @@ export interface IDesktopTabItemProps {
   selected?: boolean;
   tabBarStyle?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
   actionList?: IActionListSection[];
+  onActionListOpenChange?: (isOpen: boolean) => void;
 }
 
 export function DesktopTabItem(
   props: IDesktopTabItemProps & GetProps<typeof Stack>,
 ) {
-  const { icon, label, selected, tabBarStyle, actionList, avatarSrc, ...rest } =
-    props;
+  const {
+    icon,
+    label,
+    selected,
+    tabBarStyle,
+    actionList,
+    avatarSrc,
+    onActionListOpenChange,
+    ...rest
+  } = props;
   return (
     <XStack
       alignItems="center"
@@ -72,6 +81,7 @@ export function DesktopTabItem(
         <ActionList
           title="Action List"
           placement="right-start"
+          onOpenChange={onActionListOpenChange}
           renderTrigger={
             selected && (
               <Stack>

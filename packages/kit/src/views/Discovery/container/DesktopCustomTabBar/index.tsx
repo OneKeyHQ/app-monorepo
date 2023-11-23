@@ -10,7 +10,9 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
+import useListenTabFocusState from '../../../../hooks/useListenTabFocusState';
 import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
+import { ETabRoutes } from '../../../../routes/Root/Tab/Routes';
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
 import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
 import useWebTabAction from '../../hooks/useWebTabAction';
@@ -62,6 +64,12 @@ function DesktopCustomTabBar() {
     },
     [addBrowserBookmark, removeBrowserBookmark],
   );
+
+  useListenTabFocusState(ETabRoutes.MultiTabBrowser, (isFocus: boolean) => {
+    if (!isFocus) {
+      setCurrentWebTab('');
+    }
+  });
 
   useEffect(() => {
     const listener = () => {

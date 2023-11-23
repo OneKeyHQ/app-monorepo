@@ -78,13 +78,15 @@ export const setCurrentWebTabAtom = atom(null, (get, set, tabId: string) => {
     // set isActive to true
     const { tabs } = get(webTabsAtom);
     const targetIndex = tabs.findIndex((t) => t.id === tabId);
+    tabs.forEach((t) => {
+      t.isActive = false;
+    });
+    void set(setWebTabsAtom, { data: [...tabs] });
     if (targetIndex !== -1) {
-      tabs.forEach((t) => {
-        t.isActive = false;
-      });
       tabs[targetIndex].isActive = true;
-      void set(setWebTabsAtom, { data: [...tabs] });
       set(activeTabIdAtom, tabId);
+    } else {
+      set(activeTabIdAtom, '');
     }
   }
   if (get(displayHomePageAtom)) {
