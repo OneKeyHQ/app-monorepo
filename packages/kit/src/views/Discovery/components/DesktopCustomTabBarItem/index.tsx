@@ -1,11 +1,8 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
-import { Image } from 'react-native';
-
-import { ActionList, Icon, Stack, Text, XStack } from '@onekeyhq/components';
+import { DesktopTabItem } from '@onekeyhq/components/src/Navigation/Tab/TabBar/DesktopTabItem';
 
 import { useWebTabData } from '../../hooks/useWebTabs';
-import { dispatchOverlayEvent } from '../WebView/DesktopOverlay';
 
 function DesktopCustomTabBarItem({
   id,
@@ -23,101 +20,46 @@ function DesktopCustomTabBarItem({
   onClose: (id: string) => void;
 }) {
   const { tab } = useWebTabData(id);
-  const [menuHoverVisible, setMenuHoverVisible] = useState(false);
-  const [isShowPopover, setPopoverStatus] = useState(false);
   const isActive = useMemo(() => activeTabId === id, [activeTabId, id]);
-  const handleOpenChange = useCallback((isOpen: boolean) => {
-    setMenuHoverVisible(isOpen);
-    setPopoverStatus(isOpen);
-    dispatchOverlayEvent(isOpen);
-  }, []);
   return (
-    <XStack
+    <DesktopTabItem
       key={id}
-      flexDirection="row"
-      alignItems="center"
-      py="$1.5"
-      px="$2"
-      h="$8"
-      borderRadius="$2"
-      space="$2"
-      bg={isActive ? '$bgActive' : undefined}
+      selected={isActive}
       onPress={() => onPress(id)}
-      // @ts-expect-error
-      onContextMenu={(event) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-        event.preventDefault();
-        console.log('===> onContextMenu: ');
-      }}
-    >
-      <Stack p="$0.5">
-        {tab?.favicon && (
-          <Image
-            style={{ width: 16, height: 16 }}
-            source={{ uri: tab?.favicon }}
-          />
-        )}
-      </Stack>
-      <XStack
-        flex={1}
-        onHoverIn={() => setMenuHoverVisible(true)}
-        onHoverOut={() => !isShowPopover && setMenuHoverVisible(false)}
-        alignItems="center"
-      >
-        <Text variant="$bodyMd" numberOfLines={1} flex={1}>
-          {tab.title}
-        </Text>
-        <ActionList
-          title="Action List"
-          placement="right-start"
-          onOpenChange={handleOpenChange}
-          renderTrigger={
-            menuHoverVisible && (
-              <Stack
-                p="$1"
-                pressStyle={{
-                  borderRadius: '$full',
-                  backgroundColor: '$bgActive',
-                }}
-              >
-                <Icon name="DotHorOutline" />
-              </Stack>
-            )
-          }
-          sections={[
+      label={tab.title}
+      avatarSrc={tab?.favicon}
+      actionList={[
+        {
+          items: [
             {
-              items: [
-                {
-                  label: tab.isBookmark ? 'Delete Bookmark' : 'Bookmark',
-                  icon: tab.isBookmark ? 'BookmarkSolid' : 'BookmarkOutline',
-                  onPress: () => {
-                    onBookmarkPress(!tab.isBookmark, tab.url, tab.title ?? '');
-                  },
-                },
-                {
-                  label: tab.isPinned ? 'Un-Pin' : 'Pin',
-                  icon: tab.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
-                  onPress: () => {
-                    onPinnedPress(tab.id, !tab.isPinned);
-                  },
-                },
-              ],
+              label: tab.isBookmark ? 'Delete Bookmark' : 'Bookmark',
+              icon: tab.isBookmark ? 'BookmarkSolid' : 'BookmarkOutline',
+              onPress: () => {
+                onBookmarkPress(!tab.isBookmark, tab.url, tab.title ?? '');
+              },
             },
             {
-              items: [
-                {
-                  label: tab.isPinned ? 'Close Pin Tab' : 'Close Tab',
-                  icon: 'CrossedLargeOutline',
-                  onPress: () => {
-                    onClose(id);
-                  },
-                },
-              ],
+              label: tab.isPinned ? 'Un-Pin' : 'Pin',
+              icon: tab.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
+              onPress: () => {
+                onPinnedPress(tab.id, !tab.isPinned);
+              },
             },
-          ]}
-        />
-      </XStack>
-    </XStack>
+          ],
+        },
+        {
+          items: [
+            {
+              label: tab.isPinned ? 'Close Pin Tab' : 'Close Tab',
+              icon: 'CrossedLargeOutline',
+              onPress: () => {
+                onClose(id);
+              },
+            },
+          ],
+        },
+      ]}
+    />
   );
 }
 

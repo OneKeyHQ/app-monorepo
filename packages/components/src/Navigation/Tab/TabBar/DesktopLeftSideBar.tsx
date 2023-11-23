@@ -6,14 +6,14 @@ import { StyleSheet } from 'react-native';
 import { getTokens, useTheme } from 'tamagui';
 
 import type { IActionListSection } from '@onekeyhq/components';
-import { Icon, Portal, YStack } from '@onekeyhq/components';
+import { Icon, Portal, ScrollView, YStack } from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useProviderSideBarValue from '../../../Provider/hooks/useProviderSideBarValue';
 
-import { TabItem } from './TabItem';
+import { DesktopTabItem } from './DesktopTabItem';
 
 import type { IICON_NAMES } from '../../../Icon';
 import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
@@ -47,7 +47,7 @@ function TabItemView({
   }, [options]);
   const contentMemo = useMemo(
     () => (
-      <TabItem
+      <DesktopTabItem
         onPress={onPress}
         aria-current={isActive ? 'page' : undefined}
         selected={isActive}
@@ -171,10 +171,10 @@ export function DesktopLeftSideBar({
         />
       )}
       <YStack
-        testID="Desktop-AppSideBar-Content-Container"
         flex={1}
+        p="$3"
+        testID="Desktop-AppSideBar-Content-Container"
         pt={platformEnv.isDesktopMac ? undefined : '$3'}
-        px="$3"
       >
         {tabs}
       </YStack>
